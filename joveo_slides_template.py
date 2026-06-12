@@ -29,6 +29,15 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from joveo_brand_2026 import (
+    hex_to_slides_rgb,
+    INDIGO,
+    PURPLE,
+    TEAL,
+    MAGENTA,
+    LAVENDER_100,
+)
+
 try:
     from intl_benchmark_lookup import get_cpa_median_usd, get_local_salary_summary
 except ImportError:  # pragma: no cover -- defensive; module is in repo
@@ -71,15 +80,20 @@ EMU = 914400  # 1 inch in EMU
 SLIDE_W = 10 * EMU  # 10 inches
 SLIDE_H = int(7.5 * EMU)  # 7.5 inches
 
-# Joveo brand colours (RGB 0-1) -- deck-exact (Joveo Brand 2026)
-PORT_GORE = {"red": 0.125, "green": 0.125, "blue": 0.345}  # #202058
-BLUE_VIOLET = {"red": 0.353, "green": 0.329, "blue": 0.745}  # #5A54BE
-DOWNY_TEAL = {"red": 0.420, "green": 0.710, "blue": 0.808}  # #6BB5CE
+# Joveo brand colours (RGB 0-1) -- deck-exact (Joveo Brand 2026).
+# Brand hexes are derived from the canonical joveo_brand_2026 module via
+# hex_to_slides_rgb() so there is a single source of truth. Values are
+# byte-identical to the deck (full float precision rounds to the same numbers
+# used previously: PORT_GORE #202058, BLUE_VIOLET #5A54BE, DOWNY_TEAL #6BB5CE,
+# PINK_ACCENT #B7669E, LIGHTER_PURPLE #ECEAF7).
+PORT_GORE = hex_to_slides_rgb(INDIGO)  # #202058
+BLUE_VIOLET = hex_to_slides_rgb(PURPLE)  # #5A54BE
+DOWNY_TEAL = hex_to_slides_rgb(TEAL)  # #6BB5CE
 WHITE = {"red": 1.0, "green": 1.0, "blue": 1.0}
 BLACK = {"red": 0.0, "green": 0.0, "blue": 0.0}
 LIGHT_PURPLE = {"red": 0.831, "green": 0.816, "blue": 0.941}  # ~#D4D0F0
-LIGHTER_PURPLE = {"red": 0.925, "green": 0.918, "blue": 0.969}  # #ECEAF7 (Lavender 100)
-PINK_ACCENT = {"red": 0.718, "green": 0.400, "blue": 0.620}  # #B7669E
+LIGHTER_PURPLE = hex_to_slides_rgb(LAVENDER_100)  # #ECEAF7 (Lavender 100)
+PINK_ACCENT = hex_to_slides_rgb(MAGENTA)  # #B7669E
 LIGHT_PINK = {"red": 0.957, "green": 0.847, "blue": 0.910}  # ~#F4D8E8
 LIGHT_GREY = {"red": 0.95, "green": 0.95, "blue": 0.95}
 DARK_TEXT = {"red": 0.12, "green": 0.12, "blue": 0.14}

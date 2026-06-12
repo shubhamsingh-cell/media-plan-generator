@@ -22,17 +22,33 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Brand Colors (print-friendly adaptations)
+# Canonical hex values imported from joveo_brand_2026 and aliased to the local
+# names the rest of this module already uses (so downstream code is untouched).
+# Values stay byte-identical to the previous hand-defined literals (deck-exact).
 # ---------------------------------------------------------------------------
-PORT_GORE = "#202058"  # Navy -- headings
-BLUE_VIOLET = "#5A54BE"  # Purple accent
-DOWNY_TEAL = "#6BB5CE"  # Secondary accent
-TAPESTRY_PINK = "#B7669E"  # Tertiary accent
-RAW_SIENNA = "#3E8FAB"  # Teal-deep accent (deck)
-TEXT_DARK = "#1F2937"  # Ink body text (deck-exact)
-TEXT_MUTED = "#6E6E8C"  # Muted secondary text (deck-exact)
-BORDER_LIGHT = "#E3E1F1"  # Table / card borders (deck-exact)
-BG_ZEBRA = "#F4F4FF"  # Lavender-50 zebra row background (deck-exact)
-BG_LAVENDER = "#ECEAF7"  # Lavender-100 alt surface (deck)
+from joveo_brand_2026 import (
+    INDIGO,
+    PURPLE,
+    TEAL,
+    MAGENTA,
+    TEAL_DEEP,
+    INK,
+    MUTED,
+    BORDER,
+    LAVENDER_50,
+    LAVENDER_100,
+)
+
+PORT_GORE = INDIGO  # Navy -- headings (#202058)
+BLUE_VIOLET = PURPLE  # Purple accent (#5A54BE)
+DOWNY_TEAL = TEAL  # Secondary accent (#6BB5CE)
+TAPESTRY_PINK = MAGENTA  # Tertiary accent (#B7669E)
+RAW_SIENNA = TEAL_DEEP  # Teal-deep accent (#3E8FAB, deck)
+TEXT_DARK = INK  # Ink body text (#1F2937, deck-exact)
+TEXT_MUTED = MUTED  # Muted secondary text (#6E6E8C, deck-exact)
+BORDER_LIGHT = BORDER  # Table / card borders (#E3E1F1, deck-exact)
+BG_ZEBRA = LAVENDER_50  # Lavender-50 zebra row background (#F4F4FF, deck-exact)
+BG_LAVENDER = LAVENDER_100  # Lavender-100 alt surface (#ECEAF7, deck)
 BG_WHITE = "#ffffff"
 
 # Bar chart colors (cycle through brand palette)
@@ -204,12 +220,14 @@ def _deck_push_pull_html(deck: Dict[str, Any]) -> str:
     """
 
 
-def _deck_cpa_reference_html(deck: Dict[str, Any], illustrative: bool = False) -> str:
+def _deck_cpa_reference_html(deck: Dict[str, Any], is_ai_training: bool = False) -> str:
     """CPA reference guide table (deck slide).
 
-    When ``illustrative`` is True the section is captioned as a generic
-    AI-training example so it is not mistaken for the current client's plan.
+    Carries AI-trainer-specific benchmark data, so it is omitted entirely
+    (returns "") for any plan that does not match an AI-training engagement.
     """
+    if not is_ai_training:
+        return ""
     cpa = (deck.get("cpa_reference") or {}) if isinstance(deck, dict) else {}
     rows = cpa.get("roles") or []
     if not rows:
@@ -231,16 +249,9 @@ def _deck_cpa_reference_html(deck: Dict[str, Any], illustrative: bool = False) -
         if note
         else ""
     )
-    caption = (
-        '<p style="font-size:11px;font-weight:600;color:' + BLUE_VIOLET + ';margin-bottom:8px;">'
-        "Illustrative example &mdash; AI-training engagement</p>"
-        if illustrative
-        else ""
-    )
     return f"""
     <div class="section page-break-before">
       <h2>CPA Reference Guide</h2>
-      {caption}
       <table class="data-table">
         <thead>
           <tr><th>Role Category</th><th class="num">Est. CPA Range</th><th>Benchmark Basis</th></tr>
@@ -252,12 +263,15 @@ def _deck_cpa_reference_html(deck: Dict[str, Any], illustrative: bool = False) -
     """
 
 
-def _deck_sample_pricing_html(deck: Dict[str, Any], illustrative: bool = False) -> str:
+def _deck_sample_pricing_html(deck: Dict[str, Any], is_ai_training: bool = False) -> str:
     """Sample campaign pricing table (deck slide).
 
-    When ``illustrative`` is True the section is captioned as a generic
-    AI-training example so it is not mistaken for the current client's plan.
+    Carries AI-trainer-specific pricing data ('Cost / Trainer'), so it is
+    omitted entirely (returns "") for any plan that does not match an
+    AI-training engagement.
     """
+    if not is_ai_training:
+        return ""
     sp = (deck.get("sample_pricing_model") or {}) if isinstance(deck, dict) else {}
     camps = sp.get("campaigns") or []
     if not camps:
@@ -292,16 +306,9 @@ def _deck_sample_pricing_html(deck: Dict[str, Any], illustrative: bool = False) 
         if note
         else ""
     )
-    caption = (
-        '<p style="font-size:11px;font-weight:600;color:' + BLUE_VIOLET + ';margin-bottom:8px;">'
-        "Illustrative example &mdash; AI-training engagement</p>"
-        if illustrative
-        else ""
-    )
     return f"""
     <div class="section">
       <h2>Sample Campaign Pricing</h2>
-      {caption}
       <table class="data-table">
         <thead>
           <tr><th>Campaign</th><th>Targeting</th><th class="num">CPA</th><th class="num">Conv.</th><th class="num">Cost / Trainer</th><th class="num">Budget</th></tr>
@@ -591,12 +598,16 @@ def generate_plan_html_report(
     # CPA-reference and sample-pricing carry AI-trainer-specific data
     # ('Cost / Trainer', per-language audio specialists). Only render them for
     # plans whose industry/roles plausibly match an AI-training engagement; for
-    # other clients render with an "Illustrative example" caption so the data is
-    # not mistaken for that client's actual plan. (MPG-F3 client-safety gate.)
+    # any other client both sections are omitted entirely so the AI-trainer data
+    # is never mistaken for that client's actual plan. (MPG-F3 client-safety
+    # gate.) Methodology / push-pull / case-study / next-steps are
+    # client-agnostic and always render.
     _gate_data = {"industry": industry, "roles": roles}
-    _illustrative = not _is_ai_training_plan(_gate_data)
-    cpa_reference_html = _deck_cpa_reference_html(_deck, illustrative=_illustrative)
-    sample_pricing_html = _deck_sample_pricing_html(_deck, illustrative=_illustrative)
+    _is_ai_training = _is_ai_training_plan(_gate_data)
+    cpa_reference_html = _deck_cpa_reference_html(_deck, is_ai_training=_is_ai_training)
+    sample_pricing_html = _deck_sample_pricing_html(
+        _deck, is_ai_training=_is_ai_training
+    )
     case_study_html = _deck_case_study_html(_deck)
     next_steps_html = _deck_next_steps_html(_deck)
 

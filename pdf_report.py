@@ -22,18 +22,43 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Brand Colors (RGB tuples for reportlab)
+# Canonical hex values imported from joveo_brand_2026 and converted to the
+# 0..1 RGB float tuples reportlab expects, then aliased to the local names the
+# rest of this module already uses (so downstream code is untouched). Values
+# stay byte-identical to the previous hand-defined literals (all deck-exact).
 # ---------------------------------------------------------------------------
-PORT_GORE = (0x20 / 255, 0x20 / 255, 0x58 / 255)  # INDIGO #202058
-BLUE_VIOLET = (0x5A / 255, 0x54 / 255, 0xBE / 255)  # PURPLE #5A54BE
-DOWNY_TEAL = (0x6B / 255, 0xB5 / 255, 0xCE / 255)  # TEAL #6BB5CE
-TAPESTRY_PINK = (0xB7 / 255, 0x66 / 255, 0x9E / 255)  # MAGENTA #B7669E
-RAW_SIENNA = (0x3E / 255, 0x8F / 255, 0xAB / 255)  # TEAL_DEEP #3E8FAB
+from joveo_brand_2026 import (
+    INDIGO,
+    PURPLE,
+    TEAL,
+    MAGENTA,
+    TEAL_DEEP,
+    INK,
+    MUTED,
+    BORDER,
+    LAVENDER_50,
+    LAVENDER_100,
+    hex_to_rgb_tuple,
+)
+
+
+def _rgb01(hex_str: str) -> tuple[float, float, float]:
+    """'#5A54BE' -> (0.353.., 0.329.., 0.745..) for reportlab colors.Color."""
+    r, g, b = hex_to_rgb_tuple(hex_str)
+    return (r / 255, g / 255, b / 255)
+
+
+PORT_GORE = _rgb01(INDIGO)  # INDIGO #202058
+BLUE_VIOLET = _rgb01(PURPLE)  # PURPLE #5A54BE
+DOWNY_TEAL = _rgb01(TEAL)  # TEAL #6BB5CE
+TAPESTRY_PINK = _rgb01(MAGENTA)  # MAGENTA #B7669E
+RAW_SIENNA = _rgb01(TEAL_DEEP)  # TEAL_DEEP #3E8FAB
 WHITE = (1.0, 1.0, 1.0)
-TEXT_DARK = (0x1F / 255, 0x29 / 255, 0x37 / 255)  # INK #1F2937 (deck-exact)
-TEXT_MUTED = (0x6E / 255, 0x6E / 255, 0x8C / 255)  # MUTED #6E6E8C (deck-exact)
-BG_LIGHT = (0xF4 / 255, 0xF4 / 255, 0xFF / 255)  # LAVENDER_50 #F4F4FF (deck-exact)
-BG_LAVENDER = (0xEC / 255, 0xEA / 255, 0xF7 / 255)  # LAVENDER_100 #ECEAF7 (deck)
-BORDER_COLOR = (0xE3 / 255, 0xE1 / 255, 0xF1 / 255)  # BORDER #E3E1F1 (deck-exact)
+TEXT_DARK = _rgb01(INK)  # INK #1F2937 (deck-exact)
+TEXT_MUTED = _rgb01(MUTED)  # MUTED #6E6E8C (deck-exact)
+BG_LIGHT = _rgb01(LAVENDER_50)  # LAVENDER_50 #F4F4FF (deck-exact)
+BG_LAVENDER = _rgb01(LAVENDER_100)  # LAVENDER_100 #ECEAF7 (deck)
+BORDER_COLOR = _rgb01(BORDER)  # BORDER #E3E1F1 (deck-exact)
 
 # Pie chart color cycle
 PIE_COLORS = [
@@ -205,11 +230,13 @@ def generate_pdf_report(
 
     # ── Deck narrative KB + client-safety gate (MPG-F3) ──
     # CPA-reference and sample-pricing carry AI-trainer-specific data
-    # ('Cost / Trainer', per-language audio specialists). Only treat them as the
-    # client's own data when the plan plausibly matches an AI-training
-    # engagement; otherwise caption them as an illustrative example.
+    # ('Cost / Trainer', per-language audio specialists). Only render them when
+    # the plan plausibly matches an AI-training engagement; for any other client
+    # both sections are omitted entirely so the AI-trainer data is never
+    # mistaken for that client's actual plan. The methodology, push/pull,
+    # case-study and next-steps sections are client-agnostic and always render.
     deck = _load_deck_kb()
-    illustrative = not _is_ai_training_plan({"industry": industry, "roles": roles})
+    is_ai_training = _is_ai_training_plan({"industry": industry, "roles": roles})
 
     # Create styles
     styles = getSampleStyleSheet()
@@ -331,15 +358,6 @@ def generate_pdf_report(
         leading=11,
         textColor=c_text_muted,
     )
-    style_caption = ParagraphStyle(
-        "IllustrativeCaption",
-        parent=styles["Normal"],
-        fontName="Helvetica-Bold",
-        fontSize=8,
-        leading=11,
-        textColor=c_blue_violet,
-        spaceAfter=6,
-    )
 
     def _section_header(title: str, page_break: bool = False) -> List[Any]:
         """Build a deck-styled section header (optionally preceded by a break)."""
@@ -451,20 +469,19 @@ def generate_pdf_report(
         out.append(Spacer(1, 12))
         return out
 
-    def _deck_cpa_reference(deck: Dict[str, Any], illustrative: bool) -> List[Any]:
-        """CPA reference guide table (deck slide). Gated for non-AI plans."""
+    def _deck_cpa_reference(deck: Dict[str, Any], is_ai_training: bool) -> List[Any]:
+        """CPA reference guide table (deck slide).
+
+        Carries AI-trainer-specific benchmark data, so it is omitted entirely
+        for any plan that does not match an AI-training engagement.
+        """
+        if not is_ai_training:
+            return []
         cpa = (deck.get("cpa_reference") or {}) if isinstance(deck, dict) else {}
         rows = cpa.get("roles") or []
         if not rows:
             return []
         out = _section_header("CPA Reference Guide", page_break=True)
-        if illustrative:
-            out.append(
-                Paragraph(
-                    "Illustrative example &mdash; AI-training engagement",
-                    style_caption,
-                )
-            )
         header = ["Role Category", "Est. CPA Range", "Benchmark Basis"]
         data_rows = [header]
         for r in rows:
@@ -510,8 +527,15 @@ def generate_pdf_report(
         out.append(Spacer(1, 12))
         return out
 
-    def _deck_sample_pricing(deck: Dict[str, Any], illustrative: bool) -> List[Any]:
-        """Sample campaign pricing table (deck slide). Gated for non-AI plans."""
+    def _deck_sample_pricing(deck: Dict[str, Any], is_ai_training: bool) -> List[Any]:
+        """Sample campaign pricing table (deck slide).
+
+        Carries AI-trainer-specific pricing data ('Cost / Trainer'), so it is
+        omitted entirely for any plan that does not match an AI-training
+        engagement.
+        """
+        if not is_ai_training:
+            return []
         sp = (
             (deck.get("sample_pricing_model") or {}) if isinstance(deck, dict) else {}
         )
@@ -519,13 +543,6 @@ def generate_pdf_report(
         if not camps:
             return []
         out = _section_header("Sample Campaign Pricing")
-        if illustrative:
-            out.append(
-                Paragraph(
-                    "Illustrative example &mdash; AI-training engagement",
-                    style_caption,
-                )
-            )
         header = ["Campaign", "Targeting", "CPA", "Conv.", "Cost / Trainer", "Budget"]
         data_rows = [header]
         for c in camps:
@@ -1010,11 +1027,11 @@ def generate_pdf_report(
 
     elements.append(Spacer(1, 12))
 
-    # ── CPA Reference Guide (deck; gated/captioned for non-AI plans) ──
-    elements.extend(_deck_cpa_reference(deck, illustrative))
+    # ── CPA Reference Guide (deck; AI-training plans only, else omitted) ──
+    elements.extend(_deck_cpa_reference(deck, is_ai_training))
 
-    # ── Sample Campaign Pricing (deck; gated/captioned for non-AI plans) ──
-    elements.extend(_deck_sample_pricing(deck, illustrative))
+    # ── Sample Campaign Pricing (deck; AI-training plans only, else omitted) ──
+    elements.extend(_deck_sample_pricing(deck, is_ai_training))
 
     # ── Case Study (deck) ──
     elements.extend(_deck_case_study(deck))

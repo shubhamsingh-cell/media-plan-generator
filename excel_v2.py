@@ -45,6 +45,17 @@ from shared_utils import (
     INDUSTRY_LABEL_MAP,
 )
 
+from joveo_brand_2026 import (
+    INDIGO,
+    PURPLE,
+    LAVENDER_100,
+    LAVENDER_50,
+    INK,
+    MUTED as _BRAND_MUTED,
+    BORDER,
+    CANVAS,
+)
+
 # S48: Channel Recommender (optional)
 try:
     from channel_recommender import recommend_channels as _recommend_channels_fn
@@ -197,17 +208,20 @@ def _seasonal_monthly_phasing(industry: str, campaign_start_month: int) -> list[
 
 
 # ---------------------------------------------------------------------------
-# Design Tokens -- Joveo 2026 deck palette (mirrors joveo_brand_2026.py)
-# Bare hex (no '#') for openpyxl. Names kept for minimal diff; values re-themed.
+# Design Tokens -- Joveo 2026 deck palette (canonical: joveo_brand_2026.py)
+# openpyxl needs bare hex (no '#'), so each constant is derived from the
+# canonical hex via .lstrip("#").upper(). Names kept for minimal diff; the
+# resulting bare-hex strings are byte-identical to the previous literals
+# (202058, 5A54BE, ECEAF7, F4F4FF, 1F2937, 6E6E8C, E3E1F1, FFFCF9).
 # ---------------------------------------------------------------------------
-NAVY = "202058"  # INDIGO   -- deep brand navy (headers, section bars)
-SAPPHIRE = "5A54BE"  # PURPLE   -- primary accent (was Tailwind sapphire)
-BLUE_LIGHT = "ECEAF7"  # LAVENDER_100 -- light tint fill (badges, highlights)
-BLUE_PALE = "F4F4FF"  # LAVENDER_50  -- pale alt-row / background fill
-STONE = "1F2937"  # INK      -- body text
-MUTED = "6E6E8C"  # MUTED    -- footnotes / secondary labels
-WARM_GRAY = "E3E1F1"  # BORDER   -- grid / borders
-OFF_WHITE = "FFFCF9"  # CANVAS   -- warm off-white neutral surface
+NAVY = INDIGO.lstrip("#").upper()  # 202058 INDIGO -- deep brand navy (headers, bars)
+SAPPHIRE = PURPLE.lstrip("#").upper()  # 5A54BE PURPLE -- primary accent
+BLUE_LIGHT = LAVENDER_100.lstrip("#").upper()  # ECEAF7 -- light tint fill (badges)
+BLUE_PALE = LAVENDER_50.lstrip("#").upper()  # F4F4FF -- pale alt-row / background fill
+STONE = INK.lstrip("#").upper()  # 1F2937 INK -- body text
+MUTED = _BRAND_MUTED.lstrip("#").upper()  # 6E6E8C -- footnotes / secondary labels
+WARM_GRAY = BORDER.lstrip("#").upper()  # E3E1F1 BORDER -- grid / borders
+OFF_WHITE = CANVAS.lstrip("#").upper()  # FFFCF9 CANVAS -- warm off-white surface
 # ---------------------------------------------------------------------------
 # Brand name casing -- preserves known brand names when title-casing client
 # ---------------------------------------------------------------------------

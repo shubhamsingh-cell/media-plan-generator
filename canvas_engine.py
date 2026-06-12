@@ -10,6 +10,8 @@ import time
 import uuid
 from typing import Any, Optional
 
+from joveo_brand_2026 import TEAL, PURPLE
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -25,10 +27,12 @@ _canvas_stats = {
     "last_edit_at": None,
 }
 
-# Channel color palette (brand-aligned)
+# Channel color palette (brand-aligned). The two brand anchors come from the
+# canonical joveo_brand_2026 module (TEAL #6BB5CE, PURPLE #5A54BE); the
+# remaining entries are functional/extended chart tints kept as-is.
 _CHANNEL_COLORS: list[str] = [
-    "#6BB5CE",  # DOWNY_TEAL
-    "#5A54BE",  # BLUE_VIOLET
+    TEAL,  # DOWNY_TEAL #6BB5CE
+    PURPLE,  # BLUE_VIOLET #5A54BE
     "#34D399",  # emerald
     "#F59E0B",  # amber
     "#F87171",  # red

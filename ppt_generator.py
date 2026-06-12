@@ -389,6 +389,31 @@ SLIDE_WIDTH = Inches(13.333)
 SLIDE_HEIGHT = Inches(7.5)
 
 
+def _is_ai_training_plan(plan_data: Dict[str, Any]) -> bool:
+    """Return True if the plan's industry/roles match an AI-training engagement.
+
+    CPA-reference slides carry AI-trainer-specific role data and must not be
+    shown to unrelated clients (healthcare, logistics, etc.).
+    """
+    if not isinstance(plan_data, dict):
+        return False
+    markers = ("ai", "train", "annotat", "language", "data label", "data-label")
+    parts: List[str] = []
+    industry = plan_data.get("industry")
+    if industry:
+        parts.append(str(industry))
+    roles = plan_data.get("roles") or []
+    if isinstance(roles, list):
+        for r in roles:
+            if isinstance(r, dict):
+                parts.append(str(r.get("name") or r.get("title") or ""))
+            else:
+                parts.append(str(r))
+    elif roles:
+        parts.append(str(roles))
+    return any(m in " ".join(parts).lower() for m in markers)
+
+
 def _load_deck_kb() -> Dict[str, Any]:
     """Load the Joveo media-plan deck content (methodology, push/pull, CPA
     reference, case study, next steps) from the KB.
@@ -9636,11 +9661,13 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         else:
             _build_slide_quality_outcomes(prs, data)
 
-        # Slide 7: CPA Reference (deck narrative -- never blocks generation)
-        try:
-            _build_slide_cpa_reference(prs, data, deck)
-        except Exception as _cpa_exc:
-            logger.debug("CPA Reference slide failed (non-fatal): %s", _cpa_exc)
+        # Slide 7: CPA Reference — only for AI-training engagements (role data is AI-trainer specific)
+        _is_ai = _is_ai_training_plan({"industry": data.get("industry"), "roles": data.get("roles")})
+        if _is_ai:
+            try:
+                _build_slide_cpa_reference(prs, data, deck)
+            except Exception as _cpa_exc:
+                logger.debug("CPA Reference slide failed (non-fatal): %s", _cpa_exc)
 
         # Slide 8: Competitive Landscape (always shown)
         _build_slide_competitive_landscape(prs, data)
