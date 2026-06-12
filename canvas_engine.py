@@ -27,8 +27,8 @@ _canvas_stats = {
 
 # Channel color palette (brand-aligned)
 _CHANNEL_COLORS: list[str] = [
-    "#6BB3CD",  # DOWNY_TEAL
-    "#5A54BD",  # BLUE_VIOLET
+    "#6BB5CE",  # DOWNY_TEAL
+    "#5A54BE",  # BLUE_VIOLET
     "#34D399",  # emerald
     "#F59E0B",  # amber
     "#F87171",  # red

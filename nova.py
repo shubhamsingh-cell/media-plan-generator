@@ -709,6 +709,8 @@ _SOURCE_DISPLAY_NAMES: dict[str, str] = {
     "international_benchmarks_2026 (38 countries)": "International Recruitment Benchmarks (38 Countries)",
     "linkedin_guidewire": "LinkedIn Hiring Intelligence",
     "employer_brand": "Employer Brand Intelligence",
+    # 2026-06-12: Joveo client media-plan deck KB (methodology, pricing, case study)
+    "joveo_media_plan_deck": "Joveo Media Plan Deck (2026)",
     # Tool/engine source labels
     "Joveo Salary Intelligence (KB)": "Bureau of Labor Statistics & Joveo Salary Data",
     "Joveo Market Demand Intelligence": "Market Demand Intelligence",
@@ -6970,6 +6972,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                                 "agency_rpo_market",
                                 "joveo_2026_benchmarks",
                                 "joveo_cpa_benchmarks",
+                                "joveo_media_plan_deck",
                                 "linkedin_benchmarks",
                                 "adzuna_benchmarks",
                                 "channel_benchmarks_live",
@@ -6997,6 +7000,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                                 "compliance_regulations (employment law, EEOC, OFCCP, state rules), "
                                 "agency_rpo_market (staffing agencies, RPO providers, market data), "
                                 "joveo_cpa_benchmarks (304 CPA categories from Joveo programmatic data), "
+                                "joveo_media_plan_deck (Joveo's media plan methodology, push/pull strategy, "
+                                "CPA reference, sample pricing, why-Joveo, case study -- use for questions "
+                                "about how Joveo builds media plans or its pricing approach), "
                                 "linkedin_benchmarks (86KB, LinkedIn slot/performance data from 108K jobs), "
                                 "competitor_careers (23KB, career page analysis for 31 major employers), "
                                 "seasonal_hiring_trends (monthly/quarterly hiring patterns), "
@@ -7777,6 +7783,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     "agency_rpo_market",
                     "joveo_2026_benchmarks",
                     "joveo_cpa_benchmarks",
+                    "joveo_media_plan_deck",
                     "linkedin_benchmarks",
                     "competitor_careers",
                     "seasonal_hiring_trends",
@@ -25446,6 +25453,8 @@ _NOVA_SOURCE_CANONICAL_MAP: List[Tuple[str, str]] = [
         "international_benchmarks",
         "International Benchmarks 2026 (38-country dataset)",
     ),
+    ("joveo_media_plan_deck", "Joveo Media Plan Deck (2026)"),
+    ("joveo media plan deck", "Joveo Media Plan Deck (2026)"),
     ("joveo 2026 benchmarks", "Joveo 2026 Benchmarks"),
     ("joveo benchmarks", "Joveo 2026 Benchmarks"),
     ("joveo publisher", "Joveo Publisher Network"),

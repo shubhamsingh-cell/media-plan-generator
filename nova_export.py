@@ -38,11 +38,11 @@ _PRINT_TEXT = "#1a1a2e"
 _PRINT_TEXT_MUTED = "#555566"
 _PRINT_USER_BG = "#e8eaf6"
 _PRINT_ASSISTANT_BG = "#f5f5f5"
-_PRINT_ACCENT = "#5A54BD"
+_PRINT_ACCENT = "#5A54BE"
 
 # Brand colors
 _PORT_GORE = "#202058"
-_BLUE_VIOLET = "#5A54BD"
+_BLUE_VIOLET = "#5A54BE"
 
 
 def _safe(value: Any) -> str:

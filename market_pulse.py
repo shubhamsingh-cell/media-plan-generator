@@ -1084,9 +1084,9 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
     """
     # Brand colors
     PORT_GORE = "#202058"
-    BLUE_VIOLET = "#5A54BD"
-    DOWNY_TEAL = "#6BB3CD"
-    TAPESTRY_PINK = "#B5669C"
+    BLUE_VIOLET = "#5A54BE"
+    DOWNY_TEAL = "#6BB5CE"
+    TAPESTRY_PINK = "#B7669E"
     RAW_SIENNA = "#CE9047"
     TEXT_DARK = "#1a1a2e"
     TEXT_MUTED = "#555566"
@@ -1493,7 +1493,7 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
                     <!-- Key Takeaways -->
                     <tr>
                         <td style="padding:24px;">
-                            <h2 style="margin:0 0 12px;font-size:18px;color:#202058;border-bottom:2px solid #5A54BD;padding-bottom:8px;">
+                            <h2 style="margin:0 0 12px;font-size:18px;color:#202058;border-bottom:2px solid #5A54BE;padding-bottom:8px;">
                                 Key Takeaways
                             </h2>
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -1505,7 +1505,7 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
                     <!-- Platform CPC Summary -->
                     {f'''<tr>
                         <td style="padding:0 24px 24px;">
-                            <h2 style="margin:0 0 12px;font-size:18px;color:#202058;border-bottom:2px solid #6BB3CD;padding-bottom:8px;">
+                            <h2 style="margin:0 0 12px;font-size:18px;color:#202058;border-bottom:2px solid #6BB5CE;padding-bottom:8px;">
                                 Platform CPC Snapshot
                             </h2>
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e8e8f0;border-radius:4px;">
@@ -1522,7 +1522,7 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
                     <!-- Top Industries -->
                     {f'''<tr>
                         <td style="padding:0 24px 24px;">
-                            <h2 style="margin:0 0 12px;font-size:18px;color:#202058;border-bottom:2px solid #B5669C;padding-bottom:8px;">
+                            <h2 style="margin:0 0 12px;font-size:18px;color:#202058;border-bottom:2px solid #B7669E;padding-bottom:8px;">
                                 Top 3 Industry Movers
                             </h2>
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e8e8f0;border-radius:4px;">
@@ -1539,7 +1539,7 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
                     <!-- CTA -->
                     <tr>
                         <td style="padding:0 24px 32px;text-align:center;">
-                            <a href="{full_report_url}" style="display:inline-block;background:#5A54BD;color:#ffffff;padding:12px 32px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600;">
+                            <a href="{full_report_url}" style="display:inline-block;background:#5A54BE;color:#ffffff;padding:12px 32px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600;">
                                 View Full Report
                             </a>
                         </td>
@@ -1549,12 +1549,12 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
                     <tr>
                         <td style="background:#f4f4f9;padding:20px 24px;text-align:center;border-top:1px solid #e8e8f0;">
                             <p style="margin:0;font-size:11px;color:#555566;">
-                                Powered by <strong style="color:#5A54BD;">Nova AI Suite</strong> |
+                                Powered by <strong style="color:#5A54BE;">Nova AI Suite</strong> |
                                 Data from 6 ad platforms across 22 industries
                             </p>
                             <p style="margin:6px 0 0;font-size:10px;color:#888899;">
                                 You are receiving this because you subscribed to Nova AI Suite Market Pulse reports.
-                                <a href="{_BASE_URL}/market-pulse" style="color:#5A54BD;">Manage preferences</a>
+                                <a href="{_BASE_URL}/market-pulse" style="color:#5A54BE;">Manage preferences</a>
                             </p>
                         </td>
                     </tr>

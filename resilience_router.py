@@ -1808,7 +1808,7 @@ class ResilienceRouter:
             "<!DOCTYPE html><html><head>",
             f"<title>{title}</title>",
             "<style>body{font-family:Inter,sans-serif;margin:40px;color:#202058;}",
-            "h1{color:#5A54BD;}table{border-collapse:collapse;width:100%;}",
+            "h1{color:#5A54BE;}table{border-collapse:collapse;width:100%;}",
             "th,td{border:1px solid #ccc;padding:8px;text-align:left;}",
             "th{background:#f0f0f5;}</style></head><body>",
             f"<h1>{title}</h1>",
@@ -2151,8 +2151,8 @@ class ResilienceRouter:
 <style>
 body {{ background:#0a0a1a; color:#e4e4e7; font-family:'Inter',system-ui,sans-serif; margin:0; padding:20px; }}
 .container {{ max-width:1200px; margin:0 auto; }}
-h1 {{ color:#5A54BD; font-size:24px; margin-bottom:4px; }}
-h2 {{ color:#6BB3CD; font-size:18px; margin-top:32px; }}
+h1 {{ color:#5A54BE; font-size:24px; margin-bottom:4px; }}
+h2 {{ color:#6BB5CE; font-size:18px; margin-top:32px; }}
 .score {{ font-size:48px; font-weight:700; color:{score_color}; }}
 .score-label {{ font-size:14px; color:#9ca3af; }}
 table {{ border-collapse:collapse; width:100%; margin-top:16px; background:#111827; border-radius:8px; overflow:hidden; }}

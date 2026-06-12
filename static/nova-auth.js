@@ -259,7 +259,7 @@
       "px;height:" +
       size +
       "px;border-radius:50%;" +
-      "background:#5A54BD;color:#fff;display:inline-flex;align-items:center;" +
+      "background:#5A54BE;color:#fff;display:inline-flex;align-items:center;" +
       "justify-content:center;font-size:" +
       Math.round(size * 0.45) +
       "px;" +
@@ -283,7 +283,7 @@
       "px;height:" +
       s +
       "px;border-radius:50%;" +
-      "background:#5A54BD;color:#fff;display:inline-flex;align-items:center;" +
+      "background:#5A54BE;color:#fff;display:inline-flex;align-items:center;" +
       "justify-content:center;font-size:" +
       Math.round(s * 0.45) +
       "px;" +

@@ -1,0 +1,142 @@
+{
+  "_meta": {
+    "source": "Joveo Media Planning Approach — client pitch deck (Invisible Technologies)",
+    "source_url": "https://www.joveo.com",
+    "data_period": "2026",
+    "methodology": "Curated from the official Joveo 2026 client media-plan deck ('Invisible Media Planning Approach'). Encodes Joveo's campaign methodology, push/pull channel framework, CPA reference benchmarks, sample pricing model, differentiators and case-study outcomes so Nova and the Media Plan Generator can cite the canonical approach.",
+    "version": "1.0",
+    "ingested": "2026-06-12",
+    "use_for": ["media_plan_generation", "nova_chat", "deck_narrative", "methodology_reference"]
+  },
+
+  "tagline": "High Performance, AI-Led Recruitment Marketing Platform",
+  "positioning": "Joveo is delivered as a managed service: the client provides strategic direction and approves outcomes while Joveo handles execution across one tracked funnel from apply-start to hire.",
+
+  "campaign_methodology": {
+    "description": "Joveo's 6-step campaign management methodology — each step is operated by Joveo on the MOJO platform.",
+    "steps": [
+      {"n": 1, "name": "Benchmarking & Market Research", "detail": "Talent supply vs. demand, competitive landscape, and hiring difficulty by role category set the plan baseline."},
+      {"n": 2, "name": "Develop Media Strategy", "ai": "AI Media Planner", "detail": "Build the budget plan by campaign, role, location and talent profile; reallocate weekly."},
+      {"n": 3, "name": "Campaign Launch & Publisher Optimization", "ai": "AI Advertiser", "detail": "Push jobs live across the channel mix; AI shifts bids and budget daily to the best publishers per job."},
+      {"n": 4, "name": "Passive Candidate Outreach", "ai": "AI CRM & Landing Pages", "detail": "Engage passive candidates via databases, email/SMS re-engagement and conversion-optimized landing pages."},
+      {"n": 5, "name": "Candidate Quality Optimization", "ai": "AI Chatbot & AI Interviewer", "detail": "Screen and qualify candidates in the apply flow to lift quality."},
+      {"n": 6, "name": "Optimize to Down-Funnel Conversions", "ai": "AI Screening", "detail": "Optimize toward apply-start → apply-finish → hire, with click-to-hire attribution."}
+    ]
+  },
+
+  "push_meets_pull": {
+    "summary": "Joveo combines active outreach (Push) with employer-brand magnetism (Pull).",
+    "push": {"name": "Push = Active Outreach", "detail": "Targeted ads, job alerts, social media and email campaigns that proactively push opportunities to candidates based on behavior, job demographics, or intent signals."},
+    "pull": {"name": "Pull = Employer Brand Magnetism", "detail": "Content, reputation, social media and SEO-optimized career pages that pull candidates in by building long-term interest and trust."}
+  },
+
+  "channel_mix": {
+    "description": "Entry-point channel mix — highest-volume, highest-ROI channels first. 'type' classifies each as Push or Pull.",
+    "channels": [
+      {"channel": "Indeed (Sponsored Jobs)", "type": "Push", "purpose": "Drive high-volume developer & reviewer applicant flow", "notes": "Primary volume driver; target by skill, role, and remote keyword"},
+      {"channel": "LinkedIn (Sponsored + InMail)", "type": "Push", "purpose": "Attract qualified engineers & domain scientists", "notes": "Best for senior devs, computational scientists, STEM PhDs"},
+      {"channel": "Facebook / Instagram (Paid Social)", "type": "Push", "purpose": "Generate fast applications from language & writing experts", "notes": "Strong for freelance-oriented talent; mobile-first apply"},
+      {"channel": "Google Search (Non-Brand)", "type": "Push", "purpose": "Capture high-intent job seekers", "notes": "Target 'AI training jobs remote', 'remote coding jobs'"},
+      {"channel": "Freelancing Platforms (Upwork, Fiverr)", "type": "Push", "purpose": "Source pre-qualified freelance technical talent", "notes": "Ideal for niche skills; talent already used to contract work"},
+      {"channel": "Niche Tech Job Boards", "type": "Pull", "purpose": "Reach specialized dev & engineering talent", "notes": "Higher relevance, lower volume; good for hard-to-fill roles"},
+      {"channel": "Programmatic Display (DSPs)", "type": "Pull", "purpose": "Build awareness among passive technical talent", "notes": "Target coding forums, tech news, LeetCode, HackerRank"}
+    ]
+  },
+
+  "cpa_reference": {
+    "description": "Baseline CPAs by role category, calibrated from Joveo benchmarks. US/global remote; varies by geography, language and seasonality.",
+    "currency": "USD",
+    "roles": [
+      {"category": "Backend / Frontend Developers", "cpa_low": 8, "cpa_high": 14, "basis": "Joveo benchmark: high-volume remote tech roles"},
+      {"category": "Full Stack Developers", "cpa_low": 10, "cpa_high": 16, "basis": "Slightly higher due to broader skill requirements"},
+      {"category": "Language / Writing Experts", "cpa_low": 10, "cpa_high": 16, "basis": "Comparable to paralegal/legal assistant CPAs"},
+      {"category": "Documentation Reviewers", "cpa_low": 6, "cpa_high": 10, "basis": "High supply, lower competition roles"},
+      {"category": "CAD / Game / Simulation Engineers", "cpa_low": 15, "cpa_high": 25, "basis": "Niche skills; limited to specialized channels"},
+      {"category": "Computational Scientists (Physics, Bio)", "cpa_low": 18, "cpa_high": 35, "basis": "Very scarce talent pool; aligned with nurse-level CPAs"},
+      {"category": "Finance Analysts (AI Training)", "cpa_low": 13, "cpa_high": 18, "basis": "Joveo benchmark: mid-skill analytical roles"}
+    ]
+  },
+
+  "hiring_difficulty": {
+    "description": "Hiring difficulty by role category (Benchmarking & Market Research).",
+    "rows": [
+      {"category": "Software Developers (FE/BE/FS)", "supply": "Moderate", "competition": "Very High", "difficulty_10": 7, "cpa_low": 8, "cpa_high": 14},
+      {"category": "Language & Writing Experts", "supply": "Moderate–High", "competition": "High", "difficulty_10": 5, "cpa_low": 10, "cpa_high": 16},
+      {"category": "Domain Scientists (Physics, Bio)", "supply": "Very Low", "competition": "Very High", "difficulty_10": 9, "cpa_low": 18, "cpa_high": 30},
+      {"category": "Specialized Engineers (CAD, Sim)", "supply": "Low", "competition": "High", "difficulty_10": 8, "cpa_low": 15, "cpa_high": 25}
+    ]
+  },
+
+  "sample_pricing_model": {
+    "description": "Sample campaign pricing — priced to onboarded trainers who clear screening; ~20 hires each; conversion set conservatively from funnel data. Budget = Hires × Applies/Hire × CPA.",
+    "currency": "USD",
+    "budget_formula": "Hires × Applies per Hire × CPA = Budget",
+    "campaigns": [
+      {"campaign": "English Audio Specialist", "targeting": "Global English: US, UK, India, PH", "cpa_low": 10, "cpa_high": 13, "historical_conversion_pct": 6, "cost_per_trainer_low": 165, "cost_per_trainer_high": 215, "budget_low": 3300, "budget_high": 4300},
+      {"campaign": "Hindi Audio Specialist", "targeting": "India + Hindi diaspora", "cpa_low": 10, "cpa_high": 13, "historical_conversion_pct": 6, "cost_per_trainer_low": 165, "cost_per_trainer_high": 215, "budget_low": 3300, "budget_high": 4300},
+      {"campaign": "Spanish Audio Specialist", "targeting": "LatAm, Spain, US Hispanic", "cpa_low": 10, "cpa_high": 13, "historical_conversion_pct": 6, "cost_per_trainer_low": 165, "cost_per_trainer_high": 215, "budget_low": 3300, "budget_high": 4300},
+      {"campaign": "Portuguese Expert (Brazil)", "targeting": "Brazil", "cpa_low": 11, "cpa_high": 15, "historical_conversion_pct": 5, "cost_per_trainer_low": 220, "cost_per_trainer_high": 300, "budget_low": 4400, "budget_high": 6000},
+      {"campaign": "Korean Expert", "targeting": "South Korea + diaspora", "cpa_low": 14, "cpa_high": 18, "historical_conversion_pct": 4, "cost_per_trainer_low": 350, "cost_per_trainer_high": 450, "budget_low": 7000, "budget_high": 9000}
+    ],
+    "blended_total": {"cost_per_trainer_low": 213, "cost_per_trainer_high": 279, "budget_low": 21300, "budget_high": 27900},
+    "channel_sourcing": [
+      {"campaign": "English Audio Specialist", "channels": "Indeed, LinkedIn, Meta / Instagram, Google Search", "time_to_fill": "Fast", "volume_risk": "Low"},
+      {"campaign": "Hindi Audio Specialist", "channels": "Indeed India, Naukri, Meta, regional boards", "time_to_fill": "Fast", "volume_risk": "Low"},
+      {"campaign": "Spanish Audio Specialist", "channels": "Meta / Instagram, Computrabajo, InfoJobs, Google", "time_to_fill": "Fast", "volume_risk": "Low"},
+      {"campaign": "Portuguese Expert (Brazil)", "channels": "Meta, Catho / Vagas, Google Search, local boards", "time_to_fill": "Moderate", "volume_risk": "Medium"},
+      {"campaign": "Korean Expert", "channels": "LinkedIn, JobKorea / Saramin, local social, niche tech", "time_to_fill": "Slower", "volume_risk": "High"}
+    ],
+    "note": "Korean needs a longer flight and a wider stack, which is why it carries the premium. Abundant languages fill fast and cheap; plan Korean's timeline and budget up front."
+  },
+
+  "why_joveo": {
+    "differentiators": [
+      {"title": "AI Labs Experience", "detail": "Delivered media strategy for the top players in data labeling worldwide — direct competitors to Invisible Tech. We understand this talent market better than anyone."},
+      {"title": "Global Multi-Language Reach", "detail": "Proven playbooks for sourcing technical talent in local languages across 50+ countries — databases, DSPs, social, freelancing platforms, and local job boards."},
+      {"title": "AI-Powered Optimization", "detail": "Real-time bid and budget optimization at the individual job level; autonomous budget orchestration shifts spend from easy-to-fill to hard-to-fill roles."},
+      {"title": "Job Content Optimization", "detail": "JD scoring engine + automated job creation ensures high-converting, SEO-optimized listings (a key gap identified at Scale AI: 71% vs. 90%+ target)."},
+      {"title": "Move at the Speed of AI", "detail": "Automated programmatic engine goes from job-feed approval to live, optimized global campaigns in under 12 hours."}
+    ]
+  },
+
+  "case_study": {
+    "title": "Hiring high-quality AI Trainers at scale",
+    "client_context": "Global end-to-end AI solutions provider working with all top AI companies; required experts across the globe spanning generalists, coders, mathematicians, freelancers and language experts.",
+    "challenges": [
+      "Heavy dependence on a few key job boards, limiting scale and qualified candidates",
+      "Needed a partner that could meet their speed and campaign-scale requirements",
+      "Lack of an omni-channel strategy to attract active and passive candidates",
+      "Irregular pacing, spend and ROI metrics; high costs during campaign peaks"
+    ],
+    "solution": [
+      "Introduced a broader mix of media channels beyond standard job boards (database partnerships, CPQA partners)",
+      "Launched campaigns with 24h TAT and scaled to thousands of applications within the first 2–3 days",
+      "Activated specialized boards, community sites and local job boards",
+      "Optimized toward cost-per-activation and provider quality metrics to improve ROI"
+    ],
+    "results": [
+      {"metric": "Qualified applications", "value": "2x", "detail": "Increase in qualified applications across various campaigns"},
+      {"metric": "Activation volumes", "value": "+38%", "detail": "Improvement in activation volumes"},
+      {"metric": "Cost per activation", "value": "-17%", "detail": "Improvement in cost-per-activation metrics"}
+    ]
+  },
+
+  "next_steps": [
+    "Align on scope: confirm priority roles and target geographies",
+    "Finalize weekly budget and success metrics",
+    "Integrate the client job feed with the Joveo platform",
+    "Launch campaign within 2 business weeks of feed integration",
+    "30-day review: CPA actuals, pipeline quality, scale-up recommendation"
+  ],
+
+  "example_brief": {
+    "client": "Invisible Technologies",
+    "context": "AI training partner for top labs; uses its Meridial platform and a global expert network for data annotation and RLHF.",
+    "total_open_roles": 470,
+    "role_types": ["Developers", "Scientists", "Language Experts", "Designers"],
+    "location": "Remote Global",
+    "compensation_usd_per_hour": {"low": 15, "high": 40},
+    "current_sourcing": "Direct platform sign-ups (meridial.ai) & organic application funnels",
+    "goal": "Entry-point → Scale"
+  }
+}

@@ -71,18 +71,22 @@ EMU = 914400  # 1 inch in EMU
 SLIDE_W = 10 * EMU  # 10 inches
 SLIDE_H = int(7.5 * EMU)  # 7.5 inches
 
-# Joveo brand colours (RGB 0-1)
-PORT_GORE = {"red": 0.125, "green": 0.125, "blue": 0.345}
-BLUE_VIOLET = {"red": 0.353, "green": 0.329, "blue": 0.741}
-DOWNY_TEAL = {"red": 0.420, "green": 0.702, "blue": 0.804}
+# Joveo brand colours (RGB 0-1) -- deck-exact (Joveo Brand 2026)
+PORT_GORE = {"red": 0.125, "green": 0.125, "blue": 0.345}  # #202058
+BLUE_VIOLET = {"red": 0.353, "green": 0.329, "blue": 0.745}  # #5A54BE
+DOWNY_TEAL = {"red": 0.420, "green": 0.710, "blue": 0.808}  # #6BB5CE
 WHITE = {"red": 1.0, "green": 1.0, "blue": 1.0}
 BLACK = {"red": 0.0, "green": 0.0, "blue": 0.0}
 LIGHT_PURPLE = {"red": 0.831, "green": 0.816, "blue": 0.941}  # ~#D4D0F0
-LIGHTER_PURPLE = {"red": 0.925, "green": 0.918, "blue": 0.965}  # ~#ECEAF7
-PINK_ACCENT = {"red": 0.784, "green": 0.345, "blue": 0.612}  # ~#C8589C
+LIGHTER_PURPLE = {"red": 0.925, "green": 0.918, "blue": 0.969}  # #ECEAF7 (Lavender 100)
+PINK_ACCENT = {"red": 0.718, "green": 0.400, "blue": 0.620}  # #B7669E
 LIGHT_PINK = {"red": 0.957, "green": 0.847, "blue": 0.910}  # ~#F4D8E8
 LIGHT_GREY = {"red": 0.95, "green": 0.95, "blue": 0.95}
 DARK_TEXT = {"red": 0.12, "green": 0.12, "blue": 0.14}
+
+# Joveo brand fonts (deck 2026): Poppins for headings/titles, Inter for body
+FONT_HEADING = "Poppins"
+FONT_BODY = "Inter"
 
 
 def _uid() -> str:
@@ -148,7 +152,7 @@ def _style_text(
     bold: bool = False,
     size: float = 12,
     color: dict | None = None,
-    font: str = "Inter",
+    font: str = FONT_BODY,
 ) -> dict:
     """Style all text in a shape."""
     style: dict[str, Any] = {
@@ -315,13 +319,13 @@ def _slide_title(data: dict) -> tuple[str, list[dict]]:
     t1 = _uid()
     reqs += _text_box(sid, t1, 0.6, 1.0, 8.8, 1.0)
     reqs.append(_insert_text(t1, "Media Planning Approach"))
-    reqs.append(_style_text(t1, bold=True, size=36, color=BLUE_VIOLET))
+    reqs.append(_style_text(t1, bold=True, size=36, color=BLUE_VIOLET, font=FONT_HEADING))
 
     # Company name subtitle
     t2 = _uid()
     reqs += _text_box(sid, t2, 0.6, 1.9, 8.8, 0.8)
     reqs.append(_insert_text(t2, f"<{client}>"))
-    reqs.append(_style_text(t2, bold=True, size=28, color=PORT_GORE))
+    reqs.append(_style_text(t2, bold=True, size=28, color=PORT_GORE, font=FONT_HEADING))
 
     # Date
     t3 = _uid()
@@ -351,7 +355,7 @@ def _slide_methodology(data: dict) -> tuple[str, list[dict]]:
     t1 = _uid()
     reqs += _text_box(sid, t1, 0.6, 0.3, 8.0, 0.7)
     reqs.append(_insert_text(t1, "Our Methodology"))
-    reqs.append(_style_text(t1, bold=True, size=28, color=PORT_GORE))
+    reqs.append(_style_text(t1, bold=True, size=28, color=PORT_GORE, font=FONT_HEADING))
 
     # 5-step methodology table (4 cols: #, Service, What, Teams)
     tid = _uid()
@@ -422,15 +426,15 @@ def _slide_campaign_mgmt(data: dict) -> tuple[str, list[dict]]:
             t1, f"Campaign Management Matches {client} Objectives to Ensure Success"
         )
     )
-    reqs.append(_style_text(t1, bold=True, size=24, color=PORT_GORE))
+    reqs.append(_style_text(t1, bold=True, size=24, color=PORT_GORE, font=FONT_HEADING))
 
     steps = [
-        "1. Benchmarking & market research",
+        "1. Benchmarking & Market Research",
         "2. Develop Media Strategy",
-        "3. Job distribution & campaign launch",
-        "4. AI-Powered publisher selection, bid & budget optimization",
-        "5. AI-Powered job content optimization & expansions",
-        "6. Optimize to down-funnel conversions",
+        "3. Campaign Launch & Publisher Optimization",
+        "4. Passive Candidate Outreach",
+        "5. Candidate Quality Optimization",
+        "6. Optimize to Down-Funnel Conversions",
     ]
 
     # Render as 6 text boxes in a zigzag layout
@@ -470,7 +474,7 @@ def _slide_requirements(data: dict) -> tuple[str, list[dict]]:
     t1 = _uid()
     reqs += _text_box(sid, t1, 0.6, 0.3, 8.0, 0.7)
     reqs.append(_insert_text(t1, "What We've Heard and Our Assumptions"))
-    reqs.append(_style_text(t1, bold=True, size=28, color=PORT_GORE))
+    reqs.append(_style_text(t1, bold=True, size=28, color=PORT_GORE, font=FONT_HEADING))
 
     # Extract data fields
     roles = data.get("roles") or data.get("target_roles") or []
@@ -573,23 +577,23 @@ def _slide_push_pull(data: dict) -> tuple[str, list[dict]]:
     t1 = _uid()
     reqs += _text_box(sid, t1, 0.6, 0.3, 8.0, 0.7)
     reqs.append(_insert_text(t1, "Push Meets Pull..."))
-    reqs.append(_style_text(t1, bold=True, size=28, color=PORT_GORE))
+    reqs.append(_style_text(t1, bold=True, size=28, color=PORT_GORE, font=FONT_HEADING))
 
     # Left label
     lb = _uid()
     reqs += _text_box(sid, lb, 0.6, 2.5, 2.5, 1.5)
     reqs.append(_insert_text(lb, "A Balanced\nApproach"))
-    reqs.append(_style_text(lb, bold=True, size=22, color=PORT_GORE))
+    reqs.append(_style_text(lb, bold=True, size=22, color=PORT_GORE, font=FONT_HEADING))
 
     concepts = [
         (
             "Push = Active Outreach",
-            'Targeted ads, job alerts, social media and email campaigns that proactively "push" opportunities to candidates based on behavior, demographics, or intent signals.',
+            "Targeted ads, job alerts, social media and email campaigns that proactively push opportunities to candidates based on behavior, job demographics, or intent signals.",
             BLUE_VIOLET,
         ),
         (
             "Pull = Employer Brand Magnetism",
-            'Content, reputation, social media and SEO-optimized career pages that "pull" candidates in by building long-term interest and trust.',
+            "Content, reputation, social media and SEO-optimized career pages that pull candidates in by building long-term interest and trust.",
             PORT_GORE,
         ),
         (
@@ -627,7 +631,7 @@ def _slide_benchmarking_1(data: dict) -> tuple[str, list[dict]]:
     t1 = _uid()
     reqs += _text_box(sid, t1, 0.8, 0.2, 8.0, 0.6)
     reqs.append(_insert_text(t1, "Benchmarking & Market Research (1/2)"))
-    reqs.append(_style_text(t1, bold=True, size=22, color=PORT_GORE))
+    reqs.append(_style_text(t1, bold=True, size=22, color=PORT_GORE, font=FONT_HEADING))
 
     # Section label
     num = _uid()
@@ -805,7 +809,7 @@ def _slide_benchmarking_2(data: dict) -> tuple[str, list[dict]]:
     t1 = _uid()
     reqs += _text_box(sid, t1, 0.8, 0.2, 8.0, 0.6)
     reqs.append(_insert_text(t1, "Benchmarking & Market Research (2/2)"))
-    reqs.append(_style_text(t1, bold=True, size=22, color=PORT_GORE))
+    reqs.append(_style_text(t1, bold=True, size=22, color=PORT_GORE, font=FONT_HEADING))
 
     num = _uid()
     reqs += _text_box(sid, num, 0.3, 0.2, 0.4, 0.4)
@@ -865,7 +869,7 @@ def _slide_targeting(data: dict) -> tuple[str, list[dict]]:
     t1 = _uid()
     reqs += _text_box(sid, t1, 0.8, 0.2, 8.0, 0.6)
     reqs.append(_insert_text(t1, "Campaign Targeting Strategy"))
-    reqs.append(_style_text(t1, bold=True, size=22, color=PORT_GORE))
+    reqs.append(_style_text(t1, bold=True, size=22, color=PORT_GORE, font=FONT_HEADING))
 
     roles = data.get("roles") or data.get("target_roles") or []
     if roles and isinstance(roles[0], dict):
@@ -938,7 +942,7 @@ def _slide_media_plan_table(data: dict) -> tuple[str, list[dict]]:
     t1 = _uid()
     reqs += _text_box(sid, t1, 0.8, 0.2, 8.0, 0.6)
     reqs.append(_insert_text(t1, "Media Plan Development"))
-    reqs.append(_style_text(t1, bold=True, size=22, color=PORT_GORE))
+    reqs.append(_style_text(t1, bold=True, size=22, color=PORT_GORE, font=FONT_HEADING))
 
     channels = data.get("channels") or data.get("channel_recommendations") or []
 
@@ -1023,7 +1027,7 @@ def _slide_scenario_planner(data: dict) -> tuple[str, list[dict]]:
     reqs += _text_box(sid, t1, 0.8, 0.2, 8.0, 0.6)
     title_text = "Media Plan Development \u2013 enabled by Scenario Planner"
     reqs.append(_insert_text(t1, title_text))
-    reqs.append(_style_text(t1, bold=True, size=20, color=PORT_GORE))
+    reqs.append(_style_text(t1, bold=True, size=20, color=PORT_GORE, font=FONT_HEADING))
 
     channels = data.get("channels") or []
     budget = data.get("budget") or data.get("budget_range") or "TBD"
@@ -1120,7 +1124,7 @@ def _slide_omnichannel(data: dict) -> tuple[str, list[dict]]:
             t1, "Media Plan Development \u2013 enabled by Omnichannel Distribution"
         )
     )
-    reqs.append(_style_text(t1, bold=True, size=20, color=PORT_GORE))
+    reqs.append(_style_text(t1, bold=True, size=20, color=PORT_GORE, font=FONT_HEADING))
 
     # Four category boxes
     categories = [
@@ -1173,7 +1177,7 @@ def _slide_monitoring(data: dict) -> tuple[str, list[dict]]:
     t1 = _uid()
     reqs += _text_box(sid, t1, 0.8, 0.2, 8.0, 0.6)
     reqs.append(_insert_text(t1, "AI-Powered Monitoring & Optimizations"))
-    reqs.append(_style_text(t1, bold=True, size=22, color=PORT_GORE))
+    reqs.append(_style_text(t1, bold=True, size=22, color=PORT_GORE, font=FONT_HEADING))
 
     cards = [
         ("Bid Optimization", "Automated bid management to drive ROI"),
@@ -1231,7 +1235,7 @@ def _slide_ad_platform_analysis(data: dict) -> tuple[str, list[dict]]:
     t1 = _uid()
     reqs += _text_box(sid, t1, 0.6, 0.2, 8.0, 0.6)
     reqs.append(_insert_text(t1, "Ad Platform Analysis"))
-    reqs.append(_style_text(t1, bold=True, size=22, color=PORT_GORE))
+    reqs.append(_style_text(t1, bold=True, size=22, color=PORT_GORE, font=FONT_HEADING))
 
     channels = data.get("channels") or data.get("channel_recommendations") or []
 
@@ -1303,7 +1307,7 @@ def _slide_reporting(data: dict) -> tuple[str, list[dict]]:
     t1 = _uid()
     reqs += _text_box(sid, t1, 0.8, 0.2, 8.0, 0.6)
     reqs.append(_insert_text(t1, "Reporting & Insights"))
-    reqs.append(_style_text(t1, bold=True, size=22, color=PORT_GORE))
+    reqs.append(_style_text(t1, bold=True, size=22, color=PORT_GORE, font=FONT_HEADING))
 
     # Subtitle
     sub = _uid()
@@ -1365,7 +1369,7 @@ def _slide_thank_you(data: dict) -> tuple[str, list[dict]]:
     ty = _uid()
     reqs += _text_box(sid, ty, 1.5, 2.0, 7.0, 1.5)
     reqs.append(_insert_text(ty, "Thank You!"))
-    reqs.append(_style_text(ty, bold=True, size=40, color=BLUE_VIOLET))
+    reqs.append(_style_text(ty, bold=True, size=40, color=BLUE_VIOLET, font=FONT_HEADING))
 
     # Subtitle
     sub = _uid()

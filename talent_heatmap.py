@@ -1672,8 +1672,8 @@ def generate_heatmap_excel(analysis: Dict[str, Any]) -> bytes:
 def generate_heatmap_ppt(analysis: Dict[str, Any]) -> bytes:
     """Generate a Talent Supply Heatmap PowerPoint presentation.
 
-    Uses branding: Port Gore (#202058), Blue Violet (#5A54BD),
-    Downy teal (#6BB3CD).
+    Uses branding: Port Gore (#202058), Blue Violet (#5A54BE),
+    Downy teal (#6BB5CE).
     """
     try:
         from pptx import Presentation

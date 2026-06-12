@@ -41,7 +41,7 @@ _SEND_TIMEOUT: int = 20  # seconds
 
 # Joveo brand colors (email-safe, inline CSS)
 _PORT_GORE = "#202058"
-_BLUE_VIOLET = "#5A54BD"
+_BLUE_VIOLET = "#5A54BE"
 _TEXT_DARK = "#1a1a2e"
 _TEXT_MUTED = "#666677"
 _BG_LIGHT = "#f4f4f9"

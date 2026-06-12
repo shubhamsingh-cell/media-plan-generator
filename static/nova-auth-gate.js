@@ -38,7 +38,7 @@
     var banner = document.createElement("div");
     banner.id = "nova-guest-banner";
     banner.style.cssText =
-      "position:fixed;top:0;left:0;right:0;z-index:999998;background:linear-gradient(90deg,#202058,#5A54BD);" +
+      "position:fixed;top:0;left:0;right:0;z-index:999998;background:linear-gradient(90deg,#202058,#5A54BE);" +
       "color:rgba(255,255,255,0.85);font-size:13px;font-family:Inter,system-ui,sans-serif;" +
       "text-align:center;padding:8px 16px;display:flex;align-items:center;justify-content:center;gap:8px;";
     banner.innerHTML =
@@ -238,7 +238,7 @@
 
     overlay.innerHTML =
       '<div style="text-align:center;max-width:420px;padding:40px 24px;margin:auto;">' +
-      '  <div style="width:80px;height:80px;margin:0 auto 24px;border-radius:20px;background:linear-gradient(135deg,#5A54BD,#7B6FDE);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(90,84,189,0.4);">' +
+      '  <div style="width:80px;height:80px;margin:0 auto 24px;border-radius:20px;background:linear-gradient(135deg,#5A54BE,#7B6FDE);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(90,84,189,0.4);">' +
       '    <span style="font-size:40px;font-weight:800;color:white;font-family:Inter,system-ui,sans-serif;line-height:1;">N</span>' +
       "  </div>" +
       '  <h1 style="color:#e4e4e7;font-size:28px;font-weight:700;margin:0 0 8px;font-family:Inter,sans-serif;">Welcome to Nova AI</h1>' +

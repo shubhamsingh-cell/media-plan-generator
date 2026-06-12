@@ -5,8 +5,8 @@
  */
 (function () {
   "use strict";
-  var BV = "#5A54BD",
-    DT = "#6BB3CD",
+  var BV = "#5A54BE",
+    DT = "#6BB5CE",
     PG = "#202058",
     F = 'Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
   var TH = {

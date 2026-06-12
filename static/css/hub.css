@@ -13,11 +13,11 @@
   --bg-card-hover: rgba(26, 26, 26, 0.9);
   --surface-1: #111111;
   --surface-2: #1a1a1a;
-  --accent: #5a54bd;
-  --accent-light: #7b75d4;
+  --accent: #5a54be;
+  --accent-light: #8680d6;
   --accent-glow: rgba(90, 84, 189, 0.15);
   --accent-glow-strong: rgba(90, 84, 189, 0.25);
-  --teal: #6bb3cd;
+  --teal: #6bb5ce;
   --teal-glow: rgba(107, 179, 205, 0.12);
   --green: #22c55e;
   --green-glow: rgba(34, 197, 94, 0.12);
@@ -28,8 +28,8 @@
   --border-hover: rgba(255, 255, 255, 0.14);
   --success: #22c55e;
   --warning: #f59e0b;
-  --brand-violet: #5a54bd;
-  --brand-teal: #6bb3cd;
+  --brand-violet: #5a54be;
+  --brand-teal: #6bb5ce;
   --brand-port-gore: #202058;
   --bg-brand: rgba(32, 32, 88, 0.15);
 
@@ -419,7 +419,7 @@ html.lenis body {
   font-size: clamp(1.6rem, 3vw, 2.2rem);
   font-weight: 600;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, #ededed 0%, #c7d2fe 60%, #7b75d4 100%);
+  background: linear-gradient(135deg, #ededed 0%, #c7d2fe 60%, #8680d6 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -855,7 +855,7 @@ html.lenis body {
   position: absolute;
   inset: -2px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5a54bd, #6bb3cd);
+  background: linear-gradient(135deg, #5a54be, #6bb5ce);
   z-index: -1;
   opacity: 0.5;
 }
@@ -1863,7 +1863,7 @@ html.lenis body {
 .products-orb--1 {
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, #5a54bd 0%, transparent 70%);
+  background: radial-gradient(circle, #5a54be 0%, transparent 70%);
   top: -5%;
   left: -8%;
   animation-delay: 0s;
@@ -1919,7 +1919,7 @@ html.lenis body {
 
 /* Per-product accent colors + gradient backgrounds */
 .product-plan {
-  --card-accent: #7b75d4;
+  --card-accent: #8680d6;
   --card-accent-rgb: 123, 117, 212;
   background: linear-gradient(
     145deg,
@@ -1928,7 +1928,7 @@ html.lenis body {
   );
 }
 .product-nova {
-  --card-accent: #6bb3cd;
+  --card-accent: #6bb5ce;
   --card-accent-rgb: 107, 179, 205;
   background: linear-gradient(
     225deg,
@@ -1966,10 +1966,10 @@ html.lenis body {
 
 /* Top accent stripe */
 .product-plan {
-  box-shadow: inset 0 3px 0 0 #7b75d4;
+  box-shadow: inset 0 3px 0 0 #8680d6;
 }
 .product-nova {
-  box-shadow: inset 0 3px 0 0 #6bb3cd;
+  box-shadow: inset 0 3px 0 0 #6bb5ce;
 }
 .product-slotops {
   box-shadow: inset 0 3px 0 0 #378fe9;
@@ -1991,7 +1991,7 @@ html.lenis body {
   background: conic-gradient(
     from var(--border-angle, 0deg),
     transparent 25%,
-    var(--card-accent, #5a54bd) 50%,
+    var(--card-accent, #5a54be) 50%,
     transparent 75%
   );
   -webkit-mask:
@@ -2070,7 +2070,7 @@ html.lenis body {
     var(--bg-card) 60%
   );
   box-shadow:
-    inset 0 3px 0 0 #7b75d4,
+    inset 0 3px 0 0 #8680d6,
     0 25px 80px rgba(0, 0, 0, 0.5),
     0 0 40px rgba(123, 117, 212, 0.3);
 }
@@ -2081,7 +2081,7 @@ html.lenis body {
     var(--bg-card) 60%
   );
   box-shadow:
-    inset 0 3px 0 0 #6bb3cd,
+    inset 0 3px 0 0 #6bb5ce,
     0 25px 80px rgba(0, 0, 0, 0.5),
     0 0 40px rgba(107, 179, 205, 0.3);
 }
@@ -2154,7 +2154,7 @@ html.lenis body {
 }
 /* AI ASSISTANT badge -- teal */
 .product-nova .product-hero-badge {
-  background: linear-gradient(135deg, #4a9bb5, #6bb3cd, #4a9bb5);
+  background: linear-gradient(135deg, #4a9bb5, #6bb5ce, #4a9bb5);
   color: #0a1a20;
   border: 1px solid rgba(107, 179, 205, 0.4);
   box-shadow: 0 0 12px rgba(107, 179, 205, 0.25);
@@ -2254,10 +2254,10 @@ html.lenis body {
 
 /* Per-product icon colors */
 .product-plan .product-hero-icon {
-  color: #7b75d4;
+  color: #8680d6;
 }
 .product-nova .product-hero-icon {
-  color: #6bb3cd;
+  color: #6bb5ce;
 }
 .product-slotops .product-hero-icon {
   color: #0a66c2;
@@ -2379,7 +2379,7 @@ html.lenis body {
   left: 0;
   width: 0;
   height: 1.5px;
-  background: var(--card-accent, #5a54bd);
+  background: var(--card-accent, #5a54be);
   transition: width 0.3s ease;
 }
 .product-hero-card:hover .product-hero-cta::after {
@@ -2460,7 +2460,7 @@ html.lenis body {
 .products-stat-number {
   font-size: 1.8rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #5a54bd, #6bb3cd);
+  background: linear-gradient(135deg, #5a54be, #6bb5ce);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -2772,7 +2772,7 @@ html.lenis body {
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    #7b75d4 0%,
+    #8680d6 0%,
     #06b6d4 70%,
     transparent 100%
   );

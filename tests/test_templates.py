@@ -179,8 +179,8 @@ class TestSecurityInTemplates:
 # Brand Color Validation
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Brand colors: PORT_GORE=#202058, BLUE_VIOLET=#5A54BD, DOWNY_TEAL=#6BB3CD
-_BRAND_COLORS = {"#202058", "#5a54bd", "#6bb3cd"}
+# Brand colors: PORT_GORE=#202058, BLUE_VIOLET=#5A54BE, DOWNY_TEAL=#6BB5CE
+_BRAND_COLORS = {"#202058", "#5a54be", "#6bb5ce"}
 # Off-brand colors that should NOT appear
 _OFF_BRAND_COLORS = {"#4f46e5", "#6366f1", "#3b82f6", "#8b5cf6"}
 

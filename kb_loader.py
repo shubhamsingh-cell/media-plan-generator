@@ -293,6 +293,9 @@ KB_FILES: dict[str, str] = {
     "ta_leaders_curated": "ta_leaders_curated_2026.json",  # 29 influencers, 89 posts from F3
     "intl_role_benchmarks": "intl_role_benchmarks_v1.json",  # F1 (when ready)
     "recruitment_benchmarks_comprehensive": "recruitment_benchmarks_comprehensive_2026.json",
+    # 2026-06-12: Joveo client media-plan deck content (methodology, push/pull,
+    # CPA reference, sample pricing, why-Joveo, case study, next steps).
+    "joveo_media_plan_deck": "joveo_media_plan_deck_2026.json",
 }
 
 # ─────────────────────────────────────────────────────────────────────────────

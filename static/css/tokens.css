@@ -6,18 +6,37 @@
    ================================================================ */
 
 :root {
-  /* ── Brand Colors (unchanged) ── */
+  /* ── Brand Colors (deck-exact, Joveo 2026 guidelines) ── */
   --port-gore: #202058;
-  --blue-violet: #5a54bd;
-  --downy-teal: #6bb3cd;
+  --blue-violet: #5a54be;
+  --downy-teal: #6bb5ce;
+  --magenta: #b7669e;
+
+  /* ── Joveo deck palette (light surfaces — for Nova + generated presentations) ── */
+  --jv-indigo: #202058;
+  --jv-indigo-deep: #131a38;
+  --jv-purple: #5a54be;
+  --jv-purple-hover: #5a4fc4;
+  --jv-purple-light: #8680d6;
+  --jv-teal: #6bb5ce;
+  --jv-teal-deep: #3e8fab;
+  --jv-magenta: #b7669e;
+  --jv-canvas: #fffcf9;
+  --jv-lavender-50: #f4f4ff;
+  --jv-lavender-100: #eceaf7;
+  --jv-blue-50: #eef6ff;
+  --jv-ink: #1f2937;
+  --jv-muted: #6e6e8c;
+  --jv-border: #e3e1f1;
+  --jv-grad-hero: linear-gradient(135deg, #202058 0%, #5a54be 100%);
 
   /* ── Semantic Colors ── */
-  --accent: #5a54bd;
-  --accent-light: #7b75d4;
-  --accent-glow: rgba(90, 84, 189, 0.15);
-  --accent-glow-strong: rgba(90, 84, 189, 0.25);
-  --teal: #6bb3cd;
-  --teal-glow: rgba(107, 179, 205, 0.12);
+  --accent: #5a54be;
+  --accent-light: #8680d6;
+  --accent-glow: rgba(90, 84, 190, 0.15);
+  --accent-glow-strong: rgba(90, 84, 190, 0.25);
+  --teal: #6bb5ce;
+  --teal-glow: rgba(107, 181, 206, 0.12);
   --green: #22c55e;
   --green-glow: rgba(34, 197, 94, 0.12);
   --amber: #f59e0b;
@@ -57,6 +76,9 @@
 
   /* ── Typography ── */
   --font-display: "Space Grotesk", sans-serif;
+  /* Joveo guideline heading font (Poppins) — opt-in via --font-heading.
+     Nova + generated presentations use this; legacy dark dashboards keep --font-display. */
+  --font-heading: "Poppins", "Space Grotesk", -apple-system, sans-serif;
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
 

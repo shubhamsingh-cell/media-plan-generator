@@ -3,9 +3,9 @@
 Joveo-branded PowerPoint generator for AI Media Planner.
 
 Generates a polished, data-driven .pptx presentation using python-pptx.
-Uses Joveo brand identity: Port Gore navy (#202058), Blue Violet purple (#5A54BD),
-Downy teal (#6BB3CD), Light Purple (#8B85E0), Light Teal (#A8D8EA), Gold (#FFD700).
-Fonts: Calibri (titles & body, widely available). Incorporates hero stats, section
+Uses Joveo brand identity: Port Gore navy (#202058), Blue Violet purple (#5A54BE),
+Downy teal (#6BB5CE), Light Purple (#8680D6), Light Teal (#A8D8EA), Magenta (#B7669E).
+Fonts: Poppins (headings), Inter (body). Incorporates hero stats, section
 dividers, quality outcomes grids, channel attribution diagrams, and comparison panels.
 
 Note: This module does not directly import data_orchestrator.py. It receives
@@ -14,10 +14,12 @@ and passes the enriched results into the PPT generation functions.
 """
 
 import io
+import json
 import logging
 import os
 import re
 import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -25,6 +27,12 @@ logger = logging.getLogger(__name__)
 from shared_utils import (
     parse_budget_display,
     INDUSTRY_LABEL_MAP as _SHARED_INDUSTRY_LABEL_MAP,
+)
+
+from joveo_brand_2026 import (
+    LAVENDER_50 as _LAVENDER_50_HEX,
+    LAVENDER_100 as _LAVENDER_100_HEX,
+    BLUE_50 as _BLUE_50_HEX,
 )
 
 from pptx import Presentation
@@ -68,15 +76,15 @@ except ImportError:
 # Chart color palette (hex strings for matplotlib, matching Joveo brand)
 # ---------------------------------------------------------------------------
 _CHART_COLORS = [
-    "#5A54BD",  # Blue Violet (Joveo primary accent)
-    "#6BB3CD",  # Downy Teal (Joveo secondary accent)
-    "#8B85E0",  # Light Purple (Joveo extended)
+    "#5A54BE",  # Blue Violet (Joveo primary accent)
+    "#6BB5CE",  # Downy Teal (Joveo secondary accent)
+    "#8680D6",  # Light Purple (Joveo extended)
     "#A8D8EA",  # Light Teal (Joveo extended)
-    "#FFD700",  # Gold (emphasis)
+    "#B7669E",  # Magenta (emphasis)
     "#202058",  # Port Gore Navy
-    "#CE9047",  # Bronze accent
+    "#3E8FAB",  # Teal deep accent
     "#338721",  # Green (positive)
-    "#B5669C",  # Pink accent
+    "#B7669E",  # Magenta accent
     "#14B8A6",  # Teal accent
 ]
 
@@ -95,7 +103,7 @@ def _generate_pie_chart_image(labels: List[str], sizes: List[float]) -> Optional
         return None
     try:
         fig, ax = plt.subplots(figsize=(7, 5), dpi=150)
-        fig.patch.set_facecolor("#FFFDF9")
+        fig.patch.set_facecolor("#FFFCF9")
 
         colors = _CHART_COLORS[: len(labels)]
         # Extend colors if we have more channels than palette entries
@@ -187,9 +195,9 @@ def _generate_funnel_chart_image(
         ]
 
         fig, ax = plt.subplots(figsize=(8, 4.5), dpi=150)
-        fig.patch.set_facecolor("#FFFDF9")
+        fig.patch.set_facecolor("#FFFCF9")
 
-        funnel_colors = ["#202058", "#5A54BD", "#6BB3CD", "#338721"]
+        funnel_colors = ["#202058", "#5A54BE", "#6BB5CE", "#338721"]
         max_val = values[0]
 
         y_positions = [3.0, 2.0, 1.0, 0.0]
@@ -324,28 +332,28 @@ def _proper_client_name(name: str) -> str:
 
 # ---------------------------------------------------------------------------
 # Constants & Color Palette (Joveo brand identity)
-# Primary: Port Gore #202058  |  Accent: Blue Violet #5A54BD
-# Secondary: Downy Teal #6BB3CD  |  Extended: Light Purple #8B85E0
-# Extended: Light Teal #A8D8EA  |  Emphasis: Gold #FFD700
+# Primary: Port Gore #202058  |  Accent: Blue Violet #5A54BE
+# Secondary: Downy Teal #6BB5CE  |  Extended: Light Purple #8680D6
+# Extended: Light Teal #A8D8EA  |  Emphasis: Magenta #B7669E
 # ---------------------------------------------------------------------------
 
 # -- Joveo brand primaries --
 NAVY = RGBColor(0x20, 0x20, 0x58)  # Port Gore -- primary dark / headings
-BLUE = RGBColor(0x5A, 0x54, 0xBD)  # Blue Violet -- primary accent
+BLUE = RGBColor(0x5A, 0x54, 0xBE)  # Blue Violet -- primary accent
 MEDIUM_BLUE = RGBColor(0x48, 0x43, 0x9E)  # Deeper purple accent
 LIGHT_BLUE = RGBColor(0xDD, 0xDB, 0xFF)  # Light purple background
 PALE_BLUE = RGBColor(0xB8, 0xB4, 0xF7)  # Medium purple accent fill
 SKY_BLUE = RGBColor(0xA8, 0xD8, 0xEA)  # Light teal (Joveo extended)
 
 # -- Joveo secondary --
-TEAL = RGBColor(0x6B, 0xB3, 0xCD)  # Downy Teal -- secondary accent
+TEAL = RGBColor(0x6B, 0xB5, 0xCE)  # Downy Teal -- secondary accent
 LIGHT_TEAL = RGBColor(0xA8, 0xD8, 0xEA)  # Light teal (Joveo extended)
 PALE_TEAL = RGBColor(0xDA, 0xF5, 0xFF)  # Pale teal background
 
 # -- Neutrals --
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-OFF_WHITE = RGBColor(0xFF, 0xFD, 0xF9)  # Floral White (page bg)
-WARM_WHITE = RGBColor(0xFF, 0xFD, 0xF9)  # Card backgrounds
+OFF_WHITE = RGBColor(0xFF, 0xFC, 0xF9)  # Warm white canvas (page bg)
+WARM_WHITE = RGBColor(0xFF, 0xFC, 0xF9)  # Card backgrounds
 WARM_GRAY = RGBColor(0xEB, 0xE6, 0xE0)  # Borders, dividers
 MEDIUM_GRAY = RGBColor(0xD6, 0xCF, 0xC2)  # Subtle separators
 
@@ -357,23 +365,51 @@ LIGHT_MUTED = RGBColor(0x8C, 0x96, 0xA8)  # Tertiary text
 # -- Semantic colors --
 GREEN = RGBColor(0x33, 0x87, 0x21)  # Positive / beating benchmark
 LIGHT_GREEN = RGBColor(0xE6, 0xF2, 0xE0)  # Green background
-AMBER = RGBColor(0xCE, 0x90, 0x47)  # Bronze -- trailing benchmark
+AMBER = RGBColor(0x3E, 0x8F, 0xAB)  # Teal deep -- trailing benchmark
 LIGHT_AMBER = RGBColor(0xFD, 0xDB, 0xB2)  # Light bronze background
-RED_ACCENT = RGBColor(0xB5, 0x66, 0x9C)  # Pink -- underperformance accent
-GOLD = RGBColor(0xFF, 0xD7, 0x00)  # Gold -- emphasis / highlights
+RED_ACCENT = RGBColor(0xB7, 0x66, 0x9E)  # Magenta -- underperformance accent
+GOLD = RGBColor(0xB7, 0x66, 0x9E)  # Magenta -- emphasis / highlights
 
 # -- Joveo extended palette --
-JOVEO_LIGHT_PURPLE = RGBColor(0x8B, 0x85, 0xE0)  # Light purple accent
-JOVEO_BRONZE = RGBColor(0xCE, 0x90, 0x47)  # Bronze accent / CTAs
-JOVEO_PINK = RGBColor(0xB5, 0x66, 0x9C)  # Pink / magenta accent
+JOVEO_LIGHT_PURPLE = RGBColor(0x86, 0x80, 0xD6)  # Light purple accent
+JOVEO_BRONZE = RGBColor(0x3E, 0x8F, 0xAB)  # Teal deep accent / CTAs
+JOVEO_PINK = RGBColor(0xB7, 0x66, 0x9E)  # Magenta accent
 
-# -- Fonts (Calibri: widely available, clean sans-serif) --
-FONT_FAMILY = "Calibri"  # Brand title font
-FONT_BODY = "Calibri"  # Brand body font
+# -- Deck narrative surfaces (canonical hexes imported from joveo_brand_2026) --
+LAVENDER_50 = RGBColor.from_string(_LAVENDER_50_HEX.lstrip("#"))  # zebra rows / strips
+LAVENDER_100 = RGBColor.from_string(_LAVENDER_100_HEX.lstrip("#"))  # Push card surface
+BLUE_50 = RGBColor.from_string(_BLUE_50_HEX.lstrip("#"))  # Pull card surface
+
+# -- Fonts (Poppins headings, Inter body -- Joveo deck 2026) --
+FONT_FAMILY = "Poppins"  # Brand heading / title font
+FONT_BODY = "Inter"  # Brand body font
 
 # Slide dimensions (16:9 widescreen)
 SLIDE_WIDTH = Inches(13.333)
 SLIDE_HEIGHT = Inches(7.5)
+
+
+def _load_deck_kb() -> Dict[str, Any]:
+    """Load the Joveo media-plan deck content (methodology, push/pull, CPA
+    reference, case study, next steps) from the KB.
+
+    Mirrors pdf_generator._load_deck_kb. Returns ``{}`` if the file is
+    unavailable so the presentation degrades gracefully.
+    """
+    try:
+        path = Path(__file__).parent / "data" / "joveo_media_plan_deck_2026.json"
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError) as exc:  # missing file / malformed JSON
+        logger.warning("deck KB unavailable, skipping narrative slides: %s", exc)
+        return {}
+
+
+def _set_body_font(tf) -> None:
+    """Switch every run in a text frame to the Inter body font."""
+    for p in tf.paragraphs:
+        for r in p.runs:
+            r.font.name = FONT_BODY
 
 
 def _trunc_word(s: str, maxlen: int = 500) -> str:
@@ -4364,7 +4400,7 @@ def _embed_pie_chart_on_budget_slide(prs: Presentation, data: Dict) -> None:
     # Generate a compact pie chart (smaller than the standalone version)
     try:
         fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=150)
-        fig.patch.set_facecolor("#FFFDF9")
+        fig.patch.set_facecolor("#FFFCF9")
 
         colors = _CHART_COLORS[: len(labels)]
         while len(colors) < len(labels):
@@ -7845,9 +7881,9 @@ def _build_slides_gold_standard(prs: Presentation, data: Dict) -> None:
                 gap = Inches(0.1)
 
                 intensity_colors: dict[str, RGBColor] = {
-                    "very_high": RGBColor(0xB5, 0x66, 0x9C),  # Pink
-                    "high": RGBColor(0x5A, 0x54, 0xBD),  # Blue Violet
-                    "moderate": RGBColor(0x6B, 0xB3, 0xCD),  # Teal
+                    "very_high": RGBColor(0xB7, 0x66, 0x9E),  # Magenta
+                    "high": RGBColor(0x5A, 0x54, 0xBE),  # Blue Violet
+                    "moderate": RGBColor(0x6B, 0xB5, 0xCE),  # Teal
                     "low": RGBColor(0xEB, 0xE6, 0xE0),  # Warm gray
                 }
 
@@ -8286,6 +8322,503 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
         _logging.getLogger(__name__).error(
             "Risk Analysis slide failed: %s", exc, exc_info=True
         )
+
+
+# ===================================================================
+# DECK NARRATIVE SLIDES -- Joveo client deck 2026 parity
+# (content from data/joveo_media_plan_deck_2026.json via _load_deck_kb)
+# ===================================================================
+
+
+def _build_slide_methodology(prs: Presentation, data: Dict, deck: Dict) -> None:
+    """Build the 'Our Methodology' slide -- Joveo's 6-step campaign management.
+
+    Renders 6 numbered step cards (2 rows x 3 cols) with purple number chips,
+    step name, AI-tool tag, and detail text. No-ops if the deck KB section
+    is missing so generation never depends on the narrative content.
+    """
+    steps = ((deck.get("campaign_methodology") or {}).get("steps")) or []
+    if not steps:
+        return
+
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+    today = datetime.date.today().strftime("%B %d, %Y")
+
+    # Background + standard chrome
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+    _add_top_band(slide, "OUR METHODOLOGY", today)
+
+    _add_textbox(
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.45),
+        text="Our Methodology -- Joveo's 6-step campaign management on the MOJO platform",
+        font_size=15,
+        bold=True,
+        color=NAVY,
+    )
+
+    # 2x3 grid of numbered step cards
+    card_w = Inches(3.95)
+    card_h = Inches(2.45)
+    gap = Inches(0.2)
+    grid_top = Inches(1.55)
+    grid_left = Inches(0.55)
+
+    for idx, step in enumerate(steps[:6]):
+        if not isinstance(step, dict):
+            continue
+        col = idx % 3
+        row_idx = idx // 3
+        x = grid_left + col * (card_w + gap)
+        y = grid_top + row_idx * (card_h + gap)
+
+        _add_rounded_rect(slide, x, y, card_w, card_h, WHITE)
+
+        # Purple circle number chip
+        chip = Inches(0.42)
+        _add_oval(slide, x + Inches(0.18), y + Inches(0.18), chip, chip, BLUE)
+        _add_textbox(
+            slide,
+            x + Inches(0.18),
+            y + Inches(0.18),
+            chip,
+            chip,
+            text=str(step.get("n") or idx + 1),
+            font_size=14,
+            bold=True,
+            color=WHITE,
+            alignment=PP_ALIGN.CENTER,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+
+        # Step name (Poppins bold, navy)
+        _add_textbox(
+            slide,
+            x + Inches(0.72),
+            y + Inches(0.16),
+            card_w - Inches(0.9),
+            Inches(0.66),
+            text=str(step.get("name") or ""),
+            font_size=11,
+            bold=True,
+            color=NAVY,
+        )
+
+        # AI-tool tag (small purple caps) -- step 1 has no AI tool
+        ai_tag = str(step.get("ai") or "")
+        if ai_tag:
+            _add_textbox(
+                slide,
+                x + Inches(0.18),
+                y + Inches(0.92),
+                card_w - Inches(0.36),
+                Inches(0.24),
+                text=ai_tag.upper(),
+                font_size=8,
+                bold=True,
+                color=BLUE,
+            )
+
+        # Detail text (Inter, muted)
+        _box, _tf = _add_textbox(
+            slide,
+            x + Inches(0.18),
+            y + Inches(1.2),
+            card_w - Inches(0.36),
+            Inches(1.12),
+            text=str(step.get("detail") or ""),
+            font_size=9,
+            color=MUTED_TEXT,
+        )
+        _set_body_font(_tf)
+
+    _add_footer(slide, today)
+
+
+def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> None:
+    """Build the 'Push Meets Pull' slide -- active outreach vs. brand magnetism.
+
+    Two large rounded cards side-by-side: Push (lavender surface, purple pill)
+    and Pull (blue-50 surface, teal-deep pill), with the deck summary line
+    under the title band. No-ops if the deck KB section is missing.
+    """
+    pmp = deck.get("push_meets_pull") or {}
+    push = pmp.get("push") or {}
+    pull = pmp.get("pull") or {}
+    if not push and not pull:
+        return
+
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+    today = datetime.date.today().strftime("%B %d, %Y")
+
+    # Background + standard chrome
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+    _add_top_band(slide, "PUSH MEETS PULL", today)
+
+    _add_textbox(
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.45),
+        text="Push Meets Pull -- a dual-engine sourcing strategy",
+        font_size=15,
+        bold=True,
+        color=NAVY,
+    )
+
+    # Summary line under the title band (Inter, muted)
+    summary = str(pmp.get("summary") or "")
+    if summary:
+        _box, _tf = _add_textbox(
+            slide,
+            Inches(0.55),
+            Inches(1.4),
+            Inches(12.2),
+            Inches(0.35),
+            text=summary,
+            font_size=11,
+            color=MUTED_TEXT,
+        )
+        _set_body_font(_tf)
+
+    # Two large rounded cards side-by-side
+    card_w = Inches(6.0)
+    card_h = Inches(4.6)
+    card_top = Inches(2.0)
+    cards = [
+        (Inches(0.55), push, LAVENDER_100, BLUE),  # Push: lavender + purple pill
+        (Inches(6.8), pull, BLUE_50, AMBER),  # Pull: blue-50 + teal-deep pill
+    ]
+    for card_x, section, surface, pill_color in cards:
+        if not isinstance(section, dict) or not section:
+            continue
+        _add_rounded_rect(slide, card_x, card_top, card_w, card_h, surface)
+
+        # Pill title
+        _add_rounded_rect(
+            slide,
+            card_x + Inches(0.4),
+            card_top + Inches(0.4),
+            Inches(4.8),
+            Inches(0.55),
+            pill_color,
+        )
+        _add_textbox(
+            slide,
+            card_x + Inches(0.4),
+            card_top + Inches(0.4),
+            Inches(4.8),
+            Inches(0.55),
+            text=str(section.get("name") or ""),
+            font_size=12,
+            bold=True,
+            color=WHITE,
+            alignment=PP_ALIGN.CENTER,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+
+        # Detail text (Inter)
+        _box, _tf = _add_textbox(
+            slide,
+            card_x + Inches(0.4),
+            card_top + Inches(1.3),
+            card_w - Inches(0.8),
+            Inches(3.0),
+            text=str(section.get("detail") or ""),
+            font_size=11,
+            color=DARK_TEXT,
+        )
+        _set_body_font(_tf)
+
+    _add_footer(slide, today)
+
+
+def _build_slide_cpa_reference(prs: Presentation, data: Dict, deck: Dict) -> None:
+    """Build the 'CPA Reference' slide -- baseline CPA ranges by role category.
+
+    Shape-built table: indigo header row with white Poppins text, columns
+    Role Category | Est. CPA Range | Benchmark Basis, zebra-striped rows.
+    No-ops if the deck KB section is missing.
+    """
+    cpa = deck.get("cpa_reference") or {}
+    roles = cpa.get("roles") or []
+    if not roles:
+        return
+
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+    today = datetime.date.today().strftime("%B %d, %Y")
+
+    # Background + standard chrome
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+    _add_top_band(slide, "CPA REFERENCE", today)
+
+    _add_textbox(
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.45),
+        text="CPA Reference -- baseline cost-per-application by role category",
+        font_size=15,
+        bold=True,
+        color=NAVY,
+    )
+
+    # KB calibration note (Inter, muted)
+    desc = str(cpa.get("description") or "")
+    if desc:
+        _box, _tf = _add_textbox(
+            slide,
+            Inches(0.55),
+            Inches(1.38),
+            Inches(12.2),
+            Inches(0.3),
+            text=desc,
+            font_size=9,
+            color=MUTED_TEXT,
+        )
+        _set_body_font(_tf)
+
+    # Shape-built table: header + zebra-striped rows
+    table_left = Inches(0.55)
+    col_widths = [Inches(4.6), Inches(2.4), Inches(5.2)]
+    headers = ["Role Category", "Est. CPA Range", "Benchmark Basis"]
+    header_top = Inches(1.8)
+    header_h = Inches(0.42)
+    row_h = Inches(0.58)
+
+    # Header row -- indigo with white Poppins text
+    _add_filled_rect(slide, table_left, header_top, sum(col_widths, Inches(0)), header_h, NAVY)
+    cx = table_left
+    for header, cw in zip(headers, col_widths):
+        _add_textbox(
+            slide,
+            cx + Inches(0.15),
+            header_top,
+            cw - Inches(0.3),
+            header_h,
+            text=header,
+            font_size=10,
+            bold=True,
+            color=WHITE,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+        cx += cw
+
+    for idx, role in enumerate(roles[:7]):
+        if not isinstance(role, dict):
+            continue
+        y = header_top + header_h + idx * row_h
+
+        # Zebra striping on alternating rows
+        _add_filled_rect(
+            slide,
+            table_left,
+            y,
+            sum(col_widths, Inches(0)),
+            row_h,
+            LAVENDER_50 if idx % 2 == 0 else WHITE,
+        )
+
+        low = role.get("cpa_low")
+        high = role.get("cpa_high")
+        cpa_range = (
+            f"${low} – ${high}" if low is not None and high is not None else "--"
+        )
+        cells = [
+            (str(role.get("category") or ""), 10, True, NAVY),
+            (cpa_range, 10, True, BLUE),
+            (str(role.get("basis") or ""), 9, False, MUTED_TEXT),
+        ]
+        cx = table_left
+        for (cell_text, fsize, fbold, fcolor), cw in zip(cells, col_widths):
+            _box, _tf = _add_textbox(
+                slide,
+                cx + Inches(0.15),
+                y,
+                cw - Inches(0.3),
+                row_h,
+                text=cell_text,
+                font_size=fsize,
+                bold=fbold,
+                color=fcolor,
+                anchor=MSO_ANCHOR.MIDDLE,
+            )
+            if not fbold:  # basis column reads as body copy
+                _set_body_font(_tf)
+            cx += cw
+
+    _add_footer(slide, today)
+
+
+def _build_slide_case_study_next_steps(
+    prs: Presentation, data: Dict, deck: Dict
+) -> None:
+    """Build the 'Case Study & Next Steps' closing slide.
+
+    Top: 3 KPI stat blocks from case_study.results. Middle: Challenges vs.
+    The Joveo Solution bullet columns. Bottom: numbered Next Steps strip.
+    No-ops if both deck KB sections are missing.
+    """
+    case = deck.get("case_study") or {}
+    next_steps = deck.get("next_steps") or []
+    if not case and not next_steps:
+        return
+
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+    today = datetime.date.today().strftime("%B %d, %Y")
+
+    # Background + standard chrome
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+    _add_top_band(slide, "CASE STUDY & NEXT STEPS", today)
+
+    _add_textbox(
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.45),
+        text=f"Case study: {case.get('title') or 'Proven results at scale'}",
+        font_size=15,
+        bold=True,
+        color=NAVY,
+    )
+
+    # Top: 3 KPI stat blocks (value big purple, detail small muted)
+    results = case.get("results") or []
+    block_w = Inches(3.95)
+    block_h = Inches(1.5)
+    block_top = Inches(1.45)
+    gap = Inches(0.2)
+    for idx, res in enumerate(results[:3]):
+        if not isinstance(res, dict):
+            continue
+        x = Inches(0.55) + idx * (block_w + gap)
+        _add_rounded_rect(slide, x, block_top, block_w, block_h, WHITE)
+        _add_textbox(
+            slide,
+            x + Inches(0.2),
+            block_top + Inches(0.08),
+            block_w - Inches(0.4),
+            Inches(0.6),
+            text=str(res.get("value") or ""),
+            font_size=30,
+            bold=True,
+            color=BLUE,
+        )
+        _add_textbox(
+            slide,
+            x + Inches(0.2),
+            block_top + Inches(0.72),
+            block_w - Inches(0.4),
+            Inches(0.24),
+            text=str(res.get("metric") or "").upper(),
+            font_size=8,
+            bold=True,
+            color=NAVY,
+        )
+        _box, _tf = _add_textbox(
+            slide,
+            x + Inches(0.2),
+            block_top + Inches(0.98),
+            block_w - Inches(0.4),
+            Inches(0.46),
+            text=str(res.get("detail") or ""),
+            font_size=8,
+            color=MUTED_TEXT,
+        )
+        _set_body_font(_tf)
+
+    # Middle: Challenges vs. The Joveo Solution bullet columns
+    columns = [
+        (Inches(0.55), "Challenges", case.get("challenges") or [], RED_ACCENT),
+        (Inches(6.8), "The Joveo Solution", case.get("solution") or [], BLUE),
+    ]
+    col_top = Inches(3.15)
+    for col_x, col_title, items, accent in columns:
+        if not items:
+            continue
+        _add_textbox(
+            slide,
+            col_x,
+            col_top,
+            Inches(6.0),
+            Inches(0.3),
+            text=col_title,
+            font_size=11,
+            bold=True,
+            color=NAVY,
+        )
+        _box, tf = _add_textbox(
+            slide, col_x, col_top + Inches(0.34), Inches(6.0), Inches(1.9)
+        )
+        for item in items[:4]:
+            p = tf.add_paragraph()
+            p.space_before = Pt(1)
+            p.space_after = Pt(3)
+            rb = p.add_run()
+            rb.text = "\u25cf  "
+            _set_font(rb, size=8, color=accent)
+            rt = p.add_run()
+            rt.text = str(item)
+            _set_font(rt, size=9, color=DARK_TEXT, name=FONT_BODY)
+
+    # Bottom strip: numbered Next Steps 1-5, horizontal
+    if next_steps:
+        strip_top = Inches(5.6)
+        _add_rounded_rect(
+            slide, Inches(0.55), strip_top, Inches(12.25), Inches(1.25), LAVENDER_50
+        )
+        _add_textbox(
+            slide,
+            Inches(0.8),
+            strip_top + Inches(0.08),
+            Inches(3.0),
+            Inches(0.28),
+            text="Next Steps",
+            font_size=11,
+            bold=True,
+            color=NAVY,
+        )
+        item_w = Inches(2.41)
+        for idx, step in enumerate(next_steps[:5]):
+            x = Inches(0.8) + idx * item_w
+            chip = Inches(0.3)
+            _add_oval(slide, x, strip_top + Inches(0.44), chip, chip, BLUE)
+            _add_textbox(
+                slide,
+                x,
+                strip_top + Inches(0.44),
+                chip,
+                chip,
+                text=str(idx + 1),
+                font_size=10,
+                bold=True,
+                color=WHITE,
+                alignment=PP_ALIGN.CENTER,
+                anchor=MSO_ANCHOR.MIDDLE,
+            )
+            _box, _tf = _add_textbox(
+                slide,
+                x + Inches(0.38),
+                strip_top + Inches(0.4),
+                item_w - Inches(0.55),
+                Inches(0.78),
+                text=str(step),
+                font_size=8,
+                color=DARK_TEXT,
+            )
+            _set_body_font(_tf)
+
+    _add_footer(slide, today)
 
 
 # ===================================================================
@@ -9013,9 +9546,17 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         prs.slide_width = SLIDE_WIDTH
         prs.slide_height = SLIDE_HEIGHT
 
-        # S48: Capped at 8 slides for executive pitch deck. Extended analysis lives in Excel.
-        # Slide order: Cover, Exec Summary, Channel Strategy, Budget+Pie,
-        #              Competitive Landscape, Timeline, Risk, Data Sources.
+        # S48 note superseded: ~11-slide deck mirroring the official Joveo
+        # client deck flow. Extended analysis still lives in Excel.
+        # Slide order: Cover, Exec Summary, [Methodology], [Push Meets Pull],
+        #              Channel Strategy, Budget+Pie (or Quality), [CPA Reference],
+        #              Competitive Landscape, Timeline, Risk,
+        #              [Case Study & Next Steps].
+        # Bracketed narrative slides come from the deck KB and self-skip
+        # when data/joveo_media_plan_deck_2026.json is unavailable.
+
+        # Deck KB: narrative content shared with the official client deck
+        deck = _load_deck_kb()
 
         # Slide 1: Premium cover / section divider
         _build_slide_cover(prs, data)
@@ -9036,7 +9577,7 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
                     _warn_color = "FF8C00"  # Dark orange for moderate
                 else:
                     _warn_prefix = "Note"
-                    _warn_color = "FFD700"  # Gold for mild
+                    _warn_color = "B7669E"  # Magenta for mild
                 _add_textbox(
                     _cover_slide,
                     Inches(0.6),
@@ -9056,10 +9597,22 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         # Slide 2: Executive Summary (hero stats + SCR + market context)
         _build_slide_executive_summary(prs, data)
 
-        # Slide 3: Channel Strategy with benchmarks + attribution
+        # Slide 3: Our Methodology (deck narrative -- never blocks generation)
+        try:
+            _build_slide_methodology(prs, data, deck)
+        except Exception as _meth_exc:
+            logger.debug("Methodology slide failed (non-fatal): %s", _meth_exc)
+
+        # Slide 4: Push Meets Pull (deck narrative -- never blocks generation)
+        try:
+            _build_slide_push_meets_pull(prs, data, deck)
+        except Exception as _pmp_exc:
+            logger.debug("Push Meets Pull slide failed (non-fatal): %s", _pmp_exc)
+
+        # Slide 5: Channel Strategy with benchmarks + attribution
         _build_slide_channel_strategy(prs, data)
 
-        # Slide 4: Budget Allocation & ROI with embedded pie chart
+        # Slide 6: Budget Allocation & ROI with embedded pie chart
         #          (or Quality Outcomes as fallback when budget_allocation is empty)
         budget_alloc_data = data.get("_budget_allocation", {})
         if isinstance(budget_alloc_data, dict) and budget_alloc_data:
@@ -9084,16 +9637,30 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         else:
             _build_slide_quality_outcomes(prs, data)
 
-        # Slide 5: Competitive Landscape (always shown)
+        # Slide 7: CPA Reference (deck narrative -- never blocks generation)
+        try:
+            _build_slide_cpa_reference(prs, data, deck)
+        except Exception as _cpa_exc:
+            logger.debug("CPA Reference slide failed (non-fatal): %s", _cpa_exc)
+
+        # Slide 8: Competitive Landscape (always shown)
         _build_slide_competitive_landscape(prs, data)
 
-        # Slide 6: Implementation Timeline + Competitive Context
+        # Slide 9: Implementation Timeline + Competitive Context
         _build_slide_comparison_timeline(prs, data)
 
-        # Slide 7: Risk Analysis -- always included for C-suite readiness
+        # Slide 10: Risk Analysis -- always included for C-suite readiness
         _build_slide_risk_analysis(prs, data)
 
-        # Slide 8: Data Sources & Methodology -- REMOVED from client deck (S50)
+        # Slide 11: Case Study & Next Steps (deck narrative -- never blocks generation)
+        try:
+            _build_slide_case_study_next_steps(prs, data, deck)
+        except Exception as _cs_exc:
+            logger.debug(
+                "Case Study & Next Steps slide failed (non-fatal): %s", _cs_exc
+            )
+
+        # Data Sources & Methodology -- REMOVED from client deck (S50)
         # _build_slide_data_sources(prs, data)  # kept for internal debugging
 
         buffer = io.BytesIO()

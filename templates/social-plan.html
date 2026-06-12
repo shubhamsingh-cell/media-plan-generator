@@ -30,8 +30,8 @@
         --bg: #000000;
         --card: rgba(17, 17, 17, 0.8);
         --card-border: rgba(255, 255, 255, 0.08);
-        --accent: #5a54bd;
-        --accent-light: #7b75d4;
+        --accent: #5a54be;
+        --accent-light: #8680d6;
         --accent-glow: rgba(90, 84, 189, 0.25);
         --text: #e4e4e7;
         --text-muted: #a1a1a1;
@@ -1690,7 +1690,7 @@
         const labels = entries.map(([k, v]) => v.name);
         const data = entries.map(([k, v]) => v.budget);
         const colors = [
-          "#5a54bd",
+          "#5a54be",
           "#22c55e",
           "#f59e0b",
           "#ef4444",
@@ -2004,7 +2004,7 @@
           const platformName =
             platform.charAt(0).toUpperCase() + platform.slice(1);
           html += `<div class="card" style="background:var(--card,rgba(17,17,17,0.8));border:1px solid var(--border,rgba(255,255,255,0.08));border-radius:12px;padding:20px;">`;
-          html += `<h4 style="font-size:1rem;font-weight:700;color:var(--accent-light,#7b75d4);margin-bottom:12px;text-transform:capitalize;">${escapeHtml(platformName)}</h4>`;
+          html += `<h4 style="font-size:1rem;font-weight:700;color:var(--accent-light,#8680d6);margin-bottom:12px;text-transform:capitalize;">${escapeHtml(platformName)}</h4>`;
 
           if (typeof specs === "string") {
             html += `<p style="font-size:0.85rem;color:var(--text-muted);">${escapeHtml(specs)}</p>`;
@@ -2048,7 +2048,7 @@
               Object.entries(imageSizes).forEach(([key, val]) => {
                 html += `<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:0.8rem;">`;
                 html += `<span style="color:var(--text);">${escapeHtml(key)}</span>`;
-                html += `<span style="color:var(--cyan-accent,#6bb3cd);font-family:var(--font-mono);">${escapeHtml(String(val))}</span>`;
+                html += `<span style="color:var(--cyan-accent,#6bb5ce);font-family:var(--font-mono);">${escapeHtml(String(val))}</span>`;
                 html += "</div>";
               });
             }
@@ -2183,7 +2183,7 @@
         href="https://www.linkedin.com/in/chandel13/"
         target="_blank"
         rel="noopener"
-        style="color: #7b75d4; text-decoration: none"
+        style="color: #8680d6; text-decoration: none"
         >Shubham Singh Chandel</a
       >
       &middot; Nova AI Suite

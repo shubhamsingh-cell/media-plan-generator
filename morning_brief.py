@@ -186,7 +186,7 @@ def generate_brief_html(brief: Dict[str, Any]) -> str:
 
     action_html = ""
     for act in actions:
-        action_html += f'<a href="{act.get("url") or "#"}" style="display:inline-block;padding:8px 16px;background:#5A54BD;color:#fff;border-radius:8px;text-decoration:none;font-size:0.82rem;font-weight:600;margin-right:8px;margin-bottom:8px">{act.get("label") or ""}</a>'
+        action_html += f'<a href="{act.get("url") or "#"}" style="display:inline-block;padding:8px 16px;background:#5A54BE;color:#fff;border-radius:8px;text-decoration:none;font-size:0.82rem;font-weight:600;margin-right:8px;margin-bottom:8px">{act.get("label") or ""}</a>'
 
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -197,19 +197,19 @@ def generate_brief_html(brief: Dict[str, Any]) -> str:
 body{{font-family:'Inter',sans-serif;background:#0a0a0f;color:#e5e5e5;padding:24px;min-height:100vh}}
 .brief{{max-width:640px;margin:0 auto;background:linear-gradient(145deg,#12121a,#1a1a2e);border:1px solid rgba(90,84,189,0.3);border-radius:24px;padding:40px 32px}}
 .header{{display:flex;align-items:center;gap:12px;margin-bottom:24px}}
-.logo{{width:36px;height:36px;background:#5A54BD;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px}}
+.logo{{width:36px;height:36px;background:#5A54BE;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px}}
 .date{{font-size:0.8rem;color:#888;margin-bottom:4px}}
 .greeting{{font-size:1.3rem;font-weight:700;color:#fff;margin-bottom:24px}}
 .stats{{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px}}
 .stat{{text-align:center;padding:16px 8px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.06)}}
 .stat-val{{font-size:1.4rem;font-weight:800;color:#fff}}
-.stat-val.purple{{color:#5A54BD}}.stat-val.teal{{color:#6BB3CD}}.stat-val.green{{color:#22c55e}}
+.stat-val.purple{{color:#5A54BE}}.stat-val.teal{{color:#6BB5CE}}.stat-val.green{{color:#22c55e}}
 .stat-lbl{{font-size:0.68rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-top:4px}}
 .section-title{{font-size:0.75rem;color:#666;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin:24px 0 12px}}
 .rec{{padding:20px;background:rgba(90,84,189,0.08);border:1px solid rgba(90,84,189,0.2);border-radius:12px;margin-bottom:20px}}
 .rec-title{{font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:6px}}
 .rec-desc{{font-size:0.82rem;color:#bbb;line-height:1.5}}
-.rec-cta{{display:inline-block;margin-top:12px;padding:8px 16px;background:#5A54BD;color:#fff;border-radius:8px;text-decoration:none;font-size:0.8rem;font-weight:600}}
+.rec-cta{{display:inline-block;margin-top:12px;padding:8px 16px;background:#5A54BE;color:#fff;border-radius:8px;text-decoration:none;font-size:0.8rem;font-weight:600}}
 .footer{{margin-top:28px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.08);font-size:0.72rem;color:#555;text-align:center}}
 @media(max-width:500px){{.stats{{grid-template-columns:1fr}}.brief{{padding:28px 20px}}}}
 </style></head><body>

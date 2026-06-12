@@ -20,7 +20,7 @@
   var MAX_HISTORY = 20;
   var MAX_STORED_MESSAGES = 100;
 
-  // ── Nova branded SVG avatar (BLUE_VIOLET #5A54BD -> DOWNY_TEAL #6BB3CD) ──
+  // ── Nova branded SVG avatar (BLUE_VIOLET #5A54BE -> DOWNY_TEAL #6BB5CE) ──
   function _novaAvatarSVG(size) {
     var s = size || 32;
     var fs = Math.round(s * 0.47);
@@ -36,7 +36,7 @@
       s +
       '" xmlns="http://www.w3.org/2000/svg">' +
       '<defs><linearGradient id="nova-av-g" x1="0%" y1="0%" x2="100%" y2="100%">' +
-      '<stop offset="0%" stop-color="#5A54BD"/><stop offset="100%" stop-color="#6BB3CD"/>' +
+      '<stop offset="0%" stop-color="#5A54BE"/><stop offset="100%" stop-color="#6BB5CE"/>' +
       "</linearGradient></defs>" +
       '<circle cx="' +
       s / 2 +
@@ -844,8 +844,8 @@
 
     // Brand palette: PORT_GORE, BLUE_VIOLET, DOWNY_TEAL + shades.
     var palette = [
-      "#5A54BD",
-      "#6BB3CD",
+      "#5A54BE",
+      "#6BB5CE",
       "#7C6FE0",
       "#8FC8E0",
       "#202058",
@@ -868,7 +868,7 @@
     header.style.cssText =
       "width:100%;display:flex;justify-content:space-between;align-items:center;" +
       "padding:8px 12px;background:none;border:none;cursor:pointer;" +
-      "font-size:12px;font-weight:600;color:#5A54BD;font-family:inherit;";
+      "font-size:12px;font-weight:600;color:#5A54BE;font-family:inherit;";
     header.innerHTML =
       "<span>Chart: " +
       escapeHtml(shape.title) +
@@ -1664,7 +1664,7 @@
       "  letter-spacing: 0.2px; display: inline-flex; align-items: center; gap: 6px;",
       "}",
       ".nova-why-toggle:hover {",
-      "  color: #6BB3CD; border-color: rgba(107,179,205,0.35);",
+      "  color: #6BB5CE; border-color: rgba(107,179,205,0.35);",
       "  background: rgba(107,179,205,0.06);",
       "}",
       ".nova-why-toggle:focus-visible { outline: 2px solid rgba(107,179,205,0.6); outline-offset: 2px; }",
@@ -1673,14 +1673,14 @@
       ".nova-why-panel {",
       "  margin-top: 8px; padding: 12px 14px;",
       "  background: linear-gradient(180deg, rgba(32,32,88,0.30) 0%, rgba(15,15,26,0.55) 100%);",
-      "  border: 1px solid rgba(90,84,189,0.22); border-left: 3px solid #5A54BD;",
+      "  border: 1px solid rgba(90,84,189,0.22); border-left: 3px solid #5A54BE;",
       "  border-radius: 10px; font-size: 12px; line-height: 1.55;",
       "  color: var(--text-secondary, #c0c0cc);",
       "}",
       ".nova-why-row { display: flex; gap: 10px; padding: 3px 0; align-items: flex-start; }",
       ".nova-why-row + .nova-why-row { border-top: 1px solid rgba(255,255,255,0.04); padding-top: 6px; margin-top: 4px; }",
       ".nova-why-label {",
-      "  flex: 0 0 96px; color: #6BB3CD; font-weight: 600;",
+      "  flex: 0 0 96px; color: #6BB5CE; font-weight: 600;",
       "  font-size: 11px; letter-spacing: 0.3px; text-transform: uppercase;",
       "}",
       ".nova-why-value { flex: 1 1 auto; min-width: 0; word-break: break-word; }",
@@ -1705,7 +1705,7 @@
       "  background: linear-gradient(180deg, rgba(32,32,88,0.04) 0%, rgba(107,179,205,0.05) 100%);",
       "  border-color: rgba(90,84,189,0.25); color: #334;",
       "}",
-      '[data-theme="light"] .nova-why-label { color: #5A54BD; }',
+      '[data-theme="light"] .nova-why-label { color: #5A54BE; }',
       '[data-theme="light"] .nova-why-chip { background: rgba(90,84,189,0.06); color: #202058; border-color: rgba(90,84,189,0.15); }',
       "",
     ].join("\n");

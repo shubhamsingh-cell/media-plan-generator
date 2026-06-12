@@ -20,8 +20,8 @@ _report_cache: dict[str, Any] = {}
 
 # ── Brand colors ──
 PORT_GORE = "#202058"
-BLUE_VIOLET = "#5A54BD"
-DOWNY_TEAL = "#6BB3CD"
+BLUE_VIOLET = "#5A54BE"
+DOWNY_TEAL = "#6BB5CE"
 
 # ── Industry benchmarks for conversion rates ──
 _INDUSTRY_BENCHMARKS: dict[str, dict[str, float]] = {

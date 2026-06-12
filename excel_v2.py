@@ -6426,7 +6426,7 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     specialty job boards tailored to each role type.
     """
     ws.title = "Niche Board Matching"
-    ws.sheet_properties.tabColor = "B5669C"  # Tapestry pink
+    ws.sheet_properties.tabColor = "B7669E"  # Tapestry pink
 
     _set_column_widths(
         ws,

@@ -35,16 +35,16 @@
         --obsidian: #000000;
         --obsidian-light: #111111;
         --navy: #1a1a1a;
-        --indigo: #5a54bd;
-        --indigo-light: #7b75d4;
+        --indigo: #5a54be;
+        --indigo-light: #8680d6;
         --indigo-pale: rgba(90, 84, 189, 0.08);
         --indigo-glow: rgba(90, 84, 189, 0.15);
-        --cyan-accent: #6bb3cd;
+        --cyan-accent: #6bb5ce;
         --green-success: #34d399;
         --amber-warning: #fbbf24;
         --red-error: #f87171;
-        --accent: #5a54bd;
-        --accent-light: #7b75d4;
+        --accent: #5a54be;
+        --accent-light: #8680d6;
         --bg: #000000;
         --surface-1: rgba(17, 17, 17, 0.6);
         --surface-2: rgba(26, 26, 26, 0.5);
@@ -71,8 +71,8 @@
         --radius-sm: 8px;
         --radius-lg: 16px;
         --radius-xl: 20px;
-        --gradient-primary: linear-gradient(135deg, #5a54bd 0%, #7b75d4 100%);
-        --gradient-accent: linear-gradient(135deg, #5a54bd 0%, #6bb3cd 100%);
+        --gradient-primary: linear-gradient(135deg, #5a54be 0%, #8680d6 100%);
+        --gradient-accent: linear-gradient(135deg, #5a54be 0%, #6bb5ce 100%);
         --gradient-mesh:
           radial-gradient(
             ellipse at 20% 50%,
@@ -1385,7 +1385,7 @@
             id="aiAnalyzeBtn"
             type="button"
             style="
-              background: linear-gradient(135deg, #5a54bd 0%, #6bb3cd 100%);
+              background: linear-gradient(135deg, #5a54be 0%, #6bb5ce 100%);
               box-shadow: 0 0 16px rgba(90, 84, 189, 0.3);
             "
             aria-label="Run AI-powered compliance analysis"
@@ -1524,7 +1524,7 @@
             id="fixBtn"
             type="button"
             style="
-              background: linear-gradient(135deg, #22c55e 0%, #5a54bd 100%);
+              background: linear-gradient(135deg, #22c55e 0%, #5a54be 100%);
             "
             aria-label="Auto-fix job description using AI"
           >
@@ -1617,7 +1617,7 @@
                 padding: 2px 6px;
                 border-radius: 4px;
                 background: rgba(90, 84, 189, 0.15);
-                color: #7b75d4;
+                color: #8680d6;
                 border: 1px solid rgba(90, 84, 189, 0.3);
               "
               >AI</span
@@ -3018,7 +3018,7 @@
               }
               if (issue.suggestion) {
                 html +=
-                  '<div style="font-size:0.8rem;color:var(--cyan-accent,#6bb3cd);">Suggestion: ' +
+                  '<div style="font-size:0.8rem;color:var(--cyan-accent,#6bb5ce);">Suggestion: ' +
                   escapeHtml(issue.suggestion) +
                   "</div>";
               }
@@ -3043,7 +3043,7 @@
               html +=
                 '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">';
               html +=
-                '<span style="color:var(--indigo-light,#7b75d4);font-size:0.75rem;margin-top:2px;">&#9679;</span>';
+                '<span style="color:var(--indigo-light,#8680d6);font-size:0.75rem;margin-top:2px;">&#9679;</span>';
               html +=
                 '<span style="font-size:0.825rem;color:var(--text);">' +
                 escapeHtml(rec) +
@@ -3102,7 +3102,7 @@
               meta.push("Effective: " + escapeHtml(effectiveDate));
             if (meta.length) {
               html +=
-                '<div style="font-size:0.75rem;color:var(--indigo-light,#7b75d4);margin-bottom:6px;">' +
+                '<div style="font-size:0.75rem;color:var(--indigo-light,#8680d6);margin-bottom:6px;">' +
                 meta.join(" | ") +
                 "</div>";
             }
@@ -3116,7 +3116,7 @@
               html +=
                 '<a href="' +
                 escapeHtml(source) +
-                '" target="_blank" rel="noopener" style="font-size:0.75rem;color:var(--cyan-accent,#6bb3cd);margin-top:6px;display:inline-block;">View Source</a>';
+                '" target="_blank" rel="noopener" style="font-size:0.75rem;color:var(--cyan-accent,#6bb5ce);margin-top:6px;display:inline-block;">View Source</a>';
             }
             html += "</div>";
           });
@@ -3143,7 +3143,7 @@
         href="https://www.linkedin.com/in/chandel13/"
         target="_blank"
         rel="noopener"
-        style="color: #7b75d4; text-decoration: none"
+        style="color: #8680d6; text-decoration: none"
         >Shubham Singh Chandel</a
       >
       &middot; Nova AI Suite

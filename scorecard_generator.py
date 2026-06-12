@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 # Brand colors
 PORT_GORE = "#202058"
-BLUE_VIOLET = "#5A54BD"
-DOWNY_TEAL = "#6BB3CD"
+BLUE_VIOLET = "#5A54BE"
+DOWNY_TEAL = "#6BB5CE"
 
 
 def generate_share_id(plan_data: dict[str, Any]) -> str:

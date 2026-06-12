@@ -9,7 +9,7 @@ actionable recommendations.
 Outputs:
     - Structured Python dict (JSON-serializable)
     - Excel workbook (Sapphire Blue palette: #0F172A, #2563EB, #DBEAFE)
-    - PowerPoint deck (Joveo branding: Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD)
+    - PowerPoint deck (Joveo branding: Port Gore #202058, Blue Violet #5A54BE, Downy #6BB5CE)
 
 Entry points:
     generate_report(data)              -- Main report generator
@@ -1652,7 +1652,7 @@ def generate_intel_excel(report_data: Dict[str, Any]) -> bytes:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PPT EXPORT  (Port Gore #202058, Blue Violet #5A54BD, Downy teal #6BB3CD)
+# PPT EXPORT  (Port Gore #202058, Blue Violet #5A54BE, Downy teal #6BB5CE)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
