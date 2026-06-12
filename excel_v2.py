@@ -13,7 +13,8 @@ Replaces the 26+ sheet original with up to 9 focused sheets:
     8. Confidence Intervals  -- low/expected/high ranges for CPA, CPH, apps, hires
     9. Niche Board Matching  -- role-level specialty job board recommendations
 
-Design: Sapphire Blue palette, Calibri font throughout, clean professional layout.
+Design: Joveo 2026 deck palette (Indigo/Purple/Teal/Magenta on lavender surfaces),
+Poppins headings + Inter body, clean professional layout.
 All content starts at column B (col A = left margin).
 
 Function signature mirrors generate_excel() -- receives the same enriched data dict
@@ -42,6 +43,17 @@ from openpyxl.chart import BarChart, PieChart, Reference
 from shared_utils import (
     parse_budget,
     INDUSTRY_LABEL_MAP,
+)
+
+from joveo_brand_2026 import (
+    INDIGO,
+    PURPLE,
+    LAVENDER_100,
+    LAVENDER_50,
+    INK,
+    MUTED as _BRAND_MUTED,
+    BORDER,
+    CANVAS,
 )
 
 # S48: Channel Recommender (optional)
@@ -196,16 +208,20 @@ def _seasonal_monthly_phasing(industry: str, campaign_start_month: int) -> list[
 
 
 # ---------------------------------------------------------------------------
-# Design Tokens -- Sapphire Blue palette
+# Design Tokens -- Joveo 2026 deck palette (canonical: joveo_brand_2026.py)
+# openpyxl needs bare hex (no '#'), so each constant is derived from the
+# canonical hex via .lstrip("#").upper(). Names kept for minimal diff; the
+# resulting bare-hex strings are byte-identical to the previous literals
+# (202058, 5A54BE, ECEAF7, F4F4FF, 1F2937, 6E6E8C, E3E1F1, FFFCF9).
 # ---------------------------------------------------------------------------
-NAVY = "0F172A"
-SAPPHIRE = "2563EB"
-BLUE_LIGHT = "DBEAFE"
-BLUE_PALE = "EFF6FF"
-STONE = "1C1917"
-MUTED = "78716C"
-WARM_GRAY = "E7E5E4"
-OFF_WHITE = "F5F5F4"
+NAVY = INDIGO.lstrip("#").upper()  # 202058 INDIGO -- deep brand navy (headers, bars)
+SAPPHIRE = PURPLE.lstrip("#").upper()  # 5A54BE PURPLE -- primary accent
+BLUE_LIGHT = LAVENDER_100.lstrip("#").upper()  # ECEAF7 -- light tint fill (badges)
+BLUE_PALE = LAVENDER_50.lstrip("#").upper()  # F4F4FF -- pale alt-row / background fill
+STONE = INK.lstrip("#").upper()  # 1F2937 INK -- body text
+MUTED = _BRAND_MUTED.lstrip("#").upper()  # 6E6E8C -- footnotes / secondary labels
+WARM_GRAY = BORDER.lstrip("#").upper()  # E3E1F1 BORDER -- grid / borders
+OFF_WHITE = CANVAS.lstrip("#").upper()  # FFFCF9 CANVAS -- warm off-white surface
 # ---------------------------------------------------------------------------
 # Brand name casing -- preserves known brand names when title-casing client
 # ---------------------------------------------------------------------------
@@ -259,18 +275,21 @@ WHITE = "FFFFFF"
 # ---------------------------------------------------------------------------
 # Reusable openpyxl style objects
 # ---------------------------------------------------------------------------
-_FONT_SECTION = Font(name="Calibri", bold=True, size=14, color=WHITE)
-_FONT_SUBSECTION = Font(name="Calibri", bold=True, size=12, color=NAVY)
-_FONT_TABLE_HEADER = Font(name="Calibri", bold=True, size=10, color=WHITE)
-_FONT_TABLE_HEADER_ALT = Font(name="Calibri", bold=True, size=10, color=NAVY)
-_FONT_BODY = Font(name="Calibri", size=10, color=STONE)
-_FONT_BODY_BOLD = Font(name="Calibri", bold=True, size=10, color=STONE)
-_FONT_FOOTNOTE = Font(name="Calibri", italic=True, size=9, color=MUTED)
-_FONT_HERO = Font(name="Calibri", bold=True, size=18, color=NAVY)
-_FONT_HERO_VALUE = Font(name="Calibri", bold=True, size=22, color=SAPPHIRE)
-_FONT_METRIC_LABEL = Font(name="Calibri", size=9, color=MUTED)
-_FONT_METRIC_VALUE = Font(name="Calibri", bold=True, size=14, color=NAVY)
-_FONT_GRADE_LARGE = Font(name="Calibri", bold=True, size=36, color=WHITE)
+# Joveo brand fonts: Poppins for headings/titles, Inter for body.
+FONT_HEAD = "Poppins"
+FONT_BODY_NAME = "Inter"
+_FONT_SECTION = Font(name=FONT_HEAD, bold=True, size=14, color=WHITE)
+_FONT_SUBSECTION = Font(name=FONT_HEAD, bold=True, size=12, color=NAVY)
+_FONT_TABLE_HEADER = Font(name=FONT_HEAD, bold=True, size=10, color=WHITE)
+_FONT_TABLE_HEADER_ALT = Font(name=FONT_HEAD, bold=True, size=10, color=NAVY)
+_FONT_BODY = Font(name=FONT_BODY_NAME, size=10, color=STONE)
+_FONT_BODY_BOLD = Font(name=FONT_BODY_NAME, bold=True, size=10, color=STONE)
+_FONT_FOOTNOTE = Font(name=FONT_BODY_NAME, italic=True, size=9, color=MUTED)
+_FONT_HERO = Font(name=FONT_HEAD, bold=True, size=18, color=NAVY)
+_FONT_HERO_VALUE = Font(name=FONT_HEAD, bold=True, size=22, color=SAPPHIRE)
+_FONT_METRIC_LABEL = Font(name=FONT_BODY_NAME, size=9, color=MUTED)
+_FONT_METRIC_VALUE = Font(name=FONT_HEAD, bold=True, size=14, color=NAVY)
+_FONT_GRADE_LARGE = Font(name=FONT_HEAD, bold=True, size=36, color=WHITE)
 
 _FILL_NAVY = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
 _FILL_SAPPHIRE = PatternFill(
@@ -1447,10 +1466,10 @@ def _grade_fill(grade: str) -> PatternFill:
 def _grade_font(grade: str) -> Font:
     """Return font color for a confidence grade."""
     if grade in ("A", "B"):
-        return Font(name="Calibri", bold=True, size=10, color=GREEN)
+        return Font(name=FONT_BODY_NAME, bold=True, size=10, color=GREEN)
     if grade == "C":
-        return Font(name="Calibri", bold=True, size=10, color=AMBER)
-    return Font(name="Calibri", bold=True, size=10, color=RED)
+        return Font(name=FONT_BODY_NAME, bold=True, size=10, color=AMBER)
+    return Font(name=FONT_BODY_NAME, bold=True, size=10, color=RED)
 
 
 def _fit_fill(fit: str) -> PatternFill:
@@ -1475,10 +1494,10 @@ def _fit_score_fill(score: float) -> PatternFill:
 def _fit_score_font(score: float) -> Font:
     """Return font for numeric fit score."""
     if score >= 0.7:
-        return Font(name="Calibri", bold=True, size=10, color=GREEN)
+        return Font(name=FONT_BODY_NAME, bold=True, size=10, color=GREEN)
     if score >= 0.4:
-        return Font(name="Calibri", bold=True, size=10, color=AMBER)
-    return Font(name="Calibri", bold=True, size=10, color=RED)
+        return Font(name=FONT_BODY_NAME, bold=True, size=10, color=AMBER)
+    return Font(name=FONT_BODY_NAME, bold=True, size=10, color=RED)
 
 
 def _detect_role_type(roles: List[str]) -> str:
@@ -2563,7 +2582,7 @@ def _build_sheet_executive_summary(
             start_row=row, start_column=COL_START, end_row=row + 3, end_column=COL_END
         )
         cell = ws.cell(row=row, column=COL_START, value=exec_narrative)
-        cell.font = Font(name="Calibri", size=11, color=NAVY)
+        cell.font = Font(name=FONT_BODY_NAME, size=11, color=NAVY)
         cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
         cell.fill = _FILL_BLUE_PALE
         for r in range(row, row + 4):
@@ -2727,7 +2746,7 @@ def _build_sheet_executive_summary(
                     end_column=COL_END,
                 )
                 cell = ws.cell(row=row, column=COL_START, value=f"  {w}")
-                cell.font = Font(name="Calibri", size=10, color=RED)
+                cell.font = Font(name=FONT_BODY_NAME, size=10, color=RED)
                 cell.fill = _FILL_RED_BG
                 cell.alignment = _ALIGN_WRAP
                 row += 1
@@ -2764,7 +2783,7 @@ def _build_sheet_executive_summary(
             column=COL_START,
             value=f"  Overall: {cqs_score}/100 (Grade {cqs_grade})",
         )
-        badge_cell.font = Font(name="Calibri", size=12, bold=True, color=SAPPHIRE)
+        badge_cell.font = Font(name=FONT_BODY_NAME, size=12, bold=True, color=SAPPHIRE)
         badge_cell.alignment = _ALIGN_LEFT
         row += 1
 
@@ -4218,11 +4237,11 @@ def _build_sheet_sources(ws, data: dict):
         age_cell = ws.cell(row=row + 2, column=COL_START + 2, value=age_label)
         age_cell.alignment = _ALIGN_WRAP
         if kb_age_days > 90:
-            age_cell.font = Font(name="Calibri", size=10, color=RED, italic=True)
+            age_cell.font = Font(name=FONT_BODY_NAME, size=10, color=RED, italic=True)
         elif kb_age_days > 60:
-            age_cell.font = Font(name="Calibri", size=10, color=AMBER, italic=True)
+            age_cell.font = Font(name=FONT_BODY_NAME, size=10, color=AMBER, italic=True)
         else:
-            age_cell.font = Font(name="Calibri", size=10, color=GREEN, italic=True)
+            age_cell.font = Font(name=FONT_BODY_NAME, size=10, color=GREEN, italic=True)
 
     row += 4
 
@@ -4312,13 +4331,13 @@ def _build_sheet_sources(ws, data: dict):
 
             if severity == "High":
                 sev_fill = _FILL_RED_BG
-                sev_font = Font(name="Calibri", bold=True, size=10, color=RED)
+                sev_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=RED)
             elif severity == "Medium":
                 sev_fill = _FILL_AMBER_BG
-                sev_font = Font(name="Calibri", bold=True, size=10, color=AMBER)
+                sev_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=AMBER)
             else:
                 sev_fill = _FILL_BLUE_PALE
-                sev_font = Font(name="Calibri", size=10, color=SAPPHIRE)
+                sev_font = Font(name=FONT_BODY_NAME, size=10, color=SAPPHIRE)
 
             values = [
                 warn.get("location", ""),
@@ -4403,13 +4422,13 @@ def _build_sheet_sources(ws, data: dict):
                 # Color-code severity
                 if sev in ("Error", "High"):
                     sev_fill = _FILL_RED_BG
-                    sev_font = Font(name="Calibri", bold=True, size=10, color=RED)
+                    sev_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=RED)
                 elif sev in ("Warning", "Medium"):
                     sev_fill = _FILL_AMBER_BG
-                    sev_font = Font(name="Calibri", bold=True, size=10, color=AMBER)
+                    sev_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=AMBER)
                 else:
                     sev_fill = _FILL_GREEN_BG
-                    sev_font = Font(name="Calibri", size=10, color=GREEN)
+                    sev_font = Font(name=FONT_BODY_NAME, size=10, color=GREEN)
 
                 fills_list = [None, sev_fill, None, None]
                 fonts_list = [None, sev_font, None, None]
@@ -4993,25 +5012,25 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
         roi_score = roi_data["roi_score"]
         # Color-code ROI score
         if roi_score >= 7:
-            score_font = Font(name="Calibri", bold=True, size=10, color=GREEN)
+            score_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=GREEN)
             score_fill = _FILL_GREEN_BG
         elif roi_score >= 4:
-            score_font = Font(name="Calibri", bold=True, size=10, color=AMBER)
+            score_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=AMBER)
             score_fill = _FILL_AMBER_BG
         else:
-            score_font = Font(name="Calibri", bold=True, size=10, color=RED)
+            score_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=RED)
             score_fill = _FILL_RED_BG
 
         # Color-code confidence level
         hire_conf = roi_data.get("hire_confidence", "LOW")
         if hire_conf == "HIGH":
-            conf_font = Font(name="Calibri", bold=True, size=10, color=GREEN)
+            conf_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=GREEN)
             conf_fill = _FILL_GREEN_BG
         elif hire_conf == "MEDIUM":
-            conf_font = Font(name="Calibri", bold=True, size=10, color=AMBER)
+            conf_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=AMBER)
             conf_fill = _FILL_AMBER_BG
         else:
-            conf_font = Font(name="Calibri", bold=True, size=10, color=RED)
+            conf_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=RED)
             conf_fill = _FILL_RED_BG
 
         values = [
@@ -5839,11 +5858,11 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
         # Color-code trend
         trend_font = _FONT_BODY
         if trend == "Increasing":
-            trend_font = Font(name="Calibri", bold=True, size=10, color=GREEN)
+            trend_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=GREEN)
         elif trend == "Decreasing" and "CPA" in metric:
-            trend_font = Font(name="Calibri", bold=True, size=10, color=GREEN)
+            trend_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=GREEN)
         elif trend == "Decreasing":
-            trend_font = Font(name="Calibri", bold=True, size=10, color=RED)
+            trend_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=RED)
         fonts_list[-1] = trend_font
 
         row = _write_table_row(
@@ -6017,11 +6036,11 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
         ("LOW", "+/- 25%", "Estimated or insufficient data", "No direct data sources"),
     ]
     for idx, (level, variance, desc, sources) in enumerate(var_data):
-        conf_font = Font(name="Calibri", bold=True, size=10, color=GREEN)
+        conf_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=GREEN)
         if level == "MEDIUM":
-            conf_font = Font(name="Calibri", bold=True, size=10, color=AMBER)
+            conf_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=AMBER)
         elif level == "LOW":
-            conf_font = Font(name="Calibri", bold=True, size=10, color=RED)
+            conf_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=RED)
 
         row = _write_table_row(
             ws,
@@ -6086,11 +6105,11 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
             confidence = "LOW"
             variance = 0.25
 
-        conf_font = Font(name="Calibri", bold=True, size=10, color=GREEN)
+        conf_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=GREEN)
         if confidence == "MEDIUM":
-            conf_font = Font(name="Calibri", bold=True, size=10, color=AMBER)
+            conf_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=AMBER)
         elif confidence == "LOW":
-            conf_font = Font(name="Calibri", bold=True, size=10, color=RED)
+            conf_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=RED)
 
         ch_label = ch_name.replace("_", " ").title()
 
@@ -6247,7 +6266,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
     with CPC, CPA, projected outcomes, confidence, and rationale.
     """
     ws.title = "Channel Recommendations"
-    ws.sheet_properties.tabColor = "2563EB"
+    ws.sheet_properties.tabColor = SAPPHIRE  # PURPLE 5A54BE
 
     if not _HAS_CHANNEL_RECOMMENDER:
         ws.cell(
@@ -6426,7 +6445,7 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     specialty job boards tailored to each role type.
     """
     ws.title = "Niche Board Matching"
-    ws.sheet_properties.tabColor = "B5669C"  # Tapestry pink
+    ws.sheet_properties.tabColor = "B7669E"  # Joveo MAGENTA
 
     _set_column_widths(
         ws,

@@ -19,14 +19,14 @@ var SankeyViz = (function () {
   /* ── Brand palette ── */
   var BRAND = {
     PORT_GORE: "#202058",
-    BLUE_VIOLET: "#5A54BD",
-    DOWNY_TEAL: "#6BB3CD",
+    BLUE_VIOLET: "#5A54BE",
+    DOWNY_TEAL: "#6BB5CE",
   };
 
   var CHANNEL_COLORS = [
-    "#5A54BD",
-    "#6BB3CD",
-    "#8b85e0",
+    "#5A54BE",
+    "#6BB5CE",
+    "#8680d6",
     "#4ecdc4",
     "#a78bfa",
     "#f59e0b",

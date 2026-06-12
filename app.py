@@ -11073,7 +11073,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
 :root {{--bg-primary:#0f0f1a;--bg-secondary:#1a1a2e;--text-primary:#e4e4e7;--text-secondary:#888;
---accent-teal:#6bb3cd;--accent-purple:#5a54bd;--accent-purple-light:#7b75d4;--border-color:rgba(107,179,205,0.1);}}
+--accent-teal:#6bb5ce;--accent-purple:#5a54be;--accent-purple-light:#8680d6;--border-color:rgba(107,179,205,0.1);}}
 *,*::before,*::after {{margin:0;padding:0;box-sizing:border-box;}}
 body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter',sans-serif;font-size:15px;line-height:1.6;}}
 .container {{max-width:720px;margin:0 auto;padding:40px 20px;}}

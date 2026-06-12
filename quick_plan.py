@@ -996,8 +996,10 @@ def score_channels_for_context(
             projected_clicks = int(spend / cpc) if cpc > 0 else 0
             apply_rate = base_apply_rates.get(ch_key, 0.05)
             projected_applies = int(projected_clicks * apply_rate)
+            # Round-half-up per channel; 0 hires is allowed per channel so the
+            # plan total is not inflated by a per-channel floor (audit MPG-F8).
             projected_hires = (
-                max(1, int(projected_applies * hire_rate))
+                int(projected_applies * hire_rate + 0.5)
                 if projected_applies > 0
                 else 0
             )

@@ -175,9 +175,9 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
 
             # Bar chart data
             bar_colors = [
-                "#5A54BD",
-                "#6BB3CD",
-                "#B5669C",
+                "#5A54BE",
+                "#6BB5CE",
+                "#B7669E",
                 "#CE9047",
                 "#202058",
                 "#7C6BC4",
@@ -229,7 +229,7 @@ body{{font-family:'Inter',system-ui,sans-serif;background:#0a0a1e;color:#e2e8f0;
 .hero-inner{{max-width:900px;margin:0 auto}}
 .hero h1{{font-size:28px;font-weight:700;color:#fff;margin-bottom:6px}}
 .hero .meta{{color:rgba(255,255,255,0.5);font-size:13px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}}
-.badge{{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600;background:rgba(107,179,205,0.15);color:#6BB3CD}}
+.badge{{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600;background:rgba(107,179,205,0.15);color:#6BB5CE}}
 .container{{max-width:900px;margin:0 auto;padding:24px 20px 48px}}
 .metrics-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px}}
 .metric-card{{background:rgba(20,20,45,0.8);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;text-align:center}}
@@ -245,7 +245,7 @@ td{{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);color:rgba(
 input,textarea{{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 14px;color:white;font-size:13px;font-family:inherit}}
 textarea{{resize:vertical;min-height:80px}}
 input:focus,textarea:focus{{outline:none;border-color:rgba(90,84,189,0.5)}}
-.submit-btn{{background:linear-gradient(135deg,#5a54bd,#4f46e5);color:white;border:none;border-radius:8px;padding:12px 24px;font-size:14px;cursor:pointer;font-weight:500;transition:opacity 0.2s}}
+.submit-btn{{background:linear-gradient(135deg,#5a54be,#4f46e5);color:white;border:none;border-radius:8px;padding:12px 24px;font-size:14px;cursor:pointer;font-weight:500;transition:opacity 0.2s}}
 .submit-btn:hover{{opacity:0.9}}
 .submit-btn:disabled{{opacity:0.5;cursor:not-allowed}}
 .brand{{text-align:center;margin-top:32px;color:rgba(255,255,255,0.3);font-size:12px}}
@@ -376,7 +376,7 @@ def _handle_plan_direct_view(handler: Any, path: str, parsed: Any) -> None:
             b'display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">'
             b'<div style="text-align:center"><h1>Plan Expired</h1>'
             b'<p style="color:#94a3b8">This link expired (24h limit).</p>'
-            b'<a href="/" style="color:#6BB3CD">Generate New Plan</a></div></body></html>'
+            b'<a href="/" style="color:#6BB5CE">Generate New Plan</a></div></body></html>'
         )
         return
 
@@ -407,7 +407,7 @@ def _handle_plan_direct_view(handler: Any, path: str, parsed: Any) -> None:
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Plan: {_cl} | Nova AI Suite</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<style>*{{box-sizing:border-box}}body{{font-family:Inter,system-ui;background:#0a0a1e;color:#e2e8f0;margin:0;padding:20px}}.w{{max-width:900px;margin:0 auto}}h1{{font-size:22px;margin:0 0 8px}}.mt{{color:#94a3b8;font-size:13px}}.cd{{background:rgba(20,20,45,.8);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:20px;margin-bottom:16px}}.cd h3{{margin:0 0 12px;font-size:15px;color:#7b75d4}}.sg{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}}.si{{background:rgba(255,255,255,.04);border-radius:8px;padding:16px;text-align:center}}.sv{{font-size:24px;font-weight:700;color:#fff}}.sl{{font-size:11px;color:#94a3b8;text-transform:uppercase;margin-top:4px}}table{{width:100%;border-collapse:collapse;font-size:13px}}th{{text-align:left;padding:10px;border-bottom:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);font-size:11px;text-transform:uppercase}}td{{padding:10px;border-bottom:1px solid rgba(255,255,255,.05)}}.bd{{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;background:rgba(107,179,205,.15);color:#6BB3CD}}.ft{{text-align:center;padding:24px 0;color:#64748b;font-size:12px}}a{{color:#6BB3CD}}</style>
+<style>*{{box-sizing:border-box}}body{{font-family:Inter,system-ui;background:#0a0a1e;color:#e2e8f0;margin:0;padding:20px}}.w{{max-width:900px;margin:0 auto}}h1{{font-size:22px;margin:0 0 8px}}.mt{{color:#94a3b8;font-size:13px}}.cd{{background:rgba(20,20,45,.8);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:20px;margin-bottom:16px}}.cd h3{{margin:0 0 12px;font-size:15px;color:#8680d6}}.sg{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}}.si{{background:rgba(255,255,255,.04);border-radius:8px;padding:16px;text-align:center}}.sv{{font-size:24px;font-weight:700;color:#fff}}.sl{{font-size:11px;color:#94a3b8;text-transform:uppercase;margin-top:4px}}table{{width:100%;border-collapse:collapse;font-size:13px}}th{{text-align:left;padding:10px;border-bottom:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);font-size:11px;text-transform:uppercase}}td{{padding:10px;border-bottom:1px solid rgba(255,255,255,.05)}}.bd{{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;background:rgba(107,179,205,.15);color:#6BB5CE}}.ft{{text-align:center;padding:24px 0;color:#64748b;font-size:12px}}a{{color:#6BB5CE}}</style>
 </head><body><div class="w">
 <div style="padding:24px 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:24px">
 <h1>Media Plan: {_cl}</h1>

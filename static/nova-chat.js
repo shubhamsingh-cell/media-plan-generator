@@ -30,19 +30,19 @@
     stopUrl: "/api/chat/stop",
     useStreaming: true,
     useWebSocket: true,
-    primaryColor: "#6BB3CD",
-    primaryDark: "#0f0f1a",
-    primaryLight: "#8bc7db",
-    accentColor: "#6BB3CD",
-    accentLight: "#8bc7db",
-    accentPurple: "#5A54BD",
-    textColor: "#e4e4e7",
-    textLight: "#888",
-    bgColor: "#0f0f1a",
-    bgLight: "rgba(26,26,46,0.95)",
-    borderColor: "rgba(107,179,205,0.1)",
-    errorColor: "#F87171",
-    successColor: "#34D399",
+    primaryColor: "#5A54BE",
+    primaryDark: "#202058",
+    primaryLight: "#8680D6",
+    accentColor: "#6BB5CE",
+    accentLight: "#8680D6",
+    accentPurple: "#5A54BE",
+    textColor: "#202058",
+    textLight: "#6E6E8C",
+    bgColor: "#FFFFFF",
+    bgLight: "#F4F4FF",
+    borderColor: "#E3E1F1",
+    errorColor: "#EF4444",
+    successColor: "#22C55E",
     maxHistoryStorage: 50,
     storageKey: "nova_chat_history",
     sessionKey: "nova_session",
@@ -50,7 +50,6 @@
     widgetWidth: "400px",
     widgetHeight: "580px",
     mobileBreakpoint: 640,
-    theme: "dark",
   };
 
   var SUGGESTED_QUESTIONS = [
@@ -58,6 +57,7 @@
     "What salary should I offer for a Data Scientist in NYC?",
     "Compare Indeed vs LinkedIn for engineering recruitment",
     "Recommend a $100K budget allocation for 20 nursing hires in Texas",
+    "How does Joveo build a media plan -- and what is its push + pull methodology?",
   ];
 
   // ---------------------------------------------------------------------------
@@ -262,40 +262,40 @@
 #nova-float-btn {
   position: fixed; bottom: 24px; right: 24px; z-index: 99999;
   width: 68px; height: 68px; border-radius: 50%;
-  background: #0f0f1a;
-  color: #fff; border: 1.5px solid rgba(107,179,205,0.3); cursor: pointer;
-  box-shadow: 0 4px 24px rgba(90,84,189,0.25), 0 0 12px rgba(107,179,205,0.15);
+  background: linear-gradient(135deg, #202058 0%, #5A54BE 100%);
+  color: #fff; border: 1.5px solid rgba(90,84,190,0.45); cursor: pointer;
+  box-shadow: 0 4px 24px rgba(90,84,190,0.35), 0 0 12px rgba(90,84,190,0.18);
   display: flex; align-items: center; justify-content: center;
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
   font-size: 0; padding: 0; overflow: hidden;
 }
 #nova-float-btn:hover {
   transform: scale(1.05);
-  box-shadow: 0 8px 36px rgba(90,84,189,0.35), 0 0 20px rgba(107,179,205,0.25), 0 0 0 1px rgba(107,179,205,0.3);
-  border-color: rgba(107,179,205,0.4);
+  box-shadow: 0 8px 36px rgba(90,84,190,0.45), 0 0 20px rgba(90,84,190,0.3), 0 0 0 1px rgba(90,84,190,0.4);
+  border-color: rgba(90,84,190,0.6);
 }
 #nova-float-btn:active { transform: scale(0.98); box-shadow: inset 0 2px 8px rgba(0,0,0,0.3); transition: transform 0.1s ease, box-shadow 0.1s ease; }
 #nova-float-btn svg { width: 26px; height: 26px; }
 #nova-float-btn canvas { display: block; }
-#nova-float-btn.nova-btn-close { background: linear-gradient(135deg, #1a1a2e 0%, #5A54BD 100%); border-color: rgba(107,179,205,0.2); }
-#nova-float-btn.nova-btn-close:hover { box-shadow: 0 8px 36px rgba(107,179,205,0.3), 0 0 60px rgba(90,84,189,0.1); }
+#nova-float-btn.nova-btn-close { background: linear-gradient(135deg, #202058 0%, #5A54BE 100%); border-color: rgba(90,84,190,0.35); }
+#nova-float-btn.nova-btn-close:hover { box-shadow: 0 8px 36px rgba(90,84,190,0.4), 0 0 60px rgba(90,84,190,0.15); }
 
 #nova-panel {
   position: fixed; bottom: 96px; right: 24px; z-index: 99998;
   width: 420px; height: 600px; max-height: calc(100vh - 120px);
-  background: rgba(15,15,26,0.97);
+  background: #FFFFFF;
   backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4);
-  border-radius: 16px; box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+  border-radius: 16px; box-shadow: 0 16px 48px rgba(32,32,88,0.20);
   display: flex; flex-direction: column; overflow: hidden;
   transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  border: 1px solid rgba(107,179,205,0.1);
+  border: 1px solid #E3E1F1;
 }
 #nova-panel.nova-hidden { opacity: 0; transform: translateY(20px) scale(0.92); pointer-events: none; }
 #nova-panel.nova-visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }` +
       // ── Header ──
       ".nova-header {" +
-      "  background: rgba(15,15,26,0.95);" +
+      "  background: linear-gradient(135deg, #202058 0%, #5A54BE 100%);" +
       "  color: #fff; padding: 16px 20px;" +
       "  display: flex; align-items: center; justify-content: space-between;" +
       "  flex-shrink: 0; position: relative; overflow: hidden;" +
@@ -307,30 +307,30 @@
       "}" +
       ".nova-header-icon {" +
       "  width: 36px; height: 36px; border-radius: 10px;" +
-      "  background: linear-gradient(135deg, rgba(90,84,189,0.2), rgba(107,179,205,0.2));" +
+      "  background: rgba(255,255,255,0.15);" +
       "  backdrop-filter: blur(8px);" +
-      "  border: 1px solid rgba(107,179,205,0.15);" +
+      "  border: 1px solid rgba(255,255,255,0.22);" +
       "  display: flex; align-items: center; justify-content: center;" +
       "  font-size: 18px;" +
-      "  box-shadow: 0 0 16px rgba(107,179,205,0.15);" +
+      "  box-shadow: 0 0 16px rgba(0,0,0,0.10);" +
       "}" +
-      ".nova-header-icon svg { filter: drop-shadow(0 0 4px rgba(107,179,205,0.4)); }" +
+      ".nova-header-icon svg { filter: drop-shadow(0 0 4px rgba(255,255,255,0.35)); }" +
       ".nova-header-title {" +
       "  font-size: 16px; font-weight: 700; letter-spacing: 1.5px;" +
-      "  color: #ededed;" +
+      "  color: #ffffff; font-family: 'Poppins', 'Inter', -apple-system, sans-serif;" +
       "}" +
       ".nova-header-subtitle {" +
-      "  font-size: 11px; opacity: 0.7; margin-top: 1px; letter-spacing: 0.5px; color: #8899aa;" +
+      "  font-size: 11px; opacity: 0.85; margin-top: 1px; letter-spacing: 0.5px; color: rgba(255,255,255,0.85);" +
       "}" +
       ".nova-close-btn {" +
-      "  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" +
-      "  color: rgba(255,255,255,0.7); cursor: pointer;" +
+      "  background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.18);" +
+      "  color: rgba(255,255,255,0.85); cursor: pointer;" +
       "  padding: 5px; border-radius: 8px; line-height: 1;" +
       "  transition: all 0.2s; position: relative;" +
       "}" +
-      ".nova-close-btn:hover { background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.2); }" +
+      ".nova-close-btn:hover { background: rgba(255,255,255,0.18); color: #fff; border-color: rgba(255,255,255,0.3); }" +
       ".nova-close-btn svg { width: 18px; height: 18px; }" +
-      ".nova-export-btn:hover { background: rgba(255,255,255,0.1) !important; color: #fff !important; border-color: rgba(255,255,255,0.2) !important; }" +
+      ".nova-export-btn:hover { background: rgba(255,255,255,0.18) !important; color: #fff !important; border-color: rgba(255,255,255,0.3) !important; }" +
       // ── Messages area ──
       ".nova-messages {" +
       "  flex: 1; overflow-y: auto; padding: 16px;" +
@@ -339,8 +339,8 @@
       "}" +
       ".nova-messages::-webkit-scrollbar { width: 3px; }" +
       ".nova-messages::-webkit-scrollbar-track { background: transparent; }" +
-      ".nova-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }" +
-      ".nova-messages::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }" +
+      ".nova-messages::-webkit-scrollbar-thumb { background: rgba(32,32,88,0.18); border-radius: 2px; }" +
+      ".nova-messages::-webkit-scrollbar-thumb:hover { background: rgba(32,32,88,0.35); }" +
       // ── Message row (avatar + bubble) ──
       ".nova-msg-row {" +
       "  display: flex; gap: 8px; max-width: 92%;" +
@@ -353,15 +353,15 @@
       "  display: flex; align-items: center; justify-content: center;" +
       "  font-size: 11px; font-weight: 700; color: #fff; margin-top: 18px;" +
       "}" +
-      ".nova-msg-avatar-user { background: #5A54BD; }" +
-      ".nova-msg-avatar-assistant { background: linear-gradient(135deg, #6BB3CD, #4a9db5); }" +
+      ".nova-msg-avatar-user { background: #5A54BE; }" +
+      ".nova-msg-avatar-assistant { background: linear-gradient(135deg, #5A54BE, #202058); }" +
       ".nova-msg-sender {" +
       "  font-size: 10px; font-weight: 600; margin-bottom: 2px; letter-spacing: 0.3px;" +
       "}" +
-      ".nova-msg-sender-user { color: #5A54BD; text-align: right; }" +
-      ".nova-msg-sender-assistant { color: #6BB3CD; }" +
+      ".nova-msg-sender-user { color: #5A54BE; text-align: right; }" +
+      ".nova-msg-sender-assistant { color: #5A54BE; }" +
       ".nova-msg-timestamp {" +
-      "  font-size: 9px; color: #555; margin-top: 3px; letter-spacing: 0.2px;" +
+      "  font-size: 9px; color: #6E6E8C; margin-top: 3px; letter-spacing: 0.2px;" +
       "}" +
       ".nova-msg-timestamp-user { text-align: right; }" +
       // ── Message bubbles ──
@@ -376,64 +376,64 @@
       "}" +
       ".nova-msg-user {" +
       "  align-self: flex-end;" +
-      "  background: rgba(90,84,189,0.15);" +
-      "  color: #e4e4e7;" +
-      "  border: 1px solid rgba(90,84,189,0.2);" +
+      "  background: #5A54BE;" +
+      "  color: #ffffff;" +
+      "  border: 1px solid #5A54BE;" +
       "  border-bottom-right-radius: 4px;" +
-      "  box-shadow: 0 2px 12px rgba(0,0,0,0.08);" +
+      "  box-shadow: 0 2px 12px rgba(90,84,190,0.18);" +
       "}" +
       ".nova-msg-assistant {" +
       "  align-self: flex-start;" +
-      "  background: rgba(26,26,46,0.8);" +
-      "  color: #e4e4e7;" +
-      "  border: 1px solid rgba(107,179,205,0.08);" +
+      "  background: #ECEAF7;" +
+      "  color: #202058;" +
+      "  border: 1px solid #E3E1F1;" +
       "  border-bottom-left-radius: 4px;" +
-      "  box-shadow: 0 2px 8px rgba(0,0,0,0.15);" +
+      "  box-shadow: 0 2px 8px rgba(32,32,88,0.08);" +
       "}" +
       // ── Markdown in messages ──
       ".nova-msg-assistant h3 {" +
       "  font-size: 13px; font-weight: 600; margin: 8px 0 4px 0;" +
-      "  color: #fff;" +
+      "  color: #202058;" +
       "}" +
       ".nova-msg-assistant h3:first-child { margin-top: 0; }" +
-      ".nova-msg-assistant strong { font-weight: 600; color: #ededed; }" +
-      ".nova-msg-assistant em { font-style: italic; color: #6b7c8d; }" +
+      ".nova-msg-assistant strong { font-weight: 600; color: #202058; }" +
+      ".nova-msg-assistant em { font-style: italic; color: #54546B; }" +
       ".nova-msg-assistant ul, .nova-msg-assistant ol { margin: 4px 0; padding-left: 18px; }" +
       ".nova-msg-assistant ol { list-style-type: decimal; }" +
       ".nova-msg-assistant li { margin-bottom: 3px; }" +
-      ".nova-msg-assistant li::marker { color: rgba(107,179,205,0.6); }" +
+      ".nova-msg-assistant li::marker { color: #5A54BE; }" +
       ".nova-msg-assistant table {" +
       "  border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 11px;" +
       "}" +
       ".nova-msg-assistant th, .nova-msg-assistant td {" +
-      "  border: 1px solid rgba(255,255,255,0.06); padding: 5px 8px; text-align: left;" +
+      "  border: 1px solid #E3E1F1; padding: 5px 8px; text-align: left;" +
       "}" +
       ".nova-msg-assistant th {" +
-      "  background: rgba(255,255,255,0.04); font-weight: 600; color: #a1a1a1;" +
+      "  background: #202058; font-weight: 600; color: #ffffff;" +
       "}" +
       ".nova-msg-assistant code {" +
-      "  background: rgba(107,179,205,0.1); padding: 1px 5px; border-radius: 4px;" +
-      '  font-family: "SF Mono", Monaco, Menlo, monospace; font-size: 11.5px; color: #6BB3CD;' +
+      "  background: rgba(90,84,190,0.10); padding: 1px 5px; border-radius: 4px;" +
+      '  font-family: "SF Mono", Monaco, Menlo, monospace; font-size: 11.5px; color: #5A54BE;' +
       "}" +
       ".nova-msg-assistant pre {" +
-      "  background: #0d0d18; border: 1px solid rgba(107,179,205,0.1); border-radius: 8px;" +
+      "  background: #131A38; border: 1px solid #E3E1F1; border-radius: 8px;" +
       "  padding: 12px; margin: 8px 0; overflow-x: auto;" +
       "}" +
       ".nova-msg-assistant pre code {" +
       "  background: none; padding: 0; border-radius: 0; color: #e4e4e7; line-height: 1.6;" +
       "}" +
       ".nova-msg-assistant p { margin: 4px 0; }" +
-      ".nova-msg-assistant a { color: #6BB3CD; text-decoration: underline; }" +
+      ".nova-msg-assistant a { color: #5A54BE; text-decoration: underline; }" +
       // ── Meta info (sources, confidence) ──
       ".nova-msg-meta {" +
       "  margin-top: 8px; padding-top: 6px;" +
-      "  border-top: 1px solid rgba(255,255,255,0.06);" +
+      "  border-top: 1px solid #E3E1F1;" +
       "  display: flex; flex-wrap: wrap; gap: 4px; align-items: center;" +
       "}" +
       ".nova-badge {" +
       "  font-size: 9px; padding: 2px 7px; border-radius: 10px;" +
-      "  background: rgba(107,179,205,0.1); color: #6BB3CD;" +
-      "  border: 1px solid rgba(107,179,205,0.15);" +
+      "  background: rgba(90,84,190,0.10); color: #5A54BE;" +
+      "  border: 1px solid rgba(90,84,190,0.20);" +
       "  font-weight: 500; white-space: nowrap; letter-spacing: 0.3px;" +
       "}" +
       ".nova-confidence {" +
@@ -441,38 +441,38 @@
       "  font-weight: 600; white-space: nowrap; cursor: pointer;" +
       "  position: relative; letter-spacing: 0.3px;" +
       "}" +
-      ".nova-confidence-high { background: rgba(52,211,153,0.1); color: #34D399; border: 1px solid rgba(52,211,153,0.2); }" +
-      ".nova-confidence-medium { background: rgba(255,170,0,0.1); color: #ffaa00; border: 1px solid rgba(255,170,0,0.2); }" +
-      ".nova-confidence-low { background: rgba(248,113,113,0.1); color: #F87171; border: 1px solid rgba(248,113,113,0.2); }" +
+      ".nova-confidence-high { background: rgba(34,197,94,0.12); color: #16A34A; border: 1px solid rgba(34,197,94,0.3); }" +
+      ".nova-confidence-medium { background: rgba(245,158,11,0.12); color: #B45309; border: 1px solid rgba(245,158,11,0.3); }" +
+      ".nova-confidence-low { background: rgba(239,68,68,0.12); color: #DC2626; border: 1px solid rgba(239,68,68,0.3); }" +
       ".nova-confidence-tooltip {" +
       "  display: none; position: absolute; bottom: 100%; left: 50%;" +
       "  transform: translateX(-50%); margin-bottom: 6px;" +
-      "  background: rgba(0,0,0,0.95); color: #d4d4d4; padding: 10px 14px;" +
-      "  border: 1px solid rgba(255,255,255,0.08);" +
+      "  background: #202058; color: #ECEAF7; padding: 10px 14px;" +
+      "  border: 1px solid #5A54BE;" +
       "  border-radius: 10px; font-size: 11px; line-height: 1.5;" +
       "  min-width: 260px; max-width: 340px; z-index: 999;" +
-      "  box-shadow: 0 8px 24px rgba(0,0,0,0.4); font-weight: 400;" +
+      "  box-shadow: 0 8px 24px rgba(32,32,88,0.30); font-weight: 400;" +
       "  white-space: normal; text-align: left;" +
       "  backdrop-filter: blur(16px);" +
       "}" +
       ".nova-confidence:hover .nova-confidence-tooltip { display: block; }" +
-      ".nova-tooltip-title { font-weight: 600; margin-bottom: 4px; font-size: 12px; color: #6BB3CD; }" +
+      ".nova-tooltip-title { font-weight: 600; margin-bottom: 4px; font-size: 12px; color: #B0A8FF; }" +
       ".nova-tooltip-row { display: flex; justify-content: space-between; padding: 1px 0; }" +
-      ".nova-tooltip-divider { border-top: 1px solid rgba(255,255,255,0.06); margin: 4px 0; }" +
+      ".nova-tooltip-divider { border-top: 1px solid rgba(255,255,255,0.12); margin: 4px 0; }" +
       ".nova-tooltip-note { font-size: 9px; opacity: 0.5; margin-top: 4px; }" +
       // ── Typing indicator ──
       ".nova-typing {" +
       "  align-self: flex-start; display: flex; align-items: center; gap: 6px;" +
       "  padding: 12px 16px;" +
-      "  background: rgba(26,26,46,0.8);" +
-      "  border: 1px solid rgba(107,179,205,0.08);" +
+      "  background: #ECEAF7;" +
+      "  border: 1px solid #E3E1F1;" +
       "  border-radius: 16px; border-bottom-left-radius: 4px;" +
       "}" +
       ".nova-typing-dot {" +
       "  width: 6px; height: 6px; border-radius: 50%;" +
-      "  background: #6BB3CD;" +
+      "  background: #5A54BE;" +
       "  animation: nova-bounce 1.4s infinite;" +
-      "  box-shadow: 0 0 6px rgba(107,179,205,0.4);" +
+      "  box-shadow: 0 0 6px rgba(90,84,190,0.4);" +
       "}" +
       ".nova-typing-dot:nth-child(2) { animation-delay: 0.2s; }" +
       ".nova-typing-dot:nth-child(3) { animation-delay: 0.4s; }" +
@@ -487,19 +487,20 @@
       "}" +
       ".nova-welcome-orb {" +
       "  width: 40px; height: 40px; border-radius: 50%;" +
-      "  background: linear-gradient(135deg, #5A54BD, #6BB3CD);" +
-      "  margin-bottom: 16px; box-shadow: 0 0 24px rgba(107,179,205,0.3), 0 0 48px rgba(90,84,189,0.15);" +
+      "  background: linear-gradient(135deg, #5A54BE, #6BB5CE);" +
+      "  margin-bottom: 16px; box-shadow: 0 0 24px rgba(90,84,190,0.25), 0 0 48px rgba(90,84,190,0.12);" +
       "  animation: nova-orb-pulse 3s ease-in-out infinite;" +
       "}" +
       "@keyframes nova-orb-pulse {" +
-      "  0%, 100% { transform: scale(1); box-shadow: 0 0 24px rgba(107,179,205,0.3), 0 0 48px rgba(90,84,189,0.15); }" +
-      "  50% { transform: scale(1.08); box-shadow: 0 0 32px rgba(107,179,205,0.45), 0 0 64px rgba(90,84,189,0.25); }" +
+      "  0%, 100% { transform: scale(1); box-shadow: 0 0 24px rgba(90,84,190,0.25), 0 0 48px rgba(90,84,190,0.12); }" +
+      "  50% { transform: scale(1.08); box-shadow: 0 0 32px rgba(90,84,190,0.40), 0 0 64px rgba(90,84,190,0.20); }" +
       "}" +
       ".nova-welcome-title {" +
-      "  font-size: 18px; font-weight: 700; color: #ededed; margin-bottom: 6px;" +
+      "  font-size: 18px; font-weight: 700; color: #202058; margin-bottom: 6px;" +
+      "  font-family: 'Poppins', 'Inter', -apple-system, sans-serif;" +
       "}" +
       ".nova-welcome-subtitle {" +
-      "  font-size: 12px; color: #888; margin-bottom: 20px; line-height: 1.5;" +
+      "  font-size: 12px; color: #6E6E8C; margin-bottom: 20px; line-height: 1.5;" +
       "}" +
       // ── Suggested questions (2x2 grid) ──
       ".nova-suggestions {" +
@@ -507,78 +508,79 @@
       "  padding: 0 20px 16px; width: 100%; box-sizing: border-box;" +
       "}" +
       ".nova-suggestion-btn {" +
-      "  background: rgba(26,26,46,0.6); border: 1px solid rgba(107,179,205,0.12);" +
+      "  background: #F4F4FF; border: 1px solid #E3E1F1;" +
       "  padding: 12px 14px; border-radius: 12px; cursor: pointer;" +
-      "  font-size: 11px; color: #a1a1a1; text-align: left;" +
+      "  font-size: 11px; color: #202058; text-align: left;" +
       "  font-family: inherit; line-height: 1.45;" +
       "  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" +
       "}" +
       ".nova-suggestion-btn:hover {" +
-      "  border-color: rgba(107,179,205,0.35);" +
-      "  background: rgba(107,179,205,0.06);" +
-      "  color: #e4e4e7;" +
+      "  border-color: rgba(90,84,190,0.4);" +
+      "  background: #ECEAF7;" +
+      "  color: #202058;" +
       "  transform: scale(1.05);" +
-      "  box-shadow: 0 4px 12px rgba(0,0,0,0.15);" +
+      "  box-shadow: 0 4px 12px rgba(32,32,88,0.12);" +
       "}" +
       ".nova-suggestion-btn:active {" +
       "  transform: scale(0.98);" +
-      "  box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);" +
+      "  box-shadow: inset 0 2px 8px rgba(32,32,88,0.12);" +
       "  transition: transform 0.1s ease, box-shadow 0.1s ease;" +
       "}" +
       ".nova-suggestion-btn:focus-visible {" +
-      "  outline: 2px solid #6BB3CD; outline-offset: 2px;" +
+      "  outline: 2px solid #5A54BE; outline-offset: 2px;" +
       "}" +
       // ── Input area ──
       ".nova-input-wrap {" +
-      "  padding: 14px 16px 4px; border-top: 1px solid rgba(107,179,205,0.1);" +
-      "  background: rgba(15,15,26,0.9); flex-shrink: 0;" +
+      "  padding: 14px 16px 4px; border-top: 1px solid #E3E1F1;" +
+      "  background: #FFFFFF; flex-shrink: 0;" +
       "}" +
       ".nova-input-area {" +
       "  display: flex; gap: 10px; align-items: flex-end;" +
       "}" +
       ".nova-char-counter {" +
-      "  font-size: 9px; color: #555; text-align: right; padding: 2px 4px 4px 0;" +
+      "  font-size: 9px; color: #6E6E8C; text-align: right; padding: 2px 4px 4px 0;" +
       "  font-variant-numeric: tabular-nums; letter-spacing: 0.3px;" +
       "}" +
-      ".nova-char-counter-warn { color: #ffaa00; }" +
-      ".nova-char-counter-over { color: #F87171; }" +
+      ".nova-char-counter-warn { color: #B45309; }" +
+      ".nova-char-counter-over { color: #DC2626; }" +
       // ── Stop button ──
       ".nova-stop-btn {" +
       "  width: 40px; height: 40px; border-radius: 12px;" +
-      "  background: rgba(248,113,113,0.15); color: #F87171;" +
-      "  border: 1px solid rgba(248,113,113,0.25); cursor: pointer;" +
+      "  background: rgba(239,68,68,0.12); color: #DC2626;" +
+      "  border: 1px solid rgba(239,68,68,0.3); cursor: pointer;" +
       "  display: flex; align-items: center; justify-content: center;" +
       "  flex-shrink: 0; transition: all 0.2s;" +
       "}" +
-      ".nova-stop-btn:hover { background: rgba(248,113,113,0.25); border-color: rgba(248,113,113,0.4); }" +
+      ".nova-stop-btn:hover { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.45); }" +
       ".nova-stop-btn svg { width: 16px; height: 16px; }" +
       ".nova-input {" +
-      "  flex: 1; border: 1px solid rgba(107,179,205,0.1);" +
+      "  flex: 1; border: 1px solid #E3E1F1;" +
       "  border-radius: 12px; padding: 10px 14px;" +
       "  font-size: 13px; font-family: inherit;" +
       "  resize: none; outline: none; min-height: 20px; max-height: 100px;" +
-      "  line-height: 1.5; background: rgba(20,20,37,0.8);" +
-      "  color: #e4e4e7;" +
+      "  line-height: 1.5; background: #FFFFFF;" +
+      "  color: #202058;" +
       "  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;" +
       "}" +
       ".nova-input:focus {" +
-      "  border-color: rgba(107,179,205,0.4); background: rgba(107,179,205,0.04);" +
-      "  box-shadow: 0 0 0 3px rgba(107,179,205,0.1), 0 0 20px rgba(107,179,205,0.06);" +
+      "  border-color: #5A54BE; background: #FFFFFF;" +
+      "  box-shadow: 0 0 0 3px rgba(90,84,190,0.15), 0 0 20px rgba(90,84,190,0.06);" +
       "}" +
-      ".nova-input::placeholder { color: #555; }" +
+      ".nova-input::placeholder { color: #6E6E8C; }" +
       ".nova-send-btn {" +
       "  width: 40px; height: 40px; border-radius: 12px;" +
-      "  background: #6BB3CD;" +
+      "  background: #5A54BE;" +
       "  color: #fff;" +
       "  border: none; cursor: pointer;" +
       "  display: flex; align-items: center; justify-content: center;" +
       "  flex-shrink: 0;" +
       "  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" +
-      "  box-shadow: 0 2px 12px rgba(0,0,0,0.2);" +
+      "  box-shadow: 0 2px 12px rgba(90,84,190,0.25);" +
       "}" +
       ".nova-send-btn:hover {" +
       "  transform: scale(1.05);" +
-      "  box-shadow: 0 4px 20px rgba(0,0,0,0.3);" +
+      "  background: #5A4FC4;" +
+      "  box-shadow: 0 4px 20px rgba(90,84,190,0.35);" +
       "}" +
       ".nova-send-btn:active { transform: scale(0.98); box-shadow: inset 0 2px 8px rgba(0,0,0,0.3); transition: transform 0.1s ease, box-shadow 0.1s ease; }" +
       ".nova-send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }" +
@@ -586,29 +588,29 @@
       // ── Footer ──
       ".nova-footer {" +
       "  text-align: center; padding: 6px 12px; font-size: 9px;" +
-      "  color: #555; background: transparent;" +
+      "  color: #6E6E8C; background: transparent;" +
       "  flex-shrink: 0;" +
-      "  border-top: 1px solid rgba(107,179,205,0.06);" +
+      "  border-top: 1px solid #E3E1F1;" +
       "  letter-spacing: 1px; text-transform: uppercase;" +
       "}" +
       // ── Code syntax highlighting ──
       ".nova-code-header {" +
       "  display: flex; align-items: center; justify-content: space-between;" +
-      "  padding: 6px 12px; background: rgba(107,179,205,0.06);" +
-      "  font-size: 10px; color: #888;" +
+      "  padding: 6px 12px; background: #202058;" +
+      "  font-size: 10px; color: #ECEAF7;" +
       "}" +
       ".nova-code-copy-btn {" +
-      "  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);" +
-      "  color: #888; cursor: pointer; padding: 2px 8px; border-radius: 4px;" +
+      "  background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.18);" +
+      "  color: #ECEAF7; cursor: pointer; padding: 2px 8px; border-radius: 4px;" +
       "  font-size: 10px; font-family: inherit; transition: all 0.15s;" +
       "}" +
-      ".nova-code-copy-btn:hover { color: #6BB3CD; border-color: rgba(107,179,205,0.3); }" +
-      ".nova-hl-kw { color: #818cf8; }" +
+      ".nova-code-copy-btn:hover { color: #FFFFFF; border-color: rgba(255,255,255,0.4); }" +
+      ".nova-hl-kw { color: #8680D6; }" +
       ".nova-hl-str { color: #34D399; }" +
       ".nova-hl-num { color: #fb923c; }" +
-      ".nova-hl-cmt { color: #555; font-style: italic; }" +
+      ".nova-hl-cmt { color: #8888a8; font-style: italic; }" +
       ".nova-hl-fn { color: #c084fc; }" +
-      ".nova-hl-type { color: #22d3ee; }" +
+      ".nova-hl-type { color: #6BB5CE; }" +
       // ── Mobile full-screen ──
       "@media (max-width: " +
       CONFIG.mobileBreakpoint +
@@ -624,14 +626,14 @@
       "}" +
       // ── Streaming cursor ──
       ".nova-streaming-cursor {" +
-      "  display: inline-block; width: 2px; height: 1em; background: #6BB3CD;" +
+      "  display: inline-block; width: 2px; height: 1em; background: #5A54BE;" +
       "  margin-left: 2px; vertical-align: text-bottom;" +
       "  animation: nova-cursor-blink 0.7s steps(2) infinite;" +
       "}" +
       "@keyframes nova-cursor-blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }" +
       // ── Status/progress indicator ──
       ".nova-status-indicator {" +
-      "  font-size: 11px; color: #888; padding: 4px 12px; text-align: center;" +
+      "  font-size: 11px; color: #6E6E8C; padding: 4px 12px; text-align: center;" +
       "  animation: nova-status-pulse 2s ease-in-out infinite;" +
       "}" +
       "@keyframes nova-status-pulse {" +
@@ -649,22 +651,22 @@
       "  width: fit-content; transition: opacity 0.3s ease;" +
       "}" +
       ".nova-tool-pill-active {" +
-      "  background: rgba(90,84,189,0.12); color: #7b75d4;" +
-      "  border: 1px solid rgba(90,84,189,0.2);" +
+      "  background: rgba(90,84,190,0.10); color: #5A54BE;" +
+      "  border: 1px solid rgba(90,84,190,0.25);" +
       "}" +
       ".nova-tool-pill-done {" +
-      "  background: rgba(52,211,153,0.08); color: #34d399;" +
-      "  border: 1px solid rgba(52,211,153,0.15);" +
+      "  background: rgba(34,197,94,0.10); color: #16A34A;" +
+      "  border: 1px solid rgba(34,197,94,0.25);" +
       "}" +
       ".nova-tool-spinner {" +
       "  display: inline-block; width: 10px; height: 10px;" +
-      "  border: 1.5px solid #5a54bd; border-top-color: transparent;" +
+      "  border: 1.5px solid #5A54BE; border-top-color: transparent;" +
       "  border-radius: 50%; animation: nova-tool-spin 0.7s linear infinite;" +
       "  flex-shrink: 0;" +
       "}" +
       ".nova-tool-check {" +
       "  display: inline-flex; align-items: center; justify-content: center;" +
-      "  width: 12px; height: 12px; font-size: 9px; flex-shrink: 0; color: #34d399;" +
+      "  width: 12px; height: 12px; font-size: 9px; flex-shrink: 0; color: #16A34A;" +
       "}" +
       ".nova-tool-label {" +
       "  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;" +
@@ -673,123 +675,63 @@
       // ── Edit icon on user messages ──
       ".nova-msg-row-user .nova-edit-btn {" +
       "  opacity: 0; position: absolute; top: 4px; left: -28px;" +
-      "  background: rgba(90,84,189,0.15); border: 1px solid rgba(90,84,189,0.2);" +
-      "  color: #888; cursor: pointer; padding: 3px; border-radius: 6px;" +
+      "  background: rgba(90,84,190,0.12); border: 1px solid rgba(90,84,190,0.25);" +
+      "  color: #6E6E8C; cursor: pointer; padding: 3px; border-radius: 6px;" +
       "  line-height: 1; transition: all 0.15s; display: flex; align-items: center; justify-content: center;" +
       "}" +
       ".nova-msg-row-user:hover .nova-edit-btn { opacity: 1; }" +
-      ".nova-msg-row-user .nova-edit-btn:hover { color: #5A54BD; border-color: rgba(90,84,189,0.4); }" +
+      ".nova-msg-row-user .nova-edit-btn:hover { color: #5A54BE; border-color: rgba(90,84,190,0.45); }" +
       // ── Edit textarea ──
       ".nova-edit-textarea {" +
-      "  width: 100%; border: 1px solid rgba(90,84,189,0.3);" +
+      "  width: 100%; border: 1px solid rgba(90,84,190,0.35);" +
       "  border-radius: 8px; padding: 8px 10px;" +
       "  font-size: 13px; font-family: inherit;" +
       "  resize: none; outline: none; min-height: 40px; max-height: 120px;" +
-      "  line-height: 1.5; background: rgba(20,20,37,0.9);" +
-      "  color: #e4e4e7; margin-top: 4px;" +
+      "  line-height: 1.5; background: #FFFFFF;" +
+      "  color: #202058; margin-top: 4px;" +
       "}" +
       ".nova-edit-actions {" +
       "  display: flex; gap: 6px; margin-top: 6px; justify-content: flex-end;" +
       "}" +
       ".nova-edit-save-btn {" +
       "  padding: 4px 12px; border-radius: 6px; font-size: 11px; font-family: inherit;" +
-      "  background: rgba(90,84,189,0.2); color: #8b85e0; border: 1px solid rgba(90,84,189,0.3);" +
+      "  background: #5A54BE; color: #ffffff; border: 1px solid #5A54BE;" +
       "  cursor: pointer; transition: all 0.15s;" +
       "}" +
-      ".nova-edit-save-btn:hover { background: rgba(90,84,189,0.3); color: #a5a0f0; }" +
+      ".nova-edit-save-btn:hover { background: #5A4FC4; color: #ffffff; }" +
       ".nova-edit-cancel-btn {" +
       "  padding: 4px 12px; border-radius: 6px; font-size: 11px; font-family: inherit;" +
-      "  background: rgba(255,255,255,0.05); color: #888; border: 1px solid rgba(255,255,255,0.1);" +
+      "  background: #F4F4FF; color: #6E6E8C; border: 1px solid #E3E1F1;" +
       "  cursor: pointer; transition: all 0.15s;" +
       "}" +
-      ".nova-edit-cancel-btn:hover { color: #aaa; border-color: rgba(255,255,255,0.2); }" +
+      ".nova-edit-cancel-btn:hover { color: #202058; border-color: rgba(90,84,190,0.35); }" +
       // ── Regenerate button ──
       ".nova-regen-btn {" +
       "  display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; margin-left: 6px;" +
-      "  padding: 3px 8px; border-radius: 6px; font-size: 10px; color: #666;" +
-      "  background: rgba(107,179,205,0.06); border: 1px solid rgba(107,179,205,0.1);" +
+      "  padding: 3px 8px; border-radius: 6px; font-size: 10px; color: #6E6E8C;" +
+      "  background: rgba(90,84,190,0.06); border: 1px solid rgba(90,84,190,0.15);" +
       "  cursor: pointer; transition: all 0.15s; font-family: inherit;" +
       "}" +
-      ".nova-regen-btn:hover { color: #6BB3CD; border-color: rgba(107,179,205,0.25); }" +
-      // ── Theme toggle button ──
-      ".nova-theme-btn {" +
-      "  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);" +
-      "  color: rgba(255,255,255,0.7); cursor: pointer;" +
-      "  padding: 5px; border-radius: 8px; line-height: 1;" +
-      "  transition: all 0.2s;" +
-      "}" +
-      ".nova-theme-btn:hover { background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.2); }" +
-      ".nova-theme-btn svg { width: 16px; height: 16px; }" +
-      // ── Light theme overrides ──
-      "#nova-panel.nova-light {" +
-      "  background: rgba(245,245,247,0.97);" +
-      "  border-color: rgba(0,0,0,0.08);" +
-      "}" +
-      "#nova-panel.nova-light .nova-header {" +
-      "  background: rgba(245,245,247,0.95);" +
-      "  color: #1a1a2e;" +
-      "}" +
-      "#nova-panel.nova-light .nova-header-title { color: #1a1a2e; }" +
-      "#nova-panel.nova-light .nova-header-subtitle { color: #666; }" +
-      "#nova-panel.nova-light .nova-close-btn," +
-      "#nova-panel.nova-light .nova-theme-btn," +
-      "#nova-panel.nova-light .nova-export-btn {" +
-      "  background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.1) !important;" +
-      "  color: #555 !important;" +
-      "}" +
-      "#nova-panel.nova-light .nova-close-btn:hover," +
-      "#nova-panel.nova-light .nova-theme-btn:hover," +
-      "#nova-panel.nova-light .nova-export-btn:hover {" +
-      "  background: rgba(0,0,0,0.08) !important; color: #1a1a2e !important;" +
-      "}" +
-      "#nova-panel.nova-light .nova-messages { color: #1a1a2e; }" +
-      "#nova-panel.nova-light .nova-msg-assistant {" +
-      "  background: #ffffff; color: #1a1a2e;" +
-      "  border-color: rgba(0,0,0,0.06);" +
-      "}" +
-      "#nova-panel.nova-light .nova-msg-sender-assistant { color: #5a54bd; }" +
-      "#nova-panel.nova-light .nova-msg-sender-user { color: #5a54bd; }" +
-      "#nova-panel.nova-light .nova-welcome-title { color: #1a1a2e; }" +
-      "#nova-panel.nova-light .nova-welcome-subtitle { color: #555; }" +
-      "#nova-panel.nova-light .nova-suggestion {" +
-      "  background: rgba(90,84,189,0.06); color: #1a1a2e;" +
-      "  border-color: rgba(90,84,189,0.15);" +
-      "}" +
-      "#nova-panel.nova-light .nova-suggestion:hover {" +
-      "  background: rgba(90,84,189,0.12); border-color: rgba(90,84,189,0.25);" +
-      "}" +
-      "#nova-panel.nova-light .nova-input-area {" +
-      "  background: rgba(245,245,247,0.95); border-color: rgba(0,0,0,0.06);" +
-      "}" +
-      "#nova-panel.nova-light .nova-input {" +
-      "  background: #ffffff; color: #1a1a2e; border-color: rgba(0,0,0,0.1);" +
-      "}" +
-      "#nova-panel.nova-light .nova-input::placeholder { color: #999; }" +
-      "#nova-panel.nova-light .nova-char-count { color: #999; }" +
-      "#nova-panel.nova-light .nova-footer { color: #999; }" +
-      "#nova-panel.nova-light .nova-msg strong { color: #111; }" +
-      "#nova-panel.nova-light code { background: rgba(0,0,0,0.05); color: #1a1a2e; }" +
-      "#nova-panel.nova-light table th { background: rgba(0,0,0,0.04); }" +
-      "#nova-panel.nova-light table td { border-color: rgba(0,0,0,0.06); }" +
+      ".nova-regen-btn:hover { color: #5A54BE; border-color: rgba(90,84,190,0.35); }" +
       // ── Settings panel ──
-      ".nova-settings-btn:hover { background: rgba(255,255,255,0.1) !important; color: #fff !important; border-color: rgba(255,255,255,0.2) !important; }" +
-      ".nova-settings-panel { position: absolute; top: 56px; right: 8px; z-index: 10; background: rgba(15,15,26,0.98); border: 1px solid rgba(107,179,205,0.15); border-radius: 12px; padding: 14px 16px; min-width: 220px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); backdrop-filter: blur(16px); display: none; }" +
+      ".nova-settings-btn:hover { background: rgba(255,255,255,0.18) !important; color: #fff !important; border-color: rgba(255,255,255,0.3) !important; }" +
+      ".nova-settings-panel { position: absolute; top: 56px; right: 8px; z-index: 10; background: #FFFFFF; border: 1px solid #E3E1F1; border-radius: 12px; padding: 14px 16px; min-width: 220px; box-shadow: 0 8px 32px rgba(32,32,88,0.18); backdrop-filter: blur(16px); display: none; }" +
       ".nova-settings-panel.nova-settings-open { display: block; }" +
-      ".nova-settings-panel label { display: block; font-size: 11px; color: #888; margin-bottom: 4px; letter-spacing: 0.3px; }" +
-      ".nova-settings-panel input[type='text'] { width: 100%; box-sizing: border-box; padding: 6px 10px; background: rgba(20,20,37,0.9); border: 1px solid rgba(107,179,205,0.15); border-radius: 8px; color: #e4e4e7; font-size: 13px; font-family: inherit; outline: none; }" +
-      ".nova-settings-panel input[type='text']:focus { border-color: rgba(107,179,205,0.4); }" +
-      ".nova-settings-save-btn { margin-top: 8px; width: 100%; padding: 6px; border-radius: 8px; background: rgba(90,84,189,0.2); color: #8b85e0; border: 1px solid rgba(90,84,189,0.3); font-size: 11px; font-family: inherit; cursor: pointer; transition: all 0.15s; }" +
-      ".nova-settings-save-btn:hover { background: rgba(90,84,189,0.35); color: #a5a0f0; }" +
+      ".nova-settings-panel label { display: block; font-size: 11px; color: #6E6E8C; margin-bottom: 4px; letter-spacing: 0.3px; }" +
+      ".nova-settings-panel input[type='text'] { width: 100%; box-sizing: border-box; padding: 6px 10px; background: #FFFFFF; border: 1px solid #E3E1F1; border-radius: 8px; color: #202058; font-size: 13px; font-family: inherit; outline: none; }" +
+      ".nova-settings-panel input[type='text']:focus { border-color: #5A54BE; }" +
+      ".nova-settings-save-btn { margin-top: 8px; width: 100%; padding: 6px; border-radius: 8px; background: #5A54BE; color: #ffffff; border: 1px solid #5A54BE; font-size: 11px; font-family: inherit; cursor: pointer; transition: all 0.15s; }" +
+      ".nova-settings-save-btn:hover { background: #5A4FC4; color: #ffffff; }" +
       // ── Export dropdown ──
-      ".nova-export-dropdown { position: absolute; top: 56px; right: 44px; z-index: 10; background: rgba(15,15,26,0.98); border: 1px solid rgba(107,179,205,0.15); border-radius: 10px; min-width: 180px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.5); backdrop-filter: blur(16px); display: none; }" +
+      ".nova-export-dropdown { position: absolute; top: 56px; right: 44px; z-index: 10; background: #FFFFFF; border: 1px solid #E3E1F1; border-radius: 10px; min-width: 180px; overflow: hidden; box-shadow: 0 8px 32px rgba(32,32,88,0.18); backdrop-filter: blur(16px); display: none; }" +
       ".nova-export-dropdown.nova-export-open { display: block; }" +
-      ".nova-export-option { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12px; color: #a1a1a1; cursor: pointer; transition: all 0.15s; border: none; background: none; width: 100%; text-align: left; font-family: inherit; }" +
-      ".nova-export-option:hover { background: rgba(107,179,205,0.08); color: #e4e4e7; }" +
+      ".nova-export-option { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12px; color: #202058; cursor: pointer; transition: all 0.15s; border: none; background: none; width: 100%; text-align: left; font-family: inherit; }" +
+      ".nova-export-option:hover { background: #ECEAF7; color: #202058; }" +
       ".nova-export-option svg { width: 14px; height: 14px; flex-shrink: 0; }" +
       // ── Avatar tooltip ──
-      ".nova-msg-avatar[data-tooltip]:hover::after { content: attr(data-tooltip); position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); color: #e4e4e7; padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 400; white-space: nowrap; pointer-events: none; z-index: 10; }" +
+      ".nova-msg-avatar[data-tooltip]:hover::after { content: attr(data-tooltip); position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); background: #202058; color: #ECEAF7; padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 400; white-space: nowrap; pointer-events: none; z-index: 10; }" +
       // ── Branch indicator ──
-      ".nova-branch-indicator { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; color: #5A54BD; margin-bottom: 2px; letter-spacing: 0.3px; opacity: 0.8; }" +
+      ".nova-branch-indicator { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; color: #5A54BE; margin-bottom: 2px; letter-spacing: 0.3px; opacity: 0.85; }" +
       ".nova-branch-indicator svg { width: 10px; height: 10px; }" +
       // ── Print ──
       "@media print { #nova-float-btn, .nova-input-wrap, .nova-footer, .nova-close-btn, .nova-export-btn, .nova-settings-btn, .nova-suggestion-btn, .nova-suggestions, .nova-welcome, .nova-copy-btn, .nova-tts-btn, .nova-rate-btn, .nova-regen-btn, .nova-edit-btn, .nova-stop-btn, .nova-settings-panel, .nova-export-dropdown { display: none !important; } #nova-panel { position: static !important; width: 100% !important; height: auto !important; max-height: none !important; background: #fff !important; color: #000 !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; backdrop-filter: none !important; } .nova-header { background: #fff !important; color: #000 !important; border-bottom: 2px solid #202058; } .nova-header-title { color: #202058 !important; } .nova-messages { overflow: visible !important; background: #fff !important; } .nova-msg { color: #000 !important; background: transparent !important; border: 1px solid #ddd !important; } .nova-msg-user { background: #f0f0f5 !important; } .nova-msg-assistant { background: #fff !important; } .nova-msg-sender { color: #333 !important; } .nova-msg-avatar { background: #ccc !important; } }" +
@@ -798,7 +740,7 @@
       "  .nova-msg-row, .nova-msg-user, .nova-msg-assistant { animation: none !important; }" +
       "  .nova-msg-row { animation: none !important; }" +
       "  .nova-typing-dot { animation: none !important; opacity: 0.5; }" +
-      "  #nova-float-btn, .nova-send-btn, .nova-suggestion-btn, .nova-close-btn, .nova-regen-btn, .nova-edit-btn, .nova-theme-btn { transition: none !important; }" +
+      "  #nova-float-btn, .nova-send-btn, .nova-suggestion-btn, .nova-close-btn, .nova-regen-btn, .nova-edit-btn { transition: none !important; }" +
       "  #nova-float-btn:hover, .nova-send-btn:hover, .nova-suggestion-btn:hover { transform: none !important; }" +
       "  #nova-float-btn:active, .nova-send-btn:active, .nova-suggestion-btn:active { transform: none !important; }" +
       "  .nova-streaming-cursor { animation: none !important; opacity: 0.7; }" +
@@ -860,7 +802,7 @@
         var highlighted = highlightSyntax(code.trim(), langLabel);
         var codeId = "nova-code-" + Math.random().toString(36).substr(2, 8);
         return (
-          '<div style="margin:8px 0;border-radius:8px;overflow:hidden;border:1px solid rgba(107,179,205,0.1);">' +
+          '<div style="margin:8px 0;border-radius:8px;overflow:hidden;border:1px solid #E3E1F1;">' +
           '<div class="nova-code-header">' +
           "<span>" +
           langLabel +
@@ -871,7 +813,7 @@
           codeId +
           "');if(c){navigator.clipboard.writeText(c.textContent).then(function(){b.textContent='Copied!';setTimeout(function(){b.textContent='Copy'},1500);if(window.posthog&&typeof window.posthog.capture==='function'){try{window.posthog.capture('nova_chat_code_copied',{source:'widget',page:window.location.pathname});window.posthog.capture('nova_chat_action_taken',{action_type:'code_copy',page:window.location.pathname})}catch(_e){}}})}})(this)\">Copy</button>" +
           "</div>" +
-          '<pre style="margin:0;padding:12px;background:#0d0d18;overflow-x:auto;"><code id="' +
+          '<pre style="margin:0;padding:12px;background:#131A38;overflow-x:auto;"><code id="' +
           codeId +
           '" style="background:none;padding:0;color:#e4e4e7;font-size:11.5px;font-family:\'SF Mono\',Monaco,Menlo,monospace;line-height:1.6;">' +
           highlighted +
@@ -983,7 +925,7 @@
     // Inline citations [1], [2], etc.
     html = html.replace(
       /\[(\d+)\]/g,
-      '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:10px;background:rgba(107,179,205,0.1);color:#6BB3CD;font-size:9px;font-weight:600;vertical-align:super;margin:0 1px;">$1</span>',
+      '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:10px;background:rgba(90,84,190,0.10);color:#5A54BE;font-size:9px;font-weight:600;vertical-align:super;margin:0 1px;">$1</span>',
     );
 
     // Line breaks (double newline = paragraph, single = br)
@@ -1165,22 +1107,23 @@
     var reduced =
       window.matchMedia &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Joveo 2026 data-viz order
     var palette = [
-      "#5A54BD",
-      "#6BB3CD",
-      "#7C6FE0",
-      "#8FC8E0",
+      "#5A54BE",
+      "#6BB5CE",
+      "#B7669E",
+      "#8680D6",
+      "#3E8FAB",
       "#202058",
-      "#A695E8",
-      "#B8D9E8",
-      "#4A44A0",
+      "#5A4FC4",
+      "#45B6C8",
     ];
 
     var wrap = document.createElement("div");
     wrap.className = "nova-auto-chart-wrap";
     wrap.style.cssText =
-      "margin:10px 0;border:1px solid rgba(107,179,205,0.18);" +
-      "border-radius:10px;background:rgba(32,32,88,0.04);overflow:hidden;";
+      "margin:10px 0;border:1px solid #E3E1F1;" +
+      "border-radius:10px;background:#F4F4FF;overflow:hidden;";
 
     var header = document.createElement("button");
     header.type = "button";
@@ -1189,7 +1132,7 @@
     header.style.cssText =
       "width:100%;display:flex;justify-content:space-between;align-items:center;" +
       "padding:8px 12px;background:none;border:none;cursor:pointer;" +
-      "font-size:12px;font-weight:600;color:#5A54BD;font-family:inherit;";
+      "font-size:12px;font-weight:600;color:#5A54BE;font-family:inherit;";
     header.innerHTML =
       "<span>Chart: " +
       escapeHtml(shape.title) +
@@ -1554,7 +1497,7 @@
     var t = document.createElement("div");
     t.textContent = msg;
     t.style.cssText =
-      "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(107,179,205,0.95);color:#fff;padding:8px 20px;border-radius:8px;font-size:13px;z-index:100000;opacity:0;transition:opacity 0.3s;pointer-events:none;";
+      "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#5A54BE;color:#fff;padding:8px 20px;border-radius:8px;font-size:13px;z-index:100000;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:0 4px 20px rgba(90,84,190,0.35);";
     document.body.appendChild(t);
     requestAnimationFrame(function () {
       t.style.opacity = "1";
@@ -1901,26 +1844,14 @@
       "</div>" +
       '<div class="nova-chat-header-auth" style="display:none;align-items:center;margin-right:4px;"></div>' +
       '<div style="display:flex;align-items:center;gap:6px;">' +
-      '<button class="nova-settings-btn" aria-label="Settings" title="Settings" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);cursor:pointer;padding:5px;border-radius:8px;line-height:1;transition:all 0.2s;">' +
+      '<button class="nova-settings-btn" aria-label="Settings" title="Settings" style="background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);cursor:pointer;padding:5px;border-radius:8px;line-height:1;transition:all 0.2s;">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
       "</button>" +
-      '<button class="nova-export-btn" aria-label="Export conversation" title="Export conversation" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);cursor:pointer;padding:5px;border-radius:8px;line-height:1;transition:all 0.2s;">' +
+      '<button class="nova-export-btn" aria-label="Export conversation" title="Export conversation" style="background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);cursor:pointer;padding:5px;border-radius:8px;line-height:1;transition:all 0.2s;">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
       'stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">' +
       '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>' +
       '<polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
-      "</button>" +
-      '<button class="nova-theme-btn" aria-label="Toggle theme" title="Toggle dark/light mode">' +
-      '<svg class="nova-theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
-      'stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">' +
-      '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>' +
-      '<svg class="nova-theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
-      'stroke-linecap="round" stroke-linejoin="round" style="display:none;width:16px;height:16px;">' +
-      '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/>' +
-      '<line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>' +
-      '<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/>' +
-      '<line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>' +
-      '<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>' +
       "</button>" +
       '<button class="nova-close-btn" aria-label="Close chat">' +
       ICONS.close +
@@ -2020,46 +1951,6 @@
         if (ed) ed.classList.remove("nova-export-open");
       }
     });
-    // Theme toggle: dark/light mode
-    var _themeBtn = header.querySelector(".nova-theme-btn");
-    if (_themeBtn) {
-      // Apply saved theme on build
-      var _savedTheme = null;
-      try {
-        _savedTheme = localStorage.getItem("nova_theme");
-      } catch (e) {
-        /* localStorage read failed */
-      }
-      if (_savedTheme === "light") {
-        panel.classList.add("nova-light");
-        var _moonIcon = _themeBtn.querySelector(".nova-theme-icon-moon");
-        var _sunIcon = _themeBtn.querySelector(".nova-theme-icon-sun");
-        if (_moonIcon) _moonIcon.style.display = "none";
-        if (_sunIcon) _sunIcon.style.display = "";
-      }
-      _themeBtn.addEventListener("click", function () {
-        var isLight = panel.classList.toggle("nova-light");
-        var moonIcon = _themeBtn.querySelector(".nova-theme-icon-moon");
-        var sunIcon = _themeBtn.querySelector(".nova-theme-icon-sun");
-        if (isLight) {
-          try {
-            localStorage.setItem("nova_theme", "light");
-          } catch (e) {
-            /* localStorage write failed */
-          }
-          if (moonIcon) moonIcon.style.display = "none";
-          if (sunIcon) sunIcon.style.display = "";
-        } else {
-          try {
-            localStorage.setItem("nova_theme", "dark");
-          } catch (e) {
-            /* localStorage write failed */
-          }
-          if (moonIcon) moonIcon.style.display = "";
-          if (sunIcon) sunIcon.style.display = "none";
-        }
-      });
-    }
     header
       .querySelector(".nova-close-btn")
       .addEventListener("click", function (e) {
@@ -2532,7 +2423,7 @@
       '<div class="nova-typing-dot"></div>' +
       '<div class="nova-typing-dot"></div>' +
       '<div class="nova-typing-dot"></div>' +
-      '<span id="nova-typing-elapsed" style="font-size:10px;color:#555;margin-left:6px;font-variant-numeric:tabular-nums;min-width:20px;"></span>';
+      '<span id="nova-typing-elapsed" style="font-size:10px;color:#6E6E8C;margin-left:6px;font-variant-numeric:tabular-nums;min-width:20px;"></span>';
     messagesDiv.appendChild(typing);
     messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: "smooth" });
 
@@ -2678,18 +2569,18 @@
     if (!messagesDiv) return;
     var errEl = document.createElement("div");
     errEl.className = "nova-msg nova-msg-assistant";
-    errEl.style.borderColor = "rgba(248,113,113,0.2)";
-    errEl.innerHTML = '<span style="color:#F87171;">' + errorMsg + "</span>";
+    errEl.style.borderColor = "rgba(239,68,68,0.3)";
+    errEl.innerHTML = '<span style="color:#DC2626;">' + errorMsg + "</span>";
     if (!isAbort) {
       var retryBtn = document.createElement("button");
       retryBtn.textContent = "Retry";
       retryBtn.style.cssText =
-        "display:inline-block;margin-top:8px;padding:4px 12px;border-radius:6px;font-size:11px;color:#6BB3CD;background:rgba(107,179,205,0.1);border:1px solid rgba(107,179,205,0.2);cursor:pointer;font-family:inherit;transition:all 0.15s;";
+        "display:inline-block;margin-top:8px;padding:4px 12px;border-radius:6px;font-size:11px;color:#5A54BE;background:rgba(90,84,190,0.10);border:1px solid rgba(90,84,190,0.25);cursor:pointer;font-family:inherit;transition:all 0.15s;";
       retryBtn.addEventListener("mouseenter", function () {
-        this.style.background = "rgba(107,179,205,0.2)";
+        this.style.background = "rgba(90,84,190,0.20)";
       });
       retryBtn.addEventListener("mouseleave", function () {
-        this.style.background = "rgba(107,179,205,0.1)";
+        this.style.background = "rgba(90,84,190,0.10)";
       });
       (function (btn, txt) {
         btn.addEventListener("click", function () {
@@ -2715,25 +2606,25 @@
     copyBtn.innerHTML =
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
     copyBtn.style.cssText =
-      "display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#666;background:rgba(107,179,205,0.06);border:1px solid rgba(107,179,205,0.1);cursor:pointer;transition:all 0.15s;font-family:inherit;";
+      "display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#6E6E8C;background:rgba(90,84,190,0.06);border:1px solid rgba(90,84,190,0.15);cursor:pointer;transition:all 0.15s;font-family:inherit;";
     copyBtn.addEventListener("mouseenter", function () {
-      this.style.color = "#6BB3CD";
-      this.style.borderColor = "rgba(107,179,205,0.25)";
+      this.style.color = "#5A54BE";
+      this.style.borderColor = "rgba(90,84,190,0.35)";
     });
     copyBtn.addEventListener("mouseleave", function () {
-      this.style.color = "#666";
-      this.style.borderColor = "rgba(107,179,205,0.1)";
+      this.style.color = "#6E6E8C";
+      this.style.borderColor = "rgba(90,84,190,0.15)";
     });
     (function (btn, c) {
       btn.addEventListener("click", function () {
         navigator.clipboard.writeText(c).then(function () {
           btn.innerHTML =
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied';
-          btn.style.color = "#34D399";
+          btn.style.color = "#16A34A";
           setTimeout(function () {
             btn.innerHTML =
               '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
-            btn.style.color = "#666";
+            btn.style.color = "#6E6E8C";
           }, 1500);
         });
       });
@@ -2747,15 +2638,15 @@
     ttsBtn.innerHTML =
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
     ttsBtn.style.cssText =
-      "display:inline-flex;align-items:center;gap:4px;margin-top:6px;margin-left:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#666;background:rgba(107,179,205,0.06);border:1px solid rgba(107,179,205,0.1);cursor:pointer;transition:all 0.15s;font-family:inherit;";
+      "display:inline-flex;align-items:center;gap:4px;margin-top:6px;margin-left:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#6E6E8C;background:rgba(90,84,190,0.06);border:1px solid rgba(90,84,190,0.15);cursor:pointer;transition:all 0.15s;font-family:inherit;";
     ttsBtn.addEventListener("mouseenter", function () {
-      this.style.color = "#6BB3CD";
-      this.style.borderColor = "rgba(107,179,205,0.25)";
+      this.style.color = "#5A54BE";
+      this.style.borderColor = "rgba(90,84,190,0.35)";
     });
     ttsBtn.addEventListener("mouseleave", function () {
       if (!this.dataset.playing) {
-        this.style.color = "#666";
-        this.style.borderColor = "rgba(107,179,205,0.1)";
+        this.style.color = "#6E6E8C";
+        this.style.borderColor = "rgba(90,84,190,0.15)";
       }
     });
     (function (btn, c) {
@@ -2766,13 +2657,13 @@
           audio = null;
           btn.innerHTML =
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
-          btn.style.color = "#666";
+          btn.style.color = "#6E6E8C";
           delete btn.dataset.playing;
           return;
         }
         btn.innerHTML =
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/></svg> Loading...';
-        btn.style.color = "#6BB3CD";
+        btn.style.color = "#5A54BE";
         btn.dataset.playing = "1";
         var csrfToken = "";
         var csrfMeta = document.querySelector('meta[name="csrf-token"]');
@@ -2810,7 +2701,7 @@
             audio.addEventListener("ended", function () {
               btn.innerHTML =
                 '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
-              btn.style.color = "#666";
+              btn.style.color = "#6E6E8C";
               delete btn.dataset.playing;
               URL.revokeObjectURL(url);
               btn._ttsBlobUrl = null;
@@ -2824,10 +2715,10 @@
             }
             btn.innerHTML =
               '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Listen';
-            btn.style.color = "#F87171";
+            btn.style.color = "#DC2626";
             delete btn.dataset.playing;
             setTimeout(function () {
-              btn.style.color = "#666";
+              btn.style.color = "#6E6E8C";
             }, 2000);
           });
       });
@@ -2837,7 +2728,7 @@
     // Thumbs up / thumbs down
     var msgIdx = state.messages.length;
     var ratingBtnStyle =
-      "display:inline-flex;align-items:center;gap:2px;margin-top:6px;margin-left:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#666;background:rgba(107,179,205,0.06);border:1px solid rgba(107,179,205,0.1);cursor:pointer;transition:all 0.15s;font-family:inherit;";
+      "display:inline-flex;align-items:center;gap:2px;margin-top:6px;margin-left:6px;padding:3px 8px;border-radius:6px;font-size:10px;color:#6E6E8C;background:rgba(90,84,190,0.06);border:1px solid rgba(90,84,190,0.15);cursor:pointer;transition:all 0.15s;font-family:inherit;";
     var thumbUpBtn = document.createElement("button");
     thumbUpBtn.className = "nova-rate-btn";
     thumbUpBtn.setAttribute("aria-label", "Rate positive");
@@ -2860,15 +2751,15 @@
           });
         }
         if (rating === "positive") {
-          upBtn.style.color = "#34D399";
-          upBtn.style.borderColor = "rgba(52,211,153,0.3)";
-          downBtn.style.color = "#666";
-          downBtn.style.borderColor = "rgba(107,179,205,0.1)";
+          upBtn.style.color = "#16A34A";
+          upBtn.style.borderColor = "rgba(34,197,94,0.4)";
+          downBtn.style.color = "#6E6E8C";
+          downBtn.style.borderColor = "rgba(90,84,190,0.15)";
         } else {
-          downBtn.style.color = "#F87171";
-          downBtn.style.borderColor = "rgba(248,113,113,0.3)";
-          upBtn.style.color = "#666";
-          upBtn.style.borderColor = "rgba(107,179,205,0.1)";
+          downBtn.style.color = "#DC2626";
+          downBtn.style.borderColor = "rgba(239,68,68,0.4)";
+          upBtn.style.color = "#6E6E8C";
+          upBtn.style.borderColor = "rgba(90,84,190,0.15)";
         }
         upBtn.disabled = true;
         downBtn.disabled = true;
@@ -3017,28 +2908,28 @@
     style.textContent = [
       ".nova-why-wrap { margin-top: 8px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }",
       ".nova-why-toggle {",
-      "  background: none; border: 1px solid rgba(255,255,255,0.10);",
-      "  border-radius: 999px; color: #a1a1aa;",
+      "  background: none; border: 1px solid #E3E1F1;",
+      "  border-radius: 999px; color: #6E6E8C;",
       "  font-size: 11px; font-weight: 500; padding: 3px 10px; cursor: pointer;",
       "  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;",
       "  letter-spacing: 0.2px; display: inline-flex; align-items: center; gap: 6px;",
       "}",
-      ".nova-why-toggle:hover { color: #6BB3CD; border-color: rgba(107,179,205,0.35); background: rgba(107,179,205,0.06); }",
-      ".nova-why-toggle:focus-visible { outline: 2px solid rgba(107,179,205,0.6); outline-offset: 2px; }",
+      ".nova-why-toggle:hover { color: #5A54BE; border-color: rgba(90,84,190,0.35); background: rgba(90,84,190,0.06); }",
+      ".nova-why-toggle:focus-visible { outline: 2px solid rgba(90,84,190,0.6); outline-offset: 2px; }",
       '.nova-why-toggle::after { content: "\\25B8"; font-size: 9px; opacity: 0.7; transition: transform 160ms ease; }',
       '.nova-why-toggle[aria-expanded="true"]::after { transform: rotate(90deg); opacity: 1; }',
       ".nova-why-panel {",
       "  margin-top: 6px; padding: 10px 12px;",
-      "  background: linear-gradient(180deg, rgba(32,32,88,0.30) 0%, rgba(15,15,26,0.55) 100%);",
-      "  border: 1px solid rgba(90,84,189,0.22); border-left: 3px solid #5A54BD;",
-      "  border-radius: 10px; font-size: 11.5px; line-height: 1.55; color: #c0c0cc;",
+      "  background: #F4F4FF;",
+      "  border: 1px solid #E3E1F1; border-left: 3px solid #5A54BE;",
+      "  border-radius: 10px; font-size: 11.5px; line-height: 1.55; color: #1F2937;",
       "}",
       ".nova-why-row { display: flex; gap: 10px; padding: 3px 0; align-items: flex-start; }",
-      ".nova-why-row + .nova-why-row { border-top: 1px solid rgba(255,255,255,0.04); padding-top: 5px; margin-top: 3px; }",
-      ".nova-why-label { flex: 0 0 82px; color: #6BB3CD; font-weight: 600; font-size: 10.5px; letter-spacing: 0.3px; text-transform: uppercase; }",
+      ".nova-why-row + .nova-why-row { border-top: 1px solid #E3E1F1; padding-top: 5px; margin-top: 3px; }",
+      ".nova-why-label { flex: 0 0 82px; color: #5A54BE; font-weight: 600; font-size: 10.5px; letter-spacing: 0.3px; text-transform: uppercase; }",
       ".nova-why-value { flex: 1 1 auto; min-width: 0; word-break: break-word; }",
-      ".nova-why-chip { display: inline-block; padding: 1px 7px; margin: 1px 4px 1px 0; background: rgba(107,179,205,0.10); color: #a9d3e0; border: 1px solid rgba(107,179,205,0.18); border-radius: 999px; font-size: 10px; font-weight: 500; font-family: 'SF Mono', Menlo, ui-monospace, monospace; }",
-      ".nova-why-fastpath { display: inline-block; padding: 1px 8px; background: rgba(52,211,153,0.12); color: #34D399; border: 1px solid rgba(52,211,153,0.25); border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; }",
+      ".nova-why-chip { display: inline-block; padding: 1px 7px; margin: 1px 4px 1px 0; background: rgba(90,84,190,0.10); color: #5A54BE; border: 1px solid rgba(90,84,190,0.20); border-radius: 999px; font-size: 10px; font-weight: 500; font-family: 'SF Mono', Menlo, ui-monospace, monospace; }",
+      ".nova-why-fastpath { display: inline-block; padding: 1px 8px; background: rgba(34,197,94,0.12); color: #16A34A; border: 1px solid rgba(34,197,94,0.30); border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; }",
       ".nova-why-empty { opacity: 0.55; font-style: italic; }",
       "@media (prefers-reduced-motion: reduce) { .nova-why-toggle, .nova-why-toggle::after { transition: none; } }",
       "",

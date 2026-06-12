@@ -1889,6 +1889,10 @@ _KB_FILES = (
     "ad_benchmarks_recruitment_2026.json",
     "client_media_plans_kb.json",
     "nova_learned_answers.json",
+    # 2026-06-12: Joveo client media-plan deck (methodology, push/pull, CPA
+    # reference, sample pricing, why-Joveo, case study). Mirrors the entry in
+    # vector_search.index_knowledge_base() and kb_loader.KB_FILES.
+    "joveo_media_plan_deck_2026.json",
 )
 
 

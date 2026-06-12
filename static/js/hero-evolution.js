@@ -160,7 +160,7 @@
   dashEl.className = "evo-dashboard";
   /* Add bars inside dashboard */
   var barWidths = [72, 55, 38, 25];
-  var barColors = ["#5A54BD", "#06b6d4", "#22c55e", "#f59e0b"];
+  var barColors = ["#5A54BE", "#06b6d4", "#22c55e", "#f59e0b"];
   for (var b = 0; b < barWidths.length; b++) {
     var bar = document.createElement("div");
     bar.className = "evo-dash-bar";

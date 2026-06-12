@@ -5,31 +5,50 @@ Generates a standalone HTML document with @media print CSS for clean
 A4 PDF output via Ctrl+P / browser print. No external dependencies --
 all CSS is inline, all fonts are system fonts.
 
-Color scheme: Brand (Port Gore navy #202058, Blue Violet #5A54BD)
+Color scheme: Brand (Port Gore navy #202058, Blue Violet #5A54BE)
 adapted for print-friendly output (white background, dark text).
 """
 
 from __future__ import annotations
 
 import html
+import json
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Brand Colors (print-friendly adaptations)
+# Canonical hex values imported from joveo_brand_2026 and aliased to the local
+# names the rest of this module already uses (so downstream code is untouched).
+# Values stay byte-identical to the previous hand-defined literals (deck-exact).
 # ---------------------------------------------------------------------------
-PORT_GORE = "#202058"  # Navy -- headings
-BLUE_VIOLET = "#5A54BD"  # Purple accent
-DOWNY_TEAL = "#6BB3CD"  # Secondary accent
-TAPESTRY_PINK = "#B5669C"  # Tertiary accent
-RAW_SIENNA = "#CE9047"  # Warm accent
-TEXT_DARK = "#1a1a2e"  # Body text
-TEXT_MUTED = "#555566"  # Secondary text
-BORDER_LIGHT = "#d0d0e0"  # Table borders
-BG_ZEBRA = "#f4f4f9"  # Zebra row background
+from joveo_brand_2026 import (
+    INDIGO,
+    PURPLE,
+    TEAL,
+    MAGENTA,
+    TEAL_DEEP,
+    INK,
+    MUTED,
+    BORDER,
+    LAVENDER_50,
+    LAVENDER_100,
+)
+
+PORT_GORE = INDIGO  # Navy -- headings (#202058)
+BLUE_VIOLET = PURPLE  # Purple accent (#5A54BE)
+DOWNY_TEAL = TEAL  # Secondary accent (#6BB5CE)
+TAPESTRY_PINK = MAGENTA  # Tertiary accent (#B7669E)
+RAW_SIENNA = TEAL_DEEP  # Teal-deep accent (#3E8FAB, deck)
+TEXT_DARK = INK  # Ink body text (#1F2937, deck-exact)
+TEXT_MUTED = MUTED  # Muted secondary text (#6E6E8C, deck-exact)
+BORDER_LIGHT = BORDER  # Table / card borders (#E3E1F1, deck-exact)
+BG_ZEBRA = LAVENDER_50  # Lavender-50 zebra row background (#F4F4FF, deck-exact)
+BG_LAVENDER = LAVENDER_100  # Lavender-100 alt surface (#ECEAF7, deck)
 BG_WHITE = "#ffffff"
 
 # Bar chart colors (cycle through brand palette)
@@ -82,6 +101,289 @@ def _format_pct(value: Any) -> str:
         return f"{num:.1f}%"
     except (TypeError, ValueError):
         return _safe(value)
+
+
+def _is_ai_training_plan(plan_data: Dict[str, Any]) -> bool:
+    """Return True if the plan's industry/roles plausibly match an AI-training
+    engagement (AI trainers, data annotators, language/data-labeling experts).
+
+    The CPA-reference and sample-pricing deck sections carry data that is
+    specific to an AI-trainer engagement ('Cost / Trainer', per-language audio
+    specialists, etc.). Rendering them for an unrelated client would
+    misrepresent that client's plan, so these sections are gated on this check.
+    """
+    if not isinstance(plan_data, dict):
+        return False
+    markers = ("ai", "train", "annotat", "language", "data label", "data-label")
+    haystack_parts: List[str] = []
+    industry = plan_data.get("industry")
+    if industry:
+        haystack_parts.append(str(industry))
+    roles = plan_data.get("roles") or []
+    if isinstance(roles, list):
+        for r in roles:
+            if isinstance(r, dict):
+                haystack_parts.append(str(r.get("name") or r.get("title") or ""))
+            else:
+                haystack_parts.append(str(r))
+    elif roles:
+        haystack_parts.append(str(roles))
+    haystack = " ".join(haystack_parts).lower()
+    return any(m in haystack for m in markers)
+
+
+def _load_deck_kb() -> Dict[str, Any]:
+    """Load the Joveo media-plan deck content (methodology, push/pull, CPA
+    reference, sample pricing, why-Joveo, case study, next steps) from the KB.
+
+    Returns ``{}`` if the file is unavailable so the report degrades gracefully.
+    """
+    try:
+        path = (
+            Path(__file__).resolve().parent
+            / "data"
+            / "joveo_media_plan_deck_2026.json"
+        )
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError) as exc:  # missing file / malformed JSON
+        logger.warning("deck KB unavailable, skipping narrative sections: %s", exc)
+        return {}
+
+
+def _deck_methodology_html(deck: Dict[str, Any]) -> str:
+    """Joveo 6-step campaign methodology cards (deck slide 'Our Methodology')."""
+    meth = (deck.get("campaign_methodology") or {}) if isinstance(deck, dict) else {}
+    steps = meth.get("steps") or []
+    if not steps:
+        return ""
+    cards = []
+    for s in steps:
+        ai = _safe(str(s.get("ai") or ""))
+        ai_tag = (
+            f'<div style="font-size:10px;font-weight:600;color:{BLUE_VIOLET};'
+            f'text-transform:uppercase;letter-spacing:0.4px;margin-top:4px;">{ai}</div>'
+            if ai
+            else ""
+        )
+        cards.append(
+            f"""
+        <div style="background:{BG_ZEBRA};border:1px solid {BORDER_LIGHT};border-radius:10px;padding:14px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:{BLUE_VIOLET};color:#fff;font-weight:700;font-size:12px;">{_safe(str(s.get('n') or ''))}</span>
+            <span style="font-family:'Poppins',sans-serif;font-weight:600;font-size:13px;color:{PORT_GORE};">{_safe(str(s.get('name') or ''))}</span>
+          </div>
+          {ai_tag}
+          <div style="font-size:11px;color:{TEXT_MUTED};line-height:1.5;margin-top:4px;">{_safe(str(s.get('detail') or ''))}</div>
+        </div>"""
+        )
+    return f"""
+    <div class="section page-break-before">
+      <h2>Our Methodology</h2>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+        {''.join(cards)}
+      </div>
+    </div>
+    """
+
+
+def _deck_push_pull_html(deck: Dict[str, Any]) -> str:
+    """Push Meets Pull framework (deck slide)."""
+    pp = (deck.get("push_meets_pull") or {}) if isinstance(deck, dict) else {}
+    push = pp.get("push") or {}
+    pull = pp.get("pull") or {}
+    if not push and not pull:
+        return ""
+
+    def _card(obj: Dict[str, Any], pill_bg: str, pill_color: str) -> str:
+        return f"""
+        <div style="background:{BG_ZEBRA};border:1px solid {BORDER_LIGHT};border-radius:10px;padding:16px;">
+          <span style="display:inline-block;background:{pill_bg};color:{pill_color};font-weight:600;font-size:11px;padding:3px 12px;border-radius:999px;">{_safe(str(obj.get('name') or ''))}</span>
+          <div style="font-size:12px;color:{TEXT_MUTED};line-height:1.6;margin-top:10px;">{_safe(str(obj.get('detail') or ''))}</div>
+        </div>"""
+
+    summary = _safe(str(pp.get("summary") or ""))
+    summary_html = (
+        f'<p style="font-size:13px;color:{TEXT_MUTED};margin-bottom:14px;">{summary}</p>'
+        if summary
+        else ""
+    )
+    return f"""
+    <div class="section">
+      <h2>Push Meets Pull</h2>
+      {summary_html}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        {_card(push, BG_LAVENDER, BLUE_VIOLET)}
+        {_card(pull, '#EEF6FF', RAW_SIENNA)}
+      </div>
+    </div>
+    """
+
+
+def _deck_cpa_reference_html(deck: Dict[str, Any], is_ai_training: bool = False) -> str:
+    """CPA reference guide table (deck slide).
+
+    Carries AI-trainer-specific benchmark data, so it is omitted entirely
+    (returns "") for any plan that does not match an AI-training engagement.
+    """
+    if not is_ai_training:
+        return ""
+    cpa = (deck.get("cpa_reference") or {}) if isinstance(deck, dict) else {}
+    rows = cpa.get("roles") or []
+    if not rows:
+        return ""
+    body = []
+    for i, r in enumerate(rows):
+        bg = f' style="background-color: {BG_ZEBRA};"' if i % 2 == 1 else ""
+        body.append(
+            f"""
+        <tr{bg}>
+          <td style="font-weight:600;">{_safe(str(r.get('category') or ''))}</td>
+          <td class="num">${_safe(str(r.get('cpa_low') or ''))} &ndash; ${_safe(str(r.get('cpa_high') or ''))}</td>
+          <td style="color:{TEXT_MUTED};">{_safe(str(r.get('basis') or ''))}</td>
+        </tr>"""
+        )
+    note = _safe(str(cpa.get("description") or ""))
+    note_html = (
+        f'<p style="font-size:11px;color:{TEXT_MUTED};margin-top:8px;">{note}</p>'
+        if note
+        else ""
+    )
+    return f"""
+    <div class="section page-break-before">
+      <h2>CPA Reference Guide</h2>
+      <table class="data-table">
+        <thead>
+          <tr><th>Role Category</th><th class="num">Est. CPA Range</th><th>Benchmark Basis</th></tr>
+        </thead>
+        <tbody>{''.join(body)}</tbody>
+      </table>
+      {note_html}
+    </div>
+    """
+
+
+def _deck_sample_pricing_html(deck: Dict[str, Any], is_ai_training: bool = False) -> str:
+    """Sample campaign pricing table (deck slide).
+
+    Carries AI-trainer-specific pricing data ('Cost / Trainer'), so it is
+    omitted entirely (returns "") for any plan that does not match an
+    AI-training engagement.
+    """
+    if not is_ai_training:
+        return ""
+    sp = (deck.get("sample_pricing_model") or {}) if isinstance(deck, dict) else {}
+    camps = sp.get("campaigns") or []
+    if not camps:
+        return ""
+    body = []
+    for i, c in enumerate(camps):
+        bg = f' style="background-color: {BG_ZEBRA};"' if i % 2 == 1 else ""
+        body.append(
+            f"""
+        <tr{bg}>
+          <td style="font-weight:600;">{_safe(str(c.get('campaign') or ''))}</td>
+          <td style="color:{TEXT_MUTED};font-size:11px;">{_safe(str(c.get('targeting') or ''))}</td>
+          <td class="num">${_safe(str(c.get('cpa_low') or ''))}&ndash;${_safe(str(c.get('cpa_high') or ''))}</td>
+          <td class="num">{_safe(str(c.get('historical_conversion_pct') or ''))}%</td>
+          <td class="num">${_safe(str(c.get('cost_per_trainer_low') or ''))}&ndash;${_safe(str(c.get('cost_per_trainer_high') or ''))}</td>
+          <td class="num">{_format_currency(c.get('budget_low') or 0)}&ndash;{_format_currency(c.get('budget_high') or 0)}</td>
+        </tr>"""
+        )
+    blended = sp.get("blended_total") or {}
+    foot = ""
+    if blended:
+        foot = f"""
+        <tfoot><tr>
+          <td style="font-weight:700;">Blended Total</td>
+          <td></td><td></td><td></td>
+          <td class="num" style="font-weight:700;">${_safe(str(blended.get('cost_per_trainer_low') or ''))}&ndash;${_safe(str(blended.get('cost_per_trainer_high') or ''))}</td>
+          <td class="num" style="font-weight:700;">{_format_currency(blended.get('budget_low') or 0)}&ndash;{_format_currency(blended.get('budget_high') or 0)}</td>
+        </tr></tfoot>"""
+    note = _safe(str(sp.get("note") or ""))
+    note_html = (
+        f'<p style="font-size:11px;color:{TEXT_MUTED};margin-top:8px;">{note}</p>'
+        if note
+        else ""
+    )
+    return f"""
+    <div class="section">
+      <h2>Sample Campaign Pricing</h2>
+      <table class="data-table">
+        <thead>
+          <tr><th>Campaign</th><th>Targeting</th><th class="num">CPA</th><th class="num">Conv.</th><th class="num">Cost / Trainer</th><th class="num">Budget</th></tr>
+        </thead>
+        <tbody>{''.join(body)}</tbody>
+        {foot}
+      </table>
+      {note_html}
+    </div>
+    """
+
+
+def _deck_case_study_html(deck: Dict[str, Any]) -> str:
+    """Case study: outcome stats + challenges/solution (deck slides)."""
+    cs = (deck.get("case_study") or {}) if isinstance(deck, dict) else {}
+    if not cs:
+        return ""
+    results = cs.get("results") or []
+    stat_cards = "".join(
+        f"""
+        <div class="summary-card">
+          <div class="summary-value" style="color:{BLUE_VIOLET};">{_safe(str(r.get('value') or ''))}</div>
+          <div class="summary-label" style="margin-top:6px;">{_safe(str(r.get('detail') or r.get('metric') or ''))}</div>
+        </div>"""
+        for r in results
+    )
+    stats_html = (
+        f'<div class="summary-grid" style="grid-template-columns:repeat({max(len(results),1)},1fr);margin-bottom:16px;">{stat_cards}</div>'
+        if results
+        else ""
+    )
+
+    def _list(items, color):
+        lis = "".join(
+            f'<li style="margin-bottom:6px;font-size:12px;color:{TEXT_MUTED};line-height:1.5;">{_safe(str(x))}</li>'
+            for x in items
+        )
+        return f'<ul style="list-style:none;padding:0;">{lis}</ul>'
+
+    challenges = cs.get("challenges") or []
+    solution = cs.get("solution") or []
+    cols = f"""
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div style="font-family:'Poppins',sans-serif;font-weight:600;font-size:13px;color:{PORT_GORE};margin-bottom:8px;">Challenges</div>
+          {_list(challenges, TEXT_MUTED)}
+        </div>
+        <div>
+          <div style="font-family:'Poppins',sans-serif;font-weight:600;font-size:13px;color:{BLUE_VIOLET};margin-bottom:8px;">The Joveo Solution</div>
+          {_list(solution, TEXT_MUTED)}
+        </div>
+      </div>
+    """
+    title = _safe(str(cs.get("title") or "Case Study"))
+    return f"""
+    <div class="section page-break-before">
+      <h2>Case Study &mdash; {title}</h2>
+      {stats_html}
+      {cols}
+    </div>
+    """
+
+
+def _deck_next_steps_html(deck: Dict[str, Any]) -> str:
+    """Next steps checklist (deck slide)."""
+    steps = (deck.get("next_steps") or []) if isinstance(deck, dict) else []
+    if not steps:
+        return ""
+    items = "".join(f"<li>{_safe(str(s))}</li>" for s in steps)
+    return f"""
+    <div class="section">
+      <h2>Next Steps</h2>
+      <ol class="rec-list">{items}</ol>
+    </div>
+    """
 
 
 def generate_plan_html_report(
@@ -188,7 +490,7 @@ def generate_plan_html_report(
 
     channel_table_html = f"""
     <div class="section page-break-before">
-      <h2>Channel Allocation</h2>
+      <h2>Channel Mix</h2>
       <table class="data-table">
         <thead>
           <tr>
@@ -269,7 +571,7 @@ def generate_plan_html_report(
     if intel_items:
         market_intel_html = f"""
         <div class="section page-break-before">
-          <h2>Market Intelligence</h2>
+          <h2>Benchmarking &amp; Market Research</h2>
           <ul class="intel-list">
             {''.join(intel_items)}
           </ul>
@@ -289,6 +591,26 @@ def generate_plan_html_report(
         </div>
         """
 
+    # ── Deck narrative sections (Joveo media-plan deck KB) ──
+    _deck = _load_deck_kb()
+    methodology_html = _deck_methodology_html(_deck)
+    push_pull_html = _deck_push_pull_html(_deck)
+    # CPA-reference and sample-pricing carry AI-trainer-specific data
+    # ('Cost / Trainer', per-language audio specialists). Only render them for
+    # plans whose industry/roles plausibly match an AI-training engagement; for
+    # any other client both sections are omitted entirely so the AI-trainer data
+    # is never mistaken for that client's actual plan. (MPG-F3 client-safety
+    # gate.) Methodology / push-pull / case-study / next-steps are
+    # client-agnostic and always render.
+    _gate_data = {"industry": industry, "roles": roles}
+    _is_ai_training = _is_ai_training_plan(_gate_data)
+    cpa_reference_html = _deck_cpa_reference_html(_deck, is_ai_training=_is_ai_training)
+    sample_pricing_html = _deck_sample_pricing_html(
+        _deck, is_ai_training=_is_ai_training
+    )
+    case_study_html = _deck_case_study_html(_deck)
+    next_steps_html = _deck_next_steps_html(_deck)
+
     # ── Assemble full HTML document ──
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -301,7 +623,7 @@ def generate_plan_html_report(
   *, *::before, *::after {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
   body {{
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     font-size: 14px;
     line-height: 1.6;
     color: {TEXT_DARK};
@@ -353,6 +675,7 @@ def generate_plan_html_report(
     margin-bottom: 12px;
   }}
   .report-title {{
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 28px;
     font-weight: 800;
     color: {PORT_GORE};
@@ -375,6 +698,7 @@ def generate_plan_html_report(
     margin-bottom: 32px;
   }}
   .section h2 {{
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 18px;
     font-weight: 700;
     color: {PORT_GORE};
@@ -595,17 +919,35 @@ def generate_plan_html_report(
   <!-- Executive Summary -->
   {exec_summary_html}
 
-  <!-- Channel Allocation Table -->
+  <!-- Our Methodology (deck) -->
+  {methodology_html}
+
+  <!-- Push Meets Pull (deck) -->
+  {push_pull_html}
+
+  <!-- Benchmarking & Market Research -->
+  {market_intel_html}
+
+  <!-- Channel Mix -->
   {channel_table_html}
 
   <!-- Budget Breakdown Chart -->
   {budget_chart_html}
 
-  <!-- Market Intelligence -->
-  {market_intel_html}
+  <!-- CPA Reference Guide (deck) -->
+  {cpa_reference_html}
+
+  <!-- Sample Campaign Pricing (deck) -->
+  {sample_pricing_html}
+
+  <!-- Case Study (deck) -->
+  {case_study_html}
 
   <!-- Recommendations -->
   {rec_html}
+
+  <!-- Next Steps (deck) -->
+  {next_steps_html}
 
   <!-- Footer -->
   <div class="report-footer">

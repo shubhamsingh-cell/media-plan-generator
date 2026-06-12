@@ -38,8 +38,9 @@ AI-powered recruitment intelligence platform with 17 products for media planning
 - `/audit-config` -- Audit configuration against best practices
 
 ## 7. Brand
-- Colors: PORT_GORE=#202058, BLUE_VIOLET=#5A54BD, DOWNY_TEAL=#6BB3CD
-- Design: Vercel/Linear-inspired dark theme, glassmorphism, aurora gradients
+- Canonical palette (Joveo deck 2026): see `joveo_brand_2026.py` — INDIGO=#202058, PURPLE=#5A54BE, TEAL=#6BB5CE, MAGENTA=#B7669E, lavender surfaces #F4F4FF/#ECEAF7, canvas #FFFCF9. Do NOT hardcode brand hexes; import from `joveo_brand_2026.py`.
+- Fonts: Poppins (headings), Inter (body).
+- Generated presentations (Slides/PPTX/PDF) + Nova chatbot follow the deck's clean LIGHT format. Legacy product dashboards remain the Vercel/Linear dark theme (glassmorphism, aurora gradients) by design.
 - LinkedIn: https://www.linkedin.com/in/chandel13/
 
 ## 8. Quality Gates

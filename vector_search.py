@@ -1697,6 +1697,7 @@ def index_knowledge_base() -> int:
         "platform_ad_specs.json",
         "seasonal_hiring_trends.json",
         "global_supply.json",
+        "joveo_media_plan_deck_2026.json",
     ]
 
     documents: list[dict] = []

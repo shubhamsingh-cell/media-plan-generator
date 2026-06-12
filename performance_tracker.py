@@ -9,7 +9,7 @@ Thread-safe, never crashes (all errors return structured error dicts).
 
 Design tokens:
     Excel: Sapphire Blue palette (Navy #0F172A, Sapphire #2563EB, Light #DBEAFE)
-    PPT:   Brand (Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD)
+    PPT:   Brand (Port Gore #202058, Blue Violet #5A54BE, Downy #6BB5CE)
 """
 
 from __future__ import annotations
@@ -1447,7 +1447,7 @@ def generate_performance_ppt(
         4. Channel Efficiency Matrix
         5. Recommendations
 
-    Uses branding: Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD.
+    Uses branding: Port Gore #202058, Blue Violet #5A54BE, Downy #6BB5CE.
     """
     try:
         from pptx import Presentation

@@ -832,8 +832,8 @@
 
   // ── 6. Hover preview tooltips ──
   var previewConfigs = {
-    plan: { color: "#7b75d4", bars: [70, 50, 35, 20], label: "Channel Mix" },
-    nova: { color: "#6bb3cd", bars: [60, 80, 40, 55], label: "AI Chat" },
+    plan: { color: "#8680d6", bars: [70, 50, 35, 20], label: "Channel Mix" },
+    nova: { color: "#6bb5ce", bars: [60, 80, 40, 55], label: "AI Chat" },
     slotops: { color: "#378fe9", bars: [90, 45, 65, 30], label: "Slot Score" },
     cg: { color: "#48c78e", bars: [50, 75, 60, 40], label: "Locations" },
     geoviz: { color: "#a78bfa", bars: [40, 60, 80, 50], label: "Globe" },

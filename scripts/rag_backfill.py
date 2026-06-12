@@ -106,6 +106,7 @@ DEFAULT_BACKFILL_FILES: tuple[str, ...] = (
     "nova_learned_answers.json",
     # Additional curated files (required for smoke test + Nova chat surface):
     "ta_leaders_curated_2026.json",  # REQUIRED for smoke test (TA experts)
+    "joveo_media_plan_deck_2026.json",  # REQUIRED: deck KB for semantic search (Nova-F2)
     "industry_reports_2026.json",
     "recruitment_benchmarks_deep.json",
     "recruitment_strategy_intelligence.json",

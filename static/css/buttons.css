@@ -114,7 +114,7 @@ button:not(.bare-btn):not([class*="tab-"]):not([class*="topbar-"]):not(
 .demo-btn,
 .predict-btn,
 .export-btn {
-  background: var(--accent, #5a54bd);
+  background: var(--accent, #5a54be);
   color: #fff;
   box-shadow: var(--btn-shadow-primary);
 }
@@ -264,12 +264,12 @@ a:not(.btn):not(.cta-btn):not(.btn-primary):not(.btn-ghost):not(
 a.nav-link,
 .sidebar-footer-link,
 .breadcrumb a {
-  color: var(--teal, var(--downy-teal, #6bb3cd));
+  color: var(--teal, var(--downy-teal, #6bb5ce));
 }
 
 /* Action links: BLUE_VIOLET */
 a.action-link {
-  color: var(--accent, var(--blue-violet, #5a54bd));
+  color: var(--accent, var(--blue-violet, #5a54be));
 }
 
 /* ================================================================

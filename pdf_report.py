@@ -5,32 +5,60 @@ media plan data. Sections: Executive Summary, Channel Allocation,
 Market Analysis, Budget Breakdown (pie chart), Timeline,
 Risk Analysis, Competitive Landscape.
 
-Brand colors: PORT_GORE=#202058, BLUE_VIOLET=#5A54BD, DOWNY_TEAL=#6BB3CD
+Brand colors: PORT_GORE=#202058, BLUE_VIOLET=#5A54BE, DOWNY_TEAL=#6BB5CE
 """
 
 from __future__ import annotations
 
 import io
+import json
 import logging
 import math
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Brand Colors (RGB tuples for reportlab)
+# Canonical hex values imported from joveo_brand_2026 and converted to the
+# 0..1 RGB float tuples reportlab expects, then aliased to the local names the
+# rest of this module already uses (so downstream code is untouched). Values
+# stay byte-identical to the previous hand-defined literals (all deck-exact).
 # ---------------------------------------------------------------------------
-PORT_GORE = (0x20 / 255, 0x20 / 255, 0x58 / 255)
-BLUE_VIOLET = (0x5A / 255, 0x54 / 255, 0xBD / 255)
-DOWNY_TEAL = (0x6B / 255, 0xB3 / 255, 0xCD / 255)
-TAPESTRY_PINK = (0xB5 / 255, 0x66 / 255, 0x9C / 255)
-RAW_SIENNA = (0xCE / 255, 0x90 / 255, 0x47 / 255)
+from joveo_brand_2026 import (
+    INDIGO,
+    PURPLE,
+    TEAL,
+    MAGENTA,
+    TEAL_DEEP,
+    INK,
+    MUTED,
+    BORDER,
+    LAVENDER_50,
+    LAVENDER_100,
+    hex_to_rgb_tuple,
+)
+
+
+def _rgb01(hex_str: str) -> tuple[float, float, float]:
+    """'#5A54BE' -> (0.353.., 0.329.., 0.745..) for reportlab colors.Color."""
+    r, g, b = hex_to_rgb_tuple(hex_str)
+    return (r / 255, g / 255, b / 255)
+
+
+PORT_GORE = _rgb01(INDIGO)  # INDIGO #202058
+BLUE_VIOLET = _rgb01(PURPLE)  # PURPLE #5A54BE
+DOWNY_TEAL = _rgb01(TEAL)  # TEAL #6BB5CE
+TAPESTRY_PINK = _rgb01(MAGENTA)  # MAGENTA #B7669E
+RAW_SIENNA = _rgb01(TEAL_DEEP)  # TEAL_DEEP #3E8FAB
 WHITE = (1.0, 1.0, 1.0)
-TEXT_DARK = (0.1, 0.1, 0.18)
-TEXT_MUTED = (0.33, 0.33, 0.4)
-BG_LIGHT = (0.96, 0.96, 0.97)
-BORDER_COLOR = (0.82, 0.82, 0.88)
+TEXT_DARK = _rgb01(INK)  # INK #1F2937 (deck-exact)
+TEXT_MUTED = _rgb01(MUTED)  # MUTED #6E6E8C (deck-exact)
+BG_LIGHT = _rgb01(LAVENDER_50)  # LAVENDER_50 #F4F4FF (deck-exact)
+BG_LAVENDER = _rgb01(LAVENDER_100)  # LAVENDER_100 #ECEAF7 (deck)
+BORDER_COLOR = _rgb01(BORDER)  # BORDER #E3E1F1 (deck-exact)
 
 # Pie chart color cycle
 PIE_COLORS = [
@@ -82,6 +110,54 @@ def _format_pct(value: Any) -> str:
         return f"{num:.1f}%"
     except (TypeError, ValueError):
         return _safe_str(value)
+
+
+def _is_ai_training_plan(plan_data: Dict[str, Any]) -> bool:
+    """Return True if the plan's industry/roles plausibly match an AI-training
+    engagement (AI trainers, data annotators, language/data-labeling experts).
+
+    The CPA-reference and sample-pricing deck sections carry data that is
+    specific to an AI-trainer engagement ('Cost / Trainer', per-language audio
+    specialists, etc.). Rendering them for an unrelated client would
+    misrepresent that client's plan, so these sections are gated on this check.
+    """
+    if not isinstance(plan_data, dict):
+        return False
+    markers = ("ai", "train", "annotat", "language", "data label", "data-label")
+    haystack_parts: List[str] = []
+    industry = plan_data.get("industry")
+    if industry:
+        haystack_parts.append(str(industry))
+    roles = plan_data.get("roles") or []
+    if isinstance(roles, list):
+        for r in roles:
+            if isinstance(r, dict):
+                haystack_parts.append(str(r.get("name") or r.get("title") or ""))
+            else:
+                haystack_parts.append(str(r))
+    elif roles:
+        haystack_parts.append(str(roles))
+    haystack = " ".join(haystack_parts).lower()
+    return any(m in haystack for m in markers)
+
+
+def _load_deck_kb() -> Dict[str, Any]:
+    """Load the Joveo media-plan deck content (methodology, push/pull, CPA
+    reference, sample pricing, case study, next steps) from the KB JSON.
+
+    Returns ``{}`` if the file is unavailable so the report degrades gracefully.
+    """
+    try:
+        path = (
+            Path(__file__).resolve().parent
+            / "data"
+            / "joveo_media_plan_deck_2026.json"
+        )
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError) as exc:  # missing file / malformed JSON
+        logger.warning("deck KB unavailable, skipping narrative sections: %s", exc)
+        return {}
 
 
 def generate_pdf_report(
@@ -136,6 +212,7 @@ def generate_pdf_report(
     c_text_dark = colors.Color(*TEXT_DARK)
     c_text_muted = colors.Color(*TEXT_MUTED)
     c_bg_light = colors.Color(*BG_LIGHT)
+    c_bg_lavender = colors.Color(*BG_LAVENDER)
     c_border = colors.Color(*BORDER_COLOR)
 
     # Safely extract fields
@@ -150,6 +227,16 @@ def generate_pdf_report(
     competitive = (
         plan_data.get("competitive_landscape") or plan_data.get("competitors") or []
     )
+
+    # ── Deck narrative KB + client-safety gate (MPG-F3) ──
+    # CPA-reference and sample-pricing carry AI-trainer-specific data
+    # ('Cost / Trainer', per-language audio specialists). Only render them when
+    # the plan plausibly matches an AI-training engagement; for any other client
+    # both sections are omitted entirely so the AI-trainer data is never
+    # mistaken for that client's actual plan. The methodology, push/pull,
+    # case-study and next-steps sections are client-agnostic and always render.
+    deck = _load_deck_kb()
+    is_ai_training = _is_ai_training_plan({"industry": industry, "roles": roles})
 
     # Create styles
     styles = getSampleStyleSheet()
@@ -245,6 +332,378 @@ def generate_pdf_report(
         bulletFontName="Helvetica",
         bulletFontSize=10,
     )
+    style_card_title = ParagraphStyle(
+        "CardTitle",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=10,
+        leading=13,
+        textColor=c_port_gore,
+        spaceAfter=2,
+    )
+    style_card_tag = ParagraphStyle(
+        "CardTag",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=7,
+        leading=10,
+        textColor=c_blue_violet,
+        spaceAfter=2,
+    )
+    style_card_body = ParagraphStyle(
+        "CardBody",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=8,
+        leading=11,
+        textColor=c_text_muted,
+    )
+
+    def _section_header(title: str, page_break: bool = False) -> List[Any]:
+        """Build a deck-styled section header (optionally preceded by a break)."""
+        parts: List[Any] = []
+        if page_break:
+            parts.append(PageBreak())
+        parts.append(Paragraph(title, style_section))
+        parts.append(
+            HRFlowable(
+                width="40%",
+                thickness=1.5,
+                color=c_blue_violet,
+                spaceAfter=12,
+                spaceBefore=0,
+                hAlign="LEFT",
+            )
+        )
+        return parts
+
+    # ── Deck narrative section builders (ported from pdf_generator deck KB) ──
+
+    def _deck_methodology(deck: Dict[str, Any]) -> List[Any]:
+        """Joveo 6-step campaign methodology (deck 'Our Methodology')."""
+        meth = (deck.get("campaign_methodology") or {}) if isinstance(deck, dict) else {}
+        steps = meth.get("steps") or []
+        if not steps:
+            return []
+        out = _section_header("Our Methodology", page_break=True)
+        # Render as a 2-column table of step cells
+        cells: List[Any] = []
+        for s in steps:
+            if not isinstance(s, dict):
+                continue
+            inner: List[Any] = [
+                Paragraph(
+                    f"{_safe_str(s.get('n') or '')}. {_safe_str(s.get('name') or '')}",
+                    style_card_title,
+                )
+            ]
+            ai = _safe_str(s.get("ai") or "")
+            if ai:
+                inner.append(Paragraph(ai.upper(), style_card_tag))
+            inner.append(Paragraph(_safe_str(s.get("detail") or ""), style_card_body))
+            cells.append(inner)
+        # Pack into rows of 2
+        table_rows: List[List[Any]] = []
+        for i in range(0, len(cells), 2):
+            row = cells[i : i + 2]
+            if len(row) == 1:
+                row.append("")
+            table_rows.append(row)
+        meth_table = Table(table_rows, colWidths=[doc.width / 2] * 2)
+        meth_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), c_bg_light),
+                    ("BOX", (0, 0), (-1, -1), 0.5, c_border),
+                    ("INNERGRID", (0, 0), (-1, -1), 0.5, c_border),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ]
+            )
+        )
+        out.append(meth_table)
+        out.append(Spacer(1, 12))
+        return out
+
+    def _deck_push_pull(deck: Dict[str, Any]) -> List[Any]:
+        """Push Meets Pull framework (deck slide)."""
+        pp = (deck.get("push_meets_pull") or {}) if isinstance(deck, dict) else {}
+        push = pp.get("push") or {}
+        pull = pp.get("pull") or {}
+        if not push and not pull:
+            return []
+        out = _section_header("Push Meets Pull")
+        summary = _safe_str(pp.get("summary") or "")
+        if summary:
+            out.append(Paragraph(summary, style_body))
+            out.append(Spacer(1, 6))
+
+        def _cell(obj: Dict[str, Any]) -> List[Any]:
+            return [
+                Paragraph(_safe_str(obj.get("name") or ""), style_card_title),
+                Paragraph(_safe_str(obj.get("detail") or ""), style_card_body),
+            ]
+
+        pp_table = Table(
+            [[_cell(push), _cell(pull)]], colWidths=[doc.width / 2] * 2
+        )
+        pp_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (0, 0), c_bg_lavender),
+                    ("BACKGROUND", (1, 0), (1, 0), c_bg_light),
+                    ("BOX", (0, 0), (-1, -1), 0.5, c_border),
+                    ("INNERGRID", (0, 0), (-1, -1), 0.5, c_border),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 10),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                ]
+            )
+        )
+        out.append(pp_table)
+        out.append(Spacer(1, 12))
+        return out
+
+    def _deck_cpa_reference(deck: Dict[str, Any], is_ai_training: bool) -> List[Any]:
+        """CPA reference guide table (deck slide).
+
+        Carries AI-trainer-specific benchmark data, so it is omitted entirely
+        for any plan that does not match an AI-training engagement.
+        """
+        if not is_ai_training:
+            return []
+        cpa = (deck.get("cpa_reference") or {}) if isinstance(deck, dict) else {}
+        rows = cpa.get("roles") or []
+        if not rows:
+            return []
+        out = _section_header("CPA Reference Guide", page_break=True)
+        header = ["Role Category", "Est. CPA Range", "Benchmark Basis"]
+        data_rows = [header]
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            data_rows.append(
+                [
+                    _safe_str(r.get("category") or ""),
+                    f"${_safe_str(r.get('cpa_low') or '')} - "
+                    f"${_safe_str(r.get('cpa_high') or '')}",
+                    Paragraph(_safe_str(r.get("basis") or ""), style_card_body),
+                ]
+            )
+        cpa_table = Table(
+            data_rows,
+            colWidths=[doc.width * w for w in [0.32, 0.22, 0.46]],
+            repeatRows=1,
+        )
+        cpa_styles = [
+            ("BACKGROUND", (0, 0), (-1, 0), c_port_gore),
+            ("TEXTCOLOR", (0, 0), (-1, 0), c_white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 8),
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 1), (-1, -1), 9),
+            ("TEXTCOLOR", (0, 1), (-1, -1), c_text_dark),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("GRID", (0, 0), (-1, -1), 0.5, c_border),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ]
+        for i in range(2, len(data_rows), 2):
+            cpa_styles.append(("BACKGROUND", (0, i), (-1, i), c_bg_light))
+        cpa_table.setStyle(TableStyle(cpa_styles))
+        out.append(cpa_table)
+        note = _safe_str(cpa.get("description") or "")
+        if note:
+            out.append(Spacer(1, 6))
+            out.append(Paragraph(note, style_metric_label))
+        out.append(Spacer(1, 12))
+        return out
+
+    def _deck_sample_pricing(deck: Dict[str, Any], is_ai_training: bool) -> List[Any]:
+        """Sample campaign pricing table (deck slide).
+
+        Carries AI-trainer-specific pricing data ('Cost / Trainer'), so it is
+        omitted entirely for any plan that does not match an AI-training
+        engagement.
+        """
+        if not is_ai_training:
+            return []
+        sp = (
+            (deck.get("sample_pricing_model") or {}) if isinstance(deck, dict) else {}
+        )
+        camps = sp.get("campaigns") or []
+        if not camps:
+            return []
+        out = _section_header("Sample Campaign Pricing")
+        header = ["Campaign", "Targeting", "CPA", "Conv.", "Cost / Trainer", "Budget"]
+        data_rows = [header]
+        for c in camps:
+            if not isinstance(c, dict):
+                continue
+            data_rows.append(
+                [
+                    Paragraph(_safe_str(c.get("campaign") or ""), style_card_body),
+                    Paragraph(_safe_str(c.get("targeting") or ""), style_card_body),
+                    f"${_safe_str(c.get('cpa_low') or '')}-"
+                    f"${_safe_str(c.get('cpa_high') or '')}",
+                    f"{_safe_str(c.get('historical_conversion_pct') or '')}%",
+                    f"${_safe_str(c.get('cost_per_trainer_low') or '')}-"
+                    f"${_safe_str(c.get('cost_per_trainer_high') or '')}",
+                    f"{_format_currency(c.get('budget_low') or 0)}-"
+                    f"{_format_currency(c.get('budget_high') or 0)}",
+                ]
+            )
+        blended = sp.get("blended_total") or {}
+        has_blended = bool(blended)
+        if has_blended:
+            data_rows.append(
+                [
+                    "Blended Total",
+                    "",
+                    "",
+                    "",
+                    f"${_safe_str(blended.get('cost_per_trainer_low') or '')}-"
+                    f"${_safe_str(blended.get('cost_per_trainer_high') or '')}",
+                    f"{_format_currency(blended.get('budget_low') or 0)}-"
+                    f"{_format_currency(blended.get('budget_high') or 0)}",
+                ]
+            )
+        sp_table = Table(
+            data_rows,
+            colWidths=[doc.width * w for w in [0.20, 0.24, 0.11, 0.09, 0.16, 0.20]],
+            repeatRows=1,
+        )
+        sp_styles = [
+            ("BACKGROUND", (0, 0), (-1, 0), c_port_gore),
+            ("TEXTCOLOR", (0, 0), (-1, 0), c_white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 7),
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 1), (-1, -1), 8),
+            ("TEXTCOLOR", (0, 1), (-1, -1), c_text_dark),
+            ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+            ("GRID", (0, 0), (-1, -1), 0.5, c_border),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ]
+        zebra_stop = len(data_rows) - 1 if has_blended else len(data_rows)
+        for i in range(2, zebra_stop, 2):
+            sp_styles.append(("BACKGROUND", (0, i), (-1, i), c_bg_light))
+        if has_blended:
+            sp_styles.extend(
+                [
+                    ("BACKGROUND", (0, -1), (-1, -1), c_bg_light),
+                    ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                    ("LINEABOVE", (0, -1), (-1, -1), 1.5, c_port_gore),
+                ]
+            )
+        sp_table.setStyle(TableStyle(sp_styles))
+        out.append(sp_table)
+        note = _safe_str(sp.get("note") or sp.get("description") or "")
+        if note:
+            out.append(Spacer(1, 6))
+            out.append(Paragraph(note, style_metric_label))
+        out.append(Spacer(1, 12))
+        return out
+
+    def _deck_case_study(deck: Dict[str, Any]) -> List[Any]:
+        """Case study: outcome stats + challenges/solution (deck slides)."""
+        cs = (deck.get("case_study") or {}) if isinstance(deck, dict) else {}
+        if not cs:
+            return []
+        title = _safe_str(cs.get("title") or "Case Study")
+        out = _section_header(f"Case Study - {title}", page_break=True)
+        results = cs.get("results") or []
+        stat_cells = []
+        for r in results:
+            if not isinstance(r, dict):
+                continue
+            stat_cells.append(
+                [
+                    Paragraph(_safe_str(r.get("value") or ""), style_metric_value),
+                    Paragraph(
+                        _safe_str(r.get("detail") or r.get("metric") or ""),
+                        style_metric_label,
+                    ),
+                ]
+            )
+        if stat_cells:
+            stat_table = Table(
+                [stat_cells], colWidths=[doc.width / len(stat_cells)] * len(stat_cells)
+            )
+            stat_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, -1), c_bg_light),
+                        ("BOX", (0, 0), (-1, -1), 0.5, c_border),
+                        ("INNERGRID", (0, 0), (-1, -1), 0.5, c_border),
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                        ("TOPPADDING", (0, 0), (-1, -1), 10),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+                    ]
+                )
+            )
+            out.append(stat_table)
+            out.append(Spacer(1, 10))
+
+        challenges = cs.get("challenges") or []
+        solution = cs.get("solution") or []
+
+        def _list_cell(heading: str, items: List[Any], color: Any) -> List[Any]:
+            head_style = ParagraphStyle(
+                "CSHead", parent=style_card_title, textColor=color
+            )
+            cell: List[Any] = [Paragraph(heading, head_style)]
+            for x in items:
+                cell.append(Paragraph(f"- {_safe_str(x)}", style_card_body))
+            return cell
+
+        if challenges or solution:
+            cs_table = Table(
+                [
+                    [
+                        _list_cell("Challenges", challenges, c_port_gore),
+                        _list_cell("The Joveo Solution", solution, c_blue_violet),
+                    ]
+                ],
+                colWidths=[doc.width / 2] * 2,
+            )
+            cs_table.setStyle(
+                TableStyle(
+                    [
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("TOPPADDING", (0, 0), (-1, -1), 4),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                        ("LEFTPADDING", (0, 0), (0, -1), 0),
+                        ("RIGHTPADDING", (1, 0), (1, -1), 0),
+                    ]
+                )
+            )
+            out.append(cs_table)
+        out.append(Spacer(1, 12))
+        return out
+
+    def _deck_next_steps(deck: Dict[str, Any]) -> List[Any]:
+        """Next steps checklist (deck slide)."""
+        steps = (deck.get("next_steps") or []) if isinstance(deck, dict) else []
+        if not steps:
+            return []
+        out = _section_header("Next Steps")
+        for i, s in enumerate(steps, 1):
+            out.append(Paragraph(f"{i}. {_safe_str(s)}", style_body))
+        out.append(Spacer(1, 12))
+        return out
 
     # Page setup
     page_w, page_h = A4
@@ -379,6 +838,32 @@ def generate_pdf_report(
         )
     )
     elements.append(Spacer(1, 12))
+
+    # ── Our Methodology (deck) ──
+    elements.extend(_deck_methodology(deck))
+
+    # ── Push Meets Pull (deck) ──
+    elements.extend(_deck_push_pull(deck))
+
+    # ── Benchmarking & Market Research (deck order: before Channel) ──
+    if market_intel:
+        elements.extend(_section_header("Benchmarking & Market Research", page_break=True))
+        if isinstance(market_intel, dict):
+            for key, value in market_intel.items():
+                label = str(key).replace("_", " ").title()
+                if isinstance(value, list):
+                    val_str = ", ".join(str(v) for v in value)
+                elif isinstance(value, dict):
+                    parts = [f"{k}: {v}" for k, v in value.items()]
+                    val_str = "; ".join(parts)
+                else:
+                    val_str = str(value)
+                elements.append(
+                    Paragraph(f"<b>{label}:</b> {val_str}", style_body)
+                )
+        elif isinstance(market_intel, str):
+            elements.append(Paragraph(market_intel, style_body))
+        elements.append(Spacer(1, 12))
 
     # ── Channel Allocation Table ──
     elements.append(PageBreak())
@@ -542,39 +1027,14 @@ def generate_pdf_report(
 
     elements.append(Spacer(1, 12))
 
-    # ── Market Analysis ──
-    if market_intel:
-        elements.append(PageBreak())
-        elements.append(Paragraph("Market Analysis", style_section))
-        elements.append(
-            HRFlowable(
-                width="40%",
-                thickness=1.5,
-                color=c_blue_violet,
-                spaceAfter=12,
-                spaceBefore=0,
-                hAlign="LEFT",
-            )
-        )
-        if isinstance(market_intel, dict):
-            for key, value in market_intel.items():
-                label = str(key).replace("_", " ").title()
-                if isinstance(value, list):
-                    val_str = ", ".join(str(v) for v in value)
-                elif isinstance(value, dict):
-                    parts = [f"{k}: {v}" for k, v in value.items()]
-                    val_str = "; ".join(parts)
-                else:
-                    val_str = str(value)
-                elements.append(
-                    Paragraph(
-                        f"<b>{label}:</b> {val_str}",
-                        style_body,
-                    )
-                )
-        elif isinstance(market_intel, str):
-            elements.append(Paragraph(market_intel, style_body))
-        elements.append(Spacer(1, 12))
+    # ── CPA Reference Guide (deck; AI-training plans only, else omitted) ──
+    elements.extend(_deck_cpa_reference(deck, is_ai_training))
+
+    # ── Sample Campaign Pricing (deck; AI-training plans only, else omitted) ──
+    elements.extend(_deck_sample_pricing(deck, is_ai_training))
+
+    # ── Case Study (deck) ──
+    elements.extend(_deck_case_study(deck))
 
     # ── Timeline ──
     if timeline:
@@ -732,6 +1192,9 @@ def generate_pdf_report(
             elements.append(Paragraph(f"{i}. {_safe_str(rec)}", style_body))
         elements.append(Spacer(1, 12))
 
+    # ── Next Steps (deck) ──
+    elements.extend(_deck_next_steps(deck))
+
     # ── Footer ──
     elements.append(Spacer(1, 20))
     elements.append(
@@ -746,7 +1209,7 @@ def generate_pdf_report(
     elements.append(
         Paragraph(
             f"Generated by <b>Nova AI Suite</b>  |  {report_timestamp}  |  "
-            f"<a href='https://www.linkedin.com/in/chandel13/' color='#5A54BD'>linkedin.com/in/chandel13</a>",
+            f"<a href='https://www.linkedin.com/in/chandel13/' color='#5A54BE'>linkedin.com/in/chandel13</a>",
             style_footer,
         )
     )

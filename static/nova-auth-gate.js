@@ -38,7 +38,7 @@
     var banner = document.createElement("div");
     banner.id = "nova-guest-banner";
     banner.style.cssText =
-      "position:fixed;top:0;left:0;right:0;z-index:999998;background:linear-gradient(90deg,#202058,#5A54BD);" +
+      "position:fixed;top:0;left:0;right:0;z-index:999998;background:linear-gradient(90deg,#202058,#5A54BE);" +
       "color:rgba(255,255,255,0.85);font-size:13px;font-family:Inter,system-ui,sans-serif;" +
       "text-align:center;padding:8px 16px;display:flex;align-items:center;justify-content:center;gap:8px;";
     banner.innerHTML =
@@ -232,25 +232,25 @@
     overlay.id = "nova-auth-gate";
     overlay.style.cssText =
       "position:fixed;top:0;left:0;right:0;bottom:0;z-index:999999;" +
-      "background:linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);" +
+      "background:linear-gradient(135deg, rgba(255,252,249,0.96) 0%, rgba(244,244,255,0.96) 100%);" +
       "display:flex;align-items:center;justify-content:center;flex-direction:column;" +
       "overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;box-sizing:border-box;";
 
     overlay.innerHTML =
-      '<div style="text-align:center;max-width:420px;padding:40px 24px;margin:auto;">' +
-      '  <div style="width:80px;height:80px;margin:0 auto 24px;border-radius:20px;background:linear-gradient(135deg,#5A54BD,#7B6FDE);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(90,84,189,0.4);">' +
-      '    <span style="font-size:40px;font-weight:800;color:white;font-family:Inter,system-ui,sans-serif;line-height:1;">N</span>' +
+      '<div style="text-align:center;max-width:420px;width:100%;padding:40px 32px;margin:auto;background:#FFFFFF;border:1px solid #E3E1F1;border-radius:20px;box-shadow:0 12px 40px rgba(32,32,88,0.12);box-sizing:border-box;">' +
+      '  <div style="width:80px;height:80px;margin:0 auto 24px;border-radius:20px;background:linear-gradient(135deg,#202058,#5A54BE);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(90,84,189,0.3);">' +
+      '    <span style="font-size:40px;font-weight:800;color:white;font-family:Poppins,Inter,system-ui,sans-serif;line-height:1;">N</span>' +
       "  </div>" +
-      '  <h1 style="color:#e4e4e7;font-size:28px;font-weight:700;margin:0 0 8px;font-family:Inter,sans-serif;">Welcome to Nova AI</h1>' +
-      '  <p style="color:rgba(255,255,255,0.5);font-size:15px;margin:0 0 32px;font-family:Inter,sans-serif;line-height:1.5;">AI-powered recruitment intelligence platform.<br>Sign in to access the suite.</p>' +
-      '  <div id="nova-gate-error" style="display:none;margin:0 0 20px;padding:12px 16px;border-radius:8px;background:rgba(255,80,80,0.12);border:1px solid rgba(255,80,80,0.25);text-align:left;">' +
-      '    <div style="color:#ff6b6b;font-size:13px;font-weight:600;margin-bottom:4px;font-family:Inter,sans-serif;">Sign-in failed</div>' +
-      '    <div id="nova-gate-error-msg" style="color:rgba(255,255,255,0.6);font-size:12px;line-height:1.4;font-family:Inter,sans-serif;"></div>' +
+      '  <h1 style="color:#202058;font-size:28px;font-weight:700;margin:0 0 8px;font-family:Poppins,Inter,sans-serif;">Welcome to Nova AI</h1>' +
+      '  <p style="color:#6E6E8C;font-size:15px;margin:0 0 32px;font-family:Inter,sans-serif;line-height:1.5;">AI-powered recruitment intelligence platform.<br>Sign in to access the suite.</p>' +
+      '  <div id="nova-gate-error" style="display:none;margin:0 0 20px;padding:12px 16px;border-radius:8px;background:rgba(183,102,158,0.10);border:1px solid rgba(183,102,158,0.30);text-align:left;">' +
+      '    <div style="color:#9B2C6F;font-size:13px;font-weight:600;margin-bottom:4px;font-family:Inter,sans-serif;">Sign-in failed</div>' +
+      '    <div id="nova-gate-error-msg" style="color:#6E6E8C;font-size:12px;line-height:1.4;font-family:Inter,sans-serif;"></div>' +
       "  </div>" +
       '  <button id="nova-gate-login-btn" style="' +
-      "    background:white;color:#1a1a2e;border:none;padding:14px 32px;border-radius:12px;" +
+      "    background:linear-gradient(135deg,#202058,#5A54BE);color:#FFFFFF;border:none;padding:14px 32px;border-radius:12px;" +
       "    font-size:15px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;" +
-      '    gap:10px;font-family:Inter,sans-serif;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,0,0,0.3);width:100%;justify-content:center;">' +
+      '    gap:10px;font-family:Inter,sans-serif;transition:all 0.2s;box-shadow:0 4px 12px rgba(32,32,88,0.18);width:100%;justify-content:center;">' +
       '    <svg viewBox="0 0 24 24" style="width:20px;height:20px;flex-shrink:0;">' +
       '      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>' +
       '      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>' +
@@ -261,12 +261,12 @@
       "  </button>" +
       '  <div style="margin-top:16px;">' +
       '    <a id="nova-gate-guest-btn" href="#" style="' +
-      "      color:rgba(255,255,255,0.4);font-size:13px;font-family:Inter,sans-serif;" +
+      "      color:#6E6E8C;font-size:13px;font-family:Inter,sans-serif;" +
       '      text-decoration:none;transition:color 0.2s;">' +
       "      Preview without signing in" +
       "    </a>" +
       "  </div>" +
-      '  <p style="color:rgba(255,255,255,0.15);font-size:11px;margin-top:24px;font-family:Inter,sans-serif;">Nova AI Suite</p>' +
+      '  <p style="color:#8680D6;font-size:11px;margin-top:24px;font-family:Inter,sans-serif;">Nova AI Suite</p>' +
       "</div>";
 
     document.body.appendChild(overlay);
@@ -309,11 +309,11 @@
     if (btn) {
       btn.onmouseover = function () {
         this.style.transform = "translateY(-2px)";
-        this.style.boxShadow = "0 6px 20px rgba(0,0,0,0.4)";
+        this.style.boxShadow = "0 6px 20px rgba(32,32,88,0.28)";
       };
       btn.onmouseout = function () {
         this.style.transform = "none";
-        this.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
+        this.style.boxShadow = "0 4px 12px rgba(32,32,88,0.18)";
       };
       btn.addEventListener("click", function (e) {
         e.preventDefault();
@@ -353,10 +353,10 @@
     var guestBtn = document.getElementById("nova-gate-guest-btn");
     if (guestBtn) {
       guestBtn.onmouseover = function () {
-        this.style.color = "rgba(255,255,255,0.7)";
+        this.style.color = "#5A54BE";
       };
       guestBtn.onmouseout = function () {
-        this.style.color = "rgba(255,255,255,0.4)";
+        this.style.color = "#6E6E8C";
       };
       guestBtn.addEventListener("click", function (e) {
         e.preventDefault();

@@ -32,21 +32,24 @@
   if (window.__novaEmbedLoaded) return;
   window.__novaEmbedLoaded = true;
 
-  // ── Brand constants ────────────────────────────────────────────────────────
-  var PORT_GORE = "#202058";
-  var BLUE_VIOLET = "#5A54BD";
-  var DOWNY_TEAL = "#6BB3CD";
+  // ── Brand constants (Joveo 2026 deck palette) ───────────────────────────────
+  var PORT_GORE = "#202058"; // Indigo / Port Gore -- header gradient start
+  var BLUE_VIOLET = "#5A54BE"; // Purple / Blue Violet -- primary accent
+  var DOWNY_TEAL = "#6BB5CE"; // Teal / Downy -- secondary accent
   var WHITE = "#FFFFFF";
-  var LIGHT_BG = "#F8F9FB";
-  var LIGHT_CARD = "#FFFFFF";
-  var LIGHT_TEXT = "#1a1a2e";
-  var LIGHT_TEXT_SEC = "#555";
-  var LIGHT_BORDER = "#e0e0e6";
-  var DARK_BG = "#12122a";
-  var DARK_CARD = "#1a1a3e";
-  var DARK_TEXT = "#e0e0e8";
-  var DARK_TEXT_SEC = "#9a9ab0";
-  var DARK_BORDER = "#2a2a50";
+  // Panel surfaces -- LIGHT Joveo (panel reads light even on dark dashboards).
+  var LIGHT_BG = "#FFFFFF"; // panel canvas
+  var LIGHT_CARD = "#F4F4FF"; // lavender card surface
+  var LIGHT_TEXT = "#202058"; // indigo headings / primary text
+  var LIGHT_TEXT_SEC = "#6E6E8C"; // muted text
+  var LIGHT_BORDER = "#E3E1F1"; // brand border
+  // "Dark" theme slots now map to the same light Joveo panel so the popup is
+  // always readable -- only the FAB launcher stays on-brand/dark for dark hosts.
+  var DARK_BG = "#FFFFFF";
+  var DARK_CARD = "#ECEAF7"; // alt lavender / bot bubble surface
+  var DARK_TEXT = "#202058";
+  var DARK_TEXT_SEC = "#6E6E8C";
+  var DARK_BORDER = "#E3E1F1";
 
   // ── Read config from script tag ────────────────────────────────────────────
   var scriptTag =
@@ -381,15 +384,16 @@
 
     if (channels.length === 0) return "";
 
+    // Joveo 2026 data-viz order
     var barColors = [
-      BLUE_VIOLET,
-      DOWNY_TEAL,
-      "#7B68EE",
-      "#48B0A0",
-      "#9370DB",
-      "#5AAFCF",
-      "#6A5ACD",
-      "#4DB8A4",
+      BLUE_VIOLET, // #5A54BE
+      DOWNY_TEAL, // #6BB5CE
+      "#B7669E", // magenta
+      "#8680D6", // purple light
+      "#3E8FAB", // teal deep
+      PORT_GORE, // #202058 indigo
+      "#5A4FC4", // purple hover
+      "#45B6C8", // teal 500
     ];
     var html = "";
     for (var i = 0; i < channels.length; i++) {
@@ -523,9 +527,7 @@
       themeColor(DARK_BORDER, LIGHT_BORDER) +
       ";" +
       "  border-radius:16px;" +
-      "  box-shadow:0 8px 40px rgba(0,0,0," +
-      (isDark() ? "0.5" : "0.15") +
-      ");" +
+      "  box-shadow:0 16px 48px rgba(32,32,88,0.18);" +
       "  display:flex;flex-direction:column;overflow:hidden;" +
       "  transform:scale(0.8) translateY(20px);opacity:0;pointer-events:none;" +
       "  transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);" +
@@ -540,27 +542,26 @@
       "  display:flex;align-items:center;justify-content:space-between;" +
       "  padding:14px 16px;" +
       "  background:" +
-      themeColor(
-        "linear-gradient(135deg," + PORT_GORE + "," + DARK_CARD + ")",
-        "linear-gradient(135deg,#f0f0f8,#fff)",
-      ) +
+      "linear-gradient(135deg," +
+      PORT_GORE +
+      "," +
+      BLUE_VIOLET +
+      ")" +
       ";" +
       "  border-bottom:1px solid " +
       themeColor(DARK_BORDER, LIGHT_BORDER) +
       ";" +
       "}" +
       ".nova-panel-title { display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:" +
-      themeColor(WHITE, LIGHT_TEXT) +
+      WHITE +
       "; }" +
       ".nova-panel-close {" +
       "  background:none;border:none;cursor:pointer;font-size:22px;line-height:1;" +
-      "  color:" +
-      themeColor(DARK_TEXT_SEC, LIGHT_TEXT_SEC) +
-      ";padding:0 2px;" +
+      "  color:rgba(255,255,255,0.75);padding:0 2px;" +
       "  transition:color 0.15s;" +
       "}" +
       ".nova-panel-close:hover { color:" +
-      themeColor(WHITE, LIGHT_TEXT) +
+      WHITE +
       "; }" +
       // ── Panel body ──
       ".nova-panel-body {" +
@@ -637,11 +638,9 @@
       ".nova-tag {" +
       "  display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:500;" +
       "  margin-right:6px;margin-bottom:4px;" +
-      "  background:" +
-      themeColor("rgba(90,84,189,0.2)", "rgba(90,84,189,0.1)") +
-      ";" +
+      "  background:rgba(90,84,190,0.10);" +
       "  color:" +
-      themeColor("#b0a8ff", BLUE_VIOLET) +
+      BLUE_VIOLET +
       ";" +
       "}" +
       // ── Channel bars ──
@@ -650,8 +649,7 @@
       ".nova-channel-label { font-size:12px;width:110px;flex-shrink:0;color:" +
       themeColor(DARK_TEXT_SEC, LIGHT_TEXT_SEC) +
       ";white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }" +
-      ".nova-channel-bar-wrap { flex:1;height:8px;background:" +
-      themeColor("rgba(255,255,255,0.06)", "rgba(0,0,0,0.06)") +
+      ".nova-channel-bar-wrap { flex:1;height:8px;background:rgba(32,32,88,0.08)" +
       ";border-radius:4px;overflow:hidden; }" +
       ".nova-channel-bar { height:100%;border-radius:4px;transition:width 0.6s ease; }" +
       ".nova-channel-pct { font-size:12px;font-weight:600;width:36px;text-align:right;color:" +
@@ -683,8 +681,7 @@
       themeColor(DARK_TEXT_SEC, LIGHT_TEXT_SEC) +
       "; }" +
       ".nova-spinner {" +
-      "  width:32px;height:32px;margin:0 auto;border:3px solid " +
-      themeColor("rgba(255,255,255,0.1)", "rgba(0,0,0,0.1)") +
+      "  width:32px;height:32px;margin:0 auto;border:3px solid rgba(32,32,88,0.10)" +
       ";" +
       "  border-top-color:" +
       BLUE_VIOLET +
@@ -706,7 +703,7 @@
       ";" +
       "}" +
       ".nova-panel-footer a { color:" +
-      DOWNY_TEAL +
+      "#5A54BE" +
       ";text-decoration:none; }" +
       ".nova-panel-footer a:hover { text-decoration:underline; }" +
       // ── Responsive ──

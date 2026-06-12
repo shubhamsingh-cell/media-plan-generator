@@ -1,8 +1,9 @@
 """Shareable Plan Scorecard Generator.
 
-Generates beautiful one-page HTML scorecards for media plans with dark theme,
-brand colors, OG meta tags for LinkedIn sharing, and responsive layout.
-All CSS is inline -- the output is a single self-contained HTML page.
+Generates beautiful one-page HTML scorecards for media plans in the Joveo
+2026 LIGHT deck theme, brand colors, OG meta tags for LinkedIn sharing, and a
+responsive layout. All CSS is inline -- the output is a single self-contained
+HTML page.
 """
 
 import hashlib
@@ -11,12 +12,27 @@ import json
 import logging
 from typing import Any
 
+from joveo_brand_2026 import (
+    INDIGO,
+    PURPLE,
+    TEAL,
+    CANVAS,
+    WHITE,
+    LAVENDER_50,
+    LAVENDER_100,
+    INK,
+    MUTED,
+    BORDER,
+    FONT_HEADING,
+    FONT_BODY,
+)
+
 logger = logging.getLogger(__name__)
 
-# Brand colors
-PORT_GORE = "#202058"
-BLUE_VIOLET = "#5A54BD"
-DOWNY_TEAL = "#6BB3CD"
+# Brand colors (canonical hexes imported from joveo_brand_2026)
+PORT_GORE = INDIGO
+BLUE_VIOLET = PURPLE
+DOWNY_TEAL = TEAL
 
 
 def generate_share_id(plan_data: dict[str, Any]) -> str:
@@ -172,7 +188,7 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
 
     Returns:
         Complete HTML page as a string with inline CSS, OG meta tags,
-        responsive layout, and dark theme using brand colors.
+        responsive layout, and the Joveo 2026 LIGHT deck theme.
     """
     job_title, location = _extract_job_info(plan_data)
     total_budget = _extract_total_budget(plan_data)
@@ -195,16 +211,16 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
         channel_bars_html += f"""
         <div style="margin-bottom:12px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-            <span style="font-size:14px;font-weight:500;color:#e2e8f0;">{name}</span>
-            <span style="font-size:13px;color:#94a3b8;">{pct:.0f}%{f' ({dollar})' if dollar else ''}</span>
+            <span style="font-size:14px;font-weight:500;color:{INK};">{name}</span>
+            <span style="font-size:13px;color:{MUTED};">{pct:.0f}%{f' ({dollar})' if dollar else ''}</span>
           </div>
-          <div style="background:rgba(255,255,255,0.06);border-radius:6px;height:10px;overflow:hidden;">
+          <div style="background:{LAVENDER_100};border-radius:6px;height:10px;overflow:hidden;">
             <div style="width:{bar_width}%;height:100%;border-radius:6px;background:linear-gradient(90deg,{BLUE_VIOLET},{DOWNY_TEAL});transition:width 0.6s ease;"></div>
           </div>
         </div>"""
 
     if not channel_bars_html:
-        channel_bars_html = '<p style="color:#64748b;font-size:14px;text-align:center;padding:20px 0;">No channel data available</p>'
+        channel_bars_html = f'<p style="color:{MUTED};font-size:14px;text-align:center;padding:20px 0;">No channel data available</p>'
 
     # OG meta description
     og_description = (
@@ -222,49 +238,52 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Media Plan Scorecard - {_safe(job_title)} | Nova AI Suite</title>
+<title>Media Plan Scorecard - {_safe(job_title)} | Joveo</title>
 <meta name="description" content="{og_description}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Media Plan Scorecard - {_safe(job_title)}">
 <meta property="og:description" content="{og_description}">
 <meta property="og:url" content="{scorecard_url}">
-<meta property="og:site_name" content="Nova AI Suite">
+<meta property="og:site_name" content="Joveo">
 <meta property="og:image" content="{base_url}/static/og-scorecard.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Media Plan Scorecard - {_safe(job_title)}">
 <meta name="twitter:description" content="{og_description}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
   body{{
-    font-family:'Inter',system-ui,-apple-system,sans-serif;
-    background:{PORT_GORE};
-    background-image:radial-gradient(ellipse at 20% 50%,rgba(90,84,189,0.15) 0%,transparent 60%),
-                     radial-gradient(ellipse at 80% 20%,rgba(107,179,205,0.10) 0%,transparent 50%);
-    color:#e2e8f0;
+    font-family:'{FONT_BODY}',system-ui,-apple-system,sans-serif;
+    background:{CANVAS};
+    color:{INK};
     min-height:100vh;
     display:flex;
     flex-direction:column;
     align-items:center;
     padding:24px 16px 48px;
   }}
+  h1,h2{{font-family:'{FONT_HEADING}','{FONT_BODY}',system-ui,sans-serif;}}
   .card{{
-    background:rgba(255,255,255,0.04);
-    border:1px solid rgba(255,255,255,0.08);
+    background:{WHITE};
+    border:1px solid {BORDER};
     border-radius:16px;
     padding:24px;
-    backdrop-filter:blur(12px);
-    -webkit-backdrop-filter:blur(12px);
+    box-shadow:0 6px 24px rgba(32,32,88,0.06);
+  }}
+  .hero{{
+    background:linear-gradient(135deg,{INDIGO},{PURPLE});
+    border-radius:16px;
+    box-shadow:0 8px 28px rgba(32,32,88,0.18);
   }}
   .cta-btn{{
     display:inline-flex;
     align-items:center;
     gap:8px;
     padding:12px 28px;
-    background:linear-gradient(135deg,{BLUE_VIOLET},{DOWNY_TEAL});
-    color:#fff;
+    background:linear-gradient(135deg,{INDIGO},{PURPLE});
+    color:{WHITE};
     text-decoration:none;
     border-radius:10px;
     font-weight:600;
@@ -285,16 +304,16 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
 </head>
 <body>
 
-<!-- Header -->
-<div style="width:100%;max-width:640px;margin-bottom:24px;">
-  <div style="display:flex;align-items:center;justify-content:space-between;">
+<!-- Header band (on-brand gradient hero) -->
+<div class="hero" style="width:100%;max-width:640px;margin-bottom:24px;padding:18px 24px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
     <div style="display:flex;align-items:center;gap:12px;">
-      <div style="width:40px;height:40px;background:linear-gradient(135deg,{BLUE_VIOLET},{DOWNY_TEAL});border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;color:#fff;flex-shrink:0;">N</div>
-      <span style="font-size:18px;font-weight:600;color:#e2e8f0;">Nova AI Suite</span>
+      <div style="width:40px;height:40px;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.35);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;color:#fff;flex-shrink:0;">J</div>
+      <span style="font-size:18px;font-weight:600;color:#fff;">Joveo</span>
     </div>
-    <div style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(90,84,189,0.2);border:1px solid rgba(90,84,189,0.3);border-radius:20px;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{DOWNY_TEAL}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-      <span style="font-size:12px;font-weight:600;color:{DOWNY_TEAL};letter-spacing:0.5px;">AI Generated</span>
+    <div style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.3);border-radius:20px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      <span style="font-size:12px;font-weight:600;color:#fff;letter-spacing:0.5px;">AI Generated</span>
     </div>
   </div>
 </div>
@@ -304,8 +323,8 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
 
   <!-- Title Section -->
   <div style="margin-bottom:24px;">
-    <h1 style="font-size:22px;font-weight:700;color:#fff;margin-bottom:6px;line-height:1.3;">{_safe(job_title)}</h1>
-    <div style="display:flex;align-items:center;gap:6px;color:#94a3b8;font-size:14px;">
+    <h1 style="font-size:22px;font-weight:700;color:{INDIGO};margin-bottom:6px;line-height:1.3;">{_safe(job_title)}</h1>
+    <div style="display:flex;align-items:center;gap:6px;color:{MUTED};font-size:14px;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
       <span>{_safe(location)}</span>
       {f'<span style="margin:0 4px;opacity:0.4;">|</span><span>{industry}</span>' if industry and industry != "--" else ""}
@@ -314,23 +333,23 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
 
   <!-- Stat Cards -->
   <div class="stat-grid" style="display:flex;gap:16px;margin-bottom:28px;">
-    <div style="flex:1;background:rgba(90,84,189,0.12);border:1px solid rgba(90,84,189,0.2);border-radius:12px;padding:16px;text-align:center;">
-      <div style="font-size:12px;font-weight:500;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Total Budget</div>
-      <div style="font-size:24px;font-weight:700;color:#fff;">{total_budget}</div>
+    <div style="flex:1;background:{LAVENDER_50};border:1px solid {BORDER};border-radius:12px;padding:16px;text-align:center;">
+      <div style="font-size:12px;font-weight:600;color:{MUTED};text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Total Budget</div>
+      <div style="font-size:24px;font-weight:700;color:{INDIGO};">{total_budget}</div>
     </div>
-    <div style="flex:1;background:rgba(107,179,205,0.10);border:1px solid rgba(107,179,205,0.18);border-radius:12px;padding:16px;text-align:center;">
-      <div style="font-size:12px;font-weight:500;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Channels</div>
-      <div style="font-size:24px;font-weight:700;color:#fff;">{num_channels}</div>
+    <div style="flex:1;background:{LAVENDER_50};border:1px solid {BORDER};border-radius:12px;padding:16px;text-align:center;">
+      <div style="font-size:12px;font-weight:600;color:{MUTED};text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Channels</div>
+      <div style="font-size:24px;font-weight:700;color:{INDIGO};">{num_channels}</div>
     </div>
-    <div style="flex:1;background:rgba(90,84,189,0.08);border:1px solid rgba(90,84,189,0.15);border-radius:12px;padding:16px;text-align:center;">
-      <div style="font-size:12px;font-weight:500;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Optimization</div>
-      <div style="font-size:18px;font-weight:700;color:{DOWNY_TEAL};">AI Optimized</div>
+    <div style="flex:1;background:{LAVENDER_50};border:1px solid {BORDER};border-radius:12px;padding:16px;text-align:center;">
+      <div style="font-size:12px;font-weight:600;color:{MUTED};text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Optimization</div>
+      <div style="font-size:18px;font-weight:700;color:{PURPLE};">AI Optimized</div>
     </div>
   </div>
 
   <!-- Channel Allocation -->
   <div style="margin-bottom:8px;">
-    <h2 style="font-size:15px;font-weight:600;color:#e2e8f0;margin-bottom:16px;">Channel Allocation</h2>
+    <h2 style="font-size:15px;font-weight:600;color:{INDIGO};margin-bottom:16px;">Channel Allocation</h2>
     {channel_bars_html}
   </div>
 
@@ -339,13 +358,13 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
 <!-- Footer CTA -->
 <div style="width:100%;max-width:640px;text-align:center;">
   <div class="card" style="padding:28px 24px;">
-    <p style="font-size:14px;color:#94a3b8;margin-bottom:16px;">Powered by Nova AI Suite</p>
+    <p style="font-size:14px;color:{MUTED};margin-bottom:16px;">Powered by Joveo</p>
     <a href="/media-plan" class="cta-btn">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Create Your Plan
     </a>
-    <p style="font-size:11px;color:#475569;margin-top:14px;">
-      <a href="https://www.linkedin.com/in/chandel13/" target="_blank" rel="noopener" style="color:#64748b;text-decoration:none;">Built by Shubham Singh Chandel</a>
+    <p style="font-size:11px;color:{MUTED};margin-top:14px;">
+      <a href="https://www.joveo.com/" target="_blank" rel="noopener" style="color:{PURPLE};text-decoration:none;">Joveo &mdash; Programmatic Recruitment Marketing</a>
     </p>
   </div>
 </div>

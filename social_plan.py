@@ -2248,7 +2248,7 @@ def generate_social_plan_excel(plan: Dict[str, Any]) -> bytes:
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PPT EXPORT
-# Joveo branding: Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD
+# Joveo branding: Port Gore #202058, Blue Violet #5A54BE, Downy #6BB5CE
 # ═══════════════════════════════════════════════════════════════════════════════
 
 

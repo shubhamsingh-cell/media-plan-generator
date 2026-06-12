@@ -21,14 +21,14 @@
   /* ── Channel data (12 nodes, 2 orbits — readable, not cluttered) ── */
   var channels = [
     /* Inner orbit (6 major channels) */
-    { name: "Indeed", orbit: 1, color: "#7B75D4" },
+    { name: "Indeed", orbit: 1, color: "#8680D6" },
     { name: "LinkedIn", orbit: 1, color: "#06b6d4" },
     { name: "Google Ads", orbit: 1, color: "#22c55e" },
     { name: "Facebook", orbit: 1, color: "#60a5fa" },
     { name: "ZipRecruiter", orbit: 1, color: "#a78bfa" },
     { name: "Glassdoor", orbit: 1, color: "#f59e0b" },
     /* Outer orbit (6 secondary channels) */
-    { name: "Programmatic", orbit: 2, color: "#6BB3CD" },
+    { name: "Programmatic", orbit: 2, color: "#6BB5CE" },
     { name: "TikTok", orbit: 2, color: "#ef4444" },
     { name: "Career Sites", orbit: 2, color: "#c084fc" },
     { name: "Niche Boards", orbit: 2, color: "#34d399" },
@@ -81,7 +81,7 @@
   hub.setAttribute("cy", CY);
   hub.setAttribute("r", "42");
   hub.setAttribute("fill", "rgba(20, 18, 50, 0.9)");
-  hub.setAttribute("stroke", "#5A54BD");
+  hub.setAttribute("stroke", "#5A54BE");
   hub.setAttribute("stroke-width", "2");
   svg.appendChild(hub);
 

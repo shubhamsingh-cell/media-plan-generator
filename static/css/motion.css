@@ -124,7 +124,7 @@ body {
 .mini-value::after {
   content: "|";
   animation: cursor-blink 1s step-end infinite;
-  color: var(--accent-light, #7b75d4);
+  color: var(--accent-light, #8680d6);
   margin-left: 2px;
   font-weight: 300;
 }
@@ -339,8 +339,8 @@ body {
     90deg,
     #ededed 0%,
     #c7d2fe 25%,
-    #7b75d4 50%,
-    #6bb3cd 75%,
+    #8680d6 50%,
+    #6bb5ce 75%,
     #ededed 100%
   );
   background-size: 200% auto;
@@ -432,8 +432,8 @@ main,
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(at 20% 30%, #5a54bd33 0%, transparent 50%),
-    radial-gradient(at 80% 70%, #6bb3cd22 0%, transparent 50%),
+    radial-gradient(at 20% 30%, #5a54be33 0%, transparent 50%),
+    radial-gradient(at 80% 70%, #6bb5ce22 0%, transparent 50%),
     radial-gradient(at 50% 50%, #20205811 0%, transparent 70%);
   background-size: 200% 200%;
   animation: mesh-shift 15s ease-in-out infinite alternate;

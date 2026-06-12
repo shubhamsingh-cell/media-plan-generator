@@ -376,7 +376,7 @@
     bar.setAttribute("aria-hidden", "true");
     bar.style.cssText =
       "position:fixed;top:0;left:0;height:2px;z-index:9999;" +
-      "background:linear-gradient(90deg,#5A54BD,#6BB3CD);" +
+      "background:linear-gradient(90deg,#5A54BE,#6BB5CE);" +
       "transform-origin:left;transform:scaleX(0);will-change:transform;" +
       "pointer-events:none;";
     document.body.appendChild(bar);

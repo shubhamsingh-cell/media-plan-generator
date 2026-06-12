@@ -21,7 +21,7 @@ Thread-safe, never crashes (all errors return structured error dicts).
 
 Design tokens:
     Excel: Sapphire Blue palette (Navy #0F172A, Sapphire #2563EB, Light #DBEAFE)
-    PPT:   Joveo brand (Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD)
+    PPT:   Joveo brand (Port Gore #202058, Blue Violet #5A54BE, Downy #6BB5CE)
 """
 
 from __future__ import annotations
@@ -2194,7 +2194,7 @@ def generate_signal_ppt(report: Dict[str, Any], client_name: str = "Client") -> 
         5. Recommendations
         6. Predictions
 
-    Uses Joveo branding: Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD.
+    Uses Joveo branding: Port Gore #202058, Blue Violet #5A54BE, Downy #6BB5CE.
     """
     try:
         from pptx import Presentation

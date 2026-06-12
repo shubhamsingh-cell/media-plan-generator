@@ -658,7 +658,7 @@ def test_frontend_templates() -> None:
         # Check for brand colors
         has_brand = any(
             c in body
-            for c in ["#202058", "#5A54BD", "#6BB3CD", "202058", "5A54BD", "6BB3CD"]
+            for c in ["#202058", "#5A54BE", "#6BB5CE", "202058", "5A54BE", "6BB5CE"]
         )
         if not has_brand:
             record(

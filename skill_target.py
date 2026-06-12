@@ -2270,7 +2270,7 @@ def generate_skill_excel(analysis: Dict[str, Any]) -> bytes:
 
 
 def generate_skill_ppt(analysis: Dict[str, Any]) -> bytes:
-    """Generate branded PPT. Port Gore #202058, Blue Violet #5A54BD, Downy #6BB3CD."""
+    """Generate branded PPT. Port Gore #202058, Blue Violet #5A54BE, Downy #6BB5CE."""
     try:
         from pptx import Presentation
         from pptx.util import Inches, Pt
