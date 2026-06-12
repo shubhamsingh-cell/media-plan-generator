@@ -10,14 +10,57 @@ Extracted from app.py to reduce its size.  Handles:
 - GET  /api/plan/export/pdf?plan_id=xxx  -- download PDF for stored plan
 """
 
+from __future__ import annotations
+
 import json
 import logging
+import os
 import re
 import sys
 import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def _allowed_zip_dirs() -> list[str]:
+    """Return realpath'd directories from which ZIP attachments may be read.
+
+    Generated ZIPs are written to ``<repo>/data/generated_docs`` (see app.py).
+    Only files resolving inside that directory are permitted as email
+    attachments -- a client-controlled ``zip_file_path`` must not be able to
+    exfiltrate arbitrary files (e.g. /etc/passwd).
+    """
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return [os.path.realpath(os.path.join(repo_root, "data", "generated_docs"))]
+
+
+def _safe_zip_attachment_path(zip_file_path: Any) -> str | None:
+    """Validate a client-supplied ZIP path against the allowed output dir.
+
+    Resolves symlinks/``..`` with ``os.path.realpath`` and accepts the path
+    only if it lives inside an allowed directory. On violation, logs a warning
+    and returns ``None`` (caller proceeds WITHOUT an attachment rather than
+    raising). Returns the original path string when it is legitimate.
+    """
+    if not zip_file_path or not isinstance(zip_file_path, str):
+        return None
+    try:
+        resolved = os.path.realpath(zip_file_path)
+    except (OSError, ValueError) as exc:
+        logger.warning("deliver: could not resolve zip_file_path %r: %s", zip_file_path, exc)
+        return None
+    for allowed in _allowed_zip_dirs():
+        allowed_prefix = allowed + os.sep
+        if resolved == allowed or resolved.startswith(allowed_prefix):
+            return zip_file_path
+    logger.warning(
+        "deliver: rejected out-of-bounds zip_file_path %r (resolved=%r); "
+        "sending email WITHOUT attachment",
+        zip_file_path,
+        resolved,
+    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -223,11 +266,15 @@ def _handle_deliver(handler: Any, path: str, parsed: Any) -> None:
         from plan_delivery import send_plan_email
 
         client_ip = handler._get_client_ip()
+        # SECURITY (MPG-F5): client-controlled zip_file_path is an
+        # arbitrary-file-read/exfil vector -- contain it to the generated
+        # output dir; on violation proceed without attachment (do not raise).
+        safe_zip_path = _safe_zip_attachment_path(data.get("zip_file_path"))
         result = send_plan_email(
             recipient_email=data.get("email") or "",
             client_name=data.get("client_name") or "",
             plan_summary=data.get("plan_summary", {}),
-            zip_file_path=data.get("zip_file_path"),
+            zip_file_path=safe_zip_path,
             sender_ip=client_ip,
         )
         handler._send_json(result)

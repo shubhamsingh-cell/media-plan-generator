@@ -9617,8 +9617,7 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         budget_alloc_data = data.get("_budget_allocation", {})
         if isinstance(budget_alloc_data, dict) and budget_alloc_data:
             _ba_has_data = (
-                budget_alloc_data.get("metadata", {}).get("total_budget")
-                or 0 > 0
+                (budget_alloc_data.get("metadata", {}).get("total_budget") or 0) > 0
                 or budget_alloc_data.get("total_projected", {})
                 or budget_alloc_data.get("channel_allocations", {})
             )

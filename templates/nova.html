@@ -318,45 +318,6 @@
             <span class="topbar-model">v4.0</span>
           </div>
           <div class="topbar-right">
-            <!-- Theme toggle (sun/moon) -->
-            <button
-              class="topbar-btn"
-              id="theme-toggle-btn"
-              title="Toggle dark/light mode"
-              aria-label="Toggle theme"
-            >
-              <svg
-                id="theme-icon-moon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-              </svg>
-              <svg
-                id="theme-icon-sun"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                style="display: none"
-              >
-                <circle cx="12" cy="12" r="5" />
-                <line x1="12" y1="1" x2="12" y2="3" />
-                <line x1="12" y1="21" x2="12" y2="23" />
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                <line x1="1" y1="12" x2="3" y2="12" />
-                <line x1="21" y1="12" x2="23" y2="12" />
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-              </svg>
-            </button>
             <!-- Overflow menu (more actions) -->
             <div class="topbar-overflow-wrap" id="topbar-overflow-wrap">
               <button
@@ -526,6 +487,12 @@
               >
                 California compliance
               </button>
+              <button
+                class="suggestion-chip"
+                data-prompt="How does Joveo build a media plan -- and what is its push + pull methodology?"
+              >
+                Joveo media plan methodology
+              </button>
             </div>
           </div>
         </div>
@@ -669,8 +636,8 @@
       </div>
     </div>
 
-    <script src="/static/js/nova-toast.js?v=s49" defer></script>
-    <script src="/static/js/nova.js?v=s49" defer></script>
+    <script src="/static/js/nova-toast.js?v=s50" defer></script>
+    <script src="/static/js/nova.js?v=s50" defer></script>
 
     <footer style="display: none" aria-hidden="true">
       Nova AI Suite &middot; Created by Shubham Singh Chandel &middot; Built by
@@ -898,8 +865,8 @@
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"
       defer
     ></script>
-    <script src="/static/nova-auth.js?v=s49" defer></script>
-    <script src="/static/nova-auth-gate.js?v=s49" defer></script>
+    <script src="/static/nova-auth.js?v=s50" defer></script>
+    <script src="/static/nova-auth-gate.js?v=s50" defer></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
         if (typeof NovaAuth === "undefined") return;

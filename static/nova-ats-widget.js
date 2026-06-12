@@ -11,14 +11,14 @@
     F = 'Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
   var TH = {
     light: {
-      bg: "#FFF",
-      bp: "#F8F9FB",
-      tx: "#1A1A2E",
-      tm: "#6B7280",
-      bd: "#E5E7EB",
-      sh: "rgba(0,0,0,.12)",
+      bg: "#FFFFFF",
+      bp: "#F4F4FF",
+      tx: "#1F2937",
+      tm: "#6E6E8C",
+      bd: "#E3E1F1",
+      sh: "rgba(32,32,88,.12)",
       hg: "linear-gradient(135deg," + PG + "," + BV + ")",
-      bb: "#E5E7EB",
+      bb: "#E3E1F1",
       bf: BV,
       ba: "rgba(90,84,189,.1)",
       bt: BV,

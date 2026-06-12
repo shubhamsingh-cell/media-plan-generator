@@ -32,9 +32,12 @@ logger = logging.getLogger(__name__)
 
 _RESEND_ENDPOINT = "https://api.resend.com/emails"
 _API_KEY: str = (os.environ.get("RESEND_API_KEY") or "").strip()
-_FROM_EMAIL: str = os.environ.get(
-    "RESEND_FROM_EMAIL",
-    "onboarding@resend.dev",
+_DEFAULT_FROM_EMAIL = "onboarding@resend.dev"
+# True when RESEND_FROM_EMAIL is unset/blank and we fall back to the shared
+# default sender -- callers warn loudly so this is not silently relied upon.
+_FROM_EMAIL_IS_DEFAULT: bool = not (os.environ.get("RESEND_FROM_EMAIL") or "").strip()
+_FROM_EMAIL: str = (
+    os.environ.get("RESEND_FROM_EMAIL") or _DEFAULT_FROM_EMAIL
 ).strip()
 
 _SEND_TIMEOUT: int = 20  # seconds
@@ -129,6 +132,7 @@ def _format_currency(value: Any) -> str:
 def _build_email_html(
     client_name: str,
     plan_summary: Dict[str, Any],
+    has_attachment: bool = True,
 ) -> str:
     """Build the HTML email body.
 
@@ -142,6 +146,10 @@ def _build_email_html(
     plan_summary : dict
         Summary data with optional keys: industry, budget, num_channels,
         total_clicks, total_applies, total_hires, top_channels (list of str).
+    has_attachment : bool
+        Whether a ZIP attachment is actually included. When False, the body
+        does not claim the plan is attached (avoids a misleading email when the
+        attachment was dropped, e.g. by the path-containment check).
     """
     industry = _safe(plan_summary.get("industry") or "")
     budget = _format_currency(plan_summary.get("budget") or 0)
@@ -152,6 +160,18 @@ def _build_email_html(
     top_channels = plan_summary.get("top_channels") or []
 
     now_utc = datetime.now(timezone.utc).strftime("%B %d, %Y at %H:%M UTC")
+
+    # Attachment-conditional copy: never claim a file is attached when it isn't.
+    if has_attachment:
+        headline_sub = (
+            "has been generated and is attached to this email."
+        )
+        cta_line = (
+            "The media plan files are attached to this email as a ZIP archive. "
+        )
+    else:
+        headline_sub = "has been generated."
+        cta_line = ""
 
     # Top channels list
     channels_html = ""
@@ -223,7 +243,7 @@ def _build_email_html(
                 Your Media Plan is Ready
               </h1>
               <p style="margin: 8px 0 0 0; font-size: 14px; color: {_TEXT_MUTED}; line-height: 1.5;">
-                The recruitment advertising media plan for <strong style="color: {_TEXT_DARK};">{_safe(client_name)}</strong> has been generated and is attached to this email.
+                The recruitment advertising media plan for <strong style="color: {_TEXT_DARK};">{_safe(client_name)}</strong> {headline_sub}
               </p>
             </td></tr>
 
@@ -252,8 +272,7 @@ def _build_email_html(
             <!-- CTA -->
             <tr><td style="padding: 24px 0 0 0; text-align: center;">
               <p style="font-size: 13px; color: {_TEXT_MUTED}; line-height: 1.5;">
-                {"The media plan files are attached to this email as a ZIP archive. " if True else ""}
-                For questions or adjustments, reply to this email or contact your Joveo representative.
+                {cta_line}For questions or adjustments, reply to this email or contact your Joveo representative.
               </p>
             </td></tr>
 
@@ -337,20 +356,17 @@ def send_plan_email(
             "message": "Rate limit exceeded. Maximum 5 emails per hour. Please try again later.",
         }
 
-    # ── Build email HTML ──
+    # ── Warn loudly when relying on the shared default sender ──
+    if _FROM_EMAIL_IS_DEFAULT:
+        logger.warning(
+            "plan_delivery: RESEND_FROM_EMAIL is unset -- falling back to default "
+            "sender %r. Deliverability and DKIM/DMARC alignment will suffer; set "
+            "RESEND_FROM_EMAIL to a verified domain.",
+            _FROM_EMAIL,
+        )
+
+    # ── Resolve ZIP attachment first (drives body copy) ──
     client_name = (client_name or "").strip() or "Unknown Client"
-    email_html = _build_email_html(client_name, plan_summary or {})
-    subject = f"Media Plan Ready: {client_name}"
-
-    # ── Build API payload ──
-    payload: Dict[str, Any] = {
-        "from": _FROM_EMAIL,
-        "to": [recipient_email],
-        "subject": subject,
-        "html": email_html,
-    }
-
-    # ── Attach ZIP if provided ──
     attachment_bytes: Optional[bytes] = None
     if zip_bytes:
         attachment_bytes = zip_bytes
@@ -366,6 +382,20 @@ def send_plan_email(
                 "success": False,
                 "message": f"Failed to read attachment file: {e}",
             }
+
+    # ── Build email HTML (copy is conditional on a real attachment) ──
+    email_html = _build_email_html(
+        client_name, plan_summary or {}, has_attachment=bool(attachment_bytes)
+    )
+    subject = f"Media Plan Ready: {client_name}"
+
+    # ── Build API payload ──
+    payload: Dict[str, Any] = {
+        "from": _FROM_EMAIL,
+        "to": [recipient_email],
+        "subject": subject,
+        "html": email_html,
+    }
 
     if attachment_bytes:
         safe_client = re.sub(r"[^a-zA-Z0-9_\-]", "_", client_name)[:50]

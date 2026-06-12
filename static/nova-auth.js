@@ -321,7 +321,7 @@
     avatar.id = "nova-auth-badge-avatar";
     avatar.style.cssText =
       "width:40px;height:40px;border-radius:50%;cursor:pointer;" +
-      "background:rgba(30,30,50,0.9);border:1px solid rgba(255,255,255,0.1);" +
+      "background:linear-gradient(135deg,#202058,#5A54BE);border:1px solid #E3E1F1;" +
       "display:flex;align-items:center;justify-content:center;" +
       "overflow:hidden;transition:box-shadow 0.2s ease;";
 
@@ -348,25 +348,25 @@
     dropdown.id = "nova-auth-badge-dropdown";
     dropdown.style.cssText =
       "position:absolute;top:48px;right:0;min-width:220px;" +
-      "background:rgba(30,30,50,0.95);border:1px solid rgba(255,255,255,0.1);" +
+      "background:#FFFFFF;border:1px solid #E3E1F1;" +
       "border-radius:12px;padding:12px 16px;display:none;" +
-      "box-shadow:0 8px 32px rgba(0,0,0,0.4);backdrop-filter:blur(12px);";
+      "box-shadow:0 8px 32px rgba(32,32,88,0.12);";
 
     // User info row
     var infoRow = document.createElement("div");
     infoRow.style.cssText =
-      "margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.08);";
+      "margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #E3E1F1;";
 
     var nameEl = document.createElement("div");
     nameEl.style.cssText =
-      "color:#fff;font-size:14px;font-weight:600;line-height:1.3;";
+      "color:#1f2937;font-size:14px;font-weight:600;line-height:1.3;";
     nameEl.textContent =
       _currentUser.name || _currentUser.email?.split("@")[0] || "User";
     infoRow.appendChild(nameEl);
 
     var emailEl = document.createElement("div");
     emailEl.style.cssText =
-      "color:rgba(255,255,255,0.5);font-size:12px;margin-top:2px;";
+      "color:#6E6E8C;font-size:12px;margin-top:2px;";
     emailEl.textContent = _currentUser.email || "";
     infoRow.appendChild(emailEl);
 
@@ -377,16 +377,16 @@
     signOutBtn.textContent = "Sign out";
     signOutBtn.style.cssText =
       "width:100%;padding:8px 12px;border:none;border-radius:8px;cursor:pointer;" +
-      "background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.8);" +
+      "background:#F4F4FF;color:#1f2937;" +
       "font-size:13px;font-family:Inter,system-ui,sans-serif;text-align:left;" +
       "transition:background 0.15s ease;";
     signOutBtn.onmouseenter = function () {
-      signOutBtn.style.background = "rgba(255,80,80,0.15)";
-      signOutBtn.style.color = "#ff6b6b";
+      signOutBtn.style.background = "rgba(183,102,158,0.12)";
+      signOutBtn.style.color = "#9B2C6F";
     };
     signOutBtn.onmouseleave = function () {
-      signOutBtn.style.background = "rgba(255,255,255,0.06)";
-      signOutBtn.style.color = "rgba(255,255,255,0.8)";
+      signOutBtn.style.background = "#F4F4FF";
+      signOutBtn.style.color = "#1f2937";
     };
     signOutBtn.onclick = function (e) {
       e.stopPropagation();

@@ -87,6 +87,35 @@ def _format_pct(value: Any) -> str:
         return _safe(value)
 
 
+def _is_ai_training_plan(plan_data: Dict[str, Any]) -> bool:
+    """Return True if the plan's industry/roles plausibly match an AI-training
+    engagement (AI trainers, data annotators, language/data-labeling experts).
+
+    The CPA-reference and sample-pricing deck sections carry data that is
+    specific to an AI-trainer engagement ('Cost / Trainer', per-language audio
+    specialists, etc.). Rendering them for an unrelated client would
+    misrepresent that client's plan, so these sections are gated on this check.
+    """
+    if not isinstance(plan_data, dict):
+        return False
+    markers = ("ai", "train", "annotat", "language", "data label", "data-label")
+    haystack_parts: List[str] = []
+    industry = plan_data.get("industry")
+    if industry:
+        haystack_parts.append(str(industry))
+    roles = plan_data.get("roles") or []
+    if isinstance(roles, list):
+        for r in roles:
+            if isinstance(r, dict):
+                haystack_parts.append(str(r.get("name") or r.get("title") or ""))
+            else:
+                haystack_parts.append(str(r))
+    elif roles:
+        haystack_parts.append(str(roles))
+    haystack = " ".join(haystack_parts).lower()
+    return any(m in haystack for m in markers)
+
+
 def _load_deck_kb() -> Dict[str, Any]:
     """Load the Joveo media-plan deck content (methodology, push/pull, CPA
     reference, sample pricing, why-Joveo, case study, next steps) from the KB.
@@ -175,8 +204,12 @@ def _deck_push_pull_html(deck: Dict[str, Any]) -> str:
     """
 
 
-def _deck_cpa_reference_html(deck: Dict[str, Any]) -> str:
-    """CPA reference guide table (deck slide)."""
+def _deck_cpa_reference_html(deck: Dict[str, Any], illustrative: bool = False) -> str:
+    """CPA reference guide table (deck slide).
+
+    When ``illustrative`` is True the section is captioned as a generic
+    AI-training example so it is not mistaken for the current client's plan.
+    """
     cpa = (deck.get("cpa_reference") or {}) if isinstance(deck, dict) else {}
     rows = cpa.get("roles") or []
     if not rows:
@@ -198,9 +231,16 @@ def _deck_cpa_reference_html(deck: Dict[str, Any]) -> str:
         if note
         else ""
     )
+    caption = (
+        '<p style="font-size:11px;font-weight:600;color:' + BLUE_VIOLET + ';margin-bottom:8px;">'
+        "Illustrative example &mdash; AI-training engagement</p>"
+        if illustrative
+        else ""
+    )
     return f"""
     <div class="section page-break-before">
       <h2>CPA Reference Guide</h2>
+      {caption}
       <table class="data-table">
         <thead>
           <tr><th>Role Category</th><th class="num">Est. CPA Range</th><th>Benchmark Basis</th></tr>
@@ -212,8 +252,12 @@ def _deck_cpa_reference_html(deck: Dict[str, Any]) -> str:
     """
 
 
-def _deck_sample_pricing_html(deck: Dict[str, Any]) -> str:
-    """Sample campaign pricing table (deck slide)."""
+def _deck_sample_pricing_html(deck: Dict[str, Any], illustrative: bool = False) -> str:
+    """Sample campaign pricing table (deck slide).
+
+    When ``illustrative`` is True the section is captioned as a generic
+    AI-training example so it is not mistaken for the current client's plan.
+    """
     sp = (deck.get("sample_pricing_model") or {}) if isinstance(deck, dict) else {}
     camps = sp.get("campaigns") or []
     if not camps:
@@ -248,9 +292,16 @@ def _deck_sample_pricing_html(deck: Dict[str, Any]) -> str:
         if note
         else ""
     )
+    caption = (
+        '<p style="font-size:11px;font-weight:600;color:' + BLUE_VIOLET + ';margin-bottom:8px;">'
+        "Illustrative example &mdash; AI-training engagement</p>"
+        if illustrative
+        else ""
+    )
     return f"""
     <div class="section">
       <h2>Sample Campaign Pricing</h2>
+      {caption}
       <table class="data-table">
         <thead>
           <tr><th>Campaign</th><th>Targeting</th><th class="num">CPA</th><th class="num">Conv.</th><th class="num">Cost / Trainer</th><th class="num">Budget</th></tr>
@@ -537,8 +588,15 @@ def generate_plan_html_report(
     _deck = _load_deck_kb()
     methodology_html = _deck_methodology_html(_deck)
     push_pull_html = _deck_push_pull_html(_deck)
-    cpa_reference_html = _deck_cpa_reference_html(_deck)
-    sample_pricing_html = _deck_sample_pricing_html(_deck)
+    # CPA-reference and sample-pricing carry AI-trainer-specific data
+    # ('Cost / Trainer', per-language audio specialists). Only render them for
+    # plans whose industry/roles plausibly match an AI-training engagement; for
+    # other clients render with an "Illustrative example" caption so the data is
+    # not mistaken for that client's actual plan. (MPG-F3 client-safety gate.)
+    _gate_data = {"industry": industry, "roles": roles}
+    _illustrative = not _is_ai_training_plan(_gate_data)
+    cpa_reference_html = _deck_cpa_reference_html(_deck, illustrative=_illustrative)
+    sample_pricing_html = _deck_sample_pricing_html(_deck, illustrative=_illustrative)
     case_study_html = _deck_case_study_html(_deck)
     next_steps_html = _deck_next_steps_html(_deck)
 

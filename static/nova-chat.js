@@ -50,7 +50,6 @@
     widgetWidth: "400px",
     widgetHeight: "580px",
     mobileBreakpoint: 640,
-    theme: "dark",
   };
 
   var SUGGESTED_QUESTIONS = [
@@ -58,6 +57,7 @@
     "What salary should I offer for a Data Scientist in NYC?",
     "Compare Indeed vs LinkedIn for engineering recruitment",
     "Recommend a $100K budget allocation for 20 nursing hires in Texas",
+    "How does Joveo build a media plan -- and what is its push + pull methodology?",
   ];
 
   // ---------------------------------------------------------------------------
@@ -713,67 +713,6 @@
       "  cursor: pointer; transition: all 0.15s; font-family: inherit;" +
       "}" +
       ".nova-regen-btn:hover { color: #5A54BE; border-color: rgba(90,84,190,0.35); }" +
-      // ── Theme toggle button (sits on indigo->purple header) ──
-      ".nova-theme-btn {" +
-      "  background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.18);" +
-      "  color: rgba(255,255,255,0.85); cursor: pointer;" +
-      "  padding: 5px; border-radius: 8px; line-height: 1;" +
-      "  transition: all 0.2s;" +
-      "}" +
-      ".nova-theme-btn:hover { background: rgba(255,255,255,0.18); color: #fff; border-color: rgba(255,255,255,0.3); }" +
-      ".nova-theme-btn svg { width: 16px; height: 16px; }" +
-      // ── Light theme overrides (Joveo light; panel is already light by
-      //    default so these keep the toggle consistent / extra-bright) ──
-      "#nova-panel.nova-light {" +
-      "  background: #FFFCF9;" +
-      "  border-color: #E3E1F1;" +
-      "}" +
-      "#nova-panel.nova-light .nova-header {" +
-      "  background: linear-gradient(135deg, #202058 0%, #5A54BE 100%);" +
-      "  color: #ffffff;" +
-      "}" +
-      "#nova-panel.nova-light .nova-header-title { color: #ffffff; }" +
-      "#nova-panel.nova-light .nova-header-subtitle { color: rgba(255,255,255,0.85); }" +
-      "#nova-panel.nova-light .nova-close-btn," +
-      "#nova-panel.nova-light .nova-theme-btn," +
-      "#nova-panel.nova-light .nova-export-btn {" +
-      "  background: rgba(255,255,255,0.10) !important; border-color: rgba(255,255,255,0.18) !important;" +
-      "  color: rgba(255,255,255,0.85) !important;" +
-      "}" +
-      "#nova-panel.nova-light .nova-close-btn:hover," +
-      "#nova-panel.nova-light .nova-theme-btn:hover," +
-      "#nova-panel.nova-light .nova-export-btn:hover {" +
-      "  background: rgba(255,255,255,0.18) !important; color: #ffffff !important;" +
-      "}" +
-      "#nova-panel.nova-light .nova-messages { color: #1F2937; }" +
-      "#nova-panel.nova-light .nova-msg-assistant {" +
-      "  background: #FFFFFF; color: #202058;" +
-      "  border-color: #E3E1F1;" +
-      "}" +
-      "#nova-panel.nova-light .nova-msg-sender-assistant { color: #5A54BE; }" +
-      "#nova-panel.nova-light .nova-msg-sender-user { color: #5A54BE; }" +
-      "#nova-panel.nova-light .nova-welcome-title { color: #202058; }" +
-      "#nova-panel.nova-light .nova-welcome-subtitle { color: #6E6E8C; }" +
-      "#nova-panel.nova-light .nova-suggestion {" +
-      "  background: rgba(90,84,190,0.06); color: #202058;" +
-      "  border-color: rgba(90,84,190,0.15);" +
-      "}" +
-      "#nova-panel.nova-light .nova-suggestion:hover {" +
-      "  background: rgba(90,84,190,0.12); border-color: rgba(90,84,190,0.25);" +
-      "}" +
-      "#nova-panel.nova-light .nova-input-area {" +
-      "  background: #FFFCF9; border-color: #E3E1F1;" +
-      "}" +
-      "#nova-panel.nova-light .nova-input {" +
-      "  background: #FFFFFF; color: #202058; border-color: #E3E1F1;" +
-      "}" +
-      "#nova-panel.nova-light .nova-input::placeholder { color: #6E6E8C; }" +
-      "#nova-panel.nova-light .nova-char-count { color: #6E6E8C; }" +
-      "#nova-panel.nova-light .nova-footer { color: #6E6E8C; }" +
-      "#nova-panel.nova-light .nova-msg strong { color: #202058; }" +
-      "#nova-panel.nova-light code { background: rgba(90,84,190,0.10); color: #5A54BE; }" +
-      "#nova-panel.nova-light table th { background: #202058; color: #ffffff; }" +
-      "#nova-panel.nova-light table td { border-color: #E3E1F1; }" +
       // ── Settings panel ──
       ".nova-settings-btn:hover { background: rgba(255,255,255,0.18) !important; color: #fff !important; border-color: rgba(255,255,255,0.3) !important; }" +
       ".nova-settings-panel { position: absolute; top: 56px; right: 8px; z-index: 10; background: #FFFFFF; border: 1px solid #E3E1F1; border-radius: 12px; padding: 14px 16px; min-width: 220px; box-shadow: 0 8px 32px rgba(32,32,88,0.18); backdrop-filter: blur(16px); display: none; }" +
@@ -801,7 +740,7 @@
       "  .nova-msg-row, .nova-msg-user, .nova-msg-assistant { animation: none !important; }" +
       "  .nova-msg-row { animation: none !important; }" +
       "  .nova-typing-dot { animation: none !important; opacity: 0.5; }" +
-      "  #nova-float-btn, .nova-send-btn, .nova-suggestion-btn, .nova-close-btn, .nova-regen-btn, .nova-edit-btn, .nova-theme-btn { transition: none !important; }" +
+      "  #nova-float-btn, .nova-send-btn, .nova-suggestion-btn, .nova-close-btn, .nova-regen-btn, .nova-edit-btn { transition: none !important; }" +
       "  #nova-float-btn:hover, .nova-send-btn:hover, .nova-suggestion-btn:hover { transform: none !important; }" +
       "  #nova-float-btn:active, .nova-send-btn:active, .nova-suggestion-btn:active { transform: none !important; }" +
       "  .nova-streaming-cursor { animation: none !important; opacity: 0.7; }" +
@@ -1914,18 +1853,6 @@
       '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>' +
       '<polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
       "</button>" +
-      '<button class="nova-theme-btn" aria-label="Toggle theme" title="Toggle dark/light mode">' +
-      '<svg class="nova-theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
-      'stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">' +
-      '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>' +
-      '<svg class="nova-theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
-      'stroke-linecap="round" stroke-linejoin="round" style="display:none;width:16px;height:16px;">' +
-      '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/>' +
-      '<line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>' +
-      '<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/>' +
-      '<line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>' +
-      '<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>' +
-      "</button>" +
       '<button class="nova-close-btn" aria-label="Close chat">' +
       ICONS.close +
       "</button>" +
@@ -2024,46 +1951,6 @@
         if (ed) ed.classList.remove("nova-export-open");
       }
     });
-    // Theme toggle: dark/light mode
-    var _themeBtn = header.querySelector(".nova-theme-btn");
-    if (_themeBtn) {
-      // Apply saved theme on build
-      var _savedTheme = null;
-      try {
-        _savedTheme = localStorage.getItem("nova_theme");
-      } catch (e) {
-        /* localStorage read failed */
-      }
-      if (_savedTheme === "light") {
-        panel.classList.add("nova-light");
-        var _moonIcon = _themeBtn.querySelector(".nova-theme-icon-moon");
-        var _sunIcon = _themeBtn.querySelector(".nova-theme-icon-sun");
-        if (_moonIcon) _moonIcon.style.display = "none";
-        if (_sunIcon) _sunIcon.style.display = "";
-      }
-      _themeBtn.addEventListener("click", function () {
-        var isLight = panel.classList.toggle("nova-light");
-        var moonIcon = _themeBtn.querySelector(".nova-theme-icon-moon");
-        var sunIcon = _themeBtn.querySelector(".nova-theme-icon-sun");
-        if (isLight) {
-          try {
-            localStorage.setItem("nova_theme", "light");
-          } catch (e) {
-            /* localStorage write failed */
-          }
-          if (moonIcon) moonIcon.style.display = "none";
-          if (sunIcon) sunIcon.style.display = "";
-        } else {
-          try {
-            localStorage.setItem("nova_theme", "dark");
-          } catch (e) {
-            /* localStorage write failed */
-          }
-          if (moonIcon) moonIcon.style.display = "";
-          if (sunIcon) sunIcon.style.display = "none";
-        }
-      });
-    }
     header
       .querySelector(".nova-close-btn")
       .addEventListener("click", function (e) {

@@ -16,7 +16,6 @@
   var MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   var STORAGE_KEY = "nova_conversations";
   var ACTIVE_KEY = "nova_active_conv";
-  var THEME_KEY = "nova_theme";
   var MAX_HISTORY = 20;
   var MAX_STORED_MESSAGES = 100;
 
@@ -83,7 +82,6 @@
   var convList = document.getElementById("conv-list");
   var charCount = document.getElementById("char-count");
   var toastContainer = document.getElementById("toast-container");
-  var themeToggleBtn = document.getElementById("theme-toggle-btn");
   var convSearchInput = document.getElementById("conv-search-input");
   var shareBtn = document.getElementById("share-btn");
   var exportBtn = document.getElementById("export-btn");
@@ -1672,22 +1670,22 @@
       '.nova-why-toggle[aria-expanded="true"]::after { transform: rotate(90deg); opacity: 1; }',
       ".nova-why-panel {",
       "  margin-top: 8px; padding: 12px 14px;",
-      "  background: linear-gradient(180deg, rgba(32,32,88,0.30) 0%, rgba(15,15,26,0.55) 100%);",
-      "  border: 1px solid rgba(90,84,189,0.22); border-left: 3px solid #5A54BE;",
+      "  background: #F4F4FF;",
+      "  border: 1px solid #E3E1F1; border-left: 3px solid #5A54BE;",
       "  border-radius: 10px; font-size: 12px; line-height: 1.55;",
-      "  color: var(--text-secondary, #c0c0cc);",
+      "  color: #1F2937;",
       "}",
       ".nova-why-row { display: flex; gap: 10px; padding: 3px 0; align-items: flex-start; }",
-      ".nova-why-row + .nova-why-row { border-top: 1px solid rgba(255,255,255,0.04); padding-top: 6px; margin-top: 4px; }",
+      ".nova-why-row + .nova-why-row { border-top: 1px solid #E3E1F1; padding-top: 6px; margin-top: 4px; }",
       ".nova-why-label {",
-      "  flex: 0 0 96px; color: #6BB5CE; font-weight: 600;",
+      "  flex: 0 0 96px; color: #5A54BE; font-weight: 600;",
       "  font-size: 11px; letter-spacing: 0.3px; text-transform: uppercase;",
       "}",
       ".nova-why-value { flex: 1 1 auto; min-width: 0; word-break: break-word; }",
       ".nova-why-chip {",
       "  display: inline-block; padding: 1px 7px; margin: 1px 4px 1px 0;",
-      "  background: rgba(107,179,205,0.10); color: #a9d3e0;",
-      "  border: 1px solid rgba(107,179,205,0.18); border-radius: 999px;",
+      "  background: rgba(90,84,189,0.08); color: #202058;",
+      "  border: 1px solid rgba(90,84,189,0.18); border-radius: 999px;",
       "  font-size: 10.5px; font-weight: 500; font-family: 'SF Mono', Menlo, ui-monospace, monospace;",
       "}",
       ".nova-why-chip-mono { font-family: 'SF Mono', Menlo, ui-monospace, monospace; }",
@@ -1701,12 +1699,13 @@
       "@media (prefers-reduced-motion: reduce) {",
       "  .nova-why-toggle, .nova-why-toggle::after { transition: none; }",
       "}",
-      '[data-theme="light"] .nova-why-panel {',
-      "  background: linear-gradient(180deg, rgba(32,32,88,0.04) 0%, rgba(107,179,205,0.05) 100%);",
-      "  border-color: rgba(90,84,189,0.25); color: #334;",
+      '[data-theme="dark"] .nova-why-panel {',
+      "  background: linear-gradient(180deg, rgba(32,32,88,0.30) 0%, rgba(15,15,26,0.55) 100%);",
+      "  border-color: rgba(90,84,189,0.22); color: var(--text-secondary, #c0c0cc);",
       "}",
-      '[data-theme="light"] .nova-why-label { color: #5A54BE; }',
-      '[data-theme="light"] .nova-why-chip { background: rgba(90,84,189,0.06); color: #202058; border-color: rgba(90,84,189,0.15); }',
+      '[data-theme="dark"] .nova-why-row + .nova-why-row { border-top-color: rgba(255,255,255,0.04); }',
+      '[data-theme="dark"] .nova-why-label { color: #6BB5CE; }',
+      '[data-theme="dark"] .nova-why-chip { background: rgba(107,179,205,0.10); color: #a9d3e0; border-color: rgba(107,179,205,0.18); }',
       "",
     ].join("\n");
     document.head.appendChild(style);
@@ -3406,32 +3405,12 @@
   sidebarOverlay.addEventListener("click", closeSidebarMobile);
 
   // ========================================================================
-  // THEME TOGGLE (dark/light)
+  // THEME (light-only — Joveo 2026 deck brand)
+  // The Nova page is light-only; data-theme="light" is set permanently so the
+  // [data-theme="light"] rules in nova.css stay active. The dark/light toggle
+  // was removed (it became a no-op once the page flipped to the light theme).
   // ========================================================================
-  function initTheme() {
-    var saved = localStorage.getItem(THEME_KEY);
-    if (saved === "light") {
-      document.documentElement.setAttribute("data-theme", "light");
-      document.getElementById("theme-icon-moon").style.display = "none";
-      document.getElementById("theme-icon-sun").style.display = "";
-    }
-  }
-  initTheme();
-
-  themeToggleBtn.addEventListener("click", function () {
-    var current = document.documentElement.getAttribute("data-theme");
-    if (current === "light") {
-      document.documentElement.removeAttribute("data-theme");
-      safeSaveToStorage(THEME_KEY, "dark");
-      document.getElementById("theme-icon-moon").style.display = "";
-      document.getElementById("theme-icon-sun").style.display = "none";
-    } else {
-      document.documentElement.setAttribute("data-theme", "light");
-      safeSaveToStorage(THEME_KEY, "light");
-      document.getElementById("theme-icon-moon").style.display = "none";
-      document.getElementById("theme-icon-sun").style.display = "";
-    }
-  });
+  document.documentElement.setAttribute("data-theme", "light");
 
   // ========================================================================
   // SHARE CONVERSATION
@@ -3769,7 +3748,6 @@
       '<div class="shortcut-row"><span>New line</span><span class="shortcut-key"><kbd>Shift</kbd>+<kbd>Enter</kbd></span></div>' +
       '<div class="shortcut-row"><span>Close sidebar (mobile)</span><span class="shortcut-key"><kbd>Esc</kbd></span></div>' +
       '<div class="shortcut-row"><span>Clear chat</span><span class="shortcut-key">Type <kbd>/clear</kbd></span></div>' +
-      '<div class="shortcut-row"><span>Toggle theme</span><span class="shortcut-key"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></span></div>' +
       '<button class="modal-close">Close</button>' +
       "</div>";
     document.body.appendChild(overlay);
@@ -3812,11 +3790,6 @@
           }
         }
       }
-    }
-    // Ctrl/Cmd+Shift+T: Toggle theme
-    if (mod && e.shiftKey && e.key === "T") {
-      e.preventDefault();
-      themeToggleBtn.click();
     }
     // Escape: close sidebar on mobile, or close any modal
     if (e.key === "Escape") {
