@@ -124,18 +124,16 @@ bump · architecture design doc · **keystone accessor** `get_real_outcomes()` �
     `docs/BENCHMARK_REFRESH_FINDINGS_2026-06.md`. QStash infra
     (`/api/cron/run` + `CRON_SECRET`, S88) already exists; the missing piece is
     the *owned, correct* refresh action — needs a product decision from the user.
-  - **#9 source-of-truth migration** — 🟡 MAPPED, not yet built. The map
-    (`docs/_s89_9_parity_map_raw.json`, workflow `wf_f9192b9b-43d`) found:
-    `supabase_data.py` is ALREADY Supabase-first/JSON-fallback for every
-    accessor, so #9 = an ADDITIVE dual-read **parity-audit** layer
-    (`supabase_parity.py` + `scripts/parity_audit.py` + admin endpoint mirroring
-    `/api/admin/data-freshness`), NOT a serving change. Parity-eligible (both
-    sources): `knowledge_base` (diff per (category,key) — the no-key fallback
-    returns the whole file, a trap), `channel_benchmarks`, `market_trends`,
-    `supply_repository`. **Supabase-ONLY (empty JSON fallback → no safety net,
-    flag it):** `salary_data`, `compliance_rules`, `vendor_profiles`. NOT
-    eligible: `cg_benchmarks` (no fallback). Cutover is already effectively done
-    (Supabase-first); the audit proves it's safe + catches silent regressions.
+  - **#9 source-of-truth migration** — ✅ **parity-audit BUILT** (`ffdc024`):
+    `supabase_parity.py` (`run_parity_audit()`, pure `diff_rows()`) +
+    `scripts/parity_audit.py` (CLI) + ADMIN-gated `GET /api/admin/parity`
+    + `tests/test_supabase_parity.py` (11 cases). READ-ONLY, additive — does NOT
+    change serving (which is already Supabase-first). Flags `salary_data`/
+    `compliance_rules`/`vendor_profiles` as `supabase_only` (empty JSON fallback
+    = single point of failure); coverage-only for `knowledge_base`/
+    `supply_repository`; excludes `cg_benchmarks`. **Remaining #9 = OPERATIONAL
+    (needs prod):** hit `/api/admin/parity` with `ADMIN_API_KEY` against the live
+    Supabase, then seed curated JSON fallbacks for the supabase_only domains.
   - **#15 external data MCPs** — deferred (opportunistic).
 - **Residual follow-ups:**
   - ✅ eval-gate + pytest now run in CI (`4559149`, `a2b6ad0`); baseline committed.
