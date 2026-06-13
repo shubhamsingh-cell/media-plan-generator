@@ -30,8 +30,9 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${RENDER_API_KEY:-}" ]; then
-            echo "::error::RENDER_API_KEY secret is not set on this repo. Add it under Settings -> Secrets and variables -> Actions."
-            exit 1
+            echo "::notice title=Skipping API deploy trigger::RENDER_API_KEY not set. render.yaml has autoDeploy:true, so Render deploys natively on every push to main — this API-triggered path is an optional bypass. To enable it (e.g. if native auto-deploy ever breaks), add RENDER_API_KEY under Settings -> Secrets and variables -> Actions."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           resp=$(curl -sS -X POST \
             -H "Authorization: Bearer $RENDER_API_KEY" \
@@ -48,6 +49,7 @@ jobs:
           echo "::notice title=Render deploy triggered::$deploy_id"
 
       - name: Poll until deploy reaches terminal state
+        if: steps.trigger.outputs.skipped != 'true'
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           SERVICE_ID: srv-d6lk06k50q8c73bcpo40
