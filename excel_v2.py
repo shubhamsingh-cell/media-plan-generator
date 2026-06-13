@@ -48,6 +48,9 @@ from shared_utils import (
 from joveo_brand_2026 import (
     INDIGO,
     PURPLE,
+    PURPLE_LIGHT,
+    TEAL,
+    MAGENTA,
     LAVENDER_100,
     LAVENDER_50,
     INK,
@@ -55,6 +58,7 @@ from joveo_brand_2026 import (
     BORDER,
     CANVAS,
 )
+from openpyxl.formatting.rule import ColorScaleRule, DataBarRule
 
 # S48: Channel Recommender (optional)
 try:
@@ -222,6 +226,19 @@ STONE = INK.lstrip("#").upper()  # 1F2937 INK -- body text
 MUTED = _BRAND_MUTED.lstrip("#").upper()  # 6E6E8C -- footnotes / secondary labels
 WARM_GRAY = BORDER.lstrip("#").upper()  # E3E1F1 BORDER -- grid / borders
 OFF_WHITE = CANVAS.lstrip("#").upper()  # FFFCF9 CANVAS -- warm off-white surface
+TEAL_HEX = TEAL.lstrip("#").upper()  # 6BB5CE -- secondary accent / tab
+MAGENTA_HEX = MAGENTA.lstrip("#").upper()  # B7669E -- pop accent / tab
+PURPLE_LIGHT_HEX = PURPLE_LIGHT.lstrip("#").upper()  # 8680D6 -- tertiary accent / tab
+
+# ---------------------------------------------------------------------------
+# Excel number-format strings (S89) -- write LIVE numeric values into data
+# cells + apply these formats, so a client can SUM / sort / filter / chart the
+# deliverable. Never write pre-formatted display strings into summable columns.
+# ---------------------------------------------------------------------------
+FMT_USD0 = "$#,##0"  # whole-dollar columns (Amount, Budget, Cost/Hire)
+FMT_USD2 = '"$"#,##0.00'  # per-unit money (CPC, CPA, CPM)
+FMT_PCT1 = "0.0%"  # percentages (cell stores the fraction, e.g. 0.32)
+FMT_INT = "#,##0"  # integer counts (clicks, applications, hires)
 # ---------------------------------------------------------------------------
 # Brand name casing -- preserves known brand names when title-casing client
 # ---------------------------------------------------------------------------
@@ -1557,6 +1574,47 @@ def _set_column_widths(ws, widths: Dict[int, float]):
         ws.column_dimensions[get_column_letter(col_num)].width = width
 
 
+# S89: deliberate per-sheet tab palette (deck tokens only) so the workbook
+# reads as a designed set instead of a wall of identical purple tabs. Keyed by
+# sheet title; falls back to PURPLE. Status colors (green/amber/red) are never
+# used for tabs -- those read as state, not brand.
+_TAB_COLORS: Dict[str, str] = {
+    "Executive Summary": NAVY,
+    "Channels & Strategy": SAPPHIRE,
+    "Market Intelligence": TEAL_HEX,
+    "Sources & Confidence": PURPLE_LIGHT_HEX,
+    "ROI Projections": SAPPHIRE,
+    "Quality Intelligence": TEAL_HEX,
+    "90-Day Forecast": NAVY,
+    "Confidence Intervals": MAGENTA_HEX,
+    "Niche Board Matching": MAGENTA_HEX,
+    "Channel Recommendations": SAPPHIRE,
+    "International Benchmarks": TEAL_HEX,
+}
+
+
+def _finalize_workbook(wb) -> None:
+    """S89: apply cross-cutting polish to every sheet just before save.
+
+    1. Freeze the primary table header (or the title block) so it stays visible
+       while the client scrolls long tables.
+    2. Assign a deliberate brand tab color per sheet.
+    Fully defensive: any per-sheet failure is logged and skipped so finalization
+    never blocks the workbook from saving.
+    """
+    for ws in wb.worksheets:
+        try:
+            ws.freeze_panes = getattr(ws, "_nova_freeze_row", None) or "B3"
+        except Exception as exc:  # noqa: BLE001 - cosmetic, never block save
+            logger.debug("freeze_panes skipped for %s: %s", ws.title, exc)
+        try:
+            color = _TAB_COLORS.get(ws.title)
+            if color:
+                ws.sheet_properties.tabColor = color
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("tabColor skipped for %s: %s", ws.title, exc)
+
+
 def _write_section_header(ws, row: int, title: str) -> int:
     """Write a full-width section header (navy background, white text).
     Returns the row AFTER the header (header row + 1).
@@ -1613,7 +1671,24 @@ def _write_table_header(
         cell.alignment = _ALIGN_CENTER
         cell.border = _BORDER_THIN
     ws.row_dimensions[row].height = 22
+    # S89: record the first table header near the top of a sheet so the
+    # finalizer can freeze just below it (keeps the header visible while the
+    # client scrolls). Only the first qualifying header per sheet wins, and
+    # only if it sits near the top (else freezing would hide too much).
+    if getattr(ws, "_nova_freeze_row", None) is None and row <= 8:
+        ws._nova_freeze_row = f"B{row + 1}"
     return row + 1
+
+
+def _write_num(cell, raw_value: Any, number_format: str) -> None:
+    """Write a LIVE numeric value into a cell + apply an Excel number_format.
+
+    Percentages use ``FMT_PCT1`` and expect the cell value to be the *fraction*
+    (0.32), so callers pass the already-divided value. Everything else stores
+    the raw number so the client can SUM / sort / chart it.
+    """
+    cell.value = _safe_num(raw_value)
+    cell.number_format = number_format
 
 
 def _write_table_row(
@@ -1625,11 +1700,28 @@ def _write_table_row(
     fonts: List[Optional[Font]] = None,
     fills: List[Optional[PatternFill]] = None,
     aligns: List[Optional[Alignment]] = None,
+    number_formats: List[Optional[str]] = None,
 ) -> int:
-    """Write a single table data row. Returns the next row."""
+    """Write a single table data row. Returns the next row.
+
+    ``number_formats`` (S89): a parallel list; where an entry is a format
+    string, the corresponding value is written as a LIVE number with that
+    Excel ``number_format`` (summable/sortable) instead of as text. Entries
+    that are ``None`` keep the legacy string-write behaviour, so existing
+    callers are unaffected.
+    """
     row_fill = _FILL_BLUE_PALE if alternate else _FILL_WHITE
     for i, val in enumerate(values):
-        cell = ws.cell(row=row, column=col_start + i, value=val)
+        cell = ws.cell(row=row, column=col_start + i)
+        fmt = (
+            number_formats[i]
+            if number_formats and i < len(number_formats)
+            else None
+        )
+        if fmt:
+            _write_num(cell, val, fmt)
+        else:
+            cell.value = val
         cell.font = fonts[i] if fonts and i < len(fonts) and fonts[i] else _FONT_BODY
         cell.fill = fills[i] if fills and i < len(fills) and fills[i] else row_fill
         cell.alignment = (
@@ -2307,15 +2399,9 @@ def _build_sheet_executive_summary(
             "CPA",
             "ROI Score",
         ]
-        row_h = row
-        for i, h in enumerate(headers):
-            cell = ws.cell(row=row_h, column=COL_START + i, value=h)
-            cell.font = _FONT_TABLE_HEADER
-            cell.fill = _FILL_SAPPHIRE
-            cell.alignment = _ALIGN_CENTER
-            cell.border = _BORDER_THIN
-        ws.row_dimensions[row_h].height = 22
-        row = row_h + 1
+        # S89: use the canonical header helper (single source of truth for
+        # font/fill/height + finalizer freeze-row tracking).
+        row = _write_table_header(ws, row, headers)
 
         sorted_channels = sorted(
             channel_allocs.items(),
@@ -2323,9 +2409,15 @@ def _build_sheet_executive_summary(
             reverse=True,
         )
         # S82: collect numeric (name, dollars) pairs for a native pie chart.
-        # The visible table cells are formatted strings, which openpyxl charts
-        # cannot plot, so we keep a parallel numeric list for the chart helper.
         _chart_pairs: List[tuple] = []
+        # S89: write LIVE numeric values + Excel number_formats so the client can
+        # SUM/sort/filter/chart this table. Column order matches `headers`:
+        # Channel(text) | %(pct) | Amount($) | Clicks | Apps | Hires | CPC | CPA | ROI
+        _col_formats = [
+            None, FMT_PCT1, FMT_USD0, FMT_INT, FMT_INT, FMT_INT,
+            FMT_USD2, FMT_USD2, "0.0",
+        ]
+        _first_data_row = row
         _row_idx = 0
         for ch_name, ch_data in sorted_channels[:15]:
             # Bug 23: Skip garbage rows where all metrics are zero/empty
@@ -2341,24 +2433,82 @@ def _build_sheet_executive_summary(
             _display_name = ch_name.replace("_", " ").title()
             if _safe_num(_ch_dollars) > 0:
                 _chart_pairs.append((_display_name, round(_safe_num(_ch_dollars), 2)))
+            # Percentage source is on a 0-100 scale; FMT_PCT1 expects a fraction.
+            _pct_frac = _safe_num(_ch_pct) / 100.0
             values = [
                 _display_name,
-                f"{_safe_num(_ch_pct):.1f}%",
-                _fmt_currency(_ch_dollars),
-                _fmt_number(ch_data.get("projected_clicks") or 0),
-                _fmt_number(ch_data.get("projected_applications") or 0),
-                _fmt_number(ch_data.get("projected_hires") or 0),
-                _fmt_currency(_ch_cpc, show_cents=True),
-                _fmt_currency(_ch_cpa, show_cents=True),
-                str(_ch_roi or ""),
+                _pct_frac,
+                _safe_num(_ch_dollars),
+                int(_safe_num(ch_data.get("projected_clicks") or 0)),
+                int(_safe_num(ch_data.get("projected_applications") or 0)),
+                int(_safe_num(ch_data.get("projected_hires") or 0)),
+                _safe_num(_ch_cpc),
+                _safe_num(_ch_cpa),
+                round(_safe_num(_ch_roi), 1),
             ]
-            for i, val in enumerate(values):
-                cell = ws.cell(row=row, column=COL_START + i, value=val)
-                cell.font = _FONT_BODY
-                cell.fill = _FILL_BLUE_PALE if idx % 2 else _FILL_WHITE
-                cell.alignment = _ALIGN_CENTER if i > 0 else _ALIGN_LEFT
+            _aligns = [_ALIGN_LEFT] + [_ALIGN_CENTER] * (len(values) - 1)
+            row = _write_table_row(
+                ws,
+                row,
+                values,
+                alternate=bool(idx % 2),
+                aligns=_aligns,
+                number_formats=_col_formats,
+            )
+        _last_data_row = row - 1
+
+        # S89: live totals row (self-verifying, audit-ready footer). Sum the
+        # money + count columns with native Excel formulas so the client sees a
+        # total that recomputes if they edit the data.
+        if _last_data_row >= _first_data_row:
+            _tot_cells = [
+                ("Total", None),
+                (None, None),  # % column -- a SUM of shares is ~100%, skip for clarity
+                (f"=SUM(C{_first_data_row}:C{_last_data_row})", FMT_USD0),
+                (f"=SUM(D{_first_data_row}:D{_last_data_row})", FMT_INT),
+                (f"=SUM(E{_first_data_row}:E{_last_data_row})", FMT_INT),
+                (f"=SUM(F{_first_data_row}:F{_last_data_row})", FMT_INT),
+                (None, None),  # CPC -- a sum is meaningless
+                (None, None),  # CPA -- a sum is meaningless
+                (None, None),  # ROI -- a sum is meaningless
+            ]
+            for i, (cval, cfmt) in enumerate(_tot_cells):
+                cell = ws.cell(row=row, column=COL_START + i)
+                if cval is not None:
+                    cell.value = cval
+                    if cfmt:
+                        cell.number_format = cfmt
+                cell.font = _FONT_BODY_BOLD
+                cell.fill = _FILL_BLUE_LIGHT
+                cell.alignment = _ALIGN_LEFT if i == 0 else _ALIGN_CENTER
                 cell.border = _BORDER_THIN
             row += 1
+
+            # S89: conditional formatting now that cells are numeric -- evaluates
+            # live as the client edits. 3-color scale on ROI Score (red->amber->
+            # green) and a purple data bar on Amount.
+            try:
+                _roi_col = get_column_letter(COL_START + 8)
+                _amt_col = get_column_letter(COL_START + 2)
+                _rng_roi = f"{_roi_col}{_first_data_row}:{_roi_col}{_last_data_row}"
+                _rng_amt = f"{_amt_col}{_first_data_row}:{_amt_col}{_last_data_row}"
+                ws.conditional_formatting.add(
+                    _rng_roi,
+                    ColorScaleRule(
+                        start_type="min", start_color="DC2626",
+                        mid_type="percentile", mid_value=50, mid_color="D97706",
+                        end_type="max", end_color="16A34A",
+                    ),
+                )
+                ws.conditional_formatting.add(
+                    _rng_amt,
+                    DataBarRule(
+                        start_type="min", end_type="max",
+                        color=SAPPHIRE, showValue=True,
+                    ),
+                )
+            except Exception as _cf_exc:  # noqa: BLE001 - cosmetic
+                logger.debug("Channel CF skipped: %s", _cf_exc)
 
         # S82: native, editable pie chart of budget share by channel. Upgrades
         # the Excel deliverable from tables-only -- the client can restyle/edit
@@ -2885,23 +3035,62 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
         ]
         row = _write_table_header(ws, row, headers)
 
+        # S89: live numeric cells (summable/sortable). Cols: Channel | Budget%
+        # | Amount($) | Category | CPC($) | Confidence | Fit
+        _ch_formats = [None, FMT_PCT1, FMT_USD0, None, FMT_USD2, None, "0.0"]
+        _ch_first = row
         for idx, (ch_name, ch_data) in enumerate(sorted_channels[:15]):
             roi = ch_data.get("roi_score") or ""
             confidence = ch_data.get("confidence", "medium")
             category = ch_data.get("category") or ""
+            _fit_val = _safe_num(roi) if not isinstance(roi, str) else None
 
             values = [
                 ch_name,
-                f"{_safe_num(ch_data.get('percentage') or 0):.1f}%",
-                _fmt_currency(
-                    ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
-                ),
+                _safe_num(ch_data.get("percentage") or 0) / 100.0,
+                _safe_num(ch_data.get("dollar_amount", ch_data.get("dollars") or 0)),
                 category.replace("_", " ").title() if category else "",
-                _fmt_currency(ch_data.get("cpc") or 0, show_cents=True),
+                _safe_num(ch_data.get("cpc") or 0),
                 confidence.title() if isinstance(confidence, str) else str(confidence),
-                roi if isinstance(roi, str) else str(roi),
+                round(_fit_val, 1) if _fit_val is not None else (roi or ""),
             ]
-            row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
+            # Keep the Fit column as text when the source isn't numeric.
+            _row_formats = list(_ch_formats)
+            if _fit_val is None:
+                _row_formats[6] = None
+            row = _write_table_row(
+                ws, row, values, alternate=idx % 2 == 1, number_formats=_row_formats
+            )
+        _ch_last = row - 1
+        # S89: live totals row for the money column.
+        if _ch_last >= _ch_first:
+            _amt_letter = get_column_letter(COL_START + 2)
+            _tot = ws.cell(row=row, column=COL_START, value="Total")
+            _tot.font = _FONT_BODY_BOLD
+            _tot.fill = _FILL_BLUE_LIGHT
+            _tot.alignment = _ALIGN_LEFT
+            _tot.border = _BORDER_THIN
+            for _ci in range(1, len(headers)):
+                _c = ws.cell(row=row, column=COL_START + _ci)
+                if _ci == 2:
+                    _c.value = f"=SUM({_amt_letter}{_ch_first}:{_amt_letter}{_ch_last})"
+                    _c.number_format = FMT_USD0
+                _c.font = _FONT_BODY_BOLD
+                _c.fill = _FILL_BLUE_LIGHT
+                _c.alignment = _ALIGN_CENTER
+                _c.border = _BORDER_THIN
+            row += 1
+            try:
+                _amt_rng = f"{_amt_letter}{_ch_first}:{_amt_letter}{_ch_last}"
+                ws.conditional_formatting.add(
+                    _amt_rng,
+                    DataBarRule(
+                        start_type="min", end_type="max",
+                        color=SAPPHIRE, showValue=True,
+                    ),
+                )
+            except Exception as _cf_exc:  # noqa: BLE001
+                logger.debug("Channels CF skipped: %s", _cf_exc)
     else:
         ws.merge_cells(
             start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
@@ -5033,19 +5222,26 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
             conf_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=RED)
             conf_fill = _FILL_RED_BG
 
+        # S89: live numeric cells so the client can SUM/sort the ROI table.
+        # Units are carried by the number_format (e.g. 0" days", 0"/10").
         values = [
             roi_data["name"],
-            f"${roi_data['budget']:,.0f}",
-            f"{roi_data['projected_apps']:,}",
-            str(roi_data["projected_hires"]),
+            _safe_num(roi_data["budget"]),
+            int(_safe_num(roi_data["projected_apps"])),
+            int(_safe_num(roi_data["projected_hires"])),
             hire_conf,
             roi_data.get("hire_range", ""),
-            f"${roi_data['cost_per_hire']:,.0f}",
-            f"{roi_data['time_to_fill']} days",
-            f"{roi_score}/10",
+            _safe_num(roi_data["cost_per_hire"]),
+            _safe_num(roi_data["time_to_fill"]),
+            round(_safe_num(roi_score), 1),
         ]
-        alt_fill = _FILL_OFF_WHITE if idx % 2 == 0 else _FILL_WHITE
-        row = _write_table_row(ws, row, values, alternate=(idx % 2 == 0))
+        _roi_fmts = [
+            None, FMT_USD0, FMT_INT, FMT_INT, None, None,
+            FMT_USD0, '0" days"', '0"/10"',
+        ]
+        row = _write_table_row(
+            ws, row, values, alternate=(idx % 2 == 0), number_formats=_roi_fmts
+        )
 
         # Override confidence cell styling
         conf_cell = ws.cell(row=row - 1, column=COL_START + 4)
@@ -5824,36 +6020,41 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     base_cpa = total_budget / max(total_apps, 1) if total_apps > 0 else 0
     monthly_cpa = [base_cpa * m for m in cpa_multipliers]
 
+    # S89: carry raw numbers + a per-row Excel number_format so the forecast
+    # is summable/sortable; units live in the format, not the cell text.
     forecast_rows = [
-        (
-            "Spend",
-            [f"${s:,.0f}" for s in monthly_spend],
-            f"${total_budget:,.0f}",
-            "--",
-        ),
+        ("Spend", monthly_spend, total_budget, "—", FMT_USD0),
         (
             "Applications",
-            [f"{a:,}" for a in monthly_apps],
-            f"{total_apps:,}",
-            "Increasing" if total_apps > 0 else "--",
+            monthly_apps,
+            total_apps,
+            "Increasing" if total_apps > 0 else "—",
+            FMT_INT,
         ),
         (
             "Hires",
-            [str(h) for h in monthly_hires],
-            str(total_hires),
-            "Increasing" if total_hires > 0 else "--",
+            monthly_hires,
+            total_hires,
+            "Increasing" if total_hires > 0 else "—",
+            FMT_INT,
         ),
         (
             "CPA (Cost Per Application)",
-            [f"${c:,.0f}" if c > 0 else "--" for c in monthly_cpa],
-            f"${base_cpa:,.0f}" if base_cpa > 0 else "--",
-            "Decreasing" if base_cpa > 0 else "--",
+            monthly_cpa,
+            base_cpa,
+            "Decreasing" if base_cpa > 0 else "—",
+            FMT_USD0,
         ),
     ]
 
-    for idx, (metric, monthly_vals, total_val, trend) in enumerate(forecast_rows):
-        values = [metric] + monthly_vals + [total_val, trend]
+    for idx, (metric, monthly_vals, total_val, trend, row_fmt) in enumerate(
+        forecast_rows
+    ):
+        numeric_vals = [_safe_num(v) for v in monthly_vals] + [_safe_num(total_val)]
+        values = [metric] + numeric_vals + [trend]
         fonts_list = [_FONT_BODY_BOLD] + [_FONT_BODY] * (len(values) - 1)
+        # Metric label (text) | month cols (row_fmt) | total (row_fmt) | trend (text)
+        number_formats = [None] + [row_fmt] * len(numeric_vals) + [None]
 
         # Color-code trend
         trend_font = _FONT_BODY
@@ -5866,7 +6067,12 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
         fonts_list[-1] = trend_font
 
         row = _write_table_row(
-            ws, row, values, alternate=(idx % 2 == 0), fonts=fonts_list
+            ws,
+            row,
+            values,
+            alternate=(idx % 2 == 0),
+            fonts=fonts_list,
+            number_formats=number_formats,
         )
 
     row += 1
@@ -5898,20 +6104,24 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
                 continue
 
             ch_monthly = [ch_dollars * p for p in monthly_pcts]
-            ch_pct = (ch_dollars / total_budget * 100) if total_budget > 0 else 0
+            ch_frac = (ch_dollars / total_budget) if total_budget > 0 else 0
 
+            # S89: numeric month/total spend + fractional % (FMT_PCT1).
             values = (
-                [
-                    ch_name.replace("_", " ").title(),
-                ]
-                + [f"${m:,.0f}" for m in ch_monthly]
-                + [
-                    f"${ch_dollars:,.0f}",
-                    f"{ch_pct:.1f}%",
-                ]
+                [ch_name.replace("_", " ").title()]
+                + [_safe_num(m) for m in ch_monthly]
+                + [_safe_num(ch_dollars), ch_frac]
             )
-
-            row = _write_table_row(ws, row, values, alternate=(idx % 2 == 0))
+            number_formats = (
+                [None] + [FMT_USD0] * len(ch_monthly) + [FMT_USD0, FMT_PCT1]
+            )
+            row = _write_table_row(
+                ws,
+                row,
+                values,
+                alternate=(idx % 2 == 0),
+                number_formats=number_formats,
+            )
 
     row += 1
 
@@ -6445,7 +6655,7 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     specialty job boards tailored to each role type.
     """
     ws.title = "Niche Board Matching"
-    ws.sheet_properties.tabColor = "B7669E"  # Joveo MAGENTA
+    ws.sheet_properties.tabColor = MAGENTA_HEX  # Joveo MAGENTA
 
     _set_column_widths(
         ws,
@@ -7044,6 +7254,12 @@ def _generate_excel_v2_inner(
                 column=2,
                 value=f"Error generating International Benchmarks sheet: {exc}",
             ).font = _FONT_BODY
+
+    # ── S89: cross-cutting polish (freeze panes + brand tab colors) ──
+    try:
+        _finalize_workbook(wb)
+    except Exception as exc:  # noqa: BLE001 - never block save on cosmetics
+        logger.error("Workbook finalize failed (non-fatal): %s", exc, exc_info=True)
 
     # ── Write to bytes ──
     output = io.BytesIO()
