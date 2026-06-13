@@ -436,6 +436,108 @@ def get_channel_benchmarks(
     return result
 
 
+def get_real_outcomes(title: str, location: str = "") -> dict[str, Any]:
+    """S89 KEYSTONE: real Joveo campaign outcomes from the cg_benchmarks warehouse.
+
+    Returns measured cost/apply performance for a given job title (optionally a
+    location), aggregated across the underlying daily-performance data. This is
+    FIRST-PARTY measured data -- when a plan's role/location matches, it beats
+    static estimates. Returns ``{"matched": False}`` when there is no warehouse
+    coverage so callers can fall back to estimates gracefully.
+
+    cg_benchmarks columns used: title, location, avg_cost, avg_applies,
+    avg_multiplier, sample_size, last_updated. Rows are aggregated with a
+    sample_size weighting so a 200-run title dominates a 3-run one.
+
+    Args:
+        title: Job title to match (case-insensitive substring).
+        location: Optional location filter (case-insensitive substring).
+
+    Returns:
+        dict: ``{"matched": bool, ...}``. When matched, includes
+        ``cost_per_apply``, ``avg_cost``, ``avg_applies``, ``sample_size``,
+        ``locations_covered``, ``last_updated``, ``source``, ``confidence``.
+    """
+    if not title or not title.strip():
+        return {"matched": False}
+
+    cache_key = f"cgreal:{title.lower().strip()}:{location.lower().strip()}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    # Substring (ilike) match keeps "Registered Nurse" matching warehouse rows
+    # like "Registered Nurse - ICU" without an exact-string requirement.
+    t = urllib.parse.quote(f"*{title.strip()}*", safe="")
+    params_parts = [
+        "select=title,location,avg_cost,avg_applies,avg_multiplier,sample_size,last_updated",
+        f"title=ilike.{t}",
+        "limit=2000",
+    ]
+    if location and location.strip():
+        loc = urllib.parse.quote(f"*{location.strip()}*", safe="")
+        params_parts.append(f"location=ilike.{loc}")
+
+    rows = _query_supabase("cg_benchmarks", "&".join(params_parts))
+    if not rows:
+        result = {"matched": False}
+        _cache_set(cache_key, result)
+        return result
+
+    # Sample-size-weighted aggregation of measured cost + applies.
+    total_w = 0.0
+    cost_acc = 0.0
+    applies_acc = 0.0
+    mult_acc = 0.0
+    locations: set[str] = set()
+    latest = ""
+    for r in rows:
+        try:
+            w = float(r.get("sample_size") or 0) or 1.0
+            cost = float(r.get("avg_cost") or 0)
+            applies = float(r.get("avg_applies") or 0)
+            mult = float(r.get("avg_multiplier") or 0)
+        except (TypeError, ValueError):
+            continue
+        if cost <= 0 and applies <= 0:
+            continue
+        total_w += w
+        cost_acc += cost * w
+        applies_acc += applies * w
+        mult_acc += mult * w
+        if r.get("location"):
+            locations.add(str(r["location"]))
+        lu = str(r.get("last_updated") or "")
+        if lu > latest:
+            latest = lu
+
+    if total_w <= 0:
+        result = {"matched": False}
+        _cache_set(cache_key, result)
+        return result
+
+    avg_cost = round(cost_acc / total_w, 2)
+    avg_applies = round(applies_acc / total_w, 2)
+    cost_per_apply = round(avg_cost / avg_applies, 2) if avg_applies > 0 else None
+    result = {
+        "matched": True,
+        "title_query": title.strip(),
+        "location_query": location.strip() or None,
+        "avg_cost": avg_cost,
+        "avg_applies": avg_applies,
+        "avg_multiplier": round(mult_acc / total_w, 2) if total_w else None,
+        "cost_per_apply": cost_per_apply,
+        "sample_size": int(total_w),
+        "rows_matched": len(rows),
+        "locations_covered": len(locations),
+        "last_updated": latest[:10] if latest else None,
+        "source": "Joveo Campaign Warehouse (cg_benchmarks)",
+        "confidence": "measured",
+    }
+    _cache_set(cache_key, result)
+    return result
+
+
 def get_salary_data(role: str = "", location: str = "") -> list[dict[str, Any]]:
     """Get salary data, optionally filtered by role and location.
 
