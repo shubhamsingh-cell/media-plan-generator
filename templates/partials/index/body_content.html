@@ -14,55 +14,23 @@
   <div class="page-progress-fill" style="width: 20%"></div>
 </div>
 
-<header class="app-header hero-scan standalone-header" role="banner">
-  <!-- Animated gradient orbs -->
-  <div class="header-orb header-orb-1" aria-hidden="true"></div>
-  <div class="header-orb header-orb-2" aria-hidden="true"></div>
-  <div class="header-orb header-orb-3" aria-hidden="true"></div>
-  <div class="header-orb header-orb-4" aria-hidden="true"></div>
-  <!-- Phase 4: Ambient glow spots -->
-  <div class="ambient-glow ambient-glow--violet" aria-hidden="true"></div>
-  <div class="ambient-glow ambient-glow--teal" aria-hidden="true"></div>
-  <div class="header-content">
-    <a href="/" class="logo-mark" aria-label="Back to Nova AI Suite">
-      <svg viewBox="0 0 36 36" fill="none" width="36" height="36">
-        <defs>
-          <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#5A54BE" />
-            <stop offset="100%" stop-color="#8680D6" />
-          </linearGradient>
-        </defs>
-        <rect width="36" height="36" rx="10" fill="url(#logoGrad)" />
-        <text
-          x="18"
-          y="25"
-          text-anchor="middle"
-          fill="white"
-          font-family="Inter, sans-serif"
-          font-weight="800"
-          font-size="20"
-        >
-          N
-        </text>
-      </svg>
-    </a>
-    <div>
-      <div class="header-brand">
-        <span class="brand-primary">Nova AI Suite</span>
-        <span class="brand-separator">/</span>
-        <span class="brand-secondary">Media Plan Generator</span>
-      </div>
-      <h1 class="streaming-text hero-halo" data-streaming>
-        Nova AI Media Plan Generator
-      </h1>
-      <p class="hero-subtitle">Build your media plan</p>
-      <p class="hero-subline">Answer a few questions. Nova handles the rest.</p>
-      <p>Enterprise AI-powered recruitment media planning platform</p>
-      <div class="ai-badge" aria-label="This tool is AI-powered">
-        AI-Powered
-      </div>
-    </div>
-  </div>
+<!-- Nova Plan Studio — slim top bar -->
+<header class="studio-topbar" role="banner">
+  <a href="/" class="stb-logo" aria-label="Back to Nova AI Suite">N</a>
+  <span class="stb-title">Nova <b>Plan Studio</b></span>
+  <span class="stb-sub">Media Plan Generator</span>
+  <span class="stb-spacer"></span>
+  <span class="stb-step" aria-live="polite"
+    >Step <b id="stbStepNum">1</b> of 5</span
+  >
+  <a
+    href="#"
+    class="stb-nova"
+    onclick="try{askNovaAboutPlan()}catch(e){}; return false;"
+    aria-label="Ask Nova about your plan"
+  >
+    <span class="dot" aria-hidden="true"></span>Ask Nova
+  </a>
 </header>
 
 <nav
@@ -77,6 +45,8 @@
   <span>Campaign Planner</span>
 </nav>
 
+<!-- Two-pane planning cockpit: form column (left) + live plan preview (right) -->
+<div class="studio">
 <main id="main-content" class="container" role="main">
   <!-- Progress Bar -->
   <nav class="progress-bar" id="progressBar" aria-label="Form steps">
@@ -2693,6 +2663,90 @@
     </div>
   </div>
 </main>
+
+<!-- ══ LIVE PLAN PREVIEW (right pane) ══ -->
+<aside class="np-pane" id="planPreview" aria-label="Live media plan preview">
+  <div class="np-eyebrow">
+    <span class="live-dot" aria-hidden="true"></span>
+    Live preview
+    <span class="recompute">Nova modeling…</span>
+  </div>
+
+  <div class="np-card is-empty" id="npCard">
+    <div class="np-head">
+      <div class="np-logo" id="npLogo">N</div>
+      <div class="meta">
+        <div class="np-client" id="npClient">Your client</div>
+        <div class="np-subline" id="npSubline">
+          <span class="np-pill" id="npRolePill">Role &amp; targeting</span>
+        </div>
+      </div>
+      <span class="np-draft">DRAFT</span>
+    </div>
+
+    <div class="np-budget-block">
+      <div class="np-budget-label">Total campaign investment</div>
+      <div class="np-budget-value" id="npBudget">$0</div>
+      <div class="np-budget-foot" id="npBudgetFoot">
+        Set a budget to model your plan
+      </div>
+    </div>
+
+    <div class="np-sec-label">
+      Media mix
+      <span class="nova-mark" id="npMixNote">· Nova recommended starter mix</span>
+    </div>
+    <div class="np-mix-bar" id="npMixBar" aria-hidden="true">
+      <div class="np-mix-seg" style="width: 35%"></div>
+      <div class="np-mix-seg" style="width: 25%"></div>
+      <div class="np-mix-seg" style="width: 22%"></div>
+      <div class="np-mix-seg" style="width: 18%"></div>
+    </div>
+    <div class="np-legend" id="npLegend"></div>
+
+    <div class="np-sec-label">Projected outcomes</div>
+    <div class="np-outcomes">
+      <div class="np-stat">
+        <div class="v" id="npApplies">—</div>
+        <div class="l">Applications</div>
+      </div>
+      <div class="np-stat">
+        <div class="v" id="npHires">—</div>
+        <div class="l">Est. hires</div>
+      </div>
+      <div class="np-stat accent">
+        <div class="v" id="npCpa">—</div>
+        <div class="l">Cost / application</div>
+      </div>
+    </div>
+
+    <div class="np-ghost-hint">
+      Fill in budget, channels &amp; role to watch your plan take shape.
+    </div>
+
+    <div class="np-foot">
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M12 2 2 7l10 5 10-5-10-5Z" />
+        <path d="m2 17 10 5 10-5M2 12l10 5 10-5" />
+      </svg>
+      <span id="npFootNote"
+        >Directional estimate from Joveo benchmarks. Generating refines it across
+        91+ live job boards.</span
+      >
+    </div>
+  </div>
+</aside>
+</div>
+<!-- /.studio -->
 
 <!-- Plan Comparison Modal -->
 <div

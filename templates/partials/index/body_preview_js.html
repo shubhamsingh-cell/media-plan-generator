@@ -1,0 +1,381 @@
+<!-- ════════════════════════════════════════════════════════════════════
+     NOVA PLAN STUDIO — live media-plan preview engine
+     Reads the wizard fields and renders a brand-true plan that updates in
+     real time (budget → channel mix → projected applies / hires / CPA).
+     Self-contained; only reads the DOM, never mutates form fields.
+     ════════════════════════════════════════════════════════════════════ -->
+<script>
+  (function () {
+    "use strict";
+
+    // True once the user toggles any channel in Step 3.
+    var channelsTouched = false;
+
+    // ── Channel model (recruitment-marketing benchmarks) ──────────────
+    // w = allocation weight · cpa = baseline cost per application (mid-skill)
+    var CHANNELS = {
+      chProgrammatic: { name: "Programmatic & DSP", color: "#6bb5ce", w: 1.35, cpa: 22 },
+      chGlobalBoards: { name: "Global reach boards", color: "#5a54be", w: 1.25, cpa: 30 },
+      chNicheBoards:  { name: "Niche & industry", color: "#b7669e", w: 0.9, cpa: 48 },
+      chSocial:       { name: "Social media", color: "#8680d6", w: 1.0, cpa: 38 },
+      chRegionalBoards: { name: "Regional & local", color: "#3e8fab", w: 0.85, cpa: 26 },
+      chEmployerBrand: { name: "Employer branding", color: "#202058", w: 0.6, cpa: 85 },
+      chApac:         { name: "APAC regional", color: "#45b6c8", w: 0.8, cpa: 16 },
+      chEmea:         { name: "EMEA regional", color: "#3e8fab", w: 0.8, cpa: 24 },
+    };
+    // Order in which channels appear in the mix bar / legend
+    var ORDER = ["chProgrammatic", "chGlobalBoards", "chNicheBoards", "chSocial",
+      "chRegionalBoards", "chEmployerBrand", "chApac", "chEmea"];
+    // Sensible default mix shown before the user picks channels
+    var STARTER = ["chProgrammatic", "chGlobalBoards", "chSocial", "chNicheBoards"];
+
+    var BUDGET_MIDPOINTS = {
+      "< $50,000": 35000,
+      "$50,000 - $250,000": 150000,
+      "$250,000 - $500,000": 375000,
+      "$500,000 - $1,000,000": 750000,
+      "$1,000,000 - $3,000,000": 2000000,
+      "$3,000,000+": 4000000,
+    };
+    var DURATION_MONTHS = {
+      "1-3 months": 2, "3-6 months": 4.5, "6-12 months": 9,
+      "1-2 years": 18, "2-5 years (Long-term)": 42, "Ongoing": 12,
+    };
+
+    // ── Small helpers ─────────────────────────────────────────────────
+    function $(id) { return document.getElementById(id); }
+    function val(id) { var el = $(id); return el ? (el.value || "").trim() : ""; }
+
+    function parseMoney(s) {
+      if (!s) return 0;
+      s = String(s).trim().toLowerCase().replace(/[$,\s]/g, "");
+      var m = s.match(/^([0-9]*\.?[0-9]+)\s*([kmb])?/);
+      if (!m) return 0;
+      var n = parseFloat(m[1]);
+      if (!isFinite(n)) return 0;
+      var suf = m[2];
+      if (suf === "k") n *= 1e3;
+      else if (suf === "m") n *= 1e6;
+      else if (suf === "b") n *= 1e9;
+      return n;
+    }
+
+    function readTags(containerId) {
+      var c = $(containerId);
+      if (!c) return [];
+      var out = [];
+      c.querySelectorAll(".tag").forEach(function (t) {
+        var txt = (t.textContent || "").replace(/[×✕✖]/g, "").trim();
+        if (txt) out.push(txt);
+      });
+      return out;
+    }
+
+    function checkedValues(name) {
+      var out = [];
+      document.querySelectorAll('input[name="' + name + '"]:checked').forEach(function (c) {
+        out.push(c.value);
+      });
+      return out;
+    }
+
+    // ── Money formatters ──────────────────────────────────────────────
+    function trim(x, d) { return Number(x.toFixed(d)).toString(); }
+    function hero(v) {
+      v = Math.max(0, v);
+      if (v >= 1e6) return "$" + trim(v / 1e6, 2) + "M";
+      if (v >= 1e3) return "$" + Math.round(v / 1e3) + "K";
+      return "$" + Math.round(v);
+    }
+    function amtShort(v) {
+      v = Math.max(0, v);
+      if (v >= 1e6) return "$" + trim(v / 1e6, 1) + "M";
+      if (v >= 1e3) return "$" + Math.round(v / 1e3) + "K";
+      return "$" + Math.round(v);
+    }
+    function intc(v) { return Math.round(Math.max(0, v)).toLocaleString(); }
+    function cpaFmt(v) { return v > 0 ? "$" + v.toFixed(2) : "—"; }
+
+    // ── Screenshot-safe count-up ──────────────────────────────────────
+    var COUNTERS = new Set();
+    function setNum(el, value, fmt) {
+      if (!el) return;
+      COUNTERS.add(el);
+      el.__target = value;
+      el.__fmt = fmt;
+      var reduce = (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || document.hidden;
+      var start = (typeof el.__cur === "number") ? el.__cur : 0;
+      if (reduce || start === value || !isFinite(value)) {
+        el.__cur = value; el.textContent = fmt(value); return;
+      }
+      var t0 = performance.now(), dur = 600;
+      cancelAnimationFrame(el.__raf);
+      function tick(now) {
+        var p = Math.min(1, (now - t0) / dur);
+        var eased = 1 - Math.pow(1 - p, 3);
+        var cur = start + (value - start) * eased;
+        el.textContent = fmt(cur);
+        if (p < 1) el.__raf = requestAnimationFrame(tick);
+        else { el.__cur = value; el.textContent = fmt(value); }
+      }
+      el.__raf = requestAnimationFrame(tick);
+      clearTimeout(el.__snap);
+      el.__snap = setTimeout(function () {
+        el.__cur = value; el.textContent = fmt(value); cancelAnimationFrame(el.__raf);
+      }, dur + 250);
+    }
+    function finalize() {
+      COUNTERS.forEach(function (el) {
+        if (typeof el.__target === "number" && el.__fmt) {
+          cancelAnimationFrame(el.__raf); el.__cur = el.__target; el.textContent = el.__fmt(el.__target);
+        }
+      });
+      // Force-commit mix-bar widths with transition off (compositor may be
+      // paused in a backgrounded tab, freezing the width transition at 0).
+      var bar = $("npMixBar");
+      if (bar) {
+        bar.querySelectorAll(".np-mix-seg").forEach(function (seg) {
+          var w = seg.style.width;
+          seg.style.transition = "none";
+          seg.style.width = w;
+          void seg.offsetWidth;
+          seg.style.transition = "";
+        });
+      }
+    }
+
+    // ── Gather model from the form ────────────────────────────────────
+    function gather() {
+      // budget
+      var br = val("budgetRange");
+      var base = 0;
+      if (br === "__exact__") base = parseMoney(val("exactBudget"));
+      else base = BUDGET_MIDPOINTS[br] || 0;
+
+      var months = DURATION_MONTHS[val("campaignDuration")] || 6;
+      var period = val("budgetPeriod") || "campaign";
+      var total = base;
+      if (period === "monthly") total = base * months;
+      else if (period === "quarterly") total = base * (months / 3);
+      else if (period === "annual") total = base * (months / 12);
+
+      // channels — show Nova's recommended mix until the user engages
+      // the channel toggles (the markup pre-checks only Social by default).
+      var selected = ORDER.filter(function (id) { var el = $(id); return el && el.checked; });
+      var usingStarter = !channelsTouched || selected.length === 0;
+      var active = usingStarter ? STARTER.slice() : selected;
+
+      // role class → cost multiplier + applications-per-hire. Explicit
+      // experience-level checkboxes win; otherwise infer from role text.
+      var exp = checkedValues("experienceLevel").join(" ").toLowerCase();
+      var roleStr = (readTags("rolesContainer").join(" ") + " " + val("roleInput") + " " + val("useCase")).toLowerCase();
+      var cpaMult = 1.0, aph = 50; // mid-skill professional default
+      if (exp.indexOf("executive") >= 0 || /\b(vp|chief|cxo|c-level|head of|director|executive|president)\b/.test(roleStr)) {
+        cpaMult = 3.2; aph = 110;
+      } else if (exp.indexOf("entry") >= 0 || /\b(warehouse|associate|driver|cashier|retail|crew|server|picker|packer|delivery|labor|cleaner|housekeep|caregiver|cna)\b/.test(roleStr)) {
+        cpaMult = 0.4; aph = 20;
+      } else if (exp.indexOf("senior") >= 0 || /\b(senior|lead|principal|staff)\b/.test(roleStr)) {
+        cpaMult = 1.8; aph = 70;
+      } else if (/\b(software|engineer|developer|devops|sre|architect|data scientist|machine learning|\bml\b|cyber|security engineer)\b/.test(roleStr)) {
+        cpaMult = 1.8; aph = 60;
+      }
+
+      // metro premium
+      var locs = readTags("locationsContainer");
+      var locStr = locs.join(" ").toLowerCase();
+      var metroMult = /(san francisco|bay area|new york|nyc|london|seattle|boston)/.test(locStr) ? 1.12 : 1.0;
+      var costMult = cpaMult * metroMult;
+
+      // allocation by weight; applications = spend / effective channel CPA
+      var wsum = 0;
+      active.forEach(function (id) { wsum += CHANNELS[id].w; });
+      var rows = active.map(function (id) {
+        var c = CHANNELS[id];
+        var share = wsum > 0 ? c.w / wsum : 0;
+        var spend = total * share;
+        var effCpa = c.cpa * costMult;
+        var applies = effCpa > 0 ? spend / effCpa : 0;
+        return { id: id, name: c.name, color: c.color, share: share, spend: spend, applies: applies };
+      });
+
+      var applies = rows.reduce(function (a, r) { return a + r.applies; }, 0);
+      var hires = applies / aph;
+      var cpa = applies > 0 ? total / applies : 0;
+      var cph = hires > 0 ? total / hires : 0;
+
+      // identity bits
+      var client = val("clientName");
+      var role = readTags("rolesContainer")[0] || "";
+      if (!role) {
+        var sel = document.querySelector(".industry-card.selected, .industry-card[aria-pressed='true']");
+        if (sel) { var h = sel.querySelector("h3, .industry-name, strong"); role = h ? h.textContent.trim() : ""; }
+      }
+      if (!role) role = val("industrySearch");
+
+      return {
+        total: total, rows: rows, usingStarter: usingStarter,
+        applies: applies, hires: hires, cpa: cpa, cph: cph,
+        client: client, role: role, locs: locs, period: period, months: months,
+      };
+    }
+
+    // ── Render ────────────────────────────────────────────────────────
+    var lastSig = "";
+    var lastChannelIds = null;
+    function initials(name) {
+      if (!name) return "N";
+      var parts = name.trim().split(/\s+/).filter(Boolean);
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    function escapeHtml(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
+
+    function render() {
+      var card = $("npCard");
+      if (!card) return;
+      var m = gather();
+      var hasBudget = m.total > 0;
+
+      card.classList.toggle("is-empty", !hasBudget);
+
+      // identity
+      $("npLogo").textContent = initials(m.client);
+      $("npClient").textContent = m.client || "Your client";
+      var sub = $("npSubline");
+      var pills = [];
+      if (m.role) pills.push('<span class="np-pill">' + escapeHtml(m.role) + "</span>");
+      if (m.locs.length) {
+        var locTxt = m.locs[0] + (m.locs.length > 1 ? " +" + (m.locs.length - 1) : "");
+        pills.push('<span class="np-pill">📍 ' + escapeHtml(locTxt) + "</span>");
+      }
+      if (!pills.length) pills.push('<span class="np-pill">Role &amp; targeting</span>');
+      sub.innerHTML = pills.join("");
+
+      // budget
+      setNum($("npBudget"), m.total, hero);
+      var foot = $("npBudgetFoot");
+      if (hasBudget) {
+        var periodWord = m.period === "campaign" ? "total campaign" :
+          m.period === "monthly" ? ("over ~" + trim(m.months, 0) + " mo (" + hero(m.total / m.months) + "/mo)") :
+          m.period === "quarterly" ? "across the campaign" : "annualized";
+        foot.innerHTML = "<b>" + (m.usingStarter ? "Recommended" : m.rows.length + "-channel") + "</b> mix · " + periodWord;
+      } else {
+        foot.textContent = "Set a budget to model your plan";
+      }
+
+      // mix note
+      var note = $("npMixNote");
+      var nCh = m.rows.length;
+      note.textContent = m.usingStarter
+        ? "· Nova recommended starter mix"
+        : "· " + nCh + " channel" + (nCh === 1 ? "" : "s") + " selected";
+
+      // mix bar + legend. Rebuild only when the channel set changes;
+      // otherwise update widths/amounts in place so the CSS transition
+      // animates budget edits (rAF-free → screenshot-safe).
+      var bar = $("npMixBar"), legend = $("npLegend");
+      var ids = m.rows.map(function (r) { return r.id; }).join(",");
+      var inPlace = ids === lastChannelIds && bar.children.length === m.rows.length && legend.children.length === m.rows.length;
+      if (inPlace) {
+        m.rows.forEach(function (r, i) {
+          bar.children[i].style.width = (r.share * 100).toFixed(1) + "%";
+          var row = legend.children[i];
+          row.querySelector(".np-leg-pct").textContent = Math.round(r.share * 100) + "%";
+          row.querySelector(".np-leg-amt").textContent = hasBudget ? amtShort(r.spend) : "—";
+        });
+      } else {
+        lastChannelIds = ids;
+        bar.innerHTML = "";
+        legend.innerHTML = "";
+        m.rows.forEach(function (r) {
+          var seg = document.createElement("div");
+          seg.className = "np-mix-seg";
+          seg.style.background = r.color;
+          seg.style.width = (r.share * 100).toFixed(1) + "%"; // set directly — no rAF dependency
+          bar.appendChild(seg);
+
+          var row = document.createElement("div");
+          row.className = "np-leg-row";
+          row.innerHTML =
+            '<span class="np-leg-dot" style="background:' + r.color + '"></span>' +
+            '<span class="np-leg-name">' + escapeHtml(r.name) + "</span>" +
+            '<span class="np-leg-pct">' + Math.round(r.share * 100) + "%</span>" +
+            '<span class="np-leg-amt">' + (hasBudget ? amtShort(r.spend) : "—") + "</span>";
+          legend.appendChild(row);
+        });
+      }
+
+      // outcomes
+      if (hasBudget) {
+        setNum($("npApplies"), m.applies, intc);
+        setNum($("npHires"), m.hires, intc);
+        setNum($("npCpa"), m.cpa, cpaFmt);
+      } else {
+        ["npApplies", "npHires", "npCpa"].forEach(function (id) {
+          var el = $(id); if (el) { el.textContent = "—"; el.__cur = 0; }
+        });
+      }
+
+      // pop + recompute shimmer on real change
+      var sig = JSON.stringify([Math.round(m.total), m.rows.map(function (r) { return r.id; }).join(","), Math.round(m.applies)]);
+      if (sig !== lastSig) {
+        lastSig = sig;
+        card.classList.remove("pop"); void card.offsetWidth; card.classList.add("pop");
+        var pane = $("planPreview");
+        if (pane) {
+          pane.classList.add("recomputing");
+          clearTimeout(pane.__rc);
+          pane.__rc = setTimeout(function () { pane.classList.remove("recomputing"); }, 650);
+        }
+      }
+    }
+
+    // ── Topbar step counter (mirrors the active wizard step) ───────────
+    function updateStepNum() {
+      var active = document.querySelector(".wizard-step.active");
+      var el = $("stbStepNum");
+      if (active && el) {
+        var n = (active.id || "").replace(/\D/g, "");
+        if (n) el.textContent = n;
+      }
+    }
+
+    // ── Wiring ────────────────────────────────────────────────────────
+    var pending = null;
+    function schedule() {
+      clearTimeout(pending);
+      pending = setTimeout(function () { render(); updateStepNum(); }, 110);
+    }
+
+    function boot() {
+      if (!$("npCard")) return;
+      render();
+      updateStepNum();
+      document.addEventListener("input", schedule, true);
+      document.addEventListener("change", function (e) {
+        if (e.target && e.target.id && CHANNELS[e.target.id]) channelsTouched = true;
+        schedule();
+      }, true);
+      document.addEventListener("click", function (e) {
+        if (e.target.closest(".preset-chip, .toggle-switch, .industry-card, .tag, .job-cat-card")) {
+          setTimeout(schedule, 60);
+        }
+      }, true);
+      // Catch programmatic changes (preset fills, tag additions, step switches)
+      var host = document.querySelector("main.container");
+      if (host && window.MutationObserver) {
+        new MutationObserver(function () { schedule(); })
+          .observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "value"] });
+      }
+      // Safety poll for anything missed
+      setInterval(function () { render(); updateStepNum(); }, 1600);
+    }
+
+    window.NovaPreview = { update: render, finalize: finalize };
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", boot);
+    } else {
+      boot();
+    }
+  })();
+</script>
