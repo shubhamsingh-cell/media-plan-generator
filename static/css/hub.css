@@ -807,10 +807,13 @@ html.lenis body {
   color: var(--teal);
 }
 .genplan-metric-label {
-  font-size: 10.5px;
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.3;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
 }
 @media (prefers-reduced-motion: reduce) {
   .genplan-bar {
