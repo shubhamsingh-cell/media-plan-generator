@@ -37,7 +37,17 @@ in §5.
   deliberately-deferred true-streaming work, or #8 which is blocked on a product
   decision per §6).
 
-## 3. Shipped (history below; latest turn `f94c19c` → `553af96`, 2026-06-13)
+## 3. Shipped (history below; latest turn `f94c19c` → `0474f38`, 2026-06-13)
+**PROD BUGFIX `0474f38`:** every `/api/admin/*` HTTP endpoint returned 503
+"Auth module unavailable" in production (pre-existing). Root cause: `wsgi.py`'s
+deferred-startup mirror called `auth.init()` but never set
+`app._auth_module_loaded=True` (app.py's `__main__` path does), so the admin
+gate stayed fail-closed under gunicorn. Fixed to flip the flag **only when an
+admin key is configured** (`is_auth_enabled()`), else stay 503 (never expose
+admin unauthenticated). After deploy: admin endpoints are 401-without-key /
+work-with-key **iff `NOVA_ADMIN_KEY` is set in Render**; if not set they stay
+503 — set `NOVA_ADMIN_KEY` to use them (incl. the #9 parity endpoint).
+
 **This turn (CI hardening + primitive adoption + #8 investigation):**
 - `f94c19c` fix(enrichment): stop scheduling 7 dead Firecrawl sources that fired
   false CRITICAL "multiple sources failed" alerts (firecrawl module deleted S72).
@@ -127,8 +137,10 @@ bump · architecture design doc · **keystone accessor** `get_real_outcomes()` �
   - **#9 source-of-truth migration** — ✅ **parity-audit BUILT** (`ffdc024`):
     `supabase_parity.py` (`run_parity_audit()`, pure `diff_rows()`) +
     `scripts/parity_audit.py` (CLI) + ADMIN-gated `GET /api/admin/parity`
-    + `tests/test_supabase_parity.py` (11 cases). READ-ONLY, additive — does NOT
-    change serving (which is already Supabase-first). Flags `salary_data`/
+    + `tests/test_supabase_parity.py` (11 cases). **Prod-usage:** the HTTP
+    endpoint needs `NOVA_ADMIN_KEY` set (see the wsgi auth fix below); the CLI
+    `python3 scripts/parity_audit.py` works without it. READ-ONLY, additive —
+    does NOT change serving (which is already Supabase-first). Flags `salary_data`/
     `compliance_rules`/`vendor_profiles` as `supabase_only` (empty JSON fallback
     = single point of failure); coverage-only for `knowledge_base`/
     `supply_repository`; excludes `cg_benchmarks`. **Remaining #9 = OPERATIONAL
