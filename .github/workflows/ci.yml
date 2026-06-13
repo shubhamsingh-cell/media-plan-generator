@@ -82,6 +82,27 @@ jobs:
           path: evals/gate_report.json
           if-no-files-found: ignore
 
+  tests:
+    name: Pytest Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run test suite
+        run: |
+          echo "=== Running pytest (2,100+ tests, offline) ==="
+          # The suite is offline + deterministic (no live API keys / network) and
+          # runs in ~11s locally. Wiring it into CI means a regression turns the
+          # build red instead of shipping live via Render autoDeploy.
+          python3 -m pytest tests/ -q
+
   syntax-check:
     name: CSS/JS Syntax Check
     runs-on: ubuntu-latest
