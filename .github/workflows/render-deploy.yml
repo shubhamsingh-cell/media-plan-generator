@@ -38,12 +38,13 @@ jobs:
             -H "Authorization: Bearer $RENDER_API_KEY" \
             -H "Content-Type: application/json" \
             "https://api.render.com/v1/services/$SERVICE_ID/deploys" \
-            -d '{"clearCache":"do_not_clear"}')
+            -d '{"clearCache":"do_not_clear"}' || true)
           echo "API response: $resp"
           deploy_id=$(printf '%s' "$resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || true)
           if [ -z "$deploy_id" ]; then
-            echo "::error::Could not parse deploy id from Render response"
-            exit 1
+            echo "::warning title=API deploy trigger could not start a deploy::No deploy id returned by Render (most likely an invalid/expired RENDER_API_KEY or a stale SERVICE_ID). render.yaml has autoDeploy:true, so this push still deploys natively — NOT failing the job. To re-enable the API-triggered deploy + live-poll, rotate RENDER_API_KEY (Render dashboard -> Account Settings -> API Keys) and update it under Settings -> Secrets and variables -> Actions."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           echo "deploy_id=$deploy_id" >> "$GITHUB_OUTPUT"
           echo "::notice title=Render deploy triggered::$deploy_id"
