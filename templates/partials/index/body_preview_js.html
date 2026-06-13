@@ -359,6 +359,31 @@
     }
 
     function boot() {
+      // a11y: the toggle <label> wrappers have no text, so the checkboxes have
+      // no accessible name. Give each one an aria-label (4.1.2 Name/Role/Value).
+      var TOGGLE_NAMES = {
+        chRegionalBoards: "Regional & local job boards",
+        chGlobalBoards: "Global reach job boards",
+        chNicheBoards: "Niche & industry-specific boards",
+        chSocial: "Social media channels",
+        chProgrammatic: "Programmatic & DSP channels",
+        chEmployerBrand: "Employer branding platforms",
+        chApac: "APAC regional channels",
+        chEmea: "EMEA regional channels",
+        includeEducational: "Educational partners & training programs",
+        includeEvents: "Events & career fairs",
+        includeRadioPodcasts: "Radio & podcasts",
+        includeMediaPlatforms: "Media / print platforms",
+        includeDEI: "DEI & diversity channels",
+        includeInnovative: "Innovative channels 2025+",
+        includeGlobalSupply: "Global supply strategy",
+        includeBudgetGuide: "Budget & pricing guide",
+      };
+      Object.keys(TOGGLE_NAMES).forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el && !el.getAttribute("aria-label")) el.setAttribute("aria-label", TOGGLE_NAMES[id]);
+      });
+
       if (!$("npCard")) return;
       render();
       updateStepNum();

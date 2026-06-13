@@ -4954,7 +4954,7 @@
     --np-lav-50: #f4f4ff;
     --np-lav-100: #eceaf7;
     --np-paper-ink: #1f2937;
-    --np-paper-muted: #6e6e8c;
+    --np-paper-muted: #5b5a74; /* AA on white + lavender tints (deck muted #6e6e8c was borderline) */
     --np-paper-border: #e3e1f1;
   }
 
@@ -6627,6 +6627,26 @@
   }
   .generation-card .check-mark {
     stroke: var(--np-teal-deep) !important;
+  }
+
+  /* Design-critique polish: contain industry-card emoji in a branded tile
+     (was a bare glyph in a transparent 40px box — the one 'template-y' tell) */
+  .studio .industry-card .icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: rgba(90, 84, 190, 0.14);
+    border: 1px solid var(--np-hair);
+    font-size: 17px;
+    line-height: 1;
+    margin-bottom: 9px;
+  }
+  .studio .industry-card.selected .icon {
+    background: rgba(90, 84, 190, 0.28);
+    border-color: rgba(134, 128, 214, 0.5);
   }
 
   @media (prefers-reduced-motion: reduce) {
