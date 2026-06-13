@@ -8,11 +8,71 @@
       "https://www.wordstream.com/blog/facebook-ads-benchmarks-2025",
       "https://www.theedigital.com/blog/facebook-ads-benchmarks",
       "https://www.enrichlabs.ai/blog/meta-ads-benchmarks-2025",
-      "https://basis.com/blog/7-programmatic-advertising-trends-shaping-2026"
+      "https://basis.com/blog/7-programmatic-advertising-trends-shaping-2026",
+      "https://www.appcast.io/the-2025-recruitment-marketing-benchmark-report-is-live/",
+      "https://www.hrdive.com/news/cost-per-hire-application-increase-2025-recruitment-appcast/812612/",
+      "https://techrseries.com/recruitment-and-on-boarding/appcast-releases-2026-u-k-recruitment-marketing-benchmark-report-as-labour-market-softens-and-hiring-costs-decline/",
+      "https://www.shrm.org/about/press-room/shrm-releases-2025-benchmarking-reports--how-does-your-organizat",
+      "https://www.wordstream.com/blog/2026-google-ads-benchmarks",
+      "https://www.indeed.com/hire/cs/pricing",
+      "https://www.pin.com/blog/indeed-pricing/",
+      "https://www.webfx.com/blog/social-media/linkedin-benchmarks/",
+      "https://www.pin.com/blog/ziprecruiter-pricing/",
+      "https://gohire.io/blog/the-cost-of-sponsoring-jobs-on-the-worlds-top-job-boards",
+      "https://www.admetrics.io/en/post/tiktok-ads-costs-complete-2026-pricing-guide"
     ],
-    "researched_date": "2026-03-26",
+    "authoritative_sources": [
+      {"source": "Appcast 2025 Recruitment Marketing Benchmark Report (2024 data; 379M clicks, 30M applies, 1,300+ US employers)", "url": "https://www.appcast.io/the-2025-recruitment-marketing-benchmark-report-is-live/", "vintage": "2024 (published Feb 2025)", "confidence": "high"},
+      {"source": "Appcast 2026 Recruitment Marketing Benchmark Report (10th annual; 2025 data; 302M clicks, 27M applications, ~1,200 employers)", "url": "https://www.hrdive.com/news/cost-per-hire-application-increase-2025-recruitment-appcast/812612/", "vintage": "2025 (published Feb 2026)", "confidence": "medium"},
+      {"source": "Appcast 2026 U.K. Recruitment Marketing Benchmark Report (3.6M clicks, 880K applications, 190+ UK employers)", "url": "https://techrseries.com/recruitment-and-on-boarding/appcast-releases-2026-u-k-recruitment-marketing-benchmark-report-as-labour-market-softens-and-hiring-costs-decline/", "vintage": "2025 (published 2026)", "confidence": "medium"},
+      {"source": "SHRM 2025 Talent Access / Benchmarking Reports (2,371 SHRM members surveyed Jan-Mar 2025)", "url": "https://www.shrm.org/about/press-room/shrm-releases-2025-benchmarking-reports--how-does-your-organizat", "vintage": "2025", "confidence": "high"},
+      {"source": "WordStream (LocaliQ) 2026 Google Ads Benchmarks (data Apr 2025-Mar 2026)", "url": "https://www.wordstream.com/blog/2026-google-ads-benchmarks", "vintage": "Apr 2025 - Mar 2026", "confidence": "high"},
+      {"source": "WordStream (LocaliQ) 2025 Facebook Ads Benchmarks", "url": "https://www.wordstream.com/blog/facebook-ads-benchmarks-2025", "vintage": "2024-2025 (published 2025)", "confidence": "high"},
+      {"source": "Indeed for Employers official pricing page", "url": "https://www.indeed.com/hire/cs/pricing", "vintage": "2026 (current)", "confidence": "high"}
+    ],
+    "researched_date": "2026-06-13",
+    "last_updated": "2026-06-13",
+    "data_period": "2024-2026 (Appcast 2024/2025 funnel data, WordStream Apr 2025-Mar 2026 Google, WordStream 2025 Facebook, SHRM 2025, Indeed 2026 current pricing)",
+    "vintage_note": "Refreshed 2026-06-13 to incorporate named industry sources (Appcast 2025 & 2026 Recruitment Marketing Benchmark Reports, SHRM 2025 Benchmarking, WordStream/LocaliQ 2026 Google & 2025 Facebook, Indeed official pricing). Google Ads recruitment CPC/CPA and Meta recruitment values were refreshed from WordStream named-source figures (prior values were from secondary marketing blogs and are retained as prior_value where superseded). LinkedIn, programmatic, ZipRecruiter, Glassdoor and TikTok figures sourced only to third-party aggregators are tagged confidence:low with their named source.",
     "data_quality": "high",
     "category": "Digital Advertising Benchmarks (Recruitment)"
+  },
+  "appcast_funnel": {
+    "_note": "Industry-wide US recruitment-media funnel benchmarks from Appcast's annual Recruitment Marketing Benchmark Reports. These are the authoritative cross-channel apply-rate / CPC / CPA / CPH figures.",
+    "median_apply_rate_pct_2024": 6.1,
+    "median_apply_rate_yoy_change_pct_2024": 35,
+    "median_cpc_yoy_change_pct_2024": 27,
+    "median_cpa_yoy_change_pct_2024": 4.8,
+    "median_cost_per_hire_usd_2024": 851,
+    "cost_per_hire_note_2024": "Flat through most of 2024, slight year-end increase",
+    "apply_rate_by_occupation_2024": [
+      {"occupation": "Technology", "apply_rate_pct": 6.41},
+      {"occupation": "Marketing & Advertising", "apply_rate_pct": 6.31},
+      {"occupation": "Business & Consumer Services", "apply_rate_pct": 6.29}
+    ],
+    "directional_trend_2025": "Cost-per-application (CPA) and cost-per-hire (CPH) rose sharply in 2025 despite a softer labor market (driven by job-board pricing shifts and programmatic media models); apply rates remained high. Specific dollar medians are gated in the paid report.",
+    "uk_2025": {
+      "apply_rate_pct_year_end": "~5% (three-month moving average)",
+      "apply_rate_regional_range_pct": {"min": 4.43, "max": 7.17, "highest_region": "London"},
+      "cost_trend": "Median CPC and CPA fell year over year as the labour market softened"
+    },
+    "sources": [
+      {"metric": "Overall median apply (click-to-apply) rate 6.1% (+35% YoY), 2024", "source": "Appcast 2025 Recruitment Marketing Benchmark Report (2024 data; 379M clicks, 30M applies, 1,300+ US employers)", "url": "https://www.appcast.io/the-2025-recruitment-marketing-benchmark-report-is-live/", "vintage": "2024 (published Feb 2025)", "confidence": "high"},
+      {"metric": "Median CPC YoY +27% (2024)", "source": "Appcast 2025 Recruitment Marketing Benchmark Report, reported by HR Dive / Appcast", "url": "https://www.appcast.io/the-2025-recruitment-marketing-benchmark-report-is-live/", "vintage": "2024 (published Feb 2025)", "confidence": "high"},
+      {"metric": "Median CPA YoY +4.8% (2024)", "source": "Appcast 2025 Recruitment Marketing Benchmark Report", "url": "https://www.appcast.io/the-2025-recruitment-marketing-benchmark-report-is-live/", "vintage": "2024 (published Feb 2025)", "confidence": "high"},
+      {"metric": "Cost-per-hire $851 (year-end 2024)", "source": "Appcast 2025 Recruitment Marketing Benchmark Report", "url": "https://www.appcast.io/the-2025-recruitment-marketing-benchmark-report-is-live/", "vintage": "2024 (published Feb 2025)", "confidence": "high"},
+      {"metric": "Apply rate by occupation (Tech 6.41%, Mktg/Adv 6.31%, Business/Consumer 6.29%)", "source": "Appcast 2025 Recruitment Marketing Benchmark Report", "url": "https://www.appcast.io/the-2025-recruitment-marketing-benchmark-report-is-live/", "vintage": "2024 (published Feb 2025)", "confidence": "high"},
+      {"metric": "Directional trend: US CPA and CPH rose sharply in 2025 (10th annual report; 302M clicks, 27M applications, ~1,200 employers)", "source": "Appcast 2026 Recruitment Marketing Benchmark Report (10th annual), via PR Newswire / HR Dive", "url": "https://www.hrdive.com/news/cost-per-hire-application-increase-2025-recruitment-appcast/812612/", "vintage": "2025 (published Feb 2026)", "confidence": "medium"},
+      {"metric": "UK apply rate ~5% (range 4.43%-7.17%, London highest); CPC and CPA fell YoY (3.6M clicks, 880K applications, 190+ UK employers)", "source": "Appcast 2026 U.K. Recruitment Marketing Benchmark Report, via techrSeries", "url": "https://techrseries.com/recruitment-and-on-boarding/appcast-releases-2026-u-k-recruitment-marketing-benchmark-report-as-labour-market-softens-and-hiring-costs-decline/", "vintage": "2025 (published 2026)", "confidence": "medium"}
+    ]
+  },
+  "cost_per_hire": {
+    "_note": "Average cost-per-hire across all recruiting channels (not media-only), US.",
+    "non_executive_usd": 5475,
+    "executive_usd": 35879,
+    "sources": [
+      {"metric": "Average cost-per-hire: $5,475 non-executive; $35,879 executive (US, all channels)", "source": "SHRM 2025 Talent Access / Benchmarking Reports (2,371 SHRM members surveyed Jan-Mar 2025)", "url": "https://www.shrm.org/about/press-room/shrm-releases-2025-benchmarking-reports--how-does-your-organizat", "vintage": "2025", "confidence": "high"}
+    ]
   },
   "google_ads": {
     "overall_avg_cpc_usd": 2.69,
@@ -32,10 +92,20 @@
       {"industry": "Industrial / Manufacturing", "cpc_usd": 2.80, "ctr_pct": 5.3, "cvr_pct": 3.8}
     ],
     "recruitment_specific": {
-      "avg_cpc_recruitment_usd": 3.20,
-      "avg_cpa_recruitment_usd": 71.00,
+      "avg_cpc_recruitment_usd": 5.81,
+      "avg_ctr_recruitment_pct": 5.88,
+      "avg_cvr_recruitment_pct": 3.05,
+      "avg_cpl_recruitment_usd": 67.36,
+      "ctr_yoy_change_pct": -10.5,
+      "cvr_yoy_change_pct": -29.42,
+      "cpl_yoy_change_pct": 7.26,
+      "cvr_note": "Career & Employment had the steepest conversion-rate decline of all sectors tracked",
+      "prior_value": {"avg_cpc_recruitment_usd": 3.20, "avg_cpa_recruitment_usd": 71.00, "note": "Superseded 2026-06-13; prior values sourced to secondary marketing blogs (uproas.io / webfx.com)"},
       "recommended_daily_budget_usd": {"min": 50, "max": 500},
-      "best_ad_types": ["Responsive Search Ads", "Performance Max", "Dynamic Search Ads"]
+      "best_ad_types": ["Responsive Search Ads", "Performance Max", "Dynamic Search Ads"],
+      "sources": [
+        {"metric": "Career & Employment: CPC $5.81; CTR 5.88% (-10.5% YoY); CVR 3.05% (-29.42% YoY); CPL $67.36 (+7.26% YoY)", "source": "WordStream (LocaliQ) 2026 Google Ads Benchmarks", "url": "https://www.wordstream.com/blog/2026-google-ads-benchmarks", "vintage": "Apr 2025 - Mar 2026", "confidence": "high"}
+      ]
     },
     "trends_2026": [
       "Performance Max campaigns gaining share",
@@ -57,11 +127,20 @@
       "lead_gen_cpc_2026_range_usd": {"min": 1.90, "max": 2.10}
     },
     "recruitment_specific": {
+      "avg_cpc_recruitment_usd": 0.86,
+      "avg_ctr_recruitment_pct": 2.81,
+      "avg_cpl_recruitment_usd": 17.64,
+      "cpc_yoy_change_pct": -37,
+      "ctr_yoy_change_pct": 34,
+      "cpl_note": "Among the lowest cost-per-lead of the 15 industries WordStream tracks",
       "job_ad_cpc_range_usd": {"min": 0.50, "max": 2.00},
       "employer_branding_cpm_range_usd": {"min": 6.00, "max": 12.00},
       "lead_gen_for_candidates_cpl_usd": {"min": 15.00, "max": 45.00},
       "best_formats": ["Lead Ads", "Carousel Ads", "Video Ads", "Stories/Reels"],
-      "best_targeting": ["Job title targeting", "Interest-based", "Lookalike audiences", "Custom audiences from ATS"]
+      "best_targeting": ["Job title targeting", "Interest-based", "Lookalike audiences", "Custom audiences from ATS"],
+      "sources": [
+        {"metric": "Career & Employment (Leads campaigns): CPC $0.86 (-37% YoY); CTR 2.81% (+34% YoY); CPL $17.64", "source": "WordStream (LocaliQ) 2025 Facebook Ads Benchmarks", "url": "https://www.wordstream.com/blog/facebook-ads-benchmarks-2025", "vintage": "2024-2025 (published 2025)", "confidence": "high"}
+      ]
     },
     "trends_2026": [
       "Advantage+ campaigns improving targeting automation",
@@ -77,11 +156,18 @@
     "avg_ctr_pct": 0.44,
     "avg_lead_gen_cvr_pct": 13.0,
     "recruitment_specific": {
-      "sponsored_content_cpc_usd": {"min": 5.00, "max": 8.00},
+      "sponsored_content_cpc_usd": {"min": 5.00, "max": 9.00},
+      "sponsored_content_cpc_note": "Global $6-$7; US $8-$10; up to $15+ for C-suite targeting",
+      "sponsored_content_cpm_usd": {"min": 30.00, "max": 60.00},
+      "cpm_yoy_change_pct": 38,
+      "lead_gen_cvr_pct": 6.1,
       "message_ads_cost_per_send_usd": {"min": 0.25, "max": 0.80},
       "dynamic_ads_cpc_usd": {"min": 3.50, "max": 6.50},
       "best_for": "Senior roles, passive candidates, B2B hiring",
-      "avg_inmail_response_rate_pct": 18
+      "avg_inmail_response_rate_pct": 18,
+      "sources": [
+        {"metric": "Sponsored Content CPC $5-$9 (global $6-$7; US $8-$10; $15+ C-suite); CPM $30-$60 (+~38% YoY); ~6.1% lead-gen conversion rate", "source": "WebFX 2026 LinkedIn Advertising Benchmarks; corroborated by multiple marketing-agency compilations (not LinkedIn-published)", "url": "https://www.webfx.com/blog/social-media/linkedin-benchmarks/", "vintage": "2025-2026", "confidence": "low"}
+      ]
     }
   },
   "indeed_sponsored": {
@@ -90,7 +176,54 @@
     "click_to_apply_rate_pct": 5,
     "sponsored_visibility_multiplier": 4.5,
     "model_note": "Shifting from CPC to pay-per-application model",
-    "best_for": "Volume hiring, hourly roles, broad reach"
+    "best_for": "Volume hiring, hourly roles, broad reach",
+    "official_pricing": {
+      "models": ["Pay-per-click (daily budgets)", "Pay-per-application (monthly budgets)"],
+      "minimum_budget": "$5/day or $150/month",
+      "billing_note": "Prices vary by role, title and location. Billed monthly or at $500 spend threshold.",
+      "source": {"source": "Indeed for Employers official pricing page", "url": "https://www.indeed.com/hire/cs/pricing", "vintage": "2026 (current)", "confidence": "high"}
+    },
+    "third_party_estimates": {
+      "cpc_range_usd": {"min": 0.10, "max": 5.00, "note": "$5.00+ per click possible"},
+      "estimated_price_per_application_usd": {"min": 15.00, "max": 50.00},
+      "per_posting_minimum_note": "$25/day per-posting minimum noted as of July 1, 2025",
+      "source": {"source": "Pin (pin.com) Indeed Pricing 2026 guide (third-party aggregator; not Indeed-published)", "url": "https://www.pin.com/blog/indeed-pricing/", "vintage": "2026", "confidence": "low"}
+    }
+  },
+  "ziprecruiter": {
+    "model_note": "Per-job-slot subscription pricing; ZipRecruiter does not publish upfront pricing - figures are third-party aggregator estimates",
+    "job_slot_pricing_per_month_usd": {
+      "standard": {"min": 299, "max": 399},
+      "premium": {"min": 375, "max": 519},
+      "pro": {"min": 719, "max": 999}
+    },
+    "best_for": "SMB hiring, AI matching",
+    "reach": "Medium",
+    "sources": [
+      {"metric": "Job-slot pricing per job per month: Standard ~$299-$399; Premium ~$375-$519; Pro ~$719-$999", "source": "Pin (pin.com) ZipRecruiter Pricing 2026; Tekpon (third-party aggregators)", "url": "https://www.pin.com/blog/ziprecruiter-pricing/", "vintage": "2026", "confidence": "low"}
+    ]
+  },
+  "glassdoor": {
+    "model_note": "Distribution now integrated with Indeed (sponsoring on Indeed also posts to Glassdoor); pay-per-click model. Standalone Glassdoor Job Slots subscriptions discontinued since Sept 2020.",
+    "model": "Pay-per-click (Indeed-integrated)",
+    "cpc_range_gbp": {"min": 0.15, "max": 1.50, "note": "Varies by industry, role, location"},
+    "best_for": "Employer branding, reviews",
+    "reach": "Medium-High",
+    "sources": [
+      {"metric": "Indeed-integrated PPC model; CPC roughly GBP 0.15-1.50; standalone Job Slots discontinued Sept 2020", "source": "GoHire 'Cost of Sponsoring Jobs on the World's Top Job Boards' (third-party)", "url": "https://gohire.io/blog/the-cost-of-sponsoring-jobs-on-the-worlds-top-job-boards", "vintage": "2026", "confidence": "low"}
+    ]
+  },
+  "tiktok_ads": {
+    "model_note": "General-market pricing; recruitment/B2B verticals at the higher end. No recruitment-specific named benchmark identified.",
+    "avg_cpc_range_usd": {"min": 0.30, "max": 1.50, "note": "Some sources cite $0.17-$1.00"},
+    "avg_cpm_range_usd": {"min": 4.20, "max": 12.00},
+    "cpm_b2b_recruitment_range_usd": {"min": 6.00, "max": 25.00},
+    "b2b_lead_gen_cpl_range_usd": {"min": 15.00, "max": 60.00},
+    "best_for": "Early-career, hourly, employer branding to younger candidates",
+    "reach": "High (younger demographics)",
+    "sources": [
+      {"metric": "CPC ~$0.30-$1.50 (some $0.17-$1.00); CPM ~$4.20-$12.00 ($6-$25 B2B/recruitment); B2B lead-gen CPL ~$15-$60", "source": "Admetrics 'TikTok Ads Costs: Complete 2026 Pricing Guide'; Benly (third-party compilations)", "url": "https://www.admetrics.io/en/post/tiktok-ads-costs-complete-2026-pricing-guide", "vintage": "2026", "confidence": "low"}
+    ]
   },
   "programmatic_display": {
     "us_spend_2025_usd_billions": 180.4,
@@ -111,10 +244,12 @@
   "channel_comparison_recruitment": [
     {"channel": "Indeed Sponsored", "avg_cpc_usd": 0.75, "avg_cpa_usd": 15.00, "best_for": "Volume/hourly hiring", "reach": "Very High"},
     {"channel": "LinkedIn Ads", "avg_cpc_usd": 5.26, "avg_cpa_usd": 50.00, "best_for": "Senior/professional roles", "reach": "High (professional)"},
-    {"channel": "Google Ads (Search)", "avg_cpc_usd": 3.20, "avg_cpa_usd": 71.00, "best_for": "Active job seekers", "reach": "Very High"},
-    {"channel": "Meta Ads", "avg_cpc_usd": 1.50, "avg_cpa_usd": 25.00, "best_for": "Employer branding, passive candidates", "reach": "Very High"},
+    {"channel": "Google Ads (Search)", "avg_cpc_usd": 5.81, "avg_cpa_usd": 67.36, "best_for": "Active job seekers", "reach": "Very High"},
+    {"channel": "Meta Ads", "avg_cpc_usd": 0.86, "avg_cpa_usd": 17.64, "best_for": "Employer branding, passive candidates", "reach": "Very High"},
+    {"channel": "TikTok Ads", "avg_cpc_range_usd": {"min": 0.30, "max": 1.50}, "best_for": "Early-career, employer branding to younger candidates", "reach": "High (younger demographics)", "confidence": "low", "source_note": "Ranges from third-party aggregator (Admetrics 2026); no recruitment-specific named benchmark"},
     {"channel": "Programmatic Display", "avg_cpc_usd": 1.50, "avg_cpa_usd": 20.00, "best_for": "Retargeting, awareness", "reach": "High"},
     {"channel": "ZipRecruiter", "avg_cost_per_job_monthly_usd": 399, "avg_cpa_usd": 20.00, "best_for": "SMB hiring, AI matching", "reach": "Medium"},
-    {"channel": "Glassdoor", "model": "Branding subscription", "avg_cpa_usd": 30.00, "best_for": "Employer branding, reviews", "reach": "Medium-High"}
+    {"channel": "Glassdoor", "model": "PPC (Indeed-integrated)", "avg_cpa_usd": 30.00, "best_for": "Employer branding, reviews", "reach": "Medium-High"},
+    {"channel": "Craigslist", "model": "Flat-fee job posting (varies by metro)", "best_for": "Local/hourly hiring in select metros", "reach": "Low-Medium", "confidence": "low", "source_note": "Listed for completeness; no figure available in the 2026 research brief or a named source, so no cost value is asserted"}
   ]
 }

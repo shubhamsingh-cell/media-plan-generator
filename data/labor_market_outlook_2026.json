@@ -4,14 +4,23 @@
       "https://www.bls.gov/emp/",
       "https://www.bls.gov/opub/mlr/2026/article/industry-and-occupational-employment-projections-overview.htm",
       "https://www.bls.gov/news.release/pdf/ecopro.pdf",
+      "https://www.bls.gov/news.release/empsit.nr0.htm",
+      "https://nchstats.com/may-2026-jobs-report/",
+      "https://www.hiringlab.org/2025/11/20/indeed-2026-us-jobs-hiring-trends-report/",
+      "https://www.hiringlab.org/2026/05/14/us-labor-market-snapshot-april-2026/",
+      "https://www.manpowergroup.com/en/insights/report/q2-2026-manpowergroup-employment-outlook-survey",
+      "https://www.shrm.org/topics-tools/research/recruiting-executives-priorities-perspectives-2026/repp26-full-report",
       "https://www.roberthalf.com/us/en/insights/research/february-2026-labor-market-update-for-employers-and-job-seekers",
       "https://www.roberthalf.com/us/en/insights/research/remote-work-statistics-and-trends",
       "https://www.gallup.com/401384/indicator-hybrid-work.aspx",
       "https://backlinko.com/remote-work-stats"
     ],
     "researched_date": "2026-03-26",
+    "last_updated": "2026-06-13",
     "data_quality": "high",
-    "category": "Labor Market Reports"
+    "category": "Labor Market Reports",
+    "vintage_note": "Refreshed 2026-06-13 with BLS Employment Situation May 2026 (released 2026-06-05), ADP May 2026, Indeed Hiring Lab 2026 forecasts, ManpowerGroup Q2 2026, SHRM 2026 and LinkedIn 2026. The stale Feb-2026 headline block (4.4% unemployment, -92k Feb jobs, 6.9M openings) was superseded by the May-2026 hard data block. Original BLS 2024-2034 projections and remote-work figures retained as researched 2026-03-26.",
+    "data_period": "Headline labor-market figures current as of May 2026; structural projections cover 2024-2034; remote-work and talent-gap survey data as of early 2026."
   },
   "bls_projections_2024_2034": {
     "total_employment_projected_2034_millions": 175.2,
@@ -27,17 +36,149 @@
       "note": "AI expected to limit demand for some office/admin roles while boosting computer occupations"
     }
   },
-  "current_labor_market_feb_2026": {
-    "unemployment_rate_pct": 4.4,
-    "jobs_lost_february_2026": 92000,
-    "job_openings_january_2026_millions": 6.9,
-    "growing_industries": ["Financial activities", "Wholesale trade"],
+  "current_labor_market_may_2026": {
+    "unemployment_rate_pct": 4.3,
+    "unemployment_rate_note": "Held steady; range 4.3-4.5% since July 2025",
+    "nonfarm_payrolls_added_may_2026": 172000,
+    "nonfarm_payrolls_note": "Beat ~80-85k consensus",
+    "unemployed_persons_millions": 7.3,
+    "labor_force_participation_rate_pct": 61.8,
+    "u6_underemployment_rate_pct": 8.1,
+    "u6_underemployment_confidence": "medium",
+    "avg_hourly_earnings_mom_pct": 0.3,
+    "avg_hourly_earnings_yoy_pct": 3.4,
+    "avg_hourly_earnings_usd": 37.53,
+    "top_job_gaining_industries": {
+      "leisure_and_hospitality": 70000,
+      "local_government": 55000,
+      "health_care": 35000,
+      "financial_activities": -22000,
+      "note": "Financial activities was the only industry to decline"
+    },
+    "adp_private_payrolls_may_2026": {
+      "private_jobs_added": 122000,
+      "note": "Strongest since Jan 2025; April revised to +105k",
+      "annual_pay_growth_job_stayers_pct": 4.4,
+      "annual_pay_growth_job_changers_pct": 6.5,
+      "industry_breakdown": {
+        "education_and_health": 57000,
+        "trade_transport_utilities": 36000,
+        "professional_business_services": 11000,
+        "leisure_and_hospitality": 8000,
+        "construction": 8000,
+        "information": -9000,
+        "natural_resources_and_mining": -3000
+      }
+    },
     "talent_gap": {
       "hiring_managers_with_needed_talent_pct": 6,
       "finding_skilled_professionals_harder_than_year_ago_pct": 58,
       "workers_planning_new_job_search_h1_2026_pct": 38,
       "job_seekers_too_much_competition_pct": 59,
-      "expect_longer_search_pct": 68
+      "expect_longer_search_pct": 68,
+      "vintage_note": "Talent-gap survey figures retained from early-2026 Robert Half research"
+    }
+  },
+  "forward_looking_projections_2026": {
+    "indeed_year_end_unemployment_forecast": {
+      "consensus_pct": 4.4,
+      "upside_pct": 4.1,
+      "downside_pct": 4.8,
+      "source": "Indeed Hiring Lab - 2026 US Jobs & Hiring Trends Report"
+    },
+    "indeed_year_end_job_postings_forecast": {
+      "consensus_millions": 7.1,
+      "upside_millions": 7.4,
+      "downside_millions": 6.8,
+      "source": "Indeed Hiring Lab - 2026 US Jobs & Hiring Trends Report"
+    },
+    "indeed_job_postings_index_apr_30_2026": {
+      "index_value": 102.4,
+      "pct_above_feb_2020_baseline": 2.4,
+      "note": "Among the lowest readings since spring 2021"
+    },
+    "manpowergroup_net_employment_outlook_q2_2026": {
+      "us_neo_pct": 38,
+      "us_tech_sector_neo_pct": 41,
+      "us_tech_qoq_change_pts": 8,
+      "global_neo_pct": 31,
+      "global_qoq_change_pts": 6,
+      "global_yoy_change_pts": -7,
+      "americas_neo_pct": 37,
+      "survey_employers": 41700,
+      "survey_countries": 42,
+      "note": "Seasonally adjusted net employment outlook"
+    }
+  },
+  "hardest_to_fill_and_hiring_difficulty_2026": {
+    "shrm_hardest_to_fill_job_levels": {
+      "midlevel_nonmanagerial_pct": 66,
+      "entry_level_pct": 50,
+      "midlevel_managerial_pct": 37,
+      "senior_or_executive_pct": 19,
+      "note": "Midlevel nonmanagerial roles are hardest to fill",
+      "confidence": "medium"
+    },
+    "shrm_hiring_difficulty_gap": {
+      "hr_pros_facing_full_time_hiring_challenges_pct": 70,
+      "difficulty_hiring_for_new_skills_roles_pct": 77,
+      "recruiting_execs_citing_lack_of_qualified_candidates_pct": 49,
+      "confidence": "medium"
+    },
+    "linkedin_job_seeker_readiness": {
+      "plan_to_job_hunt_2026_pct": 56,
+      "do_not_feel_prepared_pct": 76,
+      "confidence": "medium"
+    }
+  },
+  "ai_and_hiring_trends_2026": {
+    "shrm_ai_in_recruiting_expectations": {
+      "expect_more_genai_for_job_descriptions_content_pct": 92,
+      "expect_broader_recruiting_process_automation_pct": 87,
+      "expect_more_ai_chatbots_automated_resume_screening_pct": 85,
+      "ai_adoption_of_orgs_pct": 43,
+      "confidence": "medium"
+    },
+    "linkedin_ai_driven_job_creation": {
+      "jobs_added_millions": 1.3,
+      "note": "AI has already added ~1.3 million jobs per LinkedIn data",
+      "confidence": "medium"
+    },
+    "linkedin_advanced_economy_hiring": {
+      "advanced_economies_below_pre_pandemic_pct_range": "20-35% below pre-pandemic",
+      "india_above_pre_pandemic_pct": 40,
+      "uae_above_pre_pandemic_pct": 37,
+      "note": "Advanced economies lagging; emerging markets stronger",
+      "confidence": "medium"
+    },
+    "linkedin_jobs_on_the_rise_2026_us": {
+      "top_roles": ["AI Engineer", "AI Consultant/Strategist", "New Home Sales Specialist", "Data Annotator", "AI/ML Researcher"],
+      "methodology": "Jobs started Jan 2023-Jul 2025",
+      "confidence": "high"
+    }
+  },
+  "recruitment_marketing_market_2026": {
+    "programmatic_job_advertising_market": {
+      "market_size_2026_billions_usd": 2.38,
+      "market_size_2035_billions_usd": 8.32,
+      "cagr_pct": 14.9,
+      "note": "Approximately 2x the broader job-ad market; a separate vendor pegged the software sub-market at ~$828M in 2020 to ~$7.6B by 2028 (ranges disagree)",
+      "confidence": "low"
+    },
+    "programmatic_recruitment_performance_benchmarks": {
+      "lower_cost_per_applicant_pct_range": "20-50%",
+      "faster_time_to_hire_pct": 25,
+      "ai_targeting_more_qualified_applicants_pct_range": "30-50%",
+      "ai_targeting_cost_per_hire_reduction_up_to_pct": 45,
+      "note": "Vendor claims (Recruitics / Pin, citing Aptitude Research)",
+      "confidence": "low"
+    },
+    "us_retail_media_ad_spend": {
+      "ad_spend_2026_billions_usd": 71.09,
+      "yoy_growth_2025_pct": 17.6,
+      "share_of_global_digital_ad_spend_pct": 15.4,
+      "note": "Now a top-3 channel; context for retail-media-for-recruitment",
+      "confidence": "medium"
     }
   },
   "remote_work_2026": {
@@ -87,17 +228,75 @@
     {"sector": "Leisure & Hospitality", "growth_rate_pct": 4.0, "trend": "Recovery and growth"},
     {"sector": "Transportation & Warehousing", "growth_rate_pct": 3.8, "trend": "E-commerce driven"}
   ],
+  "sector_postings_index_2025_2026": {
+    "hottest_sectors_oct_31_2025": {
+      "civil_engineering_index": 154.0,
+      "personal_care_home_health_index": 148.4,
+      "healthcare_overall_vs_pre_pandemic_pct": 22.6,
+      "source": "Indeed Hiring Lab - 2026 US Jobs & Hiring Trends Report",
+      "confidence": "high"
+    },
+    "coldest_sectors_oct_31_2025": {
+      "scientific_rnd_below_baseline_pct": 29,
+      "tech_below_early_2020_pct": 33,
+      "data_and_analytics_index": 60.4,
+      "media_and_comms_index": 64.1,
+      "source": "Indeed Hiring Lab - 2026 US Jobs & Hiring Trends Report",
+      "confidence": "high"
+    },
+    "healthcare_share_vs_growth": {
+      "share_of_nonfarm_employment_pct": 11.4,
+      "share_of_net_job_growth_through_aug_2025_pct": 47.5,
+      "note": "Indeed cites ~3/4 of net job growth in 2025 from healthcare",
+      "confidence": "high"
+    }
+  },
   "labor_force_participation": {
-    "overall_rate_pct": 62.4,
+    "overall_rate_pct": 61.8,
+    "overall_rate_vintage": "2026-05 (BLS); supersedes prior 62.4 (2026-03)",
     "prime_age_25_54_pct": 83.5,
     "women_participation_pct": 57.8,
     "older_workers_55_plus_pct": 38.2,
     "trend": "Gradual decline as Baby Boomers retire"
   },
   "wage_growth": {
-    "avg_hourly_earnings_growth_yoy_pct": 3.8,
+    "avg_hourly_earnings_growth_yoy_pct": 3.4,
+    "avg_hourly_earnings_growth_yoy_vintage": "2026-05 (BLS); supersedes prior 3.8 (2026-03)",
+    "avg_hourly_earnings_usd": 37.53,
     "median_weekly_earnings_usd": 1195,
     "real_wage_growth_inflation_adjusted_pct": 1.2,
+    "adp_annual_pay_growth_job_stayers_pct": 4.4,
+    "adp_annual_pay_growth_job_changers_pct": 6.5,
     "sectors_with_highest_wage_growth": ["Technology", "Healthcare", "Professional services"]
-  }
+  },
+  "authoritative_sources": [
+    {"metric": "US unemployment rate, May 2026 (4.3%)", "source": "BLS Employment Situation (May 2026), via Bloomberg/CNBC/NCH Stats reporting", "url": "https://www.bls.gov/news.release/empsit.nr0.htm", "vintage": "2026-05 (released 2026-06-05)", "confidence": "high"},
+    {"metric": "US nonfarm payroll jobs added, May 2026 (+172,000)", "source": "BLS Employment Situation (May 2026), via Bloomberg", "url": "https://www.bloomberg.com/news/articles/2026-06-05/us-adds-172-000-jobs-in-may-beating-all-economists-estimates", "vintage": "2026-05", "confidence": "high"},
+    {"metric": "US unemployed persons, May 2026 (7.3M)", "source": "BLS Employment Situation (May 2026), via NCH Stats", "url": "https://nchstats.com/may-2026-jobs-report/", "vintage": "2026-05", "confidence": "high"},
+    {"metric": "US labor force participation rate, May 2026 (61.8%)", "source": "BLS Employment Situation (May 2026), via NCH Stats", "url": "https://nchstats.com/may-2026-jobs-report/", "vintage": "2026-05", "confidence": "high"},
+    {"metric": "US U-6 broad underemployment rate, May 2026 (8.1%)", "source": "BLS Employment Situation (May 2026), via Center for American Progress", "url": "https://www.americanprogress.org/article/mays-headline-jobs-numbers-mask-underlying-labor-market-slack/", "vintage": "2026-05", "confidence": "medium"},
+    {"metric": "US average hourly earnings, May 2026 (+0.3% m/m, +3.4% y/y, $37.53)", "source": "BLS Employment Situation (May 2026), via NCH Stats", "url": "https://nchstats.com/may-2026-jobs-report/", "vintage": "2026-05", "confidence": "high"},
+    {"metric": "Top job-gaining industries, May 2026", "source": "BLS Employment Situation (May 2026), via NCH Stats", "url": "https://nchstats.com/may-2026-jobs-report/", "vintage": "2026-05", "confidence": "medium"},
+    {"metric": "ADP private-sector payrolls, May 2026 (+122,000)", "source": "ADP National Employment Report (ADP Research w/ Stanford Digital Economy Lab)", "url": "https://www.prnewswire.com/news-releases/adp-national-employment-report-private-sector-employment-increased-by-122-000-jobs-in-may-annual-pay-was-up-4-4-302790127.html", "vintage": "2026-05", "confidence": "high"},
+    {"metric": "ADP annual pay growth, May 2026 (stayers +4.4%, changers +6.5%)", "source": "ADP National Employment Report (May 2026)", "url": "https://www.prnewswire.com/news-releases/adp-national-employment-report-private-sector-employment-increased-by-122-000-jobs-in-may-annual-pay-was-up-4-4-302790127.html", "vintage": "2026-05", "confidence": "high"},
+    {"metric": "ADP industry breakdown, May 2026", "source": "ADP National Employment Report (May 2026)", "url": "https://www.prnewswire.com/news-releases/adp-national-employment-report-private-sector-employment-increased-by-122-000-jobs-in-may-annual-pay-was-up-4-4-302790127.html", "vintage": "2026-05", "confidence": "high"},
+    {"metric": "Indeed 2026 year-end unemployment forecast (4.4% consensus)", "source": "Indeed Hiring Lab - 2026 US Jobs & Hiring Trends Report", "url": "https://www.hiringlab.org/2025/11/20/indeed-2026-us-jobs-hiring-trends-report/", "vintage": "2025-11 (forecast for 2026)", "confidence": "high"},
+    {"metric": "Indeed 2026 year-end job-postings forecast (7.1M consensus)", "source": "Indeed Hiring Lab - 2026 US Jobs & Hiring Trends Report", "url": "https://www.hiringlab.org/2025/11/20/indeed-2026-us-jobs-hiring-trends-report/", "vintage": "2025-11", "confidence": "high"},
+    {"metric": "Indeed Job Postings Index vs pre-pandemic, Apr 30 2026 (102.4, +2.4%)", "source": "Indeed Hiring Lab - US Labor Market Snapshot April 2026", "url": "https://www.hiringlab.org/2026/05/14/us-labor-market-snapshot-april-2026/", "vintage": "2026-04", "confidence": "high"},
+    {"metric": "Healthcare share of US employment vs net job growth", "source": "Indeed Hiring Lab - 2026 US Jobs & Hiring Trends Report", "url": "https://www.hiringlab.org/2025/11/20/indeed-2026-us-jobs-hiring-trends-report/", "vintage": "2025", "confidence": "high"},
+    {"metric": "Hottest sectors by Indeed Job Postings Index (Oct 31 2025)", "source": "Indeed Hiring Lab - 2026 US Jobs & Hiring Trends Report", "url": "https://www.hiringlab.org/2025/11/20/indeed-2026-us-jobs-hiring-trends-report/", "vintage": "2025-10", "confidence": "high"},
+    {"metric": "Coldest sectors by Indeed Job Postings Index (Oct 31 2025)", "source": "Indeed Hiring Lab - 2026 US Jobs & Hiring Trends Report", "url": "https://www.hiringlab.org/2025/11/20/indeed-2026-us-jobs-hiring-trends-report/", "vintage": "2025-10", "confidence": "high"},
+    {"metric": "ManpowerGroup US Net Employment Outlook, Q2 2026 (+38%; tech +41%)", "source": "ManpowerGroup Employment Outlook Survey Q2 2026", "url": "https://www.manpowergroup.com/en/insights/report/q2-2026-manpowergroup-employment-outlook-survey", "vintage": "2026-Q2", "confidence": "high"},
+    {"metric": "ManpowerGroup global Net Employment Outlook, Q2 2026 (+31% global; Americas +37%)", "source": "ManpowerGroup Employment Outlook Survey Q2 2026", "url": "https://www.manpowergroup.com/en/news-releases/news/global-tech-hiring-remains-strong-as-u-s-outlook-shows-measured-q2-improvement", "vintage": "2026-Q2", "confidence": "high"},
+    {"metric": "SHRM hardest-to-fill job levels, 2026", "source": "SHRM Recruiting Executives Priorities & Perspectives 2026", "url": "https://www.shrm.org/topics-tools/research/recruiting-executives-priorities-perspectives-2026/repp26-full-report", "vintage": "2026", "confidence": "medium"},
+    {"metric": "SHRM hiring difficulty / qualified-candidate gap, 2026", "source": "SHRM 2026 Talent Trends / Recruiting Executives Priorities & Perspectives 2026", "url": "https://www.shrm.org/topics-tools/research/recruiting-executives-priorities-perspectives-2026/repp26-full-report", "vintage": "2026", "confidence": "medium"},
+    {"metric": "SHRM AI-in-recruiting adoption expectations, 2026", "source": "SHRM Recruiting Executives Priorities & Perspectives 2026", "url": "https://www.shrm.org/topics-tools/research/recruiting-executives-priorities-perspectives-2026/repp26-full-report", "vintage": "2026", "confidence": "medium"},
+    {"metric": "LinkedIn: AI-driven job creation (~1.3M jobs)", "source": "LinkedIn Economic Graph, via World Economic Forum", "url": "https://www.weforum.org/stories/2026/01/ai-has-already-added-1-3-million-new-jobs-according-to-linkedin-data/", "vintage": "2026-01", "confidence": "medium"},
+    {"metric": "LinkedIn advanced-economy hiring vs pre-pandemic", "source": "LinkedIn Economic Graph (Jobs on the Rise 2026 / WEF)", "url": "https://www.weforum.org/stories/2026/01/ai-has-already-added-1-3-million-new-jobs-according-to-linkedin-data/", "vintage": "2026-01", "confidence": "medium"},
+    {"metric": "LinkedIn Jobs on the Rise 2026 (US) top roles", "source": "LinkedIn Economic Graph - Jobs on the Rise 2026 (US)", "url": "https://www.linkedin.com/pulse/linkedin-jobs-rise-2026-25-fastest-growing-roles-us-linkedin-news-dlb1c", "vintage": "2026", "confidence": "high"},
+    {"metric": "LinkedIn job-seeker readiness, 2026", "source": "LinkedIn Economic Graph - Jobs on the Rise 2026 (US)", "url": "https://www.linkedin.com/pulse/linkedin-jobs-rise-2026-25-fastest-growing-roles-us-linkedin-news-dlb1c", "vintage": "2026", "confidence": "medium"},
+    {"metric": "Programmatic job-advertising market size & growth ($2.38B 2026 to $8.32B 2035, 14.9% CAGR)", "source": "Market Research Future / Adroit Market Research (vendor reports; ranges disagree)", "url": "https://www.marketresearchfuture.com/reports/programmatic-advertising-market-3134", "vintage": "2026", "confidence": "low"},
+    {"metric": "Programmatic recruitment performance benchmarks", "source": "Recruitics / Pin (recruitment-marketing vendor blogs, citing Aptitude Research)", "url": "https://info.recruitics.com/blog/the-evolution-and-impact-of-programmatic-job-advertising", "vintage": "2025-2026", "confidence": "low"},
+    {"metric": "US retail media ad spend, 2026 ($71.09B)", "source": "eMarketer (Retail Media Ad Spending Forecast H1 2026)", "url": "https://www.emarketer.com/content/retail-media-ad-spending-forecast-h1-2026", "vintage": "2026", "confidence": "medium"}
+  ]
 }

@@ -2,10 +2,11 @@
   "_metadata": {
     "title": "International Recruitment Marketing Benchmarks 2025-2026",
     "description": "CPC, CPA, CPH, apply rates, platform benchmarks, and regulatory considerations for 38 major hiring markets outside the US. Designed for Nova AI Suite chatbot knowledge base.",
-    "version": "2.0",
-    "last_updated": "2026-04-08",
-    "data_freshness": "2025-2026 (primary: H2 2025 and Q1 2026 data)",
-    "sources_analyzed": 28,
+    "version": "2.1",
+    "last_updated": "2026-06-13",
+    "data_freshness": "2025-2026 (primary: H2 2025 and Q1 2026 data; June 2026 refresh added named national-statistics-bureau / Eurostat / agency wage anchors)",
+    "vintage_note": "v2.1 (2026-06-13) grounds the previously unsourced 'medium'/'low' reliability CPC/CPA/CPH platform estimates with named, attributable official wage anchors. Added per-country 'official_wage_anchors' blocks for India, Philippines, Mexico, Brazil, Singapore, UAE, Vietnam, and Poland (sources: NWPC/DOLE, IMSS/INEGI, IBGE PNAD, MOM/SINGSTAT, Cooper Fitch, Vietnam GSO + Decree 293/2025, Eurostat), plus a top-level 'authoritative_sources' block with cross-market Eurostat, SHRM, and Appcast benchmarks. Healthcare-specialty pay benchmarks (BLS OOH, NSI, AACN, Medscape) are out of scope for this international file and belong in healthcare_specialty_pay_2026.json.",
+    "sources_analyzed": 36,
     "methodology": "Cross-referenced platform pricing pages, regional labor market reports, LinkedIn Talent Insights, Indeed Hiring Lab research, Glassdoor Economic Research, Randstad Sourceright Talent Trends, ManpowerGroup Employment Outlook Survey, and government labor statistics. Currency conversions use March 2026 mid-market rates.",
     "source_list": [
       "LinkedIn Talent Insights 2025 (Global Edition)",
@@ -35,7 +36,16 @@
       "104 Job Bank Taiwan Salary Survey 2025",
       "Saramin South Korea Hiring Trends 2025",
       "Computrabajo LATAM Recruitment Trends 2025",
-      "Statistics Sweden/Norway/Denmark Labour Market Reports 2025"
+      "Statistics Sweden/Norway/Denmark Labour Market Reports 2025",
+      "Eurostat Labour Cost Survey 2024-2025 (EU/euro-area hourly labour cost)",
+      "Singapore MOM / SINGSTAT Median Gross Monthly Income 2025",
+      "IMSS (Mexico) Average Daily Base Wage 2025 / INEGI informality",
+      "IBGE Continuous PNAD (Brazil) Average Monthly Earnings 2025",
+      "NWPC / DOLE (Philippines) NCR Wage Order No. NCR-26 2025",
+      "Vietnam General Statistics Office (GSO) Average Income 2025 + Decree 293/2025/ND-CP",
+      "Cooper Fitch UAE Salary Guide 2025",
+      "SHRM 2025 Talent Acquisition Benchmarking Report",
+      "Goodspace/Cutshort India Recruitment Agency Fee Norms 2025-2026 (low confidence)"
     ],
     "currency_note": "All USD equivalents use March 2026 mid-market exchange rates. Local currency figures are primary; USD is provided for cross-market comparison.",
     "reliability_rating_system": {
@@ -392,6 +402,19 @@
           "Contract Labour Act regulates staffing agencies"
         ],
         "compliance_notes": "India has 29 states with varying labor laws. Regulatory fragmentation is a key challenge for multi-city hiring."
+      },
+      "official_wage_anchors": {
+        "description": "Named, attributable wage/fee anchors grounding the platform-estimate CPC/CPA/CPH figures above.",
+        "anchors": [
+          {
+            "metric": "Typical recruitment-agency placement fee",
+            "value": "8.33% of annual CTC on successful hire (larger agencies 10-12%)",
+            "source": "Industry aggregator analyses (Cutshort/Goodspace) citing market norms; not a national statistics bureau",
+            "url": "https://goodspace.ai/blogs/709434/recruitment-agency-fees-in-india-what-employers-actually-pay-in-2026",
+            "vintage": "2025-2026",
+            "confidence": "low"
+          }
+        ]
       }
     },
     "australia": {
@@ -953,6 +976,19 @@
           "COMPASS framework for EP applications (points-based) since Sep 2023"
         ],
         "compliance_notes": "Strict foreign worker regulations. FCF compliance is mandatory -- non-compliance leads to EP rejection. Tripartite Guidelines on Fair Employment Practices (TGFEP)."
+      },
+      "official_wage_anchors": {
+        "description": "Named, attributable national wage anchors grounding the platform-estimate CPC/CPA/CPH figures above.",
+        "anchors": [
+          {
+            "metric": "Median gross monthly income, full-time employed residents",
+            "value": "S$5,775/month incl. employer CPF (mid-2025; S$5,500 in 2024)",
+            "source": "Singapore Ministry of Manpower (MOM) / SINGSTAT (released 27 Feb 2026)",
+            "url": "https://data.gov.sg/datasets/d_8f024ddf2553d81ee00ede55b1d9b0ff/view",
+            "vintage": "Jun 2025",
+            "confidence": "high"
+          }
+        ]
       }
     },
     "philippines": {
@@ -1138,6 +1174,19 @@
           "Security of tenure -- termination only for just or authorized cause"
         ],
         "compliance_notes": "Strong worker protections similar to continental European models. DOLE (Department of Labor) actively enforces. BPO sector has special economic zone regulations."
+      },
+      "official_wage_anchors": {
+        "description": "Named, attributable national wage anchors grounding the platform-estimate CPC/CPA/CPH figures above.",
+        "anchors": [
+          {
+            "metric": "Metro Manila/NCR minimum daily wage",
+            "value": "PHP 695/day non-agriculture (PHP 658 agriculture), effective 18 Jul 2025 (Wage Order No. NCR-26)",
+            "source": "National Wages and Productivity Commission (NWPC) / NCR Regional Tripartite Wages & Productivity Board, DOLE",
+            "url": "https://www.philstar.com/nation/2025/07/14/2457738/metro-manilas-new-minimum-wage-rate-starts-friday",
+            "vintage": "2025",
+            "confidence": "high"
+          }
+        ]
       }
     },
     "uk": {
@@ -1973,6 +2022,19 @@
           "DIFC and ADGM have separate employment laws (common law based)"
         ],
         "compliance_notes": "Expatriate-dominated workforce. Employer sponsors work visa. New labor law improved worker mobility (no NOC needed to switch employers). Emiratisation fines: AED 7,000/month per shortfall."
+      },
+      "official_wage_anchors": {
+        "description": "Named, attributable wage anchors grounding the platform-estimate CPC/CPA/CPH figures above.",
+        "anchors": [
+          {
+            "metric": "Typical professional monthly salary band",
+            "value": "~70% of recorded jobs have minimum monthly wage AED 10,000-40,000; 2025 growth flat-to-low-single-digit (no income tax)",
+            "source": "Cooper Fitch UAE Salary Guide 2025 (poll of ~1,000 Gulf companies)",
+            "url": "https://cooperfitch.ae/salary-guides/united-arab-emirates/",
+            "vintage": "2025",
+            "confidence": "medium"
+          }
+        ]
       }
     },
     "netherlands": {
@@ -2382,6 +2444,19 @@
           "PJ (Pessoa Juridica) contracting common but under regulatory scrutiny"
         ],
         "compliance_notes": "CLT provides extensive worker protections. Termination costs are high (40% FGTS penalty + notice period + accrued benefits). PJ (contractor) arrangements are common in tech but carry misclassification risk. LGPD requires explicit consent for candidate data processing."
+      },
+      "official_wage_anchors": {
+        "description": "Named, attributable national wage anchors grounding the platform-estimate CPC/CPA/CPH figures above.",
+        "anchors": [
+          {
+            "metric": "Average usual monthly earnings from all jobs",
+            "value": "R$ 3,560/month (all jobs, +5.7% vs 2024); R$ 3,367 all income sources",
+            "source": "IBGE Continuous PNAD (Pesquisa Nacional por Amostra de Domicilios Continua)",
+            "url": "https://agenciadenoticias.ibge.gov.br/en/agencia-news/2184-news-agency/news/46636-rendimento-medio-da-populacao-brasileira-atinge-r-3-367-em-2026",
+            "vintage": "2025",
+            "confidence": "high"
+          }
+        ]
       }
     },
     "mexico": {
@@ -2580,6 +2655,19 @@
           "LFPDPPP: Federal data protection law for private parties"
         ],
         "compliance_notes": "2021 outsourcing reform (subcontratacion) banned most staffing models. Only specialized services with REPSE registration allowed. High employer costs (IMSS, Infonavit, PTU). Termination without cause requires 3 months salary + 20 days per year seniority."
+      },
+      "official_wage_anchors": {
+        "description": "Named, attributable national wage anchors grounding the platform-estimate CPC/CPA/CPH figures above.",
+        "anchors": [
+          {
+            "metric": "Average daily base wage, IMSS-registered (formal) workers",
+            "value": "MXN 624.9/day (~MXN 18,750/month), +7% YoY; 22.84M formal jobs (Nov 2025)",
+            "source": "IMSS (Instituto Mexicano del Seguro Social); informality 54.9% per INEGI",
+            "url": "https://www.imss.gob.mx/prensa/archivo/202512/616",
+            "vintage": "2025",
+            "confidence": "high"
+          }
+        ]
       }
     },
     "canada": {
@@ -3371,6 +3459,19 @@
           "Employee councils mandatory for employers with 50+ employees"
         ],
         "compliance_notes": "EU member, full GDPR compliance required. Temporary work agency regulations strict. Ukrainian refugee workforce (1M+) since 2022 has special employment provisions."
+      },
+      "official_wage_anchors": {
+        "description": "Named, attributable labour-cost anchors grounding the platform-estimate CPC/CPA/CPH figures above.",
+        "anchors": [
+          {
+            "metric": "Hourly labour cost, whole economy",
+            "value": "~EUR 17.30/hr (2024; +12.8% YoY in national currency) vs EU avg EUR 33.5 / euro-area EUR 37.3",
+            "source": "Eurostat (EU/euro-area aggregates high-confidence; Poland country figure via secondary interpretation of Eurostat)",
+            "url": "https://ec.europa.eu/eurostat/web/products-eurostat-news/w/ddn-20250328-1",
+            "vintage": "2024",
+            "confidence": "medium"
+          }
+        ]
       }
     },
     "czech_republic": {
@@ -5801,6 +5902,27 @@
           "Maximum overtime: 40 hours/month, 200 hours/year (extendable to 300 in certain industries)"
         ],
         "compliance_notes": "Foreign worker permits strict. Manufacturing FDI (Samsung, Intel, etc.) drives massive blue-collar hiring. Tech outsourcing growing rapidly (HCMC, Hanoi, Da Nang)."
+      },
+      "official_wage_anchors": {
+        "description": "Named, attributable national wage anchors grounding the platform-estimate CPC/CPA/CPH figures above.",
+        "anchors": [
+          {
+            "metric": "Average monthly income of employees",
+            "value": "VND 8.4M/month (~US$321), +8.9% YoY; urban VND 10.4M (~US$397) vs rural VND 8.4M",
+            "source": "Vietnam General Statistics Office (GSO) / National Statistics Office",
+            "url": "https://www.nso.gov.vn/en/data-and-statistics/2026/01/socio-economic-situation-in-the-fourth-quarter-and-2025/",
+            "vintage": "2025",
+            "confidence": "high"
+          },
+          {
+            "metric": "Regional minimum wage (from 1 Jan 2026, Decree 293/2025)",
+            "value": "Region I VND 5,310,000 (~$210); Region II VND 4,730,000; Region III VND 4,140,000; Region IV VND 3,700,000/month",
+            "source": "Government of Vietnam Decree 293/2025/ND-CP (via Vietnam Briefing / The Shiv)",
+            "url": "https://www.vietnam-briefing.com/news/vietnam-wages-in-2025-overview-trends-implications.html/",
+            "vintage": "2026 (effective)",
+            "confidence": "medium"
+          }
+        ]
       }
     },
     "thailand": {
@@ -8168,5 +8290,55 @@
         ]
       }
     }
+  },
+  "authoritative_sources": {
+    "description": "Cross-market, named authoritative benchmarks (national statistics bureaus, Eurostat, ILO, and large-sample industry reports) added in v2.1 to ground the platform-estimate CPC/CPA/CPH figures elsewhere in this file. Per-country wage anchors live under each country's 'official_wage_anchors' block.",
+    "last_refreshed": "2026-06-13",
+    "benchmarks": [
+      {
+        "metric": "EU & euro-area average hourly labour cost (latest)",
+        "value": "EUR 12 to EUR 57 across member states in 2025 (2024: EU EUR 33.5, euro area EUR 37.3; lowest Bulgaria EUR 10.6, highest Luxembourg EUR 55.2)",
+        "source": "Eurostat (Labour Cost Survey / quarterly labour cost index)",
+        "url": "https://ec.europa.eu/eurostat/web/products-eurostat-news/w/ddn-20260331-2",
+        "vintage": "2024-2025",
+        "confidence": "high",
+        "applies_to": [
+          "poland",
+          "germany",
+          "france",
+          "netherlands",
+          "czech_republic",
+          "romania",
+          "sweden",
+          "norway",
+          "denmark",
+          "belgium",
+          "austria"
+        ]
+      },
+      {
+        "metric": "US average cost-per-hire, non-executive roles (reference)",
+        "value": "$5,475 (executive ~$35,879)",
+        "source": "SHRM 2025 Talent Acquisition Benchmarking Report",
+        "url": "https://www.shrm.org/about/press-room/shrm-releases-2025-benchmarking-reports--how-does-your-organizat",
+        "vintage": "2025",
+        "confidence": "high",
+        "applies_to": [
+          "us_reference"
+        ]
+      },
+      {
+        "metric": "Global/US recruitment overall apply rate (job-ad applies/clicks) (reference)",
+        "value": "6.1% at end of 2024 (up 35% over the year); healthcare CPAs above the $15-$35 range typical of other industries",
+        "source": "Appcast 2025 Recruitment Marketing Benchmark Report (1,300+ US employers; 379M clicks, 30M+ applies)",
+        "url": "https://www.appcast.io/the-2025-recruitment-marketing-benchmark-report-is-live/",
+        "vintage": "2024 data",
+        "confidence": "high",
+        "applies_to": [
+          "us_reference",
+          "cross_market"
+        ]
+      }
+    ]
   }
 }
