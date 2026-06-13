@@ -42,6 +42,17 @@ try:
 except ImportError:
     _HAS_COLLAR_INTEL = False
 
+# ── S89 KEYSTONE: optional first-party outcomes warehouse (cg_benchmarks) ──
+# Defensive import: when Supabase is disabled the accessor returns
+# {"matched": False}, so wiring is purely additive — no warehouse match (the
+# common case) leaves budget outputs byte-identical to before.
+try:
+    import supabase_data as _supabase_data
+
+    _HAS_SUPABASE_DATA = True
+except ImportError:
+    _HAS_SUPABASE_DATA = False
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LIVE DATA LOADERS -- channel_benchmarks_live.json & adzuna_benchmarks.json
@@ -2635,6 +2646,176 @@ def optimize_allocation(
 
 
 # ---------------------------------------------------------------------------
+# S89 KEYSTONE: first-party outcome warehouse wiring
+# ---------------------------------------------------------------------------
+
+# A match must clear this sample size before we surface a CPA-calibration note.
+# Below this, the measured cost-per-apply is too thin to flag against estimates.
+_KEYSTONE_STRONG_SAMPLE_SIZE: int = 30
+
+
+def _collect_real_outcomes(
+    roles: List[Dict],
+    primary_location: str,
+) -> List[Dict[str, Any]]:
+    """S89 KEYSTONE: fetch measured Joveo outcomes for the plan's roles.
+
+    Queries ``supabase_data.get_real_outcomes(role, primary_location)`` for each
+    role title and returns a compact list of matched outcomes for downstream
+    provenance callouts ("Joveo measured"). This is purely additive: when
+    Supabase is disabled, import-missing, or there is no warehouse coverage,
+    this returns an empty list and the caller leaves the result untouched.
+
+    Args:
+        roles: List of role dicts (each should carry a ``title``).
+        primary_location: Plan's primary location string (may be empty).
+
+    Returns:
+        List of dicts, each
+        ``{title, cost_per_apply, avg_applies, avg_cost, sample_size,
+        locations_covered, last_updated, source, confidence}``. Empty when no
+        role matches or the warehouse is unavailable.
+    """
+    if not _HAS_SUPABASE_DATA or not roles:
+        return []
+
+    outcomes: List[Dict[str, Any]] = []
+    seen_titles: set = set()
+    for role in roles:
+        if isinstance(role, dict):
+            title = role.get("title") or role.get("role") or role.get("name") or ""
+        elif isinstance(role, str):
+            title = role
+        else:
+            title = ""
+        title = str(title).strip()
+        if not title:
+            continue
+        # De-dupe so repeated role titles don't double-query / double-list.
+        dedupe_key = title.lower()
+        if dedupe_key in seen_titles:
+            continue
+        seen_titles.add(dedupe_key)
+
+        try:
+            real = _supabase_data.get_real_outcomes(title, primary_location or "")
+        except Exception as exc:  # noqa: BLE001 — Supabase outage must not break plans
+            logger.debug(
+                "get_real_outcomes failed for role %r (location %r): %s",
+                title,
+                primary_location,
+                exc,
+            )
+            continue
+
+        if not isinstance(real, dict) or not real.get("matched"):
+            continue
+
+        outcomes.append(
+            {
+                "title": title,
+                "cost_per_apply": real.get("cost_per_apply"),
+                "avg_applies": real.get("avg_applies"),
+                "avg_cost": real.get("avg_cost"),
+                "sample_size": real.get("sample_size"),
+                "locations_covered": real.get("locations_covered"),
+                "last_updated": real.get("last_updated"),
+                "source": real.get("source"),
+                "confidence": real.get("confidence"),
+            }
+        )
+
+    if outcomes:
+        logger.info(
+            "S89 keystone: matched %d real outcome(s) from cg_benchmarks "
+            "for %d role(s)",
+            len(outcomes),
+            len(roles),
+        )
+    return outcomes
+
+
+def _build_real_outcome_calibration(
+    real_outcomes: List[Dict[str, Any]],
+    estimated_cpa: float,
+) -> Optional[Dict[str, Any]]:
+    """S89 KEYSTONE: compare the plan's estimated CPA to measured cost-per-apply.
+
+    Surfacing + flagging ONLY — this never mutates the computed budget numbers.
+    Picks the matched outcome with the largest ``sample_size`` (most reliable),
+    and only emits a note when that sample clears
+    ``_KEYSTONE_STRONG_SAMPLE_SIZE`` and both CPAs are usable.
+
+    Args:
+        real_outcomes: Output of ``_collect_real_outcomes``.
+        estimated_cpa: The plan's estimated cost-per-application (USD).
+
+    Returns:
+        A calibration note dict, or None when there's no strong, comparable
+        match (the common case).
+    """
+    if not real_outcomes:
+        return None
+
+    # Strongest match = largest sample size with a usable measured CPA.
+    candidates = [
+        o
+        for o in real_outcomes
+        if isinstance(o.get("cost_per_apply"), (int, float))
+        and o.get("cost_per_apply") > 0
+        and isinstance(o.get("sample_size"), (int, float))
+    ]
+    if not candidates:
+        return None
+
+    best = max(candidates, key=lambda o: o.get("sample_size") or 0)
+    if (best.get("sample_size") or 0) < _KEYSTONE_STRONG_SAMPLE_SIZE:
+        return None
+
+    measured_cpa = float(best["cost_per_apply"])
+    note: Dict[str, Any] = {
+        "title": best.get("title"),
+        "measured_cost_per_apply": round(measured_cpa, 2),
+        "sample_size": int(best.get("sample_size") or 0),
+        "source": best.get("source"),
+        "confidence": best.get("confidence"),
+        "last_updated": best.get("last_updated"),
+    }
+
+    if isinstance(estimated_cpa, (int, float)) and estimated_cpa > 0:
+        est = float(estimated_cpa)
+        note["estimated_cost_per_apply"] = round(est, 2)
+        # Positive delta => the estimate is higher than measured (room to lower).
+        note["delta_abs"] = round(est - measured_cpa, 2)
+        note["delta_pct"] = round((est - measured_cpa) / measured_cpa * 100.0, 1)
+        if est > measured_cpa * 1.15:
+            direction = (
+                "Plan estimate runs above Joveo-measured cost-per-apply; "
+                "real campaigns for this role have come in cheaper."
+            )
+        elif est < measured_cpa * 0.85:
+            direction = (
+                "Plan estimate runs below Joveo-measured cost-per-apply; "
+                "real campaigns for this role have cost more."
+            )
+        else:
+            direction = (
+                "Plan estimate is in line with Joveo-measured cost-per-apply."
+            )
+        note["assessment"] = direction
+    else:
+        note["assessment"] = (
+            "Joveo-measured cost-per-apply available for this role; "
+            "no comparable plan estimate to calibrate against."
+        )
+
+    note["disclaimer"] = (
+        "Surfaced for context only — computed budget figures are unchanged."
+    )
+    return note
+
+
+# ---------------------------------------------------------------------------
 # Master function
 # ---------------------------------------------------------------------------
 
@@ -2883,6 +3064,23 @@ def calculate_budget_allocation(
             ),
         },
     }
+
+    # Step 7 (S89 KEYSTONE): attach first-party measured outcomes when the
+    # plan's roles match the cg_benchmarks warehouse. Purely additive — when
+    # Supabase is disabled or there's no match (the common case), nothing is
+    # added and the result above is returned byte-identically.
+    try:
+        real_outcomes = _collect_real_outcomes(roles, primary_location)
+        if real_outcomes:
+            result["metadata"]["real_outcomes"] = real_outcomes
+            calibration = _build_real_outcome_calibration(
+                real_outcomes,
+                total_projected.get("cost_per_application") or 0,
+            )
+            if calibration:
+                result["metadata"]["real_outcome_calibration"] = calibration
+    except Exception as exc:  # noqa: BLE001 — keystone surfacing is best-effort
+        logger.debug("S89 keystone outcome attach skipped: %s", exc)
 
     logger.info(
         "Budget allocation complete: $%.2f -> %d clicks, %d applications, "

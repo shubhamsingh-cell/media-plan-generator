@@ -626,6 +626,7 @@ _DATA_QUERY_INDICATORS = [
 # still available via other sources.
 _TOOL_ERROR_FALLBACK_MESSAGES: dict[str, str] = {
     "query_salary_data": "I wasn't able to access real-time salary data for this query, but based on our benchmark database and historical data, I can still provide reliable compensation ranges.",
+    "query_joveo_real_benchmarks": "I couldn't reach the Joveo campaign warehouse just now for measured cost-per-apply, but I can still provide estimates from our benchmark database.",
     "query_market_demand": "Real-time labor market demand data is temporarily unavailable, but I'll use our recruitment benchmarks and historical trends to give you a solid picture.",
     "query_h1b_salaries": "H-1B visa salary data couldn't be retrieved right now, but I can provide general salary benchmarks from our other data sources.",
     "query_channels": "Channel performance data is temporarily inaccessible, but I can recommend channels based on our platform intelligence and industry best practices.",
@@ -1517,6 +1518,7 @@ TOOLS_ESSENTIAL: set[str] = {
     # Core data tools (original 11)
     "query_knowledge_base",
     "query_salary_data",
+    "query_joveo_real_benchmarks",
     "query_h1b_salaries",
     "query_market_demand",
     "query_budget_projection",
@@ -1579,6 +1581,7 @@ def get_tools_for_provider(
 
 _TOOL_LABELS: Dict[str, str] = {
     "query_salary_data": "Searching salary data",
+    "query_joveo_real_benchmarks": "Checking Joveo measured outcomes",
     "query_market_demand": "Analyzing market demand",
     "query_budget_projection": "Calculating budget projections",
     "query_channels": "Finding best channels",
@@ -4704,6 +4707,24 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 },
             },
             {
+                "name": "query_joveo_real_benchmarks",
+                "description": "Joveo's REAL measured cost-per-apply and cost performance for a role (optionally a location), aggregated from first-party campaign outcomes in the cg_benchmarks warehouse. Use when the user asks for our ACTUAL/MEASURED/REAL performance (e.g. 'what's our real cost-per-apply for Registered Nurse in Dallas'). This is first-party measured data that beats static estimates when matched; returns a clear no-data message when the warehouse has no coverage for the role.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string",
+                            "description": "Job title (e.g., 'Registered Nurse', 'CDL Driver')",
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "Optional location (city, state, or country) to narrow the measured outcomes",
+                        },
+                    },
+                    "required": ["role"],
+                },
+            },
+            {
                 "name": "query_market_demand",
                 "description": "Job market demand: applicant ratios, source-of-hire, hiring strength, labor trends. Use for talent supply/demand and competition questions.",
                 "input_schema": {
@@ -7043,6 +7064,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "query_publishers": self._query_publishers,
             "query_knowledge_base": self._query_knowledge_base,
             "query_salary_data": self._query_salary_data,
+            "query_joveo_real_benchmarks": self._query_joveo_real_benchmarks,
             "query_market_demand": self._query_market_demand,
             "query_budget_projection": self._query_budget_projection,
             "query_location_profile": self._query_location_profile,
@@ -8638,6 +8660,49 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         # v2.0: Enrich with O*NET skills data when available
         result = self._enrich_salary_with_skills(result, role)
         return result
+
+    def _query_joveo_real_benchmarks(self, params: dict) -> dict:
+        """Joveo's REAL measured outcomes for a role from the cg_benchmarks warehouse.
+
+        Thin wrapper over supabase_data.get_real_outcomes(): returns first-party
+        measured cost / cost-per-apply for the role (optionally a location) so
+        Nova can answer "what's our REAL cost-per-apply for <role> in <location>".
+        When the warehouse has no coverage (matched=False), returns a clear
+        no-measured-data message so Nova falls back to estimates gracefully --
+        mirroring the no-match contract of the accessor exactly.
+        """
+        role = (params.get("role") or "").strip()
+        location = (params.get("location") or "").strip()
+
+        if not role:
+            return {
+                "matched": False,
+                "source": "Joveo Campaign Warehouse (cg_benchmarks)",
+                "message": (
+                    "No role was provided, so I can't look up measured "
+                    "cost-per-apply. Please specify a job title."
+                ),
+            }
+
+        from supabase_data import get_real_outcomes
+
+        outcomes = get_real_outcomes(role, location)
+
+        if not outcomes.get("matched"):
+            where = f" in {location}" if location else ""
+            return {
+                "matched": False,
+                "role": role,
+                "location": location or None,
+                "source": "Joveo Campaign Warehouse (cg_benchmarks)",
+                "message": (
+                    f"No measured data for '{role}'{where} in the Joveo "
+                    "campaign warehouse; using estimates instead."
+                ),
+            }
+
+        # Matched: surface the measured figures as-is (already JSON-serialisable).
+        return outcomes
 
     @staticmethod
     def _enrich_salary_with_skills(result: dict, role: str) -> dict:
@@ -26383,6 +26448,7 @@ _RE_DATA_POINT = re.compile(
 
 _TOOL_SOURCE_MAP: Dict[str, str] = {
     "query_salary_data": "BLS / Salary Data",
+    "query_joveo_real_benchmarks": "Joveo Campaign Warehouse (cg_benchmarks)",
     "query_publishers": "Joveo Publisher Network",
     "query_knowledge_base": "Recruitment Industry KB",
     "query_demand_data": "Market Demand API",
