@@ -59,7 +59,13 @@ bump · architecture design doc · **keystone accessor** `get_real_outcomes()` �
 
 ## 4. Decisions locked (user-delegated)
 - **#11 embeddings:** GEMINI (free, key in stack) — not paid Voyage. Needs reindex.
-- **#8 live refresh:** re-aggregate `cg_daily_raw` on a QStash cron (no ext. keys).
+- **#8 live refresh:** ⚠️ RE-SCOPED 2026-06-13 — a `cg_daily_raw`→`cg_benchmarks`
+  re-aggregation **cannot be built in MPG** (it would corrupt the keystone:
+  `cg_benchmarks` has client_name + revenue cols `avg_nr/avg_gr/avg_profit_pct`
+  + `avg_multiplier` that don't exist in `cg_daily_raw` and aren't a clean
+  formula; the transform is owned by the external `cg_*` uploader). See
+  `docs/BENCHMARK_REFRESH_FINDINGS_2026-06.md`. Path A (preferred): MPG cron
+  *triggers* the owning system's refresh; needs that entrypoint from the user.
 - **#9 source of truth:** Supabase canonical (benchmarks/supply/salary/compliance);
   JSON KB = curated/editorial + offline fallback. Migrate via dual-read parity.
 - **#10 MCP server:** internal-only, API-key gated (`NOVA_MCP_API_KEY`).
@@ -77,8 +83,11 @@ bump · architecture design doc · **keystone accessor** `get_real_outcomes()` �
 - ⏳ REMAINING build work (no user needed; do next session):
   - **#12 true Nova streaming** — deferred (riskiest); do solo behind a flag with
     fallback to the current simulated path.
-  - **#8 live-refresh cron** — decided: QStash endpoint re-aggregating
-    `cg_daily_raw`→`cg_benchmarks` on a schedule (no external keys). Build it.
+  - **#8 live-refresh cron** —🛑 BLOCKED/re-scoped after live schema inspection;
+    NOT a blind re-aggregation (corrupts keystone). See
+    `docs/BENCHMARK_REFRESH_FINDINGS_2026-06.md`. QStash infra
+    (`/api/cron/run` + `CRON_SECRET`, S88) already exists; the missing piece is
+    the *owned, correct* refresh action — needs a product decision from the user.
   - **#9 source-of-truth migration** — decided: Supabase canonical; implement
     dual-read parity checks → cutover; JSON KB stays as fallback.
   - **#15 external data MCPs** — deferred (opportunistic).
@@ -96,10 +105,15 @@ bump · architecture design doc · **keystone accessor** `get_real_outcomes()` �
     bug + generation-progress UX; h1b KB refresh; (later) agentic pipeline behind
     the flag per `docs/AGENTIC_GENERATION_DESIGN.md`.
 
-## 6. THE ONE thing needed from the user
-**Qdrant write credentials** → run the Gemini-embeddings reindex
-(`scripts/reindex_embeddings.py` once the fleet lands it). That unblocks Nova's
-search speed (#11). Everything else proceeds without the user.
+## 6. What's needed from the user
+1. **Qdrant write credentials** → run the Gemini-embeddings reindex
+   (`scripts/reindex_embeddings.py`). Unblocks Nova's search speed (#11).
+2. **#8 ownership decision** (NEW 2026-06-13) → which system owns the
+   `cg_*` upload→`cg_benchmarks` transform (incl. its revenue/multiplier model +
+   client mapping) and its refresh entrypoint. MPG can only *trigger* it, not
+   recompute it. See `docs/BENCHMARK_REFRESH_FINDINGS_2026-06.md`.
+
+Everything else proceeds without the user.
 
 ## 7. Architecture keystone (the big finding — see design doc)
 Products use **none** of the `cg_*` Supabase warehouse: `cg_daily_raw` (520,771
