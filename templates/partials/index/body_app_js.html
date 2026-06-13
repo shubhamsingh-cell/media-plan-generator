@@ -3301,10 +3301,19 @@
           if (!errorEl) {
             errorEl = document.createElement("div");
             errorEl.className = "field-error-msg";
+            // S89: announce inline field errors to screen readers
+            errorEl.setAttribute("role", "alert");
             formGroup.appendChild(errorEl);
           }
           errorEl.textContent = errorMsg;
           errorEl.style.display = "block";
+          // S89: mark the offending field invalid for assistive tech
+          var _invalidField = formGroup.querySelector(
+            "input, select, textarea"
+          );
+          if (_invalidField) {
+            _invalidField.setAttribute("aria-invalid", "true");
+          }
 
           // Trigger shake animation (respects prefers-reduced-motion)
           if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
