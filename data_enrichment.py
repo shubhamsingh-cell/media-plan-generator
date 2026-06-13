@@ -100,20 +100,16 @@ _ON_CONFLICT_MAP: dict[str, str] = {
 # -- Smart freshness thresholds (hours) per source -----------------------------
 # Each source is considered stale after this many hours without a refresh.
 FRESHNESS_THRESHOLDS: dict[str, int] = {
-    "live_market_data": 12,  # Job board pricing -- every 12h
-    "firecrawl_news": 6,  # Recruitment news -- every 6h (time-sensitive)
     "bls_salary": 168,  # Weekly (7d) -- BLS salary benchmarks
     "fred_economic": 168,  # Weekly -- FRED economic indicators
     "adzuna_jobs": 168,  # Weekly -- Adzuna job volume data
     "census_demographics": 720,  # Monthly (30d)
-    "compliance_updates": 168,  # Weekly (7d) -- regulatory changes
     "market_trends": 12,  # Market trend data -- every 12h
-    "firecrawl_salary": 168,  # Firecrawl salary scraping -- weekly
     "job_posting_volume": 12,  # Job posting volumes -- every 12h
-    "job_density": 12,  # Job density by location -- every 12h
-    "platform_ad_specs": 168,  # Ad specs -- weekly (rarely change)
-    "competitor_analysis": 168,  # Competitor careers -- weekly
     "benchmark_drift_check": 2160,  # Quarterly (90d) -- compare live CPC/CPA vs stored + file staleness
+    # Firecrawl-based source thresholds removed 2026-06-13 (firecrawl_enrichment
+    # deleted in S72): live_market_data, firecrawl_news, compliance_updates,
+    # firecrawl_salary, job_density, platform_ad_specs, competitor_analysis.
 }
 
 # -- Top roles for salary enrichment -------------------------------------------
@@ -1961,22 +1957,23 @@ class DataEnrichmentEngine:
         logger.info("Data enrichment cycle starting...")
         cycle_start = time.time()
 
+        # NOTE: 7 Firecrawl-based sources (live_market_data, firecrawl_news,
+        # compliance_updates, firecrawl_salary, job_density, platform_ad_specs,
+        # competitor_analysis) were removed from this schedule on 2026-06-13.
+        # The firecrawl_enrichment module was deleted in S72 (Firecrawl credits
+        # exhausted, 0/500 -- see app.py:75), so each of those collectors raised
+        # ImportError every cycle, was counted as "failed", and tripped false
+        # CRITICAL "Data Enrichment: multiple sources failed" alerts even though
+        # nothing was actually broken. Their now-unreachable _enrich_* methods
+        # remain defined below pending deletion. Re-add a source here only when a
+        # non-Firecrawl data path is wired up for it.
         tasks: list[tuple[str, callable]] = [
-            # Original tasks
-            ("live_market_data", self._enrich_live_market_data),
-            ("firecrawl_news", self._enrich_firecrawl_news),
             ("bls_salary", self._enrich_bls_salary),
             ("fred_economic", self._enrich_fred_economic),
             ("adzuna_jobs", self._enrich_adzuna_jobs),
             ("census_demographics", self._enrich_census_demographics),
-            ("compliance_updates", self._enrich_compliance_updates),
-            # NEW Firecrawl tasks
-            ("firecrawl_salary", self._enrich_firecrawl_salary),
             ("job_posting_volume", self._enrich_job_posting_volume),
-            ("job_density", self._enrich_job_density),
-            ("platform_ad_specs", self._enrich_platform_ad_specs),
-            ("competitor_analysis", self._enrich_competitor_analysis),
-            # Monthly benchmark drift check (CPC/CPA vs stored benchmarks)
+            # Quarterly benchmark drift check (CPC/CPA vs stored benchmarks)
             ("benchmark_drift_check", self._enrich_benchmark_drift_check),
         ]
 
