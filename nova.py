@@ -6976,7 +6976,6 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                                 "linkedin_benchmarks",
                                 "adzuna_benchmarks",
                                 "channel_benchmarks_live",
-                                "competitor_careers",
                                 "fred_indicators",
                                 "google_trends",
                                 "h1b_salary_intelligence",
@@ -7004,9 +7003,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                                 "CPA reference, sample pricing, why-Joveo, case study -- use for questions "
                                 "about how Joveo builds media plans or its pricing approach), "
                                 "linkedin_benchmarks (86KB, LinkedIn slot/performance data from 108K jobs), "
-                                "competitor_careers (23KB, career page analysis for 31 major employers), "
                                 "seasonal_hiring_trends (monthly/quarterly hiring patterns), "
-                                "job_density_metros (25KB, employment density for 45 US metros), "
+                                "job_density_metros (labor-market profiles for 76 US metros: population, median wage, cost-of-living, unemployment, anchor employers, market tier), "
                                 "salary_benchmarks_detailed (detailed salary ranges by role/location), "
                                 "h1b_salary_intelligence (H-1B visa salary data)."
                             ),
@@ -7785,7 +7783,6 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     "joveo_cpa_benchmarks",
                     "joveo_media_plan_deck",
                     "linkedin_benchmarks",
-                    "competitor_careers",
                     "seasonal_hiring_trends",
                     "job_density_metros",
                     "salary_benchmarks_detailed",
@@ -21469,6 +21466,16 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         else:
             _LOOP_BUDGET_C = _MAX_LOOP_CAP  # S50: was 35/50
 
+        # S89: Cross-iteration tool memo. Claude occasionally re-requests a
+        # tool it already ran in an EARLIER iteration of this same chat call
+        # (same name + same input). The S51 dedup below only collapses
+        # duplicates within one iteration; this memo spans the whole loop.
+        # Results cannot go stale within a single request, so reuse them
+        # instead of burning 3-5s and external API quota per repeat.
+        # Keyed by (tool_name, canonical-json(input)); only data-bearing
+        # results are memoized so transient errors still get retried.
+        _tool_memo: Dict[Tuple[str, str], str] = {}
+
         for iteration in range(max_iterations):
             # S24: Check deadline before starting a new iteration
             _elapsed_c = time.monotonic() - _loop_start_c
@@ -21626,6 +21633,35 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     )
                     _tool_use_blocks = _tool_use_blocks_unique
 
+                # S89: Serve repeats of earlier iterations' calls from the
+                # memo; only genuinely new (tool, input) pairs are executed.
+                _memo_hits: list[Tuple[str, str, str, dict]] = []
+                _exec_blocks: list = []
+                for _b in _tool_use_blocks:
+                    _mk = (
+                        _b.get("name", ""),
+                        json.dumps(_b.get("input", {}), sort_keys=True, default=str),
+                    )
+                    _memo_res = _tool_memo.get(_mk)
+                    if _memo_res is not None:
+                        _memo_hits.append(
+                            (
+                                _b.get("id") or "",
+                                _b.get("name", ""),
+                                _memo_res,
+                                _b.get("input", {}),
+                            )
+                        )
+                    else:
+                        _exec_blocks.append(_b)
+                if _memo_hits:
+                    logger.info(
+                        "Claude tools: memo -- reused %d result(s) from earlier "
+                        "iterations, executing %d fresh",
+                        len(_memo_hits),
+                        len(_exec_blocks),
+                    )
+
                 # S18: Capture parent thread's tool status queue for worker threads
                 _parent_tool_q_claude = _get_tool_status_queue()
 
@@ -21647,13 +21683,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 from concurrent.futures import ThreadPoolExecutor as _TPE_Claude
                 from concurrent.futures import as_completed as _as_done_claude
 
-                _claude_par: list[Tuple[str, str, str, dict]] = []
-                if len(_tool_use_blocks) > 1:
-                    _cpool = _TPE_Claude(max_workers=min(3, len(_tool_use_blocks)))
+                _claude_par: list[Tuple[str, str, str, dict]] = list(_memo_hits)
+                if len(_exec_blocks) > 1:
+                    _cpool = _TPE_Claude(max_workers=min(3, len(_exec_blocks)))
                     try:
                         _cfmap = {
                             _cpool.submit(_exec_claude_tool, blk): blk
-                            for blk in _tool_use_blocks
+                            for blk in _exec_blocks
                         }
                         for _cfut in _as_done_claude(_cfmap, timeout=8):  # S50: was 10
                             try:
@@ -21678,7 +21714,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         _cpool.shutdown(wait=False)
                 else:
                     # Single tool call -- no need for thread overhead
-                    for blk in _tool_use_blocks:
+                    for blk in _exec_blocks:
                         try:
                             _claude_par.append(_exec_claude_tool(blk))
                         except Exception as _cexc:
@@ -21736,6 +21772,18 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         )
 
                     tool_results_raw.append(_cresult)
+
+                    # S89: Memoize data-bearing results for later iterations.
+                    # Errors/empty results are NOT memoized so a retry within
+                    # the same request can still succeed. Bounded by the tool
+                    # cap, plus a hard guard against pathological growth.
+                    if has_data and len(_tool_memo) < 32:
+                        _tool_memo[
+                            (
+                                _cname,
+                                json.dumps(_cinp, sort_keys=True, default=str),
+                            )
+                        ] = _cresult
 
                     try:
                         _sem = json.loads(_cresult)

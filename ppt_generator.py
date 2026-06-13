@@ -102,6 +102,18 @@ def _generate_pie_chart_image(labels: List[str], sizes: List[float]) -> Optional
     if not _HAS_MATPLOTLIB or not labels or not sizes:
         return None
     try:
+        # S89: Cap slice count so the chart stays legible. Plans with many
+        # channels (10+) produced sliver slices and an overflowing legend;
+        # keep the top 7 by share and roll the rest into a single "Other".
+        _MAX_SLICES = 8
+        if len(labels) > _MAX_SLICES:
+            pairs = sorted(zip(labels, sizes), key=lambda p: p[1], reverse=True)
+            top = pairs[: _MAX_SLICES - 1]
+            rest = pairs[_MAX_SLICES - 1 :]
+            other_size = sum(sz for _, sz in rest)
+            labels = [lbl for lbl, _ in top] + [f"Other ({len(rest)} channels)"]
+            sizes = [sz for _, sz in top] + [round(other_size, 1)]
+
         fig, ax = plt.subplots(figsize=(7, 5), dpi=150)
         fig.patch.set_facecolor("#FFFCF9")
 
@@ -1116,7 +1128,7 @@ _CURRENCY_SYMBOLS = {
 def _fmt_currency(val, currency="USD", compact=False):
     """Format a number as currency. compact=True for $1.2M style."""
     if val is None:
-        return "N/A"
+        return "—"
     try:
         val = float(val)
     except (TypeError, ValueError):
@@ -1134,7 +1146,7 @@ def _fmt_currency(val, currency="USD", compact=False):
 def _fmt_pct(val, decimals=1):
     """Format as percentage."""
     if val is None:
-        return "N/A"
+        return "—"
     try:
         val = float(val)
     except (TypeError, ValueError):
@@ -2824,7 +2836,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     cqs = data.get("_creative_quality_score")
     if cqs and isinstance(cqs, dict) and cqs.get("score") is not None:
         _cqs_score = cqs.get("score", 0)
-        _cqs_grade = cqs.get("grade", "N/A")
+        _cqs_grade = cqs.get("grade", "—")
         _cqs_color = (
             GREEN
             if _cqs_score >= 70
@@ -4635,7 +4647,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
                 {
                     "metric": "Projected Hires",
                     "client_val": f"{int(proj_hires):,}",
-                    "industry_val": "N/A",
+                    "industry_val": "—",
                     "is_better": True,
                 }
             )
@@ -5183,7 +5195,7 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
             postings = role_data.get(
                 "total_postings", role_data.get("posting_count") or 0
             )
-            temp = role_data.get("market_temperature", "N/A")
+            temp = role_data.get("market_temperature", "—")
             trend = role_data.get("trend_direction", "stable")
             comp_idx = role_data.get("competition_index") or 0
             market_rows.append(
@@ -5192,14 +5204,14 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
                     (
                         f"{postings:,}"
                         if isinstance(postings, (int, float)) and postings > 0
-                        else "N/A"
+                        else "—"
                     ),
-                    temp.title() if temp else "N/A",
+                    temp.title() if temp else "—",
                     trend.title() if trend else "Stable",
                     (
                         f"{comp_idx:.2f}"
                         if isinstance(comp_idx, (int, float)) and comp_idx > 0
-                        else "N/A"
+                        else "—"
                     ),
                 )
             )
@@ -6720,7 +6732,7 @@ def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
             conf_val = 0.0
         if 0 < conf_val <= 1.0:
             conf_val = conf_val * 100
-        conf_str = f"{conf_val:.0f}%" if conf_val > 0 else "N/A"
+        conf_str = f"{conf_val:.0f}%" if conf_val > 0 else "—"
         _add_textbox(
             slide,
             Inches(0.55),
@@ -8922,10 +8934,10 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
     hero_metrics.extend(
         [
             (
-                _fmt_pct(confidence_score, decimals=0) if confidence_score else "N/A",
+                _fmt_pct(confidence_score, decimals=0) if confidence_score else "—",
                 "Confidence Score",
             ),
-            (f"{total_time:.1f}s" if total_time else "N/A", "Fetch Time"),
+            (f"{total_time:.1f}s" if total_time else "—", "Fetch Time"),
         ]
     )
 
@@ -9148,7 +9160,7 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
         table_rows.append(
             (
                 "No API enrichment data",
-                ("N/A", MUTED_TEXT),
+                ("—", MUTED_TEXT),
                 "Curated benchmarks used",
                 "--",
                 "--",

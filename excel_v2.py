@@ -2774,7 +2774,7 @@ def _build_sheet_executive_summary(
         row = _write_section_header(ws, row, "Creative Quality Score")
 
         cqs_score = cqs.get("score", 0)
-        cqs_grade = cqs.get("grade", "N/A")
+        cqs_grade = cqs.get("grade", "—")
         ws.merge_cells(
             start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
         )
@@ -3468,10 +3468,10 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         values = [
             loc,
             country,
-            pop_str or "N/A",
-            unemp_str or "N/A",
-            income_str or "N/A",
-            industry_str[:80] if industry_str else "N/A",
+            pop_str or "—",
+            unemp_str or "—",
+            income_str or "—",
+            industry_str[:80] if industry_str else "—",
         ]
 
         row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
@@ -3906,7 +3906,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     _flatten_value(
                         demand.get("trend", demand.get("trend_direction") or "")
                     ),
-                    _search_interest_str or "N/A",
+                    _search_interest_str or "—",
                 ]
                 row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
 
@@ -4343,7 +4343,7 @@ def _build_sheet_sources(ws, data: dict):
                 warn.get("location", ""),
                 severity,
                 (warn.get("reason") or "")[:80],
-                (warn.get("known_states_display") or "N/A")[:60],
+                (warn.get("known_states_display") or "—")[:60],
                 (warn.get("suggestion") or "")[:80],
             ]
             fills_list = [None, sev_fill, None, None, None]
@@ -5187,7 +5187,7 @@ def _build_sheet_quality_intelligence(
                         .replace("_", " ")
                         .title(),
                         f"{info.get('cost_of_living_index', 100):.1f}",
-                        str(info.get("salary_range") or "N/A"),
+                        str(info.get("salary_range") or "—"),
                     ],
                     alternate=idx % 2 == 1,
                 )
@@ -5235,7 +5235,7 @@ def _build_sheet_quality_intelligence(
                                 f"${sal.get('median', 0):,.0f}",
                                 f"${sal.get('max', 0):,.0f}",
                                 f"{sal.get('multiplier', 1.0):.2f}x",
-                                str(sal.get("source") or "N/A"),
+                                str(sal.get("source") or "—"),
                             ],
                             alternate=alt_idx % 2 == 1,
                         )
@@ -5264,7 +5264,7 @@ def _build_sheet_quality_intelligence(
                 ws, row, "Defense Related", "Yes -- clearance requirements detected"
             )
             row = _write_kv_row(
-                ws, row, "Primary Clearance", str(primary.get("level") or "N/A")
+                ws, row, "Primary Clearance", str(primary.get("level") or "—")
             )
             row = _write_kv_row(
                 ws,
@@ -5343,7 +5343,7 @@ def _build_sheet_quality_intelligence(
                     continue  # skip internal keys like _national
                 employers = info.get("top_employers") or []
                 intensity = str(info.get("hiring_intensity") or "moderate").lower()
-                est_postings = info.get("estimated_competing_postings") or "N/A"
+                est_postings = info.get("estimated_competing_postings") or "—"
 
                 # Generate WHY each competitor group matters
                 if intensity in ("high", "very_high"):
@@ -6679,7 +6679,7 @@ def _build_sheet_international_benchmarks(
                 _cpc_parts.append(
                     f"${_cpc.get('min', 0):.2f}-${_cpc.get('max', 0):.2f}"
                 )
-        _cpc_str = "; ".join(_cpc_parts[:2]) if _cpc_parts else "N/A"
+        _cpc_str = "; ".join(_cpc_parts[:2]) if _cpc_parts else "—"
 
         # CPA range
         _cpa_parts = []
@@ -6689,7 +6689,7 @@ def _build_sheet_international_benchmarks(
                 _cpa_parts.append(
                     f"${_cpa.get('min', 0):.0f}-${_cpa.get('max', 0):.0f}"
                 )
-        _cpa_str = "; ".join(_cpa_parts[:2]) if _cpa_parts else "N/A"
+        _cpa_str = "; ".join(_cpa_parts[:2]) if _cpa_parts else "—"
 
         # CPH by tier
         _cph = _cv.get("cph_by_tier", {})
@@ -6699,7 +6699,7 @@ def _build_sheet_international_benchmarks(
             if isinstance(tier_data, dict) and tier_data.get("usd"):
                 _label = tier_key.replace("_", " ").title()
                 _cph_parts.append(f"{_label}: ${tier_data['usd']:,}")
-        _cph_str = " | ".join(_cph_parts) if _cph_parts else "N/A"
+        _cph_str = " | ".join(_cph_parts) if _cph_parts else "—"
 
         # Regulatory
         _reg = _cv.get("regulatory", {})
@@ -6710,7 +6710,7 @@ def _build_sheet_international_benchmarks(
         _key_regs = _reg.get("key_regulations", [])
         if _key_regs:
             _reg_notes.append(_key_regs[0][:80])
-        _reg_str = "; ".join(_reg_notes) if _reg_notes else "N/A"
+        _reg_str = "; ".join(_reg_notes) if _reg_notes else "—"
 
         # Write row
         is_alt = (row % 2) == 0

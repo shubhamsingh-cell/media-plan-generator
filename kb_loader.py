@@ -246,7 +246,8 @@ KB_FILES: dict[str, str] = {
     "adzuna_benchmarks": "adzuna_benchmarks.json",
     "channel_benchmarks_live": "channel_benchmarks_live.json",
     "channels_db": "channels_db.json",
-    "competitor_careers": "competitor_careers.json",
+    # competitor_careers removed S89: Firecrawl source module deleted (S72);
+    # data file permanently absent -- was loading as an empty section.
     "fred_indicators": "fred_indicators.json",
     "google_trends": "google_trends.json",
     "h1b_salary_intelligence": "h1b_salary_intelligence.json",

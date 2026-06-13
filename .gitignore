@@ -23,10 +23,15 @@ data/auto_qc_results.json
 data/enrichment_state.json
 data/persistent/
 data/competitor_careers.json
-data/job_density_metros.json
+# job_density_metros.json now committed (S89): deterministically derived from
+# research.METRO_DATA (76 real US metros) so it deploys with the app instead of
+# loading as an empty section / being absent on fresh checkouts.
 
 # Visual regression screenshots
 tests/screenshots/
+
+# Local sample-render output (scripts/render_sample_outputs.py)
+tmp_render/
 
 # Resilience router local data
 data/analytics/

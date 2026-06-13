@@ -106,6 +106,9 @@ _CPA_TOLERANCE = 0.15
 # Hires discrepancy tolerance (5%)
 _HIRES_TOLERANCE = 0.05
 
+# Channel allocation sum tolerance vs total budget (2%)
+_ALLOCATION_TOLERANCE = 0.02
+
 # Salary outlier multipliers
 _SALARY_UPPER_MULT = 2.0
 _SALARY_LOWER_MULT = 0.5
@@ -366,6 +369,128 @@ def _check_cpa_vs_budget(data: dict) -> list[dict[str, Any]]:
     return findings
 
 
+def _check_budget_allocation_sum(data: dict) -> list[dict[str, Any]]:
+    """Check 7: Channel allocations must sum to the total budget.
+
+    Rounding drift and post-hoc channel adjustments (rebalancing, CPH floor
+    scaling) can leave the sum of per-channel ``dollar_amount`` values above
+    or below the campaign's total budget.  Over-allocation is auto-corrected
+    by scaling every channel (and its linear projections, so CPA/CPC stay
+    internally consistent) down proportionally.  Material under-allocation
+    is flagged but left as-is since it may be an intentional contingency
+    reserve.
+    """
+    findings: list[dict[str, Any]] = []
+    budget_alloc = data.get("_budget_allocation") or {}
+    ch_allocs = budget_alloc.get("channel_allocations") or {}
+    meta = budget_alloc.get("metadata") or {}
+
+    total_budget = float(meta.get("total_budget") or 0)
+    if total_budget <= 0 or not ch_allocs:
+        return findings
+
+    allocated = sum(
+        float(ch_data.get("dollar_amount") or 0)
+        for ch_data in ch_allocs.values()
+        if isinstance(ch_data, dict)
+    )
+    if allocated <= 0:
+        return findings
+
+    drift = (allocated - total_budget) / total_budget
+
+    if drift > _ALLOCATION_TOLERANCE:
+        scale = total_budget / allocated
+        for ch_data in ch_allocs.values():
+            if not isinstance(ch_data, dict):
+                continue
+            old_amount = float(ch_data.get("dollar_amount") or 0)
+            ch_data["dollar_amount"] = round(old_amount * scale, 2)
+            # Scale linear projections by the same factor so per-channel
+            # CPA/CPC/CPH derived from them remain unchanged.
+            for proj_key in (
+                "projected_clicks",
+                "projected_applications",
+                "projected_hires",
+            ):
+                proj_val = ch_data.get(proj_key)
+                if isinstance(proj_val, (int, float)) and proj_val > 0:
+                    scaled = proj_val * scale
+                    ch_data[proj_key] = (
+                        round(scaled, 2)
+                        if isinstance(proj_val, float)
+                        else max(0, int(round(scaled)))
+                    )
+            ch_data["_validator_corrected_allocation"] = True
+
+        # Keep aggregate totals consistent with the rescaled channels.
+        totals = budget_alloc.get("total_projected")
+        if isinstance(totals, dict):
+            for tot_key in ("clicks", "applications", "hires"):
+                tot_val = totals.get(tot_key)
+                if isinstance(tot_val, (int, float)) and tot_val > 0:
+                    scaled = tot_val * scale
+                    totals[tot_key] = (
+                        round(scaled, 2)
+                        if isinstance(tot_val, float)
+                        else max(0, int(round(scaled)))
+                    )
+            hires_now = float(totals.get("hires") or 0)
+            if hires_now > 0:
+                totals["cost_per_hire"] = round(total_budget / hires_now, 2)
+            apps_now = float(totals.get("applications") or 0)
+            if apps_now > 0:
+                totals["cost_per_application"] = round(total_budget / apps_now, 2)
+            clicks_now = float(totals.get("clicks") or 0)
+            if clicks_now > 0:
+                totals["cost_per_click"] = round(total_budget / clicks_now, 2)
+
+        findings.append(
+            {
+                "check": "budget_allocation_sum",
+                "severity": "high",
+                "message": (
+                    f"Channel allocations (${allocated:,.0f}) exceed total budget "
+                    f"(${total_budget:,.0f}) by {drift:.1%} -- rescaled all "
+                    f"channels proportionally"
+                ),
+                "auto_corrected": True,
+                "old_value": round(allocated, 2),
+                "new_value": round(total_budget, 2),
+            }
+        )
+        logger.info(
+            "Validator: Allocations rescaled $%.0f -> $%.0f (drift %.1f%%)",
+            allocated,
+            total_budget,
+            drift * 100,
+        )
+    elif drift < -_ALLOCATION_TOLERANCE:
+        findings.append(
+            {
+                "check": "budget_allocation_sum",
+                "severity": "low",
+                "message": (
+                    f"Channel allocations (${allocated:,.0f}) leave "
+                    f"${total_budget - allocated:,.0f} ({-drift:.1%}) of the "
+                    f"total budget (${total_budget:,.0f}) unallocated -- "
+                    f"verify this is an intentional contingency reserve"
+                ),
+                "auto_corrected": False,
+                "allocated": round(allocated, 2),
+                "total_budget": round(total_budget, 2),
+                "unallocated": round(total_budget - allocated, 2),
+            }
+        )
+        logger.warning(
+            "Validator: $%.0f (%.1f%%) of budget unallocated across channels",
+            total_budget - allocated,
+            -drift * 100,
+        )
+
+    return findings
+
+
 def _check_confidence_consistency(data: dict) -> list[dict[str, Any]]:
     """Check 4: Confidence consistency across channels.
 
@@ -606,6 +731,9 @@ def validate_plan(data: dict) -> dict:
         ("salary_vs_role", _check_salary_vs_role),
         ("demand_vs_temperature", _check_demand_vs_temperature),
         ("cpa_vs_budget", _check_cpa_vs_budget),
+        # Runs after the CPA check -- rescaling scales dollars and projections
+        # together, so per-channel CPA/CPC ratios are preserved.
+        ("budget_allocation_sum", _check_budget_allocation_sum),
         ("confidence_consistency", _check_confidence_consistency),
         ("hires_consistency", _check_hires_consistency),
         ("location_sanity", _check_location_sanity),

@@ -895,7 +895,7 @@ def generate_pdf_report(
             continue
         ch_rows.append(
             [
-                _safe_str(ch.get("name") or ch.get("channel") or "N/A"),
+                _safe_str(ch.get("name") or ch.get("channel") or "—"),
                 _format_pct(ch.get("allocation_pct") or 0),
                 _format_currency(ch.get("spend") or ch.get("budget") or 0),
                 _format_currency(ch.get("cpc") or ch.get("cost_per_click") or 0),

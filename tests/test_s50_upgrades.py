@@ -192,8 +192,8 @@ class TestTier1StaticValidation:
 
             assert fresh_cfg[CLAUDE]["model"] == "claude-sonnet-4-6"
 
-    def test_claude_opus_uses_4_7(self) -> None:
-        """CLAUDE_OPUS entry must point to claude-opus-4-7 by default."""
+    def test_claude_opus_uses_4_8(self) -> None:
+        """CLAUDE_OPUS entry must point to claude-opus-4-8 by default (S89)."""
         from llm_router import CLAUDE_OPUS
 
         with mock.patch.dict(os.environ, {}, clear=False):
@@ -201,7 +201,7 @@ class TestTier1StaticValidation:
             importlib.reload(importlib.import_module("llm_router"))
             from llm_router import PROVIDER_CONFIG as fresh_cfg
 
-            assert fresh_cfg[CLAUDE_OPUS]["model"] == "claude-opus-4-7"
+            assert fresh_cfg[CLAUDE_OPUS]["model"] == "claude-opus-4-8"
 
     def test_openrouter_uses_qwen3_coder(self) -> None:
         """OPENROUTER entry must point to qwen/qwen3-coder:free by default."""

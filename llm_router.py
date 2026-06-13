@@ -931,7 +931,9 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     CLAUDE: {
         # S50 UPGRADE (May 2026): claude-sonnet-4-20250514 (May 2025) is a year
         # old. Sonnet 4.6 is GA -- same API key, model-string-only change.
-        # Override via env if needed: CLAUDE_SONNET_MODEL=claude-sonnet-4-20250514
+        # S89 (Jun 2026): env example now names a current id -- the -20250514
+        # snapshot retires 2026-06-15 and would 404 if anyone set it.
+        # Override via env if needed: CLAUDE_SONNET_MODEL=claude-sonnet-4-6
         "name": "Claude Sonnet 4.6 (Anthropic)",
         "api_style": "anthropic",  # Anthropic-specific format
         "endpoint": "https://api.anthropic.com/v1/messages",
@@ -943,13 +945,15 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
     },
     CLAUDE_OPUS: {
-        # S50 UPGRADE (May 2026): Opus 4.7 GA'd Apr 16, 2026. 1M-context, more
-        # literal instruction-following than 4.6, same $5/$25 per M. Override
-        # via env if needed: CLAUDE_OPUS_MODEL=claude-opus-4-20250514
-        "name": "Claude Opus 4.7 (Anthropic)",
+        # S89 UPGRADE (Jun 2026): bumped Opus 4.7 -> Opus 4.8. 4.8 is the current
+        # Opus tier (most capable GA model), same $5/$25 per M and identical
+        # request surface as 4.7 (adaptive thinking only; no temperature /
+        # budget_tokens) -- a strictly-better drop-in, no code changes needed.
+        # Override via env if needed: CLAUDE_OPUS_MODEL=claude-opus-4-7
+        "name": "Claude Opus 4.8 (Anthropic)",
         "api_style": "anthropic",  # Anthropic-specific format
         "endpoint": "https://api.anthropic.com/v1/messages",
-        "model": os.environ.get("CLAUDE_OPUS_MODEL") or "claude-opus-4-7",
+        "model": os.environ.get("CLAUDE_OPUS_MODEL") or "claude-opus-4-8",
         "env_key": "ANTHROPIC_API_KEY",  # Same API key, different model
         "rpm_limit": 25,  # Conservative -- most expensive model
         "rpd_limit": 2000,
