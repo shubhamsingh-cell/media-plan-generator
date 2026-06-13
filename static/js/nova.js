@@ -581,7 +581,9 @@
           });
           t += "</tr>";
         });
-        return t + "</tbody></table>";
+        // S89: wrap in a horizontal-scroll container so wide benchmark/
+        // publisher grids (5-7 cols) scroll instead of clipping in the bubble.
+        return '<div class="table-scroll">' + t + "</tbody></table></div>";
       },
     );
 
@@ -592,7 +594,14 @@
 
     // Bold and italic
     h = h.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-    h = h.replace(/\*(.+?)\*/g, "<em>$1</em>");
+    // S89: italic must NOT match arithmetic asterisks. Nova answers about CPC
+    // math, budget ratios, and multipliers constantly ("5 * 3 * 2", "2.5x"),
+    // and the old /\*(.+?)\*/ turned those into <em>. Require non-space
+    // boundaries inside the asterisks and word/non-asterisk boundaries outside.
+    h = h.replace(
+      /(^|[^*\w])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![*\w])/g,
+      "$1<em>$2</em>"
+    );
 
     // Inline code (but not inside pre/code blocks)
     h = h.replace(/`([^`]+)`/g, "<code>$1</code>");

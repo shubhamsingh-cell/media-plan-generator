@@ -137,12 +137,18 @@ class TestBranding:
 
     @pytest.mark.parametrize("filename", _CONTENT_TEMPLATES)
     def test_text_color(self, filename: str) -> None:
-        """Each full template should use the standard text color #e4e4e7.
-        Component stubs (index.html) are excluded.
+        """Each full template must use a standard brand text color.
+
+        Two are allowed: #e4e4e7 (zinc-200) for the legacy DARK dashboard
+        theme, and #1f2937 (Joveo INK) for the LIGHT deck theme used by Nova
+        and the deliverable surfaces (S89). Component stubs are excluded.
         """
         content = (TEMPLATES_DIR / filename).read_text(encoding="utf-8").lower()
-        has_color = "#e4e4e7" in content
-        assert has_color, f"{filename} missing standard text color (#e4e4e7)"
+        has_color = "#e4e4e7" in content or "#1f2937" in content
+        assert has_color, (
+            f"{filename} missing a standard text color "
+            f"(#e4e4e7 dark-theme or #1f2937 light-deck-theme)"
+        )
 
 
 class TestSecurityInTemplates:

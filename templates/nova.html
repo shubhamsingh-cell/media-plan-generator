@@ -516,6 +516,7 @@
                 rows="1"
                 aria-label="Message input"
                 autocomplete="off"
+                maxlength="4000"
               ></textarea>
               <div class="input-actions">
                 <!-- Attach file -->
@@ -595,7 +596,12 @@
               </div>
             </div>
             <div style="display: flex; align-items: center; gap: 0">
-              <div class="char-count" id="char-count">0 / 4000</div>
+              <div
+                class="char-count"
+                id="char-count"
+                role="status"
+                aria-live="polite"
+              >0 / 4000</div>
               <div
                 id="token-indicator"
                 style="

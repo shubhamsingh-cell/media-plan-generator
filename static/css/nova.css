@@ -861,13 +861,20 @@ a:hover {
 }
 
 /* Tables in messages */
+/* S89: wide tables scroll horizontally instead of clipping. The scroll
+   wrapper owns the margin + rounded clip; the table sizes to its content so
+   5-7 column benchmark/publisher grids stay fully readable. */
+.message-content .table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 12px 0;
+  border-radius: var(--radius-sm);
+}
 .message-content table {
   border-collapse: collapse;
   width: 100%;
-  margin: 12px 0;
+  margin: 0;
   font-size: 13px;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
 }
 .message-content th,
 .message-content td {
@@ -1081,19 +1088,22 @@ a:hover {
   border-radius: var(--radius-full);
   font-weight: 600;
 }
+/* S89: confidence badge text darkened to pass WCAG AA (>=4.5:1) on the light
+   tint -- the prior tokens (#22c55e/#f59e0b/#ef4444) measured 2.1-3.8:1 and
+   were illegible at 11px. Tinted backgrounds unchanged. */
 .conf-high {
   background: rgba(52, 211, 153, 0.1);
-  color: var(--accent-green);
+  color: #15803d; /* green-700 ~4.9:1 */
   border: 1px solid rgba(52, 211, 153, 0.2);
 }
 .conf-medium {
   background: rgba(255, 170, 0, 0.1);
-  color: var(--accent-orange);
+  color: #b45309; /* amber-700 ~5.0:1 */
   border: 1px solid rgba(255, 170, 0, 0.2);
 }
 .conf-low {
   background: rgba(248, 113, 113, 0.1);
-  color: var(--accent-red);
+  color: #b91c1c; /* red-700 ~5.9:1 */
   border: 1px solid rgba(248, 113, 113, 0.2);
 }
 
@@ -2245,7 +2255,10 @@ a:hover {
 
 .nova-tool-pill-active {
   background: rgba(90, 84, 190, 0.12);
-  color: var(--accent-purple-light);
+  /* S89: was --accent-purple-light #8680d6 (2.9:1 on the tint, fails AA);
+     use --accent-purple #5a54be (~4.6:1) so "Searching publishers…" is legible
+     regardless of theme/FOUC. */
+  color: var(--accent-purple);
   border: 1px solid rgba(90, 84, 190, 0.2);
 }
 
