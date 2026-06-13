@@ -3948,7 +3948,7 @@ def _verify_plan_data(data):
     Returns verification status dict. Non-blocking -- failures return 'skipped'.
     """
     try:
-        from llm_router import call_llm, TASK_VERIFICATION
+        from llm_router import call_llm_json, TASK_VERIFICATION
     except ImportError:
         return {"status": "skipped", "reason": "llm_router_unavailable"}
 
@@ -4074,28 +4074,35 @@ OR
     try:
         # S50: 10s timeout for verification -- structured JSON, Gemini preferred.
         # Falls back through TASK_VERIFICATION chain if Gemini unavailable.
-        result = call_llm(
+        # S89: via call_llm_json so a malformed/fenced response is schema-validated
+        # and retried once before we skip, instead of a one-shot regex+json.loads.
+        _v_schema = {
+            "type": "object",
+            "properties": {
+                "verified": {"type": "boolean"},
+                "issues": {"type": "array", "items": {"type": "string"}},
+                "severity": {"type": "string", "enum": ["none", "minor", "major"]},
+            },
+            "required": ["verified"],
+        }
+        res = call_llm_json(
             messages=[{"role": "user", "content": prompt}],
-            system_prompt="You are a recruitment advertising data verifier. Return ONLY valid JSON.",
+            schema=_v_schema,
+            system_prompt="You are a recruitment advertising data verifier.",
             max_tokens=512,
             task_type=TASK_VERIFICATION,
             query_text="verify media plan data",
             preferred_providers=["gemini"],
             timeout_budget=10.0,
         )
-        if result and (result.get("text") or result.get("content")):
-            content = result.get("text") or result.get("content") or ""
-            import re as _re
-
-            json_match = _re.search(r"\{[\s\S]*?\}", content)
-            if json_match:
-                parsed = json.loads(json_match.group())
-                return {
-                    "status": "verified" if parsed.get("verified") else "issues_found",
-                    "issues": parsed.get("issues") or [],
-                    "severity": parsed.get("severity", "none"),
-                    "provider": result.get("provider", "unknown"),
-                }
+        parsed = res.get("data")
+        if res.get("ok") and isinstance(parsed, dict):
+            return {
+                "status": "verified" if parsed.get("verified") else "issues_found",
+                "issues": parsed.get("issues") or [],
+                "severity": parsed.get("severity", "none"),
+                "provider": res.get("provider", "unknown"),
+            }
     except Exception:
         pass
 
