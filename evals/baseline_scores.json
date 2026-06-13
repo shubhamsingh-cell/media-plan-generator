@@ -1,0 +1,11 @@
+{
+  "overall_score": 93.75,
+  "categories": {
+    "Budget Sanity": 96.67,
+    "Collar Consistency": 88.24,
+    "Geographic Coherence": 100.0,
+    "CPA Reasonableness": 96.15
+  },
+  "total_cases": 128,
+  "total_passed": 120
+}

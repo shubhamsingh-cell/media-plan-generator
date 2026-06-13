@@ -52,6 +52,36 @@ jobs:
           python3 -c "import app" 2>&1
           echo "app.py imported successfully"
 
+  eval-gate:
+    name: Plan-Quality Eval Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run offline plan-quality eval gate
+        run: |
+          echo "=== Running offline plan-quality eval gate ==="
+          # eval_framework.EvalSuite is deterministic + offline (no LLM/network):
+          # it runs check callables against the real budget/collar/geo/cpa engines.
+          # Fails the build if overall/per-category pass-rates drop below the
+          # floors in DEFAULT_THRESHOLDS or regress >3pp vs evals/baseline_scores.json.
+          python3 scripts/eval_gate.py --report evals/gate_report.json
+
+      - name: Upload eval-gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-gate-report
+          path: evals/gate_report.json
+          if-no-files-found: ignore
+
   syntax-check:
     name: CSS/JS Syntax Check
     runs-on: ubuntu-latest
