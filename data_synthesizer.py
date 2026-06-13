@@ -4732,9 +4732,19 @@ Format your response as JSON with these exact keys:
 
 Respond with ONLY the JSON object, no markdown formatting or code blocks."""
 
+    expected_keys = (
+        "executive_summary",
+        "strategic_recommendations",
+        "competitive_insights",
+        "risk_assessment",
+    )
+
     try:
-        from llm_router import call_llm, TASK_PLAN_NARRATIVE
-        import json as _json
+        # S89: route through the structured-JSON primitive (call_llm_json) so a
+        # malformed/fenced response is schema-validated and retried once before
+        # we fall back -- instead of a one-shot hand-rolled json.loads. Same
+        # routing (TASK_PLAN_NARRATIVE) and 10s plan-gen budget as before.
+        from llm_router import call_llm_json, TASK_PLAN_NARRATIVE
 
         # Scale max_tokens for complex multi-city/multi-role plans
         _roles_raw = input_data.get("target_roles") or input_data.get("roles") or []
@@ -4743,47 +4753,37 @@ Respond with ONLY the JSON object, no markdown formatting or code blocks."""
         _n_locs = len(_locs_raw) if isinstance(_locs_raw, list) else 1
         _narrative_max_tokens = 8192 if (_n_roles >= 3 or _n_locs >= 3) else 1024
 
+        _schema = {
+            "type": "object",
+            "properties": {k: {"type": "string"} for k in expected_keys},
+            "required": list(expected_keys),
+        }
+
         # S48: Route plan narratives to Groq (fast prose) via TASK_PLAN_NARRATIVE
         # S50: 10s timeout for plan-gen LLM calls to avoid blocking the pipeline.
-        result = call_llm(
+        res = call_llm_json(
             messages=[{"role": "user", "content": prompt}],
-            system_prompt="You are a senior recruitment marketing strategist. Return ONLY valid JSON.",
+            schema=_schema,
+            system_prompt="You are a senior recruitment marketing strategist.",
             max_tokens=_narrative_max_tokens,
             task_type=TASK_PLAN_NARRATIVE,
             timeout_budget=10.0,
         )
 
-        text = (result or {}).get("text") or ""
-        provider = (result or {}).get("provider", "unknown")
-        if text:
-            logger.info(
-                "AI narratives generated via %s/%s",
-                provider,
-                (result or {}).get("model", "unknown"),
+        narratives = res.get("data")
+        if not res.get("ok") or not isinstance(narratives, dict):
+            logger.warning(
+                "AI narrative generation failed (provider=%s): %s",
+                res.get("provider") or "unknown",
+                res.get("error") or "no data returned",
             )
-
-        if not text:
             return {}
 
-        # Parse JSON from response (handle potential markdown wrapping)
-        text = text.strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-            text = text.rsplit("```", 1)[0]
-        text = text.strip()
+        logger.info(
+            "AI narratives generated via %s", res.get("provider") or "unknown"
+        )
 
-        narratives = _json.loads(text)
-
-        # Validate expected keys
-        expected_keys = {
-            "executive_summary",
-            "strategic_recommendations",
-            "competitive_insights",
-            "risk_assessment",
-        }
-        if not isinstance(narratives, dict):
-            return {}
-        # Only keep expected keys
+        # Only keep expected keys with string values
         return {
             k: v
             for k, v in narratives.items()
