@@ -28,12 +28,28 @@ Storage tiers for build_index:
 This keeps our stdlib-only approach while enabling hybrid search across
 the Nova knowledge base.
 
+Embedding provider switch:
+    EMBEDDING_PROVIDER selects which embedding backend to use:
+        "voyage" (default)  -- Voyage AI voyage-3-lite, 512-dim (existing path)
+        "gemini"            -- Google Gemini text-embedding-004, 768-dim (free,
+                               reuses the GEMINI_API_KEY already in the stack)
+    The two models live in *different* embedding spaces and produce vectors of
+    different dimension, so switching provider requires reindexing Qdrant at the
+    matching dimension. Run scripts/reindex_embeddings.py after changing the
+    provider. Voyage remains the default for safety -- nothing changes unless
+    EMBEDDING_PROVIDER is explicitly set to "gemini".
+
 APIs:
     Voyage AI: POST https://api.voyageai.com/v1/embeddings
-    Qdrant:    REST API at QDRANT_URL (collection: nova_knowledge, 1024-dim cosine)
+    Gemini:    POST https://generativelanguage.googleapis.com/v1beta/models/
+               text-embedding-004:batchEmbedContents?key=GEMINI_API_KEY
+    Qdrant:    REST API at QDRANT_URL (collection: nova_knowledge, cosine; dim
+               depends on the active embedding provider -- 512 voyage / 768 gemini)
 
 Env vars:
+    EMBEDDING_PROVIDER -- "voyage" (default) or "gemini"
     VOYAGE_API_KEY  -- Voyage AI embeddings (200M free tokens)
+    GEMINI_API_KEY  -- Google Gemini embeddings (free; same key as llm_router)
     QDRANT_URL      -- Qdrant Cloud cluster URL
     QDRANT_API_KEY  -- Qdrant Cloud API key
 
@@ -93,6 +109,67 @@ _is_startup_indexing = True  # Flag to use smaller batches during startup
 _voyage_request_times: list[float] = []
 _voyage_rate_lock = threading.Lock()
 _voyage_last_request: float = 0.0  # monotonic timestamp of last API call
+
+# ── Embedding provider switch (Voyage vs Gemini) ─────────────────────────────
+# Selected by the EMBEDDING_PROVIDER env var. "voyage" (default) keeps the
+# existing path fully intact; "gemini" routes embeddings through Google's free
+# text-embedding-004 model using the GEMINI_API_KEY already used by llm_router.
+# The two models are different embedding spaces with different dimensions
+# (512 voyage-3-lite vs 768 text-embedding-004), so switching requires a Qdrant
+# reindex -- see scripts/reindex_embeddings.py.
+EMBEDDING_PROVIDER_VOYAGE = "voyage"
+EMBEDDING_PROVIDER_GEMINI = "gemini"
+
+
+def get_embedding_provider() -> str:
+    """Return the active embedding provider, normalized.
+
+    Reads EMBEDDING_PROVIDER at call time (not import time) so tests and the
+    reindex script can flip it via the environment. Any value other than the
+    case-insensitive "gemini" falls back to Voyage for safety.
+
+    Returns:
+        Either ``"gemini"`` or ``"voyage"``.
+    """
+    raw = (os.environ.get("EMBEDDING_PROVIDER") or "").strip().lower()
+    return EMBEDDING_PROVIDER_GEMINI if raw == EMBEDDING_PROVIDER_GEMINI else (
+        EMBEDDING_PROVIDER_VOYAGE
+    )
+
+
+# ── Gemini embedding configuration ───────────────────────────────────────────
+# Gemini's embedding model is reached via the same generativelanguage.googleapis
+# endpoint family that llm_router.py uses for chat, authenticated with
+# GEMINI_API_KEY passed as a ?key= query param (Google's convention).
+_GEMINI_EMBED_MODEL = os.environ.get("GEMINI_EMBED_MODEL") or "text-embedding-004"
+_GEMINI_EMBED_DIM = 768  # text-embedding-004 produces 768-dim vectors
+_GEMINI_EMBED_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+_GEMINI_EMBED_TIMEOUT = 20  # seconds
+_GEMINI_MAX_BATCH = 100  # Gemini batchEmbedContents accepts up to 100 requests
+_GEMINI_MAX_RETRIES = 3
+_GEMINI_BASE_BACKOFF = 2.0
+# Reuse the same TLS hardening as the Voyage path (Python 3.14+ strict defaults).
+_GEMINI_SSL_CTX: ssl.SSLContext = ssl.create_default_context()
+_GEMINI_SSL_CTX.minimum_version = ssl.TLSVersion.TLSv1_2
+
+
+def get_active_embedding_model() -> str:
+    """Return the model identifier for the active embedding provider."""
+    if get_embedding_provider() == EMBEDDING_PROVIDER_GEMINI:
+        return _GEMINI_EMBED_MODEL
+    return _VOYAGE_MODEL
+
+
+def _active_vector_dim() -> int:
+    """Return the Qdrant vector dimension for the active embedding provider.
+
+    Voyage voyage-3-lite is 512-dim; Gemini text-embedding-004 is 768-dim. The
+    Qdrant collection must be (re)created at this dimension -- mismatched dims
+    are rejected by Qdrant on upsert.
+    """
+    if get_embedding_provider() == EMBEDDING_PROVIDER_GEMINI:
+        return _GEMINI_EMBED_DIM
+    return _QDRANT_VECTOR_DIM
 
 # ── Embedding disk cache ─────────────────────────────────────────────────────
 # Caches Voyage AI embeddings to disk so server restarts don't re-compute them.
@@ -188,8 +265,9 @@ def _get_api_key() -> str | None:
 def _text_cache_key(text: str) -> str:
     """Generate a stable cache key for a text string.
 
-    Uses SHA-256 of the text content combined with the model name
-    so cache invalidates if the model changes.
+    Uses SHA-256 of the text content combined with the active embedding
+    model name so the cache invalidates if the model changes and so vectors
+    from different providers (Voyage 512-dim vs Gemini 768-dim) never collide.
 
     Args:
         text: The text to compute a cache key for.
@@ -197,7 +275,7 @@ def _text_cache_key(text: str) -> str:
     Returns:
         Hex digest string suitable as a dict key.
     """
-    content = f"{_VOYAGE_MODEL}:{text}"
+    content = f"{get_active_embedding_model()}:{text}"
     return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
 
 
@@ -485,7 +563,11 @@ def _qdrant_ensure_collection() -> bool:
     """Create the Qdrant collection if it does not already exist.
 
     Uses PUT with on_existing=skip to be idempotent. Sets up cosine
-    distance with the correct vector dimension for Voyage AI embeddings.
+    distance with the correct vector dimension for the *active* embedding
+    provider (512 for Voyage voyage-3-lite, 768 for Gemini
+    text-embedding-004). Note: this does NOT recreate a collection that
+    already exists at a different dimension -- use
+    scripts/reindex_embeddings.py for a clean provider switch.
 
     Returns:
         True if collection exists or was created, False on failure.
@@ -502,13 +584,13 @@ def _qdrant_ensure_collection() -> bool:
         logger.info("Qdrant collection '%s' already exists", _QDRANT_COLLECTION)
         return True
 
-    # Create collection
+    # Create collection at the active provider's dimension
     result = _qdrant_request(
         "PUT",
         f"/collections/{_QDRANT_COLLECTION}",
         body={
             "vectors": {
-                "size": _QDRANT_VECTOR_DIM,
+                "size": _active_vector_dim(),
                 "distance": "Cosine",
             }
         },
@@ -609,6 +691,201 @@ _index: list[dict] = []
 _index_lock = threading.Lock()
 _index_built = False
 
+# ── Canonical KB file list ───────────────────────────────────────────────────
+# Single source of truth for which data/*.json files get embedded, shared by
+# index_knowledge_base() (startup, in-memory) and scripts/reindex_embeddings.py
+# (offline Qdrant rebuild) so both index the exact same corpus.
+_KB_INDEX_FILES: list[str] = [
+    "recruitment_industry_knowledge.json",
+    "platform_intelligence_deep.json",
+    "recruitment_benchmarks_deep.json",
+    "recruitment_strategy_intelligence.json",
+    "regional_hiring_intelligence.json",
+    "supply_ecosystem_intelligence.json",
+    "workforce_trends_intelligence.json",
+    "industry_white_papers.json",
+    "joveo_2026_benchmarks.json",
+    "google_ads_2025_benchmarks.json",
+    "external_benchmarks_2025.json",
+    "client_media_plans_kb.json",
+    "channels_db.json",
+    "joveo_publishers.json",
+    "international_sources.json",
+    # 2026 research files (added to close data flow gap)
+    "hr_tech_landscape_2026.json",
+    "publisher_benchmarks_2026.json",
+    "recruitment_marketing_trends_2026.json",
+    "labor_market_outlook_2026.json",
+    "salary_benchmarks_detailed_2026.json",
+    "ad_benchmarks_recruitment_2026.json",
+    "industry_hiring_patterns_2026.json",
+    "top_employers_by_city_2026.json",
+    "compliance_regulations_2026.json",
+    "agency_rpo_market_2026.json",
+    # H-1B salary intelligence (rich city-level wage data)
+    "h1b_salary_intelligence.json",
+    # Cross-product recruitment benchmarks (S45 deep research -- 28 sources)
+    "recruitment_benchmarks_comprehensive_2026.json",
+    # S48: Real channel performance benchmarks (SlotOps 108K + CG 98K)
+    "craigslist_performance_benchmarks.json",
+    "linkedin_performance_benchmarks.json",
+    # S50: 15 previously unindexed data files
+    "adzuna_benchmarks.json",
+    "channel_benchmarks_live.json",
+    "competitor_careers.json",
+    "fred_indicators.json",
+    "google_trends.json",
+    "job_density_metros.json",
+    "job_posting_volumes.json",
+    "live_market_data.json",
+    "market_trends_live.json",
+    "platform_ad_specs.json",
+    "seasonal_hiring_trends.json",
+    "global_supply.json",
+    "joveo_media_plan_deck_2026.json",
+]
+
+
+# ── Gemini embedding API (alternative provider) ──────────────────────────────
+
+
+def _get_gemini_api_key() -> str | None:
+    """Load the Gemini API key from the environment (read at call time).
+
+    Reuses the same GEMINI_API_KEY env var that llm_router.py uses for Gemini
+    chat, so no new credential is introduced. Read fresh each call so tests and
+    the reindex script can set it via the environment.
+
+    Returns:
+        The key string, or None if unset/empty.
+    """
+    key = (os.environ.get("GEMINI_API_KEY") or "").strip()
+    return key or None
+
+
+def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
+    """Embed a list of texts via Gemini text-embedding-004.
+
+    Uses the batchEmbedContents endpoint (up to 100 inputs per call), with the
+    same graceful-failure contract as the Voyage path: returns None on any
+    failure so callers fall back to BM25/TF-IDF. Retries on 429/SSL with
+    exponential backoff.
+
+    Args:
+        texts: Texts to embed (already truncated by the caller).
+
+    Returns:
+        List of 768-dim vectors (one per input, order preserved), or None.
+    """
+    api_key = _get_gemini_api_key()
+    if not api_key:
+        logger.warning(
+            "GEMINI_API_KEY not set but EMBEDDING_PROVIDER=gemini. "
+            "Set GEMINI_API_KEY or switch EMBEDDING_PROVIDER back to voyage."
+        )
+        return None
+
+    if not texts:
+        return []
+
+    model_path = f"models/{_GEMINI_EMBED_MODEL}"
+    url = (
+        f"{_GEMINI_EMBED_BASE}/{_GEMINI_EMBED_MODEL}:batchEmbedContents"
+        f"?key={api_key}"
+    )
+
+    out: list[list[float]] = []
+
+    for batch_start in range(0, len(texts), _GEMINI_MAX_BATCH):
+        batch = texts[batch_start : batch_start + _GEMINI_MAX_BATCH]
+        payload = {
+            "requests": [
+                {
+                    "model": model_path,
+                    "content": {"parts": [{"text": t}]},
+                }
+                for t in batch
+            ]
+        }
+        data = json.dumps(payload).encode("utf-8")
+
+        batch_vectors: list[list[float]] | None = None
+        for attempt in range(_GEMINI_MAX_RETRIES + 1):
+            try:
+                req = urllib.request.Request(
+                    url,
+                    data=data,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(
+                    req, timeout=_GEMINI_EMBED_TIMEOUT, context=_GEMINI_SSL_CTX
+                ) as resp:
+                    body = resp.read().decode("utf-8")
+                    api_result = json.loads(body)
+
+                # batchEmbedContents returns {"embeddings": [{"values": [...]}]}
+                embeddings_data = api_result.get("embeddings") or []
+                batch_vectors = [
+                    (e.get("values") or []) for e in embeddings_data
+                ]
+                break  # success
+            except urllib.error.HTTPError as e:
+                if e.code == 429 and attempt < _GEMINI_MAX_RETRIES:
+                    backoff = _GEMINI_BASE_BACKOFF * (2**attempt)
+                    logger.info(
+                        "Gemini embed 429 (attempt %d/%d), backing off %.1fs",
+                        attempt + 1,
+                        _GEMINI_MAX_RETRIES,
+                        backoff,
+                    )
+                    time.sleep(backoff)
+                    continue
+                logger.error(
+                    "Gemini embed HTTP error %d: %s", e.code, e.reason, exc_info=True
+                )
+                return None
+            except urllib.error.URLError as e:
+                reason_str = str(e.reason) if e.reason else ""
+                if "SSL" in reason_str and attempt < _GEMINI_MAX_RETRIES:
+                    logger.warning(
+                        "Gemini embed SSL error (attempt %d/%d), retrying: %s",
+                        attempt + 1,
+                        _GEMINI_MAX_RETRIES,
+                        reason_str[:100],
+                    )
+                    time.sleep(_GEMINI_BASE_BACKOFF * (2**attempt))
+                    continue
+                logger.error("Gemini embed URL error: %s", e.reason, exc_info=True)
+                return None
+            except OSError as e:
+                err_str = str(e)
+                if "SSL" in err_str and attempt < _GEMINI_MAX_RETRIES:
+                    logger.warning(
+                        "Gemini embed SSL/OS error (attempt %d/%d), retrying: %s",
+                        attempt + 1,
+                        _GEMINI_MAX_RETRIES,
+                        err_str[:100],
+                    )
+                    time.sleep(_GEMINI_BASE_BACKOFF * (2**attempt))
+                    continue
+                logger.error("Gemini embed OS error: %s", e, exc_info=True)
+                return None
+            except (json.JSONDecodeError, ValueError, TypeError) as e:
+                logger.error("Gemini embed parse error: %s", e, exc_info=True)
+                return None
+
+        if batch_vectors is None or len(batch_vectors) != len(batch):
+            logger.warning(
+                "Gemini embed returned %s vectors for %d texts",
+                "no" if batch_vectors is None else len(batch_vectors),
+                len(batch),
+            )
+            return None
+        out.extend(batch_vectors)
+
+    return out
+
 
 # ── Embedding API ────────────────────────────────────────────────────────────
 
@@ -629,27 +906,40 @@ def embed_text(text: str) -> list[float] | None:
 
 
 def embed_batch(texts: list[str]) -> list[list[float]] | None:
-    """Get embedding vectors for a batch of texts via Voyage AI API.
+    """Get embedding vectors for a batch of texts via the active provider.
 
-    Uses a disk cache to avoid re-computing embeddings on server restart.
-    Only texts missing from the cache are sent to the Voyage API, with
-    rate-limited batching to avoid 429 errors.
+    Routes to Voyage AI (default) or Gemini based on EMBEDDING_PROVIDER.
+    Uses a shared disk cache to avoid re-computing embeddings on server
+    restart; only texts missing from the cache hit the provider API. The
+    cache key is namespaced by the active model so the two providers'
+    differently-dimensioned vectors never collide.
 
     Args:
-        texts: List of texts to embed (max 128 per call).
+        texts: List of texts to embed.
 
     Returns:
         List of embedding vectors (list[list[float]]), or None on failure.
     """
     global _voyage_last_request
 
-    api_key = _get_api_key()
-    if not api_key:
-        logger.warning(
-            "VOYAGE_API_KEY not set. Sign up at https://www.voyageai.com "
-            "and set VOYAGE_API_KEY environment variable."
-        )
-        return None
+    provider = get_embedding_provider()
+
+    if provider == EMBEDDING_PROVIDER_VOYAGE:
+        api_key = _get_api_key()
+        if not api_key:
+            logger.warning(
+                "VOYAGE_API_KEY not set. Sign up at https://www.voyageai.com "
+                "and set VOYAGE_API_KEY environment variable."
+            )
+            return None
+    else:
+        api_key = _get_gemini_api_key()
+        if not api_key:
+            logger.warning(
+                "GEMINI_API_KEY not set but EMBEDDING_PROVIDER=gemini. "
+                "Set GEMINI_API_KEY or switch EMBEDDING_PROVIDER back to voyage."
+            )
+            return None
 
     if not texts:
         return []
@@ -688,6 +978,96 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
 
     # Collect uncached texts and compute embeddings via API with rate limiting
     uncached_texts = [truncated[i] for i in uncached_indices]
+    new_embeddings: list[list[float]] = []
+
+    # ── Gemini provider path ────────────────────────────────────────────
+    # Gemini has its own batch endpoint and a far more generous free tier, so
+    # it skips the Voyage-specific min-delay / sliding-window throttle below.
+    if provider == EMBEDDING_PROVIDER_GEMINI:
+        gemini_embeddings = _embed_batch_gemini(uncached_texts)
+        if gemini_embeddings is None:
+            # Graceful failure -- caller falls back to BM25/TF-IDF.
+            return None
+        new_embeddings = gemini_embeddings
+    else:
+        new_embeddings = _embed_uncached_voyage(uncached_texts)
+        if new_embeddings is None:
+            return None
+
+    if len(new_embeddings) != len(uncached_indices):
+        logger.warning(
+            "%s returned %d embeddings for %d texts",
+            provider,
+            len(new_embeddings),
+            len(uncached_indices),
+        )
+        return None
+
+    # Merge new embeddings into result array and update cache
+    cache_updated = False
+    force_flush = False
+    with _embedding_cache_lock:
+        for local_idx, original_idx in enumerate(uncached_indices):
+            embedding = new_embeddings[local_idx]
+            result_embeddings[original_idx] = embedding
+            # Save to cache under LRU bound (evicts oldest on overflow,
+            # bumps dirty counter for the flush timer).
+            key = _text_cache_key(truncated[original_idx])
+            _cache_put_locked(key, embedding)
+            cache_updated = True
+
+        # Check whether we've crossed the dirty-threshold while still
+        # holding the lock -- avoids a double-flush under concurrency.
+        if _cache_dirty_count >= _FLUSH_DIRTY_THRESHOLD:
+            force_flush = True
+
+    if cache_updated:
+        # Start the background flush timer on first write. Idempotent.
+        _ensure_flush_thread()
+
+        # S58 OOM FIX: we no longer spawn a thread on every single write.
+        # The timer flushes every _FLUSH_INTERVAL_S. But if we blew past
+        # the dirty threshold, flush right now in a one-shot background
+        # thread so we don't lose data if the process is killed before
+        # the next timer tick.
+        if force_flush:
+            threading.Thread(
+                target=_save_embedding_cache,
+                daemon=True,
+                name="save-embed-cache-burst",
+            ).start()
+
+    # Verify all slots are filled
+    final: list[list[float]] = []
+    for emb in result_embeddings:
+        if emb is None:
+            logger.warning("Embedding result has unfilled slot, returning None")
+            return None
+        final.append(emb)
+
+    return final
+
+
+def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | None:
+    """Compute embeddings for uncached texts via the Voyage AI API.
+
+    Extracted from embed_batch so the provider switch (Voyage vs Gemini) only
+    has to choose a computation backend; all caching/merging stays shared in
+    embed_batch. Preserves the original Voyage rate-limiting, batching, and
+    429/SSL retry behavior exactly.
+
+    Args:
+        uncached_texts: Texts that missed the disk cache.
+
+    Returns:
+        List of embedding vectors (order preserved), or None on failure.
+    """
+    global _voyage_last_request
+
+    api_key = _get_api_key()
+    if not api_key:
+        return None
+
     new_embeddings: list[list[float]] = []
 
     # Use smaller batch size during startup to reduce 429 risk
@@ -834,57 +1214,7 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
                 logger.error("Voyage AI error: %s", e, exc_info=True)
                 return None
 
-    if len(new_embeddings) != len(uncached_indices):
-        logger.warning(
-            "Voyage AI returned %d embeddings for %d texts",
-            len(new_embeddings),
-            len(uncached_indices),
-        )
-        return None
-
-    # Merge new embeddings into result array and update cache
-    cache_updated = False
-    force_flush = False
-    with _embedding_cache_lock:
-        for local_idx, original_idx in enumerate(uncached_indices):
-            embedding = new_embeddings[local_idx]
-            result_embeddings[original_idx] = embedding
-            # Save to cache under LRU bound (evicts oldest on overflow,
-            # bumps dirty counter for the flush timer).
-            key = _text_cache_key(truncated[original_idx])
-            _cache_put_locked(key, embedding)
-            cache_updated = True
-
-        # Check whether we've crossed the dirty-threshold while still
-        # holding the lock -- avoids a double-flush under concurrency.
-        if _cache_dirty_count >= _FLUSH_DIRTY_THRESHOLD:
-            force_flush = True
-
-    if cache_updated:
-        # Start the background flush timer on first write. Idempotent.
-        _ensure_flush_thread()
-
-        # S58 OOM FIX: we no longer spawn a thread on every single write.
-        # The timer flushes every _FLUSH_INTERVAL_S. But if we blew past
-        # the dirty threshold, flush right now in a one-shot background
-        # thread so we don't lose data if the process is killed before
-        # the next timer tick.
-        if force_flush:
-            threading.Thread(
-                target=_save_embedding_cache,
-                daemon=True,
-                name="save-embed-cache-burst",
-            ).start()
-
-    # Verify all slots are filled
-    final: list[list[float]] = []
-    for emb in result_embeddings:
-        if emb is None:
-            logger.warning("Embedding result has unfilled slot, returning None")
-            return None
-        final.append(emb)
-
-    return final
+    return new_embeddings
 
 
 # ── Pure-Python cosine similarity ────────────────────────────────────────────
@@ -1649,56 +1979,9 @@ def index_knowledge_base() -> int:
         logger.warning("Data directory not found: %s", data_dir)
         return 0
 
-    # KB files to index (skip api_cache, backups, etc.)
-    kb_files = [
-        "recruitment_industry_knowledge.json",
-        "platform_intelligence_deep.json",
-        "recruitment_benchmarks_deep.json",
-        "recruitment_strategy_intelligence.json",
-        "regional_hiring_intelligence.json",
-        "supply_ecosystem_intelligence.json",
-        "workforce_trends_intelligence.json",
-        "industry_white_papers.json",
-        "joveo_2026_benchmarks.json",
-        "google_ads_2025_benchmarks.json",
-        "external_benchmarks_2025.json",
-        "client_media_plans_kb.json",
-        "channels_db.json",
-        "joveo_publishers.json",
-        "international_sources.json",
-        # 2026 research files (added to close data flow gap)
-        "hr_tech_landscape_2026.json",
-        "publisher_benchmarks_2026.json",
-        "recruitment_marketing_trends_2026.json",
-        "labor_market_outlook_2026.json",
-        "salary_benchmarks_detailed_2026.json",
-        "ad_benchmarks_recruitment_2026.json",
-        "industry_hiring_patterns_2026.json",
-        "top_employers_by_city_2026.json",
-        "compliance_regulations_2026.json",
-        "agency_rpo_market_2026.json",
-        # H-1B salary intelligence (rich city-level wage data)
-        "h1b_salary_intelligence.json",
-        # Cross-product recruitment benchmarks (S45 deep research -- 28 sources)
-        "recruitment_benchmarks_comprehensive_2026.json",
-        # S48: Real channel performance benchmarks (SlotOps 108K + CG 98K)
-        "craigslist_performance_benchmarks.json",
-        "linkedin_performance_benchmarks.json",
-        # S50: 15 previously unindexed data files
-        "adzuna_benchmarks.json",
-        "channel_benchmarks_live.json",
-        "competitor_careers.json",
-        "fred_indicators.json",
-        "google_trends.json",
-        "job_density_metros.json",
-        "job_posting_volumes.json",
-        "live_market_data.json",
-        "market_trends_live.json",
-        "platform_ad_specs.json",
-        "seasonal_hiring_trends.json",
-        "global_supply.json",
-        "joveo_media_plan_deck_2026.json",
-    ]
+    # KB files to index (skip api_cache, backups, etc.). Shared module-level
+    # constant so scripts/reindex_embeddings.py indexes the exact same corpus.
+    kb_files = _KB_INDEX_FILES
 
     documents: list[dict] = []
     doc_id = 0
@@ -2155,5 +2438,9 @@ def get_status() -> dict:
             "seconds_since_last_flush": seconds_since_flush,
             "loaded": _embedding_cache_loaded,
         },
-        "model": _VOYAGE_MODEL,
+        "model": get_active_embedding_model(),
+        # Embedding provider switch diagnostics (Layer-3 #11: Voyage|Gemini).
+        "embedding_provider": get_embedding_provider(),
+        "embedding_model": get_active_embedding_model(),
+        "embedding_dim": _active_vector_dim(),
     }
