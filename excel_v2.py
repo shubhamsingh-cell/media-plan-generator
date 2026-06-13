@@ -4322,6 +4322,348 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 # SHEET 4: SOURCES & DATA CONFIDENCE
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Provenance confidence labels -> 0-1 score (for grade/colour mapping).
+_PROVENANCE_CONFIDENCE_SCORE: Dict[str, float] = {
+    "measured": 0.95,
+    "verified": 0.9,
+    "high": 0.9,
+    "good": 0.8,
+    "medium": 0.65,
+    "moderate": 0.65,
+    "estimated": 0.55,
+    "low": 0.45,
+    "fallback": 0.4,
+    "unknown": 0.5,
+}
+
+
+def _provenance_confidence_label(raw: Any) -> str:
+    """Normalize a provenance confidence value to a display label.
+
+    Accepts strings ("measured", "high", ...) or numeric 0-1 scores and
+    returns a Title-cased label. Defensive: unknown/empty -> "Estimated".
+    """
+    if raw is None or raw == "":
+        return "Estimated"
+    if isinstance(raw, (int, float)):
+        score = float(raw)
+        if score > 1:  # tolerate 0-100 scale
+            score /= 100.0
+        return _label_from_score(score)
+    return str(raw).strip().title()
+
+
+def _label_from_score(score: float) -> str:
+    """0-1 score -> coarse confidence label."""
+    if score >= 0.9:
+        return "Verified"
+    if score >= 0.65:
+        return "High"
+    if score >= 0.5:
+        return "Medium"
+    return "Low"
+
+
+def _provenance_conf_font(label: str) -> Font:
+    """Colour-code a provenance confidence label (reuses grade colours)."""
+    score = _PROVENANCE_CONFIDENCE_SCORE.get(label.strip().lower(), 0.55)
+    return _grade_font(_grade_from_score(score))
+
+
+def _collect_kb_provenance(data: dict) -> List[Dict[str, str]]:
+    """Collect (source, vintage, confidence) provenance rows from the data dict.
+
+    The S89 KB tags figures with source / vintage / confidence. This reads
+    those defensively from several shapes that may appear in the pipeline:
+
+    - ``data["_enriched"]["provenance"]`` (explicit list or section->meta dict)
+    - ``data["_synthesized"]["provenance"]`` (same shape)
+    - per-section ``metadata`` blocks carrying source/vintage/confidence under
+      ``_enriched`` / ``_synthesized``
+
+    Returns a de-duplicated list of ``{"source","vintage","confidence"}`` dicts.
+    Never raises -- on any unexpected shape it simply yields what it can.
+    """
+    rows: List[Dict[str, str]] = []
+    seen: set = set()
+
+    _vintage_fields = (
+        "vintage",
+        "data_year",
+        "benchmark_year",
+        "data_coverage_period",
+        "data_period",
+        "as_of",
+        "last_updated",
+        "year",
+    )
+
+    def _vintage_of(meta: dict) -> str:
+        for f in _vintage_fields:
+            v = meta.get(f)
+            if v not in (None, ""):
+                return str(v)
+        return "—"
+
+    def _add(source: str, vintage: str, confidence: Any) -> None:
+        source = (source or "").strip()
+        if not source:
+            return
+        key = source.lower()
+        if key in seen:
+            return
+        seen.add(key)
+        rows.append(
+            {
+                "source": source,
+                "vintage": str(vintage or "—"),
+                "confidence": _provenance_confidence_label(confidence),
+            }
+        )
+
+    def _ingest(container: Any) -> None:
+        """Ingest an explicit provenance container (list or dict)."""
+        if isinstance(container, list):
+            for item in container:
+                if isinstance(item, dict):
+                    _add(
+                        item.get("source")
+                        or item.get("name")
+                        or item.get("dataset")
+                        or "",
+                        _vintage_of(item) if isinstance(item, dict) else "—",
+                        item.get("confidence"),
+                    )
+                elif isinstance(item, str):
+                    _add(item, "—", None)
+        elif isinstance(container, dict):
+            for sect_key, meta in container.items():
+                if not isinstance(meta, dict):
+                    # source -> confidence string mapping
+                    _add(str(sect_key), "—", meta)
+                    continue
+                _add(
+                    meta.get("source") or str(sect_key),
+                    _vintage_of(meta),
+                    meta.get("confidence"),
+                )
+
+    for top in ("_enriched", "_synthesized"):
+        block = data.get(top)
+        if not isinstance(block, dict):
+            continue
+        # Explicit provenance container, if the pipeline supplied one.
+        _ingest(block.get("provenance"))
+        _ingest(block.get("sources"))
+        # Per-section metadata blocks that carry a data vintage / source.
+        for sect_key, sect_val in block.items():
+            if sect_key.startswith("_") or sect_key in ("provenance", "sources"):
+                continue
+            if not isinstance(sect_val, dict):
+                continue
+            meta = sect_val.get("metadata")
+            if isinstance(meta, dict) and (meta.get("source") or meta.get("vintage")):
+                _add(
+                    meta.get("source") or sect_key.replace("_", " ").title(),
+                    _vintage_of(meta),
+                    meta.get("confidence"),
+                )
+
+    return rows
+
+
+def _build_provenance_section(ws, data: dict, row: int) -> int:
+    """Additive S89 provenance block: data sources, vintage, confidence.
+
+    Surfaces, on the "Sources & Confidence" sheet:
+      1. KB / enrichment provenance -- which data sources fed the plan, their
+         data vintage, and the confidence tag the KB attached.
+      2. Live API enrichment summary -- how many real-time sources succeeded.
+      3. The "Joveo measured" warehouse signal (cg_benchmarks real outcomes),
+         when ``_budget_allocation.metadata.real_outcomes`` is present.
+
+    Purely additive -- it appends rows; it does not alter any existing table's
+    numbers. Read defensively; never raises (caller already wraps in try/except,
+    but we also guard here so one bad shape never blanks the section).
+    """
+    try:
+        return _build_provenance_section_inner(ws, data, row)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Provenance section skipped: %s", exc)
+        return row
+
+
+def _build_provenance_section_inner(ws, data: dict, row: int) -> int:
+    row = _write_section_header(ws, row, "Data Provenance & Vintage")
+
+    intro = ws.cell(
+        row=row,
+        column=COL_START,
+        value=(
+            "Every figure in this plan is traceable to a source. The table below "
+            "lists the data sources used, the vintage (period the data describes), "
+            "and the confidence tag attached at ingestion."
+        ),
+    )
+    ws.merge_cells(
+        start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+    )
+    intro.font = _FONT_FOOTNOTE
+    intro.alignment = _ALIGN_WRAP
+    ws.row_dimensions[row].height = 28
+    row += 2
+
+    # ── 1. Data sources / vintage / confidence ──
+    prov_rows = _collect_kb_provenance(data)
+
+    # Always surface the live-enrichment summary as a source line too.
+    enriched = data.get("_enriched", {}) if isinstance(data.get("_enriched"), dict) else {}
+    summary = enriched.get("enrichment_summary", {})
+    if isinstance(summary, dict):
+        succeeded = summary.get("apis_succeeded") or []
+        if isinstance(succeeded, list) and succeeded:
+            n_ok = len(succeeded)
+            n_called = len(summary.get("apis_called") or []) or n_ok
+            prov_rows.append(
+                {
+                    "source": f"Live market APIs ({n_ok}/{n_called} responded)",
+                    "vintage": str(datetime.date.today().year),
+                    "confidence": "High" if n_ok >= max(1, n_called * 0.6) else "Medium",
+                }
+            )
+
+    # KB age / freshness (from kb_loader) as a freshness signal.
+    synthesized = data.get("_synthesized", {}) if isinstance(data.get("_synthesized"), dict) else {}
+    kb_age_days = synthesized.get("_kb_age_days")
+    if isinstance(kb_age_days, (int, float)):
+        prov_rows.append(
+            {
+                "source": "Joveo Knowledge Base (benchmarks)",
+                "vintage": f"{kb_age_days:.0f} days old",
+                "confidence": "High" if kb_age_days <= 60 else (
+                    "Medium" if kb_age_days <= 90 else "Low"
+                ),
+            }
+        )
+
+    if prov_rows:
+        headers = ["Data Source", "Vintage", "Confidence"]
+        row = _write_table_header(ws, row, headers)
+        for idx, pr in enumerate(prov_rows):
+            conf_label = pr["confidence"]
+            values = [pr["source"][:70], pr["vintage"][:30], conf_label]
+            fonts_list = [None, None, _provenance_conf_font(conf_label)]
+            row = _write_table_row(
+                ws,
+                row,
+                values,
+                alternate=idx % 2 == 1,
+                fonts=fonts_list,
+            )
+        row += 1
+    else:
+        row = _write_footnote(
+            ws,
+            row,
+            "Source provenance metadata was not attached to this plan's data. "
+            "Figures rely on the curated Knowledge Base and validated benchmarks.",
+        )
+        row += 1
+
+    # ── 2. Joveo Campaign Warehouse (measured outcomes) ──
+    row = _build_warehouse_provenance(ws, data, row)
+
+    return row
+
+
+def _build_warehouse_provenance(ws, data: dict, row: int) -> int:
+    """Surface the cg_benchmarks "Joveo measured" signal, if present.
+
+    Reads ``data["_budget_allocation"]["metadata"]["real_outcomes"]`` defensively
+    -- it may be absent (no warehouse coverage) in which case nothing is written.
+    When present, shows the matched title, measured cost-per-apply and the
+    sample size behind it, attributed to "Joveo Campaign Warehouse".
+    """
+    ba = data.get("_budget_allocation", {})
+    if not isinstance(ba, dict):
+        return row
+    meta = ba.get("metadata", {})
+    if not isinstance(meta, dict):
+        return row
+    ro = meta.get("real_outcomes")
+    # Accept a single dict or a list of measured-outcome dicts.
+    if isinstance(ro, dict):
+        outcomes = [ro]
+    elif isinstance(ro, list):
+        outcomes = [o for o in ro if isinstance(o, dict)]
+    else:
+        return row
+
+    # Keep only matched, usable rows.
+    matched = [o for o in outcomes if o.get("matched") and o.get("title")]
+    if not matched:
+        return row
+
+    row = _write_subsection_header(
+        ws, row, "Joveo Measured Outcomes (Campaign Warehouse)"
+    )
+
+    note = ws.cell(
+        row=row,
+        column=COL_START,
+        value=(
+            "First-party measured performance from real Joveo campaigns "
+            "(cg_benchmarks). Where a role matches, these measured figures take "
+            "precedence over modelled estimates."
+        ),
+    )
+    ws.merge_cells(
+        start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+    )
+    note.font = _FONT_FOOTNOTE
+    note.alignment = _ALIGN_WRAP
+    ws.row_dimensions[row].height = 28
+    row += 2
+
+    headers = [
+        "Role / Title",
+        "Cost per Apply",
+        "Sample Size",
+        "Last Updated",
+        "Source",
+    ]
+    row = _write_table_header(ws, row, headers)
+
+    # Per-column number formats: cost-per-apply as $ per-unit, sample as int.
+    _fmts = [None, FMT_USD2, FMT_INT, None, None]
+
+    for idx, o in enumerate(matched):
+        cpa = o.get("cost_per_apply")
+        sample = o.get("sample_size")
+        values = [
+            str(o.get("title") or "")[:60],
+            cpa if cpa is not None else "—",
+            sample if sample not in (None, "") else "—",
+            str(o.get("last_updated") or "—"),
+            "Joveo Campaign Warehouse",
+        ]
+        # Only attach a numeric format where the cell holds a real number;
+        # the "—" placeholders stay as text.
+        row_fmts = [
+            _fmts[i] if (i in (1, 2) and not isinstance(values[i], str)) else None
+            for i in range(len(values))
+        ]
+        row = _write_table_row(
+            ws,
+            row,
+            values,
+            alternate=idx % 2 == 1,
+            number_formats=row_fmts,
+        )
+
+    row += 1
+    return row
+
 
 def _build_sheet_sources(ws, data: dict):
     """Build Sheet 4: Sources & Data Confidence."""
@@ -4631,6 +4973,10 @@ def _build_sheet_sources(ws, data: dict):
                 )
 
             row += 1
+
+    # ── 5b. Data Provenance & Vintage (S89: end-to-end provenance) ──
+    row = _build_provenance_section(ws, data, row)
+    row += 1
 
     # ── 6. Methodology Notes ──
     row = _write_section_header(ws, row, "Methodology & Data Hierarchy")

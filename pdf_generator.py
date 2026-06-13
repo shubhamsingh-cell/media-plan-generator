@@ -103,6 +103,30 @@ def _format_pct(value: Any) -> str:
         return _safe(value)
 
 
+def _balanced_pcts(channels: List[Dict[str, Any]]) -> List[int]:
+    """Return one whole-number percentage per channel that sums to exactly 100.
+
+    Uses the largest-remainder method on each channel's ``allocation_pct`` so
+    the rendered Allocation column and the Total row agree (no "100%" footer
+    stranded above rows that visibly add to 99 or 101). When the inputs carry
+    no usable allocation the result is all-zeros (the caller shows an empty
+    state instead of a misleading total).
+    """
+    raw = [max(float(ch.get("allocation_pct") or 0), 0.0) for ch in channels]
+    total = sum(raw)
+    if total <= 0:
+        return [0] * len(channels)
+    scaled = [p / total * 100 for p in raw]
+    floors = [int(s) for s in scaled]
+    remainder = 100 - sum(floors)
+    order = sorted(
+        range(len(scaled)), key=lambda i: (scaled[i] - floors[i]), reverse=True
+    )
+    for i in range(remainder):
+        floors[order[i % len(order)]] += 1
+    return floors
+
+
 def _is_ai_training_plan(plan_data: Dict[str, Any]) -> bool:
     """Return True if the plan's industry/roles plausibly match an AI-training
     engagement (AI trainers, data annotators, language/data-labeling experts).
@@ -465,14 +489,18 @@ def generate_plan_html_report(
     """
 
     # Channel Allocation Table
+    # Re-balance per-channel percentages so the Allocation column and the Total
+    # row both add up to exactly 100 (largest-remainder rounding).
+    balanced_pcts = _balanced_pcts(channels)
     channel_rows = []
     for i, ch in enumerate(channels):
         bg = f' style="background-color: {BG_ZEBRA};"' if i % 2 == 1 else ""
+        ch_name = _safe(ch.get("name") or "") or "&mdash;"
         channel_rows.append(
             f"""
         <tr{bg}>
-          <td style="font-weight: 600;">{_safe(ch.get('name', 'N/A'))}</td>
-          <td class="num">{_format_pct(ch.get('allocation_pct') or 0)}</td>
+          <td style="font-weight: 600;">{ch_name}</td>
+          <td class="num">{balanced_pcts[i]}%</td>
           <td class="num">{_format_currency(ch.get('spend') or 0)}</td>
           <td class="num">{_format_currency(ch.get('cpc') or 0)}</td>
           <td class="num">{_format_currency(ch.get('cpa') or 0)}</td>
@@ -488,7 +516,8 @@ def generate_plan_html_report(
     total_applies = sum(float(ch.get("projected_applies") or 0 or 0) for ch in channels)
     total_hires = sum(float(ch.get("projected_hires") or 0 or 0) for ch in channels)
 
-    channel_table_html = f"""
+    if channels:
+        channel_table_html = f"""
     <div class="section page-break-before">
       <h2>Channel Mix</h2>
       <table class="data-table">
@@ -522,29 +551,41 @@ def generate_plan_html_report(
       </table>
     </div>
     """
+    else:
+        # Friendly empty state -- no stranded "100%" total over an empty table.
+        channel_table_html = f"""
+    <div class="section page-break-before">
+      <h2>Channel Mix</h2>
+      <div class="empty-state">
+        <div class="empty-state-title">No channel allocation yet</div>
+        <p>This plan doesn&rsquo;t have a channel mix defined. Once channels are
+        added, the recommended allocation, spend and projections appear here.</p>
+      </div>
+    </div>
+    """
 
     # Budget Breakdown (CSS horizontal bar chart)
     bar_items = []
-    max_pct = (
-        max((float(ch.get("allocation_pct") or 0 or 0) for ch in channels), default=1)
-        or 1
-    )
+    max_pct = max(balanced_pcts) if balanced_pcts else 0
+    max_pct = max_pct or 1  # avoid divide-by-zero
     for i, ch in enumerate(channels):
-        pct = float(ch.get("allocation_pct") or 0 or 0)
+        pct = balanced_pcts[i]
         bar_width = (pct / max_pct) * 100  # Relative to largest bar
         color = BAR_COLORS[i % len(BAR_COLORS)]
+        ch_name = _safe(ch.get("name") or "") or "&mdash;"
         bar_items.append(
             f"""
         <div class="bar-row">
-          <div class="bar-label">{_safe(ch.get('name', 'N/A'))}</div>
+          <div class="bar-label">{ch_name}</div>
           <div class="bar-track">
             <div class="bar-fill" style="width: {bar_width:.1f}%; background-color: {color};"></div>
           </div>
-          <div class="bar-value">{_format_pct(pct)} &middot; {_format_currency(ch.get('spend') or 0)}</div>
+          <div class="bar-value">{pct}% &middot; {_format_currency(ch.get('spend') or 0)}</div>
         </div>"""
         )
 
-    budget_chart_html = f"""
+    if channels:
+        budget_chart_html = f"""
     <div class="section">
       <h2>Budget Breakdown</h2>
       <div class="bar-chart">
@@ -552,6 +593,8 @@ def generate_plan_html_report(
       </div>
     </div>
     """
+    else:
+        budget_chart_html = ""
 
     # Market Intelligence
     intel_items = []
@@ -637,7 +680,21 @@ def generate_plan_html_report(
   @media print {{
     @page {{
       size: A4;
-      margin: 15mm 12mm;
+      margin: 15mm 12mm 18mm 12mm;
+      /* Running footer: generation date (left) + page x of y (right).
+         Supported by Chromium/Safari print engines. */
+      @bottom-left {{
+        content: "Generated by Nova AI Suite \\00B7 {_safe(report_date)}";
+        font-family: 'Inter', sans-serif;
+        font-size: 8pt;
+        color: {TEXT_MUTED};
+      }}
+      @bottom-right {{
+        content: "Page " counter(page) " of " counter(pages);
+        font-family: 'Inter', sans-serif;
+        font-size: 8pt;
+        color: {TEXT_MUTED};
+      }}
     }}
     body {{
       padding: 0;
@@ -660,6 +717,34 @@ def generate_plan_html_report(
     .data-table tr {{
       page-break-inside: avoid;
     }}
+    /* Screen footer prints once at the very end; the running @page footer
+       carries the per-page date + page number. */
+    .print-page-footer {{
+      display: none !important;
+    }}
+  }}
+
+  /* ── Empty state ── */
+  .empty-state {{
+    text-align: center;
+    padding: 28px 20px;
+    background: {BG_ZEBRA};
+    border: 1px dashed {BORDER_LIGHT};
+    border-radius: 10px;
+  }}
+  .empty-state-title {{
+    font-family: 'Poppins', -apple-system, sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: {PORT_GORE};
+    margin-bottom: 6px;
+  }}
+  .empty-state p {{
+    font-size: 12px;
+    color: {TEXT_MUTED};
+    line-height: 1.5;
+    max-width: 420px;
+    margin: 0 auto;
   }}
 
   /* ── Header ── */

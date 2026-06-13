@@ -10,6 +10,7 @@ import hashlib
 import html
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from joveo_brand_2026 import (
@@ -70,6 +71,41 @@ def _format_budget(budget: Any) -> str:
         return f"${amount:,.2f}"
     except (ValueError, TypeError):
         return html.escape(str(budget))
+
+
+def _normalize_percentages(channels: list[dict[str, Any]]) -> None:
+    """Round each channel's percentage to a whole number so the displayed
+    values sum to exactly 100 (largest-remainder method).
+
+    Mutates ``channels`` in place, adding a ``display_pct`` int to each entry.
+    If the raw percentages don't add up to ~100 (e.g. partial/missing data),
+    the rounded values are left as-is rather than forced — we only re-balance
+    when the inputs genuinely represent a full 100% allocation.
+    """
+    if not channels:
+        return
+
+    raw = [max(float(c.get("percentage") or 0), 0.0) for c in channels]
+    total = sum(raw)
+    if total <= 0:
+        for c in channels:
+            c["display_pct"] = 0
+        return
+
+    # Scale to a 100-point base so we can re-balance to a clean 100 total.
+    scaled = [p / total * 100 for p in raw]
+    floors = [int(s) for s in scaled]
+    remainder = 100 - sum(floors)
+    # Distribute the leftover units to the largest fractional parts.
+    order = sorted(
+        range(len(scaled)),
+        key=lambda i: (scaled[i] - floors[i]),
+        reverse=True,
+    )
+    for i in range(remainder):
+        floors[order[i % len(order)]] += 1
+    for c, pct in zip(channels, floors):
+        c["display_pct"] = pct
 
 
 def _extract_channels(plan_data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -193,6 +229,10 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
     job_title, location = _extract_job_info(plan_data)
     total_budget = _extract_total_budget(plan_data)
     channels = _extract_channels(plan_data)
+    # Cap at 10 channels for the bar chart, then re-balance the displayed
+    # percentages so they total exactly 100 (no stranded rounding error).
+    shown_channels = channels[:10]
+    _normalize_percentages(shown_channels)
     num_channels = len(channels)
     industry = _safe(
         plan_data.get("industry_label")
@@ -201,18 +241,23 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
         or ""
     )
 
-    # Build channel bars HTML
+    # Generation date / trust signals (UTC, ISO-friendly for the date attr)
+    now_utc = datetime.now(timezone.utc)
+    generated_on = now_utc.strftime("%b %d, %Y")
+    generated_iso = now_utc.strftime("%Y-%m-%d")
+
+    # Build channel bars HTML (uses the re-balanced display_pct for labels)
     channel_bars_html = ""
-    for ch in channels[:10]:  # Cap at 10 channels
+    for ch in shown_channels:
         name = _safe(ch["name"])
-        pct = ch["percentage"]
+        pct = int(ch.get("display_pct") or 0)
         dollar = _format_budget(ch["dollar_amount"]) if ch["dollar_amount"] else ""
         bar_width = max(pct, 3)  # Minimum 3% width for visibility
         channel_bars_html += f"""
         <div style="margin-bottom:12px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
             <span style="font-size:14px;font-weight:500;color:{INK};">{name}</span>
-            <span style="font-size:13px;color:{MUTED};">{pct:.0f}%{f' ({dollar})' if dollar else ''}</span>
+            <span style="font-size:13px;color:{MUTED};">{pct}%{f' ({dollar})' if dollar else ''}</span>
           </div>
           <div style="background:{LAVENDER_100};border-radius:6px;height:10px;overflow:hidden;">
             <div style="width:{bar_width}%;height:100%;border-radius:6px;background:linear-gradient(90deg,{BLUE_VIOLET},{DOWNY_TEAL});transition:width 0.6s ease;"></div>
@@ -220,7 +265,16 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
         </div>"""
 
     if not channel_bars_html:
-        channel_bars_html = f'<p style="color:{MUTED};font-size:14px;text-align:center;padding:20px 0;">No channel data available</p>'
+        # Friendly empty state -- never an empty bar list with a stranded total.
+        channel_bars_html = (
+            f'<div style="text-align:center;padding:24px 16px;background:{LAVENDER_50};'
+            f'border:1px dashed {BORDER};border-radius:12px;">'
+            f'<div style="font-size:15px;font-weight:600;color:{INDIGO};margin-bottom:4px;">'
+            f'Channel mix coming soon</div>'
+            f'<p style="font-size:13px;color:{MUTED};line-height:1.5;">'
+            f'This plan doesn&rsquo;t have a channel allocation yet. '
+            f'Build or refine it to see the recommended mix here.</p></div>'
+        )
 
     # OG meta description
     og_description = (
@@ -324,10 +378,15 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
   <!-- Title Section -->
   <div style="margin-bottom:24px;">
     <h1 style="font-size:22px;font-weight:700;color:{INDIGO};margin-bottom:6px;line-height:1.3;">{_safe(job_title)}</h1>
-    <div style="display:flex;align-items:center;gap:6px;color:{MUTED};font-size:14px;">
+    <div style="display:flex;align-items:center;gap:6px;color:{MUTED};font-size:14px;flex-wrap:wrap;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
       <span>{_safe(location)}</span>
       {f'<span style="margin:0 4px;opacity:0.4;">|</span><span>{industry}</span>' if industry and industry != "--" else ""}
+      <span style="margin:0 4px;opacity:0.4;">|</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Generated <time datetime="{generated_iso}">{generated_on}</time>
+      </span>
     </div>
   </div>
 
@@ -353,6 +412,16 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
     {channel_bars_html}
   </div>
 
+  <!-- Methodology / data-basis note (trust signal) -->
+  <div style="margin-top:18px;padding-top:14px;border-top:1px solid {BORDER};display:flex;align-items:flex-start;gap:8px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{PURPLE}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    <p style="font-size:11px;color:{MUTED};line-height:1.5;margin:0;">
+      Allocation is generated by Joveo&rsquo;s AI media planner from recruitment performance
+      benchmarks and live market signals. Figures are directional estimates for planning,
+      not guarantees of outcome.
+    </p>
+  </div>
+
 </div>
 
 <!-- Footer CTA -->
@@ -368,6 +437,15 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
     </p>
   </div>
 </div>
+
+<!-- Page Footer (date + sourcing + attribution) -->
+<footer style="width:100%;max-width:640px;margin-top:18px;text-align:center;">
+  <p style="font-size:11px;color:{MUTED};line-height:1.6;margin:0;">
+    Generated by Nova AI Suite on <time datetime="{generated_iso}">{generated_on}</time>
+    &nbsp;&middot;&nbsp; Data basis: Joveo recruitment benchmarks &amp; live market signals
+    &nbsp;&middot;&nbsp; &copy; Joveo
+  </p>
+</footer>
 
 </body>
 </html>"""

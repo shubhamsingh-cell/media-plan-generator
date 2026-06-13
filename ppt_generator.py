@@ -35,6 +35,11 @@ from joveo_brand_2026 import (
     BLUE_50 as _BLUE_50_HEX,
 )
 
+try:
+    import plan_currency as _plan_currency
+except ImportError:  # pragma: no cover - plan_currency ships with the repo
+    _plan_currency = None
+
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
@@ -70,6 +75,68 @@ try:
     _HAS_MATPLOTLIB = True
 except ImportError:
     _HAS_MATPLOTLIB = False
+
+
+# ---------------------------------------------------------------------------
+# Chart font (S89): matplotlib defaults to DejaVu Sans, which clashes with the
+# Joveo deck (Poppins headings). Bundle Poppins .ttf files (OFL-licensed) under
+# fonts/ and register them with matplotlib.font_manager at import so chart PNGs
+# render in Poppins. Falls back to DejaVu gracefully when the fonts are absent.
+# ---------------------------------------------------------------------------
+_CHART_FONT_FAMILY = "DejaVu Sans"  # safe fallback that ships with matplotlib
+_FONTS_DIR = Path(__file__).resolve().parent / "fonts"
+
+
+def _register_chart_fonts() -> str:
+    """Register bundled Poppins fonts with matplotlib; return the family to use.
+
+    Best-effort: any missing file or registration error leaves the chart font on
+    the DejaVu fallback so chart generation never breaks.
+    """
+    if not _HAS_MATPLOTLIB:
+        return "DejaVu Sans"
+    try:
+        from matplotlib import font_manager as _fm
+
+        registered = False
+        for _ttf in (
+            "Poppins-Regular.ttf",
+            "Poppins-SemiBold.ttf",
+            "Poppins-Bold.ttf",
+        ):
+            _path = _FONTS_DIR / _ttf
+            if _path.is_file():
+                try:
+                    _fm.fontManager.addfont(str(_path))
+                    registered = True
+                except Exception as _font_exc:  # noqa: BLE001
+                    logger.debug("Poppins font register skipped (%s): %s", _ttf, _font_exc)
+        if not registered:
+            return "DejaVu Sans"
+        # Confirm matplotlib can actually resolve the family before adopting it.
+        try:
+            resolved = _fm.findfont(
+                _fm.FontProperties(family="Poppins"), fallback_to_default=False
+            )
+            if resolved and "poppins" in resolved.lower():
+                plt.rcParams["font.family"] = "Poppins"
+                # Keep DejaVu in the sans-serif chain for glyph coverage (e.g.
+                # currency symbols Poppins may lack).
+                plt.rcParams["font.sans-serif"] = [
+                    "Poppins",
+                    "DejaVu Sans",
+                    "Arial",
+                    "sans-serif",
+                ]
+                return "Poppins"
+        except Exception as _resolve_exc:  # noqa: BLE001
+            logger.debug("Poppins font resolve failed: %s", _resolve_exc)
+    except Exception as _fm_exc:  # noqa: BLE001
+        logger.debug("Chart font registration skipped: %s", _fm_exc)
+    return "DejaVu Sans"
+
+
+_CHART_FONT_FAMILY = _register_chart_fonts()
 
 
 # ---------------------------------------------------------------------------
@@ -1127,15 +1194,106 @@ _CURRENCY_SYMBOLS = {
 }
 
 
-def _fmt_currency(val, currency="USD", compact=False):
-    """Format a number as currency. compact=True for $1.2M style."""
+# ---------------------------------------------------------------------------
+# Plan currency (S89): money figures must render in the plan's own currency, not
+# a hardcoded "$". ``generate_pptx`` resolves the plan's ISO code once up front
+# and stashes it module-side so the many existing ``_fmt_currency`` / salary /
+# budget call sites localize without each having to thread ``data`` through.
+# Defaults to USD; planning-math benchmarks that are intentionally USD-coded
+# pass ``currency="USD"`` explicitly (those call sites bypass the active
+# currency by passing currency="USD").
+#
+# S89 concurrency fix: the active currency is THREAD-LOCAL, not a module global.
+# generate_pptx runs on concurrent per-job daemon threads under the threading
+# HTTP server, so a shared global would let a £ plan and a $ plan racing in
+# parallel render each other's symbol. threading.local gives each generation
+# thread its own value.
+# ---------------------------------------------------------------------------
+import threading as _threading  # noqa: E402
+
+_currency_tls = _threading.local()
+
+
+def _get_active_currency() -> str:
+    """Active plan currency for THIS thread (defaults to USD)."""
+    return getattr(_currency_tls, "code", "USD") or "USD"
+
+
+def _plan_currency_code(data: Optional[Dict]) -> str:
+    """Resolve the ISO currency code for a plan from its data. Defaults to USD.
+
+    Order of precedence:
+      1. An explicit ``currency`` / ``currency_code`` on the plan data.
+      2. ``plan_currency.currency_for_country`` applied to the plan's locations
+         (trailing "City, ST, Country" token) or an explicit country field.
+      3. USD.
+    Never raises.
+    """
+    if not isinstance(data, dict):
+        return "USD"
+    explicit = data.get("currency_code") or data.get("currency")
+    if isinstance(explicit, str) and explicit.strip():
+        return explicit.strip().upper()
+    if _plan_currency is None:
+        return "USD"
+    candidates: List[str] = []
+    for key in ("country", "primary_location"):
+        val = data.get(key)
+        if isinstance(val, str) and val.strip():
+            candidates.append(val)
+    locs = data.get("locations") or []
+    if isinstance(locs, (list, tuple)):
+        for loc in locs:
+            if isinstance(loc, str) and loc.strip():
+                candidates.append(loc)
+            elif isinstance(loc, dict):
+                country = loc.get("country") or loc.get("location") or ""
+                if isinstance(country, str) and country.strip():
+                    candidates.append(country)
+    for cand in candidates:
+        try:
+            code = _plan_currency.currency_for_country(cand)
+        except Exception:  # noqa: BLE001 - resolution is best-effort
+            code = None
+        if code:
+            return code
+    return "USD"
+
+
+def _set_active_currency(data: Optional[Dict]) -> str:
+    """Resolve and remember the plan currency for the duration of generation.
+
+    Stored thread-locally so concurrent generations don't clobber each other.
+    """
+    code = _plan_currency_code(data)
+    _currency_tls.code = code
+    if isinstance(data, dict):
+        data["_plan_currency_code"] = code
+    return code
+
+
+def _cur_symbol(currency: Optional[str] = None) -> str:
+    """Return the symbol for ``currency`` (or the active plan currency)."""
+    code = (currency or _get_active_currency() or "USD").strip().upper()
+    if _plan_currency is not None:
+        return _plan_currency.symbol_for_code(code)
+    return _CURRENCY_SYMBOLS.get(code, "$")
+
+
+def _fmt_currency(val, currency=None, compact=False):
+    """Format a number as currency. compact=True for $1.2M style.
+
+    ``currency`` defaults to the active plan currency (set by ``generate_pptx``);
+    pass an explicit ISO code (e.g. "USD") to force a specific currency for
+    intentionally USD-coded benchmark figures.
+    """
     if val is None:
         return "—"
     try:
         val = float(val)
     except (TypeError, ValueError):
         return str(val)
-    sym = _CURRENCY_SYMBOLS.get(currency, "$")
+    sym = _cur_symbol(currency)
     if compact and abs(val) >= 1_000_000:
         return f"{sym}{val/1_000_000:,.1f}M"
     if compact and abs(val) >= 1_000:
@@ -1826,15 +1984,16 @@ def _parse_budget_number(budget_str) -> Optional[float]:
 
 
 def _format_budget_display(budget_str: str) -> str:
-    """Format budget for hero stat display."""
+    """Format budget for hero stat display (uses the active plan currency)."""
     val = _parse_budget_number(budget_str)
     if val is None:
         return budget_str
+    sym = _cur_symbol()
     if val >= 1000000:
-        return f"${val / 1000000:.1f}M"
+        return f"{sym}{val / 1000000:.1f}M"
     if val >= 1000:
-        return f"${val / 1000:.0f}K"
-    return f"${val:,.0f}"
+        return f"{sym}{val / 1000:.0f}K"
+    return f"{sym}{val:,.0f}"
 
 
 def _channel_categories_grouped(channels: Dict) -> Dict[str, List[Dict]]:
@@ -2033,12 +2192,16 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
 
 
 def _format_salary(amount):
-    """Format a salary number into human-readable string like $85K or $125K."""
+    """Format a salary number into human-readable string like $85K or $125K.
+
+    Uses the active plan currency symbol so non-USD plans render correctly.
+    """
     if not isinstance(amount, (int, float)) or amount <= 0:
         return ""
+    sym = _cur_symbol()
     if amount >= 1000:
-        return f"${amount / 1000:.0f}K"
-    return f"${amount:,.0f}"
+        return f"{sym}{amount / 1000:.0f}K"
+    return f"{sym}{amount:,.0f}"
 
 
 # ===================================================================
@@ -2589,7 +2752,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         if _proj_h > 0:
             _thesis_parts.append(f"This plan projects {int(_proj_h)} hires")
         if _proj_cph > 0:
-            _thesis_parts.append(f"at ${_proj_cph:,.0f}/hire")
+            _thesis_parts.append(f"at {_fmt_currency(_proj_cph)}/hire")
     if market_temp_str:
         temp_map = {
             "hot": "high-demand",
@@ -3696,12 +3859,12 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
             "accent": GREEN,
         },
         {
-            "value": f"${avg_cpa:,.0f}" if avg_cpa > 0 else "--",
+            "value": _fmt_currency(avg_cpa) if avg_cpa > 0 else "--",
             "label": "Avg CPA",
             "accent": RGBColor(0xED, 0x7D, 0x31),
         },
         {
-            "value": f"${ba_avg_cph:,.0f}" if ba_avg_cph > 0 else "--",
+            "value": _fmt_currency(ba_avg_cph) if ba_avg_cph > 0 else "--",
             "label": "Avg Cost/Hire",
             "accent": NAVY,
         },
@@ -3850,11 +4013,11 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
 
         row_values = [
             ch["label"],
-            f"${ch['budget']:,.0f}" if ch["budget"] > 0 else "--",
+            _fmt_currency(ch["budget"]) if ch["budget"] > 0 else "--",
             f"{int(ch['clicks']):,}" if ch["clicks"] > 0 else "--",
             f"{int(ch['apps']):,}" if ch["apps"] > 0 else "--",
             f"{int(ch['hires']):,}" if ch["hires"] > 0 else "--",
-            f"${ch['cpa']:,.0f}" if ch["cpa"] > 0 else "--",
+            _fmt_currency(ch["cpa"]) if ch["cpa"] > 0 else "--",
         ]
 
         cx = ch_table_left
@@ -3897,8 +4060,8 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
             if not _reality_message:
                 _reality_message = (
                     f"Budget is {_budget_reality.get('feasibility_label', 'severely underfunded')}. "
-                    f"Budget per hire: ${_budget_reality.get('budget_per_hire') or 0:,.0f} vs. "
-                    f"industry avg: ${_budget_reality.get('industry_avg_cph') or 0:,.0f}."
+                    f"Budget per hire: {_fmt_currency(_budget_reality.get('budget_per_hire') or 0)} vs. "
+                    f"industry avg: {_fmt_currency(_budget_reality.get('industry_avg_cph') or 0)}."
                 )
     # Fall back to sufficiency data
     elif _suff_data and not _suff_data.get("sufficient", True):
@@ -4128,8 +4291,9 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     hero_start_x = Inches(0.55)
 
     # Total Investment
+    _cur = _cur_symbol()
     total_display = (
-        f"${ba_total_budget:,.0f}"
+        f"{_cur}{ba_total_budget:,.0f}"
         if ba_total_budget > 0
         else _format_budget_display(budget)
     )
@@ -4309,10 +4473,10 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         row_values = [
             ch["label"],
             f"{ch['pct']}%",
-            f"${ch['dollar']:,.0f}" if ch["dollar"] > 0 else "--",
+            f"{_cur}{ch['dollar']:,.0f}" if ch["dollar"] > 0 else "--",
             f"{int(ch['projected_apps']):,}" if ch["projected_apps"] > 0 else "--",
             f"{int(ch['projected_hires']):,}" if ch["projected_hires"] > 0 else "--",
-            f"${ch['cpa']:,.0f}" if ch["cpa"] > 0 else "--",
+            f"{_cur}{ch['cpa']:,.0f}" if ch["cpa"] > 0 else "--",
         ]
 
         cx = table_left
@@ -4333,6 +4497,43 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
             )
             cx += cw
 
+    # ---- TOTALS ROW ----
+    # Executive decks expect a footed table. Totals are summed over ALL display
+    # channels (not just the capped rows) so the row reconciles with the budget.
+    total_pct = sum(c["pct"] for c in display_channels)
+    total_dollar = sum(c["dollar"] for c in display_channels)
+    total_apps = sum(int(c["projected_apps"] or 0) for c in display_channels)
+    total_hires = sum(int(c["projected_hires"] or 0) for c in display_channels)
+    # Blended CPA = total spend / total apps (more meaningful than a CPA sum).
+    blended_cpa = (total_dollar / total_apps) if total_apps > 0 else 0
+    totals_y = header_y + row_h + max_rows * row_h
+    _add_filled_rect(slide, table_left, totals_y, table_w, row_h, NAVY)
+    totals_values = [
+        "Total",
+        f"{round(total_pct)}%",
+        f"{_cur}{total_dollar:,.0f}" if total_dollar > 0 else "--",
+        f"{total_apps:,}" if total_apps > 0 else "--",
+        f"{total_hires:,}" if total_hires > 0 else "--",
+        f"{_cur}{blended_cpa:,.0f}" if blended_cpa > 0 else "--",
+    ]
+    cx = table_left
+    for ci, (val, cw) in enumerate(zip(totals_values, col_widths)):
+        left_pad = Inches(0.3) if ci == 0 else Inches(0.1)
+        _add_textbox(
+            slide,
+            cx + left_pad,
+            totals_y,
+            cw - left_pad,
+            row_h,
+            text=val,
+            font_size=9,
+            bold=True,
+            color=WHITE,
+            alignment=col_aligns[ci],
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+        cx += cw
+
     # ---- ROI INSIGHT CALLOUT ----
     insight_top = Inches(6.05)
     insight_h = Inches(0.65)
@@ -4347,10 +4548,10 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
 
     if avg_cpa and avg_cpa > 0 and proj_hires and proj_hires > 0:
         insight_text = (
-            f"Budget engine projects ${avg_cpa:,.0f} average CPA across all channels"
+            f"Budget engine projects {_cur}{avg_cpa:,.0f} average CPA across all channels"
         )
         if avg_cph and avg_cph > 0:
-            insight_text += f", with ${avg_cph:,.0f} average cost-per-hire"
+            insight_text += f", with {_cur}{avg_cph:,.0f} average cost-per-hire"
         insight_text += (
             f". At {int(proj_hires):,} projected hires, "
             f"{client}'s investment yields strong programmatic ROI "
@@ -4358,7 +4559,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         )
     elif ba_total_budget > 0:
         insight_text = (
-            f"{client}'s ${ba_total_budget:,.0f} investment is distributed across "
+            f"{client}'s {_cur}{ba_total_budget:,.0f} investment is distributed across "
             f"{n_channels} channels using Nova AI Suite's programmatic optimization engine, "
             f"maximizing reach and conversion through real-time bid management."
         )
@@ -4639,7 +4840,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             all_comparison_rows.append(
                 {
                     "metric": "Projected CPA",
-                    "client_val": f"${proj_cpa:,.0f}",
+                    "client_val": _fmt_currency(proj_cpa),
                     "industry_val": cpa_str,
                     "is_better": proj_cpa <= ind_avg_cpa,
                 }
@@ -4657,7 +4858,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             all_comparison_rows.append(
                 {
                     "metric": "Total Investment",
-                    "client_val": f"${ba_total_budget:,.0f}",
+                    "client_val": _fmt_currency(ba_total_budget),
                     "industry_val": "Varies",
                     "is_better": True,
                 }
@@ -8894,6 +9095,56 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
         color=NAVY,
     )
 
+    # S89: data-freshness line -- tells the reader exactly how current the
+    # figures are ("Data current as of <date>").
+    _add_textbox(
+        slide,
+        Inches(0.55),
+        Inches(1.34),
+        Inches(12.2),
+        Inches(0.25),
+        text=f"Data current as of {today}",
+        font_size=9,
+        italic=True,
+        color=MUTED_TEXT,
+    )
+
+    # S89 KEYSTONE: "Joveo measured" callout -- only when the budget engine
+    # attached first-party measured outcomes from the cg_benchmarks warehouse.
+    # Read defensively; the key is absent in the common (no-match) case.
+    _ba_meta = (data.get("_budget_allocation") or {})
+    if isinstance(_ba_meta, dict):
+        _ba_meta = _ba_meta.get("metadata") or {}
+    else:
+        _ba_meta = {}
+    _real_outcomes = _ba_meta.get("real_outcomes") if isinstance(_ba_meta, dict) else None
+    if _real_outcomes:
+        try:
+            _n_measured = len(_real_outcomes) if isinstance(_real_outcomes, list) else 1
+        except Exception:  # noqa: BLE001
+            _n_measured = 1
+        _badge_w = Inches(3.0)
+        _badge_x = SLIDE_WIDTH - _badge_w - Inches(0.55)
+        _badge_top = Inches(0.95)
+        _add_rounded_rect(slide, _badge_x, _badge_top, _badge_w, Inches(0.5), LAVENDER_100)
+        _add_filled_rect(slide, _badge_x, _badge_top, Inches(0.06), Inches(0.5), GREEN)
+        _badge_label = (
+            f"Joveo measured · {_n_measured} role"
+            f"{'s' if _n_measured != 1 else ''} matched"
+        )
+        _bbox, _btf = _add_textbox(
+            slide,
+            _badge_x + Inches(0.18),
+            _badge_top,
+            _badge_w - Inches(0.28),
+            Inches(0.5),
+            text=_badge_label,
+            font_size=9,
+            bold=True,
+            color=NAVY,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+
     # Extract enrichment data
     enriched = data.get("_enriched", {})
     if not isinstance(enriched, dict):
@@ -9262,6 +9513,26 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
         color=LIGHT_MUTED,
     )
 
+    # S89: data-source / provenance attribution line. Names the figure origins
+    # so the deck is self-attesting; cites Joveo measured outcomes when present.
+    _provenance_bits = [
+        "Provenance: live APIs + Nova KB + curated benchmarks",
+    ]
+    if _real_outcomes:
+        _provenance_bits.append("calibrated against Joveo measured outcomes (cg_benchmarks)")
+    _provenance_text = " · ".join(_provenance_bits) + "."
+    _add_textbox(
+        slide,
+        Inches(0.55),
+        Inches(6.78),
+        Inches(12.2),
+        Inches(0.22),
+        text=_provenance_text,
+        font_size=6,
+        italic=True,
+        color=MUTED_TEXT,
+    )
+
     # Generation timestamp
     _add_textbox(
         slide,
@@ -9563,6 +9834,10 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         data["industry_label"] = _SHARED_INDUSTRY_LABEL_MAP.get(
             data["industry"], data["industry"].replace("_", " ").title()
         )
+
+    # S89: resolve the plan's currency once so every money figure renders in the
+    # plan's own symbol (£/€/₹/...) instead of a hardcoded "$". Defaults to USD.
+    _set_active_currency(data)
 
     try:
         prs = Presentation()
