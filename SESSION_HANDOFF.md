@@ -28,11 +28,11 @@ in §5.
 ---
 
 ## 2. Current state
-- **HEAD ≈ `553af96`** (+ this handoff refresh). Live:
-  https://media-plan-generator.onrender.com/ (HTTP 200; `main` auto-deploys).
-  Pushes to `main` are gated by the permission classifier (denied → allowed via
-  explicit user authorization). `185923d`/`553af96` (+ this refresh) may be
-  awaiting a push if you read this mid-turn — `git log origin/main..HEAD`.
+- **HEAD ≈ `cb3d3ea`** (+ this handoff refresh). `origin/main` last confirmed at
+  `33661e4`. Live: https://media-plan-generator.onrender.com/ (`main` auto-deploys).
+  Pushes to `main` are gated by the permission classifier (each batch needs
+  explicit user OK). **Awaiting push at handoff:** `86dd040`, `cb3d3ea`
+  (frontend) + this refresh — run `git log origin/main..HEAD`.
 - Whole S89 program is shipped EXCEPT the items in §5 (mostly user-creds, the
   deliberately-deferred true-streaming work, or #8 which is blocked on a product
   decision per §6).
@@ -60,6 +60,17 @@ in §5.
   `_generate_post_campaign_summary`, `_audit_complianceguard`,
   `_generate_creative_ads`, `_generate_ab_test_with_claude`) + 16 mocked tests.
   Full suite 2,127 passed; eval gate green. **Adoption complete.**
+- `86dd040` / `cb3d3ea` **frontend brand pass** (after user feedback that design
+  hadn't improved): fixed the washed-gray hero headline (was a white→50% text
+  fade in Space Grotesk; Poppins wasn't loaded) → bright #f6f5ff + Poppins +
+  vibrant purple→teal→magenta gradient accent + brand-color hero glows; lifted
+  the media-plan form card (indigo→purple→teal top-accent stripe, indigo tint,
+  brand mesh) + Poppins headings. Verified by rendering both pages in the live
+  preview. **These 2 commits were awaiting a push at handoff** (see §2). More
+  surfaces (inputs, other landing sections, Nova widget) not yet touched. See
+  memory `frontend-design-bar.md`.
+- **#9 map done** (workflow `wf_f9192b9b-43d`): per-accessor specs + parity
+  design saved raw at `docs/_s89_9_parity_map_raw.json` — see §5 #9.
 
 **Earlier session (commits `f216464` → `7bb9a80`):** Excel numeric/totals/freeze ·
 scorecard/PDF P0 image-404 fixes (OG card + logo) · PPTX brand chart palette · KB
@@ -98,8 +109,18 @@ bump · architecture design doc · **keystone accessor** `get_real_outcomes()` �
     `docs/BENCHMARK_REFRESH_FINDINGS_2026-06.md`. QStash infra
     (`/api/cron/run` + `CRON_SECRET`, S88) already exists; the missing piece is
     the *owned, correct* refresh action — needs a product decision from the user.
-  - **#9 source-of-truth migration** — decided: Supabase canonical; implement
-    dual-read parity checks → cutover; JSON KB stays as fallback.
+  - **#9 source-of-truth migration** — 🟡 MAPPED, not yet built. The map
+    (`docs/_s89_9_parity_map_raw.json`, workflow `wf_f9192b9b-43d`) found:
+    `supabase_data.py` is ALREADY Supabase-first/JSON-fallback for every
+    accessor, so #9 = an ADDITIVE dual-read **parity-audit** layer
+    (`supabase_parity.py` + `scripts/parity_audit.py` + admin endpoint mirroring
+    `/api/admin/data-freshness`), NOT a serving change. Parity-eligible (both
+    sources): `knowledge_base` (diff per (category,key) — the no-key fallback
+    returns the whole file, a trap), `channel_benchmarks`, `market_trends`,
+    `supply_repository`. **Supabase-ONLY (empty JSON fallback → no safety net,
+    flag it):** `salary_data`, `compliance_rules`, `vendor_profiles`. NOT
+    eligible: `cg_benchmarks` (no fallback). Cutover is already effectively done
+    (Supabase-first); the audit proves it's safe + catches silent regressions.
   - **#15 external data MCPs** — deferred (opportunistic).
 - **Residual follow-ups:**
   - ✅ eval-gate + pytest now run in CI (`4559149`, `a2b6ad0`); baseline committed.
