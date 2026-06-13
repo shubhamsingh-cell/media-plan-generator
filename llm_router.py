@@ -4510,6 +4510,182 @@ def get_router_stats() -> Dict[str, Any]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Structured JSON output (S89, L3.1)
+# ═══════════════════════════════════════════════════════════════════════════════
+# A provider-agnostic JSON primitive. Rather than wire Anthropic-only
+# output_config.format into the 27-provider build (risky + provider-specific),
+# this wraps call_llm with a strict-schema instruction, robust extraction
+# (handles ```json fences and leading prose), required-key validation, and ONE
+# corrective retry. Works across every provider; callers stop hand-rolling
+# json.loads + retry. Returns {"ok", "data", "raw", "provider", "error"}.
+
+
+def _extract_json(text: str) -> Optional[Any]:
+    """Best-effort extraction of a JSON object/array from LLM text.
+
+    Handles fenced ```json blocks, leading/trailing prose, and falls back to
+    the first balanced {...} / [...] span. Returns the parsed value or None.
+    """
+    if not text or not text.strip():
+        return None
+    s = text.strip()
+    # 1) fenced code block
+    _fence = re.search(r"```(?:json)?\s*(.+?)```", s, re.DOTALL)
+    if _fence:
+        s_try = _fence.group(1).strip()
+        try:
+            return json.loads(s_try)
+        except (json.JSONDecodeError, ValueError):
+            s = s_try  # fall through to span scan on the fenced content
+    # 2) direct parse
+    try:
+        return json.loads(s)
+    except (json.JSONDecodeError, ValueError):
+        pass
+    # 3) first balanced object/array span
+    for open_ch, close_ch in (("{", "}"), ("[", "]")):
+        start = s.find(open_ch)
+        if start == -1:
+            continue
+        depth = 0
+        in_str = False
+        esc = False
+        for i in range(start, len(s)):
+            c = s[i]
+            if in_str:
+                if esc:
+                    esc = False
+                elif c == "\\":
+                    esc = True
+                elif c == '"':
+                    in_str = False
+                continue
+            if c == '"':
+                in_str = True
+            elif c == open_ch:
+                depth += 1
+            elif c == close_ch:
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(s[start : i + 1])
+                    except (json.JSONDecodeError, ValueError):
+                        break
+    return None
+
+
+def _missing_required_keys(data: Any, required: Optional[List[str]]) -> List[str]:
+    """Return required top-level keys absent from a dict result (else [])."""
+    if not required or not isinstance(data, dict):
+        return []
+    return [k for k in required if k not in data]
+
+
+def call_llm_json(
+    messages: List[Dict],
+    schema: Dict[str, Any],
+    system_prompt: str = "",
+    required_keys: Optional[List[str]] = None,
+    max_tokens: int = 4096,
+    task_type: str = "",
+    query_text: str = "",
+    preferred_providers: Optional[List[str]] = None,
+    timeout_budget: Optional[float] = None,
+) -> Dict[str, Any]:
+    """Call an LLM and return validated structured JSON.
+
+    Args:
+        messages: Conversation messages.
+        schema: A JSON Schema (dict) the response must conform to. Embedded in
+            the system prompt as the contract. ``required`` (if present) is also
+            enforced client-side as ``required_keys`` fallback.
+        system_prompt: Base system prompt; the JSON contract is appended.
+        required_keys: Top-level keys that must be present (defaults to
+            ``schema.get("required")``).
+        Other args mirror ``call_llm``.
+
+    Returns:
+        ``{"ok": bool, "data": <parsed or None>, "raw": <text>,
+           "provider": str, "error": str}``. On parse/validation failure after
+        one retry, ``ok`` is False and ``data`` is None so callers can fall back.
+    """
+    if required_keys is None:
+        _req = schema.get("required") if isinstance(schema, dict) else None
+        required_keys = list(_req) if isinstance(_req, list) else None
+
+    try:
+        _schema_str = json.dumps(schema, indent=2, default=str)
+    except (TypeError, ValueError):
+        _schema_str = str(schema)
+
+    _contract = (
+        "You MUST respond with a single valid JSON value that conforms to this "
+        "JSON Schema. Output ONLY the JSON -- no prose, no markdown fences, no "
+        "explanation before or after.\n\nJSON Schema:\n" + _schema_str
+    )
+    _sys = (system_prompt.rstrip() + "\n\n" + _contract) if system_prompt else _contract
+
+    _last_text = ""
+    _last_provider = ""
+    _last_err = ""
+    _msgs = list(messages)
+    for _attempt in range(2):
+        try:
+            resp = call_llm(
+                messages=_msgs,
+                system_prompt=_sys,
+                max_tokens=max_tokens,
+                task_type=task_type,
+                query_text=query_text,
+                preferred_providers=preferred_providers,
+                use_cache=False,  # structured calls should not serve stale JSON
+                timeout_budget=timeout_budget,
+            )
+        except Exception as exc:  # noqa: BLE001 - never raise to caller
+            _last_err = f"call_llm raised: {exc}"
+            logger.warning("call_llm_json attempt %d failed: %s", _attempt + 1, exc)
+            break
+
+        _last_text = resp.get("text") or ""
+        _last_provider = resp.get("provider") or ""
+        parsed = _extract_json(_last_text)
+        if parsed is not None:
+            missing = _missing_required_keys(parsed, required_keys)
+            if not missing:
+                return {
+                    "ok": True,
+                    "data": parsed,
+                    "raw": _last_text,
+                    "provider": _last_provider,
+                    "error": "",
+                }
+            _last_err = f"missing required keys: {missing}"
+        else:
+            _last_err = "no parseable JSON in response"
+
+        # One corrective retry: tell the model exactly what was wrong.
+        if _attempt == 0:
+            _msgs = list(messages) + [
+                {
+                    "role": "user",
+                    "content": (
+                        "Your previous reply was not valid JSON matching the "
+                        f"schema ({_last_err}). Reply again with ONLY the JSON "
+                        "value, no prose or fences."
+                    ),
+                }
+            ]
+
+    return {
+        "ok": False,
+        "data": None,
+        "raw": _last_text,
+        "provider": _last_provider,
+        "error": _last_err or "structured JSON extraction failed",
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # CLI DEMO
 # ═══════════════════════════════════════════════════════════════════════════════
 
