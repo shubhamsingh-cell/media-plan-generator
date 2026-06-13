@@ -60,15 +60,22 @@ in §5.
   `_generate_post_campaign_summary`, `_audit_complianceguard`,
   `_generate_creative_ads`, `_generate_ab_test_with_claude`) + 16 mocked tests.
   Full suite 2,127 passed; eval gate green. **Adoption complete.**
-- `86dd040` / `cb3d3ea` **frontend brand pass** (after user feedback that design
-  hadn't improved): fixed the washed-gray hero headline (was a white→50% text
-  fade in Space Grotesk; Poppins wasn't loaded) → bright #f6f5ff + Poppins +
-  vibrant purple→teal→magenta gradient accent + brand-color hero glows; lifted
-  the media-plan form card (indigo→purple→teal top-accent stripe, indigo tint,
-  brand mesh) + Poppins headings. Verified by rendering both pages in the live
-  preview. **These 2 commits were awaiting a push at handoff** (see §2). More
-  surfaces (inputs, other landing sections, Nova widget) not yet touched. See
-  memory `frontend-design-bar.md`.
+- **frontend brand pass — all surfaces, LIVE** (after user feedback that design
+  hadn't improved; user then asked to take it across "all surfaces"):
+  - `86dd040` hero: washed-gray white→50% headline (Space Grotesk; Poppins
+    wasn't loaded) → bright #f6f5ff Poppins + purple→teal→magenta gradient accent
+    + brand-color glows.
+  - `cb3d3ea` + `21adaae` form: card lift (indigo→purple→teal top-accent stripe,
+    indigo tint, brand mesh), Poppins headings, brand-tinted inputs + preset chips.
+  - `420815c` landing: ALL headings (h1-h4/.section-title/.card-title/product
+    titles) → Poppins via --font-heading (hub.css is landing-only; dark
+    dashboards keep Space Grotesk by design); brighter .section-label eyebrows.
+  - Nova chat widget: **already on-brand** (Poppins + full brand palette) — left
+    as-is by design. Verified by rendering each page in the live preview.
+  See memory `frontend-design-bar.md`. Local dev preview: `.claude/launch.json`
+  (gitignored) runs `python3 app.py 5099`; **RESTART the server after editing
+  templates/inline CSS** (app caches templates at startup) + bump the `?v=` on
+  linked CSS.
 - **#9 map done** (workflow `wf_f9192b9b-43d`): per-accessor specs + parity
   design saved raw at `docs/_s89_9_parity_map_raw.json` — see §5 #9.
 
