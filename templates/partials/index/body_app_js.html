@@ -1099,19 +1099,19 @@
     container.style.display = "block";
     container.innerHTML = "";
 
+    // S89: Joveo deck dataviz sequence (was a rainbow of off-brand coral/
+    // salmon/yellow/generic-blue). Brand-only, high contrast between neighbors.
     const colors = [
-      "#FF6B6B",
-      "#6BB5CE",
-      "#45B7D1",
-      "#FFA07A",
-      "#5A54BE",
-      "#FFD93D",
-      "#6C5CE7",
-      "#818CF8",
-      "#FF8B94",
-      "#2E75B6",
-      "#202058",
-      "#ED7D31",
+      "#5A54BE", // PURPLE
+      "#6BB5CE", // TEAL
+      "#B7669E", // MAGENTA
+      "#8680D6", // PURPLE_LIGHT
+      "#202058", // INDIGO
+      "#3E8FAB", // TEAL deep
+      "#C98BB6", // MAGENTA light
+      "#3F3A8E", // PURPLE deep
+      "#A9C9D8", // TEAL pale
+      "#D7D4F5", // PURPLE pale
     ];
 
     for (let i = 0; i < 100; i++) {
@@ -3792,11 +3792,15 @@
       ) {
         userMsg =
           "Network error -- could not reach the server. Please check your connection and try again.";
-      } else if (err.message) {
-        userMsg = err.message;
       } else {
+        // S89: don't leak a raw/uncategorized error string to the client --
+        // all known cases (abort/offline/5xx/4xx/network) are handled above.
+        // Log the real error for debugging; show a friendly message.
+        if (err && err.message) {
+          console.error("Media plan generation failed:", err);
+        }
         userMsg =
-          "Failed to generate media plan. Please check your inputs and try again.";
+          "Something went wrong generating your media plan. Please try again, or contact us if it persists.";
       }
       showToast(userMsg, "error");
       btn.disabled = false;
