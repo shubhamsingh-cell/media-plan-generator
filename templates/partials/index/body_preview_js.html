@@ -229,6 +229,16 @@
       return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     }
     function escapeHtml(s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); }
+    // Integer percentages that always sum to 100 (largest-remainder method)
+    function pctRound(shares) {
+      var raw = shares.map(function (s) { return s * 100; });
+      var floor = raw.map(Math.floor);
+      var rem = 100 - floor.reduce(function (a, b) { return a + b; }, 0);
+      var order = raw.map(function (v, i) { return { i: i, frac: v - Math.floor(v) }; })
+        .sort(function (a, b) { return b.frac - a.frac; });
+      for (var k = 0; k < rem && k < order.length; k++) floor[order[k].i]++;
+      return floor;
+    }
 
     function render() {
       var card = $("npCard");
@@ -274,20 +284,21 @@
       // otherwise update widths/amounts in place so the CSS transition
       // animates budget edits (rAF-free → screenshot-safe).
       var bar = $("npMixBar"), legend = $("npLegend");
+      var pcts = pctRound(m.rows.map(function (r) { return r.share; }));
       var ids = m.rows.map(function (r) { return r.id; }).join(",");
       var inPlace = ids === lastChannelIds && bar.children.length === m.rows.length && legend.children.length === m.rows.length;
       if (inPlace) {
         m.rows.forEach(function (r, i) {
           bar.children[i].style.width = (r.share * 100).toFixed(1) + "%";
           var row = legend.children[i];
-          row.querySelector(".np-leg-pct").textContent = Math.round(r.share * 100) + "%";
+          row.querySelector(".np-leg-pct").textContent = pcts[i] + "%";
           row.querySelector(".np-leg-amt").textContent = hasBudget ? amtShort(r.spend) : "—";
         });
       } else {
         lastChannelIds = ids;
         bar.innerHTML = "";
         legend.innerHTML = "";
-        m.rows.forEach(function (r) {
+        m.rows.forEach(function (r, i) {
           var seg = document.createElement("div");
           seg.className = "np-mix-seg";
           seg.style.background = r.color;
@@ -299,7 +310,7 @@
           row.innerHTML =
             '<span class="np-leg-dot" style="background:' + r.color + '"></span>' +
             '<span class="np-leg-name">' + escapeHtml(r.name) + "</span>" +
-            '<span class="np-leg-pct">' + Math.round(r.share * 100) + "%</span>" +
+            '<span class="np-leg-pct">' + pcts[i] + "%</span>" +
             '<span class="np-leg-amt">' + (hasBudget ? amtShort(r.spend) : "—") + "</span>";
           legend.appendChild(row);
         });

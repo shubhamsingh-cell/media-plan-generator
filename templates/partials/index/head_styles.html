@@ -5855,7 +5855,19 @@
       padding: 22px clamp(16px, 4vw, 40px) 90px !important;
     }
   }
-  @media (max-width: 560px) {
+  @media (max-width: 860px) {
+    .studio-topbar .stb-sub {
+      display: none;
+    }
+  }
+  @media (max-width: 600px) {
+    .studio-topbar {
+      gap: 10px;
+      padding: 0 14px;
+    }
+    .studio-topbar .stb-step {
+      display: none;
+    }
     .studio .step-label .full-label {
       display: none;
     }
@@ -5875,5 +5887,584 @@
       transition: none !important;
       animation: none !important;
     }
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     NOVA PLAN STUDIO — Steps 2–5 components + results / output screen
+     ════════════════════════════════════════════════════════════════════ */
+
+  /* ── Step 2: industry + job-category selectors ──────────────────── */
+  .studio .industry-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)) !important;
+    gap: 10px !important;
+  }
+  .studio .industry-card {
+    display: flex !important;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start !important;
+    padding: 14px 15px !important;
+    border-radius: 13px !important;
+    border: 1px solid var(--np-hair) !important;
+    background: var(--np-input) !important;
+    cursor: pointer;
+    transition: all 0.16s var(--ease-out, ease) !important;
+  }
+  .studio .industry-card:hover {
+    border-color: var(--np-hair-strong) !important;
+    background: var(--np-panel-2) !important;
+    transform: translateY(-2px);
+  }
+  .studio .industry-card.selected {
+    border-color: var(--np-purple) !important;
+    background: rgba(90, 84, 190, 0.16) !important;
+    box-shadow: 0 0 0 1px var(--np-purple), 0 10px 26px -14px rgba(90, 84, 190, 0.7) !important;
+  }
+  .studio .industry-card .icon {
+    font-size: 20px;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+  .studio .industry-card .name {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--np-ink) !important;
+  }
+  .studio .industry-card .desc {
+    font-size: 11.5px;
+    color: var(--np-faint) !important;
+    line-height: 1.35;
+  }
+  .studio .job-category-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+    gap: 8px !important;
+    margin-top: 6px;
+  }
+  .studio .job-cat-card {
+    padding: 11px 12px !important;
+    border-radius: 11px !important;
+    border: 1px solid var(--np-hair) !important;
+    background: var(--np-input) !important;
+    color: var(--np-ink-soft) !important;
+    font-size: 12.5px !important;
+    font-weight: 500 !important;
+    cursor: pointer;
+    transition: all 0.16s var(--ease-out, ease) !important;
+  }
+  .studio .job-cat-card:hover {
+    border-color: var(--np-hair-strong) !important;
+    background: var(--np-panel-2) !important;
+  }
+  .studio .job-cat-card.selected {
+    border-color: var(--np-purple) !important;
+    background: rgba(90, 84, 190, 0.18) !important;
+    color: #fff !important;
+  }
+
+  /* ── Step 3 + 4: toggle switches (two markup variants) ──────────── */
+  .studio .channel-categories {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .studio .channel-category-card {
+    padding: 15px 16px !important;
+    border-radius: 13px !important;
+    border: 1px solid var(--np-hair) !important;
+    background: var(--np-input) !important;
+    transition: border-color 0.16s ease, background 0.16s ease;
+  }
+  .studio .channel-category-card:hover {
+    border-color: var(--np-hair-strong) !important;
+  }
+  .studio .category-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: space-between;
+  }
+  .studio .category-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+  }
+  .studio .category-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    background: rgba(90, 84, 190, 0.14);
+    border: 1px solid var(--np-hair);
+    flex-shrink: 0;
+  }
+  .studio .channel-category-card h3 {
+    font-family: var(--font-heading) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: var(--np-ink) !important;
+    margin: 0 0 2px !important;
+  }
+  .studio .channel-category-card p {
+    font-size: 12px !important;
+    color: var(--np-muted) !important;
+    margin: 0 !important;
+    line-height: 1.4;
+  }
+  .studio .toggle-group {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 14px 16px !important;
+    border-radius: 13px !important;
+    border: 1px solid var(--np-hair) !important;
+    background: var(--np-input) !important;
+    margin-bottom: 10px !important;
+  }
+  .studio .toggle-group strong {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--np-ink) !important;
+  }
+  /* switch track + knob — covers .toggle-switch/.toggle-slider and .toggle/.slider */
+  .studio .toggle-switch,
+  .studio .toggle {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 26px;
+    flex-shrink: 0;
+  }
+  .studio .toggle-switch input,
+  .studio .toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+  .studio .toggle-slider,
+  .studio .toggle .slider {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12) !important;
+    border: 1px solid var(--np-hair) !important;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  .studio .toggle-slider::before,
+  .studio .toggle .slider::before {
+    content: "";
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s var(--ease-out, ease);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  }
+  .studio .toggle-switch input:checked + .toggle-slider,
+  .studio .toggle input:checked + .slider {
+    background: var(--np-grad) !important;
+    border-color: transparent !important;
+  }
+  .studio .toggle-switch input:checked + .toggle-slider::before,
+  .studio .toggle input:checked + .slider::before {
+    transform: translate(18px, -50%);
+  }
+  .studio .channel-info-tooltip {
+    color: var(--np-purple-light);
+    cursor: help;
+    position: relative;
+  }
+  .studio .tooltip-content {
+    background: var(--np-panel-2) !important;
+    border: 1px solid var(--np-hair-strong) !important;
+    color: var(--np-ink-soft) !important;
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* ── Step 4: live pricing ───────────────────────────────────────── */
+  .studio .live-pricing-section {
+    margin-top: 20px;
+    padding: 18px !important;
+    border-radius: 14px !important;
+    border: 1px solid var(--np-hair) !important;
+    background: linear-gradient(135deg, rgba(107, 181, 206, 0.06), rgba(90, 84, 190, 0.05)) !important;
+  }
+  .studio .live-pricing-label {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--np-teal) !important;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .studio .pricing-subtitle {
+    font-size: 12px;
+    color: var(--np-muted) !important;
+    margin: 4px 0 12px;
+  }
+  .studio .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+  }
+  .studio .pricing-loading {
+    color: var(--np-faint) !important;
+    font-size: 12.5px;
+    grid-column: 1 / -1;
+  }
+  .studio .pricing-source {
+    font-size: 11px;
+    color: var(--np-faint) !important;
+    margin-top: 8px;
+  }
+  .studio .btn-refresh-pricing {
+    margin-top: 12px;
+    padding: 8px 14px;
+    border-radius: 9px;
+    border: 1px solid var(--np-hair-strong);
+    background: var(--np-panel);
+    color: var(--np-ink-soft);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.16s ease;
+  }
+  .studio .btn-refresh-pricing:hover {
+    border-color: var(--np-teal);
+    color: #fff;
+  }
+
+  /* ── Step 5: review list ────────────────────────────────────────── */
+  .studio .review-section {
+    padding: 16px 18px !important;
+    border-radius: 14px !important;
+    border: 1px solid var(--np-hair) !important;
+    background: var(--np-input) !important;
+    margin-bottom: 14px !important;
+  }
+  .studio .review-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .studio .review-section-header h3 {
+    font-family: var(--font-heading) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: var(--np-ink) !important;
+    margin: 0 !important;
+  }
+  .studio .review-edit-btn {
+    font-size: 12px !important;
+    font-weight: 600;
+    color: var(--np-purple-light) !important;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 8px;
+    transition: all 0.15s ease;
+  }
+  .studio .review-edit-btn:hover {
+    background: rgba(90, 84, 190, 0.16);
+    color: #fff !important;
+  }
+  .studio .review-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 7px 0;
+    border-top: 1px solid var(--np-hair);
+    font-size: 13px;
+  }
+  .studio .review-item:first-of-type {
+    border-top: none;
+  }
+  .studio .review-item .label {
+    color: var(--np-faint) !important;
+    flex-shrink: 0;
+  }
+  .studio .review-item .value {
+    color: var(--np-ink) !important;
+    font-weight: 500;
+    text-align: right;
+  }
+  .studio .confidence-signals {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--np-faint);
+  }
+  .studio .conf-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--np-faint);
+  }
+  .studio .plan-clear-form {
+    background: none;
+    border: none;
+    color: var(--np-muted);
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .studio .plan-clear-form:hover {
+    color: var(--np-magenta);
+  }
+  /* big generate CTA */
+  .studio .btn-success {
+    background: var(--np-grad-warm) !important;
+    border: none !important;
+    color: #fff !important;
+    border-radius: 13px !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
+    padding: 15px 28px !important;
+    min-height: 52px !important;
+    box-shadow: 0 12px 30px -10px rgba(90, 84, 190, 0.7) !important;
+    transition: all 0.18s var(--ease-out, ease) !important;
+  }
+  .studio .btn-success:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 38px -10px rgba(183, 102, 158, 0.7) !important;
+  }
+  .studio .btn-compare-plans {
+    padding: 11px 16px;
+    border-radius: 11px;
+    border: 1px solid var(--np-hair-strong);
+    background: var(--np-panel);
+    color: var(--np-ink-soft);
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.16s ease;
+  }
+  .studio .btn-compare-plans:hover {
+    border-color: var(--np-purple);
+    color: #fff;
+  }
+
+  /* ════ RESULTS / OUTPUT SCREEN — the generated deliverable (light) ══ */
+  .studio .hero-stat-section {
+    margin-top: 22px;
+  }
+  .studio .hero-stat-card {
+    background: linear-gradient(170deg, #ffffff 0%, var(--np-paper) 55%, var(--np-lav-50) 100%) !important;
+    border: 1px solid var(--np-paper-border) !important;
+    border-radius: 20px !important;
+    padding: 26px !important;
+    color: var(--np-paper-ink) !important;
+    backdrop-filter: none !important;
+    box-shadow: 0 30px 60px -34px rgba(13, 10, 40, 0.85), 0 8px 22px -14px rgba(90, 84, 190, 0.35) !important;
+    position: relative;
+    overflow: hidden;
+  }
+  .studio .hero-stat-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 4px;
+    background: var(--np-grad);
+  }
+  .studio .hero-stat-number {
+    font-family: var(--font-heading) !important;
+    font-weight: 700 !important;
+    color: var(--np-indigo) !important;
+    background: var(--np-grad-warm);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .studio .hero-stat-label {
+    color: var(--np-paper-ink) !important;
+    font-weight: 600;
+  }
+  .studio .hero-file-card {
+    background: #fff !important;
+    border: 1px solid var(--np-paper-border) !important;
+    border-radius: 13px !important;
+    color: var(--np-paper-ink) !important;
+  }
+  .studio .hero-file-name {
+    color: var(--np-paper-ink) !important;
+    font-weight: 600;
+  }
+  .studio .hero-file-status {
+    color: var(--np-teal-deep) !important;
+  }
+  .studio .hero-file-status .check {
+    color: var(--np-teal-deep) !important;
+  }
+  /* action buttons on the light deliverable card */
+  .studio .hero-stat-card .btn-export,
+  .studio .hero-stat-card .btn-copy-plan,
+  .studio .hero-stat-card .btn-export-pdf,
+  .studio .hero-stat-card .btn-save-plan,
+  .studio .hero-stat-card .btn-share-plan,
+  .studio .hero-stat-card .btn-regenerate,
+  .studio .hero-stat-card .btn-open-sheets,
+  .studio .hero-stat-card .btn-compare-plans,
+  .studio .saved-plans-toggle {
+    background: #fff !important;
+    border: 1px solid var(--np-paper-border) !important;
+    color: var(--np-indigo) !important;
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    transition: all 0.16s ease !important;
+  }
+  .studio .hero-stat-card .btn-export:hover,
+  .studio .hero-stat-card .btn-copy-plan:hover,
+  .studio .hero-stat-card .btn-export-pdf:hover,
+  .studio .hero-stat-card .btn-save-plan:hover,
+  .studio .hero-stat-card .btn-share-plan:hover,
+  .studio .hero-stat-card .btn-regenerate:hover,
+  .studio .saved-plans-toggle:hover {
+    border-color: var(--np-purple) !important;
+    background: var(--np-lav-50) !important;
+  }
+  .studio .export-dropdown-menu {
+    background: #fff !important;
+    border: 1px solid var(--np-paper-border) !important;
+    box-shadow: 0 18px 40px -18px rgba(13, 10, 40, 0.5) !important;
+  }
+  .studio .export-dropdown-item {
+    color: var(--np-paper-ink) !important;
+  }
+  .studio .export-dropdown-item:hover {
+    background: var(--np-lav-50) !important;
+  }
+  .studio .saved-plans-panel {
+    background: #fff !important;
+    border: 1px solid var(--np-paper-border) !important;
+    color: var(--np-paper-ink) !important;
+  }
+  .studio .saved-plans-empty {
+    color: var(--np-paper-muted) !important;
+  }
+
+  /* The plan dashboard (buildPlanDashboard output) — light deliverable */
+  .studio #planDashboardSection {
+    background: none;
+  }
+  .studio .plan-dashboard {
+    background: linear-gradient(170deg, #ffffff, var(--np-paper)) !important;
+    border: 1px solid var(--np-paper-border) !important;
+    border-radius: 20px !important;
+    padding: 24px !important;
+    color: var(--np-paper-ink) !important;
+    box-shadow: 0 30px 60px -34px rgba(13, 10, 40, 0.8) !important;
+    position: relative;
+    overflow: hidden;
+  }
+  .studio .plan-dashboard::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 4px;
+    background: var(--np-grad);
+  }
+  .studio .plan-dashboard-title {
+    font-family: var(--font-heading) !important;
+    font-weight: 600 !important;
+    font-size: 17px !important;
+    color: var(--np-indigo) !important;
+  }
+  .studio .plan-metric-card {
+    background: linear-gradient(135deg, var(--np-lav-50), #fff) !important;
+    border: 1px solid var(--np-paper-border) !important;
+    border-radius: 14px !important;
+    color: var(--np-paper-ink) !important;
+  }
+  .studio .plan-metric-label {
+    color: var(--np-paper-muted) !important;
+  }
+  .studio .plan-metric-value {
+    font-family: var(--font-heading) !important;
+    color: var(--np-indigo) !important;
+  }
+  .studio .plan-metric-value.accent {
+    background: var(--np-grad-warm);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: var(--np-purple) !important;
+  }
+  .studio .plan-section-label {
+    color: var(--np-paper-muted) !important;
+    font-weight: 700;
+  }
+  .studio .plan-svg-chart,
+  .studio .plan-table-wrap,
+  .studio .plan-insights-card,
+  .studio .plan-insight-item {
+    background: #fff !important;
+    border: 1px solid var(--np-paper-border) !important;
+    border-radius: 13px !important;
+    color: var(--np-paper-ink) !important;
+  }
+  .studio .plan-svg-chart text {
+    fill: var(--np-paper-ink) !important;
+  }
+  .studio .plan-table th {
+    background: var(--np-lav-50) !important;
+    color: var(--np-indigo) !important;
+    border-bottom: 1px solid var(--np-paper-border) !important;
+  }
+  .studio .plan-table td {
+    color: var(--np-paper-ink) !important;
+    border-top: 1px solid var(--np-paper-border) !important;
+  }
+  .studio .plan-table tbody tr:hover td {
+    background: var(--np-lav-50) !important;
+  }
+  .studio .insight-label {
+    color: var(--np-paper-muted) !important;
+  }
+  .studio .insight-val {
+    color: var(--np-indigo) !important;
+  }
+  .studio .insight-val.favorable {
+    color: var(--np-teal-deep) !important;
+  }
+  .studio .insight-val.moderate {
+    color: #b9770a !important;
+  }
+  .studio .insight-val.challenging {
+    color: #d23f57 !important;
+  }
+  .studio .plan-recs-list li {
+    color: var(--np-paper-ink) !important;
+  }
+  .studio .plan-rec-icon {
+    background: var(--np-grad) !important;
+    color: #fff !important;
+  }
+  .studio .output-format-row label {
+    color: var(--np-muted) !important;
+  }
+  .studio .output-format-toggle button {
+    border-radius: 9px !important;
   }
 </style>
