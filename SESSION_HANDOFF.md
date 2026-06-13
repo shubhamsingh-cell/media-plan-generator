@@ -28,16 +28,18 @@ in §5.
 ---
 
 ## 2. Current state
-- **HEAD = `a2b6ad0`**; `origin/main = a58e857`. Live:
+- **HEAD ≈ `a6c0fe3`** (+ this handoff refresh). Live:
   https://media-plan-generator.onrender.com/ (HTTP 200; `main` auto-deploys).
-- **2 local commits await a push to `main`** (push was denied this session as an
-  unauthorized live-deploy; the concurrent session's pushes will otherwise carry
-  them): `ffe94cd` (call_llm_json narrative adoption), `a2b6ad0` (pytest CI job).
-- Whole S89 program is shipped EXCEPT the items in §5 (mostly user-creds or the
-  deliberately-deferred true-streaming work).
+  This turn's commits (`4559149`, `ffe94cd`, `a2b6ad0`, `8443ee1`, `a6c0fe3`)
+  were pushed with explicit user authorization after the first direct push was
+  denied by the permission classifier — a fresh push each turn may re-prompt;
+  ask, or let the concurrent session's push carry them.
+- Whole S89 program is shipped EXCEPT the items in §5 (mostly user-creds, the
+  deliberately-deferred true-streaming work, or #8 which is blocked on a product
+  decision per §6).
 
-## 3. Shipped (history below; latest turn `f94c19c` → `a2b6ad0`, 2026-06-13)
-**This turn (CI hardening + primitive adoption):**
+## 3. Shipped (history below; latest turn `f94c19c` → `a6c0fe3`, 2026-06-13)
+**This turn (CI hardening + primitive adoption + #8 investigation):**
 - `f94c19c` fix(enrichment): stop scheduling 7 dead Firecrawl sources that fired
   false CRITICAL "multiple sources failed" alerts (firecrawl module deleted S72).
 - `a58e857` refactor(enrichment): delete the 7 now-unreachable `_enrich_*` methods
@@ -49,7 +51,14 @@ in §5.
   push; CI previously ran zero tests. *(unpushed — see §2)*
 - `ffe94cd` **call_llm_json adoption #1**: `data_synthesizer.generate_ai_narratives`
   now uses the structured-JSON primitive (schema + 1 retry) instead of one-shot
-  `json.loads`; all fallbacks verified. *(unpushed — see §2)*
+  `json.loads`; all fallbacks verified.
+- `8443ee1` **#8 investigation + re-scope**: live schema inspection proved a
+  `cg_daily_raw`→`cg_benchmarks` re-aggregation would corrupt the keystone; see
+  `docs/BENCHMARK_REFRESH_FINDINGS_2026-06.md`. #8 now blocked on a product
+  decision (§6).
+- `a6c0fe3` **call_llm_json adoption #2** (1st app.py site): `_verify_plan_data`
+  + `tests/test_verify_plan_data.py` (reusable mocked-`call_llm_json` test
+  pattern). Full suite 2,111 passed.
 
 **Earlier session (commits `f216464` → `7bb9a80`):** Excel numeric/totals/freeze ·
 scorecard/PDF P0 image-404 fixes (OG card + logo) · PPTX brand chart palette · KB
@@ -94,13 +103,14 @@ bump · architecture design doc · **keystone accessor** `get_real_outcomes()` �
 - **Residual follow-ups:**
   - ✅ eval-gate + pytest now run in CI (`4559149`, `a2b6ad0`); baseline committed.
   - ✅ `call_llm_json` adopted in `data_synthesizer.generate_ai_narratives` (`ffe94cd`).
-  - ⏳ **app.py `call_llm_json` adoption** — ~8 hand-rolled `call_llm`+`json.loads`
-    sites remain (lines ≈ `1242`, `4077`, `7723`, `8052`, `8174`, `8815`). They're
-    **heterogeneous** (arrays vs objects, regex vs fence-strip extraction, bespoke
-    narrative/`_build_ab_response` fallbacks) and live in the highest-collision
-    file — do as a focused pass with a per-site unit test mocking `call_llm_json`,
-    NOT a rushed batch. (The handoff's old `app.py:6765` ref had drifted — that
-    line is now a file-upload parser, not an LLM call.)
+  - 🟡 **app.py `call_llm_json` adoption** — 1/≈8 done: `_verify_plan_data`
+    (`a6c0fe3`) + `tests/test_verify_plan_data.py` (the **reusable mocked-
+    call_llm_json test pattern** — copy it per site). Remaining heterogeneous
+    sites (lines ≈ `1242` brief-suggestions array, `7723` compliance obj w/
+    narrative fallback, `8052`/`8174` ad-copy arrays, `8815` A/B
+    `_build_ab_response`). Do each with its own test; they're in the
+    highest-collision file. (Old `app.py:6765` ref had drifted to a file-upload
+    parser — not an LLM call.)
   - ⏳ adopt `plan_schema` at pipeline boundaries; MPG async-null-data dashboard
     bug + generation-progress UX; h1b KB refresh; (later) agentic pipeline behind
     the flag per `docs/AGENTIC_GENERATION_DESIGN.md`.
