@@ -19,22 +19,43 @@ in §5.
 > Always `git checkout -- data/audit_log.jsonl data/benchmark_drift_results.json
 > data/job_posting_volumes.json` before committing — tests/renders write to them.
 
+> ⚠️ **This working tree is shared with a concurrent session.** `main` moves and
+> files get committed *under you*. Before every `git add`: re-run `git status`,
+> stage **only your own files by explicit path** (never `git add -A`), and
+> `git fetch` first. Direct pushes to `main` may be blocked by the permission
+> classifier — see §2 for the 2026-06-13 unpushed commits awaiting authorization.
+
 ---
 
 ## 2. Current state
-- **HEAD = `f3ad719`**, clean, synced with `origin/main`. Live:
+- **HEAD = `a2b6ad0`**; `origin/main = a58e857`. Live:
   https://media-plan-generator.onrender.com/ (HTTP 200; `main` auto-deploys).
+- **2 local commits await a push to `main`** (push was denied this session as an
+  unauthorized live-deploy; the concurrent session's pushes will otherwise carry
+  them): `ffe94cd` (call_llm_json narrative adoption), `a2b6ad0` (pytest CI job).
 - Whole S89 program is shipped EXCEPT the items in §5 (mostly user-creds or the
   deliberately-deferred true-streaming work).
 
-## 3. Shipped this session (commits `f216464` → `7bb9a80`)
-Excel numeric/totals/freeze overhaul · scorecard/PDF P0 image-404 fixes (real OG
-card + logo) · PPTX brand chart palette · KB enrichment (4 files, cited 2026) ·
-Nova chat-UI fixes (badge contrast, markdown-math, table scroll) · MPG frontend
-brand colors + safe errors + field a11y · KB gap-fill (Reddit/Snap/YT/Pinterest,
-healthcare pay, vintage hygiene) · Opus 4.8 bump (earlier) · architecture design
-doc · **keystone accessor** `supabase_data.get_real_outcomes()` · **L3.1**
-`llm_router.call_llm_json()`. All verified + live.
+## 3. Shipped (history below; latest turn `f94c19c` → `a2b6ad0`, 2026-06-13)
+**This turn (CI hardening + primitive adoption):**
+- `f94c19c` fix(enrichment): stop scheduling 7 dead Firecrawl sources that fired
+  false CRITICAL "multiple sources failed" alerts (firecrawl module deleted S72).
+- `a58e857` refactor(enrichment): delete the 7 now-unreachable `_enrich_*` methods
+  *(by the concurrent session)*.
+- `4559149` **eval-gate in CI** + `evals/baseline_scores.json` (overall 93.75%,
+  128 cases) — offline/deterministic `EvalSuite` gate; build reds on floor/3pp
+  regression. **LIVE on origin.**
+- `a2b6ad0` **pytest job in CI** — runs all 2,106 tests (offline, ~11s) on every
+  push; CI previously ran zero tests. *(unpushed — see §2)*
+- `ffe94cd` **call_llm_json adoption #1**: `data_synthesizer.generate_ai_narratives`
+  now uses the structured-JSON primitive (schema + 1 retry) instead of one-shot
+  `json.loads`; all fallbacks verified. *(unpushed — see §2)*
+
+**Earlier session (commits `f216464` → `7bb9a80`):** Excel numeric/totals/freeze ·
+scorecard/PDF P0 image-404 fixes (OG card + logo) · PPTX brand chart palette · KB
+enrichment + gap-fill · Nova chat-UI fixes · MPG frontend brand/a11y · Opus 4.8
+bump · architecture design doc · **keystone accessor** `get_real_outcomes()` ·
+**L3.1** `llm_router.call_llm_json()`. All verified + live.
 
 ## 4. Decisions locked (user-delegated)
 - **#11 embeddings:** GEMINI (free, key in stack) — not paid Voyage. Needs reindex.
@@ -48,7 +69,8 @@ doc · **keystone accessor** `supabase_data.get_real_outcomes()` · **L3.1**
 ## 5. Task board (session tasks #1–#16)
 - ✅ DONE + LIVE: #1 MPG frontend · #2 PPTX currency+fonts · #3 PDF/scorecard P1 ·
   #4 KB gap-fill · #5 structured-output primitive · #6 typed schema · #7 excel
-  provenance · #10 MCP server · #13 eval gate · #14 agentic DESIGN · #16 keystone
+  provenance · #10 MCP server · #13 eval gate (**now also runs in CI** + pytest
+  suite in CI) · #14 agentic DESIGN · #16 keystone
 - 🟡 #11 Gemini embeddings — CODE done; **needs you**: Qdrant write creds, then
   run `EMBEDDING_PROVIDER=gemini python3 scripts/reindex_embeddings.py` and set
   `EMBEDDING_PROVIDER=gemini` in Render env (kills Nova's 10-RPM search wall).
@@ -60,12 +82,19 @@ doc · **keystone accessor** `supabase_data.get_real_outcomes()` · **L3.1**
   - **#9 source-of-truth migration** — decided: Supabase canonical; implement
     dual-read parity checks → cutover; JSON KB stays as fallback.
   - **#15 external data MCPs** — deferred (opportunistic).
-- **Residual follow-ups:** adopt `call_llm_json` at the hand-rolled json.loads
-  sites (`data_synthesizer.py:4775`, `app.py:6765`); adopt `plan_schema` at
-  pipeline boundaries; MPG async-null-data dashboard bug + generation-progress UX;
-  h1b KB refresh; add the eval-gate job to `.github/workflows/ci.yml` + commit
-  `evals/baseline_scores.json`; (later) implement the agentic pipeline behind the
-  flag per `docs/AGENTIC_GENERATION_DESIGN.md`.
+- **Residual follow-ups:**
+  - ✅ eval-gate + pytest now run in CI (`4559149`, `a2b6ad0`); baseline committed.
+  - ✅ `call_llm_json` adopted in `data_synthesizer.generate_ai_narratives` (`ffe94cd`).
+  - ⏳ **app.py `call_llm_json` adoption** — ~8 hand-rolled `call_llm`+`json.loads`
+    sites remain (lines ≈ `1242`, `4077`, `7723`, `8052`, `8174`, `8815`). They're
+    **heterogeneous** (arrays vs objects, regex vs fence-strip extraction, bespoke
+    narrative/`_build_ab_response` fallbacks) and live in the highest-collision
+    file — do as a focused pass with a per-site unit test mocking `call_llm_json`,
+    NOT a rushed batch. (The handoff's old `app.py:6765` ref had drifted — that
+    line is now a file-upload parser, not an LLM call.)
+  - ⏳ adopt `plan_schema` at pipeline boundaries; MPG async-null-data dashboard
+    bug + generation-progress UX; h1b KB refresh; (later) agentic pipeline behind
+    the flag per `docs/AGENTIC_GENERATION_DESIGN.md`.
 
 ## 6. THE ONE thing needed from the user
 **Qdrant write credentials** → run the Gemini-embeddings reindex
