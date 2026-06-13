@@ -2,11 +2,11 @@
   "metadata": {
     "title": "Healthcare Specialty Compensation 2026 - 40 Roles by Region and Metro",
     "description": "Median and 90th-percentile (P90) annual compensation for 40 healthcare roles, including RN, LPN, APRN, NP, PA, MD by specialty, pharmacist, PT, OT, SLP, RT, med tech, CNA, and allied health. Broken down by 4 US regions and top 20 metros. Every datapoint is grounded in public sources: BLS OES 2024, Medscape Physician Compensation 2024, Nurse.com 2024 salary report, AAMC data.",
-    "last_updated": "2026-04-24",
-    "version": "1.0",
-    "data_period": "BLS OES May 2024 publication; Medscape survey fielded Jan-Apr 2024; Nurse.com 2024 annual report",
-    "metadata_reviewed": "2026-06-03",
-    "vintage_note": "Per-role/region/metro cells below are 2024-vintage (BLS OES May 2024 published Apr 2025; Medscape 2024; specialty-society 2024 reports) and were NOT re-stated cell-by-cell to 2026 in this pass -- BLS OES May 2025 and the per-specialty 2026 cuts are not published as of 2026-06-03, and physician compensation drifts ~3-5%/yr. The latest VERIFIED physician headline figures (Medscape Physician Compensation Report 2025) are recorded in 'latest_verified_reference_2025' below for context; detailed per-cell values were intentionally left at their cited 2024 levels rather than guessed forward. Treat cells as a 2024 floor and apply the documented ~3-5% upward drift when pricing 2026 plans. No values were invented or extrapolated.",
+    "last_updated": "2026-06-13",
+    "version": "1.1",
+    "data_period": "BLS OOH/OES May 2024 publication; Medscape survey fielded Jan-Apr 2024; Nurse.com 2024 annual report; NSI 2026 & Medscape 2025 demand/comp signals added 2026-06-13",
+    "metadata_reviewed": "2026-06-13",
+    "vintage_note": "2026-06-13 refresh: six high-volume per-role national medians (RN $93,600, NP $132,050, CNA $39,530, medical assistant $44,200, home health/personal care aide $37,180, physical therapist assistant $65,510) were re-anchored to the BLS Occupational Outlook Handbook / OES May-2024 figures; each updated role carries a 'prior_value' note preserving its old OES extract for traceability and a 'wage_refresh' source block. A 'nursing_demand_2026' block (NSI 2026 RN turnover 17.6%, cost-of-turnover $60,090, vacancy 8.6%, $295K per-1%-turnover impact; AACN ~93,000 applications turned away 2025) and a 'physician_compensation_2025' block (Medscape 2025: all-physician $374K, PCP $287K, specialist $404K, orthopedics $564K) were added under recruiting_signals, each figure carrying its own {source,url,vintage,confidence}. Remaining per-region/metro and per-specialty cells stay 2024-vintage (BLS OES May 2025 and per-specialty 2026 cuts not yet published); treat those as a 2024 floor and apply the documented ~3-5% upward drift when pricing 2026 plans. No values were invented or extrapolated; all added/refreshed figures come from the cited research brief.",
     "latest_verified_reference_2025": {
       "source": "Medscape Physician Compensation Report 2025",
       "publisher": "Medscape / WebMD",
@@ -14,12 +14,15 @@
       "figure_year": 2025,
       "headline_usd": {
         "all_physicians_avg": 374000,
-        "primary_care_avg": 307000,
+        "primary_care_avg": 287000,
         "specialists_avg": 404000,
         "orthopedics": 564000,
         "plastic_surgery": 544000,
         "radiology": 526000
       },
+      "primary_care_avg_prior_value": {"value": 307000, "note": "Corrected to Medscape 2025 PCP avg $287,000 per research brief on 2026-06-13; prior cell read $307,000."},
+      "source_url": "https://www.medscape.com/slideshow/2025-compensation-overview-6018103",
+      "confidence": "high",
       "note": "Headline averages for 2026-plan context only; NOT merged into the per-specialty/region/metro cells below (those remain 2024-vintage per vintage_note above)."
     },
     "currency": "USD, annual (unless noted hourly)",
@@ -111,7 +114,9 @@
   "by_role": {
     "registered_nurse": {
       "soc_code": "29-1141",
-      "national_median_usd": 86070,
+      "national_median_usd": 93600,
+      "prior_value": {"national_median_usd": 86070, "note": "Refreshed to BLS OOH May-2024 median ($93,600) from prior OES extract ($86,070)."},
+      "wage_refresh": {"source": "BLS Occupational Outlook Handbook / OES (May 2024 update)", "url": "https://www.bls.gov/ooh/healthcare/registered-nurses.htm", "vintage": "May 2024", "confidence": "high"},
       "national_p90_usd": 132680,
       "hourly_median_usd": 41.38,
       "national_employment": 3175390,
@@ -138,7 +143,9 @@
     },
     "certified_nursing_assistant": {
       "soc_code": "31-1131",
-      "national_median_usd": 38200,
+      "national_median_usd": 39530,
+      "prior_value": {"national_median_usd": 38200, "note": "Refreshed to BLS OOH May-2024 median ($39,530) from prior OES extract ($38,200)."},
+      "wage_refresh": {"source": "BLS Occupational Outlook Handbook (May 2024)", "url": "https://www.bls.gov/ooh/healthcare/nursing-assistants.htm", "vintage": "May 2024", "confidence": "high"},
       "national_p90_usd": 49970,
       "hourly_median_usd": 18.36,
       "national_employment": 1393870,
@@ -148,7 +155,9 @@
     },
     "home_health_aide": {
       "soc_code": "31-1121",
-      "national_median_usd": 33530,
+      "national_median_usd": 37180,
+      "prior_value": {"national_median_usd": 33530, "note": "Refreshed to BLS OOH May-2024 median ($37,180, home health & personal care aides) from prior OES extract ($33,530)."},
+      "wage_refresh": {"source": "BLS Occupational Outlook Handbook (May 2024)", "url": "https://www.bls.gov/ooh/healthcare/home-health-aides-and-personal-care-aides.htm", "vintage": "May 2024", "confidence": "high"},
       "national_p90_usd": 42480,
       "hourly_median_usd": 16.12,
       "national_employment": 1554830,
@@ -158,7 +167,9 @@
     },
     "medical_assistant": {
       "soc_code": "31-9092",
-      "national_median_usd": 42000,
+      "national_median_usd": 44200,
+      "prior_value": {"national_median_usd": 42000, "note": "Refreshed to BLS OOH May-2024 median ($44,200) from prior OES extract ($42,000)."},
+      "wage_refresh": {"source": "BLS Occupational Outlook Handbook (May 2024)", "url": "https://www.bls.gov/ooh/healthcare/medical-assistants.htm", "vintage": "May 2024", "confidence": "high"},
       "national_p90_usd": 52030,
       "hourly_median_usd": 20.19,
       "national_employment": 764400,
@@ -168,7 +179,9 @@
     },
     "nurse_practitioner": {
       "soc_code": "29-1171",
-      "national_median_usd": 129480,
+      "national_median_usd": 132050,
+      "prior_value": {"national_median_usd": 129480, "note": "Refreshed to BLS OOH May-2024 median ($132,050) from prior OES extract ($129,480)."},
+      "wage_refresh": {"source": "BLS OES (May 2024)", "url": "https://www.bls.gov/ooh/healthcare/nurse-anesthetists-nurse-midwives-and-nurse-practitioners.htm", "vintage": "May 2024", "confidence": "high"},
       "national_p90_usd": 174240,
       "hourly_median_usd": 62.25,
       "national_employment": 304690,
@@ -397,7 +410,9 @@
     },
     "physical_therapist_assistant": {
       "soc_code": "31-2021",
-      "national_median_usd": 64080,
+      "national_median_usd": 65510,
+      "prior_value": {"national_median_usd": 64080, "note": "Refreshed to BLS OOH May-2024 median ($65,510, physical therapist assistants) from prior OES extract ($64,080)."},
+      "wage_refresh": {"source": "BLS Occupational Outlook Handbook (May 2024)", "url": "https://www.bls.gov/ooh/healthcare/physical-therapist-assistants-and-aides.htm", "vintage": "May 2024", "confidence": "high"},
       "national_p90_usd": 80830,
       "hourly_median_usd": 30.81,
       "national_employment": 100730,
@@ -539,6 +554,84 @@
 
   "recruiting_signals": {
     "_description": "Cross-cutting insights for recruitment operators pricing campaigns against these roles.",
+    "nursing_demand_2026": {
+      "_description": "Nursing-demand and recruiting-signal benchmarks added 2026-06-13. Each figure carries its own {source, url, vintage, confidence}. Use these to size urgency and cost-of-vacancy when pricing RN/nursing campaigns.",
+      "rn_turnover_rate_pct": {
+        "value": 17.6,
+        "detail": "Staff RN turnover 17.6% in 2025 (up from 16.4% in 2024).",
+        "source": "2026 NSI National Health Care Retention & RN Staffing Report (527 hospitals, 40 states; 262,405 RNs)",
+        "url": "https://www.nsinursingsolutions.com/documents/library/nsi_national_health_care_retention_report.pdf",
+        "vintage": "2025",
+        "confidence": "high"
+      },
+      "rn_cost_of_turnover_usd": {
+        "value": 60090,
+        "detail": "Average cost of turnover per staff RN $60,090 (2025); ~$5.19M average annual RN-churn loss per hospital.",
+        "source": "2026 NSI National Health Care Retention & RN Staffing Report",
+        "url": "https://www.nsinursingsolutions.com/documents/library/nsi_national_health_care_retention_report.pdf",
+        "vintage": "2025",
+        "confidence": "high"
+      },
+      "rn_vacancy_rate_pct": {
+        "value": 8.6,
+        "detail": "RN vacancy rate 8.6% (down from 9.6% prior yr; method changed this edition); avg 43 RN FTEs unfilled per hospital; 33.1% of hospitals report vacancy >=10%.",
+        "source": "2026 NSI National Health Care Retention & RN Staffing Report",
+        "url": "https://www.nsinursingsolutions.com/documents/library/nsi_national_health_care_retention_report.pdf",
+        "vintage": "2025",
+        "confidence": "high"
+      },
+      "rn_dollar_impact_per_1pct_turnover_usd": {
+        "value": 295000,
+        "detail": "Dollar impact per 1% change in RN turnover for the average US hospital: $295,000 per year.",
+        "source": "2026 NSI National Health Care Retention & RN Staffing Report",
+        "url": "https://www.nsinursingsolutions.com/documents/library/nsi_national_health_care_retention_report.pdf",
+        "vintage": "2025",
+        "confidence": "high"
+      },
+      "nursing_applications_turned_away": {
+        "value": 93000,
+        "detail": "~93,000 qualified nursing-program applications turned away in 2025 (incl. ~17,000 from graduate programs).",
+        "source": "AACN (American Association of Colleges of Nursing), via Nurse.org/Becker's reporting",
+        "url": "https://nurse.org/news/nursing-applications-turned-away-2025/",
+        "vintage": "2025",
+        "confidence": "medium"
+      }
+    },
+    "physician_compensation_2025": {
+      "_description": "Medscape Physician Compensation Report 2025 headline averages (2024 income), added 2026-06-13. Each figure carries its own {source, url, vintage, confidence}.",
+      "all_physicians_avg_usd": {
+        "value": 374000,
+        "detail": "Average physician total compensation (all physicians) $374,000, up 2.9% from $363,000 prior yr.",
+        "source": "Medscape Physician Compensation Report 2025 (>7,300 US physicians, 29 specialties; reflects 2024 income)",
+        "url": "https://www.medscape.com/slideshow/2025-compensation-overview-6018103",
+        "vintage": "2024 income (2025 report)",
+        "confidence": "high"
+      },
+      "primary_care_avg_usd": {
+        "value": 287000,
+        "detail": "Primary care physician (PCP) average comp $287,000.",
+        "source": "Medscape Physician Compensation Report 2025",
+        "url": "https://www.medscape.com/slideshow/2025-compensation-overview-6018103",
+        "vintage": "2024 income (2025 report)",
+        "confidence": "high"
+      },
+      "specialists_avg_usd": {
+        "value": 404000,
+        "detail": "Specialist physician average comp $404,000.",
+        "source": "Medscape Physician Compensation Report 2025",
+        "url": "https://www.medscape.com/slideshow/2025-compensation-overview-6018103",
+        "vintage": "2024 income (2025 report)",
+        "confidence": "high"
+      },
+      "orthopedics_avg_usd": {
+        "value": 564000,
+        "detail": "Highest-paid specialty: orthopedics $564,000 (tops list; plastic surgery, radiology, cardiology, gastroenterology next).",
+        "source": "Medscape Physician Compensation Report 2025",
+        "url": "https://www.medscape.com/slideshow/2025-compensation-overview-6018103",
+        "vintage": "2024 income (2025 report)",
+        "confidence": "high"
+      }
+    },
     "drought_roles_premium_cpa": ["registered_nurse", "physical_therapist", "nurse_practitioner", "nurse_anesthetist_crna", "physician_emergency_medicine", "physician_psychiatry"],
     "volume_roles_attainable_cpa": ["cna", "home_health_aide", "medical_assistant", "pharmacy_technician"],
     "highest_compensation_top_5_specialties": [

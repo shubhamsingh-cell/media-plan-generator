@@ -1,7 +1,8 @@
 {
-  "last_updated": "2026-06-03",
+  "last_updated": "2026-06-13",
   "data_source": "Joveo Google Ads 2025 Campaign Performance Data",
   "data_period": "2025",
+  "vintage_note": "This is a 2025-vintage baseline: all category CPC/CTR/CPM/spend figures are first-party measurements from calendar-year 2025 campaigns and have NOT been re-stated to 2026. A 2026 refresh is pending; until then, treat these as historical 2025 benchmarks (external 2026 context is provided in benchmark_cross_reference_2026 for directional comparison only).",
   "description": "Real Google Ads keyword performance data from Joveo's recruitment advertising campaigns in 2025. Contains CPC, CTR, CPM, and spend data across job categories. This is first-party measured data from actual campaigns run for clients in calendar 2025 and is NOT re-stated to 2026 (the underlying clicks/spend are historical). Cross-referenced with the LocaliQ/WordStream 2026 Search Advertising Benchmarks (Career & Employment category avg CPC $5.81, CTR 5.88%, cost-per-lead $67.36, conversion rate 3.05%; source: https://www.localiq.com/blog/search-advertising-benchmarks/, updated 2026-06-01, data = trailing LocaliQ + WordStream customer campaigns across Google Ads & Microsoft Ads). Joveo's recruitment-specific blended CPC ($1.14) runs well below the LocaliQ Career & Employment $5.81 because Joveo's mix is volume/hourly-weighted (general recruitment, logistics) vs LocaliQ's broader employer-brand keyword mix. 2026 cost direction per Appcast 2026 (10th Annual) Recruitment Marketing Benchmark Report: CPA and CPH rose sharply in 2025 despite a softer labor market, driven by job-board pricing and programmatic shifts (https://www.appcast.io/2026-benchmark-report/).",
   "benchmark_cross_reference_2026": {
     "_note": "Verified external 2026 benchmarks for context only; the category figures below are Joveo first-party 2025 measurements and are unchanged.",

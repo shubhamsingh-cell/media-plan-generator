@@ -19,7 +19,13 @@
       "https://www.webfx.com/blog/social-media/linkedin-benchmarks/",
       "https://www.pin.com/blog/ziprecruiter-pricing/",
       "https://gohire.io/blog/the-cost-of-sponsoring-jobs-on-the-worlds-top-job-boards",
-      "https://www.admetrics.io/en/post/tiktok-ads-costs-complete-2026-pricing-guide"
+      "https://www.admetrics.io/en/post/tiktok-ads-costs-complete-2026-pricing-guide",
+      "https://benly.ai/learn/reddit-ads/reddit-ads-cost-benchmarks",
+      "https://adbacklog.com/blog/reddit-ads-benchmarks-per-industry-2026",
+      "https://adliftr.com/blog/snapchat-ads-cost-benchmarks-2026",
+      "https://www.storegrowers.com/youtube-ads-benchmarks/",
+      "https://www.webfx.com/social-media/pricing/how-much-does-pinterest-advertising-cost/",
+      "https://adbacklog.com/blog/pinterest-ads-benchmarks-per-industry-2025"
     ],
     "authoritative_sources": [
       {"source": "Appcast 2025 Recruitment Marketing Benchmark Report (2024 data; 379M clicks, 30M applies, 1,300+ US employers)", "url": "https://www.appcast.io/the-2025-recruitment-marketing-benchmark-report-is-live/", "vintage": "2024 (published Feb 2025)", "confidence": "high"},
@@ -33,7 +39,7 @@
     "researched_date": "2026-06-13",
     "last_updated": "2026-06-13",
     "data_period": "2024-2026 (Appcast 2024/2025 funnel data, WordStream Apr 2025-Mar 2026 Google, WordStream 2025 Facebook, SHRM 2025, Indeed 2026 current pricing)",
-    "vintage_note": "Refreshed 2026-06-13 to incorporate named industry sources (Appcast 2025 & 2026 Recruitment Marketing Benchmark Reports, SHRM 2025 Benchmarking, WordStream/LocaliQ 2026 Google & 2025 Facebook, Indeed official pricing). Google Ads recruitment CPC/CPA and Meta recruitment values were refreshed from WordStream named-source figures (prior values were from secondary marketing blogs and are retained as prior_value where superseded). LinkedIn, programmatic, ZipRecruiter, Glassdoor and TikTok figures sourced only to third-party aggregators are tagged confidence:low with their named source.",
+    "vintage_note": "Refreshed 2026-06-13 to incorporate named industry sources (Appcast 2025 & 2026 Recruitment Marketing Benchmark Reports, SHRM 2025 Benchmarking, WordStream/LocaliQ 2026 Google & 2025 Facebook, Indeed official pricing). Google Ads recruitment CPC/CPA and Meta recruitment values were refreshed from WordStream named-source figures (prior values were from secondary marketing blogs and are retained as prior_value where superseded). LinkedIn, programmatic, ZipRecruiter, Glassdoor and TikTok figures sourced only to third-party aggregators are tagged confidence:low with their named source. 2026-06-13 also ADDED four previously-missing platforms (reddit_ads, snapchat_ads, youtube_ads, pinterest_ads). IMPORTANT: no recruitment-specific named benchmark exists for any of these four - every figure is a GENERAL-market / B2B aggregator benchmark (Benly, AdBacklog, AdLiftr, Store Growers, WebFX), so all are tagged confidence:low and explicitly noted as not recruitment-specific. Reddit B2B/Tech is the closest recruitment proxy; Pinterest is a weak-fit channel for recruitment.",
     "data_quality": "high",
     "category": "Digital Advertising Benchmarks (Recruitment)"
   },
@@ -223,6 +229,75 @@
     "reach": "High (younger demographics)",
     "sources": [
       {"metric": "CPC ~$0.30-$1.50 (some $0.17-$1.00); CPM ~$4.20-$12.00 ($6-$25 B2B/recruitment); B2B lead-gen CPL ~$15-$60", "source": "Admetrics 'TikTok Ads Costs: Complete 2026 Pricing Guide'; Benly (third-party compilations)", "url": "https://www.admetrics.io/en/post/tiktok-ads-costs-complete-2026-pricing-guide", "vintage": "2026", "confidence": "low"}
+    ]
+  },
+  "reddit_ads": {
+    "model_note": "General-market 2026 pricing. NO recruitment-specific named benchmark exists; closest proxy is the B2B/Tech vertical, which is the best fit for recruitment targeting tech/professional candidates via interest and subreddit targeting.",
+    "avg_cpc_usd": 1.25,
+    "avg_cpc_range_usd": {"min": 0.50, "max": 3.00, "note": "Broad interest ~$0.75; specific subreddits ~$1.20"},
+    "avg_cpm_range_usd": {"min": 3.00, "max": 12.00, "note": "Broad awareness ~$4.50; interest ~$6.00; specific subreddits ~$8.00"},
+    "b2b_tech_vertical_usd": {
+      "cpc_tech_developer": 1.80,
+      "cpc_b2b_business": 2.10,
+      "cpc_finance_investing": 2.50,
+      "cpm_high_value_b2b": 12.00,
+      "cpl_saas_software_range_usd": {"min": 50.00, "max": 120.00},
+      "cpl_developer_tools_range_usd": {"min": 40.00, "max": 100.00},
+      "note": "B2B/Tech is the proxy vertical for recruitment; no Jobs/Employment/Staffing row exists in any named Reddit benchmark source"
+    },
+    "avg_ctr_range_pct": {"min": 0.2, "max": 1.2},
+    "best_for": "Reaching engaged niche/professional communities (tech, trades, gaming, finance) via subreddit targeting; employer branding and passive-candidate awareness. Cheap for attention (CPC/CPM) but conversion depends heavily on message match and low friction.",
+    "sources": [
+      {"metric": "Median CPC $1.25 (range $0.50-$3.00; broad ~$0.75, subreddit ~$1.20); CPM range $3-$12 (broad ~$4.50, interest ~$6.00, subreddit ~$8.00); B2B/Tech CPC $1.80-$2.50; high-value B2B CPM ~$12.00; B2B CPL SaaS $50-$120, Dev Tools $40-$100 - GENERAL, not recruitment-specific", "source": "Benly 'Reddit Ads Cost: CPC, CPM & CPA by Industry (2026)' (third-party compilation; general-market, not recruitment-specific)", "url": "https://benly.ai/learn/reddit-ads/reddit-ads-cost-benchmarks", "vintage": "2026", "confidence": "low"},
+      {"metric": "All-industries 2026 ranges: CTR 0.2%-1.2%; CPC $0.10-$2.50; CPM $1-$12; CVR <2%-15%; CPA $2-$150+. No Jobs/Employment/Staffing industry row exists; B2B SaaS commands highest CPC ($0.60-$2.50) - GENERAL, not recruitment-specific", "source": "AdBacklog 'Reddit Ads Benchmarks Per Industry (2026)' (third-party aggregator; no recruitment row)", "url": "https://adbacklog.com/blog/reddit-ads-benchmarks-per-industry-2026", "vintage": "2026", "confidence": "low"}
+    ]
+  },
+  "snapchat_ads": {
+    "model_note": "General-market 2026 pricing (DTC/ecommerce-skewed dataset). NO recruitment-specific named benchmark exists. Strong fit for early-career and hourly hiring and employer branding to Gen-Z/younger audiences via vertical video.",
+    "median_cpc_usd": 0.84,
+    "median_cpc_interquartile_range_usd": {"min": 0.51, "max": 1.34},
+    "cpc_by_objective_usd": {"traffic": 0.71, "conversions": 1.18},
+    "median_cpm_by_objective_usd": {
+      "awareness": 5.84,
+      "engagement": 9.10,
+      "traffic": 11.20,
+      "catalog_sales": 19.40,
+      "app_installs": 23.40,
+      "lead_generation": 24.80,
+      "conversions_purchases": 27.10
+    },
+    "median_cpa_first_purchase_dtc_usd": 23.40,
+    "b2b_saas_lead_gen_cpa_usd": 58.40,
+    "median_ctr_pct": 1.04,
+    "best_for": "Early-career, hourly and high-volume hiring; employer branding to Gen-Z and younger candidates through native vertical video (Stories, Spotlight). Cheapest social CPC at scale; lead-gen CPM is high so favor traffic/awareness objectives for recruitment.",
+    "sources": [
+      {"metric": "Median CPC $0.84 (IQR $0.51-$1.34; Traffic $0.71, Conversions $1.18); median CPM by objective Awareness $5.84 / Engagement $9.10 / Traffic $11.20 / Lead Gen $24.80 / Conversions $27.10; median DTC first-purchase CPA $23.40; B2B SaaS lead-gen CPA $58.40; CTR 1.04% - GENERAL (2,431 campaigns / 412 advertisers Feb-May 2026, DTC-skewed), not recruitment-specific", "source": "AdLiftr 'Snapchat Ads Cost 2026: CPM, CPC, CPA Benchmarks' (third-party compilation; general-market)", "url": "https://adliftr.com/blog/snapchat-ads-cost-benchmarks-2026", "vintage": "2026 (Feb-May 2026 data)", "confidence": "low"}
+    ]
+  },
+  "youtube_ads": {
+    "model_note": "General-market 2026 pricing (Google Ads video network). NO recruitment-specific named benchmark exists. Best used for recruitment-marketing reach, employer branding and awareness rather than direct apply-driving.",
+    "avg_cpv_usd": 0.05,
+    "avg_cpv_range_usd": {"min": 0.05, "max": 0.10, "note": "Skippable in-stream; Shorts $0.10-$0.30"},
+    "avg_cpm_usd": 9.29,
+    "avg_cpm_range_usd": {"min": 5.00, "max": 10.00, "note": "Shorts ~$4; Connected TV $8.72-$10.01"},
+    "avg_cpc_usd": 3.56,
+    "avg_cpc_range_usd": {"min": 0.05, "max": 10.71},
+    "avg_view_rate_pct": 31.9,
+    "avg_ctr_pct": 0.65,
+    "best_for": "Employer-branding and recruitment-marketing reach/awareness (skippable in-stream and Shorts); top-of-funnel candidate attraction and retargeting to careers-site visitors. Low CPV makes it efficient for views, but weak as a direct apply/conversion channel.",
+    "sources": [
+      {"metric": "CPV ~$0.05 in-stream (Shorts $0.10-$0.30); CPM $5-$10 (market avg ~$9.29; CTV $8.72-$10.01); CPC ~$3.56 ($0.05-$10.71); view rate 31.9%; CTR 0.65% - GENERAL industry benchmarks, not recruitment-specific", "source": "Store Growers 'YouTube Ads Benchmarks (2026)' (named third-party; general-market)", "url": "https://www.storegrowers.com/youtube-ads-benchmarks/", "vintage": "2026", "confidence": "low"}
+    ]
+  },
+  "pinterest_ads": {
+    "model_note": "General-market 2026 pricing (WebFX survey of 270 marketers; no industry segmentation). NO recruitment-specific named benchmark exists - Pinterest has no Jobs/Employment row in any named source and is a weak-fit, niche recruitment channel.",
+    "avg_cpc_range_usd": {"min": 0.10, "max": 1.50, "note": "Most respondents $0.00-$0.20; typical competitive range $0.70-$1.50"},
+    "avg_cpm_range_usd": {"min": 2.00, "max": 5.00, "note": "WebFX survey: majority $0.00-$1.50; higher tier >$7.00 used by ~10% of advertisers"},
+    "avg_cpa_range_usd": {"min": 2.00, "max": 8.00, "note": "WebFX survey: 27% report $0.00-$2.00; 66% within $0.00-$8.00"},
+    "best_for": "Niche / weak fit for recruitment. Possible use only for highly visual, female-skewing or lifestyle-adjacent employer branding (e.g. beauty, retail, hospitality, creative roles). Not a primary apply-driving channel; figures are general DTC/consumer benchmarks.",
+    "sources": [
+      {"metric": "CPC $0.10-$1.50 (most $0.00-$0.20; competitive $0.70-$1.50); CPM ~$2-$5 (majority $0.00-$1.50, >$7 high tier); CPA $2-$8 - GENERAL (WebFX survey of 270 marketers, no industry segmentation), not recruitment-specific", "source": "WebFX 'How Much Does Pinterest Advertising Cost in 2026?' (named third-party survey; general-market)", "url": "https://www.webfx.com/social-media/pricing/how-much-does-pinterest-advertising-cost/", "vintage": "2026", "confidence": "low"},
+      {"metric": "All-industries 2025 ranges (no Jobs/Employment row): CPC ~$0.30-$1.50; CPM ~$2-$5+; CTR 0.3%-1.0%; CPA ~$5-$15 - GENERAL, not recruitment-specific", "source": "AdBacklog 'Pinterest Ads Benchmarks Per Industry (2025)' (third-party aggregator; no recruitment row)", "url": "https://adbacklog.com/blog/pinterest-ads-benchmarks-per-industry-2025", "vintage": "2025", "confidence": "low"}
     ]
   },
   "programmatic_display": {

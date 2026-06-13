@@ -6,6 +6,8 @@
     "methodology": "Aggregated metrics across millions of jobs published on hundreds of job sites. Covers 16 major occupations across all 50 US states. Excludes duration-based postings, slot-based advertising, and organic traffic.",
     "data_partners": ["Joveo Interactive Insights", "TalentNeuron", "Talroo", "JobGet"],
     "ingested": "2026-03-09",
+    "last_updated": "2026-06-13",
+    "vintage_note": "Despite the '2026' in the report name and filename, the underlying data_period is a rolling 12 months ending November 2025 (Nov 2022 - Nov 2025). The '2026' refers to the report's publication/edition year, not the data vintage. Treat these benchmarks as a late-2025 baseline; do not misread the filename as 2026-vintage measurements.",
     "version": "1.0"
   },
 
