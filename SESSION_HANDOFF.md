@@ -7,43 +7,25 @@
 
 ---
 
-## 1. DO THIS FIRST on resume (critical)
+## 1. DO THIS FIRST on resume
 
-A background **build fleet** was running when this session ended. State to reconcile:
+The build fleet (`wf_2fe3d455-f1c`) is **DONE, integrated, verified, and live** —
+all 9 units shipped (commits `98340e3`, `402aaf1`, `f3ad719`), 2,106 tests pass,
+deliverables render, an adversarial pre-deploy review ran and its one real find
+(PPTX currency global → thread-local race) was fixed + verified. **Nothing to
+reconcile.** Working tree was clean at handoff. Just pick up the remaining queue
+in §5.
 
-- **Run ID:** `wf_2fe3d455-f1c`  · **Task ID:** `wxdtykmrp`
-- **Script:** `.../workflows/scripts/conclude-everything-wf_2fe3d455-f1c.js`
-- **What it builds (9 agents, disjoint files):** pptx currency+fonts, pdf/scorecard
-  P1, excel provenance, `plan_schema.py`, `mcp_server.py`, gemini embeddings +
-  reindex, keystone budget wiring, nova keystone tool, eval gate + agentic design doc.
-
-**Resume procedure:**
-1. `git status --short` — see which fleet files landed (at handoff only
-   `budget_engine.py` was written; fleet was mid-flight).
-2. Check the fleet result: `TaskOutput(wxdtykmrp)` if same app session, else read
-   `/private/tmp/.../tasks/wxdtykmrp.output`. If the workflow didn't finish, re-run:
-   `Workflow({scriptPath: <above>, resumeFromRunId: "wf_2fe3d455-f1c"})` — completed
-   agents return cached; only unfinished ones re-run.
-3. **Integrate + verify (do NOT skip — 9 agents touched critical live files):**
-   - `python3 -m py_compile` every changed `.py`.
-   - `python3 -m pytest tests/ -q` (expect prior baseline ~636 + new unit tests).
-   - `python3 scripts/render_sample_outputs.py` — PPTX/XLSX/scorecard must render;
-     then `rm -rf tmp_render`.
-   - Run an **adversarial pre-deploy review** on the combined diff (pattern proven
-     this session — see commit history; a 3-agent correctness/safety/render review).
-4. **Commit each unit cleanly** (one commit per work-unit, `S89 ...` prefix, with
-   the `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>` trailer).
-5. `git push origin main` (Render auto-deploys; verify HTTP 200 at the live URL).
-6. Reconcile the task board (§5): mark the fleet's units completed.
-
-> Always `git checkout -- data/audit_log.jsonl` before committing — tests write to it.
+> Always `git checkout -- data/audit_log.jsonl data/benchmark_drift_results.json
+> data/job_posting_volumes.json` before committing — tests/renders write to them.
 
 ---
 
 ## 2. Current state
-- **HEAD = `47c2a3a`**, synced with `origin/main`. Live: https://media-plan-generator.onrender.com/ (HTTP 200, auto-deploy on push from `main`, `autoDeploy: true`).
-- **Uncommitted at handoff:** `budget_engine.py` (fleet, keystone wiring — verify before committing).
-- Note: `e28c657` + `47c2a3a` (CI/Render best-effort) were added outside my work — already on main.
+- **HEAD = `f3ad719`**, clean, synced with `origin/main`. Live:
+  https://media-plan-generator.onrender.com/ (HTTP 200; `main` auto-deploys).
+- Whole S89 program is shipped EXCEPT the items in §5 (mostly user-creds or the
+  deliberately-deferred true-streaming work).
 
 ## 3. Shipped this session (commits `f216464` → `7bb9a80`)
 Excel numeric/totals/freeze overhaul · scorecard/PDF P0 image-404 fixes (real OG
@@ -64,16 +46,26 @@ doc · **keystone accessor** `supabase_data.get_real_outcomes()` · **L3.1**
 - **#15 external MCPs:** deferred until our own MCP ships.
 
 ## 5. Task board (session tasks #1–#16)
-- ✅ #1 MPG frontend · ✅ #4 KB gap-fill · ✅ #5 structured-output primitive
-- 🔵 (in fleet) #2 PPTX currency+fonts · #3 PDF/scorecard P1 · #6 typed schema ·
-  #7 excel provenance · #10 MCP server · #11 gemini embeddings · #13 eval gate ·
-  #14 agentic design · #16 keystone wiring (budget + nova tool)
-- ⏳ pending after fleet: #12 true Nova streaming (deferred — riskiest, do solo
-  behind a flag) · #8 live-refresh cron (build after #16 lands) · #9 source-of-truth
-  migration (dual-read then cutover) · #15 external MCPs
-- **Residual follow-ups noted in tasks:** adopt `call_llm_json` at the hand-rolled
-  json.loads sites (data_synthesizer.py:4775, app.py:6765); h1b KB refresh; MPG
-  async-null-data dashboard bug + generation-progress UX.
+- ✅ DONE + LIVE: #1 MPG frontend · #2 PPTX currency+fonts · #3 PDF/scorecard P1 ·
+  #4 KB gap-fill · #5 structured-output primitive · #6 typed schema · #7 excel
+  provenance · #10 MCP server · #13 eval gate · #14 agentic DESIGN · #16 keystone
+- 🟡 #11 Gemini embeddings — CODE done; **needs you**: Qdrant write creds, then
+  run `EMBEDDING_PROVIDER=gemini python3 scripts/reindex_embeddings.py` and set
+  `EMBEDDING_PROVIDER=gemini` in Render env (kills Nova's 10-RPM search wall).
+- ⏳ REMAINING build work (no user needed; do next session):
+  - **#12 true Nova streaming** — deferred (riskiest); do solo behind a flag with
+    fallback to the current simulated path.
+  - **#8 live-refresh cron** — decided: QStash endpoint re-aggregating
+    `cg_daily_raw`→`cg_benchmarks` on a schedule (no external keys). Build it.
+  - **#9 source-of-truth migration** — decided: Supabase canonical; implement
+    dual-read parity checks → cutover; JSON KB stays as fallback.
+  - **#15 external data MCPs** — deferred (opportunistic).
+- **Residual follow-ups:** adopt `call_llm_json` at the hand-rolled json.loads
+  sites (`data_synthesizer.py:4775`, `app.py:6765`); adopt `plan_schema` at
+  pipeline boundaries; MPG async-null-data dashboard bug + generation-progress UX;
+  h1b KB refresh; add the eval-gate job to `.github/workflows/ci.yml` + commit
+  `evals/baseline_scores.json`; (later) implement the agentic pipeline behind the
+  flag per `docs/AGENTIC_GENERATION_DESIGN.md`.
 
 ## 6. THE ONE thing needed from the user
 **Qdrant write credentials** → run the Gemini-embeddings reindex
