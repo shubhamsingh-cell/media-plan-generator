@@ -72,6 +72,14 @@ in §5.
     dashboards keep Space Grotesk by design); brighter .section-label eyebrows.
   - Nova chat widget: **already on-brand** (Poppins + full brand palette) — left
     as-is by design. Verified by rendering each page in the live preview.
+  - `1e836ce` **generative hero demo**: replaced the orbit-ring hero artifact
+    with a Linear-inspired product panel that animates Nova *building* a plan —
+    counts the $50,000 budget up, fills 5 brand-gradient channel bars
+    ($18,500→$4,000), counts outcome metrics (2,247 apps · 38 hires · $1,316/hire),
+    flips "Analyzing 10,341 partners…" → "Plan ready". JS in `hub.js`
+    (IntersectionObserver + load fallback, run-once guard, snaps to final on
+    ready, full reduced-motion path); CSS `.genplan*` in `hub.css`. (Mobbin was
+    login-gated, so I studied Linear's hero live in the user's Chrome instead.)
   See memory `frontend-design-bar.md`. Local dev preview: `.claude/launch.json`
   (gitignored) runs `python3 app.py 5099`; **RESTART the server after editing
   templates/inline CSS** (app caches templates at startup) + bump the `?v=` on
