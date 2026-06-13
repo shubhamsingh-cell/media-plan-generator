@@ -12526,6 +12526,29 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     status_code=500,
                 )
 
+        # ── Supabase parity audit (GET /api/admin/parity) -- S89 #9 ──
+        # READ-ONLY dual-read audit: reads each domain from BOTH Supabase and its
+        # JSON fallback and reports divergence. Does NOT change serving behaviour.
+        elif path == "/api/admin/parity":
+            if not self._check_admin_auth():
+                self._send_error("Unauthorized", "AUTH_REQUIRED", 401)
+                return
+            try:
+                from supabase_parity import run_parity_audit
+
+                self._send_json(run_parity_audit())
+            except ImportError:
+                self._send_json(
+                    {"error": "supabase_parity module not available"},
+                    status_code=503,
+                )
+            except Exception as e:
+                logger.error("Admin parity audit error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"Parity audit failed: {e}"},
+                    status_code=500,
+                )
+
         # ── Data Refresh Status (GET /api/data/refresh-status) ──
         elif path == "/api/data/refresh-status":
             try:
