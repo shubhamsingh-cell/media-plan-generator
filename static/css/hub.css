@@ -523,18 +523,43 @@ html.lenis body {
 .hero::before {
   content: "";
   position: absolute;
-  top: -40%;
+  top: -42%;
   left: 50%;
   transform: translateX(-50%);
-  width: 120%;
-  height: 80%;
+  width: 130%;
+  height: 88%;
   background: radial-gradient(
     50% 50% at 50% 50%,
-    rgba(90, 84, 189, 0.2) 0%,
-    rgba(107, 179, 205, 0.08) 40%,
+    rgba(90, 84, 190, 0.32) 0%,
+    rgba(107, 181, 206, 0.16) 38%,
     transparent 70%
   );
-  filter: blur(60px);
+  filter: blur(64px);
+  pointer-events: none;
+  z-index: 0;
+}
+/* Second, offset brand glow so teal + magenta read as part of the palette,
+   not just a single purple accent. */
+.hero::after {
+  content: "";
+  position: absolute;
+  top: 4%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 115%;
+  height: 70%;
+  background:
+    radial-gradient(
+      38% 44% at 22% 30%,
+      rgba(107, 181, 206, 0.18) 0%,
+      transparent 65%
+    ),
+    radial-gradient(
+      40% 46% at 80% 36%,
+      rgba(183, 102, 158, 0.16) 0%,
+      transparent 66%
+    );
+  filter: blur(72px);
   pointer-events: none;
   z-index: 0;
 }
@@ -544,36 +569,76 @@ html.lenis body {
   max-width: 800px;
 }
 .hero-eyebrow {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--accent-light);
+  letter-spacing: 0.18em;
+  color: #cbc7ff;
   margin-bottom: var(--space-6);
-  padding: 6px 16px;
-  background: var(--accent-glow);
+  padding: 7px 18px;
+  background: linear-gradient(
+    90deg,
+    rgba(90, 84, 190, 0.22),
+    rgba(107, 181, 206, 0.18)
+  );
   border-radius: var(--radius-full);
-  border: 1px solid rgba(90, 84, 189, 0.2);
+  border: 1px solid rgba(139, 133, 230, 0.4);
+  box-shadow: 0 0 24px rgba(90, 84, 190, 0.22);
+}
+.hero-eyebrow::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 10px var(--teal);
 }
 .hero-headline {
-  font-family: var(--font-display);
-  font-size: clamp(2.5rem, 6vw, 4.5rem);
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  line-height: 1.05;
-  background: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    rgba(255, 255, 255, 0.5) 100%
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-family: var(--font-heading); /* Poppins — Joveo brand heading font */
+  font-size: clamp(2.75rem, 6.2vw, 5rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+  /* High-contrast near-white for the setup line (was a washed
+     white->50% fade that read as muted gray). */
+  color: #f6f5ff;
+  -webkit-text-fill-color: #f6f5ff;
+  background: none;
   margin-bottom: var(--space-6);
-  text-shadow:
-    0 0 80px rgba(90, 84, 189, 0.15),
-    0 2px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2px 40px rgba(90, 84, 190, 0.3);
+}
+/* The emotional payoff phrase — vibrant Joveo brand gradient
+   (purple -> teal -> magenta), all high-luminance for AA contrast on dark. */
+.hero-accent {
+  background: linear-gradient(
+    105deg,
+    #a9a4ff 0%,
+    #7fd4ea 52%,
+    #e6a4d4 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: hero-accent-flow 7s ease-in-out infinite;
+}
+@keyframes hero-accent-flow {
+  0%,
+  100% {
+    background-position: 0% center;
+  }
+  50% {
+    background-position: 100% center;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-accent {
+    animation: none;
+  }
 }
 .hero-subline {
   font-size: var(--text-lg);
