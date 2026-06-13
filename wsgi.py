@@ -197,12 +197,35 @@ def _run_deferred_startup() -> None:
     logger.info("[wsgi] Feature store SKIPPED (S50 memory optimization)")
 
     # API Key Authentication Init -- KEEP (essential for auth)
+    # BUGFIX: app.py's __main__ _deferred_startup() sets app._auth_module_loaded
+    # after init, but this wsgi mirror (the gunicorn/production path) never did --
+    # so the request-time admin gate (app.py: `if _auth_module_loaded: ... elif
+    # /api/admin -> 503`) stayed closed and EVERY /api/admin/* endpoint 503'd in
+    # prod. We flip the flag here -- but ONLY when an admin/API key is actually
+    # configured. If none is set, auth.authenticate() would treat admin paths as
+    # "auth_disabled" (OPEN); keeping the flag False instead leaves them
+    # fail-closed (503) so admin endpoints are never exposed unauthenticated.
     try:
-        from auth import init as _init_auth
+        from auth import init as _init_auth, is_auth_enabled
 
         _init_auth()
+        import app as _app_module
+
+        if is_auth_enabled():
+            _app_module._auth_module_loaded = True
+            logger.info(
+                "[wsgi] Auth enabled -- admin endpoints reachable (gated by admin key)"
+            )
+        else:
+            _app_module._auth_module_loaded = False
+            logger.warning(
+                "[wsgi] No admin/API key configured (NOVA_ADMIN_KEY unset) -- admin "
+                "endpoints remain fail-closed (503). Set NOVA_ADMIN_KEY to enable."
+            )
     except ImportError:
-        pass
+        logger.critical(
+            "[wsgi] SECURITY: auth module failed to import -- admin endpoints BLOCKED."
+        )
 
     # Preload modules used in health checks to avoid lazy import delays
     try:
