@@ -1239,24 +1239,30 @@ def _copilot_suggest_brief(partial: str, context: dict) -> list[dict]:
         )
         # S50: TASK_PLAN_STRUCTURED for JSON output (Gemini best at structured),
         # 10s timeout to avoid blocking brief typing experience.
-        result = router.call_llm(
+        # S89: via call_llm_json -- schema-validated array + 1 retry instead of a
+        # one-shot fence-strip + json.loads.
+        _sb_schema = {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string"},
+                    "confidence": {"type": "number"},
+                    "reason": {"type": "string"},
+                },
+                "required": ["text"],
+            },
+        }
+        res = router.call_llm_json(
             messages=[{"role": "user", "content": prompt}],
-            system_prompt="Return only valid JSON array. No markdown, no explanation.",
+            schema=_sb_schema,
+            system_prompt="Return only a valid JSON array of suggestion objects.",
             task_type=getattr(router, "TASK_PLAN_STRUCTURED", "plan_structured"),
             max_tokens=300,
             timeout_budget=10.0,
         )
-        response_text = result.get("text") or ""
-        # Parse JSON from response
-        # Strip markdown code fences if present
-        cleaned = response_text.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[-1] if "\n" in cleaned else cleaned[3:]
-            if cleaned.endswith("```"):
-                cleaned = cleaned[:-3]
-            cleaned = cleaned.strip()
-        parsed = json.loads(cleaned)
-        if isinstance(parsed, list):
+        parsed = res.get("data")
+        if res.get("ok") and isinstance(parsed, list):
             suggestions = []
             for item in parsed[:3]:
                 if isinstance(item, dict) and item.get("text"):
@@ -1268,8 +1274,6 @@ def _copilot_suggest_brief(partial: str, context: dict) -> list[dict]:
                         }
                     )
             return suggestions
-    except json.JSONDecodeError:
-        logger.warning("Copilot brief suggestion: LLM returned non-JSON response")
     except Exception as e:
         logger.error("Copilot brief suggestion LLM call failed: %s", e, exc_info=True)
 
@@ -7724,61 +7728,73 @@ def _analyze_compliance(data: dict) -> dict:
         f'"recommendations": ["general recommendation 1", ...]}}'
     )
 
-    try:
-        # S50: 10s timeout + TASK_PLAN_STRUCTURED for JSON output (Gemini best
-        # at structured compliance JSON). Falls back through chain.
-        result = router.call_llm(
-            messages=[{"role": "user", "content": prompt}],
-            system_prompt=(
-                "You are an employment law and recruiting compliance expert. "
-                "Analyze job postings for legal compliance issues. "
-                "Always return valid JSON. Be thorough but practical."
-            ),
-            task_type=getattr(router, "TASK_PLAN_STRUCTURED", task_type),
-            max_tokens=1024,
-            timeout_budget=10.0,
-        )
-        response_text = result.get("text") or ""
-
-        # Try to parse JSON from the response
-        try:
-            # Strip markdown code fences if present
-            cleaned = response_text.strip()
-            if cleaned.startswith("```"):
-                cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-                cleaned = re.sub(r"\s*```$", "", cleaned)
-            parsed = json.loads(cleaned)
-            llm_result: dict = {
-                "score": parsed.get("score") or 0,
-                "issues": parsed.get("issues") or [],
-                "recommendations": parsed.get("recommendations") or [],
-                "llm_provider": result.get("provider") or "",
-            }
-            if eeoc_data:
-                llm_result["compliance_reference"] = eeoc_data
-            return llm_result
-        except (json.JSONDecodeError, ValueError):
-            # LLM returned non-JSON; wrap as narrative
-            narrative_result: dict = {
-                "score": 50,
-                "issues": [],
-                "recommendations": [response_text[:1000]],
-                "llm_provider": result.get("provider") or "",
-            }
-            if eeoc_data:
-                narrative_result["compliance_reference"] = eeoc_data
-            return narrative_result
-    except Exception as e:
-        logger.error("Compliance LLM analysis failed: %s", e, exc_info=True)
-        err_result: dict = {
+    def _compliance_err() -> dict:
+        r: dict = {
             "score": 0,
             "issues": [],
             "recommendations": ["Analysis temporarily unavailable. Please try again."],
             "llm_available": False,
         }
         if eeoc_data:
-            err_result["compliance_reference"] = eeoc_data
-        return err_result
+            r["compliance_reference"] = eeoc_data
+        return r
+
+    try:
+        # S50: 10s timeout + TASK_PLAN_STRUCTURED for JSON output (Gemini best
+        # at structured compliance JSON). Falls back through chain.
+        # S89: via call_llm_json -- schema-validated + 1 retry; on non-JSON we
+        # still surface the model's prose via res["raw"] as a narrative result.
+        _c_schema = {
+            "type": "object",
+            "properties": {
+                "score": {"type": "number"},
+                "issues": {"type": "array"},
+                "recommendations": {"type": "array"},
+            },
+            "required": ["score"],
+        }
+        res = router.call_llm_json(
+            messages=[{"role": "user", "content": prompt}],
+            schema=_c_schema,
+            system_prompt=(
+                "You are an employment law and recruiting compliance expert. "
+                "Analyze job postings for legal compliance issues. "
+                "Be thorough but practical."
+            ),
+            task_type=getattr(router, "TASK_PLAN_STRUCTURED", task_type),
+            max_tokens=1024,
+            timeout_budget=10.0,
+        )
+        parsed = res.get("data")
+        if res.get("ok") and isinstance(parsed, dict):
+            llm_result: dict = {
+                "score": parsed.get("score") or 0,
+                "issues": parsed.get("issues") or [],
+                "recommendations": parsed.get("recommendations") or [],
+                "llm_provider": res.get("provider") or "",
+            }
+            if eeoc_data:
+                llm_result["compliance_reference"] = eeoc_data
+            return llm_result
+
+        # Non-JSON response: wrap the prose as a narrative result (as before).
+        _raw = res.get("raw") or ""
+        if _raw.strip():
+            narrative_result: dict = {
+                "score": 50,
+                "issues": [],
+                "recommendations": [_raw[:1000]],
+                "llm_provider": res.get("provider") or "",
+            }
+            if eeoc_data:
+                narrative_result["compliance_reference"] = eeoc_data
+            return narrative_result
+
+        # No usable response at all.
+        return _compliance_err()
+    except Exception as e:
+        logger.error("Compliance LLM analysis failed: %s", e, exc_info=True)
+        return _compliance_err()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -8178,38 +8194,47 @@ def _generate_post_campaign_summary(data: dict) -> dict:
     )
 
     try:
-        result = router.call_llm(
+        # S89: via call_llm_json -- schema-validated + 1 retry; on non-JSON we
+        # surface the prose in executive_summary (res["raw"]) as before, and on a
+        # fully empty response fall back to the template summary.
+        _s_schema = {
+            "type": "object",
+            "properties": {
+                "executive_summary": {"type": "string"},
+                "channel_analysis": {"type": "string"},
+                "recommendations": {"type": "string"},
+            },
+            "required": ["executive_summary"],
+        }
+        res = router.call_llm_json(
             messages=[{"role": "user", "content": prompt}],
+            schema=_s_schema,
             system_prompt=(
                 "You are a senior recruitment marketing strategist presenting to C-suite executives. "
                 "Write with authority and precision. Every sentence must cite a specific metric. "
-                "Include market thesis, ROI impact, and risk analysis. Always return valid JSON."
+                "Include market thesis, ROI impact, and risk analysis."
             ),
             task_type=task_type,
             max_tokens=800,
             timeout_budget=10.0,
         )
-        response_text = result.get("text") or ""
-
-        try:
-            cleaned = response_text.strip()
-            if cleaned.startswith("```"):
-                cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-                cleaned = re.sub(r"\s*```$", "", cleaned)
-            parsed = json.loads(cleaned)
+        parsed = res.get("data")
+        if res.get("ok") and isinstance(parsed, dict):
             return {
                 "executive_summary": parsed.get("executive_summary") or "",
                 "channel_analysis": parsed.get("channel_analysis") or "",
                 "recommendations": parsed.get("recommendations") or "",
-                "llm_provider": result.get("provider") or "",
+                "llm_provider": res.get("provider") or "",
             }
-        except (json.JSONDecodeError, ValueError):
+        _raw = res.get("raw") or ""
+        if _raw.strip():
             return {
-                "executive_summary": response_text[:1000],
+                "executive_summary": _raw[:1000],
                 "channel_analysis": "",
                 "recommendations": "",
-                "llm_provider": result.get("provider") or "",
+                "llm_provider": res.get("provider") or "",
             }
+        return _post_campaign_template_fallback(data)
     except Exception as e:
         logger.error("Post-campaign summary generation failed: %s", e, exc_info=True)
         return _post_campaign_template_fallback(data)
