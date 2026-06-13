@@ -7914,60 +7914,7 @@ def _audit_complianceguard(data: dict) -> dict:
         f"}}"
     )
 
-    try:
-        # S50: Route compliance audits to TASK_PLAN_STRUCTURED (Gemini -- best
-        # structured JSON output). 10s timeout for non-fix mode; fix mode gets
-        # 15s because it includes a full rewrite.
-        _compliance_timeout = 15.0 if fix_mode else 10.0
-        result = router.call_llm(
-            messages=[{"role": "user", "content": prompt}],
-            system_prompt=(
-                "You are an expert employment law and recruiting compliance analyst "
-                "specializing in US (EEOC, ADA, ADEA, OFCCP) and EU (GDPR, EU Pay "
-                "Transparency Directive, EU Employment Equality Directive) regulations. "
-                "Analyze job postings thoroughly. Always return valid JSON."
-            ),
-            task_type=getattr(router, "TASK_PLAN_STRUCTURED", task_type),
-            max_tokens=2048 if fix_mode else 1536,
-            timeout_budget=_compliance_timeout,
-        )
-        response_text: str = result.get("text") or ""
-
-        # Parse JSON from response
-        cleaned: str = response_text.strip()
-        if cleaned.startswith("```"):
-            cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-            cleaned = re.sub(r"\s*```$", "", cleaned)
-
-        try:
-            parsed = json.loads(cleaned)
-        except (json.JSONDecodeError, ValueError):
-            # Fallback: wrap as narrative
-            return {
-                "score": 50,
-                "risk_level": "Medium",
-                "findings": [],
-                "recommendations": [response_text[:1000]],
-                "rewritten_description": None,
-                "llm_provider": result.get("provider") or "",
-            }
-
-        audit_result: dict = {
-            "score": parsed.get("score") or 0,
-            "risk_level": parsed.get("risk_level") or "Medium",
-            "findings": parsed.get("findings") or [],
-            "recommendations": parsed.get("recommendations") or [],
-            "rewritten_description": parsed.get("rewritten_description"),
-            "llm_provider": result.get("provider") or "",
-        }
-        if onet_context:
-            audit_result["onet_classification"] = onet_context
-        if supabase_rules:
-            audit_result["applicable_rules_count"] = len(supabase_rules)
-        return audit_result
-
-    except Exception as e:
-        logger.error(f"ComplianceGuard audit LLM call failed: {e}", exc_info=True)
+    def _ag_err() -> dict:
         return {
             "score": 0,
             "risk_level": "unknown",
@@ -7975,6 +7922,71 @@ def _audit_complianceguard(data: dict) -> dict:
             "recommendations": ["Analysis temporarily unavailable. Please try again."],
             "rewritten_description": None,
         }
+
+    try:
+        # S50: Route compliance audits to TASK_PLAN_STRUCTURED (Gemini -- best
+        # structured JSON output). 10s timeout for non-fix mode; fix mode gets
+        # 15s because it includes a full rewrite.
+        # S89: via call_llm_json -- schema-validated + 1 retry; non-JSON prose is
+        # still surfaced as a narrative result (res["raw"]).
+        _compliance_timeout = 15.0 if fix_mode else 10.0
+        _ag_schema = {
+            "type": "object",
+            "properties": {
+                "score": {"type": "number"},
+                "risk_level": {"type": "string"},
+                "findings": {"type": "array"},
+                "recommendations": {"type": "array"},
+                "rewritten_description": {"type": ["string", "null"]},
+            },
+            "required": ["score"],
+        }
+        res = router.call_llm_json(
+            messages=[{"role": "user", "content": prompt}],
+            schema=_ag_schema,
+            system_prompt=(
+                "You are an expert employment law and recruiting compliance analyst "
+                "specializing in US (EEOC, ADA, ADEA, OFCCP) and EU (GDPR, EU Pay "
+                "Transparency Directive, EU Employment Equality Directive) regulations. "
+                "Analyze job postings thoroughly."
+            ),
+            task_type=getattr(router, "TASK_PLAN_STRUCTURED", task_type),
+            max_tokens=2048 if fix_mode else 1536,
+            timeout_budget=_compliance_timeout,
+        )
+        parsed = res.get("data")
+        if res.get("ok") and isinstance(parsed, dict):
+            audit_result: dict = {
+                "score": parsed.get("score") or 0,
+                "risk_level": parsed.get("risk_level") or "Medium",
+                "findings": parsed.get("findings") or [],
+                "recommendations": parsed.get("recommendations") or [],
+                "rewritten_description": parsed.get("rewritten_description"),
+                "llm_provider": res.get("provider") or "",
+            }
+            if onet_context:
+                audit_result["onet_classification"] = onet_context
+            if supabase_rules:
+                audit_result["applicable_rules_count"] = len(supabase_rules)
+            return audit_result
+
+        # Non-JSON response with prose -> wrap as a narrative result (as before).
+        _raw = res.get("raw") or ""
+        if _raw.strip():
+            return {
+                "score": 50,
+                "risk_level": "Medium",
+                "findings": [],
+                "recommendations": [_raw[:1000]],
+                "rewritten_description": None,
+                "llm_provider": res.get("provider") or "",
+            }
+        # No usable response at all.
+        return _ag_err()
+
+    except Exception as e:
+        logger.error(f"ComplianceGuard audit LLM call failed: {e}", exc_info=True)
+        return _ag_err()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -8072,38 +8084,51 @@ def _generate_creative_ads(data: dict) -> dict:
     )
 
     try:
-        result = router.call_llm(
+        # S89: via call_llm_json -- schema-validated array + 1 retry; on non-JSON
+        # we still expose the model's raw text via raw_response as before.
+        _ca_schema = {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "variant_name": {"type": "string"},
+                    "headline": {"type": "string"},
+                    "body": {"type": "string"},
+                    "cta": {"type": "string"},
+                },
+            },
+        }
+        res = router.call_llm_json(
             messages=[{"role": "user", "content": prompt}],
+            schema=_ca_schema,
             system_prompt=(
                 "You are a top-tier recruitment copywriter. "
-                "Write compelling, concise ad copy. Always return valid JSON array. "
+                "Write compelling, concise ad copy. "
                 "Each variant must be distinct in approach."
             ),
             task_type=task_type,
             max_tokens=800,
             timeout_budget=10.0,
         )
-        response_text = result.get("text") or ""
-
-        try:
-            cleaned = response_text.strip()
-            if cleaned.startswith("```"):
-                cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-                cleaned = re.sub(r"\s*```$", "", cleaned)
-            parsed = json.loads(cleaned)
+        data = res.get("data")
+        if res.get("ok") and data is not None:
             variants = (
-                parsed if isinstance(parsed, list) else parsed.get("variants") or []
+                data
+                if isinstance(data, list)
+                else (data.get("variants") or [] if isinstance(data, dict) else [])
             )
             return {
                 "variants": variants,
-                "llm_provider": result.get("provider") or "",
+                "llm_provider": res.get("provider") or "",
             }
-        except (json.JSONDecodeError, ValueError):
+        _raw = res.get("raw") or ""
+        if _raw.strip():
             return {
                 "variants": [],
-                "raw_response": response_text[:1500],
-                "llm_provider": result.get("provider") or "",
+                "raw_response": _raw[:1500],
+                "llm_provider": res.get("provider") or "",
             }
+        return {"variants": [], "llm_available": False}
     except Exception as e:
         logger.error("Creative ad generation failed: %s", e, exc_info=True)
         return {"variants": [], "llm_available": False}
@@ -8841,32 +8866,35 @@ def _generate_ab_test_with_claude(
         # S50: Route A/B copy to TASK_PLAN_STRUCTURED (Gemini -- best JSON output)
         # instead of TASK_NARRATIVE (Claude Haiku -- expensive for ad copy).
         # 10s timeout for non-blocking A/B generation.
-        from llm_router import call_llm, TASK_PLAN_STRUCTURED
+        from llm_router import call_llm_json, TASK_PLAN_STRUCTURED
 
-        messages = [{"role": "user", "content": prompt}]
-        llm_result = call_llm(
-            messages=messages,
+        # S89: via call_llm_json (schema-validated + 1 retry). On any failure we
+        # fall through to the direct Anthropic fallback below, as before.
+        _ab_schema = {
+            "type": "object",
+            "properties": {
+                "variant_a": {"type": "object"},
+                "variant_b": {"type": "object"},
+            },
+            "required": ["variant_a", "variant_b"],
+        }
+        res = call_llm_json(
+            messages=[{"role": "user", "content": prompt}],
+            schema=_ab_schema,
             system_prompt=system_prompt,
             task_type=TASK_PLAN_STRUCTURED,
             max_tokens=500,
             timeout_budget=10.0,
         )
-        content_text = (
-            llm_result.get("text") or ""
-            if isinstance(llm_result, dict)
-            else str(llm_result or "")
-        )
-        if content_text:
-            json_match = re.search(r"\{[\s\S]*\}", content_text)
-            if json_match:
-                variants = json.loads(json_match.group())
-                return _build_ab_response(
-                    variants.get("variant_a", {}),
-                    variants.get("variant_b", {}),
-                    channel,
-                    budget,
-                    "llm_router",
-                )
+        variants = res.get("data")
+        if res.get("ok") and isinstance(variants, dict):
+            return _build_ab_response(
+                variants.get("variant_a", {}),
+                variants.get("variant_b", {}),
+                channel,
+                budget,
+                "llm_router",
+            )
     except ImportError:
         logger.warning("llm_router module not available, falling back to direct API")
     except (json.JSONDecodeError, ValueError, TypeError) as e:

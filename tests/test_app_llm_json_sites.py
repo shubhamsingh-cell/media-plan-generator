@@ -9,6 +9,7 @@ deterministic while exercising the real mapping + fallback logic.
 
 import types
 
+import llm_router
 import app
 
 
@@ -130,3 +131,78 @@ def test_post_campaign_summary_non_json_wraps_raw(monkeypatch):
     assert out["executive_summary"] == "prose summary"
     assert out["channel_analysis"] == ""
     assert out["llm_provider"] == "groq"
+
+
+# ── _audit_complianceguard (object + narrative + distinct error) ─────────────
+_AUDIT = {"job_description": "Seeking a young rockstar ninja.", "industry": "tech"}
+
+
+def test_audit_complianceguard_ok(monkeypatch):
+    res = {
+        "ok": True,
+        "data": {"score": 60, "risk_level": "High", "findings": [{"category": "age"}],
+                 "recommendations": ["reword"], "rewritten_description": "Seeking an engineer."},
+        "provider": "gemini", "error": "",
+    }
+    monkeypatch.setattr(app, "_lazy_llm_router", lambda: _fake_router(res))
+    out = app._audit_complianceguard(dict(_AUDIT))
+    assert out["score"] == 60 and out["risk_level"] == "High"
+    assert out["rewritten_description"] == "Seeking an engineer."
+    assert out["llm_provider"] == "gemini"
+
+
+def test_audit_complianceguard_non_json_narrative(monkeypatch):
+    res = {"ok": False, "data": None, "raw": "prose audit", "provider": "groq", "error": "x"}
+    monkeypatch.setattr(app, "_lazy_llm_router", lambda: _fake_router(res))
+    out = app._audit_complianceguard(dict(_AUDIT))
+    assert out["score"] == 50 and out["risk_level"] == "Medium"
+    assert out["recommendations"] == ["prose audit"]
+
+
+def test_audit_complianceguard_empty_is_unknown_error(monkeypatch):
+    res = {"ok": False, "data": None, "raw": "", "provider": "", "error": "down"}
+    monkeypatch.setattr(app, "_lazy_llm_router", lambda: _fake_router(res))
+    out = app._audit_complianceguard(dict(_AUDIT))
+    assert out["score"] == 0 and out["risk_level"] == "unknown"
+
+
+# ── _generate_creative_ads (array, or {variants}) ───────────────────────────
+_ADS = {"job_title": "Nurse", "company": "Acme", "selling_points": "great pay"}
+
+
+def test_creative_ads_ok_list(monkeypatch):
+    res = {"ok": True, "data": [{"variant_name": "A", "headline": "h"}], "provider": "gemini", "error": ""}
+    monkeypatch.setattr(app, "_lazy_llm_router", lambda: _fake_router(res))
+    out = app._generate_creative_ads(dict(_ADS))
+    assert out["variants"] == [{"variant_name": "A", "headline": "h"}]
+    assert out["llm_provider"] == "gemini"
+
+
+def test_creative_ads_ok_object_with_variants(monkeypatch):
+    res = {"ok": True, "data": {"variants": [{"headline": "h2"}]}, "provider": "groq", "error": ""}
+    monkeypatch.setattr(app, "_lazy_llm_router", lambda: _fake_router(res))
+    out = app._generate_creative_ads(dict(_ADS))
+    assert out["variants"] == [{"headline": "h2"}]
+
+
+def test_creative_ads_non_json_exposes_raw(monkeypatch):
+    res = {"ok": False, "data": None, "raw": "not json output", "provider": "groq", "error": "x"}
+    monkeypatch.setattr(app, "_lazy_llm_router", lambda: _fake_router(res))
+    out = app._generate_creative_ads(dict(_ADS))
+    assert out["variants"] == [] and out["raw_response"] == "not json output"
+
+
+# ── _generate_ab_test_with_claude (object -> _build_ab_response) ─────────────
+def test_ab_test_router_success(monkeypatch):
+    res = {
+        "ok": True,
+        "data": {"variant_a": {"headline": "Benefits", "description": "d", "cta": "Apply"},
+                 "variant_b": {"headline": "Culture", "description": "d", "cta": "Join"}},
+        "provider": "gemini", "error": "",
+    }
+    # direct `from llm_router import call_llm_json` -> patch the module attr.
+    monkeypatch.setattr(llm_router, "call_llm_json", lambda **kw: res)
+    out = app._generate_ab_test_with_claude("Nurse", "Acme", "healthcare", "RN", "Indeed", 5000.0, "")
+    assert isinstance(out, dict) and out  # _build_ab_response built a response
+    # source threaded through to _build_ab_response
+    assert "llm_router" in str(out.get("source") or out.get("generated_by") or out)
