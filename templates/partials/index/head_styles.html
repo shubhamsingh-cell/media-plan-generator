@@ -59,6 +59,9 @@
 
     /* Typography – display font */
     --font-display: "Space Grotesk", sans-serif;
+    /* Joveo brand heading font (Poppins) — used on form headings to match the
+       deck + landing. */
+    --font-heading: "Poppins", "Space Grotesk", -apple-system, sans-serif;
     --tracking-tight: -0.025em;
 
     /* Accent aliases (spec tokens) */
@@ -77,19 +80,19 @@
     --gradient-accent: linear-gradient(135deg, #5a54be 0%, #6bb5ce 100%);
     --gradient-mesh:
       radial-gradient(
-        ellipse at 20% 50%,
-        rgba(90, 84, 189, 0.08) 0%,
+        ellipse at 18% 30%,
+        rgba(90, 84, 190, 0.16) 0%,
+        transparent 52%
+      ),
+      radial-gradient(
+        ellipse at 82% 18%,
+        rgba(107, 181, 206, 0.13) 0%,
         transparent 50%
       ),
       radial-gradient(
-        ellipse at 80% 20%,
-        rgba(107, 179, 205, 0.06) 0%,
-        transparent 50%
-      ),
-      radial-gradient(
-        ellipse at 40% 80%,
-        rgba(90, 84, 189, 0.04) 0%,
-        transparent 50%
+        ellipse at 60% 85%,
+        rgba(183, 102, 158, 0.1) 0%,
+        transparent 55%
       );
 
     /* Animation */
@@ -394,6 +397,7 @@
   }
 
   .app-header h1 {
+    font-family: var(--font-heading); /* Poppins — Joveo brand heading font */
     font-size: 16px;
     font-weight: 700;
     letter-spacing: -0.03em;
@@ -599,30 +603,58 @@
            CARDS - Glassmorphism 2.0 (frosted dark glass)
            ============================================ */
   .card {
-    background: var(--bg-card);
+    position: relative;
+    /* Subtle indigo-tinted glass instead of flat dark, so the card reads as a
+       designed brand surface (was: plain var(--bg-card)). */
+    background:
+      linear-gradient(
+        180deg,
+        rgba(90, 84, 190, 0.06) 0%,
+        rgba(17, 17, 28, 0) 40%
+      ),
+      var(--bg-card);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-md), var(--glass-inset);
+    border-radius: var(--radius-lg);
+    box-shadow:
+      var(--shadow-md),
+      var(--glass-inset),
+      0 0 40px rgba(90, 84, 190, 0.06);
     padding: 32px;
     margin-bottom: 24px;
     border: 1px solid var(--glass-border);
+    overflow: hidden;
     transition:
       border-color var(--duration-normal) var(--ease-standard),
       box-shadow var(--duration-normal) var(--ease-standard),
       background var(--duration-normal) var(--ease-standard);
   }
+  /* Brand top-accent stripe (indigo -> purple -> teal). */
+  .card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #202058 0%, #5a54be 50%, #6bb5ce 100%);
+    opacity: 0.85;
+  }
 
   .card:hover {
     border-color: var(--glass-border-hover);
-    box-shadow: var(--shadow-lg), var(--glass-inset);
+    box-shadow:
+      var(--shadow-lg),
+      var(--glass-inset),
+      0 0 56px rgba(90, 84, 190, 0.1);
   }
 
   .card h2 {
-    font-size: 22px;
+    font-family: var(--font-heading); /* Poppins — Joveo brand heading font */
+    font-size: 24px;
     font-weight: 700;
     letter-spacing: -0.03em;
-    color: var(--text-primary);
+    color: #f6f5ff;
     margin-bottom: 4px;
   }
 
@@ -1407,10 +1439,10 @@
     animation: fadeInUp 0.4s ease-out;
   }
 
-  /* Space Grotesk for step headings */
+  /* Poppins (Joveo brand heading font) for step/card headings */
   .wizard-step h2,
   .card h2 {
-    font-family: var(--font-display);
+    font-family: var(--font-heading);
     letter-spacing: var(--tracking-tight);
   }
 
