@@ -3968,6 +3968,20 @@
   .competitor-stat strong {
     color: #cbd5e1;
   }
+  /* S90: small muted source tag, e.g. "live · greenhouse" / "postings" */
+  .competitor-stat-src {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #6bb5ce;
+    opacity: 0.85;
+  }
+  /* S90: honest note when an employer has no public ATS feed */
+  .competitor-stat.competitor-stat-muted {
+    font-style: italic;
+    color: #64748b;
+  }
   .competitor-categories {
     display: flex;
     flex-wrap: wrap;
@@ -6689,6 +6703,28 @@
   }
   body .app-footer a {
     color: var(--np-purple-light) !important;
+  }
+
+  /* ── Results dashboard polish: brand-accent title + hero budget tile ─ */
+  .studio .plan-dashboard-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .studio .plan-dashboard-title::before {
+    content: "";
+    width: 4px;
+    height: 18px;
+    border-radius: 2px;
+    background: var(--np-grad);
+    flex-shrink: 0;
+  }
+  .studio .plan-metric-card:first-child {
+    background: linear-gradient(135deg, rgba(90, 84, 190, 0.1), #ffffff) !important;
+    border-color: rgba(90, 84, 190, 0.28) !important;
+  }
+  .studio .plan-svg-chart {
+    padding: 16px 18px !important;
   }
 
   @media (prefers-reduced-motion: reduce) {
