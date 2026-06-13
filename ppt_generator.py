@@ -75,17 +75,18 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Chart color palette (hex strings for matplotlib, matching Joveo brand)
 # ---------------------------------------------------------------------------
+# S89: pure Joveo deck dataviz sequence (no off-palette greens/teals). Order
+# follows the brand guideline series: purple -> teal -> magenta -> purple-light,
+# then deepen within the family. Categorical, high-contrast between neighbors.
 _CHART_COLORS = [
-    "#5A54BE",  # Blue Violet (Joveo primary accent)
-    "#6BB5CE",  # Downy Teal (Joveo secondary accent)
-    "#8680D6",  # Light Purple (Joveo extended)
-    "#A8D8EA",  # Light Teal (Joveo extended)
-    "#B7669E",  # Magenta (emphasis)
-    "#202058",  # Port Gore Navy
-    "#3E8FAB",  # Teal deep accent
-    "#338721",  # Green (positive)
-    "#B7669E",  # Magenta accent
-    "#14B8A6",  # Teal accent
+    "#5A54BE",  # PURPLE -- series 1 (primary accent)
+    "#6BB5CE",  # TEAL -- series 2
+    "#B7669E",  # MAGENTA -- series 3
+    "#8680D6",  # PURPLE_LIGHT -- series 4
+    "#202058",  # INDIGO -- series 5 (deep)
+    "#3E8FAB",  # TEAL deep -- series 6
+    "#C98BB6",  # MAGENTA light -- series 7
+    "#3F3A8E",  # PURPLE deep -- series 8
 ]
 
 
@@ -209,7 +210,8 @@ def _generate_funnel_chart_image(
         fig, ax = plt.subplots(figsize=(8, 4.5), dpi=150)
         fig.patch.set_facecolor("#FFFCF9")
 
-        funnel_colors = ["#202058", "#5A54BE", "#6BB5CE", "#338721"]
+        # S89: brand-only funnel (was a non-deck green #338721 on the last stage)
+        funnel_colors = ["#202058", "#5A54BE", "#6BB5CE", "#B7669E"]
         max_val = values[0]
 
         y_positions = [3.0, 2.0, 1.0, 0.0]
