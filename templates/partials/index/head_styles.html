@@ -4944,9 +4944,10 @@
     --np-hair: rgba(168, 164, 224, 0.1);
     --np-hair-strong: rgba(168, 164, 224, 0.18);
     --np-ink: #edebfb;
-    --np-ink-soft: #c4c1de;
-    --np-muted: #8c89a8;
-    --np-faint: #6a6886;
+    --np-ink-soft: #c8c5e2;
+    --np-muted: #a5a2c4;
+    --np-faint: #9794b6;
+    --np-line: #4a4868;
 
     /* Light deliverable surfaces (deck) */
     --np-paper: #fffcf9;
@@ -5324,7 +5325,7 @@
   .studio .tags-container:focus-within {
     outline: none !important;
     border-color: var(--np-purple) !important;
-    background: var(--np-panel-2) !important;
+    background-color: var(--np-panel-2) !important; /* not 'background' — preserves select chevron image */
     box-shadow: 0 0 0 3px rgba(90, 84, 190, 0.22) !important;
   }
   .studio .form-group select {
@@ -5637,9 +5638,9 @@
     align-self: flex-start;
     padding: 3px 9px;
     border-radius: 999px;
-    background: rgba(183, 102, 158, 0.12);
-    color: var(--np-magenta);
-    font-size: 9.5px;
+    background: rgba(183, 102, 158, 0.16);
+    color: #8e3f76; /* AA on the tint (~5.2:1) */
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.08em;
     flex-shrink: 0;
@@ -5666,6 +5667,7 @@
     font-size: 38px;
     line-height: 1.05;
     letter-spacing: -0.02em;
+    color: var(--np-purple); /* fallback when background-clip:text unsupported */
     background: var(--np-grad-warm);
     -webkit-background-clip: text;
     background-clip: text;
@@ -5713,6 +5715,7 @@
   .np-mix-seg {
     height: 100%;
     width: 0;
+    transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .np-legend {
     display: flex;
@@ -5933,6 +5936,7 @@
     color: var(--np-ink) !important;
   }
   .studio .industry-card .desc {
+    display: block; /* re-enable: legacy .industry-card .desc{display:none} */
     font-size: 11.5px;
     color: var(--np-faint) !important;
     line-height: 1.35;
@@ -6326,13 +6330,19 @@
   .studio .hero-stat-card .btn-regenerate,
   .studio .hero-stat-card .btn-open-sheets,
   .studio .hero-stat-card .btn-compare-plans,
+  .studio .hero-stat-card .btn-ask-nova,
   .studio .saved-plans-toggle {
     background: #fff !important;
     border: 1px solid var(--np-paper-border) !important;
     color: var(--np-indigo) !important;
     border-radius: 10px !important;
     font-weight: 600 !important;
+    box-shadow: none !important;
     transition: all 0.16s ease !important;
+  }
+  .studio .hero-stat-card .btn-ask-nova:hover {
+    border-color: var(--np-purple) !important;
+    background: var(--np-lav-50) !important;
   }
   .studio .hero-stat-card .btn-export:hover,
   .studio .hero-stat-card .btn-copy-plan:hover,
@@ -6466,5 +6476,169 @@
   }
   .studio .output-format-toggle button {
     border-radius: 9px !important;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     NOVA PLAN STUDIO — elevation pass: living aurora, motion, focus,
+     error states, and the generation moment. Plus verified-review fixes.
+     ════════════════════════════════════════════════════════════════════ */
+
+  /* ── Living brand aurora behind the cockpit (echoes the landing hero) ─ */
+  body::before {
+    background:
+      radial-gradient(820px 560px at 8% 4%, rgba(90, 84, 190, 0.22), transparent 60%),
+      radial-gradient(760px 560px at 94% 0%, rgba(107, 181, 206, 0.15), transparent 55%),
+      radial-gradient(720px 700px at 74% 98%, rgba(183, 102, 158, 0.13), transparent 60%) !important;
+    opacity: 0.95 !important;
+    animation: npAurora 30s ease-in-out infinite alternate !important;
+    will-change: transform;
+  }
+  @keyframes npAurora {
+    0% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(1.5%, -1.5%, 0) scale(1.05); }
+    100% { transform: translate3d(-1.5%, 1%, 0) scale(1.08); }
+  }
+
+  /* ── Keyboard focus on channel/extra toggles (was invisible) ────── */
+  .studio .toggle-switch input:focus-visible + .toggle-slider,
+  .studio .toggle input:focus-visible + .slider {
+    outline: none;
+    border-color: var(--np-purple) !important;
+    box-shadow: 0 0 0 3px rgba(90, 84, 190, 0.45);
+  }
+  /* visible focus ring on industry/job/preset cards + chips */
+  .studio .industry-card:focus-visible,
+  .studio .job-cat-card:focus-visible,
+  .studio .preset-chip:focus-visible,
+  .studio .channel-category-card:focus-within {
+    outline: none;
+    border-color: var(--np-purple) !important;
+    box-shadow: 0 0 0 3px rgba(90, 84, 190, 0.35) !important;
+  }
+
+  /* ── Validation error state must beat the studio input rule ─────── */
+  .studio .form-group.field-error input,
+  .studio .form-group.field-error select,
+  .studio .form-group.field-error textarea,
+  .studio .form-group.field-error .tags-container {
+    border-color: var(--error, #ef4444) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18) !important;
+  }
+  .studio .field-error-msg {
+    color: #ff8a8a !important;
+    font-size: 11.5px;
+    margin-top: 5px;
+  }
+
+  /* ── Micro-interactions (spring) ────────────────────────────────── */
+  .studio .btn,
+  .studio .preset-chip,
+  .studio .industry-card,
+  .studio .job-cat-card,
+  .studio .toggle-slider::before,
+  .studio .toggle .slider::before {
+    will-change: transform;
+  }
+  .studio .btn:active,
+  .studio .btn-success:active,
+  .studio .preset-chip:active {
+    transform: translateY(0) scale(0.985) !important;
+  }
+  .studio .industry-card.selected {
+    animation: npCardPop 0.34s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
+  }
+  @keyframes npCardPop {
+    0% { transform: scale(0.97); }
+    60% { transform: scale(1.015); }
+    100% { transform: scale(1); }
+  }
+  /* live-preview budget glow when it changes */
+  .np-card.pop .np-budget-value {
+    animation: npBudgetGlow 0.6s ease;
+  }
+  @keyframes npBudgetGlow {
+    0% { filter: drop-shadow(0 0 0 rgba(90, 84, 190, 0)); }
+    40% { filter: drop-shadow(0 4px 16px rgba(90, 84, 190, 0.45)); }
+    100% { filter: drop-shadow(0 0 0 rgba(90, 84, 190, 0)); }
+  }
+
+  /* ── THE GENERATION MOMENT — the deck assembling (light, brand) ──── */
+  .generation-overlay {
+    background: rgba(7, 7, 13, 0.74) !important;
+    backdrop-filter: blur(12px) saturate(1.2) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
+  }
+  .generation-card {
+    background: linear-gradient(170deg, #ffffff 0%, var(--np-paper) 55%, var(--np-lav-50) 100%) !important;
+    border: 1px solid var(--np-paper-border) !important;
+    color: var(--np-paper-ink) !important;
+    border-radius: 22px !important;
+    box-shadow: 0 40px 90px -40px rgba(13, 10, 40, 0.85) !important;
+    position: relative;
+    overflow: hidden;
+  }
+  .generation-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 4px;
+    background: var(--np-grad);
+  }
+  .generation-card h3 {
+    font-family: var(--font-heading) !important;
+    color: var(--np-indigo) !important;
+  }
+  .generation-card .gen-subtitle,
+  .generation-card .gen-did-you-know {
+    color: var(--np-paper-muted) !important;
+  }
+  .generation-card .gen-step {
+    color: var(--np-paper-ink) !important;
+  }
+  .generation-card .gen-step.active {
+    color: var(--np-indigo) !important;
+  }
+  .generation-card .gen-dot {
+    background: var(--np-purple) !important;
+  }
+  .generation-card .gen-progress-bar {
+    background: var(--np-lav-100) !important;
+  }
+  .generation-card .gen-progress-fill {
+    background: var(--np-grad) !important;
+  }
+  .generation-card .gen-time-estimate {
+    color: var(--np-paper-muted) !important;
+  }
+  .generation-card #genCountdown,
+  .generation-card #genElapsed {
+    color: var(--np-purple) !important;
+  }
+  .generation-card #genCancelBtn {
+    border-color: var(--np-paper-border) !important;
+    color: var(--np-paper-muted) !important;
+  }
+  .generation-card .gen-spinner {
+    border-color: var(--np-lav-100) !important;
+    border-top-color: var(--np-purple) !important;
+  }
+  .generation-card .check-circle {
+    stroke: var(--np-teal-deep) !important;
+  }
+  .generation-card .check-mark {
+    stroke: var(--np-teal-deep) !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body::before {
+      animation: none !important;
+    }
+    .studio .industry-card.selected,
+    .np-card.pop .np-budget-value {
+      animation: none !important;
+    }
+    .np-mix-seg {
+      transition: none !important;
+    }
   }
 </style>
