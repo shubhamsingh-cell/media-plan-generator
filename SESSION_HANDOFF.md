@@ -28,17 +28,16 @@ in §5.
 ---
 
 ## 2. Current state
-- **HEAD ≈ `a6c0fe3`** (+ this handoff refresh). Live:
+- **HEAD ≈ `553af96`** (+ this handoff refresh). Live:
   https://media-plan-generator.onrender.com/ (HTTP 200; `main` auto-deploys).
-  This turn's commits (`4559149`, `ffe94cd`, `a2b6ad0`, `8443ee1`, `a6c0fe3`)
-  were pushed with explicit user authorization after the first direct push was
-  denied by the permission classifier — a fresh push each turn may re-prompt;
-  ask, or let the concurrent session's push carry them.
+  Pushes to `main` are gated by the permission classifier (denied → allowed via
+  explicit user authorization). `185923d`/`553af96` (+ this refresh) may be
+  awaiting a push if you read this mid-turn — `git log origin/main..HEAD`.
 - Whole S89 program is shipped EXCEPT the items in §5 (mostly user-creds, the
   deliberately-deferred true-streaming work, or #8 which is blocked on a product
   decision per §6).
 
-## 3. Shipped (history below; latest turn `f94c19c` → `a6c0fe3`, 2026-06-13)
+## 3. Shipped (history below; latest turn `f94c19c` → `553af96`, 2026-06-13)
 **This turn (CI hardening + primitive adoption + #8 investigation):**
 - `f94c19c` fix(enrichment): stop scheduling 7 dead Firecrawl sources that fired
   false CRITICAL "multiple sources failed" alerts (firecrawl module deleted S72).
@@ -56,9 +55,11 @@ in §5.
   `cg_daily_raw`→`cg_benchmarks` re-aggregation would corrupt the keystone; see
   `docs/BENCHMARK_REFRESH_FINDINGS_2026-06.md`. #8 now blocked on a product
   decision (§6).
-- `a6c0fe3` **call_llm_json adoption #2** (1st app.py site): `_verify_plan_data`
-  + `tests/test_verify_plan_data.py` (reusable mocked-`call_llm_json` test
-  pattern). Full suite 2,111 passed.
+- `a6c0fe3` / `185923d` / `553af96` **call_llm_json adoption — all 8 app.py
+  sites** (`_verify_plan_data`, `_copilot_suggest_brief`, `_analyze_compliance`,
+  `_generate_post_campaign_summary`, `_audit_complianceguard`,
+  `_generate_creative_ads`, `_generate_ab_test_with_claude`) + 16 mocked tests.
+  Full suite 2,127 passed; eval gate green. **Adoption complete.**
 
 **Earlier session (commits `f216464` → `7bb9a80`):** Excel numeric/totals/freeze ·
 scorecard/PDF P0 image-404 fixes (OG card + logo) · PPTX brand chart palette · KB
@@ -102,15 +103,15 @@ bump · architecture design doc · **keystone accessor** `get_real_outcomes()` �
   - **#15 external data MCPs** — deferred (opportunistic).
 - **Residual follow-ups:**
   - ✅ eval-gate + pytest now run in CI (`4559149`, `a2b6ad0`); baseline committed.
-  - ✅ `call_llm_json` adopted in `data_synthesizer.generate_ai_narratives` (`ffe94cd`).
-  - 🟡 **app.py `call_llm_json` adoption** — 1/≈8 done: `_verify_plan_data`
-    (`a6c0fe3`) + `tests/test_verify_plan_data.py` (the **reusable mocked-
-    call_llm_json test pattern** — copy it per site). Remaining heterogeneous
-    sites (lines ≈ `1242` brief-suggestions array, `7723` compliance obj w/
-    narrative fallback, `8052`/`8174` ad-copy arrays, `8815` A/B
-    `_build_ab_response`). Do each with its own test; they're in the
-    highest-collision file. (Old `app.py:6765` ref had drifted to a file-upload
-    parser — not an LLM call.)
+  - ✅ **`call_llm_json` adoption COMPLETE** — `data_synthesizer.generate_ai_narratives`
+    (`ffe94cd`) + **all 8 app.py LLM sites** (`a6c0fe3`, `185923d`, `553af96`):
+    `_verify_plan_data`, `_copilot_suggest_brief`, `_analyze_compliance`,
+    `_generate_post_campaign_summary`, `_audit_complianceguard`,
+    `_generate_creative_ads`, `_generate_ab_test_with_claude` (router path).
+    Each has tests (`tests/test_verify_plan_data.py`,
+    `tests/test_app_llm_json_sites.py`, 16 cases) mocking `call_llm_json`;
+    fallbacks (narrative-via-`raw`, template, `[]`/`skipped`) preserved. No
+    hand-rolled `call_llm`+`json.loads` structured sites remain.
   - ⏳ adopt `plan_schema` at pipeline boundaries; MPG async-null-data dashboard
     bug + generation-progress UX; h1b KB refresh; (later) agentic pipeline behind
     the flag per `docs/AGENTIC_GENERATION_DESIGN.md`.
