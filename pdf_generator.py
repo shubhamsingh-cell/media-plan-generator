@@ -909,7 +909,7 @@ def generate_plan_html_report(
 
   <!-- Report Header -->
   <div class="report-header">
-    <img src="/assets/nova-logo.png" alt="Nova AI Suite" class="report-logo"
+    <img src="/static/joveo-logo.png" alt="Joveo" class="report-logo"
          onerror="this.style.display='none'">
     <div class="report-title">Media Plan Report</div>
     <div class="report-client">{_safe(client_name)}</div>
