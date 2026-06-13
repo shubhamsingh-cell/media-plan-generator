@@ -643,6 +643,184 @@ html.lenis body {
     animation: none;
   }
 }
+
+/* ── Hero generative "media plan building" demo (replaces the orbit) ── */
+.genplan {
+  position: relative;
+  z-index: 2;
+  width: min(440px, 92vw);
+  margin: 8px auto 0;
+  padding: 20px 22px 22px;
+  text-align: left;
+  background:
+    linear-gradient(180deg, rgba(90, 84, 190, 0.08) 0%, rgba(15, 15, 25, 0) 38%),
+    rgba(17, 17, 28, 0.72);
+  border: 1px solid rgba(139, 133, 230, 0.28);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    0 24px 70px rgba(8, 8, 20, 0.6),
+    0 0 50px rgba(90, 84, 190, 0.12);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  overflow: hidden;
+}
+.genplan::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #202058, #5a54be 45%, #6bb5ce 80%, #b7669e);
+}
+.genplan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.genplan-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 14px;
+  color: #f6f5ff;
+  letter-spacing: -0.01em;
+}
+.genplan-brand-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8680d6, #6bb5ce);
+  box-shadow: 0 0 10px rgba(107, 181, 206, 0.6);
+}
+.genplan-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--accent-light);
+}
+.genplan-spinner {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.6px solid rgba(139, 133, 230, 0.35);
+  border-top-color: #8680d6;
+  animation: genplan-spin 0.7s linear infinite;
+}
+.genplan.is-ready .genplan-status {
+  color: var(--teal);
+}
+.genplan.is-ready .genplan-spinner {
+  display: none;
+}
+@keyframes genplan-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.genplan-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+.genplan-budget {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.genplan-budget-value {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 30px;
+  line-height: 1;
+  color: #f6f5ff;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.genplan-budget-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.genplan-channels {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-bottom: 16px;
+}
+.genplan-row {
+  display: grid;
+  grid-template-columns: 84px 1fr 58px;
+  align-items: center;
+  gap: 10px;
+}
+.genplan-ch {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.genplan-track {
+  height: 8px;
+  border-radius: 99px;
+  background: rgba(139, 133, 230, 0.12);
+  overflow: hidden;
+}
+.genplan-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--c1, #5a54be), var(--c2, #8680d6));
+  transition: width 1.05s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--d, 0s);
+}
+.genplan.is-run .genplan-bar {
+  width: var(--fill, 50%);
+}
+.genplan-amt {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  text-align: right;
+}
+.genplan-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(139, 133, 230, 0.14);
+}
+.genplan-metric-value {
+  display: block;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 18px;
+  color: #f6f5ff;
+  font-variant-numeric: tabular-nums;
+}
+.genplan-metric-value--teal {
+  color: var(--teal);
+}
+.genplan-metric-label {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+@media (prefers-reduced-motion: reduce) {
+  .genplan-bar {
+    transition: none;
+    width: var(--fill, 50%);
+  }
+  .genplan-spinner {
+    animation: none;
+  }
+}
 .hero-subline {
   font-size: var(--text-lg);
   color: var(--text-secondary);

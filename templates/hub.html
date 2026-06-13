@@ -88,7 +88,7 @@
     <link rel="stylesheet" href="/static/css/tokens.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/buttons.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/motion.css?v=2.0.0" />
-    <link rel="stylesheet" href="/static/css/hub.css?v=2.1.1" />
+    <link rel="stylesheet" href="/static/css/hub.css?v=2.1.2" />
 
     <!-- PostHog Analytics -->
     <script>
@@ -261,152 +261,104 @@
           </div>
         </div>
 
-        <!-- Hero artifact: Animated orbit ring visualization -->
+        <!-- Hero artifact: live "media plan generating" demo (Nova) -->
         <div
           class="hero-artifact"
-          aria-label="Nova AI optimizing across 91+ recruitment sources"
+          aria-label="Nova generating an optimized media plan for Registered Nurses in Texas: $50,000 across 5 channels, 2,247 applications, 38 projected hires"
         >
           <div class="ha-glow" aria-hidden="true"></div>
-          <!-- Desktop: Orbit rings -->
-          <div class="ha-orbit-wrap" aria-hidden="true">
-            <!-- Outer ring (Tier 3) - 30s rotation -->
-            <div class="ha-ring ha-ring--outer">
-              <span class="ha-logo ha-logo-chip"
-                ><img
-                  class="chip-logo"
-                  src="/static/img/logos/tiktok.svg"
-                  alt=""
-                  onerror="this.style.display = 'none'"
-                />TikTok</span
-              >
-              <span class="ha-logo ha-logo-chip"
-                ><img
-                  class="chip-logo"
-                  src="/static/img/logos/meta.svg"
-                  alt=""
-                  onerror="this.style.display = 'none'"
-                />Meta</span
-              >
-              <span class="ha-logo ha-logo-chip"
-                ><img
-                  class="chip-logo"
-                  src="/static/img/logos/bayard.svg"
-                  alt=""
-                  onerror="this.style.display = 'none'"
-                />Bayard</span
-              >
-              <span class="ha-logo ha-logo-chip"
-                ><img
-                  class="chip-logo"
-                  src="/static/img/logos/recruitics.svg"
-                  alt=""
-                  onerror="this.style.display = 'none'"
-                />Recruitics</span
-              >
+          <div class="genplan" data-genplan>
+            <div class="genplan-head">
+              <span class="genplan-brand">
+                <span class="genplan-brand-dot" aria-hidden="true"></span>Nova
+              </span>
+              <span class="genplan-status" data-genplan-status>
+                <span class="genplan-spinner" aria-hidden="true"></span>
+                <span class="genplan-status-text">Analyzing 10,341 partners&hellip;</span>
+              </span>
             </div>
-            <!-- Middle ring (Tier 2) - 45s rotation, reverse -->
-            <div class="ha-ring ha-ring--mid">
-              <span class="ha-logo ha-logo-chip"
-                ><img
-                  class="chip-logo"
-                  src="/static/img/logos/monster.svg"
-                  alt=""
-                  onerror="this.style.display = 'none'"
-                />Monster</span
+            <div class="genplan-meta">Registered Nurses &middot; Texas &middot; 30-day plan</div>
+            <div class="genplan-budget">
+              <span
+                class="genplan-budget-value"
+                data-genplan-count
+                data-to="50000"
+                data-prefix="$"
+                >$0</span
               >
-              <span class="ha-logo ha-logo-chip"
-                ><img
-                  class="chip-logo"
-                  src="/static/img/logos/dice.svg"
-                  alt=""
-                  onerror="this.style.display = 'none'"
-                />Dice</span
-              >
-              <span class="ha-logo ha-logo-chip"
-                ><img
-                  class="chip-logo"
-                  src="/static/img/logos/craigslist.svg"
-                  alt=""
-                  onerror="this.style.display = 'none'"
-                />Craigslist</span
-              >
-              <span class="ha-logo ha-logo-chip"
-                ><img
-                  class="chip-logo"
-                  src="/static/img/logos/google-ads.svg"
-                  alt=""
-                  onerror="this.style.display = 'none'"
-                />Google Ads</span
-              >
-              <span class="ha-logo ha-logo-chip"
-                ><img
-                  class="chip-logo"
-                  src="/static/img/logos/careerbuilder.svg"
-                  alt=""
-                  onerror="this.style.display = 'none'"
-                />CareerBuilder</span
-              >
+              <span class="genplan-budget-label">recommended budget</span>
             </div>
-            <!-- Inner ring (Tier 1) - 60s rotation -->
-            <div class="ha-ring ha-ring--inner">
-              <span class="ha-logo ha-logo-chip"
-                ><img
-                  class="chip-logo"
-                  src="/static/img/logos/indeed.svg"
-                  alt=""
-                  onerror="this.style.display = 'none'"
-                />Indeed</span
-              >
-              <span class="ha-logo ha-logo-chip"
-                ><img
-                  class="chip-logo"
-                  src="/static/img/logos/linkedin.svg"
-                  alt=""
-                  onerror="this.style.display = 'none'"
-                />LinkedIn</span
-              >
-              <span class="ha-logo ha-logo-chip"
-                ><img
-                  class="chip-logo"
-                  src="/static/img/logos/ziprecruiter.svg"
-                  alt=""
-                  onerror="this.style.display = 'none'"
-                />ZipRecruiter</span
-              >
-              <span class="ha-logo ha-logo-chip"
-                ><img
-                  class="chip-logo"
-                  src="/static/img/logos/glassdoor.svg"
-                  alt=""
-                  onerror="this.style.display = 'none'"
-                />Glassdoor</span
-              >
+            <div class="genplan-channels">
+              <div class="genplan-row" style="--fill: 88%; --d: 0.05s">
+                <span class="genplan-ch">Indeed</span>
+                <span class="genplan-track"
+                  ><span
+                    class="genplan-bar"
+                    style="--c1: #5a54be; --c2: #8680d6"
+                  ></span
+                ></span>
+                <span class="genplan-amt" data-genplan-count data-to="18500" data-prefix="$">$0</span>
+              </div>
+              <div class="genplan-row" style="--fill: 64%; --d: 0.18s">
+                <span class="genplan-ch">LinkedIn</span>
+                <span class="genplan-track"
+                  ><span
+                    class="genplan-bar"
+                    style="--c1: #6bb5ce; --c2: #5a54be"
+                  ></span
+                ></span>
+                <span class="genplan-amt" data-genplan-count data-to="12000" data-prefix="$">$0</span>
+              </div>
+              <div class="genplan-row" style="--fill: 50%; --d: 0.31s">
+                <span class="genplan-ch">Programmatic</span>
+                <span class="genplan-track"
+                  ><span
+                    class="genplan-bar"
+                    style="--c1: #8680d6; --c2: #b7669e"
+                  ></span
+                ></span>
+                <span class="genplan-amt" data-genplan-count data-to="9500" data-prefix="$">$0</span>
+              </div>
+              <div class="genplan-row" style="--fill: 33%; --d: 0.44s">
+                <span class="genplan-ch">Niche boards</span>
+                <span class="genplan-track"
+                  ><span
+                    class="genplan-bar"
+                    style="--c1: #b7669e; --c2: #6bb5ce"
+                  ></span
+                ></span>
+                <span class="genplan-amt" data-genplan-count data-to="6000" data-prefix="$">$0</span>
+              </div>
+              <div class="genplan-row" style="--fill: 22%; --d: 0.57s">
+                <span class="genplan-ch">Social</span>
+                <span class="genplan-track"
+                  ><span
+                    class="genplan-bar"
+                    style="--c1: #6bb5ce; --c2: #8680d6"
+                  ></span
+                ></span>
+                <span class="genplan-amt" data-genplan-count data-to="4000" data-prefix="$">$0</span>
+              </div>
             </div>
-            <!-- Center core -->
-            <div class="ha-core">
-              <span class="ha-core-label">Nova AI</span>
+            <div class="genplan-metrics">
+              <div class="genplan-metric">
+                <span class="genplan-metric-value" data-genplan-count data-to="2247">0</span>
+                <span class="genplan-metric-label">Applications</span>
+              </div>
+              <div class="genplan-metric">
+                <span
+                  class="genplan-metric-value genplan-metric-value--teal"
+                  data-genplan-count
+                  data-to="38"
+                  >0</span
+                >
+                <span class="genplan-metric-label">Projected hires</span>
+              </div>
+              <div class="genplan-metric">
+                <span class="genplan-metric-value" data-genplan-count data-to="1316" data-prefix="$">$0</span>
+                <span class="genplan-metric-label">Cost / hire</span>
+              </div>
             </div>
-          </div>
-          <!-- Subtitle below the orbit -->
-          <p class="ha-orbit-sub">Optimizing across 91+ sources</p>
-          <!-- Mobile: simple badge (orbit hidden) -->
-          <div class="ha-mobile-badge" aria-label="91+ recruitment sources">
-            <span class="ha-mobile-badge-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <circle
-                  cx="10"
-                  cy="10"
-                  r="9"
-                  stroke="#5A54BE"
-                  stroke-width="1.5"
-                  opacity="0.6"
-                />
-                <circle cx="10" cy="10" r="4" fill="#5A54BE" opacity="0.4" />
-              </svg>
-            </span>
-            <span class="ha-mobile-badge-text"
-              >Nova AI &middot; 91+ sources</span
-            >
           </div>
         </div>
 
@@ -3612,7 +3564,7 @@
     <!-- .footer-wrap -->
 
     <!-- ── Page Scripts (extracted to hub.js for cacheability, Fix #1) ── -->
-    <script src="/static/js/hub.js?v=2.0.0"></script>
+    <script src="/static/js/hub.js?v=2.1.3"></script>
 
     <!-- Legacy inline removed -- hamburger, observers, counters, bar anims,
          scroll handler, ripple, hero preview, page-enter, GSAP hero entrance,

@@ -1304,3 +1304,92 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 });
+
+/* ── S89: Hero generative "media plan building" demo ──
+   Counts up the budget/metrics and fills the channel bars when the panel
+   scrolls into view. Respects prefers-reduced-motion (jumps to final state). */
+(function () {
+  "use strict";
+  var panel = document.querySelector("[data-genplan]");
+  if (!panel) return;
+  var counts = panel.querySelectorAll("[data-genplan-count]");
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function fmt(n, prefix) {
+    return (prefix || "") + Math.round(n).toLocaleString("en-US");
+  }
+  function markReady() {
+    panel.classList.add("is-ready");
+    // Guarantee final values even if requestAnimationFrame was throttled
+    // (e.g. a backgrounded tab) — the count-up is an enhancement on top.
+    counts.forEach(function (el) {
+      el.textContent = fmt(
+        parseFloat(el.getAttribute("data-to")) || 0,
+        el.getAttribute("data-prefix")
+      );
+    });
+    var st = panel.querySelector(".genplan-status-text");
+    if (st) st.textContent = "Plan ready";
+  }
+  function animateCount(el) {
+    var to = parseFloat(el.getAttribute("data-to")) || 0;
+    var prefix = el.getAttribute("data-prefix") || "";
+    var dur = 1300,
+      start = null;
+    function step(ts) {
+      // Once the plan is marked ready (or rAF was throttled past its window),
+      // snap to the final value and stop — never overwrite final with a stale
+      // mid-frame.
+      if (panel.classList.contains("is-ready")) {
+        el.textContent = fmt(to, prefix);
+        return;
+      }
+      if (start === null) start = ts;
+      var p = Math.min((ts - start) / dur, 1);
+      var eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = fmt(to * eased, prefix);
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  function run() {
+    if (panel.classList.contains("is-run")) return; // run once
+    panel.classList.add("is-run"); // triggers CSS bar fills
+    counts.forEach(animateCount);
+    setTimeout(markReady, 1500);
+  }
+  if (reduce) {
+    counts.forEach(function (el) {
+      el.textContent = fmt(parseFloat(el.getAttribute("data-to")) || 0, el.getAttribute("data-prefix"));
+    });
+    panel.classList.add("is-run");
+    markReady();
+    return;
+  }
+  if (!("IntersectionObserver" in window)) {
+    run();
+    return;
+  }
+  var io = new IntersectionObserver(
+    function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) {
+          run();
+          io.disconnect();
+        }
+      });
+    },
+    { threshold: 0.01, rootMargin: "0px 0px 80px 0px" }
+  );
+  io.observe(panel);
+  // Fallback: if the panel sits within ~1 viewport on load, kick it after a
+  // beat (some browsers settle the observer oddly with the hero's scroll anims).
+  setTimeout(function () {
+    if (panel.classList.contains("is-run")) return;
+    var r = panel.getBoundingClientRect();
+    if (r.top < (window.innerHeight || 800) * 1.15) {
+      run();
+      io.disconnect();
+    }
+  }, 700);
+})();
