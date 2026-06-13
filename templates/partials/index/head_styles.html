@@ -6486,11 +6486,12 @@
   /* ── Living brand aurora behind the cockpit (echoes the landing hero) ─ */
   body::before {
     background:
-      radial-gradient(820px 560px at 8% 4%, rgba(90, 84, 190, 0.22), transparent 60%),
-      radial-gradient(760px 560px at 94% 0%, rgba(107, 181, 206, 0.15), transparent 55%),
-      radial-gradient(720px 700px at 74% 98%, rgba(183, 102, 158, 0.13), transparent 60%) !important;
-    opacity: 0.95 !important;
-    animation: npAurora 30s ease-in-out infinite alternate !important;
+      radial-gradient(900px 620px at 4% 4%, rgba(90, 84, 190, 0.45), transparent 60%),
+      radial-gradient(840px 600px at 98% 2%, rgba(107, 181, 206, 0.32), transparent 56%),
+      radial-gradient(900px 760px at 80% 102%, rgba(183, 102, 158, 0.30), transparent 60%),
+      radial-gradient(620px 520px at 52% 48%, rgba(134, 128, 214, 0.12), transparent 65%) !important;
+    opacity: 1 !important;
+    animation: npAurora 26s ease-in-out infinite alternate !important;
     will-change: transform;
   }
   @keyframes npAurora {
@@ -6647,6 +6648,47 @@
   .studio .industry-card.selected .icon {
     background: rgba(90, 84, 190, 0.28);
     border-color: rgba(134, 128, 214, 0.5);
+  }
+
+  /* ── Richer cockpit background: deep-indigo dimensional base instead of
+     flat black-purple. Static brand depth (body bg) + animated aurora
+     (body::before) + fine grain (body::after). ──────────────────────── */
+  body {
+    background:
+      radial-gradient(1320px 840px at 50% -14%, #2a1f58 0%, rgba(42, 31, 88, 0) 60%),
+      radial-gradient(920px 700px at 100% 0%, rgba(62, 143, 171, 0.22) 0%, transparent 55%),
+      radial-gradient(880px 720px at 0% 14%, rgba(90, 84, 190, 0.20) 0%, transparent 55%),
+      radial-gradient(900px 760px at 80% 108%, rgba(183, 102, 158, 0.16) 0%, transparent 58%),
+      linear-gradient(180deg, #0f0d22 0%, #0a0813 64%, #060509 100%)
+      !important;
+  }
+  /* unify the preview rail with the cockpit (brand wash, not a flatter slab) */
+  .np-pane {
+    background: linear-gradient(180deg, rgba(90, 84, 190, 0.06), rgba(107, 181, 206, 0.03)) !important;
+  }
+  body::after {
+    opacity: 0.04 !important;
+  }
+
+  /* ── Footer legibility (was near-invisible on the dark bg) ───────── */
+  body .app-footer {
+    position: relative;
+    z-index: 1;
+    color: var(--np-muted) !important;
+    border-top: 1px solid var(--np-hair);
+    padding: 18px 24px;
+  }
+  body .app-footer .footer-brand {
+    color: var(--np-ink) !important;
+    font-family: var(--font-heading);
+    font-weight: 600;
+  }
+  body .app-footer .footer-dot {
+    background: var(--np-purple-light) !important;
+    opacity: 0.7;
+  }
+  body .app-footer a {
+    color: var(--np-purple-light) !important;
   }
 
   @media (prefers-reduced-motion: reduce) {
