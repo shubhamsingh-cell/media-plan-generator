@@ -1047,50 +1047,90 @@ class MetricsCollector:
             "uptime_seconds": round(uptime, 1),
         }
 
-    def compute_burn_rate(self, window_hours: int = 1) -> Dict[str, Any]:
-        """Compute SLO error budget burn rate.
+    @staticmethod
+    def _error_budget_burn_rate(
+        slo_name: str, current_pct: float, target_pct: float
+    ) -> Optional[float]:
+        """Error-budget burn rate for a *rate* SLO; ``None`` if not applicable.
 
-        A burn rate of 1.0 means consuming budget exactly at the sustainable rate.
-        >1.0 means consuming faster than sustainable (alert at >2.0).
+        Burn rate = consumption / sustainable budget. 1.0x means exactly at
+        budget, >1.0x means over budget.
+
+        - ``error_rate_pct``: the budget IS the target error rate, so
+          ``burn = actual_error_pct / target_error_pct`` (both percentages).
+        - ``availability_pct``: the budget is the allowed unavailability, so
+          ``burn = (100 - actual) / (100 - target)``.
+        - latency / other threshold SLOs: not an error budget -> ``None``.
+
+        S90 follow-up (P2): the previous implementation used
+        ``allowed = 1.0 - target`` (which is 0 when ``target == 1.0``) and
+        forced ``actual = 0`` for any percentage ``> 1.0`` -- so burn rate was
+        silently 0 / "ok" for every error rate, a dead metric. This restores it.
+        """
+        if target_pct <= 0:
+            return None
+        if slo_name == "error_rate_pct":
+            return current_pct / target_pct
+        if slo_name == "availability_pct":
+            allowed = 100.0 - target_pct
+            observed_unavail = max(0.0, 100.0 - current_pct)
+            return observed_unavail / allowed if allowed > 0 else None
+        return None
+
+    def compute_burn_rate(self, window_hours: int = 1) -> Dict[str, Any]:
+        """Compute SLO error-budget burn rate (observability signal).
+
+        Only defined for *rate* SLOs (``error_rate_pct``, ``availability_pct``);
+        latency SLOs are thresholds, not budgets, and are skipped. SLOs in the
+        post-deploy grace window or with insufficient samples are skipped too,
+        so a cold-start blip doesn't surface a spurious burn (mirrors the S90
+        page gate).
+
+        Paging is intentionally delegated to the error-rate page (the
+        ``_check_cycle`` block logs burn rate rather than emailing) so this
+        cannot become a second, more-sensitive pager. See
+        ``docs/INCIDENT_2026-06-13_alert_noise.md``.
 
         Args:
-            window_hours: Observation window in hours (unused currently, reserved
-                for future multi-window support).
+            window_hours: reserved for future multi-window support (unused).
 
         Returns:
-            Dict mapping SLO name to burn rate data.
+            Dict mapping SLO name to ``{burn_rate, budget_remaining_pct, status}``.
         """
         slo_compliance = self.check_slo_compliance()
         slos = slo_compliance.get("slos", slo_compliance)
         results: Dict[str, Any] = {}
         for slo_name, slo_data in slos.items():
-            if (
+            if not (
                 isinstance(slo_data, dict)
                 and "target" in slo_data
                 and "actual" in slo_data
             ):
-                target = slo_data["target"]
-                current = slo_data["actual"]
-                if (
-                    isinstance(target, (int, float))
-                    and isinstance(current, (int, float))
-                    and target > 0
-                ):
-                    # For error rate: burn_rate = actual_error_rate / allowed_error_rate
-                    allowed = 1.0 - target if target <= 1.0 else target
-                    actual = (
-                        current if isinstance(current, float) and current <= 1.0 else 0
-                    )
-                    burn_rate = actual / allowed if allowed > 0 else 0
-                    results[slo_name] = {
-                        "burn_rate": round(burn_rate, 2),
-                        "budget_remaining_pct": round(max(0, (1 - burn_rate)) * 100, 1),
-                        "status": (
-                            "critical"
-                            if burn_rate > 5
-                            else "warning" if burn_rate > 2 else "ok"
-                        ),
-                    }
+                continue
+            # Reuse the S90 gating flags so deploy cold-starts and low-traffic
+            # windows don't show a spurious burn.
+            if slo_data.get("in_grace_period") or slo_data.get("insufficient_samples"):
+                continue
+            target = slo_data["target"]
+            current = slo_data["actual"]
+            if not (
+                isinstance(target, (int, float)) and isinstance(current, (int, float))
+            ):
+                continue
+            burn_rate = self._error_budget_burn_rate(
+                slo_name, float(current), float(target)
+            )
+            if burn_rate is None:
+                continue  # not an error-budget SLO (e.g. latency threshold)
+            results[slo_name] = {
+                "burn_rate": round(burn_rate, 2),
+                "budget_remaining_pct": round(max(0.0, 1.0 - burn_rate) * 100, 1),
+                "status": (
+                    "critical"
+                    if burn_rate > 5
+                    else "warning" if burn_rate > 2 else "ok"
+                ),
+            }
         return results
 
     def check_anomalies(self) -> List[Dict[str, Any]]:
@@ -2569,34 +2609,27 @@ class MonitoringAlertBridge:
                     if self._should_alert(alert_key):
                         self._fire_alert(severity, subject, body)
 
-            # Check burn rates for SLO budget exhaustion
+            # Burn rates: observability only. P2 fixed compute_burn_rate (it was
+            # a silent no-op), but paging is intentionally delegated to the
+            # error-rate page above -- a corrected burn rate would otherwise fire
+            # CRITICAL at >5% error (more sensitive than the >10% page), adding
+            # exactly the noise the S90 work removed. We LOG elevated burn instead
+            # so it's visible in logs and /api/health/slos without a second pager.
+            # To opt into burn-rate paging, gate it on grace+volume and re-tune
+            # thresholds -- see docs/INCIDENT_2026-06-13_alert_noise.md (P2).
             try:
-                burn_rates = collector.compute_burn_rate()
-                for slo_name, br_data in burn_rates.items():
+                for slo_name, br_data in collector.compute_burn_rate().items():
                     if not isinstance(br_data, dict):
                         continue
-                    br_status = br_data.get("status", "ok")
-                    burn_rate = br_data.get("burn_rate", 0)
-                    if br_status == "critical":
-                        alert_key = f"burn_rate_critical_{slo_name}"
-                        if self._should_alert(alert_key):
-                            self._fire_alert(
-                                "CRITICAL",
-                                f"[Nova] Burn rate critical: {slo_name} ({burn_rate}x)",
-                                f"SLO '{slo_name}' error budget burn rate is {burn_rate}x "
-                                f"(>5x threshold). Budget remaining: "
-                                f"{br_data.get('budget_remaining_pct', 0)}%.",
-                            )
-                    elif br_status == "warning":
-                        alert_key = f"burn_rate_warning_{slo_name}"
-                        if self._should_alert(alert_key):
-                            self._fire_alert(
-                                "WARNING",
-                                f"[Nova] Burn rate elevated: {slo_name} ({burn_rate}x)",
-                                f"SLO '{slo_name}' error budget burn rate is {burn_rate}x "
-                                f"(>2x threshold). Budget remaining: "
-                                f"{br_data.get('budget_remaining_pct', 0)}%.",
-                            )
+                    if br_data.get("status") in ("warning", "critical"):
+                        logger.warning(
+                            "[MonitorAlertBridge] burn rate %s for %s: %sx "
+                            "(budget remaining %s%%)",
+                            br_data.get("status"),
+                            slo_name,
+                            br_data.get("burn_rate"),
+                            br_data.get("budget_remaining_pct", 0),
+                        )
             except Exception as burn_err:
                 logger.debug("[MonitorAlertBridge] Burn rate check error: %s", burn_err)
 
