@@ -2384,24 +2384,40 @@ def evaluate_error_rate_alert(
       page -- a tiny denominator makes the percentage meaningless.
     """
     if uptime_seconds < ERROR_RATE_ALERT_GRACE_S:
+        logger.debug(
+            "[alert] error-rate page suppressed: post-deploy grace "
+            "(uptime=%.0fs < %ds, rate=%.1f%%, n=%d)",
+            uptime_seconds,
+            ERROR_RATE_ALERT_GRACE_S,
+            error_rate_pct,
+            window_requests,
+        )
         return None
     if window_requests < ERROR_RATE_ALERT_MIN_REQUESTS:
+        logger.debug(
+            "[alert] error-rate page suppressed: too few requests "
+            "(n=%d < %d, rate=%.1f%%)",
+            window_requests,
+            ERROR_RATE_ALERT_MIN_REQUESTS,
+            error_rate_pct,
+        )
         return None
     if error_rate_pct > 10:  # >10% error rate
         return (
             "global_error_rate",
             "CRITICAL",
             "[Nova] High error rate (>10%)",
-            f"Global error rate is {error_rate_pct:.1f}% "
-            f"(threshold: 10%). Check /api/health/integrations "
-            f"for failing services.",
+            f"Global error rate is {error_rate_pct:.1f}% across "
+            f"{window_requests} requests in the last hour (threshold: 10%). "
+            f"Check /api/health/integrations for failing services.",
         )
     if error_rate_pct > 5:  # >5% error rate
         return (
             "elevated_error_rate",
             "WARNING",
             "[Nova] Elevated error rate (>5%)",
-            f"Global error rate is {error_rate_pct:.1f}% (threshold: 5%).",
+            f"Global error rate is {error_rate_pct:.1f}% across "
+            f"{window_requests} requests in the last hour (threshold: 5%).",
         )
     return None
 
