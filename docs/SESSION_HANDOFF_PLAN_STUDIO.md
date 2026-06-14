@@ -38,6 +38,8 @@ live earlier this session (curl + the deploy poll).
 
 | Commit | What |
 |---|---|
+| `8646dd3` | **Nova insights** — the live preview is now a proactive co-pilot: computed feasibility (projected vs target hires), cost-per-hire vs benchmark, channel-fit, seasonality. Tone-coded, XSS-safe. |
+| `233c4bf` | a11y focus ring on the accordion summary |
 | `488cb33` | Results dashboard polish — brand-accent title bar + hero Total-Budget tile |
 | `e352c22` | **Perf:** gzip + `Cache-Control` on `/media-plan` (**518KB → 105KB**, verified via curl). **Signup:** honest, outcome-led value prop ("Build a data-backed media plan in minutes" + the real-Joveo-benchmarks moat + "Your Joveo planning workspace"), `@joveo.com` helper line, fixed dishonest guest banner, actionable access-denied message. `?v=s50→s51` cache-buster. |
 | `92eab61` | **Flow:** Step 1's optional sections (Competitive Intelligence + Historical Data) collapsed into a native `<details>` "Add context (optional)" accordion — required fields rise to the top; all fields stay in the DOM. |
