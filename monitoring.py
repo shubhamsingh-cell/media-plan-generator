@@ -32,7 +32,7 @@ import uuid
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -298,6 +298,11 @@ SLO_TARGETS: Dict[str, Dict[str, Any]] = {
     "error_rate_pct": {
         "target": 1.0,  # 1% error budget
         "description": "Error rate across all endpoints",
+        # S90: error_rate was the only SLO without a deploy grace, so a worker
+        # that just restarted (cold-start 5xx over a tiny request window) flagged
+        # it non-compliant on every deploy. Match the latency SLOs' 5-min grace.
+        "grace_after_deploy_s": 300,
+        "severity": "warning",
     },
     "availability_pct": {
         "target": 99.5,
@@ -847,6 +852,12 @@ class MetricsCollector:
                 "total_slack_events": self.total_slack_events,
                 "requests_per_minute": round(rpm, 2),
                 "error_rate_pct": round(error_rate, 2),
+                # Rolling-window counts behind error_rate_pct. Exposed so the
+                # alert bridge can require a meaningful denominator before paging
+                # (a couple of 5xx over a handful of requests is noise, not an
+                # incident).
+                "window_requests": window_requests,
+                "window_errors": window_errors,
                 "active_requests": self._active_requests,
                 "peak_concurrent": self._peak_active,
                 "latency_ms": {
@@ -988,17 +999,25 @@ class MetricsCollector:
             _err_insufficient = len(self._recent_requests) < _ERR_MIN_SAMPLES
             error_rate = (window_err / window_req) * 100 if window_req > 0 else 0.0
             target_err = SLO_TARGETS["error_rate_pct"]["target"]
+            # S90: post-deploy grace -- mirror the latency SLOs above so a freshly
+            # restarted worker's cold-start errors don't flag non-compliance (and
+            # page) during a deploy. _check_cycle skips any SLO in grace.
+            _err_grace = SLO_TARGETS["error_rate_pct"].get("grace_after_deploy_s", 300)
+            _err_in_grace = uptime < _err_grace
             # Also compute cumulative for dashboard display
             cumulative_total = max(1, self.total_requests)
             cumulative_error_rate = (self.total_errors / cumulative_total) * 100
             results["error_rate_pct"] = {
                 "target": target_err,
                 "actual": round(error_rate, 3),
-                "compliant": _err_insufficient or error_rate <= target_err,
+                "compliant": (
+                    _err_insufficient or _err_in_grace or error_rate <= target_err
+                ),
                 "budget_remaining_pct": round(max(0, target_err - error_rate), 3),
                 "window_seconds": METRICS_WINDOW,
                 "cumulative_error_rate_pct": round(cumulative_error_rate, 3),
                 "insufficient_samples": _err_insufficient,
+                "in_grace_period": _err_in_grace,
             }
 
             # Availability (based on uptime -- simple heuristic)
@@ -2333,6 +2352,59 @@ def _safe_serialize(obj: Any, max_depth: int = 3) -> Any:
 # MONITORING-TO-ALERTING BRIDGE (Phase 6: closes the observability loop)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# S90: guards for the global error-rate page. The 4:06-4:24 PM deploy-storm
+# false-pages came from two gaps: (1) the error-rate alert had no post-deploy
+# grace, so each worker restart's cold-start 5xx spiked the windowed rate and
+# paged CRITICAL; (2) there was no minimum request volume, so 2 errors over 11
+# requests read as 18%. Both are now gated below. Grace matches SLO_TARGETS.
+ERROR_RATE_ALERT_GRACE_S = 300  # suppress error-rate paging this long after start
+# Minimum rolling-window requests before the page is meaningful. Aligned with
+# check_slo_compliance's _ERR_MIN_SAMPLES (10) so the page and the SLO agree on
+# what counts as "enough traffic". Per-module health scores (not volume-gated)
+# still catch failures on genuinely low-traffic endpoints.
+ERROR_RATE_ALERT_MIN_REQUESTS = 10  # need a real denominator before paging
+
+
+def evaluate_error_rate_alert(
+    error_rate_pct: float,
+    window_requests: int,
+    uptime_seconds: float,
+) -> Optional[Tuple[str, str, str, str]]:
+    """Decide whether the global error-rate alert should fire.
+
+    Pure function (no I/O) so it is unit-testable. Returns
+    ``(alert_key, severity, subject, body)`` when an alert is warranted, or
+    ``None`` when it should be suppressed.
+
+    Suppression rules:
+    - Within ``ERROR_RATE_ALERT_GRACE_S`` of process start (post-deploy
+      cold-start window), never page -- a real outage that outlives grace
+      still pages on the next cycle.
+    - Below ``ERROR_RATE_ALERT_MIN_REQUESTS`` in the rolling window, never
+      page -- a tiny denominator makes the percentage meaningless.
+    """
+    if uptime_seconds < ERROR_RATE_ALERT_GRACE_S:
+        return None
+    if window_requests < ERROR_RATE_ALERT_MIN_REQUESTS:
+        return None
+    if error_rate_pct > 10:  # >10% error rate
+        return (
+            "global_error_rate",
+            "CRITICAL",
+            "[Nova] High error rate (>10%)",
+            f"Global error rate is {error_rate_pct:.1f}% "
+            f"(threshold: 10%). Check /api/health/integrations "
+            f"for failing services.",
+        )
+    if error_rate_pct > 5:  # >5% error rate
+        return (
+            "elevated_error_rate",
+            "WARNING",
+            "[Nova] Elevated error rate (>5%)",
+            f"Global error rate is {error_rate_pct:.1f}% (threshold: 5%).",
+        )
+    return None
+
 
 class MonitoringAlertBridge:
     """Bridges monitoring metrics to alert_manager for proactive alerting.
@@ -2481,31 +2553,21 @@ class MonitoringAlertBridge:
                             f"Check /api/health for details.",
                         )
 
-            # Check error rate across all endpoints (error_rate is a percentage)
+            # Check error rate across all endpoints (error_rate is a percentage).
+            # S90: gated by post-deploy grace + minimum request volume so deploy
+            # cold-starts and low-traffic blips don't false-page. S63: stable
+            # subjects (rate goes in the body, not the subject) so dedup works.
             metrics = collector.get_metrics()
             if isinstance(metrics, dict):
-                error_rate_pct = metrics.get("error_rate_pct", 0)
-                # S63: Stable subjects (no varying percentages) so dedup works.
-                # The exact rate goes in the body, not the subject.
-                if error_rate_pct > 10:  # >10% error rate
-                    alert_key = "global_error_rate"
+                decision = evaluate_error_rate_alert(
+                    error_rate_pct=metrics.get("error_rate_pct", 0) or 0,
+                    window_requests=metrics.get("window_requests", 0) or 0,
+                    uptime_seconds=metrics.get("uptime_seconds", 0) or 0,
+                )
+                if decision is not None:
+                    alert_key, severity, subject, body = decision
                     if self._should_alert(alert_key):
-                        self._fire_alert(
-                            "CRITICAL",
-                            "[Nova] High error rate (>10%)",
-                            f"Global error rate is {error_rate_pct:.1f}% "
-                            f"(threshold: 10%). Check /api/health/integrations "
-                            f"for failing services.",
-                        )
-                elif error_rate_pct > 5:  # >5% error rate
-                    alert_key = "elevated_error_rate"
-                    if self._should_alert(alert_key):
-                        self._fire_alert(
-                            "WARNING",
-                            "[Nova] Elevated error rate (>5%)",
-                            f"Global error rate is {error_rate_pct:.1f}% "
-                            f"(threshold: 5%).",
-                        )
+                        self._fire_alert(severity, subject, body)
 
             # Check burn rates for SLO budget exhaustion
             try:
