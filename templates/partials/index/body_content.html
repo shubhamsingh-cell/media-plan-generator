@@ -1966,6 +1966,14 @@
         </label>
       </div>
 
+      <!-- S90: Nova section recommendations, derived from the brief/answers -->
+      <div
+        class="copilot-suggestions"
+        id="copilot-sections"
+        aria-live="polite"
+        aria-label="Nova AI section recommendations"
+      ></div>
+
       <!-- Live CPC/CPA Pricing Section -->
       <div
         class="live-pricing-section"
@@ -1973,10 +1981,10 @@
         role="region"
         aria-label="Live market pricing data"
       >
-        <div class="live-pricing-label">Live Market Pricing</div>
+        <div class="live-pricing-label">Market Pricing Benchmarks</div>
         <p class="pricing-subtitle">
-          Real-time CPC/CPA benchmarks based on your selected roles and
-          locations
+          Directional CPC/CPA/CPH benchmarks, adjusted for your role seniority,
+          industry &amp; region (Joveo benchmarks + live job-market signal)
         </p>
         <div id="pricing-grid" class="pricing-grid" aria-live="polite">
           <div class="pricing-loading" id="pricing-placeholder">
@@ -2757,6 +2765,8 @@
         <div class="l">Cost / application</div>
       </div>
     </div>
+
+    <div class="np-insights" id="npInsights" style="display: none"></div>
 
     <div class="np-ghost-hint">
       Fill in budget, channels &amp; role to watch your plan take shape.

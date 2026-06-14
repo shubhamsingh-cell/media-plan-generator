@@ -169,16 +169,27 @@
       // experience-level checkboxes win; otherwise infer from role text.
       var exp = checkedValues("experienceLevel").join(" ").toLowerCase();
       var roleStr = (readTags("rolesContainer").join(" ") + " " + val("roleInput") + " " + val("useCase")).toLowerCase();
-      var cpaMult = 1.0, aph = 50; // mid-skill professional default
+      var cpaMult = 1.0, aph = 50, roleClass = "skilled"; // mid-skill professional default
       if (exp.indexOf("executive") >= 0 || /\b(vp|chief|cxo|c-level|head of|director|executive|president)\b/.test(roleStr)) {
-        cpaMult = 3.2; aph = 110;
+        cpaMult = 3.2; aph = 110; roleClass = "executive";
       } else if (exp.indexOf("entry") >= 0 || /\b(warehouse|associate|driver|cashier|retail|crew|server|picker|packer|delivery|labor|cleaner|housekeep|caregiver|cna)\b/.test(roleStr)) {
-        cpaMult = 0.4; aph = 20;
+        cpaMult = 0.4; aph = 20; roleClass = "highVolume";
       } else if (exp.indexOf("senior") >= 0 || /\b(senior|lead|principal|staff)\b/.test(roleStr)) {
-        cpaMult = 1.8; aph = 70;
+        cpaMult = 1.8; aph = 70; roleClass = "senior";
       } else if (/\b(software|engineer|developer|devops|sre|architect|data scientist|machine learning|\bml\b|cyber|security engineer)\b/.test(roleStr)) {
-        cpaMult = 1.8; aph = 60;
+        cpaMult = 1.8; aph = 60; roleClass = "tech";
       }
+
+      // target hire volume the user set (vs what the budget projects)
+      var hvSel = val("hireVolume");
+      var targetHires = 0;
+      if (hvSel === "__exact__") {
+        targetHires = parseInt((val("exactHires") || "").replace(/[^0-9]/g, ""), 10) || 0;
+      } else {
+        var HV = { "1-10 hires": 6, "10-50 hires": 30, "50-100 hires": 75, "100-500 hires": 250, "500+ hires": 600 };
+        targetHires = HV[hvSel] || 0;
+      }
+      var startMonth = parseInt(val("campaignStartMonth"), 10) || 0;
 
       // metro premium
       var locs = readTags("locationsContainer");
@@ -216,7 +227,52 @@
         total: total, rows: rows, usingStarter: usingStarter,
         applies: applies, hires: hires, cpa: cpa, cph: cph,
         client: client, role: role, locs: locs, period: period, months: months,
+        roleClass: roleClass, targetHires: targetHires, startMonth: startMonth,
+        metro: metroMult > 1, channelsTouched: channelsTouched,
       };
+    }
+
+    // ── Insight engine: turn the model into proactive advice ──────────
+    function channelOn(id) { var el = $(id); return !!(el && el.checked); }
+    function computeInsights(m) {
+      var ins = [];
+      var role = escapeHtml(m.role || ""); // user-controlled — escape before HTML
+      var cph = m.hires > 0 ? m.total / m.hires : 0;
+      // 1. feasibility vs the user's hire target
+      if (m.targetHires > 0 && m.hires > 0) {
+        var ratio = m.hires / m.targetHires;
+        if (ratio < 0.8) {
+          var gap = m.total * (m.targetHires / m.hires - 1);
+          ins.push({ tone: "warn", text: "Budget likely yields <b>~" + intc(m.hires) + " hires</b> vs your " + intc(m.targetHires) + " target. Add ~<b>" + hero(gap) + "</b> or trim scope." });
+        } else if (ratio > 1.35) {
+          ins.push({ tone: "good", text: "Budget comfortably covers your <b>" + intc(m.targetHires) + "-hire</b> target (~" + intc(m.hires) + " projected)." });
+        } else {
+          ins.push({ tone: "good", text: "On track — budget supports <b>~" + intc(m.hires) + " hires</b> for your " + intc(m.targetHires) + " target." });
+        }
+      }
+      // 2. cost per hire vs a role-class benchmark
+      var BENCH = { executive: 14000, senior: 6500, tech: 5000, skilled: 3500, highVolume: 450 };
+      var bench = BENCH[m.roleClass] || 3500;
+      if (cph > 0) {
+        if (cph > bench * 1.4) {
+          ins.push({ tone: "warn", text: "High <b>~" + hero(cph) + "/hire</b> for " + (role || "this role") + ". Niche boards + employer brand usually pull it down." });
+        } else if (cph < bench * 0.7) {
+          ins.push({ tone: "good", text: "Efficient <b>~" + hero(cph) + "/hire</b> — strong for " + (role || "this role") + "." });
+        }
+      }
+      // 3. channel fit
+      if (!m.usingStarter && m.rows.length === 1) {
+        ins.push({ tone: "info", text: "Single channel — diversifying lowers risk and blended CPA." });
+      } else if ((m.roleClass === "senior" || m.roleClass === "executive" || m.roleClass === "tech") && m.channelsTouched && !channelOn("chNicheBoards") && !channelOn("chEmployerBrand")) {
+        ins.push({ tone: "info", text: "For " + (role || "senior roles") + ", add <b>Niche</b> or <b>Employer-brand</b> channels to reach passive talent." });
+      }
+      // 4. seasonality
+      if (m.startMonth) {
+        var q = Math.ceil(m.startMonth / 3);
+        if (q === 1) ins.push({ tone: "info", text: "Q1 start = <b>peak hiring</b> — expect ~15% higher CPCs; front-load budget." });
+        else if (q === 4) ins.push({ tone: "info", text: "Q4 start — holiday slowdown; demand softens, costs ease late-quarter." });
+      }
+      return ins.slice(0, 3);
     }
 
     // ── Render ────────────────────────────────────────────────────────
@@ -325,6 +381,23 @@
         ["npApplies", "npHires", "npCpa"].forEach(function (id) {
           var el = $(id); if (el) { el.textContent = "—"; el.__cur = 0; }
         });
+      }
+
+      // Nova insights — proactive advice from the model
+      var box = $("npInsights");
+      if (box) {
+        var list = hasBudget ? computeInsights(m) : [];
+        if (list.length) {
+          box.style.display = "";
+          box.innerHTML =
+            '<div class="np-ins-label"><span class="spark" aria-hidden="true"></span>Nova insights</div>' +
+            list.map(function (i) {
+              return '<div class="np-ins-row np-ins-' + i.tone + '"><span class="np-ins-dot" aria-hidden="true"></span><span>' + i.text + "</span></div>";
+            }).join("");
+        } else {
+          box.style.display = "none";
+          box.innerHTML = "";
+        }
       }
 
       // pop + recompute shimmer on real change

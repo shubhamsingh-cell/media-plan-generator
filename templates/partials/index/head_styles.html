@@ -6807,6 +6807,76 @@
     padding-bottom: 18px;
   }
 
+  /* ── Nova insights in the live preview (proactive advisor) ──────── */
+  .np-insights {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin: 2px 0 16px;
+  }
+  .np-ins-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--np-paper-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .np-ins-label .spark {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--np-purple);
+    box-shadow: 0 0 0 3px rgba(90, 84, 190, 0.18);
+  }
+  .np-ins-row {
+    display: flex;
+    gap: 9px;
+    align-items: flex-start;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--np-paper-ink);
+    padding: 9px 11px;
+    border-radius: 11px;
+    background: var(--np-lav-50);
+    border: 1px solid var(--np-paper-border);
+    animation: npInsIn 0.35s var(--ease-out, ease);
+  }
+  .np-ins-row .np-ins-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+  .np-ins-row b {
+    font-weight: 600;
+    color: var(--np-indigo);
+  }
+  .np-ins-warn {
+    background: rgba(185, 119, 10, 0.08);
+    border-color: rgba(185, 119, 10, 0.3);
+  }
+  .np-ins-warn .np-ins-dot {
+    background: #b9770a;
+  }
+  .np-ins-good {
+    background: rgba(62, 143, 171, 0.08);
+    border-color: rgba(62, 143, 171, 0.3);
+  }
+  .np-ins-good .np-ins-dot {
+    background: var(--np-teal-deep);
+  }
+  .np-ins-info .np-ins-dot {
+    background: var(--np-purple);
+  }
+  @keyframes npInsIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     body::before {
       animation: none !important;
@@ -6820,6 +6890,9 @@
     }
     .studio .np-acc-chev {
       transition: none !important;
+    }
+    .np-ins-row {
+      animation: none !important;
     }
   }
 </style>
