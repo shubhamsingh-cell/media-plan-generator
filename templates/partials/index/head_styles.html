@@ -6727,6 +6727,82 @@
     padding: 16px 18px !important;
   }
 
+  /* ── Step 1 "Add context (optional)" accordion (friction reduction) ── */
+  .studio .np-accordion {
+    margin-top: 24px;
+    border: 1px solid var(--np-hair);
+    border-radius: 13px;
+    background: var(--np-input);
+    overflow: hidden;
+  }
+  .studio .np-accordion[open] {
+    background: var(--np-panel);
+  }
+  .studio .np-acc-summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    user-select: none;
+  }
+  .studio .np-acc-summary::-webkit-details-marker {
+    display: none;
+  }
+  .studio .np-acc-summary:hover {
+    background: var(--np-panel-2);
+  }
+  .studio .np-acc-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+  .studio .np-acc-title {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--np-ink);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .studio .np-acc-opt {
+    font-size: 9.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--np-faint);
+    background: var(--np-hair);
+    padding: 2px 7px;
+    border-radius: 999px;
+  }
+  .studio .np-acc-sub {
+    font-size: 12px;
+    color: var(--np-muted);
+  }
+  .studio .np-acc-chev {
+    color: var(--np-muted);
+    transition: transform 0.25s var(--ease-out, ease);
+    flex-shrink: 0;
+  }
+  .studio .np-accordion[open] .np-acc-chev {
+    transform: rotate(180deg);
+  }
+  /* pad the content children (direct children of <details>) */
+  .studio .np-accordion > *:not(summary) {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .studio .np-accordion > .li-section-divider {
+    margin-top: 16px !important;
+  }
+  .studio .np-accordion > *:last-child {
+    padding-bottom: 18px;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     body::before {
       animation: none !important;
@@ -6736,6 +6812,9 @@
       animation: none !important;
     }
     .np-mix-seg {
+      transition: none !important;
+    }
+    .studio .np-acc-chev {
       transition: none !important;
     }
   }
