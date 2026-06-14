@@ -303,6 +303,21 @@ def symbol_for_code(code: str | None) -> str:
     return _CODE_TO_SYMBOL.get(code.strip().upper(), code.strip().upper() + " ")
 
 
+# US state / territory abbreviations. These collide with ISO country codes
+# (IL=Illinois vs Israel, CA=California vs Canada, IN=Indiana vs India,
+# DE=Delaware vs Germany, AL=Alabama vs Albania, ...). A trailing 2-letter US
+# state token in "City, ST" means a US location, NOT a foreign country.
+_US_STATE_ABBR = frozenset(
+    {
+        "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID",
+        "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS",
+        "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK",
+        "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV",
+        "WI", "WY", "DC", "PR",
+    }
+)
+
+
 def currency_for_country(country: str | None) -> str | None:
     """Map a free-form country/slug/ISO label to its ISO currency code.
 
@@ -317,6 +332,10 @@ def currency_for_country(country: str | None) -> str | None:
     # "City, Country" -> try the last comma-separated token
     if "," in key:
         last = key.rsplit(",", 1)[-1].strip()
+        # "City, ST" US locations: a 2-letter US state code is NOT a country
+        # code (IL=Illinois not Israel, CA=California not Canada).
+        if last.upper() in _US_STATE_ABBR:
+            return "USD"
         if last in _COUNTRY_TO_CODE:
             return _COUNTRY_TO_CODE[last]
     # Substring fallback only for aliases >= 5 chars (avoid "ca"/"in" inside

@@ -41,7 +41,7 @@ except ImportError:  # pragma: no cover - plan_currency ships with the repo
     _plan_currency = None
 
 from pptx import Presentation
-from pptx.util import Inches, Pt
+from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
@@ -140,20 +140,137 @@ _CHART_FONT_FAMILY = _register_chart_fonts()
 
 
 # ---------------------------------------------------------------------------
+# Font embedding -- so the deck renders in Poppins even on machines that don't
+# have it installed. Without this, PowerPoint/Keynote/Quick Look substitute a
+# default (often Times serif on macOS), which is the single biggest reason a
+# correctly-built deck can still "look wrong" to a viewer.
+# ---------------------------------------------------------------------------
+# (typeface, embeddedFont slot, filename). PowerPoint matches an embedded font to
+# text runs by typeface name; the deck sets every run to "Poppins".
+_EMBED_FONTS = [
+    ("Poppins", "regular", "Poppins-Regular.ttf"),
+    ("Poppins", "bold", "Poppins-Bold.ttf"),
+]
+_FONT_REL_TYPE = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/font"
+)
+
+
+def _embed_fonts_in_pptx(pptx_bytes: bytes) -> bytes:
+    """Inject the bundled Poppins .ttf files into a .pptx so it renders on-brand
+    everywhere. Pure zip/OOXML surgery (python-pptx has no font-embed API).
+
+    Adds: ppt/fonts/fontN.fntdata parts, <p:embeddedFontLst> in presentation.xml
+    (with embedTrueTypeFonts="1"), font relationships, and the fntdata content
+    type. Returns the original bytes unchanged on any error — never break the
+    deck over a cosmetic enhancement.
+    """
+    import zipfile
+
+    fonts = []
+    for typeface, slot, fname in _EMBED_FONTS:
+        fpath = _FONTS_DIR / fname
+        if fpath.exists():
+            try:
+                fonts.append((typeface, slot, fpath.read_bytes()))
+            except OSError as exc:
+                logger.debug("Font embed: could not read %s: %s", fname, exc)
+    if not fonts:
+        return pptx_bytes
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(pptx_bytes), "r") as zin:
+            pres_xml = zin.read("ppt/presentation.xml").decode("utf-8")
+            rels_xml = zin.read("ppt/_rels/presentation.xml.rels").decode("utf-8")
+            ct_xml = zin.read("[Content_Types].xml").decode("utf-8")
+            if "embedTrueTypeFonts" in pres_xml:
+                return pptx_bytes  # already embedded — idempotent
+
+            font_parts = []
+            rel_entries = []
+            by_face: Dict[str, list] = {}
+            for i, (typeface, slot, data) in enumerate(fonts, start=1):
+                rid = f"rIdFont{i}"
+                partname = f"ppt/fonts/font{i}.fntdata"
+                font_parts.append((partname, data))
+                rel_entries.append(
+                    f'<Relationship Id="{rid}" Type="{_FONT_REL_TYPE}" '
+                    f'Target="fonts/font{i}.fntdata"/>'
+                )
+                by_face.setdefault(typeface, []).append((slot, rid))
+
+            embed_lst = "<p:embeddedFontLst>"
+            for face, slots in by_face.items():
+                embed_lst += f'<p:embeddedFont><p:font typeface="{face}"/>'
+                for slot, rid in slots:
+                    embed_lst += f'<p:{slot} r:id="{rid}"/>'
+                embed_lst += "</p:embeddedFont>"
+            embed_lst += "</p:embeddedFontLst>"
+
+            # presentation.xml: flag + insert embeddedFontLst after notesSz
+            # (schema order: ... sldSz, notesSz, embeddedFontLst, defaultTextStyle)
+            pres_xml = re.sub(
+                r"<p:presentation ",
+                '<p:presentation embedTrueTypeFonts="1" ',
+                pres_xml,
+                count=1,
+            )
+            m = re.search(r"<p:notesSz[^>]*/>", pres_xml)
+            if m:
+                pres_xml = pres_xml[: m.end()] + embed_lst + pres_xml[m.end():]
+            elif "<p:defaultTextStyle" in pres_xml:
+                pres_xml = pres_xml.replace(
+                    "<p:defaultTextStyle", embed_lst + "<p:defaultTextStyle", 1
+                )
+            else:
+                pres_xml = pres_xml.replace(
+                    "</p:presentation>", embed_lst + "</p:presentation>", 1
+                )
+
+            rels_xml = rels_xml.replace(
+                "</Relationships>", "".join(rel_entries) + "</Relationships>"
+            )
+            if "fntdata" not in ct_xml:
+                ct_xml = ct_xml.replace(
+                    "</Types>",
+                    '<Default Extension="fntdata" '
+                    'ContentType="application/x-fontdata"/></Types>',
+                )
+
+            out = io.BytesIO()
+            with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+                for item in zin.infolist():
+                    data = zin.read(item.filename)
+                    if item.filename == "ppt/presentation.xml":
+                        data = pres_xml.encode("utf-8")
+                    elif item.filename == "ppt/_rels/presentation.xml.rels":
+                        data = rels_xml.encode("utf-8")
+                    elif item.filename == "[Content_Types].xml":
+                        data = ct_xml.encode("utf-8")
+                    zout.writestr(item, data)
+                for partname, data in font_parts:
+                    zout.writestr(partname, data)
+        return out.getvalue()
+    except (KeyError, zipfile.BadZipFile, ValueError) as exc:
+        logger.warning("Font embedding skipped (non-fatal): %s", exc)
+        return pptx_bytes
+
+
+# ---------------------------------------------------------------------------
 # Chart color palette (hex strings for matplotlib, matching Joveo brand)
 # ---------------------------------------------------------------------------
 # S89: pure Joveo deck dataviz sequence (no off-palette greens/teals). Order
 # follows the brand guideline series: purple -> teal -> magenta -> purple-light,
 # then deepen within the family. Categorical, high-contrast between neighbors.
 _CHART_COLORS = [
-    "#5A54BE",  # PURPLE -- series 1 (primary accent)
-    "#6BB5CE",  # TEAL -- series 2
-    "#B7669E",  # MAGENTA -- series 3
-    "#8680D6",  # PURPLE_LIGHT -- series 4
-    "#202058",  # INDIGO -- series 5 (deep)
-    "#3E8FAB",  # TEAL deep -- series 6
-    "#C98BB6",  # MAGENTA light -- series 7
-    "#3F3A8E",  # PURPLE deep -- series 8
+    "#5A54BE",  # PURPLE — series 1 (primary accent)
+    "#6BB5CE",  # TEAL — series 2
+    "#B7669E",  # MAGENTA — series 3
+    "#8680D6",  # PURPLE_LIGHT — series 4
+    "#202058",  # INDIGO — series 5 (deep)
+    "#3E8FAB",  # TEAL deep — series 6
+    "#C98BB6",  # MAGENTA light — series 7
+    "#3F3A8E",  # PURPLE deep — series 8
 ]
 
 
@@ -419,15 +536,15 @@ def _proper_client_name(name: str) -> str:
 # ---------------------------------------------------------------------------
 
 # -- Joveo brand primaries --
-NAVY = RGBColor(0x20, 0x20, 0x58)  # Port Gore -- primary dark / headings
-BLUE = RGBColor(0x5A, 0x54, 0xBE)  # Blue Violet -- primary accent
+NAVY = RGBColor(0x20, 0x20, 0x58)  # Port Gore — primary dark / headings
+BLUE = RGBColor(0x5A, 0x54, 0xBE)  # Blue Violet — primary accent
 MEDIUM_BLUE = RGBColor(0x48, 0x43, 0x9E)  # Deeper purple accent
 LIGHT_BLUE = RGBColor(0xDD, 0xDB, 0xFF)  # Light purple background
 PALE_BLUE = RGBColor(0xB8, 0xB4, 0xF7)  # Medium purple accent fill
 SKY_BLUE = RGBColor(0xA8, 0xD8, 0xEA)  # Light teal (Joveo extended)
 
 # -- Joveo secondary --
-TEAL = RGBColor(0x6B, 0xB5, 0xCE)  # Downy Teal -- secondary accent
+TEAL = RGBColor(0x6B, 0xB5, 0xCE)  # Downy Teal — secondary accent
 LIGHT_TEAL = RGBColor(0xA8, 0xD8, 0xEA)  # Light teal (Joveo extended)
 PALE_TEAL = RGBColor(0xDA, 0xF5, 0xFF)  # Pale teal background
 
@@ -446,10 +563,10 @@ LIGHT_MUTED = RGBColor(0x8C, 0x96, 0xA8)  # Tertiary text
 # -- Semantic colors --
 GREEN = RGBColor(0x33, 0x87, 0x21)  # Positive / beating benchmark
 LIGHT_GREEN = RGBColor(0xE6, 0xF2, 0xE0)  # Green background
-AMBER = RGBColor(0x3E, 0x8F, 0xAB)  # Teal deep -- trailing benchmark
+AMBER = RGBColor(0x3E, 0x8F, 0xAB)  # Teal deep — trailing benchmark
 LIGHT_AMBER = RGBColor(0xFD, 0xDB, 0xB2)  # Light bronze background
-RED_ACCENT = RGBColor(0xB7, 0x66, 0x9E)  # Magenta -- underperformance accent
-GOLD = RGBColor(0xB7, 0x66, 0x9E)  # Magenta -- emphasis / highlights
+RED_ACCENT = RGBColor(0xB7, 0x66, 0x9E)  # Magenta — underperformance accent
+GOLD = RGBColor(0xB7, 0x66, 0x9E)  # Magenta — emphasis / highlights
 
 # -- Joveo extended palette --
 JOVEO_LIGHT_PURPLE = RGBColor(0x86, 0x80, 0xD6)  # Light purple accent
@@ -1332,7 +1449,9 @@ def _set_font(
 ):
     """Configure font properties on a text run."""
     run.font.name = name
-    run.font.size = Pt(size)
+    # Readability floor: the reference deck never goes below ~9pt. Clamp to 8pt so
+    # no caption/label renders as the old unreadable 6-7pt micro-text.
+    run.font.size = Pt(max(8, size))
     run.font.bold = bold
     run.font.italic = italic
     run.font.color.rgb = color
@@ -1811,7 +1930,7 @@ def _is_us_only_campaign(data: Dict) -> bool:
         return False
     locations = data.get("locations") or []
     if not locations:
-        return True  # No locations specified -- assume domestic
+        return True  # No locations specified — assume domestic
     us_indicators = {
         "us",
         "usa",
@@ -2008,32 +2127,41 @@ def _channel_categories_grouped(channels: Dict) -> Dict[str, List[Dict]]:
 
 
 def _add_footer(slide, today: str):
-    """Add the standard Joveo-branded footer bar to a slide."""
-    footer_top = Inches(6.95)
-    _add_filled_rect(slide, Inches(0), footer_top, SLIDE_WIDTH, Inches(0.03), NAVY)
-    # Left-aligned date
+    """Add the single canonical Joveo footer band (date left, credit right).
+
+    This is the ONLY footer drawn on a slide. ``_add_data_sources_footnote`` and
+    ``_add_enrichment_badge`` intentionally do NOT draw their own footer/credit,
+    so the bottom margin never stacks overlapping captions (the previous version
+    drew three separate 6-7pt lines at y~7.0 that collided on every slide).
+    """
+    rule_y = Inches(7.12)
+    # Thin warm-gray rule (matches the reference deck's minimal footer treatment)
+    _add_filled_rect(slide, Inches(0.55), rule_y, Inches(12.23), Inches(0.012), WARM_GRAY)
+    # Left-aligned date -- 9pt readability floor (was 7pt)
     _add_textbox(
         slide,
         Inches(0.55),
-        footer_top + Inches(0.08),
-        Inches(4),
-        Inches(0.3),
+        rule_y + Inches(0.05),
+        Inches(4.5),
+        Inches(0.26),
         text=today,
-        font_size=7,
+        font_size=9,
         color=MUTED_TEXT,
         alignment=PP_ALIGN.LEFT,
+        anchor=MSO_ANCHOR.MIDDLE,
     )
-    # Right-aligned Joveo branding in Downy Teal
+    # Right-aligned single attribution line in Downy Teal
     _add_textbox(
         slide,
-        Inches(8.5),
-        footer_top + Inches(0.08),
-        Inches(4.5),
-        Inches(0.3),
-        text="Created by Shubham Singh Chandel  ||  Powered by Joveo's Global Supply Team",
-        font_size=7,
+        Inches(5.75),
+        rule_y + Inches(0.05),
+        Inches(7.03),
+        Inches(0.26),
+        text="Created by Shubham Singh Chandel  •  Powered by Joveo's Global Supply Team",
+        font_size=9,
         color=TEAL,
         alignment=PP_ALIGN.RIGHT,
+        anchor=MSO_ANCHOR.MIDDLE,
     )
 
 
@@ -2084,86 +2212,48 @@ def _confidence_color(confidence: str) -> Tuple[RGBColor, str]:
 
 
 def _add_enrichment_badge(slide, enriched):
-    """Add a small 'Powered by live data' badge if APIs were used."""
-    if not enriched:
-        return
-    summary = enriched.get("enrichment_summary", {})
-    apis = summary.get("apis_succeeded") or []
-    if not apis:
-        return
-    # Small text at bottom-right
-    txBox = slide.shapes.add_textbox(
-        Inches(10.5), Inches(7.1), Inches(2.5), Inches(0.3)
-    )
-    tf = txBox.text_frame
-    tf.word_wrap = True
-    p = tf.paragraphs[0]
-    p.text = f"Live data: {', '.join(apis[:3])}"
-    p.font.size = Pt(7)
-    p.font.color.rgb = MUTED_TEXT
-    p.alignment = PP_ALIGN.RIGHT
+    """No-op (retained for call-site compatibility).
+
+    The old bottom-right "Live data: ..." badge sat at y=7.1 and overlapped the
+    footer credit 95% on every slide that used it. Data provenance now lives in
+    the workbook's "Sources & Confidence" sheet and the per-slide confidence
+    caption, so the deck footer stays clean and uncluttered.
+    """
+    return
 
 
 def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
-    """Add a thin ruled footnote line with confidence indicator (no API names)."""
+    """Confidence indicator + optional disclaimers, placed ABOVE the footer rule.
+
+    Does NOT draw a footer/rule/credit — ``_add_footer`` owns the footer band.
+    Everything stays at/above y=6.84 so it never collides with the footer or
+    runs off the bottom edge (the previous version stacked four 6pt italic lines
+    at y=7.0-7.3 that overlapped each other and the footer credit).
+    """
     conf = benchmarks.get("confidence", "curated")
+    conf_color, conf_label = _confidence_color(conf)
 
-    # International disclaimer -- detect non-US campaigns
-    is_us_only = _is_us_only_campaign(data)
-    intl_disclaimer = ""
-    if not is_us_only:
-        intl_disclaimer = (
-            "Note: Benchmarks shown are US-calibrated. "
-            "International markets may vary significantly."
-        )
-
-    # Thin ruled line
-    _add_filled_rect(
-        slide, Inches(0.55), Inches(7.0), Inches(12.2), Inches(0.01), WARM_GRAY
-    )
-    # Generic attribution -- no API/source names exposed to client
-    source_text = "Created by Shubham Singh Chandel | Joveo Global Supply Team"
+    caption_y = Inches(6.84)
+    # Confidence indicator (left)
     _add_textbox(
         slide,
         Inches(0.55),
-        Inches(7.02),
-        Inches(10),
-        Inches(0.2),
-        text=source_text,
-        font_size=6,
-        italic=True,
-        color=LIGHT_MUTED,
-    )
-    # Confidence badge
-    conf_color, conf_label = _confidence_color(conf)
-    _add_textbox(
-        slide,
-        Inches(11.0),
-        Inches(7.02),
-        Inches(2),
-        Inches(0.2),
+        caption_y,
+        Inches(3.2),
+        Inches(0.22),
         text=conf_label,
-        font_size=7,
+        font_size=9,
         bold=True,
         color=conf_color,
-        alignment=PP_ALIGN.RIGHT,
+        anchor=MSO_ANCHOR.MIDDLE,
     )
 
-    # International benchmark disclaimer (if non-US locations detected)
-    if intl_disclaimer:
-        _add_textbox(
-            slide,
-            Inches(0.55),
-            Inches(7.18),
-            Inches(10),
-            Inches(0.2),
-            text=intl_disclaimer,
-            font_size=6,
-            italic=True,
-            color=AMBER,
+    # Combined disclaimers (right), only when present, truncated to fit one line
+    disclaimers = []
+    if not _is_us_only_campaign(data):
+        disclaimers.append(
+            "Benchmarks are US-calibrated — international markets may vary."
         )
-
-    # S50: Location plausibility warning footnote
     synthesized = data.get("_synthesized", {})
     loc_warnings = (
         synthesized.get("_validation", {}).get("location_warnings") or []
@@ -2173,22 +2263,24 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
     if loc_warnings:
         warn_locs = [w.get("location", "") for w in loc_warnings if w.get("location")]
         if warn_locs:
-            warn_text = (
-                f"Location advisory: {', '.join(warn_locs[:3])} may not align "
-                f"with company's known operating area. See Excel for details."
+            disclaimers.append(
+                f"Location advisory: {', '.join(warn_locs[:2])} — verify operating "
+                f"area (see workbook)."
             )
-            y_offset = Inches(7.18) if not intl_disclaimer else Inches(7.30)
-            _add_textbox(
-                slide,
-                Inches(0.55),
-                y_offset,
-                Inches(10),
-                Inches(0.2),
-                text=warn_text,
-                font_size=6,
-                italic=True,
-                color=AMBER,
-            )
+    if disclaimers:
+        _add_textbox(
+            slide,
+            Inches(3.9),
+            caption_y,
+            Inches(8.85),
+            Inches(0.22),
+            text=_trunc_word("   ".join(disclaimers), 150),
+            font_size=8,
+            italic=True,
+            color=AMBER,
+            alignment=PP_ALIGN.RIGHT,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
 
 
 def _format_salary(amount):
@@ -2235,7 +2327,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
                 _logo_path, Inches(0.6), Inches(0.4), height=Inches(0.5)
             )
         except Exception:
-            pass  # Graceful fallback -- text label below still shows
+            pass  # Graceful fallback — text label below still shows
 
     # "AI MEDIA PLANNER" small label top-left (below logo) in Downy Teal
     _add_textbox(
@@ -2331,9 +2423,9 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         slide,
         Inches(0.6),
         Inches(5.8),
-        Inches(6),
+        Inches(8.5),  # widened so the credit stays on one line
         Inches(0.4),
-        text="Created by Shubham Singh Chandel  ||  Powered by Joveo's Global Supply Team",
+        text="Created by Shubham Singh Chandel  •  Powered by Joveo's Global Supply Team",
         font_size=11,
         italic=True,
         color=TEAL,  # Downy Teal for branding
@@ -2470,8 +2562,8 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         slide,
         Inches(0.55),
         Inches(0.92),
-        Inches(12.2),
-        Inches(0.55),
+        Inches(9.9),  # narrowed to leave room for the QC chip top-right
+        Inches(0.6),
         text=action_text,
         font_size=15,
         bold=True,
@@ -2861,7 +2953,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
                         space_before=1,
                         space_after=1,
                     )
-    except Exception as _cited_err:  # pragma: no cover -- never break the deck
+    except Exception as _cited_err:  # pragma: no cover — never break the deck
         logger.debug("Cited 2026 block (exec summary) skipped: %s", _cited_err)
 
     # ---- HERO STAT METRICS BAR ----
@@ -2885,7 +2977,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         Inches(0.85),
         bar_top + Inches(0.12),
         Inches(3.2),
-        Inches(0.65),
+        Inches(0.52),  # was 0.65 — overlapped the label row below
         text=hero_value,
         font_size=36,
         bold=True,
@@ -2911,19 +3003,21 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         slide, Inches(4.2), bar_top + Inches(0.2), Inches(0.02), Inches(0.75), TEAL
     )
 
-    # Secondary metrics - include salary data from enrichment if available
+    # Secondary metrics -- inputs first, then the outcome metrics decision-makers
+    # care about. The strip is capped to MAX_SECONDARY and the columns are sized
+    # to the available width, so it NEVER marches past the slide edge (the old
+    # fixed 1.9in step pushed a 6th/7th KPI 0.7-2.6in off-canvas).
     secondary_metrics = [
         m
         for m in [
             (str(len(channels)), "Channels"),
             (str(loc_count), "Locations") if loc_count > 0 else None,
             (str(len(roles)), "Target Roles") if roles else None,
-            (str(len(goals)), "Campaign Goals") if goals else None,
         ]
         if m is not None
     ]
 
-    # Replace last metric with salary benchmark if available
+    # Salary benchmark if available (enrichment)
     if salary_data:
         try:
             first_role = list(salary_data.keys())[0]
@@ -2934,7 +3028,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         except (IndexError, KeyError, TypeError):
             pass
 
-    # Add budget allocation metrics if available (projected hires, avg CPA)
+    # Outcome metrics from the budget engine (projected hires, avg CPA)
     # S48: use per-channel-sum hires for consistency
     if ba_total_projected:
         projected_hires = _ppt_hires_sum
@@ -2949,15 +3043,22 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
                 (_fmt_currency(avg_cph_val, compact=True), "Cost/Hire")
             )
 
-    # Add market temperature badge if available
+    # Market temperature only if there is still room
     if market_temp_str and len(secondary_metrics) < 5:
         secondary_metrics.append((market_temp_str.upper(), "Market Temp."))
 
-    metric_w = Inches(1.9)
-    metric_start = Inches(4.55)
+    # Hard cap so columns stay readable and on-slide
+    MAX_SECONDARY = 5
+    secondary_metrics = secondary_metrics[:MAX_SECONDARY]
+
+    # Size columns to the available width (after the hero stat + divider at 4.2in)
+    metric_start = Inches(4.45)
+    avail_w = Inches(12.75) - metric_start  # right inner margin = 12.75in
+    n_secondary = len(secondary_metrics) or 1
+    metric_w = Emu(int(avail_w / n_secondary))
 
     for i, (value, label) in enumerate(secondary_metrics):
-        mx = metric_start + i * metric_w
+        mx = metric_start + Emu(int(i * metric_w))
 
         _add_textbox(
             slide,
@@ -2979,15 +3080,15 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             metric_w,
             Inches(0.3),
             text=label,
-            font_size=8,
+            font_size=9,
             bold=False,
             color=LIGHT_MUTED,
             alignment=PP_ALIGN.CENTER,
         )
 
     # Thin dividers between secondary metrics
-    for i in range(1, 4):
-        div_x = metric_start + i * metric_w
+    for i in range(1, n_secondary):
+        div_x = metric_start + Emu(int(i * metric_w))
         _add_filled_rect(
             slide,
             div_x,
@@ -3007,37 +3108,42 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             if _cqs_score >= 70
             else BLUE if _cqs_score >= 50 else RGBColor(0xCC, 0x33, 0x33)
         )
+        # Placed in the top-right CONTENT corner (below the header band, right of
+        # the narrowed title, above the SCR cards) so it never collides with the
+        # client name in the header band -- the old y=0.18 position overlapped it.
         _add_rounded_rect(
             slide,
-            Inches(10.8),
-            Inches(0.18),
-            Inches(2.3),
-            Inches(0.55),
+            Inches(10.6),
+            Inches(0.86),
+            Inches(2.15),
+            Inches(0.6),
             _cqs_color,
         )
         _add_textbox(
             slide,
-            Inches(10.8),
-            Inches(0.2),
-            Inches(2.3),
-            Inches(0.32),
-            text=f"Creative Score: {_cqs_score}/100",
+            Inches(10.6),
+            Inches(0.92),
+            Inches(2.15),
+            Inches(0.3),
+            text=f"Creative QC: {_cqs_score}/100",
             font_size=11,
             bold=True,
             color=WHITE,
             alignment=PP_ALIGN.CENTER,
+            anchor=MSO_ANCHOR.MIDDLE,
         )
         _add_textbox(
             slide,
-            Inches(10.8),
-            Inches(0.46),
-            Inches(2.3),
-            Inches(0.2),
+            Inches(10.6),
+            Inches(1.2),
+            Inches(2.15),
+            Inches(0.22),
             text=f"Grade {_cqs_grade}",
-            font_size=8,
+            font_size=9,
             bold=False,
             color=WHITE,
             alignment=PP_ALIGN.CENTER,
+            anchor=MSO_ANCHOR.MIDDLE,
         )
 
     # Enrichment badge
@@ -3180,7 +3286,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     if total_budget_val > 0 and proj_hires_ch > 0:
         action_text = (
             f"{n_cats}-channel strategy allocates {_fmt_currency(total_budget_val, compact=True)} "
-            f"to project {int(proj_hires_ch)} hires for {client} in {industry_label} -- "
+            f"to project {int(proj_hires_ch)} hires for {client} in {industry_label} — "
             f"each channel selected for cost-efficiency and audience reach"
         )
     else:
@@ -3492,6 +3598,19 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     # Has ad platform data - use for 3-column table header
     has_ad_plat_data = bool(ad_plat)
 
+    # Cap rows so the table fits ABOVE the attribution band (attrib_top=4.85in)
+    # and never runs off the bottom / overlaps the category cards. The data-driven
+    # row list could reach 13+ rows (ad-platform + LinkedIn intel); the reference
+    # deck shows ~5 benchmark rows. The fuller breakdown lives in the workbook.
+    # max rows = floor((attrib_top - clearance - source - table_top)/row_h) - header
+    _attrib_top_in = 4.85
+    _max_bench_rows = max(
+        4,
+        int((_attrib_top_in - 0.35 - (table_top + row_h) / 914400) / (row_h / 914400)),
+    )
+    if len(bench_rows) > _max_bench_rows:
+        bench_rows = bench_rows[:_max_bench_rows]
+
     # Table header
     _add_filled_rect(slide, table_left, table_top, table_w, row_h, NAVY)
     _add_textbox(
@@ -3738,46 +3857,10 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         color=NAVY,
     )
 
-    # ---- HERO STAT at top center ----
-    hero_top = Inches(1.55)
-    hero_h = Inches(1.3)
-
-    # Hero stat card with teal accent
-    _add_rounded_rect(slide, Inches(3.5), hero_top, Inches(6.33), hero_h, WHITE)
-    _add_filled_rect(slide, Inches(3.5), hero_top, Inches(6.33), Inches(0.05), TEAL)
-
-    # Hero number
-    budget_display = _format_budget_display(budget)
-    _add_textbox(
-        slide,
-        Inches(3.5),
-        hero_top + Inches(0.12),
-        Inches(6.33),
-        Inches(0.75),
-        text=budget_display if budget_display != budget else f"{n_channels} Channels",
-        font_size=44,
-        bold=True,
-        color=BLUE,
-        alignment=PP_ALIGN.CENTER,
-        anchor=MSO_ANCHOR.MIDDLE,
-    )
-    hero_subtitle = (
-        "Total Campaign Investment"
-        if budget_display != budget
-        else "Selected for Maximum Impact"
-    )
-    _add_textbox(
-        slide,
-        Inches(3.5),
-        hero_top + Inches(0.85),
-        Inches(6.33),
-        Inches(0.35),
-        text=hero_subtitle,
-        font_size=12,
-        bold=False,
-        color=MUTED_TEXT,
-        alignment=PP_ALIGN.CENTER,
-    )
+    # NOTE: a centered hero "budget" card used to sit at y=1.55-2.85, directly on
+    # top of the 5-card projections row below (y=1.9-2.9). It was redundant (the
+    # budget already appears on the cover, exec summary, and budget slides), so it
+    # was removed -- the 5-card projections row is now the clean top section.
 
     # ---- CAMPAIGN PROJECTIONS SUMMARY (5-card row) ----
     ba_total_proj = budget_alloc.get("total_projected", {}) if budget_alloc else {}
@@ -4078,8 +4161,11 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
                 f"An additional ${_gap:,.0f} is recommended to meet all hiring targets."
             )
 
-    # Position for reality check or insight callout
-    bottom_section_top = Inches(5.15)
+    # Position for reality check or insight callout -- dynamically BELOW the
+    # actual channel table bottom so it never overlaps the table rows (the old
+    # fixed 5.15in sat on top of a 5-row table that ended at ~5.51in).
+    _qo_table_bottom = header_y + row_h * (len(ch_display_top5) + 1)
+    bottom_section_top = _qo_table_bottom + Inches(0.16)
 
     if _is_critical and _reality_message:
         # Red callout box for budget reality check
@@ -4452,7 +4538,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         cx += cw
 
     # Data rows (limit to 8 channels to fit on slide)
-    max_rows = min(len(display_channels), 8)
+    max_rows = min(len(display_channels), 6)
     for ri in range(max_rows):
         ch = display_channels[ri]
         row_y = header_y + row_h + ri * row_h
@@ -4534,12 +4620,12 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         )
         cx += cw
 
-    # ---- ROI INSIGHT CALLOUT ----
-    insight_top = Inches(6.05)
-    insight_h = Inches(0.65)
-    _add_rounded_rect(
-        slide, Inches(0.55), insight_top, Inches(12.2), insight_h, PALE_TEAL
-    )
+    # ---- ROI INSIGHT CALLOUT (reference-deck dark-indigo takeaway band) ----
+    # Positioned dynamically below the totals row so it never overlaps the table
+    # (the old fixed y=6.05 collided with the totals row when the table was tall).
+    insight_h = Inches(0.62)
+    insight_top = totals_y + row_h + Inches(0.16)
+    _add_rounded_rect(slide, Inches(0.55), insight_top, Inches(12.2), insight_h, NAVY)
     _add_filled_rect(slide, Inches(0.55), insight_top, Inches(0.06), insight_h, TEAL)
 
     # Build insight text
@@ -4572,17 +4658,15 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
 
     _add_textbox(
         slide,
-        Inches(0.8),
-        insight_top + Inches(0.08),
-        Inches(11.7),
-        insight_h - Inches(0.15),
-        text=_trunc_word(insight_text, 500),
+        Inches(0.85),
+        insight_top,
+        Inches(11.6),
+        insight_h,
+        text=_trunc_word(insight_text, 320),
         font_size=10,
-        color=DARK_TEXT,
+        color=WHITE,
+        anchor=MSO_ANCHOR.MIDDLE,
     )
-
-    # Enrichment badge
-    _add_enrichment_badge(slide, enriched)
 
     # Footer
     _add_footer(slide, today)
@@ -5002,13 +5086,13 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         )
 
     # ---- Legend ----
-    legend_y = comp_top + panel_h + Inches(0.1)
+    legend_y = comp_top + panel_h + Inches(0.04)
     leg_box, leg_tf = _add_textbox(
         slide,
         Inches(0.55),
         legend_y,
         Inches(6),
-        Inches(0.25),
+        Inches(0.22),
     )
     p = leg_tf.paragraphs[0]
     r1 = p.add_run()
@@ -5025,7 +5109,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     _set_font(r4, size=8, color=MUTED_TEXT)
 
     # ==== IMPLEMENTATION TIMELINE (bottom) ====
-    timeline_top = Inches(4.8)
+    timeline_top = Inches(4.98)  # was 4.8 — header overlapped the legend above
 
     _add_textbox(
         slide,
@@ -8373,7 +8457,7 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
                 (
                     "BUDGET",
                     "Budget Uncertainty",
-                    "Insufficient data for precise projection -- actuals may vary 20-30%",
+                    "Insufficient data for precise projection — actuals may vary 20-30%",
                     "Start with 2-week pilot; adjust allocation based on early CPA data",
                 )
             )
@@ -8427,7 +8511,7 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
                     (
                         "CHANNELS",
                         "Channel Concentration",
-                        f"{top_2_pct:.0f}% of budget on {', '.join(top_2_names)} -- "
+                        f"{top_2_pct:.0f}% of budget on {', '.join(top_2_names)} — "
                         f"disruption could impact {top_2_pct * proj_hires / 100:.0f} hires",
                         "Diversify to 4+ channels; maintain backup channels on standby",
                     )
@@ -8571,7 +8655,7 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
 
 
 def _build_slide_methodology(prs: Presentation, data: Dict, deck: Dict) -> None:
-    """Build the 'Our Methodology' slide -- Joveo's 6-step campaign management.
+    """Build the 'Our Methodology' slide — Joveo's 6-step campaign management.
 
     Renders 6 numbered step cards (2 rows x 3 cols) with purple number chips,
     step name, AI-tool tag, and detail text. No-ops if the deck KB section
@@ -8595,7 +8679,7 @@ def _build_slide_methodology(prs: Presentation, data: Dict, deck: Dict) -> None:
         Inches(0.92),
         Inches(12.2),
         Inches(0.45),
-        text="Our Methodology -- Joveo's 6-step campaign management on the MOJO platform",
+        text="Our Methodology — Joveo's 6-step campaign management on the MOJO platform",
         font_size=15,
         bold=True,
         color=NAVY,
@@ -8680,7 +8764,7 @@ def _build_slide_methodology(prs: Presentation, data: Dict, deck: Dict) -> None:
 
 
 def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> None:
-    """Build the 'Push Meets Pull' slide -- active outreach vs. brand magnetism.
+    """Build the 'Push Meets Pull' slide — active outreach vs. brand magnetism.
 
     Two large rounded cards side-by-side: Push (lavender surface, purple pill)
     and Pull (blue-50 surface, teal-deep pill), with the deck summary line
@@ -8706,7 +8790,7 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
         Inches(0.92),
         Inches(12.2),
         Inches(0.45),
-        text="Push Meets Pull -- a dual-engine sourcing strategy",
+        text="Push Meets Pull — a dual-engine sourcing strategy",
         font_size=15,
         bold=True,
         color=NAVY,
@@ -8780,7 +8864,7 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
 
 
 def _build_slide_cpa_reference(prs: Presentation, data: Dict, deck: Dict) -> None:
-    """Build the 'CPA Reference' slide -- baseline CPA ranges by role category.
+    """Build the 'CPA Reference' slide — baseline CPA ranges by role category.
 
     Shape-built table: indigo header row with white Poppins text, columns
     Role Category | Est. CPA Range | Benchmark Basis, zebra-striped rows.
@@ -8805,7 +8889,7 @@ def _build_slide_cpa_reference(prs: Presentation, data: Dict, deck: Dict) -> Non
         Inches(0.92),
         Inches(12.2),
         Inches(0.45),
-        text="CPA Reference -- baseline cost-per-application by role category",
+        text="CPA Reference — baseline cost-per-application by role category",
         font_size=15,
         bold=True,
         color=NAVY,
@@ -9937,14 +10021,12 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
             )
             if _ba_has_data:
                 _build_slide_budget_allocation(prs, data)
-                # Embed pie chart onto the budget allocation slide (right side)
-                if _HAS_MATPLOTLIB:
-                    try:
-                        _embed_pie_chart_on_budget_slide(prs, data)
-                    except Exception as _pie_exc:
-                        logger.debug(
-                            "Embedded pie chart failed (non-fatal): %s", _pie_exc
-                        )
+                # NOTE: the embedded pie chart was removed -- it was dropped at a
+                # fixed bottom-right position that overlapped the budget table, the
+                # ROI callout, and the footer. Allocation is already shown by the
+                # table's Allocation% column and the channel-mix bars on the
+                # Channel Strategy slide, so a clean full-width table + dark
+                # takeaway band (reference-deck style) reads better.
             else:
                 _build_slide_quality_outcomes(prs, data)
         else:
@@ -9981,7 +10063,9 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         buffer = io.BytesIO()
         prs.save(buffer)
         buffer.seek(0)
-        return buffer.getvalue()
+        # Embed the brand font so the deck renders in Poppins everywhere (not a
+        # serif/Calibri substitute on machines lacking the font).
+        return _embed_fonts_in_pptx(buffer.getvalue())
 
     except Exception as exc:
         logger.error("generate_pptx top-level crash: %s", exc, exc_info=True)

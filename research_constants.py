@@ -25,7 +25,7 @@ RESEARCH_FINDINGS: List[Dict[str, str]] = [
         "stat": "3.8x more applications",
         "detail": (
             "Job postings that display compensation in the first line receive "
-            "3.8x more applications. Always show salary range upfront -- even "
+            "3.8x more applications. Always show salary range upfront — even "
             "where not legally required, transparency increases apply rates 20-40%."
         ),
         "source": "Appcast 2025 Recruitment Marketing Benchmark Report",
@@ -58,7 +58,7 @@ RESEARCH_FINDINGS: List[Dict[str, str]] = [
         "stat": "+34% more applications",
         "detail": (
             "Ads with images or video receive 34% more applications than "
-            "text-only postings. Use real employee photos (not stock) -- "
+            "text-only postings. Use real employee photos (not stock) — "
             "especially for blue-collar roles where authenticity drives trust."
         ),
         "source": "LinkedIn Talent Solutions & Recruitics Creative Study 2025",
@@ -113,7 +113,7 @@ def get_plan_recommendations_text() -> List[str]:
         ),
         (
             "Optimize Job Titles: Use 1-3 word titles for maximum apply rate "
-            "(6.22% vs 4.5%). Avoid keyword stuffing -- searchers use short "
+            "(6.22% vs 4.5%). Avoid keyword stuffing — searchers use short "
             "queries (Joveo 108K job analysis)."
         ),
         (
