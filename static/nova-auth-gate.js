@@ -42,8 +42,8 @@
       "color:rgba(255,255,255,0.85);font-size:13px;font-family:Inter,system-ui,sans-serif;" +
       "text-align:center;padding:8px 16px;display:flex;align-items:center;justify-content:center;gap:8px;";
     banner.innerHTML =
-      "<span>Viewing as guest \u2014 some features are restricted.</span>" +
-      '<a id="nova-guest-signin-link" href="#" style="color:#7dd3fc;text-decoration:underline;font-weight:600;font-size:13px;">Sign in for full access</a>';
+      "<span>Previewing Nova \u2014 sign in with your @joveo.com account to save your work.</span>" +
+      '<a id="nova-guest-signin-link" href="#" style="color:#7dd3fc;text-decoration:underline;font-weight:600;font-size:13px;">Sign in</a>';
     document.body.appendChild(banner);
     // Push page content down so banner doesn't overlap
     document.body.style.paddingTop =
@@ -241,8 +241,9 @@
       '  <div style="width:80px;height:80px;margin:0 auto 24px;border-radius:20px;background:linear-gradient(135deg,#202058,#5A54BE);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(90,84,189,0.3);">' +
       '    <span style="font-size:40px;font-weight:800;color:white;font-family:Poppins,Inter,system-ui,sans-serif;line-height:1;">N</span>' +
       "  </div>" +
-      '  <h1 style="color:#202058;font-size:28px;font-weight:700;margin:0 0 8px;font-family:Poppins,Inter,sans-serif;">Welcome to Nova AI</h1>' +
-      '  <p style="color:#6E6E8C;font-size:15px;margin:0 0 32px;font-family:Inter,sans-serif;line-height:1.5;">AI-powered recruitment intelligence platform.<br>Sign in to access the suite.</p>' +
+      '  <h1 style="color:#202058;font-size:27px;font-weight:700;margin:0 0 10px;font-family:Poppins,Inter,sans-serif;line-height:1.2;">Build a data-backed media plan in minutes</h1>' +
+      '  <p style="color:#5b5a74;font-size:14.5px;margin:0 0 14px;font-family:Inter,sans-serif;line-height:1.55;">Turn a role and a budget into a channel mix, projected applies &amp; hires, and a client-ready deck &mdash; grounded in real Joveo campaign benchmarks.</p>' +
+      '  <p style="color:#5A54BE;font-size:12px;font-weight:600;margin:0 0 28px;font-family:Inter,sans-serif;letter-spacing:0.01em;">Your Joveo planning workspace</p>' +
       '  <div id="nova-gate-error" style="display:none;margin:0 0 20px;padding:12px 16px;border-radius:8px;background:rgba(183,102,158,0.10);border:1px solid rgba(183,102,158,0.30);text-align:left;">' +
       '    <div style="color:#9B2C6F;font-size:13px;font-weight:600;margin-bottom:4px;font-family:Inter,sans-serif;">Sign-in failed</div>' +
       '    <div id="nova-gate-error-msg" style="color:#6E6E8C;font-size:12px;line-height:1.4;font-family:Inter,sans-serif;"></div>' +
@@ -259,6 +260,7 @@
       "    </svg>" +
       "    Sign in with Google" +
       "  </button>" +
+      '  <p style="color:#8a88a6;font-size:12px;margin:10px 0 0;font-family:Inter,sans-serif;">Use your <strong style="color:#5b5a74;">@joveo.com</strong> Google account.</p>' +
       '  <div style="margin-top:16px;">' +
       '    <a id="nova-gate-guest-btn" href="#" style="' +
       "      color:#6E6E8C;font-size:13px;font-family:Inter,sans-serif;" +
@@ -282,8 +284,8 @@
         // Map common OAuth errors to user-friendly messages
         if (errCode === "access_denied") {
           friendlyMsg =
-            "Access was denied. Your Google account may not be authorized. " +
-            "Please contact the Nova admin to be added as an authorized user.";
+            "Access denied — Nova is a Joveo workspace, so you'll need a @joveo.com Google account. " +
+            "If you have one, contact your Nova admin (shubhamsingh@joveo.com) to be added.";
         } else if (
           errCode === "server_error" ||
           errCode === "temporarily_unavailable"
