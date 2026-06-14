@@ -2419,13 +2419,27 @@ class MonitoringAlertBridge:
         self._interval = check_interval
         self._running = False
         self._thread: Optional[threading.Thread] = None
-        self._alert_cooldowns: dict[str, float] = {}  # alert_key -> last_fired_ts
+        self._alert_cooldowns: dict[str, float] = {}  # legacy fallback (see below)
         # S63: raised 300s -> 1800s (30 min). 5-min cooldown meant the same
         # SLO violation could email 12 times/hour during an ongoing incident.
         # 30 min matches typical incident response cadence.
         self._cooldown_period = 1800  # 30 min between same alerts
         self._lock = threading.Lock()
         self._last_known_version: str = VERSION  # deploy detection
+        # S90 P1: back the cooldown with a shared, fail-open store (Supabase when
+        # configured, else in-memory) so a worker restart or a 2nd worker can't
+        # re-page the same alert. Lazily imported so a missing module can never
+        # break monitoring import -- falls back to the legacy in-memory dict.
+        try:
+            from alert_cooldown_store import AlertCooldownStore
+
+            self._cooldown_store: Optional[Any] = AlertCooldownStore()
+        except Exception as _cs_err:  # pragma: no cover - defensive
+            logger.warning(
+                "[MonitorAlertBridge] cooldown store unavailable, using in-memory: %s",
+                _cs_err,
+            )
+            self._cooldown_store = None
 
     def start(self) -> None:
         """Start the alerting bridge background thread."""
@@ -2443,7 +2457,14 @@ class MonitoringAlertBridge:
         self._running = False
 
     def _should_alert(self, key: str) -> bool:
-        """Check if we should fire this alert (respects cooldown)."""
+        """Check if we should fire this alert (respects the shared cooldown).
+
+        Delegates to the shared, fail-open cooldown store (S90 P1) so a worker
+        restart or a 2nd worker cannot re-page the same alert. Falls back to the
+        legacy process-local dict only if the store failed to load.
+        """
+        if self._cooldown_store is not None:
+            return self._cooldown_store.should_fire(key, self._cooldown_period)
         with self._lock:
             last_fired = self._alert_cooldowns.get(key, 0)
             if time.time() - last_fired < self._cooldown_period:
@@ -2682,10 +2703,17 @@ class MonitoringAlertBridge:
     def get_status(self) -> dict:
         """Get bridge status for admin dashboard."""
         with self._lock:
+            if self._cooldown_store is not None:
+                active = self._cooldown_store.active_count()
+                backend = self._cooldown_store.backend_name
+            else:
+                active = len(self._alert_cooldowns)
+                backend = "memory"
             return {
                 "running": self._running,
                 "interval_s": self._interval,
-                "active_cooldowns": len(self._alert_cooldowns),
+                "active_cooldowns": active,
+                "cooldown_backend": backend,
                 "cooldown_period_s": self._cooldown_period,
             }
 
