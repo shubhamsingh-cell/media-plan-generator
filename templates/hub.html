@@ -88,7 +88,7 @@
     <link rel="stylesheet" href="/static/css/tokens.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/buttons.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/motion.css?v=2.0.0" />
-    <link rel="stylesheet" href="/static/css/hub.css?v=2.2.3" />
+    <link rel="stylesheet" href="/static/css/hub.css?v=2.2.5" />
 
     <!-- PostHog Analytics -->
     <script>
@@ -1556,6 +1556,42 @@
               </div>
             </div>
           </div>
+
+          <!-- Pager: jump between moments + pause auto-advance (a11y) -->
+          <div
+            class="story-dots"
+            role="tablist"
+            aria-label="How it works steps"
+          >
+            <button
+              class="story-dot"
+              data-moment="0"
+              aria-label="Step 1: The problem"
+            ></button>
+            <button
+              class="story-dot"
+              data-moment="1"
+              aria-label="Step 2: Your hiring goal"
+            ></button>
+            <button
+              class="story-dot"
+              data-moment="2"
+              aria-label="Step 3: Nova analyzes everything"
+            ></button>
+            <button
+              class="story-dot"
+              data-moment="3"
+              aria-label="Step 4: Your media plan"
+            ></button>
+            <button
+              class="story-dot"
+              data-moment="4"
+              aria-label="Step 5: The outcome"
+            ></button>
+            <button class="story-pause" aria-label="Pause auto-advance">
+              ||
+            </button>
+          </div>
         </div>
       </section>
 
@@ -2981,8 +3017,8 @@
                     border-radius: 10px;
                     background: linear-gradient(
                       135deg,
-                      rgba(99, 102, 241, 0.2),
-                      rgba(6, 182, 212, 0.15)
+                      rgba(90, 84, 190, 0.2),
+                      rgba(107, 181, 206, 0.15)
                     );
                     display: flex;
                     align-items: center;
@@ -3096,8 +3132,8 @@
                     border-radius: 10px;
                     background: linear-gradient(
                       135deg,
-                      rgba(34, 197, 94, 0.2),
-                      rgba(107, 179, 205, 0.15)
+                      rgba(107, 181, 206, 0.2),
+                      rgba(183, 102, 158, 0.15)
                     );
                     display: flex;
                     align-items: center;
@@ -3140,8 +3176,8 @@
                     font-size: 11px;
                     padding: 3px 8px;
                     border-radius: 6px;
-                    background: rgba(34, 197, 94, 0.12);
-                    color: var(--green);
+                    background: rgba(107, 181, 206, 0.12);
+                    color: var(--teal);
                   "
                   >Nationwide</span
                 >
@@ -3211,8 +3247,8 @@
                     border-radius: 10px;
                     background: linear-gradient(
                       135deg,
-                      rgba(245, 158, 11, 0.2),
-                      rgba(90, 84, 189, 0.15)
+                      rgba(183, 102, 158, 0.2),
+                      rgba(134, 128, 214, 0.15)
                     );
                     display: flex;
                     align-items: center;
@@ -3255,8 +3291,8 @@
                     font-size: 11px;
                     padding: 3px 8px;
                     border-radius: 6px;
-                    background: rgba(245, 158, 11, 0.12);
-                    color: var(--warning);
+                    background: rgba(183, 102, 158, 0.12);
+                    color: #b7669e;
                   "
                   >Seasonal</span
                 >
@@ -3395,7 +3431,7 @@
                     <div class="plan-showcase-bar">
                       <div
                         class="plan-showcase-bar-fill"
-                        style="--bar-w: 72%; background: var(--accent)"
+                        style="--bar-w: 72%; background: #8680d6"
                       ></div>
                     </div>
                     <span class="plan-showcase-channel-amount">$18,000</span>
@@ -3405,7 +3441,7 @@
                     <div class="plan-showcase-bar">
                       <div
                         class="plan-showcase-bar-fill"
-                        style="--bar-w: 55%; background: #06b6d4"
+                        style="--bar-w: 55%; background: #5a54be"
                       ></div>
                     </div>
                     <span class="plan-showcase-channel-amount">$13,750</span>
@@ -3415,7 +3451,7 @@
                     <div class="plan-showcase-bar">
                       <div
                         class="plan-showcase-bar-fill"
-                        style="--bar-w: 38%; background: var(--green)"
+                        style="--bar-w: 38%; background: #6bb5ce"
                       ></div>
                     </div>
                     <span class="plan-showcase-channel-amount">$9,500</span>
@@ -3425,7 +3461,7 @@
                     <div class="plan-showcase-bar">
                       <div
                         class="plan-showcase-bar-fill"
-                        style="--bar-w: 25%; background: var(--amber, #f59e0b)"
+                        style="--bar-w: 25%; background: #b7669e"
                       ></div>
                     </div>
                     <span class="plan-showcase-channel-amount">$6,250</span>
@@ -3435,7 +3471,7 @@
                     <div class="plan-showcase-bar">
                       <div
                         class="plan-showcase-bar-fill"
-                        style="--bar-w: 10%; background: #8b5cf6"
+                        style="--bar-w: 10%; background: #202058"
                       ></div>
                     </div>
                     <span class="plan-showcase-channel-amount">$2,500</span>
@@ -3458,15 +3494,25 @@
       <section class="cta-section" aria-label="Call to action">
         <div class="cta-card reveal-on-scroll">
           <div class="nova-orb" aria-hidden="true"></div>
-          <h3>Ready to plan smarter?</h3>
+          <h2>Ready to plan smarter?</h2>
           <p>
             Generate your first AI-powered media plan in under 30 seconds. Free,
             no signup.
           </p>
-          <p class="cta-proof-stats">
-            5,400+ plans generated &middot; &lt;30s average &middot; 91+ job
-            boards analyzed
-          </p>
+          <div class="cta-stats">
+            <div class="cta-stat">
+              <span class="cta-stat-num">5,400+</span>
+              <span class="cta-stat-label">plans generated</span>
+            </div>
+            <div class="cta-stat">
+              <span class="cta-stat-num">&lt;30s</span>
+              <span class="cta-stat-label">avg. plan time</span>
+            </div>
+            <div class="cta-stat">
+              <span class="cta-stat-num">91+</span>
+              <span class="cta-stat-label">job boards</span>
+            </div>
+          </div>
           <a href="/media-plan" class="cta-btn">
             Generate Plan
             <svg
@@ -3597,7 +3643,7 @@
     <!-- .footer-wrap -->
 
     <!-- ── Page Scripts (extracted to hub.js for cacheability, Fix #1) ── -->
-    <script src="/static/js/hub.js?v=2.2.1"></script>
+    <script src="/static/js/hub.js?v=2.2.2"></script>
 
     <!-- Legacy inline removed -- hamburger, observers, counters, bar anims,
          scroll handler, ripple, hero preview, page-enter, GSAP hero entrance,

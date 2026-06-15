@@ -37,7 +37,25 @@
   var storyInner = document.querySelector(".story-scroll-inner");
   if (storyInner) {
     var moments = document.querySelectorAll(".story-moment");
+    var storyDots = document.querySelectorAll(".story-dot");
     var currentMoment = 0;
+    var storyManuallyPaused = false;
+
+    // Re-trigger the "Nova analyzes everything" intel-line draw each time
+    // moment 3 (index 2) becomes active by removing + re-adding the class.
+    function retriggerIntelDraw(idx) {
+      var moment = moments[idx];
+      if (!moment || !moment.classList.contains("moment-3")) return;
+      var lines = moment.querySelectorAll(".intel-line");
+      lines.forEach(function (line) {
+        line.classList.remove("intel-line--draw");
+      });
+      // Force reflow so the animation restarts when the class is re-added.
+      void moment.offsetWidth;
+      lines.forEach(function (line) {
+        line.classList.add("intel-line--draw");
+      });
+    }
 
     function showMoment(idx) {
       if (idx < 0 || idx >= moments.length) return;
@@ -46,6 +64,17 @@
       });
       moments[idx].classList.add("active");
       currentMoment = idx;
+      // Sync pager dots (aria-current + active class for styling).
+      storyDots.forEach(function (d, i) {
+        var on = i === idx;
+        d.classList.toggle("active", on);
+        if (on) {
+          d.setAttribute("aria-current", "true");
+        } else {
+          d.removeAttribute("aria-current");
+        }
+      });
+      retriggerIntelDraw(idx);
     }
 
     storyInner.addEventListener("keydown", function (e) {
@@ -60,17 +89,65 @@
       }
     });
 
-    // S48: Auto-advance story moments every 3s so users see all content
+    // S48: Auto-advance story moments so users see all content.
+    // A11y (CLAUDE.md §8): respect prefers-reduced-motion — show the first
+    // moment statically and never cycle.
     var storyTimer = null;
     function startAutoAdvance() {
+      if (prefersReducedMotion) {
+        showMoment(0);
+        return;
+      }
+      if (storyManuallyPaused) return;
+      if (storyTimer) clearInterval(storyTimer);
       storyTimer = setInterval(function () {
         var next = (currentMoment + 1) % moments.length;
         showMoment(next);
-      }, 3000);
+      }, 5000);
+    }
+    function stopAutoAdvance() {
+      if (storyTimer) {
+        clearInterval(storyTimer);
+        storyTimer = null;
+      }
     }
     function resetAutoAdvance() {
-      if (storyTimer) clearInterval(storyTimer);
+      stopAutoAdvance();
       startAutoAdvance();
+    }
+
+    // Pager dots: jump to a moment and stop auto-advance (user took control).
+    storyDots.forEach(function (dot) {
+      dot.addEventListener("click", function () {
+        var idx = parseInt(dot.getAttribute("data-moment"), 10);
+        if (isNaN(idx)) return;
+        storyManuallyPaused = true;
+        stopAutoAdvance();
+        showMoment(idx);
+        updatePauseBtn();
+      });
+    });
+
+    // Pause/resume toggle (mirrors the .marquee-pause logic).
+    var storyPauseBtn = document.querySelector(".story-pause");
+    function updatePauseBtn() {
+      if (!storyPauseBtn) return;
+      storyPauseBtn.textContent = storyManuallyPaused ? "▶" : "||";
+      storyPauseBtn.setAttribute(
+        "aria-label",
+        storyManuallyPaused ? "Resume auto-advance" : "Pause auto-advance",
+      );
+    }
+    if (storyPauseBtn) {
+      storyPauseBtn.addEventListener("click", function () {
+        storyManuallyPaused = !storyManuallyPaused;
+        if (storyManuallyPaused) {
+          stopAutoAdvance();
+        } else {
+          startAutoAdvance();
+        }
+        updatePauseBtn();
+      });
     }
 
     // Start when section is visible
@@ -80,7 +157,7 @@
           if (e.isIntersecting) {
             startAutoAdvance();
           } else {
-            if (storyTimer) clearInterval(storyTimer);
+            stopAutoAdvance();
           }
         });
       },
@@ -88,24 +165,19 @@
     );
     storyObs.observe(storyInner.closest(".story-scroll") || storyInner);
 
-    // Pause on hover
+    // Pause on hover (skip when the user has explicitly paused or reduced
+    // motion is on — there is nothing to pause/resume).
     storyInner.addEventListener("mouseenter", function () {
-      if (storyTimer) clearInterval(storyTimer);
+      if (prefersReducedMotion || storyManuallyPaused) return;
+      stopAutoAdvance();
     });
     storyInner.addEventListener("mouseleave", function () {
+      if (prefersReducedMotion || storyManuallyPaused) return;
       startAutoAdvance();
     });
 
-    // Update dots if they exist
-    var origShowMoment = showMoment;
-    showMoment = function (idx) {
-      if (idx < 0 || idx >= moments.length) return;
-      origShowMoment(idx);
-      var dots = document.querySelectorAll(".story-dot");
-      dots.forEach(function (d, i) {
-        d.classList.toggle("active", i === idx);
-      });
-    };
+    // Ensure the initial moment's pager state + intel draw are in sync.
+    showMoment(0);
   }
 
   // ── Single consolidated IntersectionObserver (Fix #13) ──
@@ -1111,65 +1183,61 @@
     chats = chats.slice(0, 5);
 
     if (plans.length === 0 && chats.length === 0) {
+      // On-brand empty state with real CTAs (styled via .activity-empty in CSS).
       container.innerHTML =
-        '<div style="text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; border: 1px dashed rgba(255,255,255,0.08); border-radius: 12px; background: rgba(17,17,17,0.4);">' +
-        '<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" style="margin:0 auto 16px" aria-hidden="true"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>' +
-        '<div style="font-weight: 500; margin-bottom: 4px;">No recent activity</div>' +
-        "<div>Generate a media plan or chat with Nova to see your activity here.</div>" +
+        '<div class="activity-empty">' +
+        '<div class="activity-empty-glyph" aria-hidden="true">' +
+        '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>' +
+        "</div>" +
+        '<div class="activity-empty-headline">Nothing here yet — let’s change that.</div>' +
+        '<div class="activity-empty-actions">' +
+        '<a href="/media-plan" class="btn-primary">Generate your first plan</a>' +
+        '<a href="/nova" class="activity-empty-link">Chat with Nova</a>' +
+        "</div>" +
         "</div>";
       return;
     }
 
-    var html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+    var html = '<div class="activity-list">';
 
     for (var i = 0; i < plans.length; i++) {
       var p = plans[i];
       html +=
         '<a href="' +
         (p.url || "/media-plan") +
-        '" style="' +
-        "display: flex; align-items: center; gap: 14px; padding: 14px 18px;" +
-        "background: rgba(32, 32, 88, 0.12); border: 1px solid rgba(255,255,255,0.05);" +
-        "border-radius: 10px; text-decoration: none; color: inherit;" +
-        "transition: border-color 0.2s, background 0.2s;" +
-        "\" onmouseenter=\"this.style.borderColor='rgba(90,84,189,0.25)';this.style.background='rgba(32,32,88,0.2)'\" onmouseleave=\"this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(32,32,88,0.12)'\">" +
-        '<div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(90,84,189,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">&#128202;</div>' +
-        '<div style="flex: 1; min-width: 0;">' +
-        '<div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' +
+        '" class="activity-row activity-row--plan">' +
+        '<div class="activity-row-icon activity-row-icon--plan">&#128202;</div>' +
+        '<div class="activity-row-body">' +
+        '<div class="activity-row-title">' +
         (p.title || "Media Plan").replace(/</g, "&lt;") +
         "</div>" +
-        '<div style="font-size: 11px; color: var(--text-muted);">' +
+        '<div class="activity-row-meta">' +
         (p.industry || "").replace(/</g, "&lt;") +
         (p.budget ? " &middot; " + p.budget.replace(/</g, "&lt;") : "") +
         "</div>" +
         "</div>" +
-        '<div style="font-size: 11px; color: var(--text-muted); flex-shrink: 0;">' +
+        '<div class="activity-row-time">' +
         _timeAgo(p.timestamp) +
         "</div>" +
-        '<div style="font-size: 11px; color: var(--accent-light); flex-shrink: 0;">Open</div>' +
+        '<div class="activity-row-open activity-row-open--plan">Open</div>' +
         "</a>";
     }
 
     for (var j = 0; j < chats.length; j++) {
       var c = chats[j];
       html +=
-        '<a href="/nova" style="' +
-        "display: flex; align-items: center; gap: 14px; padding: 14px 18px;" +
-        "background: rgba(107, 179, 205, 0.06); border: 1px solid rgba(255,255,255,0.05);" +
-        "border-radius: 10px; text-decoration: none; color: inherit;" +
-        "transition: border-color 0.2s, background 0.2s;" +
-        "\" onmouseenter=\"this.style.borderColor='rgba(107,179,205,0.25)';this.style.background='rgba(107,179,205,0.1)'\" onmouseleave=\"this.style.borderColor='rgba(255,255,255,0.05)';this.style.background='rgba(107,179,205,0.06)'\">" +
-        '<div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(107,179,205,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;">&#128172;</div>' +
-        '<div style="flex: 1; min-width: 0;">' +
-        '<div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' +
+        '<a href="/nova" class="activity-row activity-row--chat">' +
+        '<div class="activity-row-icon activity-row-icon--chat">&#128172;</div>' +
+        '<div class="activity-row-body">' +
+        '<div class="activity-row-title">' +
         (c.title || "Nova Chat").replace(/</g, "&lt;") +
         "</div>" +
-        '<div style="font-size: 11px; color: var(--text-muted);">Chatbot conversation</div>' +
+        '<div class="activity-row-meta">Chatbot conversation</div>' +
         "</div>" +
-        '<div style="font-size: 11px; color: var(--text-muted); flex-shrink: 0;">' +
+        '<div class="activity-row-time">' +
         _timeAgo(c.timestamp) +
         "</div>" +
-        '<div style="font-size: 11px; color: var(--teal); flex-shrink: 0;">Open</div>' +
+        '<div class="activity-row-open activity-row-open--chat">Open</div>' +
         "</a>";
     }
 
