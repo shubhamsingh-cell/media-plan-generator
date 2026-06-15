@@ -39,6 +39,50 @@
     if (budgetSel) budgetSel.addEventListener("change", toggleExactBudget);
     if (hireSel) hireSel.addEventListener("change", toggleExactHires);
 
+    // ── Exact-first budget control ──────────────────────────────────
+    // The amount input is the single source of truth; #budgetRange is a
+    // hidden flag set to "__exact__" when an amount is present so the
+    // existing validation/payload exact-path keeps working unchanged.
+    (function wireBudgetControl() {
+      const amt = document.getElementById("exactBudget");
+      const flag = document.getElementById("budgetRange");
+      const quick = document.getElementById("budgetQuickfill");
+      function syncFlag() {
+        if (flag) flag.value = (amt && amt.value.trim()) ? "__exact__" : "";
+      }
+      function setAmount(v) {
+        if (!amt) return;
+        amt.value = Number(v).toLocaleString("en-US");
+        syncFlag();
+        amt.dispatchEvent(new Event("input", { bubbles: true }));
+        if (typeof checkBudgetFeasibility === "function") {
+          try { checkBudgetFeasibility(); } catch (e) {}
+        }
+      }
+      if (amt) {
+        amt.addEventListener("input", function () {
+          syncFlag();
+          var fg = amt.closest(".form-group");
+          if (fg) fg.classList.remove("field-error");
+          if (typeof checkBudgetFeasibility === "function") {
+            try { checkBudgetFeasibility(); } catch (e) {}
+          }
+        });
+      }
+      if (quick) {
+        quick.querySelectorAll("button[data-amt]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            setAmount(b.getAttribute("data-amt"));
+            quick.querySelectorAll("button").forEach(function (x) {
+              x.classList.remove("active");
+            });
+            b.classList.add("active");
+          });
+        });
+      }
+      syncFlag();
+    })();
+
     // Clear validation errors and add visual feedback on select change
     [
       "budgetRange",
@@ -182,14 +226,11 @@
   }
 
   function toggleExactBudget() {
-    const sel = document.getElementById("budgetRange");
+    // Exact-first redesign: the budget amount input is always the primary
+    // control (no dropdown to toggle). Keep this as a safe no-op so legacy
+    // callers (presets, clearForm) don't error.
     const wrap = document.getElementById("exactBudgetWrap");
-    if (!sel || !wrap) return;
-    wrap.style.display = sel.value === "__exact__" ? "block" : "none";
-    if (sel.value !== "__exact__") {
-      const inp = document.getElementById("exactBudget");
-      if (inp) inp.value = "";
-    }
+    if (wrap) wrap.style.display = "";
   }
 
   function toggleExactHires() {
@@ -270,7 +311,25 @@
       return;
     }
 
-    var budgetMid = BUDGET_MIDPOINTS[budgetStr] || 100000;
+    // Exact-first: parse the real amount; fall back to bucket midpoints.
+    var budgetMid;
+    if (budgetStr === "__exact__") {
+      var _raw = ((document.getElementById("exactBudget") || {}).value || "")
+        .replace(/[$,\s]/g, "")
+        .toUpperCase();
+      var _m = _raw.match(/^([0-9]*\.?[0-9]+)([KMB])?$/);
+      budgetMid = _m
+        ? parseFloat(_m[1]) *
+          (_m[2] === "K" ? 1e3 : _m[2] === "M" ? 1e6 : _m[2] === "B" ? 1e9 : 1)
+        : 0;
+      if (!budgetMid) {
+        var _ew = document.getElementById("budgetFeasibilityWarning");
+        if (_ew) _ew.remove();
+        return;
+      }
+    } else {
+      budgetMid = BUDGET_MIDPOINTS[budgetStr] || 100000;
+    }
     var hireCount = HIRE_VOLUME_MAP[hireStr] || 10;
     var industryCph =
       INDUSTRY_CPH_BENCHMARKS[industryStr] ||
@@ -1577,11 +1636,24 @@
           useCaseEl.dispatchEvent(new Event("input", { bubbles: true }));
         }
 
-        // Fill budget range (select)
-        const budgetEl = document.getElementById("budgetRange");
-        if (budgetEl && this.dataset.budget) {
-          budgetEl.value = this.dataset.budget;
-          budgetEl.dispatchEvent(new Event("change", { bubbles: true }));
+        // Fill budget: presets carry a range string -> set the exact amount
+        // input to its midpoint (the budget control is now exact-first).
+        if (this.dataset.budget) {
+          var _bmid = {
+            "< $50,000": 35000,
+            "$50,000 - $250,000": 150000,
+            "$250,000 - $500,000": 375000,
+            "$500,000 - $1,000,000": 750000,
+            "$1,000,000 - $3,000,000": 2000000,
+            "$3,000,000+": 4000000,
+          }[this.dataset.budget];
+          var _amtEl = document.getElementById("exactBudget");
+          var _flagEl = document.getElementById("budgetRange");
+          if (_amtEl && _bmid) {
+            _amtEl.value = Number(_bmid).toLocaleString("en-US");
+            if (_flagEl) _flagEl.value = "__exact__";
+            _amtEl.dispatchEvent(new Event("input", { bubbles: true }));
+          }
         }
 
         // Add location as tag
@@ -1702,28 +1774,14 @@
         if (ic && typeof selectIndustry === "function") selectIndustry(ic);
       }
 
-      // Budget
+      // Budget (exact-first): set the amount input directly from the param
       if (params.get("budget")) {
-        var be = document.getElementById("budgetRange");
-        if (be) {
-          // Try matching the budget range option
-          var budgetVal = params.get("budget");
-          var matched = false;
-          for (var i = 0; i < be.options.length; i++) {
-            if (be.options[i].value === budgetVal) {
-              be.value = budgetVal;
-              matched = true;
-              break;
-            }
-          }
-          if (!matched) {
-            // Set as exact budget
-            be.value = "__exact__";
-            toggleExactBudget();
-            var eb = document.getElementById("exactBudget");
-            if (eb) eb.value = budgetVal;
-          }
-          be.dispatchEvent(new Event("change", { bubbles: true }));
+        var eb = document.getElementById("exactBudget");
+        var bflag = document.getElementById("budgetRange");
+        if (eb) {
+          eb.value = params.get("budget");
+          if (bflag) bflag.value = eb.value.trim() ? "__exact__" : "";
+          eb.dispatchEvent(new Event("input", { bubbles: true }));
         }
       }
 
@@ -2575,21 +2633,22 @@
         } else {
           _clearFieldError(useCaseEl);
         }
-        // --- Budget Range ---
+        // --- Budget (exact-first; #budgetRange is the hidden filled-flag) ---
         var budgetRangeEl = document.getElementById("budgetRange");
+        var budgetAmtEl = document.getElementById("exactBudget");
         if (!budgetRangeEl || !budgetRangeEl.value) {
-          showToast("Please select a budget range", "error");
-          _showFieldError(budgetRangeEl, "Please select a budget range");
-          if (budgetRangeEl) {
-            budgetRangeEl.focus();
-            budgetRangeEl.scrollIntoView({
+          showToast("Please enter a budget", "error");
+          _showFieldError(budgetAmtEl || budgetRangeEl, "Please enter a budget");
+          if (budgetAmtEl) {
+            budgetAmtEl.focus();
+            budgetAmtEl.scrollIntoView({
               behavior: "smooth",
               block: "center",
             });
           }
           return;
         } else {
-          _clearFieldError(budgetRangeEl);
+          _clearFieldError(budgetAmtEl || budgetRangeEl);
         }
         // --- Campaign Duration ---
         var durationEl = document.getElementById("campaignDuration");
@@ -2890,8 +2949,9 @@
       annual: "Annual",
     };
     var _bpVal = document.getElementById("budgetPeriod")?.value || "campaign";
+    var _amtVal = (document.getElementById("exactBudget") || {}).value || "";
     document.getElementById("reviewBudget").textContent =
-      (document.getElementById("budgetRange").value || "Not specified") +
+      (_amtVal ? "$" + _amtVal.replace(/^\$/, "") : "Not specified") +
       (_bpVal !== "campaign" ? " (" + (_bpLabel[_bpVal] || _bpVal) + ")" : "");
     document.getElementById("reviewDuration").textContent =
       document.getElementById("campaignDuration").value || "Not specified";
@@ -4401,13 +4461,13 @@
     setVal("requesterName", s.requesterName);
     setVal("requesterEmail", s.requesterEmail);
 
-    // Show/hide exact budget wrap
+    // Exact-first: the budget amount input is always visible. Re-derive the
+    // hidden flag from the restored amount so validation/payload stay correct.
+    var ebw = document.getElementById("exactBudgetWrap");
+    if (ebw) ebw.style.display = "";
     var budgetEl = document.getElementById("budgetRange");
-    if (budgetEl) {
-      var ebw = document.getElementById("exactBudgetWrap");
-      if (ebw)
-        ebw.style.display = budgetEl.value === "custom" ? "block" : "none";
-    }
+    var _amtR = (document.getElementById("exactBudget") || {}).value || "";
+    if (budgetEl) budgetEl.value = _amtR.trim() ? "__exact__" : "";
     // Show/hide exact hires wrap
     var hvEl = document.getElementById("hireVolume");
     if (hvEl) {

@@ -6910,6 +6910,83 @@
     stroke: #fff;
   }
 
+  /* ── Exact-first budget control ─────────────────────────────────── */
+  .studio .budget-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .studio .budget-currency {
+    position: absolute;
+    left: 14px;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 18px;
+    color: var(--np-purple-light);
+    pointer-events: none;
+  }
+  .studio .budget-amount-input {
+    width: 100%;
+    background: var(--np-input) !important;
+    border: 1px solid var(--np-hair) !important;
+    border-radius: 11px !important;
+    color: var(--np-ink) !important;
+    font-family: var(--font-heading) !important;
+    font-weight: 600 !important;
+    font-size: 20px !important;
+    letter-spacing: -0.01em;
+    padding: 12px 14px 12px 30px !important;
+    min-height: 50px;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease !important;
+  }
+  .studio .budget-amount-input::placeholder {
+    color: var(--np-faint) !important;
+    font-weight: 500;
+  }
+  .studio .budget-amount-input:hover {
+    border-color: var(--np-hair-strong) !important;
+  }
+  .studio .budget-amount-input:focus {
+    outline: none !important;
+    border-color: var(--np-purple) !important;
+    background: var(--np-panel-2) !important;
+    box-shadow: 0 0 0 3px rgba(90, 84, 190, 0.22) !important;
+  }
+  .studio .budget-quickfill {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 9px;
+  }
+  .studio .budget-quickfill button {
+    flex: 1 1 auto;
+    min-width: 52px;
+    padding: 7px 10px;
+    border-radius: 9px;
+    border: 1px solid var(--np-hair);
+    background: var(--np-panel);
+    color: var(--np-ink-soft);
+    font-size: 12.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: all 0.15s var(--ease-out, ease);
+  }
+  .studio .budget-quickfill button:hover {
+    border-color: var(--np-purple);
+    background: rgba(90, 84, 190, 0.16);
+    color: #fff;
+    transform: translateY(-1px);
+  }
+  .studio .budget-quickfill button.active {
+    border-color: var(--np-purple);
+    background: rgba(90, 84, 190, 0.28);
+    color: #fff;
+  }
+  .studio .budget-period-row select {
+    width: 100%;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     body::before {
       animation: none !important;

@@ -439,59 +439,49 @@
 
       <div class="form-row form-row-3">
         <div class="form-group">
-          <label for="budgetRange">Total Campaign Budget *</label>
-          <select
-            id="budgetRange"
-            aria-required="true"
-            aria-describedby="budgetRange-error"
-          >
-            <option value="">Select campaign budget</option>
-            <option value="< $50,000">Under $50,000</option>
-            <option value="$50,000 - $250,000">$50,000 - $250,000</option>
-            <option value="$250,000 - $500,000">$250,000 - $500,000</option>
-            <option value="$500,000 - $1,000,000">$500,000 - $1,000,000</option>
-            <option value="$1,000,000 - $3,000,000">
-              $1,000,000 - $3,000,000
-            </option>
-            <option value="$3,000,000+">$3,000,000+</option>
-            <option value="__exact__">Enter exact amount</option>
-          </select>
-          <div
-            class="budget-period-row"
-            style="display: flex; gap: 8px; margin-top: 6px"
-          >
-            <select
-              id="budgetPeriod"
-              aria-label="Budget period"
-              style="
-                flex: 1;
-                padding: 8px 12px;
-                border: 1px solid var(--border);
-                border-radius: var(--radius-sm);
-                background: var(--bg-secondary);
-                color: var(--text-primary);
-                font-size: 13px;
-              "
-            >
-              <option value="campaign" selected>Per Campaign (total)</option>
-              <option value="monthly">Per Month</option>
-              <option value="quarterly">Per Quarter</option>
-              <option value="annual">Per Year</option>
-            </select>
-          </div>
-          <div
-            id="exactBudgetWrap"
-            class="exact-input-wrap"
-            style="display: none"
-          >
+          <label for="exactBudget">Total Campaign Budget *</label>
+          <!-- Exact-first single control: type any $ amount; quick chips below.
+               #budgetRange is a hidden flag ("__exact__" when filled) so the
+               existing validation/payload/exact-path keep working. -->
+          <div class="budget-input-wrap" id="exactBudgetWrap">
+            <span class="budget-currency" aria-hidden="true">$</span>
             <input
               type="text"
               id="exactBudget"
-              placeholder="e.g. $12,500,000 or 12.5M or 500K"
+              class="budget-amount-input"
+              inputmode="numeric"
+              autocomplete="off"
+              placeholder="150,000"
+              aria-required="true"
+              aria-label="Total campaign budget amount"
+              aria-describedby="budgetRange-error budget-hint"
             />
-            <div class="form-hint">
-              Accepts: $12,500,000 / 12.5M / 500K / 2B etc.
-            </div>
+          </div>
+          <input type="hidden" id="budgetRange" value="" />
+          <div
+            class="budget-quickfill"
+            id="budgetQuickfill"
+            role="group"
+            aria-label="Quick budget amounts"
+          >
+            <button type="button" data-amt="50000">$50K</button>
+            <button type="button" data-amt="150000">$150K</button>
+            <button type="button" data-amt="375000">$375K</button>
+            <button type="button" data-amt="750000">$750K</button>
+            <button type="button" data-amt="2000000">$2M</button>
+            <button type="button" data-amt="4000000">$4M</button>
+          </div>
+          <div class="budget-period-row" style="margin-top: 8px">
+            <select id="budgetPeriod" aria-label="Budget period">
+              <option value="campaign" selected>Per campaign (total)</option>
+              <option value="monthly">Per month</option>
+              <option value="quarterly">Per quarter</option>
+              <option value="annual">Per year</option>
+            </select>
+          </div>
+          <div class="form-hint" id="budget-hint">
+            Type any amount &mdash; shorthand works (12.5M, 500K, 2B), or tap a
+            quick amount.
           </div>
           <div
             class="copilot-nudge"

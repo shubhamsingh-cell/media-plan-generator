@@ -146,11 +146,10 @@
 
     // ── Gather model from the form ────────────────────────────────────
     function gather() {
-      // budget
+      // budget — exact-first: prefer the typed amount, fall back to bucket
       var br = val("budgetRange");
-      var base = 0;
-      if (br === "__exact__") base = parseMoney(val("exactBudget"));
-      else base = BUDGET_MIDPOINTS[br] || 0;
+      var base = parseMoney(val("exactBudget"));
+      if (!base) base = BUDGET_MIDPOINTS[br] || 0;
 
       var months = DURATION_MONTHS[val("campaignDuration")] || 6;
       var period = val("budgetPeriod") || "campaign";
