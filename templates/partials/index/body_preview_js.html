@@ -427,6 +427,34 @@
           pane.__rc = setTimeout(function () { pane.classList.remove("recomputing"); }, 650);
         }
       }
+
+      // Make Nova chat plan-aware: feed the live plan context into the widget
+      // (the widget already forwards CONFIG._sessionContext to /api/chat).
+      if (window.NovaChat && typeof window.NovaChat.setContext === "function") {
+        var industry = val("industrySearch");
+        if (!industry) {
+          var icard = document.querySelector(".industry-card.selected, .industry-card[aria-pressed='true']");
+          if (icard) { var ih = icard.querySelector("h3, .industry-name, strong"); industry = ih ? ih.textContent.trim() : ""; }
+        }
+        try {
+          window.NovaChat.setContext({
+            source: "media-plan-studio",
+            client: m.client || "",
+            role: m.role || "",
+            roles: readTags("rolesContainer"),
+            locations: m.locs || [],
+            industry: industry || "",
+            budget: hasBudget ? hero(m.total) : "",
+            budget_value: m.total || 0,
+            channels: m.rows.map(function (r) { return r.name; }),
+            projected: hasBudget ? {
+              applications: Math.round(m.applies),
+              hires: Math.round(m.hires),
+              cost_per_application: Math.round(m.cpa * 100) / 100,
+            } : null,
+          });
+        } catch (e) { /* widget not ready */ }
+      }
     }
 
     // ── Topbar step counter (mirrors the active wizard step) ───────────

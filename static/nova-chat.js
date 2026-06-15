@@ -2263,6 +2263,52 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Follow-up chips: render server `suggested_followups` as tappable chips
+  // after the latest assistant reply (turns each answer into a guided next step)
+  // ---------------------------------------------------------------------------
+  function renderFollowups(followups) {
+    if (!Array.isArray(followups) || !followups.length) return;
+    var messagesDiv = document.getElementById("nova-messages");
+    if (!messagesDiv) return;
+    var existing = document.getElementById("nova-followups");
+    if (existing) existing.remove();
+    var wrap = document.createElement("div");
+    wrap.id = "nova-followups";
+    var label = document.createElement("div");
+    label.className = "nova-followups-label";
+    label.textContent = "Suggested follow-ups";
+    label.style.cssText =
+      "font-size:11px;font-weight:600;color:#8680d6;letter-spacing:0.04em;text-transform:uppercase;margin:10px 2px 7px;";
+    wrap.appendChild(label);
+    var grid = document.createElement("div");
+    grid.className = "nova-suggestions";
+    followups.slice(0, 4).forEach(function (q) {
+      var btn = document.createElement("button");
+      btn.className = "nova-suggestion-btn";
+      btn.type = "button";
+      btn.textContent = q;
+      btn.addEventListener("click", function () {
+        if (window.posthog && typeof window.posthog.capture === "function") {
+          window.posthog.capture("nova_chat_followup_clicked", {
+            source: "widget",
+            page: window.location.pathname,
+            suggestion_text: q,
+          });
+        }
+        var fu = document.getElementById("nova-followups");
+        if (fu) fu.remove();
+        var input = document.getElementById("nova-input");
+        if (input) input.value = q;
+        sendMessage();
+      });
+      grid.appendChild(btn);
+    });
+    wrap.appendChild(grid);
+    messagesDiv.appendChild(wrap);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  }
+
+  // ---------------------------------------------------------------------------
   // Message rendering
   // ---------------------------------------------------------------------------
   function appendMessage(msg, persist) {
@@ -2273,6 +2319,11 @@
     var sugEl = document.getElementById("nova-suggestions");
     if (sugEl && msg.role === "user") {
       sugEl.remove();
+    }
+    // Clear prior follow-up chips when the user sends a new message
+    var fuEl = document.getElementById("nova-followups");
+    if (fuEl && msg.role === "user") {
+      fuEl.remove();
     }
     var welcomeEl = document.getElementById("nova-welcome-state");
     if (welcomeEl && msg.role === "user") {
@@ -3525,6 +3576,7 @@
               );
               if (statusCleanup) statusCleanup.remove();
               wsStreamEl.innerHTML = renderMarkdown(finalContent);
+              renderFollowups(metadata.suggested_followups);
               addActionButtonsToElement(wsStreamEl, finalContent);
               addMetaToElement(wsStreamEl, finalSources, finalConfidence, null);
               // Attach live transparency panel to the streaming element so the
@@ -3826,6 +3878,7 @@
 
               // Re-render final markdown content into existing element
               streamEl.innerHTML = renderMarkdown(finalContent);
+              renderFollowups(metadata.suggested_followups);
 
               // Remove the status indicator if any (guarded)
               if (!_statusRemoved) {
@@ -4051,6 +4104,7 @@
             kb_files_queried: result.kb_files_queried || [],
             timing_ms: result.timing_ms != null ? result.timing_ms : null,
           });
+          renderFollowups(result.suggested_followups);
         })
         .catch(function (err) {
           clearTimeout(fetchTimeout);
