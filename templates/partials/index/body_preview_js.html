@@ -372,6 +372,21 @@
         });
       }
 
+      // action card — let Nova apply its recommended mix to the real form
+      var act = $("npAction");
+      if (act) {
+        if (hasBudget && m.usingStarter) {
+          act.style.display = "";
+          act.innerHTML =
+            '<button type="button" class="np-apply-mix" onclick="NovaPreview.applyMix()">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>' +
+            "Apply this mix to my plan</button>";
+        } else {
+          act.style.display = "none";
+          act.innerHTML = "";
+        }
+      }
+
       // outcomes
       if (hasBudget) {
         setNum($("npApplies"), m.applies, intc);
@@ -480,7 +495,20 @@
       setInterval(function () { render(); updateStepNum(); }, 1600);
     }
 
-    window.NovaPreview = { update: render, finalize: finalize };
+    // Apply Nova's recommended starter mix to the real channel toggles.
+    function applyMix() {
+      channelsTouched = true;
+      STARTER.forEach(function (id) {
+        var el = $(id);
+        if (el && !el.checked) {
+          el.checked = true;
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      });
+      render();
+    }
+
+    window.NovaPreview = { update: render, finalize: finalize, applyMix: applyMix };
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", boot);
     } else {
