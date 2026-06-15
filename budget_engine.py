@@ -53,6 +53,15 @@ try:
 except ImportError:
     _HAS_SUPABASE_DATA = False
 
+# #11: real-outcome CALIBRATION (vs surfacing). When enabled AND a strong
+# warehouse match exists, the plan's projected applications/CPA are blended
+# toward the Joveo-measured cost-per-apply (sample-weighted, hard-capped).
+# DEFAULT OFF so a deploy never changes client numbers until explicitly turned
+# on via the Render env var REAL_OUTCOME_CALIBRATION_ENABLED=true.
+_REAL_OUTCOME_CALIBRATION_ENABLED = os.environ.get(
+    "REAL_OUTCOME_CALIBRATION_ENABLED", "false"
+).strip().lower() in ("1", "true", "yes", "on")
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LIVE DATA LOADERS -- channel_benchmarks_live.json & adzuna_benchmarks.json
@@ -2815,6 +2824,107 @@ def _build_real_outcome_calibration(
     return note
 
 
+def _apply_outcome_calibration(
+    result: Dict[str, Any],
+    real_outcomes: List[Dict[str, Any]],
+    total_budget: float,
+) -> None:
+    """#11: blend the plan's projected applications/CPA toward MEASURED outcomes.
+
+    Flag-gated (``_REAL_OUTCOME_CALIBRATION_ENABLED``, default OFF). When the
+    strongest warehouse match clears ``_KEYSTONE_STRONG_SAMPLE_SIZE``, the
+    plan's blended cost-per-apply is moved toward the Joveo-measured value by a
+    sample-weighted, hard-capped factor, and per-channel + aggregate
+    applications/CPA/hires are rescaled consistently.
+
+    Safety: weight is capped at 0.6 (measured never fully overrides the model),
+    the calibrated CPA is clamped to [0.65x, 1.5x] of the estimate, and the
+    applications scale to [0.67x, 1.55x]. Mutates ``result`` in place and writes
+    a transparent ``metadata.real_outcome_calibration_applied`` record. A no-op
+    when the flag is off, there is no strong match, or the estimate is unusable
+    (so the result stays byte-identical to the surfacing-only path).
+    """
+    if not _REAL_OUTCOME_CALIBRATION_ENABLED or not real_outcomes:
+        return
+
+    candidates = [
+        o
+        for o in real_outcomes
+        if isinstance(o.get("cost_per_apply"), (int, float))
+        and (o.get("cost_per_apply") or 0) > 0
+        and isinstance(o.get("sample_size"), (int, float))
+    ]
+    if not candidates:
+        return
+    best = max(candidates, key=lambda o: o.get("sample_size") or 0)
+    sample = int(best.get("sample_size") or 0)
+    if sample < _KEYSTONE_STRONG_SAMPLE_SIZE:
+        return
+
+    measured_cpa = float(best["cost_per_apply"])
+    total_projected = result.get("total_projected") or {}
+    est_cpa = float(total_projected.get("cost_per_application") or 0)
+    if est_cpa <= 0 or measured_cpa <= 0:
+        return
+
+    # Sample-weighted, capped blend toward measured. More samples => more weight,
+    # but never beyond 0.6 (the model always keeps a say).
+    weight = max(0.1, min(0.6, sample / 200.0))
+    calibrated_cpa = est_cpa * (1.0 - weight) + measured_cpa * weight
+    calibrated_cpa = max(est_cpa * 0.65, min(est_cpa * 1.5, calibrated_cpa))
+    # Lower CPA => same budget buys more applications (scale > 1) and vice-versa.
+    scale = est_cpa / calibrated_cpa if calibrated_cpa > 0 else 1.0
+    scale = max(0.67, min(1.55, scale))
+
+    # Rescale every channel's applications/hires; recompute their CPA/CPH from
+    # the unchanged dollar_amount so channel rows stay internally consistent.
+    channels = result.get("channel_allocations") or {}
+    for ch in channels.values():
+        if not isinstance(ch, dict):
+            continue
+        dollars = float(ch.get("dollar_amount") or 0)
+        apps = (ch.get("projected_applications") or 0) * scale
+        ch["projected_applications"] = int(round(apps))
+        ch["cpa"] = round(
+            _safe_divide(dollars, max(ch["projected_applications"], 1), 0), 2
+        )
+        hires = (ch.get("projected_hires") or 0) * scale
+        ch["projected_hires"] = round(hires, 2)
+        ch["cost_per_hire"] = round(
+            _safe_divide(dollars, max(ch["projected_hires"], 1), 0), 2
+        )
+
+    # Re-aggregate the blended totals (clicks/CPC unchanged — calibration acts
+    # on apply efficiency, not traffic).
+    total_apps = sum(c.get("projected_applications") or 0 for c in channels.values())
+    total_hires = sum(c.get("projected_hires") or 0 for c in channels.values())
+    total_projected["applications"] = total_apps
+    total_projected["hires"] = round(total_hires, 2)
+    total_projected["cost_per_application"] = round(
+        _safe_divide(total_budget, max(total_apps, 1), 0), 2
+    )
+    total_projected["cost_per_hire"] = round(
+        _safe_divide(total_budget, max(total_hires, 1), 0), 2
+    )
+
+    result["metadata"]["real_outcome_calibration_applied"] = {
+        "applied": True,
+        "title": best.get("title"),
+        "scale": round(scale, 3),
+        "weight": round(weight, 3),
+        "sample_size": sample,
+        "measured_cost_per_apply": round(measured_cpa, 2),
+        "estimated_cost_per_apply_pre": round(est_cpa, 2),
+        "calibrated_cost_per_apply": total_projected["cost_per_application"],
+        "source": best.get("source"),
+        "last_updated": best.get("last_updated"),
+        "note": (
+            "Projected applications/CPA blended toward Joveo-measured "
+            "cost-per-apply (sample-weighted, capped). Clicks/CPC unchanged."
+        ),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Master function
 # ---------------------------------------------------------------------------
@@ -3079,6 +3189,10 @@ def calculate_budget_allocation(
             )
             if calibration:
                 result["metadata"]["real_outcome_calibration"] = calibration
+            # #11: optionally CALIBRATE the numbers (flag-gated, default OFF).
+            # Runs after the surfacing note so the note keeps the pre-calibration
+            # estimate-vs-measured comparison.
+            _apply_outcome_calibration(result, real_outcomes, total_budget)
     except Exception as exc:  # noqa: BLE001 — keystone surfacing is best-effort
         logger.debug("S89 keystone outcome attach skipped: %s", exc)
 

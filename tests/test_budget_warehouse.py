@@ -238,6 +238,89 @@ def test_primary_location_passed_to_accessor():
         assert _args[1] == "Dallas"
 
 
+# ---------------------------------------------------------------------------
+# #11: real-outcome CALIBRATION (flag-gated) — actually adjusts the numbers
+# ---------------------------------------------------------------------------
+
+
+def _run_calibrated(flag, match_fn=None):
+    """Run with the warehouse matched and the calibration flag set to `flag`."""
+    fn = match_fn or _matched
+    fake = mock.Mock(side_effect=lambda title, loc="": fn(title, loc))
+    with mock.patch.object(budget_engine, "_HAS_SUPABASE_DATA", True), mock.patch.object(
+        budget_engine, "_supabase_data", mock.Mock(get_real_outcomes=fake), create=True
+    ), mock.patch.object(
+        budget_engine, "_REAL_OUTCOME_CALIBRATION_ENABLED", flag
+    ):
+        return _run()
+
+
+def test_calibration_off_by_default_changes_nothing():
+    """Flag OFF + strong match: numbers stay identical to the no-keystone run;
+    surfacing note present, but no 'applied' record and no number change."""
+    with mock.patch.object(budget_engine, "_HAS_SUPABASE_DATA", False):
+        baseline = _run()
+    off = _run_calibrated(False)
+    assert "real_outcome_calibration_applied" not in off["metadata"]
+    assert "real_outcome_calibration" in off["metadata"]  # surfacing still works
+    assert (
+        off["total_projected"]["applications"]
+        == baseline["total_projected"]["applications"]
+    )
+    assert (
+        off["total_projected"]["cost_per_application"]
+        == baseline["total_projected"]["cost_per_application"]
+    )
+
+
+def test_calibration_on_blends_cpa_toward_measured_and_stays_consistent():
+    """Flag ON + strong match: CPA moves toward measured, capped, and the
+    per-channel rows still sum to the (rescaled) aggregate."""
+    with mock.patch.object(budget_engine, "_HAS_SUPABASE_DATA", False):
+        baseline = _run()
+    on = _run_calibrated(True)
+
+    applied = on["metadata"].get("real_outcome_calibration_applied")
+    assert applied and applied["applied"] is True
+    assert applied["measured_cost_per_apply"] == 1.5
+    assert applied["sample_size"] == 250
+
+    base_cpa = baseline["total_projected"]["cost_per_application"]
+    new_cpa = on["total_projected"]["cost_per_application"]
+    measured = 1.5
+    if base_cpa > measured:  # the expected direction for this fixture
+        assert new_cpa < base_cpa  # moved toward measured
+        assert new_cpa >= measured * 0.99  # never overshoots past measured
+        assert (
+            on["total_projected"]["applications"]
+            > baseline["total_projected"]["applications"]
+        )
+    # Hard cap: calibrated CPA within [0.65x, 1.5x] of the estimate.
+    assert base_cpa * 0.65 - 0.02 <= new_cpa <= base_cpa * 1.5 + 0.02
+    # Internal consistency: channel applications sum to the aggregate.
+    chans = on["channel_allocations"].values()
+    ch_apps = sum(c.get("projected_applications") or 0 for c in chans)
+    assert ch_apps == on["total_projected"]["applications"]
+
+
+def test_calibration_skips_weak_sample():
+    """Flag ON but sample < threshold: no calibration, numbers unchanged."""
+
+    def weak(title, location=""):
+        m = _matched(title, location)
+        m["sample_size"] = 5
+        return m
+
+    with mock.patch.object(budget_engine, "_HAS_SUPABASE_DATA", False):
+        baseline = _run()
+    on = _run_calibrated(True, match_fn=weak)
+    assert "real_outcome_calibration_applied" not in on["metadata"]
+    assert (
+        on["total_projected"]["applications"]
+        == baseline["total_projected"]["applications"]
+    )
+
+
 if __name__ == "__main__":
     _failures = 0
     for _name, _fn in sorted(globals().items()):
