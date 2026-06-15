@@ -1298,6 +1298,12 @@ class SupabasePersistence:
         self._base_url: str = ""
         self._api_key: str = ""
         self._save_thread: Optional[threading.Thread] = None
+        # Idempotency: the snapshot is an ADDITIVE merge (correct for restoring
+        # cumulative counters once at startup, when current == 0). Applying it a
+        # second time in the same process -- e.g. if init_metrics_persistence()
+        # is ever called twice (the double-init footgun that bit the auth/bridge
+        # paths) -- would DOUBLE-COUNT. This flag makes load() apply-once.
+        self._snapshot_loaded: bool = False
 
         url = os.environ.get("SUPABASE_URL") or ""
         key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or ""
@@ -1362,6 +1368,10 @@ class SupabasePersistence:
         """
         if not self._enabled:
             return False
+        if self._snapshot_loaded:
+            # Apply-once: a second additive merge would double-count.
+            logger.debug("Metrics snapshot already applied; skipping re-load")
+            return False
         try:
             url = f"{self._rest_url()}?select=metric_key,metric_value"
             req = urllib.request.Request(
@@ -1382,6 +1392,7 @@ class SupabasePersistence:
             if not data:
                 return False
             self._apply_snapshot(data)
+            self._snapshot_loaded = True  # apply-once guard
             logger.info(
                 "Restored metrics from Supabase: %d total_requests, %d total_errors",
                 data.get("total_requests", 0),
