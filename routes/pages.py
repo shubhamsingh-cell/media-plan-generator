@@ -5,6 +5,7 @@ routes that serve templates from the templates/ directory.  Returns
 ``True`` if the route was handled.
 """
 
+import gzip
 import logging
 import os
 import re
@@ -277,11 +278,21 @@ def _serve_template(handler: Any, templates_dir: str, template: str) -> None:
 
         composed = get_composed_template(page_name)
         if composed is not None:
+            # gzip when the client accepts it (composed pages are large —
+            # e.g. /media-plan is ~518KB raw, ~105KB gzipped) + a short
+            # private revalidating cache for cross-navigation reuse.
+            accept_encoding = handler.headers.get("Accept-Encoding") or ""
+            body = composed
             handler.send_response(200)
             handler.send_header("Content-Type", "text/html; charset=utf-8")
-            handler.send_header("Content-Length", str(len(composed)))
+            handler.send_header("Cache-Control", "private, max-age=300")
+            handler.send_header("Vary", "Accept-Encoding")
+            if "gzip" in accept_encoding and len(composed) > 1024:
+                body = gzip.compress(composed, compresslevel=6)
+                handler.send_header("Content-Encoding", "gzip")
+            handler.send_header("Content-Length", str(len(body)))
             handler.end_headers()
-            handler.wfile.write(composed)
+            handler.wfile.write(body)
             return
     except ImportError:
         pass  # Composer not available, fall back to direct read

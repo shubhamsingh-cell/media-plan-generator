@@ -1616,6 +1616,31 @@
           }, 100);
         }
 
+        // Campaign duration
+        if (this.dataset.duration) {
+          const durEl = document.getElementById("campaignDuration");
+          if (durEl) {
+            durEl.value = this.dataset.duration;
+            durEl.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        }
+        // Target hire volume
+        if (this.dataset.hires) {
+          const hvEl = document.getElementById("hireVolume");
+          if (hvEl) {
+            hvEl.value = this.dataset.hires;
+            hvEl.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        }
+        // Experience level (single matching checkbox)
+        if (this.dataset.experience) {
+          document
+            .querySelectorAll('input[name="experienceLevel"]')
+            .forEach((cb) => {
+              cb.checked = cb.value === this.dataset.experience;
+            });
+        }
+
         // Visual feedback -- highlight active chip
         document
           .querySelectorAll(".preset-chip")
@@ -1985,15 +2010,38 @@
       return;
     }
 
-    const openRoles = data.total_jobs || data.jobs_found || 0;
+    // S90: "open roles" is now the REAL count from the company's public ATS
+    // feed (Greenhouse/Lever/Ashby), not a capped keyword sample. JobSpy is
+    // demoted to a clearly-labeled market sample. When the employer runs a
+    // private ATS (Google/Meta/etc.) we say so honestly instead of inventing
+    // a number.
+    const ats = data.ats_hiring_data || {};
+    const atsTotal = typeof ats.total_available === "number"
+      ? ats.total_available
+      : (typeof data.total_jobs === "number" ? data.total_jobs : null);
     const categories = data.job_categories || data.categories || [];
     const locations = data.locations || data.hiring_locations || [];
     const jobspy = data.jobspy_hiring_data || {};
     const jobspyCount = jobspy.postings_found || 0;
 
-    let statsHtml =
-      `<div class="competitor-card-stats">` +
-      `<span class="competitor-stat"><strong>${openRoles + jobspyCount}</strong> open roles</span>`;
+    let statsHtml = `<div class="competitor-card-stats">`;
+    if (atsTotal !== null && atsTotal > 0) {
+      const src = ats.provider
+        ? `live · ${_escHtml(String(ats.provider))}`
+        : "live ATS";
+      statsHtml +=
+        `<span class="competitor-stat"><strong>${atsTotal}</strong> open roles` +
+        ` <span class="competitor-stat-src">${src}</span></span>`;
+    } else if (data.ats_status === "no_public_board") {
+      statsHtml +=
+        `<span class="competitor-stat competitor-stat-muted">` +
+        `No public ATS feed (private careers system)</span>`;
+    }
+    if (jobspyCount > 0) {
+      statsHtml +=
+        `<span class="competitor-stat"><strong>${jobspyCount}</strong> market sample` +
+        ` <span class="competitor-stat-src">postings</span></span>`;
+    }
     if (categories.length > 0) {
       statsHtml += `<span class="competitor-stat"><strong>${categories.length}</strong> job categories</span>`;
     }
@@ -2042,13 +2090,22 @@
   function _renderCompetitorSuggestions(successfulResults, container) {
     const allCategories = [];
     const allLocations = [];
+    // S90: base the budget recommendation only on REAL ATS open-role counts.
+    // The JobSpy market sample is bounded by the scrape limit, so summing it
+    // would re-introduce the inflated/meaningless total the old card showed.
     let totalRoles = 0;
+    let realCountCompanies = 0;
 
     successfulResults.forEach((r) => {
       const d = r.data;
-      totalRoles +=
-        (d.total_jobs || d.jobs_found || 0) +
-        ((d.jobspy_hiring_data || {}).postings_found || 0);
+      const atsTotal =
+        (d.ats_hiring_data || {}).total_available ||
+        (typeof d.total_jobs === "number" ? d.total_jobs : 0) ||
+        0;
+      if (atsTotal > 0) {
+        totalRoles += atsTotal;
+        realCountCompanies += 1;
+      }
       (d.job_categories || d.categories || []).forEach((c) => {
         const label = typeof c === "string" ? c : c.name || c.category || "";
         if (label && !allCategories.includes(label)) allCategories.push(label);
@@ -2060,17 +2117,21 @@
     });
 
     const suggestions = [];
-    if (totalRoles > 50) {
+    // Only make a roles-based budget call when we have real ATS data to back it.
+    if (realCountCompanies > 0 && totalRoles > 50) {
       suggestions.push(
         "Competitors are hiring aggressively (" +
           totalRoles +
-          " open roles). Consider increasing budget by 15-20% for competitive visibility.",
+          " open roles across " +
+          realCountCompanies +
+          (realCountCompanies === 1 ? " employer" : " employers") +
+          "). Consider increasing budget by 15-20% for competitive visibility.",
       );
-    } else if (totalRoles > 20) {
+    } else if (realCountCompanies > 0 && totalRoles > 20) {
       suggestions.push(
         "Moderate competitor hiring activity (" +
           totalRoles +
-          " roles). Maintain current spend with targeted channel emphasis.",
+          " open roles). Maintain current spend with targeted channel emphasis.",
       );
     }
 
@@ -2137,15 +2198,20 @@
     el.classList.add("selected");
     selectedIndustry = el.dataset.industry;
 
-    // Update roles based on industry
+    // S90: Do NOT overwrite the user's Target Roles with the industry's generic
+    // typical_roles -- that's the bug where a "software engineer" brief ended up
+    // with Product Managers / UX Designers auto-added. Instead, only when the
+    // user has no roles yet, offer the industry's common roles as click-to-add
+    // chips so they pick what actually matches their brief.
     if (
       channelsDB &&
       channelsDB.industries &&
       channelsDB.industries[selectedIndustry]
     ) {
       const ind = channelsDB.industries[selectedIndustry];
-      roles = [...ind.typical_roles];
-      renderTags("rolesContainer", "roleInput", roles);
+      if ((!roles || roles.length === 0) && Array.isArray(ind.typical_roles)) {
+        _renderIndustryRoleChips(ind.typical_roles);
+      }
     }
 
     // Update niche channels
@@ -2153,6 +2219,41 @@
 
     // Re-check budget feasibility with updated industry
     checkBudgetFeasibility();
+  }
+
+  // S90: render an industry's common roles as click-to-add suggestion chips
+  // (instead of force-adding them as selected tags). Renders into the existing
+  // #copilot-roles strip; the brief-aware copilot suggestions take over once
+  // the user starts typing a role.
+  function _renderIndustryRoleChips(list) {
+    const container = document.getElementById("copilot-roles");
+    if (!container || !Array.isArray(list) || list.length === 0) return;
+    const indLabel = (selectedIndustry || "").replace(/_/g, " ");
+    let html =
+      '<div class="copilot-label">&#10024; Common roles in ' +
+      _escHtml(indLabel) +
+      " &mdash; click to add</div>";
+    list.forEach((r) => {
+      html +=
+        '<button type="button" class="copilot-chip" data-role="' +
+        _escHtml(r) +
+        '">' +
+        _escHtml(r) +
+        "</button>";
+    });
+    container.innerHTML = html;
+    container.querySelectorAll(".copilot-chip").forEach((chip) => {
+      chip.addEventListener("click", function () {
+        const t = this.getAttribute("data-role");
+        if (typeof addTag === "function") {
+          addTag("rolesContainer", "roleInput", roles, t);
+        }
+        this.classList.add("applied");
+        this.textContent = "✓ " + t;
+        this.style.opacity = "0.5";
+        this.style.pointerEvents = "none";
+      });
+    });
   }
 
   // ============================================
@@ -3773,7 +3874,7 @@
           btn.disabled = false;
           btn.classList.add("ready-pulse");
           btn.innerHTML =
-            '<span style="display:flex;align-items:center;justify-content:center;gap:8px;"><span>&#128640;</span><span>Generate Media Plan</span><span style="font-size:11px;opacity:0.8;margin-left:4px;">(Excel + PPT)</span></span>';
+            '<span style="display:flex;align-items:center;justify-content:center;gap:8px;"><span>&#128640;</span><span>Generate Media Plan</span></span>';
           btn.style.background = "";
         }, 3000);
       }
@@ -3815,7 +3916,7 @@
       btn.disabled = false;
       btn.classList.add("ready-pulse");
       btn.innerHTML =
-        '<span style="display:flex;align-items:center;justify-content:center;gap:8px;"><span>&#128640;</span><span>Generate Media Plan</span><span style="font-size:11px;opacity:0.8;margin-left:4px;">(Excel + PPT)</span></span>';
+        '<span style="display:flex;align-items:center;justify-content:center;gap:8px;"><span>&#128640;</span><span>Generate Media Plan</span></span>';
     }
   }
   // Re-download cached bundle without regenerating

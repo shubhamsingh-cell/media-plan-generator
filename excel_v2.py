@@ -3,21 +3,21 @@
 Consolidated 5-Sheet Excel Generator (v2) for AI Media Plan Generator.
 
 Replaces the 26+ sheet original with up to 9 focused sheets:
-    1. Executive Summary     -- overview, budget, benchmarks, recommendations
-    2. Channels & Strategy   -- vetted channels, ad platform analysis, niche boards
-    3. Market Intelligence   -- labour market, locations, competition, salary, demand
-    4. Sources & Confidence  -- data quality, API status, methodology
-    5. ROI Projections       -- per-channel hire forecasts, cost-per-hire, time-to-fill
-    6. Quality Intelligence  -- gold standard gates (conditional)
-    7. 90-Day Forecast       -- rolling monthly spend, apps, hires, CPA trend
-    8. Confidence Intervals  -- low/expected/high ranges for CPA, CPH, apps, hires
-    9. Niche Board Matching  -- role-level specialty job board recommendations
+    1. Executive Summary     — overview, budget, benchmarks, recommendations
+    2. Channels & Strategy   — vetted channels, ad platform analysis, niche boards
+    3. Market Intelligence   — labour market, locations, competition, salary, demand
+    4. Sources & Confidence  — data quality, API status, methodology
+    5. ROI Projections       — per-channel hire forecasts, cost-per-hire, time-to-fill
+    6. Quality Intelligence  — gold standard gates (conditional)
+    7. 90-Day Forecast       — rolling monthly spend, apps, hires, CPA trend
+    8. Confidence Intervals  — low/expected/high ranges for CPA, CPH, apps, hires
+    9. Niche Board Matching  — role-level specialty job board recommendations
 
 Design: Joveo 2026 deck palette (Indigo/Purple/Teal/Magenta on lavender surfaces),
 Poppins headings + Inter body, clean professional layout.
 All content starts at column B (col A = left margin).
 
-Function signature mirrors generate_excel() -- receives the same enriched data dict
+Function signature mirrors generate_excel() — receives the same enriched data dict
 and returns bytes (BytesIO.getvalue()).
 """
 
@@ -218,17 +218,17 @@ def _seasonal_monthly_phasing(industry: str, campaign_start_month: int) -> list[
 # resulting bare-hex strings are byte-identical to the previous literals
 # (202058, 5A54BE, ECEAF7, F4F4FF, 1F2937, 6E6E8C, E3E1F1, FFFCF9).
 # ---------------------------------------------------------------------------
-NAVY = INDIGO.lstrip("#").upper()  # 202058 INDIGO -- deep brand navy (headers, bars)
-SAPPHIRE = PURPLE.lstrip("#").upper()  # 5A54BE PURPLE -- primary accent
-BLUE_LIGHT = LAVENDER_100.lstrip("#").upper()  # ECEAF7 -- light tint fill (badges)
-BLUE_PALE = LAVENDER_50.lstrip("#").upper()  # F4F4FF -- pale alt-row / background fill
-STONE = INK.lstrip("#").upper()  # 1F2937 INK -- body text
-MUTED = _BRAND_MUTED.lstrip("#").upper()  # 6E6E8C -- footnotes / secondary labels
-WARM_GRAY = BORDER.lstrip("#").upper()  # E3E1F1 BORDER -- grid / borders
-OFF_WHITE = CANVAS.lstrip("#").upper()  # FFFCF9 CANVAS -- warm off-white surface
-TEAL_HEX = TEAL.lstrip("#").upper()  # 6BB5CE -- secondary accent / tab
-MAGENTA_HEX = MAGENTA.lstrip("#").upper()  # B7669E -- pop accent / tab
-PURPLE_LIGHT_HEX = PURPLE_LIGHT.lstrip("#").upper()  # 8680D6 -- tertiary accent / tab
+NAVY = INDIGO.lstrip("#").upper()  # 202058 INDIGO — deep brand navy (headers, bars)
+SAPPHIRE = PURPLE.lstrip("#").upper()  # 5A54BE PURPLE — primary accent
+BLUE_LIGHT = LAVENDER_100.lstrip("#").upper()  # ECEAF7 — light tint fill (badges)
+BLUE_PALE = LAVENDER_50.lstrip("#").upper()  # F4F4FF — pale alt-row / background fill
+STONE = INK.lstrip("#").upper()  # 1F2937 INK — body text
+MUTED = _BRAND_MUTED.lstrip("#").upper()  # 6E6E8C — footnotes / secondary labels
+WARM_GRAY = BORDER.lstrip("#").upper()  # E3E1F1 BORDER — grid / borders
+OFF_WHITE = CANVAS.lstrip("#").upper()  # FFFCF9 CANVAS — warm off-white surface
+TEAL_HEX = TEAL.lstrip("#").upper()  # 6BB5CE — secondary accent / tab
+MAGENTA_HEX = MAGENTA.lstrip("#").upper()  # B7669E — pop accent / tab
+PURPLE_LIGHT_HEX = PURPLE_LIGHT.lstrip("#").upper()  # 8680D6 — tertiary accent / tab
 
 # ---------------------------------------------------------------------------
 # Excel number-format strings (S89) -- write LIVE numeric values into data
@@ -2026,9 +2026,9 @@ def assess_source_bias(source_name: str) -> Dict[str, Any]:
     """Categorize a data source and assess potential bias.
 
     Returns dict with:
-        category: str -- the source category
-        confidence_modifier: float -- multiplier for confidence (0.6 - 1.0)
-        bias: str -- bias assessment text
+        category: str — the source category
+        confidence_modifier: float — multiplier for confidence (0.6 - 1.0)
+        bias: str — bias assessment text
     """
     if not source_name or not isinstance(source_name, str):
         return {
@@ -2372,7 +2372,7 @@ def _build_sheet_executive_summary(
         cell = ws.cell(
             row=row,
             column=COL_START,
-            value=f"Budget Sufficiency: {grade_str} -- {grade_msg}",
+            value=f"Budget Sufficiency: {grade_str} — {grade_msg}",
         )
         cell.font = _FONT_BODY_BOLD
         cell.alignment = _ALIGN_LEFT
@@ -2463,14 +2463,14 @@ def _build_sheet_executive_summary(
         if _last_data_row >= _first_data_row:
             _tot_cells = [
                 ("Total", None),
-                (None, None),  # % column -- a SUM of shares is ~100%, skip for clarity
+                (None, None),  # % column — a SUM of shares is ~100%, skip for clarity
                 (f"=SUM(C{_first_data_row}:C{_last_data_row})", FMT_USD0),
                 (f"=SUM(D{_first_data_row}:D{_last_data_row})", FMT_INT),
                 (f"=SUM(E{_first_data_row}:E{_last_data_row})", FMT_INT),
                 (f"=SUM(F{_first_data_row}:F{_last_data_row})", FMT_INT),
-                (None, None),  # CPC -- a sum is meaningless
-                (None, None),  # CPA -- a sum is meaningless
-                (None, None),  # ROI -- a sum is meaningless
+                (None, None),  # CPC — a sum is meaningless
+                (None, None),  # CPA — a sum is meaningless
+                (None, None),  # ROI — a sum is meaningless
             ]
             for i, (cval, cfmt) in enumerate(_tot_cells):
                 cell = ws.cell(row=row, column=COL_START + i)
@@ -2522,15 +2522,27 @@ def _build_sheet_executive_summary(
                 _helper_top = row + 1
                 _hcat = get_column_letter(_helper_col)
                 _hval = get_column_letter(_helper_col + 1)
-                ws.cell(row=_helper_top, column=_helper_col, value="Channel")
-                ws.cell(row=_helper_top, column=_helper_col + 1, value="Budget (USD)")
+                _hc1 = ws.cell(row=_helper_top, column=_helper_col, value="Channel")
+                _hc1.font = _FONT_BODY_BOLD
+                _hc2 = ws.cell(
+                    row=_helper_top, column=_helper_col + 1, value="Budget (USD)"
+                )
+                _hc2.font = _FONT_BODY_BOLD
                 for _ci, (_cn, _cv) in enumerate(_chart_pairs):
-                    ws.cell(row=_helper_top + 1 + _ci, column=_helper_col, value=_cn)
-                    ws.cell(
+                    _hk = ws.cell(row=_helper_top + 1 + _ci, column=_helper_col, value=_cn)
+                    _hk.font = _FONT_BODY
+                    _hv = ws.cell(
                         row=_helper_top + 1 + _ci,
                         column=_helper_col + 1,
                         value=_cv,
                     )
+                    _hv.font = _FONT_BODY
+                    _hv.number_format = FMT_USD0
+                # The source-data table is internal plumbing for the pie chart --
+                # hide its columns so the client sees only the chart, not a stray
+                # raw-number table beside the layout.
+                ws.column_dimensions[_hcat].hidden = True
+                ws.column_dimensions[_hval].hidden = True
                 _pie = PieChart()
                 _pie.title = "Budget Allocation by Channel"
                 _data_ref = Reference(
@@ -2552,7 +2564,7 @@ def _build_sheet_executive_summary(
                 ws.add_chart(_pie, f"{get_column_letter(COL_START)}{row + 1}")
                 # Reserve vertical space so following sections don't overlap the chart.
                 row += 16
-        except Exception as _chart_err:  # pragma: no cover -- never break the workbook
+        except Exception as _chart_err:  # pragma: no cover — never break the workbook
             logger.warning("Excel budget pie chart skipped: %s", _chart_err)
     row += 1
 
@@ -2700,7 +2712,7 @@ def _build_sheet_executive_summary(
             f"Budget Grade: {sufficiency.get('grade') or 'N/A'}\n"
             f"Top Channels: {', '.join(list(channel_allocs.keys())[:5])}\n\n"
             f"Write as a senior recruitment strategist presenting to a VP of Talent Acquisition. "
-            f"Include: (1) market thesis -- why this plan will succeed, "
+            f"Include: (1) market thesis — why this plan will succeed, "
             f"(2) ROI projection summary with specific numbers, "
             f"(3) key risks to monitor, "
             f"(4) recommended next steps with timeline. "
@@ -2794,7 +2806,7 @@ def _build_sheet_executive_summary(
             risk_items.append(
                 (
                     "Channel Dependency",
-                    f"{top_2_pct:.0f}% of budget concentrated on {ch_names} -- "
+                    f"{top_2_pct:.0f}% of budget concentrated on {ch_names} — "
                     f"single-channel disruption could impact {top_2_pct * proj_hires / 100:.0f} projected hires",
                     "Diversify to 4+ channels; maintain 3 backup channels on standby",
                 )
@@ -2813,7 +2825,7 @@ def _build_sheet_executive_summary(
         risk_items.append(
             (
                 "Competitive Pressure",
-                f"{n_competitive_cities} market(s) have high competitive intensity -- "
+                f"{n_competitive_cities} market(s) have high competitive intensity — "
                 f"Fortune 500+ companies actively hiring similar roles",
                 "Differentiate with employer brand messaging; emphasize career growth, culture, flexibility",
             )
@@ -3189,7 +3201,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 rationale_parts.append(f"CPC ${ch_cpc:.2f}")
             if ch_pct > 15:
                 rationale_parts.append(
-                    f"Primary channel -- {ch_pct:.0f}% of budget for volume"
+                    f"Primary channel — {ch_pct:.0f}% of budget for volume"
                 )
             elif ch_pct > 5:
                 rationale_parts.append(f"Supporting channel at {ch_pct:.0f}%")
@@ -3378,7 +3390,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             row=row,
             column=COL_START,
             value=(
-                "Ad platform performance data pending -- live integration "
+                "Ad platform performance data pending — live integration "
                 "will populate this section once campaign data is available. "
                 "In the interim, refer to the Channel Benchmarks table on the "
                 "Executive Summary sheet for estimated CPC/CPA ranges."
@@ -4382,7 +4394,7 @@ def _collect_kb_provenance(data: dict) -> List[Dict[str, str]]:
       ``_enriched`` / ``_synthesized``
 
     Returns a de-duplicated list of ``{"source","vintage","confidence"}`` dicts.
-    Never raises -- on any unexpected shape it simply yields what it can.
+    Never raises — on any unexpected shape it simply yields what it can.
     """
     rows: List[Dict[str, str]] = []
     seen: set = set()
@@ -4476,13 +4488,13 @@ def _build_provenance_section(ws, data: dict, row: int) -> int:
     """Additive S89 provenance block: data sources, vintage, confidence.
 
     Surfaces, on the "Sources & Confidence" sheet:
-      1. KB / enrichment provenance -- which data sources fed the plan, their
+      1. KB / enrichment provenance — which data sources fed the plan, their
          data vintage, and the confidence tag the KB attached.
-      2. Live API enrichment summary -- how many real-time sources succeeded.
+      2. Live API enrichment summary — how many real-time sources succeeded.
       3. The "Joveo measured" warehouse signal (cg_benchmarks real outcomes),
          when ``_budget_allocation.metadata.real_outcomes`` is present.
 
-    Purely additive -- it appends rows; it does not alter any existing table's
+    Purely additive — it appends rows; it does not alter any existing table's
     numbers. Read defensively; never raises (caller already wraps in try/except,
     but we also guard here so one bad shape never blanks the section).
     """
@@ -4580,7 +4592,7 @@ def _build_warehouse_provenance(ws, data: dict, row: int) -> int:
     """Surface the cg_benchmarks "Joveo measured" signal, if present.
 
     Reads ``data["_budget_allocation"]["metadata"]["real_outcomes"]`` defensively
-    -- it may be absent (no warehouse coverage) in which case nothing is written.
+    — it may be absent (no warehouse coverage) in which case nothing is written.
     When present, shows the matched title, measured cost-per-apply and the
     sample size behind it, attributed to "Joveo Campaign Warehouse".
     """
@@ -4744,9 +4756,9 @@ def _build_sheet_sources(ws, data: dict):
         if overall_grade in ("A", "B"):
             quality_msg = "High-quality data from multiple verified sources"
         elif overall_grade == "C":
-            quality_msg = "Moderate data quality -- some sections rely on benchmarks"
+            quality_msg = "Moderate data quality — some sections rely on benchmarks"
         else:
-            quality_msg = "Limited data availability -- results should be validated"
+            quality_msg = "Limited data availability — results should be validated"
 
     qual_cell = ws.cell(row=row + 1, column=COL_START + 2, value=quality_msg)
     qual_cell.font = _FONT_BODY
@@ -4764,7 +4776,7 @@ def _build_sheet_sources(ws, data: dict):
         )
         age_label = f"Knowledge Base Age: {kb_age_days:.0f} days"
         if freshness_warning:
-            age_label += f"  --  {freshness_warning}"
+            age_label += f"  —  {freshness_warning}"
         age_cell = ws.cell(row=row + 2, column=COL_START + 2, value=age_label)
         age_cell.alignment = _ALIGN_WRAP
         if kb_age_days > 90:
@@ -4846,7 +4858,7 @@ def _build_sheet_sources(ws, data: dict):
             column=COL_START,
             value=(
                 "The following locations may not align with the company's known "
-                "operating area. These are advisory warnings -- they do not block "
+                "operating area. These are advisory warnings — they do not block "
                 "plan generation. Please verify before finalizing."
             ),
         )
@@ -5682,7 +5694,7 @@ def _build_sheet_quality_intelligence(
     row = 2
 
     # ── Title banner ──
-    row = _write_section_header(ws, row, "QUALITY INTELLIGENCE -- GOLD STANDARD GATES")
+    row = _write_section_header(ws, row, "QUALITY INTELLIGENCE — GOLD STANDARD GATES")
     row += 1
 
     client_name = data.get("client_name") or "Client"
@@ -5803,7 +5815,7 @@ def _build_sheet_quality_intelligence(
 
             primary = clearance.get("primary_clearance") or {}
             row = _write_kv_row(
-                ws, row, "Defense Related", "Yes -- clearance requirements detected"
+                ws, row, "Defense Related", "Yes — clearance requirements detected"
             )
             row = _write_kv_row(
                 ws, row, "Primary Clearance", str(primary.get("level") or "—")
@@ -5890,17 +5902,17 @@ def _build_sheet_quality_intelligence(
                 # Generate WHY each competitor group matters
                 if intensity in ("high", "very_high"):
                     why_matter = (
-                        f"High hiring volume in {city_name} -- "
+                        f"High hiring volume in {city_name} — "
                         f"these employers compete for the same {industry_label_qs} talent pool"
                     )
                 elif intensity == "moderate":
                     why_matter = (
-                        f"Active but not dominant -- opportunity to capture market share "
+                        f"Active but not dominant — opportunity to capture market share "
                         f"with targeted positioning in {city_name}"
                     )
                 else:
                     why_matter = (
-                        f"Lower competition in {city_name} -- favorable market for "
+                        f"Lower competition in {city_name} — favorable market for "
                         f"{client_name_qs}'s talent acquisition"
                     )
 
@@ -6032,7 +6044,7 @@ def _build_sheet_quality_intelligence(
     try:
         if channel_strategy:
             row = _write_subsection_header(
-                ws, row, "Channel Strategy -- Traditional vs Non-Traditional"
+                ws, row, "Channel Strategy — Traditional vs Non-Traditional"
             )
 
             split = channel_strategy.get("recommended_split") or {}
@@ -6139,7 +6151,7 @@ def _build_sheet_quality_intelligence(
                 sub_alloc: dict = tier_info.get("sub_allocation") or {}
                 if sub_alloc:
                     for sub_key, sub_amount in sub_alloc.items():
-                        sub_label = f"  -- {sub_key.replace('_', ' ').title()}"
+                        sub_label = f"  — {sub_key.replace('_', ' ').title()}"
                         row = _write_table_row(
                             ws,
                             row,
@@ -6945,15 +6957,15 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
             ws.cell(
                 row=row, column=7, value=f"${ch.get('expected_cpa', 0):.2f}"
             ).font = _FONT_BODY
-            ws.cell(row=row, column=8, value=ch.get("projected_clicks", 0)).font = (
-                _FONT_BODY
-            )
-            ws.cell(
-                row=row, column=9, value=ch.get("projected_applications", 0)
-            ).font = _FONT_BODY
-            ws.cell(row=row, column=10, value=ch.get("projected_hires", 0)).font = (
-                _FONT_BODY
-            )
+            _cl = ws.cell(row=row, column=8, value=ch.get("projected_clicks", 0))
+            _cl.font = _FONT_BODY
+            _cl.number_format = FMT_INT  # thousands separator (e.g. 9,322)
+            _ap = ws.cell(row=row, column=9, value=ch.get("projected_applications", 0))
+            _ap.font = _FONT_BODY
+            _ap.number_format = FMT_INT
+            _hi = ws.cell(row=row, column=10, value=ch.get("projected_hires", 0))
+            _hi.font = _FONT_BODY
+            _hi.number_format = FMT_INT
             ws.cell(row=row, column=11, value=ch.get("confidence", "").upper()).font = (
                 _FONT_BODY
             )
@@ -7122,7 +7134,7 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
         ),
         (
             "Employer Branding",
-            "Many niche boards offer enhanced profiles -- invest in brand presence",
+            "Many niche boards offer enhanced profiles — invest in brand presence",
         ),
         (
             "Tracking",

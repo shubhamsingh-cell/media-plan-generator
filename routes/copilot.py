@@ -98,10 +98,10 @@ def _handle_copilot_suggest(handler: Any, path: str, parsed: Any) -> None:
     # Bug #12 fix: Coerce field to str before processing
     _raw_field = data.get("field")
     field = str(_raw_field).strip() if _raw_field is not None else ""
-    if field not in ("roles", "locations", "channels", "brief"):
+    if field not in ("roles", "locations", "channels", "sections", "brief"):
         handler._send_json(
             {
-                "error": "Invalid field. Must be one of: roles, locations, channels, brief"
+                "error": "Invalid field. Must be one of: roles, locations, channels, sections, brief"
             },
             status_code=400,
         )

@@ -232,6 +232,101 @@ def _handle_pricing_live(handler: Any, path: str, parsed: Any) -> None:
             _pl_region_mult = 0.45
             _pl_region_name = "LATAM"
 
+        # S90: refine the broad "North America" bucket with a US city/state wage
+        # index -- SF/NYC cost far more to source in than lower-cost markets.
+        if _pl_region_name == "North America" and _pl_loc_lower:
+            _pl_us_index: dict = {
+                "san francisco": 1.40,
+                "san jose": 1.40,
+                "new york": 1.35,
+                "manhattan": 1.35,
+                "seattle": 1.25,
+                "boston": 1.22,
+                "los angeles": 1.20,
+                "washington": 1.20,
+                "california": 1.30,
+                "massachusetts": 1.20,
+                "new jersey": 1.15,
+                "chicago": 1.10,
+                "austin": 1.10,
+                "denver": 1.08,
+                "atlanta": 1.00,
+                "dallas": 1.00,
+                "houston": 0.98,
+                "texas": 0.98,
+                "florida": 0.95,
+                "phoenix": 0.95,
+                "ohio": 0.88,
+                "indiana": 0.85,
+                "kansas": 0.82,
+                "alabama": 0.82,
+                "mississippi": 0.80,
+            }
+            for _city, _idx in _pl_us_index.items():
+                if _city in _pl_loc_lower:
+                    _pl_region_mult = _idx
+                    _pl_region_name = "US -- " + _pl_location.split(",")[0].strip()[:24]
+                    break
+
+        # S90: role-seniority multiplier -- senior/specialized roles cost more to
+        # source than entry-level, so the figures now actually move with the
+        # selected role (previously role only nudged an Adzuna competition factor).
+        _pl_role_lower = (_pl_role or "").lower()
+        _pl_role_mult = 1.0
+        _pl_seniority = "mid-level"
+        if any(
+            w in _pl_role_lower
+            for w in [
+                "intern",
+                "trainee",
+                "entry",
+                "junior",
+                "jr ",
+                "apprentice",
+                "assistant",
+            ]
+        ):
+            _pl_role_mult = 0.80
+            _pl_seniority = "entry-level"
+        elif any(
+            w in _pl_role_lower
+            for w in [
+                "chief",
+                "vp ",
+                "vice president",
+                "head of",
+                "director",
+                "principal",
+                "executive",
+                "cto",
+                "cfo",
+            ]
+        ):
+            _pl_role_mult = 2.00
+            _pl_seniority = "executive"
+        elif any(
+            w in _pl_role_lower
+            for w in ["senior", "sr ", "lead", "staff", "manager", "architect"]
+        ):
+            _pl_role_mult = 1.40
+            _pl_seniority = "senior"
+        # Hard-to-fill technical/clinical roles carry a premium on top.
+        if any(
+            w in _pl_role_lower
+            for w in [
+                "engineer",
+                "developer",
+                "data scien",
+                "nurse",
+                "physician",
+                "cyber",
+                "machine learning",
+                "devops",
+                "cloud",
+            ]
+        ):
+            _pl_role_mult *= 1.10
+
         for _ch in _pl_channel_base:
             _pl_channels.append(
                 {
@@ -240,17 +335,21 @@ def _handle_pricing_live(handler: Any, path: str, parsed: Any) -> None:
                         _ch["cpc_base"]
                         * _ch["multiplier"]
                         * _pl_mult
-                        * _pl_region_mult,
+                        * _pl_region_mult
+                        * _pl_role_mult,
                         2,
                     ),
                     "cpa": round(
                         _ch["cpa_base"]
                         * _ch["multiplier"]
                         * _pl_mult
-                        * _pl_region_mult,
+                        * _pl_region_mult
+                        * _pl_role_mult,
                         2,
                     ),
-                    "cph": int(_ch["cph_base"] * _pl_mult * _pl_region_mult),
+                    "cph": int(
+                        _ch["cph_base"] * _pl_mult * _pl_region_mult * _pl_role_mult
+                    ),
                     "trend": _ch["trend"],
                 }
             )
@@ -355,6 +454,7 @@ def _handle_pricing_live(handler: Any, path: str, parsed: Any) -> None:
             "source": "+".join(_pl_source_parts),
             "updated_at": datetime.datetime.utcnow().isoformat() + "Z",
             "role": _pl_role,
+            "role_seniority": _pl_seniority,
             "location": _pl_location or "US (default)",
             "industry": _pl_ind_key,
             "region": _pl_region_name,

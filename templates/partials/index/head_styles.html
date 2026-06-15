@@ -3968,6 +3968,20 @@
   .competitor-stat strong {
     color: #cbd5e1;
   }
+  /* S90: small muted source tag, e.g. "live · greenhouse" / "postings" */
+  .competitor-stat-src {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #6bb5ce;
+    opacity: 0.85;
+  }
+  /* S90: honest note when an employer has no public ATS feed */
+  .competitor-stat.competitor-stat-muted {
+    font-style: italic;
+    color: #64748b;
+  }
   .competitor-categories {
     display: flex;
     flex-wrap: wrap;
@@ -6691,6 +6705,211 @@
     color: var(--np-purple-light) !important;
   }
 
+  /* ── Results dashboard polish: brand-accent title + hero budget tile ─ */
+  .studio .plan-dashboard-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .studio .plan-dashboard-title::before {
+    content: "";
+    width: 4px;
+    height: 18px;
+    border-radius: 2px;
+    background: var(--np-grad);
+    flex-shrink: 0;
+  }
+  .studio .plan-metric-card:first-child {
+    background: linear-gradient(135deg, rgba(90, 84, 190, 0.1), #ffffff) !important;
+    border-color: rgba(90, 84, 190, 0.28) !important;
+  }
+  .studio .plan-svg-chart {
+    padding: 16px 18px !important;
+  }
+
+  /* ── Step 1 "Add context (optional)" accordion (friction reduction) ── */
+  .studio .np-accordion {
+    margin-top: 24px;
+    border: 1px solid var(--np-hair);
+    border-radius: 13px;
+    background: var(--np-input);
+    overflow: hidden;
+  }
+  .studio .np-accordion[open] {
+    background: var(--np-panel);
+  }
+  .studio .np-acc-summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    user-select: none;
+  }
+  .studio .np-acc-summary::-webkit-details-marker {
+    display: none;
+  }
+  .studio .np-acc-summary:hover {
+    background: var(--np-panel-2);
+  }
+  .studio .np-acc-summary:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--np-purple);
+  }
+  .studio .np-acc-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+  .studio .np-acc-title {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--np-ink);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .studio .np-acc-opt {
+    font-size: 9.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--np-faint);
+    background: var(--np-hair);
+    padding: 2px 7px;
+    border-radius: 999px;
+  }
+  .studio .np-acc-sub {
+    font-size: 12px;
+    color: var(--np-muted);
+  }
+  .studio .np-acc-chev {
+    color: var(--np-muted);
+    transition: transform 0.25s var(--ease-out, ease);
+    flex-shrink: 0;
+  }
+  .studio .np-accordion[open] .np-acc-chev {
+    transform: rotate(180deg);
+  }
+  /* pad the content children (direct children of <details>) */
+  .studio .np-accordion > *:not(summary) {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .studio .np-accordion > .li-section-divider {
+    margin-top: 16px !important;
+  }
+  .studio .np-accordion > *:last-child {
+    padding-bottom: 18px;
+  }
+
+  /* ── Nova insights in the live preview (proactive advisor) ──────── */
+  .np-insights {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin: 2px 0 16px;
+  }
+  .np-ins-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--np-paper-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .np-ins-label .spark {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--np-purple);
+    box-shadow: 0 0 0 3px rgba(90, 84, 190, 0.18);
+  }
+  .np-ins-row {
+    display: flex;
+    gap: 9px;
+    align-items: flex-start;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--np-paper-ink);
+    padding: 9px 11px;
+    border-radius: 11px;
+    background: var(--np-lav-50);
+    border: 1px solid var(--np-paper-border);
+    animation: npInsIn 0.35s var(--ease-out, ease);
+  }
+  .np-ins-row .np-ins-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+  .np-ins-row b {
+    font-weight: 600;
+    color: var(--np-indigo);
+  }
+  .np-ins-warn {
+    background: rgba(185, 119, 10, 0.08);
+    border-color: rgba(185, 119, 10, 0.3);
+  }
+  .np-ins-warn .np-ins-dot {
+    background: #b9770a;
+  }
+  .np-ins-good {
+    background: rgba(62, 143, 171, 0.08);
+    border-color: rgba(62, 143, 171, 0.3);
+  }
+  .np-ins-good .np-ins-dot {
+    background: var(--np-teal-deep);
+  }
+  .np-ins-info .np-ins-dot {
+    background: var(--np-purple);
+  }
+  @keyframes npInsIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Action card: Nova applies its recommendation to the real plan ── */
+  .np-action {
+    margin: 0 0 16px;
+  }
+  .np-apply-mix {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 14px;
+    border: none;
+    border-radius: 11px;
+    background: var(--np-grad);
+    color: #fff;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 0 8px 20px -10px rgba(90, 84, 190, 0.7);
+    transition: transform 0.15s var(--ease-out, ease), box-shadow 0.15s ease;
+  }
+  .np-apply-mix:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 26px -10px rgba(90, 84, 190, 0.85);
+  }
+  .np-apply-mix:active {
+    transform: translateY(0) scale(0.99);
+  }
+  .np-apply-mix svg {
+    stroke: #fff;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     body::before {
       animation: none !important;
@@ -6701,6 +6920,12 @@
     }
     .np-mix-seg {
       transition: none !important;
+    }
+    .studio .np-acc-chev {
+      transition: none !important;
+    }
+    .np-ins-row {
+      animation: none !important;
     }
   }
 </style>

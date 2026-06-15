@@ -65,8 +65,90 @@ def _handle_competitive_scrape(handler: Any, path: str, parsed: Any) -> None:
         }
         # S72: primary career-page scrape removed (was firecrawl_enrichment.
         # analyze_competitor_careers). `result` was pre-populated above with
-        # a "disabled" stub; the enrichments below add Jooble + JobSpy +
+        # a "disabled" stub; the enrichments below add ATS + Jooble + JobSpy +
         # Tavily data so the frontend still renders signal.
+
+        # ── S90: Primary open-role count from public ATS feeds ──────────────
+        # This is the REAL, uncapped "open roles" number for the employer.
+        # It replaces the previous behaviour where the card's "open roles"
+        # figure came from a JobSpy *keyword sample* capped at results_wanted
+        # (so every competitor showed the same small, rounded number that
+        # reflected the scrape limit, not actual openings). resolve_competitor_ats
+        # maps the company -> its Greenhouse/Lever/Ashby board and reads
+        # total_available (true count before any display cap). Employers on a
+        # private ATS (e.g. Google/Meta on Workday) have no public board, so we
+        # flag ats_status="no_public_board" and the frontend shows an honest
+        # note instead of a fabricated count.
+        try:
+            from api_enrichment import resolve_competitor_ats
+
+            _ats_company = data.get("company") or domain.split(".")[0]
+            _ats = resolve_competitor_ats(_ats_company)
+            if (
+                isinstance(_ats, dict)
+                and not _ats.get("no_public_board")
+                and (_ats.get("total_available") or 0) > 0
+            ):
+                _ats_total = int(_ats.get("total_available") or 0)
+                # `total_jobs` is the field the frontend reads as "open roles".
+                result["total_jobs"] = _ats_total
+                result["primary_source"] = f"ATS:{_ats.get('provider') or 'public'}"
+                result["ats_hiring_data"] = {
+                    "provider": _ats.get("provider"),
+                    "board": _ats.get("board"),
+                    "total_available": _ats_total,
+                    "job_count": _ats.get("job_count") or 0,
+                    "source_url": _ats.get("url"),
+                }
+                # Real hiring locations from the ATS location histogram (top 6).
+                _loc_summary = _ats.get("locations_summary") or {}
+                if _loc_summary:
+                    result["locations"] = [
+                        loc
+                        for loc, _cnt in sorted(
+                            _loc_summary.items(),
+                            key=lambda kv: kv[1],
+                            reverse=True,
+                        )
+                    ][:6]
+                # Real departments/categories from the sampled jobs (top 8).
+                _dept_counts: dict = {}
+                for _j in _ats.get("jobs") or []:
+                    _dept = (_j.get("department") or "").strip()
+                    if _dept:
+                        _dept_counts[_dept] = (_dept_counts.get(_dept) or 0) + 1
+                if _dept_counts:
+                    result["job_categories"] = [
+                        dept
+                        for dept, _cnt in sorted(
+                            _dept_counts.items(),
+                            key=lambda kv: kv[1],
+                            reverse=True,
+                        )
+                    ][:8]
+                logger.info(
+                    "Enriched /api/competitive/scrape via ATS: %d open roles for "
+                    "'%s' (%s)",
+                    _ats_total,
+                    _ats_company,
+                    _ats.get("provider"),
+                )
+            else:
+                # No public ATS board -> tell the frontend to be honest about it
+                # rather than dressing up a keyword sample as "open roles".
+                result["ats_status"] = "no_public_board"
+                logger.info(
+                    "No public ATS board for '%s'; flagged no_public_board",
+                    _ats_company,
+                )
+        except ImportError:
+            logger.warning(
+                "resolve_competitor_ats unavailable; skipping ATS enrichment"
+            )
+        except (ValueError, TypeError, KeyError, OSError) as _ae:
+            logger.error(
+                "ATS enrichment for competitive/scrape failed: %s", _ae, exc_info=True
+            )
 
         # Enrich with Jooble market data
         _api_integrations_available = getattr(
@@ -97,10 +179,25 @@ def _handle_competitive_scrape(handler: Any, path: str, parsed: Any) -> None:
                 _ci_company = data.get("company") or domain.split(".")[0]
                 _ci_js_jobs = _jobspy_scrape_jobs(_ci_company, "USA", results_wanted=15)
                 if _ci_js_jobs:
+                    # S90: JobSpy is a keyword search, so narrow the sample to
+                    # postings whose employer actually matches the competitor.
+                    # This is a labeled market *sample* (bounded by results_wanted)
+                    # -- NOT the headline open-role count, which comes from the
+                    # ATS feed above. Fall back to the unfiltered set when the
+                    # filter is empty so the card still shows market signal.
+                    _needle = (_ci_company or "").lower().strip()
+                    _emp_jobs = [
+                        j
+                        for j in _ci_js_jobs
+                        if _needle and _needle in (j.get("company") or "").lower()
+                    ]
+                    _sample = _emp_jobs or _ci_js_jobs
                     result["jobspy_hiring_data"] = {
-                        "postings_found": len(_ci_js_jobs),
-                        "sample_postings": _ci_js_jobs[:5],
-                        "sources": list({j.get("site") or "" for j in _ci_js_jobs}),
+                        "postings_found": len(_sample),
+                        "is_sample": True,
+                        "employer_matched": bool(_emp_jobs),
+                        "sample_postings": _sample[:5],
+                        "sources": list({j.get("site") or "" for j in _sample}),
                     }
                     logger.info(
                         "Enriched /api/competitive/scrape with jobspy hiring data"
