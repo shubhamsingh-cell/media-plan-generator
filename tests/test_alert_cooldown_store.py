@@ -194,6 +194,87 @@ def test_default_backend_is_memory_without_env(
 
 
 # --------------------------------------------------------------------------- #
+# Atomic claim path (try_claim) -- closes the cross-worker race
+# --------------------------------------------------------------------------- #
+
+
+def test_in_memory_try_claim_atomic_timing() -> None:
+    be = InMemoryCooldownBackend()
+    assert be.try_claim("k", 1000.0, 100.0) is True  # first claim
+    assert be.try_claim("k", 1050.0, 100.0) is False  # within cooldown
+    assert be.try_claim("k", 1101.0, 100.0) is True  # elapsed -> reclaim
+
+
+def test_in_memory_try_claim_future_timestamp_fails_open() -> None:
+    be = InMemoryCooldownBackend()
+    be.record_fired("k", 10_000_000_000.0)  # future
+    assert be.try_claim("k", 1000.0, 100.0) is True  # negative age -> claim
+
+
+def test_store_prefers_try_claim_and_fail_opens_on_none() -> None:
+    class _NoneClaim:
+        name = "noneclaim"
+
+        def try_claim(self, key, now, cooldown_s):
+            return None  # simulate RPC error
+
+        def get_last_fired(self, key):  # should NOT be consulted
+            raise AssertionError("fallback used despite try_claim present")
+
+        def record_fired(self, key, ts):
+            pass
+
+        def active_count(self):
+            return 0
+
+    store = AlertCooldownStore(_NoneClaim())
+    assert store.should_fire("k", 100, now=1000.0) is True  # fail-open
+
+
+def test_supabase_try_claim_disabled_returns_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SUPABASE_URL", raising=False)
+    monkeypatch.delenv("SUPABASE_SERVICE_ROLE_KEY", raising=False)
+    assert SupabaseCooldownBackend().try_claim("k", 1.0, 100.0) is None
+
+
+def _claim_resp(body: bytes) -> MagicMock:
+    resp = MagicMock()
+    resp.read.return_value = body
+    resp.__enter__ = MagicMock(return_value=resp)
+    resp.__exit__ = MagicMock(return_value=False)
+    return resp
+
+
+def test_supabase_try_claim_parses_boolean(monkeypatch: pytest.MonkeyPatch) -> None:
+    _enable_supabase(monkeypatch)
+    be = SupabaseCooldownBackend()
+    with patch(
+        "alert_cooldown_store.urllib.request.urlopen",
+        return_value=_claim_resp(b"true"),
+    ):
+        assert be.try_claim("k", 1.0, 100.0) is True
+    with patch(
+        "alert_cooldown_store.urllib.request.urlopen",
+        return_value=_claim_resp(b"false"),
+    ):
+        assert be.try_claim("k", 1.0, 100.0) is False
+
+
+def test_supabase_try_claim_error_fail_opens_to_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_supabase(monkeypatch)
+    be = SupabaseCooldownBackend()
+    with patch(
+        "alert_cooldown_store.urllib.request.urlopen",
+        side_effect=OSError("rpc down"),
+    ):
+        assert be.try_claim("k", 1.0, 100.0) is None
+
+
+# --------------------------------------------------------------------------- #
 # Bridge wiring
 # --------------------------------------------------------------------------- #
 

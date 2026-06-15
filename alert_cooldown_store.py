@@ -70,6 +70,17 @@ class InMemoryCooldownBackend:
         with self._lock:
             self._last[key] = ts
 
+    def try_claim(self, key: str, now: float, cooldown_s: float) -> Optional[bool]:
+        """Atomic check-and-set under the lock (in-process analogue of the RPC)."""
+        with self._lock:
+            last = self._last.get(key)
+            # Suppress only for a genuine, recent prior fire (a future/corrupt
+            # timestamp -> negative age -> not suppressed -> claim).
+            if last is not None and 0 <= (now - last) < cooldown_s:
+                return False
+            self._last[key] = now
+            return True
+
     def active_count(self) -> int:
         with self._lock:
             return len(self._last)
@@ -152,6 +163,39 @@ class SupabaseCooldownBackend:
         except Exception as e:
             logger.debug("[cooldown] Supabase write failed: %s", e)
 
+    def try_claim(self, key: str, now: float, cooldown_s: float) -> Optional[bool]:
+        """Atomic claim via the ``claim_alert_cooldown`` RPC.
+
+        Returns True (claimed -> fire), False (still cooling down -> suppress),
+        or None on any error (-> caller fails open). This closes the read-then-
+        write race between the per-process bridges: the check-and-set happens in
+        a single server-side statement under a row lock. Requires the RPC in
+        docs/sql/alert_cooldowns.sql; if it is absent the call errors and we
+        fail open (and the caller can still use get/record).
+        """
+        if not self.enabled:
+            return None
+        try:
+            url = f"{self._base_url}/rest/v1/rpc/claim_alert_cooldown"
+            payload = json.dumps(
+                {"p_key": key, "p_now": now, "p_cooldown": cooldown_s}
+            )
+            req = urllib.request.Request(
+                url,
+                data=payload.encode("utf-8"),
+                headers=self._headers(),
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=self._TIMEOUT) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+            # PostgREST returns the scalar boolean directly.
+            if isinstance(result, bool):
+                return result
+            return None  # unexpected shape -> fail open
+        except Exception as e:  # fail-open
+            logger.debug("[cooldown] claim RPC failed (fail-open): %s", e)
+            return None
+
     def active_count(self) -> int:
         return -1  # shared store; not locally knowable
 
@@ -173,10 +217,26 @@ class AlertCooldownStore:
         timestamp all resolve to "fire". No lock is held: the backends are
         individually thread-safe and the bridge is the sole caller, so the only
         thing a lock would add is serializing network I/O (which would stall the
-        bridge cycle). The cross-worker read-then-write race is inherent and
-        documented in the module header.
+        bridge cycle).
+
+        Prefers the backend's atomic ``try_claim`` (a single server-side
+        check-and-set, race-free across the per-process bridges). Falls back to
+        read-then-write for backends that don't implement it; that path has an
+        inherent sub-second cross-worker race, documented in the module header.
         """
         ts = time.time() if now is None else now
+        claim = getattr(self._backend, "try_claim", None)
+        if callable(claim):
+            try:
+                result = claim(key, ts, cooldown_s)
+            except Exception as e:  # defensive: backend should already fail-open
+                logger.debug("[cooldown] try_claim raised (fail-open): %s", e)
+                result = None
+            if result is not None:
+                return bool(result)
+            return True  # claim errored -> fail open (fire)
+
+        # Fallback: read-then-write (non-atomic; for custom backends only).
         try:
             last = self._backend.get_last_fired(key)
         except Exception as e:  # defensive: backend should already fail-open

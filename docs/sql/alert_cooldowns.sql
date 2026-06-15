@@ -20,3 +20,33 @@ create table if not exists public.alert_cooldowns (
 --   alter table public.alert_cooldowns enable row level security;
 --   create policy "service role full access" on public.alert_cooldowns
 --     for all to service_role using (true) with check (true);
+
+-- ---------------------------------------------------------------------------
+-- Atomic claim RPC (closes the cross-worker read-then-write race).
+-- The bridge calls this via POST /rest/v1/rpc/claim_alert_cooldown. It does the
+-- check-and-set in ONE statement under a row lock: returns TRUE when the alert
+-- is claimed (-> fire) and the row is (re)stamped, FALSE when still cooling
+-- down (-> suppress). A missing/future/corrupt timestamp is treated as
+-- claimable (fail-open). If this function is absent the RPC errors and the
+-- bridge falls back to read-then-write, so it is optional but recommended.
+create or replace function public.claim_alert_cooldown(
+    p_key      text,
+    p_now      double precision,
+    p_cooldown double precision
+) returns boolean
+language sql
+as $$
+    with upsert as (
+        insert into public.alert_cooldowns as ac (alert_key, last_fired_ts, updated_at)
+        values (p_key, p_now, now())
+        on conflict (alert_key) do update
+            set last_fired_ts = excluded.last_fired_ts,
+                updated_at    = now()
+            -- Re-claim only if the prior fire is stale, or a future/corrupt
+            -- timestamp (ac.last_fired_ts > p_now) that must never suppress.
+            where ac.last_fired_ts > p_now
+               or (p_now - ac.last_fired_ts) >= p_cooldown
+        returning 1
+    )
+    select exists (select 1 from upsert);
+$$;
