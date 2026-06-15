@@ -922,7 +922,7 @@
 
   // ── 2. Hero headline word-by-word reveal ──
   var heroTitle = document.querySelector(".hero-headline");
-  if (heroTitle) {
+  if (heroTitle && !heroTitle.querySelector("*")) {
     var originalHTML = heroTitle.innerHTML;
     var parts = originalHTML.split(/(<br\s*\/?>)/i);
     var wordHTML = "";
@@ -1392,4 +1392,125 @@ document.addEventListener("DOMContentLoaded", function () {
       io.disconnect();
     }
   }, 700);
+})();
+
+/* ── S91: Hero signature constellation ──
+   A GPU-light canvas field of "supply sources" that drift, link to nearby
+   neighbours, and trail thin lines toward the live plan card — visualising
+   "Nova scanning 10,341 partners into one optimized plan". Paused when the
+   hero is off-screen and fully disabled under prefers-reduced-motion. */
+(function () {
+  "use strict";
+  var cv = document.getElementById("heroConstellation");
+  var hero = document.getElementById("hero");
+  if (!cv || !hero || !cv.getContext) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  var ctx = cv.getContext("2d");
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var W = 0,
+    H = 0,
+    nodes = [],
+    focus = { x: 0, y: 0 },
+    running = false,
+    raf = 0;
+
+  function size() {
+    var r = hero.getBoundingClientRect();
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = r.width;
+    H = r.height;
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    focus.x = W * 0.74;
+    focus.y = H * 0.5;
+  }
+  function seed() {
+    nodes = [];
+    var n = Math.max(10, Math.min(26, Math.round(W / 52)));
+    for (var i = 0; i < n; i++) {
+      nodes.push({
+        x: Math.random() * W * 0.62,
+        y: 90 + Math.random() * Math.max(120, H - 150),
+        vx: (Math.random() - 0.5) * 0.18,
+        vy: (Math.random() - 0.5) * 0.18,
+        r: Math.random() * 1.6 + 1,
+      });
+    }
+  }
+  function frame() {
+    if (!running) return;
+    ctx.clearRect(0, 0, W, H);
+    for (var i = 0; i < nodes.length; i++) {
+      var a = nodes[i];
+      a.x += a.vx;
+      a.y += a.vy;
+      if (a.x < 0 || a.x > W * 0.66) a.vx *= -1;
+      if (a.y < 70 || a.y > H - 36) a.vy *= -1;
+      for (var j = i + 1; j < nodes.length; j++) {
+        var b = nodes[j],
+          dx = a.x - b.x,
+          dy = a.y - b.y,
+          d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 100) {
+          ctx.strokeStyle = "rgba(139,133,230," + 0.13 * (1 - d / 100) + ")";
+          ctx.lineWidth = 0.6;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+      var fdx = focus.x - a.x,
+        fdy = focus.y - a.y,
+        fd = Math.sqrt(fdx * fdx + fdy * fdy);
+      if (fd < 300) {
+        ctx.strokeStyle = "rgba(107,181,206," + 0.09 * (1 - fd / 300) + ")";
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(focus.x, focus.y);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "rgba(170,164,255,0.65)";
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, a.r, 0, 6.2832);
+      ctx.fill();
+    }
+    raf = requestAnimationFrame(frame);
+  }
+  function start() {
+    if (running) return;
+    running = true;
+    raf = requestAnimationFrame(frame);
+  }
+  function stop() {
+    running = false;
+    if (raf) cancelAnimationFrame(raf);
+  }
+
+  size();
+  seed();
+  var rt;
+  window.addEventListener("resize", function () {
+    clearTimeout(rt);
+    rt = setTimeout(function () {
+      size();
+      seed();
+    }, 150);
+  });
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) start();
+          else stop();
+        });
+      },
+      { threshold: 0.01 }
+    ).observe(hero);
+  } else {
+    start();
+  }
 })();

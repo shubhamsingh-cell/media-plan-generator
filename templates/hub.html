@@ -88,7 +88,7 @@
     <link rel="stylesheet" href="/static/css/tokens.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/buttons.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/motion.css?v=2.0.0" />
-    <link rel="stylesheet" href="/static/css/hub.css?v=2.1.3" />
+    <link rel="stylesheet" href="/static/css/hub.css?v=2.2.3" />
 
     <!-- PostHog Analytics -->
     <script>
@@ -227,10 +227,16 @@
         id="hero"
         style="position: relative; overflow: hidden"
       >
-        <!-- hero-gradient-mesh removed: redundant with aurora bg, saves 1 animation layer -->
-        <!-- Lottie hero ambient removed: opacity 0.15 imperceptible, saves CPU + network request -->
+        <!-- Signature constellation: 10,341 supply sources converging into one optimized plan -->
+        <canvas
+          class="hero-constellation"
+          id="heroConstellation"
+          aria-hidden="true"
+        ></canvas>
+        <div class="hero-grid-overlay" aria-hidden="true"></div>
 
-        <div class="hero-content" style="position: relative; z-index: 1">
+        <div class="hero-stage">
+          <div class="hero-content" style="position: relative; z-index: 2">
           <span class="hero-eyebrow hero-anim">RECRUITMENT INTELLIGENCE</span>
 
           <h1 class="hero-headline hero-anim">
@@ -239,10 +245,9 @@
           </h1>
 
           <p class="hero-subline hero-anim">
-            Plan smarter with AI that analyzes 10,341+ job boards, social and
-            search, influencer marketing, community marketing and 9 more
-            categories of supply partners, predicts costs, and builds optimized
-            media plans in under 30 seconds.
+            Nova scans <strong>10,341+ supply partners</strong> across 13 channel
+            categories, predicts cost-per-hire, and builds an optimized media
+            plan in <strong>under 30 seconds.</strong>
           </p>
 
           <div class="hero-actions hero-anim">
@@ -258,7 +263,35 @@
                 />
               </svg>
             </a>
+            <a href="#plan-showcase" class="btn-ghost btn-lg">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4" />
+                <path d="M6.5 5.4l4 2.6-4 2.6z" fill="currentColor" />
+              </svg>
+              See a sample plan
+            </a>
           </div>
+
+          <ul class="hero-trust hero-anim" role="list" aria-label="Why teams trust Nova">
+            <li>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              10,341+ supply sources
+            </li>
+            <li>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              SOC 2 Type II
+            </li>
+            <li>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              Plan in 30 seconds
+            </li>
+          </ul>
         </div>
 
         <!-- Hero artifact: live "media plan generating" demo (Nova) -->
@@ -360,9 +393,9 @@
               </div>
             </div>
           </div>
+          </div>
         </div>
-
-        <!-- Scroll prompt removed: hero is no longer full-viewport -->
+        <!-- /hero-stage (command deck) -->
       </section>
 
       <!-- ========================================== -->
@@ -3564,7 +3597,7 @@
     <!-- .footer-wrap -->
 
     <!-- ── Page Scripts (extracted to hub.js for cacheability, Fix #1) ── -->
-    <script src="/static/js/hub.js?v=2.1.3"></script>
+    <script src="/static/js/hub.js?v=2.2.1"></script>
 
     <!-- Legacy inline removed -- hamburger, observers, counters, bar anims,
          scroll handler, ripple, hero preview, page-enter, GSAP hero entrance,
