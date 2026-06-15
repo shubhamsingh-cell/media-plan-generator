@@ -216,11 +216,15 @@ def _alert_if_needed(results: dict[str, Any]) -> None:
                     name for name, check in results["checks"].items() if not check["ok"]
                 ]
                 severity = "CRITICAL" if results["overall"] == "critical" else "WARNING"
-                # S63: Stable subject -- drop the score so dedup catches repeats.
+                # S63: stable subject so alert_manager dedup catches repeats. Keep
+                # {severity} (so a CRITICAL breaks through a recent WARNING) but
+                # drop the failing-check COUNT -- it fluctuates cycle-to-cycle and
+                # was defeating dedup. The count + names live in the body.
                 am.send_alert(
-                    subject=f"[Nova QC] {severity}: {len(failed_checks)} check(s) failing",
+                    subject=f"[Nova QC] {severity}: checks failing",
                     body=(
-                        f"Failed checks: {', '.join(failed_checks) or 'none'}\n"
+                        f"{len(failed_checks)} check(s) failing: "
+                        f"{', '.join(failed_checks) or 'none'}\n"
                         f"Score: {results['health_score']}\n"
                         f"Two consecutive failing cycles confirmed."
                     ),
