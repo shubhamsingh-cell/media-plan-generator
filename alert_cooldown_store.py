@@ -115,8 +115,22 @@ class SupabaseCooldownBackend:
             req = urllib.request.Request(url, headers=self._headers(), method="GET")
             with urllib.request.urlopen(req, timeout=self._TIMEOUT) as resp:
                 rows = json.loads(resp.read().decode("utf-8"))
-            if rows and isinstance(rows[0].get("last_fired_ts"), (int, float)):
-                return float(rows[0]["last_fired_ts"])
+            if isinstance(rows, list) and rows and isinstance(
+                rows[0].get("last_fired_ts"), (int, float)
+            ):
+                last = float(rows[0]["last_fired_ts"])
+                # Defense-in-depth: a non-positive or far-future timestamp is
+                # corruption (a future value would otherwise SUPPRESS the alert).
+                # Reject it -> caller treats as "no cooldown" -> fail-open (fire).
+                if last <= 0 or last > time.time() + 60:
+                    logger.warning(
+                        "[cooldown] ignoring implausible last_fired_ts=%r for %s "
+                        "(fail-open)",
+                        last,
+                        key,
+                    )
+                    return None
+                return last
             return None
         except Exception as e:  # fail-open: any error -> allow the alert
             logger.debug("[cooldown] Supabase read failed (fail-open): %s", e)
@@ -151,27 +165,33 @@ class AlertCooldownStore:
 
     def __init__(self, backend: Optional[CooldownBackend] = None) -> None:
         self._backend: CooldownBackend = backend if backend is not None else _default_backend()
-        self._lock = threading.Lock()
 
     def should_fire(self, key: str, cooldown_s: float, now: Optional[float] = None) -> bool:
         """Return True if ``key`` is allowed to fire now (and record the fire).
 
-        Fail-open at every step: if the backend errors, we allow the alert.
+        Fail-open at every step: a backend error, a missing entry, OR a corrupt
+        timestamp all resolve to "fire". No lock is held: the backends are
+        individually thread-safe and the bridge is the sole caller, so the only
+        thing a lock would add is serializing network I/O (which would stall the
+        bridge cycle). The cross-worker read-then-write race is inherent and
+        documented in the module header.
         """
         ts = time.time() if now is None else now
-        with self._lock:
-            try:
-                last = self._backend.get_last_fired(key)
-            except Exception as e:  # defensive: backend should already fail-open
-                logger.debug("[cooldown] get_last_fired raised (fail-open): %s", e)
-                last = None
-            if last is not None and ts - last < cooldown_s:
-                return False
-            try:
-                self._backend.record_fired(key, ts)
-            except Exception as e:
-                logger.debug("[cooldown] record_fired raised: %s", e)
-            return True
+        try:
+            last = self._backend.get_last_fired(key)
+        except Exception as e:  # defensive: backend should already fail-open
+            logger.debug("[cooldown] get_last_fired raised (fail-open): %s", e)
+            last = None
+        # Suppress ONLY for a genuine, recent prior fire. A future timestamp
+        # (clock skew / corruption) yields a negative age -> we must NOT treat
+        # that as "still cooling down", or a real alert would be silenced.
+        if last is not None and 0 <= (ts - last) < cooldown_s:
+            return False
+        try:
+            self._backend.record_fired(key, ts)
+        except Exception as e:
+            logger.debug("[cooldown] record_fired raised: %s", e)
+        return True
 
     def active_count(self) -> int:
         try:

@@ -72,6 +72,26 @@ def test_fail_open_when_backend_raises_everywhere() -> None:
     assert store.active_count() == -1  # degrades gracefully
 
 
+class _FutureBackend:
+    name = "future"
+
+    def get_last_fired(self, key: str):
+        return 10_000_000_000.0  # far-future timestamp (year ~2286)
+
+    def record_fired(self, key: str, ts: float) -> None:
+        pass
+
+    def active_count(self) -> int:
+        return 1
+
+
+def test_future_timestamp_does_not_suppress_alert() -> None:
+    # A future "last fired" yields a negative age; it must NOT be treated as
+    # "still cooling down" -- fail-open requires the alert to fire.
+    store = AlertCooldownStore(_FutureBackend())
+    assert store.should_fire("k", 1800, now=1000.0) is True
+
+
 # --------------------------------------------------------------------------- #
 # Supabase backend: disabled / enabled / error paths
 # --------------------------------------------------------------------------- #
@@ -138,6 +158,31 @@ def test_supabase_backend_write_failure_swallowed(
         side_effect=OSError("network down"),
     ):
         be.record_fired("k", 1.0)  # must not raise
+
+
+def test_supabase_rejects_implausible_future_timestamp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_supabase(monkeypatch)
+    be = SupabaseCooldownBackend()
+    resp = MagicMock()
+    resp.read.return_value = b'[{"last_fired_ts": 99999999999999.0}]'
+    resp.__enter__ = MagicMock(return_value=resp)
+    resp.__exit__ = MagicMock(return_value=False)
+    with patch("alert_cooldown_store.urllib.request.urlopen", return_value=resp):
+        # Implausible future timestamp -> None (fail-open), never suppresses.
+        assert be.get_last_fired("k") is None
+
+
+def test_supabase_non_list_response_is_safe(monkeypatch: pytest.MonkeyPatch) -> None:
+    _enable_supabase(monkeypatch)
+    be = SupabaseCooldownBackend()
+    resp = MagicMock()
+    resp.read.return_value = b'{"unexpected": "object"}'
+    resp.__enter__ = MagicMock(return_value=resp)
+    resp.__exit__ = MagicMock(return_value=False)
+    with patch("alert_cooldown_store.urllib.request.urlopen", return_value=resp):
+        assert be.get_last_fired("k") is None
 
 
 def test_default_backend_is_memory_without_env(
