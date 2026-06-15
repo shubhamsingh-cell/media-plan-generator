@@ -10,12 +10,25 @@
     var _copilotAbortControllers = {};
 
     function copilotGetContext() {
+      // S90: include the free-text brief + call transcript so Nova's
+      // suggestions are seeded off what the user is actually hiring for,
+      // not just the selected industry. (cap length to keep payloads small)
+      var briefEl = document.getElementById("useCase");
+      var transcriptEl = document.getElementById("callTranscript");
       return {
         industry:
           (typeof selectedIndustry !== "undefined" && selectedIndustry) || "",
         budget: (document.getElementById("budgetRange") || {}).value || "",
         roles: typeof roles !== "undefined" ? roles.slice() : [],
         locations: typeof locations !== "undefined" ? locations.slice() : [],
+        goals: Array.prototype.map.call(
+          document.querySelectorAll('input[name="campaignGoals"]:checked'),
+          function (c) {
+            return c.value;
+          },
+        ),
+        brief: briefEl ? (briefEl.value || "").slice(0, 2000) : "",
+        transcript: transcriptEl ? (transcriptEl.value || "").slice(0, 2000) : "",
       };
     }
 
@@ -141,6 +154,26 @@
             cb.dispatchEvent(new Event("change", { bubbles: true }));
           }
         }
+      } else if (field === "sections") {
+        // S90: map a recommended Additional Section to its include* checkbox
+        var sectionMap = {
+          "Educational Partners & Training Programs": "includeEducational",
+          "Events & Career Fairs": "includeEvents",
+          "Radio & Podcasts": "includeRadioPodcasts",
+          "Media / Print Platforms": "includeMediaPlatforms",
+          "DEI & Diversity Channels": "includeDEI",
+          "Innovative Channels 2025+": "includeInnovative",
+          "Global Supply Strategy": "includeGlobalSupply",
+          "CPC/CPA & Pricing Guide": "includeBudgetGuide",
+        };
+        var sectionId = sectionMap[text];
+        if (sectionId) {
+          var sc = document.getElementById(sectionId);
+          if (sc && !sc.checked) {
+            sc.checked = true;
+            sc.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        }
       }
 
       // Visual feedback
@@ -213,6 +246,11 @@
             var step3 = document.getElementById("step3");
             if (step3 && step3.classList.contains("active")) {
               copilotFetchSuggestions("channels", "");
+            }
+            // S90: Additional Sections recommendations when step 4 opens
+            var step4 = document.getElementById("step4");
+            if (step4 && step4.classList.contains("active")) {
+              copilotFetchSuggestions("sections", "");
             }
           }, 350);
         };

@@ -18668,5 +18668,107 @@ def fetch_ats_postings(
     return result
 
 
+def derive_ats_board_token(company: str) -> str:
+    """Derive an ATS board-token candidate from a free-text company name.
+
+    Lowercases, maps ``&`` -> ``and``, strips spaces, and keeps only
+    ``[a-z0-9-]`` (the charset Greenhouse / Lever / Ashby board slugs use).
+    e.g. ``"Data Dog & Co"`` -> ``"datadogandco"``. Returns ``""`` for blank
+    input.
+    """
+    return re.sub(
+        r"[^a-z0-9-]",
+        "",
+        (company or "").lower().replace(" ", "").replace("&", "and"),
+    )
+
+
+def resolve_competitor_ats(
+    company: str,
+    provider: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Resolve a company name to its best public ATS board and fetch live postings.
+
+    S90: shared resolver used by both ``nova._query_competitor_hiring`` (chatbot
+    tool) and the ``/api/competitive/scrape`` route. Derives a board-token
+    candidate from ``company`` (see :func:`derive_ats_board_token`) and probes
+    Greenhouse / Lever / Ashby in turn (or just ``provider`` when given),
+    returning the first feed that yields > 0 open roles.
+
+    The returned ``total_available`` is the TRUE, uncapped open-req count for the
+    employer -- the correct value to display as "open roles" (unlike a scraped
+    keyword sample, which is bounded by the request limit).
+
+    Args:
+        company: Employer name or ATS board token (e.g. ``"Datadog"``).
+        provider: Optional ``greenhouse`` | ``ashby`` | ``lever`` to force a
+            single provider. If omitted, all three are tried.
+
+    Returns:
+        On success: the :func:`fetch_ats_postings` envelope plus ``company`` and
+        ``providers_tried``. On failure (blank input or no public board found),
+        an error envelope with ``no_public_board=True``, ``jobs=[]`` and
+        ``total_available=0``. Never raises -- errors are returned in-band.
+    """
+    company_clean = (company or "").strip()
+    if not company_clean:
+        return {
+            "source": "ATS",
+            "company": company_clean,
+            "job_count": 0,
+            "total_available": 0,
+            "jobs": [],
+            "locations_summary": {},
+            "no_public_board": True,
+            "error": "company name is required",
+            "providers_tried": [],
+        }
+
+    board = derive_ats_board_token(company_clean)
+    provider_norm = (provider or "").lower().strip()
+    providers = (
+        [provider_norm]
+        if provider_norm in _ATS_PROVIDERS
+        else ["greenhouse", "lever", "ashby"]
+    )
+
+    best: Optional[Dict[str, Any]] = None
+    for prov in providers:
+        try:
+            res = fetch_ats_postings(prov, board)
+        except Exception as exc:  # noqa: BLE001 -- fetch_ats_postings shouldn't raise, belt-and-braces
+            _api_logger.error(
+                f"resolve_competitor_ats: {prov} probe crashed for "
+                f"'{company_clean}': {exc}",
+                exc_info=True,
+            )
+            continue
+        if res and not res.get("error") and (res.get("job_count") or 0) > 0:
+            best = res
+            break
+
+    if best is None:
+        return {
+            "source": "ATS",
+            "company": company_clean,
+            "board": board,
+            "job_count": 0,
+            "total_available": 0,
+            "jobs": [],
+            "locations_summary": {},
+            "no_public_board": True,
+            "error": (
+                f"No public ATS board found for '{company_clean}'. The employer "
+                "may use a private ATS (e.g. Workday/Taleo) or a non-standard "
+                "board token."
+            ),
+            "providers_tried": providers,
+        }
+
+    best["company"] = company_clean
+    best["providers_tried"] = providers
+    return best
+
+
 if __name__ == "__main__":
     _cli_demo()

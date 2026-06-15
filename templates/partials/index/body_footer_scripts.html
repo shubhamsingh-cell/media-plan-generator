@@ -149,12 +149,8 @@
     if (hint) {
       hint.style.display = format === "google" ? "block" : "none";
     }
-    // Update generate button label
-    var formatHint = document.querySelector(".generate-format-hint");
-    if (formatHint) {
-      formatHint.textContent =
-        format === "google" ? "(Google Sheets + Slides)" : "(Excel + PPT)";
-    }
+    // S90: the per-format hint on the Generate button was removed (it just
+    // duplicated this toggle), so there is no .generate-format-hint to update.
   }
 
   // Check if Google export is configured and enable/disable accordingly
@@ -1283,7 +1279,15 @@
     try {
       var resp = await fetch("/api/plan/share", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          // S90: /api/plan/share enforces CSRF (double-submit). The handler
+          // previously omitted this header, so every share 403'd with
+          // "Invalid or missing CSRF token". Send the token like the other
+          // mutating endpoints (saveDraft / savePlanForComparison) do.
+          "X-CSRF-Token":
+            typeof getCsrfToken === "function" ? getCsrfToken() : "",
+        },
         body: JSON.stringify({
           plan_data: _lastPlanPayload,
           client: document.getElementById("clientName")?.value || "",

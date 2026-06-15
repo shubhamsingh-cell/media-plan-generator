@@ -811,11 +811,15 @@ def _copilot_suggest(field: str, partial_input: str, context: dict) -> list[dict
     budget = context.get("budget") or ""
     existing_roles = context.get("roles") or []
     existing_locations = context.get("locations") or []
+    # S90: the client now also sends the free-text brief / use-case so
+    # suggestions can be seeded off what the user is ACTUALLY hiring for,
+    # not just the industry. (Previously role suggestions ignored the brief.)
+    brief = context.get("brief") or ""
 
     try:
         if field == "roles":
             suggestions = _copilot_suggest_roles(
-                partial_input, industry, existing_roles
+                partial_input, industry, existing_roles, brief
             )
         elif field == "locations":
             suggestions = _copilot_suggest_locations(
@@ -823,7 +827,15 @@ def _copilot_suggest(field: str, partial_input: str, context: dict) -> list[dict
             )
         elif field == "channels":
             suggestions = _copilot_suggest_channels(
-                industry, existing_roles, existing_locations, budget
+                industry, existing_roles, existing_locations, budget, brief
+            )
+        elif field == "sections":
+            suggestions = _copilot_suggest_sections(
+                industry,
+                existing_roles,
+                existing_locations,
+                context.get("goals") or [],
+                brief,
             )
         elif field == "brief":
             suggestions = _copilot_suggest_brief(partial_input, context)
@@ -854,16 +866,98 @@ def _copilot_suggest(field: str, partial_input: str, context: dict) -> list[dict
     return suggestions
 
 
+def _extract_role_from_brief(brief: str) -> str:
+    """Best-effort: pull the hiring role/title out of a free-text brief.
+
+    Looks for common hiring-intent phrasings ("hiring 5 software engineers in
+    NYC", "looking for a registered nurse") and otherwise falls back to the
+    first known role keyword present. Returns "" when nothing role-like is
+    found. Never raises -- used only to seed suggestions.
+    """
+    if not brief:
+        return ""
+    text = " ".join(str(brief).split())
+    low = text.lower()
+    # 1. Hiring-intent phrase capture, e.g. "hiring 5 senior software engineers"
+    m = re.search(
+        r"\b(?:hir(?:e|ing)|recruit(?:ing)?|looking for|searching for|seeking|"
+        r"need(?:ing)?|fill(?:ing)?|sourcing)\s+"
+        r"(?:\d+\s+)?(?:a|an|some|several|multiple|more)?\s*"
+        r"([a-z][a-z/&+\- ]{2,45}?)"
+        r"(?=\s+(?:in|at|for|across|within|roles?|positions?|openings?|jobs?|"
+        r"candidates?)\b|[.,;:]|$)",
+        low,
+    )
+    if m:
+        cand = m.group(1).strip(" -/&")
+        cand = re.sub(
+            r"\s*\b(roles?|positions?|openings?|jobs?|candidates?|talent|"
+            r"professionals?)\s*$",
+            "",
+            cand,
+        ).strip()
+        if 2 < len(cand) < 46:
+            return cand
+    # 2. Keyword fallback (ordered specific -> general so multi-word wins first)
+    _role_keywords = [
+        "software engineer",
+        "data scientist",
+        "data analyst",
+        "devops engineer",
+        "product manager",
+        "ux designer",
+        "ui designer",
+        "registered nurse",
+        "nurse practitioner",
+        "truck driver",
+        "customer service",
+        "sales associate",
+        "warehouse associate",
+        "developer",
+        "engineer",
+        "technician",
+        "mechanic",
+        "electrician",
+        "welder",
+        "driver",
+        "accountant",
+        "analyst",
+        "designer",
+        "teacher",
+        "recruiter",
+        "nurse",
+        "manager",
+    ]
+    for kw in _role_keywords:
+        if kw in low:
+            return kw
+    return ""
+
+
 def _copilot_suggest_roles(
-    partial: str, industry: str, existing: list[str]
+    partial: str, industry: str, existing: list[str], brief: str = ""
 ) -> list[dict]:
-    """Suggest roles based on industry and partial input using O*NET + Adzuna data."""
+    """Suggest roles using O*NET + Adzuna, seeded off the user's actual intent.
+
+    S90: the seed for occupation/job lookups now follows the user's intent in
+    priority order -- what they're typing, then a role they already added, then
+    the role implied by their brief -- and only falls back to the industry as a
+    last resort. Previously it seeded off the industry alone, so a "software
+    engineer" brief could surface unrelated industry titles.
+    """
     suggestions: list[dict] = []
 
-    # Try O*NET occupation search for data-backed role suggestions
-    if _api_integrations_available and _api_onet and partial and len(partial) >= 2:
+    seed = (partial or "").strip()
+    if not seed and existing:
+        seed = str(existing[0]).strip()
+    if not seed and brief:
+        seed = _extract_role_from_brief(brief)
+    seed = seed.strip()
+
+    # O*NET occupation search on the seed (data-backed, on-target)
+    if _api_integrations_available and _api_onet and seed and len(seed) >= 2:
         try:
-            onet_results = _api_onet.search_occupations(partial)
+            onet_results = _api_onet.search_occupations(seed)
             if onet_results:
                 for occ in onet_results[:5]:
                     title = occ.get("title") or occ.get("name") or ""
@@ -878,20 +972,27 @@ def _copilot_suggest_roles(
         except Exception as e:
             logger.error("Copilot O*NET role lookup failed: %s", e, exc_info=True)
 
-    # Try Adzuna for trending roles in the industry
+    # Adzuna trending roles -- search on the SEED (the actual role intent),
+    # not the bare industry. Only fall back to the industry label when we have
+    # no seed at all.
     if (
         _api_integrations_available
         and _api_adzuna
-        and industry
+        and (seed or industry)
         and len(suggestions) < 3
     ):
         try:
             industry_label = industry.replace("_", " ").title()
-            search_query = f"{partial} {industry_label}" if partial else industry_label
+            search_query = seed or industry_label
             adzuna_results = _api_adzuna.search_jobs(
                 search_query, location="us", results_per_page=10
             )
             if adzuna_results and isinstance(adzuna_results, dict):
+                _reason = (
+                    f"Related to '{search_query}' on live job boards"
+                    if seed
+                    else f"Trending on job boards for {industry_label}"
+                )
                 seen_titles: set[str] = set()
                 for job in adzuna_results.get("results") or []:
                     title = (job.get("title") or "").strip()
@@ -910,7 +1011,7 @@ def _copilot_suggest_roles(
                             {
                                 "text": title,
                                 "confidence": 0.82,
-                                "reason": f"Trending on job boards for {industry_label}",
+                                "reason": _reason,
                             }
                         )
                         if len(suggestions) >= 5:
@@ -978,7 +1079,26 @@ def _copilot_suggest_roles(
                 "Contract Specialist",
             ],
         }
-        role_list = _industry_roles.get(industry, [])
+        # S90: the wizard's industry keys (from channels_db.json) don't all
+        # match this dict's keys -- e.g. "tech_engineering" vs "technology" --
+        # so the fallback used to silently return nothing. Normalize via alias.
+        _industry_alias: dict[str, str] = {
+            "tech_engineering": "technology",
+            "retail_consumer": "retail_hospitality",
+            "hospitality_travel": "retail_hospitality",
+            "food_beverage": "retail_hospitality",
+            "automotive": "manufacturing",
+            "logistics_supply_chain": "manufacturing",
+            "energy_utilities": "manufacturing",
+            "aerospace_defense": "government_defense",
+            "military_recruitment": "government_defense",
+        }
+        _ind_key = (
+            industry
+            if industry in _industry_roles
+            else _industry_alias.get(industry, industry)
+        )
+        role_list = _industry_roles.get(_ind_key, [])
         for role in role_list:
             if role not in existing:
                 suggestions.append(
@@ -1055,13 +1175,262 @@ def _copilot_suggest_locations(
     return suggestions[:5]
 
 
+_INTERNATIONAL_HINTS = (
+    "uk",
+    "united kingdom",
+    "london",
+    "canada",
+    "toronto",
+    "germany",
+    "france",
+    "india",
+    "bangalore",
+    "bengaluru",
+    "mumbai",
+    "singapore",
+    "australia",
+    "sydney",
+    "japan",
+    "tokyo",
+    "mexico",
+    "brazil",
+    "europe",
+    "apac",
+    "emea",
+    "latam",
+    "dubai",
+    "uae",
+    "philippines",
+    "ireland",
+    "netherlands",
+    "spain",
+)
+
+
+def _classify_channel_profile(industry: str, roles: list[str], brief: str) -> str:
+    """Coarse hiring profile used to tailor channel + section recommendations.
+
+    Returns one of: ``blue_collar``, ``healthcare``, ``tech``, ``retail``,
+    ``finance``, ``general``. Derived from the industry, selected roles, AND the
+    free-text brief so recommendations track what the user is actually hiring
+    for -- not just the industry dropdown.
+    """
+    blob = " ".join(
+        [industry or ""] + [str(r) for r in (roles or [])] + [brief or ""]
+    ).lower()
+
+    def has(*words: str) -> bool:
+        return any(w in blob for w in words)
+
+    # Trades / blue-collar first: catches "maintenance technician",
+    # "field engineer" etc. before the generic tech check.
+    if has(
+        "trade",
+        "blue collar",
+        "blue-collar",
+        "diesel",
+        "welder",
+        "electrician",
+        "hvac",
+        "mechanic",
+        "warehouse",
+        "cdl",
+        " driver",
+        "construction",
+        "manufactur",
+        "technician",
+        "plumber",
+        "logistics",
+        "maritime",
+        "maintenance",
+        "assembly",
+        "machinist",
+    ):
+        return "blue_collar"
+    if has(
+        "nurse",
+        "physician",
+        "healthcare",
+        "health care",
+        "medical",
+        "clinical",
+        "pharmac",
+        "therapist",
+        "caregiver",
+        "patient",
+        "rn ",
+        "lpn",
+    ):
+        return "healthcare"
+    if has(
+        "software",
+        "developer",
+        "devops",
+        "data scien",
+        "data analyst",
+        "cyber",
+        "cloud",
+        "ux design",
+        "ui design",
+        "product manager",
+        "tech_engineering",
+        "machine learning",
+        "ml engineer",
+        "full stack",
+        "full-stack",
+        "frontend",
+        "front-end",
+        "backend",
+        "back-end",
+        "programmer",
+    ):
+        return "tech"
+    if has(
+        "retail",
+        "hospitality",
+        "restaurant",
+        " store",
+        "sales associate",
+        "barista",
+        "cashier",
+        "food",
+        "hotel",
+        "server",
+        "front desk",
+    ):
+        return "retail"
+    if has(
+        "finance",
+        "bank",
+        "accountant",
+        "actuary",
+        "underwriter",
+        "insurance",
+        "investment",
+        "portfolio",
+    ):
+        return "finance"
+    return "general"
+
+
+_PROFILE_CHANNELS: dict[str, list[tuple[str, float, str]]] = {
+    "tech": [
+        (
+            "Niche & Industry-Specific Boards",
+            0.92,
+            "Dice, Built In & Stack Overflow reach targeted tech talent",
+        ),
+        (
+            "Programmatic/DSP",
+            0.88,
+            "Programmatic reaches passive tech candidates at scale",
+        ),
+        ("Social Media Channels", 0.84, "LinkedIn + dev communities for tech roles"),
+        (
+            "Employer Branding",
+            0.80,
+            "Glassdoor presence is critical for competitive tech hiring",
+        ),
+    ],
+    "healthcare": [
+        (
+            "Niche & Industry-Specific Boards",
+            0.92,
+            "Health eCareers & Nurse.com deliver lower CPA for healthcare",
+        ),
+        (
+            "Social Media Channels",
+            0.85,
+            "Facebook Jobs is effective for nursing/allied health",
+        ),
+        (
+            "Global Reach Job Boards",
+            0.78,
+            "Indeed/ZipRecruiter for high-volume clinical hiring",
+        ),
+    ],
+    "blue_collar": [
+        (
+            "Regional & Local Job Boards",
+            0.93,
+            "Craigslist + local boards deliver the best CPA for trades",
+        ),
+        (
+            "Social Media Channels",
+            0.87,
+            "Facebook Jobs excels for blue-collar recruitment",
+        ),
+        (
+            "Programmatic/DSP",
+            0.80,
+            "Programmatic fills high-volume hourly roles efficiently",
+        ),
+    ],
+    "retail": [
+        (
+            "Regional & Local Job Boards",
+            0.90,
+            "Indeed + local boards for high-volume retail hiring",
+        ),
+        (
+            "Social Media Channels",
+            0.88,
+            "Instagram/TikTok reach Gen-Z retail candidates",
+        ),
+        ("Programmatic/DSP", 0.78, "Programmatic scales seasonal/hourly hiring"),
+    ],
+    "finance": [
+        (
+            "Global Reach Job Boards",
+            0.88,
+            "LinkedIn + Indeed for finance/professional roles",
+        ),
+        (
+            "Niche & Industry-Specific Boards",
+            0.84,
+            "eFinancialCareers reaches specialized finance talent",
+        ),
+        (
+            "Employer Branding",
+            0.80,
+            "Glassdoor reputation matters for finance candidates",
+        ),
+    ],
+    "general": [
+        (
+            "Global Reach Job Boards",
+            0.85,
+            "Indeed + ZipRecruiter cover the widest candidate pool",
+        ),
+        (
+            "Social Media Channels",
+            0.80,
+            "Social channels reach passive candidates effectively",
+        ),
+        ("Programmatic/DSP", 0.78, "Automated placement optimizes CPA over time"),
+    ],
+}
+
+
 def _copilot_suggest_channels(
-    industry: str, roles: list[str], locations: list[str], budget: str
+    industry: str,
+    roles: list[str],
+    locations: list[str],
+    budget: str,
+    brief: str = "",
 ) -> list[dict]:
-    """Suggest channel categories based on industry, roles, and budget."""
+    """Suggest channel categories from the FULL brief, not just the industry.
+
+    S90: now derives a hiring profile from industry + selected roles + the
+    free-text brief (so a "software engineers" brief recommends Niche/Dice +
+    Programmatic, a "diesel mechanics" brief recommends Regional + Social), and
+    adds Global Reach when international locations are present. Previously the
+    industry-keyed lookup silently missed the wizard's keys (e.g.
+    ``tech_engineering``) and fell back to one generic list.
+    """
     suggestions: list[dict] = []
 
-    # Use benchmark_registry for data-backed channel recommendations
+    # Data-backed programmatic CPA note when the benchmark registry has it.
     try:
         registry_key = industry.replace("_", " ").lower() if industry else ""
         if registry_key:
@@ -1070,102 +1439,138 @@ def _copilot_suggest_channels(
             )
             if bench:
                 avg_cpa = bench.get("cpa") or bench.get("avg_cpa")
-                if avg_cpa:
+                if isinstance(avg_cpa, (int, float)):
                     suggestions.append(
                         {
-                            "text": "Programmatic/DSP Advertising",
+                            "text": "Programmatic/DSP",
                             "confidence": 0.88,
                             "reason": (
-                                f"Avg CPA ${avg_cpa:.0f} for {industry.replace('_', ' ').title()}"
-                                if isinstance(avg_cpa, (int, float))
-                                else f"Recommended for {industry.replace('_', ' ').title()}"
+                                f"Avg CPA ${avg_cpa:.0f} for "
+                                f"{industry.replace('_', ' ').title()}"
                             ),
                         }
                     )
     except Exception as e:
         logger.error("Copilot benchmark lookup failed: %s", e, exc_info=True)
 
-    # Industry-specific channel recommendations
-    _channel_recs: dict[str, list[tuple[str, float, str]]] = {
-        "healthcare_medical": [
-            (
-                "Niche & Industry-Specific Boards",
-                0.92,
-                "Health eCareers, Nurse.com deliver 40% lower CPA for healthcare",
-            ),
-            (
-                "Social Media Channels",
-                0.85,
-                "Facebook Jobs effective for nursing/allied health recruitment",
-            ),
-        ],
-        "technology": [
-            (
-                "Niche & Industry-Specific Boards",
-                0.90,
-                "Dice, Built In, Stack Overflow for targeted tech talent",
-            ),
-            (
-                "Programmatic/DSP",
-                0.88,
-                "Programmatic reaches passive tech candidates at scale",
-            ),
-            (
-                "Employer Branding",
-                0.82,
-                "Glassdoor/Indeed presence critical for tech hiring",
-            ),
-        ],
-        "blue_collar_trades": [
-            (
-                "Regional & Local Job Boards",
-                0.93,
-                "Craigslist + local boards deliver best CPA for trades",
-            ),
-            (
-                "Social Media Channels",
-                0.87,
-                "Facebook Jobs excels for blue collar recruitment",
-            ),
-        ],
-        "retail_hospitality": [
-            (
-                "Regional & Local Job Boards",
-                0.90,
-                "Indeed + local boards for high-volume retail hiring",
-            ),
-            (
-                "Social Media Channels",
-                0.88,
-                "Instagram/TikTok effective for Gen Z retail candidates",
-            ),
-        ],
-    }
-    for text, conf, reason in _channel_recs.get(industry, []):
+    # Profile-driven recommendations (industry + roles + brief).
+    profile = _classify_channel_profile(industry, roles, brief)
+    for text, conf, reason in _PROFILE_CHANNELS.get(
+        profile, _PROFILE_CHANNELS["general"]
+    ):
         if not any(s["text"] == text for s in suggestions):
             suggestions.append({"text": text, "confidence": conf, "reason": reason})
 
-    # If no industry-specific, give general recommendations
-    if not suggestions:
-        suggestions = [
-            {
-                "text": "Global Reach Job Boards",
-                "confidence": 0.85,
-                "reason": "Indeed + ZipRecruiter cover the widest candidate pool",
-            },
-            {
-                "text": "Social Media Channels",
-                "confidence": 0.80,
-                "reason": "Social channels reach passive candidates effectively",
-            },
-            {
-                "text": "Programmatic/DSP",
-                "confidence": 0.78,
-                "reason": "Automated ad placement optimizes CPA over time",
-            },
-        ]
+    # International locations -> ensure Global Reach is recommended.
+    loc_blob = " ".join(str(loc) for loc in (locations or [])).lower()
+    if any(h in loc_blob for h in _INTERNATIONAL_HINTS):
+        if not any(s["text"] == "Global Reach Job Boards" for s in suggestions):
+            suggestions.append(
+                {
+                    "text": "Global Reach Job Boards",
+                    "confidence": 0.86,
+                    "reason": "International locations -- add global/regional boards",
+                }
+            )
 
     return suggestions[:5]
+
+
+# Section label -> rationale, keyed by the profile/signal that recommends it.
+def _copilot_suggest_sections(
+    industry: str,
+    roles: list[str],
+    locations: list[str],
+    goals: list[str],
+    brief: str = "",
+) -> list[dict]:
+    """Recommend which Additional Sections to include, from the user's answers.
+
+    S90: brand-new -- Additional Sections previously had no guidance at all.
+    Maps the hiring profile, goals, and locations to the most relevant optional
+    sections (e.g. trades -> Educational Partners + Events; international ->
+    Global Supply Strategy; diversity goal -> DEI; awareness goal -> Radio/Print).
+    The CPC/CPA Pricing Guide is always recommended. Suggestion ``text`` matches
+    the section labels the frontend maps to its include* checkboxes.
+    """
+    profile = _classify_channel_profile(industry, roles, brief)
+    goal_blob = " ".join(str(g) for g in (goals or [])).lower()
+    loc_blob = " ".join(str(loc) for loc in (locations or [])).lower()
+    international = any(h in loc_blob for h in _INTERNATIONAL_HINTS)
+
+    recs: list[dict] = []
+
+    def add(text: str, conf: float, reason: str) -> None:
+        if not any(r["text"] == text for r in recs):
+            recs.append({"text": text, "confidence": conf, "reason": reason})
+
+    # Always useful: the pricing guide grounds the plan in real benchmarks.
+    add(
+        "CPC/CPA & Pricing Guide",
+        0.9,
+        "Grounds the plan in real CPC/CPA benchmarks for your roles",
+    )
+
+    if "diversity" in goal_blob or "dei" in goal_blob:
+        add(
+            "DEI & Diversity Channels",
+            0.92,
+            "Your Diversity Hiring goal -- adds inclusive/diverse sourcing channels",
+        )
+
+    if international:
+        add(
+            "Global Supply Strategy",
+            0.9,
+            "International locations -- country boards, billing models, push/pull",
+        )
+
+    if profile == "blue_collar":
+        add(
+            "Educational Partners & Training Programs",
+            0.88,
+            "Trade schools & community colleges are strong pipelines for skilled trades",
+        )
+        add(
+            "Events & Career Fairs",
+            0.82,
+            "Job fairs and on-site hiring events convert well for trades/hourly",
+        )
+    elif profile == "tech":
+        add(
+            "Innovative Channels 2025+",
+            0.84,
+            "CTV, gaming/esports & podcast ads reach passive tech candidates",
+        )
+        add(
+            "Events & Career Fairs",
+            0.78,
+            "Hackathons & campus events build an early-career tech pipeline",
+        )
+    elif profile == "healthcare":
+        add(
+            "Educational Partners & Training Programs",
+            0.85,
+            "Nursing schools & allied-health programs feed clinical pipelines",
+        )
+
+    if (
+        "brand" in goal_blob
+        or "awareness" in goal_blob
+        or "employer brand" in goal_blob
+    ):
+        add(
+            "Radio & Podcasts",
+            0.8,
+            "Your awareness goal -- audio builds employer brand in local markets",
+        )
+        add(
+            "Media / Print Platforms",
+            0.74,
+            "Industry journals & digital media extend brand reach",
+        )
+
+    return recs[:6]
 
 
 def _copilot_suggest_brief(partial: str, context: dict) -> list[dict]:
