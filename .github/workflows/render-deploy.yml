@@ -1,0 +1,58 @@
+name: Render Deploy (manual fallback)
+
+# A MANUAL "force redeploy" button for Render, via a DEPLOY HOOK (Render dashboard
+# -> service -> Settings -> Deploy Hook). Deploy hooks are a per-service secret URL
+# that does NOT expire the way RENDER_API_KEY did.
+#
+# WHY MANUAL-ONLY (workflow_dispatch, no push trigger): Render's NATIVE GitHub
+# auto-deploy is currently working (verified: the live /api/deploy/ready reports
+# the latest main commit). If this also fired on every push you'd get the
+# double-deploy race that produced the old "Deploy to Render: all jobs failed"
+# emails. So this stays OFF by default and is only a break-glass button:
+#   - GitHub -> Actions -> "Render Deploy (manual fallback)" -> Run workflow.
+# Use it if native auto-deploy ever stops (e.g. the Render GitHub App gets
+# disconnected) so you can redeploy without touching code.
+#
+# ── ARM IT (one time) ────────────────────────────────────────────────────────
+#   1. Render -> service srv-d6lk06k50q8c73bcpo40 -> Settings -> Deploy Hook ->
+#      copy the URL (looks like https://api.render.com/deploy/srv-...?key=...).
+#   2. GitHub -> repo Settings -> Secrets and variables -> Actions -> New secret
+#      name:  RENDER_DEPLOY_HOOK_URL   value: <the URL from step 1>
+#   (Leave native Auto-Deploy = On. This button is just a backup; it never fires
+#    automatically, so there's no double-deploy.)
+#
+# SKIP-SAFE: if RENDER_DEPLOY_HOOK_URL is missing this logs a notice and exits 0.
+
+on:
+  workflow_dispatch: {}   # MANUAL only -- click "Run workflow" in the Actions tab
+
+concurrency:
+  group: render-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Trigger Render deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: POST the Render deploy hook
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HOOK:-}" ]; then
+            echo "::notice title=Render deploy skipped::RENDER_DEPLOY_HOOK_URL secret is not set. Add it under repo Settings -> Secrets and variables -> Actions to enable auto-deploy (or rely on Render native Auto-Deploy)."
+            exit 0
+          fi
+          echo "Triggering Render deploy via deploy hook for ${GITHUB_SHA:0:8} ..."
+          code=$(curl -sS -o /tmp/render_resp.txt -w "%{http_code}" -X POST "$HOOK" || echo "000")
+          echo "Render hook responded HTTP ${code}"
+          cat /tmp/render_resp.txt 2>/dev/null || true
+          echo ""
+          if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
+            echo "::notice title=Render deploy triggered::HTTP ${code} -- watch progress in the Render dashboard (Events tab)."
+          else
+            echo "::error title=Render deploy hook failed::HTTP ${code}. The hook URL secret is likely wrong/rotated -- recopy it from Render -> Settings -> Deploy Hook."
+            exit 1
+          fi
