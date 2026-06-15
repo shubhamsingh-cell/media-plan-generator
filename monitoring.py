@@ -2360,9 +2360,15 @@ def _safe_serialize(obj: Any, max_depth: int = 3) -> Any:
 ERROR_RATE_ALERT_GRACE_S = 300  # suppress error-rate paging this long after start
 # Minimum rolling-window requests before the page is meaningful. Aligned with
 # check_slo_compliance's _ERR_MIN_SAMPLES (10) so the page and the SLO agree on
-# what counts as "enough traffic". Per-module health scores (not volume-gated)
-# still catch failures on genuinely low-traffic endpoints.
+# what counts as "enough traffic". (Per-module health pages get the same floor
+# via suppress_health_alert below -- P3.)
 ERROR_RATE_ALERT_MIN_REQUESTS = 10  # need a real denominator before paging
+
+# P3: module-health pages (degraded / critical / DOWN) get the same post-deploy
+# grace + volume floor as the error-rate page. A freshly-started module with a
+# couple of 5xx over a tiny window (1 error / 2 requests -> health score ~60)
+# would otherwise fire a WARNING on cold-start noise.
+MODULE_HEALTH_ALERT_MIN_REQUESTS = 10  # cold-start tiny-denominator floor
 
 
 def evaluate_error_rate_alert(
@@ -2403,6 +2409,25 @@ def evaluate_error_rate_alert(
             "[Nova] Elevated error rate (>5%)",
             f"Global error rate is {error_rate_pct:.1f}% (threshold: 5%).",
         )
+    return None
+
+
+def suppress_health_alert(
+    window_requests: int, uptime_seconds: float
+) -> Optional[str]:
+    """Return a reason to suppress a module-health page, or ``None`` to allow it.
+
+    P3: module-health alerts had no post-deploy grace or volume floor, so a
+    freshly-started module with a couple of 5xx over a tiny window (e.g.
+    1 error / 2 requests -> score ~60) could fire a WARNING on cold-start noise
+    -- the same artifact S90 fixed for the error-rate page. Mirror that gating.
+    A real, sustained problem accrues volume and outlives grace, so it still
+    pages on a later cycle.
+    """
+    if uptime_seconds < ERROR_RATE_ALERT_GRACE_S:
+        return "post-deploy grace"
+    if window_requests < MODULE_HEALTH_ALERT_MIN_REQUESTS:
+        return "too few requests"
     return None
 
 
@@ -2499,10 +2524,26 @@ class MonitoringAlertBridge:
             # Check each module's health via ModuleHealthTracker
             tracker = get_module_tracker()
             module_scores = tracker.compute_health_scores()
+            uptime = time.time() - _START_TIME  # P3: post-deploy grace signal
 
             for module_id, module_data in module_scores.items():
                 score = module_data.get("health_score", 100)
                 status = module_data.get("status", "healthy")
+                win = (module_data.get("metrics") or {}).get("window_requests", 0) or 0
+
+                # P3: skip cold-start / tiny-denominator health noise (mirrors S90).
+                if score < 70:
+                    reason = suppress_health_alert(win, uptime)
+                    if reason is not None:
+                        logger.debug(
+                            "[alert] health page for %s suppressed: %s "
+                            "(score=%s, n=%s)",
+                            module_id,
+                            reason,
+                            score,
+                            win,
+                        )
+                        continue
 
                 # Critical: health score below 40
                 # S63: stable subjects (no score value) -> dedup suppresses flaps.
@@ -2630,30 +2671,35 @@ class MonitoringAlertBridge:
             except Exception as anom_err:
                 logger.debug("[MonitorAlertBridge] Anomaly check error: %s", anom_err)
 
-            # Deploy detection: check if VERSION has changed
-            try:
-                current_version = VERSION
-                if current_version != self._last_known_version:
-                    old_version = self._last_known_version
-                    self._last_known_version = current_version
-                    alert_key = f"deploy_detected_{current_version}"
-                    if self._should_alert(alert_key):
-                        self._fire_alert(
-                            "INFO",
-                            f"[Nova] Deploy detected: v{old_version} -> v{current_version}",
-                            f"Server version changed from {old_version} to "
-                            f"{current_version}. Instance: "
-                            f"{os.environ.get('RENDER_INSTANCE_ID', 'local')}.",
-                        )
-            except Exception as deploy_err:
-                logger.debug("[MonitorAlertBridge] Deploy check error: %s", deploy_err)
+            # P4: deploy-detection removed. It compared VERSION (a module
+            # constant) to self._last_known_version (initialized to that same
+            # constant), so within any single process the values were always
+            # equal and the "Deploy detected" INFO could never fire -- dead code
+            # that implied a working signal. A real version-change notification
+            # needs a previous-version persisted across the per-process bridges
+            # (see the alert_cooldown_store shared store); tracked as a follow-up.
 
             # Module DOWN detection: any module with status 'critical' or score < 20
             try:
                 for module_id, module_data in module_scores.items():
                     score = module_data.get("health_score", 100)
                     status = module_data.get("status", "healthy")
+                    win = (module_data.get("metrics") or {}).get(
+                        "window_requests", 0
+                    ) or 0
                     if score < 20 or status == "critical":
+                        # P3: same cold-start grace + volume floor as above.
+                        reason = suppress_health_alert(win, uptime)
+                        if reason is not None:
+                            logger.debug(
+                                "[alert] module-DOWN page for %s suppressed: %s "
+                                "(score=%s, n=%s)",
+                                module_id,
+                                reason,
+                                score,
+                                win,
+                            )
+                            continue
                         alert_key = f"module_down_{module_id}"
                         if self._should_alert(alert_key):
                             self._fire_alert(
