@@ -402,7 +402,8 @@ class DataMatrixMonitor:
                 if isinstance(info, dict) and info.get("status") == "error":
                     error_cells.append(f"tier2/{mod_key}")
             send_alert(
-                subject=f"Data Matrix: {error_count} check(s) failed after self-heal",
+                # S63: stable subject (count is in the body) so dedup works.
+                subject="Data Matrix: checks failed after self-heal",
                 body=(
                     f"<p><b>{error_count}</b> data matrix check(s) failed and "
                     f"could not be self-healed.</p>"

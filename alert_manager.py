@@ -58,13 +58,50 @@ _LOG_FILE = Path("/tmp/nova_alerts.log")
 
 _lock = threading.Lock()
 _send_timestamps: list[float] = []
-_dedup_cache: Dict[str, float] = {}  # subject -> last_sent_timestamp
+_dedup_cache: Dict[str, float] = {}  # subject -> last_sent_timestamp (fallback)
 _tier_stats: Dict[str, int] = {
     "resend": 0,
     "slack": 0,
     "logfile": 0,
     "failed": 0,
 }
+
+# S90 P1-extension: back the subject dedup with the shared, fail-open cooldown
+# store (Supabase when configured, else in-memory) so a worker restart can't
+# re-send the same alert. This matters most for the NON-bridge alert sources
+# (auto_qc, data_enrichment, data_matrix_monitor) that call send_alert directly
+# and previously relied on this per-process _dedup_cache. Lazily imported so a
+# missing module can never break alerting -- falls back to the in-memory dict.
+try:
+    from alert_cooldown_store import AlertCooldownStore as _ACS
+
+    _cooldown_store = _ACS()
+except Exception:  # pragma: no cover - defensive
+    _cooldown_store = None
+
+
+def _dedup_last_sent(dedup_key: str) -> float:
+    """Last-sent timestamp for ``dedup_key`` (shared/durable when available).
+
+    Fail-open: any store error resolves to 0.0 (-> not deduped -> alert sends).
+    No lock is held across the store's (possibly networked) read.
+    """
+    store = _cooldown_store
+    if store is not None:
+        last = store.get_last_fired(f"am:{dedup_key}")
+        return last if last is not None else 0.0
+    with _lock:
+        return _dedup_cache.get(dedup_key, 0.0)
+
+
+def _dedup_mark_sent(dedup_key: str) -> None:
+    """Record that ``dedup_key`` was just sent (shared/durable when available)."""
+    store = _cooldown_store
+    if store is not None:
+        store.record_fired(f"am:{dedup_key}", time.time())
+        return
+    with _lock:
+        _dedup_cache[dedup_key] = time.time()
 
 # -- Severity colours for HTML body -------------------------------------------
 
@@ -121,9 +158,22 @@ def _send_alert_impl(subject: str, body: str, severity: str) -> bool:
         logger.debug("alert_manager: ALERT_EMAIL not set, skipping alert")
         return False
 
-    # -- Rate limit + dedup check (under lock) --------------------------------
+    # -- Dedup + rate limit ---------------------------------------------------
     now = time.time()
     dedup_key = (subject or "").strip()
+
+    # Subject-based dedup (shared/durable when AlertCooldownStore is available;
+    # done outside the lock so the store's networked read can't stall senders).
+    last_sent = _dedup_last_sent(dedup_key)
+    # Suppress only for a genuine, recent prior send. A future timestamp (clock
+    # skew / corruption) yields a negative age -> must NOT suppress (fail-open).
+    if 0 <= (now - last_sent) < _DEDUP_WINDOW:
+        logger.debug(
+            "alert_manager: dedup suppressed (subject=%s, age=%.0fs)",
+            dedup_key[:60],
+            now - last_sent,
+        )
+        return False
 
     with _lock:
         # Prune timestamps older than 1 hour
@@ -138,17 +188,8 @@ def _send_alert_impl(subject: str, body: str, severity: str) -> bool:
             )
             return False
 
-        # Subject-based dedup: same subject not sent twice within 1 hour
-        last_sent = _dedup_cache.get(dedup_key, 0.0)
-        if (now - last_sent) < _DEDUP_WINDOW:
-            logger.debug(
-                "alert_manager: dedup suppressed (subject=%s, age=%.0fs)",
-                dedup_key[:60],
-                now - last_sent,
-            )
-            return False
-
-        # Prune stale dedup entries
+        # Prune stale in-memory dedup entries (a no-op when the shared store is
+        # active, since _dedup_cache stays empty in that case).
         stale_cutoff = now - (_DEDUP_WINDOW * 2)
         stale_keys = [k for k, ts in _dedup_cache.items() if ts < stale_cutoff]
         for k in stale_keys:
@@ -184,8 +225,10 @@ def _record_send(tier: str, dedup_key: str) -> None:
     """Record a successful send for rate limiting and stats."""
     with _lock:
         _send_timestamps.append(time.time())
-        _dedup_cache[dedup_key] = time.time()
         _tier_stats[tier] = _tier_stats.get(tier, 0) + 1
+    # Outside the lock: the store write may do network I/O. Recording only on a
+    # successful send means a failed delivery isn't suppressed for 4h.
+    _dedup_mark_sent(dedup_key)
 
 
 def _try_resend(

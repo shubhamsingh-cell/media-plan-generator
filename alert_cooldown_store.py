@@ -253,6 +253,27 @@ class AlertCooldownStore:
             logger.debug("[cooldown] record_fired raised: %s", e)
         return True
 
+    def get_last_fired(self, key: str) -> Optional[float]:
+        """Last-fired timestamp for ``key``, or None. Fail-open: any backend
+        error returns None (caller treats it as "not recently fired").
+
+        Exposed for callers (e.g. alert_manager) that record only on a
+        *successful* send, so they need the check and the record as separate
+        steps rather than the atomic ``should_fire``.
+        """
+        try:
+            return self._backend.get_last_fired(key)
+        except Exception as e:
+            logger.debug("[cooldown] store.get_last_fired fail-open: %s", e)
+            return None
+
+    def record_fired(self, key: str, ts: Optional[float] = None) -> None:
+        """Record a fire for ``key`` (defaults to now). Errors are swallowed."""
+        try:
+            self._backend.record_fired(key, time.time() if ts is None else ts)
+        except Exception as e:
+            logger.debug("[cooldown] store.record_fired swallowed: %s", e)
+
     def active_count(self) -> int:
         try:
             return self._backend.active_count()

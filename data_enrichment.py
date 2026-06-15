@@ -1222,9 +1222,11 @@ class DataEnrichmentEngine:
                     ", ".join(stale_files),
                 )
                 send_alert(
-                    subject=f"Benchmark Staleness: {len(stale_files)} file(s) older than 90 days",
+                    # S63: stable subject (count is in the body) so alert_manager
+                    # dedup actually suppresses repeats across cycles/restarts.
+                    subject="Benchmark Staleness: files older than 90 days",
                     body=(
-                        f"<p>The following benchmark files need refreshing:</p>"
+                        f"<p>{len(stale_files)} benchmark file(s) need refreshing:</p>"
                         f"<ul>{''.join(f'<li>{f}</li>' for f in stale_files)}</ul>"
                         f"<p>Stale benchmarks may lead to inaccurate CPC/CPA "
                         f"recommendations in generated media plans.</p>"
@@ -1387,7 +1389,8 @@ class DataEnrichmentEngine:
                         len(critical_drifts),
                     )
                 send_alert(
-                    subject=f"Benchmark Drift: {drifted_count} industry benchmarks drifted >20%",
+                    # S63: stable subject (count is in the body) so dedup works.
+                    subject="Benchmark Drift: industry benchmarks drifted past threshold",
                     body=(
                         f"<p><b>{drifted_count}</b> benchmarks have drifted beyond the "
                         f"{drift_threshold * 100:.0f}% threshold.</p>"
