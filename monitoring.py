@@ -2413,7 +2413,7 @@ def evaluate_error_rate_alert(
 
 
 def suppress_health_alert(
-    window_requests: int, uptime_seconds: float
+    window_requests: int, uptime_seconds: float, require_volume: bool = True
 ) -> Optional[str]:
     """Return a reason to suppress a module-health page, or ``None`` to allow it.
 
@@ -2421,12 +2421,16 @@ def suppress_health_alert(
     freshly-started module with a couple of 5xx over a tiny window (e.g.
     1 error / 2 requests -> score ~60) could fire a WARNING on cold-start noise
     -- the same artifact S90 fixed for the error-rate page. Mirror that gating.
-    A real, sustained problem accrues volume and outlives grace, so it still
-    pages on a later cycle.
+
+    ``require_volume`` distinguishes the tiers (P3 review): the **post-deploy
+    grace** applies to every health page (it covers the deploy storm). The
+    **volume floor** applies only to the low-stakes WARNING/degraded tier --
+    a sustained CRITICAL or "Module DOWN" must page even on a low-traffic module
+    (otherwise a real outage on a <10 req/hr service would be silenced forever).
     """
     if uptime_seconds < ERROR_RATE_ALERT_GRACE_S:
         return "post-deploy grace"
-    if window_requests < MODULE_HEALTH_ALERT_MIN_REQUESTS:
+    if require_volume and window_requests < MODULE_HEALTH_ALERT_MIN_REQUESTS:
         return "too few requests"
     return None
 
@@ -2531,41 +2535,51 @@ class MonitoringAlertBridge:
                 status = module_data.get("status", "healthy")
                 win = (module_data.get("metrics") or {}).get("window_requests", 0) or 0
 
-                # P3: skip cold-start / tiny-denominator health noise (mirrors S90).
-                if score < 70:
-                    reason = suppress_health_alert(win, uptime)
-                    if reason is not None:
-                        logger.debug(
-                            "[alert] health page for %s suppressed: %s "
-                            "(score=%s, n=%s)",
-                            module_id,
-                            reason,
-                            score,
-                            win,
-                        )
-                        continue
-
-                # Critical: health score below 40
+                # P3: gate cold-start / tiny-denominator health noise (mirrors S90).
+                # CRITICAL gets grace only -- a sustained critical must page even
+                # on a low-traffic module. WARNING also gets the volume floor,
+                # since low-traffic flapping to "degraded" is low-value noise.
                 # S63: stable subjects (no score value) -> dedup suppresses flaps.
                 if score < 40:
-                    alert_key = f"health_critical_{module_id}"
-                    if self._should_alert(alert_key):
+                    reason = suppress_health_alert(win, uptime, require_volume=False)
+                    if reason is None and self._should_alert(
+                        f"health_critical_{module_id}"
+                    ):
                         self._fire_alert(
                             "CRITICAL",
                             f"[Nova] CRITICAL: {module_id} unhealthy",
                             f"Module {module_id} health has dropped to {score}/100 "
                             f"(status: {status}). Immediate investigation required.",
                         )
+                    elif reason is not None:
+                        logger.debug(
+                            "[alert] health critical for %s suppressed: %s "
+                            "(score=%s, n=%s)",
+                            module_id,
+                            reason,
+                            score,
+                            win,
+                        )
 
-                # Warning: health score below 70
                 elif score < 70:
-                    alert_key = f"health_degraded_{module_id}"
-                    if self._should_alert(alert_key):
+                    reason = suppress_health_alert(win, uptime, require_volume=True)
+                    if reason is None and self._should_alert(
+                        f"health_degraded_{module_id}"
+                    ):
                         self._fire_alert(
                             "WARNING",
                             f"[Nova] DEGRADED: {module_id}",
                             f"Module {module_id} health has degraded to {score}/100 "
                             f"(status: {status}). Monitor closely.",
+                        )
+                    elif reason is not None:
+                        logger.debug(
+                            "[alert] health degraded for %s suppressed: %s "
+                            "(score=%s, n=%s)",
+                            module_id,
+                            reason,
+                            score,
+                            win,
                         )
 
             # Check SLO compliance
@@ -2688,8 +2702,11 @@ class MonitoringAlertBridge:
                         "window_requests", 0
                     ) or 0
                     if score < 20 or status == "critical":
-                        # P3: same cold-start grace + volume floor as above.
-                        reason = suppress_health_alert(win, uptime)
+                        # P3: grace only (no volume floor) -- a sustained DOWN
+                        # must page even on a low-traffic module.
+                        reason = suppress_health_alert(
+                            win, uptime, require_volume=False
+                        )
                         if reason is not None:
                             logger.debug(
                                 "[alert] module-DOWN page for %s suppressed: %s "

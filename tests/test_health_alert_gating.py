@@ -46,3 +46,23 @@ def test_boundaries() -> None:
         suppress_health_alert(MODULE_HEALTH_ALERT_MIN_REQUESTS - 1, PAST_GRACE)
         == "too few requests"
     )
+
+
+# --- CRITICAL / Module-DOWN tier: grace only, no volume floor (P3 review) ----
+
+
+def test_critical_tier_pages_low_traffic_past_grace() -> None:
+    # A sustained CRITICAL/DOWN on a low-traffic module (1 request) MUST page
+    # once past grace -- the volume floor must not silence it forever.
+    assert (
+        suppress_health_alert(1, uptime_seconds=PAST_GRACE, require_volume=False)
+        is None
+    )
+
+
+def test_critical_tier_still_grace_gated() -> None:
+    # Grace still applies to the critical tier (covers the deploy storm).
+    assert (
+        suppress_health_alert(1, uptime_seconds=10, require_volume=False)
+        == "post-deploy grace"
+    )
