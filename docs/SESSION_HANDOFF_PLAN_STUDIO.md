@@ -38,6 +38,7 @@ live earlier this session (curl + the deploy poll).
 
 | Commit | What |
 |---|---|
+| `4adc5c9` | **Co-pilot action card** — when Nova shows the recommended mix, a one-click "Apply this mix to my plan" button toggles the real channel checkboxes (the audit's "action card" bet, client-side). Verified end-to-end. |
 | `8646dd3` | **Nova insights** — the live preview is now a proactive co-pilot: computed feasibility (projected vs target hires), cost-per-hire vs benchmark, channel-fit, seasonality. Tone-coded, XSS-safe. |
 | `233c4bf` | a11y focus ring on the accordion summary |
 | `488cb33` | Results dashboard polish — brand-accent title bar + hero Total-Budget tile |
