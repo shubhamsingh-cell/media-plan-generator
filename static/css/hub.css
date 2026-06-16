@@ -2226,11 +2226,11 @@ html.lenis body {
   color: var(--text-secondary);
 }
 .dash-table-row .score-good {
-  color: #22c55e;
+  color: #6bb5ce;
   font-weight: 600;
 }
 .dash-table-row .score-ok {
-  color: #f59e0b;
+  color: #b7669e;
   font-weight: 600;
 }
 
