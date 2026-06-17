@@ -2461,83 +2461,45 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     industry_label = data.get("industry_label") or ""
     today = datetime.date.today().strftime("%B %d, %Y")
 
-    # Full dark navy background
+    # Full dark indigo background (matches the Invisible title slide)
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, NAVY)
 
-    # Teal accent bar at top
-    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, Inches(0.06), TEAL)
+    # Top-right corner decoration: layered purple-light + teal rectangles
+    _add_filled_rect(slide, Inches(10.0), Inches(0), Inches(3.33), Inches(0.2), JOVEO_LIGHT_PURPLE)
+    _add_filled_rect(slide, Inches(11.33), Inches(0.2), Inches(2.0), Inches(0.13), TEAL)
 
-    # Decorative Blue Violet accent bar - left side
-    _add_filled_rect(slide, Inches(0.6), Inches(1.8), Inches(1.2), Inches(0.05), BLUE)
-
-    # Logo top-left (PNG, ~0.5" tall)
-    _logo_path = os.path.join(os.path.dirname(__file__), "assets", "joveo-logo.png")
-    if os.path.exists(_logo_path):
-        try:
-            slide.shapes.add_picture(
-                _logo_path, Inches(0.6), Inches(0.4), height=Inches(0.5)
-            )
-        except Exception:
-            pass  # Graceful fallback — text label below still shows
-
-    # "AI MEDIA PLANNER" small label top-left (below logo) in Downy Teal
+    # joveo wordmark, top-left
     _add_textbox(
-        slide,
-        Inches(0.6),
-        Inches(1.1),
-        Inches(5),
-        Inches(0.4),
-        text="AI MEDIA PLANNER",
-        font_size=14,
-        bold=True,
-        color=TEAL,  # Downy Teal branding
+        slide, Inches(0.62), Inches(0.5), Inches(4), Inches(0.55),
+        text="joveo", font_size=26, bold=True, color=JOVEO_LIGHT_PURPLE,
     )
 
-    # Main title - client name large
+    # Main title
     _add_textbox(
-        slide,
-        Inches(0.6),
-        Inches(2.1),
-        Inches(10),
-        Inches(1.2),
-        text=f"Media Plan",
-        font_size=52,
-        bold=True,
-        color=WHITE,
+        slide, Inches(0.62), Inches(1.95), Inches(11.5), Inches(0.95),
+        text="Media Plan", font_size=52, bold=True, color=WHITE,
+    )
+    # "for" connector + client hero
+    _add_textbox(
+        slide, Inches(0.66), Inches(3.0), Inches(4), Inches(0.38),
+        text="for", font_size=20, italic=True, color=WHITE,
+    )
+    _add_textbox(
+        slide, Inches(0.62), Inches(3.48), Inches(11.8), Inches(1.0),
+        text=client, font_size=42, bold=True, color=LIGHT_TEAL,
     )
 
-    # Client name as hero element
-    _add_textbox(
-        slide,
-        Inches(0.6),
-        Inches(3.2),
-        Inches(11),
-        Inches(1.0),
-        text=client,
-        font_size=44,
-        bold=True,
-        color=LIGHT_TEAL,
-    )
-
-    # Industry subtitle in light teal
+    # Industry subtitle
     if industry_label:
         _add_textbox(
-            slide,
-            Inches(0.6),
-            Inches(4.2),
-            Inches(10),
-            Inches(0.5),
-            text=industry_label,
-            font_size=20,
-            bold=False,
-            color=LIGHT_TEAL,  # Joveo Light Teal
+            slide, Inches(0.64), Inches(4.5), Inches(10), Inches(0.5),
+            text=industry_label, font_size=18, color=LIGHT_TEAL,
         )
 
     # Company tagline from enrichment data (Wikipedia description)
     enriched = data.get("_enriched", {})
     company_info = enriched.get("company_info", {}) if enriched else {}
     if company_info and company_info.get("description"):
-        # Truncate to first sentence or 120 chars for a clean tagline
         desc = company_info["description"]
         first_sentence_end = desc.find(".")
         if 0 < first_sentence_end < 120:
@@ -2545,70 +2507,31 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         else:
             tagline = desc[:120].rsplit(" ", 1)[0] + "..." if len(desc) > 120 else desc
         _add_textbox(
-            slide,
-            Inches(0.6),
-            Inches(4.7),
-            Inches(9),
-            Inches(0.4),
-            text=tagline,
-            font_size=11,
-            italic=True,
-            color=LIGHT_MUTED,
+            slide, Inches(0.64), Inches(5.02), Inches(9), Inches(0.4),
+            text=tagline, font_size=11, italic=True, color=LIGHT_MUTED,
         )
 
-    # Blue Violet accent line under title area
-    _add_filled_rect(slide, Inches(0.6), Inches(5.0), Inches(3.0), Inches(0.05), BLUE)
-
-    # Date and branding at bottom
+    # Prepared-by + date (bottom-left)
     _add_textbox(
-        slide,
-        Inches(0.6),
-        Inches(5.4),
-        Inches(6),
-        Inches(0.4),
-        text=today,
-        font_size=14,
-        color=LIGHT_MUTED,
-    )
-    _add_textbox(
-        slide,
-        Inches(0.6),
-        Inches(5.8),
-        Inches(8.5),  # widened so the credit stays on one line
-        Inches(0.4),
+        slide, Inches(0.62), Inches(5.62), Inches(8), Inches(0.4),
         text="Created by Shubham Singh Chandel  •  Powered by Joveo's Global Supply Team",
-        font_size=11,
-        italic=True,
-        color=TEAL,  # Downy Teal for branding
+        font_size=13, color=TEAL,
+    )
+    _add_textbox(
+        slide, Inches(0.62), Inches(6.04), Inches(6), Inches(0.4),
+        text=today, font_size=13, color=LIGHT_MUTED,
     )
 
-    # Right-side decorative element: large subtle circle
-    circle_size = Inches(4.5)
-    circle = _add_oval(
-        slide,
-        SLIDE_WIDTH - Inches(3.0),
-        Inches(1.5),
-        circle_size,
-        circle_size,
-        MEDIUM_BLUE,
-    )
-    # Semi-transparent Blue Violet tone for decorative circle
-    circle.fill.fore_color.rgb = RGBColor(0x3A, 0x36, 0x7E)  # Muted Blue Violet
-
-    # Smaller overlapping accent circle (muted Downy Teal tone)
-    _add_oval(
-        slide,
-        SLIDE_WIDTH - Inches(1.5),
-        Inches(3.5),
-        Inches(2.5),
-        Inches(2.5),
-        RGBColor(0x45, 0x7A, 0x8A),  # Muted Downy Teal
+    # Bottom-right tagline
+    _add_textbox(
+        slide, Inches(8.4), Inches(6.4), Inches(4.3), Inches(0.6),
+        text="High-Performance, AI-Led\nRecruitment Marketing Platform",
+        font_size=11, color=LIGHT_MUTED, alignment=PP_ALIGN.RIGHT,
     )
 
-    # Bottom teal bar
-    _add_filled_rect(
-        slide, Inches(0), SLIDE_HEIGHT - Inches(0.06), SLIDE_WIDTH, Inches(0.06), TEAL
-    )
+    # Bottom edge brand bars (purple-light + teal)
+    _add_filled_rect(slide, Inches(0), SLIDE_HEIGHT - Inches(0.16), SLIDE_WIDTH, Inches(0.08), JOVEO_LIGHT_PURPLE)
+    _add_filled_rect(slide, Inches(0), SLIDE_HEIGHT - Inches(0.08), SLIDE_WIDTH, Inches(0.08), TEAL)
 
 
 # ===================================================================
@@ -2677,7 +2600,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
 
     # Top band
-    _add_top_band(slide, "AI MEDIA PLANNER", client.upper())
+    _add_top_band(slide, "Executive Summary", client.upper())
 
     # Action title
     role_summary = ", ".join(roles[:3]) if roles else "key roles"
@@ -8851,15 +8774,23 @@ def _build_slide_methodology(prs: Presentation, data: Dict, deck: Dict) -> None:
         x = grid_left + col * (card_w + gap)
         y = grid_top + row_idx * (card_h + gap)
 
-        _add_rounded_rect(slide, x, y, card_w, card_h, WHITE)
+        accent = INV_ACCENTS[idx % len(INV_ACCENTS)]
+        card = _add_rounded_rect(slide, x, y, card_w, card_h, WHITE)
+        try:
+            card.line.color.rgb = WARM_GRAY
+            card.line.width = Pt(0.75)
+        except Exception:
+            pass
+        # Colored top accent bar (Invisible card style)
+        _add_filled_rect(slide, x, y, card_w, Inches(0.08), accent)
 
-        # Purple circle number chip
+        # Number chip cycling the dataviz palette
         chip = Inches(0.42)
-        _add_oval(slide, x + Inches(0.18), y + Inches(0.18), chip, chip, BLUE)
+        _add_oval(slide, x + Inches(0.2), y + Inches(0.26), chip, chip, accent)
         _add_textbox(
             slide,
-            x + Inches(0.18),
-            y + Inches(0.18),
+            x + Inches(0.2),
+            y + Inches(0.26),
             chip,
             chip,
             text=str(step.get("n") or idx + 1),
@@ -8873,9 +8804,9 @@ def _build_slide_methodology(prs: Presentation, data: Dict, deck: Dict) -> None:
         # Step name (Poppins bold, navy)
         _add_textbox(
             slide,
-            x + Inches(0.72),
-            y + Inches(0.16),
-            card_w - Inches(0.9),
+            x + Inches(0.74),
+            y + Inches(0.24),
+            card_w - Inches(0.92),
             Inches(0.66),
             text=str(step.get("name") or ""),
             font_size=11,
@@ -9177,17 +9108,24 @@ def _build_slide_case_study_next_steps(
         if not isinstance(res, dict):
             continue
         x = Inches(0.55) + idx * (block_w + gap)
-        _add_rounded_rect(slide, x, block_top, block_w, block_h, WHITE)
+        accent = INV_ACCENTS[idx % len(INV_ACCENTS)]
+        block_card = _add_rounded_rect(slide, x, block_top, block_w, block_h, WHITE)
+        try:
+            block_card.line.color.rgb = WARM_GRAY
+            block_card.line.width = Pt(0.75)
+        except Exception:
+            pass
+        _add_filled_rect(slide, x, block_top, block_w, Inches(0.08), accent)
         _add_textbox(
             slide,
             x + Inches(0.2),
-            block_top + Inches(0.08),
+            block_top + Inches(0.18),
             block_w - Inches(0.4),
-            Inches(0.6),
+            Inches(0.5),
             text=str(res.get("value") or ""),
-            font_size=30,
+            font_size=28,
             bold=True,
-            color=BLUE,
+            color=accent,
         )
         _add_textbox(
             slide,
