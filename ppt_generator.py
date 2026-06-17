@@ -1397,6 +1397,137 @@ def _cur_symbol(currency: Optional[str] = None) -> str:
     return _CURRENCY_SYMBOLS.get(code, "$")
 
 
+# ===================================================================
+# INVISIBLE SCAFFOLD
+# Exact reskin of the Joveo "Invisible Media Planning Approach" deck.
+# Geometry tokens were extracted from the source .pptx (10 x 5.625 in)
+# and scaled x1.3333 onto the 13.333 x 7.5 in generator canvas.
+# Every content slide is built from these helpers so the whole deck
+# inherits one clean, light, Invisible-matching design language
+# (light lavender canvas, top accent rule + wordmark, big indigo title,
+# accent-bar cards, lavender question band, dark takeaway callout).
+# ===================================================================
+INV_ACCENTS = [BLUE, TEAL, JOVEO_PINK, JOVEO_LIGHT_PURPLE, AMBER]  # purple/teal/magenta/lilac/teal-deep
+INK_SLATE = RGBColor(0x33, 0x33, 0x4F)  # card body text (source #33334E)
+INV_CANVAS = LAVENDER_50  # #F4F4FF cool light page canvas
+INV_PILL = LAVENDER_50    # #F4F4FF soft pill / row surface
+INV_QBAND = LAVENDER_100  # #ECEAF7 question-band surface
+INV_CONTENT_TOP = 1.55    # inches: y where slide body starts (below title)
+
+
+def _inv_canvas(slide, wordmark: bool = True):
+    """Paint the light Invisible page: lavender canvas, top accent rule, wordmark."""
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, INV_CANVAS)
+    # Full-width top accent rule (purple-light) -- source 0.08in x1.333
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, Inches(0.10), JOVEO_LIGHT_PURPLE)
+    if wordmark:
+        _add_textbox(
+            slide, Inches(0.65), Inches(0.27), Inches(2.0), Inches(0.4),
+            text="joveo", font_size=19, bold=True, color=BLUE,
+        )
+
+
+def _inv_header(slide, title: str, subtitle: str = "", wordmark: bool = True) -> float:
+    """Invisible content-slide header (canvas + big indigo title + optional subtitle).
+
+    Returns the y (in inches) where slide body content should start.
+    """
+    _inv_canvas(slide, wordmark=wordmark)
+    _add_textbox(
+        slide, Inches(0.63), Inches(0.72), Inches(12.05), Inches(0.64),
+        text=title, font_size=30, bold=True, color=NAVY,
+    )
+    if subtitle:
+        _add_textbox(
+            slide, Inches(0.65), Inches(1.38), Inches(12.05), Inches(0.36),
+            text=subtitle, font_size=14, italic=True, color=BLUE,
+        )
+        return 1.92
+    return INV_CONTENT_TOP
+
+
+def _inv_question_band(slide, qtext: str, top: float = 1.5) -> float:
+    """Lavender question band with a purple 'Q' chip (Q1-Q4 framing slides).
+
+    Returns the y (inches) just below the band.
+    """
+    y = Inches(top)
+    h = Inches(0.86)
+    _add_rounded_rect(slide, Inches(0.65), y, Inches(12.1), h, INV_QBAND)
+    _add_rounded_rect(slide, Inches(0.65), y, Inches(0.72), h, BLUE)
+    _add_textbox(
+        slide, Inches(0.65), y, Inches(0.72), h, text="Q", font_size=18, bold=True,
+        color=WHITE, alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+    )
+    _add_textbox(
+        slide, Inches(1.6), y, Inches(10.9), h, text=qtext, font_size=13, italic=True,
+        color=NAVY, anchor=MSO_ANCHOR.MIDDLE,
+    )
+    return top + 0.86 + 0.18
+
+
+def _inv_card(
+    slide, x, y, w, h, header: str, body: str = "", accent=None,
+    header_color=None, header_size: int = 14, body_size: int = 11,
+):
+    """White rounded card + colored top accent bar + bold header + body text."""
+    accent = accent if accent is not None else BLUE
+    card = _add_rounded_rect(slide, x, y, w, h, WHITE)
+    try:
+        card.line.color.rgb = WARM_GRAY
+        card.line.width = Pt(0.75)
+    except Exception:
+        pass
+    _add_filled_rect(slide, x, y, w, Inches(0.08), accent)
+    pad = Inches(0.24)
+    _add_textbox(
+        slide, x + pad, y + Inches(0.2), w - pad * 2, Inches(0.46),
+        text=header, font_size=header_size, bold=True, color=header_color or accent,
+    )
+    if body:
+        _add_textbox(
+            slide, x + pad, y + Inches(0.64), w - pad * 2, h - Inches(0.78),
+            text=body, font_size=body_size, color=INK_SLATE,
+        )
+    return card
+
+
+def _inv_callout(slide, text: str, top: float = 6.5):
+    """Dark-indigo takeaway callout bar near the bottom (white text), full width."""
+    y = Inches(top)
+    _add_rounded_rect(slide, Inches(0.65), y, Inches(12.05), Inches(0.52), NAVY)
+    _add_textbox(
+        slide, Inches(0.95), y, Inches(11.45), Inches(0.52), text=text,
+        font_size=12, color=WHITE, anchor=MSO_ANCHOR.MIDDLE,
+    )
+
+
+def _inv_numbered_rows(slide, items, top: float = 1.7, pitch: float = 0.95):
+    """Numbered dataviz circles + lavender pill rows (Next Steps style)."""
+    for i, txt in enumerate(items):
+        accent = INV_ACCENTS[i % len(INV_ACCENTS)]
+        ry = top + i * pitch
+        circ = slide.shapes.add_shape(
+            MSO_SHAPE.OVAL, Inches(0.8), Inches(ry), Inches(0.53), Inches(0.53)
+        )
+        circ.fill.solid()
+        circ.fill.fore_color.rgb = accent
+        circ.line.fill.background()
+        _add_textbox(
+            slide, Inches(0.8), Inches(ry), Inches(0.53), Inches(0.53), text=str(i + 1),
+            font_size=18, bold=True, color=WHITE, alignment=PP_ALIGN.CENTER,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+        px, pw, ph = Inches(1.62), Inches(11.1), Inches(0.67)
+        py = Inches(ry - 0.07)
+        _add_rounded_rect(slide, px, py, pw, ph, INV_PILL)
+        _add_filled_rect(slide, px, py, Inches(0.08), ph, accent)
+        _add_textbox(
+            slide, px + Inches(0.26), py, pw - Inches(0.45), ph, text=txt,
+            font_size=14, color=NAVY, anchor=MSO_ANCHOR.MIDDLE,
+        )
+
+
 def _fmt_currency(val, currency=None, compact=False):
     """Format a number as currency. compact=True for $1.2M style.
 
@@ -2165,34 +2296,54 @@ def _add_footer(slide, today: str):
     )
 
 
-def _add_top_band(slide, left_text: str, right_text: str, band_color=NAVY):
-    """Add the standard top navigation band."""
-    band_h = Inches(0.72)
-    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, band_h, band_color)
+_TITLE_ACRONYMS = {
+    "Ai": "AI", "Roi": "ROI", "Cpa": "CPA", "Cpc": "CPC", "Cph": "CPH",
+    "Dsp": "DSP", "Crm": "CRM", "Kpi": "KPI", "Us": "US", "Uk": "UK",
+    "Eu": "EU", "Seo": "SEO", "Ats": "ATS", "Ppc": "PPC", "Qc": "QC",
+    "Roas": "ROAS", "Dei": "DEI",
+}
+
+
+def _smart_title(s: str) -> str:
+    """Title-case a heading while preserving known acronyms (AI, ROI, CPA...)."""
+    return " ".join(_TITLE_ACRONYMS.get(w, w) for w in str(s).title().split())
+
+
+def _add_top_band(slide, left_text: str, right_text: str = "", band_color=NAVY):
+    """Invisible-style light header (replaces the old navy nav band).
+
+    Paints the light lavender canvas, the top purple accent rule, the ``joveo``
+    wordmark, and a big indigo section title (``left_text``, smart-title-cased).
+    ``right_text`` (date/client) is intentionally NOT shown here -- the footer
+    carries the date, matching the reference deck. Returns a body-top hint (EMU).
+    """
+    _inv_canvas(slide, wordmark=False)
+    # Compact wordmark + big title sit ABOVE y=0.92 so each builder's existing
+    # action/insight line at y=0.92 reads as the subtitle (no per-builder edits,
+    # no collision). Section names are short -> one line at 26pt.
     _add_textbox(
         slide,
-        Inches(0.45),
+        Inches(0.63),
         Inches(0.15),
-        Inches(7),
-        Inches(0.45),
-        text=left_text,
-        font_size=14,
+        Inches(4.0),
+        Inches(0.3),
+        text="joveo",
+        font_size=15,
         bold=True,
-        color=WHITE,
+        color=BLUE,
     )
     _add_textbox(
         slide,
-        Inches(9),
-        Inches(0.15),
-        Inches(4),
+        Inches(0.63),
         Inches(0.45),
-        text=right_text,
-        font_size=12,
-        bold=False,
-        color=RGBColor(0xA8, 0xD8, 0xEA),  # Light Teal (Joveo extended)
-        alignment=PP_ALIGN.RIGHT,
+        Inches(12.05),
+        Inches(0.46),
+        text=_smart_title(left_text),
+        font_size=26,
+        bold=True,
+        color=NAVY,
     )
-    return band_h
+    return Inches(1.45)
 
 
 def _confidence_color(confidence: str) -> Tuple[RGBColor, str]:
