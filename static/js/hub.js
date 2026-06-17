@@ -303,60 +303,9 @@
     }, 4000);
   }
 
-  // ── Dashboard bar animation (using unified observer) ──
-  var dashWindow = document.querySelector(".dash-window");
-  if (dashWindow) {
-    var dashObs = new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (entry) {
-          if (entry.isIntersecting) {
-            var fills = entry.target.querySelectorAll(".dash-bar-fill");
-            fills.forEach(function (fill, i) {
-              setTimeout(function () {
-                fill.classList.add("animated");
-              }, i * 200);
-            });
-            var rows = entry.target.querySelectorAll(".dash-table-row");
-            rows.forEach(function (row, i) {
-              setTimeout(
-                function () {
-                  row.classList.add("visible");
-                },
-                800 + i * 300,
-              );
-            });
-            dashObs.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.3 },
-    );
-    dashObs.observe(dashWindow);
-  }
-
-  // ── Plan showcase bar animation ──
-  var planShowcase = document.getElementById("plan-showcase");
-  if (planShowcase) {
-    var showcaseObs = new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (entry) {
-          if (entry.isIntersecting) {
-            var fills = entry.target.querySelectorAll(
-              ".plan-showcase-bar-fill",
-            );
-            fills.forEach(function (fill, i) {
-              setTimeout(function () {
-                fill.classList.add("animated");
-              }, i * 150);
-            });
-            showcaseObs.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.3 },
-    );
-    showcaseObs.observe(planShowcase);
-  }
+  // Dashboard bar + plan-showcase animations removed: the Moment-4 dash card
+  // and the standalone plan-showcase card were deleted in the de-repeat pass.
+  // The live Prediction Engine (#plan-showcase) drives its own bars below.
 
   // ── Header shrink on scroll (combined with aurora parallax via rAF) ──
   var nav = document.querySelector(".nav");
@@ -1581,4 +1530,166 @@ document.addEventListener("DOMContentLoaded", function () {
   } else {
     start();
   }
+})();
+
+/* ==========================================================================
+   PREDICTION ENGINE — the single interactive plan-card on the page.
+   Picks a role + location + budget, predicts cost-per-hire live, and routes
+   the spend across 5 channels. Numbers count up (cubic ease); reduced-motion
+   jumps to final. rAF is cancelled per element so rapid changes don't fight.
+   ========================================================================== */
+(function () {
+  "use strict";
+
+  var card = document.getElementById("plan-showcase");
+  if (!card || !card.classList.contains("pe-card")) return;
+
+  var prefersReducedMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)",
+  ).matches;
+
+  var ROLES = [
+    { k: "Registered Nurse", cpa: 18, ath: 0.017, days: 31 },
+    { k: "Sales Rep", cpa: 12, ath: 0.012, days: 24 },
+    { k: "CDL Driver", cpa: 9, ath: 0.022, days: 19 },
+    { k: "Software Engineer", cpa: 28, ath: 0.009, days: 42 },
+  ];
+  var LOCS = [
+    { k: "Houston, TX", m: 1.0 },
+    { k: "Chicago, IL", m: 1.15 },
+    { k: "Phoenix, AZ", m: 0.95 },
+    { k: "Remote", m: 1.25 },
+  ];
+  var CH = [0.37, 0.24, 0.19, 0.12, 0.08];
+
+  var roleIdx = 0;
+  var locIdx = 0;
+  var budget = 50000;
+
+  // Element handles
+  var roleChips = card.querySelectorAll("[data-role]");
+  var locChips = card.querySelectorAll("[data-loc]");
+  var range = card.querySelector("[data-pe-range]");
+  var budgetEl = card.querySelector("[data-pe-budget]");
+  var cphEl = card.querySelector("[data-pe-cph]");
+  var hiresEl = card.querySelector("[data-pe-hires]");
+  var appsEl = card.querySelector("[data-pe-apps]");
+  var daysEl = card.querySelector("[data-pe-days]");
+  var barFills = card.querySelectorAll(".pe-bar-fill");
+  var barAmts = card.querySelectorAll("[data-pe-amt]");
+
+  function fmtDollar(n) {
+    return "$" + Math.round(n).toLocaleString("en-US");
+  }
+
+  // Per-element rAF token store so rapid input cancels in-flight animations.
+  var rafTokens = {};
+  // Resilience: rAF is paused when the tab is hidden/backgrounded, so guarantee
+  // the final values land via a setTimeout snap (mirrors the genplan card).
+  var peSnapTimer = null;
+  function animateNumber(el, key, from, to, fmt) {
+    if (!el) return;
+    if (rafTokens[key]) {
+      cancelAnimationFrame(rafTokens[key]);
+      rafTokens[key] = null;
+    }
+    if (prefersReducedMotion) {
+      el.textContent = fmt(to);
+      return;
+    }
+    var dur = 800;
+    var start = null;
+    function step(ts) {
+      if (start === null) start = ts;
+      var p = Math.min((ts - start) / dur, 1);
+      var eased = 1 - Math.pow(1 - p, 3); // cubic ease-out
+      el.textContent = fmt(from + (to - from) * eased);
+      if (p < 1) {
+        rafTokens[key] = requestAnimationFrame(step);
+      } else {
+        rafTokens[key] = null;
+      }
+    }
+    rafTokens[key] = requestAnimationFrame(step);
+  }
+
+  function readNum(el) {
+    if (!el) return 0;
+    var n = parseFloat(String(el.textContent).replace(/[^0-9.]/g, ""));
+    return isNaN(n) ? 0 : n;
+  }
+
+  function compute() {
+    var role = ROLES[roleIdx];
+    var loc = LOCS[locIdx];
+    var apps = budget / (role.cpa * loc.m);
+    var hires = Math.max(1, Math.round(apps * role.ath));
+    var cph = budget / hires;
+    var days = Math.round(role.days * loc.m);
+
+    animateNumber(cphEl, "cph", readNum(cphEl), cph, fmtDollar);
+    animateNumber(hiresEl, "hires", readNum(hiresEl), hires, function (v) {
+      return Math.round(v).toLocaleString("en-US");
+    });
+    animateNumber(appsEl, "apps", readNum(appsEl), apps, function (v) {
+      return Math.round(v).toLocaleString("en-US");
+    });
+    animateNumber(daysEl, "days", readNum(daysEl), days, function (v) {
+      return String(Math.round(v));
+    });
+
+    barFills.forEach(function (fill, i) {
+      fill.style.width = (CH[i] * 100).toFixed(1) + "%";
+    });
+    barAmts.forEach(function (amtEl, i) {
+      animateNumber(amtEl, "amt" + i, readNum(amtEl), budget * CH[i], fmtDollar);
+    });
+
+    // Snap to final values after the count-up window, so the prediction is
+    // correct even if rAF never ran (hidden/backgrounded tab).
+    if (peSnapTimer) clearTimeout(peSnapTimer);
+    peSnapTimer = setTimeout(function () {
+      if (cphEl) cphEl.textContent = fmtDollar(cph);
+      if (hiresEl) hiresEl.textContent = Math.round(hires).toLocaleString("en-US");
+      if (appsEl) appsEl.textContent = Math.round(apps).toLocaleString("en-US");
+      if (daysEl) daysEl.textContent = String(days);
+      barAmts.forEach(function (amtEl, i) {
+        if (amtEl) amtEl.textContent = fmtDollar(budget * CH[i]);
+      });
+    }, 900);
+  }
+
+  // Role chips
+  roleChips.forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      roleIdx = parseInt(chip.getAttribute("data-role"), 10) || 0;
+      roleChips.forEach(function (c) {
+        c.classList.toggle("is-on", c === chip);
+      });
+      compute();
+    });
+  });
+
+  // Location chips
+  locChips.forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      locIdx = parseInt(chip.getAttribute("data-loc"), 10) || 0;
+      locChips.forEach(function (c) {
+        c.classList.toggle("is-on", c === chip);
+      });
+      compute();
+    });
+  });
+
+  // Budget range
+  if (range) {
+    range.addEventListener("input", function () {
+      budget = parseInt(range.value, 10) || 0;
+      if (budgetEl) budgetEl.textContent = fmtDollar(budget);
+      compute();
+    });
+  }
+
+  // Initial paint
+  compute();
 })();

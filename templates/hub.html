@@ -88,7 +88,7 @@
     <link rel="stylesheet" href="/static/css/tokens.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/buttons.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/motion.css?v=2.0.0" />
-    <link rel="stylesheet" href="/static/css/hub.css?v=2.2.6" />
+    <link rel="stylesheet" href="/static/css/hub.css?v=2.2.7" />
 
     <!-- PostHog Analytics -->
     <script>
@@ -1367,124 +1367,24 @@
             </div>
           </div>
 
-          <!-- Moment 4 — THE PLAN (dashboard mockup moved here) -->
+          <!-- Moment 4 — THE PLAN. Card mockup removed (it duplicated the
+               hero genplan card + the Prediction Engine). Replaced with a
+               single big outcome figure so this moment reads as a result,
+               not a third copy of the plan card. -->
           <div class="story-moment moment-4">
             <div class="moment-visual">
-              <div class="dash-window">
-                <div class="dash-titlebar">
-                  <span class="dash-dot red"></span>
-                  <span class="dash-dot yellow"></span>
-                  <span class="dash-dot green"></span>
-                  <span class="dash-title">Nova AI &#8212; Media Plan</span>
+              <div class="moment-figure">
+                <div
+                  class="moment-figure-value"
+                  data-counter
+                  data-target="1064"
+                  data-prefix="$"
+                >
+                  $1,064
                 </div>
-                <div class="dash-body">
-                  <div class="dash-metrics">
-                    <div class="dash-metric">
-                      <div class="dash-metric-label">Total Budget</div>
-                      <div
-                        class="dash-metric-value"
-                        data-counter
-                        data-target="50000"
-                        data-prefix="$"
-                      >
-                        $50,000
-                      </div>
-                    </div>
-                    <div class="dash-metric">
-                      <div class="dash-metric-label">Avg CPC</div>
-                      <div
-                        class="dash-metric-value"
-                        data-counter
-                        data-target="2.41"
-                        data-prefix="$"
-                        data-decimals="2"
-                      >
-                        $2.41
-                      </div>
-                    </div>
-                    <div class="dash-metric">
-                      <div class="dash-metric-label">Applications</div>
-                      <div
-                        class="dash-metric-value"
-                        data-counter
-                        data-target="847"
-                      >
-                        847
-                      </div>
-                    </div>
-                    <div class="dash-metric">
-                      <div class="dash-metric-label">Quality Score</div>
-                      <div
-                        class="dash-metric-value"
-                        data-counter
-                        data-target="92"
-                        data-suffix="%"
-                      >
-                        92%
-                      </div>
-                    </div>
-                  </div>
-                  <div class="dash-chart">
-                    <div class="dash-chart-title">Budget Allocation</div>
-                    <div class="dash-bar-row">
-                      <span class="dash-bar-label">Indeed</span>
-                      <div class="dash-bar-track">
-                        <div
-                          class="dash-bar-fill"
-                          style="--bar-width: 72%; --bar-color: #5a54be"
-                        ></div>
-                      </div>
-                      <span class="dash-bar-value">$18,000</span>
-                    </div>
-                    <div class="dash-bar-row">
-                      <span class="dash-bar-label">LinkedIn</span>
-                      <div class="dash-bar-track">
-                        <div
-                          class="dash-bar-fill"
-                          style="--bar-width: 55%; --bar-color: #6bb5ce"
-                        ></div>
-                      </div>
-                      <span class="dash-bar-value">$13,750</span>
-                    </div>
-                    <div class="dash-bar-row">
-                      <span class="dash-bar-label">ZipRecruiter</span>
-                      <div class="dash-bar-track">
-                        <div
-                          class="dash-bar-fill"
-                          style="--bar-width: 38%; --bar-color: #22c55e"
-                        ></div>
-                      </div>
-                      <span class="dash-bar-value">$9,500</span>
-                    </div>
-                    <div class="dash-bar-row">
-                      <span class="dash-bar-label">Glassdoor</span>
-                      <div class="dash-bar-track">
-                        <div
-                          class="dash-bar-fill"
-                          style="--bar-width: 25%; --bar-color: #f59e0b"
-                        ></div>
-                      </div>
-                      <span class="dash-bar-value">$6,250</span>
-                    </div>
-                  </div>
-                  <div class="dash-table">
-                    <div class="dash-table-header">
-                      <span>Channel</span><span>CPC</span><span>CPA</span
-                      ><span>Score</span>
-                    </div>
-                    <div class="dash-table-row">
-                      <span>Indeed</span><span>$1.82</span><span>$24</span
-                      ><span class="score-good">A+</span>
-                    </div>
-                    <div class="dash-table-row">
-                      <span>LinkedIn</span><span>$3.45</span><span>$38</span
-                      ><span class="score-ok">B+</span>
-                    </div>
-                    <div class="dash-table-row">
-                      <span>ZipRecruiter</span><span>$2.10</span><span>$28</span
-                      ><span class="score-good">A</span>
-                    </div>
-                  </div>
+                <div class="moment-figure-label">predicted cost-per-hire</div>
+                <div class="moment-figure-sub">
+                  modeled across the full channel mix before a dollar is spent
                 </div>
               </div>
             </div>
@@ -1595,91 +1495,8 @@
         </div>
       </section>
 
-      <!-- HIDDEN: reducing to 5 screens -->
-      <!--
-      <section class="demo-section" aria-label="Live demo">
-        <div class="container" style="max-width: 720px">
-          <div class="section-label reveal">Try it now</div>
-          <h2 class="section-title reveal" style="text-align: center">
-            See Nova plan a real campaign
-          </h2>
-
-          <div class="demo-card reveal">
-            <div class="demo-inputs">
-              <div class="demo-field">
-                <label>Role</label>
-                <input type="text" value="Registered Nurse" id="demo-role" />
-              </div>
-              <div class="demo-field">
-                <label>Location</label>
-                <input type="text" value="Houston, TX" id="demo-loc" />
-              </div>
-              <div class="demo-field">
-                <label>Budget</label>
-                <input type="text" value="$40,000" id="demo-budget" />
-              </div>
-            </div>
-
-            <button class="btn-primary demo-btn" id="demo-btn">
-              Generate Plan &rarr;
-            </button>
-
-            <div class="demo-output" id="demo-output">
-              <div class="demo-output-inner">
-                <div class="demo-channels">
-                  <div class="demo-channel">
-                    <span class="dc-name">Indeed</span>
-                    <div class="dc-bar">
-                      <div class="dc-fill" style="--w: 38%"></div>
-                    </div>
-                    <span class="dc-amount">$15,200</span>
-                  </div>
-                  <div class="demo-channel">
-                    <span class="dc-name">LinkedIn</span>
-                    <div class="dc-bar">
-                      <div class="dc-fill" style="--w: 28%"></div>
-                    </div>
-                    <span class="dc-amount">$11,200</span>
-                  </div>
-                  <div class="demo-channel">
-                    <span class="dc-name">ZipRecruiter</span>
-                    <div class="dc-bar">
-                      <div class="dc-fill" style="--w: 20%"></div>
-                    </div>
-                    <span class="dc-amount">$8,000</span>
-                  </div>
-                  <div class="demo-channel">
-                    <span class="dc-name">Glassdoor</span>
-                    <div class="dc-bar">
-                      <div class="dc-fill" style="--w: 14%"></div>
-                    </div>
-                    <span class="dc-amount">$5,600</span>
-                  </div>
-                </div>
-                <div class="demo-metrics">
-                  <div class="demo-metric">
-                    <span class="dm-label">Predicted CPA</span>
-                    <span class="dm-value">$22-28</span>
-                  </div>
-                  <div class="demo-metric">
-                    <span class="dm-label">Est. Applications</span>
-                    <span class="dm-value">847</span>
-                  </div>
-                  <div class="demo-metric">
-                    <span class="dm-label">Confidence</span>
-                    <span class="dm-value dm-good">High</span>
-                  </div>
-                </div>
-                <a href="/media-plan" class="demo-full-link">
-                  Want the full plan? Generate one now &rarr;
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-      -->
-      <!--/HIDDEN-->
+      <!-- Dead demo-section markup removed (was a hidden HTML comment block;
+           superseded by the live Prediction Engine). -->
 
       <!-- ========================================== -->
       <!-- SECTION 5: THREE PRODUCTS                   -->
@@ -3389,100 +3206,165 @@
       <!--/HIDDEN-->
 
       <!-- ========================================== -->
-      <!-- PLAN SHOWCASE (standalone, moved from proof) -->
+      <!-- PREDICTION ENGINE (replaces the duplicate    -->
+      <!-- standalone plan-showcase card). The ONLY     -->
+      <!-- plan-card-style UI on the page; fully live.  -->
+      <!-- Keeps id="plan-showcase" so the hero ghost   -->
+      <!-- CTA anchor still resolves.                   -->
       <!-- ========================================== -->
       <section
-        class="plan-showcase-standalone"
-        aria-label="Sample plan"
+        class="prediction-engine-section"
+        aria-label="Prediction Engine"
         style="padding: var(--space-section) 0 var(--space-16)"
       >
-        <div class="container" style="max-width: 720px">
-          <div class="plan-showcase reveal" id="plan-showcase">
-            <div class="plan-showcase-glow" aria-hidden="true"></div>
-            <div class="plan-showcase-frame">
-              <div class="plan-showcase-inner">
-                <div class="plan-showcase-header">
-                  <span class="plan-showcase-title"
-                    >Registered Nurse &mdash; Houston, TX</span
-                  >
-                  <span class="plan-showcase-badge">AI-Optimized</span>
-                </div>
-                <div class="plan-showcase-metric">
-                  <div class="plan-showcase-metric-label">Total Budget</div>
-                  <div class="plan-showcase-metric-value">$50,000</div>
-                </div>
-                <div class="plan-showcase-metric">
-                  <div class="plan-showcase-metric-label">Predicted CPA</div>
-                  <div class="plan-showcase-metric-value">$24.30</div>
-                </div>
-                <div class="plan-showcase-metric">
-                  <div class="plan-showcase-metric-label">
-                    Est. Applications
-                  </div>
-                  <div class="plan-showcase-metric-value">847</div>
-                </div>
-                <div class="plan-showcase-metric">
-                  <div class="plan-showcase-metric-label">Confidence</div>
-                  <div class="plan-showcase-metric-value">95%</div>
-                </div>
-                <div class="plan-showcase-channels">
-                  <div class="plan-showcase-channel">
-                    <span class="plan-showcase-channel-name">Indeed</span>
-                    <div class="plan-showcase-bar">
-                      <div
-                        class="plan-showcase-bar-fill"
-                        style="--bar-w: 72%; background: #8680d6"
-                      ></div>
-                    </div>
-                    <span class="plan-showcase-channel-amount">$18,000</span>
-                  </div>
-                  <div class="plan-showcase-channel">
-                    <span class="plan-showcase-channel-name">LinkedIn</span>
-                    <div class="plan-showcase-bar">
-                      <div
-                        class="plan-showcase-bar-fill"
-                        style="--bar-w: 55%; background: #5a54be"
-                      ></div>
-                    </div>
-                    <span class="plan-showcase-channel-amount">$13,750</span>
-                  </div>
-                  <div class="plan-showcase-channel">
-                    <span class="plan-showcase-channel-name">ZipRecruiter</span>
-                    <div class="plan-showcase-bar">
-                      <div
-                        class="plan-showcase-bar-fill"
-                        style="--bar-w: 38%; background: #6bb5ce"
-                      ></div>
-                    </div>
-                    <span class="plan-showcase-channel-amount">$9,500</span>
-                  </div>
-                  <div class="plan-showcase-channel">
-                    <span class="plan-showcase-channel-name">Glassdoor</span>
-                    <div class="plan-showcase-bar">
-                      <div
-                        class="plan-showcase-bar-fill"
-                        style="--bar-w: 25%; background: #b7669e"
-                      ></div>
-                    </div>
-                    <span class="plan-showcase-channel-amount">$6,250</span>
-                  </div>
-                  <div class="plan-showcase-channel">
-                    <span class="plan-showcase-channel-name">Programmatic</span>
-                    <div class="plan-showcase-bar">
-                      <div
-                        class="plan-showcase-bar-fill"
-                        style="--bar-w: 10%; background: #202058"
-                      ></div>
-                    </div>
-                    <span class="plan-showcase-channel-amount">$2,500</span>
-                  </div>
-                </div>
-                <div class="plan-showcase-cta">
-                  <a href="/media-plan" class="btn-primary"
-                    >Generate Your Own Plan &rarr;</a
-                  >
+        <div class="container" style="max-width: 760px">
+          <div class="section-label reveal">Try it live</div>
+          <h2 class="section-title reveal" style="text-align: center">
+            See your cost-per-hire before you spend a dollar
+          </h2>
+          <p class="pe-subline reveal">
+            Pick a role, set a budget, and watch Nova predict the cost-per-hire
+            and route the spend across channels &mdash; live.
+          </p>
+
+          <div class="pe-card reveal" id="plan-showcase">
+            <div class="pe-head">
+              <span class="pe-brand">
+                <span class="pe-brand-dot" aria-hidden="true"></span>
+                Nova &middot; Prediction Engine
+              </span>
+              <span class="pe-pill">Cost-per-hire, predicted</span>
+            </div>
+
+            <div class="pe-control-block">
+              <div class="pe-control-label">Role</div>
+              <div class="pe-chips" role="group" aria-label="Role">
+                <button type="button" class="pe-chip is-on" data-role="0">
+                  Registered Nurse
+                </button>
+                <button type="button" class="pe-chip" data-role="1">
+                  Sales Rep
+                </button>
+                <button type="button" class="pe-chip" data-role="2">
+                  CDL Driver
+                </button>
+                <button type="button" class="pe-chip" data-role="3">
+                  Software Engineer
+                </button>
+              </div>
+            </div>
+
+            <div class="pe-controls">
+              <div class="pe-control-block">
+                <div class="pe-control-label">Location</div>
+                <div class="pe-chips" role="group" aria-label="Location">
+                  <button type="button" class="pe-chip is-on" data-loc="0">
+                    Houston, TX
+                  </button>
+                  <button type="button" class="pe-chip" data-loc="1">
+                    Chicago, IL
+                  </button>
+                  <button type="button" class="pe-chip" data-loc="2">
+                    Phoenix, AZ
+                  </button>
+                  <button type="button" class="pe-chip" data-loc="3">
+                    Remote
+                  </button>
                 </div>
               </div>
+              <div class="pe-control-block">
+                <div class="pe-control-label pe-budget-label">
+                  <span>Budget</span>
+                  <span class="pe-budget-value" data-pe-budget>$50,000</span>
+                </div>
+                <input
+                  type="range"
+                  class="pe-range"
+                  min="10000"
+                  max="200000"
+                  step="5000"
+                  value="50000"
+                  data-pe-range
+                  aria-label="Monthly budget"
+                />
+              </div>
+            </div>
+
+            <div class="pe-result">
+              <div class="pe-cph">
+                <div class="pe-cph-value" data-pe-cph>$0</div>
+                <div class="pe-cph-label">Predicted cost-per-hire</div>
+              </div>
+              <div class="pe-mini">
+                <div class="pe-mini-value" data-pe-hires>0</div>
+                <div class="pe-mini-label">Proj. hires</div>
+              </div>
+              <div class="pe-mini">
+                <div class="pe-mini-value" data-pe-apps>0</div>
+                <div class="pe-mini-label">Est. applications</div>
+              </div>
+              <div class="pe-mini">
+                <div class="pe-mini-value" data-pe-days>0</div>
+                <div class="pe-mini-label">Days to fill</div>
+              </div>
+            </div>
+
+            <div class="pe-split-title">Recommended channel split</div>
+            <div class="pe-bars">
+              <div class="pe-bar-row" data-pe-ch="0">
+                <span class="pe-bar-name">Indeed</span>
+                <div class="pe-bar-track">
+                  <div
+                    class="pe-bar-fill"
+                    style="--pe-c1: #5a54be; --pe-c2: #8680d6"
+                  ></div>
+                </div>
+                <span class="pe-bar-amt" data-pe-amt>$0</span>
+              </div>
+              <div class="pe-bar-row" data-pe-ch="1">
+                <span class="pe-bar-name">LinkedIn</span>
+                <div class="pe-bar-track">
+                  <div
+                    class="pe-bar-fill"
+                    style="--pe-c1: #6bb5ce; --pe-c2: #5a54be"
+                  ></div>
+                </div>
+                <span class="pe-bar-amt" data-pe-amt>$0</span>
+              </div>
+              <div class="pe-bar-row" data-pe-ch="2">
+                <span class="pe-bar-name">Programmatic</span>
+                <div class="pe-bar-track">
+                  <div
+                    class="pe-bar-fill"
+                    style="--pe-c1: #8680d6; --pe-c2: #b7669e"
+                  ></div>
+                </div>
+                <span class="pe-bar-amt" data-pe-amt>$0</span>
+              </div>
+              <div class="pe-bar-row" data-pe-ch="3">
+                <span class="pe-bar-name">Niche boards</span>
+                <div class="pe-bar-track">
+                  <div
+                    class="pe-bar-fill"
+                    style="--pe-c1: #b7669e; --pe-c2: #6bb5ce"
+                  ></div>
+                </div>
+                <span class="pe-bar-amt" data-pe-amt>$0</span>
+              </div>
+              <div class="pe-bar-row" data-pe-ch="4">
+                <span class="pe-bar-name">Social</span>
+                <div class="pe-bar-track">
+                  <div
+                    class="pe-bar-fill"
+                    style="--pe-c1: #6bb5ce; --pe-c2: #8680d6"
+                  ></div>
+                </div>
+                <span class="pe-bar-amt" data-pe-amt>$0</span>
+              </div>
+            </div>
+
+            <div class="pe-footnote">
+              Recomputes live as you change inputs &mdash; no signup.
             </div>
           </div>
         </div>
@@ -3494,27 +3376,13 @@
       <section class="cta-section" aria-label="Call to action">
         <div class="cta-card reveal-on-scroll">
           <div class="nova-orb" aria-hidden="true"></div>
-          <h2>Ready to plan smarter?</h2>
+          <h2>Stop guessing what a hire costs.</h2>
           <p>
-            Generate your first AI-powered media plan in under 30 seconds. Free,
-            no signup.
+            Nova turns a role, a budget, and a market into a plan you can stand
+            behind &mdash; before you spend a dollar.
           </p>
-          <div class="cta-stats">
-            <div class="cta-stat">
-              <span class="cta-stat-num">5,400+</span>
-              <span class="cta-stat-label">plans generated</span>
-            </div>
-            <div class="cta-stat">
-              <span class="cta-stat-num">&lt;30s</span>
-              <span class="cta-stat-label">avg. plan time</span>
-            </div>
-            <div class="cta-stat">
-              <span class="cta-stat-num">91+</span>
-              <span class="cta-stat-label">job boards</span>
-            </div>
-          </div>
           <a href="/media-plan" class="cta-btn">
-            Generate Plan
+            Generate your plan
             <svg
               width="16"
               height="16"
@@ -3643,7 +3511,7 @@
     <!-- .footer-wrap -->
 
     <!-- ── Page Scripts (extracted to hub.js for cacheability, Fix #1) ── -->
-    <script src="/static/js/hub.js?v=2.2.2"></script>
+    <script src="/static/js/hub.js?v=2.2.4"></script>
 
     <!-- Legacy inline removed -- hamburger, observers, counters, bar anims,
          scroll handler, ripple, hero preview, page-enter, GSAP hero entrance,

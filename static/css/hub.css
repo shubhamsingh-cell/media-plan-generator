@@ -4192,12 +4192,14 @@ html.lenis body {
   z-index: 1;
 }
 
-/* 10c. Plan-showcase band: spectrum hairline + dual brand glow */
-.plan-showcase-standalone {
+/* 10c. Prediction Engine band: spectrum hairline + dual brand glow
+   (was the plan-showcase band; the standalone showcase card was removed and
+   replaced by the live Prediction Engine, which inherits this section depth). */
+.prediction-engine-section {
   position: relative;
   overflow: hidden;
 }
-.plan-showcase-standalone::before {
+.prediction-engine-section::before {
   content: "";
   position: absolute;
   top: 0;
@@ -4216,7 +4218,7 @@ html.lenis body {
   pointer-events: none;
   z-index: 2;
 }
-.plan-showcase-standalone::after {
+.prediction-engine-section::after {
   content: "";
   position: absolute;
   top: -8%;
@@ -4231,7 +4233,7 @@ html.lenis body {
   pointer-events: none;
   z-index: 0;
 }
-.plan-showcase-standalone > * {
+.prediction-engine-section > * {
   position: relative;
   z-index: 1;
 }
@@ -4452,4 +4454,359 @@ html.lenis body {
   display: block;
   font-size: var(--text-sm);
   color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   PREDICTION ENGINE — the single interactive plan-card-style UI on the page.
+   Matches the hero genplan card aesthetic (spectrum bar, brand gradients,
+   tabular numerals). The byte-identical duplicates were removed.
+   ========================================================================== */
+.pe-subline {
+  max-width: 560px;
+  margin: 10px auto 0;
+  text-align: center;
+  font-size: var(--text-base);
+  line-height: 1.6;
+  color: #c4c1e6;
+}
+
+.pe-card {
+  position: relative;
+  margin: 36px auto 0;
+  padding: 24px 26px 22px;
+  text-align: left;
+  border-radius: 18px;
+  border: 1px solid rgba(139, 133, 230, 0.3);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(90, 84, 190, 0.1),
+      rgba(15, 15, 26, 0) 36%
+    ),
+    rgba(13, 13, 26, 0.92);
+  box-shadow:
+    0 28px 70px rgba(6, 6, 16, 0.6),
+    0 0 50px rgba(90, 84, 190, 0.12);
+  overflow: hidden;
+}
+.pe-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #202058, #5a54be 45%, #6bb5ce 80%, #b7669e);
+}
+
+/* Head row */
+.pe-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.pe-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 14px;
+  color: #f6f5ff;
+  letter-spacing: -0.01em;
+}
+.pe-brand-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8680d6, #6bb5ce);
+  box-shadow: 0 0 10px rgba(107, 181, 206, 0.6);
+}
+.pe-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #c4c1e6;
+  background: rgba(90, 84, 190, 0.18);
+  border: 1px solid rgba(139, 133, 230, 0.28);
+  white-space: nowrap;
+}
+
+/* Control blocks + chips */
+.pe-control-block {
+  margin-bottom: 16px;
+}
+.pe-control-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7d7aa6;
+  margin-bottom: 9px;
+}
+.pe-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* Scoped under .pe-card so the chip border survives the global button reset
+   (button:not(...){border-style:none} would otherwise hide it). */
+.pe-card .pe-chip {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #c4c1e6;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  /* !important: the global button:not(...) reset sets border-style:none with
+     very high specificity (~12 :not() clauses); a chip needs its border. */
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-color: rgba(139, 133, 230, 0.22) !important;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+.pe-card .pe-chip:hover {
+  border-color: rgba(139, 133, 230, 0.45) !important;
+  color: #f6f5ff;
+}
+.pe-card .pe-chip.is-on {
+  background: rgba(90, 84, 190, 0.22);
+  border-color: #8680d6 !important;
+  color: #fff;
+}
+.pe-card .pe-chip:focus-visible {
+  outline: 2px solid #8680d6;
+  outline-offset: 2px;
+}
+
+/* 2-col controls (location + budget) */
+.pe-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  margin-bottom: 4px;
+}
+.pe-controls .pe-control-block {
+  margin-bottom: 16px;
+}
+.pe-budget-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.pe-budget-value {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 15px;
+  color: #f6f5ff;
+  text-transform: none;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Range slider */
+.pe-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(139, 133, 230, 0.2);
+  outline: none;
+  cursor: pointer;
+  margin: 6px 0 0;
+}
+.pe-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8680d6, #5a54be);
+  border: none;
+  box-shadow: 0 2px 8px rgba(6, 6, 16, 0.5);
+  cursor: pointer;
+}
+.pe-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8680d6, #5a54be);
+  border: none;
+  box-shadow: 0 2px 8px rgba(6, 6, 16, 0.5);
+  cursor: pointer;
+}
+.pe-range:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 4px rgba(134, 128, 214, 0.35),
+    0 2px 8px rgba(6, 6, 16, 0.5);
+}
+.pe-range:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 0 0 4px rgba(134, 128, 214, 0.35),
+    0 2px 8px rgba(6, 6, 16, 0.5);
+}
+
+/* Result row: big CPH + 3 mini metrics */
+.pe-result {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 16px;
+  align-items: end;
+  margin: 18px 0 6px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(139, 133, 230, 0.16);
+}
+.pe-cph-value {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 38px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(105deg, #aaa4ff, #7fd4ea 55%, #e7a4d4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.pe-cph-label {
+  margin-top: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #7d7aa6;
+}
+.pe-mini-value {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 20px;
+  color: #f6f5ff;
+  font-variant-numeric: tabular-nums;
+}
+.pe-mini-label {
+  margin-top: 4px;
+  font-size: 10.5px;
+  color: #7d7aa6;
+}
+
+/* Channel split bars */
+.pe-split-title {
+  margin: 18px 0 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7d7aa6;
+}
+.pe-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.pe-bar-row {
+  display: grid;
+  grid-template-columns: 96px 1fr 70px;
+  align-items: center;
+  gap: 12px;
+}
+.pe-bar-name {
+  font-size: 12.5px;
+  color: #c4c1e6;
+}
+.pe-bar-track {
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(139, 133, 230, 0.13);
+  overflow: hidden;
+}
+.pe-bar-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--pe-c1, #5a54be), var(--pe-c2, #8680d6));
+  transition: width 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.pe-bar-amt {
+  font-size: 12.5px;
+  text-align: right;
+  color: #c4c1e6;
+  font-variant-numeric: tabular-nums;
+}
+
+.pe-footnote {
+  margin-top: 18px;
+  font-size: 11.5px;
+  color: #7d7aa6;
+}
+
+/* Responsive: stack controls + result under 560px */
+@media (max-width: 560px) {
+  .pe-controls {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .pe-result {
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .pe-cph {
+    grid-column: 1 / -1;
+  }
+  .pe-cph-value {
+    font-size: 34px;
+  }
+  .pe-bar-row {
+    grid-template-columns: 80px 1fr 64px;
+    gap: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pe-bar-fill {
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   STORY MOMENT 4 — outcome figure (replaces the duplicate dash card).
+   ========================================================================== */
+.moment-figure {
+  text-align: center;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.moment-figure-value {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(3.4rem, 9vw, 5.2rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(105deg, #aaa4ff, #7fd4ea 55%, #e7a4d4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.moment-figure-label {
+  margin-top: 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #8680d6;
+}
+.moment-figure-sub {
+  margin-top: 14px;
+  font-size: var(--text-base);
+  line-height: 1.6;
+  color: #c4c1e6;
 }
