@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/tokens.css" />
@@ -60,9 +60,9 @@
         --yellow-bg: rgba(234, 179, 8, 0.1);
         --red: #ef4444;
         --red-bg: rgba(239, 68, 68, 0.1);
-        --blue: #3b82f6;
-        --blue-bg: rgba(59, 130, 246, 0.1);
-        --pink: #ec4899;
+        --blue: #6bb5ce;
+        --blue-bg: rgba(107, 181, 206, 0.1);
+        --pink: #b7669e;
         --grey-collar: #94a3b8;
         --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
         --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
@@ -175,6 +175,7 @@
         height: 20px;
       }
       .qp-brand-text {
+        font-family: "Poppins", "Inter", -apple-system, sans-serif;
         font-size: 1.125rem;
         font-weight: 700;
         letter-spacing: -0.02em;
@@ -211,6 +212,7 @@
         margin-bottom: 40px;
       }
       .qp-hero h1 {
+        font-family: "Poppins", "Inter", -apple-system, sans-serif;
         font-size: clamp(1.5rem, 4vw, 2.25rem);
         font-weight: 800;
         letter-spacing: -0.03em;
@@ -311,7 +313,7 @@
         gap: 8px;
       }
       .qp-submit:hover:not(:disabled) {
-        background: #5558e6;
+        background: #8680d6;
         box-shadow: 0 4px 20px rgba(90, 84, 189, 0.35);
       }
       .qp-submit:active:not(:disabled) {
@@ -474,8 +476,8 @@
         font-weight: 600;
       }
       .qp-collar-badge.blue_collar {
-        background: rgba(59, 130, 246, 0.15);
-        color: #60a5fa;
+        background: rgba(90, 84, 189, 0.15);
+        color: #8680d6;
       }
       .qp-collar-badge.white_collar {
         background: rgba(255, 255, 255, 0.1);
@@ -486,8 +488,8 @@
         color: #94a3b8;
       }
       .qp-collar-badge.pink_collar {
-        background: rgba(236, 72, 153, 0.15);
-        color: #f472b6;
+        background: rgba(183, 102, 158, 0.15);
+        color: #d08fbb;
       }
 
       .qp-salary {
@@ -586,6 +588,7 @@
         box-shadow: var(--shadow-sm), var(--glass-inset);
       }
       .qp-total-value {
+        font-family: "Poppins", "Inter", -apple-system, sans-serif;
         font-size: 1.5rem;
         font-weight: 700;
         color: var(--text-primary);
@@ -603,6 +606,7 @@
            SECTION HEADINGS
            ================================================================ */
       .qp-section-title {
+        font-family: "Poppins", "Inter", -apple-system, sans-serif;
         font-size: 1rem;
         font-weight: 700;
         color: var(--text-primary);
@@ -899,6 +903,7 @@
         text-align: center;
       }
       .hiw-title {
+        font-family: "Poppins", "Inter", -apple-system, sans-serif;
         font-size: 1.25rem;
         font-weight: 700;
         color: #ffffff;
@@ -1741,10 +1746,10 @@
 
         function collarDot(type) {
           var colors = {
-            blue_collar: "#3B82F6",
+            blue_collar: "#8680d6",
             white_collar: "#e4e4e7",
             grey_collar: "#94A3B8",
-            pink_collar: "#EC4899",
+            pink_collar: "#b7669e",
           };
           var c = colors[type] || "#94A3B8";
           return (
