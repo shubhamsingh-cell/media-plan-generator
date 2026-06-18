@@ -9064,6 +9064,73 @@ def _build_slide_cpa_reference(prs: Presentation, data: Dict, deck: Dict) -> Non
     _add_footer(slide, today)
 
 
+def _build_slide_why_joveo(prs: Presentation, data: Dict, deck: Dict) -> None:
+    """Build 'The Joveo Advantage' -- four differentiator cards (Invisible style).
+
+    Uses client-appropriate, universal Joveo value props (not the Invisible-
+    specific KB narrative) so the slide reads correctly for any client. Pure
+    Invisible accent-bar card layout + dark takeaway callout.
+    """
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+    today = datetime.date.today().strftime("%B %d, %Y")
+    client = data.get("client_name", "Client")
+    industry_label = data.get("industry_label") or data.get("industry") or "your"
+
+    _add_top_band(slide, "The Joveo Advantage", today)
+    _add_textbox(
+        slide, Inches(0.63), Inches(0.92), Inches(12.2), Inches(0.45),
+        text=f"Why Joveo is the right partner for {client}'s {industry_label} hiring at scale",
+        font_size=13, italic=True, color=BLUE,
+    )
+
+    cards = [
+        (
+            "AI-Powered Optimization",
+            "Real-time bid & budget optimization at the individual-job level — spend "
+            "shifts autonomously from easy-to-fill to hard-to-fill roles.",
+        ),
+        (
+            "Global, Multi-Language Reach",
+            "Proven playbooks across 50+ countries — databases, DSPs, social, freelance "
+            "platforms and local job boards, in local languages.",
+        ),
+        (
+            "Job Content Optimization",
+            "A JD scoring engine plus automated job creation produce high-converting, "
+            "SEO-optimized listings that lift apply rates.",
+        ),
+        (
+            "Managed, Transparent Service",
+            "Joveo runs every channel and database for you — transparent pay-per-click / "
+            "apply pricing, scaled or shifted weekly.",
+        ),
+    ]
+    cw = Inches(6.0)
+    ch = Inches(2.05)
+    gap_x = Inches(0.3)
+    gap_y = Inches(0.25)
+    left = Inches(0.65)
+    top = Inches(1.62)
+    for i, (header, body) in enumerate(cards):
+        col = i % 2
+        row = i // 2
+        x = left + col * (cw + gap_x)
+        y = top + Emu(int(row * (int(ch) + int(gap_y))))
+        _inv_card(
+            slide, x, y, cw, ch, header, body,
+            accent=INV_ACCENTS[i % len(INV_ACCENTS)], body_size=11,
+        )
+
+    _inv_callout(
+        slide,
+        f"One managed partner, one tracked funnel — built to scale {client}'s hiring "
+        f"with a predictable cost-per-hire.",
+        top=6.5,
+    )
+    _add_footer(slide, today)
+
+
 def _build_slide_case_study_next_steps(
     prs: Presentation, data: Dict, deck: Dict
 ) -> None:
@@ -10138,7 +10205,13 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         # Slide 10: Risk Analysis -- always included for C-suite readiness
         _build_slide_risk_analysis(prs, data)
 
-        # Slide 11: Case Study & Next Steps (deck narrative -- never blocks generation)
+        # Slide 11: The Joveo Advantage -- value-prop close (non-fatal)
+        try:
+            _build_slide_why_joveo(prs, data, deck)
+        except Exception as _wj_exc:
+            logger.debug("The Joveo Advantage slide failed (non-fatal): %s", _wj_exc)
+
+        # Slide 12: Case Study & Next Steps (deck narrative -- never blocks generation)
         try:
             _build_slide_case_study_next_steps(prs, data, deck)
         except Exception as _cs_exc:
