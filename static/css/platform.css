@@ -12,21 +12,22 @@
   --blue-violet: #5a54be;
   --downy-teal: #6bb5ce;
 
-  /* Surfaces */
-  --bg-root: #09090b;
-  --bg-sidebar: #0c0c14;
-  --bg-topbar: rgba(12, 12, 20, 0.82);
-  --bg-content: #09090b;
-  --bg-card: rgba(22, 22, 36, 0.65);
-  --bg-card-hover: rgba(32, 32, 56, 0.7);
-  --bg-drawer: rgba(12, 12, 22, 0.96);
+  /* Surfaces -- warmed toward Joveo indigo to match the redesigned hub
+     (hub.css base: radial #1a1c4a -> #0d0e28 -> #07071a). Kept subtle + dark. */
+  --bg-root: #08081a;
+  --bg-sidebar: #0c0d22;
+  --bg-topbar: rgba(13, 14, 40, 0.82);
+  --bg-content: #08081a;
+  --bg-card: rgba(24, 22, 52, 0.5);
+  --bg-card-hover: rgba(36, 34, 74, 0.62);
+  --bg-drawer: rgba(13, 14, 36, 0.96);
   --bg-input: rgba(255, 255, 255, 0.04);
   --bg-input-focus: rgba(255, 255, 255, 0.07);
 
-  /* Borders */
-  --border-subtle: rgba(255, 255, 255, 0.06);
+  /* Borders -- brand-tinted to read as the same family as the hub */
+  --border-subtle: rgba(139, 133, 230, 0.08);
   --border-active: rgba(90, 84, 189, 0.5);
-  --border-card: rgba(255, 255, 255, 0.08);
+  --border-card: rgba(139, 133, 230, 0.12);
 
   /* Text */
   --text-primary: #e4e4e7;
@@ -123,7 +124,11 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  background: var(--bg-root);
+  /* Warmed indigo-black base -- same family as the hub landing, not flat black. */
+  background:
+    radial-gradient(135% 105% at 50% -8%, #16183f 0%, #0c0d22 40%, #08081a 75%)
+      fixed,
+    var(--bg-root);
   color: var(--text-primary);
   overflow: hidden;
   height: 100vh;
@@ -1497,6 +1502,7 @@ body {
   margin-bottom: 32px;
 }
 .dashboard-hero h1 {
+  font-family: var(--font-heading, "Poppins", "Inter", sans-serif);
   font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.5px;
@@ -1525,19 +1531,55 @@ body {
 }
 .dashboard-widget {
   padding: 20px;
-  background: var(--bg-card);
+  /* Indigo-tinted glass + soft brand glow, matching the hub's premium cards */
+  background:
+    radial-gradient(
+      120% 120% at 50% -20%,
+      rgba(90, 84, 190, 0.1) 0%,
+      transparent 60%
+    ),
+    var(--bg-card);
   border: 1px solid var(--border-card);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-base);
   position: relative;
   overflow: hidden;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 24px rgba(6, 6, 24, 0.45);
+}
+/* 1px spectrum hairline across the card top -- the hub's signature accent */
+.dashboard-widget::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(90, 84, 190, 0.6) 28%,
+    rgba(107, 181, 206, 0.55) 60%,
+    rgba(183, 102, 158, 0.5) 82%,
+    transparent
+  );
+  pointer-events: none;
 }
 .dashboard-widget:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--border-active);
+  background:
+    radial-gradient(
+      120% 120% at 50% -20%,
+      rgba(90, 84, 190, 0.16) 0%,
+      transparent 60%
+    ),
+    var(--bg-card-hover);
+  border-color: rgba(139, 133, 230, 0.24);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  box-shadow:
+    0 8px 32px rgba(90, 84, 189, 0.16),
+    0 4px 24px rgba(6, 6, 24, 0.5);
 }
 .dashboard-widget-header {
   display: flex;
@@ -1821,11 +1863,11 @@ body {
   color: var(--red);
 }
 .group-products {
-  background: rgba(251, 191, 36, 0.12);
-  color: #fbbf24;
+  background: rgba(183, 102, 158, 0.12);
+  color: #b7669e;
 }
 .group-products svg {
-  color: #fbbf24;
+  color: #b7669e;
 }
 .group-nova {
   background: rgba(139, 133, 224, 0.12);
@@ -1833,6 +1875,14 @@ body {
 }
 .group-nova svg {
   color: #8680d6;
+}
+/* Tour action -- Joveo magenta (replaces off-brand amber) */
+.group-tour {
+  background: rgba(183, 102, 158, 0.14);
+  color: #b7669e;
+}
+.group-tour svg {
+  color: #b7669e;
 }
 /* Legacy group colors (backward compat) */
 .group-plan {
@@ -1850,18 +1900,18 @@ body {
   color: var(--teal);
 }
 .group-optimize {
-  background: rgba(251, 191, 36, 0.1);
-  color: #fbbf24;
+  background: rgba(183, 102, 158, 0.1);
+  color: #b7669e;
 }
 .group-optimize svg {
-  color: #fbbf24;
+  color: #b7669e;
 }
 .group-talent {
-  background: rgba(168, 85, 247, 0.1);
-  color: #a855f7;
+  background: rgba(139, 128, 214, 0.12);
+  color: var(--accent-light);
 }
 .group-talent svg {
-  color: #a855f7;
+  color: var(--accent-light);
 }
 .group-comply {
   background: rgba(34, 197, 94, 0.1);
@@ -1965,16 +2015,45 @@ body {
   display: flex;
 }
 .onboarding-modal {
+  position: relative;
   width: 480px;
   max-width: 92vw;
-  background: var(--bg-sidebar);
-  border: 1px solid var(--border-subtle);
+  /* Indigo glass + soft brand glow, matching the hub */
+  background:
+    radial-gradient(
+      120% 80% at 50% 0%,
+      rgba(90, 84, 190, 0.14) 0%,
+      transparent 55%
+    ),
+    var(--bg-sidebar);
+  border: 1px solid rgba(139, 133, 230, 0.14);
   border-radius: var(--radius-xl);
   padding: 40px 36px 32px;
   text-align: center;
+  overflow: hidden;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   box-shadow:
     var(--shadow-lg),
     0 0 60px rgba(90, 84, 189, 0.2);
+}
+/* Spectrum hairline across the modal top -- the hub's signature accent */
+.onboarding-modal::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(90, 84, 190, 0.6) 28%,
+    rgba(107, 181, 206, 0.55) 60%,
+    rgba(183, 102, 158, 0.5) 82%,
+    transparent
+  );
+  pointer-events: none;
 }
 .onboarding-icon {
   width: 64px;
@@ -1992,6 +2071,7 @@ body {
   color: #fff;
 }
 .onboarding-modal h2 {
+  font-family: var(--font-heading, "Poppins", "Inter", sans-serif);
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.3px;
@@ -2445,6 +2525,11 @@ body:not(.no-transitions) .aurora-bg {
   --shadow-glow: 0 0 30px rgba(90, 84, 189, 0.08);
 }
 
+/* Light theme: drop the dark indigo radial, use the flat light surface */
+[data-theme="light"] body {
+  background: var(--bg-root);
+}
+
 /* Scrollbar */
 [data-theme="light"] ::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.12);
@@ -2560,6 +2645,28 @@ body:not(.no-transitions) .aurora-bg {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Dashboard widgets: soften the dark glass/shadow for the light surface */
+[data-theme="light"] .dashboard-widget {
+  background:
+    radial-gradient(
+      120% 120% at 50% -20%,
+      rgba(90, 84, 190, 0.05) 0%,
+      transparent 60%
+    ),
+    var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="light"] .dashboard-widget:hover {
+  background:
+    radial-gradient(
+      120% 120% at 50% -20%,
+      rgba(90, 84, 190, 0.08) 0%,
+      transparent 60%
+    ),
+    var(--bg-card-hover);
+  box-shadow: 0 8px 24px rgba(90, 84, 189, 0.1);
 }
 
 /* Budget meter */
