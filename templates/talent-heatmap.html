@@ -16,12 +16,12 @@
     <title>Talent Supply Heat Map | Nova AI Suite</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><circle cx='10' cy='20' r='3' fill='%2334D399'/><circle cx='16' cy='12' r='4' fill='%2322D3EE'/><circle cx='24' cy='18' r='2.5' fill='%23F87171'/></svg>"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%235a54be'/><circle cx='10' cy='20' r='3' fill='%236bb5ce'/><circle cx='16' cy='12' r='4' fill='%238680d6'/><circle cx='24' cy='18' r='2.5' fill='%23b7669e'/></svg>"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/tokens.css" />
@@ -126,6 +126,15 @@
         font-size: 16px;
         line-height: 1.5;
         -webkit-font-smoothing: antialiased;
+      }
+      h1,
+      h2,
+      h3,
+      h4,
+      .page-header h1,
+      .glass-card h2 {
+        font-family: "Poppins", "Inter", -apple-system, BlinkMacSystemFont,
+          "Segoe UI", Roboto, sans-serif;
       }
       body::before {
         content: "";
@@ -330,20 +339,20 @@
         text-decoration: none;
       }
       .btn-download--excel {
-        color: var(--green-success);
-        background: rgba(52, 211, 153, 0.08);
-        border: 1px solid rgba(52, 211, 153, 0.3);
+        color: var(--cyan-accent);
+        background: rgba(107, 181, 206, 0.08);
+        border: 1px solid rgba(107, 181, 206, 0.3);
       }
       .btn-download--excel:hover {
-        background: rgba(52, 211, 153, 0.15);
+        background: rgba(107, 181, 206, 0.15);
       }
       .btn-download--ppt {
-        color: var(--warning);
-        background: rgba(251, 191, 36, 0.08);
-        border: 1px solid rgba(251, 191, 36, 0.3);
+        color: #b7669e;
+        background: rgba(183, 102, 158, 0.08);
+        border: 1px solid rgba(183, 102, 158, 0.3);
       }
       .btn-download--ppt:hover {
-        background: rgba(251, 191, 36, 0.15);
+        background: rgba(183, 102, 158, 0.15);
       }
       .btn-download:disabled {
         opacity: 0.4;
@@ -543,7 +552,7 @@
       .salary-bar-fill {
         height: 100%;
         border-radius: 4px;
-        background: linear-gradient(90deg, #2563eb, #5a54be);
+        background: linear-gradient(90deg, #8680d6, #5a54be);
         transition: width 600ms var(--ease-out);
         display: flex;
         align-items: center;

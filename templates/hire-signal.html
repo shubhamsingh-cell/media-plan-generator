@@ -16,12 +16,12 @@
     <title>HireSignal | Quality of Hire Tracker | Nova AI Suite</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366F1'/><path d='M9 22l3-10 4 6 4-8 3 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='16' cy='8' r='3' fill='white' opacity='0.6'/></svg>"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%235a54be'/><path d='M9 22l3-10 4 6 4-8 3 12' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/><circle cx='16' cy='8' r='3' fill='white' opacity='0.6'/></svg>"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/tokens.css" />
@@ -145,6 +145,16 @@
         line-height: 1.5;
         -webkit-font-smoothing: antialiased;
         position: relative;
+      }
+
+      h1,
+      h2,
+      h3,
+      h4,
+      .page-title h2,
+      .section-label {
+        font-family: "Poppins", "Inter", -apple-system, BlinkMacSystemFont,
+          "Segoe UI", Roboto, sans-serif;
       }
 
       body::before {
@@ -1469,7 +1479,7 @@
       <div class="header-content">
         <div class="header-logo" aria-hidden="true">
           <svg viewBox="0 0 32 32" fill="none" width="32" height="32">
-            <rect width="32" height="32" rx="6" fill="#6366F1" />
+            <rect width="32" height="32" rx="6" fill="#5a54be" />
             <text
               x="16"
               y="22"
@@ -2498,7 +2508,7 @@
 
           // Main count card
           html +=
-            '<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:16px;text-align:center;">';
+            '<div style="background:rgba(90,84,189,0.08);border:1px solid rgba(90,84,189,0.2);border-radius:8px;padding:16px;text-align:center;">';
           html +=
             '<div style="font-size:2rem;font-weight:800;color:var(--accent-light,#8680d6);">' +
             totalListings.toLocaleString() +

@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
 
@@ -43,6 +43,7 @@
         --indigo-pale: rgba(90, 84, 189, 0.08);
         --indigo-glow: rgba(90, 84, 189, 0.15);
         --cyan-accent: #6bb5ce;
+        --magenta-accent: #b7669e;
         --green-success: #34d399;
         --amber-warning: #fbbf24;
         --red-error: #f87171;
@@ -169,6 +170,7 @@
         margin-bottom: 12px;
       }
       .header-title {
+        font-family: "Poppins", "Inter", sans-serif;
         font-size: 36px;
         font-weight: 800;
         background: var(--gradient-primary);
@@ -197,6 +199,7 @@
         border-color: var(--glass-border-hover);
       }
       .section-title {
+        font-family: "Poppins", "Inter", sans-serif;
         font-size: 18px;
         font-weight: 700;
         color: var(--text);
@@ -228,12 +231,12 @@
         color: var(--green-success);
       }
       .section-title .icon.amber {
-        background: rgba(251, 191, 36, 0.1);
-        color: var(--amber-warning);
+        background: rgba(183, 102, 158, 0.12);
+        color: var(--magenta-accent);
       }
       .section-title .icon.pink {
-        background: rgba(244, 114, 182, 0.1);
-        color: #f472b6;
+        background: rgba(183, 102, 158, 0.12);
+        color: var(--magenta-accent);
       }
 
       /* ── Takeaway Cards ── */
@@ -304,19 +307,19 @@
         background: linear-gradient(90deg, #5a54be, #8680d6);
       }
       .bar-fill.c1 {
-        background: linear-gradient(90deg, #6bb5ce, #67e8f9);
+        background: linear-gradient(90deg, #6bb5ce, #9ad2e3);
       }
       .bar-fill.c2 {
-        background: linear-gradient(90deg, #f472b6, #fb7185);
+        background: linear-gradient(90deg, #b7669e, #cf8bb9);
       }
       .bar-fill.c3 {
-        background: linear-gradient(90deg, #fbbf24, #fcd34d);
+        background: linear-gradient(90deg, #202058, #5a54be);
       }
       .bar-fill.c4 {
         background: linear-gradient(90deg, #34d399, #6ee7b7);
       }
       .bar-fill.c5 {
-        background: linear-gradient(90deg, #a78bfa, #c4b5fd);
+        background: linear-gradient(90deg, #8680d6, #b3aee8);
       }
 
       /* ── Industry Cards ── */
@@ -455,6 +458,7 @@
         text-align: center;
       }
       .metric-value {
+        font-family: "Poppins", "Inter", sans-serif;
         font-size: 26px;
         font-weight: 800;
         margin-bottom: 4px;
@@ -466,10 +470,10 @@
         color: var(--cyan-accent);
       }
       .metric-value.amber {
-        color: var(--amber-warning);
+        color: var(--magenta-accent);
       }
       .metric-value.pink {
-        color: #f472b6;
+        color: var(--indigo-light);
       }
       .metric-label {
         font-size: 11px;
@@ -623,7 +627,7 @@
         cursor: pointer;
         -webkit-appearance: none;
         appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23818CF8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a54be' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
         background-repeat: no-repeat;
         background-position: right 12px center;
       }

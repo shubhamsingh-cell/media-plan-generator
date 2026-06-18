@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/tokens.css" />
@@ -43,6 +43,7 @@
         --amber: #fbbf24;
         --red: #f87171;
         --cyan: #6bb5ce;
+        --magenta: #b7669e;
         --radius: 12px;
         --radius-sm: 8px;
       }
@@ -54,7 +55,11 @@
         padding: 0;
       }
       body {
-        font-family: var(--font-sans);
+        font-family:
+          "Inter",
+          var(--font-sans, -apple-system),
+          BlinkMacSystemFont,
+          sans-serif;
         background: var(--bg);
         color: var(--text);
         min-height: 100vh;
@@ -133,6 +138,7 @@
         margin-bottom: 28px;
       }
       .input-panel h2 {
+        font-family: "Poppins", "Inter", sans-serif;
         font-size: 18px;
         font-weight: 700;
         margin-bottom: 20px;
@@ -300,6 +306,7 @@
         font-weight: 600;
       }
       .metric-value {
+        font-family: "Poppins", "Inter", sans-serif;
         font-size: 28px;
         font-weight: 800;
         color: var(--text);
@@ -328,6 +335,7 @@
         font-size: 14px;
       }
       .narrative h3 {
+        font-family: "Poppins", "Inter", sans-serif;
         color: var(--text);
         font-size: 16px;
         margin-bottom: 12px;
@@ -398,7 +406,7 @@
         top: -6px;
         width: 3px;
         height: 44px;
-        background: var(--amber);
+        background: var(--magenta);
         border-radius: 2px;
         transform: translateX(-50%);
       }
@@ -409,7 +417,7 @@
         color: var(--text-sec);
       }
       .salary-labels .median-label {
-        color: var(--amber);
+        color: var(--magenta);
         font-weight: 600;
       }
 
@@ -501,6 +509,7 @@
         text-align: center;
       }
       .rec-impact-score {
+        font-family: "Poppins", "Inter", sans-serif;
         font-size: 22px;
         font-weight: 800;
       }

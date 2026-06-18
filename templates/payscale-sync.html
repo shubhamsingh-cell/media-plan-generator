@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/tokens.css" />
@@ -72,6 +72,9 @@
         --shadow-glow: 0 0 30px rgba(90, 84, 189, 0.1);
         --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --font-heading:
+          "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
       }
 
       /* ── Reduced Motion ── */
@@ -213,16 +216,19 @@
       }
 
       h1 {
+        font-family: var(--font-heading);
         font-size: 1.5rem;
         font-weight: 800;
         letter-spacing: -0.03em;
       }
       h2 {
+        font-family: var(--font-heading);
         font-size: 1.1rem;
         font-weight: 700;
         letter-spacing: -0.02em;
       }
       h3 {
+        font-family: var(--font-heading);
         font-size: 0.85rem;
         font-weight: 600;
         text-transform: uppercase;
@@ -471,7 +477,7 @@
         position: relative;
       }
       .btn-primary:hover {
-        background: #6b64d4;
+        background: #8680d6;
         box-shadow: 0 0 20px rgba(90, 84, 189, 0.4);
       }
       .btn-primary:disabled {

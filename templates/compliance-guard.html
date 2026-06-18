@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/tokens.css" />
@@ -96,6 +96,9 @@
         --duration-normal: 200ms;
         --duration-slow: 300ms;
         --focus-ring: 0 0 0 2px var(--obsidian), 0 0 0 4px var(--accent);
+        --font-heading:
+          "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -286,6 +289,7 @@
       }
 
       .app-header h1 {
+        font-family: var(--font-heading);
         font-size: 16px;
         font-weight: 700;
         letter-spacing: -0.02em;
@@ -343,6 +347,7 @@
       }
 
       .page-title h2 {
+        font-family: var(--font-heading);
         font-size: 32px;
         font-weight: 800;
         letter-spacing: -0.03em;
@@ -1199,7 +1204,7 @@
       <div class="header-content">
         <div class="header-logo" aria-hidden="true">
           <svg viewBox="0 0 32 32" fill="none" width="32" height="32">
-            <rect width="32" height="32" rx="6" fill="#6366F1" />
+            <rect width="32" height="32" rx="6" fill="#5a54be" />
             <text
               x="16"
               y="22"
@@ -1524,7 +1529,7 @@
             id="fixBtn"
             type="button"
             style="
-              background: linear-gradient(135deg, #22c55e 0%, #5a54be 100%);
+              background: linear-gradient(135deg, #6bb5ce 0%, #5a54be 100%);
             "
             aria-label="Auto-fix job description using AI"
           >

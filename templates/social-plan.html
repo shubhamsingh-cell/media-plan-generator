@@ -15,7 +15,7 @@
     />
     <title>Social & Search Media Planner | Nova AI Suite</title>
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <style>
@@ -41,6 +41,8 @@
         --danger: #ef4444;
         --surface: #111111;
         --surface-2: #1a1a1a;
+        --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+        --font-heading: "Poppins", "Inter", -apple-system, sans-serif;
       }
       body {
         font-family: var(--font-sans);
@@ -71,6 +73,7 @@
         backdrop-filter: blur(12px);
       }
       .nav-brand {
+        font-family: var(--font-heading);
         font-size: 1.25rem;
         font-weight: 800;
         letter-spacing: 2px;
@@ -100,6 +103,7 @@
 
       /* ── Section headings ── */
       .section-title {
+        font-family: var(--font-heading);
         font-size: 1.5rem;
         font-weight: 700;
         margin-bottom: 1rem;
@@ -288,7 +292,7 @@
         align-items: center;
         gap: 0.5rem;
         padding: 0.9rem 2.5rem;
-        background: linear-gradient(135deg, var(--accent), #4f46e5);
+        background: linear-gradient(135deg, var(--accent), #8680d6);
         color: #fff;
         border: none;
         border-radius: 10px;
@@ -363,6 +367,7 @@
         text-align: center;
       }
       .stat-value {
+        font-family: var(--font-heading);
         font-size: 1.8rem;
         font-weight: 800;
         color: #fff;
@@ -638,7 +643,7 @@
       }
       .calendar-week-header {
         padding: 0.7rem 1rem;
-        background: linear-gradient(135deg, var(--accent), #4f46e5);
+        background: linear-gradient(135deg, var(--accent), #8680d6);
         border-radius: 8px 8px 0 0;
         font-weight: 600;
         font-size: 0.9rem;
@@ -1691,17 +1696,17 @@
         const data = entries.map(([k, v]) => v.budget);
         const colors = [
           "#5a54be",
-          "#22c55e",
-          "#f59e0b",
-          "#ef4444",
-          "#06b6d4",
-          "#a855f7",
-          "#ec4899",
-          "#14b8a6",
-          "#f97316",
-          "#8b5cf6",
+          "#6bb5ce",
+          "#b7669e",
+          "#8680d6",
+          "#202058",
+          "#4f93ab",
+          "#9d4f88",
+          "#a39ce0",
+          "#356f86",
+          "#7a72cf",
           "#64748b",
-          "#84cc16",
+          "#cf8fbb",
         ];
 
         // Destroy old chart

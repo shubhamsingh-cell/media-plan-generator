@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/static/css/tokens.css" />
@@ -35,6 +35,8 @@
         --indigo-light: #8680d6;
         --text: #e4e4e7;
         --muted: #a1a1a1;
+        --teal: #6bb5ce;
+        --variant-b: #6bb5ce;
         --success: #22c55e;
         --warning: #f59e0b;
         --error: #ef4444;
@@ -92,7 +94,7 @@
           ),
           radial-gradient(
             ellipse at 80% 20%,
-            rgba(123, 117, 212, 0.04) 0%,
+            rgba(134, 128, 214, 0.04) 0%,
             transparent 50%
           );
       }
@@ -148,6 +150,7 @@
         margin-bottom: 2.5rem;
       }
       .hero h1 {
+        font-family: "Poppins", "Inter", sans-serif;
         font-size: 2.5rem;
         font-weight: 800;
         background: var(--gradient);
@@ -171,6 +174,7 @@
         backdrop-filter: blur(10px);
       }
       .card-title {
+        font-family: "Poppins", "Inter", sans-serif;
         font-size: 1.1rem;
         font-weight: 700;
         margin-bottom: 1rem;
@@ -282,7 +286,7 @@
         background: var(--indigo);
       }
       .variant-b::before {
-        background: var(--success);
+        background: var(--variant-b);
       }
       .variant-label {
         display: inline-block;
@@ -299,8 +303,8 @@
         color: var(--indigo-light);
       }
       .variant-b .variant-label {
-        background: rgba(34, 197, 94, 0.15);
-        color: var(--success);
+        background: rgba(107, 179, 205, 0.15);
+        color: var(--variant-b);
       }
       .variant-approach {
         font-size: 0.75rem;
@@ -345,8 +349,8 @@
         color: var(--indigo-light);
       }
       .variant-b .ad-cta {
-        background: rgba(34, 197, 94, 0.15);
-        color: var(--success);
+        background: rgba(107, 179, 205, 0.15);
+        color: var(--variant-b);
       }
       /* Config panel */
       .config-grid {
