@@ -28,6 +28,11 @@ try:
 except ImportError:
     _RESEARCH_METRO_DATA = {}
 
+try:
+    import plan_currency as _plan_currency_gs
+except ImportError:  # pragma: no cover - plan_currency ships with the repo
+    _plan_currency_gs = None
+
 # S50: Seasonal hiring trends -- enriches activation calendar with
 # industry-specific peak/low multipliers from seasonal_hiring_trends.json.
 _SEASONAL_PATTERNS_GS: dict = {}
@@ -1086,6 +1091,57 @@ _CLEARANCE_ELIGIBLE_INDUSTRIES: set[str] = {
 }
 
 
+_US_COUNTRY_TOKENS_GS: frozenset[str] = frozenset(
+    {"us", "usa", "u.s.", "u.s.a.", "united states", "america"}
+)
+
+
+def _is_us_country_gs(data: dict) -> bool:
+    """True when the plan's target country is the United States.
+
+    _CLEARANCE_TYPES below is a US federal clearance ladder (Top Secret/SCI,
+    USAJobs, GovernmentJobs.com) with no local equivalent modeled in this
+    codebase. Gate it on country so a non-US plan (e.g. New Zealand, which
+    uses NZSIS CV/SV levels -- a different system entirely) never receives
+    fabricated US clearance data (S4).
+    """
+    explicit = str(data.get("country") or "").strip().lower()
+    if explicit:
+        if explicit in _US_COUNTRY_TOKENS_GS:
+            return True
+        if _plan_currency_gs is not None:
+            code = _plan_currency_gs.currency_for_country(explicit)
+            if code:
+                return code == "USD"
+        return False
+
+    locations = data.get("locations") or []
+    if isinstance(locations, str):
+        locations = [locations]
+    if isinstance(locations, list):
+        for loc in locations:
+            loc_str = ""
+            if isinstance(loc, str):
+                loc_str = loc
+            elif isinstance(loc, dict):
+                loc_str = loc.get("country") or loc.get("location") or ""
+            loc_str = loc_str.strip().lower()
+            if not loc_str:
+                continue
+            tail = loc_str.rsplit(",", 1)[-1].strip()
+            if tail in _US_COUNTRY_TOKENS_GS:
+                return True
+            if _plan_currency_gs is not None:
+                code = _plan_currency_gs.currency_for_country(tail)
+                if code:
+                    return code == "USD"
+            return False
+
+    # No location signal at all -- assume domestic (matches the historical
+    # default used elsewhere in the pipeline when no country is specified).
+    return True
+
+
 def _is_clearance_eligible_industry(industry: str) -> bool:
     """Check if the industry qualifies for security clearance segmentation.
 
@@ -1107,6 +1163,11 @@ def detect_clearance_requirements(data: dict) -> dict[str, Any] | None:
     (defense, aerospace, government, intelligence, federal, military).
     Non-defense industries (healthcare, retail, tech, etc.) are skipped
     even if keywords like 'secret' or 'classified' appear in the brief.
+
+    Gate 3 (S4): the clearance ladder itself (_CLEARANCE_TYPES) is a US
+    federal framework (Top Secret/SCI, USAJobs, GovernmentJobs.com). On a
+    non-US plan this returns a clearly-labeled reference-framework note
+    instead of fabricating local clearance data we don't have modeled.
 
     Returns:
         Clearance segmentation dict if defense-related, else None.
@@ -1133,6 +1194,24 @@ def detect_clearance_requirements(data: dict) -> dict[str, Any] | None:
     matches = [kw for kw in _DEFENSE_KEYWORDS if kw in all_text]
     if not matches:
         return None
+
+    # Gate 3: US-only clearance framework -- non-US plans get a disclosed
+    # reference note, never fabricated local clearance tiers/channels.
+    if not _is_us_country_gs(data):
+        return {
+            "is_defense_related": True,
+            "detected_keywords": matches[:5],
+            "us_framework_only": True,
+            "primary_clearance": None,
+            "all_clearance_tiers": [],
+            "recommendations": [
+                "This plan targets a non-US market. The security-clearance "
+                "framework below (Top Secret/SCI, USAJobs, GovernmentJobs.com) "
+                "is a US federal reference model shown for context only -- it "
+                "does not apply to this plan's country and no local clearance "
+                "equivalent (e.g. NZSIS CV/SV levels) is modeled in this tool.",
+            ],
+        }
 
     # Determine the likely clearance level
     if any(kw in all_text for kw in ("ts/sci", "sci", "compartmented")):

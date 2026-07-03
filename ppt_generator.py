@@ -2763,6 +2763,12 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             for role_name in (roles[:8] if isinstance(roles, list) else []):
                 r_str = role_name if isinstance(role_name, str) else str(role_name)
                 cr = _collar_intel.classify_collar(role=r_str, industry=industry)
+                # S4: only count classifications with real confidence -- the
+                # classifier's ultimate "no_match" fallback (0.25) is a guess,
+                # not a signal about the role, and should never drive a
+                # confident-sounding "X dominant (100%)" claim on the deck.
+                if cr.get("method") == "no_match" or cr.get("confidence", 0) < 0.4:
+                    continue
                 ct = cr.get("collar_type", "white_collar")
                 collar_counts[ct] = collar_counts.get(ct, 0) + 1
             if collar_counts:
@@ -3627,8 +3633,18 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 posting_count = jm_data.get(
                     "total_postings", jm_data.get("posting_count") or 0
                 )
+                # S4: fuse_job_market_demand() (data_synthesizer.py) fabricates
+                # a generic "job_postings": 75000 fallback when Adzuna/Jooble/
+                # search/talent-pool all returned nothing, tagging the source
+                # as "Industry Benchmark". Never print that as "Live Postings"
+                # -- it is not measured data, and the companion workbook's own
+                # Market Demand table for the same role can legitimately show
+                # 0/no data for this exact figure (no fabricated stats over
+                # empty data).
+                _posting_sources = jm_data.get("posting_sources") or []
+                _is_fabricated_posting = "Industry Benchmark" in _posting_sources
                 avg_sal = jm_data.get("avg_salary") or 0
-                if posting_count and posting_count > 0:
+                if posting_count and posting_count > 0 and not _is_fabricated_posting:
                     bench_rows.append(
                         (
                             f"Live Postings: {role_name}",
@@ -8092,8 +8108,11 @@ def _build_slides_gold_standard(prs: Presentation, data: Dict) -> None:
                     )
                     comp_y += Inches(0.5)
 
-            # Clearance badge (if applicable)
-            if clearance:
+            # Clearance badge (if applicable). S4: non-US plans carry
+            # clearance_segmentation["us_framework_only"]=True with no
+            # primary_clearance (see gold_standard.detect_clearance_requirements)
+            # -- never render an "N/A" clearance badge for those; skip it.
+            if clearance and not clearance.get("us_framework_only"):
                 primary = clearance.get("primary_clearance") or {}
                 badge_text = f"Clearance: {primary.get('level', 'N/A')} | +{primary.get('salary_premium_pct', 0)}% premium"
                 _add_filled_rect(

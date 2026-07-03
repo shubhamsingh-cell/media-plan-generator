@@ -1561,6 +1561,56 @@ def _get_locations(data: dict) -> List[str]:
     return ["United States"]
 
 
+_US_TOKENS = frozenset({"us", "usa", "u.s.", "u.s.a.", "united states", "america"})
+
+
+def _is_us_plan(data: dict) -> bool:
+    """True when the plan's target country is the United States.
+
+    Mirrors ``_is_us_only_campaign`` in ppt_generator.py so US-only content
+    (niche boards, security-clearance framework, US-calibrated defaults) is
+    gated consistently in the workbook. Checks the explicit ``country`` field
+    first, then per-location country strings, then falls back to the resolved
+    plan currency (USD) as a last resort. Defaults True only when nothing in
+    the plan signals a non-US market (S4: never assume non-US content is safe
+    to ship, but also never suppress US content for an actual US plan).
+    """
+    explicit = str(data.get("country") or "").strip().lower()
+    if explicit:
+        if explicit in _US_TOKENS:
+            return True
+        if _plan_currency is not None:
+            code = _plan_currency.currency_for_country(explicit)
+            if code:
+                return code == "USD"
+        return False
+
+    locations = data.get("locations") or []
+    if isinstance(locations, str):
+        locations = [locations]
+    if isinstance(locations, list) and locations:
+        for loc in locations:
+            loc_str = ""
+            if isinstance(loc, str):
+                loc_str = loc
+            elif isinstance(loc, dict):
+                loc_str = loc.get("country") or loc.get("location") or ""
+            loc_str = loc_str.strip().lower()
+            if not loc_str:
+                continue
+            tail = loc_str.rsplit(",", 1)[-1].strip()
+            if tail in _US_TOKENS:
+                return True
+            if _plan_currency is not None:
+                code = _plan_currency.currency_for_country(tail)
+                if code:
+                    return code == "USD"
+            return False
+
+    # No location signal at all -- fall back to the resolved plan currency.
+    return _get_active_currency() == "USD"
+
+
 def _get_budget_numeric(data: dict) -> float:
     """Parse budget from data dict to numeric value."""
     budget_raw = data.get("budget") or data.get("budget_range") or ""
@@ -3532,7 +3582,12 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
     row += 2
 
     # ── 4. Industry Niche Channels ──
-    niche_channels = INDUSTRY_NICHE_CHANNELS.get(industry, [])
+    # S4: INDUSTRY_NICHE_CHANNELS is a US-domiciled board list (ClearedJobs.Net,
+    # USAJOBS, Military.com, etc. for aerospace_defense; similar US-only boards
+    # for other industries). Never ship it on a non-US plan -- fall back to a
+    # clearly-labeled reference-framework note instead of fabricating local
+    # board data we don't have.
+    niche_channels = INDUSTRY_NICHE_CHANNELS.get(industry, []) if _is_us_plan(data) else []
 
     if niche_channels:
         row = _write_section_header(ws, row, f"Niche Channels: {industry_label}")
@@ -3547,6 +3602,20 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 "High - Specialized for " + industry_label,
             ]
             row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
+    elif INDUSTRY_NICHE_CHANNELS.get(industry) and not _is_us_plan(data):
+        # Reference-framework note: we know US niche boards for this industry
+        # but have no local-market equivalent data -- disclose rather than
+        # silently drop or fabricate.
+        row = _write_section_header(ws, row, f"Niche Channels: {industry_label}")
+        row = _write_kv_row(
+            ws,
+            row,
+            "Note",
+            "US-domiciled niche boards for this industry are not shown because "
+            "this plan targets a non-US market. Local specialty board data was "
+            "not available for this campaign; consult the Intl Benchmarks sheet "
+            "and regional job boards for this market.",
+        )
 
     row += 2
     _write_attribution_footer(ws, row)
@@ -3736,9 +3805,21 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         # Extract values with fallback chain
         country = loc_data.get("country") or ""
         if not country:
-            # Try to infer from location string
+            # Try to infer from location string ("City, Country" -> last token)
             parts = loc.split(",")
-            country = parts[-1].strip() if len(parts) > 1 else "United States"
+            if len(parts) > 1:
+                country = parts[-1].strip()
+            else:
+                # No comma: the location string itself may already BE the
+                # country (e.g. loc == "New Zealand"), or the plan carries an
+                # explicit top-level country. Only default to "United States"
+                # when neither signal is available -- never hardcode it over
+                # a non-US plan (S4: findings Market Intelligence B30).
+                plan_country = data.get("country") or ""
+                if isinstance(plan_country, str) and plan_country.strip():
+                    country = plan_country.strip()
+                else:
+                    country = "United States"
 
         # Prefer metro/city population over state-level population
         population = (
@@ -4233,12 +4314,32 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                                     _search_interest_str += ")"
                             break
 
+                # S4: fuse_job_market_demand() (data_synthesizer.py) writes
+                # "total_postings"/"talent_pool_estimate" -- this table was
+                # reading "postings"/"job_postings" and "talent_pool"/"supply",
+                # none of which exist in that dict, so it always rendered 0
+                # regardless of the real (or fabricated-fallback) value the
+                # deck showed for the same role. Read the actual keys, with
+                # the old names kept as a compatibility fallback only.
+                _postings_val = demand.get(
+                    "total_postings",
+                    demand.get("postings", demand.get("job_postings") or 0),
+                )
+                _talent_pool_val = demand.get(
+                    "talent_pool_estimate",
+                    demand.get("talent_pool", demand.get("supply") or 0),
+                )
+                # Never present a fabricated industry-benchmark fallback number
+                # as if it were a measured "Live" postings count (S4: no
+                # fabricated stats over empty data).
+                _posting_sources = demand.get("posting_sources") or []
+                _is_fabricated_postings = "Industry Benchmark" in _posting_sources
                 values = [
                     role_name if isinstance(role_name, str) else str(role_name),
-                    _fmt_number(
-                        demand.get("postings", demand.get("job_postings") or 0)
-                    ),
-                    _fmt_number(demand.get("talent_pool", demand.get("supply") or 0)),
+                    "Data not available"
+                    if (not _postings_val or _is_fabricated_postings)
+                    else _fmt_number(_postings_val),
+                    _fmt_number(_talent_pool_val),
                     _flatten_value(
                         demand.get("competition", demand.get("competition_level") or "")
                     ),
@@ -5965,12 +6066,24 @@ def _build_sheet_quality_intelligence(
             row = _write_subsection_header(ws, row, "Security Clearance Segmentation")
 
             primary = clearance.get("primary_clearance") or {}
-            row = _write_kv_row(
-                ws, row, "Defense Related", "Yes — clearance requirements detected"
-            )
-            row = _write_kv_row(
-                ws, row, "Primary Clearance", str(primary.get("level") or "—")
-            )
+            # S4: non-US plans get a disclosed reference-framework note instead
+            # of a fabricated local clearance tier (see detect_clearance_requirements).
+            if clearance.get("us_framework_only"):
+                row = _write_kv_row(
+                    ws,
+                    row,
+                    "Defense Related",
+                    "Yes — clearance requirements detected (non-US plan; "
+                    "US clearance tiers below are reference-only, not local data)",
+                )
+            else:
+                row = _write_kv_row(
+                    ws, row, "Defense Related", "Yes — clearance requirements detected"
+                )
+            if not clearance.get("us_framework_only"):
+                row = _write_kv_row(
+                    ws, row, "Primary Clearance", str(primary.get("level") or "—")
+                )
             row = _write_kv_row(
                 ws,
                 row,
@@ -7201,8 +7314,15 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     )
     row += 1
 
+    # S4: ROLE_NICHE_BOARDS / INDUSTRY_NICHE_CHANNELS are US-domiciled board
+    # lists (Dice, ClearedJobs.Net, USAJOBS, Vivian Health, etc.). Suppress
+    # both on a non-US plan rather than shipping US boards to a local market.
+    _is_us = _is_us_plan(data)
+
     # ── Role-Based Matches (industry-aware to prevent cross-industry mismatches) ──
-    role_matches = _match_roles_to_niche_boards(roles, industry=industry)
+    role_matches = (
+        _match_roles_to_niche_boards(roles, industry=industry) if _is_us else {}
+    )
 
     if role_matches:
         row = _write_subsection_header(ws, row, "Role-Specific Specialty Boards")
@@ -7244,7 +7364,7 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
         row += 1
 
     # ── Industry-Based Matches ──
-    industry_boards = INDUSTRY_NICHE_CHANNELS.get(industry, [])
+    industry_boards = INDUSTRY_NICHE_CHANNELS.get(industry, []) if _is_us else []
     if industry_boards:
         row = _write_subsection_header(ws, row, "Industry-Specific Boards")
 
@@ -7266,14 +7386,26 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
 
     # ── No matches fallback ──
     if not role_matches and not industry_boards:
-        row = _write_kv_row(
-            ws,
-            row,
-            "Status",
-            "No specialty board matches found for the specified roles. "
-            "Consider general-purpose boards (Indeed, LinkedIn, ZipRecruiter) "
-            "with targeted ad copy and audience filters.",
-        )
+        if not _is_us:
+            row = _write_kv_row(
+                ws,
+                row,
+                "Status",
+                "US-domiciled specialty job boards are not shown because this "
+                "plan targets a non-US market and no local niche-board data "
+                "was available for this campaign. Consider general-purpose "
+                "boards available in-market (e.g. Seek, Trade Me Jobs, "
+                "LinkedIn) with targeted ad copy and audience filters.",
+            )
+        else:
+            row = _write_kv_row(
+                ws,
+                row,
+                "Status",
+                "No specialty board matches found for the specified roles. "
+                "Consider general-purpose boards (Indeed, LinkedIn, ZipRecruiter) "
+                "with targeted ad copy and audience filters.",
+            )
         row += 1
 
     # ── Niche Board Best Practices ──
