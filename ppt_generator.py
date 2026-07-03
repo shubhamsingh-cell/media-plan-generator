@@ -2279,17 +2279,21 @@ def _is_us_only_campaign(data: Dict) -> bool:
         return True
     if target_region in ("global", "emea", "apac", "custom"):
         return False
-    # Explicit country field is the most authoritative signal. If it resolves
-    # to any non-US country name, the campaign is not US-only. This closes a
-    # gap where an international plan (e.g. country="New Zealand") whose only
-    # location string omitted a recognized international token was misread as
-    # US-only, which then stripped its APAC/EMEA channels and made the deck's
-    # channel table under-foot the stated budget (BUNDLE_QC_FINDINGS #4/#62).
-    country = (data.get("country") or "").lower().strip()
-    if country and country not in ("us", "usa", "united states", "america", "u.s.", "u.s.a."):
-        return False
+
+    # Gather every location signal the plan carries: the explicit `country`
+    # field (populated by callers even when `locations` is terse/ambiguous,
+    # e.g. country="New Zealand") plus each entry in `locations`.
+    candidates: List[Any] = []
+    country_field = data.get("country")
+    if isinstance(country_field, str) and country_field.strip():
+        candidates.append(country_field)
     locations = data.get("locations") or []
-    if not locations:
+    if isinstance(locations, (list, tuple)):
+        candidates.extend(locations)
+    elif locations:
+        candidates.append(locations)
+
+    if not candidates:
         return True  # No locations specified — assume domestic
     us_indicators = {
         "us",
@@ -2407,10 +2411,35 @@ def _is_us_only_campaign(data: Dict) -> bool:
         "saudi",
     )
     # US city patterns (city, state format)
-    for loc in locations:
-        loc_lower = str(loc).lower().strip()
+    for loc in candidates:
+        if isinstance(loc, dict):
+            loc_str = loc.get("country") or loc.get("location") or ""
+        else:
+            loc_str = loc
+        loc_str = str(loc_str or "").strip()
+        if not loc_str:
+            continue
+        loc_lower = loc_str.lower()
+
+        # Authoritative signal: plan_currency's country table already solves
+        # the US-state-vs-country-code collision problem (CA=California vs
+        # Canada, IN=Indiana vs India, ...) and covers dozens of countries
+        # (Portugal, Switzerland, South Korea, Russia, ...) that neither the
+        # substring blocklist below nor the old blocklist ever listed.
+        if _plan_currency is not None:
+            try:
+                code = _plan_currency.currency_for_country(loc_str)
+            except Exception:  # noqa: BLE001 - resolution is best-effort
+                code = None
+            if code:
+                if code != "USD":
+                    return False
+                continue  # resolved to USD -- domestic, check next candidate
+
+        # Fallback: word-boundary token/phrase match for location strings
+        # plan_currency can't resolve (e.g. bare city names it doesn't know,
+        # like "Auckland" with no trailing ", New Zealand").
         parts = {p.strip() for p in loc_lower.replace(",", " ").split()}
-        # Clearly international
         if parts & intl_tokens or any(phrase in loc_lower for phrase in intl_phrases):
             return False
         # Check if location matches US patterns

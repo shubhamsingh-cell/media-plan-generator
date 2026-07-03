@@ -126,6 +126,104 @@ class TestCurrencyResolution:
         ppt._set_active_currency({})
 
 
+class TestUsOnlyCampaignDetection:
+    """_is_us_only_campaign gates whether _selected_channels() strips
+    apac_regional / emea_regional. It must not fall back to "assume domestic"
+    for countries the hardcoded substring blocklist doesn't list -- it should
+    defer to plan_currency's country table, which already covers this."""
+
+    def test_new_zealand_via_locations_and_country_is_not_us_only(self):
+        # Exact repro (BUNDLE_QC_FINDINGS_2026-07-03.json slide-6 finding): a
+        # NZ plan was silently losing apac_regional/emea_regional because
+        # "new zealand" / "nz" / "auckland" weren't in the blocklist and
+        # data["country"] was never even consulted.
+        data = {"locations": ["Auckland, New Zealand"], "country": "New Zealand"}
+        assert ppt._is_us_only_campaign(data) is False
+
+    def test_new_zealand_via_country_field_only(self):
+        assert ppt._is_us_only_campaign({"country": "New Zealand"}) is False
+
+    def test_new_zealand_via_locations_only(self):
+        assert ppt._is_us_only_campaign({"locations": ["Auckland, New Zealand"]}) is False
+
+    def test_countries_missing_from_hardcoded_blocklist_are_detected(self):
+        # None of these are in the substring blocklist, but plan_currency's
+        # country table resolves all of them to a non-USD currency.
+        for loc in (
+            "Manila, Philippines",
+            "Warsaw, Poland",
+            "Dublin, Ireland",
+            "Johannesburg, South Africa",
+            "Seoul, South Korea",
+            "Jakarta, Indonesia",
+            "Lisbon, Portugal",
+            "Zurich, Switzerland",
+            "Moscow, Russia",
+            "Stockholm, Sweden",
+        ):
+            assert ppt._is_us_only_campaign({"locations": [loc]}) is False, loc
+
+    def test_plain_us_plan_is_still_us_only(self):
+        assert ppt._is_us_only_campaign({"locations": ["United States"]}) is True
+        assert ppt._is_us_only_campaign({"locations": ["San Francisco, CA", "New York, NY"]}) is True
+        assert ppt._is_us_only_campaign({"locations": ["Dallas, TX"]}) is True
+        assert ppt._is_us_only_campaign({"locations": ["Dallas"]}) is True
+
+    def test_indianapolis_does_not_false_positive_on_india_substring(self):
+        assert ppt._is_us_only_campaign({"locations": ["Indianapolis, IN"]}) is True
+
+    def test_no_locations_or_country_defaults_domestic(self):
+        assert ppt._is_us_only_campaign({}) is True
+        assert ppt._is_us_only_campaign({"locations": []}) is True
+
+    def test_dict_locations_resolve_via_country_key(self):
+        assert (
+            ppt._is_us_only_campaign(
+                {"locations": [{"city": "London", "country": "United Kingdom"}]}
+            )
+            is False
+        )
+        # Dict entries without a country/location key don't falsely trip
+        # international -- matches _plan_currency_code's existing behavior.
+        assert (
+            ppt._is_us_only_campaign(
+                {"locations": [{"city": "Austin", "state": "TX"}, "Remote"]}
+            )
+            is True
+        )
+
+    def test_target_region_short_circuit_still_wins(self):
+        assert ppt._is_us_only_campaign({"target_region": "us_only"}) is True
+        assert ppt._is_us_only_campaign({"target_region": "apac"}) is False
+        # Explicit us_only overrides what locations would otherwise resolve to
+        assert (
+            ppt._is_us_only_campaign(
+                {"target_region": "us_only", "locations": ["London, UK"]}
+            )
+            is True
+        )
+
+    def test_selected_channels_keeps_intl_channels_for_nz_plan(self):
+        # End-to-end: the NZ repro must not strip apac_regional/emea_regional.
+        data = {
+            "locations": ["Auckland, New Zealand"],
+            "country": "New Zealand",
+            "channel_categories": {"apac_regional": True, "emea_regional": True},
+        }
+        selected = ppt._selected_channels(data)
+        assert "apac_regional" in selected
+        assert "emea_regional" in selected
+
+    def test_selected_channels_strips_intl_channels_for_us_plan(self):
+        data = {
+            "locations": ["Dallas, TX"],
+            "channel_categories": {"apac_regional": True, "emea_regional": True},
+        }
+        selected = ppt._selected_channels(data)
+        assert "apac_regional" not in selected
+        assert "emea_regional" not in selected
+
+
 class TestCurrencyFormatting:
     def teardown_method(self):
         ppt._set_active_currency({})  # reset to USD between tests
