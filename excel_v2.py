@@ -2465,10 +2465,10 @@ def _build_sheet_executive_summary(
             _tot_cells = [
                 ("Total", None),
                 (None, None),  # % column — a SUM of shares is ~100%, skip for clarity
-                (f"=SUM(C{_first_data_row}:C{_last_data_row})", FMT_USD0),
-                (f"=SUM(D{_first_data_row}:D{_last_data_row})", FMT_INT),
+                (f"=SUM(D{_first_data_row}:D{_last_data_row})", FMT_USD0),
                 (f"=SUM(E{_first_data_row}:E{_last_data_row})", FMT_INT),
                 (f"=SUM(F{_first_data_row}:F{_last_data_row})", FMT_INT),
+                (f"=SUM(G{_first_data_row}:G{_last_data_row})", FMT_INT),
                 (None, None),  # CPC — a sum is meaningless
                 (None, None),  # CPA — a sum is meaningless
                 (None, None),  # ROI — a sum is meaningless
