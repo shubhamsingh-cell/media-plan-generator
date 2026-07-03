@@ -3344,13 +3344,23 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
     # Build thesis from data -- S48: use per-channel-sum hires
     _thesis_parts: list[str] = []
+    _thesis_has_lead = False
     if ba_total_projected:
         _proj_h = _ppt_hires_sum
         _proj_cph = _ppt_cph
         if _proj_h > 0:
             _thesis_parts.append(f"This plan projects {int(_proj_h)} hires")
+            _thesis_has_lead = True
         if _proj_cph > 0:
             _thesis_parts.append(f"at {_fmt_currency(_proj_cph)}/hire")
+    if not _thesis_has_lead:
+        # Near-zero-budget edge case (2026-07-03 Gedu review): 0 projected
+        # hires means the "This plan projects N hires" clause above never
+        # fires, and used to leave the sentence with no subject at all --
+        # e.g. a dangling "via 8-channel programmatic strategy." or "in a
+        # hot market via 8-channel programmatic strategy." Give the thesis a
+        # grammatical lead-in regardless of hire-volume data availability.
+        _thesis_parts.append("This plan recommends a targeted approach")
     if market_temp_str:
         temp_map = {
             "hot": "high-demand",
@@ -4119,9 +4129,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             for plat_name, plat_data in list(ad_plat.items())[:5]:
                 if not isinstance(plat_data, dict) or plat_name.startswith("_"):
                     continue
-                plat_label = plat_data.get(
-                    "platform_name", plat_name.replace("_", " ").title()
-                )
+                plat_label = plat_data.get("platform_name", _smart_title(plat_name))
                 plat_cpc = plat_data.get("CPC", plat_data.get("cpc") or 0)
                 plat_cpa = plat_data.get("CPA", plat_data.get("cpa") or 0)
                 plat_reach = plat_data.get("estimated_reach") or 0
@@ -8233,7 +8241,7 @@ def _build_slide_creative_testing(prs: Presentation, data: Dict) -> None:
             ch_lower = ch_name.lower().replace("_", " ")
             for key, cdata in _CHANNEL_CREATIVE_DATA.items():
                 if key in ch_lower or ch_lower in key:
-                    matched_channels.append((ch_name.replace("_", " ").title(), cdata))
+                    matched_channels.append((_smart_title(ch_name), cdata))
                     break
         # Ensure at least 2 channels
         if len(matched_channels) < 2:

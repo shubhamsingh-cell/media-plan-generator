@@ -1445,6 +1445,24 @@ ROLE_CHANNEL_REQUIREMENTS: Dict[str, Dict[str, Any]] = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+# Mirrors ppt_generator._TITLE_ACRONYMS -- kept as a local copy (this
+# codebase's convention: small formatting helpers are per-file, not
+# cross-imported) so the deck and workbook always agree on channel-name
+# casing. Fixes findings like "Programmatic Dsp" (should be "Programmatic
+# DSP") that .replace("_", " ").title() alone can't get right.
+_TITLE_ACRONYMS = {
+    "Ai": "AI", "Roi": "ROI", "Cpa": "CPA", "Cpc": "CPC", "Cph": "CPH",
+    "Dsp": "DSP", "Crm": "CRM", "Kpi": "KPI", "Us": "US", "Uk": "UK",
+    "Eu": "EU", "Seo": "SEO", "Ats": "ATS", "Ppc": "PPC", "Qc": "QC",
+    "Roas": "ROAS", "Dei": "DEI",
+}
+
+
+def _smart_title(s: str) -> str:
+    """Title-case a string while preserving known acronyms (AI, ROI, DSP...)."""
+    return " ".join(_TITLE_ACRONYMS.get(w, w) for w in str(s).title().split())
+
+
 def _safe_num(val: Any, default: float = 0.0) -> float:
     """Safely convert a value to float."""
     if val is None:
@@ -2810,7 +2828,7 @@ def _build_sheet_executive_summary(
                 continue
             idx = _row_idx
             _row_idx += 1
-            _display_name = ch_name.replace("_", " ").title()
+            _display_name = _smart_title(ch_name)
             if _safe_num(_ch_dollars) > 0:
                 _chart_pairs.append((_display_name, round(_safe_num(_ch_dollars), 2)))
             # Percentage source is on a 0-100 scale; FMT_PCT1 expects a fraction.
@@ -5977,7 +5995,7 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
 
             roi_rows.append(
                 {
-                    "name": ch_name.replace("_", " ").title(),
+                    "name": _smart_title(ch_name),
                     "budget": dollars,
                     "projected_apps": projected_apps,
                     "projected_hires": projected_hires,
@@ -7037,7 +7055,7 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
 
             # S89: numeric month/total spend + fractional % (FMT_PCT1).
             values = (
-                [ch_name.replace("_", " ").title()]
+                [_smart_title(ch_name)]
                 + [_safe_num(m) for m in ch_monthly]
                 + [_safe_num(ch_dollars), ch_frac]
             )
@@ -7250,7 +7268,7 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
         elif confidence == "LOW":
             conf_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=RED)
 
-        ch_label = ch_name.replace("_", " ").title()
+        ch_label = _smart_title(ch_name)
 
         # S5 (2026-07-03, findings 44/51): Low/Expected/High are the plan's
         # own live figures -- write as numbers with number_format instead of
@@ -7627,7 +7645,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
 
         # Channel rows — values are the plan's own live figures.
         for name, ch in tier_channels:
-            _display = str(name).replace("_", " ").title()
+            _display = _smart_title(str(name))
             _dollars = _safe_num(ch.get("dollar_amount", ch.get("dollars") or 0))
             _pct = _safe_num(ch.get("percentage") or 0)
             if _pct <= 0 and total_spend > 0:
@@ -7696,7 +7714,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
 
     # ── Zero-budget / consider channels (surfaced, not projected) ──
     _unfunded = [
-        str(name).replace("_", " ").title()
+        _smart_title(str(name))
         for name, ch in channel_allocs.items()
         if isinstance(ch, dict)
         and _safe_num(ch.get("dollar_amount", ch.get("dollars") or 0)) <= 0

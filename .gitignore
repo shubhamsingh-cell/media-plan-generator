@@ -35,6 +35,7 @@ tmp_render/
 tmp_render_nz/
 tmp_render_final/
 tmp_render_nz_final/
+tmp_render_gedu/
 
 # Resilience router local data
 data/analytics/
