@@ -16,6 +16,7 @@ and passes the enriched results into the PPT generation functions.
 import io
 import json
 import logging
+import math
 import os
 import re
 import datetime
@@ -2437,6 +2438,114 @@ def _selected_channels(data: Dict) -> Dict[str, Dict[str, Any]]:
     return selected
 
 
+def _largest_remainder_round(values: Dict[str, float], total: int = 100) -> Dict[str, int]:
+    """Round a dict of {key: float_percentage} to integers that sum EXACTLY to
+    ``total`` (default 100), using the largest-remainder (Hamilton) method.
+
+    S6 fix: independently rounding each channel's percentage (``round(pct)``)
+    can drift the displayed total to 99% or 101% once 3+ channels are involved
+    -- confirmed on the Pratt & Whitney NZ deck where 8 channels' rounded
+    percentages summed to 101% on both the slide-5 channel-mix chart and the
+    slide-6 breakdown table's Total row. Largest-remainder rounding floors every
+    value, then hands the leftover units (total - sum-of-floors) to the entries
+    with the largest fractional remainder, one unit each -- guaranteeing an
+    exact reconciliation instead of independent per-item drift.
+
+    Non-positive/zero inputs are floored to 0 and excluded from the remainder
+    distribution (a zero-share channel should never be bumped to 1% just to
+    make the total foot).
+    """
+    if not values:
+        return {}
+
+    # Normalize to `total` first. This function is designed to correct genuine
+    # ROUNDING drift, where the raw values already sum very close to `total`
+    # (e.g. 99.8 from float percentages) -- in that case the scale factor is
+    # ~1.0 and this is a no-op. But if the caller only has a SUBSET of the full
+    # channel mix (e.g. two channels were dropped upstream by an unrelated
+    # channel-selection bug), the raw values can sum well short of `total`
+    # (e.g. 93); scaling first means largest-remainder only ever has to correct
+    # a <1-point-per-item rounding remainder, never asked to invent several
+    # whole extra points by capping every item at +1 (which would silently
+    # under-shoot when leftover > len(values), e.g. 93 -> 99 instead of 100).
+    raw_total = sum(max(0.0, float(v or 0)) for v in values.values())
+    scale = (total / raw_total) if raw_total > 0 else 1.0
+
+    floors: Dict[str, int] = {}
+    remainders: Dict[str, float] = {}
+    for k, v in values.items():
+        v = max(0.0, float(v or 0)) * scale
+        f = math.floor(v)
+        floors[k] = int(f)
+        remainders[k] = v - f
+
+    assigned = sum(floors.values())
+    leftover = int(round(total - assigned))
+    if leftover > 0:
+        # Largest remainder first; among eligible (non-zero-value) keys only.
+        order = sorted(
+            (k for k in values if values[k]),
+            key=lambda k: remainders[k],
+            reverse=True,
+        )
+        # Guard: with the pre-scale step above, leftover should never exceed
+        # the number of eligible keys (each item's remainder is < 1 after
+        # scaling to `total`) -- but keep the cap defensive against float
+        # edge cases so we never try to bump the same key past +1.
+        for k in order[:leftover]:
+            floors[k] += 1
+    elif leftover < 0:
+        # Values summed above `total` even after flooring (shouldn't normally
+        # happen, but guard against float-precision surprises) -- claw back
+        # from the smallest remainders among entries that still have a
+        # positive rounded share, so nothing goes negative.
+        order = sorted(
+            (k for k in values if floors[k] > 0),
+            key=lambda k: remainders[k],
+        )
+        for k in order[: (-leftover)]:
+            floors[k] -= 1
+
+    return floors
+
+
+def _reconcile_channel_percentages(
+    channels: Dict[str, Dict[str, Any]], ba_channel_alloc: Dict[str, Any]
+) -> Dict[str, int]:
+    """Match each display channel to its budget-engine allocation and return
+    largest-remainder-rounded integer percentages keyed by the SAME keys as
+    ``channels``, guaranteed to sum to 100 across all of ``channels``.
+
+    Every slide that displays per-channel allocation percentages (slide 5's
+    channel-mix bar chart and category-attribution band, slide 6's
+    channel-by-channel table and embedded pie chart) should call this ONCE
+    per builder instead of rounding ``ba_match.get("percentage")`` independently
+    -- that per-call independent rounding is what let the displayed total drift
+    to 101% on an 8-channel plan even though the underlying dollar amounts
+    summed to exactly the stated budget.
+    """
+    if not isinstance(ba_channel_alloc, dict) or not ba_channel_alloc:
+        return {}
+    raw_pcts: Dict[str, float] = {}
+    for ch_key, ch_data in channels.items():
+        ba_match = ba_channel_alloc.get(ch_key)
+        if not ba_match:
+            ch_label_lower = (ch_data.get("label") or "").lower()
+            for ba_key, ba_val in ba_channel_alloc.items():
+                if isinstance(ba_val, dict):
+                    ba_label = ba_val.get("label", ba_key).lower()
+                    if ba_label == ch_label_lower or ba_key.lower() == ch_key.lower():
+                        ba_match = ba_val
+                        break
+        if ba_match and isinstance(ba_match, dict):
+            real_pct = ba_match.get("percentage") or 0
+            if real_pct > 0:
+                raw_pcts[ch_key] = real_pct
+    if not raw_pcts:
+        return {}
+    return _largest_remainder_round(raw_pcts)
+
+
 def _goal_labels(data: Dict) -> List[str]:
     """Return human-readable campaign goal labels."""
     goals = data.get("campaign_goals") or []
@@ -3691,6 +3800,11 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     if ba_channel_alloc:
         # Map budget engine channel names to display channels
         ba_total_budget = budget_alloc.get("metadata", {}).get("total_budget") or 0
+        # S6 fix: reconcile ALL channels' percentages together (largest-remainder
+        # rounding) instead of rounding each independently -- independent
+        # round(real_pct) per channel is what let an 8-channel mix's displayed
+        # percentages drift to 101% (e.g. 31+21+16+13+11+4+3+2 = 101).
+        _reconciled_pct = _reconcile_channel_percentages(channels, ba_channel_alloc)
         for ch_key, ch_data in channels.items():
             # Try exact key match, then fuzzy label match
             ba_match = ba_channel_alloc.get(ch_key)
@@ -3707,10 +3821,9 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                             ba_match = ba_val
                             break
             if ba_match and isinstance(ba_match, dict):
-                real_pct = ba_match.get("percentage") or 0
                 real_dollar = ba_match.get("dollar_amount") or 0
-                if real_pct > 0:
-                    ch_data["pct"] = round(real_pct)
+                if ch_key in _reconciled_pct:
+                    ch_data["pct"] = _reconciled_pct[ch_key]
                 if real_dollar > 0:
                     ch_data["_dollar_amount"] = real_dollar
 
@@ -4852,6 +4965,12 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         color=BLUE,
     )
 
+    # S6 fix: reconcile ALL channels' percentages together (largest-remainder
+    # rounding) instead of rounding each independently -- this is what let an
+    # 8-channel plan's Total row print "101%" while the underlying dollars
+    # summed to exactly the stated budget.
+    _reconciled_pct = _reconcile_channel_percentages(channels, ba_channel_alloc)
+
     # Map budget engine channel data onto our display channels
     display_channels = []
     for ch_key, ch_data in channels.items():
@@ -4879,9 +4998,8 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
             entry["projected_apps"] = ba_match.get("projected_applications") or 0
             entry["projected_hires"] = ba_match.get("projected_hires") or 0
             entry["cpa"] = ba_match.get("cpa") or 0
-            real_pct = ba_match.get("percentage") or 0
-            if real_pct > 0:
-                entry["pct"] = round(real_pct)
+        if ch_key in _reconciled_pct:
+            entry["pct"] = _reconciled_pct[ch_key]
         # Fallback: compute dollar from percentage if budget engine didn't provide it
         if entry["dollar"] == 0 and ba_total_budget > 0 and entry["pct"] > 0:
             entry["dollar"] = ba_total_budget * entry["pct"] / 100
@@ -4939,10 +5057,39 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         )
         cx += cw
 
-    # Data rows (limit to 8 channels to fit on slide)
-    max_rows = min(len(display_channels), 6)
-    for ri in range(max_rows):
-        ch = display_channels[ri]
+    # S6 fix: this table used to hard-cap at 6 rows (``min(len(display_channels), 6)``)
+    # while the Total row below summed over ALL channels -- on an 8-channel plan
+    # that silently dropped the 2 smallest channels from the visible rows, so the
+    # 6 shown rows never footed to the printed Total (confirmed on the Pratt & Whitney
+    # NZ deck: 6 rows summed to NZ$142,499 / 96% against a printed NZ$150,000 / 101%
+    # Total). Apply the same fit-aware cap the budget pie chart already uses
+    # (top-(N-1) by dollar amount, tail rolled into one labeled "Other" row) so the
+    # VISIBLE rows -- including the rollup -- always sum exactly to the Total.
+    _MAX_VISIBLE_ROWS = 6
+    if len(display_channels) > _MAX_VISIBLE_ROWS:
+        _visible = display_channels[: _MAX_VISIBLE_ROWS - 1]
+        _tail = display_channels[_MAX_VISIBLE_ROWS - 1 :]
+        _tail_dollar = sum(c["dollar"] for c in _tail)
+        _tail_apps = sum(int(c["projected_apps"] or 0) for c in _tail)
+        _tail_hires = sum(int(c["projected_hires"] or 0) for c in _tail)
+        _tail_pct = sum(c["pct"] for c in _tail)
+        _tail_cpa = (_tail_dollar / _tail_apps) if _tail_apps > 0 else 0
+        rollup_entry = {
+            "label": f"+{len(_tail)} smaller channels",
+            "pct": _tail_pct,
+            "color": MUTED_TEXT,
+            "dollar": _tail_dollar,
+            "projected_apps": _tail_apps,
+            "projected_hires": _tail_hires,
+            "cpa": _tail_cpa,
+            "_is_rollup": True,
+        }
+        rows_to_render = _visible + [rollup_entry]
+    else:
+        rows_to_render = list(display_channels)
+
+    max_rows = len(rows_to_render)
+    for ri, ch in enumerate(rows_to_render):
         row_y = header_y + row_h + ri * row_h
         row_bg = WHITE if ri % 2 == 0 else RGBColor(0xF5, 0xF5, 0xF3)
         _add_filled_rect(slide, table_left, row_y, table_w, row_h, row_bg)
@@ -4978,7 +5125,8 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
                 row_h,
                 text=val,
                 font_size=9,
-                bold=(ci == 0),
+                bold=(ci == 0 and not ch.get("_is_rollup")),
+                italic=bool(ch.get("_is_rollup")),
                 color=DARK_TEXT,
                 alignment=col_aligns[ci],
                 anchor=MSO_ANCHOR.MIDDLE,
@@ -4987,7 +5135,9 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
 
     # ---- TOTALS ROW ----
     # Executive decks expect a footed table. Totals are summed over ALL display
-    # channels (not just the capped rows) so the row reconciles with the budget.
+    # channels (not just the visible/rolled-up rows) -- but now the visible rows
+    # (including the "+N smaller channels" rollup, if present) sum to exactly
+    # this same total, so the table always foots.
     total_pct = sum(c["pct"] for c in display_channels)
     total_dollar = sum(c["dollar"] for c in display_channels)
     total_apps = sum(int(c["projected_apps"] or 0) for c in display_channels)
@@ -5098,23 +5248,14 @@ def _embed_pie_chart_on_budget_slide(prs: Presentation, data: Dict) -> None:
     labels: List[str] = []
     sizes: List[float] = []
 
+    # S6 fix: reconcile ALL channels' percentages together (largest-remainder
+    # rounding) instead of rounding each independently, so this pie's legend
+    # percentages sum to exactly 100 instead of drifting to 101%/99%.
+    _reconciled_pct = _reconcile_channel_percentages(channels, ba_channel_alloc)
+
     for ch_key, ch_data in channels.items():
         label = ch_data.get("label", ch_key.replace("_", " ").title())
-        pct = ch_data.get("pct") or 0
-
-        ba_match = ba_channel_alloc.get(ch_key)
-        if not ba_match:
-            ch_label_lower = (ch_data.get("label") or "").lower()
-            for ba_key, ba_val in ba_channel_alloc.items():
-                if isinstance(ba_val, dict):
-                    ba_label = ba_val.get("label", ba_key).lower()
-                    if ba_label == ch_label_lower or ba_key.lower() == ch_key.lower():
-                        ba_match = ba_val
-                        break
-        if ba_match and isinstance(ba_match, dict):
-            real_pct = ba_match.get("percentage") or 0
-            if real_pct > 0:
-                pct = round(real_pct)
+        pct = _reconciled_pct.get(ch_key, ch_data.get("pct") or 0)
 
         if pct > 0:
             labels.append(label)
@@ -10192,24 +10333,14 @@ def _build_slide_budget_pie_chart(prs: Presentation, data: Dict):
     labels = []
     sizes = []
 
+    # S6 fix: reconcile ALL channels' percentages together (largest-remainder
+    # rounding) instead of rounding each independently, so this pie's legend
+    # percentages sum to exactly 100 instead of drifting to 101%/99%.
+    _reconciled_pct = _reconcile_channel_percentages(channels, ba_channel_alloc)
+
     for ch_key, ch_data in channels.items():
         label = ch_data.get("label", ch_key.replace("_", " ").title())
-        pct = ch_data.get("pct") or 0
-
-        # Try to get real allocation from budget engine
-        ba_match = ba_channel_alloc.get(ch_key)
-        if not ba_match:
-            ch_label_lower = (ch_data.get("label") or "").lower()
-            for ba_key, ba_val in ba_channel_alloc.items():
-                if isinstance(ba_val, dict):
-                    ba_label = ba_val.get("label", ba_key).lower()
-                    if ba_label == ch_label_lower or ba_key.lower() == ch_key.lower():
-                        ba_match = ba_val
-                        break
-        if ba_match and isinstance(ba_match, dict):
-            real_pct = ba_match.get("percentage") or 0
-            if real_pct > 0:
-                pct = round(real_pct)
+        pct = _reconciled_pct.get(ch_key, ch_data.get("pct") or 0)
 
         if pct > 0:
             labels.append(label)

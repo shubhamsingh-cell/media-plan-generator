@@ -297,5 +297,135 @@ class TestEndToEnd:
         assert pptx_bytes[:2] == b"PK"
 
 
+# ---------------------------------------------------------------------------
+# 5. S6 -- channel percentages always reconcile to 100%, and the slide-6
+#    breakdown table always foots (visible rows sum to the printed Total),
+#    even when there are more channels than fit in the visible row cap.
+# ---------------------------------------------------------------------------
+class TestChannelPercentageFooting:
+    def test_largest_remainder_sums_to_100_on_rounding_drift(self):
+        # Independently rounding each of these would give 31+21+16+13+11+4+3+2=101
+        # (the exact drift confirmed on the Pratt & Whitney NZ deck).
+        values = {
+            "a": 30.9, "b": 21.0, "c": 16.0, "d": 12.6,
+            "e": 10.9, "f": 3.8, "g": 3.0, "h": 2.0,
+        }
+        result = ppt._largest_remainder_round(values)
+        assert sum(result.values()) == 100
+
+    def test_largest_remainder_sums_to_100_when_subset_is_incomplete(self):
+        # If the caller only has a subset of the full channel mix (raw values
+        # sum to 93, not ~100), reconciliation must still land on exactly 100
+        # rather than under-shooting to 99 (each item capped at +1).
+        values = {
+            "a": 23.0, "b": 18.0, "c": 33.0, "d": 3.0, "e": 13.0, "f": 3.0,
+        }
+        result = ppt._largest_remainder_round(values)
+        assert sum(result.values()) == 100
+
+    def test_largest_remainder_empty_and_zero_safe(self):
+        assert ppt._largest_remainder_round({}) == {}
+        result = ppt._largest_remainder_round({"a": 0, "b": 0})
+        assert result == {"a": 0, "b": 0}
+
+    def _render_budget_slide_text(self, data: dict, channels_selected: dict) -> list[str]:
+        orig = ppt._selected_channels
+        ppt._selected_channels = lambda _data: {
+            k: dict(v) for k, v in channels_selected.items()
+        }
+        try:
+            prs = Presentation()
+            prs.slide_width = ppt.SLIDE_WIDTH
+            prs.slide_height = ppt.SLIDE_HEIGHT
+            ppt._build_slide_budget_allocation(prs, data)
+        finally:
+            ppt._selected_channels = orig
+        return [
+            shape.text_frame.text.strip()
+            for shape in prs.slides[0].shapes
+            if shape.has_text_frame and shape.text_frame.text.strip()
+        ]
+
+    def test_table_foots_with_rollup_row_when_more_than_six_channels(self):
+        from pptx.dml.color import RGBColor
+
+        clr = RGBColor(0x5A, 0x54, 0xBE)
+        ba_channel_alloc = {
+            "niche_boards": {"label": "Niche / Industry Boards", "percentage": 33.0, "dollar_amount": 49500, "projected_applications": 2600, "projected_hires": 11, "cpa": 19},
+            "programmatic_dsp": {"label": "Programmatic DSP", "percentage": 23.0, "dollar_amount": 34500, "projected_applications": 1600, "projected_hires": 7, "cpa": 22},
+            "global_boards": {"label": "Global Job Boards", "percentage": 18.0, "dollar_amount": 27000, "projected_applications": 1400, "projected_hires": 6, "cpa": 19},
+            "regional_boards": {"label": "Regional Boards", "percentage": 13.0, "dollar_amount": 19500, "projected_applications": 1000, "projected_hires": 4, "cpa": 19},
+            "apac_regional": {"label": "APAC Regional", "percentage": 5.8, "dollar_amount": 8700, "projected_applications": 100, "projected_hires": 1, "cpa": 87},
+            "social_media": {"label": "Social Media", "percentage": 3.0, "dollar_amount": 4500, "projected_applications": 22, "projected_hires": 0, "cpa": 205},
+            "employer_branding": {"label": "Employer Branding", "percentage": 3.0, "dollar_amount": 4500, "projected_applications": 28, "projected_hires": 0, "cpa": 161},
+            "emea_regional": {"label": "EMEA Regional", "percentage": 1.0, "dollar_amount": 1500, "projected_applications": 15, "projected_hires": 0, "cpa": 100},
+        }
+        channels_selected = {
+            k: {"label": v["label"], "pct": round(v["percentage"]), "color": clr}
+            for k, v in ba_channel_alloc.items()
+        }
+        data = {
+            "client_name": "Pratt & Whitney New Zealand",
+            "industry": "aerospace_defense",
+            "budget": "$150,000",
+            "_budget_allocation": {
+                "channel_allocations": ba_channel_alloc,
+                "total_projected": {
+                    "applications": 6765, "hires": 29,
+                    "cost_per_application": 22, "cost_per_hire": 5200,
+                },
+                "metadata": {"total_budget": 150000},
+            },
+        }
+        texts = self._render_budget_slide_text(data, channels_selected)
+
+        # Rollup row present for the 3 channels that don't fit in 6 visible rows.
+        assert any("smaller channels" in t for t in texts), "missing rollup row"
+
+        # Extract percentage cells (strings ending in "%") in table order:
+        # header/KPI cards also contain "%"-free text, so filter on the pattern.
+        pct_cells = [t for t in texts if t.endswith("%") and t[:-1].replace(".", "").isdigit()]
+        # Last one is the Total row's percentage; the rest are visible-row pcts.
+        assert pct_cells, "no percentage cells found"
+        total_pct = int(pct_cells[-1].rstrip("%"))
+        visible_pct_sum = sum(int(p.rstrip("%")) for p in pct_cells[:-1])
+        assert total_pct == 100, f"Total row must print 100%, got {total_pct}%"
+        assert visible_pct_sum == total_pct, (
+            f"visible rows ({visible_pct_sum}%) must foot to the printed "
+            f"Total ({total_pct}%)"
+        )
+
+    def test_table_no_rollup_when_six_or_fewer_channels(self):
+        from pptx.dml.color import RGBColor
+
+        clr = RGBColor(0x5A, 0x54, 0xBE)
+        ba_channel_alloc = {
+            "niche_boards": {"label": "Niche / Industry Boards", "percentage": 40.0, "dollar_amount": 60000, "projected_applications": 3000, "projected_hires": 13, "cpa": 20},
+            "programmatic_dsp": {"label": "Programmatic DSP", "percentage": 30.0, "dollar_amount": 45000, "projected_applications": 2000, "projected_hires": 9, "cpa": 22},
+            "global_boards": {"label": "Global Job Boards", "percentage": 30.0, "dollar_amount": 45000, "projected_applications": 2000, "projected_hires": 8, "cpa": 22},
+        }
+        channels_selected = {
+            k: {"label": v["label"], "pct": round(v["percentage"]), "color": clr}
+            for k, v in ba_channel_alloc.items()
+        }
+        data = {
+            "client_name": "Acme Co",
+            "industry": "healthcare",
+            "budget": "$150,000",
+            "_budget_allocation": {
+                "channel_allocations": ba_channel_alloc,
+                "total_projected": {
+                    "applications": 7000, "hires": 30,
+                    "cost_per_application": 21, "cost_per_hire": 5000,
+                },
+                "metadata": {"total_budget": 150000},
+            },
+        }
+        texts = self._render_budget_slide_text(data, channels_selected)
+        assert not any("smaller channels" in t for t in texts), (
+            "should not add a rollup row when all channels already fit"
+        )
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
