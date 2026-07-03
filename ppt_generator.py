@@ -1650,6 +1650,186 @@ def _add_textbox(
     return txBox, tf
 
 
+# ---------------------------------------------------------------------------
+# Measure-then-place autoshrink helpers (O1)
+# ---------------------------------------------------------------------------
+# python-pptx cannot query a rendering engine for real glyph metrics, so we
+# estimate line count from an average character advance keyed to font size.
+# For the Poppins/Inter families used here, the mean advance of a bold cap-heavy
+# string is ~0.52em and a regular body run ~0.50em; we use 0.53em as a safe
+# upper bound so we never UNDER-count lines (which would let text overflow).
+# These helpers underpin the exec-summary headline clamp, the KPI band value
+# fit, and any single-line value that must not wrap.
+
+_AVG_CHAR_EM = 0.53  # conservative average glyph advance as a fraction of pt size
+
+
+def _estimate_lines(
+    text: str, width_in: float, font_pt: float, char_em: float = _AVG_CHAR_EM
+) -> int:
+    """Estimate how many wrapped lines ``text`` needs in a box ``width_in`` wide.
+
+    Wrapping is approximated word-by-word using an average character advance;
+    it deliberately over-estimates slightly so callers shrink rather than clip.
+    ``char_em`` lets callers widen the advance for large, bold, digit-heavy runs
+    (e.g. KPI values) whose glyphs are wider than average body prose.
+    """
+    if not text or width_in <= 0 or font_pt <= 0:
+        return 1
+    char_w_in = (char_em * font_pt) / 72.0  # pt -> inches
+    if char_w_in <= 0:
+        return 1
+    chars_per_line = max(1, int(width_in / char_w_in))
+    lines = 1
+    cur = 0
+    for word in str(text).split():
+        wlen = len(word)
+        # account for the joining space when not at line start
+        add = wlen + (1 if cur > 0 else 0)
+        if cur > 0 and cur + add > chars_per_line:
+            lines += 1
+            cur = wlen
+        else:
+            cur += add
+        # a single word longer than the line still wraps internally
+        while cur > chars_per_line:
+            lines += 1
+            cur -= chars_per_line
+    return max(1, lines)
+
+
+def _fit_font_to_lines(
+    text: str,
+    width_in: float,
+    start_pt: float,
+    max_lines: int,
+    min_pt: float = 8.0,
+    char_em: float = _AVG_CHAR_EM,
+) -> float:
+    """Return the largest font size <= ``start_pt`` (>= ``min_pt``, honouring the
+    8pt readability floor) at which ``text`` fits within ``max_lines`` in a box
+    ``width_in`` wide. Used to clamp headlines / multi-line blocks."""
+    size = float(start_pt)
+    while size > min_pt and _estimate_lines(text, width_in, size, char_em) > max_lines:
+        size -= 0.5
+    return max(min_pt, size)
+
+
+# Big, bold, digit-heavy KPI/hero numerals render noticeably wider than average
+# body prose; use a fatter advance so single-line fitting never under-shrinks
+# them (which is what let "NZ$29.83" wrap to two lines in the KPI band).
+_KPI_CHAR_EM = 0.62
+
+
+def _fit_font_single_line(
+    text: str,
+    width_in: float,
+    start_pt: float,
+    min_pt: float = 8.0,
+    char_em: float = _KPI_CHAR_EM,
+) -> float:
+    """Return the largest font size <= ``start_pt`` at which ``text`` fits on ONE
+    line in a box ``width_in`` wide. Keyed to the rendered string's length so a
+    long currency-prefixed KPI value (e.g. ``NZ$33.95``) never wraps to 2 lines
+    in a single-line band."""
+    return _fit_font_to_lines(
+        text, width_in, start_pt, max_lines=1, min_pt=min_pt, char_em=char_em
+    )
+
+
+def _autofit_textframe(tf, width_in: float, max_height_in: float, min_pt: float = 8.0):
+    """Shrink every run's font (and proportionally its paragraph spacing) until
+    the text frame's estimated rendered height fits within ``max_height_in``.
+
+    Used to clamp the exec-summary SCR card bodies (SITUATION / COMPLICATION /
+    RESOLUTION) so no row escapes below the card's rounded bottom edge. Estimates
+    height as sum over paragraphs of (wrapped-line count * line-height) +
+    space_before + space_after, then scales all font sizes by a single factor so
+    the layout stays visually uniform. Honors the 8pt readability floor.
+    """
+    usable_w = max(0.1, width_in - 0.2)  # default 0.1in L/R text insets
+    # Conservative rendering constants calibrated against the Keynote render of
+    # the exec-summary cards: Poppins/Inter wrap slightly wider than an "average"
+    # advance and their single-line box is ~1.4x the point size once leading and
+    # top/bottom text insets are included. Under-estimating here is what let the
+    # RESOLUTION card's tail rows spill below the card, so we bias toward
+    # over-estimating (shrink rather than clip).
+    _wrap_em = 0.56  # advance for body prose in these cards
+    _line_h_factor = 1.42  # rendered line box height / point size
+    _v_inset = 0.10  # text frame top+bottom inset budget (inches)
+
+    def _measure(scale: float) -> float:
+        total = _v_inset
+        for p in tf.paragraphs:
+            runs = [r for r in p.runs if r.text]
+            if not runs:
+                # empty paragraph still contributes a blank line at base size
+                total += (min_pt * _line_h_factor) / 72.0
+                continue
+            # largest run size in the paragraph drives its line height
+            base_pt = max((r.font.size.pt if r.font.size else 10) for r in runs)
+            line_pt = base_pt * scale
+            ptext = "".join(r.text for r in runs)
+            n_lines = _estimate_lines(ptext, usable_w, line_pt, char_em=_wrap_em)
+            line_h = (line_pt * _line_h_factor) / 72.0
+            sb = (p.space_before.pt if p.space_before else 0) / 72.0
+            sa = (p.space_after.pt if p.space_after else 0) / 72.0
+            total += n_lines * line_h + sb + sa
+        return total
+
+    if _measure(1.0) <= max_height_in:
+        return  # already fits at full size
+
+    # Binary-ish search for the largest scale that fits.
+    scale = 1.0
+    while scale > 0.55 and _measure(scale) > max_height_in:
+        scale -= 0.04
+
+    def _apply(scale_val: float) -> None:
+        for p in tf.paragraphs:
+            for r in p.runs:
+                cur = r.font.size.pt if r.font.size else 10
+                r.font.size = Pt(max(min_pt, cur * scale_val))
+            # scale paragraph spacing too so rows tighten proportionally
+            if p.space_before:
+                p.space_before = Pt(max(0, p.space_before.pt * scale_val))
+            if p.space_after:
+                p.space_after = Pt(max(0, p.space_after.pt * scale_val))
+
+    def _measure_current() -> float:
+        """Re-measure using each run's CURRENT (already-floored) size."""
+        total = _v_inset
+        for p in tf.paragraphs:
+            runs = [r for r in p.runs if r.text]
+            if not runs:
+                total += (min_pt * _line_h_factor) / 72.0
+                continue
+            base_pt = max((r.font.size.pt if r.font.size else 10) for r in runs)
+            ptext = "".join(r.text for r in runs)
+            n_lines = _estimate_lines(ptext, usable_w, base_pt, char_em=_wrap_em)
+            line_h = (base_pt * _line_h_factor) / 72.0
+            sb = (p.space_before.pt if p.space_before else 0) / 72.0
+            sa = (p.space_after.pt if p.space_after else 0) / 72.0
+            total += n_lines * line_h + sb + sa
+        return total
+
+    _apply(scale)
+
+    # The per-run 8pt readability floor can prevent the uniform scale from
+    # actually reaching ``max_height_in`` when a card is content-overloaded
+    # (e.g. the RESOLUTION card's thesis + 5 channels + ML line + goals + cited
+    # 2026 block). Rather than let the tail spill below the card, drop trailing
+    # paragraphs (lowest-priority content, added last) until it genuinely fits.
+    body = tf._txBody
+    while _measure_current() > max_height_in and len(tf.paragraphs) > 1:
+        last_p = tf.paragraphs[-1]._p
+        body.remove(last_p)
+    # Don't leave a dangling section header (e.g. "2026 Market Data:") whose
+    # content was just trimmed away -- drop it too so the card ends cleanly.
+    while len(tf.paragraphs) > 1 and tf.paragraphs[-1].text.strip().endswith(":"):
+        body.remove(tf.paragraphs[-1]._p)
+
+
 def _add_filled_rect(slide, left, top, width, height, fill_color: RGBColor):
     """Add a rectangle shape with a solid fill and no border."""
     shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
@@ -2671,14 +2851,24 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         f"{loc_text} to optimize "
         f"{client}'s recruitment spend in {industry_label}{temp_qualifier}"
     )
+    # O1: measure-then-place. The box is 0.6in tall = 2 lines at 15pt; long
+    # client/industry strings (e.g. "Pratt & Whitney New Zealand ... Aerospace &
+    # Defense in a hot talent market") wrap to 3 lines and clip behind the
+    # SITUATION card at top=1.73in. Autoshrink the headline so it always fits in
+    # 2 lines rather than overflowing. Usable width subtracts the text frame's
+    # default 0.1in L/R insets.
+    _headline_w = 9.9
+    _headline_pt = _fit_font_to_lines(
+        action_text, _headline_w - 0.2, start_pt=15, max_lines=2
+    )
     _add_textbox(
         slide,
         Inches(0.55),
         Inches(0.92),
-        Inches(9.9),  # narrowed to leave room for the QC chip top-right
+        Inches(_headline_w),  # narrowed to leave room for the QC chip top-right
         Inches(0.6),
         text=action_text,
-        font_size=15,
+        font_size=_headline_pt,
         bold=True,
         color=NAVY,
     )
@@ -2882,6 +3072,12 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         run_val.text = str(value)
         _set_font(run_val, size=10, bold=False, color=MUTED_TEXT)
 
+    # O1: clamp SITUATION body to the card so the last row (e.g. "Salary Range:
+    # ...") never escapes below the card's rounded bottom edge. Fit box height is
+    # card bottom (col_top+col_height) minus body_top, less a 0.1in bottom margin.
+    _card_body_h = (col_top + col_height - body_top) / 914400 - 0.1
+    _autofit_textframe(tf2, sit_w / 914400, _card_body_h)
+
     # ---- COMPLICATION (middle) ----
     _add_rounded_rect(slide, col2_left, col_top, col_w, col_height, WHITE)
     _add_filled_rect(slide, col2_left, col_top, accent_bar_w, col_height, TEAL)
@@ -2924,6 +3120,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         run_text = p.add_run()
         run_text.text = str(item) if item is not None else ""
         _set_font(run_text, size=10, bold=False, color=DARK_TEXT)
+
+    # O1: clamp COMPLICATION body to the card bounds (same 3-card pattern).
+    _autofit_textframe(tf3, comp_w / 914400, _card_body_h)
 
     # ---- RESOLUTION (right) ----
     _add_rounded_rect(slide, col3_left, col_top, col_w, col_height, WHITE)
@@ -3075,6 +3274,10 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     except Exception as _cited_err:  # pragma: no cover — never break the deck
         logger.debug("Cited 2026 block (exec summary) skipped: %s", _cited_err)
 
+    # O1: clamp RESOLUTION body (market thesis + strategy + cited data) to the
+    # card bounds so its final rows never spill below the card / onto the KPI band.
+    _autofit_textframe(tf4, res_w / 914400, _card_body_h)
+
     # ---- HERO STAT METRICS BAR ----
     bar_top = Inches(5.35)
     bar_h = Inches(1.15)
@@ -3090,7 +3293,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     hero_value = budget_display if budget_display != budget else str(len(channels))
     hero_label = "Campaign Budget" if budget_display != budget else "Channels Selected"
 
-    # Hero stat on the left
+    # Hero stat on the left -- O1: autoshrink so a long currency-prefixed budget
+    # (e.g. "NZ$150,000") never wraps to two lines in the single-line hero slot.
+    _hero_pt = _fit_font_single_line(str(hero_value), 3.2 - 0.2, start_pt=36, min_pt=20)
     _add_textbox(
         slide,
         Inches(0.85),
@@ -3098,7 +3303,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         Inches(3.2),
         Inches(0.52),  # was 0.65 — overlapped the label row below
         text=hero_value,
-        font_size=36,
+        font_size=_hero_pt,
         bold=True,
         color=TEAL,
         alignment=PP_ALIGN.CENTER,
@@ -3176,6 +3381,17 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     n_secondary = len(secondary_metrics) or 1
     metric_w = Emu(int(avail_w / n_secondary))
 
+    # O1: autoshrink the value font keyed to the rendered string length so a long
+    # currency-prefixed value (e.g. "NZ$33.95") never wraps to two lines in this
+    # single-line band. This matters more after S3's currency fix, since local
+    # currency strings (NZ$/£/etc.) are generally longer than a bare "$" figure.
+    _metric_w_in = metric_w / 914400
+    _kpi_pt = 24
+    for _v, _lbl in secondary_metrics:
+        _kpi_pt = min(
+            _kpi_pt, _fit_font_single_line(str(_v), _metric_w_in - 0.2, start_pt=24, min_pt=14)
+        )
+
     for i, (value, label) in enumerate(secondary_metrics):
         mx = metric_start + Emu(int(i * metric_w))
 
@@ -3186,7 +3402,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             metric_w,
             Inches(0.55),
             text=value,
-            font_size=24,
+            font_size=_kpi_pt,
             bold=True,
             color=WHITE,
             alignment=PP_ALIGN.CENTER,
@@ -3464,6 +3680,9 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     bar_h = Inches(0.30)
     bar_spacing = Inches(0.42)
     label_w = Inches(2.3)
+    # O1: bar_spacing is finalized below once the channel count is known, so the
+    # chart always fits its vertical envelope (above the attribution heading) and
+    # the 8th row never collides with / is struck through by that heading.
 
     # Override channel percentages with real budget allocation if available
     ba_channel_alloc = (
@@ -3496,6 +3715,28 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                     ch_data["_dollar_amount"] = real_dollar
 
     sorted_channels = sorted(channels.values(), key=lambda c: c["pct"], reverse=True)
+
+    # O1: the CHANNEL CATEGORY ATTRIBUTION heading was pinned to a fixed y=4.85in
+    # that silently assumed a ~6-row chart (rows start 2.10in, pitch 0.42in ->
+    # 6 rows end at 4.62in). With 8 channels the chart marched to 5.34in and the
+    # heading's teal underline struck through the 8th row's label. Fix: hold the
+    # heading at its designed position and make the chart occupy a FIXED vertical
+    # envelope, tightening the row pitch when the channel count is high so every
+    # row (label + bar) lands above the heading with a clear gap. Short charts
+    # keep the original 0.42in pitch (min() below), preserving the tested layout.
+    _n_bar_rows = len(sorted_channels)
+    _attrib_top_in = 4.85  # designed heading position (kept fixed)
+    _bar_area_top_in = (section_top + Inches(0.5)) / 914400  # 2.10in
+    _bar_h_in = bar_h / 914400  # 0.30in
+    _chart_gap_in = 0.20  # clearance between last bar row and the heading
+    _chart_envelope_in = _attrib_top_in - _chart_gap_in - _bar_area_top_in
+    if _n_bar_rows > 1:
+        # pitch that fits N rows (last row needs bar_h, not a full pitch) in the
+        # envelope; never larger than the designed 0.42in.
+        _fit_pitch_in = (_chart_envelope_in - _bar_h_in) / (_n_bar_rows - 1)
+        _pitch_in = min(0.42, _fit_pitch_in)
+        bar_spacing = Inches(max(0.30, _pitch_in))  # floor keeps rows readable
+    attrib_top = Inches(_attrib_top_in)
 
     for idx, ch in enumerate(sorted_channels):
         row_y = bar_area_top + idx * bar_spacing
@@ -3762,7 +4003,9 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     # row list could reach 13+ rows (ad-platform + LinkedIn intel); the reference
     # deck shows ~5 benchmark rows. The fuller breakdown lives in the workbook.
     # max rows = floor((attrib_top - clearance - source - table_top)/row_h) - header
-    _attrib_top_in = 4.85
+    # O1: use the dynamically-computed attribution top (row-count aware) so the
+    # right-hand benchmark table is capped to stay above wherever the heading
+    # actually lands, not a stale fixed 4.85in.
     _max_bench_rows = max(
         4,
         int((_attrib_top_in - 0.35 - (table_top + row_h) / 914400) / (row_h / 914400)),
@@ -3861,7 +4104,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     )
 
     # ==== CHANNEL ATTRIBUTION DIAGRAM (bottom area) ====
-    attrib_top = Inches(4.85)
+    # attrib_top computed above from the actual channel-mix row count (O1).
     _add_textbox(
         slide,
         Inches(0.55),
@@ -5009,37 +5252,40 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     ind_reach_mult = ind_benchmarks.get("estimated_reach_multiplier", 1.0)
 
     # Comparison metrics - build all candidates
+    # S5 (2026-07-03, findings 14/28): "beating benchmark" must mean strictly
+    # better, not tied. All comparisons below use strict `>`/`<` so an exactly
+    # equal client value is never flagged with a green "beating" arrow.
     all_comparison_rows = [
         {
             "metric": "Channels Selected",
             "client_val": str(n_channels),
             "industry_val": str(ind_benchmarks.get("avg_channels", 4)),
-            "is_better": n_channels >= ind_benchmarks.get("avg_channels", 4),
+            "is_better": n_channels > ind_benchmarks.get("avg_channels", 4),
         },
         {
             "metric": "Programmatic Allocation",
             "client_val": f"{programmatic_pct}%",
             "industry_val": f"{ind_benchmarks.get('avg_budget_pct_programmatic', 30)}%",
             "is_better": programmatic_pct
-            >= ind_benchmarks.get("avg_budget_pct_programmatic", 30),
+            > ind_benchmarks.get("avg_budget_pct_programmatic", 30),
         },
         {
             "metric": "Channel Diversity Score",
             "client_val": f"{min(10.0, n_channels * 1.5):.1f}/10",
             "industry_val": f"{min(10.0, ind_benchmarks.get('avg_channels', 4) * 1.5):.1f}/10",
-            "is_better": n_channels >= ind_benchmarks.get("avg_channels", 4),
+            "is_better": n_channels > ind_benchmarks.get("avg_channels", 4),
         },
         {
             "metric": "Geographic Coverage",
             "client_val": f"{n_locations} market{'s' if n_locations != 1 else ''}",
             "industry_val": "3-5 markets",
-            "is_better": n_locations >= 3,
+            "is_better": n_locations > 3,
         },
         {
             "metric": "Reach Multiplier",
             "client_val": f"{client_reach_mult:.1f}x",
             "industry_val": f"{ind_reach_mult:.1f}x",
-            "is_better": client_reach_mult >= ind_reach_mult,
+            "is_better": client_reach_mult > ind_reach_mult,
         },
     ]
 
@@ -5096,7 +5342,8 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
                     "metric": "Projected CPA",
                     "client_val": _fmt_currency(proj_cpa),
                     "industry_val": _cpa_industry_val,
-                    "is_better": proj_cpa <= ind_avg_cpa,
+                    # S5: lower CPA is better; an exact tie is not "beating".
+                    "is_better": proj_cpa < ind_avg_cpa,
                 }
             )
         if proj_hires and proj_hires > 0:
