@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 from shared_utils import (
     parse_budget_display,
     INDUSTRY_LABEL_MAP as _SHARED_INDUSTRY_LABEL_MAP,
+    internal_qc_mode as _internal_qc_mode,
 )
 
 from joveo_brand_2026 import (
@@ -3173,8 +3174,17 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         )
 
     # ── Creative Quality Score badge (P1-16) ──
+    # S1 (2026-07-03): internal QA artifact -- gated OFF by default so it never
+    # reaches a client-facing bundle. Only renders when internal_qc_mode(data)
+    # is explicitly enabled (NOVA_INTERNAL_QC env var or data["_internal_preview"]).
     cqs = data.get("_creative_quality_score")
-    if cqs and isinstance(cqs, dict) and cqs.get("score") is not None:
+    if (
+        _internal_qc_mode(data)
+        and cqs
+        and isinstance(cqs, dict)
+        and cqs.get("score") is not None
+        and not cqs.get("degenerate")
+    ):
         _cqs_score = cqs.get("score", 0)
         _cqs_grade = cqs.get("grade", "—")
         _cqs_color = (
@@ -10118,8 +10128,11 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         # Quality warning disclaimer on cover slide (when enrichment degraded)
         # S49 Issue 17: Severity-scaled prefix -- "Caution" for minimal data,
         # "Warning" for limited data, "Note" for moderate degradation.
+        # S1 (2026-07-03): this is an internal QA signal (enrichment confidence),
+        # not a client-facing disclaimer -- gate it behind internal_qc_mode so it
+        # never ships on a client cover slide by default.
         _quality_warn = data.get("quality_warning") or ""
-        if _quality_warn and prs.slides:
+        if _quality_warn and prs.slides and _internal_qc_mode(data):
             try:
                 _cover_slide = prs.slides[0]
                 # Determine severity prefix and color from warning text

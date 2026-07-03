@@ -4,17 +4,56 @@ Consolidates duplicated logic that previously existed in multiple files:
 - Budget parsing (was in app.py x2, ppt_generator.py x1)
 - Industry label map (was in app.py, ppt_generator.py)
 - Location standardization helpers (was inline in app.py)
+- Internal-QC-mode gating (was inline in ppt_generator.py, excel_v2.py)
 
 Single source of truth. All modules import from here.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import logging
 from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+# ─────────────────────────────────────────────────────────────
+# Internal QC mode gating (S1, 2026-07-03 bundle-quality fix)
+# ─────────────────────────────────────────────────────────────
+#
+# Several pipeline artifacts (Creative Quality Score badge, the
+# enrichment-confidence "quality_warning" cover disclaimer, and the
+# Excel "Creative Quality Score" / "Plan Validation Results" blocks)
+# are internal QA signals meant for the team reviewing plan quality --
+# not for client-facing bundles. They must be OFF by default and only
+# render when explicitly requested for an internal review.
+#
+# Gate is TRUE when either:
+#   - env var NOVA_INTERNAL_QC is set to a truthy value ("1", "true", "yes"), or
+#   - the request-scoped data dict carries data["_internal_preview"] truthy
+#
+# Both generate_pptx(data) and generate_excel_v2(data, ...) already take the
+# same `data` dict, so callers can opt in per-request via
+# data["_internal_preview"] = True without touching global state, while an
+# operator can still flip the env var for a whole internal-review session.
+
+_TRUTHY_ENV_VALUES = {"1", "true", "yes", "on"}
+
+
+def internal_qc_mode(data: Optional[dict] = None) -> bool:
+    """Return True only when internal-QC/debug artifacts should render.
+
+    Default is OFF (client-safe). Pass the generation `data` dict so a
+    per-request `_internal_preview` flag is honored; the env var
+    NOVA_INTERNAL_QC provides a session-wide override for internal review.
+    """
+    env_val = (os.environ.get("NOVA_INTERNAL_QC") or "").strip().lower()
+    if env_val in _TRUTHY_ENV_VALUES:
+        return True
+    if isinstance(data, dict) and data.get("_internal_preview"):
+        return True
+    return False
 
 # ─────────────────────────────────────────────────────────────
 # Industry Label Map  (single source of truth)

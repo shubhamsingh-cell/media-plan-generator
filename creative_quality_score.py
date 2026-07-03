@@ -283,6 +283,34 @@ def score_creative_quality(data: dict) -> Dict[str, Any]:
 
     total = c1 + c2 + c3 + c4 + c5
 
+    # S1 (2026-07-03): degeneracy guard. The media-plan-generator pipeline
+    # never populates job_description/description or any of has_visuals,
+    # creative_assets, brand_images, employer_brand_video, video_url on the
+    # data dict passed here. When job_description/description is absent,
+    # factor 2 silently falls back to stringifying `roles` (a list of role
+    # dicts) as a stand-in "description" -- that's not real ad copy, so its
+    # word count is meaningless for judging creative quality, and
+    # visual_elements is always absent too. That means the score mostly
+    # reflects whether `salary_range` happened to already be set and whether
+    # a channel name string contains "linkedin"/"indeed" at this point in the
+    # pipeline -- not a real per-plan creative assessment. Two structurally
+    # unrelated plans (Pratt & Whitney NZ, Omada.ai) both scored an identical
+    # 45/100, which is what exposed this.
+    # Flag it so callers can decline to render a number that looks
+    # plan-specific but isn't.
+    _no_real_description = not (data.get("job_description") or data.get("description"))
+    _degenerate = _no_real_description and not has_vis
+    if _degenerate:
+        logger.warning(
+            "Creative Quality Score is degenerate for this plan: "
+            "description_length and visual_elements inputs are both absent "
+            "(job_description/has_visuals/creative_assets never populated by "
+            "this pipeline), so the score does not reflect real per-plan "
+            "creative quality. score=%s grade=%s -- suppressing render.",
+            total,
+            _grade(total),
+        )
+
     # S50: Platform-specific creative recommendations from ad specs data
     platform_recs, platform_specs = _build_platform_recommendations(data)
 
@@ -292,4 +320,5 @@ def score_creative_quality(data: dict) -> Dict[str, Any]:
         "factors": factors,
         "recommendations": recs + platform_recs,
         "platform_specs": platform_specs,
+        "degenerate": _degenerate,
     }

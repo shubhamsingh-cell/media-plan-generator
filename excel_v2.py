@@ -43,6 +43,7 @@ from openpyxl.chart import BarChart, PieChart, Reference
 from shared_utils import (
     parse_budget,
     INDUSTRY_LABEL_MAP,
+    internal_qc_mode as _internal_qc_mode,
 )
 
 from joveo_brand_2026 import (
@@ -2930,8 +2931,17 @@ def _build_sheet_executive_summary(
                 row += 1
 
     # ── 7. Creative Quality Score (P1-16) ──
+    # S1 (2026-07-03): internal QA artifact -- gated OFF by default so a
+    # client-facing workbook never shows a "Grade F" style badge. Only
+    # renders when internal_qc_mode(data) is explicitly enabled.
     cqs = data.get("_creative_quality_score")
-    if cqs and isinstance(cqs, dict) and cqs.get("score") is not None:
+    if (
+        _internal_qc_mode(data)
+        and cqs
+        and isinstance(cqs, dict)
+        and cqs.get("score") is not None
+        and not cqs.get("degenerate")
+    ):
         row += 1
         row = _write_section_header(ws, row, "Creative Quality Score")
 
@@ -4916,13 +4926,16 @@ def _build_sheet_sources(ws, data: dict):
         row += 2
 
     # ── 5. Plan Validation Results ──
+    # S1 (2026-07-03): this validation banner ("N checks run | N passed | ...")
+    # is an internal pipeline-QA artifact, not a client-facing statement --
+    # gate it OFF by default so it never ships in a client bundle.
     validation = data.get("_validation", {})
     val_findings = validation.get("findings") or []
     val_checks_run = validation.get("checks_run", 0)
     val_checks_failed = validation.get("checks_failed", 0)
     val_auto_corrections = validation.get("auto_corrections", 0)
 
-    if val_checks_run > 0 or val_checks_failed > 0:
+    if _internal_qc_mode(data) and (val_checks_run > 0 or val_checks_failed > 0):
         row = _write_section_header(ws, row, "Plan Validation Results")
 
         # Summary line: X checks, Y passed, Z findings, W auto-corrected
