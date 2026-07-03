@@ -779,10 +779,17 @@ def recommend_channels(
                 else 0
             )
 
-    # Zero out allocation for test/skip
+    # Zero out allocation for test/skip.
+    # S5 (2026-07-03, finding minor-21): a zero-budget row must not still
+    # project clicks/applications/hires -- those were computed above from the
+    # channel's pre-tiering (nonzero) spend, so they need to be zeroed here
+    # too or the sheet shows e.g. "$0 spend -> 3,030 clicks / 60 apps / 1 hire".
     for ch in test_and_learn + skip:
         ch["allocation_pct"] = 0.0
         ch["projected_spend"] = 0.0
+        ch["projected_clicks"] = 0
+        ch["projected_applications"] = 0
+        ch["projected_hires"] = 0
 
     # ── Normalize hire projections to match main budget engine ──
     # The channel recommender uses its own CPC/apply-rate/hire-rate constants

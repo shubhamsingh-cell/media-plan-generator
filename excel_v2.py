@@ -1537,6 +1537,33 @@ def _flatten_value(val: Any, max_depth: int = 3) -> str:
     return str(val)[:200]
 
 
+# S5 (2026-07-03, finding 54): a small number of city names shipped from
+# upstream enrichment lookups all-lowercase (and "Phoenix" as "pheonix") --
+# never client-facing. Title-case is applied at every display call site via
+# ``_title_case_city``; known misspellings are corrected in this map before
+# the generic ``.title()`` normalization runs.
+_CITY_NAME_CORRECTIONS: Dict[str, str] = {
+    "pheonix": "Phoenix",
+}
+
+
+def _title_case_city(city_name: Any) -> str:
+    """Normalize a city name for client-facing display.
+
+    Corrects known misspellings (case-insensitively) and title-cases the
+    result so e.g. "houston" -> "Houston" and "las vegas" -> "Las Vegas".
+    Leaves already-correct multi-word/proper names alone via str.title(),
+    which is safe for the plain city names this renders (no internal
+    hyphenation/apostrophe edge cases in the current city lists).
+    """
+    if not isinstance(city_name, str) or not city_name.strip():
+        return str(city_name or "")
+    corrected = _CITY_NAME_CORRECTIONS.get(city_name.strip().lower())
+    if corrected:
+        return corrected
+    return city_name.strip().title()
+
+
 def _get_roles(data: dict) -> List[str]:
     """Extract normalized role strings from data dict."""
     roles_raw = data.get("target_roles") or data.get("roles") or []
@@ -1879,7 +1906,10 @@ _TAB_COLORS: Dict[str, str] = {
     "Confidence Intervals": MAGENTA_HEX,
     "Niche Board Matching": MAGENTA_HEX,
     "Channel Recommendations": SAPPHIRE,
-    "International Benchmarks": TEAL_HEX,
+    # S5 (2026-07-03, finding 45): this key never matched the sheet's actual
+    # title ("Intl Benchmarks", set in _build_sheet_international_benchmarks),
+    # so that sheet silently got no tab color at all.
+    "Intl Benchmarks": TEAL_HEX,
 }
 
 
@@ -1889,6 +1919,9 @@ def _finalize_workbook(wb) -> None:
     1. Freeze the primary table header (or the title block) so it stays visible
        while the client scrolls long tables.
     2. Assign a deliberate brand tab color per sheet.
+    3. Hide gridlines on every sheet (S5, 2026-07-03 finding 45) so the brand
+       card/canvas fills read as a designed surface instead of a gridded
+       spreadsheet with near-white cards floating on visible cell borders.
     Fully defensive: any per-sheet failure is logged and skipped so finalization
     never blocks the workbook from saving.
     """
@@ -1903,6 +1936,10 @@ def _finalize_workbook(wb) -> None:
                 ws.sheet_properties.tabColor = color
         except Exception as exc:  # noqa: BLE001
             logger.debug("tabColor skipped for %s: %s", ws.title, exc)
+        try:
+            ws.sheet_view.showGridLines = False
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("showGridLines skipped for %s: %s", ws.title, exc)
 
 
 def _write_section_header(ws, row: int, title: str) -> int:
@@ -3572,20 +3609,35 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             if notes and len(notes) > 10:
                 rationale_parts.append(notes[:60])
 
+            # S5 (2026-07-03, findings 39/52): never hard-truncate the
+            # rationale mid-word -- write it in full and let the row wrap
+            # (matching the risk-table convention elsewhere in this file),
+            # sizing the row taller so the wrapped text is actually readable.
             rationale = (
                 "; ".join(rationale_parts)
                 if rationale_parts
-                else (notes[:80] if notes else "")
+                else (notes if notes else "")
             )
 
             values = [
                 ch_name,
                 ch_category,
                 fit,
-                (_fmt_currency(ch_cpc, show_cents=True) if ch_cpc else ""),
-                (f"{_safe_num(ch_pct):.1f}%" if ch_pct else ""),
-                rationale[:120],
+                (ch_cpc if ch_cpc else ""),
+                (_safe_num(ch_pct) / 100.0 if ch_pct else ""),
+                rationale,
                 f"{fit_score:.2f}",
+            ]
+
+            # S5: CPC/Budget % are the plan's own live numbers, not text.
+            _vetted_formats = [
+                None,
+                None,
+                None,
+                _usd2_fmt() if ch_cpc else None,
+                FMT_PCT1 if ch_pct else None,
+                None,
+                None,
             ]
 
             # Custom fills for fit column
@@ -3606,7 +3658,10 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 alternate=idx % 2 == 1,
                 fills=fit_fills,
                 fonts=fit_fonts,
+                number_formats=_vetted_formats,
             )
+            if len(rationale) > 90:
+                ws.row_dimensions[row - 1].height = 40
     else:
         ws.merge_cells(
             start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
@@ -3654,18 +3709,16 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             idx = _plat_idx
             _plat_idx += 1
 
+            # S5 (2026-07-03, finding 44/51): CPC/CPM/CPA are the plan's own
+            # live figures -- write them as numbers with a currency
+            # number_format instead of pre-formatted text strings.
             values = [
                 plat_name,
-                _fmt_currency(
-                    plat_data.get("avg_cpc", plat_data.get("cpc") or 0), show_cents=True
-                ),
-                _fmt_currency(
-                    plat_data.get("avg_cpm", plat_data.get("cpm") or 0), show_cents=True
-                ),
-                _fmt_currency(
-                    plat_data.get("avg_cpa", plat_data.get("cpa") or 0), show_cents=True
-                ),
+                _p_cpc,
+                _p_cpm,
+                _p_cpa,
             ]
+            _plat_formats = [None, _usd2_fmt(), _usd2_fmt(), _usd2_fmt()]
 
             if has_reach:
                 reach = _safe_num(
@@ -3673,9 +3726,11 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                         "audience_reach", plat_data.get("estimated_reach") or 0
                     )
                 )
-                values.append(_fmt_number(reach) if reach > 0 else "")
+                values.append(reach if reach > 0 else "")
+                _plat_formats.append(FMT_INT if reach > 0 else None)
 
             values.append(f"{fit_score:.2f}")
+            _plat_formats.append(None)
 
             # Color-code fit scores
             fit_col_idx = len(values) - 1
@@ -3691,6 +3746,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 alternate=idx % 2 == 1,
                 fills=row_fills,
                 fonts=row_fonts,
+                number_formats=_plat_formats,
             )
         # S46: Per-role breakdown sub-table when multiple roles have different metrics
         roles_input = data.get("roles") or data.get("target_roles") or []
@@ -3729,12 +3785,23 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                         vals = [
                             plat_name,
                             str(role_name),
-                            _fmt_currency(r_cpc, show_cents=True) if r_cpc else "",
-                            _fmt_currency(r_cpm, show_cents=True) if r_cpm else "",
-                            _fmt_currency(r_cpa, show_cents=True) if r_cpa else "",
+                            r_cpc if r_cpc else "",
+                            r_cpm if r_cpm else "",
+                            r_cpa if r_cpa else "",
+                        ]
+                        _role_formats = [
+                            None,
+                            None,
+                            _usd2_fmt() if r_cpc else None,
+                            _usd2_fmt() if r_cpm else None,
+                            _usd2_fmt() if r_cpa else None,
                         ]
                         row = _write_table_row(
-                            ws, row, vals, alternate=_role_idx % 2 == 1
+                            ws,
+                            row,
+                            vals,
+                            alternate=_role_idx % 2 == 1,
+                            number_formats=_role_formats,
                         )
                         _role_idx += 1
 
@@ -5305,12 +5372,15 @@ def _build_sheet_sources(ws, data: dict):
                 sev_fill = _FILL_BLUE_PALE
                 sev_font = Font(name=FONT_BODY_NAME, size=10, color=SAPPHIRE)
 
+            # S5 (2026-07-03, finding 39): never hard-truncate mid-word --
+            # write the full text and wrap/tallen the row instead.
+            reason_val = warn.get("reason") or ""
             values = [
                 warn.get("location", ""),
                 severity,
-                (warn.get("reason") or "")[:80],
-                (warn.get("known_states_display") or "—")[:60],
-                (warn.get("suggestion") or "")[:80],
+                reason_val,
+                warn.get("known_states_display") or "—",
+                warn.get("suggestion") or "",
             ]
             fills_list = [None, sev_fill, None, None, None]
             fonts_list = [None, sev_font, None, None, None]
@@ -5322,6 +5392,8 @@ def _build_sheet_sources(ws, data: dict):
                 fills=fills_list,
                 fonts=fonts_list,
             )
+            if len(reason_val) > 60:
+                ws.row_dimensions[row - 1].height = 40
 
         # Company HQ line
         first_hq = loc_warnings[0].get("company_hq") or "Unknown"
@@ -5936,6 +6008,9 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
     avg_ttf = round(sum_ttf / max(channels_with_hires, 1))
 
     # ── Write summary row at reserved position ──
+    # S5 (2026-07-03, findings 44/51): these headline KPIs (ROI Projections
+    # B4:E4) were pre-formatted text strings -- write live numbers with a
+    # number_format so they stay summable/sortable like the per-channel table.
     summary_labels = [
         "Total Budget",
         "Total Proj. Hires",
@@ -5943,13 +6018,16 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
         "Avg Time to Fill",
     ]
     summary_values = [
-        _fmt_currency(total_budget),
-        str(total_projected_hires),
-        _fmt_currency(avg_cph),
-        f"{avg_ttf} days",
+        _safe_num(total_budget),
+        int(total_projected_hires),
+        _safe_num(avg_cph),
+        avg_ttf,
     ]
+    summary_formats = [_usd0_fmt(), FMT_INT, _usd2_fmt(), '0" days"']
 
-    for i, (label, value) in enumerate(zip(summary_labels, summary_values)):
+    for i, (label, value, fmt) in enumerate(
+        zip(summary_labels, summary_values, summary_formats)
+    ):
         col = COL_START + i
         # Label row
         cell_l = ws.cell(row=summary_row_start, column=col, value=label)
@@ -5958,6 +6036,7 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
         cell_l.fill = _FILL_BLUE_PALE
         # Value row
         cell_v = ws.cell(row=summary_row_start + 1, column=col, value=value)
+        cell_v.number_format = fmt
         cell_v.font = _FONT_METRIC_VALUE
         cell_v.alignment = _ALIGN_CENTER
         cell_v.fill = _FILL_WHITE
@@ -6157,14 +6236,18 @@ def _build_sheet_quality_intelligence(
                     "Salary Range",
                 ],
             )
+            # S5 (2026-07-03, findings 44/51/54): title-case the city name for
+            # display and write Estimated Salary as a live number instead of
+            # a pre-formatted string.
+            _city_money_fmts = [None, None, _usd0_fmt(), None, None, None, None]
             for idx, (city_name, info) in enumerate(city_data.items()):
                 row = _write_table_row(
                     ws,
                     row,
                     [
-                        city_name,
+                        _title_case_city(city_name),
                         f"{info.get('salary_multiplier', 1.0):.2f}x",
-                        _fmt_currency(info.get("estimated_salary", 0)),
+                        _safe_num(info.get("estimated_salary", 0)),
                         f"{info.get('hiring_difficulty', 0):.1f}/10",
                         str(info.get("supply_tier") or "balanced")
                         .replace("_", " ")
@@ -6173,6 +6256,7 @@ def _build_sheet_quality_intelligence(
                         str(info.get("salary_range") or "—"),
                     ],
                     alternate=idx % 2 == 1,
+                    number_formats=_city_money_fmts,
                 )
             row = _write_footnote(
                 ws,
@@ -6205,6 +6289,15 @@ def _build_sheet_quality_intelligence(
                     ],
                 )
                 alt_idx = 0
+                _role_sal_fmts = [
+                    None,
+                    None,
+                    _usd0_fmt(),
+                    _usd0_fmt(),
+                    _usd0_fmt(),
+                    None,
+                    None,
+                ]
                 for city_name, info in city_data.items():
                     role_salary: dict = info.get("per_role_salary") or {}
                     for role_name, sal in role_salary.items():
@@ -6212,14 +6305,15 @@ def _build_sheet_quality_intelligence(
                             ws,
                             row,
                             [
-                                city_name,
+                                _title_case_city(city_name),
                                 role_name,
-                                _fmt_currency(sal.get("min", 0)),
-                                _fmt_currency(sal.get("median", 0)),
-                                _fmt_currency(sal.get("max", 0)),
+                                _safe_num(sal.get("min", 0)),
+                                _safe_num(sal.get("median", 0)),
+                                _safe_num(sal.get("max", 0)),
                                 f"{sal.get('multiplier', 1.0):.2f}x",
                                 str(sal.get("source") or "—"),
                             ],
+                            number_formats=_role_sal_fmts,
                             alternate=alt_idx % 2 == 1,
                         )
                         alt_idx += 1
@@ -6333,9 +6427,14 @@ def _build_sheet_quality_intelligence(
             industry_label_qs = data.get("industry_label") or (
                 (data.get("industry") or "").replace("_", " ").title()
             )
-            for idx, (city_name, info) in enumerate(competitor_map.items()):
-                if city_name.startswith("_"):
+            for idx, (city_name_raw, info) in enumerate(competitor_map.items()):
+                if city_name_raw.startswith("_"):
                     continue  # skip internal keys like _national
+                # S5 (2026-07-03, finding 54): source data sometimes carries
+                # lowercase city names (e.g. "houston", "atlanta") -- display
+                # them Title Case everywhere, including inside the generated
+                # why_matter/counter prose below.
+                city_name = _title_case_city(city_name_raw)
                 employers = info.get("top_employers") or []
                 intensity = str(info.get("hiring_intensity") or "moderate").lower()
                 est_postings = info.get("estimated_competing_postings") or "—"
@@ -6376,6 +6475,8 @@ def _build_sheet_quality_intelligence(
                         f"presence. Consider community events and local partnerships."
                     )
 
+                # S5 (2026-07-03, finding 39): never hard-truncate why_matter/
+                # counter mid-word -- wrap + tallen the row instead.
                 row = _write_table_row(
                     ws,
                     row,
@@ -6384,11 +6485,13 @@ def _build_sheet_quality_intelligence(
                         ", ".join(employers[:4]),
                         intensity.title(),
                         str(est_postings),
-                        why_matter[:100],
-                        counter[:120],
+                        why_matter,
+                        counter,
                     ],
                     alternate=idx % 2 == 1,
                 )
+                if len(why_matter) > 80 or len(counter) > 80:
+                    ws.row_dimensions[row - 1].height = 40
 
             # National competitors row
             national: dict = competitor_map.get("_national") or {}
@@ -6574,6 +6677,10 @@ def _build_sheet_quality_intelligence(
                 row,
                 ["Budget Tier", "Amount", "Percentage", "Description"],
             )
+            # S5 (2026-07-03, findings 44/51): Amount/Percentage are the plan's
+            # own live figures -- write as numbers with number_format instead
+            # of pre-formatted text strings.
+            _tier_formats = [None, _usd0_fmt(), FMT_PCT1, None]
             for idx, (tier_key, tier_info) in enumerate(tier_breakdown.items()):
                 tier_label = tier_key.replace("_", " ").title()
                 row = _write_table_row(
@@ -6581,11 +6688,12 @@ def _build_sheet_quality_intelligence(
                     row,
                     [
                         tier_label,
-                        _fmt_currency(tier_info.get("amount", 0)),
-                        f"{tier_info.get('pct', 0):.1f}%",
+                        _safe_num(tier_info.get("amount", 0)),
+                        _safe_num(tier_info.get("pct", 0)) / 100.0,
                         str(tier_info.get("description") or ""),
                     ],
                     alternate=idx % 2 == 1,
+                    number_formats=_tier_formats,
                 )
 
                 # Sub-allocations
@@ -6596,8 +6704,9 @@ def _build_sheet_quality_intelligence(
                         row = _write_table_row(
                             ws,
                             row,
-                            [sub_label, _fmt_currency(sub_amount), "", ""],
+                            [sub_label, _safe_num(sub_amount), "", ""],
                             fonts=[_FONT_FOOTNOTE, _FONT_FOOTNOTE, None, None],
+                            number_formats=[None, _usd0_fmt(), None, None],
                         )
             row += 1
 
@@ -7143,6 +7252,12 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
 
         ch_label = ch_name.replace("_", " ").title()
 
+        # S5 (2026-07-03, findings 44/51): Low/Expected/High are the plan's
+        # own live figures -- write as numbers with number_format instead of
+        # pre-formatted text strings so the client can sum/sort/chart them.
+        _money_fmts = [None, None, _usd2_fmt(), _usd2_fmt(), _usd2_fmt(), None, None]
+        _int_fmts = [None, None, FMT_INT, FMT_INT, FMT_INT, None, None]
+
         # CPA
         cpa = _safe_num(ch_data.get("cpa") or 0)
         if cpa > 0:
@@ -7154,9 +7269,9 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
                 [
                     ch_label,
                     "CPA",
-                    _fmt_currency(cpa_lo),
-                    _fmt_currency(cpa),
-                    _fmt_currency(cpa_hi),
+                    cpa_lo,
+                    cpa,
+                    cpa_hi,
                     f"+/-{int(variance * 100)}%",
                     confidence,
                 ],
@@ -7170,6 +7285,7 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
                     _FONT_BODY,
                     conf_font,
                 ],
+                number_formats=_money_fmts,
             )
             idx += 1
 
@@ -7184,9 +7300,9 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
                 [
                     ch_label,
                     "Applications",
-                    f"{apps_lo:,}",
-                    f"{apps:,}",
-                    f"{apps_hi:,}",
+                    apps_lo,
+                    apps,
+                    apps_hi,
                     f"+/-{int(variance * 100)}%",
                     confidence,
                 ],
@@ -7200,6 +7316,7 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
                     _FONT_BODY,
                     conf_font,
                 ],
+                number_formats=_int_fmts,
             )
             idx += 1
 
@@ -7214,9 +7331,9 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
                 [
                     ch_label,
                     "Hires",
-                    str(hires_lo),
-                    str(hires),
-                    str(hires_hi),
+                    hires_lo,
+                    hires,
+                    hires_hi,
                     f"+/-{int(variance * 100)}%",
                     confidence,
                 ],
@@ -7230,6 +7347,7 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
                     _FONT_BODY,
                     conf_font,
                 ],
+                number_formats=_int_fmts,
             )
             idx += 1
 
@@ -7246,9 +7364,9 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
                 [
                     ch_label,
                     "Cost Per Hire",
-                    _fmt_currency(cph_lo),
-                    _fmt_currency(cph),
-                    _fmt_currency(cph_hi),
+                    cph_lo,
+                    cph,
+                    cph_hi,
                     f"+/-{int(variance * 100)}%",
                     confidence,
                 ],
@@ -7262,6 +7380,7 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
                     _FONT_BODY,
                     conf_font,
                 ],
+                number_formats=_money_fmts,
             )
             idx += 1
 
@@ -7506,61 +7625,110 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
             c.alignment = _ALIGN_CENTER
         row += 1
 
-        # Channel rows
-        for ch in channels:
-            ws.cell(row=row, column=2, value=ch["channel"]).font = _FONT_BODY_BOLD
-            ws.cell(row=row, column=3, value=ch.get("platform", "")).font = _FONT_BODY
-            ws.cell(
-                row=row, column=4, value=f"{ch.get('allocation_pct', 0):.1f}%"
-            ).font = _FONT_BODY
-            ws.cell(
-                row=row, column=5, value=_fmt_currency(ch.get("projected_spend", 0))
-            ).font = _FONT_BODY
-            ws.cell(
-                row=row,
-                column=6,
-                value=_fmt_currency(ch.get("expected_cpc", 0), show_cents=True),
-            ).font = _FONT_BODY
-            ws.cell(
-                row=row,
-                column=7,
-                value=_fmt_currency(ch.get("expected_cpa", 0), show_cents=True),
-            ).font = _FONT_BODY
-            _cl = ws.cell(row=row, column=8, value=ch.get("projected_clicks", 0))
-            _cl.font = _FONT_BODY
-            _cl.number_format = FMT_INT  # thousands separator (e.g. 9,322)
-            _ap = ws.cell(row=row, column=9, value=ch.get("projected_applications", 0))
-            _ap.font = _FONT_BODY
-            _ap.number_format = FMT_INT
-            _hi = ws.cell(row=row, column=10, value=ch.get("projected_hires", 0))
-            _hi.font = _FONT_BODY
-            _hi.number_format = FMT_INT
-            ws.cell(row=row, column=11, value=ch.get("confidence", "").upper()).font = (
-                _FONT_BODY
+        # Channel rows — values are the plan's own live figures.
+        for name, ch in tier_channels:
+            _display = str(name).replace("_", " ").title()
+            _dollars = _safe_num(ch.get("dollar_amount", ch.get("dollars") or 0))
+            _pct = _safe_num(ch.get("percentage") or 0)
+            if _pct <= 0 and total_spend > 0:
+                _pct = round(_dollars / total_spend * 100, 1)
+            _cpc = _safe_num(ch.get("cpc") or 0)
+            _cpa = _safe_num(ch.get("cpa") or 0)
+            _conf = str(ch.get("confidence") or "").upper()
+            _rationale = (
+                f"Buy via {_recommended_platform_for_channel(name)}. "
+                f"{_pct:.1f}% of budget; part of the plan's core channel mix."
             )
-            ws.cell(row=row, column=12, value=ch.get("rationale", "")).font = (
+            values = [
+                _display,
+                _recommended_platform_for_channel(name),
+                _pct / 100.0,
+                _dollars,
+                _cpc,
+                _cpa,
+                int(_safe_num(ch.get("projected_clicks") or 0)),
+                int(_safe_num(ch.get("projected_applications") or 0)),
+                int(_safe_num(ch.get("projected_hires") or 0)),
+                _conf,
+                _rationale,
+            ]
+            _fonts = [_FONT_BODY_BOLD] + [_FONT_BODY] * (len(values) - 2) + [
                 _FONT_FOOTNOTE
+            ]
+            row = _write_table_row(
+                ws,
+                row,
+                values,
+                fonts=_fonts,
+                number_formats=_row_formats,
             )
-            ws.cell(row=row, column=12).alignment = _ALIGN_WRAP
-            row += 1
+            if len(_rationale) > 70:
+                ws.row_dimensions[row - 1].height = 34
         row += 1
 
-    # ── Summary line ──
-    ws.cell(row=row, column=2, value=rec.get("summary", "")).font = _FONT_FOOTNOTE
-    ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=12)
-    ws.cell(row=row, column=2).alignment = _ALIGN_WRAP
-    row += 2
+    # ── Total row — proves the sheet foots to the budget ──
+    total_values = [
+        "TOTAL",
+        "",
+        1.0,
+        total_spend,
+        "",
+        avg_cpa,
+        total_clicks,
+        total_apps,
+        total_hires,
+        "",
+        "",
+    ]
+    _total_fonts = [_FONT_BODY_BOLD] * len(total_values)
+    row = _write_table_row(
+        ws,
+        row,
+        total_values,
+        fonts=_total_fonts,
+        fills=[_FILL_BLUE_PALE] * len(total_values),
+        number_formats=[
+            None, None, FMT_PCT1, _usd0_fmt(), None, _usd2_fmt(),
+            FMT_INT, FMT_INT, FMT_INT, None, None,
+        ],
+    )
+    row += 1
 
+    # ── Zero-budget / consider channels (surfaced, not projected) ──
+    _unfunded = [
+        str(name).replace("_", " ").title()
+        for name, ch in channel_allocs.items()
+        if isinstance(ch, dict)
+        and _safe_num(ch.get("dollar_amount", ch.get("dollars") or 0)) <= 0
+    ]
+    if _unfunded:
+        row = _write_kv_row(
+            ws,
+            row,
+            "Test & Learn (unfunded)",
+            "Not allocated budget in this plan; consider for future phases: "
+            + ", ".join(_unfunded[:8]),
+        )
+        row += 1
+
+    # ── Source line ──
+    ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=12)
     ws.cell(
         row=row,
         column=2,
-        value="Source: Nova AI Channel Recommender Engine (20 industries, 10 ad platforms, tier-adjusted CPC/CPA)",
+        value=(
+            "Source: same Nova AI budget allocation as the Executive Summary "
+            "and ROI Projections sheets. Platform suggestions map each channel "
+            "category to a representative ad platform; the plan's economics are "
+            "unchanged."
+        ),
     ).font = _FONT_FOOTNOTE
+    ws.cell(row=row, column=2).alignment = _ALIGN_WRAP
 
     # ── Column widths ──
     widths = {
-        2: 28,
-        3: 22,
+        2: 24,
+        3: 26,
         4: 10,
         5: 14,
         6: 10,
