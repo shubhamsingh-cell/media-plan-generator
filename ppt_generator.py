@@ -2279,6 +2279,15 @@ def _is_us_only_campaign(data: Dict) -> bool:
         return True
     if target_region in ("global", "emea", "apac", "custom"):
         return False
+    # Explicit country field is the most authoritative signal. If it resolves
+    # to any non-US country name, the campaign is not US-only. This closes a
+    # gap where an international plan (e.g. country="New Zealand") whose only
+    # location string omitted a recognized international token was misread as
+    # US-only, which then stripped its APAC/EMEA channels and made the deck's
+    # channel table under-foot the stated budget (BUNDLE_QC_FINDINGS #4/#62).
+    country = (data.get("country") or "").lower().strip()
+    if country and country not in ("us", "usa", "united states", "america", "u.s.", "u.s.a."):
+        return False
     locations = data.get("locations") or []
     if not locations:
         return True  # No locations specified — assume domestic
@@ -2340,36 +2349,72 @@ def _is_us_only_campaign(data: Dict) -> bool:
         "wy",
         "dc",
     }
+    # Single-word international tokens matched on word boundaries (NOT raw
+    # substring) so e.g. "india" does not match inside "Indianapolis".
+    intl_tokens = {
+        "uk",
+        "london",
+        "europe",
+        "apac",
+        "emea",
+        "asia",
+        "india",
+        "germany",
+        "france",
+        "japan",
+        "china",
+        "australia",
+        "canada",
+        "brazil",
+        "mexico",
+        "singapore",
+        # New Zealand (and its major metros) — previously missing, which
+        # misclassified NZ plans as US-only (BUNDLE_QC_FINDINGS #4/#62).
+        "zealand",
+        "auckland",
+        "wellington",
+        "christchurch",
+        "nz",
+        "nzl",
+        # Other commonly-planned non-US markets
+        "ireland",
+        "dublin",
+        "netherlands",
+        "amsterdam",
+        "spain",
+        "madrid",
+        "italy",
+        "sweden",
+        "poland",
+        "philippines",
+        "manila",
+        "malaysia",
+        "indonesia",
+        "vietnam",
+        "thailand",
+        "nigeria",
+        "kenya",
+        "uae",
+        "dubai",
+    }
+    # Multi-word phrases are safe to match as substrings (no US locality
+    # contains these), and single-word substring collisions can't occur.
+    intl_phrases = (
+        "united kingdom",
+        "hong kong",
+        "new zealand",
+        "south africa",
+        "saudi",
+    )
     # US city patterns (city, state format)
     for loc in locations:
         loc_lower = str(loc).lower().strip()
+        parts = {p.strip() for p in loc_lower.replace(",", " ").split()}
         # Clearly international
-        if any(
-            intl in loc_lower
-            for intl in (
-                "uk",
-                "london",
-                "europe",
-                "apac",
-                "emea",
-                "asia",
-                "india",
-                "germany",
-                "france",
-                "japan",
-                "china",
-                "australia",
-                "canada",
-                "brazil",
-                "mexico",
-                "singapore",
-                "hong kong",
-            )
-        ):
+        if parts & intl_tokens or any(phrase in loc_lower for phrase in intl_phrases):
             return False
         # Check if location matches US patterns
-        parts = [p.strip() for p in loc_lower.replace(",", " ").split()]
-        if not any(p in us_indicators for p in parts):
+        if not (parts & us_indicators):
             # Could be a US city without state qualifier -- allow it
             pass
     return True
