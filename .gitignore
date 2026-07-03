@@ -30,8 +30,9 @@ data/competitor_careers.json
 # Visual regression screenshots
 tests/screenshots/
 
-# Local sample-render output (scripts/render_sample_outputs.py)
+# Local sample-render output (scripts/render_sample_outputs.py / render_sample_nz.py)
 tmp_render/
+tmp_render_nz/
 
 # Resilience router local data
 data/analytics/

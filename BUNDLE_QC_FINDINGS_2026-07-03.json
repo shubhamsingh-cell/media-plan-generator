@@ -1,0 +1,948 @@
+{
+ "scores": {
+  "pv1": 3,
+  "pv2": 4,
+  "ov1": 4,
+  "ov2": 4,
+  "px": 3.5,
+  "ox": 4,
+  "pc": 4,
+  "oc": 4.5
+ },
+ "summaries": {
+  "pv1": "Slides 1-6 of the Pratt & Whitney New Zealand deck show the Invisible design system's bones (light canvas, correct NZ$ on plan figures, wrapped tables, takeaway band, sound per-row math) but fail the exec bar on execution: internal QA artifacts leaked onto two client-facing slides (a red \\\"Grade F\\\" QC badge on the exec summary and a \\\"heavily estimated\\\" caution on the cover), the exec-summary thesis is clipped mid-word with three further text overflows on the same slide, slide 5's section heading strikes through its own chart, and the budget table lists 6 of a claimed 8 channels so rows don't foot to the printed NZ$150K/4,418 totals while the Total row reads \\\"101%\\\" (percentages also sum to 101% twice on slide 5). Add USD benchmarks on an NZD plan, an implausible 75,000-active-jobs stat, a 100%-white-collar label on a trades role, a duplicated-title templating bug, and one near-empty boilerplate slide, and this half is not client-shippable without a layout and data-reconciliation pass. Score: 3/10.",
+  "pv2": "Slides 7\u201312 score 4/10 against the MBB-exec bar: the design shell (light canvas, wordmark band, indigo Poppins titles, accent-bar cards) is mostly in place, but the half is sunk by three critical defects \u2014 slide 8 renders half-empty (blank profile card, 'data not available' placeholder, and a contentless wrong-color takeaway band), the currency is bare '$' on a New Zealand plan and even mixes NZ$/$ within slide 9, and slides 7 and 12 leak an AI-training-client template (developer/writing-expert CPA taxonomy, 'AI Trainers' case study, a 'nurse-level CPAs' benchmark note) into an Aerospace & Defense deck. Add broken benchmark logic on slide 9 (identical values marked 'beating benchmark', a perfect 10.0/10 industry average) and takeaway bands missing on 4 of 6 slides, and the numbers-credibility and answer-first requirements both fail. Slide 11 shows the pipeline CAN hit the baseline; slides 7, 8, 9 and 12 need content regeneration with client context and NZD enforced, not just styling fixes.",
+  "ov1": "Slides 1-6 of the Omada.ai deck (generated 2026-06-16, two days before the reskin) are a clean 'before' specimen of the old design \u2014 banned navy header bands on every content slide, dark cover, no card accent bars, takeaway band present only on slide 6. The underlying data engine is the deck's best asset: channel math reconciles to the dollar across slides 2/5/6 and projections sit inside the deck's own benchmark ranges. But three critical defects would sink it in a client room: an internal 'Creative QC: 45/100 Grade F' badge rendered on the exec summary, the exec-summary headline clipped mid-word plus two card-content truncations on the same slide, and an internal 'plan is heavily estimated' caution leaked onto the cover in near-invisible dark-on-dark text. Content quality is mixed \u2014 the Social channel carries 20% of budget at a $215 CPA that violates the deck's own $15-$56 benchmark with no rationale, the exec summary asserts a 'hot' market beside 'market softening' bullets, slide 4 is a near-empty filler slide, and sourcing is largely circular. Verdict: strong skeleton, credible math, but pipeline artifacts and layout overflow leave it at 4/10 against an MBB-exec bar; the reskin fixes the design system but the QC-leak, truncation, and Social-allocation issues need their own fixes.",
+  "ov2": "Slides 7-11 are structurally sound (no overflow, no truncation, consistent Poppins, correct currency) but fail the MBB-exec bar on three fronts: slide 8 is unshippable (empty profile card, 'data not available' placeholder, an entirely empty takeaway band, and tripled verbatim boilerplate); the strategic frame is wrong (Omada.ai \u2014 an AI-training company \u2014 is benchmarked against 'Retail & Consumer' with Amazon/Walmart/UPS as competitors); and the brand system predates the reskin (banned navy header band on every slide, no joveo wordmark, no dark-indigo takeaway band anywhere). Add a data-integrity error on slide 9 (equal values flagged as 'beating benchmark') and internal keys like 'programmatic_dsp' leaking into slide 10, and the half-deck lands at 4/10 \u2014 the skeleton is right, but slide 8 alone would end a client meeting badly, and no slide states an answer-first takeaway.",
+  "px": "On-brand skeleton, wrong-country substance. The workbook nails the surface brand system (Poppins/Inter, indigo-and-purple tables, em-dashes, freeze panes, a real chart, honest confidence scoring) and its three core financial tables are properly numeric and sum to the cent. But it fails an enterprise client on fundamentals: the entire plan is priced in bare USD for a New Zealand campaign ('Budget (USD)' is literally printed on the exec sheet); the market intelligence, competitors (including P&W's own parent Raytheon), niche boards (USAJOBS, Military.com) and clearance model are all US-domestic; the Exec Summary total row is shifted one column so every total is wrong; and the Channel Recommendations sheet presents a second, contradictory $150K plan (avg CPA $91.63 vs $33.95). Add hard-truncated cells, 4,000-character snake_case data dumps in clipped merged cells, snake_case channel names, a 30-hire projection against a 50-100 goal, and conversion assumptions the model itself ignores by 10-20x \u2014 Pratt & Whitney NZ would lose confidence within the first two sheets. Needs a currency pass, an NZ-localization pass, reconciliation to one plan, and the total-row fix before it is client-safe.\"}",
+  "ox": "The workbook nails the Joveo skin \u2014 palette, Poppins/Inter, purple headers, freeze panes, no N/A, honest confidence ranges \u2014 but fails the enterprise bar on data integrity and editorial finish. Four critical defects would surface within minutes of a client read: the Exec Summary total row's SUM formulas are shifted one column left (the headline table totals '$1'); the Channel Recommendations sheet is a second, contradictory plan (4,882 apps at $49 CPA vs 12,755 at $19, spend summing to $240,240); the plan projects 143 hires against the client's stated 5,000-hire goal and even argues the budget is too big; and the ROI sheet's conversion assumptions disagree with its own projections by 5\u201310x. Around them sit ~150 cells of text-typed money, a mid-word 120-char truncation, 4,000-character snake_case dict dumps, 'pheonix' spelled wrong six times, a broken salary distribution (Min > P25, Min = Median = Max), ten-row boilerplate tables, and a validation banner claiming 7/7 checks passed. Ship-blocking as-is: fix the total row, delete or reconcile Channel Recommendations, address the 5,000-hire gap head-on, convert text metrics to numeric, and replace raw enrichment dumps with curated tables before any client sees it.",
+  "pc": "The generated core is impressively self-consistent \u2014 budget, all 8 channel splits, 4,418 applies, 30 hires, and CPA/CPH match to the dollar between deck and workbook, and the arithmetic all checks out. But the bundle fails the two checks a client performs first: (1) the deck denominates the entire plan in NZD while the workbook labels the identical numbers USD (explicit 'Budget (USD)' header) \u2014 a ~39% ambiguity on every money figure in a plan that should be NZD throughout; and (2) the deck's channel-breakdown table silently drops Social Media and EMEA Regional but keeps the 8-channel totals, so its visible rows sum to NZ$142,500/4,335 apps against a printed NZ$150,000/4,418. Beyond those, the workbook carries a second contradictory projection (1,637 apps at $91.63 CPA on Channel Recommendations), a 50-100 hire goal vs 30 projected, three different salary medians for the same role, deck benchmarks (CPA, CPH, apply rate, CPC) that contradict the workbook's own benchmark sheet, a '75,000 active jobs' claim the workbook's demand table records as 0, and US-only niche boards/clearance content in an NZ plan. Fixing the currency labels and the slide-6 table would lift this to ~7; the benchmark and boilerplate cleanup is needed before this is client-safe.",
+  "oc": "The budget spine of the Omada.ai bundle is tightly consistent \u2014 $240,000 total, the 40/22/20/8/7/3 six-channel split, 143 hires, 12,755 applications, and $18.82 CPA reconcile exactly between the deck (slides 2/5/6/10) and the workbook's Executive Summary, ROI, and 90-Day sheets, and currency is uniformly USD. But the audit found one critical defect: the workbook Executive Summary's Total row formulas are shifted one column left, so the client-facing first sheet displays Total budget '$1' and Projected Hires '12,755', directly contradicting the deck's correct totals. Beyond that, the workbook's Channel Recommendations sheet is effectively a second, conflicting plan (7 channels, 4,882 apps, $49.16 CPA vs 6 channels, 12,755 apps, $18.82), and the deck's market narrative contradicts the workbook's own data in five places: benchmark ranges (CPA/CPC/CPH/apply-rate all differ), CPC trend (+9.2% rising vs Stable), apply-rate framing ('above average' vs a 6-8% benchmark), salary ($95K degenerate range vs $75K city baseline), and live postings (180,000 claimed vs 0 recorded). Cost-per-hire also appears as both $1,678 and $1,675, and duration is stated as both 1-2 years and 90 days. Recommendation: fix the total-row formula shift, delete or clearly label the Channel Recommendations sheet as an alternative scenario, and regenerate the deck's benchmark panel from the workbook's benchmark rows before this bundle goes to a client. Files audited: /private/tmp/claude-501/-Users-shubhamsinghchandel-untitled-folder/4963b87e-f7f1-4f74-9f7f-5cd710a3c58d/scratchpad/review/omada/Omada_ai_Strategy_Deck.pptx and .../Omada_ai_Media_Plan.xlsx."
+ },
+ "strengths": {
+  "pv1": [
+   "Currency discipline on plan figures: nearly every plan-owned number is correctly NZ$-prefixed (budget, channel allocations, CPAs, salary range) \u2014 the owner's NZD requirement is respected everywhere except the imported benchmark table.",
+   "Per-row math is genuinely sound: every slide-6 CPA reconciles to Investment/Apps within rounding, hires sum to exactly 30, and NZ$150K/30 = NZ$5,000 cost-per-hire is consistent across slides 2 and 6 \u2014 the defect is in totals/row-dropping, not the underlying model.",
+   "The Invisible design system is recognizably present: light lavender canvas, joveo wordmark band, Poppins headings, big indigo titles, white cards with accent bars, a proper dark-navy-header benchmark table that wraps cells into taller rows instead of truncating, and a correct rounded dark takeaway band on slide 6. No banned navy content-header band anywhere.",
+   "Slide 6's structure is the strongest in the half: KPI trio, then detail table, then a takeaway band that states the answer (NZ$34 CPA, NZ$5,000/hire) \u2014 the right MBB slide shape.",
+   "Slide 2 uses a Situation\u2013Complication\u2013Resolution skeleton \u2014 the right answer-first architecture for an exec summary, even though its execution (overflows, clipped thesis) fails.",
+   "Consistent footer system (date left, attribution right) and a clean cover typographic hierarchy."
+  ],
+  "pv2": [
+   "Top-of-slide brand system is correctly applied on all six slides: light lavender canvas, joveo wordmark with thin purple top rule, big indigo Poppins titles, consistent footer \u2014 the banned full navy header band is gone.",
+   "Slide 11 is the one fully on-system slide: white cards with colored top-accent bars, client named in the copy, and a proper rounded dark-indigo takeaway band with an em-dash ('One managed partner, one tracked funnel \u2014 ...').",
+   "Slide 7's table wraps benchmark text into full-height rows with clean zebra striping \u2014 no truncated cells anywhere in this half.",
+   "No canvas overflow, no text/chart overlap, no serif font substitution, and no 6\u20137pt micro-text on any of the six slides.",
+   "Slide 9 uses an em-dash (not 'N/A') for the missing industry Projected Hires value, and slide 10's budget risk is properly quantified with internally consistent arithmetic (CPA +20% \u2192 hires 30 \u2192 25).",
+   "Slide 12's Next Steps are concrete and correctly sequenced (scope \u2192 budget/metrics \u2192 feed integration \u2192 launch in 2 weeks \u2192 30-day CPA review) rather than generic filler."
+  ],
+  "ov1": [
+   "Slide 6 is genuinely strong plumbing: every per-channel CPA is arithmetically correct (e.g. $96,000/8,645 = $11), column totals reconcile exactly (12,755 apps, 143 hires, $240,000), zebra striping and per-channel color dots tie back to the slide-5 bar chart, and it carries a proper dark-indigo rounded takeaway band per the baseline.",
+   "Core plan math is internally consistent across slides 2, 5, and 6 ($240K / 6 channels / 143 hires / 12,755 apps / $18.82 CPA / $1,678 per hire), and the headline projections fall inside the slide-5 benchmark ranges (CPA $15\u2013$56, cost-per-hire $1,340\u2013$2,010) \u2014 the numbers hang together far better than typical AI-generated decks.",
+   "Answer-first, full-sentence takeaway headlines on slides 2, 5, and 6 ('6-channel strategy allocates $240.0K to project 143 hires...') \u2014 correct MBB construction, with a real Situation\u2013Complication\u2013Resolution structure on the exec summary and em-dashes used properly in titles.",
+   "The slide-5 benchmarks table wraps long labels into taller rows ('Live Postings: Business Sales Representative') instead of truncating \u2014 exactly the baseline table behavior \u2014 and the +9.2% YoY CPC figure is repeated consistently between slides 2 and 5.",
+   "No serif/Times font substitution anywhere (Poppins-family throughout), no 'N/A' placeholders, and currency is correctly '$' for this US-dollar plan.",
+   "The Complication bullets on slide 2 cite specific, checkable market facts (64,000 retail jobs shed in 2025 Q1, 5,800+ store closures) rather than pure filler, and one real named source (Appcast, 2026) appears for the apply-rate benchmark."
+  ],
+  "ov2": [
+   "Typography system is clean throughout: Poppins everywhere (no Times/serif substitution), correct em-dash usage, no micro-text below ~10pt, and correct $ currency on a US-dollar plan.",
+   "Slide 7's table is executed well against the owner's known failure modes \u2014 text wraps into taller rows with zero truncation, generous padding, and clean zebra striping.",
+   "Slide 10's CPA-inflation math is internally consistent (fixed budget, +20% CPA: 143/1.2 = 119 hires) \u2014 a genuinely quantified, checkable risk statement.",
+   "Slide 11's Next Steps band is the strongest content in the half-deck: five specific, sequenced, time-bound actions (feed integration, launch within 2 business weeks, 30-day CPA review) rather than boilerplate.",
+   "No canvas overflow or text-on-chart collisions anywhere in slides 7-11; the stat-card hierarchy on slide 11 (big number \u2192 label \u2192 caption) is clean and scannable."
+  ],
+  "px": [
+   "Brand system genuinely attempted and mostly correct where applied: Poppins headings + Inter body throughout, indigo #202058 titles and section bands, #5A54BE purple table headers with white text and wrap, cream #FFFCF9 KPI cards, brand-palette tab colors on 10 of 11 sheets \u2014 no navy-band look, no serif substitution, no 6-7pt micro-text (body is 9-10pt)",
+   "Zero banned placeholder strings: no 'N/A', 'TBD', 'lorem' or 'TODO' anywhere; missing values correctly use em-dash '\u2014'",
+   "Core financial tables (Exec Summary B21:J29, ROI Projections, 90-Day Forecast) are real numeric cells with proper number formats; channel budgets sum exactly to $150,000 in all three places, allocation percentages sum to ~100%, and per-channel CPC/CPA arithmetic (budget/clicks, budget/apps) verifies to the cent",
+   "Real Excel craft: freeze panes on every sheet, conditional formatting (color scale on ROI scores, data bars on budget columns), a native pie chart of budget allocation, consistent footers, and a deliberate narrow-gutter column-A layout",
+   "Honest uncertainty layer a client would respect: overall confidence 52% / grade D disclosed up front with 'results should be validated', per-section confidence scores, variance methodology, per-channel pessimistic/expected/optimistic ranges, and a validation-check log",
+   "The Intl Benchmarks New Zealand row itself is accurate, useful local intelligence (Seek NZ, Trade Me Jobs, LinkedIn NZ, Employment Relations Act 2000, realistic NZ CPC/CPA ranges) \u2014 the right data exists in the file, it just never reached the plan"
+  ],
+  "ox": [
+   "Brand system faithfully executed at the style level: indigo #202058 titles, #5A54BE purple table headers with white Poppins text, light #F4F4FF/#FFFCF9 canvas, white cards, brand-family tab colors \u2014 no banned navy-band look and no off-brand #6366F1 anywhere.",
+   "Typography is right: Poppins for headings (14\u201318pt, one 36pt grade glyph), Inter 9\u201310pt body, no Times/serif substitution, no 6\u20137pt micro-text.",
+   "Zero 'N/A' strings in the entire workbook; missing values correctly use '\u2014' (e.g. Market Intelligence D41:G41); em-dashes used in prose.",
+   "Good spreadsheet hygiene where it was attempted: freeze panes on all 10 sheets, wrap_text on essentially every populated cell (only 1 long cell lacks it), thoughtful custom number formats (0\" days\", 0\"/10\", $#,##0, 0.0%), conditional formatting on the Exec Summary, and a pie chart with dedicated data range.",
+   "The core Exec Summary allocation table is genuinely numeric and internally consistent: channel budgets sum to exactly $240,000, percentages to 100.0%, and CPC/CPA/CPH cross-check against the click/app/hire columns to the cent; the 90-Day per-channel totals reconcile to it as well.",
+   "Confidence architecture exists and is honest: per-section confidence grades, a variance methodology (\u00b115/20/25%), per-channel pessimistic/expected/optimistic ranges that are arithmetically correct, and hire ranges on the ROI sheet \u2014 most competitors' AI plans fake certainty instead.",
+   "Consistent footer attribution and generation date on every sheet; real named research sources (Appcast 2023\u20132026, Joveo SlotOps 108,871-posting LinkedIn dataset, Indeed Hiring Lab, ZipRecruiter) rather than invented citations."
+  ],
+  "pc": [
+   "Core plan spine matches exactly between deck and workbook: total budget 150,000; all 8 per-channel allocations to the dollar (46,298 / 31,442 / 23,942 / 18,865 / 16,298 / 5,654 / 4,500 / 3,000) which sum to exactly 150,000; percentage splits align (31/21/16/13/11/4/3/2)",
+   "Funnel projections agree across deck slide 6, workbook Executive Summary, ROI Projections and 90-Day Forecast: 4,418 applications, 30 hires, 33.95 avg CPA, 5,000 cost/hire \u2014 and the arithmetic checks out (150,000 / 4,418 = 33.95; channel apps sum to 4,418; channel hires sum to 30)",
+   "Per-channel CPA/apps/hires in the deck are correct roundings of workbook values (e.g. 36.86\u2192NZ$37, 25.65\u2192NZ$26, 99.29\u2192NZ$99)",
+   "Channel count (8) and channel names align between artifacts, modulo harmless naming variants (Niche Boards vs Niche / Industry Boards, Global Boards vs Global Job Boards)",
+   "Scope facts consistent: 1 role (Aircraft Tradesperson), 1 location (New Zealand), Hybrid work model, Aerospace & Defense industry, generated July 02, 2026, same author/attribution footer",
+   "Creative Quality Score identical in both (45/100, Grade F) and the deck honestly surfaces it plus a low-data caution banner matching the workbook's 52% / Grade D confidence assessment",
+   "Risk analysis is word-for-word consistent (CPA +20% -> hires drop 30 to 25; 10-15% contingency mitigation)",
+   "Deck's 12-week implementation roadmap aligns with the workbook's 90-day forecast window (Jul 1 - Sep 30, 2026) and its 25/35/40% monthly spend ramp"
+  ],
+  "oc": [
+   "Core financial spine is identical across artifacts: total budget $240,000 ($240K/$240.0K) appears consistently on deck slides 2/5/6 and in workbook Executive Summary, Channels & Strategy (SUM = $240,000), ROI Projections, 90-Day Forecast, and Quality Intelligence multi-tier breakdown ($172,800 + $40,800 + $26,400 = $240,000).",
+   "Per-channel splits match exactly between deck and workbook main sheets: 40/22/20/8/7/3% = $96,000 / $52,800 / $48,000 / $19,200 / $16,800 / $7,200, with identical per-channel apps (8,645 / 2,083 / 223 / 770 / 909 / 125), hires (76/34/3/12/14/4) and consistently rounded CPAs ($11.10\u2192$11, $215.25\u2192$215, $57.60\u2192$58).",
+   "Headline KPIs agree with the Slack notification and each other: $240,000 budget, 1 role (Business Sales Representative), 10 locations, 6 channels, 143 projected hires, 12,755 projected applications, avg CPA $18.82 (deck slide 2 = workbook 90-Day Forecast $18.816; slide 6's $19 is a fair rounding).",
+   "Risk numbers replicate exactly: 143\u2192119 hires under 20% CPA inflation, 62% concentration on programmatic_dsp + global_boards, 89 hires at risk (= 62% x 143) \u2014 identical in deck slide 10 and workbook Exec Summary risk rows.",
+   "Creative QC score matches: 45/100 Grade F on deck slide 2 and workbook Executive Summary (with sub-scores).",
+   "Timeline is coherent: deck's 12-week phased implementation aligns with the workbook's 90-day forecast (Jun 1 - Aug 31, 2026) and 12-week optimization milestones; generation date June 16, 2026 consistent on every slide and sheet footer.",
+   "Currency is fully consistent: USD '$' only, in both artifacts \u2014 all workbook number formats are $-based, the chart data column is labelled 'Budget (USD)', and a full scan found zero non-USD symbols or codes."
+  ]
+ },
+ "confirmed": [
+  {
+   "severity": "critical",
+   "where": "Slide 2 (top-right)",
+   "title": "Internal QC badge \"Creative QC: 45/100 \u2014 Grade F\" rendered on a client-facing slide",
+   "detail": "CONFIRMED. Pratt deck, Slide 2 \"Executive Summary\" (s02.png), top-right: a red rounded badge reads \"Creative QC: 45/100\" on the first line and \"Grade F\" on the second line, in white text on a red (#d0342c-ish) chip, positioned to the right of the slide subtitle. This is an internal creative-quality pipeline score baked into a client-facing slide, and it self-labels the deck as failing (45/100, Grade F). The badge also visually collides with/truncates the subtitle text (\"...in a h[ot]...\" is cut off behind the card row). Claim holds as stated; severity critical is justified.",
+   "confidence": "high",
+   "src": "pv1"
+  },
+  {
+   "severity": "critical",
+   "where": "Slide 2 (headline)",
+   "title": "Executive summary headline is clipped mid-word behind the cards",
+   "detail": "CONFIRMED. Pratt deck, slide 2 (Executive Summary), headline TextBox 6 (top=0.92in, h=0.60in, w=9.90in). Full intended text per PPTX: \"Nova AI Suite's programmatic strategy targets Aircraft Tradesperson across 1 location to optimize Pratt & Whitney New Zealand's recruitment spend in Aerospace & Defense in a hot talent market\". The rendered slide (s02.png) wraps this to three lines but the box only fits two; visible text ends \"...in Aerospace & Defense in a\" with just the top sliver of the \"h\" of the third line (\"hot talent market\") showing before it is hidden behind the opaque SITUATION card (Rounded Rectangle 7, top=1.65in, drawn above the headline in z-order). The closing phrase \"hot talent market\" is unreadable \u2014 a real overflow/clipping defect, not decorative bleed. (Minor correction to the claim: the third line is \"hot talent market\", not merely a cut-off word \"h...\", and the visible fragment is a clipped glyph top rather than the string \"in a h\".)",
+   "confidence": "high",
+   "src": "pv1"
+  },
+  {
+   "severity": "critical",
+   "where": "Slide 2 (Situation + Resolution cards, KPI band)",
+   "title": "Multiple text overflows breaking card and band boundaries",
+   "detail": "Confirmed on Pratt deck slide 2 (s02.png, Executive Summary): (1) the \"Salary Range: NZ$85K median (NZ$55K-NZ$140K)\" line renders entirely below the SITUATION card's rounded bottom edge, on the bare canvas just above the KPI band's teal border; (2) in the RESOLUTION card, the \"2026 Market Data:\" bullet \"NZ job ads MoM Jan 2026: 1.3% increase (SEEK New Zealand,\" runs past the card bottom and its wrapped continuation \"2026)\" sits fully outside the card, abutting the KPI band's top edge; (3) in the dark KPI band, the rightmost stat \"NZ$33.95\" (Avg CPA) wraps to two lines as \"NZ$33.9\" / \"5\", and the tops of the \"NZ$33.9\" glyphs poke above the band's teal top border. All three are genuine overflows \u2014 sibling KPI stats render on one line inside the band, so this is not decorative bleed. (Additionally, though outside the claim, the slide subtitle is itself clipped mid-word behind the cards: \"...in a h\" is cut off.)",
+   "confidence": "high",
+   "src": "pv1"
+  },
+  {
+   "severity": "critical",
+   "where": "Slide 5 (left column)",
+   "title": "\"CHANNEL CATEGORY ATTRIBUTION\" heading collides with the 8th bar-chart row",
+   "detail": "CONFIRMED on Pratt deck slide 5 (s05.png / Pratt_Whitney_New_Zealand_Strategy_Deck.pptx, slide index 4), left column. The \"CHANNEL CATEGORY ATTRIBUTION\" heading textbox (top 4.85\", height 0.35\" \u2192 bottom 5.20\") overlaps the 8th channel-mix row's label \"EMEA Regional (NZ$3.0K)\" (top 5.04\", height 0.30\") by ~0.16\", and the heading's teal underline shape (top 5.18\", 2.80\" wide) strikes horizontally through the middle of the label text; the 2% bar (top 5.08\") and \"2%\" value sit in the same collided band. Rendered PNG shows the strike-through plainly. One minor exaggeration in the original claim: the chart does NOT actually run under the category cards \u2014 the EMEA row bottom (5.34\") ends 0.01\" above the card tops (5.35\"), so it abuts flush rather than underlapping; the real defect is the heading/underline overprinting row 8. Root cause: the 8-row chart (rows start 2.10\", pitch 0.42\") extends past the fixed heading position at 4.85\".",
+   "confidence": "high",
+   "src": "pv1"
+  },
+  {
+   "severity": "critical",
+   "where": "Slide 6 (breakdown table)",
+   "title": "Table does not tie to its own totals \u2014 6 rows shown for an \"8-channel\" plan, and the Total row prints 101%",
+   "detail": "CONFIRMED at slide 6 of Pratt_Whitney_New_Zealand_Strategy_Deck.pptx (s06.png). Subtitle says \"Investment breakdown across 8 channels\" but the breakdown table renders only 6 data rows \u2014 Social Media (3%, NZ$4,500) and EMEA Regional (2%, NZ$3,000), both present on slide 5 and in the XLSX Executive Summary sheet, are missing. The 6 listed investments sum to NZ$142,499 vs the printed NZ$150,000 Total (gap NZ$7,501 = the two dropped rows' 4,500+3,000 plus NZ$1 rounding); Proj. Apps sum to 4,335 vs printed 4,418 (gap 83 = exactly the dropped rows' 30+53 apps). The Total row's Allocation % cell literally contains \"101%\" (verified in PPTX XML) while the visible rows sum to 96% \u2014 101% is the rounded 8-channel sum, proving the Total row aggregates 8 channels while only 6 render. Hires coincidentally foot at 30 only because both dropped channels project 0 hires. The table does not foot on three of five numeric columns; the claim holds in full.",
+   "confidence": "high",
+   "src": "pv1"
+  },
+  {
+   "severity": "critical",
+   "where": "Slide 1 (bottom edge)",
+   "title": "Internal caution note leaked onto the cover",
+   "detail": "CONFIRMED on the Pratt & Whitney New Zealand deck cover (slide 1, s01.png). A stray internal data-quality flag is rendered as visible client-facing copy at the bottom-left of the cover, just above the footer accent bars. Exact text (verified in ppt/slides/slide1.xml, shape \"TextBox 14\"): \"Caution: Minimal data available. Plan is heavily estimated. Recommend API enrichment before executing.\" It is an 8pt (sz=\"800\", not ~7pt as claimed) italic Poppins run in a full-width text box positioned at y=6,400,800 EMU (~6.99\" from top on a 7.5\"-tall slide, i.e., the bottom edge). The text is a system/QA caveat, not designed cover copy \u2014 it clashes with the polished cover layout and explicitly undermines the plan's numbers. Severity as critical is fair for a client deliverable; the fix is to remove the text box or relocate the caveat to an internal appendix/methodology note.",
+   "confidence": "high",
+   "src": "pv1"
+  },
+  {
+   "severity": "major",
+   "where": "Slide 5 (channel mix + category band)",
+   "title": "Allocation percentages sum to 101% in both visuals",
+   "detail": "CONFIRMED, slightly understated. Pratt deck slide 5 (s05.png): Channel Mix bar labels (Niche 31%, Programmatic DSP 21%, Global Job Boards 16%, Employer Branding 13%, Regional Boards 11%, APAC 4%, Social 3%, EMEA 2%) sum to 101%; the Channel Category Attribution band (Programmatic 21% + Job Boards 64% + Social 3% + Employer Brand 13%) also sums to 101%. Slide 6 (s06.png) additionally prints \"Total 101%\" explicitly in the Channel-by-Channel Breakdown table \u2014 and that table lists only 6 of the 8 channels (Social Media 3% and EMEA Regional 2% rows are missing), so its visible Allocation % column sums to 96% against the printed 101% total. Underlying NZ$ amounts sum to exactly NZ$150.0K, so this is unreconciled rounding in the displayed percentages; they should be forced to 100% (largest-remainder rounding) and the slide-6 table should include all 8 channels.",
+   "confidence": "high",
+   "src": "pv1"
+  },
+  {
+   "severity": "major",
+   "where": "Slide 5 (Industry Benchmarks table)",
+   "title": "Bare USD \"$\" benchmarks on an NZD plan",
+   "detail": "CONFIRMED at Pratt deck slide 5 (Channel Strategy & Investment, s05.png / PPTX slide 5). The Industry Benchmarks table quotes bare USD values \u2014 Industry CPA \"$15 - $56\", Industry CPC \"$0.50 - $5.26 (+8.3% YoY)\", Est. Cost-per-Hire \"$4,000 - $6,000\" \u2014 on a slide whose every plan figure is NZ$ (NZ$150.0K budget; channel bars NZ$46.3K/NZ$31.4K/NZ$23.9K/etc.). The footnote \"Benchmarks are US-calibrated \u2014 international markets may vary.\" is present bottom-right and merely discloses, not fixes, the mismatch. The claimed cross-slide clash is also verified: slide 2 Market Thesis says \"30 hires at NZ$5,000/hire\" and slide 6 repeats \"NZ$5,000 average cost-per-hire\", positioning NZ$5,000 inside the $4,000-$6,000 USD range as if 1 NZ$ = 1 US$; at ~0.60 USD/NZD, NZ$5,000 \u2248 US$3,000, which falls BELOW the US benchmark band, so the implied in-range validation is substantively wrong, not just stylistically inconsistent. Severity 'major' is fair for a plan the owner explicitly banned bare-\"$\" defects from.",
+   "confidence": "high",
+   "src": "pv1"
+  },
+  {
+   "severity": "major",
+   "where": "Slide 5 (benchmarks) + Slide 2 (Situation card)",
+   "title": "Implausible market data: 75,000 active Aircraft Tradesperson jobs, and \"White Collar dominant (100%)\" for a trades role",
+   "detail": "CONFIRMED, with an aggravating detail. Pratt deck Slide 5 (\"Channel Strategy & Investment\"), INDUSTRY BENCHMARKS table, last row reads exactly \"Live Postings: Aircraft Tradesperson \u2014 75,000 active jobs\", sourced only to \"Industry benchmarks 2026, validated recruitment data, Nova AI Suite Ad Platform Intelligence\" \u2014 implausible for an NZ-scoped plan (one target role vs NZ's total national job-ad volume) and contradicted by the bundle's own workbook: Pratt_Whitney_New_Zealand_Media_Plan.xlsx, sheet \"Market Intelligence\", MARKET DEMAND BY ROLE row 65 records Postings=0 and Talent Pool=0 for Aircraft Tradesperson (cells C65/D65). Slide 2 (\"Executive Summary\") Situation card reads exactly \"Talent Profile: White Collar dominant (100%)\" alongside \"Target Roles: Aircraft Tradesperson\" \u2014 a misclassification of a skilled-trades role. Minor mitigation only: Slide 5 carries a footer \"Benchmarks are US-calibrated \u2014 international markets may vary\", which discloses US provenance but does not cure the mislabeled \"Live Postings\" row, the internal 0-postings contradiction, or the vague sourcing.",
+   "confidence": "high",
+   "src": "pv1"
+  },
+  {
+   "severity": "major",
+   "where": "Slide 4 (whole slide)",
+   "title": "Filler slide: ~40 words of boilerplate in two mostly-empty cards",
+   "detail": "CONFIRMED at Pratt deck slide 4 (\"Push Meets Pull\"). Card body copy totals 41 words (Push card 23: \"Targeted ads, job alerts, social media and email campaigns that proactively push opportunities to candidates based on behavior, job demographics, or intent signals.\"; Pull card 18: \"Content, reputation, social media and SEO-optimized career pages that pull candidates in by building long-term interest and trust.\"). Each body text frame is 3.0 in tall but holds ~3 lines, leaving the cards ~60-70% empty in the rendered slide. The slide contains zero numbers and zero client/market context (no Pratt & Whitney, no New Zealand), the subtitle redundantly repeats the title (\"Push Meets Pull \u2014 a dual-engine sourcing strategy\"), and there is no takeaway band (slide 5 by contrast has a Live Data footer band). It also never links to slide 5's quantified 64% Job Boards / 13% Employer Brand attribution, which is exactly the push/pull split that would justify the slide. Pure definitional filler; does not clear an exec bar.",
+   "confidence": "high",
+   "src": "pv1"
+  },
+  {
+   "severity": "major",
+   "where": "Slides 3 and 4 (title block)",
+   "title": "Title duplicated verbatim in the subtitle",
+   "detail": "Confirmed in the Pratt deck (both rendered PNGs s03.png/s04.png and PPTX text). Slide 3: H1 \"Our Methodology\" is immediately followed by subtitle \"Our Methodology \u2014 Joveo's 6-step campaign management on the MOJO platform\". Slide 4: H1 \"Push Meets Pull\" followed by subtitle \"Push Meets Pull \u2014 a dual-engine sourcing strategy\". The claim actually understates the defect: slide 7 has the same bug (\"CPA Reference\" / \"CPA Reference \u2014 baseline cost-per-application by role category\"). All other slides (2, 5, 6, 8-12) carry distinct, non-repeating subtitles, ruling out an intentional \"Title \u2014 dek\" convention \u2014 this is a templating/copy bug on slides 3, 4, and 7 of Pratt_Whitney_New_Zealand_Strategy_Deck.pptx.",
+   "confidence": "high",
+   "src": "pv1"
+  },
+  {
+   "severity": "critical",
+   "where": "Slide 8 (Competitive Landscape)",
+   "title": "Slide shipped half-empty: blank Company Profile card, 'data not available' placeholder, and an empty takeaway band",
+   "detail": "CONFIRMED at both PNG and PPTX-XML level, Pratt deck slide 8 (Competitive Landscape). (1) Company Profile card (Rounded Rectangle 9, 5.5\"x2.2\" white card at 0.55\",2.1\") contains only one line \u2014 TextBox 11: \"Company:  Pratt & Whitney New Zealand\" \u2014 leaving ~1.9\" of blank white card. (2) Industry Hiring Trends section ships the literal placeholder TextBox 14: \"\u25b8  Industry trend data not available\". (3) Bottom takeaway band (Rounded Rectangle 32, 12.2\"x0.7\" at top 5.8\") is completely textless \u2014 no text shape overlaps the band region \u2014 and is filled light cyan RGB(218,245,255) with accent bar RGB(107,181,206), whereas the deck's own baseline takeaway bands on slide 6 (Rounded Rectangle 82) and slide 11 (Rounded Rectangle 22) are dark indigo RGB(32,32,88) with white takeaway copy. Not decorative: it is the same accent-bar+band takeaway pattern used elsewhere, rendered with no content. Claim holds in full; severity 'critical' is fair for an exec-facing deck.",
+   "confidence": "high",
+   "src": "pv2"
+  },
+  {
+   "severity": "critical",
+   "where": "Slides 7 and 9",
+   "title": "Bare '$' currency on a New Zealand plan, and NZ$/$ mixed on the same slide",
+   "detail": "CONFIRMED on both slides of the Pratt & Whitney New Zealand deck. Slide 7 (\"CPA Reference\"): intro text reads \"Baseline CPAs by role category, calibrated from Joveo benchmarks. US/global remote; varies by geography, language and seasonality\" and all seven Est. CPA Range rows use bare '$' ($8 \u2013 $14, $10 \u2013 $16, $10 \u2013 $16, $6 \u2013 $10, $15 \u2013 $25, $18 \u2013 $35, $13 \u2013 $18) with no currency label, on a New Zealand client plan. Slide 9 (\"Plan Comparison & Implementation\"): left card \"Pratt & Whitney New Zealand's Plan\" shows Projected CPA = NZ$33.95 while the adjacent right card \"Aerospace & Defense Average\" shows Projected CPA = $15 \u2013 $56 in bare '$' \u2014 mixed NZ$/bare-$ in the same side-by-side comparison, which also makes the green \"beating benchmark\" marker on NZ$33.95 unverifiable (NZ$33.95 \u2248 US$20; the verdict depends on which currency the $15\u2013$56 benchmark is in). Matches the owner-flagged 'hardcoded $ on non-USD plans' defect class; no evidence of intentional design (no currency annotation or footnote anywhere on either slide).",
+   "confidence": "high",
+   "src": "pv2"
+  },
+  {
+   "severity": "critical",
+   "where": "Slides 7 and 12 (vs slide 8's own framing)",
+   "title": "Template leakage: AI-training role taxonomy and 'AI Trainers' case study on an Aerospace & Defense client deck",
+   "detail": "CONFIRMED, with one framing correction (deck has 12 slides, not 6). Verified against /scratchpad/review/pratt/slides/s01, s07, s08, s12.png and the XLSX: (1) Slide 7 \"CPA Reference \u2014 baseline cost-per-application by role category\" lists 7 role categories that are an AI-data-training client's taxonomy, not Pratt & Whitney NZ's: Backend/Frontend Developers ($8\u2013$14), Full Stack Developers ($10\u2013$16), Language/Writing Experts ($10\u2013$16, \"Comparable to paralegal/legal assistant CPAs\"), Documentation Reviewers ($6\u2013$10), CAD/Game/Simulation Engineers ($15\u2013$25), Computational Scientists (Physics, Bio) ($18\u2013$35, benchmark note verbatim: \"Very scarce talent pool; aligned with nurse-level CPAs\" \u2014 a healthcare-vertical tell), and Finance Analysts (AI Training) ($13\u2013$18). (2) Slide 12's case study headline is verbatim \"Case study: Hiring high-quality AI Trainers at scale\" (2x qualified applications, +38% activation volumes, -17% cost per activation). (3) Both contradict the deck's own context: slide 1 titles it \"Media Plan for Pratt & Whitney New Zealand \u2014 Aerospace & Defense\" and slide 8 frames \"talent acquisition strategy in Aerospace & Defense\" with Lockheed/Raytheon/Northrop competitors. (4) The companion Pratt_Whitney_New_Zealand_Media_Plan.xlsx confirms the actual brief: the sole target role is \"Aircraft Tradesperson\" (Quality Intelligence and Channel Recommendations sheets), so slide 7's role set has zero overlap with the plan it accompanies. Correction to reviewer framing: the deck is 12 slides, so this is 2 of 12 slides (both content-bearing), not \"2 of 6\"; the leaked roles/case study never appear in the XLSX, so the leakage is deck-only. Severity as [critical] is fair \u2014 client-facing deck presents another client's vertical content under Pratt & Whitney NZ branding.",
+   "confidence": "high",
+   "src": "pv2"
+  },
+  {
+   "severity": "major",
+   "where": "Slide 9 (Plan Comparison & Implementation)",
+   "title": "Benchmark comparison logic is broken \u2014 ties flagged as 'beating benchmark' and an implausible industry average",
+   "detail": "CONFIRMED on Pratt slide 9 (s09.png, \"Plan Comparison & Implementation\"). The benchmark \u25b2 markers are effectively decorative: (1) Channels Selected = 8 \u25b2 vs industry 8 \u2014 exact tie flagged green \"Beating benchmark\" (per the slide's own legend); (2) Channel Diversity Score = 10.0/10 \u25b2 vs industry 10.0/10 \u2014 another tie flagged as beating, and an industry AVERAGE equal to the scale maximum (10.0/10) is implausible on its face; (3) Projected CPA NZ$33.95 \u25b2 vs industry $15\u2013$56 \u2014 mid-range (midpoint $35.50) yet flagged as beating, with mixed currencies (NZ$ vs $) in the same comparison; (4) an additional broken row the claim missed: Projected Hires 30 \u25b2 vs industry \"\u2014\" (no benchmark exists, still flagged as beating). XLSX cross-check: the 33.95 figure traces to the 90-Day Forecast sheet (CPA = 33.95201448619284 = $150,000 / 4,418 applications), so it is a blended cost-per-APPLICATION shown with false-precision cents; slide 7's role CPA ranges are $6\u2013$35 in USD, and the workbook's Channel Recommendations sheet states a third conflicting figure, Avg CPA $91.63, for the same $150,000 budget. Minor caveat: the \"not reconcilable with slide 7\" sub-point softens slightly if one assumes an unstated NZD\u2192USD conversion (NZ$33.95 \u2248 US$21, within a blended $6\u2013$35), but the deck never states a rate and mixes currencies on the slide itself, so the client-facing inconsistency stands. Severity 'major' is warranted.",
+   "confidence": "high",
+   "src": "pv2"
+  },
+  {
+   "severity": "major",
+   "where": "Slide 8 (Competitive Landscape)",
+   "title": "Competitor intelligence is copy-pasted boilerplate with dubious competitor selection",
+   "detail": "CONFIRMED on Pratt slide 8 (s08.png, \"Competitive Landscape\"). All three competitor cards \u2014 \"(National) Lockheed Martin\", \"(National) Raytheon\", \"(National) Northrop Grumman\" \u2014 carry the byte-identical lines \"Why: Competing employer in New Zealand\" and \"Counter: Differentiate with career growth narrative, faster hiring process, and culture-first employer brand\", three times verbatim. The \"(National)\" prefix renders as a raw unformatted data label in each card title. The sources line reads \"Sources: Public company filings, industry employment data, curated knowledge base\" \u2014 the last item is not a verifiable source. Competitor selection is dubious as claimed: Raytheon and Northrop Grumman have negligible NZ hiring footprints (Lockheed Martin at least has a Wellington office), while credible NZ aerospace talent competitors (Air New Zealand Gas Turbines, Airbus NZ, NZDF, Safe Air) are absent. Severity is reinforced by the rest of the slide being empty: the Company Profile card contains only \"Company: Pratt & Whitney New Zealand\" above a large blank area, Industry Hiring Trends says \"Industry trend data not available\", and a fully empty cyan callout band sits above the sources line.",
+   "confidence": "high",
+   "src": "pv2"
+  },
+  {
+   "severity": "major",
+   "where": "Slides 7, 9, 10 (and 8)",
+   "title": "Dark-indigo takeaway band missing on 4 of 6 content slides",
+   "detail": "CONFIRMED with one minor correction. Pratt deck: the Invisible-baseline takeaway band (rounded AUTO_SHAPE, fill #202058, with a synthesized takeaway sentence) is present on slides 6 and 11 but broken/absent on slides 7, 8, 9, 10. Slide 7: last table row ends at 6.28in vs footer rule at 7.12in \u2014 no band shape, ~0.84in of bare #F3F3FF background. Slide 8: the band shape exists (top=5.80in, h=0.70in) but is filled #DAF5FF pale cyan instead of #202058 AND contains no text at all (a fully empty band; only the Sources line follows it). Slide 10: content ends at 5.95in \u2014 no band, ~1.17in dead space. Slide 9: no takeaway band either, but the claim's 'dead space' framing is wrong there \u2014 the three phase cards extend to 7.08in, nearly touching the 7.12in footer, so the defect on s9 is only the missing synthesized so-what, not dead space. Not intentional design: slide 8's half-built band and the correct bands on slides 6/11 show the pattern was meant to be deck-wide. Net: 4 of the 6 second-half content slides (7-12) lack a functioning takeaway band; only slide 11 has one (slide 12 closes with a Next Steps panel instead).",
+   "confidence": "high",
+   "src": "pv2"
+  },
+  {
+   "severity": "critical",
+   "where": "Slide 2 (s02), top-right",
+   "title": "Internal QC badge 'Creative QC: 45/100 \u2014 Grade F' shipped on a client-facing slide",
+   "detail": "CONFIRMED. Omada deck, slide 2 (executive summary, s02.png / Omada_ai_Strategy_Deck.pptx slide 2): a red rounded-rectangle internal QC badge sits in the top-right corner (text shapes \"Creative QC: 45/100\" at left 10.6in/top 0.92in and \"Grade F\" at left 10.6in/top 1.2in on the 13.33x7.5in canvas), overlapping the headline zone of the client-facing slide. It literally announces the deck failed its own creative QC with a Grade F, in an off-palette red (deck palette is navy/teal/purple/green). Present only on slide 2; no other slide contains the badge. This is an internal pipeline artifact leaking into client output and must be suppressed from rendered decks entirely.",
+   "confidence": "high",
+   "src": "ov1"
+  },
+  {
+   "severity": "critical",
+   "where": "Slide 2 (s02), headline + SITUATION card",
+   "title": "Headline clipped mid-word and card content truncated under the KPI band",
+   "detail": "CONFIRMED \u2014 Omada bundle, slide 2 (omada/slides/s02.png; Omada_ai_Strategy_Deck.pptx slide 2). Defect 1: headline shape \"TextBox 5\" (top 0.92in, height 0.60in) holds the full sentence \"...in Retail & Consumer in a hot talent market\", but at rendered size it wraps to 3 lines and the box only fits 2 \u2014 line 3 (\"market\") is overlapped by the SITUATION card, leaving a stray clipped \"m\" visible above the card edge. Defect 2: SITUATION card body \"TextBox 9\" (top 2.10in, height 3.00in) ends with row \"Salary Range: $95K median ($95K-$95K) - Business Sales Representative\"; the rendered row escapes below the white card's rounded bottom edge and is truncated to \"Salary Range: $95K median ($95K-$95K) -\" (role name lost), sitting flush against the teal top border of the dark KPI band (in the render it abuts the band rather than running visibly beneath it \u2014 minor wording nuance only). Both are genuine overflow/truncation failures on the exec-summary slide, not decorative bleed. (Note: the sibling Pratt deck s02 shows the same headline-clip pattern, ending \"...in a h[ot]\".)",
+   "confidence": "high",
+   "src": "ov1"
+  },
+  {
+   "severity": "critical",
+   "where": "Slide 1 (s01), bottom-left of cover",
+   "title": "Internal caution note leaked onto the cover in near-invisible dark-on-dark text",
+   "detail": "CONFIRMED, and broader than claimed: the internal caution note leaks onto the cover slide (s01) of BOTH bundles, not just one. Exact string on slide 1 of both Omada_ai_Strategy_Deck.pptx and Pratt_Whitney_New_Zealand_Strategy_Deck.pptx (bottom-left, ~8pt italic Poppins): \"Caution: Minimal data available. Plan is heavily estimated. Recommend API enrichment before executing.\" The run has a malformed empty <a:solidFill/> (no color child), so it renders default black (#000000) on the navy cover background (#202057) \u2014 measured contrast ratio ~1.4:1 vs WCAG 4.5:1 minimum, i.e. barely legible dark-on-dark. Both defect components verified: (a) severe contrast failure from the unstyled leaked run, and (b) an internal pipeline data-quality caveat telling the client the plan is guesswork, printed on client-facing covers. Fix: route this warning to an internal log/presenter notes and strip it from the rendered cover in the deck generator (it is templated \u2014 identical run appears in both decks).",
+   "confidence": "high",
+   "src": "ov1"
+  },
+  {
+   "severity": "major",
+   "where": "Slide 6 (s06) table + Slide 5 (s05) benchmarks",
+   "title": "Social Media economics indefensible and unexplained: $215 CPA, ~$16K cost-per-hire, yet 20% of budget",
+   "detail": "CONFIRMED in the Omada bundle (not Pratt \u2014 Pratt allocates Social only 3%/NZ$4.5K). Omada slide 6 (s06.png) table row \"Social Media\": 20% allocation, $48,000 investment, 223 proj. apps, 3 proj. hires, $215 CPA (XLSX \"Executive Summary\" row: CPA 215.25; \"ROI Projections\" sheet: Cost Per Hire = $16,000, ROI Score 4, vs Programmatic DSP $1,263/hire, ROI 10, $11 CPA). Omada slide 5 (s05.png) benchmarks: Industry CPA $15\u2013$56 and Est. Cost-per-Hire $1,340\u2013$2,010 \u2014 Social exceeds them 3.8x and 8.0x respectively. No awareness-channel framing exists in the deck; slide 5's subtitle claims \"each channel selected for cost-efficiency,\" and the XLSX \"Channels & Strategy\" sheet rationalizes Social as \"Primary channel \u2014 20% of budget for volume\" even though it delivers only 1.7% of projected applications. The only awareness mention is a generic conversion-assumptions footnote in the ROI sheet, contradicting the volume rationale and never surfaced in the deck. The workbook's own \"Channel Recommendations\" sheet models social platforms at $72\u2013$90 CPA (Meta/TikTok), so even internally $215 is unsupported, and the \"Sources & Confidence\" sheet reports \"7 checks run | 7 passed | 0 findings\" \u2014 the validation gate missed it. Claim holds: either the Social projection model or the 20% allocation is wrong; the deck presents both without explanation.",
+   "confidence": "high",
+   "src": "ov1"
+  },
+  {
+   "severity": "major",
+   "where": "Slide 2 (s02), SITUATION card vs COMPLICATION card",
+   "title": "Internal contradiction: 'Hot (High demand)' market vs '64,000 retail jobs shed' and 'market softening'",
+   "detail": "CONFIRMED on Omada deck slide s02. (1) Internal contradiction verified: headline asserts a \"hot talent market\" and the SITUATION card states \"Market Temp.: Hot (High demand)\" (Resolution card also says \"high-demand market\"), while the adjacent COMPLICATION card reads \"64,000 retail jobs shed in 2025 Q1\", \"Retail CPA rising sharply despite market softening\", and \"5,800+ store closures accelerating talent displacement\". \"Hot (High demand)\" vs \"despite market softening\" is a direct same-slide contradiction; the displacement bullet exists but is never linked to reconcile the \"Hot\" label. (2) Degenerate salary range verified verbatim in the PPTX text layer: \"Salary Range: $95K median ($95K-$95K) - Business Sales Representative\" \u2014 min=median=max placeholder. Minor correction to reviewer wording: the bullet says \"2025 Q1\", not just \"Q1\". (Bonus defects on same slide, not part of this claim: the headline is truncated mid-word \"...hot talent m\" behind the cards, and the Salary Range line is clipped at the Situation card's bottom edge.)",
+   "confidence": "high",
+   "src": "ov1"
+  },
+  {
+   "severity": "major",
+   "where": "Slides 1\u20136 (deck-wide, pre-reskin vintage)",
+   "title": "Old banned design system throughout: dark navy header bands and dark navy cover (before/after marker for the 2026-06-18 reskin)",
+   "detail": "CONFIRMED for the Omada deck (all slides dated June 16, 2026, pre-dating the 2026-06-18 c744ffd reskin). s01 cover is the old full-dark navy treatment (navy field, teal top strip, teal 'AI MEDIA PLANNER' eyebrow, purple rules) \u2014 not the reskinned light cover. Every content slide s02\u2013s06 carries the banned dark navy header band: 'AI MEDIA PLANNER / OMADA.AI' (s02), 'OUR METHODOLOGY' (s03), 'PUSH MEETS PULL' (s04), 'CHANNEL STRATEGY & INVESTMENT' (s05), 'BUDGET ALLOCATION & PROJECTIONS' (s06); the band continues on s07 ('CPA REFERENCE'), so it is deck-wide. Pre-reskin tells verified: s03's six methodology cards are plain white rounded cards with no colored top-accent bar; s04's push/pull cards have inner colored pill headers but no top-accent bar; slides 3\u20135 have no dark-indigo rounded takeaway band (s05 ends with only a green 'Live Data' label) while s06 alone has one ('Budget engine projects $19 average CPA... $1,675 average cost-per-hire'). Minor nuance: s06's three KPI stat cards ($240,000 / 12,755 / 143) DO carry purple/teal/green top-accent bars, so a fragment of the new accent-bar motif is present \u2014 but the claim only asserted absence on the methodology/push-pull cards, which is accurate. The claim's framing is fair: this is an expected 'before' specimen given the 2026-06-16 generation date, not a regression introduced after the reskin.",
+   "confidence": "high",
+   "src": "ov1"
+  },
+  {
+   "severity": "major",
+   "where": "Slide 4 (s04)",
+   "title": "Near-empty filler slide: two definitions, ~60% dead whitespace, zero client specificity",
+   "detail": "CONFIRMED at Omada deck slide 4 (\"PUSH MEETS PULL\"). The slide's entire content is two generic definition cards: \"Push = Active Outreach\" with one 3-line sentence, and \"Pull = Employer Brand Magnetism\" with one 2-line sentence. PPTX geometry confirms the dead space: each card is 6.0\" x 4.6\" (y 2.0\"-6.6\" on a 7.5\" slide) but body text ends by ~y 4.1\" (Push) / ~y 3.9\" (Pull), leaving the bottom ~55-65% of both cards empty. Zero Omada.ai specificity \u2014 the only company named is Joveo. No takeaway band, no numbers, no channel or budget mapping, even though the companion XLSX (\"Channels & Strategy\" sheet, rows 4-9) contains exactly 6 channels with dollar splits of the $240,000 budget (programmatic_dsp $96,000/40%, global_boards $52,800/22%, social_media $48,000/20%, niche_boards $19,200/8%, regional_boards $16,800/7%, employer_branding $7,200/3%) that could have been mapped onto the push/pull engines \u2014 notably a ~97/3 push-vs-pull dollar imbalance the slide never surfaces. The \"major / filler slide\" severity is warranted.",
+   "confidence": "high",
+   "src": "ov1"
+  },
+  {
+   "severity": "major",
+   "where": "Slide 5 (s05), sources line + bottom-left",
+   "title": "Circular/vague sourcing and an orphaned 'Live Data' label",
+   "detail": "CONFIRMED on Omada deck slide 5 (omada/slides/s05.png). (a) The Industry Benchmarks table's sources line reads exactly \"Sources: Industry benchmarks 2026, validated recruitment data, Nova AI Suite Ad Platform Intelligence\" \u2014 the first two are descriptions of source types, not named sources, and the third is the generating tool citing itself; the only real named citation in the Omada deck's front half is \"(Appcast, 2026)\" on slide 2 (\"Apply rate (overall 2025 average): 5.19%\"). (b) The table row \"Live Postings: Business Sales Representative \u2014 180,000 active jobs\" is a suspiciously round figure for a single job title with no specific citation. (c) A green \"Live Data\" label sits alone at the bottom-left footer of s05, attached to no element \u2014 the Pratt deck's equivalent slide pairs this same badge with a right-side caveat (\"Benchmarks are US-calibrated...\"), but on the Omada slide the right side is empty so the badge floats orphaned. (d) It directly contradicts the Omada cover (s01) footer: \"Caution: Minimal data available. Plan is heavily estimated. Recommend API enrichment before executing.\" Severity 'major' is fair: the slide asserts live-data provenance the bundle itself disclaims.",
+   "confidence": "high",
+   "src": "ov1"
+  },
+  {
+   "severity": "critical",
+   "where": "s08.png (slide 8 \u2014 Competitive Landscape)",
+   "title": "Slide shipped with unpopulated placeholder content in three zones",
+   "detail": "CONFIRMED on Omada slide 8 (s08.png / Omada_ai_Strategy_Deck.pptx slide 8, \"Competitive Landscape\"). Verified in both the rendered PNG and the PPTX shape XML: (1) The COMPANY PROFILE card (Rounded Rectangle 8, 5.50\"x2.20\") contains only one text box reading 'Company:  Omada.ai'; the remaining ~2 inches (~200px rendered) of the card is empty white space \u2014 no industry, size, HQ, or any other profile fields exist on the slide. (2) INDUSTRY HIRING TRENDS renders the literal fallback string '\u25b8  Industry trend data not available' (TextBox 13). (3) The takeaway band (Rounded Rectangle 31, 12.20\"x0.70\" at top 5.80\", light-blue with accent bar Rectangle 32) has empty text ('') and no overlapping text shape \u2014 a fully styled callout band with zero content. All three zones are genuine unpopulated placeholders; the claim is neither exaggerated nor intentional design.",
+   "confidence": "high",
+   "src": "ov2"
+  },
+  {
+   "severity": "critical",
+   "where": "s08.png and s09.png (slides 8-9)",
+   "title": "Client misclassified as 'Retail & Consumer' \u2014 entire competitive frame ignores who Omada.ai is",
+   "detail": "CONFIRMED, and broader than claimed. Slide 8 (s08.png) title reads verbatim \"Market positioning and competitor intelligence for Omada.ai's talent acquisition strategy in Retail & Consumer\" and its Competitor Landscape lists exactly (National) Amazon, (National) Walmart, (National) UPS \u2014 each justified only as \"Competing employer in Dallas\". Slide 9 (s09.png) benchmarks \"Omada.ai's Plan\" against a card headed \"Retail & Consumer Average\" (e.g. 25% programmatic, 3-5 markets, 0.9x reach). Yet the deck's own role data is AI-training talent: slide 7 lists Backend/Frontend Developers, Full Stack Developers, Language/Writing Experts, Documentation Reviewers, CAD/Game/Simulation Engineers, Computational Scientists (Physics, Bio), Finance Analysts (AI Training); slide 11's case study is \"Hiring high-quality AI Trainers at scale\". The XLSX shows the misclassification is systemic, not limited to slides 8-9: Executive Summary states \"Industry: Retail & Consumer\" with \"5000 hires\"; Market Intelligence benchmarks retail-sales wages ($33,680) and retail CPA ($12.29); Niche Board Matching recommends RetailGigs/Snagajob/Wonolo/Instawork (hourly retail/gig boards); Channel Recommendations targets a \"Business Sales Representative\" persona; Quality Intelligence sheet lists Amazon/Walmart/UPS/FedEx as competitors in all 10 markets. Slide 8 additionally shows an empty Company Profile card and \"Industry trend data not available\". The entire competitive/benchmark frame is built on the wrong industry for a client hiring computational scientists and AI trainers.",
+   "confidence": "high",
+   "src": "ov2"
+  },
+  {
+   "severity": "critical",
+   "where": "All five slides (s07-s11), top band",
+   "title": "Banned navy-band dark header used on every slide",
+   "detail": "CONFIRMED, and broader than claimed. Omada deck (o-bundle): slides s07-s11 each use the banned full-width dark-navy header band (sampled top-band avg RGB ~(37,37,91)) with white all-caps titles \u2014 s07 'CPA REFERENCE', s08 'COMPETITIVE LANDSCAPE', s09 'PLAN COMPARISON & IMPLEMENTATION', s10 'RISK ANALYSIS', s11 'CASE STUDY & NEXT STEPS' \u2014 and 'June 16, 2026' right-aligned in the band. None has the Invisible baseline's light 'joveo' wordmark band with thin purple rule. Pixel sampling shows the same navy band on ALL content slides s02-s06 too (s02 'AI MEDIA PLANNER', s04 'PUSH MEETS PULL'), so the defect is deck-wide, not just the five cited slides. One overstatement in the original claim: the 'joveo' logo+wordmark DOES appear once, in a small white chip at top-left of cover slide s01 \u2014 but it appears in no content-slide header (s02-s11), which is what the baseline requires. Severity as critical stands.",
+   "confidence": "high",
+   "src": "ov2"
+  },
+  {
+   "severity": "major",
+   "where": "s09.png (slide 9 \u2014 comparison cards)",
+   "title": "Green 'beating benchmark' arrows on metrics that are exactly equal",
+   "detail": "CONFIRMED on Omada bundle slide 9 (s09.png, \"PLAN COMPARISON & IMPLEMENTATION\"; PPTX slide9.xml text runs verify). The \"Omada.ai's Plan\" card shows \"Channels Selected: 6 \u25b2\" while the \"Retail & Consumer Average\" card shows the identical \"6\", and \"Channel Diversity Score: 9.0/10 \u25b2\" vs the identical \"9.0/10\". The legend under the cards explicitly defines \"\u25b2 Beating benchmark / \u25bc Trailing benchmark\", so two exactly-tied metrics are flagged as beating the benchmark. The remaining three arrowed metrics (40% vs 25%, 10 markets vs 3-5, 1.3x vs 0.9x) are genuine wins, so the defect is limited to the two tied rows. Note the claim cites slide 9 generically; it applies to the OMADA deck (reviewer ov2), not the Pratt deck.",
+   "confidence": "high",
+   "src": "ov2"
+  },
+  {
+   "severity": "major",
+   "where": "s08.png (slide 8 \u2014 competitor cards)",
+   "title": "Identical boilerplate repeated verbatim across all three competitor cards",
+   "detail": "CONFIRMED at both PNG and PPTX-text level. Omada deck slide 8 (s08.png, \"Competitive Landscape\"): all three competitor cards \u2014 (National) Amazon, (National) Walmart, (National) UPS \u2014 carry byte-identical text extracted from Omada_ai_Strategy_Deck.pptx slide 8: \"Why: Competing employer in Dallas\" and \"Counter: Differentiate with career growth narrative, faster hiring process, and culture-first employer brand\". The only competitor-specific content is the name; additionally each card self-contradicts by pairing a \"(National)\" label with a Dallas-only Why line. Cross-slide inconsistency also confirmed: slide 9 (s09.png) \"Omada.ai's Plan\" table states \"Geographic Coverage: 10 markets\" (vs \"3-5 markets\" industry average), contradicting slide 8's single-market Dallas framing. Claim holds as stated; severity \"major\" is warranted.",
+   "confidence": "high",
+   "src": "ov2"
+  },
+  {
+   "severity": "major",
+   "where": "s10.png (slide 10 \u2014 Channel Concentration card)",
+   "title": "Raw internal channel identifiers leaked into client-facing copy",
+   "detail": "CONFIRMED in the Omada bundle (reviewer 'ov2'). Slide 10 of Omada_ai_Strategy_Deck.pptx (s10.png, \"RISK ANALYSIS\"), Channel Concentration card under the CHANNELS label, reads verbatim: \"Impact: 62% of budget on programmatic_dsp, global_boards \u2014 disruption could impact 89 hires\". The snake_case strings are in the PPTX shape text itself (not a rendering artifact). This is a leak, not a convention: slides 2, 5, and 6 of the same deck use the humanized names \"Programmatic DSP\" and \"Global Job Boards\" throughout \u2014 slide 10 is the only occurrence of raw internal channel keys in client-facing copy.",
+   "confidence": "high",
+   "src": "ov2"
+  },
+  {
+   "severity": "major",
+   "where": "s07, s09, s10, s11 (bottom of each content slide)",
+   "title": "Dark-indigo rounded takeaway band missing from every content slide",
+   "detail": "CONFIRMED for the Omada deck, with one quantitative correction. The deck's own slide 6 establishes the baseline motif: a full-width dark-indigo rounded takeaway band with cyan accent bar and white so-what text (\"Budget engine projects $19 average CPA across all channels, with $1,675 average cost-per-hire...\"). On the five cited content slides it is absent or broken: PPTX slides 7, 9, 10 and 11 contain no band shape at all between the content and the footer rule (top=7.12in) \u2014 verified via python-pptx shape enumeration; slide 8 DOES contain the band shape (AUTO_SHAPE top=5.80in, 12.20in x 0.70in, plus 0.06in accent bar; renders as an empty light-cyan rounded band in s08.png) but it holds zero text. Headlines on all five slides are descriptive labels, not messages (\"CPA Reference \u2014 baseline cost-per-application by role category\", \"Market positioning and competitor intelligence...\", \"Omada.ai's optimized media plan vs. Retail & Consumer industry averages...\", \"Strategic risk assessment...\", \"Case study: Hiring high-quality AI Trainers at scale\"), so no cited slide states its so-what. Correction: the \"bottom quarter\" dead-space characterization is exaggerated \u2014 the gap is ~0.84in on s07 (table bottom 6.28in to footer 7.12in) and ~0.97in on s10 (cards bottom 6.15in to footer 7.12in), i.e. 11\u201313% of the 7.5in canvas, not 25%. Core defect stands: severity \"major\" is warranted.",
+   "confidence": "high",
+   "src": "ov2"
+  },
+  {
+   "severity": "major",
+   "where": "s10.png (slide 10 \u2014 right column)",
+   "title": "Two of four risks are contentless filler, and all cards are half-empty",
+   "detail": "CONFIRMED at Omada deck slide 10 (s10.png / PPTX slide index 9, \"RISK ANALYSIS\"). Right-column risks are generic filler with zero Omada data: TIMING/Seasonal Variations = \"Impact: Hiring demand and candidate supply fluctuate throughout the year\" and COMPETITION/Competitive Landscape = \"Impact: Competitors may increase hiring activity during campaign period\" \u2014 both tautologies true of any campaign, versus the left column's quantified risks (\"If CPA rises 20%, hires drop from 143 to 119\"; \"62% of budget on programmatic_dsp, global_boards \u2014 disruption could impact 89 hires\"). Layout defect also confirmed via PPTX geometry: in all four cards the Impact text box is 0.6\" tall (top 2.15\"/4.6\") but holds one ~0.25\" line, and Mitigation starts at 2.9\"/5.35\", leaving a ~0.5\" blank band between Impact and Mitigation in every card plus additional empty space below Mitigation \u2014 three of four cards are roughly half whitespace (only Channel Concentration wraps to two lines).",
+   "confidence": "high",
+   "src": "ov2"
+  },
+  {
+   "severity": "major",
+   "where": "s09.png (slide 9 \u2014 title area)",
+   "title": "Two-line title crowds the content below it",
+   "detail": "CONFIRMED with one correction. Omada slide 9 (s09.png, 1466x825 render): the title wraps to two lines and the second line \"roadmap\" (text rows ~150-170, descender ending ~169-170) sits ~1-2 px above the navy \"Omada.ai's Plan\" card header (starts row 171) \u2014 the descender effectively touches the card. Deck baseline title-to-content gaps on other Omada slides are 24-74 px (s04=26, s07=24, s08=51, s10=74), so this is a genuine outlier, not intentional design. Root cause in Omada_ai_Strategy_Deck.pptx slide 9: title textbox is 0.45\" tall (top 0.92\", bottom 1.37\"), sized for one line, and the two-line text overflows the box toward the card header at top 1.60\". Correction: the title is 14 words, not 17 (\"Omada.ai's optimized media plan vs. Retail & Consumer industry averages with phased implementation roadmap\"); the point that it is a description rather than an MBB-style finding still holds.",
+   "confidence": "high",
+   "src": "ov2"
+  },
+  {
+   "severity": "critical",
+   "where": "All money-bearing sheets \u2014 e.g. Executive Summary J32 ('Budget (USD)'), B6/F17 ('$150,000'/'$5,000'), D22:D29 ('$#,##0' formats); ROI Projections C7 ('Budget ($)'); Quality Intelligence D54; Channel Recommendations E12:E21; Intl Benchmarks (all USD)",
+   "title": "Entire New Zealand plan is denominated in bare USD $",
+   "detail": "CONFIRMED, with one coordinate fix and one strengthening fact. In Pratt_Whitney_New_Zealand_Media_Plan.xlsx the entire plan is denominated in bare '$'/USD despite being an NZD plan: Executive Summary K32 (not J32; J32='Channel') is literally headed 'Budget (USD)' over the chart staging budgets K33:K40 (46298.08, 31442.31, 23942.31, 18865.38, 16298.08, 5653.85, 4500, 3000); B6='$150,000' and F17='$5,000' are $-prefixed strings; D22:D29 use hardcoded '$#,##0' number formats; ROI Projections C7='Budget ($)'; Quality Intelligence D54='$150,000'; Channel Recommendations E12:E21 are $-strings ('$31,200', '$25,050', '$21,900', '$21,900', 'Spend', '$18,750', '$15,600', '$15,600'). Workbook-wide: 223 $-prefixed string cells + 106 '$' number-format cells; the ONLY NZD mention in the workbook is Market Intelligence E25 '$48,000 (NZD)'. Intl Benchmarks (E5/F5/G5 '(USD)' headers) is the sole sheet with an FX note (B44: 'All USD figures use March 2026 mid-market exchange rates'). Strengthening fact: the companion deck (Pratt_Whitney_New_Zealand_Strategy_Deck.pptx) denominates the SAME plan entirely in NZ$ (slide 2 'NZ$150K', '30 hires at NZ$5,000/hire'; slides 5-6 NZ$46,298 / NZ$31,442 / NZ$23,942 etc. \u2014 identical numeric values to K33:K40) with zero USD mentions, so the workbook's 'Budget (USD)' header outright mislabels NZD figures as USD and contradicts the deck. This is the owner's banned 'hardcoded $ on non-USD plans' defect at full workbook scale.",
+   "confidence": "high",
+   "src": "px"
+  },
+  {
+   "severity": "critical",
+   "where": "Channel Recommendations (whole sheet) vs Executive Summary B21:J29 / ROI Projections / 90-Day Forecast / Confidence Intervals",
+   "title": "Two contradictory media plans for the same $150,000 in one workbook",
+   "detail": "CONFIRMED in Pratt_Whitney_New_Zealand_Media_Plan.xlsx. Plan A (Executive Summary B21:J29, repeated in ROI Projections B8:B15, 90-Day Forecast B14:B21, Confidence Intervals B13:B38) allocates $150,000 across 8 channel categories \u2014 Niche Boards 30.9%/$46,298.08, Programmatic DSP 21%/$31,442.31, Global Boards 16%/$23,942.31, Employer Branding 12.6%/$18,865.38, Regional Boards 10.9%/$16,298.08, APAC Regional 3.8%/$5,653.85, Social Media 3%/$4,500, EMEA Regional 2%/$3,000 \u2014 projecting 4,418 applications (90-Day Forecast F8) at blended CPA $33.95 (90-Day Forecast F10). Plan B (Channel Recommendations sheet, C5:C8 and rows 12-21) allocates the same $150,000 across a contradictory 7-funded-platform mix \u2014 LinkedIn Ads 20.8%/$31,200, Google Ads 16.7%/$25,050, Programmatic DSP 14.6%/$21,900, Indeed 14.6%/$21,900, Bing 12.5%/$18,750, X 10.4%/$15,600, ZipRecruiter 10.4%/$15,600 \u2014 projecting 1,637 applications (C6) at avg CPA $91.63 (C8), 2.70x apart. Both claim exactly 30 hires (Exec Summary D17 / ROI Projections C4 vs Channel Recommendations C7). The mixes truly contradict (Plan A: 30.9% niche boards, 3% social; Plan B: $0 niche boards, 31.2% LinkedIn+X social), and a keyword scan of all 11 sheets found no reconciling or \"alternative scenario\" language \u2014 the only cross-reference is Channel Recommendations B34 attributing itself to a different engine (\"Nova AI Channel Recommender Engine\").",
+   "confidence": "high",
+   "src": "px"
+  },
+  {
+   "severity": "critical",
+   "where": "Market Intelligence B5:D21, B33:D37, B46:F51; Niche Board Matching B7:B11; Channels & Strategy B46:B50; Quality Intelligence B16:G29, B79:G87",
+   "title": "US-market intelligence sold as a New Zealand plan",
+   "detail": "CONFIRMED, and understated. Pratt_Whitney_New_Zealand_Media_Plan.xlsx is titled \"Recruitment Media Plan: Pratt & Whitney New Zealand\" (Executive Summary B2) yet its intelligence layer is entirely US-market: (1) Market Intelligence B5:D21 = US industry metrics \u2014 D7 \"NAICS 3364 (Aerospace) + 9271 (National Security)\" under label \"Bls Sector Code\", D8 \"Total Employment Us: 2.2M\", D12\u2013D15 JOLTS openings/quits/hires/layoffs rates, D18 \"FY2024 DoD budget: $886B\". (2) B33:D37 = US macro: Job Openings 6,882K, Avg Hourly Earnings $37.32, Fed Funds Rate 3.64%, CPI Index 327.46 \u2014 directly under NZ unemployment 3.4% (D25). (3) B46:F51 competitors = Lockheed Martin, Boeing, Raytheon (B49), Northrop Grumman, General Dynamics \u2014 Raytheon/RTX is Pratt & Whitney's parent company, listed as its competitor. (4) Niche Board Matching B7:B11 and Channels & Strategy B46:B50 recommend ClearedJobs.Net, ClearanceJobs, Military.com, USAJOBS and Hire Heroes USA \u2014 USAJOBS being the US federal government careers site, unusable for NZ hiring. (5) Quality Intelligence B16:G29 builds a US clearance model (\"Primary Clearance: Public Trust\" C18; Top Secret/SCI tiers B22\u2013B25; channels \"USAJobs, Indeed, LinkedIn, GovernmentJobs.com\" C29 \u2014 NZ vetting is NZSIS CV/SV/TSS, not US Public Trust), and B79:G87 keys the activation calendar to DoD fiscal year-end (C81\u2013C82), AUSA (C83) and \"AUSA (Oct); Sea-Air-Space (Apr); SHOT Show (Jan)\" (C87). (6) The workbook's own Intl Benchmarks row 24 (B24/D24) lists the correct NZ channels \u2014 \"Seek New Zealand, Trade Me Jobs, LinkedIn New Zealand\" \u2014 and a full-workbook search confirms Seek NZ and Trade Me Jobs appear nowhere else in the plan (only generic \"LinkedIn\" does). Bonus defect beyond the claim: Market Intelligence B30:C30 Location Intelligence row reads \"New Zealand | United States\" \u2014 the country field literally says United States. Only trivial nuance: generic LinkedIn does appear in recommendations, but never LinkedIn NZ as a named NZ channel; claim otherwise exact.",
+   "confidence": "high",
+   "src": "px"
+  },
+  {
+   "severity": "critical",
+   "where": "Executive Summary D30:G30",
+   "title": "Total row formulas are shifted one column \u2014 every total is wrong",
+   "detail": "CONFIRMED exactly as claimed. Pratt_Whitney_New_Zealand_Media_Plan.xlsx, sheet \"Executive Summary\", Total row 30 of the channel table (headers B21:I21 = Channel, %, Amount, Proj. Clicks, Proj. Apps, Proj. Hires, CPC, CPA; data rows 22-29): every total formula is shifted one column left in its source range. D30 (Amount, format $#,##0) = =SUM(C22:C29) = 1.002, so the Amount total displays as \"$1\"; E30 (Proj. Clicks) = =SUM(D22:D29) = 150,000.01 (the $150K budget total shown as clicks); F30 (Proj. Apps) = =SUM(E22:E29) = 67,356 (total clicks shown as apps); G30 (Proj. Hires) = =SUM(F22:F29) = 4,418 (total apps shown as hires, vs actual projected hires sum of ~30). C30 is empty and nothing sums the real Proj. Hires column G22:G29. Every figure in the headline table's total row is wrong; the fix is to shift each SUM range right by one column (D30==SUM(D22:D29), etc.).",
+   "confidence": "high",
+   "src": "px"
+  },
+  {
+   "severity": "critical",
+   "where": "Market Intelligence B30:G30",
+   "title": "New Zealand mapped to Country = 'United States' with an all-empty data row",
+   "detail": "CONFIRMED as claimed. Pratt_Whitney_New_Zealand_Media_Plan.xlsx, sheet 'Market Intelligence': the LOCATION INTELLIGENCE table (header B28, columns B29:G29 = Location/Country/Population/Unemployment/Median Income/Key Industries) has exactly one data row, B30:G30 = ['New Zealand', 'United States', '\u2014', '\u2014', '\u2014', '\u2014'] \u2014 New Zealand mis-mapped to Country='United States' with all four data fields as em-dashes. Sheet 'Sources & Confidence' C12 confirms Location Profiles confidence = 0% (grade F, D12). Correct NZ data exists two sections up in the same sheet ('Location Economic Context' row 25: Country='New Zealand', Unemployment D25='3.4%', Median Salary E25='$48,000 (NZD)'), so the row should have been suppressed or populated from it. Corroborating: Sources & Confidence B22 validation finding flags 'New Zealand' as a known country name appearing in city_level_data \u2014 the generator itself detected the location-type confusion that produced the wrong Country value. Genuine defect, not intentional design.",
+   "confidence": "high",
+   "src": "px"
+  },
+  {
+   "severity": "major",
+   "where": "Channels & Strategy G18; Sources & Confidence D22; Quality Intelligence F33; Intl Benchmarks H12/H19/H27",
+   "title": "Strings hard-truncated mid-word at fixed character limits",
+   "detail": "CONFIRMED in Pratt_Whitney_New_Zealand_Media_Plan.xlsx \u2014 strings are hard-truncated at fixed character caps in the stored cell values (generation-time data loss, not a rendering issue). Exact values: Channels & Strategy!G18 = exactly 120 chars ending '\u2026targets Aircraft Tradesperson; in ' (dangling \"in \" + trailing space); Sources & Confidence!D22 = exactly 80 chars ending '\u2026verify it is not inc' (mid-word); Quality Intelligence!F33 = exactly 100 chars ending '\u2026targeted positioning in New Zeala' (mid-word \"Zealand\"); Intl Benchmarks!H12/H19/H27 = exactly 93 chars each, ending mid-word ('\u2026except federally regulated i', '\u2026Digital Personal Data Protectio', '\u2026Laboral) governs emplo'). Defect is slightly broader than claimed: Channels & Strategy G17 and G24 are also clipped at exactly 100 chars, confirming systematic fixed-limit clipping (80/93/100/120-char caps) rather than isolated cells.",
+   "confidence": "high",
+   "src": "px"
+  },
+  {
+   "severity": "major",
+   "where": "Market Intelligence D70:D114 and B84:B91 (29 cells, 180\u20134,215 chars each, e.g. D106 = 4,215 chars)",
+   "title": "Raw snake_case JSON dumps in merged cells that Excel will clip to one line",
+   "detail": "CONFIRMED in Pratt_Whitney_New_Zealand_Media_Plan.xlsx, sheet \"Market Intelligence\". 29 cells contain raw flattened snake_case key:value dumps: 21 D-cells (D70-D76, D79-D81, D97-D99, D105-D108, D111-D114) merged D:H, plus 8 B-cells (B84-B91) merged B:H. Verified lengths: D106=4,215 chars, D105=4,040, D111=4,087, D80=2,272, D79=2,171 (actual range 145-4,215 chars; floor is B85 at 145, slightly below the claimed 180). All 29 have wrap_text=True but their rows have NO explicit height (row_dimensions height=None), and Excel never auto-fits merged wrapped cells, so each renders as one clipped ~15pt line hiding thousands of characters. Content is unmistakably pipeline debris, e.g. D105 starts 'indeed: market_position: global_companies_using: Over 45,043 companies worldwide using Indeed; us_dominance: 69.05%...' and B84-B91 are literal YAML list fragments ('  - key: appcast_benchmark_2023; title: ...'). B54 contradiction also confirmed: B54 (merged B54:H54 under 'Market Positioning') reads 'industry_sector: aerospace_defense; is_public_company: No; competitor_count: 0; has_sec_filings: No' while rows 47-51 directly above list exactly 5 competitors (Lockheed Martin, Boeing, Raytheon, Northrop Grumman, General Dynamics). Claim holds as a major defect.",
+   "confidence": "high",
+   "src": "px"
+  },
+  {
+   "severity": "major",
+   "where": "ROI Projections C19:C25 vs D8:E15; Niche Board Matching D3; Quality Intelligence E38 vs Market Intelligence D17",
+   "title": "Stated conversion assumptions contradict the model by 10\u201320x, plus supply/salary contradictions",
+   "detail": "CONFIRMED in Pratt_Whitney_New_Zealand_Media_Plan.xlsx, all four sub-claims verified against actual cells. (1) ROI Projections: the \"Conversion Rate Assumptions\" table (B17) states C22 Niche/Specialty = \"10-15%\" and C19 Job Boards = \"8-12%\" app-to-hire, but the Per-Channel ROI table on the same sheet runs at ~0.7%: Niche Boards D8=1,256 apps \u2192 E8=9 hires (0.72%, a 14-21x gap) and Global Boards D10=1,134 \u2192 E10=8 (0.71%, an 11-17x gap). The same \"10-15% apply-to-hire\" claim is repeated verbatim on Niche Board Matching D3. (2) Supply contradiction: Quality Intelligence B38/E38 rates Aircraft Tradesperson supply \"Abundant\" (difficulty 4.0/10), while Market Intelligence D17 says \"HIGH \u2014 25% of A&D workforce eligible for retirement in 5 years; security clearance backlog adds 3-6 months\" and Exec Summary D53 says \"Extremely limited candidate pool for cleared positions\" \u2014 and QI D17/D18 itself flags the role as clearance-related (Public Trust). (3) Salary contradiction: same role (Aircraft Tradesperson) has median $85,000 on Market Intelligence E59 but $56,250 on Quality Intelligence E13 (0.75x NZ multiplier over a $75,000 baseline \u2014 still irreconcilable with $85,000). (4) Time-to-fill: ROI E4 headline \"33 days\" vs Exec D54 \"average_days: 50-80 days; cleared_positions: 60-120 days\" and MI D16 \"55 days (cleared roles: 75+ days)\". Only mitigation found: ROI B27 footnote frames the 8-15% rates as \"industry averages from SHRM, Appcast, and CEB research\", but the table is titled \"Assumptions\" and nothing reconciles the 10-20x gap. Defect stands as major.",
+   "confidence": "high",
+   "src": "px"
+  },
+  {
+   "severity": "major",
+   "where": "Executive Summary F9 vs D17; B67; 90-Day Forecast C9:F9",
+   "title": "Plan delivers 30 hires against a 50\u2013100 hire goal, with a dangling 'optimized' reference and a 29-vs-30 sum slip",
+   "detail": "CONFIRMED, all three parts, in Pratt_Whitney_New_Zealand_Media_Plan.xlsx. (1) Executive Summary F9 = \"50-100 hires\" (Hire Volume) vs D17 = 30 (Projected Hires) \u2014 a 40% shortfall against the low-end goal; a full-workbook text scan finds no cell reconciling this gap (B60 only models CPA-inflation risk 30\u219225; B66 only notes budget >1.5x industry avg per hire). (2) B67 reads verbatim \"4. Optimised allocation could improve projected hires by 200%. See the 'optimized' section for details.\" \u2014 no sheet or section named \"optimized\" exists among the 11 sheets; the only near-match is \"Optimization Milestones\" (90-Day Forecast B23), a scheduling timeline with no allocation scenario, so the reference is dangling. (3) 90-Day Forecast row 9 Hires: C9=7, D9=10, E9=12 sum to 29 while F9 states 30 (off by one; the Executive Summary channel table G22:G29 sums exactly to 30, so the monthly split is inconsistent with the stated total).",
+   "confidence": "high",
+   "src": "px"
+  },
+  {
+   "severity": "major",
+   "where": "Channels & Strategy B4:B11, B17:B24; Executive Summary B64:B65",
+   "title": "snake_case machine identifiers shown to the client",
+   "detail": "CONFIRMED in Pratt_Whitney_New_Zealand_Media_Plan.xlsx. (1) 'Channels & Strategy' B4:B11 (Channel Strategy Overview table) contains raw snake_case identifiers verbatim: niche_boards, programmatic_dsp, global_boards, employer_branding, regional_boards, apac_regional, social_media, emea_regional. (2) Same sheet B17:B24 (Recommended Channels (Vetted) table) repeats all eight snake_case identifiers. (3) 'Executive Summary' B64 reads '1. Channels with low ROI scores (social_media, emea_regional) may benefit from budget reallocation...' and B65 reads '2. Low Efficiency alert: social_media, emea_regional projected 0 hires despite >$1,000 spend...' \u2014 machine names verbatim in client-facing prose. (4) The inconsistent-casing half also holds: the same channels are rendered via naive title-casing as 'Programmatic Dsp', 'Apac Regional', 'Emea Regional' at Executive Summary B23/B27/B29 and J34/J38/J40, ROI Projections B9/B13/B15, 90-Day Forecast B15/B19/B21, and Confidence Intervals B17:B20/B31:B34/B37:B38 \u2014 so the workbook shows the same channel three ways (snake_case, wrong-acronym Title Case, never the correct 'Programmatic DSP'/'APAC Regional'/'EMEA Regional'). Bonus instance of the same defect class: Executive Summary B56 exposes raw keys 'peak_months:'/'trough_months:' in the Seasonal Patterns cell. Claim is accurate and, if anything, slightly understated.",
+   "confidence": "high",
+   "src": "px"
+  },
+  {
+   "severity": "major",
+   "where": "Channels & Strategy E17:F24, C29:E41; Quality Intelligence C57:C68, D54; Channel Recommendations C5:C8, D12:G30; Confidence Intervals D13:F38; ROI Projections B4:E4",
+   "title": "Roughly half the workbook's money and percent values are text strings, not numbers",
+   "detail": "CONFIRMED, slightly understated. In Pratt_Whitney_New_Zealand_Media_Plan.xlsx, every cited range stores money/percent values as text (openpyxl data_type='s', number_format='General'): Channels & Strategy E17:F24 ('$5.16','30.9%'... 16 cells) and C29:E41 Ad Platform Analysis ('$2.69','$48.96'... 39 cells); Quality Intelligence C57:C68 Multi-Tier Budget ('$108,000'...'$1,650') and D54 ('$150,000') \u2014 that sheet has ZERO numeric cells; Channel Recommendations C5:C8 ('$150,000','1,637','30','$91.63') and D12:G30 Alloc%/Spend/CPC/CPA ('20.8%','$31,200','$7.20','$253.66'...); Confidence Intervals D13:F38 \u2014 all 78 populated cells strings ('$44','1,004','$6,614'...), sheet fully non-numeric; ROI Projections B4:E4 headline KPIs ('$150,000','30','$5,000','33 days'). Workbook-wide: 283 numeric-looking text strings vs 238 true numeric cells (54% text), so 'roughly half' is accurate. Inconsistency proven: Executive Summary (C22=0.309 fmt '0.0%', D22=46298.08 fmt '$#,##0'), ROI Projections detail rows (C8=46298.08 '$#,##0') and the whole 90-Day Forecast (56 numeric, 0 strings) are correctly typed floats with currency/percent formats. None of the string cells are summable; not intentional design.",
+   "confidence": "high",
+   "src": "px"
+  },
+  {
+   "severity": "major",
+   "where": "All 11 sheets (sheetView XML has no showGridLines=0; A1/M5/B45 fills = None); Channel Recommendations B1/B11; Intl Benchmarks tab",
+   "title": "Design system half-applied: gridlines visible, no brand canvas, one rogue sheet",
+   "detail": "CONFIRMED with one sub-detail corrected. (1) Gridlines: no worksheet in either workbook sets showGridLines=\"0\" \u2014 verified in raw XML, every <sheetView> is bare <sheetView workbookViewId=\"0\"> across all 11 Pratt sheets (Pratt_Whitney_New_Zealand_Media_Plan.xlsx) and all 10 Omada sheets, so gridlines render everywhere. (2) No brand canvas: A1 and M5 fills are None on all 11 Pratt sheets; content cells use #FFFCF9/#F4F4FF card fills (e.g. Exec Summary B6=FFFCF9, Channels & Strategy B5=F4F4FF) but the canvas outside content is unfilled white, so near-white cards sit on a white gridded background. (3) Channel Recommendations breaks the layout system: it is the only sheet starting at row 1 (others start B2); its table header row B11:L11 is filled navy #202058 while the workbook-standard header fill is #5A54BE (Channels & Strategy B3:H3, Intl Benchmarks B5:H5 both use 5A54BE); its data rows (12-15 etc.) have no white/#F4F4FF zebra banding unlike every other table sheet. Identical in Omada (B1=5A54BE title, B11=202058 header). CORRECTION: the claim's \"no styled title band\" is wrong \u2014 B1:I1 IS a solid #5A54BE title band containing \"Channel Recommendations\"; the real defect is that the band is inverted (5A54BE title + 202058 headers vs the standard 202058 title band + 5A54BE headers), sits on row 1 instead of row 2, and stops at column I while the table spans to column L (J1:L1 unfilled). (4) Tab colors: Pratt sheet11 (Intl Benchmarks) has no <tabColor> element; all other 10 Pratt sheets carry brand tab colors (202058/5A54BE/6BB5CE/8680D6/B7669E). Severity \"major\" stands.",
+   "confidence": "high",
+   "src": "px"
+  },
+  {
+   "severity": "major",
+   "where": "Market Intelligence C46:F51, C65:E65; Sources & Confidence E9:E15; Channel Recommendations D25:J30",
+   "title": "Empty columns and zero/garbage metrics left visible",
+   "detail": "CONFIRMED in Pratt_Whitney_New_Zealand_Media_Plan.xlsx (all five sub-claims verified cell-by-cell): (1) Market Intelligence 'Competitor Analysis' table (header row 46: Name/Industry/Size/Hiring Activity/Overlap Score) \u2014 'Size' (D47:D51) and 'Overlap Score' (F47:F51) are blank (None) for all 5 rows (Lockheed Martin, Boeing, Raytheon, Northrop Grumman, General Dynamics); adjacent B54 even leaks a raw key dump 'competitor_count: 0'. (2) Market Intelligence 'MARKET DEMAND BY ROLE' row 65 (Aircraft Tradesperson): Postings C65='0', Talent Pool D65='0', Competition E65 blank \u2014 yet Temperature F65='hot' and Trend G65='Stable (+2% YoY)', an internal contradiction. (3) Sources & Confidence: 'Sources' column header at E8, but E9:E15 are all empty for all 7 sections (Salary Intelligence through Workforce Insights). (4) Channel Recommendations: TEST & LEARN row 25 (Meta) has Alloc 0.0% / Spend $0 (D25/E25) yet projects 5,050 clicks / 151 apps / 3 hires (H25:J25); SKIP rows 29-30 (TikTok, Snapchat) also 0.0%/$0 yet project 3,030/60/1 and 1,683/33/1 respectively \u2014 hires projected against zero spend. (5) Intl Benchmarks 'CPC Range (USD)' column E shows '$0.00-$0.00' segments instead of an em-dash/N-A: Belgium E10 ('$0.00-$0.00; $1.64-$7.63'), Singapore E32 ('$0.00-$0.00; $1.50-$6.00'), Sweden E35 ('$0.00-$0.00; $1.44-$5.76'), and Austria E8 has it in the second range ('$1.09-$5.45; $0.00-$0.00'). Only trivial imprecision in the claim: the blank competitor columns are specifically D and F (not the whole C46:F51 block), and the row-65 contradiction spans C65:F65 (Temperature is in F, not E). Severity 'major' is fair \u2014 null/zero placeholder data is left visible in four separate client-facing sheets.",
+   "confidence": "high",
+   "src": "px"
+  },
+  {
+   "severity": "critical",
+   "where": "Executive Summary!C28:G28 (Total row of Budget Allocation table)",
+   "title": "Total-row SUM formulas are misaligned by one column",
+   "detail": "CONFIRMED in Omada_ai_Media_Plan.xlsx, sheet \"Executive Summary\" (first sheet), Budget Allocation total row 28 (headers row 21: C=%, D=Amount, E=Proj. Clicks, F=Proj. Apps, G=Proj. Hires; data rows 22-27). All four total formulas are shifted one column left of where they belong: D28='=SUM(C22:C27)' sums the % column (=1.0) into the Amount cell, which has format $#,##0 and would display as \"$1\" instead of $240,000; E28='=SUM(D22:D27)' puts the $240,000 budget total under Proj. Clicks (true total 316,557); F28='=SUM(E22:E27)' puts 316,557 clicks under Proj. Apps (true total 12,755); G28='=SUM(F22:F27)' puts 12,755 apps under Proj. Hires (true total 143). C28 is empty (no % total) and the hires total 143 appears nowhere. Verified via openpyxl that no cached formula values exist (data_only=True returns None for all four cells), so non-recalculating renderers (previews/PDF export) would show blank totals. Claim holds exactly as stated.",
+   "confidence": "high",
+   "src": "ox"
+  },
+  {
+   "severity": "critical",
+   "where": "Channel Recommendations (whole sheet) vs Executive Summary/ROI Projections/90-Day Forecast",
+   "title": "Workbook contains two contradictory media plans",
+   "detail": "CONFIRMED in Omada_ai_Media_Plan.xlsx. The workbook ships two contradictory media plans for the same $240,000 / 143 hires. (1) Executive Summary B22:J27 plans 6 channel groups (Programmatic Dsp $96,000, Global Boards $52,800, Social Media $48,000, Niche Boards $19,200, Regional Boards $16,800, Employer Branding $7,200) totaling 12,755 applications (8,645+2,083+223+770+909+125) and 143 hires; this matches 90-Day Forecast F8=12,755 apps and F10=$18.82 blended CPA (240,000/12,755), and ROI Projections rows 8-13. (2) Channel Recommendations sheet instead plans 7 MUST-HAVE platforms (Meta, Indeed, Google Ads, TikTok, Programmatic Display DSP, Snapchat, ZipRecruiter) with C6=4,882 applications, C7=143 hires, C8=$49.16 avg CPA (restated in narrative B26) \u2014 a 2.61x smaller application funnel claiming the identical 143 hires. Additional verified defects on that sheet: MUST-HAVE spend E12:E18 sums to $240,240 (38,640+38,640+34,320+34,320+34,320+30,000+30,000), $240 over the stated $240,000 budget in C5; Alloc % D12:D18 sums to 100.1% (16.1+16.1+14.3+14.3+14.3+12.5+12.5); and per-row CPA contradicts its own spend/apps \u2014 e.g. Indeed row 13: $38,640/780 apps = $49.54 implied vs stated CPA $19.80 in G13 (clicks column is CPC-consistent, so the CPA and Apps columns are mutually inconsistent on every funded row). A client cannot tell which channel mix, application volume, or CPA they are buying.",
+   "confidence": "high",
+   "src": "ox"
+  },
+  {
+   "severity": "critical",
+   "where": "Executive Summary F9 ('5000 hires') vs D17 ('143' projected hires)",
+   "title": "Plan delivers 2.9% of the client's stated hiring goal and never reconciles the gap",
+   "detail": "CONFIRMED (Omada bundle). Omada_ai_Media_Plan.xlsx 'Executive Summary': F9='5000 hires' (Hire Volume goal) vs D17='143' Projected Hires from B17=$240,000 at F17=$1,678/hire \u2014 2.86% of goal, never reconciled. B50 benchmark 'Cph: recruitment_marketing_only: $400-$800' implies 5,000 hires needs $2.0M-$4.0M (~10-17x actual budget), yet recommendation #1 (B64) states 'Budget exceeds 1.5x the industry average per hire. Consider investing the surplus\u2026', framing the budget as too large. Grep of all 10 sheets: '5000' appears only in F9; no shortfall/phased-target language anywhere. Deck (Omada_ai_Strategy_Deck.pptx, all 11 slides): the 5,000-hire goal is never mentioned; slide 2 presents '143 Projected Hires' as the thesis and slide 6 repeats 143/$1,675 CPH with no gap narrative (slide 9's 'Phase 1-3' is a generic weeks-1-12 rollout, not a hiring-goal phasing). Claim holds exactly as stated.",
+   "confidence": "high",
+   "src": "ox"
+  },
+  {
+   "severity": "critical",
+   "where": "ROI Projections B8:E13 vs B16:C23 (Conversion Rate Assumptions)",
+   "title": "Projections contradict the sheet's own stated conversion assumptions by 5\u201310x",
+   "detail": "CONFIRMED in Omada_ai_Media_Plan.xlsx, sheet \"ROI Projections\". The Per-Channel ROI Analysis table (rows 8-13, cols B-J) projects hires that contradict the sheet's own \"Conversion Rate Assumptions\" table (B16:E23, col C = \"App-to-Hire Rate\"). Exact values: Programmatic Dsp (row 8) 76 hires / 8,645 applications = 0.88% implied vs stated Programmatic/DSP 5-8% (5.7-9.1x below); Global Boards (row 9) 34/2,083 = 1.63% vs Job Boards 8-12% (4.9-7.4x below); Niche Boards (row 11) 12/770 = 1.56% vs Niche/Specialty 10-15% (6.4-9.6x below); Social Media (row 10) 3/223 = 1.35% vs Social 3-6% (2.2-4.5x below). The claim additionally UNDERCOUNTS the defect: Regional Boards (row 12) 14/909 = 1.54% vs Aggregators/Regional 6-10% (3.9-6.5x below) and Employer Branding (row 13) 4/125 = 3.20% vs Career Sites 8-12% (2.5-3.8x below) also violate the assumptions. All 6 channels fall below the lower bound of their stated range. Minor correction to the claim's wording: the gap is 5-10x only for Programmatic/Global Boards/Niche; Social, Regional, and Employer Branding are 2-6x below, not 5-10x. Core defect stands: the projections and the printed assumptions cannot both be true, on the same client-facing sheet.",
+   "confidence": "high",
+   "src": "ox"
+  },
+  {
+   "severity": "major",
+   "where": "Exec Summary B6/B17/D17/F17; ROI Projections B4:E4; Channels & Strategy E15:H20 + C25:F37; Quality Intelligence C70:C81/D8:H31/E36-E45; Confidence Intervals D13:F36; Channel Recommendations C5:C8, D12:G24 (Spend/CPC/CPA/Alloc%)",
+   "title": "Roughly half of all money and metric values are text strings, not numeric cells",
+   "detail": "CONFIRMED in Omada_ai_Media_Plan.xlsx (all cited cells verified via openpyxl data_type). Every cited range is text strings with 'General' format, not numeric cells: Executive Summary B6='$240,000', B17='$240,000', D17='143', F17='$1,678' (all type 's'); ROI Projections B4:E4 = '$240,000'/'143'/'$1,678'/'25 days'; Channels & Strategy E15:H20 24/24 strings (E15 '$2.49', H15 '0.80') and C25:F37 52/52 strings (C25 '$2.69', E25 '$48.96'); Quality Intelligence C70:C81 12/12 strings (C70 '$172,800'), D8:H31 105/105 strings (D8 '$81,000'), E36:E45 10/10 strings ('750' etc.); Confidence Intervals D13:F36 72/72 strings ('$13', '6,916'); Channel Recommendations C5:C8 4/4 strings ('$240,000', '4,882', '143', '$49.16') and D12:G24 44/44 strings ('16.1%', '$38,640', '$2.16', '$72.00'). None can be summed/charted/format-switched. The claim's contrast is also accurate: the Exec Summary channel table (D22:D27 = 96000..7200 with '$#,##0'; H22:I27 with '\"$\"#,##0.00'; K31:K36) and the 90-Day Forecast sheet (46 numeric cells, 0 numeric-looking strings) are done correctly as numeric cells. Workbook-wide the defect is slightly UNDERstated: 362 numeric-looking string cells vs 190 true numeric cells (~66% strings, not 'roughly half').",
+   "confidence": "high",
+   "src": "ox"
+  },
+  {
+   "severity": "major",
+   "where": "Channels & Strategy G16",
+   "title": "Generator hard-truncates rationale text at 120 chars mid-word",
+   "detail": "CONFIRMED. Omada_ai_Media_Plan.xlsx, sheet \"Channels & Strategy\", RECOMMENDED CHANNELS (VETTED) table (header row 14, col G = \"Strategic Rationale\"): cell G16 (global_boards row) contains a value of exactly 120 characters that is hard-truncated mid-word \u2014 it ends '...targets Business Sales Representat' (the word \"Representative\" cut after \"Representat\"). This is the stored cell value, verified via openpyxl, so it is data-level truncation by the generator, not a rendering/column-width issue. The 120-char cap reading is corroborated: G16 is the only rationale long enough to hit the cap and lands at exactly 120 chars, while G15/G17/G18/G19/G20 (74/105/79/92/92 chars) all end with the complete word \"Representative\". Secondary claim also confirmed: all six cells G15\u2013G20 end with the identical boilerplate suffix \"targets Business Sales Representative\" (G16's instance truncated), i.e., the suffix repeats six times in a row.",
+   "confidence": "high",
+   "src": "ox"
+  },
+  {
+   "severity": "major",
+   "where": "Market Intelligence D89\u2013D99, D115\u2013D118, D134\u2013D143; Exec Summary D48\u2013D55; Quality Intelligence H22:H31; Channels & Strategy B4:B9",
+   "title": "Raw internal data structures leak into client-facing cells",
+   "detail": "CONFIRMED in Omada_ai_Media_Plan.xlsx \u2014 every cited location checks out. (1) Market Intelligence D89\u2013D99, D115\u2013D118, D134\u2013D143 are raw snake_case 'key: value; key: value' dict dumps: D135 = 4,215 chars ('market_growth: growth_rate: ...; global_programmatic_spend_2026: $725 billion...'), D140 = 4,087 chars ('ai_ml_engineers: hiring_growth: 88%...'), D134 = 4,040 chars ('indeed: market_position: global_companies_using: Over 45,043...'), plus D97 2,171 / D98 2,272 / D99 2,094 / D92 1,482 / D89 1,127 chars \u2014 exactly as claimed. (2) Exec Summary D48\u2013D55 are the same raw dumps ('range: $8-$25; median: $15; hourly_roles: ...'). (3) Exec Summary D60 leaks internal channel keys verbatim: '62% of budget concentrated on programmatic_dsp, global_boards'. (4) Channels & Strategy B4:B9 = 'programmatic_dsp', 'global_boards', 'social_media', 'niche_boards', 'regional_boards', 'employer_branding' \u2014 snake_case, not display names. (5) Quality Intelligence H22:H31 = internal tag 'generic_enrichment' in all 10 rows. (6) Market Intelligence B72 is the verbatim dict 'industry_sector: retail_consumer; is_public_company: No; competitor_count: 0; has_sec_filings: No'. (7) Ugly title-cased key labels confirmed: Exec Summary B48 'Cpa', B49 'Cpc'; Market Intelligence B7 'Bls Sector Code', B9 'Projected Growth 2024 2034', B117 'International Cpa'. Additional leak found: Market Intelligence D138 and D139 contain the literal string 'None' (Python null rendered as text). Only trivial nuance: D115\u2013D118 are shorter (134\u2013366 chars) than the 1,100+ range implied for that block, but they are still raw snake_case dumps ('occupation_key: retail; cpa: $12.29; cph: $590...'). Major severity is warranted.",
+   "confidence": "high",
+   "src": "ox"
+  },
+  {
+   "severity": "major",
+   "where": "Market Intelligence B27/B41/B175; Quality Intelligence B10/B24/B38",
+   "title": "'pheonix' misspelling shipped 6 times, plus lowercase city names throughout",
+   "detail": "CONFIRMED, slightly worse than claimed. Omada_ai_Media_Plan.xlsx: 'pheonix' appears 8 times (not 6) \u2014 the six claimed cells Market Intelligence B27/B41/B175 and Quality Intelligence B10/B24/B38 all contain exactly 'pheonix', plus two prose cells the reviewer missed: Market Intelligence F27 ('US market \u2014  pheonix.') and Quality Intelligence F38 ('Lower competition in pheonix \u2014 favorable market...'). Phoenix is never spelled correctly anywhere in the workbook. Lowercase cities confirmed: the 10-city list (Dallas, houston, pheonix, atlanta, tampa, charlotte, nashville, orlando, las vegas, miami) repeats in 6 blocks \u2014 Market Intelligence B25-34, B39-48, B173-182 and Quality Intelligence B8-17, B22-31, B36-45 \u2014 with exactly 9 of 10 lowercase and 'Dallas' alone capitalized in every block; lowercase also leaks into prose (QI F37-F45, e.g. '...positioning in atlanta'). One detail corrected: cities span 2 sheets, not 4 (only Market Intelligence and Quality Intelligence; the other 8 sheets have no city mentions \u2014 reviewer likely counted the 6 table blocks). Raw-passthrough diagnosis supported: MI column F expands most cities to correctly-capitalized MSA names but echoes 'pheonix' and 'orlando' verbatim where lookup evidently failed. Deck is clean (slide 8 shows only 'Dallas', capitalized).",
+   "confidence": "high",
+   "src": "ox"
+  },
+  {
+   "severity": "major",
+   "where": "Market Intelligence B77:H77 vs Quality Intelligence D22:F31",
+   "title": "Salary intelligence is internally broken and contradicts itself across sheets",
+   "detail": "CONFIRMED, exactly as claimed, in Omada_ai_Media_Plan.xlsx. Market Intelligence B77:H77 ('Business Sales Representative'): Min $95,000 | P25 $77,900 | Median $95,000 | P75 $112,100 | Max $95,000 | Confidence 50% \u2014 an impossible distribution (Min=Median=Max=$95,000, P25 $77,900 < 'Min', P75 $112,100 > 'Max'), sourced 'DOL H-1B/LCA' (row 78). Quality Intelligence per-role table rows 22\u201331 uses a $75,000 national-baseline median for the SAME role via 'generic_enrichment': pheonix (row 24) and charlotte (row 27) at 1.00x multiplier both show Median $75,000 (Min $65,000/Max $90,000). $75,000 is 21.1% below the MI $95,000 median (or MI is +26.7% above QI), with no reconciliation of which source is authoritative anywhere in the workbook. Aggravating: 'Sources & Confidence' sheet grades Salary Intelligence 40%/F yet reports 'PLAN VALIDATION RESULTS: 7 checks run | 7 passed | 0 finding(s)' \u2014 the internal validator missed the impossible distribution.",
+   "confidence": "high",
+   "src": "ox"
+  },
+  {
+   "severity": "major",
+   "where": "Quality Intelligence B36:G45; Market Intelligence B173:E182",
+   "title": "Ten-row boilerplate tables with zero per-row information",
+   "detail": "CONFIRMED in Omada_ai_Media_Plan.xlsx. (1) Quality Intelligence B36:G45 'Competitive Landscape & Counter-Strategies': all 10 city rows (Dallas, houston, pheonix [sic], atlanta, tampa, charlotte, nashville, orlando, las vegas, miami) carry the byte-identical Top Employers string '(National) Amazon, (National) Walmart, (National) UPS, (National) FedEx'; 'Why They Matter'/'Counter-Strategy' are exactly two template sentence pairs toggled by the Low/Moderate intensity flag with only the city name substituted (e.g. F36 'Active but not dominant \u2014 opportunity to capture market share\u2026' + G36 'Leverage speed-to-hire advantage\u2026' for the 4 Moderate rows; F37 'Lower competition in {city} \u2014 favorable market\u2026' + G37 'Capitalize on low competition with aggressive employer brand presence\u2026' for the 6 Low rows). Minor overstatement in the claim: Hiring Intensity (Low/Moderate) and Est. Competing Postings (600 Las Vegas \u2013 930 Nashville) DO vary per row, so it is not literally 'zero per-row information' \u2014 but no per-city employer research exists. 'Est. Competing Postings' has no source anywhere in the workbook, and the workbook's own Sources & Confidence sheet (B14:D14) grades 'Competitive Intelligence' 20% confidence / grade F. (2) Market Intelligence B173:E182 'Geographic Cost Variance': all 10 metros show exactly 1.00x / +0% / 'Average market rate' (Las Vegas B181 identical to Dallas B173 as claimed), while footnote B184 claims the indices are 'Based on metro-area hiring cost data from Joveo and validated industry sources' \u2014 and the same workbook contradicts the uniform 1.00x elsewhere (Quality Intelligence B30/G30 las vegas 0.97x, B31/G31 miami 1.04x city salary multipliers). Defect stands as [major].",
+   "confidence": "high",
+   "src": "ox"
+  },
+  {
+   "severity": "major",
+   "where": "Quality Intelligence B66:E81 vs Executive Summary B21:D28",
+   "title": "Multi-Tier Budget contradicts the headline allocation",
+   "detail": "CONFIRMED in Omada_ai_Media_Plan.xlsx. Quality Intelligence sheet rows 66-81: B66 \"Multi-Tier Budget Breakdown\", D67 Total Budget $240,000, split as Media Spend C70=$172,800 (D70=72.0%), Creative Content C71=$40,800 (17.0%, sub-lines C72:C76), Contingency Reserve C77=$26,400 (11.0%, sub-lines C78:C81); rows 83-85 restate this split as recommendations. This directly contradicts Executive Summary B21:H28, where six media channels (Programmatic DSP $96,000, Global Boards $52,800, Social Media $48,000, Niche Boards $19,200, Regional Boards $16,800, Employer Branding $7,200) sum to exactly $240,000 \u2014 the full budget treated as working media with clicks/apps/hires/CPC. ROI Projections (B4 total $240,000; C8:C13 per-channel budgets summing to $240,000) and 90-Day Forecast (F7=240,000 spend; F14:F19 channel totals summing to $240,000) both use the full-media interpretation. Net effect: working media is $172,800 on one sheet and $240,000 on three others \u2014 an unreconciled $67,200 discrepancy ($40,800 creative + $26,400 contingency) with no note bridging the two views. All hire/CPA/forecast math is built on the $240,000-as-media assumption, so if the 72/17/11 split is the real intent, every performance projection is overstated by ~39%.",
+   "confidence": "high",
+   "src": "ox"
+  },
+  {
+   "severity": "major",
+   "where": "90-Day Forecast C7:F10 vs B29 and Exec Summary D6",
+   "title": "Forecast contradicts its own ramp note and the stated 1\u20132 year duration",
+   "detail": "CONFIRMED in Omada_ai_Media_Plan.xlsx, sheet '90-Day Forecast'. (1) Ramp contradiction: B29 states \"25% Month 1 (learning), 35% Month 2 (optimizing), 40% Month 3 (peak performance)\", but the Monthly Projections spend row C7/D7/E7 = 49,992 / 70,008 / 120,000 of F7 = 240,000, i.e. 20.83% / 29.17% / 50.0% \u2014 Month 3 gets 50%, not 40%, and Months 1-2 get less than stated. (2) Duration contradiction: the forecast consumes 100% of the $240,000 total budget (F7 = 240,000, equal to Executive Summary B6/B17 total budget) within the 90-day window Jun 01 - Aug 31, 2026 (D3), while Executive Summary D6 states campaign Duration = \"1-2 years\" \u2014 leaving zero budget for the remaining 9-21 months. (3) Checkable sums fail: Applications C8+D8+E8 = 2,656+3,720+6,377 = 12,753 but F8 = 12,755 (off by 2); Hires C9+D9+E9 = 29+41+71 = 141 but F9 = 143 (off by 2). The 143 figure also propagates to Executive Summary D17 \"Projected Hires\" and F17 cost/hire ($1,678 = 240,000/143), so the discrepancy is load-bearing. Claim holds in full; severity 'major' is fair.",
+   "confidence": "high",
+   "src": "ox"
+  },
+  {
+   "severity": "major",
+   "where": "Market Intelligence B83:H83, B60:B72; Sources & Confidence B14/C14",
+   "title": "Company and demand intelligence is empty but dressed as analysis",
+   "detail": "CONFIRMED in Omada_ai_Media_Plan.xlsx, Market Intelligence sheet. (1) Market Demand by Role row 83: C83 Postings='0', D83 Talent Pool='0', E83 Competition=blank, yet F83 Temperature='hot' and G83='Stable (+1% YoY)'. (2) Company Profile (B59) contains exactly two redundant rows: B60 'Company Name'/D60 'Omada.ai' and B61 'Name'/D61 'Omada.ai' \u2014 no other company enrichment. (3) Competitor Analysis (B64:F69) lists Walmart/Amazon/Costco/Target/Home Depot with Size (D65:D69) and Overlap Score (F65:F69) columns entirely empty and Hiring Activity all 'Active (est.)' \u2014 an industry-default retail set for a client named Omada.ai (classified 'Retail & Consumer'). (4) B72 Market Positioning states 'competitor_count: 0', contradicting the 5-row table directly above. (5) Sources & Confidence sheet row 14: B14 'Competitive Intelligence', C14 '20%', D14 grade 'F'. Aggravating details the claim understated: row 11 of Sources & Confidence grades 'Job Market Demand' 100% (A) despite the all-zero demand row, and B19 reports '7 checks run | 7 passed | 0 finding(s) | 0 auto-corrected' \u2014 the workbook's own validation waved the empty intelligence through.",
+   "confidence": "high",
+   "src": "ox"
+  },
+  {
+   "severity": "major",
+   "where": "Sources & Confidence B19, B25:D25, E9:E15",
+   "title": "Provenance section undermines rather than supports credibility",
+   "detail": "CONFIRMED in Omada_ai_Media_Plan.xlsx, sheet \"Sources & Confidence\". (1) B19 reads verbatim \"7 checks run  |  7 passed  |  0 finding(s)  |  0 auto-corrected\" under B18 \"PLAN VALIDATION RESULTS\" \u2014 in a workbook whose Executive Summary Total row (row 28) has SUM formulas misaligned one column left (D28=SUM(C22:C27) sums the Budget-% column into the Amount total; E28:G28 similarly shifted; H28:J28 absent; no cached values so the row renders broken), and whose Channels & Strategy Total row 10 sums only column D. (2) The \"DATA PROVENANCE & VINTAGE\" table, introduced in B22 with \"Every figure in this plan is traceable to a source\", contains exactly one data row: B25=\"Joveo Knowledge Base (benchmarks)\", C25=\"0 days old\", D25=\"High\"; rows 26-27 empty. (3) The per-section table's \"Sources\" column E9:E15 is entirely empty (no values or formulas) under the E8 \"Sources\" header. (4) D5 reads \"Knowledge Base Age: 0 days\". The credibility contradiction is amplified by the same sheet's own header: D3 \"Overall Confidence: 53%\", D4 \"Limited data availability \u2014 results should be validated\", and grades F/D for 5 of 7 sections directly above the \"0 findings\" banner. Minor caveats only: \"0 days old\" could in principle mean \"refreshed today\", and the 7 checks may not include a total-row check \u2014 so \"not credible\" is more precise than \"demonstrably false\" \u2014 but every cited cell and value is exact, and the defect is real.",
+   "confidence": "high",
+   "src": "ox"
+  },
+  {
+   "severity": "critical",
+   "where": "Workbook: all sheets (e.g. Executive Summary B6/B17, J32-K40 'Budget (USD)', ROI Projections B4) vs Deck: slides 2, 5, 6, 9",
+   "title": "Currency contradiction: deck prices the plan in NZD, workbook prices the identical numbers in USD",
+   "detail": "CONFIRMED. Deck (Pratt bundle) prices the plan in NZD: slide 2 shows \"Budget: NZ$150.0K\", banner \"NZ$150K Campaign Budget\", \"NZ$5,000/hire\", \"NZ$33.95 Avg CPA\"; slide 5 allocates \"NZ$150.0K\" with per-channel labels Niche/Industry Boards (NZ$46.3K), Programmatic DSP (NZ$31.4K), Global Job Boards (NZ$23.9K), Employer Branding (NZ$18.9K), Regional Boards (NZ$16.3K), APAC (NZ$5.7K), Social (NZ$4.5K), EMEA (NZ$3.0K); slide 9 \"Projected CPA NZ$33.95\". The workbook (Pratt_Whitney_New_Zealand_Media_Plan.xlsx) uses the IDENTICAL numerals labeled as plain $/USD: Executive Summary B6 and B17 = '$150,000' (literal strings), F17 = '$5,000', chart-data header K32 = 'Budget (USD)' over K33:K40 (46298.08, 31442.31, 23942.31, 18865.38, 16298.08, 5653.85, 4500, 3000 \u2014 the exact deck NZ$ figures); ROI Projections B4 = '$150,000', D4 = '$5,000'; all currency cells use number format \"$#,##0\" (33 cells Executive Summary, 17 Channels & Strategy, 16 ROI Projections, 40 90-Day Forecast) with zero NZ$ formats in the entire file. The stray mixed cell exists exactly as claimed: Market Intelligence E25 = '$48,000 (NZD)'. Two precision caveats: \"across all 11 sheets\" is a slight overstatement (currency appears in ~6 of 11 sheets), and the Intl Benchmarks sheet's USD labels (E5/F5/G5, footnote B44) are arguably intentional \u2014 the deck itself shows benchmarks in plain $ with a \"US-calibrated\" disclaimer on slide 5. But the plan's own money figures contradict between artifacts exactly as alleged (~39% ambiguity at NZD/USD ~0.61), so the critical defect stands.",
+   "confidence": "high",
+   "src": "pc"
+  },
+  {
+   "severity": "critical",
+   "where": "Deck slide 6 'Channel-by-Channel Breakdown' vs Workbook Executive Summary rows 22-29",
+   "title": "Deck's channel table omits 2 of 8 channels but totals all 8 \u2014 visible rows don't add up to the printed total",
+   "detail": "CONFIRMED at Pratt deck slide 6 (\"Budget Allocation & Projections\", table \"CHANNEL-BY-CHANNEL BREAKDOWN\"). The table lists only 6 of 8 channels \u2014 Niche / Industry Boards NZ$46,298/1,256 apps, Programmatic DSP NZ$31,442/1,226, Global Job Boards NZ$23,942/1,134, Employer Branding NZ$18,865/190, Regional Boards NZ$16,298/393, APAC Regional NZ$5,654/136. Social Media (NZ$4,500, 30 apps) and EMEA Regional (NZ$3,000, 53 apps) are absent; strings \"Social\"/\"EMEA\" do not occur anywhere in ppt/slides/slide6.xml. Yet the Total row prints the 8-channel totals NZ$150,000 / 4,418 apps / 30 hires, and the subtitle says \"across 8 channels\". Visible investment rows sum to NZ$142,499 as displayed (NZ$142,500.01 unrounded) \u2014 a ~NZ$7,500 hole; visible apps sum to 4,335 vs printed 4,418 (gap of 83 = 30+53, exactly the two missing channels). Workbook Executive Summary rows 22-29 (B22:J29) and deck slide 5 both list all 8 channels, so slide 6 contradicts both. Two refinements to the original claim: (a) the Proj. Hires column actually reconciles (9+8+8+2+3=30) because both omitted channels project 0 hires, so the hires total is not itself evidence of the hole; (b) an additional visible symptom the claim missed: the Allocation % column's six rows sum to 96% while the Total row prints 101% (the rounded 8-channel sum). Severity \"critical\" stands \u2014 any client summing the Investment or Proj. Apps column sees the mismatch immediately.",
+   "confidence": "high",
+   "src": "pc"
+  },
+  {
+   "severity": "major",
+   "where": "Workbook 'Channel Recommendations' sheet (C6-C8, B32) vs Deck slide 6 and Workbook Executive Summary / ROI Projections",
+   "title": "Second conflicting projection in the same bundle: 1,637 apps at $91.63 CPA vs 4,418 apps at $33.95 CPA for the same $150,000",
+   "detail": "CONFIRMED. Pratt workbook 'Channel Recommendations' sheet: C5=\"$150,000\", C6=\"1,637\" Proj. Applications, C7=\"30\" Proj. Hires, C8=\"$91.63\" Avg CPA, restated in the B32 narrative (\"Expected: ~57,460 clicks, ~1,637 applications, ~30 hires at $91.63 avg CPA\"), built on a 7-platform mix (LinkedIn Ads 20.8%, Google Ads 16.7%, Programmatic DSP 14.6%, Indeed 14.6%, Bing 12.5%, X 10.4%, ZipRecruiter 10.4%). The same bundle's primary plan \u2014 deck slide 6 (s06.png: KPI cards NZ$150,000 / 4,418 Projected Applications / 30 Projected Hires, total-row CPA NZ$34) and the workbook's Executive Summary (rows 22-29) and ROI Projections (D8:D15), whose per-channel apps sum to exactly 4,418 \u2014 projects 4,418 applications at $33.95 avg CPA ($150,000/4,418) via a different 8-channel mix (Niche Boards 30.9%, Programmatic DSP 21%, Global Boards 16%, Employer Branding 12.6%, Regional 10.9%, APAC 3.8%, Social 3%, EMEA 2%). The gap is exactly 2.70x in both applications and CPA; only hires (30) coincidentally match. Nothing on the Channel Recommendations sheet labels it an alternative scenario \u2014 it is attributed to a different engine (\"Nova AI Channel Recommender Engine\", B34) but presented as the recommendation for the identical $150,000 budget, so the bundle ships two irreconcilable projections.",
+   "confidence": "high",
+   "src": "pc"
+  },
+  {
+   "severity": "major",
+   "where": "Workbook Executive Summary F9 ('50-100 hires') vs D17 ('30') and Deck slides 2/6/9 ('30 hires')",
+   "title": "Hire volume contradiction inside the workbook: goal '50-100 hires' vs plan projecting 30",
+   "detail": "Confirmed exactly as claimed. Pratt workbook 'Executive Summary' sheet: F9 = '50-100 hires' (Hire Volume, Campaign Overview block) while D17 = '30' (Projected Hires, Budget Allocation block on the same sheet), with F17 = '$5,000' Cost/Hire consistent with 150,000/30 and the channel table (G22:G29) summing to exactly 30. 'ROI Projections' C4 = '30' Total Proj. Hires; '90-Day Forecast' F9 = '30' total hires (7+10+12 monthly). Deck: slide 2 states 'This plan projects 30 hires at NZ$5,000/hire' plus a '30 Projected Hires' stat band; slide 6 shows a '30 Projected Hires' card and total row 30; slide 9 shows 'Projected Hires 30'. No reconciliation, footnote, or phasing explanation appears anywhere in either artifact, so the plan projects only 60% of the stated low-end goal (30 vs 50) without acknowledgment \u2014 the contradiction is real and material, not a formatting artifact or input-vs-output design choice.",
+   "confidence": "high",
+   "src": "pc"
+  },
+  {
+   "severity": "major",
+   "where": "Deck slides 5 & 9 ('Industry CPA $15 - $56', 'Est. Cost-per-Hire $4,000 - $6,000', 'Apply Rate 5.5% - 6.1%') vs Workbook Executive Summary B50-B53",
+   "title": "Deck's industry benchmarks contradict the workbook's own benchmark data for the same industry",
+   "detail": "CONFIRMED, slightly strengthened. Pratt deck slide 5 \"Industry Benchmarks \u2014 Aerospace & Defense Range\" table states: Industry CPA $15\u2013$56, Industry CPC $0.50\u2013$5.26 (+8.3% YoY), Est. Cost-per-Hire $4,000\u2013$6,000, Apply Rate 5.5%\u20136.1%; slide 9 repeats \"$15 - $56\" as the A&D Average Projected CPA. The workbook (Pratt_Whitney_New_Zealand_Media_Plan.xlsx, Executive Summary, labels B50\u2013B53 / values D50\u2013D53) gives for the same industry: CPA range $40\u2013$100 median $60; CPC range $1.50\u2013$5.00 median $2.50; CPH recruitment-marketing-only $1,200\u2013$2,500 and total $10,000\u2013$20,000 (deck's $4,000\u2013$6,000 matches neither); Apply Rate 2025 3.5%\u20135.5%. Provenance verified: Channels & Strategy sheet \"AD PLATFORM ANALYSIS\" table has CPA min $15.00 (Programmatic Display DSP, E36) and max $56.08 (LinkedIn Ads, E31) \u2014 the deck's CPA \"range\" is the min/max of the ad-platform CPA column, not the industry benchmark. Additionally (beyond the original claim), the deck's CPC $0.50\u2013$5.26 is also lifted from that same platform table's CPC min/max (Indeed $0.50, C40; LinkedIn $5.26, C31) rather than the workbook's $1.50\u2013$5.00 industry CPC. Four benchmark rows on slide 5 (and one on slide 9) are falsifiable against the appendix workbook handed to the client.",
+   "confidence": "high",
+   "src": "pc"
+  },
+  {
+   "severity": "major",
+   "where": "Deck slide 2 ('NZ$85K median, NZ$55K-NZ$140K') vs Workbook Market Intelligence B59 ($85K), Quality Intelligence B8/B13 ($56,250 median, $46,250-$71,250), Market Intelligence B25 ('$48,000 (NZD)')",
+   "title": "Three different salaries for the same role and market across the bundle",
+   "detail": "CONFIRMED, with corrected cell references. Deck slide 2 (Executive Summary, Situation panel) states \"Salary Range: NZ$85K median (NZ$55K-NZ$140K)\". The workbook's Market Intelligence sheet SALARY INTELLIGENCE table (row 59: role in B59, values C59-G59) agrees with the deck: Aircraft Tradesperson Min $55,000 / Median $85,000 (E59) / Max $140,000 (G59), 50% confidence, but with bare \"$\" and no NZD label. The Quality Intelligence sheet contradicts it for the identical role and market: City-Level table row 8 gives New Zealand estimated salary $56,250 (D8, via 0.75x multiplier), and Per-Role Salary Breakdown row 13 gives Aircraft Tradesperson / New Zealand Min $46,250 (D13), Median $56,250 (E13), Max $71,250 (F13) \u2014 a 51% gap in median ($85,000 vs $56,250) and non-overlapping-top ranges ($55K-$140K vs $46,250-$71,250). Market Intelligence Location Economic Context row 25 adds a third figure: Median Salary \"$48,000 (NZD)\" (E25) \u2014 location-wide rather than role-specific, making the widest spread 77% ($85,000 vs $48,000). Two minor imprecisions in the original claim: the values sit in columns D-G of the cited rows (B59/B8/B13/B25 hold the row labels), and E25 also carries an \"(NZD)\" tag, so the deck is not literally the only NZD-labeled figure \u2014 but both salary tables (rows 58-59 and QI rows 7-13) are indeed currency-unlabeled. The core defect stands: three mutually inconsistent salary figures for the same role/market across client-facing pages, with the two role-specific tables disagreeing by 51% on median.",
+   "confidence": "high",
+   "src": "pc"
+  },
+  {
+   "severity": "major",
+   "where": "Deck slide 5 ('Live Postings: Aircraft Tradesperson \u2014 75,000 active jobs') vs Workbook Market Intelligence B65 (Postings=0, Talent Pool=0)",
+   "title": "Deck claims 75,000 live postings; workbook's demand table records 0 (no data)",
+   "detail": "CONFIRMED with minor cell-reference precision. Pratt deck slide 5 (s05.png), 'Industry Benchmarks' table, last row: 'Live Postings: Aircraft Tradesperson \u2014 75,000 active jobs', presented over a 'Live Data' badge. Workbook Pratt_Whitney_New_Zealand_Media_Plan.xlsx, 'Market Intelligence' sheet, 'MARKET DEMAND BY ROLE' table (headers row 64): row 65 has B65='Aircraft Tradesperson', C65 (Postings)='0', D65 (Talent Pool)='0', E65 (Competition) blank, H65 (Search Interest)='\u2014' \u2014 i.e., no demand data captured (the zeros are in C65/D65, not B65 itself). The figure 75,000 appears in ZERO cells across all 11 workbook sheets, so the deck number has no traceable backing in the plan's own data. 'Sources & Confidence' sheet B3='D', D3='Overall Confidence: 52%', D4='Limited data availability \u2014 results should be validated'. Mitigating nuance that does not refute: slide footnote says 'Benchmarks are US-calibrated \u2014 international markets may vary', so 75,000 could have been intended as a US-scope benchmark rather than an NZ postings count \u2014 but the deck row is labeled 'Live Postings' for the plan's target role, the backing demand table records 0/0, and the number is unsourced anywhere in the workbook. Aggravating detail: the Sources sheet grades 'Job Market Demand' 100%/A despite its only data row being 0/0. Defect stands as major: deck asserts as live fact a figure the backing workbook says does not exist.",
+   "confidence": "high",
+   "src": "pc"
+  },
+  {
+   "severity": "major",
+   "where": "Workbook: Channels & Strategy B44-B50, Niche Board Matching, Quality Intelligence clearance section, Market Intelligence B30; Deck slide 8",
+   "title": "US-market content shipped in an NZ plan: US-only niche boards, US clearance framework, and 'Country: United States' for New Zealand",
+   "detail": "CONFIRMED as claimed, verified cell-by-cell in Pratt_Whitney_New_Zealand_Media_Plan.xlsx and slides/s08.png. (1) Channels & Strategy B44 header \"NICHE CHANNELS: AEROSPACE & DEFENSE\" with B46:B50 = ClearedJobs.Net, ClearanceJobs, Military.com, USAJOBS, Hire Heroes USA \u2014 all five US-only boards, each marked \"High - Specialized for Aerospace & Defense\". (2) Niche Board Matching B7:B11 repeats the same five US boards as \"Industry-Matched\" recommendations. (3) Quality Intelligence B18 sets Primary Clearance = \"Public Trust\" (a US federal designation; NZ uses NZSIS CV/SV levels), B22:B25 tabulate the US clearance ladder, and B25/B29 recommend \"USAJobs, Indeed, LinkedIn, GovernmentJobs.com\" \u2014 US public-sector channels; B33 additionally lists \"(National) Lockheed Martin, (National) Raytheon, (National) Northrop Grumman, (National) Boeing\" as top employers for \"city\" New Zealand. (4) Market Intelligence row 30 (LOCATION INTELLIGENCE): B30=\"New Zealand\" with C30=\"United States\"; macro block B33:B37 uses US indicators \u2014 Fed Funds Rate 3.64%, CPI Index 327.46, Job Openings 6,882 thousand (US JOLTS scale; NZ's whole labor force is ~3M), Avg Hourly Earnings $37.32 \u2014 and the industry metrics block (B7:B21) is explicitly BLS/NAICS/JOLTS/DoD-based. (5) Deck slide 8 \"Competitive Landscape\" mirrors the workbook: cards for \"(National) Lockheed Martin\", \"(National) Raytheon\", \"(National) Northrop Grumman\", each with \"Why: Competing employer in New Zealand\". The reviewer's caveat is also accurate: only Channel Recommendations B32 footnote (\"3 local platform(s) recommended for international markets: Seek New Zealand, Trade Me Jobs, LinkedIn New Zealand\") and Intl Benchmarks B24 (Seek New Zealand, Trade Me Jobs, LinkedIn New Zealand) name the correct NZ channels (Market Intelligence B25 also correctly shows Country=New Zealand with NZD salary, a minor extra correct spot the claim omitted). Severity \"major\" stands: this is US-dataset leakage into an NZ plan, consistently wrong across workbook and deck, not intentional design.",
+   "confidence": "high",
+   "src": "pc"
+  },
+  {
+   "severity": "critical",
+   "where": "Workbook: Executive Summary row 28 (Total row, D28:G28) vs Deck slide 6 total row",
+   "title": "Workbook Executive Summary total row is column-shifted \u2014 totals disagree with the deck",
+   "detail": "CONFIRMED via direct openpyxl inspection of Omada_ai_Media_Plan.xlsx, sheet 'Executive Summary'. The Total row (row 28) formulas are offset one column left of their row-21 headers (C='%', D='Amount', E='Proj. Clicks', F='Proj. Apps', G='Proj. Hires'): D28=SUM(C22:C27)=1.0 with format $#,##0 \u2192 renders '$1' under 'Amount'; E28=SUM(D22:D27)=240,000 (the budget) under 'Proj. Clicks'; F28=SUM(E22:E27)=316,557 (actually clicks) under 'Proj. Apps'; G28=SUM(F22:F27)=12,755 (actually applications) under 'Proj. Hires'. The hires column G22:G27 (=143) is never totalled, and C28 is empty so the % column shows no 100% total. Deck slide 6 (omada s06.png) shows the correct Total row \u2014 100% / $240,000 / 12,755 apps / 143 hires \u2014 so the workbook's first sheet directly contradicts the deck: a client opening it sees Total budget '$1' and 12,755 'Projected Hires'. Critical severity stands.",
+   "confidence": "high",
+   "src": "oc"
+  },
+  {
+   "severity": "major",
+   "where": "Workbook: 'Channel Recommendations' sheet vs Deck slides 2/5/6 and workbook Exec Summary/ROI/90-Day sheets",
+   "title": "Workbook contains a second, contradictory media plan",
+   "detail": "CONFIRMED as stated, in the Omada workbook (Omada_ai_Media_Plan.xlsx). The 'Channel Recommendations' sheet presents a second, contradictory media plan: header block C5:C8 shows Budget $240,000, Proj. Applications 4,882 (C6), Proj. Hires 143 (C7), Avg CPA $49.16 (C8); its MUST HAVE table (rows 12-18) allocates to 7 ad platforms \u2014 Meta 16.1% ($38,640), Indeed Sponsored Jobs 16.1% ($38,640), Google Ads 14.3% ($34,320), TikTok 14.3% ($34,320), Programmatic Display DSP 14.3% ($34,320), Snapchat 12.5% ($30,000), ZipRecruiter 12.5% ($30,000) \u2014 and B26 restates '7 must-have\u2026 ~4,882 applications, ~143 hires at $49.16 avg CPA'. The Spend column E12:E18 sums to $240,240, $240 over the stated $240,000 budget (allocation percentages total 100.1%). Every other surface shows a different 6-channel plan with 12,755 applications at $18.82 avg CPA on the same $240,000/143 hires: Executive Summary B22:J27 and ROI Projections B8:E13 (Programmatic DSP 40%/$96,000, Global Boards 22%, Social Media 20%, Niche 8%, Regional 7%, Employer Branding 3%; apps sum to 12,755), 90-Day Forecast F8=12,755 apps and F10=$18.82 CPA, deck slide 2 KPI strip ($240K / 6 channels / 143 hires / $18.82 Avg CPA), slide 5 (6-channel mix 40/22/20/8/7/3), and slide 6 (12,755 Projected Applications, identical 6-row table, $19 avg CPA). Applications differ 2.61x and CPA differs 2.61x between the two plans. The Channel Recommendations per-platform CPAs also contradict the workbook's own 'Ad Platform Analysis' on Channels & Strategy (e.g. Google Ads $88.20 vs $48.96 at B25:E25; Meta $72.00 vs $18.68 at B26:E26), so this is not a complementary platform-level view of the same plan \u2014 it is an unreconciled second plan from the 'Nova AI Channel Recommender Engine' (B28).",
+   "confidence": "high",
+   "src": "oc"
+  },
+  {
+   "severity": "major",
+   "where": "Deck slide 5 'Industry Benchmarks' panel vs Workbook Executive Summary B48-B51 (Recruitment Benchmarks)",
+   "title": "Industry benchmark ranges contradict each other across artifacts",
+   "detail": "CONFIRMED (Omada bundle). Deck slide 5 (s05.png, \"Channel Strategy & Investment\") \"Industry Benchmarks\" panel labelled \"Retail & Consumer Range\" shows: Industry CPA $15\u2013$56; Industry CPC $0.50\u2013$5.26 (+9.2% YoY); Est. Cost-per-Hire $1,340\u2013$2,010; Apply Rate 4.5%\u20135.8%, sourced as \"Industry benchmarks 2026, validated recruitment data, Nova AI Suite Ad Platform Intelligence\". Workbook Omada_ai_Media_Plan.xlsx, Executive Summary \"RECRUITMENT BENCHMARKS: Retail & Consumer\" (labels B48\u2013B51, values D48\u2013D51) states: CPA range $8\u2013$25 (median $15); CPC range $0.20\u2013$1.00 (median $0.45); CPH $400\u2013$800 recruitment-marketing-only / $2,700 total; Apply Rate 6\u20138% (2025). None of the four deck ranges match \u2014 CPC and CPH ranges don't even overlap the workbook's marketing-only figures. Both derivation assertions verified: (1) deck CPC $0.50\u2013$5.26 is exactly the min/max non-zero CPC of the workbook's \"AD PLATFORM ANALYSIS\" table (Channels & Strategy C36 Indeed $0.50, C27 LinkedIn Ads $5.26) \u2014 and the deck's CPA $15\u2013$56 is likewise that table's min/max CPA (Programmatic Display $15.00, LinkedIn $56.08), so both \"industry\" ranges are lifted from the ad-platform table rather than recruitment benchmarks; (2) deck's \"Est. Cost-per-Hire $1,340\u2013$2,010\" equals the plan's own CPH ($240,000/143 hires = $1,678.32) \u00b120% ($1,342.66\u2013$2,013.98, rounded to nearest $10), i.e. the plan's own projection mislabelled as an industry benchmark. The deck's Apply Rate 4.5%\u20135.8% matches no workbook benchmark (workbook: 6\u20138% for 2025, 5.5\u20137% for 2024).",
+   "confidence": "high",
+   "src": "oc"
+  },
+  {
+   "severity": "major",
+   "where": "Deck slides 2 and 5 ('Rising +9.2% YoY') vs Workbook Executive Summary B49",
+   "title": "CPC trend contradiction: deck says rising +9.2% YoY, workbook says stable",
+   "detail": "CONFIRMED. Omada deck slide 2 (SITUATION panel) states \"CPC Trend: Rising +9.2% YoY\" and slide 5 (Industry Benchmarks table) repeats \"Industry CPC $0.50 - $5.26 (+9.2% YoY)\". The workbook (Omada_ai_Media_Plan.xlsx, Executive Summary sheet, row 49 \u2014 label \"Cpc\" in B49, detail text in D49) states \"trend_yoy: Stable; notes: Lowest CPC of major industries due to high candidate volume\", directly contradicting the deck. A full-workbook text scan finds no \"+9.2%\" anywhere (the only \"9.2\" substring is \"$19.20\", a median CPA in Market Intelligence D116). Minor precision fix: the benchmark text is in D49, not B49 (B49 is the row label). Compounding the same defect, the deck's CPC range on slide 5 ($0.50-$5.26) also contradicts the workbook's CPC range in D49 ($0.20-$1.00).",
+   "confidence": "high",
+   "src": "oc"
+  },
+  {
+   "severity": "major",
+   "where": "Deck slide 2 ('Apply Rate: 4.5% - 5.8% (above average - strength)') vs Workbook Executive Summary B51 and Market Intelligence D115/D119",
+   "title": "Apply-rate narrative inverted: deck calls it above average, workbook benchmark says the industry average is higher",
+   "detail": "CONFIRMED (Omada bundle). Deck slide 2 (Situation panel) states \"Apply Rate: 4.5% - 5.8% (above average - strength)\", but the workbook's own benchmarks contradict the \"above average\" framing: Executive Summary row 51 (label B51, value D51) gives the Retail & Consumer apply-rate benchmark as \"2024: 5.5-7%; 2025: 6-8%\" \u2014 the deck's entire 4.5-5.8% range is below the 2025 benchmark floor of 6%; Market Intelligence D115 gives Appcast retail apply_rate 5.26% (the deck range straddles this, midpoint ~5.15% slightly below); D119 gives overall apply rate \"4.66% median (5.19% end of year)\". At best the plan's apply rate is at par with the Appcast retail average and clearly below the workbook's Retail & Consumer 2025 industry range \u2014 not \"above average\". The same slide's Resolution panel even cites the 5.19% Appcast overall average, which the deck range does not clearly exceed. Minor precision fix to the claim: the 6-8% benchmark text lives in cell D51 (B51 holds the row label \"Apply Rate\"); likewise D115/D119 hold the values with labels in column B.",
+   "confidence": "high",
+   "src": "oc"
+  },
+  {
+   "severity": "major",
+   "where": "Deck slide 2 ('$95K median ($95K-$95K)') vs Workbook Market Intelligence B77 and Quality Intelligence B8-B31",
+   "title": "Salary data internally broken and contradicted between sheets",
+   "detail": "CONFIRMED as stated. Omada deck slide 2 (s02.png, Situation card) prints \"Salary Range: $95K median ($95K-$95K)\". Workbook Market Intelligence sheet row 77 (Salary Intelligence table, B76:H77) shows Business Sales Representative with Min $95,000 (C77) = Median $95,000 (E77) = Max $95,000 (G77) \u2014 a degenerate range \u2014 while P25 = $77,900 (D77) is BELOW the stated Min and P75 = $112,100 (F77) is ABOVE the stated Max (confidence flagged only 50%, source 'DOL H-1B/LCA'), a mathematically impossible percentile ordering the deck echoes verbatim. Meanwhile the Quality Intelligence sheet prices the identical role off a $75,000 national baseline (Phoenix 1.00x = $75,000, D10): city Estimated Salaries rows 8-17 run $71,250 (Orlando) to $81,000 (Dallas), and the Per-Role Salary Breakdown rows 22-31 gives the same role city medians of $71,250-$81,000 (source generic_enrichment). Net effect: deck says $95K median for the role; the workbook's own Quality Intelligence sheet says ~$71K-$81K (~$75K baseline) \u2014 a ~20-25% contradiction between deliverables, plus an internally broken salary row. Claim holds; not intentional design.",
+   "confidence": "high",
+   "src": "oc"
+  },
+  {
+   "severity": "major",
+   "where": "Deck slide 5 ('Live Postings: 180,000 active jobs') vs Workbook Market Intelligence B83 (Postings = 0, Talent Pool = 0)",
+   "title": "Deck claims 180,000 live postings; workbook demand data shows zero",
+   "detail": "CONFIRMED (Omada bundle). Deck slide 5 (Channel Strategy & Investment), Industry Benchmarks table, last row: \"Live Postings: Business Sales Representative \u2014 180,000 active jobs\". Companion workbook Omada_ai_Media_Plan.xlsx contradicts this: Market Intelligence sheet \"MARKET DEMAND BY ROLE\" row 83 (label B83='Business Sales Representative') records Postings C83='0' and Talent Pool D83='0' (minor correction to the claim: the zeros are in C83/D83, B83 is the role label). A programmatic search of all 10 sheets finds no occurrence of 180,000 anywhere in the workbook. Meanwhile Sources & Confidence sheet B11:D11 grades 'Job Market Demand' 100%/A and B19 reports \"7 checks run | 7 passed | 0 finding(s)\", so the workbook's own QA masks the zero-data gap. The deck's headline market-size stat is unsupported by and inconsistent with its companion artifact \u2014 defect stands as major.",
+   "confidence": "high",
+   "src": "oc"
+  },
+  {
+   "severity": "major",
+   "where": "Deck slide 6 narrative ('$1,675 average cost-per-hire') vs Deck slide 2 ('$1,678.32/hire') and Workbook Exec Summary F17 / ROI Projections D4 ('$1,678')",
+   "title": "Cost-per-hire stated with two different values",
+   "detail": "CONFIRMED in the Omada bundle. Omada deck slide 6 (s06.png, \"Budget Allocation & Projections\") takeaway text reads \"with $1,675 average cost-per-hire\" while quoting the same $240,000 budget and 143 projected hires in the same sentence. The correct value $240,000 / 143 = $1,678.32 appears everywhere else: deck slide 2 Market Thesis says \"143 hires at $1,678.32/hire\", and Omada_ai_Media_Plan.xlsx has Executive Summary!F17 = \"$1,678\" (labeled \"Cost / Hire\" in F18) and ROI Projections!D4 = \"$1,678\" (labeled \"Avg Cost/Hire\" in D3). The $1,675 on slide 6 is a genuine internal inconsistency in the same headline metric, not a different intentional metric \u2014 the delta is small ($3) but the deck contradicts itself and the workbook side by side.",
+   "confidence": "high",
+   "src": "oc"
+  },
+  {
+   "severity": "major",
+   "where": "Workbook Executive Summary D6 ('Duration: 1-2 years') vs Deck slide 9 (12-week implementation) and Workbook 90-Day Forecast (full $240,000 spent Jun 1 - Aug 31, 2026)",
+   "title": "Campaign duration contradiction: 1-2 years vs 12 weeks/90 days",
+   "detail": "CONFIRMED. Omada workbook (Omada_ai_Media_Plan.xlsx), Executive Summary sheet: cell D6 = '1-2 years' under the label 'Duration' (D7) in the CAMPAIGN OVERVIEW block, directly beside B6 = '$240,000' (Budget). This contradicts (a) deck slide 9 (s09.png, 'Plan Comparison & Implementation'), whose Implementation Timeline spans exactly 12 weeks (Phase 1 Weeks 1-2, Phase 2 Weeks 3-6, Phase 3 Weeks 7-12) with no multi-year phase; and (b) the workbook's own 90-Day Forecast sheet, where D3 = 'Jun 01, 2026 - Aug 31, 2026' and row 7 shows Spend of $49,992 + $70,008 + $120,000 = $240,000 (F7), i.e. the ENTIRE budget exhausted in 90 days. The contradiction is internal, not a plausible 'multi-year engagement' framing: Executive Summary D17 projects 143 hires from the full $240,000, and the 90-Day Forecast F9 projects those identical 143 hires by Aug 31, 2026 \u2014 so the workbook itself models $240K as a one-quarter plan while labeling it 1-2 years. The deck text contains zero mentions of 'year' as a campaign duration (verified via python-pptx text search); the 12-week timeline is its only duration statement. A client genuinely cannot tell whether $240K covers ~90 days or 1-2 years. Severity 'major' is fair for a client-facing bundle's headline overview stat.",
+   "confidence": "high",
+   "src": "oc"
+  }
+ ],
+ "refuted": [],
+ "minors": [
+  {
+   "where": "Slides 2, 3, 5, 6 (cards)",
+   "title": "Accent bars misaligned \u2014 extend beyond card edges",
+   "detail": "Top-accent bars on s03 methodology cards and s06 KPI cards render wider than their cards and offset to the right; s02's left accent strips extend above/below the rounded card bodies; s05's JOB BOARDS category card clips its last line (\"...EMEA Regional\") at the card bottom. Systemic few-pixel sloppiness that reads as unfinished at this bar.",
+   "src": "pv1"
+  },
+  {
+   "where": "Slide 6 (Employer Branding row) + Slide 2",
+   "title": "Placeholder and number-formatting slips",
+   "detail": "Proj. Hires shows \"--\" (double hyphen) instead of the house \"\u2014\"; slide 2 shows \"Budget: NZ$150.0K\" (spurious .0) and hyphens where the brand uses em-dashes (\"5.5% - 6.1% (above average - strength)\" \u2014 the parenthetical also reads like machine annotation, not exec copy).",
+   "src": "pv1"
+  },
+  {
+   "where": "Slides 2, 5, 6",
+   "title": "Off-palette green used as a semantic accent",
+   "detail": "Green appears on the RESOLUTION header/checklist (s02), all benchmark values and a stray floating \"Live Data\" tag (s05), and the \"30 Projected Hires\" KPI (s06). Green is not in the Joveo indigo/purple/teal system described in the baseline; it fragments the palette.",
+   "src": "pv1"
+  },
+  {
+   "where": "Slide 3 (card 1)",
+   "title": "Card 1 missing its AI-tool eyebrow label, breaking the six-card rhythm",
+   "detail": "Cards 2\u20136 carry a purple eyebrow (\"AI MEDIA PLANNER\", \"AI ADVERTISER\"...); card 1 has none, leaving a visible gap and misaligned body-text baselines across the row.",
+   "src": "pv1"
+  },
+  {
+   "where": "Slides 5\u20136 (channel list)",
+   "title": "APAC Regional and EMEA Regional boards unexplained in a single-market NZ plan",
+   "detail": "NZ$8.7K (~6%) goes to APAC/EMEA regional boards for 30 local Aircraft Tradesperson hires in one NZ location, with no rationale (e.g., offshore/visa sourcing) anywhere in the copy. Reads like a default channel template, not a client-specific decision.",
+   "src": "pv1"
+  },
+  {
+   "where": "Slide 7 (CPA Reference)",
+   "title": "Subtitle duplicates the title verbatim and table header drifts toward the banned dark-navy look",
+   "detail": "Title 'CPA Reference' is immediately followed by subtitle 'CPA Reference \u2014 baseline cost-per-application by role category' \u2014 redundant. The table header band renders as very dark navy rather than the baseline's purple table header; it visually echoes the banned navy-band motif.",
+   "src": "pv2"
+  },
+  {
+   "where": "Slides 10 and 11",
+   "title": "Cards render with large internal dead space, suggesting dropped fields",
+   "detail": "Every risk card on slide 10 has a conspicuous empty band between 'Impact:' and 'Mitigation:' (a likelihood/severity field appears to have been omitted but its space reserved), and slide 11's four cards are only ~40% filled with text. Slide 10 also lacks any severity/likelihood rating, which an exec would expect on a risk slide, and its 'Competitive Landscape' risk title duplicates slide 8's slide title.",
+   "src": "pv2"
+  },
+  {
+   "where": "Slide 9",
+   "title": "Off-palette colors and shadow artifacts on cards",
+   "detail": "The Phase 2 accent bar is a saturated pure green and the right comparison card's header is a slate gray-blue \u2014 neither is in the Joveo palette. Both comparison cards and the phase cards show a doubled rounded-shadow artifact protruding below the card bottom. Slide 8's green 'Counter:' text is similarly off-palette.",
+   "src": "pv2"
+  },
+  {
+   "where": "Slide 12 (Case Study & Next Steps)",
+   "title": "Filler stat captions, misaligned wrapped bullet, and dead space under section headings",
+   "detail": "The three stat captions merely restate their labels ('ACTIVATION VOLUMES' \u2192 'Improvement in activation volumes'), with no client name, timeframe, or source for 2x/+38%/-17%. The first Solution bullet's wrapped second line ('CPQA partners)') breaks the hanging indent and lands under the bullet dot. Both 'Challenges' and 'The Joveo Solution' headings are followed by a large blank gap before the bullets begin. 'TAT' jargon is unexplained.",
+   "src": "pv2"
+  },
+  {
+   "where": "Slide 2 (s02), RESOLUTION card",
+   "title": "Bottom line clipped and micro-text creeping in",
+   "detail": "'Apply rate (overall 2025 average): 5.19% (Appcast, 2026)' sits flush against/clipped by the card's bottom edge, and the card mixes at least three font sizes with the smallest ('ML-optimized bidding across 10,238+ publishers', '2026 Market Data:') approaching the flagged 6\u20137pt micro-text class. The card simply holds too much content for its box \u2014 same root cause as the Situation-card truncation.",
+   "src": "ov1"
+  },
+  {
+   "where": "Slides 2 and 5 (s02 headline 'Budget: $240.0K', s05 headline '$240.0K')",
+   "title": "Awkward '$240.0K' number formatting",
+   "detail": "A round $240,000 budget renders as '$240.0K' in the slide-2 Situation card and the slide-5 headline, while the KPI band and slide 6 correctly show '$240K'/'$240,000'. The trailing '.0' is a formatter artifact that reads machine-generated, not exec-polished.",
+   "src": "ov1"
+  },
+  {
+   "where": "Slides 2 and 6 (KPI band vs takeaway band)",
+   "title": "Rounding inconsistencies in headline metrics",
+   "detail": "Slide 2 states $18.82 avg CPA and $1,678.32/hire; slide 6 states $19 CPA (fine as rounding) but $1,675 average cost-per-hire \u2014 which matches neither $1,678.32 nor $240,000/143. Small, but these are the two numbers an exec will remember, and they should be identical everywhere. Also '$1,678.32/hire' to the cent is false precision for a projection.",
+   "src": "ov1"
+  },
+  {
+   "where": "Slide 3 (s03)",
+   "title": "Card 1 missing its product label and title duplicates the header band",
+   "detail": "Cards 2\u20136 each carry a purple product label (AI MEDIA PLANNER, AI ADVERTISER, ...) but card 1 has none, leaving an inconsistent blank gap between title and body. The slide title 'Our Methodology \u2014 ...' also repeats the header band's 'OUR METHODOLOGY' verbatim. Otherwise a clean, if boilerplate, slide.",
+   "src": "ov1"
+  },
+  {
+   "where": "Slide 1 (s01), top-left",
+   "title": "Joveo wordmark rendered as a white image chip on the dark cover",
+   "detail": "The logo sits inside a visible white rectangle rather than as a transparent or reversed (white) wordmark, reading as a pasted screenshot chip against the navy canvas. Post-reskin light cover likely resolves this, but any dark layout needs a proper reversed logo asset.",
+   "src": "ov1"
+  },
+  {
+   "where": "s07.png (slide 7 \u2014 Benchmark Basis column)",
+   "title": "Benchmark analogies strain credibility and sourcing is self-referential",
+   "detail": "'Computational Scientists\u2026 aligned with nurse-level CPAs' and 'Language/Writing Experts\u2026 comparable to paralegal/legal assistant CPAs' are non-sequitur cross-vertical analogies that invite challenge. All rows cite only 'Joveo benchmark' with no time period, sample or geography beyond a one-line disclaimer.",
+   "src": "ov2"
+  },
+  {
+   "where": "s11.png (slide 11 \u2014 Challenges / Joveo Solution columns)",
+   "title": "Broken hanging indent and dead vertical gap in the two-column body",
+   "detail": "In 'The Joveo Solution', the first bullet's wrapped line '(CPQA partners)' returns flush to the left margin instead of aligning under the bullet text. Both section headings are separated from their first bullets by ~70px of unexplained empty space, reading as a rendering artifact rather than intentional whitespace.",
+   "src": "ov2"
+  },
+  {
+   "where": "s11.png (slide 11 \u2014 stat cards)",
+   "title": "Case-study metrics are anonymous and unsourced",
+   "detail": "2x / +38% / -17% are strong claims captioned only 'across various campaigns' \u2014 no client name (even anonymized as 'a leading AI-data company'), cohort, or time period. At exec level these read as marketing numbers, not evidence.",
+   "src": "ov2"
+  },
+  {
+   "where": "s07.png (slide 7 \u2014 header vs title)",
+   "title": "Header band and slide title duplicate each other",
+   "detail": "Band reads 'CPA REFERENCE' and the title immediately repeats 'CPA Reference \u2014 \u2026'. The eyebrow/title pair should not restate; one should carry the message (a takeaway), the other the section label.",
+   "src": "ov2"
+  },
+  {
+   "where": "Channel Recommendations C4, L21, G12; Executive Summary B74:B81",
+   "title": "Credibility slips: role misclassified, self-contradicting rationale, garbage-input scorecard",
+   "detail": "'Aircraft Tradesperson' is tiered 'Professional / White-Collar' (it is a skilled trade \u2014 this drives the tier-adjusted CPCs). ZipRecruiter's rationale says 'low CPA' beside its own $105.41, second-highest in the table; LinkedIn's $253.66 CPA is 7x the plan's blended CPA with no comment. Creative Quality Score gives Grade F with 'Description Length: 0/25 (currently ~0 words)' \u2014 the scorer evidently ran on empty input and published anyway.",
+   "src": "px"
+  },
+  {
+   "where": "Intl Benchmarks B3 and B6:B42; Executive Summary B67 vs B70; Niche Board Matching C14",
+   "title": "Small consistency nicks",
+   "detail": "Header claims 38 countries, table has 37 rows \u2014 and 36 of them are irrelevant to a single-market NZ plan. Mixed 'Optimised'/'Optimize' and 'Labour'/'Labor' spellings. Niche Board Matching advises 'allocate 10-20% of budget to niche boards' while the plan itself allocates 30.9%. Sources & Confidence claims 'every figure is traceable to a source' yet the provenance table lists exactly one source.",
+   "src": "px"
+  },
+  {
+   "where": "Channels & Strategy C33/C34 ('$0' CPC for Roku/Spotify), D36/D37 ('$0' CPM for Indeed/ZipRecruiter)",
+   "title": "'$0' used where a metric doesn't apply",
+   "detail": "CTV/audio channels have no CPC and job boards quoted no CPM; per the owner's rule these should be '\u2014', not a misleading $0 that reads as 'free clicks'.",
+   "src": "ox"
+  },
+  {
+   "where": "Channel Recommendations B22:J24 (TEST & LEARN)",
+   "title": "Zero-budget rows project clicks, applications and hires",
+   "detail": "LinkedIn/Bing/X rows show Alloc 0.0% and Spend $0 yet project 1,960\u20136,033 clicks and 1\u20133 hires each \u2014 projections from no money. Footer B26 also says '0 should-have channels' (internal taxonomy) while a 3-row test section sits above it.",
+   "src": "ox"
+  },
+  {
+   "where": "All sheets (sheet_view.showGridLines unset); Executive Summary fill ends at col J/row 82; helper table J30:K36",
+   "title": "Canvas illusion breaks at the edges: gridlines on, background fill stops, chart helper table visible",
+   "detail": "Gridlines are not disabled on any sheet, and the lavender/cream canvas fill stops at column J and row 82 on the Exec Summary, so the chart's raw helper table (J30:K36 'Channel | Budget (USD)') and everything beyond sits on bare gridlines. The Joveo deck system look requires an uninterrupted light canvas; helper data should be on a hidden sheet.",
+   "src": "ox"
+  },
+  {
+   "where": "Channels & Strategy G14; Quality Intelligence E35, I49, J49",
+   "title": "Four header cells clipped by fixed 22pt row heights",
+   "detail": "Two-line headers ('Strategic Rationale' in a 14-wide column, 'Est. Competing Postings', 'Channel Emphasis', 'Description') wrap to 2 lines inside explicitly-set 22pt rows with customHeight, which suppresses Excel auto-fit \u2014 the second line is cut off. Body rows rely on auto-fit, so giant dict-dump cells will instead balloon rows to 300\u2013650pt.",
+   "src": "ox"
+  },
+  {
+   "where": "Executive Summary B72 ('Overall: 45/100 (Grade F)'), B74, B79; Sources & Confidence B3 ('D')",
+   "title": "Plan grades its own inputs F/D on page one without framing",
+   "detail": "Creative Quality 45/100 Grade F with 'Description Length: 0/25 (currently ~0)' reveals the generator scored an empty job description and shipped anyway; overall data confidence 53% 'D' is the visual centerpiece of the Sources sheet. Honesty is good, but presented raw with no 'what we'll do about it' framing it reads as the vendor indicting its own product.",
+   "src": "ox"
+  },
+  {
+   "where": "Market Intelligence B3; Exec Summary B13:D14; Market Intelligence B39:G48",
+   "title": "Orphan/thin sections and mislabeled columns",
+   "detail": "'National Economic Snapshot' (B3) is a header with no content under it. 'COMPANY INTELLIGENCE' on the Exec Summary contains a single generic row (Industry: Retail & Consumer). Location Intelligence's 'Key Industries' column actually lists employers (AT&T, MD Anderson, HCA Healthcare) \u2014 several healthcare-heavy lists that look imported from a healthcare dataset for a retail client; 3 of 10 cities are all-dash rows.",
+   "src": "ox"
+  },
+  {
+   "where": "Niche Board Matching C13/B19; Channels & Strategy B42",
+   "title": "'RetailGigs' unverifiable and best-practice guidance conflicts with the plan",
+   "detail": "'RetailGigs' does not correspond to a known job board (Snagajob/Wonolo/Instawork are real) \u2014 needs verification before a client sees it. The sheet also advises 'Allocate 10-20% of total budget to niche boards' while the plan allocates 8%.",
+   "src": "ox"
+  },
+  {
+   "where": "Executive Summary B22/B24 vs strategy: Social Media row",
+   "title": "20% of budget parked on the plan's own worst channel",
+   "detail": "Social Media gets $48,000 (20%) for a projected 3 hires at $16,000/hire and ROI score 4/10, while Regional Boards ($0.67 CPC, ROI 10) get 7%. The Risk Analysis section discusses concentration risk but never addresses why a fifth of spend sits on a channel the model itself scores as failing \u2014 the kind of unforced strategic incoherence an MBB reviewer catches immediately.",
+   "src": "ox"
+  },
+  {
+   "where": "Deck slide 6 Total row ('101%') vs Workbook Executive Summary C22-C29 (sums to 100.2%)",
+   "title": "Deck's allocation percentages total a printed '101%'",
+   "detail": "Rounding each channel share up (31+21+16+13+11+4+3+2) produces a Total row that literally reads 101%. The workbook's underlying fractions sum to 100.2% and its own Total row (B30) is an empty label with no values at all. Cosmetic, but it sits on the money slide.",
+   "src": "pc"
+  },
+  {
+   "where": "Deck slide 7 'CPA Reference' (Backend/Frontend Developers $8-$14 ... Finance Analysts $13-$18)",
+   "title": "CPA reference slide is boilerplate for tech/AI-training roles, unrelated to the plan and in USD",
+   "detail": "The slide benchmarks developers, writers, CAD engineers and finance analysts at $8\u2013$35 CPA \u2014 no aviation or trades role appears, none of the ranges relate to the plan's NZ$33.95 CPA, and the currency silently switches to USD. It reads as template residue from a different client and invites 'why is my CPA 2-4x these?' questions.",
+   "src": "pc"
+  },
+  {
+   "where": "Workbook Executive Summary D6 ('3-6 months') vs Deck slide 9 (Weeks 1-12) and 90-Day Forecast (Jul 1 - Sep 30)",
+   "title": "Campaign duration stated as '3-6 months' in workbook vs a 12-week plan everywhere else",
+   "detail": "The deck's implementation roadmap and the workbook's own 90-Day Forecast both describe a 12-week campaign; the Campaign Overview says '3-6 months'. Defensible as a range but loose next to two artifacts that commit to 90 days.",
+   "src": "pc"
+  },
+  {
+   "where": "Deck slide 2 RESOLUTION block vs slide 5 channel mix",
+   "title": "Executive summary lists only 5 of the 8 channels as the strategy",
+   "detail": "Slide 2's checkmarked strategy names Programmatic DSP, Global Job Boards, Niche/Industry Boards, Social Media and Regional Boards \u2014 omitting Employer Branding (13%, the 4th-largest allocation), APAC Regional and EMEA Regional \u2014 while calling it an '8-channel programmatic strategy' in the same block. Also 'Talent Profile: White Collar dominant (100%)' is a questionable classification for an aircraft tradesperson role, echoed by the workbook's 'Professional / White-Collar' tier.",
+   "src": "pc"
+  },
+  {
+   "where": "Workbook Executive Summary F9 ('5000 hires' Hire Volume) vs 143 projected hires everywhere else",
+   "title": "Workbook exposes a 5,000-hire volume goal the deck never mentions",
+   "detail": "The Campaign Overview lists Hire Volume '5000 hires' while the plan projects 143 hires (2.9% of the stated need). The deck omits the 5,000 figure entirely, so the artifacts tell different stories about hiring ambition vs delivery.",
+   "src": "oc"
+  },
+  {
+   "where": "Deck slide 7 (CPA Reference) vs Workbook retail benchmarks",
+   "title": "Deck CPA Reference slide is boilerplate for tech/AI-training roles, not this plan",
+   "detail": "Slide 7 lists Backend/Frontend Developers, Full Stack, CAD/Game Engineers, Computational Scientists and 'Finance Analysts (AI Training)' with $6-$35 CPA ranges \u2014 none relevant to a Business Sales Representative / Retail & Consumer plan, and disconnected from both the workbook's retail CPA benchmark ($8-$25) and the plan's channel CPAs ($11-$215). Slide 11's case study is likewise 'AI Trainers'.",
+   "src": "oc"
+  },
+  {
+   "where": "Deck slides 5/6/10 vs Workbook Exec Summary B22-B27 and Channels & Strategy B4-B9",
+   "title": "Channel naming drift and raw snake_case identifiers leak into client-facing text",
+   "detail": "Deck uses 'Global Job Boards' / 'Niche / Industry Boards' / 'Programmatic DSP'; workbook uses 'Global Boards' / 'Niche Boards' / 'Programmatic Dsp', and the Channels & Strategy sheet uses raw keys (programmatic_dsp, global_boards). Deck slide 10 also prints 'programmatic_dsp, global_boards' verbatim in the risk copy. Names map 1:1, so it is cosmetic, but polish suffers.",
+   "src": "oc"
+  },
+  {
+   "where": "Deck slide 2 RESOLUTION checklist",
+   "title": "Six-channel plan but the strategy checklist names only five channels",
+   "detail": "The checkmark list names Programmatic DSP, Global Job Boards, Niche/Industry Boards, Social Media, and Regional Boards, with the sixth checkmark being 'ML-optimized bidding across 10,238+ publishers'. Employer Branding \u2014 a funded channel at 3% ($7,200) on slides 5-6 \u2014 is missing from the list.",
+   "src": "oc"
+  },
+  {
+   "where": "Deck slide 2 COMPLICATION bullets vs entire workbook",
+   "title": "Deck-only market stats with no workbook support",
+   "detail": "'64,000 retail jobs shed in 2025 Q1', '5,800+ store closures', and '10,238+ publishers' appear only in the deck; no workbook sheet carries these figures (the only '64,000' hits in the workbook are unrelated salary values). Not a contradiction, but unverifiable from the bundle.",
+   "src": "oc"
+  },
+  {
+   "where": "Workbook Market Intelligence B27/B175, Quality Intelligence B10/B24, etc.",
+   "title": "'pheonix' misspelling of Phoenix repeated across four workbook sheets",
+   "detail": "The location is spelled 'pheonix' in every workbook occurrence (Market Intelligence, Quality Intelligence, Geographic Cost Variance, per-role salary tables); most other city names are also lowercased ('houston', 'atlanta') while 'Dallas' is capitalized. The deck avoids the issue only because it never lists the cities.",
+   "src": "oc"
+  }
+ ]
+}
