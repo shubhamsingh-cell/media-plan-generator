@@ -64,6 +64,19 @@ def build_plan_data() -> dict:
         "country": "New Zealand",
         "competitors": ["Raytheon Technologies", "Boeing", "Airbus"],
         "_budget_allocation": alloc,
+        # Minimal salary_intelligence so the exec-summary SITUATION card's
+        # "Salary Range" row is actually exercised by this fixture (the real
+        # app.py enrichment pipeline attaches this; without it, this fixture
+        # never tested the card's Salary Range row at all, fixed vs dropped).
+        "_synthesized": {
+            "salary_intelligence": {
+                "Aircraft Tradesperson": {
+                    "median": 85000,
+                    "min": 55000,
+                    "max": 140000,
+                }
+            }
+        },
     }
 
 

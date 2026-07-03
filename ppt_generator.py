@@ -3162,39 +3162,13 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     # Add apply rate insight with appropriate framing
     benchmarks = _get_benchmarks(industry, data)
 
-    # v3: Add CPC trend direction if available from trend engine
-    cpc_trend_str = benchmarks.get("cpc_trend") or ""
-    cpc_trend_dir = benchmarks.get("cpc_trend_direction") or ""
-    if cpc_trend_str:
-        trend_label = {
-            "rising": "Rising",
-            "falling": "Declining",
-            "stable": "Stable",
-        }.get(cpc_trend_dir) or ""
-        sit_items.append(("CPC Trend", f"{trend_label} {cpc_trend_str}"))
-
-    apply_rate_str = benchmarks.get("apply_rate") or ""
-    if apply_rate_str:
-        import re as _re_ar
-
-        rates = _re_ar.findall(r"[\d.]+", apply_rate_str)
-        if rates:
-            avg_rate = sum(float(r) for r in rates) / len(rates)
-            if avg_rate > 5.0:
-                sit_items.append(
-                    ("Apply Rate", f"{apply_rate_str} (above average - strength)")
-                )
-            elif avg_rate >= 2.0:
-                sit_items.append(
-                    ("Apply Rate", f"{apply_rate_str} (at industry average)")
-                )
-            else:
-                sit_items.append(
-                    ("Apply Rate", f"{apply_rate_str} (below average - challenge)")
-                )
-
-    # Add salary benchmark from salary_intelligence (synthesized) first,
-    # fall back to enriched salary_data
+    # Salary Range is added BEFORE CPC Trend / Apply Rate (moved ahead of them,
+    # 2026-07-03 finding "SITUATION card's Salary Range row overflows/vanishes
+    # on content-heavy plans"): when _autofit_textframe below has to trim
+    # trailing paragraphs to make the card fit, it trims from the END of
+    # sit_items, so whatever is appended LAST is dropped FIRST. Salary context
+    # is at least as decision-relevant as CPC trend/apply-rate framing, so it
+    # should not be the row that silently disappears on a content-heavy plan.
     enriched = data.get("_enriched", {})
     salary_data = enriched.get("salary_data", {}) if enriched else {}
     _salary_added = False
@@ -3232,6 +3206,37 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         except (IndexError, KeyError, TypeError):
             pass
 
+    # v3: Add CPC trend direction if available from trend engine
+    cpc_trend_str = benchmarks.get("cpc_trend") or ""
+    cpc_trend_dir = benchmarks.get("cpc_trend_direction") or ""
+    if cpc_trend_str:
+        trend_label = {
+            "rising": "Rising",
+            "falling": "Declining",
+            "stable": "Stable",
+        }.get(cpc_trend_dir) or ""
+        sit_items.append(("CPC Trend", f"{trend_label} {cpc_trend_str}"))
+
+    apply_rate_str = benchmarks.get("apply_rate") or ""
+    if apply_rate_str:
+        import re as _re_ar
+
+        rates = _re_ar.findall(r"[\d.]+", apply_rate_str)
+        if rates:
+            avg_rate = sum(float(r) for r in rates) / len(rates)
+            if avg_rate > 5.0:
+                sit_items.append(
+                    ("Apply Rate", f"{apply_rate_str} (above average - strength)")
+                )
+            elif avg_rate >= 2.0:
+                sit_items.append(
+                    ("Apply Rate", f"{apply_rate_str} (at industry average)")
+                )
+            else:
+                sit_items.append(
+                    ("Apply Rate", f"{apply_rate_str} (below average - challenge)")
+                )
+
     box2, tf2 = _add_textbox(slide, sit_left, body_top, sit_w, col_height - Inches(0.5))
     tf2.paragraphs[0].space_before = Pt(0)
     tf2.paragraphs[0].space_after = Pt(0)
@@ -3255,9 +3260,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         run_val.text = str(value)
         _set_font(run_val, size=10, bold=False, color=MUTED_TEXT)
 
-    # O1: clamp SITUATION body to the card so the last row (e.g. "Salary Range:
-    # ...") never escapes below the card's rounded bottom edge. Fit box height is
-    # card bottom (col_top+col_height) minus body_top, less a 0.1in bottom margin.
+    # O1: clamp SITUATION body to the card so the last row never escapes below
+    # the card's rounded bottom edge. Fit box height is card bottom
+    # (col_top+col_height) minus body_top, less a 0.1in bottom margin.
     _card_body_h = (col_top + col_height - body_top) / 914400 - 0.1
     _autofit_textframe(tf2, sit_w / 914400, _card_body_h)
 
@@ -3384,7 +3389,16 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         space_after=2,
     )
 
-    for ch in list(channels.values())[:5]:
+    # List every channel in the strategy -- a hardcoded [:5] cap here used to
+    # silently omit channels on 6+ channel plans (e.g. an 8-channel plan only
+    # showed 5), which read as the checklist contradicting the deck's own
+    # "N-channel programmatic strategy" headline a few lines above. O1's
+    # autofit/trim-trailing-content mechanism on this card already handles
+    # overflow (it shrinks text, then trims the lowest-priority trailing
+    # paragraphs -- the publisher line / goals, which sit AFTER this loop --
+    # before anything above them would be cut), so listing all channels here
+    # is safe rather than silently truncating the ones a client is paying for.
+    for ch in list(channels.values()):
         p = tf4.add_paragraph()
         p.space_before = Pt(1)
         p.space_after = Pt(3)
@@ -4033,6 +4047,12 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         if benchmarks.get("cph_is_usd_benchmark", True):
             _cph_val = _mark_usd(benchmarks["cph"])
         else:
+            # This is the plan's OWN projected cost-per-hire (from the budget
+            # engine or salary intelligence), not an external industry
+            # constant like the CPA/CPC rows above it -- correctly localized,
+            # but relabel it so it doesn't read as an "Industry Benchmark"
+            # sourced the same way as its neighbors.
+            _cph_label = "Est. Cost-per-Hire (this plan)"
             _cph_val = benchmarks["cph"]
     else:
         _cph_val = benchmarks["cph"]

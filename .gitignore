@@ -33,6 +33,8 @@ tests/screenshots/
 # Local sample-render output (scripts/render_sample_outputs.py / render_sample_nz.py)
 tmp_render/
 tmp_render_nz/
+tmp_render_final/
+tmp_render_nz_final/
 
 # Resilience router local data
 data/analytics/
