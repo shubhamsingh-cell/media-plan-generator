@@ -1617,9 +1617,135 @@ def _get_budget_numeric(data: dict) -> float:
     return parse_budget(budget_raw, default=100_000.0) if budget_raw else 100_000.0
 
 
+def _parse_hire_goal(hire_volume: Any) -> int:
+    """Parse the client's stated hiring GOAL to a comparable integer (low end).
+
+    ``hire_volume`` arrives as a free-text field: a bare int, "5000 hires",
+    "50-100 hires", "5,000+", or "Not specified"/"TBD"/"". For a range we take
+    the LOW end (so the gap statement is framed against the least ambitious
+    target the client named — the most defensible comparison). Returns 0 when
+    no numeric goal can be parsed, which callers treat as "no goal stated".
+
+    O2 (2026-07-03, findings 42/49/64): the hire-goal-vs-projection gap must be
+    stated head-on; this parser feeds the Executive Summary gap callout.
+    """
+    if isinstance(hire_volume, (int, float)):
+        return max(0, int(hire_volume))
+    if not isinstance(hire_volume, str):
+        return 0
+    text = hire_volume.strip().lower()
+    if not text or text in ("not specified", "tbd", "n/a", "none", "unknown"):
+        return 0
+    # Pull all integer groups (handles thousands separators); take the first as
+    # the low end of any range ("50-100" -> 50).
+    nums = re.findall(r"\d[\d,]*", text)
+    if not nums:
+        return 0
+    try:
+        return max(0, int(nums[0].replace(",", "")))
+    except ValueError:
+        return 0
+
+
 def _get_industry_label(industry_key: str) -> str:
     """Convert industry key to display label."""
     return INDUSTRY_LABEL_MAP.get(industry_key, industry_key.replace("_", " ").title())
+
+
+def _canonical_duration_from_weeks(weeks: int) -> str:
+    """Format a canonical campaign-duration label from a week count.
+
+    Mirrors app.py's ``_canonical_duration_label`` so the SAME string renders
+    regardless of whether generation ran through the app request path (which
+    pre-computes ``campaign_duration_canonical``) or a direct
+    ``generate_excel_v2`` call (sample scripts, tests).
+    """
+    weeks = int(weeks or 0)
+    if weeks <= 0:
+        return "Not specified"
+    if weeks <= 13:
+        return f"{weeks} weeks (~{max(1, round(weeks / 4.33))} months)"
+    months = round(weeks / 4.33)
+    if months < 12:
+        return f"{months} months (~{weeks} weeks)"
+    years = months / 12.0
+    if abs(years - round(years)) < 0.1:
+        yr_txt = f"{years:.0f} year" + ("s" if years >= 2 else "")
+    else:
+        yr_txt = f"{years:.1f} years"
+    return f"{yr_txt} (~{months} months)"
+
+
+def _resolve_campaign_duration(data: dict) -> str:
+    """Single source of truth for the campaign-duration string shown anywhere.
+
+    Preference order (O2, findings 58/77):
+      1. ``campaign_duration_canonical`` (set once in app.py from campaign_weeks)
+      2. derived from ``campaign_weeks`` when present
+      3. derived by parsing ``campaign_weeks`` out of the raw duration string
+      4. the raw ``campaign_duration`` string as a last resort
+
+    This guarantees every sheet references the SAME duration value instead of
+    independently re-wording the raw user input, which previously produced
+    contradictions like "1-2 years" on the Executive Summary vs a 12-week
+    timeline / 90-day full-budget forecast elsewhere in the same bundle.
+    """
+    canonical = data.get("campaign_duration_canonical")
+    if isinstance(canonical, str) and canonical.strip():
+        return canonical.strip()
+
+    weeks = data.get("campaign_weeks")
+    try:
+        weeks_int = int(weeks) if weeks else 0
+    except (ValueError, TypeError):
+        weeks_int = 0
+    if weeks_int > 0:
+        return _canonical_duration_from_weeks(weeks_int)
+
+    # Derive weeks from the raw duration string (subset of app.py's mapping).
+    raw = str(data.get("campaign_duration") or data.get("timeline") or "").strip()
+    dur_lower = raw.lower()
+    if not dur_lower or dur_lower in ("not specified", "tbd", "n/a"):
+        return "Not specified"
+    derived = 0
+    if "2-5 year" in dur_lower or "long-term" in dur_lower or "long term" in dur_lower:
+        derived = 156
+    elif "1-2 year" in dur_lower or "2 year" in dur_lower:
+        derived = 80
+    elif (
+        "6-12 month" in dur_lower
+        or "9 month" in dur_lower
+        or "12 month" in dur_lower
+        or "1 year" in dur_lower
+    ):
+        derived = 48
+    elif (
+        "3-6 month" in dur_lower
+        or "4 month" in dur_lower
+        or "5 month" in dur_lower
+        or "6 month" in dur_lower
+    ):
+        derived = 24
+    elif (
+        "1-3 month" in dur_lower
+        or "1 month" in dur_lower
+        or "2 month" in dur_lower
+        or "3 month" in dur_lower
+    ):
+        derived = 12
+    elif "ongoing" in dur_lower:
+        derived = 52
+    else:
+        wk_match = re.search(r"(\d+)\s*week", dur_lower)
+        if wk_match:
+            derived = int(wk_match.group(1))
+        else:
+            mo_match = re.search(r"(\d+)\s*month", dur_lower)
+            if mo_match:
+                derived = int(mo_match.group(1)) * 4
+    if derived > 0:
+        return _canonical_duration_from_weeks(derived)
+    return raw or "Not specified"
 
 
 def _grade_from_score(score: float) -> str:
@@ -2364,7 +2490,9 @@ def _build_sheet_executive_summary(
     locations = _get_locations(data)
     roles = _get_roles(data)
     budget_num = _get_budget_numeric(data)
-    duration = data.get("campaign_duration", "Not specified")
+    # O2 (findings 58/77): single source of truth for duration — resolve the
+    # canonical label (from campaign_weeks) so every sheet shows the SAME value.
+    duration = _resolve_campaign_duration(data)
     hire_volume = data.get("hire_volume") or ""
     work_env = data.get("work_environment", "hybrid")
 
@@ -2523,6 +2651,55 @@ def _build_sheet_executive_summary(
         col = COL_START + idx * 2
         _write_metric_card(ws, row, col, label, value)
     row += 3  # 2-row cards + gap
+
+    # ── Hiring-goal vs projection reconciliation (O2, findings 42/49/64) ──
+    # The client's stated hiring goal must be addressed head-on, never silently
+    # ignored. When the plan projects materially fewer hires than the stated
+    # goal, state the gap plainly and quantify the budget that would close it.
+    _goal = _parse_hire_goal(hire_volume)
+    if _goal > 0 and _header_hires >= 0:
+        _gap = _goal - _header_hires
+        # Basis for "budget to close the gap": this plan's own realized cost per
+        # hire (most defensible — it's what THIS mix actually achieves), falling
+        # back to the industry average when the plan projects zero hires.
+        _cph_basis = _header_cph if _header_cph and _header_cph > 0 else 0
+        if _cph_basis <= 0:
+            _cph_basis = _safe_num(
+                (budget_alloc.get("metadata") or {}).get("industry_avg_cph") or 0
+            )
+        # Only call out a gap when it's material (>10% short of goal).
+        if _gap > 0 and _goal > 0 and (_gap / _goal) > 0.10:
+            _extra_budget = _gap * _cph_basis if _cph_basis > 0 else 0
+            _pct_of_goal = round(_header_hires / _goal * 100)
+            _gap_msg = (
+                f"Hiring-goal gap: this plan projects {_header_hires:,} hires "
+                f"against a stated goal of {_goal:,} "
+                f"({_pct_of_goal}% of goal). "
+            )
+            if _extra_budget > 0:
+                _gap_msg += (
+                    f"Closing the ~{_gap:,}-hire gap at this plan's "
+                    f"{_fmt_currency(_cph_basis)}/hire would need roughly "
+                    f"{_fmt_currency(_extra_budget)} of additional budget "
+                    f"(total ~{_fmt_currency(budget_num + _extra_budget)}). "
+                    f"Alternatively, phase the goal across multiple cycles or "
+                    f"prioritise the highest-ROI roles within this budget."
+                )
+            else:
+                _gap_msg += (
+                    "Consider increasing budget, phasing the goal across "
+                    "multiple hiring cycles, or narrowing to the highest-ROI "
+                    "roles within this budget."
+                )
+            ws.merge_cells(
+                start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+            )
+            _gcell = ws.cell(row=row, column=COL_START, value=_gap_msg)
+            _gcell.font = _FONT_BODY_BOLD
+            _gcell.alignment = _ALIGN_LEFT
+            _gcell.fill = _FILL_AMBER_BG
+            ws.row_dimensions[row].height = 46
+            row += 2
 
     # Sufficiency grade
     grade_str = sufficiency.get("grade") or ""
@@ -6625,6 +6802,26 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
         "Forecast Period",
         f"{_forecast_start.strftime('%b %d, %Y')} - {_forecast_end.strftime('%b %d, %Y')}",
     )
+    # O2 (findings 58/77): reconcile this 90-day view with the plan's stated
+    # duration so a longer campaign never reads as a contradiction. The
+    # duration string comes from the SAME resolver every other sheet uses.
+    _plan_duration = _resolve_campaign_duration(data)
+    _cw = data.get("campaign_weeks")
+    try:
+        _cw_int = int(_cw) if _cw else 0
+    except (ValueError, TypeError):
+        _cw_int = 0
+    row = _write_kv_row(ws, row, "Campaign Duration", _plan_duration)
+    if _cw_int > 13:
+        row = _write_footnote(
+            ws,
+            row,
+            f"Stated campaign duration is {_plan_duration}. This forecast shows "
+            "the 90-day activation ramp during which the plan's budget is "
+            "deployed and the projected applications and hires below are "
+            "realised; sustaining hiring across the full duration would require "
+            "renewing budget in later quarters at the same channel economics.",
+        )
     row += 1
 
     # ── Summary Forecast Table ──
@@ -7092,84 +7289,184 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def _build_sheet_channel_recommendations(ws, data: dict) -> None:
-    """Build Sheet 10: Channel Recommendations (S48).
+# O2 (2026-07-03, findings 35/48/63/70): a category -> representative ad
+# platform map, so the Channel Recommendations sheet can suggest WHICH
+# platform to buy each budget_engine channel category on -- WITHOUT ever
+# recomputing the plan's spend/apps/hires. All numbers on this sheet now come
+# from the same `_budget_allocation.channel_allocations` object the Executive
+# Summary / ROI Projections / 90-Day Forecast use, so the two-plans
+# contradiction (e.g. 1,637 apps @ $91.63 vs 4,418 @ $33.95 on the SAME
+# $150,000) is eliminated by construction and Spend foots to the budget.
+_CATEGORY_TO_PLATFORM: Dict[str, str] = {
+    "programmatic": "Programmatic Display (DSP)",
+    "job_board": "Indeed Sponsored Jobs",
+    "niche_board": "Specialty / niche job boards",
+    "social": "LinkedIn / Meta / TikTok Ads",
+    "regional": "Regional & aggregator boards",
+    "employer_branding": "Employer-brand content & career site",
+    "career_site": "Career site & organic",
+    "referral": "Employee referral program",
+    "events": "Career fairs & hiring events",
+    "staffing": "Staffing / agency partners",
+    "search": "Google / Bing Ads (SEM)",
+    "display": "Programmatic Display (DSP)",
+    "email": "Email / talent-community nurture",
+}
 
-    Uses the channel_recommender engine to produce tiered channel recommendations
-    with CPC, CPA, projected outcomes, confidence, and rationale.
+
+def _recommended_platform_for_channel(channel_name: str) -> str:
+    """Suggest a representative ad platform for a budget_engine channel category."""
+    return _CATEGORY_TO_PLATFORM.get(
+        _roi_category_for_channel(channel_name),
+        "Best-fit platform for this channel",
+    )
+
+
+def _build_sheet_channel_recommendations(ws, data: dict) -> None:
+    """Build Sheet 10: Channel Recommendations (S48; reconciled in O2).
+
+    O2 (2026-07-03): This sheet now renders the SAME media plan as every other
+    sheet. Its numbers are read directly from the plan's single
+    ``_budget_allocation`` object (the one produced by
+    ``budget_engine.calculate_budget_allocation`` and consumed by the Executive
+    Summary, ROI Projections, 90-Day Forecast, and Confidence Intervals
+    sheets), NOT recomputed by an independent engine. It re-frames that one plan
+    by recommended ad platform and tiers the channels by investment weight, but
+    every Spend / Apps / Hires / CPA figure is identical to the rest of the
+    workbook, and the Spend column foots to exactly the stated budget.
+
+    Resolves findings 35, 48, 63, 70 (two contradictory plans in one bundle;
+    Spend column not summing to the budget).
     """
     ws.title = "Channel Recommendations"
     ws.sheet_properties.tabColor = SAPPHIRE  # PURPLE 5A54BE
 
-    if not _HAS_CHANNEL_RECOMMENDER:
-        ws.cell(
-            row=2, column=2, value="Channel Recommender module not available."
-        ).font = _FONT_BODY
+    budget_alloc = data.get("_budget_allocation") or {}
+    if not isinstance(budget_alloc, dict):
+        budget_alloc = {}
+    channel_allocs = budget_alloc.get("channel_allocations") or {}
+    if not isinstance(channel_allocs, dict):
+        channel_allocs = {}
+
+    # Only include funded channels (>$0). Zero-budget channels are surfaced as
+    # a "Consider / Test & Learn" note instead of projecting phantom outcomes.
+    funded = [
+        (name, ch)
+        for name, ch in channel_allocs.items()
+        if isinstance(ch, dict)
+        and _safe_num(ch.get("dollar_amount", ch.get("dollars") or 0)) > 0
+    ]
+
+    if not funded:
+        # Defensive fallback: no shared allocation available. Rather than emit a
+        # second, independently-computed plan (the old behaviour, which caused
+        # the two-plans contradiction), state plainly that this view mirrors the
+        # Executive Summary and there is nothing extra to show.
+        c = ws.cell(row=1, column=2, value="Channel Recommendations")
+        c.font = _FONT_SECTION
+        c.fill = _FILL_SAPPHIRE
+        for col in range(2, 10):
+            ws.cell(row=1, column=col).fill = _FILL_SAPPHIRE
+        _write_kv_row(
+            ws,
+            3,
+            "Status",
+            "Channel-level recommendations mirror the plan shown on the "
+            "Executive Summary and ROI Projections sheets. No separate channel "
+            "allocation was available for this campaign.",
+        )
+        for col, w in {2: 28, 3: 22, 4: 12, 5: 14, 6: 12, 7: 12, 8: 12, 9: 12}.items():
+            ws.column_dimensions[get_column_letter(col)].width = w
         return
+
+    # ── Totals — summed from the SAME allocation the rest of the plan uses ──
+    total_spend = sum(
+        _safe_num(ch.get("dollar_amount", ch.get("dollars") or 0)) for _, ch in funded
+    )
+    total_apps = sum(
+        int(_safe_num(ch.get("projected_applications") or 0)) for _, ch in funded
+    )
+    total_hires = sum(
+        int(_safe_num(ch.get("projected_hires") or 0)) for _, ch in funded
+    )
+    total_clicks = sum(
+        int(_safe_num(ch.get("projected_clicks") or 0)) for _, ch in funded
+    )
+    avg_cpa = round(total_spend / total_apps, 2) if total_apps > 0 else 0.0
 
     industry = data.get("industry") or "general_entry_level"
-    roles = data.get("roles") or data.get("job_titles") or []
-    role = roles[0] if roles else (data.get("role") or "")
-    budget = parse_budget(
-        data.get("budget") or data.get("budget_range"), default=100_000.0
-    )
-    locations = data.get("locations") or []
-
-    # S50 FIX: Pass the main plan's total hires so Channel Recommendations
-    # normalizes its projections to match the Executive Summary.
-    # Eliminates the 3.47x discrepancy (e.g. 1,317 vs 380 hires on $2M).
-    _ba = data.get("_budget_allocation", {})
-    _ba_total_proj = _ba.get("total_projected", {})
-    _main_plan_hires = int(_ba_total_proj.get("hires") or 0)
-
-    try:
-        rec = _recommend_channels_fn(
-            industry=industry,
-            role=role,
-            budget=budget,
-            locations=locations,
-            collar_type=data.get("collar_type") or "",
-            main_plan_total_hires=_main_plan_hires,
-        )
-    except Exception as exc:
-        logger.error(
-            "Channel recommender failed in Excel sheet: %s", exc, exc_info=True
-        )
-        ws.cell(
-            row=2, column=2, value=f"Error generating recommendations: {exc}"
-        ).font = _FONT_BODY
-        return
+    industry_label = _get_industry_label(industry)
+    roles = _get_roles(data)
+    role_label = roles[0] if roles else (data.get("role") or "Various")
 
     row = 1
-    meta = rec.get("metadata", {})
 
     # ── Title ──
     c = ws.cell(row=row, column=2, value="Channel Recommendations")
     c.font = _FONT_SECTION
     c.fill = _FILL_SAPPHIRE
-    for col in range(2, 10):
+    for col in range(2, 13):
         ws.cell(row=row, column=col).fill = _FILL_SAPPHIRE
     row += 1
 
-    # ── Summary stats ──
-    for label, val in [
-        ("Industry", meta.get("industry_label", "")),
-        ("Role", meta.get("role", "Various")),
-        ("Role Tier", meta.get("role_tier", "")),
-        ("Budget", _fmt_currency(meta.get("budget", 0))),
-        ("Proj. Applications", f"{meta.get('total_projected_applications', 0):,}"),
-        ("Proj. Hires", f"{meta.get('total_projected_hires', 0):,}"),
-        ("Avg CPA", _fmt_currency(meta.get("avg_cpa", 0), show_cents=True)),
-    ]:
+    # ── Reconciliation note (single-plan guarantee) ──
+    _rec_note = (
+        "This sheet re-frames the SAME plan shown on the Executive Summary, ROI "
+        "Projections, and 90-Day Forecast sheets — organised by recommended ad "
+        "platform and investment tier. Every Spend, Applications, Hires, and CPA "
+        "figure below is identical to those sheets, and the Spend column foots to "
+        "the total budget. It is not an alternative scenario."
+    )
+    ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=12)
+    _nc = ws.cell(row=row, column=2, value=_rec_note)
+    _nc.font = _FONT_FOOTNOTE
+    _nc.alignment = _ALIGN_WRAP
+    ws.row_dimensions[row].height = 42
+    row += 2
+
+    # ── Summary stats (all live numbers, currency-localized) ──
+    _stat_rows = [
+        ("Industry", industry_label, None),
+        ("Role", str(role_label), None),
+        ("Budget", total_spend, _usd0_fmt()),
+        ("Proj. Applications", total_apps, FMT_INT),
+        ("Proj. Hires", total_hires, FMT_INT),
+        ("Avg CPA", avg_cpa, _usd2_fmt()),
+    ]
+    for label, val, fmt in _stat_rows:
         ws.cell(row=row, column=2, value=label).font = _FONT_BODY_BOLD
-        ws.cell(row=row, column=3, value=val).font = _FONT_BODY
+        vcell = ws.cell(row=row, column=3)
+        if fmt:
+            _write_num(vcell, val, fmt)
+        else:
+            vcell.value = val
+        vcell.font = _FONT_BODY
         row += 1
     row += 1
 
-    # ── Tier sections ──
+    # ── Tier the SAME channels by investment weight (share of total spend) ──
+    # This is a presentation of the one plan, not a re-allocation: MUST HAVE =
+    # the channels carrying the bulk of the budget, SHOULD HAVE = supporting
+    # channels. No number changes between tiers.
+    ranked = sorted(
+        funded,
+        key=lambda x: _safe_num(x[1].get("dollar_amount", x[1].get("dollars") or 0)),
+        reverse=True,
+    )
+    must_have: List[tuple] = []
+    should_have: List[tuple] = []
+    _cum = 0.0
+    for name, ch in ranked:
+        _cum += _safe_num(ch.get("dollar_amount", ch.get("dollars") or 0))
+        # Channels that together make up the first ~80% of spend are MUST HAVE.
+        if _cum <= total_spend * 0.80 or not must_have:
+            must_have.append((name, ch))
+        else:
+            should_have.append((name, ch))
+
     headers = [
         "Channel",
-        "Platform",
+        "Recommended Platform",
         "Alloc %",
         "Spend",
         "CPC",
@@ -7180,14 +7477,17 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         "Confidence",
         "Rationale",
     ]
-    for tier_key, tier_title, fill in [
-        ("must_have", "MUST HAVE", _FILL_GREEN_BG),
-        ("should_have", "SHOULD HAVE", _FILL_BLUE_LIGHT),
-        ("test_and_learn", "TEST & LEARN", _FILL_AMBER_BG),
-        ("skip", "SKIP", _FILL_RED_BG),
+    # Column number_formats parallel to `headers` (currency-localized).
+    _row_formats = [
+        None, None, FMT_PCT1, _usd0_fmt(), _usd2_fmt(), _usd2_fmt(),
+        FMT_INT, FMT_INT, FMT_INT, None, None,
+    ]
+
+    for tier_title, tier_channels, fill in [
+        ("MUST HAVE", must_have, _FILL_GREEN_BG),
+        ("SHOULD HAVE", should_have, _FILL_BLUE_LIGHT),
     ]:
-        channels = rec.get(tier_key, [])
-        if not channels:
+        if not tier_channels:
             continue
 
         # Tier header
@@ -7269,7 +7569,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         9: 10,
         10: 10,
         11: 12,
-        12: 50,
+        12: 46,
     }
     for col, w in widths.items():
         ws.column_dimensions[get_column_letter(col)].width = w
@@ -7874,8 +8174,13 @@ def _generate_excel_v2_inner(
             row=2, column=2, value=f"Error generating Niche Board Matching sheet: {exc}"
         ).font = _FONT_BODY
 
-    # ── Sheet 10: Channel Recommendations (S48) ──
-    if _HAS_CHANNEL_RECOMMENDER:
+    # ── Sheet 10: Channel Recommendations (S48; reconciled in O2) ──
+    # O2 (2026-07-03): this sheet now derives entirely from the shared
+    # `_budget_allocation`, so it no longer requires the channel_recommender
+    # module. Build it whenever a budget allocation exists.
+    if _HAS_CHANNEL_RECOMMENDER or (data.get("_budget_allocation") or {}).get(
+        "channel_allocations"
+    ):
         ws10 = wb.create_sheet()
         try:
             _build_sheet_channel_recommendations(ws10, data)

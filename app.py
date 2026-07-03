@@ -16191,6 +16191,36 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         campaign_weeks = int(mo_match.group(1)) * 4
             data["campaign_weeks"] = campaign_weeks
 
+            # ── O2 (2026-07-03, findings 58/77): single source of truth for
+            # campaign DURATION. Every sheet/slide previously worded duration
+            # independently -- the Executive Summary echoed the raw user string
+            # (e.g. "1-2 years") while the 90-Day Forecast spent 100% of budget
+            # in a 90-day window and the deck built a campaign_weeks-based
+            # timeline, producing "1-2 years vs 12 weeks" contradictions.
+            # Derive ONE canonical duration label from campaign_weeks (the
+            # authoritative numeric window the timeline/forecast are built from)
+            # and have downstream artifacts reference it instead of re-wording.
+            def _canonical_duration_label(weeks: int) -> str:
+                weeks = int(weeks or 0)
+                if weeks <= 0:
+                    return "Not specified"
+                if weeks <= 13:
+                    return f"{weeks} weeks (~{max(1, round(weeks / 4.33))} months)"
+                months = round(weeks / 4.33)
+                if months < 12:
+                    return f"{months} months (~{weeks} weeks)"
+                years = months / 12.0
+                yr_txt = (
+                    f"{years:.0f} year" + ("s" if years >= 2 else "")
+                    if abs(years - round(years)) < 0.1
+                    else f"{years:.1f} years"
+                )
+                return f"{yr_txt} (~{months} months)"
+
+            data["campaign_duration_canonical"] = _canonical_duration_label(
+                campaign_weeks
+            )
+
             # ── Phase 0: Canonical Taxonomy Normalization ──
             # Run the standardizer on all input fields BEFORE they enter
             # the enrichment/synthesis pipeline.  This ensures every
