@@ -69,7 +69,105 @@ try:
 except ImportError:
     _HAS_CHANNEL_RECOMMENDER = False
 
+try:
+    import plan_currency as _plan_currency
+except ImportError:  # pragma: no cover - plan_currency ships with the repo
+    _plan_currency = None
+
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# S3: Plan currency (mirrors the thread-local pattern in ppt_generator.py).
+# Every money figure that is the PLAN'S OWN budget/spend/CPA/CPH/allocation
+# number must render in the plan's local currency, consistently between the
+# deck and this workbook. Only fixed US-benchmark constants (FRED macro data,
+# Intl Benchmarks sheet, Joveo Campaign Warehouse) may stay USD, and those
+# call sites pass currency="USD" explicitly plus carry an inline "(USD)"
+# marker directly on the figure/header -- never a bare "$".
+#
+# THREAD-LOCAL: generate_excel_v2 can run on concurrent per-request threads
+# under the threading HTTP server, so (as in ppt_generator.py) the active
+# currency is stored per-thread, not as a shared module global.
+# ---------------------------------------------------------------------------
+import threading as _threading  # noqa: E402
+
+_currency_tls = _threading.local()
+
+
+def _get_active_currency() -> str:
+    """Active plan currency for THIS thread (defaults to USD)."""
+    return getattr(_currency_tls, "code", "USD") or "USD"
+
+
+def _plan_currency_code(data: Optional[dict]) -> str:
+    """Resolve the ISO currency code for a plan from its data. Defaults to USD."""
+    if not isinstance(data, dict):
+        return "USD"
+    explicit = data.get("currency_code") or data.get("currency")
+    if isinstance(explicit, str) and explicit.strip():
+        return explicit.strip().upper()
+    if _plan_currency is None:
+        return "USD"
+    candidates: List[str] = []
+    for key in ("country", "primary_location"):
+        val = data.get(key)
+        if isinstance(val, str) and val.strip():
+            candidates.append(val)
+    locs = data.get("locations") or []
+    if isinstance(locs, (list, tuple)):
+        for loc in locs:
+            if isinstance(loc, str) and loc.strip():
+                candidates.append(loc)
+            elif isinstance(loc, dict):
+                country = loc.get("country") or loc.get("location") or ""
+                if isinstance(country, str) and country.strip():
+                    candidates.append(country)
+    for cand in candidates:
+        try:
+            code = _plan_currency.currency_for_country(cand)
+        except Exception:  # noqa: BLE001 - resolution is best-effort
+            code = None
+        if code:
+            return code
+    return "USD"
+
+
+def _set_active_currency(data: Optional[dict]) -> str:
+    """Resolve and remember the plan currency for the duration of generation."""
+    code = _plan_currency_code(data)
+    _currency_tls.code = code
+    if isinstance(data, dict):
+        data["_plan_currency_code"] = code
+    return code
+
+
+def _cur_symbol(currency: Optional[str] = None) -> str:
+    """Return the display symbol for ``currency`` (or the active plan currency)."""
+    code = (currency or _get_active_currency() or "USD").strip().upper()
+    if _plan_currency is not None:
+        return _plan_currency.symbol_for_code(code)
+    return "$" if code == "USD" else code + " "
+
+
+def _usd_number_format(base_pattern: str) -> str:
+    """Build a number_format string with the ACTIVE currency's symbol baked in.
+
+    ``base_pattern`` is one of the ``#,##0`` / ``#,##0.00`` digit patterns
+    (no symbol). The symbol is quoted so openpyxl/Excel treat it as a literal
+    prefix rather than a format directive.
+    """
+    sym = _cur_symbol()
+    return f'"{sym}"{base_pattern}'
+
+
+def _usd0_fmt() -> str:
+    """Active-currency whole-dollar number format (e.g. NZ$#,##0)."""
+    return _usd_number_format("#,##0")
+
+
+def _usd2_fmt() -> str:
+    """Active-currency per-unit number format (e.g. NZ$#,##0.00)."""
+    return _usd_number_format("#,##0.00")
 
 # ---------------------------------------------------------------------------
 # Seasonal Hiring Trends -- loaded once from data/seasonal_hiring_trends.json
@@ -235,9 +333,17 @@ PURPLE_LIGHT_HEX = PURPLE_LIGHT.lstrip("#").upper()  # 8680D6 — tertiary accen
 # Excel number-format strings (S89) -- write LIVE numeric values into data
 # cells + apply these formats, so a client can SUM / sort / filter / chart the
 # deliverable. Never write pre-formatted display strings into summable columns.
+#
+# FMT_USD0 / FMT_USD2 are fixed-USD formats: reserve them ONLY for genuinely
+# US-calibrated benchmark constants (Intl Benchmarks sheet, FRED macro data,
+# Joveo Campaign Warehouse) that carry an explicit inline USD marker. Any cell
+# holding the PLAN'S OWN budget/spend/CPA/CPH/allocation figure must use
+# ``_usd0_fmt()`` / ``_usd2_fmt()`` instead (S3) -- those resolve the ACTIVE
+# plan currency at write-time so NZD/GBP/etc. plans render in their own
+# currency rather than a hardcoded "$".
 # ---------------------------------------------------------------------------
-FMT_USD0 = "$#,##0"  # whole-dollar columns (Amount, Budget, Cost/Hire)
-FMT_USD2 = '"$"#,##0.00'  # per-unit money (CPC, CPA, CPM)
+FMT_USD0 = "$#,##0"  # whole-dollar columns -- US-benchmark constants ONLY
+FMT_USD2 = '"$"#,##0.00'  # per-unit money -- US-benchmark constants ONLY
 FMT_PCT1 = "0.0%"  # percentages (cell stores the fraction, e.g. 0.32)
 FMT_INT = "#,##0"  # integer counts (clicks, applications, hires)
 # ---------------------------------------------------------------------------
@@ -1354,8 +1460,15 @@ def _safe_num(val: Any, default: float = 0.0) -> float:
     return default
 
 
-def _fmt_currency(val: Any, prefix: str = "$", show_cents: bool = False) -> str:
-    """Format a numeric value as currency."""
+def _fmt_currency(val: Any, prefix: Optional[str] = None, show_cents: bool = False) -> str:
+    """Format a numeric value as currency.
+
+    ``prefix`` defaults to the ACTIVE plan currency symbol (S3) -- pass an
+    explicit prefix (e.g. ``"$"``) only for intentionally USD-coded
+    benchmark figures that must stay USD regardless of the plan's currency.
+    """
+    if prefix is None:
+        prefix = _cur_symbol()
     num = _safe_num(val)
     if num == 0:
         return f"{prefix}0"
@@ -2414,9 +2527,11 @@ def _build_sheet_executive_summary(
         # S89: write LIVE numeric values + Excel number_formats so the client can
         # SUM/sort/filter/chart this table. Column order matches `headers`:
         # Channel(text) | %(pct) | Amount($) | Clicks | Apps | Hires | CPC | CPA | ROI
+        # S3: these are the plan's OWN budget/CPC/CPA figures -- localize to the
+        # active plan currency instead of a hardcoded USD format.
         _col_formats = [
-            None, FMT_PCT1, FMT_USD0, FMT_INT, FMT_INT, FMT_INT,
-            FMT_USD2, FMT_USD2, "0.0",
+            None, FMT_PCT1, _usd0_fmt(), FMT_INT, FMT_INT, FMT_INT,
+            _usd2_fmt(), _usd2_fmt(), "0.0",
         ]
         _first_data_row = row
         _row_idx = 0
@@ -2465,7 +2580,7 @@ def _build_sheet_executive_summary(
             _tot_cells = [
                 ("Total", None),
                 (None, None),  # % column — a SUM of shares is ~100%, skip for clarity
-                (f"=SUM(D{_first_data_row}:D{_last_data_row})", FMT_USD0),
+                (f"=SUM(D{_first_data_row}:D{_last_data_row})", _usd0_fmt()),
                 (f"=SUM(E{_first_data_row}:E{_last_data_row})", FMT_INT),
                 (f"=SUM(F{_first_data_row}:F{_last_data_row})", FMT_INT),
                 (f"=SUM(G{_first_data_row}:G{_last_data_row})", FMT_INT),
@@ -2525,8 +2640,12 @@ def _build_sheet_executive_summary(
                 _hval = get_column_letter(_helper_col + 1)
                 _hc1 = ws.cell(row=_helper_top, column=_helper_col, value="Channel")
                 _hc1.font = _FONT_BODY_BOLD
+                # S3: this is the plan's OWN per-channel budget -- header/format
+                # must reflect the active plan currency, not a hardcoded "(USD)".
                 _hc2 = ws.cell(
-                    row=_helper_top, column=_helper_col + 1, value="Budget (USD)"
+                    row=_helper_top,
+                    column=_helper_col + 1,
+                    value=f"Budget ({_get_active_currency()})",
                 )
                 _hc2.font = _FONT_BODY_BOLD
                 for _ci, (_cn, _cv) in enumerate(_chart_pairs):
@@ -2538,7 +2657,7 @@ def _build_sheet_executive_summary(
                         value=_cv,
                     )
                     _hv.font = _FONT_BODY
-                    _hv.number_format = FMT_USD0
+                    _hv.number_format = _usd0_fmt()
                 # The source-data table is internal plumbing for the pie chart --
                 # hide its columns so the client sees only the chart, not a stray
                 # raw-number table beside the layout.
@@ -3059,7 +3178,8 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
 
         # S89: live numeric cells (summable/sortable). Cols: Channel | Budget%
         # | Amount($) | Category | CPC($) | Confidence | Fit
-        _ch_formats = [None, FMT_PCT1, FMT_USD0, None, FMT_USD2, None, "0.0"]
+        # S3: Amount/CPC are the plan's OWN figures -- active plan currency.
+        _ch_formats = [None, FMT_PCT1, _usd0_fmt(), None, _usd2_fmt(), None, "0.0"]
         _ch_first = row
         for idx, (ch_name, ch_data) in enumerate(sorted_channels[:15]):
             roi = ch_data.get("roi_score") or ""
@@ -3096,7 +3216,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 _c = ws.cell(row=row, column=COL_START + _ci)
                 if _ci == 2:
                     _c.value = f"=SUM({_amt_letter}{_ch_first}:{_amt_letter}{_ch_last})"
-                    _c.number_format = FMT_USD0
+                    _c.number_format = _usd0_fmt()
                 _c.font = _FONT_BODY_BOLD
                 _c.fill = _FILL_BLUE_LIGHT
                 _c.alignment = _ALIGN_CENTER
@@ -3208,7 +3328,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             elif fit == "Good":
                 rationale_parts.append(f"Good industry alignment ({fit_score:.0%})")
             if ch_cpc > 0:
-                rationale_parts.append(f"CPC ${ch_cpc:.2f}")
+                rationale_parts.append(f"CPC {_fmt_currency(ch_cpc, show_cents=True)}")
             if ch_pct > 15:
                 rationale_parts.append(
                     f"Primary channel — {ch_pct:.0f}% of budget for volume"
@@ -3554,12 +3674,21 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     loc_profiles = synthesized.get("location_profiles", {})
     loc_demographics = enriched.get("location_demographics", {})
 
+    # S3: median_income here traces to US Census/DataUSA/METRO_DATA fallbacks
+    # only (research.py METRO_DATA is US-metro-only) -- a fixed US-benchmark
+    # constant, not the plan's own figure, and it never has a match for
+    # non-US locations (the column renders "--" for them). Only label it
+    # "(USD)" for a USD plan; for a non-USD plan the column is empty anyway,
+    # so a USD marker here would misleadingly imply US data exists.
+    _income_header = (
+        "Median Income (USD)" if _get_active_currency() == "USD" else "Median Income"
+    )
     headers = [
         "Location",
         "Country",
         "Population",
         "Unemployment",
-        "Median Income",
+        _income_header,
         "Key Industries",
     ]
     row = _write_table_header(ws, row, headers)
@@ -3669,8 +3798,9 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             else _flatten_value(population)
         )
         unemp_str = _flatten_value(unemployment)
+        # US Census/METRO_DATA source only (see header note) -- always USD.
         income_str = (
-            _fmt_currency(median_income)
+            _fmt_currency(median_income, prefix="$")
             if isinstance(median_income, (int, float))
             else _flatten_value(median_income)
         )
@@ -3715,10 +3845,13 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     if _fred_macro:
         row += 1
         row = _write_subsection_header(ws, row, "Macro Economic Context")
+        # S3: FRED (US Federal Reserve) macro data is US-only by definition --
+        # keep it USD but mark it explicitly so it never reads as a bare $
+        # beside a non-USD plan's own figures elsewhere on this sheet.
         _fred_display = [
             ("Unemployment Rate", "unemployment_rate", "%"),
             ("Job Openings (000s)", "job_openings", "K"),
-            ("Avg Hourly Earnings", "avg_hourly_earnings", "$"),
+            ("Avg Hourly Earnings (USD)", "avg_hourly_earnings", "$"),
             ("Fed Funds Rate", "fed_funds_rate", "%"),
             ("CPI Index", "cpi_inflation", ""),
         ]
@@ -4647,9 +4780,11 @@ def _build_warehouse_provenance(ws, data: dict, row: int) -> int:
     ws.row_dimensions[row].height = 28
     row += 2
 
+    # S3: cg_benchmarks is Joveo's first-party USD campaign warehouse (not the
+    # current plan's own currency) -- mark it explicitly rather than a bare $.
     headers = [
         "Role / Title",
-        "Cost per Apply",
+        "Cost per Apply (USD)",
         "Sample Size",
         "Last Updated",
         "Source",
@@ -5530,9 +5665,9 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
         "Avg Time to Fill",
     ]
     summary_values = [
-        f"${total_budget:,.0f}",
+        _fmt_currency(total_budget),
         str(total_projected_hires),
-        f"${avg_cph:,.0f}",
+        _fmt_currency(avg_cph),
         f"{avg_ttf} days",
     ]
 
@@ -5555,9 +5690,11 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
     # ── Channel ROI Table ──
     row = _write_subsection_header(ws, row, "Per-Channel ROI Analysis")
 
+    # S3: this is the plan's OWN per-channel budget -- header must reflect the
+    # active plan currency symbol, not a hardcoded "$".
     headers = [
         "Channel Name",
-        "Budget ($)",
+        f"Budget ({_cur_symbol()})",
         "Proj. Applications",
         "Proj. Hires",
         "Confidence",
@@ -5606,9 +5743,10 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
             _safe_num(roi_data["time_to_fill"]),
             round(_safe_num(roi_score), 1),
         ]
+        # S3: budget/cost-per-hire are the plan's OWN figures -- active currency.
         _roi_fmts = [
-            None, FMT_USD0, FMT_INT, FMT_INT, None, None,
-            FMT_USD0, '0" days"', '0"/10"',
+            None, _usd0_fmt(), FMT_INT, FMT_INT, None, None,
+            _usd0_fmt(), '0" days"', '0"/10"',
         ]
         row = _write_table_row(
             ws, row, values, alternate=(idx % 2 == 0), number_formats=_roi_fmts
@@ -5748,7 +5886,7 @@ def _build_sheet_quality_intelligence(
                     [
                         city_name,
                         f"{info.get('salary_multiplier', 1.0):.2f}x",
-                        f"${info.get('estimated_salary', 0):,.0f}",
+                        _fmt_currency(info.get("estimated_salary", 0)),
                         f"{info.get('hiring_difficulty', 0):.1f}/10",
                         str(info.get("supply_tier") or "balanced")
                         .replace("_", " ")
@@ -5798,9 +5936,9 @@ def _build_sheet_quality_intelligence(
                             [
                                 city_name,
                                 role_name,
-                                f"${sal.get('min', 0):,.0f}",
-                                f"${sal.get('median', 0):,.0f}",
-                                f"${sal.get('max', 0):,.0f}",
+                                _fmt_currency(sal.get("min", 0)),
+                                _fmt_currency(sal.get("median", 0)),
+                                _fmt_currency(sal.get("max", 0)),
                                 f"{sal.get('multiplier', 1.0):.2f}x",
                                 str(sal.get("source") or "—"),
                             ],
@@ -6137,7 +6275,7 @@ def _build_sheet_quality_intelligence(
         if budget_tiers and "error" not in budget_tiers:
             row = _write_subsection_header(ws, row, "Multi-Tier Budget Breakdown")
             total = budget_tiers.get("total_budget", 0)
-            row = _write_kv_row(ws, row, "Total Budget", f"${total:,.0f}")
+            row = _write_kv_row(ws, row, "Total Budget", _fmt_currency(total))
             row += 1
 
             tier_breakdown: dict = budget_tiers.get("tier_breakdown") or {}
@@ -6153,7 +6291,7 @@ def _build_sheet_quality_intelligence(
                     row,
                     [
                         tier_label,
-                        f"${tier_info.get('amount', 0):,.0f}",
+                        _fmt_currency(tier_info.get("amount", 0)),
                         f"{tier_info.get('pct', 0):.1f}%",
                         str(tier_info.get("description") or ""),
                     ],
@@ -6168,7 +6306,7 @@ def _build_sheet_quality_intelligence(
                         row = _write_table_row(
                             ws,
                             row,
-                            [sub_label, f"${sub_amount:,.0f}", "", ""],
+                            [sub_label, _fmt_currency(sub_amount), "", ""],
                             fonts=[_FONT_FOOTNOTE, _FONT_FOOTNOTE, None, None],
                         )
             row += 1
@@ -6393,8 +6531,9 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
 
     # S89: carry raw numbers + a per-row Excel number_format so the forecast
     # is summable/sortable; units live in the format, not the cell text.
+    # S3: Spend/CPA are the plan's OWN figures -- active plan currency.
     forecast_rows = [
-        ("Spend", monthly_spend, total_budget, "—", FMT_USD0),
+        ("Spend", monthly_spend, total_budget, "—", _usd0_fmt()),
         (
             "Applications",
             monthly_apps,
@@ -6414,7 +6553,7 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
             monthly_cpa,
             base_cpa,
             "Decreasing" if base_cpa > 0 else "—",
-            FMT_USD0,
+            _usd0_fmt(),
         ),
     ]
 
@@ -6484,7 +6623,7 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
                 + [_safe_num(ch_dollars), ch_frac]
             )
             number_formats = (
-                [None] + [FMT_USD0] * len(ch_monthly) + [FMT_USD0, FMT_PCT1]
+                [None] + [_usd0_fmt()] * len(ch_monthly) + [_usd0_fmt(), FMT_PCT1]
             )
             row = _write_table_row(
                 ws,
@@ -6705,9 +6844,9 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
                 [
                     ch_label,
                     "CPA",
-                    f"${cpa_lo:,.0f}",
-                    f"${cpa:,.0f}",
-                    f"${cpa_hi:,.0f}",
+                    _fmt_currency(cpa_lo),
+                    _fmt_currency(cpa),
+                    _fmt_currency(cpa_hi),
                     f"+/-{int(variance * 100)}%",
                     confidence,
                 ],
@@ -6797,9 +6936,9 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
                 [
                     ch_label,
                     "Cost Per Hire",
-                    f"${cph_lo:,.0f}",
-                    f"${cph:,.0f}",
-                    f"${cph_hi:,.0f}",
+                    _fmt_currency(cph_lo),
+                    _fmt_currency(cph),
+                    _fmt_currency(cph_hi),
                     f"+/-{int(variance * 100)}%",
                     confidence,
                 ],
@@ -6904,10 +7043,10 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         ("Industry", meta.get("industry_label", "")),
         ("Role", meta.get("role", "Various")),
         ("Role Tier", meta.get("role_tier", "")),
-        ("Budget", f"${meta.get('budget', 0):,.0f}"),
+        ("Budget", _fmt_currency(meta.get("budget", 0))),
         ("Proj. Applications", f"{meta.get('total_projected_applications', 0):,}"),
         ("Proj. Hires", f"{meta.get('total_projected_hires', 0):,}"),
-        ("Avg CPA", f"${meta.get('avg_cpa', 0):,.2f}"),
+        ("Avg CPA", _fmt_currency(meta.get("avg_cpa", 0), show_cents=True)),
     ]:
         ws.cell(row=row, column=2, value=label).font = _FONT_BODY_BOLD
         ws.cell(row=row, column=3, value=val).font = _FONT_BODY
@@ -6962,13 +7101,17 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
                 row=row, column=4, value=f"{ch.get('allocation_pct', 0):.1f}%"
             ).font = _FONT_BODY
             ws.cell(
-                row=row, column=5, value=f"${ch.get('projected_spend', 0):,.0f}"
+                row=row, column=5, value=_fmt_currency(ch.get("projected_spend", 0))
             ).font = _FONT_BODY
             ws.cell(
-                row=row, column=6, value=f"${ch.get('expected_cpc', 0):.2f}"
+                row=row,
+                column=6,
+                value=_fmt_currency(ch.get("expected_cpc", 0), show_cents=True),
             ).font = _FONT_BODY
             ws.cell(
-                row=row, column=7, value=f"${ch.get('expected_cpa', 0):.2f}"
+                row=row,
+                column=7,
+                value=_fmt_currency(ch.get("expected_cpa", 0), show_cents=True),
             ).font = _FONT_BODY
             _cl = ws.cell(row=row, column=8, value=ch.get("projected_clicks", 0))
             _cl.font = _FONT_BODY
@@ -7387,6 +7530,12 @@ def _generate_excel_v2_inner(
     fetch_logo_fn=None,
 ) -> bytes:
     """Inner implementation of generate_excel_v2 (wrapped by top-level try/except)."""
+    # S3: resolve and stash the plan's currency FIRST (thread-local) so every
+    # _fmt_currency() / _usd0_fmt() / _usd2_fmt() call below -- across every
+    # sheet builder -- renders the plan's own budget/spend/CPA/CPH figures in
+    # its local currency instead of a hardcoded USD "$".
+    _set_active_currency(data)
+
     # ── Input normalization (mirrors generate_excel for compatibility) ──
     if data.get("budget_range") and not data.get("budget"):
         data["budget"] = data["budget_range"]

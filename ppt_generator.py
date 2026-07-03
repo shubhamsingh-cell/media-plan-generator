@@ -1571,6 +1571,19 @@ def _fmt_range(low, high, fmt_fn=None):
     return f"{fmt(low)} - {fmt(high)}"
 
 
+def _mark_usd(text: str) -> str:
+    """Prefix every bare ``$`` in ``text`` with ``US`` (-> ``US$``).
+
+    Used for fixed US-calibrated benchmark strings (rule b) so the USD
+    marker sits DIRECTLY ON the figure itself rather than only in a nearby
+    label/caption -- ``US$15 - US$56`` instead of a bare ``$15 - $56``. A
+    no-op on values already prefixed with a currency letter (e.g. ``NZ$``).
+    """
+    if not text:
+        return text
+    return re.sub(r"(?<![A-Za-z])\$", "US$", text)
+
+
 def _set_font(
     run,
     size: int = 10,
@@ -1734,6 +1747,15 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
     # Start with hardcoded fallback
     result = dict(BENCHMARKS.get(industry, BENCHMARKS["general_entry_level"]))
     result["confidence"] = "curated"
+    # S3: track whether cpa/cpc/cph currently hold a fixed US-benchmark
+    # constant (rule b -- needs an inline "(USD)" marker at render time) vs a
+    # plan-derived figure (rule a -- localize to the active plan currency).
+    # BENCHMARKS/appcast/trend_engine are static US-calibrated lookup tables;
+    # ad_platform_analysis (live_api) and the budget-engine CPH override below
+    # are the PLAN'S OWN projected figures.
+    result["cpa_is_usd_benchmark"] = True
+    result["cpc_is_usd_benchmark"] = True
+    result["cph_is_usd_benchmark"] = True
 
     # Layer 2: trend_engine dynamic benchmarks (v3)
     if _HAS_TREND_ENGINE:
@@ -1835,21 +1857,25 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                 if live_cpcs:
                     min_cpc = min(live_cpcs)
                     max_cpc = max(live_cpcs)
+                    # S3: plan's own live ad-platform CPC projection -- localize.
                     result["cpc"] = (
-                        f"${min_cpc:.2f} - ${max_cpc:.2f}"
+                        f"{_fmt_currency(min_cpc)} - {_fmt_currency(max_cpc)}"
                         if min_cpc != max_cpc
-                        else f"${min_cpc:.2f}"
+                        else _fmt_currency(min_cpc)
                     )
                     result["confidence"] = "live_api"
+                    result["cpc_is_usd_benchmark"] = False
                 if live_cpas:
                     min_cpa = min(live_cpas)
                     max_cpa = max(live_cpas)
+                    # S3: plan's own live ad-platform CPA projection -- localize.
                     result["cpa"] = (
-                        f"${min_cpa:.0f} - ${max_cpa:.0f}"
+                        f"{_fmt_currency(round(min_cpa))} - {_fmt_currency(round(max_cpa))}"
                         if min_cpa != max_cpa
-                        else f"${min_cpa:.0f}"
+                        else _fmt_currency(round(min_cpa))
                     )
                     result["confidence"] = "live_api"
+                    result["cpa_is_usd_benchmark"] = False
 
     # Layer 0: Budget engine CPH and apply_rate overrides
     # These were NEVER overridden before (always hardcoded) -- fix v3.4.1
@@ -1862,9 +1888,13 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                 live_cph = total_proj.get("cost_per_hire") or total_proj.get("cph")
                 if isinstance(live_cph, (int, float)) and live_cph > 0:
                     # Format as range: computed +/- 20% to show realistic spread
+                    # S3: this is the plan's OWN cost-per-hire -- localize.
                     low_cph = live_cph * 0.8
                     high_cph = live_cph * 1.2
-                    result["cph"] = f"${low_cph:,.0f} - ${high_cph:,.0f}"
+                    result["cph"] = (
+                        f"{_fmt_currency(low_cph)} - {_fmt_currency(high_cph)}"
+                    )
+                    result["cph_is_usd_benchmark"] = False
                 # Apply rate from budget engine
                 live_apply_rate = total_proj.get("apply_rate") or total_proj.get(
                     "conversion_rate"
@@ -1891,9 +1921,13 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                     "estimated_cost_per_hire"
                 ) or salary_intel.get("cph")
                 if isinstance(synth_cph, (int, float)) and synth_cph > 0:
+                    # S3: derived from the plan's own salary data -- localize.
                     low_cph = synth_cph * 0.8
                     high_cph = synth_cph * 1.2
-                    result["cph"] = f"${low_cph:,.0f} - ${high_cph:,.0f}"
+                    result["cph"] = (
+                        f"{_fmt_currency(low_cph)} - {_fmt_currency(high_cph)}"
+                    )
+                    result["cph_is_usd_benchmark"] = False
 
     # Layer 2.5: Appcast 2026 KB Benchmark Overlay (Priority 3)
     # Cross-reference/override CPA, CPH, apply_rate with Appcast occupation-level
@@ -2029,11 +2063,15 @@ def _get_industry_comparison(
                     "cost_per_application"
                 )
                 if isinstance(live_cpa, (int, float)) and live_cpa > 0:
-                    result["avg_cpa"] = f"${live_cpa * 0.8:.0f} - ${live_cpa * 1.2:.0f}"
+                    # S3: the plan's OWN CPA -- localize.
+                    result["avg_cpa"] = (
+                        f"{_fmt_currency(live_cpa * 0.8)} - {_fmt_currency(live_cpa * 1.2)}"
+                    )
                 live_cph = total_proj.get("cost_per_hire") or total_proj.get("cph")
                 if isinstance(live_cph, (int, float)) and live_cph > 0:
+                    # S3: the plan's OWN cost-per-hire -- localize.
                     result["avg_cph"] = (
-                        f"${live_cph * 0.8:,.0f} - ${live_cph * 1.2:,.0f}"
+                        f"{_fmt_currency(live_cph * 0.8)} - {_fmt_currency(live_cph * 1.2)}"
                     )
             ch_allocs = budget_alloc.get("channel_allocations", {})
             if isinstance(ch_allocs, dict) and ch_allocs:
@@ -3543,10 +3581,31 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     cpc_trend = benchmarks.get("cpc_trend") or ""
     if cpc_trend:
         cpc_val = f"{cpc_val}  ({cpc_trend})"
+    # S3: rows still sourced from a fixed US-calibrated benchmark constant
+    # (BENCHMARKS dict / trend_engine / Appcast) get a "US$" marker DIRECTLY ON
+    # the figure itself -- never a bare "$" beside this plan's own NZ$/£/etc.
+    # figures elsewhere on the slide. Rows overridden by the plan's own live
+    # ad-platform / budget-engine data are already in the active currency and
+    # need no marker.
+    _is_usd_plan = _get_active_currency() == "USD"
+    _cpa_label = "Industry CPA"
+    _cpc_label = "Industry CPC"
+    _cph_label = "Est. Cost-per-Hire"
+    if not _is_usd_plan:
+        if benchmarks.get("cpa_is_usd_benchmark", True):
+            cpa_val = _mark_usd(cpa_val)
+        if benchmarks.get("cpc_is_usd_benchmark", True):
+            cpc_val = _mark_usd(cpc_val)
+        if benchmarks.get("cph_is_usd_benchmark", True):
+            _cph_val = _mark_usd(benchmarks["cph"])
+        else:
+            _cph_val = benchmarks["cph"]
+    else:
+        _cph_val = benchmarks["cph"]
     bench_rows = [
-        ("Industry CPA", cpa_val),
-        ("Industry CPC", cpc_val),
-        ("Est. Cost-per-Hire", benchmarks["cph"]),
+        (_cpa_label, cpa_val),
+        (_cpc_label, cpc_val),
+        (_cph_label, _cph_val),
         ("Apply Rate", benchmarks["apply_rate"]),
     ]
 
@@ -5005,11 +5064,22 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             ind_avg_cpa = 25
 
         if proj_cpa and proj_cpa > 0:
+            # S3: cpa_str may still be a fixed US-benchmark constant (bare $)
+            # while client_val is already in the plan's local currency -- never
+            # show them side-by-side with no marker. Mark the industry-side
+            # figure itself (not just a label) when it's a USD benchmark on a
+            # non-USD plan.
+            _cpa_industry_val = cpa_str
+            if (
+                bench.get("cpa_is_usd_benchmark", True)
+                and _get_active_currency() != "USD"
+            ):
+                _cpa_industry_val = _mark_usd(cpa_str)
             all_comparison_rows.append(
                 {
                     "metric": "Projected CPA",
                     "client_val": _fmt_currency(proj_cpa),
-                    "industry_val": cpa_str,
+                    "industry_val": _cpa_industry_val,
                     "is_better": proj_cpa <= ind_avg_cpa,
                 }
             )
@@ -5703,7 +5773,12 @@ def _build_slide_market_analysis(prs: Presentation, data: Dict):
             if len(macro_items) < 3:
                 _ahe = macro_data.get("avg_hourly_earnings")
                 if _ahe is not None and isinstance(_ahe, (int, float)):
-                    macro_items.append(("Avg Hourly Earnings", f"${_ahe:.2f}"))
+                    # S3: FRED (US Federal Reserve) macro data is US-only --
+                    # mark it explicitly on the figure rather than a bare $.
+                    _ahe_val = f"${_ahe:.2f}"
+                    if _get_active_currency() != "USD":
+                        _ahe_val = _mark_usd(_ahe_val)
+                    macro_items.append(("Avg Hourly Earnings (USD)", _ahe_val))
             if len(macro_items) < 3:
                 _ffr = macro_data.get("fed_funds_rate")
                 if _ffr is not None and isinstance(_ffr, (int, float)):
@@ -6185,7 +6260,13 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
                 items.append(("Population", f"{pop:,}"))
             income = loc_data.get("median_household_income") or 0
             if income and income > 0:
-                items.append(("Median Income", f"${income:,}"))
+                # S3: median_household_income traces only to US Census/DataUSA/
+                # METRO_DATA (research.py METRO_DATA is US-metro-only) -- a
+                # fixed US-benchmark constant. Mark the figure itself.
+                _income_val = f"${income:,}"
+                if _get_active_currency() != "USD":
+                    _income_val = _mark_usd(_income_val)
+                items.append(("Median Income (USD)", _income_val))
             col_index = loc_data.get("cost_of_living_index") or 0
             if col_index and col_index > 0:
                 items.append(("Cost of Living", f"{col_index:.0f}/100"))
@@ -6543,7 +6624,12 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             trend_items.append(f"Growth rate: {emp_growth}")
         avg_wage = hiring_trends.get("average_weekly_wage")
         if avg_wage and isinstance(avg_wage, (int, float)) and avg_wage > 0:
-            trend_items.append(f"Avg weekly wage: ${avg_wage:,.0f}")
+            # S3: sourced from BLS QCEW (US Bureau of Labor Statistics) --
+            # a fixed US-benchmark constant. Mark the figure itself.
+            _wage_str = f"Avg weekly wage: ${avg_wage:,.0f}"
+            if _get_active_currency() != "USD":
+                _wage_str = _mark_usd(_wage_str)
+            trend_items.append(_wage_str)
         establishments = hiring_trends.get("establishments")
         if (
             establishments
@@ -7925,7 +8011,9 @@ def _build_slides_gold_standard(prs: Presentation, data: Dict) -> None:
                     _add_filled_rect(slide, Inches(0.55), row_y, total_w, row_h, bg)
                     vals = [
                         city_name,
-                        f"${info.get('estimated_salary', 0):,.0f}",
+                        # S3: derived from the plan's own national_avg_salary
+                        # (enrich_city_level_data) -- localize.
+                        _fmt_currency(info.get("estimated_salary", 0)),
                         f"{info.get('hiring_difficulty', 0):.1f}/10",
                         str(info.get("supply_tier") or "balanced")
                         .replace("_", " ")
@@ -8429,7 +8517,8 @@ def _build_slides_gold_standard(prs: Presentation, data: Dict) -> None:
                         tier_top + Inches(0.45),
                         tier_card_w - Inches(0.2),
                         Inches(0.35),
-                        text=f"${amount:,.0f}",
+                        # S3: the plan's OWN budget-tier allocation -- localize.
+                        text=_fmt_currency(amount),
                         font_size=16,
                         bold=True,
                         color=TEAL,
@@ -9003,9 +9092,14 @@ def _build_slide_cpa_reference(prs: Presentation, data: Dict, deck: Dict) -> Non
         _set_body_font(_tf)
 
     # Shape-built table: header + zebra-striped rows
+    # S3: this KB table (joveo_media_plan_deck_2026.json cpa_reference) is
+    # explicitly "currency": "USD" -- a fixed US/global-remote benchmark
+    # constant, not the current plan's own figure. Mark it directly on the
+    # column header (inline on the figure), not only in the description
+    # caption above, per the no-bare-$ rule.
     table_left = Inches(0.55)
     col_widths = [Inches(4.6), Inches(2.4), Inches(5.2)]
-    headers = ["Role Category", "Est. CPA Range", "Benchmark Basis"]
+    headers = ["Role Category", "Est. CPA Range (USD)", "Benchmark Basis"]
     header_top = Inches(1.8)
     header_h = Inches(0.42)
     row_h = Inches(0.58)
@@ -9045,9 +9139,14 @@ def _build_slide_cpa_reference(prs: Presentation, data: Dict, deck: Dict) -> Non
 
         low = role.get("cpa_low")
         high = role.get("cpa_high")
-        cpa_range = (
-            f"${low} – ${high}" if low is not None and high is not None else "--"
-        )
+        if low is not None and high is not None:
+            cpa_range = f"${low} – ${high}"
+            # S3: this KB table is explicitly "currency": "USD" -- mark the
+            # figure itself (not just the column header) on a non-USD plan.
+            if _get_active_currency() != "USD":
+                cpa_range = _mark_usd(cpa_range)
+        else:
+            cpa_range = "--"
         cells = [
             (str(role.get("category") or ""), 10, True, NAVY),
             (cpa_range, 10, True, BLUE),
