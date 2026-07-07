@@ -181,6 +181,13 @@ CLAUDE_OPUS = "claude_opus"
 OPENROUTER_GPT_OSS = "openrouter_gpt_oss"
 CEREBRAS_SCOUT = "cerebras_scout"
 
+# 2026-07-04 ADDITION: native DeepSeek official API (api.deepseek.com), distinct
+# from OPENROUTER_DEEPSEEK_R1 above (which routes through OpenRouter's paid
+# deepseek-r1 slug). Hits DeepSeek directly with an OpenAI-compatible
+# chat-completions payload, same pattern as talent-crm's DeepSeekProvider.
+# METERED/PAID -- see _PROVIDER_COST_PER_M_TOKENS.
+DEEPSEEK = "deepseek"
+
 # Global timeout budget: max total wall-clock seconds for the entire call_llm()
 # fallback loop.  Individual per-provider timeouts are dynamically capped to the
 # remaining budget so the caller never waits longer than this.
@@ -280,6 +287,7 @@ _RATE_LIMITS: dict[str, dict[str, int]] = {
     "claude": {"rpm": 50, "window": 60},
     "claude_opus": {"rpm": 40, "window": 60},
     "gpt4o": {"rpm": 60, "window": 60},
+    "deepseek": {"rpm": 60, "window": 60},
 }
 
 
@@ -960,6 +968,24 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "timeout": 25,  # Capped to fit within 30s global budget (was 90s)
         "max_tokens": 4096,
     },
+    # 2026-07-04 ADDITION: official DeepSeek API (OpenAI-compatible
+    # chat-completions), distinct from OPENROUTER_DEEPSEEK_R1 above (which
+    # goes through OpenRouter's paid deepseek-r1 slug). METERED/PAID -- see
+    # _PROVIDER_COST_PER_M_TOKENS. Live GET /models verified 2026-07-04:
+    # the catalog is exactly [deepseek-v4-flash, deepseek-v4-pro] -- the
+    # "deepseek-v4-pro-max" name from marketing copy does NOT exist, do not
+    # use it. Override via DEEPSEEK_MODEL env var if the catalog changes.
+    DEEPSEEK: {
+        "name": "DeepSeek V4 Pro (official API)",
+        "api_style": "openai",  # OpenAI-compatible
+        "endpoint": "https://api.deepseek.com/chat/completions",
+        "model": os.environ.get("DEEPSEEK_MODEL") or "deepseek-v4-pro",
+        "env_key": "DEEPSEEK_API_KEY",
+        "rpm_limit": 60,
+        "rpd_limit": 10000,
+        "timeout": 25,  # Capped to fit within 30s global budget
+        "max_tokens": 4096,
+    },
 }
 
 # Task -> provider priority order
@@ -998,6 +1024,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     # S55-revise: Non-chatbot task -- Gemini #1 (free), Haiku as fallback for
     # quality. Per user: use Google free tier maximally outside chatbot.
     TASK_STRUCTURED: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         GEMINI,  # Free, excellent structured JSON output
         GEMINI_FLASH_LITE,  # Lighter Gemini variant for simple queries
         CLAUDE_HAIKU,  # Quality fallback when Gemini rate-limited / down
@@ -1024,6 +1051,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_CONVERSATIONAL: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         CLAUDE_HAIKU,  # S55: Quality-first -- user chat deserves Claude
         GEMINI,  # #2 free fallback
         GPT4O,  # #3 paid fallback
@@ -1049,6 +1077,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_COMPLEX: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         CLAUDE_HAIKU,  # v4.1: Haiku first -- best reasoning per dollar
         GEMINI,  # #2 fallback -- free, strong reasoning
         GPT4O,  # #3 paid fallback
@@ -1075,6 +1104,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_CODE: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         GEMINI,  # Free, strong code-gen quality
         OPENROUTER_QWEN,  # Qwen3 Coder -- code specialist, top free variant
         CLAUDE_HAIKU,  # Quality fallback for tricky / critical code
@@ -1098,6 +1128,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_VERIFICATION: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         CLAUDE_HAIKU,  # S29 v2: Haiku #1 -- quality-first for plan verification
         GEMINI,  # #2 free fallback
         GPT4O,  # #3 paid fallback
@@ -1116,6 +1147,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_RESEARCH: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         CLAUDE_HAIKU,  # v4.1: Haiku first -- best research quality per dollar
         GEMINI,  # #2 free fallback -- strong reasoning
         GPT4O,  # #3 paid fallback
@@ -1140,6 +1172,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_NARRATIVE: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         CLAUDE_HAIKU,  # S29 v2: Haiku #1 -- quality-first for plan narratives (exec summary, risk, competitive)
         GEMINI,  # #2 free fallback
         GPT4O,  # #3 paid fallback
@@ -1178,6 +1211,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         OPENROUTER_YI,
         CLAUDE_HAIKU,
         OPENROUTER_ARCEE,
+        DEEPSEEK,  # 2026-07-04: native DeepSeek, cheaper paid tier than GPT4O
         GPT4O,
         OPENROUTER_DEEPSEEK_R1,
         OPENROUTER_GPT_OSS,  # S50: GPT-OSS-120B free fallback for batch
@@ -1189,6 +1223,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     # ── v4.0 Platform Module Task Types ──────────────────────────────────
     # Command Center: fast for quick plans, Claude for full plans
     TASK_CAMPAIGN_PLAN: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         CLAUDE_HAIKU,  # v4.1: Haiku first -- plans require structured reasoning
         GEMINI,  # #2 free fallback -- good structured output
         GPT4O,  # #3 paid fallback
@@ -1208,6 +1243,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_BUDGET_OPTIMIZE: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         GEMINI,  # Free, strong at budget math + allocation
         CLAUDE_HAIKU,  # Quality fallback for complex multi-channel optimization
         GPT4O,  # Paid fallback
@@ -1223,6 +1259,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_COMPLIANCE_CHECK: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         CLAUDE_HAIKU,  # S55: Quality-first -- compliance CAN'T be wrong
         GEMINI,  # #2 free fallback
         GPT4O,  # #3 paid fallback
@@ -1238,6 +1275,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     # Intelligence Hub: prefer structured data / analysis providers
     TASK_MARKET_ANALYSIS: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         CLAUDE_HAIKU,  # v4.1: Haiku first -- market analysis needs strong reasoning
         GEMINI,  # #2 free fallback -- good at structured data
         GPT4O,  # #3 paid fallback
@@ -1257,6 +1295,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_COMPETITOR_SCAN: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         GEMINI,  # Free, strong at web-scale competitive synthesis
         OPENROUTER_DEEPSEEK_R1,  # Reasoning-heavy PAID fallback ($0.70/$2.50, no free DeepSeek slug)
         CLAUDE_HAIKU,  # Quality fallback for nuanced positioning analysis
@@ -1271,6 +1310,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_TALENT_MAP: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         GEMINI,  # Free, good at structured talent data synthesis
         CLAUDE_HAIKU,  # Quality fallback when Gemini unavailable
         GPT4O,  # Paid fallback
@@ -1287,6 +1327,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     ],
     # Nova AI chat: quality first, then latency fallbacks
     TASK_CHAT_RESPONSE: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         CLAUDE_HAIKU,  # v4.1: Haiku first -- $0.25/M, best chat quality
         GEMINI,  # #2 free fallback -- good quality
         GPT4O,  # #3 paid fallback
@@ -1323,6 +1364,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
     TASK_CONTEXT_SUMMARIZE: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         GEMINI,  # Free, excellent compression
         GEMINI_FLASH_LITE,
         CLAUDE_HAIKU,  # Quality fallback when Gemini unavailable
@@ -1384,6 +1426,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     # fallback. Matches user's "quality-first, no cost constraints"
     # preference.
     TASK_CHATBOT_TOOL_CALL: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         CLAUDE_HAIKU,  # S55: Quality-first -- best chat+tool quality in industry
         GEMINI,  # #2 free fallback -- good at structured JSON
         GPT4O,  # #3 paid fallback
@@ -1403,6 +1446,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     # Plan narrative (exec summary, recommendations): Groq is 5x faster than
     # Gemini for prose generation with equivalent quality on narrative tasks.
     TASK_PLAN_NARRATIVE: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         CLAUDE_HAIKU,  # S49: Quality-first for prose -- best narrative quality
         GEMINI,  # Strong fallback (1.5K RPD)
         GROQ,  # Fast fallback, good prose (14.4K RPD)
@@ -1422,6 +1466,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     # Plan structured (budget JSON): Gemini excels at JSON + math, free.
     # Haiku as fallback when Gemini rate-limited.
     TASK_PLAN_STRUCTURED: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         GEMINI,  # Free, best structured JSON + budget math
         GEMINI_FLASH_LITE,
         CLAUDE_HAIKU,  # Quality fallback when Gemini unavailable
@@ -1443,6 +1488,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     # Intelligence summaries: Gemini Flash Lite primary (free, cheapest),
     # full Gemini as secondary, Haiku as quality fallback.
     TASK_INTELLIGENCE_SUMMARY: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         GEMINI_FLASH_LITE,  # Cheapest Gemini -- perfect for short summaries
         GEMINI,  # Full Gemini for longer summaries
         CLAUDE_HAIKU,  # Quality fallback
@@ -1464,6 +1510,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     # Zhipu for Chinese/CJK (unlimited free, native Chinese model).
     # Mistral as fallback for EU languages (limited monthly quota).
     TASK_TRANSLATION: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         GEMINI,  # Strong multilingual, generous free tier (1.5K RPD)
         ZHIPU,  # GLM-4-Flash -- unlimited free, native Chinese model
         GROQ,  # Llama 3.3 -- trained on multilingual data (14.4K RPD)
@@ -1484,6 +1531,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     # Quality matters most here. Claude Haiku is best-in-class for reasoning.
     # Gemini is strong free fallback. DeepSeek R1 as specialized free option.
     TASK_DEEP_REASONING: [
+        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
         CLAUDE_HAIKU,  # Quality matters for deep reasoning -- best per dollar
         GEMINI,  # Strong reasoning (1.5K RPD)
         GPT4O,  # Paid fallback
@@ -1511,18 +1559,18 @@ MODULE_LLM_PREFERENCES: Dict[str, Dict[str, Any]] = {
     "command_center": {
         "default_task": TASK_CAMPAIGN_PLAN,
         "quick_task": TASK_CHAT_RESPONSE,
-        "preferred_providers": [CLAUDE_HAIKU, GEMINI, GPT4O],
-        "description": "v4.1: Quality-first -- Haiku for plans, Gemini fallback",
+        "preferred_providers": [DEEPSEEK, CLAUDE_HAIKU, GEMINI, GPT4O],
+        "description": "2026-07-04: DeepSeek primary for plans -- Haiku/Gemini fallback",
     },
     "intelligence_hub": {
         "default_task": TASK_MARKET_ANALYSIS,
-        "preferred_providers": [CLAUDE_HAIKU, GEMINI, GPT4O],
-        "description": "v4.1: Quality-first -- Haiku for analysis, Gemini fallback",
+        "preferred_providers": [DEEPSEEK, CLAUDE_HAIKU, GEMINI, GPT4O],
+        "description": "2026-07-04: DeepSeek primary for analysis -- Haiku/Gemini fallback",
     },
     "nova_ai": {
         "default_task": TASK_CHAT_RESPONSE,
-        "preferred_providers": [CLAUDE_HAIKU, GEMINI, GPT4O],
-        "description": "v4.1: Quality-first -- Haiku for chat, Gemini fallback",
+        "preferred_providers": [DEEPSEEK, CLAUDE_HAIKU, GEMINI, GPT4O],
+        "description": "2026-07-04: DeepSeek primary for chat -- Haiku/Gemini fallback",
     },
     # S50: Plan generator task-specific routing (mirrors chatbot's per-task routing).
     # Maps each plan-gen sub-task to the best-fit model based on output format and
@@ -1587,6 +1635,11 @@ _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
     GPT4O: {"input": 2.5, "output": 10.0},
     CLAUDE: {"input": 3.0, "output": 15.0},
     CLAUDE_OPUS: {"input": 15.0, "output": 75.0},
+    # 2026-07-04: official DeepSeek API, deepseek-v4-pro tier
+    # (~$0.435/$0.87 per M in/out, confirmed 2026-07-02 in talent-crm's
+    # config.py). The owner-quoted "$0.28/M output" figure is v4-flash
+    # pricing, not this model's.
+    DEEPSEEK: {"input": 0.435, "output": 0.87},
 }
 
 

@@ -70,6 +70,9 @@ services:
         sync: false
       - key: CEREBRAS_API_KEY
         sync: false
+      # --- DeepSeek official API (2026-07-04 addition, METERED/PAID) ---
+      - key: DEEPSEEK_API_KEY
+        sync: false
       # --- Upstash Redis (L3 persistent cache) ---
       - key: UPSTASH_REDIS_REST_URL
         sync: false
