@@ -554,7 +554,8 @@ html.lenis body {
   gap: 56px;
   text-align: left;
 }
-/* Hero background photograph, sits beneath the constellation canvas */
+/* Hero background: a single soft violet bloom on near-black (restraint
+   direction). Mostly dark, so it can sit at high opacity behind the headline. */
 .hero-bg {
   position: absolute;
   inset: 0;
@@ -563,39 +564,9 @@ html.lenis body {
   object-fit: cover;
   object-position: center;
   z-index: 0;
-  opacity: 0.55;
+  opacity: 0.9;
   pointer-events: none;
   user-select: none;
-}
-/* Ambient loop layered over the still; still remains as poster/fallback */
-.hero-bg-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  z-index: 0;
-  opacity: 0.55;
-  pointer-events: none;
-  user-select: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-bg-video {
-    display: none;
-  }
-}
-@media (max-width: 768px) {
-  .hero-bg-video {
-    display: none; /* save mobile data; the .hero-bg still covers */
-  }
-}
-/* When the video layer is active (desktop, motion allowed) the still would
-   double-expose beneath it — its poster is the same image, so hide the img */
-@media (min-width: 769px) and (prefers-reduced-motion: no-preference) {
-  .hero-bg {
-    display: none;
-  }
 }
 /* Signature constellation canvas (10,341 sources -> one plan) */
 .hero-constellation {
@@ -606,13 +577,14 @@ html.lenis body {
   z-index: 0;
   pointer-events: none;
 }
-/* Faint perspective grid, masked to fade toward the edges */
+/* Faint perspective grid, masked to fade toward the edges. Dialled right
+   down for the restraint direction (grids read as consumer/retro at strength). */
 .hero-grid-overlay {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.55;
+  opacity: 0.12;
   background-image:
     linear-gradient(rgba(139, 133, 230, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(139, 133, 230, 0.05) 1px, transparent 1px);
