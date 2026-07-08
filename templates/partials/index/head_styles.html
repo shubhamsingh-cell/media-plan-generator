@@ -4970,6 +4970,32 @@
     --np-paper-ink: #1f2937;
     --np-paper-muted: #5b5a74; /* AA on white + lavender tints (deck muted #6e6e8c was borderline) */
     --np-paper-border: #e3e1f1;
+
+    /* Glass-card depth system (Raycast-derived: ambient + key + deep +
+       inset top-highlight), ported from the studio.html design-research
+       pass. Two variants — light "paper" surfaces (np-card) keep the
+       original recipe; dark cockpit surfaces (.studio .card) get a
+       retuned dark variant with the same 4-layer structure. */
+    --np-glass-shadow:
+      0 1px 1.5px rgba(32, 32, 88, 0.04),
+      0 8px 20px -8px rgba(32, 32, 88, 0.14),
+      0 24px 48px -20px rgba(32, 32, 88, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    --np-glass-shadow-hover:
+      0 1px 1.5px rgba(32, 32, 88, 0.05),
+      0 14px 28px -10px rgba(32, 32, 88, 0.2),
+      0 32px 64px -24px rgba(90, 84, 190, 0.24),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    --np-glass-shadow-dark:
+      inset 0 1px 0 rgba(255, 255, 255, 0.04),
+      0 1px 1.5px rgba(0, 0, 0, 0.3),
+      0 10px 24px -12px rgba(0, 0, 0, 0.55),
+      0 28px 56px -24px rgba(0, 0, 0, 0.6);
+    --np-glass-shadow-dark-hover:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 1px 1.5px rgba(0, 0, 0, 0.35),
+      0 16px 34px -14px rgba(0, 0, 0, 0.6),
+      0 36px 72px -28px rgba(90, 84, 190, 0.38);
   }
 
   /* ── Kill legacy chrome we replace ──────────────────────────────── */
@@ -5142,13 +5168,21 @@
     font-size: 0 !important;
     box-shadow: none !important;
     transition: background 0.4s var(--ease-out, ease);
+    transform-origin: left;
+    overflow: hidden;
   }
   .studio .step-indicator.active .step-circle {
     background: var(--np-grad) !important;
     box-shadow: 0 0 12px rgba(90, 84, 190, 0.5) !important;
+    animation: npLineFill 0.5s var(--ease-out, ease) both;
   }
   .studio .step-indicator.completed .step-circle {
     background: linear-gradient(90deg, #6bb5ce, #3e8fab) !important;
+    animation: npLineFill 0.5s var(--ease-out, ease) both;
+  }
+  @keyframes npLineFill {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
   }
   .studio .step-label {
     font-size: 11.5px !important;
@@ -5158,12 +5192,20 @@
     text-transform: none !important;
     transition: color 0.3s ease;
     line-height: 1.2;
+    display: flex;
+    align-items: center;
+    gap: 5px;
   }
   .studio .step-indicator.active .step-label {
     color: var(--np-ink) !important;
   }
   .studio .step-indicator.completed .step-label {
     color: var(--np-teal) !important;
+  }
+  .studio .step-indicator.completed .step-label::before {
+    content: "\2713";
+    color: var(--np-teal);
+    font-weight: 700;
   }
   .studio .step-label .short-label {
     display: none;
@@ -5214,11 +5256,14 @@
     border: 1px solid var(--np-hair) !important;
     border-radius: 18px !important;
     padding: 28px 30px !important;
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.03) inset,
-      0 18px 50px -28px rgba(0, 0, 0, 0.9) !important;
+    box-shadow: var(--np-glass-shadow-dark) !important;
     backdrop-filter: none !important;
     margin-bottom: 22px;
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+  }
+  .studio .card:hover {
+    box-shadow: var(--np-glass-shadow-dark-hover) !important;
+    transform: translateY(-2px);
   }
   .studio .card::before {
     height: 1px !important;
@@ -5305,6 +5350,7 @@
     border-radius: 11px !important;
     color: var(--np-ink) !important;
     font-size: 13.5px !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18) !important;
     transition:
       border-color 0.18s ease,
       box-shadow 0.18s ease,
@@ -5340,7 +5386,9 @@
     outline: none !important;
     border-color: var(--np-purple) !important;
     background-color: var(--np-panel-2) !important; /* not 'background' — preserves select chevron image */
-    box-shadow: 0 0 0 3px rgba(90, 84, 190, 0.22) !important;
+    box-shadow:
+      0 0 0 3px rgba(90, 84, 190, 0.22),
+      inset 0 1px 2px rgba(0, 0, 0, 0.18) !important;
   }
   .studio .form-group select {
     appearance: none;
@@ -5477,12 +5525,16 @@
     background: var(--np-grad) !important;
     border: none !important;
     color: #fff !important;
-    box-shadow: 0 8px 24px -8px rgba(90, 84, 190, 0.6) !important;
+    box-shadow:
+      0 8px 24px -8px rgba(90, 84, 190, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
     margin-left: auto;
   }
   .studio .btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 12px 30px -8px rgba(90, 84, 190, 0.75) !important;
+    box-shadow:
+      0 12px 30px -8px rgba(90, 84, 190, 0.75),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
   }
   .studio .btn-secondary {
     background: var(--np-panel) !important;
@@ -5577,21 +5629,125 @@
     opacity: 1;
   }
 
+  /* ── Agent strip: "Nova is calibrating" — Linear-style live activity
+     strip. Shown ONLY while #planPreview carries both .recomputing (a
+     real input change is actively being modeled — see the signature
+     check in body_preview_js.html render()) and .has-plan (there is a
+     real budget, not the empty ghost state). It never loops or replays
+     decoratively; it starts and stops exactly when the underlying
+     recompute does. ─────────────────────────────────────────────────── */
+  .agent-strip {
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    max-height: 0;
+    margin-bottom: 0;
+    padding: 0 18px;
+    border-radius: 14px;
+    color: #fff;
+    background: linear-gradient(180deg, #181832, #121228);
+    box-shadow:
+      0 10px 30px -14px rgba(5, 5, 15, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity 0.25s ease,
+      max-height 0.25s ease,
+      margin-bottom 0.25s ease,
+      padding 0.25s ease;
+  }
+  #planPreview.recomputing.has-plan .agent-strip {
+    max-height: 160px;
+    margin-bottom: 16px;
+    padding: 14px 18px 12px;
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .agent-strip::before {
+    content: "";
+    position: absolute;
+    top: -40%;
+    right: -20%;
+    width: 180px;
+    height: 180px;
+    background: radial-gradient(closest-side, rgba(134, 128, 214, 0.35), transparent 70%);
+    pointer-events: none;
+  }
+  .agent-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #b8b4e8;
+    margin-bottom: 10px;
+    position: relative;
+    z-index: 1;
+  }
+  .agent-head .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--np-teal);
+    animation: npPulse 2s ease-in-out infinite;
+  }
+  .agent-line {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 12px;
+    color: #d8d6ee;
+    padding: 3px 0;
+    opacity: 0;
+    animation: npAgentLineIn 0.3s ease both;
+    position: relative;
+    z-index: 1;
+  }
+  .agent-line:nth-child(2) { animation-delay: 0s; }
+  .agent-line:nth-child(3) { animation-delay: 0.08s; }
+  .agent-line:nth-child(4) { animation-delay: 0.18s; }
+  .agent-line:nth-child(5) { animation-delay: 0.32s; }
+  @keyframes npAgentLineIn {
+    from { opacity: 0; transform: translateX(-4px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .agent-line .ok {
+    color: var(--np-teal);
+    flex: none;
+    font-size: 11px;
+  }
+  .agent-line .spin {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1.5px solid #4a4880;
+    border-top-color: var(--np-teal);
+    animation: spin 0.8s linear infinite;
+    flex: none;
+  }
+  .agent-line.muted {
+    color: #7d7aa8;
+  }
+
   /* The light "paper" deliverable card */
   .np-card {
     background: linear-gradient(170deg, #ffffff 0%, var(--np-paper) 60%, var(--np-lav-50) 100%);
     border: 1px solid var(--np-paper-border);
     border-radius: 20px;
     padding: 22px 22px 20px;
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.9) inset,
-      0 30px 60px -30px rgba(13, 10, 40, 0.8),
-      0 8px 20px -12px rgba(90, 84, 190, 0.35);
+    box-shadow: var(--np-glass-shadow);
     color: var(--np-paper-ink);
     position: relative;
     z-index: 1;
     overflow: hidden;
-    transition: box-shadow 0.3s ease;
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+  }
+  .np-card:hover {
+    box-shadow: var(--np-glass-shadow-hover);
+    transform: translateY(-2px);
   }
   .np-card::before {
     content: "";
@@ -5676,6 +5832,35 @@
     letter-spacing: 0.08em;
     flex-shrink: 0;
   }
+  /* "Plan ready" pill — appears once the live model has a real budget
+     (i.e. .np-card loses .is-empty). Uses teal, this app's existing
+     "good/positive" semantic (see .np-ins-good), not the mockup's green,
+     to stay brand-true. Pure CSS, gated on the JS-driven is-empty class
+     that already exists — no parallel state. */
+  .np-ready {
+    display: none;
+    align-items: center;
+    gap: 5px;
+    align-self: flex-start;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(62, 143, 171, 0.14);
+    border: 1px solid rgba(62, 143, 171, 0.32);
+    color: var(--np-teal-deep);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+  }
+  .np-ready .rd {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--np-teal-deep);
+  }
+  .np-card:not(.is-empty) .np-ready {
+    display: inline-flex;
+  }
 
   /* Budget hero */
   .np-budget-block {
@@ -5694,10 +5879,11 @@
   }
   .np-budget-value {
     font-family: var(--font-heading);
-    font-weight: 700;
+    font-weight: 800;
     font-size: 38px;
     line-height: 1.05;
     letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
     color: var(--np-purple); /* fallback when background-clip:text unsupported */
     background: var(--np-grad-warm);
     -webkit-background-clip: text;
@@ -5744,9 +5930,18 @@
     box-shadow: 0 1px 2px rgba(13, 10, 40, 0.08) inset;
   }
   .np-mix-seg {
+    position: relative;
     height: 100%;
     width: 0;
     transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 1px 2px rgba(13, 10, 40, 0.18);
+  }
+  .np-mix-seg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 55%);
+    pointer-events: none;
   }
   .np-legend {
     display: flex;
@@ -5805,7 +6000,7 @@
   }
   .np-stat .v {
     font-family: var(--font-heading);
-    font-weight: 700;
+    font-weight: 800;
     font-size: 22px;
     letter-spacing: -0.02em;
     color: var(--np-indigo);
@@ -5920,6 +6115,25 @@
     .np-card.pop {
       transition: none !important;
       animation: none !important;
+    }
+    .agent-strip {
+      transition: none !important;
+    }
+    .agent-line {
+      animation: none !important;
+      opacity: 1 !important;
+    }
+    .agent-head .dot,
+    .agent-line .spin {
+      animation: none !important;
+    }
+    .studio .step-indicator.active .step-circle,
+    .studio .step-indicator.completed .step-circle {
+      animation: none !important;
+    }
+    .studio .card,
+    .np-card {
+      transition: none !important;
     }
   }
 

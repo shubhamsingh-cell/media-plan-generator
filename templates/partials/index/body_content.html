@@ -2708,6 +2708,19 @@
     <span class="recompute">Nova modeling…</span>
   </div>
 
+  <!-- "Nova is calibrating" agent strip — visible only while the live
+       preview is actively recomputing a real (non-empty) plan; see
+       #planPreview.recomputing.has-plan in head_styles.html and the
+       render()/has-plan wiring in body_preview_js.html. Not a decorative
+       loop: it starts and stops with the real computation. -->
+  <div class="agent-strip" id="npAgentStrip" aria-live="polite">
+    <div class="agent-head"><span class="dot" aria-hidden="true"></span>Nova is calibrating your plan</div>
+    <div class="agent-line"><span class="ok" aria-hidden="true">&#10003;</span> Reading your budget &amp; targeting inputs</div>
+    <div class="agent-line"><span class="ok" aria-hidden="true">&#10003;</span> <span id="npAgentChannels">Matching your channel mix</span> across 91+ live job boards</div>
+    <div class="agent-line"><span class="ok" aria-hidden="true">&#10003;</span> Modeling cost-per-hire against Joveo benchmarks</div>
+    <div class="agent-line muted"><span class="spin" aria-hidden="true"></span> Finalizing recommended channel mix&hellip;</div>
+  </div>
+
   <div class="np-card is-empty" id="npCard">
     <div class="np-head">
       <div class="np-logo" id="npLogo">N</div>
@@ -2717,6 +2730,7 @@
           <span class="np-pill" id="npRolePill">Role &amp; targeting</span>
         </div>
       </div>
+      <span class="np-ready"><span class="rd" aria-hidden="true"></span>Plan ready</span>
       <span class="np-draft">DRAFT</span>
     </div>
 

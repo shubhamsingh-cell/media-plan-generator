@@ -302,6 +302,11 @@
       var hasBudget = m.total > 0;
 
       card.classList.toggle("is-empty", !hasBudget);
+      // Gate the agent-strip: real budget AND actively recomputing (see
+      // the .recomputing toggle below). Two real, already-computed
+      // conditions — no separate/fake activity state.
+      var previewPane = $("planPreview");
+      if (previewPane) previewPane.classList.toggle("has-plan", hasBudget);
 
       // identity
       $("npLogo").textContent = initials(m.client);
@@ -334,6 +339,14 @@
       note.textContent = m.usingStarter
         ? "· Nova recommended starter mix"
         : "· " + nCh + " channel" + (nCh === 1 ? "" : "s") + " selected";
+
+      // agent-strip line 2 — reflect the real channel count being modeled
+      var agentCh = $("npAgentChannels");
+      if (agentCh) {
+        agentCh.textContent = m.usingStarter
+          ? "Matching Nova's recommended mix"
+          : "Matching " + nCh + " channel" + (nCh === 1 ? "" : "s");
+      }
 
       // mix bar + legend. Rebuild only when the channel set changes;
       // otherwise update widths/amounts in place so the CSS transition
