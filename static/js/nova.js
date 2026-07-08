@@ -19,38 +19,19 @@
   var MAX_HISTORY = 20;
   var MAX_STORED_MESSAGES = 100;
 
-  // ── Nova branded SVG avatar (BLUE_VIOLET #5A54BE -> DOWNY_TEAL #6BB5CE) ──
+  // ── Nova branded avatar (glossy indigo-violet orb, transparent PNG) ──
   function _novaAvatarSVG(size) {
     var s = size || 32;
-    var fs = Math.round(s * 0.47);
-    var ty = Math.round(s * 0.67);
     return (
-      '<svg width="' +
+      '<img src="/static/img/nova-avatar.png" alt="" width="' +
       s +
       '" height="' +
       s +
-      '" viewBox="0 0 ' +
+      '" style="display:block;width:' +
       s +
-      " " +
+      "px;height:" +
       s +
-      '" xmlns="http://www.w3.org/2000/svg">' +
-      '<defs><linearGradient id="nova-av-g" x1="0%" y1="0%" x2="100%" y2="100%">' +
-      '<stop offset="0%" stop-color="#5A54BE"/><stop offset="100%" stop-color="#6BB5CE"/>' +
-      "</linearGradient></defs>" +
-      '<circle cx="' +
-      s / 2 +
-      '" cy="' +
-      s / 2 +
-      '" r="' +
-      s / 2 +
-      '" fill="url(#nova-av-g)"/>' +
-      '<text x="' +
-      s / 2 +
-      '" y="' +
-      ty +
-      '" text-anchor="middle" fill="#fff" font-family="Inter,sans-serif" font-size="' +
-      fs +
-      '" font-weight="700">N</text></svg>'
+      'px;object-fit:contain" draggable="false">'
     );
   }
 

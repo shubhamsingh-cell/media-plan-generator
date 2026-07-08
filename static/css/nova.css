@@ -158,13 +158,12 @@ a:hover {
 .sidebar-brand-icon {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
+  border-radius: 0;
   background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   flex-shrink: 0;
-  overflow: hidden;
+  overflow: visible;
+  object-fit: contain;
 }
 .sidebar-brand-icon svg {
   display: block;
@@ -560,25 +559,9 @@ a:hover {
 .welcome-orb {
   width: 84px;
   height: 84px;
-  border-radius: 22px;
-  background: linear-gradient(135deg, #202058 0%, #5a54be 52%, #6bb5ce 100%);
+  background: url("/static/img/nova-avatar.png") center/contain no-repeat;
   animation: welcome-pulse 3s ease-in-out infinite;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 38px;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: -2px;
-  font-family: var(--font-heading, "Poppins", sans-serif);
-  box-shadow:
-    0 10px 34px rgba(90, 84, 190, 0.32),
-    0 2px 8px rgba(32, 32, 88, 0.16);
   position: relative;
-  overflow: hidden;
-}
-.welcome-orb::before {
-  content: "N";
   z-index: 1;
 }
 .welcome-orb::after {
@@ -594,16 +577,15 @@ a:hover {
     transparent 55%
   );
   pointer-events: none;
+  z-index: -1;
 }
 @keyframes welcome-pulse {
   0%,
   100% {
     transform: scale(1);
-    box-shadow: 0 0 30px rgba(90, 84, 190, 0.3);
   }
   50% {
     transform: scale(1.05);
-    box-shadow: 0 0 50px rgba(107, 181, 206, 0.4);
   }
 }
 .welcome-orb-label {
@@ -805,10 +787,12 @@ a:hover {
   padding: 0;
   overflow: hidden;
 }
-.message-avatar.nova svg {
+.message-avatar.nova svg,
+.message-avatar.nova img {
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: contain;
 }
 .message-avatar.user {
   background: var(--accent-purple);

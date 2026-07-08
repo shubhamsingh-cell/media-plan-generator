@@ -11705,6 +11705,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 ".jpg": "image/jpeg",
                 ".svg": "image/svg+xml",
                 ".ico": "image/x-icon",
+                ".webp": "image/webp",
+                ".avif": "image/avif",
+                ".mp4": "video/mp4",
+                ".webm": "video/webm",
+                ".woff2": "font/woff2",
             }
             ctype = content_types.get(ext, "application/octet-stream")
             if os.path.isfile(filepath):

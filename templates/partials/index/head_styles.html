@@ -5530,6 +5530,20 @@
     background: var(--np-hair-strong);
     border-radius: 8px;
   }
+  /* Ultra-subtle light lavender wash behind the live plan preview card.
+     .np-pane is already `position: sticky` (a positioned element), so it
+     serves as the containing block for this absolutely-positioned layer --
+     no need to touch its overflow-y:auto (required for internal scroll). */
+  .np-pane::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: url("/static/img/studio-empty.webp") center / cover no-repeat;
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
+    border-radius: inherit;
+  }
   .np-eyebrow {
     display: flex;
     align-items: center;
@@ -5540,6 +5554,8 @@
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    position: relative;
+    z-index: 1;
   }
   .np-eyebrow .live-dot {
     width: 8px;
@@ -5573,6 +5589,7 @@
       0 8px 20px -12px rgba(90, 84, 190, 0.35);
     color: var(--np-paper-ink);
     position: relative;
+    z-index: 1;
     overflow: hidden;
     transition: box-shadow 0.3s ease;
   }
