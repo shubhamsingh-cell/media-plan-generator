@@ -53,6 +53,36 @@ CHANNEL_DISPLAY: dict[str, str] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Acronym-preserving title case
+# ---------------------------------------------------------------------------
+# copy:both#5-family: plain ``str.title()`` clobbers domain acronyms embedded
+# in snake_case KB keys/labels -- e.g. "cdl_drivers" -> "Cdl Drivers" instead
+# of "CDL Drivers". This allowlist covers the acronyms actually seen in
+# recruitment KB data (role/credential abbreviations); extend as new ones
+# surface rather than special-casing individual strings at call sites.
+ACRONYMS: set[str] = {
+    "CDL", "RN", "LPN", "CNA", "HVAC", "CPA", "CPC", "CPH", "DSP", "ATS",
+}
+
+
+def smart_title(s: str) -> str:
+    """Acronym-preserving title case for a snake_case or space-separated
+    label. 'cdl_drivers' -> 'CDL Drivers' (not 'Cdl Drivers'); any word whose
+    upper-cased form is in :data:`ACRONYMS` is rendered in full caps, every
+    other word is capitalized normally."""
+    if not s or not isinstance(s, str):
+        return s or ""
+    words = s.replace("_", " ").split()
+    out = []
+    for w in words:
+        if w.upper() in ACRONYMS:
+            out.append(w.upper())
+        else:
+            out.append(w[:1].upper() + w[1:].lower() if w else w)
+    return " ".join(out)
+
+
 def channel_label(key: str) -> str:
     """Client-facing channel name. Falls back to a title-cased version of the
     key so callers NEVER see a raw ``snake_case`` key on a workbook/deck."""

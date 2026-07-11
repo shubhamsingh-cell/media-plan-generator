@@ -875,7 +875,13 @@ COMPLICATIONS: Dict[str, List[str]] = {
     ],
     "logistics_supply_chain": [
         "Logistics CPA rising significantly as warehouse/CDL demand grows",
-        "CDL/last-mile roles most expensive at $52+ CPA",
+        # strategy:manpower#2: "$52+ CPA" traced to no field anywhere in the
+        # workbook/KB and was invented precision. The real, sourced
+        # cdl_drivers CPA benchmark (same field excel_v2's Recruitment
+        # Benchmarks table quotes) is $25-$50 -- see
+        # data/recruitment_benchmarks_deep.json
+        # industry_benchmarks.logistics_supply_chain.cpa.cdl_drivers.
+        "CDL/last-mile roles most expensive within the range, at $25-$50 CPA",
         "Automation creating new hybrid role types",
         "Warehouse labor competing with gig economy",
     ],
@@ -2165,6 +2171,39 @@ def _kb_recruitment_industry_benchmark(
     return out if any(out.values()) else None
 
 
+def _joveo_total_active_publishers(data: Optional[Dict]) -> Optional[int]:
+    """Real total-active-publisher count from ``data/joveo_publishers.json``
+    (the SAME file ``channel_recommender._enrich_with_joveo_publishers``
+    reads) via the shared KB loader, or ``data["_joveo_publishers"]`` when
+    the pipeline already attached it.
+
+    strategy:manpower#2: the deck used to fall back to a hardcoded 10238
+    default that appears nowhere in the plan data or the KB -- the real
+    figure in ``data/joveo_publishers.json`` is 1238. Returns ``None`` (never
+    a guessed number) when no real count is available, so the caller can
+    drop the statistic rather than invent one.
+    """
+    pubs = (data or {}).get("_joveo_publishers") if isinstance(data, dict) else None
+    if not isinstance(pubs, dict) or not pubs.get("total_active_publishers"):
+        kb = (data or {}).get("_knowledge_base") if isinstance(data, dict) else None
+        if not isinstance(kb, dict):
+            try:
+                from kb_loader import load_knowledge_base
+
+                kb = load_knowledge_base()
+            except Exception:  # noqa: BLE001
+                kb = None
+        pubs = kb.get("joveo_publishers") if isinstance(kb, dict) else None
+    if not isinstance(pubs, dict):
+        return None
+    total = pubs.get("total_active_publishers")
+    try:
+        total = int(total)
+    except (TypeError, ValueError):
+        return None
+    return total if total > 0 else None
+
+
 def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str]:
     """Return benchmark data for the given industry.
 
@@ -2308,6 +2347,18 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                     result["cpc_trend_direction"] = "rising"
                 else:
                     result["cpc_trend_direction"] = "stable"
+            else:
+                # strategy:manpower#2: this industry HAS a real KB benchmark
+                # table (recruitment_benchmarks_deep.json), but its cpc node
+                # carries no "trend_yoy" field -- e.g. logistics_supply_chain,
+                # whose workbook CPC benchmark has no YoY trend at all. Never
+                # let trend_engine's independently-computed live estimate
+                # (e.g. a "+9.5% YoY" that appears nowhere in the workbook or
+                # KB) leak into a client-facing deck as if it were sourced.
+                # Drop the untraceable number rather than show one that
+                # can't be traced to any KB/workbook cell.
+                result.pop("cpc_trend", None)
+                result.pop("cpc_trend_direction", None)
             result["confidence"] = "market_intelligence_kb"
 
     # Layer 1: Synthesized ad_platform_analysis overrides (live API data)
@@ -3571,12 +3622,15 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         rt.text = ch["label"]
         _set_font(rt, size=9, bold=False, color=DARK_TEXT)
 
-    _total_pubs = data.get("_joveo_publishers", {}).get(
-        "total_active_publishers", 10238
+    _total_pubs = _joveo_total_active_publishers(data)
+    _pubs_claim = (
+        f"across {_total_pubs:,}+ publishers"
+        if _total_pubs
+        else "across Joveo's publisher network"
     )
     _add_paragraph(
         tf4,
-        f"\u2713  ML-optimized bidding across {_total_pubs:,}+ publishers",
+        f"\u2713  ML-optimized bidding {_pubs_claim}",
         font_size=8,
         color=DARK_TEXT,
         space_before=1,
@@ -5735,6 +5789,28 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     n_channels = len(channels)
     n_locations = len(locations)
 
+    # visual:atria#1 / strategy:atria#1 / consistency:atria#1 / copy:both#1
+    # (4-critical cluster): ``channels`` (from ``_selected_channels``) only
+    # carries the STATIC INDUSTRY_ALLOC_PROFILES percentages -- slides 5/6
+    # override those with the final post-reweight ``_budget_allocation``
+    # figures before reading them (see ``_build_slide_channel_strategy`` /
+    # ``_build_slide_budget_allocation``), but this slide never did, so its
+    # "Programmatic Allocation" (and every other plan-column row derived
+    # from ``channels[*]["pct"]``) showed the pre-reweight profile split
+    # (e.g. 21%/25%) instead of the plan's actual committed spend (28%/26%).
+    # Apply the SAME reconciliation used on slides 5/6 so every plan-column
+    # value here reads the final allocation data.
+    _cmp_ba_channel_alloc = (
+        budget_alloc.get("channel_allocations", {}) if budget_alloc else {}
+    )
+    if _cmp_ba_channel_alloc:
+        _cmp_reconciled_pct = _reconcile_channel_percentages(
+            channels, _cmp_ba_channel_alloc
+        )
+        for ch_key, ch_data in channels.items():
+            if ch_key in _cmp_reconciled_pct:
+                ch_data["pct"] = _cmp_reconciled_pct[ch_key]
+
     # Calculate client metrics
     sorted_ch = sorted(channels.values(), key=lambda c: c["pct"], reverse=True)
     programmatic_pct = 0
@@ -5908,19 +5984,19 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     comparison_rows = sorted(
         all_comparison_rows, key=lambda r: _status_rank.get(r["status"], 3)
     )
+    # strategy:manpower#3: the client's own hiring GOAL is not an industry
+    # statistic -- putting it in the "Industry Average" column (as this row
+    # used to) is a category error that compares the plan against itself.
+    # Pull it out of the two-panel benchmark table entirely; it always keeps
+    # a slot (rendered as its own distinctly-labeled band below the panels,
+    # see below) rather than risking getting crowded out by the row cap.
+    _goal_row = None
     if _goal_gap:
-        # The goal-gap row is the single most decision-relevant honesty
-        # signal on this slide -- it always keeps a slot rather than risking
-        # getting crowded out by the 5-row display cap.
         _goal_row = next(
             (r for r in comparison_rows if r["metric"] == "vs. Client Goal"), None
         )
         comparison_rows = [r for r in comparison_rows if r is not _goal_row]
-        comparison_rows = comparison_rows[:4]
-        if _goal_row:
-            comparison_rows.append(_goal_row)
-    else:
-        comparison_rows = comparison_rows[:5]  # limit to 5 rows
+    comparison_rows = comparison_rows[:4] if _goal_row else comparison_rows[:5]
 
     # ==== LEFT PANEL: Client Plan ====
     _add_rounded_rect(slide, left_panel_x, comp_top, panel_w, panel_h, WHITE)
@@ -6044,6 +6120,38 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             alignment=PP_ALIGN.RIGHT,
             anchor=MSO_ANCHOR.MIDDLE,
         )
+
+    # ---- CLIENT GOAL band (own row, never inside the industry-average
+    # column -- strategy:manpower#3) ----
+    if _goal_row and _goal_gap:
+        _goal_band_y = comp_top + Inches(0.5) + len(comparison_rows) * row_h_comp
+        _goal_band_w = (right_panel_x + panel_w) - left_panel_x
+        _add_filled_rect(
+            slide,
+            left_panel_x + Inches(0.05),
+            _goal_band_y,
+            _goal_band_w - Inches(0.1),
+            row_h_comp,
+            LIGHT_AMBER,
+        )
+        _gb_box, _gb_tf = _add_textbox(
+            slide,
+            left_panel_x + Inches(0.2),
+            _goal_band_y,
+            _goal_band_w - Inches(0.4),
+            row_h_comp,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+        _gb_p = _gb_tf.paragraphs[0]
+        _gb_r1 = _gb_p.add_run()
+        _gb_r1.text = "CLIENT GOAL (not an industry benchmark):  "
+        _set_font(_gb_r1, size=9, bold=True, color=NAVY)
+        _gb_r2 = _gb_p.add_run()
+        _gb_r2.text = (
+            f"{_goal_gap['goal']:,} hires target  —  this plan projects "
+            f"{_goal_gap['projected']:,} ({_goal_gap['pct_of_goal']:.0f}%)"
+        )
+        _set_font(_gb_r2, size=9, bold=False, color=DARK_TEXT)
 
     # ---- Legend ----
     legend_y = comp_top + panel_h + Inches(0.04)
@@ -6214,6 +6322,10 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
                 "accent_bg": RGBColor(0xE8, 0xED, 0xF4),
             },
         ]
+
+    # copy:both#2: interpolate this plan's own facts (client name, top
+    # channels) into the otherwise-identical phase action items.
+    _interpolate_timeline_bullets(phases, data, channels)
 
     phase_w = Inches(3.85)
     phase_gap = Inches(0.25)
@@ -7636,7 +7748,10 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 for k, v in ttf.items():
                     if k in ("average_days", "average", "notes") or not v:
                         continue
-                    label = k.replace("_", " ").title()
+                    # copy:both#5-family: plain .title() clobbers acronyms
+                    # embedded in KB keys (e.g. "cdl_drivers" -> "Cdl
+                    # Drivers" instead of "CDL Drivers").
+                    label = _fmt.smart_title(k)
                     parts.append(f"{label}: {v}")
                 ttf_str = " | ".join(parts[:4]) if parts else str(ttf)
             else:
@@ -7648,7 +7763,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 str(oar)
                 if not isinstance(oar, dict)
                 else " | ".join(
-                    f"{k.replace('_', ' ').title()}: {v}"
+                    f"{_fmt.smart_title(k)}: {v}"
                     for k, v in oar.items()
                     if k != "notes" and v
                 )
@@ -7661,7 +7776,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             # title-case them like the ttf/oar dict-flattening two blocks
             # above already does, instead of leaking the raw snake_case key.
             src_items = [
-                f"{k.replace('_', ' ').title()}: {v}"
+                f"{_fmt.smart_title(k)}: {v}"
                 for k, v in list(top_src.items())[:3]
             ]
             trend_items.append(f"Top Sources: {', '.join(src_items)}")
@@ -10529,22 +10644,63 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
         d = by_title.get(title.lower())
         if not d:
             continue
-        tier = str(d.get("seniority_level") or "").replace("_", " ").title()
-        emphasis = _fmt.channel_label(str(d.get("channel_emphasis") or "")) or str(
-            d.get("channel_emphasis") or ""
-        ).replace("_", " ").title()
+        tier = _fmt.smart_title(str(d.get("seniority_level") or ""))
+        emphasis = _fmt.channel_label(
+            str(d.get("channel_emphasis") or "")
+        ) or _fmt.smart_title(str(d.get("channel_emphasis") or ""))
         # consistency:atria#2: read the SAME per_role_salary data the
         # workbook renders, not the (often-empty) _enriched.salary_data.
         median, is_estimated = _role_breakdown_median_salary(gold, title)
-        if median:
-            salary_str = _format_salary(median)
-            if is_estimated and salary_str:
-                salary_str += " (est.)"
-        else:
-            salary_str = "--"
-        rows.append((title, tier, salary_str, emphasis))
+        # strategy:atria#5: surface the same per-role Difficulty
+        # (complexity_score) and Budget Weight the workbook's Role
+        # Difficulty Classification table carries, so a 10-role plan with a
+        # 20x salary/difficulty spread has real per-role substance here --
+        # not just tier/salary/channel with zero hire/budget signal.
+        rows.append(
+            {
+                "title": title,
+                "tier": tier,
+                "median": median,
+                "is_estimated": is_estimated,
+                "difficulty": d.get("complexity_score"),
+                "budget_weight": d.get("budget_weight"),
+                "emphasis": emphasis,
+            }
+        )
     if len(rows) < 4:
         return
+
+    # visual:atria#2: when an ESTIMATED (fallback) salary happens to be
+    # byte-identical to another role's displayed salary -- e.g. an
+    # entry-level "Sales" role's fallback landing on the exact same $104K as
+    # a mid-tier Nurse -- that coincidence is itself the tell that the
+    # fallback defaulted to the wrong occupation code. Flag it explicitly
+    # rather than silently rendering the same implausible number twice.
+    _median_counts: Dict[float, int] = {}
+    for r in rows:
+        if r["median"]:
+            _median_counts[r["median"]] = _median_counts.get(r["median"], 0) + 1
+    for r in rows:
+        if r["median"]:
+            salary_str = _format_salary(r["median"])
+            if r["is_estimated"] and salary_str:
+                if _median_counts.get(r["median"], 0) > 1:
+                    salary_str += " (est., shared band)"
+                else:
+                    salary_str += " (est.)"
+        else:
+            salary_str = "--"
+        r["salary_str"] = salary_str
+        r["difficulty_str"] = (
+            f"{float(r['difficulty']):.1f}/10"
+            if isinstance(r["difficulty"], (int, float))
+            else "--"
+        )
+        r["budget_weight_str"] = (
+            f"{float(r['budget_weight']):.1f}x"
+            if isinstance(r["budget_weight"], (int, float))
+            else "--"
+        )
 
     slide_layout = prs.slide_layouts[6]
     slide = prs.slides.add_slide(slide_layout)
@@ -10569,8 +10725,26 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
     )
 
     table_left = Inches(0.55)
-    col_widths = [Inches(4.4), Inches(2.3), Inches(2.5), Inches(2.9)]
-    headers = ["Role", "Tier", "Est. Median Salary", "Channel Emphasis"]
+    # strategy:atria#5: widened from 4 to 6 columns (added Difficulty and
+    # Budget Weight, sourced from the same _gold_standard difficulty_
+    # framework rows the workbook's Role Difficulty Classification table
+    # renders) so a 10-role plan carries real per-role substance here.
+    col_widths = [
+        Inches(3.1),
+        Inches(1.2),
+        Inches(2.15),
+        Inches(1.25),
+        Inches(1.5),
+        Inches(2.8),
+    ]
+    headers = [
+        "Role",
+        "Tier",
+        "Est. Median Salary",
+        "Difficulty",
+        "Budget Weight",
+        "Channel Emphasis",
+    ]
     header_top = Inches(1.7)
     header_h = Inches(0.42)
     row_h = Inches(0.42)
@@ -10595,7 +10769,7 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
         cx += cw
 
     _max_rows = min(len(rows), 12)
-    for idx, (title, tier, salary_str, emphasis) in enumerate(rows[:_max_rows]):
+    for idx, r in enumerate(rows[:_max_rows]):
         y = header_top + header_h + idx * row_h
         _add_filled_rect(
             slide,
@@ -10606,10 +10780,12 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
             LAVENDER_50 if idx % 2 == 0 else WHITE,
         )
         cells = [
-            (_trunc_word(title, 40), 9, True, NAVY),
-            (tier, 9, False, DARK_TEXT),
-            (salary_str, 9, False, DARK_TEXT),
-            (emphasis, 9, False, MUTED_TEXT),
+            (_trunc_word(r["title"], 40), 9, True, NAVY),
+            (r["tier"], 9, False, DARK_TEXT),
+            (r["salary_str"], 9, False, DARK_TEXT),
+            (r["difficulty_str"], 9, False, DARK_TEXT),
+            (r["budget_weight_str"], 9, False, DARK_TEXT),
+            (r["emphasis"], 9, False, MUTED_TEXT),
         ]
         cx = table_left
         for (cell_text, fsize, fbold, fcolor), cw in zip(cells, col_widths):
@@ -10928,6 +11104,41 @@ def _interpolate_next_steps(steps: List[Any], data: Dict) -> List[str]:
             text = f"30-day review: CPA actuals, pipeline quality, {client}'s scale-up recommendation"
         out.append(text)
     return out
+
+
+def _interpolate_timeline_bullets(
+    phases: List[Dict[str, Any]], data: Dict, channels: Dict
+) -> None:
+    """copy:both#2: splice this plan's own facts into the Implementation
+    Timeline's phase action items, which used to be byte-for-byte identical
+    boilerplate regardless of client/industry/duration -- an 18-month,
+    10-role, $300K senior-living ramp read identically to a 6-month,
+    1-role, $150K trucking launch. Mutates ``phases`` (each a dict with a
+    "bullets" list) in place; matches each bullet by its stable keyword
+    phrase, mirroring :func:`_interpolate_next_steps`. Week counts are
+    already plan-specific (derived from ``campaign_weeks`` by the caller);
+    this only touches the bullet TEXT.
+    """
+    client = _proper_client_name(str(data.get("client_name") or "").strip())
+    sorted_ch = sorted(
+        channels.values(), key=lambda c: c.get("pct", 0), reverse=True
+    )
+    top_channel_names = [ch["label"] for ch in sorted_ch[:2] if ch.get("label")]
+    top_channels_phrase = (
+        " and ".join(top_channel_names) if top_channel_names else ""
+    )
+    for ph in phases:
+        bullets = ph.get("bullets") or []
+        new_bullets = []
+        for b in bullets:
+            text = str(b)
+            low = text.lower()
+            if "campaign setup" in low and "publisher activation" in low and client:
+                text = f"Campaign setup & publisher activation for {client}"
+            elif low.strip() == "scale top performers" and top_channels_phrase:
+                text = f"Scale top performers: {top_channels_phrase}"
+            new_bullets.append(text)
+        ph["bullets"] = new_bullets
 
 
 def _build_slide_next_steps_only(prs: Presentation, next_steps: List[Any]) -> None:

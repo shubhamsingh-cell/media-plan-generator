@@ -209,23 +209,80 @@ class TestNoFabricatedMetrics:
 
 
 # ---------------------------------------------------------------------------
+# 2b. 4-critical cluster: comparison slide must read the FINAL allocation,
+# not the static INDUSTRY_ALLOC_PROFILES split
+# (visual:atria#1 / strategy:atria#1 / consistency:atria#1 / copy:both#1)
+# ---------------------------------------------------------------------------
+class TestComparisonSlideReadsFinalAllocation:
+    def _plan_with_reweighted_allocation(self) -> dict:
+        # Real post-reweight programmatic share is 28.1% (84,336/300,000) --
+        # materially different from the STATIC healthcare_medical
+        # INDUSTRY_ALLOC_PROFILES programmatic_dsp share (22, re-normalized
+        # to ~21% once only 6 of 8 profile channels are selected). Any slide
+        # that reads ``channels[*]["pct"]`` without reconciling against
+        # ``_budget_allocation`` will show the wrong ~21% instead of 28%.
+        data = _healthcare_plan()
+        data["_budget_allocation"]["channel_allocations"] = {
+            "programmatic_dsp": {"dollar_amount": 84_336.0, "percentage": 28.1},
+            "global_boards": {"dollar_amount": 79_400.0, "percentage": 26.5},
+            "regional_boards": {"dollar_amount": 56_400.0, "percentage": 18.8},
+            "niche_boards": {"dollar_amount": 35_000.0, "percentage": 11.7},
+            "social_media": {"dollar_amount": 20_850.0, "percentage": 7.0},
+            "employer_branding": {"dollar_amount": 24_000.0, "percentage": 8.0},
+        }
+        return data
+
+    def test_programmatic_allocation_matches_budget_allocation_metadata(self):
+        data = self._plan_with_reweighted_allocation()
+        ba_channel_alloc = data["_budget_allocation"]["channel_allocations"]
+        expected_pct = round(ba_channel_alloc["programmatic_dsp"]["percentage"])
+
+        prs = _new_prs()
+        ppt._build_slide_comparison_timeline(prs, data)
+        blob = "\n".join(_all_slide_text(prs))
+
+        assert f"{expected_pct}%" in blob
+        # The static-profile value (~21%) must NOT be the one shown.
+        assert "21%" not in blob
+
+    def test_programmatic_allocation_row_ties_to_channel_strategy_slide(self):
+        # The comparison slide's Programmatic Allocation must equal the same
+        # figure slide 5 (Channel Strategy) shows for the identical plan.
+        data = self._plan_with_reweighted_allocation()
+        prs5 = _new_prs()
+        ppt._build_slide_channel_strategy(prs5, data)
+        blob5 = "\n".join(_all_slide_text(prs5))
+
+        prs9 = _new_prs()
+        ppt._build_slide_comparison_timeline(prs9, data)
+        blob9 = "\n".join(_all_slide_text(prs9))
+
+        assert "28%" in blob5
+        assert "28%" in blob9
+
+
+# ---------------------------------------------------------------------------
 # 3. Role Breakdown salary sourcing
 # ---------------------------------------------------------------------------
 class TestRoleBreakdownSalary:
     def _gold_standard_with_salary(self) -> dict:
         return {
             "difficulty_framework": [
-                {"role_title": "Memory Care Associate", "seniority_level": "entry", "channel_emphasis": "niche_boards"},
-                {"role_title": "Nurse", "seniority_level": "professional", "channel_emphasis": "programmatic_dsp"},
-                {"role_title": "Cook", "seniority_level": "entry", "channel_emphasis": "regional_boards"},
-                {"role_title": "Driver", "seniority_level": "entry", "channel_emphasis": "global_boards"},
+                {"role_title": "Memory Care Associate", "seniority_level": "entry", "channel_emphasis": "niche_boards", "complexity_score": 5, "budget_weight": 1.0},
+                {"role_title": "Nurse", "seniority_level": "professional", "channel_emphasis": "programmatic_dsp", "complexity_score": 8.5, "budget_weight": 1.8},
+                {"role_title": "Cook", "seniority_level": "entry", "channel_emphasis": "regional_boards", "complexity_score": 3.5, "budget_weight": 0.6},
+                {"role_title": "Driver", "seniority_level": "entry", "channel_emphasis": "global_boards", "complexity_score": 4, "budget_weight": 0.8},
             ],
             "city_level_data": {
                 "new york, ny": {
                     "per_role_salary": {
                         "Memory Care Associate": {"median": 46920, "confidence": "benchmark"},
                         "Nurse": {"median": 103500, "confidence": "benchmark"},
-                        "Cook": {"median": 46920, "confidence": "estimated"},
+                        # Deliberately distinct from every other role's median
+                        # here so this fixture exercises the plain "(est.)"
+                        # path; the salary-collision "(est., shared band)"
+                        # path has its own dedicated test below.
+                        "Cook": {"median": 42000, "confidence": "estimated"},
                         "Driver": {"median": 55200, "confidence": "benchmark"},
                     }
                 }
@@ -241,7 +298,7 @@ class TestRoleBreakdownSalary:
     def test_role_breakdown_median_salary_flags_estimated(self):
         gold = self._gold_standard_with_salary()
         median, is_estimated = ppt._role_breakdown_median_salary(gold, "Cook")
-        assert median == 46920
+        assert median == 42000
         assert is_estimated is True
 
     def test_role_breakdown_median_salary_missing_role_returns_none(self):
@@ -264,6 +321,10 @@ class TestRoleBreakdownSalary:
         assert "(est.)" in blob  # Cook is the estimated-confidence row
         # Not every row is '--' anymore.
         assert blob.count("--") < 4
+        # strategy:atria#5: Difficulty and Budget Weight columns are real
+        # per-role data from the same difficulty_framework rows, not '--'.
+        assert "8.5/10" in blob  # Nurse complexity_score
+        assert "1.8x" in blob  # Nurse budget_weight
 
     def test_role_breakdown_shows_dash_when_gold_standard_has_no_salary_data(self):
         data = _healthcare_plan()
@@ -275,6 +336,23 @@ class TestRoleBreakdownSalary:
         assert len(prs.slides) == 1
         blob = "\n".join(_all_slide_text(prs))
         assert "--" in blob
+
+    def test_role_breakdown_flags_duplicate_estimated_salary(self):
+        # visual:atria#2: an ESTIMATED (fallback) salary that collides
+        # byte-for-byte with another role's displayed salary (e.g. an
+        # entry-level role priced identically to a mid-tier one) must be
+        # flagged as a shared/implausible band, not silently repeated.
+        data = _healthcare_plan()
+        gold = self._gold_standard_with_salary()
+        gold["city_level_data"]["new york, ny"]["per_role_salary"]["Cook"] = {
+            "median": 103500,
+            "confidence": "estimated",
+        }
+        data["_gold_standard"] = gold
+        prs = _new_prs()
+        ppt._build_slide_role_breakdown(prs, data)
+        blob = "\n".join(_all_slide_text(prs))
+        assert "(est., shared band)" in blob
 
 
 # ---------------------------------------------------------------------------
