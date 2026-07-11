@@ -74,6 +74,16 @@ try:
 except ImportError:  # pragma: no cover - plan_currency ships with the repo
     _plan_currency = None
 
+import plan_geo
+import display_format
+import insight_composer
+
+# NOTE: aliased -- several functions in this module already use a local
+# variable/parameter literally named `gold_standard` (the enriched
+# ``data["_gold_standard"]`` dict from apply_all_quality_gates), which would
+# shadow a bare `import gold_standard` inside those functions' scopes.
+import gold_standard as gs_lib
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -532,6 +542,21 @@ INDUSTRY_NICHE_CHANNELS: Dict[str, List[str]] = {
     "mental_health": ["Psychology Today Jobs", "SAMHSA Jobs", "APA PsycCareers"],
     "maritime_marine": ["Maritime Jobs", "Rigzone", "Sea Career"],
 }
+
+
+def get_niche_vendor_availability(industry: str, us_plan: bool) -> Dict[str, bool]:
+    """channel_key -> whether real (non-fabricated) niche-vendor data exists.
+
+    ``INDUSTRY_NICHE_CHANNELS`` is a US-domiciled board list -- it is only
+    valid vendor data for a US plan targeting a covered industry. Callers
+    (e.g. app.py's budget allocation) use this to decide whether the
+    ``niche_boards`` channel can carry a data-backed allocation, instead of
+    always assuming named vendors are available. Dependency-light: reads
+    only the module-level board table, no research/enrichment calls.
+    """
+    has_vendors = bool(us_plan) and bool(INDUSTRY_NICHE_CHANNELS.get(industry))
+    return {"niche_boards": has_vendors}
+
 
 # ---------------------------------------------------------------------------
 # Role-Level Niche Board Matching (Task 4)
@@ -1458,8 +1483,43 @@ _TITLE_ACRONYMS = {
 }
 
 
+_CHANNEL_KEY_RE = re.compile(
+    r"\b("
+    + "|".join(
+        sorted(
+            (re.escape(k) for k in display_format.CHANNEL_DISPLAY),
+            key=len,
+            reverse=True,
+        )
+    )
+    + r")\b"
+)
+
+
+def _delabel_channel_keys_in_text(text: Any) -> Any:
+    """Replace any raw snake_case channel key embedded in free-text prose
+    (e.g. budget_engine's own recommendation/warning strings, which
+    interpolate channel keys directly -- "niche_boards, employer_branding
+    may benefit from...") with its client-facing display label. Non-string
+    input and channel-agnostic text pass through unchanged."""
+    if not isinstance(text, str) or not text:
+        return text
+    return _CHANNEL_KEY_RE.sub(
+        lambda m: display_format.channel_label(m.group(1)), text
+    )
+
+
 def _smart_title(s: str) -> str:
-    """Title-case a string while preserving known acronyms (AI, ROI, DSP...)."""
+    """Client-facing display name for a channel key (or any string).
+
+    Delegates to :func:`display_format.channel_label` for known channel
+    keys (e.g. ``"niche_boards"`` -> "Niche / Industry Boards") so channel
+    names are consistent workbook-wide; falls back to acronym-preserving
+    title-case (AI, ROI, DSP...) for anything not a recognized channel key.
+    """
+    key = str(s)
+    if key in display_format.CHANNEL_DISPLAY:
+        return display_format.CHANNEL_DISPLAY[key]
     return " ".join(_TITLE_ACRONYMS.get(w, w) for w in str(s).title().split())
 
 
@@ -1612,48 +1672,20 @@ _US_TOKENS = frozenset({"us", "usa", "u.s.", "u.s.a.", "united states", "america
 def _is_us_plan(data: dict) -> bool:
     """True when the plan's target country is the United States.
 
-    Mirrors ``_is_us_only_campaign`` in ppt_generator.py so US-only content
-    (niche boards, security-clearance framework, US-calibrated defaults) is
-    gated consistently in the workbook. Checks the explicit ``country`` field
-    first, then per-location country strings, then falls back to the resolved
-    plan currency (USD) as a last resort. Defaults True only when nothing in
-    the plan signals a non-US market (S4: never assume non-US content is safe
-    to ship, but also never suppress US content for an actual US plan).
+    Thin delegate to :func:`plan_geo.is_us_plan` -- the single source of
+    truth for locale resolution (handles bare US state names, "City, ST"
+    pairs, and target_region, and never hard-returns False on the first
+    unresolvable location candidate). Kept as a local name because it is
+    called throughout this module; do not re-implement the resolution logic
+    here.
     """
-    explicit = str(data.get("country") or "").strip().lower()
-    if explicit:
-        if explicit in _US_TOKENS:
-            return True
-        if _plan_currency is not None:
-            code = _plan_currency.currency_for_country(explicit)
-            if code:
-                return code == "USD"
-        return False
+    return plan_geo.is_us_plan(data)
 
-    locations = data.get("locations") or []
-    if isinstance(locations, str):
-        locations = [locations]
-    if isinstance(locations, list) and locations:
-        for loc in locations:
-            loc_str = ""
-            if isinstance(loc, str):
-                loc_str = loc
-            elif isinstance(loc, dict):
-                loc_str = loc.get("country") or loc.get("location") or ""
-            loc_str = loc_str.strip().lower()
-            if not loc_str:
-                continue
-            tail = loc_str.rsplit(",", 1)[-1].strip()
-            if tail in _US_TOKENS:
-                return True
-            if _plan_currency is not None:
-                code = _plan_currency.currency_for_country(tail)
-                if code:
-                    return code == "USD"
-            return False
 
-    # No location signal at all -- fall back to the resolved plan currency.
-    return _get_active_currency() == "USD"
+def _non_us_signals(data: dict) -> List[str]:
+    """Location strings that drove ``_is_us_plan`` to False, for honest
+    non-US messaging. Thin delegate to :func:`plan_geo.non_us_signals`."""
+    return plan_geo.non_us_signals(data)
 
 
 def _get_budget_numeric(data: dict) -> float:
@@ -1665,31 +1697,12 @@ def _get_budget_numeric(data: dict) -> float:
 def _parse_hire_goal(hire_volume: Any) -> int:
     """Parse the client's stated hiring GOAL to a comparable integer (low end).
 
-    ``hire_volume`` arrives as a free-text field: a bare int, "5000 hires",
-    "50-100 hires", "5,000+", or "Not specified"/"TBD"/"". For a range we take
-    the LOW end (so the gap statement is framed against the least ambitious
-    target the client named — the most defensible comparison). Returns 0 when
-    no numeric goal can be parsed, which callers treat as "no goal stated".
-
-    O2 (2026-07-03, findings 42/49/64): the hire-goal-vs-projection gap must be
-    stated head-on; this parser feeds the Executive Summary gap callout.
+    Thin delegate to :func:`display_format.parse_hire_goal` (single source
+    of truth, shared with the deck). O2 (2026-07-03, findings 42/49/64): the
+    hire-goal-vs-projection gap must be stated head-on; this parser feeds the
+    Executive Summary gap callout.
     """
-    if isinstance(hire_volume, (int, float)):
-        return max(0, int(hire_volume))
-    if not isinstance(hire_volume, str):
-        return 0
-    text = hire_volume.strip().lower()
-    if not text or text in ("not specified", "tbd", "n/a", "none", "unknown"):
-        return 0
-    # Pull all integer groups (handles thousands separators); take the first as
-    # the low end of any range ("50-100" -> 50).
-    nums = re.findall(r"\d[\d,]*", text)
-    if not nums:
-        return 0
-    try:
-        return max(0, int(nums[0].replace(",", "")))
-    except ValueError:
-        return 0
+    return display_format.parse_hire_goal(hire_volume)
 
 
 def _get_industry_label(industry_key: str) -> str:
@@ -1700,25 +1713,20 @@ def _get_industry_label(industry_key: str) -> str:
 def _canonical_duration_from_weeks(weeks: int) -> str:
     """Format a canonical campaign-duration label from a week count.
 
-    Mirrors app.py's ``_canonical_duration_label`` so the SAME string renders
-    regardless of whether generation ran through the app request path (which
-    pre-computes ``campaign_duration_canonical``) or a direct
-    ``generate_excel_v2`` call (sample scripts, tests).
+    Thin delegate to :func:`display_format.weeks_to_duration_label` -- the
+    single source of truth (round-trip safe with
+    :func:`display_format.parse_duration_to_weeks`: e.g. 78 weeks always
+    reads back as 78 weeks, never re-derived to a slightly different value
+    like the old 18-month input silently becoming "17 months" after a
+    weeks-per-month rounding round-trip). Every duration label this module
+    emits -- workbook or (via app.py's own resolver) deck -- must trace back
+    to this same function so the same week count never renders two
+    different-sounding strings.
     """
     weeks = int(weeks or 0)
     if weeks <= 0:
         return "Not specified"
-    if weeks <= 13:
-        return f"{weeks} weeks (~{max(1, round(weeks / 4.33))} months)"
-    months = round(weeks / 4.33)
-    if months < 12:
-        return f"{months} months (~{weeks} weeks)"
-    years = months / 12.0
-    if abs(years - round(years)) < 0.1:
-        yr_txt = f"{years:.0f} year" + ("s" if years >= 2 else "")
-    else:
-        yr_txt = f"{years:.1f} years"
-    return f"{yr_txt} (~{months} months)"
+    return display_format.weeks_to_duration_label(weeks)
 
 
 def _resolve_campaign_duration(data: dict) -> str:
@@ -1747,47 +1755,17 @@ def _resolve_campaign_duration(data: dict) -> str:
     if weeks_int > 0:
         return _canonical_duration_from_weeks(weeks_int)
 
-    # Derive weeks from the raw duration string (subset of app.py's mapping).
+    # Derive weeks from the raw duration string via the SAME 52/12
+    # weeks-per-month ratio display_format.weeks_to_duration_label uses --
+    # a locally-hardcoded ladder (e.g. "12 month" -> 48 weeks, a *4
+    # shortcut) would silently disagree with the canonical formatter above
+    # and reintroduce exactly the kind of duration-string drift this
+    # resolver exists to prevent.
     raw = str(data.get("campaign_duration") or data.get("timeline") or "").strip()
     dur_lower = raw.lower()
     if not dur_lower or dur_lower in ("not specified", "tbd", "n/a"):
         return "Not specified"
-    derived = 0
-    if "2-5 year" in dur_lower or "long-term" in dur_lower or "long term" in dur_lower:
-        derived = 156
-    elif "1-2 year" in dur_lower or "2 year" in dur_lower:
-        derived = 80
-    elif (
-        "6-12 month" in dur_lower
-        or "9 month" in dur_lower
-        or "12 month" in dur_lower
-        or "1 year" in dur_lower
-    ):
-        derived = 48
-    elif (
-        "3-6 month" in dur_lower
-        or "4 month" in dur_lower
-        or "5 month" in dur_lower
-        or "6 month" in dur_lower
-    ):
-        derived = 24
-    elif (
-        "1-3 month" in dur_lower
-        or "1 month" in dur_lower
-        or "2 month" in dur_lower
-        or "3 month" in dur_lower
-    ):
-        derived = 12
-    elif "ongoing" in dur_lower:
-        derived = 52
-    else:
-        wk_match = re.search(r"(\d+)\s*week", dur_lower)
-        if wk_match:
-            derived = int(wk_match.group(1))
-        else:
-            mo_match = re.search(r"(\d+)\s*month", dur_lower)
-            if mo_match:
-                derived = int(mo_match.group(1)) * 4
+    derived = display_format.parse_duration_to_weeks(raw)
     if derived > 0:
         return _canonical_duration_from_weeks(derived)
     return raw or "Not specified"
@@ -2549,7 +2527,8 @@ def _build_sheet_executive_summary(
     # canonical label (from campaign_weeks) so every sheet shows the SAME value.
     duration = _resolve_campaign_duration(data)
     hire_volume = data.get("hire_volume") or ""
-    work_env = data.get("work_environment", "hybrid")
+    _stated_work_env = data.get("work_environment", "hybrid")
+    work_env, _work_env_note = gs_lib.effective_work_model(_stated_work_env, roles)
 
     budget_alloc = data.get("_budget_allocation", {})
     total_proj = budget_alloc.get("total_projected", {})
@@ -2618,6 +2597,13 @@ def _build_sheet_executive_summary(
         _write_metric_card(ws, card_row + (idx // 3) * 3, col, label, value)
     row = card_row + 6  # 2 rows of cards * 3 height each
     row += 1  # gap
+
+    # Work-model correction note (gold_standard.effective_work_model): a
+    # stated "Remote" model gets flagged when the plan's roles are
+    # inherently site-based (care, culinary, logistics, etc.).
+    if _work_env_note:
+        row = _write_footnote(ws, row, _work_env_note)
+        row += 1
 
     # ── 2. Company Intelligence ──
     company_intel = {}
@@ -3204,12 +3190,21 @@ def _build_sheet_executive_summary(
         )
         top_2_pct = sum(ch[1].get("percentage", 0) for ch in sorted_ch[:2])
         if top_2_pct > 55:
-            ch_names = ", ".join(ch[0] for ch in sorted_ch[:2])
+            ch_names = ", ".join(
+                display_format.channel_label(ch[0]) for ch in sorted_ch[:2]
+            )
+            # S89: hires-at-risk = the ACTUAL projected hires of the named
+            # top-2 channels (never a top_2_pct * total-hires estimate --
+            # that overstates risk whenever the named channels' hire mix
+            # differs from their budget-share mix).
+            _named_hires = sum(
+                int(ch[1].get("projected_hires") or 0) for ch in sorted_ch[:2]
+            )
             risk_items.append(
                 (
                     "Channel Dependency",
                     f"{top_2_pct:.0f}% of budget concentrated on {ch_names} — "
-                    f"single-channel disruption could impact {top_2_pct * proj_hires / 100:.0f} projected hires",
+                    f"single-channel disruption could impact {_named_hires:,} projected hires",
                     "Diversify to 4+ channels; maintain 3 backup channels on standby",
                 )
             )
@@ -3297,6 +3292,15 @@ def _build_sheet_executive_summary(
                     f"{tier_name} roles ({', '.join(tier_roles[:3])}): {strategy}"
                 )
 
+    # Curated regulatory/certification callouts (Hazmat/Tanker for propane
+    # CDL roles, licensure for nursing roles, etc.) -- factual, non-fabricated.
+    # Prepended (not appended) so they always survive the top-8 cap below --
+    # a safety/compliance callout is exactly the kind of item that must
+    # never get silently truncated off the end of a longer recommendations
+    # list.
+    _role_callouts = insight_composer.role_requirements_callout(industry, roles)
+    all_recommendations = _role_callouts + all_recommendations
+
     if all_recommendations or warnings:
         row = _write_section_header(ws, row, "Key Recommendations")
 
@@ -3309,7 +3313,11 @@ def _build_sheet_executive_summary(
                     end_row=row,
                     end_column=COL_END,
                 )
-                cell = ws.cell(row=row, column=COL_START, value=f"  {w}")
+                cell = ws.cell(
+                    row=row,
+                    column=COL_START,
+                    value=f"  {_delabel_channel_keys_in_text(w)}",
+                )
                 cell.font = Font(name=FONT_BODY_NAME, size=10, color=RED)
                 cell.fill = _FILL_RED_BG
                 cell.alignment = _ALIGN_WRAP
@@ -3325,7 +3333,11 @@ def _build_sheet_executive_summary(
                     end_row=row,
                     end_column=COL_END,
                 )
-                cell = ws.cell(row=row, column=COL_START, value=f"  {idx + 1}. {rec}")
+                cell = ws.cell(
+                    row=row,
+                    column=COL_START,
+                    value=f"  {idx + 1}. {_delabel_channel_keys_in_text(rec)}",
+                )
                 cell.font = _FONT_BODY
                 cell.alignment = _ALIGN_WRAP
                 cell.fill = _FILL_BLUE_PALE if idx % 2 else _FILL_WHITE
@@ -3470,10 +3482,10 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             _fit_val = _safe_num(roi) if not isinstance(roi, str) else None
 
             values = [
-                ch_name,
+                display_format.channel_label(ch_name),
                 _safe_num(ch_data.get("percentage") or 0) / 100.0,
                 _safe_num(ch_data.get("dollar_amount", ch_data.get("dollars") or 0)),
-                category.replace("_", " ").title() if category else "",
+                display_format.channel_label(category) if category else "",
                 _safe_num(ch_data.get("cpc") or 0),
                 confidence.title() if isinstance(confidence, str) else str(confidence),
                 round(_fit_val, 1) if _fit_val is not None else (roi or ""),
@@ -3593,8 +3605,8 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
         for idx, ch in enumerate(vetted[:20]):  # cap at 20
             fit = ch.get("fit", "Fair")
             fit_score = ch.get("fit_score", 0.5)
-            ch_name = ch.get("name") or ""
-            ch_category = (ch.get("category") or "").replace("_", " ").title()
+            ch_name = display_format.channel_label(ch.get("name") or "")
+            ch_category = display_format.channel_label(ch.get("category") or "")
             ch_cpc = ch.get("cpc") or 0
             ch_pct = ch.get("budget_pct") or 0
             notes = ch.get("description", ch.get("notes") or "")
@@ -3869,14 +3881,18 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
         # but have no local-market equivalent data -- disclose rather than
         # silently drop or fabricate.
         row = _write_section_header(ws, row, f"Niche Channels: {industry_label}")
+        _signals = _non_us_signals(data)
+        _signal_txt = (
+            f" (targets {', '.join(_signals[:3])})" if _signals else ""
+        )
         row = _write_kv_row(
             ws,
             row,
             "Note",
             "US-domiciled niche boards for this industry are not shown because "
-            "this plan targets a non-US market. Local specialty board data was "
-            "not available for this campaign; consult the Intl Benchmarks sheet "
-            "and regional job boards for this market.",
+            f"this plan targets a non-US market{_signal_txt}. Local specialty "
+            "board data was not available for this campaign; consult the Intl "
+            "Benchmarks sheet and regional job boards for this market.",
         )
 
     row += 2
@@ -4021,6 +4037,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         "Unemployment",
         _income_header,
         "Key Industries",
+        "Why This Market",
     ]
     row = _write_table_header(ws, row, headers)
 
@@ -4149,6 +4166,8 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         )
         industry_str = _flatten_value(key_industries)
 
+        _rationale = insight_composer.geography_rationale(loc, loc_data)
+
         values = [
             loc,
             country,
@@ -4156,6 +4175,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             unemp_str or "—",
             income_str or "—",
             industry_str[:80] if industry_str else "—",
+            _rationale,
         ]
 
         row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
@@ -4385,7 +4405,14 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 
     if comp_analysis:
         row = _write_subsection_header(ws, row, "Competitor Analysis")
-        headers = ["Name", "Industry", "Size", "Hiring Activity", "Overlap Score"]
+        headers = [
+            "Name",
+            "Industry",
+            "Size",
+            "Hiring Activity",
+            "Overlap Score",
+            "Counter-Strategy",
+        ]
         row = _write_table_header(ws, row, headers)
 
         comp_list = comp_analysis if isinstance(comp_analysis, list) else []
@@ -4395,10 +4422,24 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 for k, v in comp_analysis.items()
             ]
 
+        _first_role = roles[0] if roles else ""
+        _first_city = locations[0] if locations else ""
         for idx, comp in enumerate(comp_list[:10]):
             if isinstance(comp, dict):
+                _comp_name = comp.get("name", comp.get("company") or "")
+                _counter = insight_composer.compose_counter_strategy(
+                    _comp_name,
+                    {
+                        "role": _first_role,
+                        "city": _first_city,
+                        "industry": industry_label,
+                        "competitor_type": comp.get("competitor_type") or "",
+                        "intensity": comp.get("hiring_activity") or "",
+                        "ordinal": idx,
+                    },
+                )
                 values = [
-                    comp.get("name", comp.get("company") or ""),
+                    _comp_name,
                     _flatten_value(comp.get("industry") or ""),
                     _flatten_value(comp.get("size", comp.get("employee_count") or "")),
                     _flatten_value(
@@ -4407,9 +4448,19 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     _flatten_value(
                         comp.get("overlap_score", comp.get("overlap") or "")
                     ),
+                    _counter,
                 ]
             elif isinstance(comp, str):
-                values = [comp, "", "", "", ""]
+                _counter = insight_composer.compose_counter_strategy(
+                    comp,
+                    {
+                        "role": _first_role,
+                        "city": _first_city,
+                        "industry": industry_label,
+                        "ordinal": idx,
+                    },
+                )
+                values = [comp, "", "", "", "", _counter]
             else:
                 continue
             row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
@@ -5768,6 +5819,7 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
             8: 16,  # Cost Per Hire
             9: 18,  # Est. Time to Fill
             10: 12,  # ROI Score
+            11: 40,  # Notes (brand rationale)
         },
     )
 
@@ -5937,7 +5989,12 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
             else:
                 projected_hires = max(0, int(projected_apps * conversion_rate))
 
-            cost_per_hire = round(dollars / max(projected_hires, 1), 2)
+            # S89: a zero-hire channel has NO cost-per-hire -- dollars/1 was
+            # silently printing the full channel budget as a fake CPH
+            # (e.g. "$15,000/hire" for a channel that projects 0 hires).
+            cost_per_hire = (
+                round(dollars / projected_hires, 2) if projected_hires > 0 else None
+            )
 
             # Time to fill: channel midpoint adjusted for role/volume/market
             ttf_lo, ttf_hi = _ROI_TIME_TO_FILL.get(category, (30, 45))
@@ -5952,6 +6009,9 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
             existing_roi = ch_data.get("roi_score") or 0
             if existing_roi and 1 <= existing_roi <= 10:
                 roi_score = existing_roi
+            elif cost_per_hire is None:
+                # Zero-hire channel -- no CPH to tier the score against.
+                roi_score = 1
             else:
                 if cost_per_hire <= 300:
                     roi_score = 10
@@ -5989,9 +6049,20 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
                 hire_confidence = "LOW"
                 hire_variance = 0.40
 
-            hire_lo = max(0, int(projected_hires * (1 - hire_variance)))
-            hire_hi = int(projected_hires * (1 + hire_variance))
-            hire_range_str = f"{hire_lo} - {hire_hi}"
+            if projected_hires > 0:
+                hire_lo = max(0, int(projected_hires * (1 - hire_variance)))
+                hire_hi = int(projected_hires * (1 + hire_variance))
+                hire_range_str = f"{hire_lo} - {hire_hi}"
+            else:
+                # S89: never show a fabricated "0 - 0" (or nonzero) range
+                # for a channel that isn't projected to produce any hires.
+                hire_range_str = "0"
+
+            # S91: surface the budget_engine brand rationale (employer
+            # branding etc. are measured on reach/pipeline influence, not
+            # CPA -- their zero-hire projection is BY DESIGN, not a defect).
+            _is_brand_channel = ch_data.get("channel_role") == "brand"
+            _brand_note = ch_data.get("rationale") if _is_brand_channel else ""
 
             roi_rows.append(
                 {
@@ -6006,6 +6077,8 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
                     "conversion_rate": conversion_rate,
                     "hire_confidence": hire_confidence,
                     "hire_range": hire_range_str,
+                    "is_brand": _is_brand_channel,
+                    "brand_note": _brand_note,
                 }
             )
 
@@ -6077,6 +6150,7 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
         "Cost Per Hire",
         "Time to Fill",
         "ROI Score",
+        "Notes",
     ]
     row = _write_table_header(ws, row, headers)
 
@@ -6107,6 +6181,12 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
 
         # S89: live numeric cells so the client can SUM/sort the ROI table.
         # Units are carried by the number_format (e.g. 0" days", 0"/10").
+        # S89: a zero-hire channel has no cost-per-hire -- show "—" as text
+        # rather than a fabricated budget-as-CPH number.
+        _cph = roi_data["cost_per_hire"]
+        _cph_val = _safe_num(_cph) if _cph is not None else "—"
+        _cph_fmt = _usd0_fmt() if _cph is not None else None
+        _notes = roi_data.get("brand_note") or ""
         values = [
             roi_data["name"],
             _safe_num(roi_data["budget"]),
@@ -6114,14 +6194,15 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
             int(_safe_num(roi_data["projected_hires"])),
             hire_conf,
             roi_data.get("hire_range", ""),
-            _safe_num(roi_data["cost_per_hire"]),
+            _cph_val,
             _safe_num(roi_data["time_to_fill"]),
             round(_safe_num(roi_score), 1),
+            _notes,
         ]
         # S3: budget/cost-per-hire are the plan's OWN figures -- active currency.
         _roi_fmts = [
             None, _usd0_fmt(), FMT_INT, FMT_INT, None, None,
-            _usd0_fmt(), '0" days"', '0"/10"',
+            _cph_fmt, '0" days"', '0"/10"', None,
         ]
         row = _write_table_row(
             ws, row, values, alternate=(idx % 2 == 0), number_formats=_roi_fmts
@@ -6139,38 +6220,44 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
 
     row += 1
 
-    # ── Conversion Rate Assumptions ──
-    row = _write_subsection_header(ws, row, "Conversion Rate Assumptions")
+    # ── Conversion Coherence (S89) ──
+    # S89: replaced the old static "Conversion Rate Assumptions" table
+    # (5-15% industry-average bands the model never actually applies) with
+    # THIS plan's own modeled per-channel app-to-hire rate -- the number
+    # that actually drove the Proj. Hires column above.
+    row = _write_subsection_header(ws, row, "Conversion Coherence: Implied App-to-Hire Rate")
 
-    assumption_headers = [
-        "Channel Type",
-        "App-to-Hire Rate",
-        "Time to Fill Range",
-        "Notes",
+    conv_headers = [
+        "Channel Name",
+        "Proj. Applications",
+        "Proj. Hires",
+        "Implied App-to-Hire Rate",
     ]
-    row = _write_table_header(ws, row, assumption_headers)
+    row = _write_table_header(ws, row, conv_headers)
 
-    assumption_data = [
-        ("Job Boards", "8-12%", "30-45 days", "High volume, broad reach"),
-        ("Programmatic/DSP", "5-8%", "25-35 days", "Automated, cost-efficient"),
-        ("Social Media", "3-6%", "35-50 days", "Brand awareness, passive candidates"),
-        ("Niche/Specialty", "10-15%", "20-30 days", "Targeted, higher quality"),
-        ("Aggregators/Regional", "6-10%", "30-45 days", "Geographic targeting"),
-        ("Referrals", "15-25%", "15-25 days", "Highest conversion rate"),
-        ("Career Sites", "8-12%", "25-40 days", "Direct applicants, lower cost"),
-    ]
-
-    for idx, (ch_type, rate, ttf_range, notes) in enumerate(assumption_data):
-        values = [ch_type, rate, ttf_range, notes]
-        alt_fill = _FILL_OFF_WHITE if idx % 2 == 0 else _FILL_WHITE
-        row = _write_table_row(ws, row, values, alternate=(idx % 2 == 0))
+    for idx, roi_data in enumerate(roi_rows):
+        _apps = int(_safe_num(roi_data["projected_apps"]))
+        _hires = int(_safe_num(roi_data["projected_hires"]))
+        _rate = (_hires / _apps) if _apps > 0 else None
+        _rate_str = display_format.fmt_pct(_rate, decimals=1, is_fraction=True) if _rate is not None else "—"
+        values = [roi_data["name"], _apps, _hires, _rate_str]
+        row = _write_table_row(
+            ws,
+            row,
+            values,
+            alternate=(idx % 2 == 0),
+            number_formats=[None, FMT_INT, FMT_INT, None],
+        )
 
     row += 1
     row = _write_footnote(
         ws,
         row,
-        "Conversion rates are industry averages from SHRM, Appcast, and CEB research. "
-        "Actual rates vary by role seniority, location, and employer brand strength.",
+        "Methodology: hires are derived from industry cost-per-hire benchmarks "
+        "(not from an assumed conversion funnel); the app-to-hire rate shown "
+        "above is IMPLIED by dividing this plan's own projected hires by its "
+        "own projected applications per channel, for transparency into the "
+        "underlying math -- it is not an input assumption.",
     )
     row = _write_footnote(
         ws,
@@ -6290,8 +6377,13 @@ def _build_sheet_quality_intelligence(
                 info.get("per_role_salary") for info in city_data.values()
             )
             if has_role_salary:
+                # S89: honest section title -- the old "Per-Role Salary
+                # Breakdown by City" title implied every row was sourced
+                # data; a large share are tier-scaled estimates for roles
+                # with no keyword match. Retitle + badge those rows instead
+                # of presenting them at the same confidence as a benchmark.
                 row = _write_subsection_header(
-                    ws, row, "Per-Role Salary Breakdown by City"
+                    ws, row, "Salary Intelligence — estimated where noted"
                 )
                 row = _write_table_header(
                     ws,
@@ -6300,7 +6392,9 @@ def _build_sheet_quality_intelligence(
                         "City",
                         "Role",
                         "Min Salary",
+                        "P25",
                         "Median Salary",
+                        "P75",
                         "Max Salary",
                         "City Multiplier",
                         "Source",
@@ -6313,33 +6407,54 @@ def _build_sheet_quality_intelligence(
                     _usd0_fmt(),
                     _usd0_fmt(),
                     _usd0_fmt(),
+                    _usd0_fmt(),
+                    _usd0_fmt(),
                     None,
                     None,
                 ]
+                _estimated_fill = PatternFill(
+                    start_color=AMBER, end_color=AMBER, fill_type="solid"
+                )
+                _all_salary_rows: List[Dict[str, Any]] = []
                 for city_name, info in city_data.items():
                     role_salary: dict = info.get("per_role_salary") or {}
                     for role_name, sal in role_salary.items():
+                        _all_salary_rows.append(sal)
+                        _is_estimated = sal.get("confidence") == "estimated"
+                        _role_display = (
+                            f"{role_name} (est.)" if _is_estimated else role_name
+                        )
                         row = _write_table_row(
                             ws,
                             row,
                             [
                                 _title_case_city(city_name),
-                                role_name,
+                                _role_display,
                                 _safe_num(sal.get("min", 0)),
+                                _safe_num(sal.get("p25", sal.get("min", 0))),
                                 _safe_num(sal.get("median", 0)),
+                                _safe_num(sal.get("p75", sal.get("max", 0))),
                                 _safe_num(sal.get("max", 0)),
                                 f"{sal.get('multiplier', 1.0):.2f}x",
                                 str(sal.get("source") or "—"),
                             ],
                             number_formats=_role_sal_fmts,
                             alternate=alt_idx % 2 == 1,
+                            fills=(
+                                [_estimated_fill] * 9 if _is_estimated else None
+                            ),
                         )
                         alt_idx += 1
+                _conf = gs_lib.confidence_summary(_all_salary_rows)
                 row = _write_footnote(
                     ws,
                     row,
-                    "Per-role salaries adjusted by city multiplier. "
-                    "Generic roles use the blended enrichment estimate.",
+                    "Per-role salaries adjusted by city multiplier; P25/P75 "
+                    "bands are ordered (min<=P25<=median<=P75<=max). Rows "
+                    "marked (est.) use a tier-scaled generic estimate rather "
+                    "than a specific industry benchmark -- "
+                    f"{_conf['benchmark_count']} of {_conf['total_rows']} rows "
+                    f"({_conf['pct_benchmark']:.0f}%) are benchmark-sourced.",
                 )
                 row += 1
     except Exception as exc:
@@ -6642,7 +6757,7 @@ def _build_sheet_quality_intelligence(
                         [
                             str(ch.get("name") or ""),
                             str(ch.get("type") or "").replace("_", " ").title(),
-                            str(ch.get("reach") or "").title(),
+                            str(ch.get("reach") or "").replace("_", " ").title(),
                             str(ch.get("relevance_score") or ""),
                         ],
                         alternate=idx % 2 == 1,
@@ -6667,7 +6782,7 @@ def _build_sheet_quality_intelligence(
                         [
                             str(ch.get("name") or ""),
                             str(ch.get("type") or "").replace("_", " ").title(),
-                            str(ch.get("reach") or "").title(),
+                            str(ch.get("reach") or "").replace("_", " ").title(),
                         ],
                         alternate=idx % 2 == 1,
                     )
@@ -6680,45 +6795,89 @@ def _build_sheet_quality_intelligence(
         )
         row += 1
 
-    # ── Section 6: Budget Tier Breakdowns ──
+    # ── Section 6: Recommended Program Structure ──
+    # S89: gold_standard.compute_budget_tiers splits the plan's OWN media
+    # budget into media/creative/contingency percentages of ONE total --
+    # but that total IS this plan's full media budget already (100% of it
+    # is allocated across channels in _budget_allocation). Presenting
+    # "creative 17%" and "contingency 11%" as slices of that SAME total
+    # double-claims dollars that are already spoken for as media spend.
+    # Reframe: media = 100% of the plan's media budget (no re-slicing);
+    # creative/contingency are RECOMMENDED INCREMENTAL reserves sized as a
+    # % of media, on TOP of the media budget -- never carved out of it.
     budget_tiers: dict = gold_standard.get("budget_tiers") or {}
     try:
         if budget_tiers and "error" not in budget_tiers:
-            row = _write_subsection_header(ws, row, "Multi-Tier Budget Breakdown")
-            total = budget_tiers.get("total_budget", 0)
-            row = _write_kv_row(ws, row, "Total Budget", _fmt_currency(total))
+            row = _write_subsection_header(ws, row, "Recommended Program Structure")
+            media_budget = _safe_num(budget_tiers.get("total_budget", 0))
+            row = _write_kv_row(
+                ws, row, "This Plan's Media Budget", _fmt_currency(media_budget)
+            )
+            row = _write_footnote(
+                ws,
+                row,
+                "The media figure below IS this plan's full budget (already "
+                "100% allocated across channels elsewhere in this workbook). "
+                "Creative and contingency are RECOMMENDED INCREMENTAL "
+                "reserves on top of it, not a second claim on the same "
+                "dollars -- fund them only if additional budget is available.",
+            )
             row += 1
 
             tier_breakdown: dict = budget_tiers.get("tier_breakdown") or {}
             row = _write_table_header(
                 ws,
                 row,
-                ["Budget Tier", "Amount", "Percentage", "Description"],
+                ["Program Component", "Amount", "% of Media Budget", "Description"],
             )
-            # S5 (2026-07-03, findings 44/51): Amount/Percentage are the plan's
-            # own live figures -- write as numbers with number_format instead
-            # of pre-formatted text strings.
             _tier_formats = [None, _usd0_fmt(), FMT_PCT1, None]
-            for idx, (tier_key, tier_info) in enumerate(tier_breakdown.items()):
-                tier_label = tier_key.replace("_", " ").title()
+
+            # Media = 100% of the plan's own budget, never re-sliced.
+            row = _write_table_row(
+                ws,
+                row,
+                [
+                    "Media (this plan's full budget)",
+                    media_budget,
+                    1.0,
+                    "Direct job advertising, programmatic, boards, social ads "
+                    "-- the plan's entire media spend, detailed elsewhere in "
+                    "this workbook.",
+                ],
+                fonts=[_FONT_BODY_BOLD] * 4,
+                fills=[_FILL_GREEN_BG] * 4,
+                number_formats=_tier_formats,
+            )
+
+            _reserve_total = media_budget
+            idx = 0
+            for tier_key, tier_info in tier_breakdown.items():
+                if tier_key == "media_spend":
+                    continue  # already written above at its true 100%
+                tier_label = (
+                    display_format.channel_label(tier_key) + " — suggested addition"
+                )
+                _amount = _safe_num(tier_info.get("amount", 0))
+                _reserve_total += _amount
                 row = _write_table_row(
                     ws,
                     row,
                     [
                         tier_label,
-                        _safe_num(tier_info.get("amount", 0)),
+                        _amount,
                         _safe_num(tier_info.get("pct", 0)) / 100.0,
                         str(tier_info.get("description") or ""),
                     ],
                     alternate=idx % 2 == 1,
                     number_formats=_tier_formats,
                 )
+                idx += 1
 
                 # Sub-allocations
                 sub_alloc: dict = tier_info.get("sub_allocation") or {}
                 if sub_alloc:
                     for sub_key, sub_amount in sub_alloc.items():
-                        sub_label = f"  — {sub_key.replace('_', ' ').title()}"
+                        sub_label = f"  — {display_format.channel_label(sub_key)}"
                         row = _write_table_row(
                             ws,
                             row,
@@ -6726,11 +6885,45 @@ def _build_sheet_quality_intelligence(
                             fonts=[_FONT_FOOTNOTE, _FONT_FOOTNOTE, None, None],
                             number_formats=[None, _usd0_fmt(), None, None],
                         )
+
+            # Total Program = media + reserves (never == media_budget alone).
+            row = _write_table_row(
+                ws,
+                row,
+                [
+                    "Total Program (media + suggested reserves)",
+                    _reserve_total,
+                    _reserve_total / media_budget if media_budget > 0 else 0,
+                    "Fully-funded program if the suggested reserves are added.",
+                ],
+                fonts=[_FONT_BODY_BOLD] * 4,
+                fills=[_FILL_BLUE_PALE] * 4,
+                number_formats=_tier_formats,
+            )
             row += 1
 
-            # Budget recommendations
-            recs: list = budget_tiers.get("recommendations") or []
-            for rec in recs:
+            # S89: locally-composed recommendations reflecting the media
+            # (100%) + reserves (incremental) reframe above -- NOT
+            # gold_standard.compute_budget_tiers' raw recommendation
+            # strings, which describe the pre-reframe "72/17/11 split of
+            # one total" framing and would contradict this section's own
+            # table if printed verbatim.
+            _reframed_recs = [
+                f"Media: {_fmt_currency(media_budget)} is this plan's full "
+                "budget -- already committed to the channel mix detailed "
+                "elsewhere in this workbook; not available to re-slice.",
+            ]
+            for tier_key, tier_info in tier_breakdown.items():
+                if tier_key == "media_spend":
+                    continue
+                _amount = _safe_num(tier_info.get("amount", 0))
+                _label = display_format.channel_label(tier_key)
+                _reframed_recs.append(
+                    f"{_label}: {_fmt_currency(_amount)} suggested addition "
+                    "if incremental budget becomes available -- "
+                    f"{str(tier_info.get('description') or '').rstrip('.')}."
+                )
+            for rec in _reframed_recs:
                 row = _write_kv_row(ws, row, "Recommendation", str(rec))
             row += 1
     except Exception as exc:
@@ -6938,16 +7131,34 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
         _cw_int = int(_cw) if _cw else 0
     except (ValueError, TypeError):
         _cw_int = 0
+    if _cw_int <= 0:
+        _cw_int = display_format.parse_duration_to_weeks(_plan_duration)
     row = _write_kv_row(ws, row, "Campaign Duration", _plan_duration)
+
+    # S89: for a campaign longer than ~13 weeks (~90 days), this forecast
+    # must burn only the ramp-weighted FIRST-90-DAYS share of budget, not
+    # the plan's entire budget -- a plan can't spend 100% of an 18-month
+    # budget inside the first 90 days and also claim to sustain hiring
+    # for the other 15 months on the same dollars.
+    if _cw_int > 13:
+        _ninety_day_scale = 13.0 / _cw_int
+    else:
+        _ninety_day_scale = 1.0
+    _remaining_budget = total_budget * (1 - _ninety_day_scale)
+
     if _cw_int > 13:
         row = _write_footnote(
             ws,
             row,
             f"Stated campaign duration is {_plan_duration}. This forecast shows "
-            "the 90-day activation ramp during which the plan's budget is "
-            "deployed and the projected applications and hires below are "
-            "realised; sustaining hiring across the full duration would require "
-            "renewing budget in later quarters at the same channel economics.",
+            f"only the first-90-days share of the plan's budget -- "
+            f"{_ninety_day_scale * 100:.0f}% ({_fmt_currency(total_budget * _ninety_day_scale)}) "
+            f"of the total {_fmt_currency(total_budget)} budget, ramp-weighted "
+            "25/35/40 across the first three months. The remaining "
+            f"{(1 - _ninety_day_scale) * 100:.0f}% ({_fmt_currency(_remaining_budget)}) is "
+            "deployed across the rest of the campaign at the same channel "
+            "economics -- it is not spent, and not reflected, in the 90-day "
+            "figures below.",
         )
     row += 1
 
@@ -6957,32 +7168,51 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     headers = ["Metric"] + month_labels + ["90-Day Total", "Trend"]
     row = _write_table_header(ws, row, headers)
 
-    # Calculate monthly values
-    monthly_spend = [total_budget * p for p in monthly_pcts]
-    monthly_apps = [int(total_apps * p) for p in monthly_pcts]
-    monthly_hires = [int(total_hires * p) for p in monthly_pcts]
-    # CPA trend: higher in Month 1 (ramp-up), lower by Month 3
-    cpa_multipliers = [1.30, 1.00, 0.85]  # CPA decreases as campaign optimizes
-    base_cpa = total_budget / max(total_apps, 1) if total_apps > 0 else 0
-    monthly_cpa = [base_cpa * m for m in cpa_multipliers]
+    # Calculate monthly values -- scaled to the first-90-days budget share
+    # (S89: never the full-campaign total for a campaign > 13 weeks).
+    _budget_90d = total_budget * _ninety_day_scale
+    _apps_90d = total_apps * _ninety_day_scale
+    _hires_90d = total_hires * _ninety_day_scale
+
+    monthly_spend = [_budget_90d * p for p in monthly_pcts]
+    # S89: reconcile_monthly_to_total guarantees the printed monthly ints
+    # foot EXACTLY to the printed total (largest-remainder rounding) --
+    # plain int() truncation per month can under-count the total by 1-2.
+    monthly_apps = display_format.reconcile_monthly_to_total(
+        [_apps_90d * p for p in monthly_pcts], _apps_90d
+    )
+    monthly_hires = display_format.reconcile_monthly_to_total(
+        [_hires_90d * p for p in monthly_pcts], _hires_90d
+    )
+    total_apps_90d = sum(monthly_apps)
+    total_hires_90d = sum(monthly_hires)
+
+    # CPA = spend/applications DERIVED per month (never a flat multiplier
+    # applied to a single base rate) -- total CPA = total 90-day spend /
+    # total 90-day applications, consistent with the monthly rows.
+    monthly_cpa = [
+        (monthly_spend[i] / monthly_apps[i]) if monthly_apps[i] > 0 else 0
+        for i in range(3)
+    ]
+    base_cpa = _budget_90d / max(total_apps_90d, 1) if total_apps_90d > 0 else 0
 
     # S89: carry raw numbers + a per-row Excel number_format so the forecast
     # is summable/sortable; units live in the format, not the cell text.
     # S3: Spend/CPA are the plan's OWN figures -- active plan currency.
     forecast_rows = [
-        ("Spend", monthly_spend, total_budget, "—", _usd0_fmt()),
+        ("Spend", monthly_spend, _budget_90d, "—", _usd0_fmt()),
         (
             "Applications",
             monthly_apps,
-            total_apps,
-            "Increasing" if total_apps > 0 else "—",
+            total_apps_90d,
+            "Increasing" if total_apps_90d > 0 else "—",
             FMT_INT,
         ),
         (
             "Hires",
             monthly_hires,
-            total_hires,
-            "Increasing" if total_hires > 0 else "—",
+            total_hires_90d,
+            "Increasing" if total_hires_90d > 0 else "—",
             FMT_INT,
         ),
         (
@@ -7050,14 +7280,18 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
             if ch_dollars <= 0:
                 continue
 
-            ch_monthly = [ch_dollars * p for p in monthly_pcts]
+            # S89: scale to the same first-90-days budget share as the
+            # summary table above -- a channel can't show its FULL
+            # campaign allocation deployed inside 90 days on a longer plan.
+            _ch_dollars_90d = ch_dollars * _ninety_day_scale
+            ch_monthly = [_ch_dollars_90d * p for p in monthly_pcts]
             ch_frac = (ch_dollars / total_budget) if total_budget > 0 else 0
 
             # S89: numeric month/total spend + fractional % (FMT_PCT1).
             values = (
                 [_smart_title(ch_name)]
                 + [_safe_num(m) for m in ch_monthly]
-                + [_safe_num(ch_dollars), ch_frac]
+                + [_safe_num(_ch_dollars_90d), ch_frac]
             )
             number_formats = (
                 [None] + [_usd0_fmt()] * len(ch_monthly) + [_usd0_fmt(), FMT_PCT1]
@@ -7115,6 +7349,29 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     )
     row += 1
     _write_attribution_footer(ws, row)
+
+
+def _clamped_band(
+    lo: float, expected: float, hi: float, cost_metric: bool = False
+) -> Optional[Tuple[float, float]]:
+    """Clamp a (low, expected, high) confidence band to a valid, non-inverted
+    order and report whether it is degenerate.
+
+    ``cost_metric=True`` means "pessimistic" is the HIGHER value (CPA/CPH):
+    the returned order is lo >= expected >= hi. Otherwise (count metrics --
+    applications/hires) lo <= expected <= hi. Returns ``None`` when the band
+    collapses to a single point (low == expected == high) -- callers should
+    skip the row entirely rather than print a fake +/-X% range that isn't one.
+    """
+    if cost_metric:
+        lo = max(lo, expected)
+        hi = min(hi, expected)
+    else:
+        lo = min(lo, expected)
+        hi = max(hi, expected)
+    if lo == expected == hi:
+        return None
+    return lo, hi
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -7281,6 +7538,11 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
         if cpa > 0:
             cpa_lo = cpa * (1 + variance)  # Pessimistic = higher CPA
             cpa_hi = cpa * (1 - variance)  # Optimistic = lower CPA
+            _cpa_band = _clamped_band(cpa_lo, cpa, cpa_hi, cost_metric=True)
+        else:
+            _cpa_band = None
+        if cpa > 0 and _cpa_band is not None:
+            cpa_lo, cpa_hi = _cpa_band
             row = _write_table_row(
                 ws,
                 row,
@@ -7312,6 +7574,11 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
         if apps > 0:
             apps_lo = max(0, int(apps * (1 - variance)))
             apps_hi = int(apps * (1 + variance))
+            _apps_band = _clamped_band(apps_lo, apps, apps_hi, cost_metric=False)
+        else:
+            _apps_band = None
+        if apps > 0 and _apps_band is not None:
+            apps_lo, apps_hi = (int(v) for v in _apps_band)
             row = _write_table_row(
                 ws,
                 row,
@@ -7340,9 +7607,18 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
 
         # Hires
         hires = int(_safe_num(ch_data.get("projected_hires") or 0))
+        # Raw (unclamped) low/high used to derive the CPH band below --
+        # keep these separate from the (possibly row-skipping) display band.
+        hires_lo_raw = max(0, int(hires * (1 - variance))) if hires > 0 else 0
+        hires_hi_raw = int(hires * (1 + variance)) if hires > 0 else 0
         if hires > 0:
-            hires_lo = max(0, int(hires * (1 - variance)))
-            hires_hi = int(hires * (1 + variance))
+            _hires_band = _clamped_band(
+                hires_lo_raw, hires, hires_hi_raw, cost_metric=False
+            )
+        else:
+            _hires_band = None
+        if hires > 0 and _hires_band is not None:
+            hires_lo, hires_hi = (int(v) for v in _hires_band)
             row = _write_table_row(
                 ws,
                 row,
@@ -7373,9 +7649,16 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
         if hires > 0 and dollars > 0:
             cph = dollars / hires
             cph_lo = dollars / max(
-                hires_lo, 1
+                hires_lo_raw, 1
             )  # Pessimistic = fewer hires = higher CPH
-            cph_hi = dollars / max(hires_hi, 1)  # Optimistic = more hires = lower CPH
+            cph_hi = dollars / max(
+                hires_hi_raw, 1
+            )  # Optimistic = more hires = lower CPH
+            _cph_band = _clamped_band(cph_lo, cph, cph_hi, cost_metric=True)
+        else:
+            _cph_band = None
+        if hires > 0 and dollars > 0 and _cph_band is not None:
+            cph_lo, cph_hi = _cph_band
             row = _write_table_row(
                 ws,
                 row,
@@ -7873,15 +8156,19 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     # ── No matches fallback ──
     if not role_matches and not industry_boards:
         if not _is_us:
+            _signals = _non_us_signals(data)
+            _signal_txt = (
+                f" (targets {', '.join(_signals[:3])})" if _signals else ""
+            )
             row = _write_kv_row(
                 ws,
                 row,
                 "Status",
                 "US-domiciled specialty job boards are not shown because this "
-                "plan targets a non-US market and no local niche-board data "
-                "was available for this campaign. Consider general-purpose "
-                "boards available in-market (e.g. Seek, Trade Me Jobs, "
-                "LinkedIn) with targeted ad copy and audience filters.",
+                f"plan targets a non-US market{_signal_txt} and no local "
+                "niche-board data was available for this campaign. Consider "
+                "general-purpose boards available in-market (e.g. Seek, Trade "
+                "Me Jobs, LinkedIn) with targeted ad copy and audience filters.",
             )
         else:
             row = _write_kv_row(

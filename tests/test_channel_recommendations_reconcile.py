@@ -183,7 +183,13 @@ def test_duration_is_consistent_across_sheets():
         hire_volume="5000 hires", campaign_duration="1-2 years", campaign_weeks=80
     )
     canonical = excel_v2._resolve_campaign_duration(data)
-    assert "year" in canonical  # 1-2 years -> "1.5 years (~18 months)"
+    # S89: _resolve_campaign_duration now delegates to
+    # display_format.weeks_to_duration_label (round-trip safe with
+    # parse_duration_to_weeks) instead of a locally-duplicated formatter --
+    # 80 weeks -> "18 months (~80 weeks)" (months stay "months" up to 24,
+    # never inflating to a "1.5 years" phrasing that a stated "18 months"
+    # duration could round-trip back to "17 months" through).
+    assert canonical == "18 months (~80 weeks)"
 
     es = wb["Executive Summary"]
     es_duration = None
