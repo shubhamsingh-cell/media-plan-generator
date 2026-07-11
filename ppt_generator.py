@@ -846,7 +846,13 @@ COMPLICATIONS: Dict[str, List[str]] = {
     "healthcare_medical": [
         "Clinical talent shortages persist nationally",
         "CPA exceeds $35+ for standing-up roles",
-        "Burnout driving 18% higher churn vs. 2023",
+        # consistency:atria#3: the prior "18% higher churn vs. 2023" claim
+        # traced to no field anywhere in the workbook/KB. Replaced with the
+        # real, sourced NSI figure the KB actually carries (staff RN
+        # turnover 17.6% in 2025, up from 16.4% in 2024) -- see
+        # data/healthcare_specialty_pay_2026.json's nursing_demand_2026
+        # block, the same source excel_v2's Executive Summary quotes.
+        "Staff RN turnover climbed to 17.6% in 2025, up from 16.4% in 2024 (NSI)",
         "Credentialing requirements slow time-to-fill",
     ],
     "tech_engineering": [
@@ -5738,14 +5744,20 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     if programmatic_pct == 0:
         programmatic_pct = sorted_ch[0]["pct"] if sorted_ch else 30
 
-    client_reach_mult = 1.0 + (n_channels - 4) * 0.15
-    ind_reach_mult = ind_benchmarks.get("estimated_reach_multiplier", 1.0)
-
     # Comparison metrics - build all candidates
     # Honest 3-state comparison ('beating' / 'on_par' / 'trailing') via
     # _cmp_status -- a +/-5% tie band means an exact or near-tie (e.g. 6
     # channels vs an industry average of 6) renders neutral, never a green
     # "beating" arrow.
+    #
+    # consistency:atria#3 / consistency:manpower#4: "Reach Multiplier" and
+    # "Channel Diversity Score" used to be computed here from a made-up
+    # formula (``1.0 + (n_channels - 4) * 0.15`` / ``min(10, n_channels *
+    # 1.5)``) with no workbook source -- neither figure traces to anything
+    # in ``_budget_allocation`` or the KB, so they were removed rather than
+    # kept as unsourced client-facing statistics. Every remaining row here
+    # traces to ``_selected_channels``/``_budget_allocation``/the industry
+    # benchmark KB.
     _geo_status = _cmp_status_in_range(n_locations, 3, 5)
     all_comparison_rows = [
         {
@@ -5763,24 +5775,12 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             ),
         },
         {
-            "metric": "Channel Diversity Score",
-            "client_val": f"{min(10.0, n_channels * 1.5):.1f}/10",
-            "industry_val": f"{min(10.0, ind_benchmarks.get('avg_channels', 4) * 1.5):.1f}/10",
-            "status": _cmp_status(n_channels, ind_benchmarks.get("avg_channels", 4)),
-        },
-        {
             "metric": "Geographic Coverage",
             "client_val": f"{n_locations} market{'s' if n_locations != 1 else ''}",
             # A value INSIDE the 3-5 benchmark range is 'within range' -- it
             # is never rendered as "beating" just for landing inside it.
             "industry_val": "3-5 markets (within range)" if _geo_status == "on_par" else "3-5 markets",
             "status": _geo_status,
-        },
-        {
-            "metric": "Reach Multiplier",
-            "client_val": f"{client_reach_mult:.1f}x",
-            "industry_val": f"{ind_reach_mult:.1f}x",
-            "status": _cmp_status(client_reach_mult, ind_reach_mult),
         },
     ]
 
@@ -7243,13 +7243,78 @@ def _strip_competitor_tag(name: str) -> str:
     return _COMPETITOR_TAG_RE.sub("", str(name or "")).strip() or str(name or "")
 
 
-_COMPETITOR_WHY_TEMPLATES = (
-    "{name} actively recruits {pool}, competing directly for this plan's pipeline.",
-    "{name} is {article} {type_phrase}employer drawing from the same {pool} this "
-    "plan targets.",
-    "{name}'s hiring activity for similar roles puts direct pressure on {pool}.",
-    "{name} is visibly hiring in the same market as {pool}, a direct source of "
-    "candidate overlap.",
+# copy:both#1/#2, visual:atria#2: a handful of mega hourly employers (Amazon,
+# Walmart, ...) show up in curated/brief competitor lists across every
+# vertical -- they DO compete for the same wage band/labor pool, but they
+# are not a same-vertical operator (Amazon isn't a senior-living competitor
+# for Atria the way Brookdale is) and don't compete for the client's actual
+# customers/residents. Per-industry carve-outs cover the sectors where the
+# SAME name genuinely is a same-vertical player.
+_CROSS_INDUSTRY_MEGA_EMPLOYERS = frozenset(
+    {
+        "amazon",
+        "walmart",
+        "target",
+        "costco",
+        "home depot",
+        "kroger",
+        "starbucks",
+        "mcdonald's",
+        "mcdonalds",
+    }
+)
+_INDUSTRY_MEGA_EMPLOYER_EXCEPTIONS: Dict[str, frozenset] = {
+    "retail_consumer": frozenset(
+        {"amazon", "walmart", "target", "costco", "home depot", "kroger"}
+    ),
+    "general_entry_level": frozenset(
+        {"amazon", "walmart", "target", "costco", "home depot", "kroger"}
+    ),
+    "hospitality_travel": frozenset({"starbucks", "mcdonald's", "mcdonalds"}),
+}
+
+
+def _classify_competitor_vertical(comp_name: str, industry: str) -> str:
+    """Return ``"industry"`` (same-vertical operator -- competes for
+    candidates AND the client's own customers/residents) or
+    ``"talent_market"`` (a cross-industry hourly employer that only
+    competes for the same wage band/labor pool) for a named competitor.
+
+    copy:both#1/#2, visual:atria#2: distinguishes real same-vertical
+    competitors (FedEx/UPS for a logistics client, Brookdale for senior
+    living) from generic mega-employer filler (Amazon showing up in a
+    senior-living competitor list) that reads as unvetted when presented
+    in the identical card format as a verified direct competitor.
+    """
+    name_l = _strip_competitor_tag(str(comp_name or "")).strip().lower()
+    if name_l in _CROSS_INDUSTRY_MEGA_EMPLOYERS:
+        exceptions = _INDUSTRY_MEGA_EMPLOYER_EXCEPTIONS.get(
+            str(industry or "").strip().lower(), frozenset()
+        )
+        if name_l not in exceptions:
+            return "talent_market"
+    return "industry"
+
+
+_COMPETITOR_WHY_TEMPLATES_INDUSTRY = (
+    "{name} actively recruits {pool}, competing directly for this plan's "
+    "pipeline -- and for the same customers.",
+    "{name} is a {type_phrase}same-vertical employer drawing from "
+    "the same {pool} this plan targets.",
+    "{name}'s hiring activity for similar roles puts direct pressure on "
+    "{pool}, while also competing for the same customer base.",
+    "{name} is visibly hiring in the same market as {pool}, a same-vertical "
+    "source of candidate AND customer overlap.",
+)
+_COMPETITOR_WHY_TEMPLATES_TALENT_MARKET = (
+    "{name} isn't a same-vertical operator, but it draws from the same "
+    "labor pool and wage band as {pool}.",
+    "{name} is a {type_phrase}large hourly employer competing for "
+    "the same wage band as {pool}, not the same customers.",
+    "{name}'s hourly pay and hiring volume put wage-band pressure on "
+    "{pool}, without competing for this industry's customers.",
+    "{name} pulls from the same local labor pool as {pool} -- a wage-band "
+    "competitor, not a same-vertical one.",
 )
 
 
@@ -7262,6 +7327,12 @@ def _compose_competitor_why(
     every card (copy:both#3 / visual:atria#2: the previous "Why:" text was
     the SAME line for every competitor pulled from one city, and
     industry-agnostic for brief-supplied competitors with no description).
+
+    copy:both#1/#2: also varies by ``ctx["vertical_type"]`` -- a
+    "talent_market" competitor (e.g. Amazon next to two real senior-living
+    operators) gets labor-pool/wage-band framing instead of the same
+    "competing for candidates" language used for a verified same-vertical
+    competitor.
     """
     role = str(ctx.get("role") or "").strip()
     city = str(ctx.get("city") or "").strip()
@@ -7284,12 +7355,18 @@ def _compose_competitor_why(
     article = "an" if not type_phrase else "a"
 
     name = _strip_competitor_tag(comp_name) or "This competitor"
+    vertical_type = str(ctx.get("vertical_type") or "industry").strip().lower()
+    templates = (
+        _COMPETITOR_WHY_TEMPLATES_TALENT_MARKET
+        if vertical_type == "talent_market"
+        else _COMPETITOR_WHY_TEMPLATES_INDUSTRY
+    )
     idx = (
-        int(ordinal) % len(_COMPETITOR_WHY_TEMPLATES)
+        int(ordinal) % len(templates)
         if isinstance(ordinal, (int, float)) and not isinstance(ordinal, bool)
         else 0
     )
-    return _COMPETITOR_WHY_TEMPLATES[idx].format(
+    return templates[idx].format(
         name=name, pool=pool, type_phrase=type_phrase, article=article
     )
 
@@ -7804,6 +7881,33 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     color=DARK_TEXT,
                 )
 
+                # copy:both#1/#2, visual:atria#2: tag each card as a real
+                # same-vertical "Industry competitor" or a generic
+                # "Talent-market competitor" (e.g. Amazon in a senior-living
+                # list) so a non-industry name doesn't read as a vetted
+                # direct competitor.
+                _vertical_type = _classify_competitor_vertical(
+                    comp_name, str(data.get("industry") or "")
+                )
+                _tag_text, _tag_color = (
+                    ("Talent-market competitor", AMBER)
+                    if _vertical_type == "talent_market"
+                    else ("Industry competitor", MUTED_TEXT)
+                )
+                _add_textbox(
+                    slide,
+                    right_left + Inches(3.3),
+                    cy + Inches(0.05),
+                    right_w - Inches(3.5),
+                    Inches(0.25),
+                    text=_tag_text,
+                    font_size=7,
+                    italic=True,
+                    color=_tag_color,
+                    alignment=PP_ALIGN.RIGHT,
+                    anchor=MSO_ANCHOR.MIDDLE,
+                )
+
                 # Counter-strategy context -- built once, shared by the Why
                 # and Counter lines so both draw from the same per-market
                 # signal (comp_data["_market"], set by the round-robin
@@ -7816,6 +7920,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     "industry": industry_label,
                     "intensity": str(comp_data.get("hiring_intensity") or ""),
                     "competitor_type": str(comp_data.get("competitor_type") or ""),
+                    "vertical_type": _vertical_type,
                     "ordinal": ci,
                 }
 
@@ -9837,8 +9942,21 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
             )
             _row_h_in.append(max(1.5, min(row_h, 2.4)))
 
+        # visual:manpower#4: vertically center the risk-card rows in the
+        # space between the title and the footer rule instead of always
+        # starting at a fixed y=1.5in -- short impact/mitigation text
+        # previously left a large flat gap below the cards before the
+        # footer. Never starts ABOVE the old y=1.5 anchor.
+        _risk_avail_top_in = 1.5
+        _risk_avail_bottom_in = 6.95  # footer rule sits at 7.12in
+        _risk_content_h_in = sum(_row_h_in) + 0.25 * max(0, len(_row_h_in) - 1)
+        _risk_start_y_in = _risk_avail_top_in + max(
+            0.0,
+            (_risk_avail_bottom_in - _risk_avail_top_in - _risk_content_h_in) / 2.0,
+        )
+
         _row_y_in: list = []
-        _cur_y_in = 1.5
+        _cur_y_in = _risk_start_y_in
         for h_in in _row_h_in:
             _row_y_in.append(_cur_y_in)
             _cur_y_in += h_in + 0.25
@@ -10130,11 +10248,20 @@ def _push_pull_channel_split(data: Dict) -> "tuple[list, list]":
 
 
 def _push_pull_split_line(items: "list", total_budget: float) -> str:
-    """One compact "This plan:" line of channel/$ for a Push or Pull bucket."""
+    """One compact "This plan:" line of channel/$ for a Push or Pull bucket.
+
+    visual:manpower#2 / consistency:manpower#1 / consistency:atria#1: every
+    channel in ``items`` MUST be itemized -- a prior version capped the
+    listed line items at ``items[:4]`` while ``total`` (and the printed
+    "$X total") summed ALL of them, so a 5th/6th channel's dollars (e.g.
+    Social Media) were silently folded into the printed total without ever
+    being named. The textbox this renders into word-wraps, so a longer
+    itemized list simply flows onto a second line instead of overflowing.
+    """
     if not items:
         return ""
     total = sum(d for _, d in items)
-    parts = [f"{label} {_fmt.fmt_money(d, compact=True)}" for label, d in items[:4]]
+    parts = [f"{label} {_fmt.fmt_money(d, compact=True)}" for label, d in items]
     pct = f" ({round(total / total_budget * 100)}% of budget)" if total_budget > 0 else ""
     return f"This plan: {' · '.join(parts)} — {_fmt.fmt_money(total, compact=True)} total{pct}"
 
@@ -10196,7 +10323,6 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
 
     # Two rounded cards side-by-side, measure-then-shrink to content.
     card_w_in = 6.0
-    card_top = Inches(2.0)
     _detail_w_in = card_w_in - 0.8
     _pill_block_in = 0.4 + 0.55 + 0.25  # pill offset + pill height + gap to body
     _bottom_pad_in = 0.3
@@ -10226,6 +10352,19 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
     card_h_in = max([2.2] + _measured_h)
     card_h_in = min(card_h_in, 4.6)  # never exceed the old fixed max
     card_h = Inches(card_h_in)
+
+    # visual:manpower#4: vertically center the card row in the space between
+    # the summary line and the footer rule, instead of always starting at a
+    # fixed y=2.0in -- short content (few channels, terse detail copy)
+    # previously left 35-45% flat dead space below the cards before the
+    # footer. Centering distributes the slack above/below instead of only
+    # below, and never moves the cards ABOVE the old y=2.0 starting point.
+    _avail_top_in = 2.0
+    _avail_bottom_in = 6.95  # footer rule sits at 7.12in
+    card_top_in = _avail_top_in + max(
+        0.0, (_avail_bottom_in - _avail_top_in - card_h_in) / 2.0
+    )
+    card_top = Inches(card_top_in)
 
     for card_x, section, surface, pill_color, split in cards:
         if not isinstance(section, dict) or not section:
@@ -10296,10 +10435,59 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
     _add_footer(slide, today)
 
 
+def _role_breakdown_median_salary(
+    gold: Dict[str, Any], title: str
+) -> "tuple[Optional[float], bool]":
+    """Look up ``title``'s median salary from the SAME
+    ``_gold_standard.city_level_data[*].per_role_salary`` structure the
+    workbook's Quality Intelligence "Salary Intelligence" table renders
+    (excel_v2._build_sheet_quality_intelligence), instead of
+    ``_enriched.salary_data`` -- which is fully absent whenever live
+    enrichment is offline, even though gold_standard's per-role figures are
+    already computed and sitting in the same bundle (consistency:atria#2).
+
+    Multi-location plans get one ``per_role_salary`` entry per city; this
+    averages the role's median across every city that has a matching entry
+    (equal weight per market) rather than arbitrarily picking one city.
+    Returns ``(median, is_estimated)`` -- ``is_estimated`` is True if ANY
+    contributing city's entry has ``confidence == "estimated"`` (a
+    tier-scaled fallback rather than a matched industry benchmark), so the
+    caller can append the same "(est.)" honesty marker the workbook uses.
+    Returns ``(None, False)`` when no city has data for this role.
+    """
+    city_level = gold.get("city_level_data") if isinstance(gold, dict) else None
+    if not isinstance(city_level, dict) or not city_level:
+        return None, False
+    medians: list = []
+    any_estimated = False
+    for city_info in city_level.values():
+        if not isinstance(city_info, dict):
+            continue
+        role_salary = city_info.get("per_role_salary") or {}
+        if not isinstance(role_salary, dict):
+            continue
+        sal = role_salary.get(title)
+        if not isinstance(sal, dict):
+            continue
+        median = sal.get("median")
+        try:
+            median = float(median)
+        except (TypeError, ValueError):
+            continue
+        medians.append(median)
+        if sal.get("confidence") == "estimated":
+            any_estimated = True
+    if not medians:
+        return None, False
+    return sum(medians) / len(medians), any_estimated
+
+
 def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
     """Compact role-by-role table: tier, est. median salary, and channel
     emphasis per role -- sourced from ``_gold_standard.difficulty_framework``
-    (already computed per plan) and ``_enriched.salary_data``.
+    and ``_gold_standard.city_level_data[*].per_role_salary`` (the SAME
+    per-role salary data the workbook's Quality Intelligence sheet renders;
+    see :func:`_role_breakdown_median_salary` -- consistency:atria#2).
 
     Shown only when the plan names >=4 roles AND gold-standard role data
     exists for at least 4 of them; no-ops cleanly otherwise. Fills the slot
@@ -10336,13 +10524,6 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
     if not by_title:
         return
 
-    enriched = data.get("_enriched", {})
-    salary_data = (
-        enriched.get("salary_data", {}) if isinstance(enriched, dict) else {}
-    )
-    if not isinstance(salary_data, dict):
-        salary_data = {}
-
     rows: list = []
     for title in role_titles:
         d = by_title.get(title.lower())
@@ -10352,9 +10533,15 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
         emphasis = _fmt.channel_label(str(d.get("channel_emphasis") or "")) or str(
             d.get("channel_emphasis") or ""
         ).replace("_", " ").title()
-        _sal = salary_data.get(title) or {}
-        median = _sal.get("median") if isinstance(_sal, dict) else None
-        salary_str = _format_salary(median) if median else "--"
+        # consistency:atria#2: read the SAME per_role_salary data the
+        # workbook renders, not the (often-empty) _enriched.salary_data.
+        median, is_estimated = _role_breakdown_median_salary(gold, title)
+        if median:
+            salary_str = _format_salary(median)
+            if is_estimated and salary_str:
+                salary_str += " (est.)"
+        else:
+            salary_str = "--"
         rows.append((title, tier, salary_str, emphasis))
     if len(rows) < 4:
         return
@@ -10649,13 +10836,98 @@ def _build_slide_why_joveo(prs: Presentation, data: Dict, deck: Dict) -> None:
             accent=INV_ACCENTS[i % len(INV_ACCENTS)], body_size=11,
         )
 
+    # visual:manpower#4: pull the closing callout band up to sit right below
+    # the card grid instead of always at a fixed y=6.5in -- when the cards'
+    # measured height is near its 1.35in floor (short body copy), leaving
+    # the callout pinned at 6.5 created a wide flat gap between the cards
+    # and the banner. Never moves the callout LOWER than the old default
+    # (min(...) keeps it a comfortable distance above the footer rule at
+    # 7.12in when the cards are tall).
+    _grid_bottom_in = 1.62 + 2 * ch_in + 0.25
+    _callout_top_in = min(6.5, _grid_bottom_in + 0.35)
     _inv_callout(
         slide,
         f"One managed partner, one tracked funnel — built to scale {client}'s hiring "
         f"with a predictable cost-per-hire.",
-        top=6.5,
+        top=_callout_top_in,
     )
     _add_footer(slide, today)
+
+
+def _interpolate_next_steps(steps: List[Any], data: Dict) -> List[str]:
+    """Splice this plan's own facts into the KB's industry-agnostic Next
+    Steps template (``data/joveo_media_plan_deck_2026.json``).
+
+    copy:both#4: the 5 Next Steps bullets came verbatim from the KB, so a
+    logistics client and a healthcare client got byte-identical text with
+    no client name, role, location, or dollar figure anywhere on the slide.
+    This matches each KB bullet by its stable keyword phrase and splices in
+    the client display name, top roles, location count/names, budget, and
+    duration -- never fabricating a number the plan doesn't have. Any
+    bullet whose wording doesn't match one of the known KB phrases (e.g. a
+    future KB edit) is passed through unchanged rather than guessed at.
+    """
+    if not steps:
+        return []
+
+    client = _proper_client_name(str(data.get("client_name") or "").strip()) or ""
+
+    roles = data.get("target_roles") or data.get("roles") or []
+    if isinstance(roles, str):
+        roles = [roles]
+    role_names: list = []
+    for r in roles or []:
+        if isinstance(r, dict):
+            rt = str(r.get("title") or r.get("role") or "").strip()
+        else:
+            rt = str(r).strip()
+        if rt:
+            role_names.append(rt)
+    roles_phrase = _cap_roles_for_headline(role_names, cap=2) if role_names else ""
+
+    locations = data.get("locations") or []
+    if isinstance(locations, str):
+        locations = [locations]
+    loc_names = [str(loc).strip() for loc in locations if str(loc).strip()]
+    if len(loc_names) == 1:
+        loc_phrase = f"{loc_names[0]} market"
+    elif len(loc_names) == 2:
+        loc_phrase = f"{' and '.join(loc_names)} markets"
+    elif len(loc_names) > 2:
+        loc_phrase = (
+            f"{len(loc_names)} markets ({', '.join(loc_names[:2])} "
+            f"and {len(loc_names) - 2} more)"
+        )
+    else:
+        loc_phrase = ""
+
+    budget = str(data.get("budget") or "").strip()
+    duration = str(data.get("campaign_duration") or "").strip()
+    if budget and duration:
+        budget_duration = f"{budget} over {duration}"
+    elif budget:
+        budget_duration = budget
+    elif duration:
+        budget_duration = f"over {duration}"
+    else:
+        budget_duration = ""
+
+    out: List[str] = []
+    for step in steps:
+        text = str(step)
+        low = text.lower()
+        if "align on scope" in low and roles_phrase and loc_phrase:
+            text = f"Align on scope: confirm the {roles_phrase} priority and the {loc_phrase}"
+        elif "finalize weekly budget" in low and budget_duration:
+            text = f"Finalize weekly budget ({budget_duration}) and success metrics"
+        elif "integrate the client job feed" in low and client:
+            text = f"Integrate {client}'s job feed with the Joveo platform"
+        elif "launch campaign within" in low and budget_duration:
+            text = f"Launch within 2 business weeks of feed integration — {budget_duration}"
+        elif "30-day review" in low and client:
+            text = f"30-day review: CPA actuals, pipeline quality, {client}'s scale-up recommendation"
+        out.append(text)
+    return out
 
 
 def _build_slide_next_steps_only(prs: Presentation, next_steps: List[Any]) -> None:
@@ -10753,7 +11025,9 @@ def _build_slide_case_study_next_steps(
     case_by_key = deck.get("case_study") or {}
     key = _kb_content_key(data)
     case = case_by_key.get(key) if isinstance(case_by_key, dict) else None
-    next_steps = deck.get("next_steps") or []
+    # copy:both#4: splice this plan's own client name/roles/locations/
+    # budget/duration into the KB's generic Next Steps template.
+    next_steps = _interpolate_next_steps(deck.get("next_steps") or [], data)
     if not isinstance(case, dict) or not case:
         _build_slide_next_steps_only(prs, next_steps)
         return
