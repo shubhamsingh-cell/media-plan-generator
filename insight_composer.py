@@ -31,6 +31,24 @@ _SKELETON_BANKS: dict[str, tuple[str, ...]] = {
         "To out-compete {competitor} on {angle}, tighten the direct-hire "
         "funnel: pre-screened shortlists and a 48-hour offer turnaround "
         "beat a typical agency placement cycle.",
+        "{competitor} typically wins {angle} on availability, not loyalty "
+        "-- a standing direct-hire offer with no re-application step "
+        "converts agency-sourced candidates before their next assignment.",
+        "Where {competitor} places {angle} on short-term assignments, "
+        "position this role's permanence and benefits eligibility as the "
+        "upgrade path out of temp work.",
+        "{competitor}'s markup on {angle} placements leaves room to "
+        "compete on take-home pay alone -- lead with a transparent, "
+        "higher net-pay comparison.",
+        "Candidates {competitor} places as {angle} rarely get a real "
+        "career conversation -- a named hiring manager and a clear growth "
+        "track are the differentiator here.",
+        "{competitor} re-markets the same {angle} pool across multiple "
+        "clients -- speed to first contact after application determines "
+        "who gets there first.",
+        "Because {competitor} earns a fee per {angle} placement regardless "
+        "of fit, expect volume over precision -- win on a tighter, "
+        "better-matched shortlist instead.",
     ),
     "direct_employer": (
         "{competitor} is hiring {angle} directly, so brand and total-comp "
@@ -45,6 +63,24 @@ _SKELETON_BANKS: dict[str, tuple[str, ...]] = {
         "Against {competitor} for {angle}, win on process: a single-visit "
         "interview loop and a same-week offer close the gap a bigger brand "
         "name can otherwise cover.",
+        "{competitor} competes for {angle} on name recognition first -- "
+        "a candidate-facing comp calculator makes the pay comparison "
+        "concrete instead of assumed.",
+        "Where {competitor}'s hiring process for {angle} runs multiple "
+        "rounds, a compressed two-touch loop wins candidates unwilling to "
+        "wait out a slower employer.",
+        "{competitor} and this role draw from the same {angle} pool -- "
+        "referral incentives and manager-led outreach reach candidates "
+        "before a generic job-board listing does.",
+        "If {competitor} is slow to post openings for {angle}, an "
+        "always-on requisition with rolling interviews captures candidates "
+        "during that gap.",
+        "{competitor}'s retention pitch to {angle} leans on tenure -- "
+        "counter with a faster path to responsibility for candidates "
+        "who don't want to wait years for it.",
+        "Expect {competitor} to match base pay for {angle} but not "
+        "schedule flexibility -- make flexibility the headline, not a "
+        "footnote.",
     ),
     "gig_platform": (
         "{competitor} pulls {angle} toward flexible, app-based work -- "
@@ -58,6 +94,22 @@ _SKELETON_BANKS: dict[str, tuple[str, ...]] = {
         "To out-compete {competitor} for {angle}, emphasize what the "
         "platform can't: benefits eligibility, career progression, and "
         "shift predictability.",
+        "{competitor} offers {angle} instant sign-up but no guaranteed "
+        "income floor -- a stated minimum weekly pay is the concrete "
+        "counter.",
+        "Where {competitor} leaves {angle} to self-schedule around thin "
+        "demand, a set roster with reliable hours reads as the more "
+        "stable option.",
+        "{competitor}'s per-task pay for {angle} has no ceiling on "
+        "downside -- a guaranteed hourly floor plus upside removes that "
+        "risk.",
+        "Candidates who try {competitor} as {angle} often churn back "
+        "within weeks -- time outreach to former gig workers who already "
+        "know the gap.",
+        "{competitor} gives {angle} no path to a W-2 role -- make the "
+        "conversion-to-permanent option explicit and easy to find.",
+        "Against {competitor} for {angle}, sign-on plus a first-week pay "
+        "guarantee beats a platform's pay-per-task uncertainty.",
     ),
     "default": (
         "{competitor} is actively competing for {angle} -- sharpen offer "
@@ -69,6 +121,22 @@ _SKELETON_BANKS: dict[str, tuple[str, ...]] = {
         "interview slot.",
         "To out-compete {competitor} for {angle}, tighten the funnel: "
         "pre-screened shortlists and a 48-hour offer turnaround.",
+        "{competitor} is a known name to {angle} in this market -- a "
+        "specific, verifiable comp figure beats a generic brand "
+        "impression.",
+        "Where {competitor} is slower to respond to {angle}, first-contact "
+        "speed alone can decide who gets the candidate.",
+        "{competitor}'s reputation with {angle} is untested here -- "
+        "candidate reviews and a named team contact build trust faster "
+        "than brand alone.",
+        "Against {competitor} for {angle}, a same-week site visit or "
+        "shadow shift gives candidates something a job posting can't.",
+        "{competitor} likely draws from the same {angle} channels this "
+        "plan targets -- differentiated creative on those same channels "
+        "avoids losing the impression entirely.",
+        "To stay ahead of {competitor} on {angle}, keep the offer window "
+        "short -- a candidate weighing two open offers usually takes the "
+        "one that resolves first.",
     ),
 }
 
@@ -118,12 +186,24 @@ def compose_counter_strategy(competitor: str, ctx: dict | None = None) -> str:
         angle = "candidates in this pool"
 
     bank = _SKELETON_BANKS.get(competitor_type, _SKELETON_BANKS["default"])
-    # ``ordinal`` (the competitor's position in the rendered list) rotates the
-    # skeleton choice so adjacent competitors on the same slide/sheet never
-    # share a skeleton even when their name hashes collide mod len(bank).
+    # ``ordinal`` (the competitor's position in the rendered list) selects
+    # the skeleton DIRECTLY (idx = ordinal % len(bank)) rather than merely
+    # offsetting a per-name hash. A hash-plus-offset scheme still let two
+    # DIFFERENT competitors' independently-hashed base indices coincide
+    # (observed: 5 competitors, hash bases collided such that positions 1
+    # and 2 -- adjacent -- landed on the same skeleton despite the offset).
+    # Pure ordinal indexing guarantees every position from 0..len(bank)-1
+    # gets a distinct skeleton, which is what "adjacent competitors never
+    # share a skeleton" actually requires; each bank now carries >=10
+    # skeletons to cover the largest rendered competitor list (excel_v2's
+    # Competitor Analysis table caps at 10 rows). Falls back to the
+    # per-name hash only when no ordinal is supplied (caller doesn't know
+    # its position in a list), preserving prior behavior for that case.
     ordinal = ctx.get("ordinal")
-    offset = int(ordinal) if isinstance(ordinal, (int, float)) and not isinstance(ordinal, bool) else 0
-    idx = (_pick_index(f"{name}|{role}|{city}", len(bank)) + offset) % len(bank)
+    if isinstance(ordinal, (int, float)) and not isinstance(ordinal, bool):
+        idx = int(ordinal) % len(bank)
+    else:
+        idx = _pick_index(f"{name}|{role}|{city}", len(bank))
     sentence = bank[idx].format(competitor=name, angle=angle)
 
     if intensity in ("high", "aggressive", "elevated", "severe"):
