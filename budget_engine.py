@@ -908,6 +908,298 @@ def _score_roi(
 
 
 # ---------------------------------------------------------------------------
+# S92: application-to-hire conversion rates by channel-type category.
+#
+# Mirrors excel_v2._ROI_CONVERSION_RATES verbatim (application-to-hire %,
+# printed on the ROI Projections sheet). The two tables MUST stay in sync --
+# this one is what actually drives the modeled per-channel hire split (see
+# ``_redistribute_hires_by_conversion``), so if the printed table and the
+# modeled split disagree, that's the exact self-contradiction this fix
+# exists to close (findings strategy:manpower#6/#8, data:atria#7).
+# ---------------------------------------------------------------------------
+_HIRE_CONVERSION_RATES: Dict[str, Tuple[float, float]] = {
+    "job_board": (0.08, 0.12),
+    "programmatic": (0.05, 0.08),
+    "social": (0.03, 0.06),
+    "niche_board": (0.10, 0.15),
+    "regional": (0.06, 0.10),
+    "search": (0.05, 0.08),
+    "display": (0.03, 0.06),
+    "employer_branding": (0.04, 0.08),
+    "career_site": (0.08, 0.12),
+    "referral": (0.15, 0.25),
+    "events": (0.10, 0.18),
+    "staffing": (0.12, 0.20),
+    "email": (0.05, 0.10),
+}
+
+
+def _hire_conversion_midpoint(category: str) -> float:
+    """Midpoint apply->hire conversion rate for a channel-type category."""
+    lo, hi = _HIRE_CONVERSION_RATES.get(category, (0.05, 0.10))
+    return (lo + hi) / 2.0
+
+
+def _redistribute_hires_by_conversion(
+    channel_allocations: Dict[str, Dict],
+    total_hires: int,
+    industry_avg_cph: float,
+) -> None:
+    """S92 FIX (THE BIG ONE) -- findings strategy:manpower#6/#8,
+    data:manpower#4 root, data:atria#1 root.
+
+    The modeled TOTAL hire count is CPH-benchmark-derived and deliberately
+    conservative -- that part is kept exactly as-is. What was broken is the
+    per-channel SPLIT of that total: it fell out of a blended, tier-based
+    hire_rate that ignores channel type entirely, so niche/social/EB
+    channels routinely landed on 0 hires while holding 8-24% of budget --
+    even though the plan's own printed conversion table
+    (``_HIRE_CONVERSION_RATES`` / excel_v2._ROI_CONVERSION_RATES) ranks
+    niche/specialty conversion HIGHEST (10-15%) of any channel type.
+
+    This redistributes ``total_hires`` across PERFORMANCE channels
+    (``channel_role != 'brand'``) proportional to
+    ``projected_applications * category_conversion_rate_midpoint``, using
+    the SAME conversion table the workbook prints -- so a niche board with
+    meaningful application volume can no longer be modeled at zero hires
+    while the plan simultaneously claims niche boards convert best. Brand
+    channels (employer_branding, etc.) stay at 0 hires BY DESIGN -- they're
+    reach/awareness spend, not CPA-scored (see _channel_role /
+    _BRAND_RATIONALE).
+
+    Recomputes ``cost_per_hire`` and ``roi_score`` (against a real,
+    industry-specific average -- not a flat fallback) for every channel from
+    its new hire count. Uses largest-remainder rounding so per-channel hires
+    sum EXACTLY to ``total_hires``. Mutates ``channel_allocations`` in place.
+    """
+    if not channel_allocations:
+        return
+
+    if total_hires <= 0:
+        for ch in channel_allocations.values():
+            dollars = ch.get("dollar_amount") or 0
+            ch["projected_hires"] = 0
+            ch["cost_per_hire"] = round(_safe_divide(dollars, 1, dollars), 2)
+            ch["roi_score"] = _score_roi(
+                ch["cost_per_hire"], industry_avg_cph, projected_hires=0
+            )
+        return
+
+    performance_names = [
+        name
+        for name, ch in channel_allocations.items()
+        if ch.get("channel_role") != "brand" and (ch.get("dollar_amount") or 0) > 0
+    ]
+
+    # Brand channels (and zero-dollar performance channels): 0 hires by design.
+    for name, ch in channel_allocations.items():
+        if name in performance_names:
+            continue
+        dollars = ch.get("dollar_amount") or 0
+        ch["projected_hires"] = 0
+        ch["cost_per_hire"] = round(_safe_divide(dollars, 1, dollars), 2)
+        ch["roi_score"] = _score_roi(
+            ch["cost_per_hire"], industry_avg_cph, projected_hires=0
+        )
+
+    if not performance_names:
+        return
+
+    weights: Dict[str, float] = {
+        name: max(channel_allocations[name].get("projected_applications") or 0, 0)
+        * _hire_conversion_midpoint(channel_allocations[name].get("category") or "")
+        for name in performance_names
+    }
+    weight_sum = sum(weights.values())
+
+    if weight_sum <= 0:
+        # No modeled application volume to weight by -- fall back to
+        # proportional-by-dollars so we never divide by zero; the total
+        # still lands exactly via largest-remainder rounding below.
+        weights = {
+            name: channel_allocations[name].get("dollar_amount") or 0.0
+            for name in performance_names
+        }
+        weight_sum = sum(weights.values())
+    if weight_sum <= 0:
+        weights = {name: 1.0 for name in performance_names}
+        weight_sum = float(len(performance_names))
+
+    # Largest-remainder rounding: sum(channel hires) == total_hires exactly.
+    raw_shares = {
+        name: (weights[name] / weight_sum) * total_hires for name in performance_names
+    }
+    floor_hires = {name: int(share) for name, share in raw_shares.items()}
+    remainder = total_hires - sum(floor_hires.values())
+    remainder_order = sorted(
+        performance_names,
+        key=lambda n: (raw_shares[n] - floor_hires[n]),
+        reverse=True,
+    )
+    for name in remainder_order[:remainder]:
+        floor_hires[name] += 1
+
+    for name in performance_names:
+        ch = channel_allocations[name]
+        hires = floor_hires[name]
+        dollars = ch.get("dollar_amount") or 0
+        ch["projected_hires"] = hires
+        ch["cost_per_hire"] = round(_safe_divide(dollars, max(hires, 1), dollars), 2)
+        ch["roi_score"] = _score_roi(
+            ch["cost_per_hire"], industry_avg_cph, projected_hires=hires
+        )
+
+
+def _finalize_channel_ranking(
+    channel_allocations: Dict[str, Dict],
+) -> List[Dict[str, Any]]:
+    """S92 FIX -- findings data:manpower#4, data:atria#1, strategy:manpower#4,
+    strategy:atria#4: 'Fit' and the 'Recommended Channels (Vetted)' tier both
+    used to be built from unrelated scoring paths (one mirrored roi_score,
+    the other an independent industry-keyword heuristic), so the SAME
+    channel could rank #1 in one table and worst in the other on the same
+    worksheet. Both now derive from this single, final, post-rebalance /
+    post-redistribution ``roi_score`` ranking.
+
+    Sets ``fit_score`` (0-1, scaled from roi_score) and ``vetted_tier`` on
+    every channel dict IN-PLACE, and returns the same ranking as a list for
+    ``metadata['channel_ranking']`` so downstream consumers (excel_v2's
+    Channels & Strategy sheet) don't need to re-derive it. Brand channels
+    get their own labeled tier ("Brand & Awareness") instead of being
+    folded into the performance ranking -- their 0-hire projection is by
+    design, not a defect.
+    """
+    performance = [
+        (name, ch)
+        for name, ch in channel_allocations.items()
+        if ch.get("channel_role") != "brand"
+    ]
+    performance.sort(
+        key=lambda item: (
+            item[1].get("roi_score") or 0,
+            item[1].get("dollar_amount") or 0,
+        ),
+        reverse=True,
+    )
+
+    ranking: List[Dict[str, Any]] = []
+    for rank, (name, ch) in enumerate(performance, start=1):
+        roi = ch.get("roi_score") or 0
+        ch["fit_score"] = round(_clamp(roi / 10.0, 0.0, 1.0), 2)
+        ch["fit_rank"] = rank
+        if roi >= 8:
+            ch["vetted_tier"] = "Tier 1 — Primary"
+        elif roi >= 5:
+            ch["vetted_tier"] = "Tier 2 — Supporting"
+        else:
+            ch["vetted_tier"] = "Tier 3 — Monitor"
+        ranking.append(
+            {
+                "channel": name,
+                "roi_score": roi,
+                "fit_score": ch["fit_score"],
+                "vetted_tier": ch["vetted_tier"],
+                "rank": rank,
+            }
+        )
+
+    brand_channels = [
+        (name, ch)
+        for name, ch in channel_allocations.items()
+        if ch.get("channel_role") == "brand"
+    ]
+    for name, ch in brand_channels:
+        # Brand channels aren't ROI-scored (roi_score is pinned to 1 for
+        # their by-design 0 hires) -- a roi_score-derived fit_score would
+        # misleadingly paint them as "worst fit" rather than "not
+        # CPA-measured". Neutral placeholder instead.
+        ch["fit_score"] = 0.50
+        ch["fit_rank"] = None
+        ch["vetted_tier"] = "Brand & Awareness"
+        ranking.append(
+            {
+                "channel": name,
+                "roi_score": ch.get("roi_score") or 0,
+                "fit_score": ch["fit_score"],
+                "vetted_tier": ch["vetted_tier"],
+                "rank": None,
+            }
+        )
+
+    return ranking
+
+
+def _dedupe_shared_fallback_cpcs(allocations: Dict[str, Dict]) -> None:
+    """S92 FIX -- finding strategy:manpower#5: an upstream CPC source
+    (synthesized enrichment, live benchmarks, or the KB) can resolve two
+    structurally different channel categories (e.g. niche_board and
+    employer_branding) onto the exact same platform proxy -- e.g. both
+    falling back to a shared 'linkedin' figure -- producing a byte-identical
+    CPC across unrelated channel types that are BOTH then labeled HIGH/
+    MEDIUM confidence. That's the signature of a shared fallback, not
+    independently-measured market data.
+
+    Detects 2+ channels of DIFFERENT categories landing on the identical CPC
+    (sourced from anything other than the already category-differentiated
+    static benchmark) and re-derives CPC for each from the per-category
+    ``BASE_BENCHMARKS['cpc']`` table instead, marking the metric
+    ``confidence='estimated'`` so downstream confidence derivation
+    (gold_standard.py) can distinguish it from a genuinely-measured HIGH
+    figure. Recomputes clicks/applications/CPA/CPH so the row stays
+    internally consistent. Mutates ``allocations`` in place.
+    """
+    by_cpc: Dict[float, List[str]] = {}
+    for ch_name, ch in allocations.items():
+        cpc_val = ch.get("cpc")
+        if not cpc_val or ch.get("cpc_source") == "static_benchmark":
+            continue
+        by_cpc.setdefault(round(cpc_val, 2), []).append(ch_name)
+
+    for cpc_val, names in by_cpc.items():
+        categories = {allocations[n].get("category") for n in names}
+        if len(names) < 2 or len(categories) < 2:
+            continue  # same-category sharing a CPC is expected, not a defect
+
+        for ch_name in names:
+            ch = allocations[ch_name]
+            category = ch.get("category", "")
+            new_cpc = BASE_BENCHMARKS["cpc"].get(category, 0.85)
+            dollars = ch.get("dollar_amount", 0)
+
+            ch["cpc"] = round(new_cpc, 2)
+            ch["cpc_source"] = "static_benchmark_dedup"
+            ch["confidence"] = "estimated"
+            ch["confidence_downgrade_reason"] = (
+                f"Shared upstream CPC (${cpc_val:.2f}) resolved across "
+                f"{len(categories)} different channel categories -- "
+                "re-derived from the category-specific static benchmark."
+            )
+
+            apply_rate = ch.get("apply_rate") or BASE_BENCHMARKS["apply_rate"].get(
+                category, 0.05
+            )
+            if new_cpc > 0:
+                clicks = max(0, int(dollars / new_cpc))
+                apps = max(0, int(clicks * apply_rate))
+            else:
+                clicks = 0
+                apps = max(1, int(dollars / 50.0))
+
+            old_apps = ch.get("projected_applications") or 0
+            old_hires = ch.get("projected_hires") or 0
+            hire_rate = (old_hires / old_apps) if old_apps > 0 else 0.02
+            hires = max(0, int(apps * hire_rate))
+
+            ch["projected_clicks"] = clicks
+            ch["projected_applications"] = apps
+            ch["projected_hires"] = hires
+            ch["cpa"] = round(_safe_divide(dollars, max(apps, 1), dollars), 2)
+            ch["cost_per_hire"] = round(
+                _safe_divide(dollars, max(hires, 1), dollars), 2
+            )
+
+
+# ---------------------------------------------------------------------------
 # Core public functions
 # ---------------------------------------------------------------------------
 
@@ -2036,6 +2328,10 @@ def compute_channel_dollar_amounts(
             )
 
         allocations[ch_name] = allocation_entry
+
+    # S92 FIX (strategy:manpower#5): collapse any shared-fallback CPC
+    # collision across different channel categories before returning.
+    _dedupe_shared_fallback_cpcs(allocations)
 
     logger.info(
         "Channel dollar amounts computed for %d channels (collar=%s, trend_engine=%s)",
@@ -3487,6 +3783,19 @@ def calculate_budget_allocation(
             )
         total_hires = new_total_hires
 
+    # Step 3.9 (S92 -- THE BIG ONE): total_hires above is the authoritative,
+    # CPH-benchmark-derived (conservative) total. Keep that total EXACTLY as
+    # computed, but stop distributing it by a blended tier-based hire_rate
+    # that ignores channel type -- redistribute it across performance
+    # channels proportional to projected applications x the SAME
+    # apply->hire conversion table the ROI Projections sheet prints, so
+    # niche/social/EB channels with real application volume stop landing on
+    # a contradictory 0 hires. See _redistribute_hires_by_conversion.
+    _industry_avg_cph_val = _industry_avg_cph(industry)
+    _redistribute_hires_by_conversion(
+        channel_allocs, total_hires, _industry_avg_cph_val
+    )
+
     total_projected = {
         "clicks": total_clicks,
         "applications": total_apps,
@@ -3527,6 +3836,14 @@ def calculate_budget_allocation(
             f"See the 'optimized' section for details."
         )
 
+    # Step 6.5 (S92): authoritative fit/vetted-tier ranking, derived from
+    # the FINAL post-rebalance/post-redistribution roi_score -- see
+    # _finalize_channel_ranking. Sets fit_score/vetted_tier on every
+    # channel_allocs entry in place and returns the same info as a ranked
+    # list for metadata, so excel_v2's Channels & Strategy sheet can consume
+    # a single authoritative ranking instead of recomputing its own.
+    _channel_ranking = _finalize_channel_ranking(channel_allocs)
+
     result = {
         "channel_allocations": channel_allocs,
         "role_allocations": role_budgets,
@@ -3559,6 +3876,10 @@ def calculate_budget_allocation(
             "channel_reweight": _reweight_meta,
             "vendor_gate": _vendor_gate_meta,
             "quality_flags": _quality_flags,
+            # S92 metadata: authoritative fit/vetted-tier ranking (see
+            # _finalize_channel_ranking) -- excel_v2's Channels & Strategy
+            # sheet should consume this instead of an independent heuristic.
+            "channel_ranking": _channel_ranking,
         },
     }
 

@@ -2303,67 +2303,91 @@ def vet_channels(
         if is_us_only and any(kw in name_lower for kw in intl_only_keywords):
             continue
 
-        # Score the channel -- start with a category-based baseline
-        # so different channel types get differentiated scores even without
-        # exact keyword matches.
         cat = _roi_category_for_channel(name)
-        _category_baselines: Dict[str, float] = {
-            "niche_board": 0.75,
-            "referral": 0.80,
-            "career_site": 0.70,
-            "events": 0.65,
-            "staffing": 0.65,
-            "job_board": 0.60,
-            "social": 0.55,
-            "programmatic": 0.50,
-            "search": 0.55,
-            "display": 0.45,
-            "email": 0.55,
-            "employer_branding": 0.60,
-            "regional": 0.60,
-        }
-        score = _category_baselines.get(cat, 0.50)
 
-        # Industry preference match
-        for pref in ind_preferred:
-            if pref in name_lower:
-                score += 0.20
-                break
+        # S92 FIX (bundle-quality findings data:manpower#4 / data:atria#1 /
+        # strategy:manpower#4 / strategy:atria#4): when this channel came
+        # from the live budget allocation, budget_engine has already scored
+        # it with an authoritative, post-rebalance roi_score-derived
+        # fit_score (see budget_engine._finalize_channel_ranking). Using
+        # that here -- instead of the independent industry-keyword
+        # heuristic below -- is what eliminates the standing
+        # self-contradiction where this table ranked a channel #1 "fit"
+        # while the Channel Strategy Overview table (built from the SAME
+        # allocation's roi_score) ranked the identical channel near-last.
+        # Channels with no allocation data (pulled in from the channels DB
+        # only) still use the heuristic -- there's no ROI signal for them.
+        _be_fit_score = ch.get("fit_score")
+        _be_vetted_tier = ch.get("vetted_tier")
+        if _be_fit_score is not None:
+            score = max(0.0, min(1.0, float(_be_fit_score)))
+        else:
+            # Score the channel -- start with a category-based baseline
+            # so different channel types get differentiated scores even
+            # without exact keyword matches.
+            _category_baselines: Dict[str, float] = {
+                "niche_board": 0.75,
+                "referral": 0.80,
+                "career_site": 0.70,
+                "events": 0.65,
+                "staffing": 0.65,
+                "job_board": 0.60,
+                "social": 0.55,
+                "programmatic": 0.50,
+                "search": 0.55,
+                "display": 0.45,
+                "email": 0.55,
+                "employer_branding": 0.60,
+                "regional": 0.60,
+            }
+            score = _category_baselines.get(cat, 0.50)
 
-        # Role preference match
-        for pref in role_preferred:
-            if pref in name_lower:
-                score += 0.10
-                break
+            # Industry preference match
+            for pref in ind_preferred:
+                if pref in name_lower:
+                    score += 0.20
+                    break
 
-        # Major boards always get a baseline boost (broad fit)
-        major_boards = [
-            "indeed",
-            "linkedin",
-            "glassdoor",
-            "ziprecruiter",
-            "google",
-            "meta",
-            "facebook",
-        ]
-        if any(mb in name_lower for mb in major_boards):
-            score = max(score, 0.65)
+            # Role preference match
+            for pref in role_preferred:
+                if pref in name_lower:
+                    score += 0.10
+                    break
 
-        # Niche board for the industry = excellent
-        niche_for_industry = INDUSTRY_NICHE_CHANNELS.get(industry, [])
-        if any(
-            niche.lower() in name_lower or name_lower in niche.lower()
-            for niche in niche_for_industry
-        ):
-            score = max(score, 0.85)
+            # Major boards always get a baseline boost (broad fit)
+            major_boards = [
+                "indeed",
+                "linkedin",
+                "glassdoor",
+                "ziprecruiter",
+                "google",
+                "meta",
+                "facebook",
+            ]
+            if any(mb in name_lower for mb in major_boards):
+                score = max(score, 0.65)
 
-        # Industry-specific channel type bonus: niche boards score higher
-        # for matching industries (e.g., healthcare niche boards for healthcare)
-        if cat == "niche_board" and ind_preferred:
-            score = max(score, 0.80)
+            # Niche board for the industry = excellent
+            niche_for_industry = INDUSTRY_NICHE_CHANNELS.get(industry, [])
+            if any(
+                niche.lower() in name_lower or name_lower in niche.lower()
+                for niche in niche_for_industry
+            ):
+                score = max(score, 0.85)
 
-        # Determine fit label
-        if score >= 0.8:
+            # Industry-specific channel type bonus: niche boards score
+            # higher for matching industries (e.g., healthcare niche boards
+            # for healthcare)
+            if cat == "niche_board" and ind_preferred:
+                score = max(score, 0.80)
+
+        # Determine fit label. Brand channels get their own labeled tier
+        # (S92) instead of Excellent/Good/Fair -- a 0-hire projection is BY
+        # DESIGN for reach/awareness spend, not a poor "fit" (see
+        # budget_engine._BRAND_RATIONALE).
+        if _be_vetted_tier == "Brand & Awareness":
+            fit = "Brand/Awareness"
+        elif score >= 0.8:
             fit = "Excellent"
         elif score >= 0.6:
             fit = "Good"
@@ -3585,6 +3609,11 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
     raw_channels = []
 
     # From channel allocations
+    # S92: thread through budget_engine's authoritative, post-rebalance
+    # roi_score-derived ranking (fit_score/vetted_tier -- see
+    # budget_engine._finalize_channel_ranking) so vet_channels() can use it
+    # instead of an independent industry-keyword heuristic that used to
+    # contradict this same allocation's own ROI ranking.
     for ch_name, ch_data in channel_allocs.items():
         raw_channels.append(
             {
@@ -3592,6 +3621,8 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 "category": ch_data.get("category") or "",
                 "budget_pct": ch_data.get("percentage") or 0,
                 "cpc": ch_data.get("cpc") or 0,
+                "fit_score": ch_data.get("fit_score"),
+                "vetted_tier": ch_data.get("vetted_tier"),
             }
         )
 
