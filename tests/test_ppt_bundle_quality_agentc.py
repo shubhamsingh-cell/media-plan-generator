@@ -414,11 +414,15 @@ class TestBenchmarkSingleSourcing:
         wb_cpa_line = ""
         for row in ws.iter_rows(values_only=True):
             vals = [v for v in row if v not in (None, "")]
-            if vals and str(vals[0]).strip() == "Cpa":
+            # Label is acronym-cased ("CPA", not a raw-key-derived "Cpa")
+            # per excel_v2._humanize_snake_key.
+            if vals and str(vals[0]).strip() == "CPA":
                 wb_cpa_line = " | ".join(str(v) for v in vals)
                 break
-        assert wb_cpa_line, "workbook has no 'Cpa' row in Executive Summary"
-        wb_match = re.search(r"range:\s*\$?([\d.]+)-\$?([\d.]+)", wb_cpa_line)
+        assert wb_cpa_line, "workbook has no 'CPA' row in Executive Summary"
+        wb_match = re.search(
+            r"range:\s*\$?([\d.]+)-\$?([\d.]+)", wb_cpa_line, re.IGNORECASE
+        )
         assert wb_match, f"could not parse workbook CPA range from {wb_cpa_line!r}"
         wb_low, wb_high = float(wb_match.group(1)), float(wb_match.group(2))
 

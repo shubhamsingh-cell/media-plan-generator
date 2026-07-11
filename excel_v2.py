@@ -317,7 +317,19 @@ def _seasonal_monthly_phasing(industry: str, campaign_start_month: int) -> list[
     total = sum(adjusted)
     if total <= 0:
         return default_phasing
-    return [round(a / total, 4) for a in adjusted]
+    shares = [round(a / total, 4) for a in adjusted]
+    # Rounding each share to 4 decimals independently can leave the list
+    # summing to e.g. 0.9999 instead of 1.0 (observed: seasonal weights on
+    # a 24-week logistics campaign summed to 0.9999, silently under-spending
+    # the printed 90-Day Total by ~$8 relative to the sum of the three
+    # printed monthly Spend cells). Push the residual onto the largest
+    # share so the three values always sum to EXACTLY 1.0 -- monthly_spend
+    # (== _budget_90d * share) then foots exactly to _budget_90d.
+    residual = round(1.0 - sum(shares), 4)
+    if residual:
+        max_idx = max(range(len(shares)), key=lambda i: shares[i])
+        shares[max_idx] = round(shares[max_idx] + residual, 4)
+    return shares
 
 
 # ---------------------------------------------------------------------------
@@ -385,16 +397,27 @@ _BRAND_CASING: dict[str, str] = {
 
 
 def _proper_client_name(name: str) -> str:
-    """Title-case a client name, preserving known brand casing."""
+    """Client-facing casing for a client name.
+
+    Known brand overrides (_BRAND_CASING: "AT&T", "J.B. Hunt", ...) win
+    first; otherwise delegates to display_format.client_display_name's
+    word-wise casing (mirrors ppt_generator._proper_client_name -- the deck
+    and workbook must agree). The previous "title-case only if fully upper
+    OR fully lower, else leave alone" rule silently passed mixed-case raw
+    input straight through: "atria Senior living" (as literally received)
+    never became "Atria Senior Living" here because it wasn't ALL lower or
+    ALL upper, even though ppt_generator's copy of this same helper had
+    already been fixed -- the deck showed the correct casing while the
+    workbook showed the raw client-submitted casing verbatim.
+    """
     if not name or name == "Client":
         return name
     lower = name.strip().lower()
     if lower in _BRAND_CASING:
         return _BRAND_CASING[lower]
     return (
-        name.strip().title()
-        if name == name.lower() or name == name.upper()
-        else name.strip()
+        display_format.client_display_name(name)
+        or name.strip()
     )
 
 
@@ -1523,6 +1546,19 @@ def _smart_title(s: str) -> str:
     return " ".join(_TITLE_ACRONYMS.get(w, w) for w in str(s).title().split())
 
 
+def _humanize_snake_key(k: Any) -> str:
+    """Client-facing label for a raw snake_case dict key (e.g. KB benchmark
+    keys like ``"warehouse_hourly"``, ``"cdl_drivers"``, ``"trend_yoy"``) --
+    underscores become spaces BEFORE title-casing (unlike ``_smart_title``'s
+    fallback branch, which only strips underscores for known channel keys
+    via the CHANNEL_DISPLAY short-circuit and would otherwise leave a raw
+    ``"Warehouse_Hourly"`` on the page), with acronyms (CPA, ROI, YoY, ...)
+    restored via ``_TITLE_ACRONYMS``. Never returns a string containing an
+    underscore."""
+    words = str(k or "").replace("_", " ").title().split()
+    return " ".join(_TITLE_ACRONYMS.get(w, w) for w in words)
+
+
 def _safe_num(val: Any, default: float = 0.0) -> float:
     """Safely convert a value to float."""
     if val is None:
@@ -1609,7 +1645,11 @@ def _flatten_value(val: Any, max_depth: int = 3) -> str:
         for k, v in list(val.items())[:10]:
             flat_v = _flatten_value(v, max_depth - 1)
             if flat_v:
-                parts.append(f"{k}: {flat_v}")
+                # Never emit a raw snake_case dict key into client-facing
+                # text (shipped defect: KB benchmark dicts like
+                # {"warehouse_hourly": "...", "cdl_drivers": "..."} were
+                # flattened with the raw key verbatim).
+                parts.append(f"{_humanize_snake_key(k)}: {flat_v}")
         return "; ".join(parts)
 
     return str(val)[:200]
@@ -3074,7 +3114,7 @@ def _build_sheet_executive_summary(
                         val_str = _flatten_value(val)
                         if val_str:
                             row = _write_kv_row(
-                                ws, row, key.replace("_", " ").title(), val_str
+                                ws, row, _humanize_snake_key(key), val_str
                             )
         row += 1
 
