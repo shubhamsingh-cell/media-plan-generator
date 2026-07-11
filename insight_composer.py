@@ -118,7 +118,12 @@ def compose_counter_strategy(competitor: str, ctx: dict | None = None) -> str:
         angle = "candidates in this pool"
 
     bank = _SKELETON_BANKS.get(competitor_type, _SKELETON_BANKS["default"])
-    idx = _pick_index(f"{name}|{role}|{city}", len(bank))
+    # ``ordinal`` (the competitor's position in the rendered list) rotates the
+    # skeleton choice so adjacent competitors on the same slide/sheet never
+    # share a skeleton even when their name hashes collide mod len(bank).
+    ordinal = ctx.get("ordinal")
+    offset = int(ordinal) if isinstance(ordinal, (int, float)) and not isinstance(ordinal, bool) else 0
+    idx = (_pick_index(f"{name}|{role}|{city}", len(bank)) + offset) % len(bank)
     sentence = bank[idx].format(competitor=name, angle=angle)
 
     if intensity in ("high", "aggressive", "elevated", "severe"):
