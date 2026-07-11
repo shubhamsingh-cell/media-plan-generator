@@ -1655,6 +1655,54 @@ def _flatten_value(val: Any, max_depth: int = 3) -> str:
     return str(val)[:200]
 
 
+# S: Sub-vertical seasonal override text for the Executive Summary's
+# "Seasonal Patterns" benchmark row. gold_standard.build_activation_calendar
+# (Gate 7) may match a plan against a narrower sub-vertical whose real
+# seasonality differs from its parent industry (e.g. propane/heating-fuel
+# delivery vs. generic freight/e-commerce logistics -- see
+# data/subvertical_seasonal_overrides.json). When that override fired, the
+# raw KB seasonal_patterns benchmark (recruitment_benchmarks_deep.json,
+# keyed only by the plan's fixed industry classification) is WRONG for this
+# specific client and must not be shown; this renders the override's own
+# peak/trough months + rationale + source instead. Returns "" when no
+# override applies -- callers fall back to the generic KB text unchanged.
+def _subvertical_seasonal_override_text(data: dict) -> str:
+    gold = data.get("_gold_standard") or {}
+    activation = gold.get("activation_calendar") or {}
+    subvertical = activation.get("subvertical")
+    if not subvertical:
+        return ""
+    timeline = activation.get("timeline") or []
+    peak_months: list[str] = []
+    trough_months: list[str] = []
+    for m in timeline:
+        if not isinstance(m, dict):
+            continue
+        _name = str(m.get("month_name") or "")
+        if not _name:
+            continue
+        _intensity = str(m.get("hiring_intensity") or "").lower()
+        if _intensity in ("high", "very_high") and _name not in peak_months:
+            peak_months.append(_name)
+        elif _intensity == "low" and _name not in trough_months:
+            trough_months.append(_name)
+
+    label = activation.get("subvertical_label") or _humanize_snake_key(subvertical)
+    rationale = activation.get("subvertical_rationale") or ""
+    source = activation.get("subvertical_source") or ""
+
+    parts = [f"Profile: {label} (overrides generic industry seasonality)"]
+    if peak_months:
+        parts.append(f"Peak Months: {', '.join(peak_months)}")
+    if trough_months:
+        parts.append(f"Trough Months: {', '.join(trough_months)}")
+    if rationale:
+        parts.append(f"Rationale: {rationale}")
+    if source:
+        parts.append(f"Source: {source}")
+    return "; ".join(parts)
+
+
 # S5 (2026-07-03, finding 54): a small number of city names shipped from
 # upstream enrichment lookups all-lowercase (and "Phoenix" as "pheonix") --
 # never client-facing. Title-case is applied at every display call site via
@@ -3635,7 +3683,16 @@ def _build_sheet_executive_summary(
                 # Flat benchmarks (no regional breakdown)
                 for key, val in ind_bench.items():
                     if key not in ("regional", "by_region", "metadata"):
-                        val_str = _flatten_value(val)
+                        if key == "seasonal_patterns":
+                            # S: prefer a matched sub-vertical's own seasonal
+                            # profile (gold_standard Gate 7) over the generic
+                            # KB benchmark for this row -- see
+                            # _subvertical_seasonal_override_text for why.
+                            val_str = _subvertical_seasonal_override_text(
+                                data
+                            ) or _flatten_value(val)
+                        else:
+                            val_str = _flatten_value(val)
                         if val_str:
                             row = _write_kv_row(
                                 ws, row, _humanize_snake_key(key), val_str

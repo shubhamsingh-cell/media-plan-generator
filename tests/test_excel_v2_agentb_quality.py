@@ -354,6 +354,85 @@ def test_quality_intelligence_program_structure_no_double_claim():
     )
 
 
+# ---------------------------------------------------------------------------
+# 7. Executive Summary "Seasonal Patterns" row honors gold_standard's
+#    sub-vertical activation-calendar override instead of always quoting the
+#    generic KB industry seasonal_patterns benchmark (W3C follow-up: the
+#    Manpower-AmeriGas Executive Summary kept showing generic freight/
+#    e-commerce "Peak Months: August-November" text even after
+#    gold_standard.build_activation_calendar started applying a
+#    fuel_heating_delivery seasonal override for propane clients).
+# ---------------------------------------------------------------------------
+def _generate_wb_with_kb(data: dict):
+    """Like ``_generate_wb`` but wires a real ``load_kb_fn`` so the
+    "Recruitment Benchmarks" section (which the Seasonal Patterns row lives
+    in) actually renders -- that section is skipped entirely when
+    ``load_kb_fn`` is None, which is fine for the other tests in this file
+    but not for one that asserts on Seasonal Patterns content."""
+    import kb_loader
+
+    raw = excel_v2.generate_excel_v2(data, load_kb_fn=kb_loader.load_knowledge_base)
+    assert isinstance(raw, (bytes, bytearray)) and len(raw) > 0
+    return openpyxl.load_workbook(io.BytesIO(raw), data_only=False)
+
+
+def _seasonal_patterns_cell(wb) -> str:
+    ws = wb["Executive Summary"]
+    rows = list(ws.iter_rows())
+    for r in rows:
+        for c in r:
+            if c.value == "Seasonal Patterns":
+                # Value lives a couple columns over in the same row (label
+                # column, then a merged/value column) -- grab the first
+                # non-empty string cell after the label.
+                for c2 in r[c.column :]:
+                    if isinstance(c2.value, str) and c2.value.strip():
+                        return c2.value
+    return ""
+
+
+def test_seasonal_patterns_row_uses_subvertical_override_when_matched():
+    # _base_data()'s client ("PROPANE UNLIMITED CO") matches the
+    # fuel_heating_delivery keyword set in a logistics_supply_chain plan.
+    data = _base_data()
+    gold = gold_standard.apply_all_quality_gates(data)
+    data["_gold_standard"] = gold
+    assert (gold.get("activation_calendar") or {}).get("subvertical") == (
+        "fuel_heating_delivery"
+    )
+
+    wb = _generate_wb_with_kb(data)
+    seasonal_text = _seasonal_patterns_cell(wb)
+    assert seasonal_text, "Seasonal Patterns row must be present"
+    assert "Fuel & Heating Delivery" in seasonal_text
+    assert "Peak Months" in seasonal_text
+    # Must NOT show the generic KB logistics benchmark's freight/e-commerce
+    # framing, which is backwards for a propane/heating-fuel client.
+    assert "E-commerce" not in seasonal_text
+    assert "holiday logistics surge" not in seasonal_text.lower()
+
+
+def test_seasonal_patterns_row_falls_back_to_generic_when_no_subvertical_match():
+    data = _base_data(
+        client_name="Acme Warehousing Co",
+        competitors=["XPO Logistics", "Ryder"],
+    )
+    data["target_roles"] = [
+        {"title": "Warehouse Associate", "count": 20, "tier": "mid"}
+    ]
+    data["roles"] = ["Warehouse Associate"]
+    gold = gold_standard.apply_all_quality_gates(data)
+    data["_gold_standard"] = gold
+    assert (gold.get("activation_calendar") or {}).get("subvertical") is None
+
+    wb = _generate_wb_with_kb(data)
+    seasonal_text = _seasonal_patterns_cell(wb)
+    assert seasonal_text, "Seasonal Patterns row must be present"
+    # Unmatched plans keep the pre-existing generic KB benchmark text.
+    assert "Fuel & Heating Delivery" not in seasonal_text
+    assert "Peak Months" in seasonal_text
+
+
 if __name__ == "__main__":
     test_is_us_plan_delegates_to_plan_geo()
     test_non_us_signals_delegates_to_plan_geo()
@@ -367,4 +446,6 @@ if __name__ == "__main__":
     test_duration_18_months_never_becomes_17()
     test_estimated_salary_rows_carry_badge()
     test_quality_intelligence_program_structure_no_double_claim()
+    test_seasonal_patterns_row_uses_subvertical_override_when_matched()
+    test_seasonal_patterns_row_falls_back_to_generic_when_no_subvertical_match()
     print("OK")
