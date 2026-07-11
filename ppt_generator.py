@@ -42,6 +42,11 @@ try:
 except ImportError:  # pragma: no cover - plan_currency ships with the repo
     _plan_currency = None
 
+import plan_geo as _plan_geo
+import display_format as _fmt
+import insight_composer as _insight
+import gold_standard as _gold_standard
+
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
@@ -517,17 +522,21 @@ _BRAND_CASING: dict[str, str] = {
 
 
 def _proper_client_name(name: str) -> str:
-    """Title-case a client name, preserving known brand casing."""
+    """Client-facing casing for a client name.
+
+    Known brand overrides (_BRAND_CASING: "AT&T", "J.B. Hunt", ...) win
+    first; otherwise defers to display_format.client_display_name's
+    word-wise casing. The previous "title-case only if fully upper OR fully
+    lower, else leave alone" rule silently passed mixed-case raw input
+    straight through -- "atria Senior living" (as literally received) never
+    became "Atria Senior Living" because it wasn't ALL lower or ALL upper.
+    """
     if not name or name == "Client":
         return name
     lower = name.strip().lower()
     if lower in _BRAND_CASING:
         return _BRAND_CASING[lower]
-    return (
-        name.strip().title()
-        if name == name.lower() or name == name.upper()
-        else name.strip()
-    )
+    return _fmt.client_display_name(name) or name.strip()
 
 
 # ---------------------------------------------------------------------------
@@ -589,15 +598,30 @@ SLIDE_WIDTH = Inches(13.333)
 SLIDE_HEIGHT = Inches(7.5)
 
 
+_AI_TRAINING_PHRASES = (
+    "ai training",
+    "ai trainer",
+    "data labeling",
+    "data annotation",
+    "data label",
+    "rlhf",
+    "llm training",
+)
+_AI_TRAINING_TOKENS = frozenset({"ai", "annotator", "annotation"})
+_AI_TRAINING_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+
 def _is_ai_training_plan(plan_data: Dict[str, Any]) -> bool:
     """Return True if the plan's industry/roles match an AI-training engagement.
 
     CPA-reference slides carry AI-trainer-specific role data and must not be
-    shown to unrelated clients (healthcare, logistics, etc.).
+    shown to unrelated clients (healthcare, logistics, etc.). Matches on
+    token/phrase boundaries only -- a raw substring scan previously matched
+    "ai" inside "Maintenance Technician" and "Supply Chain" false-positived
+    the same way, misfiring the AI-training slides for unrelated briefs.
     """
     if not isinstance(plan_data, dict):
         return False
-    markers = ("ai", "train", "annotat", "language", "data label", "data-label")
     parts: List[str] = []
     industry = plan_data.get("industry")
     if industry:
@@ -611,7 +635,27 @@ def _is_ai_training_plan(plan_data: Dict[str, Any]) -> bool:
                 parts.append(str(r))
     elif roles:
         parts.append(str(roles))
-    return any(m in " ".join(parts).lower() for m in markers)
+    text = " ".join(parts).lower()
+    if any(phrase in text for phrase in _AI_TRAINING_PHRASES):
+        return True
+    tokens = set(_AI_TRAINING_TOKEN_RE.findall(text))
+    return bool(tokens & _AI_TRAINING_TOKENS)
+
+
+def _kb_content_key(data: Dict[str, Any]) -> str:
+    """Resolve the industry key that selects this plan's KB-sourced deck
+    content (data/joveo_media_plan_deck_2026.json v2.0's ``cpa_reference`` /
+    ``case_study``, both industry-keyed with only ``'ai_training'``
+    populated -- see the KB's ``_meta`` block). AI-training plans always
+    resolve to ``'ai_training'`` regardless of the plan's raw industry
+    string; every other plan resolves to its own industry key, which will
+    not be present in either KB section (by design -- fabricating CPA
+    ranges or case-study proof for unrelated industries is out of bounds),
+    so callers must treat a missing key as "drop this content"."""
+    plan_gate = {"industry": data.get("industry"), "roles": data.get("roles")}
+    if _is_ai_training_plan(plan_gate):
+        return "ai_training"
+    return str(data.get("industry") or "").strip()
 
 
 def _load_deck_kb() -> Dict[str, Any]:
@@ -1544,10 +1588,15 @@ def _fmt_currency(val, currency=None, compact=False):
     except (TypeError, ValueError):
         return str(val)
     sym = _cur_symbol(currency)
+    # display_format.fmt_money never leaves a trailing ".0" ("$150K", never
+    # "$150.0K") -- match that here too (fmt_money itself is USD-symbol-only,
+    # so it can't be reused directly for a non-USD active-currency plan).
     if compact and abs(val) >= 1_000_000:
-        return f"{sym}{val/1_000_000:,.1f}M"
+        body = f"{val/1_000_000:,.1f}".rstrip("0").rstrip(".")
+        return f"{sym}{body}M"
     if compact and abs(val) >= 1_000:
-        return f"{sym}{val/1_000:,.1f}K"
+        body = f"{val/1_000:,.1f}".rstrip("0").rstrip(".")
+        return f"{sym}{body}K"
     if val == int(val):
         return f"{sym}{int(val):,}"
     return f"{sym}{val:,.2f}"
@@ -1914,6 +1963,71 @@ def _add_multi_run_paragraph(
     return p
 
 
+def _kb_extract_range(node: Any) -> str:
+    """Pull a display-ready range/figure string out of one
+    recruitment_benchmarks.industry_benchmarks[industry][metric] node.
+
+    These KB nodes are free-form dicts (see data loaded via
+    kb_loader.load_knowledge_base()): a "range" sub-key when present,
+    otherwise the newest-looking numeric-year sub-key (e.g. "2025"), else
+    "median"/"total_cost_per_hire"/"recruitment_marketing_only", else the
+    first string-valued sub-key found. Returns "" when nothing usable.
+    """
+    if isinstance(node, str):
+        return node
+    if not isinstance(node, dict):
+        return ""
+    for key in ("range", "total_cost_per_hire", "median", "recruitment_marketing_only"):
+        val = node.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    year_keys = [k for k in node if isinstance(k, str) and re.fullmatch(r"20\d{2}", k)]
+    if year_keys:
+        val = node.get(max(year_keys))
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    for val in node.values():
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    return ""
+
+
+def _kb_recruitment_industry_benchmark(
+    industry: str, data: Optional[Dict]
+) -> Optional[Dict[str, str]]:
+    """Read cpa/cpc/cph/apply_rate for ``industry`` from
+    ``recruitment_benchmarks.industry_benchmarks`` -- the SAME knowledge-base
+    section excel_v2's "Recruitment Benchmarks" table reads (see
+    excel_v2._build_sheet_executive_summary's ``kb_benchmarks`` lookup).
+    Returns ``None`` when the KB or this industry's entry is unavailable.
+    """
+    kb = (data or {}).get("_knowledge_base") if isinstance(data, dict) else None
+    if not kb:
+        try:
+            from kb_loader import load_knowledge_base
+
+            kb = load_knowledge_base()
+        except Exception:  # noqa: BLE001
+            return None
+    if not isinstance(kb, dict):
+        return None
+    ind_bm = (
+        kb.get("recruitment_benchmarks", {}).get("industry_benchmarks", {})
+        if isinstance(kb.get("recruitment_benchmarks"), dict)
+        else {}
+    )
+    entry = ind_bm.get(industry) if isinstance(ind_bm, dict) else None
+    if not isinstance(entry, dict):
+        return None
+    out = {
+        "cpa": _kb_extract_range(entry.get("cpa")),
+        "cpc": _kb_extract_range(entry.get("cpc")),
+        "cph": _kb_extract_range(entry.get("cph")),
+        "apply_rate": _kb_extract_range(entry.get("apply_rate")),
+    }
+    return out if any(out.values()) else None
+
+
 def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str]:
     """Return benchmark data for the given industry.
 
@@ -2017,6 +2131,34 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                 )
         except Exception:
             pass  # Fall through to synthesized or static
+
+    # Layer 1.5: recruitment_benchmarks.industry_benchmarks KB overlay --
+    # single-sources the "Industry CPA/CPC/Apply Rate" figures with the SAME
+    # KB section excel_v2._build_sheet_executive_summary reads for its
+    # "Recruitment Benchmarks" table (kb['recruitment_benchmarks']
+    # ['industry_benchmarks'][industry]). Without this, the deck's numbers
+    # came from trend_engine's independent static tables while the workbook
+    # quoted this KB section, so the two artifacts could show different CPA/
+    # CPC ranges for the identical industry. Runs AFTER trend_engine (so it
+    # overrides those numbers when this KB section exists for the industry)
+    # but BEFORE the live ad_platform_analysis / budget-engine layers below
+    # (so the plan's own live figures, when present, still win over any
+    # benchmark table).
+    if data:
+        try:
+            _mi_bm = _kb_recruitment_industry_benchmark(industry, data)
+        except Exception:  # noqa: BLE001 -- never break benchmark resolution
+            _mi_bm = None
+        if _mi_bm:
+            if _mi_bm.get("cpa"):
+                result["cpa"] = _mi_bm["cpa"]
+            if _mi_bm.get("cpc"):
+                result["cpc"] = _mi_bm["cpc"]
+            if _mi_bm.get("cph"):
+                result["cph"] = _mi_bm["cph"]
+            if _mi_bm.get("apply_rate"):
+                result["apply_rate"] = _mi_bm["apply_rate"]
+            result["confidence"] = "market_intelligence_kb"
 
     # Layer 1: Synthesized ad_platform_analysis overrides (live API data)
     if data:
@@ -2272,181 +2414,12 @@ def _get_industry_comparison(
 
 def _is_us_only_campaign(data: Dict) -> bool:
     """Check if all campaign locations are within the United States.
-    Also respects the target_region field from the region selector."""
-    # Check explicit target_region first (set by region selector UI)
-    target_region = (data.get("target_region") or "").lower().strip()
-    if target_region == "us_only":
-        return True
-    if target_region in ("global", "emea", "apac", "custom"):
-        return False
 
-    # Gather every location signal the plan carries: the explicit `country`
-    # field (populated by callers even when `locations` is terse/ambiguous,
-    # e.g. country="New Zealand") plus each entry in `locations`.
-    candidates: List[Any] = []
-    country_field = data.get("country")
-    if isinstance(country_field, str) and country_field.strip():
-        candidates.append(country_field)
-    locations = data.get("locations") or []
-    if isinstance(locations, (list, tuple)):
-        candidates.extend(locations)
-    elif locations:
-        candidates.append(locations)
-
-    if not candidates:
-        return True  # No locations specified — assume domestic
-    us_indicators = {
-        "us",
-        "usa",
-        "united states",
-        "america",
-        # US state abbreviations
-        "al",
-        "ak",
-        "az",
-        "ar",
-        "ca",
-        "co",
-        "ct",
-        "de",
-        "fl",
-        "ga",
-        "hi",
-        "id",
-        "il",
-        "in",
-        "ia",
-        "ks",
-        "ky",
-        "la",
-        "me",
-        "md",
-        "ma",
-        "mi",
-        "mn",
-        "ms",
-        "mo",
-        "mt",
-        "ne",
-        "nv",
-        "nh",
-        "nj",
-        "nm",
-        "ny",
-        "nc",
-        "nd",
-        "oh",
-        "ok",
-        "or",
-        "pa",
-        "ri",
-        "sc",
-        "sd",
-        "tn",
-        "tx",
-        "ut",
-        "vt",
-        "va",
-        "wa",
-        "wv",
-        "wi",
-        "wy",
-        "dc",
-    }
-    # Single-word international tokens matched on word boundaries (NOT raw
-    # substring) so e.g. "india" does not match inside "Indianapolis".
-    intl_tokens = {
-        "uk",
-        "london",
-        "europe",
-        "apac",
-        "emea",
-        "asia",
-        "india",
-        "germany",
-        "france",
-        "japan",
-        "china",
-        "australia",
-        "canada",
-        "brazil",
-        "mexico",
-        "singapore",
-        # New Zealand (and its major metros) — previously missing, which
-        # misclassified NZ plans as US-only (BUNDLE_QC_FINDINGS #4/#62).
-        "zealand",
-        "auckland",
-        "wellington",
-        "christchurch",
-        "nz",
-        "nzl",
-        # Other commonly-planned non-US markets
-        "ireland",
-        "dublin",
-        "netherlands",
-        "amsterdam",
-        "spain",
-        "madrid",
-        "italy",
-        "sweden",
-        "poland",
-        "philippines",
-        "manila",
-        "malaysia",
-        "indonesia",
-        "vietnam",
-        "thailand",
-        "nigeria",
-        "kenya",
-        "uae",
-        "dubai",
-    }
-    # Multi-word phrases are safe to match as substrings (no US locality
-    # contains these), and single-word substring collisions can't occur.
-    intl_phrases = (
-        "united kingdom",
-        "hong kong",
-        "new zealand",
-        "south africa",
-        "saudi",
-    )
-    # US city patterns (city, state format)
-    for loc in candidates:
-        if isinstance(loc, dict):
-            loc_str = loc.get("country") or loc.get("location") or ""
-        else:
-            loc_str = loc
-        loc_str = str(loc_str or "").strip()
-        if not loc_str:
-            continue
-        loc_lower = loc_str.lower()
-
-        # Authoritative signal: plan_currency's country table already solves
-        # the US-state-vs-country-code collision problem (CA=California vs
-        # Canada, IN=Indiana vs India, ...) and covers dozens of countries
-        # (Portugal, Switzerland, South Korea, Russia, ...) that neither the
-        # substring blocklist below nor the old blocklist ever listed.
-        if _plan_currency is not None:
-            try:
-                code = _plan_currency.currency_for_country(loc_str)
-            except Exception:  # noqa: BLE001 - resolution is best-effort
-                code = None
-            if code:
-                if code != "USD":
-                    return False
-                continue  # resolved to USD -- domestic, check next candidate
-
-        # Fallback: word-boundary token/phrase match for location strings
-        # plan_currency can't resolve (e.g. bare city names it doesn't know,
-        # like "Auckland" with no trailing ", New Zealand").
-        parts = {p.strip() for p in loc_lower.replace(",", " ").split()}
-        if parts & intl_tokens or any(phrase in loc_lower for phrase in intl_phrases):
-            return False
-        # Check if location matches US patterns
-        if not (parts & us_indicators):
-            # Could be a US city without state qualifier -- allow it
-            pass
-    return True
+    Thin delegate to plan_geo.is_us_plan -- the single source of truth for
+    US/non-US plan classification (see plan_geo.py module docstring for the
+    two shipped bugs this consolidation fixes: hard-return-False-on-first-
+    unresolvable-candidate, and no concept of bare US state names)."""
+    return _plan_geo.is_us_plan(data)
 
 
 def _selected_channels(data: Dict) -> Dict[str, Dict[str, Any]]:
@@ -2642,7 +2615,8 @@ def _format_budget_display(budget_str: str) -> str:
         return budget_str
     sym = _cur_symbol()
     if val >= 1000000:
-        return f"{sym}{val / 1000000:.1f}M"
+        body = f"{val / 1000000:.1f}".rstrip("0").rstrip(".")
+        return f"{sym}{body}M"
     if val >= 1000:
         return f"{sym}{val / 1000:.0f}K"
     return f"{sym}{val:,.0f}"
@@ -2801,25 +2775,16 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
         anchor=MSO_ANCHOR.MIDDLE,
     )
 
-    # Combined disclaimers (right), only when present, truncated to fit one line
+    # Combined disclaimers (right), only when present, truncated to fit one line.
+    # NOTE: the "Location advisory: ..." path was removed from the deck
+    # entirely (owner call) -- the workbook's Sources & Confidence sheet
+    # already carries the full per-location warning; duplicating a truncated
+    # version here just repeated it with less detail.
     disclaimers = []
     if not _is_us_only_campaign(data):
         disclaimers.append(
             "Benchmarks are US-calibrated — international markets may vary."
         )
-    synthesized = data.get("_synthesized", {})
-    loc_warnings = (
-        synthesized.get("_validation", {}).get("location_warnings") or []
-        if isinstance(synthesized, dict)
-        else []
-    )
-    if loc_warnings:
-        warn_locs = [w.get("location", "") for w in loc_warnings if w.get("location")]
-        if warn_locs:
-            disclaimers.append(
-                f"Location advisory: {', '.join(warn_locs[:2])} — verify operating "
-                f"area (see workbook)."
-            )
     if disclaimers:
         _add_textbox(
             slide,
@@ -2941,6 +2906,23 @@ def _build_slide_cover(prs: Presentation, data: Dict):
 # ===================================================================
 
 
+def _cap_roles_for_headline(roles: List[Any], cap: int = 2) -> str:
+    """Cap a role list for headline prose: at most ``cap`` named roles, then
+    'and N more roles' -- never the truncated-grammar 'Role1, Role2, Role3'
+    with no indication more roles exist, and never a dangling trailing
+    comma."""
+    names = [str(r) for r in (roles or []) if str(r).strip()]
+    if not names:
+        return "key roles"
+    if len(names) <= cap:
+        if len(names) == 1:
+            return names[0]
+        return ", ".join(names[:-1]) + " and " + names[-1]
+    shown = ", ".join(names[:cap])
+    remaining = len(names) - cap
+    return f"{shown}, and {remaining} more role{'s' if remaining != 1 else ''}"
+
+
 def _build_slide_executive_summary(prs: Presentation, data: Dict):
     """Build the Executive Summary slide with hero stat pattern and SCR framework."""
     slide_layout = prs.slide_layouts[6]
@@ -3005,7 +2987,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     _add_top_band(slide, "Executive Summary", client.upper())
 
     # Action title
-    role_summary = ", ".join(roles[:3]) if roles else "key roles"
+    role_summary = _cap_roles_for_headline(roles, cap=2)
     loc_count = len(locations)
     loc_text = (
         f"{loc_count} location{'s' if loc_count != 1 else ''}"
@@ -3088,7 +3070,11 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     )
 
     body_top = col_top + Inches(0.45)
-    work_label = WORK_ENV_LABELS.get(work_env, work_env.replace("_", " ").title())
+    _stated_work_label = WORK_ENV_LABELS.get(work_env, work_env.replace("_", " ").title())
+    _effective_work_model, _work_model_note = _gold_standard.effective_work_model(
+        _stated_work_label, roles
+    )
+    work_label = _effective_work_model
     role_display = ", ".join(roles[:5]) if roles else "Multiple roles"
     if len(roles) > 5:
         role_display += f" (+{len(roles) - 5} more)"
@@ -3113,6 +3099,8 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         ("Work Model", work_label),
         ("Budget", budget_display_sit),
     ]
+    if _work_model_note:
+        sit_items.append(("Work Model Note", _work_model_note))
 
     # Add market temperature from job_market_demand
     if market_temp_str:
@@ -3442,6 +3430,30 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             rt = p.add_run()
             rt.text = g
             _set_font(rt, size=8, color=DARK_TEXT)
+
+    # Honest goal-gap one-liner (display_format.parse_hire_goal / goal_gap):
+    # only renders when the client stated a hiring GOAL and this plan's
+    # projection falls short of it. Framed as a scaling roadmap, not a
+    # failure -- matches the fuller goal-gap row on the comparison slide.
+    # Placed BEFORE the cited-2026 block (added below): _autofit_textframe
+    # trims trailing paragraphs from the END first when a card overflows, so
+    # this higher-priority honesty signal must not be added after lower-
+    # priority context that's fine to lose first.
+    _exec_hire_goal = _fmt.parse_hire_goal(data.get("hire_volume"))
+    _exec_goal_gap = _fmt.goal_gap(_ppt_hires_sum, _exec_hire_goal, _ppt_cph)
+    if _exec_goal_gap:
+        _add_paragraph(
+            tf4,
+            f"Client goal: {_exec_goal_gap['goal']:,} hires — this plan "
+            f"projects {_exec_goal_gap['projected']:,} "
+            f"({_exec_goal_gap['pct_of_goal']:.0f}% of goal); scaling path: "
+            f"~{_fmt_currency(_exec_goal_gap['additional_budget'])} additional",
+            font_size=7,
+            bold=True,
+            color=NAVY,
+            space_before=4,
+            space_after=1,
+        )
 
     # ---- S82: Cited 2026 market data (parity with Google Slides deck) ----
     # The curated 2026 cited metric + TA-leader quote previously rendered ONLY
@@ -5424,6 +5436,62 @@ def _embed_pie_chart_on_budget_slide(prs: Presentation, data: Dict) -> None:
     )
 
 
+def _cmp_status(
+    client_val: Any, industry_val: Any, higher_is_better: bool = True, tie_band: float = 0.05
+) -> str:
+    """Honest 3-state benchmark comparison: ``'beating'`` / ``'on_par'`` /
+    ``'trailing'``. A client value within +/-``tie_band`` (default 5%) of the
+    benchmark -- including an exact tie -- is ``'on_par'``, never flagged as
+    beating (a shipped bundle previously hardcoded ``is_better: True`` for
+    rows with no real comparison at all)."""
+    try:
+        c = float(client_val)
+        i = float(industry_val)
+    except (TypeError, ValueError):
+        return "on_par"
+    if i == 0:
+        if c == 0:
+            return "on_par"
+        is_positive_direction = c > 0
+        return (
+            "beating"
+            if is_positive_direction == higher_is_better
+            else "trailing"
+        )
+    diff_pct = (c - i) / abs(i)
+    if abs(diff_pct) <= tie_band:
+        return "on_par"
+    if higher_is_better:
+        return "beating" if diff_pct > 0 else "trailing"
+    return "beating" if diff_pct < 0 else "trailing"
+
+
+def _cmp_status_in_range(
+    value: float, low: float, high: float, higher_is_better: bool = True
+) -> str:
+    """3-state status for a value against a benchmark RANGE (not a single
+    point): inside ``[low, high]`` is always ``'on_par'`` ("within range"),
+    never ``'beating'`` even when the value sits at the favorable end.
+    Outside the range, direction is governed by ``higher_is_better``
+    (default True -- e.g. more markets covered than the healthy range is
+    'beating', fewer is 'trailing'; pass False for metrics like CPA where
+    lower is better)."""
+    if low > high:
+        low, high = high, low
+    if low <= value <= high:
+        return "on_par"
+    above = value > high
+    return "beating" if (above == higher_is_better) else "trailing"
+
+
+_CMP_STATUS_STYLE = {
+    "beating": (GREEN, "▲", "Beating benchmark"),
+    "trailing": (AMBER, "▼", "Trailing benchmark"),
+    "on_par": (MUTED_TEXT, "—", "On par / within range"),
+    "none": (MUTED_TEXT, "", ""),
+}
+
+
 # ===================================================================
 # SLIDE 7 - Side-by-Side Comparison Panel + Implementation Timeline
 # ===================================================================
@@ -5495,40 +5563,45 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     ind_reach_mult = ind_benchmarks.get("estimated_reach_multiplier", 1.0)
 
     # Comparison metrics - build all candidates
-    # S5 (2026-07-03, findings 14/28): "beating benchmark" must mean strictly
-    # better, not tied. All comparisons below use strict `>`/`<` so an exactly
-    # equal client value is never flagged with a green "beating" arrow.
+    # Honest 3-state comparison ('beating' / 'on_par' / 'trailing') via
+    # _cmp_status -- a +/-5% tie band means an exact or near-tie (e.g. 6
+    # channels vs an industry average of 6) renders neutral, never a green
+    # "beating" arrow.
+    _geo_status = _cmp_status_in_range(n_locations, 3, 5)
     all_comparison_rows = [
         {
             "metric": "Channels Selected",
             "client_val": str(n_channels),
             "industry_val": str(ind_benchmarks.get("avg_channels", 4)),
-            "is_better": n_channels > ind_benchmarks.get("avg_channels", 4),
+            "status": _cmp_status(n_channels, ind_benchmarks.get("avg_channels", 4)),
         },
         {
             "metric": "Programmatic Allocation",
             "client_val": f"{programmatic_pct}%",
             "industry_val": f"{ind_benchmarks.get('avg_budget_pct_programmatic', 30)}%",
-            "is_better": programmatic_pct
-            > ind_benchmarks.get("avg_budget_pct_programmatic", 30),
+            "status": _cmp_status(
+                programmatic_pct, ind_benchmarks.get("avg_budget_pct_programmatic", 30)
+            ),
         },
         {
             "metric": "Channel Diversity Score",
             "client_val": f"{min(10.0, n_channels * 1.5):.1f}/10",
             "industry_val": f"{min(10.0, ind_benchmarks.get('avg_channels', 4) * 1.5):.1f}/10",
-            "is_better": n_channels > ind_benchmarks.get("avg_channels", 4),
+            "status": _cmp_status(n_channels, ind_benchmarks.get("avg_channels", 4)),
         },
         {
             "metric": "Geographic Coverage",
             "client_val": f"{n_locations} market{'s' if n_locations != 1 else ''}",
-            "industry_val": "3-5 markets",
-            "is_better": n_locations > 3,
+            # A value INSIDE the 3-5 benchmark range is 'within range' -- it
+            # is never rendered as "beating" just for landing inside it.
+            "industry_val": "3-5 markets (within range)" if _geo_status == "on_par" else "3-5 markets",
+            "status": _geo_status,
         },
         {
             "metric": "Reach Multiplier",
             "client_val": f"{client_reach_mult:.1f}x",
             "industry_val": f"{ind_reach_mult:.1f}x",
-            "is_better": client_reach_mult > ind_reach_mult,
+            "status": _cmp_status(client_reach_mult, ind_reach_mult),
         },
     ]
 
@@ -5544,6 +5617,8 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         ba_metadata_comp = {}
     ba_total_budget = ba_metadata_comp.get("total_budget") or 0
 
+    proj_hires = 0
+    comp_cph = 0.0
     if ba_total_proj_comp:
         proj_cpa = ba_total_proj_comp.get("cost_per_application") or 0
         # S48 FIX: per-channel sum for consistency
@@ -5556,17 +5631,28 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         if proj_hires == 0:
             proj_hires = ba_total_proj_comp.get("hires") or 0
         proj_apps = ba_total_proj_comp.get("applications") or 0
+        comp_cph = (
+            round(ba_total_budget / proj_hires, 2)
+            if proj_hires > 0 and ba_total_budget > 0
+            else (ba_total_proj_comp.get("cost_per_hire") or 0)
+        )
 
-        # Get industry benchmark CPA for comparison
+        # Get industry benchmark CPA for comparison -- a low/high RANGE, not
+        # just an average, so a value inside the range renders 'within
+        # range' (on_par) rather than 'beating' the moment it clears the
+        # midpoint.
         bench = _get_benchmarks(industry, data)
         cpa_str = bench.get("cpa", "$25")
         try:
-            cpa_nums = re.findall(r"[\d.]+", cpa_str.replace(",", ""))
-            ind_avg_cpa = (
-                sum(float(x) for x in cpa_nums) / len(cpa_nums) if cpa_nums else 25
-            )
+            cpa_nums = [float(x) for x in re.findall(r"[\d.]+", cpa_str.replace(",", ""))]
         except Exception:
-            ind_avg_cpa = 25
+            cpa_nums = []
+        if len(cpa_nums) >= 2:
+            cpa_low, cpa_high = min(cpa_nums), max(cpa_nums)
+        elif len(cpa_nums) == 1:
+            cpa_low = cpa_high = cpa_nums[0]
+        else:
+            cpa_low = cpa_high = 25.0
 
         if proj_cpa and proj_cpa > 0:
             # S3: cpa_str may still be a fixed US-benchmark constant (bare $)
@@ -5580,50 +5666,82 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
                 and _get_active_currency() != "USD"
             ):
                 _cpa_industry_val = _mark_usd(cpa_str)
+            if cpa_low == cpa_high:
+                # Point estimate (not a range): lower CPA is better.
+                _cpa_status = _cmp_status(proj_cpa, cpa_low, higher_is_better=False)
+            elif cpa_low <= proj_cpa <= cpa_high:
+                _cpa_status = "on_par"  # within range -- never "beating"
+            else:
+                _cpa_status = "beating" if proj_cpa < cpa_low else "trailing"
             all_comparison_rows.append(
                 {
                     "metric": "Projected CPA",
                     "client_val": _fmt_currency(proj_cpa),
                     "industry_val": _cpa_industry_val,
-                    # S5: lower CPA is better; an exact tie is not "beating".
-                    "is_better": proj_cpa < ind_avg_cpa,
+                    "status": _cpa_status,
                 }
             )
         if proj_hires and proj_hires > 0:
+            # No real industry-average "hires" benchmark exists to compare
+            # against -- render a neutral em-dash with NO arrow/badge rather
+            # than a fabricated "beating" claim.
             all_comparison_rows.append(
                 {
                     "metric": "Projected Hires",
                     "client_val": f"{int(proj_hires):,}",
                     "industry_val": "—",
-                    "is_better": True,
+                    "status": "none",
                 }
             )
         if ba_total_budget and ba_total_budget > 0:
+            # Same: "Varies" is not a real benchmark to compare against.
             all_comparison_rows.append(
                 {
                     "metric": "Total Investment",
                     "client_val": _fmt_currency(ba_total_budget),
                     "industry_val": "Varies",
-                    "is_better": True,
+                    "status": "none",
                 }
             )
 
-    # Reframe trailing metrics with improvement targets to build confidence
-    # Count how many are beating vs trailing
-    beating_count = sum(1 for r in all_comparison_rows if r["is_better"])
+    # ---- Honest goal-gap row (display_format.parse_hire_goal / goal_gap) ----
+    # When the client stated a hiring GOAL and this plan's projection falls
+    # short of it, add an honest gap callout -- framed as a scaling roadmap,
+    # never as a failure.
+    _hire_goal = _fmt.parse_hire_goal(data.get("hire_volume"))
+    _goal_gap = _fmt.goal_gap(proj_hires, _hire_goal, comp_cph)
+    if _goal_gap:
+        all_comparison_rows.append(
+            {
+                "metric": "vs. Client Goal",
+                "client_val": f"{_goal_gap['projected']:,} ({_goal_gap['pct_of_goal']:.0f}%)",
+                "industry_val": f"{_goal_gap['goal']:,} hires goal",
+                "status": "trailing",
+            }
+        )
 
-    # If majority trailing, reframe trailing metrics as improvement opportunities
-    if beating_count < len(all_comparison_rows) / 2:
-        for row in all_comparison_rows:
-            if not row["is_better"]:
-                # Reframe with target - show current and where the plan aims to get
-                row["client_val"] = f"{row['client_val']} \u2192 {row['industry_val']}"
-                row["is_better"] = True  # Mark as positive (targeting improvement)
-                row["metric"] = f"{row['metric']} (Target)"
-
-    # Prioritize: show beating-benchmark rows first, then reframed ones
-    comparison_rows = sorted(all_comparison_rows, key=lambda r: (not r["is_better"], 0))
-    comparison_rows = comparison_rows[:5]  # limit to 5 rows
+    # Honest ordering: beating benchmark first, then on-par/within-range,
+    # then trailing/no-comparison last. NOTE: this deliberately does NOT
+    # relabel trailing metrics as "(Target)" and flip them to a green
+    # "beating" arrow -- that used to cosmetically launder every trailing
+    # metric into a fabricated win whenever trailing rows were the majority.
+    _status_rank = {"beating": 0, "on_par": 1, "trailing": 2, "none": 3}
+    comparison_rows = sorted(
+        all_comparison_rows, key=lambda r: _status_rank.get(r["status"], 3)
+    )
+    if _goal_gap:
+        # The goal-gap row is the single most decision-relevant honesty
+        # signal on this slide -- it always keeps a slot rather than risking
+        # getting crowded out by the 5-row display cap.
+        _goal_row = next(
+            (r for r in comparison_rows if r["metric"] == "vs. Client Goal"), None
+        )
+        comparison_rows = [r for r in comparison_rows if r is not _goal_row]
+        comparison_rows = comparison_rows[:4]
+        if _goal_row:
+            comparison_rows.append(_goal_row)
+    else:
+        comparison_rows = comparison_rows[:5]  # limit to 5 rows
 
     # ==== LEFT PANEL: Client Plan ====
     _add_rounded_rect(slide, left_panel_x, comp_top, panel_w, panel_h, WHITE)
@@ -5669,9 +5787,12 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             anchor=MSO_ANCHOR.MIDDLE,
         )
 
-        # Value with status indicator
-        status_color = GREEN if row["is_better"] else AMBER
-        indicator = "\u25b2" if row["is_better"] else "\u25bc"
+        # Value with status indicator -- 3-state (beating / on_par /
+        # trailing / none), a tie or "no real benchmark" row renders a
+        # neutral em-dash with no colored arrow at all.
+        status_color, indicator, _ = _CMP_STATUS_STYLE.get(
+            row.get("status", "on_par"), _CMP_STATUS_STYLE["on_par"]
+        )
 
         val_box, val_tf = _add_textbox(
             slide,
@@ -5765,8 +5886,14 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     r3.text = "\u25bc "
     _set_font(r3, size=8, bold=True, color=AMBER)
     r4 = p.add_run()
-    r4.text = "Trailing benchmark"
+    r4.text = "Trailing benchmark    "
     _set_font(r4, size=8, color=MUTED_TEXT)
+    r5 = p.add_run()
+    r5.text = "\u2014 "
+    _set_font(r5, size=8, bold=True, color=MUTED_TEXT)
+    r6 = p.add_run()
+    r6.text = "On par / within range"
+    _set_font(r6, size=8, color=MUTED_TEXT)
 
     # ==== IMPLEMENTATION TIMELINE (bottom) ====
     timeline_top = Inches(4.98)  # was 4.8 — header overlapped the legend above
@@ -6934,6 +7061,14 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
 
         client = data.get("client_name", "Client")
         industry_label = data.get("industry_label") or ""
+        roles = data.get("roles") or []
+        locations = data.get("locations") or []
+        _cl_first_role = str(roles[0]) if roles else ""
+        _cl_first_loc = (
+            str(locations[0])
+            if locations and isinstance(locations[0], (str, int, float))
+            else ""
+        )
         today = datetime.date.today().strftime("%B %d, %Y")
 
         synthesized = data.get("_synthesized", {})
@@ -7033,23 +7168,14 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         if not isinstance(company, dict):
             company = {}
 
-        profile_top = section_top + Inches(0.5)
-        _add_rounded_rect(slide, Inches(0.55), profile_top, left_w, Inches(2.2), WHITE)
-        _add_filled_rect(
-            slide, Inches(0.55), profile_top, Inches(0.06), Inches(2.2), BLUE
-        )
-
         profile_items = [
             ("Company", company.get("name", client)),
         ]
         desc = company.get("description") or ""
         if desc:
-            profile_items.append(
-                (
-                    "Description",
-                    str(desc)[:100] + ("..." if len(str(desc)) > 100 else ""),
-                )
-            )
+            # Word-boundary truncation (never mid-word), ellipsis only when
+            # the text was actually cut.
+            profile_items.append(("Description", _trunc_word(str(desc), 100)))
         domain = company.get("domain") or ""
         if domain:
             profile_items.append(("Domain", str(domain)))
@@ -7068,19 +7194,34 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         tags = company.get("clearbit_tags") or []
         if isinstance(tags, list) and tags:
             profile_items.append(("Tags", ", ".join(str(t) for t in tags[:4])))
+        profile_items = profile_items[:7]
+
+        # Card shrinks to fit the number of POPULATED fields (1-7 rows) --
+        # never a fixed-height card with mostly blank space below a
+        # 1-2-field profile.
+        _profile_row_h_in = 0.27
+        profile_card_h = Inches(
+            max(0.62, min(2.2, 0.3 + len(profile_items) * _profile_row_h_in))
+        )
+
+        profile_top = section_top + Inches(0.5)
+        _add_rounded_rect(slide, Inches(0.55), profile_top, left_w, profile_card_h, WHITE)
+        _add_filled_rect(
+            slide, Inches(0.55), profile_top, Inches(0.06), profile_card_h, BLUE
+        )
 
         box_p, tf_p = _add_textbox(
             slide,
             Inches(0.8),
             profile_top + Inches(0.15),
             left_w - Inches(0.4),
-            Inches(2.0),
+            profile_card_h - Inches(0.2),
         )
         tf_p.paragraphs[0].space_before = Pt(0)
         tf_p.paragraphs[0].space_after = Pt(0)
 
         first = True
-        for label, value in profile_items[:7]:
+        for label, value in profile_items:
             if first:
                 p = tf_p.paragraphs[0]
                 first = False
@@ -7096,7 +7237,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             _set_font(rv, size=9, color=MUTED_TEXT)
 
         # ---- Industry Hiring Trends (below company profile) ----
-        trends_top = profile_top + Inches(2.4)
+        trends_top = profile_top + profile_card_h + Inches(0.2)
         _add_textbox(
             slide,
             Inches(0.55),
@@ -7194,6 +7335,24 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         if isinstance(top_src, dict) and top_src:
             src_items = [f"{k}: {v}" for k, v in list(top_src.items())[:3]]
             trend_items.append(f"Top Sources: {', '.join(src_items)}")
+
+        # Fewer than 2 real bullets: fill with genuine, sourced substance
+        # (curated role-requirement callouts + a city-data-backed geography
+        # rationale) instead of a bare "not available" placeholder.
+        if len(trend_items) < 2:
+            _cl_gold = data.get("_gold_standard") or {}
+            _cl_city_data = (
+                _cl_gold.get("city_level_data") or {} if isinstance(_cl_gold, dict) else {}
+            )
+            trend_items.extend(
+                _insight.role_requirements_callout(str(data.get("industry") or ""), roles)
+            )
+            if _cl_first_loc:
+                trend_items.append(
+                    _insight.geography_rationale(
+                        _cl_first_loc, _cl_city_data.get(_cl_first_loc.split(",")[0].strip())
+                    )
+                )
 
         if not trend_items:
             trend_items = ["Industry trend data not available"]
@@ -7336,8 +7495,11 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 color=MUTED_TEXT,
             )
         else:
-            comp_card_h = Inches(1.0)  # Taller cards for counter-strategy
-            comp_card_gap = Inches(0.1)
+            # Taller cards for counter-strategy -- compose_counter_strategy's
+            # prose runs longer than the old fixed boilerplate line, so the
+            # card needs more room than the original 1.0in fit.
+            comp_card_h = Inches(1.3)
+            comp_card_gap = Inches(0.12)
             for ci, (comp_name, comp_data) in enumerate(list(competitors.items())[:4]):
                 if not isinstance(comp_data, dict):
                     continue
@@ -7369,7 +7531,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 comp_desc = comp_data.get("description") or ""
                 why_text = ""
                 if comp_desc:
-                    why_text = str(comp_desc)[:80]
+                    why_text = _trunc_word(str(comp_desc), 80)
                 elif comp_domain:
                     why_text = f"Competes for same talent pool ({comp_domain})"
                 else:
@@ -7386,17 +7548,28 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     color=MUTED_TEXT,
                 )
 
-                # Counter-strategy
-                counter = (
-                    f"Counter: Differentiate with career growth narrative, "
-                    f"faster hiring process, and culture-first employer brand"
+                # Counter-strategy -- per-competitor prose (varies
+                # deterministically by competitor + role), never the same
+                # boilerplate sentence for every card.
+                _counter_ctx = {
+                    "role": _cl_first_role,
+                    "city": _cl_first_loc,
+                    "industry": industry_label,
+                    "intensity": str(comp_data.get("hiring_intensity") or ""),
+                    "competitor_type": str(comp_data.get("competitor_type") or ""),
+                    "ordinal": ci,
+                }
+                counter = _trunc_word(
+                    "Counter: "
+                    + _insight.compose_counter_strategy(str(comp_name), _counter_ctx),
+                    190,
                 )
                 _add_textbox(
                     slide,
                     right_left + Inches(0.2),
                     cy + Inches(0.58),
                     right_w - Inches(0.4),
-                    Inches(0.35),
+                    Inches(0.65),
                     text=counter,
                     font_size=8,
                     bold=False,
@@ -7406,23 +7579,26 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         # Market positioning insight
         positioning = comp_intel.get("market_positioning", {})
         if isinstance(positioning, dict) and positioning:
-            pos_top = Inches(5.8)
-            _add_rounded_rect(
-                slide, Inches(0.55), pos_top, Inches(12.2), Inches(0.7), PALE_TEAL
-            )
-            _add_filled_rect(
-                slide, Inches(0.55), pos_top, Inches(0.06), Inches(0.7), TEAL
-            )
-
             pos_text = positioning.get("summary", positioning.get("insight") or "")
+            # Only draw the callout band when there's actual text to show --
+            # an empty highlight band (colored rect with nothing in it) used
+            # to render whenever `positioning` was a non-empty dict with no
+            # summary/insight field.
             if pos_text:
+                pos_top = Inches(5.8)
+                _add_rounded_rect(
+                    slide, Inches(0.55), pos_top, Inches(12.2), Inches(0.7), PALE_TEAL
+                )
+                _add_filled_rect(
+                    slide, Inches(0.55), pos_top, Inches(0.06), Inches(0.7), TEAL
+                )
                 _add_textbox(
                     slide,
                     Inches(0.8),
                     pos_top + Inches(0.1),
                     Inches(11.7),
                     Inches(0.5),
-                    text=str(pos_text)[:200],
+                    text=_trunc_word(str(pos_text), 200),
                     font_size=9,
                     color=DARK_TEXT,
                 )
@@ -9189,12 +9365,22 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
                 for ch in sorted_ch[:2]
             )
             if top_2_pct > 55:
+                # "Hires at risk" must be the ACTUAL sum of these named
+                # channels' own projected_hires from _budget_allocation, not
+                # a percentage-of-total-hires estimate -- the two can
+                # diverge sharply (a shipped bundle once said "29 hires" here
+                # while the named channels actually summed to 19).
+                top_2_hires = sum(
+                    int((channel_allocs.get(k) or {}).get("projected_hires") or 0)
+                    for k in top_2_names
+                )
+                top_2_labels = [_fmt.channel_label(k) for k in top_2_names]
                 risks.append(
                     (
                         "CHANNELS",
                         "Channel Concentration",
-                        f"{top_2_pct:.0f}% of budget on {', '.join(top_2_names)} — "
-                        f"disruption could impact {top_2_pct * proj_hires / 100:.0f} hires",
+                        f"{top_2_pct:.0f}% of budget on {', '.join(top_2_labels)} — "
+                        f"disruption could impact {_fmt.fmt_count(top_2_hires, 'hire')}",
                         "Diversify to 4+ channels; maintain backup channels on standby",
                     )
                 )
@@ -9226,11 +9412,12 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
             and str(v.get("hiring_intensity") or "").lower() in ("high", "very_high")
         )
         if n_high_comp > 0:
+            _n_high_comp_txt = _fmt.fmt_count(n_high_comp, "market")
             risks.append(
                 (
                     "COMPETITION",
-                    f"High Competition ({n_high_comp} markets)",
-                    f"Fortune 500+ companies hiring same roles in {n_high_comp} market(s)",
+                    f"High Competition ({_n_high_comp_txt})",
+                    f"Fortune 500+ companies hiring same roles in {_n_high_comp_txt}",
                     "Differentiate with employer brand; emphasize career growth and culture",
                 )
             )
@@ -9558,9 +9745,15 @@ def _build_slide_cpa_reference(prs: Presentation, data: Dict, deck: Dict) -> Non
 
     Shape-built table: indigo header row with white Poppins text, columns
     Role Category | Est. CPA Range | Benchmark Basis, zebra-striped rows.
-    No-ops if the deck KB section is missing.
+    KB v2.0 schema: ``cpa_reference[<industry_key>]`` (industry-keyed; only
+    ``'ai_training'`` is populated). No-ops (drops the slide entirely, no
+    empty placeholder) when this plan's key has no KB content.
     """
-    cpa = deck.get("cpa_reference") or {}
+    cpa_by_key = deck.get("cpa_reference") or {}
+    key = _kb_content_key(data)
+    cpa = cpa_by_key.get(key) if isinstance(cpa_by_key, dict) else None
+    if not isinstance(cpa, dict):
+        return
     roles = cpa.get("roles") or []
     if not roles:
         return
@@ -9749,6 +9942,83 @@ def _build_slide_why_joveo(prs: Presentation, data: Dict, deck: Dict) -> None:
     _add_footer(slide, today)
 
 
+def _build_slide_next_steps_only(prs: Presentation, next_steps: List[Any]) -> None:
+    """Full-canvas 'Next Steps' slide, used when this plan's industry has no
+    KB case-study content (see :func:`_kb_content_key`). Gives the numbered
+    steps the whole canvas -- deliberately renders NO case-study header,
+    stat tiles, or Challenges/Solution columns, since those would either be
+    empty or would require content this plan's industry doesn't have.
+    No-ops if there are no next steps either.
+    """
+    if not next_steps:
+        return
+
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+    today = datetime.date.today().strftime("%B %d, %Y")
+
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+    _add_top_band(slide, "NEXT STEPS", today)
+    _add_textbox(
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.45),
+        text="Recommended path forward",
+        font_size=15,
+        bold=True,
+        color=NAVY,
+    )
+
+    steps = list(next_steps)[:6]
+    n = len(steps)
+    top_in = 1.75
+    bottom_in = 6.9
+    row_h_in = (bottom_in - top_in) / n
+    for idx, step in enumerate(steps):
+        y = Inches(top_in + idx * row_h_in)
+        row_h = Inches(row_h_in - 0.14)
+        _add_rounded_rect(
+            slide,
+            Inches(0.55),
+            y,
+            Inches(12.25),
+            row_h,
+            LAVENDER_50 if idx % 2 == 0 else WHITE,
+        )
+        chip = Inches(0.44)
+        chip_y = y + Emu(int((int(row_h) - int(chip)) / 2))
+        _add_oval(slide, Inches(0.85), chip_y, chip, chip, BLUE)
+        _add_textbox(
+            slide,
+            Inches(0.85),
+            chip_y,
+            chip,
+            chip,
+            text=str(idx + 1),
+            font_size=13,
+            bold=True,
+            color=WHITE,
+            alignment=PP_ALIGN.CENTER,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+        _box, _tf = _add_textbox(
+            slide,
+            Inches(1.55),
+            y,
+            Inches(10.9),
+            row_h,
+            text=str(step),
+            font_size=13,
+            color=DARK_TEXT,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+        _set_body_font(_tf)
+
+    _add_footer(slide, today)
+
+
 def _build_slide_case_study_next_steps(
     prs: Presentation, data: Dict, deck: Dict
 ) -> None:
@@ -9756,11 +10026,20 @@ def _build_slide_case_study_next_steps(
 
     Top: 3 KPI stat blocks from case_study.results. Middle: Challenges vs.
     The Joveo Solution bullet columns. Bottom: numbered Next Steps strip.
-    No-ops if both deck KB sections are missing.
+
+    KB v2.0 schema: ``case_study[<industry_key>]`` (industry-keyed; only
+    ``'ai_training'`` is populated). When this plan's key has no KB case
+    study, this NEVER fabricates one -- it falls through to
+    :func:`_build_slide_next_steps_only`, a full-canvas Next Steps layout
+    with no case-study header/tiles/stat row. No-ops entirely if there is
+    also no ``next_steps`` content.
     """
-    case = deck.get("case_study") or {}
+    case_by_key = deck.get("case_study") or {}
+    key = _kb_content_key(data)
+    case = case_by_key.get(key) if isinstance(case_by_key, dict) else None
     next_steps = deck.get("next_steps") or []
-    if not case and not next_steps:
+    if not isinstance(case, dict) or not case:
+        _build_slide_next_steps_only(prs, next_steps)
         return
 
     slide_layout = prs.slide_layouts[6]
@@ -10799,13 +11078,13 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         else:
             _build_slide_quality_outcomes(prs, data)
 
-        # Slide 7: CPA Reference — only for AI-training engagements (role data is AI-trainer specific)
-        _is_ai = _is_ai_training_plan({"industry": data.get("industry"), "roles": data.get("roles")})
-        if _is_ai:
-            try:
-                _build_slide_cpa_reference(prs, data, deck)
-            except Exception as _cpa_exc:
-                logger.debug("CPA Reference slide failed (non-fatal): %s", _cpa_exc)
+        # Slide 7: CPA Reference — industry-keyed KB content (only AI-training
+        # is populated); _build_slide_cpa_reference itself drops the slide
+        # entirely when this plan's industry key has no KB content.
+        try:
+            _build_slide_cpa_reference(prs, data, deck)
+        except Exception as _cpa_exc:
+            logger.debug("CPA Reference slide failed (non-fatal): %s", _cpa_exc)
 
         # Slide 8: Competitive Landscape (always shown)
         _build_slide_competitive_landscape(prs, data)
