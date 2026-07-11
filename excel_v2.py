@@ -6455,6 +6455,16 @@ def _build_sheet_quality_intelligence(
                 _estimated_fill = PatternFill(
                     start_color=AMBER, end_color=AMBER, fill_type="solid"
                 )
+                # S92 fix: gold_standard.enrich_city_level_data's internal
+                # ``source`` value for the tier-scaled fallback branch is the
+                # raw code-facing token "generic_enrichment" (its sibling
+                # matched-keyword branch already uses a display-ready
+                # "Industry Benchmark" string) -- map it to a client-facing
+                # label at render time rather than leaking the internal
+                # token into this cell. Internal ``source`` value itself is
+                # left untouched (tests/test_gold_standard_taxonomy.py
+                # asserts it literally).
+                _SOURCE_DISPLAY_LABELS = {"generic_enrichment": "Tier-Scaled Estimate"}
                 _all_salary_rows: List[Dict[str, Any]] = []
                 for city_name, info in city_data.items():
                     role_salary: dict = info.get("per_role_salary") or {}
@@ -6463,6 +6473,10 @@ def _build_sheet_quality_intelligence(
                         _is_estimated = sal.get("confidence") == "estimated"
                         _role_display = (
                             f"{role_name} (est.)" if _is_estimated else role_name
+                        )
+                        _source_raw = sal.get("source") or ""
+                        _source_display = _SOURCE_DISPLAY_LABELS.get(
+                            _source_raw, _source_raw
                         )
                         row = _write_table_row(
                             ws,
@@ -6476,7 +6490,7 @@ def _build_sheet_quality_intelligence(
                                 _safe_num(sal.get("p75", sal.get("max", 0))),
                                 _safe_num(sal.get("max", 0)),
                                 f"{sal.get('multiplier', 1.0):.2f}x",
-                                str(sal.get("source") or "—"),
+                                str(_source_display or "—"),
                             ],
                             number_formats=_role_sal_fmts,
                             alternate=alt_idx % 2 == 1,
@@ -6600,6 +6614,8 @@ def _build_sheet_quality_intelligence(
             industry_label_qs = data.get("industry_label") or (
                 (data.get("industry") or "").replace("_", " ").title()
             )
+            _roles_qs = _get_roles(data)
+            _first_role_qs = _roles_qs[0] if _roles_qs else ""
             for idx, (city_name_raw, info) in enumerate(competitor_map.items()):
                 if city_name_raw.startswith("_"):
                     continue  # skip internal keys like _national
@@ -6629,24 +6645,34 @@ def _build_sheet_quality_intelligence(
                         f"{client_name_qs}'s talent acquisition"
                     )
 
-                # Generate counter-strategy
-                if intensity in ("high", "very_high") and employers:
-                    top_employer = employers[0] if employers else "competitors"
-                    counter = (
-                        f"Differentiate vs {top_employer}: emphasize career growth, "
-                        f"culture, and work-life balance. "
-                        f"Increase niche channel spend to find passive candidates."
-                    )
-                elif intensity == "moderate":
-                    counter = (
-                        f"Leverage speed-to-hire advantage. "
-                        f"Target candidates frustrated with slow processes at larger firms."
-                    )
-                else:
-                    counter = (
-                        f"Capitalize on low competition with aggressive employer brand "
-                        f"presence. Consider community events and local partnerships."
-                    )
+                # Generate counter-strategy.
+                # S92 fix: the 3 fixed boilerplate sentences below (keyed
+                # ONLY off the 3-value `intensity` bucket, city/employer name
+                # interpolated in the "high" branch only) rendered
+                # BYTE-IDENTICAL text for every city that landed in the same
+                # bucket -- e.g. 5 different low-intensity cities in one
+                # plan all got the exact same "Capitalize on low
+                # competition..." sentence, which bundle_qa's
+                # counter_strategy_near_duplicate check correctly flags as
+                # "competitors must not read as interchangeable". Use the
+                # same insight_composer.compose_counter_strategy skeleton
+                # bank the Market Intelligence sheet's competitor table
+                # (line ~4470 above) and the deck's competitor cards
+                # (ppt_generator.py) already use for exactly this reason --
+                # ordinal-indexed skeleton selection guarantees adjacent
+                # rows never share a sentence, and the top employer + city
+                # are interpolated into every row, not just the "high" one.
+                top_employer = employers[0] if employers else "competitors"
+                counter = insight_composer.compose_counter_strategy(
+                    top_employer,
+                    {
+                        "role": _first_role_qs,
+                        "city": city_name,
+                        "industry": industry_label_qs,
+                        "intensity": intensity,
+                        "ordinal": idx,
+                    },
+                )
 
                 # S5 (2026-07-03, finding 39): never hard-truncate why_matter/
                 # counter mid-word -- wrap + tallen the row instead.
