@@ -708,8 +708,15 @@ _ROLE_SALARY_RANGES: dict[str, tuple[int, int]] = {
     "lawyer": (80_000, 200_000),
     "chef": (35_000, 65_000),
     "cook": (28_000, 40_000),
+    "line cook": (26_000, 38_000),
+    "dishwasher": (22_000, 30_000),
     "housekeeper": (28_000, 38_000),
+    "housekeeping": (28_000, 38_000),
+    "custodian": (27_000, 38_000),
     "janitor": (27_000, 38_000),
+    "server": (20_000, 34_000),
+    "waitstaff": (20_000, 34_000),
+    "memory care": (28_000, 40_000),
     "maintenance technician": (35_000, 55_000),
     "electrician": (45_000, 80_000),
     "plumber": (45_000, 80_000),
@@ -718,7 +725,63 @@ _ROLE_SALARY_RANGES: dict[str, tuple[int, int]] = {
     "machinist": (40_000, 65_000),
     "construction worker": (35_000, 60_000),
     "carpenter": (40_000, 70_000),
+    # -- Healthcare (S.. FIX: bare "nurse" and shift/charge variants were
+    # falling through to the flat generic_enrichment fallback and pricing
+    # identically to unrelated frontline roles; see also _ROLE_TIER_MULTIPLIERS.
+    "charge nurse": (65_000, 105_000),
+    "shift nurse": (60_000, 95_000),
+    "nurse": (55_000, 95_000),
+    # Generic bare "driver" -- only matches when no more specific driver
+    # keyword (cdl driver / truck driver / delivery driver, above) applies,
+    # since those are longer strings and are tried first (longest-match-first).
+    "driver": (30_000, 50_000),
 }
+
+# ---------------------------------------------------------------------------
+# Short/ambiguous role abbreviations that are UNSAFE to match via plain
+# substring search (e.g. bare "rn" also appears inside "warn", "morning",
+# "return"; "lvn" could collide with generated slugs).  These are matched as
+# standalone whole-word tokens only (see _match_token_alias) and mapped to
+# their canonical, already-safe multi-word keyword above.
+# ---------------------------------------------------------------------------
+_ROLE_TOKEN_ALIASES: dict[str, str] = {
+    "rn": "registered nurse",
+    "lpn": "licensed practical nurse",
+    "lvn": "licensed vocational nurse",
+    "cdl": "cdl driver",
+}
+
+
+def _token_boundary_match(keyword: str, text: str) -> bool:
+    """True if *keyword* appears in *text* as a whole word/phrase.
+
+    Plain ``keyword in text`` substring checks collide with unrelated words
+    that happen to contain the same letters -- e.g. the executive-suite
+    abbreviation "coo" (Chief Operating Officer) is a raw substring of the
+    food-service role "cook", which previously caused role titles like
+    "Cook" to be misclassified as C-suite/10.0-difficulty roles.  This
+    helper requires non-alphanumeric (or string-boundary) characters on
+    both sides of *keyword* so only real word/phrase matches count.
+    """
+    kw = keyword.strip()
+    if not kw:
+        return False
+    pattern = r"(?<![a-z0-9])" + re.escape(kw) + r"(?![a-z0-9])"
+    return re.search(pattern, text) is not None
+
+
+def _match_token_alias(title_lower: str) -> str | None:
+    """Whole-word alias lookup for short/ambiguous role abbreviations.
+
+    Returns the canonical keyword (safe to look up in _ROLE_SALARY_RANGES
+    or _ROLE_DIFFICULTY_MAP) when *title_lower* contains one of
+    _ROLE_TOKEN_ALIASES as a standalone token, else None.
+    """
+    tokens = set(re.findall(r"[a-z0-9']+", title_lower))
+    for token, canonical in _ROLE_TOKEN_ALIASES.items():
+        if token in tokens:
+            return canonical
+    return None
 
 # PERF: Pre-compute the longest-match-first sorted keyword list ONCE at module
 # load instead of sorting on every call to _clamp_salary_for_role and
@@ -740,6 +803,9 @@ def _match_role_to_salary_range(
     for keyword in _ROLE_SALARY_KEYWORDS_SORTED:
         if keyword in title_lower:
             return _ROLE_SALARY_RANGES[keyword], keyword
+    alias = _match_token_alias(title_lower)
+    if alias is not None and alias in _ROLE_SALARY_RANGES:
+        return _ROLE_SALARY_RANGES[alias], alias
     return None, ""
 
 
@@ -810,6 +876,179 @@ def _clamp_salary_for_role(
     return best_clamped if best_clamped is not None else est_salary
 
 
+# ---------------------------------------------------------------------------
+# Salary band ordering + role-tier fallback multipliers.
+# ---------------------------------------------------------------------------
+
+
+def _ordered_salary_band(
+    min_v: float, p25_v: float, median_v: float, p75_v: float, max_v: float
+) -> dict[str, float]:
+    """Return a salary band with the invariant min <= p25 <= median <= p75 <= max.
+
+    Pure function -- no I/O, no module state.  Enriched/derived salary
+    values can arrive out of order (e.g. an external percentile source
+    returning P25 below the floor, or P75 above the ceiling -- both
+    observed in production for "nurse"/"shift nurse"/"housekeeper" rows).
+    When p25/p75 violate ordering against the median they are re-derived
+    from the median; min/max are then clamped outward so the full chain
+    stays monotonic.  A non-positive (or non-numeric) median collapses the
+    whole band to zeros since there is no reliable anchor to build from.
+    """
+
+    def _f(v: Any) -> float:
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0
+
+    lo, q1, med, q3, hi = _f(min_v), _f(p25_v), _f(median_v), _f(p75_v), _f(max_v)
+
+    if med <= 0:
+        return {"min": 0.0, "p25": 0.0, "median": 0.0, "p75": 0.0, "max": 0.0}
+
+    # Re-derive p25/p75 from the median whenever they violate ordering.
+    if q1 <= 0 or q1 > med:
+        q1 = round(med * 0.85, 2)
+    if q3 <= 0 or q3 < med:
+        q3 = round(med * 1.15, 2)
+
+    # Clamp min/max outward so min<=p25 and max>=p75 always hold.
+    lo = round(q1 * 0.9, 2) if lo <= 0 else round(min(lo, q1), 2)
+    hi = round(q3 * 1.1, 2) if hi <= 0 else round(max(hi, q3), 2)
+
+    return {
+        "min": round(lo, 2),
+        "p25": round(q1, 2),
+        "median": round(med, 2),
+        "p75": round(q3, 2),
+        "max": round(hi, 2),
+    }
+
+
+# Salary-band tier multipliers used when a role has no specific keyword
+# match in _ROLE_SALARY_RANGES (FIX: previously every unmatched role in a
+# city -- e.g. "nurse", "dishwasher", "memory care aide" -- received the
+# exact same flat est_salary +/- offset, so a licensed nurse and a
+# dishwasher priced on byte-identical bands).  Each tier scales the generic
+# city-average estimate instead of using a flat number for every role.
+_ROLE_TIER_SALARY_MULTIPLIERS: dict[str, float] = {
+    "frontline": 0.55,
+    "professional": 1.0,
+    "licensed_clinical": 1.35,
+    "skilled_trade": 0.85,
+}
+
+
+def _lookup_role_tier(role_title: str) -> tuple[str, str]:
+    """Return (tier, source) for *role_title*.
+
+    tier is one of "frontline", "professional", "licensed_clinical",
+    "skilled_trade".  source is "role_profile_match" when the role was
+    found in _ROLE_DIFFICULTY_MAP with an explicit "tier", otherwise
+    "unclassified_default" -- and the tier defaults to the middle
+    "professional" band, NEVER to an executive/leadership tier, for an
+    unmatched title.
+    """
+    profile = _lookup_role_difficulty(role_title)
+    if profile and profile.get("tier"):
+        return str(profile["tier"]), "role_profile_match"
+    return "professional", "unclassified_default"
+
+
+def confidence_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarize the 'confidence' field across a list of per-role/per-city rows.
+
+    Each row is expected to carry a 'confidence' value of "benchmark" or
+    "estimated" (see enrich_city_level_data's per_role_salary and
+    classify_difficulty).  Used to reconcile with the deck's Sources &
+    Confidence section.  Pure function; tolerates malformed/missing rows.
+
+    Returns:
+        Dict with total_rows, benchmark_count, estimated_count,
+        unclassified_count, pct_benchmark, pct_estimated.
+    """
+    total = 0
+    benchmark = 0
+    estimated = 0
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        total += 1
+        conf = row.get("confidence")
+        if conf == "benchmark":
+            benchmark += 1
+        elif conf == "estimated":
+            estimated += 1
+
+    return {
+        "total_rows": total,
+        "benchmark_count": benchmark,
+        "estimated_count": estimated,
+        "unclassified_count": total - benchmark - estimated,
+        "pct_benchmark": round(100.0 * benchmark / total, 1) if total else 0.0,
+        "pct_estimated": round(100.0 * estimated / total, 1) if total else 0.0,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Work-model sanity: some roles are inherently site-based (care, culinary,
+# logistics) and a "Remote" stated work model for those roles is very
+# likely a data-entry mistake rather than an intentional remote posting.
+# ---------------------------------------------------------------------------
+ONSITE_REQUIRED_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "caregiver",
+        "nurse",
+        "cna",
+        "aide",
+        "cook",
+        "chef",
+        "dishwasher",
+        "housekeeper",
+        "housekeeping",
+        "server",
+        "waitstaff",
+        "driver",
+        "warehouse",
+        "maintenance",
+        "janitor",
+        "custodian",
+        "forklift",
+        "technician",
+    }
+)
+
+
+def effective_work_model(stated: str, roles: list[str]) -> tuple[str, str | None]:
+    """Correct a stated work model when the plan's roles imply on-site work.
+
+    Args:
+        stated: The plan's stated work model (e.g. "Remote", "Hybrid", "On-site").
+        roles: Role titles in the plan.
+
+    Returns:
+        (corrected_model, note) -- note is None when no correction was
+        applied.  Pure function; does not mutate its inputs.  Wiring this
+        into the actual plan-generation pipeline is a separate follow-up.
+    """
+    stated_clean = (stated or "").strip()
+    if "remote" not in stated_clean.lower():
+        return stated_clean or "Not specified", None
+
+    roles_text = " ".join(str(r) for r in (roles or [])).lower()
+    matched = [
+        kw for kw in ONSITE_REQUIRED_KEYWORDS if _token_boundary_match(kw, roles_text)
+    ]
+    if not matched:
+        return stated_clean, None
+
+    return (
+        "On-site",
+        "Stated Remote adjusted to On-site: care/culinary roles are site-based",
+    )
+
+
 def enrich_city_level_data(data: dict) -> dict:
     """Produce per-city salary, hiring difficulty, and supply segmentation.
 
@@ -858,9 +1097,11 @@ def enrich_city_level_data(data: dict) -> dict:
     # The same role titles are matched against _ROLE_SALARY_RANGES for every
     # city.  Caching the match result avoids N_cities * N_roles keyword scans.
     _role_range_cache: dict[str, tuple[tuple[int, int] | None, str]] = {}
+    _role_tier_cache: dict[str, tuple[str, str]] = {}
     for _rt in role_titles:
         _rt_lower = _rt.lower().strip()
         _role_range_cache[_rt] = _match_role_to_salary_range(_rt_lower)
+        _role_tier_cache[_rt] = _lookup_role_tier(_rt)
 
     for loc in (locations_raw if isinstance(locations_raw, list) else []):
         city_name = ""
@@ -958,34 +1199,59 @@ def enrich_city_level_data(data: dict) -> dict:
         # -----------------------------------------------------------
         # Per-role salary breakdown.
         # For each role in the plan, compute a city-adjusted salary
-        # range using _ROLE_SALARY_RANGES.  Roles that do not match
-        # any known keyword fall back to the generic est_salary.
+        # range using _ROLE_SALARY_RANGES.  Roles that do not match any
+        # known keyword fall back to a tier-scaled estimate (FIX: previously
+        # every unmatched role used the SAME flat est_salary +/- offset, so
+        # e.g. "nurse", "dishwasher" and "memory care aide" all priced
+        # identically regardless of skill/licensure).
         # -----------------------------------------------------------
         per_role_salary: dict[str, dict[str, Any]] = {}
         for title in role_titles:
-            # PERF: Use cached role-to-range mapping instead of scanning per city
+            # PERF: Use cached role-to-range/tier mapping instead of
+            # re-scanning keyword tables for every city.
             matched_range, matched_keyword = _role_range_cache[title]
+            tier, tier_source = _role_tier_cache[title]
 
             if matched_range is not None:
-                role_min = round(matched_range[0] * multiplier)
-                role_max = round(matched_range[1] * multiplier)
-                role_median = round(
-                    (matched_range[0] + matched_range[1]) / 2.0 * multiplier
-                )
+                role_min = matched_range[0] * multiplier
+                role_max = matched_range[1] * multiplier
+                role_median = (matched_range[0] + matched_range[1]) / 2.0 * multiplier
                 source = "Industry Benchmark"
             else:
-                # No specific range known -- use generic city estimate
-                role_min = est_salary - 10_000
-                role_max = est_salary + 15_000
-                role_median = est_salary
+                # No specific keyword range known -- scale the generic city
+                # estimate by the role's tier multiplier so frontline,
+                # skilled-trade, and licensed-clinical roles differentiate
+                # instead of collapsing to one identical band.
+                tier_multiplier = _ROLE_TIER_SALARY_MULTIPLIERS.get(tier, 1.0)
+                role_median = national_avg_salary * multiplier * tier_multiplier
+                role_min = role_median * 0.80
+                role_max = role_median * 1.30
                 source = "generic_enrichment"
 
+            # Percentile ordering invariant: derive p25/p75 from the median
+            # and clamp min/max outward so min<=p25<=median<=p75<=max always
+            # holds, even if the inputs above were internally inconsistent.
+            band = _ordered_salary_band(
+                role_min,
+                role_median * 0.90,
+                role_median,
+                role_median * 1.12,
+                role_max,
+            )
+
+            confidence = "benchmark" if source == "Industry Benchmark" else "estimated"
+
             per_role_salary[title] = {
-                "min": role_min,
-                "median": role_median,
-                "max": role_max,
+                "min": round(band["min"]),
+                "p25": round(band["p25"]),
+                "median": round(band["median"]),
+                "p75": round(band["p75"]),
+                "max": round(band["max"]),
                 "multiplier": round(multiplier, 2),
                 "source": source,
+                "confidence": confidence,
+                "tier": tier,
+                "tier_source": tier_source,
             }
 
         city_data[city_name] = {
@@ -1690,150 +1956,175 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "base_difficulty": 7,
         "avg_ttf_days": 42,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "senior software engineer": {
         "seniority": "senior",
         "base_difficulty": 8,
         "avg_ttf_days": 55,
         "supply_level": "scarce",
+        "tier": "professional",
     },
     "staff engineer": {
         "seniority": "staff",
         "base_difficulty": 9,
         "avg_ttf_days": 75,
         "supply_level": "very_scarce",
+        "tier": "professional",
     },
     "principal engineer": {
         "seniority": "staff",
         "base_difficulty": 9,
         "avg_ttf_days": 75,
         "supply_level": "very_scarce",
+        "tier": "professional",
     },
     "data scientist": {
         "seniority": "mid-senior",
         "base_difficulty": 8,
         "avg_ttf_days": 50,
         "supply_level": "scarce",
+        "tier": "professional",
     },
     "ml engineer": {
         "seniority": "senior",
         "base_difficulty": 9,
         "avg_ttf_days": 60,
         "supply_level": "very_scarce",
+        "tier": "professional",
     },
     "machine learning engineer": {
         "seniority": "senior",
         "base_difficulty": 9,
         "avg_ttf_days": 60,
         "supply_level": "very_scarce",
+        "tier": "professional",
     },
     "ai engineer": {
         "seniority": "senior",
         "base_difficulty": 9,
         "avg_ttf_days": 60,
         "supply_level": "very_scarce",
+        "tier": "professional",
     },
     "devops engineer": {
         "seniority": "mid-senior",
         "base_difficulty": 7.5,
         "avg_ttf_days": 45,
         "supply_level": "moderate-scarce",
+        "tier": "professional",
     },
     "sre": {
         "seniority": "mid-senior",
         "base_difficulty": 7.5,
         "avg_ttf_days": 45,
         "supply_level": "moderate-scarce",
+        "tier": "professional",
     },
     "site reliability engineer": {
         "seniority": "mid-senior",
         "base_difficulty": 7.5,
         "avg_ttf_days": 45,
         "supply_level": "moderate-scarce",
+        "tier": "professional",
     },
     "platform engineer": {
         "seniority": "mid-senior",
         "base_difficulty": 7.5,
         "avg_ttf_days": 45,
         "supply_level": "moderate-scarce",
+        "tier": "professional",
     },
     "cloud engineer": {
         "seniority": "mid-senior",
         "base_difficulty": 7.5,
         "avg_ttf_days": 45,
         "supply_level": "moderate-scarce",
+        "tier": "professional",
     },
     "security engineer": {
         "seniority": "mid-senior",
         "base_difficulty": 8,
         "avg_ttf_days": 50,
         "supply_level": "scarce",
+        "tier": "professional",
     },
     "frontend developer": {
         "seniority": "mid",
         "base_difficulty": 6,
         "avg_ttf_days": 35,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "frontend engineer": {
         "seniority": "mid",
         "base_difficulty": 6,
         "avg_ttf_days": 35,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "backend developer": {
         "seniority": "mid",
         "base_difficulty": 7,
         "avg_ttf_days": 40,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "backend engineer": {
         "seniority": "mid",
         "base_difficulty": 7,
         "avg_ttf_days": 40,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "full stack developer": {
         "seniority": "mid",
         "base_difficulty": 6.5,
         "avg_ttf_days": 38,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "fullstack developer": {
         "seniority": "mid",
         "base_difficulty": 6.5,
         "avg_ttf_days": 38,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "data engineer": {
         "seniority": "mid-senior",
         "base_difficulty": 7.5,
         "avg_ttf_days": 45,
         "supply_level": "moderate-scarce",
+        "tier": "professional",
     },
     "qa engineer": {
         "seniority": "mid",
         "base_difficulty": 5,
         "avg_ttf_days": 30,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "product manager": {
         "seniority": "mid-senior",
         "base_difficulty": 6.5,
         "avg_ttf_days": 40,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "ux designer": {
         "seniority": "mid",
         "base_difficulty": 6,
         "avg_ttf_days": 35,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "solutions architect": {
         "seniority": "senior",
         "base_difficulty": 8,
         "avg_ttf_days": 55,
         "supply_level": "scarce",
+        "tier": "professional",
     },
     # -- Healthcare --
     "nurse": {
@@ -1841,48 +2132,56 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "base_difficulty": 6,
         "avg_ttf_days": 30,
         "supply_level": "moderate",
+        "tier": "licensed_clinical",
     },
     "registered nurse": {
         "seniority": "mid",
         "base_difficulty": 6,
         "avg_ttf_days": 30,
         "supply_level": "moderate",
+        "tier": "licensed_clinical",
     },
     "nurse practitioner": {
         "seniority": "senior",
         "base_difficulty": 7.5,
         "avg_ttf_days": 45,
         "supply_level": "moderate-scarce",
+        "tier": "licensed_clinical",
     },
     "physician": {
         "seniority": "senior",
         "base_difficulty": 9,
         "avg_ttf_days": 90,
         "supply_level": "very_scarce",
+        "tier": "licensed_clinical",
     },
     "surgeon": {
         "seniority": "senior",
         "base_difficulty": 9.5,
         "avg_ttf_days": 120,
         "supply_level": "extremely_scarce",
+        "tier": "licensed_clinical",
     },
     "pharmacist": {
         "seniority": "mid",
         "base_difficulty": 6,
         "avg_ttf_days": 35,
         "supply_level": "moderate",
+        "tier": "licensed_clinical",
     },
     "medical assistant": {
         "seniority": "entry",
         "base_difficulty": 3.5,
         "avg_ttf_days": 18,
         "supply_level": "abundant",
+        "tier": "licensed_clinical",
     },
     "physical therapist": {
         "seniority": "mid",
         "base_difficulty": 6.5,
         "avg_ttf_days": 40,
         "supply_level": "moderate",
+        "tier": "licensed_clinical",
     },
     # -- Sales --
     "sdr": {
@@ -1890,36 +2189,42 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "base_difficulty": 4,
         "avg_ttf_days": 20,
         "supply_level": "abundant",
+        "tier": "professional",
     },
     "bdr": {
         "seniority": "entry",
         "base_difficulty": 4,
         "avg_ttf_days": 20,
         "supply_level": "abundant",
+        "tier": "professional",
     },
     "sales development": {
         "seniority": "entry",
         "base_difficulty": 4,
         "avg_ttf_days": 20,
         "supply_level": "abundant",
+        "tier": "professional",
     },
     "account executive": {
         "seniority": "mid",
         "base_difficulty": 5.5,
         "avg_ttf_days": 30,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "sales manager": {
         "seniority": "mid-senior",
         "base_difficulty": 6,
         "avg_ttf_days": 35,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "sales director": {
         "seniority": "senior",
         "base_difficulty": 7.5,
         "avg_ttf_days": 50,
         "supply_level": "moderate-scarce",
+        "tier": "professional",
     },
     # -- Marketing --
     "marketing manager": {
@@ -1927,24 +2232,28 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "base_difficulty": 5,
         "avg_ttf_days": 30,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "marketing coordinator": {
         "seniority": "entry",
         "base_difficulty": 3.5,
         "avg_ttf_days": 18,
         "supply_level": "abundant",
+        "tier": "professional",
     },
     "content writer": {
         "seniority": "mid",
         "base_difficulty": 4.5,
         "avg_ttf_days": 25,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "growth marketing": {
         "seniority": "mid-senior",
         "base_difficulty": 6.5,
         "avg_ttf_days": 38,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     # -- Finance --
     "accountant": {
@@ -1952,24 +2261,28 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "base_difficulty": 5,
         "avg_ttf_days": 28,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "financial analyst": {
         "seniority": "mid",
         "base_difficulty": 5.5,
         "avg_ttf_days": 30,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "actuary": {
         "seniority": "senior",
         "base_difficulty": 8.5,
         "avg_ttf_days": 65,
         "supply_level": "very_scarce",
+        "tier": "professional",
     },
     "investment banker": {
         "seniority": "mid-senior",
         "base_difficulty": 7,
         "avg_ttf_days": 45,
         "supply_level": "moderate-scarce",
+        "tier": "professional",
     },
     # -- Operations / General --
     "project manager": {
@@ -1977,30 +2290,35 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "base_difficulty": 5,
         "avg_ttf_days": 28,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "operations manager": {
         "seniority": "mid",
         "base_difficulty": 5,
         "avg_ttf_days": 28,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "hr manager": {
         "seniority": "mid",
         "base_difficulty": 5,
         "avg_ttf_days": 28,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "recruiter": {
         "seniority": "mid",
         "base_difficulty": 5,
         "avg_ttf_days": 25,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     "customer success": {
         "seniority": "mid",
         "base_difficulty": 4.5,
         "avg_ttf_days": 25,
         "supply_level": "moderate",
+        "tier": "professional",
     },
     # -- Hourly / Entry --
     "cashier": {
@@ -2008,24 +2326,28 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "base_difficulty": 2.5,
         "avg_ttf_days": 12,
         "supply_level": "abundant",
+        "tier": "frontline",
     },
     "warehouse associate": {
         "seniority": "entry",
         "base_difficulty": 3,
         "avg_ttf_days": 14,
         "supply_level": "abundant",
+        "tier": "frontline",
     },
     "retail associate": {
         "seniority": "entry",
         "base_difficulty": 3,
         "avg_ttf_days": 14,
         "supply_level": "abundant",
+        "tier": "frontline",
     },
     "customer service": {
         "seniority": "entry",
         "base_difficulty": 3,
         "avg_ttf_days": 15,
         "supply_level": "abundant",
+        "tier": "frontline",
     },
     # -- Executive (VP+) --
     "vp": {
@@ -2033,30 +2355,35 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "base_difficulty": 9.5,
         "avg_ttf_days": 120,
         "supply_level": "extremely_scarce",
+        "tier": "professional",
     },
     "vice president": {
         "seniority": "executive",
         "base_difficulty": 9.5,
         "avg_ttf_days": 120,
         "supply_level": "extremely_scarce",
+        "tier": "professional",
     },
     "cto": {
         "seniority": "executive",
         "base_difficulty": 10,
         "avg_ttf_days": 150,
         "supply_level": "extremely_scarce",
+        "tier": "professional",
     },
     "cfo": {
         "seniority": "executive",
         "base_difficulty": 10,
         "avg_ttf_days": 150,
         "supply_level": "extremely_scarce",
+        "tier": "professional",
     },
     "ceo": {
         "seniority": "executive",
         "base_difficulty": 10,
         "avg_ttf_days": 180,
         "supply_level": "extremely_scarce",
+        "tier": "professional",
     },
     # -- Blue-collar / Skilled Trades --
     "diesel mechanic": {
@@ -2065,6 +2392,7 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "avg_ttf_days": 48,
         "supply_level": "scarce",
         "channel_emphasis": "niche_heavy",
+        "tier": "skilled_trade",
     },
     "welder": {
         "seniority": "mid",
@@ -2072,6 +2400,7 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "avg_ttf_days": 40,
         "supply_level": "moderate",
         "channel_emphasis": "niche_heavy",
+        "tier": "skilled_trade",
     },
     "electrician": {
         "seniority": "mid",
@@ -2079,6 +2408,7 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "avg_ttf_days": 55,
         "supply_level": "scarce",
         "channel_emphasis": "niche_heavy",
+        "tier": "skilled_trade",
     },
     "hvac": {
         "seniority": "mid",
@@ -2086,6 +2416,7 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "avg_ttf_days": 50,
         "supply_level": "scarce",
         "channel_emphasis": "niche_heavy",
+        "tier": "skilled_trade",
     },
     "heavy equipment operator": {
         "seniority": "mid",
@@ -2093,6 +2424,7 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "avg_ttf_days": 35,
         "supply_level": "moderate",
         "channel_emphasis": "balanced",
+        "tier": "skilled_trade",
     },
     "construction worker": {
         "seniority": "entry",
@@ -2100,6 +2432,7 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "avg_ttf_days": 21,
         "supply_level": "abundant",
         "channel_emphasis": "volume",
+        "tier": "frontline",
     },
     "manufacturing technician": {
         "seniority": "mid",
@@ -2107,6 +2440,7 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "avg_ttf_days": 38,
         "supply_level": "moderate",
         "channel_emphasis": "balanced",
+        "tier": "skilled_trade",
     },
     "plumber": {
         "seniority": "mid",
@@ -2114,6 +2448,7 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "avg_ttf_days": 45,
         "supply_level": "scarce",
         "channel_emphasis": "niche_heavy",
+        "tier": "skilled_trade",
     },
     "truck driver": {
         "seniority": "entry",
@@ -2121,6 +2456,7 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "avg_ttf_days": 28,
         "supply_level": "moderate",
         "channel_emphasis": "volume",
+        "tier": "frontline",
     },
     "warehouse": {
         "seniority": "entry",
@@ -2128,6 +2464,7 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "avg_ttf_days": 14,
         "supply_level": "abundant",
         "channel_emphasis": "volume",
+        "tier": "frontline",
     },
     "forklift": {
         "seniority": "entry",
@@ -2135,6 +2472,7 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "avg_ttf_days": 18,
         "supply_level": "abundant",
         "channel_emphasis": "volume",
+        "tier": "frontline",
     },
     "mechanic": {
         "seniority": "mid",
@@ -2142,6 +2480,7 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "avg_ttf_days": 42,
         "supply_level": "moderate",
         "channel_emphasis": "niche_heavy",
+        "tier": "skilled_trade",
     },
     "technician": {
         "seniority": "mid",
@@ -2149,6 +2488,169 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "avg_ttf_days": 35,
         "supply_level": "moderate",
         "channel_emphasis": "balanced",
+        "tier": "skilled_trade",
+    },
+    # -- Frontline / Hourly Service (S-remediation: cook/dishwasher/housekeeper/
+    # server/caregiver were previously UNMATCHED and fell through to the buggy
+    # seniority-keyword fallback, e.g. "cook" -> misclassified as C-suite/10.0
+    # difficulty because "coo" is a raw substring of "cook"; see
+    # _token_boundary_match) --
+    "cook": {
+        "seniority": "entry",
+        "base_difficulty": 3.5,
+        "avg_ttf_days": 18,
+        "supply_level": "abundant",
+        "channel_emphasis": "volume",
+        "tier": "frontline",
+    },
+    "line cook": {
+        "seniority": "entry",
+        "base_difficulty": 3.5,
+        "avg_ttf_days": 18,
+        "supply_level": "abundant",
+        "channel_emphasis": "volume",
+        "tier": "frontline",
+    },
+    "chef": {
+        "seniority": "mid",
+        "base_difficulty": 5.5,
+        "avg_ttf_days": 32,
+        "supply_level": "moderate",
+        "channel_emphasis": "niche_heavy",
+        "tier": "skilled_trade",
+    },
+    "dishwasher": {
+        "seniority": "entry",
+        "base_difficulty": 2,
+        "avg_ttf_days": 10,
+        "supply_level": "abundant",
+        "channel_emphasis": "volume",
+        "tier": "frontline",
+    },
+    "housekeeper": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "channel_emphasis": "volume",
+        "tier": "frontline",
+    },
+    "housekeeping": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "channel_emphasis": "volume",
+        "tier": "frontline",
+    },
+    "server": {
+        "seniority": "entry",
+        "base_difficulty": 2.5,
+        "avg_ttf_days": 12,
+        "supply_level": "abundant",
+        "channel_emphasis": "volume",
+        "tier": "frontline",
+    },
+    "waitstaff": {
+        "seniority": "entry",
+        "base_difficulty": 2.5,
+        "avg_ttf_days": 12,
+        "supply_level": "abundant",
+        "channel_emphasis": "volume",
+        "tier": "frontline",
+    },
+    "janitor": {
+        "seniority": "entry",
+        "base_difficulty": 2.5,
+        "avg_ttf_days": 12,
+        "supply_level": "abundant",
+        "channel_emphasis": "volume",
+        "tier": "frontline",
+    },
+    "custodian": {
+        "seniority": "entry",
+        "base_difficulty": 2.5,
+        "avg_ttf_days": 12,
+        "supply_level": "abundant",
+        "channel_emphasis": "volume",
+        "tier": "frontline",
+    },
+    "maintenance technician": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 32,
+        "supply_level": "moderate",
+        "channel_emphasis": "balanced",
+        "tier": "skilled_trade",
+    },
+    "driver": {
+        "seniority": "entry",
+        "base_difficulty": 3.5,
+        "avg_ttf_days": 20,
+        "supply_level": "moderate",
+        "channel_emphasis": "volume",
+        "tier": "frontline",
+    },
+    "cdl driver": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 30,
+        "supply_level": "moderate",
+        "channel_emphasis": "niche_heavy",
+        "tier": "skilled_trade",
+    },
+    "delivery driver": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 18,
+        "supply_level": "moderate",
+        "channel_emphasis": "volume",
+        "tier": "frontline",
+    },
+    # -- Healthcare (frontline/licensed additions) --
+    "cna": {
+        "seniority": "entry",
+        "base_difficulty": 4,
+        "avg_ttf_days": 20,
+        "supply_level": "moderate",
+        "tier": "licensed_clinical",
+    },
+    "licensed practical nurse": {
+        "seniority": "mid",
+        "base_difficulty": 5.5,
+        "avg_ttf_days": 28,
+        "supply_level": "moderate",
+        "tier": "licensed_clinical",
+    },
+    "licensed vocational nurse": {
+        "seniority": "mid",
+        "base_difficulty": 5.5,
+        "avg_ttf_days": 28,
+        "supply_level": "moderate",
+        "tier": "licensed_clinical",
+    },
+    "charge nurse": {
+        "seniority": "senior",
+        "base_difficulty": 7,
+        "avg_ttf_days": 40,
+        "supply_level": "moderate-scarce",
+        "tier": "licensed_clinical",
+    },
+    "caregiver": {
+        "seniority": "entry",
+        "base_difficulty": 3.5,
+        "avg_ttf_days": 18,
+        "supply_level": "moderate",
+        "channel_emphasis": "volume",
+        "tier": "frontline",
+    },
+    "memory care": {
+        "seniority": "entry",
+        "base_difficulty": 4,
+        "avg_ttf_days": 20,
+        "supply_level": "moderate",
+        "channel_emphasis": "volume",
+        "tier": "frontline",
     },
 }
 
@@ -2192,6 +2694,11 @@ def _lookup_role_difficulty(role_title: str) -> dict[str, Any] | None:
     for pattern in sorted(_ROLE_DIFFICULTY_MAP, key=len, reverse=True):
         if pattern in title_lower:
             return dict(_ROLE_DIFFICULTY_MAP[pattern])
+    # Whole-word alias lookup for short/ambiguous abbreviations (RN, LPN,
+    # CDL...) that are unsafe to match via plain substring above.
+    alias = _match_token_alias(title_lower)
+    if alias is not None and alias in _ROLE_DIFFICULTY_MAP:
+        return dict(_ROLE_DIFFICULTY_MAP[alias])
     # S27: Fuzzy fallback -- partial word match for unmatched roles
     title_words = set(title_lower.split())
     for pattern in sorted(_ROLE_DIFFICULTY_MAP, key=len, reverse=True):
@@ -2399,9 +2906,9 @@ def _estimate_competing_postings(difficulty: float, num_roles: int) -> int:
 
 _SENIORITY_KEYWORDS: dict[str, list[str]] = {
     "intern": ["intern", "trainee", "apprentice", "co-op", "student"],
-    "junior": ["junior", "jr", "entry", "associate", "assistant", "i ", " i,"],
-    "mid": ["mid", "intermediate", " ii ", " ii,", "specialist"],
-    "senior": ["senior", "sr", "lead", "principal", " iii ", " iii,", "staff"],
+    "junior": ["junior", "jr", "entry", "associate", "assistant", "i"],
+    "mid": ["mid", "intermediate", "ii", "specialist"],
+    "senior": ["senior", "sr", "lead", "principal", "iii", "staff"],
     "director": ["director", "head of", "vp", "vice president"],
     "executive": ["chief", "cto", "cfo", "coo", "cio", "ceo", "partner", "evp", "svp"],
 }
@@ -2538,27 +3045,53 @@ def classify_difficulty(data: dict) -> list[dict[str, Any]]:
                     "location_matched": loc_matched,
                     "description": description,
                     "role_profile_matched": True,
+                    "classification_source": "role_profile_match",
+                    "confidence": "benchmark",
                 }
             )
         else:
-            # 2) Fallback: seniority keyword detection + generic profiles
-            title_lower = f" {title.lower()} "
-            detected_level = "mid"
+            # 2) Fallback: seniority keyword detection + generic profiles.
+            #
+            # FIX: this used to do raw `kw in title_lower` substring checks,
+            # which let short executive abbreviations collide with unrelated
+            # words -- e.g. "coo" (Chief Operating Officer) is a literal
+            # substring of "cook", so a role titled "Cook" was silently
+            # misclassified as executive/10.0-difficulty/"retained search".
+            # _token_boundary_match requires a real word/phrase match.
+            title_lower = title.lower()
+            detected_level: str | None = None
 
             for level, keywords in _SENIORITY_KEYWORDS.items():
-                matched = False
-                for kw in keywords:
-                    if kw in title_lower:
-                        detected_level = level
-                        matched = True
-                        break
-                if matched:
+                if any(_token_boundary_match(kw, title_lower) for kw in keywords):
+                    detected_level = level
                     break
 
-            profile = _DIFFICULTY_PROFILES[detected_level]
-            base_complexity = float(profile["complexity_score"])
+            if detected_level is not None:
+                classification_source = "seniority_keyword_match"
+                profile = _DIFFICULTY_PROFILES[detected_level]
+                base_complexity = float(profile["complexity_score"])
+                ttf = int(profile["avg_time_to_fill_days"])
+                budget_weight = profile["budget_weight"]
+                channel_emphasis = profile["channel_emphasis"]
+                description = profile["description"]
+            else:
+                # No role-type profile AND no seniority keyword matched at
+                # all -- a genuinely unclassified title.  Per spec this must
+                # NEVER default to executive/leadership or 10.0 difficulty;
+                # it defaults to the middle "Professional" tier instead.
+                detected_level = "mid"
+                classification_source = "unclassified_default"
+                base_complexity = 5.0
+                mid_profile = _DIFFICULTY_PROFILES["mid"]
+                ttf = int(mid_profile["avg_time_to_fill_days"])
+                budget_weight = mid_profile["budget_weight"]
+                channel_emphasis = mid_profile["channel_emphasis"]
+                description = (
+                    "Unclassified role title -- defaulted to Professional "
+                    "tier (no role-type or seniority keyword match)"
+                )
+
             adjusted_complexity = max(1.0, min(10.0, base_complexity + loc_modifier))
-            ttf = int(profile["avg_time_to_fill_days"])
 
             # Derive supply level from adjusted complexity
             if adjusted_complexity >= 9:
@@ -2574,15 +3107,22 @@ def classify_difficulty(data: dict) -> list[dict[str, Any]]:
                 {
                     "role_title": title,
                     "seniority_level": detected_level,
+                    "tier_label": (
+                        "Professional"
+                        if classification_source == "unclassified_default"
+                        else detected_level.title()
+                    ),
                     "complexity_score": round(adjusted_complexity, 1),
                     "avg_time_to_fill_days": ttf,
-                    "budget_weight": profile["budget_weight"],
-                    "channel_emphasis": profile["channel_emphasis"],
+                    "budget_weight": budget_weight,
+                    "channel_emphasis": channel_emphasis,
                     "supply_level": supply,
                     "location_modifier": loc_modifier,
                     "location_matched": loc_matched,
-                    "description": profile["description"],
+                    "description": description,
                     "role_profile_matched": False,
+                    "classification_source": classification_source,
+                    "confidence": "estimated",
                 }
             )
 
