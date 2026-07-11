@@ -171,7 +171,15 @@ def _compute_campaign_weeks(campaign_duration: str) -> int:
         return int(wk_match.group(1))
     mo_match = re.search(r"(\d+)\s*month", dur_lower)
     if mo_match:
-        return int(mo_match.group(1)) * 4
+        # S91 FIX (matches app.py's real ladder, commit 32e5d2b): the old
+        # `int(months) * 4` formula silently drifted for anything not a
+        # multiple of 4 weeks/month (e.g. "18 months" -> 72 weeks, which
+        # re-derives downstream as "17 months"). display_format was NOT
+        # kept in sync with app.py's fix here previously -- this harness
+        # was reproducing a duration bug app.py itself no longer has.
+        import display_format as _df
+
+        return _df.parse_duration_to_weeks(campaign_duration)
     return 12  # default, matches app.py
 
 
