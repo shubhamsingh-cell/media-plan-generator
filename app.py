@@ -3554,6 +3554,17 @@ except ImportError as e:
     logger.warning("excel_v2 module import failed: %s", e)
     excel_v2 = None
 
+# Generation-time output linter (bundle_qa.run_bundle_qa) -- runs against
+# every generated bundle right after assembly, non-blocking (findings are
+# logged/recorded, never fail generation in prod).
+try:
+    import bundle_qa
+
+    logger.info("bundle_qa module loaded successfully")
+except ImportError as e:
+    logger.warning("bundle_qa module import failed: %s", e)
+    bundle_qa = None
+
 # v3: Trend engine and collar intelligence for new Excel worksheets
 try:
 
@@ -15897,6 +15908,72 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             result_ct = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             result_fn = f"{client_name}_Media_Plan.xlsx"
 
+                        # ── Generation-time output QA (bundle_qa) ──
+                        # Lints the bundle we just assembled for the class of
+                        # client-facing defect a human reviewer previously
+                        # had to catch by hand (snake_case leaks, footing
+                        # mismatches, fabricated comparison badges,
+                        # near-duplicate competitor prose, ...). Entirely
+                        # isolated: never blocks or fails generation, only
+                        # observes and records what it finds.
+                        _bundle_qa_summary = None
+                        if bundle_qa is not None:
+                            try:
+                                _bq_findings = bundle_qa.run_bundle_qa(
+                                    pptx_bytes, excel_bytes, gen_data
+                                )
+                                _bq_critical = [
+                                    f
+                                    for f in _bq_findings
+                                    if f.get("severity") == "critical"
+                                ]
+                                _bundle_qa_summary = {
+                                    "critical_count": len(_bq_critical),
+                                    "warn_count": len(_bq_findings) - len(_bq_critical),
+                                    "findings": _bq_findings[:25],  # cap job-record size
+                                }
+                                for _f in _bq_findings:
+                                    logger.warning(
+                                        "bundle_qa [%s] %s: %s (%s)",
+                                        _f.get("severity"),
+                                        _f.get("code"),
+                                        _f.get("message"),
+                                        _f.get("location"),
+                                    )
+                                if _bq_critical:
+                                    try:
+                                        from audit_logger import log_event as _bq_log_event
+
+                                        _bq_log_event(
+                                            action="bundle_qa.critical_findings",
+                                            actor="system",
+                                            resource=jid,
+                                            details={
+                                                "client_name": gen_data.get(
+                                                    "client_name"
+                                                )
+                                                or "",
+                                                "critical_count": len(_bq_critical),
+                                                "codes": sorted(
+                                                    {
+                                                        f.get("code")
+                                                        for f in _bq_critical
+                                                    }
+                                                ),
+                                            },
+                                            severity="warning",
+                                        )
+                                    except Exception as _bq_audit_err:
+                                        logger.debug(
+                                            "bundle_qa audit_log write failed "
+                                            "(non-fatal): %s",
+                                            _bq_audit_err,
+                                        )
+                            except Exception as _bq_err:
+                                logger.warning(
+                                    "bundle_qa crashed (non-fatal): %s", _bq_err
+                                )
+
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
                                 _generation_jobs[jid].update(
@@ -15904,6 +15981,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         "status": "completed",
                                         "progress_pct": 100,
                                         "status_message": "Complete",
+                                        "bundle_qa": _bundle_qa_summary,
                                         "result_bytes": result_bytes,
                                         "result_content_type": result_ct,
                                         "result_filename": result_fn,
