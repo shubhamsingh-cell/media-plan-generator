@@ -207,6 +207,7 @@ def build_plan_data(brief: dict[str, Any]) -> dict[str, Any]:
     import budget_engine
     from kb_loader import load_knowledge_base
     from ppt_generator import INDUSTRY_ALLOC_PROFILES
+    from shared_utils import INDUSTRY_LABEL_MAP
 
     data: dict[str, Any] = dict(brief)
 
@@ -223,7 +224,12 @@ def build_plan_data(brief: dict[str, Any]) -> dict[str, Any]:
     ]
     industry_profile = app.classify_industry(industry_raw, company_name, roles_list)
     data["industry"] = industry_profile.get("legacy_key", "general_entry_level")
-    data["industry_label"] = industry_profile["sector"]
+    # consistency:manpower#3 / consistency:atria#1: mirror app.py's fix --
+    # prefer the SAME canonical shared_utils.INDUSTRY_LABEL_MAP excel_v2's
+    # sheet builders use over the NAICS classifier's own "sector" taxonomy.
+    data["industry_label"] = INDUSTRY_LABEL_MAP.get(
+        data["industry"], industry_profile["sector"]
+    )
     data["talent_profile"] = industry_profile["talent_profile"]
     data["bls_sector"] = industry_profile["bls_sector"]
     data["naics_code"] = industry_profile.get("naics", "00")

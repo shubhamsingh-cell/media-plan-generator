@@ -263,6 +263,84 @@ def _embed_fonts_in_pptx(pptx_bytes: bytes) -> bytes:
         return pptx_bytes
 
 
+def _fix_pptx_package_hygiene(pptx_bytes: bytes, n_slides: int) -> bytes:
+    """Post-process package-level metadata python-pptx's default template
+    otherwise leaves stale/fabricated (craft:both#3 / craft:both#6):
+
+    - ppt/theme/theme1.xml: the theme's default major/minor Latin typeface
+      is the template's stock "Calibri" -- any shape that falls back to the
+      theme default (a new text box, PowerPoint's own re-layout) would
+      render off-brand. Set it to Poppins, the family this deck actually
+      embeds and uses on every slide.
+    - docProps/app.xml: the stock template reports 0 slides, 0 paragraphs,
+      and "Microsoft Macintosh PowerPoint" v14 as the generating
+      application -- nonsense provenance for an 11+-slide AI-generated deck.
+      Set the real slide count and the actual generating application.
+
+    Pure zip/OOXML surgery (python-pptx exposes neither). Returns the
+    original bytes unchanged on any error -- never break the deck over a
+    metadata cleanup.
+    """
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(pptx_bytes), "r") as zin:
+            names = set(zin.namelist())
+            theme_xml = (
+                zin.read("ppt/theme/theme1.xml").decode("utf-8")
+                if "ppt/theme/theme1.xml" in names
+                else None
+            )
+            app_xml = (
+                zin.read("docProps/app.xml").decode("utf-8")
+                if "docProps/app.xml" in names
+                else None
+            )
+            if theme_xml is None and app_xml is None:
+                return pptx_bytes
+
+            if theme_xml is not None:
+                theme_xml = theme_xml.replace(
+                    'typeface="Calibri"', 'typeface="Poppins"'
+                )
+
+            if app_xml is not None:
+                app_xml = re.sub(
+                    r"<Application>[^<]*</Application>",
+                    "<Application>Nova AI Suite</Application>",
+                    app_xml,
+                )
+                app_xml = re.sub(
+                    r"<AppVersion>[^<]*</AppVersion>",
+                    "<AppVersion>2026.0</AppVersion>",
+                    app_xml,
+                )
+                app_xml = re.sub(
+                    r"<Slides>\d*</Slides>",
+                    f"<Slides>{int(n_slides)}</Slides>",
+                    app_xml,
+                )
+                app_xml = re.sub(
+                    r"<PresentationFormat>[^<]*</PresentationFormat>",
+                    "<PresentationFormat>On-screen Show (16:9)</PresentationFormat>",
+                    app_xml,
+                )
+
+            out = io.BytesIO()
+            with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+                for item in zin.infolist():
+                    data = zin.read(item.filename)
+                    if item.filename == "ppt/theme/theme1.xml" and theme_xml is not None:
+                        data = theme_xml.encode("utf-8")
+                    elif item.filename == "docProps/app.xml" and app_xml is not None:
+                        data = app_xml.encode("utf-8")
+                    zout.writestr(item, data)
+        return out.getvalue()
+    except (KeyError, zipfile.BadZipFile, ValueError) as exc:
+        logger.warning("Package hygiene fix skipped (non-fatal): %s", exc)
+        return pptx_bytes
+
+
 # ---------------------------------------------------------------------------
 # Chart color palette (hex strings for matplotlib, matching Joveo brand)
 # ---------------------------------------------------------------------------
@@ -589,9 +667,15 @@ LAVENDER_50 = RGBColor.from_string(_LAVENDER_50_HEX.lstrip("#"))  # zebra rows /
 LAVENDER_100 = RGBColor.from_string(_LAVENDER_100_HEX.lstrip("#"))  # Push card surface
 BLUE_50 = RGBColor.from_string(_BLUE_50_HEX.lstrip("#"))  # Pull card surface
 
-# -- Fonts (Poppins headings, Inter body -- Joveo deck 2026) --
+# -- Fonts (Poppins headings + body -- Joveo deck 2026) --
+# craft:both#5: "Inter" body-font runs were never embedded in the PPTX (only
+# Poppins ships in ppt/fonts/ + presentation.xml's embeddedFontLst), so any
+# machine without Inter installed silently substituted a fallback font.
+# Standardize every text run onto the one family this deck actually embeds
+# (the fix instructions' own listed alternative to shipping an Inter .ttf,
+# which isn't present in fonts/ to embed).
 FONT_FAMILY = "Poppins"  # Brand heading / title font
-FONT_BODY = "Inter"  # Brand body font
+FONT_BODY = "Poppins"  # Brand body font (was "Inter" -- not embedded)
 
 # Slide dimensions (16:9 widescreen)
 SLIDE_WIDTH = Inches(13.333)
@@ -1992,6 +2076,43 @@ def _kb_extract_range(node: Any) -> str:
     return ""
 
 
+def _classify_apply_rate_suffix(apply_rate_str: str) -> str:
+    """Return the "(above average - strength)" / "(at industry average)" /
+    "(below average - challenge)" style annotation for an apply-rate
+    benchmark string, computed strictly from THAT SAME string.
+
+    Two rules, both anchored to the one benchmark being displayed (fixes
+    copy:both#1 / visual:atria#1 -- a self-contradictory "lowest of all 24
+    occupations, declining ... above average - strength" label):
+
+    1. Only digits immediately followed by "%" count as apply-rate values.
+       A naive "grab every digit in the string" parse previously picked up
+       the "24" in "(lowest of all 24 occupations, declining)" and averaged
+       it with the real 3.22% figure, pushing the average past the
+       strength threshold.
+    2. If the KB text itself already flags this occupation as the lowest/
+       declining (a negative trend baked into the same benchmark data being
+       rendered), that verdict wins outright -- it can never be paired with
+       a "strength" or "average" label, regardless of the raw percentage.
+    """
+    if not apply_rate_str:
+        return ""
+    pct_values = [float(m) for m in re.findall(r"([\d.]+)\s*%", apply_rate_str)]
+    avg_rate = sum(pct_values) / len(pct_values) if pct_values else 0.0
+
+    lowered = apply_rate_str.lower()
+    negative_trend = any(
+        kw in lowered for kw in ("lowest", "declin", "worst", "bottom of")
+    )
+    if negative_trend:
+        return "(below industry average — plan compensates via volume channels)"
+    if avg_rate > 5.0:
+        return "(above average - strength)"
+    if avg_rate >= 2.0:
+        return "(at industry average)"
+    return "(below average - challenge)"
+
+
 def _kb_recruitment_industry_benchmark(
     industry: str, data: Optional[Dict]
 ) -> Optional[Dict[str, str]]:
@@ -2019,11 +2140,21 @@ def _kb_recruitment_industry_benchmark(
     entry = ind_bm.get(industry) if isinstance(ind_bm, dict) else None
     if not isinstance(entry, dict):
         return None
+    _cpc_node = entry.get("cpc")
     out = {
         "cpa": _kb_extract_range(entry.get("cpa")),
         "cpc": _kb_extract_range(entry.get("cpc")),
         "cph": _kb_extract_range(entry.get("cph")),
         "apply_rate": _kb_extract_range(entry.get("apply_rate")),
+        # consistency:atria#4: the CPC YoY trend quoted anywhere in the deck
+        # must be this SAME "trend_yoy" figure (not trend_engine's
+        # independently-computed live estimate) -- the workbook's benchmark
+        # rows quote this exact KB field.
+        "cpc_trend_yoy": (
+            str(_cpc_node.get("trend_yoy") or "").strip()
+            if isinstance(_cpc_node, dict)
+            else ""
+        ),
     }
     return out if any(out.values()) else None
 
@@ -2158,6 +2289,19 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                 result["cph"] = _mi_bm["cph"]
             if _mi_bm.get("apply_rate"):
                 result["apply_rate"] = _mi_bm["apply_rate"]
+            if _mi_bm.get("cpc_trend_yoy"):
+                # consistency:atria#4: override trend_engine's independent
+                # "+9.1% YoY" live estimate with the KB's own "+10-15%"
+                # trend_yoy figure -- the same one the workbook quotes --
+                # so the deck never contradicts the range the workbook's
+                # benchmark rows carry.
+                result["cpc_trend"] = _mi_bm["cpc_trend_yoy"]
+                if result["cpc_trend"].strip().startswith("-"):
+                    result["cpc_trend_direction"] = "falling"
+                elif result["cpc_trend"].strip().startswith("+"):
+                    result["cpc_trend_direction"] = "rising"
+                else:
+                    result["cpc_trend_direction"] = "stable"
             result["confidence"] = "market_intelligence_kb"
 
     # Layer 1: Synthesized ad_platform_analysis overrides (live API data)
@@ -2923,6 +3067,41 @@ def _cap_roles_for_headline(roles: List[Any], cap: int = 2) -> str:
     return f"{shown}, and {remaining} more role{'s' if remaining != 1 else ''}"
 
 
+def _compute_blended_cph(budget_alloc: Optional[Dict]) -> "tuple[float, int]":
+    """Compute the plan's blended cost-per-hire ONCE, from the channel-level
+    sums in ``data['_budget_allocation']`` -- the same source-of-truth
+    calculation the S48 fix established for the Executive Summary slide's
+    hero stat (per-channel projected_hires summed, then total_budget /
+    total_hires). Every slide that renders a "blended"/"average" cost-per-
+    hire figure must call this instead of independently re-deriving it, so
+    they can never drift apart (copy:both#2: Slide 2 showed "$5,263.16/hire"
+    while Slide 6 independently read a raw ``total_projected.cost_per_hire``
+    field and showed a different, unexplained "$5,250").
+
+    Returns ``(cph, total_hires)``.
+    """
+    if not isinstance(budget_alloc, dict):
+        return 0.0, 0
+    channel_allocs = budget_alloc.get("channel_allocations", {})
+    if not isinstance(channel_allocs, dict):
+        channel_allocs = {}
+    total_hires = sum(
+        int(ch.get("projected_hires") or 0)
+        for ch in channel_allocs.values()
+        if isinstance(ch, dict)
+    )
+    if total_hires == 0:
+        total_proj = budget_alloc.get("total_projected", {})
+        if isinstance(total_proj, dict):
+            total_hires = int(total_proj.get("hires") or 0)
+    metadata = budget_alloc.get("metadata", {})
+    total_budget = (
+        metadata.get("total_budget") or 0 if isinstance(metadata, dict) else 0
+    )
+    cph = round(total_budget / total_hires, 2) if total_hires > 0 else 0.0
+    return cph, total_hires
+
+
 def _build_slide_executive_summary(prs: Presentation, data: Dict):
     """Build the Executive Summary slide with hero stat pattern and SCR framework."""
     slide_layout = prs.slide_layouts[6]
@@ -2965,20 +3144,10 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
     # S48 FIX: Compute hires from per-channel sum (source of truth) to ensure
     # PPT hero stats match Excel Executive Summary and ROI Projections.
-    _ppt_channel_allocs = budget_alloc.get("channel_allocations", {})
-    if not isinstance(_ppt_channel_allocs, dict):
-        _ppt_channel_allocs = {}
-    _ppt_hires_sum = sum(
-        int(ch.get("projected_hires") or 0) for ch in _ppt_channel_allocs.values()
-    )
-    if _ppt_hires_sum == 0:
-        _ppt_hires_sum = int(ba_total_projected.get("hires") or 0)
-    _ppt_total_budget = ba_metadata.get("total_budget") or 0
-    _ppt_cph = (
-        round(_ppt_total_budget / max(_ppt_hires_sum, 1), 2)
-        if _ppt_hires_sum > 0
-        else 0
-    )
+    # copy:both#2: routed through _compute_blended_cph so every slide that
+    # shows a blended cost-per-hire derives it identically -- no more
+    # independent per-slide re-derivations that can silently disagree.
+    _ppt_cph, _ppt_hires_sum = _compute_blended_cph(budget_alloc)
 
     # Off-white background
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
@@ -3207,23 +3376,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
     apply_rate_str = benchmarks.get("apply_rate") or ""
     if apply_rate_str:
-        import re as _re_ar
-
-        rates = _re_ar.findall(r"[\d.]+", apply_rate_str)
-        if rates:
-            avg_rate = sum(float(r) for r in rates) / len(rates)
-            if avg_rate > 5.0:
-                sit_items.append(
-                    ("Apply Rate", f"{apply_rate_str} (above average - strength)")
-                )
-            elif avg_rate >= 2.0:
-                sit_items.append(
-                    ("Apply Rate", f"{apply_rate_str} (at industry average)")
-                )
-            else:
-                sit_items.append(
-                    ("Apply Rate", f"{apply_rate_str} (below average - challenge)")
-                )
+        _ar_suffix = _classify_apply_rate_suffix(apply_rate_str)
+        if _ar_suffix:
+            sit_items.append(("Apply Rate", f"{apply_rate_str} {_ar_suffix}"))
 
     box2, tf2 = _add_textbox(slide, sit_left, body_top, sit_w, col_height - Inches(0.5))
     tf2.paragraphs[0].space_before = Pt(0)
@@ -3340,7 +3495,10 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             _thesis_parts.append(f"This plan projects {int(_proj_h)} hires")
             _thesis_has_lead = True
         if _proj_cph > 0:
-            _thesis_parts.append(f"at {_fmt_currency(_proj_cph)}/hire")
+            # copy:both#2: fmt_money (never cents) instead of _fmt_currency,
+            # which rendered "$5,263.16" whenever the rounded CPH wasn't a
+            # whole dollar figure.
+            _thesis_parts.append(f"at {_fmt.fmt_money(_proj_cph)}/hire")
     if not _thesis_has_lead:
         # Near-zero-budget edge case (2026-07-03 Gedu review): 0 projected
         # hires means the "This plan projects N hires" clause above never
@@ -3447,7 +3605,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             f"Client goal: {_exec_goal_gap['goal']:,} hires — this plan "
             f"projects {_exec_goal_gap['projected']:,} "
             f"({_exec_goal_gap['pct_of_goal']:.0f}% of goal); scaling path: "
-            f"~{_fmt_currency(_exec_goal_gap['additional_budget'])} additional",
+            # copy:both#2: compact fmt_money ("~$2.33M") instead of the raw
+            # two-decimal dollar amount ("~$2,331,579.88").
+            f"~{_fmt.fmt_money(_exec_goal_gap['additional_budget'], compact=True)} additional",
             font_size=7,
             bold=True,
             color=NAVY,
@@ -4061,13 +4221,31 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     _cpa_label = "Industry CPA"
     _cpc_label = "Industry CPC"
     _cph_label = "Est. Cost-per-Hire"
+
+    # consistency:manpower#2: this row must be the SAME KB "Recruitment
+    # Benchmarks" figure the workbook quotes (excel_v2's Executive Summary
+    # reads this exact kb['recruitment_benchmarks']['industry_benchmarks']
+    # section) -- not this plan's own budget-engine CPH +/- 20%, which
+    # Layer 0 of _get_benchmarks() may have substituted into
+    # benchmarks["cph"] and which can make the plan look artificially
+    # "squarely on-benchmark" against its own derived number. Re-read the
+    # KB section directly for this one row.
+    _kb_cph_bm = _kb_recruitment_industry_benchmark(industry, data)
+    _kb_cph_val = (_kb_cph_bm or {}).get("cph") or ""
+    if _kb_cph_val:
+        _cph_val = _kb_cph_val
+        _cph_is_usd_benchmark = True
+    else:
+        _cph_val = benchmarks["cph"]
+        _cph_is_usd_benchmark = benchmarks.get("cph_is_usd_benchmark", True)
+
     if not _is_usd_plan:
         if benchmarks.get("cpa_is_usd_benchmark", True):
             cpa_val = _mark_usd(cpa_val)
         if benchmarks.get("cpc_is_usd_benchmark", True):
             cpc_val = _mark_usd(cpc_val)
-        if benchmarks.get("cph_is_usd_benchmark", True):
-            _cph_val = _mark_usd(benchmarks["cph"])
+        if _cph_is_usd_benchmark:
+            _cph_val = _mark_usd(_cph_val)
         else:
             # This is the plan's OWN projected cost-per-hire (from the budget
             # engine or salary intelligence), not an external industry
@@ -4075,9 +4253,6 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             # but relabel it so it doesn't read as an "Industry Benchmark"
             # sourced the same way as its neighbors.
             _cph_label = "Est. Cost-per-Hire (this plan)"
-            _cph_val = benchmarks["cph"]
-    else:
-        _cph_val = benchmarks["cph"]
     bench_rows = [
         (_cpa_label, cpa_val),
         (_cpc_label, cpc_val),
@@ -5296,14 +5471,18 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
 
     # Build insight text
     avg_cpa = ba_total_proj.get("cost_per_application") or 0
-    avg_cph = ba_total_proj.get("cost_per_hire") or 0
+    # copy:both#2: derive the blended CPH the same way the Executive Summary
+    # slide does (_compute_blended_cph), instead of an independent raw
+    # ``total_projected.cost_per_hire`` read -- the two used to disagree
+    # ("$5,263.16/hire" on Slide 2 vs. an unexplained "$5,250" here).
+    avg_cph, _ = _compute_blended_cph(budget_alloc)
 
     if avg_cpa and avg_cpa > 0 and proj_hires and proj_hires > 0:
         insight_text = (
             f"Budget engine projects {_cur}{avg_cpa:,.0f} average CPA across all channels"
         )
         if avg_cph and avg_cph > 0:
-            insight_text += f", with {_cur}{avg_cph:,.0f} average cost-per-hire"
+            insight_text += f", with {_fmt.fmt_money(avg_cph)} average cost-per-hire"
         insight_text += (
             f". At {int(proj_hires):,} projected hires, "
             f"{client}'s investment yields strong programmatic ROI "
@@ -7047,6 +7226,73 @@ def _build_slide_location_analysis(prs: Presentation, data: Dict):
 # SLIDE - Competitive Landscape (NEW)
 # ===================================================================
 
+_COMPETITOR_TAG_RE = re.compile(r"^\((?:National|Regional|Local)\)\s*")
+
+
+def _strip_competitor_tag(name: str) -> str:
+    """Strip a leading "(National)"/"(Regional)"/"(Local)" scope tag off a
+    competitor name before it's interpolated into a full sentence.
+
+    visual:atria#2: the tag is legitimate as a label on the competitor
+    CARD TITLE (it tells the reader this employer's data isn't
+    city-specific), but leaking it verbatim into generated prose produces
+    a broken-looking sentence: "Counter: (National) Amazon is actively
+    competing for..." The card title keeps the tag; only prose
+    interpolation strips it.
+    """
+    return _COMPETITOR_TAG_RE.sub("", str(name or "")).strip() or str(name or "")
+
+
+_COMPETITOR_WHY_TEMPLATES = (
+    "{name} actively recruits {pool}, competing directly for this plan's pipeline.",
+    "{name} is {article} {type_phrase}employer drawing from the same {pool} this "
+    "plan targets.",
+    "{name}'s hiring activity for similar roles puts direct pressure on {pool}.",
+    "{name} is visibly hiring in the same market as {pool}, a direct source of "
+    "candidate overlap.",
+)
+
+
+def _compose_competitor_why(
+    comp_name: str, comp_data: Dict, ctx: Dict, ordinal: int
+) -> str:
+    """One "why this competitor matters" sentence, varied by ``ordinal`` and
+    composed from competitor type + role + city -- never the single
+    "Competing employer in <city>" sentence repeated byte-identically for
+    every card (copy:both#3 / visual:atria#2: the previous "Why:" text was
+    the SAME line for every competitor pulled from one city, and
+    industry-agnostic for brief-supplied competitors with no description).
+    """
+    role = str(ctx.get("role") or "").strip()
+    city = str(ctx.get("city") or "").strip()
+    if role and city:
+        pool = f"{role} candidates in {city}"
+    elif role:
+        pool = f"{role} candidates"
+    elif city:
+        pool = f"candidates in {city}"
+    else:
+        pool = "this plan's candidate pool"
+
+    ctype = str((comp_data or {}).get("competitor_type") or "").strip().lower()
+    type_phrase = (
+        f"{ctype} " if ctype and ctype not in ("national", "regional", "local") else ""
+    )
+    # "an employer" when no type qualifier precedes it, "a <type> employer"
+    # otherwise (grammar-safe for the common case; type qualifiers are
+    # curated lowercase words like "senior_living", not free text).
+    article = "an" if not type_phrase else "a"
+
+    name = _strip_competitor_tag(comp_name) or "This competitor"
+    idx = (
+        int(ordinal) % len(_COMPETITOR_WHY_TEMPLATES)
+        if isinstance(ordinal, (int, float)) and not isinstance(ordinal, bool)
+        else 0
+    )
+    return _COMPETITOR_WHY_TEMPLATES[idx].format(
+        name=name, pool=pool, type_phrase=type_phrase, article=article
+    )
+
 
 def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
     """Build the Competitive Landscape slide.
@@ -7408,62 +7654,87 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             TEAL,
         )
 
-        competitors = comp_intel.get("competitors", {})
-        if not isinstance(competitors, dict):
-            competitors = {}
+        # visual:atria#2 / copy:both#3: brief-supplied competitors are the
+        # planner's own explicit, vetted competitive set for THIS client and
+        # role -- they must win over any generic/national-default source
+        # (a real brief naming "Brookdale/Sunrise/Amazon" was previously
+        # being overridden by a generic "Amazon/Walmart/UPS" national-
+        # employer list because the brief was checked LAST in the cascade).
+        # Only fall through to synthesized/gold-standard data when the
+        # brief didn't supply any competitors of its own.
+        competitors: Dict[str, Any] = {}
+        _direct_comps = data.get("competitors") or []
+        if isinstance(_direct_comps, list) and _direct_comps:
+            for _dc in _direct_comps[:4]:
+                _dc_name = (
+                    str(_dc).strip()
+                    if isinstance(_dc, str)
+                    else (
+                        str(_dc.get("name", "")).strip()
+                        if isinstance(_dc, dict)
+                        else ""
+                    )
+                )
+                if _dc_name:
+                    competitors[_dc_name] = {
+                        "domain": (
+                            _dc.get("domain", "") if isinstance(_dc, dict) else ""
+                        ),
+                        "description": (
+                            _dc.get("description", "") if isinstance(_dc, dict) else ""
+                        ),
+                        "competitor_type": (
+                            _dc.get("competitor_type", "")
+                            if isinstance(_dc, dict)
+                            else ""
+                        ),
+                    }
+        elif isinstance(_direct_comps, dict) and _direct_comps:
+            competitors = dict(list(_direct_comps.items())[:4])
 
-        # Fallback: pull from gold standard competitor_mapping if synthesis is empty
+        if not competitors:
+            _ci_competitors = comp_intel.get("competitors", {})
+            if isinstance(_ci_competitors, dict):
+                competitors = dict(_ci_competitors)
+
+        # Fallback: pull from gold standard competitor_mapping if still empty.
+        # consistency:manpower#5 / visual:atria#2(d): competitor_mapping is
+        # keyed by CITY and covers every market the plan targets (the same
+        # multi-market table excel_v2's Quality Intelligence "Competitive
+        # Landscape" section already renders in full) -- round-robin ONE top
+        # employer per city instead of draining the first city's top-3
+        # employers and never reaching the plan's other markets.
         if not competitors:
             gold = data.get("_gold_standard") or {}
             comp_map = gold.get("competitor_mapping") or {}
             if isinstance(comp_map, dict) and comp_map:
+                _city_employer_lists = [
+                    (city_name, city_info.get("top_employers") or [])
+                    for city_name, city_info in comp_map.items()
+                    if isinstance(city_name, str)
+                    and not city_name.startswith("_")
+                    and isinstance(city_info, dict)
+                ]
                 seen: set = set()
-                for city_name, city_info in comp_map.items():
-                    if isinstance(city_name, str) and city_name.startswith("_"):
-                        continue
-                    if not isinstance(city_info, dict):
-                        continue
-                    for employer in (city_info.get("top_employers") or [])[:3]:
-                        emp_name = str(employer).strip()
-                        if emp_name and emp_name not in seen:
-                            seen.add(emp_name)
-                            competitors[emp_name] = {
-                                "domain": "",
-                                "description": f"Competing employer in {city_name}",
-                            }
+                _rr_idx = 0
+                while len(competitors) < 4 and _city_employer_lists:
+                    _added_this_round = False
+                    for city_name, employers in _city_employer_lists:
                         if len(competitors) >= 4:
                             break
-                    if len(competitors) >= 4:
+                        if _rr_idx < len(employers):
+                            emp_name = str(employers[_rr_idx]).strip()
+                            if emp_name and emp_name not in seen:
+                                seen.add(emp_name)
+                                competitors[emp_name] = {
+                                    "domain": "",
+                                    "description": "",
+                                    "_market": city_name,
+                                }
+                                _added_this_round = True
+                    if not _added_this_round:
                         break
-
-        # S50 FIX 5: Additional fallback -- check direct competitors field
-        # and gold_standard.competitors_list when competitor_mapping is also empty.
-        if not competitors:
-            _direct_comps = data.get("competitors") or []
-            if isinstance(_direct_comps, list) and _direct_comps:
-                for _dc in _direct_comps[:4]:
-                    _dc_name = (
-                        str(_dc).strip()
-                        if isinstance(_dc, str)
-                        else (
-                            str(_dc.get("name", "")).strip()
-                            if isinstance(_dc, dict)
-                            else ""
-                        )
-                    )
-                    if _dc_name:
-                        competitors[_dc_name] = {
-                            "domain": (
-                                _dc.get("domain", "") if isinstance(_dc, dict) else ""
-                            ),
-                            "description": (
-                                _dc.get("description", "Competitor")
-                                if isinstance(_dc, dict)
-                                else "Competitor"
-                            ),
-                        }
-            elif isinstance(_direct_comps, dict) and _direct_comps:
-                competitors = dict(list(_direct_comps.items())[:4])
+                    _rr_idx += 1
 
         if not competitors:
             gold = data.get("_gold_standard") or {}
@@ -7482,7 +7753,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     if _gc_name:
                         competitors[_gc_name] = {
                             "domain": "",
-                            "description": "Industry competitor",
+                            "description": "",
                         }
 
         comp_card_top = section_top + Inches(0.5)
@@ -7533,16 +7804,42 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     color=DARK_TEXT,
                 )
 
-                # Why they matter
+                # Counter-strategy context -- built once, shared by the Why
+                # and Counter lines so both draw from the same per-market
+                # signal (comp_data["_market"], set by the round-robin
+                # multi-market fallback) instead of always defaulting to
+                # the plan's first location.
+                _comp_market = str(comp_data.get("_market") or "").strip()
+                _counter_ctx = {
+                    "role": _cl_first_role,
+                    "city": _comp_market or _cl_first_loc,
+                    "industry": industry_label,
+                    "intensity": str(comp_data.get("hiring_intensity") or ""),
+                    "competitor_type": str(comp_data.get("competitor_type") or ""),
+                    "ordinal": ci,
+                }
+
+                # Why they matter -- copy:both#3 / visual:atria#2(c): a
+                # composed, per-competitor sentence (varies by ordinal +
+                # competitor type/role/city) instead of one repeated
+                # boilerplate line. A genuinely specific description (real
+                # API-sourced content, not one of the known generic
+                # placeholders) is still preferred when present.
                 comp_domain = comp_data.get("domain") or ""
-                comp_desc = comp_data.get("description") or ""
-                why_text = ""
-                if comp_desc:
-                    why_text = _trunc_word(str(comp_desc), 80)
+                comp_desc = str(comp_data.get("description") or "").strip()
+                _generic_desc = comp_desc.lower() in (
+                    "",
+                    "competitor",
+                    "industry competitor",
+                ) or comp_desc.lower().startswith("competing employer in")
+                if comp_desc and not _generic_desc:
+                    why_text = _trunc_word(comp_desc, 80)
                 elif comp_domain:
-                    why_text = f"Competes for same talent pool ({comp_domain})"
+                    why_text = f"Competes for the same talent pool via {comp_domain}"
                 else:
-                    why_text = "Active in same talent market"
+                    why_text = _compose_competitor_why(
+                        comp_name, comp_data, _counter_ctx, ci
+                    )
 
                 _add_textbox(
                     slide,
@@ -7557,18 +7854,14 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
 
                 # Counter-strategy -- per-competitor prose (varies
                 # deterministically by competitor + role), never the same
-                # boilerplate sentence for every card.
-                _counter_ctx = {
-                    "role": _cl_first_role,
-                    "city": _cl_first_loc,
-                    "industry": industry_label,
-                    "intensity": str(comp_data.get("hiring_intensity") or ""),
-                    "competitor_type": str(comp_data.get("competitor_type") or ""),
-                    "ordinal": ci,
-                }
+                # boilerplate sentence for every card. visual:atria#2(b):
+                # strip any "(National)" scope tag before interpolating the
+                # name into prose -- it stays on the card title above.
                 counter = _trunc_word(
                     "Counter: "
-                    + _insight.compose_counter_strategy(str(comp_name), _counter_ctx),
+                    + _insight.compose_counter_strategy(
+                        _strip_competitor_tag(comp_name), _counter_ctx
+                    ),
                     190,
                 )
                 _add_textbox(
@@ -9348,14 +9641,45 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
                 )
             )
         else:
-            risks.append(
-                (
-                    "TIMING",
-                    "Seasonal Variations",
-                    "Hiring demand and candidate supply fluctuate throughout the year",
-                    "Monitor weekly CPA trends; shift budget to high-performing periods",
+            # copy:both#5: cite this plan's own 2-3 highest-intensity
+            # months + actual events from the activation calendar instead
+            # of the generic sentence that rendered byte-identically across
+            # every bundle regardless of client/industry.
+            _activation_cal = (gold.get("activation_calendar") or {}).get(
+                "timeline"
+            ) or []
+            _high_months = [
+                m
+                for m in _activation_cal
+                if isinstance(m, dict)
+                and str(m.get("hiring_intensity") or "").lower()
+                in ("high", "very_high")
+            ][:3]
+            if _high_months:
+                _month_names = [str(m.get("month_name") or "") for m in _high_months]
+                _events: list = []
+                for m in _high_months:
+                    _events.extend(str(e) for e in (m.get("key_events") or [])[:1])
+                _events_str = f" ({', '.join(_events[:3])})" if _events else ""
+                risks.append(
+                    (
+                        "TIMING",
+                        "Seasonal Variations",
+                        f"{', '.join(_month_names)} run high hiring intensity "
+                        f"for this plan{_events_str}",
+                        "Front-load budget into these months; monitor weekly "
+                        "CPA trends and shift spend to high-performing periods",
+                    )
                 )
-            )
+            else:
+                risks.append(
+                    (
+                        "TIMING",
+                        "Seasonal Variations",
+                        "Hiring demand and candidate supply fluctuate throughout the year",
+                        "Monitor weekly CPA trends; shift budget to high-performing periods",
+                    )
+                )
 
         # 3. Channel dependency
         if channel_allocs:
@@ -9429,21 +9753,95 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
                 )
             )
         else:
-            risks.append(
-                (
-                    "COMPETITION",
-                    "Competitive Landscape",
-                    "Competitors may increase hiring activity during campaign period",
-                    "Monitor competitor job posting volumes weekly; adjust messaging",
+            # copy:both#5: name the plan's actual top competitor instead of
+            # a generic, byte-identical-across-every-bundle sentence.
+            # Brief-supplied competitors take precedence (same source
+            # priority as the Competitive Landscape slide), falling back to
+            # the gold-standard competitor mapping's top employer.
+            _top_competitor = ""
+            _direct_comps_r = data.get("competitors") or []
+            if isinstance(_direct_comps_r, list) and _direct_comps_r:
+                _first_c = _direct_comps_r[0]
+                _top_competitor = (
+                    str(_first_c).strip()
+                    if isinstance(_first_c, str)
+                    else (
+                        str(_first_c.get("name") or "").strip()
+                        if isinstance(_first_c, dict)
+                        else ""
+                    )
                 )
-            )
+            if not _top_competitor and competitor_map:
+                for _ck, _cv in competitor_map.items():
+                    if isinstance(_ck, str) and _ck.startswith("_"):
+                        continue
+                    if isinstance(_cv, dict) and _cv.get("top_employers"):
+                        _top_competitor = _strip_competitor_tag(
+                            str(_cv["top_employers"][0])
+                        )
+                        break
+            if _top_competitor:
+                risks.append(
+                    (
+                        "COMPETITION",
+                        "Competitive Landscape",
+                        f"{_top_competitor} and similar employers may increase "
+                        f"hiring activity during the campaign period",
+                        f"Monitor {_top_competitor}'s job posting volumes weekly; "
+                        f"adjust messaging",
+                    )
+                )
+            else:
+                risks.append(
+                    (
+                        "COMPETITION",
+                        "Competitive Landscape",
+                        "Competitors may increase hiring activity during campaign period",
+                        "Monitor competitor job posting volumes weekly; adjust messaging",
+                    )
+                )
 
-        # Render risk cards in 2x2 grid
+        # Render risk cards in a 2x2 grid, sized to content (measure-then-
+        # shrink, matching the O1 layout engine used on slides 2/5) instead
+        # of a fixed 2.2in height that left large empty gaps between the
+        # Impact and Mitigation lines whenever either was short
+        # (visual:manpower#2 / visual:atria#3).
         card_w = Inches(6.0)
-        card_h = Inches(2.2)
+        card_w_in = 6.0
         gap = Inches(0.25)
-        grid_top = Inches(1.5)
         grid_left = Inches(0.55)
+        _impact_top_in = 0.65
+        _body_w_in = card_w_in - 0.4
+
+        def _risk_impact_h_in(impact_text: str) -> float:
+            n = _estimate_lines(f"Impact: {impact_text}", _body_w_in, 9)
+            return n * (9 * 1.35) / 72.0
+
+        def _risk_mitigation_h_in(mitigation_text: str) -> float:
+            n = _estimate_lines(f"Mitigation: {mitigation_text}", _body_w_in, 9)
+            return n * (9 * 1.35) / 72.0
+
+        def _risk_card_h_in(impact_text: str, mitigation_text: str) -> float:
+            mitigation_top_in = (
+                _impact_top_in + _risk_impact_h_in(impact_text) + 0.18
+            )
+            return mitigation_top_in + _risk_mitigation_h_in(mitigation_text) + 0.22
+
+        _risk_list = risks[:4]
+        _row_h_in: list = []
+        for row_start in range(0, len(_risk_list), 2):
+            row_items = _risk_list[row_start : row_start + 2]
+            row_h = max(
+                _risk_card_h_in(impact, mitigation)
+                for (_c, _t, impact, mitigation) in row_items
+            )
+            _row_h_in.append(max(1.5, min(row_h, 2.4)))
+
+        _row_y_in: list = []
+        _cur_y_in = 1.5
+        for h_in in _row_h_in:
+            _row_y_in.append(_cur_y_in)
+            _cur_y_in += h_in + 0.25
 
         risk_colors = {
             "BUDGET": RED_ACCENT,
@@ -9452,11 +9850,13 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
             "COMPETITION": TEAL,
         }
 
-        for idx, (category, risk_title, impact, mitigation) in enumerate(risks[:4]):
+        for idx, (category, risk_title, impact, mitigation) in enumerate(_risk_list):
             col = idx % 2
             row_idx = idx // 2
+            card_h_in = _row_h_in[row_idx]
+            card_h = Inches(card_h_in)
             x = grid_left + col * (card_w + gap)
-            y = grid_top + row_idx * (card_h + gap)
+            y = Inches(_row_y_in[row_idx])
 
             # Card background
             _add_rounded_rect(slide, x, y, card_w, card_h, WHITE)
@@ -9490,24 +9890,26 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
             )
 
             # Impact
+            impact_h_in = _risk_impact_h_in(impact)
             _add_textbox(
                 slide,
                 x + Inches(0.2),
-                y + Inches(0.65),
+                y + Inches(_impact_top_in),
                 card_w - Inches(0.4),
-                Inches(0.6),
+                Inches(max(0.2, impact_h_in)),
                 text=f"Impact: {impact}",
                 font_size=9,
                 color=DARK_TEXT,
             )
 
             # Mitigation
+            mitigation_top_in = _impact_top_in + impact_h_in + 0.18
             _add_textbox(
                 slide,
                 x + Inches(0.2),
-                y + Inches(1.4),
+                y + Inches(mitigation_top_in),
                 card_w - Inches(0.4),
-                Inches(0.6),
+                Inches(max(0.2, card_h_in - mitigation_top_in - 0.1)),
                 text=f"Mitigation: {mitigation}",
                 font_size=9,
                 bold=False,
@@ -9647,12 +10049,106 @@ def _build_slide_methodology(prs: Presentation, data: Dict, deck: Dict) -> None:
     _add_footer(slide, today)
 
 
+_PUSH_CHANNEL_KEYS = frozenset(
+    {
+        "programmatic_dsp",
+        "programmatic",
+        "niche_boards",
+        "global_boards",
+        "regional_boards",
+        "job_board",
+        "social_media",
+        "social",
+        "search_engine",
+        "search",
+        "display_retargeting",
+        "display",
+        "apac_regional",
+        "emea_regional",
+        "staffing_agency",
+        "staffing",
+        "events_jobfairs",
+        "events",
+        "lead_generation",
+        "direct_hiring",
+    }
+)
+_PULL_CHANNEL_KEYS = frozenset(
+    {
+        "employer_branding",
+        "career_site",
+        "referrals",
+        "referral",
+        "internal_mobility",
+        "university",
+        "email",
+    }
+)
+
+
+def _push_pull_channel_split(data: Dict) -> "tuple[list, list]":
+    """Split THIS plan's channel allocations (``_budget_allocation``) into
+    Push (active/paid outreach: programmatic, boards, social, search) vs.
+    Pull (brand magnetism: employer branding, career site, referrals,
+    internal mobility) buckets, each a list of ``(label, dollar)`` sorted
+    by spend descending.
+
+    visual:manpower#2 / visual:atria#3: gives the Push Meets Pull slide
+    real, plan-specific numbers instead of only generic prose.
+    """
+    budget_alloc = data.get("_budget_allocation", {})
+    channel_allocs = (
+        budget_alloc.get("channel_allocations", {})
+        if isinstance(budget_alloc, dict)
+        else {}
+    )
+    if not isinstance(channel_allocs, dict):
+        return [], []
+    push_items: list = []
+    pull_items: list = []
+    for ch_key, ch_data in channel_allocs.items():
+        if not isinstance(ch_data, dict):
+            continue
+        dollar = ch_data.get("dollar_amount") or 0
+        try:
+            dollar = float(dollar)
+        except (TypeError, ValueError):
+            dollar = 0.0
+        if dollar <= 0:
+            continue
+        label = _fmt.channel_label(str(ch_key))
+        key_l = str(ch_key).strip().lower()
+        if key_l in _PULL_CHANNEL_KEYS:
+            pull_items.append((label, dollar))
+        elif key_l in _PUSH_CHANNEL_KEYS:
+            push_items.append((label, dollar))
+        # Unclassified channel keys are skipped rather than guessed into
+        # either bucket -- a wrong classification is worse than an omission.
+    push_items.sort(key=lambda x: x[1], reverse=True)
+    pull_items.sort(key=lambda x: x[1], reverse=True)
+    return push_items, pull_items
+
+
+def _push_pull_split_line(items: "list", total_budget: float) -> str:
+    """One compact "This plan:" line of channel/$ for a Push or Pull bucket."""
+    if not items:
+        return ""
+    total = sum(d for _, d in items)
+    parts = [f"{label} {_fmt.fmt_money(d, compact=True)}" for label, d in items[:4]]
+    pct = f" ({round(total / total_budget * 100)}% of budget)" if total_budget > 0 else ""
+    return f"This plan: {' · '.join(parts)} — {_fmt.fmt_money(total, compact=True)} total{pct}"
+
+
 def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> None:
     """Build the 'Push Meets Pull' slide — active outreach vs. brand magnetism.
 
-    Two large rounded cards side-by-side: Push (lavender surface, purple pill)
+    Two rounded cards side-by-side: Push (lavender surface, purple pill)
     and Pull (blue-50 surface, teal-deep pill), with the deck summary line
-    under the title band. No-ops if the deck KB section is missing.
+    under the title band. Each card is sized to its actual content (measure-
+    then-shrink, matching the O1 layout engine used on slides 2/5) instead
+    of a fixed height, and carries a real "This plan:" channel/$ breakdown
+    derived from ``_budget_allocation`` (visual:manpower#2 / visual:atria#3).
+    No-ops if the deck KB section is missing.
     """
     pmp = deck.get("push_meets_pull") or {}
     push = pmp.get("push") or {}
@@ -9695,18 +10191,46 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
         )
         _set_body_font(_tf)
 
-    # Two large rounded cards side-by-side
-    card_w = Inches(6.0)
-    card_h = Inches(4.6)
+    push_split, pull_split = _push_pull_channel_split(data)
+    _total_budget = sum(d for _, d in push_split) + sum(d for _, d in pull_split)
+
+    # Two rounded cards side-by-side, measure-then-shrink to content.
+    card_w_in = 6.0
     card_top = Inches(2.0)
+    _detail_w_in = card_w_in - 0.8
+    _pill_block_in = 0.4 + 0.55 + 0.25  # pill offset + pill height + gap to body
+    _bottom_pad_in = 0.3
+
     cards = [
-        (Inches(0.55), push, LAVENDER_100, BLUE),  # Push: lavender + purple pill
-        (Inches(6.8), pull, BLUE_50, AMBER),  # Pull: blue-50 + teal-deep pill
+        (Inches(0.55), push, LAVENDER_100, BLUE, push_split),
+        (Inches(6.8), pull, BLUE_50, AMBER, pull_split),
     ]
-    for card_x, section, surface, pill_color in cards:
+
+    # Measure BOTH cards first so they can share one common height (keeps the
+    # side-by-side layout visually balanced instead of two different heights).
+    _measured_h: list = []
+    for _card_x, section, _surface, _pill_color, _split in cards:
+        if not isinstance(section, dict) or not section:
+            _measured_h.append(0.0)
+            continue
+        detail_text = str(section.get("detail") or "")
+        split_line = _push_pull_split_line(_split, _total_budget)
+        n_detail_lines = _estimate_lines(detail_text, _detail_w_in, 11) if detail_text else 0
+        n_split_lines = (
+            _estimate_lines(split_line, _detail_w_in, 9, char_em=0.5) if split_line else 0
+        )
+        detail_h = n_detail_lines * (11 * 1.35) / 72.0
+        split_h = (n_split_lines * (9 * 1.35) / 72.0 + 0.15) if split_line else 0.0
+        _measured_h.append(_pill_block_in + detail_h + split_h + _bottom_pad_in)
+
+    card_h_in = max([2.2] + _measured_h)
+    card_h_in = min(card_h_in, 4.6)  # never exceed the old fixed max
+    card_h = Inches(card_h_in)
+
+    for card_x, section, surface, pill_color, split in cards:
         if not isinstance(section, dict) or not section:
             continue
-        _add_rounded_rect(slide, card_x, card_top, card_w, card_h, surface)
+        _add_rounded_rect(slide, card_x, card_top, Inches(card_w_in), card_h, surface)
 
         # Pill title
         _add_rounded_rect(
@@ -9732,17 +10256,189 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
         )
 
         # Detail text (Inter)
+        detail_text = str(section.get("detail") or "")
+        _detail_top = card_top + Inches(_pill_block_in)
         _box, _tf = _add_textbox(
             slide,
             card_x + Inches(0.4),
-            card_top + Inches(1.3),
-            card_w - Inches(0.8),
-            Inches(3.0),
-            text=str(section.get("detail") or ""),
+            _detail_top,
+            Inches(_detail_w_in),
+            card_h - Inches(_pill_block_in) - Inches(_bottom_pad_in),
+            text=detail_text,
             font_size=11,
             color=DARK_TEXT,
         )
         _set_body_font(_tf)
+
+        # This plan's real $ split for this bucket (visual:manpower#2 /
+        # visual:atria#3): plan-specific numbers, not more prose.
+        split_line = _push_pull_split_line(split, _total_budget)
+        if split_line:
+            n_detail_lines = (
+                _estimate_lines(detail_text, _detail_w_in, 11) if detail_text else 0
+            )
+            _split_top = _detail_top + Inches(
+                max(0.3, n_detail_lines * (11 * 1.35) / 72.0) + 0.1
+            )
+            _sbox, _stf = _add_textbox(
+                slide,
+                card_x + Inches(0.4),
+                _split_top,
+                Inches(_detail_w_in),
+                card_h - (_split_top - card_top) - Inches(0.1),
+                text=split_line,
+                font_size=9,
+                bold=True,
+                color=pill_color,
+            )
+            _set_body_font(_stf)
+
+    _add_footer(slide, today)
+
+
+def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
+    """Compact role-by-role table: tier, est. median salary, and channel
+    emphasis per role -- sourced from ``_gold_standard.difficulty_framework``
+    (already computed per plan) and ``_enriched.salary_data``.
+
+    Shown only when the plan names >=4 roles AND gold-standard role data
+    exists for at least 4 of them; no-ops cleanly otherwise. Fills the slot
+    left empty when ``_build_slide_cpa_reference`` drops (this plan's
+    industry has no KB cpa_reference content) -- visual:atria#4: a 10-role
+    plan previously had NO role-level view anywhere in the deck.
+    """
+    roles = data.get("target_roles") or data.get("roles") or []
+    if isinstance(roles, str):
+        roles = [roles]
+    # Roles may be plain strings or {"title": ..., "count": ..., "tier": ...}
+    # dicts (the shape app.py's own role normalization produces) -- str(r)
+    # on a dict would render its Python repr as the "role title".
+    role_titles = []
+    for r in roles or []:
+        if isinstance(r, dict):
+            _rt = str(r.get("title") or r.get("role") or "").strip()
+        else:
+            _rt = str(r).strip()
+        if _rt:
+            role_titles.append(_rt)
+    if len(role_titles) < 4:
+        return
+
+    gold = data.get("_gold_standard") or {}
+    difficulty = gold.get("difficulty_framework") or []
+    if not isinstance(difficulty, list) or not difficulty:
+        return
+    by_title = {
+        str(d.get("role_title") or "").strip().lower(): d
+        for d in difficulty
+        if isinstance(d, dict)
+    }
+    if not by_title:
+        return
+
+    enriched = data.get("_enriched", {})
+    salary_data = (
+        enriched.get("salary_data", {}) if isinstance(enriched, dict) else {}
+    )
+    if not isinstance(salary_data, dict):
+        salary_data = {}
+
+    rows: list = []
+    for title in role_titles:
+        d = by_title.get(title.lower())
+        if not d:
+            continue
+        tier = str(d.get("seniority_level") or "").replace("_", " ").title()
+        emphasis = _fmt.channel_label(str(d.get("channel_emphasis") or "")) or str(
+            d.get("channel_emphasis") or ""
+        ).replace("_", " ").title()
+        _sal = salary_data.get(title) or {}
+        median = _sal.get("median") if isinstance(_sal, dict) else None
+        salary_str = _format_salary(median) if median else "--"
+        rows.append((title, tier, salary_str, emphasis))
+    if len(rows) < 4:
+        return
+
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+    today = datetime.date.today().strftime("%B %d, %Y")
+    client = data.get("client_name", "Client")
+
+    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
+    _add_top_band(slide, "ROLE BREAKDOWN", today)
+    _add_textbox(
+        slide,
+        Inches(0.55),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.45),
+        text=(
+            f"Tier, salary band, and channel emphasis across {client}'s "
+            f"{len(rows)} target roles"
+        ),
+        font_size=15,
+        bold=True,
+        color=NAVY,
+    )
+
+    table_left = Inches(0.55)
+    col_widths = [Inches(4.4), Inches(2.3), Inches(2.5), Inches(2.9)]
+    headers = ["Role", "Tier", "Est. Median Salary", "Channel Emphasis"]
+    header_top = Inches(1.7)
+    header_h = Inches(0.42)
+    row_h = Inches(0.42)
+
+    _add_filled_rect(
+        slide, table_left, header_top, sum(col_widths, Inches(0)), header_h, NAVY
+    )
+    cx = table_left
+    for header, cw in zip(headers, col_widths):
+        _add_textbox(
+            slide,
+            cx + Inches(0.15),
+            header_top,
+            cw - Inches(0.3),
+            header_h,
+            text=header,
+            font_size=10,
+            bold=True,
+            color=WHITE,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+        cx += cw
+
+    _max_rows = min(len(rows), 12)
+    for idx, (title, tier, salary_str, emphasis) in enumerate(rows[:_max_rows]):
+        y = header_top + header_h + idx * row_h
+        _add_filled_rect(
+            slide,
+            table_left,
+            y,
+            sum(col_widths, Inches(0)),
+            row_h,
+            LAVENDER_50 if idx % 2 == 0 else WHITE,
+        )
+        cells = [
+            (_trunc_word(title, 40), 9, True, NAVY),
+            (tier, 9, False, DARK_TEXT),
+            (salary_str, 9, False, DARK_TEXT),
+            (emphasis, 9, False, MUTED_TEXT),
+        ]
+        cx = table_left
+        for (cell_text, fsize, fbold, fcolor), cw in zip(cells, col_widths):
+            _add_textbox(
+                slide,
+                cx + Inches(0.15),
+                y,
+                cw - Inches(0.3),
+                row_h,
+                text=cell_text,
+                font_size=fsize,
+                bold=fbold,
+                color=fcolor,
+                anchor=MSO_ANCHOR.MIDDLE,
+            )
+            cx += cw
 
     _add_footer(slide, today)
 
@@ -9925,7 +10621,20 @@ def _build_slide_why_joveo(prs: Presentation, data: Dict, deck: Dict) -> None:
         ),
     ]
     cw = Inches(6.0)
-    ch = Inches(2.05)
+    # visual:manpower#2 / visual:atria#3: size the card to content (measure-
+    # then-shrink, matching the O1 layout engine on slides 2/5) instead of a
+    # fixed 2.05in height that left large dead space below two sentences of
+    # copy. ``_inv_card`` places its body text at y+0.64in with a
+    # 0.24in horizontal pad on each side.
+    _joveo_body_w_in = 6.0 - 0.24 * 2
+
+    def _joveo_card_h_in(body_text: str) -> float:
+        n = _estimate_lines(body_text, _joveo_body_w_in, 11)
+        body_h_in = n * (11 * 1.35) / 72.0
+        return 0.64 + body_h_in + 0.16
+
+    ch_in = max(1.35, min(2.05, max(_joveo_card_h_in(b) for _, b in cards)))
+    ch = Inches(ch_in)
     gap_x = Inches(0.3)
     gap_y = Inches(0.25)
     left = Inches(0.65)
@@ -10989,6 +11698,14 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         core_props.comments = f"Generated by Nova AI Media Plan Generator (media-plan-generator.onrender.com). Data sourced from 25 real-time APIs, 91+ job board platforms, and Nova AI Suite industry knowledge base."
         core_props.category = "Recruitment Advertising"
         core_props.last_modified_by = "Nova AI Suite"
+        # craft:both#2: stamp the REAL generation timestamp -- python-pptx's
+        # default template otherwise leaves docProps/core.xml's
+        # created/modified at its own hardcoded 2013-01-27 template date,
+        # byte-identical across every bundle regardless of when it was
+        # actually generated (the xlsx sibling already gets this right).
+        _now_utc = datetime.datetime.now(datetime.timezone.utc)
+        core_props.created = _now_utc
+        core_props.modified = _now_utc
 
         # Set 16:9 widescreen dimensions
         prs.slide_width = SLIDE_WIDTH
@@ -11088,10 +11805,22 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         # Slide 7: CPA Reference — industry-keyed KB content (only AI-training
         # is populated); _build_slide_cpa_reference itself drops the slide
         # entirely when this plan's industry key has no KB content.
+        _slides_before_cpa = len(prs.slides)
         try:
             _build_slide_cpa_reference(prs, data, deck)
         except Exception as _cpa_exc:
             logger.debug("CPA Reference slide failed (non-fatal): %s", _cpa_exc)
+
+        # visual:atria#4: when the CPA Reference slot was dropped (no KB
+        # content for this plan's industry) and the plan names >=4 roles
+        # with gold-standard role data, fill the empty slot with a compact
+        # role-breakdown table instead of shipping a multi-role plan with
+        # no role-level view anywhere in the deck.
+        if len(prs.slides) == _slides_before_cpa:
+            try:
+                _build_slide_role_breakdown(prs, data)
+            except Exception as _rb_exc:
+                logger.debug("Role breakdown slide failed (non-fatal): %s", _rb_exc)
 
         # Slide 8: Competitive Landscape (always shown)
         _build_slide_competitive_landscape(prs, data)
@@ -11119,12 +11848,16 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         # Data Sources & Methodology -- REMOVED from client deck (S50)
         # _build_slide_data_sources(prs, data)  # kept for internal debugging
 
+        _n_slides_final = len(prs.slides)
         buffer = io.BytesIO()
         prs.save(buffer)
         buffer.seek(0)
         # Embed the brand font so the deck renders in Poppins everywhere (not a
         # serif/Calibri substitute on machines lacking the font).
-        return _embed_fonts_in_pptx(buffer.getvalue())
+        _pptx_bytes = _embed_fonts_in_pptx(buffer.getvalue())
+        # craft:both#3 / craft:both#6: theme default typeface + app.xml
+        # slide count/signature.
+        return _fix_pptx_package_hygiene(_pptx_bytes, _n_slides_final)
 
     except Exception as exc:
         logger.error("generate_pptx top-level crash: %s", exc, exc_info=True)

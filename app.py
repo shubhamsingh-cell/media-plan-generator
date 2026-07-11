@@ -34,7 +34,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.chart import Reference
 
-from shared_utils import parse_budget
+from shared_utils import parse_budget, INDUSTRY_LABEL_MAP
 
 import benchmark_registry
 import hashlib
@@ -3564,6 +3564,51 @@ try:
 except ImportError as e:
     logger.warning("bundle_qa module import failed: %s", e)
     bundle_qa = None
+
+
+def _split_city_state_country(loc_str: str) -> dict:
+    """Parse a free-form "City, ST" / "City, State, Country" / "City,
+    Country" location string into city/state/country -- without ever
+    mistaking a US state abbreviation or full name for the country
+    (strategy:manpower#2: naive ``parts[-1]`` splitting turned "Denver, CO"
+    into Country="CO" instead of "United States").
+
+    - 3+ comma-separated parts: city, state, country (country = 3rd part).
+    - 2 parts where the 2nd part is a recognizable US state (postal code or
+      full name, via plan_geo's state table): city, state, country="United
+      States".
+    - 2 parts where the 2nd part is NOT a recognizable US state (e.g.
+      "London, United Kingdom"): treat the 2nd part as the country, not a
+      state.
+    - 1 part / no comma: city only, country defaults to "United States".
+    """
+    parts = [p.strip() for p in (loc_str or "").split(",") if p.strip()]
+    if not parts:
+        return {"city": loc_str or "", "state": "", "country": "United States"}
+    city = parts[0]
+    if len(parts) >= 3:
+        return {"city": city, "state": parts[1], "country": parts[2]}
+    if len(parts) == 2:
+        second = parts[1]
+        is_us_state = False
+        if plan_geo is not None:
+            try:
+                is_us_state = (
+                    second.lower() in plan_geo.US_STATE_NAME_TO_ABBR
+                    or (
+                        len(second) == 2
+                        and second.isalpha()
+                        and second.upper() in plan_geo.US_STATE_ABBR
+                    )
+                )
+            except Exception:
+                is_us_state = False
+        if is_us_state:
+            return {"city": city, "state": second, "country": "United States"}
+        # 2nd token isn't a recognizable US state -- it's most likely the
+        # country itself (e.g. "London, United Kingdom"), not a state.
+        return {"city": city, "state": "", "country": second}
+    return {"city": city, "state": "", "country": "United States"}
 
 # v3: Trend engine and collar intelligence for new Excel worksheets
 try:
@@ -15180,8 +15225,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         gen_data["industry"] = industry_profile.get(
                             "legacy_key", "general_entry_level"
                         )
+                        # consistency:manpower#3 / consistency:atria#1:
+                        # excel_v2's sheet builders single-source the
+                        # industry label from shared_utils.INDUSTRY_LABEL_MAP
+                        # (keyed by the SAME legacy_key set above) -- prefer
+                        # that canonical map over the NAICS classifier's own
+                        # "sector" taxonomy so the deck never disagrees with
+                        # the workbook on the industry name.
                         if not gen_data.get("industry_label"):
-                            gen_data["industry_label"] = industry_profile["sector"]
+                            gen_data["industry_label"] = INDUSTRY_LABEL_MAP.get(
+                                gen_data["industry"], industry_profile["sector"]
+                            )
                         gen_data["talent_profile"] = industry_profile["talent_profile"]
                         gen_data["bls_sector"] = industry_profile["bls_sector"]
                         gen_data["naics_code"] = industry_profile.get("naics", "00")
@@ -15347,23 +15401,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     _locs_raw if isinstance(_locs_raw, list) else []
                                 ):
                                     if isinstance(loc, str):
-                                        parts = [p.strip() for p in loc.split(",")]
+                                        # strategy:manpower#2: use the
+                                        # state-aware splitter so "Denver,
+                                        # CO" resolves country to "United
+                                        # States", not "CO".
                                         _locs_for_ba.append(
-                                            {
-                                                "city": parts[0] if parts else loc,
-                                                "state": (
-                                                    parts[1] if len(parts) > 1 else ""
-                                                ),
-                                                "country": (
-                                                    parts[2]
-                                                    if len(parts) > 2
-                                                    else (
-                                                        parts[-1]
-                                                        if len(parts) > 1
-                                                        else "US"
-                                                    )
-                                                ),
-                                            }
+                                            _split_city_state_country(loc)
                                         )
                                     elif isinstance(loc, dict):
                                         _locs_for_ba.append(
@@ -15489,11 +15532,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         _first_loc_a.get("country") or "United States"
                                     )
                                 elif isinstance(_first_loc_a, str):
-                                    _parts_a = [
-                                        p.strip() for p in _first_loc_a.split(",")
-                                    ]
-                                    if len(_parts_a) >= 2:
-                                        _slotops_country_a = _parts_a[-1]
+                                    # strategy:manpower#2: state-aware
+                                    # splitter so "Denver, CO" resolves to
+                                    # "United States", not "CO".
+                                    _slotops_country_a = _split_city_state_country(
+                                        _first_loc_a
+                                    )["country"]
                             _li_bench_a = get_linkedin_benchmarks_for_plan(
                                 _slotops_country_a
                             )
@@ -15814,13 +15858,25 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         _wants_google_export = _requested_format == "google"
                         if _requested_format == "google":
                             _requested_format = "all"
+                        # app.py bounded edit #2: proper-case the client name
+                        # (display_format.client_display_name) before
+                        # sanitizing for the filename -- a raw lowercase
+                        # brief slug like "atria" otherwise ships straight
+                        # through to the delivered filename instead of
+                        # "Atria".
+                        _raw_client_a = gen_data.get("client_name") or "Client"
+                        _display_client_a = (
+                            display_format.client_display_name(_raw_client_a)
+                            if display_format is not None
+                            else _raw_client_a
+                        ) or _raw_client_a
                         client_name = re.sub(
                             r"_+",
                             "_",  # S27: Collapse multiple underscores
                             re.sub(
                                 r"[^a-zA-Z0-9_\-]",
                                 "_",
-                                gen_data.get("client_name") or "Client",
+                                _display_client_a,
                             ),
                         ).strip("_")
                         pptx_bytes = None
@@ -17303,9 +17359,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # research.py, channels_db.json, and all internal lookup tables
             data["industry"] = industry_profile.get("legacy_key", "general_entry_level")
 
-            # Set the display label from NAICS classification (prefer frontend-provided label)
+            # Set the display label (prefer frontend-provided label, then the
+            # SAME canonical shared_utils.INDUSTRY_LABEL_MAP excel_v2's sheet
+            # builders use -- consistency:manpower#3 / consistency:atria#1:
+            # the NAICS classifier's own "sector" taxonomy disagreed with it
+            # ("Transportation & Logistics" vs. "Logistics & Supply Chain"
+            # for the identical plan), only falling back to the NAICS sector
+            # name when the legacy_key has no canonical mapping.
             if not data.get("industry_label"):
-                data["industry_label"] = industry_profile["sector"]
+                data["industry_label"] = INDUSTRY_LABEL_MAP.get(
+                    data["industry"], industry_profile["sector"]
+                )
 
             # Store talent profile and BLS sector for downstream use
             data["talent_profile"] = industry_profile["talent_profile"]
@@ -17517,18 +17581,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     _locs_for_ba = []
                     for loc in (_locs_raw if isinstance(_locs_raw, list) else []):
                         if isinstance(loc, str):
-                            parts = [p.strip() for p in loc.split(",")]
-                            _locs_for_ba.append(
-                                {
-                                    "city": parts[0] if parts else loc,
-                                    "state": parts[1] if len(parts) > 1 else "",
-                                    "country": (
-                                        parts[2]
-                                        if len(parts) > 2
-                                        else parts[-1] if len(parts) > 1 else "US"
-                                    ),
-                                }
-                            )
+                            # strategy:manpower#2: state-aware splitter so
+                            # "Denver, CO" resolves country to "United
+                            # States", not "CO".
+                            _locs_for_ba.append(_split_city_state_country(loc))
                         elif isinstance(loc, dict):
                             _locs_for_ba.append(
                                 {
@@ -17642,9 +17698,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     if isinstance(_first_loc, dict):
                         _slotops_country = _first_loc.get("country") or "United States"
                     elif isinstance(_first_loc, str):
-                        parts = [p.strip() for p in _first_loc.split(",")]
-                        if len(parts) >= 2:
-                            _slotops_country = parts[-1]
+                        # strategy:manpower#2: state-aware splitter so
+                        # "Denver, CO" resolves to "United States", not "CO".
+                        _slotops_country = _split_city_state_country(
+                            _first_loc
+                        )["country"]
                 _li_benchmarks = get_linkedin_benchmarks_for_plan(_slotops_country)
                 if _li_benchmarks:
                     data["_slotops_linkedin_benchmarks"] = _li_benchmarks
@@ -17943,11 +18001,20 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _gen_timer.cancel()
 
             # Sanitize client_name to ASCII-safe characters (prevents CJK/Unicode crashes in filenames/headers)
+            # app.py bounded edit #2: proper-case via
+            # display_format.client_display_name BEFORE sanitizing, so a
+            # raw lowercase brief slug like "atria" ships as "Atria" in the
+            # delivered filename instead of the unpolished internal slug.
             _raw_client = data.get("client_name") or "Client"
+            _display_client = (
+                display_format.client_display_name(_raw_client)
+                if display_format is not None
+                else _raw_client
+            ) or _raw_client
             client_name = re.sub(
                 r"_+",
                 "_",  # S27: Collapse multiple underscores
-                re.sub(r"[^a-zA-Z0-9_\-]", "_", _raw_client),
+                re.sub(r"[^a-zA-Z0-9_\-]", "_", _display_client),
             ).strip("_")
             # S47: Build descriptive filename with industry, location, and date
             _fn_industry = re.sub(
