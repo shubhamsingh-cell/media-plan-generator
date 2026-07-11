@@ -7333,7 +7333,14 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             trend_items.append(f"Offer Acceptance: {oar_str}")
         top_src = hiring_trends.get("top_sources")
         if isinstance(top_src, dict) and top_src:
-            src_items = [f"{k}: {v}" for k, v in list(top_src.items())[:3]]
+            # S92 fix: this dict's keys come straight from the KB JSON
+            # (e.g. "job_boards", "career_site", "employee_referrals") --
+            # title-case them like the ttf/oar dict-flattening two blocks
+            # above already does, instead of leaking the raw snake_case key.
+            src_items = [
+                f"{k.replace('_', ' ').title()}: {v}"
+                for k, v in list(top_src.items())[:3]
+            ]
             trend_items.append(f"Top Sources: {', '.join(src_items)}")
 
         # Fewer than 2 real bullets: fill with genuine, sourced substance
