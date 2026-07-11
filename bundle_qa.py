@@ -516,63 +516,221 @@ def _check_comparison_badges(
 # ---------------------------------------------------------------------------
 # Counter-strategy distinctness (deck cards + workbook column)
 # ---------------------------------------------------------------------------
+# S92 fix: the original check compared every counter-strategy string
+# ALL-PAIRS across the deck, the Market Intelligence sheet, AND the Quality
+# Intelligence sheet. But the same competitor legitimately carries the same
+# composed sentence across those artifacts -- e.g. "ManpowerGroup" gets the
+# same insight_composer output on the deck's competitor card, in Market
+# Intelligence's Competitor Analysis row, and in Quality Intelligence's
+# Competitive Landscape row, because that's intentional single-sourcing
+# (one composer, one set of inputs), not interchangeable-sounding
+# competitors. A pair should only be compared -- and only flagged -- when
+# both (a) it comes from the SAME artifact view (the deck is one view;
+# each worksheet TABLE is its own view, since a sheet can host more than
+# one Counter-Strategy table) and (b) it names two DIFFERENT competitor
+# identities. When identity can't be established for either side, the pair
+# is skipped rather than flagged -- absence of evidence isn't evidence of
+# a "sounds interchangeable" defect.
+def _norm_identity(identity: str | None) -> str | None:
+    if not isinstance(identity, str):
+        return None
+    normalized = identity.strip().lower()
+    return normalized or None
+
+
 def _check_counter_strategy_distinctness(
-    strings: list[tuple[str, str]], findings: list[Finding]
+    strings: list[tuple[str, str, str | None, str]], findings: list[Finding]
 ) -> None:
-    """``strings`` is a list of (text, location). Flags any pair >85%
-    similar via difflib.SequenceMatcher."""
-    n = len(strings)
-    for i in range(n):
-        for j in range(i + 1, n):
-            text_i, loc_i = strings[i]
-            text_j, loc_j = strings[j]
-            if not text_i or not text_j:
-                continue
-            ratio = difflib.SequenceMatcher(None, text_i, text_j).ratio()
-            if ratio > 0.85:
-                findings.append(
-                    _finding(
-                        "critical",
-                        "counter_strategy_near_duplicate",
-                        f"Counter-strategy text at {loc_i} is {ratio:.0%} "
-                        f"similar to the text at {loc_j} -- competitors "
-                        f"must not read as interchangeable",
-                        loc_i,
+    """``strings`` is a list of (text, location, identity, view) tuples.
+    Flags any pair >85% similar via difflib.SequenceMatcher, but only
+    within the same ``view`` and only when ``identity`` is collectable on
+    both sides and differs between them."""
+    by_view: dict[str, list[tuple[str, str, str | None]]] = {}
+    for text, loc, identity, view in strings:
+        by_view.setdefault(view, []).append((text, loc, identity))
+
+    for items in by_view.values():
+        n = len(items)
+        for i in range(n):
+            for j in range(i + 1, n):
+                text_i, loc_i, id_i = items[i]
+                text_j, loc_j, id_j = items[j]
+                if not text_i or not text_j:
+                    continue
+                norm_i, norm_j = _norm_identity(id_i), _norm_identity(id_j)
+                if norm_i is None or norm_j is None:
+                    continue  # identity not collectable -- skip, don't flag
+                if norm_i == norm_j:
+                    continue  # same competitor within one view -- expected
+                ratio = difflib.SequenceMatcher(None, text_i, text_j).ratio()
+                if ratio > 0.85:
+                    findings.append(
+                        _finding(
+                            "critical",
+                            "counter_strategy_near_duplicate",
+                            f"Counter-strategy text at {loc_i} is {ratio:.0%} "
+                            f"similar to the text at {loc_j} -- competitors "
+                            f"must not read as interchangeable",
+                            loc_i,
+                        )
                     )
-                )
 
 
-def _collect_pptx_counter_strategies(pptx_units: list[_TextUnit]) -> list[tuple[str, str]]:
-    out = []
+def _collect_pptx_counter_strategies(
+    pptx_units: list[_TextUnit],
+) -> list[tuple[str, str, str | None, str]]:
+    """Returns (text, location, identity, view) tuples. ``view`` is always
+    "deck" -- the whole deck is one artifact for distinctness purposes.
+
+    ``identity`` is the competitor name for the card this "Counter:" line
+    belongs to. ppt_generator._build_slide_competitive_landscape writes
+    each card's shapes in a fixed sequence -- name textbox, then "Why: ..."
+    textbox, then "Counter: ..." textbox -- with no other text interleaved
+    between one card's name and its own counter line, so "the most recent
+    unit that isn't itself a 'Why:'/'Counter:' line" is that card's name,
+    regardless of what came before it on the slide.
+    """
+    out: list[tuple[str, str, str | None, str]] = []
+    pending_identity: str | None = None
     for u in pptx_units:
         stripped = u.text.strip()
+        if not stripped:
+            continue
         if stripped.startswith("Counter:"):
-            out.append((stripped[len("Counter:"):].strip(), u.location))
+            out.append(
+                (stripped[len("Counter:"):].strip(), u.location, pending_identity, "deck")
+            )
+        elif stripped.startswith("Why:"):
+            continue  # descriptive line between name and counter -- not an identity
+        else:
+            pending_identity = stripped
     return out
 
 
-def _collect_xlsx_counter_strategies(wb: Any) -> list[tuple[str, str]]:
-    out: list[tuple[str, str]] = []
+_IDENTITY_HEADER_CANDIDATES = {
+    "name",
+    "competitor",
+    "competitor name",
+    "employer",
+    "employers",
+    "top employer",
+    "top employers",
+    "company",
+}
+
+
+def _cell_style_signature(cell: Any) -> tuple[Any, Any, bool] | None:
+    """A (fill_type, fg_color_key, bold) signature used ONLY to recognize
+    "this cell is styled like a _write_table_header cell" -- i.e. to detect
+    a NEW table's header row reusing the same column letter, not for any
+    general-purpose style comparison. Returns None if styling can't be
+    introspected (defensive -- must never crash the QA pass)."""
+    try:
+        fill = cell.fill
+        fg = getattr(fill, "fgColor", None)
+        fg_key = getattr(fg, "rgb", None) or getattr(fg, "theme", None)
+        fill_type = getattr(fill, "fill_type", None)
+        bold = bool(cell.font and cell.font.bold)
+        return (fill_type, fg_key, bold)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _collect_xlsx_counter_strategies(
+    wb: Any,
+) -> list[tuple[str, str, str | None, str]]:
+    """Returns (text, location, identity, view) tuples.
+
+    S92 fix: the original version found the FIRST 'Counter-Strategy' header
+    in a worksheet and then collected every subsequent cell in that column
+    letter for the rest of the sheet, with no stop condition. On sheets
+    where a LATER, unrelated table reuses the same column letter for a
+    different field (Quality Intelligence's "Role Difficulty
+    Classification" table puts "Location Modifier" in the same column F
+    that the "Competitive Landscape & Counter-Strategies" table above it
+    used for "Counter-Strategy"), every value from that unrelated column
+    got misread as competitor counter-strategy prose. Bound collection to
+    the table: stop at the first fully-blank row after data starts, or at
+    the next row styled like a table header (same fill+bold signature as
+    the header cell this table started from) -- whichever comes first.
+
+    ``identity`` is the row's competitor/employer-name column value,
+    located by matching the header row against
+    ``_IDENTITY_HEADER_CANDIDATES``; needed by
+    ``_check_counter_strategy_distinctness`` to tell "same competitor
+    legitimately repeats similar prose" apart from "two different
+    competitors read as interchangeable". ``view`` is a per-table key
+    (worksheet + header row) so distinctness is only ever checked within
+    one table, never across worksheets/artifacts.
+    """
+    out: list[tuple[str, str, str | None, str]] = []
     if wb is None:
         return out
+
     for ws in wb.worksheets:
-        header_row = None
-        counter_col = None
+        in_table = False
+        counter_col: int | None = None
+        identity_col: int | None = None
+        header_sig: tuple[Any, Any, bool] | None = None
+        view = ""
+
         for row in ws.iter_rows():
-            for cell in row:
-                if cell.value == "Counter-Strategy":
-                    header_row = cell.row
-                    counter_col = cell.column
-                    break
-            if header_row:
-                break
-        if not header_row or not counter_col:
-            continue
-        for row in ws.iter_rows(min_row=header_row + 1):
-            for cell in row:
-                if cell.column == counter_col and isinstance(cell.value, str):
-                    if cell.value.strip():
-                        out.append((cell.value.strip(), f"{ws.title}!{cell.coordinate}"))
+            if not in_table:
+                header_cell = next(
+                    (c for c in row if c.value == "Counter-Strategy"), None
+                )
+                if header_cell is None:
+                    continue
+                counter_col = header_cell.column
+                header_sig = _cell_style_signature(header_cell)
+                view = f"{ws.title}#{header_cell.row}"
+                identity_col = None
+                for c in row:
+                    if (
+                        isinstance(c.value, str)
+                        and c.value.strip().lower() in _IDENTITY_HEADER_CANDIDATES
+                    ):
+                        identity_col = c.column
+                        break
+                in_table = True
+                continue
+
+            # Already inside a table -- decide whether this row still
+            # belongs to it before (maybe) collecting from it.
+            if all(c.value in (None, "") for c in row):
+                in_table = False
+                continue
+
+            counter_cell = next((c for c in row if c.column == counter_col), None)
+            if counter_cell is None:
+                continue
+
+            if (
+                header_sig is not None
+                and isinstance(counter_cell.value, str)
+                and counter_cell.value.strip()
+                and _cell_style_signature(counter_cell) == header_sig
+            ):
+                # A different table's header row, reusing this column
+                # letter and the same header styling -- this table ended
+                # one row up.
+                in_table = False
+                continue
+
+            if isinstance(counter_cell.value, str) and counter_cell.value.strip():
+                identity_val: str | None = None
+                if identity_col is not None:
+                    id_cell = next((c for c in row if c.column == identity_col), None)
+                    if id_cell is not None and isinstance(id_cell.value, str):
+                        identity_val = id_cell.value.strip() or None
+                out.append(
+                    (
+                        counter_cell.value.strip(),
+                        f"{ws.title}!{counter_cell.coordinate}",
+                        identity_val,
+                        view,
+                    )
+                )
     return out
 
 

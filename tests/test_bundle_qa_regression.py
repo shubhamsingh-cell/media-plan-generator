@@ -206,6 +206,8 @@ def test_allows_canonical_client_name_casing():
 
 
 def test_detects_near_duplicate_counter_strategy():
+    """Two DIFFERENT competitors, same table/view, near-identical text --
+    must flag."""
     findings: list[dict] = []
     bundle_qa._check_counter_strategy_distinctness(
         [
@@ -214,12 +216,16 @@ def test_detects_near_duplicate_counter_strategy():
                 "options -- lead with total-comp clarity and a same-week "
                 "interview slot.",
                 "a",
+                "UPS",
+                "Market Intelligence#10",
             ),
             (
                 "FedEx's presence in this pool means CDL drivers have "
                 "options -- lead with total-comp clarity and a same-week "
                 "interview slot.",
                 "b",
+                "FedEx",
+                "Market Intelligence#10",
             ),
         ],
         findings,
@@ -235,16 +241,212 @@ def test_allows_distinct_counter_strategy():
                 "UPS is actively staffing CDL drivers through third-party "
                 "agencies -- compress time-to-offer.",
                 "a",
+                "UPS",
+                "Market Intelligence#10",
             ),
             (
                 "Expect FedEx to keep pressure on CDL drivers; a faster "
                 "interview-to-offer cycle is the clearest lever.",
                 "b",
+                "FedEx",
+                "Market Intelligence#10",
             ),
         ],
         findings,
     )
     assert not any(f["code"] == "counter_strategy_near_duplicate" for f in findings)
+
+
+def test_allows_same_competitor_near_duplicate_across_different_artifacts():
+    """S92 bug #1: the SAME competitor legitimately carries the SAME
+    composed sentence across DIFFERENT artifacts (deck card vs Market
+    Intelligence row vs Quality Intelligence row) -- that's intentional
+    single-sourcing from insight_composer, not competitors reading as
+    interchangeable. Cross-view pairs must never be flagged, regardless of
+    identity."""
+    findings: list[dict] = []
+    bundle_qa._check_counter_strategy_distinctness(
+        [
+            (
+                "ManpowerGroup is actively staffing CDL drivers through "
+                "third-party agencies -- compress time-to-offer.",
+                "deck loc",
+                "ManpowerGroup",
+                "deck",
+            ),
+            (
+                "ManpowerGroup is actively staffing CDL drivers through "
+                "third-party agencies -- compress time-to-offer.",
+                "Market Intelligence!F5",
+                "ManpowerGroup",
+                "Market Intelligence#10",
+            ),
+        ],
+        findings,
+    )
+    assert not any(f["code"] == "counter_strategy_near_duplicate" for f in findings)
+
+
+def test_allows_same_competitor_near_duplicate_within_same_table():
+    """Same view, SAME competitor identity repeating (e.g. the same top
+    employer leads two different cities) -- expected, not a defect."""
+    findings: list[dict] = []
+    bundle_qa._check_counter_strategy_distinctness(
+        [
+            (
+                "ManpowerGroup is actively staffing CDL drivers through "
+                "third-party agencies -- compress time-to-offer.",
+                "Quality Intelligence!F5",
+                "ManpowerGroup",
+                "Quality Intelligence#4",
+            ),
+            (
+                "ManpowerGroup is actively staffing CDL drivers through "
+                "third-party agencies -- compress time-to-offer.",
+                "Quality Intelligence!F6",
+                "ManpowerGroup",
+                "Quality Intelligence#4",
+            ),
+        ],
+        findings,
+    )
+    assert not any(f["code"] == "counter_strategy_near_duplicate" for f in findings)
+
+
+def test_skips_pair_when_identity_not_collectable():
+    """If identity can't be established for a pair, skip it rather than
+    flag it -- absence of evidence isn't evidence of a defect."""
+    findings: list[dict] = []
+    bundle_qa._check_counter_strategy_distinctness(
+        [
+            (
+                "UPS's presence in this pool means CDL drivers have "
+                "options -- lead with total-comp clarity and a same-week "
+                "interview slot.",
+                "a",
+                None,
+                "deck",
+            ),
+            (
+                "FedEx's presence in this pool means CDL drivers have "
+                "options -- lead with total-comp clarity and a same-week "
+                "interview slot.",
+                "b",
+                None,
+                "deck",
+            ),
+        ],
+        findings,
+    )
+    assert not any(f["code"] == "counter_strategy_near_duplicate" for f in findings)
+
+
+def test_collects_xlsx_counter_strategies_bounded_to_table():
+    """S92 bug #2: _collect_xlsx_counter_strategies must stop at the table
+    boundary, not sweep into an unrelated table below that happens to
+    reuse the same column letter -- e.g. Quality Intelligence's "Role
+    Difficulty Classification" table puts "Location Modifier" in the same
+    column F that "Competitive Landscape & Counter-Strategies" used for
+    "Counter-Strategy". No blank row separates the two tables here on
+    purpose, so this only passes if the header-style-based stop (not just
+    the blank-row stop) is working."""
+    pytest = __import__("pytest")
+    pytest.importorskip("openpyxl")
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill
+
+    header_font = Font(bold=True, color="FFFFFFFF")
+    header_fill = PatternFill(
+        start_color="FF1F3A93", end_color="FF1F3A93", fill_type="solid"
+    )
+    body_font = Font(bold=False)
+    body_fill = PatternFill(
+        start_color="FFFFFFFF", end_color="FFFFFFFF", fill_type="solid"
+    )
+
+    def _write_header_row(ws, row_idx, headers):
+        for ci, h in enumerate(headers, start=1):
+            c = ws.cell(row=row_idx, column=ci, value=h)
+            c.font = header_font
+            c.fill = header_fill
+
+    def _write_data_row(ws, row_idx, values):
+        for ci, v in enumerate(values, start=1):
+            c = ws.cell(row=row_idx, column=ci, value=v)
+            c.font = body_font
+            c.fill = body_fill
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Quality Intelligence"
+
+    # Table 1: Competitive Landscape & Counter-Strategies -- F = Counter-Strategy
+    _write_header_row(
+        ws,
+        1,
+        [
+            "City",
+            "Top Employers",
+            "Hiring Intensity",
+            "Est. Competing Postings",
+            "Why They Matter",
+            "Counter-Strategy",
+        ],
+    )
+    _write_data_row(
+        ws,
+        2,
+        [
+            "Houston",
+            "ManpowerGroup",
+            "High",
+            500,
+            "High hiring volume",
+            "ManpowerGroup is actively staffing CDL drivers -- compress time-to-offer.",
+        ],
+    )
+
+    # Table 2 immediately follows, NO blank row -- F = Location Modifier
+    # (same column letter, unrelated field).
+    _write_header_row(
+        ws,
+        3,
+        [
+            "Role Title",
+            "Seniority Level",
+            "Difficulty (1-10)",
+            "Supply Level",
+            "Avg Time-to-Fill",
+            "Location Modifier",
+            "Budget Weight",
+            "Channel Emphasis",
+            "Description",
+        ],
+    )
+    _write_data_row(
+        ws,
+        4,
+        [
+            "CDL Driver",
+            "Mid",
+            6,
+            "Moderate",
+            "45 days",
+            "+2.0 (Houston)",
+            "1.1x",
+            "Job Boards",
+            "Standard CDL role",
+        ],
+    )
+
+    out = bundle_qa._collect_xlsx_counter_strategies(wb)
+    texts = [t for t, *_rest in out]
+    assert any("ManpowerGroup" in t for t in texts)
+    assert not any("Location Modifier" in t or "+2.0" in t for t in texts)
+    assert len(out) == 1
+    # Identity for the one collected row should resolve to the "Top
+    # Employers" column value, not None.
+    assert out[0][2] == "ManpowerGroup"
 
 
 def test_detects_zero_hire_nonzero_cph():
