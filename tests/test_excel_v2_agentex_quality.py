@@ -368,6 +368,66 @@ def test_location_intelligence_drops_blank_metric_columns():
     assert "selected by client footprint" in rationale_cell
 
 
+# ---------------------------------------------------------------------------
+# 10. Location Intelligence resolves "City, ST" to Country="United States"
+# (residual B of the S92 integration pass -- naive parts[-1] string-split
+# fallback used to put the state abbreviation itself, e.g. "CO", in the
+# Country field for "Denver, CO")
+# ---------------------------------------------------------------------------
+def test_location_intelligence_resolves_us_state_abbr_to_united_states():
+    data = _base_data()  # locations default to ["Denver, CO", "Boise, ID"]
+    wb = _generate_wb(data)
+    ws = wb["Market Intelligence"]
+
+    rows_by_location = {}
+    header_row = None
+    for row in ws.iter_rows():
+        vals = [c.value for c in row]
+        if vals and vals[1] == "Location" and vals[2] == "Country":
+            header_row = vals
+            continue
+        if header_row and vals and isinstance(vals[1], str) and vals[1] in (
+            "Denver, CO",
+            "Boise, ID",
+        ):
+            # First match only -- the sheet has a second, unrelated
+            # "Location" / "Cost Index" table (Geographic Cost Variance)
+            # further down that also repeats these location names.
+            rows_by_location.setdefault(vals[1], vals)
+
+    assert "Denver, CO" in rows_by_location, rows_by_location
+    assert rows_by_location["Denver, CO"][2] == "United States", rows_by_location[
+        "Denver, CO"
+    ]
+    assert "Boise, ID" in rows_by_location, rows_by_location
+    assert rows_by_location["Boise, ID"][2] == "United States", rows_by_location[
+        "Boise, ID"
+    ]
+
+
+def test_location_intelligence_keeps_non_us_trailing_token_as_country():
+    """A genuinely non-US "City, Country" 2-part string (no US state match)
+    must still resolve the trailing token as the country -- the fix only
+    special-cases recognizable US state abbreviations/names."""
+    data = _base_data(locations=["London, United Kingdom"])
+    wb = _generate_wb(data)
+    ws = wb["Market Intelligence"]
+
+    header_row = None
+    london_row = None
+    for row in ws.iter_rows():
+        vals = [c.value for c in row]
+        if vals and vals[1] == "Location" and vals[2] == "Country":
+            header_row = vals
+            continue
+        if header_row and vals and vals[1] == "London, United Kingdom":
+            london_row = vals
+            break
+
+    assert london_row is not None, "London row not found in Location Intelligence"
+    assert london_row[2] == "United Kingdom", london_row
+
+
 if __name__ == "__main__":
     test_no_duplicate_openings_based_goal_narrative()
     test_no_dangling_optimized_section_recommendation()
@@ -384,4 +444,6 @@ if __name__ == "__main__":
     test_rewrite_low_roi_recommendation_skips_brand()
     test_rewrite_low_roi_recommendation_drops_when_only_brand()
     test_rewrite_low_roi_recommendation_ignores_zero_spend_and_healthy_roi()
+    test_location_intelligence_resolves_us_state_abbr_to_united_states()
+    test_location_intelligence_keeps_non_us_trailing_token_as_country()
     print("OK")

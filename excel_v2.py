@@ -4435,9 +4435,23 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         # Extract values with fallback chain
         country = loc_data.get("country") or ""
         if not country:
-            # Try to infer from location string ("City, Country" -> last token)
+            # Try to infer from location string ("City, Country" -> last
+            # token). S92 residual fix: for the common 2-part "City, ST"
+            # form (e.g. "Denver, CO"), the trailing token is a US state
+            # abbreviation/name, not a country -- naive parts[-1] used to
+            # put "CO" in the Country field. Check plan_geo's state table
+            # first (mirrors app.py's _split_city_state_country) before
+            # treating the trailing token as a literal country name.
             parts = loc.split(",")
-            if len(parts) > 1:
+            if len(parts) == 2:
+                _trailing = parts[-1].strip()
+                _is_us_state = _trailing.lower() in plan_geo.US_STATE_NAME_TO_ABBR or (
+                    len(_trailing) == 2
+                    and _trailing.isalpha()
+                    and _trailing.upper() in plan_geo.US_STATE_ABBR
+                )
+                country = "United States" if _is_us_state else _trailing
+            elif len(parts) > 2:
                 country = parts[-1].strip()
             else:
                 # No comma: the location string itself may already BE the
