@@ -1655,6 +1655,65 @@ def _flatten_value(val: Any, max_depth: int = 3) -> str:
     return str(val)[:200]
 
 
+_PHYSICIAN_ROLE_KEYWORDS = (
+    "physician",
+    "md ",
+    " md",
+    "doctor",
+    "cardiolog",
+    "radiolog",
+    "surgeon",
+    "psychiatr",
+    "anesthesio",
+    "oncolog",
+    "neurolog",
+    "dermatolog",
+    "gastroenterolog",
+    "urolog",
+    "ophthalmolog",
+    "otolaryngolog",
+    "pulmonolog",
+    "hospitalist",
+    "obgyn",
+    "ob-gyn",
+)
+
+# copy:both#6 fix: the shared "healthcare_medical" KB benchmark record mixes
+# physician/MD-specific sub-stats into dicts that are otherwise generic
+# healthcare figures (e.g. cph.physician_recruitment alongside
+# cph.recruitment_marketing_only). Rendered unfiltered for a senior-living
+# or allied-health client, "Physician Recruitment: $180,000-$250,000" reads
+# as THIS client's own hiring intelligence rather than off-topic context.
+_PHYSICIAN_ONLY_BENCHMARK_SUBKEYS = frozenset(
+    {"physician_recruitment", "primary_care", "cardiology_psychiatry"}
+)
+
+
+def _plan_targets_physician_roles(roles: List[str]) -> bool:
+    """True when this plan's own roles include a physician/MD-type role."""
+    text = " ".join(str(r) for r in (roles or [])).lower()
+    return any(kw in text for kw in _PHYSICIAN_ROLE_KEYWORDS)
+
+
+def _scope_benchmark_to_plan_roles(val: Any, roles: List[str]) -> Any:
+    """Drop physician/MD-only sub-stats from a shared healthcare benchmark
+    dict when this plan's own roles aren't physician/MD roles (finding
+    copy:both#6), so a senior-living or allied-health workbook doesn't
+    present physician-specialty compensation/time-to-fill figures as its
+    own hiring intelligence. No-op for non-dict values, physician-targeting
+    plans, or dicts that don't carry any of the known physician-only keys.
+    """
+    if not isinstance(val, dict) or _plan_targets_physician_roles(roles):
+        return val
+    filtered = {
+        k: v
+        for k, v in val.items()
+        if k not in _PHYSICIAN_ONLY_BENCHMARK_SUBKEYS
+        and "physician" not in str(k).lower()
+    }
+    return filtered if filtered != val else val
+
+
 # S: Sub-vertical seasonal override text for the Executive Summary's
 # "Seasonal Patterns" benchmark row. gold_standard.build_activation_calendar
 # (Gate 7) may match a plan against a narrower sub-vertical whose real
@@ -1742,6 +1801,88 @@ def _get_roles(data: dict) -> List[str]:
         elif isinstance(r, str):
             roles.append(r.strip())
     return roles or ["General"]
+
+
+def _format_roles_stat(roles: List[str]) -> Tuple[str, str]:
+    """Return a (label, value) pair summarizing a plan's role list the same
+    way the Executive Summary's "Roles" count card does (finding
+    data:atria#4) -- e.g. ("Roles", "10 (Memory Care Associate, Nurse, +8
+    more)") -- instead of silently truncating a multi-role plan down to a
+    single named role.
+    """
+    n = len(roles)
+    if n <= 1:
+        return "Role", str(roles[0]) if roles else "Various"
+    shown = ", ".join(str(r) for r in roles[:2])
+    remaining = n - 2
+    value = f"{n} ({shown}, +{remaining} more)" if remaining > 0 else f"{n} ({shown})"
+    return "Roles", value
+
+
+def _largest_remainder_fractions(
+    fractions: List[float], decimals: int = 1
+) -> List[float]:
+    """Round proportions (summing to ~1.0) to ``decimals`` places using the
+    largest-remainder method (Hamilton apportionment), so the DISPLAYED
+    percentages sum to exactly 100.0% (finding data:atria#3-related
+    polish). Independent per-value rounding (e.g. round(28.05,1)=28.1,
+    round(26.55,1)=26.5, ...) can drift the printed total to 100.1%/99.9%
+    even when the underlying values sum to exactly 1.0; this distributes
+    the rounding remainder to the values with the largest fractional part
+    so they still sum exactly. Returns fractions on the same 0..1 scale.
+    """
+    n = len(fractions)
+    if n == 0:
+        return []
+    scale = 10**decimals
+    total_units = round(100 * scale)
+    raw_units = [max(0.0, f) * 100 * scale for f in fractions]
+    floor_units = [int(u) for u in raw_units]
+    remainder = total_units - sum(floor_units)
+    if remainder > 0:
+        order = sorted(
+            range(n), key=lambda i: raw_units[i] - floor_units[i], reverse=True
+        )
+        for i in range(min(remainder, n)):
+            floor_units[order[i]] += 1
+    elif remainder < 0:
+        # Only possible if inputs summed to > 1.0; trim from the smallest
+        # fractional-remainder entries so the total still lands exactly.
+        order = sorted(range(n), key=lambda i: raw_units[i] - floor_units[i])
+        for i in range(min(-remainder, n)):
+            floor_units[order[i]] = max(0, floor_units[order[i]] - 1)
+    return [u / scale / 100.0 for u in floor_units]
+
+
+def _corrected_channel_pct_display(channel_allocs: Dict[str, Any]) -> Dict[str, float]:
+    """Single-source, largest-remainder-rounded display percentages for a
+    channel_allocations dict, keyed by channel name (finding
+    data:atria#3-related polish). Percentages are derived from each
+    channel's dollar_amount / total dollar_amount -- the SAME dollar
+    figures that already foot exactly -- then rounded with
+    ``_largest_remainder_fractions`` so the displayed percentages also
+    foot to exactly 100.0%. The Executive Summary, Channels & Strategy, and
+    Channel Recommendations sheets all call this with the SAME
+    channel_allocs so every sheet shows the identical percentage for the
+    identical channel. Returns ``{}`` when there's nothing to allocate.
+    """
+    if not isinstance(channel_allocs, dict) or not channel_allocs:
+        return {}
+    names = list(channel_allocs.keys())
+    dollars = [
+        _safe_num(
+            (channel_allocs[n] or {}).get(
+                "dollar_amount", (channel_allocs[n] or {}).get("dollars") or 0
+            )
+        )
+        for n in names
+    ]
+    total = sum(dollars)
+    if total <= 0:
+        return {}
+    fractions = [d / total for d in dollars]
+    rounded = _largest_remainder_fractions(fractions, decimals=1)
+    return dict(zip(names, rounded))
 
 
 def _get_locations(data: dict) -> List[str]:
@@ -2935,6 +3076,42 @@ def assess_source_bias(source_name: str) -> Dict[str, Any]:
     }
 
 
+def _funded_brand_channel_names(channel_allocs: dict) -> List[str]:
+    """Names of funded 'brand' channels (e.g. Employer Branding) -- these
+    always carry ``projected_hires == 0`` by design (see budget_engine's
+    brand-channel handling), the identical zero-hire profile a named
+    performance channel gets flagged for below.
+    """
+    return sorted(
+        _smart_title(str(name))
+        for name, ch in (channel_allocs or {}).items()
+        if isinstance(ch, dict)
+        and ch.get("channel_role") == "brand"
+        and (ch.get("dollar_amount", ch.get("dollars") or 0) or 0) > 0
+    )
+
+
+def _brand_asymmetry_clause(channel_allocs: dict) -> str:
+    """data:atria#6 fix: when a low-ROI/low-efficiency recommendation names
+    a performance channel (e.g. Social Media) for its zero-hire profile, a
+    funded brand channel (e.g. Employer Branding) with the SAME zero-hire
+    profile sits right next to it in the budget and is silently never
+    named -- a reader is left to wonder why one zero-hire channel is
+    flagged and the other isn't. Returns a short clause explaining the
+    asymmetry (brand channels aren't scored on hires by design), or "" when
+    there's no funded brand channel to explain.
+    """
+    brand_names = _funded_brand_channel_names(channel_allocs)
+    if not brand_names:
+        return ""
+    return (
+        f" {', '.join(brand_names)} also shows 0 hires but is held as brand "
+        f"investment by design -- it is measured on reach and pipeline "
+        f"influence, not direct CPA/hires, so it is not a reallocation "
+        f"candidate here."
+    )
+
+
 def _rewrite_low_efficiency_recommendation(channel_allocs: dict) -> Optional[str]:
     """Rebuild the "Low Efficiency alert" recommendation from budget_engine.
 
@@ -2946,6 +3123,11 @@ def _rewrite_low_efficiency_recommendation(channel_allocs: dict) -> Optional[str
     committed to those channels this same run, which is self-contradictory.
     Zero-hire PERFORMANCE channels get the vetted-tier action instead: hold
     at pilot level, scale only on observed conversion.
+
+    S89A FIX (finding data:atria#6): when a funded brand channel (e.g.
+    Employer Branding) shares the identical zero-hire profile as the named
+    channel(s) here, say so in the SAME sentence instead of silently
+    omitting it -- see ``_brand_asymmetry_clause``.
 
     Returns ``None`` when no non-brand zero-hire channel remains (drop the
     recommendation entirely rather than show an empty alert).
@@ -2963,7 +3145,7 @@ def _rewrite_low_efficiency_recommendation(channel_allocs: dict) -> Optional[str
         f"Low Efficiency alert: {', '.join(perf_zero_hire)} projected 0 hires "
         f"despite >$1,000 spend. Hold at pilot level; scale only on observed "
         f"conversion rather than reallocating budget already committed to "
-        f"this plan."
+        f"this plan." + _brand_asymmetry_clause(channel_allocs)
     )
 
 
@@ -2994,6 +3176,13 @@ def _rewrite_low_roi_recommendation(channel_allocs: dict) -> Optional[str]:
     budget_engine actually flagged, then drops 'brand' channels and
     Low-Efficiency-flagged channels from that list.
 
+    S89A FIX (finding data:atria#6): a funded 'brand' channel (e.g.
+    Employer Branding) routinely shares the IDENTICAL zero-hire,
+    ROI-Score-1 profile as a named performance channel here (e.g. Social
+    Media) -- omitting it silently reads as an inconsistency when a reader
+    cross-checks the ROI Score column. Name the asymmetry instead of
+    hiding it -- see ``_brand_asymmetry_clause``.
+
     Returns ``None`` when no channel remains (drop the recommendation
     entirely rather than show an empty alert).
     """
@@ -3011,6 +3200,7 @@ def _rewrite_low_roi_recommendation(channel_allocs: dict) -> Optional[str]:
     return (
         f"Channels with low ROI scores ({', '.join(low_roi)}) "
         f"may benefit from budget reallocation to higher-performing channels."
+        + _brand_asymmetry_clause(channel_allocs)
     )
 
 
@@ -3402,6 +3592,13 @@ def _build_sheet_executive_summary(
             key=lambda x: x[1].get("dollar_amount", x[1].get("dollars") or 0),
             reverse=True,
         )
+        # data:atria#3-related polish: ONE largest-remainder-rounded
+        # percentage per channel, derived from the same dollar amounts this
+        # table already displays -- shared verbatim with the Channels &
+        # Strategy and Channel Recommendations sheets so the % column foots
+        # to exactly 100.0% everywhere it's shown instead of drifting to
+        # 100.1% from independent per-cell rounding.
+        _corrected_pct = _corrected_channel_pct_display(channel_allocs)
         # S82: collect numeric (name, dollars) pairs for a native pie chart.
         _chart_pairs: List[tuple] = []
         # S89: write LIVE numeric values + Excel number_formats so the client can
@@ -3430,7 +3627,7 @@ def _build_sheet_executive_summary(
             if _safe_num(_ch_dollars) > 0:
                 _chart_pairs.append((_display_name, round(_safe_num(_ch_dollars), 2)))
             # Percentage source is on a 0-100 scale; FMT_PCT1 expects a fraction.
-            _pct_frac = _safe_num(_ch_pct) / 100.0
+            _pct_frac = _corrected_pct.get(ch_name, _safe_num(_ch_pct) / 100.0)
             values = [
                 _display_name,
                 _pct_frac,
@@ -3692,7 +3889,16 @@ def _build_sheet_executive_summary(
                                 data
                             ) or _flatten_value(val)
                         else:
-                            val_str = _flatten_value(val)
+                            # copy:both#6 fix: strip physician/MD-only
+                            # sub-stats (e.g. cph.physician_recruitment) out
+                            # of this shared healthcare_medical benchmark
+                            # dict when this plan isn't hiring physicians --
+                            # otherwise a senior-living/allied-health client
+                            # sees physician compensation presented as its
+                            # own hiring intelligence.
+                            val_str = _flatten_value(
+                                _scope_benchmark_to_plan_roles(val, roles)
+                            )
                         if val_str:
                             row = _write_kv_row(
                                 ws, row, _humanize_snake_key(key), val_str
@@ -3850,10 +4056,11 @@ def _build_sheet_executive_summary(
         and str(info.get("hiring_intensity") or "").lower() in ("high", "very_high")
     )
     if n_competitive_cities > 0:
+        _market_noun = "market has" if n_competitive_cities == 1 else "markets have"
         risk_items.append(
             (
                 "Competitive Pressure",
-                f"{n_competitive_cities} market(s) have high competitive intensity — "
+                f"{n_competitive_cities} {_market_noun} high competitive intensity — "
                 f"Fortune 500+ companies actively hiring similar roles",
                 "Differentiate with employer brand messaging; emphasize career growth, culture, flexibility",
             )
@@ -4106,6 +4313,11 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
         # S3: Amount/CPC are the plan's OWN figures -- active plan currency.
         _ch_formats = [None, FMT_PCT1, _usd0_fmt(), None, _usd2_fmt(), None, "0.0"]
         _ch_first = row
+        # data:atria#3-related polish: same largest-remainder-rounded
+        # percentage map the Executive Summary and Channel Recommendations
+        # sheets use, so this sheet's Budget % column foots to exactly
+        # 100.0% and agrees cell-for-cell with the other two sheets.
+        _corrected_pct = _corrected_channel_pct_display(channel_allocs)
         for idx, (ch_name, ch_data) in enumerate(sorted_channels[:15]):
             roi = ch_data.get("roi_score") or ""
             confidence = _derive_channel_confidence(data, ch_data)
@@ -4114,7 +4326,9 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
 
             values = [
                 display_format.channel_label(ch_name),
-                _safe_num(ch_data.get("percentage") or 0) / 100.0,
+                _corrected_pct.get(
+                    ch_name, _safe_num(ch_data.get("percentage") or 0) / 100.0
+                ),
                 _safe_num(ch_data.get("dollar_amount", ch_data.get("dollars") or 0)),
                 display_format.channel_label(category) if category else "",
                 _safe_num(ch_data.get("cpc") or 0),
@@ -6519,8 +6733,11 @@ def _compute_dynamic_ttf(channel_base_ttf: int, data: dict) -> int:
     """Compute dynamic time-to-fill by adjusting channel base with role/volume/market factors.
 
     Factors applied:
-    - Role difficulty: executive (60-90d), tech (45-60d), nursing (30-45d),
-      hourly (14-21d), CDL/trucking (21-30d)
+    - Role difficulty: the plan's own roles, scored by
+      gold_standard.classify_difficulty() (the same model driving the
+      Quality Intelligence sheet's Role Difficulty Classification table) --
+      falls back to a legacy industry-keyword table only when the plan has
+      no roles for classify_difficulty() to score.
     - Volume: >50 hires adds 15-30 days proportionally
     - Market conditions: 'drought' adds 10 days, 'surplus' subtracts 5
 
@@ -6531,29 +6748,43 @@ def _compute_dynamic_ttf(channel_base_ttf: int, data: dict) -> int:
     Returns:
         Adjusted time-to-fill in days (minimum 10).
     """
-    industry = str(data.get("industry") or "").lower()
-    roles_raw = data.get("target_roles") or data.get("roles") or []
+    # strategy:manpower#4 fix: derive the role-driven component from
+    # gold_standard.classify_difficulty() -- the SAME per-role
+    # time-to-fill model that feeds the Quality Intelligence sheet's Role
+    # Difficulty Classification table -- instead of a second, independently
+    # maintained keyword table (_ROLE_DIFFICULTY_TTF). Before this fix,
+    # "CDL A Driver" priced differently here (bare "cdl"/"driver" keyword
+    # range, midpoint 25.5d) than on Quality Intelligence (role-profile
+    # map), producing two disagreeing time-to-fill figures for one role.
+    try:
+        role_results = gs_lib.classify_difficulty(data)
+    except Exception:
+        role_results = []
+    role_ttfs = [
+        r.get("avg_time_to_fill_days")
+        for r in role_results
+        if isinstance(r, dict) and r.get("avg_time_to_fill_days")
+    ]
+    role_midpoint: float | None = sum(role_ttfs) / len(role_ttfs) if role_ttfs else None
 
-    # ── Role difficulty adjustment ──
-    role_adjustment: float = 1.0
-    role_texts: list[str] = []
-    for r in (roles_raw if isinstance(roles_raw, list) else []):
-        if isinstance(r, str):
-            role_texts.append(r.lower())
-        elif isinstance(r, dict):
-            role_texts.append(str(r.get("title") or "").lower())
+    if role_midpoint is None:
+        # Defensive fallback (e.g. no target_roles/roles on data at all) --
+        # legacy industry-keyword matching against _ROLE_DIFFICULTY_TTF.
+        industry = str(data.get("industry") or "").lower()
+        roles_raw = data.get("target_roles") or data.get("roles") or []
+        role_texts: list[str] = []
+        for r in (roles_raw if isinstance(roles_raw, list) else []):
+            if isinstance(r, str):
+                role_texts.append(r.lower())
+            elif isinstance(r, dict):
+                role_texts.append(str(r.get("title") or "").lower())
+        combined_role_text = " ".join(role_texts) + f" {industry}"
+        for keyword, ttf_range in _ROLE_DIFFICULTY_TTF.items():
+            if keyword in combined_role_text:
+                role_midpoint = (ttf_range[0] + ttf_range[1]) / 2.0
+                break
 
-    combined_role_text = " ".join(role_texts) + f" {industry}"
-
-    # Find best matching role difficulty
-    matched_range: tuple[int, int] | None = None
-    for keyword, ttf_range in _ROLE_DIFFICULTY_TTF.items():
-        if keyword in combined_role_text:
-            matched_range = ttf_range
-            break
-
-    if matched_range:
-        role_midpoint = (matched_range[0] + matched_range[1]) / 2.0
+    if role_midpoint is not None:
         # Scale channel TTF toward the role-appropriate range
         # Blend: 60% role-driven, 40% channel-driven
         adjusted_ttf = int(role_midpoint * 0.6 + channel_base_ttf * 0.4)
@@ -7128,6 +7359,30 @@ def _collapse_fallback_market_rows(
     return out
 
 
+def _salary_range_from_per_role(info: Dict[str, Any]) -> str | None:
+    """Derive a market's headline Salary Range from its own per-role salary
+    rows (min of mins, max of maxes) instead of an independently-computed
+    figure, so the City-Level Supply-Demand table's Salary Range column
+    always agrees with the Salary Intelligence table's Min/Max columns for
+    the same market (finding data:manpower#1). Returns None when the market
+    has no per-role salary data to derive from.
+    """
+    per_role: Dict[str, Any] = info.get("per_role_salary") or {}
+    mins = [
+        r.get("min")
+        for r in per_role.values()
+        if isinstance(r, dict) and isinstance(r.get("min"), (int, float))
+    ]
+    maxes = [
+        r.get("max")
+        for r in per_role.values()
+        if isinstance(r, dict) and isinstance(r.get("max"), (int, float))
+    ]
+    if not mins or not maxes:
+        return None
+    return f"${min(mins):,.0f} - ${max(maxes):,.0f}"
+
+
 def _build_sheet_quality_intelligence(
     ws, data: dict, gold_standard: dict[str, Any]
 ) -> None:
@@ -7203,6 +7458,15 @@ def _build_sheet_quality_intelligence(
             _display_rows = _collapse_fallback_market_rows(city_data)
             _has_collapsed_market_row = any(is_c for _, _, is_c in _display_rows)
             for idx, (market_label, info, _is_collapsed) in enumerate(_display_rows):
+                # W4A FIX (finding data:manpower#1): this row's "Salary Range"
+                # used to be computed independently as a flat
+                # est_salary-$10k/+$15k offset, which contradicts the
+                # Min/Max columns of the "Salary Intelligence" table below
+                # (same market, same roles) since that table's per-role
+                # bands are multiplier/tier-scaled, not a flat offset.
+                # Derive this cell from the SAME per_role_salary rows the
+                # Salary Intelligence table renders -- min of mins, max of
+                # maxes -- so the two tables can't disagree about one market.
                 row = _write_table_row(
                     ws,
                     row,
@@ -7215,7 +7479,11 @@ def _build_sheet_quality_intelligence(
                         .replace("_", " ")
                         .title(),
                         f"{info.get('cost_of_living_index', 100):.1f}",
-                        str(info.get("salary_range") or "—"),
+                        str(
+                            _salary_range_from_per_role(info)
+                            or info.get("salary_range")
+                            or "—"
+                        ),
                     ],
                     alternate=idx % 2 == 1,
                     number_formats=_city_money_fmts,
@@ -7880,6 +8148,14 @@ def _build_sheet_quality_intelligence(
                     "Industry Events",
                     "; ".join(industry_events),
                 )
+                row += 1
+
+            # strategy:atria#8 fix: for campaigns longer than 12 months, say
+            # explicitly that the annual calendar above repeats rather than
+            # leaving a client to assume it only covers part of the term.
+            _repeats_note = activation.get("repeats_annually_note") or ""
+            if _repeats_note:
+                row = _write_footnote(ws, row, _repeats_note)
                 row += 1
     except Exception as exc:
         logger.error(
@@ -8715,7 +8991,11 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
     industry = data.get("industry") or "general_entry_level"
     industry_label = _get_industry_label(industry)
     roles = _get_roles(data)
-    role_label = roles[0] if roles else (data.get("role") or "Various")
+    # data:atria#4 fix: this header block used to show only roles[0]
+    # ("Role: Memory Care Associate") for a plan with all 10 roles enumerated
+    # elsewhere in the bundle. Use the SAME role list + summary format the
+    # Executive Summary's "Roles" count card is built from.
+    _role_stat_label, _role_stat_value = _format_roles_stat(roles)
 
     row = 1
 
@@ -8745,7 +9025,7 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
     # ── Summary stats (all live numbers, currency-localized) ──
     _stat_rows = [
         ("Industry", industry_label, None),
-        ("Role", str(role_label), None),
+        (_role_stat_label, _role_stat_value, None),
         ("Budget", total_spend, _usd0_fmt()),
         ("Proj. Applications", total_apps, FMT_INT),
         ("Proj. Hires", total_hires, FMT_INT),
@@ -8781,6 +9061,12 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
             must_have.append((name, ch))
         else:
             should_have.append((name, ch))
+
+    # data:atria#3-related polish: same largest-remainder-rounded
+    # percentage map the Executive Summary and Channels & Strategy sheets
+    # use, so this sheet's Alloc % column foots to exactly 100.0% and
+    # agrees cell-for-cell with the other two sheets.
+    _corrected_pct = _corrected_channel_pct_display(channel_allocs)
 
     headers = [
         "Channel",
@@ -8828,9 +9114,12 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         for name, ch in tier_channels:
             _display = _smart_title(str(name))
             _dollars = _safe_num(ch.get("dollar_amount", ch.get("dollars") or 0))
-            _pct = _safe_num(ch.get("percentage") or 0)
-            if _pct <= 0 and total_spend > 0:
-                _pct = round(_dollars / total_spend * 100, 1)
+            if name in _corrected_pct:
+                _pct = _corrected_pct[name] * 100.0
+            else:
+                _pct = _safe_num(ch.get("percentage") or 0)
+                if _pct <= 0 and total_spend > 0:
+                    _pct = round(_dollars / total_spend * 100, 1)
             _cpc = _safe_num(ch.get("cpc") or 0)
             _cpa = _safe_num(ch.get("cpa") or 0)
             # S89 (findings data:manpower#3/atria#3, strategy:atria#8):

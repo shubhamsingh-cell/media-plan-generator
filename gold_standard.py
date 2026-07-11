@@ -2787,15 +2787,24 @@ def _lookup_role_difficulty(role_title: str) -> dict[str, Any] | None:
         A copy of the matching profile dict, or None if no match.
     """
     title_lower = role_title.lower().strip()
+    # strategy:manpower#4 fix: whole-word alias lookup for short/ambiguous
+    # abbreviations (RN, LPN, CDL...) runs FIRST, before the generic
+    # substring loop below. A title like "CDL A Driver" does NOT contain
+    # the specific "cdl driver" pattern as a contiguous substring (the "A"
+    # breaks it), so the substring loop below was falling through to the
+    # shorter, less-specific bare "driver" pattern (avg_ttf 20 days)
+    # instead of the CDL-specific profile (avg_ttf 30 days) -- producing a
+    # time-to-fill figure on this sheet that disagreed with the CDL-aware
+    # per-channel figure on ROI Projections and the CDL benchmark cited on
+    # the Executive Summary. The alias lookup safely recognizes "cdl" as a
+    # standalone token regardless of word order/adjacency.
+    alias = _match_token_alias(title_lower)
+    if alias is not None and alias in _ROLE_DIFFICULTY_MAP:
+        return dict(_ROLE_DIFFICULTY_MAP[alias])
     # Sort keys by length descending so more specific patterns match first
     for pattern in sorted(_ROLE_DIFFICULTY_MAP, key=len, reverse=True):
         if pattern in title_lower:
             return dict(_ROLE_DIFFICULTY_MAP[pattern])
-    # Whole-word alias lookup for short/ambiguous abbreviations (RN, LPN,
-    # CDL...) that are unsafe to match via plain substring above.
-    alias = _match_token_alias(title_lower)
-    if alias is not None and alias in _ROLE_DIFFICULTY_MAP:
-        return dict(_ROLE_DIFFICULTY_MAP[alias])
     # S27: Fuzzy fallback -- partial word match for unmatched roles
     title_words = set(title_lower.split())
     for pattern in sorted(_ROLE_DIFFICULTY_MAP, key=len, reverse=True):
@@ -2849,6 +2858,24 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
     roles_raw = data.get("target_roles") or data.get("roles") or []
     enriched = data.get("_enriched") or {}
 
+    # consistency:atria#4 fix: brief-supplied competitor names take
+    # precedence over the synthesized per-city industry employer list
+    # below, then that synthesized list fills in the rest. The Market
+    # Intelligence sheet's competitor table already treats
+    # data['competitors'] as authoritative when present; this synthesizer
+    # previously ignored it entirely, so a client whose brief named actual
+    # competitors (e.g. "FedEx, UPS, XPO Logistics") would see a DIFFERENT,
+    # generic competitor set here on the Quality Intelligence sheet -- two
+    # unreconciled competitor lists in one workbook.
+    _brief_competitors_raw = data.get("competitors") or []
+    if isinstance(_brief_competitors_raw, str):
+        _brief_competitors_raw = [
+            c.strip() for c in _brief_competitors_raw.split(",") if c.strip()
+        ]
+    brief_competitors: list[str] = [
+        str(c).strip() for c in _brief_competitors_raw if str(c).strip()
+    ]
+
     # Resolve industry via alias table + substring matching
     resolved_key = _resolve_industry_key(raw_industry)
     industry_employers: dict[str, list[str]] = (
@@ -2895,11 +2922,32 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
         # Merge local-first + national, dedup -- local employers appear first
         # S27: Prepend "(National)" when competitors are industry-level only (no city-specific data)
         if not local_competitors and national_competitors:
-            all_competitors = [f"(National) {c}" for c in national_competitors[:8]]
+            _synthesized_competitors = [
+                f"(National) {c}" for c in national_competitors[:8]
+            ]
         else:
-            all_competitors = list(
+            _synthesized_competitors = list(
                 dict.fromkeys(local_competitors + national_competitors)
+            )
+        # consistency:atria#4 fix: brief-named competitors go first, then
+        # the synthesized industry list fills any remaining slots -- same
+        # priority order the Market Intelligence sheet's competitor table
+        # already uses, so both tables name the same competitors. Drop any
+        # synthesized entry that's just a "(National) X" restating a
+        # company already named via the brief (case-insensitive on the
+        # bare name) so the same competitor doesn't appear twice.
+        if brief_competitors:
+            _brief_lower = {c.lower() for c in brief_competitors}
+            _synthesized_competitors = [
+                c
+                for c in _synthesized_competitors
+                if c.lower().replace("(national) ", "") not in _brief_lower
+            ]
+            all_competitors = list(
+                dict.fromkeys(brief_competitors + _synthesized_competitors)
             )[:8]
+        else:
+            all_competitors = _synthesized_competitors[:8]
 
         base_difficulty = city_data[city_name].get("hiring_difficulty", 5.5)
 
@@ -2943,10 +2991,16 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
             ),
         }
 
-    # Also add a national-level entry
-    if national_competitors:
+    # Also add a national-level entry -- brief competitors first, same
+    # precedence order as the per-city entries above (consistency:atria#4).
+    if national_competitors or brief_competitors:
+        _national_employers = (
+            list(dict.fromkeys(brief_competitors + national_competitors))
+            if brief_competitors
+            else national_competitors
+        )
         competitor_map["_national"] = {
-            "top_employers": national_competitors,
+            "top_employers": _national_employers,
             "hiring_intensity": "moderate",
         }
 
@@ -3276,31 +3330,43 @@ _NON_TRADITIONAL_CHANNELS: dict[str, dict[str, Any]] = {
         "type": "startup",
         "reach": "niche",
         "best_for": ["technology", "startup"],
+        # data:atria#2 / strategy:atria#2 fix: without an explicit "industry"
+        # tag this (and every other channel below missing one) matched by
+        # default against ANY client industry -- a senior-living or
+        # healthcare client would see startup/tech-only channels. Key every
+        # generic-audience channel to the industry it's actually built for,
+        # matching the pattern the niche-board tables already use.
+        "industry": "technology",
     },
     "Behance / Dribbble": {
         "type": "design",
         "reach": "niche",
         "best_for": ["creative", "design"],
+        "industry": "creative_design",
     },
     "Meetup.com Sponsorships": {
         "type": "events",
         "reach": "local",
         "best_for": ["technology", "creative"],
+        "industry": "technology",
     },
     "Reddit (r/forhire, industry subs)": {
         "type": "community",
         "reach": "niche",
         "best_for": ["technology", "creative"],
+        "industry": "technology",
     },
     "Discord Communities": {
         "type": "community",
         "reach": "niche",
         "best_for": ["technology", "gaming"],
+        "industry": "technology",
     },
     "Slack Communities (e.g., #jobs)": {
         "type": "community",
         "reach": "niche",
         "best_for": ["technology"],
+        "industry": "technology",
     },
     "TikTok Recruitment": {
         "type": "social",
@@ -3338,12 +3404,20 @@ _NON_TRADITIONAL_CHANNELS: dict[str, dict[str, Any]] = {
     "Hired.com": {
         "type": "marketplace",
         "reach": "professional",
+        # data:atria#2 fix: "senior" here is a channel-fit tag (a
+        # senior/experienced-hire marketplace), not a seniority-level
+        # match key -- without an "industry" tag it was matching every
+        # client whose roles happen to include a senior-level position,
+        # which is how a tech engineering marketplace ended up recommended
+        # for a senior-living client's Nurse/Shift Nurse roles.
         "best_for": ["technology", "senior"],
+        "industry": "technology",
     },
     "Hacker News (Who's Hiring)": {
         "type": "community",
         "reach": "niche",
         "best_for": ["technology"],
+        "industry": "technology",
     },
     "Health eCareers": {
         "type": "niche_board",
@@ -3770,9 +3844,20 @@ def build_channel_strategy(
         str(r.get("title") if isinstance(r, dict) else r) for r in _roles_raw
     ).lower()
     _industry_lower = industry.lower()
-    _is_blue_collar_trucking = bool(
-        _TRUCKING_KEYWORDS & set(_all_roles_lower.split())
-        or "trucking" in _industry_lower
+    # strategy:atria#2 fix: this used to be one flag OR'd from a role-title
+    # keyword scan alone, so ANY role containing a generic word like
+    # "driver" or "delivery" (e.g. Atria Senior Living's community-shuttle
+    # "Driver" role) flipped it True regardless of the client's actual
+    # industry -- which then fired the CDL/trucking-board override below
+    # for a senior-living client. Split the signal in two: the role-keyword
+    # scan alone is still used (below) to hide the irrelevant Handshake
+    # campus board for blue-collar roles -- a harmless, conservative
+    # suppression -- but ADDING CDL/trucking-specific boards additionally
+    # requires the client's own classified industry to actually be
+    # trucking/transportation/logistics, not just a role-title keyword hit.
+    _is_blue_collar_trucking = bool(_TRUCKING_KEYWORDS & set(_all_roles_lower.split()))
+    _industry_is_trucking_logistics = bool(
+        "trucking" in _industry_lower
         or "transportation" in _industry_lower
         or "logistics" in _industry_lower
     )
@@ -3789,9 +3874,11 @@ def build_channel_strategy(
         industry_match = (
             ch_industry in industry or industry in ch_industry if ch_industry else True
         )
-        # For trucking-specific channels, always include if role is trucking
+        # For trucking-specific channels, only include when the client's
+        # classified industry is itself trucking/transportation/logistics
+        # (not merely a role title containing a generic keyword).
         if (
-            _is_blue_collar_trucking
+            _industry_is_trucking_logistics
             and info.get("industry") == "logistics_transportation"
         ):
             industry_match = True
@@ -4355,9 +4442,11 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
         "low": 0.7,
     }
 
-    # Build 6-month forward calendar
+    # strategy:atria#8 fix: build a full 12-month forward calendar (was a
+    # 6-month window) so a multi-year campaign's seasonality is shown for
+    # its entire annual cycle rather than truncated to the first half.
     timeline: list[dict[str, Any]] = []
-    for offset in range(6):
+    for offset in range(12):
         month_num = ((campaign_month - 1 + offset) % 12) + 1
         month_info = _HIRING_EVENTS_CALENDAR[month_num]
         month_name = datetime.date(2026, month_num, 1).strftime("%B")
@@ -4503,6 +4592,24 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
         "industry_events": industry_events,
         "budget_phasing_note": budget_phasing_note,
     }
+
+    # strategy:atria#8 fix: the timeline above always covers one full
+    # 12-month annual cycle. When the campaign itself runs longer than a
+    # year, say so explicitly instead of leaving a client to assume the
+    # calendar only covers part of the engagement.
+    _campaign_weeks = data.get("campaign_weeks")
+    try:
+        _campaign_weeks_num = float(_campaign_weeks) if _campaign_weeks else 0.0
+    except (TypeError, ValueError):
+        _campaign_weeks_num = 0.0
+    if _campaign_weeks_num > 52:
+        _campaign_months = round(_campaign_weeks_num / 4.345)
+        result["repeats_annually_note"] = (
+            f"This campaign runs approximately {_campaign_months} months -- "
+            "the 12-month calendar above covers one full annual cycle; the "
+            "same seasonal pattern repeats for each subsequent year of the "
+            "campaign."
+        )
     if _subvertical_profile:
         # Citable override metadata -- renderers (excel_v2/ppt_generator) can
         # surface this so the seasonality shown is traceable to a named,

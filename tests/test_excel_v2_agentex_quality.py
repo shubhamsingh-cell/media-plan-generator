@@ -203,10 +203,19 @@ def test_rewrite_low_roi_recommendation_skips_brand():
     }
     text = excel_v2._rewrite_low_roi_recommendation(channel_allocs)
     assert text is not None
-    assert "Employer" not in text and "employer" not in text.lower()
-    assert "Niche" in text
+    # The named reallocation-candidate list itself must still exclude the
+    # brand channel (S92's original fix) -- but finding data:atria#6 added
+    # an explanatory clause for when a funded brand channel shares the same
+    # zero-hire profile, so "Employer Branding" now DOES appear later in
+    # the sentence explaining why it's excluded, instead of being silently
+    # omitted with no explanation.
+    _named_list = text.split("(", 1)[1].split(")", 1)[0]
+    assert "Employer" not in _named_list
+    assert "Niche" in _named_list
     assert text.startswith("Channels with low ROI scores (")
     assert "may benefit from budget reallocation" in text
+    assert "Employer Branding" in text
+    assert "brand investment by design" in text
 
 
 def test_rewrite_low_roi_recommendation_drops_when_only_brand():
