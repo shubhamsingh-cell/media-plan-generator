@@ -4,9 +4,15 @@
     "source_url": "https://www.joveo.com",
     "data_period": "2026",
     "methodology": "Curated from the official Joveo 2026 client media-plan deck ('Invisible Media Planning Approach'). Encodes Joveo's campaign methodology, push/pull channel framework, CPA reference benchmarks, sample pricing model, differentiators and case-study outcomes so Nova and the Media Plan Generator can cite the canonical approach.",
-    "version": "1.0",
+    "version": "2.0",
     "ingested": "2026-06-12",
-    "use_for": ["media_plan_generation", "nova_chat", "deck_narrative", "methodology_reference"]
+    "restructured": "2026-07-11",
+    "use_for": ["media_plan_generation", "nova_chat", "deck_narrative", "methodology_reference"],
+    "schema_notes": {
+      "breaking_change": "v2.0 restructures 'cpa_reference' and 'case_study' from flat top-level objects into industry-keyed objects: cpa_reference[<industry_key>] / case_study[<industry_key>]. The old flat keys (cpa_reference.description, cpa_reference.roles, case_study.title, case_study.results, etc.) NO LONGER EXIST at the top level -- any consumer still reading them directly (e.g. ppt_generator._build_slide_cpa_reference / _build_slide_case_study_next_steps via deck.get('cpa_reference').get('roles')) will get nothing back until it is updated to read deck['cpa_reference']['ai_training'] instead. This is intentional and is the next phase's job to wire up -- flagged loudly per remediation instructions.",
+      "cpa_reference_schema": "cpa_reference[<industry_key>] = {description, currency, roles: [{category, cpa_low, cpa_high, basis}, ...]}. Only 'ai_training' is populated -- it is the verbatim content from the original v1.0 flat 'cpa_reference' block, sourced from the real Joveo AI-training client deck. Other industries are deliberately left absent: this repo's benchmark_registry.py and gold_standard.py provide only per-channel or per-role SALARY/difficulty data, not real role-category CPA-range breakdowns for non-AI-training industries, so populating them would mean fabricating numbers. Add a new industry key ONLY when it can be sourced from verified repo benchmark data (never invented) -- otherwise leave the industry absent so the deck slide is dropped for that plan.",
+      "case_study_schema": "case_study[<industry_key>]. Only 'ai_training' is populated (verbatim from v1.0) -- it is Joveo's real, verified AI-training client case study. Owner rule: never fabricate client case studies/proof for other industries. Do not add another industry key here without genuine, sourced client results."
+    }
   },
 
   "tagline": "High Performance, AI-Led Recruitment Marketing Platform",
@@ -44,17 +50,19 @@
   },
 
   "cpa_reference": {
-    "description": "Baseline CPAs by role category, calibrated from Joveo benchmarks. US/global remote; varies by geography, language and seasonality.",
-    "currency": "USD",
-    "roles": [
-      {"category": "Backend / Frontend Developers", "cpa_low": 8, "cpa_high": 14, "basis": "Joveo benchmark: high-volume remote tech roles"},
-      {"category": "Full Stack Developers", "cpa_low": 10, "cpa_high": 16, "basis": "Slightly higher due to broader skill requirements"},
-      {"category": "Language / Writing Experts", "cpa_low": 10, "cpa_high": 16, "basis": "Comparable to paralegal/legal assistant CPAs"},
-      {"category": "Documentation Reviewers", "cpa_low": 6, "cpa_high": 10, "basis": "High supply, lower competition roles"},
-      {"category": "CAD / Game / Simulation Engineers", "cpa_low": 15, "cpa_high": 25, "basis": "Niche skills; limited to specialized channels"},
-      {"category": "Computational Scientists (Physics, Bio)", "cpa_low": 18, "cpa_high": 35, "basis": "Very scarce talent pool; aligned with nurse-level CPAs"},
-      {"category": "Finance Analysts (AI Training)", "cpa_low": 13, "cpa_high": 18, "basis": "Joveo benchmark: mid-skill analytical roles"}
-    ]
+    "ai_training": {
+      "description": "Baseline CPAs by role category, calibrated from Joveo benchmarks. US/global remote; varies by geography, language and seasonality.",
+      "currency": "USD",
+      "roles": [
+        {"category": "Backend / Frontend Developers", "cpa_low": 8, "cpa_high": 14, "basis": "Joveo benchmark: high-volume remote tech roles"},
+        {"category": "Full Stack Developers", "cpa_low": 10, "cpa_high": 16, "basis": "Slightly higher due to broader skill requirements"},
+        {"category": "Language / Writing Experts", "cpa_low": 10, "cpa_high": 16, "basis": "Comparable to paralegal/legal assistant CPAs"},
+        {"category": "Documentation Reviewers", "cpa_low": 6, "cpa_high": 10, "basis": "High supply, lower competition roles"},
+        {"category": "CAD / Game / Simulation Engineers", "cpa_low": 15, "cpa_high": 25, "basis": "Niche skills; limited to specialized channels"},
+        {"category": "Computational Scientists (Physics, Bio)", "cpa_low": 18, "cpa_high": 35, "basis": "Very scarce talent pool; aligned with nurse-level CPAs"},
+        {"category": "Finance Analysts (AI Training)", "cpa_low": 13, "cpa_high": 18, "basis": "Joveo benchmark: mid-skill analytical roles"}
+      ]
+    }
   },
 
   "hiring_difficulty": {
@@ -100,25 +108,27 @@
   },
 
   "case_study": {
-    "title": "Hiring high-quality AI Trainers at scale",
-    "client_context": "Global end-to-end AI solutions provider working with all top AI companies; required experts across the globe spanning generalists, coders, mathematicians, freelancers and language experts.",
-    "challenges": [
-      "Heavy dependence on a few key job boards, limiting scale and qualified candidates",
-      "Needed a partner that could meet their speed and campaign-scale requirements",
-      "Lack of an omni-channel strategy to attract active and passive candidates",
-      "Irregular pacing, spend and ROI metrics; high costs during campaign peaks"
-    ],
-    "solution": [
-      "Introduced a broader mix of media channels beyond standard job boards (database partnerships, CPQA partners)",
-      "Launched campaigns with 24h TAT and scaled to thousands of applications within the first 2–3 days",
-      "Activated specialized boards, community sites and local job boards",
-      "Optimized toward cost-per-activation and provider quality metrics to improve ROI"
-    ],
-    "results": [
-      {"metric": "Qualified applications", "value": "2x", "detail": "Increase in qualified applications across various campaigns"},
-      {"metric": "Activation volumes", "value": "+38%", "detail": "Improvement in activation volumes"},
-      {"metric": "Cost per activation", "value": "-17%", "detail": "Improvement in cost-per-activation metrics"}
-    ]
+    "ai_training": {
+      "title": "Hiring high-quality AI Trainers at scale",
+      "client_context": "Global end-to-end AI solutions provider working with all top AI companies; required experts across the globe spanning generalists, coders, mathematicians, freelancers and language experts.",
+      "challenges": [
+        "Heavy dependence on a few key job boards, limiting scale and qualified candidates",
+        "Needed a partner that could meet their speed and campaign-scale requirements",
+        "Lack of an omni-channel strategy to attract active and passive candidates",
+        "Irregular pacing, spend and ROI metrics; high costs during campaign peaks"
+      ],
+      "solution": [
+        "Introduced a broader mix of media channels beyond standard job boards (database partnerships, CPQA partners)",
+        "Launched campaigns with 24h TAT and scaled to thousands of applications within the first 2–3 days",
+        "Activated specialized boards, community sites and local job boards",
+        "Optimized toward cost-per-activation and provider quality metrics to improve ROI"
+      ],
+      "results": [
+        {"metric": "Qualified applications", "value": "2x", "detail": "Increase in qualified applications across various campaigns"},
+        {"metric": "Activation volumes", "value": "+38%", "detail": "Improvement in activation volumes"},
+        {"metric": "Cost per activation", "value": "-17%", "detail": "Improvement in cost-per-activation metrics"}
+      ]
+    }
   },
 
   "next_steps": [
