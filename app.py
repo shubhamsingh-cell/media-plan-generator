@@ -17470,6 +17470,50 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         merged_for_ba.update(enriched_for_ba)
                     if isinstance(synthesized_for_ba, dict):
                         merged_for_ba.update(synthesized_for_ba)
+
+                    # S91: vendor-availability gate. us_plan is the
+                    # single source-of-truth locale signal
+                    # (plan_geo); the niche-vendor accessor is
+                    # agent B's parallel work, so call it fully
+                    # defensively -- ANY failure (missing hook,
+                    # signature mismatch, runtime error) just
+                    # leaves vendor_availability at None, which
+                    # calculate_budget_allocation treats as
+                    # "no gating" (byte-identical to before).
+                    us_plan = (
+                        plan_geo.is_us_plan(data) if plan_geo is not None else True
+                    )
+                    _niche_vendor_fn = (
+                        getattr(excel_v2, "get_niche_vendor_availability", None)
+                        if excel_v2 is not None
+                        else None
+                    )
+                    vendor_availability = None
+                    if _niche_vendor_fn is not None:
+                        try:
+                            vendor_availability = _niche_vendor_fn(
+                                industry=data.get("industry", "General"),
+                                us_plan=us_plan,
+                            )
+                        except TypeError:
+                            try:
+                                vendor_availability = _niche_vendor_fn(
+                                    data.get("industry", "General"),
+                                    us_plan,
+                                )
+                            except Exception as _vendor_err:
+                                logger.debug(
+                                    "get_niche_vendor_availability call "
+                                    "failed (non-fatal): %s",
+                                    _vendor_err,
+                                )
+                        except Exception as _vendor_err:
+                            logger.debug(
+                                "get_niche_vendor_availability call "
+                                "failed (non-fatal): %s",
+                                _vendor_err,
+                            )
+
                     budget_result = calculate_budget_allocation(
                         total_budget=_bval_ba,
                         roles=_roles_for_ba,
@@ -17482,6 +17526,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         campaign_start_month=int(
                             data.get("campaign_start_month") or 0 or 0
                         ),
+                        vendor_availability=vendor_availability,
                     )
                     data["_budget_allocation"] = budget_result
                     logger.info(
