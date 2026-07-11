@@ -442,6 +442,30 @@ def _category_for_channel(channel_name: str) -> str:
     return "job_board"  # safe default
 
 
+# S91: rationale surfaced on every 'brand' channel (see _channel_role below).
+_BRAND_RATIONALE = (
+    "Brand & awareness investment — measured in reach and pipeline "
+    "influence, not direct CPA"
+)
+
+
+def _channel_role(category: str) -> str:
+    """Classify an ad-platform category as ``'brand'`` (reach/awareness,
+    no apply-rate-driven CPA basis) or ``'performance'`` (CPA/ROI-scored).
+
+    ``employer_branding`` is always brand. Any category that has no entry
+    in ``BASE_BENCHMARKS["apply_rate"]`` is defensively treated as brand
+    too, since there is no apply-rate basis to score its ROI against.
+    Performance channels are the only ones eligible for efficiency
+    reweighting, CPA-based ROI scoring, and the low-ROI rebalancer.
+    """
+    if category == "employer_branding":
+        return "brand"
+    if category not in BASE_BENCHMARKS.get("apply_rate", {}):
+        return "brand"
+    return "performance"
+
+
 def _extract_cpc_from_synthesized(
     category: str,
     synthesized_data: Optional[Dict],
@@ -1964,6 +1988,12 @@ def compute_channel_dollar_amounts(
                         )
                         confidence = "medium"
 
+        # S91: brand vs performance classification -- brand channels (e.g.
+        # employer_branding) are excluded from CPA-based ROI scoring
+        # downstream (efficiency reweighting + low-ROI rebalancer), since
+        # they're measured on reach/pipeline influence, not direct CPA.
+        _ch_role = _channel_role(category)
+
         allocation_entry: Dict[str, Any] = {
             "dollar_amount": dollars,
             "percentage": round(pct, 1),
@@ -1982,7 +2012,12 @@ def compute_channel_dollar_amounts(
             "cpc_source": cpc_source,
             "apply_rate": round(apply_rate_adj, 4),
             "apply_rate_collar_adjusted": collar_mult != 1.0,
+            # S91 fields
+            "channel_role": _ch_role,
+            "roi_scoring_excluded": _ch_role == "brand",
         }
+        if _ch_role == "brand":
+            allocation_entry["rationale"] = _BRAND_RATIONALE
         if _confidence_downgrade_reason:
             allocation_entry["confidence_downgrade_reason"] = (
                 _confidence_downgrade_reason
@@ -2014,10 +2049,10 @@ def compute_channel_dollar_amounts(
 def rebalance_low_roi_channels(
     channel_allocations: Dict[str, Dict],
     total_budget: float,
-    roi_floor: int = 2,
-    alloc_cap_pct: float = 3.0,
+    roi_floor: int = 4,
+    max_shave_pct: float = 60.0,
     spend_threshold_pct: float = 5.0,
-    recipient_roi_min: int = 6,
+    recipient_roi_min: int = 8,
 ) -> Dict[str, Dict]:
     """Rebalance budget away from low-ROI channels to high-ROI channels.
 
@@ -2026,10 +2061,30 @@ def rebalance_low_roi_channels(
     their budget share and redistributes the freed dollars to the strongest
     performers.
 
+    S91 FIX: the previous ``roi_floor=2`` / flat-3%-cap version was too weak
+    -- a channel allocated 35% of budget at ROI 4/10 and $230 CPA sailed
+    through untouched (4 > floor of 2). Now:
+        - ``roi_floor`` raised 2 -> 4 (donors are ROI <= 4, not <= 2).
+        - Donor shave is **severity-proportional** instead of a flat cap:
+          the worse the ROI, the more of its OWN allocation gets shaved,
+          scaling up to ``max_shave_pct`` (60%) at ``roi_score == 1``.
+        - ``recipient_roi_min`` raised 6 -> 8 -- freed budget only goes to
+          genuinely strong performers.
+        - Brand channels (``channel_role == 'brand'``, e.g.
+          employer_branding) are never donors or recipients here -- they're
+          governed by the 12% brand cap in
+          ``_reweight_channel_percentages_by_efficiency`` instead, since
+          CPA-based ROI doesn't apply to them.
+        - When a channel sits at ``roi_score <= 3`` with > 15% of budget but
+          no donor/recipient match could be made (e.g. no qualifying
+          recipient), a ``quality_flag`` is written onto that channel's
+          dict instead of silently leaving a bad allocation unflagged.
+
     Rules:
         - A channel is a **donor** when its ``roi_score <= roi_floor`` AND its
           allocation exceeds ``spend_threshold_pct`` percent of total budget.
-          Its allocation is capped at ``alloc_cap_pct`` percent.
+          It sheds a severity-proportional fraction of its OWN allocation
+          (up to ``max_shave_pct``).
         - Freed budget is redistributed proportionally (by ROI score) to
           channels whose ``roi_score >= recipient_roi_min``.
         - Projected metrics (clicks, applications, hires, CPA, CPH) are
@@ -2041,7 +2096,9 @@ def rebalance_low_roi_channels(
             **Modified in-place** and also returned for convenience.
         total_budget: Total campaign budget in USD.
         roi_floor: Maximum ROI score to qualify as a donor (inclusive).
-        alloc_cap_pct: Target cap for donor channels (percent of total budget).
+        max_shave_pct: Maximum fraction (as a percent, e.g. 60.0 == 60%) of a
+            donor's own allocation that can be shaved, reached at
+            ``roi_score == 1``.
         spend_threshold_pct: Minimum allocation percent to trigger rebalancing.
         recipient_roi_min: Minimum ROI score to qualify as a recipient.
 
@@ -2052,20 +2109,32 @@ def rebalance_low_roi_channels(
     if not channel_allocations or total_budget <= 0:
         return channel_allocations
 
-    cap_dollars = total_budget * (alloc_cap_pct / 100.0)
     threshold_dollars = total_budget * (spend_threshold_pct / 100.0)
 
-    # Identify donors and recipients
+    # Identify donors and recipients (brand channels are exempt from both --
+    # they're not CPA-scored, see _channel_role / _BRAND_RATIONALE).
     freed_pool = 0.0
     donors: Dict[str, float] = {}  # channel -> dollars freed
     recipients: List[str] = []
 
     for ch_name, ch_data in channel_allocations.items():
+        if ch_data.get("channel_role") == "brand":
+            continue
         roi = ch_data.get("roi_score", 5)
         dollars = ch_data.get("dollar_amount", 0)
 
         if roi <= roi_floor and dollars > threshold_dollars:
-            freed = max(0.0, dollars - cap_dollars)
+            # Severity-proportional shave: roi_score == 1 -> max_shave_pct;
+            # roi_score == roi_floor (least severe donor) -> a gentler
+            # 25% of max_shave_pct floor, so even boundary donors lose
+            # something instead of sailing through untouched.
+            if roi_floor > 1:
+                severity = (roi_floor - roi) / (roi_floor - 1)
+            else:
+                severity = 1.0
+            severity = _clamp(severity, 0.0, 1.0)
+            shave_frac = (max_shave_pct / 100.0) * (0.25 + 0.75 * severity)
+            freed = round(dollars * shave_frac, 2)
             if freed > 0:
                 donors[ch_name] = freed
                 freed_pool += freed
@@ -2074,6 +2143,21 @@ def rebalance_low_roi_channels(
             recipients.append(ch_name)
 
     if freed_pool <= 0 or not recipients:
+        # S91: never silently accept an obviously-bad allocation just
+        # because no donor/recipient match could be made -- flag channels
+        # that look like they need manual review.
+        for ch_name, ch_data in channel_allocations.items():
+            if ch_data.get("channel_role") == "brand":
+                continue
+            roi = ch_data.get("roi_score", 5)
+            pct = ch_data.get("percentage", 0)
+            if roi <= 3 and pct > 15.0:
+                ch_data["quality_flag"] = (
+                    f"Channel holds {pct:.0f}% of budget at ROI {roi}/10 "
+                    "but no qualifying recipient channel was found to "
+                    "rebalance into -- allocation left unchanged. Needs "
+                    "manual review."
+                )
         return channel_allocations
 
     # Compute recipient weights (proportional to ROI score)
@@ -2084,10 +2168,13 @@ def rebalance_low_roi_channels(
         return channel_allocations
 
     logger.info(
-        "Low-ROI rebalance: $%.0f freed from %d donor(s) -> %d recipient(s)",
+        "Low-ROI rebalance (S91): $%.0f freed from %d donor(s) -> %d "
+        "recipient(s) [roi_floor=%d, recipient_roi_min=%d]",
         freed_pool,
         len(donors),
         len(recipients),
+        roi_floor,
+        recipient_roi_min,
     )
 
     # Apply reductions to donors
@@ -2926,6 +3013,241 @@ def _apply_outcome_calibration(
 
 
 # ---------------------------------------------------------------------------
+# S91: ROI-aware allocation -- efficiency reweighting + vendor-availability
+# gate. Both run on the STATIC industry-profile channel_percentages BEFORE
+# final dollars are computed (see calculate_budget_allocation Step 3).
+# ---------------------------------------------------------------------------
+
+_BRAND_CAP_PCT: float = 12.0
+_MIN_CHANNEL_PCT: float = 3.0
+_MAX_CHANNEL_PCT: float = 35.0
+_PROFILE_BLEND_WEIGHT: float = 0.6
+_EFFICIENCY_BLEND_WEIGHT: float = 0.4
+
+
+def _reweight_channel_percentages_by_efficiency(
+    channel_percentages: Dict[str, float],
+    first_pass_allocs: Dict[str, Dict],
+) -> Tuple[Dict[str, float], Dict[str, Any]]:
+    """Blend the static industry-profile allocation with a performance
+    signal (inverse first-pass CPH) BEFORE final dollars are computed.
+
+    ``blended = 0.6 * profile_pct + 0.4 * efficiency_pct`` where
+    ``efficiency_pct`` is proportional to inverse estimated cost-per-hire,
+    computed ONLY across performance channels (brand channels are excluded
+    entirely and handled by the 12% brand cap below). Every channel is then
+    clamped to [3%, 35%] and renormalized to sum to 100.
+
+    This is what lets a poorly-performing but heavily-allocated channel
+    (e.g. 35% share at ROI 4/10, $230 CPA) lose share BEFORE
+    ``rebalance_low_roi_channels`` even runs -- previously channel_percentages
+    were fixed by the static profile and ROI was only ever corrected
+    after-the-fact by the (too-weak) rebalancer.
+
+    Args:
+        channel_percentages: Static profile percentages (need not sum to
+            exactly 100 -- normalized internally).
+        first_pass_allocs: Output of a first ``compute_channel_dollar_amounts``
+            call using ``channel_percentages``, used ONLY to read
+            ``cost_per_hire``/``category``/``channel_role`` per channel.
+
+    Returns:
+        ``(new_channel_percentages, meta)``. ``meta`` documents what
+        changed (brand capping, clamped channels) for metadata/debugging.
+        Never raises; falls back to the (normalized) input on any edge case.
+    """
+    meta: Dict[str, Any] = {"brand_capped": False, "clamped_channels": []}
+    if not channel_percentages:
+        return dict(channel_percentages), meta
+
+    pct_sum = sum(channel_percentages.values()) or 1.0
+    profile_pct = {k: (v / pct_sum) * 100.0 for k, v in channel_percentages.items()}
+
+    roles: Dict[str, str] = {}
+    for ch_name in profile_pct:
+        first = first_pass_allocs.get(ch_name) or {}
+        category = first.get("category") or _category_for_channel(ch_name)
+        roles[ch_name] = first.get("channel_role") or _channel_role(category)
+
+    brand_channels = [c for c in profile_pct if roles.get(c) == "brand"]
+    perf_channels = [c for c in profile_pct if roles.get(c) != "brand"]
+
+    # ── Brand cap: combined brand allocation capped at 12% ──
+    # brand_share/brand_total_final are the brand pool's FINAL target sum --
+    # kept in a pool separate from performance channels for the rest of this
+    # function so that later per-channel [3,35] clamping/renormalization
+    # (which is proportional and can otherwise "leak" extra share onto
+    # whatever pool it's applied to) can never push brand above 12% combined.
+    brand_total = sum(profile_pct[c] for c in brand_channels)
+    if brand_channels and brand_total > _BRAND_CAP_PCT:
+        scale = _BRAND_CAP_PCT / brand_total
+        brand_share = {c: profile_pct[c] * scale for c in brand_channels}
+        freed = brand_total - _BRAND_CAP_PCT
+        brand_total_final = _BRAND_CAP_PCT
+        meta["brand_capped"] = True
+        meta["brand_pct_before"] = round(brand_total, 2)
+        meta["brand_pct_after"] = round(_BRAND_CAP_PCT, 2)
+    else:
+        brand_share = {c: profile_pct[c] for c in brand_channels}
+        freed = 0.0
+        brand_total_final = brand_total
+
+    perf_profile_total = sum(profile_pct[c] for c in perf_channels) or 1.0
+    adjusted_perf_profile = {
+        c: profile_pct[c] + freed * (profile_pct[c] / perf_profile_total)
+        for c in perf_channels
+    }
+    perf_pool = sum(adjusted_perf_profile.values())  # == 100 - brand_total_final
+
+    # ── Efficiency blend across performance channels only ──
+    inv_cph: Dict[str, float] = {}
+    for c in perf_channels:
+        cph = (first_pass_allocs.get(c) or {}).get("cost_per_hire") or 0
+        inv_cph[c] = (1.0 / cph) if cph > 0 else 0.0
+    inv_total = sum(inv_cph.values())
+
+    perf_blended = dict(adjusted_perf_profile)
+    if inv_total > 0 and perf_pool > 0:
+        for c in perf_channels:
+            efficiency_pct = perf_pool * (inv_cph[c] / inv_total)
+            perf_blended[c] = round(
+                _PROFILE_BLEND_WEIGHT * adjusted_perf_profile[c]
+                + _EFFICIENCY_BLEND_WEIGHT * efficiency_pct,
+                4,
+            )
+    # Brand channels never enter the blend -- handled entirely by the cap.
+
+    def _clamp_and_renormalize(
+        values: Dict[str, float], target_sum: float
+    ) -> Dict[str, float]:
+        """Clamp each value to [3%, 35%], then renormalize the GROUP (not
+        the whole channel set) to sum to exactly ``target_sum``. Keeping
+        pools separate is what stops the brand pool from drifting above its
+        12% cap when the performance pool needs a lot of floor-raising."""
+        if not values:
+            return {}
+        clamped_local: Dict[str, float] = {}
+        for c, pct in values.items():
+            new_pct = _clamp(pct, _MIN_CHANNEL_PCT, _MAX_CHANNEL_PCT)
+            if abs(new_pct - pct) > 0.01:
+                meta["clamped_channels"].append(c)
+            clamped_local[c] = new_pct
+        clamped_sum = sum(clamped_local.values()) or 1.0
+        scaled = {
+            c: round((v / clamped_sum) * target_sum, 2)
+            for c, v in clamped_local.items()
+        }
+        drift = target_sum - sum(scaled.values())
+        if scaled and abs(drift) > 0.01:
+            largest = max(scaled, key=scaled.get)
+            scaled[largest] = round(scaled[largest] + drift, 2)
+        return scaled
+
+    perf_final = _clamp_and_renormalize(perf_blended, perf_pool)
+    brand_final = _clamp_and_renormalize(brand_share, brand_total_final)
+    # Defensive re-cap: only bites if MANY brand channels each need the 3%
+    # floor and their combined floor total exceeds 12% (not reachable with
+    # today's single-brand-channel taxonomy, but kept as a hard guarantee).
+    brand_final_sum = sum(brand_final.values())
+    if brand_final and brand_final_sum > _BRAND_CAP_PCT + 0.01:
+        rescale = _BRAND_CAP_PCT / brand_final_sum
+        brand_final = {c: round(v * rescale, 2) for c, v in brand_final.items()}
+
+    final: Dict[str, float] = {}
+    final.update(perf_final)
+    final.update(brand_final)
+
+    meta["profile_pct"] = {k: round(v, 2) for k, v in profile_pct.items()}
+    meta["efficiency_reweighted_pct"] = dict(final)
+    return final, meta
+
+
+def _apply_vendor_gate(
+    channel_percentages: Dict[str, float],
+    vendor_availability: Optional[Dict[str, bool]],
+    first_pass_allocs: Dict[str, Dict],
+) -> Tuple[Dict[str, float], Dict[str, Any]]:
+    """Floor channels with no vendor coverage for this locale/industry to a
+    nominal 3% presence and reallocate the freed share to the strongest-ROI
+    performance channels.
+
+    ``vendor_availability`` maps ``channel_key -> bool``; a channel is
+    gated only when its value is explicitly ``False``. A missing key, an
+    empty dict, or ``None`` means "no gating information" -- this is
+    intentionally defensive so the function is a safe no-op when the
+    vendor-availability accessor isn't wired up yet.
+
+    Args:
+        channel_percentages: Percentages to gate (post efficiency-reweight).
+        vendor_availability: ``{channel_key: has_vendors}`` or ``None``.
+        first_pass_allocs: First-pass ``compute_channel_dollar_amounts``
+            output, used to rank recipients by ``roi_score`` and to skip
+            brand channels as recipients.
+
+    Returns:
+        ``(new_channel_percentages, meta)``.
+    """
+    meta: Dict[str, Any] = {"gated_channels": []}
+    if not vendor_availability or not channel_percentages:
+        return dict(channel_percentages), meta
+
+    gated = [c for c in channel_percentages if vendor_availability.get(c) is False]
+    if not gated:
+        return dict(channel_percentages), meta
+
+    result = dict(channel_percentages)
+    freed = 0.0
+    for c in gated:
+        old = result[c]
+        if old > _MIN_CHANNEL_PCT:
+            freed += old - _MIN_CHANNEL_PCT
+            result[c] = _MIN_CHANNEL_PCT
+        meta["gated_channels"].append(
+            {
+                "channel": c,
+                "pct_before": round(old, 2),
+                "pct_after": round(result[c], 2),
+            }
+        )
+
+    if freed <= 0:
+        return result, meta
+
+    # Recipients: non-gated, non-brand (performance) channels, ranked by ROI.
+    recipients: List[Tuple[str, float]] = []
+    for c in result:
+        if c in gated:
+            continue
+        first = first_pass_allocs.get(c) or {}
+        category = first.get("category") or _category_for_channel(c)
+        role = first.get("channel_role") or _channel_role(category)
+        if role == "brand":
+            continue
+        roi = first.get("roi_score", 5)
+        recipients.append((c, max(roi, 1)))
+
+    if not recipients:
+        meta["quality_flag"] = (
+            f"Vendor gate floored {gated} but found no eligible performance "
+            "channel to receive the freed budget; left on the gated "
+            "channel(s)."
+        )
+        for c in gated:
+            result[c] = channel_percentages[c]  # revert -- nowhere sane to send it
+        return result, meta
+
+    roi_sum = sum(roi for _, roi in recipients)
+    for c, roi in recipients:
+        result[c] = result.get(c, 0.0) + freed * (roi / roi_sum)
+
+    meta["freed_pct"] = round(freed, 2)
+    meta["recipients"] = [
+        c for c, _ in sorted(recipients, key=lambda t: t[1], reverse=True)
+    ]
+    return result, meta
+
+
+# ---------------------------------------------------------------------------
 # Master function
 # ---------------------------------------------------------------------------
 
@@ -2940,6 +3262,7 @@ def calculate_budget_allocation(
     knowledge_base: Optional[Dict] = None,
     collar_type: str = "",
     campaign_start_month: int = 0,
+    vendor_availability: Optional[Dict[str, bool]] = None,
 ) -> Dict[str, Any]:
     """
     Master budget allocation function.
@@ -2951,6 +3274,14 @@ def calculate_budget_allocation(
     v3: Accepts collar_type for trend-engine-aware CPC resolution and
     collar-specific apply rate adjustments.
 
+    S91: channel_percentages are no longer used as-given. A first-pass
+    CPA/CPH/ROI estimate drives an efficiency reweighting (blended =
+    0.6*profile_pct + 0.4*efficiency_pct for performance channels; brand
+    channels capped at 12% combined) and an optional vendor-availability
+    gate, BEFORE final dollars are computed. See
+    ``_reweight_channel_percentages_by_efficiency`` and
+    ``_apply_vendor_gate``.
+
     Args:
         total_budget: Total budget in USD (e.g. 50000).
         roles: List of role dicts with ``title``, ``count``, ``tier``.
@@ -2960,6 +3291,12 @@ def calculate_budget_allocation(
         synthesized_data: Output from enrichment pipeline (optional).
         knowledge_base: Loaded knowledge base JSON (optional).
         collar_type: v3 collar type hint (auto-detected from roles if empty).
+        vendor_availability: Optional ``{channel_key: has_vendors}`` map
+            (S91). A channel mapped to ``False`` (no vendors for this
+            locale/industry) is floored to 3% and the difference is
+            reallocated to the strongest-ROI performance channels. ``None``
+            (the default) or an empty dict means "no gating" -- callers
+            that don't have this data yet see byte-identical behavior.
 
     Returns:
         Dict with keys:
@@ -3042,6 +3379,37 @@ def calculate_budget_allocation(
         elif isinstance(loc0, str):
             primary_location = loc0
 
+    # Step 3a (S91): FIRST-PASS per-channel CPA/CPH/ROI estimate using the
+    # static industry-profile percentages. Used ONLY to drive the
+    # efficiency reweighting + vendor gate below; not returned to the caller.
+    _first_pass_allocs = compute_channel_dollar_amounts(
+        channel_percentages,
+        role_budgets,
+        synthesized_data,
+        knowledge_base,
+        industry=industry,
+        collar_type=collar_type,
+        location=primary_location,
+        month=campaign_start_month,
+    )
+
+    # Step 3b (S91): Efficiency reweighting -- blend the static profile
+    # allocation with an inverse-CPH performance signal BEFORE dollars are
+    # finalized. Brand channels (employer_branding, etc.) are excluded from
+    # the blend and capped at 12% combined.
+    channel_percentages, _reweight_meta = _reweight_channel_percentages_by_efficiency(
+        channel_percentages, _first_pass_allocs
+    )
+
+    # Step 3c (S91): Vendor-availability gate -- floor channels with no
+    # vendor coverage for this locale/industry to 3% and reallocate the
+    # difference to the strongest-ROI performance channels. No-op when
+    # vendor_availability is None/empty (accessor may not be wired yet).
+    channel_percentages, _vendor_gate_meta = _apply_vendor_gate(
+        channel_percentages, vendor_availability, _first_pass_allocs
+    )
+
+    # Step 3d: FINAL per-channel dollars using the reweighted + gated %.
     channel_allocs = compute_channel_dollar_amounts(
         channel_percentages,
         role_budgets,
@@ -3053,10 +3421,25 @@ def calculate_budget_allocation(
         month=campaign_start_month,
     )
 
-    # Step 3.5: Auto-rebalance low-ROI channels
-    # Channels with ROI <= 2 and spending > 5% of budget get capped at 3%.
-    # Freed budget is redistributed proportionally to channels with ROI >= 6.
+    # Step 3.5: Auto-rebalance low-ROI channels (S91: roi_floor 2 -> 4,
+    # severity-proportional shave up to 60%, recipient_roi_min 6 -> 8).
+    # Channels with ROI <= 4 and spending > 5% of budget shed a
+    # severity-proportional share of their OWN allocation. Freed budget is
+    # redistributed proportionally to channels with ROI >= 8. Brand
+    # channels are exempt (governed by the 12% cap above instead).
     channel_allocs = rebalance_low_roi_channels(channel_allocs, total_budget)
+
+    # S91: never silently accept a bad allocation -- surface any per-channel
+    # quality_flag (from the rebalancer or the vendor gate) at the top level.
+    _quality_flags = [
+        {"channel": name, "flag": ch.get("quality_flag")}
+        for name, ch in channel_allocs.items()
+        if ch.get("quality_flag")
+    ]
+    if _vendor_gate_meta.get("quality_flag"):
+        _quality_flags.append(
+            {"channel": None, "flag": _vendor_gate_meta["quality_flag"]}
+        )
 
     # Step 4: Aggregate projected totals
     total_clicks = sum(
@@ -3172,6 +3555,10 @@ def calculate_budget_allocation(
                 if campaign_start_month
                 else datetime.datetime.now().month
             ),
+            # S91 metadata
+            "channel_reweight": _reweight_meta,
+            "vendor_gate": _vendor_gate_meta,
+            "quality_flags": _quality_flags,
         },
     }
 

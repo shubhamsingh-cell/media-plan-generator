@@ -3527,6 +3527,33 @@ except ImportError as e:
     logger.warning("budget_engine import failed: %s", e)
     calculate_budget_allocation = None
 
+# S91: single-source-of-truth US-plan resolution + duration parsing, and the
+# excel_v2 module handle (for the optional niche-vendor-availability hook --
+# code defensively since that accessor may not exist yet).
+try:
+    import plan_geo
+
+    logger.info("plan_geo loaded successfully")
+except ImportError as e:
+    logger.warning("plan_geo import failed: %s", e)
+    plan_geo = None
+
+try:
+    import display_format
+
+    logger.info("display_format loaded successfully")
+except ImportError as e:
+    logger.warning("display_format import failed: %s", e)
+    display_format = None
+
+try:
+    import excel_v2
+
+    logger.info("excel_v2 module loaded successfully")
+except ImportError as e:
+    logger.warning("excel_v2 module import failed: %s", e)
+    excel_v2 = None
+
 # v3: Trend engine and collar intelligence for new Excel worksheets
 try:
 
@@ -15343,6 +15370,56 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     merged_for_ba.update(enriched_for_ba)
                                 if isinstance(synthesized_for_ba, dict):
                                     merged_for_ba.update(synthesized_for_ba)
+
+                                # S91: vendor-availability gate. us_plan is the
+                                # single source-of-truth locale signal
+                                # (plan_geo); the niche-vendor accessor is
+                                # agent B's parallel work, so call it fully
+                                # defensively -- ANY failure (missing hook,
+                                # signature mismatch, runtime error) just
+                                # leaves vendor_availability at None, which
+                                # calculate_budget_allocation treats as
+                                # "no gating" (byte-identical to before).
+                                us_plan = (
+                                    plan_geo.is_us_plan(gen_data)
+                                    if plan_geo is not None
+                                    else True
+                                )
+                                _niche_vendor_fn = (
+                                    getattr(
+                                        excel_v2, "get_niche_vendor_availability", None
+                                    )
+                                    if excel_v2 is not None
+                                    else None
+                                )
+                                vendor_availability = None
+                                if _niche_vendor_fn is not None:
+                                    try:
+                                        vendor_availability = _niche_vendor_fn(
+                                            industry=gen_data.get(
+                                                "industry", "General"
+                                            ),
+                                            us_plan=us_plan,
+                                        )
+                                    except TypeError:
+                                        try:
+                                            vendor_availability = _niche_vendor_fn(
+                                                gen_data.get("industry", "General"),
+                                                us_plan,
+                                            )
+                                        except Exception as _vendor_err:
+                                            logger.debug(
+                                                "get_niche_vendor_availability call "
+                                                "failed (non-fatal): %s",
+                                                _vendor_err,
+                                            )
+                                    except Exception as _vendor_err:
+                                        logger.debug(
+                                            "get_niche_vendor_availability call "
+                                            "failed (non-fatal): %s",
+                                            _vendor_err,
+                                        )
+
                                 budget_result = calculate_budget_allocation(
                                     total_budget=_bval_ba,
                                     roles=_roles_for_ba,
@@ -15355,6 +15432,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     campaign_start_month=int(
                                         gen_data.get("campaign_start_month") or 0 or 0
                                     ),
+                                    vendor_availability=vendor_availability,
                                 )
                                 gen_data["_budget_allocation"] = budget_result
                                 logger.info(
@@ -16190,10 +16268,21 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 if wk_match:
                     campaign_weeks = int(wk_match.group(1))
                 else:
-                    # Try months (e.g. "6 months")
+                    # Try months (e.g. "6 months", "18 months")
+                    # S91 FIX: was `int(months) * 4`, which silently drifts
+                    # for anything not a multiple of 4 weeks/month (e.g.
+                    # "18 months" -> 72 weeks -> re-derived downstream as
+                    # "17 months"). display_format.parse_duration_to_weeks
+                    # uses the same 52/12 weeks-per-month ratio as
+                    # weeks_to_duration_label, so round-tripping is exact.
                     mo_match = re.search(r"(\d+)\s*month", dur_lower)
                     if mo_match:
-                        campaign_weeks = int(mo_match.group(1)) * 4
+                        if display_format is not None:
+                            campaign_weeks = display_format.parse_duration_to_weeks(
+                                duration_str
+                            )
+                        else:
+                            campaign_weeks = int(mo_match.group(1)) * 4
             data["campaign_weeks"] = campaign_weeks
 
             # ── O2 (2026-07-03, findings 58/77): single source of truth for
