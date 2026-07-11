@@ -330,7 +330,12 @@ def test_niche_board_narrative_uses_live_implied_rate():
     rate, apps, hires = excel_v2._niche_board_implied_rate(data)
     if rate is not None:
         assert f"{hires} hires / {apps} applications" in purpose_text
-        assert "this plan models niche boards at" in purpose_text.lower()
+        # S89A: reframed against the plan's own CPH-anchored methodology
+        # (findings strategy:atria#1 residual / strategy:manpower niche
+        # framing) instead of a bare "models niche boards at X%" line that
+        # read as self-indictment.
+        assert "anchors total hires to cost-per-hire benchmarks" in purpose_text.lower()
+        assert "conservative lower bound" in purpose_text.lower()
     else:
         assert "no niche-board applications modeled" in purpose_text.lower()
     assert "industry benchmark" in purpose_text.lower()

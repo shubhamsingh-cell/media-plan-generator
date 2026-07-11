@@ -1912,6 +1912,55 @@ def _derive_channel_confidence(data: dict, ch_data: dict) -> str:
     return "MEDIUM"
 
 
+def _confidence_variance(confidence: str) -> float:
+    """The workbook's one documented confidence-tier variance ladder:
+    HIGH = +/-15%, MEDIUM = +/-20%, LOW = +/-25% (this is the exact
+    methodology stated on the Confidence Intervals sheet). Single source
+    of truth so no other sheet invents its own variance schedule.
+    """
+    if confidence == "HIGH":
+        return 0.15
+    if confidence == "MEDIUM":
+        return 0.20
+    return 0.25
+
+
+def _confidence_range(
+    value: float, confidence: str, cost_metric: bool = False
+) -> Optional[Tuple[float, float]]:
+    """Single source of truth: (value, confidence_tier) -> (low, high).
+
+    Applies the documented +/-15/20/25% variance ladder (see
+    ``_confidence_variance``) and returns a clamped, non-inverted band.
+    Used identically by ROI Projections' "Hire Range" column and the
+    Confidence Intervals sheet's per-channel Hires row so the same
+    channel's projected-hires range can never be stated two different ways
+    in the same workbook (S89 FIX, findings data:manpower#1/#2,
+    data:atria#1 -- ROI Projections previously computed its own
+    HIGH/MEDIUM/LOW = 10/25/40% ladder that disagreed with Confidence
+    Intervals' 15/20/25% ladder on every channel).
+
+    ``cost_metric=True`` means "pessimistic" is the HIGHER value (CPA/CPH);
+    otherwise (count metrics -- applications/hires) pessimistic is the
+    LOWER value. Count metrics are truncated to whole units before
+    clamping (matching the Confidence Intervals sheet's own arithmetic) so
+    integer displays never drift from this helper by a rounding step.
+    Returns None when ``value <= 0`` or the band collapses to a single
+    point -- callers should skip the row/column rather than print a fake
+    range.
+    """
+    if value <= 0:
+        return None
+    variance = _confidence_variance(confidence)
+    if cost_metric:
+        lo = value * (1 + variance)
+        hi = value * (1 - variance)
+    else:
+        lo = max(0, int(value * (1 - variance)))
+        hi = int(value * (1 + variance))
+    return _clamped_band(lo, value, hi, cost_metric=cost_metric)
+
+
 def _parse_cph_point_estimate(raw: Any) -> float:
     """Parse a KB cost-per-hire benchmark value into one numeric estimate.
 
@@ -1980,6 +2029,162 @@ def _kb_industry_cph_benchmark(
             if parsed > 0:
                 return parsed
     return 0.0
+
+
+def _kb_industry_benchmark_section(
+    industry: str, load_kb_fn=None, kb: Optional[dict] = None
+) -> Dict[str, Any]:
+    """Load the SAME per-industry benchmark record the Executive Summary's
+    "Recruitment Benchmarks" table reads
+    (``kb['recruitment_benchmarks']['industry_benchmarks'][industry]``), so
+    any sheet that needs to compare the plan's own numbers against the
+    cited CPA/apply-rate benchmark reads identical source data. Returns
+    ``{}`` when no KB is available or the industry isn't present.
+    """
+    if kb is None:
+        if not load_kb_fn:
+            return {}
+        try:
+            kb = load_kb_fn()
+        except Exception:
+            return {}
+    if not isinstance(kb, dict):
+        return {}
+    kb_benchmarks = (kb.get("recruitment_benchmarks", {}) or {}).get(
+        "industry_benchmarks", {}
+    )
+    if not kb_benchmarks:
+        kb_benchmarks = kb.get("benchmarks", {}) or {}
+    if not isinstance(kb_benchmarks, dict):
+        return {}
+    ind_bench = kb_benchmarks.get(industry) or kb_benchmarks.get(
+        "general_entry_level", {}
+    )
+    return ind_bench if isinstance(ind_bench, dict) else {}
+
+
+def _parse_numeric_range(text: Any) -> Optional[Tuple[float, float]]:
+    """Parse the first two numbers out of a benchmark string like
+    "$12-$35", "5.5-7.5%", or "25-40 days" into a ``(low, high)`` tuple.
+    Returns ``None`` when fewer than two numbers are present.
+    """
+    if not text:
+        return None
+    # Require at least one digit per match -- a bare "," in prose (e.g.
+    # "24 occupations, declining") otherwise matches ``[\d,]+`` on its own
+    # and crashes float("") once commas are stripped.
+    nums = re.findall(r"\d[\d,]*(?:\.\d+)?", str(text))
+    nums = [float(n.replace(",", "")) for n in nums if n]
+    if len(nums) < 2:
+        return None
+    lo, hi = nums[0], nums[1]
+    return (lo, hi) if lo <= hi else (hi, lo)
+
+
+def _model_vs_benchmark_note(data: dict, ind_bench: Dict[str, Any]) -> Optional[str]:
+    """ONE 'Model vs. benchmark' reconciliation note, shared verbatim by the
+    Executive Summary benchmark block and ROI Projections (findings
+    data:manpower#3/#4, visual:manpower#3, strategy:manpower#3).
+
+    Computes the plan's own blended CPA and apply rate LIVE from
+    ``_budget_allocation`` and compares them against the cited industry
+    benchmark's CPA floor and most-recent apply-rate ceiling. Returns a
+    one-line honest disclosure ONLY when the plan sits outside the cited
+    range in the direction that would otherwise look unexplained (modeled
+    CPA below the floor, or modeled apply rate above the ceiling). Returns
+    ``None`` when the plan is within range, or when there isn't enough data
+    to compute either side of the comparison -- never fabricates a note.
+    """
+    if not isinstance(ind_bench, dict) or not ind_bench:
+        return None
+
+    budget_alloc = data.get("_budget_allocation", {})
+    channel_allocs = (
+        budget_alloc.get("channel_allocations", {})
+        if isinstance(budget_alloc, dict)
+        else {}
+    )
+    if not isinstance(channel_allocs, dict) or not channel_allocs:
+        return None
+
+    total_dollars = 0.0
+    total_apps = 0.0
+    total_clicks = 0.0
+    for ch_data in channel_allocs.values():
+        if not isinstance(ch_data, dict):
+            continue
+        total_dollars += _safe_num(
+            ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
+        )
+        total_apps += _safe_num(ch_data.get("projected_applications") or 0)
+        total_clicks += _safe_num(ch_data.get("projected_clicks") or 0)
+
+    if total_dollars <= 0 or total_apps <= 0:
+        return None
+
+    blended_cpa = total_dollars / total_apps
+    apply_rate_pct = (
+        (total_apps / total_clicks) * 100.0 if total_clicks > 0 else None
+    )
+
+    # CPA floor from the benchmark's "range" field (e.g. "$12-$35" -> 12).
+    cpa_floor = None
+    cpa_field = ind_bench.get("cpa")
+    if isinstance(cpa_field, dict):
+        cpa_range = _parse_numeric_range(cpa_field.get("range"))
+    else:
+        cpa_range = _parse_numeric_range(cpa_field)
+    if cpa_range:
+        cpa_floor = cpa_range[0]
+
+    # Apply-rate ceiling: prefer the most recent (highest) cited year, e.g.
+    # {"2024": "5-7%", "2025": "5.5-7.5%"} -> use "2025"'s ceiling (7.5).
+    apply_ceiling = None
+    apply_field = ind_bench.get("apply_rate")
+    apply_source: Any = None
+    if isinstance(apply_field, dict):
+        year_keys = sorted(
+            (k for k in apply_field if str(k).strip().isdigit()), reverse=True
+        )
+        if year_keys:
+            apply_source = apply_field.get(year_keys[0])
+        else:
+            for v in apply_field.values():
+                if isinstance(v, str) and re.search(r"\d", v):
+                    apply_source = v
+                    break
+    else:
+        apply_source = apply_field
+    apply_range = _parse_numeric_range(apply_source)
+    if apply_range:
+        apply_ceiling = apply_range[1]
+
+    reasons = []
+    if cpa_floor is not None and blended_cpa < cpa_floor:
+        reasons.append(
+            f"this plan's blended CPA ({_fmt_currency(blended_cpa, show_cents=True)}) "
+            f"sits below the cited benchmark floor ({_fmt_currency(cpa_floor)})"
+        )
+    if (
+        apply_ceiling is not None
+        and apply_rate_pct is not None
+        and apply_rate_pct > apply_ceiling
+    ):
+        reasons.append(
+            f"this plan's blended apply rate ({apply_rate_pct:.1f}%) sits above the "
+            f"cited benchmark ceiling ({apply_ceiling:.1f}%)"
+        )
+
+    if not reasons:
+        return None
+
+    return (
+        "Model vs. benchmark: "
+        + " and ".join(reasons)
+        + ". This is a deliberate modeling position, not an error: programmatic "
+        "buying and ML bid optimization price applications below posted-rate "
+        "benchmarks; benchmark ranges reflect classic post-and-pray channel pricing."
+    )
 
 
 def _fit_score_fill(score: float) -> PatternFill:
@@ -2726,13 +2931,23 @@ def _rewrite_low_roi_recommendation(channel_allocs: dict) -> Optional[str]:
     note elsewhere on this sheet. Naming them here as reallocation
     candidates is a defect, not a finding.
 
+    S89A FIX (finding strategy:manpower#2): a channel that ALSO carries the
+    "Low Efficiency" flag gets its own, more specific pilot-hold
+    recommendation from ``_rewrite_low_efficiency_recommendation`` --
+    "hold at pilot level; scale only on observed conversion rather than
+    reallocating". Leaving that same channel in THIS list too produced two
+    adjacent Key Recommendations bullets giving opposite instructions on
+    the same channel (reallocate its budget away vs. don't reallocate it).
+    One channel, one recommendation: when both generators would fire for
+    the same channel, the pilot-hold phrasing wins and this list drops it.
+
     Mirrors budget_engine's own filter (``roi_score <= 3`` and
     ``dollar_amount > 0``) so the named channels agree with what
-    budget_engine actually flagged, then drops 'brand' channels from that
-    list.
+    budget_engine actually flagged, then drops 'brand' channels and
+    Low-Efficiency-flagged channels from that list.
 
-    Returns ``None`` when no non-brand low-ROI channel remains (drop the
-    recommendation entirely rather than show an empty alert).
+    Returns ``None`` when no channel remains (drop the recommendation
+    entirely rather than show an empty alert).
     """
     low_roi = sorted(
         _smart_title(str(name))
@@ -2741,6 +2956,7 @@ def _rewrite_low_roi_recommendation(channel_allocs: dict) -> Optional[str]:
         and (ch.get("roi_score", 5) or 0) <= 3
         and (ch.get("dollar_amount", ch.get("dollars") or 0) or 0) > 0
         and ch.get("channel_role") != "brand"
+        and ch.get("efficiency_flag") != "Low Efficiency"
     )
     if not low_roi:
         return None
@@ -3424,6 +3640,16 @@ def _build_sheet_executive_summary(
                             row = _write_kv_row(
                                 ws, row, _humanize_snake_key(key), val_str
                             )
+
+            # S89A FIX (findings data:manpower#3/#4, visual:manpower#3,
+            # strategy:manpower#3): when this plan's own blended CPA/apply
+            # rate falls outside the benchmark range just cited above,
+            # explain why honestly instead of leaving it unreconciled.
+            _bm_note = _model_vs_benchmark_note(
+                data, ind_bench if isinstance(ind_bench, dict) else {}
+            )
+            if _bm_note:
+                row = _write_footnote(ws, row, _bm_note)
         row += 1
 
     # ── 5. Executive Strategic Narrative (LLM-generated) ──
@@ -5280,11 +5506,38 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             row += 2
             row = _write_section_header(ws, row, "Geographic Cost Variance")
 
-            geo_headers = ["Location", "Cost Index", "CPC Adjustment", "Impact"]
+            geo_headers = ["Market", "Cost Index", "CPC Adjustment", "Impact"]
             row = _write_table_header(ws, row, geo_headers)
 
-            for idx, loc in enumerate(locations):
-                geo_idx = fs.get_geo_cost_index(loc)
+            # S89A FIX (finding strategy:manpower#7): ``get_geo_cost_index``
+            # returns exactly 1.0 as its flat DEFAULT when a location has no
+            # real metro match (feature_store.py, "Default to national
+            # average") -- 2+ locations landing on that same default and
+            # being presented as distinct "metro-area" rows overstates the
+            # sourcing this table claims. Collapse the default-index
+            # locations into one honest row and soften the sourcing claim
+            # when any are present; locations with a real metro match still
+            # get their own row and keep the sourced claim.
+            _geo_idx_by_loc = [(loc, fs.get_geo_cost_index(loc)) for loc in locations]
+            _fallback_geo_locs = [
+                loc for loc, idx in _geo_idx_by_loc if abs(idx - 1.0) < 1e-9
+            ]
+            _collapse_geo = len(_fallback_geo_locs) >= 2
+
+            _write_idx = 0
+            _collapsed_geo_written = False
+            for loc, geo_idx in _geo_idx_by_loc:
+                is_fallback = abs(geo_idx - 1.0) < 1e-9
+                if is_fallback and _collapse_geo:
+                    if _collapsed_geo_written:
+                        continue
+                    loc_label = (
+                        "All listed markets (default index — market-level "
+                        "data pending enrichment)"
+                    )
+                    _collapsed_geo_written = True
+                else:
+                    loc_label = loc
                 if geo_idx >= 1.2:
                     impact = "Premium market (+20%+ costs)"
                 elif geo_idx >= 1.05:
@@ -5294,19 +5547,29 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 else:
                     impact = "Below-average costs"
                 values = [
-                    loc,
+                    loc_label,
                     f"{geo_idx:.2f}x",
                     f"{(geo_idx - 1) * 100:+.0f}%",
                     impact,
                 ]
-                row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
+                row = _write_table_row(
+                    ws, row, values, alternate=_write_idx % 2 == 1
+                )
+                _write_idx += 1
 
-            row = _write_footnote(
-                ws,
-                row + 1,
-                "Cost indices are relative to the national average (1.00x). "
-                "Based on metro-area hiring cost data from Joveo and validated industry sources.",
-            )
+            _geo_footnote = "Cost indices are relative to the national average (1.00x)."
+            if _collapse_geo:
+                _geo_footnote += (
+                    ' "All listed markets" is the national-default index '
+                    "(confidence: estimated) -- no metro-specific cost data was "
+                    "available to differentiate these locations."
+                )
+            else:
+                _geo_footnote += (
+                    " Based on metro-area hiring cost data from Joveo and "
+                    "validated industry sources."
+                )
+            row = _write_footnote(ws, row + 1, _geo_footnote)
         except ImportError:
             logger.warning("feature_store not available; skipping geographic variance")
         except Exception as exc:
@@ -6265,7 +6528,7 @@ def _compute_dynamic_ttf(channel_base_ttf: int, data: dict) -> int:
     return max(10, adjusted_ttf)
 
 
-def _build_sheet_roi_projections(ws, data: dict) -> None:
+def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
     """Build Sheet 5: ROI Projections with per-channel hire projections and efficiency scores.
 
     Reads channel allocation data from _budget_allocation and computes:
@@ -6515,16 +6778,16 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
             # used by Channels & Strategy, Confidence Intervals, and Channel
             # Recommendations).
             hire_confidence = _derive_channel_confidence(data, ch_data)
-            if hire_confidence == "HIGH":
-                hire_variance = 0.10
-            elif hire_confidence == "MEDIUM":
-                hire_variance = 0.25
-            else:
-                hire_variance = 0.40
-
-            if projected_hires > 0:
-                hire_lo = max(0, int(projected_hires * (1 - hire_variance)))
-                hire_hi = int(projected_hires * (1 + hire_variance))
+            # S89A FIX (findings data:manpower#1/#2, data:atria#1): route
+            # through the same _confidence_range() helper the Confidence
+            # Intervals sheet uses, with the same 15/20/25% ladder -- this
+            # column previously computed its own 10/25/40% variance and
+            # disagreed with Confidence Intervals on every channel.
+            _hire_band = _confidence_range(
+                projected_hires, hire_confidence, cost_metric=False
+            )
+            if _hire_band is not None:
+                hire_lo, hire_hi = (int(v) for v in _hire_band)
                 hire_range_str = f"{hire_lo} - {hire_hi}"
             else:
                 # S89: never show a fabricated "0 - 0" (or nonzero) range
@@ -6738,6 +7001,17 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
         "ROI Score: 9-10 = Excellent, 7-8 = Good, 4-6 = Average, 1-3 = Below Average.",
     )
 
+    # S89A FIX (findings data:manpower#3/#4, visual:manpower#3,
+    # strategy:manpower#3): same reconciliation note as the Executive
+    # Summary benchmark block, computed via the identical shared helper --
+    # when this plan's blended CPA/apply rate sits outside the cited
+    # industry benchmark, say why instead of leaving it unexplained.
+    _industry = data.get("industry", "general_entry_level")
+    _ind_bench = _kb_industry_benchmark_section(_industry, load_kb_fn=load_kb_fn)
+    _bm_note = _model_vs_benchmark_note(data, _ind_bench)
+    if _bm_note:
+        row = _write_footnote(ws, row, _bm_note)
+
     row += 1
     _write_attribution_footer(ws, row)
 
@@ -6750,6 +7024,51 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
 # ═══════════════════════════════════════════════════════════════════════════════
 # SHEET 6: Quality Intelligence (Gold Standard Gates)
 # ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _collapse_fallback_market_rows(
+    city_data: Dict[str, Any],
+) -> List[Tuple[str, Dict[str, Any], bool]]:
+    """Collapse 2+ markets that share byte-identical fallback data into ONE
+    representative row (finding data:manpower#5).
+
+    ``gold_standard.enrich_city_level_data`` flags a market ``fallback_uniform``
+    when it had zero city/state/country/metro signal and bottomed out on the
+    same flat generic default (1.00x multiplier, 5.5/10 difficulty) every
+    other such market also gets -- presenting N of those as N distinct
+    "location-specific" rows reads as fabricated per-market precision.
+    Markets with real (non-fallback) data, or a lone fallback market with no
+    peer to collapse with, pass through individually unchanged.
+
+    Returns a list of ``(label, info, is_collapsed)`` tuples in original
+    order (the collapsed group appears where its first member would have).
+    """
+    if not isinstance(city_data, dict):
+        return []
+    fallback_count = sum(
+        1
+        for info in city_data.values()
+        if isinstance(info, dict) and info.get("fallback_uniform")
+    )
+    out: List[Tuple[str, Dict[str, Any], bool]] = []
+    collapsed_written = False
+    for name, info in city_data.items():
+        if not isinstance(info, dict):
+            continue
+        if info.get("fallback_uniform") and fallback_count >= 2:
+            if not collapsed_written:
+                out.append(
+                    (
+                        "All listed markets (default index — market-level "
+                        "data pending enrichment)",
+                        info,
+                        True,
+                    )
+                )
+                collapsed_written = True
+            continue
+        out.append((_title_case_city(name), info, False))
+    return out
 
 
 def _build_sheet_quality_intelligence(
@@ -6801,11 +7120,14 @@ def _build_sheet_quality_intelligence(
     try:
         if city_data:
             row = _write_subsection_header(ws, row, "City-Level Supply-Demand Data")
+            # S89A FIX (finding data:manpower#5): header was "City" even
+            # though this table also carries state/region-level fallback
+            # rows -- "Market" is accurate for both.
             row = _write_table_header(
                 ws,
                 row,
                 [
-                    "City",
+                    "Market",
                     "Salary Multiplier",
                     "Estimated Salary",
                     "Hiring Difficulty",
@@ -6818,12 +7140,17 @@ def _build_sheet_quality_intelligence(
             # display and write Estimated Salary as a live number instead of
             # a pre-formatted string.
             _city_money_fmts = [None, None, _usd0_fmt(), None, None, None, None]
-            for idx, (city_name, info) in enumerate(city_data.items()):
+            # S89A FIX (finding data:manpower#5): collapse 2+ markets that
+            # share byte-identical fallback data into one honest row instead
+            # of repeating it once per market.
+            _display_rows = _collapse_fallback_market_rows(city_data)
+            _has_collapsed_market_row = any(is_c for _, _, is_c in _display_rows)
+            for idx, (market_label, info, _is_collapsed) in enumerate(_display_rows):
                 row = _write_table_row(
                     ws,
                     row,
                     [
-                        _title_case_city(city_name),
+                        market_label,
                         f"{info.get('salary_multiplier', 1.0):.2f}x",
                         _safe_num(info.get("estimated_salary", 0)),
                         f"{info.get('hiring_difficulty', 0):.1f}/10",
@@ -6836,12 +7163,17 @@ def _build_sheet_quality_intelligence(
                     alternate=idx % 2 == 1,
                     number_formats=_city_money_fmts,
                 )
-            row = _write_footnote(
-                ws,
-                row,
+            _city_footnote = (
                 "Salary multipliers relative to national average. "
-                "Hiring difficulty: 1 (easy) to 10 (hardest).",
+                "Hiring difficulty: 1 (easy) to 10 (hardest)."
             )
+            if _has_collapsed_market_row:
+                _city_footnote += (
+                    ' "All listed markets" is a national-default estimate '
+                    "(confidence: estimated) -- no market-specific salary/cost "
+                    "data was available to differentiate these locations."
+                )
+            row = _write_footnote(ws, row, _city_footnote)
             row += 1
 
             # ── Per-Role Salary Breakdown (additive section) ──
@@ -8023,12 +8355,11 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
         # overall confidence score (single source of truth, also used by
         # Channels & Strategy, ROI Projections, and Channel Recommendations).
         confidence = _derive_channel_confidence(data, ch_data)
-        if confidence == "HIGH":
-            variance = 0.15
-        elif confidence == "MEDIUM":
-            variance = 0.20
-        else:
-            variance = 0.25
+        # S89A FIX: variance ladder now sourced from the single shared
+        # _confidence_variance() helper (also used by ROI Projections'
+        # Hire Range column) instead of a locally duplicated if/elif, so
+        # the two sheets can never drift apart again.
+        variance = _confidence_variance(confidence)
 
         conf_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=GREEN)
         if confidence == "MEDIUM":
@@ -8122,12 +8453,11 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
         # keep these separate from the (possibly row-skipping) display band.
         hires_lo_raw = max(0, int(hires * (1 - variance))) if hires > 0 else 0
         hires_hi_raw = int(hires * (1 + variance)) if hires > 0 else 0
-        if hires > 0:
-            _hires_band = _clamped_band(
-                hires_lo_raw, hires, hires_hi_raw, cost_metric=False
-            )
-        else:
-            _hires_band = None
+        # S89A FIX (findings data:manpower#1/#2, data:atria#1): display band
+        # routed through the same shared _confidence_range() helper ROI
+        # Projections' Hire Range column uses, so the two sheets can never
+        # show two different ranges for the same channel again.
+        _hires_band = _confidence_range(hires, confidence, cost_metric=False)
         if hires > 0 and _hires_band is not None:
             hires_lo, hires_hi = (int(v) for v in _hires_band)
             row = _write_table_row(
@@ -8595,13 +8925,40 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     # gives niche boards 0 hires or a nonzero allocation.
     _niche_rate, _niche_apps, _niche_hires = _niche_board_implied_rate(data)
     if _niche_rate is not None:
+        # S89A FIX (findings strategy:atria#1 residual / strategy:manpower
+        # niche framing): the bare "0.5% vs industry benchmark 10-15%" read
+        # as a self-indictment. Reframe against the plan's own disclosed
+        # CPH-anchored methodology (ROI Projections!B24: hires are anchored
+        # to cost-per-hire benchmarks, not a funnel) -- the low implied rate
+        # is an expected side effect of that methodology, a conservative
+        # lower bound, not an error -- and quantify the honest upside if
+        # niche boards convert at even the general-board floor (5%),
+        # computed live so it's never fabricated.
+        _upside_rate = 0.05  # floor of the cited "5-8% on general boards" range
+        _upside_hires = max(0, int(_niche_apps * _upside_rate) - _niche_hires)
+        _rate_str = display_format.fmt_pct(_niche_rate, decimals=1, is_fraction=True)
+        if _upside_hires > 0:
+            _upside_clause = (
+                f"if niche boards convert at even 5% (the general-board floor), "
+                f"expect {_upside_hires} additional hire"
+                f"{'s' if _upside_hires != 1 else ''} from this channel -- "
+                "treat as upside, not plan-of-record."
+            )
+        else:
+            _upside_clause = (
+                "this plan's modeled niche-board hires already meet or exceed "
+                "what a 5% general-board floor rate would imply."
+            )
         _niche_purpose = (
             "Specialty job boards matched to your target roles for higher-quality, "
-            "lower-CPA applicants. This plan models niche boards at "
-            f"{display_format.fmt_pct(_niche_rate, decimals=1, is_fraction=True)} "
-            f"apply-to-hire ({_niche_hires} hires / {_niche_apps} applications, "
-            "this plan's own numbers); industry benchmark is 10-15% apply-to-hire "
-            "vs. 5-8% on general boards."
+            "lower-CPA applicants. This plan anchors total hires to cost-per-hire "
+            "benchmarks rather than a funnel model (see ROI Projections, "
+            "Methodology), so the implied "
+            f"{_rate_str} apply-to-hire rate shown here ({_niche_hires} hires / "
+            f"{_niche_apps} applications) is a conservative lower bound of this "
+            "channel's modeled contribution, not a literal conversion assumption. "
+            "Industry benchmark is 10-15% apply-to-hire vs. 5-8% on general "
+            f"boards -- {_upside_clause}"
         )
     else:
         _niche_purpose = (
@@ -9119,7 +9476,7 @@ def _generate_excel_v2_inner(
     # ── Sheet 5: ROI Projections ──
     ws5 = wb.create_sheet()
     try:
-        _build_sheet_roi_projections(ws5, data)
+        _build_sheet_roi_projections(ws5, data, load_kb_fn=load_kb_fn)
     except Exception as exc:
         logger.error("Sheet 5 (ROI Projections) failed: %s", exc, exc_info=True)
         ws5.title = "ROI Projections"
