@@ -13,8 +13,12 @@ the ``data`` dict passed to ``generate_pptx`` / ``generate_excel_v2``:
                                                   "programmatic_dsp", "global_boards")
     3. budget_engine.calculate_budget_allocation(...) -> data["_budget_allocation"]
     4. campaign_duration -> campaign_weeks (same regex ladder app.py uses)
-    5. ppt_generator.generate_pptx(data) / excel_v2.generate_excel_v2(data)
-    6. zip as "{descriptive_filename}.xlsx" + "{descriptive_filename}_Deck.pptx"
+    5. gold_standard.apply_all_quality_gates(data) -> data["_gold_standard"]
+       (same call app.py makes at ~line 17689, minus the ThreadPoolExecutor
+       timeout wrapper -- all 8 gates run off the local KB + brief data, no
+       paid external API involved, see "What this intentionally SKIPS" below)
+    6. ppt_generator.generate_pptx(data) / excel_v2.generate_excel_v2(data)
+    7. zip as "{descriptive_filename}.xlsx" + "{descriptive_filename}_Deck.pptx"
        (same naming app.py uses at the zip-build call site)
 
 What this intentionally SKIPS (and why that's fine for bundle-QUALITY repro):
@@ -24,8 +28,12 @@ What this intentionally SKIPS (and why that's fine for bundle-QUALITY repro):
       gracefully when a given key is missing (each enrichment call is wrapped
       in try/except, see CLAUDE.md "Error isolation"), so omitting them here
       reproduces the SAME degraded-enrichment condition, not a different one.
-    - competitive_intel / market_pulse / slotops live-benchmark injection --
-      same reasoning (external APIs, optional, non-fatal on failure).
+    - competitive_intel / market_pulse / the DIRECT slotops_engine benchmark
+      injection (data["_slotops_linkedin_benchmarks"]) -- same reasoning
+      (external APIs, optional, non-fatal on failure). This is distinct
+      from gold_standard's own Gate 8 LinkedIn Intelligence, which reads a
+      pre-aggregated, repo-local KB summary (kb["slotops_benchmarks"]) and
+      IS exercised here (see step 5 above) -- it needs no live API.
     - The Google Slides deck tier (deck_generator.py DeckGenerator, tier 1)
       -- requires GOOGLE_SLIDES_CREDENTIALS_B64, absent locally, and
       deck_generator.py's *own* fallback ladder collapses to tier 7
@@ -94,6 +102,13 @@ MANPOWER_BRIEF: dict[str, Any] = {
     "target_roles": [{"title": "CDL A Driver", "count": 300, "tier": "Hourly"}],
     "notes": "Blue Collar talent profile. On-Site work model. 6 markets: "
     "Massachusetts, Maine, New Hampshire, Rhode Island, Connecticut, Denver CO.",
+    # S92 harness fix: without live enrichment (see module docstring), the
+    # competitor-landscape slide/sheet fallback chain (ppt_generator.py
+    # ~7404-7480, excel_v2.py Quality Intelligence competitor rows) has
+    # nothing to render from locally unless a "competitors" list is on the
+    # brief itself -- production plans nearly always carry one from the
+    # client intake form. Added here so that surface actually exercises.
+    "competitors": ["FedEx", "UPS", "XPO Logistics"],
 }
 
 ATRIA_ROLE_TITLES = [
@@ -126,6 +141,8 @@ ATRIA_BRIEF: dict[str, Any] = {
     "notes": "10 roles for a senior living community: memory care, nurse, cook, "
     "driver, maintenance technician, server/waitstaff, shift/charge nurse, "
     "dishwasher, housekeeper, sales. Hire volume 500+.",
+    # S92 harness fix -- see MANPOWER_BRIEF comment above.
+    "competitors": ["Brookdale Senior Living", "Sunrise Senior Living", "Amazon"],
 }
 
 
@@ -267,6 +284,12 @@ def build_plan_data(brief: dict[str, Any]) -> dict[str, Any]:
 
     budget_val = parse_budget(str(data.get("budget") or ""))
     kb = load_knowledge_base()
+    # app.py stashes the loaded KB on the data dict itself (see app.py
+    # ~line 15109/15131/15134) BEFORE calling apply_all_quality_gates --
+    # Gate 8 (LinkedIn Intelligence, gold_standard.build_linkedin_intelligence)
+    # reads data["_knowledge_base"]["slotops_benchmarks"] directly, not the
+    # local `kb` var, so without this the gate silently no-ops locally.
+    data["_knowledge_base"] = kb
 
     budget_result = budget_engine.calculate_budget_allocation(
         total_budget=budget_val,
@@ -284,6 +307,33 @@ def build_plan_data(brief: dict[str, Any]) -> dict[str, Any]:
     # ── Step 4: campaign_weeks (app.py ~line 16151) ──
     data["campaign_weeks"] = _compute_campaign_weeks(str(data.get("campaign_duration")))
     data.setdefault("campaign_start_month", 0)
+
+    # ── Step 5: Gold Standard quality gates (app.py ~line 17689, and the
+    # SAME call the offline test fixture in
+    # tests/test_excel_v2_agentb_quality.py uses at lines 319/343) --
+    # populates data["_gold_standard"] with city-level data, competitor
+    # mapping, difficulty framework, channel strategy, budget tiers,
+    # activation calendar, and LinkedIn intelligence. Every one of the 8
+    # gates is individually try/excepted inside apply_all_quality_gates
+    # itself, and none of them call a paid external API (they run off the
+    # local KB + brief data), so this is safe and representative to run
+    # unconditionally in this offline harness -- unlike production, no
+    # timeout/ThreadPoolExecutor wrapper is needed here.
+    #
+    # This matters for bundle quality: excel_v2.generate_excel_v2's Sheet 6
+    # "Quality Intelligence" is gated on `if gold_standard:` (see
+    # excel_v2.py ~line 8641/8642) -- without this call, data["_gold_standard"]
+    # is never set, that sheet never gets created at all, and the
+    # competitor-landscape fallback chain in both generators
+    # (ppt_generator.py ~7404-7480, excel_v2.py ~6581) has nothing to draw
+    # from beyond the brief's own "competitors" list.
+    try:
+        from gold_standard import apply_all_quality_gates
+
+        apply_all_quality_gates(data)  # enriches data["_gold_standard"] in-place
+    except Exception as exc:  # noqa: BLE001 -- report-all harness, non-fatal
+        print(f"  WARNING: gold_standard.apply_all_quality_gates FAILED: {exc!r}")
+        data.setdefault("_gold_standard", {})
 
     return data
 
