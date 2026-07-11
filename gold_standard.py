@@ -56,6 +56,78 @@ def _load_seasonal_patterns_gs() -> dict:
     return _SEASONAL_PATTERNS_GS
 
 
+# S: Sub-vertical seasonal overrides -- corrects generic industry-level
+# seasonality for narrower sub-verticals whose real demand driver differs
+# from their parent industry (e.g. propane/heating-fuel delivery vs. generic
+# freight/e-commerce logistics). See data/subvertical_seasonal_overrides.json
+# for the keyword sets and monthly profiles; this dict is intentionally kept
+# general (not hardcoded per-vertical) so new sub-verticals can be added by
+# editing the JSON alone.
+_SUBVERTICAL_OVERRIDES_GS: dict = {}
+
+
+def _load_subvertical_overrides_gs() -> dict:
+    """Load sub-vertical seasonal overrides. Cached after first call."""
+    global _SUBVERTICAL_OVERRIDES_GS
+    if _SUBVERTICAL_OVERRIDES_GS:
+        return _SUBVERTICAL_OVERRIDES_GS
+    import json as _json_mod
+    from pathlib import Path as _Path
+
+    _path = _Path(__file__).parent / "data" / "subvertical_seasonal_overrides.json"
+    try:
+        with open(_path, encoding="utf-8") as f:
+            raw = _json_mod.load(f)
+        _SUBVERTICAL_OVERRIDES_GS = raw.get("sub_verticals", {})
+    except (FileNotFoundError, _json_mod.JSONDecodeError, OSError):
+        pass  # non-critical, plan falls back to the generic industry calendar
+    return _SUBVERTICAL_OVERRIDES_GS
+
+
+def _detect_subvertical(data: dict, ind_key: str) -> tuple[str, dict] | None:
+    """Match a plan against a sub-vertical seasonal override by keyword.
+
+    Searches client name, industry string, role titles, and free-text notes
+    for any of a sub-vertical's keywords (whole-substring match, case
+    insensitive). Returns ``(subvertical_key, profile_dict)`` for the first
+    match, or ``None`` if no sub-vertical applies -- callers should then fall
+    back to the generic industry-level calendar.
+    """
+    overrides = _load_subvertical_overrides_gs()
+    if not overrides:
+        return None
+
+    haystack_parts: list[str] = [
+        str(data.get("client_name") or ""),
+        str(data.get("industry") or ""),
+        str(data.get("notes") or ""),
+    ]
+    _roles_raw = data.get("target_roles") or data.get("roles") or []
+    for _r in _roles_raw if isinstance(_roles_raw, list) else [_roles_raw]:
+        if isinstance(_r, dict):
+            haystack_parts.append(str(_r.get("title") or ""))
+        else:
+            haystack_parts.append(str(_r))
+    haystack = " | ".join(haystack_parts).lower()
+    if not haystack.strip(" |"):
+        return None
+
+    for sv_key, profile in overrides.items():
+        if not isinstance(profile, dict):
+            continue
+        # Prefer sub-verticals scoped to the plan's resolved parent industry
+        # when that scoping is present, to avoid cross-industry false
+        # positives on an ambiguous keyword; fall back to unscoped matching
+        # when the profile declares no industry scope.
+        _scope = profile.get("applies_to_industry_keys")
+        if _scope and ind_key and ind_key not in _scope:
+            continue
+        for kw in profile.get("keywords") or []:
+            if str(kw).lower() in haystack:
+                return sv_key, profile
+    return None
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -1153,6 +1225,15 @@ def enrich_city_level_data(data: dict) -> dict:
         # fall back to research.METRO_DATA for COLI-based differentiation
         # instead of flat defaults (1.0 / 5.5).  This ensures cities like
         # Dallas (COLI 108) differ from SF (COLI 170) in salary estimates.
+        #
+        # W3C: track whether this row bottoms out on the *pure* generic
+        # default (no city/state/country/metro signal at all) so callers
+        # (excel_v2) can tell "this city has real differentiated data" apart
+        # from "this city fell all the way through to the flat default" --
+        # multiple cities hitting the same flat default produce byte-identical
+        # rows that read as fabricated precision if presented uncollapsed.
+        _mult_is_pure_fallback = False
+        _diff_is_pure_fallback = False
         _metro_entry = _RESEARCH_METRO_DATA.get(city_key, {})
         if multiplier is None:
             _metro_coli = _metro_entry.get("coli")
@@ -1164,6 +1245,7 @@ def enrich_city_level_data(data: dict) -> dict:
                 multiplier = _metro_coli / 100.0
             else:
                 multiplier = 1.0
+                _mult_is_pure_fallback = True
 
         if difficulty is None:
             # Derive difficulty from metro unemployment rate:
@@ -1175,6 +1257,15 @@ def enrich_city_level_data(data: dict) -> dict:
                 difficulty = max(2.0, min(9.5, 10.0 - _metro_unemp))
             except (ValueError, TypeError):
                 difficulty = 5.5
+                _diff_is_pure_fallback = True
+
+        # A row is a "fallback_uniform" row only when BOTH salary and
+        # difficulty bottomed out on the flat generic default with zero
+        # city/state/country/metro signal -- i.e. it is indistinguishable
+        # from any other city that also has no known data, and multiple
+        # such rows in the same plan would render as identical fabricated
+        # figures rather than genuine per-market differentiation.
+        fallback_uniform = _mult_is_pure_fallback and _diff_is_pure_fallback
 
         # Determine supply tier
         supply_tier = "balanced"
@@ -1262,6 +1353,12 @@ def enrich_city_level_data(data: dict) -> dict:
             "supply_tier": supply_tier,
             "cost_of_living_index": round(col_index, 1),
             "per_role_salary": per_role_salary,
+            # W3C: True when salary_multiplier/hiring_difficulty both came
+            # from the flat generic default (no city/state/country/metro
+            # data existed for this location). Renderers may use this to
+            # collapse multiple such rows instead of presenting them as
+            # distinct per-market figures.
+            "fallback_uniform": fallback_uniform,
         }
 
     return city_data
@@ -4236,6 +4333,28 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
     ind_key = _get_industry_key(industry)
     ind_monthly = _INDUSTRY_MONTHLY_EVENTS.get(ind_key, {})
 
+    # S: Sub-vertical override -- a plan's client name/industry/roles/notes
+    # may match a narrower sub-vertical (e.g. propane/heating-fuel delivery
+    # within "Logistics & Supply Chain") whose real seasonality is the
+    # OPPOSITE of its generic parent industry. When matched, the
+    # sub-vertical's monthly_profile replaces the generic month-by-month
+    # calendar for every month below instead of blending with it, since it
+    # is a strictly more specific signal than the industry-level default.
+    _subvertical_match = _detect_subvertical(data, ind_key)
+    _subvertical_key = _subvertical_match[0] if _subvertical_match else None
+    _subvertical_profile = _subvertical_match[1] if _subvertical_match else None
+    _subvertical_monthly = (
+        (_subvertical_profile or {}).get("monthly_profile") or {}
+    )
+
+    # Adjust budget weight based on hiring intensity
+    intensity_weights = {
+        "very_high": 1.3,
+        "high": 1.1,
+        "moderate": 1.0,
+        "low": 0.7,
+    }
+
     # Build 6-month forward calendar
     timeline: list[dict[str, Any]] = []
     for offset in range(6):
@@ -4243,47 +4362,61 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
         month_info = _HIRING_EVENTS_CALENDAR[month_num]
         month_name = datetime.date(2026, month_num, 1).strftime("%B")
 
-        # Adjust budget weight based on hiring intensity
-        intensity_weights = {
-            "very_high": 1.3,
-            "high": 1.1,
-            "moderate": 1.0,
-            "low": 0.7,
-        }
-        budget_weight = intensity_weights.get(month_info["hiring_intensity"], 1.0)
+        _sv_month = _subvertical_monthly.get(str(month_num))
+        if _sv_month:
+            # Sub-vertical override wins outright for this month: it is a
+            # more specific, defensible signal than either the generic
+            # calendar or the generic industry-level seasonal_hiring_trends
+            # blend, so it is NOT further blended with either.
+            season = _sv_month.get("season", month_info["season"])
+            hiring_intensity = _sv_month.get(
+                "hiring_intensity", month_info["hiring_intensity"]
+            )
+            budget_weight = intensity_weights.get(hiring_intensity, 1.0)
+            month_events = _sv_month.get("events") or month_info["events"]
+            recommendation = _sv_month.get(
+                "recommendation", month_info["recommendation"]
+            )
+            seasonal_phase = f"subvertical:{_subvertical_key}"
+            seasonal_mult = budget_weight
+        else:
+            season = month_info["season"]
+            hiring_intensity = month_info["hiring_intensity"]
+            budget_weight = intensity_weights.get(hiring_intensity, 1.0)
 
-        # S50: Overlay seasonal hiring multiplier from seasonal_hiring_trends.json.
-        # This provides more granular, industry-specific budget weighting than
-        # the generic hiring_intensity alone.
-        _seasonal_pats = _load_seasonal_patterns_gs()
-        _seasonal_mult = 1.0
-        _seasonal_label = "normal"
-        if _seasonal_pats and ind_key in _seasonal_pats:
-            _sp = _seasonal_pats[ind_key]
-            if month_num in (_sp.get("peak_months") or []):
-                _seasonal_mult = _sp.get("peak_multiplier", 1.15)
-                _seasonal_label = "peak"
-            elif month_num in (_sp.get("low_months") or []):
-                _seasonal_mult = _sp.get("low_multiplier", 0.85)
-                _seasonal_label = "low"
-            # Blend: average the generic intensity weight with seasonal multiplier
-            budget_weight = round((budget_weight + _seasonal_mult) / 2, 2)
+            # S50: Overlay seasonal hiring multiplier from
+            # seasonal_hiring_trends.json. This provides more granular,
+            # industry-specific budget weighting than hiring_intensity alone.
+            _seasonal_pats = _load_seasonal_patterns_gs()
+            seasonal_mult = 1.0
+            seasonal_phase = "normal"
+            if _seasonal_pats and ind_key in _seasonal_pats:
+                _sp = _seasonal_pats[ind_key]
+                if month_num in (_sp.get("peak_months") or []):
+                    seasonal_mult = _sp.get("peak_multiplier", 1.15)
+                    seasonal_phase = "peak"
+                elif month_num in (_sp.get("low_months") or []):
+                    seasonal_mult = _sp.get("low_multiplier", 0.85)
+                    seasonal_phase = "low"
+                # Blend: average the generic intensity weight with seasonal multiplier
+                budget_weight = round((budget_weight + seasonal_mult) / 2, 2)
 
-        # Use industry-specific events when available, fall back to generic
-        month_events = ind_monthly.get(month_num, month_info["events"])
+            # Use industry-specific events when available, fall back to generic
+            month_events = ind_monthly.get(month_num, month_info["events"])
+            recommendation = month_info["recommendation"]
 
         timeline.append(
             {
                 "month": month_num,
                 "month_name": month_name,
                 "offset_from_start": offset,
-                "season": month_info["season"],
-                "hiring_intensity": month_info["hiring_intensity"],
+                "season": season,
+                "hiring_intensity": hiring_intensity,
                 "budget_weight": budget_weight,
-                "seasonal_phase": _seasonal_label,
-                "seasonal_multiplier": _seasonal_mult,
+                "seasonal_phase": seasonal_phase,
+                "seasonal_multiplier": seasonal_mult,
                 "key_events": month_events,
-                "recommendation": month_info["recommendation"],
+                "recommendation": recommendation,
             }
         )
 
@@ -4350,18 +4483,36 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
     }
     industry_events: list[str] = _INDUSTRY_EVENTS_SUMMARY.get(ind_key, [])
 
+    budget_phasing_note = (
+        "Budget should be weighted toward high-intensity months. "
+        "Front-load spend in the first 2 months for maximum visibility."
+    )
+    if _subvertical_profile:
+        budget_phasing_note = (
+            f"{(_subvertical_profile.get('label') or _subvertical_key)} seasonal "
+            f"profile applied (overrides generic {(_get_industry_key(industry) or 'industry')} "
+            "seasonality): " + str(_subvertical_profile.get("rationale") or "")
+        )
+
     # NOTE: Activation calendar uses hardcoded industry events above.
     # These are curated conference/event dates that rarely change year-to-year.
     # If dynamic event data becomes available, replace the hardcoded lists.
-    return {
+    result: dict[str, Any] = {
         "campaign_start_month": campaign_month,
         "timeline": timeline,
         "industry_events": industry_events,
-        "budget_phasing_note": (
-            "Budget should be weighted toward high-intensity months. "
-            "Front-load spend in the first 2 months for maximum visibility."
-        ),
+        "budget_phasing_note": budget_phasing_note,
     }
+    if _subvertical_profile:
+        # Citable override metadata -- renderers (excel_v2/ppt_generator) can
+        # surface this so the seasonality shown is traceable to a named,
+        # defensible rationale rather than presented as an unexplained
+        # departure from the generic industry calendar.
+        result["subvertical"] = _subvertical_key
+        result["subvertical_label"] = _subvertical_profile.get("label") or _subvertical_key
+        result["subvertical_rationale"] = _subvertical_profile.get("rationale") or ""
+        result["subvertical_source"] = _subvertical_profile.get("source") or ""
+    return result
 
 
 # ---------------------------------------------------------------------------

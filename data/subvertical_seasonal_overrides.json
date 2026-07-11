@@ -1,0 +1,72 @@
+{
+  "metadata": {
+    "description": "Sub-vertical seasonal hiring overrides for the activation event calendar (gold_standard.build_activation_calendar). Generic industry-level seasonality (e.g. 'Logistics & Supply Chain' = e-commerce/freight, peak Aug-Nov) is wrong for narrower sub-verticals whose real-world demand driver differs (e.g. propane/heating-fuel delivery peaks in winter). When a plan's client name / industry / role titles / notes match a sub-vertical's keywords, its monthly_profile REPLACES the generic month-by-month calendar entries (season/hiring_intensity/events/recommendation) for that plan. General, extensible mechanism -- add new sub-verticals here as they are identified (e.g. tax season for accounting, summer peak for landscaping); do not hardcode new sub-verticals into gold_standard.py itself.",
+    "last_updated": "2026-07-12",
+    "hiring_intensity_scale": "very_high | high | moderate | low -- same scale build_activation_calendar already uses for the generic calendar, so overridden months blend into the same budget_weight formula."
+  },
+  "sub_verticals": {
+    "fuel_heating_delivery": {
+      "label": "Fuel & Heating Delivery",
+      "applies_to_industry_keys": ["trucking", "blue_collar_trades"],
+      "keywords": [
+        "propane",
+        "amerigas",
+        "heating fuel",
+        "heating oil",
+        "fuel delivery",
+        "fuel distributor",
+        "fuel distribution",
+        "furnace repair",
+        "furnace installation",
+        "home heating",
+        "lp gas"
+      ],
+      "rationale": "Propane/heating-fuel delivery demand is driven by winter heating season (roughly Nov-Mar in most US climates), the inverse of generic freight/e-commerce logistics seasonality (which peaks Aug-Nov for holiday shipping volume). Hiring must ramp in the preceding Aug-Oct window so delivery drivers are trained, licensed, and route-assigned BEFORE the Oct-Mar heating peak -- not wound down heading into winter the way a generic logistics calendar would suggest. DOT compliance deadlines and CDL-school graduation cycles are climate-independent and are retained from the generic trucking calendar.",
+      "source": "Domain reasoning, not a fabricated statistic: propane/heating-fuel delivery volume tracks heating-degree-days (NOAA), which are highest Nov-Mar across most of the US; this profile expresses that as hiring-intensity weights and staffing rationale, the same way the generic calendar does, rather than inventing a numeric benchmark.",
+      "monthly_profile": {
+        "1": {"season": "Peak Heating Season", "hiring_intensity": "moderate", "events": ["Peak propane demand -- crews already staffed, backfill only", "Winter storm response staffing", "Year-end DOT compliance deadlines"], "recommendation": "Peak delivery season is underway with crews already staffed; budget shifts to retention/backfill, not net-new ramp."},
+        "2": {"season": "Peak Heating Season", "hiring_intensity": "moderate", "events": ["Continued peak propane demand", "DOT compliance audit cycle"], "recommendation": "Maintain backfill-only hiring through the remainder of heating season."},
+        "3": {"season": "Late Heating Season", "hiring_intensity": "low", "events": ["Heating demand tapering", "CDL school Q1 graduations"], "recommendation": "Demand is tapering -- shift to passive sourcing and pipeline-building for next season."},
+        "4": {"season": "Off-Season Trough", "hiring_intensity": "low", "events": ["Off-season equipment and fleet maintenance"], "recommendation": "Lowest-demand window of the year -- minimal active recruiting spend."},
+        "5": {"season": "Off-Season Trough", "hiring_intensity": "low", "events": ["Off-season route planning"], "recommendation": "Hold spend low; use the quiet season for employer-branding content."},
+        "6": {"season": "Off-Season Trough", "hiring_intensity": "low", "events": ["Summer off-peak"], "recommendation": "Continue minimal spend -- last full month before the pre-season ramp must begin."},
+        "7": {"season": "Pre-Season Ramp Begins", "hiring_intensity": "moderate", "events": ["Pre-season driver recruitment begins", "CDL school Q2 grads enter market"], "recommendation": "Begin ramping recruiting spend -- drivers hired now have time to complete training and licensing before peak season."},
+        "8": {"season": "Pre-Season Ramp", "hiring_intensity": "high", "events": ["Pre-winter driver hiring push", "Seasonal DOT medical certification renewals"], "recommendation": "Increase spend significantly -- crews must be fully staffed and trained before the Oct-Mar heating peak."},
+        "9": {"season": "Pre-Season Ramp Peak", "hiring_intensity": "very_high", "events": ["Peak pre-season hiring push", "CDL school Q3 grads enter market", "Winter route/territory assignment"], "recommendation": "Maximum recruiting spend -- this is the critical staffing window ahead of winter demand."},
+        "10": {"season": "Season Transition", "hiring_intensity": "high", "events": ["Final pre-winter hiring wave", "Winter-readiness training", "DOT compliance deadlines"], "recommendation": "Close remaining staffing gaps now; last efficient hiring window before demand peaks."},
+        "11": {"season": "Heating Season Begins", "hiring_intensity": "moderate", "events": ["Heating-season demand ramps", "Holiday-adjacent overtime coverage"], "recommendation": "Shift from acquisition to retention -- crews should already be in place as heating demand ramps."},
+        "12": {"season": "Peak Heating Season", "hiring_intensity": "moderate", "events": ["Peak winter propane demand", "Holiday coverage staffing"], "recommendation": "Full staffing should already be in effect; budget toward retention and overtime coverage, not new-hire acquisition."}
+      }
+    },
+    "senior_living": {
+      "label": "Senior Living / Assisted Living",
+      "applies_to_industry_keys": ["healthcare"],
+      "keywords": [
+        "senior living",
+        "assisted living",
+        "memory care",
+        "independent living",
+        "continuing care retirement",
+        "ccrc",
+        "retirement community",
+        "skilled nursing residence"
+      ],
+      "rationale": "Senior-living staffing (memory care, direct care, dining, maintenance) is year-round and census-driven rather than academic-calendar-driven like the generic acute-care hospital seasonality (HIMSS/Nursing Week/fall hiring ramp) it would otherwise inherit. Two real, non-clinical demand signals differentiate it: a Q4/Q1 flu-season staffing bump tied to resident-acuity/coverage-ratio requirements (CDC flu season runs Oct-Feb), and a January bump tied to new-fiscal-year budget approvals releasing headcount.",
+      "source": "Domain reasoning, not a fabricated statistic: senior-living census and staffing ratios are regulated and comparatively stable year-round (unlike acute-care hospital seasonality); flu season (CDC, Oct-Feb) increases resident acuity and required coverage ratios; most senior-living operators run a calendar fiscal year, so newly approved requisitions commonly release in January.",
+      "monthly_profile": {
+        "1": {"season": "Budget-Cycle Hiring Bump", "hiring_intensity": "high", "events": ["New fiscal-year budget approvals release headcount", "Post-holiday staff attrition backfill"], "recommendation": "Increase spend -- newly approved requisitions and post-holiday attrition both open up in January."},
+        "2": {"season": "Flu-Season Tail / Steady-State", "hiring_intensity": "moderate", "events": ["Tail of flu-season coverage staffing"], "recommendation": "Maintain steady recruiting spend as flu-season coverage needs taper."},
+        "3": {"season": "Steady-State", "hiring_intensity": "moderate", "events": ["Year-round census-driven hiring"], "recommendation": "Maintain steady, year-round recruiting spend proportional to census turnover."},
+        "4": {"season": "Steady-State", "hiring_intensity": "moderate", "events": ["Year-round census-driven hiring"], "recommendation": "Maintain steady, year-round recruiting spend."},
+        "5": {"season": "Steady-State", "hiring_intensity": "moderate", "events": ["Nursing Week recruitment visibility (May)"], "recommendation": "Maintain steady spend; use Nursing Week for employer-branding content."},
+        "6": {"season": "Steady-State", "hiring_intensity": "moderate", "events": ["Year-round census-driven hiring"], "recommendation": "Maintain steady, year-round recruiting spend."},
+        "7": {"season": "Steady-State", "hiring_intensity": "moderate", "events": ["Summer seasonal staff transitions (dining/activities)"], "recommendation": "Maintain steady spend; summer brings modest frontline turnover."},
+        "8": {"season": "Steady-State", "hiring_intensity": "moderate", "events": ["Year-round census-driven hiring"], "recommendation": "Maintain steady, year-round recruiting spend."},
+        "9": {"season": "Flu-Season Ramp Begins", "hiring_intensity": "high", "events": ["Flu-season coverage-ratio staffing begins", "Fall clinical hiring ramp"], "recommendation": "Begin ramping spend ahead of flu season's increased coverage-ratio requirements."},
+        "10": {"season": "Flu-Season Staffing Bump", "hiring_intensity": "high", "events": ["Flu season begins (CDC, Oct-Feb)", "Increased resident-acuity coverage staffing"], "recommendation": "Increase spend to meet flu-season coverage-ratio requirements."},
+        "11": {"season": "Flu-Season Staffing Bump", "hiring_intensity": "high", "events": ["Peak flu-season coverage staffing", "Holiday PTO backfill planning"], "recommendation": "Maintain elevated spend for flu-season coverage and holiday PTO backfill."},
+        "12": {"season": "Holiday Coverage", "hiring_intensity": "moderate", "events": ["Holiday PTO coverage staffing", "Year-end planning for the January budget-cycle bump"], "recommendation": "Maintain moderate spend for holiday coverage; prepare budget for the January budget-cycle bump."}
+      }
+    }
+  }
+}
