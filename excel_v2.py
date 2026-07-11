@@ -2714,6 +2714,42 @@ def _rewrite_low_efficiency_recommendation(channel_allocs: dict) -> Optional[str
     )
 
 
+def _rewrite_low_roi_recommendation(channel_allocs: dict) -> Optional[str]:
+    """Rebuild the "Channels with low ROI scores" recommendation from
+    budget_engine.
+
+    Same problem as the Low Efficiency alert (see
+    ``_rewrite_low_efficiency_recommendation``): budget_engine's raw list
+    names 'brand' channels (employer branding etc.) whose low ROI score is
+    BY DESIGN -- brand channels aren't scored/optimized for ROI the way
+    performance channels are, and they already carry their own rationale
+    note elsewhere on this sheet. Naming them here as reallocation
+    candidates is a defect, not a finding.
+
+    Mirrors budget_engine's own filter (``roi_score <= 3`` and
+    ``dollar_amount > 0``) so the named channels agree with what
+    budget_engine actually flagged, then drops 'brand' channels from that
+    list.
+
+    Returns ``None`` when no non-brand low-ROI channel remains (drop the
+    recommendation entirely rather than show an empty alert).
+    """
+    low_roi = sorted(
+        _smart_title(str(name))
+        for name, ch in (channel_allocs or {}).items()
+        if isinstance(ch, dict)
+        and (ch.get("roi_score", 5) or 0) <= 3
+        and (ch.get("dollar_amount", ch.get("dollars") or 0) or 0) > 0
+        and ch.get("channel_role") != "brand"
+    )
+    if not low_roi:
+        return None
+    return (
+        f"Channels with low ROI scores ({', '.join(low_roi)}) "
+        f"may benefit from budget reallocation to higher-performing channels."
+    )
+
+
 def _clean_budget_alloc_narrative(
     warnings: list, recommendations: list, channel_allocs: dict
 ) -> Tuple[list, list]:
@@ -2770,6 +2806,11 @@ def _clean_budget_alloc_narrative(
             continue
         if rec.strip().lower().startswith("low efficiency alert:"):
             _rewritten = _rewrite_low_efficiency_recommendation(channel_allocs)
+            if _rewritten:
+                _cleaned_recommendations.append(_rewritten)
+            continue
+        if _low.startswith("channels with low roi scores"):
+            _rewritten = _rewrite_low_roi_recommendation(channel_allocs)
             if _rewritten:
                 _cleaned_recommendations.append(_rewritten)
             continue

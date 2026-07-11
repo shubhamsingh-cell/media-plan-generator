@@ -184,6 +184,59 @@ def test_rewrite_low_efficiency_recommendation_drops_when_only_brand():
 
 
 # ---------------------------------------------------------------------------
+# 4b. "Channels with low ROI scores" recommendation skips brand channels too
+# (residual A of the S92 integration pass -- same defect class as #4 above,
+# EX's fix only covered the Low Efficiency alert)
+# ---------------------------------------------------------------------------
+def test_rewrite_low_roi_recommendation_skips_brand():
+    channel_allocs = {
+        "employer_branding": {
+            "roi_score": 1,
+            "dollar_amount": 5000,
+            "channel_role": "brand",
+        },
+        "niche_boards": {
+            "roi_score": 2,
+            "dollar_amount": 3000,
+            "channel_role": "performance",
+        },
+    }
+    text = excel_v2._rewrite_low_roi_recommendation(channel_allocs)
+    assert text is not None
+    assert "Employer" not in text and "employer" not in text.lower()
+    assert "Niche" in text
+    assert text.startswith("Channels with low ROI scores (")
+    assert "may benefit from budget reallocation" in text
+
+
+def test_rewrite_low_roi_recommendation_drops_when_only_brand():
+    channel_allocs = {
+        "employer_branding": {
+            "roi_score": 1,
+            "dollar_amount": 5000,
+            "channel_role": "brand",
+        },
+    }
+    assert excel_v2._rewrite_low_roi_recommendation(channel_allocs) is None
+
+
+def test_rewrite_low_roi_recommendation_ignores_zero_spend_and_healthy_roi():
+    channel_allocs = {
+        "no_spend_channel": {
+            "roi_score": 1,
+            "dollar_amount": 0,
+            "channel_role": "performance",
+        },
+        "healthy_channel": {
+            "roi_score": 8,
+            "dollar_amount": 5000,
+            "channel_role": "performance",
+        },
+    }
+    assert excel_v2._rewrite_low_roi_recommendation(channel_allocs) is None
+
+
+# ---------------------------------------------------------------------------
 # 5. Single KB getter for CPH benchmarks
 # ---------------------------------------------------------------------------
 def test_kb_industry_cph_benchmark_reads_recruitment_benchmarks_section():
@@ -328,4 +381,7 @@ if __name__ == "__main__":
     test_competitor_analysis_drops_empty_columns()
     test_niche_board_narrative_uses_live_implied_rate()
     test_location_intelligence_drops_blank_metric_columns()
+    test_rewrite_low_roi_recommendation_skips_brand()
+    test_rewrite_low_roi_recommendation_drops_when_only_brand()
+    test_rewrite_low_roi_recommendation_ignores_zero_spend_and_healthy_roi()
     print("OK")
