@@ -1852,6 +1852,136 @@ def _fit_fill(fit: str) -> PatternFill:
     return _FILL_AMBER_BG
 
 
+def _overall_confidence_score(data: dict) -> float:
+    """Single source for the plan's overall data-confidence score (0-1).
+
+    Mirrors the exact calc ``_build_sheet_sources`` (Sheet 4, "Sources &
+    Confidence") uses for its headline grade, so any other sheet that needs
+    an overall-confidence gate reads the SAME number regardless of sheet
+    build order (findings data:manpower#3 / data:atria#3 / strategy:atria#8).
+    """
+    synthesized = data.get("_synthesized", {}) or {}
+    confidence_scores = synthesized.get("confidence_scores", {}) or {}
+    return _safe_num(
+        confidence_scores.get(
+            "overall", confidence_scores.get("overall_confidence", 0.5)
+        )
+    )
+
+
+# cpc_source values (set by budget_engine's CPC resolution cascade) that
+# indicate the channel's CPC/CPA is grounded in a real benchmark/live/trend
+# source rather than the static fallback table.
+_REAL_BENCHMARK_CPC_SOURCES = {
+    "synthesized",
+    "live_benchmark",
+    "trend_engine",
+    "knowledge_base",
+}
+
+
+def _derive_channel_confidence(data: dict, ch_data: dict) -> str:
+    """Single source of truth for per-channel confidence tier.
+
+    Findings data:manpower#3 / data:atria#3 / strategy:atria#8: budget_engine's
+    own per-channel ``confidence`` field is unreliable in production -- it is
+    designed to downgrade with upstream data quality, but the call site does
+    not always pass through the input-quality signal, so every channel can
+    come back "high" even when the plan's own Sources & Confidence grade is a
+    D at 50%. Re-derive it here from two signals excel_v2 can verify itself:
+
+      1. Whether the channel's CPC/CPA came from a real benchmark source
+         (``cpc_source`` in {synthesized, live_benchmark, trend_engine,
+         knowledge_base}) rather than the static/estimated fallback table --
+         fallback/estimated-sourced metrics are always LOW.
+      2. The plan's OVERALL confidence score (the same number the Sources &
+         Confidence sheet grades) -- HIGH is only awarded when that overall
+         grade is B or better (>=80%); otherwise a real-benchmark metric caps
+         out at MEDIUM.
+
+    Used by ROI Projections, Channels & Strategy, Confidence Intervals, and
+    Channel Recommendations so all four sheets agree on every channel's tier.
+    """
+    if not isinstance(ch_data, dict):
+        return "LOW"
+    cpc_source = str(ch_data.get("cpc_source") or "").strip().lower()
+    if cpc_source not in _REAL_BENCHMARK_CPC_SOURCES:
+        return "LOW"
+    if _overall_confidence_score(data) >= 0.80:
+        return "HIGH"
+    return "MEDIUM"
+
+
+def _parse_cph_point_estimate(raw: Any) -> float:
+    """Parse a KB cost-per-hire benchmark value into one numeric estimate.
+
+    Handles a bare number, a range string ("$9,000-$12,000" -> midpoint), or
+    an open-ended string ("$5,000+" -> 5000). Returns 0.0 when nothing
+    numeric can be parsed.
+    """
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+        return float(raw)
+    text = str(raw or "")
+    nums = re.findall(r"[\d,]+(?:\.\d+)?", text)
+    nums = [float(n.replace(",", "")) for n in nums if n]
+    if not nums:
+        return 0.0
+    if len(nums) >= 2:
+        return round((nums[0] + nums[1]) / 2.0, 2)
+    return nums[0]
+
+
+def _kb_industry_cph_benchmark(
+    industry: str, load_kb_fn=None, kb: Optional[dict] = None
+) -> float:
+    """Single getter for an "industry average cost-per-hire" figure cited
+    anywhere in the workbook (findings strategy:manpower#12 /
+    strategy:atria#2 / consistency:atria#2). Reads the SAME KB section the
+    "Recruitment Benchmarks" table on the Executive Summary reads, and the
+    deck quotes (``kb['recruitment_benchmarks']['industry_benchmarks']``) --
+    never a budget-engine constant like the old $5,525/$7,650/$500-per-opening
+    figures, which came from a different table and disagreed with this one.
+
+    Returns 0.0 (meaning "no KB benchmark available") when neither ``kb`` nor
+    a working ``load_kb_fn`` is supplied, or the industry isn't in the KB.
+    """
+    if kb is None:
+        if not load_kb_fn:
+            return 0.0
+        try:
+            kb = load_kb_fn()
+        except Exception:
+            return 0.0
+    if not isinstance(kb, dict):
+        return 0.0
+    kb_benchmarks = (kb.get("recruitment_benchmarks", {}) or {}).get(
+        "industry_benchmarks", {}
+    )
+    if not kb_benchmarks:
+        kb_benchmarks = kb.get("benchmarks", {}) or {}
+    if not isinstance(kb_benchmarks, dict):
+        return 0.0
+    ind_bench = kb_benchmarks.get(industry) or kb_benchmarks.get(
+        "general_entry_level", {}
+    )
+    if not isinstance(ind_bench, dict):
+        return 0.0
+    cph_section = ind_bench.get("cph")
+    if isinstance(cph_section, dict):
+        for key in ("total_cost_per_hire", "recruitment_marketing_only"):
+            parsed = _parse_cph_point_estimate(cph_section.get(key))
+            if parsed > 0:
+                return parsed
+    # Flat fallback for KB variants that store CPH at the top level.
+    for key in ("total_cost_per_hire", "cost_per_hire", "cph"):
+        raw = ind_bench.get(key)
+        if isinstance(raw, (int, float, str)):
+            parsed = _parse_cph_point_estimate(raw)
+            if parsed > 0:
+                return parsed
+    return 0.0
+
+
 def _fit_score_fill(score: float) -> PatternFill:
     """Return fill for numeric fit score."""
     if score >= 0.7:
@@ -2552,6 +2682,102 @@ def assess_source_bias(source_name: str) -> Dict[str, Any]:
     }
 
 
+def _rewrite_low_efficiency_recommendation(channel_allocs: dict) -> Optional[str]:
+    """Rebuild the "Low Efficiency alert" recommendation from budget_engine.
+
+    Two problems with the raw budget_engine text (finding strategy:
+    manpower#7): it names 'brand' channels (employer branding etc.) whose
+    zero-hire projection is BY DESIGN -- they already carry their own
+    rationale note elsewhere on this sheet, not a defect to flag again here
+    -- and it tells the client to "reallocate" budget the plan itself just
+    committed to those channels this same run, which is self-contradictory.
+    Zero-hire PERFORMANCE channels get the vetted-tier action instead: hold
+    at pilot level, scale only on observed conversion.
+
+    Returns ``None`` when no non-brand zero-hire channel remains (drop the
+    recommendation entirely rather than show an empty alert).
+    """
+    perf_zero_hire = sorted(
+        _smart_title(str(name))
+        for name, ch in (channel_allocs or {}).items()
+        if isinstance(ch, dict)
+        and ch.get("efficiency_flag") == "Low Efficiency"
+        and ch.get("channel_role") != "brand"
+    )
+    if not perf_zero_hire:
+        return None
+    return (
+        f"Low Efficiency alert: {', '.join(perf_zero_hire)} projected 0 hires "
+        f"despite >$1,000 spend. Hold at pilot level; scale only on observed "
+        f"conversion rather than reallocating budget already committed to "
+        f"this plan."
+    )
+
+
+def _clean_budget_alloc_narrative(
+    warnings: list, recommendations: list, channel_allocs: dict
+) -> Tuple[list, list]:
+    """De-duplicate/rewrite budget_engine's warnings & recommendations before
+    they reach the Executive Summary.
+
+    budget_engine's ``assess_budget_sufficiency`` computes its "Budget of $X
+    for N openings... industry average of $Y/hire" warnings and top-up
+    recommendation against ``total_openings`` (role headcount) and its own
+    ``avg_cph``/``industry_min_cph`` constants -- a DIFFERENT goal and a
+    DIFFERENT cost-per-hire from the ones the sheet's own goal-gap callout
+    (built from ``display_format.parse_hire_goal``/``goal_gap`` and this
+    plan's actual blended CPH) uses. Left in place, the sheet ends up
+    stating two irreconcilable goals and CPH benchmarks in the same
+    workbook (findings data:manpower#1/#2, strategy:manpower#1/#12,
+    consistency:manpower#1, data:atria#2/#4, strategy:atria#2/#3,
+    consistency:atria#2). Rather than reconstruct a second, parallel
+    narrative, this drops the budget_engine-sourced duplicates so the
+    goal-gap callout is the ONE goal/CPH/top-up figure in the workbook, and
+    rewrites (or drops) the recommendations that reference a nonexistent
+    'optimized' section or recommend reallocating budget the plan itself
+    just allocated.
+    """
+    _cleaned_warnings = [
+        w
+        for w in warnings
+        if not (
+            isinstance(w, str)
+            and "/opening)" in w
+            and "industry average of $" in w
+        )
+        and not (isinstance(w, str) and "target openings by" in w)
+    ]
+
+    _cleaned_recommendations: list = []
+    for rec in recommendations:
+        if not isinstance(rec, str):
+            _cleaned_recommendations.append(rec)
+            continue
+        _low = rec.lower()
+        # Duplicate of the goal-gap callout's own top-up figure, but using
+        # budget_engine's role-headcount "openings" total instead of the
+        # client's stated goal -- drop it (findings data:manpower#1/#2,
+        # data:atria#2/#4).
+        if "to fully fund all" in _low and "openings at industry-average" in _low:
+            continue
+        # Dangling reference to a nonexistent 'optimized' section backing an
+        # unverifiable improvement % (findings data:manpower#2, data:atria#2,
+        # strategy:manpower#2/atria#3). Prefer dropping over guessing at a
+        # "corrected" percentage -- the underlying optimizer comparison has
+        # already been shown (in these findings) to produce wildly unstable
+        # numbers (383%/467%) that don't survive a back-of-envelope check.
+        if "could improve projected hires by" in _low and "section" in _low:
+            continue
+        if rec.strip().lower().startswith("low efficiency alert:"):
+            _rewritten = _rewrite_low_efficiency_recommendation(channel_allocs)
+            if _rewritten:
+                _cleaned_recommendations.append(_rewritten)
+            continue
+        _cleaned_recommendations.append(rec)
+
+    return _cleaned_warnings, _cleaned_recommendations
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # SHEET 1: EXECUTIVE SUMMARY
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2600,6 +2826,9 @@ def _build_sheet_executive_summary(
     channel_allocs = budget_alloc.get("channel_allocations", {})
     warnings = budget_alloc.get("warnings") or []
     recommendations = budget_alloc.get("recommendations") or []
+    warnings, recommendations = _clean_budget_alloc_narrative(
+        warnings, recommendations, channel_allocs
+    )
 
     # S49 P2-20: Append research-backed recommendations from shared constants
     try:
@@ -2761,21 +2990,35 @@ def _build_sheet_executive_summary(
     # The client's stated hiring goal must be addressed head-on, never silently
     # ignored. When the plan projects materially fewer hires than the stated
     # goal, state the gap plainly and quantify the budget that would close it.
+    #
+    # S89 (findings data:manpower#1 / strategy:manpower#1 / consistency:
+    # manpower#1 / data:atria#4 / strategy:atria#2 / consistency:atria#2):
+    # this used to be duplicated further down the sheet by budget_engine's
+    # own "sufficiency" warnings -- computed against a DIFFERENT goal (total
+    # role headcount, not the client's stated goal) and a DIFFERENT CPH
+    # constant, producing a second, contradictory "Budget of $X for N
+    # openings... industry average of $Y/hire" narrative on the same sheet.
+    # That duplicate is now dropped below (see the warnings/recommendations
+    # filter) so this callout -- routed through the SAME
+    # display_format.parse_hire_goal / goal_gap shared functions the deck
+    # uses -- is the ONE goal, ONE CPH, ONE top-up figure in the workbook.
     _goal = _parse_hire_goal(hire_volume)
     if _goal > 0 and _header_hires >= 0:
-        _gap = _goal - _header_hires
         # Basis for "budget to close the gap": this plan's own realized cost per
         # hire (most defensible — it's what THIS mix actually achieves), falling
-        # back to the industry average when the plan projects zero hires.
+        # back to the KB's own industry CPH benchmark -- the SAME
+        # "Recruitment Benchmarks" KB section the table below (and the deck)
+        # read, never a budget_engine constant -- when the plan projects zero
+        # hires.
         _cph_basis = _header_cph if _header_cph and _header_cph > 0 else 0
         if _cph_basis <= 0:
-            _cph_basis = _safe_num(
-                (budget_alloc.get("metadata") or {}).get("industry_avg_cph") or 0
-            )
+            _cph_basis = _kb_industry_cph_benchmark(industry, load_kb_fn=load_kb_fn)
+        _gap_result = display_format.goal_gap(_header_hires, _goal, _cph_basis)
         # Only call out a gap when it's material (>10% short of goal).
-        if _gap > 0 and _goal > 0 and (_gap / _goal) > 0.10:
-            _extra_budget = _gap * _cph_basis if _cph_basis > 0 else 0
-            _pct_of_goal = round(_header_hires / _goal * 100)
+        if _gap_result and (100 - _gap_result["pct_of_goal"]) > 10:
+            _gap = _gap_result["goal"] - _gap_result["projected"]
+            _extra_budget = _gap_result["additional_budget"]
+            _pct_of_goal = round(_gap_result["pct_of_goal"])
             _gap_msg = (
                 f"Hiring-goal gap: this plan projects {_header_hires:,} hires "
                 f"against a stated goal of {_goal:,} "
@@ -3541,7 +3784,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
         _ch_first = row
         for idx, (ch_name, ch_data) in enumerate(sorted_channels[:15]):
             roi = ch_data.get("roi_score") or ""
-            confidence = ch_data.get("confidence", "medium")
+            confidence = _derive_channel_confidence(data, ch_data)
             category = ch_data.get("category") or ""
             _fit_val = _safe_num(roi) if not isinstance(roi, str) else None
 
@@ -4101,17 +4344,13 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     _income_header = (
         "Median Income (USD)" if _get_active_currency() == "USD" else "Median Income"
     )
-    headers = [
-        "Location",
-        "Country",
-        "Population",
-        "Unemployment",
-        _income_header,
-        "Key Industries",
-        "Why This Market",
-    ]
-    row = _write_table_header(ws, row, headers)
 
+    # S89 (finding strategy:atria#5): build all row values FIRST so we know
+    # which optional metric columns (Population/Unemployment/Income/Key
+    # Industries) actually have data for this run's locations before
+    # writing headers -- a header promising a field that's blank for every
+    # location reads as "we looked and found nothing," not "never sourced."
+    _loc_rows: List[Dict[str, str]] = []
     for idx, loc in enumerate(locations):
         # Data cascade: synthesized > enriched > research fallback
         loc_data = {}
@@ -4239,17 +4478,44 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 
         _rationale = insight_composer.geography_rationale(loc, loc_data)
 
-        values = [
-            loc,
-            country,
-            pop_str or "—",
-            unemp_str or "—",
-            income_str or "—",
-            industry_str[:80] if industry_str else "—",
-            _rationale,
-        ]
+        _loc_rows.append(
+            {
+                "location": loc,
+                "country": country,
+                "population": pop_str,
+                "unemployment": unemp_str,
+                "income": income_str,
+                "industries": industry_str[:80] if industry_str else "",
+                "rationale": _rationale,
+            }
+        )
 
-        row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
+    if _loc_rows:
+        _optional_loc_cols = [
+            ("population", "Population"),
+            ("unemployment", "Unemployment"),
+            ("income", _income_header),
+            ("industries", "Key Industries"),
+        ]
+        _populated_loc_cols = [
+            (key, label)
+            for key, label in _optional_loc_cols
+            if any(str(r.get(key) or "").strip() for r in _loc_rows)
+        ]
+        headers = (
+            ["Location", "Country"]
+            + [label for _, label in _populated_loc_cols]
+            + ["Why This Market"]
+        )
+        row = _write_table_header(ws, row, headers)
+
+        for idx, r in enumerate(_loc_rows):
+            values = (
+                [r["location"], r["country"]]
+                + [r[key] or "—" for key, _ in _populated_loc_cols]
+                + [r["rationale"]]
+            )
+            row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
 
     # ── 2b. Macro Economic Context (FRED indicators) ──
     _fred_macro = {}
@@ -4475,17 +4741,6 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             ]
 
     if comp_analysis:
-        row = _write_subsection_header(ws, row, "Competitor Analysis")
-        headers = [
-            "Name",
-            "Industry",
-            "Size",
-            "Hiring Activity",
-            "Overlap Score",
-            "Counter-Strategy",
-        ]
-        row = _write_table_header(ws, row, headers)
-
         comp_list = comp_analysis if isinstance(comp_analysis, list) else []
         if isinstance(comp_analysis, dict):
             comp_list = [
@@ -4495,6 +4750,14 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 
         _first_role = roles[0] if roles else ""
         _first_city = locations[0] if locations else ""
+
+        # S89 (finding data:manpower#7): build all row values FIRST so we
+        # know which optional columns (Industry/Size/Hiring Activity/Overlap
+        # Score) actually have data for this run before writing headers --
+        # a header promising a field that's 100% blank across every row
+        # reads as "we looked and found nothing" rather than "this was
+        # never sourced."
+        _comp_rows: List[Dict[str, str]] = []
         for idx, comp in enumerate(comp_list[:10]):
             if isinstance(comp, dict):
                 _comp_name = comp.get("name", comp.get("company") or "")
@@ -4509,18 +4772,24 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                         "ordinal": idx,
                     },
                 )
-                values = [
-                    _comp_name,
-                    _flatten_value(comp.get("industry") or ""),
-                    _flatten_value(comp.get("size", comp.get("employee_count") or "")),
-                    _flatten_value(
-                        comp.get("hiring_activity", comp.get("hiring_channels") or "")
-                    ),
-                    _flatten_value(
-                        comp.get("overlap_score", comp.get("overlap") or "")
-                    ),
-                    _counter,
-                ]
+                _comp_rows.append(
+                    {
+                        "name": _comp_name,
+                        "industry": _flatten_value(comp.get("industry") or ""),
+                        "size": _flatten_value(
+                            comp.get("size", comp.get("employee_count") or "")
+                        ),
+                        "hiring_activity": _flatten_value(
+                            comp.get(
+                                "hiring_activity", comp.get("hiring_channels") or ""
+                            )
+                        ),
+                        "overlap_score": _flatten_value(
+                            comp.get("overlap_score", comp.get("overlap") or "")
+                        ),
+                        "counter": _counter,
+                    }
+                )
             elif isinstance(comp, str):
                 _counter = insight_composer.compose_counter_strategy(
                     comp,
@@ -4531,12 +4800,46 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                         "ordinal": idx,
                     },
                 )
-                values = [comp, "", "", "", "", _counter]
-            else:
-                continue
-            row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
+                _comp_rows.append(
+                    {
+                        "name": comp,
+                        "industry": "",
+                        "size": "",
+                        "hiring_activity": "",
+                        "overlap_score": "",
+                        "counter": _counter,
+                    }
+                )
 
-        row += 1
+        if _comp_rows:
+            row = _write_subsection_header(ws, row, "Competitor Analysis")
+
+            _optional_cols = [
+                ("industry", "Industry"),
+                ("size", "Size"),
+                ("hiring_activity", "Hiring Activity"),
+                ("overlap_score", "Overlap Score"),
+            ]
+            _populated_cols = [
+                (key, label)
+                for key, label in _optional_cols
+                if any(str(r.get(key) or "").strip() for r in _comp_rows)
+            ]
+
+            headers = (
+                ["Name"] + [label for _, label in _populated_cols] + ["Counter-Strategy"]
+            )
+            row = _write_table_header(ws, row, headers)
+
+            for idx, r in enumerate(_comp_rows):
+                values = (
+                    [r["name"]]
+                    + [r[key] for key, _ in _populated_cols]
+                    + [r["counter"]]
+                )
+                row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
+
+            row += 1
 
     # Market positioning summary
     market_pos = comp_intel.get("market_positioning", comp_intel.get("summary") or "")
@@ -5764,6 +6067,48 @@ def _roi_category_for_channel(channel_name: str) -> str:
     return "job_board"
 
 
+def _niche_board_implied_rate(data: dict) -> Tuple[Optional[float], int, int]:
+    """This plan's own modeled niche-board apply-to-hire rate.
+
+    Reads the SAME channel allocation ROI Projections' "Implied App-to-Hire
+    Rate" table reads (never hardcoded) so the Niche Board Matching sheet's
+    narrative always agrees with the plan's own modeled numbers, whatever
+    the hire-distribution model currently produces for niche channels
+    (findings strategy:manpower#8 / data:atria#7).
+
+    Returns ``(rate_or_None, total_applications, total_hires)`` -- rate is
+    ``None`` when the plan has no niche-board applications to compute a
+    rate from.
+    """
+    budget_alloc = data.get("_budget_allocation", {})
+    channel_allocs = (
+        budget_alloc.get("channel_allocations", {})
+        if isinstance(budget_alloc, dict)
+        else {}
+    )
+    total_apps = 0
+    total_hires = 0
+    for ch_name, ch_data in (channel_allocs or {}).items():
+        if not isinstance(ch_data, dict):
+            continue
+        category = ch_data.get("category") or _roi_category_for_channel(
+            str(ch_name)
+        )
+        if category != "niche_board":
+            continue
+        total_apps += int(
+            _safe_num(
+                ch_data.get("projected_applications")
+                or ch_data.get("projected_apps")
+                or 0
+            )
+        )
+        total_hires += int(_safe_num(ch_data.get("projected_hires") or 0))
+    if total_apps <= 0:
+        return None, total_apps, total_hires
+    return total_hires / total_apps, total_apps, total_hires
+
+
 # ---------------------------------------------------------------------------
 # Role difficulty -> base time-to-fill adjustments (days)
 # ---------------------------------------------------------------------------
@@ -6105,19 +6450,21 @@ def _build_sheet_roi_projections(ws, data: dict) -> None:
                 else:
                     roi_score = 1
 
-            # Determine data confidence level for this channel
-            # S50 FIX: Use budget_engine's confidence as authoritative source.
-            # Previous logic re-computed from _meta.source_count which could
-            # override budget_engine's downgrade.
-            ch_confidence_raw = str(ch_data.get("confidence") or "").lower().strip()
-            if ch_confidence_raw == "high":
-                hire_confidence = "HIGH"
+            # Determine data confidence level for this channel.
+            # S89 FIX (findings data:manpower#3/atria#3, strategy:atria#8):
+            # budget_engine's own per-channel `confidence` field comes back
+            # "high" for every channel regardless of the plan's overall
+            # Sources & Confidence grade, so it's no longer authoritative --
+            # re-derive from the channel's actual CPC/CPA data tier plus the
+            # plan's overall confidence score (single source of truth, also
+            # used by Channels & Strategy, Confidence Intervals, and Channel
+            # Recommendations).
+            hire_confidence = _derive_channel_confidence(data, ch_data)
+            if hire_confidence == "HIGH":
                 hire_variance = 0.10
-            elif ch_confidence_raw == "medium":
-                hire_confidence = "MEDIUM"
+            elif hire_confidence == "MEDIUM":
                 hire_variance = 0.25
             else:
-                hire_confidence = "LOW"
                 hire_variance = 0.40
 
             if projected_hires > 0:
@@ -7112,7 +7459,9 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     """Build Sheet 7: 90-Day Rolling Forecast with monthly spend, applications, hires, and CPA trend.
 
     Breaks the campaign timeline into 3 monthly periods showing projected metrics
-    with a ramp-up curve (Month 1: 25%, Month 2: 35%, Month 3: 40% of totals).
+    with a ramp-up curve (base shape 25/35/40, seasonally adjusted per industry
+    and start month by ``_seasonal_monthly_phasing`` -- the rendered narrative
+    always quotes the actual computed split, never a hardcoded percentage).
     """
     ws.title = "90-Day Forecast"
     ws.sheet_properties.tabColor = SAPPHIRE
@@ -7243,6 +7592,13 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
         _ninety_day_scale = 1.0
     _remaining_budget = total_budget * (1 - _ninety_day_scale)
 
+    # S89 (finding data:manpower#5/atria#5): state the ACTUAL computed
+    # monthly split (which may be seasonally shifted away from the base
+    # 25/35/40 ramp-up curve by _seasonal_monthly_phasing), never a
+    # hardcoded "25/35/40" that can silently drift out of sync with the
+    # monthly spend row below it.
+    _ramp_pct_str = "/".join(f"{p * 100:.0f}" for p in monthly_pcts)
+
     if _cw_int > 13:
         row = _write_footnote(
             ws,
@@ -7251,7 +7607,7 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
             f"only the first-90-days share of the plan's budget -- "
             f"{_ninety_day_scale * 100:.0f}% ({_fmt_currency(total_budget * _ninety_day_scale)}) "
             f"of the total {_fmt_currency(total_budget)} budget, ramp-weighted "
-            "25/35/40 across the first three months. The remaining "
+            f"{_ramp_pct_str} across the first three months. The remaining "
             f"{(1 - _ninety_day_scale) * 100:.0f}% ({_fmt_currency(_remaining_budget)}) is "
             "deployed across the rest of the campaign at the same channel "
             "economics -- it is not spent, and not reflected, in the 90-day "
@@ -7437,12 +7793,20 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
         )
 
     row += 1
+    # S89 (finding data:manpower#5/atria#5): quote this plan's ACTUAL
+    # computed monthly split (from _seasonal_monthly_phasing, which may
+    # shift budget toward peak hiring months for this industry), not a
+    # hardcoded 25/35/40 that can drift out of sync with the monthly Spend
+    # row above.
     row = _write_footnote(
         ws,
         row,
-        "Forecast assumes typical campaign ramp-up curve: 25% Month 1 (learning), "
-        "35% Month 2 (optimizing), 40% Month 3 (peak performance). "
-        "Actual distribution may vary based on channel mix and market conditions.",
+        f"This forecast phases budget {monthly_pcts[0] * 100:.0f}% Month 1 "
+        f"(learning), {monthly_pcts[1] * 100:.0f}% Month 2 (optimizing), "
+        f"{monthly_pcts[2] * 100:.0f}% Month 3 (peak performance) -- this "
+        "plan's own computed split, seasonally adjusted for its industry and "
+        "start month. Actual distribution may vary based on channel mix and "
+        "market conditions.",
     )
     row += 1
     _write_attribution_footer(ws, row)
@@ -7595,25 +7959,20 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
         if dollars <= 0:
             continue
 
-        # Determine confidence and variance
-        # S50 FIX: Use the channel's confidence field from budget_engine as the
-        # authoritative source.  The S49 budget_engine confidence propagation
-        # already incorporates upstream data quality (enrichment_summary,
-        # confidence_scores) and CPC source quality.  The previous logic
-        # here re-computed confidence from _meta.source_count which could
-        # override budget_engine's downgrade (e.g. source_count >= 2 forced
-        # HIGH even when budget_engine correctly set "low" due to 50%
-        # enrichment confidence).
-        ch_confidence_raw = str(ch_data.get("confidence") or "").lower().strip()
-
-        if ch_confidence_raw == "high":
-            confidence = "HIGH"
+        # Determine confidence and variance.
+        # S89 FIX (findings data:manpower#3/atria#3, strategy:atria#8):
+        # budget_engine's own per-channel `confidence` field comes back
+        # "high" for every channel regardless of the plan's overall Sources
+        # & Confidence grade, so it's no longer authoritative -- re-derive
+        # from the channel's actual CPC/CPA data tier plus the plan's
+        # overall confidence score (single source of truth, also used by
+        # Channels & Strategy, ROI Projections, and Channel Recommendations).
+        confidence = _derive_channel_confidence(data, ch_data)
+        if confidence == "HIGH":
             variance = 0.15
-        elif ch_confidence_raw == "medium":
-            confidence = "MEDIUM"
+        elif confidence == "MEDIUM":
             variance = 0.20
         else:
-            confidence = "LOW"
             variance = 0.25
 
         conf_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=GREEN)
@@ -8032,7 +8391,9 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
                 _pct = round(_dollars / total_spend * 100, 1)
             _cpc = _safe_num(ch.get("cpc") or 0)
             _cpa = _safe_num(ch.get("cpa") or 0)
-            _conf = str(ch.get("confidence") or "").upper()
+            # S89 (findings data:manpower#3/atria#3, strategy:atria#8):
+            # single-sourced confidence tier -- see _derive_channel_confidence.
+            _conf = _derive_channel_confidence(data, ch)
             _rationale = (
                 f"Buy via {_recommended_platform_for_channel(name)}. "
                 f"{_pct:.1f}% of budget; part of the plan's core channel mix."
@@ -8170,14 +8531,31 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     # ── Section Header ──
     row = _write_section_header(ws, row, "Role-Level Niche Board Recommendations")
 
-    row = _write_kv_row(
-        ws,
-        row,
-        "Purpose",
-        "Specialty job boards matched to your target roles for higher-quality, "
-        "lower-CPA applicants. Niche boards typically deliver 10-15% apply-to-hire "
-        "rates vs. 5-8% on general boards.",
-    )
+    # S89 (findings strategy:manpower#8 / data:atria#7): quote THIS plan's
+    # own modeled niche-board apply-to-hire rate (computed live from the
+    # SAME channel allocation ROI Projections reads) as the headline
+    # number, with the generic industry benchmark as secondary context --
+    # never hardcode the benchmark as if it were this plan's result. Pulled
+    # live so this reads correctly whether the hire-distribution model
+    # gives niche boards 0 hires or a nonzero allocation.
+    _niche_rate, _niche_apps, _niche_hires = _niche_board_implied_rate(data)
+    if _niche_rate is not None:
+        _niche_purpose = (
+            "Specialty job boards matched to your target roles for higher-quality, "
+            "lower-CPA applicants. This plan models niche boards at "
+            f"{display_format.fmt_pct(_niche_rate, decimals=1, is_fraction=True)} "
+            f"apply-to-hire ({_niche_hires} hires / {_niche_apps} applications, "
+            "this plan's own numbers); industry benchmark is 10-15% apply-to-hire "
+            "vs. 5-8% on general boards."
+        )
+    else:
+        _niche_purpose = (
+            "Specialty job boards matched to your target roles for higher-quality, "
+            "lower-CPA applicants. Industry benchmark: 10-15% apply-to-hire vs. "
+            "5-8% on general boards; this plan currently has no niche-board "
+            "applications modeled to compare against."
+        )
+    row = _write_kv_row(ws, row, "Purpose", _niche_purpose)
     row += 1
 
     # S4: ROLE_NICHE_BOARDS / INDUSTRY_NICHE_CHANNELS are US-domiciled board
