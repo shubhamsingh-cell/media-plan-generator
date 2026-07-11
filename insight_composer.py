@@ -39,7 +39,7 @@ _SKELETON_BANKS: dict[str, tuple[str, ...]] = {
         "Expect {competitor} to keep pressure on {angle}; a faster "
         "interview-to-offer cycle is the clearest lever to counter a peer "
         "employer with a similar offer.",
-        "{competitor}'s employer brand is visible to {angle} candidates -- "
+        "{competitor}'s employer brand is visible to {angle} -- "
         "differentiate on schedule flexibility or sign-on incentives where "
         "the base comp is comparable.",
         "Against {competitor} for {angle}, win on process: a single-visit "
@@ -52,7 +52,7 @@ _SKELETON_BANKS: dict[str, tuple[str, ...]] = {
         "platform's flexibility pitch.",
         "Expect {competitor} to undercut on time-to-first-shift for "
         "{angle}; match it with a same-day onboarding path where possible.",
-        "{competitor}'s gig model appeals to {angle} candidates who want "
+        "{competitor}'s gig model appeals to {angle} who want "
         "predictability elsewhere -- benefits and a fixed schedule are the "
         "counter-offer.",
         "To out-compete {competitor} for {angle}, emphasize what the "
@@ -64,7 +64,7 @@ _SKELETON_BANKS: dict[str, tuple[str, ...]] = {
         "cadence and speed-to-contact to stay ahead of it.",
         "Expect {competitor} to keep pressure on {angle}; a faster "
         "interview-to-offer cycle is the clearest lever to counter it.",
-        "{competitor}'s presence in this pool means {angle} candidates "
+        "{competitor}'s presence in this pool means {angle} "
         "have options -- lead with total-comp clarity and a same-week "
         "interview slot.",
         "To out-compete {competitor} for {angle}, tighten the funnel: "
@@ -103,16 +103,19 @@ def compose_counter_strategy(competitor: str, ctx: dict | None = None) -> str:
     intensity = str(ctx.get("intensity") or "").strip().lower()
     competitor_type = str(ctx.get("competitor_type") or "").strip().lower()
 
+    # The angle is always a PLURAL noun phrase headed by "candidates" so every
+    # skeleton can treat it as a plural subject/object without re-suffixing
+    # ("...talent in Boston candidates have options" was the shipped bug).
     if role and city:
-        angle = f"{role} talent in {city}"
+        angle = f"{role} candidates in {city}"
     elif role:
         angle = f"{role} candidates"
     elif city:
-        angle = f"talent in {city}"
+        angle = f"candidates in {city}"
     elif industry:
-        angle = f"{industry} talent"
+        angle = f"{industry} candidates"
     else:
-        angle = "this talent pool"
+        angle = "candidates in this pool"
 
     bank = _SKELETON_BANKS.get(competitor_type, _SKELETON_BANKS["default"])
     idx = _pick_index(f"{name}|{role}|{city}", len(bank))
