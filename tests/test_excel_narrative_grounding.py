@@ -599,6 +599,259 @@ def test_grounded_narrative_with_perweek_permonth_derivations_passes():
     assert status["generated"] is True
 
 
+# ---------------------------------------------------------------------------
+# E. "Total budget to reach hiring goal" curated derivation (budget +
+#    goal-gap top-up). Prod diagnostic: a real bundle's narrative cited
+#    "$312,500" (the MANPOWER_BRIEF's $150,000 budget + its $162,500
+#    goal-gap top-up) and was rejected as fabricated even though it is
+#    legitimate arithmetic on two real FACTS numbers on the SAME ctx.
+# ---------------------------------------------------------------------------
+def test_total_budget_to_reach_goal_derivation_present_for_manpower_brief():
+    """Direct check against the real MANPOWER_BRIEF reference plan: the
+    curated allowlist now computes budget + goal-gap additional-budget as
+    a NAMED derivation, and the resulting figure ($312,500) is folded into
+    the allowed-number set the grounding validator checks against."""
+    import tools_regen_bundles as trb
+
+    ctx = _narrative_ctx_for_brief(trb.MANPOWER_BRIEF)
+    gap = ctx.get("gap_result")
+    assert gap, "MANPOWER_BRIEF must have a goal gap for this test to be meaningful"
+
+    derivations = excel_v2._curated_narrative_derivations(ctx)
+    assert "total_budget_to_reach_goal" in derivations
+    category, value = derivations["total_budget_to_reach_goal"]
+    assert category == "money"
+    assert value == pytest.approx(ctx["budget_num"] + gap["additional_budget"], rel=1e-6)
+    assert value == pytest.approx(312500.0, rel=1e-6)
+
+    facts_text = excel_v2._build_narrative_facts_block(ctx)
+    allowed = excel_v2._build_narrative_allowed_numbers(ctx, facts_text)
+    assert 312500.0 in allowed["money"]
+
+
+def test_narrative_citing_total_budget_to_reach_goal_passes_grounding():
+    """A narrative sentence citing "$312,500" as the total spend needed to
+    reach the stated hiring goal -- exactly the prod-diagnosed rejection --
+    must now pass `_narrative_is_grounded` for the MANPOWER_BRIEF."""
+    import tools_regen_bundles as trb
+
+    ctx = _narrative_ctx_for_brief(trb.MANPOWER_BRIEF)
+    facts_text = excel_v2._build_narrative_facts_block(ctx)
+    allowed = excel_v2._build_narrative_allowed_numbers(ctx, facts_text)
+
+    narrative = (
+        "Fully closing the hiring gap and reaching the stated goal would "
+        "require a total of $312,500 in budget, combining the plan's "
+        "$150,000 base spend with the additional top-up needed to close "
+        "the gap."
+    )
+    grounded, untraceable = excel_v2._narrative_is_grounded(narrative, allowed)
+    assert grounded is True, f"unexpectedly rejected, untraceable={untraceable}"
+
+
+# ---------------------------------------------------------------------------
+# F. Grounded single retry. Diagnostic evidence from live prod (narrative
+#    model Claude Haiku 4.5): the model returns good prose but sprinkles a
+#    couple of genuinely invented percentages ("71%", "50%") alongside a
+#    legitimate derived figure. Instead of discarding the whole draft on
+#    the first ungrounded figure, excel_v2 now issues ONE targeted
+#    self-correction retry naming the exact untraceable figures before
+#    falling back to the deterministic template.
+# ---------------------------------------------------------------------------
+def test_retry_converts_fabricating_draft_to_grounded():
+    """Attempt 1 fabricates two invented percentages inside otherwise-real
+    prose; the retry call is issued naming those exact figures, and a clean
+    attempt-2 draft (citing only FACTS numbers) is accepted -- converting a
+    would-be deterministic fallback into a used, grounded LLM narrative."""
+    data = _minimal_data_with_allocation()
+    fabricating_text = (
+        "This $150,000 plan is projected to deliver 342 hires against the "
+        "stated goal of 400, an impressive 71% conversion improvement. "
+        "Programmatic (DSP) leads the mix at $90,000 (60% of budget) with "
+        "210 hires, projected to close 50% of the remaining gap within the "
+        "quarter. Blended cost per hire is $438.60. Recommended next step: "
+        "launch both channels within the first two weeks."
+    )
+    clean_text = (
+        "This $150,000 plan is projected to deliver 342 hires against the "
+        "stated goal of 400, roughly 86% of target. Programmatic (DSP) "
+        "leads the mix at $90,000 (60% of budget) driving 210 hires at a "
+        "$25.00 CPA. Blended cost per hire is $438.60 across 5,600 "
+        "projected applications. Recommended next step: launch both "
+        "channels within the first two weeks."
+    )
+
+    calls: list = []
+
+    def _fake_call_llm(**kwargs):
+        calls.append(kwargs)
+        text = fabricating_text if len(calls) == 1 else clean_text
+        return {
+            "text": text,
+            "provider": "deepseek",
+            "model": "deepseek-v4-flash",
+            "attempts": [],
+        }
+
+    with mock.patch("llm_router.call_llm", side_effect=_fake_call_llm):
+        raw = excel_v2.generate_excel_v2(data)
+
+    assert len(calls) == 2, "expected exactly one grounded-correction retry"
+    retry_prompt = calls[1]["messages"][0]["content"]
+    assert "71%" in retry_prompt and "50%" in retry_prompt, (
+        "retry prompt must name the exact untraceable figures from attempt 1"
+    )
+
+    wb = openpyxl.load_workbook(io.BytesIO(raw))
+    all_text = _all_text(wb)
+    assert clean_text in all_text
+    assert fabricating_text not in all_text
+
+    status = data.get("_narrative_status")
+    assert status["status"] == "llm_grounded"
+    assert status["generated"] is True
+    assert status.get("retried") is True
+    assert status.get("attempt") == 2
+
+
+def test_retry_still_fabricating_falls_back_to_deterministic():
+    """Both attempts fabricate (the same untraceable figures) -- the
+    deterministic fallback must render, status must be
+    llm_rejected_fabrication, and the rendered narrative text must contain
+    NONE of the untraceable figures (house rule: never ship a fabricated
+    number, even after giving the model a second chance)."""
+    data = _minimal_data_with_allocation()
+    fabricating_text = (
+        "This $150,000 plan is projected to deliver 342 hires against the "
+        "stated goal of 400, an impressive 71% conversion improvement. "
+        "Programmatic (DSP) leads the mix at $90,000 (60% of budget) with "
+        "210 hires, projected to close 50% of the remaining gap within the "
+        "quarter. Blended cost per hire is $438.60. Recommended next step: "
+        "launch both channels within the first two weeks."
+    )
+
+    calls: list = []
+
+    def _fake_call_llm(**kwargs):
+        calls.append(kwargs)
+        return {
+            "text": fabricating_text,
+            "provider": "deepseek",
+            "model": "deepseek-v4-flash",
+            "attempts": [],
+        }
+
+    with mock.patch("llm_router.call_llm", side_effect=_fake_call_llm):
+        raw = excel_v2.generate_excel_v2(data)
+
+    assert len(calls) == 2, "expected exactly one grounded-correction retry"
+
+    wb = openpyxl.load_workbook(io.BytesIO(raw))
+    all_text = _all_text(wb)
+    assert fabricating_text not in all_text
+    assert "EXECUTIVE STRATEGIC SUMMARY" in all_text.upper()
+    assert "This recruitment media plan for Acme Corp" in all_text
+
+    _start = all_text.index("This recruitment media plan for Acme Corp")
+    _narrative_only = all_text[_start : _start + 800].split("\n")[0]
+    assert "71%" not in _narrative_only
+    assert "50%" not in _narrative_only
+
+    status = data.get("_narrative_status")
+    assert status["generated"] is True
+    assert status["status"] == "llm_rejected_fabrication"
+    assert status.get("retried") is True
+    assert status.get("attempt") == 2
+    assert "71%" in status["untraceable_figures"]
+    assert "50%" in status["untraceable_figures"]
+
+
+def test_retry_call_error_falls_back_to_deterministic_without_crashing():
+    """Attempt 1 fabricates; the retry call itself raises (simulating a
+    timeout/network error) -- this must be swallowed non-fatally, the
+    deterministic fallback must still render, and generation must not
+    raise."""
+    data = _minimal_data_with_allocation()
+    fabricating_text = (
+        "This $150,000 plan is projected to deliver 342 hires against the "
+        "stated goal of 400, an impressive 71% conversion improvement. "
+        "Programmatic (DSP) leads the mix at $90,000 (60% of budget) with "
+        "210 hires, projected to close 50% of the remaining gap within the "
+        "quarter. Blended cost per hire is $438.60. Recommended next step: "
+        "launch both channels within the first two weeks."
+    )
+
+    calls: list = []
+
+    def _fake_call_llm(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            return {
+                "text": fabricating_text,
+                "provider": "deepseek",
+                "model": "deepseek-v4-flash",
+                "attempts": [],
+            }
+        raise TimeoutError("deadline exceeded (simulated retry failure)")
+
+    with mock.patch("llm_router.call_llm", side_effect=_fake_call_llm):
+        raw = excel_v2.generate_excel_v2(data)  # must not raise
+
+    assert len(calls) == 2
+
+    wb = openpyxl.load_workbook(io.BytesIO(raw))
+    all_text = _all_text(wb)
+    assert fabricating_text not in all_text
+    assert "EXECUTIVE STRATEGIC SUMMARY" in all_text.upper()
+    assert "This recruitment media plan for Acme Corp" in all_text
+
+    status = data.get("_narrative_status")
+    assert status["generated"] is True
+    assert status["status"] == "llm_rejected_fabrication"
+    assert status.get("retried") is True
+
+
+def test_prior_prod_fabrication_still_rejected_after_retry_logic():
+    """Regression guard: the exact prior prod fabrication shapes (industry
+    average CPH / 1:2.4 ratio / $360,000 tangible value / 22% supply gap /
+    38% reduction) must STILL be rejected end to end now that a grounded
+    retry exists -- a single-attempt mock that always returns this text
+    means both attempt 1 and the retry produce the identical fabricated
+    draft, so the retry must not accidentally launder it through."""
+    data = _minimal_data_with_allocation()
+    fabricated_text = (
+        "The industry average cost-per-hire for logistics roles is $5,000, "
+        "and against that benchmark this plan achieves a 1:2.4 "
+        "cost-to-value ratio, generating $360,000 in tangible value. "
+        "Deploying at scale closes a 22% supply gap in this market via a "
+        "38% reduction in time-to-fill, and every unfilled seat otherwise "
+        "costs roughly $7,500 in lost revenue."
+    )
+
+    def _fake_call_llm(**kwargs):
+        return {
+            "text": fabricated_text,
+            "provider": "deepseek",
+            "model": "deepseek-v4-flash",
+            "attempts": [],
+        }
+
+    with mock.patch("llm_router.call_llm", side_effect=_fake_call_llm):
+        raw = excel_v2.generate_excel_v2(data)
+
+    wb = openpyxl.load_workbook(io.BytesIO(raw))
+    all_text = _all_text(wb)
+    assert fabricated_text not in all_text
+    assert "EXECUTIVE STRATEGIC SUMMARY" in all_text.upper()
+    assert "This recruitment media plan for Acme Corp" in all_text
+
+    status = data.get("_narrative_status")
+    assert status["generated"] is True
+    assert status["status"] == "llm_rejected_fabrication"
+    for fig in ("$5,000", "1:2.4", "$360,000", "22%", "38%", "$7,500"):
+        assert fig in status["untraceable_figures"]
+
+
 if __name__ == "__main__":
     _failures = 0
     for _name, _fn in sorted(globals().items()):
