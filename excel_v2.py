@@ -1559,6 +1559,22 @@ def _humanize_snake_key(k: Any) -> str:
     return " ".join(_TITLE_ACRONYMS.get(w, w) for w in words)
 
 
+# Matches a string that is ENTIRELY a snake_case identifier (all-lowercase
+# alnum segments joined by underscores, no spaces/punctuation) -- e.g. an
+# internal industry key ("logistics_supply_chain") or a KB/benchmark bucket
+# key ("warehousing_logistics", "appcast_benchmark_2023"). Ordinary
+# client-facing prose always contains a space or punctuation and can never
+# fullmatch this, so this never mistakes real text for a leaked identifier.
+_RAW_IDENTIFIER_RE = re.compile(r"^[a-z0-9]+(?:_[a-z0-9]+)+$")
+
+
+def _looks_like_raw_identifier(s: str) -> bool:
+    """True if ``s`` is (almost certainly) a raw internal snake_case
+    identifier that should have been resolved to a display label before it
+    reached client-facing text, rather than legitimate prose/formatted data."""
+    return bool(_RAW_IDENTIFIER_RE.match(s))
+
+
 def _safe_num(val: Any, default: float = 0.0) -> float:
     """Safely convert a value to float."""
     if val is None:
@@ -1625,6 +1641,14 @@ def _flatten_value(val: Any, max_depth: int = 3) -> str:
     if val is None:
         return ""
     if isinstance(val, str):
+        # Defense-in-depth against the same defect class as the dict-key
+        # case below: a raw internal snake_case identifier can also arrive
+        # as a VALUE (an industry key, an occupation-bucket key, ...) when a
+        # caller forgets to resolve it through its own label map first.
+        # Humanizing it here closes the leak class at its single chokepoint
+        # instead of relying on every call site remembering to do it.
+        if _looks_like_raw_identifier(val):
+            return _humanize_snake_key(val)
         return val
     if isinstance(val, bool):
         return "Yes" if val else "No"
@@ -5400,7 +5424,22 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         ws.merge_cells(
             start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
         )
-        cell = ws.cell(row=row, column=COL_START, value=_flatten_value(market_pos))
+        _market_pos_display = market_pos
+        if isinstance(market_pos, dict) and market_pos.get("industry_sector"):
+            # data_synthesizer.fuse_competitive_intelligence stores the raw
+            # internal industry key here (e.g. "logistics_supply_chain") --
+            # route it through the same canonical shared_utils.INDUSTRY_LABEL_MAP
+            # every other industry label on this workbook resolves through,
+            # rather than leaking the key verbatim ("Industry Sector:
+            # logistics_supply_chain").
+            _market_pos_display = dict(market_pos)
+            _market_pos_display["industry_sector"] = INDUSTRY_LABEL_MAP.get(
+                market_pos["industry_sector"],
+                _humanize_snake_key(market_pos["industry_sector"]),
+            )
+        cell = ws.cell(
+            row=row, column=COL_START, value=_flatten_value(_market_pos_display)
+        )
         cell.font = _FONT_BODY
         cell.alignment = _ALIGN_WRAP
         row += 1
@@ -5624,7 +5663,23 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             elif isinstance(section_val, list):
                 row = _write_subsection_header(ws, row, section_label)
                 for item in section_val[:8]:
-                    val_str = _flatten_value(item)
+                    _item_for_display = item
+                    if (
+                        section_key == "relevant_research"
+                        and isinstance(item, dict)
+                        and "key" in item
+                    ):
+                        # data_synthesizer.fuse_workforce_insights carries a
+                        # "key" field (the raw KB source key, e.g.
+                        # "appcast_benchmark_2023") purely as an internal
+                        # identifier -- it duplicates "title"/"publisher"/
+                        # "year", which is what a client should actually
+                        # see, so drop it rather than leak "Key:
+                        # appcast_benchmark_2023" into the workbook.
+                        _item_for_display = {
+                            k: v for k, v in item.items() if k != "key"
+                        }
+                    val_str = _flatten_value(_item_for_display)
                     if val_str:
                         ws.merge_cells(
                             start_row=row,
