@@ -7244,44 +7244,132 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
 
     row += 1
 
-    # ── Conversion Coherence (S89) ──
-    # S89: replaced the old static "Conversion Rate Assumptions" table
-    # (5-15% industry-average bands the model never actually applies) with
-    # THIS plan's own modeled per-channel app-to-hire rate -- the number
-    # that actually drove the Proj. Hires column above.
-    row = _write_subsection_header(ws, row, "Conversion Coherence: Implied App-to-Hire Rate")
+    # ── Recruitment Funnel (S93: funnel-calibration model) ──
+    # HARD INVARIANT: Clicks/Applications/Hires below are the SAME numbers
+    # printed in the "Per-Channel ROI Analysis" table above -- Qualified and
+    # Interviews are ADDED explanatory stages read verbatim from
+    # metadata.funnel (never recomputed here), fitted so each channel's own
+    # hires/raw_apps rate is reproduced exactly by the three stage rates.
+    # This replaces the old "Implied App-to-Hire Rate" table, which showed
+    # hires sitting directly next to raw applications and implied a
+    # 0.2-0.5% apply-to-hire rate that reads as 10-40x below the 5-15%
+    # funnel benchmarks this workbook cites elsewhere.
+    row = _write_subsection_header(ws, row, "Recruitment Funnel")
 
-    conv_headers = [
+    _funnel = budget_alloc.get("metadata", {}).get("funnel", {})
+    _funnel_per_channel = (
+        _funnel.get("per_channel", {}) if isinstance(_funnel, dict) else {}
+    )
+    _funnel_totals = _funnel.get("totals", {}) if isinstance(_funnel, dict) else {}
+    _funnel_bands = _funnel.get("stage_rates", {}) if isinstance(_funnel, dict) else {}
+
+    funnel_headers = [
         "Channel Name",
-        "Proj. Applications",
-        "Proj. Hires",
-        "Implied App-to-Hire Rate",
+        "Clicks",
+        "Applications",
+        "Qualified",
+        "Interviews",
+        "Hires",
+        "App→Qualified",
+        "Qualified→Interview",
+        "Interview→Hire",
     ]
-    row = _write_table_header(ws, row, conv_headers)
+    row = _write_table_header(ws, row, funnel_headers)
 
-    for idx, roi_data in enumerate(roi_rows):
-        _apps = int(_safe_num(roi_data["projected_apps"]))
-        _hires = int(_safe_num(roi_data["projected_hires"]))
-        _rate = (_hires / _apps) if _apps > 0 else None
-        _rate_str = display_format.fmt_pct(_rate, decimals=1, is_fraction=True) if _rate is not None else "—"
-        values = [roi_data["name"], _apps, _hires, _rate_str]
+    _funnel_fmts = [
+        None, FMT_INT, FMT_INT, FMT_INT, FMT_INT, FMT_INT,
+        FMT_PCT1, FMT_PCT1, FMT_PCT1,
+    ]
+
+    _funnel_total_clicks = 0
+    for idx, (ch_name, ch_data) in enumerate(sorted_channels):
+        dollars = ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
+        if not dollars or dollars <= 0:
+            continue
+        f_row = _funnel_per_channel.get(ch_name)
+        if not isinstance(f_row, dict):
+            continue
+        _hires = int(_safe_num(f_row.get("hires")))
+        _clicks = int(_safe_num(ch_data.get("projected_clicks") or 0))
+        _funnel_total_clicks += _clicks
+        _rates = f_row.get("rates") or {}
+        # S93: zero-hire channels (brand spend, or a performance channel
+        # that landed on 0 hires) show '—' for Hires and the
+        # interview->hire rate rather than a literal 0 -- they aren't
+        # CPA-scored, and a printed "0" reads as a defect next to a real
+        # Interviews count. When the value is text ("—"), the parallel
+        # number_format entry must be None -- _write_num() would otherwise
+        # coerce the "—" string to 0.0 via _safe_num().
+        _hires_val: Any = _hires if _hires > 0 else "—"
+        _int_to_hire_val: Any = (
+            _rates.get("interview_to_hire") if _hires > 0 else "—"
+        )
+        values = [
+            _smart_title(ch_name),
+            _clicks,
+            int(_safe_num(f_row.get("raw_apps"))),
+            int(_safe_num(f_row.get("qualified_apps"))),
+            int(_safe_num(f_row.get("interviews"))),
+            _hires_val,
+            _rates.get("raw_to_qualified"),
+            _rates.get("qualified_to_interview"),
+            _int_to_hire_val,
+        ]
+        _row_fmts = list(_funnel_fmts)
+        if _hires_val == "—":
+            _row_fmts[5] = None
+        if _int_to_hire_val == "—":
+            _row_fmts[8] = None
         row = _write_table_row(
-            ws,
-            row,
-            values,
-            alternate=(idx % 2 == 0),
-            number_formats=[None, FMT_INT, FMT_INT, None],
+            ws, row, values, alternate=(idx % 2 == 0), number_formats=_row_fmts
         )
 
+    # TOTAL row -- sum of the channel rows above (funnel invariant guard).
+    _t_hires = int(_safe_num(_funnel_totals.get("hires")))
+    _t_rates = _funnel_totals.get("rates") or {}
+    total_row_values = [
+        "TOTAL",
+        _funnel_total_clicks,
+        int(_safe_num(_funnel_totals.get("raw_apps"))),
+        int(_safe_num(_funnel_totals.get("qualified_apps"))),
+        int(_safe_num(_funnel_totals.get("interviews"))),
+        _t_hires,
+        _t_rates.get("raw_to_qualified"),
+        _t_rates.get("qualified_to_interview"),
+        _t_rates.get("interview_to_hire"),
+    ]
+    row = _write_table_row(
+        ws,
+        row,
+        total_row_values,
+        alternate=False,
+        number_formats=_funnel_fmts,
+        fonts=[_FONT_BODY_BOLD] * len(total_row_values),
+    )
+
     row += 1
+    if _funnel_bands:
+        _rq = _funnel_bands.get("raw_to_qualified", (0.08, 0.30))
+        _qi = _funnel_bands.get("qualified_to_interview", (0.20, 0.50))
+        _ih = _funnel_bands.get("interview_to_hire", (0.15, 0.35))
+        row = _write_footnote(
+            ws,
+            row,
+            "Planning-assumption bands: App→Qualified "
+            f"{_rq[0]:.0%}-{_rq[1]:.0%}, Qualified→Interview "
+            f"{_qi[0]:.0%}-{_qi[1]:.0%}, Interview→Hire "
+            f"{_ih[0]:.0%}-{_ih[1]:.0%} (programmatic/high-volume channels "
+            "skew toward the low end of App→Qualified; niche/referral "
+            "channels skew toward the high end).",
+        )
     row = _write_footnote(
         ws,
         row,
-        "Methodology: hires are derived from industry cost-per-hire benchmarks "
-        "(not from an assumed conversion funnel); the app-to-hire rate shown "
-        "above is IMPLIED by dividing this plan's own projected hires by its "
-        "own projected applications per channel, for transparency into the "
-        "underlying math -- it is not an input assumption.",
+        "Methodology: hire totals are anchored to industry cost-per-hire "
+        "benchmarks (not to this funnel); the stage rates above are "
+        "planning assumptions fitted within the stated bands so their "
+        "product reproduces this plan's own hires ÷ applications rate "
+        "exactly per channel -- they explain the math, they do not drive it.",
     )
     row = _write_footnote(
         ws,
