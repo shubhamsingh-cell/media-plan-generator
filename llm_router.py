@@ -32,7 +32,7 @@ Provider priority (quality-first for substantive, free for simple):
     23. Cerebras Llama 4 Scout -- S50: ~2,600 tok/s, 1M ctx, 1M tokens/day free
 
     EXPENSIVE TIER (deep analysis fallback):
-    24. Claude Sonnet 4.6 (Anthropic) -- paid, 1M ctx, strong tool_use (S50: was Sonnet 4)
+    24. Claude Sonnet 5 (Anthropic) -- paid, 1M ctx, strong tool_use (S95: bumped from Sonnet 4.6)
     25. Claude Opus 4.7 (Anthropic) -- paid, last resort, highest quality (S50: was Opus 4.6)
 
 Task classification (8 types):
@@ -950,15 +950,17 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
     },
     CLAUDE: {
-        # S50 UPGRADE (May 2026): claude-sonnet-4-20250514 (May 2025) is a year
-        # old. Sonnet 4.6 is GA -- same API key, model-string-only change.
-        # S89 (Jun 2026): env example now names a current id -- the -20250514
-        # snapshot retires 2026-06-15 and would 404 if anyone set it.
-        # Override via env if needed: CLAUDE_SONNET_MODEL=claude-sonnet-4-6
-        "name": "Claude Sonnet 4.6 (Anthropic)",
+        # S95 UPGRADE (Jul 2026): bump Sonnet 4.6 -> Sonnet 5 (current GA).
+        # Owner directive: whenever the product uses Sonnet, use Sonnet 5 --
+        # never an older 4.x snapshot. Same API key, model-string-only change.
+        # This is the strong instruction-follower now serving the client-facing
+        # Executive Strategic Summary narrative (TASK_PLAN_NARRATIVE, Sonnet-first)
+        # because it reliably honours the "cite only FACTS numbers" grounding
+        # rules that Haiku broke. Override via env: CLAUDE_SONNET_MODEL=claude-sonnet-5
+        "name": "Claude Sonnet 5 (Anthropic)",
         "api_style": "anthropic",  # Anthropic-specific format
         "endpoint": "https://api.anthropic.com/v1/messages",
-        "model": os.environ.get("CLAUDE_SONNET_MODEL") or "claude-sonnet-4-6",
+        "model": os.environ.get("CLAUDE_SONNET_MODEL") or "claude-sonnet-5",
         "env_key": "ANTHROPIC_API_KEY",
         "rpm_limit": 50,
         "rpd_limit": 10000,
@@ -1192,7 +1194,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     # promoted to #1 for grounding-instruction adherence on long-form prose;
     # DeepSeek/Gemini/Groq stay as fallbacks here and remain primary elsewhere.
     TASK_NARRATIVE: [
-        CLAUDE,  # S95: Sonnet 4.6 first -- grounding-instruction adherence
+        CLAUDE,  # S95: Sonnet 5 first -- grounding-instruction adherence
         CLAUDE_HAIKU,  # #2 -- still paid-tier quality if Sonnet is unavailable
         DEEPSEEK,  # #3 -- primary for every other task type, fallback here
         GEMINI,  # #4 free fallback
@@ -1476,7 +1478,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
     # OTHER task type (owner directive: quality-insensitive use cases are
     # unchanged, see TASK_STRUCTURED/TASK_COMPLEX/etc. below).
     TASK_PLAN_NARRATIVE: [
-        CLAUDE,  # S95: Sonnet 4.6 first -- grounding-instruction adherence
+        CLAUDE,  # S95: Sonnet 5 first -- grounding-instruction adherence
         CLAUDE_HAIKU,  # #2 -- still paid-tier quality if Sonnet is unavailable
         DEEPSEEK,  # #3 -- primary for every other task type, fallback here
         GEMINI,  # Strong fallback (1.5K RPD)
