@@ -52,6 +52,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import openpyxl  # noqa: E402
+import pytest  # noqa: E402
 
 import excel_v2  # noqa: E402
 
@@ -416,6 +417,186 @@ def test_deterministic_fallback_all_real_numbers_atria_brief():
     narrative, allowed = _fallback_narrative_and_allowed_numbers(trb.ATRIA_BRIEF)
     grounded, untraceable = excel_v2._narrative_is_grounded(narrative, allowed)
     assert grounded is True, f"fallback cited an untraceable figure: {untraceable}\n{narrative}"
+
+
+# ---------------------------------------------------------------------------
+# D. Curated derived-number allowlist (hires/week, budget/month, per-channel
+#    CPH/%%-share, ...) -- legitimate arithmetic on FACTS that a grounded LLM
+#    narrative naturally states even though the derived figure itself is
+#    never its own line in the FACTS block. `_curated_narrative_derivations`
+#    is a fixed, named list computed from the SAME `ctx`
+#    `_gather_narrative_grounding_context` builds -- NOT a general solver --
+#    and `_build_narrative_allowed_numbers` folds it into the SAME
+#    allowed-number set `_narrative_is_grounded` checks against.
+# ---------------------------------------------------------------------------
+def _narrative_ctx_for_brief(brief: dict):
+    """Build the exact `ctx` `_build_sheet_executive_summary` would hand to
+    `_build_narrative_facts_block` / `_curated_narrative_derivations` for a
+    reference brief, via the SAME pipeline tools_regen_bundles.py / app.py
+    use -- so this exercises production's own real numbers, not a
+    hand-duplicated arithmetic model."""
+    import tools_regen_bundles as trb
+    from kb_loader import load_knowledge_base
+
+    data = trb.build_plan_data(dict(brief))
+    budget_alloc = data.get("_budget_allocation", {})
+    channel_allocs = budget_alloc.get("channel_allocations", {})
+    header_hires = sum(int(ch.get("projected_hires") or 0) for ch in channel_allocs.values())
+    budget_num = excel_v2._get_budget_numeric(data)
+    header_cph = round(budget_num / max(header_hires, 1), 2) if header_hires > 0 else 0
+    duration = excel_v2._resolve_campaign_duration(data)
+    return excel_v2._gather_narrative_grounding_context(
+        data,
+        client_name=data.get("client_name"),
+        industry=data.get("industry"),
+        industry_label=excel_v2._get_industry_label(data.get("industry")),
+        budget_num=budget_num,
+        duration=duration,
+        locations=excel_v2._get_locations(data),
+        roles=excel_v2._get_roles(data),
+        hire_volume=data.get("hire_volume"),
+        header_hires=header_hires,
+        header_cph=header_cph,
+        sufficiency=budget_alloc.get("sufficiency", {}),
+        channel_allocs=channel_allocs,
+        load_kb_fn=load_knowledge_base,
+    )
+
+
+def test_curated_derivations_include_hires_per_week_and_budget_per_month():
+    """Direct check that the curated allowlist actually computes the two
+    derivations the fix is named for, with sane values traceable to the
+    MANPOWER_BRIEF's own real FACTS (budget $150,000, ~24-week duration, 48
+    projected hires -- see the KB-driven `calculate_budget_allocation` log
+    line for this exact brief)."""
+    import tools_regen_bundles as trb
+
+    ctx = _narrative_ctx_for_brief(trb.MANPOWER_BRIEF)
+    derivations = excel_v2._curated_narrative_derivations(ctx)
+
+    assert "hires_per_week" in derivations
+    category, value = derivations["hires_per_week"]
+    assert category == "int"
+    assert value == pytest.approx(ctx["header_hires"] / ctx["duration_weeks"], rel=1e-6)
+
+    assert "budget_per_month" in derivations
+    category, value = derivations["budget_per_month"]
+    assert category == "money"
+    assert value == pytest.approx(ctx["budget_num"] / ctx["duration_months"], rel=1e-6)
+
+
+def _narrative_ctx_for_data(data: dict, load_kb_fn=None):
+    """Same as `_narrative_ctx_for_brief`, but for an already-built plan
+    `data` dict (e.g. `_minimal_data_with_allocation()`) rather than a raw
+    brief run through the full tools_regen_bundles/budget_engine pipeline.
+    `load_kb_fn` defaults to None (no real KB) to match how the existing
+    section B end-to-end tests call `excel_v2.generate_excel_v2(data)` --
+    with a REAL KB loaded, a synthetic fixture's own numbers can
+    coincidentally fall within a real KB benchmark's rounding tolerance of
+    an unrelated fabricated figure, which is a property of that specific
+    KB row, not of the grounding logic under test here."""
+    budget_alloc = data.get("_budget_allocation", {})
+    channel_allocs = budget_alloc.get("channel_allocations", {})
+    header_hires = sum(int(ch.get("projected_hires") or 0) for ch in channel_allocs.values())
+    budget_num = excel_v2._get_budget_numeric(data)
+    header_cph = round(budget_num / max(header_hires, 1), 2) if header_hires > 0 else 0
+    duration = excel_v2._resolve_campaign_duration(data)
+    return excel_v2._gather_narrative_grounding_context(
+        data,
+        client_name=data.get("client_name", "Client"),
+        industry=data.get("industry", "general_entry_level"),
+        industry_label=excel_v2._get_industry_label(data.get("industry", "general_entry_level")),
+        budget_num=budget_num,
+        duration=duration,
+        locations=excel_v2._get_locations(data),
+        roles=excel_v2._get_roles(data),
+        hire_volume=data.get("hire_volume"),
+        header_hires=header_hires,
+        header_cph=header_cph,
+        sufficiency=budget_alloc.get("sufficiency", {}),
+        channel_allocs=channel_allocs,
+        load_kb_fn=load_kb_fn,
+    )
+
+
+def test_fabricated_prod_text_still_rejected_with_enriched_allowed_numbers():
+    """The exact prod fabrication shapes must STILL be rejected once the
+    allowed-number set includes both the enriched FACTS block AND the
+    curated per-week/per-month/per-channel derivations -- the enrichment
+    widens what's ALLOWED, it must never widen what's traceable to an
+    unrelated invented figure."""
+    data = _minimal_data_with_allocation()
+    ctx = _narrative_ctx_for_data(data)
+    facts_text = excel_v2._build_narrative_facts_block(ctx)
+    allowed = excel_v2._build_narrative_allowed_numbers(ctx, facts_text)
+
+    # Sanity: the curated derivations actually widened the allowed set
+    # beyond FACTS-text-only, so this test is exercising the enrichment,
+    # not just re-testing the pre-existing FACTS-only validator.
+    facts_only_allowed = excel_v2._allowed_numbers_from_facts_text(facts_text)
+    assert allowed["money"] > facts_only_allowed["money"] or allowed["int"] > facts_only_allowed["int"]
+
+    fabricated_text = (
+        "The industry average cost-per-hire for logistics roles is $5,000, "
+        "and against that benchmark this plan achieves a 1:2.4 "
+        "cost-to-value ratio, generating $360,000 in tangible value. "
+        "Deploying at scale closes a 22% supply gap in this market via a "
+        "38% reduction in time-to-fill, and every unfilled seat otherwise "
+        "costs roughly $7,500 in lost revenue."
+    )
+    grounded, untraceable = excel_v2._narrative_is_grounded(fabricated_text, allowed)
+    assert grounded is False
+    for fig in ("$5,000", "1:2.4", "$360,000", "22%", "38%", "$7,500"):
+        assert fig in untraceable, f"{fig!r} was not flagged; got {untraceable}"
+
+
+def test_grounded_narrative_with_perweek_permonth_derivations_passes():
+    """A realistic executive-summary narrative that cites FACTS numbers
+    verbatim PLUS legitimate per-week/per-month rates derived from them
+    (budget/month, hires/month, hires/week, applications/week -- none of
+    which appear as their own FACTS line) must be accepted as grounded end
+    to end, not forced into the deterministic fallback. Before the curated
+    allowlist, every one of the derived figures below would have been
+    rejected as an untraceable fabrication."""
+    data = _minimal_data_with_allocation()
+    # $150,000 / 6 months / 342 hires / 5,600 applications (see
+    # _minimal_data_with_allocation) -> budget/month = $25,000 (exact),
+    # hires/month = 57 (exact), hires/week (26 weeks) ~= 13.15, and
+    # applications/week ~= 215.4 -- none of these four figures are their
+    # own FACTS line, only derivable from FACTS budget/duration/hires/apps.
+    narrative_text = (
+        "This $150,000 plan runs over 6 months, pacing at roughly $25,000 "
+        "a month and delivering about 57 hires a month -- close to 13 "
+        "hires a week off a base of roughly 215 weekly applications. "
+        "Programmatic (DSP) leads the channel mix at $90,000 (60% of "
+        "budget), complemented by $60,000 in Niche / Industry Boards. "
+        "Against the stated goal of 400, this pace would need to "
+        "accelerate. Recommended next step: reassess channel pacing at "
+        "the 8-week mark."
+    )
+
+    def _fake_call_llm(**kwargs):
+        return {
+            "text": narrative_text,
+            "provider": "deepseek",
+            "model": "deepseek-v4-flash",
+            "attempts": [],
+        }
+
+    with mock.patch("llm_router.call_llm", side_effect=_fake_call_llm):
+        raw = excel_v2.generate_excel_v2(data)
+
+    wb = openpyxl.load_workbook(io.BytesIO(raw))
+    all_text = _all_text(wb)
+    assert "EXECUTIVE STRATEGIC SUMMARY" in all_text.upper()
+    assert narrative_text in all_text, "grounded narrative with derivations was rejected"
+
+    status = data.get("_narrative_status")
+    assert status["status"] == "llm_grounded", (
+        f"expected llm_grounded, got {status.get('status')}: "
+        f"{status.get('untraceable_figures')}"
+    )
+    assert status["generated"] is True
 
 
 if __name__ == "__main__":
