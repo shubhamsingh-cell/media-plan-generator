@@ -3319,6 +3319,18 @@ def _clean_budget_alloc_narrative(
 #      FACTS block. A rejected narrative is replaced by a fully
 #      deterministic, template-built summary sourced only from real plan
 #      fields -- never a second LLM call, never a guess.
+#
+# Follow-up fix (prod, post-8a0b7df): even a fully-grounded LLM naturally
+# states LEGITIMATE derived figures that were never their own FACTS line --
+# hires/week, budget/month, a channel's own %-of-budget or cost-per-hire --
+# and the strict validator above rejected those too, forcing the
+# deterministic fallback far more often than actual fabrication warranted.
+# `_curated_narrative_derivations` computes a fixed, NAMED list of such safe
+# arithmetic derivations straight from the SAME `ctx` the FACTS block itself
+# is built from (never a general arithmetic solver -- that would let a truly
+# fabricated figure "launder" through), and `_build_narrative_allowed_numbers`
+# folds them into the SAME allowed-number set `_narrative_is_grounded` checks
+# against, so FACTS-formatting and the allowed-set can never drift apart.
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Matches, in priority order at each position: a money figure ($1,234 /
@@ -3544,6 +3556,18 @@ def _gather_narrative_grounding_context(
         "grade": sufficiency.get("grade") or "",
     }
 
+    # Duration expressed as both weeks and months -- the SAME
+    # display_format.parse_duration_to_weeks parser weeks_to_duration_label's
+    # own round-trip relies on, so "6 months (~26 weeks)" always yields
+    # weeks=26 here too. `duration_months` is intentionally NOT rounded
+    # (26 weeks -> 6.0 months exactly; 12 weeks -> ~2.77 months) so the
+    # curated per-month derivations below divide by the real ratio rather
+    # than a rounded month count that would silently shift every per-month
+    # figure.
+    _duration_weeks = display_format.parse_duration_to_weeks(duration)
+    ctx["duration_weeks"] = _duration_weeks
+    ctx["duration_months"] = (_duration_weeks * 12.0 / 52.0) if _duration_weeks > 0 else 0.0
+
     # Hiring-goal gap -- the SAME shared helper (display_format.goal_gap)
     # the Budget Allocation section's own gap callout uses; never a
     # separately-computed number.
@@ -3588,6 +3612,41 @@ def _gather_narrative_grounding_context(
     ctx["blended_cpa"] = (total_dollars / total_apps) if total_apps > 0 else 0.0
     ctx["top_channels"] = top_channels
     ctx["total_clicks"] = int(total_clicks)
+    # Plan's OWN overall apply rate (applications / clicks) -- distinct from
+    # the KB industry apply-rate BENCHMARK pulled in below; a real,
+    # plan-derived figure, never an industry estimate.
+    ctx["apply_rate"] = (total_apps / total_clicks * 100.0) if total_clicks > 0 else 0.0
+
+    # ALL channels (not just the top-3-by-hires `top_channels` above) --
+    # same non-garbage-row filter the Budget Allocation table itself applies
+    # (findings Bug 23: skip rows where every metric is zero/empty) and the
+    # SAME largest-remainder-corrected display percentages
+    # (`_corrected_channel_pct_display`) every other sheet uses, so the
+    # narrative's per-channel FACTS rows can never disagree with the table
+    # a reader is looking at on the same workbook. Used both to print every
+    # channel's own row in the FACTS block and to derive each channel's own
+    # cost-per-hire/%%-share in `_curated_narrative_derivations` below.
+    all_channels: List[Tuple[str, dict]] = []
+    if isinstance(channel_allocs, dict) and channel_allocs:
+        for name, cdata in sorted(
+            channel_allocs.items(),
+            key=lambda kv: _safe_num(
+                (kv[1] or {}).get("dollar_amount", (kv[1] or {}).get("dollars") or 0)
+            ),
+            reverse=True,
+        ):
+            if not isinstance(cdata, dict):
+                continue
+            _cpc = _safe_num(cdata.get("cpc") or 0)
+            _cpa = _safe_num(cdata.get("cpa") or 0)
+            _dollars = _safe_num(cdata.get("dollar_amount", cdata.get("dollars") or 0))
+            _roi = _safe_num(cdata.get("roi_score") or 0)
+            _pct = _safe_num(cdata.get("percentage") or 0)
+            if not any([_cpc, _cpa, _dollars, _roi, _pct]):
+                continue
+            all_channels.append((name, cdata))
+    ctx["all_channels"] = all_channels
+    ctx["channel_pct_display"] = _corrected_channel_pct_display(channel_allocs)
 
     # Recruitment funnel totals (S93 model) -- the SAME source the
     # Recruitment Funnel table reads, never recomputed.
@@ -3642,7 +3701,8 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
     if ctx.get("duration"):
         lines.append(f"Duration: {ctx['duration']}")
     if ctx.get("locations"):
-        lines.append(f"Locations: {', '.join(str(l) for l in ctx['locations'][:6])}")
+        _locs = ctx["locations"]
+        lines.append(f"Locations ({len(_locs)}): {', '.join(str(l) for l in _locs[:6])}")
     if ctx.get("roles"):
         lines.append(f"Roles: {', '.join(str(r) for r in ctx['roles'][:6])}")
     if ctx.get("hire_volume"):
@@ -3651,12 +3711,16 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
         lines.append(f"Projected Hires: {_fmt_number(ctx['header_hires'])}")
     if ctx.get("header_cph", 0) > 0:
         lines.append(f"Blended Cost/Hire: {_fmt_currency(ctx['header_cph'], show_cents=True)}")
+    if ctx.get("total_clicks", 0) > 0:
+        lines.append(f"Total Projected Clicks: {_fmt_number(ctx['total_clicks'])}")
     if ctx.get("total_applications", 0) > 0:
         lines.append(f"Total Projected Applications: {_fmt_number(ctx['total_applications'])}")
     if ctx.get("blended_cpa", 0) > 0:
         lines.append(
             f"Blended Cost/Application: {_fmt_currency(ctx['blended_cpa'], show_cents=True)}"
         )
+    if ctx.get("apply_rate", 0) > 0:
+        lines.append(f"Plan Apply Rate: {ctx['apply_rate']:.2f}%")
     if ctx.get("grade"):
         lines.append(f"Budget Sufficiency Grade: {ctx['grade']}")
 
@@ -3672,21 +3736,41 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
                 f"Additional Budget To Close Gap: {_fmt_currency(gap['additional_budget'])}"
             )
 
-    for ch_name, ch_data in ctx.get("top_channels") or []:
+    # Every channel (not just the top 3) -- matches the Budget Allocation
+    # table's own 15-channel cap (`sorted_channels[:15]`) so the narrative
+    # never sees a channel that table doesn't also show. %-of-budget uses
+    # the SAME largest-remainder-corrected figure the table displays; CPH is
+    # derived here (dollars / hires) since channel_allocations doesn't carry
+    # a stored cost-per-hire field -- the SAME arithmetic
+    # `_curated_narrative_derivations` performs, so the FACTS text and the
+    # curated allowed-number set can never disagree on a channel's own CPH.
+    _pct_display = ctx.get("channel_pct_display") or {}
+    for ch_name, ch_data in (ctx.get("all_channels") or [])[:15]:
         label = display_format.channel_label(ch_name)
         dollars = _safe_num(ch_data.get("dollar_amount", ch_data.get("dollars") or 0))
-        pct = _safe_num(ch_data.get("percentage") or 0)
+        _pct_frac = _pct_display.get(ch_name)
+        pct = (
+            (_pct_frac * 100.0)
+            if _pct_frac is not None
+            else _safe_num(ch_data.get("percentage") or 0)
+        )
+        apps = _safe_num(ch_data.get("projected_applications", ch_data.get("projected_apps") or 0))
         hires = _safe_num(ch_data.get("projected_hires") or 0)
         cpa = _safe_num(ch_data.get("cpa") or 0)
-        bits = [f"Top Channel — {label}:"]
+        cph = (dollars / hires) if hires > 0 else 0.0
+        bits = [f"Channel — {label}:"]
         if dollars:
             bits.append(_fmt_currency(dollars))
         if pct:
             bits.append(f"({pct:.0f}% of budget)")
+        if apps:
+            bits.append(f"{_fmt_number(apps)} apps")
         if hires:
             bits.append(f"{_fmt_number(hires)} hires")
         if cpa:
             bits.append(f"CPA {_fmt_currency(cpa, show_cents=True)}")
+        if cph:
+            bits.append(f"CPH {_fmt_currency(cph, show_cents=True)}")
         lines.append(" ".join(bits))
 
     ft = ctx.get("funnel_totals") or {}
@@ -3749,6 +3833,21 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
         if cph_val > 0:
             lines.append(f"Industry Cost/Hire Benchmark: {_fmt_currency(cph_val)}")
 
+        ttf_field = ind_bench.get("time_to_fill")
+        ttf_source = ttf_field.get("average_days") if isinstance(ttf_field, dict) else ttf_field
+        ttf_range = _parse_numeric_range(_clean_benchmark_text_for_parsing(ttf_source))
+        if ttf_range:
+            lines.append(
+                f"Industry Time-to-Fill Benchmark Range: {ttf_range[0]:.0f}-"
+                f"{ttf_range[1]:.0f} days"
+            )
+        else:
+            _ttf_single = re.findall(
+                r"\d+(?:\.\d+)?", _clean_benchmark_text_for_parsing(ttf_source)
+            )
+            if _ttf_single:
+                lines.append(f"Industry Time-to-Fill Benchmark: {float(_ttf_single[0]):.0f} days")
+
     if ctx.get("seasonality_text"):
         lines.append(f"Seasonality: {ctx['seasonality_text']}")
 
@@ -3756,6 +3855,147 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
         lines.append(f"Named Competitors: {', '.join(str(c) for c in ctx['competitors'][:5])}")
 
     return "\n".join(lines)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CURATED DERIVED-NUMBER ALLOWLIST
+#
+# Root cause (part 2): even a fully-grounded LLM naturally states figures
+# that are simple arithmetic on FACTS -- "that's about 2 hires a week",
+# "roughly $25,000 a month" -- without those EXACT derived figures ever
+# appearing as their own line in the FACTS block. `_narrative_is_grounded`
+# then rejected a narrative for citing a number that was, in fact, entirely
+# real. This is NOT a general arithmetic solver (that would let a genuinely
+# fabricated figure "launder" through as a plausible-looking derivation) --
+# it is a fixed, named list of derivations, each computed directly from the
+# SAME `ctx` (`_gather_narrative_grounding_context`) the FACTS block itself
+# is built from, so a curated derivation can never disagree with FACTS.
+# ═══════════════════════════════════════════════════════════════════════════════
+def _curated_narrative_derivations(ctx: Dict[str, Any]) -> Dict[str, Tuple[str, float]]:
+    """Compute the fixed, named list of "safe" arithmetic derivations of
+    `ctx`'s real numbers that an executive-summary narrative could
+    legitimately state even though the derived figure itself isn't printed
+    verbatim in the FACTS block.
+
+    Returns ``{label: (category, value)}`` where ``category`` is one of
+    ``"money"``, ``"percent"``, ``"int"`` (matching `_extract_number_tokens`
+    categories) -- kept un-bucketed (rather than immediately folded into
+    sets) so tests can assert individual derivations by name.
+    """
+    out: Dict[str, Tuple[str, float]] = {}
+
+    def _add(label: str, category: str, value: Any) -> None:
+        try:
+            v = float(value)
+        except (TypeError, ValueError):
+            return
+        if v == 0:
+            return
+        out[label] = (category, v)
+
+    budget = _safe_num(ctx.get("budget_num"))
+    weeks = _safe_num(ctx.get("duration_weeks"))
+    months = _safe_num(ctx.get("duration_months"))
+    hires = _safe_num(ctx.get("header_hires"))
+    apps = _safe_num(ctx.get("total_applications"))
+
+    if weeks > 0:
+        if hires > 0:
+            _add("hires_per_week", "int", hires / weeks)
+        if budget > 0:
+            _add("budget_per_week", "money", budget / weeks)
+        if apps > 0:
+            _add("applications_per_week", "int", apps / weeks)
+    if months > 0:
+        if hires > 0:
+            _add("hires_per_month", "int", hires / months)
+        if budget > 0:
+            _add("budget_per_month", "money", budget / months)
+        if apps > 0:
+            _add("applications_per_month", "int", apps / months)
+
+    gap = ctx.get("gap_result")
+    if gap:
+        _add("gap_hires", "int", gap["goal"] - gap["projected"])
+        _add("gap_pct_of_goal", "percent", gap.get("pct_of_goal") or 0)
+        if gap.get("additional_budget"):
+            _add("gap_additional_budget", "money", gap["additional_budget"])
+
+    header_cph = _safe_num(ctx.get("header_cph"))
+    if header_cph:
+        _add("blended_cph", "money", header_cph)
+    blended_cpa = _safe_num(ctx.get("blended_cpa"))
+    if blended_cpa:
+        _add("blended_cpa", "money", blended_cpa)
+
+    total_dollars = sum(
+        _safe_num((d or {}).get("dollar_amount", (d or {}).get("dollars") or 0))
+        for _n, d in (ctx.get("all_channels") or [])
+    )
+    _pct_display = ctx.get("channel_pct_display") or {}
+    for idx, (ch_name, ch_data) in enumerate(ctx.get("all_channels") or []):
+        dollars = _safe_num(ch_data.get("dollar_amount", ch_data.get("dollars") or 0))
+        ch_hires = _safe_num(ch_data.get("projected_hires") or 0)
+        ch_apps = _safe_num(
+            ch_data.get("projected_applications", ch_data.get("projected_apps") or 0)
+        )
+        cpa = _safe_num(ch_data.get("cpa") or 0)
+        _key = f"channel_{idx}"
+        if ch_hires > 0 and dollars > 0:
+            _add(f"{_key}_cph", "money", dollars / ch_hires)
+        if cpa:
+            _add(f"{_key}_cpa", "money", cpa)
+        _pct_frac = _pct_display.get(ch_name)
+        pct = (
+            (_pct_frac * 100.0)
+            if _pct_frac is not None
+            else ((dollars / total_dollars * 100.0) if total_dollars > 0 else 0.0)
+        )
+        if pct:
+            _add(f"{_key}_pct_share", "percent", pct)
+        if ch_apps > 0 and weeks > 0:
+            _add(f"{_key}_apps_per_week", "int", ch_apps / weeks)
+
+    # Integer roundings of every money/int derivation above -- a narrative
+    # rounding "$25,000/month" or "13.2 hires/week" down to a whole number
+    # is still the same real figure, not a new one. (Percent derivations are
+    # excluded: a bare rounded integer wouldn't itself read as a percentage
+    # citation, so there's nothing to widen there.)
+    for label, (category, value) in list(out.items()):
+        if category in ("money", "int"):
+            _add(f"{label}_rounded", category, round(value))
+
+    return out
+
+
+def _allowed_numbers_from_curated_derivations(
+    derivations: Dict[str, Tuple[str, float]]
+) -> Dict[str, set]:
+    """Bucket `_curated_narrative_derivations`' output into the SAME
+    money/percent/ratio/int shape `_allowed_numbers_from_facts_text`
+    produces, so the two sources merge trivially."""
+    buckets: Dict[str, set] = {"money": set(), "percent": set(), "ratio": set(), "int": set()}
+    for _category, value in derivations.values():
+        if _category not in buckets:
+            continue
+        buckets[_category].add(round(value, 4))
+    return buckets
+
+
+def _build_narrative_allowed_numbers(ctx: Dict[str, Any], facts_text: str) -> Dict[str, set]:
+    """Single source for the grounding validator's allowed-number set: every
+    number literally printed in `facts_text` PLUS the curated, precomputed
+    derivations of the SAME `ctx` (see `_curated_narrative_derivations`).
+    Both `_build_narrative_facts_block` (what the model is told) and this
+    function are fed the identical `ctx`, so FACTS-formatting and the
+    allowed-set can never drift apart."""
+    allowed = _allowed_numbers_from_facts_text(facts_text)
+    derived_buckets = _allowed_numbers_from_curated_derivations(
+        _curated_narrative_derivations(ctx)
+    )
+    for category, values in derived_buckets.items():
+        allowed.setdefault(category, set()).update(values)
+    return allowed
 
 
 def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
@@ -4537,7 +4777,7 @@ def _build_sheet_executive_summary(
         load_kb_fn=load_kb_fn,
     )
     _facts_block = _build_narrative_facts_block(_narrative_ctx)
-    _allowed_numbers = _allowed_numbers_from_facts_text(_facts_block)
+    _allowed_numbers = _build_narrative_allowed_numbers(_narrative_ctx, _facts_block)
 
     # S94: surfaced on `data` (the SAME dict object app.py passed in, mutated
     # in place -- both the async job path (gen_data) and the sync path
@@ -4567,7 +4807,18 @@ def _build_sheet_executive_summary(
             "why this plan will succeed, (2) an outcome/ROI summary using only the "
             "numbers in FACTS above, (3) one key risk to monitor, (4) a recommended "
             "next step with a timeframe. If FACTS doesn't give you a number for one "
-            "of these, make the point qualitatively instead of inventing one."
+            "of these, make the point qualitatively instead of inventing one. You "
+            "MAY also state a simple rate derived directly from FACTS by basic "
+            "arithmetic -- a per-week or per-month figure (the FACTS budget or "
+            "hires divided by the FACTS duration), or a single FACTS channel's own "
+            "share of budget, cost-per-hire, or cost-per-application exactly as "
+            "implied by that channel's own FACTS row. For example, 'At roughly "
+            "$25,000 a month, the plan is projected to add about 2 hires a week' "
+            "or 'Programmatic (DSP) leads the mix at 60% of budget and a $25.00 "
+            "cost per application' are both fine derivations of FACTS above -- but "
+            "do NOT invent or estimate an industry-average benchmark, external ROI "
+            "multiplier, 'total value'/'savings' dollar figure, or supply-gap "
+            "percentage that is not itself a number in FACTS."
         )
         # S94 FIX: this used to instantiate `LLMRouter()` -- a class that
         # llm_router.py has never exported (every other call site in the
@@ -4584,12 +4835,15 @@ def _build_sheet_executive_summary(
                 "You are a senior recruitment marketing strategist presenting to "
                 "C-suite executives. Write with authority and explain causal "
                 "reasoning. Use ONLY the figures listed in FACTS in the user "
-                "message -- do NOT invent, estimate, or cite any industry average, "
-                "benchmark, ratio, percentage, dollar value, or other statistic "
-                "that is not in FACTS. If you lack a number for a claim, make the "
-                "claim qualitatively, without a number. Do not compute derived "
-                "ratios or 'total value' figures that are not already given to "
-                "you in FACTS. No fluff, no generic platitudes."
+                "message. You MAY state simple per-week/per-month/per-channel "
+                "rates that are basic arithmetic on FACTS numbers (e.g. FACTS "
+                "budget divided by FACTS duration, or a single channel's own "
+                "FACTS row restated as a rate) -- do NOT invent, estimate, or "
+                "cite any industry average, external benchmark, ROI multiplier, "
+                "'total value'/'savings' dollar figure, or supply-gap percentage "
+                "that is not itself a number in FACTS. If you lack a number for a "
+                "claim, make the claim qualitatively, without a number. No fluff, "
+                "no generic platitudes."
             ),
             task_type=TASK_PLAN_NARRATIVE,  # S48: Route narratives to fast-prose providers
             max_tokens=600,
