@@ -16030,6 +16030,49 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     "bundle_qa crashed (non-fatal): %s", _bq_err
                                 )
 
+                        # ── S94: Executive narrative failure observability ──
+                        # excel_v2.py's Executive Strategic Summary is a
+                        # best-effort LLM call that silently skips generation
+                        # on failure (never blocks the bundle) -- surface WHY
+                        # it was skipped through the SAME job-record/audit
+                        # mechanism bundle_qa findings go to just above,
+                        # instead of the narrative simply not appearing with
+                        # no trace of the reason.
+                        _narrative_status = gen_data.get("_narrative_status") or {}
+                        if _narrative_status and not _narrative_status.get("generated"):
+                            logger.warning(
+                                "Executive narrative not generated for job %s: %s "
+                                "(providers attempted: %s)",
+                                jid,
+                                _narrative_status.get("reason") or "unknown",
+                                _narrative_status.get("providers_attempted") or [],
+                            )
+                            try:
+                                from audit_logger import log_event as _nar_log_event
+
+                                _nar_log_event(
+                                    action="narrative.generation_skipped",
+                                    actor="system",
+                                    resource=jid,
+                                    details={
+                                        "client_name": gen_data.get("client_name")
+                                        or "",
+                                        "reason": _narrative_status.get("reason")
+                                        or "",
+                                        "providers_attempted": _narrative_status.get(
+                                            "providers_attempted"
+                                        )
+                                        or [],
+                                    },
+                                    severity="info",
+                                )
+                            except Exception as _nar_audit_err:
+                                logger.debug(
+                                    "narrative status audit_log write failed "
+                                    "(non-fatal): %s",
+                                    _nar_audit_err,
+                                )
+
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
                                 _generation_jobs[jid].update(
@@ -16038,6 +16081,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         "progress_pct": 100,
                                         "status_message": "Complete",
                                         "bundle_qa": _bundle_qa_summary,
+                                        "narrative_status": _narrative_status,
                                         "result_bytes": result_bytes,
                                         "result_content_type": result_ct,
                                         "result_filename": result_fn,

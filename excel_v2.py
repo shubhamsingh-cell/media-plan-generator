@@ -3940,13 +3940,19 @@ def _build_sheet_executive_summary(
         row += 1
 
     # ── 5. Executive Strategic Narrative (LLM-generated) ──
-    # Generate a C-suite quality narrative using Claude Haiku via the LLM router directly
+    # Generate a C-suite quality narrative using the LLM router directly
     # (avoids circular import with app.py)
     exec_narrative = ""
+    # S94: surfaced on `data` (the SAME dict object app.py passed in, mutated
+    # in place -- both the async job path (gen_data) and the sync path
+    # (data) read it back after this function returns) so a missing
+    # narrative shows up as a REASON in prod logs / the job record / audit
+    # summary instead of a silent skip. See app.py's bundle_qa block, which
+    # already writes to the same job-record/audit-log mechanism.
+    _narrative_status: Dict[str, Any] = {"generated": False, "reason": ""}
     try:
-        from llm_router import LLMRouter, TASK_PLAN_NARRATIVE
+        from llm_router import call_llm as _llm_call, TASK_PLAN_NARRATIVE
 
-        _exec_router = LLMRouter()
         _narrative_prompt = (
             f"Write a 4-5 sentence executive summary for a recruitment media plan.\n\n"
             f"Client: {client_name}\n"
@@ -3967,8 +3973,16 @@ def _build_sheet_executive_summary(
             f"(4) recommended next steps with timeline. "
             f"Be specific, cite data from above, no generic statements."
         )
-        # S50: 10s timeout for plan-gen LLM calls to avoid blocking Excel generation.
-        _exec_result = _exec_router.call_llm(
+        # S94 FIX: this used to instantiate `LLMRouter()` -- a class that
+        # llm_router.py has never exported (every other call site in the
+        # codebase uses the module-level call_llm() function directly). That
+        # raised AttributeError, was swallowed by the broad `except
+        # Exception` below, and meant this narrative NEVER generated in ANY
+        # environment, independent of API keys, timeouts, or provider
+        # latency. Also raised timeout_budget 10s -> 25s (S50's original 10s
+        # budget was too tight for a paid-provider round trip even against
+        # the fast DeepSeek tier -- see llm_router.DEEPSEEK_FAST_TASK_TYPES).
+        _exec_result = _llm_call(
             messages=[{"role": "user", "content": _narrative_prompt}],
             system_prompt=(
                 "You are a senior recruitment marketing strategist presenting to "
@@ -3976,15 +3990,41 @@ def _build_sheet_executive_summary(
                 "and explain causal reasoning. Every sentence must contain a number "
                 "or specific insight. No fluff, no platitudes."
             ),
-            task_type=TASK_PLAN_NARRATIVE,  # S48: Route narratives to Groq (fast prose)
+            task_type=TASK_PLAN_NARRATIVE,  # S48: Route narratives to fast-prose providers
             max_tokens=600,
-            timeout_budget=10.0,
+            timeout_budget=25.0,
         )
         exec_narrative = _exec_result.get("text") or ""
-    except ImportError:
+        if exec_narrative:
+            _narrative_status = {
+                "generated": True,
+                "provider": _exec_result.get("provider") or "",
+                "model": _exec_result.get("model") or "",
+            }
+        else:
+            _attempted = [
+                a.get("provider") for a in (_exec_result.get("attempts") or [])
+            ]
+            _narrative_status = {
+                "generated": False,
+                "reason": str(_exec_result.get("error") or "empty response")[:300],
+                "providers_attempted": _attempted,
+            }
+    except ImportError as exc:
         logger.warning("LLM router not available for executive narrative")
+        _narrative_status = {
+            "generated": False,
+            "reason": f"ImportError: {str(exc)[:200]}",
+            "providers_attempted": [],
+        }
     except Exception as exc:
         logger.warning("Executive narrative generation failed (non-fatal): %s", exc)
+        _narrative_status = {
+            "generated": False,
+            "reason": f"{type(exc).__name__}: {str(exc)[:200]}",
+            "providers_attempted": [],
+        }
+    data["_narrative_status"] = _narrative_status
 
     if exec_narrative:
         row = _write_section_header(ws, row, "Executive Strategic Summary")

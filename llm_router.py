@@ -188,6 +188,19 @@ CEREBRAS_SCOUT = "cerebras_scout"
 # METERED/PAID -- see _PROVIDER_COST_PER_M_TOKENS.
 DEEPSEEK = "deepseek"
 
+# S94 FIX: the native DeepSeek provider's default model (deepseek-v4-pro) is
+# a REASONING model -- high first-token latency (often >10s) -- but DEEPSEEK
+# is the #1-priority provider for prose/narrative task types too (see
+# TASK_PLAN_NARRATIVE routing below), where a plan's Executive Strategic
+# Summary calls call_llm() with a 10s (now 25s -- see excel_v2.py) timeout
+# budget. Against v4-pro that budget is frequently exhausted before the
+# first token even arrives, so the narrative silently times out / falls
+# back with nothing generated in prod (never reproduces locally because it
+# needs a live DEEPSEEK_API_KEY). Route these task types to the fast
+# non-reasoning tier instead; every other task type keeps v4-pro.
+# Override the fast model via DEEPSEEK_MODEL_FAST env if the catalog changes.
+DEEPSEEK_FAST_TASK_TYPES = frozenset({TASK_PLAN_NARRATIVE, TASK_NARRATIVE})
+
 # Global timeout budget: max total wall-clock seconds for the entire call_llm()
 # fallback loop.  Individual per-provider timeouts are dynamically capped to the
 # remaining budget so the caller never waits longer than this.
@@ -980,6 +993,10 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "api_style": "openai",  # OpenAI-compatible
         "endpoint": "https://api.deepseek.com/chat/completions",
         "model": os.environ.get("DEEPSEEK_MODEL") or "deepseek-v4-pro",
+        # S94: fast non-reasoning tier for prose/narrative task types (see
+        # DEEPSEEK_FAST_TASK_TYPES) -- selected dynamically in
+        # _build_openai_request, NOT read directly off this config dict.
+        "model_fast": os.environ.get("DEEPSEEK_MODEL_FAST") or "deepseek-v4-flash",
         "env_key": "DEEPSEEK_API_KEY",
         "rpm_limit": 60,
         "rpd_limit": 10000,
@@ -2782,10 +2799,23 @@ def _build_openai_request(
     system_prompt: str,
     max_tokens: int,
     tools: Optional[List[Dict]] = None,
+    task_type: str = "",
 ) -> Tuple[str, Dict[str, str], bytes]:
     """Build an OpenAI-compatible API request (Groq, Cerebras, Mistral, xAI, OpenRouter, SambaNova, NVIDIA NIM, Cloudflare, Zhipu, SiliconFlow)."""
     config = PROVIDER_CONFIG[provider_id]
     api_key = os.environ.get(config["env_key"], "").strip()
+
+    # S94: DeepSeek native API only -- route prose/narrative task types to
+    # the fast non-reasoning model instead of the (default) reasoning model,
+    # which has high enough first-token latency to blow through a plan
+    # narrative's timeout budget. See DEEPSEEK_FAST_TASK_TYPES.
+    model = config["model"]
+    if (
+        provider_id == DEEPSEEK
+        and task_type in DEEPSEEK_FAST_TASK_TYPES
+        and config.get("model_fast")
+    ):
+        model = config["model_fast"]
 
     # Build messages with system prompt
     api_messages = []
@@ -2817,7 +2847,7 @@ def _build_openai_request(
             api_messages.append({"role": role, "content": content})
 
     payload: Dict[str, Any] = {
-        "model": config["model"],
+        "model": model,
         "messages": api_messages,
         "max_tokens": max_tokens,
         "temperature": 0.7,
@@ -3393,7 +3423,12 @@ def _call_llm_inner(
     if force_provider:
         _rate_tracker.record_request(force_provider)
         result = _call_single_provider(
-            force_provider, messages, system_prompt, max_tokens, tools
+            force_provider,
+            messages,
+            system_prompt,
+            max_tokens,
+            tools,
+            task_type=task_type,
         )
         result["task_type"] = task_type
         result["fallback_used"] = False
@@ -3511,6 +3546,7 @@ def _call_llm_inner(
             max_tokens,
             tools,
             timeout_override=remaining,
+            task_type=task_type,
         )
         _has_response = bool(
             result.get("text") or result.get("raw_content") or result.get("tool_calls")
@@ -3865,12 +3901,17 @@ def _call_single_provider(
     max_tokens: int,
     tools: Optional[List[Dict]] = None,
     timeout_override: Optional[float] = None,
+    task_type: str = "",
 ) -> Dict[str, Any]:
     """Make a single API call to a specific provider.
 
     Args:
         timeout_override: If provided, the per-provider config timeout is
             capped to this value so the global budget is respected.
+        task_type: The originating call's task type (e.g. TASK_PLAN_NARRATIVE)
+            -- currently only consulted by the native DeepSeek provider, to
+            pick the fast non-reasoning model for prose/narrative task types
+            instead of the default reasoning model. See DEEPSEEK_FAST_TASK_TYPES.
     """
     config = PROVIDER_CONFIG.get(provider_id)
     if not config:
@@ -3890,7 +3931,12 @@ def _call_single_provider(
             )
         elif api_style == "openai":
             url, headers, body = _build_openai_request(
-                provider_id, messages, system_prompt, max_tokens, tools
+                provider_id,
+                messages,
+                system_prompt,
+                max_tokens,
+                tools,
+                task_type=task_type,
             )
         elif api_style == "anthropic":
             url, headers, body = _build_anthropic_request(

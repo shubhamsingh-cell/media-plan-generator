@@ -519,6 +519,142 @@ class TestRequestPriority:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# S94: DeepSeek fast-model routing for prose/narrative task types
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestDeepSeekModelRouting:
+    """The native DeepSeek provider defaults to 'deepseek-v4-pro', a
+    reasoning model with high first-token latency. Prose/narrative task
+    types (TASK_PLAN_NARRATIVE-class) must route to the fast
+    'deepseek-v4-flash' tier instead, or they blow through their timeout
+    budget before the first token arrives; every other task type must keep
+    the default reasoning model."""
+
+    def test_deepseek_config_has_fast_model(self) -> None:
+        from llm_router import PROVIDER_CONFIG, DEEPSEEK
+
+        assert PROVIDER_CONFIG[DEEPSEEK].get("model_fast") == "deepseek-v4-flash"
+        assert PROVIDER_CONFIG[DEEPSEEK].get("model") == "deepseek-v4-pro"
+
+    def test_fast_task_types_includes_plan_narrative(self) -> None:
+        from llm_router import DEEPSEEK_FAST_TASK_TYPES, TASK_PLAN_NARRATIVE
+
+        assert TASK_PLAN_NARRATIVE in DEEPSEEK_FAST_TASK_TYPES
+
+    def test_narrative_task_routes_to_flash_model(self) -> None:
+        """_build_openai_request must select deepseek-v4-flash when the
+        task_type is TASK_PLAN_NARRATIVE."""
+        import json
+
+        from llm_router import _build_openai_request, DEEPSEEK, TASK_PLAN_NARRATIVE
+
+        _url, _headers, body = _build_openai_request(
+            DEEPSEEK,
+            [{"role": "user", "content": "hi"}],
+            "",
+            100,
+            task_type=TASK_PLAN_NARRATIVE,
+        )
+        payload = json.loads(body)
+        assert payload["model"] == "deepseek-v4-flash"
+
+    def test_reasoning_task_keeps_default_model(self) -> None:
+        """A non-narrative task type (e.g. deep reasoning) must NOT be
+        rerouted -- it keeps the default deepseek-v4-pro reasoning model."""
+        import json
+
+        from llm_router import _build_openai_request, DEEPSEEK, TASK_DEEP_REASONING
+
+        _url, _headers, body = _build_openai_request(
+            DEEPSEEK,
+            [{"role": "user", "content": "hi"}],
+            "",
+            100,
+            task_type=TASK_DEEP_REASONING,
+        )
+        payload = json.loads(body)
+        assert payload["model"] == "deepseek-v4-pro"
+
+    def test_no_task_type_keeps_default_model(self) -> None:
+        """Back-compat: omitting task_type entirely must not change
+        behaviour for any existing caller of _build_openai_request."""
+        import json
+
+        from llm_router import _build_openai_request, DEEPSEEK
+
+        _url, _headers, body = _build_openai_request(
+            DEEPSEEK, [{"role": "user", "content": "hi"}], "", 100
+        )
+        payload = json.loads(body)
+        assert payload["model"] == "deepseek-v4-pro"
+
+    def test_other_providers_unaffected_by_task_type(self) -> None:
+        """The fast-model reroute is DeepSeek-specific -- other OpenAI-style
+        providers must ignore task_type entirely."""
+        import json
+
+        from llm_router import _build_openai_request, GROQ, TASK_PLAN_NARRATIVE, PROVIDER_CONFIG
+
+        _url, _headers, body = _build_openai_request(
+            GROQ,
+            [{"role": "user", "content": "hi"}],
+            "",
+            100,
+            task_type=TASK_PLAN_NARRATIVE,
+        )
+        payload = json.loads(body)
+        assert payload["model"] == PROVIDER_CONFIG[GROQ]["model"]
+
+    def test_call_llm_end_to_end_routes_narrative_to_flash(self) -> None:
+        """Full wiring check: call_llm(task_type=TASK_PLAN_NARRATIVE,
+        force_provider=DEEPSEEK) must reach the DeepSeek API with the fast
+        model in the actual HTTP request body -- proves task_type threads
+        through _call_llm_inner -> _call_single_provider ->
+        _build_openai_request, not just that the builder function works in
+        isolation."""
+        import io
+        import json
+
+        from llm_router import call_llm, DEEPSEEK, TASK_PLAN_NARRATIVE
+
+        captured: Dict[str, Any] = {}
+
+        class _FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return None
+
+            def read(self):
+                return json.dumps(
+                    {
+                        "choices": [
+                            {"message": {"content": "Narrative text."}}
+                        ],
+                        "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+                    }
+                ).encode("utf-8")
+
+        def _fake_urlopen(req, timeout=None):
+            captured["body"] = json.loads(req.data.decode("utf-8"))
+            return _FakeResponse()
+
+        with mock.patch("urllib.request.urlopen", side_effect=_fake_urlopen):
+            result = call_llm(
+                messages=[{"role": "user", "content": "Write a summary."}],
+                system_prompt="You are a strategist.",
+                task_type=TASK_PLAN_NARRATIVE,
+                force_provider=DEEPSEEK,
+                use_cache=False,
+            )
+
+        assert result.get("text") == "Narrative text."
+        assert captured.get("body", {}).get("model") == "deepseek-v4-flash"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # call_llm with mocked providers
 # ═══════════════════════════════════════════════════════════════════════════════
 
