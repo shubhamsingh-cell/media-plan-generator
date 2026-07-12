@@ -3298,6 +3298,575 @@ def _clean_budget_alloc_narrative(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# EXECUTIVE NARRATIVE GROUNDING (house rule: never fabricate data)
+#
+# Root cause this guards against: the Executive Strategic Summary's system
+# prompt used to command "Every sentence must contain a number or specific
+# insight" while only ~10 real numbers were ever passed to the model -- so it
+# reliably invented the rest (a fake "$5,000 industry average", a fake
+# "1:2.4 cost-to-value ratio", a fake "$360,000 in tangible value", ...).
+# Verified against a real prod bundle: none of those numbers existed
+# anywhere in the plan data.
+#
+# Fix has two halves:
+#   1. The prompt drops the "every sentence needs a number" mandate and is
+#      given a much richer FACTS block (every real number the plan already
+#      has) so it never NEEDS to invent one to sound authoritative.
+#   2. Even so, an LLM can still hallucinate. `_narrative_is_grounded`
+#      re-parses the model's own narrative afterward and rejects it if it
+#      cites any $/%%/ratio/large-integer figure that doesn't trace back
+#      (within a sensible rounding tolerance) to a number in that SAME
+#      FACTS block. A rejected narrative is replaced by a fully
+#      deterministic, template-built summary sourced only from real plan
+#      fields -- never a second LLM call, never a guess.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Matches, in priority order at each position: a money figure ($1,234 /
+# $5K / $1.2M), a ratio (1:2.4 / 2.4x), a percentage (12% / 12.5%), or a
+# bare "large" integer (>=100, or comma-grouped) that isn't a calendar
+# year. Money/ratio/percent are flagged at ANY magnitude -- those are the
+# shapes the fabricated examples above actually take -- while bare
+# integers need a floor so ordinary prose ("the top 2 channels", "3 key
+# risks") doesn't get misread as an invented statistic.
+_NUM_TOKEN_RE = re.compile(
+    # Integer part requires PROPER thousands grouping (each "," followed by
+    # exactly 3 digits) when commas are present, else a plain digit run --
+    # NOT a bare "digits-or-commas" class, which would happily swallow a
+    # trailing sentence comma ("$5,000, and ..." -> "$5,000," as one token).
+    r"(?P<money>\$\s?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s?[kKmMbB]?\b)"
+    r"|(?P<ratio>\b\d+(?:\.\d+)?\s*:\s*\d+(?:\.\d+)?\b|\b\d+(?:\.\d+)?[xX](?!\w))"
+    r"|(?P<percent>\b\d+(?:\.\d+)?\s?%)"
+    r"|(?P<largeint>\b\d{1,3}(?:,\d{3})+\b|\b\d{3,}\b)"
+)
+
+
+def _normalize_money_token(raw: str) -> float:
+    """Normalize a matched money token ("$5,000" / "$5K" / "$1.2M") to a
+    base dollar float, so magnitude-abbreviated and fully-spelled-out
+    figures compare equal (single source with `_narrative_is_grounded`'s
+    tolerance check, which also relies on this normalization)."""
+    s = (raw or "").strip()
+    if not s:
+        return 0.0
+    mult = 1.0
+    if s[-1] in "kK":
+        mult, s = 1_000.0, s[:-1]
+    elif s[-1] in "mM":
+        mult, s = 1_000_000.0, s[:-1]
+    elif s[-1] in "bB":
+        mult, s = 1_000_000_000.0, s[:-1]
+    s = s.replace("$", "").replace(",", "").strip()
+    try:
+        return float(s) * mult
+    except ValueError:
+        return 0.0
+
+
+def _normalize_ratio_token(raw: str) -> float:
+    """Normalize a matched ratio token ("1:2.4" or "2.4x") to a single
+    comparable float (the ratio's non-unity side)."""
+    s = (raw or "").strip()
+    if ":" in s:
+        try:
+            return float(s.split(":")[-1].strip())
+        except ValueError:
+            return 0.0
+    try:
+        return float(s.rstrip("xX").strip())
+    except ValueError:
+        return 0.0
+
+
+def _extract_number_tokens(text: str) -> List[Tuple[str, str, float]]:
+    """Extract every monetary, percentage, ratio, or large-integer figure
+    in `text` as ``(category, raw_matched_text, normalized_value)``.
+
+    ``category`` is one of ``"money"``, ``"percent"``, ``"ratio"``,
+    ``"int"``. This is the SINGLE extraction routine used both to derive
+    the narrative's allowed-number set from the FACTS block and to scan
+    the LLM's own narrative for figures to verify -- so both sides of the
+    grounding check always agree on what counts as "a number".
+    """
+    if not text:
+        return []
+    tokens: List[Tuple[str, str, float]] = []
+    for m in _NUM_TOKEN_RE.finditer(text):
+        if m.group("money"):
+            raw = m.group("money")
+            tokens.append(("money", raw, _normalize_money_token(raw)))
+        elif m.group("ratio"):
+            raw = m.group("ratio")
+            tokens.append(("ratio", raw, _normalize_ratio_token(raw)))
+        elif m.group("percent"):
+            raw = m.group("percent")
+            tokens.append(("percent", raw, _safe_num(raw)))
+        elif m.group("largeint"):
+            raw = m.group("largeint")
+            val = _safe_num(raw)
+            # A bare 4-digit number with no thousands separator in a
+            # plausible calendar-year range ("in 2026") is a date
+            # reference, not an invented statistic -- never flag it.
+            if "," not in raw and len(raw) == 4 and 1900 <= val <= 2099:
+                continue
+            tokens.append(("int", raw, val))
+    return tokens
+
+
+def _allowed_numbers_from_facts_text(facts_text: str) -> Dict[str, set]:
+    """Bucket every number in the FACTS block (by category) into the
+    allowed-number set `_narrative_is_grounded` checks the LLM's narrative
+    against. Deriving this from the EXACT text handed to the model (rather
+    than a separately-maintained list) guarantees the model is never told
+    about a number the validator won't also recognize as legitimate."""
+    buckets: Dict[str, set] = {"money": set(), "percent": set(), "ratio": set(), "int": set()}
+    for category, _raw, value in _extract_number_tokens(facts_text):
+        buckets.setdefault(category, set()).add(round(value, 4))
+    return buckets
+
+
+def _numbers_within_tolerance(category: str, candidate: float, allowed: float) -> bool:
+    """Rounding-tolerant comparison between a figure cited in the narrative
+    (`candidate`) and a real figure from FACTS (`allowed`), both already
+    normalized by `_extract_number_tokens`.
+
+    Tolerance rules (deliberately generous enough that an LLM rounding a
+    real number isn't mistaken for fabrication, but tight enough that a
+    genuinely different number is caught):
+      - int:     +/-1 -- these are exact counts (hires, applications, ...);
+                 essentially no rounding license.
+      - percent: +/-0.5 points -- covers "12.5%" being said as "12%" etc.
+      - ratio:   +/-0.05 -- covers minor rounding of a decimal ratio.
+      - money:   scales with magnitude so "$3,125" can be cited as "$3,100"
+                 (~2%), and a "$5K"/"$1.2M" abbreviation of a FACTS dollar
+                 value lands within its own implied rounding granularity.
+    """
+    if category == "int":
+        return abs(candidate - allowed) <= 1.0
+    if category == "percent":
+        return abs(candidate - allowed) <= 0.5
+    if category == "ratio":
+        return abs(candidate - allowed) <= 0.05
+    if category == "money":
+        base = max(abs(candidate), abs(allowed))
+        if base >= 1_000_000:
+            tol = max(50_000.0, base * 0.05)
+        elif base >= 10_000:
+            tol = max(500.0, base * 0.05)
+        else:
+            tol = max(1.0, base * 0.02)
+        return abs(candidate - allowed) <= tol
+    return False
+
+
+def _narrative_is_grounded(
+    text: str, allowed_numbers: Dict[str, set]
+) -> Tuple[bool, List[str]]:
+    """Verify every $/%%/ratio/large-integer figure cited in `text` traces
+    back (within `_numbers_within_tolerance`) to a number in
+    `allowed_numbers` (built from the SAME FACTS block the model was
+    given).
+
+    Returns ``(True, [])`` when every figure is grounded, else
+    ``(False, [untraceable_raw_figures...])`` -- deduped, in first-seen
+    order. An empty/falsy `text` is trivially grounded (nothing to check).
+    """
+    untraceable: List[str] = []
+    seen: set = set()
+    for category, raw, value in _extract_number_tokens(text or ""):
+        allowed_set = allowed_numbers.get(category) or set()
+        if any(_numbers_within_tolerance(category, value, a) for a in allowed_set):
+            continue
+        key = (category, raw.strip())
+        if key not in seen:
+            seen.add(key)
+            untraceable.append(raw.strip())
+    return (len(untraceable) == 0, untraceable)
+
+
+def _clean_benchmark_text_for_parsing(text: Any) -> str:
+    """Strip parenthetical asides (e.g. "3.22% (lowest of all 24
+    occupations, declining)") out of a raw KB benchmark string before
+    extracting numbers from it, so an unrelated aside number (here, "24")
+    can't get misread as part of a cited range."""
+    return re.sub(r"\([^)]*\)", "", str(text or ""))
+
+
+def _latest_kb_year_value(field: Any) -> Any:
+    """Given a KB benchmark sub-field that may be year-keyed (e.g.
+    ``{"2024": "5-7%", "2025": "5.5-7.5%"}``) or already a plain value,
+    return the most-recent year's value (or the field itself when it isn't
+    year-keyed). Mirrors the year-selection `_model_vs_benchmark_note`
+    already applies to this SAME KB ``apply_rate`` field, so both readers
+    agree on which year's figure is "current"."""
+    if isinstance(field, dict):
+        year_keys = sorted((k for k in field if str(k).strip().isdigit()), reverse=True)
+        if year_keys:
+            return field.get(year_keys[0])
+        for v in field.values():
+            if isinstance(v, str) and re.search(r"\d", v):
+                return v
+        return None
+    return field
+
+
+def _gather_narrative_grounding_context(
+    data: dict,
+    *,
+    client_name: str,
+    industry: str,
+    industry_label: str,
+    budget_num: float,
+    duration: str,
+    locations: List[str],
+    roles: List[str],
+    hire_volume: Any,
+    header_hires: int,
+    header_cph: float,
+    sufficiency: dict,
+    channel_allocs: dict,
+    load_kb_fn=None,
+) -> Dict[str, Any]:
+    """Gather every REAL, plan-derived number the Executive Strategic
+    Summary could legitimately cite, computed exactly once and shared by
+    both `_build_narrative_facts_block` (what the LLM is told) and
+    `_build_deterministic_executive_summary` (the no-LLM fallback) -- so
+    the two paths can never drift apart on what counts as "real"."""
+    ctx: Dict[str, Any] = {
+        "client_name": client_name,
+        "industry_label": industry_label,
+        "budget_num": budget_num,
+        "duration": duration,
+        "locations": list(locations or []),
+        "roles": list(roles or []),
+        "hire_volume": hire_volume,
+        "header_hires": int(header_hires or 0),
+        "header_cph": float(header_cph or 0),
+        "grade": sufficiency.get("grade") or "",
+    }
+
+    # Hiring-goal gap -- the SAME shared helper (display_format.goal_gap)
+    # the Budget Allocation section's own gap callout uses; never a
+    # separately-computed number.
+    goal = _parse_hire_goal(hire_volume)
+    ctx["goal"] = goal
+    ctx["gap_result"] = None
+    if goal > 0 and header_hires >= 0:
+        cph_basis = header_cph if header_cph and header_cph > 0 else _kb_industry_cph_benchmark(
+            industry, load_kb_fn=load_kb_fn
+        )
+        gap_result = display_format.goal_gap(header_hires, goal, cph_basis)
+        if gap_result and (100 - gap_result.get("pct_of_goal", 100)) > 10:
+            ctx["gap_result"] = gap_result
+
+    # Blended cost-per-APPLICATION + total applications (distinct from the
+    # blended cost-per-HIRE above) + top channels by hires -- all summed
+    # LIVE from the same `_budget_allocation` channel table the Budget
+    # Allocation section renders, never a separate estimate.
+    total_dollars = 0.0
+    total_apps = 0.0
+    total_clicks = 0.0
+    top_channels: List[Tuple[str, dict]] = []
+    if isinstance(channel_allocs, dict) and channel_allocs:
+        for ch_data in channel_allocs.values():
+            if not isinstance(ch_data, dict):
+                continue
+            total_dollars += _safe_num(ch_data.get("dollar_amount", ch_data.get("dollars") or 0))
+            total_apps += _safe_num(
+                ch_data.get("projected_applications", ch_data.get("projected_apps") or 0)
+            )
+            total_clicks += _safe_num(ch_data.get("projected_clicks") or 0)
+        top_channels = sorted(
+            (
+                (n, d)
+                for n, d in channel_allocs.items()
+                if isinstance(d, dict) and _safe_num(d.get("projected_hires") or 0) > 0
+            ),
+            key=lambda kv: _safe_num(kv[1].get("projected_hires") or 0),
+            reverse=True,
+        )[:3]
+    ctx["total_applications"] = total_apps
+    ctx["blended_cpa"] = (total_dollars / total_apps) if total_apps > 0 else 0.0
+    ctx["top_channels"] = top_channels
+    ctx["total_clicks"] = int(total_clicks)
+
+    # Recruitment funnel totals (S93 model) -- the SAME source the
+    # Recruitment Funnel table reads, never recomputed.
+    budget_alloc = data.get("_budget_allocation") or {}
+    funnel = (
+        budget_alloc.get("metadata", {}).get("funnel", {})
+        if isinstance(budget_alloc, dict)
+        else {}
+    )
+    ctx["funnel_totals"] = funnel.get("totals", {}) if isinstance(funnel, dict) else {}
+
+    # Industry benchmark ranges actually cited elsewhere in this workbook
+    # (Recruitment Benchmarks section) -- read via the SAME KB getter.
+    ctx["ind_bench"] = _kb_industry_benchmark_section(industry, load_kb_fn=load_kb_fn)
+
+    # Seasonality -- prefer a matched sub-vertical override (gold_standard
+    # Gate 7), else the generic KB seasonal_patterns text; SAME sources the
+    # Recruitment Benchmarks section reads.
+    season_text = _subvertical_seasonal_override_text(data)
+    if not season_text and ctx["ind_bench"]:
+        _generic = ctx["ind_bench"].get("seasonal_patterns")
+        if _generic:
+            season_text = _flatten_value(_generic)
+    ctx["seasonality_text"] = season_text
+
+    # Competitors as stated on the plan -- never inferred.
+    competitors = data.get("competitors") or []
+    if isinstance(competitors, str):
+        competitors = [c.strip() for c in competitors.split(",") if c.strip()]
+    ctx["competitors"] = competitors
+
+    return ctx
+
+
+def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
+    """Render `ctx` (see `_gather_narrative_grounding_context`) as the
+    FACTS block for the executive-narrative prompt.
+
+    This exact string is ALSO fed through `_extract_number_tokens` (via
+    `_allowed_numbers_from_facts_text`) to build the grounding validator's
+    allowed-number set -- single source: whatever number appears here is
+    both what the model is told it may cite AND what the validator will
+    recognize as legitimate.
+    """
+    lines: List[str] = []
+    if ctx.get("client_name"):
+        lines.append(f"Client: {ctx['client_name']}")
+    if ctx.get("industry_label"):
+        lines.append(f"Industry: {ctx['industry_label']}")
+    if ctx.get("budget_num", 0) > 0:
+        lines.append(f"Budget: {_fmt_currency(ctx['budget_num'])}")
+    if ctx.get("duration"):
+        lines.append(f"Duration: {ctx['duration']}")
+    if ctx.get("locations"):
+        lines.append(f"Locations: {', '.join(str(l) for l in ctx['locations'][:6])}")
+    if ctx.get("roles"):
+        lines.append(f"Roles: {', '.join(str(r) for r in ctx['roles'][:6])}")
+    if ctx.get("hire_volume"):
+        lines.append(f"Stated Hiring Goal: {ctx['hire_volume']}")
+    if ctx.get("header_hires", 0) > 0:
+        lines.append(f"Projected Hires: {_fmt_number(ctx['header_hires'])}")
+    if ctx.get("header_cph", 0) > 0:
+        lines.append(f"Blended Cost/Hire: {_fmt_currency(ctx['header_cph'], show_cents=True)}")
+    if ctx.get("total_applications", 0) > 0:
+        lines.append(f"Total Projected Applications: {_fmt_number(ctx['total_applications'])}")
+    if ctx.get("blended_cpa", 0) > 0:
+        lines.append(
+            f"Blended Cost/Application: {_fmt_currency(ctx['blended_cpa'], show_cents=True)}"
+        )
+    if ctx.get("grade"):
+        lines.append(f"Budget Sufficiency Grade: {ctx['grade']}")
+
+    gap = ctx.get("gap_result")
+    if gap:
+        gap_hires = gap["goal"] - gap["projected"]
+        lines.append(
+            f"Hiring Goal Gap: {gap_hires:,} hires short of the {gap['goal']:,} goal "
+            f"({round(gap.get('pct_of_goal', 0))}% of goal)"
+        )
+        if gap.get("additional_budget"):
+            lines.append(
+                f"Additional Budget To Close Gap: {_fmt_currency(gap['additional_budget'])}"
+            )
+
+    for ch_name, ch_data in ctx.get("top_channels") or []:
+        label = display_format.channel_label(ch_name)
+        dollars = _safe_num(ch_data.get("dollar_amount", ch_data.get("dollars") or 0))
+        pct = _safe_num(ch_data.get("percentage") or 0)
+        hires = _safe_num(ch_data.get("projected_hires") or 0)
+        cpa = _safe_num(ch_data.get("cpa") or 0)
+        bits = [f"Top Channel — {label}:"]
+        if dollars:
+            bits.append(_fmt_currency(dollars))
+        if pct:
+            bits.append(f"({pct:.0f}% of budget)")
+        if hires:
+            bits.append(f"{_fmt_number(hires)} hires")
+        if cpa:
+            bits.append(f"CPA {_fmt_currency(cpa, show_cents=True)}")
+        lines.append(" ".join(bits))
+
+    ft = ctx.get("funnel_totals") or {}
+    if ft:
+        fc = ctx.get("total_clicks") or 0
+        fa = int(_safe_num(ft.get("raw_apps")))
+        fq = int(_safe_num(ft.get("qualified_apps")))
+        fi = int(_safe_num(ft.get("interviews")))
+        fh = int(_safe_num(ft.get("hires")))
+        if any([fc, fa, fq, fi, fh]):
+            lines.append(
+                f"Recruitment Funnel: {_fmt_number(fc)} clicks -> {_fmt_number(fa)} "
+                f"applications -> {_fmt_number(fq)} qualified -> {_fmt_number(fi)} "
+                f"interviews -> {_fmt_number(fh)} hires"
+            )
+
+    ind_bench = ctx.get("ind_bench") or {}
+    if ind_bench:
+        cpa_field = ind_bench.get("cpa")
+        cpa_range = _parse_numeric_range(
+            _clean_benchmark_text_for_parsing(
+                cpa_field.get("range") if isinstance(cpa_field, dict) else cpa_field
+            )
+        )
+        if cpa_range:
+            lines.append(
+                f"Industry CPA Benchmark Range: ${cpa_range[0]:,.0f}-${cpa_range[1]:,.0f}"
+            )
+
+        cpc_field = ind_bench.get("cpc")
+        cpc_range = _parse_numeric_range(
+            _clean_benchmark_text_for_parsing(
+                cpc_field.get("range") if isinstance(cpc_field, dict) else cpc_field
+            )
+        )
+        if cpc_range:
+            lines.append(
+                f"Industry CPC Benchmark Range: ${cpc_range[0]:,.2f}-${cpc_range[1]:,.2f}"
+            )
+
+        apply_source = _latest_kb_year_value(ind_bench.get("apply_rate"))
+        apply_clean = _clean_benchmark_text_for_parsing(apply_source)
+        apply_range = _parse_numeric_range(apply_clean)
+        if apply_range:
+            lines.append(
+                f"Industry Apply-Rate Benchmark Range: {apply_range[0]:.2f}%-"
+                f"{apply_range[1]:.2f}%"
+            )
+        else:
+            _single = re.findall(r"\d+(?:\.\d+)?", apply_clean)
+            if _single:
+                lines.append(f"Industry Apply-Rate Benchmark: {float(_single[0]):.2f}%")
+
+        cph_field = ind_bench.get("cph")
+        cph_val = 0.0
+        if isinstance(cph_field, dict):
+            cph_val = _parse_cph_point_estimate(
+                cph_field.get("total_cost_per_hire") or cph_field.get("recruitment_marketing_only")
+            )
+        if cph_val > 0:
+            lines.append(f"Industry Cost/Hire Benchmark: {_fmt_currency(cph_val)}")
+
+    if ctx.get("seasonality_text"):
+        lines.append(f"Seasonality: {ctx['seasonality_text']}")
+
+    if ctx.get("competitors"):
+        lines.append(f"Named Competitors: {', '.join(str(c) for c in ctx['competitors'][:5])}")
+
+    return "\n".join(lines)
+
+
+def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
+    """Render a plain-language executive summary using ONLY the real plan
+    fields already gathered in `ctx` -- no LLM call, so it structurally
+    cannot fabricate a number. Used whenever the LLM-generated narrative is
+    unavailable or fails `_narrative_is_grounded` (house rule: never
+    fabricate data).
+
+    Returns "" only when there isn't even enough real data to state a
+    single sentence (no client, no budget, no duration) -- in practice
+    never reached from the live app, but kept as a safe last resort so
+    this never raises.
+    """
+    sentences: List[str] = []
+    client_name = ctx.get("client_name") or ""
+    budget_num = ctx.get("budget_num") or 0
+    duration = ctx.get("duration") or ""
+    industry_label = ctx.get("industry_label") or ""
+
+    # 1. Client + budget + duration.
+    if client_name or budget_num > 0 or duration:
+        bits = []
+        if budget_num > 0:
+            bits.append(f"a {_fmt_currency(budget_num)} budget")
+        if duration:
+            bits.append(f"over {duration}")
+        detail = " with " + " and ".join(bits) if bits else ""
+        industry_bit = f" targeting the {industry_label} sector" if industry_label else ""
+        sentences.append(
+            f"This recruitment media plan for {client_name or 'this client'}"
+            f"{detail}{industry_bit}."
+        )
+
+    # 2. Projected hires vs. goal + budget to close the gap.
+    header_hires = int(ctx.get("header_hires") or 0)
+    goal = int(ctx.get("goal") or 0)
+    gap = ctx.get("gap_result")
+    if goal > 0 and header_hires > 0:
+        pct = round((header_hires / goal) * 100)
+        if header_hires >= goal:
+            sentences.append(
+                f"The plan is projected to deliver {header_hires:,} hires, meeting "
+                f"the stated goal of {goal:,}."
+            )
+        elif gap:
+            extra = gap.get("additional_budget") or 0
+            gap_hires = gap["goal"] - gap["projected"]
+            if extra > 0:
+                sentences.append(
+                    f"The plan is projected to deliver {header_hires:,} hires against "
+                    f"a stated goal of {goal:,} ({pct}% of goal) — closing the "
+                    f"{gap_hires:,}-hire gap would need roughly {_fmt_currency(extra)} "
+                    f"of additional budget."
+                )
+            else:
+                sentences.append(
+                    f"The plan is projected to deliver {header_hires:,} hires against "
+                    f"a stated goal of {goal:,} ({pct}% of goal)."
+                )
+        else:
+            sentences.append(
+                f"The plan is projected to deliver {header_hires:,} hires against "
+                f"a stated goal of {goal:,} ({pct}% of goal)."
+            )
+    elif header_hires > 0:
+        sentences.append(f"The plan is projected to deliver {header_hires:,} hires.")
+
+    # 3. Blended cost/hire + top-2 channels by hires.
+    header_cph = ctx.get("header_cph") or 0
+    top_channels = ctx.get("top_channels") or []
+    if header_cph > 0:
+        top2 = top_channels[:2]
+        if top2:
+            names = " and ".join(display_format.channel_label(n) for n, _d in top2)
+            sentences.append(
+                f"At a blended cost of {_fmt_currency(header_cph, show_cents=True)} per "
+                f"hire, {names} are projected to drive the majority of hires."
+            )
+        else:
+            sentences.append(
+                f"The plan's blended cost per hire is "
+                f"{_fmt_currency(header_cph, show_cents=True)}."
+            )
+
+    # 4. Seasonality / timing note -- real KB / gold-standard text only.
+    season_text = (ctx.get("seasonality_text") or "").split(";")[0].strip()
+    if season_text:
+        sentences.append(f"Timing: {season_text}.")
+
+    # 5. One real risk -- channel concentration, citing the single largest
+    #    channel's OWN real percentage/hires (the exact same figures already
+    #    stated in the FACTS "Top Channel" line above) -- never a new
+    #    modeling assumption or a derived sum that isn't itself a FACTS
+    #    number verbatim.
+    if top_channels:
+        _top1_name, _top1_data = top_channels[0]
+        _top1_pct = _safe_num(_top1_data.get("percentage") or 0)
+        _top1_hires = int(_safe_num(_top1_data.get("projected_hires") or 0))
+        if _top1_pct > 0 and _top1_hires > 0:
+            _top1_label = display_format.channel_label(_top1_name)
+            sentences.append(
+                f"Key risk: {_top1_label} alone accounts for {_top1_pct:.0f}% "
+                f"of budget and {_top1_hires:,} projected hires -- "
+                f"single-channel disruption there would be material."
+            )
+
+    return " ".join(sentences)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # SHEET 1: EXECUTIVE SUMMARY
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -3939,39 +4508,66 @@ def _build_sheet_executive_summary(
                 row = _write_footnote(ws, row, _bm_note)
         row += 1
 
-    # ── 5. Executive Strategic Narrative (LLM-generated) ──
+    # ── 5. Executive Strategic Narrative (LLM-generated, grounding-checked) ──
     # Generate a C-suite quality narrative using the LLM router directly
     # (avoids circular import with app.py)
+    #
+    # House rule: never fabricate data. The LLM narrative is only ever USED
+    # when every $/%%/ratio/large-integer figure it cites traces back to the
+    # FACTS block below (`_narrative_is_grounded`); otherwise it is discarded
+    # in favor of a deterministic, template-built summary sourced only from
+    # real plan fields (`_build_deterministic_executive_summary`). Either way
+    # SOMETHING renders -- this no longer silently skips the section just
+    # because the LLM call failed.
     exec_narrative = ""
+    _narrative_ctx = _gather_narrative_grounding_context(
+        data,
+        client_name=client_name,
+        industry=industry,
+        industry_label=industry_label,
+        budget_num=budget_num,
+        duration=duration,
+        locations=locations,
+        roles=roles,
+        hire_volume=hire_volume,
+        header_hires=_header_hires,
+        header_cph=_header_cph,
+        sufficiency=sufficiency,
+        channel_allocs=channel_allocs,
+        load_kb_fn=load_kb_fn,
+    )
+    _facts_block = _build_narrative_facts_block(_narrative_ctx)
+    _allowed_numbers = _allowed_numbers_from_facts_text(_facts_block)
+
     # S94: surfaced on `data` (the SAME dict object app.py passed in, mutated
     # in place -- both the async job path (gen_data) and the sync path
-    # (data) read it back after this function returns) so a missing
-    # narrative shows up as a REASON in prod logs / the job record / audit
-    # summary instead of a silent skip. See app.py's bundle_qa block, which
-    # already writes to the same job-record/audit-log mechanism.
-    _narrative_status: Dict[str, Any] = {"generated": False, "reason": ""}
+    # (data) read it back after this function returns) so app.py's
+    # bundle_qa/audit-log block can report exactly what happened instead of
+    # a silent skip. Shape: {"generated": bool, "status": one of
+    # "llm_grounded"/"llm_rejected_fabrication"/"fallback_template"/
+    # "skipped_error", plus "reason"/"providers_attempted" when relevant --
+    # "generated" stays True whenever *something* rendered in the sheet
+    # (including the deterministic fallback), matching app.py's existing
+    # `not _narrative_status.get("generated")` skip-detection contract.
+    _narrative_status: Dict[str, Any] = {"generated": False, "status": "skipped_error", "reason": ""}
+    _llm_failure_reason = ""
+    _llm_providers_attempted: List[str] = []
+    _llm_provider = ""
+    _llm_model = ""
     try:
         from llm_router import call_llm as _llm_call, TASK_PLAN_NARRATIVE
 
         _narrative_prompt = (
-            f"Write a 4-5 sentence executive summary for a recruitment media plan.\n\n"
-            f"Client: {client_name}\n"
-            f"Industry: {industry_label}\n"
-            f"Budget: {_fmt_currency(budget_num)}\n"
-            f"Locations: {', '.join(str(l) for l in locations[:5])}\n"
-            f"Roles: {', '.join(str(r) for r in roles[:5])}\n"
-            f"Hire Volume: {hire_volume}\n"
-            f"Duration: {duration}\n"
-            f"Projected Hires: {_header_hires or 'TBD'}\n"
-            f"Cost/Hire: {_fmt_currency(_header_cph)}\n"
-            f"Budget Grade: {sufficiency.get('grade') or 'N/A'}\n"
-            f"Top Channels: {', '.join(list(channel_allocs.keys())[:5])}\n\n"
-            f"Write as a senior recruitment strategist presenting to a VP of Talent Acquisition. "
-            f"Include: (1) market thesis — why this plan will succeed, "
-            f"(2) ROI projection summary with specific numbers, "
-            f"(3) key risks to monitor, "
-            f"(4) recommended next steps with timeline. "
-            f"Be specific, cite data from above, no generic statements."
+            "Write a 4-5 sentence executive summary for a recruitment media plan.\n\n"
+            "FACTS (the ONLY figures you may cite -- do not add, further round, "
+            "or invent any other number):\n"
+            f"{_facts_block}\n\n"
+            "Write as a senior recruitment strategist presenting to a VP of Talent "
+            "Acquisition. Where the FACTS support it, cover: (1) a market thesis for "
+            "why this plan will succeed, (2) an outcome/ROI summary using only the "
+            "numbers in FACTS above, (3) one key risk to monitor, (4) a recommended "
+            "next step with a timeframe. If FACTS doesn't give you a number for one "
+            "of these, make the point qualitatively instead of inventing one."
         )
         # S94 FIX: this used to instantiate `LLMRouter()` -- a class that
         # llm_router.py has never exported (every other call site in the
@@ -3986,44 +4582,76 @@ def _build_sheet_executive_summary(
             messages=[{"role": "user", "content": _narrative_prompt}],
             system_prompt=(
                 "You are a senior recruitment marketing strategist presenting to "
-                "C-suite executives. Write with authority, cite specific data points, "
-                "and explain causal reasoning. Every sentence must contain a number "
-                "or specific insight. No fluff, no platitudes."
+                "C-suite executives. Write with authority and explain causal "
+                "reasoning. Use ONLY the figures listed in FACTS in the user "
+                "message -- do NOT invent, estimate, or cite any industry average, "
+                "benchmark, ratio, percentage, dollar value, or other statistic "
+                "that is not in FACTS. If you lack a number for a claim, make the "
+                "claim qualitatively, without a number. Do not compute derived "
+                "ratios or 'total value' figures that are not already given to "
+                "you in FACTS. No fluff, no generic platitudes."
             ),
             task_type=TASK_PLAN_NARRATIVE,  # S48: Route narratives to fast-prose providers
             max_tokens=600,
             timeout_budget=25.0,
         )
         exec_narrative = _exec_result.get("text") or ""
+        _llm_provider = _exec_result.get("provider") or ""
+        _llm_model = _exec_result.get("model") or ""
+        if not exec_narrative:
+            _llm_providers_attempted = [
+                a.get("provider") for a in (_exec_result.get("attempts") or [])
+            ]
+            _llm_failure_reason = str(_exec_result.get("error") or "empty response")[:300]
+    except ImportError as exc:
+        logger.warning("LLM router not available for executive narrative")
+        _llm_failure_reason = f"ImportError: {str(exc)[:200]}"
+    except Exception as exc:
+        logger.warning("Executive narrative generation failed (non-fatal): %s", exc)
+        _llm_failure_reason = f"{type(exc).__name__}: {str(exc)[:200]}"
+
+    if exec_narrative:
+        _grounded, _untraceable = _narrative_is_grounded(exec_narrative, _allowed_numbers)
+        if _grounded:
+            _narrative_status = {
+                "generated": True,
+                "status": "llm_grounded",
+                "provider": _llm_provider,
+                "model": _llm_model,
+            }
+        else:
+            logger.warning(
+                "Executive narrative rejected -- untraceable figures not in "
+                "plan FACTS: %s",
+                _untraceable,
+            )
+            exec_narrative = _build_deterministic_executive_summary(_narrative_ctx)
+            _narrative_status = {
+                "generated": bool(exec_narrative),
+                "status": "llm_rejected_fabrication" if exec_narrative else "skipped_error",
+                "reason": "untraceable figures: " + "; ".join(_untraceable[:10]),
+                "untraceable_figures": _untraceable[:10],
+                "provider": _llm_provider,
+                "model": _llm_model,
+            }
+    else:
+        # LLM call failed/empty/unavailable -- fall back to a deterministic,
+        # fully real-data summary rather than skipping the section outright.
+        exec_narrative = _build_deterministic_executive_summary(_narrative_ctx)
         if exec_narrative:
             _narrative_status = {
                 "generated": True,
-                "provider": _exec_result.get("provider") or "",
-                "model": _exec_result.get("model") or "",
+                "status": "fallback_template",
+                "reason": _llm_failure_reason or "empty response",
+                "providers_attempted": _llm_providers_attempted,
             }
         else:
-            _attempted = [
-                a.get("provider") for a in (_exec_result.get("attempts") or [])
-            ]
             _narrative_status = {
                 "generated": False,
-                "reason": str(_exec_result.get("error") or "empty response")[:300],
-                "providers_attempted": _attempted,
+                "status": "skipped_error",
+                "reason": _llm_failure_reason or "empty response",
+                "providers_attempted": _llm_providers_attempted,
             }
-    except ImportError as exc:
-        logger.warning("LLM router not available for executive narrative")
-        _narrative_status = {
-            "generated": False,
-            "reason": f"ImportError: {str(exc)[:200]}",
-            "providers_attempted": [],
-        }
-    except Exception as exc:
-        logger.warning("Executive narrative generation failed (non-fatal): %s", exc)
-        _narrative_status = {
-            "generated": False,
-            "reason": f"{type(exc).__name__}: {str(exc)[:200]}",
-            "providers_attempted": [],
-        }
     data["_narrative_status"] = _narrative_status
 
     if exec_narrative:
