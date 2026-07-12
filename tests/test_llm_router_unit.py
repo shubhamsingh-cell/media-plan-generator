@@ -655,6 +655,114 @@ class TestDeepSeekModelRouting:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# S95: Claude Sonnet promoted to #1 for the plan-narrative task types
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestNarrativeProviderPriority:
+    """The Executive Strategic Summary narrative (excel_v2.py,
+    task_type=TASK_PLAN_NARRATIVE) was resolving to Claude Haiku 4.5 in
+    prod, which invents untraceable figures that the grounding validator
+    correctly rejects -> deterministic fallback. S95 promotes Claude Sonnet
+    (provider id CLAUDE == "claude") to #1 priority for TASK_PLAN_NARRATIVE
+    and TASK_NARRATIVE ONLY -- every other task type keeps its existing
+    provider order (DeepSeek/Gemini/Groq stay primary elsewhere)."""
+
+    def test_plan_narrative_priority_puts_claude_sonnet_first(self) -> None:
+        from llm_router import (
+            TASK_ROUTING,
+            TASK_PLAN_NARRATIVE,
+            CLAUDE,
+            CLAUDE_HAIKU,
+            DEEPSEEK,
+        )
+
+        priority = TASK_ROUTING[TASK_PLAN_NARRATIVE]
+        assert priority[0] == CLAUDE
+        assert priority.index(CLAUDE) < priority.index(CLAUDE_HAIKU)
+        assert priority.index(CLAUDE) < priority.index(DEEPSEEK)
+        # Full fallback chain must still be intact -- narrative still
+        # generates if Anthropic is down.
+        assert DEEPSEEK in priority
+        assert CLAUDE_HAIKU in priority
+        from llm_router import GEMINI, GROQ
+
+        assert GEMINI in priority
+        assert GROQ in priority
+
+    def test_narrative_priority_puts_claude_sonnet_first(self) -> None:
+        from llm_router import TASK_ROUTING, TASK_NARRATIVE, CLAUDE, CLAUDE_HAIKU, DEEPSEEK
+
+        priority = TASK_ROUTING[TASK_NARRATIVE]
+        assert priority[0] == CLAUDE
+        assert priority.index(CLAUDE) < priority.index(CLAUDE_HAIKU)
+        assert priority.index(CLAUDE) < priority.index(DEEPSEEK)
+        assert DEEPSEEK in priority
+
+    def test_select_provider_resolves_claude_for_plan_narrative(self) -> None:
+        """End-to-end resolution check (not just static list order): with
+        only ANTHROPIC_API_KEY configured, select_provider() must actually
+        pick CLAUDE for TASK_PLAN_NARRATIVE."""
+        from llm_router import select_provider, TASK_PLAN_NARRATIVE, CLAUDE
+
+        with mock.patch.dict(
+            os.environ, {"ANTHROPIC_API_KEY": "test-key"}, clear=True
+        ):
+            provider = select_provider(TASK_PLAN_NARRATIVE)
+
+        assert provider == CLAUDE
+
+    def test_other_task_types_first_priority_unchanged(self) -> None:
+        """Guard: TASK_STRUCTURED, TASK_COMPLEX, TASK_VERIFICATION, and
+        TASK_PLAN_STRUCTURED must NOT be touched by the narrative-only
+        change -- they keep DeepSeek as their #1 priority (owner directive:
+        DeepSeek/Gemini/Groq remain primary for every OTHER, quality-
+        insensitive task type)."""
+        from llm_router import (
+            TASK_ROUTING,
+            TASK_STRUCTURED,
+            TASK_COMPLEX,
+            TASK_VERIFICATION,
+            TASK_PLAN_STRUCTURED,
+            DEEPSEEK,
+            CLAUDE,
+        )
+
+        # Known-good CLAUDE positions, captured before the S95 narrative-only
+        # change, to prove those lists weren't touched at all (not just that
+        # the head is unchanged).
+        expected_claude_index = {
+            TASK_STRUCTURED: 23,
+            TASK_COMPLEX: 4,
+            TASK_VERIFICATION: 15,
+            TASK_PLAN_STRUCTURED: 16,
+        }
+        for task_type, claude_idx in expected_claude_index.items():
+            priority = TASK_ROUTING[task_type]
+            assert priority[0] == DEEPSEEK, (
+                f"{task_type} head changed -- narrative routing fix must be "
+                f"scoped to TASK_PLAN_NARRATIVE/TASK_NARRATIVE only"
+            )
+            assert priority.index(CLAUDE) == claude_idx, (
+                f"{task_type} CLAUDE position moved -- narrative routing fix "
+                f"must be scoped to TASK_PLAN_NARRATIVE/TASK_NARRATIVE only"
+            )
+
+    def test_deepseek_fast_task_types_still_covers_narrative(self) -> None:
+        """DEEPSEEK_FAST_TASK_TYPES routes DeepSeek to its fast
+        (non-reasoning) model for these task types. Left intact: DeepSeek is
+        still in the TASK_PLAN_NARRATIVE/TASK_NARRATIVE fallback chain (just
+        no longer #1), and the fast model is the correct choice if DeepSeek
+        is ever reached as a fallback -- removing it would silently
+        reintroduce the S94 reasoning-model timeout bug on the fallback
+        path."""
+        from llm_router import DEEPSEEK_FAST_TASK_TYPES, TASK_PLAN_NARRATIVE, TASK_NARRATIVE
+
+        assert TASK_PLAN_NARRATIVE in DEEPSEEK_FAST_TASK_TYPES
+        assert TASK_NARRATIVE in DEEPSEEK_FAST_TASK_TYPES
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # call_llm with mocked providers
 # ═══════════════════════════════════════════════════════════════════════════════
 

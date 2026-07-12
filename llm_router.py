@@ -1188,12 +1188,16 @@ TASK_ROUTING: Dict[str, List[str]] = {
         HUGGINGFACE,
         CLAUDE_OPUS,
     ],
+    # S95 (2026-07-12): same rationale as TASK_PLAN_NARRATIVE above -- Sonnet
+    # promoted to #1 for grounding-instruction adherence on long-form prose;
+    # DeepSeek/Gemini/Groq stay as fallbacks here and remain primary elsewhere.
     TASK_NARRATIVE: [
-        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
-        CLAUDE_HAIKU,  # S29 v2: Haiku #1 -- quality-first for plan narratives (exec summary, risk, competitive)
-        GEMINI,  # #2 free fallback
-        GPT4O,  # #3 paid fallback
-        GROQ,  # #4 free fallback
+        CLAUDE,  # S95: Sonnet 4.6 first -- grounding-instruction adherence
+        CLAUDE_HAIKU,  # #2 -- still paid-tier quality if Sonnet is unavailable
+        DEEPSEEK,  # #3 -- primary for every other task type, fallback here
+        GEMINI,  # #4 free fallback
+        GPT4O,  # #5 paid fallback
+        GROQ,  # #6 free fallback
         CEREBRAS,
         # S50 REMOVED: OPENROUTER_DEEPSEEK -- slug 404 verified 2026-05-02
         OPENROUTER,
@@ -1205,7 +1209,6 @@ TASK_ROUTING: Dict[str, List[str]] = {
         SILICONFLOW,
         CLOUDFLARE,
         HUGGINGFACE,
-        CLAUDE,
         CLAUDE_OPUS,
     ],
     TASK_BATCH: [
@@ -1460,11 +1463,22 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE,
         CLAUDE_OPUS,
     ],
-    # Plan narrative (exec summary, recommendations): Groq is 5x faster than
-    # Gemini for prose generation with equivalent quality on narrative tasks.
+    # Plan narrative (exec summary, recommendations): S95 (2026-07-12) --
+    # Claude Sonnet promoted to #1 for this task type ONLY. Root cause: Haiku
+    # (the previous #1) invents ~6 untraceable figures per draft that the
+    # grounding validator correctly rejects, forcing a silent fallback to the
+    # deterministic template in prod. Sonnet is a stronger instruction-
+    # follower on the no-fabrication grounding rules, so the grounded LLM
+    # narrative reliably lands on attempt 1 (the single retry + deterministic
+    # fallback safety net stays wired, it should just rarely fire now).
+    # DeepSeek/Gemini/Groq stay in the fallback chain here so the narrative
+    # still generates if Anthropic is down -- and remain PRIMARY for every
+    # OTHER task type (owner directive: quality-insensitive use cases are
+    # unchanged, see TASK_STRUCTURED/TASK_COMPLEX/etc. below).
     TASK_PLAN_NARRATIVE: [
-        DEEPSEEK,  # 2026-07-04: promoted to primary -- owner directive (cost-efficient quality beyond free-tier/Gemini)
-        CLAUDE_HAIKU,  # S49: Quality-first for prose -- best narrative quality
+        CLAUDE,  # S95: Sonnet 4.6 first -- grounding-instruction adherence
+        CLAUDE_HAIKU,  # #2 -- still paid-tier quality if Sonnet is unavailable
+        DEEPSEEK,  # #3 -- primary for every other task type, fallback here
         GEMINI,  # Strong fallback (1.5K RPD)
         GROQ,  # Fast fallback, good prose (14.4K RPD)
         CEREBRAS,  # Hot spare, same model (1M tok/day)
@@ -1475,9 +1489,7 @@ TASK_ROUTING: Dict[str, List[str]] = {
         TOGETHER,  # Fallback ($25 credit)
         MISTRAL,  # Fallback (1M tok/month)
         OPENROUTER,  # Fallback (20 RPM shared)
-        CLAUDE_HAIKU,
         GPT4O,
-        CLAUDE,
         CLAUDE_OPUS,
     ],
     # Plan structured (budget JSON): Gemini excels at JSON + math, free.
