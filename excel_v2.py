@@ -3920,6 +3920,21 @@ def _curated_narrative_derivations(ctx: Dict[str, Any]) -> Dict[str, Tuple[str, 
         _add("gap_pct_of_goal", "percent", gap.get("pct_of_goal") or 0)
         if gap.get("additional_budget"):
             _add("gap_additional_budget", "money", gap["additional_budget"])
+            # Total spend required to actually reach the stated hiring goal --
+            # the plan's own FACTS budget PLUS the goal-gap top-up above,
+            # both drawn from this SAME `ctx` (`budget_num` is the exact
+            # figure the "Budget:" FACTS line prints; `additional_budget` is
+            # the exact figure the "Additional Budget To Close Gap:" FACTS
+            # line prints). A narrative stating "$X total to hit the goal"
+            # is legitimate arithmetic on two real FACTS numbers, not a
+            # fabrication, even though this sum itself is never its own
+            # FACTS line.
+            if budget > 0:
+                _add(
+                    "total_budget_to_reach_goal",
+                    "money",
+                    budget + gap["additional_budget"],
+                )
 
     header_cph = _safe_num(ctx.get("header_cph"))
     if header_cph:
@@ -4875,19 +4890,120 @@ def _build_sheet_executive_summary(
             }
         else:
             logger.warning(
-                "Executive narrative rejected -- untraceable figures not in "
-                "plan FACTS: %s",
+                "Executive narrative rejected on attempt 1 -- untraceable "
+                "figures not in plan FACTS: %s -- issuing one grounded "
+                "self-correction retry before falling back",
                 _untraceable,
             )
-            exec_narrative = _build_deterministic_executive_summary(_narrative_ctx)
-            _narrative_status = {
-                "generated": bool(exec_narrative),
-                "status": "llm_rejected_fabrication" if exec_narrative else "skipped_error",
-                "reason": "untraceable figures: " + "; ".join(_untraceable[:10]),
-                "untraceable_figures": _untraceable[:10],
-                "provider": _llm_provider,
-                "model": _llm_model,
-            }
+            # GROUNDED SINGLE RETRY (house rule: never fabricate, but a
+            # single ungrounded figure shouldn't force the deterministic
+            # fallback when the rest of the draft was good prose). Tell the
+            # model EXACTLY which figures it invented and ask it to rewrite
+            # without them, re-validate the rewrite against the SAME
+            # `_allowed_numbers` attempt 1 was checked against, and only
+            # THEN fall back to the deterministic template if the retry
+            # still cites something untraceable (or the call itself fails).
+            _retry_narrative = ""
+            _retry_provider = _llm_provider
+            _retry_model = _llm_model
+            _retry_call_failed_reason = ""
+            try:
+                _retry_prompt = (
+                    "Here is a draft executive summary you wrote:\n\n"
+                    f"{exec_narrative}\n\n"
+                    "The following figures in that draft do NOT trace back "
+                    "to any number in the FACTS list: "
+                    + ", ".join(_untraceable)
+                    + ".\n\nRewrite the executive summary removing or "
+                    "replacing every one of these figures. Use ONLY numbers "
+                    "present in the FACTS list. Do not introduce any new "
+                    "number, percentage, ratio, or dollar amount. Keep it "
+                    "4-5 sentences, same structure.\n\n"
+                    "FACTS (the ONLY figures you may cite -- do not add, "
+                    "further round, or invent any other number):\n"
+                    f"{_facts_block}\n\n"
+                    "Write as a senior recruitment strategist presenting to "
+                    "a VP of Talent Acquisition."
+                )
+                _retry_result = _llm_call(
+                    messages=[{"role": "user", "content": _retry_prompt}],
+                    system_prompt=(
+                        "You are a senior recruitment marketing strategist "
+                        "correcting your own draft after a fact-check found "
+                        "invented figures. Use ONLY the figures listed in "
+                        "FACTS. Do NOT invent, estimate, or cite any number "
+                        "-- including a percentage, ratio, or dollar figure "
+                        "-- that is not itself in FACTS. No fluff, no "
+                        "generic platitudes."
+                    ),
+                    task_type=TASK_PLAN_NARRATIVE,
+                    max_tokens=600,
+                    timeout_budget=20.0,
+                )
+                _retry_narrative = _retry_result.get("text") or ""
+                _retry_provider = _retry_result.get("provider") or _retry_provider
+                _retry_model = _retry_result.get("model") or _retry_model
+                if not _retry_narrative:
+                    _retry_call_failed_reason = str(
+                        _retry_result.get("error") or "empty response"
+                    )[:300]
+            except Exception as exc:
+                logger.warning(
+                    "Executive narrative grounded retry failed (non-fatal): %s",
+                    exc,
+                )
+                _retry_call_failed_reason = f"{type(exc).__name__}: {str(exc)[:200]}"
+
+            _retry_grounded = False
+            _retry_untraceable: List[str] = []
+            if _retry_narrative:
+                _retry_grounded, _retry_untraceable = _narrative_is_grounded(
+                    _retry_narrative, _allowed_numbers
+                )
+
+            if _retry_grounded:
+                exec_narrative = _retry_narrative
+                _narrative_status = {
+                    "generated": True,
+                    "status": "llm_grounded",
+                    "provider": _retry_provider,
+                    "model": _retry_model,
+                    "retried": True,
+                    "attempt": 2,
+                }
+            else:
+                logger.warning(
+                    "Executive narrative retry also failed grounding (or "
+                    "errored) -- falling back to deterministic template. "
+                    "attempt1_untraceable=%s attempt2_untraceable=%s "
+                    "attempt2_error=%s",
+                    _untraceable,
+                    _retry_untraceable,
+                    _retry_call_failed_reason,
+                )
+                exec_narrative = _build_deterministic_executive_summary(_narrative_ctx)
+                _combined_untraceable = list(_untraceable[:10])
+                for _fig in _retry_untraceable:
+                    if _fig not in _combined_untraceable:
+                        _combined_untraceable.append(_fig)
+                _combined_untraceable = _combined_untraceable[:10]
+                _reason = "untraceable figures (attempt 1): " + "; ".join(
+                    _untraceable[:10]
+                )
+                if _retry_untraceable:
+                    _reason += "; (attempt 2): " + "; ".join(_retry_untraceable[:10])
+                elif _retry_call_failed_reason:
+                    _reason += f"; (attempt 2 failed: {_retry_call_failed_reason})"
+                _narrative_status = {
+                    "generated": bool(exec_narrative),
+                    "status": "llm_rejected_fabrication" if exec_narrative else "skipped_error",
+                    "reason": _reason,
+                    "untraceable_figures": _combined_untraceable,
+                    "provider": _retry_provider or _llm_provider,
+                    "model": _retry_model or _llm_model,
+                    "retried": True,
+                    "attempt": 2,
+                }
     else:
         # LLM call failed/empty/unavailable -- fall back to a deterministic,
         # fully real-data summary rather than skipping the section outright.
