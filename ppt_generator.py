@@ -5521,11 +5521,64 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         )
         cx += cw
 
+    # ---- FUNNEL STRIP (S93: funnel-calibration model) ----
+    # HARD INVARIANT: every number here is read verbatim from
+    # metadata.funnel.totals -- clicks/applications/hires match the table
+    # above exactly; qualified/interviews are ADDED explanatory stages, not
+    # a recomputation. Purely additive context so hires never sit directly
+    # next to raw applications with no visible intermediate funnel.
+    # max_rows is hard-capped at _MAX_VISIBLE_ROWS (rollup absorbs any
+    # overflow into one extra row) -- so totals_y + row_h is a FIXED
+    # worst-case value regardless of channel count, and the vertical band
+    # between it and the footer rule (y=7.12in, see _add_footer) never
+    # grows. To fit the new strip in that fixed band without colliding with
+    # the footer, the combined (gap + strip + gap + insight box) height is
+    # kept to the SAME 0.78in total the insight box alone used to occupy
+    # (0.16in gap + 0.62in box) -- just re-subdivided, so the insight box's
+    # bottom edge lands at the exact same y it always has.
+    funnel_meta = ba_metadata.get("funnel") if isinstance(ba_metadata, dict) else None
+    funnel_strip_h = Inches(0)
+    strip_gap_before = Inches(0.05)
+    strip_gap_after = Inches(0.03)
+    strip_top = totals_y + row_h + strip_gap_before
+    if isinstance(funnel_meta, dict):
+        f_totals = funnel_meta.get("totals") or {}
+        f_raw = f_totals.get("raw_apps")
+        f_qual = f_totals.get("qualified_apps")
+        f_int = f_totals.get("interviews")
+        f_hires = f_totals.get("hires")
+        f_clicks = ba_total_proj.get("clicks") or 0
+        if all(v is not None for v in (f_raw, f_qual, f_int, f_hires)):
+            funnel_strip_h = Inches(0.20)
+            funnel_text = (
+                f"Funnel: {int(f_clicks):,} clicks → {int(f_raw):,} applications "
+                f"→ {int(f_qual):,} qualified → {int(f_int):,} interviews "
+                f"→ {int(f_hires):,} hires"
+            )
+            _add_textbox(
+                slide,
+                table_left,
+                strip_top,
+                table_w,
+                funnel_strip_h,
+                text=funnel_text,
+                font_size=9,
+                italic=True,
+                color=MUTED_TEXT,
+                alignment=PP_ALIGN.LEFT,
+                anchor=MSO_ANCHOR.MIDDLE,
+            )
+
     # ---- ROI INSIGHT CALLOUT (reference-deck dark-indigo takeaway band) ----
-    # Positioned dynamically below the totals row so it never overlaps the table
-    # (the old fixed y=6.05 collided with the totals row when the table was tall).
-    insight_h = Inches(0.62)
-    insight_top = totals_y + row_h + Inches(0.16)
+    # Positioned dynamically below the totals row (and the funnel strip, if
+    # present) so it never overlaps the table (the old fixed y=6.05 collided
+    # with the totals row when the table was tall) OR the footer rule below.
+    if funnel_strip_h:
+        insight_h = Inches(0.50)
+        insight_top = strip_top + funnel_strip_h + strip_gap_after
+    else:
+        insight_h = Inches(0.62)
+        insight_top = totals_y + row_h + Inches(0.16)
     _add_rounded_rect(slide, Inches(0.55), insight_top, Inches(12.2), insight_h, NAVY)
     _add_filled_rect(slide, Inches(0.55), insight_top, Inches(0.06), insight_h, TEAL)
 
