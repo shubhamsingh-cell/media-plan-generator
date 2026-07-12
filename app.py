@@ -7176,6 +7176,51 @@ def _sanitize_filename(raw_name: str) -> str:
     return clean or "unnamed_file"
 
 
+def _build_narrative_status_header(narrative_status: Optional[dict]) -> str:
+    """S94 diagnostic: compact header-safe summary of the Executive Strategic
+    Summary's grounding outcome, set by excel_v2.py on ``data["_narrative_status"]``.
+
+    excel_v2.py's LLM-authored narrative is validated against the plan's real
+    FACTS block before being written to the sheet; a rejection
+    (``llm_rejected_fabrication``) still renders a safe deterministic
+    fallback (``generated=True``), so the fabricated figures the model cited
+    were previously only visible in Render server logs. Exposing them as a
+    response header makes them observable via an authenticated fetch instead
+    -- this is diagnostic infra only, never the narrative text itself.
+
+    HTTP header values must be single-line and latin-1/ASCII-safe, so the
+    JSON is re-encoded with backslashreplace and any embedded newlines are
+    stripped; the result is capped to keep the response header small.
+
+    Args:
+        narrative_status: The ``_narrative_status`` dict excel_v2.py sets on
+            the generation data dict (or None/empty if never set).
+
+    Returns:
+        A compact single-line JSON string, "{}" if narrative_status is
+        falsy or unserializable.
+    """
+    if not narrative_status:
+        return "{}"
+    status = narrative_status
+    try:
+        payload = json.dumps(
+            {
+                "status": status.get("status"),
+                "reason": status.get("reason"),
+                "untraceable_figures": (status.get("untraceable_figures") or [])[:10],
+                "provider": status.get("provider"),
+                "model": status.get("model"),
+            },
+            separators=(",", ":"),
+        )
+    except (TypeError, ValueError):
+        return "{}"
+    payload = payload.encode("ascii", "backslashreplace").decode("ascii")
+    payload = payload.replace("\r", "").replace("\n", "")
+    return payload[:800]
+
+
 def _validate_file_extension(filename: str) -> tuple[bool, str]:
     """Validate file extension against whitelist and blocklist.
 
@@ -16032,33 +16077,51 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
                         # ── S94: Executive narrative failure observability ──
                         # excel_v2.py's Executive Strategic Summary is a
-                        # best-effort LLM call that silently skips generation
-                        # on failure (never blocks the bundle) -- surface WHY
-                        # it was skipped through the SAME job-record/audit
-                        # mechanism bundle_qa findings go to just above,
-                        # instead of the narrative simply not appearing with
-                        # no trace of the reason.
+                        # best-effort LLM call that never blocks the bundle:
+                        # it either skips generation outright on failure
+                        # (generated=False), or -- when the LLM cites figures
+                        # that don't trace back to the plan's own FACTS block
+                        # -- rejects the fabricated text and silently swaps
+                        # in a deterministic template (llm_rejected_fabrication,
+                        # generated=True) or a provider-failure fallback
+                        # (fallback_template, generated=True). Those last two
+                        # used to be invisible here (the old `not generated`
+                        # check only caught the outright-skip case), so the
+                        # untraceable figures the model cited never reached
+                        # the audit log. Surface every non-success status
+                        # through the SAME job-record/audit mechanism
+                        # bundle_qa findings go to just above; only the clean
+                        # success case (llm_grounded) stays silent.
                         _narrative_status = gen_data.get("_narrative_status") or {}
-                        if _narrative_status and not _narrative_status.get("generated"):
+                        _nar_status_val = _narrative_status.get("status")
+                        if _narrative_status and _nar_status_val != "llm_grounded":
                             logger.warning(
-                                "Executive narrative not generated for job %s: %s "
+                                "Executive narrative degraded for job %s: status=%s "
+                                "reason=%s untraceable_figures=%s "
                                 "(providers attempted: %s)",
                                 jid,
+                                _nar_status_val or "unknown",
                                 _narrative_status.get("reason") or "unknown",
+                                _narrative_status.get("untraceable_figures") or [],
                                 _narrative_status.get("providers_attempted") or [],
                             )
                             try:
                                 from audit_logger import log_event as _nar_log_event
 
                                 _nar_log_event(
-                                    action="narrative.generation_skipped",
+                                    action="narrative.generation_degraded",
                                     actor="system",
                                     resource=jid,
                                     details={
                                         "client_name": gen_data.get("client_name")
                                         or "",
+                                        "status": _nar_status_val or "",
                                         "reason": _narrative_status.get("reason")
                                         or "",
+                                        "untraceable_figures": _narrative_status.get(
+                                            "untraceable_figures"
+                                        )
+                                        or [],
                                         "providers_attempted": _narrative_status.get(
                                             "providers_attempted"
                                         )
@@ -18235,7 +18298,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 self.send_header("Content-Length", str(len(zip_bytes)))
                 self.send_header("X-Plan-Id", _plan_id)
-                self.send_header("Access-Control-Expose-Headers", "X-Plan-Id")
+                # ── S94 diagnostic: observe excel_v2's narrative grounding
+                # outcome (llm_grounded / llm_rejected_fabrication /
+                # fallback_template) from outside via an authenticated fetch,
+                # instead of only Render server logs. Gated by the same
+                # @joveo.com/admin auth already required for /api/generate.
+                self.send_header(
+                    "X-Narrative-Status",
+                    _build_narrative_status_header(data.get("_narrative_status")),
+                )
+                self.send_header(
+                    "Access-Control-Expose-Headers",
+                    "X-Plan-Id, X-Narrative-Status",
+                )
                 self.end_headers()
                 self.wfile.write(zip_bytes)
                 generation_time = time.time() - _gen_start
