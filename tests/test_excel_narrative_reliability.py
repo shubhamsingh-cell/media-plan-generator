@@ -13,12 +13,20 @@ anywhere in the workbook.
 
 These tests exercise the fixed code path with a mocked ``llm_router.call_llm``
 (no network) and assert:
-  1. A successful call renders the narrative section.
-  2. Every failure mode (import failure, empty response, exception) sets
-     ``data["_narrative_status"]`` with a non-generic reason -- the
-     observability contract app.py's job-record/audit-log block reads.
+  1. A successful, grounded call renders the LLM narrative section
+     (``_narrative_status["status"] == "llm_grounded"``).
+  2. Every LLM failure mode (import failure, empty response, exception) now
+     renders a DETERMINISTIC, real-data-only fallback summary instead of
+     silently skipping the section -- ``_narrative_status`` records
+     ``status == "fallback_template"`` with the original failure reason, and
+     ``generated`` stays True (app.py's job-record/audit-log block only
+     treats ``generated is False`` as "nothing rendered").
   3. The call is actually routed through TASK_PLAN_NARRATIVE with the raised
      25s timeout budget (was 10s).
+
+See tests/test_excel_narrative_grounding.py for the grounding-validator unit
+tests and the fabrication-rejection -> deterministic-fallback path (house
+rule: never fabricate data).
 
 Runs under pytest, or standalone: ``python3 tests/test_excel_narrative_reliability.py``.
 """
@@ -79,13 +87,20 @@ def _build(data: dict):
 # Success path
 # ---------------------------------------------------------------------------
 def test_narrative_renders_on_success():
-    """A successful call_llm response renders the Executive Strategic Summary
-    section and records generated=True with the provider/model used."""
+    """A successful, grounded call_llm response renders the Executive
+    Strategic Summary section verbatim and records status=llm_grounded with
+    the provider/model used. The mocked text cites ONLY figures present in
+    _minimal_data()'s FACTS (the $150,000 budget, the resolved 13-week
+    duration, the stated 50-hire goal) -- no invented ratios/percentages/
+    dollar values -- so it passes `_narrative_is_grounded` untouched."""
     data = _minimal_data()
     _narrative_text = (
-        "This plan will succeed given a tight labor market. ROI projects "
-        "3.2x. Key risk: seasonal driver shortage. Next step: launch within "
-        "2 weeks."
+        "This $150,000 plan is built to fill CDL Driver roles across "
+        "Dallas, TX over a 13-week campaign. It is calibrated against the "
+        "stated hiring goal of 50, though the plan will need meaningful "
+        "ramp-up to reach that goal. Key risk: regional driver capacity "
+        "remains tight, which could slow early applicant flow. Recommended "
+        "next step: launch priority channels within the first two weeks."
     )
 
     def _fake_call_llm(**kwargs):
@@ -109,17 +124,27 @@ def test_narrative_renders_on_success():
     status = data.get("_narrative_status")
     assert status == {
         "generated": True,
+        "status": "llm_grounded",
         "provider": "deepseek",
         "model": "deepseek-v4-flash",
     }
 
 
 # ---------------------------------------------------------------------------
-# Failure paths -- must never raise, must always record a reason
+# Failure paths -- must never raise, must always render a real-data-only
+# deterministic fallback and record why the LLM narrative wasn't used.
 # ---------------------------------------------------------------------------
+_FALLBACK_SENTENCE = (
+    "This recruitment media plan for Amerigas Test with a $150,000 budget "
+    "and over 13 weeks targeting the Logistics & Supply Chain sector."
+)
+
+
 def test_narrative_absent_records_reason_on_empty_response():
-    """All providers exhausted (empty text) -- section doesn't render, but
-    the reason and attempted providers are recorded, not silently dropped."""
+    """All providers exhausted (empty text) -- the section still renders,
+    via the deterministic real-data-only fallback (never fabricates), and
+    the LLM failure reason + attempted providers are recorded rather than
+    silently dropped."""
     data = _minimal_data()
 
     def _fake_call_llm(**kwargs):
@@ -136,17 +161,20 @@ def test_narrative_absent_records_reason_on_empty_response():
         wb = _build(data)
 
     all_text = "\n".join(_sheet_text(ws) for ws in wb.worksheets)
-    assert "EXECUTIVE STRATEGIC SUMMARY" not in all_text.upper()
+    assert "EXECUTIVE STRATEGIC SUMMARY" in all_text.upper()
+    assert _FALLBACK_SENTENCE in all_text
 
     status = data.get("_narrative_status")
-    assert status["generated"] is False
+    assert status["generated"] is True
+    assert status["status"] == "fallback_template"
     assert status["reason"] == "All LLM providers unavailable or failed"
     assert status["providers_attempted"] == ["deepseek"]
 
 
 def test_narrative_absent_records_reason_on_exception():
-    """A raised exception (e.g. a timeout) is caught, non-fatal, and its
-    type/message are recorded (truncated) instead of a bare skip."""
+    """A raised exception (e.g. a timeout) is caught, non-fatal, the
+    deterministic fallback still renders, and the exception type/message are
+    recorded (truncated) instead of a bare skip."""
     data = _minimal_data()
 
     def _fake_call_llm(**kwargs):
@@ -156,17 +184,20 @@ def test_narrative_absent_records_reason_on_exception():
         wb = _build(data)  # must not raise -- generation stays non-fatal
 
     all_text = "\n".join(_sheet_text(ws) for ws in wb.worksheets)
-    assert "EXECUTIVE STRATEGIC SUMMARY" not in all_text.upper()
+    assert "EXECUTIVE STRATEGIC SUMMARY" in all_text.upper()
+    assert _FALLBACK_SENTENCE in all_text
 
     status = data.get("_narrative_status")
-    assert status["generated"] is False
+    assert status["generated"] is True
+    assert status["status"] == "fallback_template"
     assert "TimeoutError" in status["reason"]
     assert "deadline exceeded" in status["reason"]
 
 
 def test_narrative_absent_records_reason_on_import_error():
-    """If llm_router itself can't be imported, that specific ImportError is
-    recorded rather than a generic 'skipped' with no context."""
+    """If llm_router itself can't be imported, the deterministic fallback
+    still renders and that specific ImportError is recorded rather than a
+    generic 'skipped' with no context."""
     data = _minimal_data()
 
     real_import = __import__
@@ -180,10 +211,12 @@ def test_narrative_absent_records_reason_on_import_error():
         wb = _build(data)
 
     all_text = "\n".join(_sheet_text(ws) for ws in wb.worksheets)
-    assert "EXECUTIVE STRATEGIC SUMMARY" not in all_text.upper()
+    assert "EXECUTIVE STRATEGIC SUMMARY" in all_text.upper()
+    assert _FALLBACK_SENTENCE in all_text
 
     status = data.get("_narrative_status")
-    assert status["generated"] is False
+    assert status["generated"] is True
+    assert status["status"] == "fallback_template"
     assert "ImportError" in status["reason"]
 
 
