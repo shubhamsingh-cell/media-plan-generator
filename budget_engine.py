@@ -1050,6 +1050,363 @@ def _redistribute_hires_by_conversion(
         )
 
 
+# ---------------------------------------------------------------------------
+# S93: Funnel-calibration model (owner-approved)
+# ---------------------------------------------------------------------------
+# HARD INVARIANT: this section only ever ADDS explanatory intermediate
+# stages (qualified applications, interviews) between the plan's existing,
+# unchanged ``raw_apps`` (projected_applications) and ``hires``
+# (projected_hires, CPH-benchmark-anchored -- see
+# ``_redistribute_hires_by_conversion`` above). It never touches budget,
+# clicks, raw applications, hires, CPA, or CPH.
+#
+# Reviewers were docking the plan because hires sit next to raw
+# applications, implying an apply->hire rate of ~0.25-0.5% -- 10-40x below
+# the 5-15% funnel benchmarks the workbook itself cites. The fix is not to
+# change the (economically correct, CPH-anchored) hire count; it's to show
+# the qualification/interview stages a real funnel has in between, fitted
+# so each channel's OWN overall rate (hires / raw_apps) is reproduced
+# exactly by the product of the three stage rates.
+
+# Planning-assumption bands (NOT measured; cited as assumptions in the
+# workbook). Each is (low, high) as a 0-1 fraction.
+FUNNEL_RATE_BANDS: Dict[str, Tuple[float, float]] = {
+    "raw_to_qualified": (0.08, 0.30),
+    "qualified_to_interview": (0.20, 0.50),
+    "interview_to_hire": (0.15, 0.35),
+}
+
+# Channel-intent bias for the raw->qualified stage: niche/referral traffic
+# is high-intent (candidates seek out specialty boards / warm referrals),
+# so it skews toward the TOP of the band; broad social traffic is
+# low-intent (passive scrollers, not active jobseekers), so it skews toward
+# the BOTTOM. Everything else sits at the midpoint.
+_FUNNEL_INTENT_HIGH = {"niche_board", "referral"}
+_FUNNEL_INTENT_LOW = {"social"}
+
+
+def _funnel_intent_bias(category: str) -> float:
+    """0..1 fraction within the raw->qualified band, by channel intent."""
+    if category in _FUNNEL_INTENT_HIGH:
+        return 0.8
+    if category in _FUNNEL_INTENT_LOW:
+        return 0.2
+    return 0.5
+
+
+def _funnel_intent_weight(category: str) -> float:
+    """Relative log-space weight the raw->qualified stage gets when
+    distributing the required overall rate across the 3 stages (used by
+    the water-filling solver below).
+
+    Since ``target_rate < 1`` (so ``log(target_rate) < 0``), a LARGER
+    weight on a stage pulls a MORE NEGATIVE log-share onto it -- i.e. a
+    SMALLER rate. To make raw->qualified skew toward the TOP of its band
+    for high-intent channels (niche/referral) it needs a SMALLER weight
+    (less of the negative budget), and toward the BOTTOM for low-intent
+    channels (social) it needs a LARGER weight."""
+    if category in _FUNNEL_INTENT_HIGH:
+        return 0.15
+    if category in _FUNNEL_INTENT_LOW:
+        return 0.55
+    return 0.35
+
+
+def _fit_channel_funnel_rates(
+    target_rate: float, category: str
+) -> Tuple[float, float, float, bool]:
+    """Fit (raw->qualified, qualified->interview, interview->hire) rates
+    whose product EXACTLY equals ``target_rate`` (= hires / raw_apps for
+    this channel), clamped within ``FUNNEL_RATE_BANDS`` wherever the target
+    is achievable.
+
+    Returns ``(r1, r2, r3, below_or_above_band)``. When ``target_rate``
+    sits outside what the three bands can jointly produce (below the
+    product of all three minimums, or above the product of all three
+    maximums), the two downstream stages (qualified->interview,
+    interview->hire) are pinned to the boundary matching the direction and
+    raw->qualified is allowed to float outside its own band to close the
+    product exactly -- the hires invariant is never broken to keep
+    raw->qualified "in band". Callers should attach a quality_flag + note
+    in this case (see ``compute_funnel_stages``).
+    """
+    lo1, hi1 = FUNNEL_RATE_BANDS["raw_to_qualified"]
+    lo2, hi2 = FUNNEL_RATE_BANDS["qualified_to_interview"]
+    lo3, hi3 = FUNNEL_RATE_BANDS["interview_to_hire"]
+
+    if target_rate <= 0:
+        bias = _funnel_intent_bias(category)
+        return (lo1 + bias * (hi1 - lo1), (lo2 + hi2) / 2.0, lo3, False)
+
+    min_product = lo1 * lo2 * lo3
+    max_product = hi1 * hi2 * hi3
+
+    if target_rate < min_product or target_rate > max_product:
+        below = target_rate < min_product
+        r2 = lo2 if below else hi2
+        r3 = lo3 if below else hi3
+        r1 = target_rate / (r2 * r3)
+        # Safety clamp: raw->qualified can float BELOW its band (a smaller
+        # qualification rate only pushes qualified further under raw_apps,
+        # which is always structurally valid), but it must never exceed
+        # 100% -- qualified applicants can never exceed raw applicants.
+        # This only bites in a pathological upstream data case (hires
+        # implying >17.5% of raw applicants get hired); real budget-engine
+        # output never approaches that.
+        r1 = min(r1, 1.0)
+        return (r1, r2, r3, True)
+
+    # Achievable within bands: weighted water-filling in log-space so the
+    # SUM of the (clamped) log-rates equals log(target_rate) EXACTLY, while
+    # favoring the channel-intent-biased split for raw->qualified over a
+    # pure equal 3-way geometric split.
+    #
+    # Solved via bisection on a shared "water level" scalar t, with
+    # x_i(t) = clamp(weight_i * t, lo_i, hi_i): each x_i(t) is monotonic
+    # non-decreasing and continuous in t, so sum(x_i(t)) is too, sweeping
+    # continuously from sum(lo_i) (t -> -inf) to sum(hi_i) (t -> +inf).
+    # Since target_log is already confirmed within that range, the
+    # Intermediate Value Theorem guarantees an EXACT solution exists at
+    # some t -- including the case where 2 or all 3 stages end up clamped
+    # simultaneously (an ad-hoc "proportional-split-then-clamp" approach
+    # does NOT guarantee this: it can leave every stage clamped at a
+    # boundary with no stage left "free" to absorb the exact remainder).
+    bounds = [
+        (math.log(lo1), math.log(hi1)),
+        (math.log(lo2), math.log(hi2)),
+        (math.log(lo3), math.log(hi3)),
+    ]
+    w1 = _funnel_intent_weight(category)
+    weights = [w1, (1.0 - w1) / 2.0, (1.0 - w1) / 2.0]
+    target_log = math.log(target_rate)
+
+    def _sum_at(t: float) -> float:
+        return sum(_clamp(w * t, lo, hi) for (lo, hi), w in zip(bounds, weights))
+
+    t_lo, t_hi = -1000.0, 1000.0
+    for _ in range(80):
+        t_mid = (t_lo + t_hi) / 2.0
+        if _sum_at(t_mid) < target_log:
+            t_lo = t_mid
+        else:
+            t_hi = t_mid
+    t_final = (t_lo + t_hi) / 2.0
+    result_log = [
+        _clamp(w * t_final, lo, hi) for (lo, hi), w in zip(bounds, weights)
+    ]
+
+    r1, r2, r3 = (math.exp(v) for v in result_log)
+    return (r1, r2, r3, False)
+
+
+def _largest_remainder_stage_round(exact_values: Dict[str, float]) -> Dict[str, int]:
+    """Round a ``{key: float}`` map to ints via largest-remainder so the
+    per-key integers sum EXACTLY to ``round(sum(exact_values.values()))``.
+    """
+    if not exact_values:
+        return {}
+    total_float = sum(exact_values.values())
+    target_total = int(round(total_float))
+    floor_vals = {k: int(math.floor(max(v, 0.0))) for k, v in exact_values.items()}
+    remainder = target_total - sum(floor_vals.values())
+    result = dict(floor_vals)
+    if remainder > 0:
+        order = sorted(
+            exact_values.keys(),
+            key=lambda k: (exact_values[k] - floor_vals[k]),
+            reverse=True,
+        )
+        for k in order[:remainder]:
+            result[k] += 1
+    elif remainder < 0:
+        order = sorted(
+            exact_values.keys(), key=lambda k: (exact_values[k] - floor_vals[k])
+        )
+        for k in order[: (-remainder)]:
+            result[k] = max(0, result[k] - 1)
+    return result
+
+
+def compute_funnel_stages(
+    channel_allocations: Dict[str, Dict], total_hires: int
+) -> Dict[str, Any]:
+    """S93: derive an explanatory raw_apps -> qualified_apps -> interviews
+    -> hires funnel per channel (+ totals), PURELY for narrative/display.
+
+    ``raw_apps`` (from ``projected_applications``) and ``hires`` (from
+    ``projected_hires``) are read as-is from ``channel_allocations`` and
+    never modified -- this function is additive only. For each channel with
+    raw_apps > 0, the three stage rates (raw->qualified, qualified->
+    interview, interview->hire) are fitted -- via
+    ``_fit_channel_funnel_rates`` -- so their product exactly reproduces
+    this channel's own required overall rate (hires / raw_apps), clamped to
+    the ``FUNNEL_RATE_BANDS`` planning-assumption bands wherever that's
+    achievable. Zero-hire channels (brand spend, or a performance channel
+    that landed on 0 hires) get band-typical qualified/interview counts for
+    narrative purposes with hires pinned at 0.
+
+    Per-channel qualified/interview counts are integers via largest-
+    remainder rounding (across all channels, per stage) so the stage total
+    always equals the exact sum of the channel rows.
+
+    Returns::
+
+        {
+            "per_channel": {
+                channel_name: {
+                    "raw_apps": int, "qualified_apps": int,
+                    "interviews": int, "hires": int,
+                    "rates": {"raw_to_qualified": float,
+                              "qualified_to_interview": float,
+                              "interview_to_hire": float},
+                    "quality_flag": str | None,   # only when rate < floor/> ceiling
+                    "note": str | None,
+                },
+                ...
+            },
+            "totals": {"raw_apps": int, "qualified_apps": int,
+                       "interviews": int, "hires": int,
+                       "rates": {...blended...}},
+            "stage_rates": FUNNEL_RATE_BANDS,   # the assumption bands themselves
+            "assumption_note": str,
+        }
+    """
+    per_channel: Dict[str, Dict[str, Any]] = {}
+    qualified_floats: Dict[str, float] = {}
+    channel_meta: Dict[str, Dict[str, Any]] = {}
+
+    for name, ch in (channel_allocations or {}).items():
+        if not isinstance(ch, dict):
+            continue
+        raw_apps = int(ch.get("projected_applications") or 0)
+        hires = int(ch.get("projected_hires") or 0)
+        if raw_apps <= 0:
+            # No applications modeled for this channel -- nothing to build
+            # a funnel from. Degenerate all-zero row (hires should already
+            # be 0 here by construction elsewhere; never fabricate a
+            # non-zero downstream stage from zero raw applications).
+            per_channel[name] = {
+                "raw_apps": 0,
+                "qualified_apps": 0,
+                "interviews": 0,
+                "hires": hires,
+                "rates": {
+                    "raw_to_qualified": None,
+                    "qualified_to_interview": None,
+                    "interview_to_hire": None,
+                },
+                "quality_flag": None,
+                "note": None,
+            }
+            continue
+
+        category = ch.get("category") or _category_for_channel(str(name))
+        target_rate = hires / raw_apps if hires > 0 else 0.0
+        r1, r2, r3, out_of_band = _fit_channel_funnel_rates(target_rate, category)
+
+        quality_flag = None
+        note = None
+        if hires <= 0:
+            # Band-typical, narrative-only qualified/interview counts;
+            # hires stays pinned at 0 (BY DESIGN -- see caller for the
+            # brand-channel rationale). interview->hire rate is recorded as
+            # 0.0 so hires == round(interviews * 0.0) holds exactly.
+            r3 = 0.0
+        elif out_of_band:
+            lo1, hi1 = FUNNEL_RATE_BANDS["raw_to_qualified"]
+            direction = "below" if r1 < lo1 else "above"
+            quality_flag = (
+                "funnel_rate_below_floor" if direction == "below" else "funnel_rate_above_ceiling"
+            )
+            note = (
+                f"{name}: this channel's modeled apply-to-hire rate "
+                f"({target_rate:.2%}) requires a raw->qualified rate "
+                f"({r1:.1%}) {direction} the {lo1:.0%}-{hi1:.0%} planning "
+                "band for its application volume; qualified->interview and "
+                "interview->hire are held at their band "
+                f"{'minimums' if direction == 'below' else 'maximums'} and "
+                "raw->qualified absorbs the difference "
+                f"({'low' if direction == 'below' else 'high'}-intent "
+                "volume note)."
+            )
+
+        qualified_float = raw_apps * r1
+        qualified_floats[name] = qualified_float
+        channel_meta[name] = {
+            "raw_apps": raw_apps,
+            "hires": hires,
+            "r1": r1,
+            "r2": r2,
+            "r3": r3,
+            "quality_flag": quality_flag,
+            "note": note,
+        }
+
+    qualified_ints = _largest_remainder_stage_round(qualified_floats)
+
+    interview_floats: Dict[str, float] = {}
+    for name, meta in channel_meta.items():
+        q_int = qualified_ints.get(name, 0)
+        interview_floats[name] = q_int * meta["r2"]
+    interview_ints = _largest_remainder_stage_round(interview_floats)
+
+    for name, meta in channel_meta.items():
+        q_int = qualified_ints.get(name, 0)
+        i_int = interview_ints.get(name, 0)
+        per_channel[name] = {
+            "raw_apps": meta["raw_apps"],
+            "qualified_apps": q_int,
+            "interviews": i_int,
+            "hires": meta["hires"],
+            "rates": {
+                "raw_to_qualified": round(meta["r1"], 4),
+                "qualified_to_interview": round(meta["r2"], 4),
+                "interview_to_hire": round(meta["r3"], 4),
+            },
+            "quality_flag": meta["quality_flag"],
+            "note": meta["note"],
+        }
+
+    total_raw = sum(v["raw_apps"] for v in per_channel.values())
+    total_qualified = sum(v["qualified_apps"] for v in per_channel.values())
+    total_interviews = sum(v["interviews"] for v in per_channel.values())
+    total_hires_out = int(total_hires) if total_hires else sum(
+        v["hires"] for v in per_channel.values()
+    )
+
+    totals = {
+        "raw_apps": total_raw,
+        "qualified_apps": total_qualified,
+        "interviews": total_interviews,
+        "hires": total_hires_out,
+        "rates": {
+            "raw_to_qualified": round(_safe_divide(total_qualified, total_raw, 0.0), 4),
+            "qualified_to_interview": round(
+                _safe_divide(total_interviews, total_qualified, 0.0), 4
+            ),
+            "interview_to_hire": round(
+                _safe_divide(total_hires_out, total_interviews, 0.0), 4
+            ),
+        },
+    }
+
+    assumption_note = (
+        "Hire totals are anchored to industry cost-per-hire benchmarks, not "
+        "to this funnel -- the stage rates below are planning assumptions "
+        "(raw->qualified 8-30%, qualified->interview 20-50%, "
+        "interview->hire 15-35%) fitted per channel so their product "
+        "exactly reproduces this plan's own hires / raw applications rate; "
+        "they explain the math, they do not drive it."
+    )
+
+    return {
+        "per_channel": per_channel,
+        "totals": totals,
+        "stage_rates": dict(FUNNEL_RATE_BANDS),
+        "assumption_note": assumption_note,
+    }
+
+
 def _finalize_channel_ranking(
     channel_allocations: Dict[str, Dict],
 ) -> List[Dict[str, Any]]:
@@ -3844,6 +4201,17 @@ def calculate_budget_allocation(
     # a single authoritative ranking instead of recomputing its own.
     _channel_ranking = _finalize_channel_ranking(channel_allocs)
 
+    # S93: funnel-calibration model -- purely explanatory intermediate
+    # stages (qualified applications, interviews) between the invariant
+    # raw_apps and hires computed above. Never mutates channel_allocs or
+    # total_projected. See compute_funnel_stages docstring.
+    _funnel = compute_funnel_stages(channel_allocs, total_hires)
+    for _fc in _funnel.get("per_channel", {}).values():
+        if _fc.get("quality_flag"):
+            _quality_flags.append(
+                {"channel": None, "flag": _fc["quality_flag"], "note": _fc.get("note")}
+            )
+
     result = {
         "channel_allocations": channel_allocs,
         "role_allocations": role_budgets,
@@ -3880,6 +4248,12 @@ def calculate_budget_allocation(
             # _finalize_channel_ranking) -- excel_v2's Channels & Strategy
             # sheet should consume this instead of an independent heuristic.
             "channel_ranking": _channel_ranking,
+            # S93 metadata: funnel-calibration model (raw_apps -> qualified
+            # -> interviews -> hires). Additive/explanatory only -- see
+            # compute_funnel_stages. excel_v2's RECRUITMENT FUNNEL table and
+            # ppt_generator's Budget Allocation slide funnel strip read this
+            # instead of recomputing anything locally.
+            "funnel": _funnel,
         },
     }
 
