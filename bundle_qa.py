@@ -943,6 +943,250 @@ def _check_zero_hire_honesty(wb: Any, findings: list[Finding]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Recruitment Funnel (S93: funnel-calibration model) footing
+# ---------------------------------------------------------------------------
+_FUNNEL_STAGE_COLS = (
+    "Clicks",
+    "Applications",
+    "Qualified",
+    "Interviews",
+    "Hires",
+)
+_FUNNEL_RATE_COLS = ("App→Qualified", "Qualified→Interview", "Interview→Hire")
+_FUNNEL_ROUND_TOL = 1.0  # counts
+
+
+def _cell_num_or_dash(v: Any) -> float | None:
+    """Like ``_cell_num`` but treats an explicit '—' placeholder as 0 (a
+    zero-hire channel's Hires/Interview→Hire cell) rather than "not a
+    number" -- callers that need to distinguish the two check ``v`` first.
+    """
+    if isinstance(v, str) and v.strip() == "—":
+        return 0.0
+    return _cell_num(v)
+
+
+def _check_recruitment_funnel_footing(wb: Any, findings: list[Finding]) -> None:
+    """Validate the ROI Projections "Recruitment Funnel" table (S93):
+
+    - stage counts (Applications -> Qualified -> Interviews -> Hires)
+      non-increasing left-to-right on every channel row;
+    - each stage count equals round(prev_stage * printed_rate) within a
+      rounding tolerance of 1;
+    - the TOTAL row of every stage equals the sum of the channel rows
+      (largest-remainder rounding is supposed to guarantee this exactly);
+    - the Hires column agrees with the existing "Proj. Hires" column in the
+      "Per-Channel ROI Analysis" table above, per channel (invariant guard
+      -- the funnel model must never disagree with the plan of record).
+    """
+    if wb is None or "ROI Projections" not in wb.sheetnames:
+        return
+    ws = wb["ROI Projections"]
+    rows = list(ws.iter_rows(values_only=False))
+
+    # ── Gather the existing Per-Channel ROI Analysis hires, by channel name ──
+    roi_hires_by_channel: dict[str, float] = {}
+    for ri, row in enumerate(rows):
+        vals = [c.value for c in row]
+        if "Channel Name" not in vals or "Proj. Hires" not in vals:
+            continue
+        name_ci = vals.index("Channel Name")
+        hires_ci = vals.index("Proj. Hires")
+        dri = ri + 1
+        while dri < len(rows):
+            dvals = [c.value for c in rows[dri]]
+            label = dvals[name_ci] if name_ci < len(dvals) else None
+            if not isinstance(label, str) or not label.strip():
+                break
+            hv = _cell_num(dvals[hires_ci]) if hires_ci < len(dvals) else None
+            if hv is not None:
+                roi_hires_by_channel[label.strip()] = hv
+            dri += 1
+        break
+
+    # ── Locate the Recruitment Funnel table ──
+    header_ci: dict[str, int] = {}
+    header_ri = None
+    for ri, row in enumerate(rows):
+        vals = [c.value for c in row]
+        if "Channel Name" in vals and all(c in vals for c in _FUNNEL_STAGE_COLS):
+            header_ci = {name: vals.index(name) for name in ("Channel Name", *_FUNNEL_STAGE_COLS, *_FUNNEL_RATE_COLS) if name in vals}
+            header_ri = ri
+            break
+    if header_ri is None:
+        return  # no funnel table -- nothing to check (e.g. zero-budget edge case)
+
+    name_ci = header_ci.get("Channel Name")
+    clicks_ci = header_ci.get("Clicks")
+    apps_ci = header_ci.get("Applications")
+    qual_ci = header_ci.get("Qualified")
+    int_ci = header_ci.get("Interviews")
+    hires_ci = header_ci.get("Hires")
+    r1_ci = header_ci.get("App→Qualified")
+    r2_ci = header_ci.get("Qualified→Interview")
+    r3_ci = header_ci.get("Interview→Hire")
+    if None in (name_ci, apps_ci, qual_ci, int_ci, hires_ci, r1_ci, r2_ci, r3_ci):
+        findings.append(
+            _finding(
+                "warn",
+                "recruitment_funnel_header_incomplete",
+                "Recruitment Funnel table is missing an expected column",
+                f"{ws.title}!row{rows[header_ri][0].row}",
+            )
+        )
+        return
+
+    channel_rows: list[tuple[int, list[Any]]] = []
+    total_row: list[Any] | None = None
+    ri = header_ri + 1
+    while ri < len(rows):
+        dvals = [c.value for c in rows[ri]]
+        label = dvals[name_ci] if name_ci < len(dvals) else None
+        if not isinstance(label, str) or not label.strip():
+            break
+        if label.strip().upper() == "TOTAL":
+            total_row = dvals
+            ri += 1
+            break
+        channel_rows.append((rows[ri][0].row, dvals))
+        ri += 1
+
+    sum_clicks = sum_apps = sum_qual = sum_int = sum_hires = 0.0
+    for row_num, dvals in channel_rows:
+        loc = f"{ws.title}!row{row_num}"
+        label = str(dvals[name_ci]).strip()
+        clicks = _cell_num(dvals[clicks_ci]) if clicks_ci is not None and clicks_ci < len(dvals) else None
+        raw_apps = _cell_num(dvals[apps_ci]) if apps_ci < len(dvals) else None
+        qualified = _cell_num(dvals[qual_ci]) if qual_ci < len(dvals) else None
+        interviews = _cell_num(dvals[int_ci]) if int_ci < len(dvals) else None
+        hires_raw = dvals[hires_ci] if hires_ci < len(dvals) else None
+        hires = _cell_num_or_dash(hires_raw)
+        r1 = _cell_num(dvals[r1_ci]) if r1_ci < len(dvals) else None
+        r2 = _cell_num(dvals[r2_ci]) if r2_ci < len(dvals) else None
+        r3_raw = dvals[r3_ci] if r3_ci < len(dvals) else None
+        # "—" interview->hire rate means "not modeled" (0-hire row) -- keep
+        # it as None rather than coercing to 0.0, so the rate*prev check
+        # below is skipped for it rather than asserting hires == 0.
+        r3 = None if (isinstance(r3_raw, str) and r3_raw.strip() == "—") else _cell_num(r3_raw)
+
+        if clicks is not None:
+            sum_clicks += clicks
+        if raw_apps is not None:
+            sum_apps += raw_apps
+        if qualified is not None:
+            sum_qual += qualified
+        if interviews is not None:
+            sum_int += interviews
+        if hires is not None:
+            sum_hires += hires
+
+        # Non-increasing: Applications >= Qualified >= Interviews >= Hires.
+        stage_vals = [raw_apps, qualified, interviews, hires]
+        if all(v is not None for v in stage_vals):
+            for a, b in zip(stage_vals, stage_vals[1:]):
+                if b - a > _FUNNEL_ROUND_TOL:
+                    findings.append(
+                        _finding(
+                            "critical",
+                            "funnel_stage_not_monotonic",
+                            f"Row {label!r} funnel stages {stage_vals} are not "
+                            "non-increasing left-to-right",
+                            loc,
+                        )
+                    )
+                    break
+
+        # Stage count == round(prev * rate) within tolerance.
+        if raw_apps is not None and qualified is not None and r1 is not None:
+            expected = round(raw_apps * r1)
+            if abs(expected - qualified) > _FUNNEL_ROUND_TOL:
+                findings.append(
+                    _finding(
+                        "critical",
+                        "funnel_rate_footing_mismatch",
+                        f"Row {label!r}: Qualified={qualified} but "
+                        f"Applications({raw_apps}) x App→Qualified({r1}) "
+                        f"rounds to {expected}",
+                        loc,
+                    )
+                )
+        if qualified is not None and interviews is not None and r2 is not None:
+            expected = round(qualified * r2)
+            if abs(expected - interviews) > _FUNNEL_ROUND_TOL:
+                findings.append(
+                    _finding(
+                        "critical",
+                        "funnel_rate_footing_mismatch",
+                        f"Row {label!r}: Interviews={interviews} but "
+                        f"Qualified({qualified}) x Qualified→Interview({r2}) "
+                        f"rounds to {expected}",
+                        loc,
+                    )
+                )
+        if (
+            interviews is not None
+            and hires is not None
+            and r3 is not None
+            and not (isinstance(hires_raw, str) and hires_raw.strip() == "—")
+        ):
+            expected = round(interviews * r3)
+            if abs(expected - hires) > _FUNNEL_ROUND_TOL:
+                findings.append(
+                    _finding(
+                        "critical",
+                        "funnel_rate_footing_mismatch",
+                        f"Row {label!r}: Hires={hires} but "
+                        f"Interviews({interviews}) x Interview→Hire({r3}) "
+                        f"rounds to {expected}",
+                        loc,
+                    )
+                )
+
+        # Invariant guard: Hires must agree with the ROI table's own
+        # Proj. Hires column for the same channel.
+        roi_hires = roi_hires_by_channel.get(label)
+        if roi_hires is not None and hires is not None and abs(roi_hires - hires) > 0.5:
+            findings.append(
+                _finding(
+                    "critical",
+                    "funnel_hires_invariant_mismatch",
+                    f"Row {label!r}: Recruitment Funnel Hires={hires} but "
+                    f"Per-Channel ROI Analysis Proj. Hires={roi_hires}",
+                    loc,
+                )
+            )
+
+    if total_row is not None:
+        total_loc = f"{ws.title}!row{rows[header_ri + 1 + len(channel_rows)][0].row}"
+        t_clicks = _cell_num(total_row[clicks_ci]) if clicks_ci is not None and clicks_ci < len(total_row) else None
+        t_apps = _cell_num(total_row[apps_ci]) if apps_ci < len(total_row) else None
+        t_qual = _cell_num(total_row[qual_ci]) if qual_ci < len(total_row) else None
+        t_int = _cell_num(total_row[int_ci]) if int_ci < len(total_row) else None
+        t_hires = _cell_num_or_dash(total_row[hires_ci]) if hires_ci < len(total_row) else None
+
+        _pairs = [
+            ("Clicks", t_clicks, sum_clicks),
+            ("Applications", t_apps, sum_apps),
+            ("Qualified", t_qual, sum_qual),
+            ("Interviews", t_int, sum_int),
+            ("Hires", t_hires, sum_hires),
+        ]
+        for stage_name, total_val, channel_sum in _pairs:
+            if total_val is None:
+                continue
+            if abs(total_val - channel_sum) > _FUNNEL_ROUND_TOL:
+                findings.append(
+                    _finding(
+                        "critical",
+                        "funnel_total_footing_mismatch",
+                        f"Recruitment Funnel TOTAL {stage_name}={total_val} but "
+                        f"channel rows sum to {channel_sum}",
+                        total_loc,
+                    )
+                )
+
+
+# ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 def run_bundle_qa(
@@ -1016,6 +1260,13 @@ def run_bundle_qa(
         _check_zero_hire_honesty(wb, findings)
     except Exception as exc:  # noqa: BLE001
         findings.append(_finding("warn", "zero_hire_check_crashed", f"{exc!r}", ""))
+
+    try:
+        _check_recruitment_funnel_footing(wb, findings)
+    except Exception as exc:  # noqa: BLE001
+        findings.append(
+            _finding("warn", "recruitment_funnel_check_crashed", f"{exc!r}", "")
+        )
 
     return findings
 
