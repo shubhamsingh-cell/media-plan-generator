@@ -25,7 +25,9 @@ from __future__ import annotations
 
 import io
 import logging
+import random
 import re
+import time
 import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -1677,6 +1679,39 @@ def _flatten_value(val: Any, max_depth: int = 3) -> str:
         return "; ".join(parts)
 
     return str(val)[:200]
+
+
+def _truncate_at_word_boundary(text: str, max_len: int) -> str:
+    """Truncate `text` to at most `max_len` characters without ever cutting
+    a word in half.
+
+    Prod defect (Market Intelligence "Company Profile" description cell):
+    a hard `text[:N]` character slice landed mid-word ("...manages ...
+    communities in more than 200 l"). This backs the cut point off to the
+    nearest preceding whitespace boundary and appends a single clean
+    ellipsis -- never a mid-word fragment, never a doubled "..".
+
+    No-op (returns `text` stripped, unchanged) when it already fits within
+    `max_len`. `max_len <= 0` returns "" defensively rather than raising.
+    """
+    text = (text or "").strip()
+    if max_len <= 0:
+        return ""
+    if len(text) <= max_len:
+        return text
+    cut = text[:max_len].rstrip()
+    last_space = cut.rfind(" ")
+    if last_space > 0:
+        cut = cut[:last_space]
+    # Strip trailing punctuation so the appended ellipsis is never doubled
+    # up against a "." / "," / ";" the word-boundary backoff left dangling.
+    cut = cut.rstrip(" .,;:-")
+    if not cut:
+        # Pathological case: a single "word" alone exceeds max_len (no
+        # whitespace to back off to at all) -- fall back to a hard cut
+        # rather than returning an empty string.
+        cut = text[:max_len].rstrip()
+    return f"{cut}…"
 
 
 _PHYSICIAN_ROLE_KEYWORDS = (
@@ -3495,6 +3530,23 @@ def _narrative_is_grounded(
     return (len(untraceable) == 0, untraceable)
 
 
+def _is_llm_concurrency_busy_error(error_text: str) -> bool:
+    """True when `error_text` is llm_router's global concurrency-limiter
+    rejection (`_llm_concurrency_semaphore` full, ``attempts=[]`` -- no
+    provider was ever actually tried) rather than a genuine provider
+    failure/timeout.
+
+    Prod defect (S95/defect3): under contention this rejection made the
+    Executive Strategic Summary narrative ALWAYS fall back to the weaker
+    deterministic template, even though a couple of seconds later a
+    concurrency slot would have freed up. Narrowly matched on llm_router's
+    own wording so a real provider error (bad auth, timeout, model error,
+    ...) is never mistaken for busy-contention and retried needlessly.
+    """
+    s = (error_text or "").lower()
+    return "server busy" in s or "too many concurrent" in s or "concurrency" in s
+
+
 def _clean_benchmark_text_for_parsing(text: Any) -> str:
     """Strip parenthetical asides (e.g. "3.22% (lowest of all 24
     occupations, declining)") out of a raw KB benchmark string before
@@ -3699,7 +3751,15 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
     if ctx.get("budget_num", 0) > 0:
         lines.append(f"Budget: {_fmt_currency(ctx['budget_num'])}")
     if ctx.get("duration"):
-        lines.append(f"Duration: {ctx['duration']}")
+        # S95/defect1: feed the LLM sensible framing for an unbounded
+        # ("Ongoing") duration instead of the bare raw value -- an LLM told
+        # only "Duration: Ongoing" has been observed echoing it back as the
+        # same nonsensical "over Ongoing" phrasing the deterministic
+        # template used to produce.
+        if _is_unbounded_duration(ctx["duration"]):
+            lines.append("Duration: Ongoing (no fixed end date)")
+        else:
+            lines.append(f"Duration: {ctx['duration']}")
     if ctx.get("locations"):
         _locs = ctx["locations"]
         lines.append(f"Locations ({len(_locs)}): {', '.join(str(l) for l in _locs[:6])}")
@@ -4013,6 +4073,20 @@ def _build_narrative_allowed_numbers(ctx: Dict[str, Any], facts_text: str) -> Di
     return allowed
 
 
+def _is_unbounded_duration(duration: Any) -> bool:
+    """True when `duration` represents an unbounded/open-ended campaign --
+    the wizard's "Ongoing" duration option (`templates/partials/index/
+    body_content.html` <option value="Ongoing">), any case variant of it, or
+    an empty/not-specified value -- rather than a fixed length like "6
+    months". Shared by `_build_deterministic_executive_summary` and
+    `_build_narrative_facts_block` so neither renders the nonsensical "over
+    Ongoing" phrasing (prod defect: "...with a $25,000 budget and over
+    Ongoing targeting the Healthcare & Medical sector.", no verb, no fixed
+    length to be "over")."""
+    s = str(duration or "").strip().lower()
+    return s in ("", "ongoing", "unbounded", "not specified", "tbd", "n/a")
+
+
 def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
     """Render a plain-language executive summary using ONLY the real plan
     fields already gathered in `ctx` -- no LLM call, so it structurally
@@ -4033,16 +4107,38 @@ def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
 
     # 1. Client + budget + duration.
     if client_name or budget_num > 0 or duration:
-        bits = []
-        if budget_num > 0:
-            bits.append(f"a {_fmt_currency(budget_num)} budget")
-        if duration:
-            bits.append(f"over {duration}")
-        detail = " with " + " and ".join(bits) if bits else ""
-        industry_bit = f" targeting the {industry_label} sector" if industry_label else ""
+        # S95/defect1: an unbounded ("Ongoing") duration doesn't fit the
+        # "over <duration>" template -- "over Ongoing" has no verb and no
+        # fixed length to be "over". Give it its own natural phrasing
+        # instead so the budget+duration clause always reads as a single
+        # grammatical unit, whichever case applies.
+        budget_bit = f"a {_fmt_currency(budget_num)} budget" if budget_num > 0 else ""
+        if duration and _is_unbounded_duration(duration):
+            duration_bit = "on an ongoing basis"
+        elif duration:
+            duration_bit = f"over {duration}"
+        else:
+            duration_bit = ""
+
+        if budget_bit and duration_bit:
+            detail = f" with {budget_bit} {duration_bit}"
+        elif budget_bit:
+            detail = f" with {budget_bit}"
+        elif duration_bit:
+            detail = f" running {duration_bit}"
+        else:
+            detail = ""
+
+        industry_bit = f"targeting the {industry_label} sector" if industry_label else ""
+        # A comma only reads correctly when there's a preceding detail
+        # clause for "targeting..." to attach to -- otherwise (no budget,
+        # no duration) it would dangle right after the client name.
+        tail = f", {industry_bit}" if (industry_bit and detail) else (
+            f" {industry_bit}" if industry_bit else ""
+        )
         sentences.append(
             f"This recruitment media plan for {client_name or 'this client'}"
-            f"{detail}{industry_bit}."
+            f"{detail}{tail}."
         )
 
     # 2. Projected hires vs. goal + budget to close the gap.
@@ -4809,6 +4905,7 @@ def _build_sheet_executive_summary(
     _llm_providers_attempted: List[str] = []
     _llm_provider = ""
     _llm_model = ""
+    _retried_on_busy = False  # S95/defect3: set True when a concurrency-limiter busy retry won
     try:
         from llm_router import call_llm as _llm_call, TASK_PLAN_NARRATIVE
 
@@ -4835,6 +4932,20 @@ def _build_sheet_executive_summary(
             "multiplier, 'total value'/'savings' dollar figure, or supply-gap "
             "percentage that is not itself a number in FACTS."
         )
+        _narrative_system_prompt = (
+            "You are a senior recruitment marketing strategist presenting to "
+            "C-suite executives. Write with authority and explain causal "
+            "reasoning. Use ONLY the figures listed in FACTS in the user "
+            "message. You MAY state simple per-week/per-month/per-channel "
+            "rates that are basic arithmetic on FACTS numbers (e.g. FACTS "
+            "budget divided by FACTS duration, or a single channel's own "
+            "FACTS row restated as a rate) -- do NOT invent, estimate, or "
+            "cite any industry average, external benchmark, ROI multiplier, "
+            "'total value'/'savings' dollar figure, or supply-gap percentage "
+            "that is not itself a number in FACTS. If you lack a number for a "
+            "claim, make the claim qualitatively, without a number. No fluff, "
+            "no generic platitudes."
+        )
         # S94 FIX: this used to instantiate `LLMRouter()` -- a class that
         # llm_router.py has never exported (every other call site in the
         # codebase uses the module-level call_llm() function directly). That
@@ -4846,20 +4957,7 @@ def _build_sheet_executive_summary(
         # the fast DeepSeek tier -- see llm_router.DEEPSEEK_FAST_TASK_TYPES).
         _exec_result = _llm_call(
             messages=[{"role": "user", "content": _narrative_prompt}],
-            system_prompt=(
-                "You are a senior recruitment marketing strategist presenting to "
-                "C-suite executives. Write with authority and explain causal "
-                "reasoning. Use ONLY the figures listed in FACTS in the user "
-                "message. You MAY state simple per-week/per-month/per-channel "
-                "rates that are basic arithmetic on FACTS numbers (e.g. FACTS "
-                "budget divided by FACTS duration, or a single channel's own "
-                "FACTS row restated as a rate) -- do NOT invent, estimate, or "
-                "cite any industry average, external benchmark, ROI multiplier, "
-                "'total value'/'savings' dollar figure, or supply-gap percentage "
-                "that is not itself a number in FACTS. If you lack a number for a "
-                "claim, make the claim qualitatively, without a number. No fluff, "
-                "no generic platitudes."
-            ),
+            system_prompt=_narrative_system_prompt,
             task_type=TASK_PLAN_NARRATIVE,  # S48: Route narratives to fast-prose providers
             max_tokens=600,
             timeout_budget=25.0,
@@ -4872,6 +4970,70 @@ def _build_sheet_executive_summary(
                 a.get("provider") for a in (_exec_result.get("attempts") or [])
             ]
             _llm_failure_reason = str(_exec_result.get("error") or "empty response")[:300]
+
+            # S95/defect3: llm_router's global concurrency semaphore
+            # (_LLM_MAX_CONCURRENT=10) can reject a call before ANY provider
+            # even runs -- "Server busy -- too many concurrent LLM
+            # requests..." with attempts=[]. That's transient contention,
+            # not a genuine provider failure, so under load this narrative
+            # was ALWAYS losing to the (weaker) deterministic template even
+            # though a slot typically frees up within a few seconds. Retry
+            # the SAME call up to 2 more times with a short backoff before
+            # giving up -- ONLY on this specific busy signal; a real
+            # provider error/timeout/exception keeps its existing
+            # single-shot path (the `except` clauses below, and the
+            # untraceable-figure grounded retry after this block, are
+            # unaffected). Total added wait is bounded well under 8s
+            # (2 + <=0.5 jitter, then 4 + <=0.5 jitter).
+            if _is_llm_concurrency_busy_error(_llm_failure_reason):
+                for _busy_backoff in (2.0, 4.0):
+                    time.sleep(_busy_backoff + random.uniform(0.0, 0.5))
+                    try:
+                        _busy_result = _llm_call(
+                            messages=[{"role": "user", "content": _narrative_prompt}],
+                            system_prompt=_narrative_system_prompt,
+                            task_type=TASK_PLAN_NARRATIVE,
+                            max_tokens=600,
+                            timeout_budget=25.0,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Executive narrative busy-retry call raised "
+                            "(non-fatal): %s",
+                            exc,
+                        )
+                        _llm_failure_reason = f"{type(exc).__name__}: {str(exc)[:200]}"
+                        continue
+                    _busy_text = _busy_result.get("text") or ""
+                    if _busy_text:
+                        exec_narrative = _busy_text
+                        _llm_provider = _busy_result.get("provider") or ""
+                        _llm_model = _busy_result.get("model") or ""
+                        _retried_on_busy = True
+                        logger.info(
+                            "Executive narrative succeeded on a "
+                            "concurrency-limiter busy retry (provider=%s)",
+                            _llm_provider,
+                        )
+                        break
+                    _llm_providers_attempted = [
+                        a.get("provider") for a in (_busy_result.get("attempts") or [])
+                    ]
+                    _llm_failure_reason = str(
+                        _busy_result.get("error") or "empty response"
+                    )[:300]
+                    if not _is_llm_concurrency_busy_error(_llm_failure_reason):
+                        # A genuine (non-busy) error surfaced on retry --
+                        # stop retrying and fall through with THIS reason.
+                        break
+                if not exec_narrative:
+                    logger.warning(
+                        "Executive narrative still empty after concurrency "
+                        "busy-retries -- falling back to deterministic "
+                        "template. last_reason=%s",
+                        _llm_failure_reason,
+                    )
+                    _llm_failure_reason = f"concurrency-limited: {_llm_failure_reason}"
     except ImportError as exc:
         logger.warning("LLM router not available for executive narrative")
         _llm_failure_reason = f"ImportError: {str(exc)[:200]}"
@@ -5022,6 +5184,15 @@ def _build_sheet_executive_summary(
                 "reason": _llm_failure_reason or "empty response",
                 "providers_attempted": _llm_providers_attempted,
             }
+
+    # S95/defect3: tag observability on whichever status dict ended up
+    # winning above -- added as a single post-processing step (rather than
+    # threading it through every branch's dict literal) so the untouched
+    # branches' exact dict shapes (asserted verbatim by existing tests) are
+    # unaffected when no busy retry ever happened.
+    if _retried_on_busy:
+        _narrative_status = dict(_narrative_status)
+        _narrative_status["retried_on_busy"] = True
     data["_narrative_status"] = _narrative_status
 
     if exec_narrative:
@@ -6224,6 +6395,14 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 
         for key, val in profile_fields.items():
             val_str = _flatten_value(val)
+            # S95/defect2: the company "description"/"summary" free-text
+            # fields (Wikipedia-sourced, unbounded length) are the only
+            # Company Profile values long enough to need a cap for a
+            # readable merged cell -- bound them at a clean WORD boundary
+            # (never mid-word) rather than leaving them unbounded or
+            # hard-slicing at a fixed character count.
+            if key in ("Description", "Summary"):
+                val_str = _truncate_at_word_boundary(val_str, 500)
             if val_str:
                 row = _write_kv_row(ws, row, key, val_str)
         row += 1

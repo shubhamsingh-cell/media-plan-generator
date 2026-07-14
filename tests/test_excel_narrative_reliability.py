@@ -136,7 +136,7 @@ def test_narrative_renders_on_success():
 # ---------------------------------------------------------------------------
 _FALLBACK_SENTENCE = (
     "This recruitment media plan for Amerigas Test with a $150,000 budget "
-    "and over 13 weeks targeting the Logistics & Supply Chain sector."
+    "over 13 weeks, targeting the Logistics & Supply Chain sector."
 )
 
 
