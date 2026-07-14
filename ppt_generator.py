@@ -11132,6 +11132,24 @@ def _build_slide_why_joveo(prs: Presentation, data: Dict, deck: Dict) -> None:
     _add_footer(slide, today)
 
 
+def _is_unbounded_duration(duration: Any) -> bool:
+    """True when ``duration`` represents an unbounded/open-ended campaign --
+    the wizard's "Ongoing" duration option, any case variant of it, or an
+    empty/not-specified value -- rather than a fixed length like "6 months".
+
+    Mirrors ``excel_v2._is_unbounded_duration`` exactly (kept as a local
+    copy rather than a cross-module import -- this codebase's established
+    pattern for small helpers shared between excel_v2.py and
+    ppt_generator.py, e.g. ``_proper_client_name``/``_TITLE_ACRONYMS``) so
+    the deck's Next Steps slide never renders the nonsensical "over
+    Ongoing" phrasing the workbook's executive summary used to produce
+    (prod defect: "Finalize weekly budget (25000 over Ongoing) and success
+    metrics").
+    """
+    s = str(duration or "").strip().lower()
+    return s in ("", "ongoing", "unbounded", "not specified", "tbd", "n/a")
+
+
 def _interpolate_next_steps(steps: List[Any], data: Dict) -> List[str]:
     """Splice this plan's own facts into the KB's industry-agnostic Next
     Steps template (``data/joveo_media_plan_deck_2026.json``).
@@ -11179,16 +11197,41 @@ def _interpolate_next_steps(steps: List[Any], data: Dict) -> List[str]:
     else:
         loc_phrase = ""
 
-    budget = str(data.get("budget") or "").strip()
+    # copy:both#4 follow-up / S95-style defect: ``data["budget"]`` can arrive
+    # either as a pre-formatted display string ("$150,000", from the wizard)
+    # or a raw number (25000, from a JSON brief) -- ``_parse_budget_number``
+    # (shared_utils.parse_budget_display) normalizes either shape to a float
+    # so it can be rendered through the SAME compact formatter used
+    # everywhere else in this deck, instead of a raw "25000" leaking onto
+    # the slide verbatim. An unbounded ("Ongoing") duration gets its own
+    # natural phrasing (mirroring excel_v2._build_deterministic_executive_
+    # summary / _is_unbounded_duration above) instead of the grammatically
+    # broken "over Ongoing" -- worded slightly differently for the
+    # parenthetical vs. em-dash bullet so each reads as a single clause.
+    budget_num = _parse_budget_number(data.get("budget"))
+    budget_fmt = _fmt.fmt_money(budget_num, compact=True) if budget_num else ""
     duration = str(data.get("campaign_duration") or "").strip()
-    if budget and duration:
-        budget_duration = f"{budget} over {duration}"
-    elif budget:
-        budget_duration = budget
-    elif duration:
-        budget_duration = f"over {duration}"
-    else:
-        budget_duration = ""
+    unbounded = bool(duration) and _is_unbounded_duration(duration)
+
+    def _budget_duration_phrase(dash_style: bool) -> str:
+        if budget_fmt and duration:
+            if unbounded:
+                return (
+                    f"{budget_fmt} on an ongoing basis"
+                    if dash_style
+                    else f"{budget_fmt}, ongoing"
+                )
+            return f"{budget_fmt} over {duration}"
+        if budget_fmt:
+            return budget_fmt
+        if duration:
+            if unbounded:
+                return "on an ongoing basis" if dash_style else "ongoing"
+            return f"over {duration}"
+        return ""
+
+    budget_duration_paren = _budget_duration_phrase(dash_style=False)
+    budget_duration_dash = _budget_duration_phrase(dash_style=True)
 
     out: List[str] = []
     for step in steps:
@@ -11196,12 +11239,12 @@ def _interpolate_next_steps(steps: List[Any], data: Dict) -> List[str]:
         low = text.lower()
         if "align on scope" in low and roles_phrase and loc_phrase:
             text = f"Align on scope: confirm the {roles_phrase} priority and the {loc_phrase}"
-        elif "finalize weekly budget" in low and budget_duration:
-            text = f"Finalize weekly budget ({budget_duration}) and success metrics"
+        elif "finalize weekly budget" in low and budget_duration_paren:
+            text = f"Finalize weekly budget ({budget_duration_paren}) and success metrics"
         elif "integrate the client job feed" in low and client:
             text = f"Integrate {client}'s job feed with the Joveo platform"
-        elif "launch campaign within" in low and budget_duration:
-            text = f"Launch within 2 business weeks of feed integration — {budget_duration}"
+        elif "launch campaign within" in low and budget_duration_dash:
+            text = f"Launch within 2 business weeks of feed integration — {budget_duration_dash}"
         elif "30-day review" in low and client:
             text = f"30-day review: CPA actuals, pipeline quality, {client}'s scale-up recommendation"
         out.append(text)

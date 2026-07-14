@@ -366,7 +366,11 @@ class TestNextStepsInterpolation:
         blob = "\n".join(out)
         assert "Manpower - Amerigas" in blob
         assert "CDL A Driver" in blob
-        assert "$150,000" in blob
+        # copy:both#4-follow-up: budget now renders compact ("$150K"), not
+        # a raw pass-through of the pre-formatted "$150,000" wizard string
+        # -- matches display_format.fmt_money's compact style used
+        # everywhere else on this deck.
+        assert "$150K" in blob
         assert "6 months" in blob
 
     def test_two_clients_render_different_next_steps(self):
@@ -388,6 +392,44 @@ class TestNextStepsInterpolation:
 
     def test_empty_steps_returns_empty(self):
         assert ppt._interpolate_next_steps([], _logistics_plan()) == []
+
+    # -----------------------------------------------------------------
+    # prod-Atria defect: "25000 over Ongoing" -- raw unformatted budget +
+    # ungrammatical unbounded-duration phrasing on the Next Steps slide.
+    # -----------------------------------------------------------------
+    def _ongoing_plan(self, budget=25000, duration="Ongoing"):
+        return {
+            "client_name": "Gedu Global Education",
+            "budget": budget,
+            "campaign_duration": duration,
+            "target_roles": [{"title": "Admissions Counselor"}],
+            "locations": ["Remote"],
+        }
+
+    def test_unbounded_duration_formats_compact_money_no_over_ongoing(self):
+        base = ppt._load_deck_kb().get("next_steps") or []
+        out = ppt._interpolate_next_steps(base, self._ongoing_plan())
+        blob = "\n".join(out)
+        assert "$25K" in blob
+        assert "over Ongoing" not in blob
+        assert "over ongoing" not in blob.lower()
+        assert "25000" not in blob
+
+    def test_bounded_duration_still_reads_over_duration(self):
+        base = ppt._load_deck_kb().get("next_steps") or []
+        out = ppt._interpolate_next_steps(
+            base, self._ongoing_plan(duration="6 months")
+        )
+        blob = "\n".join(out)
+        assert "over 6 months" in blob
+        assert "$25K" in blob
+        assert "25000" not in blob
+
+    def test_ongoing_case_variants_and_synonyms_are_unbounded(self):
+        for variant in ("ongoing", "ONGOING", "unbounded", "TBD", "not specified"):
+            assert ppt._is_unbounded_duration(variant) is True
+        for bounded in ("6 months", "18 months", "12 weeks"):
+            assert ppt._is_unbounded_duration(bounded) is False
 
 
 # ---------------------------------------------------------------------------

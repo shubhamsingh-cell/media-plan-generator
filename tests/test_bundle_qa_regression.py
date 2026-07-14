@@ -127,6 +127,63 @@ def test_detects_dollar_point_zero_k():
     assert any(f["code"] == "dollar_point_zero_k" for f in findings)
 
 
+def test_detects_over_ongoing_grammar():
+    """prod-Atria defect: 'Finalize weekly budget (25000 over Ongoing) and
+    success metrics' -- an unbounded duration spliced verbatim into the
+    '<budget> over <duration>' template, plus the raw unformatted budget
+    digits that shipped alongside it. Both artifact guards must fire."""
+    units = [
+        bundle_qa._TextUnit(
+            "Finalize weekly budget (25000 over Ongoing) and success metrics",
+            "X!A1",
+        )
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_text_patterns(units, {}, findings)
+    codes = {f["code"] for f in findings}
+    assert "over_ongoing_grammar" in codes
+    assert "raw_number_before_over" in codes
+
+
+def test_allows_fixed_ongoing_phrasing_and_formatted_money():
+    """The corrected phrasing this codebase now emits ('$25K, ongoing' /
+    '$25K on an ongoing basis' / '$25K over 6 months') must NOT
+    false-positive on either new check."""
+    units = [
+        bundle_qa._TextUnit(
+            "Finalize weekly budget ($25K, ongoing) and success metrics",
+            "X!A1",
+        ),
+        bundle_qa._TextUnit(
+            "Launch within 2 business weeks of feed integration — $25K "
+            "on an ongoing basis",
+            "X!A2",
+        ),
+        bundle_qa._TextUnit(
+            "Finalize weekly budget ($25K over 6 months) and success metrics",
+            "X!A3",
+        ),
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_text_patterns(units, {}, findings)
+    codes = {f["code"] for f in findings}
+    assert "over_ongoing_grammar" not in codes
+    assert "raw_number_before_over" not in codes
+
+
+def test_raw_number_before_over_ignores_out_of_range_digit_runs():
+    """The 4-7 digit window targets an unformatted BUDGET specifically -- a
+    short 2-digit rank or an 8+ digit reference number before 'over' is a
+    different shape and must not be flagged."""
+    units = [
+        bundle_qa._TextUnit("Rank 12 over 500 applicants", "X!A1"),
+        bundle_qa._TextUnit("Reference 123456789 over quota", "X!A2"),
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_text_patterns(units, {}, findings)
+    assert not any(f["code"] == "raw_number_before_over" for f in findings)
+
+
 def test_detects_location_advisory_leak_unconditionally():
     units = [bundle_qa._TextUnit("Location advisory: verify targeting", "X!A1")]
     findings: list[dict] = []

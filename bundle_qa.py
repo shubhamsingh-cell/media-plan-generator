@@ -81,6 +81,20 @@ _DOLLAR_POINT_ZERO_K_RE = re.compile(r"\$\d+(?:,\d{3})*\.0K\b")
 _DURATION_LABEL_RE = re.compile(
     r"([A-Za-z0-9 .,~-]*?)\(~\s*(\d+)\s*weeks?\)"
 )
+# prod-Atria defect: an unbounded ("Ongoing") duration spliced straight into
+# the "<budget> over <duration>" template read as the ungrammatical "over
+# Ongoing" (no verb, no fixed length to be "over"), and a raw unformatted
+# budget (e.g. the int 25000, never routed through display_format.fmt_money)
+# leaked onto the slide as bare digits immediately before "over" -- see
+# ppt_generator._interpolate_next_steps / _is_unbounded_duration and
+# excel_v2._is_unbounded_duration, which now avoid generating this text.
+# Kept here too as a standing artifact guard so this exact defect class can
+# never ship silently again, regardless of which generator path produced it.
+# Case-sensitive on "Ongoing" -- the deliberately-lowercased "ongoing" this
+# codebase's fixed phrasing now uses ("$25K, ongoing" / "on an ongoing
+# basis") must NOT false-positive here.
+_OVER_ONGOING_RE = re.compile(r"over\s+Ongoing\b")
+_RAW_NUMBER_BEFORE_OVER_RE = re.compile(r"\b\d{4,7}\s+over\b")
 _AI_TRAINING_VOCAB = (
     "ai trainer",
     "ai training",
@@ -345,6 +359,29 @@ def _check_text_patterns(
                     "critical",
                     "dollar_point_zero_k",
                     f"'$X.0K' trailing-zero artifact: {stripped[:120]!r}",
+                    u.location,
+                )
+            )
+
+        if _OVER_ONGOING_RE.search(text):
+            findings.append(
+                _finding(
+                    "critical",
+                    "over_ongoing_grammar",
+                    f"Ungrammatical unbounded-duration phrasing 'over "
+                    f"Ongoing': {stripped[:120]!r}",
+                    u.location,
+                )
+            )
+
+        if _RAW_NUMBER_BEFORE_OVER_RE.search(text):
+            findings.append(
+                _finding(
+                    "critical",
+                    "raw_number_before_over",
+                    f"Raw unformatted number directly before 'over' "
+                    f"(budget should be money-formatted): "
+                    f"{stripped[:120]!r}",
                     u.location,
                 )
             )
