@@ -3779,6 +3779,57 @@ _REGION_NEIGHBORS: Dict[str, set] = {
     "us_south": {"us_southeast", "us_southwest", "us_midwest"},
 }
 
+# Human-readable display names for internal region keys. These keys are
+# used internally (proximity lookups, KB indexing) but must NEVER leak
+# into client-facing warning text as raw snake_case tokens -- always
+# route them through _humanize_region_key() before interpolating into a
+# warning string. Covers every code produced by standardizer.REGION_MAP
+# plus the extra codes referenced by _REGION_NEIGHBORS above, and a few
+# common synonyms for defense in depth.
+_REGION_DISPLAY_NAMES: Dict[str, str] = {
+    "us_northeast": "US Northeast",
+    "us_southeast": "US Southeast",
+    "us_midwest": "US Midwest",
+    "us_southwest": "US Southwest",
+    "us_west": "US West",
+    "us_west_coast": "US West Coast",
+    "us_south": "US South",
+    "us_east": "US East",
+    "us_pacific": "US Pacific",
+    "us_northwest": "US Northwest",
+    "us_mountain": "US Mountain",
+    "us_central": "US Central",
+    "us_new_england": "US New England",
+    "us_mid_atlantic": "US Mid-Atlantic",
+}
+
+
+def _humanize_region_key(region_key: Optional[str]) -> str:
+    """Convert an internal region key (e.g. "us_midwest") into a
+    human-readable display string (e.g. "US Midwest") suitable for
+    client-facing warning text.
+
+    This is the single choke point that keeps raw snake_case region
+    keys (like "us_midwest" or "us_southwest") out of analyst-facing
+    copy -- e.g. the Sources & Confidence sheet. Known codes use a
+    curated display name; anything unrecognized falls back to a
+    generic humanization so NO snake_case token can ever leak through,
+    even for region codes added later.
+    """
+    if not region_key:
+        return "an unspecified region"
+    key = str(region_key).strip()
+    if key in _REGION_DISPLAY_NAMES:
+        return _REGION_DISPLAY_NAMES[key]
+
+    # Fallback for any unmapped code: humanize generically instead of
+    # ever emitting the raw snake_case key.
+    parts = [p for p in key.replace("-", "_").split("_") if p]
+    if not parts:
+        return key.replace("_", " ").title()
+    words = [p.upper() if p.lower() == "us" else p.capitalize() for p in parts]
+    return " ".join(words)
+
 
 def _extract_state_abbr(location_str: str) -> Optional[str]:
     """Extract a US state abbreviation from a freeform location string.
@@ -3965,16 +4016,18 @@ def _validate_location_plausibility(
                     is_neighbor = True
                     break
 
+            user_region_display = _humanize_region_key(user_region)
+
             if is_neighbor:
                 severity = "low"
                 reason = (
-                    f"{loc_str} is in a neighboring region ({user_region}) "
+                    f"{loc_str} is in a neighboring region ({user_region_display}) "
                     f"but not in {company_name}'s known operating area."
                 )
             else:
                 severity = "medium"
                 reason = (
-                    f"{loc_str} ({user_region}) appears outside "
+                    f"{loc_str} ({user_region_display}) appears outside "
                     f"{company_name}'s known operating region"
                 )
                 if company_hq:

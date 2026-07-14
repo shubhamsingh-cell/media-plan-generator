@@ -10,6 +10,7 @@ Validates that the _validate_location_plausibility function correctly:
 
 from __future__ import annotations
 
+import re
 import sys
 import os
 from typing import Any, Dict, List
@@ -19,7 +20,12 @@ import pytest
 # Ensure the project root is importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from data_synthesizer import _validate_location_plausibility
+from data_synthesizer import _validate_location_plausibility, _humanize_region_key
+
+# Matches a raw snake_case token like "us_midwest" or "us_southwest" --
+# used to assert client-facing warning text never leaks internal region
+# keys (bundle_qa's snake_case_leak check uses an equivalent pattern).
+_SNAKE_CASE_TOKEN_RE = re.compile(r"\b[a-z]+_[a-z0-9]+\b")
 
 
 # ---------------------------------------------------------------------------
@@ -332,3 +338,103 @@ class TestSynthesisData:
         )
         if warnings:
             assert warnings[0]["company_hq"] == "Waltham, Massachusetts"
+
+
+# ---------------------------------------------------------------------------
+# Tests: Region-key humanization -- no raw snake_case leaks into warnings
+# ---------------------------------------------------------------------------
+#
+# Regression coverage for a real prod Atria Senior Living bundle where the
+# Sources & Confidence sheet rendered:
+#   D22: "Chicago, IL is in a neighboring region (us_midwest) but not in
+#         Atria Senior Living's known operating area."
+#   D23: "Dallas, TX (us_southwest) appears outside Atria Senior Living's
+#         known operating region."
+# bundle_qa flagged both as CRITICAL snake_case_leak findings. Region keys
+# must always be routed through _humanize_region_key() before landing in
+# client-facing warning text.
+
+
+class TestRegionKeyHumanization:
+    """Raw region keys (us_midwest, us_southwest, ...) must never appear
+    in client-facing warning strings -- only their humanized form."""
+
+    # Atria Senior Living is headquartered in Louisville, Kentucky (KY,
+    # us_southeast). Chicago, IL is us_midwest (a neighbor of
+    # us_southeast -> "neighboring region" / low severity). Dallas, TX is
+    # us_southwest (not a neighbor of us_southeast -> "appears outside" /
+    # medium severity). This reproduces both prod warning variants.
+    COMPANY = "Atria Senior Living"
+    HQ = "Louisville, Kentucky"
+    DESCRIPTION = (
+        "Atria Senior Living is a senior living company headquartered in "
+        "Louisville, Kentucky, operating communities across the United States."
+    )
+
+    def _get_warnings(self) -> List[Dict[str, Any]]:
+        return _validate_location_plausibility(
+            _make_input(self.COMPANY, ["Chicago, IL", "Dallas, TX"]),
+            _make_enriched(self.HQ, self.DESCRIPTION),
+            {},
+        )
+
+    def test_reproduces_neighboring_region_and_appears_outside_variants(self) -> None:
+        """Sanity check that this fixture actually exercises both code
+        paths (low-severity neighbor + medium-severity non-neighbor)."""
+        warnings = self._get_warnings()
+        assert len(warnings) == 2
+        severities = {w["severity"] for w in warnings}
+        assert "low" in severities
+        assert "medium" in severities
+
+    def test_no_snake_case_token_in_any_warning_reason(self) -> None:
+        """No warning 'reason' string may contain a raw snake_case token
+        (e.g. 'us_midwest', 'us_southwest') -- this is bundle_qa's
+        snake_case_leak check reproduced directly against the generator."""
+        warnings = self._get_warnings()
+        assert warnings, "fixture should produce warnings to check"
+        for w in warnings:
+            leaks = _SNAKE_CASE_TOKEN_RE.findall(w["reason"])
+            assert not leaks, f"snake_case leak in reason: {w['reason']!r} -> {leaks}"
+
+    def test_chicago_renders_us_midwest_not_raw_key(self) -> None:
+        """Chicago, IL (us_midwest, neighboring region) must render as
+        'US Midwest', never as the raw 'us_midwest' token."""
+        warnings = self._get_warnings()
+        chicago = next(w for w in warnings if w["location"] == "Chicago, IL")
+        assert chicago["severity"] == "low"
+        assert "US Midwest" in chicago["reason"]
+        assert "us_midwest" not in chicago["reason"]
+        assert "neighboring region" in chicago["reason"]
+
+    def test_dallas_renders_us_southwest_not_raw_key(self) -> None:
+        """Dallas, TX (us_southwest, outside operating region) must render
+        as 'US Southwest', never as the raw 'us_southwest' token."""
+        warnings = self._get_warnings()
+        dallas = next(w for w in warnings if w["location"] == "Dallas, TX")
+        assert dallas["severity"] == "medium"
+        assert "US Southwest" in dallas["reason"]
+        assert "us_southwest" not in dallas["reason"]
+        assert "appears outside" in dallas["reason"]
+
+    def test_humanize_region_key_known_codes(self) -> None:
+        """Direct unit coverage of the humanizer for known region codes."""
+        assert _humanize_region_key("us_midwest") == "US Midwest"
+        assert _humanize_region_key("us_southwest") == "US Southwest"
+        assert _humanize_region_key("us_northeast") == "US Northeast"
+        assert _humanize_region_key("us_southeast") == "US Southeast"
+        assert _humanize_region_key("us_west_coast") == "US West Coast"
+        assert _humanize_region_key("us_west") == "US West"
+        assert _humanize_region_key("us_south") == "US South"
+
+    def test_humanize_region_key_unmapped_fallback_never_leaks(self) -> None:
+        """Any future/unmapped region code must still humanize -- never
+        fall through as a raw snake_case string."""
+        result = _humanize_region_key("us_pacific_northwest_islands")
+        assert not _SNAKE_CASE_TOKEN_RE.search(result)
+        assert result == "US Pacific Northwest Islands"
+
+    def test_humanize_region_key_none_or_empty(self) -> None:
+        """None/empty region keys should not crash or leak underscores."""
+        assert "_" not in _humanize_region_key(None)
+        assert "_" not in _humanize_region_key("")
