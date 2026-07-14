@@ -408,6 +408,30 @@ class TestCompetitorVerticalClassification:
     def test_amazon_is_industry_for_retail(self):
         assert ppt._classify_competitor_vertical("Amazon", "retail_consumer") == "industry"
 
+    def test_national_carriers_are_talent_market_for_senior_living(self):
+        # fix/plan-quality-8 (prod Atria bundle): UPS/FedEx are logistics
+        # carriers, not same-vertical senior-living operators -- they only
+        # compete for the same wage band/labor pool as a healthcare/senior-
+        # living client, not the same residents/customers.
+        for name in ("UPS", "FedEx", "Amazon", "DHL", "USPS", "Walmart", "Target"):
+            assert (
+                ppt._classify_competitor_vertical(name, "healthcare_medical")
+                == "talent_market"
+            ), name
+
+    def test_genuine_senior_living_operators_stay_industry(self):
+        for name in (
+            "Brookdale Senior Living",
+            "Sunrise Senior Living",
+            "Atria Senior Living",
+            "Sonida Senior Living",
+            "Five Star Senior Living",
+        ):
+            assert (
+                ppt._classify_competitor_vertical(name, "healthcare_medical")
+                == "industry"
+            ), name
+
     def test_competitive_landscape_slide_tags_amazon_talent_market(self):
         data = _healthcare_plan()  # competitors: Brookdale, Sunrise, Amazon
         prs = _new_prs()
@@ -426,6 +450,112 @@ class TestCompetitorVerticalClassification:
         )
         assert industry_why != talent_market_why
         assert "wage" in talent_market_why.lower() or "labor pool" in talent_market_why.lower()
+
+
+# ---------------------------------------------------------------------------
+# 6. Company/competitor description truncation (word boundary, single ellipsis)
+# ---------------------------------------------------------------------------
+class TestTruncWord:
+    def test_long_text_cuts_at_word_boundary_not_mid_word(self):
+        desc = (
+            "Atria Senior Living, Inc., commonly also known as Atria Senior "
+            "Living, is a subsidiary of Atria Communities, Inc. and is a "
+            "private company based in Louisville, Kentucky that operates "
+            "senior living communities across the United States and Canada."
+        )
+        out = ppt._trunc_word(desc, 100)
+        assert out.endswith("...")
+        stem = out[: -len("...")]
+        # Every word in the truncated stem must be a full word taken
+        # verbatim from the source string -- i.e. the cut point was a
+        # space in the original text, never inside a word.
+        assert desc.startswith(stem)
+        assert stem == "" or desc[len(stem)] == " " or len(stem) == len(desc)
+
+    def test_no_double_ellipsis_when_source_already_truncated(self):
+        # Simulates a pre-truncated upstream API description (already ends
+        # in its own raw "...") -- re-truncating must not double the marker.
+        pre_truncated = (
+            "Atria Senior Living, Inc., also known as Atria Senior Living, "
+            "is a subsidiary of Atria Communities, Inc. and offers senior "
+            "living services nationwide..."
+        )
+        out = ppt._trunc_word(pre_truncated, 60)
+        assert "......" not in out
+        assert out.count("...") == 1
+        assert out.endswith("...")
+
+    def test_unicode_ellipsis_normalized(self):
+        out = ppt._trunc_word("Atria Senior Living is a great company…", 500)
+        assert "…" not in out
+        assert not out.endswith("...")  # nothing was actually truncated
+
+    def test_short_text_is_unchanged(self):
+        assert ppt._trunc_word("Short description.", 100) == "Short description."
+
+    def test_no_trailing_comma_before_ellipsis(self):
+        # A cut that lands right after a comma-terminated word must not
+        # leave a dangling "word,..." -- the comma is stripped too.
+        desc = "Alpha, Beta, Gamma, Delta, Epsilon, Zeta, Eta, Theta, Iota"
+        out = ppt._trunc_word(desc, 12)
+        assert not re.search(r"[,;:-]\.\.\.$", out)
+
+
+# ---------------------------------------------------------------------------
+# 7. Competitor card overflow (cap to what fits above the footer)
+# ---------------------------------------------------------------------------
+class TestCompetitorCardOverflowFix:
+    def test_four_plus_competitors_do_not_overflow_past_footer(self):
+        data = _healthcare_plan()
+        data["competitors"] = [
+            "Brookdale Senior Living",
+            "Sunrise Senior Living",
+            "Sonida Senior Living",
+            "Five Star Senior Living",
+        ]
+        prs = _new_prs()
+        ppt._build_slide_competitive_landscape(prs, data)
+        assert len(prs.slides) == 1
+        slide = prs.slides[0]
+
+        footer_rule_y = ppt.Inches(7.12)
+        right_left = ppt.Inches(6.5)
+        right_w = ppt.Inches(6.3)
+        card_h = ppt.Inches(1.3)
+        tol = ppt.Inches(0.05)
+
+        # Identify competitor CARD shapes specifically (the white rounded-
+        # rect card background, right_w wide x 1.3in tall) -- not the
+        # "COMPETITOR LANDSCAPE" section header textbox, which shares the
+        # same left/width but a much shorter height.
+        card_bottoms = []
+        for shape in slide.shapes:
+            if (
+                shape.left is not None
+                and abs(shape.left - right_left) < tol
+                and shape.width is not None
+                and abs(shape.width - right_w) < tol
+                and shape.height is not None
+                and abs(shape.height - card_h) < tol
+            ):
+                card_bottoms.append(shape.top + shape.height)
+
+        assert card_bottoms, "expected at least one competitor card shape"
+        assert len(card_bottoms) <= 3, "no more than 3 competitor cards should render"
+        for bottom in card_bottoms:
+            assert bottom <= footer_rule_y, (
+                f"competitor card bottom {bottom} exceeds footer y {footer_rule_y}"
+            )
+
+    def test_card_count_capped_at_three(self):
+        data = _healthcare_plan()
+        data["competitors"] = ["Brookdale Senior Living", "Sunrise Senior Living", "Sonida Senior Living", "Five Star Senior Living"]
+        prs = _new_prs()
+        ppt._build_slide_competitive_landscape(prs, data)
+        blob = "\n".join(_all_slide_text(prs))
+        # The 4th competitor should never appear -- a clean cap, not a
+        # partially-drawn card.
+        assert "Five Star Senior Living" not in blob
 
 
 if __name__ == "__main__":

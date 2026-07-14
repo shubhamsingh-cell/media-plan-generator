@@ -765,12 +765,33 @@ def _set_body_font(tf) -> None:
             r.font.name = FONT_BODY
 
 
+# fix/plan-quality-8 (prod Atria bundle): source text (company bios pulled
+# from enrichment APIs) sometimes already carries its own trailing "..." /
+# "…" from an upstream snippet truncation. Re-truncating that raw text
+# without stripping the existing marker first produced a doubled ellipsis,
+# or -- once the marker fell inside our own maxlen window -- a cut that
+# read as if it landed mid-word. Strip any pre-existing trailing ellipsis
+# before deciding whether/where to cut so the final text always ends in
+# exactly one clean ellipsis, never a partial word.
+_TRAILING_ELLIPSIS_RE = re.compile(r"(?:\.{2,}|…)\s*$")
+
+
 def _trunc_word(s: str, maxlen: int = 500) -> str:
-    """Truncate text at word boundary to prevent PPT text box overflow."""
-    s = str(s)
+    """Truncate text at a word boundary to prevent PPT text box overflow.
+
+    Always produces a single clean trailing ellipsis and never cuts inside
+    a word -- even when the input already carries its own raw/partial
+    ellipsis (e.g. a pre-truncated upstream API description).
+    """
+    s = _TRAILING_ELLIPSIS_RE.sub("", str(s or "")).rstrip()
     if len(s) <= maxlen:
         return s
-    return s[:maxlen].rsplit(" ", 1)[0] + "..."
+    cut = s[:maxlen].rsplit(" ", 1)[0].rstrip(" ,;:-")
+    if not cut:
+        # No space anywhere in the window (one giant unbroken token) --
+        # fall back to a hard cut rather than returning nothing.
+        cut = s[:maxlen].rstrip(" ,;:-")
+    return cut + "..."
 
 
 # ---------------------------------------------------------------------------
@@ -7415,6 +7436,14 @@ def _strip_competitor_tag(name: str) -> str:
 # for Atria the way Brookdale is) and don't compete for the client's actual
 # customers/residents. Per-industry carve-outs cover the sectors where the
 # SAME name genuinely is a same-vertical player.
+#
+# fix/plan-quality-8 (prod Atria bundle): the national logistics/parcel
+# carriers (UPS, FedEx, DHL, USPS) belong in this same bucket -- they were
+# previously missing, so a senior-living/healthcare client's competitor
+# list tagged UPS/FedEx as an "Industry competitor" (same-vertical operator)
+# when they only compete for the same wage band/labor pool, not the same
+# residents/customers. logistics_supply_chain is carved out below so they
+# still read as "Industry competitor" for an actual logistics client.
 _CROSS_INDUSTRY_MEGA_EMPLOYERS = frozenset(
     {
         "amazon",
@@ -7426,6 +7455,10 @@ _CROSS_INDUSTRY_MEGA_EMPLOYERS = frozenset(
         "starbucks",
         "mcdonald's",
         "mcdonalds",
+        "ups",
+        "fedex",
+        "dhl",
+        "usps",
     }
 )
 _INDUSTRY_MEGA_EMPLOYER_EXCEPTIONS: Dict[str, frozenset] = {
@@ -7436,6 +7469,9 @@ _INDUSTRY_MEGA_EMPLOYER_EXCEPTIONS: Dict[str, frozenset] = {
         {"amazon", "walmart", "target", "costco", "home depot", "kroger"}
     ),
     "hospitality_travel": frozenset({"starbucks", "mcdonald's", "mcdonalds"}),
+    "logistics_supply_chain": frozenset(
+        {"ups", "fedex", "dhl", "usps", "amazon", "walmart"}
+    ),
 }
 
 
@@ -7534,6 +7570,17 @@ def _compose_competitor_why(
     return templates[idx].format(
         name=name, pool=pool, type_phrase=type_phrase, article=article
     )
+
+
+# fix/plan-quality-8 (prod Atria bundle): the competitor card column starts
+# at section_top(1.6in) + 0.5in = 2.1in and each card (with the taller
+# counter-strategy prose) is 1.3in + a 0.12in gap = 1.42in tall. The footer
+# rule sits at y=7.12in (_add_footer). 3 cards bottom out at
+# 2.1 + 3*1.3 + 2*0.12 = 6.24in -- comfortably above the footer. A 4th card
+# bottoms out at 7.66in, past both the footer band and the 7.5in slide
+# itself. Cap the rendered (and collected) competitor count here so a 4th
+# card never gets drawn partially off the slide.
+_MAX_COMPETITOR_CARDS = 3
 
 
 def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
@@ -7910,7 +7957,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         competitors: Dict[str, Any] = {}
         _direct_comps = data.get("competitors") or []
         if isinstance(_direct_comps, list) and _direct_comps:
-            for _dc in _direct_comps[:4]:
+            for _dc in _direct_comps[:_MAX_COMPETITOR_CARDS]:
                 _dc_name = (
                     str(_dc).strip()
                     if isinstance(_dc, str)
@@ -7935,7 +7982,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                         ),
                     }
         elif isinstance(_direct_comps, dict) and _direct_comps:
-            competitors = dict(list(_direct_comps.items())[:4])
+            competitors = dict(list(_direct_comps.items())[:_MAX_COMPETITOR_CARDS])
 
         if not competitors:
             _ci_competitors = comp_intel.get("competitors", {})
@@ -7962,10 +8009,10 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 ]
                 seen: set = set()
                 _rr_idx = 0
-                while len(competitors) < 4 and _city_employer_lists:
+                while len(competitors) < _MAX_COMPETITOR_CARDS and _city_employer_lists:
                     _added_this_round = False
                     for city_name, employers in _city_employer_lists:
-                        if len(competitors) >= 4:
+                        if len(competitors) >= _MAX_COMPETITOR_CARDS:
                             break
                         if _rr_idx < len(employers):
                             emp_name = str(employers[_rr_idx]).strip()
@@ -7985,7 +8032,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             gold = data.get("_gold_standard") or {}
             _gs_comp_list = gold.get("competitors_list") or []
             if isinstance(_gs_comp_list, list) and _gs_comp_list:
-                for _gc in _gs_comp_list[:4]:
+                for _gc in _gs_comp_list[:_MAX_COMPETITOR_CARDS]:
                     _gc_name = (
                         str(_gc).strip()
                         if isinstance(_gc, str)
@@ -8023,7 +8070,9 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             # card needs more room than the original 1.0in fit.
             comp_card_h = Inches(1.3)
             comp_card_gap = Inches(0.12)
-            for ci, (comp_name, comp_data) in enumerate(list(competitors.items())[:4]):
+            for ci, (comp_name, comp_data) in enumerate(
+                list(competitors.items())[:_MAX_COMPETITOR_CARDS]
+            ):
                 if not isinstance(comp_data, dict):
                     continue
                 cy = comp_card_top + ci * (comp_card_h + comp_card_gap)
