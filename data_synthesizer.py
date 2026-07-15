@@ -608,6 +608,33 @@ def _get_nested(d: dict, *keys: str, default: Any = None) -> Any:
     return current
 
 
+def _truncate_at_word_boundary(text: str, max_len: int) -> str:
+    """Truncate `text` to at most `max_len` characters without ever cutting
+    a word in half (same semantics as excel_v2._truncate_at_word_boundary;
+    duplicated locally because this module stays free of the generator
+    modules' heavy imports).
+
+    A hard `text[:N]` slice here would land mid-word, and the renderers'
+    own word-boundary caps no-op on anything already within their limit --
+    so a data-layer cut must itself be word-safe.
+    """
+    text = (text or "").strip()
+    if max_len <= 0:
+        return ""
+    if len(text) <= max_len:
+        return text
+    cut = text[:max_len].rstrip()
+    last_space = cut.rfind(" ")
+    if last_space > 0:
+        cut = cut[:last_space]
+    cut = cut.rstrip(" .,;:-")
+    if not cut:
+        # A single "word" alone exceeds max_len -- fall back to a hard cut
+        # rather than returning an empty string.
+        cut = text[:max_len].rstrip()
+    return f"{cut}…"
+
+
 def _weight_for_source(source_label: str) -> float:
     """Return reliability weight for a source label, defaulting to 0.5."""
     if not source_label:
@@ -4115,7 +4142,9 @@ def fuse_competitive_intelligence(
 
     if isinstance(wiki_data, dict) and wiki_data:
         company_profile["description"] = wiki_data.get("description") or ""
-        company_profile["summary"] = wiki_data.get("summary") or ""[:500]
+        company_profile["summary"] = _truncate_at_word_boundary(
+            wiki_data.get("summary") or "", 500
+        )
         company_profile["wikipedia_url"] = wiki_data.get("url") or ""
         if wiki_data.get("description") or wiki_data.get("summary"):
             source_count += 1
@@ -4264,7 +4293,7 @@ def fuse_competitive_intelligence(
     if isinstance(_sec, dict) and _sec:
         result["company_sec"] = {
             "cik": _sec.get("cik"),
-            "filings": _sec.get("recent_filings") or [][:5],
+            "filings": (_sec.get("recent_filings") or [])[:5],
             "sic_code": _sec.get("sic"),
             "fiscal_year_end": _sec.get("fiscal_year_end"),
         }
@@ -4897,7 +4926,7 @@ def _build_narrative_context(
     if salary_data:
         for role_key, sal in salary_data.items():
             if isinstance(sal, dict) and sal.get("median"):
-                sources_str = ", ".join(sal.get("sources") or [][:3])
+                sources_str = ", ".join((sal.get("sources") or [])[:3])
                 parts.append(
                     f"Salary ({role_key}): median ${sal['median']:,}, "
                     f"range ${sal.get('p25') or 0:,}-${sal.get('p75') or 0:,}, "

@@ -5722,7 +5722,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                     f"in {', '.join(str(l).split(',')[0] for l in locations[:2])}"
                 )
             if notes and len(notes) > 10:
-                rationale_parts.append(notes[:60])
+                rationale_parts.append(notes)
 
             # S5 (2026-07-03, findings 39/52): never hard-truncate the
             # rationale mid-word -- write it in full and let the row wrap
@@ -6093,7 +6093,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     lc.get("country") or "",
                     _flatten_value(lc.get("unemployment_rate") or ""),
                     _flatten_value(lc.get("median_salary") or ""),
-                    lc.get("context_note") or ""[:80],
+                    _truncate_at_word_boundary(lc.get("context_note") or "", 80),
                 ]
                 row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
         row += 1
@@ -6270,7 +6270,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 "population": pop_str,
                 "unemployment": unemp_str,
                 "income": income_str,
-                "industries": industry_str[:80] if industry_str else "",
+                "industries": _truncate_at_word_boundary(industry_str, 80),
                 "rationale": _rationale,
             }
         )
