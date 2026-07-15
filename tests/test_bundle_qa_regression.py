@@ -251,11 +251,7 @@ def test_allows_subset_market_count_within_total():
     the plan's total market count -- e.g. "High Competition (1 market)" on
     a 6-location plan is correct, not a mismatch. Any subset count
     (<= n_locations) must not be flagged."""
-    units = [
-        bundle_qa._TextUnit(
-            "Fortune 500+ companies hiring same roles in 1 market", "slide 9"
-        )
-    ]
+    units = [bundle_qa._TextUnit("High Competition (1 market)", "slide 9")]
     findings: list[dict] = []
     bundle_qa._check_text_patterns(
         units,
