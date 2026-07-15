@@ -530,10 +530,26 @@ def test_async_generate_completes_with_dict_shaped_roles(live_server: int) -> No
     "completed", not "failed" with a roles-shape TypeError. Real end-to-end
     run through the actual background worker (not a mocked pipeline) --
     the bug was specifically in how the async closure hands raw request
-    data to classify_industry(), which only a real run exercises."""
+    data to classify_industry(), which only a real run exercises.
+
+    /api/generate's ``_rl_generate`` limiter (10 real requests/60s, keyed
+    by client IP -- app.py's centralized rate limiting) is process-global
+    and shared with every other test file's real /api/generate calls in
+    the same pytest run (e.g. tests/test_api_estimate.py's
+    TestOriginGateLive makes 4). This file alone already makes 6 real
+    calls before this test's 7th; a 5th+ file-external call happening to
+    land in the same 60s window is enough to exhaust the budget and turn
+    this into a false-positive 429 unrelated to the dict-roles fix under
+    test. Clear this test's own IP bucket immediately before its one real
+    call so the assertion is about the fix, not about pytest's file
+    collection order or how many other suites shared the last 60 seconds.
+    """
     port = live_server
     payload = _gen_payload("async-dict-roles")
     payload["target_roles"] = [{"title": "CDL A Driver", "count": 250}]
+
+    with app_module._rl_generate._lock:
+        app_module._rl_generate._requests.pop("127.0.0.1", None)
 
     status, _headers, body = _http_post_generate(
         port,
@@ -552,6 +568,21 @@ def test_async_generate_completes_with_dict_shaped_roles(live_server: int) -> No
         "the identical brief."
     )
     assert "expected str instance, dict found" not in (final.get("error") or "")
+
+    # Same barrier the other async tests in this file use: the job dict
+    # flips to "completed" before do_POST's finally releases the worker's
+    # slot (trailing post-response work -- metrics, Slack notify -- still
+    # runs), so a caller must poll for the slot's return rather than
+    # assume it's back the instant the job reads terminal. Skipping this
+    # leaks a held slot into whichever test runs next in the same pytest
+    # process (observed: a later test_api_estimate.py live-server test
+    # got 429 instead of 400 because this job's slot was still held).
+    assert _wait_for_slots_available(
+        app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
+    ), (
+        "generate slots were not all released after the dict-shaped-roles "
+        "async job reached terminal status -- would leak into later tests"
+    )
 
 
 if __name__ == "__main__":
