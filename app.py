@@ -21,6 +21,7 @@ except ImportError:
     fcntl = None  # Windows compatibility: file locking handled below
 import gzip as gzip_module
 import logging
+import tempfile
 import threading
 import urllib.request
 import urllib.error
@@ -5677,6 +5678,45 @@ _GENERATION_JOB_EXPIRY_SECONDS = (
     24 * 60 * 60
 )  # 24 hours (was 30 min -- Slack users download hours later)
 
+
+def _mirror_job(job_id: str) -> None:
+    """Snapshot a generation job's JSON-safe status fields to a file in
+    the same slot dir _generate_slots uses, so a GET /api/jobs/<id> poll
+    that lands on a gunicorn worker OTHER than the one running the job
+    (numInstances: 1, but --workers N -- see the _CrossProcessSlots
+    comment above) can still see live progress instead of a false 404
+    until the S47 Supabase fallback has bytes (only on completion).
+
+    Whitelist only -- never result_bytes, which can be tens of MB and is
+    never needed by the mirror path (completed+download falls through to
+    Supabase, the only place with the actual bytes cross-worker).
+    """
+    with _generation_jobs_lock:
+        job = _generation_jobs.get(job_id)
+        if not job:
+            return
+        snapshot = {
+            "status": job.get("status"),
+            "progress_pct": job.get("progress_pct"),
+            "status_message": job.get("status_message"),
+            "created": job.get("created"),
+            "error": job.get("error"),
+            "result_filename": job.get("result_filename"),
+            "result_content_type": job.get("result_content_type"),
+            "_session_token": job.get("_session_token"),
+        }
+    slot_dir = _generate_slots._slot_dir
+    mirror_path = os.path.join(slot_dir, f"job_{job_id}.json")
+    tmp_path = f"{mirror_path}.tmp"
+    try:
+        os.makedirs(slot_dir, exist_ok=True)
+        with open(tmp_path, "w") as f:
+            json.dump(snapshot, f)
+        os.replace(tmp_path, mirror_path)
+    except OSError as e:
+        logger.warning(f"_mirror_job: failed to write mirror for job {job_id}: {e}")
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PLAN RESULTS STORE (in-memory, TTL 30min, for on-screen dashboard)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -5937,6 +5977,28 @@ def _cleanup_generation_jobs():
                     _generation_jobs.pop(jid, None)
             if expired:
                 logger.info("Cleaned up %d expired generation jobs", len(expired))
+            # Cross-process job-status mirror files (written by _mirror_job)
+            # have no in-memory dict entry to expire them, so sweep the
+            # slot dir directly in the same pass.
+            try:
+                _mirror_dir = _generate_slots._slot_dir
+                for _mirror_fname in os.listdir(_mirror_dir):
+                    if not (
+                        _mirror_fname.startswith("job_")
+                        and _mirror_fname.endswith(".json")
+                    ):
+                        continue
+                    _mirror_fpath = os.path.join(_mirror_dir, _mirror_fname)
+                    try:
+                        if (
+                            now - os.path.getmtime(_mirror_fpath)
+                            > _GENERATION_JOB_EXPIRY_SECONDS
+                        ):
+                            os.unlink(_mirror_fpath)
+                    except OSError:
+                        pass
+            except OSError:
+                pass  # slot dir doesn't exist yet -- nothing to clean up
         except Exception as e:
             logger.warning("Generation job cleanup error: %s", e)
 
@@ -7174,8 +7236,83 @@ _rl_estimate = RateLimiter()  # /api/estimate -- 60 req/min (debounced live prev
 # immediate 429 + Retry-After instead of piling on and degrading every
 # other request on the box. /api/health is unaffected -- it never touches
 # this semaphore.
-_MAX_CONCURRENT_GENERATE = 2
-_generate_slots = threading.BoundedSemaphore(_MAX_CONCURRENT_GENERATE)
+#
+# GLOBAL across gunicorn workers, not per-process: Render's startCommand
+# (render.yaml, authoritative) runs gunicorn --preload --worker-class
+# gevent --workers N, so a plain threading.BoundedSemaphore only bounds
+# concurrency *within one forked worker* -- the real cap was silently
+# N x _MAX_CONCURRENT_GENERATE. _CrossProcessSlots instead has every
+# worker flock() one of N shared lock files in a tmpdir, so "holding a
+# slot" means holding an exclusive flock -- true across process
+# boundaries because all workers share one filesystem (numInstances: 1).
+# If a worker dies mid-generation the kernel auto-releases its flock, so
+# a crashed worker can never leak a slot permanently. This assumes
+# numInstances: 1; if that ever changes, this (and the job-mirror files
+# below) must move to a shared store such as Redis -- flock/tmpdir do
+# not span machines.
+_MAX_CONCURRENT_GENERATE = int(os.environ.get("NOVA_MAX_CONCURRENT_GENERATE", "2"))
+
+
+class _CrossProcessSlots:
+    """flock-backed semaphore, API-compatible with the acquire(blocking=False)
+    / release() surface of threading.BoundedSemaphore used at the
+    /api/generate call sites, except the cap it enforces is GLOBAL across
+    every gunicorn worker process sharing this instance's filesystem (not
+    just threads within one process).
+
+    Each of ``count`` slots is a lock file; acquiring a slot means holding
+    an exclusive, non-blocking flock on one of them. flock conflicts
+    between separate file descriptors even within a single process, so
+    the dev ThreadedHTTPServer (one process, many threads) and tests see
+    identical saturation semantics to prod (many processes).
+    """
+
+    def __init__(self, count: int) -> None:
+        self._count = count
+        self._lock = threading.Lock()
+        self._held_fds: list = []
+        # Fork safety: gunicorn's --preload forks worker processes AFTER
+        # this module (and this instance) is imported/constructed, so no
+        # file descriptor may be opened here -- an fd opened at import
+        # time would be silently duplicated into every forked worker and
+        # could be double-released. Slot files are opened lazily, inside
+        # acquire(), which only ever runs post-fork in each worker.
+        self._slot_dir = os.environ.get("NOVA_SLOT_DIR") or os.path.join(
+            tempfile.gettempdir(),
+            f"nova_gen_slots_{os.environ.get('PORT') or os.environ.get('TEST_PORT') or 'dev'}",
+        )
+
+    def acquire(self, blocking: bool = False) -> bool:
+        if blocking:
+            raise ValueError("blocking acquire not supported")
+        if fcntl is None:
+            raise RuntimeError(
+                "_CrossProcessSlots requires fcntl (POSIX); unsupported on this platform"
+            )
+        os.makedirs(self._slot_dir, exist_ok=True)
+        for i in range(self._count):
+            slot_path = os.path.join(self._slot_dir, f"generate_slot_{i}.lock")
+            fd = open(slot_path, "a+b")
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                fd.close()
+                continue
+            with self._lock:
+                self._held_fds.append(fd)
+            return True
+        return False
+
+    def release(self) -> None:
+        with self._lock:
+            if not self._held_fds:
+                raise ValueError("release() called with no slot held")
+            fd = self._held_fds.pop()
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        fd.close()
+
+
+_generate_slots = _CrossProcessSlots(_MAX_CONCURRENT_GENERATE)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CSRF: Cookie-based double-submit pattern (stateless)
@@ -12287,6 +12424,115 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             with _generation_jobs_lock:
                 job = _generation_jobs.get(job_id)
                 if not job:
+                    # Cross-process job-status mirror: this poll may have
+                    # landed on a gunicorn worker OTHER than the one running
+                    # the job (the in-memory dict above is per-process), so
+                    # check the file _mirror_job() wrote before falling
+                    # back to the S47 Supabase lookup below, which only has
+                    # bytes once the job has fully completed.
+                    _mirror_path = os.path.join(
+                        _generate_slots._slot_dir, f"job_{job_id}.json"
+                    )
+                    _mirror_data = None
+                    try:
+                        with open(_mirror_path, "r") as _mf:
+                            _mirror_data = json.load(_mf)
+                    except (OSError, ValueError):
+                        _mirror_data = None
+                    if _mirror_data is not None:
+                        _mirror_session = _mirror_data.get("_session_token") or ""
+                        if _mirror_session:
+                            _mirror_csrf = _parse_cookie_value(
+                                self.headers.get("Cookie") or "", "nova_session"
+                            ) or _parse_cookie_value(
+                                self.headers.get("Cookie") or "", "csrf_token"
+                            )
+                            if not hmac.compare_digest(_mirror_session, _mirror_csrf):
+                                self.send_response(403)
+                                self.send_header("Content-Type", "application/json")
+                                self.end_headers()
+                                self.wfile.write(
+                                    _error_response(
+                                        "Access denied: job belongs to a different session",
+                                        "FORBIDDEN",
+                                        403,
+                                    )[0]
+                                )
+                                return
+                        _mirror_created = _mirror_data.get("created") or 0
+                        if now - _mirror_created > _GENERATION_JOB_EXPIRY_SECONDS:
+                            try:
+                                os.unlink(_mirror_path)
+                            except OSError:
+                                pass
+                            self.send_response(404)
+                            self.send_header("Content-Type", "application/json")
+                            self.end_headers()
+                            self.wfile.write(
+                                _error_response("Job expired", "NOT_FOUND", 410)[0]
+                            )
+                            return
+                        _mirror_status = _mirror_data.get("status")
+                        _mirror_elapsed = round(now - _mirror_created, 1)
+                        if _mirror_status == "completed":
+                            _mirror_accept = self.headers.get("Accept") or ""
+                            if "application/json" in _mirror_accept:
+                                self._send_json(
+                                    {
+                                        "job_id": job_id,
+                                        "status": "completed",
+                                        "progress_pct": 100,
+                                        "status_message": "Complete",
+                                        "filename": _mirror_data.get(
+                                            "result_filename"
+                                        )
+                                        or "result.zip",
+                                        "content_type": _mirror_data.get(
+                                            "result_content_type"
+                                        )
+                                        or "application/zip",
+                                        "download_url": f"/api/jobs/{job_id}",
+                                        "elapsed_seconds": _mirror_elapsed,
+                                    }
+                                )
+                                return
+                            # Download mode: only Supabase (S47 below) has
+                            # the actual bytes cross-worker -- fall through.
+                        elif _mirror_status == "failed":
+                            self._send_json(
+                                {
+                                    "job_id": job_id,
+                                    "status": "failed",
+                                    "error": _mirror_data.get("error")
+                                    or "Generation failed",
+                                    "created": datetime.datetime.fromtimestamp(
+                                        _mirror_created
+                                    ).isoformat(),
+                                    "elapsed_seconds": _mirror_elapsed,
+                                }
+                            )
+                            return
+                        else:
+                            self._send_json(
+                                {
+                                    "job_id": job_id,
+                                    "status": "processing",
+                                    "progress_pct": _mirror_data.get(
+                                        "progress_pct"
+                                    )
+                                    or 0,
+                                    "status_message": _mirror_data.get(
+                                        "status_message"
+                                    )
+                                    or "Processing...",
+                                    "created": datetime.datetime.fromtimestamp(
+                                        _mirror_created
+                                    ).isoformat(),
+                                    "elapsed_seconds": _mirror_elapsed,
+                                    "source": "mirror",
+                                }
+                            )
+                            return
                     # S47: Fallback to Supabase for restart-safe Slack download links
                     try:
                         from supabase_client import get_client as _sb_dl_client
@@ -15243,6 +15489,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "error": None,
                         "_session_token": _job_csrf,
                     }
+                _mirror_job(job_id)
                 request_id = getattr(self, "_request_id", None)
 
                 def _run_async_generate(jid, gen_data, rid):
@@ -15298,6 +15545,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _generation_jobs[jid][
                                     "status_message"
                                 ] = "Enriching market data..."
+                        _mirror_job(jid)
 
                         # ── TIMEOUT CHECK: Before enrichment (expensive) ──
                         if time.time() > _gen_deadline:
@@ -15405,6 +15653,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _generation_jobs[jid][
                                     "status_message"
                                 ] = "Synthesizing knowledge base..."
+                        _mirror_job(jid)
 
                         # KB + Synthesis -- all wrapped in 45s timeout to prevent
                         # Supabase or LLM calls from hanging indefinitely
@@ -15717,6 +15966,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _generation_jobs[jid][
                                     "status_message"
                                 ] = "Analyzing channels..."
+                        _mirror_job(jid)
 
                         # Industry classification
                         industry_raw = gen_data.get("industry") or ""
@@ -15760,6 +16010,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _generation_jobs[jid][
                                     "status_message"
                                 ] = "Computing budget allocation..."
+                        _mirror_job(jid)
 
                         # Budget Allocation (Phase 4 -- same as sync path)
                         _t_budget = time.time()
@@ -16107,6 +16358,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _generation_jobs[jid][
                                     "status_message"
                                 ] = "Verifying plan data..."
+                        _mirror_job(jid)
 
                         # ── Gold Standard Quality Gates (async path) ──
                         # Wrapped in ThreadPoolExecutor with 30s timeout to
@@ -16348,6 +16600,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _generation_jobs[jid][
                                     "status_message"
                                 ] = "Generating Excel report..."
+                        _mirror_job(jid)
 
                         if time.time() > _gen_deadline:
                             raise TimeoutError(
@@ -16400,6 +16653,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     _generation_jobs[jid][
                                         "status_message"
                                     ] = "Creating strategy deck..."
+                            _mirror_job(jid)
                             # PPT wrapped in adaptive timeout
                             _ppt_timeout = 90  # S29 v2: generous -- quality PPT
                             _ppt_pool = ThreadPoolExecutor(
@@ -16614,6 +16868,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         "result_filename": result_fn,
                                     }
                                 )
+                        _mirror_job(jid)
                         logger.info(
                             "Async job %s completed (%d bytes)", jid, len(result_bytes)
                         )
@@ -16747,6 +17002,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         "result_bytes": None,
                                     }
                                 )
+                        _mirror_job(jid)
                         # Send email alert for async generation failure (matches sync path)
                         try:
                             from email_alerts import send_generation_failure_alert
@@ -16797,6 +17053,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     ),
                                 }
                             )
+                    _mirror_job(job_id)
                     raise
                 self._send_json(
                     {

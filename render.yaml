@@ -7,7 +7,12 @@ services:
     autoDeploy: true
     buildCommand: pip install -r requirements.txt
     preDeployCommand: python3 -c "import py_compile; py_compile.compile('app.py', doraise=True); py_compile.compile('wsgi.py', doraise=True)"
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --worker-class gevent --workers 4 --worker-connections 1000 --timeout 300 --preload --access-logfile - --error-logfile - wsgi:app
+    # workers 2 (was 4): standard plan is ~1 vCPU, and /api/generate's
+    # concurrency cap is now enforced GLOBALLY per-instance via flock slot
+    # files + job-mirror files in tmpdir (see app.py's _CrossProcessSlots),
+    # independent of worker count -- both assume numInstances: 1 above; if
+    # that ever changes, both must move to a shared store (e.g. Redis).
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --worker-class gevent --workers 2 --worker-connections 1000 --timeout 300 --preload --access-logfile - --error-logfile - wsgi:app
     healthCheckPath: /api/health/ping
     healthCheckGracePeriod: 300
     # Blue-green deploy gate: poll /api/deploy/ready in CI/CD scripts
