@@ -18966,15 +18966,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # S48: Chat auth is more permissive than /api/generate.
             # Allow: @joveo.com users, admin key, OR same-origin requests
             # (the embedded widget on media-plan-generator.onrender.com itself)
+            # Same-origin is checked by parsed-host equality
+            # (_check_same_origin_auth), not substring matching.
             _chat_auth_ok = (
                 self._check_joveo_auth()
                 or self._check_admin_auth()
-                or "media-plan-generator.onrender.com"
-                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
-                or "nova.joveo.com"
-                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
-                or "localhost"
-                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
+                or self._check_same_origin_auth()
             )
             if not _chat_auth_ok:
                 self._send_error(
@@ -19319,15 +19316,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         elif path == "/api/chat/stream":
             # ── Nova Chat SSE Streaming Endpoint ──
             # S48: Same permissive auth as /api/chat
+            # Same-origin is checked by parsed-host equality
+            # (_check_same_origin_auth), not substring matching.
             _stream_auth_ok = (
                 self._check_joveo_auth()
                 or self._check_admin_auth()
-                or "media-plan-generator.onrender.com"
-                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
-                or "nova.joveo.com"
-                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
-                or "localhost"
-                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
+                or self._check_same_origin_auth()
             )
             if not _stream_auth_ok:
                 self._send_error(
