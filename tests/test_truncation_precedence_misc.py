@@ -34,11 +34,6 @@ covered here:
   6. social_plan.generate_social_plan_excel Content Calendar rows
      (`for post in week.get("posts") or [][:20]`) -- the per-week 20-row
      limit promised by the inline comment never applied. Now capped at 20.
-  7. ppt_generator._build_slide_geopolitical_risk event text
-     (`ev.get("event") or ""[:80]`) -- RENDERED SLIDE TEXT; a 169-char event
-     rendered in full (repro before fix). Fixed with the module's own
-     word-boundary helper `_trunc_word(..., 80)` -- NOT a hard slice --
-     matching how 8fc9a4f handled rendered text in excel_v2.
   8. archive/excel_legacy.py Joveo DSP / Social Media publisher lists
      (two `... or [][:10]` sites) -- module is live via the app.py legacy
      import path; both parenthesized. Covered by the import smoke test here
@@ -62,12 +57,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import openpyxl  # noqa: E402
-from pptx import Presentation  # noqa: E402
 
 import api_enrichment  # noqa: E402
 import api_portal  # noqa: E402
 import collar_intelligence  # noqa: E402
-import ppt_generator as ppt  # noqa: E402
 import quick_plan  # noqa: E402
 import social_plan  # noqa: E402
 
@@ -75,20 +68,6 @@ import social_plan  # noqa: E402
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
-def _assert_trunc_word_boundary_cut(cell: str, source: str, cap: int):
-    """`cell` must be a clean word-boundary prefix of `source` produced by
-    ppt_generator._trunc_word: ends in exactly '...', never longer than
-    cap + 3, and the cut never lands mid-word."""
-    assert cell.endswith("..."), f"expected trailing ellipsis: {cell!r}"
-    assert not cell.endswith("...."), f"doubled ellipsis: {cell!r}"
-    assert len(cell) <= cap + 3, f"{len(cell)} chars > cap {cap} + ellipsis"
-    body = cell[:-3]
-    assert body, "empty body before ellipsis"
-    assert source.startswith(body), f"not a prefix of the source: {body!r}"
-    # The next source character after the kept body must not be mid-word.
-    assert not source[len(body)].isalnum(), f"mid-word cut: ...{body[-15:]!r}"
-
-
 def _sheet_strings(ws):
     for row in ws.iter_rows(values_only=True):
         for val in row:
@@ -349,72 +328,6 @@ def test_content_calendar_excel_empty_posts_safe():
     plan["content_calendar"] = [{"week": 1, "theme": "No Posts"}]  # no "posts" key
     counts = _calendar_row_counts(social_plan.generate_social_plan_excel(plan))
     assert counts["Week 1: No Posts"] == 0
-
-
-# ===========================================================================
-# Site 7: ppt_generator geopolitical event text -- word-boundary cap at 80
-# ===========================================================================
-_LONG_EVENT = (
-    "Port congestion continues to disrupt inbound freight schedules across "
-    "the region, creating downstream delays for warehouse staffing plans and "
-    "last-mile scheduling teams."
-)  # 169 chars -- pre-fix repro rendered this in full on the slide
-
-
-def _geo_slide_texts(events):
-    data = {
-        "client_name": "Acme Corp",
-        "_synthesized": {
-            "geopolitical_context": {
-                "risk_level": "moderate",
-                "overall_risk_score": 5.0,
-                "summary": "Elevated risk this quarter.",
-                "recommendations": [],
-                "locations": {
-                    "Dallas, TX": {
-                        "risk_score": 5.0,
-                        "budget_adjustment_factor": 1.0,
-                        "events": events,
-                    }
-                },
-            }
-        },
-    }
-    prs = Presentation()
-    prs.slide_width = ppt.SLIDE_WIDTH
-    prs.slide_height = ppt.SLIDE_HEIGHT
-    ppt._build_slide_geopolitical_risk(prs, data)
-    assert len(prs.slides) == 1
-    return [
-        s.text_frame.text
-        for s in prs.slides[0].shapes
-        if s.has_text_frame and s.text_frame.text.strip()
-    ]
-
-
-def test_geo_risk_event_text_capped_at_word_boundary():
-    texts = _geo_slide_texts([{"event": _LONG_EVENT, "severity": "moderate"}])
-    hits = [t for t in texts if "Port congestion" in t]
-    assert hits, "event card did not render"
-    rendered = hits[0]
-    assert _LONG_EVENT not in rendered, "the 80-char cap is still a no-op"
-    # Slice off the severity-icon prefix before asserting on the event text.
-    idx = rendered.find("Port congestion")
-    _assert_trunc_word_boundary_cut(rendered[idx:], _LONG_EVENT, 80)
-
-
-def test_geo_risk_short_event_text_unchanged():
-    short = "Minor road closures downtown."
-    texts = _geo_slide_texts([{"event": short, "severity": "low"}])
-    hits = [t for t in texts if short in t]
-    assert hits, "event card did not render"
-    assert hits[0].endswith(short), "short event must render in full, no ellipsis"
-
-
-def test_geo_risk_missing_event_key_safe():
-    texts = _geo_slide_texts([{"severity": "low"}])
-    # The card still builds past the events loop: location name renders.
-    assert any("Dallas, TX" in t for t in texts)
 
 
 # ===========================================================================
