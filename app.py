@@ -3610,6 +3610,231 @@ def _split_city_state_country(loc_str: str) -> dict:
         return {"city": city, "state": "", "country": second}
     return {"city": city, "state": "", "country": "United States"}
 
+
+class _EstimateValidationError(ValueError):
+    """Raised by ``_compute_plan_estimate`` on a malformed/insufficient brief.
+
+    Caught at the ``/api/estimate`` route and turned into a 400, never a 500.
+    """
+
+
+def _compute_plan_estimate(brief: dict) -> dict:
+    """Single-sourced plan estimate for the wizard's live preview.
+
+    Root cause this exists to fix: the wizard's "Projected outcomes" panel
+    used to run its OWN flat-CPA JS formula (templates/partials/index/
+    body_preview_js.html), which diverged from the real engine by ~13x on
+    the Manpower-AmeriGas brief (617 naively-estimated hires vs. 48 actual
+    engine-projected hires). This function reuses the SAME engine call
+    /api/generate makes -- ``calculate_budget_allocation`` -- so the preview
+    and the final plan can never disagree on methodology again.
+
+    Mirrors the exact input construction the sync /api/generate handler
+    performs immediately before calling calculate_budget_allocation (see
+    app.py's "Phase 4: Budget Allocation" block, ~line 17486-17758):
+    industry classification -> INDUSTRY_ALLOC_PROFILES channel split (with
+    APAC/EMEA stripped + redistributed for US-only plans) -> role/location
+    dicts -> calculate_budget_allocation. Deliberately skips enrichment
+    (synthesized_data=None) -- this is a fast, synchronous preview call
+    fired on every debounced keystroke, not the final plan.
+
+    Args:
+        brief: Parsed JSON body from the wizard. Recognized keys: ``budget``
+            / ``budget_range`` (str, e.g. "$150,000"), ``industry`` (str),
+            ``client_name`` (str), ``roles`` / ``target_roles``
+            (list[str] or list[dict] with ``title``/``count``/``tier``),
+            ``locations`` (list[str] or list[dict] with
+            ``city``/``state``/``country``), ``campaign_start_month`` (int).
+
+    Returns:
+        Dict with ``est_hires`` (int), ``est_cph`` (float, $/hire),
+        ``est_applications`` (int), ``est_cpa`` (float, $/application) --
+        all derived from calculate_budget_allocation's ``total_projected``.
+
+    Raises:
+        _EstimateValidationError: on a malformed or insufficient brief
+            (e.g. no positive budget, no roles). Callers must turn this
+            into a 4xx, never a 500.
+    """
+    if calculate_budget_allocation is None:
+        raise _EstimateValidationError("Budget engine unavailable")
+
+    budget_str = str(
+        brief.get("budget")
+        or brief.get("budget_range")
+        or brief.get("exact_budget")
+        or ""
+    ).strip()
+    if not budget_str:
+        raise _EstimateValidationError("A budget is required")
+    budget_val = parse_budget(budget_str)
+    # parse_budget() silently falls back to a $100,000 default (flagging
+    # last_was_defaulted) when it can't parse the string at all -- e.g.
+    # "$0" or garbage input. Surfacing that as a real number here would be
+    # exactly the kind of not-what-the-user-typed estimate this endpoint
+    # exists to eliminate, so treat it as a validation error instead.
+    if getattr(parse_budget, "last_was_defaulted", False):
+        raise _EstimateValidationError("Could not parse a valid budget")
+    if not isinstance(budget_val, (int, float)) or budget_val <= 0:
+        raise _EstimateValidationError("A positive budget is required")
+
+    industry_raw = str(brief.get("industry") or "").strip()
+    company_name = str(brief.get("client_name") or "").strip()
+
+    roles_raw = brief.get("target_roles") or brief.get("roles") or []
+    if not isinstance(roles_raw, list):
+        raise _EstimateValidationError("roles must be a list")
+    roles_titles: list[str] = []
+    roles_for_ba: list[dict] = []
+    for r in roles_raw[:50]:  # cap -- this is a live preview, not bulk import
+        if isinstance(r, str):
+            title = r.strip()
+            if not title:
+                continue
+            roles_titles.append(title)
+            roles_for_ba.append({"title": title, "count": 1, "tier": "Professional"})
+        elif isinstance(r, dict):
+            title = str(r.get("title") or r.get("role") or "").strip()
+            if not title:
+                continue
+            roles_titles.append(title)
+            roles_for_ba.append(
+                {
+                    "title": title,
+                    "count": int(r.get("count", 1) or 1),
+                    "tier": str(r.get("tier") or r.get("_tier") or "Professional"),
+                }
+            )
+    if not roles_for_ba:
+        raise _EstimateValidationError("At least one role is required")
+
+    locs_raw = brief.get("locations") or []
+    if not isinstance(locs_raw, list):
+        raise _EstimateValidationError("locations must be a list")
+    locs_for_ba: list[dict] = []
+    for loc in locs_raw[:50]:
+        if isinstance(loc, str):
+            loc_str = loc.strip()
+            if loc_str:
+                locs_for_ba.append(_split_city_state_country(loc_str))
+        elif isinstance(loc, dict):
+            locs_for_ba.append(
+                {
+                    "city": str(loc.get("city") or ""),
+                    "state": str(loc.get("state") or ""),
+                    "country": str(loc.get("country") or ""),
+                }
+            )
+
+    industry_profile = classify_industry(industry_raw, company_name, roles_titles)
+    industry_key = industry_profile.get("legacy_key", "general_entry_level")
+
+    _DEFAULT_ALLOC_ESTIMATE = {
+        "programmatic_dsp": 35,
+        "global_boards": 20,
+        "niche_boards": 15,
+        "social_media": 12,
+        "regional_boards": 8,
+        "employer_branding": 5,
+        "apac_regional": 3,
+        "emea_regional": 2,
+    }
+    if INDUSTRY_ALLOC_PROFILES is not None:
+        channel_pcts = dict(
+            INDUSTRY_ALLOC_PROFILES.get(industry_key, _DEFAULT_ALLOC_ESTIMATE)
+        )
+    else:
+        channel_pcts = dict(_DEFAULT_ALLOC_ESTIMATE)
+
+    # US-only redistribution -- mirrors app.py's generate path: strip
+    # APAC/EMEA and fold into the strongest channel unless a location is
+    # explicitly non-US.
+    _all_us = True
+    for loc in locs_for_ba:
+        country = (loc.get("country") or "").strip().lower()
+        if country and country not in ("us", "usa", "united states"):
+            _all_us = False
+            break
+    if _all_us:
+        intl_pct = channel_pcts.pop("apac_regional", 0) + channel_pcts.pop(
+            "emea_regional", 0
+        )
+        if intl_pct > 0:
+            top_ch = max(channel_pcts, key=lambda k: channel_pcts[k])
+            channel_pcts[top_ch] = channel_pcts[top_ch] + intl_pct
+
+    # kb_loader's load_knowledge_base() is cached after first load and reads
+    # only local data/*.json files -- cheap enough to call on every preview.
+    try:
+        kb = load_knowledge_base()
+    except Exception as kb_err:
+        logger.warning("Estimate: knowledge base load failed (non-fatal): %s", kb_err)
+        kb = None
+
+    # S91 vendor-availability gate -- mirror both /api/generate call sites
+    # (app.py ~15782 / ~18024) exactly, so a channel with no real vendor
+    # coverage for this locale/industry gets floored here too, not just in
+    # the final plan. `None` (the default on any failure) means "no
+    # gating" -- byte-identical-safe, matching calculate_budget_allocation's
+    # own documented behavior for callers without this data.
+    us_plan = plan_geo.is_us_plan(brief) if plan_geo is not None else True
+    _niche_vendor_fn = (
+        getattr(excel_v2, "get_niche_vendor_availability", None)
+        if excel_v2 is not None
+        else None
+    )
+    vendor_availability = None
+    if _niche_vendor_fn is not None:
+        try:
+            vendor_availability = _niche_vendor_fn(
+                industry=industry_key, us_plan=us_plan
+            )
+        except TypeError:
+            try:
+                vendor_availability = _niche_vendor_fn(industry_key, us_plan)
+            except Exception as vendor_err:
+                logger.debug(
+                    "Estimate: get_niche_vendor_availability call failed "
+                    "(non-fatal): %s",
+                    vendor_err,
+                )
+        except Exception as vendor_err:
+            logger.debug(
+                "Estimate: get_niche_vendor_availability call failed "
+                "(non-fatal): %s",
+                vendor_err,
+            )
+
+    budget_result = calculate_budget_allocation(
+        total_budget=budget_val,
+        roles=roles_for_ba,
+        locations=locs_for_ba,
+        industry=industry_key,
+        channel_percentages=channel_pcts,
+        synthesized_data=None,
+        knowledge_base=kb,
+        collar_type="",
+        campaign_start_month=int(brief.get("campaign_start_month") or 0),
+        vendor_availability=vendor_availability,
+    )
+    total_projected = (
+        budget_result.get("total_projected", {})
+        if isinstance(budget_result, dict)
+        else {}
+    )
+    applications = total_projected.get("applications") or 0
+    hires = total_projected.get("hires") or 0
+    cost_per_hire = total_projected.get("cost_per_hire") or 0.0
+    est_cpa = round(budget_val / applications, 2) if applications else 0.0
+
+    return {
+        "est_hires": int(hires),
+        "est_cph": round(float(cost_per_hire), 2) if cost_per_hire else 0.0,
+        "est_applications": int(applications),
+        "est_cpa": est_cpa,
+    }
+
+
 # v3: Trend engine and collar intelligence for new Excel worksheets
 try:
 
@@ -6858,6 +7083,7 @@ _rl_llm_heavy = RateLimiter()  # LLM-heavy analysis endpoints -- 10 req/min
 _rl_portal = RateLimiter()  # /api/portal/* -- 20 req/min
 _rl_general = RateLimiter()  # all other /api/* POST routes -- 30 req/min
 _rl_copilot = RateLimiter()  # /api/copilot/* -- 30 req/min (lightweight)
+_rl_estimate = RateLimiter()  # /api/estimate -- 60 req/min (debounced live preview, isolated from /api/generate's 10/min)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CSRF: Cookie-based double-submit pattern (stateless)
@@ -13578,6 +13804,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _rl_allowed = _rl_portal.is_allowed(
                     client_ip, max_requests=20, window_seconds=60
                 )
+            elif path == "/api/estimate":
+                # Debounced live preview fires per wizard edit -- generous,
+                # isolated quota so it never eats into /api/generate's 10/min.
+                _rl_allowed = _rl_estimate.is_allowed(
+                    client_ip, max_requests=60, window_seconds=60
+                )
             else:
                 _rl_allowed = _rl_general.is_allowed(
                     client_ip, max_requests=30, window_seconds=60
@@ -13612,6 +13844,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             "/api/chat/feedback",
             "/api/chat/share",
             "/api/generate",  # S48: Protected by same-origin + @joveo.com auth instead
+            "/api/estimate",  # Same-origin + @joveo.com auth (mirrors /api/generate); debounced preview fetch has no CSRF bootstrap
             "/api/health",  # Read-only health checks
             "/api/health/ping",  # Read-only ping
             "/api/csrf-token",  # Must be exempt to bootstrap
@@ -14156,6 +14389,68 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except Exception as exc:
                 logger.error("Campaign optimizer error: %s", exc, exc_info=True)
                 self._send_json({"error": "Optimization failed"}, status_code=500)
+            return
+
+        if path == "/api/estimate":
+            # ── Single-sourced plan estimate for the wizard's live preview ──
+            # Reuses the SAME calculate_budget_allocation engine call
+            # /api/generate makes (see _compute_plan_estimate above) instead
+            # of the old parallel front-end JS formula, which diverged from
+            # the real engine by ~13x on the Manpower-AmeriGas brief.
+            # Auth block copied verbatim from /api/generate (same-origin +
+            # @joveo.com, S48) -- this is real plan data, not public info.
+            _est_auth_ok = (
+                self._check_joveo_auth()
+                or self._check_admin_auth()
+                or "media-plan-generator.onrender.com"
+                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
+                or "nova.joveo.com"
+                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
+                or "localhost"
+                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
+            )
+            if not _est_auth_ok:
+                self._send_error(
+                    "Authentication required. Please sign in with your @joveo.com account.",
+                    "AUTH_REQUIRED",
+                    401,
+                )
+                return
+            try:
+                _est_content_len = int(self.headers.get("Content-Length") or 0)
+            except (ValueError, TypeError):
+                _est_content_len = 0
+            if _est_content_len <= 0:
+                self._send_error("Empty request body", "VALIDATION_ERROR", 400)
+                return
+            if _est_content_len > 65536:  # 64KB -- this is a handful of scalar/list fields, not a bulk import
+                self._send_error("Request too large", "VALIDATION_ERROR", 413)
+                return
+            _est_body = self.rfile.read(_est_content_len)
+            try:
+                _est_brief = json.loads(_est_body)
+            except json.JSONDecodeError:
+                self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
+                return
+            if not isinstance(_est_brief, dict):
+                self._send_error(
+                    "Request body must be a JSON object", "VALIDATION_ERROR", 400
+                )
+                return
+            try:
+                _est_result = _compute_plan_estimate(_est_brief)
+            except _EstimateValidationError as _est_val_err:
+                self._send_error(str(_est_val_err), "VALIDATION_ERROR", 400)
+                return
+            except Exception as _est_err:
+                logger.error(
+                    "Estimate calculation failed: %s", _est_err, exc_info=True
+                )
+                self._send_error(
+                    "Estimate calculation failed", "ESTIMATE_ERROR", 500
+                )
+                return
+            self._send_json(_est_result)
             return
 
         if path == "/api/generate":

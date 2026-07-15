@@ -1,9 +1,10 @@
-"""Regression test for S91: BOTH app.py call sites of
-``calculate_budget_allocation`` (the async gen_data path and the legacy
-synchronous ``data`` path) must resolve ``us_plan`` via ``plan_geo`` and
-``vendor_availability`` via ``excel_v2.get_niche_vendor_availability`` before
-calling the budget engine, and must forward ``vendor_availability=`` into
-the call.
+"""Regression test for S91: ALL app.py call sites of
+``calculate_budget_allocation`` (the async gen_data path, the legacy
+synchronous ``data`` path, and -- since the plan-estimate fix -- the
+``/api/estimate`` live-preview path) must resolve ``us_plan`` via
+``plan_geo`` and ``vendor_availability`` via
+``excel_v2.get_niche_vendor_availability`` before calling the budget
+engine, and must forward ``vendor_availability=`` into the call.
 
 The async site was fixed in S91 (commit 32e5d2b). The synchronous/legacy
 site at the second ``calculate_budget_allocation(`` call was a parallel
@@ -11,14 +12,18 @@ code path that still built ``budget_result`` without ever computing
 ``us_plan``/``vendor_availability`` -- a channel with zero real vendor
 coverage (e.g. niche boards outside a covered US industry) silently kept
 its full budget share on that path instead of being floored per
-``_apply_vendor_gate``.
+``_apply_vendor_gate``. A third call site (``app._compute_plan_estimate``,
+backing ``POST /api/estimate``) was added later to single-source the
+wizard's live preview off the SAME engine call -- it mirrors the same
+vendor-gating wiring so the preview never overstates a channel's yield
+relative to what the final generated plan would actually produce.
 
 app.py's request handler is not a standalone testable unit (~26k lines
 deep inside a single function), so -- matching the pattern in
 ``test_app_duration_wiring.py`` -- this test verifies the WIRING via
-source inspection of both call-site blocks, plus a direct unit check that
-``excel_v2.get_niche_vendor_availability`` (the accessor both sites
-resolve through ``getattr``) actually floors a vendor-less channel when
+source inspection of each call-site block, plus a direct unit check that
+``excel_v2.get_niche_vendor_availability`` (the accessor every site
+resolves through ``getattr``) actually floors a vendor-less channel when
 fed through ``calculate_budget_allocation``.
 """
 
@@ -54,16 +59,17 @@ def _call_site_blocks() -> list[str]:
     return blocks
 
 
-def test_exactly_two_calculate_budget_allocation_call_sites():
+def test_exactly_three_calculate_budget_allocation_call_sites():
     blocks = _call_site_blocks()
-    assert len(blocks) == 2, (
-        f"Expected exactly 2 calculate_budget_allocation call sites "
-        f"(async + legacy sync), found {len(blocks)} -- update this test's "
-        f"window size/assumptions if a new call site was intentionally added"
+    assert len(blocks) == 3, (
+        f"Expected exactly 3 calculate_budget_allocation call sites "
+        f"(async generate, legacy sync generate, /api/estimate preview), "
+        f"found {len(blocks)} -- update this test's window size/assumptions "
+        f"if a new call site was intentionally added"
     )
 
 
-def test_both_call_sites_resolve_us_plan_via_plan_geo():
+def test_all_call_sites_resolve_us_plan_via_plan_geo():
     for i, block in enumerate(_call_site_blocks()):
         assert "plan_geo.is_us_plan(" in block, (
             f"call site #{i + 1} does not resolve us_plan via "
@@ -71,7 +77,7 @@ def test_both_call_sites_resolve_us_plan_via_plan_geo():
         )
 
 
-def test_both_call_sites_resolve_vendor_availability_defensively():
+def test_all_call_sites_resolve_vendor_availability_defensively():
     for i, block in enumerate(_call_site_blocks()):
         assert "get_niche_vendor_availability" in block, (
             f"call site #{i + 1} never looks up "
@@ -86,7 +92,7 @@ def test_both_call_sites_resolve_vendor_availability_defensively():
         )
 
 
-def test_both_call_sites_forward_vendor_availability_kwarg():
+def test_all_call_sites_forward_vendor_availability_kwarg():
     for i, block in enumerate(_call_site_blocks()):
         assert "vendor_availability=vendor_availability" in block, (
             f"call site #{i + 1} computes vendor_availability but never "
