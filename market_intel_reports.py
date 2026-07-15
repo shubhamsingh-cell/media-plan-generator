@@ -1068,7 +1068,7 @@ def _build_executive_summary(report: Dict[str, Any]) -> str:
     paras: List[str] = []
     ind = _industry_label(report.get("industry") or "")
     role_cat = report.get("role_category", "the target role category")
-    locs = ", ".join(report.get("locations") or [][:3]) or "multiple regions"
+    locs = ", ".join((report.get("locations") or [])[:3]) or "multiple regions"
 
     paras.append(
         f"This market intelligence report analyzes the recruitment landscape for "
@@ -1406,7 +1406,7 @@ def generate_intel_excel(report_data: Dict[str, Any]) -> bytes:
 
     ind_label = _industry_label(report_data.get("industry") or "")
     role_cat = report_data.get("role_category", "N/A").replace("_", " ").title()
-    locs = ", ".join(report_data.get("locations") or [][:5])
+    locs = ", ".join((report_data.get("locations") or [])[:5])
     meta = report_data.get("report_metadata", {})
 
     # -- Sheet 1: Overview --
@@ -1678,7 +1678,7 @@ def generate_intel_ppt(report_data: Dict[str, Any]) -> bytes:
 
     ind_label = _industry_label(report_data.get("industry") or "")
     role_cat = report_data.get("role_category", "N/A").replace("_", " ").title()
-    locs = ", ".join(report_data.get("locations") or [][:3])
+    locs = ", ".join((report_data.get("locations") or [])[:3])
 
     def _bg(slide, color):
         slide.background.fill.solid()

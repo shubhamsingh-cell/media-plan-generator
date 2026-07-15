@@ -8418,7 +8418,7 @@ def _build_slide_geopolitical_risk(prs: Presentation, data: Dict):
                 for ev in loc_events[:3]:
                     if not isinstance(ev, dict):
                         continue
-                    ev_text = ev.get("event") or ""[:80]
+                    ev_text = _trunc_word(ev.get("event") or "", 80)
                     severity = ev.get("severity", "low")
                     sev_icon = {
                         "low": " ",

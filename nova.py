@@ -10909,7 +10909,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                             "publisher": rv.get("publisher"),
                             "year": rv.get("year"),
                             "finding_count": len(rv.get("key_findings") or []),
-                            "top_findings": rv.get("key_findings") or [][:3],
+                            "top_findings": (rv.get("key_findings") or [])[:3],
                         }
                     )
             return {
@@ -11186,7 +11186,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                             "title": rv.get("title"),
                             "publisher": rv.get("publisher"),
                             "year": rv.get("year"),
-                            "top_findings": rv.get("key_findings") or [][:3],
+                            "top_findings": (rv.get("key_findings") or [])[:3],
                         }
                     )
             # Also search aggregated benchmarks
@@ -11301,7 +11301,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         "industry": pv.get("industry"),
                         "regions": pv.get("regions"),
                         "roles": (
-                            pv.get("roles") or [][:5]
+                            (pv.get("roles") or [])[:5]
                             if isinstance(pv.get("roles"), list)
                             else list(pv.get("roles", {}).keys())[:5]
                         ),
@@ -11346,7 +11346,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "plans": overview,
             "total_unique_channels": aggregate.get("total_unique_channels_identified")
             or 0,
-            "key_patterns": aggregate.get("key_patterns") or [][:5],
+            "key_patterns": (aggregate.get("key_patterns") or [])[:5],
             "source": "client_media_plans_kb (7 reference plans)",
         }
 
@@ -22590,9 +22590,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     f"*Guidewire Software — LinkedIn Hiring Intelligence*\n"
                 ]
                 response_parts.append(f"{exec_sum.get('headline') or ''}\n")
-                for theme in exec_sum.get("key_themes") or [][:3]:
+                for theme in (exec_sum.get("key_themes") or [])[:3]:
                     response_parts.append(f"\n*{theme.get('theme') or ''}*")
-                    for pt in theme.get("points") or [][:3]:
+                    for pt in (theme.get("points") or [])[:3]:
                         response_parts.append(f"- {pt}")
 
                 # Add peer comparison if available
@@ -26186,7 +26186,7 @@ def _format_channel_response(data: dict, industry: str) -> str:
     if "niche_industry_channels" in data:
         nic = data["niche_industry_channels"]
         parts.append(f"*Niche Channels for {nic.get('industry', industry)}:*")
-        for ch in nic.get("channels") or [][:12]:
+        for ch in (nic.get("channels") or [])[:12]:
             parts.append(f"- {ch}")
         parts.append("")
 

@@ -3879,7 +3879,7 @@ def fetch_onet_occupation_data(roles: List[str]) -> Dict[str, Any]:
                     categories = tech_data.get("category") or []
                     tech_skills = []
                     for cat in categories[:5]:
-                        for ex in cat.get("example") or [][:2]:
+                        for ex in (cat.get("example") or [])[:2]:
                             name = ex.get("name") or ""
                             if name:
                                 tech_skills.append(name)

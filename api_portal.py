@@ -1499,10 +1499,10 @@ def _get_dashboard_summary() -> Dict[str, Any]:
 
     # Last 7 days usage
     cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat() + "Z"
-    recent_entries = [e for e in usage_log if e.get("timestamp") or "" >= cutoff]
+    recent_entries = [e for e in usage_log if (e.get("timestamp") or "") >= cutoff]
     daily_counts: Dict[str, int] = defaultdict(int)
     for entry in recent_entries:
-        day = entry.get("timestamp") or ""[:10]
+        day = (entry.get("timestamp") or "")[:10]
         daily_counts[day] += 1
 
     return {

@@ -649,7 +649,7 @@ def get_role_insights(role: str, industry: str = "") -> Dict[str, Any]:
         result["time_to_fill_days"] = strategy.get("time_to_fill_benchmark_days", 28)
         result["apply_rate"] = strategy.get("avg_apply_rate", 0.05)
         result["mobile_apply_pct"] = strategy.get("mobile_apply_pct", 0.55)
-        result["preferred_platforms"] = strategy.get("preferred_platforms") or [][:5]
+        result["preferred_platforms"] = (strategy.get("preferred_platforms") or [])[:5]
         result["key_insight"] = strategy.get("key_insight") or ""
 
         # ── Hiring difficulty (derived from time_to_fill, apply_rate, collar type) ──

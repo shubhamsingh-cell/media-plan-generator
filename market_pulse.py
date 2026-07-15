@@ -1448,7 +1448,7 @@ def generate_pulse_email_html(report_data: Dict[str, Any]) -> str:
     industry_rows = ""
     ind_data = report_data.get("industry_spotlight", {})
     if ind_data.get("available"):
-        for ind in ind_data.get("industries") or [][:3]:
+        for ind in (ind_data.get("industries") or [])[:3]:
             change = ind.get("avg_change_pct") or 0
             change_color = (
                 "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else "#555566"

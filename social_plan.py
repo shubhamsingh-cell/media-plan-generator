@@ -1628,7 +1628,7 @@ def generate_creative_briefs(
                 "copy_limits": copy_limits,
                 "sample_headline": headline_copy,
                 "sample_body": body_copy,
-                "recommended_formats": platform.get("ad_formats") or [][:4],
+                "recommended_formats": (platform.get("ad_formats") or [])[:4],
                 "creative_tips": _get_creative_tips(platform_key, collar_type),
             }
         )
@@ -2140,7 +2140,7 @@ def generate_social_plan_excel(plan: Dict[str, Any]) -> bytes:
             ws3[f"{col}{row}"].fill = _fill(_XL_BLUE_LIGHT)
         row += 1
 
-        for post in week.get("posts") or [][:20]:  # Limit per week
+        for post in (week.get("posts") or [])[:20]:  # Limit per week
             vals = [
                 post.get("platform_name") or "",
                 post.get("content_type") or "",

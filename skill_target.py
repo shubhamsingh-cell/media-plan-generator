@@ -1727,8 +1727,8 @@ def recommend_channels(skill_profile: Dict[str, Any]) -> List[Dict[str, Any]]:
                 channel_scores[name]["reasons"].append(ch["reason"])
         if collar and _HAS_COLLAR and collar in COLLAR_STRATEGY:
             for platform in (
-                COLLAR_STRATEGY[collar].get("preferred_platforms") or [][:3]
-            ):
+                COLLAR_STRATEGY[collar].get("preferred_platforms") or []
+            )[:3]:
                 for ch_name in channel_scores:
                     if platform.lower() in ch_name.lower():
                         channel_scores[ch_name]["weight"] *= 1.15
@@ -2127,7 +2127,7 @@ def generate_skill_excel(analysis: Dict[str, Any]) -> bytes:
         for i, h in enumerate(hdrs):
             ws1.cell(row=row, column=2 + i, value=h)
         _hdr(ws1, row, len(hdrs))
-        for idx, occ in enumerate(analysis.get("occupations") or [][:20]):
+        for idx, occ in enumerate((analysis.get("occupations") or [])[:20]):
             r = row + 1 + idx
             ws1.cell(row=r, column=2, value=occ.get("soc") or "")
             ws1.cell(row=r, column=3, value=occ.get("title") or "")
@@ -2225,7 +2225,7 @@ def generate_skill_excel(analysis: Dict[str, Any]) -> bytes:
         for i, h in enumerate(hh):
             ws5.cell(row=row, column=2 + i, value=h)
         _hdr(ws5, row, len(hh))
-        for idx, hs in enumerate(analysis.get("hotspots") or [][:15]):
+        for idx, hs in enumerate((analysis.get("hotspots") or [])[:15]):
             r = row + 1 + idx
             ws5.cell(row=r, column=2, value=hs.get("metro") or "")
             ws5.cell(row=r, column=3, value=f"{hs.get('avg_concentration') or 0:.0%}")
@@ -2248,7 +2248,7 @@ def generate_skill_excel(analysis: Dict[str, Any]) -> bytes:
         for i, h in enumerate(ah):
             ws6.cell(row=row, column=2 + i, value=h)
         _hdr(ws6, row, len(ah))
-        for idx, adj in enumerate(analysis.get("adjacent_skills") or [][:20]):
+        for idx, adj in enumerate((analysis.get("adjacent_skills") or [])[:20]):
             r = row + 1 + idx
             ws6.cell(row=r, column=2, value=adj.get("skill") or "")
             ws6.cell(row=r, column=3, value=f"{adj.get('max_relevance') or 0:.0%}")
@@ -2384,7 +2384,7 @@ def generate_skill_ppt(analysis: Dict[str, Any]) -> bytes:
         _tb(s2, 0.5, 0.3, 12, 0.6, "Matching Occupations & Summary", 24, PG, True)
         if summary:
             _tb(s2, 0.5, 1.0, 12, 0.8, summary, 12, BV)
-        occs = analysis.get("occupations") or [][:8]
+        occs = (analysis.get("occupations") or [])[:8]
         if occs:
             t = _tbl(
                 s2, 0.5, 2.0, 12, min((len(occs) + 1) * 0.4, 4.5), len(occs) + 1, 4
@@ -2448,7 +2448,7 @@ def generate_skill_ppt(analysis: Dict[str, Any]) -> bytes:
         s4 = prs.slides.add_slide(prs.slide_layouts[6])
         _bg(s4, WH)
         _tb(s4, 0.5, 0.3, 12, 0.6, "Recommended Recruiting Channels", 24, PG, True)
-        chs = analysis.get("channels") or [][:8]
+        chs = (analysis.get("channels") or [])[:8]
         if chs:
             t = _tbl(s4, 0.5, 1.2, 12, min((len(chs) + 1) * 0.45, 5), len(chs) + 1, 3)
             _thdr(t, ["Channel", "Weight", "Rationale"])
@@ -2488,7 +2488,7 @@ def generate_skill_ppt(analysis: Dict[str, Any]) -> bytes:
                 _tc(t.cell(i + 1, 1), f"${info.get('p25') or 0:,}", i % 2 == 0)
                 _tc(t.cell(i + 1, 2), f"${info.get('median') or 0:,}", i % 2 == 0)
                 _tc(t.cell(i + 1, 3), f"${info.get('p75') or 0:,}", i % 2 == 0)
-        hss = analysis.get("hotspots") or [][:5]
+        hss = (analysis.get("hotspots") or [])[:5]
         if hss:
             ht = 1.0 + (len(si) + 1) * 0.4 + 0.5 if si else 1.5
             t = _tbl(
@@ -2515,7 +2515,7 @@ def generate_skill_ppt(analysis: Dict[str, Any]) -> bytes:
                 )
                 _tc(
                     t.cell(i + 1, 3),
-                    ", ".join(hs.get("top_employers") or [][:4]),
+                    ", ".join((hs.get("top_employers") or [])[:4]),
                     i % 2 == 0,
                 )
 
@@ -2533,7 +2533,7 @@ def generate_skill_ppt(analysis: Dict[str, Any]) -> bytes:
             PG,
             True,
         )
-        adj = analysis.get("adjacent_skills") or [][:8]
+        adj = (analysis.get("adjacent_skills") or [])[:8]
         if adj:
             t = _tbl(s6, 0.5, 1.0, 6.5, min((len(adj) + 1) * 0.4, 4), len(adj) + 1, 3)
             _thdr(t, ["Related Skill", "Relevance", "Connected To"])
@@ -2545,7 +2545,7 @@ def generate_skill_ppt(analysis: Dict[str, Any]) -> bytes:
                 _tc(
                     t.cell(i + 1, 2), ", ".join(a.get("connected_to") or []), i % 2 == 0
                 )
-        titles = analysis.get("suggested_titles") or [][:10]
+        titles = (analysis.get("suggested_titles") or [])[:10]
         if titles:
             _tb(s6, 7.5, 1.0, 5, 0.5, "Suggested Job Titles", 16, PG, True)
             _tb(

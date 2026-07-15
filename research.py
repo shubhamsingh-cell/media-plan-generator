@@ -6756,7 +6756,7 @@ def get_location_boards(locations):
                 country, {}
             )
             if isinstance(country_boards, dict):
-                for board_entry in country_boards.get("boards") or [][:5]:
+                for board_entry in (country_boards.get("boards") or [])[:5]:
                     if isinstance(board_entry, dict):
                         boards.append(
                             f"{board_entry.get('name') or ''} ({board_entry.get('billing_model', 'CPC')})"

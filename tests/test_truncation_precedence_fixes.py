@@ -23,9 +23,11 @@ the intended cap is silently a no-op. Audited sites fixed here:
      no-ops on text already <= 500, so a mid-word data-layer cut at exactly
      500 would render verbatim -- the exact prod-defect class S95 fixed).
 
-A source-level guard test keeps the precedence pattern from reappearing in
-the two audited files. (The same pattern exists in ~15 OTHER modules --
-out of scope here, tracked separately.)
+A source-level guard test keeps the precedence pattern from reappearing.
+The repo-wide sweep is DONE: the guard now covers every audited module
+(see the tuple in test_slice_precedence_pattern_absent_from_audited_files);
+behavioral coverage for the sweep's sites lives in the sibling
+tests/test_truncation_precedence_{nova,skill_target,market_intel,misc}.py.
 
 Runs under pytest, or standalone:
 ``python3 tests/test_truncation_precedence_fixes.py``.
@@ -142,11 +144,26 @@ def _build_market_intel_sheet(data, research_mod):
 # ===========================================================================
 def test_slice_precedence_pattern_absent_from_audited_files():
     """`or ""[...]` / `or ''[...]` / `or [][...]` always slice the empty
-    LITERAL -- any occurrence is a bug by construction. Guard the two files
-    audited in this pass (other modules still carry the pattern and are
-    tracked for a separate repo-wide sweep)."""
+    LITERAL -- any occurrence is a bug by construction. The repo-wide sweep
+    is done: guard every audited module."""
     pattern = re.compile(r"""or\s+(""|''|\[\])\s*\[""")
-    for fname in ("excel_v2.py", "data_synthesizer.py"):
+    for fname in (
+        "excel_v2.py",
+        "data_synthesizer.py",
+        "nova.py",
+        "skill_target.py",
+        "competitive_intel.py",
+        "market_pulse.py",
+        "market_intel_reports.py",
+        "research.py",
+        "api_portal.py",
+        "api_enrichment.py",
+        "llm_router.py",
+        "quick_plan.py",
+        "social_plan.py",
+        "ppt_generator.py",
+        "archive/excel_legacy.py",
+    ):
         src = (PROJECT_ROOT / fname).read_text(encoding="utf-8")
         hits = [
             f"{fname}:{i}"

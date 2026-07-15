@@ -4981,12 +4981,12 @@ def generate_excel(data):
     }
     if include_programmatic:
         joveo_nt_cats["DSP Partners (Joveo Network)"] = (
-            joveo_pubs.get("by_category", {}).get("DSP") or [][:10]
-        )
+            joveo_pubs.get("by_category", {}).get("DSP") or []
+        )[:10]
     if include_social:
         joveo_nt_cats["Social Media Advertising"] = (
-            joveo_pubs.get("by_category", {}).get("Social Media") or [][:10]
-        )
+            joveo_pubs.get("by_category", {}).get("Social Media") or []
+        )[:10]
 
     for cat_name, channels in categories:
         cell = ws_nontrad.cell(row=row, column=2, value=cat_name)

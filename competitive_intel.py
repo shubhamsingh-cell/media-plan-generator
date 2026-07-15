@@ -1291,7 +1291,7 @@ def generate_competitive_brief(analysis_results: Dict[str, Any]) -> Dict[str, An
     brief["competitive_narrative"] = _generate_competitive_narrative(
         {
             "company": brief.get("company", {}),
-            "competitors": brief.get("competitors") or [][:5],  # Cap for token budget
+            "competitors": (brief.get("competitors") or [])[:5],  # Cap for token budget
             "hiring_activity": brief.get("hiring_activity", {}),
             "ad_benchmarks": brief.get("ad_benchmarks", {}),
         }
@@ -1511,7 +1511,7 @@ def generate_competitive_excel(
 
     ws1.merge_cells("B3:F3")
     ws1["B3"] = (
-        f"Generated {brief.get('generated_at') or ''[:10]} | Powered by Nova AI Suite"
+        f"Generated {(brief.get('generated_at') or '')[:10]} | Powered by Nova AI Suite"
     )
     ws1["B3"].font = subtitle_font
 
@@ -1884,7 +1884,7 @@ def generate_competitive_ppt(
         4.5,
         11,
         0.5,
-        f"Generated {brief.get('generated_at') or ''[:10]} | Powered by Nova AI Suite",
+        f"Generated {(brief.get('generated_at') or '')[:10]} | Powered by Nova AI Suite",
         font_size=12,
         color=MUTED_TEXT,
     )

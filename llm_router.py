@@ -4839,4 +4839,4 @@ if __name__ == "__main__":
             )
             print(f"Provider: {result.get('provider_name', 'N/A')}")
             print(f"Latency: {result.get('latency_ms') or 0:.0f}ms")
-            print(f"Response: {result.get('text') or ''[:500]}")
+            print(f"Response: {(result.get('text') or '')[:500]}")
