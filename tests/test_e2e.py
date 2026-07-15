@@ -186,13 +186,35 @@ class TestHealthAPI(unittest.TestCase):
 
 
 class TestChatCSRF(unittest.TestCase):
-    """Tests for /api/chat CSRF enforcement."""
+    """Tests for /api/chat auth enforcement.
 
-    def test_chat_rejects_without_csrf(self) -> None:
-        """/api/chat should reject requests without a CSRF token (403)."""
+    Finding H (2026-07-15 review): this test used to assert (403, 400),
+    on the assumption that an unauthenticated POST would be rejected by
+    the CSRF double-submit check. That's stale: /api/chat is (and always
+    has been -- see app.py's _CSRF_EXEMPT_PATHS, "S48: Chat endpoints
+    exempt from CSRF -- protected by @joveo.com auth instead") explicitly
+    CSRF-EXEMPT. Its own route handler instead requires @joveo.com /
+    admin / same-origin auth, checked BEFORE the request body is even
+    read -- so an unauthenticated request never reaches a CSRF branch at
+    all; it fails auth first with 401 AUTH_REQUIRED.
+
+    Verified empirically 2026-07-15 against a live instance: the fix this
+    finding originally proposed -- send a compliant same-origin Origin
+    header "to exercise the CSRF branch" -- does NOT reproduce (403, 400).
+    It satisfies /api/chat's same-origin auth path and the request is
+    handled normally (200), because CSRF flatly does not apply to this
+    route. There is no CSRF branch left to exercise here, so this test
+    now asserts the real, current rejection path (401) instead.
+    """
+
+    def test_chat_rejects_unauthenticated_request(self) -> None:
+        """A POST with no @joveo.com session/admin key and no same-origin
+        Origin/Referer header fails /api/chat's own auth check (checked
+        at the route handler, ahead of and independent from CSRF) and
+        gets 401 -- never a CSRF-specific 403/400."""
         body = json.dumps({"message": "hello"}).encode("utf-8")
         resp = _post("/api/chat", body=body)
-        self.assertIn(resp.status, (403, 400))
+        self.assertEqual(resp.status, 401)
 
 
 class TestAdminDashboard(unittest.TestCase):

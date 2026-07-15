@@ -242,6 +242,17 @@
     var estimateTimer = null;
     var lastScheduledSig = "";   // signature of the last request scheduled/sent
     var latestEstimate = null;   // {est_hires, est_cph, est_applications, est_cpa} | null
+    // Finding D (2026-07-15 review): a failed/errored fetch used to leave
+    // lastScheduledSig set to the failed sig forever, so fetchEstimate()'s
+    // own dedupe guard (`sig === lastScheduledSig`) silently no-opped every
+    // later render() tick -- including the 1600ms safety poll -- until the
+    // user edited an input. estimateRetrySig/-Count track consecutive
+    // failures for the CURRENT sig so a down/erroring server gets a bounded
+    // number of automatic retries instead of either hammering forever or
+    // going permanently silent.
+    var ESTIMATE_MAX_AUTO_RETRIES = 3;
+    var estimateRetrySig = "";   // sig currently being auto-retried
+    var estimateRetryCount = 0;  // consecutive failures for estimateRetrySig
 
     function resolveIndustry() {
       var industry = "";
@@ -280,6 +291,13 @@
         industry, clientName
       ]);
       if (sig === lastScheduledSig) return;
+      if (sig !== estimateRetrySig) {
+        // A genuinely new input state, not just fetchEstimate() re-running
+        // for the SAME failed sig after the catch handler below cleared
+        // lastScheduledSig to retry it -- reset its retry budget.
+        estimateRetrySig = sig;
+        estimateRetryCount = 0;
+      }
       lastScheduledSig = sig;
       clearTimeout(estimateTimer);
 
@@ -310,11 +328,28 @@
         }).then(function (data) {
           if (requestSig !== lastScheduledSig) return; // superseded by a newer request
           latestEstimate = (data && typeof data.est_hires === "number") ? data : null;
-          paintOutcomes(m);
+          estimateRetryCount = 0; // a response (even a malformed one) ends the failure streak
+          // Repaint from a FRESH gather(), not the `m` snapshot captured when
+          // this fetch was scheduled -- targetHires/roleClass/channels can
+          // have changed while the request was in flight (the sig guard
+          // above only covers budget/roles/locations/industry/clientName),
+          // and computeInsights()/NovaChat.projected must reflect the
+          // wizard's CURRENT state, not a stale one.
+          paintOutcomes(gather());
         }).catch(function () {
           if (requestSig !== lastScheduledSig) return;
           latestEstimate = null;
-          paintOutcomes(m);
+          paintOutcomes(gather());
+          // Auto-retry via the next render() tick (input-driven or the
+          // 1600ms safety poll): clearing lastScheduledSig makes this same
+          // sig look "new" again to fetchEstimate()'s dedupe guard above,
+          // instead of silently never refetching until an input changes.
+          // Capped so a genuinely-down server isn't hammered forever once
+          // inputs stop changing.
+          if (requestSig === estimateRetrySig && estimateRetryCount < ESTIMATE_MAX_AUTO_RETRIES) {
+            estimateRetryCount++;
+            lastScheduledSig = "";
+          }
         });
       }, ESTIMATE_DEBOUNCE_MS);
     }

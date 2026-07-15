@@ -133,7 +133,20 @@ PARITY_BRIEFS: list[tuple[str, dict[str, Any]]] = [
 
 def _reference_total_projected(brief: dict[str, Any]) -> dict[str, Any]:
     """Call calculate_budget_allocation directly, building inputs the same
-    way _compute_plan_estimate does, as an independent parity oracle."""
+    way _compute_plan_estimate does, as an independent parity oracle.
+
+    Finding B (2026-07-15 review): this oracle used to omit the
+    ``vendor_availability`` kwarg that ``_compute_plan_estimate`` actually
+    passes (app.py's S91 vendor-availability gate, mirrored from both
+    /api/generate call sites -- see app.py ~3819-3865). An oracle that
+    silently drops a real input the function under test uses can never
+    catch a divergence introduced by that input: it would keep agreeing
+    with ``_compute_plan_estimate`` even if a future change made its
+    vendor gating diverge from what /api/generate does. Mirrors app.py's
+    construction exactly (industry_key -> us_plan -> vendor_availability),
+    reusing ``app.plan_geo`` / ``app.excel_v2`` -- already imported by the
+    ``app`` module this file imports -- instead of re-importing them here.
+    """
     roles_titles = [str(r) for r in brief["roles"]]
     industry_profile = app.classify_industry(
         brief["industry"], brief["client_name"], roles_titles
@@ -161,6 +174,19 @@ def _reference_total_projected(brief: dict[str, Any]) -> dict[str, Any]:
     roles_for_ba = [{"title": t, "count": 1, "tier": "Professional"} for t in roles_titles]
     locs_for_ba = [app._split_city_state_country(loc) for loc in brief["locations"]]
 
+    us_plan = app.plan_geo.is_us_plan(brief) if app.plan_geo is not None else True
+    vendor_availability: Optional[dict[str, bool]] = None
+    _niche_vendor_fn = (
+        getattr(app.excel_v2, "get_niche_vendor_availability", None)
+        if app.excel_v2 is not None
+        else None
+    )
+    if _niche_vendor_fn is not None:
+        try:
+            vendor_availability = _niche_vendor_fn(industry=industry_key, us_plan=us_plan)
+        except Exception:
+            vendor_availability = None
+
     result = budget_engine.calculate_budget_allocation(
         total_budget=parse_budget(brief["budget"]),
         roles=roles_for_ba,
@@ -171,6 +197,7 @@ def _reference_total_projected(brief: dict[str, Any]) -> dict[str, Any]:
         knowledge_base=load_knowledge_base(),
         collar_type="",
         campaign_start_month=0,
+        vendor_availability=vendor_availability,
     )
     return result.get("total_projected", {}) if isinstance(result, dict) else {}
 
@@ -184,9 +211,10 @@ def _reference_total_projected(brief: dict[str, Any]) -> dict[str, Any]:
 def test_estimate_matches_budget_engine_total_projected(
     name: str, brief: dict[str, Any]
 ) -> None:
-    """est_hires/est_cph must equal calculate_budget_allocation's
-    total_projected hires/cost_per_hire for the identical inputs, within
-    rounding -- this is the single-sourcing guarantee the fix exists for."""
+    """est_hires/est_cph/est_applications/est_cpa must equal
+    calculate_budget_allocation's total_projected (and its engine-derived
+    budget/applications ratio) for the identical inputs, within rounding
+    -- this is the single-sourcing guarantee the fix exists for."""
     est = app._compute_plan_estimate(dict(brief))
     reference = _reference_total_projected(brief)
 
@@ -197,9 +225,24 @@ def test_estimate_matches_budget_engine_total_projected(
     assert est["est_cph"] == pytest.approx(
         float(reference.get("cost_per_hire") or 0.0), abs=0.01
     ), f"{name}: est_cph {est['est_cph']} != engine cost_per_hire {reference.get('cost_per_hire')}"
-    assert est["est_applications"] == int(reference.get("applications") or 0), (
+    reference_applications = int(reference.get("applications") or 0)
+    assert est["est_applications"] == reference_applications, (
         f"{name}: est_applications {est['est_applications']} != engine "
         f"applications {reference.get('applications')}"
+    )
+    # Finding F (2026-07-15 review): est_cpa was never asserted in this
+    # parity test. _compute_plan_estimate derives it as
+    # round(budget_val / applications, 2) -- the SAME engine-consistent
+    # rounding, computed independently here from the oracle's own
+    # applications figure and the exact budget value the engine used.
+    expected_est_cpa = (
+        round(parse_budget(brief["budget"]) / reference_applications, 2)
+        if reference_applications
+        else 0.0
+    )
+    assert est["est_cpa"] == pytest.approx(expected_est_cpa, abs=0.01), (
+        f"{name}: est_cpa {est['est_cpa']} != engine-derived "
+        f"{expected_est_cpa} (budget / applications)"
     )
 
 
@@ -551,6 +594,125 @@ class TestPreviewJsRefetchSignature:
         assert "var industry = resolveIndustry();" in snippet
         assert 'var clientName = val("clientName");' in snippet
         assert "estimatePayload(m, roles, industry, clientName)" in snippet
+
+
+class TestPreviewJsStaleRepaintAndRetry:
+    """Findings C, D, E (2026-07-15 review) on the fetchEstimate() async
+    resolution path (templates/partials/index/body_preview_js.html).
+
+    Finding C (audited, ALREADY CORRECT -- no code change): "a pending
+    refetch can repaint the PREVIOUS (stale) estimate." Traced through by
+    hand: ``latestEstimate`` is nulled to a placeholder the INSTANT a sig
+    change is scheduled (before the network call even fires), and each
+    ``.then()``/``.catch()`` resolution is guarded by
+    ``requestSig !== lastScheduledSig`` -- so a response for a sig that
+    has since been superseded by a newer edit is discarded rather than
+    painted. There is no path where an OLDER estimate's numbers can land
+    after a NEWER one. test_stale_response_guard_present_in_both_branches
+    below locks this in with a source-inspection check (matching this
+    file's established pattern, since there's no standalone JS runner) so
+    the guard can't silently regress.
+
+    Finding D (real bug, fixed): a failed/errored fetch left
+    ``lastScheduledSig`` pinned to the failed sig forever, so
+    fetchEstimate()'s own dedupe guard silently no-opped every later
+    render() tick -- including the 1600ms safety poll -- until the user
+    edited an input. Fixed: the ``.catch()`` handler now clears
+    ``lastScheduledSig`` (so the next render tick looks "new" again and
+    naturally retries), capped at ``ESTIMATE_MAX_AUTO_RETRIES`` (3)
+    consecutive failures for the same input state so a down server isn't
+    hammered forever.
+
+    Finding E (real bug, fixed): the ``.then()``/``.catch()`` handlers
+    used to repaint with the ``m`` snapshot captured when the fetch was
+    SCHEDULED, not a fresh one -- so if targetHires/roleClass/channel
+    selection changed while the request was in flight (none of which are
+    part of the dedupe ``sig``, so they don't cancel/reschedule the
+    fetch), computeInsights() and NovaChat.projected would render against
+    stale wizard state even though the numeric estimate itself was
+    current. Fixed: both handlers now call ``paintOutcomes(gather())``.
+    """
+
+    def test_stale_response_guard_present_in_both_branches(
+        self, preview_js_source: str
+    ) -> None:
+        """Finding C, locked in as already-correct: a superseded fetch's
+        resolution must never paint over a newer one, in EITHER the
+        success or the error branch."""
+        idx = preview_js_source.index("estimateTimer = setTimeout(function ()")
+        end_idx = preview_js_source.index("}, ESTIMATE_DEBOUNCE_MS);", idx)
+        snippet = preview_js_source[idx:end_idx]
+        then_idx = snippet.index(".then(function (data)")
+        catch_idx = snippet.index(".catch(function ()")
+        then_snippet = snippet[then_idx:catch_idx]
+        catch_snippet = snippet[catch_idx:]
+        assert "if (requestSig !== lastScheduledSig) return;" in then_snippet, (
+            "the success handler must discard a response superseded by a "
+            "newer sig -- Finding C's core guard"
+        )
+        assert "if (requestSig !== lastScheduledSig) return;" in catch_snippet, (
+            "the error handler must discard a superseded failure the same way"
+        )
+        # And the immediate placeholder-on-schedule half of the guard: no
+        # stale number is shown while ANY fetch (superseded or not) is
+        # still pending.
+        schedule_idx = preview_js_source.index("function fetchEstimate(m)")
+        schedule_snippet = preview_js_source[schedule_idx : schedule_idx + 1200]
+        assert "latestEstimate = null;" in schedule_snippet
+        assert "paintOutcomes(m);" in schedule_snippet
+
+    def test_fetch_error_clears_last_scheduled_sig_with_retry_cap(
+        self, preview_js_source: str
+    ) -> None:
+        """Finding D: the error branch must clear lastScheduledSig (so the
+        next render tick / 1600ms safety poll naturally retries) and must
+        be bounded by a retry cap constant -- not an unconditional/
+        unbounded clear, which would hammer a genuinely-down server."""
+        idx = preview_js_source.index(".catch(function ()")
+        end_idx = preview_js_source.index("});", idx)
+        catch_snippet = preview_js_source[idx:end_idx]
+        assert 'lastScheduledSig = "";' in catch_snippet, (
+            "on fetch failure, lastScheduledSig must be cleared so the "
+            "next render tick re-attempts the SAME sig instead of "
+            "silently never refetching until an input changes"
+        )
+        assert "ESTIMATE_MAX_AUTO_RETRIES" in catch_snippet, (
+            "the retry-triggering clear must be capped -- an unconditional "
+            "clear would retry a down server forever"
+        )
+        assert "var ESTIMATE_MAX_AUTO_RETRIES = 3;" in preview_js_source
+
+    def test_resolution_repaints_from_fresh_gather_not_stale_snapshot(
+        self, preview_js_source: str
+    ) -> None:
+        """Finding E: both the success and error resolution handlers must
+        repaint from a FRESH gather() call, not the `m` parameter captured
+        when fetchEstimate(m) was originally invoked (which can be stale
+        by the time an in-flight request resolves, for any wizard field
+        that isn't part of the dedupe sig -- e.g. target hire volume,
+        role class, channel selection)."""
+        idx = preview_js_source.index("estimateTimer = setTimeout(function ()")
+        end_idx = preview_js_source.index("}, ESTIMATE_DEBOUNCE_MS);", idx)
+        snippet = preview_js_source[idx:end_idx]
+        then_idx = snippet.index(".then(function (data)")
+        catch_idx = snippet.index(".catch(function ()")
+        then_snippet = snippet[then_idx:catch_idx]
+        catch_snippet = snippet[catch_idx:]
+        assert "paintOutcomes(gather());" in then_snippet, (
+            "success handler must repaint from a fresh gather(), not the "
+            "schedule-time `m` snapshot"
+        )
+        assert "paintOutcomes(gather());" in catch_snippet, (
+            "error handler must repaint from a fresh gather() too"
+        )
+        assert "paintOutcomes(m);" not in then_snippet, (
+            "success handler must not repaint from the stale schedule-time "
+            "snapshot"
+        )
+        assert "paintOutcomes(m);" not in catch_snippet, (
+            "error handler must not repaint from the stale schedule-time "
+            "snapshot"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -949,6 +1111,82 @@ class TestOriginGateLive:
         )
         assert resp.status == 400
         resp.read()
+
+
+# ---------------------------------------------------------------------------
+# 6. Rate-limit isolation + cap (Finding G, 2026-07-15 review): previously
+#    only source-grepped (TestRouteWiring.test_route_has_isolated_rate_limiter
+#    above). Drives the REAL cap end-to-end against the in-process
+#    gate_server, and proves /api/generate's separate bucket is untouched.
+# ---------------------------------------------------------------------------
+
+
+class TestEstimateRateLimitBehavioral:
+    """Behavioral (not just source-grepped) coverage of /api/estimate's
+    isolated 60 req/min RateLimiter instance (``app._rl_estimate``)."""
+
+    def test_estimate_cap_429_after_60_then_generate_bucket_untouched(
+        self, gate_server: int, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """61 requests from the same client IP against a FRESH RateLimiter
+        instance (monkeypatched in for ``app._rl_estimate`` and restored
+        automatically on teardown, so this cannot leak rate-limit state
+        into TestOriginGateLive's tests elsewhere in this module) must
+        admit exactly the first 60 and 429 the 61st -- the documented
+        60 req/min quota (app.py: `_rl_estimate.is_allowed(client_ip,
+        max_requests=60, window_seconds=60)`). Then confirms
+        /api/generate's SEPARATE RateLimiter instance (``_rl_generate``)
+        was not touched by any of it.
+
+        ``_rl_generate`` is ALSO monkeypatched to a fresh instance here
+        (not just read) -- the real, process-shared ``_rl_generate`` is
+        already exercised close to its 10 req/min cap by
+        test_generate_concurrency.py elsewhere in this same pytest run
+        (same 127.0.0.1 client IP), and one extra real request against it
+        from this test was observed to tip a later, unrelated test in
+        that file into a spurious 429. A fresh instance still proves the
+        isolation claim (its bucket starts empty regardless of
+        /api/estimate's hammering) without borrowing quota from the real
+        one.
+        """
+        monkeypatch.setattr(app, "_rl_estimate", app.RateLimiter())
+        monkeypatch.setattr(app, "_rl_generate", app.RateLimiter())
+
+        statuses: list[int] = []
+        for _ in range(61):
+            resp = _post_to(
+                gate_server,
+                "/api/estimate",
+                body=_VALID_ESTIMATE_BODY,
+                headers={"Origin": f"http://localhost:{gate_server}"},
+            )
+            statuses.append(resp.status)
+            resp.read()
+
+        assert 429 not in statuses[:60], (
+            f"the first 60 req/min must all be admitted, got statuses "
+            f"{statuses[:60]}"
+        )
+        assert statuses[60] == 429, (
+            f"the 61st request within the window must be rate-limited "
+            f"(429), got {statuses[60]}"
+        )
+
+        # /api/generate's fresh, isolated RateLimiter instance must still
+        # have its full quota -- hammering /api/estimate's must not have
+        # consumed any of it.
+        gen_resp = _post_to(
+            gate_server,
+            "/api/generate",
+            body=b"{not valid json: rate-limit-isolation probe",
+            headers={"Origin": f"http://localhost:{gate_server}"},
+        )
+        assert gen_resp.status != 429, (
+            f"/api/generate's rate-limit bucket must be isolated from "
+            f"/api/estimate's, got {gen_resp.status} (429 would mean "
+            f"quota bled across routes)"
+        )
+        gen_resp.read()
 
 
 if __name__ == "__main__":
