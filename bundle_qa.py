@@ -321,13 +321,23 @@ def _check_text_patterns(
         if mm:
             locations = data.get("locations") or []
             n_locations = len(locations) if isinstance(locations, list) else 0
-            if n_locations and int(mm.group(1)) != n_locations:
+            n_mentioned = int(mm.group(1))
+            # A "(N market(s))" parenthetical can legitimately describe a
+            # SUBSET of the plan's locations -- e.g. a Risk Register title
+            # "High Competition (1 market)" out of 6 total, sourced from
+            # competitor_map's hiring_intensity classification, not from
+            # the plan's full location list. Only an *impossible* count --
+            # more markets mentioned than the plan actually has -- is a
+            # genuine defect; any count <= n_locations is a valid subset
+            # and must not be flagged.
+            if n_locations and n_mentioned > n_locations:
                 findings.append(
                     _finding(
                         "warn",
                         "markets_count_mismatch",
-                        f"Text says '({mm.group(1)} markets)' but the plan "
-                        f"has {n_locations} location(s): {stripped[:120]!r}",
+                        f"Text says '({display_format.fmt_count(n_mentioned, 'market')})' "
+                        f"but the plan has only {n_locations} location(s): "
+                        f"{stripped[:120]!r}",
                         u.location,
                     )
                 )

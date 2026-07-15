@@ -244,6 +244,57 @@ def test_allows_bucketed_duration_label_matching_campaign_weeks():
     ), findings
 
 
+def test_allows_subset_market_count_within_total():
+    """Prod-Manpower false positive: the Risk Register's "High Competition
+    (N market(s))" title reports a SUBSET of the plan's locations (how many
+    are classified high/very_high hiring_intensity in competitor_map), not
+    the plan's total market count -- e.g. "High Competition (1 market)" on
+    a 6-location plan is correct, not a mismatch. Any subset count
+    (<= n_locations) must not be flagged."""
+    units = [
+        bundle_qa._TextUnit(
+            "Fortune 500+ companies hiring same roles in 1 market", "slide 9"
+        )
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_text_patterns(
+        units,
+        {
+            "locations": [
+                "Massachusetts",
+                "Maine",
+                "New Hampshire",
+                "Rhode Island",
+                "Connecticut",
+                "Denver, CO",
+            ]
+        },
+        findings,
+    )
+    assert not any(f["code"] == "markets_count_mismatch" for f in findings), findings
+
+
+def test_detects_impossible_market_count_exceeding_total():
+    """A parenthetical market count can never legitimately exceed the
+    plan's total location count -- that's the real invariant worth
+    flagging (e.g. stale/hardcoded copy claiming more markets than the
+    plan actually has)."""
+    units = [
+        bundle_qa._TextUnit(
+            "This campaign spans (8 markets) with strong regional demand",
+            "slide 3",
+        )
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_text_patterns(
+        units, {"locations": ["Austin, TX", "Dallas, TX", "Houston, TX"]}, findings
+    )
+    matches = [f for f in findings if f["code"] == "markets_count_mismatch"]
+    assert matches, findings
+    assert "8 markets" in matches[0]["message"]
+    assert "3 location(s)" in matches[0]["message"]
+
+
 def test_detects_client_name_wrong_casing():
     units = [bundle_qa._TextUnit("Plan for atria Senior living", "X!A1")]
     findings: list[dict] = []
