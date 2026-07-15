@@ -10,6 +10,10 @@ data/api_cache/
 data/generated_docs/
 data/request_log.json
 data/request_log.json.lock
+data/audit_log.jsonl
+data/benchmark_drift_results.json
+data/job_posting_volumes.json
+data/channel_benchmarks_live.json
 data/nova_learned_answers.json
 data/nova_unanswered.json
 media_plan_sample.pptx
