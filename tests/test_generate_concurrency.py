@@ -1,7 +1,7 @@
 """Integration-lite threading tests for the "one generation stalls the
 whole server" fix.
 
-Two independent things are verified:
+Three independent things are verified:
 
 1. The stdlib server is already a ThreadingHTTPServer (one thread per
    request, daemon threads) -- confirmed by source inspection, since that's
@@ -14,6 +14,14 @@ Two independent things are verified:
    ``Retry-After`` header instead of queueing, and /api/health -- which
    never touches this semaphore -- stays fast regardless of how many
    generate slots are held.
+
+3. The cap spans ASYNC (``X-Async: true``) generations too -- the primary
+   web-UI path. The submit request returns a job_id in milliseconds, but
+   slot ownership transfers to the background worker thread: the slot
+   stays held while the job reports "processing" and is released exactly
+   once when the pipeline reaches a terminal status (completed OR failed).
+   A saturated server rejects async submits with the same immediate 429 +
+   ``Retry-After`` and creates no job.
 
 These run against a REAL ``app.ThreadedHTTPServer`` instance bound to an
 ephemeral port in a background daemon thread (per the task's "integration-
@@ -129,10 +137,12 @@ def _wait_for_slots_available(count: int, timeout: float = 5.0) -> bool:
             app_module._generate_slots.release()
 
 
-def _http_get(port: int, path: str, timeout: float = 5.0) -> tuple[int, dict, bytes]:
+def _http_get(
+    port: int, path: str, timeout: float = 5.0, headers: dict | None = None
+) -> tuple[int, dict, bytes]:
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
     try:
-        conn.request("GET", path)
+        conn.request("GET", path, headers=headers or {})
         resp = conn.getresponse()
         body = resp.read()
         return resp.status, dict(resp.getheaders()), body
@@ -141,19 +151,66 @@ def _http_get(port: int, path: str, timeout: float = 5.0) -> tuple[int, dict, by
 
 
 def _http_post_generate(
-    port: int, timeout: float = 60.0, payload: dict | None = None
+    port: int,
+    timeout: float = 60.0,
+    payload: dict | None = None,
+    extra_headers: dict | None = None,
 ) -> tuple[int, dict, bytes]:
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
     try:
         body = json.dumps(payload if payload is not None else _GEN_PAYLOAD).encode(
             "utf-8"
         )
-        conn.request("POST", "/api/generate", body=body, headers=_AUTH_HEADERS)
+        headers = dict(_AUTH_HEADERS)
+        if extra_headers:
+            headers.update(extra_headers)
+        conn.request("POST", "/api/generate", body=body, headers=headers)
         resp = conn.getresponse()
         data = resp.read()
         return resp.status, dict(resp.getheaders()), data
     finally:
         conn.close()
+
+
+def _count_free_slots() -> int:
+    """Non-destructively count currently-acquirable generate slots
+    (acquire non-blocking up to the cap, release everything acquired)."""
+    acquired = 0
+    for _ in range(app_module._MAX_CONCURRENT_GENERATE):
+        if app_module._generate_slots.acquire(blocking=False):
+            acquired += 1
+    for _ in range(acquired):
+        app_module._generate_slots.release()
+    return acquired
+
+
+def _poll_job(port: int, job_id: str) -> dict:
+    """Poll /api/jobs/{job_id} in JSON mode. The Accept header matters:
+    without ``application/json`` a completed job returns the binary ZIP
+    (and marks it downloaded) instead of a status document."""
+    status, _headers, body = _http_get(
+        port,
+        f"/api/jobs/{job_id}",
+        timeout=10.0,
+        headers={"Accept": "application/json"},
+    )
+    assert status == 200, f"/api/jobs/{job_id} returned HTTP {status}"
+    return json.loads(body)
+
+
+def _wait_for_terminal_job(port: int, job_id: str, timeout: float) -> dict:
+    """Poll a job until it reaches a terminal status (completed/failed)."""
+    deadline = time.time() + timeout
+    last: dict = {}
+    while time.time() < deadline:
+        last = _poll_job(port, job_id)
+        if last.get("status") in ("completed", "failed"):
+            return last
+        time.sleep(0.5)
+    pytest.fail(
+        f"job {job_id} did not reach a terminal status within {timeout}s "
+        f"(last poll: {last})"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -304,6 +361,152 @@ def test_health_stays_fast_during_a_real_concurrent_generate(live_server: int) -
     assert max(health_latencies) < 2.0, (
         f"/api/health latencies during a real concurrent generation: "
         f"{health_latencies} -- expected all well under 1-2s"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 4. Async (X-Async: true) generations -- the cap must span the worker thread
+# ---------------------------------------------------------------------------
+
+
+def test_async_submit_rejected_when_slots_saturated(live_server: int) -> None:
+    """With both slots held, an async submit must get the same immediate
+    429 + Retry-After as a sync call -- rejected before any job is
+    created, so the response carries no job_id to poll."""
+    port = live_server
+    # Barrier: a previous test's /api/generate releases its slot in
+    # do_POST's finally AFTER the client saw the response -- wait for all
+    # slots to be back before saturating them.
+    assert _wait_for_slots_available(
+        app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
+    ), "test setup: slots from a previous test's request not yet released"
+    for _ in range(app_module._MAX_CONCURRENT_GENERATE):
+        assert app_module._generate_slots.acquire(blocking=False), (
+            "test setup: could not saturate the generate semaphore"
+        )
+    try:
+        status, headers, body = _http_post_generate(
+            port,
+            timeout=10.0,
+            payload=_gen_payload("async-reject"),
+            extra_headers={"X-Async": "true"},
+        )
+        assert status == 429
+        assert headers.get("Retry-After") == "5"
+        payload: dict[str, Any] = json.loads(body)
+        assert payload["code"] == "TOO_MANY_CONCURRENT_GENERATIONS"
+        assert "job_id" not in payload, (
+            "a saturated async submit must not create a job"
+        )
+    finally:
+        for _ in range(app_module._MAX_CONCURRENT_GENERATE):
+            app_module._generate_slots.release()
+
+
+def test_async_generate_holds_slot_until_worker_finishes(live_server: int) -> None:
+    """Regression pin for the async cap bypass: an X-Async submit returns
+    a job_id in milliseconds, but its concurrency slot must stay owned by
+    the background worker for the full pipeline -- not be released by
+    do_POST's finally when the handler thread returns. Before the fix the
+    slot came back within milliseconds of the 200 while the job was still
+    processing, so real (web-UI) async traffic was effectively uncapped.
+    """
+    port = live_server
+    # Barrier: wait out any trailing slot release from a previous test's
+    # request so the free-slot arithmetic below starts from a full pool.
+    assert _wait_for_slots_available(
+        app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
+    ), "test setup: slots from a previous test's request not yet released"
+    status, _headers, body = _http_post_generate(
+        port,
+        timeout=30.0,
+        payload=_gen_payload("async-slot-hold"),
+        extra_headers={"X-Async": "true"},
+    )
+    assert status == 200, f"async /api/generate submit failed with status {status}"
+    submit: dict[str, Any] = json.loads(body)
+    job_id = submit["job_id"]
+    assert submit["status"] == "processing"
+
+    observed_processing = False
+    try:
+        # Observation window: while the job reports "processing", at most
+        # cap-1 slots may be acquirable (the worker owns one). Sample
+        # repeatedly rather than once -- do_POST's finally runs *after*
+        # the response bytes hit the socket, so a buggy handler-side
+        # release lands a beat after the 200, not instantly.
+        deadline = time.time() + 3.0
+        while time.time() < deadline:
+            if _poll_job(port, job_id).get("status") != "processing":
+                break
+            free = _count_free_slots()
+            # Re-read status after the probe so a job that reached a
+            # terminal state mid-probe can't be mistaken for a leak.
+            if _poll_job(port, job_id).get("status") == "processing":
+                observed_processing = True
+                assert free <= app_module._MAX_CONCURRENT_GENERATE - 1, (
+                    f"{free} generate slots free while async job {job_id} "
+                    "is still processing -- the submit handler released "
+                    "the worker's slot (async cap bypass)"
+                )
+            time.sleep(0.2)
+        assert observed_processing, (
+            "async job left 'processing' before the slot hold could be "
+            "observed -- cannot validate the cap"
+        )
+    finally:
+        # Drain to terminal even on assertion failure so the worker is not
+        # still running (and, post-fix, holding a slot) in later tests.
+        final = _wait_for_terminal_job(port, job_id, timeout=180.0)
+
+    assert final.get("status") in ("completed", "failed")
+    assert _wait_for_slots_available(
+        app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
+    ), (
+        "generate slots were not all released after the async job reached "
+        f"terminal status {final.get('status')!r} -- the worker's "
+        "finally-release is leaking"
+    )
+
+
+def test_async_generate_releases_slot_when_pipeline_fails(
+    live_server: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Failure-path release: if the async pipeline blows up, the job must
+    land in "failed" AND the worker's slot must still come back. Seam:
+    ``load_knowledge_base`` is a module-level function the worker calls
+    early and unconditionally, outside any inner try/except, so patching
+    it to raise propagates to the closure's outer failure handler."""
+    port = live_server
+    # Barrier: wait out any trailing slot release from a previous test's
+    # request so the all-slots-released check below is meaningful.
+    assert _wait_for_slots_available(
+        app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
+    ), "test setup: slots from a previous test's request not yet released"
+
+    def _boom() -> dict:
+        raise RuntimeError("injected knowledge-base failure (test seam)")
+
+    monkeypatch.setattr(app_module, "load_knowledge_base", _boom)
+
+    status, _headers, body = _http_post_generate(
+        port,
+        timeout=30.0,
+        payload=_gen_payload("async-fail-release"),
+        extra_headers={"X-Async": "true"},
+    )
+    assert status == 200, f"async /api/generate submit failed with status {status}"
+    job_id = json.loads(body)["job_id"]
+
+    final = _wait_for_terminal_job(port, job_id, timeout=120.0)
+    assert final.get("status") == "failed"
+    assert "injected knowledge-base failure" in (final.get("error") or "")
+
+    assert _wait_for_slots_available(
+        app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
+    ), (
+        "generate slots were not all released after the async job failed "
+        "-- the worker's finally-release must fire on the failure path too"
     )
 
 

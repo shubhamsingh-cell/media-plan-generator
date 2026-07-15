@@ -15171,7 +15171,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     }
                 request_id = getattr(self, "_request_id", None)
 
-                def _async_generate(jid, gen_data, rid):
+                def _run_async_generate(jid, gen_data, rid):
                     """Run the full sync generation pipeline in a background thread."""
                     try:
                         # S29 v2: Quality-first -- give the pipeline enough time
@@ -16678,13 +16678,44 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         except Exception:
                             pass  # email alerts are best-effort
 
+                def _async_generate(jid, gen_data, rid):
+                    # Slot ownership was transferred from the request thread (see
+                    # _generate_slot_held handoff below); release exactly once no
+                    # matter how the pipeline exits.
+                    try:
+                        _run_async_generate(jid, gen_data, rid)
+                    finally:
+                        _generate_slots.release()
+
                 t = threading.Thread(
                     target=_async_generate,
                     args=(job_id, data, request_id),
                     daemon=True,
                     name=f"async-gen-{job_id}",
                 )
-                t.start()
+                # Handoff must precede start(): were start() first, a
+                # fast-finishing worker could release before the flag clears,
+                # and do_POST's finally would then double-release the
+                # BoundedSemaphore (ValueError).
+                self._generate_slot_held = False
+                try:
+                    t.start()
+                except Exception:
+                    # Worker never started: reclaim ownership so do_POST's
+                    # finally releases the slot, and surface the job as failed.
+                    self._generate_slot_held = True
+                    with _generation_jobs_lock:
+                        if job_id in _generation_jobs:
+                            _generation_jobs[job_id].update(
+                                {
+                                    "status": "failed",
+                                    "error": (
+                                        "Async generation worker thread "
+                                        "failed to start"
+                                    ),
+                                }
+                            )
+                    raise
                 self._send_json(
                     {
                         "job_id": job_id,
