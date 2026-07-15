@@ -570,7 +570,49 @@ def _server_reachable(host: str, port: int, timeout: float = 0.5) -> bool:
         return False
 
 
-_SERVER_UP: bool = _server_reachable(SERVER_HOST, SERVER_PORT)
+def _server_is_mpg(host: str, port: int, timeout: float = 3.0) -> bool:
+    """Confirm the reachable server is actually Nova AI Suite (MPG).
+
+    A bare TCP probe only proves *something* is listening -- TEST_PORT/8000
+    is sometimes occupied by an unrelated local service, which would
+    otherwise let this class run against the wrong server and fail
+    spuriously (401-vs-200). Requires GET /api/health to return 200 with a
+    JSON body whose "version" starts with "4.0.0-" (app.py's
+    ``_DEPLOY_VERSION``).
+    """
+    conn = http.client.HTTPConnection(host, port, timeout=timeout)
+    try:
+        conn.request("GET", "/api/health")
+        resp = conn.getresponse()
+        raw = resp.read()
+        if resp.status != 200:
+            return False
+        body = json.loads(raw)
+    except (OSError, ValueError, http.client.HTTPException):
+        return False
+    finally:
+        conn.close()
+    if not isinstance(body, dict):
+        return False
+    version = body.get("version")
+    return isinstance(version, str) and version.startswith("4.0.0-")
+
+
+_SERVER_REACHABLE: bool = _server_reachable(SERVER_HOST, SERVER_PORT)
+_SERVER_UP: bool = _SERVER_REACHABLE and _server_is_mpg(SERVER_HOST, SERVER_PORT)
+
+if not _SERVER_REACHABLE:
+    _SKIP_REASON: str = (
+        f"Nova AI Suite server not reachable at {SERVER_HOST}:{SERVER_PORT}. "
+        f"Start the server (or set TEST_HOST/TEST_PORT) to run E2E tests."
+    )
+else:
+    _SKIP_REASON = (
+        f"Port occupied by non-MPG server at {SERVER_HOST}:{SERVER_PORT} "
+        f"(GET /api/health did not return the Nova AI Suite 4.0.0- version "
+        f"signature). Set TEST_PORT to a real Nova AI Suite server's port "
+        f"to run E2E tests."
+    )
 
 
 def _post(
@@ -586,13 +628,7 @@ def _post(
     return conn.getresponse()
 
 
-@pytest.mark.skipif(
-    not _SERVER_UP,
-    reason=(
-        f"Nova AI Suite server not reachable at {SERVER_HOST}:{SERVER_PORT}. "
-        f"Start the server (or set TEST_HOST/TEST_PORT) to run E2E tests."
-    ),
-)
+@pytest.mark.skipif(not _SERVER_UP, reason=_SKIP_REASON)
 class TestEstimateEndpointLive:
     """Real HTTP requests against a running server."""
 

@@ -42,18 +42,65 @@ def _server_reachable(host: str, port: int, timeout: float = 0.5) -> bool:
         return False
 
 
-_SERVER_UP: bool = _server_reachable(SERVER_HOST, SERVER_PORT)
+def _server_is_mpg(host: str, port: int, timeout: float = 3.0) -> bool:
+    """Check whether the reachable server is actually Nova AI Suite.
 
-# Skip the entire module when the server is not reachable. This keeps the
-# suite green locally/CI without a running server while still exercising the
-# real endpoints (and their assertions) whenever a server is available.
-pytestmark = pytest.mark.skipif(
-    not _SERVER_UP,
-    reason=(
+    A bare TCP probe only proves *something* is listening -- on this
+    machine TEST_PORT/8000 is sometimes occupied by an unrelated service
+    (e.g. Talent CRM), which would otherwise let these live tests run
+    against the wrong server and fail spuriously (401-vs-200, etc.). This
+    confirms the MPG signature instead: GET /api/health must return 200
+    with a JSON body whose "version" starts with "4.0.0-" (see app.py's
+    ``_DEPLOY_VERSION``).
+
+    Args:
+        host: Server hostname to probe.
+        port: Server port to probe.
+        timeout: HTTP request timeout in seconds.
+
+    Returns:
+        True if the server's health signature matches Nova AI Suite.
+    """
+    conn = http.client.HTTPConnection(host, port, timeout=timeout)
+    try:
+        conn.request("GET", "/api/health")
+        resp = conn.getresponse()
+        raw = resp.read()
+        if resp.status != 200:
+            return False
+        body = json.loads(raw)
+    except (OSError, ValueError, http.client.HTTPException):
+        return False
+    finally:
+        conn.close()
+    if not isinstance(body, dict):
+        return False
+    version = body.get("version")
+    return isinstance(version, str) and version.startswith("4.0.0-")
+
+
+_SERVER_REACHABLE: bool = _server_reachable(SERVER_HOST, SERVER_PORT)
+_SERVER_UP: bool = _SERVER_REACHABLE and _server_is_mpg(SERVER_HOST, SERVER_PORT)
+
+if not _SERVER_REACHABLE:
+    _SKIP_REASON: str = (
         f"Nova AI Suite server not reachable at {SERVER_HOST}:{SERVER_PORT}. "
         f"Start the server (or set TEST_HOST/TEST_PORT) to run E2E tests."
-    ),
-)
+    )
+else:
+    _SKIP_REASON = (
+        f"Port occupied by non-MPG server at {SERVER_HOST}:{SERVER_PORT} "
+        f"(GET /api/health did not return the Nova AI Suite 4.0.0- version "
+        f"signature). Set TEST_PORT to a real Nova AI Suite server's port "
+        f"to run E2E tests."
+    )
+
+# Skip the entire module when the server is not reachable, or when it IS
+# reachable but is not actually Nova AI Suite (e.g. another local service
+# occupying the same port). This keeps the suite green locally/CI without
+# a running server while still exercising the real endpoints (and their
+# assertions) whenever an MPG server is available.
+pytestmark = pytest.mark.skipif(not _SERVER_UP, reason=_SKIP_REASON)
 
 
 def _get(
