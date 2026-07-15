@@ -3280,6 +3280,29 @@ def classify_industry(
     }
 
 
+def _normalize_dict_roles(data: dict) -> None:
+    """Normalize dict-of-dicts roles to a list of plain title strings, in place.
+
+    API/form clients may send roles as either ``["string"]`` or structured
+    ``[{"title": "...", "count": N, ...}]``. ``classify_industry()`` (and
+    other downstream consumers that expect ``roles: list[str]``, e.g. the
+    ``' '.join(roles or [])`` call it makes) require the flattened form.
+
+    Single source of truth for both /api/generate paths: the synchronous
+    handler and the X-Async background worker (``_run_async_generate``)
+    must call this identically instead of each carrying its own copy of
+    the isinstance branch -- a prior duplication left the async worker's
+    copy missing entirely, so dict-shaped roles crashed only that path
+    with ``TypeError: sequence item 0: expected str instance, dict found``.
+    """
+    for _rkey in ("roles", "target_roles"):
+        _rlist = data.get(_rkey) or []
+        if isinstance(_rlist, list) and _rlist and isinstance(_rlist[0], dict):
+            data[_rkey] = [
+                (r.get("title") or r.get("role") or str(r)) for r in _rlist
+            ]
+
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
@@ -15225,6 +15248,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 def _run_async_generate(jid, gen_data, rid):
                     """Run the full sync generation pipeline in a background thread."""
                     try:
+                        # ── Normalize roles early: dict-of-dicts -> list-of-strings ──
+                        # Same single-sourced normalization the sync /api/generate
+                        # handler applies (see _normalize_dict_roles) -- must run
+                        # before anything below reads gen_data's roles, since
+                        # classify_industry() and other consumers assume
+                        # roles: list[str].
+                        _normalize_dict_roles(gen_data)
+
                         # S29 v2: Quality-first -- give the pipeline enough time
                         # to use ALL data sources (15+ APIs, 25+ KB files, Supabase,
                         # vector search, LLM synthesis). Reliability > speed.
@@ -16924,12 +16955,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
             # ── Normalize roles early: dict-of-dicts -> list-of-strings ──
             # API/form can send roles as [{"title":"...","location":"..."}] or ["string"]
-            for _rkey in ("roles", "target_roles"):
-                _rlist = data.get(_rkey) or []
-                if isinstance(_rlist, list) and _rlist and isinstance(_rlist[0], dict):
-                    data[_rkey] = [
-                        (r.get("title") or r.get("role") or str(r)) for r in _rlist
-                    ]
+            _normalize_dict_roles(data)
 
             # Compute campaign_weeks from campaign_duration for timeline phasing
             duration_str = str(data.get("campaign_duration") or "" or "")

@@ -510,5 +510,49 @@ def test_async_generate_releases_slot_when_pipeline_fails(
     )
 
 
+# ---------------------------------------------------------------------------
+# 5. Dict-shaped roles on the async (X-Async: true) path
+# ---------------------------------------------------------------------------
+# Regression pin for a prod-verified async-only crash (build 4.0.0-c6cafddb,
+# 2026-07-15): roles as list-of-dicts (e.g. [{"title": "...", "count": N}])
+# -- a documented/allowed input shape the sync handler normalizes via
+# _normalize_dict_roles() -- reached the async worker's own
+# classify_industry() call unnormalized and crashed with
+# "TypeError: sequence item 0: expected str instance, dict found" from the
+# ``' '.join(roles or [])`` inside classify_industry(). The sync path
+# completed the identical brief because it normalizes roles (same helper)
+# well before its own classify_industry() call; the async worker's closure
+# had no equivalent call at all.
+
+
+def test_async_generate_completes_with_dict_shaped_roles(live_server: int) -> None:
+    """An X-Async submit with roles as list-of-dicts must reach status
+    "completed", not "failed" with a roles-shape TypeError. Real end-to-end
+    run through the actual background worker (not a mocked pipeline) --
+    the bug was specifically in how the async closure hands raw request
+    data to classify_industry(), which only a real run exercises."""
+    port = live_server
+    payload = _gen_payload("async-dict-roles")
+    payload["target_roles"] = [{"title": "CDL A Driver", "count": 250}]
+
+    status, _headers, body = _http_post_generate(
+        port,
+        timeout=30.0,
+        payload=payload,
+        extra_headers={"X-Async": "true"},
+    )
+    assert status == 200, f"async /api/generate submit failed with status {status}"
+    job_id = json.loads(body)["job_id"]
+
+    final = _wait_for_terminal_job(port, job_id, timeout=120.0)
+    assert final.get("status") == "completed", (
+        f"async job with dict-shaped roles did not complete -- got status "
+        f"{final.get('status')!r} (error: {final.get('error')!r}). Dict-shaped "
+        "roles are a documented/allowed input shape; the sync path completes "
+        "the identical brief."
+    )
+    assert "expected str instance, dict found" not in (final.get("error") or "")
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
