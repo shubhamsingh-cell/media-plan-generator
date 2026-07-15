@@ -48,6 +48,17 @@ This file covers:
        401, malformed JSON gets 4xx, and a real request against the
        Manpower brief returns the exact prod-verified 48 hires / $3,125
        CPH.
+    5. Same-origin gate hardening (2026-07-15 adversarial review) -- the
+       S48 gate on /api/estimate AND /api/generate used to be a substring
+       test (``"localhost" in (Origin or Referer)``), bypassable with
+       ``Referer: https://evil.com/?x=localhost`` or
+       ``Origin: https://localhost.evil.com``. It is now parsed-host
+       equality via ``MediaPlanHandler._check_same_origin_auth`` against
+       ``app._SAME_ORIGIN_ALLOWED_HOSTS``. Covered three ways: helper
+       unit tests, source-inspection wiring checks on both gates, and
+       live HTTP tests against an in-process ``app.ThreadedHTTPServer``
+       on an ephemeral port (always runs -- no external server needed,
+       matching test_generate_concurrency.py's fixture pattern).
 
 Runs under pytest, or standalone:
 ``python3 tests/test_api_estimate.py``.
@@ -60,8 +71,11 @@ import json
 import os
 import socket
 import sys
+import threading
+import time
+import types
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 
 import pytest
 
@@ -337,6 +351,45 @@ class TestValidation:
                 {"budget": "-$50,000", "roles": ["Driver"]}
             )
 
+    def test_exact_adversarial_repro_body_raises(self) -> None:
+        """The EXACT body from the 2026-07-15 adversarial review that
+        returned a 500 on prod-shaped input: count="abc" hit the bare
+        int() at the role-dict branch and escaped as an unhandled
+        ValueError. Locked in verbatim so the repro can never regress."""
+        with pytest.raises(app._EstimateValidationError):
+            app._compute_plan_estimate(
+                {
+                    "budget": "$150,000",
+                    "roles": [{"title": "X", "count": "abc"}],
+                    "locations": ["Dallas, TX"],
+                }
+            )
+
+    def test_list_role_count_raises_not_500(self) -> None:
+        """count=[1,2] used to raise TypeError from int([1, 2]) -- the
+        non-string flavor of the same unguarded-cast crash class."""
+        with pytest.raises(app._EstimateValidationError):
+            app._compute_plan_estimate(
+                {
+                    "budget": "$150,000",
+                    "roles": [{"title": "X", "count": [1, 2]}],
+                    "locations": ["Dallas, TX"],
+                }
+            )
+
+    def test_month_name_campaign_start_month_raises_not_500(self) -> None:
+        """campaign_start_month="March" (a plausible client value, not
+        just garbage) used to raise ValueError from int("March")."""
+        with pytest.raises(app._EstimateValidationError):
+            app._compute_plan_estimate(
+                {
+                    "budget": "$150,000",
+                    "roles": [{"title": "X", "count": 1}],
+                    "locations": ["Dallas, TX"],
+                    "campaign_start_month": "March",
+                }
+            )
+
 
 # ---------------------------------------------------------------------------
 # 3. Wiring: source-inspection checks (app.py's handler is not a
@@ -353,8 +406,10 @@ class TestRouteWiring:
         assert 'path == "/api/estimate"' in app_source
 
     def test_route_checks_joveo_or_admin_or_origin_auth(self, app_source: str) -> None:
-        """Auth block must be present near the route (copied from
-        /api/generate -- same-origin + @joveo.com, S48).
+        """Auth block must be present near the route (shared with
+        /api/generate -- same-origin + @joveo.com, S48). Same-origin is
+        now the parsed-host helper (_check_same_origin_auth), NOT the old
+        bypassable substring test.
 
         Anchored on the route-handler's own comment rather than
         'if path == "/api/estimate":' -- that substring also matches
@@ -367,8 +422,47 @@ class TestRouteWiring:
         snippet = app_source[idx : idx + 2000]
         assert "_check_joveo_auth" in snippet
         assert "_check_admin_auth" in snippet
-        assert "media-plan-generator.onrender.com" in snippet
+        assert "_check_same_origin_auth" in snippet
         assert "AUTH_REQUIRED" in snippet
+
+    def test_both_gates_use_parsed_host_helper_not_substring(
+        self, app_source: str
+    ) -> None:
+        """Neither /api/estimate's nor /api/generate's auth gate may
+        regress to the pre-2026-07-15 substring test
+        (``"localhost" in (Origin or Referer)``), which
+        ``Referer: https://evil.com/?x=localhost`` satisfied. Both must
+        call the ONE shared helper. Scoped to the two gate snippets only
+        -- /api/chat and /api/chat/stream still carry the old pattern and
+        are deliberately out of this fix's scope."""
+        est_idx = app_source.index(
+            "# ── Single-sourced plan estimate for the wizard's live preview ──"
+        )
+        gen_idx = app_source.index(
+            "S48: Same-origin + @joveo.com auth for plan generation"
+        )
+        for name, snippet in (
+            ("estimate", app_source[est_idx : est_idx + 1200]),
+            ("generate", app_source[gen_idx : gen_idx + 1200]),
+        ):
+            assert "_check_same_origin_auth" in snippet, (
+                f"/api/{name} gate must call the shared parsed-host helper"
+            )
+            assert 'in (self.headers.get("Origin")' not in snippet, (
+                f"/api/{name} gate must not use the bypassable substring check"
+            )
+
+    def test_allowed_hosts_are_exactly_the_s48_set(self) -> None:
+        """The parsed-host allowlist must be exactly the three S48 hosts
+        -- no additions (scope creep) and no removals (would break the
+        prod site, nova.joveo.com embeds, or local dev)."""
+        assert app._SAME_ORIGIN_ALLOWED_HOSTS == frozenset(
+            {
+                "media-plan-generator.onrender.com",
+                "nova.joveo.com",
+                "localhost",
+            }
+        )
 
     def test_route_has_isolated_rate_limiter(self, app_source: str) -> None:
         """/api/estimate must use its OWN RateLimiter instance, not
@@ -540,6 +634,285 @@ class TestEstimateEndpointLive:
         # NEVER the naive JS estimator's ballpark (~617 hires) -- this is
         # the exact regression the fix guards against.
         assert data["est_hires"] < 100
+
+
+# ---------------------------------------------------------------------------
+# 5. Same-origin gate hardening (2026-07-15 adversarial review).
+#    Unit tests drive MediaPlanHandler._check_same_origin_auth directly
+#    (it only touches self.headers, so a SimpleNamespace stands in for a
+#    live handler); live tests run real HTTP against an in-process
+#    app.ThreadedHTTPServer on an ephemeral port, matching
+#    tests/test_generate_concurrency.py's live_server fixture pattern --
+#    these ALWAYS run, unlike the TEST_PORT-gated class above.
+# ---------------------------------------------------------------------------
+
+
+def _gate_verdict(headers: dict[str, str]) -> bool:
+    """Run _check_same_origin_auth against a fake handler with the given
+    headers (dict.get matches http.client.HTTPMessage.get for our use)."""
+    fake_handler = types.SimpleNamespace(headers=headers)
+    return app.MediaPlanHandler._check_same_origin_auth(fake_handler)
+
+
+class TestSameOriginGateUnit:
+    """Parsed-host equality, never substring containment."""
+
+    def test_referer_query_string_trick_rejected(self) -> None:
+        """The verified bypass: 'localhost' as a query-string VALUE. The
+        old substring gate passed this; the parsed hostname is evil.com."""
+        assert _gate_verdict({"Referer": "https://evil.com/?x=localhost"}) is False
+
+    def test_host_suffix_trick_rejected(self) -> None:
+        """localhost as a subdomain label of an attacker's domain."""
+        assert _gate_verdict({"Origin": "https://localhost.evil.com"}) is False
+
+    def test_allowed_host_suffix_trick_rejected(self) -> None:
+        """Same trick with the prod hostname as the leading labels."""
+        assert (
+            _gate_verdict(
+                {"Origin": "https://media-plan-generator.onrender.com.evil.io"}
+            )
+            is False
+        )
+
+    def test_localhost_any_port_passes(self) -> None:
+        """urlparse().hostname strips the port, so local dev keeps
+        working on every port -- identical to the old gate's behavior
+        for legit local origins."""
+        for origin in ("http://localhost", "http://localhost:5001", "http://localhost:59999"):
+            assert _gate_verdict({"Origin": origin}) is True, (
+                f"legit local origin {origin!r} must pass the gate"
+            )
+
+    def test_prod_and_nova_origins_pass(self) -> None:
+        assert _gate_verdict({"Origin": "https://nova.joveo.com"}) is True
+        assert (
+            _gate_verdict({"Origin": "https://media-plan-generator.onrender.com"})
+            is True
+        )
+
+    def test_referer_with_path_passes_when_origin_absent(self) -> None:
+        """Referer carries a full URL (path included) -- hostname parsing
+        must still recognize it. Also covers the Origin-absent branch of
+        the 'Origin if present, else Referer' precedence."""
+        assert (
+            _gate_verdict(
+                {"Referer": "https://media-plan-generator.onrender.com/media-plan"}
+            )
+            is True
+        )
+
+    def test_origin_takes_precedence_over_referer(self) -> None:
+        """Precedence preserved from the old gate: a present (evil)
+        Origin is what gets checked, even if Referer looks legit."""
+        assert (
+            _gate_verdict(
+                {"Origin": "https://evil.com", "Referer": "http://localhost:8000/"}
+            )
+            is False
+        )
+
+    def test_absent_null_and_unparseable_fail_closed(self) -> None:
+        assert _gate_verdict({}) is False
+        assert _gate_verdict({"Origin": "null"}) is False  # sandboxed iframe
+        assert _gate_verdict({"Origin": "http://[::1"}) is False  # ValueError path
+
+
+@pytest.fixture(scope="module")
+def gate_server() -> Iterator[int]:
+    """Real app.ThreadedHTTPServer on an ephemeral port (in-process
+    daemon thread) -- the same fixture pattern as
+    tests/test_generate_concurrency.py's live_server."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    server = app.ThreadedHTTPServer(("127.0.0.1", port), app.MediaPlanHandler)
+    thread = threading.Thread(
+        target=server.serve_forever, daemon=True, name="test-origin-gate-server"
+    )
+    thread.start()
+    deadline = time.time() + 5.0
+    while time.time() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                break
+        except OSError:
+            time.sleep(0.05)
+    else:
+        pytest.fail("gate_server did not start accepting connections in time")
+    yield port
+    server.shutdown()
+    server.server_close()
+
+
+def _post_to(
+    port: int,
+    path: str,
+    body: Optional[bytes] = None,
+    headers: Optional[dict[str, str]] = None,
+) -> http.client.HTTPResponse:
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
+    hdrs = dict(headers or {})
+    if body and "Content-Type" not in hdrs:
+        hdrs["Content-Type"] = "application/json"
+    conn.request("POST", path, body=body, headers=hdrs)
+    return conn.getresponse()
+
+
+_VALID_ESTIMATE_BODY: bytes = json.dumps(
+    {"budget": "$50,000", "roles": ["Warehouse Associate"]}
+).encode("utf-8")
+
+
+class TestOriginGateLive:
+    """End-to-end over real HTTP: the bypass vectors get 401 on BOTH
+    gated endpoints; legit origins still get through (NOT 401); and the
+    Fix-1 crash class surfaces as 400, never 500, once past the gate."""
+
+    def test_estimate_evil_referer_query_trick_401(self, gate_server: int) -> None:
+        resp = _post_to(
+            gate_server,
+            "/api/estimate",
+            body=_VALID_ESTIMATE_BODY,
+            headers={"Referer": "https://evil.com/?x=localhost"},
+        )
+        assert resp.status == 401
+        resp.read()
+
+    def test_generate_evil_referer_query_trick_401(self, gate_server: int) -> None:
+        resp = _post_to(
+            gate_server,
+            "/api/generate",
+            body=b'{"probe": "referer-trick"}',
+            headers={"Referer": "https://evil.com/?x=localhost"},
+        )
+        assert resp.status == 401
+        resp.read()
+
+    def test_estimate_host_suffix_trick_401(self, gate_server: int) -> None:
+        resp = _post_to(
+            gate_server,
+            "/api/estimate",
+            body=_VALID_ESTIMATE_BODY,
+            headers={"Origin": "https://localhost.evil.com"},
+        )
+        assert resp.status == 401
+        resp.read()
+
+    def test_generate_host_suffix_trick_401(self, gate_server: int) -> None:
+        resp = _post_to(
+            gate_server,
+            "/api/generate",
+            body=b'{"probe": "host-suffix-trick"}',
+            headers={"Origin": "https://localhost.evil.com"},
+        )
+        assert resp.status == 401
+        resp.read()
+
+    def test_estimate_localhost_origin_passes_gate(self, gate_server: int) -> None:
+        """Legit local origin (with port) computes a real estimate --
+        the hardened gate must not break the wizard's own preview."""
+        resp = _post_to(
+            gate_server,
+            "/api/estimate",
+            body=_VALID_ESTIMATE_BODY,
+            headers={"Origin": f"http://localhost:{gate_server}"},
+        )
+        assert resp.status == 200
+        data = json.loads(resp.read().decode("utf-8"))
+        assert data["est_hires"] >= 0
+
+    def test_estimate_nova_origin_passes_gate(self, gate_server: int) -> None:
+        resp = _post_to(
+            gate_server,
+            "/api/estimate",
+            body=_VALID_ESTIMATE_BODY,
+            headers={"Origin": "https://nova.joveo.com"},
+        )
+        assert resp.status != 401
+        assert resp.status == 200
+        resp.read()
+
+    def test_generate_localhost_origin_passes_gate(self, gate_server: int) -> None:
+        """Gate-pass is what's under test, not generation: an invalid
+        JSON body makes /api/generate return a fast 400 right after the
+        auth gate (no 60-120s pipeline). Anything but 401 proves the
+        parsed-host gate admitted the legit origin."""
+        resp = _post_to(
+            gate_server,
+            "/api/generate",
+            body=b"{not valid json: gate-pass probe",
+            headers={"Origin": f"http://localhost:{gate_server}"},
+        )
+        assert resp.status != 401
+        assert resp.status == 400
+        resp.read()
+
+    def test_generate_nova_origin_passes_gate(self, gate_server: int) -> None:
+        resp = _post_to(
+            gate_server,
+            "/api/generate",
+            body=b"",  # empty body -> fast 400 after the gate
+            headers={"Origin": "https://nova.joveo.com"},
+        )
+        assert resp.status != 401
+        assert resp.status == 400
+        resp.read()
+
+    # -- Fix-1 crash class, end-to-end: 4xx (VALIDATION_ERROR), never 500 --
+
+    def test_estimate_exact_repro_body_is_400_not_500(self, gate_server: int) -> None:
+        """The EXACT verified 2026-07-15 repro body that used to 500."""
+        resp = _post_to(
+            gate_server,
+            "/api/estimate",
+            body=json.dumps(
+                {
+                    "budget": "$150,000",
+                    "roles": [{"title": "X", "count": "abc"}],
+                    "locations": ["Dallas, TX"],
+                }
+            ).encode("utf-8"),
+            headers={"Origin": f"http://localhost:{gate_server}"},
+        )
+        assert resp.status == 400, (
+            f"expected 400 for count='abc', got {resp.status} -- a 500 here "
+            f"means the unguarded int() cast regressed"
+        )
+        resp.read()
+
+    def test_estimate_list_count_is_400_not_500(self, gate_server: int) -> None:
+        resp = _post_to(
+            gate_server,
+            "/api/estimate",
+            body=json.dumps(
+                {
+                    "budget": "$150,000",
+                    "roles": [{"title": "X", "count": [1, 2]}],
+                    "locations": ["Dallas, TX"],
+                }
+            ).encode("utf-8"),
+            headers={"Origin": f"http://localhost:{gate_server}"},
+        )
+        assert resp.status == 400
+        resp.read()
+
+    def test_estimate_month_name_is_400_not_500(self, gate_server: int) -> None:
+        resp = _post_to(
+            gate_server,
+            "/api/estimate",
+            body=json.dumps(
+                {
+                    "budget": "$150,000",
+                    "roles": [{"title": "X", "count": 1}],
+                    "locations": ["Dallas, TX"],
+                    "campaign_start_month": "March",
+                }
+            ).encode("utf-8"),
+            headers={"Origin": f"http://localhost:{gate_server}"},
+        )
+        assert resp.status == 400
+        resp.read()
 
 
 if __name__ == "__main__":

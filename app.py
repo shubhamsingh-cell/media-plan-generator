@@ -10339,6 +10339,19 @@ class _GenerationTimeoutError(Exception):
     pass
 
 
+# Hosts allowed through the same-origin auth gate on browser-facing POST
+# endpoints (/api/estimate, /api/generate). Compared by EXACT parsed
+# hostname -- see MediaPlanHandler._check_same_origin_auth -- never by
+# substring, which `Referer: https://evil.com/?x=localhost` would satisfy.
+_SAME_ORIGIN_ALLOWED_HOSTS = frozenset(
+    {
+        "media-plan-generator.onrender.com",
+        "nova.joveo.com",
+        "localhost",
+    }
+)
+
+
 class MediaPlanHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         logger.info(format, *args)
@@ -10545,6 +10558,39 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         if admin_key_header and hmac.compare_digest(admin_key_header, ADMIN_API_KEY):
             return True
         return False
+
+    def _check_same_origin_auth(self) -> bool:
+        """Same-origin gate: is the request's Origin (or Referer) this app?
+
+        S48 originally shipped this as a substring test
+        (``"localhost" in (Origin or Referer)``), which was trivially
+        bypassable: ``Referer: https://evil.com/?x=localhost`` and
+        ``Origin: https://localhost.evil.com`` both CONTAIN an allowed
+        string without BEING an allowed host. Now the header is parsed
+        with urllib.parse and its hostname must equal one of
+        ``_SAME_ORIGIN_ALLOWED_HOSTS`` exactly. ``urlparse().hostname``
+        strips any port, so ``http://localhost:<any port>`` still passes
+        for local development.
+
+        Precedence matches the old gate byte-for-byte: Origin if present,
+        else Referer. Absent/empty/unparseable values fail closed -- the
+        callers' other auth paths (@joveo.com session, admin key) still
+        apply via their ``or`` chains.
+
+        Returns:
+            True if the parsed hostname is an allowed host, False otherwise.
+        """
+        value = self.headers.get("Origin") or self.headers.get("Referer") or ""
+        if not value:
+            return False
+        try:
+            host = urlparse(value).hostname
+        except ValueError:
+            # e.g. malformed IPv6 netloc like "http://[::1" -- fail closed.
+            return False
+        if not host:
+            return False
+        return host.lower() in _SAME_ORIGIN_ALLOWED_HOSTS
 
     def _check_joveo_auth(self) -> bool:
         """Check if request is from an authenticated @joveo.com user or has valid API key.
@@ -14462,17 +14508,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # /api/generate makes (see _compute_plan_estimate above) instead
             # of the old parallel front-end JS formula, which diverged from
             # the real engine by ~13x on the Manpower-AmeriGas brief.
-            # Auth block copied verbatim from /api/generate (same-origin +
+            # Auth block shared with /api/generate (same-origin +
             # @joveo.com, S48) -- this is real plan data, not public info.
+            # Same-origin is checked by parsed-host equality
+            # (_check_same_origin_auth), not substring matching.
             _est_auth_ok = (
                 self._check_joveo_auth()
                 or self._check_admin_auth()
-                or "media-plan-generator.onrender.com"
-                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
-                or "nova.joveo.com"
-                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
-                or "localhost"
-                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
+                or self._check_same_origin_auth()
             )
             if not _est_auth_ok:
                 self._send_error(
@@ -14520,15 +14563,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
         if path == "/api/generate":
             # ── S48: Same-origin + @joveo.com auth for plan generation ──
+            # Same-origin is checked by parsed-host equality
+            # (_check_same_origin_auth), not substring matching.
             _gen_auth_ok = (
                 self._check_joveo_auth()
                 or self._check_admin_auth()
-                or "media-plan-generator.onrender.com"
-                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
-                or "nova.joveo.com"
-                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
-                or "localhost"
-                in (self.headers.get("Origin") or self.headers.get("Referer") or "")
+                or self._check_same_origin_auth()
             )
             if not _gen_auth_ok:
                 self._send_error(
