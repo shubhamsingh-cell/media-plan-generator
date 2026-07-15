@@ -7085,6 +7085,17 @@ _rl_general = RateLimiter()  # all other /api/* POST routes -- 30 req/min
 _rl_copilot = RateLimiter()  # /api/copilot/* -- 30 req/min (lightweight)
 _rl_estimate = RateLimiter()  # /api/estimate -- 60 req/min (debounced live preview, isolated from /api/generate's 10/min)
 
+# ── Concurrent /api/generate cap ──
+# ThreadedHTTPServer spawns one thread per request, so nothing previously
+# bounded how many synchronous, CPU-heavy generations (enrichment + LLM
+# narrative + Excel/PPT build, 60-120s each) could run at once. A bounded
+# semaphore caps this at 2 concurrent; the 3rd+ concurrent caller gets an
+# immediate 429 + Retry-After instead of piling on and degrading every
+# other request on the box. /api/health is unaffected -- it never touches
+# this semaphore.
+_MAX_CONCURRENT_GENERATE = 2
+_generate_slots = threading.BoundedSemaphore(_MAX_CONCURRENT_GENERATE)
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # CSRF: Cookie-based double-submit pattern (stateless)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -13583,6 +13594,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except Exception:
                 pass
         finally:
+            # ── Release the /api/generate concurrency slot, if held ──
+            # Lives here (not in _handle_POST) so it releases on every exit
+            # path -- normal return, the except Exception branch above, and
+            # the except BaseException branch (gevent worker-timeout kills).
+            if getattr(self, "_generate_slot_held", False):
+                self._generate_slot_held = False
+                _generate_slots.release()
             _latency = (time.time() - _req_start) * 1000
             if _metrics:
                 _metrics.exit_request()
@@ -14472,6 +14490,28 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     401,
                 )
                 return
+            # ── Concurrent generation cap: reject immediately, never queue ──
+            # Checked before the timeout timer/body read so a saturated server
+            # fails fast without doing any work for the rejected request.
+            if not _generate_slots.acquire(blocking=False):
+                _retry_after = "5"
+                _busy_body, _busy_status = _error_response(
+                    f"Server busy -- {_MAX_CONCURRENT_GENERATE} plan generations "
+                    "already in progress. Please retry shortly.",
+                    "TOO_MANY_CONCURRENT_GENERATIONS",
+                    429,
+                )
+                self.send_response(_busy_status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Retry-After", _retry_after)
+                _cors_origin = self._get_cors_origin()
+                if _cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", _cors_origin)
+                self.send_header("Content-Length", str(len(_busy_body)))
+                self.end_headers()
+                self.wfile.write(_busy_body)
+                return
+            self._generate_slot_held = True
             # ── START TIMEOUT TIMER IMMEDIATELY ──
             # Must cover entire pipeline: validation + enrichment (60s+) + excel generation
             _gen_timeout_flag: threading.Event = threading.Event()

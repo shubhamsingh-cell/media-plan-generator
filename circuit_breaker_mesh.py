@@ -64,8 +64,13 @@ class ProviderCircuit:
     max_open_timeout: float = 300.0  # Cap on exponential backoff (5 min)
     latency_threshold_ms: float = 5000.0  # Latency above this is "slow"
 
-    # Lock for thread safety
-    _lock: threading.Lock = field(default_factory=threading.Lock)
+    # Lock for thread safety.  Must be reentrant: get_status() and
+    # _transition_to() call self.health_score() while already holding this
+    # lock, and a plain threading.Lock would self-deadlock on that nested
+    # acquire (verified: this hung /api/health forever behind its outer
+    # 8s join() timeout, and could hang a live LLM request thread whenever
+    # a provider circuit actually opens/re-opens from repeated failures).
+    _lock: threading.RLock = field(default_factory=threading.RLock)
 
     def health_score(self) -> float:
         """Compute health score 0-100 based on success rate, latency, and recency.
