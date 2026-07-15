@@ -4,6 +4,7 @@
 import html as html_mod
 import json
 import hmac
+import math
 import os
 import io
 import datetime
@@ -34,7 +35,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.chart import Reference
 
-from shared_utils import parse_budget, INDUSTRY_LABEL_MAP
+from shared_utils import parse_budget, parse_budget_strict, INDUSTRY_LABEL_MAP
 
 import benchmark_registry
 import hashlib
@@ -3618,6 +3619,27 @@ class _EstimateValidationError(ValueError):
     """
 
 
+def _coerce_int_field(raw: Any, *, field_name: str) -> int:
+    """Defensively coerce a client-JSON brief field to ``int``.
+
+    ``/api/estimate`` accepts raw JSON from the client, and Python's
+    ``json`` module happily parses bare ``NaN``/``Infinity``/``-Infinity``
+    tokens into non-finite floats. A naive ``int(value)`` on any of those
+    (or on a non-numeric string like ``"abc"``) raises ValueError,
+    TypeError, or OverflowError, which would otherwise escape the route
+    handler as an unhandled 500 instead of the 400 this endpoint's
+    validation contract promises. Raises _EstimateValidationError instead.
+    """
+    if isinstance(raw, float) and (math.isnan(raw) or math.isinf(raw)):
+        raise _EstimateValidationError(f"{field_name} must be a finite number")
+    try:
+        return int(raw)
+    except (ValueError, TypeError, OverflowError) as exc:
+        raise _EstimateValidationError(
+            f"{field_name} must be a valid integer"
+        ) from exc
+
+
 def _compute_plan_estimate(brief: dict) -> dict:
     """Single-sourced plan estimate for the wizard's live preview.
 
@@ -3659,21 +3681,41 @@ def _compute_plan_estimate(brief: dict) -> dict:
     if calculate_budget_allocation is None:
         raise _EstimateValidationError("Budget engine unavailable")
 
-    budget_str = str(
+    budget_raw = (
         brief.get("budget")
         or brief.get("budget_range")
         or brief.get("exact_budget")
         or ""
-    ).strip()
+    )
+    # Reject non-finite JSON numbers (json.loads() parses bare NaN /
+    # Infinity / -Infinity tokens into non-finite floats) before they hit
+    # the string-based parser below, and reject a negative numeric budget
+    # outright while its sign is still intact.
+    if isinstance(budget_raw, float) and (math.isnan(budget_raw) or math.isinf(budget_raw)):
+        raise _EstimateValidationError("Budget must be a finite number")
+    if isinstance(budget_raw, (int, float)) and budget_raw < 0:
+        raise _EstimateValidationError("A positive budget is required")
+    budget_str = str(budget_raw).strip()
     if not budget_str:
         raise _EstimateValidationError("A budget is required")
-    budget_val = parse_budget(budget_str)
-    # parse_budget() silently falls back to a $100,000 default (flagging
-    # last_was_defaulted) when it can't parse the string at all -- e.g.
+    # shared_utils.parse_budget()'s regex-based number extractor strips a
+    # leading "-" when pulling digits out of a string (e.g. "-$50,000" ->
+    # 50000), which would silently flip a negative budget positive instead
+    # of rejecting it -- guard explicitly rather than trusting the parser.
+    if budget_str.lstrip().startswith("-"):
+        raise _EstimateValidationError("A positive budget is required")
+    # parse_budget_strict() is the race-free variant of parse_budget(): it
+    # returns (value, was_defaulted) directly instead of the
+    # parse_budget.last_was_defaulted module-level function attribute,
+    # which two concurrent /api/estimate requests (ThreadedHTTPServer) can
+    # interleave and clobber between the call and the getattr() read below.
+    budget_val, budget_was_defaulted = parse_budget_strict(budget_str)
+    # parse_budget_strict() silently falls back to a $100,000 default
+    # (was_defaulted=True) when it can't parse the string at all -- e.g.
     # "$0" or garbage input. Surfacing that as a real number here would be
     # exactly the kind of not-what-the-user-typed estimate this endpoint
     # exists to eliminate, so treat it as a validation error instead.
-    if getattr(parse_budget, "last_was_defaulted", False):
+    if budget_was_defaulted:
         raise _EstimateValidationError("Could not parse a valid budget")
     if not isinstance(budget_val, (int, float)) or budget_val <= 0:
         raise _EstimateValidationError("A positive budget is required")
@@ -3698,10 +3740,13 @@ def _compute_plan_estimate(brief: dict) -> dict:
             if not title:
                 continue
             roles_titles.append(title)
+            role_count = _coerce_int_field(
+                r.get("count", 1) or 1, field_name=f"count for role {title!r}"
+            )
             roles_for_ba.append(
                 {
                     "title": title,
-                    "count": int(r.get("count", 1) or 1),
+                    "count": role_count,
                     "tier": str(r.get("tier") or r.get("_tier") or "Professional"),
                 }
             )
@@ -3814,7 +3859,9 @@ def _compute_plan_estimate(brief: dict) -> dict:
         synthesized_data=None,
         knowledge_base=kb,
         collar_type="",
-        campaign_start_month=int(brief.get("campaign_start_month") or 0),
+        campaign_start_month=_coerce_int_field(
+            brief.get("campaign_start_month") or 0, field_name="campaign_start_month"
+        ),
         vendor_availability=vendor_availability,
     )
     total_projected = (

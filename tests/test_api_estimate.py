@@ -26,14 +26,23 @@ This file covers:
     2. Validation -- malformed/insufficient briefs raise
        ``_EstimateValidationError`` (mapped to a 4xx at the route, never a
        500) instead of raising an unhandled exception or silently
-       returning nonsense numbers.
+       returning nonsense numbers. Includes the 4xx-contract-violation
+       hardening: non-numeric ``count``/``campaign_start_month`` (e.g.
+       "abc"/"x"), non-finite JSON floats (NaN/Infinity, which
+       ``json.loads()`` parses without complaint) for budget/count/month,
+       and negative budgets (numeric or string, e.g. "-$50,000" -- the
+       string form used to have its sign silently stripped by
+       ``parse_budget``'s regex extractor instead of being rejected).
     3. Wiring -- source-inspection checks (matching the established
        pattern in test_app_vendor_gate_wiring.py / test_routes.py, since
        app.py's request handler is not a standalone testable unit) that
        the ``/api/estimate`` route exists, copies the ``/api/generate``
        auth block, is CSRF-exempt via the same-origin auth (not a bare
        CSRF bypass), and uses its OWN rate limiter isolated from
-       ``/api/generate``'s 10 req/min quota.
+       ``/api/generate``'s 10 req/min quota. Also source-inspects
+       ``templates/partials/index/body_preview_js.html``'s debounced
+       refetch gate (``fetchEstimate()``'s ``sig``) to guard against a
+       stale preview on industry/client-name change (Finding 1).
     4. Live E2E (skipped when no server is reachable, matching
        tests/test_e2e.py's convention) -- unauthenticated requests get
        401, malformed JSON gets 4xx, and a real request against the
@@ -248,6 +257,86 @@ class TestValidation:
         assert est["est_hires"] >= 0
         assert est["est_cph"] >= 0
 
+    # -- 4xx-contract hardening: a malformed/hostile client value must
+    #    raise _EstimateValidationError (-> 400), never let a bare
+    #    ValueError/TypeError/OverflowError escape as an unhandled 500. --
+
+    def test_non_numeric_role_count_raises_not_500(self) -> None:
+        """count="abc" used to hit a bare int("abc") and raise an
+        unhandled ValueError, which the route only catches generically
+        and turns into a 500 -- a client-input error must be a 400."""
+        with pytest.raises(app._EstimateValidationError):
+            app._compute_plan_estimate(
+                {
+                    "budget": "$50,000",
+                    "roles": [{"title": "Driver", "count": "abc"}],
+                }
+            )
+
+    def test_non_numeric_campaign_start_month_raises_not_500(self) -> None:
+        """campaign_start_month="x" used to hit a bare int("x") and raise
+        an unhandled ValueError -- same 4xx-contract violation as the
+        role-count case above."""
+        with pytest.raises(app._EstimateValidationError):
+            app._compute_plan_estimate(
+                {
+                    "budget": "$50,000",
+                    "roles": ["Driver"],
+                    "campaign_start_month": "x",
+                }
+            )
+
+    def test_nan_budget_raises(self) -> None:
+        """A bare NaN token in the JSON body (json.loads() parses it into
+        a Python float('nan') without complaint) must be rejected as a
+        validation error, not silently propagated into the engine."""
+        with pytest.raises(app._EstimateValidationError):
+            app._compute_plan_estimate(
+                {"budget": float("nan"), "roles": ["Driver"]}
+            )
+
+    def test_infinite_budget_raises(self) -> None:
+        with pytest.raises(app._EstimateValidationError):
+            app._compute_plan_estimate(
+                {"budget": float("inf"), "roles": ["Driver"]}
+            )
+
+    def test_nan_role_count_raises(self) -> None:
+        with pytest.raises(app._EstimateValidationError):
+            app._compute_plan_estimate(
+                {
+                    "budget": "$50,000",
+                    "roles": [{"title": "Driver", "count": float("nan")}],
+                }
+            )
+
+    def test_infinite_campaign_start_month_raises(self) -> None:
+        with pytest.raises(app._EstimateValidationError):
+            app._compute_plan_estimate(
+                {
+                    "budget": "$50,000",
+                    "roles": ["Driver"],
+                    "campaign_start_month": float("inf"),
+                }
+            )
+
+    def test_negative_numeric_budget_raises(self) -> None:
+        """A raw negative JSON number for budget must be rejected outright
+        -- calculate_budget_allocation has no concept of a negative
+        campaign spend."""
+        with pytest.raises(app._EstimateValidationError):
+            app._compute_plan_estimate({"budget": -50000, "roles": ["Driver"]})
+
+    def test_negative_string_budget_raises(self) -> None:
+        """shared_utils.parse_budget()'s regex-based number extractor
+        strips a leading "-" when pulling digits out of a string (e.g.
+        "-$50,000" -> 50000), which would otherwise silently flip a
+        negative budget positive instead of rejecting it."""
+        with pytest.raises(app._EstimateValidationError):
+            app._compute_plan_estimate(
+                {"budget": "-$50,000", "roles": ["Driver"]}
+            )
+
 
 # ---------------------------------------------------------------------------
 # 3. Wiring: source-inspection checks (app.py's handler is not a
@@ -307,6 +396,67 @@ class TestRouteWiring:
         snippet = app_source[idx:end_idx]
         assert "calculate_budget_allocation(" in snippet
         assert "synthesized_data=None" in snippet
+
+
+@pytest.fixture(scope="module")
+def preview_js_source() -> str:
+    """Read templates/partials/index/body_preview_js.html (cached for the
+    module) -- the wizard's debounced /api/estimate client, source-
+    inspected below since it has no standalone JS test runner (matches
+    TestRouteWiring's source-inspection pattern for app.py above)."""
+    path = (
+        PROJECT_ROOT
+        / "templates"
+        / "partials"
+        / "index"
+        / "body_preview_js.html"
+    )
+    return path.read_text(encoding="utf-8")
+
+
+class TestPreviewJsRefetchSignature:
+    """Finding 1 (major, confirmed 3-0): fetchEstimate()'s debounced
+    refetch gate -- the `sig` JSON.stringify(...) that decides whether a
+    NEW /api/estimate request is even scheduled -- used to only include
+    budget/locations/roles. Switching industry (which materially changes
+    classify_industry()'s channel mix and therefore the engine result) or
+    client_name with an otherwise-unchanged brief matched the stale `sig`
+    and silently kept showing the PREVIOUS industry's estimate. The gate
+    must include every field estimatePayload() actually sends."""
+
+    def test_fetch_estimate_signature_includes_industry_and_client_name(
+        self, preview_js_source: str
+    ) -> None:
+        idx = preview_js_source.index("function fetchEstimate(m)")
+        end_idx = preview_js_source.index("function channelOn(", idx)
+        snippet = preview_js_source[idx:end_idx]
+        sig_start = snippet.index("var sig = JSON.stringify(")
+        sig_end = snippet.index(");", sig_start)
+        sig_expr = snippet[sig_start:sig_end]
+        assert "industry" in sig_expr, (
+            "fetchEstimate()'s sig must include industry -- omitting it "
+            "reproduces Finding 1 (stale preview on industry change)"
+        )
+        assert "clientName" in sig_expr, (
+            "fetchEstimate()'s sig must include clientName -- omitting it "
+            "reproduces Finding 1 (stale preview on client-name change)"
+        )
+
+    def test_signature_industry_and_client_name_match_payload_variables(
+        self, preview_js_source: str
+    ) -> None:
+        """Not just present in the sig -- the SAME resolved values that
+        estimatePayload() sends, so the gate can't drift from the actual
+        request body again. Both fetchEstimate()'s sig and its call to
+        estimatePayload() must reference the same local `industry` /
+        `clientName` variables (resolved once via resolveIndustry() /
+        val("clientName"))."""
+        idx = preview_js_source.index("function fetchEstimate(m)")
+        end_idx = preview_js_source.index("function channelOn(", idx)
+        snippet = preview_js_source[idx:end_idx]
+        assert "var industry = resolveIndustry();" in snippet
+        assert 'var clientName = val("clientName");' in snippet
+        assert "estimatePayload(m, roles, industry, clientName)" in snippet
 
 
 # ---------------------------------------------------------------------------

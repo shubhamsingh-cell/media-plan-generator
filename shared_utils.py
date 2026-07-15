@@ -91,6 +91,78 @@ INDUSTRY_LABEL_MAP: Dict[str, str] = {
 _SUFFIX_MULTIPLIERS = {"K": 1_000, "M": 1_000_000, "B": 1_000_000_000}
 
 
+def _parse_budget_core(budget_input, default: float) -> tuple[float, bool]:
+    """Pure parsing core shared by ``parse_budget()`` / ``parse_budget_strict()``.
+
+    No side effects, no module-level state -- returns ``(value,
+    was_defaulted)`` where ``was_defaulted`` is True only when a non-empty,
+    unparseable input fell back to *default*.
+    """
+    # Already numeric
+    if isinstance(budget_input, (int, float)):
+        return (float(budget_input), False) if budget_input > 0 else (default, False)
+
+    if not budget_input:
+        return default, False
+
+    bstr = str(budget_input).strip()
+    if not bstr:
+        return default, False
+
+    # Clean currency symbols and whitespace
+    clean = (
+        bstr.replace(",", "")
+        .replace("$", "")
+        .replace("USD", "")
+        .replace("usd", "")
+        .strip()
+    )
+
+    # 1. K/M/B suffix:  "50K", "1.5M", "2B"
+    km_match = re.match(r"^[<>~\s]*([\d.]+)\s*([KkMmBb])\b", clean)
+    if km_match:
+        num_part = float(km_match.group(1))
+        suffix = km_match.group(2).upper()
+        return num_part * _SUFFIX_MULTIPLIERS[suffix], False
+
+    # 2. Extract all numbers >= 100 (filter noise like "3 months" but accept
+    #    small employer budgets under $1000 -- lowered from 1000 to 100)
+    all_nums = re.findall(r"[\d]+", clean)
+    parsed_nums = [int(n) for n in all_nums if int(n) >= 100]
+
+    if len(parsed_nums) >= 2:
+        # Range like "$250,000 - $500,000" -> midpoint
+        return (parsed_nums[0] + parsed_nums[1]) / 2.0, False
+    elif len(parsed_nums) == 1:
+        return float(parsed_nums[0]), False
+
+    # 3. Decimal numbers (e.g., "1.5" without suffix, or small values)
+    decimal_match = re.search(r"([\d.]+)", clean)
+    if decimal_match:
+        val = float(decimal_match.group(1))
+        if val > 0:
+            return val, False
+
+    # 4. Text-based keywords
+    lower = clean.lower()
+    if "million" in lower or "1m" in lower:
+        return 1_000_000.0, False
+    if "500k" in lower:
+        return 500_000.0, False
+    if "250k" in lower:
+        return 250_000.0, False
+    if "100k" in lower:
+        return 100_000.0, False
+
+    # 5. Final fallback -- log warning for non-empty unparseable input
+    logger.warning(
+        "parse_budget: could not parse '%s', defaulting to $%s",
+        budget_input,
+        f"{default:,.0f}",
+    )
+    return default, True
+
+
 def parse_budget(budget_input, *, default: float = 100_000.0) -> float:
     """Parse a budget string or number into a float value.
 
@@ -118,79 +190,37 @@ def parse_budget(budget_input, *, default: float = 100_000.0) -> float:
     Notes
     -----
     When parsing fails for a non-empty string input, logs a warning and sets
-    ``parse_budget.last_was_defaulted = True`` so callers can detect the fallback.
+    ``parse_budget.last_was_defaulted = True`` so callers can detect the
+    fallback. That module-level function attribute is racy under a
+    threaded/concurrent request server (two callers can interleave between
+    the call and the ``getattr`` read) -- new call sites, especially ones
+    reachable from concurrent HTTP handlers, should use
+    ``parse_budget_strict()`` instead, which returns the flag directly.
     """
-    # Reset the defaulted flag for this call
-    parse_budget.last_was_defaulted = False
+    value, was_defaulted = _parse_budget_core(budget_input, default)
+    # Preserved for existing callers that read these attributes after the
+    # call (kept as-is for backward compatibility -- not thread-safe).
+    parse_budget.last_was_defaulted = was_defaulted
     parse_budget.last_raw_input = budget_input
-
-    # Already numeric
-    if isinstance(budget_input, (int, float)):
-        return float(budget_input) if budget_input > 0 else default
-
-    if not budget_input:
-        return default
-
-    bstr = str(budget_input).strip()
-    if not bstr:
-        return default
-
-    # Clean currency symbols and whitespace
-    clean = (
-        bstr.replace(",", "")
-        .replace("$", "")
-        .replace("USD", "")
-        .replace("usd", "")
-        .strip()
-    )
-
-    # 1. K/M/B suffix:  "50K", "1.5M", "2B"
-    km_match = re.match(r"^[<>~\s]*([\d.]+)\s*([KkMmBb])\b", clean)
-    if km_match:
-        num_part = float(km_match.group(1))
-        suffix = km_match.group(2).upper()
-        return num_part * _SUFFIX_MULTIPLIERS[suffix]
-
-    # 2. Extract all numbers >= 100 (filter noise like "3 months" but accept
-    #    small employer budgets under $1000 -- lowered from 1000 to 100)
-    all_nums = re.findall(r"[\d]+", clean)
-    parsed_nums = [int(n) for n in all_nums if int(n) >= 100]
-
-    if len(parsed_nums) >= 2:
-        # Range like "$250,000 - $500,000" -> midpoint
-        return (parsed_nums[0] + parsed_nums[1]) / 2.0
-    elif len(parsed_nums) == 1:
-        return float(parsed_nums[0])
-
-    # 3. Decimal numbers (e.g., "1.5" without suffix, or small values)
-    decimal_match = re.search(r"([\d.]+)", clean)
-    if decimal_match:
-        val = float(decimal_match.group(1))
-        if val > 0:
-            return val
-
-    # 4. Text-based keywords
-    lower = clean.lower()
-    if "million" in lower or "1m" in lower:
-        return 1_000_000.0
-    if "500k" in lower:
-        return 500_000.0
-    if "250k" in lower:
-        return 250_000.0
-    if "100k" in lower:
-        return 100_000.0
-
-    # 5. Final fallback -- log warning for non-empty unparseable input
-    logger.warning(
-        "parse_budget: could not parse '%s', defaulting to $%s",
-        budget_input,
-        f"{default:,.0f}",
-    )
-    parse_budget.last_was_defaulted = True
-    return default
+    return value
 
 
-# Initialize function-level attributes for parse_budget
+def parse_budget_strict(
+    budget_input, *, default: float = 100_000.0
+) -> tuple[float, bool]:
+    """Thread-safe variant of ``parse_budget()``.
+
+    Returns ``(value, was_defaulted)`` directly instead of stashing
+    ``was_defaulted`` on the ``parse_budget.last_was_defaulted`` module-level
+    function attribute, which races when concurrent requests call
+    ``parse_budget()`` at the same time (ThreadedHTTPServer/gevent). Prefer
+    this for any call site reachable from a concurrent request handler.
+    """
+    return _parse_budget_core(budget_input, default)
+
+
+# Initialize function-level attributes for parse_budget (back-compat only;
+# see parse_budget_strict() for the thread-safe alternative).
 parse_budget.last_was_defaulted = False
 parse_budget.last_raw_input = None
 

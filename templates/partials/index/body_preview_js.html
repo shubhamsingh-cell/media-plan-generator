@@ -164,19 +164,23 @@
       var usingStarter = !channelsTouched || selected.length === 0;
       var active = usingStarter ? STARTER.slice() : selected;
 
-      // role class → cost multiplier + applications-per-hire. Explicit
+      // role class, used downstream (BENCH lookup, insight copy). Explicit
       // experience-level checkboxes win; otherwise infer from role text.
+      // NOTE: this used to also derive a flat cpaMult/aph cost-per-hire
+      // multiplier for the naive JS estimator removed alongside
+      // /api/estimate (see fetchEstimate() below) -- those locals are gone,
+      // only the role classification itself is still needed.
       var exp = checkedValues("experienceLevel").join(" ").toLowerCase();
       var roleStr = (readTags("rolesContainer").join(" ") + " " + val("roleInput") + " " + val("useCase")).toLowerCase();
-      var cpaMult = 1.0, aph = 50, roleClass = "skilled"; // mid-skill professional default
+      var roleClass = "skilled"; // mid-skill professional default
       if (exp.indexOf("executive") >= 0 || /\b(vp|chief|cxo|c-level|head of|director|executive|president)\b/.test(roleStr)) {
-        cpaMult = 3.2; aph = 110; roleClass = "executive";
+        roleClass = "executive";
       } else if (exp.indexOf("entry") >= 0 || /\b(warehouse|associate|driver|cashier|retail|crew|server|picker|packer|delivery|labor|cleaner|housekeep|caregiver|cna)\b/.test(roleStr)) {
-        cpaMult = 0.4; aph = 20; roleClass = "highVolume";
+        roleClass = "highVolume";
       } else if (exp.indexOf("senior") >= 0 || /\b(senior|lead|principal|staff)\b/.test(roleStr)) {
-        cpaMult = 1.8; aph = 70; roleClass = "senior";
+        roleClass = "senior";
       } else if (/\b(software|engineer|developer|devops|sre|architect|data scientist|machine learning|\bml\b|cyber|security engineer)\b/.test(roleStr)) {
-        cpaMult = 1.8; aph = 60; roleClass = "tech";
+        roleClass = "tech";
       }
 
       // target hire volume the user set (vs what the budget projects)
@@ -194,7 +198,6 @@
       var locs = readTags("locationsContainer");
       var locStr = locs.join(" ").toLowerCase();
       var metroMult = /(san francisco|bay area|new york|nyc|london|seattle|boston)/.test(locStr) ? 1.12 : 1.0;
-      var costMult = cpaMult * metroMult;
 
       // allocation by weight -- spend split across the mix bar / legend.
       // NOTE: applications/hires/CPA are deliberately NOT derived here.
@@ -240,26 +243,42 @@
     var lastScheduledSig = "";   // signature of the last request scheduled/sent
     var latestEstimate = null;   // {est_hires, est_cph, est_applications, est_cpa} | null
 
-    function estimatePayload(m, roles) {
+    function resolveIndustry() {
       var industry = "";
       var icard = document.querySelector(".industry-card.selected, .industry-card[aria-pressed='true']");
       if (icard) industry = icard.dataset.industry || "";
       if (!industry) industry = val("industrySearch");
+      return industry;
+    }
+
+    function estimatePayload(m, roles, industry, clientName) {
       return {
         budget: String(Math.round(m.total)),
         industry: industry,
-        client_name: val("clientName"),
+        client_name: clientName,
         roles: roles,
         locations: m.locs,
       };
     }
 
     // Fetches a fresh /api/estimate only when the inputs that actually
-    // feed calculate_budget_allocation (budget, roles, locations) have
-    // changed -- not on every mix-bar-only or copy-only render() tick.
+    // feed calculate_budget_allocation (budget, roles, locations, industry,
+    // client_name) have changed -- not on every mix-bar-only or copy-only
+    // render() tick. industry/client_name are resolved once here and
+    // threaded through to estimatePayload() below so the signature always
+    // matches exactly what gets sent -- they used to be missing from this
+    // signature entirely, so switching industry (which materially changes
+    // the engine's channel mix and result) with an unchanged budget/roles/
+    // locations silently kept showing the PREVIOUS industry's stale
+    // estimate.
     function fetchEstimate(m) {
       var roles = readTags("rolesContainer");
-      var sig = JSON.stringify([Math.round(m.total), (m.locs || []).slice().sort(), roles.slice().sort()]);
+      var industry = resolveIndustry();
+      var clientName = val("clientName");
+      var sig = JSON.stringify([
+        Math.round(m.total), (m.locs || []).slice().sort(), roles.slice().sort(),
+        industry, clientName
+      ]);
       if (sig === lastScheduledSig) return;
       lastScheduledSig = sig;
       clearTimeout(estimateTimer);
@@ -277,7 +296,7 @@
 
       estimateTimer = setTimeout(function () {
         var requestSig = sig;
-        var payload = estimatePayload(m, roles);
+        var payload = estimatePayload(m, roles, industry, clientName);
         fetch("/api/estimate", {
           method: "POST",
           headers: {
