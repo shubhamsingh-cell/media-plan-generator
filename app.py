@@ -3660,6 +3660,17 @@ def _compute_plan_estimate(brief: dict) -> dict:
     (synthesized_data=None) -- this is a fast, synchronous preview call
     fired on every debounced keystroke, not the final plan.
 
+    This estimate therefore parities against the UN-enriched engine, not
+    the final /api/generate plan (which runs the same call WITH
+    enrichment). That gap is BY DESIGN, not a bug: prod-verified
+    2026-07-15, enrichment moves hires/cost-per-hire by ~0% (the engine's
+    hire math is enrichment-insensitive) and applications by ~25% (richer
+    per-role/location signal refines the apply-rate model). A wizard
+    preview firing on every keystroke cannot afford enrichment's
+    API-bound latency, and a ~25% applications gap on a debounced live
+    estimate is an acceptable trade for instant feedback -- callers that
+    need the enriched number should read the final generated plan.
+
     Args:
         brief: Parsed JSON body from the wizard. Recognized keys: ``budget``
             / ``budget_range`` (str, e.g. "$150,000"), ``industry`` (str),
