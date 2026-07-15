@@ -63,3 +63,4 @@ data/.claude-flow/
 # S82: local vector DB artifact — never commit (binary)
 ruvector.db
 *.db
+data/google_trends.json
