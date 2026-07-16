@@ -7,6 +7,7 @@ and security checks rather than live HTTP testing.
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 from typing import Generator
 
@@ -24,6 +25,26 @@ os.environ["NOVA_DISABLE_AUTO_QC"] = "1"
 # Ensure the project root is importable
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+
+# Cross-RUN isolation for the flock-backed /api/generate slot pool.
+# app.py's _CrossProcessSlots resolves its slot directory when the module
+# is imported: $NOVA_SLOT_DIR if set, else a machine-shared tmpdir keyed
+# only by PORT/TEST_PORT ("nova_gen_slots_dev" for plain pytest runs,
+# "nova_gen_slots_59999" for every ship_from_worktree.sh gate run).
+# Sharing across processes is the production design -- gunicorn workers
+# must contend for the same slots -- but between two unrelated pytest
+# runs on one machine it means suite A's real /api/generate holds a flock
+# that suite B's live server then sees: B gets spurious 429s and its
+# slots-released barriers time out (2026-07-16: 4-9 failures per run in
+# test_generate_concurrency.py whenever two suites overlapped, 0 when
+# quiet -- e.g. a ship gate racing a concurrent session's suite). Point
+# each pytest run at its own private pool before any test module imports
+# app; within-run cross-process semantics are unchanged, and tests that
+# need a bespoke dir (test_multiprocess_serving.py) still override at a
+# finer granularity. Left uncleaned like app.py's own slot dirs: a few
+# tiny lock/mirror files the OS tmpdir reaper handles.
+if "NOVA_SLOT_DIR" not in os.environ:
+    os.environ["NOVA_SLOT_DIR"] = tempfile.mkdtemp(prefix="nova_gen_slots_pytest_")
 
 TEMPLATES_DIR = PROJECT_ROOT / "templates"
 DATA_DIR = PROJECT_ROOT / "data"

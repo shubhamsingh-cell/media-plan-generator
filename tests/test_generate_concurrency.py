@@ -67,6 +67,16 @@ _GEN_PAYLOAD = {
 # (self._check_joveo_auth() OR ... OR "localhost" in Origin/Referer).
 _AUTH_HEADERS = {"Content-Type": "application/json", "Origin": "http://localhost"}
 
+# Ceiling for the "did the slot come back at all" barriers and asserts.
+# The regression they pin is a LEAK -- a removed finally-release never
+# returns the slot, which fails at ANY finite timeout -- while the
+# legitimate release runs in trailing post-response work (metrics, SLO
+# tracker, alert hooks, after the client already has its bytes) that can
+# stretch to multi-second on a CPU-contended machine (e.g. a concurrent
+# suite run). Polling exits the moment the slots are back, so a generous
+# ceiling costs nothing when green and does not loosen the leak pin.
+_SLOT_RELEASE_TIMEOUT = 30.0
+
 
 def _gen_payload(tag: str) -> dict:
     """Distinct payload per real-generate test.
@@ -329,10 +339,10 @@ def test_real_generate_request_releases_its_slot_on_completion(
     assert status == 200, f"real /api/generate call failed with status {status}"
 
     assert _wait_for_slots_available(
-        app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
+        app_module._MAX_CONCURRENT_GENERATE, timeout=_SLOT_RELEASE_TIMEOUT
     ), (
-        "generate slots were not released within 10s of the request "
-        "completing -- do_POST's finally-release is leaking"
+        f"generate slots were not released within {_SLOT_RELEASE_TIMEOUT}s of "
+        "the request completing -- do_POST's finally-release is leaking"
     )
 
 
@@ -388,7 +398,7 @@ def test_async_submit_rejected_when_slots_saturated(live_server: int) -> None:
     # do_POST's finally AFTER the client saw the response -- wait for all
     # slots to be back before saturating them.
     assert _wait_for_slots_available(
-        app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
+        app_module._MAX_CONCURRENT_GENERATE, timeout=_SLOT_RELEASE_TIMEOUT
     ), "test setup: slots from a previous test's request not yet released"
     for _ in range(app_module._MAX_CONCURRENT_GENERATE):
         assert app_module._generate_slots.acquire(
@@ -423,7 +433,7 @@ def test_async_generate_holds_slot_until_worker_finishes(live_server: int) -> No
     # Barrier: wait out any trailing slot release from a previous test's
     # request so the free-slot arithmetic below starts from a full pool.
     assert _wait_for_slots_available(
-        app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
+        app_module._MAX_CONCURRENT_GENERATE, timeout=_SLOT_RELEASE_TIMEOUT
     ), "test setup: slots from a previous test's request not yet released"
     status, _headers, body = _http_post_generate(
         port,
@@ -469,7 +479,7 @@ def test_async_generate_holds_slot_until_worker_finishes(live_server: int) -> No
 
     assert final.get("status") in ("completed", "failed")
     assert _wait_for_slots_available(
-        app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
+        app_module._MAX_CONCURRENT_GENERATE, timeout=_SLOT_RELEASE_TIMEOUT
     ), (
         "generate slots were not all released after the async job reached "
         f"terminal status {final.get('status')!r} -- the worker's "
@@ -489,7 +499,7 @@ def test_async_generate_releases_slot_when_pipeline_fails(
     # Barrier: wait out any trailing slot release from a previous test's
     # request so the all-slots-released check below is meaningful.
     assert _wait_for_slots_available(
-        app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
+        app_module._MAX_CONCURRENT_GENERATE, timeout=_SLOT_RELEASE_TIMEOUT
     ), "test setup: slots from a previous test's request not yet released"
 
     def _boom() -> dict:
@@ -511,7 +521,7 @@ def test_async_generate_releases_slot_when_pipeline_fails(
     assert "injected knowledge-base failure" in (final.get("error") or "")
 
     assert _wait_for_slots_available(
-        app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
+        app_module._MAX_CONCURRENT_GENERATE, timeout=_SLOT_RELEASE_TIMEOUT
     ), (
         "generate slots were not all released after the async job failed "
         "-- the worker's finally-release must fire on the failure path too"
@@ -586,7 +596,7 @@ def test_async_generate_completes_with_dict_shaped_roles(live_server: int) -> No
     # process (observed: a later test_api_estimate.py live-server test
     # got 429 instead of 400 because this job's slot was still held).
     assert _wait_for_slots_available(
-        app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
+        app_module._MAX_CONCURRENT_GENERATE, timeout=_SLOT_RELEASE_TIMEOUT
     ), (
         "generate slots were not all released after the dict-shaped-roles "
         "async job reached terminal status -- would leak into later tests"
