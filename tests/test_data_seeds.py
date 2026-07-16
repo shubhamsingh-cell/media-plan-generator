@@ -17,11 +17,14 @@ Test groups:
        entries.
     4. Missing seed -- no crash, and the live filename is not reported as
        seeded.
+    5. Atomic copy -- an interrupted copy must never leave a truncated live
+       file behind (skip-if-exists would never repair it on a later deploy).
 """
 
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -99,3 +102,41 @@ def test_channel_benchmarks_seed_has_indeed_and_linkedin() -> None:
     channels = {(entry.get("channel") or "").lower() for entry in raw["data"]}
     assert "indeed" in channels
     assert "linkedin" in channels
+
+
+def test_interrupted_copy_leaves_no_truncated_live_file(
+    tmp_data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A crash mid-copy (OOM kill, deploy restart) must never leave a
+    truncated live file behind: seeding is skip-if-exists, so a truncated
+    live file would silently never be repaired by any later deploy of that
+    instance -- dropping the live tier forever, not just for one run.
+
+    Simulates the interruption by making the byte-copy loop write a partial
+    chunk and then raise, the same shape of failure a real SIGKILL produces
+    mid-copy. The old ``shutil.copyfile(seed_path, live_path)`` implementation
+    opened ``live_path`` directly for writing, so an interruption left a
+    truncated file at the live filename. The current implementation copies
+    into a temp file in the same directory and only ``os.replace()``s it
+    into place on success, so the live filename must never exist (and no
+    stray temp file may be left behind) when the copy is interrupted.
+    """
+    seed_path = tmp_data_dir / "channel_benchmarks_seed.json"
+    live_path = tmp_data_dir / "channel_benchmarks_live.json"
+    seed_path.write_bytes(b'{"data": [{"channel": "indeed"}]}' * 200)
+
+    def _flaky_copyfileobj(fsrc, fdst, length=shutil.COPY_BUFSIZE):
+        fdst.write(fsrc.read(16))  # a partial chunk reaches disk...
+        raise OSError("simulated interruption mid-copy")  # ...then we die
+
+    monkeypatch.setattr(data_seeds.shutil, "copyfileobj", _flaky_copyfileobj)
+
+    seeded = data_seeds.seed_runtime_data_files()
+
+    assert seeded == []
+    assert not live_path.exists(), (
+        "an interrupted copy left a truncated live file behind -- "
+        "skip-if-exists will never repair it on a later deploy"
+    )
+    leftovers = [p for p in tmp_data_dir.iterdir() if p.name != seed_path.name]
+    assert leftovers == [], f"stray temp file(s) left behind after failure: {leftovers}"

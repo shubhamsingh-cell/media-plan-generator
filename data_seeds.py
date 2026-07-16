@@ -20,7 +20,9 @@ startup crash.
 """
 
 import logging
+import os
 import shutil
+import tempfile
 from pathlib import Path
 from typing import List, Tuple
 
@@ -36,6 +38,37 @@ _SEED_PAIRS: List[Tuple[str, str]] = [
     ("job_posting_volumes_seed.json", "job_posting_volumes.json"),
     ("google_trends_seed.json", "google_trends.json"),
 ]
+
+
+def _atomic_copy(src: Path, dst: Path) -> None:
+    """Copy ``src`` onto ``dst`` atomically.
+
+    ``shutil.copyfile`` writes directly into ``dst``; a process kill (OOM,
+    deploy restart) mid-copy leaves a truncated ``dst`` on disk. Because
+    ``seed_runtime_data_files`` is skip-if-exists, that truncated file is
+    never repaired by a later deploy -- it silently drops the live tier
+    forever on that instance. Instead, write into a temp file in the same
+    directory (same filesystem, so the replace below is atomic) and swap it
+    into place with ``os.replace``, which is atomic on POSIX: readers only
+    ever see either no ``dst`` or a fully-written one, never a partial one.
+    Raises ``OSError`` on any failure (temp-file creation, copy, or
+    replace), matching what ``shutil.copyfile`` would have raised, so the
+    caller's existing ``except OSError`` handling is unchanged.
+    """
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{dst.name}.", suffix=".tmp", dir=str(dst.parent)
+    )
+    try:
+        with os.fdopen(fd, "wb") as tmp_f, open(src, "rb") as src_f:
+            shutil.copyfileobj(src_f, tmp_f)
+        os.chmod(tmp_name, 0o644)
+        os.replace(tmp_name, dst)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 def seed_runtime_data_files() -> List[str]:
@@ -55,7 +88,7 @@ def seed_runtime_data_files() -> List[str]:
         if not seed_path.exists():
             continue
         try:
-            shutil.copyfile(seed_path, live_path)
+            _atomic_copy(seed_path, live_path)
         except OSError as exc:
             logger.warning(
                 "data_seeds: failed to seed %s from %s: %s", live_name, seed_name, exc
