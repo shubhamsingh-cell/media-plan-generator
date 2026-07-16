@@ -450,6 +450,300 @@
           </div>
         </div>
 
+        <!-- Meet Nova: persona hero + example delegation panel -->
+        <style>
+          .nova-persona {
+            padding: 26px 20px 18px;
+            border-bottom: 1px solid var(--border-color);
+            background: linear-gradient(
+              180deg,
+              var(--bg-secondary),
+              var(--bg-primary) 70%
+            );
+          }
+          .nova-persona-inner {
+            max-width: 720px;
+            margin: 0 auto;
+          }
+          .np-hero {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 18px;
+          }
+          .np-avatar-wrap {
+            width: 72px;
+            height: 72px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            padding: 3px;
+            background: linear-gradient(
+              135deg,
+              var(--accent-purple),
+              var(--accent-teal)
+            );
+            box-shadow:
+              0 0 0 1px rgba(90, 84, 190, 0.12),
+              0 8px 24px rgba(90, 84, 190, 0.25);
+          }
+          .np-avatar {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #fff;
+          }
+          .np-title {
+            font-family: var(--font-heading);
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--accent-indigo);
+            letter-spacing: -0.01em;
+            margin: 0 0 4px;
+          }
+          .np-subline {
+            font-size: 14.5px;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            margin: 0;
+            max-width: 520px;
+          }
+          .np-demo {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            background: var(--bg-primary);
+            box-shadow: var(--shadow-sm);
+            padding: 16px 18px 18px;
+          }
+          .np-demo-eyebrow {
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+          }
+          .np-demo-thread {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+          }
+          .np-bubble {
+            max-width: 82%;
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-size: 13.5px;
+            line-height: 1.55;
+            opacity: 0;
+            transform: translateY(10px);
+            transition:
+              opacity 0.5s ease,
+              transform 0.5s ease;
+          }
+          .np-bubble.is-in {
+            opacity: 1;
+            transform: translateY(0);
+          }
+          .np-bubble--user {
+            align-self: flex-end;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-bottom-right-radius: 4px;
+          }
+          .np-bubble--user p {
+            margin: 0;
+          }
+          .np-bubble--nova {
+            align-self: flex-start;
+            display: flex;
+            gap: 10px;
+            background: #fff;
+            border: 1.5px solid var(--accent-purple);
+            box-shadow: var(--shadow-md);
+            border-bottom-left-radius: 4px;
+          }
+          .np-bubble-dot {
+            width: 8px;
+            height: 8px;
+            margin-top: 6px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            background: linear-gradient(
+              135deg,
+              var(--accent-purple),
+              var(--accent-teal)
+            );
+            box-shadow: 0 0 8px rgba(107, 181, 206, 0.6);
+          }
+          .np-bubble-body p {
+            margin: 0 0 8px;
+            color: var(--text-primary);
+          }
+          .np-chip {
+            display: inline-flex;
+            align-items: center;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            color: #15803d;
+            background: var(--green-glow, rgba(34, 197, 94, 0.12));
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 999px;
+            padding: 3px 10px;
+          }
+          .np-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-purple);
+            text-decoration: none;
+          }
+          .np-cta:hover {
+            text-decoration: underline;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .np-bubble {
+              opacity: 1;
+              transform: none;
+              transition: none;
+            }
+          }
+          @media (max-width: 640px) {
+            .np-hero {
+              flex-direction: column;
+              align-items: flex-start;
+            }
+            .np-bubble {
+              max-width: 92%;
+            }
+          }
+        </style>
+        <section class="nova-persona" aria-label="Meet Nova">
+          <div class="nova-persona-inner">
+            <div class="np-hero">
+              <div class="np-avatar-wrap">
+                <img
+                  class="np-avatar"
+                  src="/static/img/nova-avatar.png"
+                  alt=""
+                  width="72"
+                  height="72"
+                />
+              </div>
+              <div class="np-hero-text">
+                <h1 class="np-title">Meet Nova.</h1>
+                <p class="np-subline">
+                  Your recruitment intelligence copilot &mdash; ask,
+                  delegate, and Nova executes across your media plans.
+                </p>
+              </div>
+            </div>
+
+            <div class="np-demo" id="nova-persona-demo">
+              <div class="np-demo-eyebrow">
+                Example &middot; What you can delegate
+              </div>
+              <div class="np-demo-thread">
+                <div class="np-bubble np-bubble--user">
+                  <p>
+                    Nova, if I put $60,000 behind this role instead of
+                    $35,000, how many more hires do I get &mdash; and where
+                    should the extra budget go?
+                  </p>
+                </div>
+                <div class="np-bubble np-bubble--nova">
+                  <span class="np-bubble-dot" aria-hidden="true"></span>
+                  <div class="np-bubble-body">
+                    <p>
+                      At $60K your projected hires climb, and programmatic +
+                      regional boards absorb most of the extra spend
+                      efficiently &mdash; niche boards saturate first. Full
+                      channel-by-channel breakdown is in the panel below.
+                    </p>
+                    <span class="np-chip">&#10003; Scenario compared</span>
+                  </div>
+                </div>
+                <div class="np-bubble np-bubble--user">
+                  <p>
+                    And which channel is closest to maxing out its return
+                    before I add more?
+                  </p>
+                </div>
+                <div class="np-bubble np-bubble--nova">
+                  <span class="np-bubble-dot" aria-hidden="true"></span>
+                  <div class="np-bubble-body">
+                    <p>
+                      Niche boards &mdash; you're already deep into
+                      diminishing returns there. I'd cap it and route
+                      incremental spend to programmatic and regional boards
+                      instead.
+                    </p>
+                    <span class="np-chip">&#10003; Recommendation ready</span>
+                  </div>
+                </div>
+              </div>
+              <a href="#chat-input" class="np-cta" id="nova-persona-cta"
+                >Try it yourself &darr;</a
+              >
+            </div>
+          </div>
+        </section>
+        <script>
+          (function () {
+            "use strict";
+            var reduceMotion = window.matchMedia(
+              "(prefers-reduced-motion: reduce)",
+            ).matches;
+            var bubbles = document.querySelectorAll(".np-bubble");
+
+            if (
+              bubbles.length &&
+              !reduceMotion &&
+              "IntersectionObserver" in window
+            ) {
+              var demoEl = document.getElementById("nova-persona-demo");
+              var io = new IntersectionObserver(
+                function (entries, obs) {
+                  entries.forEach(function (entry) {
+                    if (!entry.isIntersecting) return;
+                    bubbles.forEach(function (b, i) {
+                      setTimeout(function () {
+                        b.classList.add("is-in");
+                      }, i * 850);
+                    });
+                    obs.disconnect();
+                  });
+                },
+                { threshold: 0.35 },
+              );
+              if (demoEl) io.observe(demoEl);
+            } else {
+              bubbles.forEach(function (b) {
+                b.classList.add("is-in");
+              });
+            }
+
+            var cta = document.getElementById("nova-persona-cta");
+            var input = document.getElementById("chat-input");
+            if (cta && input) {
+              cta.addEventListener("click", function (e) {
+                e.preventDefault();
+                input.scrollIntoView({
+                  behavior: reduceMotion ? "auto" : "smooth",
+                  block: "center",
+                });
+                input.focus();
+              });
+            }
+          })();
+        </script>
+
         <!-- Chat area -->
         <div
           class="chat-area"
