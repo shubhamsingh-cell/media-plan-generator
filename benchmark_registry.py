@@ -14,7 +14,7 @@ loaded at startup and overlaid on top of static benchmarks when available.
 Usage:
     from benchmark_registry import get_channel_benchmark, get_all_benchmarks
     bench = get_channel_benchmark("indeed", industry="technology")
-    # => {"cpc": 0.50, "cpa": 25.0, "cpc_adjusted": 0.70, ...}
+    # => {"cpc": 1.62, "cpa": 25.0, "cpc_adjusted": 2.27, ...}
 """
 
 from __future__ import annotations
@@ -70,16 +70,25 @@ def _load_live_data() -> dict[str, Any]:
 #   Marketing Benchmark Report. Note: general commercial CPC avg is $5.26 per
 #   WordStream, but recruitment-specific CPC is lower (~$2.90 avg).
 # Conflict resolution methodology:
-#   - Indeed CPC: $0.50 (live Firecrawl data confirms $0.10-$5.00 range, typical $0.50)
+#   - Indeed CPC: $1.62 (July-2026 refresh; see the per-entry comment below.
+#     Prior $0.50 "typical" of 2026-03-26 retired by the cited July-2026 research.)
 #   - Google Ads CPC: $2.90 (updated Q1 2026; recruitment-specific, up from $2.69)
 #   - Meta/Facebook CPC: $1.86 (updated Q1 2026; recruitment-specific, up from $1.72)
 #   - All other values: cross-referenced with live_market_data.json where available
 # Sources: WordStream 2025 Google Ads Benchmarks, Appcast 2026 Benchmark Report,
-#   Joveo Google Ads 2025 first-party data. Updated 2026-03-26.
+#   Joveo Google Ads 2025 first-party data. Updated 2026-03-26; Indeed/LinkedIn
+#   CPCs refreshed 2026-07-16 to match the cited July-2026 research shipped to
+#   data/recruitment_benchmarks_comprehensive_2026.json (cpc_by_platform),
+#   data/channel_benchmarks_seed.json, and data/live_market_data.json job_boards.
 
 CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
+    # Indeed CPC $1.62 = geometric mean of the cited $0.97-$2.71 typical US-role
+    # band (Pin.com citing ThePricer 2026/ShiftNow 2025/Job Board Doctor May 2025;
+    # Indeed publishes no official figure). Same derivation as
+    # live_market_data.json avg_cpc_typical and the KB cpc_by_platform entry
+    # refreshed 2026-07-16. Updated: 2026-07-16.
     "indeed": {
-        "cpc": 0.50,
+        "cpc": 1.62,
         "cpa": 25.0,
         "apply_rate": 0.08,
         "ctr": 0.040,
@@ -89,12 +98,16 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
         "pricing_model": "CPC + subscription",
         "category": "major_job_board",
     },
-    # LinkedIn CPA: $30-$90 for Sponsored Jobs (US avg ~$45). CPC $1.50-$8.00.
-    # Source: Postiv.ai, SpeedWork Social, Recruitics (2025-2026 data).
-    # Prior "$1-$8" was CPC, not CPA. Full CPA factors in apply rates (3-5%).
-    # Updated: 2026-04-07. Review quarterly.
+    # LinkedIn CPA: $30-$90 for Sponsored Jobs (US avg ~$45). Full CPA factors
+    # in apply rates (3-5%). Source: Postiv.ai, SpeedWork Social, Recruitics
+    # (2025-2026 data). CPA updated: 2026-04-07.
+    # LinkedIn CPC $2.60 = geometric mean of the cited $1.50-$4.50 Promoted Jobs
+    # band (Pin.com; LinkedIn's own FAQs confirm the auction model but publish
+    # no figure). Prior 5.26 blended sponsored-content CPC ($5-$12) into what
+    # should be a job-ads figure -- retired by the July-2026 research (see KB
+    # cpc_by_platform refreshed_2026_07_16 note). CPC updated: 2026-07-16.
     "linkedin": {
-        "cpc": 5.26,
+        "cpc": 2.60,
         "cpa": 45.0,
         "cpa_min": 30.0,
         "cpa_max": 90.0,

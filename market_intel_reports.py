@@ -49,13 +49,13 @@ _INDUSTRY_LABEL_MAP: Dict[str, str] = {}
 
 try:
     from benchmark_registry import (
-        CHANNEL_BENCHMARKS as _REGISTRY_BENCHMARKS,
+        get_channel_benchmark as _registry_channel_benchmark,
     )
 
     _HAS_BENCHMARK_REGISTRY = True
 except ImportError:
     _HAS_BENCHMARK_REGISTRY = False
-    _REGISTRY_BENCHMARKS = {}
+    _registry_channel_benchmark = None
 
 
 def _lazy_load():
@@ -589,9 +589,12 @@ METRO_SALARY_INDEX: Dict[str, Dict[str, Any]] = {
 
 # Hardcoded fallback (kept for resilience if benchmark_registry unavailable)
 # LinkedIn CPA: US avg ~$45 for Sponsored Jobs (range $30-$90). Updated 2026-04-07.
+# Indeed/LinkedIn CPCs refreshed 2026-07-16 to the cited July-2026 medians
+# (geometric mean of the cited bands; see benchmark_registry.CHANNEL_BENCHMARKS
+# comments and data/recruitment_benchmarks_comprehensive_2026.json cpc_by_platform).
 _PLATFORM_BENCHMARKS_FALLBACK: Dict[str, Dict[str, float]] = {
-    "indeed": {"cpc": 0.50, "cpa": 25.0, "ctr": 0.040, "conv_rate": 0.025},
-    "linkedin": {"cpc": 5.26, "cpa": 45.0, "ctr": 0.008, "conv_rate": 0.065},
+    "indeed": {"cpc": 1.62, "cpa": 25.0, "ctr": 0.040, "conv_rate": 0.025},
+    "linkedin": {"cpc": 2.60, "cpa": 45.0, "ctr": 0.008, "conv_rate": 0.065},
     "google_search": {"cpc": 2.69, "cpa": 45.0, "ctr": 0.042, "conv_rate": 0.069},
     "meta": {"cpc": 1.72, "cpa": 30.0, "ctr": 0.012, "conv_rate": 0.047},
     "programmatic": {"cpc": 0.63, "cpa": 22.0, "ctr": 0.025, "conv_rate": 0.029},
@@ -600,11 +603,17 @@ _PLATFORM_BENCHMARKS_FALLBACK: Dict[str, Dict[str, float]] = {
     "tiktok": {"cpc": 1.00, "cpa": 28.0, "ctr": 0.012, "conv_rate": 0.018},
 }
 
-# Build PLATFORM_BENCHMARKS from registry if available, else use fallback
+# Build PLATFORM_BENCHMARKS via get_channel_benchmark() so the live overlay
+# (data/live_market_data.json job_boards avg_cpc_typical) applies; reading the
+# static registry dict directly served retired CPCs on this fallback surface.
+# conv_rate is not in the registry, so it always comes from the fallback.
 if _HAS_BENCHMARK_REGISTRY:
     PLATFORM_BENCHMARKS: Dict[str, Dict[str, float]] = {}
     for _plat, _fb in _PLATFORM_BENCHMARKS_FALLBACK.items():
-        _rb = _REGISTRY_BENCHMARKS.get(_plat, {})
+        try:
+            _rb = _registry_channel_benchmark(_plat)
+        except Exception:  # registry import ok but lookup failed; keep fallback
+            _rb = {}
         PLATFORM_BENCHMARKS[_plat] = {
             "cpc": _rb.get("cpc", _fb["cpc"]),
             "cpa": _rb.get("cpa", _fb["cpa"]),
