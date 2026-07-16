@@ -70,6 +70,28 @@ fi
 
 log "preflight OK: linked worktree, clean tree, branch=$current_branch"
 
+# ── Per-run test isolation ──────────────────────────────────────────────
+# app._CrossProcessSlots keys its flock slot dir on $NOVA_SLOT_DIR, falling
+# back to $TMPDIR/nova_gen_slots_{PORT|TEST_PORT|dev} -- and it's built once
+# at module import, so these must be exported before pytest starts. A
+# hardcoded TEST_PORT here would make every concurrent ship run share the
+# same slot pool (a 2-slot pool) and starve each other's
+# tests/test_generate_concurrency.py with 429s. Each run gets its own port
+# and its own slot directory instead.
+TEST_PORT="$(( 50000 + ($$ % 10000) ))"
+NOVA_SLOT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/nova_gen_slots_ship.XXXXXX")"
+export TEST_PORT NOVA_SLOT_DIR
+trap 'rm -rf "$NOVA_SLOT_DIR"' EXIT
+
+# Sweep stale slot dirs leaked by runs killed before their EXIT trap fired.
+# Scoped ONLY to our own mktemp namespace (nova_gen_slots_ship.*) and ONLY
+# to dirs older than 24h, excluding the one we just created. Never sweep
+# port-keyed dirs (nova_gen_slots_59999, nova_gen_slots_dev, nova_gen_slots_<port>)
+# -- those can belong to a live dev server or an in-flight old-version ship,
+# and deleting files out from under an active flock silently breaks mutual
+# exclusion for whoever holds it.
+find "${TMPDIR:-/tmp}" -maxdepth 1 -type d -name 'nova_gen_slots_ship.*' -mmin +1440 ! -path "$NOVA_SLOT_DIR" -exec rm -rf {} + 2>/dev/null || true
+
 # ── Ship loop ────────────────────────────────────────────────────────────
 attempt=1
 while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
@@ -86,8 +108,8 @@ while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
     fi
     log "rebased $current_branch onto $base cleanly"
 
-    log "running full test suite (TEST_PORT=59999 pytest tests/ -q)"
-    if ! TEST_PORT=59999 python3 -m pytest tests/ -q; then
+    log "running full test suite (TEST_PORT=$TEST_PORT NOVA_SLOT_DIR=$NOVA_SLOT_DIR pytest tests/ -q)"
+    if ! python3 -m pytest tests/ -q; then
         echo "ERROR: test suite failed after rebasing onto $base. Fix the failure before shipping -- not retrying automatically." >&2
         exit 3
     fi
