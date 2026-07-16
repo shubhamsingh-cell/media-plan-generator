@@ -5,9 +5,14 @@ Background: 38ac22a fixed the cold-start data gap by shipping
 filename at app.py import time by ``data_seeds.seed_runtime_data_files()``).
 That seed is byte-identical, today, to
 ``tests/fixtures/funnel_invariant/channel_benchmarks_live.json`` -- the
-frozen 2026-07-12 snapshot that ``tests/test_funnel_calibration.py``'s
+fixture that ``tests/test_funnel_calibration.py``'s
 ``TestHeadlineInvariance`` pins its HARD INVARIANT headline numbers against
-(e.g. Manpower total applications 18950, Atria 17780).
+(e.g. Manpower total applications 18950, Atria 17780). The fixture started
+as a frozen 2026-07-12 snapshot; 336480d re-baselined both the seed and the
+fixture together to a 2026-07-16 web-researched refresh (job_boards figures
+replacing the prior LLM-generated data), keeping this test's byte-identity
+guard intact -- this test enforces the mechanism (seed <-> fixture
+identity), not any one snapshot's vintage.
 
 Nothing couples the two files. Without this guard, the seed could drift
 from the approved calibration snapshot while every other test stays green
