@@ -9,9 +9,6 @@
   "lint-staged": {
     "*.py": [
       "python3 -m black --quiet"
-    ],
-    "*.{html,css,js}": [
-      "prettier --write"
     ]
   },
   "repository": {
