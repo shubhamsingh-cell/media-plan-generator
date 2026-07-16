@@ -62,3 +62,10 @@ AI-powered recruitment intelligence platform with 17 products for media planning
 - Do NOT skip QC checks before deploying
 - Do NOT use `.format()` or `%` string formatting
 - Do NOT use bare `except:` clauses
+
+## 11. Shipping with concurrent sessions
+Multiple Claude sessions can push to `main` at the same time, and Render
+auto-deploys from `main` on every push. Never push directly from a
+worktree by hand -- use `scripts/ship_from_worktree.sh` from a linked
+worktree on a feature branch; it rebases, runs the full suite, waits out
+a stability window, and only fast-forward-pushes (never force).
