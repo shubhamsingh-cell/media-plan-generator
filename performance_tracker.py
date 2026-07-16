@@ -421,17 +421,25 @@ def _fallback_benchmark(platform: str, metric: str) -> float:
         return get_benchmark_value(platform, metric)
 
     # Hardcoded fallback (kept for resilience)
+    # Indeed/LinkedIn CPCs refreshed 2026-07-16 to the cited July-2026 medians
+    # (geometric means of the cited bands -- see benchmark_registry.CHANNEL_BENCHMARKS
+    # and data/live_market_data.json job_boards for per-entry sources).
     _fallbacks = {
         "google_search": {"cpc": 2.69, "cpa": 45.00, "ctr": 0.042, "cpm": 10.00},
         "meta_facebook": {"cpc": 1.72, "cpa": 30.00, "ctr": 0.012, "cpm": 7.50},
         "meta_instagram": {"cpc": 1.50, "cpa": 35.00, "ctr": 0.010, "cpm": 8.00},
         "linkedin": {
-            "cpc": 5.26,
+            "cpc": 2.60,  # Promoted-Jobs basis; cited band $1.50-$4.50 (2026-07-16)
             "cpa": 45.00,
             "ctr": 0.008,
             "cpm": 35.00,
         },  # Sponsored Jobs CPA $30-$90, US avg $45 (2026-04-07)
-        "indeed": {"cpc": 0.50, "cpa": 25.00, "ctr": 0.040, "cpm": 5.00},
+        "indeed": {
+            "cpc": 1.62,
+            "cpa": 25.00,
+            "ctr": 0.040,
+            "cpm": 5.00,
+        },  # cited band $0.97-$2.71 (2026-07-16)
         "programmatic": {"cpc": 0.63, "cpa": 22.00, "ctr": 0.025, "cpm": 4.50},
     }
     return _fallbacks.get(platform, _fallbacks["programmatic"]).get(metric, 1.00)

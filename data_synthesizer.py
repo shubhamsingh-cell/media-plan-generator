@@ -2469,8 +2469,13 @@ def fuse_ad_platform_analysis(
             "daily_budget_range": "$20 - $200",
             "best_for": "Tech/engineering communities, niche targeting",
         },
+        # CPC 1.62 = benchmark_registry.CHANNEL_BENCHMARKS["indeed"] (geometric
+        # mean of the cited $0.97-$2.71 typical US-role band, refreshed
+        # 2026-07-16; see KB cpc_by_platform refreshed_2026_07_16 note). Prior
+        # 0.50 was earlier-vintage and retired by the July-2026 research.
+        # CPM/CPA unchanged (original vintage; no fresher cited figure).
         "Indeed Sponsored Jobs": {
-            "cpc": 0.50,
+            "cpc": 1.62,
             "cpm": 0.00,
             "cpa": 22.00,
             "audience_reach": "350M+ monthly unique visitors",

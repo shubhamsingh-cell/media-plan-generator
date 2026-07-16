@@ -1097,6 +1097,15 @@ def _build_channel_benchmarks_rows() -> list[dict[str, Any]]:
         )
 
     # Add industry-specific benchmarks derived from our internal data
+    # VINTAGE NOTE (2026-07-16): this block was NOT refreshed by the July-2026
+    # Indeed/LinkedIn CPC reconciliation -- no cited July-2026 industry-level
+    # figures exist, so rows keep their original attributions rather than
+    # invented refreshes. Flag: indeed/technology cpc 0.92 equals the retired
+    # pre-refresh overall Indeed median and sits below the refreshed overall
+    # band floor ($0.97-$2.71, median $1.62); re-verify the "Joveo internal"
+    # attribution before the next manual seeding run. These rows are read back
+    # at runtime via supabase_data.get_channel_benchmarks() (e.g.
+    # /api/pricing/live), so a seeding re-run makes them live data.
     industry_benchmarks = [
         {
             "channel": "indeed",
