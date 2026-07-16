@@ -6061,7 +6061,8 @@ def _compute_cpc_alerts(
          was read via a nonexistent ``platform_benchmarks`` top-level key.
          The real path is
          ``A_cpa_cph_benchmarks_by_channel.cpc_by_platform.data``, entries
-         carrying ``cpc_median_usd`` (Indeed 0.92, LinkedIn 5.26).
+         carrying ``cpc_min_usd``/``cpc_max_usd`` bands and, for some
+         platforms, ``cpc_median_usd``.
       Both bugs together meant this monitor was a silent no-op from the
       day it was written -- it always compared zero live platforms against
       an empty KB dict and published an empty alert list.
@@ -6077,11 +6078,18 @@ def _compute_cpc_alerts(
 
     Returns:
         List of alert dicts for platforms whose live CPC (band midpoint)
-        diverges from the KB median by >= 15% (the pre-existing threshold).
-        Given the researched seed vs the static, unrefreshed KB medians,
-        Indeed fires ~+100% and LinkedIn ~-43% every cycle by design --
-        that is a truthful divergence report, not a bug; each alert names
-        its KB baseline's vintage so a future consumer of
+        diverges from the KB baseline by >= 15% (the pre-existing
+        threshold). The KB baseline is the entry's min/max band midpoint
+        when the entry carries a numeric band -- like-for-like with the
+        live side, which is also a band midpoint -- else its
+        ``cpc_median_usd``/``cpc_max_usd``. Comparing the live midpoint
+        against a differently-derived median manufactured a permanent
+        artifact divergence (Indeed +100%, LinkedIn -43%) after the
+        2026-07-16 seed refresh, even once KB and seed cited the same
+        research; reconciled by this band-midpoint preference plus the
+        same-day KB cpc_by_platform refresh (see that file's
+        ``refreshed_2026_07_16`` note). Each alert names its KB
+        baseline's basis and vintage so a future consumer of
         /api/cpc-alerts (currently unconsumed) can't mistake it for a
         live-vs-live comparison.
     """
@@ -6089,8 +6097,14 @@ def _compute_cpc_alerts(
 
     timestamp = now or _t.strftime("%Y-%m-%dT%H:%M:%SZ", _t.gmtime())
 
-    # Extract KB CPC medians: A_cpa_cph_benchmarks_by_channel.cpc_by_platform.data
-    kb_cpc: dict[str, float] = {}
+    # Extract KB CPC baselines: A_cpa_cph_benchmarks_by_channel.cpc_by_platform.data
+    # Prefer the entry's min/max band midpoint (like-for-like with the live
+    # side's band midpoint); a median compared against a midpoint reports a
+    # permanent artifact divergence even when both describe the same band.
+    def _num(v: object) -> bool:
+        return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+    kb_cpc: dict[str, tuple[float, str]] = {}
     cpc_section = (
         (kb_raw.get("A_cpa_cph_benchmarks_by_channel") or {})
         .get("cpc_by_platform", {})
@@ -6099,9 +6113,17 @@ def _compute_cpc_alerts(
     for item in cpc_section:
         if isinstance(item, dict):
             platform = item.get("platform") or ""
-            median = item.get("cpc_median_usd") or item.get("cpc_max_usd") or 0
-            if platform and median:
-                kb_cpc[platform.lower()] = float(median)
+            if not platform:
+                continue
+            kb_min = item.get("cpc_min_usd")
+            kb_max = item.get("cpc_max_usd")
+            if _num(kb_min) and _num(kb_max):
+                midpoint = (float(kb_min) + float(kb_max)) / 2.0
+                kb_cpc[platform.lower()] = (midpoint, "band midpoint")
+            else:
+                median = item.get("cpc_median_usd") or item.get("cpc_max_usd") or 0
+                if median:
+                    kb_cpc[platform.lower()] = (float(median), "median")
 
     # Extract live CPC bands: {"data": [{"channel": ..., "metadata": {"cpc_range": {...}}}]}
     new_alerts: list[dict] = []
@@ -6123,7 +6145,7 @@ def _compute_cpc_alerts(
             continue
         live_cpc = (cpc_min + cpc_max) / 2.0
 
-        for kb_name, kb_val in kb_cpc.items():
+        for kb_name, (kb_val, kb_basis) in kb_cpc.items():
             if channel.lower() in kb_name or kb_name in channel.lower():
                 change_pct = (
                     ((live_cpc - kb_val) / kb_val) * 100 if kb_val > 0 else 0
@@ -6142,12 +6164,14 @@ def _compute_cpc_alerts(
                             "severity": (
                                 "high" if abs(change_pct) >= 30 else "medium"
                             ),
-                            "baseline_label": "vs KB median (static 2026 KB file)",
+                            "baseline_label": (
+                                f"vs KB {kb_basis} (static 2026 KB file)"
+                            ),
                             "message": (
                                 f"{channel} live CPC ${live_cpc:.2f} is "
                                 f"{abs(change_pct):.1f}% {direction} vs KB "
-                                f"median ${kb_val:.2f} (static 2026 KB file, "
-                                "not live-refreshed)"
+                                f"{kb_basis} ${kb_val:.2f} (static 2026 KB "
+                                "file, not live-refreshed)"
                             ),
                         }
                     )

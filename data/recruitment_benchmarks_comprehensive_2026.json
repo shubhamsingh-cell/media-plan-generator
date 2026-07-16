@@ -39,8 +39,14 @@
       "https://speedworksocial.com/linkedin-ads-benchmarks/",
       "https://localiq.com/blog/search-advertising-benchmarks/",
       "https://www.socialinsider.io/social-media-benchmarks/linkedin",
-      "https://marketingltb.com/blog/advertising/what-is-the-average-ctr-for-linkedin-ads/"
-    ]
+      "https://marketingltb.com/blog/advertising/what-is-the-average-ctr-for-linkedin-ads/",
+      "https://www.indeed.com/hire/resources/howtohub/how-pricing-works-on-indeed",
+      "https://www.indeed.com/hire/cs/pricing",
+      "https://www.linkedin.com/help/linkedin/answer/a517695/billing-for-pay-per-click-job-posts-faqs",
+      "https://www.linkedin.com/help/linkedin/answer/a517548",
+      "https://www.pin.com/blog/linkedin-job-posting-pricing/"
+    ],
+    "partial_refresh_2026_07_16": "cpc_by_platform Indeed + LinkedIn entries only, cited per entry (see A_cpa_cph_benchmarks_by_channel.cpc_by_platform.refreshed_2026_07_16). All other sections remain 2026-04-06 vintage."
   },
 
   "A_cpa_cph_benchmarks_by_channel": {
@@ -52,11 +58,12 @@
     "cpc_by_platform": {
       "description": "Cost per click by job advertising platform (2025-2026)",
       "reliability": "high",
+      "refreshed_2026_07_16": "Indeed and LinkedIn entries refreshed from the same web-researched, per-entry-cited July-2026 figures shipped to channel_benchmarks_seed.json (commit 336480d) and live_market_data.json job_boards (commit 51a44e0). The prior medians (Indeed 0.92, LinkedIn 5.26) were earlier-vintage and, for LinkedIn, blended sponsored-content CPC into a job-ads median; against the refreshed live band they made the 6h CPC-drift monitor (/api/cpc-alerts) report a permanent +100%/-43% artifact divergence. cpc_median_usd for the two refreshed entries is the geometric mean of the cited band, matching live_market_data.json's avg_cpc_typical derivation, so a scripts/refresh_market_data.py re-run writes back the same avg_cpc_typical the overlay already carries (1.62/2.60) instead of regressing it to the stale medians. All other platform entries remain original-vintage (see _metadata).",
       "data": [
-        {"platform": "Indeed", "cpc_min_usd": 0.25, "cpc_max_usd": 1.50, "cpc_median_usd": 0.92, "pricing_model": "CPC auction (shifting to CPA)", "notes": "Metro areas up to 300% higher than rural. Jan hiring surge adds 15-20% premium. $25 min budget per job since Jul 2025"},
+        {"platform": "Indeed", "cpc_min_usd": 0.97, "cpc_max_usd": 2.71, "cpc_median_usd": 1.62, "median_basis": "geometric mean of the cited typical band (no platform-official median exists); same derivation as live_market_data.json avg_cpc_typical", "pricing_model": "CPC auction (Sponsored Jobs); PPSA on some setups; PPA discontinued Dec 2023", "last_updated": "2026-07-16", "sources": ["https://www.indeed.com/hire/resources/howtohub/how-pricing-works-on-indeed", "https://www.indeed.com/hire/cs/pricing", "https://www.pin.com/blog/indeed-pricing/"], "notes": "Indeed publishes no numeric CPC range (results-based dynamic pricing; confirmed on its own pages). $0.97-$2.71 typical US-role band per Pin.com citing ThePricer 2026/ShiftNow 2025/Job Board Doctor May 2025 (aggregator-inferred, not Indeed-official); full observed spread ~$0.10-$5.00+. Budget floors are Indeed-official: $5/day min, $25/day per-job floor since Jul 2025, $150/mo min. Retained 2025-vintage research: metro areas up to 300% higher than rural; Jan hiring surge adds 15-20% premium."},
         {"platform": "Indeed (Technology)", "cpc_min_usd": 0.80, "cpc_max_usd": 1.50, "pricing_model": "CPC", "notes": "High competition for engineers/developers"},
         {"platform": "Indeed (Healthcare)", "cpc_min_usd": 0.60, "cpc_max_usd": 1.20, "pricing_model": "CPC", "notes": "Nursing shortages drive costs up"},
-        {"platform": "LinkedIn", "cpc_min_usd": 1.50, "cpc_max_usd": 8.00, "cpc_median_usd": 5.26, "pricing_model": "CPC/CPA + subscription", "notes": "Sponsored content CPC $5-$12. Job ads $1.50-$4.50 CPC. Min daily budget $7-$10"},
+        {"platform": "LinkedIn", "cpc_min_usd": 1.50, "cpc_max_usd": 4.50, "cpc_median_usd": 2.60, "median_basis": "geometric mean of the cited Promoted Jobs band (LinkedIn publishes no figure); same derivation as live_market_data.json avg_cpc_typical", "pricing_model": "CPC/pay-per-view auction (Promoted Jobs); Job Slots are a separate flat-rate enterprise product", "last_updated": "2026-07-16", "sources": ["https://www.linkedin.com/help/linkedin/answer/a517695/billing-for-pay-per-click-job-posts-faqs", "https://www.linkedin.com/help/linkedin/answer/a517548", "https://www.pin.com/blog/linkedin-job-posting-pricing/"], "notes": "Job-ad (Promoted Jobs) basis: $1.50-$4.50 aggregator-estimated band per Pin.com; LinkedIn's own FAQs confirm the auction model but publish no figure. Min daily budget $7. Sponsored-content CPC runs higher ($5-$12, 2025-vintage research) and is deliberately excluded from this entry -- the prior 5.26 median blended it into what should be a job-ads figure."},
         {"platform": "LinkedIn (Staffing/Recruiting)", "cpc_min_usd": 4.00, "cpc_max_usd": 6.00, "pricing_model": "CPC"},
         {"platform": "LinkedIn (B2B SaaS/Tech)", "cpc_min_usd": 5.00, "cpc_max_usd": 8.00, "pricing_model": "CPC"},
         {"platform": "LinkedIn (Healthcare B2B)", "cpc_min_usd": 3.00, "cpc_max_usd": 5.00, "pricing_model": "CPC"},

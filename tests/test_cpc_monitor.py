@@ -83,7 +83,10 @@ def _live_fixture() -> dict:
 
 def _kb_fixture() -> dict:
     """Real-shaped data/recruitment_benchmarks_comprehensive_2026.json fixture
-    (only the branch _compute_cpc_alerts reads)."""
+    (only the branch _compute_cpc_alerts reads). Entries carry ONLY
+    cpc_median_usd -- this exercises the median-fallback path; the real file's
+    refreshed entries carry min/max bands and take the band-midpoint path
+    (see the _kb_band_fixture tests below)."""
     return {
         "A_cpa_cph_benchmarks_by_channel": {
             "section_title": "CPA/CPH benchmarks by channel",
@@ -176,6 +179,110 @@ def test_null_cpc_range_values_do_not_raise_typeerror():
 def test_empty_kb_data_yields_no_alerts_no_exception():
     alerts = app._compute_cpc_alerts(_live_fixture(), {}, now="2026-07-16T00:00:00Z")
     assert alerts == []
+
+
+# ── like-for-like band comparison (2026-07-16 KB reconciliation) ─────────
+def _kb_band_fixture() -> dict:
+    """KB entry shaped like the reconciled real file: a cited min/max band
+    plus a geometric-mean cpc_median_usd that deliberately differs from the
+    band midpoint (Indeed: midpoint 1.84, geomean median 1.62)."""
+    return {
+        "A_cpa_cph_benchmarks_by_channel": {
+            "cpc_by_platform": {
+                "data": [
+                    {
+                        "platform": "Indeed",
+                        "cpc_min_usd": 0.97,
+                        "cpc_max_usd": 2.71,
+                        "cpc_median_usd": 1.62,
+                    },
+                ]
+            }
+        }
+    }
+
+
+def test_kb_band_entry_compares_midpoint_to_midpoint_not_median():
+    """When live and KB describe the SAME cited band, no alert may fire.
+    This is the reconciled LinkedIn shape: live midpoint 3.00 vs the
+    geometric-mean median 2.60 is +15.4% -- above the 15% threshold, so a
+    median-first comparison would alert forever on identical bands. The
+    band-midpoint path reports exactly 0%. This test FAILS if the monitor
+    reverts to median-first for band-carrying entries."""
+    kb = {
+        "A_cpa_cph_benchmarks_by_channel": {
+            "cpc_by_platform": {
+                "data": [
+                    {
+                        "platform": "LinkedIn",
+                        "cpc_min_usd": 1.50,
+                        "cpc_max_usd": 4.50,
+                        "cpc_median_usd": 2.60,
+                    },
+                ]
+            }
+        }
+    }
+    live = {
+        "data": [
+            {
+                "channel": "linkedin",
+                "metadata": {"cpc_range": {"min": 1.50, "max": 4.50}},
+            },
+        ]
+    }
+    alerts = app._compute_cpc_alerts(live, kb, now="2026-07-16T00:00:00Z")
+    assert alerts == []
+
+
+def test_kb_band_real_drift_still_alerts_with_band_label():
+    live = {
+        "data": [
+            {
+                "channel": "indeed",
+                "metadata": {"cpc_range": {"min": 3.50, "max": 4.50}},
+            },
+        ]
+    }
+    alerts = app._compute_cpc_alerts(
+        live, _kb_band_fixture(), now="2026-07-16T00:00:00Z"
+    )
+    assert len(alerts) == 1
+    a = alerts[0]
+    assert a["kb_value"] == 1.84  # (0.97 + 2.71) / 2 -- midpoint, NOT the 1.62 median
+    assert a["live_value"] == 4.0
+    assert a["direction"] == "up"
+    assert a["severity"] == "high"
+    assert "KB band midpoint" in a["baseline_label"]
+    assert "static 2026 KB file" in a["baseline_label"]
+    assert "KB band midpoint" in a["message"]
+
+
+def test_reconciled_repo_data_files_produce_no_artifact_alerts():
+    """Commit-time invariant: the repo's real KB cpc_by_platform and the real
+    channel_benchmarks_seed.json (the live file's source of truth) must agree
+    within the 15% alert threshold. If a future session refreshes the seed
+    without reconciling the KB (or vice versa), this fails -- refresh both
+    from the same cited research, or consciously re-baseline this test.
+    Assumption: the seed is a faithful proxy for the runtime
+    channel_benchmarks_live.json the monitor actually reads (data_seeds
+    copies seed -> live); if a live refresh ever sources CPCs from anything
+    other than the seed, the monitor can fire in prod without this
+    commit-time check noticing."""
+    import json
+
+    root = Path(__file__).resolve().parent.parent
+    with open(root / "data" / "channel_benchmarks_seed.json", encoding="utf-8") as f:
+        seed = json.load(f)
+    with open(
+        root / "data" / "recruitment_benchmarks_comprehensive_2026.json",
+        encoding="utf-8",
+    ) as f:
+        kb = json.load(f)
+    alerts = app._compute_cpc_alerts(seed, kb, now="2026-07-16T00:00:00Z")
+    assert alerts == [], (
+        "seed vs KB artifact alerts -- reconcile the data files: " + repr(alerts)
+    )
 
 
 if __name__ == "__main__":

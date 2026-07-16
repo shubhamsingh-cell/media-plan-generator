@@ -960,10 +960,16 @@ _CPC_CACHE_LOCK = threading.Lock()
 _VOLUME_CACHE_LOCK = threading.Lock()
 _TRACKER_CACHE_TTL = 3600  # 1 hour
 
-# Platform-level CPC benchmarks from recruitment_benchmarks_comprehensive_2026.json
+# Platform-level CPC benchmarks. indeed/linkedin synced 2026-07-16 with the
+# refreshed recruitment_benchmarks_comprehensive_2026.json cpc_by_platform
+# entries (cited bands; median = geometric mean of the band -- see that
+# file's refreshed_2026_07_16 note). The remaining rows are older-vintage
+# estimates that do NOT track that file (per the 2026 research, ziprecruiter
+# and glassdoor price by subscription / Indeed's engine, with no citable
+# standalone CPC -- reconcile them separately).
 _PLATFORM_CPC_BENCHMARKS: Dict[str, Dict[str, float]] = {
-    "indeed": {"min": 0.25, "max": 1.50, "median": 0.92},
-    "linkedin": {"min": 1.50, "max": 8.00, "median": 5.26},
+    "indeed": {"min": 0.97, "max": 2.71, "median": 1.62},
+    "linkedin": {"min": 1.50, "max": 4.50, "median": 2.60},
     "ziprecruiter": {"min": 0.80, "max": 3.50, "median": 1.35},
     "glassdoor": {"min": 5.00, "max": 150.00, "median": 12.00},
     "facebook": {"min": 0.50, "max": 2.11, "median": 1.11},
