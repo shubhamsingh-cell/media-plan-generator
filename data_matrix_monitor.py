@@ -916,6 +916,22 @@ class DataMatrixMonitor:
                 "healed": False,
             }
 
+        # 12. Seed integrity (seeded runtime data files -- see data_seeds.py)
+        try:
+            results["seed_integrity"] = self._check_seed_integrity()
+        except Exception as e:
+            logger.error(
+                "extended_health: seed_integrity probe failed: %s",
+                e,
+                exc_info=True,
+            )
+            results["seed_integrity"] = {
+                "name": "seed_integrity",
+                "status": "error",
+                "detail": str(e),
+                "healed": False,
+            }
+
         return results
 
     # ── Extended self-healing checks (v4) ─────────────────────────────────
@@ -1240,6 +1256,114 @@ class DataMatrixMonitor:
             "detail": detail,
             "healed": healed,
             "stale_sources": stale_sources,
+        }
+
+    @staticmethod
+    def _is_seed_payload_empty(live_name: str, parsed: Any) -> bool:
+        """Shape-tolerant emptiness test for a parsed seeded live file.
+
+        ``channel_benchmarks_live.json`` is a dict keyed on a top-level
+        ``data`` list (see data/channel_benchmarks_seed.json) -- the field
+        that actually carries the CPC entries -- so its emptiness test
+        checks that list specifically; a dict with only ``_refreshed_at`` /
+        ``_provenance`` metadata and an empty ``data`` list would otherwise
+        look "non-empty" by a naive top-level check.
+
+        ``job_posting_volumes.json`` and ``google_trends.json`` are checked
+        generically (non-empty top-level dict/list) rather than by digging
+        into their nested keys (``volumes``, ``data.roles``, ...), so a
+        future shape change to either file doesn't silently break this
+        check.
+        """
+        if live_name == "channel_benchmarks_live.json":
+            if not isinstance(parsed, dict):
+                return True
+            data = parsed.get("data")
+            return not isinstance(data, list) or len(data) == 0
+        if isinstance(parsed, (dict, list)):
+            return len(parsed) == 0
+        return True
+
+    def _check_seed_integrity(self) -> Dict[str, Any]:
+        """Check the seeded runtime data files are present, parseable, and
+        non-empty.
+
+        Background: ``data_seeds.seed_runtime_data_files()`` (since
+        38ac22a/a0a9912) copies tracked ``*_seed.json`` snapshots onto three
+        gitignored live filenames -- ``channel_benchmarks_live.json``,
+        ``job_posting_volumes.json``, ``google_trends.json`` -- the first
+        time each is absent, because prod has no runtime writer for them
+        (refresh daemon disabled, S50; data_enrichment env-gated off by
+        default). These files are now critical plan inputs (CPC
+        live_benchmark tier).
+
+        This is deliberately NOT a freshness/mtime check like
+        ``_check_cache_staleness``: these files are static by design once
+        seeded, ``data_enrichment.run_cycle`` cannot rewrite them (it has no
+        writer path for these sources), and an mtime-staleness threshold
+        would false-alarm on any long-lived instance that seeded once at
+        startup and never again. The only meaningful signal here is
+        presence + valid, non-empty content -- missing, unparseable, or
+        empty means the seeding mechanism itself broke, which is never
+        normal after 38ac22a/a0a9912. There is nothing to self-heal: a
+        fresh seed only exists in source control, not at runtime.
+
+        Returns:
+            Dict with name, status, detail, and healed keys (healed is
+            always False).
+        """
+        try:
+            from data_seeds import _SEED_PAIRS
+        except ImportError as e:
+            return {
+                "name": "seed_integrity",
+                "status": "warning",
+                "detail": (
+                    f"data_seeds module not importable; skipped seed "
+                    f"integrity check: {e}"
+                ),
+                "healed": False,
+            }
+
+        failures: List[str] = []
+        checked = 0
+        for _seed_name, live_name in _SEED_PAIRS:
+            live_path = DATA_DIR / live_name
+            if not live_path.exists():
+                failures.append(f"{live_name} (missing)")
+                continue
+            try:
+                with open(live_path, "r", encoding="utf-8") as f:
+                    parsed = json.load(f)
+            except (json.JSONDecodeError, OSError) as e:
+                failures.append(f"{live_name} (invalid JSON: {e})")
+                continue
+            if self._is_seed_payload_empty(live_name, parsed):
+                failures.append(f"{live_name} (empty payload)")
+                continue
+            checked += 1
+
+        if not failures:
+            status = "ok"
+            detail = (
+                f"{checked}/{len(_SEED_PAIRS)} seeded live files present, "
+                f"parseable, non-empty"
+            )
+        else:
+            status = "error"
+            detail = (
+                f"{len(failures)}/{len(_SEED_PAIRS)} seeded live file(s) broken "
+                f"-- seeding mechanism failure, not expected after "
+                f"38ac22a/a0a9912: {', '.join(failures)}"
+            )
+            logger.error("DataMatrixMonitor: seed_integrity check failed: %s", detail)
+
+        return {
+            "name": "seed_integrity",
+            "status": status,
+            "detail": detail,
+            "healed": False,
+            "failures": failures,
         }
 
     def _check_disk_space(self) -> Dict[str, Any]:
