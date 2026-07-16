@@ -273,8 +273,7 @@ def _fuse(summary):
 
 def test_company_summary_capped_at_word_boundary_in_synthesizer():
     long_summary = (
-        "Atria Senior Living operates senior communities across the country. "
-        * 20
+        "Atria Senior Living operates senior communities across the country. " * 20
     ).strip()  # ~1.4k chars
     prof = _fuse(long_summary).get("company_profile", {})
     out = prof.get("summary", "")

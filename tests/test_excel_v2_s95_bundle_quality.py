@@ -236,7 +236,10 @@ def test_truncate_at_word_boundary_never_cuts_mid_word():
     # from the original text, never a fragment like "20" from "200".
     body = out[:-1].strip()
     assert long_text.startswith(body)
-    assert not long_text[len(body) : len(body) + 1].isalnum() or long_text[len(body)] == " "
+    assert (
+        not long_text[len(body) : len(body) + 1].isalnum()
+        or long_text[len(body)] == " "
+    )
 
 
 def test_truncate_at_word_boundary_no_op_when_already_short():
@@ -276,15 +279,18 @@ def test_company_description_truncated_at_word_boundary_end_to_end():
         "work_environment": "onsite",
         "_enriched": {},
         "_synthesized": {
-            "competitive_intelligence": {
-                "company_profile": {"description": long_desc}
-            }
+            "competitive_intelligence": {"company_profile": {"description": long_desc}}
         },
         "_budget_allocation": {},
     }
 
     def _fake_call_llm(**kwargs):
-        return {"text": "", "provider": "", "error": "no key (test harness)", "attempts": []}
+        return {
+            "text": "",
+            "provider": "",
+            "error": "no key (test harness)",
+            "attempts": [],
+        }
 
     with mock.patch("llm_router.call_llm", side_effect=_fake_call_llm):
         raw = excel_v2.generate_excel_v2(data)
@@ -399,7 +405,9 @@ def test_non_busy_empty_response_does_not_trigger_busy_retry():
         return {
             "text": "",
             "provider": "",
-            "attempts": [{"provider": "deepseek", "status": "failed", "error": "timeout"}],
+            "attempts": [
+                {"provider": "deepseek", "status": "failed", "error": "timeout"}
+            ],
             "error": "All LLM providers unavailable or failed",
         }
 
@@ -422,9 +430,16 @@ def test_non_busy_empty_response_does_not_trigger_busy_retry():
 
 def test_is_llm_concurrency_busy_error_matcher():
     assert excel_v2._is_llm_concurrency_busy_error(_BUSY_ERROR) is True
-    assert excel_v2._is_llm_concurrency_busy_error("too many concurrent requests") is True
+    assert (
+        excel_v2._is_llm_concurrency_busy_error("too many concurrent requests") is True
+    )
     assert excel_v2._is_llm_concurrency_busy_error("concurrency limit reached") is True
-    assert excel_v2._is_llm_concurrency_busy_error("All LLM providers unavailable or failed") is False
+    assert (
+        excel_v2._is_llm_concurrency_busy_error(
+            "All LLM providers unavailable or failed"
+        )
+        is False
+    )
     assert excel_v2._is_llm_concurrency_busy_error("") is False
     assert excel_v2._is_llm_concurrency_busy_error(None) is False
 

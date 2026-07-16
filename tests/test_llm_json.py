@@ -47,7 +47,8 @@ def test_extract_none_on_garbage():
 
 def test_call_llm_json_success_first_try():
     with mock.patch.object(
-        llm_router, "call_llm",
+        llm_router,
+        "call_llm",
         return_value={"text": '{"a": 1, "b": "ok"}', "provider": "gemini"},
     ) as m:
         out = llm_router.call_llm_json([{"role": "user", "content": "go"}], SCHEMA)
@@ -78,7 +79,8 @@ def test_call_llm_json_retries_then_succeeds():
 
 def test_call_llm_json_missing_required_key_fails():
     with mock.patch.object(
-        llm_router, "call_llm",
+        llm_router,
+        "call_llm",
         return_value={"text": '{"a": 1}', "provider": "x"},  # missing 'b'
     ):
         out = llm_router.call_llm_json([{"role": "user", "content": "go"}], SCHEMA)

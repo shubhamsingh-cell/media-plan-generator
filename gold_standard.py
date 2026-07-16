@@ -855,6 +855,7 @@ def _match_token_alias(title_lower: str) -> str | None:
             return canonical
     return None
 
+
 # PERF: Pre-compute the longest-match-first sorted keyword list ONCE at module
 # load instead of sorting on every call to _clamp_salary_for_role and
 # per_role_salary.  With ~36 keywords, sorted() is cheap per call but this
@@ -4430,9 +4431,7 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
     _subvertical_match = _detect_subvertical(data, ind_key)
     _subvertical_key = _subvertical_match[0] if _subvertical_match else None
     _subvertical_profile = _subvertical_match[1] if _subvertical_match else None
-    _subvertical_monthly = (
-        (_subvertical_profile or {}).get("monthly_profile") or {}
-    )
+    _subvertical_monthly = (_subvertical_profile or {}).get("monthly_profile") or {}
 
     # Adjust budget weight based on hiring intensity
     intensity_weights = {
@@ -4616,7 +4615,9 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
         # defensible rationale rather than presented as an unexplained
         # departure from the generic industry calendar.
         result["subvertical"] = _subvertical_key
-        result["subvertical_label"] = _subvertical_profile.get("label") or _subvertical_key
+        result["subvertical_label"] = (
+            _subvertical_profile.get("label") or _subvertical_key
+        )
         result["subvertical_rationale"] = _subvertical_profile.get("rationale") or ""
         result["subvertical_source"] = _subvertical_profile.get("source") or ""
     return result

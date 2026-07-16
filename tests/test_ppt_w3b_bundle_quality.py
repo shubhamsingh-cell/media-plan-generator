@@ -95,7 +95,14 @@ def _logistics_plan() -> dict:
         "industry_label": "Logistics & Supply Chain",
         "budget": "$150,000",
         "campaign_duration": "6 months",
-        "locations": ["Massachusetts", "Maine", "New Hampshire", "Rhode Island", "Connecticut", "Denver, CO"],
+        "locations": [
+            "Massachusetts",
+            "Maine",
+            "New Hampshire",
+            "Rhode Island",
+            "Connecticut",
+            "Denver, CO",
+        ],
         "roles": ["CDL A Driver"],
         "target_roles": roles,
         "work_environment": "on_site",
@@ -165,7 +172,9 @@ class TestPushMeetsPullFooting:
         assert len(tokens) >= len(push) + 1  # N itemized figures + 1 total
         *itemized, printed_total = tokens
         assert len(itemized) == len(push)
-        assert round(sum(itemized), 1) == pytest.approx(round(printed_total, 1), abs=0.15)
+        assert round(sum(itemized), 1) == pytest.approx(
+            round(printed_total, 1), abs=0.15
+        )
 
     def test_every_push_channel_named_in_slide_text(self):
         data = _logistics_plan()
@@ -174,8 +183,13 @@ class TestPushMeetsPullFooting:
         ppt._build_slide_push_meets_pull(prs, data, deck_kb)
         assert len(prs.slides) == 1
         blob = "\n".join(_all_slide_text(prs))
-        for needle in ("Programmatic", "Regional Job Boards", "Global Job Boards",
-                       "Niche", "Social Media"):
+        for needle in (
+            "Programmatic",
+            "Regional Job Boards",
+            "Global Job Boards",
+            "Niche",
+            "Social Media",
+        ):
             assert needle in blob, f"push channel not itemized on slide: {needle!r}"
 
     def test_atria_push_card_also_foots(self):
@@ -186,7 +200,9 @@ class TestPushMeetsPullFooting:
         tokens = _money_tokens(line)
         *itemized, printed_total = tokens
         assert len(itemized) == len(push)
-        assert round(sum(itemized), 1) == pytest.approx(round(printed_total, 1), abs=0.15)
+        assert round(sum(itemized), 1) == pytest.approx(
+            round(printed_total, 1), abs=0.15
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -268,15 +284,42 @@ class TestRoleBreakdownSalary:
     def _gold_standard_with_salary(self) -> dict:
         return {
             "difficulty_framework": [
-                {"role_title": "Memory Care Associate", "seniority_level": "entry", "channel_emphasis": "niche_boards", "complexity_score": 5, "budget_weight": 1.0},
-                {"role_title": "Nurse", "seniority_level": "professional", "channel_emphasis": "programmatic_dsp", "complexity_score": 8.5, "budget_weight": 1.8},
-                {"role_title": "Cook", "seniority_level": "entry", "channel_emphasis": "regional_boards", "complexity_score": 3.5, "budget_weight": 0.6},
-                {"role_title": "Driver", "seniority_level": "entry", "channel_emphasis": "global_boards", "complexity_score": 4, "budget_weight": 0.8},
+                {
+                    "role_title": "Memory Care Associate",
+                    "seniority_level": "entry",
+                    "channel_emphasis": "niche_boards",
+                    "complexity_score": 5,
+                    "budget_weight": 1.0,
+                },
+                {
+                    "role_title": "Nurse",
+                    "seniority_level": "professional",
+                    "channel_emphasis": "programmatic_dsp",
+                    "complexity_score": 8.5,
+                    "budget_weight": 1.8,
+                },
+                {
+                    "role_title": "Cook",
+                    "seniority_level": "entry",
+                    "channel_emphasis": "regional_boards",
+                    "complexity_score": 3.5,
+                    "budget_weight": 0.6,
+                },
+                {
+                    "role_title": "Driver",
+                    "seniority_level": "entry",
+                    "channel_emphasis": "global_boards",
+                    "complexity_score": 4,
+                    "budget_weight": 0.8,
+                },
             ],
             "city_level_data": {
                 "new york, ny": {
                     "per_role_salary": {
-                        "Memory Care Associate": {"median": 46920, "confidence": "benchmark"},
+                        "Memory Care Associate": {
+                            "median": 46920,
+                            "confidence": "benchmark",
+                        },
                         "Nurse": {"median": 103500, "confidence": "benchmark"},
                         # Deliberately distinct from every other role's median
                         # here so this fixture exercises the plain "(est.)"
@@ -329,7 +372,9 @@ class TestRoleBreakdownSalary:
     def test_role_breakdown_shows_dash_when_gold_standard_has_no_salary_data(self):
         data = _healthcare_plan()
         data["_gold_standard"] = {
-            "difficulty_framework": self._gold_standard_with_salary()["difficulty_framework"]
+            "difficulty_framework": self._gold_standard_with_salary()[
+                "difficulty_framework"
+            ]
         }
         prs = _new_prs()
         ppt._build_slide_role_breakdown(prs, data)
@@ -376,7 +421,9 @@ class TestNextStepsInterpolation:
     def test_two_clients_render_different_next_steps(self):
         base = ppt._load_deck_kb().get("next_steps") or []
         logistics_out = "\n".join(ppt._interpolate_next_steps(base, _logistics_plan()))
-        healthcare_out = "\n".join(ppt._interpolate_next_steps(base, _healthcare_plan()))
+        healthcare_out = "\n".join(
+            ppt._interpolate_next_steps(base, _healthcare_plan())
+        )
         assert logistics_out != healthcare_out
         assert "Manpower - Amerigas" not in healthcare_out
         assert "Atria Senior Living" not in logistics_out
@@ -417,9 +464,7 @@ class TestNextStepsInterpolation:
 
     def test_bounded_duration_still_reads_over_duration(self):
         base = ppt._load_deck_kb().get("next_steps") or []
-        out = ppt._interpolate_next_steps(
-            base, self._ongoing_plan(duration="6 months")
-        )
+        out = ppt._interpolate_next_steps(base, self._ongoing_plan(duration="6 months"))
         blob = "\n".join(out)
         assert "over 6 months" in blob
         assert "$25K" in blob
@@ -437,18 +482,37 @@ class TestNextStepsInterpolation:
 # ---------------------------------------------------------------------------
 class TestCompetitorVerticalClassification:
     def test_amazon_is_talent_market_for_senior_living(self):
-        assert ppt._classify_competitor_vertical("Amazon", "healthcare_medical") == "talent_market"
+        assert (
+            ppt._classify_competitor_vertical("Amazon", "healthcare_medical")
+            == "talent_market"
+        )
 
     def test_brookdale_is_industry_for_senior_living(self):
-        assert ppt._classify_competitor_vertical("Brookdale Senior Living", "healthcare_medical") == "industry"
+        assert (
+            ppt._classify_competitor_vertical(
+                "Brookdale Senior Living", "healthcare_medical"
+            )
+            == "industry"
+        )
 
     def test_fedex_ups_are_industry_for_logistics(self):
-        assert ppt._classify_competitor_vertical("FedEx", "logistics_supply_chain") == "industry"
-        assert ppt._classify_competitor_vertical("UPS", "logistics_supply_chain") == "industry"
-        assert ppt._classify_competitor_vertical("XPO Logistics", "logistics_supply_chain") == "industry"
+        assert (
+            ppt._classify_competitor_vertical("FedEx", "logistics_supply_chain")
+            == "industry"
+        )
+        assert (
+            ppt._classify_competitor_vertical("UPS", "logistics_supply_chain")
+            == "industry"
+        )
+        assert (
+            ppt._classify_competitor_vertical("XPO Logistics", "logistics_supply_chain")
+            == "industry"
+        )
 
     def test_amazon_is_industry_for_retail(self):
-        assert ppt._classify_competitor_vertical("Amazon", "retail_consumer") == "industry"
+        assert (
+            ppt._classify_competitor_vertical("Amazon", "retail_consumer") == "industry"
+        )
 
     def test_national_carriers_are_talent_market_for_senior_living(self):
         # fix/plan-quality-8 (prod Atria bundle): UPS/FedEx are logistics
@@ -485,13 +549,22 @@ class TestCompetitorVerticalClassification:
 
     def test_why_line_varies_by_vertical_type(self):
         industry_why = ppt._compose_competitor_why(
-            "Brookdale Senior Living", {}, {"role": "Nurse", "city": "New York, NY", "vertical_type": "industry"}, 0
+            "Brookdale Senior Living",
+            {},
+            {"role": "Nurse", "city": "New York, NY", "vertical_type": "industry"},
+            0,
         )
         talent_market_why = ppt._compose_competitor_why(
-            "Amazon", {}, {"role": "Nurse", "city": "New York, NY", "vertical_type": "talent_market"}, 0
+            "Amazon",
+            {},
+            {"role": "Nurse", "city": "New York, NY", "vertical_type": "talent_market"},
+            0,
         )
         assert industry_why != talent_market_why
-        assert "wage" in talent_market_why.lower() or "labor pool" in talent_market_why.lower()
+        assert (
+            "wage" in talent_market_why.lower()
+            or "labor pool" in talent_market_why.lower()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -585,13 +658,18 @@ class TestCompetitorCardOverflowFix:
         assert card_bottoms, "expected at least one competitor card shape"
         assert len(card_bottoms) <= 3, "no more than 3 competitor cards should render"
         for bottom in card_bottoms:
-            assert bottom <= footer_rule_y, (
-                f"competitor card bottom {bottom} exceeds footer y {footer_rule_y}"
-            )
+            assert (
+                bottom <= footer_rule_y
+            ), f"competitor card bottom {bottom} exceeds footer y {footer_rule_y}"
 
     def test_card_count_capped_at_three(self):
         data = _healthcare_plan()
-        data["competitors"] = ["Brookdale Senior Living", "Sunrise Senior Living", "Sonida Senior Living", "Five Star Senior Living"]
+        data["competitors"] = [
+            "Brookdale Senior Living",
+            "Sunrise Senior Living",
+            "Sonida Senior Living",
+            "Five Star Senior Living",
+        ]
         prs = _new_prs()
         ppt._build_slide_competitive_landscape(prs, data)
         blob = "\n".join(_all_slide_text(prs))

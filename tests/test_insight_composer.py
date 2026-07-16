@@ -107,7 +107,9 @@ class TestRoleRequirementsCallout:
 
     def test_empty_when_nothing_curated_matches(self):
         assert role_requirements_callout("retail_consumer", ["Cashier"]) == []
-        assert role_requirements_callout("tech_engineering", ["Software Engineer"]) == []
+        assert (
+            role_requirements_callout("tech_engineering", ["Software Engineer"]) == []
+        )
 
     def test_empty_roles_list(self):
         assert role_requirements_callout("healthcare_medical", []) == []

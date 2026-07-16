@@ -54,7 +54,9 @@ def _all_slide_text(pptx_bytes: bytes) -> list[str]:
     return out
 
 
-def _build_alloc(industry: str, roles: list[dict], country: str = "United States") -> dict:
+def _build_alloc(
+    industry: str, roles: list[dict], country: str = "United States"
+) -> dict:
     import budget_engine
 
     return budget_engine.calculate_budget_allocation(
@@ -123,38 +125,63 @@ def _deck_bytes(data: dict) -> bytes:
 class TestAiTrainingTokenGate:
     def test_supply_chain_is_not_ai_training(self):
         # "ai" is a raw substring of "ch-AI-n" -- must not false-positive.
-        assert ppt._is_ai_training_plan(
-            {"industry": "Logistics & Supply Chain", "roles": ["CDL A Driver"]}
-        ) is False
+        assert (
+            ppt._is_ai_training_plan(
+                {"industry": "Logistics & Supply Chain", "roles": ["CDL A Driver"]}
+            )
+            is False
+        )
 
     def test_maintenance_technician_is_not_ai_training(self):
         # "ai" is a raw substring of "m-AI-ntenance" -- must not false-positive.
-        assert ppt._is_ai_training_plan(
-            {"industry": "Healthcare & Medical", "roles": ["Maintenance Technician"]}
-        ) is False
+        assert (
+            ppt._is_ai_training_plan(
+                {
+                    "industry": "Healthcare & Medical",
+                    "roles": ["Maintenance Technician"],
+                }
+            )
+            is False
+        )
 
     def test_real_ai_training_phrases_match(self):
-        assert ppt._is_ai_training_plan(
-            {"industry": "AI Training", "roles": ["AI Trainer"]}
-        ) is True
-        assert ppt._is_ai_training_plan(
-            {"industry": "general", "roles": ["Data Annotator"]}
-        ) is True
-        assert ppt._is_ai_training_plan(
-            {"industry": "general", "roles": ["RLHF Specialist"]}
-        ) is True
-        assert ppt._is_ai_training_plan(
-            {"industry": "general", "roles": ["Data Labeling Associate"]}
-        ) is True
+        assert (
+            ppt._is_ai_training_plan(
+                {"industry": "AI Training", "roles": ["AI Trainer"]}
+            )
+            is True
+        )
+        assert (
+            ppt._is_ai_training_plan(
+                {"industry": "general", "roles": ["Data Annotator"]}
+            )
+            is True
+        )
+        assert (
+            ppt._is_ai_training_plan(
+                {"industry": "general", "roles": ["RLHF Specialist"]}
+            )
+            is True
+        )
+        assert (
+            ppt._is_ai_training_plan(
+                {"industry": "general", "roles": ["Data Labeling Associate"]}
+            )
+            is True
+        )
 
     def test_bare_ai_token_matches_but_substring_does_not(self):
         assert ppt._is_ai_training_plan({"industry": "AI", "roles": []}) is True
-        assert ppt._is_ai_training_plan(
-            {"industry": "general", "roles": ["Maintenance"]}
-        ) is False
-        assert ppt._is_ai_training_plan(
-            {"industry": "general", "roles": ["Certified Nursing Assistant"]}
-        ) is False
+        assert (
+            ppt._is_ai_training_plan({"industry": "general", "roles": ["Maintenance"]})
+            is False
+        )
+        assert (
+            ppt._is_ai_training_plan(
+                {"industry": "general", "roles": ["Certified Nursing Assistant"]}
+            )
+            is False
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -177,11 +204,16 @@ class TestPlanGeoDelegation:
 # ---------------------------------------------------------------------------
 class TestKbV2IndustryGating:
     def test_kb_content_key_ai_training(self):
-        assert ppt._kb_content_key({"industry": "AI Training", "roles": ["AI Trainer"]}) == "ai_training"
+        assert (
+            ppt._kb_content_key({"industry": "AI Training", "roles": ["AI Trainer"]})
+            == "ai_training"
+        )
 
     def test_kb_content_key_other_industry(self):
         assert (
-            ppt._kb_content_key({"industry": "logistics_supply_chain", "roles": ["CDL A Driver"]})
+            ppt._kb_content_key(
+                {"industry": "logistics_supply_chain", "roles": ["CDL A Driver"]}
+            )
             == "logistics_supply_chain"
         )
 
@@ -272,7 +304,9 @@ class TestDisplaySweep:
             "regional_boards",
             "employer_branding",
         ):
-            assert raw_key not in blob, f"raw snake_case channel key leaked: {raw_key!r}"
+            assert (
+                raw_key not in blob
+            ), f"raw snake_case channel key leaked: {raw_key!r}"
 
     def test_no_bare_s_paren_pluralization(self):
         data = _logistics_plan()
@@ -400,11 +434,13 @@ class TestBenchmarkSingleSourcing:
 
         deck_texts = _all_slide_text(pptx_bytes)
         deck_blob = "\n".join(deck_texts)
-        cpa_match = re.search(r"Industry CPA\s*\n?\$?([\d.]+)\s*-\s*\$?([\d.]+)", deck_blob)
+        cpa_match = re.search(
+            r"Industry CPA\s*\n?\$?([\d.]+)\s*-\s*\$?([\d.]+)", deck_blob
+        )
         # Fall back to a looser scan across adjacent textboxes.
         if not cpa_match:
             idx = deck_blob.find("Industry CPA")
-            window = deck_blob[idx: idx + 60] if idx >= 0 else ""
+            window = deck_blob[idx : idx + 60] if idx >= 0 else ""
             cpa_match = re.search(r"\$?([\d.]+)\s*-\s*\$?([\d.]+)", window)
         assert cpa_match, "could not find an Industry CPA range on the deck"
         deck_low, deck_high = float(cpa_match.group(1)), float(cpa_match.group(2))

@@ -18736,7 +18736,9 @@ def resolve_competitor_ats(
     for prov in providers:
         try:
             res = fetch_ats_postings(prov, board)
-        except Exception as exc:  # noqa: BLE001 -- fetch_ats_postings shouldn't raise, belt-and-braces
+        except (
+            Exception
+        ) as exc:  # noqa: BLE001 -- fetch_ats_postings shouldn't raise, belt-and-braces
             _api_logger.error(
                 f"resolve_competitor_ats: {prov} probe crashed for "
                 f"'{company_clean}': {exc}",

@@ -181,6 +181,7 @@ def _usd2_fmt() -> str:
     """Active-currency per-unit number format (e.g. NZ$#,##0.00)."""
     return _usd_number_format("#,##0.00")
 
+
 # ---------------------------------------------------------------------------
 # Seasonal Hiring Trends -- loaded once from data/seasonal_hiring_trends.json
 # Used to adjust 90-day forecast phasing based on industry seasonality.
@@ -417,10 +418,7 @@ def _proper_client_name(name: str) -> str:
     lower = name.strip().lower()
     if lower in _BRAND_CASING:
         return _BRAND_CASING[lower]
-    return (
-        display_format.client_display_name(name)
-        or name.strip()
-    )
+    return display_format.client_display_name(name) or name.strip()
 
 
 GREEN = "16A34A"
@@ -1501,10 +1499,23 @@ ROLE_CHANNEL_REQUIREMENTS: Dict[str, Dict[str, Any]] = {
 # casing. Fixes findings like "Programmatic Dsp" (should be "Programmatic
 # DSP") that .replace("_", " ").title() alone can't get right.
 _TITLE_ACRONYMS = {
-    "Ai": "AI", "Roi": "ROI", "Cpa": "CPA", "Cpc": "CPC", "Cph": "CPH",
-    "Dsp": "DSP", "Crm": "CRM", "Kpi": "KPI", "Us": "US", "Uk": "UK",
-    "Eu": "EU", "Seo": "SEO", "Ats": "ATS", "Ppc": "PPC", "Qc": "QC",
-    "Roas": "ROAS", "Dei": "DEI",
+    "Ai": "AI",
+    "Roi": "ROI",
+    "Cpa": "CPA",
+    "Cpc": "CPC",
+    "Cph": "CPH",
+    "Dsp": "DSP",
+    "Crm": "CRM",
+    "Kpi": "KPI",
+    "Us": "US",
+    "Uk": "UK",
+    "Eu": "EU",
+    "Seo": "SEO",
+    "Ats": "ATS",
+    "Ppc": "PPC",
+    "Qc": "QC",
+    "Roas": "ROAS",
+    "Dei": "DEI",
 }
 
 
@@ -1529,9 +1540,7 @@ def _delabel_channel_keys_in_text(text: Any) -> Any:
     input and channel-agnostic text pass through unchanged."""
     if not isinstance(text, str) or not text:
         return text
-    return _CHANNEL_KEY_RE.sub(
-        lambda m: display_format.channel_label(m.group(1)), text
-    )
+    return _CHANNEL_KEY_RE.sub(lambda m: display_format.channel_label(m.group(1)), text)
 
 
 def _smart_title(s: str) -> str:
@@ -1592,7 +1601,9 @@ def _safe_num(val: Any, default: float = 0.0) -> float:
     return default
 
 
-def _fmt_currency(val: Any, prefix: Optional[str] = None, show_cents: bool = False) -> str:
+def _fmt_currency(
+    val: Any, prefix: Optional[str] = None, show_cents: bool = False
+) -> str:
     """Format a numeric value as currency.
 
     ``prefix`` defaults to the ACTIVE plan currency symbol (S3) -- pass an
@@ -2371,9 +2382,7 @@ def _model_vs_benchmark_note(data: dict, ind_bench: Dict[str, Any]) -> Optional[
         return None
 
     blended_cpa = total_dollars / total_apps
-    apply_rate_pct = (
-        (total_apps / total_clicks) * 100.0 if total_clicks > 0 else None
-    )
+    apply_rate_pct = (total_apps / total_clicks) * 100.0 if total_clicks > 0 else None
 
     # CPA floor from the benchmark's "range" field (e.g. "$12-$35" -> 12).
     cpa_floor = None
@@ -2659,11 +2668,7 @@ def _write_table_row(
     row_fill = _FILL_BLUE_PALE if alternate else _FILL_WHITE
     for i, val in enumerate(values):
         cell = ws.cell(row=row, column=col_start + i)
-        fmt = (
-            number_formats[i]
-            if number_formats and i < len(number_formats)
-            else None
-        )
+        fmt = number_formats[i] if number_formats and i < len(number_formats) else None
         if fmt:
             _write_num(cell, val, fmt)
         else:
@@ -3290,9 +3295,7 @@ def _clean_budget_alloc_narrative(
         w
         for w in warnings
         if not (
-            isinstance(w, str)
-            and "/opening)" in w
-            and "industry average of $" in w
+            isinstance(w, str) and "/opening)" in w and "industry average of $" in w
         )
         and not (isinstance(w, str) and "target openings by" in w)
     ]
@@ -3465,7 +3468,12 @@ def _allowed_numbers_from_facts_text(facts_text: str) -> Dict[str, set]:
     against. Deriving this from the EXACT text handed to the model (rather
     than a separately-maintained list) guarantees the model is never told
     about a number the validator won't also recognize as legitimate."""
-    buckets: Dict[str, set] = {"money": set(), "percent": set(), "ratio": set(), "int": set()}
+    buckets: Dict[str, set] = {
+        "money": set(),
+        "percent": set(),
+        "ratio": set(),
+        "int": set(),
+    }
     for category, _raw, value in _extract_number_tokens(facts_text):
         buckets.setdefault(category, set()).add(round(value, 4))
     return buckets
@@ -3618,7 +3626,9 @@ def _gather_narrative_grounding_context(
     # figure.
     _duration_weeks = display_format.parse_duration_to_weeks(duration)
     ctx["duration_weeks"] = _duration_weeks
-    ctx["duration_months"] = (_duration_weeks * 12.0 / 52.0) if _duration_weeks > 0 else 0.0
+    ctx["duration_months"] = (
+        (_duration_weeks * 12.0 / 52.0) if _duration_weeks > 0 else 0.0
+    )
 
     # Hiring-goal gap -- the SAME shared helper (display_format.goal_gap)
     # the Budget Allocation section's own gap callout uses; never a
@@ -3627,8 +3637,10 @@ def _gather_narrative_grounding_context(
     ctx["goal"] = goal
     ctx["gap_result"] = None
     if goal > 0 and header_hires >= 0:
-        cph_basis = header_cph if header_cph and header_cph > 0 else _kb_industry_cph_benchmark(
-            industry, load_kb_fn=load_kb_fn
+        cph_basis = (
+            header_cph
+            if header_cph and header_cph > 0
+            else _kb_industry_cph_benchmark(industry, load_kb_fn=load_kb_fn)
         )
         gap_result = display_format.goal_gap(header_hires, goal, cph_basis)
         if gap_result and (100 - gap_result.get("pct_of_goal", 100)) > 10:
@@ -3646,9 +3658,13 @@ def _gather_narrative_grounding_context(
         for ch_data in channel_allocs.values():
             if not isinstance(ch_data, dict):
                 continue
-            total_dollars += _safe_num(ch_data.get("dollar_amount", ch_data.get("dollars") or 0))
+            total_dollars += _safe_num(
+                ch_data.get("dollar_amount", ch_data.get("dollars") or 0)
+            )
             total_apps += _safe_num(
-                ch_data.get("projected_applications", ch_data.get("projected_apps") or 0)
+                ch_data.get(
+                    "projected_applications", ch_data.get("projected_apps") or 0
+                )
             )
             total_clicks += _safe_num(ch_data.get("projected_clicks") or 0)
         top_channels = sorted(
@@ -3762,7 +3778,9 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
             lines.append(f"Duration: {ctx['duration']}")
     if ctx.get("locations"):
         _locs = ctx["locations"]
-        lines.append(f"Locations ({len(_locs)}): {', '.join(str(l) for l in _locs[:6])}")
+        lines.append(
+            f"Locations ({len(_locs)}): {', '.join(str(l) for l in _locs[:6])}"
+        )
     if ctx.get("roles"):
         lines.append(f"Roles: {', '.join(str(r) for r in ctx['roles'][:6])}")
     if ctx.get("hire_volume"):
@@ -3770,11 +3788,15 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
     if ctx.get("header_hires", 0) > 0:
         lines.append(f"Projected Hires: {_fmt_number(ctx['header_hires'])}")
     if ctx.get("header_cph", 0) > 0:
-        lines.append(f"Blended Cost/Hire: {_fmt_currency(ctx['header_cph'], show_cents=True)}")
+        lines.append(
+            f"Blended Cost/Hire: {_fmt_currency(ctx['header_cph'], show_cents=True)}"
+        )
     if ctx.get("total_clicks", 0) > 0:
         lines.append(f"Total Projected Clicks: {_fmt_number(ctx['total_clicks'])}")
     if ctx.get("total_applications", 0) > 0:
-        lines.append(f"Total Projected Applications: {_fmt_number(ctx['total_applications'])}")
+        lines.append(
+            f"Total Projected Applications: {_fmt_number(ctx['total_applications'])}"
+        )
     if ctx.get("blended_cpa", 0) > 0:
         lines.append(
             f"Blended Cost/Application: {_fmt_currency(ctx['blended_cpa'], show_cents=True)}"
@@ -3814,7 +3836,9 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
             if _pct_frac is not None
             else _safe_num(ch_data.get("percentage") or 0)
         )
-        apps = _safe_num(ch_data.get("projected_applications", ch_data.get("projected_apps") or 0))
+        apps = _safe_num(
+            ch_data.get("projected_applications", ch_data.get("projected_apps") or 0)
+        )
         hires = _safe_num(ch_data.get("projected_hires") or 0)
         cpa = _safe_num(ch_data.get("cpa") or 0)
         cph = (dollars / hires) if hires > 0 else 0.0
@@ -3888,13 +3912,16 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
         cph_val = 0.0
         if isinstance(cph_field, dict):
             cph_val = _parse_cph_point_estimate(
-                cph_field.get("total_cost_per_hire") or cph_field.get("recruitment_marketing_only")
+                cph_field.get("total_cost_per_hire")
+                or cph_field.get("recruitment_marketing_only")
             )
         if cph_val > 0:
             lines.append(f"Industry Cost/Hire Benchmark: {_fmt_currency(cph_val)}")
 
         ttf_field = ind_bench.get("time_to_fill")
-        ttf_source = ttf_field.get("average_days") if isinstance(ttf_field, dict) else ttf_field
+        ttf_source = (
+            ttf_field.get("average_days") if isinstance(ttf_field, dict) else ttf_field
+        )
         ttf_range = _parse_numeric_range(_clean_benchmark_text_for_parsing(ttf_source))
         if ttf_range:
             lines.append(
@@ -3906,13 +3933,17 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
                 r"\d+(?:\.\d+)?", _clean_benchmark_text_for_parsing(ttf_source)
             )
             if _ttf_single:
-                lines.append(f"Industry Time-to-Fill Benchmark: {float(_ttf_single[0]):.0f} days")
+                lines.append(
+                    f"Industry Time-to-Fill Benchmark: {float(_ttf_single[0]):.0f} days"
+                )
 
     if ctx.get("seasonality_text"):
         lines.append(f"Seasonality: {ctx['seasonality_text']}")
 
     if ctx.get("competitors"):
-        lines.append(f"Named Competitors: {', '.join(str(c) for c in ctx['competitors'][:5])}")
+        lines.append(
+            f"Named Competitors: {', '.join(str(c) for c in ctx['competitors'][:5])}"
+        )
 
     return "\n".join(lines)
 
@@ -4044,12 +4075,17 @@ def _curated_narrative_derivations(ctx: Dict[str, Any]) -> Dict[str, Tuple[str, 
 
 
 def _allowed_numbers_from_curated_derivations(
-    derivations: Dict[str, Tuple[str, float]]
+    derivations: Dict[str, Tuple[str, float]],
 ) -> Dict[str, set]:
     """Bucket `_curated_narrative_derivations`' output into the SAME
     money/percent/ratio/int shape `_allowed_numbers_from_facts_text`
     produces, so the two sources merge trivially."""
-    buckets: Dict[str, set] = {"money": set(), "percent": set(), "ratio": set(), "int": set()}
+    buckets: Dict[str, set] = {
+        "money": set(),
+        "percent": set(),
+        "ratio": set(),
+        "int": set(),
+    }
     for _category, value in derivations.values():
         if _category not in buckets:
             continue
@@ -4057,7 +4093,9 @@ def _allowed_numbers_from_curated_derivations(
     return buckets
 
 
-def _build_narrative_allowed_numbers(ctx: Dict[str, Any], facts_text: str) -> Dict[str, set]:
+def _build_narrative_allowed_numbers(
+    ctx: Dict[str, Any], facts_text: str
+) -> Dict[str, set]:
     """Single source for the grounding validator's allowed-number set: every
     number literally printed in `facts_text` PLUS the curated, precomputed
     derivations of the SAME `ctx` (see `_curated_narrative_derivations`).
@@ -4129,12 +4167,16 @@ def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
         else:
             detail = ""
 
-        industry_bit = f"targeting the {industry_label} sector" if industry_label else ""
+        industry_bit = (
+            f"targeting the {industry_label} sector" if industry_label else ""
+        )
         # A comma only reads correctly when there's a preceding detail
         # clause for "targeting..." to attach to -- otherwise (no budget,
         # no duration) it would dangle right after the client name.
-        tail = f", {industry_bit}" if (industry_bit and detail) else (
-            f" {industry_bit}" if industry_bit else ""
+        tail = (
+            f", {industry_bit}"
+            if (industry_bit and detail)
+            else (f" {industry_bit}" if industry_bit else "")
         )
         sentences.append(
             f"This recruitment media plan for {client_name or 'this client'}"
@@ -4551,8 +4593,15 @@ def _build_sheet_executive_summary(
         # S3: these are the plan's OWN budget/CPC/CPA figures -- localize to the
         # active plan currency instead of a hardcoded USD format.
         _col_formats = [
-            None, FMT_PCT1, _usd0_fmt(), FMT_INT, FMT_INT, FMT_INT,
-            _usd2_fmt(), _usd2_fmt(), "0.0",
+            None,
+            FMT_PCT1,
+            _usd0_fmt(),
+            FMT_INT,
+            FMT_INT,
+            FMT_INT,
+            _usd2_fmt(),
+            _usd2_fmt(),
+            "0.0",
         ]
         _first_data_row = row
         _row_idx = 0
@@ -4632,16 +4681,22 @@ def _build_sheet_executive_summary(
                 ws.conditional_formatting.add(
                     _rng_roi,
                     ColorScaleRule(
-                        start_type="min", start_color="DC2626",
-                        mid_type="percentile", mid_value=50, mid_color="D97706",
-                        end_type="max", end_color="16A34A",
+                        start_type="min",
+                        start_color="DC2626",
+                        mid_type="percentile",
+                        mid_value=50,
+                        mid_color="D97706",
+                        end_type="max",
+                        end_color="16A34A",
                     ),
                 )
                 ws.conditional_formatting.add(
                     _rng_amt,
                     DataBarRule(
-                        start_type="min", end_type="max",
-                        color=SAPPHIRE, showValue=True,
+                        start_type="min",
+                        end_type="max",
+                        color=SAPPHIRE,
+                        showValue=True,
                     ),
                 )
             except Exception as _cf_exc:  # noqa: BLE001 - cosmetic
@@ -4670,7 +4725,9 @@ def _build_sheet_executive_summary(
                 )
                 _hc2.font = _FONT_BODY_BOLD
                 for _ci, (_cn, _cv) in enumerate(_chart_pairs):
-                    _hk = ws.cell(row=_helper_top + 1 + _ci, column=_helper_col, value=_cn)
+                    _hk = ws.cell(
+                        row=_helper_top + 1 + _ci, column=_helper_col, value=_cn
+                    )
                     _hk.font = _FONT_BODY
                     _hv = ws.cell(
                         row=_helper_top + 1 + _ci,
@@ -4900,12 +4957,18 @@ def _build_sheet_executive_summary(
     # "generated" stays True whenever *something* rendered in the sheet
     # (including the deterministic fallback), matching app.py's existing
     # `not _narrative_status.get("generated")` skip-detection contract.
-    _narrative_status: Dict[str, Any] = {"generated": False, "status": "skipped_error", "reason": ""}
+    _narrative_status: Dict[str, Any] = {
+        "generated": False,
+        "status": "skipped_error",
+        "reason": "",
+    }
     _llm_failure_reason = ""
     _llm_providers_attempted: List[str] = []
     _llm_provider = ""
     _llm_model = ""
-    _retried_on_busy = False  # S95/defect3: set True when a concurrency-limiter busy retry won
+    _retried_on_busy = (
+        False  # S95/defect3: set True when a concurrency-limiter busy retry won
+    )
     try:
         from llm_router import call_llm as _llm_call, TASK_PLAN_NARRATIVE
 
@@ -4969,7 +5032,9 @@ def _build_sheet_executive_summary(
             _llm_providers_attempted = [
                 a.get("provider") for a in (_exec_result.get("attempts") or [])
             ]
-            _llm_failure_reason = str(_exec_result.get("error") or "empty response")[:300]
+            _llm_failure_reason = str(_exec_result.get("error") or "empty response")[
+                :300
+            ]
 
             # S95/defect3: llm_router's global concurrency semaphore
             # (_LLM_MAX_CONCURRENT=10) can reject a call before ANY provider
@@ -5042,7 +5107,9 @@ def _build_sheet_executive_summary(
         _llm_failure_reason = f"{type(exc).__name__}: {str(exc)[:200]}"
 
     if exec_narrative:
-        _grounded, _untraceable = _narrative_is_grounded(exec_narrative, _allowed_numbers)
+        _grounded, _untraceable = _narrative_is_grounded(
+            exec_narrative, _allowed_numbers
+        )
         if _grounded:
             _narrative_status = {
                 "generated": True,
@@ -5158,7 +5225,11 @@ def _build_sheet_executive_summary(
                     _reason += f"; (attempt 2 failed: {_retry_call_failed_reason})"
                 _narrative_status = {
                     "generated": bool(exec_narrative),
-                    "status": "llm_rejected_fabrication" if exec_narrative else "skipped_error",
+                    "status": (
+                        "llm_rejected_fabrication"
+                        if exec_narrative
+                        else "skipped_error"
+                    ),
                     "reason": _reason,
                     "untraceable_figures": _combined_untraceable,
                     "provider": _retry_provider or _llm_provider,
@@ -5599,8 +5670,10 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 ws.conditional_formatting.add(
                     _amt_rng,
                     DataBarRule(
-                        start_type="min", end_type="max",
-                        color=SAPPHIRE, showValue=True,
+                        start_type="min",
+                        end_type="max",
+                        color=SAPPHIRE,
+                        showValue=True,
                     ),
                 )
             except Exception as _cf_exc:  # noqa: BLE001
@@ -5946,7 +6019,9 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
     # for other industries). Never ship it on a non-US plan -- fall back to a
     # clearly-labeled reference-framework note instead of fabricating local
     # board data we don't have.
-    niche_channels = INDUSTRY_NICHE_CHANNELS.get(industry, []) if _is_us_plan(data) else []
+    niche_channels = (
+        INDUSTRY_NICHE_CHANNELS.get(industry, []) if _is_us_plan(data) else []
+    )
 
     if niche_channels:
         row = _write_section_header(ws, row, f"Niche Channels: {industry_label}")
@@ -5967,9 +6042,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
         # silently drop or fabricate.
         row = _write_section_header(ws, row, f"Niche Channels: {industry_label}")
         _signals = _non_us_signals(data)
-        _signal_txt = (
-            f" (targets {', '.join(_signals[:3])})" if _signals else ""
-        )
+        _signal_txt = f" (targets {', '.join(_signals[:3])})" if _signals else ""
         row = _write_kv_row(
             ws,
             row,
@@ -6620,7 +6693,9 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             ]
 
             headers = (
-                ["Name"] + [label for _, label in _populated_cols] + ["Counter-Strategy"]
+                ["Name"]
+                + [label for _, label in _populated_cols]
+                + ["Counter-Strategy"]
             )
             row = _write_table_header(ws, row, headers)
 
@@ -6831,9 +6906,11 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 _is_fabricated_postings = "Industry Benchmark" in _posting_sources
                 values = [
                     role_name if isinstance(role_name, str) else str(role_name),
-                    "Data not available"
-                    if (not _postings_val or _is_fabricated_postings)
-                    else _fmt_number(_postings_val),
+                    (
+                        "Data not available"
+                        if (not _postings_val or _is_fabricated_postings)
+                        else _fmt_number(_postings_val)
+                    ),
                     _fmt_number(_talent_pool_val),
                     _flatten_value(
                         demand.get("competition", demand.get("competition_level") or "")
@@ -7095,9 +7172,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     f"{(geo_idx - 1) * 100:+.0f}%",
                     impact,
                 ]
-                row = _write_table_row(
-                    ws, row, values, alternate=_write_idx % 2 == 1
-                )
+                row = _write_table_row(ws, row, values, alternate=_write_idx % 2 == 1)
                 _write_idx += 1
 
             _geo_footnote = "Cost indices are relative to the national average (1.00x)."
@@ -7321,7 +7396,9 @@ def _build_provenance_section_inner(ws, data: dict, row: int) -> int:
     prov_rows = _collect_kb_provenance(data)
 
     # Always surface the live-enrichment summary as a source line too.
-    enriched = data.get("_enriched", {}) if isinstance(data.get("_enriched"), dict) else {}
+    enriched = (
+        data.get("_enriched", {}) if isinstance(data.get("_enriched"), dict) else {}
+    )
     summary = enriched.get("enrichment_summary", {})
     if isinstance(summary, dict):
         succeeded = summary.get("apis_succeeded") or []
@@ -7332,20 +7409,28 @@ def _build_provenance_section_inner(ws, data: dict, row: int) -> int:
                 {
                     "source": f"Live market APIs ({n_ok}/{n_called} responded)",
                     "vintage": str(datetime.date.today().year),
-                    "confidence": "High" if n_ok >= max(1, n_called * 0.6) else "Medium",
+                    "confidence": (
+                        "High" if n_ok >= max(1, n_called * 0.6) else "Medium"
+                    ),
                 }
             )
 
     # KB age / freshness (from kb_loader) as a freshness signal.
-    synthesized = data.get("_synthesized", {}) if isinstance(data.get("_synthesized"), dict) else {}
+    synthesized = (
+        data.get("_synthesized", {})
+        if isinstance(data.get("_synthesized"), dict)
+        else {}
+    )
     kb_age_days = synthesized.get("_kb_age_days")
     if isinstance(kb_age_days, (int, float)):
         prov_rows.append(
             {
                 "source": "Joveo Knowledge Base (benchmarks)",
                 "vintage": f"{kb_age_days:.0f} days old",
-                "confidence": "High" if kb_age_days <= 60 else (
-                    "Medium" if kb_age_days <= 90 else "Low"
+                "confidence": (
+                    "High"
+                    if kb_age_days <= 60
+                    else ("Medium" if kb_age_days <= 90 else "Low")
                 ),
             }
         )
@@ -7770,7 +7855,9 @@ def _build_sheet_sources(ws, data: dict):
                     sev_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=RED)
                 elif sev in ("Warning", "Medium"):
                     sev_fill = _FILL_AMBER_BG
-                    sev_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=AMBER)
+                    sev_font = Font(
+                        name=FONT_BODY_NAME, bold=True, size=10, color=AMBER
+                    )
                 else:
                     sev_fill = _FILL_GREEN_BG
                     sev_font = Font(name=FONT_BODY_NAME, size=10, color=GREEN)
@@ -7952,9 +8039,7 @@ def _niche_board_implied_rate(data: dict) -> Tuple[Optional[float], int, int]:
     for ch_name, ch_data in (channel_allocs or {}).items():
         if not isinstance(ch_data, dict):
             continue
-        category = ch_data.get("category") or _roi_category_for_channel(
-            str(ch_name)
-        )
+        category = ch_data.get("category") or _roi_category_for_channel(str(ch_name))
         if category != "niche_board":
             continue
         total_apps += int(
@@ -8497,8 +8582,16 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
         ]
         # S3: budget/cost-per-hire are the plan's OWN figures -- active currency.
         _roi_fmts = [
-            None, _usd0_fmt(), FMT_INT, FMT_INT, None, None,
-            _cph_fmt, '0" days"', '0"/10"', None,
+            None,
+            _usd0_fmt(),
+            FMT_INT,
+            FMT_INT,
+            None,
+            None,
+            _cph_fmt,
+            '0" days"',
+            '0"/10"',
+            None,
         ]
         row = _write_table_row(
             ws, row, values, alternate=(idx % 2 == 0), number_formats=_roi_fmts
@@ -8549,8 +8642,15 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
     row = _write_table_header(ws, row, funnel_headers)
 
     _funnel_fmts = [
-        None, FMT_INT, FMT_INT, FMT_INT, FMT_INT, FMT_INT,
-        FMT_PCT1, FMT_PCT1, FMT_PCT1,
+        None,
+        FMT_INT,
+        FMT_INT,
+        FMT_INT,
+        FMT_INT,
+        FMT_INT,
+        FMT_PCT1,
+        FMT_PCT1,
+        FMT_PCT1,
     ]
 
     _funnel_total_clicks = 0
@@ -8573,9 +8673,7 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
         # number_format entry must be None -- _write_num() would otherwise
         # coerce the "—" string to 0.0 via _safe_num().
         _hires_val: Any = _hires if _hires > 0 else "—"
-        _int_to_hire_val: Any = (
-            _rates.get("interview_to_hire") if _hires > 0 else "—"
-        )
+        _int_to_hire_val: Any = _rates.get("interview_to_hire") if _hires > 0 else "—"
         values = [
             _smart_title(ch_name),
             _clicks,
@@ -8944,9 +9042,7 @@ def _build_sheet_quality_intelligence(
                             ],
                             number_formats=_role_sal_fmts,
                             alternate=alt_idx % 2 == 1,
-                            fills=(
-                                [_estimated_fill] * 9 if _is_estimated else None
-                            ),
+                            fills=([_estimated_fill] * 9 if _is_estimated else None),
                         )
                         alt_idx += 1
                 _conf = gs_lib.confidence_summary(_all_salary_rows)
@@ -10443,8 +10539,17 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
     ]
     # Column number_formats parallel to `headers` (currency-localized).
     _row_formats = [
-        None, None, FMT_PCT1, _usd0_fmt(), _usd2_fmt(), _usd2_fmt(),
-        FMT_INT, FMT_INT, FMT_INT, None, None,
+        None,
+        None,
+        FMT_PCT1,
+        _usd0_fmt(),
+        _usd2_fmt(),
+        _usd2_fmt(),
+        FMT_INT,
+        FMT_INT,
+        FMT_INT,
+        None,
+        None,
     ]
 
     for tier_title, tier_channels, fill in [
@@ -10502,9 +10607,9 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
                 _conf,
                 _rationale,
             ]
-            _fonts = [_FONT_BODY_BOLD] + [_FONT_BODY] * (len(values) - 2) + [
-                _FONT_FOOTNOTE
-            ]
+            _fonts = (
+                [_FONT_BODY_BOLD] + [_FONT_BODY] * (len(values) - 2) + [_FONT_FOOTNOTE]
+            )
             row = _write_table_row(
                 ws,
                 row,
@@ -10538,8 +10643,17 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
         fonts=_total_fonts,
         fills=[_FILL_BLUE_PALE] * len(total_values),
         number_formats=[
-            None, None, FMT_PCT1, _usd0_fmt(), None, _usd2_fmt(),
-            FMT_INT, FMT_INT, FMT_INT, None, None,
+            None,
+            None,
+            FMT_PCT1,
+            _usd0_fmt(),
+            None,
+            _usd2_fmt(),
+            FMT_INT,
+            FMT_INT,
+            FMT_INT,
+            None,
+            None,
         ],
     )
     row += 1
@@ -10750,9 +10864,7 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     if not role_matches and not industry_boards:
         if not _is_us:
             _signals = _non_us_signals(data)
-            _signal_txt = (
-                f" (targets {', '.join(_signals[:3])})" if _signals else ""
-            )
+            _signal_txt = f" (targets {', '.join(_signals[:3])})" if _signals else ""
             row = _write_kv_row(
                 ws,
                 row,

@@ -49,8 +49,12 @@ def _worst_case_plan() -> dict:
         locations=[{"city": "New York", "state": "NY", "country": "United States"}],
         industry="technology_engineering",
         channel_percentages={
-            "Programmatic DSP": 36, "Niche / Industry Boards": 21, "Social Media": 18,
-            "Global Job Boards": 16, "Regional Boards": 6, "Employer Branding": 3,
+            "Programmatic DSP": 36,
+            "Niche / Industry Boards": 21,
+            "Social Media": 18,
+            "Global Job Boards": 16,
+            "Regional Boards": 6,
+            "Employer Branding": 3,
         },
         collar_type="white",
         campaign_start_month=6,
@@ -60,25 +64,67 @@ def _worst_case_plan() -> dict:
         "industry": "technology_engineering",
         "industry_label": "Technology & Engineering",
         "locations": ["New York, NY"],
-        "roles": ["Software Engineer", "Data Scientist", "DevOps Engineer", "Product Manager"],
+        "roles": [
+            "Software Engineer",
+            "Data Scientist",
+            "DevOps Engineer",
+            "Product Manager",
+        ],
         "budget": "$375,000",
         "work_environment": "hybrid",
         "channel_categories": {
-            "regional_boards": True, "global_boards": True, "niche_boards": True,
-            "social_media": True, "programmatic_dsp": True, "employer_branding": True,
+            "regional_boards": True,
+            "global_boards": True,
+            "niche_boards": True,
+            "social_media": True,
+            "programmatic_dsp": True,
+            "employer_branding": True,
         },
         "_budget_allocation": alloc,
         "_synthesized": {
             "job_market_demand": {
-                "Software Engineer": {"total_postings": 150000, "avg_salary": 170000, "market_temperature": "hot"},
-                "Data Scientist": {"total_postings": 45000, "avg_salary": 165000, "market_temperature": "hot"},
+                "Software Engineer": {
+                    "total_postings": 150000,
+                    "avg_salary": 170000,
+                    "market_temperature": "hot",
+                },
+                "Data Scientist": {
+                    "total_postings": 45000,
+                    "avg_salary": 165000,
+                    "market_temperature": "hot",
+                },
             },
             "ad_platform_analysis": {
-                "google_ads": {"platform_name": "Google Ads", "CPC": 4.2, "CPA": 48, "fit_score": 90},
-                "meta": {"platform_name": "Meta", "CPC": 2.1, "CPA": 33, "fit_score": 50},
-                "linkedin": {"platform_name": "LinkedIn Ads", "CPC": 9.2, "CPA": 120, "fit_score": 100},
-                "tiktok": {"platform_name": "TikTok Ads", "CPC": 1.5, "CPA": 22, "fit_score": 20},
-                "bing": {"platform_name": "Bing Ads", "CPC": 3.5, "CPA": 56, "fit_score": 60},
+                "google_ads": {
+                    "platform_name": "Google Ads",
+                    "CPC": 4.2,
+                    "CPA": 48,
+                    "fit_score": 90,
+                },
+                "meta": {
+                    "platform_name": "Meta",
+                    "CPC": 2.1,
+                    "CPA": 33,
+                    "fit_score": 50,
+                },
+                "linkedin": {
+                    "platform_name": "LinkedIn Ads",
+                    "CPC": 9.2,
+                    "CPA": 120,
+                    "fit_score": 100,
+                },
+                "tiktok": {
+                    "platform_name": "TikTok Ads",
+                    "CPC": 1.5,
+                    "CPA": 22,
+                    "fit_score": 20,
+                },
+                "bing": {
+                    "platform_name": "Bing Ads",
+                    "CPC": 3.5,
+                    "CPA": 56,
+                    "fit_score": 60,
+                },
             },
         },
         "_creative_quality_score": {"score": 45, "grade": "F"},
@@ -134,8 +180,14 @@ def test_no_text_below_8pt():
                 continue
             for p in shape.text_frame.paragraphs:
                 for run in p.runs:
-                    if run.font.size is not None and run.font.size.pt < 8 and run.text.strip():
-                        tiny.append(f"slide {idx}: {run.font.size.pt}pt {run.text[:30]!r}")
+                    if (
+                        run.font.size is not None
+                        and run.font.size.pt < 8
+                        and run.text.strip()
+                    ):
+                        tiny.append(
+                            f"slide {idx}: {run.font.size.pt}pt {run.text[:30]!r}"
+                        )
     assert not tiny, "Sub-8pt text:\n" + "\n".join(tiny)
 
 

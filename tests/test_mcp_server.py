@@ -293,9 +293,9 @@ def test_handle_tool_internal_error_is_tool_error_result():
             }
         )
     finally:
-        mcp_server._TOOLS["get_plan_inputs_schema"]["handler"] = (
-            mcp_server._tool_get_plan_inputs_schema
-        )
+        mcp_server._TOOLS["get_plan_inputs_schema"][
+            "handler"
+        ] = mcp_server._tool_get_plan_inputs_schema
     # Internal handler errors surface as a tool-error RESULT, not a transport error.
     assert "error" not in resp
     assert resp["result"]["isError"] is True

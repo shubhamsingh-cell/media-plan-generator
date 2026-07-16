@@ -208,9 +208,9 @@ def test_mirror_file_never_contains_raw_session_token(
     mirror_path = Path(isolated_slot_dir) / f"job_{job_id}.json"
     raw_bytes = mirror_path.read_bytes()
 
-    assert session_token.encode("utf-8") not in raw_bytes, (
-        "raw session token substring found in mirror file on disk"
-    )
+    assert (
+        session_token.encode("utf-8") not in raw_bytes
+    ), "raw session token substring found in mirror file on disk"
 
     mirror_data = json.loads(raw_bytes)
     expected_sha = hashlib.sha256(session_token.encode("utf-8")).hexdigest()
@@ -261,9 +261,9 @@ def test_poll_mirror_legacy_raw_token_format_correct_cookie(
             "Cookie": f"nova_session={session_token}",
         },
     )
-    assert status == 200, (
-        f"expected 200 for correct cookie on legacy mirror, got {status}: {body}"
-    )
+    assert (
+        status == 200
+    ), f"expected 200 for correct cookie on legacy mirror, got {status}: {body}"
     payload = json.loads(body)
     assert payload["status"] == "processing"
 
@@ -284,9 +284,9 @@ def test_poll_mirror_legacy_raw_token_format_wrong_cookie(
             "Cookie": f"nova_session={secrets.token_hex(16)}",  # wrong token
         },
     )
-    assert status == 403, (
-        f"expected 403 for wrong cookie on legacy mirror, got {status}: {body}"
-    )
+    assert (
+        status == 403
+    ), f"expected 403 for wrong cookie on legacy mirror, got {status}: {body}"
     payload = json.loads(body)
     assert payload["code"] == "FORBIDDEN"
 
@@ -325,14 +325,14 @@ def test_cross_process_slots_blocked_then_auto_released_on_process_death(
     )
     try:
         ready_line = proc.stdout.readline()
-        assert ready_line.strip() == "LOCKED", (
-            f"subprocess failed to acquire both slot locks: {ready_line!r}"
-        )
+        assert (
+            ready_line.strip() == "LOCKED"
+        ), f"subprocess failed to acquire both slot locks: {ready_line!r}"
 
         slots = app_module._CrossProcessSlots(2)
-        assert slots.acquire(blocking=False) is False, (
-            "parent acquired a slot while an external process held both flocks"
-        )
+        assert (
+            slots.acquire(blocking=False) is False
+        ), "parent acquired a slot while an external process held both flocks"
 
         proc.wait(timeout=10)
 

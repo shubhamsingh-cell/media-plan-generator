@@ -103,6 +103,7 @@ def _dedup_mark_sent(dedup_key: str) -> None:
     with _lock:
         _dedup_cache[dedup_key] = time.time()
 
+
 # -- Severity colours for HTML body -------------------------------------------
 
 _SEVERITY_COLORS: Dict[str, str] = {

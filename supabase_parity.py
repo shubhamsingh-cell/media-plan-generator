@@ -99,7 +99,9 @@ def diff_rows(
     only_json = json_keys - sup_keys
 
     mismatches: List[Dict[str, Any]] = []
-    for key in sorted(matched, key=lambda t: tuple("" if x is None else str(x) for x in t)):
+    for key in sorted(
+        matched, key=lambda t: tuple("" if x is None else str(x) for x in t)
+    ):
         sr, jr = sup_by_key[key], json_by_key[key]
         diffs = {}
         for f in compare_fields:
@@ -109,8 +111,12 @@ def diff_rows(
             mismatches.append({"key": list(key), "fields": diffs})
 
     def _sample_keys(s):
-        return [list(k) for k in sorted(
-            s, key=lambda t: tuple("" if x is None else str(x) for x in t))[:_SAMPLE]]
+        return [
+            list(k)
+            for k in sorted(
+                s, key=lambda t: tuple("" if x is None else str(x) for x in t)
+            )[:_SAMPLE]
+        ]
 
     return {
         "supabase_count": len(supabase_rows or []),
@@ -280,11 +286,17 @@ def run_parity_audit(domains: Optional[List[str]] = None) -> Dict[str, Any]:
     results = [audit_domain(n) for n in names]
     verdicts: Dict[str, int] = {}
     for r in results:
-        verdicts[r.get("verdict", "error")] = verdicts.get(r.get("verdict", "error"), 0) + 1
+        verdicts[r.get("verdict", "error")] = (
+            verdicts.get(r.get("verdict", "error"), 0) + 1
+        )
 
     # Cutover readiness: every diffable domain in parity, and the supabase-only
     # domains acknowledged (they don't block, but they're flagged).
-    diffable = [r for r in results if r.get("mode") == "diff" and r.get("verdict") != "supabase_only"]
+    diffable = [
+        r
+        for r in results
+        if r.get("mode") == "diff" and r.get("verdict") != "supabase_only"
+    ]
     ready = bool(diffable) and all(r.get("verdict") == "in_parity" for r in diffable)
 
     return {

@@ -64,13 +64,23 @@ class TestFitChannelFunnelRates:
         bands = self._bands()
         for target in (0.005, 0.01, 0.02, 0.03, 0.045):
             for category in ("job_board", "niche_board", "social", "programmatic"):
-                r1, r2, r3, out_of_band = be._fit_channel_funnel_rates(
-                    target, category
-                )
+                r1, r2, r3, out_of_band = be._fit_channel_funnel_rates(target, category)
                 assert out_of_band is False, (target, category)
-                assert bands["raw_to_qualified"][0] - 1e-9 <= r1 <= bands["raw_to_qualified"][1] + 1e-9
-                assert bands["qualified_to_interview"][0] - 1e-9 <= r2 <= bands["qualified_to_interview"][1] + 1e-9
-                assert bands["interview_to_hire"][0] - 1e-9 <= r3 <= bands["interview_to_hire"][1] + 1e-9
+                assert (
+                    bands["raw_to_qualified"][0] - 1e-9
+                    <= r1
+                    <= bands["raw_to_qualified"][1] + 1e-9
+                )
+                assert (
+                    bands["qualified_to_interview"][0] - 1e-9
+                    <= r2
+                    <= bands["qualified_to_interview"][1] + 1e-9
+                )
+                assert (
+                    bands["interview_to_hire"][0] - 1e-9
+                    <= r3
+                    <= bands["interview_to_hire"][1] + 1e-9
+                )
                 product = r1 * r2 * r3
                 assert product == pytest.approx(target, rel=1e-6, abs=1e-9)
 
@@ -117,14 +127,22 @@ class TestFitChannelFunnelRates:
         r1, r2, r3, out_of_band = be._fit_channel_funnel_rates(0.0, "job_board")
         assert out_of_band is False
         assert bands["raw_to_qualified"][0] <= r1 <= bands["raw_to_qualified"][1]
-        assert bands["qualified_to_interview"][0] <= r2 <= bands["qualified_to_interview"][1]
+        assert (
+            bands["qualified_to_interview"][0]
+            <= r2
+            <= bands["qualified_to_interview"][1]
+        )
 
 
 # ---------------------------------------------------------------------------
 # 2. compute_funnel_stages
 # ---------------------------------------------------------------------------
 def _chan(apps, hires, category="job_board"):
-    return {"projected_applications": apps, "projected_hires": hires, "category": category}
+    return {
+        "projected_applications": apps,
+        "projected_hires": hires,
+        "category": category,
+    }
 
 
 class TestComputeFunnelStages:
@@ -162,7 +180,9 @@ class TestComputeFunnelStages:
         assert totals["qualified_apps"] == sum(
             v["qualified_apps"] for v in per_channel.values()
         )
-        assert totals["interviews"] == sum(v["interviews"] for v in per_channel.values())
+        assert totals["interviews"] == sum(
+            v["interviews"] for v in per_channel.values()
+        )
         assert totals["hires"] == sum(v["hires"] for v in per_channel.values())
         assert totals["hires"] == total_hires
 
@@ -176,7 +196,9 @@ class TestComputeFunnelStages:
             rates = row["rates"]
             expected_qual = round(row["raw_apps"] * rates["raw_to_qualified"])
             assert abs(expected_qual - row["qualified_apps"]) <= 1, name
-            expected_int = round(row["qualified_apps"] * rates["qualified_to_interview"])
+            expected_int = round(
+                row["qualified_apps"] * rates["qualified_to_interview"]
+            )
             assert abs(expected_int - row["interviews"]) <= 1, name
             if row["hires"] > 0:
                 expected_hires = round(row["interviews"] * rates["interview_to_hire"])
@@ -187,7 +209,12 @@ class TestComputeFunnelStages:
         total_hires = sum(c["projected_hires"] for c in channels.values())
         result = be.compute_funnel_stages(channels, total_hires)
         for name, row in result["per_channel"].items():
-            assert row["raw_apps"] >= row["qualified_apps"] >= row["interviews"] >= row["hires"], name
+            assert (
+                row["raw_apps"]
+                >= row["qualified_apps"]
+                >= row["interviews"]
+                >= row["hires"]
+            ), name
 
     def test_zero_hire_channel_is_band_typical_with_zero_interview_to_hire_rate(self):
         channels = self._sample_channels()
@@ -199,7 +226,10 @@ class TestComputeFunnelStages:
         assert eb_row["interviews"] > 0
         assert eb_row["rates"]["interview_to_hire"] == 0.0
         # round(interviews * 0.0) == 0 == hires -- must never break invariant.
-        assert round(eb_row["interviews"] * eb_row["rates"]["interview_to_hire"]) == eb_row["hires"]
+        assert (
+            round(eb_row["interviews"] * eb_row["rates"]["interview_to_hire"])
+            == eb_row["hires"]
+        )
 
     def test_below_floor_channel_flagged(self):
         # 18 hires / 8565 apps = 0.21%, below the 0.24% band-minimum
@@ -295,7 +325,9 @@ class TestCalculateBudgetAllocationWiresFunnel:
 # they now denote "the pinned-fixture expectation", not literally
 # pre-funnel-model numbers.
 # ---------------------------------------------------------------------------
-_FUNNEL_INVARIANT_FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "funnel_invariant"
+_FUNNEL_INVARIANT_FIXTURE_DIR = (
+    Path(__file__).resolve().parent / "fixtures" / "funnel_invariant"
+)
 
 _BEFORE_MANPOWER_TOTAL = {
     "applications": 17932,
@@ -314,20 +346,68 @@ _BEFORE_ATRIA_TOTAL = {
     "hires": 57,
 }
 _BEFORE_MANPOWER_PER_CHANNEL = {
-    "employer_branding": {"dollar_amount": 7500.0, "projected_applications": 199, "projected_hires": 0},
-    "global_boards": {"dollar_amount": 30729.0, "projected_applications": 2124, "projected_hires": 8},
-    "niche_boards": {"dollar_amount": 29253.0, "projected_applications": 1462, "projected_hires": 6},
-    "programmatic_dsp": {"dollar_amount": 37644.0, "projected_applications": 8156, "projected_hires": 18},
-    "regional_boards": {"dollar_amount": 34314.0, "projected_applications": 5891, "projected_hires": 16},
-    "social_media": {"dollar_amount": 10560.0, "projected_applications": 100, "projected_hires": 0},
+    "employer_branding": {
+        "dollar_amount": 7500.0,
+        "projected_applications": 199,
+        "projected_hires": 0,
+    },
+    "global_boards": {
+        "dollar_amount": 30729.0,
+        "projected_applications": 2124,
+        "projected_hires": 8,
+    },
+    "niche_boards": {
+        "dollar_amount": 29253.0,
+        "projected_applications": 1462,
+        "projected_hires": 6,
+    },
+    "programmatic_dsp": {
+        "dollar_amount": 37644.0,
+        "projected_applications": 8156,
+        "projected_hires": 18,
+    },
+    "regional_boards": {
+        "dollar_amount": 34314.0,
+        "projected_applications": 5891,
+        "projected_hires": 16,
+    },
+    "social_media": {
+        "dollar_amount": 10560.0,
+        "projected_applications": 100,
+        "projected_hires": 0,
+    },
 }
 _BEFORE_ATRIA_PER_CHANNEL = {
-    "employer_branding": {"dollar_amount": 23997.6, "projected_applications": 639, "projected_hires": 0},
-    "global_boards": {"dollar_amount": 73374.24, "projected_applications": 5072, "projected_hires": 21},
-    "niche_boards": {"dollar_amount": 35036.5, "projected_applications": 1751, "projected_hires": 9},
-    "programmatic_dsp": {"dollar_amount": 80843.49, "projected_applications": 6305, "projected_hires": 17},
-    "regional_boards": {"dollar_amount": 52886.28, "projected_applications": 2658, "projected_hires": 9},
-    "social_media": {"dollar_amount": 33861.88, "projected_applications": 468, "projected_hires": 1},
+    "employer_branding": {
+        "dollar_amount": 23997.6,
+        "projected_applications": 639,
+        "projected_hires": 0,
+    },
+    "global_boards": {
+        "dollar_amount": 73374.24,
+        "projected_applications": 5072,
+        "projected_hires": 21,
+    },
+    "niche_boards": {
+        "dollar_amount": 35036.5,
+        "projected_applications": 1751,
+        "projected_hires": 9,
+    },
+    "programmatic_dsp": {
+        "dollar_amount": 80843.49,
+        "projected_applications": 6305,
+        "projected_hires": 17,
+    },
+    "regional_boards": {
+        "dollar_amount": 52886.28,
+        "projected_applications": 2658,
+        "projected_hires": 9,
+    },
+    "social_media": {
+        "dollar_amount": 33861.88,
+        "projected_applications": 468,
+        "projected_hires": 1,
+    },
 }
 
 
@@ -357,7 +437,12 @@ class TestHeadlineInvariance:
     @pytest.mark.parametrize(
         "brief_name,expected_total,expected_per_channel,expected_budget",
         [
-            ("manpower", _BEFORE_MANPOWER_TOTAL, _BEFORE_MANPOWER_PER_CHANNEL, 150000.0),
+            (
+                "manpower",
+                _BEFORE_MANPOWER_TOTAL,
+                _BEFORE_MANPOWER_PER_CHANNEL,
+                150000.0,
+            ),
             ("atria", _BEFORE_ATRIA_TOTAL, _BEFORE_ATRIA_PER_CHANNEL, 300000.0),
         ],
     )
@@ -375,8 +460,12 @@ class TestHeadlineInvariance:
             assert tp[key] == pytest.approx(val), f"{brief_name}.{key}"
         for name, expected in expected_per_channel.items():
             ch = ba["channel_allocations"][name]
-            assert ch.get("dollar_amount") == pytest.approx(expected["dollar_amount"]), name
-            assert ch.get("projected_applications") == expected["projected_applications"], name
+            assert ch.get("dollar_amount") == pytest.approx(
+                expected["dollar_amount"]
+            ), name
+            assert (
+                ch.get("projected_applications") == expected["projected_applications"]
+            ), name
             assert ch.get("projected_hires") == expected["projected_hires"], name
 
 
@@ -475,7 +564,9 @@ class TestBundleRendering:
         assert f"{funnel_totals['hires']:,}" in found_text
 
     def test_bundle_qa_zero_critical_on_clean_bundle(self, bundle):
-        findings = bundle_qa.run_bundle_qa(bundle["pptx"], bundle["xlsx"], bundle["data"])
+        findings = bundle_qa.run_bundle_qa(
+            bundle["pptx"], bundle["xlsx"], bundle["data"]
+        )
         critical = [f for f in findings if f["severity"] == "critical"]
         assert critical == []
 
@@ -523,7 +614,10 @@ class TestBundleQaFiresOnCorruption:
 
         findings = bundle_qa.run_bundle_qa(None, corrupted_bytes, {})
         codes = {f["code"] for f in findings if f["severity"] == "critical"}
-        assert "funnel_hires_invariant_mismatch" in codes or "funnel_rate_footing_mismatch" in codes
+        assert (
+            "funnel_hires_invariant_mismatch" in codes
+            or "funnel_rate_footing_mismatch" in codes
+        )
 
     def test_fires_on_non_monotonic_row(self, clean_xlsx_bytes):
         wb = openpyxl.load_workbook(io.BytesIO(clean_xlsx_bytes))
@@ -541,7 +635,10 @@ class TestBundleQaFiresOnCorruption:
 
         findings = bundle_qa.run_bundle_qa(None, corrupted_bytes, {})
         codes = {f["code"] for f in findings if f["severity"] == "critical"}
-        assert "funnel_stage_not_monotonic" in codes or "funnel_rate_footing_mismatch" in codes
+        assert (
+            "funnel_stage_not_monotonic" in codes
+            or "funnel_rate_footing_mismatch" in codes
+        )
 
     def test_fires_on_total_row_footing_mismatch(self, clean_xlsx_bytes):
         wb = openpyxl.load_workbook(io.BytesIO(clean_xlsx_bytes))

@@ -243,9 +243,10 @@ def test_plan_data_round_trip_keys():
     assert out["_validation"] == {"b": 2}
     assert out["company_name"] == "Acme Corp"  # extra preserved
     assert "_budget_allocation" in out
-    assert out["_budget_allocation"]["channel_allocations"]["Indeed"][
-        "dollar_amount"
-    ] == 12500.0
+    assert (
+        out["_budget_allocation"]["channel_allocations"]["Indeed"]["dollar_amount"]
+        == 12500.0
+    )
 
 
 # --------------------------------------------------------------------------- #

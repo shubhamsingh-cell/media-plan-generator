@@ -1222,9 +1222,7 @@ def _fit_channel_funnel_rates(
         else:
             t_hi = t_mid
     t_final = (t_lo + t_hi) / 2.0
-    result_log = [
-        _clamp(w * t_final, lo, hi) for (lo, hi), w in zip(bounds, weights)
-    ]
+    result_log = [_clamp(w * t_final, lo, hi) for (lo, hi), w in zip(bounds, weights)]
 
     r1, r2, r3 = (math.exp(v) for v in result_log)
     return (r1, r2, r3, False)
@@ -1253,7 +1251,7 @@ def _largest_remainder_stage_round(exact_values: Dict[str, float]) -> Dict[str, 
         order = sorted(
             exact_values.keys(), key=lambda k: (exact_values[k] - floor_vals[k])
         )
-        for k in order[: (-remainder)]:
+        for k in order[:(-remainder)]:
             result[k] = max(0, result[k] - 1)
     return result
 
@@ -1347,7 +1345,9 @@ def compute_funnel_stages(
             lo1, hi1 = FUNNEL_RATE_BANDS["raw_to_qualified"]
             direction = "below" if r1 < lo1 else "above"
             quality_flag = (
-                "funnel_rate_below_floor" if direction == "below" else "funnel_rate_above_ceiling"
+                "funnel_rate_below_floor"
+                if direction == "below"
+                else "funnel_rate_above_ceiling"
             )
             note = (
                 f"{name}: this channel's modeled apply-to-hire rate "
@@ -1401,8 +1401,10 @@ def compute_funnel_stages(
     total_raw = sum(v["raw_apps"] for v in per_channel.values())
     total_qualified = sum(v["qualified_apps"] for v in per_channel.values())
     total_interviews = sum(v["interviews"] for v in per_channel.values())
-    total_hires_out = int(total_hires) if total_hires else sum(
-        v["hires"] for v in per_channel.values()
+    total_hires_out = (
+        int(total_hires)
+        if total_hires
+        else sum(v["hires"] for v in per_channel.values())
     )
 
     totals = {
@@ -3579,9 +3581,7 @@ def _build_real_outcome_calibration(
                 "real campaigns for this role have cost more."
             )
         else:
-            direction = (
-                "Plan estimate is in line with Joveo-measured cost-per-apply."
-            )
+            direction = "Plan estimate is in line with Joveo-measured cost-per-apply."
         note["assessment"] = direction
     else:
         note["assessment"] = (

@@ -594,7 +594,12 @@ class TestDeepSeekModelRouting:
         providers must ignore task_type entirely."""
         import json
 
-        from llm_router import _build_openai_request, GROQ, TASK_PLAN_NARRATIVE, PROVIDER_CONFIG
+        from llm_router import (
+            _build_openai_request,
+            GROQ,
+            TASK_PLAN_NARRATIVE,
+            PROVIDER_CONFIG,
+        )
 
         _url, _headers, body = _build_openai_request(
             GROQ,
@@ -630,9 +635,7 @@ class TestDeepSeekModelRouting:
             def read(self):
                 return json.dumps(
                     {
-                        "choices": [
-                            {"message": {"content": "Narrative text."}}
-                        ],
+                        "choices": [{"message": {"content": "Narrative text."}}],
                         "usage": {"prompt_tokens": 10, "completion_tokens": 5},
                     }
                 ).encode("utf-8")
@@ -691,7 +694,13 @@ class TestNarrativeProviderPriority:
         assert GROQ in priority
 
     def test_narrative_priority_puts_claude_sonnet_first(self) -> None:
-        from llm_router import TASK_ROUTING, TASK_NARRATIVE, CLAUDE, CLAUDE_HAIKU, DEEPSEEK
+        from llm_router import (
+            TASK_ROUTING,
+            TASK_NARRATIVE,
+            CLAUDE,
+            CLAUDE_HAIKU,
+            DEEPSEEK,
+        )
 
         priority = TASK_ROUTING[TASK_NARRATIVE]
         assert priority[0] == CLAUDE
@@ -705,9 +714,7 @@ class TestNarrativeProviderPriority:
         pick CLAUDE for TASK_PLAN_NARRATIVE."""
         from llm_router import select_provider, TASK_PLAN_NARRATIVE, CLAUDE
 
-        with mock.patch.dict(
-            os.environ, {"ANTHROPIC_API_KEY": "test-key"}, clear=True
-        ):
+        with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}, clear=True):
             provider = select_provider(TASK_PLAN_NARRATIVE)
 
         assert provider == CLAUDE
@@ -756,7 +763,11 @@ class TestNarrativeProviderPriority:
         is ever reached as a fallback -- removing it would silently
         reintroduce the S94 reasoning-model timeout bug on the fallback
         path."""
-        from llm_router import DEEPSEEK_FAST_TASK_TYPES, TASK_PLAN_NARRATIVE, TASK_NARRATIVE
+        from llm_router import (
+            DEEPSEEK_FAST_TASK_TYPES,
+            TASK_PLAN_NARRATIVE,
+            TASK_NARRATIVE,
+        )
 
         assert TASK_PLAN_NARRATIVE in DEEPSEEK_FAST_TASK_TYPES
         assert TASK_NARRATIVE in DEEPSEEK_FAST_TASK_TYPES

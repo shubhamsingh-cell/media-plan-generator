@@ -204,9 +204,7 @@ class ChannelAllocation:
         obj = cls(
             name=_to_str(data.get("name") or name),
             # ``dollars`` is a legacy alias for ``dollar_amount`` in budget_engine.
-            dollar_amount=_to_float(
-                data.get("dollar_amount", data.get("dollars"))
-            ),
+            dollar_amount=_to_float(data.get("dollar_amount", data.get("dollars"))),
             percentage=_to_float(data.get("percentage")),
             cpc=_to_float(data.get("cpc")),
             cpa=_to_float(data.get("cpa")),

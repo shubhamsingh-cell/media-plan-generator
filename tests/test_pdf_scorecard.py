@@ -40,15 +40,36 @@ def _three_even_channels_report_plan():
         "roles": ["Registered Nurse"],
         "locations": ["Dallas, TX"],
         "channels": [
-            {"name": "Indeed", "allocation_pct": 33.3, "spend": 16650,
-             "cpc": 1.2, "cpa": 4.2, "projected_clicks": 13875,
-             "projected_applies": 3964, "projected_hires": 40},
-            {"name": "LinkedIn", "allocation_pct": 33.3, "spend": 16650,
-             "cpc": 3.5, "cpa": 12.0, "projected_clicks": 4757,
-             "projected_applies": 1387, "projected_hires": 14},
-            {"name": "ZipRecruiter", "allocation_pct": 33.3, "spend": 16700,
-             "cpc": 0.95, "cpa": 3.8, "projected_clicks": 17578,
-             "projected_applies": 4394, "projected_hires": 44},
+            {
+                "name": "Indeed",
+                "allocation_pct": 33.3,
+                "spend": 16650,
+                "cpc": 1.2,
+                "cpa": 4.2,
+                "projected_clicks": 13875,
+                "projected_applies": 3964,
+                "projected_hires": 40,
+            },
+            {
+                "name": "LinkedIn",
+                "allocation_pct": 33.3,
+                "spend": 16650,
+                "cpc": 3.5,
+                "cpa": 12.0,
+                "projected_clicks": 4757,
+                "projected_applies": 1387,
+                "projected_hires": 14,
+            },
+            {
+                "name": "ZipRecruiter",
+                "allocation_pct": 33.3,
+                "spend": 16700,
+                "cpc": 0.95,
+                "cpa": 3.8,
+                "projected_clicks": 17578,
+                "projected_applies": 4394,
+                "projected_hires": 44,
+            },
         ],
     }
 
@@ -217,8 +238,8 @@ def test_report_has_print_footer():
     # running @page footer: date (left) + page x of y (right)
     assert "@bottom-left" in html
     assert "@bottom-right" in html
-    assert 'counter(page)' in html
-    assert 'counter(pages)' in html
+    assert "counter(page)" in html
+    assert "counter(pages)" in html
 
 
 def test_report_no_placeholder_leaks():

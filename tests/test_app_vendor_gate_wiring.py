@@ -84,7 +84,9 @@ def test_all_call_sites_resolve_vendor_availability_defensively():
             f"excel_v2.get_niche_vendor_availability"
         )
         getattr_idx = block.find("getattr(")
-        assert getattr_idx != -1 and "excel_v2" in block[getattr_idx : getattr_idx + 80], (
+        assert (
+            getattr_idx != -1 and "excel_v2" in block[getattr_idx : getattr_idx + 80]
+        ), (
             f"call site #{i + 1} must resolve get_niche_vendor_availability "
             f"defensively via getattr(excel_v2, ...) (agent B's accessor "
             f"lands in parallel -- a hard attribute access would crash "
@@ -150,9 +152,9 @@ def test_channel_with_no_vendors_is_floored_through_calculate_budget_allocation(
         f"vendor-gated niche_boards channel should be floored to <=3%, "
         f"got {gated_niche.get('percentage')}"
     )
-    assert gated_niche.get("percentage", 0) < ungated_niche.get("percentage", 0), (
-        "vendor gate had no effect relative to the ungated allocation"
-    )
+    assert gated_niche.get("percentage", 0) < ungated_niche.get(
+        "percentage", 0
+    ), "vendor gate had no effect relative to the ungated allocation"
 
 
 if __name__ == "__main__":

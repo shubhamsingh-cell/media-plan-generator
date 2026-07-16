@@ -104,9 +104,7 @@ def test_over_allocation_rescales_aggregate_totals():
     totals = data["_budget_allocation"]["total_projected"]
     assert totals["clicks"] < totals_before["clicks"]
     assert totals["applications"] < totals_before["applications"]
-    assert (
-        abs(totals["cost_per_application"] - 100_000 / totals["applications"]) < 0.5
-    )
+    assert abs(totals["cost_per_application"] - 100_000 / totals["applications"]) < 0.5
 
 
 def test_under_allocation_is_flagged_not_corrected():
@@ -146,9 +144,7 @@ def test_validate_plan_runs_all_checks_and_reports():
     assert summary["checks_run"] == 7
     assert summary["checks_failed"] == 0
     assert summary["auto_corrections"] >= 1
-    assert any(
-        f["check"] == "budget_allocation_sum" for f in summary["findings"]
-    )
+    assert any(f["check"] == "budget_allocation_sum" for f in summary["findings"])
     assert data["_validation"] is summary
 
 

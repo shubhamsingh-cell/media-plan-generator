@@ -109,9 +109,7 @@ def monitor() -> DataMatrixMonitor:
 # ── (a) all three intact -> ok ───────────────────────────────────────────────
 
 
-def test_all_three_intact_is_ok(
-    tmp_data_dir: Path, monitor: DataMatrixMonitor
-) -> None:
+def test_all_three_intact_is_ok(tmp_data_dir: Path, monitor: DataMatrixMonitor) -> None:
     _write_valid_seed_files(tmp_data_dir)
 
     result = monitor._check_seed_integrity()
@@ -125,9 +123,7 @@ def test_all_three_intact_is_ok(
 # ── (b) one file absent -> fires ─────────────────────────────────────────────
 
 
-def test_one_file_absent_fires(
-    tmp_data_dir: Path, monitor: DataMatrixMonitor
-) -> None:
+def test_one_file_absent_fires(tmp_data_dir: Path, monitor: DataMatrixMonitor) -> None:
     _write_valid_seed_files(tmp_data_dir)
     (tmp_data_dir / JOB_POSTING_LIVE).unlink()
 
@@ -160,9 +156,7 @@ def test_truncated_json_fires(tmp_data_dir: Path, monitor: DataMatrixMonitor) ->
 # ── (d) empty payload -> fires ───────────────────────────────────────────────
 
 
-def test_empty_data_list_fires(
-    tmp_data_dir: Path, monitor: DataMatrixMonitor
-) -> None:
+def test_empty_data_list_fires(tmp_data_dir: Path, monitor: DataMatrixMonitor) -> None:
     """channel_benchmarks_live.json branch: top-level dict present but its
     "data" list is empty -- the shape-specific check must catch this even
     though the dict itself is non-empty (has _refreshed_at/_provenance)."""

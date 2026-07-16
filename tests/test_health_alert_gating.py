@@ -24,9 +24,7 @@ def test_within_grace_suppresses() -> None:
 
 
 def test_low_volume_suppresses_past_grace() -> None:
-    assert (
-        suppress_health_alert(3, uptime_seconds=PAST_GRACE) == "too few requests"
-    )
+    assert suppress_health_alert(3, uptime_seconds=PAST_GRACE) == "too few requests"
 
 
 def test_real_problem_past_grace_with_volume_is_allowed() -> None:
@@ -39,9 +37,7 @@ def test_boundaries() -> None:
         suppress_health_alert(ENOUGH, uptime_seconds=ERROR_RATE_ALERT_GRACE_S) is None
     )
     # exactly at the volume floor is allowed; one below is suppressed.
-    assert (
-        suppress_health_alert(MODULE_HEALTH_ALERT_MIN_REQUESTS, PAST_GRACE) is None
-    )
+    assert suppress_health_alert(MODULE_HEALTH_ALERT_MIN_REQUESTS, PAST_GRACE) is None
     assert (
         suppress_health_alert(MODULE_HEALTH_ALERT_MIN_REQUESTS - 1, PAST_GRACE)
         == "too few requests"

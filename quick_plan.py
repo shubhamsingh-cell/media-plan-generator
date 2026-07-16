@@ -999,9 +999,7 @@ def score_channels_for_context(
             # Round-half-up per channel; 0 hires is allowed per channel so the
             # plan total is not inflated by a per-channel floor (audit MPG-F8).
             projected_hires = (
-                int(projected_applies * hire_rate + 0.5)
-                if projected_applies > 0
-                else 0
+                int(projected_applies * hire_rate + 0.5) if projected_applies > 0 else 0
             )
             cpa = round(spend / projected_applies, 2) if projected_applies > 0 else 0
 

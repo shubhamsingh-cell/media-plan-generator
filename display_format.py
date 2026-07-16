@@ -62,7 +62,16 @@ CHANNEL_DISPLAY: dict[str, str] = {
 # recruitment KB data (role/credential abbreviations); extend as new ones
 # surface rather than special-casing individual strings at call sites.
 ACRONYMS: set[str] = {
-    "CDL", "RN", "LPN", "CNA", "HVAC", "CPA", "CPC", "CPH", "DSP", "ATS",
+    "CDL",
+    "RN",
+    "LPN",
+    "CNA",
+    "HVAC",
+    "CPA",
+    "CPC",
+    "CPH",
+    "DSP",
+    "ATS",
 }
 
 

@@ -228,7 +228,8 @@ def role_requirements_callout(industry: str, roles: list[str]) -> list[str]:
     callouts: list[str] = []
 
     is_fuel_logistics = any(
-        kw in industry_norm for kw in ("propane", "fuel", "hazmat", "logistics", "trucking")
+        kw in industry_norm
+        for kw in ("propane", "fuel", "hazmat", "logistics", "trucking")
     )
     has_cdl_role = any(
         any(kw in r for kw in ("cdl", "driver", "truck")) for r in roles_l
@@ -250,7 +251,8 @@ def role_requirements_callout(industry: str, roles: list[str]) -> list[str]:
         )
 
     is_senior_living = any(
-        kw in industry_norm for kw in ("senior living", "assisted living", "memory care")
+        kw in industry_norm
+        for kw in ("senior living", "assisted living", "memory care")
     )
     has_caregiver_role = any(
         any(kw in r for kw in ("caregiver", "care giver", "cna")) for r in roles_l

@@ -164,9 +164,7 @@ def _load_deck_kb() -> Dict[str, Any]:
     """
     try:
         path = (
-            Path(__file__).resolve().parent
-            / "data"
-            / "joveo_media_plan_deck_2026.json"
+            Path(__file__).resolve().parent / "data" / "joveo_media_plan_deck_2026.json"
         )
         with open(path, "r", encoding="utf-8") as fh:
             return json.load(fh)
@@ -287,7 +285,9 @@ def _deck_cpa_reference_html(deck: Dict[str, Any], is_ai_training: bool = False)
     """
 
 
-def _deck_sample_pricing_html(deck: Dict[str, Any], is_ai_training: bool = False) -> str:
+def _deck_sample_pricing_html(
+    deck: Dict[str, Any], is_ai_training: bool = False
+) -> str:
     """Sample campaign pricing table (deck slide).
 
     Carries AI-trainer-specific pricing data ('Cost / Trainer'), so it is

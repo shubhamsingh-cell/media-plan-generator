@@ -1726,9 +1726,9 @@ def recommend_channels(skill_profile: Dict[str, Any]) -> List[Dict[str, Any]]:
                 channel_scores[name]["weight"] += ch["weight"] * cat_w
                 channel_scores[name]["reasons"].append(ch["reason"])
         if collar and _HAS_COLLAR and collar in COLLAR_STRATEGY:
-            for platform in (
-                COLLAR_STRATEGY[collar].get("preferred_platforms") or []
-            )[:3]:
+            for platform in (COLLAR_STRATEGY[collar].get("preferred_platforms") or [])[
+                :3
+            ]:
                 for ch_name in channel_scores:
                     if platform.lower() in ch_name.lower():
                         channel_scores[ch_name]["weight"] *= 1.15

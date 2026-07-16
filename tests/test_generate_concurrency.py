@@ -93,8 +93,12 @@ def _free_port() -> int:
 def live_server() -> Iterator[int]:
     """Start the real ThreadedHTTPServer on an ephemeral port."""
     port = _free_port()
-    server = app_module.ThreadedHTTPServer(("127.0.0.1", port), app_module.MediaPlanHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True, name="test-http-server")
+    server = app_module.ThreadedHTTPServer(
+        ("127.0.0.1", port), app_module.MediaPlanHandler
+    )
+    thread = threading.Thread(
+        target=server.serve_forever, daemon=True, name="test-http-server"
+    )
     thread.start()
     # Wait for the socket to actually accept connections.
     deadline = time.time() + 5.0
@@ -244,9 +248,9 @@ def test_health_stays_fast_while_generate_slots_saturated(live_server: int) -> N
     unaffected."""
     port = live_server
     for _ in range(app_module._MAX_CONCURRENT_GENERATE):
-        assert app_module._generate_slots.acquire(blocking=False), (
-            "test setup: could not saturate the generate semaphore"
-        )
+        assert app_module._generate_slots.acquire(
+            blocking=False
+        ), "test setup: could not saturate the generate semaphore"
     try:
         t0 = time.time()
         status, _headers, _body = _http_get(port, "/api/health")
@@ -261,7 +265,9 @@ def test_health_stays_fast_while_generate_slots_saturated(live_server: int) -> N
             app_module._generate_slots.release()
 
 
-def test_third_concurrent_generate_returns_429_with_retry_after(live_server: int) -> None:
+def test_third_concurrent_generate_returns_429_with_retry_after(
+    live_server: int,
+) -> None:
     """With both slots held, a new /api/generate call must be rejected
     immediately (429 + Retry-After), never queued and never allowed to
     pile onto the box."""
@@ -302,7 +308,9 @@ def test_generate_slot_available_when_not_saturated(live_server: int) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_real_generate_request_releases_its_slot_on_completion(live_server: int) -> None:
+def test_real_generate_request_releases_its_slot_on_completion(
+    live_server: int,
+) -> None:
     """Fire one real (not simulated) /api/generate call and confirm all
     _MAX_CONCURRENT_GENERATE slots are acquirable again shortly after it
     completes -- proving do_POST's `finally` release fires for a live
@@ -320,7 +328,9 @@ def test_real_generate_request_releases_its_slot_on_completion(live_server: int)
     )
     assert status == 200, f"real /api/generate call failed with status {status}"
 
-    assert _wait_for_slots_available(app_module._MAX_CONCURRENT_GENERATE, timeout=10.0), (
+    assert _wait_for_slots_available(
+        app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
+    ), (
         "generate slots were not released within 10s of the request "
         "completing -- do_POST's finally-release is leaking"
     )
@@ -381,9 +391,9 @@ def test_async_submit_rejected_when_slots_saturated(live_server: int) -> None:
         app_module._MAX_CONCURRENT_GENERATE, timeout=10.0
     ), "test setup: slots from a previous test's request not yet released"
     for _ in range(app_module._MAX_CONCURRENT_GENERATE):
-        assert app_module._generate_slots.acquire(blocking=False), (
-            "test setup: could not saturate the generate semaphore"
-        )
+        assert app_module._generate_slots.acquire(
+            blocking=False
+        ), "test setup: could not saturate the generate semaphore"
     try:
         status, headers, body = _http_post_generate(
             port,
@@ -395,9 +405,7 @@ def test_async_submit_rejected_when_slots_saturated(live_server: int) -> None:
         assert headers.get("Retry-After") == "5"
         payload: dict[str, Any] = json.loads(body)
         assert payload["code"] == "TOO_MANY_CONCURRENT_GENERATIONS"
-        assert "job_id" not in payload, (
-            "a saturated async submit must not create a job"
-        )
+        assert "job_id" not in payload, "a saturated async submit must not create a job"
     finally:
         for _ in range(app_module._MAX_CONCURRENT_GENERATE):
             app_module._generate_slots.release()

@@ -126,8 +126,10 @@ class SupabaseCooldownBackend:
             req = urllib.request.Request(url, headers=self._headers(), method="GET")
             with urllib.request.urlopen(req, timeout=self._TIMEOUT) as resp:
                 rows = json.loads(resp.read().decode("utf-8"))
-            if isinstance(rows, list) and rows and isinstance(
-                rows[0].get("last_fired_ts"), (int, float)
+            if (
+                isinstance(rows, list)
+                and rows
+                and isinstance(rows[0].get("last_fired_ts"), (int, float))
             ):
                 last = float(rows[0]["last_fired_ts"])
                 # Defense-in-depth: a non-positive or far-future timestamp is
@@ -177,9 +179,7 @@ class SupabaseCooldownBackend:
             return None
         try:
             url = f"{self._base_url}/rest/v1/rpc/claim_alert_cooldown"
-            payload = json.dumps(
-                {"p_key": key, "p_now": now, "p_cooldown": cooldown_s}
-            )
+            payload = json.dumps({"p_key": key, "p_now": now, "p_cooldown": cooldown_s})
             req = urllib.request.Request(
                 url,
                 data=payload.encode("utf-8"),
@@ -208,9 +208,13 @@ class AlertCooldownStore:
     """Decides ``should_fire(key, cooldown_s)`` against a shared, fail-open backend."""
 
     def __init__(self, backend: Optional[CooldownBackend] = None) -> None:
-        self._backend: CooldownBackend = backend if backend is not None else _default_backend()
+        self._backend: CooldownBackend = (
+            backend if backend is not None else _default_backend()
+        )
 
-    def should_fire(self, key: str, cooldown_s: float, now: Optional[float] = None) -> bool:
+    def should_fire(
+        self, key: str, cooldown_s: float, now: Optional[float] = None
+    ) -> bool:
         """Return True if ``key`` is allowed to fire now (and record the fire).
 
         Fail-open at every step: a backend error, a missing entry, OR a corrupt

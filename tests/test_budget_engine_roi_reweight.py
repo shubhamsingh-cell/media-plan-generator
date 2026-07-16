@@ -125,16 +125,18 @@ def test_reweight_blend_moves_share_toward_efficiency():
     best = min(perf_channels, key=lambda c: first_pass[c]["cost_per_hire"])
     worst = max(perf_channels, key=lambda c: first_pass[c]["cost_per_hire"])
 
-    assert new_pct[worst] < _CHANNELS[worst] + 0.01, (
-        f"worst performer {worst} should not have GAINED share"
-    )
+    assert (
+        new_pct[worst] < _CHANNELS[worst] + 0.01
+    ), f"worst performer {worst} should not have GAINED share"
     assert new_pct[best] >= new_pct[worst]
 
 
 def test_reweight_clamps_every_channel_to_3_35_range():
     result = _allocate()
     for ch, data in result["channel_allocations"].items():
-        assert 2.5 <= data["percentage"] <= 35.5, f"{ch} out of [3,35] range: {data['percentage']}"
+        assert (
+            2.5 <= data["percentage"] <= 35.5
+        ), f"{ch} out of [3,35] range: {data['percentage']}"
 
 
 def test_reweight_is_noop_safe_on_empty_input():
@@ -183,7 +185,9 @@ def test_brand_cap_enforced_at_12_percent():
         for d in result["channel_allocations"].values()
         if d.get("channel_role") == "brand"
     )
-    assert brand_pct <= 12.5, f"combined brand allocation {brand_pct}% exceeds the 12% cap"
+    assert (
+        brand_pct <= 12.5
+    ), f"combined brand allocation {brand_pct}% exceeds the 12% cap"
     assert result["metadata"]["channel_reweight"]["brand_capped"] is True
 
 
@@ -207,9 +211,7 @@ def test_brand_channel_under_cap_is_left_untouched_by_renormalization():
     first_pass = be.compute_channel_dollar_amounts(
         channels, role_budgets, {}, None, industry="logistics_supply_chain"
     )
-    new_pct, meta = be._reweight_channel_percentages_by_efficiency(
-        channels, first_pass
-    )
+    new_pct, meta = be._reweight_channel_percentages_by_efficiency(channels, first_pass)
     assert new_pct["Employer Branding"] == 5.0, (
         "brand channel drifted away from its own (uncapped, under-12%) "
         f"profile share: {new_pct['Employer Branding']}"
@@ -222,9 +224,7 @@ def test_brand_channel_under_cap_is_left_untouched_by_renormalization():
 
 
 def test_vendor_gate_floors_unavailable_channel_and_reallocates():
-    result = _allocate(
-        vendor_availability={"Niche & Industry Boards": False}
-    )
+    result = _allocate(vendor_availability={"Niche & Industry Boards": False})
     allocs = result["channel_allocations"]
     gated_pct = allocs["Niche & Industry Boards"]["percentage"]
     assert gated_pct <= 3.5, f"gated channel not floored: {gated_pct}%"
@@ -243,18 +243,14 @@ def test_vendor_gate_is_noop_when_availability_none():
     with_none = _allocate(vendor_availability=None)
     without_arg = _allocate()
     pct_a = {k: v["percentage"] for k, v in with_none["channel_allocations"].items()}
-    pct_b = {
-        k: v["percentage"] for k, v in without_arg["channel_allocations"].items()
-    }
+    pct_b = {k: v["percentage"] for k, v in without_arg["channel_allocations"].items()}
     assert pct_a == pct_b
 
 
 def test_vendor_gate_never_floors_a_brand_recipient():
     """Even when gating frees budget, brand channels must never be chosen
     as a recipient (they're not CPA-scored)."""
-    result = _allocate(
-        vendor_availability={"Niche & Industry Boards": False}
-    )
+    result = _allocate(vendor_availability={"Niche & Industry Boards": False})
     recipients = result["metadata"]["vendor_gate"].get("recipients") or []
     assert "Employer Branding" not in recipients
 
@@ -287,7 +283,9 @@ def test_rebalancer_roi_floor_raised_to_4():
         "good": _fake_channel(70.0, 70_000, roi=9),
     }
     be.rebalance_low_roi_channels(allocs, total_budget)
-    assert allocs["bad"]["dollar_amount"] < 30_000, "ROI==roi_floor donor was not shaved"
+    assert (
+        allocs["bad"]["dollar_amount"] < 30_000
+    ), "ROI==roi_floor donor was not shaved"
 
 
 def test_rebalancer_recipient_roi_min_raised_to_8():
@@ -301,7 +299,9 @@ def test_rebalancer_recipient_roi_min_raised_to_8():
     }
     before_mid = allocs["mid"]["dollar_amount"]
     be.rebalance_low_roi_channels(allocs, total_budget)
-    assert allocs["mid"]["dollar_amount"] == before_mid, "ROI 6 channel wrongly received freed budget"
+    assert (
+        allocs["mid"]["dollar_amount"] == before_mid
+    ), "ROI 6 channel wrongly received freed budget"
     assert allocs["good"]["dollar_amount"] > 40_000
 
 
@@ -325,7 +325,9 @@ def test_rebalancer_shave_is_severity_proportional():
 
     assert worst_shave_frac > boundary_shave_frac
     assert worst_shave_frac <= 0.61, "shave exceeded the 60% cap"
-    assert boundary_shave_frac > 0, "boundary donor (ROI==roi_floor) must still lose something"
+    assert (
+        boundary_shave_frac > 0
+    ), "boundary donor (ROI==roi_floor) must still lose something"
 
 
 def test_rebalancer_exempts_brand_channels():
@@ -381,7 +383,9 @@ def test_totals_foot_to_budget():
     for total_budget in (50_000, 150_000, 300_000):
         result = _allocate(total_budget=total_budget)
         allocs = result["channel_allocations"]
-        assert abs(sum(d["dollar_amount"] for d in allocs.values()) - total_budget) < 1.0
+        assert (
+            abs(sum(d["dollar_amount"] for d in allocs.values()) - total_budget) < 1.0
+        )
         assert abs(sum(d["percentage"] for d in allocs.values()) - 100.0) < 0.5
 
 

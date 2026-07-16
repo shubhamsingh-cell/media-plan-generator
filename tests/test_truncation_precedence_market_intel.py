@@ -289,9 +289,7 @@ def test_email_industry_table_capped_at_three():
 
 
 def test_email_industry_table_short_list_unchanged():
-    industries = [
-        {"label": "OnlyIndustry", "avg_cpc": 5.0, "avg_change_pct": 1.0}
-    ]
+    industries = [{"label": "OnlyIndustry", "avg_cpc": 5.0, "avg_change_pct": 1.0}]
     html = market_pulse.generate_pulse_email_html(_pulse_report(industries))
     assert "OnlyIndustry" in html
 

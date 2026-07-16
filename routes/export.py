@@ -48,7 +48,9 @@ def _safe_zip_attachment_path(zip_file_path: Any) -> str | None:
     try:
         resolved = os.path.realpath(zip_file_path)
     except (OSError, ValueError) as exc:
-        logger.warning("deliver: could not resolve zip_file_path %r: %s", zip_file_path, exc)
+        logger.warning(
+            "deliver: could not resolve zip_file_path %r: %s", zip_file_path, exc
+        )
         return None
     for allowed in _allowed_zip_dirs():
         allowed_prefix = allowed + os.sep

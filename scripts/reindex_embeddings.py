@@ -122,9 +122,7 @@ def _collect_documents(limit: int | None = None) -> list[dict]:
                 logger.info("Reached --limit %d, stopping extraction", limit)
                 return documents
 
-    logger.info(
-        "Extracted %d chunks from %d KB files", len(documents), files_seen
-    )
+    logger.info("Extracted %d chunks from %d KB files", len(documents), files_seen)
     return documents
 
 
@@ -216,7 +214,9 @@ def _embed_and_upsert(documents: list[dict], batch_size: int) -> tuple[int, int]
         if vs._qdrant_upsert_points(points):
             upserted += len(points)
         else:
-            logger.warning("Batch %d-%d: Qdrant upsert failed", start, start + len(batch))
+            logger.warning(
+                "Batch %d-%d: Qdrant upsert failed", start, start + len(batch)
+            )
 
         logger.info(
             "Progress: %d/%d embedded (%.1f%%), %d upserted, last batch %.1fs",
@@ -257,7 +257,9 @@ def main(argv: list[str] | None = None) -> int:
 
     logger.info("=" * 64)
     logger.info("Reindex: provider=%s model=%s dim=%d", provider, model, dim)
-    logger.info("Collection=%s recreate=%s", vs._QDRANT_COLLECTION, not args.no_recreate)
+    logger.info(
+        "Collection=%s recreate=%s", vs._QDRANT_COLLECTION, not args.no_recreate
+    )
     logger.info("=" * 64)
 
     # Fail fast on the provider's required embedding key.

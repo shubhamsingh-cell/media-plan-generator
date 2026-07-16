@@ -147,9 +147,7 @@ class TestNZGeduMirrors:
 
     def test_plain_us_plan_is_still_us_only(self):
         assert is_us_plan({"locations": ["United States"]}) is True
-        assert (
-            is_us_plan({"locations": ["San Francisco, CA", "New York, NY"]}) is True
-        )
+        assert is_us_plan({"locations": ["San Francisco, CA", "New York, NY"]}) is True
         assert is_us_plan({"locations": ["Dallas, TX"]}) is True
         assert is_us_plan({"locations": ["Dallas"]}) is True
 

@@ -132,13 +132,15 @@ def load_thresholds(config_path: Optional[Path] = None) -> Dict[str, Any]:
         logger.warning("Threshold config %s not found; using defaults", config_path)
         return thresholds
     except (OSError, ValueError) as exc:
-        logger.warning("Could not read threshold config %s (%s); using defaults",
-                       config_path, exc)
+        logger.warning(
+            "Could not read threshold config %s (%s); using defaults", config_path, exc
+        )
         return thresholds
 
     if not isinstance(raw, dict):
-        logger.warning("Threshold config %s is not a JSON object; using defaults",
-                       config_path)
+        logger.warning(
+            "Threshold config %s is not a JSON object; using defaults", config_path
+        )
         return thresholds
 
     for key, value in raw.items():
@@ -193,46 +195,52 @@ def _check_floors(
     total_cases = int(eval_result.get("total_cases") or 0)
     min_cases = int(thresholds.get("min_total_cases") or 0)
     if total_cases < min_cases:
-        violations.append({
-            "kind": "coverage",
-            "target": "total_cases",
-            "score": float(total_cases),
-            "floor": float(min_cases),
-            "message": (
-                f"Only {total_cases} eval cases ran (expected >= {min_cases}); "
-                "the harness likely degraded -- treating as a gate failure."
-            ),
-        })
+        violations.append(
+            {
+                "kind": "coverage",
+                "target": "total_cases",
+                "score": float(total_cases),
+                "floor": float(min_cases),
+                "message": (
+                    f"Only {total_cases} eval cases ran (expected >= {min_cases}); "
+                    "the harness likely degraded -- treating as a gate failure."
+                ),
+            }
+        )
 
     # Overall floor.
     overall = float(eval_result.get("overall_score") or 0.0)
     min_overall = float(thresholds.get("min_overall", 0.0))
     if overall < min_overall:
-        violations.append({
-            "kind": "floor",
-            "target": "OVERALL",
-            "score": overall,
-            "floor": min_overall,
-            "message": (
-                f"Overall score {overall:.1f}% is below the floor of "
-                f"{min_overall:.1f}%."
-            ),
-        })
+        violations.append(
+            {
+                "kind": "floor",
+                "target": "OVERALL",
+                "score": overall,
+                "floor": min_overall,
+                "message": (
+                    f"Overall score {overall:.1f}% is below the floor of "
+                    f"{min_overall:.1f}%."
+                ),
+            }
+        )
 
     # Per-category floors.
     for label, score in sorted(_category_scores(eval_result).items()):
         floor = _floor_for(label, thresholds)
         if score < floor:
-            violations.append({
-                "kind": "floor",
-                "target": label,
-                "score": score,
-                "floor": floor,
-                "message": (
-                    f"Category '{label}' scored {score:.1f}%, below its floor "
-                    f"of {floor:.1f}%."
-                ),
-            })
+            violations.append(
+                {
+                    "kind": "floor",
+                    "target": label,
+                    "score": score,
+                    "floor": floor,
+                    "message": (
+                        f"Category '{label}' scored {score:.1f}%, below its floor "
+                        f"of {floor:.1f}%."
+                    ),
+                }
+            )
     return violations
 
 
@@ -260,19 +268,21 @@ def _check_regression(
     if base_overall is not None:
         drop = float(base_overall) - cur_overall
         if drop > max_drop:
-            violations.append({
-                "kind": "regression",
-                "target": "OVERALL",
-                "score": cur_overall,
-                "baseline": float(base_overall),
-                "drop": round(drop, 2),
-                "max_drop": max_drop,
-                "message": (
-                    f"Overall score dropped {drop:.1f} pts "
-                    f"({float(base_overall):.1f}% -> {cur_overall:.1f}%), "
-                    f"exceeding the allowed {max_drop:.1f} pt regression."
-                ),
-            })
+            violations.append(
+                {
+                    "kind": "regression",
+                    "target": "OVERALL",
+                    "score": cur_overall,
+                    "baseline": float(base_overall),
+                    "drop": round(drop, 2),
+                    "max_drop": max_drop,
+                    "message": (
+                        f"Overall score dropped {drop:.1f} pts "
+                        f"({float(base_overall):.1f}% -> {cur_overall:.1f}%), "
+                        f"exceeding the allowed {max_drop:.1f} pt regression."
+                    ),
+                }
+            )
 
     cur_cats = _category_scores(eval_result)
     base_cats = _category_scores(baseline)
@@ -282,19 +292,21 @@ def _check_regression(
         base_score = base_cats[label]
         drop = base_score - cur_score
         if drop > max_drop:
-            violations.append({
-                "kind": "regression",
-                "target": label,
-                "score": cur_score,
-                "baseline": base_score,
-                "drop": round(drop, 2),
-                "max_drop": max_drop,
-                "message": (
-                    f"Category '{label}' dropped {drop:.1f} pts "
-                    f"({base_score:.1f}% -> {cur_score:.1f}%), exceeding the "
-                    f"allowed {max_drop:.1f} pt regression."
-                ),
-            })
+            violations.append(
+                {
+                    "kind": "regression",
+                    "target": label,
+                    "score": cur_score,
+                    "baseline": base_score,
+                    "drop": round(drop, 2),
+                    "max_drop": max_drop,
+                    "message": (
+                        f"Category '{label}' dropped {drop:.1f} pts "
+                        f"({base_score:.1f}% -> {cur_score:.1f}%), exceeding the "
+                        f"allowed {max_drop:.1f} pt regression."
+                    ),
+                }
+            )
     return violations
 
 
@@ -354,17 +366,17 @@ def fold_in_promptfoo(
     try:
         raw = json.loads(Path(promptfoo_path).read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        logger.warning("Could not read promptfoo results %s (%s); skipping",
-                       promptfoo_path, exc)
+        logger.warning(
+            "Could not read promptfoo results %s (%s); skipping", promptfoo_path, exc
+        )
         return eval_result
 
-    stats = (((raw.get("results") or {}).get("stats")) or raw.get("stats") or {})
+    stats = ((raw.get("results") or {}).get("stats")) or raw.get("stats") or {}
     successes = int(stats.get("successes") or 0)
     failures = int(stats.get("failures") or 0)
     pf_total = successes + failures
     if pf_total == 0:
-        logger.warning("Promptfoo results %s had zero cases; skipping",
-                       promptfoo_path)
+        logger.warning("Promptfoo results %s had zero cases; skipping", promptfoo_path)
         return eval_result
 
     pf_score = round(successes / pf_total * 100.0, 2)
@@ -385,8 +397,9 @@ def fold_in_promptfoo(
     merged["overall_score"] = (
         round(total_passed / total_cases * 100.0, 2) if total_cases else 0.0
     )
-    logger.info("Folded in promptfoo suite: %d/%d (%.1f%%)",
-                successes, pf_total, pf_score)
+    logger.info(
+        "Folded in promptfoo suite: %d/%d (%.1f%%)", successes, pf_total, pf_score
+    )
     return merged
 
 
@@ -415,8 +428,9 @@ def load_baseline(path: Path) -> Optional[Dict[str, Any]]:
         logger.info("No baseline at %s -- skipping regression check", path)
         return None
     except (OSError, ValueError) as exc:
-        logger.warning("Could not read baseline %s (%s); skipping regression",
-                       path, exc)
+        logger.warning(
+            "Could not read baseline %s (%s); skipping regression", path, exc
+        )
         return None
 
 
@@ -463,39 +477,54 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         description="CI quality gate for the media-plan eval harness.",
     )
     parser.add_argument(
-        "--config", type=Path, default=None,
+        "--config",
+        type=Path,
+        default=None,
         help="JSON file overriding threshold defaults (shallow-merged).",
     )
     parser.add_argument(
-        "--baseline", type=Path, default=DEFAULT_BASELINE_PATH,
+        "--baseline",
+        type=Path,
+        default=DEFAULT_BASELINE_PATH,
         help=f"Baseline scores JSON (default: {DEFAULT_BASELINE_PATH}).",
     )
     parser.add_argument(
-        "--no-baseline", action="store_true",
+        "--no-baseline",
+        action="store_true",
         help="Skip the regression-vs-baseline check entirely.",
     )
     parser.add_argument(
-        "--promptfoo-results", type=Path, default=None,
+        "--promptfoo-results",
+        type=Path,
+        default=None,
         help="Optional Promptfoo --output JSON to fold into the gate.",
     )
     parser.add_argument(
-        "--min-overall", type=float, default=None,
+        "--min-overall",
+        type=float,
+        default=None,
         help="Override the overall pass-rate floor (percentage).",
     )
     parser.add_argument(
-        "--max-regression", type=float, default=None,
+        "--max-regression",
+        type=float,
+        default=None,
         help="Override the max allowed regression (percentage points).",
     )
     parser.add_argument(
-        "--report", type=Path, default=None,
+        "--report",
+        type=Path,
+        default=None,
         help="Write the machine-readable JSON verdict to this path.",
     )
     parser.add_argument(
-        "--update-baseline", action="store_true",
+        "--update-baseline",
+        action="store_true",
         help="Run the suite and overwrite the baseline; does not gate.",
     )
     parser.add_argument(
-        "--quiet", action="store_true",
+        "--quiet",
+        action="store_true",
         help="Suppress the human-readable report (still sets exit code).",
     )
     return parser.parse_args(argv)

@@ -209,7 +209,9 @@ def test_detects_ai_training_vocab_on_non_ai_training_plan():
     units = [bundle_qa._TextUnit("Our AI Trainer network is ready", "X!A1")]
     findings: list[dict] = []
     bundle_qa._check_text_patterns(
-        units, {"industry": "healthcare_medical", "roles": ["Registered Nurse"]}, findings
+        units,
+        {"industry": "healthcare_medical", "roles": ["Registered Nurse"]},
+        findings,
     )
     assert any(f["code"] == "ai_training_vocab_leak" for f in findings)
 
@@ -239,9 +241,7 @@ def test_allows_bucketed_duration_label_matching_campaign_weeks():
     units = [bundle_qa._TextUnit("Duration: 6 months (~24 weeks)", "X!A1")]
     findings: list[dict] = []
     bundle_qa._check_text_patterns(units, {"campaign_weeks": 24}, findings)
-    assert not any(
-        f["code"].startswith("duration_") for f in findings
-    ), findings
+    assert not any(f["code"].startswith("duration_") for f in findings), findings
 
 
 def test_allows_subset_market_count_within_total():
@@ -593,9 +593,20 @@ def test_detects_forecast_footing_mismatch():
     ws.title = "90-Day Forecast"
     ws.append([None] * 8)
     ws.append(
-        [None, "Metric", "July 2026", "August 2026", "September 2026", "90-Day Total", "Trend", None]
+        [
+            None,
+            "Metric",
+            "July 2026",
+            "August 2026",
+            "September 2026",
+            "90-Day Total",
+            "Trend",
+            None,
+        ]
     )
-    ws.append([None, "Applications", 100, 200, 300, 999, "Increasing", None])  # 600 != 999
+    ws.append(
+        [None, "Applications", 100, 200, 300, 999, "Increasing", None]
+    )  # 600 != 999
     findings: list[dict] = []
     bundle_qa._check_90_day_forecast_footing(wb, findings)
     assert any(f["code"] == "forecast_footing_mismatch" for f in findings)
@@ -611,7 +622,16 @@ def test_allows_correct_forecast_footing():
     ws.title = "90-Day Forecast"
     ws.append([None] * 8)
     ws.append(
-        [None, "Metric", "July 2026", "August 2026", "September 2026", "90-Day Total", "Trend", None]
+        [
+            None,
+            "Metric",
+            "July 2026",
+            "August 2026",
+            "September 2026",
+            "90-Day Total",
+            "Trend",
+            None,
+        ]
     )
     ws.append([None, "Applications", 100, 200, 300, 600, "Increasing", None])
     findings: list[dict] = []
@@ -621,8 +641,12 @@ def test_allows_correct_forecast_footing():
 
 def test_detects_beating_badge_next_to_non_comparable_benchmark():
     units = [
-        bundle_qa._TextUnit("1.3x  ▲", "slide 8 / client", slide_idx=8, top=1000, left=100),
-        bundle_qa._TextUnit("Varies", "slide 8 / industry", slide_idx=8, top=1000, left=5000),
+        bundle_qa._TextUnit(
+            "1.3x  ▲", "slide 8 / client", slide_idx=8, top=1000, left=100
+        ),
+        bundle_qa._TextUnit(
+            "Varies", "slide 8 / industry", slide_idx=8, top=1000, left=5000
+        ),
     ]
     findings: list[dict] = []
     bundle_qa._check_comparison_badges(units, findings)
@@ -631,8 +655,12 @@ def test_detects_beating_badge_next_to_non_comparable_benchmark():
 
 def test_allows_beating_badge_next_to_real_benchmark():
     units = [
-        bundle_qa._TextUnit("1.3x  ▲", "slide 8 / client", slide_idx=8, top=1000, left=100),
-        bundle_qa._TextUnit("1.0x", "slide 8 / industry", slide_idx=8, top=1000, left=5000),
+        bundle_qa._TextUnit(
+            "1.3x  ▲", "slide 8 / client", slide_idx=8, top=1000, left=100
+        ),
+        bundle_qa._TextUnit(
+            "1.0x", "slide 8 / industry", slide_idx=8, top=1000, left=5000
+        ),
     ]
     findings: list[dict] = []
     bundle_qa._check_comparison_badges(units, findings)

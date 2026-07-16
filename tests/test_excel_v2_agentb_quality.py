@@ -136,12 +136,7 @@ def test_us_plan_shows_named_niche_boards():
     assert plan_geo.is_us_plan(data) is True
     wb = _generate_wb(data)
     ws = wb["Niche Board Matching"]
-    text = [
-        c.value
-        for row in ws.iter_rows()
-        for c in row
-        if isinstance(c.value, str)
-    ]
+    text = [c.value for row in ws.iter_rows() for c in row if isinstance(c.value, str)]
     joined = " ".join(text)
     assert any(
         board in joined
@@ -159,12 +154,8 @@ def test_90_day_forecast_monthly_rows_foot_to_total():
     ws = wb["90-Day Forecast"]
 
     rows = list(ws.iter_rows(min_col=2, values_only=True))
-    header_idx = next(
-        i for i, r in enumerate(rows) if r and r[0] == "Metric"
-    )
-    metric_rows = {
-        r[0]: r for r in rows[header_idx + 1 : header_idx + 5] if r and r[0]
-    }
+    header_idx = next(i for i, r in enumerate(rows) if r and r[0] == "Metric")
+    metric_rows = {r[0]: r for r in rows[header_idx + 1 : header_idx + 5] if r and r[0]}
 
     for metric in ("Applications", "Hires"):
         row = metric_rows[metric]
@@ -227,9 +218,7 @@ def test_90_day_forecast_short_campaign_uses_full_budget():
 # ---------------------------------------------------------------------------
 # 3. No raw snake_case leaks into client-facing string cells
 # ---------------------------------------------------------------------------
-_ALLOWED_UNDERSCORE_SUBSTRINGS = (
-    "http",  # URLs may legitimately contain underscores
-)
+_ALLOWED_UNDERSCORE_SUBSTRINGS = ("http",)  # URLs may legitimately contain underscores
 
 
 def test_no_snake_case_in_client_facing_cells():
@@ -248,7 +237,9 @@ def test_no_snake_case_in_client_facing_cells():
                     continue
                 if _SNAKE_CASE_TOKEN_RE.search(v):
                     offenders.append((ws.title, c.coordinate, v))
-    assert not offenders, f"Raw snake_case leaked into client-facing cells: {offenders[:20]}"
+    assert (
+        not offenders
+    ), f"Raw snake_case leaked into client-facing cells: {offenders[:20]}"
 
 
 # ---------------------------------------------------------------------------
@@ -260,9 +251,7 @@ def test_zero_hire_channel_shows_dash_cph_not_budget_as_cph():
     ws = wb["ROI Projections"]
 
     rows = list(ws.iter_rows(min_col=2, values_only=True))
-    header_idx = next(
-        i for i, r in enumerate(rows) if r and r[0] == "Channel Name"
-    )
+    header_idx = next(i for i, r in enumerate(rows) if r and r[0] == "Channel Name")
     header = rows[header_idx]
     hires_col = header.index("Proj. Hires")
     cph_col = header.index("Cost Per Hire")
@@ -333,7 +322,9 @@ def test_estimated_salary_rows_carry_badge():
     wb = _generate_wb(data)
     assert "Quality Intelligence" in wb.sheetnames
     ws = wb["Quality Intelligence"]
-    text_cells = [c.value for row in ws.iter_rows() for c in row if isinstance(c.value, str)]
+    text_cells = [
+        c.value for row in ws.iter_rows() for c in row if isinstance(c.value, str)
+    ]
     assert any("Salary Intelligence" in t for t in text_cells)
     assert any("(est.)" in t for t in text_cells)
 
@@ -344,7 +335,9 @@ def test_quality_intelligence_program_structure_no_double_claim():
     data["_gold_standard"] = gold
     wb = _generate_wb(data)
     ws = wb["Quality Intelligence"]
-    text_cells = [c.value for row in ws.iter_rows() for c in row if isinstance(c.value, str)]
+    text_cells = [
+        c.value for row in ws.iter_rows() for c in row if isinstance(c.value, str)
+    ]
     assert any("Recommended Program Structure" in t for t in text_cells)
     assert any("Total Program" in t for t in text_cells)
     # Media must be presented at 100%, not the old 72%-of-total framing.

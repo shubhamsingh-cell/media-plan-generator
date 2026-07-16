@@ -116,10 +116,7 @@ class TestSameOriginGateUnit:
         idx = app_source.index("# ── Nova Chat Endpoint ──")
         snippet = app_source[idx : idx + 400]
         assert "S48: Chat auth is more permissive than /api/generate." in snippet
-        assert (
-            "Allow: @joveo.com users, admin key, OR same-origin requests"
-            in snippet
-        )
+        assert "Allow: @joveo.com users, admin key, OR same-origin requests" in snippet
 
     def test_chat_gates_preserve_non_origin_auth_paths(self, app_source: str) -> None:
         """CRITICAL constraint: both /api/chat's and /api/chat/stream's
@@ -135,18 +132,18 @@ class TestSameOriginGateUnit:
         ):
             idx = app_source.index(anchor)
             snippet = app_source[idx : idx + 700]
-            assert "_check_joveo_auth" in snippet, (
-                f"{label} gate must still call _check_joveo_auth()"
-            )
-            assert "_check_admin_auth" in snippet, (
-                f"{label} gate must still call _check_admin_auth()"
-            )
-            assert "_check_same_origin_auth" in snippet, (
-                f"{label} gate must call the shared parsed-host helper"
-            )
-            assert 'in (self.headers.get("Origin")' not in snippet, (
-                f"{label} gate must not use the bypassable substring check"
-            )
+            assert (
+                "_check_joveo_auth" in snippet
+            ), f"{label} gate must still call _check_joveo_auth()"
+            assert (
+                "_check_admin_auth" in snippet
+            ), f"{label} gate must still call _check_admin_auth()"
+            assert (
+                "_check_same_origin_auth" in snippet
+            ), f"{label} gate must call the shared parsed-host helper"
+            assert (
+                'in (self.headers.get("Origin")' not in snippet
+            ), f"{label} gate must not use the bypassable substring check"
 
     def test_chat_or_chain_is_exactly_three_clauses(self, app_source: str) -> None:
         """Locks in the exact shape post-fix: joveo OR admin OR
@@ -161,9 +158,9 @@ class TestSameOriginGateUnit:
             end_idx = app_source.index(end_marker, assign_idx) + len(end_marker)
             end_idx = app_source.index(")", end_idx)
             clause = app_source[assign_idx : end_idx + 1]
-            assert clause.count(" or ") == 2, (
-                f"{varname} must be exactly a 3-way or-chain, got: {clause!r}"
-            )
+            assert (
+                clause.count(" or ") == 2
+            ), f"{varname} must be exactly a 3-way or-chain, got: {clause!r}"
             assert "self._check_joveo_auth()" in clause
             assert "self._check_admin_auth()" in clause
             assert "self._check_same_origin_auth()" in clause

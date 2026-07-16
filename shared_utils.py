@@ -55,6 +55,7 @@ def internal_qc_mode(data: Optional[dict] = None) -> bool:
         return True
     return False
 
+
 # ─────────────────────────────────────────────────────────────
 # Industry Label Map  (single source of truth)
 # ─────────────────────────────────────────────────────────────

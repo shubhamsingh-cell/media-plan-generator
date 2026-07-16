@@ -54,6 +54,7 @@ import plan_geo
 try:
     from ppt_generator import _is_ai_training_plan
 except ImportError:  # pragma: no cover -- defensive only
+
     def _is_ai_training_plan(_data: dict) -> bool:
         return False
 
@@ -78,9 +79,7 @@ _MARKETS_PAREN_RE = re.compile(r"\((\d+)\s+markets?\)", re.IGNORECASE)
 _MID_WORD_ELLIPSIS_RE = re.compile(r"[a-zA-Z](\.\.\.|…)$")
 _MANY_DECIMALS_RE = re.compile(r"\d+\.\d{3,}")
 _DOLLAR_POINT_ZERO_K_RE = re.compile(r"\$\d+(?:,\d{3})*\.0K\b")
-_DURATION_LABEL_RE = re.compile(
-    r"([A-Za-z0-9 .,~-]*?)\(~\s*(\d+)\s*weeks?\)"
-)
+_DURATION_LABEL_RE = re.compile(r"([A-Za-z0-9 .,~-]*?)\(~\s*(\d+)\s*weeks?\)")
 # prod-Atria defect: an unbounded ("Ongoing") duration spliced straight into
 # the "<budget> over <duration>" template read as the ungrammatical "over
 # Ongoing" (no verb, no fixed length to be "over"), and a raw unformatted
@@ -105,9 +104,7 @@ _AI_TRAINING_VOCAB = (
 )
 
 
-def _finding(
-    severity: str, code: str, message: str, location: str
-) -> Finding:
+def _finding(severity: str, code: str, message: str, location: str) -> Finding:
     return {
         "severity": severity,
         "code": code,
@@ -175,9 +172,10 @@ def _iter_pptx_texts(pptx_bytes: bytes, findings: list[Finding]) -> list[_TextUn
             loc = f"slide {slide_idx} / {path}{shape_name}"
             top = int(getattr(shape, "top", 0) or 0)
             left = int(getattr(shape, "left", 0) or 0)
-            if getattr(shape, "shape_type", None) is not None and getattr(
-                shape, "shape_type", None
-            ) == 6:  # MSO_SHAPE_TYPE.GROUP
+            if (
+                getattr(shape, "shape_type", None) is not None
+                and getattr(shape, "shape_type", None) == 6
+            ):  # MSO_SHAPE_TYPE.GROUP
                 try:
                     _walk(shape.shapes, slide_idx, f"{path}{shape_name}/")
                 except Exception:  # noqa: BLE001
@@ -645,7 +643,12 @@ def _collect_pptx_counter_strategies(
             continue
         if stripped.startswith("Counter:"):
             out.append(
-                (stripped[len("Counter:"):].strip(), u.location, pending_identity, "deck")
+                (
+                    stripped[len("Counter:") :].strip(),
+                    u.location,
+                    pending_identity,
+                    "deck",
+                )
             )
         elif stripped.startswith("Why:"):
             continue  # descriptive line between name and counter -- not an identity
@@ -843,10 +846,7 @@ def _check_90_day_forecast_footing(wb: Any, findings: list[Finding]) -> None:
                         if total_col_idx < len(dvals)
                         else None
                     )
-                    if (
-                        total_val is not None
-                        and all(v is not None for v in month_vals)
-                    ):
+                    if total_val is not None and all(v is not None for v in month_vals):
                         actual_sum = sum(month_vals)  # type: ignore[arg-type]
                         if abs(actual_sum - total_val) > 0.51:
                             findings.append(
@@ -880,9 +880,7 @@ def _parse_money_str(s: Any) -> float | None:
         return None
 
 
-def _check_executive_summary_budget_footing(
-    wb: Any, findings: list[Finding]
-) -> None:
+def _check_executive_summary_budget_footing(wb: Any, findings: list[Finding]) -> None:
     if wb is None or "Executive Summary" not in wb.sheetnames:
         return
     ws = wb["Executive Summary"]
@@ -1057,7 +1055,11 @@ def _check_recruitment_funnel_footing(wb: Any, findings: list[Finding]) -> None:
     for ri, row in enumerate(rows):
         vals = [c.value for c in row]
         if "Channel Name" in vals and all(c in vals for c in _FUNNEL_STAGE_COLS):
-            header_ci = {name: vals.index(name) for name in ("Channel Name", *_FUNNEL_STAGE_COLS, *_FUNNEL_RATE_COLS) if name in vals}
+            header_ci = {
+                name: vals.index(name)
+                for name in ("Channel Name", *_FUNNEL_STAGE_COLS, *_FUNNEL_RATE_COLS)
+                if name in vals
+            }
             header_ri = ri
             break
     if header_ri is None:
@@ -1102,7 +1104,11 @@ def _check_recruitment_funnel_footing(wb: Any, findings: list[Finding]) -> None:
     for row_num, dvals in channel_rows:
         loc = f"{ws.title}!row{row_num}"
         label = str(dvals[name_ci]).strip()
-        clicks = _cell_num(dvals[clicks_ci]) if clicks_ci is not None and clicks_ci < len(dvals) else None
+        clicks = (
+            _cell_num(dvals[clicks_ci])
+            if clicks_ci is not None and clicks_ci < len(dvals)
+            else None
+        )
         raw_apps = _cell_num(dvals[apps_ci]) if apps_ci < len(dvals) else None
         qualified = _cell_num(dvals[qual_ci]) if qual_ci < len(dvals) else None
         interviews = _cell_num(dvals[int_ci]) if int_ci < len(dvals) else None
@@ -1114,7 +1120,11 @@ def _check_recruitment_funnel_footing(wb: Any, findings: list[Finding]) -> None:
         # "—" interview->hire rate means "not modeled" (0-hire row) -- keep
         # it as None rather than coercing to 0.0, so the rate*prev check
         # below is skipped for it rather than asserting hires == 0.
-        r3 = None if (isinstance(r3_raw, str) and r3_raw.strip() == "—") else _cell_num(r3_raw)
+        r3 = (
+            None
+            if (isinstance(r3_raw, str) and r3_raw.strip() == "—")
+            else _cell_num(r3_raw)
+        )
 
         if clicks is not None:
             sum_clicks += clicks
@@ -1205,11 +1215,19 @@ def _check_recruitment_funnel_footing(wb: Any, findings: list[Finding]) -> None:
 
     if total_row is not None:
         total_loc = f"{ws.title}!row{rows[header_ri + 1 + len(channel_rows)][0].row}"
-        t_clicks = _cell_num(total_row[clicks_ci]) if clicks_ci is not None and clicks_ci < len(total_row) else None
+        t_clicks = (
+            _cell_num(total_row[clicks_ci])
+            if clicks_ci is not None and clicks_ci < len(total_row)
+            else None
+        )
         t_apps = _cell_num(total_row[apps_ci]) if apps_ci < len(total_row) else None
         t_qual = _cell_num(total_row[qual_ci]) if qual_ci < len(total_row) else None
         t_int = _cell_num(total_row[int_ci]) if int_ci < len(total_row) else None
-        t_hires = _cell_num_or_dash(total_row[hires_ci]) if hires_ci < len(total_row) else None
+        t_hires = (
+            _cell_num_or_dash(total_row[hires_ci])
+            if hires_ci < len(total_row)
+            else None
+        )
 
         _pairs = [
             ("Clicks", t_clicks, sum_clicks),
@@ -1253,20 +1271,14 @@ def run_bundle_qa(
         try:
             pptx_units = _iter_pptx_texts(pptx_bytes, findings)
         except Exception as exc:  # noqa: BLE001
-            findings.append(
-                _finding(
-                    "critical", "pptx_qa_crashed", f"{exc!r}", "deck"
-                )
-            )
+            findings.append(_finding("critical", "pptx_qa_crashed", f"{exc!r}", "deck"))
 
     if xlsx_bytes:
         try:
             xlsx_units, wb = _iter_xlsx_strings(xlsx_bytes, findings)
         except Exception as exc:  # noqa: BLE001
             findings.append(
-                _finding(
-                    "critical", "xlsx_qa_crashed", f"{exc!r}", "workbook"
-                )
+                _finding("critical", "xlsx_qa_crashed", f"{exc!r}", "workbook")
             )
 
     all_units = pptx_units + xlsx_units
@@ -1283,7 +1295,9 @@ def run_bundle_qa(
     try:
         _check_comparison_badges(pptx_units, findings)
     except Exception as exc:  # noqa: BLE001
-        findings.append(_finding("warn", "comparison_badge_check_crashed", f"{exc!r}", ""))
+        findings.append(
+            _finding("warn", "comparison_badge_check_crashed", f"{exc!r}", "")
+        )
 
     try:
         counter_strings = _collect_pptx_counter_strategies(
@@ -1291,17 +1305,23 @@ def run_bundle_qa(
         ) + _collect_xlsx_counter_strategies(wb)
         _check_counter_strategy_distinctness(counter_strings, findings)
     except Exception as exc:  # noqa: BLE001
-        findings.append(_finding("warn", "counter_strategy_check_crashed", f"{exc!r}", ""))
+        findings.append(
+            _finding("warn", "counter_strategy_check_crashed", f"{exc!r}", "")
+        )
 
     try:
         _check_90_day_forecast_footing(wb, findings)
     except Exception as exc:  # noqa: BLE001
-        findings.append(_finding("warn", "forecast_footing_check_crashed", f"{exc!r}", ""))
+        findings.append(
+            _finding("warn", "forecast_footing_check_crashed", f"{exc!r}", "")
+        )
 
     try:
         _check_executive_summary_budget_footing(wb, findings)
     except Exception as exc:  # noqa: BLE001
-        findings.append(_finding("warn", "exec_summary_footing_check_crashed", f"{exc!r}", ""))
+        findings.append(
+            _finding("warn", "exec_summary_footing_check_crashed", f"{exc!r}", "")
+        )
 
     try:
         _check_zero_hire_honesty(wb, findings)

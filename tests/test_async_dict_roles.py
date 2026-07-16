@@ -115,9 +115,7 @@ def test_classify_industry_raises_on_raw_dict_roles() -> None:
     of its own -- callers MUST normalize first. This is not something the
     fix changes; it's the reason the fix normalizes before calling."""
     with pytest.raises(TypeError, match="expected str instance, dict found"):
-        app.classify_industry(
-            "", "Repro Co", [{"title": "CDL A Driver", "count": 250}]
-        )
+        app.classify_industry("", "Repro Co", [{"title": "CDL A Driver", "count": 250}])
 
 
 def test_classify_industry_succeeds_after_normalization() -> None:

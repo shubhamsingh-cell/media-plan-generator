@@ -132,8 +132,10 @@ def get_embedding_provider() -> str:
         Either ``"gemini"`` or ``"voyage"``.
     """
     raw = (os.environ.get("EMBEDDING_PROVIDER") or "").strip().lower()
-    return EMBEDDING_PROVIDER_GEMINI if raw == EMBEDDING_PROVIDER_GEMINI else (
-        EMBEDDING_PROVIDER_VOYAGE
+    return (
+        EMBEDDING_PROVIDER_GEMINI
+        if raw == EMBEDDING_PROVIDER_GEMINI
+        else (EMBEDDING_PROVIDER_VOYAGE)
     )
 
 
@@ -170,6 +172,7 @@ def _active_vector_dim() -> int:
     if get_embedding_provider() == EMBEDDING_PROVIDER_GEMINI:
         return _GEMINI_EMBED_DIM
     return _QDRANT_VECTOR_DIM
+
 
 # ── Embedding disk cache ─────────────────────────────────────────────────────
 # Caches Voyage AI embeddings to disk so server restarts don't re-compute them.
@@ -826,9 +829,7 @@ def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
 
                 # batchEmbedContents returns {"embeddings": [{"values": [...]}]}
                 embeddings_data = api_result.get("embeddings") or []
-                batch_vectors = [
-                    (e.get("values") or []) for e in embeddings_data
-                ]
+                batch_vectors = [(e.get("values") or []) for e in embeddings_data]
                 break  # success
             except urllib.error.HTTPError as e:
                 if e.code == 429 and attempt < _GEMINI_MAX_RETRIES:

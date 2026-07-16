@@ -31,31 +31,31 @@ from __future__ import annotations
 # ---------------------------------------------------------------------------
 INDIGO_900 = "#131A38"
 INDIGO_800 = "#1A1A4E"
-INDIGO = "#202058"          # Port Gore -- primary dark
+INDIGO = "#202058"  # Port Gore -- primary dark
 INDIGO_600 = "#262261"
 INDIGO_500 = "#33334F"
 
-PURPLE = "#5A54BE"          # Blue Violet -- primary accent
+PURPLE = "#5A54BE"  # Blue Violet -- primary accent
 PURPLE_HOVER = "#5A4FC4"
 PURPLE_LIGHT = "#8680D6"
 PURPLE_300 = "#A6A3C1"
 
-TEAL = "#6BB5CE"            # Downy -- secondary accent
+TEAL = "#6BB5CE"  # Downy -- secondary accent
 TEAL_DEEP = "#3E8FAB"
 TEAL_500 = "#45B6C8"
 
-MAGENTA = "#B7669E"         # pink/magenta pop accent
+MAGENTA = "#B7669E"  # pink/magenta pop accent
 
 # Surfaces
 WHITE = "#FFFFFF"
-CANVAS = "#FFFCF9"          # warm white slide canvas
-LAVENDER_50 = "#F4F4FF"     # card surface
-LAVENDER_100 = "#ECEAF7"    # alt card / bot bubble
+CANVAS = "#FFFCF9"  # warm white slide canvas
+LAVENDER_50 = "#F4F4FF"  # card surface
+LAVENDER_100 = "#ECEAF7"  # alt card / bot bubble
 BLUE_50 = "#EEF6FF"
 
 # Neutrals
-INK = "#1F2937"             # body text
-MUTED = "#6E6E8C"           # captions
+INK = "#1F2937"  # body text
+MUTED = "#6E6E8C"  # captions
 MUTED_2 = "#6B7280"
 BORDER = "#E3E1F1"
 BORDER_STRONG = "#D8D8D8"
@@ -69,10 +69,10 @@ RED = "#EF4444"
 # ---------------------------------------------------------------------------
 # Legacy alias names (so existing generator code can swap in cleanly)
 # ---------------------------------------------------------------------------
-PORT_GORE = INDIGO          # was #202058 (unchanged)
-BLUE_VIOLET = PURPLE        # was #5A54BD -> #5A54BE
-DOWNY_TEAL = TEAL           # was #6BB3CD -> #6BB5CE
-PINK_ACCENT = MAGENTA       # was #C8589C / #B5669C -> #B7669E
+PORT_GORE = INDIGO  # was #202058 (unchanged)
+BLUE_VIOLET = PURPLE  # was #5A54BD -> #5A54BE
+DOWNY_TEAL = TEAL  # was #6BB3CD -> #6BB5CE
+PINK_ACCENT = MAGENTA  # was #C8589C / #B5669C -> #B7669E
 
 # ---------------------------------------------------------------------------
 # Data-viz palette (categorical order) + sequential purple ramp
@@ -85,6 +85,7 @@ SEQUENTIAL_PURPLE = [LAVENDER_100, PURPLE_300, PURPLE_LIGHT, PURPLE, INDIGO]
 # ---------------------------------------------------------------------------
 FONT_HEADING = "Poppins"
 FONT_BODY = "Inter"
+
 
 # ---------------------------------------------------------------------------
 # Helpers

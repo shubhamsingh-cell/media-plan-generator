@@ -87,7 +87,9 @@ def test_no_match_leaves_result_byte_identical():
 
     # Same inputs, keystone enabled but every role is a no-match.
     fake = mock.Mock(return_value={"matched": False})
-    with mock.patch.object(budget_engine, "_HAS_SUPABASE_DATA", True), mock.patch.object(
+    with mock.patch.object(
+        budget_engine, "_HAS_SUPABASE_DATA", True
+    ), mock.patch.object(
         budget_engine, "_supabase_data", mock.Mock(get_real_outcomes=fake), create=True
     ):
         with_keystone = _run()
@@ -102,7 +104,9 @@ def test_no_match_leaves_result_byte_identical():
 def test_supabase_outage_is_swallowed():
     """A raising accessor must not break the plan or add keystone keys."""
     boom = mock.Mock(side_effect=RuntimeError("supabase down"))
-    with mock.patch.object(budget_engine, "_HAS_SUPABASE_DATA", True), mock.patch.object(
+    with mock.patch.object(
+        budget_engine, "_HAS_SUPABASE_DATA", True
+    ), mock.patch.object(
         budget_engine, "_supabase_data", mock.Mock(get_real_outcomes=boom), create=True
     ):
         out = _run()
@@ -120,7 +124,9 @@ def test_supabase_outage_is_swallowed():
 
 def test_match_attaches_real_outcomes_metadata():
     fake = mock.Mock(side_effect=lambda title, loc="": _matched(title, loc))
-    with mock.patch.object(budget_engine, "_HAS_SUPABASE_DATA", True), mock.patch.object(
+    with mock.patch.object(
+        budget_engine, "_HAS_SUPABASE_DATA", True
+    ), mock.patch.object(
         budget_engine, "_supabase_data", mock.Mock(get_real_outcomes=fake), create=True
     ):
         out = _run()
@@ -142,7 +148,9 @@ def test_match_does_not_overwrite_computed_numbers():
         baseline = _run()
 
     fake = mock.Mock(side_effect=lambda title, loc="": _matched(title, loc))
-    with mock.patch.object(budget_engine, "_HAS_SUPABASE_DATA", True), mock.patch.object(
+    with mock.patch.object(
+        budget_engine, "_HAS_SUPABASE_DATA", True
+    ), mock.patch.object(
         budget_engine, "_supabase_data", mock.Mock(get_real_outcomes=fake), create=True
     ):
         matched = _run()
@@ -156,7 +164,9 @@ def test_match_does_not_overwrite_computed_numbers():
 
 def test_strong_match_adds_calibration_note():
     fake = mock.Mock(side_effect=lambda title, loc="": _matched(title, loc))
-    with mock.patch.object(budget_engine, "_HAS_SUPABASE_DATA", True), mock.patch.object(
+    with mock.patch.object(
+        budget_engine, "_HAS_SUPABASE_DATA", True
+    ), mock.patch.object(
         budget_engine, "_supabase_data", mock.Mock(get_real_outcomes=fake), create=True
     ):
         out = _run()
@@ -175,13 +185,16 @@ def test_strong_match_adds_calibration_note():
 
 def test_weak_sample_does_not_add_calibration():
     """A thin sample attaches outcomes but no CPA-calibration note."""
+
     def _weak(title, loc=""):
         m = _matched(title, loc)
         m["sample_size"] = 5  # below _KEYSTONE_STRONG_SAMPLE_SIZE
         return m
 
     fake = mock.Mock(side_effect=_weak)
-    with mock.patch.object(budget_engine, "_HAS_SUPABASE_DATA", True), mock.patch.object(
+    with mock.patch.object(
+        budget_engine, "_HAS_SUPABASE_DATA", True
+    ), mock.patch.object(
         budget_engine, "_supabase_data", mock.Mock(get_real_outcomes=fake), create=True
     ):
         out = _run()
@@ -192,13 +205,16 @@ def test_weak_sample_does_not_add_calibration():
 
 def test_partial_match_only_lists_matched_roles():
     """Only roles with warehouse coverage are surfaced."""
+
     def _partial(title, loc=""):
         if title == "Registered Nurse":
             return _matched(title, loc)
         return {"matched": False}
 
     fake = mock.Mock(side_effect=_partial)
-    with mock.patch.object(budget_engine, "_HAS_SUPABASE_DATA", True), mock.patch.object(
+    with mock.patch.object(
+        budget_engine, "_HAS_SUPABASE_DATA", True
+    ), mock.patch.object(
         budget_engine, "_supabase_data", mock.Mock(get_real_outcomes=fake), create=True
     ):
         out = _run()
@@ -215,7 +231,9 @@ def test_duplicate_role_titles_queried_once():
         {"title": "registered nurse", "count": 2, "tier": "Clinical / Licensed"},
     ]
     fake = mock.Mock(side_effect=lambda title, loc="": _matched(title, loc))
-    with mock.patch.object(budget_engine, "_HAS_SUPABASE_DATA", True), mock.patch.object(
+    with mock.patch.object(
+        budget_engine, "_HAS_SUPABASE_DATA", True
+    ), mock.patch.object(
         budget_engine, "_supabase_data", mock.Mock(get_real_outcomes=fake), create=True
     ):
         out = _run(roles=roles)
@@ -227,7 +245,9 @@ def test_duplicate_role_titles_queried_once():
 def test_primary_location_passed_to_accessor():
     """The plan's primary location is forwarded to the warehouse query."""
     fake = mock.Mock(side_effect=lambda title, loc="": _matched(title, loc))
-    with mock.patch.object(budget_engine, "_HAS_SUPABASE_DATA", True), mock.patch.object(
+    with mock.patch.object(
+        budget_engine, "_HAS_SUPABASE_DATA", True
+    ), mock.patch.object(
         budget_engine, "_supabase_data", mock.Mock(get_real_outcomes=fake), create=True
     ):
         _run()
@@ -247,7 +267,9 @@ def _run_calibrated(flag, match_fn=None):
     """Run with the warehouse matched and the calibration flag set to `flag`."""
     fn = match_fn or _matched
     fake = mock.Mock(side_effect=lambda title, loc="": fn(title, loc))
-    with mock.patch.object(budget_engine, "_HAS_SUPABASE_DATA", True), mock.patch.object(
+    with mock.patch.object(
+        budget_engine, "_HAS_SUPABASE_DATA", True
+    ), mock.patch.object(
         budget_engine, "_supabase_data", mock.Mock(get_real_outcomes=fake), create=True
     ), mock.patch.object(
         budget_engine, "_REAL_OUTCOME_CALIBRATION_ENABLED", flag

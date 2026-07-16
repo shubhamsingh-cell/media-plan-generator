@@ -68,6 +68,7 @@ def _no_cache():
 def test_default_provider_is_voyage():
     with mock.patch.dict("os.environ", {}, clear=False):
         import os
+
         os.environ.pop("EMBEDDING_PROVIDER", None)
         assert vs.get_embedding_provider() == "voyage"
         assert vs.get_active_embedding_model() == vs._VOYAGE_MODEL
@@ -154,7 +155,8 @@ def test_embed_batch_gemini_parses_vectors():
     with _env("gemini"), mock.patch.dict(
         "os.environ", {"GEMINI_API_KEY": "test-key"}, clear=False
     ), mock.patch.object(
-        vs.urllib.request, "urlopen",
+        vs.urllib.request,
+        "urlopen",
         return_value=_FakeResp(_gemini_embeddings_payload(fake_vectors)),
     ) as m:
         out = vs._embed_batch_gemini(["a", "b"])
@@ -170,6 +172,7 @@ def test_embed_batch_gemini_parses_vectors():
 def test_embed_batch_gemini_no_key_returns_none():
     with _env("gemini"), mock.patch.dict("os.environ", {}, clear=False):
         import os
+
         os.environ.pop("GEMINI_API_KEY", None)
         assert vs._embed_batch_gemini(["a"]) is None
 
@@ -189,7 +192,8 @@ def test_embed_batch_gemini_short_response_returns_none():
     with _env("gemini"), mock.patch.dict(
         "os.environ", {"GEMINI_API_KEY": "k"}, clear=False
     ), mock.patch.object(
-        vs.urllib.request, "urlopen",
+        vs.urllib.request,
+        "urlopen",
         return_value=_FakeResp(_gemini_embeddings_payload([[0.1] * 768])),
     ):
         assert vs._embed_batch_gemini(["a", "b"]) is None
@@ -234,9 +238,7 @@ def test_embed_batch_gemini_failure_is_graceful():
     # Provider compute returns None -> embed_batch returns None (no raise).
     with _env("gemini"), mock.patch.dict(
         "os.environ", {"GEMINI_API_KEY": "k"}, clear=False
-    ), _no_cache(), mock.patch.object(
-        vs, "_embed_batch_gemini", return_value=None
-    ):
+    ), _no_cache(), mock.patch.object(vs, "_embed_batch_gemini", return_value=None):
         assert vs.embed_batch(["hello"]) is None
 
 

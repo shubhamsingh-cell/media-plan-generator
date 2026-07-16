@@ -344,9 +344,7 @@ def build_plan_data(brief: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def generate_bundle(
-    brief: dict[str, Any], out_dir: Path, slug: str
-) -> dict[str, Any]:
+def generate_bundle(brief: dict[str, Any], out_dir: Path, slug: str) -> dict[str, Any]:
     """Build plan data, call generate_pptx + generate_excel_v2, zip them.
 
     Returns a dict of {"pptx_bytes", "xlsx_bytes", "zip_path", "elapsed_s",
@@ -439,7 +437,9 @@ def main() -> int:
 
     exit_code = 0
     for slug, brief in briefs.items():
-        print(f"\n{'=' * 70}\nGenerating: {slug} ({brief['client_name']!r})\n{'=' * 70}")
+        print(
+            f"\n{'=' * 70}\nGenerating: {slug} ({brief['client_name']!r})\n{'=' * 70}"
+        )
         result = generate_bundle(brief, args.out, slug)
         t = result["timings"]
         print(

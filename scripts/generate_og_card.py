@@ -53,17 +53,56 @@ def main() -> int:
         ribbon[:, x, :] = ct * (1 - t) + cm * t
     ax.imshow(ribbon, extent=[0, W, 0, 14], aspect="auto", zorder=2)
 
-    ax.text(70, H - 80, "joveo", color="white", fontsize=54, fontweight="bold",
-            fontfamily="DejaVu Sans", zorder=3)
-    ax.text(70, 360, "AI Media Plan", color="white", fontsize=76,
-            fontweight="bold", fontfamily="DejaVu Sans", zorder=3)
-    ax.text(70, 280, "Recruitment Marketing Intelligence", color="#D7D4F5",
-            fontsize=34, fontfamily="DejaVu Sans", zorder=3)
-    ax.add_patch(FancyBboxPatch(
-        (70, 150), 720, 70, boxstyle="round,pad=8,rounding_size=18",
-        facecolor="#FFFFFF", edgecolor="none", alpha=0.12, zorder=3))
-    ax.text(95, 175, "Channel mix · Budgets · CPA benchmarks · ROI projections",
-            color="white", fontsize=26, fontfamily="DejaVu Sans", zorder=4)
+    ax.text(
+        70,
+        H - 80,
+        "joveo",
+        color="white",
+        fontsize=54,
+        fontweight="bold",
+        fontfamily="DejaVu Sans",
+        zorder=3,
+    )
+    ax.text(
+        70,
+        360,
+        "AI Media Plan",
+        color="white",
+        fontsize=76,
+        fontweight="bold",
+        fontfamily="DejaVu Sans",
+        zorder=3,
+    )
+    ax.text(
+        70,
+        280,
+        "Recruitment Marketing Intelligence",
+        color="#D7D4F5",
+        fontsize=34,
+        fontfamily="DejaVu Sans",
+        zorder=3,
+    )
+    ax.add_patch(
+        FancyBboxPatch(
+            (70, 150),
+            720,
+            70,
+            boxstyle="round,pad=8,rounding_size=18",
+            facecolor="#FFFFFF",
+            edgecolor="none",
+            alpha=0.12,
+            zorder=3,
+        )
+    )
+    ax.text(
+        95,
+        175,
+        "Channel mix · Budgets · CPA benchmarks · ROI projections",
+        color="white",
+        fontsize=26,
+        fontfamily="DejaVu Sans",
+        zorder=4,
+    )
 
     fig.savefig(str(OUT), dpi=100, facecolor=INDIGO)
     plt.close(fig)

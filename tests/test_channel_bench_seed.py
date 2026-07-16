@@ -48,7 +48,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 SEED_PATH = PROJECT_ROOT / "data" / "channel_benchmarks_seed.json"
 FIXTURE_PATH = (
-    PROJECT_ROOT / "tests" / "fixtures" / "funnel_invariant" / "channel_benchmarks_live.json"
+    PROJECT_ROOT
+    / "tests"
+    / "fixtures"
+    / "funnel_invariant"
+    / "channel_benchmarks_live.json"
 )
 
 

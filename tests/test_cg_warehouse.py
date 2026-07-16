@@ -41,12 +41,24 @@ def test_no_rows_is_graceful_no_match():
 def test_weighted_aggregation_and_cost_per_apply():
     rows = [
         # high sample dominates
-        {"title": "RN - ICU", "location": "Dallas, TX", "avg_cost": 4.0,
-         "avg_applies": 8.0, "avg_multiplier": 1.2, "sample_size": 300,
-         "last_updated": "2026-05-12T00:00:00Z"},
-        {"title": "RN - ER", "location": "Houston, TX", "avg_cost": 10.0,
-         "avg_applies": 2.0, "avg_multiplier": 1.0, "sample_size": 3,
-         "last_updated": "2026-05-01T00:00:00Z"},
+        {
+            "title": "RN - ICU",
+            "location": "Dallas, TX",
+            "avg_cost": 4.0,
+            "avg_applies": 8.0,
+            "avg_multiplier": 1.2,
+            "sample_size": 300,
+            "last_updated": "2026-05-12T00:00:00Z",
+        },
+        {
+            "title": "RN - ER",
+            "location": "Houston, TX",
+            "avg_cost": 10.0,
+            "avg_applies": 2.0,
+            "avg_multiplier": 1.0,
+            "sample_size": 3,
+            "last_updated": "2026-05-01T00:00:00Z",
+        },
     ]
     with _patched(rows):
         out = supabase_data.get_real_outcomes("Registered Nurse", "TX")
@@ -65,8 +77,15 @@ def test_weighted_aggregation_and_cost_per_apply():
 
 def test_rows_with_no_usable_metrics_fall_back():
     rows = [
-        {"title": "X", "location": "", "avg_cost": 0, "avg_applies": 0,
-         "avg_multiplier": 0, "sample_size": 0, "last_updated": ""},
+        {
+            "title": "X",
+            "location": "",
+            "avg_cost": 0,
+            "avg_applies": 0,
+            "avg_multiplier": 0,
+            "sample_size": 0,
+            "last_updated": "",
+        },
     ]
     with _patched(rows):
         out = supabase_data.get_real_outcomes("X")
@@ -75,9 +94,15 @@ def test_rows_with_no_usable_metrics_fall_back():
 
 def test_zero_applies_yields_none_cost_per_apply():
     rows = [
-        {"title": "Driver", "location": "Austin", "avg_cost": 3.5,
-         "avg_applies": 0.0, "avg_multiplier": 1.0, "sample_size": 50,
-         "last_updated": "2026-04-01T00:00:00Z"},
+        {
+            "title": "Driver",
+            "location": "Austin",
+            "avg_cost": 3.5,
+            "avg_applies": 0.0,
+            "avg_multiplier": 1.0,
+            "sample_size": 50,
+            "last_updated": "2026-04-01T00:00:00Z",
+        },
     ]
     with _patched(rows):
         out = supabase_data.get_real_outcomes("Driver")

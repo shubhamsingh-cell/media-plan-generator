@@ -321,7 +321,9 @@ def call_tool(name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str
     payload = handler(**kwargs)
     return {
         "content": [{"type": "text", "text": json.dumps(payload, default=str)}],
-        "structuredContent": payload if isinstance(payload, dict) else {"result": payload},
+        "structuredContent": (
+            payload if isinstance(payload, dict) else {"result": payload}
+        ),
         "isError": False,
     }
 
@@ -369,11 +371,7 @@ def handle_request(request: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None if is_notification else _rpc_result(req_id, {})
 
     if method == "tools/list":
-        return (
-            None
-            if is_notification
-            else _rpc_result(req_id, {"tools": list_tools()})
-        )
+        return None if is_notification else _rpc_result(req_id, {"tools": list_tools()})
 
     if method == "tools/call":
         name = params.get("name")
@@ -386,9 +384,7 @@ def handle_request(request: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         except PermissionError as exc:
             return _rpc_error(req_id, _ERR_UNAUTHORIZED, str(exc))
         except KeyError:
-            return _rpc_error(
-                req_id, _ERR_METHOD_NOT_FOUND, f"Unknown tool: {name}"
-            )
+            return _rpc_error(req_id, _ERR_METHOD_NOT_FOUND, f"Unknown tool: {name}")
         except (TypeError, ValueError) as exc:
             return _rpc_error(req_id, _ERR_INVALID_PARAMS, str(exc))
         except Exception as exc:  # pragma: no cover - defensive

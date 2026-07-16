@@ -26,6 +26,7 @@ def _stub_call_llm_json(result):
         # The adoption must pass a schema requiring "verified".
         assert "verified" in kwargs["schema"]["properties"], "schema wired"
         return result
+
     return _fake
 
 
@@ -34,8 +35,12 @@ def test_verified_ok(monkeypatch):
         llm_router,
         "call_llm_json",
         _stub_call_llm_json(
-            {"ok": True, "data": {"verified": True, "issues": [], "severity": "none"},
-             "provider": "gemini", "error": ""}
+            {
+                "ok": True,
+                "data": {"verified": True, "issues": [], "severity": "none"},
+                "provider": "gemini",
+                "error": "",
+            }
         ),
     )
     out = app._verify_plan_data(dict(_DATA))
@@ -50,10 +55,16 @@ def test_issues_found_preserves_payload(monkeypatch):
         llm_router,
         "call_llm_json",
         _stub_call_llm_json(
-            {"ok": True,
-             "data": {"verified": False, "issues": ["CPC too high", "CPA off"],
-                      "severity": "major"},
-             "provider": "groq", "error": ""}
+            {
+                "ok": True,
+                "data": {
+                    "verified": False,
+                    "issues": ["CPC too high", "CPA off"],
+                    "severity": "major",
+                },
+                "provider": "groq",
+                "error": "",
+            }
         ),
     )
     out = app._verify_plan_data(dict(_DATA))
@@ -91,6 +102,7 @@ def test_no_data_to_verify_short_circuits_without_llm(monkeypatch):
     # No _budget_allocation -> no check_items -> skip before any LLM call.
     def _boom(**kwargs):
         raise AssertionError("call_llm_json must not be called when there's no data")
+
     monkeypatch.setattr(llm_router, "call_llm_json", _boom)
     out = app._verify_plan_data({"_synthesized": {}})
     assert out == {"status": "skipped", "reason": "no_data_to_verify"}

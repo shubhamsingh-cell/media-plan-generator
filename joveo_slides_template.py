@@ -333,7 +333,9 @@ def _slide_title(data: dict) -> tuple[str, list[dict]]:
     t1 = _uid()
     reqs += _text_box(sid, t1, 0.6, 1.0, 8.8, 1.0)
     reqs.append(_insert_text(t1, "Media Planning Approach"))
-    reqs.append(_style_text(t1, bold=True, size=36, color=BLUE_VIOLET, font=FONT_HEADING))
+    reqs.append(
+        _style_text(t1, bold=True, size=36, color=BLUE_VIOLET, font=FONT_HEADING)
+    )
 
     # Company name subtitle
     t2 = _uid()
@@ -1383,7 +1385,9 @@ def _slide_thank_you(data: dict) -> tuple[str, list[dict]]:
     ty = _uid()
     reqs += _text_box(sid, ty, 1.5, 2.0, 7.0, 1.5)
     reqs.append(_insert_text(ty, "Thank You!"))
-    reqs.append(_style_text(ty, bold=True, size=40, color=BLUE_VIOLET, font=FONT_HEADING))
+    reqs.append(
+        _style_text(ty, bold=True, size=40, color=BLUE_VIOLET, font=FONT_HEADING)
+    )
 
     # Subtitle
     sub = _uid()

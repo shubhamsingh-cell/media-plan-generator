@@ -117,7 +117,9 @@ def _register_chart_fonts() -> str:
                     _fm.fontManager.addfont(str(_path))
                     registered = True
                 except Exception as _font_exc:  # noqa: BLE001
-                    logger.debug("Poppins font register skipped (%s): %s", _ttf, _font_exc)
+                    logger.debug(
+                        "Poppins font register skipped (%s): %s", _ttf, _font_exc
+                    )
         if not registered:
             return "DejaVu Sans"
         # Confirm matplotlib can actually resolve the family before adopting it.
@@ -224,7 +226,7 @@ def _embed_fonts_in_pptx(pptx_bytes: bytes) -> bytes:
             )
             m = re.search(r"<p:notesSz[^>]*/>", pres_xml)
             if m:
-                pres_xml = pres_xml[: m.end()] + embed_lst + pres_xml[m.end():]
+                pres_xml = pres_xml[: m.end()] + embed_lst + pres_xml[m.end() :]
             elif "<p:defaultTextStyle" in pres_xml:
                 pres_xml = pres_xml.replace(
                     "<p:defaultTextStyle", embed_lst + "<p:defaultTextStyle", 1
@@ -330,7 +332,10 @@ def _fix_pptx_package_hygiene(pptx_bytes: bytes, n_slides: int) -> bytes:
             with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
                 for item in zin.infolist():
                     data = zin.read(item.filename)
-                    if item.filename == "ppt/theme/theme1.xml" and theme_xml is not None:
+                    if (
+                        item.filename == "ppt/theme/theme1.xml"
+                        and theme_xml is not None
+                    ):
                         data = theme_xml.encode("utf-8")
                     elif item.filename == "docProps/app.xml" and app_xml is not None:
                         data = app_xml.encode("utf-8")
@@ -1570,23 +1575,38 @@ def _cur_symbol(currency: Optional[str] = None) -> str:
 # (light lavender canvas, top accent rule + wordmark, big indigo title,
 # accent-bar cards, lavender question band, dark takeaway callout).
 # ===================================================================
-INV_ACCENTS = [BLUE, TEAL, JOVEO_PINK, JOVEO_LIGHT_PURPLE, AMBER]  # purple/teal/magenta/lilac/teal-deep
+INV_ACCENTS = [
+    BLUE,
+    TEAL,
+    JOVEO_PINK,
+    JOVEO_LIGHT_PURPLE,
+    AMBER,
+]  # purple/teal/magenta/lilac/teal-deep
 INK_SLATE = RGBColor(0x33, 0x33, 0x4F)  # card body text (source #33334E)
 INV_CANVAS = LAVENDER_50  # #F4F4FF cool light page canvas
-INV_PILL = LAVENDER_50    # #F4F4FF soft pill / row surface
+INV_PILL = LAVENDER_50  # #F4F4FF soft pill / row surface
 INV_QBAND = LAVENDER_100  # #ECEAF7 question-band surface
-INV_CONTENT_TOP = 1.55    # inches: y where slide body starts (below title)
+INV_CONTENT_TOP = 1.55  # inches: y where slide body starts (below title)
 
 
 def _inv_canvas(slide, wordmark: bool = True):
     """Paint the light Invisible page: lavender canvas, top accent rule, wordmark."""
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, INV_CANVAS)
     # Full-width top accent rule (purple-light) -- source 0.08in x1.333
-    _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, Inches(0.10), JOVEO_LIGHT_PURPLE)
+    _add_filled_rect(
+        slide, Inches(0), Inches(0), SLIDE_WIDTH, Inches(0.10), JOVEO_LIGHT_PURPLE
+    )
     if wordmark:
         _add_textbox(
-            slide, Inches(0.65), Inches(0.27), Inches(2.0), Inches(0.4),
-            text="joveo", font_size=19, bold=True, color=BLUE,
+            slide,
+            Inches(0.65),
+            Inches(0.27),
+            Inches(2.0),
+            Inches(0.4),
+            text="joveo",
+            font_size=19,
+            bold=True,
+            color=BLUE,
         )
 
 
@@ -1597,13 +1617,27 @@ def _inv_header(slide, title: str, subtitle: str = "", wordmark: bool = True) ->
     """
     _inv_canvas(slide, wordmark=wordmark)
     _add_textbox(
-        slide, Inches(0.63), Inches(0.72), Inches(12.05), Inches(0.64),
-        text=title, font_size=30, bold=True, color=NAVY,
+        slide,
+        Inches(0.63),
+        Inches(0.72),
+        Inches(12.05),
+        Inches(0.64),
+        text=title,
+        font_size=30,
+        bold=True,
+        color=NAVY,
     )
     if subtitle:
         _add_textbox(
-            slide, Inches(0.65), Inches(1.38), Inches(12.05), Inches(0.36),
-            text=subtitle, font_size=14, italic=True, color=BLUE,
+            slide,
+            Inches(0.65),
+            Inches(1.38),
+            Inches(12.05),
+            Inches(0.36),
+            text=subtitle,
+            font_size=14,
+            italic=True,
+            color=BLUE,
         )
         return 1.92
     return INV_CONTENT_TOP
@@ -1619,19 +1653,45 @@ def _inv_question_band(slide, qtext: str, top: float = 1.5) -> float:
     _add_rounded_rect(slide, Inches(0.65), y, Inches(12.1), h, INV_QBAND)
     _add_rounded_rect(slide, Inches(0.65), y, Inches(0.72), h, BLUE)
     _add_textbox(
-        slide, Inches(0.65), y, Inches(0.72), h, text="Q", font_size=18, bold=True,
-        color=WHITE, alignment=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE,
+        slide,
+        Inches(0.65),
+        y,
+        Inches(0.72),
+        h,
+        text="Q",
+        font_size=18,
+        bold=True,
+        color=WHITE,
+        alignment=PP_ALIGN.CENTER,
+        anchor=MSO_ANCHOR.MIDDLE,
     )
     _add_textbox(
-        slide, Inches(1.6), y, Inches(10.9), h, text=qtext, font_size=13, italic=True,
-        color=NAVY, anchor=MSO_ANCHOR.MIDDLE,
+        slide,
+        Inches(1.6),
+        y,
+        Inches(10.9),
+        h,
+        text=qtext,
+        font_size=13,
+        italic=True,
+        color=NAVY,
+        anchor=MSO_ANCHOR.MIDDLE,
     )
     return top + 0.86 + 0.18
 
 
 def _inv_card(
-    slide, x, y, w, h, header: str, body: str = "", accent=None,
-    header_color=None, header_size: int = 14, body_size: int = 11,
+    slide,
+    x,
+    y,
+    w,
+    h,
+    header: str,
+    body: str = "",
+    accent=None,
+    header_color=None,
+    header_size: int = 14,
+    body_size: int = 11,
 ):
     """White rounded card + colored top accent bar + bold header + body text."""
     accent = accent if accent is not None else BLUE
@@ -1644,13 +1704,26 @@ def _inv_card(
     _add_filled_rect(slide, x, y, w, Inches(0.08), accent)
     pad = Inches(0.24)
     _add_textbox(
-        slide, x + pad, y + Inches(0.2), w - pad * 2, Inches(0.46),
-        text=header, font_size=header_size, bold=True, color=header_color or accent,
+        slide,
+        x + pad,
+        y + Inches(0.2),
+        w - pad * 2,
+        Inches(0.46),
+        text=header,
+        font_size=header_size,
+        bold=True,
+        color=header_color or accent,
     )
     if body:
         _add_textbox(
-            slide, x + pad, y + Inches(0.64), w - pad * 2, h - Inches(0.78),
-            text=body, font_size=body_size, color=INK_SLATE,
+            slide,
+            x + pad,
+            y + Inches(0.64),
+            w - pad * 2,
+            h - Inches(0.78),
+            text=body,
+            font_size=body_size,
+            color=INK_SLATE,
         )
     return card
 
@@ -1660,8 +1733,15 @@ def _inv_callout(slide, text: str, top: float = 6.5):
     y = Inches(top)
     _add_rounded_rect(slide, Inches(0.65), y, Inches(12.05), Inches(0.52), NAVY)
     _add_textbox(
-        slide, Inches(0.95), y, Inches(11.45), Inches(0.52), text=text,
-        font_size=12, color=WHITE, anchor=MSO_ANCHOR.MIDDLE,
+        slide,
+        Inches(0.95),
+        y,
+        Inches(11.45),
+        Inches(0.52),
+        text=text,
+        font_size=12,
+        color=WHITE,
+        anchor=MSO_ANCHOR.MIDDLE,
     )
 
 
@@ -1677,8 +1757,16 @@ def _inv_numbered_rows(slide, items, top: float = 1.7, pitch: float = 0.95):
         circ.fill.fore_color.rgb = accent
         circ.line.fill.background()
         _add_textbox(
-            slide, Inches(0.8), Inches(ry), Inches(0.53), Inches(0.53), text=str(i + 1),
-            font_size=18, bold=True, color=WHITE, alignment=PP_ALIGN.CENTER,
+            slide,
+            Inches(0.8),
+            Inches(ry),
+            Inches(0.53),
+            Inches(0.53),
+            text=str(i + 1),
+            font_size=18,
+            bold=True,
+            color=WHITE,
+            alignment=PP_ALIGN.CENTER,
             anchor=MSO_ANCHOR.MIDDLE,
         )
         px, pw, ph = Inches(1.62), Inches(11.1), Inches(0.67)
@@ -1686,8 +1774,15 @@ def _inv_numbered_rows(slide, items, top: float = 1.7, pitch: float = 0.95):
         _add_rounded_rect(slide, px, py, pw, ph, INV_PILL)
         _add_filled_rect(slide, px, py, Inches(0.08), ph, accent)
         _add_textbox(
-            slide, px + Inches(0.26), py, pw - Inches(0.45), ph, text=txt,
-            font_size=14, color=NAVY, anchor=MSO_ANCHOR.MIDDLE,
+            slide,
+            px + Inches(0.26),
+            py,
+            pw - Inches(0.45),
+            ph,
+            text=txt,
+            font_size=14,
+            color=NAVY,
+            anchor=MSO_ANCHOR.MIDDLE,
         )
 
 
@@ -2707,7 +2802,9 @@ def _selected_channels(data: Dict) -> Dict[str, Dict[str, Any]]:
     return selected
 
 
-def _largest_remainder_round(values: Dict[str, float], total: int = 100) -> Dict[str, int]:
+def _largest_remainder_round(
+    values: Dict[str, float], total: int = 100
+) -> Dict[str, int]:
     """Round a dict of {key: float_percentage} to integers that sum EXACTLY to
     ``total`` (default 100), using the largest-remainder (Hamilton) method.
 
@@ -2772,7 +2869,7 @@ def _largest_remainder_round(values: Dict[str, float], total: int = 100) -> Dict
             (k for k in values if floors[k] > 0),
             key=lambda k: remainders[k],
         )
-        for k in order[: (-leftover)]:
+        for k in order[:(-leftover)]:
             floors[k] -= 1
 
     return floors
@@ -2865,7 +2962,9 @@ def _add_footer(slide, today: str):
     """
     rule_y = Inches(7.12)
     # Thin warm-gray rule (matches the reference deck's minimal footer treatment)
-    _add_filled_rect(slide, Inches(0.55), rule_y, Inches(12.23), Inches(0.012), WARM_GRAY)
+    _add_filled_rect(
+        slide, Inches(0.55), rule_y, Inches(12.23), Inches(0.012), WARM_GRAY
+    )
     # Left-aligned date -- 9pt readability floor (was 7pt)
     _add_textbox(
         slide,
@@ -2895,10 +2994,23 @@ def _add_footer(slide, today: str):
 
 
 _TITLE_ACRONYMS = {
-    "Ai": "AI", "Roi": "ROI", "Cpa": "CPA", "Cpc": "CPC", "Cph": "CPH",
-    "Dsp": "DSP", "Crm": "CRM", "Kpi": "KPI", "Us": "US", "Uk": "UK",
-    "Eu": "EU", "Seo": "SEO", "Ats": "ATS", "Ppc": "PPC", "Qc": "QC",
-    "Roas": "ROAS", "Dei": "DEI",
+    "Ai": "AI",
+    "Roi": "ROI",
+    "Cpa": "CPA",
+    "Cpc": "CPC",
+    "Cph": "CPH",
+    "Dsp": "DSP",
+    "Crm": "CRM",
+    "Kpi": "KPI",
+    "Us": "US",
+    "Uk": "UK",
+    "Eu": "EU",
+    "Seo": "SEO",
+    "Ats": "ATS",
+    "Ppc": "PPC",
+    "Qc": "QC",
+    "Roas": "ROAS",
+    "Dei": "DEI",
 }
 
 
@@ -3054,35 +3166,71 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, NAVY)
 
     # Top-right corner decoration: layered purple-light + teal rectangles
-    _add_filled_rect(slide, Inches(10.0), Inches(0), Inches(3.33), Inches(0.2), JOVEO_LIGHT_PURPLE)
+    _add_filled_rect(
+        slide, Inches(10.0), Inches(0), Inches(3.33), Inches(0.2), JOVEO_LIGHT_PURPLE
+    )
     _add_filled_rect(slide, Inches(11.33), Inches(0.2), Inches(2.0), Inches(0.13), TEAL)
 
     # joveo wordmark, top-left
     _add_textbox(
-        slide, Inches(0.62), Inches(0.5), Inches(4), Inches(0.55),
-        text="joveo", font_size=26, bold=True, color=JOVEO_LIGHT_PURPLE,
+        slide,
+        Inches(0.62),
+        Inches(0.5),
+        Inches(4),
+        Inches(0.55),
+        text="joveo",
+        font_size=26,
+        bold=True,
+        color=JOVEO_LIGHT_PURPLE,
     )
 
     # Main title
     _add_textbox(
-        slide, Inches(0.62), Inches(1.95), Inches(11.5), Inches(0.95),
-        text="Media Plan", font_size=52, bold=True, color=WHITE,
+        slide,
+        Inches(0.62),
+        Inches(1.95),
+        Inches(11.5),
+        Inches(0.95),
+        text="Media Plan",
+        font_size=52,
+        bold=True,
+        color=WHITE,
     )
     # "for" connector + client hero
     _add_textbox(
-        slide, Inches(0.66), Inches(3.0), Inches(4), Inches(0.38),
-        text="for", font_size=20, italic=True, color=WHITE,
+        slide,
+        Inches(0.66),
+        Inches(3.0),
+        Inches(4),
+        Inches(0.38),
+        text="for",
+        font_size=20,
+        italic=True,
+        color=WHITE,
     )
     _add_textbox(
-        slide, Inches(0.62), Inches(3.48), Inches(11.8), Inches(1.0),
-        text=client, font_size=42, bold=True, color=LIGHT_TEAL,
+        slide,
+        Inches(0.62),
+        Inches(3.48),
+        Inches(11.8),
+        Inches(1.0),
+        text=client,
+        font_size=42,
+        bold=True,
+        color=LIGHT_TEAL,
     )
 
     # Industry subtitle
     if industry_label:
         _add_textbox(
-            slide, Inches(0.64), Inches(4.5), Inches(10), Inches(0.5),
-            text=industry_label, font_size=18, color=LIGHT_TEAL,
+            slide,
+            Inches(0.64),
+            Inches(4.5),
+            Inches(10),
+            Inches(0.5),
+            text=industry_label,
+            font_size=18,
+            color=LIGHT_TEAL,
         )
 
     # Company tagline from enrichment data (Wikipedia description)
@@ -3096,31 +3244,64 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         else:
             tagline = desc[:120].rsplit(" ", 1)[0] + "..." if len(desc) > 120 else desc
         _add_textbox(
-            slide, Inches(0.64), Inches(5.02), Inches(9), Inches(0.4),
-            text=tagline, font_size=11, italic=True, color=LIGHT_MUTED,
+            slide,
+            Inches(0.64),
+            Inches(5.02),
+            Inches(9),
+            Inches(0.4),
+            text=tagline,
+            font_size=11,
+            italic=True,
+            color=LIGHT_MUTED,
         )
 
     # Prepared-by + date (bottom-left)
     _add_textbox(
-        slide, Inches(0.62), Inches(5.62), Inches(8), Inches(0.4),
+        slide,
+        Inches(0.62),
+        Inches(5.62),
+        Inches(8),
+        Inches(0.4),
         text="Created by Shubham Singh Chandel  •  Powered by Joveo's Global Supply Team",
-        font_size=13, color=TEAL,
+        font_size=13,
+        color=TEAL,
     )
     _add_textbox(
-        slide, Inches(0.62), Inches(6.04), Inches(6), Inches(0.4),
-        text=today, font_size=13, color=LIGHT_MUTED,
+        slide,
+        Inches(0.62),
+        Inches(6.04),
+        Inches(6),
+        Inches(0.4),
+        text=today,
+        font_size=13,
+        color=LIGHT_MUTED,
     )
 
     # Bottom-right tagline
     _add_textbox(
-        slide, Inches(8.4), Inches(6.4), Inches(4.3), Inches(0.6),
+        slide,
+        Inches(8.4),
+        Inches(6.4),
+        Inches(4.3),
+        Inches(0.6),
         text="High-Performance, AI-Led\nRecruitment Marketing Platform",
-        font_size=11, color=LIGHT_MUTED, alignment=PP_ALIGN.RIGHT,
+        font_size=11,
+        color=LIGHT_MUTED,
+        alignment=PP_ALIGN.RIGHT,
     )
 
     # Bottom edge brand bars (purple-light + teal)
-    _add_filled_rect(slide, Inches(0), SLIDE_HEIGHT - Inches(0.16), SLIDE_WIDTH, Inches(0.08), JOVEO_LIGHT_PURPLE)
-    _add_filled_rect(slide, Inches(0), SLIDE_HEIGHT - Inches(0.08), SLIDE_WIDTH, Inches(0.08), TEAL)
+    _add_filled_rect(
+        slide,
+        Inches(0),
+        SLIDE_HEIGHT - Inches(0.16),
+        SLIDE_WIDTH,
+        Inches(0.08),
+        JOVEO_LIGHT_PURPLE,
+    )
+    _add_filled_rect(
+        slide, Inches(0), SLIDE_HEIGHT - Inches(0.08), SLIDE_WIDTH, Inches(0.08), TEAL
+    )
 
 
 # ===================================================================
@@ -3317,7 +3498,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     )
 
     body_top = col_top + Inches(0.45)
-    _stated_work_label = WORK_ENV_LABELS.get(work_env, work_env.replace("_", " ").title())
+    _stated_work_label = WORK_ENV_LABELS.get(
+        work_env, work_env.replace("_", " ").title()
+    )
     _effective_work_model, _work_model_note = _gold_standard.effective_work_model(
         _stated_work_label, roles
     )
@@ -3849,7 +4032,8 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     _kpi_pt = 24
     for _v, _lbl in secondary_metrics:
         _kpi_pt = min(
-            _kpi_pt, _fit_font_single_line(str(_v), _metric_w_in - 0.2, start_pt=24, min_pt=14)
+            _kpi_pt,
+            _fit_font_single_line(str(_v), _metric_w_in - 0.2, start_pt=24, min_pt=14),
         )
 
     for i, (value, label) in enumerate(secondary_metrics):
@@ -5612,9 +5796,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     avg_cph, _ = _compute_blended_cph(budget_alloc)
 
     if avg_cpa and avg_cpa > 0 and proj_hires and proj_hires > 0:
-        insight_text = (
-            f"Budget engine projects {_cur}{avg_cpa:,.0f} average CPA across all channels"
-        )
+        insight_text = f"Budget engine projects {_cur}{avg_cpa:,.0f} average CPA across all channels"
         if avg_cph and avg_cph > 0:
             insight_text += f", with {_fmt.fmt_money(avg_cph)} average cost-per-hire"
         insight_text += (
@@ -5750,7 +5932,10 @@ def _embed_pie_chart_on_budget_slide(prs: Presentation, data: Dict) -> None:
 
 
 def _cmp_status(
-    client_val: Any, industry_val: Any, higher_is_better: bool = True, tie_band: float = 0.05
+    client_val: Any,
+    industry_val: Any,
+    higher_is_better: bool = True,
+    tie_band: float = 0.05,
 ) -> str:
     """Honest 3-state benchmark comparison: ``'beating'`` / ``'on_par'`` /
     ``'trailing'``. A client value within +/-``tie_band`` (default 5%) of the
@@ -5766,11 +5951,7 @@ def _cmp_status(
         if c == 0:
             return "on_par"
         is_positive_direction = c > 0
-        return (
-            "beating"
-            if is_positive_direction == higher_is_better
-            else "trailing"
-        )
+        return "beating" if is_positive_direction == higher_is_better else "trailing"
     diff_pct = (c - i) / abs(i)
     if abs(diff_pct) <= tie_band:
         return "on_par"
@@ -5929,7 +6110,11 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             "client_val": f"{n_locations} market{'s' if n_locations != 1 else ''}",
             # A value INSIDE the 3-5 benchmark range is 'within range' -- it
             # is never rendered as "beating" just for landing inside it.
-            "industry_val": "3-5 markets (within range)" if _geo_status == "on_par" else "3-5 markets",
+            "industry_val": (
+                "3-5 markets (within range)"
+                if _geo_status == "on_par"
+                else "3-5 markets"
+            ),
             "status": _geo_status,
         },
     ]
@@ -5973,7 +6158,9 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         bench = _get_benchmarks(industry, data)
         cpa_str = bench.get("cpa", "$25")
         try:
-            cpa_nums = [float(x) for x in re.findall(r"[\d.]+", cpa_str.replace(",", ""))]
+            cpa_nums = [
+                float(x) for x in re.findall(r"[\d.]+", cpa_str.replace(",", ""))
+            ]
         except Exception:
             cpa_nums = []
         if len(cpa_nums) >= 2:
@@ -7740,7 +7927,9 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         )
 
         profile_top = section_top + Inches(0.5)
-        _add_rounded_rect(slide, Inches(0.55), profile_top, left_w, profile_card_h, WHITE)
+        _add_rounded_rect(
+            slide, Inches(0.55), profile_top, left_w, profile_card_h, WHITE
+        )
         _add_filled_rect(
             slide, Inches(0.55), profile_top, Inches(0.06), profile_card_h, BLUE
         )
@@ -7876,8 +8065,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             # title-case them like the ttf/oar dict-flattening two blocks
             # above already does, instead of leaking the raw snake_case key.
             src_items = [
-                f"{_fmt.smart_title(k)}: {v}"
-                for k, v in list(top_src.items())[:3]
+                f"{_fmt.smart_title(k)}: {v}" for k, v in list(top_src.items())[:3]
             ]
             trend_items.append(f"Top Sources: {', '.join(src_items)}")
 
@@ -7887,15 +8075,20 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         if len(trend_items) < 2:
             _cl_gold = data.get("_gold_standard") or {}
             _cl_city_data = (
-                _cl_gold.get("city_level_data") or {} if isinstance(_cl_gold, dict) else {}
+                _cl_gold.get("city_level_data") or {}
+                if isinstance(_cl_gold, dict)
+                else {}
             )
             trend_items.extend(
-                _insight.role_requirements_callout(str(data.get("industry") or ""), roles)
+                _insight.role_requirements_callout(
+                    str(data.get("industry") or ""), roles
+                )
             )
             if _cl_first_loc:
                 trend_items.append(
                     _insight.geography_rationale(
-                        _cl_first_loc, _cl_city_data.get(_cl_first_loc.split(",")[0].strip())
+                        _cl_first_loc,
+                        _cl_city_data.get(_cl_first_loc.split(",")[0].strip()),
                     )
                 )
 
@@ -9888,9 +10081,7 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
             return n * (9 * 1.35) / 72.0
 
         def _risk_card_h_in(impact_text: str, mitigation_text: str) -> float:
-            mitigation_top_in = (
-                _impact_top_in + _risk_impact_h_in(impact_text) + 0.18
-            )
+            mitigation_top_in = _impact_top_in + _risk_impact_h_in(impact_text) + 0.18
             return mitigation_top_in + _risk_mitigation_h_in(mitigation_text) + 0.22
 
         _risk_list = risks[:4]
@@ -10223,7 +10414,9 @@ def _push_pull_split_line(items: "list", total_budget: float) -> str:
         return ""
     total = sum(d for _, d in items)
     parts = [f"{label} {_fmt.fmt_money(d, compact=True)}" for label, d in items]
-    pct = f" ({round(total / total_budget * 100)}% of budget)" if total_budget > 0 else ""
+    pct = (
+        f" ({round(total / total_budget * 100)}% of budget)" if total_budget > 0 else ""
+    )
     return f"This plan: {' · '.join(parts)} — {_fmt.fmt_money(total, compact=True)} total{pct}"
 
 
@@ -10302,9 +10495,13 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
             continue
         detail_text = str(section.get("detail") or "")
         split_line = _push_pull_split_line(_split, _total_budget)
-        n_detail_lines = _estimate_lines(detail_text, _detail_w_in, 11) if detail_text else 0
+        n_detail_lines = (
+            _estimate_lines(detail_text, _detail_w_in, 11) if detail_text else 0
+        )
         n_split_lines = (
-            _estimate_lines(split_line, _detail_w_in, 9, char_em=0.5) if split_line else 0
+            _estimate_lines(split_line, _detail_w_in, 9, char_em=0.5)
+            if split_line
+            else 0
         )
         detail_h = n_detail_lines * (11 * 1.35) / 72.0
         split_h = (n_split_lines * (9 * 1.35) / 72.0 + 0.15) if split_line else 0.0
@@ -10719,7 +10916,9 @@ def _build_slide_cpa_reference(prs: Presentation, data: Dict, deck: Dict) -> Non
     row_h = Inches(0.58)
 
     # Header row -- indigo with white Poppins text
-    _add_filled_rect(slide, table_left, header_top, sum(col_widths, Inches(0)), header_h, NAVY)
+    _add_filled_rect(
+        slide, table_left, header_top, sum(col_widths, Inches(0)), header_h, NAVY
+    )
     cx = table_left
     for header, cw in zip(headers, col_widths):
         _add_textbox(
@@ -10802,9 +11001,15 @@ def _build_slide_why_joveo(prs: Presentation, data: Dict, deck: Dict) -> None:
 
     _add_top_band(slide, "The Joveo Advantage", today)
     _add_textbox(
-        slide, Inches(0.63), Inches(0.92), Inches(12.2), Inches(0.45),
+        slide,
+        Inches(0.63),
+        Inches(0.92),
+        Inches(12.2),
+        Inches(0.45),
         text=f"Why Joveo is the right partner for {client}'s {industry_label} hiring at scale",
-        font_size=13, italic=True, color=BLUE,
+        font_size=13,
+        italic=True,
+        color=BLUE,
     )
 
     cards = [
@@ -10854,8 +11059,15 @@ def _build_slide_why_joveo(prs: Presentation, data: Dict, deck: Dict) -> None:
         x = left + col * (cw + gap_x)
         y = top + Emu(int(row * (int(ch) + int(gap_y))))
         _inv_card(
-            slide, x, y, cw, ch, header, body,
-            accent=INV_ACCENTS[i % len(INV_ACCENTS)], body_size=11,
+            slide,
+            x,
+            y,
+            cw,
+            ch,
+            header,
+            body,
+            accent=INV_ACCENTS[i % len(INV_ACCENTS)],
+            body_size=11,
         )
 
     # visual:manpower#4: pull the closing callout band up to sit right below
@@ -10984,7 +11196,9 @@ def _interpolate_next_steps(steps: List[Any], data: Dict) -> List[str]:
         if "align on scope" in low and roles_phrase and loc_phrase:
             text = f"Align on scope: confirm the {roles_phrase} priority and the {loc_phrase}"
         elif "finalize weekly budget" in low and budget_duration_paren:
-            text = f"Finalize weekly budget ({budget_duration_paren}) and success metrics"
+            text = (
+                f"Finalize weekly budget ({budget_duration_paren}) and success metrics"
+            )
         elif "integrate the client job feed" in low and client:
             text = f"Integrate {client}'s job feed with the Joveo platform"
         elif "launch campaign within" in low and budget_duration_dash:
@@ -11009,13 +11223,9 @@ def _interpolate_timeline_bullets(
     this only touches the bullet TEXT.
     """
     client = _proper_client_name(str(data.get("client_name") or "").strip())
-    sorted_ch = sorted(
-        channels.values(), key=lambda c: c.get("pct", 0), reverse=True
-    )
+    sorted_ch = sorted(channels.values(), key=lambda c: c.get("pct", 0), reverse=True)
     top_channel_names = [ch["label"] for ch in sorted_ch[:2] if ch.get("label")]
-    top_channels_phrase = (
-        " and ".join(top_channel_names) if top_channel_names else ""
-    )
+    top_channels_phrase = " and ".join(top_channel_names) if top_channel_names else ""
     for ph in phases:
         bullets = ph.get("bullets") or []
         new_bullets = []
@@ -11339,12 +11549,14 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
     # S89 KEYSTONE: "Joveo measured" callout -- only when the budget engine
     # attached first-party measured outcomes from the cg_benchmarks warehouse.
     # Read defensively; the key is absent in the common (no-match) case.
-    _ba_meta = (data.get("_budget_allocation") or {})
+    _ba_meta = data.get("_budget_allocation") or {}
     if isinstance(_ba_meta, dict):
         _ba_meta = _ba_meta.get("metadata") or {}
     else:
         _ba_meta = {}
-    _real_outcomes = _ba_meta.get("real_outcomes") if isinstance(_ba_meta, dict) else None
+    _real_outcomes = (
+        _ba_meta.get("real_outcomes") if isinstance(_ba_meta, dict) else None
+    )
     if _real_outcomes:
         try:
             _n_measured = len(_real_outcomes) if isinstance(_real_outcomes, list) else 1
@@ -11353,7 +11565,9 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
         _badge_w = Inches(3.0)
         _badge_x = SLIDE_WIDTH - _badge_w - Inches(0.55)
         _badge_top = Inches(0.95)
-        _add_rounded_rect(slide, _badge_x, _badge_top, _badge_w, Inches(0.5), LAVENDER_100)
+        _add_rounded_rect(
+            slide, _badge_x, _badge_top, _badge_w, Inches(0.5), LAVENDER_100
+        )
         _add_filled_rect(slide, _badge_x, _badge_top, Inches(0.06), Inches(0.5), GREEN)
         _badge_label = (
             f"Joveo measured · {_n_measured} role"
@@ -11746,7 +11960,9 @@ def _build_slide_data_sources(prs: Presentation, data: Dict):
         "Provenance: live APIs + Nova KB + curated benchmarks",
     ]
     if _real_outcomes:
-        _provenance_bits.append("calibrated against Joveo measured outcomes (cg_benchmarks)")
+        _provenance_bits.append(
+            "calibrated against Joveo measured outcomes (cg_benchmarks)"
+        )
     _provenance_text = " · ".join(_provenance_bits) + "."
     _add_textbox(
         slide,

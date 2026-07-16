@@ -46,7 +46,13 @@ import budget_engine as be  # noqa: E402
 
 
 def _fake_channel(
-    dollars, apps, hires, roi, category="job_board", role="performance", cpc_source="static_benchmark"
+    dollars,
+    apps,
+    hires,
+    roi,
+    category="job_board",
+    role="performance",
+    cpc_source="static_benchmark",
 ):
     return {
         "dollar_amount": dollars,
@@ -125,14 +131,18 @@ def test_total_hires_preserved_exactly_via_largest_remainder():
         "a": _fake_channel(50_000, 4000, 0, 5, category="programmatic"),
         "b": _fake_channel(30_000, 1200, 0, 5, category="niche_board"),
         "c": _fake_channel(20_000, 300, 0, 5, category="social"),
-        "brand": _fake_channel(10_000, 50, 0, 1, category="employer_branding", role="brand"),
+        "brand": _fake_channel(
+            10_000, 50, 0, 1, category="employer_branding", role="brand"
+        ),
     }
     for total in (0, 1, 7, 48, 57, 101, 999):
         allocs_copy = {k: dict(v) for k, v in allocs.items()}
-        be._redistribute_hires_by_conversion(allocs_copy, total, industry_avg_cph=4000.0)
-        assert sum(c["projected_hires"] for c in allocs_copy.values()) == total, (
-            f"total={total} did not round-trip exactly"
+        be._redistribute_hires_by_conversion(
+            allocs_copy, total, industry_avg_cph=4000.0
         )
+        assert (
+            sum(c["projected_hires"] for c in allocs_copy.values()) == total
+        ), f"total={total} did not round-trip exactly"
 
 
 def test_niche_board_with_meaningful_apps_gets_nonzero_hires():
@@ -140,16 +150,24 @@ def test_niche_board_with_meaningful_apps_gets_nonzero_hires():
     longer be modeled at 0 hires just because a blended hire_rate ignored
     its (highest-of-all) conversion rate."""
     allocs = {
-        "Programmatic (DSP)": _fake_channel(60_000, 9000, 0, 10, category="programmatic"),
+        "Programmatic (DSP)": _fake_channel(
+            60_000, 9000, 0, 10, category="programmatic"
+        ),
         "Regional Job Boards": _fake_channel(40_000, 7000, 0, 10, category="regional"),
-        "Niche / Industry Boards": _fake_channel(18_000, 1500, 0, 2, category="niche_board"),
+        "Niche / Industry Boards": _fake_channel(
+            18_000, 1500, 0, 2, category="niche_board"
+        ),
         "Social Media": _fake_channel(4_000, 40, 0, 1, category="social"),
-        "Employer Branding": _fake_channel(8_000, 50, 0, 1, category="employer_branding", role="brand"),
+        "Employer Branding": _fake_channel(
+            8_000, 50, 0, 1, category="employer_branding", role="brand"
+        ),
     }
-    be._redistribute_hires_by_conversion(allocs, total_hires=48, industry_avg_cph=4000.0)
-    assert allocs["Niche / Industry Boards"]["projected_hires"] > 0, (
-        "Niche board with 1500 applications still modeled at 0 hires"
+    be._redistribute_hires_by_conversion(
+        allocs, total_hires=48, industry_avg_cph=4000.0
     )
+    assert (
+        allocs["Niche / Industry Boards"]["projected_hires"] > 0
+    ), "Niche board with 1500 applications still modeled at 0 hires"
 
 
 def test_brand_channels_always_zero_hires_after_redistribution():
@@ -157,9 +175,13 @@ def test_brand_channels_always_zero_hires_after_redistribution():
     never receive hires from the redistribution, regardless of dollars."""
     allocs = {
         "perf": _fake_channel(50_000, 5000, 0, 8, category="programmatic"),
-        "brand": _fake_channel(50_000, 5000, 0, 5, category="employer_branding", role="brand"),
+        "brand": _fake_channel(
+            50_000, 5000, 0, 5, category="employer_branding", role="brand"
+        ),
     }
-    be._redistribute_hires_by_conversion(allocs, total_hires=30, industry_avg_cph=4000.0)
+    be._redistribute_hires_by_conversion(
+        allocs, total_hires=30, industry_avg_cph=4000.0
+    )
     assert allocs["brand"]["projected_hires"] == 0
     assert allocs["perf"]["projected_hires"] == 30
 
@@ -173,7 +195,9 @@ def test_hire_split_ranks_by_conversion_table_not_flat_rate():
         "Niche": _fake_channel(20_000, 1000, 0, 5, category="niche_board"),
         "Social": _fake_channel(20_000, 1000, 0, 5, category="social"),
     }
-    be._redistribute_hires_by_conversion(allocs, total_hires=50, industry_avg_cph=4000.0)
+    be._redistribute_hires_by_conversion(
+        allocs, total_hires=50, industry_avg_cph=4000.0
+    )
     assert allocs["Niche"]["projected_hires"] > allocs["Social"]["projected_hires"], (
         "Equal-apps niche and social channels split hires identically -- "
         "conversion-rate table isn't actually driving the split"
@@ -201,7 +225,11 @@ def test_fit_score_is_monotonic_in_roi_score():
         "worst": _fake_channel(10_000, 500, 1, 2, category="social"),
     }
     be._finalize_channel_ranking(allocs)
-    assert allocs["best"]["fit_score"] > allocs["mid"]["fit_score"] > allocs["worst"]["fit_score"]
+    assert (
+        allocs["best"]["fit_score"]
+        > allocs["mid"]["fit_score"]
+        > allocs["worst"]["fit_score"]
+    )
     assert allocs["best"]["fit_rank"] == 1
 
 
@@ -221,7 +249,9 @@ def test_vetted_tier_and_fit_never_contradict_roi_ranking():
 def test_brand_channels_get_their_own_labeled_tier():
     allocs = {
         "perf": _fake_channel(10_000, 500, 5, 5, category="regional"),
-        "brand": _fake_channel(10_000, 50, 0, 1, category="employer_branding", role="brand"),
+        "brand": _fake_channel(
+            10_000, 50, 0, 1, category="employer_branding", role="brand"
+        ),
     }
     be._finalize_channel_ranking(allocs)
     assert allocs["brand"]["vetted_tier"] == "Brand & Awareness"
@@ -244,7 +274,13 @@ def test_shared_fallback_cpc_is_differentiated_and_downgraded():
             18_000, 1500, 6, 8, category="niche_board", cpc_source="knowledge_base"
         ),
         "Employer Branding": _fake_channel(
-            8_000, 50, 0, 1, category="employer_branding", role="brand", cpc_source="knowledge_base"
+            8_000,
+            50,
+            0,
+            1,
+            category="employer_branding",
+            role="brand",
+            cpc_source="knowledge_base",
         ),
     }
     allocs["Niche / Industry Boards"]["cpc"] = 11.47
@@ -265,8 +301,12 @@ def test_dedupe_leaves_genuinely_shared_category_cpc_alone():
     """Two channels of the SAME category legitimately sharing a CPC (e.g.
     two regional boards) is not a defect -- must not be touched."""
     allocs = {
-        "Regional A": _fake_channel(10_000, 500, 5, 5, category="regional", cpc_source="live_benchmark"),
-        "Regional B": _fake_channel(10_000, 500, 5, 5, category="regional", cpc_source="live_benchmark"),
+        "Regional A": _fake_channel(
+            10_000, 500, 5, 5, category="regional", cpc_source="live_benchmark"
+        ),
+        "Regional B": _fake_channel(
+            10_000, 500, 5, 5, category="regional", cpc_source="live_benchmark"
+        ),
     }
     allocs["Regional A"]["cpc"] = 0.75
     allocs["Regional B"]["cpc"] = 0.75
@@ -284,8 +324,12 @@ def test_dedupe_leaves_static_benchmark_source_alone():
     """The static benchmark table is already category-differentiated --
     two channels landing on it independently isn't a collision."""
     allocs = {
-        "a": _fake_channel(10_000, 500, 5, 5, category="job_board", cpc_source="static_benchmark"),
-        "b": _fake_channel(10_000, 500, 5, 5, category="programmatic", cpc_source="static_benchmark"),
+        "a": _fake_channel(
+            10_000, 500, 5, 5, category="job_board", cpc_source="static_benchmark"
+        ),
+        "b": _fake_channel(
+            10_000, 500, 5, 5, category="programmatic", cpc_source="static_benchmark"
+        ),
     }
     allocs["a"]["cpc"] = 0.85
     allocs["b"]["cpc"] = 0.85
@@ -308,9 +352,9 @@ def test_manpower_niche_board_no_longer_zero_hires_end_to_end():
     allocs = result["channel_allocations"]
     niche = allocs.get("Niche / Industry Boards")
     assert niche is not None
-    assert niche["projected_hires"] > 0, (
-        "Niche board still projects 0 hires after the full allocation pipeline"
-    )
+    assert (
+        niche["projected_hires"] > 0
+    ), "Niche board still projects 0 hires after the full allocation pipeline"
 
 
 def test_atria_niche_board_no_longer_zero_hires_end_to_end():
@@ -343,7 +387,9 @@ def test_top_allocated_performance_channel_never_worst_roi():
         performance = {
             name: ch for name, ch in allocs.items() if ch.get("channel_role") != "brand"
         }
-        top_name = max(performance, key=lambda n: performance[n].get("dollar_amount") or 0)
+        top_name = max(
+            performance, key=lambda n: performance[n].get("dollar_amount") or 0
+        )
         top_roi = performance[top_name].get("roi_score") or 0
         worst_roi = min(ch.get("roi_score") or 0 for ch in performance.values())
         assert top_roi > worst_roi, (
@@ -359,9 +405,9 @@ def test_metadata_channel_ranking_present_and_ordered_by_roi():
         assert ranking, "channel_ranking metadata missing"
         ranked = [r for r in ranking if r["rank"] is not None]
         roi_scores = [r["roi_score"] for r in ranked]
-        assert roi_scores == sorted(roi_scores, reverse=True), (
-            "channel_ranking metadata is not sorted by roi_score descending"
-        )
+        assert roi_scores == sorted(
+            roi_scores, reverse=True
+        ), "channel_ranking metadata is not sorted by roi_score descending"
 
 
 def test_fit_score_and_vetted_tier_set_on_every_allocation_channel():

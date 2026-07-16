@@ -24,6 +24,7 @@ import eval_gate  # noqa: E402
 # Fixtures / builders
 # ---------------------------------------------------------------------------
 
+
 def _good_result(**overrides):
     """A full-eval result that clears the default thresholds."""
     result = {
@@ -49,6 +50,7 @@ def _defaults():
 # ---------------------------------------------------------------------------
 # Floor checks
 # ---------------------------------------------------------------------------
+
 
 def test_good_result_passes_all_gates():
     verdict = eval_gate.evaluate_gate(_good_result(), _defaults(), baseline=None)
@@ -122,6 +124,7 @@ def test_category_scores_fallback_to_details():
 # Regression checks
 # ---------------------------------------------------------------------------
 
+
 def test_regression_within_tolerance_passes():
     baseline = {"overall_score": 92.0, "categories": {"Budget Sanity": 96.0}}
     result = _good_result(overall_score=91.0)  # 1pt drop, tolerance is 3pt
@@ -182,6 +185,7 @@ def test_improvement_never_flags_regression():
 # Threshold config merging
 # ---------------------------------------------------------------------------
 
+
 def test_load_thresholds_defaults_when_no_config():
     t = eval_gate.load_thresholds(None)
     assert t["min_overall"] == eval_gate.DEFAULT_THRESHOLDS["min_overall"]
@@ -193,10 +197,14 @@ def test_load_thresholds_defaults_when_no_config():
 
 def test_load_thresholds_shallow_merges_config(tmp_path):
     cfg = tmp_path / "thresholds.json"
-    cfg.write_text(json.dumps({
-        "min_overall": 95.0,
-        "min_category": {"Budget Sanity": 99.0},
-    }))
+    cfg.write_text(
+        json.dumps(
+            {
+                "min_overall": 95.0,
+                "min_category": {"Budget Sanity": 99.0},
+            }
+        )
+    )
     t = eval_gate.load_thresholds(cfg)
     assert t["min_overall"] == 95.0
     assert t["min_category"]["Budget Sanity"] == 99.0  # overridden
@@ -222,11 +230,16 @@ def test_load_thresholds_bad_json_falls_back_to_defaults(tmp_path):
 # Promptfoo fold-in
 # ---------------------------------------------------------------------------
 
+
 def test_fold_in_promptfoo_adds_category_and_reweights(tmp_path):
     pf = tmp_path / "results.json"
-    pf.write_text(json.dumps({
-        "results": {"stats": {"successes": 9, "failures": 1}},
-    }))
+    pf.write_text(
+        json.dumps(
+            {
+                "results": {"stats": {"successes": 9, "failures": 1}},
+            }
+        )
+    )
     base = _good_result()  # 109/120 native
     merged = eval_gate.fold_in_promptfoo(base, pf)
     assert merged["categories"]["LLM Suite (promptfoo)"] == 90.0
@@ -254,6 +267,7 @@ def test_fold_in_promptfoo_zero_cases_is_noop(tmp_path):
 # Baseline I/O
 # ---------------------------------------------------------------------------
 
+
 def test_write_then_load_baseline_roundtrips(tmp_path):
     path = tmp_path / "evals" / "baseline_scores.json"
     eval_gate.write_baseline(path, _good_result())
@@ -270,6 +284,7 @@ def test_load_baseline_missing_returns_none(tmp_path):
 # main() exit-code contract (native suite mocked -- no real eval run)
 # ---------------------------------------------------------------------------
 
+
 def test_main_returns_pass_on_good_scores():
     with mock.patch.object(eval_gate, "run_native_eval", return_value=_good_result()):
         rc = eval_gate.main(["--no-baseline", "--quiet"])
@@ -284,8 +299,9 @@ def test_main_returns_fail_on_low_scores():
 
 
 def test_main_returns_error_when_harness_crashes():
-    with mock.patch.object(eval_gate, "run_native_eval",
-                           side_effect=RuntimeError("import boom")):
+    with mock.patch.object(
+        eval_gate, "run_native_eval", side_effect=RuntimeError("import boom")
+    ):
         rc = eval_gate.main(["--no-baseline", "--quiet"])
     assert rc == eval_gate.EXIT_ERROR
 
@@ -310,9 +326,7 @@ def test_main_update_baseline_writes_and_passes(tmp_path):
 def test_main_writes_json_report(tmp_path):
     report = tmp_path / "gate_report.json"
     with mock.patch.object(eval_gate, "run_native_eval", return_value=_good_result()):
-        rc = eval_gate.main(
-            ["--no-baseline", "--quiet", "--report", str(report)]
-        )
+        rc = eval_gate.main(["--no-baseline", "--quiet", "--report", str(report)])
     assert rc == eval_gate.EXIT_PASS
     payload = json.loads(report.read_text())
     assert payload["passed"] is True

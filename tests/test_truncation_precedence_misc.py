@@ -145,8 +145,14 @@ def _fake_onet_urlopen(req, timeout=10, context=None):
         return _FakeOnetResponse(
             {
                 "category": [
-                    {"title": "Cat A", "example": [{"name": f"ToolA{i}"} for i in range(6)]},
-                    {"title": "Cat B", "example": [{"name": f"ToolB{i}"} for i in range(6)]},
+                    {
+                        "title": "Cat A",
+                        "example": [{"name": f"ToolA{i}"} for i in range(6)],
+                    },
+                    {
+                        "title": "Cat B",
+                        "example": [{"name": f"ToolB{i}"} for i in range(6)],
+                    },
                     {"title": "Cat C"},  # no "example" key -- must be safe
                 ]
             }
@@ -188,7 +194,9 @@ def test_onet_technology_skills_capped_at_two_per_category():
 # Site 4: quick_plan preferred_platforms -- capped at 5
 # ===========================================================================
 def test_role_insights_preferred_platforms_capped_at_five():
-    insights = quick_plan.get_role_insights("Forklift Operator", "logistics_supply_chain")
+    insights = quick_plan.get_role_insights(
+        "Forklift Operator", "logistics_supply_chain"
+    )
     assert insights["collar_type"] == "blue_collar"
     full = collar_intelligence.COLLAR_STRATEGY["blue_collar"]["preferred_platforms"]
     assert len(full) > 5, "fixture must exceed the cap to prove it applies"
@@ -234,7 +242,10 @@ def test_creative_brief_formats_capped_at_four():
 
 def test_creative_brief_formats_short_list_unchanged():
     briefs = social_plan.generate_creative_briefs(
-        ["indeed_sponsored"], "Warehouse Associate", "logistics_supply_chain", "blue_collar"
+        ["indeed_sponsored"],
+        "Warehouse Associate",
+        "logistics_supply_chain",
+        "blue_collar",
     )
     full = social_plan.SEARCH_PLATFORMS["indeed_sponsored"]["ad_formats"]
     assert len(full) <= 4
@@ -245,7 +256,10 @@ def test_creative_brief_missing_ad_formats_safe():
     social_plan.SOCIAL_PLATFORMS["_test_stub"] = {"name": "Stub Platform"}
     try:
         briefs = social_plan.generate_creative_briefs(
-            ["_test_stub"], "Warehouse Associate", "logistics_supply_chain", "blue_collar"
+            ["_test_stub"],
+            "Warehouse Associate",
+            "logistics_supply_chain",
+            "blue_collar",
         )
     finally:
         del social_plan.SOCIAL_PLATFORMS["_test_stub"]

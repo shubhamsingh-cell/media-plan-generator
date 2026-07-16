@@ -144,7 +144,9 @@ class TestUsOnlyCampaignDetection:
         assert ppt._is_us_only_campaign({"country": "New Zealand"}) is False
 
     def test_new_zealand_via_locations_only(self):
-        assert ppt._is_us_only_campaign({"locations": ["Auckland, New Zealand"]}) is False
+        assert (
+            ppt._is_us_only_campaign({"locations": ["Auckland, New Zealand"]}) is False
+        )
 
     def test_countries_missing_from_hardcoded_blocklist_are_detected(self):
         # None of these are in the substring blocklist, but plan_currency's
@@ -165,7 +167,12 @@ class TestUsOnlyCampaignDetection:
 
     def test_plain_us_plan_is_still_us_only(self):
         assert ppt._is_us_only_campaign({"locations": ["United States"]}) is True
-        assert ppt._is_us_only_campaign({"locations": ["San Francisco, CA", "New York, NY"]}) is True
+        assert (
+            ppt._is_us_only_campaign(
+                {"locations": ["San Francisco, CA", "New York, NY"]}
+            )
+            is True
+        )
         assert ppt._is_us_only_campaign({"locations": ["Dallas, TX"]}) is True
         assert ppt._is_us_only_campaign({"locations": ["Dallas"]}) is True
 
@@ -405,8 +412,14 @@ class TestChannelPercentageFooting:
         # Independently rounding each of these would give 31+21+16+13+11+4+3+2=101
         # (the exact drift confirmed on the Pratt & Whitney NZ deck).
         values = {
-            "a": 30.9, "b": 21.0, "c": 16.0, "d": 12.6,
-            "e": 10.9, "f": 3.8, "g": 3.0, "h": 2.0,
+            "a": 30.9,
+            "b": 21.0,
+            "c": 16.0,
+            "d": 12.6,
+            "e": 10.9,
+            "f": 3.8,
+            "g": 3.0,
+            "h": 2.0,
         }
         result = ppt._largest_remainder_round(values)
         assert sum(result.values()) == 100
@@ -416,7 +429,12 @@ class TestChannelPercentageFooting:
         # sum to 93, not ~100), reconciliation must still land on exactly 100
         # rather than under-shooting to 99 (each item capped at +1).
         values = {
-            "a": 23.0, "b": 18.0, "c": 33.0, "d": 3.0, "e": 13.0, "f": 3.0,
+            "a": 23.0,
+            "b": 18.0,
+            "c": 33.0,
+            "d": 3.0,
+            "e": 13.0,
+            "f": 3.0,
         }
         result = ppt._largest_remainder_round(values)
         assert sum(result.values()) == 100
@@ -426,7 +444,9 @@ class TestChannelPercentageFooting:
         result = ppt._largest_remainder_round({"a": 0, "b": 0})
         assert result == {"a": 0, "b": 0}
 
-    def _render_budget_slide_text(self, data: dict, channels_selected: dict) -> list[str]:
+    def _render_budget_slide_text(
+        self, data: dict, channels_selected: dict
+    ) -> list[str]:
         orig = ppt._selected_channels
         ppt._selected_channels = lambda _data: {
             k: dict(v) for k, v in channels_selected.items()
@@ -449,14 +469,70 @@ class TestChannelPercentageFooting:
 
         clr = RGBColor(0x5A, 0x54, 0xBE)
         ba_channel_alloc = {
-            "niche_boards": {"label": "Niche / Industry Boards", "percentage": 33.0, "dollar_amount": 49500, "projected_applications": 2600, "projected_hires": 11, "cpa": 19},
-            "programmatic_dsp": {"label": "Programmatic DSP", "percentage": 23.0, "dollar_amount": 34500, "projected_applications": 1600, "projected_hires": 7, "cpa": 22},
-            "global_boards": {"label": "Global Job Boards", "percentage": 18.0, "dollar_amount": 27000, "projected_applications": 1400, "projected_hires": 6, "cpa": 19},
-            "regional_boards": {"label": "Regional Boards", "percentage": 13.0, "dollar_amount": 19500, "projected_applications": 1000, "projected_hires": 4, "cpa": 19},
-            "apac_regional": {"label": "APAC Regional", "percentage": 5.8, "dollar_amount": 8700, "projected_applications": 100, "projected_hires": 1, "cpa": 87},
-            "social_media": {"label": "Social Media", "percentage": 3.0, "dollar_amount": 4500, "projected_applications": 22, "projected_hires": 0, "cpa": 205},
-            "employer_branding": {"label": "Employer Branding", "percentage": 3.0, "dollar_amount": 4500, "projected_applications": 28, "projected_hires": 0, "cpa": 161},
-            "emea_regional": {"label": "EMEA Regional", "percentage": 1.0, "dollar_amount": 1500, "projected_applications": 15, "projected_hires": 0, "cpa": 100},
+            "niche_boards": {
+                "label": "Niche / Industry Boards",
+                "percentage": 33.0,
+                "dollar_amount": 49500,
+                "projected_applications": 2600,
+                "projected_hires": 11,
+                "cpa": 19,
+            },
+            "programmatic_dsp": {
+                "label": "Programmatic DSP",
+                "percentage": 23.0,
+                "dollar_amount": 34500,
+                "projected_applications": 1600,
+                "projected_hires": 7,
+                "cpa": 22,
+            },
+            "global_boards": {
+                "label": "Global Job Boards",
+                "percentage": 18.0,
+                "dollar_amount": 27000,
+                "projected_applications": 1400,
+                "projected_hires": 6,
+                "cpa": 19,
+            },
+            "regional_boards": {
+                "label": "Regional Boards",
+                "percentage": 13.0,
+                "dollar_amount": 19500,
+                "projected_applications": 1000,
+                "projected_hires": 4,
+                "cpa": 19,
+            },
+            "apac_regional": {
+                "label": "APAC Regional",
+                "percentage": 5.8,
+                "dollar_amount": 8700,
+                "projected_applications": 100,
+                "projected_hires": 1,
+                "cpa": 87,
+            },
+            "social_media": {
+                "label": "Social Media",
+                "percentage": 3.0,
+                "dollar_amount": 4500,
+                "projected_applications": 22,
+                "projected_hires": 0,
+                "cpa": 205,
+            },
+            "employer_branding": {
+                "label": "Employer Branding",
+                "percentage": 3.0,
+                "dollar_amount": 4500,
+                "projected_applications": 28,
+                "projected_hires": 0,
+                "cpa": 161,
+            },
+            "emea_regional": {
+                "label": "EMEA Regional",
+                "percentage": 1.0,
+                "dollar_amount": 1500,
+                "projected_applications": 15,
+                "projected_hires": 0,
+                "cpa": 100,
+            },
         }
         channels_selected = {
             k: {"label": v["label"], "pct": round(v["percentage"]), "color": clr}
@@ -469,8 +545,10 @@ class TestChannelPercentageFooting:
             "_budget_allocation": {
                 "channel_allocations": ba_channel_alloc,
                 "total_projected": {
-                    "applications": 6765, "hires": 29,
-                    "cost_per_application": 22, "cost_per_hire": 5200,
+                    "applications": 6765,
+                    "hires": 29,
+                    "cost_per_application": 22,
+                    "cost_per_hire": 5200,
                 },
                 "metadata": {"total_budget": 150000},
             },
@@ -482,7 +560,9 @@ class TestChannelPercentageFooting:
 
         # Extract percentage cells (strings ending in "%") in table order:
         # header/KPI cards also contain "%"-free text, so filter on the pattern.
-        pct_cells = [t for t in texts if t.endswith("%") and t[:-1].replace(".", "").isdigit()]
+        pct_cells = [
+            t for t in texts if t.endswith("%") and t[:-1].replace(".", "").isdigit()
+        ]
         # Last one is the Total row's percentage; the rest are visible-row pcts.
         assert pct_cells, "no percentage cells found"
         total_pct = int(pct_cells[-1].rstrip("%"))
@@ -498,9 +578,30 @@ class TestChannelPercentageFooting:
 
         clr = RGBColor(0x5A, 0x54, 0xBE)
         ba_channel_alloc = {
-            "niche_boards": {"label": "Niche / Industry Boards", "percentage": 40.0, "dollar_amount": 60000, "projected_applications": 3000, "projected_hires": 13, "cpa": 20},
-            "programmatic_dsp": {"label": "Programmatic DSP", "percentage": 30.0, "dollar_amount": 45000, "projected_applications": 2000, "projected_hires": 9, "cpa": 22},
-            "global_boards": {"label": "Global Job Boards", "percentage": 30.0, "dollar_amount": 45000, "projected_applications": 2000, "projected_hires": 8, "cpa": 22},
+            "niche_boards": {
+                "label": "Niche / Industry Boards",
+                "percentage": 40.0,
+                "dollar_amount": 60000,
+                "projected_applications": 3000,
+                "projected_hires": 13,
+                "cpa": 20,
+            },
+            "programmatic_dsp": {
+                "label": "Programmatic DSP",
+                "percentage": 30.0,
+                "dollar_amount": 45000,
+                "projected_applications": 2000,
+                "projected_hires": 9,
+                "cpa": 22,
+            },
+            "global_boards": {
+                "label": "Global Job Boards",
+                "percentage": 30.0,
+                "dollar_amount": 45000,
+                "projected_applications": 2000,
+                "projected_hires": 8,
+                "cpa": 22,
+            },
         }
         channels_selected = {
             k: {"label": v["label"], "pct": round(v["percentage"]), "color": clr}
@@ -513,16 +614,18 @@ class TestChannelPercentageFooting:
             "_budget_allocation": {
                 "channel_allocations": ba_channel_alloc,
                 "total_projected": {
-                    "applications": 7000, "hires": 30,
-                    "cost_per_application": 21, "cost_per_hire": 5000,
+                    "applications": 7000,
+                    "hires": 30,
+                    "cost_per_application": 21,
+                    "cost_per_hire": 5000,
                 },
                 "metadata": {"total_budget": 150000},
             },
         }
         texts = self._render_budget_slide_text(data, channels_selected)
-        assert not any("smaller channels" in t for t in texts), (
-            "should not add a rollup row when all channels already fit"
-        )
+        assert not any(
+            "smaller channels" in t for t in texts
+        ), "should not add a rollup row when all channels already fit"
 
 
 if __name__ == "__main__":

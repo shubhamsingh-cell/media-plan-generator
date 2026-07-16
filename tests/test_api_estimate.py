@@ -171,7 +171,9 @@ def _reference_total_projected(brief: dict[str, Any]) -> dict[str, Any]:
         top_ch = max(channel_pcts, key=lambda k: channel_pcts[k])
         channel_pcts[top_ch] += intl_pct
 
-    roles_for_ba = [{"title": t, "count": 1, "tier": "Professional"} for t in roles_titles]
+    roles_for_ba = [
+        {"title": t, "count": 1, "tier": "Professional"} for t in roles_titles
+    ]
     locs_for_ba = [app._split_city_state_country(loc) for loc in brief["locations"]]
 
     us_plan = app.plan_geo.is_us_plan(brief) if app.plan_geo is not None else True
@@ -183,7 +185,9 @@ def _reference_total_projected(brief: dict[str, Any]) -> dict[str, Any]:
     )
     if _niche_vendor_fn is not None:
         try:
-            vendor_availability = _niche_vendor_fn(industry=industry_key, us_plan=us_plan)
+            vendor_availability = _niche_vendor_fn(
+                industry=industry_key, us_plan=us_plan
+            )
         except Exception:
             vendor_availability = None
 
@@ -348,15 +352,11 @@ class TestValidation:
         a Python float('nan') without complaint) must be rejected as a
         validation error, not silently propagated into the engine."""
         with pytest.raises(app._EstimateValidationError):
-            app._compute_plan_estimate(
-                {"budget": float("nan"), "roles": ["Driver"]}
-            )
+            app._compute_plan_estimate({"budget": float("nan"), "roles": ["Driver"]})
 
     def test_infinite_budget_raises(self) -> None:
         with pytest.raises(app._EstimateValidationError):
-            app._compute_plan_estimate(
-                {"budget": float("inf"), "roles": ["Driver"]}
-            )
+            app._compute_plan_estimate({"budget": float("inf"), "roles": ["Driver"]})
 
     def test_nan_role_count_raises(self) -> None:
         with pytest.raises(app._EstimateValidationError):
@@ -390,9 +390,7 @@ class TestValidation:
         "-$50,000" -> 50000), which would otherwise silently flip a
         negative budget positive instead of rejecting it."""
         with pytest.raises(app._EstimateValidationError):
-            app._compute_plan_estimate(
-                {"budget": "-$50,000", "roles": ["Driver"]}
-            )
+            app._compute_plan_estimate({"budget": "-$50,000", "roles": ["Driver"]})
 
     def test_exact_adversarial_repro_body_raises(self) -> None:
         """The EXACT body from the 2026-07-15 adversarial review that
@@ -488,12 +486,12 @@ class TestRouteWiring:
             ("estimate", app_source[est_idx : est_idx + 1200]),
             ("generate", app_source[gen_idx : gen_idx + 1200]),
         ):
-            assert "_check_same_origin_auth" in snippet, (
-                f"/api/{name} gate must call the shared parsed-host helper"
-            )
-            assert 'in (self.headers.get("Origin")' not in snippet, (
-                f"/api/{name} gate must not use the bypassable substring check"
-            )
+            assert (
+                "_check_same_origin_auth" in snippet
+            ), f"/api/{name} gate must call the shared parsed-host helper"
+            assert (
+                'in (self.headers.get("Origin")' not in snippet
+            ), f"/api/{name} gate must not use the bypassable substring check"
 
     def test_allowed_hosts_are_exactly_the_s48_set(self) -> None:
         """The parsed-host allowlist must be exactly the three S48 hosts
@@ -541,13 +539,7 @@ def preview_js_source() -> str:
     module) -- the wizard's debounced /api/estimate client, source-
     inspected below since it has no standalone JS test runner (matches
     TestRouteWiring's source-inspection pattern for app.py above)."""
-    path = (
-        PROJECT_ROOT
-        / "templates"
-        / "partials"
-        / "index"
-        / "body_preview_js.html"
-    )
+    path = PROJECT_ROOT / "templates" / "partials" / "index" / "body_preview_js.html"
     return path.read_text(encoding="utf-8")
 
 
@@ -650,9 +642,9 @@ class TestPreviewJsStaleRepaintAndRetry:
             "the success handler must discard a response superseded by a "
             "newer sig -- Finding C's core guard"
         )
-        assert "if (requestSig !== lastScheduledSig) return;" in catch_snippet, (
-            "the error handler must discard a superseded failure the same way"
-        )
+        assert (
+            "if (requestSig !== lastScheduledSig) return;" in catch_snippet
+        ), "the error handler must discard a superseded failure the same way"
         # And the immediate placeholder-on-schedule half of the guard: no
         # stale number is shown while ANY fetch (superseded or not) is
         # still pending.
@@ -702,16 +694,14 @@ class TestPreviewJsStaleRepaintAndRetry:
             "success handler must repaint from a fresh gather(), not the "
             "schedule-time `m` snapshot"
         )
-        assert "paintOutcomes(gather());" in catch_snippet, (
-            "error handler must repaint from a fresh gather() too"
-        )
+        assert (
+            "paintOutcomes(gather());" in catch_snippet
+        ), "error handler must repaint from a fresh gather() too"
         assert "paintOutcomes(m);" not in then_snippet, (
-            "success handler must not repaint from the stale schedule-time "
-            "snapshot"
+            "success handler must not repaint from the stale schedule-time " "snapshot"
         )
         assert "paintOutcomes(m);" not in catch_snippet, (
-            "error handler must not repaint from the stale schedule-time "
-            "snapshot"
+            "error handler must not repaint from the stale schedule-time " "snapshot"
         )
 
 
@@ -877,10 +867,14 @@ class TestSameOriginGateUnit:
         """urlparse().hostname strips the port, so local dev keeps
         working on every port -- identical to the old gate's behavior
         for legit local origins."""
-        for origin in ("http://localhost", "http://localhost:5001", "http://localhost:59999"):
-            assert _gate_verdict({"Origin": origin}) is True, (
-                f"legit local origin {origin!r} must pass the gate"
-            )
+        for origin in (
+            "http://localhost",
+            "http://localhost:5001",
+            "http://localhost:59999",
+        ):
+            assert (
+                _gate_verdict({"Origin": origin}) is True
+            ), f"legit local origin {origin!r} must pass the gate"
 
     def test_prod_and_nova_origins_pass(self) -> None:
         assert _gate_verdict({"Origin": "https://nova.joveo.com"}) is True

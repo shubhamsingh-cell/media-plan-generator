@@ -196,7 +196,7 @@ def test_money_rounding_tolerance_allows_reasonable_rounding():
 
 
 def test_money_abbreviation_matches_base_value():
-    """"$150K" citing a $150,000 FACTS value must be recognized as the SAME
+    """ "$150K" citing a $150,000 FACTS value must be recognized as the SAME
     number, not a new one."""
     allowed = excel_v2._allowed_numbers_from_facts_text("Budget: $150,000\n")
     grounded, untraceable = excel_v2._narrative_is_grounded(
@@ -358,7 +358,9 @@ def test_fabricating_narrative_is_rejected_and_deterministic_fallback_renders():
     _start = all_text.index("This recruitment media plan for Acme Corp")
     _narrative_only = all_text[_start : _start + 800].split("\n")[0]
     grounded, untraceable = excel_v2._narrative_is_grounded(_narrative_only, allowed)
-    assert grounded is True, f"deterministic fallback cited an untraceable figure: {untraceable}"
+    assert (
+        grounded is True
+    ), f"deterministic fallback cited an untraceable figure: {untraceable}"
 
 
 # ---------------------------------------------------------------------------
@@ -381,7 +383,12 @@ def _fallback_narrative_and_allowed_numbers(brief: dict) -> tuple[str, dict]:
 
     def _fake_call_llm(**kwargs):
         captured["prompt"] = kwargs["messages"][0]["content"]
-        return {"text": "", "provider": "", "error": "no key (offline harness)", "attempts": []}
+        return {
+            "text": "",
+            "provider": "",
+            "error": "no key (offline harness)",
+            "attempts": [],
+        }
 
     with mock.patch("llm_router.call_llm", side_effect=_fake_call_llm):
         raw = excel_v2.generate_excel_v2(dict(data), load_kb_fn=load_knowledge_base)
@@ -394,9 +401,9 @@ def _fallback_narrative_and_allowed_numbers(brief: dict) -> tuple[str, dict]:
 
     wb = openpyxl.load_workbook(io.BytesIO(raw))
     all_text = _all_text(wb)
-    assert "EXECUTIVE STRATEGIC SUMMARY" in all_text.upper(), (
-        "deterministic fallback did not render at all for this brief"
-    )
+    assert (
+        "EXECUTIVE STRATEGIC SUMMARY" in all_text.upper()
+    ), "deterministic fallback did not render at all for this brief"
     _marker = "This recruitment media plan for"
     _start = all_text.index(_marker)
     narrative = all_text[_start : _start + 800].split("\n")[0]
@@ -408,7 +415,9 @@ def test_deterministic_fallback_all_real_numbers_manpower_brief():
 
     narrative, allowed = _fallback_narrative_and_allowed_numbers(trb.MANPOWER_BRIEF)
     grounded, untraceable = excel_v2._narrative_is_grounded(narrative, allowed)
-    assert grounded is True, f"fallback cited an untraceable figure: {untraceable}\n{narrative}"
+    assert (
+        grounded is True
+    ), f"fallback cited an untraceable figure: {untraceable}\n{narrative}"
 
 
 def test_deterministic_fallback_all_real_numbers_atria_brief():
@@ -416,7 +425,9 @@ def test_deterministic_fallback_all_real_numbers_atria_brief():
 
     narrative, allowed = _fallback_narrative_and_allowed_numbers(trb.ATRIA_BRIEF)
     grounded, untraceable = excel_v2._narrative_is_grounded(narrative, allowed)
-    assert grounded is True, f"fallback cited an untraceable figure: {untraceable}\n{narrative}"
+    assert (
+        grounded is True
+    ), f"fallback cited an untraceable figure: {untraceable}\n{narrative}"
 
 
 # ---------------------------------------------------------------------------
@@ -441,7 +452,9 @@ def _narrative_ctx_for_brief(brief: dict):
     data = trb.build_plan_data(dict(brief))
     budget_alloc = data.get("_budget_allocation", {})
     channel_allocs = budget_alloc.get("channel_allocations", {})
-    header_hires = sum(int(ch.get("projected_hires") or 0) for ch in channel_allocs.values())
+    header_hires = sum(
+        int(ch.get("projected_hires") or 0) for ch in channel_allocs.values()
+    )
     budget_num = excel_v2._get_budget_numeric(data)
     header_cph = round(budget_num / max(header_hires, 1), 2) if header_hires > 0 else 0
     duration = excel_v2._resolve_campaign_duration(data)
@@ -497,7 +510,9 @@ def _narrative_ctx_for_data(data: dict, load_kb_fn=None):
     KB row, not of the grounding logic under test here."""
     budget_alloc = data.get("_budget_allocation", {})
     channel_allocs = budget_alloc.get("channel_allocations", {})
-    header_hires = sum(int(ch.get("projected_hires") or 0) for ch in channel_allocs.values())
+    header_hires = sum(
+        int(ch.get("projected_hires") or 0) for ch in channel_allocs.values()
+    )
     budget_num = excel_v2._get_budget_numeric(data)
     header_cph = round(budget_num / max(header_hires, 1), 2) if header_hires > 0 else 0
     duration = excel_v2._resolve_campaign_duration(data)
@@ -505,7 +520,9 @@ def _narrative_ctx_for_data(data: dict, load_kb_fn=None):
         data,
         client_name=data.get("client_name", "Client"),
         industry=data.get("industry", "general_entry_level"),
-        industry_label=excel_v2._get_industry_label(data.get("industry", "general_entry_level")),
+        industry_label=excel_v2._get_industry_label(
+            data.get("industry", "general_entry_level")
+        ),
         budget_num=budget_num,
         duration=duration,
         locations=excel_v2._get_locations(data),
@@ -534,7 +551,10 @@ def test_fabricated_prod_text_still_rejected_with_enriched_allowed_numbers():
     # beyond FACTS-text-only, so this test is exercising the enrichment,
     # not just re-testing the pre-existing FACTS-only validator.
     facts_only_allowed = excel_v2._allowed_numbers_from_facts_text(facts_text)
-    assert allowed["money"] > facts_only_allowed["money"] or allowed["int"] > facts_only_allowed["int"]
+    assert (
+        allowed["money"] > facts_only_allowed["money"]
+        or allowed["int"] > facts_only_allowed["int"]
+    )
 
     fabricated_text = (
         "The industry average cost-per-hire for logistics roles is $5,000, "
@@ -589,7 +609,9 @@ def test_grounded_narrative_with_perweek_permonth_derivations_passes():
     wb = openpyxl.load_workbook(io.BytesIO(raw))
     all_text = _all_text(wb)
     assert "EXECUTIVE STRATEGIC SUMMARY" in all_text.upper()
-    assert narrative_text in all_text, "grounded narrative with derivations was rejected"
+    assert (
+        narrative_text in all_text
+    ), "grounded narrative with derivations was rejected"
 
     status = data.get("_narrative_status")
     assert status["status"] == "llm_grounded", (
@@ -621,7 +643,9 @@ def test_total_budget_to_reach_goal_derivation_present_for_manpower_brief():
     assert "total_budget_to_reach_goal" in derivations
     category, value = derivations["total_budget_to_reach_goal"]
     assert category == "money"
-    assert value == pytest.approx(ctx["budget_num"] + gap["additional_budget"], rel=1e-6)
+    assert value == pytest.approx(
+        ctx["budget_num"] + gap["additional_budget"], rel=1e-6
+    )
     assert value == pytest.approx(312500.0, rel=1e-6)
 
     facts_text = excel_v2._build_narrative_facts_block(ctx)
@@ -698,9 +722,9 @@ def test_retry_converts_fabricating_draft_to_grounded():
 
     assert len(calls) == 2, "expected exactly one grounded-correction retry"
     retry_prompt = calls[1]["messages"][0]["content"]
-    assert "71%" in retry_prompt and "50%" in retry_prompt, (
-        "retry prompt must name the exact untraceable figures from attempt 1"
-    )
+    assert (
+        "71%" in retry_prompt and "50%" in retry_prompt
+    ), "retry prompt must name the exact untraceable figures from attempt 1"
 
     wb = openpyxl.load_workbook(io.BytesIO(raw))
     all_text = _all_text(wb)

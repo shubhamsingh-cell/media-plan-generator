@@ -107,7 +107,11 @@ def _make_adj(i: int) -> dict:
 
 def _base_analysis(**overrides) -> dict:
     data = {
-        "input": {"skills": ["python"], "industry": "technology", "location": "Dallas, TX"},
+        "input": {
+            "skills": ["python"],
+            "industry": "technology",
+            "location": "Dallas, TX",
+        },
         "summary": "",
         "occupations": [],
         "demand_trends": {"summary": {}, "skills": {}},
@@ -123,7 +127,9 @@ def _base_analysis(**overrides) -> dict:
 
 def _sheet_data_row_count(ws, min_row: int) -> int:
     """Count rows with a non-empty value in column B (the first data col)."""
-    return sum(1 for r in ws.iter_rows(min_row=min_row, min_col=2, max_col=2) if r[0].value)
+    return sum(
+        1 for r in ws.iter_rows(min_row=min_row, min_col=2, max_col=2) if r[0].value
+    )
 
 
 def _tables_on_slide(slide):
@@ -201,7 +207,9 @@ def test_ppt_occupations_short_input_unchanged():
 
 def test_ppt_channels_capped_at_eight():
     analysis = _base_analysis(
-        channels=[{"name": f"Ch{i}", "weight": 0.1, "reasons": ["r"]} for i in range(25)]
+        channels=[
+            {"name": f"Ch{i}", "weight": 0.1, "reasons": ["r"]} for i in range(25)
+        ]
     )
     prs = Presentation(io.BytesIO(skill_target.generate_skill_ppt(analysis)))
     table = _tables_on_slide(prs.slides[3])[0]
@@ -352,9 +360,15 @@ def test_recommend_channels_preferred_platforms_capped_at_three():
     names = ["Alpha", "Beta", "Gamma", "Delta", "Echo", "Foxtrot"]
     weights = _patch_collar_env(preferred_platforms=names, channel_names=names)
     boosted = {weights["Alpha Board"], weights["Beta Board"], weights["Gamma Board"]}
-    unboosted = {weights["Delta Board"], weights["Echo Board"], weights["Foxtrot Board"]}
+    unboosted = {
+        weights["Delta Board"],
+        weights["Echo Board"],
+        weights["Foxtrot Board"],
+    }
     assert len(boosted) == 1, "the first 3 preferred platforms must share one weight"
-    assert len(unboosted) == 1, "the last 3 (uncapped-in) platforms must share one weight"
+    assert (
+        len(unboosted) == 1
+    ), "the last 3 (uncapped-in) platforms must share one weight"
     assert next(iter(boosted)) > next(iter(unboosted)), (
         "only the first 3 preferred_platforms should get the 1.15x boost -- "
         "if all 6 are boosted equally, the [:3] cap is a no-op"

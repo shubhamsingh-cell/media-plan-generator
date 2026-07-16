@@ -270,10 +270,10 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
             f'<div style="text-align:center;padding:24px 16px;background:{LAVENDER_50};'
             f'border:1px dashed {BORDER};border-radius:12px;">'
             f'<div style="font-size:15px;font-weight:600;color:{INDIGO};margin-bottom:4px;">'
-            f'Channel mix coming soon</div>'
+            f"Channel mix coming soon</div>"
             f'<p style="font-size:13px;color:{MUTED};line-height:1.5;">'
-            f'This plan doesn&rsquo;t have a channel allocation yet. '
-            f'Build or refine it to see the recommended mix here.</p></div>'
+            f"This plan doesn&rsquo;t have a channel allocation yet. "
+            f"Build or refine it to see the recommended mix here.</p></div>"
         )
 
     # OG meta description

@@ -94,7 +94,13 @@ def test_logistics_role_keyword_coverage():
     """Driver / CDL driver / warehouse associate / forklift resolve to a
     role-type profile.
     """
-    titles = ["Driver", "CDL Driver", "Delivery Driver", "Warehouse Associate", "Forklift"]
+    titles = [
+        "Driver",
+        "CDL Driver",
+        "Delivery Driver",
+        "Warehouse Associate",
+        "Forklift",
+    ]
     results = gs.classify_difficulty({"target_roles": titles})
     for row in results:
         assert row["role_profile_matched"] is True, row["role_title"]
@@ -118,7 +124,9 @@ def test_unmatched_title_defaults_to_professional_not_executive():
     match must default to the middle 'Professional' tier (~5.0 difficulty)
     -- never to executive/leadership or 10.0 difficulty.
     """
-    results = gs.classify_difficulty({"target_roles": ["Totally Unknown Widget Fabricator"]})
+    results = gs.classify_difficulty(
+        {"target_roles": ["Totally Unknown Widget Fabricator"]}
+    )
     row = results[0]
     assert row["role_profile_matched"] is False
     assert row["classification_source"] == "unclassified_default"
@@ -188,7 +196,9 @@ def _city_role_salary(role_titles: list[str], location: str = "New York, NY") ->
 
 
 def test_nurse_dishwasher_housekeeper_no_longer_identical():
-    per_role = _city_role_salary(["Nurse", "Dishwasher", "Housekeeper", "Memory Care Aide"])
+    per_role = _city_role_salary(
+        ["Nurse", "Dishwasher", "Housekeeper", "Memory Care Aide"]
+    )
     medians = {role: sal["median"] for role, sal in per_role.items()}
     # All four must resolve to *different* medians -- the original defect
     # priced them on byte-identical bands.
@@ -351,7 +361,9 @@ def test_confidence_summary_empty_input():
 
 
 def test_confidence_summary_tolerates_malformed_rows():
-    summary = gs.confidence_summary([None, "not a dict", 42, {"confidence": "benchmark"}])
+    summary = gs.confidence_summary(
+        [None, "not a dict", 42, {"confidence": "benchmark"}]
+    )
     assert summary["total_rows"] == 1
     assert summary["benchmark_count"] == 1
 
@@ -437,7 +449,9 @@ def test_all_role_salary_ranges_produce_ordered_bands():
     for keyword, (lo, hi) in gs._ROLE_SALARY_RANGES.items():
         median = (lo + hi) / 2.0
         band = gs._ordered_salary_band(lo, median * 0.90, median, median * 1.12, hi)
-        assert band["min"] <= band["p25"] <= band["median"] <= band["p75"] <= band["max"], (
+        assert (
+            band["min"] <= band["p25"] <= band["median"] <= band["p75"] <= band["max"]
+        ), (
             keyword,
             band,
         )

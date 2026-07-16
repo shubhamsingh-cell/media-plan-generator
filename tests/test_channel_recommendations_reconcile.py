@@ -144,9 +144,9 @@ def test_channel_recommendations_spend_foots_to_budget():
         f"Channel Recommendations TOTAL spend {cr_spend_total} must foot to the "
         "240,000 budget"
     )
-    assert abs(per_channel - cr_spend_total) <= 1.0, (
-        "Sum of per-channel Spend cells must equal the TOTAL row spend"
-    )
+    assert (
+        abs(per_channel - cr_spend_total) <= 1.0
+    ), "Sum of per-channel Spend cells must equal the TOTAL row spend"
 
 
 def test_goal_gap_callout_present_when_short():
@@ -208,9 +208,9 @@ def test_duration_is_consistent_across_sheets():
         for row in fc.iter_rows()
         for c in row
     )
-    assert fc_has_canonical, (
-        "90-Day Forecast must reference the same canonical duration string"
-    )
+    assert (
+        fc_has_canonical
+    ), "90-Day Forecast must reference the same canonical duration string"
 
 
 if __name__ == "__main__":

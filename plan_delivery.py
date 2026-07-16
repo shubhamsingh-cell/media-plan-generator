@@ -36,9 +36,7 @@ _DEFAULT_FROM_EMAIL = "onboarding@resend.dev"
 # True when RESEND_FROM_EMAIL is unset/blank and we fall back to the shared
 # default sender -- callers warn loudly so this is not silently relied upon.
 _FROM_EMAIL_IS_DEFAULT: bool = not (os.environ.get("RESEND_FROM_EMAIL") or "").strip()
-_FROM_EMAIL: str = (
-    os.environ.get("RESEND_FROM_EMAIL") or _DEFAULT_FROM_EMAIL
-).strip()
+_FROM_EMAIL: str = (os.environ.get("RESEND_FROM_EMAIL") or _DEFAULT_FROM_EMAIL).strip()
 
 _SEND_TIMEOUT: int = 20  # seconds
 
@@ -163,12 +161,8 @@ def _build_email_html(
 
     # Attachment-conditional copy: never claim a file is attached when it isn't.
     if has_attachment:
-        headline_sub = (
-            "has been generated and is attached to this email."
-        )
-        cta_line = (
-            "The media plan files are attached to this email as a ZIP archive. "
-        )
+        headline_sub = "has been generated and is attached to this email."
+        cta_line = "The media plan files are attached to this email as a ZIP archive. "
     else:
         headline_sub = "has been generated."
         cta_line = ""

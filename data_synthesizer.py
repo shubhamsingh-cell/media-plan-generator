@@ -4888,9 +4888,7 @@ Respond with ONLY the JSON object, no markdown formatting or code blocks."""
             )
             return {}
 
-        logger.info(
-            "AI narratives generated via %s", res.get("provider") or "unknown"
-        )
+        logger.info("AI narratives generated via %s", res.get("provider") or "unknown")
 
         # Only keep expected keys with string values
         return {

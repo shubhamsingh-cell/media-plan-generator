@@ -734,8 +734,6 @@ class DataEnrichmentEngine:
             if len(self._enrichment_log) > _MAX_LOG_ENTRIES:
                 self._enrichment_log = self._enrichment_log[-_MAX_LOG_ENTRIES:]
 
-
-
     def _enrich_bls_salary(self) -> None:
         """Refresh BLS salary data for top roles.
 
@@ -1071,8 +1069,6 @@ class DataEnrichmentEngine:
             "Enriched demographics via %s: %d records", source, len(data) if data else 0
         )
 
-
-
     def _enrich_job_posting_volume(self) -> None:
         """Refresh job posting volumes for popular roles.
 
@@ -1187,9 +1183,6 @@ class DataEnrichmentEngine:
 
         self._mark_refreshed("job_posting_volume", total > 0, total)
         logger.info("Enriched job posting volumes: %d roles (with fallbacks)", total)
-
-
-
 
     def _enrich_benchmark_drift_check(self) -> None:
         """Monthly task: compare live CPC/CPA data against stored benchmarks.

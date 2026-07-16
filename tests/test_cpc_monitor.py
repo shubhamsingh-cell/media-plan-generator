@@ -61,12 +61,16 @@ def _live_fixture() -> dict:
             {
                 "channel": "indeed",
                 "industry": "overall",
-                "metadata": {"cpc_range": {"min": 0.97, "max": 2.71, "currency": "USD"}},
+                "metadata": {
+                    "cpc_range": {"min": 0.97, "max": 2.71, "currency": "USD"}
+                },
             },
             {
                 "channel": "linkedin",
                 "industry": "overall",
-                "metadata": {"cpc_range": {"min": 1.50, "max": 4.50, "currency": "USD"}},
+                "metadata": {
+                    "cpc_range": {"min": 1.50, "max": 4.50, "currency": "USD"}
+                },
             },
             {
                 # Subscription-only board: no cpc_range. Must be SKIPPED,
@@ -169,7 +173,10 @@ def test_null_cpc_range_values_do_not_raise_typeerror():
     mishandles (default only fires on an ABSENT key, not a present null)."""
     live = {
         "data": [
-            {"channel": "indeed", "metadata": {"cpc_range": {"min": None, "max": None}}},
+            {
+                "channel": "indeed",
+                "metadata": {"cpc_range": {"min": None, "max": None}},
+            },
         ]
     }
     alerts = app._compute_cpc_alerts(live, _kb_fixture(), now="2026-07-16T00:00:00Z")
@@ -280,9 +287,9 @@ def test_reconciled_repo_data_files_produce_no_artifact_alerts():
     ) as f:
         kb = json.load(f)
     alerts = app._compute_cpc_alerts(seed, kb, now="2026-07-16T00:00:00Z")
-    assert alerts == [], (
-        "seed vs KB artifact alerts -- reconcile the data files: " + repr(alerts)
-    )
+    assert (
+        alerts == []
+    ), "seed vs KB artifact alerts -- reconcile the data files: " + repr(alerts)
 
 
 if __name__ == "__main__":

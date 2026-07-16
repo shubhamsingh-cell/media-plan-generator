@@ -87,9 +87,7 @@ def test_amerigas_keeps_climate_independent_events():
     """DOT compliance deadlines / CDL school graduation cycles are valid
     regardless of the seasonality fix and must be retained."""
     cal = gs.build_activation_calendar(_manpower_amerigas_data(campaign_start_month=1))
-    all_events = " ".join(
-        " ".join(m["key_events"]) for m in cal["timeline"]
-    ).lower()
+    all_events = " ".join(" ".join(m["key_events"]) for m in cal["timeline"]).lower()
     assert "dot compliance" in all_events
     assert "cdl school" in all_events
 

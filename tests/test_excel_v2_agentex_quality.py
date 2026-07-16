@@ -41,7 +41,11 @@ import display_format  # noqa: E402
 import excel_v2  # noqa: E402
 import kb_loader  # noqa: E402
 
-from test_excel_v2_agentb_quality import _base_data, _build_alloc, _generate_wb  # noqa: E402
+from test_excel_v2_agentb_quality import (
+    _base_data,
+    _build_alloc,
+    _generate_wb,
+)  # noqa: E402
 
 
 def _all_text_cells(wb):
@@ -63,9 +67,7 @@ def test_no_duplicate_openings_based_goal_narrative():
     data = _base_data()
     wb = _generate_wb(data)
 
-    gap_callouts = [
-        v for _, _, v in _all_text_cells(wb) if "Hiring-goal gap" in v
-    ]
+    gap_callouts = [v for _, _, v in _all_text_cells(wb) if "Hiring-goal gap" in v]
     assert len(gap_callouts) == 1, (
         f"Expected exactly ONE goal-gap callout, found {len(gap_callouts)}: "
         f"{gap_callouts}"
@@ -96,9 +98,11 @@ def test_no_dangling_optimized_section_recommendation():
     for title, coord, v in _all_text_cells(wb):
         low = v.lower()
         assert "'optimized' section" not in low, (title, coord, v)
-        assert not (
-            "could improve projected hires by" in low and "section" in low
-        ), (title, coord, v)
+        assert not ("could improve projected hires by" in low and "section" in low), (
+            title,
+            coord,
+            v,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -110,9 +114,15 @@ def test_derive_channel_confidence_not_blanket_high():
     data = {
         "_synthesized": {"confidence_scores": {"overall": 0.5}},
     }
-    assert excel_v2._derive_channel_confidence(data, {"cpc_source": "static_benchmark"}) == "LOW"
+    assert (
+        excel_v2._derive_channel_confidence(data, {"cpc_source": "static_benchmark"})
+        == "LOW"
+    )
     assert excel_v2._derive_channel_confidence(data, {}) == "LOW"
-    assert excel_v2._derive_channel_confidence(data, {"cpc_source": "knowledge_base"}) == "MEDIUM"
+    assert (
+        excel_v2._derive_channel_confidence(data, {"cpc_source": "knowledge_base"})
+        == "MEDIUM"
+    )
     data_high = {"_synthesized": {"confidence_scores": {"overall": 0.85}}}
     assert (
         excel_v2._derive_channel_confidence(data_high, {"cpc_source": "live_benchmark"})
@@ -285,7 +295,9 @@ def test_ramp_narrative_matches_actual_monthly_split():
     actual_pcts = [round(v / total * 100) for v in month_spend]
 
     narrative_cells = [
-        v for _, _, v in _all_text_cells(wb) if "ramp-weighted" in v or "phases budget" in v
+        v
+        for _, _, v in _all_text_cells(wb)
+        if "ramp-weighted" in v or "phases budget" in v
     ]
     assert narrative_cells, "Expected at least one ramp narrative footnote"
     for text in narrative_cells:
@@ -370,9 +382,7 @@ def test_location_intelligence_drops_blank_metric_columns():
         vals = [c.value for c in row]
         if vals and vals[1] == "Location":
             header_row = [v for v in vals if v]
-        if header_row and any(
-            isinstance(v, str) and "Nowhereville" in v for v in vals
-        ):
+        if header_row and any(isinstance(v, str) and "Nowhereville" in v for v in vals):
             rationale_cell = vals[3] if len(vals) > 3 else None
             break
 
@@ -400,9 +410,15 @@ def test_location_intelligence_resolves_us_state_abbr_to_united_states():
         if vals and vals[1] == "Location" and vals[2] == "Country":
             header_row = vals
             continue
-        if header_row and vals and isinstance(vals[1], str) and vals[1] in (
-            "Denver, CO",
-            "Boise, ID",
+        if (
+            header_row
+            and vals
+            and isinstance(vals[1], str)
+            and vals[1]
+            in (
+                "Denver, CO",
+                "Boise, ID",
+            )
         ):
             # First match only -- the sheet has a second, unrelated
             # "Location" / "Cost Index" table (Geographic Cost Variance)

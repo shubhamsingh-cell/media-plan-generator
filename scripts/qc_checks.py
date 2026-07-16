@@ -73,7 +73,12 @@ def check_pptx(path: Path, label: str, expect_currency: str, forbid_currency: st
                 continue
             if l is None:
                 continue
-            if l < -W * 0.01 or t < -H * 0.01 or (l + w) > W * 1.01 or (t + h) > H * 1.01:
+            if (
+                l < -W * 0.01
+                or t < -H * 0.01
+                or (l + w) > W * 1.01
+                or (t + h) > H * 1.01
+            ):
                 offslide += 1
             if sh.has_text_frame and sh.text_frame.text.strip():
                 boxes.append((l, t, w, h))
@@ -94,22 +99,45 @@ def check_pptx(path: Path, label: str, expect_currency: str, forbid_currency: st
                     overlap += 1
     joined = "\n".join(all_text)
 
-    report("FAIL" if offslide else "PASS", f"{label}:no-offslide-shapes", f"{offslide} found")
-    report("FAIL" if overlap else "PASS", f"{label}:no-text-overlap", f"{overlap} found")
+    report(
+        "FAIL" if offslide else "PASS",
+        f"{label}:no-offslide-shapes",
+        f"{offslide} found",
+    )
+    report(
+        "FAIL" if overlap else "PASS", f"{label}:no-text-overlap", f"{overlap} found"
+    )
     report("FAIL" if subfont else "PASS", f"{label}:no-sub8pt-text", f"{subfont} found")
 
     # QA-leak checks (S1)
-    for banned in ("Creative QC:", "Grade F", "heavily estimated", "Minimal data available"):
+    for banned in (
+        "Creative QC:",
+        "Grade F",
+        "heavily estimated",
+        "Minimal data available",
+    ):
         if banned in joined:
-            report("FAIL", f"{label}:no-internal-qa-leak", f"found {banned!r} in deck text")
+            report(
+                "FAIL", f"{label}:no-internal-qa-leak", f"found {banned!r} in deck text"
+            )
     if not any(
-        b in joined for b in ("Creative QC:", "Grade F", "heavily estimated", "Minimal data available")
+        b in joined
+        for b in (
+            "Creative QC:",
+            "Grade F",
+            "heavily estimated",
+            "Minimal data available",
+        )
     ):
         report("PASS", f"{label}:no-internal-qa-leak")
 
     # currency checks (S3)
     if expect_currency and expect_currency not in joined:
-        report("WARN", f"{label}:expected-currency-present", f"{expect_currency!r} not found anywhere")
+        report(
+            "WARN",
+            f"{label}:expected-currency-present",
+            f"{expect_currency!r} not found anywhere",
+        )
     if forbid_currency:
         bare = re.findall(r"(?<![A-Za-z$])\$\d", joined)
         if bare:
@@ -123,7 +151,11 @@ def check_pptx(path: Path, label: str, expect_currency: str, forbid_currency: st
 
     # implausible "live" stats over zero data -- best-effort text heuristic
     if re.search(r"[\d,]{4,}\s+active jobs", joined):
-        report("WARN", f"{label}:live-postings-stat-present", "verify against workbook Postings field")
+        report(
+            "WARN",
+            f"{label}:live-postings-stat-present",
+            "verify against workbook Postings field",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +163,9 @@ def check_pptx(path: Path, label: str, expect_currency: str, forbid_currency: st
 # ---------------------------------------------------------------------------
 
 
-def check_xlsx(path: Path, label: str, expect_currency_word: str, forbid_usd_header: bool):
+def check_xlsx(
+    path: Path, label: str, expect_currency_word: str, forbid_usd_header: bool
+):
     if not path.exists():
         report("FAIL", f"{label}:xlsx-missing", str(path))
         return
@@ -176,8 +210,16 @@ def check_xlsx(path: Path, label: str, expect_currency_word: str, forbid_usd_hea
                     usd_header_hits.append(f"{ws.title}!{c.coordinate}={v!r}")
                 if re.match(r"^\$[\d,]+(\.\d+)?$", v.strip()):
                     text_money_like += 1
-    report("FAIL" if truncated else "PASS", f"{label}:no-midword-truncation", "; ".join(truncated[:10]))
-    report("FAIL" if misspell else "PASS", f"{label}:no-pheonix-misspelling", "; ".join(misspell[:10]))
+    report(
+        "FAIL" if truncated else "PASS",
+        f"{label}:no-midword-truncation",
+        "; ".join(truncated[:10]),
+    )
+    report(
+        "FAIL" if misspell else "PASS",
+        f"{label}:no-pheonix-misspelling",
+        "; ".join(misspell[:10]),
+    )
     if forbid_usd_header:
         report(
             "FAIL" if usd_header_hits else "PASS",
@@ -197,7 +239,10 @@ def main():
         OUT_US / "sample_plan.pptx", "us-pptx", expect_currency="$", forbid_currency=""
     )
     check_xlsx(
-        OUT_US / "sample_plan.xlsx", "us-xlsx", expect_currency_word="", forbid_usd_header=False
+        OUT_US / "sample_plan.xlsx",
+        "us-xlsx",
+        expect_currency_word="",
+        forbid_usd_header=False,
     )
 
     print("Checking NZ sample (should be NZ$, never bare $ on plan figures)...")
@@ -218,13 +263,17 @@ def main():
     fails = [r for r in results if r[0] == "FAIL"]
     warns = [r for r in results if r[0] == "WARN"]
     for level, check, detail in results:
-        marker = {"PASS": "  ok ", "FAIL": "FAIL ", "WARN": "warn ", "INFO": "info "}[level]
+        marker = {"PASS": "  ok ", "FAIL": "FAIL ", "WARN": "warn ", "INFO": "info "}[
+            level
+        ]
         line = f"[{marker}] {check}"
         if detail and level in ("FAIL", "WARN"):
             line += f"  -- {detail[:200]}"
         print(line)
     print("=" * 70)
-    print(f"{len(fails)} FAIL, {len(warns)} WARN, {len(results) - len(fails) - len(warns)} PASS/INFO")
+    print(
+        f"{len(fails)} FAIL, {len(warns)} WARN, {len(results) - len(fails) - len(warns)} PASS/INFO"
+    )
     return 1 if fails else 0
 
 

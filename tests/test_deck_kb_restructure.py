@@ -19,7 +19,9 @@ from pathlib import Path
 
 import pytest
 
-_DECK_PATH = Path(__file__).resolve().parent.parent / "data" / "joveo_media_plan_deck_2026.json"
+_DECK_PATH = (
+    Path(__file__).resolve().parent.parent / "data" / "joveo_media_plan_deck_2026.json"
+)
 
 
 @pytest.fixture(scope="module")

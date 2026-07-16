@@ -149,9 +149,7 @@ def _load_deck_kb() -> Dict[str, Any]:
     """
     try:
         path = (
-            Path(__file__).resolve().parent
-            / "data"
-            / "joveo_media_plan_deck_2026.json"
+            Path(__file__).resolve().parent / "data" / "joveo_media_plan_deck_2026.json"
         )
         with open(path, "r", encoding="utf-8") as fh:
             return json.load(fh)
@@ -381,7 +379,9 @@ def generate_pdf_report(
 
     def _deck_methodology(deck: Dict[str, Any]) -> List[Any]:
         """Joveo 6-step campaign methodology (deck 'Our Methodology')."""
-        meth = (deck.get("campaign_methodology") or {}) if isinstance(deck, dict) else {}
+        meth = (
+            (deck.get("campaign_methodology") or {}) if isinstance(deck, dict) else {}
+        )
         steps = meth.get("steps") or []
         if not steps:
             return []
@@ -447,9 +447,7 @@ def generate_pdf_report(
                 Paragraph(_safe_str(obj.get("detail") or ""), style_card_body),
             ]
 
-        pp_table = Table(
-            [[_cell(push), _cell(pull)]], colWidths=[doc.width / 2] * 2
-        )
+        pp_table = Table([[_cell(push), _cell(pull)]], colWidths=[doc.width / 2] * 2)
         pp_table.setStyle(
             TableStyle(
                 [
@@ -536,9 +534,7 @@ def generate_pdf_report(
         """
         if not is_ai_training:
             return []
-        sp = (
-            (deck.get("sample_pricing_model") or {}) if isinstance(deck, dict) else {}
-        )
+        sp = (deck.get("sample_pricing_model") or {}) if isinstance(deck, dict) else {}
         camps = sp.get("campaigns") or []
         if not camps:
             return []
@@ -847,7 +843,9 @@ def generate_pdf_report(
 
     # ── Benchmarking & Market Research (deck order: before Channel) ──
     if market_intel:
-        elements.extend(_section_header("Benchmarking & Market Research", page_break=True))
+        elements.extend(
+            _section_header("Benchmarking & Market Research", page_break=True)
+        )
         if isinstance(market_intel, dict):
             for key, value in market_intel.items():
                 label = str(key).replace("_", " ").title()
@@ -858,9 +856,7 @@ def generate_pdf_report(
                     val_str = "; ".join(parts)
                 else:
                     val_str = str(value)
-                elements.append(
-                    Paragraph(f"<b>{label}:</b> {val_str}", style_body)
-                )
+                elements.append(Paragraph(f"<b>{label}:</b> {val_str}", style_body))
         elif isinstance(market_intel, str):
             elements.append(Paragraph(market_intel, style_body))
         elements.append(Spacer(1, 12))
