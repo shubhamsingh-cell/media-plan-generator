@@ -88,7 +88,7 @@
     <link rel="stylesheet" href="/static/css/tokens.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/buttons.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/motion.css?v=2.0.0" />
-    <link rel="stylesheet" href="/static/css/hub.css?v=2.5.0" />
+    <link rel="stylesheet" href="/static/css/hub.css?v=2.6.0" />
 
     <!-- PostHog Analytics -->
     <script>
@@ -3403,109 +3403,81 @@
           </div>
 
           <!-- ========================================== -->
-          <!-- Real briefs, real plans -- proof-of-output  -->
-          <!-- receipts for two calibrated probe briefs.   -->
+          <!-- From brief to plan -- run-ledger strip.     -->
+          <!-- A log excerpt of real engine runs, not a    -->
+          <!-- second card grammar echoing the PE card     -->
+          <!-- above (mechanism-panel verdict, 2026-07).   -->
           <!-- ========================================== -->
-          <div class="proof-row-label reveal">Real briefs, real plans</div>
-          <div class="proof-cards-row">
-            <div class="proof-card reveal">
-              <div class="proof-col proof-col--in">
-                <div class="proof-eyebrow">Brief in</div>
-                <span class="proof-model-pill"
-                  >Nova Plan Engine &middot; calibrated seeds</span
+          <div class="proof-row-label reveal">
+            From brief to plan &mdash; recent engine runs
+          </div>
+          <div class="ledger-panel reveal">
+            <div class="ledger-head" aria-hidden="true">
+              <span>Brief</span>
+              <span>Outcome</span>
+            </div>
+            <div class="ledger-row">
+              <span class="ledger-brief"
+                >CDL A Driver &middot; New England + Denver, CO &middot; $150K
+                budget</span
+              >
+              <span class="ledger-outcome">
+                <span class="ledger-metric"
+                  >17,932 applications &middot; $8.36 / application</span
                 >
-                <p class="proof-brief-line">
-                  CDL A Driver &middot; New England + Denver, CO &middot; $150K
-                  budget
-                </p>
-              </div>
-              <div class="proof-col proof-col--out">
-                <div class="proof-eyebrow">Plan out</div>
-                <div class="proof-kpis">
-                  <div class="proof-kpi">
-                    <div class="proof-kpi-value">17,932</div>
-                    <div class="proof-kpi-label">Projected applications</div>
-                  </div>
-                  <div class="proof-kpi">
-                    <div class="proof-kpi-value">$8.36</div>
-                    <div class="proof-kpi-label">Cost per application</div>
-                  </div>
-                </div>
-                <div class="proof-mix" aria-hidden="true">
+                <span class="ledger-mix" aria-hidden="true">
                   <span
-                    class="proof-mix-seg"
+                    class="ledger-mix-seg"
                     style="width: 28.5%; background: var(--jv-purple)"
                   ></span>
                   <span
-                    class="proof-mix-seg"
+                    class="ledger-mix-seg"
                     style="width: 26%; background: var(--jv-teal-deep)"
                   ></span>
                   <span
-                    class="proof-mix-seg"
+                    class="ledger-mix-seg"
                     style="width: 23.3%; background: var(--jv-purple-light)"
                   ></span>
                   <span
-                    class="proof-mix-seg"
+                    class="ledger-mix-seg"
                     style="width: 22.2%; background: var(--jv-magenta)"
                   ></span>
-                </div>
-                <div class="proof-mix-caption">
-                  Programmatic &middot; Regional &middot; Global boards
-                  &middot; Niche boards
-                </div>
-              </div>
+                </span>
+              </span>
             </div>
-
-            <div class="proof-card reveal">
-              <div class="proof-col proof-col--in">
-                <div class="proof-eyebrow">Brief in</div>
-                <span class="proof-model-pill"
-                  >Nova Plan Engine &middot; calibrated seeds</span
+            <div class="ledger-row">
+              <span class="ledger-brief"
+                >10 senior-living roles &middot; New York, NY &middot; $300K
+                budget</span
+              >
+              <span class="ledger-outcome">
+                <span class="ledger-metric"
+                  >16,893 applications &middot; $17.76 / application</span
                 >
-                <p class="proof-brief-line">
-                  10 senior-living roles &middot; New York, NY &middot; $300K
-                  budget
-                </p>
-              </div>
-              <div class="proof-col proof-col--out">
-                <div class="proof-eyebrow">Plan out</div>
-                <div class="proof-kpis">
-                  <div class="proof-kpi">
-                    <div class="proof-kpi-value">16,893</div>
-                    <div class="proof-kpi-label">Projected applications</div>
-                  </div>
-                  <div class="proof-kpi">
-                    <div class="proof-kpi-value">$17.76</div>
-                    <div class="proof-kpi-label">Cost per application</div>
-                  </div>
-                </div>
-                <div class="proof-mix" aria-hidden="true">
+                <span class="ledger-mix" aria-hidden="true">
                   <span
-                    class="proof-mix-seg"
+                    class="ledger-mix-seg"
                     style="width: 33.4%; background: var(--jv-purple)"
                   ></span>
                   <span
-                    class="proof-mix-seg"
+                    class="ledger-mix-seg"
                     style="width: 30.3%; background: var(--jv-teal-deep)"
                   ></span>
                   <span
-                    class="proof-mix-seg"
+                    class="ledger-mix-seg"
                     style="width: 21.8%; background: var(--jv-purple-light)"
                   ></span>
                   <span
-                    class="proof-mix-seg"
+                    class="ledger-mix-seg"
                     style="width: 14.5%; background: var(--jv-magenta)"
                   ></span>
-                </div>
-                <div class="proof-mix-caption">
-                  Programmatic &middot; Global boards &middot; Regional
-                  &middot; Niche boards
-                </div>
-              </div>
+                </span>
+              </span>
             </div>
           </div>
           <div class="proof-footnote reveal">
-            Probe outputs &middot; engine 4.0.0 &middot; July 2026
+            Illustrative outputs from the production planning engine
+            &mdash; Nova 4.0.0, July 2026. Real briefs, no client data.
           </div>
         </div>
       </section>

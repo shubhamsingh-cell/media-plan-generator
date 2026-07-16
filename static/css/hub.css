@@ -4397,9 +4397,11 @@ html.lenis body {
 }
 
 /* ==========================================================================
-   "Real briefs, real plans" -- proof-of-output receipts under the
-   Prediction Engine. Echoes .pe-card's dark-card aesthetic (border,
-   radius, shadow) at a lighter, secondary-tier weight.
+   "From brief to plan" -- run-ledger strip under the Prediction Engine.
+   Deliberately NOT card grammar: a single full-width log excerpt (header
+   line + hairline-divided rows) so it reads as a distinct mechanism from
+   the .pe-card above it, not a second system doing the same job
+   (mechanism-panel verdict, design-judge panel, 2026-07).
    ========================================================================== */
 .proof-row-label {
   margin: 30px auto 0;
@@ -4411,92 +4413,69 @@ html.lenis body {
   letter-spacing: 0.08em;
   color: #c4c1e6;
 }
-.proof-cards-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
+.ledger-panel {
   margin: 12px auto 0;
   max-width: 720px;
+  padding: 0 20px;
+  border-radius: 10px;
+  border: 1px solid rgba(139, 133, 230, 0.18);
+  background: rgba(13, 13, 26, 0.55);
 }
-.proof-card {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.ledger-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  padding: 16px 18px;
-  border-radius: 16px;
-  border: 1px solid rgba(139, 133, 230, 0.22);
-  background: rgba(13, 13, 26, 0.75);
-  box-shadow: 0 16px 40px rgba(6, 6, 16, 0.4);
-}
-.proof-col--out {
-  padding-left: 16px;
-  border-left: 1px dashed rgba(139, 133, 230, 0.25);
-}
-.proof-eyebrow {
+  padding: 12px 0 10px;
+  border-bottom: 1px solid var(--border);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #7d7aa6;
-  margin-bottom: 9px;
 }
-.proof-model-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 10.5px;
-  font-weight: 600;
-  color: #c4c1e6;
-  background: rgba(90, 84, 190, 0.18);
-  border: 1px solid rgba(139, 133, 230, 0.28);
-  white-space: nowrap;
+.ledger-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
 }
-.proof-brief-line {
-  margin: 10px 0 0;
-  font-size: 12.5px;
+.ledger-row:last-child {
+  border-bottom: none;
+}
+.ledger-brief {
+  font-size: 13px;
   line-height: 1.5;
   color: #c4c1e6;
 }
-.proof-kpis {
+.ledger-outcome {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
 }
-.proof-kpi-value {
-  font-family: var(--font-heading);
-  font-weight: 600;
-  font-size: 22px;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
-  color: #f6f5ff;
+.ledger-metric {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
+  color: #f6f5ff;
+  white-space: nowrap;
 }
-.proof-kpi-label {
-  margin-top: 3px;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #7d7aa6;
-}
-.proof-mix {
+.ledger-mix {
   display: flex;
-  height: 5px;
+  width: 60px;
+  height: 4px;
   border-radius: 999px;
   overflow: hidden;
-  margin-top: 14px;
   background: rgba(139, 133, 230, 0.13);
+  flex-shrink: 0;
 }
-.proof-mix-seg {
+.ledger-mix-seg {
   display: block;
   height: 100%;
-}
-.proof-mix-caption {
-  margin-top: 7px;
-  font-size: 10px;
-  color: #7d7aa6;
 }
 .proof-footnote {
   margin: 16px auto 0;
@@ -4526,17 +4505,13 @@ html.lenis body {
     grid-template-columns: 80px 1fr 64px;
     gap: 9px;
   }
-  .proof-cards-row {
-    grid-template-columns: 1fr;
+  .ledger-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
-  .proof-card {
-    grid-template-columns: 1fr;
-  }
-  .proof-col--out {
-    padding-left: 0;
-    border-left: none;
-    padding-top: 14px;
-    border-top: 1px dashed rgba(139, 133, 230, 0.25);
+  .ledger-metric {
+    white-space: normal;
   }
 }
 
