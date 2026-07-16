@@ -23151,13 +23151,31 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     comp_sections.append(f"*{pm}:*")
                     # Look up CPC data for this platform
                     plat_key_lower = pm.lower().replace(" ", "_").replace("/", "_")
-                    found_data = None
-                    for k, v in cpc_by_platform.items():
-                        if plat_key_lower in k.lower() or k.lower() in plat_key_lower:
-                            found_data = v
-                            break
+                    # Bridge display names to KB by_platform keys the substring
+                    # scan cannot reach: "google_ads" is a substring of neither
+                    # "google_search_ads" nor "google_display_ads".
+                    _kb_key_aliases = {"google_ads": "google_search_ads"}
+                    plat_key_lower = _kb_key_aliases.get(plat_key_lower, plat_key_lower)
+                    found_data = cpc_by_platform.get(plat_key_lower)
+                    if found_data is None:
+                        for k, v in cpc_by_platform.items():
+                            if (
+                                plat_key_lower in k.lower()
+                                or k.lower() in plat_key_lower
+                            ):
+                                found_data = v
+                                break
                     if found_data and isinstance(found_data, dict):
-                        for fk, fv in list(found_data.items())[:5]:
+                        # Scalar fields only: nested dicts (industry splits)
+                        # would render as raw Python reprs; "_"-prefixed keys
+                        # are provenance metadata.
+                        _flat_items = [
+                            (fk, fv)
+                            for fk, fv in found_data.items()
+                            if not fk.startswith("_")
+                            and isinstance(fv, (str, int, float))
+                        ]
+                        for fk, fv in _flat_items[:5]:
                             comp_sections.append(
                                 f"  - {fk.replace('_', ' ').title()}: {fv}"
                             )
@@ -23168,13 +23186,19 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         # bands mirror the cited July-2026 refresh in
                         # data/recruitment_industry_knowledge.json
                         # benchmarks.cost_per_click.by_platform -- keep in
-                        # sync with that file's provenance notes.
+                        # sync with that file's provenance notes. Glassdoor
+                        # always lands here (no standalone by_platform entry
+                        # -- jobs run on Indeed's CPC engine since the
+                        # Sept-2025 consolidation); ZipRecruiter/Google Ads
+                        # only when the whole KB failed to load. Every summary
+                        # must agree with the KB/seed cited entries it stands
+                        # in for, never contradict them.
                         _platform_summaries = {
                             "Indeed": "- CPC Range: $0.97-$2.71 (typical US-role band; full spread ~$0.10-$5.00+)\n- Model: CPC auction (Sponsored Jobs)\n- Best For: High-volume hiring across all roles\n- Reach: Largest job site globally",
-                            "LinkedIn": "- CPC Range: $1.50-$4.50 (Promoted Jobs)\n- Model: CPC/pay-per-view auction\n- Best For: White-collar, professional, executive roles\n- Reach: 900M+ professionals",
-                            "ZipRecruiter": "- CPC Range: $0.50-$2.00\n- Model: Pay-per-click with AI matching\n- Best For: SMB hiring, broad role types\n- Reach: Strong US coverage",
-                            "Glassdoor": "- CPC Range: $0.50-$2.00\n- Model: CPC (merging with Indeed)\n- Best For: Employer brand-driven hiring\n- Reach: Merging into Indeed",
-                            "Google Ads": "- CPC Range: $1.00-$4.00 (job-related keywords)\n- Model: PPC auction\n- Best For: Programmatic reach, candidate capture\n- Reach: Broadest search traffic",
+                            "LinkedIn": "- CPC Range: $1.50-$4.50 (Promoted Jobs)\n- Model: CPC/pay-per-view auction\n- Best For: White-collar, professional, executive roles\n- Reach: Largest professional network",
+                            "ZipRecruiter": "- Model: Subscription-based ($299/month per job slot)\n- Estimated CPC Equivalent: $0.80-$1.00\n- Best For: SMB hiring, broad role types\n- Reach: Strong US coverage",
+                            "Glassdoor": "- CPC: No standalone rate -- Glassdoor job ads run on Indeed's CPC engine since the Sept-2025 Indeed/Glassdoor consolidation\n- Model: Sponsored via Indeed (plan Glassdoor through your Indeed line)\n- Best For: Employer brand-driven hiring",
+                            "Google Ads": "- CPC: $5.26 average across industries; est. $3.00-$5.00 for employment services (WordStream/LOCALiQ 2025)\n- Model: PPC auction\n- Best For: Programmatic reach, candidate capture\n- Reach: Broadest search traffic",
                             "Meta/Facebook": "- CPC Range: $0.50-$2.50\n- Model: Social PPC\n- Best For: Hourly, local, blue-collar roles\n- Reach: 3B+ users, mobile-first",
                         }
                         summary = _platform_summaries.get(
