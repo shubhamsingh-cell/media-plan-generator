@@ -14,7 +14,8 @@
 #   scripts/ship_from_worktree.sh
 #
 # Exit codes: 0 shipped | 1 preflight failed | 2 rebase conflict (resolve
-# manually) | 3 test failure | 4 origin/main too hot after 3 attempts.
+# manually) | 3 test failure | 4 origin/main too hot after 3 attempts |
+# 5 post-push ancestor check failed (should be impossible -- investigate).
 
 set -euo pipefail
 
@@ -30,6 +31,20 @@ DEPLOY_READY_URL="https://media-plan-generator.onrender.com/api/deploy/ready"
 
 log() {
     printf '[ship] %s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$1" >&2
+}
+
+# Current remote main SHA; retries transient failures. Prints the SHA on
+# success; returns 1 (prints nothing) after 3 failed tries.
+remote_main_sha() {
+    local sha i
+    for i in 1 2 3; do
+        if sha="$(git ls-remote origin refs/heads/main 2>/dev/null | cut -f1)" && [ -n "$sha" ]; then
+            printf '%s\n' "$sha"
+            return 0
+        fi
+        sleep 5
+    done
+    return 1
 }
 
 # ── Preflight ────────────────────────────────────────────────────────────
@@ -65,7 +80,7 @@ while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
     log "origin/main is at $base"
 
     if ! git rebase origin/main; then
-        git rebase --abort
+        git rebase --abort || true
         echo "ERROR: rebase of $current_branch onto origin/main ($base) hit a conflict. Resolve manually (git rebase origin/main, fix conflicts, git rebase --continue), then re-run this script." >&2
         exit 2
     fi
@@ -82,7 +97,11 @@ while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
     stable=true
     check=1
     while [ "$check" -le "$STABILITY_CHECKS" ]; do
-        remote_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
+        if ! remote_sha="$(remote_main_sha)"; then
+            log "remote unreachable during stability window -- restarting attempt"
+            attempt=$((attempt + 1))
+            continue 2
+        fi
         if [ "$remote_sha" != "$base" ]; then
             log "stability check $check/$STABILITY_CHECKS: origin/main moved ($base -> $remote_sha)"
             stable=false
@@ -101,9 +120,12 @@ while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
         continue
     fi
 
-    log "final fetch + re-check before push"
-    git fetch origin
-    final_sha="$(git rev-parse origin/main)"
+    log "final remote re-check before push"
+    if ! final_sha="$(remote_main_sha)"; then
+        log "remote unreachable during final pre-push check -- starting next attempt"
+        attempt=$((attempt + 1))
+        continue
+    fi
     if [ "$final_sha" != "$base" ]; then
         log "origin/main moved just before push ($base -> $final_sha) -- starting next attempt"
         attempt=$((attempt + 1))
@@ -118,14 +140,23 @@ while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
         continue
     fi
 
-    pushed_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
-    if [ "$pushed_sha" != "$local_head" ]; then
-        log "post-push ls-remote ($pushed_sha) does not match local HEAD ($local_head) -- starting next attempt"
-        attempt=$((attempt + 1))
-        continue
+    # The push's own exit code is the primary success signal -- from here
+    # on, a succeeded push must never cause a non-zero exit.
+    if pushed_sha="$(remote_main_sha)"; then
+        if ! git fetch origin 2>/dev/null; then
+            echo "PUSH SUCCEEDED ($local_head) but post-push remote verification was unreachable -- verify manually." >&2
+            exit 0
+        fi
+        if git merge-base --is-ancestor HEAD origin/main; then
+            log "SHIPPED: $pushed_sha is now origin/main"
+        else
+            echo "ERROR: push to $pushed_sha succeeded but HEAD ($local_head) is not an ancestor of origin/main. This should be impossible after a fast-forward push -- investigate manually." >&2
+            exit 5
+        fi
+    else
+        echo "PUSH SUCCEEDED ($local_head) but post-push remote verification was unreachable -- verify manually." >&2
+        exit 0
     fi
-
-    log "SHIPPED: $pushed_sha is now origin/main"
 
     # ── Best-effort deploy verification (warn-only, never fails the ship) ──
     set +e
