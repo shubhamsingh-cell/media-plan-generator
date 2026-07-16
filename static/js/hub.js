@@ -223,6 +223,9 @@
         });
       });
     });
+  // Tell the <head> FOUC-guard timer the reveal observers are wired, so it
+  // doesn't force-reveal everything at 3s on a normal, non-stalled load.
+  window.__novaRevealBooted = true;
 
   // ── Pause SMIL animations for reduced-motion ──
   if (prefersReducedMotion) {
@@ -1692,4 +1695,50 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Initial paint
   compute();
+})();
+
+// ── Hero eyebrow: cycling vertical word (Scale.com-style rotator) ──
+// The first word is already "is-active" in markup, so reduced-motion /
+// no-JS visitors see a correct static state without any script running.
+(function () {
+  "use strict";
+
+  var cycleEl = document.getElementById("eyebrowCycle");
+  if (!cycleEl) return;
+
+  var words = cycleEl.querySelectorAll(".eyebrow-cycle-word");
+  if (words.length < 2) return;
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  var idx = 0;
+  var timerId = null;
+
+  function advance() {
+    words[idx].classList.remove("is-active");
+    idx = (idx + 1) % words.length;
+    words[idx].classList.add("is-active");
+  }
+
+  function start() {
+    if (timerId) return;
+    timerId = setInterval(advance, 2200);
+  }
+
+  function stop() {
+    if (timerId) {
+      clearInterval(timerId);
+      timerId = null;
+    }
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      stop();
+    } else {
+      start();
+    }
+  });
+
+  start();
 })();

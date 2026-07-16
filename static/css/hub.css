@@ -674,6 +674,50 @@ html.lenis body {
   background: var(--teal);
   box-shadow: 0 0 10px var(--teal);
 }
+/* Hero eyebrow: cycling vertical word (Scale.com-style rotator).
+   Sizer span reserves box width/height (widest word, invisible) so
+   the absolutely-positioned <b> words never collapse the container. */
+.eyebrow-cycle {
+  position: relative;
+  display: inline-block;
+  vertical-align: baseline;
+}
+.eyebrow-cycle-sizer {
+  visibility: hidden;
+  white-space: nowrap;
+}
+.eyebrow-cycle-word {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  opacity: 0;
+  transform: translateY(0.45em);
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease;
+}
+.eyebrow-cycle-word.is-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+.eyebrow-cycle-word.ecw-teal {
+  color: var(--jv-teal-deep);
+}
+.eyebrow-cycle-word.ecw-magenta {
+  color: var(--jv-magenta);
+}
+.eyebrow-cycle-word.ecw-purple {
+  color: var(--jv-purple-light);
+}
+@media (prefers-reduced-motion: reduce) {
+  .eyebrow-cycle-word {
+    transition: none;
+  }
+}
 .hero-headline {
   font-family: var(--font-heading); /* Poppins — Joveo brand heading font */
   font-size: clamp(2.4rem, 4.4vw, 3.7rem);

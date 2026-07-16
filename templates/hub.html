@@ -162,6 +162,22 @@
           .catch(() => {});
       })();
     </script>
+    <!-- Reveal-system safety net: if hub.js stalls/fails before wiring its
+         reveal observers, force every reveal-gated element visible instead
+         of leaving it permanently hidden. hub.js sets
+         window.__novaRevealBooted = true once observers are wired. -->
+    <script>
+      setTimeout(function () {
+        try {
+          if (window.__novaRevealBooted) return;
+          document
+            .querySelectorAll(".reveal, .reveal-on-scroll, .word-reveal, .hero-anim")
+            .forEach(function (el) {
+              el.classList.add("visible");
+            });
+        } catch (e) {}
+      }, 3000);
+    </script>
   </head>
 
   <body>
@@ -245,7 +261,17 @@
 
         <div class="hero-stage">
           <div class="hero-content" style="position: relative; z-index: 2">
-          <span class="hero-eyebrow hero-anim">RECRUITMENT INTELLIGENCE</span>
+          <span class="hero-eyebrow hero-anim"
+            >RECRUITMENT INTELLIGENCE FOR
+            <span class="eyebrow-cycle" id="eyebrowCycle" aria-hidden="true">
+              <span class="eyebrow-cycle-sizer">MANUFACTURING</span>
+              <b class="eyebrow-cycle-word is-active ecw-teal">HEALTHCARE</b>
+              <b class="eyebrow-cycle-word ecw-magenta">LOGISTICS</b>
+              <b class="eyebrow-cycle-word ecw-purple">RETAIL</b>
+              <b class="eyebrow-cycle-word ecw-teal">MANUFACTURING</b>
+              <b class="eyebrow-cycle-word ecw-magenta">TECH</b>
+            </span></span
+          >
 
           <h1 class="hero-headline hero-anim">
             Turn recruitment budgets<br />into
