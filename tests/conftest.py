@@ -12,6 +12,15 @@ from typing import Generator
 
 import pytest
 
+# Keep the AutoQC background monitor out of the test suite. app.py starts it
+# at import time (several test modules import app during collection); on a
+# slow or CPU-loaded run the thread outlives its 90s startup grace, runs a
+# real check cycle, and mutates auto_qc module state while tests are still
+# asserting on get_status(). Must be set before the first `import app`.
+# Hard assignment (not setdefault): an inherited NOVA_DISABLE_AUTO_QC=0 from
+# an outer shell must not silently re-enable the monitor mid-suite.
+os.environ["NOVA_DISABLE_AUTO_QC"] = "1"
+
 # Ensure the project root is importable
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))

@@ -561,7 +561,11 @@
     fetch('/api/health/data-matrix', {
       headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('admin_api_key') || '') }
     })
-      .then(function(res) { return res.ok ? res.json() : Promise.reject('HTTP ' + res.status); })
+      .then(function(res) {
+        // 503 = degraded -- the body still carries the diagnostic JSON
+        if (res.ok || res.status === 503) return res.json();
+        return Promise.reject('HTTP ' + res.status);
+      })
       .then(function(data) {
         var statusText = 'Status: ' + (data.status || 'unknown') + ' | Health: ' + (data.health_pct || 0) + '%';
         document.getElementById('health-matrix-status').textContent = statusText;
@@ -576,7 +580,11 @@
     fetch('/api/health/auto-qc', {
       headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('admin_api_key') || '') }
     })
-      .then(function(res) { return res.ok ? res.json() : Promise.reject('HTTP ' + res.status); })
+      .then(function(res) {
+        // 503 = degraded/critical QC -- the body still carries the status JSON
+        if (res.ok || res.status === 503) return res.json();
+        return Promise.reject('HTTP ' + res.status);
+      })
       .then(function(data) {
         var statusText = 'Status: ' + (data.status || 'unknown');
         document.getElementById('health-qc-status').textContent = statusText;

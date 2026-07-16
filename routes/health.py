@@ -357,7 +357,7 @@ def _handle_health_auto_qc(handler, path: str, parsed: Any) -> None:
 
     if _auto_qc:
         qc_result = _auto_qc.get_status()
-        qc_code = 200 if qc_result.get("status") != "degraded" else 503
+        qc_code = 503 if qc_result.get("status") in ("degraded", "critical") else 200
         qc_body = json.dumps(qc_result, indent=2).encode("utf-8")
         handler.send_response(qc_code)
         handler.send_header("Content-Type", "application/json")

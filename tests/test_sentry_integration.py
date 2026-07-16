@@ -834,6 +834,15 @@ class TestHelperFunctions:
 class TestAutoQCSentryIntegration:
     """Tests for AutoQC + Sentry integration (refactored interface)."""
 
+    def setup_method(self) -> None:
+        """Isolate from monitor state another test may have left running."""
+        import auto_qc
+
+        auto_qc.stop()
+        with auto_qc._lock:
+            auto_qc._last_results = {}
+            auto_qc._check_history.clear()
+
     def test_autoqc_importable(self) -> None:
         """AutoQC class should be importable."""
         from auto_qc import AutoQC

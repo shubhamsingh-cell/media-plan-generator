@@ -6975,11 +6975,20 @@ try:
     from auto_qc import get_auto_qc
 
     _auto_qc = get_auto_qc()
-    _auto_qc.start_background()
-    logger.info("AutoQC engine started (health checks every 12h)")
+    _auto_qc_started = False
+    if (os.environ.get("NOVA_DISABLE_AUTO_QC") or "") == "1":
+        # Test suites set this: the monitor thread outlives the 90s startup
+        # grace on slow/loaded pytest runs and mutates get_status() shape
+        # mid-session. The instance stays available for /api/health/auto-qc.
+        logger.info("AutoQC engine disabled (NOVA_DISABLE_AUTO_QC=1)")
+    else:
+        _auto_qc.start_background()
+        _auto_qc_started = True
+        logger.info("AutoQC engine started (health checks every 12h)")
 except ImportError as _aqc_err:
     logger.warning("auto_qc not available: %s", _aqc_err)
     _auto_qc = None
+    _auto_qc_started = False
 
 # Monitoring-to-alerting bridge (60s SLO checks -> alerts)
 try:
@@ -23761,7 +23770,10 @@ if __name__ == "__main__":
         "available" if enrich_data else "unavailable",
     )
     logger.info("Data Matrix: %s", "monitoring" if _data_matrix else "unavailable")
-    logger.info("AutoQC: %s", "running" if _auto_qc else "unavailable")
+    logger.info(
+        "AutoQC: %s",
+        "running" if _auto_qc_started else ("disabled" if _auto_qc else "unavailable"),
+    )
     logger.info(
         "Data Enrichment: %s",
         "running" if _data_enrichment_available else "unavailable",

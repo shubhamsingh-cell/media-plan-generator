@@ -351,6 +351,10 @@ def get_status() -> dict[str, Any]:
                 ),
             }
         result = dict(_last_results)
+        # Contract: every branch exposes "status". The empty branch above
+        # emits it, and consumers key off it (routes/health.py picks the
+        # HTTP code from it; nova-admin and dashboard badges render it).
+        result["status"] = result.get("overall") or "unknown"
         result["history_size"] = len(_check_history)
         result["sla"] = get_sla_report()
         return result

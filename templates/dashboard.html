@@ -2764,6 +2764,8 @@
           degraded: "badge-error",
           running: "badge-pending",
           pending: "badge-pending",
+          healthy: "badge-success",
+          critical: "badge-error",
         };
         badgeEl.className =
           "badge " + (statusMap[perfQc.status] || "badge-pending");

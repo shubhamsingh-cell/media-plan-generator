@@ -29,6 +29,15 @@ if str(PROJECT_ROOT) not in sys.path:
 class TestAutoQcModule:
     """Tests for the auto_qc infrastructure module (refactored interface)."""
 
+    def setup_method(self) -> None:
+        """Isolate from monitor state another test may have left running."""
+        import auto_qc
+
+        auto_qc.stop()
+        with auto_qc._lock:
+            auto_qc._last_results = {}
+            auto_qc._check_history.clear()
+
     def test_autoqc_class_importable(self) -> None:
         """AutoQC class must be importable from auto_qc."""
         from auto_qc import AutoQC
@@ -92,6 +101,25 @@ class TestAutoQcModule:
         assert 0.0 <= _CRITICAL_THRESHOLD <= 1.0
         assert 0.0 <= _DEGRADED_THRESHOLD <= 1.0
         assert _CRITICAL_THRESHOLD <= _DEGRADED_THRESHOLD
+
+    def test_get_status_keeps_status_key_after_check_cycle(self) -> None:
+        """Regression: populated get_status() must still expose "status".
+
+        Before the fix, the branch that returns _last_results verbatim
+        dropped the key, so a monitor thread surviving past the startup
+        grace made the get_status assertions flake under CPU load.
+        """
+        import auto_qc
+
+        with auto_qc._lock:
+            auto_qc._last_results = {"ts": 0.0, "checks": {}, "overall": "degraded"}
+        try:
+            status = auto_qc.get_status()
+            assert status["status"] == "degraded"
+            assert status["overall"] == "degraded"
+        finally:
+            with auto_qc._lock:
+                auto_qc._last_results = {}
 
 
 # =============================================================================
