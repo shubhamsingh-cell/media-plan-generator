@@ -5189,7 +5189,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             },
             {
                 "name": "query_market_trends",
-                "description": "Get CPC/CPA trend data with seasonal patterns and year-over-year changes. Returns 4-year historical trends, seasonal multipliers by collar type, projected costs, live channel CPC benchmarks (Indeed/LinkedIn/ZipRecruiter/Glassdoor/Monster), and curated market trend articles from 15+ sources. Use when user asks about CPC trends, seasonal hiring patterns, 'when is the cheapest time to advertise', cost forecasting, or recruitment market trends.",
+                "description": "Get CPC/CPA trend data with seasonal patterns and year-over-year changes. Returns 4-year historical trends, seasonal multipliers by collar type, projected costs, current channel CPC benchmarks (web-researched baseline, dated per channel; Indeed/LinkedIn/ZipRecruiter/Glassdoor/Monster), and curated market trend articles from 15+ sources. Use when user asks about CPC trends, seasonal hiring patterns, 'when is the cheapest time to advertise', cost forecasting, or recruitment market trends.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -10009,23 +10009,45 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 _bench_entries = _cbl_data.get("data", [])
                 if _bench_entries:
                     _live_cpcs: Dict[str, Any] = {}
+                    _last_updates: list = []
                     for _be in _bench_entries:
                         _ch = _be.get("channel", "")
                         _meta = _be.get("metadata") or {}
                         _cpc_r = _meta.get("cpc_range") or {}
                         _cpa_r = _meta.get("cpa_estimate") or {}
+                        _lu = _meta.get("last_updated") or ""
+                        if _lu:
+                            _last_updates.append(_lu)
                         if _ch:
                             _live_cpcs[_ch] = {
                                 "cpc_range": _cpc_r,
                                 "cpa_range": _cpa_r,
                                 "model": _meta.get("model", ""),
-                                "last_updated": _meta.get("last_updated", ""),
+                                "last_updated": _lu,
+                                # Verbatim notes + sources preserve the
+                                # citation trail (capped defensively --
+                                # researched notes run long; 800 chars keeps
+                                # per-entry payload bounded without losing
+                                # the substance for any entry actually
+                                # shipped so far).
+                                "notes": (_meta.get("notes") or "")[:800],
+                                "sources": _meta.get("sources") or [],
                             }
                     if _live_cpcs:
                         result["live_channel_benchmarks"] = _live_cpcs
+                        # Honest provenance: use the file's own _provenance
+                        # string when present, falling back to the filename.
+                        # A hardcoded "channel_benchmarks_live.json" label
+                        # (plus the tool description's old "live" wording)
+                        # implied real-time freshness this file doesn't have
+                        # -- it's a static, dated web-research snapshot, not
+                        # a live feed (the refresh daemon that would make it
+                        # live is disabled).
                         result["live_benchmarks_source"] = (
-                            "channel_benchmarks_live.json"
+                            _cbl_data.get("_provenance") or "channel_benchmarks_live.json"
                         )
+                        if _last_updates:
+                            result["benchmarks_vintage"] = max(_last_updates)
         except Exception as _cbl_err:
             logger.debug("channel_benchmarks_live injection failed: %s", _cbl_err)
 

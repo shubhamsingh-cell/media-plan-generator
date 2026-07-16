@@ -6038,6 +6038,124 @@ _cpc_alerts: list = []
 _cpc_alerts_lock = threading.Lock()
 
 
+def _compute_cpc_alerts(
+    live_raw: dict, kb_raw: dict, *, now: Optional[str] = None
+) -> list:
+    """Compare live channel CPC bands against static KB medians; return alerts.
+
+    Pure function -- no I/O, no globals -- so it's independently testable
+    (see tests/test_cpc_monitor.py). ``_monitor_cpc_changes`` below is the
+    only caller; it just does the file I/O and publishes the result.
+
+    Two parsing bugs lived in the inline version of this logic before it
+    was extracted (see the commit that added this function):
+      1. ``live_raw`` (parsed data/channel_benchmarks_live.json) is shaped
+         ``{"data": [...], "_refreshed_at": ..., "_provenance": ...}`` --
+         NOT a flat ``{platform: {...}}`` mapping. Iterating ``.items()``
+         on the raw dict yields zero usable platforms (none of "data" /
+         "_refreshed_at" / "_provenance" are per-platform dicts). The fix
+         parses ``live_raw.get("data", [])``, reading each entry's
+         ``entry["channel"]`` and ``entry["metadata"]["cpc_range"]``
+         (mirrors budget_engine._load_channel_benchmarks_live's parser).
+      2. ``kb_raw`` (parsed recruitment_benchmarks_comprehensive_2026.json)
+         was read via a nonexistent ``platform_benchmarks`` top-level key.
+         The real path is
+         ``A_cpa_cph_benchmarks_by_channel.cpc_by_platform.data``, entries
+         carrying ``cpc_median_usd`` (Indeed 0.92, LinkedIn 5.26).
+      Both bugs together meant this monitor was a silent no-op from the
+      day it was written -- it always compared zero live platforms against
+      an empty KB dict and published an empty alert list.
+
+    Args:
+        live_raw: Parsed data/channel_benchmarks_live.json. Entries whose
+            ``metadata.cpc_range`` is absent (ZipRecruiter/Glassdoor/
+            Monster/CareerBuilder -- subscription/credit-based pricing,
+            no citable CPC) are skipped, not treated as a $0 CPC.
+        kb_raw: Parsed recruitment_benchmarks_comprehensive_2026.json.
+        now: Optional ISO-8601 UTC timestamp override for deterministic
+            tests; defaults to the current time.
+
+    Returns:
+        List of alert dicts for platforms whose live CPC (band midpoint)
+        diverges from the KB median by >= 15% (the pre-existing threshold).
+        Given the researched seed vs the static, unrefreshed KB medians,
+        Indeed fires ~+100% and LinkedIn ~-43% every cycle by design --
+        that is a truthful divergence report, not a bug; each alert names
+        its KB baseline's vintage so a future consumer of
+        /api/cpc-alerts (currently unconsumed) can't mistake it for a
+        live-vs-live comparison.
+    """
+    import time as _t
+
+    timestamp = now or _t.strftime("%Y-%m-%dT%H:%M:%SZ", _t.gmtime())
+
+    # Extract KB CPC medians: A_cpa_cph_benchmarks_by_channel.cpc_by_platform.data
+    kb_cpc: dict[str, float] = {}
+    cpc_section = (
+        (kb_raw.get("A_cpa_cph_benchmarks_by_channel") or {})
+        .get("cpc_by_platform", {})
+        .get("data", [])
+    ) or []
+    for item in cpc_section:
+        if isinstance(item, dict):
+            platform = item.get("platform") or ""
+            median = item.get("cpc_median_usd") or item.get("cpc_max_usd") or 0
+            if platform and median:
+                kb_cpc[platform.lower()] = float(median)
+
+    # Extract live CPC bands: {"data": [{"channel": ..., "metadata": {"cpc_range": {...}}}]}
+    new_alerts: list[dict] = []
+    for entry in live_raw.get("data", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        channel = entry.get("channel") or ""
+        if not channel:
+            continue
+        metadata = entry.get("metadata") or {}
+        cpc_range = metadata.get("cpc_range")
+        if not isinstance(cpc_range, dict):
+            continue  # no citable CPC for this channel (e.g. subscription-only board)
+        cpc_min = cpc_range.get("min")
+        cpc_max = cpc_range.get("max")
+        if not isinstance(cpc_min, (int, float)) or not isinstance(
+            cpc_max, (int, float)
+        ):
+            continue
+        live_cpc = (cpc_min + cpc_max) / 2.0
+
+        for kb_name, kb_val in kb_cpc.items():
+            if channel.lower() in kb_name or kb_name in channel.lower():
+                change_pct = (
+                    ((live_cpc - kb_val) / kb_val) * 100 if kb_val > 0 else 0
+                )
+                if abs(change_pct) >= 15:  # 15% threshold
+                    direction = "up" if change_pct > 0 else "down"
+                    new_alerts.append(
+                        {
+                            "platform": channel,
+                            "metric": "CPC",
+                            "kb_value": round(kb_val, 2),
+                            "live_value": round(live_cpc, 2),
+                            "change_pct": round(change_pct, 1),
+                            "direction": direction,
+                            "timestamp": timestamp,
+                            "severity": (
+                                "high" if abs(change_pct) >= 30 else "medium"
+                            ),
+                            "baseline_label": "vs KB median (static 2026 KB file)",
+                            "message": (
+                                f"{channel} live CPC ${live_cpc:.2f} is "
+                                f"{abs(change_pct):.1f}% {direction} vs KB "
+                                f"median ${kb_val:.2f} (static 2026 KB file, "
+                                "not live-refreshed)"
+                            ),
+                        }
+                    )
+                break
+
+    return new_alerts
+
+
 def _monitor_cpc_changes() -> None:
     """Background thread: compare live channel data against KB benchmarks every 6h."""
     import time as _t
@@ -6055,61 +6173,11 @@ def _monitor_cpc_changes() -> None:
                 continue
 
             with open(live_file, encoding="utf-8") as f:
-                live_data = json.load(f)
+                live_raw = json.load(f)
             with open(kb_file, encoding="utf-8") as f:
-                kb_data = json.load(f)
+                kb_raw = json.load(f)
 
-            # Extract KB CPC benchmarks
-            kb_cpc: dict[str, float] = {}
-            cpc_section = (
-                kb_data.get("platform_benchmarks", {})
-                .get("cost_per_click", {})
-                .get("data", [])
-            ) or []
-            for item in cpc_section:
-                if isinstance(item, dict):
-                    platform = item.get("platform") or ""
-                    median = item.get("cpc_median_usd") or item.get("cpc_max_usd") or 0
-                    if platform and median:
-                        kb_cpc[platform.lower()] = float(median)
-
-            # Compare live vs KB
-            new_alerts: list[dict] = []
-            for platform_key, platform_data in live_data.items():
-                if not isinstance(platform_data, dict):
-                    continue
-                live_cpc = platform_data.get("avg_cpc") or platform_data.get("cpc") or 0
-                if not live_cpc:
-                    continue
-
-                for kb_name, kb_val in kb_cpc.items():
-                    if (
-                        platform_key.lower() in kb_name
-                        or kb_name in platform_key.lower()
-                    ):
-                        change_pct = (
-                            ((float(live_cpc) - kb_val) / kb_val) * 100
-                            if kb_val > 0
-                            else 0
-                        )
-                        if abs(change_pct) >= 15:  # 15% threshold
-                            new_alerts.append(
-                                {
-                                    "platform": platform_key,
-                                    "metric": "CPC",
-                                    "kb_value": round(kb_val, 2),
-                                    "live_value": round(float(live_cpc), 2),
-                                    "change_pct": round(change_pct, 1),
-                                    "direction": "up" if change_pct > 0 else "down",
-                                    "timestamp": _t.strftime(
-                                        "%Y-%m-%dT%H:%M:%SZ", _t.gmtime()
-                                    ),
-                                    "severity": (
-                                        "high" if abs(change_pct) >= 30 else "medium"
-                                    ),
-                                }
-                            )
-                        break
+            new_alerts = _compute_cpc_alerts(live_raw, kb_raw)
 
             with _cpc_alerts_lock:
                 _cpc_alerts.clear()
