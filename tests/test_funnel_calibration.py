@@ -276,44 +276,58 @@ class TestCalculateBudgetAllocationWiresFunnel:
 # different-but-not-wrong headline numbers, breaking this invariant for a
 # reason that has nothing to do with the funnel-calibration engine itself.
 # TestHeadlineInvariance._pin_channel_benchmarks_live below freezes the
-# exact 2026-07-12 input this test's expectations were captured against,
-# independent of whatever data/channel_benchmarks_live.json happens to
-# contain (absent, stale, or freshly re-scraped) in the checkout the suite
-# runs in.
+# exact input this test's expectations were captured against, independent
+# of whatever data/channel_benchmarks_live.json happens to contain (absent,
+# stale, or freshly re-scraped) in the checkout the suite runs in.
+#
+# 2026-07-16 re-baseline: seed replaced LLM-generated April snapshot with
+# web-researched July-2026 figures (see data/channel_benchmarks_seed.json
+# provenance); job_board live CPC 1.52->1.62, social 4.0->2.60. The
+# _BEFORE_* constants below were regenerated against that new seed, in the
+# same pinned environment TestHeadlineInvariance._pin_channel_benchmarks_live
+# uses (budget_engine._DATA_DIR -> tests/fixtures/funnel_invariant/, which
+# now holds the byte-identical copy of the refreshed seed;
+# budget_engine._channel_bench_live_cache reset to force a re-read). Total
+# hires for both briefs held at 48 (Manpower) / 57 (Atria) -- CPH-floor
+# clamping absorbed the CPC-band narrowing -- but clicks/applications/
+# cost_per_application/cost_per_click and every per-channel dollar_amount
+# moved with the new CPC inputs. Names kept as _BEFORE_* for continuity;
+# they now denote "the pinned-fixture expectation", not literally
+# pre-funnel-model numbers.
 # ---------------------------------------------------------------------------
 _FUNNEL_INVARIANT_FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "funnel_invariant"
 
 _BEFORE_MANPOWER_TOTAL = {
-    "applications": 18950,
-    "clicks": 230399,
-    "cost_per_application": 7.92,
-    "cost_per_click": 0.65,
+    "applications": 17932,
+    "clicks": 221566,
+    "cost_per_application": 8.36,
+    "cost_per_click": 0.68,
     "cost_per_hire": 3125.0,
     "hires": 48,
 }
 _BEFORE_ATRIA_TOTAL = {
-    "applications": 17780,
-    "clicks": 224615,
-    "cost_per_application": 16.87,
-    "cost_per_click": 1.34,
+    "applications": 16893,
+    "clicks": 220065,
+    "cost_per_application": 17.76,
+    "cost_per_click": 1.36,
     "cost_per_hire": 5250.0,
     "hires": 57,
 }
 _BEFORE_MANPOWER_PER_CHANNEL = {
     "employer_branding": {"dollar_amount": 7500.0, "projected_applications": 199, "projected_hires": 0},
-    "global_boards": {"dollar_amount": 33655.5, "projected_applications": 2479, "projected_hires": 8},
-    "niche_boards": {"dollar_amount": 29221.5, "projected_applications": 1461, "projected_hires": 6},
-    "programmatic_dsp": {"dollar_amount": 39535.5, "projected_applications": 8565, "projected_hires": 18},
-    "regional_boards": {"dollar_amount": 36175.5, "projected_applications": 6211, "projected_hires": 16},
-    "social_media": {"dollar_amount": 3912.0, "projected_applications": 35, "projected_hires": 0},
+    "global_boards": {"dollar_amount": 30729.0, "projected_applications": 2124, "projected_hires": 8},
+    "niche_boards": {"dollar_amount": 29253.0, "projected_applications": 1462, "projected_hires": 6},
+    "programmatic_dsp": {"dollar_amount": 37644.0, "projected_applications": 8156, "projected_hires": 18},
+    "regional_boards": {"dollar_amount": 34314.0, "projected_applications": 5891, "projected_hires": 16},
+    "social_media": {"dollar_amount": 10560.0, "projected_applications": 100, "projected_hires": 0},
 }
 _BEFORE_ATRIA_PER_CHANNEL = {
-    "employer_branding": {"dollar_amount": 24000.0, "projected_applications": 639, "projected_hires": 0},
-    "global_boards": {"dollar_amount": 79386.0, "projected_applications": 5849, "projected_hires": 23},
-    "niche_boards": {"dollar_amount": 34992.0, "projected_applications": 1749, "projected_hires": 8},
-    "programmatic_dsp": {"dollar_amount": 84336.0, "projected_applications": 6578, "projected_hires": 17},
-    "regional_boards": {"dollar_amount": 56436.0, "projected_applications": 2837, "projected_hires": 9},
-    "social_media": {"dollar_amount": 20850.0, "projected_applications": 128, "projected_hires": 0},
+    "employer_branding": {"dollar_amount": 23997.6, "projected_applications": 639, "projected_hires": 0},
+    "global_boards": {"dollar_amount": 73374.24, "projected_applications": 5072, "projected_hires": 21},
+    "niche_boards": {"dollar_amount": 35036.5, "projected_applications": 1751, "projected_hires": 9},
+    "programmatic_dsp": {"dollar_amount": 80843.49, "projected_applications": 6305, "projected_hires": 17},
+    "regional_boards": {"dollar_amount": 52886.28, "projected_applications": 2658, "projected_hires": 9},
+    "social_media": {"dollar_amount": 33861.88, "projected_applications": 468, "projected_hires": 1},
 }
 
 
