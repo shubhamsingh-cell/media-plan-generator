@@ -2320,13 +2320,19 @@ def fuse_location_profiles(
 def fuse_ad_platform_analysis(
     enriched: dict, kb: dict, input_data: dict
 ) -> Dict[str, Any]:
-    """Fuse ad platform data from Google Ads, Meta Ads, Bing Ads, TikTok Ads, LinkedIn Ads.
+    """Return industry-benchmark ad platform data for the 13 platforms in
+    _PLATFORM_BENCHMARKS (Google, Meta, LinkedIn, Bing, TikTok, Snapchat, X,
+    Programmatic Display, Roku/CTV, Spotify, Reddit, Indeed, ZipRecruiter).
+
+    2026-07-17: this static table is the deliberate, unconditional source --
+    see the block comment above _PLATFORM_BENCHMARKS below for why. The
+    ``enriched`` param is kept for call-site/signature stability but is no
+    longer consulted.
 
     For each platform:
-      - Estimated CPC, CPM, CPA
+      - CPC, CPM, CPA (from the cited benchmark table)
       - Audience reach estimate
-      - Platform fit score for role type
-      - Historical benchmark from KB
+      - Platform fit score for role type and industry
       - ROI projection
       - Recommended daily budget range
     """
@@ -2339,903 +2345,721 @@ def fuse_ad_platform_analysis(
     budget = _safe_float(input_data.get("budget") or 0)
     industry = input_data.get("industry") or ""
 
-    # Source data
-    google_ads = enriched.get(
-        "google_ads_data", enriched.get("google_ads_keyword_data", {})
-    )
-    meta_ads = enriched.get("meta_ads_data", {})
-    bing_ads = enriched.get("bing_ads_data", {})
-    tiktok_ads = enriched.get("tiktok_ads_data", {})
-    linkedin_ads = enriched.get("linkedin_ads_data", {})
-
-    # KB platform benchmarks
-    kb_benchmarks = _kb_platform_benchmarks(kb)
-    kb_cpc = _get_nested(kb_benchmarks, "cost_per_click", "by_platform", default={})
-    kb_cpa = _get_nested(kb_benchmarks, "cost_per_application", default={})
-
-    # Platform fit scores by role type
-    PLATFORM_FIT = {
-        "google": {
-            "professional": 0.85,
-            "technical": 0.80,
-            "hourly": 0.75,
-            "executive": 0.80,
-            "default": 0.80,
-        },
-        "meta": {
-            "professional": 0.60,
-            "technical": 0.50,
-            "hourly": 0.85,
-            "executive": 0.40,
-            "default": 0.65,
-        },
-        "bing": {
-            "professional": 0.70,
-            "technical": 0.65,
-            "hourly": 0.55,
-            "executive": 0.70,
-            "default": 0.60,
-        },
-        "tiktok": {
-            "professional": 0.35,
-            "technical": 0.30,
-            "hourly": 0.80,
-            "executive": 0.15,
-            "default": 0.45,
-        },
-        "linkedin": {
-            "professional": 0.95,
-            "technical": 0.85,
-            "hourly": 0.30,
-            "executive": 0.95,
-            "default": 0.75,
-        },
-    }
-
-    result: Dict[str, Any] = {}
-
     # Determine role type for platform fit scoring
     role_type = _classify_role_type(roles)
 
-    # --- Google Ads ---
-    result["google"] = _build_platform_entry(
-        platform_name="Google Search & Display",
-        enriched_data=google_ads,
-        data_key="keywords",
-        roles=roles,
-        kb_cpc_entry=kb_cpc.get("google_search_ads", {}),
-        kb_cpa_data=kb_cpa,
-        fit_score=PLATFORM_FIT["google"].get(role_type, 0.80),
-        budget=budget,
-    )
+    # --- Industry benchmark data for major ad platforms (canonical source) ---
+    # 2026-07-17 decision: this static table is the deliberate, unconditional
+    # source for ad_platform_analysis, not an emergency fallback. It replaced
+    # a per-role enriched path (5 platforms via _build_platform_entry /
+    # _build_meta_platform_entry) after 2d89bacf's mass `.get(x, 0) == 0` ->
+    # `.get(x) or 0 == 0` conversion (2026-03-23) silently turned the old
+    # `_all_empty` gate into a tautology (`or 0 == 0` == `or True`), so this
+    # table has in fact loaded on every plan for 4 months with the enriched
+    # entries discarded unnoticed. Given the S93 calibration and the
+    # 2026-07-16/17 CPC-reconciliation work both anchor on these 13
+    # platforms, that became the approved regime rather than a bug to
+    # revert -- the dead enriched-path construction was removed instead of
+    # reactivated. See tests/test_platform_benchmark_fallback.py and
+    # tests/test_ad_platform_benchmark_regime.py.
+    _PLATFORM_BENCHMARKS = {
+        # CPC 2.90 = benchmark_registry.CHANNEL_BENCHMARKS["google_ads"]
+        # (WordStream/LOCALiQ 2025 + Appcast 2026 + Joveo 2025, updated
+        # 2026-03-26). Prior 2.69 was earlier-vintage. CPM/CPA unchanged
+        # (original 2024-2025 vintage; no fresher cited figure).
+        "Google Ads": {
+            "cpc": 2.90,
+            "cpm": 3.12,
+            "cpa": 48.96,
+            "audience_reach": "5.6B+ monthly searches",
+            "daily_budget_range": "$50 - $500",
+            "best_for": "Active job seekers, high intent",
+        },
+        # CPC 1.86 = benchmark_registry.CHANNEL_BENCHMARKS["meta_facebook"]
+        # (WordStream 2025 Facebook Ads Benchmarks, updated 2026-03-26).
+        # Prior 1.72 was earlier-vintage. CPM/CPA unchanged (original
+        # 2024-2025 vintage; no fresher cited figure).
+        "Meta (Facebook/Instagram)": {
+            "cpc": 1.86,
+            "cpm": 7.19,
+            "cpa": 18.68,
+            "audience_reach": "3.0B+ monthly active users",
+            "daily_budget_range": "$20 - $300",
+            "best_for": "Passive candidates, employer branding",
+        },
+        # Basis: job ads (Promoted Jobs), NOT general commercial sponsored
+        # content -- this entry models LinkedIn as a recruitment channel
+        # (its cpa feeds budget/cpa -> projected applications, alongside
+        # Indeed/ZipRecruiter). CPC 2.60 =
+        # benchmark_registry.CHANNEL_BENCHMARKS["linkedin"] (geometric mean
+        # of the cited $1.50-$4.50 Promoted Jobs band, refreshed
+        # 2026-07-16; see KB cpc_by_platform refreshed_2026_07_16 note).
+        # Prior 5.26 blended sponsored-content CPC ($5-$12) into a job-ads
+        # figure and was retired by the July-2026 research. CPM/CPA
+        # unchanged (original 2024-2025 vintage; no fresher cited figure).
+        "LinkedIn Ads": {
+            "cpc": 2.60,
+            "cpm": 6.59,
+            "cpa": 56.08,
+            "audience_reach": "1.0B+ professionals",
+            "daily_budget_range": "$50 - $1,000",
+            "best_for": "Professional/white-collar roles, B2B",
+        },
+        "TikTok Ads": {
+            "cpc": 1.00,
+            "cpm": 10.00,
+            "cpa": 20.00,
+            "audience_reach": "1.5B+ monthly active users",
+            "daily_budget_range": "$20 - $200",
+            "best_for": "Gen-Z talent, hourly/retail roles",
+        },
+        "Microsoft/Bing Ads": {
+            "cpc": 1.54,
+            "cpm": 2.00,
+            "cpa": 41.44,
+            "audience_reach": "1.0B+ monthly searches",
+            "daily_budget_range": "$30 - $300",
+            "best_for": "Professional candidates, desktop users",
+        },
+        "Snapchat Ads": {
+            "cpc": 1.30,
+            "cpm": 2.95,
+            "cpa": 22.00,
+            "audience_reach": "750M+ monthly active users",
+            "daily_budget_range": "$20 - $150",
+            "best_for": "Young hourly workforce, retail/hospitality",
+        },
+        "X (Twitter) Ads": {
+            "cpc": 1.35,
+            "cpm": 6.46,
+            "cpa": 28.00,
+            "audience_reach": "500M+ monthly active users",
+            "daily_budget_range": "$30 - $200",
+            "best_for": "Tech talent, thought leadership",
+        },
+        "Programmatic Display (DSP)": {
+            "cpc": 0.63,
+            "cpm": 2.80,
+            "cpa": 15.00,
+            "audience_reach": "Billions of impressions across open web",
+            "daily_budget_range": "$100 - $2,000",
+            "best_for": "Scale hiring, retargeting, geo-targeting",
+        },
+        "Roku/CTV Advertising": {
+            "cpc": 0.00,
+            "cpm": 25.00,
+            "cpa": 45.00,
+            "audience_reach": "80M+ US households",
+            "daily_budget_range": "$200 - $5,000",
+            "best_for": "Employer branding, mass-market roles",
+        },
+        "Spotify Audio Ads": {
+            "cpc": 0.00,
+            "cpm": 15.00,
+            "cpa": 35.00,
+            "audience_reach": "600M+ monthly active users",
+            "daily_budget_range": "$50 - $500",
+            "best_for": "Brand awareness, commuter audience",
+        },
+        "Reddit Ads": {
+            "cpc": 0.75,
+            "cpm": 3.50,
+            "cpa": 25.00,
+            "audience_reach": "1.7B+ monthly active users",
+            "daily_budget_range": "$20 - $200",
+            "best_for": "Tech/engineering communities, niche targeting",
+        },
+        "Indeed Sponsored Jobs": {
+            "cpc": 0.50,
+            "cpm": 0.00,
+            "cpa": 22.00,
+            "audience_reach": "350M+ monthly unique visitors",
+            "daily_budget_range": "$30 - $500",
+            "best_for": "Direct applicants, all industries",
+        },
+        "ZipRecruiter Sponsored": {
+            "cpc": 1.50,
+            "cpm": 0.00,
+            "cpa": 28.00,
+            "audience_reach": "25M+ monthly active job seekers",
+            "daily_budget_range": "$16 - $300",
+            "best_for": "SMB hiring, quick fills",
+        },
+    }
 
-    # --- Enrich Google Ads entry with Joveo first-party benchmark data ---
-    # Data priority: Priority 3 (KB benchmark data) -- used to cross-validate
-    # live API results or fill gaps when API data is unavailable.
-    gads_category = _INDUSTRY_TO_GOOGLE_ADS_CATEGORY.get(industry) or ""
-    gads_kb = _kb_google_ads_benchmarks(kb, gads_category) if gads_category else {}
-    if gads_kb and isinstance(result.get("google"), dict):
-        google_entry = result["google"]
-        google_entry["joveo_google_ads_benchmarks"] = {
-            "category": gads_kb.get("category_name", gads_category),
-            "blended_cpc": gads_kb.get("blended_cpc"),
-            "blended_ctr": gads_kb.get("blended_ctr"),
-            "cpc_stats": gads_kb.get("cpc_stats", {}),
-            "ctr_stats": gads_kb.get("ctr_stats", {}),
-            "total_keywords_analyzed": gads_kb.get("total_keywords"),
-            "total_spend_analyzed": gads_kb.get("total_spend"),
-            "source": "Joveo Google Ads 2025 Campaign Data (first-party)",
-            "data_priority": 3,
-        }
-        # Add top keywords for ad copy recommendations
-        top_kw = gads_kb.get("top_performing_keywords") or []
-        if top_kw:
-            google_entry["joveo_top_keywords"] = [
-                {
-                    "keyword": kw.get("keyword"),
-                    "cpc": kw.get("cpc"),
-                    "ctr_pct": kw.get("ctr_pct"),
-                }
-                for kw in top_kw[:5]
-            ]
-        # Cross-validate: if live API CPC exists, compare to KB benchmark
-        live_cpc = google_entry.get("avg_cpc") or 0
-        kb_blended_cpc = gads_kb.get("blended_cpc") or 0
-        if isinstance(live_cpc, (int, float)) and live_cpc > 0 and kb_blended_cpc:
-            deviation = abs(live_cpc - kb_blended_cpc) / kb_blended_cpc
-            google_entry["cpc_kb_cross_validation"] = {
-                "live_cpc": live_cpc,
-                "kb_benchmark_cpc": kb_blended_cpc,
-                "deviation_pct": round(deviation * 100, 1),
-                "within_tolerance": deviation <= 0.50,
-                "note": (
-                    "Live CPC within expected range"
-                    if deviation <= 0.50
-                    else "Live CPC deviates significantly from Joveo 2025 benchmarks"
-                ),
-            }
+    # ---------------------------------------------------------------
+    # Industry-specific platform fit scores (1-10 scale)
+    # Comprehensive matrix covering ALL 13 benchmark platforms
+    # across 20+ industries. Scores reflect where each industry's
+    # target audience actually is, validated against internal data
+    # (CG 98K posts, SlotOps 108K jobs) and industry benchmarks.
+    # ---------------------------------------------------------------
+    _INDUSTRY_PLATFORM_FIT = {
+        # --- Technology & Engineering ---
+        "tech_engineering": {
+            "Google Ads": 8,
+            "Meta (Facebook/Instagram)": 5,
+            "LinkedIn Ads": 9,
+            "TikTok Ads": 3,
+            "Microsoft/Bing Ads": 6,
+            "Snapchat Ads": 2,
+            "X (Twitter) Ads": 7,
+            "Programmatic Display (DSP)": 7,
+            "Roku/CTV Advertising": 3,
+            "Spotify Audio Ads": 3,
+            "Reddit Ads": 8,
+            "Indeed Sponsored Jobs": 7,
+            "ZipRecruiter Sponsored": 5,
+        },
+        # --- Healthcare & Medical ---
+        "healthcare_medical": {
+            "Google Ads": 7,
+            "Meta (Facebook/Instagram)": 6,
+            "LinkedIn Ads": 7,
+            "TikTok Ads": 3,
+            "Microsoft/Bing Ads": 5,
+            "Snapchat Ads": 2,
+            "X (Twitter) Ads": 3,
+            "Programmatic Display (DSP)": 8,
+            "Roku/CTV Advertising": 4,
+            "Spotify Audio Ads": 5,
+            "Reddit Ads": 4,
+            "Indeed Sponsored Jobs": 9,
+            "ZipRecruiter Sponsored": 8,
+        },
+        # --- Retail & Consumer ---
+        "retail_consumer": {
+            "Google Ads": 7,
+            "Meta (Facebook/Instagram)": 9,
+            "LinkedIn Ads": 3,
+            "TikTok Ads": 8,
+            "Microsoft/Bing Ads": 4,
+            "Snapchat Ads": 7,
+            "X (Twitter) Ads": 4,
+            "Programmatic Display (DSP)": 8,
+            "Roku/CTV Advertising": 5,
+            "Spotify Audio Ads": 6,
+            "Reddit Ads": 4,
+            "Indeed Sponsored Jobs": 9,
+            "ZipRecruiter Sponsored": 7,
+        },
+        # --- Finance & Banking ---
+        "finance_banking": {
+            "Google Ads": 8,
+            "Meta (Facebook/Instagram)": 5,
+            "LinkedIn Ads": 9,
+            "TikTok Ads": 2,
+            "Microsoft/Bing Ads": 7,
+            "Snapchat Ads": 2,
+            "X (Twitter) Ads": 5,
+            "Programmatic Display (DSP)": 7,
+            "Roku/CTV Advertising": 4,
+            "Spotify Audio Ads": 3,
+            "Reddit Ads": 5,
+            "Indeed Sponsored Jobs": 7,
+            "ZipRecruiter Sponsored": 6,
+        },
+        # --- Blue Collar & Trades ---
+        "blue_collar_trades": {
+            "Google Ads": 7,
+            "Meta (Facebook/Instagram)": 8,
+            "LinkedIn Ads": 3,
+            "TikTok Ads": 6,
+            "Microsoft/Bing Ads": 4,
+            "Snapchat Ads": 5,
+            "X (Twitter) Ads": 3,
+            "Programmatic Display (DSP)": 8,
+            "Roku/CTV Advertising": 5,
+            "Spotify Audio Ads": 6,
+            "Reddit Ads": 4,
+            "Indeed Sponsored Jobs": 9,
+            "ZipRecruiter Sponsored": 8,
+        },
+        # --- Hospitality & Travel ---
+        "hospitality_travel": {
+            "Google Ads": 6,
+            "Meta (Facebook/Instagram)": 8,
+            "LinkedIn Ads": 3,
+            "TikTok Ads": 8,
+            "Microsoft/Bing Ads": 3,
+            "Snapchat Ads": 7,
+            "X (Twitter) Ads": 3,
+            "Programmatic Display (DSP)": 7,
+            "Roku/CTV Advertising": 4,
+            "Spotify Audio Ads": 5,
+            "Reddit Ads": 3,
+            "Indeed Sponsored Jobs": 9,
+            "ZipRecruiter Sponsored": 8,
+        },
+        # --- Transportation & Logistics (Trucking, Delivery, Warehousing) ---
+        "transportation_logistics": {
+            "Google Ads": 7,
+            "Meta (Facebook/Instagram)": 6,
+            "LinkedIn Ads": 4,
+            "TikTok Ads": 4,
+            "Microsoft/Bing Ads": 5,
+            "Snapchat Ads": 3,
+            "X (Twitter) Ads": 3,
+            "Programmatic Display (DSP)": 8,
+            "Roku/CTV Advertising": 6,
+            "Spotify Audio Ads": 7,
+            "Reddit Ads": 5,
+            "Indeed Sponsored Jobs": 9,
+            "ZipRecruiter Sponsored": 8,
+        },
+        # --- Manufacturing ---
+        "manufacturing": {
+            "Google Ads": 7,
+            "Meta (Facebook/Instagram)": 7,
+            "LinkedIn Ads": 5,
+            "TikTok Ads": 4,
+            "Microsoft/Bing Ads": 5,
+            "Snapchat Ads": 3,
+            "X (Twitter) Ads": 3,
+            "Programmatic Display (DSP)": 8,
+            "Roku/CTV Advertising": 5,
+            "Spotify Audio Ads": 5,
+            "Reddit Ads": 4,
+            "Indeed Sponsored Jobs": 9,
+            "ZipRecruiter Sponsored": 8,
+        },
+        # --- Construction & Real Estate ---
+        "construction_real_estate": {
+            "Google Ads": 7,
+            "Meta (Facebook/Instagram)": 7,
+            "LinkedIn Ads": 4,
+            "TikTok Ads": 5,
+            "Microsoft/Bing Ads": 4,
+            "Snapchat Ads": 4,
+            "X (Twitter) Ads": 3,
+            "Programmatic Display (DSP)": 8,
+            "Roku/CTV Advertising": 5,
+            "Spotify Audio Ads": 6,
+            "Reddit Ads": 4,
+            "Indeed Sponsored Jobs": 9,
+            "ZipRecruiter Sponsored": 8,
+        },
+        # --- Government & Public Sector ---
+        "government_public_sector": {
+            "Google Ads": 6,
+            "Meta (Facebook/Instagram)": 5,
+            "LinkedIn Ads": 8,
+            "TikTok Ads": 2,
+            "Microsoft/Bing Ads": 6,
+            "Snapchat Ads": 2,
+            "X (Twitter) Ads": 4,
+            "Programmatic Display (DSP)": 7,
+            "Roku/CTV Advertising": 4,
+            "Spotify Audio Ads": 3,
+            "Reddit Ads": 4,
+            "Indeed Sponsored Jobs": 8,
+            "ZipRecruiter Sponsored": 7,
+        },
+        # --- Education ---
+        "education": {
+            "Google Ads": 7,
+            "Meta (Facebook/Instagram)": 6,
+            "LinkedIn Ads": 8,
+            "TikTok Ads": 3,
+            "Microsoft/Bing Ads": 5,
+            "Snapchat Ads": 2,
+            "X (Twitter) Ads": 4,
+            "Programmatic Display (DSP)": 7,
+            "Roku/CTV Advertising": 3,
+            "Spotify Audio Ads": 4,
+            "Reddit Ads": 5,
+            "Indeed Sponsored Jobs": 8,
+            "ZipRecruiter Sponsored": 6,
+        },
+        # --- Nonprofit ---
+        "nonprofit": {
+            "Google Ads": 8,
+            "Meta (Facebook/Instagram)": 7,
+            "LinkedIn Ads": 7,
+            "TikTok Ads": 4,
+            "Microsoft/Bing Ads": 5,
+            "Snapchat Ads": 3,
+            "X (Twitter) Ads": 5,
+            "Programmatic Display (DSP)": 6,
+            "Roku/CTV Advertising": 3,
+            "Spotify Audio Ads": 4,
+            "Reddit Ads": 5,
+            "Indeed Sponsored Jobs": 8,
+            "ZipRecruiter Sponsored": 6,
+        },
+        # --- Energy & Utilities ---
+        "energy_utilities": {
+            "Google Ads": 7,
+            "Meta (Facebook/Instagram)": 5,
+            "LinkedIn Ads": 7,
+            "TikTok Ads": 2,
+            "Microsoft/Bing Ads": 6,
+            "Snapchat Ads": 2,
+            "X (Twitter) Ads": 4,
+            "Programmatic Display (DSP)": 8,
+            "Roku/CTV Advertising": 4,
+            "Spotify Audio Ads": 4,
+            "Reddit Ads": 4,
+            "Indeed Sponsored Jobs": 8,
+            "ZipRecruiter Sponsored": 7,
+        },
+        # --- Professional Services (Consulting, Legal, Accounting) ---
+        "professional_services": {
+            "Google Ads": 8,
+            "Meta (Facebook/Instagram)": 5,
+            "LinkedIn Ads": 9,
+            "TikTok Ads": 2,
+            "Microsoft/Bing Ads": 7,
+            "Snapchat Ads": 1,
+            "X (Twitter) Ads": 5,
+            "Programmatic Display (DSP)": 6,
+            "Roku/CTV Advertising": 3,
+            "Spotify Audio Ads": 3,
+            "Reddit Ads": 5,
+            "Indeed Sponsored Jobs": 7,
+            "ZipRecruiter Sponsored": 5,
+        },
+        # --- Media & Entertainment ---
+        "media_entertainment": {
+            "Google Ads": 7,
+            "Meta (Facebook/Instagram)": 8,
+            "LinkedIn Ads": 6,
+            "TikTok Ads": 8,
+            "Microsoft/Bing Ads": 4,
+            "Snapchat Ads": 6,
+            "X (Twitter) Ads": 7,
+            "Programmatic Display (DSP)": 7,
+            "Roku/CTV Advertising": 6,
+            "Spotify Audio Ads": 7,
+            "Reddit Ads": 7,
+            "Indeed Sponsored Jobs": 6,
+            "ZipRecruiter Sponsored": 4,
+        },
+        # --- Insurance ---
+        "insurance": {
+            "Google Ads": 8,
+            "Meta (Facebook/Instagram)": 5,
+            "LinkedIn Ads": 8,
+            "TikTok Ads": 2,
+            "Microsoft/Bing Ads": 7,
+            "Snapchat Ads": 2,
+            "X (Twitter) Ads": 4,
+            "Programmatic Display (DSP)": 7,
+            "Roku/CTV Advertising": 4,
+            "Spotify Audio Ads": 3,
+            "Reddit Ads": 4,
+            "Indeed Sponsored Jobs": 8,
+            "ZipRecruiter Sponsored": 7,
+        },
+        # --- Staffing & Recruitment ---
+        "staffing_recruitment": {
+            "Google Ads": 8,
+            "Meta (Facebook/Instagram)": 7,
+            "LinkedIn Ads": 7,
+            "TikTok Ads": 5,
+            "Microsoft/Bing Ads": 5,
+            "Snapchat Ads": 4,
+            "X (Twitter) Ads": 4,
+            "Programmatic Display (DSP)": 9,
+            "Roku/CTV Advertising": 4,
+            "Spotify Audio Ads": 5,
+            "Reddit Ads": 5,
+            "Indeed Sponsored Jobs": 9,
+            "ZipRecruiter Sponsored": 9,
+        },
+        # --- Gig Economy & Rideshare ---
+        "gig_economy": {
+            "Google Ads": 6,
+            "Meta (Facebook/Instagram)": 8,
+            "LinkedIn Ads": 2,
+            "TikTok Ads": 7,
+            "Microsoft/Bing Ads": 3,
+            "Snapchat Ads": 6,
+            "X (Twitter) Ads": 4,
+            "Programmatic Display (DSP)": 8,
+            "Roku/CTV Advertising": 5,
+            "Spotify Audio Ads": 7,
+            "Reddit Ads": 5,
+            "Indeed Sponsored Jobs": 8,
+            "ZipRecruiter Sponsored": 7,
+        },
+        # --- Food & Beverage / Restaurant ---
+        "food_beverage": {
+            "Google Ads": 6,
+            "Meta (Facebook/Instagram)": 8,
+            "LinkedIn Ads": 2,
+            "TikTok Ads": 8,
+            "Microsoft/Bing Ads": 3,
+            "Snapchat Ads": 7,
+            "X (Twitter) Ads": 3,
+            "Programmatic Display (DSP)": 7,
+            "Roku/CTV Advertising": 4,
+            "Spotify Audio Ads": 5,
+            "Reddit Ads": 3,
+            "Indeed Sponsored Jobs": 9,
+            "ZipRecruiter Sponsored": 8,
+        },
+        # --- Aerospace & Defense ---
+        "aerospace_defense": {
+            "Google Ads": 7,
+            "Meta (Facebook/Instagram)": 4,
+            "LinkedIn Ads": 9,
+            "TikTok Ads": 2,
+            "Microsoft/Bing Ads": 6,
+            "Snapchat Ads": 1,
+            "X (Twitter) Ads": 5,
+            "Programmatic Display (DSP)": 7,
+            "Roku/CTV Advertising": 4,
+            "Spotify Audio Ads": 3,
+            "Reddit Ads": 6,
+            "Indeed Sponsored Jobs": 7,
+            "ZipRecruiter Sponsored": 5,
+        },
+    }
 
-    # --- Enrich with Appcast 2026 search/social CPC data ---
-    # Data priority: Priority 3 (KB benchmark data from Appcast 2026 report)
-    appcast_bm = _kb_appcast_2026_benchmarks(kb)
-    appcast_occupation = _INDUSTRY_TO_APPCAST_OCCUPATION.get(industry) or ""
-    if appcast_bm and appcast_occupation:
-        search_cpc_data = appcast_bm.get("search_cpc_by_occupation_2025", {})
-        social_cpc_data = appcast_bm.get("social_cpc_by_occupation_2025", {})
-        search_cpc = search_cpc_data.get(appcast_occupation)
-        social_cpc = social_cpc_data.get(appcast_occupation)
-        if search_cpc or social_cpc:
-            if isinstance(result.get("google"), dict):
-                result["google"]["appcast_search_cpc_benchmark"] = search_cpc
-            if isinstance(result.get("meta"), dict):
-                result["meta"]["appcast_social_cpc_benchmark"] = social_cpc
+    # ---------------------------------------------------------------
+    # Normalize raw industry string to _INDUSTRY_PLATFORM_FIT key.
+    # The input `industry` can be any free-form string (e.g. "Trucking",
+    # "Transportation & Logistics", "healthcare"). This mapper ensures
+    # we always land on a valid fit-score key.
+    # ---------------------------------------------------------------
+    _INDUSTRY_ALIAS_TO_FIT_KEY: Dict[str, str] = {
+        # Transportation & Logistics
+        "transportation": "transportation_logistics",
+        "logistics": "transportation_logistics",
+        "logistics_supply_chain": "transportation_logistics",
+        "trucking": "transportation_logistics",
+        "delivery": "transportation_logistics",
+        "maritime": "transportation_logistics",
+        "maritime_marine": "transportation_logistics",
+        "rideshare": "transportation_logistics",
+        "warehousing": "transportation_logistics",
+        "supply_chain": "transportation_logistics",
+        "shipping": "transportation_logistics",
+        "freight": "transportation_logistics",
+        # Blue collar -> transportation_logistics (same audience)
+        "blue_collar": "blue_collar_trades",
+        # Technology
+        "technology": "tech_engineering",
+        "tech": "tech_engineering",
+        "telecom": "tech_engineering",
+        "telecommunications": "tech_engineering",
+        "saas": "tech_engineering",
+        "fintech": "tech_engineering",
+        "software": "tech_engineering",
+        "it": "tech_engineering",
+        "information_technology": "tech_engineering",
+        "cybersecurity": "tech_engineering",
+        # Healthcare
+        "healthcare": "healthcare_medical",
+        "medical": "healthcare_medical",
+        "pharma": "healthcare_medical",
+        "pharma_biotech": "healthcare_medical",
+        "biotech": "healthcare_medical",
+        "life_sciences": "healthcare_medical",
+        "mental_health": "healthcare_medical",
+        "nursing": "healthcare_medical",
+        "dental": "healthcare_medical",
+        "veterinary": "healthcare_medical",
+        # Retail
+        "retail": "retail_consumer",
+        "ecommerce": "retail_consumer",
+        "e_commerce": "retail_consumer",
+        "consumer_goods": "retail_consumer",
+        # Finance
+        "finance": "finance_banking",
+        "banking": "finance_banking",
+        "financial_services": "finance_banking",
+        "accounting": "finance_banking",
+        "investment": "finance_banking",
+        # Hospitality
+        "hospitality": "hospitality_travel",
+        "travel": "hospitality_travel",
+        "hotel": "hospitality_travel",
+        "tourism": "hospitality_travel",
+        # Construction
+        "construction": "construction_real_estate",
+        "construction_real_estate": "construction_real_estate",
+        "real_estate": "construction_real_estate",
+        # Manufacturing
+        "manufacturing": "manufacturing",
+        "automotive": "manufacturing",
+        "industrial": "manufacturing",
+        "semiconductor": "manufacturing",
+        # Government
+        "government": "government_public_sector",
+        "public_sector": "government_public_sector",
+        "military_recruitment": "government_public_sector",
+        "government_utilities": "government_public_sector",
+        # Education
+        "education": "education",
+        # Energy
+        "energy": "energy_utilities",
+        "energy_utilities": "energy_utilities",
+        "utilities": "energy_utilities",
+        "oil_gas": "energy_utilities",
+        # Professional Services
+        "professional_services": "professional_services",
+        "consulting": "professional_services",
+        "legal": "professional_services",
+        "legal_services": "professional_services",
+        # Media
+        "media": "media_entertainment",
+        "media_entertainment": "media_entertainment",
+        "entertainment": "media_entertainment",
+        "gaming": "media_entertainment",
+        # Insurance
+        "insurance": "insurance",
+        # Nonprofit
+        "nonprofit": "nonprofit",
+        "ngo": "nonprofit",
+        # Staffing
+        "staffing": "staffing_recruitment",
+        "staffing_recruitment": "staffing_recruitment",
+        "recruitment": "staffing_recruitment",
+        "temp_agency": "staffing_recruitment",
+        # Gig
+        "gig_economy": "gig_economy",
+        "gig": "gig_economy",
+        # Food
+        "food_beverage": "food_beverage",
+        "restaurant": "food_beverage",
+        "food_service": "food_beverage",
+        "quick_service": "food_beverage",
+        # Aerospace
+        "aerospace": "aerospace_defense",
+        "aerospace_defense": "aerospace_defense",
+        "defense": "aerospace_defense",
+        # General / entry level
+        "general": "retail_consumer",
+        "general_entry_level": "retail_consumer",
+    }
 
-    # --- Meta (Facebook + Instagram) ---
-    result["meta"] = _build_meta_platform_entry(
-        enriched_data=meta_ads,
-        roles=roles,
-        kb_cpc_entry=kb_cpc.get("meta_facebook_ads", {}),
-        fit_score=PLATFORM_FIT["meta"].get(role_type, 0.65),
-        budget=budget,
-    )
-
-    # --- Bing Ads ---
-    result["bing"] = _build_platform_entry(
-        platform_name="Microsoft / Bing Ads",
-        enriched_data=bing_ads,
-        data_key="keywords",
-        roles=roles,
-        kb_cpc_entry=kb_cpc.get("microsoft_bing_ads", {}),
-        kb_cpa_data=kb_cpa,
-        fit_score=PLATFORM_FIT["bing"].get(role_type, 0.60),
-        budget=budget,
-    )
-
-    # --- TikTok Ads ---
-    result["tiktok"] = _build_platform_entry(
-        platform_name="TikTok",
-        enriched_data=tiktok_ads,
-        data_key="roles",
-        roles=roles,
-        kb_cpc_entry={},
-        kb_cpa_data=kb_cpa,
-        fit_score=PLATFORM_FIT["tiktok"].get(role_type, 0.45),
-        budget=budget,
-    )
-
-    # --- LinkedIn Ads ---
-    result["linkedin"] = _build_platform_entry(
-        platform_name="LinkedIn",
-        enriched_data=linkedin_ads,
-        data_key="roles",
-        roles=roles,
-        kb_cpc_entry=kb_cpc.get("linkedin", {}),
-        kb_cpa_data=kb_cpa,
-        fit_score=PLATFORM_FIT["linkedin"].get(role_type, 0.75),
-        budget=budget,
-    )
-
-    # --- Fallback: Industry benchmark data for major ad platforms ---
-    # NOTE: Canonical benchmark source is trend_engine.py. These values are fallbacks only.
-    # See trend_engine.get_benchmark() for authoritative CPC/CPA/CPM data.
-    # Check if all platforms returned empty/zero data
-    # WARNING: the _all_empty guard below is a tautology -- 2d89bacf's mass
-    # `.get(x, 0) == 0` -> `.get(x) or 0 == 0` conversion changed its meaning
-    # (`or 0 == 0` is `or True`), so this "fallback" is in practice the
-    # always-on source and the enriched entries built above are discarded.
-    # Restoring the intended guard flips live plan output from these 13 static
-    # platforms to the 5 enriched ones -- a product decision tracked separately;
-    # do not "fix" it as a drive-by.
-    _all_empty = all(
-        isinstance(result.get(pk), dict)
-        and result[pk].get("avg_cpc")
-        or 0 == 0
-        and result[pk].get("avg_cpm")
-        or 0 == 0
-        and result[pk].get("avg_cpa")
-        or 0 == 0
-        for pk in ("google", "meta", "bing", "tiktok", "linkedin")
-        if pk in result
-    )
-    if _all_empty:
-        _PLATFORM_BENCHMARKS = {
-            # CPC 2.90 = benchmark_registry.CHANNEL_BENCHMARKS["google_ads"]
-            # (WordStream/LOCALiQ 2025 + Appcast 2026 + Joveo 2025, updated
-            # 2026-03-26). Prior 2.69 was earlier-vintage. CPM/CPA unchanged
-            # (original 2024-2025 vintage; no fresher cited figure).
-            "Google Ads": {
-                "cpc": 2.90,
-                "cpm": 3.12,
-                "cpa": 48.96,
-                "audience_reach": "5.6B+ monthly searches",
-                "daily_budget_range": "$50 - $500",
-                "best_for": "Active job seekers, high intent",
-            },
-            # CPC 1.86 = benchmark_registry.CHANNEL_BENCHMARKS["meta_facebook"]
-            # (WordStream 2025 Facebook Ads Benchmarks, updated 2026-03-26).
-            # Prior 1.72 was earlier-vintage. CPM/CPA unchanged (original
-            # 2024-2025 vintage; no fresher cited figure).
-            "Meta (Facebook/Instagram)": {
-                "cpc": 1.86,
-                "cpm": 7.19,
-                "cpa": 18.68,
-                "audience_reach": "3.0B+ monthly active users",
-                "daily_budget_range": "$20 - $300",
-                "best_for": "Passive candidates, employer branding",
-            },
-            # Basis: job ads (Promoted Jobs), NOT general commercial sponsored
-            # content -- this entry models LinkedIn as a recruitment channel
-            # (its cpa feeds budget/cpa -> projected applications, alongside
-            # Indeed/ZipRecruiter). CPC 2.60 =
-            # benchmark_registry.CHANNEL_BENCHMARKS["linkedin"] (geometric mean
-            # of the cited $1.50-$4.50 Promoted Jobs band, refreshed
-            # 2026-07-16; see KB cpc_by_platform refreshed_2026_07_16 note).
-            # Prior 5.26 blended sponsored-content CPC ($5-$12) into a job-ads
-            # figure and was retired by the July-2026 research. CPM/CPA
-            # unchanged (original 2024-2025 vintage; no fresher cited figure).
-            "LinkedIn Ads": {
-                "cpc": 2.60,
-                "cpm": 6.59,
-                "cpa": 56.08,
-                "audience_reach": "1.0B+ professionals",
-                "daily_budget_range": "$50 - $1,000",
-                "best_for": "Professional/white-collar roles, B2B",
-            },
-            "TikTok Ads": {
-                "cpc": 1.00,
-                "cpm": 10.00,
-                "cpa": 20.00,
-                "audience_reach": "1.5B+ monthly active users",
-                "daily_budget_range": "$20 - $200",
-                "best_for": "Gen-Z talent, hourly/retail roles",
-            },
-            "Microsoft/Bing Ads": {
-                "cpc": 1.54,
-                "cpm": 2.00,
-                "cpa": 41.44,
-                "audience_reach": "1.0B+ monthly searches",
-                "daily_budget_range": "$30 - $300",
-                "best_for": "Professional candidates, desktop users",
-            },
-            "Snapchat Ads": {
-                "cpc": 1.30,
-                "cpm": 2.95,
-                "cpa": 22.00,
-                "audience_reach": "750M+ monthly active users",
-                "daily_budget_range": "$20 - $150",
-                "best_for": "Young hourly workforce, retail/hospitality",
-            },
-            "X (Twitter) Ads": {
-                "cpc": 1.35,
-                "cpm": 6.46,
-                "cpa": 28.00,
-                "audience_reach": "500M+ monthly active users",
-                "daily_budget_range": "$30 - $200",
-                "best_for": "Tech talent, thought leadership",
-            },
-            "Programmatic Display (DSP)": {
-                "cpc": 0.63,
-                "cpm": 2.80,
-                "cpa": 15.00,
-                "audience_reach": "Billions of impressions across open web",
-                "daily_budget_range": "$100 - $2,000",
-                "best_for": "Scale hiring, retargeting, geo-targeting",
-            },
-            "Roku/CTV Advertising": {
-                "cpc": 0.00,
-                "cpm": 25.00,
-                "cpa": 45.00,
-                "audience_reach": "80M+ US households",
-                "daily_budget_range": "$200 - $5,000",
-                "best_for": "Employer branding, mass-market roles",
-            },
-            "Spotify Audio Ads": {
-                "cpc": 0.00,
-                "cpm": 15.00,
-                "cpa": 35.00,
-                "audience_reach": "600M+ monthly active users",
-                "daily_budget_range": "$50 - $500",
-                "best_for": "Brand awareness, commuter audience",
-            },
-            "Reddit Ads": {
-                "cpc": 0.75,
-                "cpm": 3.50,
-                "cpa": 25.00,
-                "audience_reach": "1.7B+ monthly active users",
-                "daily_budget_range": "$20 - $200",
-                "best_for": "Tech/engineering communities, niche targeting",
-            },
-            "Indeed Sponsored Jobs": {
-                "cpc": 0.50,
-                "cpm": 0.00,
-                "cpa": 22.00,
-                "audience_reach": "350M+ monthly unique visitors",
-                "daily_budget_range": "$30 - $500",
-                "best_for": "Direct applicants, all industries",
-            },
-            "ZipRecruiter Sponsored": {
-                "cpc": 1.50,
-                "cpm": 0.00,
-                "cpa": 28.00,
-                "audience_reach": "25M+ monthly active job seekers",
-                "daily_budget_range": "$16 - $300",
-                "best_for": "SMB hiring, quick fills",
-            },
-        }
-
-        # ---------------------------------------------------------------
-        # Industry-specific platform fit scores (1-10 scale)
-        # Comprehensive matrix covering ALL 13 fallback platforms
-        # across 20+ industries. Scores reflect where each industry's
-        # target audience actually is, validated against internal data
-        # (CG 98K posts, SlotOps 108K jobs) and industry benchmarks.
-        # ---------------------------------------------------------------
-        _INDUSTRY_PLATFORM_FIT = {
-            # --- Technology & Engineering ---
-            "tech_engineering": {
-                "Google Ads": 8,
-                "Meta (Facebook/Instagram)": 5,
-                "LinkedIn Ads": 9,
-                "TikTok Ads": 3,
-                "Microsoft/Bing Ads": 6,
-                "Snapchat Ads": 2,
-                "X (Twitter) Ads": 7,
-                "Programmatic Display (DSP)": 7,
-                "Roku/CTV Advertising": 3,
-                "Spotify Audio Ads": 3,
-                "Reddit Ads": 8,
-                "Indeed Sponsored Jobs": 7,
-                "ZipRecruiter Sponsored": 5,
-            },
-            # --- Healthcare & Medical ---
-            "healthcare_medical": {
-                "Google Ads": 7,
-                "Meta (Facebook/Instagram)": 6,
-                "LinkedIn Ads": 7,
-                "TikTok Ads": 3,
-                "Microsoft/Bing Ads": 5,
-                "Snapchat Ads": 2,
-                "X (Twitter) Ads": 3,
-                "Programmatic Display (DSP)": 8,
-                "Roku/CTV Advertising": 4,
-                "Spotify Audio Ads": 5,
-                "Reddit Ads": 4,
-                "Indeed Sponsored Jobs": 9,
-                "ZipRecruiter Sponsored": 8,
-            },
-            # --- Retail & Consumer ---
-            "retail_consumer": {
-                "Google Ads": 7,
-                "Meta (Facebook/Instagram)": 9,
-                "LinkedIn Ads": 3,
-                "TikTok Ads": 8,
-                "Microsoft/Bing Ads": 4,
-                "Snapchat Ads": 7,
-                "X (Twitter) Ads": 4,
-                "Programmatic Display (DSP)": 8,
-                "Roku/CTV Advertising": 5,
-                "Spotify Audio Ads": 6,
-                "Reddit Ads": 4,
-                "Indeed Sponsored Jobs": 9,
-                "ZipRecruiter Sponsored": 7,
-            },
-            # --- Finance & Banking ---
-            "finance_banking": {
-                "Google Ads": 8,
-                "Meta (Facebook/Instagram)": 5,
-                "LinkedIn Ads": 9,
-                "TikTok Ads": 2,
-                "Microsoft/Bing Ads": 7,
-                "Snapchat Ads": 2,
-                "X (Twitter) Ads": 5,
-                "Programmatic Display (DSP)": 7,
-                "Roku/CTV Advertising": 4,
-                "Spotify Audio Ads": 3,
-                "Reddit Ads": 5,
-                "Indeed Sponsored Jobs": 7,
-                "ZipRecruiter Sponsored": 6,
-            },
-            # --- Blue Collar & Trades ---
-            "blue_collar_trades": {
-                "Google Ads": 7,
-                "Meta (Facebook/Instagram)": 8,
-                "LinkedIn Ads": 3,
-                "TikTok Ads": 6,
-                "Microsoft/Bing Ads": 4,
-                "Snapchat Ads": 5,
-                "X (Twitter) Ads": 3,
-                "Programmatic Display (DSP)": 8,
-                "Roku/CTV Advertising": 5,
-                "Spotify Audio Ads": 6,
-                "Reddit Ads": 4,
-                "Indeed Sponsored Jobs": 9,
-                "ZipRecruiter Sponsored": 8,
-            },
-            # --- Hospitality & Travel ---
-            "hospitality_travel": {
-                "Google Ads": 6,
-                "Meta (Facebook/Instagram)": 8,
-                "LinkedIn Ads": 3,
-                "TikTok Ads": 8,
-                "Microsoft/Bing Ads": 3,
-                "Snapchat Ads": 7,
-                "X (Twitter) Ads": 3,
-                "Programmatic Display (DSP)": 7,
-                "Roku/CTV Advertising": 4,
-                "Spotify Audio Ads": 5,
-                "Reddit Ads": 3,
-                "Indeed Sponsored Jobs": 9,
-                "ZipRecruiter Sponsored": 8,
-            },
-            # --- Transportation & Logistics (Trucking, Delivery, Warehousing) ---
-            "transportation_logistics": {
-                "Google Ads": 7,
-                "Meta (Facebook/Instagram)": 6,
-                "LinkedIn Ads": 4,
-                "TikTok Ads": 4,
-                "Microsoft/Bing Ads": 5,
-                "Snapchat Ads": 3,
-                "X (Twitter) Ads": 3,
-                "Programmatic Display (DSP)": 8,
-                "Roku/CTV Advertising": 6,
-                "Spotify Audio Ads": 7,
-                "Reddit Ads": 5,
-                "Indeed Sponsored Jobs": 9,
-                "ZipRecruiter Sponsored": 8,
-            },
-            # --- Manufacturing ---
-            "manufacturing": {
-                "Google Ads": 7,
-                "Meta (Facebook/Instagram)": 7,
-                "LinkedIn Ads": 5,
-                "TikTok Ads": 4,
-                "Microsoft/Bing Ads": 5,
-                "Snapchat Ads": 3,
-                "X (Twitter) Ads": 3,
-                "Programmatic Display (DSP)": 8,
-                "Roku/CTV Advertising": 5,
-                "Spotify Audio Ads": 5,
-                "Reddit Ads": 4,
-                "Indeed Sponsored Jobs": 9,
-                "ZipRecruiter Sponsored": 8,
-            },
-            # --- Construction & Real Estate ---
-            "construction_real_estate": {
-                "Google Ads": 7,
-                "Meta (Facebook/Instagram)": 7,
-                "LinkedIn Ads": 4,
-                "TikTok Ads": 5,
-                "Microsoft/Bing Ads": 4,
-                "Snapchat Ads": 4,
-                "X (Twitter) Ads": 3,
-                "Programmatic Display (DSP)": 8,
-                "Roku/CTV Advertising": 5,
-                "Spotify Audio Ads": 6,
-                "Reddit Ads": 4,
-                "Indeed Sponsored Jobs": 9,
-                "ZipRecruiter Sponsored": 8,
-            },
-            # --- Government & Public Sector ---
-            "government_public_sector": {
-                "Google Ads": 6,
-                "Meta (Facebook/Instagram)": 5,
-                "LinkedIn Ads": 8,
-                "TikTok Ads": 2,
-                "Microsoft/Bing Ads": 6,
-                "Snapchat Ads": 2,
-                "X (Twitter) Ads": 4,
-                "Programmatic Display (DSP)": 7,
-                "Roku/CTV Advertising": 4,
-                "Spotify Audio Ads": 3,
-                "Reddit Ads": 4,
-                "Indeed Sponsored Jobs": 8,
-                "ZipRecruiter Sponsored": 7,
-            },
-            # --- Education ---
-            "education": {
-                "Google Ads": 7,
-                "Meta (Facebook/Instagram)": 6,
-                "LinkedIn Ads": 8,
-                "TikTok Ads": 3,
-                "Microsoft/Bing Ads": 5,
-                "Snapchat Ads": 2,
-                "X (Twitter) Ads": 4,
-                "Programmatic Display (DSP)": 7,
-                "Roku/CTV Advertising": 3,
-                "Spotify Audio Ads": 4,
-                "Reddit Ads": 5,
-                "Indeed Sponsored Jobs": 8,
-                "ZipRecruiter Sponsored": 6,
-            },
-            # --- Nonprofit ---
-            "nonprofit": {
-                "Google Ads": 8,
-                "Meta (Facebook/Instagram)": 7,
-                "LinkedIn Ads": 7,
-                "TikTok Ads": 4,
-                "Microsoft/Bing Ads": 5,
-                "Snapchat Ads": 3,
-                "X (Twitter) Ads": 5,
-                "Programmatic Display (DSP)": 6,
-                "Roku/CTV Advertising": 3,
-                "Spotify Audio Ads": 4,
-                "Reddit Ads": 5,
-                "Indeed Sponsored Jobs": 8,
-                "ZipRecruiter Sponsored": 6,
-            },
-            # --- Energy & Utilities ---
-            "energy_utilities": {
-                "Google Ads": 7,
-                "Meta (Facebook/Instagram)": 5,
-                "LinkedIn Ads": 7,
-                "TikTok Ads": 2,
-                "Microsoft/Bing Ads": 6,
-                "Snapchat Ads": 2,
-                "X (Twitter) Ads": 4,
-                "Programmatic Display (DSP)": 8,
-                "Roku/CTV Advertising": 4,
-                "Spotify Audio Ads": 4,
-                "Reddit Ads": 4,
-                "Indeed Sponsored Jobs": 8,
-                "ZipRecruiter Sponsored": 7,
-            },
-            # --- Professional Services (Consulting, Legal, Accounting) ---
-            "professional_services": {
-                "Google Ads": 8,
-                "Meta (Facebook/Instagram)": 5,
-                "LinkedIn Ads": 9,
-                "TikTok Ads": 2,
-                "Microsoft/Bing Ads": 7,
-                "Snapchat Ads": 1,
-                "X (Twitter) Ads": 5,
-                "Programmatic Display (DSP)": 6,
-                "Roku/CTV Advertising": 3,
-                "Spotify Audio Ads": 3,
-                "Reddit Ads": 5,
-                "Indeed Sponsored Jobs": 7,
-                "ZipRecruiter Sponsored": 5,
-            },
-            # --- Media & Entertainment ---
-            "media_entertainment": {
-                "Google Ads": 7,
-                "Meta (Facebook/Instagram)": 8,
-                "LinkedIn Ads": 6,
-                "TikTok Ads": 8,
-                "Microsoft/Bing Ads": 4,
-                "Snapchat Ads": 6,
-                "X (Twitter) Ads": 7,
-                "Programmatic Display (DSP)": 7,
-                "Roku/CTV Advertising": 6,
-                "Spotify Audio Ads": 7,
-                "Reddit Ads": 7,
-                "Indeed Sponsored Jobs": 6,
-                "ZipRecruiter Sponsored": 4,
-            },
-            # --- Insurance ---
-            "insurance": {
-                "Google Ads": 8,
-                "Meta (Facebook/Instagram)": 5,
-                "LinkedIn Ads": 8,
-                "TikTok Ads": 2,
-                "Microsoft/Bing Ads": 7,
-                "Snapchat Ads": 2,
-                "X (Twitter) Ads": 4,
-                "Programmatic Display (DSP)": 7,
-                "Roku/CTV Advertising": 4,
-                "Spotify Audio Ads": 3,
-                "Reddit Ads": 4,
-                "Indeed Sponsored Jobs": 8,
-                "ZipRecruiter Sponsored": 7,
-            },
-            # --- Staffing & Recruitment ---
-            "staffing_recruitment": {
-                "Google Ads": 8,
-                "Meta (Facebook/Instagram)": 7,
-                "LinkedIn Ads": 7,
-                "TikTok Ads": 5,
-                "Microsoft/Bing Ads": 5,
-                "Snapchat Ads": 4,
-                "X (Twitter) Ads": 4,
-                "Programmatic Display (DSP)": 9,
-                "Roku/CTV Advertising": 4,
-                "Spotify Audio Ads": 5,
-                "Reddit Ads": 5,
-                "Indeed Sponsored Jobs": 9,
-                "ZipRecruiter Sponsored": 9,
-            },
-            # --- Gig Economy & Rideshare ---
-            "gig_economy": {
-                "Google Ads": 6,
-                "Meta (Facebook/Instagram)": 8,
-                "LinkedIn Ads": 2,
-                "TikTok Ads": 7,
-                "Microsoft/Bing Ads": 3,
-                "Snapchat Ads": 6,
-                "X (Twitter) Ads": 4,
-                "Programmatic Display (DSP)": 8,
-                "Roku/CTV Advertising": 5,
-                "Spotify Audio Ads": 7,
-                "Reddit Ads": 5,
-                "Indeed Sponsored Jobs": 8,
-                "ZipRecruiter Sponsored": 7,
-            },
-            # --- Food & Beverage / Restaurant ---
-            "food_beverage": {
-                "Google Ads": 6,
-                "Meta (Facebook/Instagram)": 8,
-                "LinkedIn Ads": 2,
-                "TikTok Ads": 8,
-                "Microsoft/Bing Ads": 3,
-                "Snapchat Ads": 7,
-                "X (Twitter) Ads": 3,
-                "Programmatic Display (DSP)": 7,
-                "Roku/CTV Advertising": 4,
-                "Spotify Audio Ads": 5,
-                "Reddit Ads": 3,
-                "Indeed Sponsored Jobs": 9,
-                "ZipRecruiter Sponsored": 8,
-            },
-            # --- Aerospace & Defense ---
-            "aerospace_defense": {
-                "Google Ads": 7,
-                "Meta (Facebook/Instagram)": 4,
-                "LinkedIn Ads": 9,
-                "TikTok Ads": 2,
-                "Microsoft/Bing Ads": 6,
-                "Snapchat Ads": 1,
-                "X (Twitter) Ads": 5,
-                "Programmatic Display (DSP)": 7,
-                "Roku/CTV Advertising": 4,
-                "Spotify Audio Ads": 3,
-                "Reddit Ads": 6,
-                "Indeed Sponsored Jobs": 7,
-                "ZipRecruiter Sponsored": 5,
-            },
-        }
-
-        # ---------------------------------------------------------------
-        # Normalize raw industry string to _INDUSTRY_PLATFORM_FIT key.
-        # The input `industry` can be any free-form string (e.g. "Trucking",
-        # "Transportation & Logistics", "healthcare"). This mapper ensures
-        # we always land on a valid fit-score key.
-        # ---------------------------------------------------------------
-        _INDUSTRY_ALIAS_TO_FIT_KEY: Dict[str, str] = {
-            # Transportation & Logistics
-            "transportation": "transportation_logistics",
-            "logistics": "transportation_logistics",
-            "logistics_supply_chain": "transportation_logistics",
-            "trucking": "transportation_logistics",
-            "delivery": "transportation_logistics",
-            "maritime": "transportation_logistics",
-            "maritime_marine": "transportation_logistics",
-            "rideshare": "transportation_logistics",
-            "warehousing": "transportation_logistics",
-            "supply_chain": "transportation_logistics",
-            "shipping": "transportation_logistics",
-            "freight": "transportation_logistics",
-            # Blue collar -> transportation_logistics (same audience)
-            "blue_collar": "blue_collar_trades",
-            # Technology
-            "technology": "tech_engineering",
-            "tech": "tech_engineering",
-            "telecom": "tech_engineering",
-            "telecommunications": "tech_engineering",
-            "saas": "tech_engineering",
-            "fintech": "tech_engineering",
-            "software": "tech_engineering",
-            "it": "tech_engineering",
-            "information_technology": "tech_engineering",
-            "cybersecurity": "tech_engineering",
-            # Healthcare
-            "healthcare": "healthcare_medical",
-            "medical": "healthcare_medical",
-            "pharma": "healthcare_medical",
-            "pharma_biotech": "healthcare_medical",
-            "biotech": "healthcare_medical",
-            "life_sciences": "healthcare_medical",
-            "mental_health": "healthcare_medical",
-            "nursing": "healthcare_medical",
-            "dental": "healthcare_medical",
-            "veterinary": "healthcare_medical",
-            # Retail
-            "retail": "retail_consumer",
-            "ecommerce": "retail_consumer",
-            "e_commerce": "retail_consumer",
-            "consumer_goods": "retail_consumer",
-            # Finance
-            "finance": "finance_banking",
-            "banking": "finance_banking",
-            "financial_services": "finance_banking",
-            "accounting": "finance_banking",
-            "investment": "finance_banking",
-            # Hospitality
-            "hospitality": "hospitality_travel",
-            "travel": "hospitality_travel",
-            "hotel": "hospitality_travel",
-            "tourism": "hospitality_travel",
-            # Construction
-            "construction": "construction_real_estate",
-            "construction_real_estate": "construction_real_estate",
-            "real_estate": "construction_real_estate",
-            # Manufacturing
-            "manufacturing": "manufacturing",
-            "automotive": "manufacturing",
-            "industrial": "manufacturing",
-            "semiconductor": "manufacturing",
-            # Government
-            "government": "government_public_sector",
-            "public_sector": "government_public_sector",
-            "military_recruitment": "government_public_sector",
-            "government_utilities": "government_public_sector",
-            # Education
-            "education": "education",
-            # Energy
-            "energy": "energy_utilities",
-            "energy_utilities": "energy_utilities",
-            "utilities": "energy_utilities",
-            "oil_gas": "energy_utilities",
-            # Professional Services
-            "professional_services": "professional_services",
-            "consulting": "professional_services",
-            "legal": "professional_services",
-            "legal_services": "professional_services",
-            # Media
-            "media": "media_entertainment",
-            "media_entertainment": "media_entertainment",
-            "entertainment": "media_entertainment",
-            "gaming": "media_entertainment",
-            # Insurance
-            "insurance": "insurance",
-            # Nonprofit
-            "nonprofit": "nonprofit",
-            "ngo": "nonprofit",
-            # Staffing
-            "staffing": "staffing_recruitment",
-            "staffing_recruitment": "staffing_recruitment",
-            "recruitment": "staffing_recruitment",
-            "temp_agency": "staffing_recruitment",
-            # Gig
-            "gig_economy": "gig_economy",
-            "gig": "gig_economy",
-            # Food
-            "food_beverage": "food_beverage",
-            "restaurant": "food_beverage",
-            "food_service": "food_beverage",
-            "quick_service": "food_beverage",
-            # Aerospace
-            "aerospace": "aerospace_defense",
-            "aerospace_defense": "aerospace_defense",
-            "defense": "aerospace_defense",
-            # General / entry level
-            "general": "retail_consumer",
-            "general_entry_level": "retail_consumer",
-        }
-
-        def _normalize_industry_for_fit(raw_industry: str) -> str:
-            """Map raw industry string to a valid _INDUSTRY_PLATFORM_FIT key."""
-            if not raw_industry:
-                return ""
-            # Normalize: lowercase, replace spaces/hyphens/& with underscores
-            normalized = (
-                raw_industry.lower()
-                .strip()
-                .replace(" & ", "_")
-                .replace(" and ", "_")
-                .replace("-", "_")
-                .replace(" ", "_")
-                .replace("__", "_")
-            )
-            # Direct match on fit dict
-            if normalized in _INDUSTRY_PLATFORM_FIT:
-                return normalized
-            # Alias lookup
-            if normalized in _INDUSTRY_ALIAS_TO_FIT_KEY:
-                return _INDUSTRY_ALIAS_TO_FIT_KEY[normalized]
-            # Fuzzy: check if any alias is a substring of the input
-            for alias, fit_key in _INDUSTRY_ALIAS_TO_FIT_KEY.items():
-                if alias in normalized or normalized in alias:
-                    return fit_key
-            # Last resort: check _INDUSTRY_TO_KB_KEY for a broader mapping
-            kb_key = _INDUSTRY_TO_KB_KEY.get(normalized) or ""
-            if kb_key:
-                _KB_TO_FIT = {
-                    "healthcare": "healthcare_medical",
-                    "technology": "tech_engineering",
-                    "retail_hospitality": "retail_consumer",
-                    "construction_infrastructure": "construction_real_estate",
-                    "transportation_logistics": "transportation_logistics",
-                    "manufacturing": "manufacturing",
-                    "financial_services": "finance_banking",
-                    "government_utilities": "government_public_sector",
-                }
-                return _KB_TO_FIT.get(kb_key, "")
+    def _normalize_industry_for_fit(raw_industry: str) -> str:
+        """Map raw industry string to a valid _INDUSTRY_PLATFORM_FIT key."""
+        if not raw_industry:
             return ""
-
-        # ---------------------------------------------------------------
-        # Role-level adjustments to platform fit scores.
-        # Entry-level/hourly roles boost Indeed/ZipRecruiter/Meta/TikTok,
-        # senior/executive roles boost LinkedIn, and mid-level stays neutral.
-        # ---------------------------------------------------------------
-        _ROLE_FIT_ADJUSTMENTS: Dict[str, Dict[str, int]] = {
-            "hourly": {
-                "Indeed Sponsored Jobs": 2,
-                "ZipRecruiter Sponsored": 2,
-                "Meta (Facebook/Instagram)": 1,
-                "TikTok Ads": 2,
-                "Snapchat Ads": 1,
-                "Spotify Audio Ads": 1,
-                "LinkedIn Ads": -3,
-                "X (Twitter) Ads": -1,
-            },
-            "executive": {
-                "LinkedIn Ads": 1,
-                "Google Ads": 1,
-                "Microsoft/Bing Ads": 1,
-                "Indeed Sponsored Jobs": -2,
-                "ZipRecruiter Sponsored": -2,
-                "TikTok Ads": -3,
-                "Snapchat Ads": -3,
-                "Meta (Facebook/Instagram)": -2,
-            },
-            "technical": {
-                "LinkedIn Ads": 1,
-                "Reddit Ads": 2,
-                "X (Twitter) Ads": 1,
-                "Google Ads": 1,
-                "TikTok Ads": -1,
-                "Snapchat Ads": -2,
-            },
-            "professional": {},  # neutral baseline
-            "default": {},
-        }
-
-        fit_key = _normalize_industry_for_fit(industry)
-        industry_fit = _INDUSTRY_PLATFORM_FIT.get(fit_key, {})
-        role_adjustments = _ROLE_FIT_ADJUSTMENTS.get(role_type, {})
-
-        # Replace result with comprehensive benchmark-based platform data
-        result = {}
-        for pname, pdata in _PLATFORM_BENCHMARKS.items():
-            base_fit = industry_fit.get(pname, 5)  # default fit = 5
-            role_adj = role_adjustments.get(pname, 0)
-            fit_score = max(1, min(10, base_fit + role_adj))  # clamp 1-10
-            roi_proj = round(10 - (pdata["cpa"] / 10), 1) if pdata["cpa"] > 0 else 5.0
-            roi_proj = max(1.0, min(10.0, roi_proj))
-            platform_key = (
-                pname.lower()
-                .replace(" ", "_")
-                .replace("(", "")
-                .replace(")", "")
-                .replace("/", "_")
-            )
-            result[platform_key] = {
-                "platform_name": pname,
-                # Mixed vintage: Google/Meta/LinkedIn CPCs carry 2026-cited
-                # registry figures; other entries remain 2024-2025 vintage.
-                "source": "Industry Benchmark (2024-2026)",
-                "avg_cpc": pdata["cpc"],
-                "avg_cpm": pdata["cpm"],
-                "avg_cpa": pdata["cpa"],
-                "total_monthly_searches": 0,
-                "estimated_reach": 0,
-                "audience_reach": pdata["audience_reach"],
-                "fit_score": fit_score / 10.0,  # Normalize to 0-1 scale
-                "roi_projection": roi_proj,
-                "roi_projection_applications": (
-                    round(budget / pdata["cpa"], 0)
-                    if pdata["cpa"] > 0 and budget > 0
-                    else 0.0
-                ),
-                "daily_budget_range": pdata["daily_budget_range"],
-                "best_for": pdata["best_for"],
-                "cpc_kb_validation": {},
-                "recommended_daily_budget": {
-                    "min": round(pdata["cpc"] * 10, 2) if pdata["cpc"] > 0 else 20.0,
-                    "max": round(pdata["cpc"] * 50, 2) if pdata["cpc"] > 0 else 100.0,
-                },
-                "platform_summary": {},
-                "_meta": {"source_count": 1, "kb_validated": False, "fallback": True},
+        # Normalize: lowercase, replace spaces/hyphens/& with underscores
+        normalized = (
+            raw_industry.lower()
+            .strip()
+            .replace(" & ", "_")
+            .replace(" and ", "_")
+            .replace("-", "_")
+            .replace(" ", "_")
+            .replace("__", "_")
+        )
+        # Direct match on fit dict
+        if normalized in _INDUSTRY_PLATFORM_FIT:
+            return normalized
+        # Alias lookup
+        if normalized in _INDUSTRY_ALIAS_TO_FIT_KEY:
+            return _INDUSTRY_ALIAS_TO_FIT_KEY[normalized]
+        # Fuzzy: check if any alias is a substring of the input
+        for alias, fit_key in _INDUSTRY_ALIAS_TO_FIT_KEY.items():
+            if alias in normalized or normalized in alias:
+                return fit_key
+        # Last resort: check _INDUSTRY_TO_KB_KEY for a broader mapping
+        kb_key = _INDUSTRY_TO_KB_KEY.get(normalized) or ""
+        if kb_key:
+            _KB_TO_FIT = {
+                "healthcare": "healthcare_medical",
+                "technology": "tech_engineering",
+                "retail_hospitality": "retail_consumer",
+                "construction_infrastructure": "construction_real_estate",
+                "transportation_logistics": "transportation_logistics",
+                "manufacturing": "manufacturing",
+                "financial_services": "finance_banking",
+                "government_utilities": "government_public_sector",
             }
+            return _KB_TO_FIT.get(kb_key, "")
+        return ""
+
+    # ---------------------------------------------------------------
+    # Role-level adjustments to platform fit scores.
+    # Entry-level/hourly roles boost Indeed/ZipRecruiter/Meta/TikTok,
+    # senior/executive roles boost LinkedIn, and mid-level stays neutral.
+    # ---------------------------------------------------------------
+    _ROLE_FIT_ADJUSTMENTS: Dict[str, Dict[str, int]] = {
+        "hourly": {
+            "Indeed Sponsored Jobs": 2,
+            "ZipRecruiter Sponsored": 2,
+            "Meta (Facebook/Instagram)": 1,
+            "TikTok Ads": 2,
+            "Snapchat Ads": 1,
+            "Spotify Audio Ads": 1,
+            "LinkedIn Ads": -3,
+            "X (Twitter) Ads": -1,
+        },
+        "executive": {
+            "LinkedIn Ads": 1,
+            "Google Ads": 1,
+            "Microsoft/Bing Ads": 1,
+            "Indeed Sponsored Jobs": -2,
+            "ZipRecruiter Sponsored": -2,
+            "TikTok Ads": -3,
+            "Snapchat Ads": -3,
+            "Meta (Facebook/Instagram)": -2,
+        },
+        "technical": {
+            "LinkedIn Ads": 1,
+            "Reddit Ads": 2,
+            "X (Twitter) Ads": 1,
+            "Google Ads": 1,
+            "TikTok Ads": -1,
+            "Snapchat Ads": -2,
+        },
+        "professional": {},  # neutral baseline
+        "default": {},
+    }
+
+    fit_key = _normalize_industry_for_fit(industry)
+    industry_fit = _INDUSTRY_PLATFORM_FIT.get(fit_key, {})
+    role_adjustments = _ROLE_FIT_ADJUSTMENTS.get(role_type, {})
+
+    # Replace result with comprehensive benchmark-based platform data
+    result = {}
+    for pname, pdata in _PLATFORM_BENCHMARKS.items():
+        base_fit = industry_fit.get(pname, 5)  # default fit = 5
+        role_adj = role_adjustments.get(pname, 0)
+        fit_score = max(1, min(10, base_fit + role_adj))  # clamp 1-10
+        roi_proj = round(10 - (pdata["cpa"] / 10), 1) if pdata["cpa"] > 0 else 5.0
+        roi_proj = max(1.0, min(10.0, roi_proj))
+        platform_key = (
+            pname.lower()
+            .replace(" ", "_")
+            .replace("(", "")
+            .replace(")", "")
+            .replace("/", "_")
+        )
+        result[platform_key] = {
+            "platform_name": pname,
+            # Mixed vintage: Google/Meta/LinkedIn CPCs carry 2026-cited
+            # registry figures; other entries remain 2024-2025 vintage.
+            "source": "Industry Benchmark (2024-2026)",
+            "avg_cpc": pdata["cpc"],
+            "avg_cpm": pdata["cpm"],
+            "avg_cpa": pdata["cpa"],
+            "total_monthly_searches": 0,
+            "estimated_reach": 0,
+            "audience_reach": pdata["audience_reach"],
+            "fit_score": fit_score / 10.0,  # Normalize to 0-1 scale
+            "roi_projection": roi_proj,
+            "roi_projection_applications": (
+                round(budget / pdata["cpa"], 0)
+                if pdata["cpa"] > 0 and budget > 0
+                else 0.0
+            ),
+            "daily_budget_range": pdata["daily_budget_range"],
+            "best_for": pdata["best_for"],
+            "cpc_kb_validation": {},
+            "recommended_daily_budget": {
+                "min": round(pdata["cpc"] * 10, 2) if pdata["cpc"] > 0 else 20.0,
+                "max": round(pdata["cpc"] * 50, 2) if pdata["cpc"] > 0 else 100.0,
+            },
+            "platform_summary": {},
+            "_meta": {"source_count": 1, "kb_validated": False, "fallback": True},
+        }
 
     # --- Platform ranking ---
     rankings: List[Tuple[str, float]] = []
@@ -3358,250 +3182,6 @@ def _classify_role_type(roles: List[str]) -> str:
     if any(kw in role_text for kw in hourly_kw):
         return "hourly"
     return "professional"
-
-
-def _build_platform_entry(
-    platform_name: str,
-    enriched_data: dict,
-    data_key: str,
-    roles: List[str],
-    kb_cpc_entry: dict,
-    kb_cpa_data: dict,
-    fit_score: float,
-    budget: float,
-) -> Dict[str, Any]:
-    """Build a unified platform entry from enriched data and KB benchmarks."""
-    if not isinstance(enriched_data, dict):
-        enriched_data = {}
-
-    source = enriched_data.get("source", f"{platform_name} Benchmarks")
-    platform_summary = enriched_data.get("platform_summary", {})
-    role_data = enriched_data.get(data_key, {})
-    if not isinstance(role_data, dict):
-        role_data = {}
-
-    # Aggregate metrics across roles AND keep per-role breakdowns
-    cpc_values: List[float] = []
-    cpm_values: List[float] = []
-    cpa_values: List[float] = []
-    search_volumes: List[int] = []
-    audience_values: List[int] = []
-    per_role_metrics: Dict[str, Dict[str, Any]] = {}
-
-    for role in roles:
-        entry = role_data.get(role, {})
-        if not isinstance(entry, dict):
-            continue
-
-        cpc = _safe_float(entry.get("avg_cpc_usd", entry.get("avg_cpc")))
-        if cpc > 0:
-            cpc_values.append(cpc)
-
-        cpm = _safe_float(entry.get("avg_cpm_usd", entry.get("avg_cpm")))
-        if cpm > 0:
-            cpm_values.append(cpm)
-
-        cpa = _safe_float(entry.get("cost_per_application", entry.get("cpa")))
-        if cpa > 0:
-            cpa_values.append(cpa)
-
-        sv = _safe_int(entry.get("avg_monthly_searches", entry.get("search_volume")))
-        if sv > 0:
-            search_volumes.append(sv)
-
-        audience = _parse_audience_number(str(entry.get("estimated_audience") or ""))
-        if audience > 0:
-            audience_values.append(audience)
-
-        # S46: Store per-role metrics so Excel can show differentiated data
-        if cpc > 0 or cpm > 0 or cpa > 0:
-            per_role_metrics[role] = {
-                "avg_cpc": round(cpc, 2) if cpc > 0 else None,
-                "avg_cpm": round(cpm, 2) if cpm > 0 else None,
-                "avg_cpa": round(cpa, 2) if cpa > 0 else None,
-                "search_volume": sv if sv > 0 else None,
-                "estimated_audience": audience if audience > 0 else None,
-            }
-
-    avg_cpc = round(statistics.mean(cpc_values), 2) if cpc_values else 0.0
-    avg_cpm = round(statistics.mean(cpm_values), 2) if cpm_values else 0.0
-    avg_cpa = round(statistics.mean(cpa_values), 2) if cpa_values else 0.0
-    total_search = sum(search_volumes)
-    estimated_reach = sum(audience_values) if audience_values else 0
-
-    # KB validation for CPC
-    kb_cpc_val = 0.0
-    if isinstance(kb_cpc_entry, dict):
-        kb_cpc_str = (
-            kb_cpc_entry.get("average_cpc")
-            or kb_cpc_entry.get("average_cpc_range")
-            or ""
-            or kb_cpc_entry.get("job_ad_cpc_range")
-            or ""
-        )
-        low, high = _parse_salary_range(str(kb_cpc_str))
-        if low and high:
-            kb_cpc_val = (low + high) / 2
-        elif low:
-            kb_cpc_val = low
-
-    cpc_validation = {}
-    if avg_cpc > 0 and kb_cpc_val > 0:
-        cpc_validation = validate_with_knowledge_base(
-            avg_cpc, kb_cpc_val, tolerance=0.40
-        )
-
-    # ROI projection
-    roi_projection = 0.0
-    if avg_cpa > 0 and budget > 0:
-        estimated_applications = budget / avg_cpa
-        roi_projection = round(estimated_applications, 0)
-
-    # Recommended daily budget
-    daily_budget_min = round(avg_cpc * 10, 2) if avg_cpc > 0 else 20.0
-    daily_budget_max = round(avg_cpc * 50, 2) if avg_cpc > 0 else 100.0
-
-    source_count = 1 if (cpc_values or cpm_values or cpa_values) else 0
-    kb_validated_flag = bool(cpc_validation.get("validated"))
-
-    return {
-        "platform_name": platform_name,
-        "source": source,
-        "avg_cpc": avg_cpc,
-        "avg_cpm": avg_cpm,
-        "avg_cpa": avg_cpa,
-        "total_monthly_searches": total_search,
-        "estimated_reach": estimated_reach,
-        "fit_score": fit_score,
-        "cpc_kb_validation": cpc_validation,
-        "roi_projection_applications": roi_projection,
-        "recommended_daily_budget": {
-            "min": daily_budget_min,
-            "max": daily_budget_max,
-        },
-        "platform_summary": (
-            platform_summary if isinstance(platform_summary, dict) else {}
-        ),
-        "per_role_metrics": per_role_metrics,
-        "_meta": {
-            "source_count": source_count + (1 if kb_validated_flag else 0),
-            "kb_validated": kb_validated_flag,
-        },
-    }
-
-
-def _build_meta_platform_entry(
-    enriched_data: dict,
-    roles: List[str],
-    kb_cpc_entry: dict,
-    fit_score: float,
-    budget: float,
-) -> Dict[str, Any]:
-    """Build a unified entry for Meta (Facebook + Instagram)."""
-    if not isinstance(enriched_data, dict):
-        enriched_data = {}
-
-    source = enriched_data.get("source", "Meta Ads Benchmarks")
-    platform_summary = enriched_data.get("platform_summary", {})
-    role_data = enriched_data.get("roles", {})
-    if not isinstance(role_data, dict):
-        role_data = {}
-
-    fb_cpc: List[float] = []
-    fb_cpm: List[float] = []
-    fb_cpa: List[float] = []
-    ig_cpc: List[float] = []
-    ig_cpm: List[float] = []
-    ig_cpa: List[float] = []
-    audience_values: List[int] = []
-
-    for role in roles:
-        entry = role_data.get(role, {})
-        if not isinstance(entry, dict):
-            continue
-
-        # Facebook metrics
-        fb = entry.get("facebook", entry)
-        if isinstance(fb, dict):
-            v = _safe_float(fb.get("avg_cpc_usd"))
-            if v > 0:
-                fb_cpc.append(v)
-            v = _safe_float(fb.get("avg_cpm_usd"))
-            if v > 0:
-                fb_cpm.append(v)
-            v = _safe_float(fb.get("cost_per_application"))
-            if v > 0:
-                fb_cpa.append(v)
-            a = _parse_audience_number(str(fb.get("estimated_audience_size") or ""))
-            if a > 0:
-                audience_values.append(a)
-
-        # Instagram metrics
-        ig = entry.get("instagram", {})
-        if isinstance(ig, dict):
-            v = _safe_float(ig.get("avg_cpc_usd"))
-            if v > 0:
-                ig_cpc.append(v)
-            v = _safe_float(ig.get("avg_cpm_usd"))
-            if v > 0:
-                ig_cpm.append(v)
-            v = _safe_float(ig.get("cost_per_application"))
-            if v > 0:
-                ig_cpa.append(v)
-
-    all_cpc = fb_cpc + ig_cpc
-    all_cpm = fb_cpm + ig_cpm
-    all_cpa = fb_cpa + ig_cpa
-
-    avg_cpc = round(statistics.mean(all_cpc), 2) if all_cpc else 0.0
-    avg_cpm = round(statistics.mean(all_cpm), 2) if all_cpm else 0.0
-    avg_cpa = round(statistics.mean(all_cpa), 2) if all_cpa else 0.0
-    estimated_reach = sum(audience_values) if audience_values else 0
-
-    # KB CPC validation
-    kb_cpc_val = 0.0
-    if isinstance(kb_cpc_entry, dict):
-        kb_str = (
-            kb_cpc_entry.get("median_cpc_jan_2026")
-            or kb_cpc_entry.get("median_cpc_peak_nov_2025")
-            or ""
-        )
-        kb_cpc_val = _safe_float(kb_str)
-
-    cpc_validation = {}
-    if avg_cpc > 0 and kb_cpc_val > 0:
-        cpc_validation = validate_with_knowledge_base(
-            avg_cpc, kb_cpc_val, tolerance=0.40
-        )
-
-    roi_projection = round(budget / avg_cpa, 0) if avg_cpa > 0 and budget > 0 else 0.0
-    daily_min = round(avg_cpc * 10, 2) if avg_cpc > 0 else 15.0
-    daily_max = round(avg_cpc * 50, 2) if avg_cpc > 0 else 75.0
-
-    source_count = 1 if all_cpc else 0
-    kb_validated_flag = bool(cpc_validation.get("validated"))
-
-    return {
-        "platform_name": "Meta (Facebook + Instagram)",
-        "source": source,
-        "avg_cpc": avg_cpc,
-        "avg_cpm": avg_cpm,
-        "avg_cpa": avg_cpa,
-        "facebook_avg_cpc": round(statistics.mean(fb_cpc), 2) if fb_cpc else 0.0,
-        "instagram_avg_cpc": round(statistics.mean(ig_cpc), 2) if ig_cpc else 0.0,
-        "estimated_reach": estimated_reach,
-        "fit_score": fit_score,
-        "cpc_kb_validation": cpc_validation,
-        "roi_projection_applications": roi_projection,
-        "recommended_daily_budget": {"min": daily_min, "max": daily_max},
-        "platform_summary": (
-            platform_summary if isinstance(platform_summary, dict) else {}
-        ),
-        "_meta": {
-            "source_count": source_count + (1 if kb_validated_flag else 0),
-            "kb_validated": kb_validated_flag,
-        },
-    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
