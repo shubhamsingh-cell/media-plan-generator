@@ -62,6 +62,22 @@ _REAL_OUTCOME_CALIBRATION_ENABLED = os.environ.get(
     "REAL_OUTCOME_CALIBRATION_ENABLED", "false"
 ).strip().lower() in ("1", "true", "yes", "on")
 
+# Self-seed the gitignored runtime data files this module reads. app.py's
+# import already does this (data_seeds runs before any reader import --
+# pinned by tests/test_data_seeds_wiring.py), but scripts that import
+# budget_engine directly (tools_regen_bundles, eval_framework,
+# scripts/render_sample_*) bypass app.py -- in a fresh checkout they would
+# silently fall through to the trend_engine CPC tier and drift ~25% on
+# applications/CPA off the owner-approved calibration (2026-07-16).
+# seed_runtime_data_files() is idempotent, atomic, and never overwrites an
+# existing live file.
+try:
+    from data_seeds import seed_runtime_data_files as _seed_runtime_data_files
+
+    _seed_runtime_data_files()
+except ImportError:  # pragma: no cover -- data_seeds ships with the repo
+    pass
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LIVE DATA LOADERS -- channel_benchmarks_live.json & adzuna_benchmarks.json
@@ -72,57 +88,72 @@ _adzuna_bench_cache: Optional[Dict[str, Any]] = None
 
 
 def _load_channel_benchmarks_live() -> Dict[str, Any]:
-    """Load channel_benchmarks_live.json once, cache at module level.
+    """Load channel_benchmarks_live.json, caching only a successful,
+    non-empty read at module level.
 
     Returns a dict keyed by channel slug (e.g. 'indeed', 'linkedin') with
     CPC range (min/max) and CPA estimate (min/max) from live scrape data.
+
+    Absent, corrupt, and empty reads are TRANSIENT conditions, not permanent
+    ones -- the local dev daemon writes this file non-atomically ~30 minutes
+    after boot, so a process that reads before then (or mid-write) would see
+    the file missing, truncated/corrupt, or parsed-but-empty. data_seeds
+    normally guarantees the file is present and valid by the time anything
+    reads it (see the module-scope self-seed call above), but when that
+    invariant doesn't hold, this loader must retry on its NEXT call rather
+    than freezing an empty/fallback-tier result for the rest of the
+    process's life. Only a successful, non-empty parse is cached.
     """
     global _channel_bench_live_cache
     if _channel_bench_live_cache is not None:
         return _channel_bench_live_cache
-    _channel_bench_live_cache = {}
     fpath = _DATA_DIR / "channel_benchmarks_live.json"
+    if not fpath.exists():
+        return {}
+    loaded: Dict[str, Any] = {}
     try:
-        if fpath.exists():
-            with open(fpath, "r", encoding="utf-8") as f:
-                raw = json.load(f)
-            for entry in raw.get("data", []):
-                ch = (entry.get("channel") or "").lower().strip()
-                if not ch:
-                    continue
-                meta = entry.get("metadata") or {}
-                cpc_range = meta.get("cpc_range") or {}
-                cpa_range = meta.get("cpa_estimate") or {}
-                cpc_min = cpc_range.get("min")
-                cpc_max = cpc_range.get("max")
-                cpa_min = cpa_range.get("min")
-                cpa_max = cpa_range.get("max")
-                # Compute typical CPC as geometric mean of min/max (less skewed than arithmetic)
-                typical_cpc = None
-                if cpc_min and cpc_max and cpc_min > 0 and cpc_max > 0:
-                    typical_cpc = round(math.sqrt(cpc_min * cpc_max), 2)
-                typical_cpa = None
-                if cpa_min and cpa_max and cpa_min > 0 and cpa_max > 0:
-                    typical_cpa = round(math.sqrt(cpa_min * cpa_max), 2)
-                _channel_bench_live_cache[ch] = {
-                    "cpc_min": cpc_min,
-                    "cpc_max": cpc_max,
-                    "cpc_typical": typical_cpc,
-                    "cpa_min": cpa_min,
-                    "cpa_max": cpa_max,
-                    "cpa_typical": typical_cpa,
-                    "model": meta.get("model") or entry.get("pricing_model") or "",
-                    "board_name": meta.get("board_name") or ch.title(),
-                }
-            if _channel_bench_live_cache:
-                logger.info(
-                    "Loaded channel_benchmarks_live: %d boards",
-                    len(_channel_bench_live_cache),
-                )
+        with open(fpath, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        for entry in raw.get("data", []):
+            ch = (entry.get("channel") or "").lower().strip()
+            if not ch:
+                continue
+            meta = entry.get("metadata") or {}
+            cpc_range = meta.get("cpc_range") or {}
+            cpa_range = meta.get("cpa_estimate") or {}
+            cpc_min = cpc_range.get("min")
+            cpc_max = cpc_range.get("max")
+            cpa_min = cpa_range.get("min")
+            cpa_max = cpa_range.get("max")
+            # Compute typical CPC as geometric mean of min/max (less skewed than arithmetic)
+            typical_cpc = None
+            if cpc_min and cpc_max and cpc_min > 0 and cpc_max > 0:
+                typical_cpc = round(math.sqrt(cpc_min * cpc_max), 2)
+            typical_cpa = None
+            if cpa_min and cpa_max and cpa_min > 0 and cpa_max > 0:
+                typical_cpa = round(math.sqrt(cpa_min * cpa_max), 2)
+            loaded[ch] = {
+                "cpc_min": cpc_min,
+                "cpc_max": cpc_max,
+                "cpc_typical": typical_cpc,
+                "cpa_min": cpa_min,
+                "cpa_max": cpa_max,
+                "cpa_typical": typical_cpa,
+                "model": meta.get("model") or entry.get("pricing_model") or "",
+                "board_name": meta.get("board_name") or ch.title(),
+            }
     except (json.JSONDecodeError, OSError) as exc:
         logger.error(
             "Failed to load channel_benchmarks_live.json: %s", exc, exc_info=True
         )
+        return {}
+    if not loaded:
+        return {}
+    _channel_bench_live_cache = loaded
+    logger.info(
+        "Loaded channel_benchmarks_live: %d boards",
+        len(_channel_bench_live_cache),
+    )
     return _channel_bench_live_cache
 
 

@@ -159,6 +159,17 @@ def _run_deferred_startup() -> None:
     # Re-enable by uncommenting when Render plan is upgraded or memory is freed.
 
     # [DISABLED S50] Data Refresh Pipeline -- background threads refreshing data periodically
+    #
+    # ⚠ CALIBRATION WARNING (2026-07-16): re-enabling this daemon is a
+    # recalibration, not a config toggle. It overwrites the committed seeds'
+    # live copies (data/channel_benchmarks_live.json etc.) ~30 min after
+    # boot with fresh Supabase/API pulls; budget_engine's CPC cascade reads
+    # that file, so plan applications/CPA can shift mid-process and
+    # per-worker. The approved calibration is pinned to the committed seed
+    # content (tests/test_channel_bench_seed.py identity guard +
+    # TestHeadlineInvariance) -- re-enable only together with a deliberate
+    # seed/fixture/constants re-baseline (see commit 336480d for the
+    # sanctioned procedure).
     # try:
     #     from data_refresh import start_data_refresh
     #     start_data_refresh()
