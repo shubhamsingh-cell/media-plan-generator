@@ -264,7 +264,25 @@ class TestCalculateBudgetAllocationWiresFunnel:
 # ---------------------------------------------------------------------------
 # 4. Headline invariance -- captured from a clean-tree regen BEFORE the
 #    funnel-calibration model existed (scratchpad/headline_before.json).
+#
+# Input pinning (2026-07-16): the _BEFORE_* constants below were captured
+# while data/channel_benchmarks_live.json still held its 2026-07-12
+# tracked-snapshot content. b74be8d ("stop tracking runtime-written data
+# files") correctly untracked that file -- it's regenerated at runtime and
+# its churn was noise in every diff -- but that means a FRESH checkout no
+# longer has it, so budget_engine's CPC-resolution cascade
+# (_extract_cpc_from_live_benchmarks, budget_engine.py ~180-200) falls
+# through to its next tier (trend_engine / KB / static) and produces
+# different-but-not-wrong headline numbers, breaking this invariant for a
+# reason that has nothing to do with the funnel-calibration engine itself.
+# TestHeadlineInvariance._pin_channel_benchmarks_live below freezes the
+# exact 2026-07-12 input this test's expectations were captured against,
+# independent of whatever data/channel_benchmarks_live.json happens to
+# contain (absent, stale, or freshly re-scraped) in the checkout the suite
+# runs in.
 # ---------------------------------------------------------------------------
+_FUNNEL_INVARIANT_FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "funnel_invariant"
+
 _BEFORE_MANPOWER_TOTAL = {
     "applications": 18950,
     "clicks": 230399,
@@ -309,6 +327,18 @@ class TestHeadlineInvariance:
     """HARD INVARIANT: budget, clicks, raw applications, total & per-channel
     hires, CPA, blended CPH stay EXACTLY as they were before the funnel
     model was added -- it only ADDS explanatory intermediate stages."""
+
+    @pytest.fixture(autouse=True)
+    def _pin_channel_benchmarks_live(self, monkeypatch):
+        """Pin budget_engine's channel_benchmarks_live.json read to the
+        frozen 2026-07-12 fixture (see module-docstring note above) so this
+        test is hermetic: green with NO data/*.json present, and green
+        regardless of what a live scrape refresh produces. Monkeypatching
+        _DATA_DIR is the same hook tests/test_data_sources.py already uses
+        to pin apis.data loaders -- no production code changes needed."""
+        monkeypatch.setattr(be, "_DATA_DIR", _FUNNEL_INVARIANT_FIXTURE_DIR)
+        # Force a re-read: the loader caches at module level after first call.
+        monkeypatch.setattr(be, "_channel_bench_live_cache", None)
 
     @pytest.mark.parametrize(
         "brief_name,expected_total,expected_per_channel,expected_budget",
