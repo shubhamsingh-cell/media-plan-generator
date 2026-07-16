@@ -3299,9 +3299,7 @@ def _normalize_dict_roles(data: dict) -> None:
     for _rkey in ("roles", "target_roles"):
         _rlist = data.get(_rkey) or []
         if isinstance(_rlist, list) and _rlist and isinstance(_rlist[0], dict):
-            data[_rkey] = [
-                (r.get("title") or r.get("role") or str(r)) for r in _rlist
-            ]
+            data[_rkey] = [(r.get("title") or r.get("role") or str(r)) for r in _rlist]
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -3630,13 +3628,10 @@ def _split_city_state_country(loc_str: str) -> dict:
         is_us_state = False
         if plan_geo is not None:
             try:
-                is_us_state = (
-                    second.lower() in plan_geo.US_STATE_NAME_TO_ABBR
-                    or (
-                        len(second) == 2
-                        and second.isalpha()
-                        and second.upper() in plan_geo.US_STATE_ABBR
-                    )
+                is_us_state = second.lower() in plan_geo.US_STATE_NAME_TO_ABBR or (
+                    len(second) == 2
+                    and second.isalpha()
+                    and second.upper() in plan_geo.US_STATE_ABBR
                 )
             except Exception:
                 is_us_state = False
@@ -3671,9 +3666,7 @@ def _coerce_int_field(raw: Any, *, field_name: str) -> int:
     try:
         return int(raw)
     except (ValueError, TypeError, OverflowError) as exc:
-        raise _EstimateValidationError(
-            f"{field_name} must be a valid integer"
-        ) from exc
+        raise _EstimateValidationError(f"{field_name} must be a valid integer") from exc
 
 
 def _compute_plan_estimate(brief: dict) -> dict:
@@ -3738,7 +3731,9 @@ def _compute_plan_estimate(brief: dict) -> dict:
     # Infinity / -Infinity tokens into non-finite floats) before they hit
     # the string-based parser below, and reject a negative numeric budget
     # outright while its sign is still intact.
-    if isinstance(budget_raw, float) and (math.isnan(budget_raw) or math.isinf(budget_raw)):
+    if isinstance(budget_raw, float) and (
+        math.isnan(budget_raw) or math.isinf(budget_raw)
+    ):
         raise _EstimateValidationError("Budget must be a finite number")
     if isinstance(budget_raw, (int, float)) and budget_raw < 0:
         raise _EstimateValidationError("A positive budget is required")
@@ -6147,9 +6142,7 @@ def _compute_cpc_alerts(
 
         for kb_name, (kb_val, kb_basis) in kb_cpc.items():
             if channel.lower() in kb_name or kb_name in channel.lower():
-                change_pct = (
-                    ((live_cpc - kb_val) / kb_val) * 100 if kb_val > 0 else 0
-                )
+                change_pct = ((live_cpc - kb_val) / kb_val) * 100 if kb_val > 0 else 0
                 if abs(change_pct) >= 15:  # 15% threshold
                     direction = "up" if change_pct > 0 else "down"
                     new_alerts.append(
@@ -6161,9 +6154,7 @@ def _compute_cpc_alerts(
                             "change_pct": round(change_pct, 1),
                             "direction": direction,
                             "timestamp": timestamp,
-                            "severity": (
-                                "high" if abs(change_pct) >= 30 else "medium"
-                            ),
+                            "severity": ("high" if abs(change_pct) >= 30 else "medium"),
                             "baseline_label": (
                                 f"vs KB {kb_basis} (static 2026 KB file)"
                             ),
@@ -7349,7 +7340,7 @@ _rl_llm_heavy = RateLimiter()  # LLM-heavy analysis endpoints -- 10 req/min
 _rl_portal = RateLimiter()  # /api/portal/* -- 20 req/min
 _rl_general = RateLimiter()  # all other /api/* POST routes -- 30 req/min
 _rl_copilot = RateLimiter()  # /api/copilot/* -- 30 req/min (lightweight)
-_rl_estimate = RateLimiter()  # /api/estimate -- 60 req/min (debounced live preview, isolated from /api/generate's 10/min)
+_rl_estimate = RateLimiter()  # /api/estimate -- 60 req/min (debounced live preview)
 
 # ── Concurrent /api/generate cap ──
 # ThreadedHTTPServer spawns one thread per request, so nothing previously
@@ -12635,9 +12626,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         "status": "completed",
                                         "progress_pct": 100,
                                         "status_message": "Complete",
-                                        "filename": _mirror_data.get(
-                                            "result_filename"
-                                        )
+                                        "filename": _mirror_data.get("result_filename")
                                         or "result.zip",
                                         "content_type": _mirror_data.get(
                                             "result_content_type"
@@ -12669,13 +12658,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 {
                                     "job_id": job_id,
                                     "status": "processing",
-                                    "progress_pct": _mirror_data.get(
-                                        "progress_pct"
-                                    )
+                                    "progress_pct": _mirror_data.get("progress_pct")
                                     or 0,
-                                    "status_message": _mirror_data.get(
-                                        "status_message"
-                                    )
+                                    "status_message": _mirror_data.get("status_message")
                                     or "Processing...",
                                     "created": datetime.datetime.fromtimestamp(
                                         _mirror_created
@@ -14963,7 +14948,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             if _est_content_len <= 0:
                 self._send_error("Empty request body", "VALIDATION_ERROR", 400)
                 return
-            if _est_content_len > 65536:  # 64KB -- this is a handful of scalar/list fields, not a bulk import
+            if (
+                _est_content_len > 65536
+            ):  # 64KB -- this is a handful of scalar/list fields, not a bulk import
                 self._send_error("Request too large", "VALIDATION_ERROR", 413)
                 return
             _est_body = self.rfile.read(_est_content_len)
@@ -14983,12 +14970,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_error(str(_est_val_err), "VALIDATION_ERROR", 400)
                 return
             except Exception as _est_err:
-                logger.error(
-                    "Estimate calculation failed: %s", _est_err, exc_info=True
-                )
-                self._send_error(
-                    "Estimate calculation failed", "ESTIMATE_ERROR", 500
-                )
+                logger.error("Estimate calculation failed: %s", _est_err, exc_info=True)
+                self._send_error("Estimate calculation failed", "ESTIMATE_ERROR", 500)
                 return
             self._send_json(_est_result)
             return
@@ -16901,7 +16884,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 _bundle_qa_summary = {
                                     "critical_count": len(_bq_critical),
                                     "warn_count": len(_bq_findings) - len(_bq_critical),
-                                    "findings": _bq_findings[:25],  # cap job-record size
+                                    "findings": _bq_findings[
+                                        :25
+                                    ],  # cap job-record size
                                 }
                                 for _f in _bq_findings:
                                     logger.warning(
@@ -16913,7 +16898,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     )
                                 if _bq_critical:
                                     try:
-                                        from audit_logger import log_event as _bq_log_event
+                                        from audit_logger import (
+                                            log_event as _bq_log_event,
+                                        )
 
                                         _bq_log_event(
                                             action="bundle_qa.critical_findings",
@@ -16986,8 +16973,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         "client_name": gen_data.get("client_name")
                                         or "",
                                         "status": _nar_status_val or "",
-                                        "reason": _narrative_status.get("reason")
-                                        or "",
+                                        "reason": _narrative_status.get("reason") or "",
                                         "untraceable_figures": _narrative_status.get(
                                             "untraceable_figures"
                                         )
@@ -18706,9 +18692,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     elif isinstance(_first_loc, str):
                         # strategy:manpower#2: state-aware splitter so
                         # "Denver, CO" resolves to "United States", not "CO".
-                        _slotops_country = _split_city_state_country(
-                            _first_loc
-                        )["country"]
+                        _slotops_country = _split_city_state_country(_first_loc)[
+                            "country"
+                        ]
                 _li_benchmarks = get_linkedin_benchmarks_for_plan(_slotops_country)
                 if _li_benchmarks:
                     data["_slotops_linkedin_benchmarks"] = _li_benchmarks
