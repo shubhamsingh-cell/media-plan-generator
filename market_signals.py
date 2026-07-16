@@ -963,19 +963,32 @@ _TRACKER_CACHE_TTL = 3600  # 1 hour
 # Platform-level CPC benchmarks. indeed/linkedin synced 2026-07-16 with the
 # refreshed recruitment_benchmarks_comprehensive_2026.json cpc_by_platform
 # entries (cited bands; median = geometric mean of the band -- see that
-# file's refreshed_2026_07_16 note). The remaining rows are older-vintage
-# estimates that do NOT track that file (per the 2026 research, ziprecruiter
-# and glassdoor price by subscription / Indeed's engine, with no citable
-# standalone CPC -- reconcile them separately).
+# file's refreshed_2026_07_16 note).
+# Reconciled 2026-07-16 against the same research:
+#   - ziprecruiter: RETAINED but original-vintage. ZipRecruiter sells
+#     subscription-per-slot in 2026 (no public CPC), so no citable refresh
+#     exists; the row stays only so get_cpc_trends can still answer for the
+#     platform, and the tracker output labels it a modeled estimate.
+#   - glassdoor / facebook / google_ads rows REMOVED: nothing consumed them
+#     (get_cpc_trends tracks indeed/linkedin/ziprecruiter only), they
+#     duplicated the KB's original-vintage entries, and glassdoor no longer
+#     has a standalone CPC product at all (job ads run on Indeed's engine
+#     since the Sept-2025 consolidation). Platform CPC lookups belong in the
+#     KB / benchmark_registry, not here.
 _PLATFORM_CPC_BENCHMARKS: Dict[str, Dict[str, float]] = {
     "indeed": {"min": 0.97, "max": 2.71, "median": 1.62},
     "linkedin": {"min": 1.50, "max": 4.50, "median": 2.60},
     "ziprecruiter": {"min": 0.80, "max": 3.50, "median": 1.35},
-    "glassdoor": {"min": 5.00, "max": 150.00, "median": 12.00},
-    "facebook": {"min": 0.50, "max": 2.11, "median": 1.11},
-    "google_ads": {"min": 2.00, "max": 5.00, "median": 3.20},
 }
 
+# Per-industry CPC by platform. ORIGINAL-VINTAGE (pre-2026-07-16 baseline),
+# no per-entry citations; the July-2026 refresh cited platform-level CPCs
+# only, so these keep their old basis. Two known basis caveats: the linkedin
+# column (3.20-6.50) predates the July-2026 job-ads/sponsored-content split
+# and reads high against the cited Promoted-Jobs band (1.50-4.50, median
+# 2.60); the ziprecruiter column models a CPC pricing model the platform
+# retired in favor of subscriptions. Rescaling them to the new anchors would
+# be derivation, not citation -- left as-is and labeled instead.
 _INDUSTRY_CPC_BENCHMARKS: Dict[str, Dict[str, float]] = {
     "technology": {"indeed": 1.15, "linkedin": 6.50, "ziprecruiter": 1.80},
     "healthcare": {"indeed": 0.90, "linkedin": 4.00, "ziprecruiter": 1.40},
@@ -1348,6 +1361,27 @@ def get_cpc_trends(
 
     alert = _generate_cpc_alert(trends, current_cpc)
 
+    # Honesty note for the LLM rendering this, matched to the source that
+    # actually supplied benchmark_cpc: the per-industry table is
+    # original-vintage, only the platform-median fallback carries the cited
+    # July-2026 figures.
+    if ind_benchmarks:
+        benchmark_note = (
+            "Benchmarks are original-vintage per-industry estimates (no "
+            "per-entry citations). The LinkedIn figure predates the July-2026 "
+            "Promoted-Jobs/sponsored-content split and reads high against the "
+            "cited Promoted-Jobs band ($1.50-$4.50). ZipRecruiter figures are "
+            "modeled estimates -- the platform sells subscription slots and "
+            "publishes no CPC."
+        )
+    else:
+        benchmark_note = (
+            "Indeed/LinkedIn benchmarks derive from cited July-2026 research "
+            "(LinkedIn = Promoted Jobs CPC). ZipRecruiter figures are modeled "
+            "estimates -- the platform sells subscription slots and publishes "
+            "no CPC."
+        )
+
     result: Dict[str, Any] = {
         "role": role,
         "industry": ind,
@@ -1362,6 +1396,7 @@ def get_cpc_trends(
             if live_data
             else "Curated benchmarks (Adzuna unavailable)"
         ),
+        "benchmark_note": benchmark_note,
         "last_updated": datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y-%m-%d"
         ),

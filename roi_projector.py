@@ -108,15 +108,29 @@ def _get_metro_coli(location: str) -> float:
 # ---------------------------------------------------------------------------
 # Channel benchmarks: CPC (USD) and click-to-apply rate (decimal)
 # ---------------------------------------------------------------------------
+# indeed / linkedin / "job boards" CPCs refreshed 2026-07-16 from the
+# per-entry-cited July-2026 research in recruitment_benchmarks_comprehensive
+# _2026.json cpc_by_platform (Indeed band 0.97-2.71, LinkedIn Promoted-Jobs
+# band 1.50-4.50; medians are the geometric mean of each cited band).
+# "job boards" is the generic-board alias historically anchored to Indeed's
+# median (it carried the retired 0.92), so it tracks the Indeed figure.
+# All other rows are original-vintage (2026-04-06 KB baseline and earlier)
+# planning estimates with no per-entry citation; per the July-2026 research
+# ziprecruiter (subscription-per-slot) and glassdoor (job ads served via
+# Indeed's CPC engine since the Sept-2025 consolidation) no longer have a
+# citable standalone CPC, so those rows are kept only so the tool can still
+# answer for them -- do not present them as current market rates.
+# Apply rates are original-vintage throughout (the 2026 refresh cited CPCs
+# only).
 # fmt: off
 _CHANNELS: Dict[str, Tuple[float, float]] = {
     # key: (cpc_usd, click_to_apply_rate)
-    "indeed": (0.92, 0.050), "linkedin": (5.26, 0.030),
+    "indeed": (1.62, 0.050), "linkedin": (2.60, 0.030),
     "ziprecruiter": (1.50, 0.070), "glassdoor": (5.00, 0.040),
     "careerbuilder": (2.00, 0.035), "craigslist": (0.50, 0.120),
     "facebook": (1.11, 0.040), "meta": (1.11, 0.040),
     "google": (3.20, 0.045), "programmatic": (0.65, 0.052),
-    "job boards": (0.92, 0.060), "social media": (1.50, 0.035),
+    "job boards": (1.62, 0.060), "social media": (1.50, 0.035),
     "niche boards": (1.40, 0.100), "regional boards": (0.75, 0.055),
 }
 

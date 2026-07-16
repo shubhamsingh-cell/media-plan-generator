@@ -1156,16 +1156,24 @@ def _fallback_benchmarks(industry: str) -> Dict[str, Dict[str, Any]]:
     }
     mult = industry_multipliers.get(industry, 1.0)
 
+    # indeed/linkedin CPCs refreshed 2026-07-16 from the cited July-2026
+    # research (recruitment_benchmarks_comprehensive_2026.json cpc_by_platform:
+    # Indeed band 0.97-2.71 / median 1.62, LinkedIn Promoted-Jobs band
+    # 1.50-4.50 / median 2.60) so this last-resort fallback agrees with what
+    # benchmark_registry + live_market_data.json serve on the primary path.
+    # google_search / meta / programmatic CPCs and all CPA/CTR values are
+    # original-vintage (2026-04-07 refresh and earlier) -- no cited July-2026
+    # figures exist for them.
     base = {
         "google_search": {"cpc": 2.69, "cpa": 45.00, "ctr": 3.2},
         "meta_facebook": {"cpc": 1.72, "cpa": 30.00, "ctr": 1.1},
         "meta_instagram": {"cpc": 1.50, "cpa": 35.00, "ctr": 0.9},
         "linkedin": {
-            "cpc": 5.26,
+            "cpc": 2.60,
             "cpa": 45.00,
             "ctr": 0.5,
         },  # Sponsored Jobs CPA $30-$90, US avg $45 (2026-04-07)
-        "indeed": {"cpc": 0.50, "cpa": 25.00, "ctr": 4.5},
+        "indeed": {"cpc": 1.62, "cpa": 25.00, "ctr": 4.5},
         "programmatic": {"cpc": 0.63, "cpa": 22.00, "ctr": 2.8},
     }
 
