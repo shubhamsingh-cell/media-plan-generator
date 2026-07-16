@@ -895,12 +895,25 @@ class TestHealRecording:
                 heal_log.clear()
 
     def test_successful_heal_recorded_without_attribute_error(self) -> None:
-        """resource_cleanup heal succeeds and lands in recent_heals."""
+        """resource_cleanup heal succeeds and lands in recent_heals.
+
+        Pops data_orchestrator from sys.modules for the call: its cache-
+        eviction step iterates the live _api_result_cache dict, which
+        other tests in the full suite mutate concurrently, occasionally
+        raising and tripping the except-branch for a reason unrelated to
+        what this test verifies (that AutoQC records the heal instead of
+        raising AttributeError).
+        """
         from auto_qc import get_auto_qc
         from sentry_integration import _execute_healing_action
 
-        qc = get_auto_qc()
-        result = _execute_healing_action("resource_cleanup", {"file": "app.py"}, qc)
+        saved_do = sys.modules.pop("data_orchestrator", None)
+        try:
+            qc = get_auto_qc()
+            result = _execute_healing_action("resource_cleanup", {"file": "app.py"}, qc)
+        finally:
+            if saved_do is not None:
+                sys.modules["data_orchestrator"] = saved_do
 
         assert result is True
         heals = qc.get_status().get("recent_heals") or []
