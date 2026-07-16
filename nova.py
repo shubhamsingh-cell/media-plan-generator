@@ -10044,7 +10044,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         # a live feed (the refresh daemon that would make it
                         # live is disabled).
                         result["live_benchmarks_source"] = (
-                            _cbl_data.get("_provenance") or "channel_benchmarks_live.json"
+                            _cbl_data.get("_provenance")
+                            or "channel_benchmarks_live.json"
                         )
                         if _last_updates:
                             result["benchmarks_vintage"] = max(_last_updates)
@@ -23161,10 +23162,16 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                                 f"  - {fk.replace('_', ' ').title()}: {fv}"
                             )
                     else:
-                        # Provide hardcoded platform summaries
+                        # Provide hardcoded platform summaries.
+                        # Fallback display only (fires when the KB lacks the
+                        # platform or failed to load). Indeed/LinkedIn CPC
+                        # bands mirror the cited July-2026 refresh in
+                        # data/recruitment_industry_knowledge.json
+                        # benchmarks.cost_per_click.by_platform -- keep in
+                        # sync with that file's provenance notes.
                         _platform_summaries = {
-                            "Indeed": "- CPC Range: $0.25-$1.50\n- Model: CPC (pay per click)\n- Best For: High-volume hiring across all roles\n- Reach: Largest job site globally",
-                            "LinkedIn": "- CPC Range: $2.00-$5.00+\n- Model: CPC / Sponsored Jobs\n- Best For: White-collar, professional, executive roles\n- Reach: 900M+ professionals",
+                            "Indeed": "- CPC Range: $0.97-$2.71 (typical US-role band; full spread ~$0.10-$5.00+)\n- Model: CPC auction (Sponsored Jobs)\n- Best For: High-volume hiring across all roles\n- Reach: Largest job site globally",
+                            "LinkedIn": "- CPC Range: $1.50-$4.50 (Promoted Jobs)\n- Model: CPC/pay-per-view auction\n- Best For: White-collar, professional, executive roles\n- Reach: 900M+ professionals",
                             "ZipRecruiter": "- CPC Range: $0.50-$2.00\n- Model: Pay-per-click with AI matching\n- Best For: SMB hiring, broad role types\n- Reach: Strong US coverage",
                             "Glassdoor": "- CPC Range: $0.50-$2.00\n- Model: CPC (merging with Indeed)\n- Best For: Employer brand-driven hiring\n- Reach: Merging into Indeed",
                             "Google Ads": "- CPC Range: $1.00-$4.00 (job-related keywords)\n- Model: PPC auction\n- Best For: Programmatic reach, candidate capture\n- Reach: Broadest search traffic",

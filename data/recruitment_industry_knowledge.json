@@ -5,18 +5,28 @@
     "last_updated": "2026-03-22",
     "data_period": "2025-2026",
     "version": "2.0",
-    "update_notes": "Major update with latest data from Appcast 2026, SHRM 2025, iCIMS 2026, BLS JOLTS Dec 2025, Indeed Hiring Lab Feb 2026, WordStream/LOCALiQ 2025, IMF Jan 2026, Gartner 2026, Deloitte 2026 Global Human Capital Trends, PwC AI Jobs Barometer 2025, McKinsey AI workforce research, and SIA staffing forecasts"
+    "update_notes": "Major update with latest data from Appcast 2026, SHRM 2025, iCIMS 2026, BLS JOLTS Dec 2025, Indeed Hiring Lab Feb 2026, WordStream/LOCALiQ 2025, IMF Jan 2026, Gartner 2026, Deloitte 2026 Global Human Capital Trends, PwC AI Jobs Barometer 2025, McKinsey AI workforce research, and SIA staffing forecasts",
+    "partial_refresh_2026_07_16": "benchmarks.cost_per_click.by_platform indeed entry only, cited per entry (see benchmarks.cost_per_click._refreshed_2026_07_16). All other sections remain 2026-03-22 vintage."
   },
   "benchmarks": {
     "cost_per_click": {
       "description": "Average cost-per-click (CPC) benchmarks for recruitment advertising across platforms and channels",
+      "_refreshed_2026_07_16": "indeed.average_cpc_range 0.25-1.50 -> 0.97-2.71 and model string refreshed from the same July-2026 web-researched, per-entry-cited figures shipped to channel_benchmarks_seed.json (336480d) and recruitment_benchmarks_comprehensive_2026.json cpc_by_platform (ea06bb0). linkedin.job_ad_cpc_range already matched the cited Promoted Jobs band and is unchanged (re-verified, see its _job_ads_band_verified note). All other platform entries remain prior-vintage. Alignment with the seed is pinned by tests/test_industry_kb_cpc_strings.py -- refresh both files from the same cited research or consciously re-baseline.",
       "by_platform": {
         "indeed": {
-          "average_cpc_range": "$0.25-$1.50",
+          "average_cpc_range": "$0.97-$2.71",
           "high_end_cpc": "$5.00+",
-          "model": "Pay-per-click for sponsored listings",
+          "model": "CPC auction (Sponsored Jobs); PPSA on some setups; PPA discontinued Dec 2023",
           "free_posts": "Up to 3 free job postings per month (30 days each, lower visibility)",
-          "notes": "CPC varies heavily by industry, role seniority, and geography. Best for volume hiring, blue-collar, and hourly roles.",
+          "notes": "CPC varies heavily by industry, role seniority, and geography. Best for volume hiring, blue-collar, and hourly roles. $0.97-$2.71 is the typical US-role planning band (aggregator-inferred; Indeed publishes no numeric CPC range -- results-based dynamic pricing); full observed spread ~$0.10-$5.00+. Indeed-official budget floors: $5/day minimum, $25/day per-job floor since Jul 2025, $150/month minimum.",
+          "_refresh_note": "Band per Pin.com citing ThePricer 2026 / ShiftNow 2025 / Job Board Doctor May 2025; dynamic pricing confirmed on Indeed's own pricing pages. free_posts detail retained from the prior 2025-2026 vintage (not re-verified in the July-2026 refresh). Kept out of 'notes': nova's platform-comparison chat serves the entry's first 5 fields verbatim.",
+          "_source": "Pin.com (citing ThePricer 2026, ShiftNow 2025, Job Board Doctor May 2025) + Indeed official pricing pages; same citations as channel_benchmarks_seed.json refreshed 2026-07-16",
+          "_source_urls": [
+            "https://www.indeed.com/hire/resources/howtohub/how-pricing-works-on-indeed",
+            "https://www.indeed.com/hire/cs/pricing",
+            "https://www.pin.com/blog/indeed-pricing/"
+          ],
+          "_last_updated": "2026-07-16",
           "year": "2025-2026"
         },
         "linkedin": {
@@ -39,6 +49,12 @@
           "ad_revenue_2025": "$8.2 billion",
           "ad_revenue_2026_projected": "$9.7 billion",
           "notes": "Premium CPC reflects highly targeted professional audience. Best for white-collar, professional, and executive roles.",
+          "_job_ads_band_verified": "job_ad_cpc_range $1.50-$4.50 re-verified 2026-07-16 against the July-2026 web research shipped to channel_benchmarks_seed.json (Pin.com aggregator-inferred band; LinkedIn's own FAQs confirm the Promoted Jobs CPC auction but publish no figure). general_ad_cpc_range and the remaining fields are prior-vintage sponsored-content/product facts, not job-ads CPC, and were not re-verified.",
+          "_source_urls": [
+            "https://www.linkedin.com/help/linkedin/answer/a517695/billing-for-pay-per-click-job-posts-faqs",
+            "https://www.linkedin.com/help/linkedin/answer/a517548",
+            "https://www.pin.com/blog/linkedin-job-posting-pricing/"
+          ],
           "year": "2025-2026"
         },
         "ziprecruiter": {
