@@ -5703,11 +5703,21 @@ def _mirror_job(job_id: str) -> None:
             "error": job.get("error"),
             "result_filename": job.get("result_filename"),
             "result_content_type": job.get("result_content_type"),
-            "_session_token": job.get("_session_token"),
         }
+        # Security hardening: never write the raw session token to disk --
+        # the mirror file is world-readable (default-0644) and lives up to
+        # 24h. Only the sha256 hex digest is persisted; the poll handler
+        # hashes the cookie value the same way and compares digests.
+        _raw_session_token = job.get("_session_token") or ""
+        if _raw_session_token:
+            snapshot["_session_token_sha256"] = hashlib.sha256(
+                _raw_session_token.encode("utf-8")
+            ).hexdigest()
     slot_dir = _generate_slots._slot_dir
     mirror_path = os.path.join(slot_dir, f"job_{job_id}.json")
-    tmp_path = f"{mirror_path}.tmp"
+    # Include the pid in the tmp name so two workers racing to mirror the
+    # same job_id never clobber each other's in-flight write.
+    tmp_path = f"{mirror_path}.{os.getpid()}.tmp"
     try:
         os.makedirs(slot_dir, exist_ok=True)
         with open(tmp_path, "w") as f:
@@ -12440,14 +12450,43 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     except (OSError, ValueError):
                         _mirror_data = None
                     if _mirror_data is not None:
-                        _mirror_session = _mirror_data.get("_session_token") or ""
-                        if _mirror_session:
+                        _mirror_sha = _mirror_data.get("_session_token_sha256") or ""
+                        _mirror_legacy_raw = _mirror_data.get("_session_token") or ""
+                        if _mirror_sha:
                             _mirror_csrf = _parse_cookie_value(
                                 self.headers.get("Cookie") or "", "nova_session"
                             ) or _parse_cookie_value(
                                 self.headers.get("Cookie") or "", "csrf_token"
                             )
-                            if not hmac.compare_digest(_mirror_session, _mirror_csrf):
+                            _mirror_csrf_sha = hashlib.sha256(
+                                _mirror_csrf.encode("utf-8")
+                            ).hexdigest()
+                            if not hmac.compare_digest(_mirror_sha, _mirror_csrf_sha):
+                                self.send_response(403)
+                                self.send_header("Content-Type", "application/json")
+                                self.end_headers()
+                                self.wfile.write(
+                                    _error_response(
+                                        "Access denied: job belongs to a different session",
+                                        "FORBIDDEN",
+                                        403,
+                                    )[0]
+                                )
+                                return
+                        elif _mirror_legacy_raw:
+                            # Legacy mirror file written before the sha256
+                            # hardening (pre-existing on disk, up to 24h
+                            # old) -- fall back to the raw compare so these
+                            # stragglers still enforce ownership instead of
+                            # silently skipping the check.
+                            _mirror_csrf = _parse_cookie_value(
+                                self.headers.get("Cookie") or "", "nova_session"
+                            ) or _parse_cookie_value(
+                                self.headers.get("Cookie") or "", "csrf_token"
+                            )
+                            if not hmac.compare_digest(
+                                _mirror_legacy_raw, _mirror_csrf
+                            ):
                                 self.send_response(403)
                                 self.send_header("Content-Type", "application/json")
                                 self.end_headers()

@@ -29,6 +29,7 @@ import order to test that is pointless when a fresh instance does the job.
 
 from __future__ import annotations
 
+import hashlib
 import http.client
 import json
 import secrets
@@ -186,6 +187,106 @@ def test_poll_mirror_rejects_mismatched_session_cookie(
     )
 
     assert status == 403, f"expected 403 for a mismatched session, got {status}: {body}"
+    payload = json.loads(body)
+    assert payload["code"] == "FORBIDDEN"
+
+
+# ---------------------------------------------------------------------------
+# (a2) SECURITY: raw session token must never touch disk, only its sha256.
+# The mirror file is default-0644 and can live up to 24h -- verified to
+# FAIL against pre-fix app.py (commit 5ba77bf7, which snapshotted the raw
+# "_session_token" field): see the task report for the failing run.
+# ---------------------------------------------------------------------------
+
+
+def test_mirror_file_never_contains_raw_session_token(
+    live_server: int, isolated_slot_dir: str
+) -> None:
+    session_token = secrets.token_hex(16)
+    job_id = _make_processing_job(session_token)
+
+    mirror_path = Path(isolated_slot_dir) / f"job_{job_id}.json"
+    raw_bytes = mirror_path.read_bytes()
+
+    assert session_token.encode("utf-8") not in raw_bytes, (
+        "raw session token substring found in mirror file on disk"
+    )
+
+    mirror_data = json.loads(raw_bytes)
+    expected_sha = hashlib.sha256(session_token.encode("utf-8")).hexdigest()
+    assert mirror_data.get("_session_token_sha256") == expected_sha
+    assert "_session_token" not in mirror_data
+
+
+# ---------------------------------------------------------------------------
+# (a3) LEGACY COMPAT: a mirror file written by the previous build (raw
+# "_session_token", no sha256 key) must still enforce ownership rather than
+# silently skipping the check during a rolling deploy.
+# ---------------------------------------------------------------------------
+
+
+def _write_legacy_mirror(slot_dir: str, job_id: str, session_token: str) -> None:
+    """Hand-write a mirror JSON file in the OLD raw-token format, simulating
+    a straggler file left on disk by the pre-hardening build."""
+    mirror_path = Path(slot_dir) / f"job_{job_id}.json"
+    mirror_path.write_text(
+        json.dumps(
+            {
+                "status": "processing",
+                "progress_pct": 55,
+                "status_message": "Synthesizing knowledge base...",
+                "created": time.time(),
+                "error": None,
+                "result_filename": None,
+                "result_content_type": None,
+                "_session_token": session_token,
+            }
+        )
+    )
+
+
+def test_poll_mirror_legacy_raw_token_format_correct_cookie(
+    live_server: int, isolated_slot_dir: str
+) -> None:
+    port = live_server
+    session_token = secrets.token_hex(16)
+    job_id = uuid.uuid4().hex[:12]
+    _write_legacy_mirror(isolated_slot_dir, job_id, session_token)
+
+    status, _headers, body = _http_get(
+        port,
+        f"/api/jobs/{job_id}",
+        headers={
+            "Accept": "application/json",
+            "Cookie": f"nova_session={session_token}",
+        },
+    )
+    assert status == 200, (
+        f"expected 200 for correct cookie on legacy mirror, got {status}: {body}"
+    )
+    payload = json.loads(body)
+    assert payload["status"] == "processing"
+
+
+def test_poll_mirror_legacy_raw_token_format_wrong_cookie(
+    live_server: int, isolated_slot_dir: str
+) -> None:
+    port = live_server
+    session_token = secrets.token_hex(16)
+    job_id = uuid.uuid4().hex[:12]
+    _write_legacy_mirror(isolated_slot_dir, job_id, session_token)
+
+    status, _headers, body = _http_get(
+        port,
+        f"/api/jobs/{job_id}",
+        headers={
+            "Accept": "application/json",
+            "Cookie": f"nova_session={secrets.token_hex(16)}",  # wrong token
+        },
+    )
+    assert status == 403, (
+        f"expected 403 for wrong cookie on legacy mirror, got {status}: {body}"
+    )
     payload = json.loads(body)
     assert payload["code"] == "FORBIDDEN"
 
