@@ -73,6 +73,10 @@ SKIP_FILES = {
     "nova_learned_answers.json",
     "request_log.json",
     "request_log.json.lock",
+    # Seeds are copied to their live names at startup (data_seeds.py); index the live copies only.
+    "channel_benchmarks_seed.json",
+    "job_posting_volumes_seed.json",
+    "google_trends_seed.json",
 }
 
 # Very large files to handle specially (chunk more aggressively)

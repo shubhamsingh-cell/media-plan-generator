@@ -3307,6 +3307,18 @@ def _normalize_dict_roles(data: dict) -> None:
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
+# Seed gitignored runtime data files (channel_benchmarks_live.json,
+# job_posting_volumes.json, google_trends.json) from their tracked *_seed.json
+# copies if absent. Prod's wsgi path has the data-refresh pipeline disabled
+# ("[DISABLED S50]") and data_enrichment is env-gated off by default, so these
+# files have no runtime writer on Render -- tracked seeds are the only
+# delivery path. Must run here, at import time: budget_engine module-caches
+# an empty read on its first call, so seeding after the first request would
+# be too late.
+import data_seeds
+
+data_seeds.seed_runtime_data_files()
+
 # Server start time for uptime tracking (used by /health endpoint)
 _SERVER_START_TIME = time.time()
 
