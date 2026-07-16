@@ -21,6 +21,7 @@ import time
 import urllib.request
 import urllib.error
 from collections import deque
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,8 @@ _lock = threading.RLock()
 _check_history: deque = deque(maxlen=1440)  # 24h at 60s intervals
 _start_time: float = 0.0  # set when start() is called
 _check_count: int = 0  # number of completed check cycles
+_MAX_HEAL_LOG = 50
+_heal_log: deque = deque(maxlen=_MAX_HEAL_LOG)  # self-healing actions
 
 # Configurable check definitions: list of (name, path) tuples
 # S63 FIX: Swapped /api/health (8s deep check) -> /api/health/ping (instant).
@@ -349,6 +352,7 @@ def get_status() -> dict[str, Any]:
                     if warming
                     else "QC monitor has not started."
                 ),
+                "recent_heals": list(_heal_log),
             }
         result = dict(_last_results)
         # Contract: every branch exposes "status". The empty branch above
@@ -357,7 +361,28 @@ def get_status() -> dict[str, Any]:
         result["status"] = result.get("overall") or "unknown"
         result["history_size"] = len(_check_history)
         result["sla"] = get_sla_report()
+        result["recent_heals"] = list(_heal_log)
         return result
+
+
+def record_heal(target: str, action: str, success: bool) -> None:
+    """Record a self-healing action (bounded, thread-safe).
+
+    Called by sentry_integration's healing bridge; surfaced as
+    get_status()["recent_heals"] on /api/health/auto-qc, which the
+    observability and dashboard heal-log tables render.
+    """
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "component": target,
+        "action": action,
+        "success": success,
+        "result": "success" if success else "failed",
+    }
+    with _lock:
+        _heal_log.append(entry)
+    level = logging.INFO if success else logging.WARNING
+    logger.log(level, "[AutoQC] heal %s -- %s (success=%s)", target, action, success)
 
 
 # ===============================================================================
@@ -384,6 +409,10 @@ class AutoQC:
     def stop(self) -> None:
         """Stop the background QC monitor."""
         stop()
+
+    def _record_heal(self, target: str, action: str, success: bool) -> None:
+        """Record a self-healing action (sentry_integration calls this)."""
+        record_heal(target, action, success)
 
 
 _auto_qc_instance: Optional[AutoQC] = None

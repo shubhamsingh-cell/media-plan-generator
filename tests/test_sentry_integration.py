@@ -875,6 +875,84 @@ class TestAutoQCSentryIntegration:
         assert "configured" in status
 
 
+class TestHealRecording:
+    """Regression: sentry healing actions must record on AutoQC.
+
+    _execute_healing_action calls qc._record_heal(); before the fix AutoQC
+    had no such method, so every heal raised AttributeError and successful
+    heals were misreported as failures/escalations.
+    """
+
+    def setup_method(self) -> None:
+        """Clear the AutoQC heal log between tests."""
+        import auto_qc
+
+        # getattr so a pre-fix auto_qc (no _heal_log) fails in the test
+        # body on the real AttributeError, not here in setup.
+        heal_log = getattr(auto_qc, "_heal_log", None)
+        if heal_log is not None:
+            with auto_qc._lock:
+                heal_log.clear()
+
+    def test_successful_heal_recorded_without_attribute_error(self) -> None:
+        """resource_cleanup heal succeeds and lands in recent_heals."""
+        from auto_qc import get_auto_qc
+        from sentry_integration import _execute_healing_action
+
+        qc = get_auto_qc()
+        result = _execute_healing_action("resource_cleanup", {"file": "app.py"}, qc)
+
+        assert result is True
+        heals = qc.get_status().get("recent_heals") or []
+        assert any(
+            h["component"] == "sentry:memory"
+            and h["action"] == "gc_collect_and_cache_evict"
+            and h["success"] is True
+            for h in heals
+        ), f"expected sentry:memory heal in recent_heals, got: {heals}"
+
+    def test_failed_module_reload_heal_recorded(self) -> None:
+        """A failing module-reload heal records success=False, no exception."""
+        import types
+
+        from auto_qc import get_auto_qc
+        from sentry_integration import _execute_healing_action
+
+        # Synthetic module with no spec/loader: importlib.reload() fails,
+        # driving the failure branch that calls qc._record_heal(..., False).
+        mod_name = "_sentry_test_fake_module"
+        sys.modules[mod_name] = types.ModuleType(mod_name)
+        try:
+            qc = get_auto_qc()
+            result = _execute_healing_action(
+                "isinstance_guard", {"file": f"{mod_name}.py"}, qc
+            )
+        finally:
+            sys.modules.pop(mod_name, None)
+
+        assert result is False
+        heals = qc.get_status().get("recent_heals") or []
+        assert any(
+            h["component"] == f"sentry:{mod_name}.py"
+            and h["action"] == "module_reload_isinstance"
+            and h["success"] is False
+            for h in heals
+        ), f"expected failed reload heal in recent_heals, got: {heals}"
+
+    def test_heal_log_is_bounded(self) -> None:
+        """Heal log must not grow past _MAX_HEAL_LOG entries."""
+        import auto_qc
+
+        qc = auto_qc.get_auto_qc()
+        for i in range(auto_qc._MAX_HEAL_LOG + 25):
+            qc._record_heal(f"sentry:target_{i}", "test_action", True)
+
+        heals = qc.get_status().get("recent_heals") or []
+        assert len(heals) == auto_qc._MAX_HEAL_LOG
+        # Oldest entries evicted, newest retained
+        assert heals[-1]["component"] == f"sentry:target_{auto_qc._MAX_HEAL_LOG + 24}"
+
+
 # =============================================================================
 # Thread Safety
 # =============================================================================
