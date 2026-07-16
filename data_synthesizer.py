@@ -2519,6 +2519,13 @@ def fuse_ad_platform_analysis(
     # NOTE: Canonical benchmark source is trend_engine.py. These values are fallbacks only.
     # See trend_engine.get_benchmark() for authoritative CPC/CPA/CPM data.
     # Check if all platforms returned empty/zero data
+    # WARNING: the _all_empty guard below is a tautology -- 2d89bacf's mass
+    # `.get(x, 0) == 0` -> `.get(x) or 0 == 0` conversion changed its meaning
+    # (`or 0 == 0` is `or True`), so this "fallback" is in practice the
+    # always-on source and the enriched entries built above are discarded.
+    # Restoring the intended guard flips live plan output from these 13 static
+    # platforms to the 5 enriched ones -- a product decision tracked separately;
+    # do not "fix" it as a drive-by.
     _all_empty = all(
         isinstance(result.get(pk), dict)
         and result[pk].get("avg_cpc")
@@ -2532,24 +2539,42 @@ def fuse_ad_platform_analysis(
     )
     if _all_empty:
         _PLATFORM_BENCHMARKS = {
+            # CPC 2.90 = benchmark_registry.CHANNEL_BENCHMARKS["google_ads"]
+            # (WordStream/LOCALiQ 2025 + Appcast 2026 + Joveo 2025, updated
+            # 2026-03-26). Prior 2.69 was earlier-vintage. CPM/CPA unchanged
+            # (original 2024-2025 vintage; no fresher cited figure).
             "Google Ads": {
-                "cpc": 2.69,
+                "cpc": 2.90,
                 "cpm": 3.12,
                 "cpa": 48.96,
                 "audience_reach": "5.6B+ monthly searches",
                 "daily_budget_range": "$50 - $500",
                 "best_for": "Active job seekers, high intent",
             },
+            # CPC 1.86 = benchmark_registry.CHANNEL_BENCHMARKS["meta_facebook"]
+            # (WordStream 2025 Facebook Ads Benchmarks, updated 2026-03-26).
+            # Prior 1.72 was earlier-vintage. CPM/CPA unchanged (original
+            # 2024-2025 vintage; no fresher cited figure).
             "Meta (Facebook/Instagram)": {
-                "cpc": 1.72,
+                "cpc": 1.86,
                 "cpm": 7.19,
                 "cpa": 18.68,
                 "audience_reach": "3.0B+ monthly active users",
                 "daily_budget_range": "$20 - $300",
                 "best_for": "Passive candidates, employer branding",
             },
+            # Basis: job ads (Promoted Jobs), NOT general commercial sponsored
+            # content -- this entry models LinkedIn as a recruitment channel
+            # (its cpa feeds budget/cpa -> projected applications, alongside
+            # Indeed/ZipRecruiter). CPC 2.60 =
+            # benchmark_registry.CHANNEL_BENCHMARKS["linkedin"] (geometric mean
+            # of the cited $1.50-$4.50 Promoted Jobs band, refreshed
+            # 2026-07-16; see KB cpc_by_platform refreshed_2026_07_16 note).
+            # Prior 5.26 blended sponsored-content CPC ($5-$12) into a job-ads
+            # figure and was retired by the July-2026 research. CPM/CPA
+            # unchanged (original 2024-2025 vintage; no fresher cited figure).
             "LinkedIn Ads": {
-                "cpc": 5.26,
+                "cpc": 2.60,
                 "cpm": 6.59,
                 "cpa": 56.08,
                 "audience_reach": "1.0B+ professionals",
@@ -3185,7 +3210,9 @@ def fuse_ad_platform_analysis(
             )
             result[platform_key] = {
                 "platform_name": pname,
-                "source": "Industry Benchmark (2024-2025)",
+                # Mixed vintage: Google/Meta/LinkedIn CPCs carry 2026-cited
+                # registry figures; other entries remain 2024-2025 vintage.
+                "source": "Industry Benchmark (2024-2026)",
                 "avg_cpc": pdata["cpc"],
                 "avg_cpm": pdata["cpm"],
                 "avg_cpa": pdata["cpa"],
