@@ -191,7 +191,7 @@ All sourced from 100+ industry reports, surveys, and platforms. Loaded at startu
 
 ### B. Industry Knowledge — `data/recruitment_industry_knowledge.json` (99KB)
 - **42 data sources** integrated
-- Per-platform metrics: Indeed ($0.25-$1.50 CPC), LinkedIn ($1.50-$4.50 CPC), ZipRecruiter ($299/mo), Google Ads ($5.26 avg CPC), Meta ($0.86 CPC)
+- Per-platform metrics: Indeed ($0.97-$2.71 CPC, July-2026 refresh), LinkedIn ($1.50-$4.50 job-ads CPC), ZipRecruiter ($299/mo), Google Ads ($5.26 avg CPC, all-industries), Meta ($0.86 career/employment lead CPC)
 - Appcast dataset: 379M job ad clicks, 30M+ applies, 1,300+ employers
 
 ### C. Platform Intelligence — `data/platform_intelligence_deep.json` (82KB)

@@ -253,6 +253,11 @@ SOCIAL_PLATFORMS: Dict[str, Dict[str, Any]] = {
         "copy_limits": {"description": 100, "display_name": 40},
         "avg_engagement_rate": 0.12,
         "benchmarks_2025": {
+            # TikTok basis, NOT the retired Indeed $0.50 (value coincidence):
+            # low end of the $0.50-$1.50 estimated recruitment band in
+            # recruitment_industry_knowledge.json benchmarks.cost_per_click
+            # .by_platform.tiktok_ads (Varos/Lebesgue/WebFX et al., 2025-2026;
+            # TikTok publishes no recruitment CPC). Verified distinct 2026-07-16.
             "avg_cpc": 0.50,
             "avg_cpm": 6.00,
             "avg_ctr": 0.018,
