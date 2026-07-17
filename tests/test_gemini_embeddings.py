@@ -220,8 +220,13 @@ def test_embed_batch_routes_to_gemini():
 
 def test_embed_batch_routes_to_voyage_by_default():
     voy_vecs = [[0.4] * 512]
-    with _env("voyage"), mock.patch.dict(
-        "os.environ", {"VOYAGE_API_KEY": "k"}, clear=False
+    # Patch the cached _VOYAGE_API_KEY attribute directly rather than the
+    # VOYAGE_API_KEY env var: _get_api_key() lazily caches the env value into
+    # this module global on first read and never re-reads it, so patching
+    # os.environ here would leak "k" into every later test in the process
+    # (mock.patch.dict restores os.environ but not the stale cache).
+    with _env("voyage"), mock.patch.object(
+        vs, "_VOYAGE_API_KEY", "k"
     ), _no_cache(), mock.patch.object(
         vs, "_embed_uncached_voyage", return_value=voy_vecs
     ) as voy, mock.patch.object(

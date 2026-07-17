@@ -91,13 +91,25 @@ class TestDataOrchestratorImport:
 
     def test_enrich_salary_returns_dict(self) -> None:
         """enrich_salary should return a dict with expected structure."""
-        from data_orchestrator import get_orchestrator
+        from data_orchestrator import DataSourceType, get_orchestrator
 
         orch = get_orchestrator()
         if orch:
-            result = orch.enrich_salary(
-                role="Software Engineer", location="San Francisco"
-            )
+            # Force the Adzuna/BLS handlers to their graceful "no data"
+            # return (matching real behavior with no credentials configured)
+            # and stub the Supabase lookup, so this module docstring's "All
+            # external calls are mocked" claim actually holds here too --
+            # this test previously made real, unmocked network calls.
+            with mock.patch.dict(
+                orch._source_handlers,
+                {
+                    DataSourceType.ADZUNA: lambda query, context: None,
+                    DataSourceType.BLS: lambda query, context: None,
+                },
+            ), mock.patch("supabase_data.get_salary_data", return_value=None):
+                result = orch.enrich_salary(
+                    role="Software Engineer", location="San Francisco"
+                )
             assert isinstance(result, dict)
             assert "source" in result
             assert "data" in result

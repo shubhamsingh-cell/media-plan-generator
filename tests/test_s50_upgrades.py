@@ -1112,9 +1112,19 @@ class TestTier5NovaFlowSmoke:
         except Exception as e:
             pytest.skip(f"vector_search import failed: {e}")
             return
-        # vector_search.search() handles graceful empty-index responses,
-        # so this is a true end-to-end probe of the retrieval path.
-        results = vector_search.search("recruitment marketing benchmarks", top_k=3)
+        # vector_search.search() handles graceful empty-index responses, so
+        # this is a true end-to-end probe of the retrieval path. Force no
+        # embedding provider key: this mirrors a fresh test env with no
+        # VOYAGE_API_KEY/GEMINI_API_KEY configured (the intended scenario per
+        # "Empty index is acceptable" below) and keeps the probe network-free
+        # regardless of what any other test has done to vector_search's
+        # cached API-key state -- a real Voyage/Gemini network call from this
+        # unit test previously hung the suite for tens of seconds once
+        # vector_search._VOYAGE_API_KEY got poisoned by an unrelated test.
+        with mock.patch.object(
+            vector_search, "_get_api_key", return_value=None
+        ), mock.patch.object(vector_search, "_get_gemini_api_key", return_value=None):
+            results = vector_search.search("recruitment marketing benchmarks", top_k=3)
         assert isinstance(results, list)
         # Empty index is acceptable in fresh test env; we only assert no crash.
 
