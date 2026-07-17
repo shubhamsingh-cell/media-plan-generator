@@ -88,7 +88,7 @@
     <link rel="stylesheet" href="/static/css/tokens.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/buttons.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/motion.css?v=2.0.0" />
-    <link rel="stylesheet" href="/static/css/hub.css?v=2.6.0" />
+    <link rel="stylesheet" href="/static/css/hub.css?v=2.7.0" />
 
     <!-- PostHog Analytics -->
     <script>
@@ -171,7 +171,7 @@
         try {
           if (window.__novaRevealBooted) return;
           document
-            .querySelectorAll(".reveal, .reveal-on-scroll, .word-reveal, .hero-anim")
+            .querySelectorAll(".reveal, .reveal-on-scroll, .word-reveal, .hero-anim, .hw-word")
             .forEach(function (el) {
               el.classList.add("visible");
             });
@@ -258,6 +258,7 @@
           aria-hidden="true"
         ></canvas>
         <div class="hero-grid-overlay" aria-hidden="true"></div>
+        <div class="hero-ambient-glow" aria-hidden="true"></div>
 
         <div class="hero-stage">
           <div class="hero-content" style="position: relative; z-index: 2">
@@ -273,9 +274,12 @@
             </span></span
           >
 
-          <h1 class="hero-headline hero-anim">
-            Turn recruitment budgets<br />into
-            <span class="hero-accent">hires, not clicks.</span>
+          <h1 class="hero-headline">
+            <span class="hw-word" style="--wi: 0">Turn</span>
+            <span class="hw-word" style="--wi: 1">recruitment</span>
+            <span class="hw-word" style="--wi: 2">budgets</span><br />
+            <span class="hw-word" style="--wi: 3">into</span>
+            <span class="hero-accent"><span class="hw-word" style="--wi: 4">hires,</span> <span class="hw-word" style="--wi: 5">not</span> <span class="hw-word" style="--wi: 6">clicks.</span></span>
           </h1>
 
           <p class="hero-subline hero-anim">
@@ -302,11 +306,11 @@
                 <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4" />
                 <path d="M6.5 5.4l4 2.6-4 2.6z" fill="currentColor" />
               </svg>
-              See a sample plan
+              <span class="btn-ghost-label">See a sample plan</span>
             </a>
           </div>
 
-          <ul class="hero-trust hero-anim" role="list" aria-label="Why teams trust Nova">
+          <ul class="hero-trust" role="list" aria-label="Why teams trust Nova">
             <li>
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -346,17 +350,11 @@
             </div>
             <div class="genplan-meta">Registered Nurses &middot; Texas &middot; 30-day plan</div>
             <div class="genplan-budget">
-              <span
-                class="genplan-budget-value"
-                data-genplan-count
-                data-to="50000"
-                data-prefix="$"
-                >$0</span
-              >
+              <span class="genplan-budget-value">$50,000</span>
               <span class="genplan-budget-label">recommended budget</span>
             </div>
             <div class="genplan-channels">
-              <div class="genplan-row" style="--fill: 88%; --d: 0.05s">
+              <div class="genplan-row" style="--fill: 88%; --d: 0s">
                 <span class="genplan-ch">Indeed</span>
                 <span class="genplan-track"
                   ><span
@@ -364,9 +362,9 @@
                     style="--c1: #5a54be; --c2: #8680d6"
                   ></span
                 ></span>
-                <span class="genplan-amt" data-genplan-count data-to="18500" data-prefix="$">$0</span>
+                <span class="genplan-amt" data-genplan-count data-to="18500" data-prefix="$">$18,500</span>
               </div>
-              <div class="genplan-row" style="--fill: 64%; --d: 0.18s">
+              <div class="genplan-row" style="--fill: 64%; --d: 0.08s">
                 <span class="genplan-ch">LinkedIn</span>
                 <span class="genplan-track"
                   ><span
@@ -374,9 +372,9 @@
                     style="--c1: #6bb5ce; --c2: #5a54be"
                   ></span
                 ></span>
-                <span class="genplan-amt" data-genplan-count data-to="12000" data-prefix="$">$0</span>
+                <span class="genplan-amt" data-genplan-count data-to="12000" data-prefix="$">$12,000</span>
               </div>
-              <div class="genplan-row" style="--fill: 50%; --d: 0.31s">
+              <div class="genplan-row" style="--fill: 50%; --d: 0.16s">
                 <span class="genplan-ch">Programmatic</span>
                 <span class="genplan-track"
                   ><span
@@ -384,9 +382,9 @@
                     style="--c1: #8680d6; --c2: #b7669e"
                   ></span
                 ></span>
-                <span class="genplan-amt" data-genplan-count data-to="9500" data-prefix="$">$0</span>
+                <span class="genplan-amt" data-genplan-count data-to="9500" data-prefix="$">$9,500</span>
               </div>
-              <div class="genplan-row" style="--fill: 33%; --d: 0.44s">
+              <div class="genplan-row" style="--fill: 33%; --d: 0.24s">
                 <span class="genplan-ch">Niche boards</span>
                 <span class="genplan-track"
                   ><span
@@ -394,9 +392,9 @@
                     style="--c1: #b7669e; --c2: #6bb5ce"
                   ></span
                 ></span>
-                <span class="genplan-amt" data-genplan-count data-to="6000" data-prefix="$">$0</span>
+                <span class="genplan-amt" data-genplan-count data-to="6000" data-prefix="$">$6,000</span>
               </div>
-              <div class="genplan-row" style="--fill: 22%; --d: 0.57s">
+              <div class="genplan-row" style="--fill: 22%; --d: 0.32s">
                 <span class="genplan-ch">Social</span>
                 <span class="genplan-track"
                   ><span
@@ -404,12 +402,12 @@
                     style="--c1: #6bb5ce; --c2: #8680d6"
                   ></span
                 ></span>
-                <span class="genplan-amt" data-genplan-count data-to="4000" data-prefix="$">$0</span>
+                <span class="genplan-amt" data-genplan-count data-to="4000" data-prefix="$">$4,000</span>
               </div>
             </div>
             <div class="genplan-metrics">
               <div class="genplan-metric">
-                <span class="genplan-metric-value" data-genplan-count data-to="2247">0</span>
+                <span class="genplan-metric-value" data-genplan-count data-to="2247">2,247</span>
                 <span class="genplan-metric-label">Applications</span>
               </div>
               <div class="genplan-metric">
@@ -417,12 +415,12 @@
                   class="genplan-metric-value genplan-metric-value--teal"
                   data-genplan-count
                   data-to="38"
-                  >0</span
+                  >38</span
                 >
                 <span class="genplan-metric-label">Projected hires</span>
               </div>
               <div class="genplan-metric">
-                <span class="genplan-metric-value" data-genplan-count data-to="1316" data-prefix="$">$0</span>
+                <span class="genplan-metric-value" data-genplan-count data-to="1316" data-prefix="$">$1,316</span>
                 <span class="genplan-metric-label">Cost / hire</span>
               </div>
             </div>
@@ -3595,7 +3593,7 @@
     <!-- .footer-wrap -->
 
     <!-- ── Page Scripts (extracted to hub.js for cacheability, Fix #1) ── -->
-    <script src="/static/js/hub.js?v=2.3.0"></script>
+    <script src="/static/js/hub.js?v=2.4.0"></script>
 
     <!-- Legacy inline removed -- hamburger, observers, counters, bar anims,
          scroll handler, ripple, hero preview, page-enter, GSAP hero entrance,

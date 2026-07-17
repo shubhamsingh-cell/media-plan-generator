@@ -596,6 +596,36 @@ html.lenis body {
   );
   mask-image: radial-gradient(120% 75% at 50% 0%, #000 32%, transparent 78%);
 }
+/* Ambient depth glow (hero cinematic pass): a very-low-opacity teal wash in
+   the lower-left quadrant, purely lighting -- position drifts a few percent
+   over a full minute so it reads as depth, never as motion. .hero already
+   uses ::before/::after for its two brand glows, so this is a dedicated
+   layer rather than a third pseudo-element sharing their background list. */
+.hero-ambient-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    46% 50% at 14% 88%,
+    rgba(107, 181, 206, 0.13) 0%,
+    transparent 68%
+  );
+  animation: hero-ambient-drift 64s ease-in-out infinite alternate;
+}
+@keyframes hero-ambient-drift {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(3%, -2%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-ambient-glow {
+    animation: none;
+  }
+}
 /* Hero top-center glow (Linear pattern -- CSS only, no Three.js) */
 .hero::before {
   content: "";
@@ -734,7 +764,14 @@ html.lenis body {
 }
 /* The emotional payoff phrase — vibrant Joveo brand gradient
    (purple -> teal -> magenta), all high-luminance for AA contrast on dark. */
-.hero-accent {
+/* .hero-accent no longer carries the gradient itself: background-clip:text
+   only clips to an element's OWN text run, and its words are now .hw-word
+   child spans (not a direct text node), so the gradient + clip live on
+   those children instead (see .hero-accent .hw-word below). Verified live
+   in-browser -- the naive "keep it on the parent" approach renders fully
+   invisible text (children inherit color:transparent but not the
+   non-inherited background/clip properties). */
+.hero-accent .hw-word {
   background: linear-gradient(
     105deg,
     #a9a4ff 0%,
@@ -746,7 +783,13 @@ html.lenis body {
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
-  animation: hero-accent-flow 7s ease-in-out infinite;
+  /* One-shot sweep timed to fire right after the accent's own words land
+     (word-stagger below finishes ~1.06s in) -- not a continuous loop, so
+     the hero settles into calm per the cinematic-pass spec. Each word
+     sweeps its own gradient in sync (background-clip:text can't share one
+     continuous gradient across separately-positioned inline-block boxes
+     without JS-computed offsets); note vs. the brief's literal ask. */
+  animation: hero-accent-flow 1.1s cubic-bezier(0.16, 1, 0.3, 1) 1.1s 1;
 }
 @keyframes hero-accent-flow {
   0%,
@@ -758,9 +801,31 @@ html.lenis body {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero-accent {
+  .hero-accent .hw-word {
     animation: none;
   }
+}
+
+/* ── Headline word-stagger (hero cinematic pass) ──
+   Each word is a span split server-side in the markup (no JS text
+   splitting). A single .is-in class on .hero-headline (added by hub.js
+   right after DOM is ready) drives the whole cascade via transition-delay,
+   keyed off a --wi index set inline per word. .hw-word.visible is the FOUC
+   -guard failsafe path (forced at 3s if hub.js stalls) and lands the same
+   final state without the class on the parent. */
+.hw-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: calc(150ms + (var(--wi, 0) * 60ms));
+}
+.hero-headline.is-in .hw-word,
+.hw-word.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* ── Hero generative "media plan building" demo (replaces the orbit) ── */
@@ -836,6 +901,21 @@ html.lenis body {
 .genplan.is-ready .genplan-spinner {
   display: none;
 }
+/* "Plan ready" pill: one subtle fade/scale-in when the card settles into
+   its ready state -- not a pulse loop, plays once when .is-ready lands. */
+.genplan.is-ready .genplan-status-text {
+  animation: genplan-ready-pop 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes genplan-ready-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 @keyframes genplan-spin {
   to {
     transform: rotate(360deg);
@@ -895,7 +975,10 @@ html.lenis body {
   width: 0;
   border-radius: 99px;
   background: linear-gradient(90deg, var(--c1, #5a54be), var(--c2, #8680d6));
-  transition: width 1.05s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Track stays visible throughout -- only this fill draws in left-to-right
+     (width 0 -> --fill). 0.7s ease-out, 80ms stagger via --d per row,
+     starting ~600ms into the hero entrance sequence (see hub.js). */
+  transition: width 0.7s ease-out;
   transition-delay: var(--d, 0s);
 }
 .genplan.is-run .genplan-bar {
@@ -906,6 +989,16 @@ html.lenis body {
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
   text-align: right;
+  /* Dollar labels fade in with their bar (--d inherits from the parent
+     .genplan-row). Text content itself is the correct final value by
+     default -- see markup -- so a stalled/failed JS still shows real
+     numbers, just without the fade or the count-up. */
+  opacity: 0;
+  transition: opacity 0.4s ease-out;
+  transition-delay: var(--d, 0s);
+}
+.genplan.is-run .genplan-amt {
+  opacity: 1;
 }
 .genplan-metrics {
   display: grid;
@@ -939,7 +1032,14 @@ html.lenis body {
     transition: none;
     width: var(--fill, 50%);
   }
+  .genplan-amt {
+    transition: none;
+    opacity: 1;
+  }
   .genplan-spinner {
+    animation: none;
+  }
+  .genplan.is-ready .genplan-status-text {
     animation: none;
   }
 }
@@ -973,6 +1073,58 @@ html.lenis body {
 .hero-actions .btn-ghost svg {
   color: var(--teal);
 }
+/* Secondary CTA label: subtle press-in scale on hover.
+   Motion-reduce override kept in this same block per spec. */
+.hero-actions .btn-ghost-label {
+  display: inline-block;
+  transition: transform 0.3s ease-out;
+}
+.hero-actions .btn-ghost:hover .btn-ghost-label {
+  transform: scale(0.94);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-actions .btn-ghost:hover .btn-ghost-label {
+    transform: none;
+  }
+}
+/* Primary CTA shimmer sweep (hero cinematic pass). .btn-primary::after is
+   already the hover glow-ring (see line ~127), so this uses ::before --
+   a translucent highlight travelling across the button face, long idle
+   between sweeps. Scoped to the hero button only, not every .btn-primary
+   on the page. */
+.hero-actions .btn-primary::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.28),
+    transparent
+  );
+  pointer-events: none;
+  animation: cta-shimmer 4.5s ease-in-out infinite;
+  animation-delay: 2.1s;
+}
+@keyframes cta-shimmer {
+  0% {
+    left: -60%;
+  }
+  26.7% {
+    left: 140%;
+  }
+  100% {
+    left: 140%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-actions .btn-primary::before {
+    content: none;
+  }
+}
 /* In-hero trust row */
 .hero-trust {
   list-style: none;
@@ -988,6 +1140,22 @@ html.lenis body {
   gap: 7px;
   font-size: var(--text-sm);
   color: var(--text-muted);
+  /* Fade-rise in as the last beat of the entrance sequence, 120ms stagger.
+     Plain CSS animation (matches the .hero-anim convention elsewhere in
+     this file) so it never depends on JS. */
+  opacity: 0;
+  filter: blur(6px);
+  transform: translateY(14px);
+  animation: hero-entrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.hero-trust li:nth-child(1) {
+  animation-delay: 1.05s;
+}
+.hero-trust li:nth-child(2) {
+  animation-delay: 1.17s;
+}
+.hero-trust li:nth-child(3) {
+  animation-delay: 1.29s;
 }
 .hero-trust svg {
   color: var(--teal);
@@ -1363,10 +1531,13 @@ html.lenis body {
   animation-delay: 0.25s;
 }
 .hero-anim:nth-child(3) {
-  animation-delay: 0.4s;
+  /* Subline: lands together with the plan card (.hero-artifact, delay
+     0.7s, unchanged) -- the third beat of the entrance sequence. */
+  animation-delay: 0.7s;
 }
 .hero-anim:nth-child(4) {
-  animation-delay: 0.55s;
+  /* CTA row: the fourth beat, after subline+card. */
+  animation-delay: 0.9s;
 }
 .hero-anim:nth-child(5) {
   animation-delay: 0.7s;
@@ -1415,11 +1586,14 @@ html.lenis body {
 }
 @media (prefers-reduced-motion: reduce) {
   .hero-anim,
-  .hero-artifact {
+  .hero-artifact,
+  .hw-word,
+  .hero-trust li {
     opacity: 1;
     filter: none;
     transform: none;
     animation: none;
+    transition: none;
   }
 }
 

@@ -10,6 +10,17 @@
     "(prefers-reduced-motion: reduce)",
   ).matches;
 
+  // ── Hero headline word-stagger (hero cinematic pass) ──
+  // Single class toggle drives the whole per-word cascade via CSS
+  // transition-delay (see .hw-word in hub.css). Runs as soon as this
+  // script executes -- the DOM is already parsed by the time a bottom-
+  // of-body <script src> like this one runs, so this is effectively
+  // "on DOMContentLoaded" without the extra event round-trip. If this
+  // script never runs at all, the head FOUC-guard force-reveals
+  // .hw-word directly at 3s as a failsafe.
+  var heroHeadline = document.querySelector(".hero-headline");
+  if (heroHeadline) heroHeadline.classList.add("is-in");
+
   // ── Hamburger menu toggle ──
   var hamburger = document.querySelector(".nav-hamburger");
   if (hamburger) {
@@ -1325,37 +1336,47 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 });
 
-/* ── S89: Hero generative "media plan building" demo ──
-   Counts up the budget/metrics and fills the channel bars when the panel
-   scrolls into view. Respects prefers-reduced-motion (jumps to final state). */
+/* ── S89/hero cinematic pass: Hero generative "media plan building" demo ──
+   Two-phase entrance timed off page load (the card sits above the fold, so
+   there's no need to gate on scroll): channel bars + their dollar labels
+   draw in first (~600ms in, matching the CSS bar-fill delay), then the
+   three headline KPIs count up as the "proof moment" (~1.2s in). Card
+   settles into "Plan ready" once the KPI count finishes. Every element's
+   markup already carries its correct final text (see hub.html), so a
+   stalled/failed script or prefers-reduced-motion both degrade to the
+   right numbers -- never zeros. */
 (function () {
   "use strict";
   var panel = document.querySelector("[data-genplan]");
   if (!panel) return;
-  var counts = panel.querySelectorAll("[data-genplan-count]");
+  var allCounts = panel.querySelectorAll("[data-genplan-count]");
+  var barAmtCounts = panel.querySelectorAll(".genplan-amt[data-genplan-count]");
+  var kpiCounts = panel.querySelectorAll(".genplan-metric-value[data-genplan-count]");
   var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function fmt(n, prefix) {
     return (prefix || "") + Math.round(n).toLocaleString("en-US");
   }
-  function markReady() {
-    panel.classList.add("is-ready");
-    // Guarantee final values even if requestAnimationFrame was throttled
-    // (e.g. a backgrounded tab) — the count-up is an enhancement on top.
-    counts.forEach(function (el) {
+  function snapAll() {
+    allCounts.forEach(function (el) {
       el.textContent = fmt(
         parseFloat(el.getAttribute("data-to")) || 0,
         el.getAttribute("data-prefix")
       );
     });
+  }
+  function markReady() {
+    panel.classList.add("is-ready");
+    // Guarantee final values even if requestAnimationFrame was throttled
+    // (e.g. a backgrounded tab) — the count-up is an enhancement on top.
+    snapAll();
     var st = panel.querySelector(".genplan-status-text");
     if (st) st.textContent = "Plan ready";
   }
-  function animateCount(el) {
+  function animateCount(el, dur) {
     var to = parseFloat(el.getAttribute("data-to")) || 0;
     var prefix = el.getAttribute("data-prefix") || "";
-    var dur = 1300,
-      start = null;
+    var start = null;
     function step(ts) {
       // Once the plan is marked ready (or rAF was throttled past its window),
       // snap to the final value and stop — never overwrite final with a stale
@@ -1374,44 +1395,32 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   function run() {
     if (panel.classList.contains("is-run")) return; // run once
-    panel.classList.add("is-run"); // triggers CSS bar fills
-    counts.forEach(animateCount);
-    setTimeout(markReady, 1500);
+    panel.classList.add("is-run"); // triggers CSS bar fills + dollar-label fade-in
+    // Phase 1 (now, ~600ms into the sequence): bars draw in and their
+    // dollar labels count up alongside them, ~0.7s each.
+    barAmtCounts.forEach(function (el) {
+      animateCount(el, 700);
+    });
+    // Phase 2 (+600ms, ~1.2s into the sequence): the three headline KPIs
+    // count up once -- the "proof moment" -- 1.1s duration.
+    setTimeout(function () {
+      kpiCounts.forEach(function (el) {
+        animateCount(el, 1100);
+      });
+    }, 600);
+    // Settle into "Plan ready" right as the KPI count-up finishes.
+    setTimeout(markReady, 1700);
   }
   if (reduce) {
-    counts.forEach(function (el) {
-      el.textContent = fmt(parseFloat(el.getAttribute("data-to")) || 0, el.getAttribute("data-prefix"));
-    });
+    snapAll();
     panel.classList.add("is-run");
     markReady();
     return;
   }
-  if (!("IntersectionObserver" in window)) {
-    run();
-    return;
-  }
-  var io = new IntersectionObserver(
-    function (entries) {
-      entries.forEach(function (en) {
-        if (en.isIntersecting) {
-          run();
-          io.disconnect();
-        }
-      });
-    },
-    { threshold: 0.01, rootMargin: "0px 0px 80px 0px" }
-  );
-  io.observe(panel);
-  // Fallback: if the panel sits within ~1 viewport on load, kick it after a
-  // beat (some browsers settle the observer oddly with the hero's scroll anims).
-  setTimeout(function () {
-    if (panel.classList.contains("is-run")) return;
-    var r = panel.getBoundingClientRect();
-    if (r.top < (window.innerHeight || 800) * 1.15) {
-      run();
-      io.disconnect();
-    }
-  }, 700);
+  // Hero card is always above the fold on load, so the entrance is timed
+  // directly off page load as part of the master sequence rather than a
+  // scroll observer.
+  setTimeout(run, 600);
 })();
 
 /* ── S91: Hero signature constellation ──
@@ -1434,6 +1443,29 @@ document.addEventListener("DOMContentLoaded", function () {
     focus = { x: 0, y: 0 },
     running = false,
     raf = 0;
+
+  // Ambient depth (hero cinematic pass): the constellation drifts a few
+  // pixels toward the cursor, lerped so it never snaps. Desktop-with-mouse
+  // only; folded into the existing rAF loop so it automatically pauses
+  // whenever `running` is false (hero off-screen), never fighting that gate.
+  var supportsParallax = window.matchMedia("(pointer: fine)").matches;
+  var parTarget = { x: 0, y: 0 };
+  var parCurrent = { x: 0, y: 0 };
+  var PARALLAX_MAX = 8;
+  var PARALLAX_LERP = 0.06;
+  if (supportsParallax) {
+    hero.addEventListener("mousemove", function (e) {
+      var r = hero.getBoundingClientRect();
+      var nx = (e.clientX - r.left) / r.width - 0.5;
+      var ny = (e.clientY - r.top) / r.height - 0.5;
+      parTarget.x = nx * 2 * PARALLAX_MAX;
+      parTarget.y = ny * 2 * PARALLAX_MAX;
+    });
+    hero.addEventListener("mouseleave", function () {
+      parTarget.x = 0;
+      parTarget.y = 0;
+    });
+  }
 
   function size() {
     var r = hero.getBoundingClientRect();
@@ -1497,6 +1529,12 @@ document.addEventListener("DOMContentLoaded", function () {
       ctx.beginPath();
       ctx.arc(a.x, a.y, a.r, 0, 6.2832);
       ctx.fill();
+    }
+    if (supportsParallax) {
+      parCurrent.x += (parTarget.x - parCurrent.x) * PARALLAX_LERP;
+      parCurrent.y += (parTarget.y - parCurrent.y) * PARALLAX_LERP;
+      cv.style.transform =
+        "translate(" + parCurrent.x.toFixed(2) + "px, " + parCurrent.y.toFixed(2) + "px)";
     }
     raf = requestAnimationFrame(frame);
   }
