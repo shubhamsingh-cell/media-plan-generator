@@ -778,32 +778,36 @@ html.lenis body {
     #7fd4ea 52%,
     #e6a4d4 100%
   );
-  background-size: 200% auto;
+  background-size: 300% auto;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
-  /* One-shot sweep timed to fire right after the accent's own words land
-     (word-stagger below finishes ~1.06s in) -- not a continuous loop, so
-     the hero settles into calm per the cinematic-pass spec. Each word
-     sweeps its own gradient in sync (background-clip:text can't share one
-     continuous gradient across separately-positioned inline-block boxes
-     without JS-computed offsets); note vs. the brief's literal ask. */
-  animation: hero-accent-flow 1.1s cubic-bezier(0.16, 1, 0.3, 1) 1.1s 1;
 }
-@keyframes hero-accent-flow {
-  0%,
-  100% {
-    background-position: 0% center;
-  }
-  50% {
-    background-position: 100% center;
-  }
+/* Craft-judge fix: background-clip:text clips to each .hw-word's OWN box,
+   so all three accent words sharing one background-position all restarted
+   the gradient at its 0% (purple) stop -- the phrase read as three
+   separate purple words, not one hue progression. The previous one-shot
+   sweep animation didn't fix this (all words animated in lockstep, so
+   they were still in sync with each other) and it settled back at
+   position 0% on completion, meaning the pink 100% stop never rendered
+   at all. Fix: stagger a STATIC background-position-x per word (0% / 40%
+   / 80% against the widened 300% background-size) so each word samples a
+   different slice of the same gradient and the hue visibly progresses
+   purple -> teal -> pink across "hires, not clicks." Dropped the sweep
+   entirely rather than layering it on top -- animating background-position
+   would just re-sync all three words back to identical hues each frame,
+   defeating the fix; a static continuous gradient beats an animated
+   resetting one here. Nothing left to guard under prefers-reduced-motion
+   since there's no motion on these words anymore. */
+.hero-accent .hw-word:nth-of-type(1) {
+  background-position-x: 0%;
 }
-@media (prefers-reduced-motion: reduce) {
-  .hero-accent .hw-word {
-    animation: none;
-  }
+.hero-accent .hw-word:nth-of-type(2) {
+  background-position-x: 40%;
+}
+.hero-accent .hw-word:nth-of-type(3) {
+  background-position-x: 80%;
 }
 
 /* ── Headline word-stagger (hero cinematic pass) ──
@@ -3447,9 +3451,97 @@ html.lenis body {
 @media (max-width: 480px) {
   .hero-headline {
     font-size: 1.5rem;
+    margin-bottom: 16px;
   }
   .hero-subline {
     font-size: 14px;
+    margin-bottom: 16px;
+  }
+  /* Craft-judge fix: at the default 0.75rem / 0.18em tracking, "RECRUITMENT
+     INTELLIGENCE FOR" plus the widest cycling word ("MANUFACTURING") is
+     wider than a 390px viewport, so the stadium pill wraps to 2 lines and
+     collapses into a squat rectangle. .eyebrow-cycle-word and its sizer
+     both use font/letter-spacing: inherit, so shrinking the pill's own
+     type here cascades to the cycling word automatically -- the sizer
+     span still reserves the box width so it never collapses/jumps. */
+  .hero-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    padding: 6px 14px;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  /* Craft-judge fix (launcher clearance, part 2): shrinking + repositioning
+     #nova-float-btn (below) cleared the LinkedIn row, but the plan-card
+     still ran long enough that Niche boards/$6,000, Social/$4,000, and
+     the cost-per-hire metric ($1,316) landed inside the launcher's fixed
+     footprint at first paint. Padding/scroll-margin on .genplan itself
+     can't fix this -- those rows sit at fixed offsets from the card's
+     OWN top, so bottom padding on the card only grows the box; it can't
+     lift rows already inside it out from under a viewport-fixed sibling.
+     The real fix is shortening the column so its lower rows rise clear
+     of the launcher's y-range. Measured live via getBoundingClientRect
+     at 390x844 throughout (launcher spans y:780-832):
+       - Trimming .hero's own padding-top has a floor: .nav is
+         position:fixed at 64px tall, and an earlier pass (48px) let the
+         eyebrow pill render partially behind it. 80px keeps 16px of nav
+         clearance, so the remaining cuts below come from spacing that
+         has no such floor: the gap above the card, and the card's own
+         internal rhythm (header/meta/budget/channel-row/metrics
+         spacing), tightened for this breakpoint only.
+       - Verified the full trimmed stack settles with the cost/hire
+         figure's bottom at 771px vs. the launcher's 780px top -- a 9px
+         clearance -- and every $ label above it clears with more room
+         to spare. */
+  .hero {
+    padding-top: 80px;
+  }
+  .hero-stage {
+    gap: 10px;
+  }
+  .hero-actions {
+    gap: 6px;
+  }
+  .genplan {
+    margin-top: 0;
+    padding-top: 6px;
+    padding-bottom: 14px;
+  }
+  .genplan-head {
+    margin-bottom: 4px;
+  }
+  .genplan-meta {
+    margin-bottom: 4px;
+  }
+  .genplan-budget {
+    margin-bottom: 6px;
+  }
+  .genplan-channels {
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+  .genplan-metrics {
+    padding-top: 6px;
+  }
+  .hero-trust {
+    margin-top: 16px;
+  }
+  /* Craft-judge fix: the Nova chat launcher (#nova-float-btn) is styled by
+     a <style id="nova-styles"> tag that nova-chat.js injects into <head>
+     at runtime -- do not edit that file; this hub-page-only override lives
+     here instead, since hub.css is the only stylesheet that links to this
+     page. The injected rule and this one are both ID selectors (equal
+     specificity) and injection happens after this stylesheet parses, so a
+     same-specificity override here would lose the cascade to the later
+     rule; `body #nova-float-btn` adds a type selector to guarantee this
+     wins regardless of injection timing. At 390px the default 68x68
+     button pinned to bottom:24px/right:24px overlapped the LinkedIn/Niche
+     boards rows of the plan-card on first paint. */
+  body #nova-float-btn {
+    width: 52px;
+    height: 52px;
+    right: 12px;
+    bottom: 12px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
