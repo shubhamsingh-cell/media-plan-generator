@@ -88,7 +88,7 @@
     <link rel="stylesheet" href="/static/css/tokens.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/buttons.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/motion.css?v=2.0.0" />
-    <link rel="stylesheet" href="/static/css/hub.css?v=2.9.0" />
+    <link rel="stylesheet" href="/static/css/hub.css?v=2.11.0" />
 
     <!-- PostHog Analytics -->
     <script>
@@ -245,12 +245,16 @@
       >
         <img
           class="hero-bg"
-          src="/static/img/hero/hub-hero-restraint.webp"
+          src="/static/img/nova-hero-convergence.webp"
           alt=""
           aria-hidden="true"
           fetchpriority="high"
           decoding="async"
         />
+        <!-- Legibility scrim: darkens the left third (behind the headline) and
+             the outer edges while letting the convergence art's bright core
+             glow through the centre, between the copy and the live plan card. -->
+        <div class="hero-bg-scrim" aria-hidden="true"></div>
         <!-- Signature constellation: 10,341 supply sources converging into one optimized plan -->
         <canvas
           class="hero-constellation"

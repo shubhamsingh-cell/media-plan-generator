@@ -567,19 +567,59 @@ html.lenis body {
   gap: 56px;
   text-align: left;
 }
-/* Hero background: a single soft violet bloom on near-black (restraint
-   direction). Mostly dark, so it can sit at high opacity behind the headline. */
+/* Hero background: a cinematic "supply-convergence" field (thousands of
+   sources collapsing into one optimized hire) in the brand palette. Its
+   bright core is pushed toward centre-right so it glows between the copy and
+   the live plan card rather than behind the headline; the .hero-bg-scrim
+   layer above it protects legibility. */
 .hero-bg {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center;
+  object-position: 50% center;
   z-index: 0;
-  opacity: 0.9;
+  opacity: 0.92;
   pointer-events: none;
   user-select: none;
+}
+/* Protects the white headline on the left and softens the outer edges, while
+   letting the convergence core read clearly through the centre. Tuned to keep
+   the art FELT (this is the hero's signature visual), not hidden. No motion. */
+.hero-bg-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      100deg,
+      rgba(8, 8, 15, 0.9) 0%,
+      rgba(8, 8, 15, 0.62) 22%,
+      rgba(8, 8, 15, 0.08) 46%,
+      rgba(8, 8, 15, 0.05) 66%,
+      rgba(8, 8, 15, 0.3) 100%
+    ),
+    radial-gradient(135% 120% at 52% 42%, transparent 52%, rgba(8, 8, 15, 0.62) 100%);
+}
+/* On stacked/mobile layouts the copy sits above the card, so switch the scrim
+   to a top-weighted vertical wash that keeps the headline legible while still
+   revealing the glow lower behind the card. */
+@media (max-width: 900px) {
+  .hero-bg {
+    object-position: 60% 42%;
+    opacity: 0.5;
+  }
+  .hero-bg-scrim {
+    background: linear-gradient(
+      180deg,
+      rgba(8, 8, 15, 0.9) 0%,
+      rgba(8, 8, 15, 0.66) 34%,
+      rgba(8, 8, 15, 0.32) 64%,
+      rgba(8, 8, 15, 0.7) 100%
+    );
+  }
 }
 /* Signature constellation canvas (10,341 sources -> one plan) */
 .hero-constellation {
