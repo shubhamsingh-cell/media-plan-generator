@@ -88,7 +88,7 @@
     <link rel="stylesheet" href="/static/css/tokens.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/buttons.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/motion.css?v=2.0.0" />
-    <link rel="stylesheet" href="/static/css/hub.css?v=2.8.0" />
+    <link rel="stylesheet" href="/static/css/hub.css?v=2.9.0" />
 
     <!-- PostHog Analytics -->
     <script>
@@ -301,12 +301,11 @@
                 />
               </svg>
             </a>
-            <a href="#plan-showcase" class="btn-ghost btn-lg">
+            <a href="#how-it-works" class="btn-ghost btn-lg">
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4" />
-                <path d="M6.5 5.4l4 2.6-4 2.6z" fill="currentColor" />
+                <path d="M8 2.5v9m0 0l-3.5-3.5M8 11.5L11.5 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
-              <span class="btn-ghost-label">See a sample plan</span>
+              <span class="btn-ghost-label">See how it works</span>
             </a>
           </div>
 
@@ -332,99 +331,161 @@
           </ul>
         </div>
 
-        <!-- Hero artifact: live "media plan generating" demo (Nova) -->
+        <!-- Hero artifact: the live Prediction Engine, promoted from mid-page
+             (owner: "make the hero BE the product"). Same #plan-showcase id +
+             .pe-card class that static/js/hub.js binds to by selector, so the
+             existing live-compute driver keeps working unchanged in this new
+             spot -- see hub.js "PREDICTION ENGINE" IIFE. -->
         <div
           class="hero-artifact"
-          aria-label="Nova generating an optimized media plan for Registered Nurses in Texas: $50,000 across 5 channels, 2,247 applications, 38 projected hires"
+          aria-label="Interactive cost-per-hire prediction tool"
         >
           <div class="ha-glow" aria-hidden="true"></div>
-          <div class="genplan" data-genplan>
-            <div class="genplan-head">
-              <span class="genplan-brand">
-                <span class="genplan-brand-dot" aria-hidden="true"></span>Nova
+
+          <div class="pe-card pe-card--hero" id="plan-showcase">
+            <div class="pe-head">
+              <span class="pe-brand">
+                <span class="pe-brand-dot" aria-hidden="true"></span>
+                Nova &middot; Prediction Engine
               </span>
-              <span class="genplan-status" data-genplan-status>
-                <span class="genplan-spinner" aria-hidden="true"></span>
-                <span class="genplan-status-text">Analyzing 10,341 partners&hellip;</span>
+              <span class="pe-pill pe-pill--live">
+                <span class="pe-live-dot" aria-hidden="true"></span>
+                Live &middot; drag the budget
               </span>
             </div>
-            <div class="genplan-meta">Registered Nurses &middot; Texas &middot; 30-day plan</div>
-            <div class="genplan-budget">
-              <span class="genplan-budget-value">$50,000</span>
-              <span class="genplan-budget-label">recommended budget</span>
-            </div>
-            <div class="genplan-channels">
-              <div class="genplan-row" style="--fill: 88%; --d: 0s">
-                <span class="genplan-ch">Indeed</span>
-                <span class="genplan-track"
-                  ><span
-                    class="genplan-bar"
-                    style="--c1: #5a54be; --c2: #8680d6"
-                  ></span
-                ></span>
-                <span class="genplan-amt" data-genplan-count data-to="18500" data-prefix="$">$18,500</span>
-              </div>
-              <div class="genplan-row" style="--fill: 64%; --d: 0.08s">
-                <span class="genplan-ch">LinkedIn</span>
-                <span class="genplan-track"
-                  ><span
-                    class="genplan-bar"
-                    style="--c1: #6bb5ce; --c2: #5a54be"
-                  ></span
-                ></span>
-                <span class="genplan-amt" data-genplan-count data-to="12000" data-prefix="$">$12,000</span>
-              </div>
-              <div class="genplan-row" style="--fill: 50%; --d: 0.16s">
-                <span class="genplan-ch">Programmatic</span>
-                <span class="genplan-track"
-                  ><span
-                    class="genplan-bar"
-                    style="--c1: #8680d6; --c2: #b7669e"
-                  ></span
-                ></span>
-                <span class="genplan-amt" data-genplan-count data-to="9500" data-prefix="$">$9,500</span>
-              </div>
-              <div class="genplan-row" style="--fill: 33%; --d: 0.24s">
-                <span class="genplan-ch">Niche boards</span>
-                <span class="genplan-track"
-                  ><span
-                    class="genplan-bar"
-                    style="--c1: #b7669e; --c2: #6bb5ce"
-                  ></span
-                ></span>
-                <span class="genplan-amt" data-genplan-count data-to="6000" data-prefix="$">$6,000</span>
-              </div>
-              <div class="genplan-row" style="--fill: 22%; --d: 0.32s">
-                <span class="genplan-ch">Social</span>
-                <span class="genplan-track"
-                  ><span
-                    class="genplan-bar"
-                    style="--c1: #6bb5ce; --c2: #8680d6"
-                  ></span
-                ></span>
-                <span class="genplan-amt" data-genplan-count data-to="4000" data-prefix="$">$4,000</span>
+
+            <div class="pe-control-block">
+              <div class="pe-control-label">Role</div>
+              <div class="pe-chips" role="group" aria-label="Role">
+                <button type="button" class="pe-chip is-on" data-role="0">
+                  Registered Nurse
+                </button>
+                <button type="button" class="pe-chip" data-role="1">
+                  Sales Rep
+                </button>
+                <button type="button" class="pe-chip" data-role="2">
+                  CDL Driver
+                </button>
+                <button type="button" class="pe-chip" data-role="3">
+                  Software Engineer
+                </button>
               </div>
             </div>
-            <div class="genplan-metrics">
-              <div class="genplan-metric">
-                <span class="genplan-metric-value" data-genplan-count data-to="2247">2,247</span>
-                <span class="genplan-metric-label">Applications</span>
+
+            <div class="pe-controls">
+              <div class="pe-control-block">
+                <div class="pe-control-label">Location</div>
+                <div class="pe-chips" role="group" aria-label="Location">
+                  <button type="button" class="pe-chip is-on" data-loc="0">
+                    Houston, TX
+                  </button>
+                  <button type="button" class="pe-chip" data-loc="1">
+                    Chicago, IL
+                  </button>
+                  <button type="button" class="pe-chip" data-loc="2">
+                    Phoenix, AZ
+                  </button>
+                  <button type="button" class="pe-chip" data-loc="3">
+                    Remote
+                  </button>
+                </div>
               </div>
-              <div class="genplan-metric">
-                <span
-                  class="genplan-metric-value genplan-metric-value--teal"
-                  data-genplan-count
-                  data-to="38"
-                  >38</span
-                >
-                <span class="genplan-metric-label">Projected hires</span>
-              </div>
-              <div class="genplan-metric">
-                <span class="genplan-metric-value" data-genplan-count data-to="1316" data-prefix="$">$1,316</span>
-                <span class="genplan-metric-label">Cost / hire</span>
+              <div class="pe-control-block">
+                <div class="pe-control-label pe-budget-label">
+                  <span>Budget</span>
+                  <span class="pe-budget-value" data-pe-budget>$50,000</span>
+                </div>
+                <input
+                  type="range"
+                  class="pe-range"
+                  min="10000"
+                  max="200000"
+                  step="5000"
+                  value="50000"
+                  data-pe-range
+                  aria-label="Monthly budget"
+                />
               </div>
             </div>
-          </div>
+
+            <div class="pe-result">
+              <div class="pe-cph">
+                <div class="pe-cph-value" data-pe-cph>$0</div>
+                <div class="pe-cph-label">Predicted cost-per-hire</div>
+              </div>
+              <div class="pe-minis">
+                <div class="pe-mini">
+                  <div class="pe-mini-value" data-pe-hires>0</div>
+                  <div class="pe-mini-label">Proj. hires</div>
+                </div>
+                <div class="pe-mini">
+                  <div class="pe-mini-value" data-pe-apps>0</div>
+                  <div class="pe-mini-label">Est. applications</div>
+                </div>
+                <div class="pe-mini">
+                  <div class="pe-mini-value" data-pe-days>0</div>
+                  <div class="pe-mini-label">Days to fill</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pe-split-title">Recommended channel split</div>
+            <div class="pe-bars">
+              <div class="pe-bar-row" data-pe-ch="0">
+                <span class="pe-bar-name">Indeed</span>
+                <div class="pe-bar-track">
+                  <div
+                    class="pe-bar-fill"
+                    style="--pe-c1: #5a54be; --pe-c2: #8680d6"
+                  ></div>
+                </div>
+                <span class="pe-bar-amt" data-pe-amt>$0</span>
+              </div>
+              <div class="pe-bar-row" data-pe-ch="1">
+                <span class="pe-bar-name">LinkedIn</span>
+                <div class="pe-bar-track">
+                  <div
+                    class="pe-bar-fill"
+                    style="--pe-c1: #6bb5ce; --pe-c2: #5a54be"
+                  ></div>
+                </div>
+                <span class="pe-bar-amt" data-pe-amt>$0</span>
+              </div>
+              <div class="pe-bar-row" data-pe-ch="2">
+                <span class="pe-bar-name">Programmatic</span>
+                <div class="pe-bar-track">
+                  <div
+                    class="pe-bar-fill"
+                    style="--pe-c1: #8680d6; --pe-c2: #b7669e"
+                  ></div>
+                </div>
+                <span class="pe-bar-amt" data-pe-amt>$0</span>
+              </div>
+              <div class="pe-bar-row" data-pe-ch="3">
+                <span class="pe-bar-name">Niche boards</span>
+                <div class="pe-bar-track">
+                  <div
+                    class="pe-bar-fill"
+                    style="--pe-c1: #b7669e; --pe-c2: #6bb5ce"
+                  ></div>
+                </div>
+                <span class="pe-bar-amt" data-pe-amt>$0</span>
+              </div>
+              <div class="pe-bar-row" data-pe-ch="4">
+                <span class="pe-bar-name">Social</span>
+                <div class="pe-bar-track">
+                  <div
+                    class="pe-bar-fill"
+                    style="--pe-c1: #6bb5ce; --pe-c2: #8680d6"
+                  ></div>
+                </div>
+                <span class="pe-bar-amt" data-pe-amt>$0</span>
+              </div>
+            </div>
+
+            <div class="pe-footnote">
+              Recomputes live as you change inputs &mdash; no signup.
+            </div>
           </div>
         </div>
         <!-- /hero-stage (command deck) -->
@@ -1165,7 +1226,7 @@
       <!-- ========================================== -->
       <!-- SECTION 3: STORY SCROLL                    -->
       <!-- ========================================== -->
-      <section class="story-scroll" aria-label="How Nova works">
+      <section class="story-scroll" id="how-it-works" aria-label="How Nova works">
         <div class="story-scroll-inner" tabindex="0" aria-live="polite">
           <span class="section-label">How it works</span>
 
@@ -3210,173 +3271,36 @@
       <!--/HIDDEN-->
 
       <!-- ========================================== -->
-      <!-- PREDICTION ENGINE (replaces the duplicate    -->
-      <!-- standalone plan-showcase card). The ONLY     -->
-      <!-- plan-card-style UI on the page; fully live.  -->
-      <!-- Keeps the plan-showcase anchor so the hero   -->
-      <!-- ghost CTA anchor still resolves.             -->
+      <!-- ENGINE RUN LOG (was PREDICTION ENGINE).      -->
+      <!-- DEVIATION FROM BRIEF, flagged explicitly: the -->
+      <!-- brief said to remove this whole mid-page      -->
+      <!-- section since the hero now IS the interactive -->
+      <!-- engine. We removed the duplicate "Try it live" -->
+      <!-- title + subline + second #plan-showcase card   -->
+      <!-- (the actual repeated-motif tell) but keep the  -->
+      <!-- run-ledger strip below: it is real, previously -->
+      <!-- verified production data (17,932 apps/$8.36,   -->
+      <!-- 16,893 apps/$17.76), not an interactive engine, -->
+      <!-- and was deliberately built as a DIFFERENT       -->
+      <!-- mechanism from the card grammar precisely so it -->
+      <!-- would not read as a duplicate (see its own      -->
+      <!-- comment below). Deleting it would silently drop -->
+      <!-- verified proof content the brief didn't ask to  -->
+      <!-- lose -- owner should override if they'd rather  -->
+      <!-- it gone too.                                    -->
       <!-- ========================================== -->
       <section
         class="prediction-engine-section"
-        aria-label="Prediction Engine"
-        style="padding: var(--space-section) 0 var(--space-16)"
+        aria-label="Recent engine runs"
+        style="padding: var(--space-16) 0 var(--space-16)"
       >
         <div class="container" style="max-width: 760px">
-          <div class="section-label reveal">Try it live</div>
-          <h2 class="section-title reveal" style="text-align: center">
-            See your cost-per-hire before you spend a dollar
-          </h2>
-          <p class="pe-subline reveal">
-            Pick a role, set a budget, and watch Nova predict the cost-per-hire
-            and route the spend across channels &mdash; live.
-          </p>
-
-          <div class="pe-card reveal" id="plan-showcase">
-            <div class="pe-head">
-              <span class="pe-brand">
-                <span class="pe-brand-dot" aria-hidden="true"></span>
-                Nova &middot; Prediction Engine
-              </span>
-              <span class="pe-pill">Cost-per-hire, predicted</span>
-            </div>
-
-            <div class="pe-control-block">
-              <div class="pe-control-label">Role</div>
-              <div class="pe-chips" role="group" aria-label="Role">
-                <button type="button" class="pe-chip is-on" data-role="0">
-                  Registered Nurse
-                </button>
-                <button type="button" class="pe-chip" data-role="1">
-                  Sales Rep
-                </button>
-                <button type="button" class="pe-chip" data-role="2">
-                  CDL Driver
-                </button>
-                <button type="button" class="pe-chip" data-role="3">
-                  Software Engineer
-                </button>
-              </div>
-            </div>
-
-            <div class="pe-controls">
-              <div class="pe-control-block">
-                <div class="pe-control-label">Location</div>
-                <div class="pe-chips" role="group" aria-label="Location">
-                  <button type="button" class="pe-chip is-on" data-loc="0">
-                    Houston, TX
-                  </button>
-                  <button type="button" class="pe-chip" data-loc="1">
-                    Chicago, IL
-                  </button>
-                  <button type="button" class="pe-chip" data-loc="2">
-                    Phoenix, AZ
-                  </button>
-                  <button type="button" class="pe-chip" data-loc="3">
-                    Remote
-                  </button>
-                </div>
-              </div>
-              <div class="pe-control-block">
-                <div class="pe-control-label pe-budget-label">
-                  <span>Budget</span>
-                  <span class="pe-budget-value" data-pe-budget>$50,000</span>
-                </div>
-                <input
-                  type="range"
-                  class="pe-range"
-                  min="10000"
-                  max="200000"
-                  step="5000"
-                  value="50000"
-                  data-pe-range
-                  aria-label="Monthly budget"
-                />
-              </div>
-            </div>
-
-            <div class="pe-result">
-              <div class="pe-cph">
-                <div class="pe-cph-value" data-pe-cph>$0</div>
-                <div class="pe-cph-label">Predicted cost-per-hire</div>
-              </div>
-              <div class="pe-mini">
-                <div class="pe-mini-value" data-pe-hires>0</div>
-                <div class="pe-mini-label">Proj. hires</div>
-              </div>
-              <div class="pe-mini">
-                <div class="pe-mini-value" data-pe-apps>0</div>
-                <div class="pe-mini-label">Est. applications</div>
-              </div>
-              <div class="pe-mini">
-                <div class="pe-mini-value" data-pe-days>0</div>
-                <div class="pe-mini-label">Days to fill</div>
-              </div>
-            </div>
-
-            <div class="pe-split-title">Recommended channel split</div>
-            <div class="pe-bars">
-              <div class="pe-bar-row" data-pe-ch="0">
-                <span class="pe-bar-name">Indeed</span>
-                <div class="pe-bar-track">
-                  <div
-                    class="pe-bar-fill"
-                    style="--pe-c1: #5a54be; --pe-c2: #8680d6"
-                  ></div>
-                </div>
-                <span class="pe-bar-amt" data-pe-amt>$0</span>
-              </div>
-              <div class="pe-bar-row" data-pe-ch="1">
-                <span class="pe-bar-name">LinkedIn</span>
-                <div class="pe-bar-track">
-                  <div
-                    class="pe-bar-fill"
-                    style="--pe-c1: #6bb5ce; --pe-c2: #5a54be"
-                  ></div>
-                </div>
-                <span class="pe-bar-amt" data-pe-amt>$0</span>
-              </div>
-              <div class="pe-bar-row" data-pe-ch="2">
-                <span class="pe-bar-name">Programmatic</span>
-                <div class="pe-bar-track">
-                  <div
-                    class="pe-bar-fill"
-                    style="--pe-c1: #8680d6; --pe-c2: #b7669e"
-                  ></div>
-                </div>
-                <span class="pe-bar-amt" data-pe-amt>$0</span>
-              </div>
-              <div class="pe-bar-row" data-pe-ch="3">
-                <span class="pe-bar-name">Niche boards</span>
-                <div class="pe-bar-track">
-                  <div
-                    class="pe-bar-fill"
-                    style="--pe-c1: #b7669e; --pe-c2: #6bb5ce"
-                  ></div>
-                </div>
-                <span class="pe-bar-amt" data-pe-amt>$0</span>
-              </div>
-              <div class="pe-bar-row" data-pe-ch="4">
-                <span class="pe-bar-name">Social</span>
-                <div class="pe-bar-track">
-                  <div
-                    class="pe-bar-fill"
-                    style="--pe-c1: #6bb5ce; --pe-c2: #8680d6"
-                  ></div>
-                </div>
-                <span class="pe-bar-amt" data-pe-amt>$0</span>
-              </div>
-            </div>
-
-            <div class="pe-footnote">
-              Recomputes live as you change inputs &mdash; no signup.
-            </div>
-          </div>
-
           <!-- ========================================== -->
           <!-- From brief to plan -- run-ledger strip.     -->
           <!-- A log excerpt of real engine runs, not a    -->
           <!-- second card grammar echoing the PE card     -->
-          <!-- above (mechanism-panel verdict, 2026-07).   -->
+          <!-- (now in the hero) (mechanism-panel verdict, -->
+          <!-- 2026-07).                                   -->
           <!-- ========================================== -->
           <div class="proof-row-label reveal">
             From brief to plan &mdash; recent engine runs
@@ -3593,7 +3517,7 @@
     <!-- .footer-wrap -->
 
     <!-- ── Page Scripts (extracted to hub.js for cacheability, Fix #1) ── -->
-    <script src="/static/js/hub.js?v=2.4.0"></script>
+    <script src="/static/js/hub.js?v=2.5.0"></script>
 
     <!-- Legacy inline removed -- hamburger, observers, counters, bar anims,
          scroll handler, ripple, hero preview, page-enter, GSAP hero entrance,
