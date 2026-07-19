@@ -32,7 +32,10 @@ Runs under pytest, or standalone: ``python3 tests/test_voyage_embed_deadline.py`
 
 import contextlib
 import json
+import os
+import shutil
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -113,6 +116,13 @@ def _voyage_isolated(index=None, min_delay=None):
     behind is the pollution class that caused a 30-minute ship-gate hang
     (commit 4cac3116), so both are saved and restored here.
 
+    The EMBED path's rate limiter is now the flock-backed cross-process window
+    (``_voyage_acquire_send_slot``), which persists reservations to a file under
+    ``NOVA_SLOT_DIR``. This fixture points ``NOVA_SLOT_DIR`` at a private tmpdir
+    per test (and removes it on teardown) so one test's reservations can't arm
+    the next test's wait. Tests arm a wait by seeding that file via
+    ``_seed_voyage_window`` rather than by seeding ``_voyage_request_times``.
+
     The disk cache is stubbed out at both ends, which the timing assertions
     depend on. ``_cache_put_locked``: ``embed_batch`` persists whatever it
     computes into the tracked ``data/.embedding_cache.json`` (a 2,000-entry
@@ -140,8 +150,11 @@ def _voyage_isolated(index=None, min_delay=None):
     last = vs._voyage_last_request
     startup = vs._is_startup_indexing
 
+    slot_dir = tempfile.mkdtemp(prefix="nova_voyage_deadline_")
+
     fake = _CountingUrlopen()
     patches = [
+        mock.patch.dict("os.environ", {"NOVA_SLOT_DIR": slot_dir}, clear=False),
         mock.patch.object(vs, "_VOYAGE_API_KEY", "k"),
         mock.patch.object(vs.urllib.request, "urlopen", fake),
         mock.patch.object(vs, "_cache_put_locked", lambda key, value: None),
@@ -160,9 +173,24 @@ def _voyage_isolated(index=None, min_delay=None):
         _drain_bounded_workers()  # while urlopen is still stubbed
         for p in reversed(patches):
             p.stop()
+        shutil.rmtree(slot_dir, ignore_errors=True)
         vs._voyage_request_times[:] = times
         vs._voyage_last_request = last
         vs._is_startup_indexing = startup
+
+
+def _seed_voyage_window(reservations) -> None:
+    """Seed the cross-process EMBED rate window with wall-clock reservation times
+    so ``_voyage_acquire_send_slot`` computes a real wait. Must run inside
+    ``_voyage_isolated`` (which points NOVA_SLOT_DIR at a private dir).
+
+    One recent reservation (``[time.time()]``) arms a ``_VOYAGE_MIN_DELAY``
+    spacing wait; ``_VOYAGE_RPM_LIMIT`` recent reservations arm the ~60s
+    sliding-window wait.
+    """
+    path = os.path.join(vs._voyage_rate_slot_dir(), vs._VOYAGE_RATE_WINDOW_FILE)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(list(reservations), fh)
 
 
 def _fake_index() -> list:
@@ -179,8 +207,7 @@ def test_abandons_before_spacing_sleep_when_deadline_unreachable():
     with _voyage_isolated() as fake:
         # Arm the spacing guard: a request just went out, so the next one owes
         # a full _VOYAGE_MIN_DELAY wait.
-        vs._voyage_request_times[:] = []
-        vs._voyage_last_request = time.monotonic()
+        _seed_voyage_window([time.time()])
 
         started = time.monotonic()
         with vs.embed_deadline(time.monotonic() + 0.1):
@@ -196,11 +223,9 @@ def test_abandons_before_spacing_sleep_when_deadline_unreachable():
 def test_abandons_before_rate_limit_window_sleep():
     """The other in-lock sleep: the 60s sliding-window wait."""
     with _voyage_isolated() as fake:
-        # Saturate the window, and leave the spacing guard disarmed so the
-        # window branch is the one that fires.
-        now = time.monotonic()
-        vs._voyage_request_times[:] = [now - 5.0] * vs._VOYAGE_RPM_LIMIT
-        vs._voyage_last_request = 0.0
+        # Saturate the window with _VOYAGE_RPM_LIMIT recent reservations so the
+        # sliding-window branch (not the spacing branch) is the one that fires.
+        _seed_voyage_window([time.time() - 5.0] * vs._VOYAGE_RPM_LIMIT)
 
         started = time.monotonic()
         with vs.embed_deadline(time.monotonic() + 0.1):
@@ -225,11 +250,9 @@ def test_expired_deadline_skips_the_post_even_with_no_sleep_pending():
     can read, which is exactly what the deadline exists to prevent.
     """
     with _voyage_isolated() as fake:
-        # No spacing wait owed and the window is empty, so neither in-lock sleep
-        # guard fires: only the pre-POST check can catch this.
-        vs._voyage_request_times[:] = []
-        vs._voyage_last_request = 0.0
-
+        # Empty window (fresh per-test dir) => no wait owed, so no spacing/window
+        # sleep guard fires: the already-expired deadline (wait==0 case) is the
+        # only thing that can bail before the POST.
         with vs.embed_deadline(time.monotonic() - 1.0):  # already expired
             result = vs._embed_uncached_voyage(["hello"])
         calls = fake.calls
@@ -241,8 +264,7 @@ def test_expired_deadline_skips_the_post_even_with_no_sleep_pending():
 def test_deadline_far_enough_away_still_sleeps_and_succeeds():
     """A deadline the wait fits inside must not trigger a spurious abandon."""
     with _voyage_isolated(min_delay=0.2) as fake:
-        vs._voyage_request_times[:] = []
-        vs._voyage_last_request = time.monotonic()
+        _seed_voyage_window([time.time()])  # arms a 0.2s spacing wait
 
         with vs.embed_deadline(time.monotonic() + 10.0):
             result = vs._embed_uncached_voyage(["hello"])
@@ -258,8 +280,7 @@ def test_deadline_far_enough_away_still_sleeps_and_succeeds():
 def test_no_deadline_preserves_unbounded_sleep_behavior():
     """build_index/startup indexing sets no deadline and must be unaffected."""
     with _voyage_isolated(min_delay=0.2) as fake:
-        vs._voyage_request_times[:] = []
-        vs._voyage_last_request = time.monotonic()
+        _seed_voyage_window([time.time()])  # arms a 0.2s spacing wait
 
         # No embed_deadline() wrapper at all -- the default.
         result = vs._embed_uncached_voyage(["hello"])
@@ -280,8 +301,7 @@ def test_deadline_exceeded_by_is_false_without_a_deadline():
 def test_search_bounded_leaves_no_orphan_burning_quota():
     with _voyage_isolated(index=_fake_index()) as fake:
         assert vs._index, "fixture must populate _index or search() never embeds"
-        vs._voyage_request_times[:] = []
-        vs._voyage_last_request = time.monotonic()  # arms the 6.5s spacing wait
+        _seed_voyage_window([time.time()])  # arms the 6.5s spacing wait
 
         started = time.monotonic()
         results = vs.search_bounded(_unique_query(), top_k=3, timeout_s=0.5)
@@ -305,8 +325,7 @@ def test_bounded_vector_search_in_nova_also_propagates_deadline():
     import nova
 
     with _voyage_isolated(index=_fake_index()) as fake:
-        vs._voyage_request_times[:] = []
-        vs._voyage_last_request = time.monotonic()
+        _seed_voyage_window([time.time()])  # arms the 6.5s spacing wait
 
         started = time.monotonic()
         nova._bounded_vector_search(_unique_query(), top_k=3, timeout_s=0.5)
@@ -323,7 +342,11 @@ def test_bounded_vector_search_in_nova_also_propagates_deadline():
 
 
 def test_in_lock_hold_does_not_grow_with_queue_wait():
-    """Reading `now` outside the lock made `elapsed` negative while queued.
+    """Exercises the in-process fallback (_voyage_acquire_send_slot_inprocess),
+    which still uses _voyage_rate_lock; the primary embed path is now the
+    flock-backed cross-process window and no longer touches that lock.
+
+    Reading `now` outside the lock made `elapsed` negative while queued.
 
     wait_time = _VOYAGE_MIN_DELAY - elapsed then became
     _VOYAGE_MIN_DELAY + queue_wait, so each thread queued behind the lock slept
@@ -354,7 +377,7 @@ def test_in_lock_hold_does_not_grow_with_queue_wait():
         assert released.wait(timeout=5.0), "holder never acquired the lock"
 
         started = time.monotonic()
-        vs._embed_uncached_voyage(["hello"])  # samples `now`, queues behind holder
+        vs._voyage_acquire_send_slot_inprocess()  # samples `now`, queues behind holder
         elapsed = time.monotonic() - started
         holder.join(timeout=5.0)
 

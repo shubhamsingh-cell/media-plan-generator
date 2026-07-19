@@ -71,12 +71,18 @@ import math
 import os
 import re
 import ssl
+import tempfile
 import threading
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - non-POSIX (Windows) dev only
+    fcntl = None  # type: ignore[assignment]  # cross-process rate window falls back to in-process
 
 # SSL context for Voyage AI API -- Python 3.14+ has stricter TLS defaults
 # that cause WRONG_VERSION_NUMBER errors with some API endpoints.
@@ -102,14 +108,23 @@ _VOYAGE_TIMEOUT = 20  # seconds
 _VOYAGE_API_KEY: str | None = None
 _VOYAGE_MAX_BATCH = 32  # Reduced from 128 to avoid 429s on startup bursts
 _VOYAGE_STARTUP_BATCH = 16  # Even smaller batches during initial indexing
-_VOYAGE_RPM_LIMIT = 10  # Voyage free tier: ~10 req/min
+# NOTE: "~10 req/min" is an UNVERIFIED estimate (no Voyage rate-limit doc was ever
+# captured; docs/PENDING_USER_ACTIONS_2026-06-02.md records only a *token* quota).
+# The EMBED path enforces this INSTANCE-GLOBALLY across gunicorn workers via
+# _voyage_acquire_send_slot (flock window), so for embeddings it is the whole
+# service's cap, not a per-worker cap.
+_VOYAGE_RPM_LIMIT = 10  # Voyage account cap, req/min (see note above)
 _VOYAGE_MIN_DELAY = 6.5  # Seconds between requests (10 RPM = 6s + 0.5s buffer)
 _VOYAGE_MAX_RETRIES = 3  # Max retries on 429 errors
 _VOYAGE_BASE_BACKOFF = 2.0  # Base backoff in seconds for exponential retry
 _is_startup_indexing = True  # Flag to use smaller batches during startup
+# In-process rate window. Still backs the rerank path (_voyage_try_reserve_slot)
+# and the non-POSIX embed fallback (_voyage_acquire_send_slot_inprocess). The
+# primary EMBED limiter is now the flock-backed cross-process window instead --
+# see _voyage_acquire_send_slot below.
 _voyage_request_times: list[float] = []
 _voyage_rate_lock = threading.Lock()
-_voyage_last_request: float = 0.0  # monotonic timestamp of last API call
+_voyage_last_request: float = 0.0  # monotonic timestamp of last API call (in-process fallback)
 
 # ── Caller deadline propagation ──────────────────────────────────────────────
 # search_bounded() and nova._bounded_vector_search() run search() in a worker
@@ -347,6 +362,224 @@ def _voyage_try_reserve_slot() -> bool:
             return False
         _voyage_request_times.append(now)
         return True
+
+
+# ── Cross-process Voyage rate limiter (EMBED path) ───────────────────────────
+# The in-process window above (_voyage_request_times / _voyage_last_request) is
+# per-PROCESS state. Production runs `gunicorn --workers 2 --preload`
+# (render.yaml), so with N workers each worker enforces _VOYAGE_RPM_LIMIT
+# independently and the EMBED path as a whole sent up to N x _VOYAGE_RPM_LIMIT/min
+# -- the real 429s the limiter exists to prevent. We coordinate the EMBED window
+# ACROSS workers the same way app._CrossProcessSlots coordinates /api/generate
+# concurrency: an flock over a shared file makes the window instance-global
+# (valid because numInstances: 1, so all workers share one filesystem; if that
+# ever changes, both this and _CrossProcessSlots must move to a shared store).
+#
+# RELATION TO _voyage_try_reserve_slot (rerank path): that helper throttles the
+# rerank path via the *in-process* _voyage_request_times window (non-blocking).
+# This flock window is SEPARATE and covers only embeddings. That is deliberate:
+# Voyage's RPM limits are per-MODEL/org-wide (docs.voyageai.com/docs/rate-limits),
+# so voyage-3-lite (embed) and rerank-2.5-lite (rerank) have independent budgets
+# -- a shared app-side window would only over-throttle. Follow-up (optional):
+# unify both onto ONE cross-process primitive, keyed by model, rerank kept
+# NON-BLOCKING; until then the two coexist (grep _voyage_try_reserve_slot).
+#
+# Correctness of this window: wall-clock time (time.time), NOT monotonic
+# (per-process, not comparable across workers); reservation model so the flock is
+# held only for the microsecond file read-modify-write and the multi-second sleep
+# happens AFTER releasing it (gevent-safe); lock fd opened lazily per call
+# (fork-safe under --preload); and caller-deadline aware (see below).
+_VOYAGE_RATE_WINDOW_FILE = "voyage_rate_window.json"
+_VOYAGE_RATE_LOCK_FILE = "voyage_rate.lock"
+
+
+def _voyage_rate_slot_dir() -> str:
+    """Resolve (and create) the shared dir for the cross-process embed rate window.
+
+    Honors NOVA_SLOT_DIR (the same env var app._CrossProcessSlots uses, set to a
+    private tmpdir per pytest run by tests/conftest.py); otherwise a tmpdir keyed
+    by PORT/TEST_PORT so unrelated instances don't share a window. Read at call
+    time (not import) for fork-safety and test isolation.
+    """
+    base = os.environ.get("NOVA_SLOT_DIR") or os.path.join(
+        tempfile.gettempdir(),
+        f"nova_voyage_rate_{os.environ.get('PORT') or os.environ.get('TEST_PORT') or 'dev'}",
+    )
+    os.makedirs(base, exist_ok=True)
+    return base
+
+
+def _read_voyage_window(path: str) -> list[float]:
+    """Read the reserved-send-time list from the shared window file.
+
+    Tolerates a missing/corrupt/foreign file by returning an empty window --
+    the same fail-open-to-empty resilience as the embedding cache loader.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return []
+    if not isinstance(data, list):
+        return []
+    return [float(t) for t in data if isinstance(t, (int, float))]
+
+
+def _write_voyage_window(path: str, reserved: list[float]) -> None:
+    """Atomically persist the reserved-send-time list.
+
+    Writes a temp file in the same dir then os.replace()s it in, so a crash
+    mid-write can never leave a torn window file. Always called while holding the
+    exclusive flock, so there are no concurrent readers of ``path``.
+    """
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(reserved, fh)
+    os.replace(tmp, path)
+
+
+def _voyage_acquire_send_slot() -> bool:
+    """Reserve this instance's turn to send one Voyage EMBED request, then wait.
+
+    Enforces _VOYAGE_MIN_DELAY (min spacing) AND _VOYAGE_RPM_LIMIT (max per
+    rolling 60s) GLOBALLY across every gunicorn worker on this instance, for the
+    embedding path. Blocking by design: the embed path has no fallback, so it
+    waits for the window (contrast _voyage_try_reserve_slot, non-blocking rerank).
+
+    Returns:
+        True if a slot was reserved and it is now time to send. False if the
+        caller's embed_deadline would be overrun before the request could go
+        out -- in which case NOTHING is reserved (no quota spent on an abandoned
+        result) and the caller must bail. Falls back to the per-process window
+        when fcntl is unavailable (non-POSIX dev).
+    """
+    if fcntl is None:  # pragma: no cover - non-POSIX platforms only
+        return _voyage_acquire_send_slot_inprocess()
+
+    slot_dir = _voyage_rate_slot_dir()
+    lock_path = os.path.join(slot_dir, _VOYAGE_RATE_LOCK_FILE)
+    win_path = os.path.join(slot_dir, _VOYAGE_RATE_WINDOW_FILE)
+
+    lock_fd = open(lock_path, "a+b")
+    try:
+        # Blocking exclusive flock, held only for the read-modify-write below
+        # (microseconds); never across the sleep, so it is gevent-safe.
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        now = time.time()
+        reserved = [t for t in _read_voyage_window(win_path) if t > now - 60.0]
+
+        candidate = now
+        # Min-delay: our send must be at least _VOYAGE_MIN_DELAY after the latest
+        # reservation (which may be a still-pending future send).
+        if reserved:
+            candidate = max(candidate, max(reserved) + _VOYAGE_MIN_DELAY)
+
+        # Sliding window: at most _VOYAGE_RPM_LIMIT sends (including ours) may
+        # fall in the trailing 60s ending at `candidate`. Push `candidate` past
+        # the oldest blocking reservation if too many already do. One pass
+        # suffices -- moving `candidate` forward only drops entries from the
+        # window's low end (all reservations are <= candidate).
+        if _VOYAGE_RPM_LIMIT >= 1:
+            in_window = sorted(t for t in reserved if t > candidate - 60.0)
+            if len(in_window) >= _VOYAGE_RPM_LIMIT:
+                oldest_blocking = in_window[len(in_window) - _VOYAGE_RPM_LIMIT]
+                candidate = max(candidate, oldest_blocking + 60.0 + 0.5)
+
+        wait = candidate - now
+        # Caller-deadline bailout BEFORE reserving: charging a rate slot for a
+        # request the caller has abandoned is the waste we avoid. Pass a DURATION
+        # to _deadline_exceeded_by so the wall-clock window and the monotonic
+        # deadline are never cross-compared; wait==0 degenerates to the
+        # "deadline already passed" check.
+        if _deadline_exceeded_by(wait):
+            logger.info(
+                "Voyage AI: %.1fs rate wait would overrun caller deadline -- "
+                "abandoning before reserving a slot",
+                wait,
+            )
+            return False
+
+        reserved.append(candidate)
+        _write_voyage_window(win_path, reserved)
+    finally:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        lock_fd.close()
+
+    wait = candidate - time.time()
+    if wait > 0:
+        if wait > _VOYAGE_MIN_DELAY:
+            logger.info(
+                "Voyage AI rate limiting (instance-wide): waiting %.1fs for window",
+                wait,
+            )
+        else:
+            logger.debug("Voyage AI: spacing requests, waiting %.1fs", wait)
+        time.sleep(wait)
+    return True
+
+
+def _voyage_acquire_send_slot_inprocess() -> bool:
+    """Per-process embed rate-limit fallback (non-POSIX, no fcntl).
+
+    Preserves the original single-process min-delay + sliding-window behavior AND
+    the caller-deadline bailout (returns False, reserving nothing, when a wait
+    would overrun the deadline). Only correct within one process, so on
+    multi-worker deployments this path reverts to the N x _VOYAGE_RPM_LIMIT
+    over-send -- it exists solely so dev on platforms without fcntl still
+    throttles at all.
+    """
+    global _voyage_last_request
+    with _voyage_rate_lock:
+        # Read the clock INSIDE the lock: acquiring can block for seconds behind
+        # another thread's in-lock sleep, and a `now` sampled before that wait
+        # would drive `elapsed` negative and inflate the hold.
+        now = time.monotonic()
+        elapsed = now - _voyage_last_request
+        if elapsed < _VOYAGE_MIN_DELAY and _voyage_last_request > 0:
+            wait_time = _VOYAGE_MIN_DELAY - elapsed
+            if _deadline_exceeded_by(wait_time):
+                logger.info(
+                    "Voyage AI: %.1fs spacing wait would overrun caller deadline "
+                    "-- abandoning before sleep",
+                    wait_time,
+                )
+                return False
+            logger.debug("Voyage AI: spacing requests, waiting %.1fs", wait_time)
+            time.sleep(wait_time)
+            now = time.monotonic()
+
+        _voyage_request_times[:] = [t for t in _voyage_request_times if now - t < 60]
+
+        if len(_voyage_request_times) >= _VOYAGE_RPM_LIMIT:
+            oldest_request = min(_voyage_request_times)
+            wait_time = 60.0 - (now - oldest_request) + 0.5
+            if wait_time > 0.001:
+                if _deadline_exceeded_by(wait_time):
+                    logger.info(
+                        "Voyage AI: %.1fs rate-limit wait would overrun caller "
+                        "deadline -- abandoning before sleep",
+                        wait_time,
+                    )
+                    return False
+                logger.info(
+                    "Voyage AI rate limiting: waiting %.1fs for window to clear",
+                    wait_time,
+                )
+                time.sleep(wait_time)
+
+    # Quota is charged at the POST, not the sleeps: a worker can arrive here with
+    # the deadline already spent (slow cache load / a 429 retry backoff) and no
+    # wait pending, so this is the check that actually enforces it.
+    if _deadline_exceeded_by(0.0):
+        logger.info(
+            "Voyage AI: caller deadline already passed -- skipping request "
+            "rather than spending quota on a discarded result"
+        )
+        return False
+
+    _record_voyage_request()
+    _voyage_last_request = time.monotonic()
+    return True
 
 
 def _get_api_key() -> str | None:
@@ -1194,8 +1427,6 @@ def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | Non
     Returns:
         List of embedding vectors (order preserved), or None on failure.
     """
-    global _voyage_last_request
-
     api_key = _get_api_key()
     if not api_key:
         return None
@@ -1218,78 +1449,14 @@ def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | Non
         # Retry loop with exponential backoff for 429 errors
         for attempt in range(_VOYAGE_MAX_RETRIES + 1):
             try:
-                # Rate limiting: enforce BOTH minimum inter-request delay AND sliding window
-                with _voyage_rate_lock:
-                    # Read the clock INSIDE the lock. Acquiring can itself block for
-                    # seconds behind another thread's in-lock sleep; a `now` sampled
-                    # before that wait is stale by exactly the queueing time, which
-                    # drives `elapsed` negative and inflates wait_time to
-                    # (_VOYAGE_MIN_DELAY + queue_wait). That made each queued thread
-                    # hold the lock longer than the one before it -- positive feedback
-                    # rather than a bounded 6.5s cap.
-                    # This bounds the HOLD, not the spacing: _voyage_last_request is
-                    # still written below at the end of the request, outside this
-                    # lock, so two threads can both read it pre-update and space
-                    # themselves closer than _VOYAGE_MIN_DELAY. That race predates
-                    # this fix and is backstopped by the _VOYAGE_RPM_LIMIT window.
-                    now = time.monotonic()
-
-                    # Minimum delay between consecutive requests to prevent bursts
-                    elapsed = now - _voyage_last_request
-                    if elapsed < _VOYAGE_MIN_DELAY and _voyage_last_request > 0:
-                        wait_time = _VOYAGE_MIN_DELAY - elapsed
-                        if _deadline_exceeded_by(wait_time):
-                            logger.info(
-                                "Voyage AI: %.1fs spacing wait would overrun caller "
-                                "deadline -- abandoning before sleep",
-                                wait_time,
-                            )
-                            return None
-                        logger.debug(
-                            "Voyage AI: spacing requests, waiting %.1fs", wait_time
-                        )
-                        time.sleep(wait_time)
-                        now = time.monotonic()
-
-                    # Sliding window: prune requests older than 60s
-                    _voyage_request_times[:] = [
-                        t for t in _voyage_request_times if now - t < 60
-                    ]
-
-                    # If we have 10+ requests in the last 60s, wait until oldest ages out
-                    if len(_voyage_request_times) >= _VOYAGE_RPM_LIMIT:
-                        oldest_request = min(_voyage_request_times)
-                        wait_time = 60.0 - (now - oldest_request) + 0.5
-                        if wait_time > 0.001:
-                            if _deadline_exceeded_by(wait_time):
-                                logger.info(
-                                    "Voyage AI: %.1fs rate-limit wait would overrun "
-                                    "caller deadline -- abandoning before sleep",
-                                    wait_time,
-                                )
-                                return None
-                            logger.info(
-                                "Voyage AI rate limiting: waiting %.1fs for window to clear",
-                                wait_time,
-                            )
-                            time.sleep(wait_time)
-
-                # The sleeps above are not the only way to overrun the caller: a
-                # worker can arrive here with the deadline already spent (slow
-                # cache load, or a 429 retry that backed off below), with no wait
-                # pending and nothing else to stop it. The cost being avoided is
-                # spending one of _VOYAGE_RPM_LIMIT requests/minute -- which is
-                # charged here, at the POST, not at the sleeps -- so this is the
-                # check that actually enforces it.
-                if _deadline_exceeded_by(0.0):
-                    logger.info(
-                        "Voyage AI: caller deadline already passed -- skipping "
-                        "request rather than spending quota on a discarded result"
-                    )
+                # Rate limiting: enforce the min inter-request delay AND the
+                # rolling 60s window GLOBALLY across all gunicorn workers on this
+                # instance (not just this process). Honors the caller's
+                # embed_deadline: if the throttle wait would overrun it, no slot
+                # is reserved (no quota spent on an abandoned result) and we bail
+                # -- see _voyage_acquire_send_slot.
+                if not _voyage_acquire_send_slot():
                     return None
-
-                _record_voyage_request()
-                _voyage_last_request = time.monotonic()
 
                 data = json.dumps(payload).encode("utf-8")
                 req = urllib.request.Request(
