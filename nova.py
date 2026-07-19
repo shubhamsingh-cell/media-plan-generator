@@ -157,15 +157,22 @@ def _bounded_vector_search(query: str, top_k: int = 3, timeout_s: float = 3.0) -
         List of snippet dicts, or [] on timeout / failure.
     """
     try:
+        from vector_search import embed_deadline as _vs_embed_deadline
         from vector_search import search as _vs_search
     except Exception:
         return []
 
     _result_holder: list = []
+    _deadline = time.monotonic() + timeout_s
 
     def _run() -> None:
         try:
-            r = _vs_search(query, top_k=top_k)
+            # Tell the embedding layer when we stop caring. On timeout this
+            # thread is abandoned (Python cannot kill it), so without this it
+            # would sleep out the Voyage rate limiter and then spend one of the
+            # 10 requests/minute budget on a result no one can read.
+            with _vs_embed_deadline(_deadline):
+                r = _vs_search(query, top_k=top_k)
             if r:
                 _result_holder.extend(r)
         except Exception:
@@ -175,7 +182,11 @@ def _bounded_vector_search(query: str, top_k: int = 3, timeout_s: float = 3.0) -
     # search cannot block us. Earlier version used ThreadPoolExecutor via
     # `with` which calls shutdown(wait=True) on exit and waited out the
     # full 60s Voyage-AI stall anyway -- defeating the whole point of the
-    # timeout. A daemon thread simply gets abandoned on timeout.
+    # timeout. A daemon thread simply gets abandoned on timeout -- join() only
+    # stops us waiting, it cannot cancel the worker. The deadline above does not
+    # bound the worker's lifetime either (an in-flight POST still runs to its
+    # own 20s timeout); what it bounds is the worker's ability to sleep out the
+    # rate limiter and then spend Voyage quota on a result we can no longer use.
     _t = threading.Thread(target=_run, daemon=True, name="bounded-vs")
     _t.start()
     _t.join(timeout=timeout_s)

@@ -63,6 +63,7 @@ from __future__ import annotations
 
 import atexit
 import collections
+import contextlib
 import hashlib
 import json
 import logging
@@ -109,6 +110,61 @@ _is_startup_indexing = True  # Flag to use smaller batches during startup
 _voyage_request_times: list[float] = []
 _voyage_rate_lock = threading.Lock()
 _voyage_last_request: float = 0.0  # monotonic timestamp of last API call
+
+# ── Caller deadline propagation ──────────────────────────────────────────────
+# search_bounded() and nova._bounded_vector_search() run search() in a worker
+# thread and abandon it when join(timeout) expires. Python cannot kill a thread,
+# so without a deadline the abandoned worker sleeps out the full rate-limiter
+# wait and then fires a real Voyage request for a caller that left -- spending
+# one of the _VOYAGE_RPM_LIMIT requests/minute on an embedding nobody reads, and
+# holding _voyage_rate_lock the whole time. Since _VOYAGE_MIN_DELAY (6.5s) is
+# already longer than those callers' 3s timeout, that is not an edge case: any
+# second uncached caller arriving inside the spacing window is guaranteed to be
+# abandoned mid-sleep.
+#
+# A worker that knows its caller's deadline checks it before each sleep and
+# gives up instead. Sleeping past the deadline can only produce a result the
+# caller can no longer receive, so bailing early is strictly better.
+#
+# Thread-local, so it is opt-in: callers that set no deadline (startup indexing
+# via build_index, scripts) keep their current unbounded behavior exactly.
+_embed_deadline = threading.local()
+
+
+@contextlib.contextmanager
+def embed_deadline(deadline: float | None):
+    """Bound embedding work in the *current* thread to a monotonic deadline.
+
+    Args:
+        deadline: time.monotonic() value past which embedding should give up,
+            or None to impose no deadline.
+
+    Yields:
+        None. Restores any previous deadline on exit, so the value cannot leak
+        into an unrelated task if the thread is ever pooled and reused.
+    """
+    prev = getattr(_embed_deadline, "value", None)
+    _embed_deadline.value = deadline
+    try:
+        yield
+    finally:
+        _embed_deadline.value = prev
+
+
+def _deadline_exceeded_by(wait_s: float) -> bool:
+    """Return True if sleeping ``wait_s`` would overrun the caller's deadline.
+
+    Args:
+        wait_s: Length of the sleep being considered, in seconds.
+
+    Returns:
+        False when no deadline is set for this thread (the default).
+    """
+    deadline = getattr(_embed_deadline, "value", None)
+    if deadline is None:
+        return False
+    return time.monotonic() + wait_s >= deadline
+
 
 # ── Embedding provider switch (Voyage vs Gemini) ─────────────────────────────
 # Selected by the EMBEDDING_PROVIDER env var. "voyage" (default) keeps the
@@ -1088,12 +1144,32 @@ def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | Non
         for attempt in range(_VOYAGE_MAX_RETRIES + 1):
             try:
                 # Rate limiting: enforce BOTH minimum inter-request delay AND sliding window
-                now = time.monotonic()
                 with _voyage_rate_lock:
+                    # Read the clock INSIDE the lock. Acquiring can itself block for
+                    # seconds behind another thread's in-lock sleep; a `now` sampled
+                    # before that wait is stale by exactly the queueing time, which
+                    # drives `elapsed` negative and inflates wait_time to
+                    # (_VOYAGE_MIN_DELAY + queue_wait). That made each queued thread
+                    # hold the lock longer than the one before it -- positive feedback
+                    # rather than a bounded 6.5s cap.
+                    # This bounds the HOLD, not the spacing: _voyage_last_request is
+                    # still written below at the end of the request, outside this
+                    # lock, so two threads can both read it pre-update and space
+                    # themselves closer than _VOYAGE_MIN_DELAY. That race predates
+                    # this fix and is backstopped by the _VOYAGE_RPM_LIMIT window.
+                    now = time.monotonic()
+
                     # Minimum delay between consecutive requests to prevent bursts
                     elapsed = now - _voyage_last_request
                     if elapsed < _VOYAGE_MIN_DELAY and _voyage_last_request > 0:
                         wait_time = _VOYAGE_MIN_DELAY - elapsed
+                        if _deadline_exceeded_by(wait_time):
+                            logger.info(
+                                "Voyage AI: %.1fs spacing wait would overrun caller "
+                                "deadline -- abandoning before sleep",
+                                wait_time,
+                            )
+                            return None
                         logger.debug(
                             "Voyage AI: spacing requests, waiting %.1fs", wait_time
                         )
@@ -1110,11 +1186,32 @@ def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | Non
                         oldest_request = min(_voyage_request_times)
                         wait_time = 60.0 - (now - oldest_request) + 0.5
                         if wait_time > 0.001:
+                            if _deadline_exceeded_by(wait_time):
+                                logger.info(
+                                    "Voyage AI: %.1fs rate-limit wait would overrun "
+                                    "caller deadline -- abandoning before sleep",
+                                    wait_time,
+                                )
+                                return None
                             logger.info(
                                 "Voyage AI rate limiting: waiting %.1fs for window to clear",
                                 wait_time,
                             )
                             time.sleep(wait_time)
+
+                # The sleeps above are not the only way to overrun the caller: a
+                # worker can arrive here with the deadline already spent (slow
+                # cache load, or a 429 retry that backed off below), with no wait
+                # pending and nothing else to stop it. The cost being avoided is
+                # spending one of _VOYAGE_RPM_LIMIT requests/minute -- which is
+                # charged here, at the POST, not at the sleeps -- so this is the
+                # check that actually enforces it.
+                if _deadline_exceeded_by(0.0):
+                    logger.info(
+                        "Voyage AI: caller deadline already passed -- skipping "
+                        "request rather than spending quota on a discarded result"
+                    )
+                    return None
 
                 _record_voyage_request()
                 _voyage_last_request = time.monotonic()
@@ -1827,10 +1924,16 @@ def search_bounded(query: str, top_k: int = 5, timeout_s: float = 3.0) -> list[d
     if not query:
         return []
     _holder: list[dict] = []
+    _deadline = time.monotonic() + timeout_s
 
     def _run() -> None:
         try:
-            _r = search(query, top_k=top_k)
+            # Tell the embedding layer when we stop caring. On timeout this
+            # thread is abandoned (Python cannot kill it), so without this it
+            # would sleep out the rate limiter and then spend one of the
+            # 10 requests/minute budget on a result no one can read.
+            with embed_deadline(_deadline):
+                _r = search(query, top_k=top_k)
             if _r:
                 _holder.extend(_r)
         except Exception:
