@@ -68,7 +68,14 @@ services:
       # --- Bureau of Economic Analysis (BEA) ---
       - key: BEA_API_KEY
         sync: false
+      # --- Embeddings (vector_search.py) ---
+      # Voyage is the default embedding provider (EMBEDDING_PROVIDER=voyage);
+      # dashboard-set, not synced. Its per-instance RPM limiter now coordinates
+      # across gunicorn workers via flock (see _voyage_acquire_send_slot).
+      - key: VOYAGE_API_KEY
+        sync: false
       # --- Free LLM Providers (v3.1 LLM Router) ---
+      # GEMINI_API_KEY is also the alternate embedding backend (EMBEDDING_PROVIDER=gemini).
       - key: GEMINI_API_KEY
         sync: false
       - key: GROQ_API_KEY
