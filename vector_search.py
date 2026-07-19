@@ -870,6 +870,19 @@ def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
 
         batch_vectors: list[list[float]] | None = None
         for attempt in range(_GEMINI_MAX_RETRIES + 1):
+            # The quota is charged when the request is issued, not at the retry
+            # backoffs below, so this is the check that actually stops an
+            # abandoned bounded-search worker from spending a Gemini call on a
+            # result its caller can no longer read. Re-checked every attempt so a
+            # retry cannot slip a POST through after the deadline lapsed. Mirrors
+            # the Voyage pre-POST guard in _embed_uncached_voyage; with no
+            # deadline set (build_index / startup indexing) it is always False.
+            if _deadline_exceeded_by(0.0):
+                logger.info(
+                    "Gemini embed: caller deadline already passed -- skipping "
+                    "request rather than spending quota on a discarded result"
+                )
+                return None
             try:
                 req = urllib.request.Request(
                     url,
@@ -890,6 +903,13 @@ def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
             except urllib.error.HTTPError as e:
                 if e.code == 429 and attempt < _GEMINI_MAX_RETRIES:
                     backoff = _GEMINI_BASE_BACKOFF * (2**attempt)
+                    if _deadline_exceeded_by(backoff):
+                        logger.info(
+                            "Gemini embed: %.1fs 429 backoff would overrun caller "
+                            "deadline -- abandoning before sleep",
+                            backoff,
+                        )
+                        return None
                     logger.info(
                         "Gemini embed 429 (attempt %d/%d), backing off %.1fs",
                         attempt + 1,
@@ -905,26 +925,42 @@ def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
             except urllib.error.URLError as e:
                 reason_str = str(e.reason) if e.reason else ""
                 if "SSL" in reason_str and attempt < _GEMINI_MAX_RETRIES:
+                    backoff = _GEMINI_BASE_BACKOFF * (2**attempt)
+                    if _deadline_exceeded_by(backoff):
+                        logger.info(
+                            "Gemini embed: %.1fs SSL backoff would overrun caller "
+                            "deadline -- abandoning before sleep",
+                            backoff,
+                        )
+                        return None
                     logger.warning(
                         "Gemini embed SSL error (attempt %d/%d), retrying: %s",
                         attempt + 1,
                         _GEMINI_MAX_RETRIES,
                         reason_str[:100],
                     )
-                    time.sleep(_GEMINI_BASE_BACKOFF * (2**attempt))
+                    time.sleep(backoff)
                     continue
                 logger.error("Gemini embed URL error: %s", e.reason, exc_info=True)
                 return None
             except OSError as e:
                 err_str = str(e)
                 if "SSL" in err_str and attempt < _GEMINI_MAX_RETRIES:
+                    backoff = _GEMINI_BASE_BACKOFF * (2**attempt)
+                    if _deadline_exceeded_by(backoff):
+                        logger.info(
+                            "Gemini embed: %.1fs SSL/OS backoff would overrun "
+                            "caller deadline -- abandoning before sleep",
+                            backoff,
+                        )
+                        return None
                     logger.warning(
                         "Gemini embed SSL/OS error (attempt %d/%d), retrying: %s",
                         attempt + 1,
                         _GEMINI_MAX_RETRIES,
                         err_str[:100],
                     )
-                    time.sleep(_GEMINI_BASE_BACKOFF * (2**attempt))
+                    time.sleep(backoff)
                     continue
                 logger.error("Gemini embed OS error: %s", e, exc_info=True)
                 return None

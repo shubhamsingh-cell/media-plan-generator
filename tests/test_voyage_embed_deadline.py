@@ -1,4 +1,4 @@
-"""Tests for caller-deadline propagation into the Voyage embedding rate limiter.
+"""Tests for caller-deadline propagation into the embedding layer.
 
 Background: ``search_bounded``/``nova._bounded_vector_search`` run ``search()``
 in a worker thread and abandon it when ``join(timeout)`` expires. ``join()``
@@ -16,7 +16,12 @@ Covers:
   * the in-lock hold stays bounded by ``_VOYAGE_MIN_DELAY`` instead of growing
     to ``_VOYAGE_MIN_DELAY + queue_wait`` (the stale-``now`` amplification);
   * ``embed_deadline`` restores the prior value, so it cannot leak across tasks
-    if a thread is ever pooled.
+    if a thread is ever pooled;
+  * the load-bearing invariant -- an expired deadline never spends quota at the
+    POST -- holds under BOTH ``EMBEDDING_PROVIDER=voyage`` and ``=gemini``, so
+    the queued provider switch (SESSION_HANDOFF task #11) cannot silently drop
+    it on the live path; and the Gemini retry path bails before its backoff
+    sleep, the same way the Voyage path bails before its rate-limiter sleeps.
 
 All network is mocked at ``urllib.request.urlopen`` -- no live API calls. The
 rate limiter itself (``with _voyage_rate_lock:`` and its ``time.sleep`` calls)
@@ -32,6 +37,8 @@ import threading
 import time
 from pathlib import Path
 from unittest import mock
+
+import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -386,7 +393,156 @@ def test_embed_deadline_restores_on_exception():
     assert getattr(vs._embed_deadline, "value", None) is None
 
 
-if __name__ == "__main__":
-    import pytest
+# ── The invariant holds for whichever provider EMBEDDING_PROVIDER selects ─────
+#
+# SESSION_HANDOFF.md task #11 queues ``EMBEDDING_PROVIDER=gemini`` as a
+# production change. ``embed_batch`` routes to ``_embed_batch_gemini`` under that
+# flag, and that path has its own POST and its own retry-backoff sleeps -- so the
+# deadline guard has to live on BOTH low-level paths or flipping the env var
+# silently turns the mechanism into a no-op on the live path, with no failing
+# test to signal the loss. These tests pin the invariant to both providers.
+#
+# The Gemini path has no rate limiter, lock, or sliding window (Google's free
+# tier is far more generous), so only the quota-waste half of the Voyage fix
+# applies: the abandoned worker must not fire the POST, and must not sleep out a
+# retry backoff, once the caller's deadline has passed.
 
+
+class _CountingUrlopenGemini:
+    """urlopen stand-in for Gemini's batchEmbedContents endpoint (768-dim)."""
+
+    def __init__(self):
+        self.calls = 0
+        self._lock = threading.Lock()
+
+    def __call__(self, req, timeout=None, context=None):
+        with self._lock:
+            self.calls += 1
+        return _FakeResp({"embeddings": [{"values": [0.1] * 768}]})
+
+
+@contextlib.contextmanager
+def _gemini_isolated():
+    """Gemini analogue of ``_voyage_isolated``: stub the network and API key.
+
+    The Gemini path keeps none of the Voyage rate-limiter state
+    (``_voyage_request_times``/``_voyage_last_request``), so there is nothing of
+    that kind to save and restore. The disk-cache stubs are kept for parity with
+    ``_voyage_isolated`` and to hold the convention that no test in this module
+    touches the tracked ~30MB ``data/.embedding_cache.json`` -- although
+    ``_embed_batch_gemini`` is called directly here, below ``embed_batch``, so it
+    never reaches the cache regardless.
+
+    Yields:
+        The ``_CountingUrlopenGemini`` instance standing in for the network.
+    """
+    fake = _CountingUrlopenGemini()
+    patches = [
+        mock.patch.object(vs, "_get_gemini_api_key", lambda: "k"),
+        mock.patch.object(vs.urllib.request, "urlopen", fake),
+        mock.patch.object(vs, "_cache_put_locked", lambda key, value: None),
+        mock.patch.object(vs, "_load_embedding_cache", lambda: None),
+    ]
+    for p in patches:
+        p.start()
+    try:
+        yield fake
+    finally:
+        for p in reversed(patches):
+            p.stop()
+
+
+def _arm_voyage_quiet() -> None:
+    """No pending spacing or window wait, so only the pre-POST guard can bail."""
+    vs._voyage_request_times[:] = []
+    vs._voyage_last_request = 0.0
+
+
+# (isolation cm, arm fn, embed call) per provider. The embed call goes straight
+# to the low-level backend so the assertion is about that backend, not routing.
+_PROVIDERS = {
+    "voyage": (
+        _voyage_isolated,
+        _arm_voyage_quiet,
+        lambda: vs._embed_uncached_voyage(["hello"]),
+    ),
+    "gemini": (
+        _gemini_isolated,
+        lambda: None,
+        lambda: vs._embed_batch_gemini(["hello"]),
+    ),
+}
+
+
+@pytest.mark.parametrize("provider", list(_PROVIDERS))
+def test_expired_deadline_skips_post_for_either_provider(provider):
+    """Load-bearing invariant: quota is charged at the POST, so an already-spent
+    deadline must skip the request on whichever backend is selected -- otherwise
+    a Voyage->Gemini switch drops deadline enforcement with no test to catch it.
+    """
+    isolated, arm, embed = _PROVIDERS[provider]
+    with isolated() as fake:
+        arm()
+        with vs.embed_deadline(time.monotonic() - 1.0):  # already expired
+            result = embed()
+        calls = fake.calls
+
+    assert result is None, f"{provider}: should abandon, not return embeddings"
+    assert calls == 0, f"{provider}: fired a request for a caller that had left"
+
+
+@pytest.mark.parametrize("provider", list(_PROVIDERS))
+def test_far_deadline_still_posts_for_either_provider(provider):
+    """A deadline the request comfortably beats must NOT trip a spurious bail;
+    without this the guard above could pass by simply always returning None.
+    """
+    isolated, arm, embed = _PROVIDERS[provider]
+    with isolated() as fake:
+        arm()
+        with vs.embed_deadline(time.monotonic() + 30.0):
+            result = embed()
+        calls = fake.calls
+
+    assert result is not None and len(result) == 1, f"{provider}: dropped a result"
+    assert calls == 1, f"{provider}: expected exactly one request"
+
+
+def test_gemini_abandons_before_retry_backoff_sleep():
+    """The Gemini analogue of the Voyage pre-sleep guards: after a 429 the worker
+    must not sleep out its backoff once that sleep would overrun the deadline.
+    """
+
+    class _Raise429(_CountingUrlopenGemini):
+        def __call__(self, req, timeout=None, context=None):
+            with self._lock:
+                self.calls += 1
+            raise vs.urllib.error.HTTPError(
+                url="http://x",
+                code=429,
+                msg="Too Many Requests",
+                hdrs=None,
+                fp=None,
+            )
+
+    fake = _Raise429()
+    # A 30s backoff makes "did it sleep?" unambiguous; a deadline ~2s out is far
+    # enough that the attempt-0 pre-POST guard passes (the POST fires and gets the
+    # 429) yet close enough that the backoff would overrun it, so the retry guard
+    # is the one under test.
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(mock.patch.object(vs, "_get_gemini_api_key", lambda: "k"))
+        stack.enter_context(mock.patch.object(vs.urllib.request, "urlopen", fake))
+        stack.enter_context(mock.patch.object(vs, "_GEMINI_BASE_BACKOFF", 30.0))
+        started = time.monotonic()
+        with vs.embed_deadline(time.monotonic() + 2.0):
+            result = vs._embed_batch_gemini(["hello"])
+        elapsed = time.monotonic() - started
+        calls = fake.calls
+
+    assert result is None
+    assert calls == 1, "should POST once, hit 429, then bail before retrying"
+    assert elapsed < 2.0, f"should bail before the 30s backoff, took {elapsed:.2f}s"
+
+
+if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
