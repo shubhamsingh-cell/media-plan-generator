@@ -3538,6 +3538,45 @@
 
     <!-- Hero is always visible -- motion comes from hero-evolution.js background -->
 
+    <!-- Marketing homepage visibility (owner-authorized): viewing this page
+         makes no LLM call, so nova-auth-gate.js's full-screen blocking
+         "Sign in with Google" overlay is pure friction that was hiding the
+         new hero on every cold visit. We don't edit nova-auth-gate.js (out
+         of scope) -- instead we pre-seed ITS OWN existing "guest mode" flag
+         (sessionStorage nova_guest_mode) before it runs, so its own init()
+         takes the branch it already has for a returning "preview without
+         signing in" visitor: the non-blocking "Previewing Nova... sign in"
+         top banner, not createGate(). This is a NON-deferred script, so per
+         spec it always finishes before any `defer` script (incl. the auth
+         scripts below) runs -- there is no gate flash to race against.
+         We deliberately do NOT pre-seed when the URL carries an in-flight
+         OAuth callback (an access_token to store, or an error to show) so
+         a real sign-in attempt still completes/fails visibly exactly as
+         before. This only changes what a COLD, unauthenticated visitor sees
+         on first paint -- it changes no auth DECISION. The actual cost gate
+         is server-side and untouched: /api/generate, /api/estimate,
+         /api/chat, /api/chat/stream, and /api/plan/negotiate in app.py each
+         independently require _check_joveo_auth() (a verified @joveo.com
+         session) or _check_admin_auth() or, for same-host calls,
+         _check_same_origin_auth() -- none of which read this sessionStorage
+         flag. An anonymous visitor who clicks through to /media-plan and
+         tries to actually generate a plan still hits the same 401
+         AUTH_REQUIRED wall as before this change. -->
+    <script>
+      (function () {
+        "use strict";
+        try {
+          if (sessionStorage.getItem("nova_guest_mode") === "true") return; // already previewing
+          if (localStorage.getItem("nova_auth_user")) return; // let the real check confirm the cached session
+          var hash = window.location.hash || "";
+          var search = window.location.search || "";
+          if (hash.indexOf("access_token") !== -1) return; // mid OAuth callback -- must be processed for real
+          if ((hash + search).indexOf("error=") !== -1) return; // failed OAuth callback -- show the real error
+          sessionStorage.setItem("nova_guest_mode", "true");
+        } catch (e) {}
+      })();
+    </script>
+
     <!-- Nova Auth: Google Sign-In via Supabase (optional, non-blocking) -->
     <script
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"
