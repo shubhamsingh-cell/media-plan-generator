@@ -310,6 +310,45 @@ def _record_voyage_request() -> None:
         _voyage_request_times.append(time.monotonic())
 
 
+def _voyage_try_reserve_slot() -> bool:
+    """Try (non-blocking) to reserve one slot in the shared Voyage rate window.
+
+    The embedding path (``_embed_uncached_voyage``) and the rerank path
+    (``_rerank_with_voyage``) both draw on ONE per-process budget -- the
+    ``_voyage_request_times`` sliding window bounded by ``_VOYAGE_RPM_LIMIT`` --
+    so the app's *total* request rate to the Voyage account stays under a single
+    self-imposed cap instead of the rerank path bursting with no ceiling at all.
+
+    Atomically (one lock acquire, no TOCTOU gap): prune entries older than 60s;
+    if a slot is free, record this request and return True; if the window is
+    already full, return False WITHOUT recording. A best-effort caller (rerank,
+    which has an immediate keyword-overlap fallback and must not stall the search
+    hot path) can then fall back rather than send and risk a 429. The embedding
+    path enforces the same window inline and instead *waits* for it, because it
+    has no fallback -- but both mutate the same ``_voyage_request_times`` list
+    under ``_voyage_rate_lock``, so the budget is genuinely shared.
+
+    NAMING / MERGE NOTE: a *separate*, cross-process (flock over ``NOVA_SLOT_DIR``)
+    reservation named ``_voyage_acquire_send_slot()`` is being added for the
+    embedding path in an uncommitted sibling worktree (branch
+    ``claude/modest-mclaren-7d5bb6``); it is *blocking* (waits for the window)
+    and uses a different mechanism (flock files, not ``_voyage_request_times``).
+    This helper is deliberately named differently so the two cannot silently
+    shadow each other on merge (two identical ``def`` names can auto-merge with
+    no conflict, and Python would keep the last -- silently giving rerank the
+    blocking flock semantics it must not have). Intended end state: unify both
+    paths on the ONE cross-process primitive, with the rerank call kept
+    NON-BLOCKING. Grep ``_voyage_acquire_send_slot`` to find the counterpart.
+    """
+    now = time.monotonic()
+    with _voyage_rate_lock:
+        _voyage_request_times[:] = [t for t in _voyage_request_times if now - t < 60]
+        if len(_voyage_request_times) >= _VOYAGE_RPM_LIMIT:
+            return False
+        _voyage_request_times.append(now)
+        return True
+
+
 def _get_api_key() -> str | None:
     """Load Voyage API key from environment (cached after first load)."""
     global _VOYAGE_API_KEY
@@ -1568,6 +1607,20 @@ def _rerank_with_voyage(
             },
             method="POST",
         )
+        # Share the embedding path's Voyage rate budget: rerank and embed both
+        # draw on the one per-process _VOYAGE_RPM_LIMIT window, so a rerank burst
+        # cannot push the app's total Voyage request rate over the cap. Rerank is
+        # best-effort with a keyword-overlap fallback, so if the window is full
+        # we decline here rather than stall the search hot path or risk a 429.
+        # (Non-blocking by design -- see _voyage_try_reserve_slot's merge note re:
+        # the incoming cross-process _voyage_acquire_send_slot; rerank must stay
+        # non-blocking when the two are unified.)
+        if not _voyage_try_reserve_slot():
+            logger.info(
+                "Voyage rerank: shared rate window full, "
+                "falling back to keyword overlap"
+            )
+            return None
         with urllib.request.urlopen(
             req, timeout=_VOYAGE_RERANK_TIMEOUT, context=_VOYAGE_SSL_CTX
         ) as resp:
