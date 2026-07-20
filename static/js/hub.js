@@ -1502,11 +1502,16 @@ document.addEventListener("DOMContentLoaded", function () {
     "(prefers-reduced-motion: reduce)",
   ).matches;
 
+  // Per-role recommended channel split (Indeed, LinkedIn, Programmatic,
+  // Niche boards, Social) so the mix visibly shifts by role rather than
+  // staying static -- e.g. CDL Driver leans Indeed/Programmatic/niche with
+  // minimal LinkedIn, Software Engineer leans LinkedIn. Illustrative but
+  // realistic; each row sums to 1.0.
   var ROLES = [
-    { k: "Registered Nurse", cpa: 18, ath: 0.017, days: 31 },
-    { k: "Sales Rep", cpa: 12, ath: 0.012, days: 24 },
-    { k: "CDL Driver", cpa: 9, ath: 0.022, days: 19 },
-    { k: "Software Engineer", cpa: 28, ath: 0.009, days: 42 },
+    { k: "Registered Nurse", cpa: 18, ath: 0.017, days: 31, split: [0.34, 0.10, 0.20, 0.28, 0.08] },
+    { k: "Sales Rep", cpa: 12, ath: 0.012, days: 24, split: [0.30, 0.24, 0.22, 0.12, 0.12] },
+    { k: "CDL Driver", cpa: 9, ath: 0.022, days: 19, split: [0.40, 0.05, 0.30, 0.20, 0.05] },
+    { k: "Software Engineer", cpa: 28, ath: 0.009, days: 42, split: [0.22, 0.34, 0.24, 0.10, 0.10] },
   ];
   var LOCS = [
     { k: "Houston, TX", m: 1.0 },
@@ -1592,11 +1597,12 @@ document.addEventListener("DOMContentLoaded", function () {
       return String(Math.round(v));
     });
 
+    var split = role.split || CH;
     barFills.forEach(function (fill, i) {
-      fill.style.width = (CH[i] * 100).toFixed(1) + "%";
+      fill.style.width = (split[i] * 100).toFixed(1) + "%";
     });
     barAmts.forEach(function (amtEl, i) {
-      animateNumber(amtEl, "amt" + i, readNum(amtEl), budget * CH[i], fmtDollar);
+      animateNumber(amtEl, "amt" + i, readNum(amtEl), budget * split[i], fmtDollar);
     });
 
     // Snap to final values after the count-up window, so the prediction is
@@ -1608,7 +1614,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (appsEl) appsEl.textContent = Math.round(apps).toLocaleString("en-US");
       if (daysEl) daysEl.textContent = String(days);
       barAmts.forEach(function (amtEl, i) {
-        if (amtEl) amtEl.textContent = fmtDollar(budget * CH[i]);
+        if (amtEl) amtEl.textContent = fmtDollar(budget * split[i]);
       });
     }, 900);
   }

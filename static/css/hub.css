@@ -319,7 +319,12 @@ html.lenis body {
 /* ── Navigation ── */
 .nav {
   position: fixed;
-  top: 0;
+  /* Offset below the guest "Previewing Nova" banner when it's present.
+     nova-auth-gate.js pads the body (flow content) but the fixed nav ignores
+     that, so without this the banner (z 999998) paints over the nav (z 100)
+     and clips the logo. --nova-banner-h is kept in sync by an inline script
+     in hub.html (0px when no banner). */
+  top: var(--nova-banner-h, 0px);
   left: 0;
   right: 0;
   z-index: 100;
@@ -567,7 +572,7 @@ html.lenis body {
   object-fit: cover;
   object-position: 50% center;
   z-index: 0;
-  opacity: 0.92;
+  opacity: 0.8;
   pointer-events: none;
   user-select: none;
 }
@@ -582,13 +587,13 @@ html.lenis body {
   background:
     linear-gradient(
       100deg,
-      rgba(8, 8, 15, 0.9) 0%,
-      rgba(8, 8, 15, 0.62) 22%,
-      rgba(8, 8, 15, 0.08) 46%,
-      rgba(8, 8, 15, 0.05) 66%,
-      rgba(8, 8, 15, 0.3) 100%
+      rgba(8, 8, 15, 0.95) 0%,
+      rgba(8, 8, 15, 0.86) 32%,
+      rgba(8, 8, 15, 0.45) 52%,
+      rgba(8, 8, 15, 0.12) 70%,
+      rgba(8, 8, 15, 0.34) 100%
     ),
-    radial-gradient(135% 120% at 52% 42%, transparent 52%, rgba(8, 8, 15, 0.62) 100%);
+    radial-gradient(130% 120% at 56% 45%, transparent 50%, rgba(8, 8, 15, 0.6) 100%);
 }
 /* On stacked/mobile layouts the copy sits above the card, so switch the scrim
    to a top-weighted vertical wash that keeps the headline legible while still
