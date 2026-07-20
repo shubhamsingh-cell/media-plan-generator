@@ -541,19 +541,6 @@ html.lenis body {
   padding: 150px 2rem 96px;
   overflow: hidden;
   z-index: 1;
-  /* Neutralizes a pre-existing bug in motion-engine.js's initParallax():
-     it means to parallax the hero's decorative ::before glow only (see its
-     "Hero glow" comment) but `document.querySelector(".hero::before")`
-     can't select a pseudo-element and silently returns null, so the code
-     falls through to applying `transform: translateY(scrollY * 0.3)` to
-     the ENTIRE #hero section element on every scroll instead -- dragging
-     the whole hero (headline + the live Prediction Engine card, now much
-     taller than the mockup it replaced) down and into the next section as
-     the page scrolls. Out of scope to fix motion-engine.js itself here
-     (not an editable file for this change); this !important guard is the
-     safe, local way to stop it from visibly overlapping the new hero
-     content. Flagged for a proper JS-side fix separately. */
-  transform: none !important;
 }
 /* ── Command deck: copy left, live plan card right ── */
 .hero-stage {

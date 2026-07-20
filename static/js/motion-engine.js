@@ -163,12 +163,18 @@
   (function initParallax() {
     var parallaxEls = [];
 
-    /* Hero glow */
-    var heroGlow = document.querySelector(".hero::before");
-    var heroBefore = document.querySelector(".hero");
-    if (heroBefore) {
-      parallaxEls.push({ el: heroBefore, speed: 0.3, prop: "before" });
-    }
+    /* No hero-glow parallax by design. The glow lives in `.hero::before`, and
+       a pseudo-element cannot be selected or transformed from JS. An earlier
+       attempt used `document.querySelector(".hero::before")`, which always
+       returns null, so it fell through to transforming the whole `.hero`
+       section instead -- dragging the hero's real content (headline, CTAs,
+       live plan card) down into the next section on scroll. This hero's
+       direction is deliberate restraint, so the effect is intentionally
+       dropped rather than reimplemented. If it's ever wanted, drive it with a
+       CSS custom property set on `.hero` here (el.style.setProperty(
+       "--parallax-y", offset + "px")) and read by
+       `.hero::before { transform: translateX(-50%) translateY(var(--parallax-y, 0px)); }`
+       -- never by transforming the `.hero` element itself. */
 
     /* Section labels float up faster */
     document.querySelectorAll(".section-label").forEach(function (el) {
