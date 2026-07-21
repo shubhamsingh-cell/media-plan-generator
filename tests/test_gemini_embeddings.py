@@ -371,3 +371,44 @@ if __name__ == "__main__":
                 _failures += 1
                 print(f"ERROR {_name}: {exc}")
     sys.exit(1 if _failures else 0)
+
+
+# ── /api/deploy/ready embedding observability ────────────────────────────────
+
+
+class _CapturingHandler:
+    """Minimal handler stand-in capturing _send_json_response payloads."""
+
+    def __init__(self):
+        self.payload = None
+        self.status = None
+
+
+def test_deploy_ready_exposes_embedding_block():
+    """The public readiness gate must expose the active embedding space.
+
+    The detailed /api/health is admin-gated (Bug #9), so this block is the
+    only public instrument for verifying a provider cutover: provider, model,
+    dim, model-scoped collection, and the in-memory indexed_documents counter
+    that proves startup indexing filled the new space.
+    """
+    import routes.health as rh
+
+    captured = _CapturingHandler()
+
+    def _fake_send(handler, result, status_code=200):
+        captured.payload = result
+        captured.status = status_code
+
+    with mock.patch.object(rh, "_send_json_response", _fake_send), mock.patch.object(
+        vs, "_index", [{"id": "d1"}, {"id": "d2"}]
+    ), _env("gemini"):
+        rh._handle_deploy_ready(handler=None, path="/api/deploy/ready", parsed=None)
+
+    emb = (captured.payload or {}).get("embedding")
+    assert emb is not None, "readiness payload must carry the embedding block"
+    assert emb["provider"] == "gemini"
+    assert emb["model"] == "gemini-embedding-2"
+    assert emb["dim"] == 768
+    assert emb["collection"] == "nova_knowledge__gemini-embedding-2_768"
+    assert emb["indexed_documents"] == 2

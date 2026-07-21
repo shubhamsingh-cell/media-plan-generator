@@ -1583,6 +1583,26 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
         },
     }
 
+    # Embedding-space observability. The detailed /api/health is admin-gated
+    # (Bug #9), which left provider cutovers unverifiable from outside; these
+    # are public-safe (model names + an in-memory counter, no secrets) and
+    # zero-I/O (config reads + len(), never a Qdrant/API call), so they cannot
+    # slow the readiness probe. indexed_documents is the in-memory vector tier
+    # filled by startup indexing -- it climbing from 0 to the corpus size is
+    # the observable proof that a flipped provider actually built its index.
+    try:
+        import vector_search as _vs
+
+        result["embedding"] = {
+            "provider": _vs.get_embedding_provider(),
+            "model": _vs.get_active_embedding_model(),
+            "dim": _vs._active_vector_dim(),
+            "collection": _vs._active_collection(),
+            "indexed_documents": len(_vs._index),
+        }
+    except Exception:  # noqa: BLE001 -- observability must never break readiness
+        result["embedding"] = {"provider": "unavailable"}
+
     status_code = 200 if is_ready else 503
     _send_json_response(handler, result, status_code)
 

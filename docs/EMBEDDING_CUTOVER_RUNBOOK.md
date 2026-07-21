@@ -70,22 +70,26 @@ against the live-serving Voyage collection).
 
 1. **Deploy landed:** `GET /api/health` — check `version`/deploy timestamp
    flipped to confirm the new instance is serving.
-2. **Provider flip took effect:** the same `/api/health` response embeds the
-   vector-search status under the `vector_search` key
-   (`app.py::_build_health_response` → `routes/health.py::_handle_health` →
-   `vector_search.get_status()`, `vector_search.py` ~line 2862). Confirm:
+2. **Provider flip took effect:** the detailed `/api/health` payload that
+   embeds `vector_search.get_status()` is **admin-gated** (Bug #9: public
+   callers get the minimal status/version body only), so the public
+   instrument is the readiness gate: `GET /api/deploy/ready` carries an
+   `embedding` block (zero-I/O module-state reads, added 2026-07-21):
    ```json
-   "vector_search": {
-     "embedding_provider": "gemini",
-     "embedding_model": "gemini-embedding-2",
-     "embedding_dim": 768,
-     ...
+   "embedding": {
+     "provider": "gemini",
+     "model": "gemini-embedding-2",
+     "dim": 768,
+     "collection": "nova_knowledge__gemini-embedding-2_768",
+     "indexed_documents": 6226
    }
    ```
-   (`get_status()`'s `model`/`embedding_model` both come from
-   `get_active_embedding_model()`, `embedding_dim` from `_active_vector_dim()`
-   — both provider-routed, so this is a live read of what's actually serving,
-   not a config echo.)
+   `provider`/`model`/`dim`/`collection` confirm the flip instantly;
+   `indexed_documents` climbing from 0 to roughly the corpus size (~6.2K
+   chunks) is the proof that startup indexing actually filled the new
+   space -- poll it for a few minutes after the deploy goes ready. (With
+   `ADMIN_API_KEY`, the full `/api/health` shows the same via
+   `vector_search.get_status()`, `vector_search.py` ~line 2862.)
 3. **Live query:** run one real chat/search query against Nova (chat widget
    or `/api/nova/chat`) and confirm a relevant, non-BM25-only-looking answer
    comes back — i.e. the new collection has vectors in it, not just an empty
