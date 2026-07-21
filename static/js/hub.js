@@ -1254,7 +1254,7 @@ window.addEventListener("load", function () {
     "/static/js/hero-evolution.js?v=2.0.0",
     "/static/js/network-graph.js?v=2.0.0",
     "/static/js/role-cycling.js?v=2.0.0",
-    "/static/js/motion-engine.js?v=2.0.0",
+    "/static/js/motion-engine.js?v=2.1.0",
   ];
 
   function loadScript(url) {

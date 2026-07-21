@@ -1,0 +1,77 @@
+{
+  "static/css/buttons.css": {
+    "referrer": "hub.html",
+    "sha256": "863fab4f8b6e0675d3b60ecc0eafaa823e17bec782eb11323df68ede138b51bc",
+    "version": "2.0.0"
+  },
+  "static/css/hub.css": {
+    "referrer": "hub.html",
+    "sha256": "94eed065cc4e48b1cc67892bb413f102863207eebe579c8555d6ca23793409c8",
+    "version": "2.13.0"
+  },
+  "static/css/motion.css": {
+    "referrer": "hub.html",
+    "sha256": "2161d41d4d8ab3f6d1518c0254f4054ab32b328249a7d5a39fccf105d3258f08",
+    "version": "2.0.0"
+  },
+  "static/css/tokens.css": {
+    "referrer": "hub.html",
+    "sha256": "59d2d9158ae9c420e395e2eb5de934f3ed8ecac3cbf1bc1370d3250d44c69a11",
+    "version": "2.0.0"
+  },
+  "static/js/animations.js": {
+    "referrer": "hub.js",
+    "sha256": "1bc06071efbccf50007ba803b7c5f7b5393121682962769872e0406818b9dbc3",
+    "version": "3.0.0"
+  },
+  "static/js/custom-cursor.js": {
+    "referrer": "hub.js",
+    "sha256": "809a8911698ff306ac113f2227033458c7b84e9ab865dc7685d0a4b1f7990590",
+    "version": "2.0.0"
+  },
+  "static/js/hero-evolution.js": {
+    "referrer": "hub.js",
+    "sha256": "8281ec06e4a773bfb79d0c09afb65b95585a73f40a6ec922214c86f887c5d5c9",
+    "version": "2.0.0"
+  },
+  "static/js/hub.js": {
+    "referrer": "hub.html",
+    "sha256": "6890488d2704e47bfc70abd0d26f455e96f8c907c4c24a76683b6a27922fc2db",
+    "version": "2.7.0"
+  },
+  "static/js/motion-engine.js": {
+    "referrer": "hub.js",
+    "sha256": "bcdfeed4b9908a081714727db530c4c1e6910463befa7c12df0c4907762b0794",
+    "version": "2.1.0"
+  },
+  "static/js/network-graph.js": {
+    "referrer": "hub.js",
+    "sha256": "70967f1945d0af1bae95389d0b2d8dae2f3260b3efa4deb8257a08e3f5d5c742",
+    "version": "2.0.0"
+  },
+  "static/js/nova-toast.js": {
+    "referrer": "hub.html",
+    "sha256": "510cb32269fd3544150c63d31e7092c3c09627d9e3dc33458df6976314b62133",
+    "version": "s50"
+  },
+  "static/js/role-cycling.js": {
+    "referrer": "hub.js",
+    "sha256": "02cf24fee1748610cdb5a2db044c115a57d1e9790309f60eb0c3554f50288002",
+    "version": "2.0.0"
+  },
+  "static/nova-auth-gate.js": {
+    "referrer": "hub.html",
+    "sha256": "cf1aea9c81bc476bb14f4330b308028c35ef9ec31ccf6bcf88a1a00e05a940ee",
+    "version": "s50"
+  },
+  "static/nova-auth.js": {
+    "referrer": "hub.html",
+    "sha256": "6109fa1b0608fcc40042568ebf8613f5653103c85deee9f0fe4e882bcf661633",
+    "version": "s50"
+  },
+  "static/nova-chat.js": {
+    "referrer": "hub.js",
+    "sha256": "39a31b1f393135cd026f2b9f339ea57150fbee0894f25855c833f94578c50047",
+    "version": "3.5.4"
+  }
+}

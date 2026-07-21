@@ -189,31 +189,70 @@
 
     if (!parallaxEls.length) return;
 
+    /* Offsets are derived from each element's position relative to the VIEWPORT
+       CENTRE -- never from absolute page scroll. This handler previously used
+       `window.scrollY * speed`, so displacement grew without bound with page
+       depth: a `.section-label` 12000px down the page was dragged ~930px out of
+       place, tearing it clean off its own section. That is the same
+       reference-frame bug that used to drag the whole `.hero` (see the note
+       above). Viewport-relative keeps the offset bounded to roughly
+       (viewportHeight / 2 + elementHeight) * speed no matter how long the page
+       grows, so no parallax target can ever be displaced off its section. */
+    var TRANSLATE_Y = /translateY\(\s*(-?[\d.]+)px\s*\)/;
     var ticking = false;
+
+    function appliedTranslateY(el) {
+      var match = TRANSLATE_Y.exec(el.style.transform || "");
+      return match ? parseFloat(match[1]) : 0;
+    }
+
+    function setTranslateY(el, px) {
+      var next = "translateY(" + px.toFixed(2) + "px)";
+      var current = el.style.transform || "";
+      if (TRANSLATE_Y.test(current)) {
+        el.style.transform = current.replace(TRANSLATE_Y, next);
+      } else {
+        /* Append rather than drop it: a transform with no translateY (e.g. a
+           tilt/scale set elsewhere) would otherwise silently lose the parallax. */
+        el.style.transform = current ? current + " " + next : next;
+      }
+    }
+
+    function updateParallax() {
+      ticking = false;
+      var viewportHeight = window.innerHeight;
+      if (!viewportHeight) return;
+      var viewportCentre = viewportHeight / 2;
+
+      parallaxEls.forEach(function (item) {
+        /* getBoundingClientRect() already reflects the transform we applied last
+           pass, so subtract it back out to recover the element's stable layout
+           position -- otherwise every pass compounds on the previous one. */
+        var applied = appliedTranslateY(item.el);
+        var rect = item.el.getBoundingClientRect();
+        var layoutTop = rect.top - applied;
+        if (layoutTop + rect.height < -200 || layoutTop > viewportHeight + 200)
+          return;
+        setTranslateY(
+          item.el,
+          (layoutTop + rect.height / 2 - viewportCentre) * item.speed,
+        );
+      });
+    }
+
     window.addEventListener(
       "scroll",
       function () {
         if (ticking) return;
         ticking = true;
-        requestAnimationFrame(function () {
-          var scrollY = window.scrollY;
-          parallaxEls.forEach(function (item) {
-            var rect = item.el.getBoundingClientRect();
-            if (rect.bottom < -200 || rect.top > window.innerHeight + 200)
-              return;
-            var offset = scrollY * item.speed;
-            item.el.style.transform = item.el.style.transform
-              ? item.el.style.transform.replace(
-                  /translateY\([^)]*\)/,
-                  "translateY(" + offset + "px)",
-                )
-              : "translateY(" + offset + "px)";
-          });
-          ticking = false;
-        });
+        requestAnimationFrame(updateParallax);
       },
       { passive: true },
     );
+
+    /* Seed correct offsets for whatever is already on screen rather than leaving
+       everything at 0 until the first scroll event fires. */
+    updateParallax();
   })();
 
   /* ═══════════════════════════════════════════
