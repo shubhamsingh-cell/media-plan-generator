@@ -28,6 +28,12 @@ services:
         value: INFO
       - key: RENDER
         value: "true"
+      # Embedding space for Nova vector search. "voyage" = legacy voyage-3-lite
+      # 512-dim (collection nova_knowledge). Flip to "gemini" to serve from
+      # gemini-embedding-2 768-dim (model-scoped collection; self-migrates on
+      # deploy via startup indexing). See docs/EMBEDDING_CUTOVER_RUNBOOK.md.
+      - key: EMBEDDING_PROVIDER
+        value: voyage
       # --- Secrets (set via Render dashboard, not committed) ---
       - key: ADMIN_API_KEY
         sync: false  # Must be set in Render dashboard

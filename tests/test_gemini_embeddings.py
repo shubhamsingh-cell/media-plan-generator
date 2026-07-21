@@ -1,10 +1,18 @@
 """Tests for the Gemini embedding provider path in vector_search (Layer-3 #11).
 
 Covers the EMBEDDING_PROVIDER switch, provider-aware vector dimension
-selection, provider-namespaced cache keys, the Gemini batchEmbedContents
-request/parse/retry behavior, and graceful failure -- all with the network
+selection, provider-namespaced cache keys, model-scoped Qdrant collection
+naming (_active_collection), the Gemini batchEmbedContents
+request/parse/retry behavior (including the outputDimensionality contract
+and response-shape validation), and graceful failure -- all with the network
 mocked (no live API calls). Verifies Voyage stays the default and behaves
 exactly as before when EMBEDDING_PROVIDER != "gemini".
+
+Model lifecycle: the active Gemini model is gemini-embedding-2.
+text-embedding-004 was shut down 2026-01-14 and gemini-embedding-001's
+documented shutdown date was 2026-07-14 -- both predecessor models are dead,
+which is why the active model and its assertions below target
+gemini-embedding-2, not either retired name.
 
 Runs under pytest, or standalone: ``python3 tests/test_gemini_embeddings.py``.
 """
@@ -78,7 +86,7 @@ def test_default_provider_is_voyage():
 def test_gemini_provider_selected():
     with _env("gemini"):
         assert vs.get_embedding_provider() == "gemini"
-        assert vs.get_active_embedding_model() == "text-embedding-004"
+        assert vs.get_active_embedding_model() == "gemini-embedding-2"
         assert vs._active_vector_dim() == 768
 
 
@@ -136,6 +144,27 @@ def test_collection_created_at_voyage_dim():
     assert captured["body"]["vectors"]["size"] == 512
 
 
+# ── Qdrant collection is scoped per embedding space ──────────────────────────
+
+
+def test_active_collection_voyage_is_legacy_name():
+    # Voyage keeps the bare legacy name -- it's the collection production has
+    # always served from; renaming it would force a needless reindex.
+    with _env("voyage"):
+        assert vs._active_collection() == "nova_knowledge"
+
+
+def test_active_collection_gemini_is_model_scoped():
+    with _env("gemini"):
+        assert vs._active_collection() == "nova_knowledge__gemini-embedding-2_768"
+
+        # A future model succession (GEMINI_EMBED_MODEL=<new>) must
+        # auto-scope a brand new collection name, so it can never collide
+        # with -- or overwrite -- the previous model's serving collection.
+        with mock.patch.object(vs, "_GEMINI_EMBED_MODEL", "gemini-embedding-3"):
+            assert "gemini-embedding-3" in vs._active_collection()
+
+
 # ── Cache keys are namespaced by provider/model ──────────────────────────────
 
 
@@ -163,10 +192,73 @@ def test_embed_batch_gemini_parses_vectors():
 
     assert out == fake_vectors
     # Key must be passed via the ?key= query param (Google convention),
-    # and the model must be text-embedding-004.
+    # and the model must be gemini-embedding-2.
     sent_req = m.call_args.args[0]
     assert "batchEmbedContents?key=test-key" in sent_req.full_url
-    assert "text-embedding-004" in sent_req.full_url
+    assert "gemini-embedding-2" in sent_req.full_url
+
+
+def test_gemini_payload_requests_output_dimensionality():
+    """Every request entry must ask for 768-dim output at the right model.
+
+    outputDimensionality is what keeps gemini-embedding-2's native 3072-dim
+    vectors down to the 768-dim the Qdrant collection is created at --
+    dropping this field would silently poison the index with wide vectors.
+    """
+    captured = {}
+
+    def _fake_urlopen(req, timeout=None, context=None):
+        captured["body"] = json.loads(req.data.decode("utf-8"))
+        return _FakeResp(_gemini_embeddings_payload([[0.1] * 768, [0.2] * 768]))
+
+    with _env("gemini"), mock.patch.dict(
+        "os.environ", {"GEMINI_API_KEY": "test-key"}, clear=False
+    ), mock.patch.object(vs.urllib.request, "urlopen", side_effect=_fake_urlopen):
+        out = vs._embed_batch_gemini(["a", "b"])
+
+    assert out == [[0.1] * 768, [0.2] * 768]
+    requests_sent = captured["body"]["requests"]
+    assert len(requests_sent) == 2
+    for entry in requests_sent:
+        assert entry["outputDimensionality"] == 768
+        assert entry["model"] == "models/gemini-embedding-2"
+
+
+def test_gemini_wrong_dim_response_rejected():
+    """A response at the model's native 3072 dim (outputDimensionality
+    ignored/renamed upstream) must be refused, not cached or upserted --
+    mixing dims in one collection corrupts search.
+    """
+    with _env("gemini"), mock.patch.dict(
+        "os.environ", {"GEMINI_API_KEY": "k"}, clear=False
+    ), mock.patch.object(
+        vs.urllib.request,
+        "urlopen",
+        return_value=_FakeResp(_gemini_embeddings_payload([[0.1] * 3072])),
+    ):
+        assert vs._embed_batch_gemini(["a"]) is None
+
+    # Through embed_batch, the rejection must also mean nothing gets written
+    # into the disk cache (the wrong-dim vector never reaches that code path).
+    with _env("gemini"), mock.patch.dict(
+        "os.environ", {"GEMINI_API_KEY": "k"}, clear=False
+    ), _no_cache(), mock.patch.object(vs, "_embed_batch_gemini", return_value=None):
+        assert vs.embed_batch(["hello"]) is None
+        vs._cache_put_locked.assert_not_called()
+
+
+def test_gemini_count_mismatch_rejected():
+    # Asked for 3 texts, Gemini returns only 2 embeddings back (each at the
+    # correct 768 dim) -- a count mismatch is its own contract violation,
+    # independent of the dim check, and must also fail closed to None.
+    with _env("gemini"), mock.patch.dict(
+        "os.environ", {"GEMINI_API_KEY": "k"}, clear=False
+    ), mock.patch.object(
+        vs.urllib.request,
+        "urlopen",
+        return_value=_FakeResp(_gemini_embeddings_payload([[0.1] * 768, [0.2] * 768])),
+    ):
+        assert vs._embed_batch_gemini(["a", "b", "c"]) is None
 
 
 def test_embed_batch_gemini_no_key_returns_none():
@@ -261,7 +353,7 @@ def test_status_reports_provider_and_dim():
     with _env("gemini"):
         st = vs.get_status()
     assert st["embedding_provider"] == "gemini"
-    assert st["embedding_model"] == "text-embedding-004"
+    assert st["embedding_model"] == "gemini-embedding-2"
     assert st["embedding_dim"] == 768
 
 

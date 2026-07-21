@@ -1,21 +1,30 @@
 #!/usr/bin/env python3
 """Re-embed the Nova knowledge base into Qdrant with the selected provider.
 
-Layer-3 #11: this script (re)builds the Qdrant ``nova_knowledge`` collection
-using whichever embedding provider EMBEDDING_PROVIDER selects:
+Layer-3 #11: this script (re)builds the ACTIVE embedding space's Qdrant
+collection (see vector_search._active_collection) using whichever embedding
+provider EMBEDDING_PROVIDER selects:
 
-    EMBEDDING_PROVIDER=voyage  (default)  -> voyage-3-lite, 512-dim
-    EMBEDDING_PROVIDER=gemini             -> text-embedding-004, 768-dim
+    EMBEDDING_PROVIDER=voyage  (default)  -> voyage-3-lite, 512-dim,
+                                              collection "nova_knowledge"
+    EMBEDDING_PROVIDER=gemini             -> gemini-embedding-2, 768-dim,
+                                              collection
+                                              "nova_knowledge__gemini-embedding-2_768"
 
-Because Voyage and Gemini live in different embedding spaces *and* produce
-vectors of different dimension, switching provider requires recreating the
-Qdrant collection at the matching dimension and re-embedding every chunk --
-you cannot mix vectors from the two providers in one collection. This script
-does that end to end:
+Each embedding space owns its own, model+dim-scoped collection (Voyage keeps
+the legacy bare name; every other space is name-scoped by model + dimension),
+so switching EMBEDDING_PROVIDER never touches another space's collection --
+recreate mode only ever drops the ACTIVE space's collection, never the one
+another provider is still serving from. Because Voyage and Gemini live in
+different embedding spaces *and* produce vectors of different dimension, you
+still cannot mix vectors from the two providers in one collection, but you
+also can no longer destroy the live Voyage serving collection by running this
+script with EMBEDDING_PROVIDER=gemini. This script does the (re)build end to
+end:
 
     1. Extract KB text chunks (reuses vector_search.index_knowledge_base's
        file list + chunker so the corpus matches what the app indexes).
-    2. (Re)create the Qdrant collection at the active provider's dimension.
+    2. (Re)create the active collection at the active provider's dimension.
        By default the collection is recreated (DELETE + PUT) so a leftover
        collection at the wrong dimension can't reject upserts; pass
        --no-recreate to keep an existing same-dim collection in place.
@@ -142,7 +151,7 @@ def _recreate_collection(dim: int, recreate: bool) -> bool:
         )
         return False
 
-    collection = vs._QDRANT_COLLECTION
+    collection = vs._active_collection()
 
     if recreate:
         logger.info("Deleting collection '%s' (recreate mode)", collection)
@@ -258,7 +267,7 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("=" * 64)
     logger.info("Reindex: provider=%s model=%s dim=%d", provider, model, dim)
     logger.info(
-        "Collection=%s recreate=%s", vs._QDRANT_COLLECTION, not args.no_recreate
+        "Collection=%s recreate=%s", vs._active_collection(), not args.no_recreate
     )
     logger.info("=" * 64)
 
@@ -286,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
         embedded,
         len(documents),
         upserted,
-        vs._QDRANT_COLLECTION,
+        vs._active_collection(),
         provider,
         dim,
     )

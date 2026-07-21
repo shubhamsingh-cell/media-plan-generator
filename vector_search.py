@@ -31,20 +31,24 @@ the Nova knowledge base.
 Embedding provider switch:
     EMBEDDING_PROVIDER selects which embedding backend to use:
         "voyage" (default)  -- Voyage AI voyage-3-lite, 512-dim (existing path)
-        "gemini"            -- Google Gemini text-embedding-004, 768-dim (free,
-                               reuses the GEMINI_API_KEY already in the stack)
-    The two models live in *different* embedding spaces and produce vectors of
-    different dimension, so switching provider requires reindexing Qdrant at the
-    matching dimension. Run scripts/reindex_embeddings.py after changing the
-    provider. Voyage remains the default for safety -- nothing changes unless
-    EMBEDDING_PROVIDER is explicitly set to "gemini".
+        "gemini"            -- Google gemini-embedding-2 (GEMINI_EMBED_MODEL
+                               overridable), 768-dim via outputDimensionality,
+                               reuses the GEMINI_API_KEY already in the stack
+    Each embedding model lives in its own vector space, so each space owns its
+    own Qdrant collection (see _active_collection): Voyage serves from the
+    legacy "nova_knowledge", Gemini from a model+dim-scoped name. Flipping the
+    provider therefore never touches the other space's collection -- startup
+    indexing (index_knowledge_base) fills the new space's collection on the
+    next deploy, and rollback is just reverting the env var. Voyage remains
+    the default -- nothing changes unless EMBEDDING_PROVIDER is set to
+    "gemini".
 
 APIs:
     Voyage AI: POST https://api.voyageai.com/v1/embeddings
     Gemini:    POST https://generativelanguage.googleapis.com/v1beta/models/
-               text-embedding-004:batchEmbedContents?key=GEMINI_API_KEY
-    Qdrant:    REST API at QDRANT_URL (collection: nova_knowledge, cosine; dim
-               depends on the active embedding provider -- 512 voyage / 768 gemini)
+               {GEMINI_EMBED_MODEL}:batchEmbedContents?key=GEMINI_API_KEY
+    Qdrant:    REST API at QDRANT_URL (collection + dim depend on the active
+               embedding space -- see _active_collection/_active_vector_dim)
 
 Env vars:
     EMBEDDING_PROVIDER -- "voyage" (default) or "gemini"
@@ -217,8 +221,20 @@ def get_embedding_provider() -> str:
 # Gemini's embedding model is reached via the same generativelanguage.googleapis
 # endpoint family that llm_router.py uses for chat, authenticated with
 # GEMINI_API_KEY passed as a ?key= query param (Google's convention).
-_GEMINI_EMBED_MODEL = os.environ.get("GEMINI_EMBED_MODEL") or "text-embedding-004"
-_GEMINI_EMBED_DIM = 768  # text-embedding-004 produces 768-dim vectors
+#
+# Model lifecycle (verified against ai.google.dev deprecations/changelog,
+# 2026-07-21): text-embedding-004 was SHUT DOWN 2026-01-14 and
+# gemini-embedding-001's documented shutdown date was 2026-07-14 -- both fail
+# or are failing today. gemini-embedding-2 (GA 2026-04-22) is the current
+# model; Google recommends 768 dims ("near-peak quality, 1/4 the storage" of
+# its native 3072) and auto-normalizes truncated dims, which cosine similarity
+# is insensitive to anyway. When Google ships a successor, set
+# GEMINI_EMBED_MODEL=<new model> and redeploy: the Qdrant collection name and
+# the embed-cache namespace both derive from the model string, so the new
+# space gets its own collection and cache, startup indexing fills them, and
+# rollback is unsetting the env var. Model succession is config, not surgery.
+_GEMINI_EMBED_MODEL = os.environ.get("GEMINI_EMBED_MODEL") or "gemini-embedding-2"
+_GEMINI_EMBED_DIM = 768  # requested via outputDimensionality; validated on response
 _GEMINI_EMBED_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 _GEMINI_EMBED_TIMEOUT = 20  # seconds
 _GEMINI_MAX_BATCH = 100  # Gemini batchEmbedContents accepts up to 100 requests
@@ -239,9 +255,10 @@ def get_active_embedding_model() -> str:
 def _active_vector_dim() -> int:
     """Return the Qdrant vector dimension for the active embedding provider.
 
-    Voyage voyage-3-lite is 512-dim; Gemini text-embedding-004 is 768-dim. The
-    Qdrant collection must be (re)created at this dimension -- mismatched dims
-    are rejected by Qdrant on upsert.
+    Voyage voyage-3-lite is 512-dim; the Gemini path requests
+    _GEMINI_EMBED_DIM (768) via outputDimensionality. The Qdrant collection
+    must be (re)created at this dimension -- mismatched dims are rejected by
+    Qdrant on upsert.
     """
     if get_embedding_provider() == EMBEDDING_PROVIDER_GEMINI:
         return _GEMINI_EMBED_DIM
@@ -308,6 +325,30 @@ _QDRANT_URL: str = os.environ.get("QDRANT_URL") or ""
 _QDRANT_API_KEY: str = os.environ.get("QDRANT_API_KEY") or ""
 _QDRANT_COLLECTION = "nova_knowledge"
 _QDRANT_VECTOR_DIM = 512  # Voyage AI voyage-3-lite produces 512-dim vectors
+
+
+def _active_collection() -> str:
+    """Return the Qdrant collection name for the active embedding space.
+
+    Different embedding models live in different vector spaces (and often
+    different dimensions), so each space gets its OWN collection -- switching
+    EMBEDDING_PROVIDER (or GEMINI_EMBED_MODEL) must never write into, or
+    destroy, the collection another space is serving from.
+
+    Voyage keeps the legacy bare name because it is the collection production
+    has always served from -- renaming it would force an immediate reindex of
+    the live path for zero benefit. Every non-Voyage space gets a name scoped
+    by model + dimension, so:
+      * flipping to Gemini creates/fills a fresh collection while the Voyage
+        one stays intact -- rollback is an env revert, not a re-embed;
+      * a future model succession (GEMINI_EMBED_MODEL=<new>) auto-scopes a new
+        collection and can never collide with the previous space.
+    """
+    if get_embedding_provider() == EMBEDDING_PROVIDER_GEMINI:
+        return f"{_QDRANT_COLLECTION}__{_GEMINI_EMBED_MODEL}_{_GEMINI_EMBED_DIM}"
+    return _QDRANT_COLLECTION
+
+
 _QDRANT_TIMEOUT = 15  # seconds
 _qdrant_available: bool = False  # set True after successful collection create/verify
 _qdrant_lock = threading.Lock()
@@ -955,10 +996,13 @@ def _qdrant_ensure_collection() -> bool:
 
     Uses PUT with on_existing=skip to be idempotent. Sets up cosine
     distance with the correct vector dimension for the *active* embedding
-    provider (512 for Voyage voyage-3-lite, 768 for Gemini
-    text-embedding-004). Note: this does NOT recreate a collection that
-    already exists at a different dimension -- use
-    scripts/reindex_embeddings.py for a clean provider switch.
+    provider (512 for Voyage voyage-3-lite, _GEMINI_EMBED_DIM for Gemini),
+    against the *active* collection (_active_collection) -- each embedding
+    space owns its own collection, so a provider switch creates a fresh one
+    and never mutates the collection another space serves from. A dim
+    mismatch inside one space's own collection can therefore only happen if
+    the model's dim constant changes without a model rename; use
+    scripts/reindex_embeddings.py to rebuild in that case.
 
     Returns:
         True if collection exists or was created, False on failure.
@@ -968,17 +1012,19 @@ def _qdrant_ensure_collection() -> bool:
     if not _qdrant_is_configured():
         return False
 
+    collection = _active_collection()
+
     # Check if collection already exists
-    check = _qdrant_request("GET", f"/collections/{_QDRANT_COLLECTION}")
+    check = _qdrant_request("GET", f"/collections/{collection}")
     if check and check.get("result"):
         _qdrant_available = True
-        logger.info("Qdrant collection '%s' already exists", _QDRANT_COLLECTION)
+        logger.info("Qdrant collection '%s' already exists", collection)
         return True
 
     # Create collection at the active provider's dimension
     result = _qdrant_request(
         "PUT",
-        f"/collections/{_QDRANT_COLLECTION}",
+        f"/collections/{collection}",
         body={
             "vectors": {
                 "size": _active_vector_dim(),
@@ -988,10 +1034,10 @@ def _qdrant_ensure_collection() -> bool:
     )
     if result is not None:
         _qdrant_available = True
-        logger.info("Qdrant collection '%s' created successfully", _QDRANT_COLLECTION)
+        logger.info("Qdrant collection '%s' created successfully", collection)
         return True
 
-    logger.warning("Failed to create Qdrant collection '%s'", _QDRANT_COLLECTION)
+    logger.warning("Failed to create Qdrant collection '%s'", collection)
     return False
 
 
@@ -1019,7 +1065,7 @@ def _qdrant_upsert_points(
         batch = points[i : i + batch_size]
         result = _qdrant_request(
             "PUT",
-            f"/collections/{_QDRANT_COLLECTION}/points",
+            f"/collections/{_active_collection()}/points",
             body={"points": batch},
             timeout=30,  # larger batches need more time
         )
@@ -1037,7 +1083,8 @@ def _qdrant_search(
     """Search Qdrant collection for nearest neighbors.
 
     Args:
-        query_vector: Query embedding vector (1024-dim for voyage-3-lite).
+        query_vector: Query embedding vector at the active provider's
+            dimension (see _active_vector_dim).
         top_k: Number of results to return.
 
     Returns:
@@ -1049,7 +1096,7 @@ def _qdrant_search(
 
     result = _qdrant_request(
         "POST",
-        f"/collections/{_QDRANT_COLLECTION}/points/search",
+        f"/collections/{_active_collection()}/points/search",
         body={
             "vector": query_vector,
             "limit": top_k,
@@ -1155,18 +1202,21 @@ def _get_gemini_api_key() -> str | None:
 
 
 def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
-    """Embed a list of texts via Gemini text-embedding-004.
+    """Embed a list of texts via the active Gemini embedding model.
 
-    Uses the batchEmbedContents endpoint (up to 100 inputs per call), with the
-    same graceful-failure contract as the Voyage path: returns None on any
-    failure so callers fall back to BM25/TF-IDF. Retries on 429/SSL with
-    exponential backoff.
+    Uses the batchEmbedContents endpoint (up to 100 inputs per call) against
+    _GEMINI_EMBED_MODEL (default gemini-embedding-2), requesting
+    _GEMINI_EMBED_DIM-wide vectors via outputDimensionality and validating
+    that width on every response. Same graceful-failure contract as the
+    Voyage path: returns None on any failure so callers fall back to
+    BM25/TF-IDF. Retries on 429/SSL with exponential backoff.
 
     Args:
         texts: Texts to embed (already truncated by the caller).
 
     Returns:
-        List of 768-dim vectors (one per input, order preserved), or None.
+        List of _GEMINI_EMBED_DIM-dim vectors (one per input, order
+        preserved), or None.
     """
     api_key = _get_gemini_api_key()
     if not api_key:
@@ -1194,6 +1244,17 @@ def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
                 {
                     "model": model_path,
                     "content": {"parts": [{"text": t}]},
+                    # gemini-embedding-2's native dim is 3072; request 768
+                    # (Google-recommended, auto-normalized) so vectors match
+                    # the Qdrant collection. The flat field is the deprecated-
+                    # but-documented spelling that batchEmbedContents has
+                    # always accepted; the config-nested spelling is newer and
+                    # its acceptance on the batch endpoint is unverified, so we
+                    # deliberately use the flat one. If Google ever drops it,
+                    # the response-dim validation below fails loudly into the
+                    # BM25 fallback instead of poisoning cache/index with
+                    # 3072-dim vectors.
+                    "outputDimensionality": _GEMINI_EMBED_DIM,
                 }
                 for t in batch
             ]
@@ -1231,6 +1292,30 @@ def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
                 # batchEmbedContents returns {"embeddings": [{"values": [...]}]}
                 embeddings_data = api_result.get("embeddings") or []
                 batch_vectors = [(e.get("values") or []) for e in embeddings_data]
+
+                # Hard guarantee on the embedding-space contract: every vector
+                # must be exactly _GEMINI_EMBED_DIM wide. If the API ever
+                # ignores outputDimensionality (field renamed, model default
+                # changed), vectors would come back at the model's native dim,
+                # and caching or upserting them would poison the model-scoped
+                # cache namespace and the dim-sized Qdrant collection. Failing
+                # to None here instead drops the caller into the BM25/TF-IDF
+                # fallback -- degraded but correct, and loudly logged.
+                bad_dim = next(
+                    (len(v) for v in batch_vectors if len(v) != _GEMINI_EMBED_DIM),
+                    None,
+                )
+                if bad_dim is not None or len(batch_vectors) != len(batch):
+                    logger.error(
+                        "Gemini embed contract violation: got %d vectors for "
+                        "%d inputs, unexpected dim %s (want %d) -- refusing "
+                        "batch so cache/index stay clean",
+                        len(batch_vectors),
+                        len(batch),
+                        bad_dim,
+                        _GEMINI_EMBED_DIM,
+                    )
+                    return None
                 break  # success
             except urllib.error.HTTPError as e:
                 if e.code == 429 and attempt < _GEMINI_MAX_RETRIES:
@@ -1787,7 +1872,7 @@ def build_index(documents: list[dict]) -> None:
                     logger.info(
                         "Qdrant: upserted %d vectors into '%s'",
                         _qdrant_index_count,
-                        _QDRANT_COLLECTION,
+                        _active_collection(),
                     )
                 else:
                     logger.warning("Qdrant: partial or full upsert failure")

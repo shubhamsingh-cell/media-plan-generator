@@ -123,9 +123,19 @@ bump · architecture design doc · **keystone accessor** `get_real_outcomes()` �
   #4 KB gap-fill · #5 structured-output primitive · #6 typed schema · #7 excel
   provenance · #10 MCP server · #13 eval gate (**now also runs in CI** + pytest
   suite in CI) · #14 agentic DESIGN · #16 keystone
-- 🟡 #11 Gemini embeddings — CODE done; **needs you**: Qdrant write creds, then
-  run `EMBEDDING_PROVIDER=gemini python3 scripts/reindex_embeddings.py` and set
-  `EMBEDDING_PROVIDER=gemini` in Render env (kills Nova's 10-RPM search wall).
+- ✅ #11 Gemini embeddings — CODE done + RETARGETED. The prior instruction
+  here (reindex script + set env in Render dashboard) is **superseded and was
+  DANGEROUS as written**: it targeted `text-embedding-004`, which Google shut
+  down 2026-01-14, and — before the collection-scoping fix below — a
+  `EMBEDDING_PROVIDER=gemini` reindex run would have dropped the live Voyage
+  serving collection. New state: `vector_search.py` now targets
+  `gemini-embedding-2` (current GA model) with **model-scoped Qdrant
+  collections** (`_active_collection()` — Voyage keeps `nova_knowledge`,
+  Gemini gets its own `nova_knowledge__gemini-embedding-2_768`), and startup
+  indexing self-migrates the new space on deploy. The flip is now a
+  **one-word `render.yaml` change** (`EMBEDDING_PROVIDER: voyage` → `gemini`)
+  — no Qdrant shell/dashboard work needed. See
+  `docs/EMBEDDING_CUTOVER_RUNBOOK.md` for the full how/verify/rollback.
 - ⏳ REMAINING build work (no user needed; do next session):
   - **#12 true Nova streaming** — deferred (riskiest); do solo behind a flag with
     fallback to the current simulated path.
@@ -163,8 +173,9 @@ bump · architecture design doc · **keystone accessor** `get_real_outcomes()` �
     the flag per `docs/AGENTIC_GENERATION_DESIGN.md`.
 
 ## 6. What's needed from the user
-1. **Qdrant write credentials** → run the Gemini-embeddings reindex
-   (`scripts/reindex_embeddings.py`). Unblocks Nova's search speed (#11).
+1. ~~Qdrant write credentials → run the Gemini-embeddings reindex~~ —
+   **superseded**: #11 now self-migrates via startup indexing on deploy, no
+   manual reindex or Qdrant creds needed. See `docs/EMBEDDING_CUTOVER_RUNBOOK.md`.
 2. **#8 ownership decision** (NEW 2026-06-13) → which system owns the
    `cg_*` upload→`cg_benchmarks` transform (incl. its revenue/multiplier model +
    client mapping) and its refresh entrypoint. MPG can only *trigger* it, not
