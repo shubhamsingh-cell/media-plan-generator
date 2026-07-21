@@ -500,6 +500,20 @@ class TestTier3VoyageRerankerUnit:
     in the test environment.
     """
 
+    @pytest.fixture(autouse=True)
+    def _isolated_voyage_rate_window(self, tmp_path, monkeypatch):
+        """Point the cross-process Voyage rate window at a private empty dir.
+
+        These tests assert the Voyage SUCCESS path. The rerank limiter is
+        non-blocking: when the shared per-model window is full it declines
+        and falls back to keyword overlap, so on a fast full-suite run the
+        window filled by earlier tests starves these into returning the
+        fallback (observed as a ship-gate failure on 2026-07-21).
+        _voyage_rate_slot_dir() reads NOVA_SLOT_DIR at call time precisely
+        to allow this isolation.
+        """
+        monkeypatch.setenv("NOVA_SLOT_DIR", str(tmp_path))
+
     SAMPLE_RESULTS = [
         {"text": "linkedin cpc benchmarks 2026", "score": 0.5},
         {"text": "indeed performance metrics in healthcare", "score": 0.5},
