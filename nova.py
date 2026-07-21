@@ -3952,6 +3952,26 @@ _INDUSTRY_KEYWORDS: Dict[str, List[str]] = {
     "government": ["government", "federal", "military", "defense", "public sector"],
 }
 
+# Hardcoded fallback summaries for Nova's platform-comparison chat.
+# Fallback display only: served when the KB lacks the platform (Glassdoor --
+# no standalone by_platform entry; its job ads run on Indeed's CPC engine
+# since the Sept-2025 Indeed/Glassdoor consolidation) or when the whole KB
+# failed to load. HONESTY CONTRACT: every dollar figure below must literally
+# appear in the cited data/recruitment_industry_knowledge.json
+# benchmarks.cost_per_click.by_platform entry the summary stands in for, and
+# platforms with no KB entry must carry no dollar figures at all --
+# tests/test_nova_platform_comparison_honesty.py enforces both mechanically,
+# so a KB refresh that leaves this dict stale (or an uncited number added
+# here) fails CI.
+_PLATFORM_FALLBACK_SUMMARIES: Dict[str, str] = {
+    "Indeed": "- CPC Range: $0.97-$2.71 (typical US-role band; full spread ~$0.10-$5.00+)\n- Model: CPC auction (Sponsored Jobs)\n- Best For: High-volume hiring across all roles\n- Reach: Largest job site globally",
+    "LinkedIn": "- CPC Range: $1.50-$4.50 (Promoted Jobs)\n- Model: CPC/pay-per-view auction\n- Best For: White-collar, professional, executive roles\n- Reach: Largest professional network",
+    "ZipRecruiter": "- Model: Subscription-based ($299/month per job slot)\n- Estimated CPC Equivalent: $0.80-$1.00\n- Best For: SMB hiring, broad role types\n- Reach: Strong US coverage",
+    "Glassdoor": "- CPC: No standalone rate -- Glassdoor job ads run on Indeed's CPC engine since the Sept-2025 Indeed/Glassdoor consolidation\n- Model: Sponsored via Indeed (plan Glassdoor through your Indeed line)\n- Best For: Employer brand-driven hiring",
+    "Google Ads": "- CPC: $5.26 average across industries; est. $3.00-$5.00 for employment services (WordStream/LOCALiQ 2025)\n- Model: PPC auction\n- Best For: Programmatic reach, candidate capture\n- Reach: Broadest search traffic",
+    "Meta/Facebook": "- CPC: $1.11 global median across objectives; career/employment lead ads $0.86 (WordStream/LOCALiQ 2025, Triple Whale)\n- Model: Social PPC\n- Best For: Hourly, local, blue-collar roles\n- Reach: Mobile-first social scale",
+}
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # JOVEO IQ ENGINE
@@ -23191,28 +23211,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                                 f"  - {fk.replace('_', ' ').title()}: {fv}"
                             )
                     else:
-                        # Provide hardcoded platform summaries.
-                        # Fallback display only (fires when the KB lacks the
-                        # platform or failed to load). Indeed/LinkedIn CPC
-                        # bands mirror the cited July-2026 refresh in
-                        # data/recruitment_industry_knowledge.json
-                        # benchmarks.cost_per_click.by_platform -- keep in
-                        # sync with that file's provenance notes. Glassdoor
-                        # always lands here (no standalone by_platform entry
-                        # -- jobs run on Indeed's CPC engine since the
-                        # Sept-2025 consolidation); ZipRecruiter/Google Ads
-                        # only when the whole KB failed to load. Every summary
-                        # must agree with the KB/seed cited entries it stands
-                        # in for, never contradict them.
-                        _platform_summaries = {
-                            "Indeed": "- CPC Range: $0.97-$2.71 (typical US-role band; full spread ~$0.10-$5.00+)\n- Model: CPC auction (Sponsored Jobs)\n- Best For: High-volume hiring across all roles\n- Reach: Largest job site globally",
-                            "LinkedIn": "- CPC Range: $1.50-$4.50 (Promoted Jobs)\n- Model: CPC/pay-per-view auction\n- Best For: White-collar, professional, executive roles\n- Reach: Largest professional network",
-                            "ZipRecruiter": "- Model: Subscription-based ($299/month per job slot)\n- Estimated CPC Equivalent: $0.80-$1.00\n- Best For: SMB hiring, broad role types\n- Reach: Strong US coverage",
-                            "Glassdoor": "- CPC: No standalone rate -- Glassdoor job ads run on Indeed's CPC engine since the Sept-2025 Indeed/Glassdoor consolidation\n- Model: Sponsored via Indeed (plan Glassdoor through your Indeed line)\n- Best For: Employer brand-driven hiring",
-                            "Google Ads": "- CPC: $5.26 average across industries; est. $3.00-$5.00 for employment services (WordStream/LOCALiQ 2025)\n- Model: PPC auction\n- Best For: Programmatic reach, candidate capture\n- Reach: Broadest search traffic",
-                            "Meta/Facebook": "- CPC Range: $0.50-$2.50\n- Model: Social PPC\n- Best For: Hourly, local, blue-collar roles\n- Reach: 3B+ users, mobile-first",
-                        }
-                        summary = _platform_summaries.get(
+                        # Fallback display -- see the honesty contract on
+                        # _PLATFORM_FALLBACK_SUMMARIES (module level).
+                        summary = _PLATFORM_FALLBACK_SUMMARIES.get(
                             pm, f"- Contact Joveo for detailed {pm} benchmarks"
                         )
                         for line in summary.split("\n"):

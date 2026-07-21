@@ -31,6 +31,7 @@ Runs under pytest, or standalone:
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -112,6 +113,76 @@ def test_fallback_summaries_pinned_to_kb_strings():
     resp2 = n._chat_rule_based("indeed vs ziprecruiter")["response"]
     assert bp["indeed"]["average_cpc_range"] in resp2
     assert bp["ziprecruiter"]["estimated_cpc_equivalent"] in resp2
+
+    resp3 = n._chat_rule_based("indeed vs facebook")["response"]
+    assert bp["meta_facebook_ads"]["global_median_cpc_all_objectives"] in resp3
+
+
+# Maps each fallback summary to the KB by_platform entry its dollar figures
+# must trace to. None = the platform deliberately has no KB entry (Glassdoor:
+# job ads run on Indeed's CPC engine since the Sept-2025 consolidation), so
+# its summary must carry no dollar figures at all.
+_FALLBACK_KB_KEYS = {
+    "Indeed": "indeed",
+    "LinkedIn": "linkedin",
+    "ZipRecruiter": "ziprecruiter",
+    "Glassdoor": None,
+    "Google Ads": "google_search_ads",
+    "Meta/Facebook": "meta_facebook_ads",
+}
+
+# Magnitude suffixes ([kKmMbB]) are captured INTO the token so "$5K" must
+# match "$5K" in the KB (it won't) rather than degrading to "$5" and
+# false-passing against e.g. indeed's "$5.00+".
+_DOLLAR_TOKEN = re.compile(
+    r"\$\d[\d,]*(?:\.\d+)?(?:-\$\d[\d,]*(?:\.\d+)?)?\+?[kKmMbB]?"
+)
+
+
+def test_every_fallback_dollar_figure_traces_to_cited_kb_entry():
+    """Generalized no-fabrication guard: every dollar figure in every
+    hardcoded fallback summary must literally appear in the cited KB
+    by_platform entry it stands in for; platforms without a KB entry must
+    be number-free. Adding an uncited number to the fallback dict, or
+    refreshing a KB band without updating the fallback, fails here --
+    this is what makes the honesty contract permanent rather than a
+    one-time cleanup.
+
+    Documented residual blind spots (accepted: '$'-prefixed figures are
+    the fabrication class that actually shipped before): non-'$' forms
+    ('USD 5', bare '0.86'), percentages ('0.47%'), and malformed shapes
+    ('$.50', '$ 5'). Provenance is platform-scoped, not field-scoped: a
+    figure lifted from a different sub-field of the SAME platform's entry
+    would pass -- the guard proves the number exists in the cited entry,
+    not that the prose around it is semantically exact."""
+    kb = _real_kb()
+    bp = kb["benchmarks"]["cost_per_click"]["by_platform"]
+    summaries = nova._PLATFORM_FALLBACK_SUMMARIES
+
+    # A new platform added to the dict must be classified here first.
+    assert set(summaries) == set(_FALLBACK_KB_KEYS), (
+        "platform added/removed in _PLATFORM_FALLBACK_SUMMARIES without "
+        "updating this test's KB-key map -- classify it (KB key or None) "
+        "and cite its figures"
+    )
+
+    for platform, summary in summaries.items():
+        tokens = _DOLLAR_TOKEN.findall(summary)
+        kb_key = _FALLBACK_KB_KEYS[platform]
+        if kb_key is None:
+            assert not tokens, (
+                f"{platform} has no KB entry -- its fallback summary must "
+                f"carry no dollar figures, found: {tokens}"
+            )
+            continue
+        haystack = json.dumps(bp[kb_key])
+        for token in tokens:
+            # (?!\d) so a truncated figure can't false-pass as a prefix of
+            # a longer cited one (e.g. "$1.1" against Meta's "$1.05-$1.15").
+            assert re.search(re.escape(token) + r"(?!\d)", haystack), (
+                f"{platform} fallback figure {token!r} does not appear in "
+                f"KB by_platform[{kb_key!r}] -- uncited or stale"
+            )
 
 
 def test_kb_entry_rendering_skips_nested_and_provenance_fields():
