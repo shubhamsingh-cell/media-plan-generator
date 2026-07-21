@@ -426,7 +426,7 @@ class TestScrapeUrlFallback:
         "This is a long-form article about recruitment advertising "
         "trends in 2026. Programmatic job advertising spend is up "
         "12% year over year, with healthcare and skilled trades "
-        "leading the growth. Indeed CPC averages $0.92 across the "
+        "leading the growth. Indeed CPC averages $1.62 across the "
         "United States, with regional variation ranging from $0.55 "
         "in rural markets to $1.85 in coastal metro areas. LinkedIn "
         "remains the dominant platform for executive and technology "

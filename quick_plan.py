@@ -859,6 +859,22 @@ def get_location_insights(location: str) -> Dict[str, Any]:
 # 3. CHANNEL SCORING & RECOMMENDATIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Base CPC fallback (USD), used when trend_engine lacks a platform figure.
+# Indeed/LinkedIn refreshed 2026-07-21 to the cited July-2026 medians
+# (geometric means of the cited bands -- see
+# benchmark_registry.CHANNEL_BENCHMARKS). Module-level so
+# tests/test_cpc_fallback_drift_pins.py can pin it like-for-like.
+_BASE_CPC_MAP = {
+    "indeed": 1.62,
+    "linkedin": 2.60,
+    "google_search": 2.50,
+    "meta_facebook": 1.20,
+    "programmatic": 0.65,
+    "ziprecruiter": 0.90,
+    "glassdoor": 1.40,
+    "niche_boards": 1.40,
+}
+
 
 def score_channels_for_context(
     role: str,
@@ -939,17 +955,8 @@ def score_channels_for_context(
             except Exception as e:
                 logger.warning("Trend benchmarks failed: %s", e)
 
-        # ── Base benchmarks fallback ──
-        base_cpc_map = {
-            "indeed": 0.85,
-            "linkedin": 3.80,
-            "google_search": 2.50,
-            "meta_facebook": 1.20,
-            "programmatic": 0.65,
-            "ziprecruiter": 0.90,
-            "glassdoor": 1.40,
-            "niche_boards": 1.40,
-        }
+        # ── Base benchmarks fallback (module-level so drift pins see it) ──
+        base_cpc_map = _BASE_CPC_MAP
         base_apply_rates = {
             "indeed": 0.08,
             "linkedin": 0.04,

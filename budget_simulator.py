@@ -230,12 +230,16 @@ _DEFAULT_ALLOC_MIXED: Dict[str, float] = {
 }
 
 # Fallback CPC benchmarks per channel (USD) -- used when trend_engine unavailable
+# job_boards/linkedin refreshed 2026-07-21 to the cited July-2026 medians:
+# job_boards tracks Indeed's cited 1.62 (same alias convention as
+# roi_projector._CHANNELS "job boards"); linkedin 2.60 = Promoted-Jobs basis.
+# Pinned like-for-like by tests/test_cpc_fallback_drift_pins.py.
 _FALLBACK_CPC: Dict[str, float] = {
     "programmatic_dsp": 0.65,
-    "job_boards": 0.85,
+    "job_boards": 1.62,
     "paid_search": 2.50,
     "paid_social": 1.20,
-    "linkedin": 3.80,
+    "linkedin": 2.60,
     "career_site_seo": 0.30,
     "employee_referrals": 0.00,
     "staffing_agency": 0.00,

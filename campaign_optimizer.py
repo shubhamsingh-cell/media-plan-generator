@@ -58,9 +58,15 @@ def _classify_collar(role: str, industry: str) -> Dict[str, Any]:
 
 
 # -- Channel metadata: label, ad-category, base CPC (USD), apply rate --
+# Indeed/LinkedIn base CPCs refreshed 2026-07-21 to the cited July-2026
+# medians (geometric means of the cited bands -- see
+# benchmark_registry.CHANNEL_BENCHMARKS; pinned like-for-like by
+# tests/test_cpc_fallback_drift_pins.py). Prior 1.20/6.50 were
+# earlier-vintage; 6.50 exceeded even the retired 5.26 blend and biased
+# the optimizer against LinkedIn.
 _CH = {
-    "indeed": ("Indeed", "job_board", 1.20, 0.08),
-    "linkedin": ("LinkedIn", "niche_board", 6.50, 0.10),
+    "indeed": ("Indeed", "job_board", 1.62, 0.08),
+    "linkedin": ("LinkedIn", "niche_board", 2.60, 0.10),
     "google_search": ("Google Search Ads", "search", 2.50, 0.05),
     "meta_facebook": ("Meta (Facebook/Instagram)", "social", 1.80, 0.03),
     "programmatic": ("Programmatic & DSP", "programmatic", 0.85, 0.06),

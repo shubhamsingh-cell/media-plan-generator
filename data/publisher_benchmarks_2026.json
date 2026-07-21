@@ -36,7 +36,8 @@
     {
       "name": "LinkedIn",
       "pricing_model": "Subscription + per-job CPC/CPA",
-      "avg_cpc_usd": 5.26,
+      "avg_cpc_usd": 2.6,
+      "avg_cpc_note": "Refreshed 2026-07-21: Promoted-Jobs (job-ads) basis, geometric mean of the cited $1.50-$4.50 band (see benchmark_registry.CHANNEL_BENCHMARKS). Prior 5.26 was the retired sponsored-content blend.",
       "recruiter_lite_monthly_usd": 170,
       "recruiter_lite_annual_usd": 2040,
       "recruiter_lite_inmails_per_month": 30,

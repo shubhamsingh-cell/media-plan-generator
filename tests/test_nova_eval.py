@@ -354,7 +354,7 @@ class TestNovaMemoryStorage(unittest.TestCase):
 
         messages = [
             {"role": "user", "text": "What is the average CPC for LinkedIn?"},
-            {"role": "assistant", "text": "The average CPC for LinkedIn is $5.26."},
+            {"role": "assistant", "text": "The average CPC for LinkedIn is $2.60."},
         ]
         self.memory.save_conversation_summary(
             conversation_id="conv_001",
