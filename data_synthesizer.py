@@ -2492,6 +2492,39 @@ def fuse_ad_platform_analysis(
         },
     }
 
+    # --- Unified-layer CPC overlay (2026-07-21) ---
+    # The 13-platform set, CPM/CPA vintages, reach, budget ranges, and fit
+    # scores above stay canonical (regime comment above). CPCs for the
+    # platforms the benchmark registry covers on the same job-ads basis flow
+    # through benchmark_registry.get_channel_benchmark() at serve time, so a
+    # registry refresh or the data/live_market_data.json live overlay
+    # propagates into every plan without editing this table. Each mapped
+    # pair was value-identical when wired (dd37a7d reconciliation), so this
+    # changes no output today -- it changes where tomorrow's numbers come
+    # from. "X (Twitter) Ads" is deliberately unmapped: the table's 1.35 and
+    # the registry's 2.00 are different uncited vintages; neither is cited
+    # July-2026 research, so neither may overwrite the other.
+    # Serving invariant: tests/test_platform_benchmark_fallback.py.
+    _REGISTRY_CPC_KEYS = {
+        "Google Ads": "google_ads",
+        "Meta (Facebook/Instagram)": "meta_facebook",
+        "LinkedIn Ads": "linkedin",
+        "TikTok Ads": "tiktok",
+        "Programmatic Display (DSP)": "programmatic",
+        "Indeed Sponsored Jobs": "indeed",
+        "ZipRecruiter Sponsored": "ziprecruiter",
+    }
+    try:
+        from benchmark_registry import get_channel_benchmark
+
+        for _pname, _rkey in _REGISTRY_CPC_KEYS.items():
+            _reg_cpc = get_channel_benchmark(_rkey).get("cpc")
+            if isinstance(_reg_cpc, (int, float)) and _reg_cpc > 0:
+                _PLATFORM_BENCHMARKS[_pname]["cpc"] = float(_reg_cpc)
+    except (ImportError, KeyError, TypeError, ValueError) as exc:
+        # Registry unavailable or malformed -> the cited literals above serve.
+        logger.error("ad-platform CPC registry overlay failed: %s", exc, exc_info=True)
+
     # ---------------------------------------------------------------
     # Industry-specific platform fit scores (1-10 scale)
     # Comprehensive matrix covering ALL 13 benchmark platforms
