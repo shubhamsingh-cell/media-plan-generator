@@ -95,6 +95,16 @@ find "${TMPDIR:-/tmp}" -maxdepth 1 -type d -name 'nova_gen_slots_ship.*' -mmin +
 # ── Ship loop ────────────────────────────────────────────────────────────
 attempt=1
 while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
+    # Reset the private slot dir BETWEEN attempts. The cross-process Voyage
+    # rate windows (vector_search) persist reservations as files in
+    # NOVA_SLOT_DIR; with one dir per RUN, attempt N's suite inherits attempt
+    # N-1's reservations, and any rerank/embed test that expects an empty
+    # window fails through no fault of the change being shipped (observed
+    # 2026-07-21: attempts 1-2 green, attempt 3 failed 4 rerank unit tests
+    # with "shared rate window full" because attempt 2's reservations were
+    # still inside the 60s window). The dir is private to this run and no
+    # suite is executing between attempts, so clearing it is safe.
+    find "$NOVA_SLOT_DIR" -mindepth 1 -delete 2>/dev/null || true
     log "attempt $attempt/$MAX_ATTEMPTS: fetching origin"
     git fetch origin
 
