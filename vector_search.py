@@ -110,21 +110,24 @@ _VOYAGE_MAX_BATCH = 32  # Reduced from 128 to avoid 429s on startup bursts
 _VOYAGE_STARTUP_BATCH = 16  # Even smaller batches during initial indexing
 # NOTE: "~10 req/min" is an UNVERIFIED estimate (no Voyage rate-limit doc was ever
 # captured; docs/PENDING_USER_ACTIONS_2026-06-02.md records only a *token* quota).
-# The EMBED path enforces this INSTANCE-GLOBALLY across gunicorn workers via
-# _voyage_acquire_send_slot (flock window), so for embeddings it is the whole
-# service's cap, not a per-worker cap.
-_VOYAGE_RPM_LIMIT = 10  # Voyage account cap, req/min (see note above)
+# Applied PER MODEL: Voyage meters each model separately, so this is the cap for
+# the embedding window AND, independently, for the rerank window -- not a single
+# shared budget. Both are enforced INSTANCE-GLOBALLY across gunicorn workers via
+# _voyage_reserve_slot (flock windows), so neither is a per-worker cap.
+_VOYAGE_RPM_LIMIT = 10  # Per-model Voyage cap, req/min (see note above)
 _VOYAGE_MIN_DELAY = 6.5  # Seconds between requests (10 RPM = 6s + 0.5s buffer)
 _VOYAGE_MAX_RETRIES = 3  # Max retries on 429 errors
 _VOYAGE_BASE_BACKOFF = 2.0  # Base backoff in seconds for exponential retry
 _is_startup_indexing = True  # Flag to use smaller batches during startup
-# In-process rate window. Still backs the rerank path (_voyage_try_reserve_slot)
-# and the non-POSIX embed fallback (_voyage_acquire_send_slot_inprocess). The
-# primary EMBED limiter is now the flock-backed cross-process window instead --
-# see _voyage_acquire_send_slot below.
+# In-process rate window. Backs ONLY the non-POSIX fallback
+# (_voyage_reserve_slot_inprocess). Both live paths -- embed and rerank -- now go
+# through the flock-backed, per-model cross-process windows; see
+# _voyage_reserve_slot below.
 _voyage_request_times: list[float] = []
 _voyage_rate_lock = threading.Lock()
-_voyage_last_request: float = 0.0  # monotonic timestamp of last API call (in-process fallback)
+_voyage_last_request: float = (
+    0.0  # monotonic timestamp of last API call (in-process fallback)
+)
 
 # ── Caller deadline propagation ──────────────────────────────────────────────
 # search_bounded() and nova._bounded_vector_search() run search() in a worker
@@ -310,95 +313,52 @@ _qdrant_available: bool = False  # set True after successful collection create/v
 _qdrant_lock = threading.Lock()
 
 
-def _is_voyage_rate_limited() -> bool:
-    """Check if we've exceeded Voyage AI rate limit."""
-    now = time.monotonic()
-    with _voyage_rate_lock:
-        # Prune requests older than 60s
-        _voyage_request_times[:] = [t for t in _voyage_request_times if now - t < 60]
-        return len(_voyage_request_times) >= _VOYAGE_RPM_LIMIT
-
-
 def _record_voyage_request() -> None:
-    """Record a Voyage API request timestamp."""
+    """Record a Voyage request timestamp in the IN-PROCESS fallback window."""
     with _voyage_rate_lock:
         _voyage_request_times.append(time.monotonic())
 
 
-def _voyage_try_reserve_slot() -> bool:
-    """Try (non-blocking) to reserve one slot in the shared Voyage rate window.
-
-    The embedding path (``_embed_uncached_voyage``) and the rerank path
-    (``_rerank_with_voyage``) both draw on ONE per-process budget -- the
-    ``_voyage_request_times`` sliding window bounded by ``_VOYAGE_RPM_LIMIT`` --
-    so the app's *total* request rate to the Voyage account stays under a single
-    self-imposed cap instead of the rerank path bursting with no ceiling at all.
-
-    Atomically (one lock acquire, no TOCTOU gap): prune entries older than 60s;
-    if a slot is free, record this request and return True; if the window is
-    already full, return False WITHOUT recording. A best-effort caller (rerank,
-    which has an immediate keyword-overlap fallback and must not stall the search
-    hot path) can then fall back rather than send and risk a 429. The embedding
-    path enforces the same window inline and instead *waits* for it, because it
-    has no fallback -- but both mutate the same ``_voyage_request_times`` list
-    under ``_voyage_rate_lock``, so the budget is genuinely shared.
-
-    NAMING / MERGE NOTE: a *separate*, cross-process (flock over ``NOVA_SLOT_DIR``)
-    reservation named ``_voyage_acquire_send_slot()`` is being added for the
-    embedding path in an uncommitted sibling worktree (branch
-    ``claude/modest-mclaren-7d5bb6``); it is *blocking* (waits for the window)
-    and uses a different mechanism (flock files, not ``_voyage_request_times``).
-    This helper is deliberately named differently so the two cannot silently
-    shadow each other on merge (two identical ``def`` names can auto-merge with
-    no conflict, and Python would keep the last -- silently giving rerank the
-    blocking flock semantics it must not have). Intended end state: unify both
-    paths on the ONE cross-process primitive, with the rerank call kept
-    NON-BLOCKING. Grep ``_voyage_acquire_send_slot`` to find the counterpart.
-    """
-    now = time.monotonic()
-    with _voyage_rate_lock:
-        _voyage_request_times[:] = [t for t in _voyage_request_times if now - t < 60]
-        if len(_voyage_request_times) >= _VOYAGE_RPM_LIMIT:
-            return False
-        _voyage_request_times.append(now)
-        return True
-
-
-# ── Cross-process Voyage rate limiter (EMBED path) ───────────────────────────
-# The in-process window above (_voyage_request_times / _voyage_last_request) is
-# per-PROCESS state. Production runs `gunicorn --workers 2 --preload`
-# (render.yaml), so with N workers each worker enforces _VOYAGE_RPM_LIMIT
-# independently and the EMBED path as a whole sent up to N x _VOYAGE_RPM_LIMIT/min
-# -- the real 429s the limiter exists to prevent. We coordinate the EMBED window
-# ACROSS workers the same way app._CrossProcessSlots coordinates /api/generate
-# concurrency: an flock over a shared file makes the window instance-global
-# (valid because numInstances: 1, so all workers share one filesystem; if that
-# ever changes, both this and _CrossProcessSlots must move to a shared store).
+# ── Voyage rate limiting: ONE cross-process primitive, keyed per model ───────
+# Production runs `gunicorn --workers 2 --preload` (render.yaml). Module globals
+# are per-PROCESS, so a purely in-process window lets every worker enforce the cap
+# independently and the service as a whole send N x the cap -- the exact 429s the
+# limiter exists to prevent. Both Voyage callers therefore share ONE primitive,
+# _voyage_reserve_slot(), which coordinates through an flock over a file in
+# NOVA_SLOT_DIR -- the same mechanism app._CrossProcessSlots uses for /api/generate.
+# Valid because numInstances: 1, so all workers share one filesystem; if that ever
+# changes, this and _CrossProcessSlots must move to a shared store (e.g. Redis).
 #
-# RELATION TO _voyage_try_reserve_slot (rerank path): that helper throttles the
-# rerank path via the *in-process* _voyage_request_times window (non-blocking).
-# This flock window is SEPARATE and covers only embeddings. That is deliberate:
-# Voyage's RPM limits are per-MODEL/org-wide (docs.voyageai.com/docs/rate-limits),
-# so voyage-3-lite (embed) and rerank-2.5-lite (rerank) have independent budgets
-# -- a shared app-side window would only over-throttle. Follow-up (optional):
-# unify both onto ONE cross-process primitive, keyed by model, rerank kept
-# NON-BLOCKING; until then the two coexist (grep _voyage_try_reserve_slot).
+# WINDOWS ARE PER-MODEL, NOT GLOBAL. Voyage's rate limits are per-model and
+# organization-wide (docs.voyageai.com/docs/rate-limits): voyage-3-lite (embed)
+# and rerank-2.5-lite (rerank) have independent RPM counters on Voyage's side.
+# Each caller therefore gets its own window file, so a burst of embeddings can
+# never starve rerank (or vice versa) against a shared limit that does not exist.
 #
-# Correctness of this window: wall-clock time (time.time), NOT monotonic
-# (per-process, not comparable across workers); reservation model so the flock is
-# held only for the microsecond file read-modify-write and the multi-second sleep
-# happens AFTER releasing it (gevent-safe); lock fd opened lazily per call
-# (fork-safe under --preload); and caller-deadline aware (see below).
-_VOYAGE_RATE_WINDOW_FILE = "voyage_rate_window.json"
-_VOYAGE_RATE_LOCK_FILE = "voyage_rate.lock"
+# The two callers differ ONLY in blocking behavior, expressed as one flag:
+#   * embed  -- blocking=True, min_delay=_VOYAGE_MIN_DELAY. It has no fallback, so
+#     it waits its turn, and honors the caller's embed_deadline (see below).
+#   * rerank -- blocking=False, min_delay=0. It has an immediate keyword-overlap
+#     fallback and must never stall the search hot path, so it declines rather
+#     than waits -- including declining when the flock itself is contended.
+#
+# Correctness notes: wall-clock time (time.time), NOT monotonic -- monotonic
+# clocks are per-process and meaningless to compare across workers. Reservation
+# model: the flock is held only for the microsecond file read-modify-write and any
+# sleep happens AFTER releasing it, so under gevent (wsgi.py monkey.patch_all) one
+# worker throttling never blocks another's event loop. The lock fd is opened
+# lazily per call (post-fork), never at import, so --preload cannot duplicate a
+# shared fd into every worker.
+_VOYAGE_WINDOW_EMBED = "embed"
+_VOYAGE_WINDOW_RERANK = "rerank"
 
 
 def _voyage_rate_slot_dir() -> str:
-    """Resolve (and create) the shared dir for the cross-process embed rate window.
+    """Resolve (and create) the shared dir holding the per-model rate windows.
 
-    Honors NOVA_SLOT_DIR (the same env var app._CrossProcessSlots uses, set to a
-    private tmpdir per pytest run by tests/conftest.py); otherwise a tmpdir keyed
-    by PORT/TEST_PORT so unrelated instances don't share a window. Read at call
+    Honors NOVA_SLOT_DIR (the same env var app._CrossProcessSlots uses, pointed at
+    a private tmpdir per pytest run by tests/conftest.py); otherwise a tmpdir keyed
+    by PORT/TEST_PORT so unrelated instances never share a window. Read at call
     time (not import) for fork-safety and test isolation.
     """
     base = os.environ.get("NOVA_SLOT_DIR") or os.path.join(
@@ -409,11 +369,27 @@ def _voyage_rate_slot_dir() -> str:
     return base
 
 
-def _read_voyage_window(path: str) -> list[float]:
-    """Read the reserved-send-time list from the shared window file.
+def _voyage_window_paths(window: str) -> tuple[str, str]:
+    """Return ``(lock_path, window_path)`` for one per-model rate window.
 
-    Tolerates a missing/corrupt/foreign file by returning an empty window --
-    the same fail-open-to-empty resilience as the embedding cache loader.
+    Args:
+        window: Window key -- ``_VOYAGE_WINDOW_EMBED`` or ``_VOYAGE_WINDOW_RERANK``.
+
+    Returns:
+        Tuple of absolute paths: the flock file and the JSON reservation file.
+    """
+    slot_dir = _voyage_rate_slot_dir()
+    return (
+        os.path.join(slot_dir, f"voyage_rate_{window}.lock"),
+        os.path.join(slot_dir, f"voyage_rate_window_{window}.json"),
+    )
+
+
+def _read_voyage_window(path: str) -> list[float]:
+    """Read the reserved-send-time list from a shared window file.
+
+    Tolerates a missing/corrupt/foreign file by returning an empty window -- the
+    same fail-open-to-empty resilience as the embedding cache loader.
     """
     try:
         with open(path, "r", encoding="utf-8") as fh:
@@ -438,63 +414,104 @@ def _write_voyage_window(path: str, reserved: list[float]) -> None:
     os.replace(tmp, path)
 
 
-def _voyage_acquire_send_slot() -> bool:
-    """Reserve this instance's turn to send one Voyage EMBED request, then wait.
+def _voyage_reserve_slot(
+    window: str,
+    *,
+    blocking: bool,
+    min_delay: float = 0.0,
+    rpm_limit: int | None = None,
+) -> bool:
+    """Reserve one send slot in a per-model Voyage rate window, instance-globally.
 
-    Enforces _VOYAGE_MIN_DELAY (min spacing) AND _VOYAGE_RPM_LIMIT (max per
-    rolling 60s) GLOBALLY across every gunicorn worker on this instance, for the
-    embedding path. Blocking by design: the embed path has no fallback, so it
-    waits for the window (contrast _voyage_try_reserve_slot, non-blocking rerank).
+    Enforces ``min_delay`` (minimum spacing between consecutive sends) and
+    ``rpm_limit`` (maximum sends per rolling 60s) across EVERY gunicorn worker on
+    this instance, for the named per-model window.
+
+    Args:
+        window: Per-model window key (``_VOYAGE_WINDOW_EMBED`` / ``_VOYAGE_WINDOW_RERANK``).
+        blocking: True to wait for the slot (embed: no fallback). False to decline
+            immediately when a slot is not free right now (rerank: has a fallback
+            and must not stall the hot path).
+        min_delay: Minimum seconds between consecutive sends in this window.
+        rpm_limit: Max sends per rolling 60s; defaults to ``_VOYAGE_RPM_LIMIT``.
 
     Returns:
-        True if a slot was reserved and it is now time to send. False if the
-        caller's embed_deadline would be overrun before the request could go
-        out -- in which case NOTHING is reserved (no quota spent on an abandoned
-        result) and the caller must bail. Falls back to the per-process window
-        when fcntl is unavailable (non-POSIX dev).
+        True if a slot was reserved and it is now time to send. False if nothing
+        was reserved -- because a non-blocking caller would have had to wait, or
+        because the caller's ``embed_deadline`` would be overrun before the send
+        could go out. On False NO quota is spent, which is the whole point: a
+        rate slot burned for a caller that has left is pure waste.
     """
+    limit = _VOYAGE_RPM_LIMIT if rpm_limit is None else rpm_limit
+
     if fcntl is None:  # pragma: no cover - non-POSIX platforms only
-        return _voyage_acquire_send_slot_inprocess()
+        return _voyage_reserve_slot_inprocess(
+            blocking=blocking, min_delay=min_delay, rpm_limit=limit
+        )
 
-    slot_dir = _voyage_rate_slot_dir()
-    lock_path = os.path.join(slot_dir, _VOYAGE_RATE_LOCK_FILE)
-    win_path = os.path.join(slot_dir, _VOYAGE_RATE_WINDOW_FILE)
-
-    lock_fd = open(lock_path, "a+b")
     try:
-        # Blocking exclusive flock, held only for the read-modify-write below
-        # (microseconds); never across the sleep, so it is gevent-safe.
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        lock_path, win_path = _voyage_window_paths(window)
+        lock_fd = open(lock_path, "a+b")
+    except OSError:
+        # Slot dir unusable (read-only fs, etc.). Degrade to the in-process
+        # window rather than sending completely unthrottled.
+        logger.warning(
+            "Voyage AI: cross-process rate window unavailable for %r -- "
+            "falling back to the per-process window",
+            window,
+            exc_info=True,
+        )
+        return _voyage_reserve_slot_inprocess(
+            blocking=blocking, min_delay=min_delay, rpm_limit=limit
+        )
+
+    candidate = 0.0
+    acquired = False
+    try:
+        if blocking:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+            acquired = True
+        else:
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+            except OSError:
+                # Contended. A non-blocking caller declines rather than wait --
+                # "non-blocking" has to include the lock, not just the window.
+                return False
+
         now = time.time()
         reserved = [t for t in _read_voyage_window(win_path) if t > now - 60.0]
 
         candidate = now
-        # Min-delay: our send must be at least _VOYAGE_MIN_DELAY after the latest
+        # Min-delay: our send must be at least ``min_delay`` after the latest
         # reservation (which may be a still-pending future send).
-        if reserved:
-            candidate = max(candidate, max(reserved) + _VOYAGE_MIN_DELAY)
+        if min_delay > 0 and reserved:
+            candidate = max(candidate, max(reserved) + min_delay)
 
-        # Sliding window: at most _VOYAGE_RPM_LIMIT sends (including ours) may
-        # fall in the trailing 60s ending at `candidate`. Push `candidate` past
-        # the oldest blocking reservation if too many already do. One pass
-        # suffices -- moving `candidate` forward only drops entries from the
-        # window's low end (all reservations are <= candidate).
-        if _VOYAGE_RPM_LIMIT >= 1:
+        # Sliding window: at most ``limit`` sends (including ours) may fall in the
+        # trailing 60s ending at ``candidate``. Push ``candidate`` past the oldest
+        # blocking reservation if too many already do. One pass suffices -- moving
+        # ``candidate`` forward only drops entries from the window's low end (all
+        # reservations are <= candidate).
+        if limit >= 1:
             in_window = sorted(t for t in reserved if t > candidate - 60.0)
-            if len(in_window) >= _VOYAGE_RPM_LIMIT:
-                oldest_blocking = in_window[len(in_window) - _VOYAGE_RPM_LIMIT]
+            if len(in_window) >= limit:
+                oldest_blocking = in_window[len(in_window) - limit]
                 candidate = max(candidate, oldest_blocking + 60.0 + 0.5)
 
         wait = candidate - now
-        # Caller-deadline bailout BEFORE reserving: charging a rate slot for a
-        # request the caller has abandoned is the waste we avoid. Pass a DURATION
-        # to _deadline_exceeded_by so the wall-clock window and the monotonic
-        # deadline are never cross-compared; wait==0 degenerates to the
-        # "deadline already passed" check.
+        if wait > 0 and not blocking:
+            return False  # would have to wait -> decline, reserving nothing
+
+        # Caller-deadline bailout BEFORE reserving. Pass a DURATION so the
+        # wall-clock window and the monotonic deadline are never cross-compared;
+        # wait == 0 degenerates to the "deadline already passed" check.
         if _deadline_exceeded_by(wait):
             logger.info(
-                "Voyage AI: %.1fs rate wait would overrun caller deadline -- "
+                "Voyage AI [%s]: %.1fs rate wait would overrun caller deadline -- "
                 "abandoning before reserving a slot",
+                window,
                 wait,
             )
             return False
@@ -502,31 +519,29 @@ def _voyage_acquire_send_slot() -> bool:
         reserved.append(candidate)
         _write_voyage_window(win_path, reserved)
     finally:
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        if acquired:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
         lock_fd.close()
 
     wait = candidate - time.time()
     if wait > 0:
-        if wait > _VOYAGE_MIN_DELAY:
-            logger.info(
-                "Voyage AI rate limiting (instance-wide): waiting %.1fs for window",
-                wait,
-            )
-        else:
-            logger.debug("Voyage AI: spacing requests, waiting %.1fs", wait)
+        logger.info(
+            "Voyage AI [%s] rate limiting (instance-wide): waiting %.1fs", window, wait
+        )
         time.sleep(wait)
     return True
 
 
-def _voyage_acquire_send_slot_inprocess() -> bool:
-    """Per-process embed rate-limit fallback (non-POSIX, no fcntl).
+def _voyage_reserve_slot_inprocess(
+    *, blocking: bool, min_delay: float, rpm_limit: int
+) -> bool:
+    """Per-process fallback used only when fcntl is unavailable or the slot dir is.
 
-    Preserves the original single-process min-delay + sliding-window behavior AND
-    the caller-deadline bailout (returns False, reserving nothing, when a wait
-    would overrun the deadline). Only correct within one process, so on
-    multi-worker deployments this path reverts to the N x _VOYAGE_RPM_LIMIT
-    over-send -- it exists solely so dev on platforms without fcntl still
-    throttles at all.
+    Mirrors _voyage_reserve_slot's contract with the in-process window. Correct
+    only within one process, so on a multi-worker deployment this path reverts to
+    the N x cap over-send -- it exists so dev on a non-POSIX platform still
+    throttles at all. Note it uses ONE shared window for every model (there is no
+    per-model split here), which is the conservative direction.
     """
     global _voyage_last_request
     with _voyage_rate_lock:
@@ -534,26 +549,31 @@ def _voyage_acquire_send_slot_inprocess() -> bool:
         # another thread's in-lock sleep, and a `now` sampled before that wait
         # would drive `elapsed` negative and inflate the hold.
         now = time.monotonic()
-        elapsed = now - _voyage_last_request
-        if elapsed < _VOYAGE_MIN_DELAY and _voyage_last_request > 0:
-            wait_time = _VOYAGE_MIN_DELAY - elapsed
-            if _deadline_exceeded_by(wait_time):
-                logger.info(
-                    "Voyage AI: %.1fs spacing wait would overrun caller deadline "
-                    "-- abandoning before sleep",
-                    wait_time,
-                )
-                return False
-            logger.debug("Voyage AI: spacing requests, waiting %.1fs", wait_time)
-            time.sleep(wait_time)
-            now = time.monotonic()
+        if min_delay > 0 and _voyage_last_request > 0:
+            elapsed = now - _voyage_last_request
+            if elapsed < min_delay:
+                wait_time = min_delay - elapsed
+                if not blocking:
+                    return False
+                if _deadline_exceeded_by(wait_time):
+                    logger.info(
+                        "Voyage AI: %.1fs spacing wait would overrun caller deadline "
+                        "-- abandoning before sleep",
+                        wait_time,
+                    )
+                    return False
+                logger.debug("Voyage AI: spacing requests, waiting %.1fs", wait_time)
+                time.sleep(wait_time)
+                now = time.monotonic()
 
         _voyage_request_times[:] = [t for t in _voyage_request_times if now - t < 60]
 
-        if len(_voyage_request_times) >= _VOYAGE_RPM_LIMIT:
+        if len(_voyage_request_times) >= rpm_limit:
             oldest_request = min(_voyage_request_times)
             wait_time = 60.0 - (now - oldest_request) + 0.5
             if wait_time > 0.001:
+                if not blocking:
+                    return False
                 if _deadline_exceeded_by(wait_time):
                     logger.info(
                         "Voyage AI: %.1fs rate-limit wait would overrun caller "
@@ -578,8 +598,40 @@ def _voyage_acquire_send_slot_inprocess() -> bool:
         return False
 
     _record_voyage_request()
-    _voyage_last_request = time.monotonic()
+    if min_delay > 0:
+        # Only the spacing-enforcing caller (embed) stamps this, so a rerank send
+        # can never impose _VOYAGE_MIN_DELAY spacing on the embedding path.
+        _voyage_last_request = time.monotonic()
     return True
+
+
+def _voyage_acquire_send_slot() -> bool:
+    """Blocking reservation for the EMBED path (voyage-3-lite window).
+
+    The embedding path has no fallback -- returning None makes the caller drop to
+    BM25/TF-IDF -- so it waits for its turn rather than declining. Honors the
+    thread-local embed_deadline: returns False (reserving nothing) when the wait
+    would overrun it.
+    """
+    return _voyage_reserve_slot(
+        _VOYAGE_WINDOW_EMBED, blocking=True, min_delay=_VOYAGE_MIN_DELAY
+    )
+
+
+def _voyage_try_reserve_slot() -> bool:
+    """Non-blocking reservation for the RERANK path (rerank-2.5-lite window).
+
+    Rerank has an immediate keyword-overlap fallback and sits on the search hot
+    path, so it must never wait: if a slot is not free right now (window full, or
+    the flock is contended) this returns False without recording, and the caller
+    falls back instead of sending and risking a 429.
+
+    No ``min_delay`` -- unlike the embedding path, rerank is not spaced; it only
+    has to stay inside the rolling ``_VOYAGE_RPM_LIMIT`` window for its own model.
+    That window is instance-global (shared across gunicorn workers) and SEPARATE
+    from the embedding window, because Voyage meters each model independently.
+    """
+    return _voyage_reserve_slot(_VOYAGE_WINDOW_RERANK, blocking=False)
 
 
 def _get_api_key() -> str | None:
@@ -1774,14 +1826,11 @@ def _rerank_with_voyage(
             },
             method="POST",
         )
-        # Share the embedding path's Voyage rate budget: rerank and embed both
-        # draw on the one per-process _VOYAGE_RPM_LIMIT window, so a rerank burst
-        # cannot push the app's total Voyage request rate over the cap. Rerank is
-        # best-effort with a keyword-overlap fallback, so if the window is full
-        # we decline here rather than stall the search hot path or risk a 429.
-        # (Non-blocking by design -- see _voyage_try_reserve_slot's merge note re:
-        # the incoming cross-process _voyage_acquire_send_slot; rerank must stay
-        # non-blocking when the two are unified.)
+        # Stay inside rerank-2.5-lite's own Voyage rate window -- instance-global
+        # across gunicorn workers, and separate from the embedding window because
+        # Voyage meters each model independently. Rerank is best-effort with a
+        # keyword-overlap fallback, so a full window (or a contended lock) makes
+        # us decline here rather than stall the search hot path or risk a 429.
         if not _voyage_try_reserve_slot():
             logger.info(
                 "Voyage rerank: shared rate window full, "

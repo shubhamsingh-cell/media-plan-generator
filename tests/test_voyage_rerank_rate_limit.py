@@ -1,25 +1,31 @@
-"""Tests that the Voyage rerank path is throttled by the shared rate window.
+"""Tests that the Voyage rerank path is throttled by its own cross-process window.
 
 Background: ``_rerank_with_voyage`` (Voyage ``rerank-2.5-lite``) used to POST to
-the Voyage API with NO rate accounting at all -- it never touched the
-``_voyage_request_times`` / ``_VOYAGE_RPM_LIMIT`` window that ``_embed_uncached_voyage``
-uses. So the rerank path could burst the shared Voyage account with no ceiling,
-independently risking 429s. This routes rerank through
-``_voyage_try_reserve_slot()`` immediately before its ``urlopen`` so embed and
-rerank draw on ONE per-process budget.
+the Voyage API with NO rate accounting at all. It now reserves through
+``_voyage_try_reserve_slot()`` -- the non-blocking wrapper over the unified
+``_voyage_reserve_slot`` primitive -- immediately before its ``urlopen``.
+
+The window is PER-MODEL and INSTANCE-GLOBAL: Voyage meters each model separately
+(per-model, organization-wide RPM), so rerank-2.5-lite has its own window file,
+independent of voyage-3-lite's embedding window, and both windows are shared
+across gunicorn workers via flock over NOVA_SLOT_DIR (not per-process globals).
 
 Covers:
-  * ``_voyage_try_reserve_slot`` is atomic: records on a free window, declines
-    on a full one, and prunes entries older than 60s;
-  * a rerank send consumes exactly one slot from the *same* window embed reads;
-  * when the window is already full, rerank fires NO API call and falls back
-    (returns None) instead of sending and risking a 429;
-  * embed and rerank share the one window -- a window filled to the cap (as the
-    embed path would fill it) blocks the rerank send.
+  * a rerank send records exactly one reservation in the RERANK window file --
+    proof the accounting is cross-process (file), not per-process (globals);
+  * a full rerank window makes rerank fire NO API call and fall back (None),
+    without recording anything;
+  * stale (>60s) reservations age out;
+  * per-model independence, exercised through the REAL paths on both sides: a
+    saturated embed window does not block rerank, and a saturated rerank window
+    does not block embed -- each asserted by actually calling the other path;
+  * non-blocking means the lock too: rerank declines when another process holds
+    the window's flock, rather than stalling the search hot path.
 
-All network is mocked at ``urllib.request.urlopen`` -- no live API calls. The
-rate window itself (``_voyage_rate_lock`` / ``_voyage_request_times``) is the
-code under test and is never stubbed.
+All network is mocked at ``urllib.request.urlopen`` -- no live API calls, and
+the embed test stubs the disk cache (the tracked ~30MB file) per the convention
+in tests/test_gemini_embeddings.py. The reservation windows themselves are the
+code under test and are never stubbed.
 
 Runs under pytest, or standalone:
 ``python3 tests/test_voyage_rerank_rate_limit.py``.
@@ -27,8 +33,11 @@ Runs under pytest, or standalone:
 
 import contextlib
 import json
+import os
+import shutil
+import subprocess
 import sys
-import threading
+import tempfile
 import time
 from pathlib import Path
 from unittest import mock
@@ -59,26 +68,35 @@ class _FakeResp:
 
 
 class _CountingUrlopen:
-    """urlopen stand-in that counts calls, so "did rerank fire?" is testable."""
+    """urlopen stand-in that counts calls, so "did it fire?" is testable.
+
+    Serves both shapes: a rerank response for the rerank endpoint, an embeddings
+    response otherwise, so one instance can back tests that drive both paths.
+    """
 
     def __init__(self):
         self.calls = 0
-        self._lock = threading.Lock()
 
     def __call__(self, req, timeout=None, context=None):
-        with self._lock:
-            self.calls += 1
-        # One reranked entry pointing back at the first candidate document.
-        return _FakeResp({"data": [{"index": 0, "relevance_score": 0.9}]})
+        self.calls += 1
+        url = getattr(req, "full_url", "")
+        if "rerank" in url:
+            return _FakeResp({"data": [{"index": 0, "relevance_score": 0.9}]})
+        return _FakeResp({"data": [{"index": 0, "embedding": [0.1] * 512}]})
 
 
 @contextlib.contextmanager
 def _voyage_isolated():
-    """Stub the network + API key, then restore the shared rate window.
+    """Private NOVA_SLOT_DIR (own window files) + stubbed network/key/disk-cache.
 
-    ``_voyage_request_times`` is mutated in place (slice assignment / append) by
-    both the limiter and these tests, so it is snapshotted and restored to keep
-    a seeded window from leaking across tests.
+    The cross-process windows live in files under NOVA_SLOT_DIR, so pointing that
+    at a per-test tmpdir gives each test pristine embed AND rerank windows with no
+    cross-test leakage. The in-process fallback globals are snapshotted/restored
+    too, for the same anti-pollution reason as ever (ship-gate hang, 4cac3116).
+
+    Disk-cache stubs follow tests/test_gemini_embeddings.py::_no_cache: the embed
+    path otherwise lazily reads the tracked ~30MB cache file and writes stub
+    vectors back into it.
 
     Yields:
         The ``_CountingUrlopen`` instance standing in for the network.
@@ -86,10 +104,16 @@ def _voyage_isolated():
     times = list(vs._voyage_request_times)
     last = vs._voyage_last_request
 
+    slot_dir = tempfile.mkdtemp(prefix="nova_voyage_rerank_test_")
     fake = _CountingUrlopen()
     patches = [
+        mock.patch.dict("os.environ", {"NOVA_SLOT_DIR": slot_dir}, clear=False),
         mock.patch.object(vs, "_VOYAGE_API_KEY", "k"),
         mock.patch.object(vs.urllib.request, "urlopen", fake),
+        mock.patch.object(vs, "_load_embedding_cache", mock.Mock()),
+        mock.patch.object(vs, "_cache_get_locked", mock.Mock(return_value=None)),
+        mock.patch.object(vs, "_cache_put_locked", mock.Mock()),
+        mock.patch.object(vs, "_ensure_flush_thread", mock.Mock()),
     ]
     for p in patches:
         p.start()
@@ -98,98 +122,160 @@ def _voyage_isolated():
     finally:
         for p in reversed(patches):
             p.stop()
+        shutil.rmtree(slot_dir, ignore_errors=True)
         vs._voyage_request_times[:] = times
         vs._voyage_last_request = last
+
+
+def _seed_window(window: str, reservations) -> None:
+    """Write wall-clock reservation times into one per-model window file."""
+    _, path = vs._voyage_window_paths(window)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(list(reservations), fh)
+
+
+def _read_window(window: str) -> list:
+    _, path = vs._voyage_window_paths(window)
+    if not os.path.exists(path):
+        return []
+    with open(path, "r", encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 def _candidate_docs() -> list[dict]:
     return [{"id": "d1", "text": "hello world", "metadata": {}}]
 
 
-# ── _voyage_try_reserve_slot unit behavior ──────────────────────────────────
+# ── _voyage_try_reserve_slot unit behavior (rerank window) ───────────────────
 
 
-def test_try_reserve_slot_records_on_free_window():
+def test_try_reserve_slot_records_in_rerank_window_file():
     with _voyage_isolated():
-        vs._voyage_request_times[:] = []
         assert vs._voyage_try_reserve_slot() is True
-        assert len(vs._voyage_request_times) == 1
+        assert len(_read_window(vs._VOYAGE_WINDOW_RERANK)) == 1
+        # And NOT into the embed window -- the windows are per-model.
+        assert _read_window(vs._VOYAGE_WINDOW_EMBED) == []
 
 
 def test_try_reserve_slot_declines_full_window_without_recording():
     with _voyage_isolated():
-        now = time.monotonic()
-        vs._voyage_request_times[:] = [now] * vs._VOYAGE_RPM_LIMIT
+        now = time.time()
+        _seed_window(vs._VOYAGE_WINDOW_RERANK, [now] * vs._VOYAGE_RPM_LIMIT)
         assert vs._voyage_try_reserve_slot() is False
         # Declined -- must NOT have appended an (N+1)th entry.
-        assert len(vs._voyage_request_times) == vs._VOYAGE_RPM_LIMIT
+        assert len(_read_window(vs._VOYAGE_WINDOW_RERANK)) == vs._VOYAGE_RPM_LIMIT
 
 
 def test_try_reserve_slot_prunes_stale_entries():
     with _voyage_isolated():
-        now = time.monotonic()
+        now = time.time()
         # A full window of entries older than 60s should all age out, leaving
         # room for a fresh slot.
-        vs._voyage_request_times[:] = [now - 120.0] * vs._VOYAGE_RPM_LIMIT
+        _seed_window(vs._VOYAGE_WINDOW_RERANK, [now - 120.0] * vs._VOYAGE_RPM_LIMIT)
         assert vs._voyage_try_reserve_slot() is True
-        assert len(vs._voyage_request_times) == 1
+        assert len(_read_window(vs._VOYAGE_WINDOW_RERANK)) == 1
 
 
-# ── The rerank path goes through the shared window ───────────────────────────
+def test_try_reserve_slot_declines_when_lock_contended():
+    """Non-blocking includes the flock, not just the window: if another process
+    holds the rerank window's lock, rerank declines instead of stalling."""
+    holder = None
+    with _voyage_isolated():
+        lock_path, _ = vs._voyage_window_paths(vs._VOYAGE_WINDOW_RERANK)
+        # A real second process holds the flock (flock does not conflict between
+        # fds of the same process on some platforms, so in-process won't do).
+        holder = subprocess.Popen(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import fcntl,sys,time\n"
+                    f"f=open({lock_path!r},'a+b')\n"
+                    "fcntl.flock(f,fcntl.LOCK_EX)\n"
+                    "print('locked',flush=True)\n"
+                    "time.sleep(30)\n"
+                ),
+            ],
+            stdout=subprocess.PIPE,
+        )
+        try:
+            assert holder.stdout.readline().strip() == b"locked"
+            started = time.monotonic()
+            assert vs._voyage_try_reserve_slot() is False
+            elapsed = time.monotonic() - started
+            assert elapsed < 1.0, f"declined but only after {elapsed:.2f}s stall"
+            assert _read_window(vs._VOYAGE_WINDOW_RERANK) == []
+        finally:
+            holder.kill()
+            holder.wait()
 
 
-def test_rerank_consumes_one_shared_slot():
-    """A successful rerank records exactly one request into the shared window."""
+# ── The rerank path goes through its window ──────────────────────────────────
+
+
+def test_rerank_consumes_one_slot_in_its_window():
+    """A successful rerank records exactly one reservation, in the FILE window."""
     with _voyage_isolated() as fake:
-        vs._voyage_request_times[:] = []
         out = vs._rerank_with_voyage(_candidate_docs(), "some query", top_k=1)
         assert fake.calls == 1, "rerank should have fired exactly one API call"
         assert out and out[0]["rerank_method"] == "voyage_rerank_2_5_lite"
         assert (
-            len(vs._voyage_request_times) == 1
-        ), "rerank must record into the shared _voyage_request_times window"
+            len(_read_window(vs._VOYAGE_WINDOW_RERANK)) == 1
+        ), "rerank must record into the cross-process rerank window file"
 
 
 def test_rerank_blocked_when_window_full_fires_no_call():
     """A full window makes rerank fall back BEFORE any urlopen -- no 429 risk."""
     with _voyage_isolated() as fake:
-        now = time.monotonic()
-        vs._voyage_request_times[:] = [now] * vs._VOYAGE_RPM_LIMIT
+        now = time.time()
+        _seed_window(vs._VOYAGE_WINDOW_RERANK, [now] * vs._VOYAGE_RPM_LIMIT)
         out = vs._rerank_with_voyage(_candidate_docs(), "some query", top_k=1)
         assert fake.calls == 0, "rerank must not POST when the window is full"
         assert out is None, "rerank should fall back (None) when rate-limited"
         # Window unchanged: the declined send recorded nothing.
-        assert len(vs._voyage_request_times) == vs._VOYAGE_RPM_LIMIT
+        assert len(_read_window(vs._VOYAGE_WINDOW_RERANK)) == vs._VOYAGE_RPM_LIMIT
 
 
-def test_embed_and_rerank_share_one_window():
-    """Slots the embed path would fill count against the rerank path too."""
+# ── Per-model independence, exercised through the REAL paths on both sides ────
+# Voyage meters voyage-3-lite (embed) and rerank-2.5-lite (rerank) separately,
+# so the app keeps separate windows: pressure on one model must never starve the
+# other. Unlike a seeded-globals simulation, these call the actual other path.
+
+
+def test_saturated_embed_window_does_not_block_rerank():
     with _voyage_isolated() as fake:
-        now = time.monotonic()
-        # Simulate the embed path having spent all but one slot.
-        vs._voyage_request_times[:] = [now] * (vs._VOYAGE_RPM_LIMIT - 1)
-
-        first = vs._rerank_with_voyage(_candidate_docs(), "q1", top_k=1)
-        assert first is not None, "the last free slot should let rerank through"
+        _seed_window(vs._VOYAGE_WINDOW_EMBED, [time.time()] * vs._VOYAGE_RPM_LIMIT)
+        out = vs._rerank_with_voyage(_candidate_docs(), "q", top_k=1)
+        assert out is not None, "embed-window pressure must not starve rerank"
         assert fake.calls == 1
-        assert len(vs._voyage_request_times) == vs._VOYAGE_RPM_LIMIT
 
-        # Budget now exhausted -- the next rerank must be blocked.
-        second = vs._rerank_with_voyage(_candidate_docs(), "q2", top_k=1)
-        assert second is None, "rerank must respect the now-full shared window"
-        assert fake.calls == 1, "no second POST once the shared window is full"
+
+def test_saturated_rerank_window_does_not_block_embed():
+    with _voyage_isolated() as fake:
+        _seed_window(vs._VOYAGE_WINDOW_RERANK, [time.time()] * vs._VOYAGE_RPM_LIMIT)
+        result = vs._embed_uncached_voyage(["hello"])
+        assert (
+            result is not None and len(result) == 1
+        ), "rerank-window pressure must not starve the embedding path"
+        assert fake.calls == 1
+        # And embed recorded into ITS window, not rerank's.
+        assert len(_read_window(vs._VOYAGE_WINDOW_EMBED)) == 1
+        assert len(_read_window(vs._VOYAGE_WINDOW_RERANK)) == vs._VOYAGE_RPM_LIMIT
 
 
 # ── Standalone runner ────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    failures = 0
-    for name, fn in sorted(globals().items()):
-        if name.startswith("test_") and callable(fn):
+    _failures = 0
+    for _name, _fn in sorted(globals().items()):
+        if _name.startswith("test_") and callable(_fn):
             try:
-                fn()
-                print(f"PASS {name}")
+                _fn()
+                print(f"PASS {_name}")
             except AssertionError as exc:
-                failures += 1
-                print(f"FAIL {name}: {exc}")
-    sys.exit(1 if failures else 0)
+                _failures += 1
+                print(f"FAIL {_name}: {exc}")
+            except Exception as exc:  # noqa: BLE001
+                _failures += 1
+                print(f"ERROR {_name}: {exc}")
+    sys.exit(1 if _failures else 0)

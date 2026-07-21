@@ -91,7 +91,8 @@ class _SlotDir:
 
     @property
     def window_path(self):
-        return os.path.join(self._dir, vs._VOYAGE_RATE_WINDOW_FILE)
+        """Path to the EMBED model's window file (rerank has its own)."""
+        return vs._voyage_window_paths(vs._VOYAGE_WINDOW_EMBED)[1]
 
 
 def _read_window(path):

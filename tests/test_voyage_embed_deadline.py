@@ -188,7 +188,7 @@ def _seed_voyage_window(reservations) -> None:
     spacing wait; ``_VOYAGE_RPM_LIMIT`` recent reservations arm the ~60s
     sliding-window wait.
     """
-    path = os.path.join(vs._voyage_rate_slot_dir(), vs._VOYAGE_RATE_WINDOW_FILE)
+    _, path = vs._voyage_window_paths(vs._VOYAGE_WINDOW_EMBED)
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(list(reservations), fh)
 
@@ -342,9 +342,9 @@ def test_bounded_vector_search_in_nova_also_propagates_deadline():
 
 
 def test_in_lock_hold_does_not_grow_with_queue_wait():
-    """Exercises the in-process fallback (_voyage_acquire_send_slot_inprocess),
-    which still uses _voyage_rate_lock; the primary embed path is now the
-    flock-backed cross-process window and no longer touches that lock.
+    """Exercises the in-process fallback (_voyage_reserve_slot_inprocess), which
+    still uses _voyage_rate_lock; both live paths now use the flock-backed
+    cross-process windows and no longer touch that lock.
 
     Reading `now` outside the lock made `elapsed` negative while queued.
 
@@ -377,7 +377,9 @@ def test_in_lock_hold_does_not_grow_with_queue_wait():
         assert released.wait(timeout=5.0), "holder never acquired the lock"
 
         started = time.monotonic()
-        vs._voyage_acquire_send_slot_inprocess()  # samples `now`, queues behind holder
+        vs._voyage_reserve_slot_inprocess(  # samples `now`, queues behind holder
+            blocking=True, min_delay=min_delay, rpm_limit=vs._VOYAGE_RPM_LIMIT
+        )
         elapsed = time.monotonic() - started
         holder.join(timeout=5.0)
 
