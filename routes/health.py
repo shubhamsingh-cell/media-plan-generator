@@ -1599,6 +1599,11 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
             "dim": _vs._active_vector_dim(),
             "collection": _vs._active_collection(),
             "indexed_documents": len(_vs._index),
+            # Key-redacted, length-capped reason for the most recent embed
+            # failure (None after a fully successful embed run). Added after
+            # the 2026-07-21 cutover left indexed_documents stuck at 0 with
+            # the cause visible only in Render logs.
+            "last_embed_error": _vs._last_embed_error,
         }
     except Exception:  # noqa: BLE001 -- observability must never break readiness
         result["embedding"] = {"provider": "unavailable"}

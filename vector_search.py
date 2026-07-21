@@ -245,6 +245,27 @@ def get_embedding_provider() -> str:
 # rollback is unsetting the env var. Model succession is config, not surgery.
 _GEMINI_EMBED_MODEL = os.environ.get("GEMINI_EMBED_MODEL") or "gemini-embedding-2"
 _GEMINI_EMBED_DIM = 768  # requested via outputDimensionality; validated on response
+
+# Last embedding failure, exposed on /api/deploy/ready's embedding block. The
+# 2026-07-21 cutover proved the failure mode "index silently empty, cause only
+# in Render logs" -- a probe showed indexed_documents stuck at 0 with no public
+# way to see WHY. This closes that: every embed failure records a short,
+# key-redacted reason; success clears it.
+_last_embed_error: str | None = None
+
+
+def _record_embed_error(msg: str) -> None:
+    """Record a sanitized one-line embed failure reason for observability.
+
+    Args:
+        msg: Raw failure text. API keys are redacted (the Gemini URL carries
+            ?key=... and error strings often echo the URL) and length-capped.
+    """
+    global _last_embed_error
+    sanitized = re.sub(r"key=[^&\s\"']+", "key=REDACTED", msg)
+    _last_embed_error = sanitized[:300]
+
+
 _GEMINI_EMBED_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 _GEMINI_EMBED_TIMEOUT = 20  # seconds
 _GEMINI_MAX_BATCH = 100  # Gemini batchEmbedContents accepts up to 100 requests
@@ -1256,15 +1277,19 @@ def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
                     "content": {"parts": [{"text": t}]},
                     # gemini-embedding-2's native dim is 3072; request 768
                     # (Google-recommended, auto-normalized) so vectors match
-                    # the Qdrant collection. The flat field is the deprecated-
-                    # but-documented spelling that batchEmbedContents has
-                    # always accepted; the config-nested spelling is newer and
-                    # its acceptance on the batch endpoint is unverified, so we
-                    # deliberately use the flat one. If Google ever drops it,
-                    # the response-dim validation below fails loudly into the
-                    # BM25 fallback instead of poisoning cache/index with
-                    # 3072-dim vectors.
+                    # the Qdrant collection. BOTH documented spellings are
+                    # sent with identical values: the flat field is marked
+                    # deprecated ("Please use EmbedContentConfig.output_
+                    # dimensionality instead") but still in the schema, and
+                    # embedContentConfig is the current form (ai.google.dev/
+                    # api/embeddings) -- whichever the server honors yields
+                    # 768. If neither is honored the response-dim validation
+                    # below fails loudly into the BM25 fallback instead of
+                    # poisoning cache/index with 3072-dim vectors.
                     "outputDimensionality": _GEMINI_EMBED_DIM,
+                    "embedContentConfig": {
+                        "outputDimensionality": _GEMINI_EMBED_DIM,
+                    },
                 }
                 for t in batch
             ]
@@ -1325,6 +1350,11 @@ def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
                         bad_dim,
                         _GEMINI_EMBED_DIM,
                     )
+                    _record_embed_error(
+                        f"gemini contract violation: {len(batch_vectors)} vectors "
+                        f"for {len(batch)} inputs, dim {bad_dim} (want "
+                        f"{_GEMINI_EMBED_DIM})"
+                    )
                     return None
                 break  # success
             except urllib.error.HTTPError as e:
@@ -1345,9 +1375,18 @@ def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
                     )
                     time.sleep(backoff)
                     continue
+                try:
+                    err_body = e.read().decode("utf-8", errors="replace")
+                except (OSError, ValueError):
+                    err_body = ""
                 logger.error(
-                    "Gemini embed HTTP error %d: %s", e.code, e.reason, exc_info=True
+                    "Gemini embed HTTP error %d: %s body=%s",
+                    e.code,
+                    e.reason,
+                    err_body[:500],
+                    exc_info=True,
                 )
+                _record_embed_error(f"gemini HTTP {e.code}: {err_body or e.reason}")
                 return None
             except urllib.error.URLError as e:
                 reason_str = str(e.reason) if e.reason else ""
@@ -1369,6 +1408,7 @@ def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
                     time.sleep(backoff)
                     continue
                 logger.error("Gemini embed URL error: %s", e.reason, exc_info=True)
+                _record_embed_error(f"gemini URL error: {e.reason}")
                 return None
             except OSError as e:
                 err_str = str(e)
@@ -1390,9 +1430,11 @@ def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
                     time.sleep(backoff)
                     continue
                 logger.error("Gemini embed OS error: %s", e, exc_info=True)
+                _record_embed_error(f"gemini OS error: {e}")
                 return None
             except (json.JSONDecodeError, ValueError, TypeError) as e:
                 logger.error("Gemini embed parse error: %s", e, exc_info=True)
+                _record_embed_error(f"gemini parse error: {e}")
                 return None
 
         if batch_vectors is None or len(batch_vectors) != len(batch):
@@ -1404,6 +1446,8 @@ def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
             return None
         out.extend(batch_vectors)
 
+    global _last_embed_error
+    _last_embed_error = None  # full success clears the sticky failure reason
     return out
 
 

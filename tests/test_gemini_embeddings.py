@@ -231,7 +231,11 @@ def test_gemini_payload_requests_output_dimensionality():
     requests_sent = captured["body"]["requests"]
     assert len(requests_sent) == 2
     for entry in requests_sent:
+        # Both documented spellings, identical values: flat (deprecated but
+        # in-schema) and embedContentConfig (current per ai.google.dev/api/
+        # embeddings) -- whichever the server honors yields 768.
         assert entry["outputDimensionality"] == 768
+        assert entry["embedContentConfig"] == {"outputDimensionality": 768}
         assert entry["model"] == "models/gemini-embedding-2"
 
 
@@ -423,3 +427,61 @@ def test_deploy_ready_exposes_embedding_block():
     assert emb["dim"] == 768
     assert emb["collection"] == "nova_knowledge__gemini-embedding-2_768"
     assert emb["indexed_documents"] == 2
+
+
+# ── last_embed_error observability ───────────────────────────────────────────
+
+
+def test_http_error_records_redacted_reason_and_success_clears_it():
+    """A terminal HTTP error must record a key-redacted reason; the next fully
+    successful run must clear it. This is the public breadcrumb for 'index
+    stuck at 0' -- the 2026-07-21 cutover had to be diagnosed blind without it.
+    """
+    import urllib.error as _ue
+
+    def _boom(req, timeout=None, context=None):
+        raise _ue.HTTPError(
+            "https://generativelanguage.googleapis.com/x?key=SECRET123",
+            400,
+            "Bad Request",
+            None,
+            io.BytesIO(b'{"error": {"message": "Unknown name outputDimensionality"}}'),
+        )
+
+    with _env("gemini"), mock.patch.dict(
+        "os.environ", {"GEMINI_API_KEY": "test-key"}, clear=False
+    ):
+        with mock.patch.object(vs.urllib.request, "urlopen", side_effect=_boom):
+            assert vs._embed_batch_gemini(["a"]) is None
+        err = vs._last_embed_error
+        assert err is not None
+        assert "400" in err
+        assert "Unknown name outputDimensionality" in err
+        assert "SECRET123" not in err  # key redaction is load-bearing
+
+        # A fully successful run clears the sticky reason.
+        def _ok(req, timeout=None, context=None):
+            return _FakeResp(_gemini_embeddings_payload([[0.1] * 768]))
+
+        with mock.patch.object(vs.urllib.request, "urlopen", side_effect=_ok):
+            assert vs._embed_batch_gemini(["b"]) is not None
+        assert vs._last_embed_error is None
+
+
+def test_deploy_ready_surfaces_last_embed_error():
+    import routes.health as rh
+
+    captured = _CapturingHandler()
+
+    def _fake_send(handler, result, status_code=200):
+        captured.payload = result
+        captured.status = status_code
+
+    with mock.patch.object(rh, "_send_json_response", _fake_send), mock.patch.object(
+        vs, "_last_embed_error", "gemini HTTP 400: something"
+    ), _env("gemini"):
+        rh._handle_deploy_ready(handler=None, path="/api/deploy/ready", parsed=None)
+
+    emb = (captured.payload or {}).get("embedding")
+    assert emb is not None
+    assert emb["last_embed_error"] == "gemini HTTP 400: something"
