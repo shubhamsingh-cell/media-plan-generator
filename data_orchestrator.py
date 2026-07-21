@@ -1169,6 +1169,28 @@ def get_orchestrator() -> DataOrchestrator:
     return _orchestrator
 
 
+def clear_caches() -> bool:
+    """Clear the singleton orchestrator's L1 cache, if one exists.
+
+    Public self-healing hook -- sentry_integration and data_matrix_monitor
+    call this instead of reaching into private module state (their old
+    private-attr pokes broke silently when this module was refactored;
+    tests/test_heal_interface_contracts.py now guards this contract).
+    Deliberately does NOT create the singleton: healing a cache that was
+    never populated is a no-op, not a fix.
+
+    Returns:
+        True if an existing orchestrator's cache was cleared, False if no
+        orchestrator has been created yet.
+    """
+    with _orchestrator_lock:
+        orch = _orchestrator
+    if orch is None:
+        return False
+    orch.clear_cache()
+    return True
+
+
 def _register_default_handlers(orch: DataOrchestrator) -> None:
     """Register data source handlers from existing modules.
 

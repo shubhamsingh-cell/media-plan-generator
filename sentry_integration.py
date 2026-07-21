@@ -650,13 +650,9 @@ def _execute_module_healing(
             if "data_orchestrator" in sys.modules:
                 do = sys.modules["data_orchestrator"]
                 try:
-                    with do._api_cache_lock:
-                        size_before = len(do._api_result_cache)
-                        do._api_result_cache.clear()
-                    logger.info(
-                        "sentry_heal: cleared %d enrichment cache entries", size_before
-                    )
-                    return True
+                    if do.clear_caches():
+                        logger.info("sentry_heal: cleared orchestrator L1 cache")
+                        return True
                 except (AttributeError, RuntimeError):
                     pass
             return False
@@ -1464,7 +1460,8 @@ def _execute_healing_action(
         return False
 
     elif fix_type == "none_check":
-        # NoneType errors -- attempt module reload + sentinel reset
+        # NoneType errors -- attempt module reload, then flush possibly
+        # stale (None-bearing) orchestrator cache entries
         if module_name and module_name in sys.modules:
             try:
                 importlib.reload(sys.modules[module_name])
@@ -1474,25 +1471,19 @@ def _execute_healing_action(
                 qc._record_heal(
                     f"sentry:{file_path}", "module_reload_none_check", False
                 )
-        # Also reset data_orchestrator sentinels if applicable
         if "data_orchestrator" in sys.modules:
             try:
                 do = sys.modules["data_orchestrator"]
-                with do._load_lock:
-                    for attr in (
-                        "_api_enrichment",
-                        "_research",
-                        "_budget_engine",
-                        "_standardizer",
-                    ):
-                        if getattr(do, attr, None) is do._IMPORT_FAILED:
-                            setattr(do, attr, None)
-                qc._record_heal(
-                    f"sentry:{file_path}", "reset_orchestrator_sentinels", True
-                )
-                return True
+                if do.clear_caches():
+                    qc._record_heal(
+                        f"sentry:{file_path}", "clear_orchestrator_cache", True
+                    )
+                    return True
             except (ImportError, AttributeError, RuntimeError) as exc:
-                logger.debug("sentry heal: orchestrator sentinel reset failed: %s", exc)
+                qc._record_heal(
+                    f"sentry:{file_path}", "clear_orchestrator_cache", False
+                )
+                logger.warning("sentry heal: orchestrator cache clear failed: %s", exc)
         return False
 
     elif fix_type == "or_empty_string":
@@ -1544,10 +1535,9 @@ def _execute_healing_action(
         if "data_orchestrator" in sys.modules:
             try:
                 do = sys.modules["data_orchestrator"]
-                with do._api_cache_lock:
-                    do._api_result_cache.clear()
-                qc._record_heal(f"sentry:{file_path}", "clear_api_cache_json", True)
-                return True
+                cleared = do.clear_caches()
+                qc._record_heal(f"sentry:{file_path}", "clear_api_cache_json", cleared)
+                return cleared
             except Exception:
                 qc._record_heal(f"sentry:{file_path}", "clear_api_cache_json", False)
         return False
@@ -1570,20 +1560,11 @@ def _execute_healing_action(
         return False
 
     elif fix_type == "resource_cleanup":
-        # Memory pressure -- force GC and evict caches
+        # Memory pressure -- force GC and clear the orchestrator L1 cache
         try:
             gc_mod.collect()
             if "data_orchestrator" in sys.modules:
-                do = sys.modules["data_orchestrator"]
-                with do._api_cache_lock:
-                    now = time.time()
-                    expired = [
-                        k
-                        for k, v in do._api_result_cache.items()
-                        if now >= (v.get("expires") or 0)
-                    ]
-                    for k in expired:
-                        do._api_result_cache.pop(k, None)
+                sys.modules["data_orchestrator"].clear_caches()
             qc._record_heal("sentry:memory", "gc_collect_and_cache_evict", True)
             return True
         except Exception:

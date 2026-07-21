@@ -8,9 +8,8 @@ daemon thread, attempts self-healing on failures, and exposes results via
 
 Self-healing actions:
     - Re-import failed modules via importlib
-    - Reset data_orchestrator lazy-load sentinels (_IMPORT_FAILED -> None)
     - Reset Nova's _orchestrator sentinel (False -> None)
-    - Evict stale entries from orchestrator API cache
+    - Clear the DataOrchestrator L1 cache via its public clear_caches() hook
 
 Dependencies: stdlib only (no new packages).
 """
@@ -1517,27 +1516,19 @@ class DataMatrixMonitor:
                 self._record_heal(product, layer, "reset_nova_orchestrator", False)
                 logger.warning("Self-heal reset nova orchestrator failed: %s", e)
 
-        # Strategy 4: Evict stale orchestrator API cache entries
+        # Strategy 4: Clear the orchestrator L1 cache (public heal hook)
         if layer == "api_enrichment":
             try:
                 if "data_orchestrator" in sys.modules:
                     do = sys.modules["data_orchestrator"]
-                    now = time.time()
-                    expired = []
-                    with do._api_cache_lock:
-                        for k, v in do._api_result_cache.items():
-                            if now >= v.get("expires") or 0:
-                                expired.append(k)
-                        for k in expired:
-                            do._api_result_cache.pop(k, None)
-                    if expired:
+                    if do.clear_caches():
                         self._record_heal(
-                            product,
-                            layer,
-                            f"cleared_{len(expired)}_stale_cache_entries",
-                            True,
+                            product, layer, "cleared_orchestrator_l1_cache", True
                         )
             except Exception as e:
+                self._record_heal(
+                    product, layer, "cleared_orchestrator_l1_cache", False
+                )
                 logger.warning("Self-heal cache clear failed: %s", e)
 
         return healed
@@ -1603,23 +1594,14 @@ class DataMatrixMonitor:
             collected = gc.collect()
             actions.append(f"gc.collect freed {collected} objects")
 
-            # Evict ALL expired orchestrator cache entries
+            # Clear the orchestrator L1 cache (public heal hook)
             try:
                 if "data_orchestrator" in sys.modules:
                     do = sys.modules["data_orchestrator"]
-                    now = time.time()
-                    with do._api_cache_lock:
-                        expired = [
-                            k
-                            for k, v in do._api_result_cache.items()
-                            if now >= v.get("expires") or 0
-                        ]
-                        for k in expired:
-                            do._api_result_cache.pop(k, None)
-                    if expired:
-                        actions.append(f"evicted {len(expired)} expired cache entries")
+                    if do.clear_caches():
+                        actions.append("cleared orchestrator L1 cache")
             except Exception as e:
-                logger.debug("Memory heal: cache eviction failed: %s", e)
+                logger.debug("Memory heal: cache clear failed: %s", e)
 
             # Compact heal log
             with self._lock:

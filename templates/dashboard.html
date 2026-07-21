@@ -2985,7 +2985,7 @@
         tbody.innerHTML = all
           .map((h) => {
             const bc = h.success ? "badge-success" : "badge-error";
-            const comp = [h.src, h.product, h.layer, h.test]
+            const comp = [h.src, h.component, h.product, h.layer, h.test]
               .filter(Boolean)
               .join(" / ");
             return (

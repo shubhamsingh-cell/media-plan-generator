@@ -1326,6 +1326,7 @@
               ? new Date(h.timestamp).toLocaleString()
               : "--";
             const badge =
+              h.success === true ||
               (h.result || h.status || "")?.includes?.("success") ||
               (h.result || h.status || "")?.includes?.("healed")
                 ? '<span class="badge-sm badge-green">Success</span>'
