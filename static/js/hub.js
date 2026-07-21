@@ -1340,125 +1340,299 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 });
 
-/* ── S91: Hero signature constellation ──
-   A GPU-light canvas field of "supply sources" that drift, link to nearby
-   neighbours, and trail thin lines toward the live plan card — visualising
-   "Nova scanning 10,341 partners into one optimized plan". Paused when the
-   hero is off-screen and fully disabled under prefers-reduced-motion. */
+/* ── S94: Hero 3D convergence field ──
+   A true-3D particle system replacing the flat S91 constellation: supply
+   sources spawn on a spherical shell in 3D space and stream along swirling
+   streamlines into one bright sink — "10,341 sources converging into one
+   hire" rendered as motion instead of a static picture. Perspective
+   projection with a slowly orbiting camera; the cursor steers the camera a
+   few degrees (3D parallax) instead of translating the canvas.
+
+   Perf contract: zero libraries; pre-rendered glow sprites (no per-frame
+   gradients except the sink); additive compositing; DPR capped at 1.75;
+   pauses when the hero leaves the viewport (IntersectionObserver) or the
+   tab hides (visibilitychange). Coarse pointers get half the particles and
+   no link pass. prefers-reduced-motion renders ONE static frame — the
+   composition still reads, nothing moves. */
 (function () {
   "use strict";
   var cv = document.getElementById("heroConstellation");
   var hero = document.getElementById("hero");
   if (!cv || !hero || !cv.getContext) return;
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var coarse = window.matchMedia("(pointer: coarse)").matches;
   var ctx = cv.getContext("2d");
-  var dpr = Math.min(window.devicePixelRatio || 1, 2);
-  var W = 0,
-    H = 0,
-    nodes = [],
-    focus = { x: 0, y: 0 },
-    running = false,
-    raf = 0;
+  var dpr = 1;
+  var W = 0, H = 0;
+  var running = false, raf = 0, t = 0;
 
-  // Ambient depth (hero cinematic pass): the constellation drifts a few
-  // pixels toward the cursor, lerped so it never snaps. Desktop-with-mouse
-  // only; folded into the existing rAF loop so it automatically pauses
-  // whenever `running` is false (hero off-screen), never fighting that gate.
-  var supportsParallax = window.matchMedia("(pointer: fine)").matches;
-  var parTarget = { x: 0, y: 0 };
-  var parCurrent = { x: 0, y: 0 };
-  var PARALLAX_MAX = 8;
-  var PARALLAX_LERP = 0.06;
-  if (supportsParallax) {
+  /* Brand palette — read from the :root tokens so hub.css stays the single
+     source; the literals are only parse-failure fallbacks for the same
+     values. Weights: purple-light leads, teal seconds, indigo-white and
+     magenta are accents. */
+  var rootStyle = getComputedStyle(document.documentElement);
+  function tok(name, fallback) {
+    var v = (rootStyle.getPropertyValue(name) || "").trim();
+    return /^#[0-9a-fA-F]{6}$/.test(v) ? v : fallback;
+  }
+  var PALETTE = [
+    { hex: tok("--accent-light", "#8680d6"), w: 0.5 },
+    { hex: tok("--teal", "#6bb5ce"), w: 0.3 },
+    { hex: "#aaa4ff", w: 0.12 },
+    { hex: "#b7669e", w: 0.08 },
+  ];
+
+  /* Pre-rendered glow sprites: one 32px offscreen radial gradient per color,
+     drawImage-scaled by depth at draw time. */
+  var sprites = [];
+  (function bake() {
+    for (var i = 0; i < PALETTE.length; i++) {
+      var s = document.createElement("canvas");
+      s.width = 32; s.height = 32;
+      var sc = s.getContext("2d");
+      var g = sc.createRadialGradient(16, 16, 0, 16, 16, 16);
+      g.addColorStop(0, PALETTE[i].hex + "ff");
+      g.addColorStop(0.35, PALETTE[i].hex + "66");
+      g.addColorStop(1, PALETTE[i].hex + "00");
+      sc.fillStyle = g;
+      sc.fillRect(0, 0, 32, 32);
+      sprites.push(s);
+    }
+  })();
+  function pickSprite() {
+    var r = Math.random(), acc = 0;
+    for (var i = 0; i < PALETTE.length; i++) {
+      acc += PALETTE[i].w;
+      if (r <= acc) return i;
+    }
+    return 0;
+  }
+
+  /* 3D model. Sink at origin; camera looks down +z from -CAM_DIST. The
+     projection centre is placed where the plan card lives (right of centre)
+     so the flow visually pours into the live Prediction Engine. */
+  var FL = 720;              // focal length
+  var CAM_DIST = 900;
+  var SHELL_MIN = 620, SHELL_MAX = 1150;
+  var SINK_R = 46;           // particles are absorbed inside this radius
+  var SWIRL = 0.55;          // tangential component (vortex strength)
+  var INFLOW = 0.0042;       // radial pull per frame (of current radius)
+  var N = 0;
+  var pts = [];
+  var linkCap = 0;
+
+  var camTarget = { yaw: 0, pitch: 0 };
+  var cam = { yaw: 0, pitch: 0 };
+  var CAM_LERP = 0.045;
+  var fine = window.matchMedia("(pointer: fine)").matches;
+  if (fine && !reduced) {
     hero.addEventListener("mousemove", function (e) {
       var r = hero.getBoundingClientRect();
-      var nx = (e.clientX - r.left) / r.width - 0.5;
-      var ny = (e.clientY - r.top) / r.height - 0.5;
-      parTarget.x = nx * 2 * PARALLAX_MAX;
-      parTarget.y = ny * 2 * PARALLAX_MAX;
+      camTarget.yaw = ((e.clientX - r.left) / r.width - 0.5) * 0.22;
+      camTarget.pitch = ((e.clientY - r.top) / r.height - 0.5) * 0.14;
     });
     hero.addEventListener("mouseleave", function () {
-      parTarget.x = 0;
-      parTarget.y = 0;
+      camTarget.yaw = 0;
+      camTarget.pitch = 0;
     });
+  }
+
+  function spawn(p, initial) {
+    /* Spherical shell, biased to the left/front hemisphere so streams cross
+       the headline space toward the card. */
+    var u = Math.random(), v = Math.random();
+    var theta = Math.PI * (0.35 + 1.3 * u);      // mostly left of the sink
+    var phi = Math.acos(2 * v - 1);
+    var r = initial
+      ? SHELL_MIN + Math.random() * (SHELL_MAX - SHELL_MIN) * Math.random()
+      : SHELL_MIN + Math.random() * (SHELL_MAX - SHELL_MIN);
+    p.x = r * Math.sin(phi) * Math.cos(theta);
+    p.y = r * Math.cos(phi) * 0.62;              // squash vertically
+    p.z = r * Math.sin(phi) * Math.sin(theta) * 0.8;
+    p.c = pickSprite();
+    p.size = 2.2 + Math.random() * 2.6;
+    p.speed = 0.75 + Math.random() * 0.6;
+    p.px = null; p.py = null;                    // previous projected point
+    p.qx = null; p.qy = null;                    // two frames back (long streak)
+  }
+
+  function seed() {
+    N = coarse
+      ? Math.round(Math.min(130, Math.max(70, W / 9)))
+      : Math.round(Math.min(300, Math.max(150, W / 5.2)));
+    linkCap = coarse ? 0 : 150;
+    pts = [];
+    for (var i = 0; i < N; i++) {
+      var p = {};
+      spawn(p, true);
+      pts.push(p);
+    }
   }
 
   function size() {
     var r = hero.getBoundingClientRect();
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
-    W = r.width;
-    H = r.height;
+    dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+    W = r.width; H = r.height;
     cv.width = Math.round(W * dpr);
     cv.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    focus.x = W * 0.74;
-    focus.y = H * 0.5;
   }
-  function seed() {
-    nodes = [];
-    var n = Math.max(10, Math.min(26, Math.round(W / 52)));
-    for (var i = 0; i < n; i++) {
-      nodes.push({
-        x: Math.random() * W * 0.62,
-        y: 90 + Math.random() * Math.max(120, H - 150),
-        vx: (Math.random() - 0.5) * 0.18,
-        vy: (Math.random() - 0.5) * 0.18,
-        r: Math.random() * 1.6 + 1,
-      });
+
+  function frame(oneShot, simOnly) {
+    if (!running && !oneShot) return;
+    t += 0.016;
+
+    /* Camera: slow autonomous orbit + cursor steering, lerped. */
+    var oyaw = Math.sin(t * 0.11) * 0.10 + camTarget.yaw;
+    var opitch = Math.sin(t * 0.073) * 0.05 + camTarget.pitch;
+    cam.yaw += (oyaw - cam.yaw) * CAM_LERP;
+    cam.pitch += (opitch - cam.pitch) * CAM_LERP;
+    var cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+    var cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+
+    var cx = W * 0.565, cyx = H * 0.50; // projection centre: the visible
+    // seam between the copy column and the card, so the convergence
+    // point itself reads on screen instead of hiding behind the card.
+    if (!simOnly) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalCompositeOperation = "lighter";
     }
-  }
-  function frame() {
-    if (!running) return;
-    ctx.clearRect(0, 0, W, H);
-    for (var i = 0; i < nodes.length; i++) {
-      var a = nodes[i];
-      a.x += a.vx;
-      a.y += a.vy;
-      if (a.x < 0 || a.x > W * 0.66) a.vx *= -1;
-      if (a.y < 70 || a.y > H - 36) a.vy *= -1;
-      for (var j = i + 1; j < nodes.length; j++) {
-        var b = nodes[j],
-          dx = a.x - b.x,
-          dy = a.y - b.y,
-          d = Math.sqrt(dx * dx + dy * dy);
-        if (d < 100) {
-          ctx.strokeStyle = "rgba(139,133,230," + 0.13 * (1 - d / 100) + ")";
-          ctx.lineWidth = 0.6;
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.stroke();
-        }
+
+    /* Sink core: one breathing radial glow. */
+    if (simOnly) {
+      /* Pre-advance pass (reduced-motion boot): physics only, no painting —
+         240 painted frames would burn ~100ms+ on exactly the devices that
+         asked for less. The physics below still runs so streams form. */
+      for (var q0 = 0; q0 < N; q0++) {
+        var pq = pts[q0];
+        var dq = Math.sqrt(pq.x * pq.x + pq.y * pq.y + pq.z * pq.z) || 1;
+        var pullq = INFLOW * pq.speed * (1 + (SHELL_MIN / dq) * 1.6);
+        var nxq = pq.x / dq, nzq = pq.z / dq;
+        pq.x -= pq.x * pullq + nzq * SWIRL * pq.speed * -1;
+        pq.y -= pq.y * pullq * 1.15;
+        pq.z -= pq.z * pullq - nxq * SWIRL * pq.speed * -1;
+        if (dq < SINK_R) spawn(pq, false);
       }
-      var fdx = focus.x - a.x,
-        fdy = focus.y - a.y,
-        fd = Math.sqrt(fdx * fdx + fdy * fdy);
-      if (fd < 300) {
-        ctx.strokeStyle = "rgba(107,181,206," + 0.09 * (1 - fd / 300) + ")";
-        ctx.lineWidth = 0.6;
+      return;
+    }
+    var pulse = 1 + Math.sin(t * 1.4) * 0.08;
+    var coreR = 58 * pulse;
+    var g = ctx.createRadialGradient(cx, cyx, 0, cx, cyx, coreR);
+    g.addColorStop(0, "rgba(170,164,255,0.42)");
+    g.addColorStop(0.45, "rgba(134,128,214,0.19)");
+    g.addColorStop(1, "rgba(134,128,214,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cyx, coreR, 0, 6.2832);
+    ctx.fill();
+
+    var proj = [];      // projected screen points for the link pass
+    for (var i = 0; i < N; i++) {
+      var p = pts[i];
+
+      /* Streamline: radial inflow + tangential swirl around the y axis. */
+      var d = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z) || 1;
+      var pull = INFLOW * p.speed * (1 + (SHELL_MIN / d) * 1.6);
+      var nx = p.x / d, ny = p.y / d, nz = p.z / d;
+      p.x -= p.x * pull + nz * SWIRL * p.speed * -1;
+      p.y -= p.y * pull * 1.15;
+      p.z -= p.z * pull - nx * SWIRL * p.speed * -1;
+      if (d < SINK_R) { spawn(p, false); continue; }
+
+      /* Camera rotate (yaw then pitch), then perspective project. */
+      var rx = p.x * cy + p.z * sy;
+      var rz = -p.x * sy + p.z * cy;
+      var ry = p.y * cp - rz * sp;
+      rz = p.y * sp + rz * cp;
+      var depth = rz + CAM_DIST;
+      if (depth < 80) { p.px = null; p.qx = null; continue; }
+      var s = FL / depth;
+      var sx2 = cx + rx * s;
+      var sy2 = cyx + ry * s;
+      if (sx2 < -40 || sx2 > W + 40 || sy2 < -40 || sy2 > H + 40) {
+        p.px = null; p.qx = null;
+        continue;
+      }
+
+      /* Depth-graded alpha; absorbed-fade near the sink. */
+      var a = Math.min(1, 1.35 - depth / (CAM_DIST + SHELL_MAX * 0.8));
+      if (d < SINK_R * 3.2) a *= (d - SINK_R) / (SINK_R * 2.2);
+      /* Legibility mask. Desktop two-column: the headline/subcopy own the
+         left column, so particles projected over it are dimmed to texture
+         (35%) and ramp back to full strength across the copy->card seam.
+         Stacked layouts (<=900px): the copy is full-width, so the whole
+         field calms to 55% instead. */
+      if (W <= 900) {
+        a *= 0.55;
+      } else if (sx2 < W * 0.46) {
+        a *= 0.35;
+      } else if (sx2 < W * 0.56) {
+        a *= 0.35 + 0.65 * ((sx2 - W * 0.46) / (W * 0.10));
+      }
+      if (a <= 0.02) { p.qx = p.px; p.qy = p.py; p.px = sx2; p.py = sy2; continue; }
+
+      /* Streak trail: two segments (this frame and the one before) so the
+         motion reads as directional streams even in a still frame. */
+      if (p.qx !== null) {
+        ctx.strokeStyle = "rgba(134,128,214," + (a * 0.16).toFixed(3) + ")";
+        ctx.lineWidth = Math.max(0.4, s * 0.7);
         ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(focus.x, focus.y);
+        ctx.moveTo(p.qx, p.qy);
+        ctx.lineTo(p.px, p.py);
         ctx.stroke();
       }
-      ctx.fillStyle = "rgba(170,164,255,0.65)";
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, a.r, 0, 6.2832);
-      ctx.fill();
+      if (p.px !== null) {
+        ctx.strokeStyle = "rgba(134,128,214," + (a * 0.4).toFixed(3) + ")";
+        ctx.lineWidth = Math.max(0.5, s * 0.9);
+        ctx.beginPath();
+        ctx.moveTo(p.px, p.py);
+        ctx.lineTo(sx2, sy2);
+        ctx.stroke();
+      }
+      var spr = sprites[p.c];
+      var sz = p.size * s * 3.2;
+      ctx.globalAlpha = a;
+      ctx.drawImage(spr, sx2 - sz / 2, sy2 - sz / 2, sz, sz);
+      ctx.globalAlpha = 1;
+      p.qx = p.px; p.qy = p.py;
+      p.px = sx2; p.py = sy2;
+
+      if (linkCap) proj.push({ x: sx2, y: sy2, a: a, x3: p.x, y3: p.y, z3: p.z });
     }
-    if (supportsParallax) {
-      parCurrent.x += (parTarget.x - parCurrent.x) * PARALLAX_LERP;
-      parCurrent.y += (parTarget.y - parCurrent.y) * PARALLAX_LERP;
-      cv.style.transform =
-        "translate(" + parCurrent.x.toFixed(2) + "px, " + parCurrent.y.toFixed(2) + "px)";
+
+    /* Neural links: nearest neighbours in 3D, drawn in screen space. */
+    if (linkCap) {
+      var drawn = 0;
+      var LINK2 = 190 * 190;
+      for (var m = 0; m < proj.length && drawn < linkCap; m += 2) {
+        var A = proj[m];
+        for (var n2 = m + 1; n2 < Math.min(proj.length, m + 14); n2++) {
+          var B = proj[n2];
+          var ddx = A.x3 - B.x3, ddy = A.y3 - B.y3, ddz = A.z3 - B.z3;
+          var d2 = ddx * ddx + ddy * ddy + ddz * ddz;
+          if (d2 < LINK2) {
+            var la = (1 - d2 / LINK2) * 0.13 * Math.min(A.a, B.a);
+            ctx.strokeStyle = "rgba(107,181,206," + la.toFixed(3) + ")";
+            ctx.lineWidth = 0.6;
+            ctx.beginPath();
+            ctx.moveTo(A.x, A.y);
+            ctx.lineTo(B.x, B.y);
+            ctx.stroke();
+            if (++drawn >= linkCap) break;
+          }
+        }
+      }
     }
-    raf = requestAnimationFrame(frame);
+    ctx.globalCompositeOperation = "source-over";
+
+    if (!oneShot) raf = requestAnimationFrame(function () { frame(false); });
   }
+
   function start() {
-    if (running) return;
+    if (running || reduced) return;
     running = true;
-    raf = requestAnimationFrame(frame);
+    raf = requestAnimationFrame(function () { frame(false); });
   }
   function stop() {
     running = false;
@@ -1467,26 +1641,48 @@ document.addEventListener("DOMContentLoaded", function () {
 
   size();
   seed();
+  if (reduced) {
+    /* Static composition: advance the sim (physics only) so the still frame
+       shows formed streams, then paint exactly one frame. */
+    running = true;
+    for (var w = 0; w < 237; w++) frame(true, true);
+    /* Paint three frames, not one: px/qx trail memory only exists in the
+       paint path, so the still needs two warm-up paints for its streaks. */
+    frame(true); frame(true); frame(true);
+    running = false;
+  }
   var rt;
   window.addEventListener("resize", function () {
     clearTimeout(rt);
     rt = setTimeout(function () {
       size();
       seed();
+      if (reduced) {
+        running = true;
+        for (var w2 = 0; w2 < 237; w2++) frame(true, true);
+        frame(true); frame(true); frame(true);
+        running = false;
+      }
     }, 150);
   });
-  if ("IntersectionObserver" in window) {
-    new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (en) {
-          if (en.isIntersecting) start();
-          else stop();
-        });
-      },
-      { threshold: 0.01 }
-    ).observe(hero);
-  } else {
-    start();
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) stop();
+    else if (!reduced) start();
+  });
+  if (!reduced) {
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (en) {
+            if (en.isIntersecting) start();
+            else stop();
+          });
+        },
+        { threshold: 0.01 }
+      ).observe(hero);
+    } else {
+      start();
+    }
   }
 })();
 
@@ -1702,4 +1898,87 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   start();
+})();
+
+/* ── S94: Prediction Engine card 3D tilt ──
+   The live PE card responds to the cursor like a physical object: clamped
+   perspective rotate (±3.5°/±2.5°) with a pointer-tracked glare sweep,
+   lerped so it glides rather than snaps. Desktop fine-pointers only, fully
+   disabled under prefers-reduced-motion, and suspended while the budget
+   slider is being dragged so the card never wobbles under the user's hand.
+   The rAF loop runs ONLY while the cursor is over the card (and through the
+   ease-back after leave), so idle cost is zero. */
+(function () {
+  "use strict";
+  var card = document.getElementById("plan-showcase");
+  if (!card || !card.classList.contains("pe-card")) return;
+  if (!window.matchMedia("(pointer: fine)").matches) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  var MAX_RY = 3.5, MAX_RX = 2.5;
+  var LERP = 0.12;
+  var target = { rx: 0, ry: 0, gx: 50, gy: 50 };
+  var cur = { rx: 0, ry: 0, gx: 50, gy: 50 };
+  var raf = 0, active = false, sliderHeld = false;
+
+  var slider = card.querySelector('input[type="range"]');
+  if (slider) {
+    slider.addEventListener("pointerdown", function () {
+      sliderHeld = true;
+      target.rx = 0;
+      target.ry = 0;
+    });
+    window.addEventListener("pointerup", function () {
+      sliderHeld = false;
+    });
+  }
+
+  function loop() {
+    cur.rx += (target.rx - cur.rx) * LERP;
+    cur.ry += (target.ry - cur.ry) * LERP;
+    cur.gx += (target.gx - cur.gx) * LERP;
+    cur.gy += (target.gy - cur.gy) * LERP;
+    card.style.transform =
+      "perspective(1100px) rotateX(" + cur.rx.toFixed(3) + "deg) rotateY(" +
+      cur.ry.toFixed(3) + "deg)";
+    card.style.setProperty("--pe-gx", cur.gx.toFixed(1) + "%");
+    card.style.setProperty("--pe-gy", cur.gy.toFixed(1) + "%");
+    var settled =
+      !active &&
+      Math.abs(cur.rx) < 0.01 &&
+      Math.abs(cur.ry) < 0.01;
+    if (settled) {
+      card.style.transform = "";
+      card.style.removeProperty("--pe-gx");
+      card.style.removeProperty("--pe-gy");
+      card.classList.remove("pe-tilting");
+      raf = 0;
+      return;
+    }
+    raf = requestAnimationFrame(loop);
+  }
+
+  card.addEventListener("pointerenter", function () {
+    active = true;
+    card.classList.add("pe-tilting");
+    if (!raf) raf = requestAnimationFrame(loop);
+  });
+  card.addEventListener("pointermove", function (e) {
+    if (sliderHeld) return;
+    var r = card.getBoundingClientRect();
+    var nx = (e.clientX - r.left) / r.width - 0.5;
+    var ny = (e.clientY - r.top) / r.height - 0.5;
+    target.ry = nx * 2 * MAX_RY;
+    target.rx = -ny * 2 * MAX_RX;
+    target.gx = 50 + nx * 90;
+    target.gy = 50 + ny * 90;
+  });
+  card.addEventListener("pointerleave", function () {
+    active = false;
+    target.rx = 0;
+    target.ry = 0;
+    target.gx = 50;
+    target.gy = 50;
+    if (!raf) raf = requestAnimationFrame(loop);
+  });
 })();

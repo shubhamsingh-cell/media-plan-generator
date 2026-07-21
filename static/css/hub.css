@@ -4268,6 +4268,25 @@ html.lenis body {
   height: 2px;
   background: linear-gradient(90deg, #202058, #5a54be 45%, #6bb5ce 80%, #b7669e);
 }
+/* S94: pointer-tracked glare for the card's 3D tilt. hub.js drives
+   --pe-gx/--pe-gy while tilting; at rest (or without JS / on touch) this is
+   a faint static top sheen. pointer-events:none keeps chips + slider live. */
+.pe-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background: radial-gradient(
+    520px circle at var(--pe-gx, 50%) var(--pe-gy, 18%),
+    rgba(255, 255, 255, 0.07),
+    rgba(255, 255, 255, 0.02) 42%,
+    transparent 62%
+  );
+}
+.pe-card.pe-tilting {
+  will-change: transform;
+}
 /* Hero placement: fills the .hero-artifact grid column edge-to-edge
    (replaces the old mid-page `margin: 36px auto 0` centering -- that
    container no longer exists, see prediction-engine-section). */
