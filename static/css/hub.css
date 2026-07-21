@@ -358,6 +358,14 @@ html.lenis body {
   z-index: 99 !important;
   transition: top 0.3s var(--ease-standard);
 }
+@media (prefers-reduced-motion: reduce) {
+  .nav {
+    transition: background 0.3s;
+  }
+  #nova-guest-banner {
+    transition: none;
+  }
+}
 .nav-logo {
   display: flex;
   align-items: center;
@@ -3324,10 +3332,15 @@ html.lenis body {
     margin-bottom: 16px;
   }
   /* .hero padding-top: .nav is position:fixed at 64px tall, and an earlier
-     pass (48px) let the eyebrow pill render partially behind it. 80px keeps
-     16px of nav clearance. */
+     pass (48px) let the eyebrow pill render partially behind it. 88px keeps
+     nav clearance AND absorbs the one stale-padding case: in guest mode the
+     banner (below the nav) is cleared by nova-auth-gate.js's one-shot body
+     padding, which goes stale if the viewport shrinks across the banner's
+     1->2-line wrap after load (desktop pad 37px vs mobile stack 64+58px --
+     5px short of the old 80px floor). The extra 8px covers it statically,
+     with no runtime measurement. */
   .hero {
-    padding-top: 80px;
+    padding-top: 88px;
   }
   .hero-stage {
     gap: 10px;
