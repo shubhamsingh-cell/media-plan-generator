@@ -123,7 +123,7 @@ bump · architecture design doc · **keystone accessor** `get_real_outcomes()` �
   #4 KB gap-fill · #5 structured-output primitive · #6 typed schema · #7 excel
   provenance · #10 MCP server · #13 eval gate (**now also runs in CI** + pytest
   suite in CI) · #14 agentic DESIGN · #16 keystone
-- ✅ #11 Gemini embeddings — CODE done + RETARGETED. The prior instruction
+- ✅ #11 Gemini embeddings — FLIPPED TO GEMINI 2026-07-21 (render.yaml EMBEDDING_PROVIDER=gemini; self-migrates on deploy; rollback = revert that commit). CODE done + RETARGETED. The prior instruction
   here (reindex script + set env in Render dashboard) is **superseded and was
   DANGEROUS as written**: it targeted `text-embedding-004`, which Google shut
   down 2026-01-14, and — before the collection-scoping fix below — a
