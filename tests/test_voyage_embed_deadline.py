@@ -569,5 +569,222 @@ def test_gemini_abandons_before_retry_backoff_sleep():
     assert elapsed < 2.0, f"should bail before the 30s backoff, took {elapsed:.2f}s"
 
 
+# ── The rerank leg: quota is spent at TWO API sites, not one ─────────────────
+#
+# ``search()`` calls ``_rerank_results`` -> ``_rerank_with_voyage`` -> a Voyage
+# POST drawing on the SAME org-wide RPM budget as embeddings. The embed guards
+# alone cannot enforce the invariant, because search() reaches rerank on paths
+# they never see:
+#   * a cache-hit embed (the common case in prod, 30MB disk cache) skips every
+#     embed guard entirely, then reranks on the vector-only tier;
+#   * when the embed guard DOES bail, search() falls back to BM25/TF-IDF and
+#     still reranks -- re-spending the very request the embed guard just saved.
+# On top of the POST, ``_voyage_try_reserve_slot`` consumes one of the shared
+# rate-window slots BEFORE the request, so an unguarded abandoned worker also
+# steals a slot from live callers. These tests pin all of it.
+
+
+def _rerank_candidates() -> list[dict]:
+    return [{"text": "hello world", "score": 1.0, "id": "d1", "metadata": {}}]
+
+
+def _rerank_window_len() -> int:
+    """Reservations recorded in the rerank model's cross-worker flock window.
+
+    The rerank throttle stopped using the in-process ``_voyage_request_times``
+    list when the rate windows were unified per-model (6e9e621) -- these tests
+    must observe the store production actually reserves into, or the slot-theft
+    assertions go vacuously green against the wrong structure.
+    """
+    _, path = vs._voyage_window_paths(vs._VOYAGE_WINDOW_RERANK)
+    return len(vs._read_voyage_window(path))
+
+
+def _embed_window_len() -> int:
+    _, path = vs._voyage_window_paths(vs._VOYAGE_WINDOW_EMBED)
+    return len(vs._read_voyage_window(path))
+
+
+def test_rerank_expired_deadline_fires_no_post_and_reserves_no_slot():
+    # _voyage_isolated points NOVA_SLOT_DIR at a private tmpdir, so the rerank
+    # window starts empty; any entry after the call is a reservation we made.
+    with _voyage_isolated() as fake:
+        with vs.embed_deadline(time.monotonic() - 1.0):  # already expired
+            result = vs._rerank_with_voyage(_rerank_candidates(), "hello", top_k=1)
+        calls = fake.calls
+        slots = _rerank_window_len()
+
+    assert result is None, "should bail to keyword fallback, not rerank"
+    assert calls == 0, "fired a rerank POST for a caller that had already left"
+    assert slots == 0, "reserved a rerank-window slot for a discarded result"
+
+
+def test_rerank_without_deadline_still_posts_and_reserves():
+    """Non-bounded callers must keep today's behavior: reserve, POST, rank."""
+    with _voyage_isolated() as fake:
+        vs._rerank_with_voyage(_rerank_candidates(), "hello", top_k=1)
+        calls = fake.calls
+        slots = _rerank_window_len()
+
+    assert calls == 1, "un-deadlined rerank should still issue its POST"
+    assert slots == 1, "un-deadlined rerank should still reserve its rate slot"
+
+
+def test_rerank_far_deadline_still_posts():
+    """A live deadline must not trip a spurious bail -- the caller is waiting."""
+    with _voyage_isolated() as fake:
+        with vs.embed_deadline(time.monotonic() + 30.0):
+            vs._rerank_with_voyage(_rerank_candidates(), "hello", top_k=1)
+        calls = fake.calls
+
+    assert calls == 1
+
+
+def test_voyage_abandons_before_retry_backoff_sleep():
+    """Voyage twin of the Gemini backoff test: after a 429 the worker must not
+    sleep out its backoff once that sleep would overrun the deadline. The next
+    acquire re-checks the deadline before reserving, so the sleep could never
+    lead to a POST anyway -- it only delays the orphan's exit (pre-guard, by up
+    to ~14s across the three attempts).
+    """
+
+    class _Raise429(_CountingUrlopen):
+        def __call__(self, req, timeout=None, context=None):
+            with self._lock:
+                self.calls += 1
+            raise vs.urllib.error.HTTPError(
+                url="http://x",
+                code=429,
+                msg="Too Many Requests",
+                hdrs=None,
+                fp=None,
+            )
+
+    raiser = _Raise429()
+    with _voyage_isolated():
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(vs.urllib.request, "urlopen", raiser))
+            stack.enter_context(mock.patch.object(vs, "_VOYAGE_BASE_BACKOFF", 30.0))
+            started = time.monotonic()
+            # +2s: far enough that attempt 0's acquire and POST proceed (the
+            # 429 comes from the stub), close enough that the 30s backoff
+            # would overrun it -- so the backoff guard is the one under test.
+            with vs.embed_deadline(time.monotonic() + 2.0):
+                result = vs._embed_uncached_voyage(["hello"])
+            elapsed = time.monotonic() - started
+
+    assert result is None
+    assert raiser.calls == 1, "should POST once, hit 429, then bail before retrying"
+    assert elapsed < 2.0, f"should bail before the 30s backoff, took {elapsed:.2f}s"
+
+
+def test_cached_embed_path_spends_no_rerank_quota_after_deadline():
+    """The common prod case: embed hits the disk cache, so NO embed guard ever
+    runs -- the vector-only tier then reranks. With the deadline already spent,
+    the rerank guard is the only thing standing between an abandoned worker and
+    a wasted request, and search() must still return results (keyword-overlap
+    fallback), preserving the graceful-degradation contract.
+    """
+    with _voyage_isolated(index=_fake_index()) as fake:
+        with contextlib.ExitStack() as stack:
+            # Every lookup is a cache hit -> embed_batch never touches the API.
+            stack.enter_context(
+                mock.patch.object(vs, "_cache_get_locked", lambda key: [0.1] * 512)
+            )
+            # Force the vector-only tier deterministically (rerank site #1):
+            # a fresh unbuilt BM25 index regardless of what earlier tests built.
+            stack.enter_context(mock.patch.object(vs, "_bm25_index", vs.BM25Index()))
+            with vs.embed_deadline(time.monotonic() - 1.0):  # already expired
+                results = vs.search("hello world", top_k=3)
+        calls = fake.calls
+        slots = _rerank_window_len()
+
+    assert calls == 0, "cache-hit path burned a rerank request past the deadline"
+    assert slots == 0, "cache-hit path stole a rerank-window slot past the deadline"
+    assert results, "guard must degrade to keyword fallback, not drop results"
+    assert results[0].get("rerank_method") == "keyword_overlap_fallback"
+
+
+@contextlib.contextmanager
+def _tfidf_corpus(documents):
+    """Build the real TF-IDF tier over ``documents``, restoring ALL its module
+    state afterwards. ``_build_tfidf_index`` mutates six module globals in
+    place (lists via .clear()+append, plus ``_tfidf_built``); leaving a fake
+    corpus behind would poison every later test that falls through to the
+    TF-IDF tier -- the exact cross-test pollution class behind the 4cac3116
+    ship-gate hang.
+    """
+    idx = list(vs._tfidf_index)
+    idf = dict(vs._tfidf_idf)
+    texts = list(vs._tfidf_doc_texts)
+    ids = list(vs._tfidf_doc_ids)
+    meta = list(vs._tfidf_doc_meta)
+    built = vs._tfidf_built
+    try:
+        vs._build_tfidf_index(documents)
+        yield
+    finally:
+        with vs._tfidf_lock:
+            vs._tfidf_index[:] = idx
+            vs._tfidf_idf.clear()
+            vs._tfidf_idf.update(idf)
+            vs._tfidf_doc_texts[:] = texts
+            vs._tfidf_doc_ids[:] = ids
+            vs._tfidf_doc_meta[:] = meta
+            vs._tfidf_built = built
+
+
+def test_abandoned_bounded_search_spends_no_quota_on_any_tier():
+    """End-to-end across BOTH API sites: with the deadline already spent, the
+    worker must exit through embed guard -> TF-IDF fallback -> rerank guard
+    (rerank site #2) with ZERO requests. Before the rerank guard existed, this
+    path re-spent the request the embed guard saved. Counted after the worker
+    is fully drained, so a late POST cannot hide behind the caller's return.
+
+    The TF-IDF tier is built over the fake corpus so it genuinely yields
+    results and the worker genuinely reaches rerank -- with an empty tier the
+    test would pass vacuously without ever exercising the guard (caught by the
+    red-proof run against unguarded code).
+    """
+    with _voyage_isolated(index=_fake_index()) as fake:
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(vs, "_bm25_index", vs.BM25Index()))
+            stack.enter_context(_tfidf_corpus(_fake_index()))
+            # timeout_s=0.0: the deadline is spent on arrival -- the abandoned-
+            # worker end state, without racing real clocks in the test.
+            vs.search_bounded(f"hello world {time.monotonic_ns()}", timeout_s=0.0)
+            _drain_bounded_workers()  # let the orphan run to completion
+            calls = fake.calls
+            # Both per-model flock windows must stay empty: neither the embed
+            # tier nor the rerank tier may reserve for an expired caller.
+            slots = _embed_window_len() + _rerank_window_len()
+
+    assert calls == 0, "abandoned worker spent Voyage quota on some tier"
+    assert slots == 0, "abandoned worker reserved a rate slot on some tier"
+
+
+# ── Ratchet: a NEW provider cannot ship without deadline coverage ────────────
+
+
+def test_deadline_matrix_covers_every_registered_provider():
+    """If a third embedding provider is ever added (EMBEDDING_PROVIDER_OPENAI,
+    ...), this fails until it gets an entry in _PROVIDERS above -- forcing the
+    new backend under the same expired-deadline/far-deadline tests instead of
+    silently shipping without quota-guard coverage. That is the exact failure
+    mode the voyage->gemini switch nearly had.
+    """
+    registered = {
+        value
+        for name, value in vars(vs).items()
+        if name.startswith("EMBEDDING_PROVIDER_") and isinstance(value, str)
+    }
+    assert registered == set(_PROVIDERS), (
+        f"providers registered in vector_search {sorted(registered)} != "
+        f"providers under deadline test {sorted(_PROVIDERS)} -- add the missing "
+        f"provider to _PROVIDERS with an isolation fixture, arm fn, and embed "
+        f"call so the deadline invariant is enforced on its backend too"
+    )
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

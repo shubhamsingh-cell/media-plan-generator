@@ -1547,6 +1547,18 @@ def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | Non
                     else:
                         backoff_time = _VOYAGE_BASE_BACKOFF * (2**attempt)
 
+                    # An abandoned bounded-search worker must not sleep out the
+                    # backoff: the retry POST it would wake up for is already
+                    # blocked (the next _voyage_acquire_send_slot re-checks the
+                    # deadline before reserving), so sleeping only delays the
+                    # orphan's exit. Mirrors the Gemini backoff guards.
+                    if _deadline_exceeded_by(backoff_time):
+                        logger.info(
+                            "Voyage AI: %.1fs 429 backoff would overrun caller "
+                            "deadline -- abandoning before sleep",
+                            backoff_time,
+                        )
+                        return None
                     logger.info(
                         "Voyage AI 429 rate limited (attempt %d/%d), "
                         "backing off %.1fs before retry",
@@ -1575,13 +1587,21 @@ def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | Non
             except urllib.error.URLError as e:
                 reason_str = str(e.reason) if e.reason else ""
                 if "SSL" in reason_str and attempt < _VOYAGE_MAX_RETRIES:
+                    backoff_time = _VOYAGE_BASE_BACKOFF * (2**attempt)
+                    if _deadline_exceeded_by(backoff_time):
+                        logger.info(
+                            "Voyage AI: %.1fs SSL backoff would overrun caller "
+                            "deadline -- abandoning before sleep",
+                            backoff_time,
+                        )
+                        return None
                     logger.warning(
                         "Voyage AI SSL error (attempt %d/%d), retrying: %s",
                         attempt + 1,
                         _VOYAGE_MAX_RETRIES,
                         reason_str[:100],
                     )
-                    time.sleep(_VOYAGE_BASE_BACKOFF * (2**attempt))
+                    time.sleep(backoff_time)
                     continue
                 logger.error(
                     "Voyage AI URL error: %s",
@@ -1592,13 +1612,21 @@ def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | Non
             except OSError as e:
                 err_str = str(e)
                 if "SSL" in err_str and attempt < _VOYAGE_MAX_RETRIES:
+                    backoff_time = _VOYAGE_BASE_BACKOFF * (2**attempt)
+                    if _deadline_exceeded_by(backoff_time):
+                        logger.info(
+                            "Voyage AI: %.1fs SSL/OS backoff would overrun "
+                            "caller deadline -- abandoning before sleep",
+                            backoff_time,
+                        )
+                        return None
                     logger.warning(
                         "Voyage AI SSL/OS error (attempt %d/%d), retrying: %s",
                         attempt + 1,
                         _VOYAGE_MAX_RETRIES,
                         err_str[:100],
                     )
-                    time.sleep(_VOYAGE_BASE_BACKOFF * (2**attempt))
+                    time.sleep(backoff_time)
                     continue
                 logger.error("Voyage AI OS error: %s", e, exc_info=True)
                 return None
@@ -1826,6 +1854,25 @@ def _rerank_with_voyage(
             },
             method="POST",
         )
+        # Honor the caller's deadline BEFORE reserving a rate slot. This is the
+        # rerank leg of the abandoned-worker fix: the embed guards
+        # (_embed_uncached_voyage / _embed_batch_gemini) alone are not enough,
+        # because search() reaches this function on paths those guards never
+        # see -- a cache-hit embed skips them entirely, and when the embed
+        # guard *does* bail, search() falls back to the BM25/TF-IDF tier and
+        # still reranks -- spending a rerank-model request on a result the
+        # caller can no longer read. Checked before _voyage_try_reserve_slot
+        # because the reservation records into the rerank model's shared
+        # cross-worker window even before the POST -- an abandoned worker
+        # would steal a slot from live rerank callers on top of wasting the
+        # request. No deadline set (non-bounded callers) == always False, so
+        # behavior there is unchanged.
+        if _deadline_exceeded_by(0.0):
+            logger.info(
+                "Voyage rerank: caller deadline already passed -- skipping "
+                "request rather than spending quota on a discarded result"
+            )
+            return None
         # Stay inside rerank-2.5-lite's own Voyage rate window -- instance-global
         # across gunicorn workers, and separate from the embedding window because
         # Voyage meters each model independently. Rerank is best-effort with a
