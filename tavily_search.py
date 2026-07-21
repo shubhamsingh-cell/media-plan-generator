@@ -90,11 +90,18 @@ def _record_request(request_times: list[float], lock: threading.Lock) -> None:
 
 
 def _get_api_key() -> str | None:
-    """Load Tavily API key from environment (cached after first load)."""
-    global _TAVILY_API_KEY
-    if _TAVILY_API_KEY is None:
-        _TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY") or ""
-    return _TAVILY_API_KEY if _TAVILY_API_KEY else None
+    """Load Tavily API key from the environment on every call.
+
+    ``_TAVILY_API_KEY`` is an explicit override seam (tests may patch it
+    via ``mock.patch.object``); it is never written here. Deliberately NOT
+    cached from the environment: the identical write-once pattern in
+    vector_search.py let a monkeypatched env var poison the whole pytest
+    process (the 2026-07-17 ship-gate hang) -- this module had the same
+    latent bug, closed at the same time.
+    """
+    if _TAVILY_API_KEY is not None:
+        return _TAVILY_API_KEY or None
+    return os.environ.get("TAVILY_API_KEY") or None
 
 
 # ── In-memory cache with TTL ─────────────────────────────────────────────────

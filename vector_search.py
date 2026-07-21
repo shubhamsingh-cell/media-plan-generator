@@ -635,11 +635,19 @@ def _voyage_try_reserve_slot() -> bool:
 
 
 def _get_api_key() -> str | None:
-    """Load Voyage API key from environment (cached after first load)."""
-    global _VOYAGE_API_KEY
-    if _VOYAGE_API_KEY is None:
-        _VOYAGE_API_KEY = os.environ.get("VOYAGE_API_KEY") or ""
-    return _VOYAGE_API_KEY if _VOYAGE_API_KEY else None
+    """Load Voyage API key from the environment on every call.
+
+    ``_VOYAGE_API_KEY`` is an explicit override seam (tests patch it via
+    ``mock.patch.object``); it is never written here. Deliberately NOT
+    cached from the environment: a write-once module global outlives any
+    ``mock.patch.dict(os.environ, ...)`` context, and a test that patched
+    the env var while this cache was cold once poisoned every later test
+    in the process into making real Voyage calls (the 2026-07-17 ship-gate
+    hang, fixed in 4cac3116).
+    """
+    if _VOYAGE_API_KEY is not None:
+        return _VOYAGE_API_KEY or None
+    return os.environ.get("VOYAGE_API_KEY") or None
 
 
 # ── Embedding disk cache helpers ─────────────────────────────────────────────
