@@ -204,16 +204,19 @@ def test_embed_batch_routes_through_shared_limiter():
     # embed_batch (voyage default) must call _voyage_acquire_send_slot before
     # hitting urlopen -- proving the limiter is on the live request path.
     vecs = [[0.5] * 512]
-    with _SlotDir(), _no_cache(), mock.patch.object(
-        vs, "_VOYAGE_API_KEY", "k"
-    ), mock.patch.object(vs.time, "sleep"), mock.patch.object(
+    with _SlotDir(), _no_cache(), mock.patch.dict(
+        # Explicit since the 2026-07-21 cutover made gemini the default:
+        # this test proves the VOYAGE limiter sits on the live request path.
+        "os.environ",
+        {"EMBEDDING_PROVIDER": "voyage"},
+        clear=False,
+    ), mock.patch.object(vs, "_VOYAGE_API_KEY", "k"), mock.patch.object(
+        vs.time, "sleep"
+    ), mock.patch.object(
         vs, "_voyage_acquire_send_slot", wraps=vs._voyage_acquire_send_slot
     ) as slot, mock.patch.object(
         vs.urllib.request, "urlopen", return_value=_FakeResp(_voyage_payload(vecs))
     ):
-        import os as _os
-
-        _os.environ.pop("EMBEDDING_PROVIDER", None)  # ensure voyage default
         out = vs.embed_batch(["hello"])
 
     assert out == vecs

@@ -30,8 +30,8 @@ the Nova knowledge base.
 
 Embedding provider switch:
     EMBEDDING_PROVIDER selects which embedding backend to use:
-        "voyage" (default)  -- Voyage AI voyage-3-lite, 512-dim (existing path)
-        "gemini"            -- Google gemini-embedding-2 (GEMINI_EMBED_MODEL
+        "voyage"            -- Voyage AI voyage-3-lite, 512-dim (legacy path)
+        "gemini" (default)  -- Google gemini-embedding-2 (GEMINI_EMBED_MODEL
                                overridable), 768-dim via outputDimensionality,
                                reuses the GEMINI_API_KEY already in the stack
     Each embedding model lives in its own vector space, so each space owns its
@@ -39,9 +39,10 @@ Embedding provider switch:
     legacy "nova_knowledge", Gemini from a model+dim-scoped name. Flipping the
     provider therefore never touches the other space's collection -- startup
     indexing (index_knowledge_base) fills the new space's collection on the
-    next deploy, and rollback is just reverting the env var. Voyage remains
-    the default -- nothing changes unless EMBEDDING_PROVIDER is set to
-    "gemini".
+    next deploy, and rollback is just reverting the env var. Gemini is the
+    default as of the 2026-07-21 cutover; EMBEDDING_PROVIDER overrides in
+    either direction (setting "voyage" in the Render dashboard is the
+    no-deploy rollback).
 
 APIs:
     Voyage AI: POST https://api.voyageai.com/v1/embeddings
@@ -203,18 +204,27 @@ def get_embedding_provider() -> str:
     """Return the active embedding provider, normalized.
 
     Reads EMBEDDING_PROVIDER at call time (not import time) so tests and the
-    reindex script can flip it via the environment. Any value other than the
-    case-insensitive "gemini" falls back to Voyage for safety.
+    reindex script can flip it via the environment. The env var is an explicit
+    OVERRIDE in either direction ("voyage" / "gemini"); when it is unset or
+    unrecognized the DEFAULT is gemini.
+
+    The default lives in code, not render.yaml, deliberately: the 2026-07-21
+    cutover proved Render does not apply this service's render.yaml envVars
+    (the service is dashboard-managed; the file's env block is documentation).
+    A render.yaml-only flip deployed cleanly and changed nothing -- caught
+    live by the /api/deploy/ready embedding block. Keeping the default in
+    code makes the flip (and any rollback) a plain git commit, with the
+    dashboard env var remaining a no-deploy emergency override.
 
     Returns:
         Either ``"gemini"`` or ``"voyage"``.
     """
     raw = (os.environ.get("EMBEDDING_PROVIDER") or "").strip().lower()
-    return (
-        EMBEDDING_PROVIDER_GEMINI
-        if raw == EMBEDDING_PROVIDER_GEMINI
-        else (EMBEDDING_PROVIDER_VOYAGE)
-    )
+    if raw == EMBEDDING_PROVIDER_VOYAGE:
+        return EMBEDDING_PROVIDER_VOYAGE
+    if raw == EMBEDDING_PROVIDER_GEMINI:
+        return EMBEDDING_PROVIDER_GEMINI
+    return EMBEDDING_PROVIDER_GEMINI
 
 
 # ── Gemini embedding configuration ───────────────────────────────────────────

@@ -30,41 +30,29 @@ exist anymore, and the old instructions would have run the reindex script
 against a dead endpoint (and, before the collection-scoping fix below,
 against the live-serving Voyage collection).
 
-## (b) How the cutover works
+## (b) How the cutover works (CORRECTED 2026-07-21)
 
-1. Flip the value in `render.yaml`:
+**Proven live:** Render does NOT apply this service's `render.yaml` envVars
+(the service is dashboard-managed; the file's env block is documentation).
+A render.yaml-only flip (`EMBEDDING_PROVIDER: gemini`, commit shipped and
+deploy-verified) changed nothing -- caught by the `/api/deploy/ready`
+`embedding` block still reporting voyage on the fresh boot.
 
-   ```yaml
-   - key: EMBEDDING_PROVIDER
-     value: gemini
-   ```
+The flip therefore lives in CODE: `vector_search.get_embedding_provider()`
+defaults to **gemini** when `EMBEDDING_PROVIDER` is unset (cutover commit,
+2026-07-21). The env var remains an override in BOTH directions:
 
-2. Ship the commit through the normal deploy path
-   (`scripts/ship_from_worktree.sh` per `CLAUDE.md` §11 — never push to `main`
-   from a worktree by hand).
+* **Flip/rollback by commit:** change the code default and ship (full gate).
+* **Emergency rollback, no deploy:** set `EMBEDDING_PROVIDER=voyage` in the
+  Render dashboard (env change restarts the service; the Voyage collection
+  `nova_knowledge` is untouched by the gemini path, so it serves instantly).
 
-3. On the new instance's startup, deferred indexing runs automatically:
-   `app.py` startup → `index_knowledge_base()` → `build_index()` →
-   `embed_batch()` (now provider-routed to Gemini) → upsert into
-   `vector_search._active_collection()`, which for the Gemini provider is
-   `nova_knowledge__gemini-embedding-2_768` — a **new, empty** collection the
-   very first time, not the Voyage one.
-   - Corpus: 6,226 chunks / ~273K tokens ≈ 63 batches of 100
-     (`_GEMINI_MAX_BATCH = 100`).
-   - No manual `scripts/reindex_embeddings.py` run or Qdrant shell/dashboard
-     work is required — the deploy *is* the migration.
-   - While that first batch of indexing is in flight, search serves from
-     BM25 (keyword) only; vector results come online once the collection is
-     populated. This is the existing graceful-degradation path
-     (`embed_batch` returning `None` on any failure already falls back to
-     BM25/TF-IDF), not new behavior introduced by this cutover.
-   - The on-disk embedding cache (`data/.embedding_cache.json`, or
-     `/data/persistent/.embedding_cache.json` on Render) is keyed by
-     `f"{get_active_embedding_model()}:{text}"`
-     (`vector_search._text_cache_key`), so it's already model-namespaced —
-     Gemini and Voyage entries can't collide. Once warm, later deploys reuse
-     cached vectors instead of re-embedding, so the ~63-batch cost is paid
-     once, not on every deploy.
+On the first gemini boot the app self-migrates: deferred-startup indexing
+embeds the KB (~6,226 chunks / ~273K tokens / ~63 batched requests) via
+gemini-embedding-2 into the fresh model-scoped collection
+`nova_knowledge__gemini-embedding-2_768`. BM25/TF-IDF serve during the
+window; the disk cache (model-namespaced) makes every later deploy's
+re-index near-instant.
 
 ## (c) Verification
 

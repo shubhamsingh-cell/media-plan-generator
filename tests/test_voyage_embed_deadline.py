@@ -154,7 +154,15 @@ def _voyage_isolated(index=None, min_delay=None):
 
     fake = _CountingUrlopen()
     patches = [
-        mock.patch.dict("os.environ", {"NOVA_SLOT_DIR": slot_dir}, clear=False),
+        mock.patch.dict(
+            "os.environ",
+            # Pin the provider: this fixture exists to exercise the VOYAGE
+            # paths, and since the 2026-07-21 cutover the module default is
+            # gemini -- relying on the default would silently route
+            # embed_batch to the wrong provider.
+            {"NOVA_SLOT_DIR": slot_dir, "EMBEDDING_PROVIDER": "voyage"},
+            clear=False,
+        ),
         mock.patch.object(vs, "_VOYAGE_API_KEY", "k"),
         mock.patch.object(vs.urllib.request, "urlopen", fake),
         mock.patch.object(vs, "_cache_put_locked", lambda key, value: None),
