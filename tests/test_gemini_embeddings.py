@@ -73,24 +73,27 @@ def _no_cache():
 # ── Provider switch ──────────────────────────────────────────────────────────
 
 
-def test_default_provider_is_gemini():
-    """Cutover 2026-07-21: the DEFAULT lives in code (render.yaml envVars are
-    not applied by Render for this service -- proven live), so unset env must
-    resolve to gemini. Voyage stays reachable as an explicit override, which
-    is the no-deploy emergency rollback lever."""
+def test_default_provider_is_voyage_pending_key_unblock():
+    """The DEFAULT lives in code (render.yaml envVars are not applied by
+    Render for this service -- proven live 2026-07-21). The gemini cutover
+    reached prod and was rolled back the same day after the deploy/ready
+    embedding block captured its blocker: the prod GEMINI_API_KEY is
+    Google-console restricted and 403-blocks BatchEmbedContents. Until the
+    key allows embeddings, the default stays voyage (populated index beats
+    an empty one); flip this test together with the default when re-cutting.
+    """
     with mock.patch.dict("os.environ", {}, clear=False):
         import os
 
         os.environ.pop("EMBEDDING_PROVIDER", None)
-        assert vs.get_embedding_provider() == "gemini"
-        assert vs.get_active_embedding_model() == vs._GEMINI_EMBED_MODEL
-
-
-def test_voyage_still_selectable_via_env_override():
-    with _env("voyage"):
         assert vs.get_embedding_provider() == "voyage"
         assert vs.get_active_embedding_model() == vs._VOYAGE_MODEL
-        assert vs._active_vector_dim() == vs._QDRANT_VECTOR_DIM == 512
+
+
+def test_gemini_selectable_via_env_override():
+    with _env("gemini"):
+        assert vs.get_embedding_provider() == "gemini"
+        assert vs.get_active_embedding_model() == vs._GEMINI_EMBED_MODEL
 
 
 def test_gemini_provider_selected():
@@ -105,11 +108,11 @@ def test_provider_value_is_case_insensitive_and_safe():
         assert vs.get_embedding_provider() == "gemini"
     with _env("VOYAGE"):
         assert vs.get_embedding_provider() == "voyage"
-    # Unknown values resolve to the DEFAULT provider (gemini since the
-    # 2026-07-21 cutover) -- never crash, never a half-recognized state.
+    # Unknown values resolve to the DEFAULT provider (voyage while the prod
+    # GEMINI_API_KEY blocks embeddings) -- never crash, never half-recognized.
     with _env("openai"):
-        assert vs.get_embedding_provider() == "gemini"
-        assert vs._active_vector_dim() == 768
+        assert vs.get_embedding_provider() == "voyage"
+        assert vs._active_vector_dim() == 512
 
 
 # ── Dimension selection drives Qdrant collection creation ────────────────────

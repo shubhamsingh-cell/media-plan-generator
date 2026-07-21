@@ -1,8 +1,18 @@
 # Nova Embedding Cutover Runbook: Voyage → Gemini (Layer-3 #11)
 
-**Status:** code ready on `main`. The cutover itself is a one-line
-`render.yaml` change, not yet flipped. This doc is the how/why/verify/rollback
-for whoever flips it.
+**Status (2026-07-22):** cutover EXECUTED and ROLLED BACK pending one
+Google-console action. The flip reached prod (provider/model/collection all
+verified live via the deploy/ready embedding block) but startup indexing
+failed with, verbatim: `gemini HTTP 403 PERMISSION_DENIED -- "Requests to
+this API generativelanguage.googleapis.com method google.ai.generativelanguage.
+v1beta.GenerativeService.BatchEmbedContents are blocked."` The prod
+GEMINI_API_KEY has API restrictions allowing chat but blocking embeddings.
+UNBLOCK: Google AI Studio / Cloud Console -> Credentials -> that key -> API
+restrictions -> allow the Generative Language API embed methods (or remove
+method restrictions). RE-FLIP: change get_embedding_provider()'s default
+return back to EMBEDDING_PROVIDER_GEMINI (one line, plus its two default
+tests) and ship; the deploy self-migrates and /api/deploy/ready shows
+indexed_documents ~6.2K on success.
 
 ## (a) Why
 

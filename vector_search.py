@@ -224,7 +224,16 @@ def get_embedding_provider() -> str:
         return EMBEDDING_PROVIDER_VOYAGE
     if raw == EMBEDDING_PROVIDER_GEMINI:
         return EMBEDDING_PROVIDER_GEMINI
-    return EMBEDDING_PROVIDER_GEMINI
+    # Default: voyage, TEMPORARILY. The 2026-07-21 gemini cutover reached prod
+    # and captured its own blocker via the /api/deploy/ready embedding block:
+    #   gemini HTTP 403 PERMISSION_DENIED -- "method ...BatchEmbedContents
+    #   [is] blocked" -- the prod GEMINI_API_KEY carries Google-console API
+    #   restrictions that allow chat (GenerateContent) but block embeddings.
+    # Until the key is unblocked (Google console action, see the runbook),
+    # gemini serves an empty index (BM25-only grounding), which is strictly
+    # worse than voyage's populated Qdrant collection. Re-flip = change this
+    # line back to EMBEDDING_PROVIDER_GEMINI once the key allows embeddings.
+    return EMBEDDING_PROVIDER_VOYAGE
 
 
 # ── Gemini embedding configuration ───────────────────────────────────────────
@@ -263,6 +272,10 @@ def _record_embed_error(msg: str) -> None:
     """
     global _last_embed_error
     sanitized = re.sub(r"key=[^&\s\"']+", "key=REDACTED", msg)
+    # Collapse control characters (Google error bodies are pretty-printed
+    # JSON full of newlines) so the stored string can never corrupt a
+    # downstream serializer or log line.
+    sanitized = re.sub(r"[\x00-\x1f]+", " ", sanitized)
     _last_embed_error = sanitized[:300]
 
 
