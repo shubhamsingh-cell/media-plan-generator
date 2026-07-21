@@ -7,6 +7,9 @@
 }
 
 :root {
+  /* The nav's height is a design constant — the banner offset and the mobile
+     dropdown anchor both derive from it, so it must never be sized by JS. */
+  --nav-h: 64px;
   --bg-primary: #08080f;
   --bg-secondary: #0d0d1a;
   --bg-card: rgba(17, 17, 17, 0.8);
@@ -319,17 +322,17 @@ html.lenis body {
 /* ── Navigation ── */
 .nav {
   position: fixed;
-  /* Offset below the guest "Previewing Nova" banner when it's present.
-     nova-auth-gate.js pads the body (flow content) but the fixed nav ignores
-     that, so without this the banner (z 999998) paints over the nav (z 100)
-     and clips the logo. --nova-banner-h is kept in sync by an inline script
-     in hub.html (0px when no banner). */
-  top: var(--nova-banner-h, 0px);
+  /* The nav is pinned at top:0 and NEVER moves. The guest "Previewing Nova"
+     banner — the only dynamic-height fixed element — is repositioned BELOW
+     the nav instead (see the #nova-guest-banner override after this block),
+     so nothing at the top of the viewport ever needs runtime measurement and
+     the logo cannot be clipped at any width. */
+  top: 0;
   left: 0;
   right: 0;
   z-index: 100;
   padding: 0 2rem;
-  height: 64px;
+  height: var(--nav-h);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -339,6 +342,21 @@ html.lenis body {
   transition:
     background 0.3s,
     height 0.3s var(--ease-standard);
+}
+
+/* Guest "Previewing Nova" banner, injected by nova-auth-gate.js with inline
+   styles (position:fixed; top:0; z-index:999998). On the hub it slides BELOW
+   the fixed nav instead of above it: the nav's height is the design constant
+   --nav-h, so neither element ever needs runtime measurement and they cannot
+   contest the same pixels at any width. !important is required to beat the
+   inline styles. z-index drops under the nav (100) so the mobile dropdown
+   paints over the banner, while staying above all page content. The top
+   transition mirrors the nav's height transition so the banner tracks the
+   on-scroll nav shrink (hub.js drives both through --nav-h). */
+#nova-guest-banner {
+  top: var(--nav-h) !important;
+  z-index: 99 !important;
+  transition: top 0.3s var(--ease-standard);
 }
 .nav-logo {
   display: flex;
@@ -3265,7 +3283,7 @@ html.lenis body {
   .nav-links {
     display: none;
     position: absolute;
-    top: 64px;
+    top: var(--nav-h);
     left: 0;
     right: 0;
     background: rgba(0, 0, 0, 0.95);

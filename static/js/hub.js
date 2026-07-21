@@ -330,12 +330,16 @@
     function () {
       if (!scrollTicking) {
         requestAnimationFrame(function () {
+          // Shrink via --nav-h (not an inline height): the nav's height, the
+          // guest banner's top offset, and the mobile dropdown's anchor all
+          // derive from this one token in hub.css, so writing the variable
+          // keeps all three in lockstep.
           if (window.scrollY > 60) {
             nav.style.background = "rgba(0, 0, 0, 0.92)";
-            nav.style.height = "56px";
+            document.documentElement.style.setProperty("--nav-h", "56px");
           } else {
             nav.style.background = "rgba(0, 0, 0, 0.8)";
-            nav.style.height = "64px";
+            document.documentElement.style.setProperty("--nav-h", "64px");
           }
           /* Aurora parallax removed -- caused scroll vibration */
           scrollTicking = false;

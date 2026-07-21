@@ -88,7 +88,7 @@
     <link rel="stylesheet" href="/static/css/tokens.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/buttons.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/motion.css?v=2.0.0" />
-    <link rel="stylesheet" href="/static/css/hub.css?v=2.12.0" />
+    <link rel="stylesheet" href="/static/css/hub.css?v=2.13.0" />
 
     <!-- PostHog Analytics -->
     <script>
@@ -3521,7 +3521,7 @@
     <!-- .footer-wrap -->
 
     <!-- ── Page Scripts (extracted to hub.js for cacheability, Fix #1) ── -->
-    <script src="/static/js/hub.js?v=2.6.0"></script>
+    <script src="/static/js/hub.js?v=2.7.0"></script>
 
     <!-- Legacy inline removed -- hamburger, observers, counters, bar anims,
          scroll handler, ripple, hero preview, page-enter, GSAP hero entrance,
@@ -3588,55 +3588,9 @@
     ></script>
     <script src="/static/nova-auth.js?v=s50" defer></script>
     <script src="/static/nova-auth-gate.js?v=s50" defer></script>
-    <!-- Keep --nova-banner-h in sync with the guest "Previewing Nova" banner
-         (#nova-guest-banner), which nova-auth-gate.js appends async. The fixed
-         nav reads this var for its `top` so the banner never clips the logo.
-         0px when the banner is absent/dismissed. Observes body for the banner
-         being added/removed, and re-measures on resize (it wraps to 2 lines on
-         narrow screens). -->
-    <script>
-      (function () {
-        "use strict";
-        var root = document.documentElement;
-        var ro = null;
-        function sync() {
-          var b = document.getElementById("nova-guest-banner");
-          root.style.setProperty(
-            "--nova-banner-h",
-            b ? b.offsetHeight + "px" : "0px"
-          );
-        }
-        // A ResizeObserver on the banner is authoritative: it fires on attach
-        // AND whenever the banner's height changes (it wraps to multiple lines
-        // on narrow viewports), so --nova-banner-h can never go stale the way a
-        // one-shot measurement can.
-        function attach(b) {
-          sync();
-          if (ro || typeof ResizeObserver === "undefined") return;
-          ro = new ResizeObserver(sync);
-          ro.observe(b);
-        }
-        var existing = document.getElementById("nova-guest-banner");
-        if (existing) {
-          attach(existing);
-        } else {
-          // The banner is appended async by the deferred nova-auth-gate.js.
-          try {
-            var mo = new MutationObserver(function () {
-              var b = document.getElementById("nova-guest-banner");
-              if (b) {
-                attach(b);
-              } else {
-                sync(); // banner removed (e.g. dismissed) -> back to 0px
-              }
-            });
-            mo.observe(document.body, { childList: true, subtree: false });
-          } catch (e) {}
-        }
-        window.addEventListener("resize", sync, { passive: true });
-        sync();
-      })();
-    </script>
+    <!-- No banner/nav sync script: the guest banner is repositioned BELOW the
+         fixed nav purely in CSS (#nova-guest-banner override in hub.css using
+         the --nav-h constant), so nothing measures the banner at runtime. -->
     <!-- NovaAuth init: moved to /static/js/hub.js -->
     <script src="/static/js/nova-toast.js?v=s50" defer></script>
     <script src="/static/js/ripple.js" defer></script>
