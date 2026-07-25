@@ -990,6 +990,93 @@ class TestCallLLMMocked:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Gemini response model-name fallback
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestGeminiResponseModelFallback:
+    """_parse_gemini_response must report the CONFIGURED model when Gemini's
+    response omits `modelVersion`, not a hardcoded slug -- see llm_router.py
+    fix(router): stop reporting a hardcoded Gemini slug on missing modelVersion.
+    A hardcoded fallback silently mislabels telemetry/cost-accounting the
+    moment the provider pin moves (it happened: 2026-07-25's gemini-3.6-flash
+    bump left an old "gemini-3-flash-preview" fallback in place).
+    """
+
+    _NO_VERSION_RESPONSE: Dict[str, Any] = {
+        "candidates": [
+            {
+                "content": {"parts": [{"text": "hello"}]},
+                "finishReason": "STOP",
+            }
+        ],
+        "usageMetadata": {"promptTokenCount": 5, "candidatesTokenCount": 1},
+        # Deliberately no "modelVersion" key -- this is the real-world shape
+        # Gemini sometimes returns, which is exactly when the fallback fires.
+    }
+
+    def test_missing_model_version_falls_back_to_configured_main_pin(self) -> None:
+        """With no modelVersion, the main GEMINI provider's configured model
+        must be reported -- and it must not be the retired hardcoded slug.
+
+        Called with no provider_id kwarg deliberately: this exact call shape
+        is valid against BOTH the pre-fix signature (`resp_data` only) and
+        the post-fix one (`resp_data, provider_id=GEMINI` by default), so a
+        failure here is a wrong VALUE, not a TypeError from a signature the
+        old code never had -- i.e. this is the direct regression check.
+        """
+        from llm_router import GEMINI, PROVIDER_CONFIG, _parse_gemini_response
+
+        result = _parse_gemini_response(dict(self._NO_VERSION_RESPONSE))
+
+        assert result["model"] == PROVIDER_CONFIG[GEMINI]["model"]
+        assert result["model"] != "gemini-3-flash-preview", (
+            "fallback is hardcoded to a retired slug instead of tracking "
+            "PROVIDER_CONFIG -- this is the exact regression being tested for"
+        )
+
+    def test_missing_model_version_falls_back_to_configured_lite_pin(self) -> None:
+        """The fallback must be provider-aware: calling with the LITE
+        provider_id must report the LITE pin, not the main GEMINI pin --
+        proving the fix reads config rather than reintroducing a different
+        hardcoded constant.
+
+        This call shape (the `provider_id=` kwarg) did not exist at all
+        pre-fix -- the old signature took only `resp_data` -- so this test
+        additionally documents that the provider-aware fallback is a new
+        capability, not just a changed constant.
+        """
+        from llm_router import (
+            GEMINI,
+            GEMINI_FLASH_LITE,
+            PROVIDER_CONFIG,
+            _parse_gemini_response,
+        )
+
+        result = _parse_gemini_response(
+            dict(self._NO_VERSION_RESPONSE), provider_id=GEMINI_FLASH_LITE
+        )
+
+        assert result["model"] == PROVIDER_CONFIG[GEMINI_FLASH_LITE]["model"]
+        assert result["model"] != PROVIDER_CONFIG[GEMINI]["model"]
+
+    def test_present_model_version_is_still_preferred_over_config(self) -> None:
+        """When Gemini DOES report modelVersion, that value wins -- the
+        config fallback must only apply when the field is absent. Unaffected
+        pre-existing behavior; called without provider_id since this path
+        works identically pre- and post-fix.
+        """
+        from llm_router import _parse_gemini_response
+
+        resp = dict(self._NO_VERSION_RESPONSE)
+        resp["modelVersion"] = "gemini-3.6-flash-001"
+
+        result = _parse_gemini_response(resp)
+
+        assert result["model"] == "gemini-3.6-flash-001"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Global timeout budget
 # ═══════════════════════════════════════════════════════════════════════════════
 

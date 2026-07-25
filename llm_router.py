@@ -3140,13 +3140,18 @@ def _parse_huggingface_response(resp_data: Any) -> Dict[str, Any]:
         return {"text": "", "error": str(e)}
 
 
-def _parse_gemini_response(resp_data: Dict) -> Dict[str, Any]:
+def _parse_gemini_response(resp_data: Dict, provider_id: str = GEMINI) -> Dict[str, Any]:
     """Parse Gemini API response to normalized format.
 
     Handles both regular text responses and functionCall responses.
     When functionCall parts are present, they are normalized to OpenAI's
     tool_calls format so the upstream tool-execution loop in nova.py
     can process them identically to OpenAI/Anthropic tool calls.
+
+    Args:
+        provider_id: Which Gemini provider (GEMINI or GEMINI_FLASH_LITE) made
+            this call, used only as the fallback source for `model` below --
+            never a hardcoded slug, so it can't go stale when the pin moves.
     """
     try:
         candidates = resp_data.get("candidates") or []
@@ -3176,7 +3181,10 @@ def _parse_gemini_response(resp_data: Dict) -> Dict[str, Any]:
                 )
 
         usage = resp_data.get("usageMetadata", {})
-        model_name = resp_data.get("modelVersion") or "gemini-3-flash-preview"
+        # Fall back to the configured pin for this provider (not a hardcoded
+        # slug) when Gemini's response omits modelVersion -- see PROVIDER_CONFIG.
+        config = PROVIDER_CONFIG.get(provider_id) or PROVIDER_CONFIG[GEMINI]
+        model_name = resp_data.get("modelVersion") or config.get("model") or ""
 
         result: Dict[str, Any] = {
             "text": " ".join(text_parts).strip(),
@@ -4071,7 +4079,7 @@ def _call_single_provider(
 
         # Parse response based on API style
         if api_style == "gemini":
-            parsed = _parse_gemini_response(resp_data)
+            parsed = _parse_gemini_response(resp_data, provider_id=provider_id)
         elif api_style == "openai":
             parsed = _parse_openai_response(resp_data)
         elif api_style == "anthropic":
