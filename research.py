@@ -11,6 +11,8 @@ import re
 import json
 import os
 
+import plan_currency
+
 logger = logging.getLogger(__name__)
 
 # ── International benchmarks (38 countries) -- loaded once at module level ──
@@ -7396,8 +7398,21 @@ def get_labour_market_intelligence(industry, locations):
     Return rich, curated labour market intelligence data combining
     BLS/JOLTS-style industry metrics with location-specific context.
     """
-    ind_data = INDUSTRY_LABOUR_MARKET.get(
-        industry, INDUSTRY_LABOUR_MARKET.get("general_entry_level", {})
+    _ind_data_direct = INDUSTRY_LABOUR_MARKET.get(industry)
+    # INCIDENT coverage-gap fix: 10 of ~22 legacy industry keys (including
+    # BOTH hospitality_travel and logistics_supply_chain) have no entry in
+    # INDUSTRY_LABOUR_MARKET and silently fell back to general_entry_level's
+    # retail/food-service BLS/JOLTS stats -- a rideshare plan (industry=
+    # hospitality_travel) shipped those as if they were its own sector data.
+    # Flag the substitution so callers can disclose it instead of presenting
+    # generic cross-sector numbers as industry-specific research.
+    industry_metrics_is_generic_fallback = (
+        _ind_data_direct is None and industry != "general_entry_level"
+    )
+    ind_data = (
+        _ind_data_direct
+        if _ind_data_direct is not None
+        else INDUSTRY_LABOUR_MARKET.get("general_entry_level", {})
     )
     national = NATIONAL_JOLTS_SUMMARY
 
@@ -7410,12 +7425,20 @@ def get_labour_market_intelligence(industry, locations):
 
         if is_intl and country and country in COUNTRY_DATA:
             c = COUNTRY_DATA[country]
+            # INCIDENT FIX: this used to hardcode a literal "$" glyph
+            # regardless of the country's actual currency -- e.g. the United
+            # Kingdom (median_salary=42000, currency="GBP") rendered as
+            # "$42,000 (GBP)", a dollar sign next to a Sterling code. Resolve
+            # the glyph from the SAME currency code being printed so they
+            # can never disagree.
+            _salary_code = c.get("currency", "USD")
+            _salary_sym = plan_currency.symbol_for_code(_salary_code)
             location_contexts.append(
                 {
                     "location": loc,
                     "country": country,
                     "unemployment_rate": c.get("unemployment", "N/A"),
-                    "median_salary": f"${c.get('median_salary') or 0:,} ({c.get('currency', 'USD')})",
+                    "median_salary": f"{_salary_sym}{c.get('median_salary') or 0:,} ({_salary_code})",
                     "population": c.get("population", "N/A"),
                     "top_industries": c.get("top_industries") or "",
                     "top_job_boards": c.get("top_boards") or "",
@@ -7425,6 +7448,8 @@ def get_labour_market_intelligence(industry, locations):
                 }
             )
         else:
+            # Genuinely USD -- this branch only fires for US locations, so
+            # the literal "$" here is correct and stays untouched.
             location_contexts.append(
                 {
                     "location": loc,
@@ -7440,6 +7465,7 @@ def get_labour_market_intelligence(industry, locations):
 
     return {
         "industry_metrics": ind_data,
+        "industry_metrics_is_generic_fallback": industry_metrics_is_generic_fallback,
         "national_summary": national,
         "location_contexts": location_contexts,
     }

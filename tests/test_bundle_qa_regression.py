@@ -667,6 +667,365 @@ def test_allows_beating_badge_next_to_real_benchmark():
     assert not any(f["code"] == "fabricated_beating_badge" for f in findings)
 
 
+# ---------------------------------------------------------------------------
+# 2026-07-25 audit: five new generation-time QA rules for blind spots a real
+# shipped bundle (client Uber, GBP 2,000,000, 6 non-US markets, role
+# "commercial cab driver", shipped 2026-07-23 with 31 critical defects,
+# only 11 caught by run_bundle_qa pre-fix) exposed. Each rule below has (a)
+# a focused unit test proving it fires on an injected defect and does NOT
+# fire on the clean equivalent, and (b) an integration test against the
+# real shipped bundle bytes (tests/fixtures/uber_shipped_2026_07_23/).
+# ---------------------------------------------------------------------------
+_UBER_FIXTURE_DIR = (
+    Path(__file__).resolve().parent / "fixtures" / "uber_shipped_2026_07_23"
+)
+_UBER_DATA = {
+    "client_name": "Uber",
+    "industry": "Hospitality & Travel",
+    "budget": 2000000,
+    "locations": ["UK", "Australia", "Mexico", "argentina", "canada", "new zealand"],
+    "roles": ["commercial cab driver"],
+    "currency": "GBP",
+    "duration": "4 weeks",
+}
+
+
+def _scan_uber_shipped_bundle() -> list[dict]:
+    pptx_bytes = (_UBER_FIXTURE_DIR / "Uber_Strategy_Deck.pptx").read_bytes()
+    xlsx_bytes = (_UBER_FIXTURE_DIR / "Uber_Media_Plan.xlsx").read_bytes()
+    return bundle_qa.run_bundle_qa(pptx_bytes, xlsx_bytes, dict(_UBER_DATA))
+
+
+def test_uber_shipped_bundle_all_five_new_rules_fire_and_nothing_crashed():
+    """The real shipped bundle must trip every one of the five new rule
+    codes, and none of the new checks may crash (no *_check_crashed
+    finding for any of them)."""
+    findings = _scan_uber_shipped_bundle()
+    codes = {f["code"] for f in findings}
+    for expected in (
+        "us_data_on_non_us_plan",
+        "currency_symbol_mixing",
+        "campaign_duration_incoherence",
+        "industry_client_conflict",
+        "competitor_count_contradiction",
+    ):
+        assert expected in codes, f"{expected} did not fire on the shipped bundle: {codes}"
+    assert not any(
+        f["code"].endswith("_check_crashed") for f in findings
+    ), [f for f in findings if f["code"].endswith("_check_crashed")]
+
+
+# --- RULE 1: us_data_on_non_us_plan ----------------------------------------
+def test_detects_us_data_on_non_us_plan_macro_vocab():
+    units = [bundle_qa._TextUnit("Fed Funds Rate: 3.64%", "Market Intelligence!B46")]
+    findings: list[dict] = []
+    bundle_qa._check_us_data_on_non_us_plan(
+        units, None, {"locations": ["London, UK"]}, findings
+    )
+    assert any(f["code"] == "us_data_on_non_us_plan" for f in findings)
+
+
+def test_allows_us_data_vocab_on_us_plan():
+    """This new rule must never fire on a genuinely US-only plan -- that is
+    the existing non_us_text_on_us_plan check's job, in the other
+    direction (bundle_qa.py:398)."""
+    units = [bundle_qa._TextUnit("Fed Funds Rate: 3.64%", "Market Intelligence!B46")]
+    findings: list[dict] = []
+    bundle_qa._check_us_data_on_non_us_plan(
+        units, None, {"locations": ["Austin, TX"]}, findings
+    )
+    assert not any(f["code"] == "us_data_on_non_us_plan" for f in findings)
+
+
+def test_detects_country_cell_says_united_states_with_no_us_location():
+    pytest = __import__("pytest")
+    pytest.importorskip("openpyxl")
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Market Intelligence"
+    ws.append(["Location", "Country", "Why This Market"])
+    ws.append(["UK", "United States", "UK was selected by client footprint."])
+    findings: list[dict] = []
+    bundle_qa._check_us_data_on_non_us_plan(
+        [], wb, {"locations": ["London, UK"]}, findings
+    )
+    assert any(f["code"] == "us_data_on_non_us_plan" for f in findings)
+
+
+def test_allows_correct_country_cell_on_non_us_plan():
+    pytest = __import__("pytest")
+    pytest.importorskip("openpyxl")
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Market Intelligence"
+    ws.append(["Location", "Country", "Why This Market"])
+    ws.append(["UK", "United Kingdom", "UK was selected by client footprint."])
+    findings: list[dict] = []
+    bundle_qa._check_us_data_on_non_us_plan(
+        [], wb, {"locations": ["London, UK"]}, findings
+    )
+    assert not any(f["code"] == "us_data_on_non_us_plan" for f in findings)
+
+
+def test_uber_shipped_bundle_catches_us_data_on_non_us_plan():
+    findings = _scan_uber_shipped_bundle()
+    matches = [f for f in findings if f["code"] == "us_data_on_non_us_plan"]
+    assert matches
+    messages = " ".join(f["message"] for f in matches)
+    assert "Fed Funds" in messages
+    assert "Thanksgiving" in messages or "Memorial Day" in messages
+    assert any("Country column" in f["message"] for f in matches)
+
+
+# --- RULE 2: currency_symbol_mixing -----------------------------------------
+def test_detects_bare_dollar_on_gbp_plan():
+    units = [
+        bundle_qa._TextUnit(
+            "Budget engine projects £7 average CPA across all channels, "
+            "with $1,626 average cost-per-hire.",
+            "slide 6 / TextBox 85 para 0",
+        )
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_currency_symbol_mixing(units, {"currency": "GBP"}, findings)
+    assert any(f["code"] == "currency_symbol_mixing" for f in findings)
+
+
+def test_allows_marked_us_dollar_benchmark_on_gbp_plan():
+    """'US$1,500-US$3,500' is the sanctioned honest marker (ppt_generator.
+    _mark_usd) and must NOT be flagged even on a GBP plan."""
+    units = [bundle_qa._TextUnit("US$1,500-US$3,500", "slide 5 / shape")]
+    findings: list[dict] = []
+    bundle_qa._check_currency_symbol_mixing(units, {"currency": "GBP"}, findings)
+    assert not any(f["code"] == "currency_symbol_mixing" for f in findings)
+
+
+def test_allows_correct_plan_symbol():
+    units = [bundle_qa._TextUnit("£561,772 programmatic investment", "slide 5")]
+    findings: list[dict] = []
+    bundle_qa._check_currency_symbol_mixing(units, {"currency": "GBP"}, findings)
+    assert not any(f["code"] == "currency_symbol_mixing" for f in findings)
+
+
+def test_detects_dollar_with_foreign_currency_code_in_parens():
+    units = [bundle_qa._TextUnit("$42,000 (GBP)", "Market Intelligence!E25")]
+    findings: list[dict] = []
+    bundle_qa._check_currency_symbol_mixing(units, {"currency": "GBP"}, findings)
+    matches = [f for f in findings if f["code"] == "currency_symbol_mixing"]
+    assert matches
+    assert "GBP" in matches[0]["message"]
+
+
+def test_currency_mixing_respects_usd_header_marker_exemption():
+    """A column whose header explicitly reads "... (USD)" (the Intl
+    Benchmarks sheet's own convention, excel_v2.py ~line 95-98) must not be
+    flagged even though its bare "$" figures don't match a non-USD plan --
+    the header IS the honest marker."""
+    units = [
+        bundle_qa._TextUnit("CPA Range (USD)", "Intl Benchmarks!F5", top=5, left=6),
+        bundle_qa._TextUnit("$16-$52; $10-$39", "Intl Benchmarks!F7", top=7, left=6),
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_currency_symbol_mixing(units, {"currency": "GBP"}, findings)
+    assert not any(f["code"] == "currency_symbol_mixing" for f in findings)
+
+
+def test_uber_shipped_bundle_catches_currency_symbol_mixing():
+    findings = _scan_uber_shipped_bundle()
+    matches = [f for f in findings if f["code"] == "currency_symbol_mixing"]
+    assert matches
+    messages = " ".join(f["message"] for f in matches)
+    assert "GBP" in messages  # the "$42,000 (GBP)" shape
+    assert "AUD" in messages  # "$55,000 (AUD)"
+    assert "MXN" in messages  # "$9,500 (MXN)"
+
+
+# --- RULE 3: campaign_duration_incoherence ----------------------------------
+def test_detects_campaign_duration_incoherence():
+    pytest = __import__("pytest")
+    pytest.importorskip("openpyxl")
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Executive Summary"
+    ws.append(["CAMPAIGN OVERVIEW", None, None])
+    ws.append(["£2.0M", "4 weeks", "6"])
+    ws.append(["Budget", "Duration", "Locations"])
+    ws2 = wb.create_sheet("90-Day Forecast")
+    ws2.append(["90-DAY ROLLING FORECAST"])
+    ws2.append(["Forecast Period", "Jul 01, 2026 - Sep 30, 2026"])
+    ws2.append(["Campaign Duration", "4 weeks"])
+
+    units = [
+        bundle_qa._TextUnit("Weeks 1-2", "slide 8"),
+        bundle_qa._TextUnit("Weeks 7-12", "slide 8"),
+        bundle_qa._TextUnit(
+            "Finalize weekly budget ($2M over 1-3 months) and success metrics",
+            "slide 11",
+        ),
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_campaign_duration_incoherence(units, wb, findings)
+    assert any(f["code"] == "campaign_duration_incoherence" for f in findings)
+
+
+def test_allows_coherent_campaign_duration_despite_fixed_90_day_forecast_window():
+    """Regression guard for the false positive this rule's first draft
+    produced against the existing manpower/atria reference bundles above:
+    the "90-Day Forecast" sheet's "Forecast Period" is a FIXED ~13-week
+    rolling window regardless of the plan's total campaign length (both
+    reference bundles show the identical "Jul 01 - Sep 30, 2026" window on
+    a 24-week and a 78-week campaign respectively). It must never, by
+    itself, trigger a false "duration incoherence" against an otherwise
+    self-consistent 24-week campaign (a 24-vs-13 week gap that WOULD
+    exceed the tolerance if it were treated as authoritative)."""
+    pytest = __import__("pytest")
+    pytest.importorskip("openpyxl")
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Executive Summary"
+    ws.append(["CAMPAIGN OVERVIEW", None, None])
+    ws.append(["$150,000", "6 months (~24 weeks)", "1"])
+    ws.append(["Budget", "Duration", "Locations"])
+    ws2 = wb.create_sheet("90-Day Forecast")
+    ws2.append(["90-DAY ROLLING FORECAST"])
+    ws2.append(["Forecast Period", "Jul 01, 2026 - Sep 30, 2026"])
+    ws2.append(["Campaign Duration", "6 months (~24 weeks)"])
+
+    units = [
+        bundle_qa._TextUnit("Weeks 1-12", "slide 8"),
+        bundle_qa._TextUnit("Weeks 13-24", "slide 8"),
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_campaign_duration_incoherence(units, wb, findings)
+    assert not any(
+        f["code"] == "campaign_duration_incoherence" for f in findings
+    ), findings
+
+
+def test_uber_shipped_bundle_catches_campaign_duration_incoherence():
+    findings = _scan_uber_shipped_bundle()
+    matches = [f for f in findings if f["code"] == "campaign_duration_incoherence"]
+    assert matches
+    msg = matches[0]["message"]
+    assert "4 weeks" in msg
+    assert "Week 12" in msg
+    assert "1-3 months" in msg
+
+
+# --- RULE 4: industry_client_conflict ---------------------------------------
+def test_detects_industry_client_conflict():
+    findings: list[dict] = []
+    bundle_qa._check_industry_client_conflict(
+        {
+            "client_name": "Uber",
+            "industry": "Hospitality & Travel",
+            "roles": ["commercial cab driver"],
+        },
+        findings,
+    )
+    matches = [f for f in findings if f["code"] == "industry_client_conflict"]
+    assert matches
+    assert "Hospitality" in matches[0]["message"]
+    assert (
+        "Rideshare" in matches[0]["message"]
+        or "logistics_supply_chain" in matches[0]["message"]
+    )
+
+
+def test_allows_industry_matching_client_and_roles():
+    findings: list[dict] = []
+    bundle_qa._check_industry_client_conflict(
+        {
+            "client_name": "Uber",
+            "industry": "Rideshare & Gig Economy",
+            "roles": ["commercial cab driver"],
+        },
+        findings,
+    )
+    assert not any(f["code"] == "industry_client_conflict" for f in findings)
+
+
+def test_industry_client_conflict_check_never_raises_on_malformed_roles():
+    findings: list[dict] = []
+    bundle_qa._check_industry_client_conflict(
+        {"client_name": "Uber", "roles": [{"weird": "shape"}]}, findings
+    )  # must not raise -- absence of a crash IS the assertion here
+
+
+def test_uber_shipped_bundle_catches_industry_client_conflict():
+    findings = _scan_uber_shipped_bundle()
+    matches = [f for f in findings if f["code"] == "industry_client_conflict"]
+    assert matches
+    assert "Hospitality" in matches[0]["message"]
+
+
+# --- RULE 5: competitor_count_contradiction ---------------------------------
+def test_detects_competitor_count_contradiction():
+    pytest = __import__("pytest")
+    pytest.importorskip("openpyxl")
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Market Intelligence"
+    ws.append(["Name", "Industry", "Hiring Activity", "Counter-Strategy"])
+    ws.append(["Marriott", "Hospitality & Travel", "Active (est.)", "..."])
+    ws.append(["Hilton", "Hospitality & Travel", "Active (est.)", "..."])
+    ws.append([])
+    ws.append(["Market Positioning"])
+    ws.append(
+        [
+            "Industry Sector: Hospitality & Travel; Is Public Company: No; "
+            "Competitor Count: 0; Has Sec Filings: No"
+        ]
+    )
+    findings: list[dict] = []
+    bundle_qa._check_competitor_count_contradiction(wb, findings)
+    assert any(f["code"] == "competitor_count_contradiction" for f in findings)
+
+
+def test_allows_matching_competitor_count():
+    pytest = __import__("pytest")
+    pytest.importorskip("openpyxl")
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Market Intelligence"
+    ws.append(["Name", "Industry", "Hiring Activity", "Counter-Strategy"])
+    ws.append(["Marriott", "Hospitality & Travel", "Active (est.)", "..."])
+    ws.append(["Hilton", "Hospitality & Travel", "Active (est.)", "..."])
+    ws.append([])
+    ws.append(["Market Positioning"])
+    ws.append(
+        [
+            "Industry Sector: Hospitality & Travel; Is Public Company: No; "
+            "Competitor Count: 2; Has Sec Filings: No"
+        ]
+    )
+    findings: list[dict] = []
+    bundle_qa._check_competitor_count_contradiction(wb, findings)
+    assert not any(f["code"] == "competitor_count_contradiction" for f in findings)
+
+
+def test_uber_shipped_bundle_catches_competitor_count_contradiction():
+    findings = _scan_uber_shipped_bundle()
+    matches = [
+        f for f in findings if f["code"] == "competitor_count_contradiction"
+    ]
+    assert matches
+    assert "Competitor Count: 0" in matches[0]["message"]
+    assert "5 named competitor" in matches[0]["message"]
+
+
 if __name__ == "__main__":
     import pytest
 

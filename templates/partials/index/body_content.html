@@ -1409,6 +1409,23 @@
           </div>
           <div
             class="industry-card"
+            data-industry="rideshare"
+            onclick="selectIndustry(this)"
+            role="button"
+            tabindex="0"
+            onkeydown="
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                selectIndustry(this);
+              }
+            "
+          >
+            <div class="icon">&#128661;</div>
+            <div class="name">Rideshare & Gig Economy</div>
+            <div class="desc">Rideshare, Gig, On-Demand Delivery</div>
+          </div>
+          <div
+            class="industry-card"
             data-industry="hospitality_travel"
             onclick="selectIndustry(this)"
             role="button"

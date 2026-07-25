@@ -1516,6 +1516,8 @@ _TITLE_ACRONYMS = {
     "Qc": "QC",
     "Roas": "ROAS",
     "Dei": "DEI",
+    "Bls": "BLS",
+    "Jolts": "JOLTS",
 }
 
 
@@ -6037,21 +6039,59 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             ]
             row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
     elif INDUSTRY_NICHE_CHANNELS.get(industry) and not _is_us_plan(data):
-        # Reference-framework note: we know US niche boards for this industry
-        # but have no local-market equivalent data -- disclose rather than
-        # silently drop or fabricate.
+        # INCIDENT FIX: this note used to claim "Local specialty board data
+        # was not available for this campaign" -- false. The same workbook's
+        # Intl Benchmarks sheet lists top local job boards for every one of
+        # these markets (research's international_benchmarks_2026.json, the
+        # same dataset get_location_info draws "intl_platforms" from).
+        # Surface the real per-market boards here instead of asserting an
+        # absence the workbook itself contradicts.
         row = _write_section_header(ws, row, f"Niche Channels: {industry_label}")
-        _signals = _non_us_signals(data)
-        _signal_txt = f" (targets {', '.join(_signals[:3])})" if _signals else ""
-        row = _write_kv_row(
-            ws,
-            row,
-            "Note",
-            "US-domiciled niche boards for this industry are not shown because "
-            f"this plan targets a non-US market{_signal_txt}. Local specialty "
-            "board data was not available for this campaign; consult the Intl "
-            "Benchmarks sheet and regional job boards for this market.",
-        )
+
+        _local_board_rows: List[tuple] = []
+        if research_mod is not None:
+            for _loc in locations:
+                try:
+                    _loc_info = research_mod.get_location_info(_loc) or {}
+                except Exception:
+                    _loc_info = {}
+                _plats = _loc_info.get("intl_platforms") or []
+                _plat_names = [
+                    p.get("name") for p in _plats if isinstance(p, dict) and p.get("name")
+                ]
+                if _plat_names:
+                    _local_board_rows.append(
+                        (_loc, _loc_info.get("country") or _loc, _plat_names[:4])
+                    )
+
+        if _local_board_rows:
+            row = _write_kv_row(
+                ws,
+                row,
+                "Note",
+                "US-domiciled niche boards for this industry are not shown because "
+                "this plan targets a non-US market. Local job boards for each "
+                "market are listed below (see the Intl Benchmarks sheet for full "
+                "CPC/CPA/CPH detail).",
+            )
+            headers = ["Location", "Country", "Local Job Boards"]
+            row = _write_table_header(ws, row, headers)
+            for idx, (_loc, _country, _plat_names) in enumerate(_local_board_rows):
+                values = [_loc, _country, ", ".join(_plat_names)]
+                row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
+        else:
+            # Genuine last resort (no research module available at all) --
+            # never claim the data doesn't exist, just point at where it is.
+            _signals = _non_us_signals(data)
+            _signal_txt = f" (targets {', '.join(_signals[:3])})" if _signals else ""
+            row = _write_kv_row(
+                ws,
+                row,
+                "Note",
+                "US-domiciled niche boards for this industry are not shown because "
+                f"this plan targets a non-US market{_signal_txt}. Consult the Intl "
+                "Benchmarks sheet and regional job boards for this market.",
+            )
 
     row += 2
     _write_attribution_footer(ws, row)
@@ -6142,14 +6182,45 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             row = _write_kv_row(ws, row, key, val_str)
     row += 1
 
-    if ind_metrics:
+    # INCIDENT FIX: ind_metrics is US BLS/JOLTS sector data (research.py
+    # INDUSTRY_LABOUR_MARKET -- total_employment_us, bls_sector_code,
+    # job_openings_rate_jolts, US-only prose like the federal minimum wage
+    # debate) and was rendered with no geo gate at all. Gate on the
+    # canonical US-plan detector; omit the whole subsection on a non-US plan
+    # rather than mislabel foreign sector data as US data.
+    if ind_metrics and _is_us_plan(data):
         row = _write_subsection_header(ws, row, f"Industry Metrics: {industry_label}")
+        if labour_data.get("industry_metrics_is_generic_fallback"):
+            # Coverage-gap fix: this industry has no curated BLS/JOLTS entry
+            # in INDUSTRY_LABOUR_MARKET (10 of ~22 legacy industry keys are
+            # missing, incl. hospitality_travel and logistics_supply_chain)
+            # and research.get_labour_market_intelligence silently substitutes
+            # general_entry_level's retail/food-service stats. Disclose the
+            # substitution instead of presenting it as this industry's own
+            # data (a rideshare plan previously shipped those numbers with no
+            # such note).
+            row = _write_kv_row(
+                ws,
+                row,
+                "Note",
+                f"No BLS/JOLTS data is curated specifically for {industry_label}; "
+                "the figures below are generic cross-sector US labour-market "
+                "benchmarks (general/entry-level workforce), not "
+                f"{industry_label}-specific data.",
+            )
         for key, val in ind_metrics.items():
             if key in ("metadata", "source", "sources"):
                 continue
             val_str = _flatten_value(val)
             if val_str:
-                display_key = key.replace("_", " ").title()
+                # S3/incident fix: this used to be a naive
+                # key.replace("_", " ").title(), which mangled acronyms and
+                # country suffixes the file already has a fix for elsewhere
+                # ("Total Employment Us", "Bls Sector Code", "Job Openings
+                # Rate Jolts"). Route through the same _humanize_snake_key
+                # helper (and _TITLE_ACRONYMS) every other raw dict key on
+                # this workbook resolves through.
+                display_key = _humanize_snake_key(key)
                 row = _write_kv_row(ws, row, display_key, val_str)
         row += 1
 
@@ -6235,8 +6306,22 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             except Exception:
                 loc_data = {}
 
-        # Extract values with fallback chain
+        # Extract values with fallback chain.
+        # INCIDENT FIX: a 6-market non-US plan (UK/Australia/Mexico/
+        # Argentina/Canada/New Zealand) shipped "United States" in every
+        # Country cell. Root cause: data_synthesizer.fuse_location_profiles
+        # NEVER sets a flat "country" key -- it nests the resolved name at
+        # loc_data["country_info"]["name"] (data_synthesizer.py ~2087-2094)
+        # -- yet always returns a truthy per-location dict (at minimum
+        # {"location": loc}), so ``loc_data.get("country") or ""`` was
+        # always empty and the "if not loc_data" research_mod fallback a few
+        # lines above could never fire. Check country_info BEFORE falling
+        # through to the comma-parsing heuristics below.
         country = loc_data.get("country") or ""
+        if not country:
+            _country_info = loc_data.get("country_info")
+            if isinstance(_country_info, dict):
+                country = _country_info.get("name") or ""
         if not country:
             # Try to infer from location string ("City, Country" -> last
             # token). S92 residual fix: for the common 2-part "City, ST"
@@ -6257,16 +6342,36 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             elif len(parts) > 2:
                 country = parts[-1].strip()
             else:
-                # No comma: the location string itself may already BE the
-                # country (e.g. loc == "New Zealand"), or the plan carries an
-                # explicit top-level country. Only default to "United States"
-                # when neither signal is available -- never hardcode it over
-                # a non-US plan (S4: findings Market Intelligence B30).
-                plan_country = data.get("country") or ""
-                if isinstance(plan_country, str) and plan_country.strip():
-                    country = plan_country.strip()
+                # No comma: single-token locations ("UK", "Australia",
+                # "argentina", "canada", "new zealand", "Mexico", ...) carry
+                # no state/comma signal at all. Run them through the SAME
+                # country detector the sibling Location Economic Context
+                # table above already uses successfully for these exact
+                # tokens (research._detect_country via
+                # get_labour_market_intelligence) so the two tables on this
+                # sheet never disagree about the same plan.
+                _detected_country = None
+                if research_mod is not None:
+                    try:
+                        _detected_country = research_mod._detect_country(loc)
+                    except Exception:
+                        _detected_country = None
+                if _detected_country:
+                    country = _detected_country
                 else:
-                    country = "United States"
+                    # Still nothing: try the plan's own top-level country
+                    # field, then -- ONLY when this plan actually resolves as
+                    # domestic per the canonical detector -- the US default.
+                    # Never hardcode "United States" over a non-US plan (S4:
+                    # Market Intelligence B30 repeat; the incident this fix
+                    # closes).
+                    plan_country = data.get("country") or ""
+                    if isinstance(plan_country, str) and plan_country.strip():
+                        country = plan_country.strip()
+                    elif _is_us_plan(data):
+                        country = "United States"
+                    else:
+                        country = loc
 
         # Prefer metro/city population over state-level population
         population = (
@@ -6400,7 +6505,13 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 elif isinstance(_fv, (int, float)):
                     _fred_macro[_fk] = _fv
 
-    if _fred_macro:
+    # INCIDENT FIX: FRED (US Federal Reserve) macro data is US-only by
+    # definition -- it was rendered with no geo gate at all, so a plan with
+    # zero US locations shipped US unemployment/Fed Funds Rate/CPI figures
+    # captioned only "(USD)" with nothing marking them as US-specific.
+    # Gate the whole block on the canonical US-plan detector; omit it
+    # entirely on a non-US plan rather than mislabel it.
+    if _fred_macro and _is_us_plan(data):
         row += 1
         row = _write_subsection_header(ws, row, "Macro Economic Context")
         # S3: FRED (US Federal Reserve) macro data is US-only by definition --
@@ -6481,6 +6592,11 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         row += 1
 
     # Competitors table
+    # Declared up-front (rather than inside the `if comp_analysis:` branch
+    # below) so the Market Positioning summary further down can always
+    # reconcile its printed competitor count against the rows actually
+    # rendered here, even when comp_analysis starts out empty.
+    _comp_rows: List[Dict[str, str]] = []
     comp_analysis = comp_intel.get(
         "competitors", comp_intel.get("competitor_analysis") or []
     )
@@ -6717,18 +6833,29 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
         )
         _market_pos_display = market_pos
-        if isinstance(market_pos, dict) and market_pos.get("industry_sector"):
-            # data_synthesizer.fuse_competitive_intelligence stores the raw
-            # internal industry key here (e.g. "logistics_supply_chain") --
-            # route it through the same canonical shared_utils.INDUSTRY_LABEL_MAP
-            # every other industry label on this workbook resolves through,
-            # rather than leaking the key verbatim ("Industry Sector:
-            # logistics_supply_chain").
+        if isinstance(market_pos, dict):
             _market_pos_display = dict(market_pos)
-            _market_pos_display["industry_sector"] = INDUSTRY_LABEL_MAP.get(
-                market_pos["industry_sector"],
-                _humanize_snake_key(market_pos["industry_sector"]),
-            )
+            if market_pos.get("industry_sector"):
+                # data_synthesizer.fuse_competitive_intelligence stores the raw
+                # internal industry key here (e.g. "logistics_supply_chain") --
+                # route it through the same canonical shared_utils.INDUSTRY_LABEL_MAP
+                # every other industry label on this workbook resolves through,
+                # rather than leaking the key verbatim ("Industry Sector:
+                # logistics_supply_chain").
+                _market_pos_display["industry_sector"] = INDUSTRY_LABEL_MAP.get(
+                    market_pos["industry_sector"],
+                    _humanize_snake_key(market_pos["industry_sector"]),
+                )
+            if "competitor_count" in _market_pos_display:
+                # INCIDENT FIX: data_synthesizer.fuse_competitive_intelligence
+                # snapshots competitor_count from its own raw competitor-logo
+                # dict AT SYNTHESIS TIME (often empty), while the Competitor
+                # Analysis table just above renders rows from a LATER
+                # industry-fallback list that never updates this count --
+                # "Competitor Count: 0" shipped directly beneath 5 listed
+                # competitors. Reconcile so the printed count always matches
+                # the rows actually rendered on this same sheet.
+                _market_pos_display["competitor_count"] = len(_comp_rows)
         cell = ws.cell(
             row=row, column=COL_START, value=_flatten_value(_market_pos_display)
         )

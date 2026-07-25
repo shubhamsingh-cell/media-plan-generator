@@ -1814,6 +1814,27 @@ def _fmt_currency(val, currency=None, compact=False):
     return f"{sym}{val:,.2f}"
 
 
+def _fmt_currency_whole(val, currency=None):
+    """Currency-aware equivalent of ``display_format.fmt_money``'s
+    non-compact path: plan-symbol + whole-number amount, never cents
+    (e.g. "£1,626" not "£1,626.43" and never "$1,626").
+
+    ``fmt_money`` was previously reused at a few call sites purely to avoid
+    a cents artifact on a rounded average (CPH, etc.) -- but it is hardcoded
+    to "$" and can't localize. This preserves the "always whole dollars/
+    pounds/etc." rounding while using the active plan currency's symbol.
+    """
+    if val is None:
+        return "—"
+    try:
+        val = float(val)
+    except (TypeError, ValueError):
+        return str(val)
+    sym = _cur_symbol(currency)
+    sign = "-" if val < 0 else ""
+    return f"{sign}{sym}{abs(val):,.0f}"
+
+
 def _fmt_pct(val, decimals=1):
     """Format as percentage."""
     if val is None:
@@ -2497,25 +2518,46 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                 if live_cpcs:
                     min_cpc = min(live_cpcs)
                     max_cpc = max(live_cpcs)
-                    # S3: plan's own live ad-platform CPC projection -- localize.
+                    # NOTE: despite the "live_api" label below, plat_data
+                    # here (ad_platform_analysis) traces to the hardcoded
+                    # static USD table _PLATFORM_BENCHMARKS
+                    # (data_synthesizer.py, e.g. Google Ads cpc 2.90) via
+                    # fuse_ad_platform_analysis -- it is NOT this plan's own
+                    # localized projection, so it must be flagged as a USD
+                    # benchmark like the CPH row's honest KB path below,
+                    # not silently relabeled with a bare non-USD symbol.
+                    # Force currency="USD" (rather than the active plan
+                    # currency) so the string itself carries a literal "$"
+                    # for _mark_usd() to rewrite into "US$" downstream --
+                    # otherwise a GBP-active plan would render this raw,
+                    # never-converted USD number as a bare "£", which
+                    # _mark_usd() (a bare-"$"-only rewrite) cannot fix after
+                    # the fact.
                     result["cpc"] = (
-                        f"{_fmt_currency(min_cpc)} - {_fmt_currency(max_cpc)}"
+                        f"{_fmt_currency(min_cpc, currency='USD')} - "
+                        f"{_fmt_currency(max_cpc, currency='USD')}"
                         if min_cpc != max_cpc
-                        else _fmt_currency(min_cpc)
+                        else _fmt_currency(min_cpc, currency="USD")
                     )
                     result["confidence"] = "live_api"
-                    result["cpc_is_usd_benchmark"] = False
+                    result["cpc_is_usd_benchmark"] = True
                 if live_cpas:
                     min_cpa = min(live_cpas)
                     max_cpa = max(live_cpas)
-                    # S3: plan's own live ad-platform CPA projection -- localize.
+                    # NOTE: same static-USD-table provenance as cpc above --
+                    # not this plan's own localized projection. Force
+                    # currency="USD" for the same reason as cpc above (must
+                    # carry a literal "$" for _mark_usd() to act on), and
+                    # flagged USD so _mark_usd() applies the honest "US$"
+                    # marker instead of a bare non-USD symbol.
                     result["cpa"] = (
-                        f"{_fmt_currency(round(min_cpa))} - {_fmt_currency(round(max_cpa))}"
+                        f"{_fmt_currency(round(min_cpa), currency='USD')} - "
+                        f"{_fmt_currency(round(max_cpa), currency='USD')}"
                         if min_cpa != max_cpa
-                        else _fmt_currency(round(min_cpa))
+                        else _fmt_currency(round(min_cpa), currency="USD")
                     )
                     result["confidence"] = "live_api"
-                    result["cpa_is_usd_benchmark"] = False
+                    result["cpa_is_usd_benchmark"] = True
 
     # Layer 0: Budget engine CPH and apply_rate overrides
     # These were NEVER overridden before (always hardcoded) -- fix v3.4.1
@@ -3756,10 +3798,13 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             _thesis_parts.append(f"This plan projects {int(_proj_h)} hires")
             _thesis_has_lead = True
         if _proj_cph > 0:
-            # copy:both#2: fmt_money (never cents) instead of _fmt_currency,
-            # which rendered "$5,263.16" whenever the rounded CPH wasn't a
-            # whole dollar figure.
-            _thesis_parts.append(f"at {_fmt.fmt_money(_proj_cph)}/hire")
+            # copy:both#2: whole-number currency (never cents) instead of
+            # raw _fmt_currency, which rendered "$5,263.16" whenever the
+            # rounded CPH wasn't a whole dollar figure. _fmt_currency_whole
+            # keeps that never-cents rounding but uses the plan's own
+            # currency symbol instead of fmt_money's hardcoded "$" (a GBP
+            # plan must never render this as "$1,626/hire").
+            _thesis_parts.append(f"at {_fmt_currency_whole(_proj_cph)}/hire")
     if not _thesis_has_lead:
         # Near-zero-budget edge case (2026-07-03 Gedu review): 0 projected
         # hires means the "This plan projects N hires" clause above never
@@ -3842,6 +3887,19 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     )
 
     if goals:
+        # Sub-heading so the glyph/colour/size change below (blue "o" dot,
+        # 8pt vs. the channel/bidding checkmarks above) reads as an
+        # intentional new section -- not a silent style drift mid-list
+        # into the same text frame with nothing marking the transition.
+        _add_paragraph(
+            tf4,
+            "Client Goals:",
+            font_size=9,
+            bold=True,
+            color=NAVY,
+            space_before=4,
+            space_after=2,
+        )
         for g in goals[:2]:
             p = tf4.add_paragraph()
             p.space_before = Pt(1)
@@ -3869,9 +3927,11 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             f"Client goal: {_exec_goal_gap['goal']:,} hires — this plan "
             f"projects {_exec_goal_gap['projected']:,} "
             f"({_exec_goal_gap['pct_of_goal']:.0f}% of goal); scaling path: "
-            # copy:both#2: compact fmt_money ("~$2.33M") instead of the raw
-            # two-decimal dollar amount ("~$2,331,579.88").
-            f"~{_fmt.fmt_money(_exec_goal_gap['additional_budget'], compact=True)} additional",
+            # copy:both#2: compact currency ("~£2.33M") instead of the raw
+            # two-decimal amount ("~£2,331,579.88") -- _fmt_currency's
+            # compact path matches fmt_money's never-"-.0" rounding while
+            # using the plan's own currency symbol.
+            f"~{_fmt_currency(_exec_goal_gap['additional_budget'], compact=True)} additional",
             font_size=7,
             bold=True,
             color=NAVY,
@@ -5798,7 +5858,11 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     if avg_cpa and avg_cpa > 0 and proj_hires and proj_hires > 0:
         insight_text = f"Budget engine projects {_cur}{avg_cpa:,.0f} average CPA across all channels"
         if avg_cph and avg_cph > 0:
-            insight_text += f", with {_fmt.fmt_money(avg_cph)} average cost-per-hire"
+            # copy:both#2: whole-number currency (never cents), plan symbol
+            # -- not fmt_money's hardcoded "$" (this sentence already uses
+            # the correct `_cur` symbol for the CPA half above; the CPH half
+            # must match it instead of wearing a bare "$").
+            insight_text += f", with {_fmt_currency_whole(avg_cph)} average cost-per-hire"
         insight_text += (
             f". At {int(proj_hires):,} projected hires, "
             f"{client}'s investment yields strong programmatic ROI "
@@ -7686,7 +7750,7 @@ def _classify_competitor_vertical(comp_name: str, industry: str) -> str:
 
 _COMPETITOR_WHY_TEMPLATES_INDUSTRY = (
     "{name} actively recruits {pool}, competing directly for this plan's "
-    "pipeline -- and for the same customers.",
+    "pipeline — and for the same customers.",
     "{name} is a {type_phrase}same-vertical employer drawing from "
     "the same {pool} this plan targets.",
     "{name}'s hiring activity for similar roles puts direct pressure on "
@@ -7701,7 +7765,7 @@ _COMPETITOR_WHY_TEMPLATES_TALENT_MARKET = (
     "the same wage band as {pool}, not the same customers.",
     "{name}'s hourly pay and hiring volume put wage-band pressure on "
     "{pool}, without competing for this industry's customers.",
-    "{name} pulls from the same local labor pool as {pool} -- a wage-band "
+    "{name} pulls from the same local labor pool as {pool} — a wage-band "
     "competitor, not a same-vertical one.",
 )
 
@@ -10413,11 +10477,17 @@ def _push_pull_split_line(items: "list", total_budget: float) -> str:
     if not items:
         return ""
     total = sum(d for _, d in items)
-    parts = [f"{label} {_fmt.fmt_money(d, compact=True)}" for label, d in items]
+    # copy:both#2: currency-aware compact formatting -- not fmt_money's
+    # hardcoded "$". Slide 5's attribution chart renders these SAME
+    # per-channel dollar amounts via _fmt_currency(compact=True) (:4396);
+    # this line must use the identical helper so both slides agree on
+    # symbol (a GBP plan must never show "$557.8K" here next to "£557.8K"
+    # on the other slide).
+    parts = [f"{label} {_fmt_currency(d, compact=True)}" for label, d in items]
     pct = (
         f" ({round(total / total_budget * 100)}% of budget)" if total_budget > 0 else ""
     )
-    return f"This plan: {' · '.join(parts)} — {_fmt.fmt_money(total, compact=True)} total{pct}"
+    return f"This plan: {' · '.join(parts)} — {_fmt_currency(total, compact=True)} total{pct}"
 
 
 def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> None:
@@ -11165,7 +11235,11 @@ def _interpolate_next_steps(steps: List[Any], data: Dict) -> List[str]:
     # broken "over Ongoing" -- worded slightly differently for the
     # parenthetical vs. em-dash bullet so each reads as a single clause.
     budget_num = _parse_budget_number(data.get("budget"))
-    budget_fmt = _fmt.fmt_money(budget_num, compact=True) if budget_num else ""
+    # copy:both#2: currency-aware compact formatting -- not fmt_money's
+    # hardcoded "$" (this feeds both the "Finalize weekly budget" and
+    # "Launch within..." Next Steps bullets below; a GBP plan must render
+    # its own budget figure here, not "$2M").
+    budget_fmt = _fmt_currency(budget_num, compact=True) if budget_num else ""
     duration = str(data.get("campaign_duration") or "").strip()
     unbounded = bool(duration) and _is_unbounded_duration(duration)
 

@@ -3088,6 +3088,160 @@ for _lk, _nk in _LEGACY_PRIORITY.items():
         _LEGACY_TO_NAICS_KEY[_lk] = _nk
 
 
+# Generic/placeholder industry strings that mean "no real explicit industry
+# selection was made" -- shared by the role-based inference gate (Step 3),
+# the fuzzy-match brand-priority gate (Step 4), and the industry_conflict
+# gate in classify_industry: all three need the same "was anything actually
+# selected?" test.
+_GENERIC_INDUSTRY_STRINGS = ("", "general", "other", "n/a", "na", "none")
+
+# Role-title -> NAICS map key, used by classify_industry's Steps 3/6 (role-
+# based industry inference) AND by _infer_industry_from_signals (the
+# independent company/role-only inference industry_conflict is checked
+# against). Hoisted to module scope so both share one table instead of it
+# being rebuilt on every classify_industry() call.
+_ROLE_INDUSTRY_MAP: dict[str, str] = {
+    # Technology
+    "software engineer": "technology",
+    "developer": "technology",
+    "devops": "technology",
+    "sre": "technology",
+    "site reliability": "technology",
+    "frontend": "technology",
+    "backend": "technology",
+    "full stack": "technology",
+    "fullstack": "technology",
+    "platform engineer": "technology",
+    "cloud engineer": "technology",
+    "security engineer": "technology",
+    "qa engineer": "technology",
+    "test engineer": "technology",
+    "mobile developer": "technology",
+    "ios developer": "technology",
+    "android developer": "technology",
+    "solutions architect": "technology",
+    # Technology / Data
+    "data scientist": "technology",
+    "ml engineer": "technology",
+    "machine learning": "technology",
+    "data engineer": "technology",
+    "data analyst": "technology",
+    "analytics engineer": "technology",
+    "ai engineer": "technology",
+    "artificial intelligence": "technology",
+    # Healthcare
+    "nurse": "healthcare",
+    "registered nurse": "healthcare",
+    "doctor": "healthcare",
+    "physician": "healthcare",
+    "pharmacist": "healthcare",
+    "medical": "healthcare",
+    "therapist": "healthcare",
+    "clinical": "healthcare",
+    "radiologist": "healthcare",
+    "surgeon": "healthcare",
+    "dental": "healthcare",
+    "paramedic": "healthcare",
+    "emt": "healthcare",
+    "phlebotomist": "healthcare",
+    "medical assistant": "healthcare",
+    # Finance
+    "accountant": "finance",
+    "financial analyst": "finance",
+    "controller": "finance",
+    "auditor": "finance",
+    "actuary": "finance",
+    "underwriter": "finance",
+    "loan officer": "finance",
+    "investment analyst": "finance",
+    "portfolio manager": "finance",
+    "compliance officer": "finance",
+    "financial advisor": "finance",
+    # Marketing (maps to general but with marketing talent profile)
+    "marketing manager": "technology",
+    "content strategist": "technology",
+    "seo": "technology",
+    "growth": "technology",
+    "digital marketing": "technology",
+    # Sales (maps to general but role-aware)
+    "sales": "retail",
+    "account executive": "retail",
+    "bdr": "retail",
+    "sdr": "retail",
+    "business development": "retail",
+    # Transportation / Rideshare / Gig -- more specific terms listed first so
+    # a role like "commercial cab driver" votes for rideshare via "cab", not
+    # the generic "driver" catch-all below (2026-07 Uber incident root
+    # cause: this map had ZERO driver/transport/rideshare entries, so a
+    # brief with no explicit industry and a driver-type role fell through to
+    # the generic fallback instead of Rideshare/Transportation).
+    "cab": "rideshare",
+    "taxi": "rideshare",
+    "chauffeur": "rideshare",
+    "rideshare": "rideshare",
+    "courier": "transportation",
+    "trucking": "transportation",
+    "transport": "transportation",
+    "delivery": "transportation",
+    "driver": "transportation",
+}
+
+
+def _infer_industry_from_signals(company_name: str = "", roles: list = None) -> dict:
+    """Infer an industry profile from company_name + roles ONLY, ignoring any
+    explicit raw_industry the caller may also have -- that independence is
+    the whole point: this is the signal classify_industry() compares an
+    explicit industry selection against to detect ``industry_conflict``.
+
+    Unlike classify_industry's own fuzzy Step 4, an exact keyword match
+    against company_name itself (e.g. "uber" when the company is literally
+    named "Uber") is weighted far above the same keyword merely appearing
+    somewhere in generic descriptive text -- a brand name is a much
+    stronger industry signal than a generic word, and letting a longer
+    generic word simply outscore it (the 2026-07 incident: "travel" (6
+    chars) outscored "uber" (4 chars)) is exactly the failure mode this
+    guards against.
+
+    Returns None when nothing clears the same confidence bar
+    classify_industry's Step 4 uses (best_score >= 3).
+    """
+    roles = roles or []
+    company_lower = (company_name or "").lower()
+    search_text = f"{company_name} {' '.join(str(r) for r in roles)}".lower()
+
+    best_match = None
+    best_score = 0
+    for _key, _profile in INDUSTRY_NAICS_MAP.items():
+        score = 0
+        for kw in _profile["keywords"]:
+            if kw in search_text:
+                score += len(kw)
+            if company_lower and kw in company_lower:
+                # Exact company-name/brand keyword match -- outranks a
+                # generic keyword regardless of length (see docstring).
+                score += 1000
+        if score > best_score:
+            best_score = score
+            best_match = _profile
+
+    if best_match and best_score >= 3:
+        return best_match
+
+    _role_votes: dict[str, int] = {}
+    for _r in roles:
+        _role_str = str(_r).lower().strip() if _r else ""
+        for _role_kw, _ind_key in _ROLE_INDUSTRY_MAP.items():
+            if _role_kw in _role_str:
+                _role_votes[_ind_key] = _role_votes.get(_ind_key, 0) + len(_role_kw)
+                break
+    if _role_votes:
+        _best_role_ind = max(_role_votes, key=_role_votes.get)
+        if _best_role_ind in INDUSTRY_NAICS_MAP:
+            return INDUSTRY_NAICS_MAP[_best_role_ind]
+
+    return None
+
+
 def classify_industry(
     raw_industry: str, company_name: str = "", roles: list = None
 ) -> dict:
@@ -3099,8 +3253,49 @@ def classify_industry(
     - Legacy keys (e.g., "healthcare_medical", "tech_engineering") from the frontend dropdown
     - Free-text industry names (e.g., "Technology", "Healthcare") from API/manual input
 
-    Returns the full industry profile dict including legacy_key for backward compatibility.
+    Returns the full industry profile dict including legacy_key for backward
+    compatibility -- every key the precedence chain below has always
+    returned is still present and unchanged.
+
+    On top of that, when an explicit industry selection (raw_industry) and
+    an INDEPENDENT read of company_name/roles disagree on the sector, the
+    returned dict additionally carries an "industry_conflict" key (selected
+    sector/legacy_key vs. inferred sector/legacy_key, plus the signal that
+    triggered it). The explicit selection still wins -- it is never
+    silently overridden -- but downstream surfaces (and the bundle QA
+    linter) can act on the mismatch. This is what would have caught the
+    2026-07 Uber incident: "commercial cab driver" for a company named
+    "Uber" flagged as disagreeing with an explicit "Hospitality & Travel"
+    pick, instead of shipping silently.
     """
+    result = _classify_industry_primary(raw_industry, company_name, roles)
+
+    raw_for_conflict = (raw_industry or "").strip().lower()
+    if raw_for_conflict not in _GENERIC_INDUSTRY_STRINGS and (company_name or roles):
+        inferred = _infer_industry_from_signals(company_name, roles)
+        if inferred is not None:
+            inferred_legacy = inferred.get("legacy_key")
+            result_legacy = result.get("legacy_key")
+            if inferred_legacy and inferred_legacy != result_legacy:
+                result = dict(result)
+                result["industry_conflict"] = {
+                    "selected_sector": result.get("sector"),
+                    "selected_legacy_key": result_legacy,
+                    "inferred_sector": inferred.get("sector"),
+                    "inferred_legacy_key": inferred_legacy,
+                    "signal": "company_name_or_role_title_keyword_match",
+                }
+    return result
+
+
+def _classify_industry_primary(
+    raw_industry: str, company_name: str = "", roles: list = None
+) -> dict:
+    """The original classify_industry precedence chain (Steps 1-6),
+    unchanged except Step 4's brand-priority gate (``_prefer_brand_match``
+    below) -- split out so classify_industry() can call it once and diff
+    the result against the independent company/role-only signal
+    (_infer_industry_from_signals) without duplicating this chain."""
     if not raw_industry:
         raw_industry = ""
 
@@ -3117,78 +3312,17 @@ def classify_industry(
     # Step 3: Role-title-based industry inference (when no explicit industry)
     # This prevents defaulting to "Retail" / generic when roles clearly indicate
     # a specific industry (e.g., "Software Engineer" -> Technology).
-    _ROLE_INDUSTRY_MAP: dict[str, str] = {
-        # Technology
-        "software engineer": "technology",
-        "developer": "technology",
-        "devops": "technology",
-        "sre": "technology",
-        "site reliability": "technology",
-        "frontend": "technology",
-        "backend": "technology",
-        "full stack": "technology",
-        "fullstack": "technology",
-        "platform engineer": "technology",
-        "cloud engineer": "technology",
-        "security engineer": "technology",
-        "qa engineer": "technology",
-        "test engineer": "technology",
-        "mobile developer": "technology",
-        "ios developer": "technology",
-        "android developer": "technology",
-        "solutions architect": "technology",
-        # Technology / Data
-        "data scientist": "technology",
-        "ml engineer": "technology",
-        "machine learning": "technology",
-        "data engineer": "technology",
-        "data analyst": "technology",
-        "analytics engineer": "technology",
-        "ai engineer": "technology",
-        "artificial intelligence": "technology",
-        # Healthcare
-        "nurse": "healthcare",
-        "registered nurse": "healthcare",
-        "doctor": "healthcare",
-        "physician": "healthcare",
-        "pharmacist": "healthcare",
-        "medical": "healthcare",
-        "therapist": "healthcare",
-        "clinical": "healthcare",
-        "radiologist": "healthcare",
-        "surgeon": "healthcare",
-        "dental": "healthcare",
-        "paramedic": "healthcare",
-        "emt": "healthcare",
-        "phlebotomist": "healthcare",
-        "medical assistant": "healthcare",
-        # Finance
-        "accountant": "finance",
-        "financial analyst": "finance",
-        "controller": "finance",
-        "auditor": "finance",
-        "actuary": "finance",
-        "underwriter": "finance",
-        "loan officer": "finance",
-        "investment analyst": "finance",
-        "portfolio manager": "finance",
-        "compliance officer": "finance",
-        "financial advisor": "finance",
-        # Marketing (maps to general but with marketing talent profile)
-        "marketing manager": "technology",
-        "content strategist": "technology",
-        "seo": "technology",
-        "growth": "technology",
-        "digital marketing": "technology",
-        # Sales (maps to general but role-aware)
-        "sales": "retail",
-        "account executive": "retail",
-        "bdr": "retail",
-        "sdr": "retail",
-        "business development": "retail",
-    }
-
-    if roles:
+    # Requires roles to already be list[str] (same assumption Step 4's
+    # ' '.join(roles or []) makes) -- if any item isn't a str (e.g. raw
+    # dict-shaped roles the caller forgot to normalize), skip this
+    # shortcut entirely and fall through to Step 4, so the SAME
+    # TypeError(str.join on a non-str item) still fires there, at the
+    # same point it always has, instead of being silently dodged by a
+    # role-vote match against a dict's own str() representation (a real
+    # regression this guard fixes -- adding "driver" to _ROLE_INDUSTRY_MAP
+    # would otherwise match the literal word "Driver" inside
+    # str({"title": "CDL A Driver", ...}) and return early).
+    if roles and all(isinstance(_r, str) for _r in roles):
         _role_industry_votes: dict[str, int] = {}
         for _r in roles:
             _role_str = str(_r).lower().strip() if _r else ""
@@ -3203,14 +3337,7 @@ def classify_industry(
             _best_role_ind = max(_role_industry_votes, key=_role_industry_votes.get)
             if _best_role_ind in INDUSTRY_NAICS_MAP:
                 # Only use role-based inference when raw_industry is empty/generic
-                if not raw_stripped or raw_lower in (
-                    "",
-                    "general",
-                    "other",
-                    "n/a",
-                    "na",
-                    "none",
-                ):
+                if not raw_stripped or raw_lower in _GENERIC_INDUSTRY_STRINGS:
                     logger.info(
                         "Industry inferred from role titles: %s (votes=%s)",
                         _best_role_ind,
@@ -3220,6 +3347,15 @@ def classify_industry(
 
     # Step 4: Fuzzy keyword matching against input + company name + roles
     search_text = f"{raw_industry} {company_name} {' '.join(roles or [])}".lower()
+    company_lower = (company_name or "").lower()
+    # A company-name/brand keyword match only gets priority weighting here
+    # when there's no explicit raw_industry text to honor -- i.e. when this
+    # step is acting as a pure company/role inference (same job as
+    # _infer_industry_from_signals). When raw_industry IS explicit text,
+    # that explicit signal must win outright: never silently overridden
+    # (classify_industry's industry_conflict field surfaces the disagreement
+    # instead of flipping the result here).
+    _prefer_brand_match = raw_lower in _GENERIC_INDUSTRY_STRINGS
 
     best_match = None
     best_score = 0
@@ -3230,6 +3366,11 @@ def classify_industry(
             if kw in search_text:
                 # Longer keyword matches are weighted higher
                 score += len(kw)
+            if _prefer_brand_match and company_lower and kw in company_lower:
+                # Exact company-name/brand keyword match -- outranks a
+                # generic keyword regardless of length (see
+                # _infer_industry_from_signals docstring for why).
+                score += 1000
         if score > best_score:
             best_score = score
             best_match = profile
@@ -3245,7 +3386,10 @@ def classify_industry(
 
     # Step 6: Last resort - try role-based inference even when raw_industry is set
     # (covers cases where user typed a non-matching industry string)
-    if roles:
+    # Same list[str] requirement as Step 3 above (in practice Step 4's
+    # ' '.join already raises before roles-with-non-str-items can reach
+    # here -- this guard is for symmetry/defense-in-depth, not reachability).
+    if roles and all(isinstance(_r, str) for _r in roles):
         _role_industry_votes_2: dict[str, int] = {}
         for _r in roles:
             _role_str = str(_r).lower().strip() if _r else ""

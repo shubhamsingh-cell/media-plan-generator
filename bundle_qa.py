@@ -36,6 +36,7 @@ from __future__ import annotations
 import difflib
 import io
 import re
+from datetime import datetime
 from typing import Any
 
 try:
@@ -49,6 +50,7 @@ except ImportError:  # pragma: no cover -- openpyxl is a hard runtime dep
     openpyxl = None  # type: ignore[assignment]
 
 import display_format
+import plan_currency
 import plan_geo
 
 try:
@@ -102,6 +104,80 @@ _AI_TRAINING_VOCAB = (
     "activation volumes",
     "rlhf",
 )
+
+# ---------------------------------------------------------------------------
+# RULE 1 (us_data_on_non_us_plan): US-only macro/holiday vocabulary leaking
+# onto a plan with NO US location at all -- the mirror, in the OTHER
+# direction, of the non_us_text_on_us_plan check above (bundle_qa.py:279
+# already resolves plan_geo.is_us_plan(data) but the existing check at
+# bundle_qa.py:398 only ever used it for "non-US market" text on a US
+# plan).
+# ---------------------------------------------------------------------------
+_US_ONLY_MARKERS: tuple[str, ...] = (
+    "Fed Funds",
+    "CPI Index",
+    "BLS",
+    "JOLTS",
+    "Bls Sector Code",
+    "Total Employment Us",
+    "Job Openings Rate Jolts",
+    "Quits Rate Jolts",
+    "federal minimum wage",
+    "Thanksgiving",
+    "Memorial Day",
+    "Spring break",
+)
+_US_ONLY_MARKER_RES: tuple[re.Pattern, ...] = tuple(
+    re.compile(r"\b" + re.escape(m) + r"\b", re.IGNORECASE) for m in _US_ONLY_MARKERS
+)
+
+# ---------------------------------------------------------------------------
+# RULE 2 (currency_symbol_mixing).
+# ---------------------------------------------------------------------------
+# A currency glyph NOT immediately preceded by a letter -- "US$"/"NZ$"/"A$"/
+# "HK$"/"MX$"/"C$"/"S$"/"R$" are all honest, explicitly-marked local-context
+# prefixes (see ppt_generator._mark_usd, :1836, and this module's docstring
+# on local-context figures) -- only a BARE glyph (no letter prefix at all)
+# can only be a mistaken hardcoded symbol.
+_CUR_GLYPHS = "$£€₹¥"
+_CUR_GLYPH_RE = re.compile("(?<![A-Za-z])[" + re.escape(_CUR_GLYPHS) + "]")
+# Real shipped defect: a bare "$" glyph paired with a non-USD ISO code in
+# parentheses, e.g. "$42,000 (GBP)" -- self-contradictory regardless of the
+# plan's own currency (a "$" can never legitimately denote a GBP/AUD/MXN
+# amount), so this shape is checked unconditionally, independent of the
+# length-blob cutoff below.
+_DOLLAR_WITH_FOREIGN_CODE_RE = re.compile(
+    r"(?<![A-Za-z])\$[\d,]+(?:\.\d+)?\s*\(([A-Z]{3})\)"
+)
+# Separates a short plan-figure sentence/cell (deck copy, a benchmark
+# range, a localized salary cell) from the sprawling multi-topic KB
+# research-citation dumps (Gen Z workforce-trend surveys, Indeed/LinkedIn/
+# Appcast platform-stat appendices, ...) that legitimately cite third-party
+# USD figures inline and are not this plan's own presented numbers.
+# Calibrated against the real shipped Uber bundle: every genuine target
+# cell/sentence is well under this length; every KB-citation blob
+# comfortably exceeds it (measured gap runs from ~230 chars to ~635 chars
+# with nothing in between).
+_CUR_BLOB_LEN_CUTOFF = 300
+
+# ---------------------------------------------------------------------------
+# RULE 3 (campaign_duration_incoherence).
+# ---------------------------------------------------------------------------
+_WEEK_RANGE_RE = re.compile(r"\bWeeks?\s+(\d+)\s*[-–]\s*(\d+)\b", re.IGNORECASE)
+_MONTH_RANGE_RE = re.compile(r"\b(\d+)\s*[-–]\s*(\d+)\s*months?\b", re.IGNORECASE)
+_DATE_RANGE_RE = re.compile(
+    r"([A-Za-z]{3,9}\s+\d{1,2},\s*\d{4})\s*-\s*([A-Za-z]{3,9}\s+\d{1,2},\s*\d{4})"
+)
+# Wide enough to absorb the 24-vs-26-week "fixed marketing bucket vs 52/12
+# free-text" wobble the existing duration_label_drifted check already
+# treats as legitimate (see its comment above), nowhere near wide enough to
+# swallow the real shipped defect's 4-vs-12-vs-13-week spread.
+_DURATION_SPREAD_TOLERANCE_WEEKS = 3
+
+# ---------------------------------------------------------------------------
+# RULE 5 (competitor_count_contradiction).
+# ---------------------------------------------------------------------------
+_COMPETITOR_COUNT_RE = re.compile(r"Competitor Count:\s*(\d+)", re.IGNORECASE)
 
 
 def _finding(severity: str, code: str, message: str, location: str) -> Finding:
@@ -1252,6 +1328,552 @@ def _check_recruitment_funnel_footing(wb: Any, findings: list[Finding]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Shared helpers for the five new rules below
+# ---------------------------------------------------------------------------
+def _resolve_plan_currency(data: dict) -> tuple[str, str]:
+    """Resolve the plan's ISO currency code + display symbol, mirroring
+    excel_v2._plan_currency_code / ppt_generator._plan_currency_code
+    (excel_v2.py:109-160, ppt_generator.py:1507-1545): an explicit
+    ``currency_code``/``currency`` field wins; otherwise
+    ``plan_currency.currency_for_country`` is tried over
+    country/primary_location/locations; otherwise USD. Never raises."""
+    code = "USD"
+    try:
+        explicit = data.get("currency_code") or data.get("currency")
+        if isinstance(explicit, str) and explicit.strip():
+            code = explicit.strip().upper()
+        else:
+            candidates: list[str] = []
+            for key in ("country", "primary_location"):
+                val = data.get(key)
+                if isinstance(val, str) and val.strip():
+                    candidates.append(val)
+            locs = data.get("locations") or []
+            if isinstance(locs, (list, tuple)):
+                for loc in locs:
+                    if isinstance(loc, str) and loc.strip():
+                        candidates.append(loc)
+                    elif isinstance(loc, dict):
+                        country = loc.get("country") or loc.get("location") or ""
+                        if isinstance(country, str) and country.strip():
+                            candidates.append(country)
+            for cand in candidates:
+                try:
+                    resolved = plan_currency.currency_for_country(cand)
+                except Exception:  # noqa: BLE001
+                    resolved = None
+                if resolved:
+                    code = resolved
+                    break
+    except Exception:  # noqa: BLE001
+        code = "USD"
+    try:
+        symbol = plan_currency.symbol_for_code(code)
+    except Exception:  # noqa: BLE001
+        symbol = "$"
+    return code, symbol
+
+
+def _has_any_us_location(data: dict) -> bool:
+    """True if at least one of the plan's location candidates resolves
+    DEFINITIVELY to the US, via plan_geo's own per-candidate resolver --
+    NOT plan_geo.is_us_plan, which answers "is EVERY candidate the US" and
+    defaults an unresolvable candidate to True, the wrong question here
+    ("does the plan have ANY US location at all")."""
+    try:
+        candidates = plan_geo._gather_candidates(data)
+    except Exception:  # noqa: BLE001
+        return False
+    for raw in candidates:
+        try:
+            loc_str = plan_geo._extract_str(raw)
+            if loc_str and plan_geo._resolve_candidate(loc_str) is True:
+                return True
+        except Exception:  # noqa: BLE001
+            continue
+    return False
+
+
+def _parse_month_date(s: str):
+    s = s.strip()
+    for fmt in ("%b %d, %Y", "%B %d, %Y"):
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+# ---------------------------------------------------------------------------
+# RULE 1: us_data_on_non_us_plan
+# ---------------------------------------------------------------------------
+def _check_us_data_on_non_us_plan(
+    units: list[_TextUnit], wb: Any, data: dict, findings: list[Finding]
+) -> None:
+    """Mirror of the non_us_text_on_us_plan check (bundle_qa.py:398) in the
+    OTHER direction. bundle_qa.py:279 already resolves
+    ``plan_geo.is_us_plan(data)`` but the existing check only ever used it
+    to catch "non-US market" text leaking onto a US-only plan -- it never
+    checked US-only macro/BLS/holiday vocabulary leaking onto a plan that
+    has NO US location at all.
+
+    Real shipped defect (Uber, 6 non-US markets): the Market Intelligence
+    sheet still printed a full US "Industry Metrics" block (Fed Funds Rate,
+    CPI Index, BLS JOLTS series, federal minimum wage commentary,
+    Thanksgiving/Memorial Day/Spring-break seasonality) and a "Location
+    Intelligence" table whose Country column read "United States" for
+    every one of its 6 non-US rows.
+    """
+    is_us = True
+    try:
+        is_us = plan_geo.is_us_plan(data)
+    except Exception:  # noqa: BLE001
+        pass
+    if is_us:
+        return  # the existing non_us_text_on_us_plan rule covers this side
+
+    for u in units:
+        text = u.text
+        stripped = text.strip()
+        if not stripped:
+            continue
+        for pattern in _US_ONLY_MARKER_RES:
+            m = pattern.search(text)
+            if m:
+                findings.append(
+                    _finding(
+                        "critical",
+                        "us_data_on_non_us_plan",
+                        f"US-only marker {m.group(0)!r} present on a "
+                        f"non-US plan: {stripped[:120]!r}",
+                        u.location,
+                    )
+                )
+                break
+
+    if wb is None or _has_any_us_location(data):
+        return
+    for ws in wb.worksheets:
+        rows = list(ws.iter_rows(values_only=False))
+        for ri, row in enumerate(rows):
+            for cell in row:
+                if cell.value != "Country":
+                    continue
+                country_col = cell.column
+                dri = ri + 1
+                while dri < len(rows):
+                    val_cell = next(
+                        (c for c in rows[dri] if c.column == country_col), None
+                    )
+                    if (
+                        val_cell is None
+                        or not isinstance(val_cell.value, str)
+                        or not val_cell.value.strip()
+                    ):
+                        break
+                    if val_cell.value.strip() == "United States":
+                        findings.append(
+                            _finding(
+                                "critical",
+                                "us_data_on_non_us_plan",
+                                "Country column reads 'United States' at "
+                                f"{ws.title}!{val_cell.coordinate} but the "
+                                "plan has no US location",
+                                f"{ws.title}!{val_cell.coordinate}",
+                            )
+                        )
+                    dri += 1
+
+
+# ---------------------------------------------------------------------------
+# RULE 2: currency_symbol_mixing
+# ---------------------------------------------------------------------------
+def _check_currency_symbol_mixing(
+    units: list[_TextUnit], data: dict, findings: list[Finding]
+) -> None:
+    """Flag a currency symbol in client-facing text that does not match the
+    plan's own resolved currency and is not explicitly marked as a
+    foreign-denominated benchmark (an "US$"/"NZ$"/"A$"-style letter-
+    prefixed form, or the plan's own symbol).
+
+    Real shipped defect (Uber, GBP plan): slide 6 read "£7 average CPA ...
+    with $1,626 average cost-per-hire" in the SAME sentence; slides 4 and
+    11 quoted bare "$" channel/budget figures the rest of the deck
+    correctly rendered in £; the workbook's Location Intelligence table
+    paired a bare "$" with a non-USD code in parentheses ("$42,000 (GBP)",
+    "$55,000 (AUD)", "$9,500 (MXN)") -- a "$" glyph can never legitimately
+    denote a non-USD amount, marked or not, so that shape is checked
+    unconditionally below, independent of the plan's own currency.
+    """
+    plan_code, plan_symbol = _resolve_plan_currency(data)
+    plan_symbol = (plan_symbol or "$").strip()
+
+    # Per-sheet "(USD)" marker exemption index, built from this SAME units
+    # list (xlsx _TextUnit.top/.left already carry the source cell's
+    # row/column -- see _iter_xlsx_strings). Mirrors excel_v2.py's own
+    # documented convention (module docstring, ~line 95-98): a fixed-USD
+    # figure must "carry an inline '(USD)' marker directly on the
+    # figure/header". Two shapes seen in this codebase:
+    #   A) same-row KV label, e.g. "Avg Hourly Earnings (USD)" in column B
+    #      sanctioning its OWN row's value cell in column D;
+    #   B) a table header cell, e.g. "CPC Range (USD)" sanctioning every
+    #      data cell below it in the SAME column (Intl Benchmarks E/F/G).
+    usd_marked_rows: set[tuple[str, int]] = set()
+    usd_marked_cols: set[tuple[str, int]] = set()
+    for u in units:
+        if "(USD)" not in u.text:
+            continue
+        sheet = u.location.split("!", 1)[0]
+        if u.top:
+            usd_marked_rows.add((sheet, u.top))
+        if u.left:
+            usd_marked_cols.add((sheet, u.left))
+
+    for u in units:
+        text = u.text
+        stripped = text.strip()
+        if not stripped:
+            continue
+
+        sheet = u.location.split("!", 1)[0]
+        if (sheet, u.top) in usd_marked_rows or (sheet, u.left) in usd_marked_cols:
+            continue  # this row/column is an explicitly-marked USD figure
+
+        foreign_code_hit = False
+        for m in _DOLLAR_WITH_FOREIGN_CODE_RE.finditer(text):
+            code = m.group(1)
+            if code != "USD":
+                foreign_code_hit = True
+                findings.append(
+                    _finding(
+                        "critical",
+                        "currency_symbol_mixing",
+                        f"Bare '$' paired with a non-USD code {m.group(0)!r}"
+                        f" -- a '$' glyph can never denote a {code} amount: "
+                        f"{stripped[:160]!r}",
+                        u.location,
+                    )
+                )
+        if foreign_code_hit:
+            continue  # already flagged this unit via the more specific shape
+
+        if len(stripped) > _CUR_BLOB_LEN_CUTOFF:
+            continue  # KB research-citation blob, not this plan's own figure
+
+        bad_syms = sorted(
+            {
+                sym
+                for sym in (m.group(0) for m in _CUR_GLYPH_RE.finditer(text))
+                if sym != plan_symbol
+            }
+        )
+        if bad_syms:
+            findings.append(
+                _finding(
+                    "critical",
+                    "currency_symbol_mixing",
+                    f"Currency symbol(s) {bad_syms} in client-facing text "
+                    f"do not match this plan's currency ({plan_code} "
+                    f"{plan_symbol!r}) and are not marked with an explicit "
+                    f"foreign-denomination prefix: {stripped[:160]!r}",
+                    u.location,
+                )
+            )
+
+
+# ---------------------------------------------------------------------------
+# RULE 3: campaign_duration_incoherence
+# ---------------------------------------------------------------------------
+def _check_campaign_duration_incoherence(
+    units: list[_TextUnit], wb: Any, findings: list[Finding]
+) -> None:
+    """Extract every campaign-duration assertion the bundle makes -- a
+    labeled "Duration"/"Campaign Duration" KV cell, a "Forecast Period"
+    date range, a phased "Week(s) N-M" implementation timeline, an "N-M
+    months" free-text mention -- normalise each to weeks, and flag when
+    the spread between the smallest and largest exceeds a small tolerance.
+
+    Real shipped defect (Uber): "4 weeks" (Executive Summary + 90-Day
+    Forecast's own "Campaign Duration" cell) vs. a "Weeks 1-12" phased
+    timeline (deck implementation timeline + 90-Day Forecast's
+    "Optimization Milestones") vs. "1-3 months" (deck Next Steps) vs. a
+    "Jul 01 - Sep 30, 2026" (~13-week) forecast window -- four different
+    numbers for the same campaign.
+
+    The "Forecast Period" date range is collected and reported for context
+    (it is one of the brief's four named signals) but does NOT by itself
+    gate the spread/tolerance decision below: the "90-Day Forecast" sheet
+    is, by design, a fixed ~90-day/13-week ROLLING window regardless of the
+    plan's total campaign length (confirmed against this repo's own
+    manpower/atria reference bundles -- a 24-week and a 78-week campaign
+    both show the identical "Jul 01 - Sep 30, 2026" window), so treating it
+    as an authoritative duration claim would false-positive on nearly
+    every plan whose campaign isn't coincidentally ~13 weeks long.
+    """
+    assertions: list[tuple[float, str, str, bool]] = []  # (weeks, label, loc, authoritative)
+
+    if wb is not None and "Executive Summary" in wb.sheetnames:
+        ws = wb["Executive Summary"]
+        rows = list(ws.iter_rows(values_only=False))
+        for ri, row in enumerate(rows):
+            for cell in row:
+                if cell.value == "Duration" and ri > 0:
+                    val_cell = ws.cell(row=cell.row - 1, column=cell.column)
+                    if isinstance(val_cell.value, str) and val_cell.value.strip():
+                        try:
+                            wk = display_format.parse_duration_to_weeks(
+                                val_cell.value
+                            )
+                        except Exception:  # noqa: BLE001
+                            wk = 0
+                        if wk:
+                            assertions.append(
+                                (
+                                    float(wk),
+                                    val_cell.value.strip(),
+                                    f"{ws.title}!{val_cell.coordinate}",
+                                    True,
+                                )
+                            )
+
+    if wb is not None and "90-Day Forecast" in wb.sheetnames:
+        ws = wb["90-Day Forecast"]
+        for row in ws.iter_rows(values_only=False):
+            for ci, cell in enumerate(row):
+                if cell.value == "Campaign Duration":
+                    for other in row[ci + 1 :]:
+                        if isinstance(other.value, str) and other.value.strip():
+                            try:
+                                wk = display_format.parse_duration_to_weeks(
+                                    other.value
+                                )
+                            except Exception:  # noqa: BLE001
+                                wk = 0
+                            if wk:
+                                assertions.append(
+                                    (
+                                        float(wk),
+                                        other.value.strip(),
+                                        f"{ws.title}!{other.coordinate}",
+                                        True,
+                                    )
+                                )
+                            break
+                elif cell.value == "Forecast Period":
+                    for other in row[ci + 1 :]:
+                        if isinstance(other.value, str) and other.value.strip():
+                            dm = _DATE_RANGE_RE.search(other.value)
+                            if dm:
+                                d1 = _parse_month_date(dm.group(1))
+                                d2 = _parse_month_date(dm.group(2))
+                                if d1 and d2 and d2 >= d1:
+                                    wk = round((d2 - d1).days / 7.0)
+                                    if wk:
+                                        # Contextual only -- see the
+                                        # function docstring: this window
+                                        # is a fixed ~90-day rolling lens,
+                                        # not itself a duration claim.
+                                        assertions.append(
+                                            (
+                                                float(wk),
+                                                other.value.strip(),
+                                                f"{ws.title}!{other.coordinate}",
+                                                False,
+                                            )
+                                        )
+                            break
+
+    max_phase_week: int | None = None
+    max_phase_loc = ""
+    for u in units:
+        if len(u.text.strip()) > _CUR_BLOB_LEN_CUTOFF:
+            continue
+        for m in _WEEK_RANGE_RE.finditer(u.text):
+            end_wk = int(m.group(2))
+            if max_phase_week is None or end_wk > max_phase_week:
+                max_phase_week = end_wk
+                max_phase_loc = u.location
+    if max_phase_week:
+        assertions.append(
+            (
+                float(max_phase_week),
+                f"phased timeline ending 'Week {max_phase_week}'",
+                max_phase_loc,
+                True,
+            )
+        )
+
+    for u in units:
+        stripped = u.text.strip()
+        if not stripped or len(stripped) > _CUR_BLOB_LEN_CUTOFF:
+            continue
+        m = _MONTH_RANGE_RE.search(u.text)
+        if not m:
+            continue
+        lo, hi = int(m.group(1)), int(m.group(2))
+        lo_wk = round(lo * 52.0 / 12.0)
+        hi_wk = round(hi * 52.0 / 12.0)
+        if lo_wk:
+            assertions.append(
+                (float(lo_wk), f"{m.group(0)!r} (low end)", u.location, True)
+            )
+        if hi_wk:
+            assertions.append(
+                (float(hi_wk), f"{m.group(0)!r} (high end)", u.location, True)
+            )
+
+    authoritative = [a for a in assertions if a[3]]
+    if len(authoritative) < 2:
+        return
+
+    weeks_values = [a[0] for a in authoritative]
+    spread = max(weeks_values) - min(weeks_values)
+    if spread > _DURATION_SPREAD_TOLERANCE_WEEKS:
+        detail = "; ".join(
+            f"{label} = {wk:.0f}w @ {loc}" for wk, label, loc, _auth in assertions
+        )
+        findings.append(
+            _finding(
+                "critical",
+                "campaign_duration_incoherence",
+                "Campaign duration is stated inconsistently across the "
+                f"bundle (spread {spread:.0f} weeks, tolerance "
+                f"{_DURATION_SPREAD_TOLERANCE_WEEKS}): {detail}",
+                authoritative[0][2],
+            )
+        )
+
+
+# ---------------------------------------------------------------------------
+# RULE 4: industry_client_conflict
+# ---------------------------------------------------------------------------
+def _check_industry_client_conflict(data: dict, findings: list[Finding]) -> None:
+    """Compare the plan's own resolved industry against what
+    ``app.classify_industry`` infers from just the client name + roles
+    (ignoring any human-entered industry label).
+
+    Origin defect (Uber + "commercial cab driver"): classify_industry with
+    an empty raw_industry confidently resolves to "Rideshare & Gig Economy"
+    (legacy_key logistics_supply_chain, via the "uber" keyword) -- but the
+    wizard's own "Hospitality & Travel" selection wins unconditionally
+    whenever it's passed through as raw_industry (its own keywords
+    "hospitality"/"travel" outscore "uber" in the same fuzzy match), and no
+    code anywhere compares the two.
+
+    Import is local/defensive: app.py is a very large module with
+    module-level side effects (Flask/DB/background-thread init) and itself
+    imports bundle_qa lazily inside its generation handler specifically to
+    avoid this becoming a circular, heavyweight import (see this module's
+    docstring and app.py's own local ``import bundle_qa``).
+    """
+    try:
+        import app as _app
+    except Exception:  # noqa: BLE001
+        return
+
+    client_name = str(data.get("client_name") or "")
+    roles_raw = data.get("target_roles") or data.get("roles") or []
+    roles: list[str] = []
+    if isinstance(roles_raw, (list, tuple)):
+        for r in roles_raw:
+            if isinstance(r, dict):
+                roles.append(str(r.get("title") or r.get("role") or r))
+            else:
+                roles.append(str(r))
+    elif roles_raw:
+        roles.append(str(roles_raw))
+
+    industry_raw = data.get("industry")
+    industry_raw = str(industry_raw) if industry_raw else ""
+
+    try:
+        selected = _app.classify_industry(industry_raw, client_name, roles)
+        implied = _app.classify_industry("", client_name, roles)
+    except Exception:  # noqa: BLE001
+        return
+
+    selected_key = selected.get("legacy_key")
+    implied_key = implied.get("legacy_key")
+    if selected_key and implied_key and selected_key != implied_key:
+        findings.append(
+            _finding(
+                "critical",
+                "industry_client_conflict",
+                f"Plan industry {selected.get('sector')!r} "
+                f"(legacy_key={selected_key}) conflicts with the industry "
+                f"implied by the client name/roles alone: "
+                f"{implied.get('sector')!r} (legacy_key={implied_key})",
+                "industry",
+            )
+        )
+
+
+# ---------------------------------------------------------------------------
+# RULE 5: competitor_count_contradiction
+# ---------------------------------------------------------------------------
+def _check_competitor_count_contradiction(wb: Any, findings: list[Finding]) -> None:
+    """Flag a worksheet's own "Competitor Count: N" summary line
+    disagreeing with the number of named competitors actually listed in
+    its Competitor Analysis table.
+
+    Real shipped defect (Uber): "Competitor Count: 0" (a stale
+    market_positioning snapshot) printed directly below a table naming 5
+    competitors (Marriott, Hilton, Hyatt, IHG, Airbnb, from a later
+    hardcoded fallback).
+    """
+    if wb is None:
+        return
+    for ws in wb.worksheets:
+        rows = list(ws.iter_rows(values_only=False))
+
+        stated_count: int | None = None
+        stated_loc = ""
+        for row in rows:
+            for cell in row:
+                if isinstance(cell.value, str):
+                    m = _COMPETITOR_COUNT_RE.search(cell.value)
+                    if m:
+                        stated_count = int(m.group(1))
+                        stated_loc = f"{ws.title}!{cell.coordinate}"
+                        break
+            if stated_count is not None:
+                break
+        if stated_count is None:
+            continue
+
+        named: set[str] = set()
+        header_ri = None
+        name_ci = None
+        for ri, row in enumerate(rows):
+            vals = [c.value for c in row]
+            if "Name" in vals and ("Industry" in vals or "Hiring Activity" in vals):
+                header_ri = ri
+                name_ci = vals.index("Name")
+                break
+        if header_ri is not None and name_ci is not None:
+            dri = header_ri + 1
+            while dri < len(rows):
+                dvals = [c.value for c in rows[dri]]
+                label = dvals[name_ci] if name_ci < len(dvals) else None
+                if not isinstance(label, str) or not label.strip():
+                    break
+                named.add(label.strip())
+                dri += 1
+
+        if named and len(named) != stated_count:
+            findings.append(
+                _finding(
+                    "critical",
+                    "competitor_count_contradiction",
+                    f"'Competitor Count: {stated_count}' contradicts the "
+                    f"{len(named)} named competitor(s) in the Competitor "
+                    f"Analysis table ({sorted(named)}): {stated_loc}",
+                    stated_loc,
+                )
+            )
+
+
+# ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 def run_bundle_qa(
@@ -1333,6 +1955,39 @@ def run_bundle_qa(
     except Exception as exc:  # noqa: BLE001
         findings.append(
             _finding("warn", "recruitment_funnel_check_crashed", f"{exc!r}", "")
+        )
+
+    try:
+        _check_us_data_on_non_us_plan(all_units, wb, data, findings)
+    except Exception as exc:  # noqa: BLE001
+        findings.append(_finding("warn", "us_data_check_crashed", f"{exc!r}", ""))
+
+    try:
+        _check_currency_symbol_mixing(all_units, data, findings)
+    except Exception as exc:  # noqa: BLE001
+        findings.append(
+            _finding("warn", "currency_mixing_check_crashed", f"{exc!r}", "")
+        )
+
+    try:
+        _check_campaign_duration_incoherence(all_units, wb, findings)
+    except Exception as exc:  # noqa: BLE001
+        findings.append(
+            _finding("warn", "duration_incoherence_check_crashed", f"{exc!r}", "")
+        )
+
+    try:
+        _check_industry_client_conflict(data, findings)
+    except Exception as exc:  # noqa: BLE001
+        findings.append(
+            _finding("warn", "industry_conflict_check_crashed", f"{exc!r}", "")
+        )
+
+    try:
+        _check_competitor_count_contradiction(wb, findings)
+    except Exception as exc:  # noqa: BLE001
+        findings.append(
+            _finding("warn", "competitor_count_check_crashed", f"{exc!r}", "")
         )
 
     return findings
