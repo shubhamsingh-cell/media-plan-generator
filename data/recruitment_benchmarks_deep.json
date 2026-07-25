@@ -1681,11 +1681,12 @@
   "platform_cpc_benchmarks": {
     "indeed": {
       "cpc_range": "$0.10-$5.00",
-      "average_cpc": "$0.25-$1.50",
+      "average_cpc": "$0.97-$2.71",
       "model": "Pay-per-click for sponsored listings",
       "free_postings": "Up to 3 free job postings/month (30 days, lower visibility)",
       "best_for": "Volume hiring, hourly/blue-collar roles",
-      "notes": "CPC varies heavily by industry, seniority, geography. Partnership with Glassdoor bundles postings."
+      "notes": "CPC varies heavily by industry, seniority, geography. Partnership with Glassdoor bundles postings.",
+      "_average_cpc_refreshed_2026_07_21": "Refreshed from the retired earlier-vintage band to 0.97-2.71, the cited July-2026 typical US-role band in channel_benchmarks_seed.json (336480d; Pin.com citing ThePricer 2026/ShiftNow 2025/Job Board Doctor May 2025, aggregator-inferred). cpc_range $0.10-$5.00 matches that research's full observed spread and is unchanged. Alignment pinned by tests/test_cpc_retired_figures.py."
     },
     "linkedin": {
       "job_ad_cpc_range": "$1.50-$4.50",

@@ -301,7 +301,7 @@
         "indeed": {
           "overview": "World's largest job site. Owned by Recruit Holdings (Japan). 350M+ unique visitors/month globally.",
           "billing_model": "CPC (Sponsored Jobs) with Pay-Per-Started-Application (PPSA) option since June 2023",
-          "avg_cpc_range": "$0.25-$1.50 (general), $0.60-$1.20 (healthcare), $0.80-$1.50 (tech), up to $5.00+ (competitive roles)",
+          "avg_cpc_range": "$0.97-$2.71 (general, per the cited July-2026 refresh), $0.60-$1.20 (healthcare, prior-vintage), $0.80-$1.50 (tech, prior-vintage), up to $5.00+ (competitive roles)",
           "avg_cpa_range": "$8-$35",
           "click_to_apply_rate": "5-8% (varies by industry and apply flow)",
           "application_response_rate": "20-25% (highest among major boards)",
@@ -1140,9 +1140,9 @@
     }
   },
   "publisher_performance": {
-    "methodology_note": "Performance data compiled from Appcast 2025-2026 Benchmark Reports, Joveo platform data, Recruitics Talent Market Index, and industry reports. Ranges reflect variation across industries, geographies, and role types. All figures are approximations based on available data.",
+    "methodology_note": "Performance data compiled from Appcast 2025-2026 Benchmark Reports, Joveo platform data, Recruitics Talent Market Index, and industry reports. Ranges reflect variation across industries, geographies, and role types. All figures are approximations based on available data. Indeed avg_cpc refreshed 2026-07-21 to the cited July-2026 typical US-role band shipped to channel_benchmarks_seed.json (336480d); alignment pinned by tests/test_cpc_retired_figures.py.",
     "indeed": {
-      "avg_cpc": "$0.25-$1.50",
+      "avg_cpc": "$0.97-$2.71",
       "high_end_cpc": "$5.00+",
       "avg_cpa": "$8-$35",
       "click_to_apply_rate": "5-8%",
@@ -2032,7 +2032,7 @@
   "frequently_asked_questions": {
     "what_is_joveos_main_differentiator": "Joveo's independence (not owned by a job board or agency), CPQA quality-first approach, transparency in optimization, and comprehensive MOJO platform that combines programmatic advertising, career site CMS, CRM, and analytics in a single solution.",
     "how_does_joveo_compare_to_appcast": "Appcast has a larger publisher network (30K+ vs 10,238) and deeper benchmark data, but Joveo offers independence from job board ownership, CPQA quality metrics, and a more unified platform (with CMS, CRM). Appcast is owned by StepStone Group (a job board company), creating potential conflicts of interest.",
-    "what_is_the_typical_cpc_for_recruitment": "Ranges widely: $0.05-$0.30 for aggregators, $0.25-$1.50 for Indeed, $1.50-$4.50 for LinkedIn, $0.80-$2.69 for Google Ads. Industry, role seniority, and geography are the biggest variables.",
+    "what_is_the_typical_cpc_for_recruitment": "Ranges widely: $0.05-$0.30 for aggregators, $0.97-$2.71 for Indeed, $1.50-$4.50 for LinkedIn (Promoted Jobs), $0.80-$2.69 for Google Ads. Industry, role seniority, and geography are the biggest variables.",
     "what_publishers_should_be_in_every_campaign": "Indeed (volume), LinkedIn (quality professionals), career site (owned channel), and 2-3 aggregators for reach. Add niche boards based on industry. Include DEI publishers for diversity goals.",
     "how_much_should_a_company_spend_on_recruitment_advertising": "Benchmarks: SHRM says $4,800 average cost-per-hire in 2026. Recruitment advertising is typically 30-50% of total hiring costs. Enterprise companies spend $500K-$50M+ annually on recruitment advertising.",
     "what_is_a_good_apply_rate": "Industry average is 6.1% (Appcast 2024). Technology roles see 6.41%, healthcare lower. Above 5% is generally considered good; above 8% is excellent.",

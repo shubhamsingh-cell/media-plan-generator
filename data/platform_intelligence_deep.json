@@ -106,8 +106,9 @@
       "avg_cpc": {
         "technology": "$0.80-$1.50",
         "healthcare": "$0.60-$1.20",
-        "general": "$0.25-$1.50",
-        "affiliate_cpc": "$0.05-$0.10"
+        "general": "$0.97-$2.71",
+        "affiliate_cpc": "$0.05-$0.10",
+        "_general_refreshed_2026_07_21": "Refreshed from the retired earlier-vintage band to 0.97-2.71, the cited July-2026 typical US-role band in channel_benchmarks_seed.json (336480d). The per-industry sub-bands are prior-vintage (not re-verified by the July-2026 research, which published only an overall band) and may read low against the refreshed general band. Alignment pinned by tests/test_cpc_retired_figures.py."
       },
       "avg_cpa": "$15-$20+ per application",
       "candidate_demographics": {

@@ -590,7 +590,7 @@ def _extract_cpc_from_kb(
     """
     Pull a CPC value from the recruitment_industry_knowledge.json structure.
 
-    The KB stores values as strings like "$0.85" or ranges like "$0.25-$1.50".
+    The KB stores values as strings like "$0.85" or ranges like "$0.97-$2.71".
     We parse and average them.
     """
     if not knowledge_base:
@@ -824,7 +824,7 @@ def _classify_roles_collar(roles_data: Dict[str, Dict], industry: str = "") -> s
 
 
 def _parse_dollar_value(val: Any) -> Optional[float]:
-    """Parse values like '$2.69', '$0.25-$1.50', or plain numbers."""
+    """Parse values like '$2.69', '$0.97-$2.71', or plain numbers."""
     if isinstance(val, (int, float)):
         return float(val)
     if not isinstance(val, str):
