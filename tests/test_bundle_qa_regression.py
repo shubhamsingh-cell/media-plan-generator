@@ -22,6 +22,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -679,6 +681,36 @@ def test_allows_beating_badge_next_to_real_benchmark():
 _UBER_FIXTURE_DIR = (
     Path(__file__).resolve().parent / "fixtures" / "uber_shipped_2026_07_23"
 )
+
+# 2026-07-25: Uber_Media_Plan.xlsx was silently dropped from commit 1cdd80e
+# by the repo's old blanket `*.xlsx` .gitignore rule (fixed alongside this
+# guard -- see .gitignore's `!tests/fixtures/**/*.xlsx` negation). The bytes
+# do not exist anywhere: not on disk, not in any branch's git history
+# (`git log --all --diff-filter=A -- '**/Uber_Media_Plan.xlsx'` finds
+# nothing to restore from), and they cannot be regenerated because these
+# tests assert the bundle trips five SPECIFIC real-defect rules that only
+# exist in that one shipped file. SKIP (not delete/fabricate) the tests
+# that need it, scoped to exactly the consumers of
+# `_scan_uber_shipped_bundle()` -- every other test in this file, including
+# ones that only touch the .pptx half of the fixture, is unaffected and
+# still runs. Whoever has the original Uber_Media_Plan.xlsx bytes should
+# `git add -f` them back into tests/fixtures/uber_shipped_2026_07_23/ -- the
+# moment the file exists on disk again, this guard flips false and all six
+# tests below re-enable themselves automatically, no code change needed.
+_UBER_XLSX_AVAILABLE = (_UBER_FIXTURE_DIR / "Uber_Media_Plan.xlsx").is_file()
+_requires_uber_xlsx = pytest.mark.skipif(
+    not _UBER_XLSX_AVAILABLE,
+    reason=(
+        "MISSING FIXTURE: tests/fixtures/uber_shipped_2026_07_23/"
+        "Uber_Media_Plan.xlsx does not exist. It was silently dropped from "
+        "commit 1cdd80e (2026-07-25) by the old blanket `*.xlsx` "
+        ".gitignore rule and cannot be regenerated -- these 6 tests assert "
+        "against real defects specific to that shipped file. Restore the "
+        "original bytes to that path (now un-ignored) to re-enable this "
+        "test automatically."
+    ),
+)
+
 _UBER_DATA = {
     "client_name": "Uber",
     "industry": "Hospitality & Travel",
@@ -696,6 +728,7 @@ def _scan_uber_shipped_bundle() -> list[dict]:
     return bundle_qa.run_bundle_qa(pptx_bytes, xlsx_bytes, dict(_UBER_DATA))
 
 
+@_requires_uber_xlsx
 def test_uber_shipped_bundle_all_five_new_rules_fire_and_nothing_crashed():
     """The real shipped bundle must trip every one of the five new rule
     codes, and none of the new checks may crash (no *_check_crashed
@@ -771,6 +804,7 @@ def test_allows_correct_country_cell_on_non_us_plan():
     assert not any(f["code"] == "us_data_on_non_us_plan" for f in findings)
 
 
+@_requires_uber_xlsx
 def test_uber_shipped_bundle_catches_us_data_on_non_us_plan():
     findings = _scan_uber_shipped_bundle()
     matches = [f for f in findings if f["code"] == "us_data_on_non_us_plan"]
@@ -834,6 +868,7 @@ def test_currency_mixing_respects_usd_header_marker_exemption():
     assert not any(f["code"] == "currency_symbol_mixing" for f in findings)
 
 
+@_requires_uber_xlsx
 def test_uber_shipped_bundle_catches_currency_symbol_mixing():
     findings = _scan_uber_shipped_bundle()
     matches = [f for f in findings if f["code"] == "currency_symbol_mixing"]
@@ -910,6 +945,7 @@ def test_allows_coherent_campaign_duration_despite_fixed_90_day_forecast_window(
     ), findings
 
 
+@_requires_uber_xlsx
 def test_uber_shipped_bundle_catches_campaign_duration_incoherence():
     findings = _scan_uber_shipped_bundle()
     matches = [f for f in findings if f["code"] == "campaign_duration_incoherence"]
@@ -960,6 +996,7 @@ def test_industry_client_conflict_check_never_raises_on_malformed_roles():
     )  # must not raise -- absence of a crash IS the assertion here
 
 
+@_requires_uber_xlsx
 def test_uber_shipped_bundle_catches_industry_client_conflict():
     findings = _scan_uber_shipped_bundle()
     matches = [f for f in findings if f["code"] == "industry_client_conflict"]
@@ -1016,6 +1053,7 @@ def test_allows_matching_competitor_count():
     assert not any(f["code"] == "competitor_count_contradiction" for f in findings)
 
 
+@_requires_uber_xlsx
 def test_uber_shipped_bundle_catches_competitor_count_contradiction():
     findings = _scan_uber_shipped_bundle()
     matches = [

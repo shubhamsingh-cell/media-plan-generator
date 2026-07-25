@@ -4,6 +4,13 @@ __pycache__/
 .env
 .DS_Store
 *.xlsx
+# 2026-07-25: the blanket *.xlsx rule above silently dropped
+# tests/fixtures/uber_shipped_2026_07_23/Uber_Media_Plan.xlsx from commit
+# 1cdd80e -- `git add` never staged it, so the test that reads it
+# (tests/test_bundle_qa_regression.py) broke on every fresh checkout.
+# Un-ignore test fixtures specifically so this can't happen again; generated
+# .xlsx output (data/generated_docs/, etc.) stays ignored.
+!tests/fixtures/**/*.xlsx
 venv/
 .venv/
 data/api_cache/
