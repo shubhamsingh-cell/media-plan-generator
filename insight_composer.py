@@ -17,126 +17,157 @@ import hashlib
 # skeletons so a deterministic hash of (competitor, role) picks between them
 # without ever producing byte-identical text for two different competitors
 # (or roles) that land in the same bucket.
+#
+# uber_shipped_2026_07_23 fix (unsourced-competitor-claim wave): the shipped
+# Uber bundle asserted specific, never-observed hiring BEHAVIOUR about named
+# third parties as fact -- "Marriott is actively competing for commercial cab
+# driver candidates in UK", "Expect Hilton to keep pressure on...". No
+# enrichment backs any of that; the only thing actually known about a
+# fallback-sourced competitor is that it is a real employer of the relevant
+# TYPE (staffing agency / direct employer / gig platform) in this space, so
+# it is a *plausible* competitor for the same talent pool -- a presence/
+# capability claim that is true regardless of what this specific employer
+# is or isn't doing right now. Every skeleton below leads with that framing
+# ("{competitor} is a <type> ... and a plausible/likely competitor for
+# {angle}") instead of asserting a specific action, and keeps the advice
+# half of each sentence (counter-strategies are recommendations, not
+# third-party claims) reworded to be unconditional -- it does not depend on
+# the named competitor actually having done the thing the old sentence
+# asserted.
 _SKELETON_BANKS: dict[str, tuple[str, ...]] = {
     "staffing_agency": (
-        "{competitor} is actively staffing {angle} through third-party "
-        "agencies — compress time-to-offer so direct-hire terms win before "
-        "an agency placement locks the candidate in.",
-        "Expect {competitor} to route {angle} through contract-to-hire "
-        "channels; lead with permanent-role stability and a clear "
-        "total-comp comparison to counter it.",
-        "{competitor}'s agency pipeline for {angle} moves fast — a "
-        "same-week interview slot and pre-approved offer band are the "
-        "clearest levers to beat it to the candidate.",
-        "To out-compete {competitor} on {angle}, tighten the direct-hire "
-        "funnel: pre-screened shortlists and a 48-hour offer turnaround "
-        "beat a typical agency placement cycle.",
-        "{competitor} typically wins {angle} on availability, not loyalty "
-        "— a standing direct-hire offer with no re-application step "
-        "converts agency-sourced candidates before their next assignment.",
-        "Where {competitor} places {angle} on short-term assignments, "
-        "position this role's permanence and benefits eligibility as the "
-        "upgrade path out of temp work.",
-        "{competitor}'s markup on {angle} placements leaves room to "
-        "compete on take-home pay alone — lead with a transparent, "
-        "higher net-pay comparison.",
-        "Candidates {competitor} places as {angle} rarely get a real "
-        "career conversation — a named hiring manager and a clear growth "
-        "track are the differentiator here.",
-        "{competitor} re-markets the same {angle} pool across multiple "
-        "clients — speed to first contact after application determines "
-        "who gets there first.",
-        "Because {competitor} earns a fee per {angle} placement regardless "
-        "of fit, expect volume over precision — win on a tighter, "
-        "better-matched shortlist instead.",
+        "{competitor} operates as a staffing agency and is a plausible "
+        "competitor for {angle} — compress time-to-offer so direct-hire "
+        "terms can win before a third-party placement locks a candidate in.",
+        "{competitor} is a staffing agency that can route {angle} through "
+        "contract-to-hire channels; lead with permanent-role stability and "
+        "a clear total-comp comparison as the counter.",
+        "{competitor} is a staffing agency, and agency pipelines for "
+        "{angle} can move fast — a same-week interview slot and "
+        "pre-approved offer band are the clearest levers to beat one to "
+        "the candidate.",
+        "{competitor} is a plausible staffing-agency competitor for "
+        "{angle} — tighten the direct-hire funnel with pre-screened "
+        "shortlists and a 48-hour offer turnaround to beat a typical "
+        "agency placement cycle.",
+        "{competitor} is a staffing agency, and agency placements "
+        "typically compete on availability, not loyalty — a standing "
+        "direct-hire offer with no re-application step converts "
+        "agency-sourced candidates before their next assignment.",
+        "{competitor} is a staffing agency that can place {angle} on "
+        "short-term assignments — position this role's permanence and "
+        "benefits eligibility as the upgrade path out of temp work.",
+        "{competitor} is a staffing agency, and agency markup on {angle} "
+        "placements typically leaves room to compete on take-home pay "
+        "alone — lead with a transparent, higher net-pay comparison.",
+        "{competitor} is a staffing agency, and candidates placed through "
+        "an agency often don't get a real career conversation — a named "
+        "hiring manager and a clear growth track are the differentiator "
+        "here.",
+        "{competitor} is a staffing agency, and agencies typically "
+        "re-market the same {angle} pool across multiple clients — speed "
+        "to first contact after application determines who gets there "
+        "first.",
+        "{competitor} is a staffing agency, and agencies typically earn a "
+        "fee per {angle} placement regardless of fit — expect volume over "
+        "precision, and win on a tighter, better-matched shortlist "
+        "instead.",
     ),
     "direct_employer": (
-        "{competitor} is hiring {angle} directly, so brand and total-comp "
-        "clarity matter more than speed alone — lead with a concrete "
-        "growth-path story.",
-        "Expect {competitor} to keep pressure on {angle}; a faster "
-        "interview-to-offer cycle is the clearest lever to counter a peer "
-        "employer with a similar offer.",
-        "{competitor}'s employer brand is visible to {angle} — "
-        "differentiate on schedule flexibility or sign-on incentives where "
-        "the base comp is comparable.",
-        "Against {competitor} for {angle}, win on process: a single-visit "
-        "interview loop and a same-week offer close the gap a bigger brand "
-        "name can otherwise cover.",
-        "{competitor} competes for {angle} on name recognition first — "
-        "a candidate-facing comp calculator makes the pay comparison "
-        "concrete instead of assumed.",
-        "Where {competitor}'s hiring process for {angle} runs multiple "
-        "rounds, a compressed two-touch loop wins candidates unwilling to "
-        "wait out a slower employer.",
-        "{competitor} and this role draw from the same {angle} pool — "
-        "referral incentives and manager-led outreach reach candidates "
+        "{competitor} is a direct employer in this space and a plausible "
+        "competitor for {angle} — brand and total-comp clarity matter more "
+        "than speed alone, so lead with a concrete growth-path story.",
+        "{competitor} is a direct employer and a plausible peer competitor "
+        "for {angle} — a faster interview-to-offer cycle is the clearest "
+        "lever against a similarly positioned employer.",
+        "{competitor} is a well-known employer brand in this market, "
+        "visible to {angle} — differentiate on schedule flexibility or "
+        "sign-on incentives where base comp is comparable.",
+        "{competitor} is a plausible direct-employer competitor for "
+        "{angle} — win on process: a single-visit interview loop and a "
+        "same-week offer close the gap a bigger brand name can otherwise "
+        "cover.",
+        "{competitor} is a likely competitor for {angle} on name "
+        "recognition alone — a candidate-facing comp calculator makes the "
+        "pay comparison concrete instead of assumed.",
+        "{competitor} is a direct employer, and a multi-round hiring "
+        "process is common at that scale — a compressed two-touch loop "
+        "wins candidates unwilling to wait out a slower process.",
+        "{competitor} is a plausible competitor for the same {angle} pool "
+        "— referral incentives and manager-led outreach reach candidates "
         "before a generic job-board listing does.",
-        "If {competitor} is slow to post openings for {angle}, an "
-        "always-on requisition with rolling interviews captures candidates "
-        "during that gap.",
-        "{competitor}'s retention pitch to {angle} leans on tenure — "
-        "counter with a faster path to responsibility for candidates "
-        "who don't want to wait years for it.",
-        "Expect {competitor} to match base pay for {angle} but not "
-        "schedule flexibility — make flexibility the headline, not a "
-        "footnote.",
+        "{competitor} is a direct employer for {angle} — an always-on "
+        "requisition with rolling interviews captures candidates during "
+        "any gap between a competitor's postings.",
+        "{competitor} is a direct employer, and tenure-based retention "
+        "pitches are common among peers at that scale — counter with a "
+        "faster path to responsibility for candidates who don't want to "
+        "wait years for it.",
+        "{competitor} is a plausible competitor for {angle}; base pay may "
+        "be comparable, but schedule flexibility is not guaranteed — make "
+        "flexibility the headline, not a footnote.",
     ),
     "gig_platform": (
-        "{competitor} pulls {angle} toward flexible, app-based work — "
-        "lead with schedule control and guaranteed hours to counter the "
-        "platform's flexibility pitch.",
-        "Expect {competitor} to undercut on time-to-first-shift for "
-        "{angle}; match it with a same-day onboarding path where possible.",
-        "{competitor}'s gig model appeals to {angle} who want "
-        "predictability elsewhere — benefits and a fixed schedule are the "
-        "counter-offer.",
-        "To out-compete {competitor} for {angle}, emphasize what the "
-        "platform can't: benefits eligibility, career progression, and "
-        "shift predictability.",
-        "{competitor} offers {angle} instant sign-up but no guaranteed "
-        "income floor — a stated minimum weekly pay is the concrete "
-        "counter.",
-        "Where {competitor} leaves {angle} to self-schedule around thin "
-        "demand, a set roster with reliable hours reads as the more "
-        "stable option.",
-        "{competitor}'s per-task pay for {angle} has no ceiling on "
-        "downside — a guaranteed hourly floor plus upside removes that "
-        "risk.",
-        "Candidates who try {competitor} as {angle} often churn back "
-        "within weeks — time outreach to former gig workers who already "
-        "know the gap.",
-        "{competitor} gives {angle} no path to a W-2 role — make the "
-        "conversion-to-permanent option explicit and easy to find.",
-        "Against {competitor} for {angle}, sign-on plus a first-week pay "
-        "guarantee beats a platform's pay-per-task uncertainty.",
+        "{competitor} is a gig-work platform and a plausible draw for "
+        "{angle} toward flexible, app-based work — lead with schedule "
+        "control and guaranteed hours to counter the platform's "
+        "flexibility pitch.",
+        "{competitor} is a gig-work platform, and time-to-first-shift is "
+        "typically fast on that model for {angle} — match it with a "
+        "same-day onboarding path where possible.",
+        "{competitor} is a gig-work platform whose model can appeal to "
+        "{angle} — benefits and a fixed schedule are the counter-offer "
+        "for those who want predictability instead.",
+        "{competitor} is a gig-work platform and a plausible competitor "
+        "for {angle} — emphasize what the platform can't offer: benefits "
+        "eligibility, career progression, and shift predictability.",
+        "{competitor} is a gig-work platform: instant sign-up but no "
+        "guaranteed income floor is standard for that model — a stated "
+        "minimum weekly pay is the concrete counter for {angle}.",
+        "{competitor} is a gig-work platform, and self-scheduling around "
+        "thin demand is typical for {angle} on that model — a set roster "
+        "with reliable hours reads as the more stable option.",
+        "{competitor} is a gig-work platform, and per-task pay on that "
+        "model has no ceiling on downside for {angle} — a guaranteed "
+        "hourly floor plus upside removes that risk.",
+        "{competitor} is a gig-work platform, and gig work generally sees "
+        "candidates churn back to traditional roles within weeks — time "
+        "outreach to former gig workers who already know the gap.",
+        "{competitor} is a gig-work platform, and that model gives "
+        "{angle} no path to a W-2 role — make the conversion-to-permanent "
+        "option explicit and easy to find.",
+        "{competitor} is a plausible gig-platform competitor for {angle} "
+        "— sign-on plus a first-week pay guarantee beats a platform's "
+        "pay-per-task uncertainty.",
     ),
     "default": (
-        "{competitor} is actively competing for {angle} — sharpen offer "
-        "cadence and speed-to-contact to stay ahead of it.",
-        "Expect {competitor} to keep pressure on {angle}; a faster "
-        "interview-to-offer cycle is the clearest lever to counter it.",
+        "{competitor} is a plausible competitor for {angle} — sharpen "
+        "offer cadence and speed-to-contact to stay ahead of it.",
+        "{competitor} is a plausible competitor for {angle}; a faster "
+        "interview-to-offer cycle is the clearest lever regardless.",
         "{competitor}'s presence in this pool means {angle} "
         "have options — lead with total-comp clarity and a same-week "
         "interview slot.",
-        "To out-compete {competitor} for {angle}, tighten the funnel: "
-        "pre-screened shortlists and a 48-hour offer turnaround.",
+        "{competitor} is a plausible competitor for {angle} — tighten the "
+        "funnel with pre-screened shortlists and a 48-hour offer "
+        "turnaround to out-compete it.",
         "{competitor} is a known name to {angle} in this market — a "
         "specific, verifiable comp figure beats a generic brand "
         "impression.",
-        "Where {competitor} is slower to respond to {angle}, first-contact "
-        "speed alone can decide who gets the candidate.",
+        "{competitor} is a plausible competitor for {angle} — "
+        "first-contact speed alone can decide who gets the candidate.",
         "{competitor}'s reputation with {angle} is untested here — "
         "candidate reviews and a named team contact build trust faster "
         "than brand alone.",
-        "Against {competitor} for {angle}, a same-week site visit or "
-        "shadow shift gives candidates something a job posting can't.",
-        "{competitor} likely draws from the same {angle} channels this "
-        "plan targets — differentiated creative on those same channels "
-        "avoids losing the impression entirely.",
-        "To stay ahead of {competitor} on {angle}, keep the offer window "
-        "short — a candidate weighing two open offers usually takes the "
-        "one that resolves first.",
+        "{competitor} is a plausible competitor for {angle} — a same-week "
+        "site visit or shadow shift gives candidates something a job "
+        "posting can't.",
+        "{competitor} is a plausible competitor on the same {angle} "
+        "channels this plan targets — differentiated creative on those "
+        "same channels avoids losing the impression entirely.",
+        "{competitor} is a plausible competitor for {angle} — keep the "
+        "offer window short, since a candidate weighing two open offers "
+        "usually takes the one that resolves first.",
     ),
 }
 
@@ -207,9 +238,14 @@ def compose_counter_strategy(competitor: str, ctx: dict | None = None) -> str:
     sentence = bank[idx].format(competitor=name, angle=angle)
 
     if intensity in ("high", "aggressive", "elevated", "severe"):
+        # uber_shipped_2026_07_23 fix: "{name} has been especially
+        # aggressive here recently" asserted specific, never-observed
+        # recent behaviour by the named competitor. The only thing actually
+        # known is this lane's own intensity classification -- state that
+        # instead of a claim about what the named company has been doing.
         sentence += (
-            f" {name} has been especially aggressive here recently — "
-            "treat this as a priority lane."
+            " This lane is flagged high-intensity — treat it as a "
+            "priority for offer speed."
         )
     return sentence
 

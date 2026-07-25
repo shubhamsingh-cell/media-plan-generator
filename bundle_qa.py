@@ -1874,6 +1874,136 @@ def _check_competitor_count_contradiction(wb: Any, findings: list[Finding]) -> N
 
 
 # ---------------------------------------------------------------------------
+# RULE 6: unsourced_competitor_claim
+# ---------------------------------------------------------------------------
+# Real shipped defect (Uber): the deck and workbook both asserted specific,
+# never-observed hiring BEHAVIOUR about named third parties as verified fact
+# -- "Marriott is actively competing for commercial cab driver candidates in
+# UK", "Expect Hilton to keep pressure on...", "Hyatt's hiring activity for
+# similar roles puts direct pressure on...". None of it was backed by any
+# enrichment -- the competitor NAMES came from a static per-industry
+# fallback list with zero relation to what these companies actually do for
+# this client's roles/markets, and the workbook's OWN Sources & Confidence
+# sheet grades this exact Competitive Intelligence at 20%/grade F.
+#
+# Presence/capability framing ("X is a major <industry> employer in
+# <market> and a likely/plausible competitor for this talent pool") is
+# fine -- it is true regardless of anything actually observed, and is how
+# insight_composer.compose_counter_strategy now phrases every skeleton.
+# What is banned is a verb phrase asserting the named company DID or IS
+# DOING something specific this generator never observed.
+#
+# A short list of generic capitalized sentence/label openers ("Why:",
+# "Counter:", "Expect", "Where", ...) that precede the real competitor name
+# in the deck's own "Why: <Name> ..." / "Counter: <Name> ..." textboxes --
+# excluded from the name match via a lookahead so the regex keeps scanning
+# past the label to the actual company name instead of matching (and then
+# discarding) the label itself.
+_NON_NAME_LEAD_WORDS: tuple[str, ...] = (
+    "Why",
+    "Counter",
+    "Where",
+    "Expect",
+    "Against",
+    "This",
+    "That",
+    "These",
+    "Those",
+    "The",
+    "A",
+    "An",
+    "To",
+    "If",
+    "Because",
+    "Candidates",
+    "Impact",
+    "Mitigation",
+)
+_NON_NAME_LEAD_ALT = "|".join(re.escape(w) for w in _NON_NAME_LEAD_WORDS)
+# Up to 4 title-case words (e.g. "Bank of America" has 2 capitalized words
+# plus a lowercase "of" -- kept simple/conservative on purpose, since a
+# false NEGATIVE here just means the rule occasionally misses a valid name,
+# while a false POSITIVE on a "critical" severity rule is the costlier
+# failure mode).
+_COMPETITOR_NAME_RE = (
+    rf"(?!(?:{_NON_NAME_LEAD_ALT})\b)[A-Z][A-Za-z0-9&.,’'-]*"
+    r"(?:\s+[A-Z][A-Za-z0-9&.,’'-]*){0,3}"
+)
+# Bridges the gap between the competitor name and the verb phrase so
+# "Hyatt's hiring activity for similar roles puts direct pressure on..."
+# and "Expect Hilton to keep pressure on..." both match without hardcoding
+# every connective phrase -- capped at 60 non-period chars to stay inside
+# one sentence rather than spanning into unrelated text.
+_CLAIM_BRIDGE_RE = r"[^.]{0,60}?"
+
+_ASSERTED_BEHAVIOR_PHRASES: tuple[tuple[str, str], ...] = (
+    (
+        r"actively\s+(?:recruiting|recruits|staffing|competing\s+for)\b",
+        "actively recruits/staffs/competes for",
+    ),
+    (r"keeps?\s+pressure\s+on\b", "keeps pressure on"),
+    (r"puts?\s+direct\s+pressure\s+on\b", "hiring activity puts direct pressure on"),
+    (r"drawing\s+from\s+the\s+same\b", "is drawing from the same"),
+    (r"is\s+slower\s+to\s+respond\b", "is slower to respond"),
+    (r"is\s+hiring\b[^.]{0,60}?\bdirectly\b", "is hiring ... directly"),
+    (r"has\s+been\s+especially\s+aggressive\b", "has been especially aggressive"),
+)
+_ASSERTED_BEHAVIOR_VERB_RES: tuple[tuple[re.Pattern, str], ...] = tuple(
+    (re.compile(rf"({_COMPETITOR_NAME_RE}){_CLAIM_BRIDGE_RE}\b{phrase}"), label)
+    for phrase, label in _ASSERTED_BEHAVIOR_PHRASES
+)
+
+
+def _check_unsourced_competitor_claim(
+    units: list[_TextUnit], findings: list[Finding]
+) -> None:
+    """Flag a specific, asserted-behaviour verb phrase ("is actively
+    competing for", "keeps pressure on", "hiring activity puts direct
+    pressure on", "is drawing from the same", "is slower to respond", "has
+    been especially aggressive", "is hiring ... directly") immediately
+    naming a third-party competitor in client-facing text, across both the
+    deck and the workbook.
+
+    Real shipped defect (Uber): the workbook and deck both stated, as fact,
+    hiring behaviour by real named companies (Marriott, Hilton, Hyatt, IHG,
+    Airbnb) this generator never observed -- the names came from a static
+    per-industry fallback with zero connection to the client's actual
+    roles/markets, while the workbook's OWN Sources & Confidence sheet
+    grades this exact data at 20%/grade F. Confidence was measured and
+    displayed; it gated nothing -- this check is the gate.
+
+    Presence/capability framing ("X is a major <industry> employer ... and
+    a likely/plausible competitor for this talent pool") is NOT flagged --
+    it never claims to have observed the named company do anything.
+    Counter-strategy ADVICE on its own is not flagged either; only the verb
+    phrases above, which assert third-party behaviour as verified fact,
+    trip this rule.
+    """
+    for unit in units:
+        text = unit.text
+        if not text or not text.strip():
+            continue
+        for pattern, label in _ASSERTED_BEHAVIOR_VERB_RES:
+            m = pattern.search(text)
+            if not m:
+                continue
+            name = (m.group(1) or "").strip()
+            if not name:
+                continue
+            findings.append(
+                _finding(
+                    "critical",
+                    "unsourced_competitor_claim",
+                    f"Asserted-behaviour claim ({label}) about named "
+                    f"competitor {name!r} with no supporting enrichment: "
+                    f"{text!r}",
+                    unit.location,
+                )
+            )
+            break  # one finding per text unit is enough
+
+
+# ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 def run_bundle_qa(
@@ -1988,6 +2118,13 @@ def run_bundle_qa(
     except Exception as exc:  # noqa: BLE001
         findings.append(
             _finding("warn", "competitor_count_check_crashed", f"{exc!r}", "")
+        )
+
+    try:
+        _check_unsourced_competitor_claim(all_units, findings)
+    except Exception as exc:  # noqa: BLE001
+        findings.append(
+            _finding("warn", "unsourced_competitor_claim_check_crashed", f"{exc!r}", "")
         )
 
     return findings

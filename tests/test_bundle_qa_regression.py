@@ -1064,6 +1064,242 @@ def test_uber_shipped_bundle_catches_competitor_count_contradiction():
     assert "5 named competitor" in matches[0]["message"]
 
 
+# --- RULE 6: unsourced_competitor_claim -------------------------------------
+# Real shipped defect (Uber): the deck and workbook asserted specific,
+# never-observed hiring BEHAVIOUR about real named companies as fact --
+# "Marriott is actively competing for commercial cab driver candidates in
+# UK", "Expect Hilton to keep pressure on...", "Hyatt's hiring activity ...
+# puts direct pressure on...", "Hilton is ... drawing from the same...".
+# None of it was backed by enrichment: the names came from a static
+# per-industry fallback (a hotel-chain roster, because the industry was
+# misclassified for a rideshare client) and the workbook's own Sources &
+# Confidence sheet grades this exact data at 20%/grade F.
+def test_detects_unsourced_competitor_claim_actively_competing():
+    units = [
+        bundle_qa._TextUnit(
+            "Counter: Marriott is actively competing for commercial cab "
+            "driver candidates in UK -- sharpen offer cadence and "
+            "speed-to-contact to stay ahead of it.",
+            "Market Intelligence!F12",
+        )
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_unsourced_competitor_claim(units, findings)
+    matches = [f for f in findings if f["code"] == "unsourced_competitor_claim"]
+    assert matches
+    assert "Marriott" in matches[0]["message"]
+
+
+def test_detects_unsourced_competitor_claim_keeps_pressure_on():
+    units = [
+        bundle_qa._TextUnit(
+            "Counter: Expect Hilton to keep pressure on commercial cab "
+            "driver candidates in UK; a faster interview-to-offer cycle is "
+            "the clearest lever to counter it.",
+            "Quality Intelligence!G20",
+        )
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_unsourced_competitor_claim(units, findings)
+    matches = [f for f in findings if f["code"] == "unsourced_competitor_claim"]
+    assert matches
+    assert "Hilton" in matches[0]["message"]
+
+
+def test_detects_unsourced_competitor_claim_puts_direct_pressure_on():
+    units = [
+        bundle_qa._TextUnit(
+            "Why: Hyatt's hiring activity for similar roles puts direct "
+            "pressure on commercial cab driver candidates in UK, while "
+            "also competing for the same customer base.",
+            "slide 7 / TextBox 33",
+        )
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_unsourced_competitor_claim(units, findings)
+    assert any(f["code"] == "unsourced_competitor_claim" for f in findings)
+
+
+def test_detects_unsourced_competitor_claim_drawing_from_the_same():
+    units = [
+        bundle_qa._TextUnit(
+            "Why: Hilton is a same-vertical employer drawing from the same "
+            "commercial cab driver candidates in UK this plan targets.",
+            "slide 7 / TextBox 27",
+        )
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_unsourced_competitor_claim(units, findings)
+    assert any(f["code"] == "unsourced_competitor_claim" for f in findings)
+
+
+def test_detects_unsourced_competitor_claim_is_slower_to_respond():
+    units = [
+        bundle_qa._TextUnit(
+            "IHG is slower to respond to commercial cab driver candidates "
+            "in UK, so first-contact speed alone can decide the outcome.",
+            "Quality Intelligence!H21",
+        )
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_unsourced_competitor_claim(units, findings)
+    assert any(f["code"] == "unsourced_competitor_claim" for f in findings)
+
+
+def test_detects_unsourced_competitor_claim_hiring_directly():
+    units = [
+        bundle_qa._TextUnit(
+            "Airbnb is hiring commercial cab driver candidates directly in "
+            "this market.",
+            "Quality Intelligence!H22",
+        )
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_unsourced_competitor_claim(units, findings)
+    assert any(f["code"] == "unsourced_competitor_claim" for f in findings)
+
+
+def test_detects_unsourced_competitor_claim_especially_aggressive():
+    units = [
+        bundle_qa._TextUnit(
+            "Marriott has been especially aggressive here recently -- "
+            "treat this as a priority lane.",
+            "Quality Intelligence!H23",
+        )
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_unsourced_competitor_claim(units, findings)
+    assert any(f["code"] == "unsourced_competitor_claim" for f in findings)
+
+
+def test_allows_presence_capability_framing():
+    """The ALLOWED framing from the policy -- naming a real employer as a
+    plausible/likely competitor, true regardless of anything actually
+    observed -- must never trip this rule."""
+    units = [
+        bundle_qa._TextUnit(
+            "Marriott is a major hospitality employer in the UK and a "
+            "likely competitor for this talent pool.",
+            "Market Intelligence!F12",
+        ),
+        bundle_qa._TextUnit(
+            "Hilton is a plausible competitor for commercial cab driver "
+            "candidates in UK -- lead with total-comp clarity and a "
+            "same-week interview slot.",
+            "Quality Intelligence!G13",
+        ),
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_unsourced_competitor_claim(units, findings)
+    assert not any(f["code"] == "unsourced_competitor_claim" for f in findings)
+
+
+def test_allows_generic_risk_and_advice_language():
+    """Generic why/positioning prose naming no specific asserted behaviour,
+    the new "inferred data" disclosure, and advice-only mitigation text must
+    not be flagged -- only the specific asserted-behaviour verb phrases
+    are banned, not the mere presence of a competitor's name."""
+    units = [
+        bundle_qa._TextUnit(
+            "High hiring volume in London — these employers compete for "
+            "the same Hospitality & Travel talent pool",
+            "Quality Intelligence!D14",
+        ),
+        bundle_qa._TextUnit(
+            "Competitor set inferred from industry classification; not "
+            "verified against live posting data.",
+            "Market Intelligence!B40",
+        ),
+        bundle_qa._TextUnit(
+            "Mitigation: Monitor Marriott's job posting volumes weekly; "
+            "adjust messaging",
+            "slide 9 / TextBox 30",
+        ),
+    ]
+    findings: list[dict] = []
+    bundle_qa._check_unsourced_competitor_claim(units, findings)
+    assert not any(f["code"] == "unsourced_competitor_claim" for f in findings)
+
+
+def test_allows_insight_composer_corrected_counter_strategy_output():
+    """False-positive guard on the ACTUAL fixed generator (not a
+    hand-picked example): every skeleton in every competitor_type bucket,
+    at every ordinal position, at both a neutral and a "high" intensity
+    (which appends the escalation sentence), must render text this rule
+    does not flag. This is also the plan whose competitor data came from
+    real enrichment (rather than the static industry fallback) --
+    compose_counter_strategy is the same single code path either way, so a
+    real-enrichment plan's counter-strategy prose is covered by this same
+    proof."""
+    import insight_composer as ic
+
+    units: list[bundle_qa._TextUnit] = []
+    for bucket, bank in ic._SKELETON_BANKS.items():
+        for ordinal in range(len(bank)):
+            for intensity in ("", "high", "moderate"):
+                sentence = ic.compose_counter_strategy(
+                    "Marriott",
+                    {
+                        "role": "commercial cab driver",
+                        "city": "UK",
+                        "industry": "Rideshare & Gig Economy",
+                        "competitor_type": bucket,
+                        "ordinal": ordinal,
+                        "intensity": intensity,
+                    },
+                )
+                units.append(
+                    bundle_qa._TextUnit(
+                        f"Counter: {sentence}", "Quality Intelligence!X1"
+                    )
+                )
+
+    findings: list[dict] = []
+    bundle_qa._check_unsourced_competitor_claim(units, findings)
+    flagged = [
+        f["message"] for f in findings if f["code"] == "unsourced_competitor_claim"
+    ]
+    assert not flagged, flagged
+
+
+def test_unsourced_competitor_claim_check_never_raises_on_malformed_input():
+    findings: list[dict] = []
+    bundle_qa._check_unsourced_competitor_claim(
+        [
+            bundle_qa._TextUnit("", "empty"),
+            bundle_qa._TextUnit(None, "none"),  # type: ignore[arg-type]
+        ],
+        findings,
+    )  # must not raise -- absence of a crash IS the assertion here
+
+
+def _scan_uber_shipped_deck_only() -> list[dict]:
+    """Scan the frozen fixture DECK alone. The sibling Uber_Media_Plan.xlsx
+    that ``_scan_uber_shipped_bundle()`` above also reads is *.xlsx-
+    gitignored (see .gitignore:6) and was therefore never committed -- it
+    is absent from a fresh checkout regardless of this change (pre-existing
+    gap, unrelated to this rule). This rule's own "fires on the real
+    shipped bundle" proof does not need the workbook: the exact banned
+    sentences (see module docstring above) live in the deck's own
+    Competitive Landscape slide."""
+    pptx_bytes = (_UBER_FIXTURE_DIR / "Uber_Strategy_Deck.pptx").read_bytes()
+    return bundle_qa.run_bundle_qa(pptx_bytes, None, dict(_UBER_DATA))
+
+
+def test_uber_shipped_bundle_catches_unsourced_competitor_claim():
+    findings = _scan_uber_shipped_deck_only()
+    matches = [f for f in findings if f["code"] == "unsourced_competitor_claim"]
+    assert matches
+    named_messages = " ".join(m["message"] for m in matches)
+    # the real shipped deck asserts unverified behaviour about at least
+    # Marriott and Hilton by name
+    assert "Marriott" in named_messages
+    assert "Hilton" in named_messages
+    assert not any(
+        f["code"] == "unsourced_competitor_claim_check_crashed" for f in findings
+    )
+
+
 if __name__ == "__main__":
     import pytest
 

@@ -1861,6 +1861,27 @@ def _title_case_city(city_name: Any) -> str:
     return city_name.strip().title()
 
 
+# uber_shipped_2026_07_23 fix (unsourced-competitor-claim wave): gold_standard's
+# competitor synthesizer prepends "(National) " to a competitor name when it
+# only has industry-level data for that employer (no city-specific signal) --
+# a legitimate INTERNAL marker (see gold_standard._synthesize_competitor_map,
+# "S27"), but it was leaking verbatim into ~24 client-facing Quality
+# Intelligence cells ("(National) Marriott, (National) Hilton, ..."). Strip it
+# at this render boundary before any competitor name reaches a client-facing
+# cell or prose sentence; the internal meaning (this employer's data isn't
+# city-specific) is preserved by the "National (All Markets)" row label and
+# the Hiring Intensity column, not by repeating the tag on every name.
+_COMPETITOR_SCOPE_TAG_RE = re.compile(r"^\((?:National|Regional|Local)\)\s*")
+
+
+def _strip_competitor_scope_tag(name: Any) -> str:
+    """Strip a leading "(National)"/"(Regional)"/"(Local)" scope tag off a
+    competitor name before it is written to a client-facing cell or
+    interpolated into generated prose."""
+    text = str(name or "")
+    return _COMPETITOR_SCOPE_TAG_RE.sub("", text).strip() or text
+
+
 def _get_roles(data: dict) -> List[str]:
     """Extract normalized role strings from data dict."""
     roles_raw = data.get("target_roles") or data.get("roles") or []
@@ -6597,6 +6618,12 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     # reconcile its printed competitor count against the rows actually
     # rendered here, even when comp_analysis starts out empty.
     _comp_rows: List[Dict[str, str]] = []
+    # uber_shipped_2026_07_23 fix: True only when comp_analysis ends up built
+    # from the static per-industry fallback table below (never real
+    # enrichment/brief data) -- gates the "inferred, not verified" disclosure
+    # a few screens down so it is wired to the actual code path taken, not
+    # shown decoratively regardless of data source.
+    _comp_from_static_fallback = False
     comp_analysis = comp_intel.get(
         "competitors", comp_intel.get("competitor_analysis") or []
     )
@@ -6711,12 +6738,20 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     fallback_names = _fb_list
                     break
         if fallback_names:
+            _comp_from_static_fallback = True
+            # uber_shipped_2026_07_23 fix: this list is a static per-industry
+            # roster with NO relation to the client's actual roles or any
+            # observed hiring signal -- "Active (est.)" was invented
+            # precision (no source backs "active" or the "(est.)" estimate).
+            # Leave hiring_activity blank; the _populated_cols check below
+            # already omits a column that is blank across every row rather
+            # than rendering a fabricated stamp.
             comp_analysis = [
                 {
                     "name": n,
                     "industry": industry_label,
                     "size": "",
-                    "hiring_activity": "Active (est.)",
+                    "hiring_activity": "",
                     "overlap_score": "",
                 }
                 for n in fallback_names
@@ -6795,6 +6830,14 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 
         if _comp_rows:
             row = _write_subsection_header(ws, row, "Competitor Analysis")
+
+            if _comp_from_static_fallback:
+                row = _write_footnote(
+                    ws,
+                    row,
+                    "Competitor set inferred from industry classification; "
+                    "not verified against live posting data.",
+                )
 
             _optional_cols = [
                 ("industry", "Industry"),
@@ -9271,6 +9314,29 @@ def _build_sheet_quality_intelligence(
             row = _write_subsection_header(
                 ws, row, "Competitive Landscape & Counter-Strategies"
             )
+            # uber_shipped_2026_07_23 fix: gold_standard's competitor
+            # synthesizer (see its "consistency:atria#4" precedence fix)
+            # only ever seeds this table's employer names from the client's
+            # OWN brief-supplied data["competitors"] plus a static
+            # per-industry roster -- when the brief supplied none at all,
+            # every name here is that static roster, never anything
+            # observed for this client. Mirrors that same field/precedence
+            # rather than re-deriving it, so this stays truthful to the
+            # actual code path instead of a decorative guess.
+            _qi_brief_competitors_raw = data.get("competitors") or []
+            if isinstance(_qi_brief_competitors_raw, str):
+                _qi_brief_competitors_raw = [
+                    c.strip()
+                    for c in _qi_brief_competitors_raw.split(",")
+                    if c.strip()
+                ]
+            if not any(str(c).strip() for c in _qi_brief_competitors_raw):
+                row = _write_footnote(
+                    ws,
+                    row,
+                    "Competitor set inferred from industry classification; "
+                    "not verified against live posting data.",
+                )
             row = _write_table_header(
                 ws,
                 row,
@@ -9278,11 +9344,16 @@ def _build_sheet_quality_intelligence(
                     "City",
                     "Top Employers",
                     "Hiring Intensity",
-                    "Est. Competing Postings",
                     "Why They Matter",
                     "Counter-Strategy",
                 ],
             )
+            # uber_shipped_2026_07_23 fix: "Est. Competing Postings" used to
+            # render gold_standard._estimate_competing_postings's output --
+            # a formula over hiring difficulty x role count, never a real
+            # posting count from any live source. Dropped the column
+            # entirely rather than keep a header promising a measurement
+            # that was always invented precision (e.g. "795").
             client_name_qs = data.get("client_name") or "Client"
             industry_label_qs = data.get("industry_label") or (
                 (data.get("industry") or "").replace("_", " ").title()
@@ -9297,9 +9368,11 @@ def _build_sheet_quality_intelligence(
                 # them Title Case everywhere, including inside the generated
                 # why_matter/counter prose below.
                 city_name = _title_case_city(city_name_raw)
-                employers = info.get("top_employers") or []
+                employers = [
+                    _strip_competitor_scope_tag(e)
+                    for e in (info.get("top_employers") or [])
+                ]
                 intensity = str(info.get("hiring_intensity") or "moderate").lower()
-                est_postings = info.get("estimated_competing_postings") or "—"
 
                 # Generate WHY each competitor group matters
                 if intensity in ("high", "very_high"):
@@ -9356,7 +9429,6 @@ def _build_sheet_quality_intelligence(
                         city_name,
                         ", ".join(employers[:4]),
                         intensity.title(),
-                        str(est_postings),
                         why_matter,
                         counter,
                     ],
@@ -9368,7 +9440,10 @@ def _build_sheet_quality_intelligence(
             # National competitors row
             national: dict = competitor_map.get("_national") or {}
             if national:
-                national_employers = national.get("top_employers") or []
+                national_employers = [
+                    _strip_competitor_scope_tag(e)
+                    for e in (national.get("top_employers") or [])
+                ]
                 row = _write_table_row(
                     ws,
                     row,
@@ -9376,13 +9451,11 @@ def _build_sheet_quality_intelligence(
                         "National (All Markets)",
                         ", ".join(national_employers[:5]),
                         str(national.get("hiring_intensity") or "moderate").title(),
-                        "",
                         "National competitors set salary and benefits benchmarks",
                         "Match or exceed top benefits; lead with mission and impact",
                     ],
                     fonts=[
                         _FONT_BODY_BOLD,
-                        _FONT_BODY,
                         _FONT_BODY,
                         _FONT_BODY,
                         _FONT_BODY,

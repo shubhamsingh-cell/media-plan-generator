@@ -4535,7 +4535,15 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     cpa_val = benchmarks["cpa"]
     cpc_trend = benchmarks.get("cpc_trend") or ""
     if cpc_trend:
-        cpc_val = f"{cpc_val}  ({cpc_trend})"
+        # visual:uber#1: cpc.trend_yoy in the KB can already carry its own
+        # parens (e.g. "Volatile (+53.2% MoM in July 2025 per Recruitics)");
+        # unconditionally wrapping it in another "(...)" produced doubled
+        # closing parens ("...Recruitics))"). Only add the wrapping parens
+        # when the trend text isn't already parenthesised.
+        if "(" in cpc_trend and ")" in cpc_trend:
+            cpc_val = f"{cpc_val}  {cpc_trend}"
+        else:
+            cpc_val = f"{cpc_val}  ({cpc_trend})"
     # S3: rows still sourced from a fixed US-calibrated benchmark constant
     # (BENCHMARKS dict / trend_engine / Appcast) get a "US$" marker DIRECTLY ON
     # the figure itself -- never a bare "$" beside this plan's own NZ$/£/etc.
@@ -4771,15 +4779,66 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     bench_conf = benchmarks.get("confidence", "curated")
     conf_value_color, _conf_label = _confidence_color(bench_conf)
 
+    # visual:uber#2: rows used to lay out at a fixed row_h=0.38in regardless
+    # of content. A long value string (e.g. "US$0.25-US$1.00  Volatile
+    # (+53.2% MoM in July 2025 per Recruitics)") wraps to 2-3 lines in that
+    # space, overprinting the row above and getting clipped by the NEXT
+    # row's opaque background rect (drawn on the following iteration).
+    # Measure each row first -- matching the Risk Analysis / Push-Pull
+    # measure-then-place pattern -- and size the row (and its background/
+    # text boxes) to its actual content instead of a constant.
+    _bench_value_w_in = (Inches(2.5) / 914400) - 0.2  # usable value-col width
+    _bench_metric_w_in = (Inches(2.2) / 914400) - 0.2  # usable metric-col width
+    _bench_base_row_h_in = row_h / 914400
+    _bench_min_pt = 8.0
+
+    def _bench_col_h_in(text: str, width_in: float, start_pt: float):
+        """(height_in, font_pt) for one cell: shrink toward the 8pt floor
+        first, then grow the row for whatever still doesn't fit."""
+        font_pt = _fit_font_to_lines(
+            str(text), width_in, start_pt, max_lines=2, min_pt=_bench_min_pt
+        )
+        n_lines = _estimate_lines(str(text), width_in, font_pt)
+        return n_lines * (font_pt * 1.35) / 72.0 + 0.08, font_pt
+
+    _bench_row_h_in: list = []
+    _bench_row_font_pt: list = []
+    for _metric, _value in bench_rows:
+        _val_h_in, _val_pt = _bench_col_h_in(str(_value), _bench_value_w_in, 10.0)
+        _met_h_in, _met_pt = _bench_col_h_in(str(_metric), _bench_metric_w_in, 9.0)
+        _bench_row_h_in.append(max(_bench_base_row_h_in, _val_h_in, _met_h_in))
+        _bench_row_font_pt.append(_val_pt)
+
+    # If the content-derived rows would still run past the attribution band,
+    # cap gracefully -- drop trailing rows (lowest-priority, added last)
+    # rather than let the table overflow its allotted vertical space.
+    _bench_avail_bottom_in = _attrib_top_in - 0.35
+    while len(bench_rows) > 1 and (
+        (table_top / 914400) + _bench_base_row_h_in + sum(_bench_row_h_in)
+        > _bench_avail_bottom_in
+    ):
+        bench_rows = bench_rows[:-1]
+        _bench_row_h_in = _bench_row_h_in[:-1]
+        _bench_row_font_pt = _bench_row_font_pt[:-1]
+
+    _bench_row_top_in: list = []
+    _bench_cur_top_in = table_top / 914400 + _bench_base_row_h_in
+    for _h_in in _bench_row_h_in:
+        _bench_row_top_in.append(_bench_cur_top_in)
+        _bench_cur_top_in += _h_in
+
     for i, (metric, value) in enumerate(bench_rows):
-        ry = table_top + row_h * (i + 1)
+        row_h_in = _bench_row_h_in[i]
+        val_pt = _bench_row_font_pt[i]
+        this_row_h = Inches(row_h_in)
+        ry = Inches(_bench_row_top_in[i])
         bg = WHITE if i % 2 == 0 else RGBColor(0xF8, 0xF6, 0xF3)
-        _add_filled_rect(slide, table_left, ry, table_w, row_h, bg)
+        _add_filled_rect(slide, table_left, ry, table_w, this_row_h, bg)
         # Thin ruled line between rows (McKinsey/Bain style)
         _add_filled_rect(
             slide,
             table_left,
-            ry + row_h - Inches(0.01),
+            ry + this_row_h - Inches(0.01),
             table_w,
             Inches(0.01),
             WARM_GRAY,
@@ -4790,7 +4849,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             table_left + Inches(0.15),
             ry,
             Inches(2.2),
-            row_h,
+            this_row_h,
             text=metric,
             font_size=9,
             bold=True,
@@ -4805,16 +4864,18 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             table_left + Inches(2.4),
             ry,
             Inches(2.5),
-            row_h,
+            this_row_h,
             text=str(value),
-            font_size=10,
+            font_size=val_pt,
             bold=True,
             color=val_color,
             anchor=MSO_ANCHOR.MIDDLE,
         )
 
-    # Source - adjust position based on actual number of rows
-    source_top = table_top + row_h * (len(bench_rows) + 1) + Inches(0.05)
+    # Source - positioned below the LAST content-derived row (not a fixed
+    # row_h * count multiple, which is exactly what let the source line and
+    # the category cards below it collide with a table that had grown).
+    source_top = Inches(_bench_cur_top_in) + Inches(0.05)
     source_text = f"Sources: Industry benchmarks {datetime.date.today().year}, validated recruitment data"
     if ad_plat:
         source_text += ", Nova AI Suite Ad Platform Intelligence"
@@ -4907,16 +4968,68 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 color=text_color,
             )
 
-            # Channel list
-            ch_list = ", ".join(c["label"] for c in cat_channels)
+            # Channel list -- visual:uber#3: a joined list of 5 channel
+            # labels routinely needs more than the ~2 lines the fixed
+            # Inches(0.42) box held at 7pt, and the last word rendered below
+            # the card's bottom edge. Cap the member count with a "+N more"
+            # suffix so the list always fits the space actually left inside
+            # the card (box_h minus the header/pct block above it and a
+            # small bottom margin), and size the box to the (possibly
+            # capped) list's real content instead of a constant -- never
+            # crossing the card boundary.
+            _cl_members = [c["label"] for c in cat_channels]
+            ch_list = ", ".join(_cl_members)
+            _cl_w_in = (box_w / 914400) - 0.3
+            # _set_font() unconditionally clamps every run to an 8pt floor
+            # (``Pt(max(8, size))``), so a "font_size=7" request here always
+            # rendered as real 8pt text -- measuring against the requested
+            # 7pt (narrower, fewer wraps) under-counted the actual wraps.
+            # Measure -- and request -- the real rendered size.
+            _cl_font_pt = 8.0
+            # Calibrated against the real Keynote render (same constant the
+            # exec-summary card autofit -- _autofit_textframe -- uses): a
+            # rendered line box is ~1.42x the point size once leading is
+            # included, and the text frame's own top/bottom inset eats
+            # another ~0.08in regardless of font size. Using the thinner
+            # 1.35 factor from the Risk Analysis cards (which have generous
+            # padding elsewhere) under-counted here and still let the last
+            # line render past the card's bottom edge.
+            _cl_line_h_in = (_cl_font_pt * 1.42) / 72.0
+            _cl_v_inset_in = 0.08
+            _cl_top_offset_in = 0.72
+            _cl_max_h_in = max(
+                _cl_line_h_in, (box_h / 914400) - _cl_top_offset_in - 0.06
+            )
+            _cl_max_lines = max(
+                1, int((_cl_max_h_in - _cl_v_inset_in) / _cl_line_h_in)
+            )
+            if _estimate_lines(ch_list, _cl_w_in, _cl_font_pt) > _cl_max_lines:
+                for _keep in range(len(_cl_members) - 1, 0, -1):
+                    _dropped = len(_cl_members) - _keep
+                    _candidate = (
+                        ", ".join(_cl_members[:_keep]) + f" +{_dropped} more"
+                    )
+                    if (
+                        _estimate_lines(_candidate, _cl_w_in, _cl_font_pt)
+                        <= _cl_max_lines
+                    ):
+                        ch_list = _candidate
+                        break
+                else:
+                    ch_list = f"{_cl_members[0]} +{len(_cl_members) - 1} more"
+            _cl_h_in = min(
+                _cl_max_h_in,
+                _estimate_lines(ch_list, _cl_w_in, _cl_font_pt) * _cl_line_h_in
+                + _cl_v_inset_in,
+            )
             _add_textbox(
                 slide,
                 bx + Inches(0.15),
-                box_top + Inches(0.72),
+                box_top + Inches(_cl_top_offset_in),
                 box_w - Inches(0.3),
-                Inches(0.42),
+                Inches(max(0.14, _cl_h_in)),
                 text=ch_list,
-                font_size=7,
+                font_size=8,
                 color=text_color,
             )
 
@@ -7748,25 +7861,43 @@ def _classify_competitor_vertical(comp_name: str, industry: str) -> str:
     return "industry"
 
 
+# brand-liability fix (visual:uber#1): these templates used to assert
+# OBSERVED hiring behaviour about a named third party -- "actively
+# recruits", "drawing from", "hiring activity ... puts direct pressure
+# on", "visibly hiring" -- for a competitor set that, most of the time, is
+# an industry-keyed fallback the plan never actually observed (see
+# _compose_competitor_why below / the Sources & Confidence sheet, which
+# can grade this exact data at 20%, grade F). A real shipped Uber deck
+# asserted "Marriott actively recruits commercial cab driver candidates in
+# UK" -- Marriott does not hire cab drivers; the wording, not the company
+# selection, made that an unhedged factual claim. Reworded to presence +
+# capability framing only ("is a major employer ... and a likely
+# competitor for this talent pool") -- true regardless of whether this
+# specific company's hiring was ever observed, and no longer an assertion
+# about real-time behaviour that was never verified.
 _COMPETITOR_WHY_TEMPLATES_INDUSTRY = (
-    "{name} actively recruits {pool}, competing directly for this plan's "
-    "pipeline — and for the same customers.",
-    "{name} is a {type_phrase}same-vertical employer drawing from "
-    "the same {pool} this plan targets.",
-    "{name}'s hiring activity for similar roles puts direct pressure on "
-    "{pool}, while also competing for the same customer base.",
-    "{name} is visibly hiring in the same market as {pool}, a same-vertical "
-    "source of candidate AND customer overlap.",
+    "{name} is a {type_phrase}major employer in this industry and a "
+    "likely competitor for {pool}.",
+    "{name} is a {type_phrase}same-vertical employer with a presence in "
+    "this market — a plausible competitor for {pool}.",
+    "{name} operates as a {type_phrase}same-vertical employer here, "
+    "making it a likely competitor for {pool} and for this plan's "
+    "customer base.",
+    "{name} is an established {type_phrase}name in this industry and "
+    "market, and a plausible source of competition for {pool}.",
 )
 _COMPETITOR_WHY_TEMPLATES_TALENT_MARKET = (
-    "{name} isn't a same-vertical operator, but it draws from the same "
-    "labor pool and wage band as {pool}.",
-    "{name} is a {type_phrase}large hourly employer competing for "
-    "the same wage band as {pool}, not the same customers.",
-    "{name}'s hourly pay and hiring volume put wage-band pressure on "
-    "{pool}, without competing for this industry's customers.",
-    "{name} pulls from the same local labor pool as {pool} — a wage-band "
-    "competitor, not a same-vertical one.",
+    "{name} isn't a same-vertical operator, but as a {type_phrase}large "
+    "hourly employer it's a plausible wage-band competitor for {pool}.",
+    "{name} is a {type_phrase}large hourly employer in this labor "
+    "market — a likely wage-band competitor for {pool}, not a "
+    "same-customer one.",
+    "{name}'s scale as a {type_phrase}hourly employer makes it a "
+    "plausible source of wage-band competition for {pool}, not for this "
+    "industry's customers.",
+    "{name} is a {type_phrase}large employer in this local labor "
+    "market — a likely wage-band competitor for {pool}, not a "
+    "same-vertical one.",
 )
 
 
@@ -8211,7 +8342,16 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         # employer list because the brief was checked LAST in the cascade).
         # Only fall through to synthesized/gold-standard data when the
         # brief didn't supply any competitors of its own.
+        # visual:uber#5 / brand-liability: the client's own explicit
+        # ``competitors`` list is treated as authoritative -- the client
+        # named these companies itself. Everything the cascade below falls
+        # through to (synthesized competitive intelligence, or the
+        # industry-keyed gold-standard fallback) is an INFERRED set with no
+        # relation to the client's actual roles; track which layer supplied
+        # the final list so the slide can hedge appropriately instead of
+        # presenting a guess with the same confidence as a verified one.
         competitors: Dict[str, Any] = {}
+        _competitor_source = "brief"
         _direct_comps = data.get("competitors") or []
         if isinstance(_direct_comps, list) and _direct_comps:
             for _dc in _direct_comps[:_MAX_COMPETITOR_CARDS]:
@@ -8242,6 +8382,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             competitors = dict(list(_direct_comps.items())[:_MAX_COMPETITOR_CARDS])
 
         if not competitors:
+            _competitor_source = "synthesized"
             _ci_competitors = comp_intel.get("competitors", {})
             if isinstance(_ci_competitors, dict):
                 competitors = dict(_ci_competitors)
@@ -8254,6 +8395,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         # employer per city instead of draining the first city's top-3
         # employers and never reaching the plan's other markets.
         if not competitors:
+            _competitor_source = "industry_fallback"
             gold = data.get("_gold_standard") or {}
             comp_map = gold.get("competitor_mapping") or {}
             if isinstance(comp_map, dict) and comp_map:
@@ -8286,6 +8428,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     _rr_idx += 1
 
         if not competitors:
+            _competitor_source = "industry_fallback"
             gold = data.get("_gold_standard") or {}
             _gs_comp_list = gold.get("competitors_list") or []
             if isinstance(_gs_comp_list, list) and _gs_comp_list:
@@ -8309,6 +8452,54 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         comp_card_h = Inches(0.8)
         comp_card_gap = Inches(0.12)
 
+        # brand-liability: when the competitor set isn't the client's own
+        # explicit list, it's an inferred guess -- the industry-keyed
+        # fallback carries no relation to the client's actual roles, and
+        # even synthesized competitive intelligence can be exactly the
+        # low-confidence data this plan's own Sources & Confidence sheet
+        # grades poorly. Say so on the slide instead of presenting an
+        # inferred list with the same unhedged confidence as a verified
+        # one. Prefer the plan's real per-section confidence score when one
+        # exists; fall back to the fact that the list came from the
+        # industry/gold-standard fallback path when it doesn't.
+        _ci_confidence = None
+        _conf_scores = (
+            synthesized.get("confidence_scores", {})
+            if isinstance(synthesized, dict)
+            else {}
+        )
+        if isinstance(_conf_scores, dict):
+            _per_section_conf = _conf_scores.get(
+                "per_section", _conf_scores.get("sections", {})
+            )
+            if isinstance(_per_section_conf, dict):
+                _raw_ci_conf = _per_section_conf.get("competitive_intelligence")
+                if isinstance(_raw_ci_conf, (int, float)) and not isinstance(
+                    _raw_ci_conf, bool
+                ):
+                    _ci_confidence = float(_raw_ci_conf)
+        if _ci_confidence is not None:
+            _competitor_set_inferred = _ci_confidence < 0.6
+        else:
+            _competitor_set_inferred = _competitor_source != "brief"
+
+        if competitors and _competitor_set_inferred:
+            _add_textbox(
+                slide,
+                right_left,
+                comp_card_top,
+                right_w,
+                Inches(0.18),
+                text=(
+                    "Competitor set inferred from industry classification; "
+                    "not verified against live posting data."
+                ),
+                font_size=7,
+                italic=True,
+                color=MUTED_TEXT,
+            )
+            comp_card_top = comp_card_top + Inches(0.2)
+
         if not competitors:
             _add_textbox(
                 slide,
@@ -8327,33 +8518,31 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             # card needs more room than the original 1.0in fit.
             comp_card_h = Inches(1.3)
             comp_card_gap = Inches(0.12)
+
+            # visual:uber#4: "Why:" used to sit in a fixed cy+0.3in box only
+            # Inches(0.25) tall (~1 line at 8pt), with "Counter:" hardcoded
+            # at cy+0.58in. The Why sentence reliably wraps to 2 lines, so
+            # its second line overprinted Counter's first line on EVERY
+            # card. Fix, matching the Risk Analysis / Push-Pull
+            # measure-then-place pattern: build each card's content first,
+            # compute Counter's offset from Why's MEASURED height (not a
+            # constant), then cascade each card's y position from the
+            # ACTUAL heights of the cards above it -- so a taller card can
+            # never overlap the next one either.
+            _comp_body_w_in = (right_w / 914400) - 0.4
+            _comp_font_pt = 8.0
+            _comp_line_h_in = (_comp_font_pt * 1.35) / 72.0
+            _comp_why_top_in = 0.3
+            _comp_gap_in = 0.03  # matches the original cy+0.58 - (0.3 + 0.25)
+            _comp_bottom_pad_in = 0.1
+            _comp_base_card_h_in = comp_card_h / 914400
+
+            _cards: list = []
             for ci, (comp_name, comp_data) in enumerate(
                 list(competitors.items())[:_MAX_COMPETITOR_CARDS]
             ):
                 if not isinstance(comp_data, dict):
                     continue
-                cy = comp_card_top + ci * (comp_card_h + comp_card_gap)
-
-                _add_rounded_rect(slide, right_left, cy, right_w, comp_card_h, WHITE)
-
-                # Competitor name with color accent
-                accent_colors = [BLUE, TEAL, NAVY, GREEN, AMBER]
-                accent = accent_colors[ci % len(accent_colors)]
-                _add_filled_rect(
-                    slide, right_left, cy, Inches(0.06), comp_card_h, accent
-                )
-
-                _add_textbox(
-                    slide,
-                    right_left + Inches(0.2),
-                    cy + Inches(0.05),
-                    Inches(3.0),
-                    Inches(0.25),
-                    text=str(comp_name),
-                    font_size=10,
-                    bold=True,
-                    color=DARK_TEXT,
-                )
 
                 # copy:both#1/#2, visual:atria#2: tag each card as a real
                 # same-vertical "Industry competitor" or a generic
@@ -8367,19 +8556,6 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     ("Talent-market competitor", AMBER)
                     if _vertical_type == "talent_market"
                     else ("Industry competitor", MUTED_TEXT)
-                )
-                _add_textbox(
-                    slide,
-                    right_left + Inches(3.3),
-                    cy + Inches(0.05),
-                    right_w - Inches(3.5),
-                    Inches(0.25),
-                    text=_tag_text,
-                    font_size=7,
-                    italic=True,
-                    color=_tag_color,
-                    alignment=PP_ALIGN.RIGHT,
-                    anchor=MSO_ANCHOR.MIDDLE,
                 )
 
                 # Counter-strategy context -- built once, shared by the Why
@@ -8420,40 +8596,121 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                         comp_name, comp_data, _counter_ctx, ci
                     )
 
-                _add_textbox(
-                    slide,
-                    right_left + Inches(0.2),
-                    cy + Inches(0.3),
-                    right_w - Inches(0.4),
-                    Inches(0.25),
-                    text=f"Why: {why_text}",
-                    font_size=8,
-                    color=MUTED_TEXT,
-                )
-
                 # Counter-strategy -- per-competitor prose (varies
                 # deterministically by competitor + role), never the same
                 # boilerplate sentence for every card. visual:atria#2(b):
                 # strip any "(National)" scope tag before interpolating the
                 # name into prose -- it stays on the card title above.
-                counter = _trunc_word(
+                counter_text = _trunc_word(
                     "Counter: "
                     + _insight.compose_counter_strategy(
                         _strip_competitor_tag(comp_name), _counter_ctx
                     ),
                     190,
                 )
+
+                _why_n = _estimate_lines(
+                    f"Why: {why_text}", _comp_body_w_in, _comp_font_pt
+                )
+                _why_h_in = max(0.25, _why_n * _comp_line_h_in)
+                _counter_top_in = _comp_why_top_in + _why_h_in + _comp_gap_in
+                _counter_n = _estimate_lines(
+                    counter_text, _comp_body_w_in, _comp_font_pt
+                )
+                _counter_h_in = max(0.2, _counter_n * _comp_line_h_in)
+                card_h_in = max(
+                    _comp_base_card_h_in,
+                    _counter_top_in + _counter_h_in + _comp_bottom_pad_in,
+                )
+
+                _cards.append(
+                    {
+                        "ci": ci,
+                        "comp_name": comp_name,
+                        "tag_text": _tag_text,
+                        "tag_color": _tag_color,
+                        "why_text": why_text,
+                        "why_h_in": _why_h_in,
+                        "counter_text": counter_text,
+                        "counter_top_in": _counter_top_in,
+                        "counter_h_in": _counter_h_in,
+                        "card_h_in": card_h_in,
+                    }
+                )
+
+            _comp_cur_top_in = comp_card_top / 914400
+            for card in _cards:
+                ci = card["ci"]
+                comp_name = card["comp_name"]
+                card_h_in = card["card_h_in"]
+                card_h = Inches(card_h_in)
+                cy = Inches(_comp_cur_top_in)
+
+                _add_rounded_rect(slide, right_left, cy, right_w, card_h, WHITE)
+
+                # Competitor name with color accent
+                accent_colors = [BLUE, TEAL, NAVY, GREEN, AMBER]
+                accent = accent_colors[ci % len(accent_colors)]
+                _add_filled_rect(slide, right_left, cy, Inches(0.06), card_h, accent)
+
                 _add_textbox(
                     slide,
                     right_left + Inches(0.2),
-                    cy + Inches(0.58),
+                    cy + Inches(0.05),
+                    Inches(3.0),
+                    Inches(0.25),
+                    # Strip the internal scope tag ("(National) Marriott") the
+                    # same way the Why/Counter prose already does -- it is an
+                    # internal marker, never client-facing copy.
+                    text=_strip_competitor_tag(comp_name) or str(comp_name),
+                    font_size=10,
+                    bold=True,
+                    color=DARK_TEXT,
+                )
+
+                _add_textbox(
+                    slide,
+                    right_left + Inches(3.3),
+                    cy + Inches(0.05),
+                    right_w - Inches(3.5),
+                    Inches(0.25),
+                    text=card["tag_text"],
+                    font_size=7,
+                    italic=True,
+                    color=card["tag_color"],
+                    alignment=PP_ALIGN.RIGHT,
+                    anchor=MSO_ANCHOR.MIDDLE,
+                )
+
+                _add_textbox(
+                    slide,
+                    right_left + Inches(0.2),
+                    cy + Inches(_comp_why_top_in),
                     right_w - Inches(0.4),
-                    Inches(0.65),
-                    text=counter,
+                    Inches(card["why_h_in"]),
+                    text=f"Why: {card['why_text']}",
+                    font_size=8,
+                    color=MUTED_TEXT,
+                )
+
+                _add_textbox(
+                    slide,
+                    right_left + Inches(0.2),
+                    cy + Inches(card["counter_top_in"]),
+                    right_w - Inches(0.4),
+                    Inches(
+                        max(
+                            card["counter_h_in"],
+                            card_h_in - card["counter_top_in"] - 0.05,
+                        )
+                    ),
+                    text=card["counter_text"],
                     font_size=8,
                     bold=False,
                     color=GREEN,
                 )
+
+                _comp_cur_top_in += card_h_in + (comp_card_gap / 914400)
 
         # Market positioning insight
         positioning = comp_intel.get("market_positioning", {})

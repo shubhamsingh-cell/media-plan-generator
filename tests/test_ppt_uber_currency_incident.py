@@ -438,7 +438,14 @@ class TestEmDashCopyDefects:
         )
         assert "--" not in out
         assert "—" in out
-        assert "especially aggressive here recently" in out
+        # uber_shipped_2026_07_23 fix (unsourced-competitor-claim wave):
+        # "{name} has been especially aggressive here recently" asserted
+        # specific, never-observed recent behaviour by the named competitor
+        # -- replaced with a claim about this lane's own intensity
+        # classification instead. Pin to the new text (still proving the
+        # escalation sentence renders with an em dash, not a hyphen) rather
+        # than the retired wording.
+        assert "flagged high-intensity" in out
 
 
 # ---------------------------------------------------------------------------
