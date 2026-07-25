@@ -177,7 +177,7 @@
     }
   },
   "indeed_sponsored": {
-    "avg_cpc_range_usd": {"min": 0.25, "max": 1.50},
+    "avg_cpc_range_usd": {"min": 0.97, "max": 2.71},
     "avg_cpa_range_usd": {"min": 5.00, "max": 30.00},
     "click_to_apply_rate_pct": 5,
     "sponsored_visibility_multiplier": 4.5,
@@ -194,7 +194,8 @@
       "estimated_price_per_application_usd": {"min": 15.00, "max": 50.00},
       "per_posting_minimum_note": "$25/day per-posting minimum noted as of July 1, 2025",
       "source": {"source": "Pin (pin.com) Indeed Pricing 2026 guide (third-party aggregator; not Indeed-published)", "url": "https://www.pin.com/blog/indeed-pricing/", "vintage": "2026", "confidence": "low"}
-    }
+    },
+    "_avg_cpc_range_usd_refreshed_2026_07_25": "Refreshed from the retired earlier-vintage band to 0.97-2.71, the cited July-2026 typical US-role band in channel_benchmarks_seed.json (336480d; Pin.com citing ThePricer 2026/ShiftNow 2025/Job Board Doctor May 2025, aggregator-inferred). third_party_estimates.cpc_range_usd 0.10-5.00 matches that research's full observed spread and is unchanged. channel_comparison_recruitment's Indeed Sponsored point value was moved onto the same basis in the same commit. Deliberately placed LAST: nova._deep_search_kb_data truncates a matched object to its first few keys, so a note inserted mid-object displaces real fields (here model_note) from what the model sees. Alignment pinned by tests/test_cpc_retired_figures.py."
   },
   "ziprecruiter": {
     "model_note": "Per-job-slot subscription pricing; ZipRecruiter does not publish upfront pricing - figures are third-party aggregator estimates",
@@ -317,7 +318,7 @@
     }
   },
   "channel_comparison_recruitment": [
-    {"channel": "Indeed Sponsored", "avg_cpc_usd": 0.75, "avg_cpa_usd": 15.00, "best_for": "Volume/hourly hiring", "reach": "Very High"},
+    {"channel": "Indeed Sponsored", "avg_cpc_usd": 1.62, "avg_cpa_usd": 15.00, "best_for": "Volume/hourly hiring", "reach": "Very High", "source_note": "avg_cpc_usd refreshed 2026-07-25 from a retired-vintage 0.75 point estimate, which fell BELOW the floor of the refreshed 0.97-2.71 band above and made this file self-contradicting on one RAG surface. 1.62 is the geometric mean of that band, matching data/live_market_data.json job_boards.indeed.avg_cpc_typical and the same convention applied to LinkedIn in 2a2d983. avg_cpa_usd is an independent estimate, not derived from CPC, and is unchanged. Alignment pinned by tests/test_cpc_retired_figures.py."},
     {"channel": "LinkedIn Ads", "avg_cpc_usd": 5.26, "avg_cpa_usd": 50.00, "best_for": "Senior/professional roles", "reach": "High (professional)"},
     {"channel": "Google Ads (Search)", "avg_cpc_usd": 5.81, "avg_cpa_usd": 67.36, "best_for": "Active job seekers", "reach": "Very High"},
     {"channel": "Meta Ads", "avg_cpc_usd": 0.86, "avg_cpa_usd": 17.64, "best_for": "Employer branding, passive candidates", "reach": "Very High"},

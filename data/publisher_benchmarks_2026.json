@@ -18,7 +18,7 @@
     {
       "name": "Indeed",
       "pricing_model": "Pay-per-click (shifting to pay-per-application)",
-      "avg_cpc_range_usd": {"min": 0.25, "max": 1.50},
+      "avg_cpc_range_usd": {"min": 0.97, "max": 2.71},
       "avg_cpa_range_usd": {"min": 5.00, "max": 30.00},
       "click_to_apply_rate_pct": 5,
       "reach": "350M+ monthly unique visitors globally",
@@ -31,7 +31,8 @@
         "apply_completion_rate_pct": 50,
         "median_time_to_first_apply_hours": 4
       },
-      "source": "100hires.com, ppcchief.com"
+      "source": "100hires.com, ppcchief.com",
+      "_avg_cpc_range_usd_refreshed_2026_07_25": "Refreshed from the retired earlier-vintage band to 0.97-2.71, the cited July-2026 typical US-role band in channel_benchmarks_seed.json (336480d; Pin.com citing ThePricer 2026/ShiftNow 2025/Job Board Doctor May 2025, aggregator-inferred). The _metadata.source_urls above (100hires.com, ppcchief.com) predate that research; the refreshed figure supersedes them for the headline band. Deliberately placed LAST: nova._deep_search_kb_data truncates a matched object to its first few keys, so a note inserted mid-object displaces real fields (here reach) from what the model sees. Alignment pinned by tests/test_cpc_retired_figures.py."
     },
     {
       "name": "LinkedIn",
