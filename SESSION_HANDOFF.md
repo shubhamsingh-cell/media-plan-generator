@@ -171,6 +171,44 @@ bump · architecture design doc · **keystone accessor** `get_real_outcomes()` �
   - ⏳ adopt `plan_schema` at pipeline boundaries; MPG async-null-data dashboard
     bug + generation-progress UX; h1b KB refresh; (later) agentic pipeline behind
     the flag per `docs/AGENTIC_GENERATION_DESIGN.md`.
+    **2026-07-25 re-check against origin/main (~6 weeks of shipped work since
+    this list was written) -- re-verified against the code, not re-derived
+    from memory:**
+    - ⏳ **`plan_schema` adoption — still OPEN.** `plan_schema.py` (the typed
+      Layer-1 pipeline contract) exists and is exercised by
+      `tests/test_plan_schema.py`, but `grep -rln "import plan_schema\|from
+      plan_schema"` across the repo returns only that one test file --
+      `app.py`, `excel_v2.py`, `budget_engine.py`, and the rest of the
+      `enrich -> synthesize -> budget -> generators` pipeline still pass
+      plain dicts with no `plan_schema` boundary adoption. No status change.
+    - ✅ **MPG async-null-data dashboard bug + generation-progress UX —
+      CLOSED**, in `5ba77bf` (2026-07-15, *after* this doc's 2026-06-13
+      timestamp): `_generation_jobs` was a per-process dict, so a
+      `GET /api/jobs/<id>` poll landing on a gunicorn worker that didn't run
+      the job returned a false "not found"/null-ish result mid-generation
+      (exactly this bug) until the job fully completed and the Supabase
+      fallback had bytes. Fixed with `_mirror_job()`, which snapshots
+      whitelisted job fields (incl. `progress_pct`/`status_message`) to a
+      shared slot-dir file on every progress transition, checked by
+      `GET /api/jobs/<id>` before the Supabase fallback. Regression-tested
+      in `tests/test_multiprocess_serving.py` (the commit message records
+      it 404s on pre-fix base `259fa64f` even with the mirror file present
+      on disk). The generation-progress UX itself was already live and
+      wired end-to-end (`templates/partials/index/body_app_js.html`: a
+      `setInterval` poll loop reads `pd.progress_pct` /
+      `pd.status_message` from the job-status response and drives a real
+      `#pageProgress` progress bar) -- the cross-worker fix is what makes
+      that UX report real state instead of intermittently stalling/erroring
+      depending on which worker served the poll.
+    - ⏳ **h1b KB refresh — still OPEN, and more overdue than in June.**
+      `data/h1b_salary_intelligence.json`'s own `_meta.last_updated` reads
+      `"2025-Q1"`. `git log --follow -- data/h1b_salary_intelligence.json`
+      shows exactly one commit, `8d006bf` (2026-03-26, file creation) --
+      no refresh has ever landed, and no refresh script/mechanism exists
+      anywhere in the repo (`find . -iname "*h1b*refresh*"` empty). The
+      data is live in production: `h1b_data.py` is imported by
+      `api_enrichment.py`, `data_synthesizer.py`, and `nova.py`. No status
+      change; flagging as higher priority since the vintage gap has grown.
 
 ## 6. What's needed from the user
 1. ~~Qdrant write credentials → run the Gemini-embeddings reindex~~ —

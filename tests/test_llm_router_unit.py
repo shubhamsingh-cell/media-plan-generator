@@ -658,6 +658,162 @@ class TestDeepSeekModelRouting:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# TODO S82: Cerebras total-context guard (input+output combined, 8,192 tokens
+# on the CEREBRAS_SCOUT free trial). Before this guard, an oversized prompt
+# was sent straight to Cerebras and errored at the provider (raw HTTPError
+# bubbling out of `_call_single_provider`'s except-block as an error string,
+# or worse, an unhandled exception depending on how Cerebras reports the
+# violation) instead of being caught locally and routed to the next
+# provider. Closed 2026-07-25.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestCerebrasTotalContextGuard:
+    """`_call_single_provider` must estimate prompt tokens for any provider
+    whose config carries a `max_context` (total, input+output) cap and, if
+    prompt + max_tokens would exceed it, fail over WITHOUT calling the
+    provider -- returning the same empty-text/`error`-set shape a normal
+    provider failure returns, so `_call_llm_inner`'s existing
+    exclude-and-retry loop (`_has_response` check) picks the next provider.
+    """
+
+    def test_estimate_prompt_tokens_uses_4_chars_per_token(self) -> None:
+        """Matches nova.py's `_estimate_tokens` heuristic (len(text) // 4),
+        summing system_prompt + all string message content."""
+        from llm_router import _estimate_prompt_tokens
+
+        # "abcd" * 100 = 400 chars -> 100 tokens; two 400-char pieces = 200.
+        system_prompt = "a" * 400
+        messages = [{"role": "user", "content": "b" * 400}]
+        assert _estimate_prompt_tokens(system_prompt, messages) == 200
+
+    def test_estimate_prompt_tokens_skips_non_string_content(self) -> None:
+        """Tool-call / structured message content isn't sent as raw text by
+        the request builders, so it must not inflate the estimate."""
+        from llm_router import _estimate_prompt_tokens
+
+        messages = [
+            {"role": "assistant", "content": None, "tool_calls": [{"id": "x"}]},
+            {"role": "user", "content": "c" * 40},
+        ]
+        assert _estimate_prompt_tokens("", messages) == 10
+
+    def test_oversized_prompt_fails_over_without_calling_provider(self) -> None:
+        """A prompt that would blow CEREBRAS_SCOUT's 8,192-token total-context
+        cap must return an error dict -- and must NEVER reach urlopen (proves
+        the guard fires before the HTTP call, not as a post-hoc error parse)."""
+        from llm_router import _call_single_provider, CEREBRAS_SCOUT, PROVIDER_CONFIG
+
+        max_context = PROVIDER_CONFIG[CEREBRAS_SCOUT]["max_context"]
+        # 4 chars/token estimate; pad comfortably past the cap.
+        oversized_prompt = "x" * ((max_context + 2000) * 4)
+
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            result = _call_single_provider(
+                CEREBRAS_SCOUT,
+                [{"role": "user", "content": "hi"}],
+                oversized_prompt,
+                max_tokens=1000,
+            )
+
+        mock_urlopen.assert_not_called()
+        assert result.get("text") == ""
+        assert result.get("provider") == CEREBRAS_SCOUT
+        assert "context" in (result.get("error") or "").lower()
+        assert result.get("latency_ms") == 0
+        # Not raising is the point of the guard -- if we got here at all
+        # (no exception propagated out of _call_single_provider), that's
+        # already partially proven; assert explicitly for clarity.
+        assert isinstance(result, dict)
+
+    def test_oversized_prompt_guard_does_not_penalize_provider_health(self) -> None:
+        """The guard is a local routing decision (prompt too big for THIS
+        request), not evidence Cerebras itself is unhealthy -- it must not
+        touch health score / circuit breaker / call counters, matching the
+        rate-limit skip's treatment in `select_provider`."""
+        from llm_router import (
+            _call_single_provider,
+            _provider_states,
+            CEREBRAS_SCOUT,
+            PROVIDER_CONFIG,
+        )
+
+        state = _provider_states[CEREBRAS_SCOUT]
+        before = (state.total_calls, state.total_failures, state.health_score)
+
+        max_context = PROVIDER_CONFIG[CEREBRAS_SCOUT]["max_context"]
+        oversized_prompt = "x" * ((max_context + 2000) * 4)
+        with mock.patch("urllib.request.urlopen"):
+            _call_single_provider(
+                CEREBRAS_SCOUT,
+                [{"role": "user", "content": "hi"}],
+                oversized_prompt,
+                max_tokens=1000,
+            )
+
+        after = (state.total_calls, state.total_failures, state.health_score)
+        assert after == before
+
+    def test_prompt_within_cap_still_calls_provider(self) -> None:
+        """Guard must not over-block: a small prompt for CEREBRAS_SCOUT
+        should reach the provider exactly as before this change."""
+        import json
+
+        from llm_router import _call_single_provider, CEREBRAS_SCOUT
+
+        class _FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return None
+
+            def read(self):
+                return json.dumps(
+                    {
+                        "choices": [{"message": {"content": "Short reply."}}],
+                        "usage": {"prompt_tokens": 5, "completion_tokens": 3},
+                    }
+                ).encode("utf-8")
+
+        with mock.patch(
+            "urllib.request.urlopen", return_value=_FakeResponse()
+        ) as mock_urlopen:
+            result = _call_single_provider(
+                CEREBRAS_SCOUT,
+                [{"role": "user", "content": "hi"}],
+                "short system prompt",
+                max_tokens=100,
+            )
+
+        mock_urlopen.assert_called_once()
+        assert result.get("text") == "Short reply."
+
+    def test_call_llm_end_to_end_oversized_returns_clean_failure(self) -> None:
+        """Full wiring check via call_llm(force_provider=CEREBRAS_SCOUT):
+        an oversized prompt must come back as a normal-shaped failure dict
+        (empty text, `error` set) with no exception raised and no network
+        call made -- proving the guard's failure shape is exactly what the
+        router's fallback machinery already knows how to consume."""
+        from llm_router import call_llm, CEREBRAS_SCOUT, PROVIDER_CONFIG
+
+        max_context = PROVIDER_CONFIG[CEREBRAS_SCOUT]["max_context"]
+        oversized_prompt = "y" * ((max_context + 2000) * 4)
+
+        with mock.patch("urllib.request.urlopen") as mock_urlopen:
+            result = call_llm(
+                messages=[{"role": "user", "content": "hi"}],
+                system_prompt=oversized_prompt,
+                force_provider=CEREBRAS_SCOUT,
+                use_cache=False,
+            )
+
+        mock_urlopen.assert_not_called()
+        assert result.get("text") == ""
+        assert result.get("error")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # S95: Claude Sonnet promoted to #1 for the plan-narrative task types
 # ═══════════════════════════════════════════════════════════════════════════════
 

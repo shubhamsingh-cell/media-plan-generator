@@ -918,11 +918,12 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     # Model defaults to gpt-oss-120b (a documented free-tier slug); override
     # via env: CEREBRAS_SCOUT_MODEL=zai-glm-4.7 (alt documented free slug).
     # NOTE: max_tokens caps OUTPUT only. The Cerebras free trial enforces an
-    # 8,192-token TOTAL context cap (input + output combined). The additive
-    # "max_context" field below records that cap as discoverable metadata; the
-    # router does not yet hard-enforce a total-context budget, so long prompts
-    # must still be kept off this provider operationally (a hard guard would
-    # require deeper call_llm changes -- TODO S82).
+    # 8,192-token TOTAL context cap (input + output combined), recorded below
+    # as "max_context". TODO S82 CLOSED 2026-07-25: `_call_single_provider`
+    # now hard-enforces this locally -- it estimates prompt tokens and, if
+    # prompt + max_tokens would exceed "max_context", fails over to the
+    # router's normal retry path instead of hitting Cerebras and getting a
+    # raw provider error. See the guard at the top of `_call_single_provider`.
     # [inference-docs.cerebras.ai/support/rate-limits, retrieved 2026-06-02]
     CEREBRAS_SCOUT: {
         "name": "Cerebras GPT-OSS-120B (free, 8K ctx cap)",
@@ -934,8 +935,8 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "rpd_limit": 14400,  # 1M tokens/day (TPD) free
         "timeout": 25,
         "max_tokens": 8192,  # output cap; total ctx (in+out) also capped at 8192
-        # S51: free-trial TOTAL context cap (input+output). Additive metadata;
-        # consumed by any future total-context guard, harmless to current code.
+        # Free-trial TOTAL context cap (input+output), enforced locally by
+        # `_call_single_provider` (see TODO S82 note above).
         "max_context": 8192,
     },
     CLAUDE_HAIKU: {
@@ -3908,6 +3909,26 @@ def _stream_single_provider(
             yield text
 
 
+def _estimate_prompt_tokens(system_prompt: str, messages: List[Dict]) -> int:
+    """Rough token estimate for a system prompt + message list.
+
+    Uses the same 4-chars-per-token heuristic as nova.py's `_estimate_tokens`
+    helper (conservative, fast, good enough for context-budget checks -- not
+    exact token counting). Reimplemented locally rather than imported: this
+    module is a dependency-free leaf (only stdlib imports; nova.py imports
+    FROM llm_router.py, never the reverse), so importing nova here would
+    invert that relationship. Only string message content is counted, which
+    matches what `_build_openai_request`/`_build_anthropic_request` actually
+    send to the wire (non-string content, e.g. tool_calls, is skipped).
+    """
+    text_parts = [system_prompt or ""]
+    for msg in messages:
+        content = msg.get("content")
+        if isinstance(content, str):
+            text_parts.append(content)
+    return len("".join(text_parts)) // 4
+
+
 def _call_single_provider(
     provider_id: str,
     messages: List[Dict],
@@ -3930,6 +3951,43 @@ def _call_single_provider(
     config = PROVIDER_CONFIG.get(provider_id)
     if not config:
         return {"text": "", "provider": provider_id, "error": "Unknown provider"}
+
+    # TODO S82 (closed 2026-07-25): local total-context guard. Some free-tier
+    # providers (currently CEREBRAS_SCOUT) cap prompt+completion tokens
+    # COMBINED, not just output -- see the `max_context` metadata on the
+    # provider config. Estimate the prompt size and, if prompt + requested
+    # max_tokens would blow the cap, fail this call the same way a normal
+    # provider failure fails (empty text + `error` set, no exception) so
+    # the caller's existing exclude-and-retry loop in `_call_llm_inner`
+    # routes to the next provider instead of us raising a raw HTTPError
+    # from the provider. This is a local routing decision, not evidence the
+    # provider is unhealthy, so it deliberately skips `state.record_failure()`
+    # / circuit-breaker penalties -- same treatment as the rate-limit skip
+    # above in `select_provider`.
+    max_context = config.get("max_context")
+    if max_context:
+        est_prompt_tokens = _estimate_prompt_tokens(system_prompt, messages)
+        if est_prompt_tokens + max_tokens > max_context:
+            logger.warning(
+                "LLM Router: %s total-context guard tripped (est. prompt=%d "
+                "tokens + max_tokens=%d > max_context=%d), failing over "
+                "without calling the provider",
+                provider_id,
+                est_prompt_tokens,
+                max_tokens,
+                max_context,
+            )
+            return {
+                "text": "",
+                "provider": provider_id,
+                "provider_name": config.get("name") or "",
+                "error": (
+                    f"Prompt too large for {provider_id} total-context cap "
+                    f"({max_context} tokens): est. {est_prompt_tokens} prompt "
+                    f"+ {max_tokens} max_tokens"
+                ),
+                "latency_ms": 0,
+            }
 
     state = _provider_states.get(provider_id)
     api_style = config.get("api_style") or ""
