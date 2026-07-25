@@ -13,7 +13,7 @@ the dramatic quality improvement over free-tier LLMs.
 Provider priority (quality-first for substantive, free for simple):
     PRIMARY (quality-critical tasks):
     1.  Claude Haiku 4.5 (Anthropic) -- paid, fast + cheap, Claude-level quality
-    2.  Gemini 3 Flash (preview) -- free, $0.50/$3 per M, 3x faster than 2.5 Pro
+    2.  Gemini 3.6 Flash (GA) -- free, $0.50/$3 per M, 3x faster than 2.5 Pro
     3.  GPT-5.4-mini (OpenAI) -- $0.75/$6 per M, replaces deprecated GPT-4o (S50)
 
     FREE TIER (fallbacks + batch/summarize tasks):
@@ -1660,11 +1660,14 @@ MODULE_LLM_PREFERENCES: Dict[str, Dict[str, Any]] = {
 
 # Estimated cost per 1M tokens (USD) -- input/output
 _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
-    GEMINI: {"input": 0.10, "output": 0.40},  # Gemini 3 Flash pricing
+    GEMINI: {
+        "input": 0.10,
+        "output": 0.40,
+    },  # Gemini 3.6 Flash pricing (rates not re-confirmed for 3.6 as of 2026-07-25)
     GEMINI_FLASH_LITE: {
         "input": 0.025,
         "output": 0.15,
-    },  # Gemini 3.1 Flash Lite pricing
+    },  # Gemini 3.5 Flash Lite pricing (rates not re-confirmed for 3.5 as of 2026-07-25)
     GROQ: {"input": 0.0, "output": 0.0},
     CEREBRAS: {"input": 0.0, "output": 0.0},
     ZHIPU: {"input": 0.0, "output": 0.0},
@@ -2770,7 +2773,7 @@ def _build_gemini_request(
         "temperature": 0.7,
     }
     # Decide whether to disable thinking (see helper for the rule).
-    # Without this, gemini-3-flash-preview / gemini-3.1-flash-lite
+    # Without this, the pinned Gemini models (main + lite, see PROVIDER_CONFIG)
     # spend their token budget on internal thinking and return empty bodies
     # for low-maxOutputTokens requests.
     if _should_disable_gemini_thinking(max_tokens, has_tools, disable_thinking):
@@ -3357,8 +3360,8 @@ def call_llm(
         {
             "text": "response text",
             "provider": "gemini|groq|cerebras|claude|claude_opus",
-            "provider_name": "Gemini 3 Flash",
-            "model": "gemini-3-flash-preview",
+            "provider_name": "Gemini 3.6 Flash",
+            "model": "gemini-3.6-flash",
             "task_type": "conversational",
             "input_tokens": 100,
             "output_tokens": 200,
@@ -3747,8 +3750,9 @@ def _stream_gemini(
     """Stream tokens from the Gemini streaming endpoint.
 
     Uses the streamGenerateContent endpoint which returns newline-delimited
-    JSON objects, each containing partial candidates.  Supports both
-    gemini-3-flash-preview and gemini-3.1-flash-lite via provider_id.
+    JSON objects, each containing partial candidates.  Supports both the
+    full and lite Gemini providers via provider_id; the model and endpoint
+    come from PROVIDER_CONFIG, never from a hardcoded slug here.
 
     Streaming is the chat / real-time SSE path. By default the auto rule
     leaves thinking enabled for max_tokens >= 2048; callers wanting a

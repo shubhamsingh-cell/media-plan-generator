@@ -333,16 +333,26 @@ class TestTier1StaticValidation:
     # ── llm_router docstring ─────────────────────────────────────────────────
 
     def test_llm_router_docstring_mentions_gemini_3_flash(self) -> None:
-        """Module docstring must reference Gemini 3 Flash, not 2.0."""
+        """Module docstring must reference the currently pinned Gemini model
+        (see PROVIDER_CONFIG[GEMINI]["name"]), not a retired generation.
+
+        2026-07-25: pin moved gemini-3-flash-preview -> gemini-3.6-flash, so
+        this now checks "Gemini 3.6 Flash" rather than the previous "Gemini 3
+        Flash" literal -- the guard's intent (no stale generation reference)
+        is unchanged, only the pinned value it tracks.
+        """
         import llm_router
 
         doc = llm_router.__doc__ or ""
         assert (
-            "Gemini 3 Flash" in doc
-        ), "Module docstring should mention 'Gemini 3 Flash'"
+            "Gemini 3.6 Flash" in doc
+        ), "Module docstring should mention 'Gemini 3.6 Flash'"
         assert (
             "Gemini 2.0 Flash" not in doc
         ), "Stale 'Gemini 2.0 Flash' reference must not remain in docstring"
+        assert (
+            "gemini-3-flash-preview" not in doc
+        ), "Stale 'gemini-3-flash-preview' reference must not remain in docstring"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
