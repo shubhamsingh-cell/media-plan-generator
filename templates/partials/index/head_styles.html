@@ -5036,6 +5036,15 @@
     -webkit-backdrop-filter: blur(20px) saturate(1.4);
     border-bottom: 1px solid var(--np-hair);
   }
+  /* Guest "Previewing Nova" banner, injected by nova-auth-gate.js with
+     inline top:0 z-index:999998. The gate script's body padding-top already
+     clears this top bar at page load; this rule only lowers the banner's
+     z-index below the top bar so that once it re-pins to the true viewport
+     top on scroll (position:sticky), it stays fully visible instead of
+     being painted over by the banner. */
+  #nova-guest-banner {
+    z-index: 59 !important;
+  }
   .studio-topbar .stb-logo {
     display: inline-flex;
     width: 30px;
