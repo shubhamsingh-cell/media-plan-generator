@@ -567,7 +567,7 @@ _response_cache = _ResponseCache()
 # Provider configs: endpoint, model, auth header, rate limits
 PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     GEMINI: {
-        "name": "Gemini 3 Flash",
+        "name": "Gemini 3.6 Flash",
         "api_style": "gemini",  # Google-specific format
         # S50 UPGRADE: Moved from "gemini-2.5-flash" (GA) to "gemini-3-flash-preview"
         # for frontier-class quality on the free tier. The earlier S53 fix had
@@ -575,13 +575,35 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         # "gemini-3-flash-preview" is the verified working preview model ID
         # (validated in talent-crm commit df08565). Override via env var if needed
         # for max stability: GEMINI_MODEL=gemini-2.5-flash
-        # TODO S82: SCOUT-LLM (2026-06) recommends promoting to the GA string
-        # "gemini-3-flash" for best sustained free volume (1,500 RPD). VERIFIED
-        # 2026-06-02: "gemini-3-flash" still 404s (NOT_FOUND) on v1beta, while
-        # "gemini-3-flash-preview" returns 200 -- keeping the preview slug until
-        # the GA model ID lands. Re-test the GA slug before swapping.
-        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent",
-        "model": "gemini-3-flash-preview",
+        # MODEL SELECTION SETTLED 2026-07-25. Every claim here is an actual
+        # HTTP call made against a key proven live first (see "THE TRAP"):
+        #   - "gemini-3-flash"         -> GetModel 404 x3. The GA slug that
+        #     SCOUT-LLM (2026-06) recommended promoting to STILL does not
+        #     exist. TODO S82 is therefore closed as not-yet-possible, not
+        #     done -- do not re-open it expecting a different answer.
+        #   - "gemini-3-flash-preview" -> GetModel 200, generateContent 200.
+        #     Works, but is a -preview slug and carries preview rate limits.
+        #   - "gemini-3.6-flash"       -> generateContent 200. GA (no -preview
+        #     suffix), 1,048,576 in / 65,536 out. NOW PINNED.
+        # This is the preview->GA promotion the S50 note was waiting for; 3.6
+        # is simultaneously newer than 3-flash-preview and no longer preview.
+        #
+        # DELIBERATELY UNVERIFIED: the free-tier RPD/RPM for gemini-3.6-flash.
+        # Google's API exposes NO pricing or quota metadata, so the "1,500 RPD"
+        # figures in this file's history cannot be re-confirmed programmatically
+        # and were not re-confirmed here. If free-tier throttling shows up, step
+        # down via env (GEMINI_MODEL=gemini-3.5-flash, or gemini-2.5-flash for
+        # max stability) rather than assuming the slug is wrong.
+        #
+        # THE TRAP (cost a cycle on 2026-07-25 -- read before re-testing): a key
+        # whose API restrictions exclude generativelanguage.googleapis.com
+        # returns an EMPTY-BODY HTTP 404 from v1beta ...:generateContent for
+        # EVERY slug, including ones that certainly exist, while GetModel on the
+        # same key returns an honest 403 API_KEY_SERVICE_BLOCKED. So ALWAYS
+        # prove the key first -- GET v1beta/models/gemini-2.5-flash must return
+        # 200, not 403/404 -- before concluding any model ID is missing.
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+        "model": "gemini-3.6-flash",
         "env_key": "GEMINI_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 1500,
@@ -589,18 +611,23 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 8192,
     },
     GEMINI_FLASH_LITE: {
-        "name": "Gemini 3.1 Flash Lite",
+        "name": "Gemini 3.5 Flash Lite",
         "api_style": "gemini",
-        # S50 UPGRADE (May 2026): Moved to "gemini-3.1-flash-lite", which
-        # IS now a real model on the free tier (verified against Google's pricing
-        # page + multiple secondary sources). The earlier S53 fix reverted to
-        # "gemini-2.5-flash-lite" because the 3.1-lite ID returned 404 -- Google
-        # has since shipped the model. Pairs with main GEMINI provider on
-        # "gemini-3-flash-preview" for the latest free Gemini stack.
-        # Override via env if Google changes preview availability:
+        # S50 UPGRADE (May 2026) moved this to "gemini-3.1-flash-lite" after an
+        # earlier S53 fix had reverted to "gemini-2.5-flash-lite" (the 3.1-lite
+        # ID 404'd until Google shipped it).
+        # 2026-07-25: bumped 3.1 -> "gemini-3.5-flash-lite", live-probed
+        # generateContent 200 on a key proven live first. Kept as the LITE tier
+        # on purpose -- this provider exists to be the cheap/high-volume leg
+        # behind the main GEMINI provider, so it tracks the newest *lite* GA
+        # model rather than being flattened onto the full flash model.
+        # Pairs with main GEMINI on "gemini-3.6-flash" = latest free Gemini stack.
+        # Free-tier RPD/RPM NOT verified (Google exposes no quota metadata).
+        # Override via env if Google changes availability:
+        #   GEMINI_FLASH_LITE_MODEL=gemini-3.1-flash-lite (previous pin)
         #   GEMINI_FLASH_LITE_MODEL=gemini-2.5-flash-lite (GA fallback)
-        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
-        "model": "gemini-3.1-flash-lite",
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "model": "gemini-3.5-flash-lite",
         "env_key": "GEMINI_API_KEY",
         "rpm_limit": 30,
         "rpd_limit": 1500,
@@ -2528,8 +2555,13 @@ def parallel_distribute(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ── Gemini thinking-budget control (May 2026) ──────────────────────────────────
-# gemini-3-flash-preview and gemini-3.1-flash-lite are thinking-enabled
-# by default. Without generationConfig.thinkingConfig.thinkingBudget = 0,
+# The pinned Gemini models (gemini-3.6-flash / gemini-3.5-flash-lite as of
+# 2026-07-25; previously gemini-3-flash-preview / gemini-3.1-flash-lite) are
+# thinking-enabled by default. NOTE: the thinking default for the 3.5/3.6
+# models was NOT re-verified when they were pinned -- the auto rule below is
+# safe either way, since it only ever *disables* thinking for small-budget
+# calls, so a model that isn't thinking-enabled simply ignores it.
+# Without generationConfig.thinkingConfig.thinkingBudget = 0,
 # requests with small maxOutputTokens (< 2048) consume the budget on internal
 # thinking and either time out (>110s) or return empty.
 #
@@ -2620,7 +2652,8 @@ def _build_gemini_request(
 ) -> Tuple[str, Dict[str, str], bytes]:
     """Build a Gemini API request.
 
-    Supports both gemini-3-flash-preview and gemini-3.1-flash-lite via provider_id.
+    Supports both the full and lite Gemini providers via provider_id; the model
+    and endpoint come from PROVIDER_CONFIG, never from a hardcoded slug here.
     Handles tool definitions (converted from Anthropic format) and multi-turn
     tool conversations with functionCall/functionResponse parts.
 
