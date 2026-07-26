@@ -210,15 +210,31 @@ class TestGbpPlanNoHardcodedDollar:
         ), texts
 
     def test_slide11_next_steps_uses_plan_symbol(self, texts):
-        # ppt_generator.py _interpolate_next_steps budget_fmt call site
-        assert any("£2M over 1-3 months" in t for t in texts), texts
+        # ppt_generator.py _interpolate_next_steps budget_fmt call site.
+        # Duration reads the canonical resolved value ("12 weeks"), not the
+        # raw brief string ("1-3 months") -- see the campaign-duration
+        # single-source-of-truth fix (display_format.resolve_campaign_
+        # duration_label) closing the real shipped defect where this exact
+        # slide echoed "1-3 months" verbatim while the workbook's Executive
+        # Summary/90-Day Forecast had already resolved to a different value.
+        assert any("£2M over 12 weeks" in t for t in texts), texts
 
     def test_slides_4_and_5_channel_money_match(self, texts):
         # slide 4 (Push/Pull money list) and slide 5 (channel-strategy
         # attribution chart) must render the SAME figure with the SAME
         # symbol -- these used to disagree ("$557.8K" vs "£557.8K").
-        slide4_hit = any("Programmatic (DSP) £557.8K" in t for t in texts)
-        slide5_hit = any("Programmatic DSP (£557.8K)" in t for t in texts)
+        #
+        # 2026-07-26 DELIBERATE re-baseline (budget_engine.py Fix 1 -- non-US
+        # locale CPC calibration -- and Fix 2 -- ROI score must constrain
+        # allocation): this is a non-US (UK) plan, so Programmatic DSP's
+        # dollar amount now reflects both fixes -- Global/Niche/Regional
+        # boards' CPC is calibrated off real UK/international platform data
+        # instead of the US live_benchmark tier, and the post-redistribution
+        # ROI guard caps Social Media (roi_score == 1) and redistributes the
+        # freed share to qualifying high-ROI channels including Programmatic
+        # DSP. £557.8K -> £561.7K.
+        slide4_hit = any("Programmatic (DSP) £561.7K" in t for t in texts)
+        slide5_hit = any("Programmatic DSP (£561.7K)" in t for t in texts)
         assert slide4_hit, f"slide 4 push/pull figure missing/wrong: {texts!r}"
         assert slide5_hit, f"slide 5 attribution figure missing/wrong: {texts!r}"
 
@@ -299,11 +315,22 @@ class TestUsdPlanUnaffected:
         assert any("with $1,626 average cost-per-hire" in t for t in texts), texts
 
     def test_slide11_next_steps_unchanged(self, texts):
-        assert any("$2M over 1-3 months" in t for t in texts), texts
+        # Duration reads the canonical resolved value ("12 weeks"), not the
+        # raw brief string -- see test_slide11_next_steps_uses_plan_symbol
+        # above.
+        assert any("$2M over 12 weeks" in t for t in texts), texts
 
     def test_slides_4_and_5_channel_money_match(self, texts):
-        slide4_hit = any("Programmatic (DSP) $557.8K" in t for t in texts)
-        slide5_hit = any("Programmatic DSP ($557.8K)" in t for t in texts)
+        # 2026-07-26 DELIBERATE re-baseline (budget_engine.py Fix 2 -- ROI
+        # score must constrain allocation): this is a US plan, so Fix 1
+        # (non-US locale CPC calibration) does NOT apply here -- byte-
+        # identical CPC cascade -- but Fix 2 is currency/locale-agnostic and
+        # DOES apply to every plan. The post-redistribution ROI guard caps
+        # Social Media (roi_score == 1) and redistributes the freed share to
+        # qualifying high-ROI channels including Programmatic DSP.
+        # $557.8K -> $582K.
+        slide4_hit = any("Programmatic (DSP) $582K" in t for t in texts)
+        slide5_hit = any("Programmatic DSP ($582K)" in t for t in texts)
         assert slide4_hit, texts
         assert slide5_hit, texts
 

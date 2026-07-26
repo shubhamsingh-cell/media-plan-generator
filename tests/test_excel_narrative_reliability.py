@@ -90,13 +90,15 @@ def test_narrative_renders_on_success():
     """A successful, grounded call_llm response renders the Executive
     Strategic Summary section verbatim and records status=llm_grounded with
     the provider/model used. The mocked text cites ONLY figures present in
-    _minimal_data()'s FACTS (the $150,000 budget, the resolved 13-week
-    duration, the stated 50-hire goal) -- no invented ratios/percentages/
-    dollar values -- so it passes `_narrative_is_grounded` untouched."""
+    _minimal_data()'s FACTS (the $150,000 budget, the resolved 12-week
+    duration -- "3 months" resolves to the wizard's fixed 12-week bucket,
+    display_format.resolve_campaign_weeks, not a strict 52/12 conversion --
+    the stated 50-hire goal) -- no invented ratios/percentages/dollar
+    values -- so it passes `_narrative_is_grounded` untouched."""
     data = _minimal_data()
     _narrative_text = (
         "This $150,000 plan is built to fill CDL Driver roles across "
-        "Dallas, TX over a 13-week campaign. It is calibrated against the "
+        "Dallas, TX over a 12-week campaign. It is calibrated against the "
         "stated hiring goal of 50, though the plan will need meaningful "
         "ramp-up to reach that goal. Key risk: regional driver capacity "
         "remains tight, which could slow early applicant flow. Recommended "
@@ -136,7 +138,7 @@ def test_narrative_renders_on_success():
 # ---------------------------------------------------------------------------
 _FALLBACK_SENTENCE = (
     "This recruitment media plan for Amerigas Test with a $150,000 budget "
-    "over 13 weeks, targeting the Logistics & Supply Chain sector."
+    "over 12 weeks, targeting the Logistics & Supply Chain sector."
 )
 
 

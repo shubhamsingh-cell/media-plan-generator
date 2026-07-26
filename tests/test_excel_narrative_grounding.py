@@ -580,14 +580,18 @@ def test_grounded_narrative_with_perweek_permonth_derivations_passes():
     rejected as an untraceable fabrication."""
     data = _minimal_data_with_allocation()
     # $150,000 / 6 months / 342 hires / 5,600 applications (see
-    # _minimal_data_with_allocation) -> budget/month = $25,000 (exact),
-    # hires/month = 57 (exact), hires/week (26 weeks) ~= 13.15, and
-    # applications/week ~= 215.4 -- none of these four figures are their
+    # _minimal_data_with_allocation). "6 months" resolves to 24 weeks (the
+    # wizard's fixed marketing-bucket convention --
+    # display_format.resolve_campaign_weeks -- not a strict 52/12
+    # conversion; see tests/test_display_format.py and the S91/campaign-
+    # duration-incoherence fix notes on excel_v2._resolve_campaign_duration)
+    # -> budget/month ~= $27,083, hires/month ~= 62, hires/week ~= 14.25,
+    # applications/week ~= 233.3 -- none of these four figures are their
     # own FACTS line, only derivable from FACTS budget/duration/hires/apps.
     narrative_text = (
-        "This $150,000 plan runs over 6 months, pacing at roughly $25,000 "
-        "a month and delivering about 57 hires a month -- close to 13 "
-        "hires a week off a base of roughly 215 weekly applications. "
+        "This $150,000 plan runs over 6 months, pacing at roughly $27,083 "
+        "a month and delivering about 62 hires a month -- close to 14 "
+        "hires a week off a base of roughly 233 weekly applications. "
         "Programmatic (DSP) leads the channel mix at $90,000 (60% of "
         "budget), complemented by $60,000 in Niche / Industry Boards. "
         "Against the stated goal of 400, this pace would need to "

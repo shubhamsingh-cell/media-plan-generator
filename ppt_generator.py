@@ -3752,7 +3752,21 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         _set_font(run_bullet, size=10, bold=False, color=TEAL)
 
         run_text = p.add_run()
-        run_text.text = str(item) if item is not None else ""
+        _item_text = str(item) if item is not None else ""
+        # INCIDENT FIX (currency-integrity defect 3): COMPLICATIONS entries
+        # are fixed, genuinely USD-sourced benchmark strings (e.g. the
+        # logistics_supply_chain "$25-$50 CPA" cdl_drivers figure a few
+        # dozen lines above, from data/recruitment_benchmarks_deep.json --
+        # not this plan's own budget/spend). A GBP/AUD/etc. plan shipped
+        # that bare "$" sitting on the same slide as this plan's own "\u00a3"
+        # figures with no distinction, implying a conversion that never
+        # happened. Mark it honestly with the SAME _mark_usd/_get_active_
+        # currency gate the slide 5 benchmark table already uses, instead
+        # of relabelling or converting the figure -- never a no-op on a
+        # non-USD plan, and never touches a USD plan (false-positive guard).
+        if _get_active_currency() != "USD":
+            _item_text = _mark_usd(_item_text)
+        run_text.text = _item_text
         _set_font(run_text, size=10, bold=False, color=DARK_TEXT)
 
     # O1: clamp COMPLICATION body to the card bounds (same 3-card pattern).
@@ -11420,17 +11434,26 @@ def _is_unbounded_duration(duration: Any) -> bool:
     the wizard's "Ongoing" duration option, any case variant of it, or an
     empty/not-specified value -- rather than a fixed length like "6 months".
 
-    Mirrors ``excel_v2._is_unbounded_duration`` exactly (kept as a local
-    copy rather than a cross-module import -- this codebase's established
-    pattern for small helpers shared between excel_v2.py and
-    ppt_generator.py, e.g. ``_proper_client_name``/``_TITLE_ACRONYMS``) so
-    the deck's Next Steps slide never renders the nonsensical "over
-    Ongoing" phrasing the workbook's executive summary used to produce
-    (prod defect: "Finalize weekly budget (25000 over Ongoing) and success
+    Thin delegate to :func:`display_format.is_unbounded_duration` -- the
+    single source of truth shared with ``excel_v2._is_unbounded_duration``
+    (also recognizes the canonical "Ongoing (no fixed end date)" label
+    :func:`display_format.resolve_campaign_duration_label` produces) so the
+    deck's Next Steps slide never renders the nonsensical "over Ongoing"
+    phrasing the workbook's executive summary used to produce (prod
+    defect: "Finalize weekly budget (25000 over Ongoing) and success
     metrics").
     """
-    s = str(duration or "").strip().lower()
-    return s in ("", "ongoing", "unbounded", "not specified", "tbd", "n/a")
+    return _fmt.is_unbounded_duration(duration)
+
+
+def _resolve_campaign_duration(data: Dict) -> str:
+    """Thin delegate to :func:`display_format.resolve_campaign_duration_label`
+    -- the single source of truth for the campaign-duration STRING shown
+    anywhere in a bundle, shared with ``excel_v2._resolve_campaign_duration``
+    so the deck never echoes the raw brief string (e.g. "1-3 months") while
+    the workbook shows the canonical resolved value (e.g. "12 weeks") for
+    the exact same plan -- the real shipped defect this closes."""
+    return _fmt.resolve_campaign_duration_label(data)
 
 
 def _interpolate_next_steps(steps: List[Any], data: Dict) -> List[str]:
@@ -11497,7 +11520,17 @@ def _interpolate_next_steps(steps: List[Any], data: Dict) -> List[str]:
     # "Launch within..." Next Steps bullets below; a GBP plan must render
     # its own budget figure here, not "$2M").
     budget_fmt = _fmt_currency(budget_num, compact=True) if budget_num else ""
-    duration = str(data.get("campaign_duration") or "").strip()
+    # O2/this-wave fix (real shipped defect, Uber): this used to read the
+    # RAW campaign_duration string verbatim ("1-3 months"), which is what
+    # actually appeared on the deck's Next Steps slide while the workbook's
+    # Executive Summary and 90-Day Forecast both showed a different,
+    # canonically-resolved value ("4 weeks") for the SAME plan. Resolve
+    # through the same single source of truth every other surface uses --
+    # but only when a duration was actually stated; a genuinely missing
+    # campaign_duration must keep saying nothing (not "Not specified"),
+    # exactly as before.
+    _raw_duration = str(data.get("campaign_duration") or "").strip()
+    duration = _resolve_campaign_duration(data) if _raw_duration else ""
     unbounded = bool(duration) and _is_unbounded_duration(duration)
 
     def _budget_duration_phrase(dash_style: bool) -> str:

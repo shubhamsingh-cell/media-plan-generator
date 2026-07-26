@@ -17497,92 +17497,36 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             _normalize_dict_roles(data)
 
             # Compute campaign_weeks from campaign_duration for timeline phasing
-            duration_str = str(data.get("campaign_duration") or "" or "")
-            campaign_weeks = 12  # default
-            dur_lower = duration_str.lower()
-            # Order matters: check more specific/longer ranges before shorter ones
-            if (
-                "2-5 year" in dur_lower
-                or "long-term" in dur_lower
-                or "long term" in dur_lower
-            ):
-                campaign_weeks = 156
-            elif "1-2 year" in dur_lower or "2 year" in dur_lower:
-                campaign_weeks = 80
-            elif (
-                "6-12 month" in dur_lower
-                or "9 month" in dur_lower
-                or "12 month" in dur_lower
-                or "1 year" in dur_lower
-            ):
-                campaign_weeks = 48
-            elif (
-                "3-6 month" in dur_lower
-                or "4 month" in dur_lower
-                or "5 month" in dur_lower
-                or "6 month" in dur_lower
-            ):
-                campaign_weeks = 24
-            elif (
-                "1-3 month" in dur_lower
-                or "1 month" in dur_lower
-                or "2 month" in dur_lower
-                or "3 month" in dur_lower
-            ):
-                campaign_weeks = 12
-            elif "ongoing" in dur_lower:
-                campaign_weeks = 52  # annual cycle
+            # ── Campaign-duration single source of truth. A real shipped
+            # bundle (Uber, brief campaign_duration="1-3 months") once stated
+            # its duration FOUR different ways: "4 weeks" on the workbook,
+            # "Weeks 1-12" on the deck timeline, the raw "1-3 months" string
+            # on the deck's Next Steps slide, and a fixed ~13-week forecast
+            # window. This block used to carry its own inline phrase ladder
+            # PLUS a separate display_format.parse_duration_to_weeks fallback
+            # for the "N months" case, and a THIRD, separately-maintained
+            # duration-label formatter lived below it -- three independently
+            # maintained resolvers that could (and did) disagree on the same
+            # string (S91: exactly this drift recurring). Both the week
+            # count and the human-readable label are now resolved through
+            # ONE shared function each in display_format.py
+            # (resolve_campaign_weeks / resolve_campaign_duration_label);
+            # excel_v2.py and ppt_generator.py delegate to the SAME two
+            # functions instead of re-deriving their own answer from the raw
+            # string, so every surface in a bundle states the same duration.
+            duration_str = str(data.get("campaign_duration") or "")
+            if display_format is not None:
+                campaign_weeks = display_format.resolve_campaign_weeks(duration_str)
             else:
-                # Try to parse weeks directly (e.g. "26 weeks", "16 weeks")
-                wk_match = re.search(r"(\d+)\s*week", dur_lower)
-                if wk_match:
-                    campaign_weeks = int(wk_match.group(1))
-                else:
-                    # Try months (e.g. "6 months", "18 months")
-                    # S91 FIX: was `int(months) * 4`, which silently drifts
-                    # for anything not a multiple of 4 weeks/month (e.g.
-                    # "18 months" -> 72 weeks -> re-derived downstream as
-                    # "17 months"). display_format.parse_duration_to_weeks
-                    # uses the same 52/12 weeks-per-month ratio as
-                    # weeks_to_duration_label, so round-tripping is exact.
-                    mo_match = re.search(r"(\d+)\s*month", dur_lower)
-                    if mo_match:
-                        if display_format is not None:
-                            campaign_weeks = display_format.parse_duration_to_weeks(
-                                duration_str
-                            )
-                        else:
-                            campaign_weeks = int(mo_match.group(1)) * 4
+                # Defensive fallback if display_format failed to import --
+                # never the primary path.
+                campaign_weeks = 12
             data["campaign_weeks"] = campaign_weeks
 
-            # ── O2 (2026-07-03, findings 58/77): single source of truth for
-            # campaign DURATION. Every sheet/slide previously worded duration
-            # independently -- the Executive Summary echoed the raw user string
-            # (e.g. "1-2 years") while the 90-Day Forecast spent 100% of budget
-            # in a 90-day window and the deck built a campaign_weeks-based
-            # timeline, producing "1-2 years vs 12 weeks" contradictions.
-            # Derive ONE canonical duration label from campaign_weeks (the
-            # authoritative numeric window the timeline/forecast are built from)
-            # and have downstream artifacts reference it instead of re-wording.
-            def _canonical_duration_label(weeks: int) -> str:
-                weeks = int(weeks or 0)
-                if weeks <= 0:
-                    return "Not specified"
-                if weeks <= 13:
-                    return f"{weeks} weeks (~{max(1, round(weeks / 4.33))} months)"
-                months = round(weeks / 4.33)
-                if months < 12:
-                    return f"{months} months (~{weeks} weeks)"
-                years = months / 12.0
-                yr_txt = (
-                    f"{years:.0f} year" + ("s" if years >= 2 else "")
-                    if abs(years - round(years)) < 0.1
-                    else f"{years:.1f} years"
-                )
-                return f"{yr_txt} (~{months} months)"
-
-            data["campaign_duration_canonical"] = _canonical_duration_label(
-                campaign_weeks
+            data["campaign_duration_canonical"] = (
+                display_format.resolve_campaign_duration_label(data)
+                if display_format is not None
+                else duration_str
             )
 
             # ── Phase 0: Canonical Taxonomy Normalization ──

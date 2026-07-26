@@ -458,3 +458,270 @@ def is_available() -> bool:
     """True if the benchmark dataset is loaded and has at least one vertical."""
     data = _load()
     return bool((data.get("verticals") or {}))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Non-US locale CPC/CPA calibration (budget_engine Fix 1)
+#
+# Thin reader over ``data/international_benchmarks_2026.json`` -- a
+# DIFFERENT, larger dataset than the one above (38 countries x per-platform
+# CPC/CPA in local currency + USD, market share, CPH by tier), used by
+# budget_engine.compute_channel_dollar_amounts to give non-US plans a real,
+# country-specific CPC basis instead of pricing every market off the US
+# cost curves in BASE_BENCHMARKS/trend_engine/the KB. Follows the SAME
+# lazy-load-once, never-raise, ``.get()``-defensive pattern as the loader
+# above so the two coexist without surprises.
+# ═══════════════════════════════════════════════════════════════════════════
+
+_INTL_2026_PATH: Path = Path(__file__).parent / "data" / "international_benchmarks_2026.json"
+
+_intl_2026_countries: dict[str, Any] = {}
+_intl_2026_loaded: bool = False
+
+
+def _load_intl_2026_countries() -> dict[str, Any]:
+    """Load and cache ``international_benchmarks_2026.json``'s ``countries``
+    block. Returns ``{}`` on any failure -- callers fall back to the
+    existing US-calibrated cascade, they never see an exception."""
+    global _intl_2026_countries, _intl_2026_loaded
+    if _intl_2026_loaded:
+        return _intl_2026_countries
+    _intl_2026_loaded = True
+    try:
+        if _INTL_2026_PATH.exists():
+            with open(_INTL_2026_PATH, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+            countries = raw.get("countries")
+            _intl_2026_countries = countries if isinstance(countries, dict) else {}
+            logger.info(
+                "Loaded international_benchmarks_2026 countries (%d)",
+                len(_intl_2026_countries),
+            )
+        else:
+            logger.warning(
+                "international_benchmarks_2026.json not found at %s -- "
+                "non-US locale CPC calibration will return None",
+                _INTL_2026_PATH,
+            )
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.error(
+            "Failed to load international_benchmarks_2026.json: %s",
+            exc,
+            exc_info=True,
+        )
+        _intl_2026_countries = {}
+    return _intl_2026_countries
+
+
+# Abbreviations/aliases the generic name-match below can't catch on its own
+# (the generic match already handles every multi-word country name, e.g.
+# "New Zealand" -> new_zealand, "South Korea" -> south_korea, "Saudi
+# Arabia" -> saudi_arabia, via a straight lowercase name comparison).
+_COUNTRY_2026_EXTRA_ALIASES: dict[str, str] = {
+    "united kingdom": "uk",
+    "great britain": "uk",
+    "britain": "uk",
+    "england": "uk",
+    "gb": "uk",
+    "gbr": "uk",
+    "united arab emirates": "uae",
+    "emirates": "uae",
+    "dubai": "uae",
+    "abu dhabi": "uae",
+    "korea": "south_korea",
+    "rok": "south_korea",
+    "kr": "south_korea",
+    "saudi": "saudi_arabia",
+    "ksa": "saudi_arabia",
+    "nz": "new_zealand",
+    "nzl": "new_zealand",
+    "aotearoa": "new_zealand",
+    "za": "south_africa",
+    "rsa": "south_africa",
+    "holland": "netherlands",
+    "the netherlands": "netherlands",
+}
+
+# international_benchmarks_2026.json platform ``type`` -> budget_engine's
+# internal channel-category taxonomy (job_board, social, niche_board,
+# regional, ... -- see budget_engine.CHANNEL_NAME_TO_CATEGORY). There is
+# deliberately no entry for categories this dataset has no platform type
+# for (programmatic/DSP, search, display, career_site, referral, events,
+# staffing, email, employer_branding) -- those categories fall through to
+# budget_engine's existing US-calibrated cascade even on a non-US plan
+# rather than fabricating a local figure with no source.
+_INTL_PLATFORM_TYPE_TO_CATEGORY: dict[str, str] = {
+    "job_board": "job_board",
+    "aggregator": "job_board",
+    "government_job_board": "job_board",
+    "newspaper_job_board": "regional",
+    "association_board": "niche_board",
+    "professional_network": "social",
+}
+
+
+def _normalize_country_2026(country: str | None) -> str | None:
+    """Map a free-form country/location string to one of the 38
+    ``international_benchmarks_2026.json`` country slugs, or ``None``.
+
+    Tries, in order: the exact slug, the slug with spaces/hyphens swapped
+    for underscores (covers "new zealand" -> "new_zealand", "south korea"
+    -> "south_korea", "czech republic" -> "czech_republic" for free), the
+    small extra-alias table above, and finally a case-insensitive match
+    against each country's own ``name`` field. Never raises.
+    """
+    if not country or not isinstance(country, str):
+        return None
+    key = country.strip().lower()
+    if not key:
+        return None
+    countries = _load_intl_2026_countries()
+    if not countries:
+        return None
+    if key in countries:
+        return key
+    underscored = key.replace(" ", "_").replace("-", "_")
+    if underscored in countries:
+        return underscored
+    alias = _COUNTRY_2026_EXTRA_ALIASES.get(key)
+    if alias and alias in countries:
+        return alias
+    for slug, entry in countries.items():
+        name = entry.get("name") if isinstance(entry, dict) else None
+        if isinstance(name, str) and name.strip().lower() == key:
+            return slug
+    return None
+
+
+def get_locale_cpc_basis(
+    countries: list[Any] | None,
+    plan_currency: str | None = None,
+) -> dict[str, Any] | None:
+    """Derive a non-US CPC basis, per budget_engine channel category, from
+    ``data/international_benchmarks_2026.json``.
+
+    This is intentionally NOT gated on US-ness itself -- callers (budget_
+    engine.calculate_budget_allocation) should only invoke it once they've
+    established the plan is non-US via the canonical ``plan_geo.is_us_plan``
+    (this module has no opinion on that; it just answers "given these
+    countries and this plan currency, what should CPC be calibrated to?").
+
+    Weighting:
+        - WITHIN a country, platforms are weighted by their own
+          ``market_share_pct`` -- so e.g. UK's job_board figure reflects
+          Indeed/Reed/Totaljobs/CV-Library's real mix, not a flat average.
+        - ACROSS matched countries, each market is weighted EQUALLY. The
+          engine has no per-country budget/headcount split at CPC-
+          resolution time (that split doesn't exist yet in the pipeline),
+          so an equal blend across the plan's markets is the only
+          defensible default absent that signal.
+
+    Currency (no exchange rate is ever fabricated here):
+        - When exactly ONE country matches and its own currency equals
+          ``plan_currency`` (e.g. a GBP plan whose only non-US market is
+          the UK), each platform's ``cpc_local`` median is used directly --
+          the plan's dollar amounts are already denominated in that same
+          currency, so genuinely local calibration needs no conversion.
+        - Otherwise (multiple countries, and/or a plan currency that
+          doesn't match the single market -- e.g. a GBP plan spanning
+          GBP/AUD/MXN/ARS/CAD/NZD markets), every country's ``cpc_usd``
+          median is used as the common cross-market unit and blended.
+          ``cpc_usd`` is a value already present in the source dataset for
+          every platform -- nothing is converted or invented here.
+
+    Args:
+        countries: Free-form country/location strings (e.g. the plan's
+            non-US location signals from ``plan_geo.non_us_signals``).
+        plan_currency: ISO code the plan's dollar amounts are denominated
+            in (e.g. "GBP"), if known. ``None`` skips the local-currency
+            path and always uses the USD-blend basis.
+
+    Returns:
+        ``None`` when no country matches or none of its platforms map to a
+        known category (caller falls through to the existing cascade), else::
+
+            {
+                "categories": {"job_board": 0.66, "social": 4.45, ...},
+                "basis": "local" | "usd_blend",
+                "matched_countries": ["uk", ...],
+                "source": "intl_local:uk" | "intl_usd_blend:uk,australia,...",
+            }
+
+        Never raises.
+    """
+    if not countries:
+        return None
+    countries_data = _load_intl_2026_countries()
+    if not countries_data:
+        return None
+
+    matched: list[str] = []
+    seen: set[str] = set()
+    for raw in countries:
+        raw_str = raw if isinstance(raw, str) else str(raw)
+        slug = _normalize_country_2026(raw_str)
+        if slug and slug not in seen:
+            seen.add(slug)
+            matched.append(slug)
+    if not matched:
+        return None
+
+    plan_cur = (plan_currency or "").strip().upper()
+    use_local = False
+    if len(matched) == 1 and plan_cur:
+        entry = countries_data.get(matched[0]) or {}
+        country_currency = str(entry.get("currency") or "").strip().upper()
+        use_local = bool(country_currency) and country_currency == plan_cur
+
+    # category -> one blended CPC per matched country (already
+    # share-weighted WITHIN that country) -- averaged equally across
+    # countries below.
+    per_category: dict[str, list[float]] = {}
+    for slug in matched:
+        entry = countries_data.get(slug) or {}
+        platforms = entry.get("platforms")
+        if not isinstance(platforms, list):
+            continue
+        by_cat: dict[str, list[tuple[float, float]]] = {}
+        for p in platforms:
+            if not isinstance(p, dict):
+                continue
+            category = _INTL_PLATFORM_TYPE_TO_CATEGORY.get(p.get("type") or "")
+            if not category:
+                continue
+            share = p.get("market_share_pct")
+            share = (
+                float(share)
+                if isinstance(share, (int, float))
+                and not isinstance(share, bool)
+                and share > 0
+                else 0.0
+            )
+            if share <= 0:
+                continue
+            cpc_block = p.get("cpc_local") if use_local else p.get("cpc_usd")
+            cpc = (cpc_block or {}).get("median") if isinstance(cpc_block, dict) else None
+            if not isinstance(cpc, (int, float)) or isinstance(cpc, bool) or cpc <= 0:
+                continue
+            by_cat.setdefault(category, []).append((float(cpc), share))
+        for category, pairs in by_cat.items():
+            weight_sum = sum(w for _, w in pairs)
+            if weight_sum <= 0:
+                continue
+            country_cpc = sum(c * w for c, w in pairs) / weight_sum
+            per_category.setdefault(category, []).append(country_cpc)
+
+    if not per_category:
+        return None
+
+    categories = {
+        cat: round(sum(vals) / len(vals), 4) for cat, vals in per_category.items()
+    }
+    basis = "local" if use_local else "usd_blend"
+    tag = "intl_local" if use_local else "intl_usd_blend"
+    return {
+        "categories": categories,
+        "basis": basis,
+        "matched_countries": matched,
+        "source": f"{tag}:{','.join(matched)}",
+    }

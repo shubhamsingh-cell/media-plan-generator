@@ -307,6 +307,17 @@ def build_plan_data(brief: dict[str, Any]) -> dict[str, Any]:
         knowledge_base=kb,
         collar_type=data.get("_collar_type") or "",  # NEVER set in prod either
         campaign_start_month=int(data.get("campaign_start_month") or 0),
+        # Fix 1 (non-US locale CPC calibration): budget_engine needs the
+        # ORIGINAL location strings (e.g. "UK", "Australia") to resolve
+        # plan_geo.is_us_plan/non_us_signals correctly -- locs_for_ba above
+        # reshapes each bare, comma-less token into {"city": tok, "state":
+        # "", "country": "US"} for the location-cost-multiplier step,
+        # which would make every such plan misread as US-only for the new
+        # locale-CPC check specifically. Passing the untouched
+        # data["locations"] here is additive/optional on budget_engine's
+        # side (None on any caller that doesn't pass it -> byte-identical
+        # to before this fix).
+        locations_raw=data.get("locations"),
     )
     data["_budget_allocation"] = budget_result
 

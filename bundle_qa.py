@@ -942,12 +942,55 @@ def _check_90_day_forecast_footing(wb: Any, findings: list[Finding]) -> None:
         ri += 1
 
 
+# Magnitude suffix -> multiplier, for _parse_money_str below. Case-
+# insensitive (K/M/B and k/m/b both used across the generators).
+_MONEY_MAGNITUDE_MULTIPLIER: dict[str, float] = {
+    "k": 1_000.0,
+    "m": 1_000_000.0,
+    "b": 1_000_000_000.0,
+}
+
+
 def _parse_money_str(s: Any) -> float | None:
+    """Parse a money-like value into a float, honoring any currency symbol
+    AND a trailing magnitude suffix (K/M/B).
+
+    INCIDENT FIX (currency-integrity defect 4 -- false-positive QA gate):
+    this used to strip every non-digit/./- character before parsing, so a
+    workbook's own abbreviated Total Budget cell ("£2.0M", the same
+    shorthand excel_v2._fmt_currency's abbreviated form produces) silently
+    became "2.0" instead of 2,000,000 -- a false
+    exec_summary_budget_footing_mismatch critical fired on every correctly-
+    footed plan whose total renders in M/K/B shorthand, because the printed
+    total looked ~1,000,000x smaller than the channel-Amount sum it was
+    compared against. A critical that cries wolf on a correctly-footed plan
+    trains people to ignore the gate -- this must catch the suffix, not
+    just tolerate it: a *genuinely* mis-footed M/K/B-shorthand plan must
+    still fire (see tests/test_bundle_qa_money_suffix_parsing.py).
+    """
     if isinstance(s, (int, float)) and not isinstance(s, bool):
         return float(s)
     if not isinstance(s, str):
         return None
-    cleaned = re.sub(r"[^0-9.\-]", "", s)
+    stripped = s.strip()
+    if not stripped:
+        return None
+    # Look for a digit run immediately followed (allowing intervening
+    # whitespace) by a bare K/M/B magnitude letter, e.g. "£2.0M" / "$150K".
+    # \b after the letter keeps this from matching a suffix letter that's
+    # actually the start of a following word.
+    suffix_match = re.search(r"([0-9][0-9.,]*)\s*([kKmMbB])\b", stripped)
+    if suffix_match:
+        cleaned = re.sub(r"[^0-9.\-]", "", suffix_match.group(1))
+        if not cleaned or cleaned in ("-", "."):
+            return None
+        try:
+            return float(cleaned) * _MONEY_MAGNITUDE_MULTIPLIER[
+                suffix_match.group(2).lower()
+            ]
+        except ValueError:
+            return None
+    cleaned = re.sub(r"[^0-9.\-]", "", stripped)
     if not cleaned or cleaned in ("-", "."):
         return None
     try:

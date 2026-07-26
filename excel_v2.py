@@ -2032,65 +2032,20 @@ def _get_industry_label(industry_key: str) -> str:
     return INDUSTRY_LABEL_MAP.get(industry_key, industry_key.replace("_", " ").title())
 
 
-def _canonical_duration_from_weeks(weeks: int) -> str:
-    """Format a canonical campaign-duration label from a week count.
-
-    Thin delegate to :func:`display_format.weeks_to_duration_label` -- the
-    single source of truth (round-trip safe with
-    :func:`display_format.parse_duration_to_weeks`: e.g. 78 weeks always
-    reads back as 78 weeks, never re-derived to a slightly different value
-    like the old 18-month input silently becoming "17 months" after a
-    weeks-per-month rounding round-trip). Every duration label this module
-    emits -- workbook or (via app.py's own resolver) deck -- must trace back
-    to this same function so the same week count never renders two
-    different-sounding strings.
-    """
-    weeks = int(weeks or 0)
-    if weeks <= 0:
-        return "Not specified"
-    return display_format.weeks_to_duration_label(weeks)
-
-
 def _resolve_campaign_duration(data: dict) -> str:
     """Single source of truth for the campaign-duration string shown anywhere.
 
-    Preference order (O2, findings 58/77):
-      1. ``campaign_duration_canonical`` (set once in app.py from campaign_weeks)
-      2. derived from ``campaign_weeks`` when present
-      3. derived by parsing ``campaign_weeks`` out of the raw duration string
-      4. the raw ``campaign_duration`` string as a last resort
-
-    This guarantees every sheet references the SAME duration value instead of
-    independently re-wording the raw user input, which previously produced
-    contradictions like "1-2 years" on the Executive Summary vs a 12-week
-    timeline / 90-day full-budget forecast elsewhere in the same bundle.
+    Thin delegate to :func:`display_format.resolve_campaign_duration_label`
+    (O2 findings 58/77; consolidated further in the campaign-duration-
+    incoherence fix that also touched app.py and ppt_generator.py -- see
+    that function's docstring for the full preference order and the real
+    shipped defect it guards against). This guarantees every sheet
+    references the SAME duration value instead of independently re-wording
+    the raw user input, which previously produced contradictions like
+    "1-2 years" on the Executive Summary vs a 12-week timeline / 90-day
+    full-budget forecast elsewhere in the same bundle.
     """
-    canonical = data.get("campaign_duration_canonical")
-    if isinstance(canonical, str) and canonical.strip():
-        return canonical.strip()
-
-    weeks = data.get("campaign_weeks")
-    try:
-        weeks_int = int(weeks) if weeks else 0
-    except (ValueError, TypeError):
-        weeks_int = 0
-    if weeks_int > 0:
-        return _canonical_duration_from_weeks(weeks_int)
-
-    # Derive weeks from the raw duration string via the SAME 52/12
-    # weeks-per-month ratio display_format.weeks_to_duration_label uses --
-    # a locally-hardcoded ladder (e.g. "12 month" -> 48 weeks, a *4
-    # shortcut) would silently disagree with the canonical formatter above
-    # and reintroduce exactly the kind of duration-string drift this
-    # resolver exists to prevent.
-    raw = str(data.get("campaign_duration") or data.get("timeline") or "").strip()
-    dur_lower = raw.lower()
-    if not dur_lower or dur_lower in ("not specified", "tbd", "n/a"):
-        return "Not specified"
-    derived = display_format.parse_duration_to_weeks(raw)
-    if derived > 0:
-        return _canonical_duration_from_weeks(derived)
-    return raw or "Not specified"
+    return display_format.resolve_campaign_duration_label(data)
 
 
 def _grade_from_score(score: float) -> str:
@@ -4143,9 +4098,14 @@ def _is_unbounded_duration(duration: Any) -> bool:
     `_build_narrative_facts_block` so neither renders the nonsensical "over
     Ongoing" phrasing (prod defect: "...with a $25,000 budget and over
     Ongoing targeting the Healthcare & Medical sector.", no verb, no fixed
-    length to be "over")."""
-    s = str(duration or "").strip().lower()
-    return s in ("", "ongoing", "unbounded", "not specified", "tbd", "n/a")
+    length to be "over").
+
+    Thin delegate to :func:`display_format.is_unbounded_duration` -- the
+    single source of truth, also recognizing the canonical "Ongoing (no
+    fixed end date)" label :func:`display_format.resolve_campaign_duration_
+    label` produces (so this still returns True when ``duration`` is
+    already the resolved label rather than the raw wizard value)."""
+    return display_format.is_unbounded_duration(duration)
 
 
 def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
@@ -6452,12 +6412,42 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             else _flatten_value(population)
         )
         unemp_str = _flatten_value(unemployment)
-        # US Census/METRO_DATA source only (see header note) -- always USD.
-        income_str = (
-            _fmt_currency(median_income, prefix="$")
-            if isinstance(median_income, (int, float))
-            else _flatten_value(median_income)
-        )
+        # INCIDENT FIX (currency-integrity defect 1): the comment here used
+        # to claim this figure is "US Census/METRO_DATA source only --
+        # always USD", but for a non-US location loc_data falls back to
+        # research.get_location_info's INTERNATIONAL branch, which returns
+        # COUNTRY_DATA's own median_salary in that country's OWN currency
+        # (and carries a "currency" key naming it) -- e.g. United Kingdom's
+        # 42000 is GBP, not USD. A bare "$" here rendered "$42,000" for a
+        # £42,000 figure. The sibling "Location Economic Context" table
+        # above (research.get_labour_market_intelligence) already fixed the
+        # identical bug via plan_currency.symbol_for_code; resolve the SAME
+        # way here (loc_data's own "currency" key first, else the country
+        # name through the same canonical helper) so the two tables on this
+        # sheet can't disagree, and default to USD (unchanged "$#,###"
+        # rendering, no behavior change) whenever no non-USD code resolves --
+        # i.e. every US-only plan is completely unaffected.
+        _income_code = None
+        if isinstance(loc_data, dict):
+            _income_code = loc_data.get("currency")
+        if not _income_code and _plan_currency is not None:
+            try:
+                _income_code = _plan_currency.currency_for_country(country)
+            except Exception:  # noqa: BLE001 - resolution is best-effort
+                _income_code = None
+        _income_code = (_income_code or "USD").strip().upper()
+        if isinstance(median_income, (int, float)):
+            if _income_code and _income_code != "USD":
+                _income_sym = (
+                    _plan_currency.symbol_for_code(_income_code)
+                    if _plan_currency is not None
+                    else "$"
+                )
+                income_str = f"{_income_sym}{median_income:,.0f} ({_income_code})"
+            else:
+                income_str = _fmt_currency(median_income, prefix="$")
+        else:
+            income_str = _flatten_value(median_income)
         industry_str = _flatten_value(key_industries)
 
         _rationale = insight_composer.geography_rationale(loc, loc_data)
@@ -8987,13 +8977,27 @@ def _collapse_fallback_market_rows(
     return out
 
 
-def _salary_range_from_per_role(info: Dict[str, Any]) -> str | None:
+def _salary_range_from_per_role(
+    info: Dict[str, Any], currency_code: str | None = None
+) -> str | None:
     """Derive a market's headline Salary Range from its own per-role salary
     rows (min of mins, max of maxes) instead of an independently-computed
     figure, so the City-Level Supply-Demand table's Salary Range column
     always agrees with the Salary Intelligence table's Min/Max columns for
     the same market (finding data:manpower#1). Returns None when the market
     has no per-role salary data to derive from.
+
+    INCIDENT FIX (currency-integrity defect 2): this used to hardcode a
+    literal "$" on both ends of the range regardless of which market it
+    describes -- a 6-market non-US plan (UK/Australia/Mexico/Argentina/
+    Canada/New Zealand) rendered "$25,500 - $42,500" for a market whose
+    every other figure on this same sheet is in GBP. ``currency_code`` lets
+    the caller pass this market's OWN ISO code (resolved the same way
+    Market Intelligence's Location Intelligence table resolves it -- see
+    excel_v2's median-income fix) so the range renders in that market's own
+    symbol, with an explicit "(CODE)" suffix matching the sibling table's
+    convention. ``None``/"USD" renders exactly as before (bare "$", no
+    suffix) -- a USD-only plan is completely unaffected.
     """
     per_role: Dict[str, Any] = info.get("per_role_salary") or {}
     mins = [
@@ -9008,7 +9012,12 @@ def _salary_range_from_per_role(info: Dict[str, Any]) -> str | None:
     ]
     if not mins or not maxes:
         return None
-    return f"${min(mins):,.0f} - ${max(maxes):,.0f}"
+    code = (currency_code or "USD").strip().upper()
+    sym = _plan_currency.symbol_for_code(code) if _plan_currency is not None else "$"
+    lo, hi = f"{sym}{min(mins):,.0f}", f"{sym}{max(maxes):,.0f}"
+    if code != "USD":
+        return f"{lo} - {hi} ({code})"
+    return f"{lo} - {hi}"
 
 
 def _build_sheet_quality_intelligence(
@@ -9095,6 +9104,20 @@ def _build_sheet_quality_intelligence(
                 # Derive this cell from the SAME per_role_salary rows the
                 # Salary Intelligence table renders -- min of mins, max of
                 # maxes -- so the two tables can't disagree about one market.
+                # INCIDENT FIX (currency-integrity defect 2): market_label is
+                # this market's own country name (e.g. "Uk", "Argentina") for
+                # every non-collapsed row -- resolve its ISO currency code the
+                # same canonical way the sibling Market Intelligence sheet's
+                # Location Intelligence table does, so the two sheets agree
+                # on the same market instead of this one always printing "$".
+                _mkt_currency_code = None
+                if _plan_currency is not None:
+                    try:
+                        _mkt_currency_code = _plan_currency.currency_for_country(
+                            market_label
+                        )
+                    except Exception:  # noqa: BLE001 - resolution is best-effort
+                        _mkt_currency_code = None
                 row = _write_table_row(
                     ws,
                     row,
@@ -9108,7 +9131,7 @@ def _build_sheet_quality_intelligence(
                         .title(),
                         f"{info.get('cost_of_living_index', 100):.1f}",
                         str(
-                            _salary_range_from_per_role(info)
+                            _salary_range_from_per_role(info, _mkt_currency_code)
                             or info.get("salary_range")
                             or "—"
                         ),
@@ -10138,25 +10161,39 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     # ── Optimization Milestones ──
     row = _write_subsection_header(ws, row, "Optimization Milestones")
 
+    # O2/this-wave fix (real shipped defect, Uber): this used to be a FIXED
+    # 6-row "Week 1-2" .. "Week 11-12" schedule rendered IDENTICALLY
+    # regardless of the plan's actual campaign_weeks -- a 4-week campaign's
+    # workbook still claimed "Week 11-12" milestones two rows below a
+    # "Duration: 4 weeks" cell, and bundle_qa's own campaign_duration_
+    # incoherence rule scans this exact table for "Week N-M" text. Scale
+    # the SAME six actions across the plan's real campaign_weeks via
+    # display_format.scale_week_phases (single source of truth for
+    # week-range partitioning, also usable by any other phased-timeline
+    # surface) so the ranges printed here always agree with the canonical
+    # duration. A campaign shorter than 6 weeks legitimately shows fewer,
+    # single-week milestones rather than ever spilling one past the
+    # campaign's real end (mirrors ppt_generator's Implementation Timeline
+    # slide, which already collapses its own phases the same way).
+    _milestone_actions = [
+        "Campaign launch, initial bid calibration, creative A/B testing begins",
+        "First optimization cycle: pause underperforming channels, reallocate budget",
+        "Conversion tracking validated, CPA benchmarks established",
+        "Second optimization: refine targeting, scale winning channels",
+        "Quality-of-hire feedback loop, adjust for retention correlation",
+        "Final optimization, prepare renewal recommendations, ROI summary",
+    ]
+    _milestone_total_weeks = _cw_int or 12
+    _n_milestones = max(1, min(len(_milestone_actions), _milestone_total_weeks))
+    _milestone_weeks = display_format.scale_week_phases(
+        _milestone_total_weeks, _n_milestones
+    )
     milestones = [
         (
-            "Week 1-2",
-            "Campaign launch, initial bid calibration, creative A/B testing begins",
-        ),
-        (
-            "Week 3-4",
-            "First optimization cycle: pause underperforming channels, reallocate budget",
-        ),
-        ("Week 5-6", "Conversion tracking validated, CPA benchmarks established"),
-        ("Week 7-8", "Second optimization: refine targeting, scale winning channels"),
-        (
-            "Week 9-10",
-            "Quality-of-hire feedback loop, adjust for retention correlation",
-        ),
-        (
-            "Week 11-12",
-            "Final optimization, prepare renewal recommendations, ROI summary",
-        ),
+            f"Week {start}" if start == end else f"Week {start}-{end}",
+            action,
+        )
+        for (start, end), action in zip(_milestone_weeks, _milestone_actions)
     ]
 
     for idx, (period, action) in enumerate(milestones):

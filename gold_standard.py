@@ -1176,6 +1176,21 @@ def enrich_city_level_data(data: dict) -> dict:
         _role_range_cache[_rt] = _match_role_to_salary_range(_rt_lower)
         _role_tier_cache[_rt] = _lookup_role_tier(_rt)
 
+    # Salary-intelligence defect fix (2026-07): data_synthesizer.synthesize()
+    # populates data["_synthesized"]["per_role_salaries"] for driver-family
+    # roles (gig/CDL/delivery/generic) via the SAME canonical resolver
+    # (research.resolve_driver_role_wage()) this sheet's Market Intelligence
+    # counterpart reads for its own salary table. Reading it here as a
+    # verbatim override for those roles is what makes this sheet's Salary
+    # Intelligence table agree with Market Intelligence's, instead of each
+    # independently re-deriving (and disagreeing on) the same role+market --
+    # see the per-title loop below. Absent/empty for every existing caller
+    # that doesn't populate ``_synthesized`` (e.g. this module's own test
+    # suite), so this is a pure no-op unless the real pipeline wired it in.
+    _synth_per_role_salaries: dict[str, dict[str, Any]] = (
+        synthesized.get("per_role_salaries") or {}
+    )
+
     for loc in (locations_raw if isinstance(locations_raw, list) else []):
         city_name = ""
         _state_code = ""  # S50 FIX (Issue 19): capture state code
@@ -1299,6 +1314,38 @@ def enrich_city_level_data(data: dict) -> dict:
         # -----------------------------------------------------------
         per_role_salary: dict[str, dict[str, Any]] = {}
         for title in role_titles:
+            # Salary-intelligence defect fix: driver-family roles (gig/CDL/
+            # delivery/generic) defer to data_synthesizer's synthesized
+            # figure verbatim rather than re-deriving from _ROLE_SALARY_
+            # RANGES's bare "driver" bucket here. Verified prod defect: a UK
+            # gig/private-hire "commercial cab driver" priced as a US
+            # salaried CDL/trucking employee on THIS sheet, while Market
+            # Intelligence showed a DIFFERENT wrong number for the exact
+            # same role+market. Used as-is (not re-scaled by this city's
+            # multiplier) -- the resolver already returns an honestly-
+            # labelled, market-appropriate estimate; the two client-facing
+            # salary tables must show one identical number for one role.
+            _synth_override = _synth_per_role_salaries.get(title)
+            if isinstance(_synth_override, dict) and _synth_override.get("median"):
+                tier, tier_source = _role_tier_cache[title]
+                per_role_salary[title] = {
+                    "min": round(_synth_override.get("min", 0)),
+                    "p25": round(
+                        _synth_override.get("p25", _synth_override.get("min", 0))
+                    ),
+                    "median": round(_synth_override.get("median", 0)),
+                    "p75": round(
+                        _synth_override.get("p75", _synth_override.get("max", 0))
+                    ),
+                    "max": round(_synth_override.get("max", 0)),
+                    "multiplier": round(multiplier, 2),
+                    "source": _synth_override.get("source") or "Industry Benchmark",
+                    "confidence": _synth_override.get("confidence") or "estimated",
+                    "tier": tier,
+                    "tier_source": tier_source,
+                }
+                continue
+
             # PERF: Use cached role-to-range/tier mapping instead of
             # re-scanning keyword tables for every city.
             matched_range, matched_keyword = _role_range_cache[title]

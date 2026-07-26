@@ -5448,6 +5448,196 @@ def _build_recommendation(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# CANONICAL DRIVER-FAMILY WAGE RESOLUTION -- single source of truth
+# ═══════════════════════════════════════════════════════════════════════════════
+# Prod defect (Uber bundle, GBP 2M, "commercial cab driver", 2026-07): the
+# Market Intelligence sheet (data_synthesizer.fuse_salary_intelligence, via
+# its module-level _ROLE_SALARY_FALLBACKS) and the Quality Intelligence sheet
+# (gold_standard.enrich_city_level_data, via its own _ROLE_SALARY_RANGES)
+# each independently derived a salary for the SAME role in the SAME UK
+# market and disagreed by 53% (52,000 vs 34,000 median) -- and BOTH numbers
+# were actually a US SALARIED trucking/delivery-EMPLOYEE wage stamped onto a
+# UK GIG/private-hire driver, who is economically a contractor. Neither path
+# had a gig/on-demand bucket at all, and neither set a real confidence score
+# (the renderer's silent 0.5 default always won).
+#
+# This resolver is the ONE place a driver-family role title resolves to a
+# wage. data_synthesizer.fuse_salary_intelligence() calls it directly; its
+# result is then copied verbatim into synthesis["per_role_salaries"], which
+# gold_standard.enrich_city_level_data() reads as an override for the SAME
+# roles -- so the two client-facing salary tables can no longer take two
+# independent code paths to the same role+market.
+#
+# Deliberately NOT doing FX conversion here (house rule -- see
+# mpg-cpc-cascade-regime/steal-ship history: converting a US-calibrated
+# figure with a computed exchange rate is false precision, not a fix).
+# Where a role is genuinely gig/on-demand, no dataset this codebase carries
+# has real local gig-economy compensation data (checked: intl_role_
+# benchmarks_v1.json's blue_collar/by_country blocks cover salaried
+# logistics/warehouse/trade-construction category averages, not private-hire
+# driver economics) -- so gig roles get an honestly-labelled, confidence-
+# capped US-basis estimate instead of a force-fit local number that would
+# just be a different flavor of the same category error.
+# ---------------------------------------------------------------------------
+
+# Longest/most-specific-first. GIG/on-demand passenger-transport keywords
+# MUST be checked before the salaried CDL/truck keywords and before the bare
+# "driver" catch-all -- a private-hire / rideshare / taxi driver is a
+# contractor, not a salaried employee, and pricing them off a trucking wage
+# is the exact defect this table exists to prevent.
+_DRIVER_GIG_PASSENGER_KEYWORDS: tuple[str, ...] = (
+    "private hire driver",
+    "private-hire driver",
+    "rideshare driver",
+    "ride-hail driver",
+    "ride hail driver",
+    "gig driver",
+    "cab driver",
+    "taxi driver",
+    "chauffeur",
+    "uber driver",
+    "lyft driver",
+)
+_DRIVER_SALARIED_TRUCKING_KEYWORDS: tuple[str, ...] = (
+    "cdl driver",
+    "hgv driver",
+    "lgv driver",
+    "truck driver",
+)
+_DRIVER_GIG_DELIVERY_KEYWORDS: tuple[str, ...] = (
+    "delivery driver",
+    "delivery partner",
+    "courier",
+)
+_DRIVER_GENERIC_KEYWORDS: tuple[str, ...] = ("driver",)
+
+# US-basis annual wage bands (USD), min/p25/median/p75/max. The gig figure
+# reflects published estimates of full-time GROSS rideshare/private-hire
+# driver earnings (before vehicle/fuel running costs) -- distinct from, and
+# below, a salaried CDL/trucking employee wage. Not a locally-verified
+# number for any specific market (see _DRIVER_SOURCE_LABEL / confidence
+# below, which say so honestly rather than implying precision that isn't
+# there).
+_DRIVER_WAGE_BANDS_USD: dict[str, dict[str, int]] = {
+    "gig_passenger": {
+        "min": 22_000,
+        "p25": 28_000,
+        "median": 34_000,
+        "p75": 42_000,
+        "max": 50_000,
+    },
+    "gig_delivery": {
+        "min": 26_000,
+        "p25": 31_000,
+        "median": 37_000,
+        "p75": 46_000,
+        "max": 58_000,
+    },
+    "salaried_trucking": {
+        "min": 45_000,
+        "p25": 55_000,
+        "median": 65_000,
+        "p75": 76_000,
+        "max": 88_000,
+    },
+    "generic": {
+        "min": 30_000,
+        "p25": 35_000,
+        "median": 40_000,
+        "p75": 46_000,
+        "max": 52_000,
+    },
+}
+
+# Confidence is deliberately LOW and category-differentiated for every one
+# of these bands -- none of them is a locally-verified figure, they are all
+# keyword-matched category estimates. Gig categories are lower still: there
+# is materially less public wage-survey coverage of on-demand/gig
+# compensation than of salaried trucking/logistics roles.
+_DRIVER_CATEGORY_CONFIDENCE: dict[str, float] = {
+    "gig_passenger": 0.30,
+    "gig_delivery": 0.32,
+    "salaried_trucking": 0.40,
+    "generic": 0.33,
+}
+
+_DRIVER_CATEGORY_SOURCE_LABEL: dict[str, str] = {
+    "gig_passenger": "Gig/Contract Wage Estimate (US-basis, not locally benchmarked)",
+    "gig_delivery": "Gig/Delivery Wage Estimate (US-basis, not locally benchmarked)",
+    "salaried_trucking": "Industry Benchmark (US-basis, salaried trucking)",
+    "generic": "Industry Benchmark (US-basis, generic driver)",
+}
+
+
+def _classify_driver_role(role_lower: str) -> tuple[str, str] | None:
+    """Return (category, matched_keyword) for a driver-family role title, or
+    None if *role_lower* doesn't match any driver-family keyword at all.
+
+    category is one of "gig_passenger", "gig_delivery", "salaried_trucking",
+    "generic" -- checked most-specific-first so "cab driver" / "cdl driver"
+    never fall through to the bare "driver" bucket.
+    """
+    if not role_lower:
+        return None
+    for kw in _DRIVER_GIG_PASSENGER_KEYWORDS:
+        if kw in role_lower:
+            return "gig_passenger", kw
+    for kw in _DRIVER_SALARIED_TRUCKING_KEYWORDS:
+        if kw in role_lower:
+            return "salaried_trucking", kw
+    for kw in _DRIVER_GIG_DELIVERY_KEYWORDS:
+        if kw in role_lower:
+            return "gig_delivery", kw
+    for kw in _DRIVER_GENERIC_KEYWORDS:
+        if kw in role_lower:
+            return "generic", kw
+    return None
+
+
+def resolve_driver_role_wage(role_title: str, country: str | None = None) -> dict | None:
+    """Canonical wage resolution for driver-family roles.
+
+    Returns ``None`` when *role_title* doesn't match any driver-family
+    keyword -- callers fall through to their own general-purpose role
+    tables in that case. When it does match, returns a dict with min/p25/
+    median/p75/max, currency, confidence (0-1 float), source (a
+    human-readable provenance string), category, and matched_keyword.
+
+    *country* is accepted for forward-compatibility (a future genuinely
+    local benchmark could key off it) but does not currently change the
+    returned band -- see the module banner above for why: no dataset this
+    codebase carries has real gig-economy compensation data, and the
+    available local blue-collar benchmark is a blended logistics/warehouse/
+    construction category average, not driver-specific, so using it would
+    just swap one category error for a fuzzier one. Returning the same
+    honestly-labelled, low-confidence US-basis estimate regardless of
+    market is the deliberate, honest choice here (see brief: "where it does
+    not [cover the market], return an honestly-labelled estimate rather
+    than a confident wrong one").
+    """
+    role_lower = (role_title or "").lower().strip()
+    classified = _classify_driver_role(role_lower)
+    if classified is None:
+        return None
+    category, matched_keyword = classified
+
+    band = _DRIVER_WAGE_BANDS_USD[category]
+    return {
+        "min": band["min"],
+        "p25": band["p25"],
+        "median": band["median"],
+        "p75": band["p75"],
+        "max": band["max"],
+        "currency": "USD",
+        "confidence": _DRIVER_CATEGORY_CONFIDENCE[category],
+        "source": _DRIVER_CATEGORY_SOURCE_LABEL[category],
+        "category": category,
+        "matched_keyword": matched_keyword,
+        "localized": False,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # MAIN RESEARCH FUNCTIONS (called by app.py)
 # ═══════════════════════════════════════════════════════════════════════════════
 

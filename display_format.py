@@ -313,6 +313,177 @@ def weeks_to_duration_label(weeks: int) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Canonical campaign-duration resolution (single source of truth)
+# ---------------------------------------------------------------------------
+# Real shipped defect (Uber, brief campaign_duration="1-3 months"): the
+# workbook's Executive Summary + 90-Day Forecast said "4 weeks" (a raw
+# string re-parsed through parse_duration_to_weeks's generic 52/12 numeric
+# rule, which reads "1-3 months" as just "1 month"), the deck's
+# Implementation Timeline + the workbook's own Optimization Milestones said
+# "Weeks 1-12" (app.py's phrase-ladder bucket for the SAME string), the
+# deck's Next Steps slide said "1-3 months" (the raw brief string, never
+# resolved at all), and the 90-Day Forecast window showed a fixed ~13-week
+# date range -- four different derivations of one input. This is the S91
+# drift bug class recurring: app.py's inline phrase ladder and this
+# module's parse_duration_to_weeks were two independently maintained
+# week-resolvers that could (and did) disagree, and a THIRD, separate
+# duration-label formatter lived in app.py's own request handler
+# (diverging from weeks_to_duration_label -- e.g. 80 weeks read back as
+# "1.5 years (~18 months)" there but "18 months (~80 weeks)" here; the
+# latter is the one every regression test in this repo actually asserts).
+#
+# Everything below is now the ONE place that maps a free-text
+# campaign_duration to a week count (:func:`resolve_campaign_weeks`) and to
+# the label shown anywhere in a bundle (:func:`resolve_campaign_duration_
+# label`). app.py, excel_v2.py and ppt_generator.py all delegate here
+# instead of re-deriving their own answer.
+
+_UNBOUNDED_DURATION_LABEL = "Ongoing (no fixed end date)"
+_UNBOUNDED_DURATION_EXACT = frozenset({"unbounded", "not specified", "tbd", "n/a"})
+
+# Fixed marketing buckets the wizard's duration dropdown offers, each mapped
+# to a deliberately "round" week count for phasing purposes -- NOT a strict
+# 52/12 conversion of the phrase's own numbers (e.g. "6 months" -> 24 weeks
+# here, a 4-weeks/month convention that matches every reference bundle and
+# regression test in this repo, vs. parse_duration_to_weeks("6 months") ==
+# 26, the general 52/12 free-text conversion used for values that AREN'T
+# one of these dropdown options). Order matters: a phrase must be checked
+# before a shorter phrase it could otherwise be mistaken for (e.g. "1-2
+# year" before "2 year").
+_DURATION_PHRASE_LADDER: tuple[tuple[tuple[str, ...], int], ...] = (
+    (("2-5 year", "long-term", "long term"), 156),
+    (("1-2 year", "2 year"), 80),
+    (("6-12 month", "9 month", "12 month", "1 year"), 48),
+    (("3-6 month", "4 month", "5 month", "6 month"), 24),
+    (("1-3 month", "1 month", "2 month", "3 month"), 12),
+    (("ongoing",), 52),
+)
+
+
+def is_unbounded_duration(duration: Any) -> bool:
+    """True for the wizard's "Ongoing" duration option (any case/whitespace
+    variant or synonym), or an empty/not-specified/TBD placeholder -- an
+    open-ended campaign with no fixed end date, as opposed to a fixed
+    length like "6 months". Single source of truth for a check that used
+    to be duplicated verbatim in excel_v2.py and ppt_generator.py (and
+    would otherwise need to recognise both the raw wizard value "Ongoing"
+    and the canonical label :data:`_UNBOUNDED_DURATION_LABEL` this module
+    produces for it)."""
+    s = str(duration or "").strip().lower()
+    if not s or s in _UNBOUNDED_DURATION_EXACT:
+        return True
+    return "ongoing" in s
+
+
+def resolve_campaign_weeks(duration_str: Any) -> int:
+    """THE single source of truth mapping a free-text campaign_duration
+    string to a week count.
+
+    Merges what used to be two independently maintained ladders: app.py's
+    inline phrase ladder for the wizard's fixed dropdown buckets, and this
+    module's own :func:`parse_duration_to_weeks` for everything else. Every
+    caller must resolve campaign_weeks through this one function so the
+    same duration string can never produce two different week counts
+    depending on which module happened to parse it.
+
+    Resolution order: a fixed marketing-bucket phrase first (dropdown
+    option -- includes "ongoing" -> 52, an annual-cycle approximation used
+    for PHASING math only, never for the duration label -- see
+    :func:`resolve_campaign_duration_label`), then
+    :func:`parse_duration_to_weeks` for anything else (explicit "N
+    weeks"/"N months"/"N years", bare numerics). Unparseable/unrecognized
+    input defaults to 12 weeks, matching the legacy ladder's own default.
+    """
+    s = str(duration_str or "").strip().lower()
+    for phrases, weeks in _DURATION_PHRASE_LADDER:
+        if any(p in s for p in phrases):
+            return weeks
+    weeks = parse_duration_to_weeks(s)
+    return weeks if weeks > 0 else 12
+
+
+def resolve_campaign_duration_label(data: dict) -> str:
+    """THE single source of truth for the campaign-duration STRING shown
+    anywhere in a bundle (Executive Summary, 90-Day Forecast, deck Next
+    Steps/Implementation Timeline...). Every surface must render THIS
+    value rather than re-deriving its own wording from the raw brief
+    string, so the bundle can never state its duration two different ways.
+
+    Preference order:
+      1. An explicitly "Ongoing"/"unbounded" raw duration always wins --
+         regardless of any numeric campaign_weeks already computed for
+         phasing purposes -- so an open-ended campaign never reads as a
+         specific fixed length (the prod defect this guards against:
+         "Ongoing" silently resolving to "1 year (~12 months)").
+      2. ``data["campaign_duration_canonical"]`` when already resolved
+         (set once, upstream -- e.g. by app.py from campaign_weeks).
+      3. Derived from ``data["campaign_weeks"]`` when present.
+      4. Derived by resolving the raw ``campaign_duration``/``timeline``
+         string through :func:`resolve_campaign_weeks`.
+      5. The raw string itself, or "Not specified".
+    """
+    raw = str(data.get("campaign_duration") or data.get("timeline") or "").strip()
+    raw_lower = raw.lower()
+    if raw_lower == "unbounded" or "ongoing" in raw_lower:
+        return _UNBOUNDED_DURATION_LABEL
+
+    canonical = data.get("campaign_duration_canonical")
+    if isinstance(canonical, str) and canonical.strip():
+        return canonical.strip()
+
+    weeks = data.get("campaign_weeks")
+    try:
+        weeks_int = int(weeks) if weeks else 0
+    except (TypeError, ValueError):
+        weeks_int = 0
+    if weeks_int > 0:
+        return weeks_to_duration_label(weeks_int)
+
+    if not raw_lower or raw_lower in ("not specified", "tbd", "n/a"):
+        return "Not specified"
+
+    derived = resolve_campaign_weeks(raw)
+    if derived > 0:
+        return weeks_to_duration_label(derived)
+    return raw or "Not specified"
+
+
+def scale_week_phases(total_weeks: int, num_phases: int) -> list[tuple[int, int]]:
+    """Partition weeks 1..``total_weeks`` into ``num_phases`` contiguous,
+    non-overlapping (start, end) week ranges whose FINAL phase always ends
+    EXACTLY at ``total_weeks`` -- so a "Week N-M" phase/milestone table
+    built from this can never contradict the campaign's own canonical
+    duration (the real shipped defect this guards against: a fixed
+    "Week 1-12" milestones table rendered unchanged regardless of whether
+    the campaign was 4 weeks or 78).
+
+    A campaign shorter than ``num_phases`` weeks legitimately compresses --
+    several phases can share the same single week (mirrors how
+    ppt_generator's own Implementation Timeline slide already collapses
+    its phases for a <=12-week campaign, e.g. "Weeks 4-4") -- rather than
+    ever spilling a phase past the campaign's real end.
+    """
+    total = max(1, int(total_weeks or 0))
+    n = max(1, int(num_phases or 1))
+    phases: list[tuple[int, int]] = []
+    prev_end = 0
+    for i in range(1, n + 1):
+        raw_end = round(i * total / n)
+        start = min(prev_end + 1, total)
+        end = max(raw_end, start)
+        end = min(end, total)
+        phases.append((start, end))
+        prev_end = end
+    # Rounding can leave the last phase short of `total` (e.g. total=52,
+    # n=6 rounds to .../44-52 already, but not every (total, n) pair does)
+    # -- pin it exactly so the bundle's own phased timeline always agrees
+    # with the canonical campaign_weeks to the week.
+    last_start, _ = phases[-1]
+    phases[-1] = (last_start, total)
+    return phases
+
+
+# ---------------------------------------------------------------------------
 # Hire goal parsing + gap statement
 # ---------------------------------------------------------------------------
 def parse_hire_goal(hire_volume: Any) -> int:

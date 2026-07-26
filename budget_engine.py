@@ -42,6 +42,32 @@ try:
 except ImportError:
     _HAS_COLLAR_INTEL = False
 
+# ── Fix 1 (non-US locale CPC calibration): plan_geo is the CANONICAL
+# US/non-US detector (see plan_geo.is_us_plan) and plan_currency resolves a
+# country name to its ISO currency code -- both optional imports so this
+# module still degrades gracefully (falls back to the pre-existing
+# US-calibrated cascade for every plan) if either is ever unavailable.
+try:
+    import plan_geo as _plan_geo
+
+    _HAS_PLAN_GEO = True
+except ImportError:
+    _HAS_PLAN_GEO = False
+
+try:
+    import plan_currency as _plan_currency
+
+    _HAS_PLAN_CURRENCY = True
+except ImportError:
+    _HAS_PLAN_CURRENCY = False
+
+try:
+    import intl_benchmark_lookup as _intl_benchmark_lookup
+
+    _HAS_INTL_BENCHMARK_LOOKUP = True
+except ImportError:
+    _HAS_INTL_BENCHMARK_LOOKUP = False
+
 # ── S89 KEYSTONE: optional first-party outcomes warehouse (cg_benchmarks) ──
 # Defensive import: when Supabase is disabled the accessor returns
 # {"matched": False}, so wiring is purely additive — no warehouse match (the
@@ -227,6 +253,64 @@ def _extract_cpc_from_live_benchmarks(category: str) -> Optional[float]:
         avg = round(sum(cpcs) / len(cpcs), 2)
         return avg
     return None
+
+
+# ── Fix 1: non-US locale CPC calibration ──
+# Every tier below this point (synthesized/live_benchmark/trend_engine/KB/
+# static BASE_BENCHMARKS) is US-calibrated -- see each tier's own data
+# source. A GBP/AUD/MXN/... plan has no business being priced off them when
+# real, cited per-country platform data exists. This resolves ONCE per
+# calculate_budget_allocation call (not per-channel) and is threaded into
+# compute_channel_dollar_amounts as `intl_cpc_basis`.
+def _resolve_intl_cpc_basis(
+    locations_for_geo: Any,
+    plan_currency: Optional[str],
+) -> Optional[Dict[str, Any]]:
+    """Resolve a non-US locale CPC basis for this plan, or ``None`` when the
+    plan is US (or the canonical detector / lookup module aren't available,
+    or no country in the plan matches the dataset).
+
+    ``locations_for_geo`` is passed straight to ``plan_geo.is_us_plan`` /
+    ``plan_geo.non_us_signals`` as ``{"locations": locations_for_geo}`` --
+    it should be the plan's ORIGINAL location strings/dicts (e.g.
+    ``plan_data["locations"]``), not a lossy reshape. Never raises.
+    """
+    if not _HAS_PLAN_GEO or not _HAS_INTL_BENCHMARK_LOOKUP:
+        return None
+    try:
+        geo_probe = {"locations": locations_for_geo}
+        if _plan_geo.is_us_plan(geo_probe):
+            return None
+        non_us_countries = _plan_geo.non_us_signals(geo_probe)
+        if not non_us_countries:
+            return None
+        effective_currency = plan_currency
+        if not effective_currency and _HAS_PLAN_CURRENCY:
+            # No explicit plan currency supplied -- best-effort guess from
+            # the first non-US location signal. This only ever enables the
+            # local-currency path when exactly ONE country matches (see
+            # get_locale_cpc_basis), so for a single-market plan this is
+            # simply "assume the client's budget is in that market's own
+            # currency", a reasonable default absent a better signal; for a
+            # multi-market plan it can't spuriously trigger the local path
+            # since len(matched) > 1 there regardless of this guess.
+            try:
+                effective_currency = _plan_currency.currency_for_country(
+                    non_us_countries[0]
+                )
+            except Exception:  # noqa: BLE001 -- best-effort only
+                effective_currency = None
+        return _intl_benchmark_lookup.get_locale_cpc_basis(
+            non_us_countries, effective_currency
+        )
+    except Exception as exc:  # noqa: BLE001 -- must never break plan generation
+        logger.warning(
+            "International locale CPC basis resolution failed (falling back "
+            "to the US-calibrated cascade): %s",
+            exc,
+            exc_info=True,
+        )
+        return None
 
 
 # ── Canonical taxonomy standardizer ──
@@ -1332,6 +1416,19 @@ def compute_funnel_stages(
         category = ch.get("category") or _category_for_channel(str(name))
         target_rate = hires / raw_apps if hires > 0 else 0.0
         r1, r2, r3, out_of_band = _fit_channel_funnel_rates(target_rate, category)
+        # Round to the SAME 4dp precision the "rates" dict displays
+        # (below) BEFORE using them to derive qualified_float/
+        # interview_float -- otherwise a channel with large enough
+        # raw_apps can show a Qualified/Interviews count that doesn't
+        # reproduce from its OWN printed rate x raw_apps within
+        # bundle_qa's rounding tolerance (a residual of up to 0.00005 in
+        # the unrounded rate amplifies to a multi-unit mismatch once
+        # raw_apps is in the hundreds of thousands -- surfaced by Fix 1's
+        # locale CPC calibration lowering CPC, and so raising click/
+        # application volume, on a real non-US plan).
+        r1 = round(r1, 4)
+        r2 = round(r2, 4)
+        r3 = round(r3, 4)
 
         quality_flag = None
         note = None
@@ -2405,6 +2502,7 @@ def compute_channel_dollar_amounts(
     collar_type: str = "",
     location: str = "",
     month: int = 0,
+    intl_cpc_basis: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Dict]:
     """
     Convert channel percentages to dollar amounts with projected outcomes.
@@ -2433,6 +2531,12 @@ def compute_channel_dollar_amounts(
         industry: Industry string for trend engine lookups (v3).
         collar_type: Collar type for apply rate adjustments (v3).
         location: Primary location for regional CPC adjustments (v3).
+        intl_cpc_basis: Fix 1 -- output of ``_resolve_intl_cpc_basis``
+            (``{"categories": {...}, "source": ..., "basis": ...}``) when
+            this plan is non-US and at least one category matched a real
+            per-country benchmark. ``None`` (the default, and what every
+            existing caller passes today) means "no locale basis" -- byte-
+            identical to pre-Fix-1 behavior.
 
     Returns:
         Dict keyed by channel name, each value a dict with:
@@ -2479,11 +2583,40 @@ def compute_channel_dollar_amounts(
         dollars = round(total_budget * pct / 100.0, 2)
         category = _category_for_channel(ch_name)
 
-        # ── CPC Resolution Cascade (v4): synthesized > live_bench > trend_engine > KB > static ──
-        cpc = _extract_cpc_from_synthesized(category, synthesized_data)
-        cpc_source = "synthesized"
+        # ── CPC Resolution Cascade (v5): intl_locale (non-US plans only) >
+        # synthesized > live_bench > trend_engine > KB > static ──
+        cpc: Optional[float] = None
+        cpc_source: str = ""
         confidence = "high"
         trend_meta: Dict[str, Any] = {}
+
+        if intl_cpc_basis:
+            _intl_cpc = (intl_cpc_basis.get("categories") or {}).get(category)
+            if isinstance(_intl_cpc, (int, float)) and not isinstance(
+                _intl_cpc, bool
+            ) and _intl_cpc > 0:
+                cpc = float(_intl_cpc)
+                cpc_source = intl_cpc_basis.get("source") or "intl_locale"
+                # "local" basis means the plan's own currency IS this
+                # market's currency (e.g. a GBP plan, UK-only) -- as
+                # trustworthy as any other "high" tier. "usd_blend" spans
+                # multiple markets/currencies via the dataset's own
+                # pre-computed USD figures, a defensible but blended
+                # estimate -- medium, matching the KB tier's confidence.
+                confidence = "high" if intl_cpc_basis.get("basis") == "local" else "medium"
+                logger.info(
+                    "CPC for channel=%s category=%s resolved from "
+                    "international locale basis: %.4f [%s]",
+                    ch_name,
+                    category,
+                    cpc,
+                    cpc_source,
+                )
+
+        if cpc is None:
+            cpc = _extract_cpc_from_synthesized(category, synthesized_data)
+            cpc_source = "synthesized"
+            confidence = "high"
 
         if cpc is None:
             # v4: Try live channel benchmarks (channel_benchmarks_live.json)
@@ -2739,6 +2872,7 @@ def rebalance_low_roi_channels(
     max_shave_pct: float = 60.0,
     spend_threshold_pct: float = 5.0,
     recipient_roi_min: int = 8,
+    exclude: Optional[Any] = None,
 ) -> Dict[str, Dict]:
     """Rebalance budget away from low-ROI channels to high-ROI channels.
 
@@ -2765,6 +2899,16 @@ def rebalance_low_roi_channels(
           no donor/recipient match could be made (e.g. no qualifying
           recipient), a ``quality_flag`` is written onto that channel's
           dict instead of silently leaving a bad allocation unflagged.
+        - Fix 2 FIX (2026-07-26): a channel in ``exclude`` (e.g. one the
+          vendor-availability gate deliberately floored to 3% because there
+          is NO real vendor coverage for this locale/industry) is never a
+          donor OR a recipient here, regardless of how good its roi_score
+          looks on paper -- a great ROI on a channel nobody can actually
+          spend money on isn't real. Without this, calling this function a
+          SECOND time after the real, post-redistribution roi_score is
+          known (see calculate_budget_allocation Step 3.9b) could hand a
+          vendor-gated channel MORE budget than its deliberate floor,
+          undoing the gate for a reason that has nothing to do with ROI.
 
     Rules:
         - A channel is a **donor** when its ``roi_score <= roi_floor`` AND its
@@ -2787,6 +2931,11 @@ def rebalance_low_roi_channels(
             ``roi_score == 1``.
         spend_threshold_pct: Minimum allocation percent to trigger rebalancing.
         recipient_roi_min: Minimum ROI score to qualify as a recipient.
+        exclude: Optional iterable of channel names to skip entirely (never
+            a donor or a recipient) -- e.g. vendor-gated channels. ``None``
+            (the default, and what every pre-existing caller passes) means
+            "nothing excluded", byte-identical to before this parameter
+            existed.
 
     Returns:
         The (mutated) ``channel_allocations`` dict with updated dollar amounts,
@@ -2795,16 +2944,18 @@ def rebalance_low_roi_channels(
     if not channel_allocations or total_budget <= 0:
         return channel_allocations
 
+    _excluded = set(exclude) if exclude else set()
     threshold_dollars = total_budget * (spend_threshold_pct / 100.0)
 
     # Identify donors and recipients (brand channels are exempt from both --
-    # they're not CPA-scored, see _channel_role / _BRAND_RATIONALE).
+    # they're not CPA-scored, see _channel_role / _BRAND_RATIONALE -- and so
+    # is anything in `_excluded`, e.g. a vendor-gated channel).
     freed_pool = 0.0
     donors: Dict[str, float] = {}  # channel -> dollars freed
     recipients: List[str] = []
 
     for ch_name, ch_data in channel_allocations.items():
-        if ch_data.get("channel_role") == "brand":
+        if ch_data.get("channel_role") == "brand" or ch_name in _excluded:
             continue
         roi = ch_data.get("roi_score", 5)
         dollars = ch_data.get("dollar_amount", 0)
@@ -2833,7 +2984,7 @@ def rebalance_low_roi_channels(
         # because no donor/recipient match could be made -- flag channels
         # that look like they need manual review.
         for ch_name, ch_data in channel_allocations.items():
-            if ch_data.get("channel_role") == "brand":
+            if ch_data.get("channel_role") == "brand" or ch_name in _excluded:
                 continue
             roi = ch_data.get("roi_score", 5)
             pct = ch_data.get("percentage", 0)
@@ -3947,6 +4098,8 @@ def calculate_budget_allocation(
     collar_type: str = "",
     campaign_start_month: int = 0,
     vendor_availability: Optional[Dict[str, bool]] = None,
+    locations_raw: Optional[List[Any]] = None,
+    plan_currency: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Master budget allocation function.
@@ -3981,6 +4134,21 @@ def calculate_budget_allocation(
             reallocated to the strongest-ROI performance channels. ``None``
             (the default) or an empty dict means "no gating" -- callers
             that don't have this data yet see byte-identical behavior.
+        locations_raw: Fix 1 -- the plan's ORIGINAL, unprocessed location
+            strings/dicts (e.g. ``plan_data["locations"]``), used ONLY to
+            resolve non-US locale CPC calibration via the canonical
+            ``plan_geo.is_us_plan``/``non_us_signals``. The ``locations``
+            param above is already reshaped for the location-cost-
+            multiplier step and can lose country information for bare
+            country-name tokens (e.g. "UK" with no comma) -- this is
+            optional and additive: ``None`` (every existing caller today)
+            falls back to using ``locations`` for that check, identical to
+            pre-Fix-1 behavior, so nothing regresses for callers that
+            haven't been updated to pass it.
+        plan_currency: Fix 1 -- ISO code the plan's dollar amounts are
+            denominated in (e.g. "GBP"), if known. ``None`` falls back to a
+            best-effort guess from the first non-US location signal (see
+            ``_resolve_intl_cpc_basis``).
 
     Returns:
         Dict with keys:
@@ -4051,6 +4219,18 @@ def calculate_budget_allocation(
         roles, total_budget, location_multipliers
     )
 
+    # Step 2b (Fix 1): non-US locale CPC basis -- resolved ONCE here (not
+    # per-channel) and threaded into both compute_channel_dollar_amounts
+    # calls below. Only ever non-None for a plan plan_geo.is_us_plan calls
+    # non-US AND at least one of its countries matched the international
+    # benchmarks dataset for at least one channel category; every US plan
+    # (and any plan where the dataset has no match) takes the exact same
+    # path as before this fix. See _resolve_intl_cpc_basis.
+    _intl_cpc_basis = _resolve_intl_cpc_basis(
+        locations_raw if locations_raw is not None else locations,
+        plan_currency,
+    )
+
     # Step 3: Channel dollar amounts with projections (v3: trend + collar aware)
     # Extract primary location for regional CPC adjustments
     primary_location = ""
@@ -4075,6 +4255,7 @@ def calculate_budget_allocation(
         collar_type=collar_type,
         location=primary_location,
         month=campaign_start_month,
+        intl_cpc_basis=_intl_cpc_basis,
     )
 
     # Step 3b (S91): Efficiency reweighting -- blend the static profile
@@ -4103,6 +4284,7 @@ def calculate_budget_allocation(
         collar_type=collar_type,
         location=primary_location,
         month=campaign_start_month,
+        intl_cpc_basis=_intl_cpc_basis,
     )
 
     # Step 3.5: Auto-rebalance low-ROI channels (S91: roi_floor 2 -> 4,
@@ -4183,6 +4365,95 @@ def calculate_budget_allocation(
     _redistribute_hires_by_conversion(
         channel_allocs, total_hires, _industry_avg_cph_val
     )
+
+    # Step 3.9b (Fix 2 -- ROI score must constrain allocation): the FIRST
+    # rebalance_low_roi_channels call (Step 3.5, above) only ever sees a
+    # PROVISIONAL roi_score -- compute_channel_dollar_amounts derives it
+    # from the blended tier-based hire_rate, before the real, per-channel
+    # hire split above has even run. A channel can look like a top
+    # performer there (ROI 8, a qualifying RECIPIENT) and then crash to
+    # ROI 1 the moment _redistribute_hires_by_conversion re-splits
+    # total_hires by real application-conversion weight -- and nothing
+    # re-checked the allocation against that real number. That's the exact
+    # bug this fix closes: a real shipped £2M plan gave Social Media
+    # (ROI 1/10 by THIS authoritative post-redistribution score, fit
+    # "Fair"/0.10) the THIRD-LARGEST channel allocation (13.4%, ~£268K,
+    # £38K+/hire vs ~£930/hire on Programmatic) because the only roi_score
+    # ever fed back into the allocation was the provisional one.
+    #
+    # Fix: run the EXACT SAME rebalancer again (reused, not reinvented --
+    # same roi_floor=4/spend_threshold_pct=5.0/recipient_roi_min=8/
+    # max_shave_pct=60.0 this file already established and justified in
+    # rebalance_low_roi_channels's own S91 docstring: roi_floor=2 was
+    # proven too weak and raised to 4; spend_threshold_pct=5.0 is this
+    # file's own existing definition of "big enough to matter"), now that
+    # roi_score is the REAL number. Employer Branding and any other brand
+    # channel stay exempt automatically -- rebalance_low_roi_channels
+    # already skips channel_role == "brand" for both donors and recipients
+    # (see _check_zero_hire_honesty in bundle_qa.py for how the workbook
+    # marks that exemption), and this reuses that same function unchanged.
+    #
+    # Any per-channel dollar/percentage shift here moves clicks/
+    # applications too (CPC and apply_rate are fixed per channel, so fewer
+    # dollars means fewer clicks/apps) -- re-running
+    # _redistribute_hires_by_conversion afterward re-splits the SAME
+    # authoritative total_hires (computed above, untouched by this step)
+    # across the new per-channel application weights via its own
+    # largest-remainder footing, so total_hires/avg_cost_per_hire (and
+    # hence total_projected["hires"]/["cost_per_hire"]) are UNCHANGED by
+    # this fix -- only applications/clicks/cost_per_application/
+    # cost_per_click can move, and only when the guard actually fires.
+    # Vendor-gated channels (see _vendor_gate_meta["gated_channels"], Step
+    # 3c above) are deliberately floored to _MIN_CHANNEL_PCT because there
+    # is NO real vendor coverage for this locale/industry -- exclude them
+    # from this second pass's donor/recipient pool so a great on-paper ROI
+    # (the modeled economics don't know there's nowhere real to spend the
+    # money) can never undo that floor.
+    _vendor_gated_names = {
+        g.get("channel")
+        for g in (_vendor_gate_meta.get("gated_channels") or [])
+        if g.get("channel")
+    }
+    _pre_guard_dollars = {
+        name: ch.get("dollar_amount") for name, ch in channel_allocs.items()
+    }
+    channel_allocs = rebalance_low_roi_channels(
+        channel_allocs, total_budget, exclude=_vendor_gated_names
+    )
+    _roi_guard_fired = any(
+        abs((channel_allocs[name].get("dollar_amount") or 0) - (old or 0)) > 0.01
+        for name, old in _pre_guard_dollars.items()
+    )
+    if _roi_guard_fired:
+        _redistribute_hires_by_conversion(
+            channel_allocs, total_hires, _industry_avg_cph_val
+        )
+        total_clicks = sum(
+            ch.get("projected_clicks") or 0 for ch in channel_allocs.values()
+        )
+        total_apps = sum(
+            ch.get("projected_applications") or 0 for ch in channel_allocs.values()
+        )
+        logger.info(
+            "S94 ROI guard: low-ROI channel(s) capped post-redistribution "
+            "(see 'Low-ROI rebalance' log lines above for per-channel "
+            "before/after); totals refreshed clicks=%d applications=%d "
+            "(hires=%d cost_per_hire=$%.2f unchanged -- see docstring)",
+            total_clicks,
+            total_apps,
+            total_hires,
+            avg_cost_per_hire,
+        )
+        # Surface any NEW quality_flag this second pass set (e.g. a
+        # donor with no qualifying recipient) that the S91 collection
+        # above couldn't have seen yet -- same shape, no duplicates.
+        for _name, _ch in channel_allocs.items():
+            _qf = _ch.get("quality_flag")
+            if _qf and not any(
+                f.get("channel") == _name and f.get("flag") == _qf
+                for f in _quality_flags
+            ):
+                _quality_flags.append({"channel": _name, "flag": _qf})
 
     total_projected = {
         "clicks": total_clicks,
@@ -4285,6 +4556,12 @@ def calculate_budget_allocation(
             # ppt_generator's Budget Allocation slide funnel strip read this
             # instead of recomputing anything locally.
             "funnel": _funnel,
+            # Fix 1 metadata: which basis (if any) priced this plan's
+            # non-US channels -- None for every US plan and for any non-US
+            # plan where no country matched the international benchmarks
+            # dataset. Per-channel provenance also lives on each channel's
+            # own "cpc_source" (see compute_channel_dollar_amounts).
+            "intl_cpc_basis": _intl_cpc_basis,
         },
     }
 

@@ -324,24 +324,50 @@ class TestCalculateBudgetAllocationWiresFunnel:
 # moved with the new CPC inputs. Names kept as _BEFORE_* for continuity;
 # they now denote "the pinned-fixture expectation", not literally
 # pre-funnel-model numbers.
+#
+# 2026-07-26 DELIBERATE re-baseline (Fix 2 -- "ROI score must constrain
+# allocation", budget_engine.py Step 3.9b / rebalance_low_roi_channels):
+# BOTH briefs' Social Media channel sits at roi_score == 1 (CPH far above
+# the industry average) yet was still holding 7.0% (Manpower, $10,560) /
+# 11.3% (Atria, $33,862) of budget -- the exact defect class this fix
+# closes (a real shipped £2M plan gave a roi=1/10 channel the THIRD-LARGEST
+# allocation; see the fix's own docstring in calculate_budget_allocation).
+# The guard now runs a SECOND TIME after _redistribute_hires_by_conversion
+# sets the real, post-redistribution roi_score (reusing
+# rebalance_low_roi_channels unchanged), caps Social Media, and
+# redistributes the freed share to the qualifying high-ROI recipients
+# (Programmatic DSP / Global Boards / Regional Boards). This intentionally
+# moves clicks/applications/cost_per_application/cost_per_click (CPC and
+# apply_rate are fixed per channel, so fewer dollars means fewer clicks/
+# apps for the donor, more for the recipients) -- Employer Branding
+# (channel_role == "brand") is exempt and unchanged, and hires/cost_per_hire
+# stay EXACTLY as before (total_hires is the CPH-benchmark-derived
+# invariant Step 3.9 already re-applies against the shifted dollars, so the
+# fix only redistributes the total's per-channel split, never the total
+# itself). Exact before/after (both briefs; hires/CPH unchanged, apps/CPA
+# moved) reported in the Fix 2 delivery notes:
+#   Manpower: applications 17932 -> 18730, cost_per_application 8.36 -> 8.01
+#             (hires 48, cost_per_hire 3125.0 -- unchanged)
+#   Atria:    applications 16893 -> 17874, cost_per_application 17.76 -> 16.78
+#             (hires 57, cost_per_hire 5250.0 -- unchanged)
 # ---------------------------------------------------------------------------
 _FUNNEL_INVARIANT_FIXTURE_DIR = (
     Path(__file__).resolve().parent / "fixtures" / "funnel_invariant"
 )
 
 _BEFORE_MANPOWER_TOTAL = {
-    "applications": 17932,
-    "clicks": 221566,
-    "cost_per_application": 8.36,
-    "cost_per_click": 0.68,
+    "applications": 18730,
+    "clicks": 229046,
+    "cost_per_application": 8.01,
+    "cost_per_click": 0.65,
     "cost_per_hire": 3125.0,
     "hires": 48,
 }
 _BEFORE_ATRIA_TOTAL = {
-    "applications": 16893,
-    "clicks": 220065,
-    "cost_per_application": 17.76,
-    "cost_per_click": 1.36,
+    "applications": 17874,
+    "clicks": 226844,
+    "cost_per_application": 16.78,
+    "cost_per_click": 1.32,
     "cost_per_hire": 5250.0,
     "hires": 57,
 }
@@ -352,28 +378,28 @@ _BEFORE_MANPOWER_PER_CHANNEL = {
         "projected_hires": 0,
     },
     "global_boards": {
-        "dollar_amount": 30729.0,
-        "projected_applications": 2124,
+        "dollar_amount": 32270.19,
+        "projected_applications": 2230,
         "projected_hires": 8,
     },
     "niche_boards": {
-        "dollar_amount": 29253.0,
-        "projected_applications": 1462,
+        "dollar_amount": 30622.95,
+        "projected_applications": 1531,
         "projected_hires": 6,
     },
     "programmatic_dsp": {
-        "dollar_amount": 37644.0,
-        "projected_applications": 8156,
+        "dollar_amount": 39356.43,
+        "projected_applications": 8527,
         "projected_hires": 18,
     },
     "regional_boards": {
-        "dollar_amount": 34314.0,
-        "projected_applications": 5891,
+        "dollar_amount": 36026.43,
+        "projected_applications": 6185,
         "projected_hires": 16,
     },
     "social_media": {
-        "dollar_amount": 10560.0,
-        "projected_applications": 100,
+        "dollar_amount": 4224.0,
+        "projected_applications": 58,
         "projected_hires": 0,
     },
 }
@@ -384,29 +410,29 @@ _BEFORE_ATRIA_PER_CHANNEL = {
         "projected_hires": 0,
     },
     "global_boards": {
-        "dollar_amount": 73374.24,
-        "projected_applications": 5072,
+        "dollar_amount": 78865.36,
+        "projected_applications": 5452,
         "projected_hires": 21,
     },
     "niche_boards": {
-        "dollar_amount": 35036.5,
-        "projected_applications": 1751,
-        "projected_hires": 9,
+        "dollar_amount": 39978.5,
+        "projected_applications": 1998,
+        "projected_hires": 10,
     },
     "programmatic_dsp": {
-        "dollar_amount": 80843.49,
-        "projected_applications": 6305,
+        "dollar_amount": 85785.49,
+        "projected_applications": 6691,
         "projected_hires": 17,
     },
     "regional_boards": {
-        "dollar_amount": 52886.28,
-        "projected_applications": 2658,
+        "dollar_amount": 57828.28,
+        "projected_applications": 2907,
         "projected_hires": 9,
     },
     "social_media": {
-        "dollar_amount": 33861.88,
-        "projected_applications": 468,
-        "projected_hires": 1,
+        "dollar_amount": 13544.75,
+        "projected_applications": 187,
+        "projected_hires": 0,
     },
 }
 

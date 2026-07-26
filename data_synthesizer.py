@@ -67,13 +67,6 @@ try:
 except ImportError:
     _RESEARCH_METRO_DATA = {}
 
-# S50: Import _ROLE_SALARY_RANGES from gold_standard for per-role salary
-# differentiation when API sources return identical data for all roles.
-try:
-    from gold_standard import _ROLE_SALARY_RANGES as _GS_ROLE_SALARY_RANGES
-except ImportError:
-    _GS_ROLE_SALARY_RANGES: dict = {}
-
 # S50: H-1B/LCA salary intelligence -- high-reliability government-sourced
 # salary data from DOL certified filings, used as validation layer in
 # fuse_salary_intelligence().
@@ -83,6 +76,21 @@ try:
     _HAS_H1B_DATA = True
 except ImportError:
     _HAS_H1B_DATA = False
+
+# Salary-intelligence defect fix: canonical driver-family wage resolver.
+# Single source of truth for gig/CDL/delivery/generic driver roles -- see
+# research.py's "CANONICAL DRIVER-FAMILY WAGE RESOLUTION" section. Both this
+# module's fuse_salary_intelligence() (Market Intelligence sheet) AND
+# gold_standard.enrich_city_level_data() (Quality Intelligence sheet, via
+# synthesis["per_role_salaries"] built in synthesize() below) resolve
+# driver-family roles through this one function so they can no longer
+# independently derive (and disagree on) the same role+market.
+try:
+    from research import resolve_driver_role_wage as _resolve_driver_role_wage
+except ImportError:  # pragma: no cover - research.py ships with the repo
+
+    def _resolve_driver_role_wage(role_title: str, country: str | None = None):
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +313,12 @@ _ROLE_SALARY_FALLBACKS: Dict[str, Dict[str, int]] = {
         "max": 250000,
     },
     "nurse": {"median": 82000, "min": 55000, "p25": 68000, "p75": 95000, "max": 120000},
-    "driver": {"median": 52000, "min": 38000, "p25": 45000, "p75": 62000, "max": 78000},
+    # NOTE: "driver" deliberately removed (2026-07 salary-intelligence fix).
+    # ALL driver-family roles (gig/CDL/delivery/generic) now resolve via
+    # research.resolve_driver_role_wage() -- called before this dict is ever
+    # consulted (see fuse_salary_intelligence()) -- so a single flat bucket
+    # can no longer conflate a UK gig/private-hire cab driver with a US
+    # salaried CDL/trucking employee. Do not re-add a "driver" key here.
     "warehouse": {
         "median": 42000,
         "min": 32000,
@@ -696,6 +709,78 @@ def _flag_outliers(values: List[float], tolerance_std: float = 2.0) -> List[bool
     if std == 0:
         return [False] * len(values)
     return [abs(v - mean) > tolerance_std * std for v in values]
+
+
+def _derive_fused_confidence(
+    source_count: int, avg_weight: float, kb_validated: bool = False
+) -> float:
+    """Provenance-derived confidence (0-1) for a fused salary row.
+
+    Replaces the renderer's silent ``.get("confidence", 0.5)`` default,
+    which previously fired for EVERY row (fallback or not) because
+    fuse_salary_intelligence() never set the key at all. More independent
+    sources and higher-reliability sources (BLS/O*NET government data
+    outweighs an aggregator) raise confidence; a successful KB
+    cross-validation adds a small bonus. Never a fixed constant -- always a
+    function of what actually fed this specific row.
+    """
+    source_count = max(0, int(source_count))
+    weight_factor = max(0.15, min(1.0, avg_weight))
+    base = min(0.92, 0.35 + 0.15 * source_count) * weight_factor
+    if kb_validated:
+        base = min(0.95, base + 0.05)
+    return round(base, 2)
+
+
+def _driver_wage_to_salary_result(driver_wage: Dict[str, Any]) -> Dict[str, Any]:
+    """Map research.resolve_driver_role_wage()'s output to the shape
+    fuse_salary_intelligence() returns for every other role, so callers
+    never need to special-case driver-family rows."""
+    median = driver_wage["median"]
+    confidence = driver_wage["confidence"]
+    return {
+        "median": median,
+        "mean": median,
+        "min": driver_wage["min"],
+        "max": driver_wage["max"],
+        "p10": driver_wage["min"],
+        "p25": driver_wage["p25"],
+        "p75": driver_wage["p75"],
+        "p90": driver_wage["max"],
+        "sources": [driver_wage["source"]],
+        "outlier_flags": [],
+        "kb_validation": {
+            "validated": False,
+            "deviation": 0.0,
+            "flag": "driver_wage_resolver",
+        },
+        "confidence": confidence,
+        "confidence_score": confidence,
+        "currency": driver_wage.get("currency", "USD"),
+        "_meta": {
+            "source_count": 1,
+            "kb_validated": False,
+            "driver_category": driver_wage.get("category"),
+        },
+    }
+
+
+def _first_location_country(input_data: dict) -> str | None:
+    """Best-effort extraction of a country/location string from the plan's
+    first location -- used to give the driver-wage resolver market context.
+    Mirrors the extraction fuse_salary_intelligence() already does for the
+    H-1B metro lookup (kept as a separate helper rather than touching that
+    existing call site)."""
+    locations = input_data.get("locations") or []
+    if not isinstance(locations, list) or not locations:
+        return None
+    loc0 = locations[0]
+    if isinstance(loc0, str):
+        return loc0 or None
+    if isinstance(loc0, dict):
+        val = loc0.get("country") or loc0.get("city") or loc0.get("name") or ""
+        return str(val) or None
+    return None
 
 
 def _market_temperature(competition_index: float) -> str:
@@ -1248,6 +1333,10 @@ def fuse_salary_intelligence(
     kb_salary = _kb_salary_trends(kb)
     kb_by_industry = _get_nested(kb_salary, "by_industry", default={})
 
+    # Salary-intelligence defect fix: market context for the driver-family
+    # wage resolver (see research.resolve_driver_role_wage()).
+    _country_for_salary = _first_location_country(input_data)
+
     for role in roles:
         salary_points: List[Tuple[float, float, str]] = []  # (value, weight, source)
 
@@ -1340,6 +1429,22 @@ def fuse_salary_intelligence(
             except Exception as _h1b_exc:
                 logger.debug("H-1B salary lookup skipped for %s: %s", role, _h1b_exc)
 
+        # --- Driver-family canonical resolution (salary-intelligence fix) ---
+        # Runs BEFORE the generic keyword fallback below, and only when no
+        # real API salary data was found (Priority 2 data still outranks
+        # Priority 4 fallback data per this module's documented priority
+        # system). A role like "Commercial Cab Driver" resolves through
+        # research.resolve_driver_role_wage() -- the SAME function
+        # gold_standard's Quality Intelligence sheet reads via
+        # synthesis["per_role_salaries"] (built in synthesize() below) --
+        # so it can never again fall through to _ROLE_SALARY_FALLBACKS'
+        # generic keyword match and land on a salaried CDL/trucking figure.
+        if not salary_points:
+            _driver_wage = _resolve_driver_role_wage(role, _country_for_salary)
+            if _driver_wage is not None:
+                result[role] = _driver_wage_to_salary_result(_driver_wage)
+                continue
+
         # --- Fallback: Use knowledge base benchmarks if no API data ---
         if not salary_points:
             kb_benchmarks = kb.get("benchmarks", {}) if isinstance(kb, dict) else {}
@@ -1385,6 +1490,12 @@ def fuse_salary_intelligence(
                             "deviation": 0.0,
                             "flag": "fallback_data",
                         },
+                        # Provenance-derived, not the renderer's silent 0.5
+                        # default: matches the 0.3 weight this same keyword
+                        # match already carries in the salary_points list
+                        # above, rather than a second, disconnected number.
+                        "confidence": 0.30,
+                        "confidence_score": 0.30,
                         "_meta": {"source_count": 1, "kb_validated": False},
                     }
                     break
@@ -1405,6 +1516,11 @@ def fuse_salary_intelligence(
                         "deviation": 0.0,
                         "flag": "fallback_data",
                     },
+                    # Lower than a keyword-matched fallback (0.30): this is
+                    # the no-keyword-match-at-all catch-all, consistent with
+                    # its 0.2 salary_points weight above.
+                    "confidence": 0.20,
+                    "confidence_score": 0.20,
                     "_meta": {"source_count": 1, "kb_validated": False},
                 }
             continue
@@ -1493,6 +1609,12 @@ def fuse_salary_intelligence(
                             tolerance=0.30,  # S27: tightened from 0.50
                         )
 
+        _avg_weight = (
+            sum(clean_weights) / len(clean_weights) if clean_weights else 0.0
+        )
+        _confidence = _derive_fused_confidence(
+            source_count, _avg_weight, kb_validation.get("validated", False)
+        )
         result[role] = {
             "median": round(w_median),
             "mean": round(statistics.mean(clean_values)) if clean_values else 0,
@@ -1505,6 +1627,12 @@ def fuse_salary_intelligence(
             "sources": list(set(sources)),
             "outlier_flags": flagged_sources,
             "kb_validation": kb_validation,
+            # Provenance-derived confidence (source count + source
+            # reliability weight + KB cross-validation) -- replaces the
+            # renderer's silent 0.5 default, which previously fired for
+            # every row regardless of how many real sources fed it.
+            "confidence": _confidence,
+            "confidence_score": _confidence,
             "_meta": {
                 "source_count": source_count,
                 "kb_validated": kb_validation.get("validated", False),
@@ -1553,6 +1681,10 @@ def _empty_salary_result(role: str) -> Dict[str, Any]:
         "sources": [],
         "outlier_flags": [],
         "kb_validation": {"validated": False, "deviation": 0.0, "flag": "no_data"},
+        # Honest zero, not the renderer's silent 0.5 default -- there is
+        # genuinely no data behind this row.
+        "confidence": 0.0,
+        "confidence_score": 0.0,
         "_meta": {"source_count": 0, "kb_validated": False},
     }
 
@@ -4253,53 +4385,48 @@ def synthesize(
         logger.error("fuse_salary_intelligence failed: %s", exc, exc_info=True)
         synthesis["salary_intelligence"] = {}
 
-    # S50 FIX 1: Build per_role_salaries from _ROLE_SALARY_RANGES so downstream
-    # consumers (Excel per-role table, gold_standard) get differentiated salary
-    # data even when API enrichment returns identical values for all roles.
+    # Salary-intelligence defect fix (2026-07): synthesis["per_role_salaries"]
+    # is the wiring point gold_standard.enrich_city_level_data() reads (as an
+    # override for the SAME role) to build the Quality Intelligence sheet's
+    # salary table -- see gold_standard.py's per-role loop. Previously this
+    # block independently re-matched _GS_ROLE_SALARY_RANGES from scratch and
+    # fed a dict NOTHING downstream actually consumed (orphaned since S50 --
+    # gold_standard never read data["_synthesized"]["per_role_salaries"]),
+    # so it could never have converged the two sheets even by coincidence.
+    #
+    # Scoped to driver-family roles only (the reported defect class) and
+    # copied directly FROM the salary_intelligence result just computed
+    # above, rather than re-derived independently -- this is what makes the
+    # Market Intelligence and Quality Intelligence salary tables agree by
+    # construction instead of by coincidence, while every other role keeps
+    # gold_standard's existing, fully-tested per-city tier/multiplier
+    # differentiation untouched.
     try:
-        _roles_for_salary = (
-            input_data.get("roles") or input_data.get("target_roles") or []
-        )
-        if isinstance(_roles_for_salary, str):
-            _roles_for_salary = [
-                r.strip() for r in _roles_for_salary.split(",") if r.strip()
-            ]
-        _roles_for_salary = [
-            r.get("title") or "" if isinstance(r, dict) else r
-            for r in _roles_for_salary
-        ]
-        _roles_for_salary = [
-            r for r in _roles_for_salary if isinstance(r, str) and r.strip()
-        ]
-
+        _country_for_per_role = _first_location_country(input_data)
         _per_role_salaries: Dict[str, Dict[str, Any]] = {}
-        for _role_title in _roles_for_salary:
-            _role_lower = _role_title.lower().strip()
-            _matched = False
-            for _kw in sorted(_GS_ROLE_SALARY_RANGES, key=len, reverse=True):
-                if _kw in _role_lower:
-                    _floor, _ceil = _GS_ROLE_SALARY_RANGES[_kw]
-                    _per_role_salaries[_role_title] = {
-                        "min": _floor,
-                        "median": round((_floor + _ceil) / 2),
-                        "max": _ceil,
-                        "source": f"_ROLE_SALARY_RANGES[{_kw}]",
-                    }
-                    _matched = True
-                    break
-            if not _matched:
-                # Fall back to fuse_salary_intelligence result for this role
-                _sal_intel = synthesis.get("salary_intelligence", {}).get(
-                    _role_title, {}
-                )
-                if _sal_intel and _sal_intel.get("median"):
-                    _per_role_salaries[_role_title] = {
-                        "min": _sal_intel.get("min") or _sal_intel["median"] - 10000,
-                        "median": _sal_intel["median"],
-                        "max": _sal_intel.get("max") or _sal_intel["median"] + 15000,
-                        "source": ", ".join((_sal_intel.get("sources") or [])[:2])
-                        or "enrichment",
-                    }
+        for _role_title, _sal in synthesis.get("salary_intelligence", {}).items():
+            if not isinstance(_sal, dict) or not _sal.get("median"):
+                continue
+            if _resolve_driver_role_wage(_role_title, _country_for_per_role) is None:
+                continue
+            _sources = _sal.get("sources") or []
+            _confidence_num = _sal.get("confidence", _sal.get("confidence_score", 0.0))
+            _per_role_salaries[_role_title] = {
+                "min": _sal.get("min", 0),
+                "p25": _sal.get("p25", _sal.get("min", 0)),
+                "median": _sal.get("median", 0),
+                "p75": _sal.get("p75", _sal.get("max", 0)),
+                "max": _sal.get("max", 0),
+                "source": _sources[0] if _sources else "estimated",
+                # gold_standard's per_role_salary contract uses a string
+                # enum here ("benchmark" / "estimated"), not the numeric
+                # confidence_num above -- only a genuinely sourced row earns
+                # "benchmark"; every driver-family band here is a keyword-
+                # matched estimate, so this is honestly "estimated" (this
+                # also drives the Quality Intelligence sheet's existing
+                # "(est.)" tag / amber highlight for these rows).
+                "confidence": "benchmark" if _confidence_num >= 0.5 else "estimated",
+            }
         if _per_role_salaries:
             synthesis["per_role_salaries"] = _per_role_salaries
     except Exception as exc:
