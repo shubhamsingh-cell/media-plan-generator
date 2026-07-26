@@ -3204,10 +3204,43 @@ def _infer_industry_from_signals(company_name: str = "", roles: list = None) -> 
 
     Returns None when nothing clears the same confidence bar
     classify_industry's Step 4 uses (best_score >= 3).
+
+    ORDERING FIX (2026-07-26 false-positive regression): role-title votes
+    (``_ROLE_INDUSTRY_MAP``, the same specific, curated keyword set
+    ``classify_industry``'s own Step 3 checks FIRST) are now tried before
+    the generic fuzzy keyword/company-brand scan below, not after. The
+    fuzzy scan does raw substring containment with no word-boundary check,
+    against keyword lists that include very short, generic entries ("ai",
+    "gas", "power", "tech") -- on real, multi-role briefs this produced
+    confident-looking nonsense: "Manpower - Amerigas" scored 2008 for
+    "Energy & Utilities" purely from "gas" inside "amerigas" and "power"
+    inside "manpower" (both also collecting the +1000 company-brand
+    bonus), and a senior-living roster with "Maintenance Technician"
+    scored "Technology & Software" from "tech" inside "technician" and
+    "ai" inside "maintenance". Both are exactly the reference bundles this
+    function's own consumer (bundle_qa's industry_client_conflict check)
+    must never false-positive on. Specific role-title votes ("driver",
+    "nurse", "cab", ...) are a far more reliable signal for any brief that
+    has them, so they now win outright before the noisier fallback ever
+    runs -- which is also full parity with how ``_classify_industry_primary``
+    treats a raw_industry-less brief (its Step 3 role-vote already
+    precedes its own Step 4 fuzzy scan).
     """
     roles = roles or []
     company_lower = (company_name or "").lower()
     search_text = f"{company_name} {' '.join(str(r) for r in roles)}".lower()
+
+    _role_votes: dict[str, int] = {}
+    for _r in roles:
+        _role_str = str(_r).lower().strip() if _r else ""
+        for _role_kw, _ind_key in _ROLE_INDUSTRY_MAP.items():
+            if _role_kw in _role_str:
+                _role_votes[_ind_key] = _role_votes.get(_ind_key, 0) + len(_role_kw)
+                break
+    if _role_votes:
+        _best_role_ind = max(_role_votes, key=_role_votes.get)
+        if _best_role_ind in INDUSTRY_NAICS_MAP:
+            return INDUSTRY_NAICS_MAP[_best_role_ind]
 
     best_match = None
     best_score = 0
@@ -3226,18 +3259,6 @@ def _infer_industry_from_signals(company_name: str = "", roles: list = None) -> 
 
     if best_match and best_score >= 3:
         return best_match
-
-    _role_votes: dict[str, int] = {}
-    for _r in roles:
-        _role_str = str(_r).lower().strip() if _r else ""
-        for _role_kw, _ind_key in _ROLE_INDUSTRY_MAP.items():
-            if _role_kw in _role_str:
-                _role_votes[_ind_key] = _role_votes.get(_ind_key, 0) + len(_role_kw)
-                break
-    if _role_votes:
-        _best_role_ind = max(_role_votes, key=_role_votes.get)
-        if _best_role_ind in INDUSTRY_NAICS_MAP:
-            return INDUSTRY_NAICS_MAP[_best_role_ind]
 
     return None
 
@@ -5854,6 +5875,13 @@ def _mirror_job(job_id: str) -> None:
             "error": job.get("error"),
             "result_filename": job.get("result_filename"),
             "result_content_type": job.get("result_content_type"),
+            # Gate-relevant only (qa_status/critical_count/codes/findings,
+            # all already JSON-safe strings/ints from
+            # bundle_qa.summarize_findings) -- a poll landing on a
+            # different worker than the one that ran generation must still
+            # see whether this bundle carries criticals, not just that
+            # it's "completed".
+            "bundle_qa": job.get("bundle_qa"),
         }
         # Security hardening: never write the raw session token to disk --
         # the mirror file is world-readable (default-0644) and lives up to
@@ -7932,6 +7960,72 @@ def _build_narrative_status_header(narrative_status: Optional[dict]) -> str:
     payload = payload.encode("ascii", "backslashreplace").decode("ascii")
     payload = payload.replace("\r", "").replace("\n", "")
     return payload[:800]
+
+
+def _build_bundle_qa_status_header(bundle_qa_summary: Optional[dict]) -> str:
+    """Generation-time QA gate: compact header-safe summary of
+    ``bundle_qa.summarize_findings()``'s output, in the SAME spirit and
+    convention as ``_build_narrative_status_header`` above -- a caller of
+    the sync /api/generate path (which returns the bundle bytes directly,
+    with no job record to poll) previously had no way to learn a bundle
+    shipped with critical findings short of reading Render server logs.
+    This is the header equivalent of the async job record's
+    ``bundle_qa.qa_status`` field the wizard's job-poll response and UI
+    gate read; a caller here gets the same signal via an authenticated
+    fetch of the response headers.
+
+    Never blocks or alters the response body -- the bundle is always
+    fully produced and returned; this only makes a critical/warnings
+    result impossible to silently miss.
+
+    Args:
+        bundle_qa_summary: The dict ``bundle_qa.summarize_findings()``
+            returns (or None if bundle_qa didn't run / crashed / the
+            module isn't loaded).
+
+    Returns:
+        A compact single-line JSON string, '{"qa_status":"clean"}' if
+        bundle_qa_summary is falsy or unserializable -- never omitted, so
+        a caller can always safely parse this header.
+    """
+    if not bundle_qa_summary:
+        return '{"qa_status":"clean"}'
+    try:
+        payload = json.dumps(
+            {
+                "qa_status": bundle_qa_summary.get("qa_status") or "clean",
+                "critical_count": bundle_qa_summary.get("critical_count") or 0,
+                "warn_count": bundle_qa_summary.get("warn_count") or 0,
+                "codes": (bundle_qa_summary.get("codes") or [])[:15],
+            },
+            separators=(",", ":"),
+        )
+    except (TypeError, ValueError):
+        return '{"qa_status":"clean"}'
+    payload = payload.encode("ascii", "backslashreplace").decode("ascii")
+    payload = payload.replace("\r", "").replace("\n", "")
+    return payload[:800]
+
+
+def _bundle_qa_response_fields(bundle_qa_summary: Optional[dict]) -> dict:
+    """Shape a ``bundle_qa.summarize_findings()`` summary (or None) into
+    the fields the async job-poll JSON response promotes so a caller
+    cannot miss a critical finding -- used by all three /api/jobs/<id>
+    "completed" response sites (in-process, cross-worker mirror, and
+    Supabase fallback) so they agree on the exact same shape regardless
+    of which path answered the poll.
+
+    Defaults to "clean" with zero counts when bundle_qa_summary is falsy
+    (module not loaded, crashed, or never ran) -- the false-positive guard
+    means a missing QA result must never be treated as a block.
+    """
+    summary = bundle_qa_summary if isinstance(bundle_qa_summary, dict) else {}
+    return {
+        "qa_status": summary.get("qa_status") or "clean",
+        "qa_critical_count": summary.get("critical_count") or 0,
+        "qa_codes": summary.get("codes") or [],
+        "qa_findings": summary.get("findings") or [],
+    }
 
 
 def _validate_file_extension(filename: str) -> tuple[bool, str]:
@@ -12778,6 +12872,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         or "application/zip",
                                         "download_url": f"/api/jobs/{job_id}",
                                         "elapsed_seconds": _mirror_elapsed,
+                                        **_bundle_qa_response_fields(
+                                            _mirror_data.get("bundle_qa")
+                                        ),
                                     }
                                 )
                                 return
@@ -12835,6 +12932,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 accept_hdr = self.headers.get("Accept") or ""
                                 if "application/json" in accept_hdr:
                                     # Poll mode: tell frontend it's ready
+                                    # NOTE: nova_generated_plans (S47) doesn't
+                                    # persist the bundle_qa verdict, so a
+                                    # restart-safe Slack download that falls
+                                    # all the way through to Supabase can't
+                                    # recover it -- defaults to "clean"
+                                    # (never blocks) rather than fabricating a
+                                    # status. Known gap, not addressed here.
                                     self._send_json(
                                         {
                                             "job_id": job_id,
@@ -12845,6 +12949,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                             "content_type": _dl_ct,
                                             "download_url": f"/api/jobs/{job_id}",
                                             "source": "supabase",
+                                            **_bundle_qa_response_fields(None),
                                         }
                                     )
                                     return
@@ -12921,6 +13026,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             "content_type": content_type,
                             "download_url": f"/api/jobs/{job_id}",
                             "elapsed_seconds": elapsed,
+                            **_bundle_qa_response_fields(job.get("bundle_qa")),
                         }
                     )
                 else:
@@ -14819,6 +14925,100 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         if handle_pricing_post_routes(self, path, parsed):
             return
         if handle_canvas_post_routes(self, path, parsed):
+            return
+
+        # ── Generation-time QA gate: record an operator's override ──
+        # POST /api/jobs/<job_id>/qa-ack -- called by the wizard UI only
+        # when a completed job's bundle_qa summary carries criticals and
+        # the operator has explicitly clicked past the findings panel to
+        # download anyway. An override that leaves no trace is not a gate,
+        # so this writes the SAME audit_logger.log_event pattern already
+        # used for bundle_qa.critical_findings (app.py's async job path
+        # above), capturing who acknowledged what. This endpoint only
+        # records the acknowledgement -- it never touches the job's
+        # stored bytes, and a failure here must never block the download
+        # the frontend proceeds with regardless.
+        if path.startswith("/api/jobs/") and path.endswith("/qa-ack"):
+            _qa_ack_parts = path.split("/")
+            # Expected: ['', 'api', 'jobs', '<job_id>', 'qa-ack']
+            _qa_ack_job_id = _qa_ack_parts[3] if len(_qa_ack_parts) >= 5 else ""
+            if not _qa_ack_job_id or not re.match(
+                r"^[a-f0-9]{1,12}$", _qa_ack_job_id
+            ):
+                self._send_json({"error": "Invalid job_id"}, status_code=400)
+                return
+            with _generation_jobs_lock:
+                _qa_ack_job = _generation_jobs.get(_qa_ack_job_id)
+            if _qa_ack_job is None:
+                self._send_json(
+                    {"error": "Job not found or expired"}, status_code=404
+                )
+                return
+            # Same session-ownership check as the /api/jobs/<id> poll/
+            # download endpoint (Bug #14 fix, IDOR prevention) -- only the
+            # session that generated this bundle may acknowledge its QA
+            # findings.
+            _qa_ack_job_session = _qa_ack_job.get("_session_token") or ""
+            if _qa_ack_job_session:
+                _qa_ack_csrf = _parse_cookie_value(
+                    self.headers.get("Cookie") or "", "nova_session"
+                ) or _parse_cookie_value(
+                    self.headers.get("Cookie") or "", "csrf_token"
+                )
+                if not hmac.compare_digest(_qa_ack_job_session, _qa_ack_csrf):
+                    self._send_json(
+                        {"error": "Access denied: job belongs to a different session"},
+                        status_code=403,
+                    )
+                    return
+            try:
+                _qa_ack_cl = int(self.headers.get("Content-Length") or 0)
+                _qa_ack_cl = min(_qa_ack_cl, 10240)  # 10 KB is plenty
+                _qa_ack_raw = self.rfile.read(_qa_ack_cl) if _qa_ack_cl else b"{}"
+                _qa_ack_body = json.loads(_qa_ack_raw) if _qa_ack_raw.strip() else {}
+            except (ValueError, OSError):
+                _qa_ack_body = {}
+            _qa_ack_by = (
+                _parse_cookie_value(self.headers.get("Cookie") or "", "nova_user_email")
+                or str(_qa_ack_body.get("acknowledged_by") or "")[:200]
+                or "unknown"
+            )
+            _qa_ack_bq = _qa_ack_job.get("bundle_qa") or {}
+            _qa_ack_codes = _qa_ack_bq.get("codes") or []
+            try:
+                from audit_logger import log_event as _qa_ack_log_event
+
+                _qa_ack_log_event(
+                    action="bundle_qa.override_acknowledged",
+                    actor=_qa_ack_by,
+                    resource=_qa_ack_job_id,
+                    details={
+                        # cross-reference resource=job_id against the
+                        # earlier "bundle_qa.critical_findings" event (set
+                        # at generation time) for client_name -- the job
+                        # record itself doesn't carry it.
+                        "critical_count": _qa_ack_bq.get("critical_count") or 0,
+                        "codes": _qa_ack_codes,
+                    },
+                    severity="warning",
+                )
+                with _generation_jobs_lock:
+                    if _qa_ack_job_id in _generation_jobs:
+                        _generation_jobs[_qa_ack_job_id]["_qa_acknowledged_by"] = (
+                            _qa_ack_by
+                        )
+                self._send_json({"ok": True, "acknowledged_by": _qa_ack_by})
+            except Exception as _qa_ack_err:
+                logger.warning(
+                    "bundle_qa override-ack audit write failed: %s", _qa_ack_err
+                )
+                # Non-fatal from the caller's point of view -- the frontend
+                # proceeds to download regardless of this endpoint's
+                # outcome, so report success-of-intent but log the gap.
+                self._send_json(
+                    {"ok": False, "error": "Acknowledgement logging failed"},
+                    status_code=500,
+                )
             return
 
         # ── Event-sourced plan state machine (plan_events module): undo ──
@@ -17013,25 +17213,22 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         # mismatches, fabricated comparison badges,
                         # near-duplicate competitor prose, ...). Entirely
                         # isolated: never blocks or fails generation, only
-                        # observes and records what it finds.
+                        # observes and records what it finds -- but a
+                        # critical finding now travels with the job record
+                        # (job["bundle_qa"]["qa_status"]) so the /api/jobs
+                        # poll response and wizard UI can gate the DOWNLOAD
+                        # (never the generation itself) on it. See
+                        # bundle_qa.summarize_findings for the qa_status
+                        # values a caller can rely on.
                         _bundle_qa_summary = None
                         if bundle_qa is not None:
                             try:
                                 _bq_findings = bundle_qa.run_bundle_qa(
                                     pptx_bytes, excel_bytes, gen_data
                                 )
-                                _bq_critical = [
-                                    f
-                                    for f in _bq_findings
-                                    if f.get("severity") == "critical"
-                                ]
-                                _bundle_qa_summary = {
-                                    "critical_count": len(_bq_critical),
-                                    "warn_count": len(_bq_findings) - len(_bq_critical),
-                                    "findings": _bq_findings[
-                                        :25
-                                    ],  # cap job-record size
-                                }
+                                _bundle_qa_summary = bundle_qa.summarize_findings(
+                                    _bq_findings
+                                )
                                 for _f in _bq_findings:
                                     logger.warning(
                                         "bundle_qa [%s] %s: %s (%s)",
@@ -17040,7 +17237,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         _f.get("message"),
                                         _f.get("location"),
                                     )
-                                if _bq_critical:
+                                if _bundle_qa_summary["critical_count"]:
                                     try:
                                         from audit_logger import (
                                             log_event as _bq_log_event,
@@ -17055,13 +17252,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                                     "client_name"
                                                 )
                                                 or "",
-                                                "critical_count": len(_bq_critical),
-                                                "codes": sorted(
-                                                    {
-                                                        f.get("code")
-                                                        for f in _bq_critical
-                                                    }
-                                                ),
+                                                "critical_count": _bundle_qa_summary[
+                                                    "critical_count"
+                                                ],
+                                                "codes": _bundle_qa_summary["codes"],
                                             },
                                             severity="warning",
                                         )
@@ -17075,6 +17269,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 logger.warning(
                                     "bundle_qa crashed (non-fatal): %s", _bq_err
                                 )
+                                # Degrade to today's behaviour: a linter
+                                # crash must never lock the download behind
+                                # a gate it never got to evaluate.
+                                _bundle_qa_summary = None
 
                         # ── S94: Executive narrative failure observability ──
                         # excel_v2.py's Executive Strategic Summary is a
@@ -19234,6 +19432,61 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "PPT generation skipped: neither deck_generator nor ppt_generator available"
                 )
 
+            # ── Generation-time output QA (bundle_qa) -- sync path ──
+            # Mirrors the async job path's bundle_qa call (see the
+            # _bundle_qa_summary block above the "Async job %s completed"
+            # log line): isolated, never blocks or fails generation, only
+            # observes and records. This path has no job record to poll,
+            # so the verdict travels out as the X-Bundle-QA-Status header
+            # instead (see _build_bundle_qa_status_header) -- the sync
+            # caller (Slack, an API integration, ...) gets the same
+            # "can't ship unknowingly" signal the async wizard gets via
+            # the job-poll response, without ever altering what bytes are
+            # returned. A bundle_qa crash degrades to "clean" (today's
+            # behaviour), never to a blocked/altered response.
+            _sync_bundle_qa_summary = None
+            if bundle_qa is not None:
+                try:
+                    _sbq_findings = bundle_qa.run_bundle_qa(
+                        pptx_bytes, excel_bytes, data
+                    )
+                    _sync_bundle_qa_summary = bundle_qa.summarize_findings(
+                        _sbq_findings
+                    )
+                    for _sbq_f in _sbq_findings:
+                        logger.warning(
+                            "bundle_qa [%s] %s: %s (%s)",
+                            _sbq_f.get("severity"),
+                            _sbq_f.get("code"),
+                            _sbq_f.get("message"),
+                            _sbq_f.get("location"),
+                        )
+                    if _sync_bundle_qa_summary["critical_count"]:
+                        try:
+                            from audit_logger import log_event as _sbq_log_event
+
+                            _sbq_log_event(
+                                action="bundle_qa.critical_findings",
+                                actor="system",
+                                resource=_plan_id,
+                                details={
+                                    "client_name": data.get("client_name") or "",
+                                    "critical_count": _sync_bundle_qa_summary[
+                                        "critical_count"
+                                    ],
+                                    "codes": _sync_bundle_qa_summary["codes"],
+                                },
+                                severity="warning",
+                            )
+                        except Exception as _sbq_audit_err:
+                            logger.debug(
+                                "bundle_qa audit_log write failed (non-fatal): %s",
+                                _sbq_audit_err,
+                            )
+                except Exception as _sbq_err:
+                    logger.warning("bundle_qa crashed (non-fatal): %s", _sbq_err)
+                    _sync_bundle_qa_summary = None
+
             if pptx_bytes:
                 # Bundle both files in a ZIP
                 zip_buffer = io.BytesIO()
@@ -19280,9 +19533,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "X-Narrative-Status",
                     _build_narrative_status_header(data.get("_narrative_status")),
                 )
+                # ── Generation-time QA gate: same spirit/convention as
+                # X-Narrative-Status above -- a caller cannot miss a
+                # critical bundle_qa finding by only reading the response
+                # body. See _build_bundle_qa_status_header.
+                self.send_header(
+                    "X-Bundle-QA-Status",
+                    _build_bundle_qa_status_header(_sync_bundle_qa_summary),
+                )
                 self.send_header(
                     "Access-Control-Expose-Headers",
-                    "X-Plan-Id, X-Narrative-Status",
+                    "X-Plan-Id, X-Narrative-Status, X-Bundle-QA-Status",
                 )
                 self.end_headers()
                 self.wfile.write(zip_bytes)
@@ -19422,7 +19683,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_header("Content-Length", str(len(excel_bytes)))
                 self.send_header("X-Plan-Id", _plan_id)
                 self.send_header(
-                    "Access-Control-Expose-Headers", "X-Plan-Id, X-PPT-Warning"
+                    "X-Bundle-QA-Status",
+                    _build_bundle_qa_status_header(_sync_bundle_qa_summary),
+                )
+                self.send_header(
+                    "Access-Control-Expose-Headers",
+                    "X-Plan-Id, X-PPT-Warning, X-Bundle-QA-Status",
                 )
                 if pptx_warning:
                     self.send_header("X-PPT-Warning", pptx_warning)

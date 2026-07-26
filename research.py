@@ -4675,12 +4675,27 @@ def get_location_info(location_str):
         info["metro_name"] = f"{sd['name']} (statewide)"
         info["major_employers"] = sd.get("top_industries") or ""
     else:
+        # Silent-fallback fix (sibling of the INDUSTRY_LABOUR_MARKET /
+        # get_labour_market_intelligence coverage-gap fix): this branch fires
+        # for a US location this module has NO metro (METRO_DATA) or state
+        # (STATE_DATA) entry for at all -- "population"/"major_employers"
+        # already say so honestly ("Data not available" / "Varies by
+        # area"), but "median_salary": 60000 and "unemployment": "~3.5%" are
+        # flat, made-up-looking national-average numbers with no such
+        # marker, presented in the SAME dict, in the SAME shape as every
+        # genuinely metro-specific figure above. A reader has no way to
+        # tell "$60,000, this city's real median" from "$60,000, we don't
+        # know this city so here's a round number." Flag it so callers can
+        # disclose the substitution instead of presenting a generic
+        # national estimate as if it were location-specific data (the same
+        # rule this fix's sibling already applies to industry data).
         info["coli"] = 100
         info["population"] = "Data not available"
         info["median_salary"] = 60000
         info["unemployment"] = "~3.5%"
         info["metro_name"] = location_str
         info["major_employers"] = "Varies by area"
+        info["is_generic_fallback"] = True
 
     return info
 
@@ -6113,6 +6128,16 @@ def get_competitors(industry, locations, company_name=None):
         "programmatic",
     }
 
+    # Silent-fallback fix (sibling of the INDUSTRY_LABOUR_MARKET /
+    # get_labour_market_intelligence coverage-gap fix -- IDENTICAL 12-key
+    # coverage, missing the same 10 of ~22 industries, incl.
+    # hospitality_travel/logistics_supply_chain/education/...): an
+    # uncovered industry silently inherited general_entry_level's OWN named
+    # competitor categories/companies, with nothing marking them as
+    # substituted from a different industry's data. Flag each row so a
+    # caller can disclose the substitution instead of presenting another
+    # industry's competitor set as this plan's own research.
+    _is_generic_competitor_fallback = industry not in INDUSTRY_COMPETITORS
     comp_data = INDUSTRY_COMPETITORS.get(
         industry, INDUSTRY_COMPETITORS.get("general_entry_level", {})
     )
@@ -6134,6 +6159,7 @@ def get_competitors(industry, locations, company_name=None):
                 "category": category,
                 "competitors": filtered_competitors,
                 "threat": data["threat"],
+                "is_generic_fallback": _is_generic_competitor_fallback,
             }
         )
 

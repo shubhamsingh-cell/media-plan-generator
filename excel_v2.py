@@ -1727,6 +1727,51 @@ def _truncate_at_word_boundary(text: str, max_len: int) -> str:
     return f"{cut}…"
 
 
+def _truncate_at_clause_boundary(text: str, max_len: int) -> str:
+    """Truncate `text` to at most `max_len` characters, preferring to cut at
+    the end of a complete sentence/clause rather than mid-sentence.
+
+    Residual bundle_qa defect (6 `mid_word_truncation` warnings on the
+    Market Intelligence "Location Economic Context" table): research.py's
+    ``context_note`` is a two-sentence template -- "International market —
+    {country} in {region} region. Local labour laws and recruitment
+    practices apply." -- and every real country/region combination lands
+    the flat 80-char `_truncate_at_word_boundary` cutoff partway through
+    the SECOND sentence, so the client saw a dangling fragment like "Local
+    labour laws and…" or "Local labour laws…". `_truncate_at_word_boundary`
+    itself was never actually cutting mid-WORD (that function is correct);
+    the defect is architectural -- a hard length cap on a sentence that
+    doesn't fit, with no notion of "a fragment reads worse than a dropped
+    sentence."
+
+    This backs the cut point off to the last sentence-ending punctuation
+    (., !, ?) at or before `max_len` and keeps everything up to and
+    including it -- dropping a trailing sentence that doesn't fit is
+    honest; showing half of it is not. No ellipsis is appended in that
+    case, since what remains is a complete clause, not a fragment. Falls
+    back to `_truncate_at_word_boundary` (word-safe, ellipsis-suffixed)
+    only when no clause boundary exists before `max_len` at all (e.g. a
+    single very long sentence with no internal punctuation).
+
+    No-op (returns `text` stripped, unchanged) when it already fits within
+    `max_len`. `max_len <= 0` returns "" defensively rather than raising.
+    """
+    text = (text or "").strip()
+    if max_len <= 0:
+        return ""
+    if len(text) <= max_len:
+        return text
+    window = text[:max_len]
+    best = -1
+    for punct in (".", "!", "?"):
+        idx = window.rfind(punct)
+        if idx > best:
+            best = idx
+    if best > 0:
+        return window[: best + 1].strip()
+    return _truncate_at_word_boundary(text, max_len)
+
+
 _PHYSICIAN_ROLE_KEYWORDS = (
     "physician",
     "md ",
@@ -2104,6 +2149,142 @@ def _overall_confidence_score(data: dict) -> float:
             "overall", confidence_scores.get("overall_confidence", 0.5)
         )
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GENERAL CONFIDENCE GATE
+# ═══════════════════════════════════════════════════════════════════════════════
+# The Sources & Confidence sheet (_build_sheet_sources, "Per-Section
+# Confidence" table) already grades EVERY synthesis section that carries a
+# computed score (data_synthesizer.compute_confidence_scores) A-F via
+# _grade_from_score -- on the real Uber bundle this reads Overall 47% F,
+# Salary Intelligence 40% F, Location Profiles 20% F, Ad Platform Analysis
+# 40% F, Competitive Intelligence 20% F, Workforce Insights 60% D. Until
+# now, only ONE section (Competitive Intelligence's "static fallback"
+# competitor roster, see _comp_from_static_fallback) actually changed its
+# OWN presentation in response -- a client reading the Market Intelligence
+# / Channels sheets saw every other F-graded section asserted in the exact
+# same confident register as an A. This is the general mechanism: any
+# section with a computed score gets gated the SAME way, off the SAME
+# letter grade already shown two sheets away, so the two views can never
+# visually disagree.
+#
+# THRESHOLDS -- reusing _grade_from_score's own existing bands rather than
+# inventing new numbers, so a client never sees a different cut-off in two
+# places:
+#   - HEDGE at score < 0.65 (grade D or F -- the same C/D boundary
+#     _grade_from_score already draws, and the boundary at which the
+#     Sources & Confidence tab's own fill color turns from amber to red).
+#     Below this, the section gets a visible provenance footnote AND a
+#     hedged header (grade suffix on the section title) instead of reading
+#     identically to a fully-sourced section.
+#   - ESTIMATE at score < 0.50 (grade F -- data_synthesizer's own
+#     compute_confidence_scores docstring rubric: 0.4 is "1 live source
+#     only", 0.2 is "KB/benchmark fallback only" -- i.e. everything below
+#     0.5 is, by this codebase's own scoring rubric, not an independently
+#     corroborated figure at all). Below this the section says PLAINLY
+#     that it is an estimate rather than a benchmark -- the same "honestly
+#     labelled ... estimate rather than a benchmark" convention
+#     research.resolve_driver_role_wage() already ships (its
+#     _DRIVER_CATEGORY_SOURCE_LABEL values all read "... Estimate (...not
+#     locally benchmarked)").
+#   - score >= 0.65 (C or better): NOTHING added at all. This is the
+#     false-positive guard the brief calls out as the thing that matters
+#     most -- hedging language stapled onto a genuinely well-sourced
+#     section would itself be a quality defect (every sentence hedged is
+#     no signal at all).
+_CONFIDENCE_GATE_HEDGE_THRESHOLD = 0.65
+_CONFIDENCE_GATE_ESTIMATE_THRESHOLD = 0.50
+
+# What "not verified against live X data" names for each gated section --
+# reuses the exact wording convention the Competitive Intelligence "static
+# fallback" fix already shipped (grep: "not verified against live posting
+# data"), swapped in per-section for what that section actually measures,
+# rather than a single phrase that would be topically wrong everywhere but
+# competitor postings.
+_CONFIDENCE_GATE_TOPICS: Dict[str, str] = {
+    "salary_intelligence": "live compensation data",
+    "location_profiles": "live census / labour-market data",
+    "ad_platform_analysis": "live ad-platform reporting",
+    "competitive_intelligence": "live market signal",
+    "workforce_insights": "live labour-market reporting",
+}
+
+
+def _section_confidence(
+    data: dict, section_key: str
+) -> Optional[Tuple[float, str]]:
+    """(score, grade) for ``section_key``, read from the SAME
+    ``confidence_scores`` dict the Sources & Confidence sheet's
+    Per-Section Confidence table reads (data_synthesizer.compute_confidence_scores).
+
+    Returns ``None`` when this section has no computed score at all (e.g.
+    the synthesis pipeline didn't run, or this key was never scored) -- the
+    gate below always treats ``None`` as "nothing to hedge," never as "low
+    confidence," so a plan generated without the synthesis pipeline reads
+    exactly as it did before this mechanism existed.
+    """
+    synthesized = data.get("_synthesized", {})
+    if not isinstance(synthesized, dict):
+        return None
+    confidence_scores = synthesized.get("confidence_scores", {})
+    if not isinstance(confidence_scores, dict):
+        return None
+    section_scores = confidence_scores.get(
+        "sections", confidence_scores.get("per_section", {})
+    )
+    if not isinstance(section_scores, dict) or section_key not in section_scores:
+        return None
+    raw = section_scores[section_key]
+    if isinstance(raw, dict):
+        score = _safe_num(raw.get("score", raw.get("confidence") or 0))
+    else:
+        score = _safe_num(raw)
+    return score, _grade_from_score(score)
+
+
+def _confidence_gated_title(
+    base_title: str, conf: Optional[Tuple[float, str]]
+) -> str:
+    """Section-header title, hedged when ``conf`` is below threshold.
+
+    False-positive guard: a well-sourced section (``conf`` is ``None`` --
+    not scored -- or score >= ``_CONFIDENCE_GATE_HEDGE_THRESHOLD``) is
+    returned completely unchanged.
+    """
+    if conf is None:
+        return base_title
+    score, grade = conf
+    if score < _CONFIDENCE_GATE_ESTIMATE_THRESHOLD:
+        return f"{base_title} — Estimate ({grade} Confidence)"
+    if score < _CONFIDENCE_GATE_HEDGE_THRESHOLD:
+        return f"{base_title} ({grade} Confidence)"
+    return base_title
+
+
+def _write_confidence_gate_note(
+    ws, row: int, section_key: str, conf: Optional[Tuple[float, str]]
+) -> int:
+    """Visible provenance line for a below-threshold section.
+
+    No-op (returns ``row`` unchanged) for a well-sourced section or one
+    with no computed score -- see the false-positive guard in the module
+    docstring above ``_CONFIDENCE_GATE_HEDGE_THRESHOLD``.
+    """
+    if conf is None:
+        return row
+    score, grade = conf
+    if score >= _CONFIDENCE_GATE_HEDGE_THRESHOLD:
+        return row
+    topic = _CONFIDENCE_GATE_TOPICS.get(section_key, "live market data")
+    msg = (
+        f"Data confidence for this section: {score:.0%} ({grade}) — see "
+        f"Sources & Confidence for the full breakdown. Figures below rely "
+        f"on limited source coverage; not verified against {topic}."
+    )
+    if score < _CONFIDENCE_GATE_ESTIMATE_THRESHOLD:
+        msg += " Treat these as directional estimates, not verified benchmarks."
+    return _write_footnote(ws, row, msg)
 
 
 # cpc_source values (set by budget_engine's CPC resolution cascade) that
@@ -5847,7 +6028,11 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
     # ── 3. Ad Platform Analysis ──
     ad_platforms = synthesized.get("ad_platform_analysis", {})
 
-    row = _write_section_header(ws, row, "Ad Platform Analysis")
+    _apa_conf = _section_confidence(data, "ad_platform_analysis")
+    row = _write_section_header(
+        ws, row, _confidence_gated_title("Ad Platform Analysis", _apa_conf)
+    )
+    row = _write_confidence_gate_note(ws, row, "ad_platform_analysis", _apa_conf)
 
     if ad_platforms:
         # Build headers dynamically -- exclude ROI Projection
@@ -6218,7 +6403,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     lc.get("country") or "",
                     _flatten_value(lc.get("unemployment_rate") or ""),
                     _flatten_value(lc.get("median_salary") or ""),
-                    _truncate_at_word_boundary(lc.get("context_note") or "", 80),
+                    _truncate_at_clause_boundary(lc.get("context_note") or "", 80),
                 ]
                 row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
         row += 1
@@ -6226,7 +6411,11 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     row += 1
 
     # ── 2. Location Intelligence ──
-    row = _write_section_header(ws, row, "Location Intelligence")
+    _loc_conf = _section_confidence(data, "location_profiles")
+    row = _write_section_header(
+        ws, row, _confidence_gated_title("Location Intelligence", _loc_conf)
+    )
+    row = _write_confidence_gate_note(ws, row, "location_profiles", _loc_conf)
 
     loc_profiles = synthesized.get("location_profiles", {})
     loc_demographics = enriched.get("location_demographics", {})
@@ -6452,6 +6641,23 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 
         _rationale = insight_composer.geography_rationale(loc, loc_data)
 
+        # Silent-fallback fix: research.get_location_info flags
+        # is_generic_fallback=True when it has NO metro/state entry at all
+        # for this location and returned a flat national-average
+        # median_salary/unemployment (see that function's own comment).
+        # Mark the two fields that would otherwise look like this market's
+        # own measured figures with an asterisk tied to a shared footnote
+        # below, rather than presenting a national placeholder as if it
+        # were location-specific research.
+        _loc_is_generic = bool(
+            isinstance(loc_data, dict) and loc_data.get("is_generic_fallback")
+        )
+        if _loc_is_generic:
+            if unemp_str:
+                unemp_str = f"{unemp_str}*"
+            if income_str:
+                income_str = f"{income_str}*"
+
         _loc_rows.append(
             {
                 "location": loc,
@@ -6461,6 +6667,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 "income": income_str,
                 "industries": _truncate_at_word_boundary(industry_str, 80),
                 "rationale": _rationale,
+                "_is_generic_fallback": _loc_is_generic,
             }
         )
 
@@ -6490,6 +6697,15 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 + [r["rationale"]]
             )
             row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
+
+        if any(r.get("_is_generic_fallback") for r in _loc_rows):
+            row = _write_footnote(
+                ws,
+                row,
+                "* No location-specific data on file for this market; "
+                "Unemployment/Income shown are flat national averages, not "
+                "measured for this location.",
+            )
 
     # ── 2b. Macro Economic Context (FRED indicators) ──
     _fred_macro = {}
@@ -6555,7 +6771,11 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     row += 2
 
     # ── 3. Competitive Landscape ──
-    row = _write_section_header(ws, row, "Competitive Landscape")
+    _ci_conf = _section_confidence(data, "competitive_intelligence")
+    row = _write_section_header(
+        ws, row, _confidence_gated_title("Competitive Landscape", _ci_conf)
+    )
+    row = _write_confidence_gate_note(ws, row, "competitive_intelligence", _ci_conf)
 
     comp_intel = synthesized.get("competitive_intelligence", {})
     company_profile = comp_intel.get("company_profile", {})
@@ -6902,7 +7122,11 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     salary_intel = synthesized.get("salary_intelligence", {})
 
     if salary_intel:
-        row = _write_section_header(ws, row, "Salary Intelligence")
+        _sal_conf = _section_confidence(data, "salary_intelligence")
+        row = _write_section_header(
+            ws, row, _confidence_gated_title("Salary Intelligence", _sal_conf)
+        )
+        row = _write_confidence_gate_note(ws, row, "salary_intelligence", _sal_conf)
 
         headers = ["Role", "Min", "P25", "Median", "P75", "Max", "Confidence"]
         row = _write_table_header(ws, row, headers)
@@ -7093,7 +7317,11 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     workforce = synthesized.get("workforce_insights", {})
 
     if workforce:
-        row = _write_section_header(ws, row, "Workforce Trends")
+        _wf_conf = _section_confidence(data, "workforce_insights")
+        row = _write_section_header(
+            ws, row, _confidence_gated_title("Workforce Trends", _wf_conf)
+        )
+        row = _write_confidence_gate_note(ws, row, "workforce_insights", _wf_conf)
 
         # CRITICAL: Properly flatten nested structures -- never use str() on dicts
         for section_key, section_val in workforce.items():
@@ -9104,12 +9332,41 @@ def _build_sheet_quality_intelligence(
                 # Derive this cell from the SAME per_role_salary rows the
                 # Salary Intelligence table renders -- min of mins, max of
                 # maxes -- so the two tables can't disagree about one market.
-                # INCIDENT FIX (currency-integrity defect 2): market_label is
-                # this market's own country name (e.g. "Uk", "Argentina") for
-                # every non-collapsed row -- resolve its ISO currency code the
-                # same canonical way the sibling Market Intelligence sheet's
-                # Location Intelligence table does, so the two sheets agree
-                # on the same market instead of this one always printing "$".
+                # INCIDENT FIX (currency-integrity defect 2): resolve this
+                # market's ISO currency code the same canonical way the
+                # sibling Market Intelligence sheet's Location Intelligence
+                # table does, so the two sheets agree on the same market
+                # instead of this one always printing "$".
+                #
+                # coordinator-flagged defect (matrix_gen "uncovered_industry_
+                # education", London/UK): market_label here is this market's
+                # bare CITY name (gold_standard.enrich_city_level_data keys
+                # city_data by the token before the first comma -- "London",
+                # not "London, United Kingdom" or "United Kingdom"), and
+                # plan_currency.currency_for_country() only maps COUNTRY
+                # names/codes/aliases. A city name that isn't also a country
+                # alias substring (e.g. "London", "Sydney", "Toronto" -- as
+                # opposed to "Mexico City", which happens to contain
+                # "mexico") silently resolved to None, which
+                # _salary_range_from_per_role treated as "default to bare
+                # USD" -- contradicting a GBP/AUD/CAD plan's own currency and
+                # tripping bundle_qa's currency_symbol_mixing check.
+                #
+                # This plan-data model never carries a genuinely different
+                # currency per market (no per-market exchange rate exists
+                # anywhere in this codebase -- see plan_currency.py's own
+                # docstring: "never relabel a USD number with a £ sign", i.e.
+                # never invent a rate); there is exactly ONE resolved plan
+                # currency, already computed once for the whole workbook via
+                # _set_active_currency(data) at generate_excel_v2 start. So
+                # when this market's OWN bare label doesn't resolve, fall
+                # back to that single plan-level currency instead of
+                # silently defaulting to USD -- it is always at least as
+                # correct (exactly correct for the common single-country
+                # plan this incident was; the best available default for a
+                # genuinely multi-country plan absent a per-city gazetteer)
+                # and it can never disagree with what every other cell on
+                # this same workbook calls "this plan's currency."
                 _mkt_currency_code = None
                 if _plan_currency is not None:
                     try:
@@ -9118,6 +9375,8 @@ def _build_sheet_quality_intelligence(
                         )
                     except Exception:  # noqa: BLE001 - resolution is best-effort
                         _mkt_currency_code = None
+                if not _mkt_currency_code:
+                    _mkt_currency_code = _get_active_currency()
                 row = _write_table_row(
                     ws,
                     row,

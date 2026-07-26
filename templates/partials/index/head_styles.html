@@ -2114,6 +2114,73 @@
   }
 
   /* ============================================
+           BUNDLE QA GATE (generation-time critical findings)
+           ============================================ */
+  .qa-gate-card {
+    text-align: left;
+    max-width: 520px;
+  }
+
+  .qa-gate-card h3 {
+    color: var(--error);
+  }
+
+  .qa-gate-findings {
+    max-height: 260px;
+    overflow-y: auto;
+    margin: 20px 0;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .qa-gate-finding {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .qa-gate-finding:last-child {
+    border-bottom: none;
+  }
+
+  .qa-gate-finding-code {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--error);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .qa-gate-finding-message {
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: var(--text-primary);
+    margin-top: 4px;
+  }
+
+  .qa-gate-finding-location {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .qa-gate-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  .qa-gate-ack-note {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 12px;
+    text-align: center;
+  }
+
+  /* ============================================
            FORM VALIDATION
            ============================================ */
   .form-group.floating-label {

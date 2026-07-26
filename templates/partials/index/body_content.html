@@ -2991,3 +2991,38 @@
     ></p>
   </div>
 </div>
+
+<!-- Generation-time QA gate: shown when a completed job's bundle_qa
+     summary carries critical findings. The operator must read the
+     findings and explicitly click "Download Anyway" before the bundle
+     downloads -- criticals are never allowed to download silently, but
+     generation itself is never blocked (the bundle already exists). -->
+<div
+  id="qaGateOverlay"
+  class="generation-overlay qa-gate-overlay"
+  style="display: none"
+  role="alertdialog"
+  aria-label="Quality findings on this plan"
+  aria-describedby="qaGateSubtitle"
+>
+  <div class="generation-card qa-gate-card">
+    <h3>Quality Check Found Issues</h3>
+    <p class="gen-subtitle" id="qaGateSubtitle">
+      This plan generated successfully, but the automated quality check
+      flagged the following before you send it to a client:
+    </p>
+    <div class="qa-gate-findings" id="qaGateFindings"></div>
+    <div class="qa-gate-actions">
+      <button type="button" id="qaGateCancelBtn" class="btn btn-ghost btn-md">
+        Cancel
+      </button>
+      <button
+        type="button"
+        id="qaGateDownloadBtn"
+        class="btn btn-danger btn-md"
+      >
+        Download Anyway
+      </button>
+    </div>
+  </div>
+</div>

@@ -585,6 +585,49 @@ def test_allows_zero_hire_with_dash_cph():
     assert not any(f["code"] == "zero_hire_nonzero_cph" for f in findings)
 
 
+def test_zero_hire_honesty_does_not_bleed_into_a_later_differently_shaped_table():
+    """CHECK-ARTIFACT REGRESSION (2026-07-26, tiny-budget false positive):
+    the real "ROI Projections" sheet stacks a "Per-Channel ROI Analysis"
+    table (Proj. Hires / Cost Per Hire columns) directly above a
+    "Recruitment Funnel" table (Qualified / App->Qualified-rate columns in
+    those SAME column positions), separated by one blank row. The correct
+    ROI Analysis rows below all show '-' for Cost Per Hire on their 0-hire
+    rows -- this must produce ZERO findings. The scan must never run past
+    the blank row into the funnel table below and misread its Qualified
+    count as "hires" and its rate as a dollar "Cost Per Hire".
+    """
+    pytest = __import__("pytest")
+    pytest.importorskip("openpyxl")
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "ROI Projections"
+    # Column positions mirror the real sheet exactly (leading blank column
+    # A; "Proj. Hires" at index 4, "Cost Per Hire" at index 7).
+    ws.append(
+        [None, "Channel Name", "Budget ($)", "Proj. Applications", "Proj. Hires",
+         "Confidence", "Hire Range", "Cost Per Hire"]
+    )
+    ws.append([None, "Regional Job Boards", 3575.15, 602, 2, "MEDIUM", "1 - 2", 1787.58])
+    ws.append([None, "Social Media", 136, 1, 0, "LOW", "0", "—"])
+    ws.append([])  # table boundary
+    ws.append(
+        [None, "Channel Name", "Clicks", "Applications", "Qualified", "Interviews",
+         "Hires", "App→Qualified"]
+    )
+    # This funnel row's "Qualified" count (misread as hires_col=4, i.e. the
+    # position "Proj. Hires" held in the table above) is 0, and its
+    # "App→Qualified" rate (misread as cph_col=7, the position "Cost Per
+    # Hire" held above) is a nonzero fraction -- exactly the real
+    # tiny-budget shape that used to misfire as "0 hires but a numeric
+    # Cost Per Hire".
+    ws.append([None, "Social Media", 52, 1, 0, 0, "—", 0.124])
+    findings: list[dict] = []
+    bundle_qa._check_zero_hire_honesty(wb, findings)
+    assert not any(f["code"] == "zero_hire_nonzero_cph" for f in findings), findings
+
+
 def test_detects_forecast_footing_mismatch():
     pytest = __import__("pytest")
     pytest.importorskip("openpyxl")
@@ -639,6 +682,72 @@ def test_allows_correct_forecast_footing():
     findings: list[dict] = []
     bundle_qa._check_90_day_forecast_footing(wb, findings)
     assert not any(f["code"] == "forecast_footing_mismatch" for f in findings)
+
+
+_FUNNEL_HEADERS = [
+    "Channel Name",
+    "Clicks",
+    "Applications",
+    "Qualified",
+    "Interviews",
+    "Hires",
+    "App→Qualified",
+    "Qualified→Interview",
+    "Interview→Hire",
+]
+
+
+def test_allows_large_scale_funnel_rate_reconstruction_residual():
+    """TOLERANCE FIX (2026-07-26, India/tech false positive): stage rates
+    in this table are stored rounded to 4 decimal places (see
+    budget_engine.compute_funnel_stages). Reconstructing an upstream
+    integer count via round(prev_stage * printed_rate) then carries an
+    inherent residual of up to 0.00005 * prev_stage -- real signal, not a
+    footing bug -- once prev_stage is large enough (hundreds of thousands
+    of applications on a real non-US enterprise plan). This is the exact
+    real row from the nonus_single_india_tech probe brief: Interviews
+    (49257) x Interview→Hire (0.15) rounds to 7389, but the actual
+    (CPH-anchored, independently correct) Hires is 7391 -- a 2-count gap
+    that a flat 1-count tolerance flags but the scaled tolerance allows."""
+    pytest = __import__("pytest")
+    pytest.importorskip("openpyxl")
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "ROI Projections"
+    ws.append(_FUNNEL_HEADERS)
+    ws.append(
+        ["Niche / Industry Boards", 12529761, 1754166, 246285, 49257, 7391, 0.1404, 0.2, 0.15]
+    )
+    ws.append(["TOTAL", 12529761, 1754166, 246285, 49257, 7391, 0.1404, 0.2, 0.15])
+    findings: list[dict] = []
+    bundle_qa._check_recruitment_funnel_footing(wb, findings)
+    assert not any(
+        f["code"] == "funnel_rate_footing_mismatch" for f in findings
+    ), findings
+
+
+def test_detects_genuine_large_scale_funnel_rate_mismatch():
+    """The scaled tolerance must not blunt the check into uselessness --
+    a Hires value far outside even the scaled residual (interviews x rate
+    rounds to 7389; an actual Hires of 9000 is nowhere close) must still
+    fire."""
+    pytest = __import__("pytest")
+    pytest.importorskip("openpyxl")
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "ROI Projections"
+    ws.append(_FUNNEL_HEADERS)
+    ws.append(
+        ["Niche / Industry Boards", 12529761, 1754166, 246285, 49257, 9000, 0.1404, 0.2, 0.15]
+    )
+    ws.append(["TOTAL", 12529761, 1754166, 246285, 49257, 9000, 0.1404, 0.2, 0.15])
+    findings: list[dict] = []
+    bundle_qa._check_recruitment_funnel_footing(wb, findings)
+    assert any(f["code"] == "funnel_rate_footing_mismatch" for f in findings)
 
 
 def test_detects_beating_badge_next_to_non_comparable_benchmark():
@@ -987,6 +1096,56 @@ def test_allows_industry_matching_client_and_roles():
         findings,
     )
     assert not any(f["code"] == "industry_client_conflict" for f in findings)
+
+
+def test_industry_client_conflict_absence_of_signal_is_not_a_conflict():
+    """FALSE-POSITIVE FIX (2026-07-26): a client name/role set that carries
+    NO usable industry signal must never be treated as "disagreeing" with
+    an explicit, specific industry selection -- the old implementation
+    independently called classify_industry("", client, roles), whose own
+    last resort (when nothing matches) is the generic
+    "general_entry_level" bucket, and then flagged the diff between that
+    generic catch-all and the real selection as a conflict. Absence of
+    evidence is not disagreement. These three real-brief shapes (from a
+    10-brief false-positive matrix) must all come back clean."""
+    cases = [
+        ("Corner Cafe", "Hospitality & Travel", ["Barista"]),
+        ("Pearson", "Education", ["Curriculum Designer"]),
+        ("Nimbus", "Finance & Banking", ["Analyst"]),
+    ]
+    for client_name, industry, roles in cases:
+        findings: list[dict] = []
+        bundle_qa._check_industry_client_conflict(
+            {"client_name": client_name, "industry": industry, "roles": roles},
+            findings,
+        )
+        assert not any(
+            f["code"] == "industry_client_conflict" for f in findings
+        ), f"false positive for {client_name}/{industry}: {findings}"
+
+
+def test_industry_client_conflict_still_fires_on_a_real_positive_signal():
+    """The origin defect must still be caught after the false-positive
+    fix: an explicit "Hospitality & Travel" pick for a company actually
+    named Uber, with a driver-type role, is a genuine, specific,
+    positive-signal disagreement (not a generic fallback) and must still
+    fire."""
+    findings: list[dict] = []
+    bundle_qa._check_industry_client_conflict(
+        {
+            "client_name": "Uber",
+            "industry": "Hospitality & Travel",
+            "roles": ["commercial cab driver"],
+        },
+        findings,
+    )
+    matches = [f for f in findings if f["code"] == "industry_client_conflict"]
+    assert matches
+    assert "Hospitality" in matches[0]["message"]
+    assert (
+        "Rideshare" in matches[0]["message"]
+        or "logistics_supply_chain" in matches[0]["message"]
+    )
 
 
 def test_industry_client_conflict_check_never_raises_on_malformed_roles():

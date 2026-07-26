@@ -317,5 +317,142 @@ def test_guard_zero_currency_symbol_mixing_on_usd_plan(usd_bundle):
     assert mixing == [], f"USD plan must never trigger currency_symbol_mixing: {mixing}"
 
 
+# ---------------------------------------------------------------------------
+# Defect 5 -- Quality Intelligence "City-Level Supply-Demand Data" market
+# currency resolution silently defaulted to bare "$" for a BARE CITY NAME.
+#
+# Found by an outside probe generating 10 brief shapes against origin/main:
+# a single-market UK plan ("London, United Kingdom") -- NOT a multi-country
+# plan like defects 1-3 above -- still produced
+# ``currency_symbol_mixing`` @ Quality Intelligence!H8: "$60,000 - $97,500"
+# on a plan bundle_qa itself resolves as GBP.
+#
+# Root cause: gold_standard.enrich_city_level_data keys city_data by the
+# CITY name alone (the token before the first comma -- "London", not
+# "London, United Kingdom" or "United Kingdom"). excel_v2's
+# `_mkt_currency_code` resolution passed that bare city name straight to
+# plan_currency.currency_for_country(), which only maps COUNTRY
+# names/codes/aliases -- so it silently returned None (bare "$") for any
+# city whose name isn't ALSO a country-name substring (defects 1-3's
+# locations were bare COUNTRY names like "UK"/"Australia", which resolve
+# directly; "Mexico City" happens to contain "mexico" and worked by
+# accident -- "London"/"Sydney"/"Toronto" do not).
+#
+# The fix: when a market's own bare label doesn't resolve, fall back to
+# the plan's single, already-resolved currency (_get_active_currency())
+# instead of silently defaulting to USD -- this codebase never carries a
+# genuinely different currency per market (no per-market FX rate exists
+# anywhere; plan_currency.py's own docstring: never invent a rate), so
+# that is always at least as correct, and can never disagree with what
+# every other cell on the same workbook calls "this plan's currency."
+# ---------------------------------------------------------------------------
+
+PEARSON_UK_EDUCATION_BRIEF: dict = {
+    "client_name": "Pearson",
+    "requester_name": "Test Requester",
+    "requester_email": "test@joveo.com",
+    "industry": "Education",
+    "budget": "$150,000",
+    "campaign_duration": "3-6 months",
+    "hire_volume": "100+ hires",
+    "work_environment": "remote",
+    "locations": ["London, United Kingdom"],
+    "roles": ["Curriculum Designer"],
+    "target_roles": [{"title": "Curriculum Designer", "count": 100, "tier": "Salaried"}],
+}
+
+# A second, distinct market -- proves the fix generalises beyond "London"
+# specifically (a different city, a different country/currency, a
+# different industry). Coordinator's ask: "add at least one mixed-currency
+# shape (non-US market, USD budget)" of my own.
+AVIVA_AU_INSURANCE_BRIEF: dict = {
+    "client_name": "Aviva Insurance AU",
+    "requester_name": "Test Requester",
+    "requester_email": "test@joveo.com",
+    "industry": "Insurance",
+    "budget": "$220,000",
+    "campaign_duration": "3-6 months",
+    "hire_volume": "60+ hires",
+    "work_environment": "hybrid",
+    "locations": ["Sydney, Australia"],
+    "roles": ["Claims Adjuster"],
+    "target_roles": [{"title": "Claims Adjuster", "count": 60, "tier": "Salaried"}],
+}
+
+
+@pytest.fixture(scope="module")
+def pearson_uk_bundle():
+    return _generate_bundle(PEARSON_UK_EDUCATION_BRIEF)
+
+
+@pytest.fixture(scope="module")
+def aviva_au_bundle():
+    return _generate_bundle(AVIVA_AU_INSURANCE_BRIEF)
+
+
+def test_defect5_single_market_city_only_label_resolves_plan_currency_gbp(
+    pearson_uk_bundle,
+):
+    wb = load_workbook(io.BytesIO(pearson_uk_bundle["xlsx"]))
+    ws = wb["Quality Intelligence"]
+    header_row, cols = _find_table(ws, "Salary Range")
+    assert header_row is not None
+    market_col = cols["Market"]
+    range_col = cols["Salary Range"]
+
+    seen = {}
+    for r in range(header_row + 1, header_row + 5):
+        mkt = ws.cell(row=r, column=market_col).value
+        if mkt:
+            seen[mkt] = ws.cell(row=r, column=range_col).value
+    assert "London" in seen, f"expected a London row, found {sorted(seen)}"
+    assert seen["London"] == "£60,000 - £97,500 (GBP)", (
+        f"London Salary Range = {seen['London']!r} -- bare '$' city-name "
+        "currency-resolution gap not fixed"
+    )
+
+
+def test_defect5_second_market_sydney_au_resolves_plan_currency_aud(
+    aviva_au_bundle,
+):
+    wb = load_workbook(io.BytesIO(aviva_au_bundle["xlsx"]))
+    ws = wb["Quality Intelligence"]
+    header_row, cols = _find_table(ws, "Salary Range")
+    assert header_row is not None
+    market_col = cols["Market"]
+    range_col = cols["Salary Range"]
+
+    seen = {}
+    for r in range(header_row + 1, header_row + 5):
+        mkt = ws.cell(row=r, column=market_col).value
+        if mkt:
+            seen[mkt] = ws.cell(row=r, column=range_col).value
+    assert "Sydney" in seen, f"expected a Sydney row, found {sorted(seen)}"
+    assert seen["Sydney"] == "A$60,000 - A$97,500 (AUD)", (
+        f"Sydney Salary Range = {seen['Sydney']!r} -- bare '$' city-name "
+        "currency-resolution gap not fixed"
+    )
+
+
+def test_defect5_guard_zero_currency_symbol_mixing_single_market_uk_plan(
+    pearson_uk_bundle,
+):
+    findings = run_bundle_qa(
+        pearson_uk_bundle["pptx"], pearson_uk_bundle["xlsx"], pearson_uk_bundle["data"]
+    )
+    mixing = [f for f in findings if f.get("code") == "currency_symbol_mixing"]
+    assert mixing == [], f"currency_symbol_mixing findings remain: {mixing}"
+
+
+def test_defect5_guard_zero_currency_symbol_mixing_second_market_au_plan(
+    aviva_au_bundle,
+):
+    findings = run_bundle_qa(
+        aviva_au_bundle["pptx"], aviva_au_bundle["xlsx"], aviva_au_bundle["data"]
+    )
+    mixing = [f for f in findings if f.get("code") == "currency_symbol_mixing"]
+    assert mixing == [], f"currency_symbol_mixing findings remain: {mixing}"
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))

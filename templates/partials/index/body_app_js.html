@@ -1428,6 +1428,122 @@
   }
 
   // ============================================
+  // Generation-time QA gate (bundle_qa critical findings)
+  // ============================================
+  // A completed job's /api/jobs/{id} poll response now carries qa_status
+  // ("clean" | "warnings" | "critical") + qa_critical_count/qa_codes/
+  // qa_findings (see app.py's _bundle_qa_response_fields). Only
+  // "critical" ever gates: the operator must see the findings and
+  // explicitly choose to proceed before the auto-download in Step 3 of
+  // startGeneration() below runs. Clean/warnings (or bundle_qa having
+  // crashed/never run, which also reports "clean") fall straight
+  // through with zero added friction -- this must never become a
+  // second confirmation dialog for the common case.
+  function _qaGateEscapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return (
+        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[
+          c
+        ] || c
+      );
+    });
+  }
+
+  function showQaGateOverlay(pollData) {
+    const overlay = document.getElementById("qaGateOverlay");
+    const findingsEl = document.getElementById("qaGateFindings");
+    if (!overlay || !findingsEl) return;
+    const findings = (pollData && pollData.qa_findings) || [];
+    const critical = findings.filter(function (f) {
+      return f && f.severity === "critical";
+    });
+    const shown = critical.length ? critical : findings;
+    findingsEl.innerHTML = shown
+      .map(function (f) {
+        return (
+          '<div class="qa-gate-finding">' +
+          '<span class="qa-gate-finding-code">' +
+          _qaGateEscapeHtml(f.code || "finding") +
+          "</span>" +
+          '<div class="qa-gate-finding-message">' +
+          _qaGateEscapeHtml(f.message || "") +
+          "</div>" +
+          (f.location
+            ? '<div class="qa-gate-finding-location">' +
+              _qaGateEscapeHtml(f.location) +
+              "</div>"
+            : "") +
+          "</div>"
+        );
+      })
+      .join("");
+    overlay.style.display = "flex";
+    requestAnimationFrame(function () {
+      overlay.classList.add("visible");
+    });
+  }
+
+  function hideQaGateOverlay() {
+    const overlay = document.getElementById("qaGateOverlay");
+    if (!overlay) return;
+    overlay.classList.remove("visible");
+    setTimeout(function () {
+      overlay.style.display = "none";
+    }, 200);
+  }
+
+  function acknowledgeQaFindings(jobId) {
+    // Best-effort: records who overrode the gate (audit_logger event
+    // bundle_qa.override_acknowledged) but must never block the download
+    // the operator already explicitly chose to proceed with -- a failure
+    // here degrades to "the download still happens", not a second gate.
+    return fetch("/api/jobs/" + jobId + "/qa-ack", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": getCsrfToken(),
+      },
+      body: JSON.stringify({
+        acknowledged_by: window._currentUserEmail || "",
+      }),
+    }).catch(function (e) {
+      console.warn("bundle_qa acknowledgement logging failed:", e);
+    });
+  }
+
+  function waitForQaGateDecision(pollData, jobId) {
+    if (!pollData || pollData.qa_status !== "critical") {
+      return Promise.resolve(true);
+    }
+    showQaGateOverlay(pollData);
+    return new Promise(function (resolve) {
+      const cancelBtn = document.getElementById("qaGateCancelBtn");
+      const downloadBtn = document.getElementById("qaGateDownloadBtn");
+      function cleanup() {
+        cancelBtn.removeEventListener("click", onCancel);
+        downloadBtn.removeEventListener("click", onDownload);
+        hideQaGateOverlay();
+      }
+      function onCancel() {
+        cleanup();
+        resolve(false);
+      }
+      function onDownload() {
+        downloadBtn.disabled = true;
+        downloadBtn.textContent = "Downloading...";
+        acknowledgeQaFindings(jobId).then(function () {
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = "Download Anyway";
+          cleanup();
+          resolve(true);
+        });
+      }
+      cancelBtn.addEventListener("click", onCancel);
+      downloadBtn.addEventListener("click", onDownload);
+    });
+  }
+
+  // ============================================
   // 27. Inline validation
   // ============================================
   function validateField(fieldId) {
@@ -3689,7 +3805,10 @@
       genCurrentJobId = jobId;
 
       // Step 2: Poll /api/jobs/{jobId} every 2s for real server progress
-      await new Promise(function (pollResolve, pollReject) {
+      var _completedPollData = await new Promise(function (
+        pollResolve,
+        pollReject,
+      ) {
         var _pst = Date.now(),
           _ptm = GEN_TIMEOUT_SECS * 1000;
         genPollInterval = setInterval(async function () {
@@ -3731,6 +3850,26 @@
           }
         }, 2000);
       });
+
+      // ── Generation-time QA gate ──
+      // The bundle already exists server-side either way -- this only
+      // decides whether the auto-download below proceeds immediately
+      // (clean/warnings) or waits on the operator reading the findings
+      // and clicking "Download Anyway" (critical). See
+      // waitForQaGateDecision above.
+      var _qaGateProceed = await waitForQaGateDecision(
+        _completedPollData,
+        jobId,
+      );
+      if (!_qaGateProceed) {
+        genCurrentJobId = null;
+        hideGenerationOverlay(false);
+        showToast(
+          "Download cancelled -- quality findings were not acknowledged.",
+          "info",
+        );
+        return;
+      }
 
       // Step 3: Download the completed file (with retry for network flakiness)
       var _dlRes = null;

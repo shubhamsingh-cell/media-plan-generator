@@ -799,6 +799,54 @@ def _trunc_word(s: str, maxlen: int = 500) -> str:
     return cut + "..."
 
 
+# fix/gate-confidence-layout: composed template sentences (e.g. the
+# competitor Counter-strategy prose, which always reads as "<complete
+# clause> -- <supporting clause>" or "<complete clause>; <supporting
+# clause>") interpolate this plan's own role title / city / client name, so
+# a long one (long_names matrix shape: "Senior Assistant Front Office Duty
+# Manager (Night Shift) candidates in Kuala Lumpur") can blow past
+# _trunc_word's flat character budget well before the sentence's natural
+# end. _trunc_word's own word-boundary cut is technically never "mid-word"
+# in the sense of splitting a token, but bundle_qa.py's own
+# _MID_WORD_ELLIPSIS_RE (a letter immediately followed by an unspaced
+# ellipsis, with no way to tell "genuinely cut mid-token" from "cut after a
+# complete word") flags it regardless -- and a sentence that trails off
+# right after a word with no visual separation does read, to a human, like
+# it stopped mid-thought. _trunc_clause cuts at the LAST clause boundary
+# (em dash / semicolon) within the budget when one exists, dropping the
+# trailing clause entirely and terminating on a complete, grammatical
+# sentence that needs no ellipsis at all -- reads as if nothing was cut,
+# because nothing mid-sentence was. Falls back to _trunc_word's word cut
+# only when no clause boundary exists in the budget, but always separates
+# the ellipsis from the kept word with a space so that cut can never be
+# misread (by that regex, or a reader) as landing inside a word.
+_CLAUSE_BOUNDARY_RE = re.compile(r"\s+(?:—|--)\s+|;\s+")
+
+
+def _trunc_clause(s: str, maxlen: int = 500) -> str:
+    """Truncate prose at a clause boundary when one exists in the budget,
+    else fall back to _trunc_word's word-boundary cut. See module comment
+    above for why this exists alongside (not instead of) _trunc_word.
+    """
+    s = _TRAILING_ELLIPSIS_RE.sub("", str(s or "")).rstrip()
+    if len(s) <= maxlen:
+        return s
+    best_end = -1
+    for m in _CLAUSE_BOUNDARY_RE.finditer(s):
+        if m.start() > maxlen:
+            break
+        best_end = m.start()
+    if best_end > 0:
+        clause = s[:best_end].rstrip(" ,;:-")
+        if clause and clause[-1] not in ".!?":
+            clause += "."
+        return clause
+    cut = _trunc_word(s, maxlen)
+    if cut.endswith("...") and (len(cut) < 4 or cut[-4] != " "):
+        cut = cut[:-3] + " ..."
+    return cut
+
+
 # ---------------------------------------------------------------------------
 # Industry Benchmark Data
 # NOTE: Canonical benchmark source is trend_engine.py. These values are fallbacks only.
@@ -3168,7 +3216,7 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
             caption_y,
             Inches(8.85),
             Inches(0.22),
-            text=_trunc_word("   ".join(disclaimers), 150),
+            text=_trunc_clause("   ".join(disclaimers), 150),
             font_size=8,
             italic=True,
             color=AMBER,
@@ -3250,30 +3298,67 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         italic=True,
         color=WHITE,
     )
+
+    # Client hero -- the single highest-visibility, most variable string in
+    # the whole deck (this is the first thing a buyer sees), yet the only
+    # cover-slide element with zero autofit: a long legal name (e.g. "The
+    # International Consolidated Hospitality and Leisure Group PLC") wraps
+    # to 2 lines at a fixed 42pt in this 11.8in-wide box, overflows the
+    # fixed 1.0in box, and runs straight into the Industry subtitle only
+    # 0.02in below it. Shrink-to-fit (never below a still-prominent 20pt),
+    # then size the box to the ACTUAL measured line count and cascade every
+    # element below it from that measured bottom -- the same measure-then-
+    # place pattern used elsewhere (Risk Analysis / Push-Pull) -- instead of
+    # a fixed box a short name happens to fit and a long one does not.
+    _client_top_in = 3.48
+    _client_font_pt = _fit_font_to_lines(client, 11.8, 42, max_lines=2, min_pt=20)
+    _client_n_lines = _estimate_lines(client, 11.8, _client_font_pt)
+    _client_line_h_in = (_client_font_pt * 1.4) / 72.0
+    _client_box_h_in = max(1.0, _client_n_lines * _client_line_h_in + 0.12)
     _add_textbox(
         slide,
         Inches(0.62),
-        Inches(3.48),
+        Inches(_client_top_in),
         Inches(11.8),
-        Inches(1.0),
+        Inches(_client_box_h_in),
         text=client,
-        font_size=42,
+        font_size=_client_font_pt,
         bold=True,
         color=LIGHT_TEAL,
     )
+    _client_bottom_in = _client_top_in + _client_box_h_in
 
-    # Industry subtitle
+    # Industry subtitle -- cascades from the hero's measured bottom (never
+    # ABOVE the old y=4.5 anchor, so a short client name renders byte-
+    # identically to before) so a wrapped hero name can never collide with
+    # the line directly below it. Also capped to one line itself (a very
+    # long industry label at a fixed 18pt could wrap and repeat the same
+    # collision one slide element later).
+    _old_industry_bottom_in = 5.0  # previous fixed 4.5 + 0.5in box
+    _industry_top_in = max(4.5, _client_bottom_in + 0.08)
+    _industry_bottom_in = _old_industry_bottom_in
     if industry_label:
+        _industry_font_pt = _fit_font_single_line(
+            industry_label, 10.0, 18, min_pt=12, char_em=_AVG_CHAR_EM
+        )
         _add_textbox(
             slide,
             Inches(0.64),
-            Inches(4.5),
+            Inches(_industry_top_in),
             Inches(10),
             Inches(0.5),
             text=industry_label,
-            font_size=18,
+            font_size=_industry_font_pt,
             color=LIGHT_TEAL,
         )
+        _industry_bottom_in = _industry_top_in + 0.5
+
+    # Every element below the industry line keeps its ORIGINAL relative
+    # spacing -- shift the whole block down by exactly however far the hero/
+    # industry lines grew beyond their old anchors (0 for the common case of
+    # a normal-length name), clamped to a sane maximum so even a pathological
+    # name can't push the bottom-of-slide brand bars off-canvas.
+    _cover_shift_in = min(0.5, max(0.0, _industry_bottom_in - _old_industry_bottom_in))
 
     # Company tagline from enrichment data (Wikipedia description)
     enriched = data.get("_enriched", {})
@@ -3288,7 +3373,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         _add_textbox(
             slide,
             Inches(0.64),
-            Inches(5.02),
+            Inches(5.02 + _cover_shift_in),
             Inches(9),
             Inches(0.4),
             text=tagline,
@@ -3301,7 +3386,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     _add_textbox(
         slide,
         Inches(0.62),
-        Inches(5.62),
+        Inches(5.62 + _cover_shift_in),
         Inches(8),
         Inches(0.4),
         text="Created by Shubham Singh Chandel  •  Powered by Joveo's Global Supply Team",
@@ -3311,7 +3396,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     _add_textbox(
         slide,
         Inches(0.62),
-        Inches(6.04),
+        Inches(6.04 + _cover_shift_in),
         Inches(6),
         Inches(0.4),
         text=today,
@@ -5300,9 +5385,37 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
                 }
             )
 
-    # Sort by budget descending, take top 5
+    # Sort by budget descending; roll any channels beyond the visible cap
+    # into an explicit "+N smaller channels" summary row instead of
+    # silently dropping them -- this table used to hard-cap at
+    # ``ch_display_list[:5]`` with no indication a 6th+ channel existed.
+    # Mirrors the sibling fix already applied to the Budget Allocation
+    # slide's own channel table (S6 fix, same rollup wording/convention) so
+    # a plan with every channel category enabled degrades the same way on
+    # both slides instead of just this one silently losing data.
     ch_display_list.sort(key=lambda c: c.get("budget") or 0, reverse=True)
-    ch_display_top5 = ch_display_list[:5]
+    _QO_MAX_VISIBLE_ROWS = 5
+    if len(ch_display_list) > _QO_MAX_VISIBLE_ROWS:
+        _qo_visible = ch_display_list[: _QO_MAX_VISIBLE_ROWS - 1]
+        _qo_tail = ch_display_list[_QO_MAX_VISIBLE_ROWS - 1 :]
+        _qo_tail_budget = sum(c.get("budget") or 0 for c in _qo_tail)
+        _qo_tail_clicks = sum(c.get("clicks") or 0 for c in _qo_tail)
+        _qo_tail_apps = sum(c.get("apps") or 0 for c in _qo_tail)
+        _qo_tail_hires = sum(c.get("hires") or 0 for c in _qo_tail)
+        _qo_tail_cpa = (_qo_tail_budget / _qo_tail_apps) if _qo_tail_apps > 0 else 0
+        ch_display_top5 = _qo_visible + [
+            {
+                "label": f"+{len(_qo_tail)} smaller channels",
+                "budget": _qo_tail_budget,
+                "clicks": _qo_tail_clicks,
+                "apps": _qo_tail_apps,
+                "hires": _qo_tail_hires,
+                "cpa": _qo_tail_cpa,
+                "_is_rollup": True,
+            }
+        ]
+    else:
+        ch_display_top5 = list(ch_display_list)
 
     # Table header row
     header_y = ch_table_top + Inches(0.32)
@@ -5359,6 +5472,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
             _fmt_currency(ch["cpa"]) if ch["cpa"] > 0 else "--",
         ]
 
+        _qo_is_rollup = bool(ch.get("_is_rollup"))
         cx = ch_table_left
         for ci, (val, cw) in enumerate(zip(row_values, col_widths_qo)):
             left_pad = Inches(0.15) if ci == 0 else Inches(0.1)
@@ -5370,8 +5484,9 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
                 row_h,
                 text=val,
                 font_size=9,
-                bold=(ci == 0),
-                color=DARK_TEXT,
+                bold=(ci == 0 and not _qo_is_rollup),
+                italic=_qo_is_rollup,
+                color=MUTED_TEXT if _qo_is_rollup else DARK_TEXT,
                 alignment=col_aligns_qo[ci],
                 anchor=MSO_ANCHOR.MIDDLE,
             )
@@ -5552,7 +5667,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         insight_top + Inches(0.08),
         Inches(10.4),
         insight_h - Inches(0.15),
-        text=_trunc_word(insight_text, 500),
+        text=_trunc_clause(insight_text, 500),
         font_size=9,
         color=DARK_TEXT,
     )
@@ -6014,7 +6129,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         insight_top,
         Inches(11.6),
         insight_h,
-        text=_trunc_word(insight_text, 320),
+        text=_trunc_clause(insight_text, 320),
         font_size=10,
         color=WHITE,
         anchor=MSO_ANCHOR.MIDDLE,
@@ -6225,7 +6340,6 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
 
     # ---- SIDE-BY-SIDE COMPARISON ----
     comp_top = Inches(1.55)
-    panel_h = Inches(2.95)
     panel_w = Inches(5.9)
     panel_gap = Inches(0.4)
     left_panel_x = Inches(0.55)
@@ -6450,6 +6564,39 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         comparison_rows = [r for r in comparison_rows if r is not _goal_row]
     comparison_rows = comparison_rows[:4] if _goal_row else comparison_rows[:5]
 
+    # fix/gate-confidence-layout: this panel used to be a flat fixed
+    # Inches(2.95) regardless of how many rows (2-5) plus an optional goal
+    # band actually rendered inside it. A goal-gap plan (header 0.45in +
+    # 0.5in offset + 4 rows*0.45in + 1 goal band*0.45in = 3.2in of real
+    # content) overflowed the fixed 2.95in envelope by 0.25in -- the flat
+    # amber "CLIENT GOAL" band's square corners spilled past the rounded
+    # card's own bottom-corner curvature (visually, the white rounded edge
+    # peeking out from beneath the band). A sparse plan (2-3 rows, no goal
+    # band) left a large flat gap instead. Deriving the panel height from
+    # the ACTUAL row/goal-band count fixes both directions at once, with a
+    # small bottom-clearance pad so the last row never sits flush against
+    # the rounded corner's curvature zone.
+    header_bar_h_in = 0.45
+    row_start_offset_in = 0.5
+    row_h_comp_in = 0.45
+    # 0.08in here + the 0.45in header bar above = ~0.53in of real clearance
+    # between the last row (or goal band)'s bottom and the panel's own
+    # bottom edge -- comfortably past python-pptx's default ROUNDED_RECTANGLE
+    # corner radius (~16.667% of the shorter side, ~0.49in at this panel's
+    # typical height) regardless of row count, per the algebra below. Kept
+    # deliberately tight (not the first-draft 0.15) because every inch here
+    # is inches the Implementation Timeline phase cards below don't get.
+    bottom_clearance_in = 0.08
+    panel_content_rows = len(comparison_rows) + (1 if (_goal_row and _goal_gap) else 0)
+    panel_h_in = (
+        header_bar_h_in
+        + row_start_offset_in
+        + panel_content_rows * row_h_comp_in
+        + bottom_clearance_in
+    )
+    panel_h = Inches(panel_h_in)
+    row_h_comp = Inches(row_h_comp_in)
+
     # ==== LEFT PANEL: Client Plan ====
     _add_rounded_rect(slide, left_panel_x, comp_top, panel_w, panel_h, WHITE)
     # Header bar
@@ -6467,7 +6614,6 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         anchor=MSO_ANCHOR.MIDDLE,
     )
 
-    row_h_comp = Inches(0.45)
     for ri, row in enumerate(comparison_rows):
         ry = comp_top + Inches(0.5) + ri * row_h_comp
         bg = WHITE if ri % 2 == 0 else RGBColor(0xF8, 0xF6, 0xF3)
@@ -6635,7 +6781,21 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     _set_font(r6, size=8, color=MUTED_TEXT)
 
     # ==== IMPLEMENTATION TIMELINE (bottom) ====
-    timeline_top = Inches(4.98)  # was 4.8 — header overlapped the legend above
+    # fix/gate-confidence-layout: this used to be a flat Inches(4.98)
+    # ("was 4.8 — header overlapped the legend above") -- a hardcoded patch
+    # tuned for whatever row count happened to be on hand at the time, not
+    # derived from the comparison panel's (now content-derived) actual
+    # height. A sparse plan (2-3 comparison rows) left a large flat gap
+    # above the header; a plan with 5 rows -- now measurably possible since
+    # the panel itself is no longer capped to a fixed height -- would push
+    # the legend's own bottom edge PAST this fixed anchor and re-create the
+    # exact overlap the "was 4.8" comment already fixed once before. Derive
+    # it from the legend's actual measured bottom instead so it can never
+    # drift out of sync with the panel above it again. The legend's own
+    # declared height is 0.22in; 0.26in leaves a small real gap below it
+    # (kept tight -- every inch spent here is an inch the phase cards below
+    # don't get once the panel above has grown to its full row count).
+    timeline_top = legend_y + Inches(0.26)
 
     _add_textbox(
         slide,
@@ -6781,8 +6941,115 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
 
     phase_w = Inches(3.85)
     phase_gap = Inches(0.25)
-    phase_top = timeline_top + Inches(0.45)
-    phase_h = Inches(1.65)
+    # The "IMPLEMENTATION TIMELINE" header + its accent rule occupy ~0.33in
+    # below timeline_top; 0.40 leaves a small real gap, kept tight for the
+    # same reason as the paddings above.
+    phase_top = timeline_top + Inches(0.40)
+    phase_w_in = 3.85
+    phase_top_in = phase_top / 914400
+
+    # fix/gate-confidence-layout: _interpolate_timeline_bullets (above)
+    # splices this plan's own client name and top channel labels into these
+    # bullets ("Campaign setup & publisher activation for {client}", "Scale
+    # top performers: {channel1} and {channel2}") -- strings that used to be
+    # short, static boilerplate and can now legitimately wrap to 2 lines at
+    # this column width for a long client name or verbose channel labels.
+    # The bullet box and card height were a fixed Inches(0.85)/Inches(1.65)
+    # sized for the ORIGINAL 1-line-per-bullet boilerplate, with no fit
+    # check at all. Measure the actual (worst-of-3-phases) wrapped height so
+    # a longer bullet grows the card instead of overflowing its fixed box.
+    _pt_bullets_w_in = phase_w_in - 0.24
+    _pt_font_pt = 8.0
+    # 1.42 matches _autofit_textframe's own documented, Keynote-calibrated
+    # line-height factor -- using a lighter one here (an earlier draft used
+    # 1.35) under-measured the real rendered height by a few hundredths of
+    # an inch per bullet, letting the last line sit right at (or a hair
+    # past) the box's own bottom edge.
+    _pt_line_h_in = (_pt_font_pt * 1.42) / 72.0
+
+    def _pt_bullets_h_in(bullets: List[str]) -> float:
+        # +0.10in: the textbox's own default top+bottom inset (python-pptx
+        # margin_top/margin_bottom, 0.05in each) -- the same _v_inset budget
+        # _autofit_textframe reserves. Omitting it here previously let the
+        # bullets box's DECLARED height come out ~0.05in short of what the
+        # box's own internal margins leave room for.
+        total = 0.10
+        for b in bullets:
+            n = _estimate_lines(f"✓  {b}", _pt_bullets_w_in, _pt_font_pt)
+            total += n * _pt_line_h_in + (4.0 / 72.0)
+        return total
+
+    _pt_bullets_top_in = 0.78
+    _pt_bottom_pad_in = 0.08
+    _pt_max_bullets_h_in = max(
+        (_pt_bullets_h_in(ph.get("bullets") or []) for ph in phases), default=0.0
+    )
+    phase_h_in = max(1.65, _pt_bullets_top_in + _pt_max_bullets_h_in + _pt_bottom_pad_in)
+    # Safety clamp: the comparison panel above (now itself content-derived)
+    # can push phase_top later than its old fixed position on a plan with
+    # many comparison rows -- never let the phase cards' bottom edge run
+    # into the footer rule (Inches(7.12) via _add_footer) even in that
+    # combined worst case. 7.0 leaves 0.12in of clearance before the rule
+    # (and well before the footer TEXT, which sits lower still at 7.17).
+    _pt_safe_bottom_in = 7.0
+    phase_h_in = max(1.2, min(phase_h_in, _pt_safe_bottom_in - phase_top_in))
+    phase_h = Inches(phase_h_in)
+    _pt_bullets_box_h_in = max(0.2, phase_h_in - _pt_bullets_top_in - 0.05)
+
+    # visual: render-verified against a real Keynote export -- an extremely
+    # long client name (the interpolated "Campaign setup & publisher
+    # activation for {client}" bullet) can need MORE height than the
+    # safe-bottom clamp above allows the card to grow to. Since PowerPoint
+    # does not clip a textbox's own overflow, that combination used to spill
+    # the bullet list's tail past the card AND into the footer text below
+    # it. Also true (render-verified) of the now-common case where the
+    # comparison panel above simply has a realistic 5-row+goal-band count --
+    # not an extreme case at all, but ordinary for any plan with real
+    # budget-allocation data. Degrade deliberately instead (Task 3): trim
+    # the longest bullet at a clause boundary, and only drop a bullet
+    # entirely once trimming it can't help further -- never truncate
+    # mid-word, never overprint.
+    #
+    # copy:both#2's whole point was giving this slide real, plan-specific
+    # substance (the client name / this plan's own top channels) instead of
+    # byte-identical boilerplate -- so when a bullet must be dropped
+    # entirely, prefer dropping a GENERIC one (identical on every plan)
+    # over a PERSONALIZED one, so the degrade never undoes that fix first.
+    _pt_personalized_markers = ("campaign setup", "scale top performers")
+
+    def _pt_is_personalized(b: str) -> bool:
+        low = b.lower()
+        return any(m in low for m in _pt_personalized_markers)
+
+    for ph in phases:
+        bullets = list(ph.get("bullets") or [])
+        for _ in range(10):  # bounded -- at most 3 bullets, converges fast
+            if not bullets or _pt_bullets_h_in(bullets) <= _pt_bullets_box_h_in + 0.01:
+                break
+            longest_i = max(
+                range(len(bullets)),
+                key=lambda i: _estimate_lines(f"✓  {bullets[i]}", _pt_bullets_w_in, _pt_font_pt),
+            )
+            if len(bullets[longest_i]) > 40 and not _pt_is_personalized(bullets[longest_i]):
+                bullets[longest_i] = _trunc_clause(bullets[longest_i], len(bullets[longest_i]) - 12)
+                continue
+            if len(bullets) <= 1:
+                break
+            generic_idx = next(
+                (
+                    i
+                    for i in range(len(bullets) - 1, -1, -1)
+                    if not _pt_is_personalized(bullets[i])
+                ),
+                None,
+            )
+            if generic_idx is not None:
+                bullets.pop(generic_idx)
+            elif len(bullets[longest_i]) > 40:
+                bullets[longest_i] = _trunc_clause(bullets[longest_i], len(bullets[longest_i]) - 12)
+            else:
+                bullets.pop(longest_i)
+        ph["bullets"] = bullets
 
     for i, ph in enumerate(phases):
         px = Inches(0.55) + i * (phase_w + phase_gap)
@@ -6850,7 +7117,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             px + Inches(0.12),
             phase_top + Inches(0.78),
             phase_w - Inches(0.24),
-            Inches(0.85),
+            Inches(_pt_bullets_box_h_in),
         )
         btf.paragraphs[0].space_before = Pt(0)
         btf.paragraphs[0].space_after = Pt(0)
@@ -8106,7 +8373,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         if desc:
             # Word-boundary truncation (never mid-word), ellipsis only when
             # the text was actually cut.
-            profile_items.append(("Description", _trunc_word(str(desc), 100)))
+            profile_items.append(("Description", _trunc_clause(str(desc), 100)))
         domain = company.get("domain") or ""
         if domain:
             profile_items.append(("Domain", str(domain)))
@@ -8304,13 +8571,29 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         if not trend_items:
             trend_items = ["Industry trend data not available"]
 
+        _cl_trend_shown = trend_items[:5]
+        # fix/gate-confidence-layout: this box used to be a flat
+        # Inches(1.5) regardless of how many of the up-to-5 trend bullets
+        # actually rendered. Measuring the real content height (instead of
+        # assuming the fixed box's worth) lets the Market Positioning band
+        # below correctly tell whether the LEFT column or the right
+        # competitor-card stack is the taller one for this plan.
+        _cl_trend_w_in = left_w / 914400
+        _cl_trend_line_h_in = (9 * 1.35) / 72.0
+        _cl_trend_content_h_in = sum(
+            _estimate_lines(f"\u25b8  {item}", _cl_trend_w_in, 9) * _cl_trend_line_h_in
+            + (5.0 / 72.0)
+            for item in _cl_trend_shown
+        )
+        _cl_trend_box_h_in = max(0.3, _cl_trend_content_h_in)
+
         box_t, tf_t = _add_textbox(
-            slide, Inches(0.55), trends_top + Inches(0.4), left_w, Inches(1.5)
+            slide, Inches(0.55), trends_top + Inches(0.4), left_w, Inches(_cl_trend_box_h_in)
         )
         tf_t.paragraphs[0].space_before = Pt(0)
         tf_t.paragraphs[0].space_after = Pt(0)
 
-        for ti, item in enumerate(trend_items[:5]):
+        for ti, item in enumerate(_cl_trend_shown):
             if ti == 0:
                 p = tf_t.paragraphs[0]
             else:
@@ -8323,6 +8606,8 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             rt = p.add_run()
             rt.text = str(item)
             _set_font(rt, size=9, color=DARK_TEXT)
+
+        _cl_left_bottom_in = (trends_top / 914400) + 0.4 + _cl_trend_box_h_in
 
         # ---- RIGHT: Competitor Cards ----
         right_left = Inches(6.5)
@@ -8515,6 +8800,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             comp_card_top = comp_card_top + Inches(0.2)
 
         if not competitors:
+            _comp_right_bottom_in = (comp_card_top / 914400) + 0.4
             _add_textbox(
                 slide,
                 right_left,
@@ -8602,7 +8888,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     "industry competitor",
                 ) or comp_desc.lower().startswith("competing employer in")
                 if comp_desc and not _generic_desc:
-                    why_text = _trunc_word(comp_desc, 80)
+                    why_text = _trunc_clause(comp_desc, 80)
                 elif comp_domain:
                     why_text = f"Competes for the same talent pool via {comp_domain}"
                 else:
@@ -8615,7 +8901,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 # boilerplate sentence for every card. visual:atria#2(b):
                 # strip any "(National)" scope tag before interpolating the
                 # name into prose -- it stays on the card title above.
-                counter_text = _trunc_word(
+                counter_text = _trunc_clause(
                     "Counter: "
                     + _insight.compose_counter_strategy(
                         _strip_competitor_tag(comp_name), _counter_ctx
@@ -8726,6 +9012,25 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
 
                 _comp_cur_top_in += card_h_in + (comp_card_gap / 914400)
 
+            _comp_right_bottom_in = _comp_cur_top_in - (comp_card_gap / 914400)
+
+        # fix/gate-confidence-layout: the Market Positioning band and the
+        # Source line below it were both hardcoded to absolute Inches(5.8)
+        # / Inches(6.7) regardless of how tall the competitor-card stack (or
+        # the left column) actually rendered -- reproduced directly: 3 real
+        # competitor cards with longer counter-strategy prose put the 3rd
+        # card's own rounded-rect bottom at y=6.24in, so the "fixed" 5.8in
+        # band drew ITSELF on top of that card's bottom third. Anchor both
+        # to the measured bottom of whichever column (left trends / right
+        # cards) actually renders taller, never ABOVE the old fixed anchors
+        # so a short/typical plan renders byte-identically to before.
+        _comp_content_bottom_in = max(_cl_left_bottom_in, _comp_right_bottom_in)
+        _comp_pos_band_h_in = 0.7
+        _comp_pos_gap_in = 0.15
+        _comp_safe_bottom_in = 6.85  # keep clear of the Source line/footer
+        pos_top_in = max(5.8, _comp_content_bottom_in + _comp_pos_gap_in)
+        _comp_pos_shown = False
+
         # Market positioning insight
         positioning = comp_intel.get("market_positioning", {})
         if isinstance(positioning, dict) and positioning:
@@ -8733,14 +9038,17 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             # Only draw the callout band when there's actual text to show --
             # an empty highlight band (colored rect with nothing in it) used
             # to render whenever `positioning` was a non-empty dict with no
-            # summary/insight field.
-            if pos_text:
-                pos_top = Inches(5.8)
+            # summary/insight field -- AND only when it still fits above the
+            # Source line/footer; a card stack tall enough to already reach
+            # the safe ceiling has no room left for it (Task 3: never
+            # overprint -- drop the row rather than collide).
+            if pos_text and pos_top_in + _comp_pos_band_h_in <= _comp_safe_bottom_in:
+                pos_top = Inches(pos_top_in)
                 _add_rounded_rect(
-                    slide, Inches(0.55), pos_top, Inches(12.2), Inches(0.7), PALE_TEAL
+                    slide, Inches(0.55), pos_top, Inches(12.2), Inches(_comp_pos_band_h_in), PALE_TEAL
                 )
                 _add_filled_rect(
-                    slide, Inches(0.55), pos_top, Inches(0.06), Inches(0.7), TEAL
+                    slide, Inches(0.55), pos_top, Inches(0.06), Inches(_comp_pos_band_h_in), TEAL
                 )
                 _add_textbox(
                     slide,
@@ -8748,16 +9056,23 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     pos_top + Inches(0.1),
                     Inches(11.7),
                     Inches(0.5),
-                    text=_trunc_word(str(pos_text), 200),
+                    text=_trunc_clause(str(pos_text), 200),
                     font_size=9,
                     color=DARK_TEXT,
                 )
+                _comp_pos_shown = True
 
-        # Source line
+        # Source line -- cascades from whichever sits lower: the positioning
+        # band (if shown) or the raw content bottom (if it was skipped).
+        if _comp_pos_shown:
+            _comp_source_top_in = pos_top_in + _comp_pos_band_h_in + 0.2
+        else:
+            _comp_source_top_in = max(6.7, _comp_content_bottom_in + 0.15)
+        _comp_source_top_in = min(_comp_source_top_in, 7.0)  # keep clear of the footer rule
         _add_textbox(
             slide,
             Inches(0.55),
-            Inches(6.7),
+            Inches(_comp_source_top_in),
             Inches(12.2),
             Inches(0.2),
             text="Sources: Public company filings, industry employment data, curated knowledge base",
@@ -10816,41 +11131,35 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
     push_split, pull_split = _push_pull_channel_split(data)
     _total_budget = sum(d for _, d in push_split) + sum(d for _, d in pull_split)
 
-    # Two rounded cards side-by-side, measure-then-shrink to content.
-    card_w_in = 6.0
+    # fix/gate-confidence-layout: the deck-KB "push"/"pull" narrative dicts
+    # are curated content, not client data, so both are populated today --
+    # but the render loop below has always tolerated either being empty
+    # (``if not isinstance(section, dict) or not section: continue``)
+    # without ever handling what that leaves on the SLIDE: a single 6in card
+    # at its normal fixed X, with the other ~6.3in half of the canvas
+    # entirely blank. A future KB edit (or a caller that only ever supplies
+    # one bucket) would hit this today with no graceful layout for it. When
+    # exactly one side is populated, use one wide, centered card instead of
+    # the two-fixed-column grid.
+    _pp_raw_cards = [
+        (Inches(0.55), push, LAVENDER_100, BLUE, push_split),
+        (Inches(6.8), pull, BLUE_50, AMBER, pull_split),
+    ]
+    _pp_populated = [c for c in _pp_raw_cards if isinstance(c[1], dict) and c[1]]
+    _pp_single = len(_pp_populated) == 1
+
+    # Two rounded cards side-by-side (or one wide centered card -- see
+    # above), measure-then-shrink/grow to content.
+    card_w_in = 10.4 if _pp_single else 6.0
     _detail_w_in = card_w_in - 0.8
     _pill_block_in = 0.4 + 0.55 + 0.25  # pill offset + pill height + gap to body
     _bottom_pad_in = 0.3
 
-    cards = [
-        (Inches(0.55), push, LAVENDER_100, BLUE, push_split),
-        (Inches(6.8), pull, BLUE_50, AMBER, pull_split),
-    ]
-
-    # Measure BOTH cards first so they can share one common height (keeps the
-    # side-by-side layout visually balanced instead of two different heights).
-    _measured_h: list = []
-    for _card_x, section, _surface, _pill_color, _split in cards:
-        if not isinstance(section, dict) or not section:
-            _measured_h.append(0.0)
-            continue
-        detail_text = str(section.get("detail") or "")
-        split_line = _push_pull_split_line(_split, _total_budget)
-        n_detail_lines = (
-            _estimate_lines(detail_text, _detail_w_in, 11) if detail_text else 0
-        )
-        n_split_lines = (
-            _estimate_lines(split_line, _detail_w_in, 9, char_em=0.5)
-            if split_line
-            else 0
-        )
-        detail_h = n_detail_lines * (11 * 1.35) / 72.0
-        split_h = (n_split_lines * (9 * 1.35) / 72.0 + 0.15) if split_line else 0.0
-        _measured_h.append(_pill_block_in + detail_h + split_h + _bottom_pad_in)
-
-    card_h_in = max([2.2] + _measured_h)
-    card_h_in = min(card_h_in, 4.6)  # never exceed the old fixed max
-    card_h = Inches(card_h_in)
+    if _pp_single:
+        _single_x_in = (13.333 - card_w_in) / 2.0
+        cards = [(Inches(_single_x_in),) + _pp_populated[0][1:]]
+    else:
+        cards = _pp_raw_cards
 
     # visual:manpower#4: vertically center the card row in the space between
     # the summary line and the footer rule, instead of always starting at a
@@ -10860,22 +11169,100 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
     # below, and never moves the cards ABOVE the old y=2.0 starting point.
     _avail_top_in = 2.0
     _avail_bottom_in = 6.95  # footer rule sits at 7.12in
+    _avail_h_in = _avail_bottom_in - _avail_top_in
+    # Never exceed the old fixed 4.6in max, and always leave a little slack
+    # before the footer even on the (already-clamped) 4.95in envelope.
+    _pp_ceiling_in = min(4.6, _avail_h_in - 0.15)
+    # Task 2 (dead-zone): centering redistributes slack, it doesn't remove
+    # it -- a sparse card measured at base font sizes can occupy well under
+    # half the available envelope, reading as two small pills stranded in a
+    # mostly-blank slide. Growing the type scale (bounded) instead of
+    # leaving blank card padding makes a sparse plan compose as deliberately
+    # as a dense one, matched by a shrink path for the opposite (rich) case.
+    _pp_target_in = 0.55 * _avail_h_in
+    _pp_base_detail_pt, _pp_base_split_pt = 11.0, 9.0
+
+    def _pp_measure(
+        detail_text: str, split_line: str, detail_pt: float, split_pt: float
+    ) -> float:
+        n_detail = (
+            _estimate_lines(detail_text, _detail_w_in, detail_pt) if detail_text else 0
+        )
+        n_split = (
+            _estimate_lines(split_line, _detail_w_in, split_pt, char_em=0.5)
+            if split_line
+            else 0
+        )
+        detail_h = n_detail * (detail_pt * 1.35) / 72.0
+        split_h = (n_split * (split_pt * 1.35) / 72.0 + 0.15) if split_line else 0.0
+        return _pill_block_in + detail_h + split_h + _bottom_pad_in
+
+    # Measure (and font-fit) every card first so they can share one common
+    # height (keeps the side-by-side layout visually balanced instead of two
+    # different heights).
+    _measured: list = []
+    for _card_x, section, _surface, _pill_color, _split in cards:
+        if not isinstance(section, dict) or not section:
+            _measured.append(
+                {"h_in": 0.0, "detail_pt": _pp_base_detail_pt, "split_pt": _pp_base_split_pt}
+            )
+            continue
+        detail_text = str(section.get("detail") or "")
+        split_line = _push_pull_split_line(_split, _total_budget)
+        detail_pt, split_pt = _pp_base_detail_pt, _pp_base_split_pt
+        h_in = _pp_measure(detail_text, split_line, detail_pt, split_pt)
+        if h_in > _pp_ceiling_in:
+            # Rich content (_push_pull_split_line's contract is "every
+            # channel MUST be itemized" -- an 8-channel plan's split line is
+            # simply longer, with no cap): shrink both fonts together, down
+            # to the 8pt readability floor, instead of letting the drawn
+            # text silently exceed the card's own declared height.
+            scale = 1.0
+            while scale > 8.0 / _pp_base_detail_pt and _pp_measure(
+                detail_text, split_line, detail_pt * scale, max(8.0, split_pt * scale)
+            ) > _pp_ceiling_in:
+                scale -= 0.04
+            detail_pt = max(8.0, round(detail_pt * scale, 1))
+            split_pt = max(8.0, round(split_pt * scale, 1))
+            h_in = min(_pp_ceiling_in, _pp_measure(detail_text, split_line, detail_pt, split_pt))
+        elif h_in < _pp_target_in:
+            # Sparse content: grow the type scale (bounded to 1.3x) so the
+            # card reads as intentionally sized for its content, not as
+            # small text floating inside an oversized box.
+            scale = 1.0
+            _cap_in = min(_pp_target_in, _pp_ceiling_in)
+            while scale < 1.3 and _pp_measure(
+                detail_text, split_line, detail_pt * (scale + 0.05), split_pt * (scale + 0.05)
+            ) <= _cap_in:
+                scale += 0.05
+            detail_pt = round(detail_pt * scale, 1)
+            split_pt = round(split_pt * scale, 1)
+            h_in = _pp_measure(detail_text, split_line, detail_pt, split_pt)
+        _measured.append({"h_in": h_in, "detail_pt": detail_pt, "split_pt": split_pt})
+
+    card_h_in = max([2.2] + [m["h_in"] for m in _measured])
+    card_h_in = min(card_h_in, _pp_ceiling_in)
+    card_h = Inches(card_h_in)
+
     card_top_in = _avail_top_in + max(
         0.0, (_avail_bottom_in - _avail_top_in - card_h_in) / 2.0
     )
     card_top = Inches(card_top_in)
 
-    for card_x, section, surface, pill_color, split in cards:
+    for (card_x, section, surface, pill_color, split), _meta in zip(cards, _measured):
         if not isinstance(section, dict) or not section:
             continue
+        _detail_pt = _meta["detail_pt"]
+        _split_pt = _meta["split_pt"]
         _add_rounded_rect(slide, card_x, card_top, Inches(card_w_in), card_h, surface)
 
         # Pill title
+        _pill_w_in = min(4.8, card_w_in - 0.8)
         _add_rounded_rect(
             slide,
             card_x + Inches(0.4),
             card_top + Inches(0.4),
-            Inches(4.8),
+            Inches(_pill_w_in),
             Inches(0.55),
             pill_color,
         )
@@ -10883,7 +11270,7 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
             slide,
             card_x + Inches(0.4),
             card_top + Inches(0.4),
-            Inches(4.8),
+            Inches(_pill_w_in),
             Inches(0.55),
             text=str(section.get("name") or ""),
             font_size=12,
@@ -10903,7 +11290,7 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
             Inches(_detail_w_in),
             card_h - Inches(_pill_block_in) - Inches(_bottom_pad_in),
             text=detail_text,
-            font_size=11,
+            font_size=_detail_pt,
             color=DARK_TEXT,
         )
         _set_body_font(_tf)
@@ -10913,10 +11300,12 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
         split_line = _push_pull_split_line(split, _total_budget)
         if split_line:
             n_detail_lines = (
-                _estimate_lines(detail_text, _detail_w_in, 11) if detail_text else 0
+                _estimate_lines(detail_text, _detail_w_in, _detail_pt)
+                if detail_text
+                else 0
             )
             _split_top = _detail_top + Inches(
-                max(0.3, n_detail_lines * (11 * 1.35) / 72.0) + 0.1
+                max(0.3, n_detail_lines * (_detail_pt * 1.35) / 72.0) + 0.1
             )
             _sbox, _stf = _add_textbox(
                 slide,
@@ -10925,7 +11314,7 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
                 Inches(_detail_w_in),
                 card_h - (_split_top - card_top) - Inches(0.1),
                 text=split_line,
-                font_size=9,
+                font_size=_split_pt,
                 bold=True,
                 color=pill_color,
             )
@@ -11129,9 +11518,52 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
         "Budget Weight",
         "Channel Emphasis",
     ]
-    header_top = Inches(1.7)
-    header_h = Inches(0.42)
-    row_h = Inches(0.42)
+    header_h_in = 0.42
+    _rb_base_row_h_in = 0.42
+    _rb_base_font_pt = 9.0
+    # visual:atria#4-followup: this table used to hard-cap at rows[:12]
+    # with a fixed 0.42in row pitch regardless of the footer -- exactly 12
+    # roles put the last row's bottom at 7.16in, past the footer rule at
+    # 7.12in. Derive the row budget from the ACTUAL available space instead:
+    # shrink row height/font toward the 8pt floor before falling back to an
+    # explicit "+N more roles" rollup (matching the established "+N smaller
+    # channels" rollup on the Budget Allocation slide) -- never silently
+    # drop roles, never overprint past the footer.
+    _rb_avail_top_in = 1.7  # never starts above the old fixed anchor
+    _rb_avail_bottom_in = 6.95  # keep clear of the footer rule at 7.12in
+    _rb_avail_h_in = max(0.5, _rb_avail_bottom_in - (_rb_avail_top_in + header_h_in))
+    n_rows_total = len(rows)
+    _rb_max_rows_at_base = max(1, int(_rb_avail_h_in / _rb_base_row_h_in))
+
+    row_h_in = _rb_base_row_h_in
+    row_font_pt = _rb_base_font_pt
+    n_more = 0
+    if n_rows_total <= _rb_max_rows_at_base:
+        show_rows = rows
+    else:
+        _shrunk_row_h_in = _rb_avail_h_in / n_rows_total
+        _rb_min_row_h_in = 0.30  # ~8pt-legible row floor
+        if _shrunk_row_h_in >= _rb_min_row_h_in:
+            row_h_in = _shrunk_row_h_in
+            row_font_pt = max(8.0, round(9.0 * (row_h_in / _rb_base_row_h_in), 1))
+            show_rows = rows
+        else:
+            max_shown = max(1, _rb_max_rows_at_base - 1)
+            show_rows = rows[:max_shown]
+            n_more = n_rows_total - max_shown
+
+    _rb_content_h_in = header_h_in + len(show_rows) * row_h_in + (row_h_in if n_more else 0.0)
+    # visual:manpower#4-style: vertically center the table in the space
+    # between the subtitle and the footer instead of always anchoring at a
+    # fixed y=1.7in -- the minimum-eligible 4-role case previously left
+    # ~3.3in of flat dead space below a top-anchored table.
+    header_top_in = _rb_avail_top_in + max(
+        0.0,
+        (_rb_avail_bottom_in - _rb_avail_top_in - _rb_content_h_in) / 2.0,
+    )
+    header_top = Inches(header_top_in)
+    header_h = Inches(header_h_in)
+    row_h = Inches(row_h_in)
 
     _add_filled_rect(
         slide, table_left, header_top, sum(col_widths, Inches(0)), header_h, NAVY
@@ -11152,8 +11584,7 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
         )
         cx += cw
 
-    _max_rows = min(len(rows), 12)
-    for idx, r in enumerate(rows[:_max_rows]):
+    for idx, r in enumerate(show_rows):
         y = header_top + header_h + idx * row_h
         _add_filled_rect(
             slide,
@@ -11164,12 +11595,12 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
             LAVENDER_50 if idx % 2 == 0 else WHITE,
         )
         cells = [
-            (_trunc_word(r["title"], 40), 9, True, NAVY),
-            (r["tier"], 9, False, DARK_TEXT),
-            (r["salary_str"], 9, False, DARK_TEXT),
-            (r["difficulty_str"], 9, False, DARK_TEXT),
-            (r["budget_weight_str"], 9, False, DARK_TEXT),
-            (r["emphasis"], 9, False, MUTED_TEXT),
+            (_trunc_word(r["title"], 40), row_font_pt, True, NAVY),
+            (r["tier"], row_font_pt, False, DARK_TEXT),
+            (r["salary_str"], row_font_pt, False, DARK_TEXT),
+            (r["difficulty_str"], row_font_pt, False, DARK_TEXT),
+            (r["budget_weight_str"], row_font_pt, False, DARK_TEXT),
+            (r["emphasis"], row_font_pt, False, MUTED_TEXT),
         ]
         cx = table_left
         for (cell_text, fsize, fbold, fcolor), cw in zip(cells, col_widths):
@@ -11186,6 +11617,32 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
                 anchor=MSO_ANCHOR.MIDDLE,
             )
             cx += cw
+
+    if n_more:
+        _more_y = header_top + header_h + len(show_rows) * row_h
+        _add_filled_rect(
+            slide,
+            table_left,
+            _more_y,
+            sum(col_widths, Inches(0)),
+            row_h,
+            LAVENDER_50 if len(show_rows) % 2 == 0 else WHITE,
+        )
+        _add_textbox(
+            slide,
+            table_left + Inches(0.15),
+            _more_y,
+            sum(col_widths, Inches(0)) - Inches(0.3),
+            row_h,
+            text=(
+                f"+{n_more} more role{'s' if n_more != 1 else ''} "
+                f"— see the workbook's Role Breakdown sheet for the complete list"
+            ),
+            font_size=max(8.0, row_font_pt),
+            italic=True,
+            color=MUTED_TEXT,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
 
     _add_footer(slide, today)
 
@@ -11252,9 +11709,51 @@ def _build_slide_cpa_reference(prs: Presentation, data: Dict, deck: Dict) -> Non
     table_left = Inches(0.55)
     col_widths = [Inches(4.6), Inches(2.4), Inches(5.2)]
     headers = ["Role Category", "Est. CPA Range (USD)", "Benchmark Basis"]
-    header_top = Inches(1.8)
-    header_h = Inches(0.42)
-    row_h = Inches(0.58)
+    header_h_in = 0.42
+    _cpa_base_row_h_in = 0.58
+    # This table's content is curated KB copy (only 'ai_training' is
+    # populated today, at exactly 7 rows) rather than client data, so the
+    # fixed roles[:7] cap never silently drops anything IN PRACTICE -- but a
+    # future KB edit that adds an 8th role would push straight past the
+    # footer at the old fixed row_h with no protection, and a smaller KB
+    # entry (or the industry-key match narrowing) would leave the table
+    # top-anchored with dead space below it. Same measure-then-place +
+    # rollup pattern as the sibling Role Breakdown table, so this slide
+    # degrades exactly as safely regardless of how many rows the KB ever
+    # carries.
+    _cpa_avail_top_in = 1.8
+    _cpa_avail_bottom_in = 6.95  # keep clear of the footer rule at 7.12in
+    _cpa_avail_h_in = max(0.5, _cpa_avail_bottom_in - (_cpa_avail_top_in + header_h_in))
+    _cpa_valid_roles = [r for r in roles if isinstance(r, dict)]
+    n_roles_total = len(_cpa_valid_roles)
+    _cpa_max_rows_at_base = max(1, int(_cpa_avail_h_in / _cpa_base_row_h_in))
+
+    row_h_in = _cpa_base_row_h_in
+    n_more = 0
+    if n_roles_total <= _cpa_max_rows_at_base:
+        show_roles = _cpa_valid_roles
+    else:
+        _shrunk_row_h_in = _cpa_avail_h_in / n_roles_total
+        if _shrunk_row_h_in >= 0.32:  # ~8pt-legible row floor
+            row_h_in = _shrunk_row_h_in
+            show_roles = _cpa_valid_roles
+        else:
+            max_shown = max(1, _cpa_max_rows_at_base - 1)
+            show_roles = _cpa_valid_roles[:max_shown]
+            n_more = n_roles_total - max_shown
+
+    _cpa_content_h_in = header_h_in + len(show_roles) * row_h_in + (
+        row_h_in if n_more else 0.0
+    )
+    # visual:manpower#4-style vertical centering (never above the old
+    # fixed y=1.8in anchor).
+    header_top_in = _cpa_avail_top_in + max(
+        0.0,
+        (_cpa_avail_bottom_in - _cpa_avail_top_in - _cpa_content_h_in) / 2.0,
+    )
+    header_top = Inches(header_top_in)
+    header_h = Inches(header_h_in)
+    row_h = Inches(row_h_in)
 
     # Header row -- indigo with white Poppins text
     _add_filled_rect(
@@ -11276,9 +11775,7 @@ def _build_slide_cpa_reference(prs: Presentation, data: Dict, deck: Dict) -> Non
         )
         cx += cw
 
-    for idx, role in enumerate(roles[:7]):
-        if not isinstance(role, dict):
-            continue
+    for idx, role in enumerate(show_roles):
         y = header_top + header_h + idx * row_h
 
         # Zebra striping on alternating rows
@@ -11323,6 +11820,29 @@ def _build_slide_cpa_reference(prs: Presentation, data: Dict, deck: Dict) -> Non
             if not fbold:  # basis column reads as body copy
                 _set_body_font(_tf)
             cx += cw
+
+    if n_more:
+        _more_y = header_top + header_h + len(show_roles) * row_h
+        _add_filled_rect(
+            slide,
+            table_left,
+            _more_y,
+            sum(col_widths, Inches(0)),
+            row_h,
+            LAVENDER_50 if len(show_roles) % 2 == 0 else WHITE,
+        )
+        _add_textbox(
+            slide,
+            table_left + Inches(0.15),
+            _more_y,
+            sum(col_widths, Inches(0)) - Inches(0.3),
+            row_h,
+            text=f"+{n_more} more role categor{'y' if n_more == 1 else 'ies'} in the reference KB",
+            font_size=9,
+            italic=True,
+            color=MUTED_TEXT,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
 
     _add_footer(slide, today)
 
@@ -11814,10 +12334,41 @@ def _build_slide_case_study_next_steps(
 
     # Bottom strip: numbered Next Steps 1-5, horizontal
     if next_steps:
-        strip_top = Inches(5.6)
-        _add_rounded_rect(
-            slide, Inches(0.55), strip_top, Inches(12.25), Inches(1.25), LAVENDER_50
+        # fix/gate-confidence-layout: _interpolate_next_steps (above) now
+        # splices this plan's own client name, capped role list, location
+        # phrase, and budget/duration into these bullets -- strings that
+        # used to be short, static KB boilerplate and can run well past a
+        # single line at this ~1.86in column width for a long client name,
+        # multi-role, multi-location plan. The strip and each item's text
+        # box were a fixed Inches(1.25)/Inches(0.78), sized for the
+        # ORIGINAL un-interpolated copy, with no fit check. Measure the
+        # worst-of-5 wrapped height (at the SAME 8pt floor Task 3 requires
+        # everywhere else -- grow the box rather than shrink below it) and
+        # size both the item box and the strip itself to that, instead of
+        # letting a long bullet run out the bottom of a fixed strip.
+        _ns_item_w_in = 2.41
+        _ns_text_w_in = _ns_item_w_in - 0.55
+        _ns_font_pt = 8.0
+        _ns_line_h_in = (_ns_font_pt * 1.35) / 72.0
+        _ns_text_top_in = 0.4
+        _ns_max_text_h_in = max(
+            (
+                _estimate_lines(str(s), _ns_text_w_in, _ns_font_pt) * _ns_line_h_in
+                for s in next_steps[:5]
+            ),
+            default=0.0,
         )
+        _ns_text_box_h_in = max(0.78, _ns_max_text_h_in + 0.05)
+        _ns_strip_h_in = max(1.25, _ns_text_top_in + _ns_text_box_h_in + 0.15)
+        # Never let the strip's growth run into the footer rule at 7.12in.
+        _ns_strip_h_in = min(_ns_strip_h_in, 6.95 - 5.6)
+        _ns_text_box_h_in = min(
+            _ns_text_box_h_in, _ns_strip_h_in - _ns_text_top_in - 0.05
+        )
+
+        strip_top = Inches(5.6)
+        strip_h = Inches(_ns_strip_h_in)
+        _add_rounded_rect(slide, Inches(0.55), strip_top, Inches(12.25), strip_h, LAVENDER_50)
         _add_textbox(
             slide,
             Inches(0.8),
@@ -11829,7 +12380,7 @@ def _build_slide_case_study_next_steps(
             bold=True,
             color=NAVY,
         )
-        item_w = Inches(2.41)
+        item_w = Inches(_ns_item_w_in)
         for idx, step in enumerate(next_steps[:5]):
             x = Inches(0.8) + idx * item_w
             chip = Inches(0.3)
@@ -11850,11 +12401,11 @@ def _build_slide_case_study_next_steps(
             _box, _tf = _add_textbox(
                 slide,
                 x + Inches(0.38),
-                strip_top + Inches(0.4),
+                strip_top + Inches(_ns_text_top_in),
                 item_w - Inches(0.55),
-                Inches(0.78),
+                Inches(_ns_text_box_h_in),
                 text=str(step),
-                font_size=8,
+                font_size=_ns_font_pt,
                 color=DARK_TEXT,
             )
             _set_body_font(_tf)

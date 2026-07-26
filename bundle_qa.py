@@ -1062,6 +1062,27 @@ def _check_executive_summary_budget_footing(wb: Any, findings: list[Finding]) ->
 # Zero-hire honesty
 # ---------------------------------------------------------------------------
 def _check_zero_hire_honesty(wb: Any, findings: list[Finding]) -> None:
+    """CHECK-ARTIFACT FIX (2026-07-26, tiny-budget false positive): this
+    used to scan from a header row it recognized (hires_col + cph_col both
+    found in the SAME row) all the way to the END OF THE WORKSHEET,
+    without ever stopping at that table's own boundary. On a real sheet
+    like "ROI Projections", the "Per-Channel ROI Analysis" table (Proj.
+    Hires / Cost Per Hire columns) sits directly above a "Recruitment
+    Funnel" table (Qualified / App→Qualified-rate columns in THOSE SAME
+    column positions) separated only by one blank row -- so once the scan
+    ran past the blank row into the funnel table, it read that table's
+    "Qualified" count as if it were "hires_val" and its "App→Qualified"
+    rate as if it were "cph_val". On a small-budget brief where a
+    low-volume channel's funnel Qualified count rounds to 0, this
+    misattribution produces a numeric-looking "0 hires but a nonzero
+    Cost Per Hire" finding that does not exist anywhere in the workbook --
+    the real Cost Per Hire cell for that same channel correctly shows
+    '—'. This is a check bug, not a plan defect: stop the downstream scan
+    at the first row that drops out of the table (identified by its own
+    Channel/Channel Name label going blank, or -- when no such column was
+    found in the header -- the first fully blank row), exactly like every
+    other table-walking check in this module already does.
+    """
     if wb is None:
         return
     for ws in wb.worksheets:
@@ -1070,6 +1091,7 @@ def _check_zero_hire_honesty(wb: Any, findings: list[Finding]) -> None:
             vals = [c.value for c in row]
             hires_col = None
             cph_col = None
+            name_col = None
             for ci, v in enumerate(vals):
                 if isinstance(v, str):
                     vl = v.lower()
@@ -1081,10 +1103,24 @@ def _check_zero_hire_honesty(wb: Any, findings: list[Finding]) -> None:
                         "cost per hire" in vl or vl.strip() in ("cph", "cost/hire")
                     ):
                         cph_col = ci
+                    if name_col is None and vl.strip() in (
+                        "channel",
+                        "channel name",
+                    ):
+                        name_col = ci
             if hires_col is None or cph_col is None:
                 continue
             for dri in range(ri + 1, len(rows)):
                 dvals = [c.value for c in rows[dri]]
+                # Stop at THIS table's own boundary -- never let a
+                # different table further down the same sheet be read
+                # through this header's column positions.
+                if name_col is not None and name_col < len(dvals):
+                    label = dvals[name_col]
+                    if not isinstance(label, str) or not label.strip():
+                        break
+                elif all(v is None for v in dvals):
+                    break
                 if hires_col >= len(dvals) or cph_col >= len(dvals):
                     continue
                 hires_val = _cell_num(dvals[hires_col])
@@ -1118,6 +1154,30 @@ _FUNNEL_STAGE_COLS = (
 )
 _FUNNEL_RATE_COLS = ("App→Qualified", "Qualified→Interview", "Interview→Hire")
 _FUNNEL_ROUND_TOL = 1.0  # counts
+
+# Stage rates in the Recruitment Funnel table are stored/displayed rounded
+# to 4 decimal places (budget_engine.compute_funnel_stages rounds r1/r2/r3
+# to 4dp before they're ever written to the sheet). Reconstructing an
+# upstream stage count via round(prev_stage_count * printed_rate) can
+# therefore be off by up to half of that last significant digit --
+# 0.00005 -- for every unit of prev_stage_count: budget_engine.py's own
+# comment on this exact mechanism calls it out ("a residual of up to
+# 0.00005 in the unrounded rate amplifies to a multi-unit mismatch once
+# raw_apps is in the hundreds of thousands"). A flat tolerance of 1 count
+# is right for small campaigns but false-positives by design once the
+# multiplicand passes ~20,000 -- which any real non-US enterprise plan
+# (hundreds of thousands of applications/interviews) will cross. Scaling
+# the tolerance with the multiplicand keeps the check exact at small N
+# (where it matters) while not punishing arithmetic that is correct to
+# the printed rate's own precision at large N.
+_FUNNEL_RATE_RESIDUAL_PER_UNIT = 0.00005
+
+
+def _funnel_rate_tolerance(multiplicand: float) -> float:
+    """Tolerance for a single stage's round(multiplicand * rate) check --
+    the fixed rounding-noise floor plus the multiplicand-scaled residual a
+    4-decimal-place rate can legitimately introduce (see comment above)."""
+    return _FUNNEL_ROUND_TOL + _FUNNEL_RATE_RESIDUAL_PER_UNIT * abs(multiplicand)
 
 
 def _cell_num_or_dash(v: Any) -> float | None:
@@ -1272,10 +1332,12 @@ def _check_recruitment_funnel_footing(wb: Any, findings: list[Finding]) -> None:
                     )
                     break
 
-        # Stage count == round(prev * rate) within tolerance.
+        # Stage count == round(prev * rate) within tolerance -- scaled by
+        # the multiplicand (see _funnel_rate_tolerance) since the rate
+        # itself is only stored to 4 decimal places.
         if raw_apps is not None and qualified is not None and r1 is not None:
             expected = round(raw_apps * r1)
-            if abs(expected - qualified) > _FUNNEL_ROUND_TOL:
+            if abs(expected - qualified) > _funnel_rate_tolerance(raw_apps):
                 findings.append(
                     _finding(
                         "critical",
@@ -1288,7 +1350,7 @@ def _check_recruitment_funnel_footing(wb: Any, findings: list[Finding]) -> None:
                 )
         if qualified is not None and interviews is not None and r2 is not None:
             expected = round(qualified * r2)
-            if abs(expected - interviews) > _FUNNEL_ROUND_TOL:
+            if abs(expected - interviews) > _funnel_rate_tolerance(qualified):
                 findings.append(
                     _finding(
                         "critical",
@@ -1306,7 +1368,7 @@ def _check_recruitment_funnel_footing(wb: Any, findings: list[Finding]) -> None:
             and not (isinstance(hires_raw, str) and hires_raw.strip() == "—")
         ):
             expected = round(interviews * r3)
-            if abs(expected - hires) > _FUNNEL_ROUND_TOL:
+            if abs(expected - hires) > _funnel_rate_tolerance(interviews):
                 findings.append(
                     _finding(
                         "critical",
@@ -1803,6 +1865,33 @@ def _check_industry_client_conflict(data: dict, findings: list[Finding]) -> None
     "hospitality"/"travel" outscore "uber" in the same fuzzy match), and no
     code anywhere compares the two.
 
+    FALSE-POSITIVE FIX (2026-07-26): this used to call
+    ``classify_industry("", client_name, roles)`` a SECOND time to get the
+    "implied" industry, and diff its legacy_key against the selection's.
+    But an empty raw_industry runs the FULL ``_classify_industry_primary``
+    precedence chain, whose own last resort -- when client name/roles carry
+    no usable signal -- is the generic "general_entry_level" bucket, not a
+    null result. Comparing that generic catch-all against an explicit,
+    specific selection (e.g. "Finance & Banking" for a client named
+    "Nimbus" with an "Analyst" role) reads as a conflict when it is really
+    just absence of evidence: three of every ten realistic briefs tripped
+    this false-positive shape (Corner Cafe/General, Pearson/General,
+    Nimbus/General all "conflicted" with their own correct selections).
+
+    The fix reuses ``classify_industry()``'s OWN built-in conflict
+    detection instead of reimplementing it: classify_industry() already
+    calls ``_infer_industry_from_signals()`` internally (gated on the
+    explicit selection being non-generic) and only sets the returned
+    dict's ``"industry_conflict"`` key when that independent inference
+    lands on a POSITIVE, specific match (``_infer_industry_from_signals``
+    returns None -- not a generic fallback -- when nothing clears its own
+    confidence bar). Reading that field instead of independently
+    re-deriving "implied" here keeps this rule from ever firing on the
+    generic bucket, while still catching a real disagreement (Uber +
+    "commercial cab driver" vs. an explicit "Hospitality & Travel" pick
+    still fires, because "uber" clears the bar as an exact brand-keyword
+    match).
+
     Import is local/defensive: app.py is a very large module with
     module-level side effects (Flask/DB/background-thread init) and itself
     imports bundle_qa lazily inside its generation handler specifically to
@@ -1831,21 +1920,20 @@ def _check_industry_client_conflict(data: dict, findings: list[Finding]) -> None
 
     try:
         selected = _app.classify_industry(industry_raw, client_name, roles)
-        implied = _app.classify_industry("", client_name, roles)
     except Exception:  # noqa: BLE001
         return
 
-    selected_key = selected.get("legacy_key")
-    implied_key = implied.get("legacy_key")
-    if selected_key and implied_key and selected_key != implied_key:
+    conflict = selected.get("industry_conflict") if isinstance(selected, dict) else None
+    if conflict:
         findings.append(
             _finding(
                 "critical",
                 "industry_client_conflict",
-                f"Plan industry {selected.get('sector')!r} "
-                f"(legacy_key={selected_key}) conflicts with the industry "
-                f"implied by the client name/roles alone: "
-                f"{implied.get('sector')!r} (legacy_key={implied_key})",
+                f"Plan industry {conflict.get('selected_sector')!r} "
+                f"(legacy_key={conflict.get('selected_legacy_key')}) conflicts "
+                f"with the industry implied by the client name/roles alone: "
+                f"{conflict.get('inferred_sector')!r} "
+                f"(legacy_key={conflict.get('inferred_legacy_key')})",
                 "industry",
             )
         )
@@ -2173,4 +2261,40 @@ def run_bundle_qa(
     return findings
 
 
-__all__ = ["run_bundle_qa"]
+def summarize_findings(findings: list[Finding] | None) -> dict:
+    """Reduce a ``run_bundle_qa`` findings list to the compact, gate-ready
+    summary every caller (the async job record, the sync /api/generate
+    response header, the wizard's job-poll response) should read instead of
+    re-deriving critical/warn counts themselves.
+
+    ``qa_status`` is the single field a caller needs to decide whether to
+    act: ``"critical"`` means at least one finding is severity=critical and
+    delivery must require an explicit operator acknowledgement before
+    download; ``"warnings"`` means only non-blocking findings exist
+    (surfaced, never gated); ``"clean"`` means zero findings. This function
+    itself never raises -- a malformed/empty findings list degrades to a
+    "clean" summary rather than an exception, so a caller can invoke it
+    unconditionally.
+    """
+    try:
+        findings = list(findings) if findings else []
+    except TypeError:
+        findings = []
+    critical = [f for f in findings if isinstance(f, dict) and f.get("severity") == "critical"]
+    warn_count = len(findings) - len(critical)
+    if critical:
+        qa_status = "critical"
+    elif findings:
+        qa_status = "warnings"
+    else:
+        qa_status = "clean"
+    return {
+        "qa_status": qa_status,
+        "critical_count": len(critical),
+        "warn_count": warn_count,
+        "codes": sorted({f.get("code") for f in critical if f.get("code")}),
+        "findings": findings[:25],  # cap job-record/response size
+    }
+
+
+__all__ = ["run_bundle_qa", "summarize_findings"]
