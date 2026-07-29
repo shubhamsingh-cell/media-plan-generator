@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import re
 import socket
 import sys
 import threading
@@ -445,6 +446,17 @@ def test_async_generate_holds_slot_until_worker_finishes(live_server: int) -> No
     submit: dict[str, Any] = json.loads(body)
     job_id = submit["job_id"]
     assert submit["status"] == "processing"
+    # A completed job_id is a bearer token for the plan ZIP -- the Slack
+    # notification posts /api/jobs/<job_id> into a channel, and that link is
+    # honoured without a session cookie. Its entropy is therefore the only
+    # access control, so pin the width on the id the API actually hands out
+    # (not on app.py source, which a truncation on the next line would slip
+    # past). 32 hex chars = the full 128-bit uuid4.
+    assert re.fullmatch(r"[0-9a-f]{32}", job_id), (
+        f"async job_id {job_id!r} is not a full 128-bit uuid4 hex -- a "
+        "truncated bearer token is guessable, and rate limiting cannot "
+        "cover for it here (one NAT egress IP, 2s poll interval)"
+    )
 
     observed_processing = False
     try:

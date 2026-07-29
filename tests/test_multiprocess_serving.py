@@ -29,9 +29,11 @@ import order to test that is pointless when a fresh instance does the job.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import http.client
 import json
+import re
 import secrets
 import socket
 import subprocess
@@ -189,6 +191,271 @@ def test_poll_mirror_rejects_mismatched_session_cookie(
     assert status == 403, f"expected 403 for a mismatched session, got {status}: {body}"
     payload = json.loads(body)
     assert payload["code"] == "FORBIDDEN"
+
+
+# ---------------------------------------------------------------------------
+# (b2) Once a job COMPLETES its id is a bearer token: the Slack notification
+# posts /api/jobs/<id> to a channel, so the people clicking it never hold the
+# generating session's cookie. 403ing them made every Slack download button
+# dead for the full 24h job-expiry window. In-flight jobs stay session-locked
+# (test (b) above) -- only the finished artifact is shareable.
+# ---------------------------------------------------------------------------
+
+
+def _make_completed_job(session_token: str, keep_in_dict: bool = False) -> str:
+    job_id = uuid.uuid4().hex[:12]
+    with app_module._generation_jobs_lock:
+        app_module._generation_jobs[job_id] = {
+            "status": "completed",
+            "progress_pct": 100,
+            "status_message": "Complete",
+            "created": time.time(),
+            "result_bytes": b"PK\x03\x04fake-zip-payload",
+            "result_content_type": "application/zip",
+            "result_filename": "Innovetive_PetCare_Media_Plan.zip",
+            "error": None,
+            "_session_token": session_token,
+        }
+    app_module._mirror_job(job_id)
+    if not keep_in_dict:
+        with app_module._generation_jobs_lock:
+            app_module._generation_jobs.pop(job_id, None)
+    return job_id
+
+
+def test_completed_mirror_serves_mismatched_session(
+    live_server: int, isolated_slot_dir: str
+) -> None:
+    """Cross-worker path: a teammate polling a COMPLETED job from Slack has a
+    different cookie and must still be told the plan is ready."""
+    port = live_server
+    job_id = _make_completed_job(secrets.token_hex(16))
+
+    status, _headers, body = _http_get(
+        port,
+        f"/api/jobs/{job_id}",
+        headers={
+            "Accept": "application/json",
+            "Cookie": f"nova_session={secrets.token_hex(16)}",  # wrong token
+        },
+    )
+
+    assert status == 200, f"expected 200 for a completed job, got {status}: {body}"
+    payload = json.loads(body)
+    assert payload["status"] == "completed"
+    assert payload["filename"] == "Innovetive_PetCare_Media_Plan.zip"
+
+
+def test_completed_in_memory_job_downloads_for_mismatched_session(
+    live_server: int, isolated_slot_dir: str
+) -> None:
+    """Same-worker path: the job is still in this process's dict, so the poll
+    never reaches the mirror. It must serve the bytes, not 403."""
+    port = live_server
+    job_id = _make_completed_job(secrets.token_hex(16), keep_in_dict=True)
+    try:
+        status, headers, body = _http_get(
+            port,
+            f"/api/jobs/{job_id}",
+            headers={"Cookie": f"nova_session={secrets.token_hex(16)}"},
+        )
+
+        assert status == 200, f"expected 200 download, got {status}: {body}"
+        assert body == b"PK\x03\x04fake-zip-payload"
+        assert "attachment" in (headers.get("Content-Disposition") or "")
+    finally:
+        with app_module._generation_jobs_lock:
+            app_module._generation_jobs.pop(job_id, None)
+
+
+# ---------------------------------------------------------------------------
+# (b3) The S47 Supabase copy is the ONLY store that outlives a worker restart
+# and the in-memory 5-minute byte cleanup, so it backstops the download. Two
+# things must hold: it takes over when the in-memory bytes are gone (otherwise
+# the second person to click a Slack link gets "already downloaded"), and it
+# honours the same 24h lifetime as every other path -- nova_generated_plans
+# has no TTL of its own, so an unbounded read makes the link permanent.
+# ---------------------------------------------------------------------------
+
+
+class _FakeSupabaseTable:
+    def __init__(self, rows: list[dict]) -> None:
+        self._rows = rows
+        self._job_id: str | None = None
+        self._cutoff: str | None = None
+
+    def select(self, *_args: object) -> _FakeSupabaseTable:
+        return self
+
+    def eq(self, _field: str, value: str) -> _FakeSupabaseTable:
+        self._job_id = value
+        return self
+
+    def gte(self, _field: str, value: str) -> _FakeSupabaseTable:
+        self._cutoff = value
+        return self
+
+    def execute(self) -> object:
+        matched = [r for r in self._rows if r["job_id"] == self._job_id]
+        if self._cutoff is not None:
+            matched = [r for r in matched if r["created_at"] >= self._cutoff]
+        return type("_Result", (), {"data": matched})()
+
+
+def _install_fake_supabase(monkeypatch, rows: list[dict]) -> None:
+    import supabase_client
+
+    monkeypatch.setattr(
+        supabase_client,
+        "get_client",
+        lambda: type("_Client", (), {"table": lambda _self, _n: _FakeSupabaseTable(rows)})(),
+    )
+
+
+def _supabase_row(job_id: str, age_seconds: float) -> dict:
+    return {
+        "job_id": job_id,
+        "zip_data": base64.b64encode(b"PK\x03\x04supabase-copy").decode(),
+        "filename": "Innovetive_PetCare_Media_Plan.zip",
+        "created_at": time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - age_seconds)
+        ),
+    }
+
+
+def test_supabase_serves_when_in_memory_bytes_already_cleared(
+    live_server: int, isolated_slot_dir: str, monkeypatch
+) -> None:
+    """S37 clears result_bytes 5 min after the first download. Without the
+    Supabase fallback the next click gets 410 'already downloaded'."""
+    port = live_server
+    job_id = _make_completed_job(secrets.token_hex(16), keep_in_dict=True)
+    with app_module._generation_jobs_lock:
+        app_module._generation_jobs[job_id]["result_bytes"] = b""
+    _install_fake_supabase(monkeypatch, [_supabase_row(job_id, age_seconds=60)])
+    try:
+        status, _headers, body = _http_get(port, f"/api/jobs/{job_id}")
+        assert status == 200, f"expected Supabase fallback 200, got {status}: {body}"
+        assert body == b"PK\x03\x04supabase-copy"
+    finally:
+        with app_module._generation_jobs_lock:
+            app_module._generation_jobs.pop(job_id, None)
+
+
+def test_supabase_refuses_row_older_than_job_expiry(
+    live_server: int, isolated_slot_dir: str, monkeypatch
+) -> None:
+    """A completed job_id is a bearer token, so an unbounded Supabase read
+    would make that token valid forever to anyone who ever saw the link."""
+    port = live_server
+    job_id = uuid.uuid4().hex[:12]  # not in this process's dict, no mirror file
+    stale_age = app_module._GENERATION_JOB_EXPIRY_SECONDS + 3600
+    _install_fake_supabase(monkeypatch, [_supabase_row(job_id, age_seconds=stale_age)])
+
+    status, _headers, body = _http_get(port, f"/api/jobs/{job_id}")
+    assert status == 404, f"expected 404 for an expired plan, got {status}: {body}"
+    assert b"supabase-copy" not in body
+
+
+def test_supabase_serves_row_inside_job_expiry(
+    live_server: int, isolated_slot_dir: str, monkeypatch
+) -> None:
+    """Guard against the expiry bound above being so tight it rejects
+    everything -- a fresh row on the same path must still serve."""
+    port = live_server
+    job_id = uuid.uuid4().hex[:12]
+    fresh_age = app_module._GENERATION_JOB_EXPIRY_SECONDS - 3600
+    _install_fake_supabase(monkeypatch, [_supabase_row(job_id, age_seconds=fresh_age)])
+
+    status, _headers, body = _http_get(port, f"/api/jobs/{job_id}")
+    assert status == 200, f"expected 200 for a fresh plan, got {status}: {body}"
+    assert body == b"PK\x03\x04supabase-copy"
+
+
+# ---------------------------------------------------------------------------
+# (b4) A completed job_id is a bearer token, so its ENTROPY is the only thing
+# standing between a stranger and someone's media plan. Rate limiting cannot
+# be that control: the office shares one NAT egress IP and the wizard polls
+# /api/jobs/<id> every 2s (30/min, exactly _RATE_LIMIT_MAX), so an IP bucket
+# would throttle real users first. These pin the id width instead.
+# ---------------------------------------------------------------------------
+
+
+def test_plan_results_id_is_full_128_bit_and_route_accepts_it(
+    live_server: int, isolated_slot_dir: str
+) -> None:
+    """GET /api/plan-results/<id> returns the whole plan JSON with NO auth
+    check (unlike /api/campaign-intel/metrics beside it), so that id is a
+    bearer token too and needs the same width as job_id -- and the route has
+    to admit it. The width of the id the app mints is pinned behaviourally in
+    tests/test_generate_concurrency.py; this covers the route half."""
+    port = live_server
+    plan_id = uuid.uuid4().hex
+    app_module._store_plan_result(plan_id, {"client_name": "Acme", "roles": []})
+    try:
+        status, _headers, body = _http_get(port, f"/api/plan-results/{plan_id}")
+        assert status == 200, f"32-char plan_id must be accepted, got {status}: {body}"
+        assert json.loads(body)["plan_id"] == plan_id
+    finally:
+        with app_module._plan_results_lock:
+            app_module._plan_results_store.pop(plan_id, None)
+
+
+def test_every_hex_id_validator_accepts_the_current_id_width() -> None:
+    """job_id and _plan_id are minted in ONE place each but validated in
+    several, across app.py and routes/. When they were widened to 128 bits,
+    three validators still hard-coded the old 12-char cap -- /api/jobs/<id>/
+    qa-ack (caught by its own test) and the PDF-export and plan-view routes
+    (caught by NOTHING; the whole suite stayed green while both 400'd on every
+    new plan). This is the invariant that would have caught all three: any
+    validator for a lowercase-hex id must admit the width we actually mint.
+    """
+    # Whole raw-string pattern literals mentioning a lowercase-hex class --
+    # NOT the individual {n} fragments, which would flag a correct
+    # ({12}|{32}) alternation for the half that legitimately doesn't match.
+    literal_re = re.compile(r'r"((?:[^"\\]|\\.)*\[a-f0-9\](?:[^"\\]|\\.)*)"')
+    live_id = uuid.uuid4().hex  # 32 chars, as minted today
+    offenders: list[str] = []
+
+    for py in sorted(PROJECT_ROOT.glob("*.py")) + sorted(
+        PROJECT_ROOT.glob("routes/*.py")
+    ):
+        for lineno, line in enumerate(py.read_text().splitlines(), 1):
+            for pattern in literal_re.findall(line):
+                try:
+                    match = re.match(pattern, live_id)
+                except re.error:
+                    continue  # not a standalone compilable validator
+                if not match or match.end() != len(live_id):
+                    offenders.append(
+                        f"{py.relative_to(PROJECT_ROOT)}:{lineno}: {pattern!r} "
+                        f"rejects a live {len(live_id)}-char id"
+                    )
+
+    assert not offenders, "hex-id validators out of step with minted ids:\n" + "\n".join(
+        offenders
+    )
+
+
+def test_job_route_accepts_32_char_ids_and_rejects_malformed(
+    live_server: int, isolated_slot_dir: str
+) -> None:
+    """The route regex has to admit the new 32-char ids (and the 12-char ones
+    still in flight during a rolling deploy) without admitting junk."""
+    port = live_server
+
+    status, _h, _b = _http_get(port, f"/api/jobs/{uuid.uuid4().hex}")
+    assert status == 404, f"32-char id should reach lookup (404), got {status}"
+
+    status, _h, _b = _http_get(port, f"/api/jobs/{uuid.uuid4().hex[:12]}")
+    assert status == 404, f"legacy 12-char id should still reach lookup, got {status}"
+
+    for bad in ("g" * 12, "a" * 33, "../etc/passwd", "abc-def"):
+        status, _h, _b = _http_get(port, f"/api/jobs/{bad}")
+        assert status in (
+            400,
+            404,
+        ), f"malformed id {bad!r} must not reach the job store, got {status}"
 
 
 # ---------------------------------------------------------------------------

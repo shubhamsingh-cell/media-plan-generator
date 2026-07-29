@@ -6072,7 +6072,18 @@ def _store_plan_result(plan_id: str, data: dict) -> None:
 
 
 def _upload_plan_to_drive(file_bytes: bytes, filename: str, mime_type: str) -> str:
-    """Upload plan ZIP to Google Drive for permanent download link.
+    """Upload plan ZIP to Google Drive for a permanent Slack download link.
+
+    Every failure here is RECOVERABLE -- the caller falls back to the
+    /api/jobs/<id> link -- but it must never be SILENT. A silent "" downgrades
+    the Slack button from a permanent link to a 24h one with nobody noticing,
+    which is exactly how this went unnoticed until a teammate hit a dead
+    button. Each exit path below therefore names itself in the log.
+
+    Note for whoever debugs this next: a Google service account has NO My Drive
+    storage quota, so an unparented ``files().create`` fails with "Service
+    Accounts do not have storage quota". Set NOVA_DRIVE_FOLDER_ID to a folder
+    on a SHARED drive to give the upload a home that does have quota.
 
     Returns:
         Direct download URL, or empty string if upload fails or Drive not configured.
@@ -6081,19 +6092,33 @@ def _upload_plan_to_drive(file_bytes: bytes, filename: str, mime_type: str) -> s
 
     creds_b64 = os.environ.get("GOOGLE_SLIDES_CREDENTIALS_B64") or ""
     if not creds_b64:
+        logger.warning(
+            "Drive upload skipped: GOOGLE_SLIDES_CREDENTIALS_B64 is not set. "
+            "Slack download links will use the 24h /api/jobs/<id> fallback."
+        )
         return ""
 
     try:
         creds_json = _b64.b64decode(creds_b64).decode("utf-8")
         creds_dict = json.loads(creds_json)
-    except Exception:
+    except Exception as _creds_exc:
+        logger.warning(
+            "Drive upload skipped: GOOGLE_SLIDES_CREDENTIALS_B64 is not valid "
+            "base64-encoded JSON (%s). Falling back to the 24h job link.",
+            _creds_exc,
+        )
         return ""
 
     try:
         from googleapiclient.discovery import build as _gapi_build
         from googleapiclient.http import MediaInMemoryUpload
         from google.oauth2.service_account import Credentials as _GCreds
-    except ImportError:
+    except ImportError as _imp_exc:
+        logger.warning(
+            "Drive upload skipped: google-api-python-client is not installed "
+            "(%s). Falling back to the 24h job link.",
+            _imp_exc,
+        )
         return ""
 
     try:
@@ -6106,15 +6131,31 @@ def _upload_plan_to_drive(file_bytes: bytes, filename: str, mime_type: str) -> s
             re.sub(r"[^\w\s\-_.]", "_", filename)[:200] if filename else "plan.zip"
         )
         file_meta = {"name": safe_name, "mimeType": mime_type}
+        # Parent the upload into a shared-drive folder when one is configured;
+        # without it the service account has nowhere with storage quota to put
+        # the file. supportsAllDrives is required for any shared-drive target.
+        _drive_folder = os.environ.get("NOVA_DRIVE_FOLDER_ID") or ""
+        if _drive_folder:
+            file_meta["parents"] = [_drive_folder]
         media = MediaInMemoryUpload(file_bytes, mimetype=mime_type)
         uploaded = (
             drive.files()
-            .create(body=file_meta, media_body=media, fields="id,webContentLink")
+            .create(
+                body=file_meta,
+                media_body=media,
+                fields="id,webContentLink",
+                supportsAllDrives=True,
+            )
             .execute()
         )
 
         file_id = uploaded.get("id") or ""
         if not file_id:
+            logger.warning(
+                "Drive upload returned no file id for %s; falling back to the "
+                "24h job link.",
+                safe_name,
+            )
             return ""
 
         # Make publicly downloadable
@@ -6122,11 +6163,17 @@ def _upload_plan_to_drive(file_bytes: bytes, filename: str, mime_type: str) -> s
         drive.permissions().create(
             fileId=file_id,
             body={"role": "reader", "type": "domain", "domain": "joveo.com"},
+            supportsAllDrives=True,
         ).execute()
 
         return f"https://drive.google.com/uc?export=download&id={file_id}"
     except Exception as exc:
-        logger.warning("Drive upload failed: %s", exc)
+        logger.warning(
+            "Drive upload failed (%s); falling back to the 24h job link. If "
+            "this says 'Service Accounts do not have storage quota', set "
+            "NOVA_DRIVE_FOLDER_ID to a shared-drive folder.",
+            exc,
+        )
         return ""
 
 
@@ -12764,7 +12811,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── Feature 2c: Async job polling ──
         elif path.startswith("/api/jobs/"):
             job_id = path.split("/")[-1]
-            if not job_id or not re.match(r"^[a-f0-9]{1,12}$", job_id):
+            # Exactly the two widths ever minted: the 32-char (128-bit) ids
+            # issued now, and the legacy 12-char ones still in flight during a
+            # rolling deploy (droppable once the 24h job expiry has passed).
+            if not job_id or not re.match(r"^([a-f0-9]{12}|[a-f0-9]{32})\Z", job_id):
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -12775,212 +12825,161 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             now = time.time()
             with _generation_jobs_lock:
                 job = _generation_jobs.get(job_id)
-                if not job:
-                    # Cross-process job-status mirror: this poll may have
-                    # landed on a gunicorn worker OTHER than the one running
-                    # the job (the in-memory dict above is per-process), so
-                    # check the file _mirror_job() wrote before falling
-                    # back to the S47 Supabase lookup below, which only has
-                    # bytes once the job has fully completed.
-                    _mirror_path = os.path.join(
-                        _generate_slots._slot_dir, f"job_{job_id}.json"
-                    )
+            if not job:
+                # Cross-process job-status mirror: this poll may have
+                # landed on a gunicorn worker OTHER than the one running
+                # the job (the in-memory dict above is per-process), so
+                # check the file _mirror_job() wrote before falling
+                # back to the S47 Supabase lookup below, which only has
+                # bytes once the job has fully completed.
+                _mirror_path = os.path.join(
+                    _generate_slots._slot_dir, f"job_{job_id}.json"
+                )
+                _mirror_data = None
+                try:
+                    with open(_mirror_path, "r") as _mf:
+                        _mirror_data = json.load(_mf)
+                except (OSError, ValueError):
                     _mirror_data = None
-                    try:
-                        with open(_mirror_path, "r") as _mf:
-                            _mirror_data = json.load(_mf)
-                    except (OSError, ValueError):
-                        _mirror_data = None
-                    if _mirror_data is not None:
-                        _mirror_sha = _mirror_data.get("_session_token_sha256") or ""
-                        _mirror_legacy_raw = _mirror_data.get("_session_token") or ""
-                        if _mirror_sha:
-                            _mirror_csrf = _parse_cookie_value(
-                                self.headers.get("Cookie") or "", "nova_session"
-                            ) or _parse_cookie_value(
-                                self.headers.get("Cookie") or "", "csrf_token"
-                            )
-                            _mirror_csrf_sha = hashlib.sha256(
-                                _mirror_csrf.encode("utf-8")
-                            ).hexdigest()
-                            if not hmac.compare_digest(_mirror_sha, _mirror_csrf_sha):
-                                self.send_response(403)
-                                self.send_header("Content-Type", "application/json")
-                                self.end_headers()
-                                self.wfile.write(
-                                    _error_response(
-                                        "Access denied: job belongs to a different session",
-                                        "FORBIDDEN",
-                                        403,
-                                    )[0]
-                                )
-                                return
-                        elif _mirror_legacy_raw:
-                            # Legacy mirror file written before the sha256
-                            # hardening (pre-existing on disk, up to 24h
-                            # old) -- fall back to the raw compare so these
-                            # stragglers still enforce ownership instead of
-                            # silently skipping the check.
-                            _mirror_csrf = _parse_cookie_value(
-                                self.headers.get("Cookie") or "", "nova_session"
-                            ) or _parse_cookie_value(
-                                self.headers.get("Cookie") or "", "csrf_token"
-                            )
-                            if not hmac.compare_digest(
-                                _mirror_legacy_raw, _mirror_csrf
-                            ):
-                                self.send_response(403)
-                                self.send_header("Content-Type", "application/json")
-                                self.end_headers()
-                                self.wfile.write(
-                                    _error_response(
-                                        "Access denied: job belongs to a different session",
-                                        "FORBIDDEN",
-                                        403,
-                                    )[0]
-                                )
-                                return
-                        _mirror_created = _mirror_data.get("created") or 0
-                        if now - _mirror_created > _GENERATION_JOB_EXPIRY_SECONDS:
-                            try:
-                                os.unlink(_mirror_path)
-                            except OSError:
-                                pass
-                            self.send_response(404)
-                            self.send_header("Content-Type", "application/json")
-                            self.end_headers()
-                            self.wfile.write(
-                                _error_response("Job expired", "NOT_FOUND", 410)[0]
-                            )
-                            return
-                        _mirror_status = _mirror_data.get("status")
-                        _mirror_elapsed = round(now - _mirror_created, 1)
-                        if _mirror_status == "completed":
-                            _mirror_accept = self.headers.get("Accept") or ""
-                            if "application/json" in _mirror_accept:
-                                self._send_json(
-                                    {
-                                        "job_id": job_id,
-                                        "status": "completed",
-                                        "progress_pct": 100,
-                                        "status_message": "Complete",
-                                        "filename": _mirror_data.get("result_filename")
-                                        or "result.zip",
-                                        "content_type": _mirror_data.get(
-                                            "result_content_type"
-                                        )
-                                        or "application/zip",
-                                        "download_url": f"/api/jobs/{job_id}",
-                                        "elapsed_seconds": _mirror_elapsed,
-                                        **_bundle_qa_response_fields(
-                                            _mirror_data.get("bundle_qa")
-                                        ),
-                                    }
-                                )
-                                return
-                            # Download mode: only Supabase (S47 below) has
-                            # the actual bytes cross-worker -- fall through.
-                        elif _mirror_status == "failed":
-                            self._send_json(
-                                {
-                                    "job_id": job_id,
-                                    "status": "failed",
-                                    "error": _mirror_data.get("error")
-                                    or "Generation failed",
-                                    "created": datetime.datetime.fromtimestamp(
-                                        _mirror_created
-                                    ).isoformat(),
-                                    "elapsed_seconds": _mirror_elapsed,
-                                }
-                            )
-                            return
-                        else:
-                            self._send_json(
-                                {
-                                    "job_id": job_id,
-                                    "status": "processing",
-                                    "progress_pct": _mirror_data.get("progress_pct")
-                                    or 0,
-                                    "status_message": _mirror_data.get("status_message")
-                                    or "Processing...",
-                                    "created": datetime.datetime.fromtimestamp(
-                                        _mirror_created
-                                    ).isoformat(),
-                                    "elapsed_seconds": _mirror_elapsed,
-                                    "source": "mirror",
-                                }
-                            )
-                            return
-                    # S47: Fallback to Supabase for restart-safe Slack download links
-                    try:
-                        from supabase_client import get_client as _sb_dl_client
-                        import base64 as _b64_dl
-
-                        _sb_dl = _sb_dl_client()
-                        if _sb_dl:
-                            _sb_result = (
-                                _sb_dl.table("nova_generated_plans")
-                                .select("*")
-                                .eq("job_id", job_id)
-                                .execute()
-                            )
-                            if _sb_result.data:
-                                _row = _sb_result.data[0]
-                                _zip_bytes = _b64_dl.b64decode(_row["zip_data"])
-                                _dl_filename = _row.get("filename") or "Media_Plan.zip"
-                                _dl_ct = "application/zip"
-                                accept_hdr = self.headers.get("Accept") or ""
-                                if "application/json" in accept_hdr:
-                                    # Poll mode: tell frontend it's ready
-                                    # NOTE: nova_generated_plans (S47) doesn't
-                                    # persist the bundle_qa verdict, so a
-                                    # restart-safe Slack download that falls
-                                    # all the way through to Supabase can't
-                                    # recover it -- defaults to "clean"
-                                    # (never blocks) rather than fabricating a
-                                    # status. Known gap, not addressed here.
-                                    self._send_json(
-                                        {
-                                            "job_id": job_id,
-                                            "status": "completed",
-                                            "progress_pct": 100,
-                                            "status_message": "Complete",
-                                            "filename": _dl_filename,
-                                            "content_type": _dl_ct,
-                                            "download_url": f"/api/jobs/{job_id}",
-                                            "source": "supabase",
-                                            **_bundle_qa_response_fields(None),
-                                        }
-                                    )
-                                    return
-                                self.send_response(200)
-                                self.send_header("Content-Type", _dl_ct)
-                                self.send_header(
-                                    "Content-Disposition",
-                                    f'attachment; filename="{_dl_filename}"',
-                                )
-                                self.send_header("Content-Length", str(len(_zip_bytes)))
-                                self.end_headers()
-                                self.wfile.write(_zip_bytes)
-                                logger.info(
-                                    "S47: Served plan from Supabase for job %s", job_id
-                                )
-                                return
-                    except Exception as _sb_dl_err:
-                        logger.debug(
-                            "S47: Supabase fallback lookup failed: %s", _sb_dl_err
+                if _mirror_data is not None:
+                    # A completed job's id is a bearer token: the Slack
+                    # notification hands the link to teammates who by
+                    # definition do not share the generating session, so
+                    # ownership only gates in-flight jobs (see the
+                    # _mirror_session_ok gate below).
+                    _mirror_session_ok = True
+                    _mirror_sha = _mirror_data.get("_session_token_sha256") or ""
+                    _mirror_legacy_raw = _mirror_data.get("_session_token") or ""
+                    if _mirror_sha:
+                        _mirror_csrf = _parse_cookie_value(
+                            self.headers.get("Cookie") or "", "nova_session"
+                        ) or _parse_cookie_value(
+                            self.headers.get("Cookie") or "", "csrf_token"
                         )
-                    self.send_response(404)
-                    self.send_header("Content-Type", "application/json")
-                    self.end_headers()
-                    self.wfile.write(
-                        _error_response("Job not found or expired", "NOT_FOUND", 404)[0]
-                    )
+                        _mirror_csrf_sha = hashlib.sha256(
+                            _mirror_csrf.encode("utf-8")
+                        ).hexdigest()
+                        _mirror_session_ok = hmac.compare_digest(
+                            _mirror_sha, _mirror_csrf_sha
+                        )
+                    elif _mirror_legacy_raw:
+                        # Legacy mirror file written before the sha256
+                        # hardening (pre-existing on disk, up to 24h
+                        # old) -- fall back to the raw compare so these
+                        # stragglers still enforce ownership instead of
+                        # silently skipping the check.
+                        _mirror_csrf = _parse_cookie_value(
+                            self.headers.get("Cookie") or "", "nova_session"
+                        ) or _parse_cookie_value(
+                            self.headers.get("Cookie") or "", "csrf_token"
+                        )
+                        _mirror_session_ok = hmac.compare_digest(
+                            _mirror_legacy_raw, _mirror_csrf
+                        )
+                    _mirror_created = _mirror_data.get("created") or 0
+                    _mirror_status = _mirror_data.get("status")
+                    # Gate BEFORE the expiry branch below: that branch
+                    # unlinks the mirror file, and an unauthorized caller
+                    # must not be able to trigger a filesystem side effect.
+                    if not _mirror_session_ok and _mirror_status != "completed":
+                        self.send_response(403)
+                        self.send_header("Content-Type", "application/json")
+                        self.end_headers()
+                        self.wfile.write(
+                            _error_response(
+                                "Access denied: job belongs to a different session",
+                                "FORBIDDEN",
+                                403,
+                            )[0]
+                        )
+                        return
+                    if now - _mirror_created > _GENERATION_JOB_EXPIRY_SECONDS:
+                        try:
+                            os.unlink(_mirror_path)
+                        except OSError:
+                            pass
+                        self.send_response(404)
+                        self.send_header("Content-Type", "application/json")
+                        self.end_headers()
+                        self.wfile.write(
+                            _error_response("Job expired", "NOT_FOUND", 410)[0]
+                        )
+                        return
+                    _mirror_elapsed = round(now - _mirror_created, 1)
+                    if _mirror_status == "completed":
+                        _mirror_accept = self.headers.get("Accept") or ""
+                        if "application/json" in _mirror_accept:
+                            self._send_json(
+                                {
+                                    "job_id": job_id,
+                                    "status": "completed",
+                                    "progress_pct": 100,
+                                    "status_message": "Complete",
+                                    "filename": _mirror_data.get("result_filename")
+                                    or "result.zip",
+                                    "content_type": _mirror_data.get(
+                                        "result_content_type"
+                                    )
+                                    or "application/zip",
+                                    "download_url": f"/api/jobs/{job_id}",
+                                    "elapsed_seconds": _mirror_elapsed,
+                                    **_bundle_qa_response_fields(
+                                        _mirror_data.get("bundle_qa")
+                                    ),
+                                }
+                            )
+                            return
+                        # Download mode: only Supabase (S47 below) has
+                        # the actual bytes cross-worker -- fall through.
+                    elif _mirror_status == "failed":
+                        self._send_json(
+                            {
+                                "job_id": job_id,
+                                "status": "failed",
+                                "error": _mirror_data.get("error")
+                                or "Generation failed",
+                                "created": datetime.datetime.fromtimestamp(
+                                    _mirror_created
+                                ).isoformat(),
+                                "elapsed_seconds": _mirror_elapsed,
+                            }
+                        )
+                        return
+                    else:
+                        self._send_json(
+                            {
+                                "job_id": job_id,
+                                "status": "processing",
+                                "progress_pct": _mirror_data.get("progress_pct")
+                                or 0,
+                                "status_message": _mirror_data.get("status_message")
+                                or "Processing...",
+                                "created": datetime.datetime.fromtimestamp(
+                                    _mirror_created
+                                ).isoformat(),
+                                "elapsed_seconds": _mirror_elapsed,
+                                "source": "mirror",
+                            }
+                        )
+                        return
+                # S47: Fallback to Supabase for restart-safe Slack download links
+                if self._serve_plan_from_supabase(job_id):
                     return
-                # Bug #14 fix: Validate session owns this job (IDOR prevention)
+                self.send_response(404)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    _error_response("Job not found or expired", "NOT_FOUND", 404)[0]
+                )
+                return
+            with _generation_jobs_lock:
+                # Ownership gates in-flight jobs only. Once a job completes its
+                # id is a bearer token -- the Slack notification hands the link
+                # to teammates who never had the generating session's cookie,
+                # and 403ing them made every Slack download button dead.
                 # C1 fix: Use nova_session (HttpOnly) cookie, fallback to csrf_token
                 _job_session = job.get("_session_token") or ""
-                if _job_session:
+                if _job_session and job.get("status") != "completed":
                     _poll_csrf = _parse_cookie_value(
                         self.headers.get("Cookie") or "", "nova_session"
                     ) or _parse_cookie_value(
@@ -13038,6 +13037,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     # previous download), return 410 so frontend can show a
                     # helpful message instead of silently serving 0 bytes.
                     if not result_bytes:
+                        if self._serve_plan_from_supabase(job_id):
+                            return
                         self._send_json(
                             {
                                 "job_id": job_id,
@@ -13107,7 +13108,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── Plan Results JSON (on-screen dashboard data) ──
         elif path.startswith("/api/plan-results/"):
             _pr_id = path.split("/")[-1]
-            if not _pr_id or not re.match(r"^[a-f0-9]{1,12}$", _pr_id):
+            if not _pr_id or not re.match(r"^([a-f0-9]{12}|[a-f0-9]{32})\Z", _pr_id):
                 self._send_json({"error": "Invalid plan_id"}, status_code=400)
                 return
             now = time.time()
@@ -13283,7 +13284,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         elif path == "/api/plan/sheets-url":
             _qs_parsed = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             _su_plan_id = (_qs_parsed.get("plan_id") or [""])[0]
-            if not _su_plan_id or not re.match(r"^[a-f0-9]{1,12}$", _su_plan_id):
+            if not _su_plan_id or not re.match(
+                r"^([a-f0-9]{12}|[a-f0-9]{32})\Z", _su_plan_id
+            ):
                 self._send_json(
                     {"error": "Missing or invalid plan_id"}, status_code=400
                 )
@@ -14943,7 +14946,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # Expected: ['', 'api', 'jobs', '<job_id>', 'qa-ack']
             _qa_ack_job_id = _qa_ack_parts[3] if len(_qa_ack_parts) >= 5 else ""
             if not _qa_ack_job_id or not re.match(
-                r"^[a-f0-9]{1,12}$", _qa_ack_job_id
+                r"^([a-f0-9]{12}|[a-f0-9]{32})\Z", _qa_ack_job_id
             ):
                 self._send_json({"error": "Invalid job_id"}, status_code=400)
                 return
@@ -15948,7 +15951,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 data["_gen_created"] = (
                     time.time()
                 )  # Stamp for Slack notification timing
-                job_id = uuid.uuid4().hex[:12]
+                # Full 128-bit uuid4, NOT the .hex[:12] truncation used for the
+                # _request_id log-correlation ids: a completed job_id is a
+                # bearer token for the plan ZIP (the Slack notification posts
+                # the link to a channel), so it has to be unguessable on its
+                # own. Rate limiting cannot be the control here -- the whole
+                # office shares one NAT egress IP and the wizard polls this
+                # endpoint every 2s (30/min, exactly _RATE_LIMIT_MAX), so an IP
+                # bucket would throttle real users long before it
+                # inconvenienced anyone enumerating. _plan_id is widened for
+                # the same reason -- see its own note.
+                job_id = uuid.uuid4().hex
                 # Bug #14 fix: Store session token with job for IDOR prevention
                 # C1 fix: Use nova_session (HttpOnly) cookie instead of csrf_token
                 _job_csrf = _parse_cookie_value(
@@ -19325,8 +19338,15 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # Collapse multiple underscores
             _descriptive_filename = re.sub(r"_+", "_", _descriptive_filename)
 
-            # Store plan results JSON for on-screen dashboard
-            _plan_id = uuid.uuid4().hex[:12]
+            # Store plan results JSON for on-screen dashboard.
+            # Full 128-bit uuid4 for the same reason as job_id above: this id
+            # is the ONLY thing protecting GET /api/plan-results/<id>, which
+            # returns the whole plan JSON with no auth check at all (unlike
+            # /api/campaign-intel/metrics right beside it, which gates on
+            # _check_joveo_auth). At the previous 48 bits, with a 24h TTL and
+            # no rate limiting on GET, that was a guessable handle on client
+            # budgets and role data.
+            _plan_id = uuid.uuid4().hex
             _store_plan_result(_plan_id, data)
 
             # ── Async Google Sheets export (non-blocking) ──
@@ -23881,6 +23901,89 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         """Override to track the response status code for metrics."""
         self._response_status = code
         super().send_response(code, message)
+
+    def _serve_plan_from_supabase(self, job_id: str) -> bool:
+        """S47: serve a completed plan from Supabase, the only store that keeps
+        the ZIP bytes past a worker restart or the in-memory 5-minute cleanup.
+
+        A completed job's id is a bearer token (the Slack notification posts the
+        link to a channel), so this deliberately does NOT check session
+        ownership -- but it MUST honour the same 24h lifetime the in-memory and
+        mirror paths enforce, or the link outlives every other expiry check and
+        becomes permanent public access. nova_generated_plans has no TTL of its
+        own (the cleanup job in scripts/create_s47_tables.sql is commented out),
+        so the bound has to be applied here, at read time.
+
+        Returns True if a response was sent, False if the caller should fall
+        through to its own not-found/expired handling. Once headers are on the
+        wire the response is committed and this returns True even if the body
+        write fails -- returning False there would let the caller send a second
+        status line on the same connection.
+        """
+        try:
+            from supabase_client import get_client as _sb_dl_client
+            import base64 as _b64_dl
+
+            _sb_dl = _sb_dl_client()
+            if not _sb_dl:
+                return False
+            _sb_cutoff = time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ",
+                time.gmtime(time.time() - _GENERATION_JOB_EXPIRY_SECONDS),
+            )
+            _sb_result = (
+                _sb_dl.table("nova_generated_plans")
+                .select("*")
+                .eq("job_id", job_id)
+                .gte("created_at", _sb_cutoff)
+                .execute()
+            )
+            if not _sb_result.data:
+                return False
+            _row = _sb_result.data[0]
+            _zip_bytes = _b64_dl.b64decode(_row["zip_data"])
+            _dl_filename = _row.get("filename") or "Media_Plan.zip"
+            _dl_ct = "application/zip"
+        except Exception as _sb_dl_err:
+            logger.debug("S47: Supabase fallback lookup failed: %s", _sb_dl_err)
+            return False
+
+        if "application/json" in (self.headers.get("Accept") or ""):
+            # NOTE: nova_generated_plans (S47) doesn't persist the bundle_qa
+            # verdict, so a restart-safe Slack download that falls all the way
+            # through to Supabase can't recover it -- defaults to "clean"
+            # (never blocks) rather than fabricating a status. Known gap, not
+            # addressed here.
+            self._send_json(
+                {
+                    "job_id": job_id,
+                    "status": "completed",
+                    "progress_pct": 100,
+                    "status_message": "Complete",
+                    "filename": _dl_filename,
+                    "content_type": _dl_ct,
+                    "download_url": f"/api/jobs/{job_id}",
+                    "source": "supabase",
+                    **_bundle_qa_response_fields(None),
+                }
+            )
+            return True
+        self.send_response(200)
+        self.send_header("Content-Type", _dl_ct)
+        self.send_header(
+            "Content-Disposition", f'attachment; filename="{_dl_filename}"'
+        )
+        self.send_header("Content-Length", str(len(_zip_bytes)))
+        self.end_headers()
+        try:
+            self.wfile.write(_zip_bytes)
+        except OSError as _sb_write_err:
+            # Client hung up mid-download. The status line already went out, so
+            # the caller must NOT emit its own -- report success regardless.
+            logger.debug("S47: client disconnected during download: %s", _sb_write_err)
+            return True
+        logger.info("S47: Served plan from Supabase for job %s", job_id)
+        return True
 
     def _send_json(self, data: Any, status_code: int = 200) -> None:
         """Send a JSON response.

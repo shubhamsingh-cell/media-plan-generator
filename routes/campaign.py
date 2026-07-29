@@ -353,7 +353,10 @@ def _handle_plan_direct_view(handler: Any, path: str, parsed: Any) -> None:
     _plan_results_lock = getattr(_app, "_plan_results_lock", None)
 
     _pv_id = path.split("/plan/")[-1].rstrip("/").split("?")[0]
-    if not _pv_id or not _re_m.match(r"^[a-f0-9]{1,12}$", _pv_id):
+    # Both widths _plan_id has ever had: 32-char (128-bit) now, 12-char legacy
+    # still inside its 24h TTL. Keep in step with app.py's
+    # /api/plan-results/<id> validator -- they key the same store.
+    if not _pv_id or not _re_m.match(r"^([a-f0-9]{12}|[a-f0-9]{32})\Z", _pv_id):
         handler.send_error(404)
         return
 

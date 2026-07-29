@@ -367,7 +367,10 @@ def _handle_pdf_export_get(handler: Any, path: str, parsed: Any) -> None:
         qs = parse_qs(parsed.query) if hasattr(parsed, "query") else {}
         plan_id = (qs.get("plan_id") or [""])[0]
 
-        if not plan_id or not re.match(r"^[a-f0-9]{1,12}$", plan_id):
+        # Both widths _plan_id has ever had: 32-char (128-bit) now, 12-char
+        # legacy still inside its 24h TTL. Keep in step with app.py's
+        # /api/plan-results/<id> validator -- they key the same store.
+        if not plan_id or not re.match(r"^([a-f0-9]{12}|[a-f0-9]{32})\Z", plan_id):
             handler._send_json({"error": "Missing or invalid plan_id"}, status_code=400)
             return
 

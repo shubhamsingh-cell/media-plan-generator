@@ -107,6 +107,15 @@ services:
       # --- Slack Plan Notifications (slack_plan_notifier.py) ---
       - key: SLACK_PLAN_CHANNEL
         sync: false
+      # --- Permanent Drive links for the Slack "Download" button ---
+      # Without these the notification falls back to /api/jobs/<id>, which
+      # only lives 24h. A service account has no My Drive storage quota, so
+      # NOVA_DRIVE_FOLDER_ID must point at a folder on a SHARED drive or the
+      # upload fails; _upload_plan_to_drive logs the exact reason either way.
+      - key: GOOGLE_SLIDES_CREDENTIALS_B64
+        sync: false
+      - key: NOVA_DRIVE_FOLDER_ID
+        sync: false
       # --- Google Calendar Sync (calendar_sync.py) ---
       - key: GOOGLE_CALENDAR_CREDENTIALS
         sync: false
