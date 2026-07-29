@@ -2055,6 +2055,31 @@ def _collect_sensitive_values() -> set[str]:
         val = val.strip()
         if len(val) >= 8:
             seen.add(val)
+            # B64-encoded credentials (e.g. GOOGLE_SLIDES_CREDENTIALS_B64, a
+            # base64'd service-account JSON) are DECODED at their call sites
+            # before use -- so the string that actually appears in a
+            # stack-trace local or exception context is the decoded plaintext
+            # (private key included), which matching the env value alone would
+            # miss. Redact the decoded form too, and for decoded JSON also its
+            # string leaf values (the private_key PEM shows up as a lone local
+            # more often than the whole document does).
+            if name.endswith("_B64"):
+                try:
+                    import base64 as _redact_b64
+
+                    decoded = _redact_b64.b64decode(val).decode("utf-8")
+                except Exception:
+                    continue
+                if len(decoded) >= 8:
+                    seen.add(decoded)
+                try:
+                    leaves = json.loads(decoded)
+                except ValueError:
+                    continue
+                if isinstance(leaves, dict):
+                    for leaf in leaves.values():
+                        if isinstance(leaf, str) and len(leaf) >= 32:
+                            seen.add(leaf)
     return seen
 
 

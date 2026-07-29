@@ -149,6 +149,69 @@ class TestEnvVarRedactionInExtras:
         assert secret not in out
         assert _REDACTED in out
 
+    def test_decoded_form_of_b64_credential_is_redacted(self) -> None:
+        """_B64 env vars (GOOGLE_SLIDES_CREDENTIALS_B64) are DECODED at their
+        call sites before use, so the string that actually leaks into a
+        stack-trace local or exception context is the decoded plaintext --
+        matching only the env value would miss it. Both the full decoded JSON
+        and its long string leaves (the private_key PEM appears as a lone
+        local far more often than the whole document) must be scrubbed."""
+        import base64
+
+        from app import _REDACTED, _redact_sentry_event
+
+        private_key = (
+            "-----BEGIN PRIVATE KEY-----\n"
+            "MIIEvFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE\n"
+            "-----END PRIVATE KEY-----\n"
+        )
+        creds = {
+            "type": "service_account",
+            "project_id": "nova-test",
+            "private_key": private_key,
+            "client_email": "svc@nova-test.iam.gserviceaccount.com",
+        }
+        decoded_json = json.dumps(creds)
+        b64_value = base64.b64encode(decoded_json.encode("utf-8")).decode("ascii")
+
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_SLIDES_CREDENTIALS_B64": b64_value}
+        ):
+            event = {
+                "extra": {
+                    # The realistic shapes: a local var repr holding the whole
+                    # decoded document, and one holding just the PEM.
+                    "creds_json_local": f"creds_json = {decoded_json!r}",
+                    "pem_local": f"key material: {private_key}",
+                    "env_value": f"raw env: {b64_value}",
+                },
+            }
+            result = _redact_sentry_event(event)
+
+        assert result is not None
+        extra = result["extra"]
+        assert decoded_json not in extra["creds_json_local"]
+        assert private_key not in extra["pem_local"]
+        assert b64_value not in extra["env_value"]
+        for field in ("creds_json_local", "pem_local", "env_value"):
+            assert _REDACTED in extra[field]
+
+    def test_non_b64_sensitive_env_value_still_redacted_unchanged(self) -> None:
+        """The _B64 decode branch must not disturb plain sensitive values --
+        an invalid-base64 value simply skips the decode."""
+        from app import _REDACTED, _redact_sentry_event
+
+        secret = "not-base64!! but still a real secret value"
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_SLIDES_CREDENTIALS_B64": secret}
+        ):
+            event = {"extra": {"note": f"value was {secret}"}}
+            result = _redact_sentry_event(event)
+
+        assert result is not None
+        assert secret not in result["extra"]["note"]
+        assert _REDACTED in result["extra"]["note"]
+
 
 # =============================================================================
 # URL redaction
