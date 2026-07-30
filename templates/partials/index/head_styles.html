@@ -3850,6 +3850,87 @@
     margin: 4px 8px;
   }
 
+  /* ── S94: NAICS 2022 industry typeahead ── */
+  .naics-search-wrap {
+    position: relative;
+  }
+  .naics-results {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 400px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: rgba(20, 20, 40, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(20px);
+    padding: 6px;
+    z-index: 100;
+    animation: fadeSlideUp 0.15s ease-out;
+  }
+  .naics-option {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .naics-option:hover,
+  .naics-option.active {
+    background: rgba(90, 84, 189, 0.18);
+  }
+  .naics-option .naics-code {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .naics-option .naics-title {
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+  .naics-empty {
+    padding: 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+  .naics-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(90, 84, 189, 0.12);
+    border: 1px solid rgba(90, 84, 189, 0.35);
+    font-size: 12px;
+    color: var(--text-primary);
+  }
+  .naics-chip button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0;
+  }
+  .naics-chip button:hover {
+    color: var(--text-primary);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .naics-results {
+      animation: none;
+    }
+  }
+
   /* ── Confidence Signals ── */
   .confidence-signals {
     display: flex;

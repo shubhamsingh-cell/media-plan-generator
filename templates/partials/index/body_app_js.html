@@ -4,6 +4,10 @@
   let channelsDB = null;
   let selectedIndustry = null;
   let selectedJobCategories = [];
+  // S94: precise NAICS 2022 pick from the industry typeahead (optional
+  // metadata layered on top of the 21 internal industry keys above).
+  let selectedNaicsCode = null;
+  let selectedNaicsTitle = null;
 
   // Module-level AbortController for generation cancellation
   let _genAbortController = null;
@@ -1015,6 +1019,8 @@
         requesterEmail:
           (document.getElementById("requesterEmail") || {}).value || "",
         selectedIndustry: selectedIndustry || null,
+        selectedNaicsCode: selectedNaicsCode || null,
+        selectedNaicsTitle: selectedNaicsTitle || null,
         locations: locations || [],
         roles: roles || [],
         competitors: competitors || [],
@@ -1064,6 +1070,10 @@
       setVal("requesterEmail", s.requesterEmail);
       if (s.selectedIndustry) {
         selectedIndustry = s.selectedIndustry;
+      }
+      if (s.selectedNaicsCode) {
+        selectedNaicsCode = s.selectedNaicsCode;
+        selectedNaicsTitle = s.selectedNaicsTitle || null;
       }
       // Restore checkbox groups
       ["campaignGoals", "workEnvironment", "experienceLevel"].forEach(
@@ -1123,6 +1133,7 @@
       if (el) el.value = "";
     });
     selectedIndustry = null;
+    clearNaicsSelection();
     locations = [];
     roles = [];
     competitors = [];
@@ -2365,12 +2376,21 @@
     window._competitorAnalysisApplied = true;
   }
 
-  function selectIndustry(el) {
+  function selectIndustry(el, opts) {
     document
       .querySelectorAll(".industry-card")
       .forEach((c) => c.classList.remove("selected"));
     el.classList.add("selected");
     selectedIndustry = el.dataset.industry;
+
+    // S94: a direct quick-pick card click clears any precise NAICS
+    // selection (the two are mutually exclusive ways of setting the
+    // industry). When selectIndustry() is called *from* the NAICS
+    // typeahead (opts.fromNaics) to highlight the mapped card, skip the
+    // clear so we don't immediately wipe out the pick we just made.
+    if (!(opts && opts.fromNaics)) {
+      clearNaicsSelection();
+    }
 
     // S90: Do NOT overwrite the user's Target Roles with the industry's generic
     // typical_roles -- that's the bug where a "software engineer" brief ended up
@@ -2394,6 +2414,179 @@
     // Re-check budget feasibility with updated industry
     checkBudgetFeasibility();
   }
+
+  // ============================================
+  // S94: Full NAICS 2022 industry typeahead
+  // ============================================
+  // Layered on top of the 21 quick-pick cards above -- picking a NAICS
+  // result maps to one of the internal industry keys (so benchmarks/role
+  // chips keep working) and additionally stores the precise NAICS
+  // code/title, which flows into the generation payload and gets appended
+  // to the industry label on generated deliverables.
+  function clearNaicsSelection() {
+    selectedNaicsCode = null;
+    selectedNaicsTitle = null;
+    const chip = document.getElementById("naicsSelectedChip");
+    if (chip) chip.style.display = "none";
+  }
+
+  (function initNaicsSearch() {
+    const input = document.getElementById("naicsSearch");
+    const resultsEl = document.getElementById("naicsResults");
+    const chip = document.getElementById("naicsSelectedChip");
+    if (!input || !resultsEl) return;
+
+    let _debounceTimer = null;
+    let _matches = [];
+    let _activeIndex = -1;
+    let _reqSeq = 0;
+
+    function closeDropdown() {
+      resultsEl.style.display = "none";
+      resultsEl.innerHTML = "";
+      input.setAttribute("aria-expanded", "false");
+      _matches = [];
+      _activeIndex = -1;
+    }
+
+    function renderResults() {
+      if (!_matches.length) {
+        resultsEl.innerHTML =
+          '<div class="naics-empty">No matching NAICS industries</div>';
+        resultsEl.style.display = "block";
+        input.setAttribute("aria-expanded", "true");
+        return;
+      }
+      resultsEl.innerHTML = _matches
+        .map(function (m, i) {
+          return (
+            '<div class="naics-option' +
+            (i === _activeIndex ? " active" : "") +
+            '" role="option" id="naicsOpt' +
+            i +
+            '" data-idx="' +
+            i +
+            '">' +
+            '<span class="naics-code">NAICS ' +
+            _escHtml(m.code) +
+            "</span>" +
+            '<span class="naics-title">' +
+            _escHtml(m.title) +
+            "</span>" +
+            "</div>"
+          );
+        })
+        .join("");
+      resultsEl.style.display = "block";
+      input.setAttribute("aria-expanded", "true");
+      input.setAttribute("aria-activedescendant", _activeIndex >= 0 ? "naicsOpt" + _activeIndex : "");
+      resultsEl.querySelectorAll(".naics-option").forEach(function (opt) {
+        opt.addEventListener("mousedown", function (e) {
+          e.preventDefault(); // keep focus, avoid blur closing dropdown first
+          const idx = parseInt(opt.dataset.idx, 10);
+          pickResult(_matches[idx]);
+        });
+      });
+    }
+
+    function pickResult(match) {
+      if (!match) return;
+      selectedNaicsCode = match.code;
+      selectedNaicsTitle = match.title;
+
+      // Highlight the mapped quick-pick card (if present) without clearing
+      // the NAICS selection we just set.
+      const card = document.querySelector(
+        '.industry-card[data-industry="' + match.internal_key + '"]',
+      );
+      if (card) selectIndustry(card, { fromNaics: true });
+
+      if (chip) {
+        chip.innerHTML =
+          '<span>NAICS ' +
+          _escHtml(match.code) +
+          " &mdash; " +
+          _escHtml(match.title) +
+          '</span><button type="button" aria-label="Clear NAICS selection">&times;</button>';
+        chip.style.display = "inline-flex";
+        const clearBtn = chip.querySelector("button");
+        if (clearBtn) {
+          clearBtn.onclick = function () {
+            clearNaicsSelection();
+          };
+        }
+      }
+
+      input.value = match.code + " — " + match.title;
+      closeDropdown();
+    }
+
+    function fetchMatches(q) {
+      const seq = ++_reqSeq;
+      fetch("/api/naics/search?q=" + encodeURIComponent(q) + "&limit=20")
+        .then(function (r) {
+          return r.ok ? r.json() : { results: [] };
+        })
+        .then(function (data) {
+          if (seq !== _reqSeq) return; // stale response
+          _matches = (data && data.results) || [];
+          _activeIndex = -1;
+          renderResults();
+        })
+        .catch(function () {
+          if (seq !== _reqSeq) return;
+          _matches = [];
+          renderResults();
+        });
+    }
+
+    input.addEventListener("input", function () {
+      const q = input.value.trim();
+      if (_debounceTimer) clearTimeout(_debounceTimer);
+      if (q.length < 2) {
+        closeDropdown();
+        return;
+      }
+      _debounceTimer = setTimeout(function () {
+        fetchMatches(q);
+      }, 200);
+    });
+
+    input.addEventListener("keydown", function (e) {
+      if (resultsEl.style.display !== "block" || !_matches.length) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        _activeIndex = Math.min(_activeIndex + 1, _matches.length - 1);
+        renderResults();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        _activeIndex = Math.max(_activeIndex - 1, 0);
+        renderResults();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (_activeIndex >= 0 && _matches[_activeIndex]) {
+          pickResult(_matches[_activeIndex]);
+        }
+      } else if (e.key === "Escape") {
+        closeDropdown();
+      }
+    });
+
+    input.addEventListener("focus", function () {
+      input.style.borderColor = "var(--primary)";
+      input.style.boxShadow = "0 0 0 3px rgba(99,102,241,0.1)";
+    });
+    input.addEventListener("blur", function () {
+      input.style.borderColor = "";
+      input.style.boxShadow = "";
+    });
+
+    document.addEventListener("click", function (e) {
+      if (!input.contains(e.target) && !resultsEl.contains(e.target)) {
+        closeDropdown();
+      }
+    });
+  })();
 
   // S90: render an industry's common roles as click-to-add suggestion chips
   // (instead of force-adding them as selected tags). Renders into the existing
@@ -3704,6 +3897,10 @@
       industry: selectedIndustry,
       industry_label:
         channelsDB?.industries?.[selectedIndustry]?.label || selectedIndustry,
+      // S94: precise NAICS 2022 pick from the industry typeahead (optional --
+      // the 21 internal industry keys above still drive the benchmark stack).
+      naics_selected_code: selectedNaicsCode || "",
+      naics_selected_title: selectedNaicsTitle || "",
       job_categories: selectedJobCategories,
       job_category_labels: selectedJobCategories.map(
         (k) => channelsDB?.job_categories?.[k]?.label || k,
@@ -4565,6 +4762,8 @@
       requesterName: getVal("requesterName"),
       requesterEmail: getVal("requesterEmail"),
       selectedIndustry: selectedIndustry || null,
+      selectedNaicsCode: selectedNaicsCode || null,
+      selectedNaicsTitle: selectedNaicsTitle || null,
       selectedJobCategories: selectedJobCategories
         ? selectedJobCategories.slice()
         : [],
@@ -4622,6 +4821,28 @@
       );
       if (indCard && typeof selectIndustry === "function") {
         selectIndustry(indCard);
+      }
+    }
+
+    // Restore precise NAICS selection (after industry restore above, since
+    // selectIndustry() on a direct card match clears any NAICS selection).
+    if (s.selectedNaicsCode) {
+      selectedNaicsCode = s.selectedNaicsCode;
+      selectedNaicsTitle = s.selectedNaicsTitle || null;
+      var naicsChip = document.getElementById("naicsSelectedChip");
+      if (naicsChip) {
+        naicsChip.innerHTML =
+          "<span>NAICS " +
+          _escHtml(selectedNaicsCode) +
+          (selectedNaicsTitle ? " &mdash; " + _escHtml(selectedNaicsTitle) : "") +
+          '</span><button type="button" aria-label="Clear NAICS selection">&times;</button>';
+        naicsChip.style.display = "inline-flex";
+        var naicsClearBtn = naicsChip.querySelector("button");
+        if (naicsClearBtn) {
+          naicsClearBtn.onclick = function () {
+            clearNaicsSelection();
+          };
+        }
       }
     }
 
