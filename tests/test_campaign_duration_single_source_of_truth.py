@@ -121,6 +121,22 @@ def _row_kv_value(ws, label: str) -> str | None:
     return None
 
 
+def _forecast_ws(wb):
+    """The workbook's forecast sheet under either framing: "90-Day Forecast"
+    for >13-week/unknown plans, "<N>-Week Forecast" for plans that fit
+    inside the 90-day window (excel_v2._forecast_sheet_title)."""
+    name = next(
+        (
+            n
+            for n in wb.sheetnames
+            if n == "90-Day Forecast" or re.fullmatch(r"\d+-Week Forecast", n)
+        ),
+        None,
+    )
+    assert name, f"no forecast sheet found in {wb.sheetnames}"
+    return wb[name]
+
+
 def _max_week_mentioned(text: str) -> int:
     best = 0
     for m in _WEEK_MENTION_RE.finditer(text):
@@ -155,7 +171,7 @@ def test_executive_summary_and_forecast_state_the_same_duration(duration):
     wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
 
     es_duration = _kv_cell_value(wb["Executive Summary"], "Duration")
-    fc_duration = _row_kv_value(wb["90-Day Forecast"], "Campaign Duration")
+    fc_duration = _row_kv_value(_forecast_ws(wb), "Campaign Duration")
 
     assert es_duration, f"Executive Summary Duration cell missing for {duration!r}"
     assert fc_duration, f"90-Day Forecast Campaign Duration cell missing for {duration!r}"
@@ -200,7 +216,7 @@ def test_workbook_milestones_never_exceed_campaign_length(duration):
     campaign_weeks = int(data.get("campaign_weeks") or 0)
 
     wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
-    ws = wb["90-Day Forecast"]
+    ws = _forecast_ws(wb)
     rows = list(ws.iter_rows(values_only=False))
     header_row = next(
         (
@@ -280,7 +296,7 @@ def test_ongoing_duration_never_reads_as_a_fixed_length():
 
     wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
     assert _kv_cell_value(wb["Executive Summary"], "Duration") == canonical
-    assert _row_kv_value(wb["90-Day Forecast"], "Campaign Duration") == canonical
+    assert _row_kv_value(_forecast_ws(wb), "Campaign Duration") == canonical
 
     findings: list = []
     units = bundle_qa._iter_pptx_texts(pptx_bytes, findings)

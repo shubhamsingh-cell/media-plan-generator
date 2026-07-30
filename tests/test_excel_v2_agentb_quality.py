@@ -203,11 +203,13 @@ def test_90_day_forecast_scales_to_first_90_days_for_long_campaign():
 
 def test_90_day_forecast_short_campaign_uses_full_budget():
     """A campaign <=13 weeks is itself within the 90-day window, so the
-    forecast should show the FULL budget (scale factor 1.0)."""
+    forecast should show the FULL budget (scale factor 1.0). Since the
+    duration-framing fix (Jesse Ofner 2026-07-31) the sheet is titled by the
+    campaign's own length instead of "90-Day Forecast"."""
     data = _base_data(campaign_duration="10 weeks", campaign_weeks=10)
     total_budget = 250_000.0
     wb = _generate_wb(data)
-    ws = wb["90-Day Forecast"]
+    ws = wb["10-Week Forecast"]
 
     rows = list(ws.iter_rows(min_col=2, values_only=True))
     header_idx = next(i for i, r in enumerate(rows) if r and r[0] == "Metric")

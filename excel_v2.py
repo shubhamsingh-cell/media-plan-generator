@@ -2719,6 +2719,10 @@ def _finalize_workbook(wb) -> None:
             logger.debug("freeze_panes skipped for %s: %s", ws.title, exc)
         try:
             color = _TAB_COLORS.get(ws.title)
+            if color is None and ws.title.endswith("Forecast"):
+                # Duration-framed forecast titles ("4-Week Forecast", ...)
+                # share the classic 90-Day Forecast tab color.
+                color = _TAB_COLORS["90-Day Forecast"]
             if color:
                 ws.sheet_properties.tabColor = color
         except Exception as exc:  # noqa: BLE001
@@ -10109,33 +10113,83 @@ def _build_sheet_quality_intelligence(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# SHEET 7: 90-Day Rolling Forecast
+# SHEET 7: Campaign Forecast (90-Day Rolling for long plans, duration-framed
+# for plans that fit inside the 90-day window)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def _build_sheet_rolling_forecast(ws, data: dict) -> None:
-    """Build Sheet 7: 90-Day Rolling Forecast with monthly spend, applications, hires, and CPA trend.
+def _forecast_weeks(data: dict) -> int:
+    """Resolved campaign length in weeks for forecast framing (0 = unknown).
 
-    Breaks the campaign timeline into 3 monthly periods showing projected metrics
-    with a ramp-up curve (base shape 25/35/40, seasonally adjusted per industry
-    and start month by ``_seasonal_monthly_phasing`` -- the rendered narrative
-    always quotes the actual computed split, never a hardcoded percentage).
+    Same resolution order the forecast sheet has always used: the plan's
+    carried ``campaign_weeks``, falling back to parsing the canonical
+    duration string. An unbounded/unparseable duration yields 0.
     """
-    ws.title = "90-Day Forecast"
+    _cw = data.get("campaign_weeks")
+    try:
+        cw_int = int(_cw) if _cw else 0
+    except (ValueError, TypeError):
+        cw_int = 0
+    if cw_int <= 0:
+        cw_int = display_format.parse_duration_to_weeks(
+            _resolve_campaign_duration(data)
+        )
+    return max(0, cw_int)
+
+
+def _forecast_sheet_title(data: dict) -> str:
+    """Title of the forecast sheet for this plan.
+
+    Jesse Ofner (2026-07-31): a 1-month plan's workbook must not present
+    itself as a "90-Day Forecast". A campaign that fits inside the 90-day
+    window (<=13 weeks) is framed by its OWN duration; longer or
+    unknown/unbounded campaigns keep the fixed 90-day rolling lens.
+    """
+    weeks = _forecast_weeks(data)
+    if 1 <= weeks <= 13:
+        return f"{weeks}-Week Forecast"
+    return "90-Day Forecast"
+
+
+def _build_sheet_rolling_forecast(ws, data: dict) -> None:
+    """Build Sheet 7: Campaign Forecast with periodic spend, applications, hires, and CPA trend.
+
+    A campaign LONGER than the 90-day window (>13 weeks, or unknown length)
+    keeps the classic "90-Day Forecast" framing: 3 monthly periods burning
+    only the ramp-weighted first-90-days budget share (S89). A campaign that
+    fits INSIDE the window (<=13 weeks) is framed by its own duration
+    instead -- "4-Week Forecast" with weekly columns for a <=4-week plan,
+    "N-Week Forecast" with monthly columns otherwise, totalling to a
+    "Campaign Total" of the full budget (scale 1.0, no first-90-days
+    language). Ramp-up weights use the same _seasonal_monthly_phasing curve
+    (base shape 25/35/40, seasonally adjusted per industry and start month)
+    spread across the campaign's real weeks -- the rendered narrative always
+    quotes the actual computed split, never a hardcoded percentage.
+    """
+    _plan_duration = _resolve_campaign_duration(data)
+    _cw_int = _forecast_weeks(data)
+    # A plan that fits inside the 90-day window is framed by its own duration.
+    _short_plan = 1 <= _cw_int <= 13
+    _weekly_frame = _short_plan and _cw_int <= 4
+    if _weekly_frame:
+        _n_periods = _cw_int
+    elif _short_plan:
+        _n_periods = 2 if _cw_int <= 8 else 3
+    else:
+        _n_periods = 3
+
+    ws.title = _forecast_sheet_title(data)
     ws.sheet_properties.tabColor = SAPPHIRE
 
-    _set_column_widths(
-        ws,
-        {
-            1: 3,  # margin
-            2: 22,  # Metric / Channel
-            3: 18,  # Month 1
-            4: 18,  # Month 2
-            5: 18,  # Month 3
-            6: 18,  # 90-Day Total
-            7: 16,  # Trend
-        },
-    )
+    _widths = {
+        1: 3,  # margin
+        2: 22,  # Metric / Channel
+    }
+    for _pi in range(_n_periods):
+        _widths[3 + _pi] = 18  # period columns (months or weeks)
+    _widths[3 + _n_periods] = 18  # 90-Day Total / Campaign Total
+    _widths[4 + _n_periods] = 16  # Trend
+    _set_column_widths(ws, _widths)
 
     budget_alloc = data.get("_budget_allocation", {})
     if not isinstance(budget_alloc, dict):
@@ -10190,34 +10244,48 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     # otherwise use current year.
     _forecast_year = today.year
 
-    month_labels = []
-    for i in range(3):
-        m = _campaign_start_month + i
-        y = _forecast_year
-        if m > 12:
-            m -= 12
-            y += 1
-        month_labels.append(datetime.date(y, m, 1).strftime("%B %Y"))
+    # Period labels: calendar months for the classic 90-day frame (and for
+    # short plans longer than ~a month), "Week N" columns for a plan that
+    # fits inside a single month.
+    if _weekly_frame:
+        period_labels = [f"Week {k}" for k in range(1, _n_periods + 1)]
+    else:
+        period_labels = []
+        for i in range(_n_periods):
+            m = _campaign_start_month + i
+            y = _forecast_year
+            if m > 12:
+                m -= 12
+                y += 1
+            period_labels.append(datetime.date(y, m, 1).strftime("%B %Y"))
 
     # Compute forecast period start/end from campaign start month
     _forecast_start = datetime.date(_forecast_year, _campaign_start_month, 1)
-    _forecast_end_m = _campaign_start_month + 2
-    _forecast_end_y = _forecast_year
-    if _forecast_end_m > 12:
-        _forecast_end_m -= 12
-        _forecast_end_y += 1
-    # Last day of the 3rd month
-    if _forecast_end_m == 12:
-        _forecast_end = datetime.date(_forecast_end_y, 12, 31)
+    if _short_plan:
+        # The forecast window IS the campaign: exactly campaign_weeks long.
+        _forecast_end = _forecast_start + datetime.timedelta(days=_cw_int * 7 - 1)
     else:
-        _forecast_end = datetime.date(
-            _forecast_end_y, _forecast_end_m + 1, 1
-        ) - datetime.timedelta(days=1)
+        _forecast_end_m = _campaign_start_month + 2
+        _forecast_end_y = _forecast_year
+        if _forecast_end_m > 12:
+            _forecast_end_m -= 12
+            _forecast_end_y += 1
+        # Last day of the 3rd month
+        if _forecast_end_m == 12:
+            _forecast_end = datetime.date(_forecast_end_y, 12, 31)
+        else:
+            _forecast_end = datetime.date(
+                _forecast_end_y, _forecast_end_m + 1, 1
+            ) - datetime.timedelta(days=1)
 
     row = 2
 
     # ── Section Header ──
-    row = _write_section_header(ws, row, "90-Day Rolling Forecast")
+    row = _write_section_header(
+        ws,
+        row,
+        f"{_cw_int}-Week Forecast" if _short_plan else "90-Day Rolling Forecast",
+    )
 
     # ── Campaign Period ──
     row = _write_kv_row(
@@ -10226,17 +10294,10 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
         "Forecast Period",
         f"{_forecast_start.strftime('%b %d, %Y')} - {_forecast_end.strftime('%b %d, %Y')}",
     )
-    # O2 (findings 58/77): reconcile this 90-day view with the plan's stated
+    # O2 (findings 58/77): reconcile this view with the plan's stated
     # duration so a longer campaign never reads as a contradiction. The
-    # duration string comes from the SAME resolver every other sheet uses.
-    _plan_duration = _resolve_campaign_duration(data)
-    _cw = data.get("campaign_weeks")
-    try:
-        _cw_int = int(_cw) if _cw else 0
-    except (ValueError, TypeError):
-        _cw_int = 0
-    if _cw_int <= 0:
-        _cw_int = display_format.parse_duration_to_weeks(_plan_duration)
+    # duration string comes from the SAME resolver every other sheet uses
+    # (_plan_duration / _cw_int resolved at the top of this function).
     row = _write_kv_row(ws, row, "Campaign Duration", _plan_duration)
 
     # S89: for a campaign longer than ~13 weeks (~90 days), this forecast
@@ -10273,10 +10334,54 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
         )
     row += 1
 
-    # ── Summary Forecast Table ──
-    row = _write_subsection_header(ws, row, "Monthly Projections Overview")
+    # Per-period budget weights. The classic 3-month frame uses the seasonal
+    # monthly split directly. A short plan spreads the SAME 3-phase ramp
+    # curve across its real weeks, then sums per-week weights into its
+    # period columns -- so a 4-week plan still ramps learning -> peak, and
+    # the printed split always foots exactly to 1.0 (largest-remainder
+    # residual push, mirroring _seasonal_monthly_phasing).
+    if _short_plan:
+        _phase_ranges = display_format.scale_week_phases(
+            _cw_int, min(3, _cw_int)
+        )
+        _phase_pcts = monthly_pcts[: len(_phase_ranges)]
+        _pp_total = sum(_phase_pcts) or 1.0
+        _phase_pcts = [p / _pp_total for p in _phase_pcts]
+        _week_weights: list[float] = []
+        for (_ps, _pe), _pct in zip(_phase_ranges, _phase_pcts):
+            _span = max(1, _pe - _ps + 1)
+            _week_weights.extend([_pct / _span] * _span)
+        if _weekly_frame:
+            _period_ranges = [(k, k) for k in range(1, _cw_int + 1)]
+        else:
+            _period_ranges = display_format.scale_week_phases(
+                _cw_int, _n_periods
+            )
+        period_pcts = [
+            round(sum(_week_weights[_ps - 1 : _pe]), 4)
+            for (_ps, _pe) in _period_ranges
+        ]
+        _residual = round(1.0 - sum(period_pcts), 4)
+        if _residual:
+            _max_idx = max(
+                range(len(period_pcts)), key=lambda i: period_pcts[i]
+            )
+            period_pcts[_max_idx] = round(period_pcts[_max_idx] + _residual, 4)
+    else:
+        period_pcts = monthly_pcts
 
-    headers = ["Metric"] + month_labels + ["90-Day Total", "Trend"]
+    _total_label = "Campaign Total" if _short_plan else "90-Day Total"
+
+    # ── Summary Forecast Table ──
+    row = _write_subsection_header(
+        ws,
+        row,
+        "Weekly Projections Overview"
+        if _weekly_frame
+        else "Monthly Projections Overview",
+    )
+
+    headers = ["Metric"] + period_labels + [_total_label, "Trend"]
     row = _write_table_header(ws, row, headers)
 
     # Calculate monthly values -- scaled to the first-90-days budget share
@@ -10285,52 +10390,54 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     _apps_90d = total_apps * _ninety_day_scale
     _hires_90d = total_hires * _ninety_day_scale
 
-    monthly_spend = [_budget_90d * p for p in monthly_pcts]
+    monthly_spend = [_budget_90d * p for p in period_pcts]
     # S89: reconcile_monthly_to_total guarantees the printed monthly ints
     # foot EXACTLY to the printed total (largest-remainder rounding) --
     # plain int() truncation per month can under-count the total by 1-2.
     monthly_apps = display_format.reconcile_monthly_to_total(
-        [_apps_90d * p for p in monthly_pcts], _apps_90d
+        [_apps_90d * p for p in period_pcts], _apps_90d
     )
     monthly_hires = display_format.reconcile_monthly_to_total(
-        [_hires_90d * p for p in monthly_pcts], _hires_90d
+        [_hires_90d * p for p in period_pcts], _hires_90d
     )
     total_apps_90d = sum(monthly_apps)
     total_hires_90d = sum(monthly_hires)
 
-    # CPA = spend/applications DERIVED per month (never a flat multiplier
-    # applied to a single base rate) -- total CPA = total 90-day spend /
-    # total 90-day applications, consistent with the monthly rows.
+    # CPA = spend/applications DERIVED per period (never a flat multiplier
+    # applied to a single base rate) -- total CPA = total window spend /
+    # total window applications, consistent with the per-period rows.
     monthly_cpa = [
         (monthly_spend[i] / monthly_apps[i]) if monthly_apps[i] > 0 else 0
-        for i in range(3)
+        for i in range(_n_periods)
     ]
     base_cpa = _budget_90d / max(total_apps_90d, 1) if total_apps_90d > 0 else 0
 
     # S89: carry raw numbers + a per-row Excel number_format so the forecast
     # is summable/sortable; units live in the format, not the cell text.
     # S3: Spend/CPA are the plan's OWN figures -- active plan currency.
+    # A single-period (1-week) frame has no across-period trend to claim.
+    _trend_ok = _n_periods > 1
     forecast_rows = [
         ("Spend", monthly_spend, _budget_90d, "—", _usd0_fmt()),
         (
             "Applications",
             monthly_apps,
             total_apps_90d,
-            "Increasing" if total_apps_90d > 0 else "—",
+            "Increasing" if total_apps_90d > 0 and _trend_ok else "—",
             FMT_INT,
         ),
         (
             "Hires",
             monthly_hires,
             total_hires_90d,
-            "Increasing" if total_hires_90d > 0 else "—",
+            "Increasing" if total_hires_90d > 0 and _trend_ok else "—",
             FMT_INT,
         ),
         (
             "CPA (Cost Per Application)",
             monthly_cpa,
             base_cpa,
-            "Decreasing" if base_cpa > 0 else "—",
+            "Decreasing" if base_cpa > 0 and _trend_ok else "—",
             _usd0_fmt(),
         ),
     ]
@@ -10367,9 +10474,15 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
 
     # ── Per-Channel Monthly Breakdown ──
     if ba_channel_alloc:
-        row = _write_subsection_header(ws, row, "Per-Channel Monthly Spend Forecast")
+        row = _write_subsection_header(
+            ws,
+            row,
+            "Per-Channel Weekly Spend Forecast"
+            if _weekly_frame
+            else "Per-Channel Monthly Spend Forecast",
+        )
 
-        ch_headers = ["Channel"] + month_labels + ["Total", "% of Budget"]
+        ch_headers = ["Channel"] + period_labels + ["Total", "% of Budget"]
         row = _write_table_header(ws, row, ch_headers)
 
         sorted_channels = sorted(
@@ -10395,7 +10508,7 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
             # summary table above -- a channel can't show its FULL
             # campaign allocation deployed inside 90 days on a longer plan.
             _ch_dollars_90d = ch_dollars * _ninety_day_scale
-            ch_monthly = [_ch_dollars_90d * p for p in monthly_pcts]
+            ch_monthly = [_ch_dollars_90d * p for p in period_pcts]
             ch_frac = (ch_dollars / total_budget) if total_budget > 0 else 0
 
             # S89: numeric month/total spend + fractional % (FMT_PCT1).
@@ -10466,20 +10579,40 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
 
     row += 1
     # S89 (finding data:manpower#5/atria#5): quote this plan's ACTUAL
-    # computed monthly split (from _seasonal_monthly_phasing, which may
-    # shift budget toward peak hiring months for this industry), not a
-    # hardcoded 25/35/40 that can drift out of sync with the monthly Spend
-    # row above.
-    row = _write_footnote(
-        ws,
-        row,
-        f"This forecast phases budget {monthly_pcts[0] * 100:.0f}% Month 1 "
-        f"(learning), {monthly_pcts[1] * 100:.0f}% Month 2 (optimizing), "
-        f"{monthly_pcts[2] * 100:.0f}% Month 3 (peak performance) -- this "
-        "plan's own computed split, seasonally adjusted for its industry and "
-        "start month. Actual distribution may vary based on channel mix and "
-        "market conditions.",
-    )
+    # computed split (from _seasonal_monthly_phasing, which may shift
+    # budget toward peak hiring months for this industry), not a hardcoded
+    # 25/35/40 that can drift out of sync with the Spend row above. The
+    # classic 3-month wording is kept verbatim whenever the frame has 3
+    # monthly columns; shorter frames state the same ramp in their own
+    # period vocabulary.
+    if _weekly_frame:
+        _split_str = "/".join(f"{p * 100:.0f}" for p in period_pcts)
+        _ramp_note = (
+            f"This forecast phases budget {_split_str}% across the "
+            f"campaign's {_cw_int} week{'s' if _cw_int != 1 else ''} -- "
+            "front-loaded learning ramping to peak performance, this plan's "
+            "own computed split, seasonally adjusted for its industry and "
+            "start month. Actual distribution may vary based on channel mix "
+            "and market conditions."
+        )
+    elif _n_periods == 2:
+        _ramp_note = (
+            f"This forecast phases budget {period_pcts[0] * 100:.0f}% Month 1 "
+            f"(learning), {period_pcts[1] * 100:.0f}% Month 2 (peak "
+            "performance) -- this plan's own computed split, seasonally "
+            "adjusted for its industry and start month. Actual distribution "
+            "may vary based on channel mix and market conditions."
+        )
+    else:
+        _ramp_note = (
+            f"This forecast phases budget {period_pcts[0] * 100:.0f}% Month 1 "
+            f"(learning), {period_pcts[1] * 100:.0f}% Month 2 (optimizing), "
+            f"{period_pcts[2] * 100:.0f}% Month 3 (peak performance) -- this "
+            "plan's own computed split, seasonally adjusted for its industry and "
+            "start month. Actual distribution may vary based on channel mix and "
+            "market conditions."
+        )
+    row = _write_footnote(ws, row, _ramp_note)
     row += 1
     _write_attribution_footer(ws, row)
 
@@ -10962,10 +11095,10 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
     # ── Reconciliation note (single-plan guarantee) ──
     _rec_note = (
         "This sheet re-frames the SAME plan shown on the Executive Summary, ROI "
-        "Projections, and 90-Day Forecast sheets — organised by recommended ad "
-        "platform and investment tier. Every Spend, Applications, Hires, and CPA "
-        "figure below is identical to those sheets, and the Spend column foots to "
-        "the total budget. It is not an alternative scenario."
+        f"Projections, and {_forecast_sheet_title(data)} sheets — organised by "
+        "recommended ad platform and investment tier. Every Spend, Applications, "
+        "Hires, and CPA figure below is identical to those sheets, and the Spend "
+        "column foots to the total budget. It is not an alternative scenario."
     )
     ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=12)
     _nc = ws.cell(row=row, column=2, value=_rec_note)
@@ -11815,15 +11948,19 @@ def _generate_excel_v2_inner(
                 value=f"Error generating Quality Intelligence sheet: {exc}",
             ).font = _FONT_BODY
 
-    # ── Sheet 7: 90-Day Rolling Forecast ──
+    # ── Sheet 7: Campaign Forecast (90-day rolling, or duration-framed) ──
     ws7 = wb.create_sheet()
     try:
         _build_sheet_rolling_forecast(ws7, data)
     except Exception as exc:
-        logger.error("Sheet 7 (90-Day Forecast) failed: %s", exc, exc_info=True)
-        ws7.title = "90-Day Forecast"
+        logger.error("Sheet 7 (Forecast) failed: %s", exc, exc_info=True)
+        try:
+            _fc_title = _forecast_sheet_title(data)
+        except Exception:  # noqa: BLE001 - fallback must never raise
+            _fc_title = "90-Day Forecast"
+        ws7.title = _fc_title
         ws7.cell(
-            row=2, column=2, value=f"Error generating 90-Day Forecast sheet: {exc}"
+            row=2, column=2, value=f"Error generating {_fc_title} sheet: {exc}"
         ).font = _FONT_BODY
 
     # ── Sheet 8: Confidence Intervals ──

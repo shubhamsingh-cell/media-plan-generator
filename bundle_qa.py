@@ -871,10 +871,27 @@ def _cell_num(v: Any) -> float | None:
     return None
 
 
+def _forecast_sheet_name(wb: Any) -> str | None:
+    """Name of the workbook's forecast sheet, or None.
+
+    The sheet is titled "90-Day Forecast" for plans longer than the 90-day
+    window (and unknown durations), or "<N>-Week Forecast" for plans that
+    fit inside it (excel_v2._forecast_sheet_title) -- QA rules must find it
+    under either framing.
+    """
+    if wb is None:
+        return None
+    for name in wb.sheetnames:
+        if name == "90-Day Forecast" or re.fullmatch(r"\d+-Week Forecast", name):
+            return name
+    return None
+
+
 def _check_90_day_forecast_footing(wb: Any, findings: list[Finding]) -> None:
-    if wb is None or "90-Day Forecast" not in wb.sheetnames:
+    _fc_name = _forecast_sheet_name(wb)
+    if _fc_name is None:
         return
-    ws = wb["90-Day Forecast"]
+    ws = wb[_fc_name]
     rows = list(ws.iter_rows(values_only=False))
 
     # Both tables on this sheet ("Monthly Projections Overview" and
@@ -1741,8 +1758,9 @@ def _check_campaign_duration_incoherence(
                                 )
                             )
 
-    if wb is not None and "90-Day Forecast" in wb.sheetnames:
-        ws = wb["90-Day Forecast"]
+    _fc_name = _forecast_sheet_name(wb)
+    if _fc_name is not None:
+        ws = wb[_fc_name]
         for row in ws.iter_rows(values_only=False):
             for ci, cell in enumerate(row):
                 if cell.value == "Campaign Duration":
