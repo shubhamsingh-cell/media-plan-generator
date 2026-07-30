@@ -349,13 +349,18 @@ _UNBOUNDED_DURATION_EXACT = frozenset({"unbounded", "not specified", "tbd", "n/a
 # 26, the general 52/12 free-text conversion used for values that AREN'T
 # one of these dropdown options). Order matters: a phrase must be checked
 # before a shorter phrase it could otherwise be mistaken for (e.g. "1-2
-# year" before "2 year").
+# year" before "2 year"). Literal single-month phrases ("1 month", "2
+# month", "3 month") were deliberately removed from the "1-3 month" bucket
+# so they no longer match here and instead fall through to the accurate
+# 52/12 conversion in parse_duration_to_weeks below -- per Jesse Ofner's
+# 2026-07-31 feedback that this bucket was silently expanding a requested
+# "1 month" plan to ~84 days (12 weeks).
 _DURATION_PHRASE_LADDER: tuple[tuple[tuple[str, ...], int], ...] = (
     (("2-5 year", "long-term", "long term"), 156),
     (("1-2 year", "2 year"), 80),
     (("6-12 month", "9 month", "12 month", "1 year"), 48),
     (("3-6 month", "4 month", "5 month", "6 month"), 24),
-    (("1-3 month", "1 month", "2 month", "3 month"), 12),
+    (("1-3 month",), 12),
     (("ongoing",), 52),
 )
 
