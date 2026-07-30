@@ -223,7 +223,7 @@
         var sel = document.querySelector(".industry-card.selected, .industry-card[aria-pressed='true']");
         if (sel) { var h = sel.querySelector("h3, .industry-name, strong"); role = h ? h.textContent.trim() : ""; }
       }
-      if (!role) role = val("industrySearch");
+      if (!role) role = val("naicsSearch");
 
       return {
         total: total, rows: rows, usingStarter: usingStarter,
@@ -258,7 +258,7 @@
       var industry = "";
       var icard = document.querySelector(".industry-card.selected, .industry-card[aria-pressed='true']");
       if (icard) industry = icard.dataset.industry || "";
-      if (!industry) industry = val("industrySearch");
+      if (!industry) industry = val("naicsSearch");
       return industry;
     }
 
@@ -587,7 +587,7 @@
       // Make Nova chat plan-aware: feed the live plan context into the widget
       // (the widget already forwards CONFIG._sessionContext to /api/chat).
       if (window.NovaChat && typeof window.NovaChat.setContext === "function") {
-        var industry = val("industrySearch");
+        var industry = val("naicsSearch");
         if (!industry) {
           var icard = document.querySelector(".industry-card.selected, .industry-card[aria-pressed='true']");
           if (icard) { var ih = icard.querySelector("h3, .industry-name, strong"); industry = ih ? ih.textContent.trim() : ""; }
