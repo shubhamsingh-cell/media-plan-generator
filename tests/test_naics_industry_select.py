@@ -145,6 +145,73 @@ class TestNaicsSearch:
         results = naics_lookup.naics_search("54")
         assert results[0]["code"] == "54"  # exact sector code, top rank
 
+    # ── Design panel 2026-07-31, iteration 2 (mechanism, accepted defect) ──
+    # A parent code that aggregates a single child duplicates that child's
+    # title verbatim (92213 "Legal Counsel and Prosecution" == 922130's
+    # title; 54111 "Offices of Lawyers" == 541110's). Showing both rows in
+    # a typeahead is pure noise -- only the deepest row should survive.
+
+    def test_legal_counsel_query_has_no_duplicate_titles(self) -> None:
+        results = naics_lookup.naics_search("legal counsel")
+        titles = [r["title"] for r in results]
+        assert len(titles) == len(set(titles)), f"duplicate titles: {titles}"
+
+    def test_law_office_query_has_no_duplicate_titles(self) -> None:
+        results = naics_lookup.naics_search("law office")
+        titles = [r["title"] for r in results]
+        assert len(titles) == len(set(titles)), f"duplicate titles: {titles}"
+
+    def test_dedupe_keeps_the_deepest_row(self) -> None:
+        # 922130 (level 6) and 92213 (level 5) share a title; the search
+        # result for the pair must resolve to the 6-digit code.
+        results = naics_lookup.naics_search("legal counsel")
+        matches = [r for r in results if r["title"] == "Legal Counsel and Prosecution"]
+        assert len(matches) == 1
+        assert matches[0]["code"] == "922130"
+        assert matches[0]["level"] == 6
+
+        results2 = naics_lookup.naics_search("law office")
+        matches2 = [r for r in results2 if r["title"] == "Offices of Lawyers"]
+        assert len(matches2) == 1
+        assert matches2[0]["code"] == "541110"
+        assert matches2[0]["level"] == 6
+
+    def test_dedupe_does_not_remove_genuinely_distinct_titles(self) -> None:
+        # Sanity check the dedupe is title-scoped, not a blunt cap --
+        # a broad query should still return multiple distinct titles.
+        results = naics_lookup.naics_search("services", limit=20)
+        titles = {r["title"] for r in results}
+        assert len(titles) > 1
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# 2b. Mapping fix: 922130/92213 "Legal Counsel and Prosecution" (design
+# panel 2026-07-31, iteration 2, accepted defect -- used to fall through
+# the "92" catch-all to general_entry_level instead of legal_services)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestLegalCounselMapping:
+    def test_922130_resolves_to_legal_services(self) -> None:
+        assert naics_lookup.resolve_internal_key("922130") == "legal_services"
+
+    def test_92213_resolves_to_legal_services(self) -> None:
+        assert naics_lookup.resolve_internal_key("92213") == "legal_services"
+
+    def test_92211_courts_resolves_to_legal_services(self) -> None:
+        assert naics_lookup.resolve_internal_key("92211") == "legal_services"
+
+    def test_unrelated_92_sibling_still_falls_back_to_default(self) -> None:
+        # Only 92211/92213 were added -- a sibling under "922" with no
+        # specific override (e.g. a made-up/unmapped code under the
+        # "92" public-administration catch-all) must still fall back to
+        # default_internal_key, proving the fix is scoped, not a blanket
+        # "92" -> legal_services change.
+        assert (
+            naics_lookup.resolve_internal_key("9229")
+            == naics_lookup._DEFAULT_INTERNAL_KEY
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 3. format_industry_label()

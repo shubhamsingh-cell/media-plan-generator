@@ -109,6 +109,16 @@ def naics_search(q: str, limit: int = 20) -> List[Dict[str, Any]]:
     Rank tiers (lower = better): 0 exact code, 1 code-prefix, 2 title
     startswith, 3 all-query-tokens present in title. Ties broken by
     preferring deeper (6-digit) codes, then shorter titles.
+
+    Dedupe (design panel 2026-07-31, iteration 2, mechanism finding):
+    NAICS titles frequently repeat verbatim across a parent code and its
+    lone child (e.g. 92213 "Legal Counsel and Prosecution" duplicates
+    922130's title; 54111 "Offices of Lawyers" duplicates 541110's) --
+    the parent exists in the standard purely as an aggregation bucket
+    with one child, so showing both rows in a typeahead is pure noise.
+    When two matches in the same result set share an exact title, only
+    the deepest (highest-level, e.g. 6-digit) row is kept. Rows with
+    genuinely distinct titles are never affected.
     """
     q = (q or "").strip()[:_MAX_QUERY_LEN]
     if not q or not _CODES:
@@ -146,11 +156,21 @@ def naics_search(q: str, limit: int = 20) -> List[Dict[str, Any]]:
     scored.sort(key=lambda item: (item[0], item[1], item[2]))
 
     results: List[Dict[str, Any]] = []
-    for _rank, _neg_level, _title_len, c in scored[:limit]:
+    seen_titles: set = set()
+    for _rank, _neg_level, _title_len, c in scored:
+        if len(results) >= limit:
+            break
+        title = c.get("title", "")
+        # -neg_level sorts deepest-first within a rank tier, so the first
+        # occurrence of a given title is already the deepest one -- skip
+        # any later (shallower) duplicate rather than the reverse.
+        if title in seen_titles:
+            continue
+        seen_titles.add(title)
         results.append(
             {
                 "code": c.get("code", ""),
-                "title": c.get("title", ""),
+                "title": title,
                 "level": c.get("level"),
                 "internal_key": resolve_internal_key(c.get("code", "")),
             }
