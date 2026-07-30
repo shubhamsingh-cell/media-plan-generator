@@ -1070,11 +1070,25 @@
       setVal("requesterEmail", s.requesterEmail);
       if (s.selectedIndustry) {
         selectedIndustry = s.selectedIndustry;
+        const indCard = document.querySelector(
+          '.industry-card[data-industry="' + s.selectedIndustry + '"]',
+        );
+        // Design panel 2026-07-31 (bug 5): restore used to only set the
+        // JS variable, never the visual card highlight -- fromNaics:true
+        // so this doesn't clear the NAICS fields we're about to restore
+        // right below.
+        if (indCard && typeof selectIndustry === "function") {
+          selectIndustry(indCard, { fromNaics: true });
+        }
       }
       if (s.selectedNaicsCode) {
         selectedNaicsCode = s.selectedNaicsCode;
         selectedNaicsTitle = s.selectedNaicsTitle || null;
       }
+      // Design panel 2026-07-31 (bug 5): re-render the chip + mapping hint
+      // from whatever was restored above (also correctly hides the chip
+      // when no naics selection was saved).
+      if (typeof _renderNaicsChip === "function") _renderNaicsChip();
       // Restore checkbox groups
       ["campaignGoals", "workEnvironment", "experienceLevel"].forEach(
         (name) => {
@@ -2426,14 +2440,74 @@
   function clearNaicsSelection() {
     selectedNaicsCode = null;
     selectedNaicsTitle = null;
+    _renderNaicsChip();
+    // Design panel 2026-07-31 (bug 5): clearing is itself a state change
+    // that must persist -- otherwise a reload after clearing would
+    // resurrect the old chip from a stale sessionStorage snapshot.
+    if (typeof saveFormState === "function") saveFormState();
+  }
+
+  // Design panel 2026-07-31 (bug 5 root cause): pickResult() and
+  // clearNaicsSelection() used to mutate selectedNaicsCode/Title and the
+  // chip DOM directly, in a scope that page restore couldn't reach --
+  // restoreFormState()/_restoreDraftState() only ever set the JS
+  // variables back, they never rebuilt the chip or the mapping hint. This
+  // single render function is now the one place that draws the chip +
+  // "Benchmarks use the X category" microcopy from
+  // selectedNaicsCode/Title/selectedIndustry, called from pickResult(),
+  // clearNaicsSelection(), AND both restore paths, so the visual state
+  // can never drift from the persisted state again.
+  function _renderNaicsChip() {
     const chip = document.getElementById("naicsSelectedChip");
-    if (chip) chip.style.display = "none";
+    const hint = document.getElementById("naicsMappingHint");
+    if (!chip) return;
+    if (!selectedNaicsCode) {
+      chip.style.display = "none";
+      chip.innerHTML = "";
+      if (hint) hint.style.display = "none";
+      return;
+    }
+    chip.innerHTML =
+      '<span>NAICS ' +
+      _escHtml(selectedNaicsCode) +
+      (selectedNaicsTitle ? " &mdash; " + _escHtml(selectedNaicsTitle) : "") +
+      '</span><button type="button" aria-label="Clear NAICS selection">&times;</button>';
+    chip.style.display = "inline-flex";
+    const clearBtn = chip.querySelector("button");
+    if (clearBtn) {
+      clearBtn.onclick = function () {
+        clearNaicsSelection();
+      };
+    }
+    if (hint) {
+      const mappedLabel =
+        (channelsDB &&
+          channelsDB.industries &&
+          channelsDB.industries[selectedIndustry] &&
+          channelsDB.industries[selectedIndustry].label) ||
+        (selectedIndustry || "").replace(/_/g, " ");
+      hint.textContent = "Benchmarks use the " + mappedLabel + " category";
+      hint.style.display = "block";
+    }
+  }
+
+  // Design panel 2026-07-31 (item 1): filters the 21 quick-pick cards by
+  // name + subtitle, exactly like the old standalone #industrySearch box
+  // did -- now driven by the single merged input.
+  function filterIndustryCards(query) {
+    const q = (query || "").toLowerCase();
+    document.querySelectorAll(".industry-card").forEach((card) => {
+      const nameEl = card.querySelector(".name");
+      const descEl = card.querySelector(".desc");
+      const name = nameEl ? nameEl.textContent.toLowerCase() : "";
+      const desc = descEl ? descEl.textContent.toLowerCase() : "";
+      card.style.display = !q || name.includes(q) || desc.includes(q) ? "" : "none";
+    });
   }
 
   (function initNaicsSearch() {
     const input = document.getElementById("naicsSearch");
     const resultsEl = document.getElementById("naicsResults");
-    const chip = document.getElementById("naicsSelectedChip");
     if (!input || !resultsEl) return;
 
     let _debounceTimer = null;
@@ -2447,6 +2521,19 @@
       input.setAttribute("aria-expanded", "false");
       _matches = [];
       _activeIndex = -1;
+    }
+
+    function scrollActiveIntoView() {
+      if (_activeIndex < 0) return;
+      const el = document.getElementById("naicsOpt" + _activeIndex);
+      // Design panel 2026-07-31 (bug 4): ArrowDown/ArrowUp past the
+      // visible rows advanced _activeIndex but never moved
+      // resultsEl.scrollTop, so the highlighted option could sit
+      // scrolled out of view. block:'nearest' only scrolls the
+      // dropdown's own container, never the outer page.
+      if (el && typeof el.scrollIntoView === "function") {
+        el.scrollIntoView({ block: "nearest" });
+      }
     }
 
     function renderResults() {
@@ -2501,24 +2588,25 @@
       );
       if (card) selectIndustry(card, { fromNaics: true });
 
-      if (chip) {
-        chip.innerHTML =
-          '<span>NAICS ' +
-          _escHtml(match.code) +
-          " &mdash; " +
-          _escHtml(match.title) +
-          '</span><button type="button" aria-label="Clear NAICS selection">&times;</button>';
-        chip.style.display = "inline-flex";
-        const clearBtn = chip.querySelector("button");
-        if (clearBtn) {
-          clearBtn.onclick = function () {
-            clearNaicsSelection();
-          };
-        }
-      }
+      _renderNaicsChip();
 
-      input.value = match.code + " — " + match.title;
+      // Design panel 2026-07-31 (item 2b): the chip is now the single
+      // rendering of the selection -- clear the input instead of stuffing
+      // the (sometimes long) title into it, which used to hard-truncate
+      // ugly. Typing again just searches; a new pick replaces the chip.
+      input.value = "";
+      filterIndustryCards("");
       closeDropdown();
+
+      // Design panel 2026-07-31 (bug 5 root cause): a pick used to only
+      // mutate the module-scoped vars above -- nothing ever told the
+      // sessionStorage persistence layer a change happened, so
+      // naics_selected_code/title stayed null in nova_plan_form and the
+      // chip vanished on reload while the rest of the form (whose inputs
+      // fire native input/change events the persistence layer listens
+      // for) survived fine. Save explicitly, right after the state that
+      // needs to persist actually changes.
+      if (typeof saveFormState === "function") saveFormState();
     }
 
     function fetchMatches(q) {
@@ -2542,6 +2630,10 @@
 
     input.addEventListener("input", function () {
       const q = input.value.trim();
+      // Item 1: the merged box live-filters the quick-pick cards on every
+      // keystroke (no debounce -- it's a pure client-side text match),
+      // independent of the debounced NAICS dropdown fetch below.
+      filterIndustryCards(q);
       if (_debounceTimer) clearTimeout(_debounceTimer);
       if (q.length < 2) {
         closeDropdown();
@@ -2558,10 +2650,12 @@
         e.preventDefault();
         _activeIndex = Math.min(_activeIndex + 1, _matches.length - 1);
         renderResults();
+        scrollActiveIntoView();
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         _activeIndex = Math.max(_activeIndex - 1, 0);
         renderResults();
+        scrollActiveIntoView();
       } else if (e.key === "Enter") {
         e.preventDefault();
         if (_activeIndex >= 0 && _matches[_activeIndex]) {
@@ -4505,33 +4599,9 @@
     if (el) el.addEventListener("change", checkBudgetFeasibility);
   });
 
-  // ============================================
-  // Industry search/filter
-  // ============================================
-  document
-    .getElementById("industrySearch")
-    .addEventListener("input", function (e) {
-      const query = e.target.value.toLowerCase();
-      document.querySelectorAll(".industry-card").forEach((card) => {
-        const name = card.querySelector(".name").textContent.toLowerCase();
-        const desc = card.querySelector(".desc").textContent.toLowerCase();
-        card.style.display =
-          name.includes(query) || desc.includes(query) ? "" : "none";
-      });
-    });
-  // Focus styles for industry search
-  document
-    .getElementById("industrySearch")
-    .addEventListener("focus", function () {
-      this.style.borderColor = "var(--primary)";
-      this.style.boxShadow = "0 0 0 3px rgba(99,102,241,0.1)";
-    });
-  document
-    .getElementById("industrySearch")
-    .addEventListener("blur", function () {
-      this.style.borderColor = "";
-      this.style.boxShadow = "";
-    });
+  // Industry quick-pick card filtering now lives on #naicsSearch itself
+  // (design panel 2026-07-31, item 1: one input instead of two stacked
+  // search boxes) -- see filterIndustryCards() inside initNaicsSearch().
 
   // Header particles removed in UI redesign (header-particle is display:none)
   // Kept as no-op stub for backward compatibility
@@ -4813,38 +4883,27 @@
       if (ehw) ehw.style.display = hvEl.value === "custom" ? "block" : "none";
     }
 
-    // Restore industry selection
+    // Restore industry selection (fromNaics:true -- don't let the card
+    // highlight clear the NAICS selection we're about to restore next).
     if (s.selectedIndustry) {
       selectedIndustry = s.selectedIndustry;
       var indCard = document.querySelector(
         '.industry-card[data-industry="' + s.selectedIndustry + '"]',
       );
       if (indCard && typeof selectIndustry === "function") {
-        selectIndustry(indCard);
+        selectIndustry(indCard, { fromNaics: true });
       }
     }
 
-    // Restore precise NAICS selection (after industry restore above, since
-    // selectIndustry() on a direct card match clears any NAICS selection).
+    // Restore precise NAICS selection, then re-render the chip + mapping
+    // hint from it via the shared renderer (design panel 2026-07-31, bug 5
+    // -- keeps this path and the sessionStorage restore path from drifting
+    // out of sync with pickResult()'s own rendering).
     if (s.selectedNaicsCode) {
       selectedNaicsCode = s.selectedNaicsCode;
       selectedNaicsTitle = s.selectedNaicsTitle || null;
-      var naicsChip = document.getElementById("naicsSelectedChip");
-      if (naicsChip) {
-        naicsChip.innerHTML =
-          "<span>NAICS " +
-          _escHtml(selectedNaicsCode) +
-          (selectedNaicsTitle ? " &mdash; " + _escHtml(selectedNaicsTitle) : "") +
-          '</span><button type="button" aria-label="Clear NAICS selection">&times;</button>';
-        naicsChip.style.display = "inline-flex";
-        var naicsClearBtn = naicsChip.querySelector("button");
-        if (naicsClearBtn) {
-          naicsClearBtn.onclick = function () {
-            clearNaicsSelection();
-          };
-        }
-      }
     }
+    if (typeof _renderNaicsChip === "function") _renderNaicsChip();
 
     // Restore job categories
     if (

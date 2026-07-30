@@ -1086,15 +1086,18 @@
       <div class="form-group">
         <label>Industry *</label>
 
-        <!-- S94: full NAICS 2022 industry typeahead (2,125 codes), layered
-             on top of the 21 quick-pick cards below. Picking a result maps
-             to the matching quick-pick card so benchmarks/role chips keep
-             working, and additionally records the precise NAICS code/title. -->
-        <div class="naics-search-wrap" style="margin-bottom: 14px">
+        <!-- S94 (design panel 2026-07-31): ONE search box now covers both
+             jobs the two stacked inputs used to split -- it live-filters the
+             21 quick-pick cards below (by name + subtitle, same as the old
+             #industrySearch did) AND drives the full NAICS 2022 typeahead
+             dropdown (2,125 codes). Picking a dropdown result maps to the
+             matching quick-pick card so benchmarks/role chips keep working,
+             and additionally records the precise NAICS code/title. -->
+        <div class="naics-search-wrap" style="margin-bottom: 16px">
           <input
             type="text"
             id="naicsSearch"
-            placeholder="Search all industries (NAICS)…"
+            placeholder="Search industries (or all of NAICS)…"
             class="form-input"
             autocomplete="off"
             role="combobox"
@@ -1127,37 +1130,11 @@
             class="naics-chip"
             style="display: none"
           ></div>
-        </div>
-
-        <p
-          class="form-hint"
-          style="text-align: center; margin: 0 0 16px; font-size: 12px"
-        >
-          or choose a quick-pick category
-        </p>
-
-        <div class="search-filter-wrap" style="margin-bottom: 16px">
-          <input
-            type="text"
-            id="industrySearch"
-            placeholder="Search industries..."
-            class="form-input"
-            autocomplete="off"
-            style="
-              width: 100%;
-              max-width: 400px;
-              margin: 0 auto;
-              display: block;
-              padding: 12px 16px;
-              border: 1px solid var(--border);
-              border-radius: var(--radius-sm);
-              font-size: 14px;
-              font-family: inherit;
-              background: rgba(255, 255, 255, 0.04);
-              color: var(--text-primary);
-              transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            "
-          />
+          <div
+            id="naicsMappingHint"
+            class="form-hint naics-mapping-hint"
+            style="display: none"
+          ></div>
         </div>
         <div class="industry-grid" id="industryGrid">
           <div

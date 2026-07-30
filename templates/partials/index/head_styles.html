@@ -3853,6 +3853,11 @@
   /* ── S94: NAICS 2022 industry typeahead ── */
   .naics-search-wrap {
     position: relative;
+    /* Design panel 2026-07-31 (craft): center the chip + mapping hint
+       under the input -- both render as inline/block content that
+       respects this text-align, so they land on the same center line
+       as the 400px-max-width input above them. */
+    text-align: center;
   }
   .naics-results {
     position: absolute;
@@ -3924,6 +3929,11 @@
   }
   .naics-chip button:hover {
     color: var(--text-primary);
+  }
+  /* Design panel 2026-07-31 (trust): mapping microcopy under the chip.
+     Same style family as .form-hint -- small, dimmed, no emphasis. */
+  .naics-mapping-hint {
+    margin-top: 6px;
   }
   @media (prefers-reduced-motion: reduce) {
     .naics-results {
