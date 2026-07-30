@@ -20,6 +20,8 @@ import sys
 import time
 from typing import Any
 
+from shared_utils import format_industry_label
+
 logger = logging.getLogger(__name__)
 
 
@@ -293,10 +295,23 @@ def _handle_report_html(handler: Any, path: str, parsed: Any) -> None:
         data = json.loads(body)
         from pdf_generator import generate_plan_html_report
 
+        _plan_data = data.get("plan_data", data)
+        _industry = (
+            data.get("industry")
+            or _plan_data.get("industry_label")
+            or _plan_data.get("industry")
+            or "Technology"
+        )
+        _industry = format_industry_label(
+            _industry,
+            data.get("naics_selected_code") or _plan_data.get("naics_selected_code"),
+            data.get("naics_selected_title")
+            or _plan_data.get("naics_selected_title"),
+        )
         html_content = generate_plan_html_report(
-            plan_data=data.get("plan_data", data),
+            plan_data=_plan_data,
             client_name=data.get("client_name", "Client"),
-            industry=data.get("industry", "Technology"),
+            industry=_industry,
         )
         html_bytes = html_content.encode("utf-8")
         handler.send_response(200)
@@ -434,7 +449,20 @@ def _handle_pdf_export_post(handler: Any, path: str, parsed: Any) -> None:
         client_name = (
             data.get("client_name") or plan_data.get("client_name") or "Client"
         )
-        industry = data.get("industry") or plan_data.get("industry") or "Technology"
+        industry = (
+            data.get("industry")
+            or plan_data.get("industry_label")
+            or plan_data.get("industry")
+            or "Technology"
+        )
+        # S94: append the user's precise NAICS pick (if any) -- this POST path
+        # is fed straight from the wizard's client-side payload rather than
+        # the server-enriched gen_data, so the suffix must be applied here too.
+        industry = format_industry_label(
+            industry,
+            data.get("naics_selected_code") or plan_data.get("naics_selected_code"),
+            data.get("naics_selected_title") or plan_data.get("naics_selected_title"),
+        )
 
         # PostHog: track export event
         _track_export_event(plan_data, "pdf")
