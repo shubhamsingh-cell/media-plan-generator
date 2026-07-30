@@ -7413,4 +7413,24 @@
       animation: none !important;
     }
   }
+
+  /* ── Final-gate fix (2026-07-31): NAICS quick-pick card filter ──
+     Placed last on purpose. The Nova Plan Studio cockpit reskin above
+     sets `.studio .industry-card { display: flex !important; }` (and
+     restates it for :hover/.selected/etc in several places throughout
+     this file) -- that rule is protected design and is NOT touched here.
+     filterIndustryCards() (body_app_js.html) used to toggle
+     card.style.display = "none" directly, but a stylesheet !important
+     rule always beats an inline style with no !important of its own, so
+     the card kept computed display:flex and kept painting even though
+     the JS/inline state said "hidden". Filtering now toggles this class
+     instead. The selector list carries BOTH the plain and the
+     .studio-prefixed compound (higher specificity than
+     `.studio .industry-card` on its own) so this wins on specificity
+     even if some future edit moves it earlier in the file; being last
+     in source order is the second, belt-and-suspenders guarantee. */
+  .industry-card.naics-filtered-out,
+  .studio .industry-card.naics-filtered-out {
+    display: none !important;
+  }
 </style>

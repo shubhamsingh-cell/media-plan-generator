@@ -2502,14 +2502,32 @@
   // Design panel 2026-07-31 (item 1): filters the 21 quick-pick cards by
   // name + subtitle, exactly like the old standalone #industrySearch box
   // did -- now driven by the single merged input.
+  //
+  // Final-gate mechanism veto (2026-07-31, confirmed root cause): this
+  // used to toggle card.style.display directly, but the Nova Plan Studio
+  // cockpit reskin has `.studio .industry-card { display: flex !important; }`
+  // (head_styles.html ~6328, protected design -- not touched here). A
+  // stylesheet !important rule beats an inline style that has no
+  // !important of its own, so the inline display:none was silently
+  // overridden -- the card kept its computed flex layout and kept
+  // painting even though filterIndustryCards() "hid" it. Switched to a
+  // class toggle (.naics-filtered-out) with its own !important rule
+  // (added after the .studio block, see head_styles.html) that wins on
+  // specificity regardless of source order.
+  //
+  // Decision: a card that is the CURRENT selection stays visible even if
+  // it no longer matches the filter text -- filtering the quick-pick grid
+  // should never hide the user's actual selection out from under them.
   function filterIndustryCards(query) {
-    const q = (query || "").toLowerCase();
+    const q = (query || "").toLowerCase().trim();
     document.querySelectorAll(".industry-card").forEach((card) => {
       const nameEl = card.querySelector(".name");
       const descEl = card.querySelector(".desc");
       const name = nameEl ? nameEl.textContent.toLowerCase() : "";
       const desc = descEl ? descEl.textContent.toLowerCase() : "";
-      card.style.display = !q || name.includes(q) || desc.includes(q) ? "" : "none";
+      const matches = !q || name.includes(q) || desc.includes(q);
+      const keepVisible = matches || card.classList.contains("selected");
+      card.classList.toggle("naics-filtered-out", !keepVisible);
     });
   }
 
