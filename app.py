@@ -36,7 +36,12 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.chart import Reference
 
-from shared_utils import parse_budget, parse_budget_strict, INDUSTRY_LABEL_MAP
+from shared_utils import (
+    parse_budget,
+    parse_budget_strict,
+    INDUSTRY_LABEL_MAP,
+    format_industry_label,
+)
 
 import benchmark_registry
 import hashlib
@@ -13959,6 +13964,43 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     {"error": f"Outcome lookup failed: {e}"}, status_code=500
                 )
 
+        # ── NAICS 2022 industry search (S94, wizard typeahead) ──
+        elif path == "/api/naics/search":
+            try:
+                params = urllib.parse.parse_qs(parsed.query)
+                q = (params.get("q", [""])[0] or "").strip()
+                if not q:
+                    self._send_json(
+                        {"error": "Missing required query parameter: q"},
+                        status_code=400,
+                    )
+                else:
+                    try:
+                        limit = int(params.get("limit", ["20"])[0])
+                    except (TypeError, ValueError):
+                        limit = 20
+                    from naics_lookup import naics_search
+
+                    matches = naics_search(q, limit=limit)
+                    results = [
+                        {
+                            "code": m["code"],
+                            "title": m["title"],
+                            "level": m["level"],
+                            "internal_key": m["internal_key"],
+                            "internal_label": INDUSTRY_LABEL_MAP.get(
+                                m["internal_key"], m["internal_key"]
+                            ),
+                        }
+                        for m in matches
+                    ]
+                    self._send_json({"results": results})
+            except Exception as e:
+                logger.error("NAICS search error: %s", e, exc_info=True)
+                self._send_json(
+                    {"error": f"NAICS search failed: {e}"}, status_code=500
+                )
+
         # ── Role Taxonomy (semantic similarity) ──
         elif path == "/api/roles/similar":
             try:
@@ -16512,6 +16554,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             gen_data["industry_label"] = INDUSTRY_LABEL_MAP.get(
                                 gen_data["industry"], industry_profile["sector"]
                             )
+                        # S94: append the wizard's precise NAICS pick (if any) to
+                        # the single-source label so every deliverable that reads
+                        # industry_label picks it up automatically.
+                        gen_data["industry_label"] = format_industry_label(
+                            gen_data["industry_label"],
+                            gen_data.get("naics_selected_code"),
+                            gen_data.get("naics_selected_title"),
+                        )
                         gen_data["talent_profile"] = industry_profile["talent_profile"]
                         gen_data["bls_sector"] = industry_profile["bls_sector"]
                         gen_data["naics_code"] = industry_profile.get("naics", "00")
@@ -18686,6 +18736,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 data["industry_label"] = INDUSTRY_LABEL_MAP.get(
                     data["industry"], industry_profile["sector"]
                 )
+            # S94: append the wizard's precise NAICS pick (if any) to the
+            # single-source label so every deliverable that reads
+            # industry_label picks it up automatically.
+            data["industry_label"] = format_industry_label(
+                data["industry_label"],
+                data.get("naics_selected_code"),
+                data.get("naics_selected_title"),
+            )
 
             # Store talent profile and BLS sector for downstream use
             data["talent_profile"] = industry_profile["talent_profile"]

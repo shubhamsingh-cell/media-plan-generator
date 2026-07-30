@@ -86,6 +86,42 @@ INDUSTRY_LABEL_MAP: Dict[str, str] = {
 }
 
 # ─────────────────────────────────────────────────────────────
+# NAICS-precise industry label (S94, NAICS typeahead)
+# ─────────────────────────────────────────────────────────────
+#
+# The wizard's 21-key quick-pick industry drives the whole benchmark stack
+# (INDUSTRY_LABEL_MAP above) and must never change. The NAICS typeahead adds
+# an *optional*, more precise industry descriptor on top -- the user's exact
+# NAICS 2022 code/title -- carried on the plan under naics_selected_code /
+# naics_selected_title (deliberately NOT "naics_code": that key is already
+# used elsewhere in app.py for the unrelated 2-digit BLS-sector code the
+# INDUSTRY_NAICS_MAP classifier infers -- reusing it would silently clobber
+# that value since both live in the same generation-request dict).
+#
+# format_industry_label() is the single place that appends the NAICS suffix
+# to the canonical label, so every deliverable that reads data["industry_label"]
+# (Excel, PPTX, PDF/HTML report, Nova chat context) picks up the precise NAICS
+# automatically without each consumer needing its own formatting logic.
+
+
+def format_industry_label(
+    label: str, naics_code: Optional[str] = None, naics_title: Optional[str] = None
+) -> str:
+    """Append a precise-NAICS suffix to an industry label when present.
+
+    Missing/absent naics fields return ``label`` unchanged (empty-string-safe
+    per project convention -- callers should pass ``or ""`` inputs).
+    """
+    label = label or ""
+    naics_code = (naics_code or "").strip()
+    naics_title = (naics_title or "").strip()
+    if not naics_code:
+        return label
+    suffix = f"NAICS {naics_code}" + (f" — {naics_title}" if naics_title else "")
+    return f"{label} · {suffix}" if label else suffix
+
+
+# ─────────────────────────────────────────────────────────────
 # Budget Parsing  (single source of truth)
 # ─────────────────────────────────────────────────────────────
 
