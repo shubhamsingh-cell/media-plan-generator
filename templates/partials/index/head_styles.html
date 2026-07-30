@@ -3881,14 +3881,24 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 8px 12px;
+    padding: 8px 12px 8px 9px;
+    border-left: 3px solid transparent;
     border-radius: 8px;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.15s, border-color 0.15s;
   }
-  .naics-option:hover,
+  /* Design panel 2026-07-31 (iteration 2, craft top change): the flat
+     rgba(90,84,189,0.18) tint read as invisible against the dark theme in
+     real screenshots. Hover gets a visible-but-lighter tint; the
+     keyboard-active row is bumped further (~0.32) AND gets a left accent
+     bar in the brand purple so it is spottable at a glance, not just a
+     faint background shift. */
+  .naics-option:hover {
+    background: rgba(90, 84, 189, 0.22);
+  }
   .naics-option.active {
-    background: rgba(90, 84, 189, 0.18);
+    background: rgba(90, 84, 189, 0.32);
+    border-left-color: rgb(90, 84, 189);
   }
   .naics-option .naics-code {
     font-size: 11px;

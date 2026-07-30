@@ -2453,7 +2453,8 @@
   // restoreFormState()/_restoreDraftState() only ever set the JS
   // variables back, they never rebuilt the chip or the mapping hint. This
   // single render function is now the one place that draws the chip +
-  // "Benchmarks use the X category" microcopy from
+  // the substitution-notice microcopy ("No code-level benchmark for X --
+  // using the closest category: Y") from
   // selectedNaicsCode/Title/selectedIndustry, called from pickResult(),
   // clearNaicsSelection(), AND both restore paths, so the visual state
   // can never drift from the persisted state again.
@@ -2486,7 +2487,14 @@
           channelsDB.industries[selectedIndustry] &&
           channelsDB.industries[selectedIndustry].label) ||
         (selectedIndustry || "").replace(/_/g, " ");
-      hint.textContent = "Benchmarks use the " + mappedLabel + " category";
+      // Design panel 2026-07-31 (iteration 2, trust top change): read as an
+      // explicit substitution notice ("no data at this precision, here is
+      // what we used instead"), not a flat statement of fact.
+      hint.textContent =
+        "No code-level benchmark for " +
+        selectedNaicsCode +
+        " — using the closest category: " +
+        mappedLabel;
       hint.style.display = "block";
     }
   }
