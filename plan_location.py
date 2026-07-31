@@ -90,6 +90,21 @@ absent (true today), `dma_code`/`dma_name` stay None and
 `dma_status="unavailable"`; nothing else in this module is affected, and
 no warning is logged for the expected/absent case.
 
+CBSA (Core Based Statistical Area) is a genuine, free, public-domain
+metro-level substitute for market grouping -- OMB's delineation of counties
+into metro/micro statistical areas ("Atlanta-Sandy Springs-Roswell, GA",
+etc.), published by the US Census Bureau (17 U.S.C. 105, public domain).
+Like DMA, it is PLUGGABLE via an optional file: if
+`data/geo/cbsa_by_county.tsv` (columns: county_fips, cbsa_code, cbsa_title,
+area_type), built by `scripts/build_cbsa_data.py`, exists, it is loaded and
+used to populate `cbsa_code`/`cbsa_title` on any resolution carrying a
+county_fips, with `cbsa_status="available"`. Unlike DMA, this file ships
+with the repo (built entirely from public data, no licensing question).
+`cbsa_status` stays "unavailable" -- never a fabricated CBSA -- when the
+file is absent, the resolution has no county_fips at all, or the county
+genuinely sits outside any CBSA (true for many rural/unincorporated
+counties; a real geographic fact, not a data gap).
+
 Known limitation (rule 8 / rule 9 interaction): rule 8's non-US check
 delegates to `plan_geo._resolve_candidate`, which in turn calls
 `plan_currency.currency_for_country`. That function has a >=5-char
@@ -269,6 +284,9 @@ class LocationResolution:
     dma_name: str | None = None
     dma_source: str | None = None
     dma_status: str = "unavailable"
+    cbsa_code: str | None = None
+    cbsa_title: str | None = None
+    cbsa_status: str = "unavailable"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -298,6 +316,9 @@ _zips_by_prefix: dict[str, list[int]] = {}
 _dma_by_fips: dict[str, tuple[str, str, str]] = {}  # fips -> (dma_code, dma_name, dma_source)
 _dma_available = False
 
+_cbsa_by_fips: dict[str, tuple[str, str, str]] = {}  # fips -> (cbsa_code, cbsa_title, area_type)
+_cbsa_available = False
+
 
 def _norm_key(s: str) -> str:
     """Lowercase, strip punctuation, collapse whitespace -- matches the
@@ -326,7 +347,7 @@ def _read_tsv(path: Path) -> list[dict[str, str]]:
 
 
 def _ensure_loaded() -> None:
-    global _loaded, _dma_available
+    global _loaded, _dma_available, _cbsa_available
     if _loaded:
         return
     with _load_lock:
@@ -338,6 +359,7 @@ def _ensure_loaded() -> None:
             _load_places()
             _load_zips()
             _load_dma()
+            _load_cbsa()
         except Exception:
             logger.error("plan_location: failed to load geo reference data", exc_info=True)
             # Leave whatever partially loaded rather than crash the caller;
@@ -443,6 +465,46 @@ def _apply_dma(res: LocationResolution) -> None:
     res.dma_status = "available"
 
 
+def _load_cbsa() -> None:
+    global _cbsa_available
+    cbsa_path = _GEO_DIR / "cbsa_by_county.tsv"
+    if not cbsa_path.exists():
+        _cbsa_available = False
+        return
+    try:
+        for row in _read_tsv(cbsa_path):
+            fips = (row.get("county_fips") or "").strip()
+            if not fips:
+                continue
+            code = (row.get("cbsa_code") or "").strip()
+            title = (row.get("cbsa_title") or "").strip()
+            area_type = (row.get("area_type") or "").strip()
+            _cbsa_by_fips[fips] = (code, title, area_type)
+        _cbsa_available = True
+    except Exception:
+        logger.error("plan_location: failed to load optional cbsa_by_county.tsv", exc_info=True)
+        _cbsa_available = False
+
+
+def _apply_cbsa(res: LocationResolution) -> None:
+    if not _cbsa_available:
+        res.cbsa_status = "unavailable"
+        return
+    if not res.county_fips:
+        res.cbsa_status = "unavailable"
+        return
+    hit = _cbsa_by_fips.get(res.county_fips)
+    if not hit:
+        # A real, non-fabricated outcome for counties genuinely outside any
+        # CBSA (rural/unincorporated areas) -- not an error.
+        res.cbsa_status = "unavailable"
+        return
+    code, title, _area_type = hit
+    res.cbsa_code = code or None
+    res.cbsa_title = title or None
+    res.cbsa_status = "available"
+
+
 # ---------------------------------------------------------------------------
 # Place-record helpers
 # ---------------------------------------------------------------------------
@@ -531,6 +593,7 @@ def _resolve_bare_city(raw_input: str, city_text: str) -> LocationResolution:
         _fill_from_place(res, place)
         res.note = f"resolved '{city_text.strip()}' as the only US place named '{res.display_name}' ({res.state_usps})."
         _apply_dma(res)
+        _apply_cbsa(res)
         return res
 
     primary_usps, primary_key = _pick_ambiguous_primary(city_norm, matches)
@@ -543,6 +606,7 @@ def _resolve_bare_city(raw_input: str, city_text: str) -> LocationResolution:
         "Pick the one you mean so the plan targets the right market."
     )
     _apply_dma(res)
+    _apply_cbsa(res)
     return res
 
 
@@ -677,6 +741,7 @@ def _resolve_zip(raw_str: str, zip5: str) -> LocationResolution:
         res.lat = _to_float(record.get("lat"))
         res.lng = _to_float(record.get("lng"))
         _apply_dma(res)
+        _apply_cbsa(res)
         return res
 
     # Well-formed ZIP absent from the ZCTA-derived dataset (see
@@ -776,6 +841,7 @@ def _try_comma_or_trailing_state(raw_str: str, stripped: str) -> LocationResolut
             res.lat = _to_float(county.get("lat"))
             res.lng = _to_float(county.get("lng"))
             _apply_dma(res)
+            _apply_cbsa(res)
             return res
 
     place_key = f"{city_norm}|{state_usps.lower()}"
@@ -793,6 +859,7 @@ def _try_comma_or_trailing_state(raw_str: str, stripped: str) -> LocationResolut
         res = LocationResolution(input=raw_str, status="resolved", confidence=1.0, matched_via="place_city_state")
         _fill_from_place(res, place)
         _apply_dma(res)
+        _apply_cbsa(res)
         return res
 
     # Exact match missed -- try fuzzy, scoped to this state, before giving up
@@ -811,6 +878,7 @@ def _try_comma_or_trailing_state(raw_str: str, stripped: str) -> LocationResolut
                 f"{res.display_name}, {res.state_usps}."
             )
             _apply_dma(res)
+            _apply_cbsa(res)
             return res
 
     # Recognized a real state but not the city in it: honest unresolved,
@@ -839,6 +907,7 @@ def _try_bare_state(raw_str: str, stripped: str, norm_whole: str) -> LocationRes
     res.state_name = _states_by_usps.get(usps, "")
     res.display_name = res.state_name
     _apply_dma(res)
+    _apply_cbsa(res)
     return res
 
 
@@ -875,6 +944,7 @@ def _try_fuzzy(raw_str: str, stripped: str) -> LocationResolution | None:
         _fill_from_place(res, place)
         res.note = f"Read “{stripped}” as {res.display_name}, {res.state_usps}."
         _apply_dma(res)
+        _apply_cbsa(res)
         return res
     primary_usps, primary_key = _pick_ambiguous_primary(best_norm, candidates)
     primary_place = _places_by_key[primary_key]
@@ -886,6 +956,7 @@ def _try_fuzzy(raw_str: str, stripped: str) -> LocationResolution | None:
         f"Showing {res.state_usps} — pick another below if that isn’t the one."
     )
     _apply_dma(res)
+    _apply_cbsa(res)
     return res
 
 

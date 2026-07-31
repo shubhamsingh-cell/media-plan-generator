@@ -198,3 +198,55 @@ as zero-padded strings (`"01001"`, `"00601"`), never as integers -- leading
 zeros are significant (Connecticut counties, Puerto Rico ZIPs, etc.). Both
 the build script and `tests/test_geo_data_integrity.py` assert every value
 is exactly 5 characters and all-digits.
+
+## CBSA layer (optional, `cbsa_by_county.tsv`)
+
+`cbsa_by_county.tsv` -- `county_fips, cbsa_code, cbsa_title, area_type`
+(1,915 rows on the 2026-07-31 build: 1,252 Metropolitan Statistical Area +
+663 Micropolitan Statistical Area). A free, public-domain metro-level
+market-grouping layer built entirely from OMB's delineation of counties
+into metro/micropolitan statistical areas ("Atlanta-Sandy Springs-Roswell,
+GA", "Houston-Pasadena-The Woodlands, TX", etc.) -- published by the US
+Census Bureau, same public-domain basis (17 U.S.C. 105) as every other file
+in this directory, and independent of any licensed commercial market-area
+product.
+
+Built by a separate script, `scripts/build_cbsa_data.py`:
+
+```bash
+python3 scripts/build_cbsa_data.py
+```
+
+**Source**: `list1_2023.xlsx` ("List 1" CBSA/Metropolitan-Division/CSA
+delineation file), July 2023 vintage (OMB Bulletin 23-01) -- the newest
+delineation published as of this build; the Census delineation-files index
+page (`https://www.census.gov/geographies/reference-files/time-series/demo/metro-micro/delineation-files.html`)
+lists no newer file. Direct URL:
+`https://www2.census.gov/programs-surveys/metro-micro/geographies/reference-files/2023/delineation-files/list1_2023.xlsx`,
+verified HTTP 200 on 2026-07-31.
+
+**Format note**: this file is an `.xlsx` workbook, not a CSV -- there is no
+CSV variant of "List 1" published by Census. `scripts/build_cbsa_data.py`
+parses it with `openpyxl` (already a project dependency) instead of the
+delimited-text reader `build_geo_data.py` uses for its sources.
+
+**Join**: each delineation row already carries `FIPS State Code` +
+`FIPS County Code`, which concatenate directly to a 5-digit `county_fips`
+matching `us_counties.tsv`'s format -- no name-based join needed. The
+script validates every resulting `county_fips` against the
+already-committed `us_counties.tsv` and reports (never silently drops) any
+row whose county isn't found there. On the 2026-07-31 build, all 1,915
+parsed rows joined cleanly (0 skipped) and each county maps to at most one
+CBSA.
+
+**Coverage**: not every county has a CBSA -- 1,307 of 3,222 counties (the
+rest) sit outside any metro/micropolitan area in the real July 2023
+delineation. This is a genuine geographic fact, not a data gap: those
+counties correctly get no row in this file, and `plan_location.py` reports
+`cbsa_status="unavailable"` for them rather than fabricating an entry.
+
+**Runtime use**: `plan_location.py` loads this file lazily (same pluggable
+pattern as its DMA loader) and populates `cbsa_code`/`cbsa_title` on any
+resolution carrying a `county_fips`, with `cbsa_status`
+`"available"`/`"unavailable"`. See `plan_location.py`'s module docstring
+for the full contract.

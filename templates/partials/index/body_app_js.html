@@ -2079,7 +2079,47 @@
       }
     });
 
+  // Tags never eligible for the state-code merge below, even though they
+  // are single tokens shaped like a bare tag: these are location KINDS,
+  // not city names, so "Remote" followed by a state code was never meant
+  // as "Remote, ST" -- it's two unrelated adds that happened to collide.
+  const _LOCATION_MERGE_EXCLUDED = new Set([
+    "remote", "work from home", "wfh", "anywhere",
+    "nationwide", "national", "all us", "all-us",
+    "united states", "usa", "us", "america",
+  ]);
+
   function addTag(containerId, inputId, arr, value) {
+    if (containerId === "locationsContainer" && arr.length > 0) {
+      // The comma key commits a tag immediately (see the locationInput
+      // keydown handler above) so users can rapid-add "Atlanta, Chicago,
+      // Miami" -- but that collides with "City, ST" disambiguation, whose
+      // whole point is a state code right after a comma. Typing
+      // "Springfield, MO" character-by-character committed "Springfield"
+      // the instant the comma was pressed, then "MO" became a SEPARATE
+      // tag on Enter/blur -- silently splitting one disambiguated city
+      // into two differently-targeted locations (a bare state name and a
+      // still-ambiguous city). Detect that shape here and re-merge, no
+      // matter which path (comma, Enter, or blur) produced the commit.
+      const bare = value.trim().toUpperCase();
+      const prevTag = arr[arr.length - 1];
+      const prevKey = prevTag.trim().toLowerCase();
+      const prevIsBareState = VALID_US_STATES.has(prevTag.trim().toUpperCase());
+      if (
+        bare.length === 2 &&
+        VALID_US_STATES.has(bare) &&
+        !prevTag.includes(",") &&
+        !prevIsBareState &&
+        !_LOCATION_MERGE_EXCLUDED.has(prevKey)
+      ) {
+        arr[arr.length - 1] = prevTag + ", " + bare;
+        renderTags(containerId, inputId, arr);
+        document.getElementById(inputId).value = "";
+        updateRegionalSections();
+        scheduleLocationResolution();
+        return;
+      }
+    }
     if (arr.includes(value)) return;
     arr.push(value);
     renderTags(containerId, inputId, arr);
@@ -2253,6 +2293,22 @@
         _appendLocSeg(line, res.county_name, "loc-row-county");
       }
       body.appendChild(line);
+      // Metro area is a free Census substitute, not a licensed market-area
+      // feed -- only ever shown when the backend actually found a match
+      // (cbsa_status === "available"); silent otherwise, same rule as a
+      // missing county_name above. Resolved/corrected only: an ambiguous
+      // or unresolved row has no confirmed county yet, so there is nothing
+      // honest to show.
+      if (res.cbsa_status === "available" && res.cbsa_title) {
+        const metroLine = document.createElement("div");
+        metroLine.className = "loc-row-note";
+        // Named source, not just "Metro area:" -- a first-time viewer has
+        // no way to tell an unlabeled fact apart from an in-house guess or
+        // a licensed commercial product. Naming Census here settles the
+        // question up front instead of relying on it never being asked.
+        metroLine.textContent = "Metro area (Census): " + res.cbsa_title;
+        body.appendChild(metroLine);
+      }
     } else if (status === "ambiguous") {
       // MUST read as a question, never a decided answer -- see spec.
       glyph.textContent = "?";

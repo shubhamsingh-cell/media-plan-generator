@@ -1,0 +1,1916 @@
+county_fips	cbsa_code	cbsa_title	area_type
+01001	33860	Montgomery, AL	Metropolitan Statistical Area
+01003	19300	Daphne-Fairhope-Foley, AL	Metropolitan Statistical Area
+01005	21640	Eufaula, AL-GA	Micropolitan Statistical Area
+01007	13820	Birmingham, AL	Metropolitan Statistical Area
+01009	13820	Birmingham, AL	Metropolitan Statistical Area
+01015	11500	Anniston-Oxford, AL	Metropolitan Statistical Area
+01017	29300	LaGrange, GA-AL	Micropolitan Statistical Area
+01021	13820	Birmingham, AL	Metropolitan Statistical Area
+01031	21460	Enterprise, AL	Micropolitan Statistical Area
+01033	22520	Florence-Muscle Shoals, AL	Metropolitan Statistical Area
+01037	45180	Talladega-Sylacauga, AL	Micropolitan Statistical Area
+01043	18980	Cullman, AL	Micropolitan Statistical Area
+01045	37120	Ozark, AL	Micropolitan Statistical Area
+01047	42820	Selma, AL	Micropolitan Statistical Area
+01049	22840	Fort Payne, AL	Micropolitan Statistical Area
+01051	33860	Montgomery, AL	Metropolitan Statistical Area
+01055	23460	Gadsden, AL	Metropolitan Statistical Area
+01059	40770	Russellville, AL	Micropolitan Statistical Area
+01061	20020	Dothan, AL	Metropolitan Statistical Area
+01063	46220	Tuscaloosa, AL	Metropolitan Statistical Area
+01065	46220	Tuscaloosa, AL	Metropolitan Statistical Area
+01067	20020	Dothan, AL	Metropolitan Statistical Area
+01069	20020	Dothan, AL	Metropolitan Statistical Area
+01071	42460	Scottsboro, AL	Micropolitan Statistical Area
+01073	13820	Birmingham, AL	Metropolitan Statistical Area
+01077	22520	Florence-Muscle Shoals, AL	Metropolitan Statistical Area
+01079	19460	Decatur, AL	Metropolitan Statistical Area
+01081	12220	Auburn-Opelika, AL	Metropolitan Statistical Area
+01083	26620	Huntsville, AL	Metropolitan Statistical Area
+01085	33860	Montgomery, AL	Metropolitan Statistical Area
+01087	12220	Auburn-Opelika, AL	Metropolitan Statistical Area
+01089	26620	Huntsville, AL	Metropolitan Statistical Area
+01095	10700	Albertville, AL	Micropolitan Statistical Area
+01097	33660	Mobile, AL	Metropolitan Statistical Area
+01101	33860	Montgomery, AL	Metropolitan Statistical Area
+01103	19460	Decatur, AL	Metropolitan Statistical Area
+01107	46220	Tuscaloosa, AL	Metropolitan Statistical Area
+01109	45980	Troy, AL	Micropolitan Statistical Area
+01113	17980	Columbus, GA-AL	Metropolitan Statistical Area
+01115	13820	Birmingham, AL	Metropolitan Statistical Area
+01117	13820	Birmingham, AL	Metropolitan Statistical Area
+01121	45180	Talladega-Sylacauga, AL	Micropolitan Statistical Area
+01123	10760	Alexander City, AL	Micropolitan Statistical Area
+01125	46220	Tuscaloosa, AL	Metropolitan Statistical Area
+01127	13820	Birmingham, AL	Metropolitan Statistical Area
+02020	11260	Anchorage, AK	Metropolitan Statistical Area
+02090	21820	Fairbanks-College, AK	Metropolitan Statistical Area
+02110	27940	Juneau, AK	Micropolitan Statistical Area
+02130	28540	Ketchikan, AK	Micropolitan Statistical Area
+02170	11260	Anchorage, AK	Metropolitan Statistical Area
+04003	43420	Sierra Vista-Douglas, AZ	Metropolitan Statistical Area
+04005	22380	Flagstaff, AZ	Metropolitan Statistical Area
+04007	37740	Payson, AZ	Micropolitan Statistical Area
+04009	40940	Safford, AZ	Micropolitan Statistical Area
+04013	38060	Phoenix-Mesa-Chandler, AZ	Metropolitan Statistical Area
+04015	29420	Lake Havasu City-Kingman, AZ	Metropolitan Statistical Area
+04017	43320	Show Low, AZ	Micropolitan Statistical Area
+04019	46060	Tucson, AZ	Metropolitan Statistical Area
+04021	38060	Phoenix-Mesa-Chandler, AZ	Metropolitan Statistical Area
+04023	35700	Nogales, AZ	Micropolitan Statistical Area
+04025	39150	Prescott Valley-Prescott, AZ	Metropolitan Statistical Area
+04027	49740	Yuma, AZ	Metropolitan Statistical Area
+05005	34260	Mountain Home, AR	Micropolitan Statistical Area
+05007	22220	Fayetteville-Springdale-Rogers, AR	Metropolitan Statistical Area
+05009	25460	Harrison, AR	Micropolitan Statistical Area
+05013	15780	Camden, AR	Micropolitan Statistical Area
+05019	11660	Arkadelphia, AR	Micropolitan Statistical Area
+05025	38220	Pine Bluff, AR	Micropolitan Statistical Area
+05027	31620	Magnolia, AR	Micropolitan Statistical Area
+05031	27860	Jonesboro, AR	Metropolitan Statistical Area
+05033	22900	Fort Smith, AR-OK	Metropolitan Statistical Area
+05035	32820	Memphis, TN-MS-AR	Metropolitan Statistical Area
+05045	30780	Little Rock-North Little Rock-Conway, AR	Metropolitan Statistical Area
+05051	26300	Hot Springs, AR	Metropolitan Statistical Area
+05053	30780	Little Rock-North Little Rock-Conway, AR	Metropolitan Statistical Area
+05055	37500	Paragould, AR	Micropolitan Statistical Area
+05059	31680	Malvern, AR	Micropolitan Statistical Area
+05063	12900	Batesville, AR	Micropolitan Statistical Area
+05069	38220	Pine Bluff, AR	Micropolitan Statistical Area
+05081	45500	Texarkana, TX-AR	Metropolitan Statistical Area
+05085	30780	Little Rock-North Little Rock-Conway, AR	Metropolitan Statistical Area
+05087	22220	Fayetteville-Springdale-Rogers, AR	Metropolitan Statistical Area
+05091	45500	Texarkana, TX-AR	Metropolitan Statistical Area
+05093	14180	Blytheville, AR	Micropolitan Statistical Area
+05101	25460	Harrison, AR	Micropolitan Statistical Area
+05103	15780	Camden, AR	Micropolitan Statistical Area
+05105	30780	Little Rock-North Little Rock-Conway, AR	Metropolitan Statistical Area
+05111	27860	Jonesboro, AR	Metropolitan Statistical Area
+05115	40780	Russellville, AR	Micropolitan Statistical Area
+05119	30780	Little Rock-North Little Rock-Conway, AR	Metropolitan Statistical Area
+05123	22620	Forrest City, AR	Micropolitan Statistical Area
+05125	30780	Little Rock-North Little Rock-Conway, AR	Metropolitan Statistical Area
+05131	22900	Fort Smith, AR-OK	Metropolitan Statistical Area
+05139	20980	El Dorado, AR	Micropolitan Statistical Area
+05143	22220	Fayetteville-Springdale-Rogers, AR	Metropolitan Statistical Area
+05145	42620	Searcy, AR	Micropolitan Statistical Area
+05149	40780	Russellville, AR	Micropolitan Statistical Area
+06001	41860	San Francisco-Oakland-Fremont, CA	Metropolitan Statistical Area
+06003	23820	Gardnerville Ranchos, NV-CA	Micropolitan Statistical Area
+06007	17020	Chico, CA	Metropolitan Statistical Area
+06013	41860	San Francisco-Oakland-Fremont, CA	Metropolitan Statistical Area
+06015	18860	Crescent City, CA	Micropolitan Statistical Area
+06017	40900	Sacramento-Roseville-Folsom, CA	Metropolitan Statistical Area
+06019	23420	Fresno, CA	Metropolitan Statistical Area
+06023	21700	Eureka-Arcata, CA	Micropolitan Statistical Area
+06025	20940	El Centro, CA	Metropolitan Statistical Area
+06027	13860	Bishop, CA	Micropolitan Statistical Area
+06029	12540	Bakersfield-Delano, CA	Metropolitan Statistical Area
+06031	25260	Hanford-Corcoran, CA	Metropolitan Statistical Area
+06033	17340	Clearlake, CA	Micropolitan Statistical Area
+06035	45000	Susanville, CA	Micropolitan Statistical Area
+06037	31080	Los Angeles-Long Beach-Anaheim, CA	Metropolitan Statistical Area
+06039	23420	Fresno, CA	Metropolitan Statistical Area
+06041	41860	San Francisco-Oakland-Fremont, CA	Metropolitan Statistical Area
+06045	46380	Ukiah, CA	Micropolitan Statistical Area
+06047	32900	Merced, CA	Metropolitan Statistical Area
+06053	41500	Salinas, CA	Metropolitan Statistical Area
+06055	34900	Napa, CA	Metropolitan Statistical Area
+06057	46020	Truckee-Grass Valley, CA	Micropolitan Statistical Area
+06059	31080	Los Angeles-Long Beach-Anaheim, CA	Metropolitan Statistical Area
+06061	40900	Sacramento-Roseville-Folsom, CA	Metropolitan Statistical Area
+06065	40140	Riverside-San Bernardino-Ontario, CA	Metropolitan Statistical Area
+06067	40900	Sacramento-Roseville-Folsom, CA	Metropolitan Statistical Area
+06069	41940	San Jose-Sunnyvale-Santa Clara, CA	Metropolitan Statistical Area
+06071	40140	Riverside-San Bernardino-Ontario, CA	Metropolitan Statistical Area
+06073	41740	San Diego-Chula Vista-Carlsbad, CA	Metropolitan Statistical Area
+06075	41860	San Francisco-Oakland-Fremont, CA	Metropolitan Statistical Area
+06077	44700	Stockton-Lodi, CA	Metropolitan Statistical Area
+06079	42020	San Luis Obispo-Paso Robles, CA	Metropolitan Statistical Area
+06081	41860	San Francisco-Oakland-Fremont, CA	Metropolitan Statistical Area
+06083	42200	Santa Maria-Santa Barbara, CA	Metropolitan Statistical Area
+06085	41940	San Jose-Sunnyvale-Santa Clara, CA	Metropolitan Statistical Area
+06087	42100	Santa Cruz-Watsonville, CA	Metropolitan Statistical Area
+06089	39820	Redding, CA	Metropolitan Statistical Area
+06095	46700	Vallejo, CA	Metropolitan Statistical Area
+06097	42220	Santa Rosa-Petaluma, CA	Metropolitan Statistical Area
+06099	33700	Modesto, CA	Metropolitan Statistical Area
+06101	49700	Yuba City, CA	Metropolitan Statistical Area
+06103	39780	Red Bluff, CA	Micropolitan Statistical Area
+06107	47300	Visalia, CA	Metropolitan Statistical Area
+06109	43760	Sonora, CA	Micropolitan Statistical Area
+06111	37100	Oxnard-Thousand Oaks-Ventura, CA	Metropolitan Statistical Area
+06113	40900	Sacramento-Roseville-Folsom, CA	Metropolitan Statistical Area
+06115	49700	Yuba City, CA	Metropolitan Statistical Area
+08001	19740	Denver-Aurora-Centennial, CO	Metropolitan Statistical Area
+08003	10480	Alamosa, CO	Micropolitan Statistical Area
+08005	19740	Denver-Aurora-Centennial, CO	Metropolitan Statistical Area
+08013	14500	Boulder, CO	Metropolitan Statistical Area
+08014	19740	Denver-Aurora-Centennial, CO	Metropolitan Statistical Area
+08019	19740	Denver-Aurora-Centennial, CO	Metropolitan Statistical Area
+08021	10480	Alamosa, CO	Micropolitan Statistical Area
+08023	10480	Alamosa, CO	Micropolitan Statistical Area
+08031	19740	Denver-Aurora-Centennial, CO	Metropolitan Statistical Area
+08035	19740	Denver-Aurora-Centennial, CO	Metropolitan Statistical Area
+08037	20780	Edwards, CO	Micropolitan Statistical Area
+08039	19740	Denver-Aurora-Centennial, CO	Metropolitan Statistical Area
+08041	17820	Colorado Springs, CO	Metropolitan Statistical Area
+08043	15860	Cañon City, CO	Micropolitan Statistical Area
+08045	40090	Rifle, CO	Micropolitan Statistical Area
+08047	19740	Denver-Aurora-Centennial, CO	Metropolitan Statistical Area
+08059	19740	Denver-Aurora-Centennial, CO	Metropolitan Statistical Area
+08065	14720	Breckenridge, CO	Micropolitan Statistical Area
+08067	20420	Durango, CO	Micropolitan Statistical Area
+08069	22660	Fort Collins-Loveland, CO	Metropolitan Statistical Area
+08075	44540	Sterling, CO	Micropolitan Statistical Area
+08077	24300	Grand Junction, CO	Metropolitan Statistical Area
+08081	44460	Steamboat Springs, CO	Micropolitan Statistical Area
+08085	33940	Montrose, CO	Micropolitan Statistical Area
+08087	22820	Fort Morgan, CO	Micropolitan Statistical Area
+08093	19740	Denver-Aurora-Centennial, CO	Metropolitan Statistical Area
+08097	40090	Rifle, CO	Micropolitan Statistical Area
+08101	39380	Pueblo, CO	Metropolitan Statistical Area
+08107	44460	Steamboat Springs, CO	Micropolitan Statistical Area
+08117	14720	Breckenridge, CO	Micropolitan Statistical Area
+08119	17820	Colorado Springs, CO	Metropolitan Statistical Area
+08123	24540	Greeley, CO	Metropolitan Statistical Area
+09110	25540	Hartford-West Hartford-East Hartford, CT	Metropolitan Statistical Area
+09120	14860	Bridgeport-Stamford-Danbury, CT	Metropolitan Statistical Area
+09130	25540	Hartford-West Hartford-East Hartford, CT	Metropolitan Statistical Area
+09140	47930	Waterbury-Shelton, CT	Metropolitan Statistical Area
+09150	39480	Putnam, CT	Micropolitan Statistical Area
+09160	45860	Torrington, CT	Micropolitan Statistical Area
+09170	35300	New Haven, CT	Metropolitan Statistical Area
+09180	35980	Norwich-New London-Willimantic, CT	Metropolitan Statistical Area
+09190	14860	Bridgeport-Stamford-Danbury, CT	Metropolitan Statistical Area
+10001	20100	Dover, DE	Metropolitan Statistical Area
+10003	37980	Philadelphia-Camden-Wilmington, PA-NJ-DE-MD	Metropolitan Statistical Area
+10005	42580	Seaford, DE	Micropolitan Statistical Area
+11001	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+12001	23540	Gainesville, FL	Metropolitan Statistical Area
+12003	27260	Jacksonville, FL	Metropolitan Statistical Area
+12005	37460	Panama City-Panama City Beach, FL	Metropolitan Statistical Area
+12009	37340	Palm Bay-Melbourne-Titusville, FL	Metropolitan Statistical Area
+12011	33100	Miami-Fort Lauderdale-West Palm Beach, FL	Metropolitan Statistical Area
+12015	39460	Punta Gorda, FL	Metropolitan Statistical Area
+12017	26140	Homosassa Springs, FL	Metropolitan Statistical Area
+12019	27260	Jacksonville, FL	Metropolitan Statistical Area
+12021	34940	Naples-Marco Island, FL	Metropolitan Statistical Area
+12023	29380	Lake City, FL	Micropolitan Statistical Area
+12027	11580	Arcadia, FL	Micropolitan Statistical Area
+12031	27260	Jacksonville, FL	Metropolitan Statistical Area
+12033	37860	Pensacola-Ferry Pass-Brent, FL	Metropolitan Statistical Area
+12035	19660	Deltona-Daytona Beach-Ormond Beach, FL	Metropolitan Statistical Area
+12039	45220	Tallahassee, FL	Metropolitan Statistical Area
+12041	23540	Gainesville, FL	Metropolitan Statistical Area
+12043	17500	Clewiston, FL	Micropolitan Statistical Area
+12051	17500	Clewiston, FL	Micropolitan Statistical Area
+12053	45300	Tampa-St. Petersburg-Clearwater, FL	Metropolitan Statistical Area
+12055	42700	Sebring, FL	Metropolitan Statistical Area
+12057	45300	Tampa-St. Petersburg-Clearwater, FL	Metropolitan Statistical Area
+12061	42680	Sebastian-Vero Beach-West Vero Corridor, FL	Metropolitan Statistical Area
+12065	45220	Tallahassee, FL	Metropolitan Statistical Area
+12069	36740	Orlando-Kissimmee-Sanford, FL	Metropolitan Statistical Area
+12071	15980	Cape Coral-Fort Myers, FL	Metropolitan Statistical Area
+12073	45220	Tallahassee, FL	Metropolitan Statistical Area
+12075	23540	Gainesville, FL	Metropolitan Statistical Area
+12081	35840	North Port-Bradenton-Sarasota, FL	Metropolitan Statistical Area
+12083	36100	Ocala, FL	Metropolitan Statistical Area
+12085	38940	Port St. Lucie, FL	Metropolitan Statistical Area
+12086	33100	Miami-Fort Lauderdale-West Palm Beach, FL	Metropolitan Statistical Area
+12087	28580	Key West-Key Largo, FL	Micropolitan Statistical Area
+12089	27260	Jacksonville, FL	Metropolitan Statistical Area
+12091	18880	Crestview-Fort Walton Beach-Destin, FL	Metropolitan Statistical Area
+12093	36380	Okeechobee, FL	Micropolitan Statistical Area
+12095	36740	Orlando-Kissimmee-Sanford, FL	Metropolitan Statistical Area
+12097	36740	Orlando-Kissimmee-Sanford, FL	Metropolitan Statistical Area
+12099	33100	Miami-Fort Lauderdale-West Palm Beach, FL	Metropolitan Statistical Area
+12101	45300	Tampa-St. Petersburg-Clearwater, FL	Metropolitan Statistical Area
+12103	45300	Tampa-St. Petersburg-Clearwater, FL	Metropolitan Statistical Area
+12105	29460	Lakeland-Winter Haven, FL	Metropolitan Statistical Area
+12107	37260	Palatka, FL	Micropolitan Statistical Area
+12109	27260	Jacksonville, FL	Metropolitan Statistical Area
+12111	38940	Port St. Lucie, FL	Metropolitan Statistical Area
+12113	37860	Pensacola-Ferry Pass-Brent, FL	Metropolitan Statistical Area
+12115	35840	North Port-Bradenton-Sarasota, FL	Metropolitan Statistical Area
+12117	36740	Orlando-Kissimmee-Sanford, FL	Metropolitan Statistical Area
+12119	48680	Wildwood-The Villages, FL	Metropolitan Statistical Area
+12127	19660	Deltona-Daytona Beach-Ormond Beach, FL	Metropolitan Statistical Area
+12129	45220	Tallahassee, FL	Metropolitan Statistical Area
+12131	18880	Crestview-Fort Walton Beach-Destin, FL	Metropolitan Statistical Area
+12133	37460	Panama City-Panama City Beach, FL	Metropolitan Statistical Area
+13003	20060	Douglas, GA	Micropolitan Statistical Area
+13009	33300	Milledgeville, GA	Micropolitan Statistical Area
+13013	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13015	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13017	22340	Fitzgerald, GA	Micropolitan Statistical Area
+13021	31420	Macon-Bibb County, GA	Metropolitan Statistical Area
+13025	15260	Brunswick-St. Simons, GA	Metropolitan Statistical Area
+13027	46660	Valdosta, GA	Metropolitan Statistical Area
+13029	42340	Savannah, GA	Metropolitan Statistical Area
+13031	44340	Statesboro, GA	Micropolitan Statistical Area
+13033	12260	Augusta-Richmond County, GA-SC	Metropolitan Statistical Area
+13035	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13039	28680	Kingsland, GA	Micropolitan Statistical Area
+13045	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13047	16860	Chattanooga, TN-GA	Metropolitan Statistical Area
+13051	42340	Savannah, GA	Metropolitan Statistical Area
+13053	17980	Columbus, GA-AL	Metropolitan Statistical Area
+13055	44900	Summerville, GA	Micropolitan Statistical Area
+13057	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13059	12020	Athens-Clarke County, GA	Metropolitan Statistical Area
+13063	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13067	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13069	20060	Douglas, GA	Micropolitan Statistical Area
+13071	34220	Moultrie, GA	Micropolitan Statistical Area
+13073	12260	Augusta-Richmond County, GA-SC	Metropolitan Statistical Area
+13077	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13079	31420	Macon-Bibb County, GA	Metropolitan Statistical Area
+13081	18380	Cordele, GA	Micropolitan Statistical Area
+13083	16860	Chattanooga, TN-GA	Metropolitan Statistical Area
+13085	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13087	12460	Bainbridge, GA	Micropolitan Statistical Area
+13089	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13095	10500	Albany, GA	Metropolitan Statistical Area
+13097	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13101	46660	Valdosta, GA	Metropolitan Statistical Area
+13103	42340	Savannah, GA	Metropolitan Statistical Area
+13109	44340	Statesboro, GA	Micropolitan Statistical Area
+13113	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13115	40660	Rome, GA	Metropolitan Statistical Area
+13117	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13121	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13127	15260	Brunswick-St. Simons, GA	Metropolitan Statistical Area
+13129	15660	Calhoun, GA	Micropolitan Statistical Area
+13131	45620	Thomasville, GA	Micropolitan Statistical Area
+13135	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13137	18460	Cornelia, GA	Micropolitan Statistical Area
+13139	23580	Gainesville, GA	Metropolitan Statistical Area
+13143	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13145	17980	Columbus, GA-AL	Metropolitan Statistical Area
+13149	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13151	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13153	47580	Warner Robins, GA	Metropolitan Statistical Area
+13157	27600	Jefferson, GA	Micropolitan Statistical Area
+13159	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13167	20140	Dublin, GA	Micropolitan Statistical Area
+13169	31420	Macon-Bibb County, GA	Metropolitan Statistical Area
+13173	46660	Valdosta, GA	Metropolitan Statistical Area
+13175	20140	Dublin, GA	Micropolitan Statistical Area
+13177	10500	Albany, GA	Metropolitan Statistical Area
+13179	25980	Hinesville, GA	Metropolitan Statistical Area
+13181	12260	Augusta-Richmond County, GA-SC	Metropolitan Statistical Area
+13183	25980	Hinesville, GA	Metropolitan Statistical Area
+13185	46660	Valdosta, GA	Metropolitan Statistical Area
+13187	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13189	12260	Augusta-Richmond County, GA-SC	Metropolitan Statistical Area
+13191	15260	Brunswick-St. Simons, GA	Metropolitan Statistical Area
+13195	12020	Athens-Clarke County, GA	Metropolitan Statistical Area
+13197	17980	Columbus, GA-AL	Metropolitan Statistical Area
+13199	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13207	31420	Macon-Bibb County, GA	Metropolitan Statistical Area
+13209	47080	Vidalia, GA	Micropolitan Statistical Area
+13211	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13213	19140	Dalton, GA	Metropolitan Statistical Area
+13215	17980	Columbus, GA-AL	Metropolitan Statistical Area
+13217	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13219	12020	Athens-Clarke County, GA	Metropolitan Statistical Area
+13221	12020	Athens-Clarke County, GA	Metropolitan Statistical Area
+13223	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13225	47580	Warner Robins, GA	Metropolitan Statistical Area
+13227	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13229	48180	Waycross, GA	Micropolitan Statistical Area
+13231	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13233	16340	Cedartown, GA	Micropolitan Statistical Area
+13239	21640	Eufaula, AL-GA	Micropolitan Statistical Area
+13245	12260	Augusta-Richmond County, GA-SC	Metropolitan Statistical Area
+13247	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13249	11140	Americus, GA	Micropolitan Statistical Area
+13255	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13257	45740	Toccoa, GA	Micropolitan Statistical Area
+13259	17980	Columbus, GA-AL	Metropolitan Statistical Area
+13261	11140	Americus, GA	Micropolitan Statistical Area
+13263	17980	Columbus, GA-AL	Metropolitan Statistical Area
+13273	10500	Albany, GA	Metropolitan Statistical Area
+13275	45620	Thomasville, GA	Micropolitan Statistical Area
+13277	45700	Tifton, GA	Micropolitan Statistical Area
+13279	47080	Vidalia, GA	Micropolitan Statistical Area
+13285	29300	LaGrange, GA-AL	Micropolitan Statistical Area
+13287	45700	Tifton, GA	Micropolitan Statistical Area
+13289	31420	Macon-Bibb County, GA	Metropolitan Statistical Area
+13293	45580	Thomaston, GA	Micropolitan Statistical Area
+13295	16860	Chattanooga, TN-GA	Metropolitan Statistical Area
+13297	12060	Atlanta-Sandy Springs-Roswell, GA	Metropolitan Statistical Area
+13299	48180	Waycross, GA	Micropolitan Statistical Area
+13305	27700	Jesup, GA	Micropolitan Statistical Area
+13313	19140	Dalton, GA	Metropolitan Statistical Area
+13321	10500	Albany, GA	Metropolitan Statistical Area
+15001	25900	Hilo-Kailua, HI	Micropolitan Statistical Area
+15003	46520	Urban Honolulu, HI	Metropolitan Statistical Area
+15005	27980	Kahului-Wailuku, HI	Metropolitan Statistical Area
+15007	28180	Kapaa, HI	Micropolitan Statistical Area
+15009	27980	Kahului-Wailuku, HI	Metropolitan Statistical Area
+16001	14260	Boise City, ID	Metropolitan Statistical Area
+16005	38540	Pocatello, ID	Metropolitan Statistical Area
+16011	13940	Blackfoot, ID	Micropolitan Statistical Area
+16013	25200	Hailey, ID	Micropolitan Statistical Area
+16015	14260	Boise City, ID	Metropolitan Statistical Area
+16017	41760	Sandpoint, ID	Micropolitan Statistical Area
+16019	26820	Idaho Falls, ID	Metropolitan Statistical Area
+16023	26820	Idaho Falls, ID	Metropolitan Statistical Area
+16025	25200	Hailey, ID	Micropolitan Statistical Area
+16027	14260	Boise City, ID	Metropolitan Statistical Area
+16031	15420	Burley, ID	Micropolitan Statistical Area
+16039	34300	Mountain Home, ID	Micropolitan Statistical Area
+16041	30860	Logan, UT-ID	Metropolitan Statistical Area
+16043	39940	Rexburg, ID	Micropolitan Statistical Area
+16045	14260	Boise City, ID	Metropolitan Statistical Area
+16051	26820	Idaho Falls, ID	Metropolitan Statistical Area
+16053	46300	Twin Falls, ID	Metropolitan Statistical Area
+16055	17660	Coeur d'Alene, ID	Metropolitan Statistical Area
+16057	34140	Moscow, ID	Micropolitan Statistical Area
+16063	25200	Hailey, ID	Micropolitan Statistical Area
+16065	39940	Rexburg, ID	Micropolitan Statistical Area
+16067	15420	Burley, ID	Micropolitan Statistical Area
+16069	30300	Lewiston, ID-WA	Metropolitan Statistical Area
+16071	14940	Brigham City, UT-ID	Micropolitan Statistical Area
+16073	14260	Boise City, ID	Metropolitan Statistical Area
+16075	36620	Ontario, OR-ID	Micropolitan Statistical Area
+16081	27220	Jackson, WY-ID	Micropolitan Statistical Area
+16083	46300	Twin Falls, ID	Metropolitan Statistical Area
+17001	39500	Quincy, IL-MO	Micropolitan Statistical Area
+17003	16020	Cape Girardeau, MO-IL	Metropolitan Statistical Area
+17005	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+17007	40420	Rockford, IL	Metropolitan Statistical Area
+17011	36837	Ottawa, IL	Micropolitan Statistical Area
+17013	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+17019	16580	Champaign-Urbana, IL	Metropolitan Statistical Area
+17021	45380	Taylorville, IL	Micropolitan Statistical Area
+17027	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+17029	16660	Charleston-Mattoon, IL	Micropolitan Statistical Area
+17031	16980	Chicago-Naperville-Elgin, IL-IN	Metropolitan Statistical Area
+17035	20820	Effingham, IL	Micropolitan Statistical Area
+17037	16980	Chicago-Naperville-Elgin, IL-IN	Metropolitan Statistical Area
+17043	16980	Chicago-Naperville-Elgin, IL-IN	Metropolitan Statistical Area
+17049	20820	Effingham, IL	Micropolitan Statistical Area
+17053	16580	Champaign-Urbana, IL	Metropolitan Statistical Area
+17057	15900	Canton, IL	Micropolitan Statistical Area
+17063	16980	Chicago-Naperville-Elgin, IL-IN	Metropolitan Statistical Area
+17071	15460	Burlington, IA-IL	Micropolitan Statistical Area
+17073	19340	Davenport-Moline-Rock Island, IA-IL	Metropolitan Statistical Area
+17077	16060	Carbondale, IL	Micropolitan Statistical Area
+17081	34500	Mount Vernon, IL	Micropolitan Statistical Area
+17083	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+17089	16980	Chicago-Naperville-Elgin, IL-IN	Metropolitan Statistical Area
+17091	28100	Kankakee, IL	Metropolitan Statistical Area
+17093	16980	Chicago-Naperville-Elgin, IL-IN	Metropolitan Statistical Area
+17095	23660	Galesburg, IL	Micropolitan Statistical Area
+17097	16980	Chicago-Naperville-Elgin, IL-IN	Metropolitan Statistical Area
+17099	36837	Ottawa, IL	Micropolitan Statistical Area
+17103	19940	Dixon, IL	Micropolitan Statistical Area
+17105	38700	Pontiac, IL	Micropolitan Statistical Area
+17107	30660	Lincoln, IL	Micropolitan Statistical Area
+17109	31380	Macomb, IL	Micropolitan Statistical Area
+17111	16980	Chicago-Naperville-Elgin, IL-IN	Metropolitan Statistical Area
+17113	14010	Bloomington, IL	Metropolitan Statistical Area
+17115	19500	Decatur, IL	Metropolitan Statistical Area
+17117	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+17119	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+17121	16460	Centralia, IL	Micropolitan Statistical Area
+17123	37900	Peoria, IL	Metropolitan Statistical Area
+17127	37140	Paducah, KY-IL	Metropolitan Statistical Area
+17129	44100	Springfield, IL	Metropolitan Statistical Area
+17131	19340	Davenport-Moline-Rock Island, IA-IL	Metropolitan Statistical Area
+17133	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+17137	27300	Jacksonville, IL	Micropolitan Statistical Area
+17141	40300	Rochelle, IL	Micropolitan Statistical Area
+17143	37900	Peoria, IL	Metropolitan Statistical Area
+17147	16580	Champaign-Urbana, IL	Metropolitan Statistical Area
+17155	36837	Ottawa, IL	Micropolitan Statistical Area
+17161	19340	Davenport-Moline-Rock Island, IA-IL	Metropolitan Statistical Area
+17163	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+17167	44100	Springfield, IL	Metropolitan Statistical Area
+17171	27300	Jacksonville, IL	Micropolitan Statistical Area
+17175	37900	Peoria, IL	Metropolitan Statistical Area
+17177	23300	Freeport, IL	Micropolitan Statistical Area
+17179	37900	Peoria, IL	Metropolitan Statistical Area
+17183	19180	Danville, IL	Micropolitan Statistical Area
+17195	44580	Sterling, IL	Micropolitan Statistical Area
+17197	16980	Chicago-Naperville-Elgin, IL-IN	Metropolitan Statistical Area
+17199	32060	Marion-Herrin, IL	Micropolitan Statistical Area
+17201	40420	Rockford, IL	Metropolitan Statistical Area
+17203	37900	Peoria, IL	Metropolitan Statistical Area
+18001	19540	Decatur, IN	Micropolitan Statistical Area
+18003	23060	Fort Wayne, IN	Metropolitan Statistical Area
+18005	18020	Columbus, IN	Metropolitan Statistical Area
+18007	29200	Lafayette-West Lafayette, IN	Metropolitan Statistical Area
+18011	26900	Indianapolis-Carmel-Greenwood, IN	Metropolitan Statistical Area
+18013	26900	Indianapolis-Carmel-Greenwood, IN	Metropolitan Statistical Area
+18015	29200	Lafayette-West Lafayette, IN	Metropolitan Statistical Area
+18017	30900	Logansport, IN	Micropolitan Statistical Area
+18019	31140	Louisville/Jefferson County, KY-IN	Metropolitan Statistical Area
+18021	45460	Terre Haute, IN	Metropolitan Statistical Area
+18023	23140	Frankfort, IN	Micropolitan Statistical Area
+18027	47780	Washington, IN	Micropolitan Statistical Area
+18029	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+18031	24700	Greensburg, IN	Micropolitan Statistical Area
+18033	12140	Auburn, IN	Micropolitan Statistical Area
+18035	34620	Muncie, IN	Metropolitan Statistical Area
+18037	27540	Jasper, IN	Micropolitan Statistical Area
+18039	21140	Elkhart-Goshen, IN	Metropolitan Statistical Area
+18041	18220	Connersville, IN	Micropolitan Statistical Area
+18043	31140	Louisville/Jefferson County, KY-IN	Metropolitan Statistical Area
+18047	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+18053	31980	Marion, IN	Micropolitan Statistical Area
+18057	26900	Indianapolis-Carmel-Greenwood, IN	Metropolitan Statistical Area
+18059	26900	Indianapolis-Carmel-Greenwood, IN	Metropolitan Statistical Area
+18061	31140	Louisville/Jefferson County, KY-IN	Metropolitan Statistical Area
+18063	26900	Indianapolis-Carmel-Greenwood, IN	Metropolitan Statistical Area
+18065	35220	New Castle, IN	Micropolitan Statistical Area
+18067	29020	Kokomo, IN	Metropolitan Statistical Area
+18069	26540	Huntington, IN	Micropolitan Statistical Area
+18071	42980	Seymour, IN	Micropolitan Statistical Area
+18073	16980	Chicago-Naperville-Elgin, IL-IN	Metropolitan Statistical Area
+18077	31500	Madison, IN	Micropolitan Statistical Area
+18081	26900	Indianapolis-Carmel-Greenwood, IN	Metropolitan Statistical Area
+18083	47180	Vincennes, IN	Micropolitan Statistical Area
+18085	47700	Warsaw, IN	Micropolitan Statistical Area
+18089	16980	Chicago-Naperville-Elgin, IL-IN	Metropolitan Statistical Area
+18091	33140	Michigan City-La Porte, IN	Metropolitan Statistical Area
+18093	13260	Bedford, IN	Micropolitan Statistical Area
+18095	26900	Indianapolis-Carmel-Greenwood, IN	Metropolitan Statistical Area
+18097	26900	Indianapolis-Carmel-Greenwood, IN	Metropolitan Statistical Area
+18099	38500	Plymouth, IN	Micropolitan Statistical Area
+18103	37940	Peru, IN	Micropolitan Statistical Area
+18105	14020	Bloomington, IN	Metropolitan Statistical Area
+18107	18820	Crawfordsville, IN	Micropolitan Statistical Area
+18109	26900	Indianapolis-Carmel-Greenwood, IN	Metropolitan Statistical Area
+18111	16980	Chicago-Naperville-Elgin, IL-IN	Metropolitan Statistical Area
+18113	28340	Kendallville, IN	Micropolitan Statistical Area
+18115	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+18119	14020	Bloomington, IN	Metropolitan Statistical Area
+18127	16980	Chicago-Naperville-Elgin, IL-IN	Metropolitan Statistical Area
+18129	21780	Evansville, IN	Metropolitan Statistical Area
+18133	24600	Greencastle, IN	Micropolitan Statistical Area
+18141	43780	South Bend-Mishawaka, IN-MI	Metropolitan Statistical Area
+18145	26900	Indianapolis-Carmel-Greenwood, IN	Metropolitan Statistical Area
+18151	11420	Angola, IN	Micropolitan Statistical Area
+18153	45460	Terre Haute, IN	Metropolitan Statistical Area
+18157	29200	Lafayette-West Lafayette, IN	Metropolitan Statistical Area
+18159	26900	Indianapolis-Carmel-Greenwood, IN	Metropolitan Statistical Area
+18163	21780	Evansville, IN	Metropolitan Statistical Area
+18165	45460	Terre Haute, IN	Metropolitan Statistical Area
+18167	45460	Terre Haute, IN	Metropolitan Statistical Area
+18169	47340	Wabash, IN	Micropolitan Statistical Area
+18171	29200	Lafayette-West Lafayette, IN	Metropolitan Statistical Area
+18173	21780	Evansville, IN	Metropolitan Statistical Area
+18175	31140	Louisville/Jefferson County, KY-IN	Metropolitan Statistical Area
+18177	39980	Richmond, IN	Micropolitan Statistical Area
+18179	23060	Fort Wayne, IN	Metropolitan Statistical Area
+18181	33900	Monticello, IN	Micropolitan Statistical Area
+18183	23060	Fort Wayne, IN	Metropolitan Statistical Area
+19011	16300	Cedar Rapids, IA	Metropolitan Statistical Area
+19013	47940	Waterloo-Cedar Falls, IA	Metropolitan Statistical Area
+19015	11180	Ames, IA	Metropolitan Statistical Area
+19017	47940	Waterloo-Cedar Falls, IA	Metropolitan Statistical Area
+19021	44740	Storm Lake, IA	Micropolitan Statistical Area
+19027	16140	Carroll, IA	Micropolitan Statistical Area
+19033	32380	Mason City, IA	Micropolitan Statistical Area
+19041	43980	Spencer, IA	Micropolitan Statistical Area
+19045	17540	Clinton, IA	Micropolitan Statistical Area
+19049	19780	Des Moines-West Des Moines, IA	Metropolitan Statistical Area
+19057	15460	Burlington, IA-IL	Micropolitan Statistical Area
+19059	44020	Spirit Lake, IA	Micropolitan Statistical Area
+19061	20220	Dubuque, IA	Metropolitan Statistical Area
+19075	47940	Waterloo-Cedar Falls, IA	Metropolitan Statistical Area
+19077	19780	Des Moines-West Des Moines, IA	Metropolitan Statistical Area
+19085	36540	Omaha, NE-IA	Metropolitan Statistical Area
+19099	19780	Des Moines-West Des Moines, IA	Metropolitan Statistical Area
+19103	26980	Iowa City, IA	Metropolitan Statistical Area
+19105	16300	Cedar Rapids, IA	Metropolitan Statistical Area
+19111	22800	Fort Madison, IA	Micropolitan Statistical Area
+19113	16300	Cedar Rapids, IA	Metropolitan Statistical Area
+19121	19780	Des Moines-West Des Moines, IA	Metropolitan Statistical Area
+19123	36820	Oskaloosa, IA	Micropolitan Statistical Area
+19125	37800	Pella, IA	Micropolitan Statistical Area
+19127	32260	Marshalltown, IA	Micropolitan Statistical Area
+19129	36540	Omaha, NE-IA	Metropolitan Statistical Area
+19139	34700	Muscatine, IA	Micropolitan Statistical Area
+19149	30180	Le Mars, IA	Micropolitan Statistical Area
+19153	19780	Des Moines-West Des Moines, IA	Metropolitan Statistical Area
+19155	36540	Omaha, NE-IA	Metropolitan Statistical Area
+19163	19340	Davenport-Moline-Rock Island, IA-IL	Metropolitan Statistical Area
+19169	11180	Ames, IA	Metropolitan Statistical Area
+19179	36900	Ottumwa, IA	Micropolitan Statistical Area
+19181	19780	Des Moines-West Des Moines, IA	Metropolitan Statistical Area
+19183	26980	Iowa City, IA	Metropolitan Statistical Area
+19187	22700	Fort Dodge, IA	Micropolitan Statistical Area
+19193	43580	Sioux City, IA-NE-SD	Metropolitan Statistical Area
+19195	32380	Mason City, IA	Micropolitan Statistical Area
+20005	11860	Atchison, KS	Micropolitan Statistical Area
+20009	24460	Great Bend, KS	Micropolitan Statistical Area
+20015	48620	Wichita, KS	Metropolitan Statistical Area
+20017	21380	Emporia, KS	Micropolitan Statistical Area
+20021	27900	Joplin, MO-KS	Metropolitan Statistical Area
+20035	11680	Arkansas City-Winfield, KS	Micropolitan Statistical Area
+20037	38260	Pittsburg, KS	Micropolitan Statistical Area
+20043	41140	St. Joseph, MO-KS	Metropolitan Statistical Area
+20045	29940	Lawrence, KS	Metropolitan Statistical Area
+20051	25700	Hays, KS	Micropolitan Statistical Area
+20055	23780	Garden City, KS	Micropolitan Statistical Area
+20057	19980	Dodge City, KS	Micropolitan Statistical Area
+20059	36840	Ottawa, KS	Micropolitan Statistical Area
+20061	31740	Manhattan, KS	Metropolitan Statistical Area
+20079	48620	Wichita, KS	Metropolitan Statistical Area
+20085	45820	Topeka, KS	Metropolitan Statistical Area
+20087	45820	Topeka, KS	Metropolitan Statistical Area
+20091	28140	Kansas City, MO-KS	Metropolitan Statistical Area
+20103	28140	Kansas City, MO-KS	Metropolitan Statistical Area
+20107	28140	Kansas City, MO-KS	Metropolitan Statistical Area
+20111	21380	Emporia, KS	Micropolitan Statistical Area
+20113	32700	McPherson, KS	Micropolitan Statistical Area
+20121	28140	Kansas City, MO-KS	Metropolitan Statistical Area
+20139	45820	Topeka, KS	Metropolitan Statistical Area
+20143	41460	Salina, KS	Micropolitan Statistical Area
+20149	31740	Manhattan, KS	Metropolitan Statistical Area
+20155	26740	Hutchinson, KS	Micropolitan Statistical Area
+20161	31740	Manhattan, KS	Metropolitan Statistical Area
+20169	41460	Salina, KS	Micropolitan Statistical Area
+20173	48620	Wichita, KS	Metropolitan Statistical Area
+20175	30580	Liberal, KS	Micropolitan Statistical Area
+20177	45820	Topeka, KS	Metropolitan Statistical Area
+20191	48620	Wichita, KS	Metropolitan Statistical Area
+20197	45820	Topeka, KS	Metropolitan Statistical Area
+20209	28140	Kansas City, MO-KS	Metropolitan Statistical Area
+21003	14540	Bowling Green, KY	Metropolitan Statistical Area
+21005	23180	Frankfort, KY	Micropolitan Statistical Area
+21007	37140	Paducah, KY-IL	Metropolitan Statistical Area
+21009	23980	Glasgow, KY	Micropolitan Statistical Area
+21011	34460	Mount Sterling, KY	Micropolitan Statistical Area
+21013	33180	Middlesborough, KY	Micropolitan Statistical Area
+21015	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+21017	30460	Lexington-Fayette, KY	Metropolitan Statistical Area
+21019	26580	Huntington-Ashland, WV-KY-OH	Metropolitan Statistical Area
+21021	19220	Danville, KY	Micropolitan Statistical Area
+21023	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+21029	31140	Louisville/Jefferson County, KY-IN	Metropolitan Statistical Area
+21031	14540	Bowling Green, KY	Metropolitan Statistical Area
+21035	34660	Murray, KY	Micropolitan Statistical Area
+21037	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+21039	37140	Paducah, KY-IL	Metropolitan Statistical Area
+21043	26580	Huntington-Ashland, WV-KY-OH	Metropolitan Statistical Area
+21047	17300	Clarksville, TN-KY	Metropolitan Statistical Area
+21049	30460	Lexington-Fayette, KY	Metropolitan Statistical Area
+21051	18340	Corbin, KY	Micropolitan Statistical Area
+21059	36980	Owensboro, KY	Metropolitan Statistical Area
+21061	14540	Bowling Green, KY	Metropolitan Statistical Area
+21065	40080	Richmond-Berea, KY	Micropolitan Statistical Area
+21067	30460	Lexington-Fayette, KY	Metropolitan Statistical Area
+21071	38210	Pikeville, KY	Micropolitan Statistical Area
+21073	23180	Frankfort, KY	Micropolitan Statistical Area
+21077	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+21081	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+21083	32460	Mayfield, KY	Micropolitan Statistical Area
+21087	15820	Campbellsville, KY	Micropolitan Statistical Area
+21089	26580	Huntington-Ashland, WV-KY-OH	Metropolitan Statistical Area
+21093	21060	Elizabethtown, KY	Metropolitan Statistical Area
+21101	25775	Henderson, KY	Micropolitan Statistical Area
+21103	31140	Louisville/Jefferson County, KY-IN	Metropolitan Statistical Area
+21107	31580	Madisonville, KY	Micropolitan Statistical Area
+21111	31140	Louisville/Jefferson County, KY-IN	Metropolitan Statistical Area
+21113	30460	Lexington-Fayette, KY	Metropolitan Statistical Area
+21117	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+21121	18340	Corbin, KY	Micropolitan Statistical Area
+21123	21060	Elizabethtown, KY	Metropolitan Statistical Area
+21125	18340	Corbin, KY	Micropolitan Statistical Area
+21127	26580	Huntington-Ashland, WV-KY-OH	Metropolitan Statistical Area
+21137	19220	Danville, KY	Micropolitan Statistical Area
+21139	37140	Paducah, KY-IL	Metropolitan Statistical Area
+21145	37140	Paducah, KY-IL	Metropolitan Statistical Area
+21149	36980	Owensboro, KY	Metropolitan Statistical Area
+21151	40080	Richmond-Berea, KY	Micropolitan Statistical Area
+21163	31140	Louisville/Jefferson County, KY-IN	Metropolitan Statistical Area
+21165	34460	Mount Sterling, KY	Micropolitan Statistical Area
+21169	23980	Glasgow, KY	Micropolitan Statistical Area
+21173	34460	Mount Sterling, KY	Micropolitan Statistical Area
+21179	31140	Louisville/Jefferson County, KY-IN	Metropolitan Statistical Area
+21185	31140	Louisville/Jefferson County, KY-IN	Metropolitan Statistical Area
+21191	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+21195	38210	Pikeville, KY	Micropolitan Statistical Area
+21199	43700	Somerset, KY	Micropolitan Statistical Area
+21203	40080	Richmond-Berea, KY	Micropolitan Statistical Area
+21209	30460	Lexington-Fayette, KY	Metropolitan Statistical Area
+21211	31140	Louisville/Jefferson County, KY-IN	Metropolitan Statistical Area
+21213	23190	Franklin, KY	Micropolitan Statistical Area
+21215	31140	Louisville/Jefferson County, KY-IN	Metropolitan Statistical Area
+21217	15820	Campbellsville, KY	Micropolitan Statistical Area
+21221	17300	Clarksville, TN-KY	Metropolitan Statistical Area
+21227	14540	Bowling Green, KY	Metropolitan Statistical Area
+21233	25775	Henderson, KY	Micropolitan Statistical Area
+21235	18340	Corbin, KY	Micropolitan Statistical Area
+21239	30460	Lexington-Fayette, KY	Metropolitan Statistical Area
+22001	29180	Lafayette, LA	Metropolitan Statistical Area
+22005	12940	Baton Rouge, LA	Metropolitan Statistical Area
+22007	12940	Baton Rouge, LA	Metropolitan Statistical Area
+22011	19760	DeRidder, LA	Micropolitan Statistical Area
+22015	43340	Shreveport-Bossier City, LA	Metropolitan Statistical Area
+22017	43340	Shreveport-Bossier City, LA	Metropolitan Statistical Area
+22019	29340	Lake Charles, LA	Metropolitan Statistical Area
+22023	29340	Lake Charles, LA	Metropolitan Statistical Area
+22029	35020	Natchez, MS-LA	Micropolitan Statistical Area
+22031	43340	Shreveport-Bossier City, LA	Metropolitan Statistical Area
+22033	12940	Baton Rouge, LA	Metropolitan Statistical Area
+22037	12940	Baton Rouge, LA	Metropolitan Statistical Area
+22043	10780	Alexandria, LA	Metropolitan Statistical Area
+22045	35340	New Iberia, LA	Micropolitan Statistical Area
+22047	12940	Baton Rouge, LA	Metropolitan Statistical Area
+22051	35380	New Orleans-Metairie, LA	Metropolitan Statistical Area
+22053	29340	Lake Charles, LA	Metropolitan Statistical Area
+22055	29180	Lafayette, LA	Metropolitan Statistical Area
+22057	26380	Houma-Bayou Cane-Thibodaux, LA	Metropolitan Statistical Area
+22061	40820	Ruston, LA	Micropolitan Statistical Area
+22063	12940	Baton Rouge, LA	Metropolitan Statistical Area
+22067	33740	Monroe, LA	Metropolitan Statistical Area
+22069	35060	Natchitoches, LA	Micropolitan Statistical Area
+22071	35380	New Orleans-Metairie, LA	Metropolitan Statistical Area
+22073	33740	Monroe, LA	Metropolitan Statistical Area
+22075	35380	New Orleans-Metairie, LA	Metropolitan Statistical Area
+22077	12940	Baton Rouge, LA	Metropolitan Statistical Area
+22079	10780	Alexandria, LA	Metropolitan Statistical Area
+22083	33740	Monroe, LA	Metropolitan Statistical Area
+22087	35380	New Orleans-Metairie, LA	Metropolitan Statistical Area
+22089	35380	New Orleans-Metairie, LA	Metropolitan Statistical Area
+22091	12940	Baton Rouge, LA	Metropolitan Statistical Area
+22093	35380	New Orleans-Metairie, LA	Metropolitan Statistical Area
+22095	35380	New Orleans-Metairie, LA	Metropolitan Statistical Area
+22097	36660	Opelousas, LA	Micropolitan Statistical Area
+22099	29180	Lafayette, LA	Metropolitan Statistical Area
+22101	34020	Morgan City, LA	Micropolitan Statistical Area
+22103	43640	Slidell-Mandeville-Covington, LA	Metropolitan Statistical Area
+22105	25220	Hammond, LA	Metropolitan Statistical Area
+22109	26380	Houma-Bayou Cane-Thibodaux, LA	Metropolitan Statistical Area
+22111	33740	Monroe, LA	Metropolitan Statistical Area
+22113	29180	Lafayette, LA	Metropolitan Statistical Area
+22117	14220	Bogalusa, LA	Micropolitan Statistical Area
+22119	33380	Minden, LA	Micropolitan Statistical Area
+22121	12940	Baton Rouge, LA	Metropolitan Statistical Area
+22125	12940	Baton Rouge, LA	Metropolitan Statistical Area
+23001	30340	Lewiston-Auburn, ME	Metropolitan Statistical Area
+23005	38860	Portland-South Portland, ME	Metropolitan Statistical Area
+23011	12300	Augusta-Waterville, ME	Micropolitan Statistical Area
+23019	12620	Bangor, ME	Metropolitan Statistical Area
+23023	38860	Portland-South Portland, ME	Metropolitan Statistical Area
+23031	38860	Portland-South Portland, ME	Metropolitan Statistical Area
+24001	19060	Cumberland, MD-WV	Micropolitan Statistical Area
+24003	12580	Baltimore-Columbia-Towson, MD	Metropolitan Statistical Area
+24005	12580	Baltimore-Columbia-Towson, MD	Metropolitan Statistical Area
+24009	30500	Lexington Park, MD	Metropolitan Statistical Area
+24013	12580	Baltimore-Columbia-Towson, MD	Metropolitan Statistical Area
+24015	37980	Philadelphia-Camden-Wilmington, PA-NJ-DE-MD	Metropolitan Statistical Area
+24017	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+24019	15700	Cambridge, MD	Micropolitan Statistical Area
+24021	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+24025	12580	Baltimore-Columbia-Towson, MD	Metropolitan Statistical Area
+24027	12580	Baltimore-Columbia-Towson, MD	Metropolitan Statistical Area
+24031	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+24033	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+24035	12580	Baltimore-Columbia-Towson, MD	Metropolitan Statistical Area
+24037	30500	Lexington Park, MD	Metropolitan Statistical Area
+24039	41540	Salisbury, MD	Metropolitan Statistical Area
+24041	20660	Easton, MD	Micropolitan Statistical Area
+24043	25180	Hagerstown-Martinsburg, MD-WV	Metropolitan Statistical Area
+24045	41540	Salisbury, MD	Metropolitan Statistical Area
+24047	36180	Ocean Pines, MD	Micropolitan Statistical Area
+24510	12580	Baltimore-Columbia-Towson, MD	Metropolitan Statistical Area
+25001	12700	Barnstable Town, MA	Metropolitan Statistical Area
+25003	38340	Pittsfield, MA	Metropolitan Statistical Area
+25005	39300	Providence-Warwick, RI-MA	Metropolitan Statistical Area
+25007	47240	Vineyard Haven, MA	Micropolitan Statistical Area
+25009	14460	Boston-Cambridge-Newton, MA-NH	Metropolitan Statistical Area
+25011	24640	Greenfield, MA	Micropolitan Statistical Area
+25013	44140	Springfield, MA	Metropolitan Statistical Area
+25015	11200	Amherst Town-Northampton, MA	Metropolitan Statistical Area
+25017	14460	Boston-Cambridge-Newton, MA-NH	Metropolitan Statistical Area
+25019	34880	Nantucket, MA	Micropolitan Statistical Area
+25021	14460	Boston-Cambridge-Newton, MA-NH	Metropolitan Statistical Area
+25023	14460	Boston-Cambridge-Newton, MA-NH	Metropolitan Statistical Area
+25025	14460	Boston-Cambridge-Newton, MA-NH	Metropolitan Statistical Area
+25027	49340	Worcester, MA	Metropolitan Statistical Area
+26005	26090	Holland, MI	Micropolitan Statistical Area
+26007	10980	Alpena, MI	Micropolitan Statistical Area
+26015	24340	Grand Rapids-Wyoming-Kentwood, MI	Metropolitan Statistical Area
+26017	13020	Bay City, MI	Metropolitan Statistical Area
+26019	45900	Traverse City, MI	Metropolitan Statistical Area
+26021	35660	Niles, MI	Metropolitan Statistical Area
+26023	17740	Coldwater, MI	Micropolitan Statistical Area
+26025	12980	Battle Creek, MI	Metropolitan Statistical Area
+26027	43780	South Bend-Mishawaka, IN-MI	Metropolitan Statistical Area
+26033	42300	Sault Ste. Marie, MI	Micropolitan Statistical Area
+26037	29620	Lansing-East Lansing, MI	Metropolitan Statistical Area
+26041	21540	Escanaba, MI	Micropolitan Statistical Area
+26043	27020	Iron Mountain, MI-WI	Micropolitan Statistical Area
+26045	29620	Lansing-East Lansing, MI	Metropolitan Statistical Area
+26047	37950	Petoskey, MI	Micropolitan Statistical Area
+26049	22420	Flint, MI	Metropolitan Statistical Area
+26055	45900	Traverse City, MI	Metropolitan Statistical Area
+26057	10940	Alma, MI	Micropolitan Statistical Area
+26059	25880	Hillsdale, MI	Micropolitan Statistical Area
+26061	26340	Houghton, MI	Micropolitan Statistical Area
+26065	29620	Lansing-East Lansing, MI	Metropolitan Statistical Area
+26067	24340	Grand Rapids-Wyoming-Kentwood, MI	Metropolitan Statistical Area
+26073	34380	Mount Pleasant, MI	Micropolitan Statistical Area
+26075	27100	Jackson, MI	Metropolitan Statistical Area
+26077	28020	Kalamazoo-Portage, MI	Metropolitan Statistical Area
+26079	45900	Traverse City, MI	Metropolitan Statistical Area
+26081	24340	Grand Rapids-Wyoming-Kentwood, MI	Metropolitan Statistical Area
+26083	26340	Houghton, MI	Micropolitan Statistical Area
+26087	19820	Detroit-Warren-Dearborn, MI	Metropolitan Statistical Area
+26089	45900	Traverse City, MI	Metropolitan Statistical Area
+26091	10300	Adrian, MI	Micropolitan Statistical Area
+26093	19820	Detroit-Warren-Dearborn, MI	Metropolitan Statistical Area
+26099	19820	Detroit-Warren-Dearborn, MI	Metropolitan Statistical Area
+26103	32100	Marquette, MI	Micropolitan Statistical Area
+26105	31220	Ludington, MI	Micropolitan Statistical Area
+26107	13660	Big Rapids, MI	Micropolitan Statistical Area
+26109	31940	Marinette, WI-MI	Micropolitan Statistical Area
+26111	33220	Midland, MI	Metropolitan Statistical Area
+26113	15620	Cadillac, MI	Micropolitan Statistical Area
+26115	33780	Monroe, MI	Metropolitan Statistical Area
+26117	24340	Grand Rapids-Wyoming-Kentwood, MI	Metropolitan Statistical Area
+26121	34740	Muskegon-Norton Shores, MI	Metropolitan Statistical Area
+26125	19820	Detroit-Warren-Dearborn, MI	Metropolitan Statistical Area
+26139	24340	Grand Rapids-Wyoming-Kentwood, MI	Metropolitan Statistical Area
+26145	40980	Saginaw, MI	Metropolitan Statistical Area
+26147	19820	Detroit-Warren-Dearborn, MI	Metropolitan Statistical Area
+26149	44780	Sturgis, MI	Micropolitan Statistical Area
+26155	37020	Owosso, MI	Micropolitan Statistical Area
+26161	11460	Ann Arbor, MI	Metropolitan Statistical Area
+26163	19820	Detroit-Warren-Dearborn, MI	Metropolitan Statistical Area
+26165	15620	Cadillac, MI	Micropolitan Statistical Area
+27003	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+27005	19810	Detroit Lakes, MN	Micropolitan Statistical Area
+27007	13420	Bemidji, MN	Micropolitan Statistical Area
+27009	41060	St. Cloud, MN	Metropolitan Statistical Area
+27013	31860	Mankato, MN	Metropolitan Statistical Area
+27015	35580	New Ulm, MN	Micropolitan Statistical Area
+27017	20260	Duluth, MN-WI	Metropolitan Statistical Area
+27019	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+27021	14660	Brainerd, MN	Micropolitan Statistical Area
+27025	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+27027	22020	Fargo, ND-MN	Metropolitan Statistical Area
+27035	14660	Brainerd, MN	Micropolitan Statistical Area
+27037	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+27039	40340	Rochester, MN	Metropolitan Statistical Area
+27041	10820	Alexandria, MN	Micropolitan Statistical Area
+27045	40340	Rochester, MN	Metropolitan Statistical Area
+27047	10660	Albert Lea, MN	Micropolitan Statistical Area
+27049	39860	Red Wing, MN	Micropolitan Statistical Area
+27053	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+27055	29100	La Crosse-Onalaska, WI-MN	Metropolitan Statistical Area
+27059	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+27061	24330	Grand Rapids, MN	Micropolitan Statistical Area
+27067	48820	Willmar, MN	Micropolitan Statistical Area
+27079	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+27083	32140	Marshall, MN	Micropolitan Statistical Area
+27085	26780	Hutchinson, MN	Micropolitan Statistical Area
+27091	21860	Fairmont, MN	Micropolitan Statistical Area
+27095	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+27099	12380	Austin, MN	Micropolitan Statistical Area
+27103	31860	Mankato, MN	Metropolitan Statistical Area
+27105	49380	Worthington, MN	Micropolitan Statistical Area
+27109	40340	Rochester, MN	Metropolitan Statistical Area
+27111	22260	Fergus Falls, MN	Micropolitan Statistical Area
+27119	24220	Grand Forks, ND-MN	Metropolitan Statistical Area
+27123	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+27131	22060	Faribault-Northfield, MN	Micropolitan Statistical Area
+27133	43620	Sioux Falls, SD-MN	Metropolitan Statistical Area
+27137	20260	Duluth, MN-WI	Metropolitan Statistical Area
+27139	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+27141	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+27145	41060	St. Cloud, MN	Metropolitan Statistical Area
+27147	36940	Owatonna, MN	Micropolitan Statistical Area
+27157	40340	Rochester, MN	Metropolitan Statistical Area
+27163	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+27167	47420	Wahpeton, ND-MN	Micropolitan Statistical Area
+27169	49100	Winona, MN	Micropolitan Statistical Area
+27171	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+28001	35020	Natchez, MS-LA	Micropolitan Statistical Area
+28003	18420	Corinth, MS	Micropolitan Statistical Area
+28009	32820	Memphis, TN-MS-AR	Metropolitan Statistical Area
+28011	17380	Cleveland, MS	Micropolitan Statistical Area
+28015	24900	Greenwood, MS	Micropolitan Statistical Area
+28023	32940	Meridian, MS	Micropolitan Statistical Area
+28027	17260	Clarksdale, MS	Micropolitan Statistical Area
+28029	27140	Jackson, MS	Metropolitan Statistical Area
+28033	32820	Memphis, TN-MS-AR	Metropolitan Statistical Area
+28035	25620	Hattiesburg, MS	Metropolitan Statistical Area
+28043	24980	Grenada, MS	Micropolitan Statistical Area
+28045	25060	Gulfport-Biloxi, MS	Metropolitan Statistical Area
+28047	25060	Gulfport-Biloxi, MS	Metropolitan Statistical Area
+28049	27140	Jackson, MS	Metropolitan Statistical Area
+28051	27140	Jackson, MS	Metropolitan Statistical Area
+28057	46180	Tupelo, MS	Micropolitan Statistical Area
+28059	25060	Gulfport-Biloxi, MS	Metropolitan Statistical Area
+28061	29860	Laurel, MS	Micropolitan Statistical Area
+28063	35020	Natchez, MS-LA	Micropolitan Statistical Area
+28067	29860	Laurel, MS	Micropolitan Statistical Area
+28071	37060	Oxford, MS	Micropolitan Statistical Area
+28073	25620	Hattiesburg, MS	Metropolitan Statistical Area
+28075	32940	Meridian, MS	Micropolitan Statistical Area
+28081	46180	Tupelo, MS	Micropolitan Statistical Area
+28083	24900	Greenwood, MS	Micropolitan Statistical Area
+28085	15020	Brookhaven, MS	Micropolitan Statistical Area
+28087	18060	Columbus, MS	Micropolitan Statistical Area
+28089	27140	Jackson, MS	Metropolitan Statistical Area
+28093	32820	Memphis, TN-MS-AR	Metropolitan Statistical Area
+28097	24980	Grenada, MS	Micropolitan Statistical Area
+28103	18060	Columbus, MS	Micropolitan Statistical Area
+28105	44260	Starkville, MS	Micropolitan Statistical Area
+28109	38100	Picayune, MS	Micropolitan Statistical Area
+28111	25620	Hattiesburg, MS	Metropolitan Statistical Area
+28113	32620	McComb, MS	Micropolitan Statistical Area
+28117	46180	Tupelo, MS	Micropolitan Statistical Area
+28121	27140	Jackson, MS	Metropolitan Statistical Area
+28123	27140	Jackson, MS	Metropolitan Statistical Area
+28127	27140	Jackson, MS	Metropolitan Statistical Area
+28131	25060	Gulfport-Biloxi, MS	Metropolitan Statistical Area
+28137	32820	Memphis, TN-MS-AR	Metropolitan Statistical Area
+28143	32820	Memphis, TN-MS-AR	Metropolitan Statistical Area
+28147	32620	McComb, MS	Micropolitan Statistical Area
+28149	46980	Vicksburg, MS	Micropolitan Statistical Area
+28151	24740	Greenville, MS	Micropolitan Statistical Area
+28155	44260	Starkville, MS	Micropolitan Statistical Area
+28161	37060	Oxford, MS	Micropolitan Statistical Area
+28163	27140	Jackson, MS	Metropolitan Statistical Area
+29001	28860	Kirksville, MO	Micropolitan Statistical Area
+29003	41140	St. Joseph, MO-KS	Metropolitan Statistical Area
+29007	33020	Mexico, MO	Micropolitan Statistical Area
+29013	28140	Kansas City, MO-KS	Metropolitan Statistical Area
+29017	16020	Cape Girardeau, MO-IL	Metropolitan Statistical Area
+29019	17860	Columbia, MO	Metropolitan Statistical Area
+29021	41140	St. Joseph, MO-KS	Metropolitan Statistical Area
+29023	38740	Poplar Bluff, MO	Micropolitan Statistical Area
+29025	28140	Kansas City, MO-KS	Metropolitan Statistical Area
+29027	27620	Jefferson City, MO	Metropolitan Statistical Area
+29031	16020	Cape Girardeau, MO-IL	Metropolitan Statistical Area
+29037	28140	Kansas City, MO-KS	Metropolitan Statistical Area
+29043	44180	Springfield, MO	Metropolitan Statistical Area
+29047	28140	Kansas City, MO-KS	Metropolitan Statistical Area
+29049	28140	Kansas City, MO-KS	Metropolitan Statistical Area
+29051	27620	Jefferson City, MO	Metropolitan Statistical Area
+29053	17860	Columbia, MO	Metropolitan Statistical Area
+29059	44180	Springfield, MO	Metropolitan Statistical Area
+29063	41140	St. Joseph, MO-KS	Metropolitan Statistical Area
+29069	28380	Kennett, MO	Micropolitan Statistical Area
+29071	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+29077	44180	Springfield, MO	Metropolitan Statistical Area
+29089	17860	Columbia, MO	Metropolitan Statistical Area
+29091	48460	West Plains, MO	Micropolitan Statistical Area
+29095	28140	Kansas City, MO-KS	Metropolitan Statistical Area
+29097	27900	Joplin, MO-KS	Metropolitan Statistical Area
+29099	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+29101	47660	Warrensburg, MO	Micropolitan Statistical Area
+29105	30060	Lebanon, MO	Micropolitan Statistical Area
+29107	28140	Kansas City, MO-KS	Metropolitan Statistical Area
+29111	39500	Quincy, IL-MO	Micropolitan Statistical Area
+29113	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+29127	25300	Hannibal, MO	Micropolitan Statistical Area
+29133	43460	Sikeston, MO	Micropolitan Statistical Area
+29135	27620	Jefferson City, MO	Metropolitan Statistical Area
+29145	27900	Joplin, MO-KS	Metropolitan Statistical Area
+29147	32340	Maryville, MO	Micropolitan Statistical Area
+29151	27620	Jefferson City, MO	Metropolitan Statistical Area
+29159	42740	Sedalia, MO	Micropolitan Statistical Area
+29161	40620	Rolla, MO	Micropolitan Statistical Area
+29165	28140	Kansas City, MO-KS	Metropolitan Statistical Area
+29167	44180	Springfield, MO	Metropolitan Statistical Area
+29169	22780	Fort Leonard Wood, MO	Micropolitan Statistical Area
+29173	25300	Hannibal, MO	Micropolitan Statistical Area
+29175	33620	Moberly, MO	Micropolitan Statistical Area
+29177	28140	Kansas City, MO-KS	Metropolitan Statistical Area
+29183	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+29187	22100	Farmington, MO	Micropolitan Statistical Area
+29189	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+29195	32180	Marshall, MO	Micropolitan Statistical Area
+29197	28860	Kirksville, MO	Micropolitan Statistical Area
+29201	43460	Sikeston, MO	Micropolitan Statistical Area
+29213	14700	Branson, MO	Micropolitan Statistical Area
+29219	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+29225	44180	Springfield, MO	Metropolitan Statistical Area
+29510	41180	St. Louis, MO-IL	Metropolitan Statistical Area
+30007	25740	Helena, MT	Metropolitan Statistical Area
+30009	13740	Billings, MT	Metropolitan Statistical Area
+30013	24500	Great Falls, MT	Metropolitan Statistical Area
+30029	28060	Kalispell, MT	Micropolitan Statistical Area
+30031	14580	Bozeman, MT	Metropolitan Statistical Area
+30043	25740	Helena, MT	Metropolitan Statistical Area
+30049	25740	Helena, MT	Metropolitan Statistical Area
+30061	33540	Missoula, MT	Metropolitan Statistical Area
+30063	33540	Missoula, MT	Metropolitan Statistical Area
+30093	15580	Butte-Silver Bow, MT	Micropolitan Statistical Area
+30095	13740	Billings, MT	Metropolitan Statistical Area
+30111	13740	Billings, MT	Metropolitan Statistical Area
+31001	25580	Hastings, NE	Micropolitan Statistical Area
+31007	42420	Scottsbluff, NE	Micropolitan Statistical Area
+31019	28260	Kearney, NE	Micropolitan Statistical Area
+31025	36540	Omaha, NE-IA	Metropolitan Statistical Area
+31035	25580	Hastings, NE	Micropolitan Statistical Area
+31037	18100	Columbus, NE	Micropolitan Statistical Area
+31043	43580	Sioux City, IA-NE-SD	Metropolitan Statistical Area
+31047	30420	Lexington, NE	Micropolitan Statistical Area
+31053	23340	Fremont, NE	Micropolitan Statistical Area
+31055	36540	Omaha, NE-IA	Metropolitan Statistical Area
+31067	13100	Beatrice, NE	Micropolitan Statistical Area
+31073	30420	Lexington, NE	Micropolitan Statistical Area
+31079	24260	Grand Island, NE	Metropolitan Statistical Area
+31093	24260	Grand Island, NE	Metropolitan Statistical Area
+31099	28260	Kearney, NE	Micropolitan Statistical Area
+31109	30700	Lincoln, NE	Metropolitan Statistical Area
+31111	35820	North Platte, NE	Micropolitan Statistical Area
+31113	35820	North Platte, NE	Micropolitan Statistical Area
+31119	35740	Norfolk, NE	Micropolitan Statistical Area
+31121	24260	Grand Island, NE	Metropolitan Statistical Area
+31139	35740	Norfolk, NE	Micropolitan Statistical Area
+31141	18100	Columbus, NE	Micropolitan Statistical Area
+31153	36540	Omaha, NE-IA	Metropolitan Statistical Area
+31155	36540	Omaha, NE-IA	Metropolitan Statistical Area
+31157	42420	Scottsbluff, NE	Micropolitan Statistical Area
+31159	30700	Lincoln, NE	Metropolitan Statistical Area
+31167	35740	Norfolk, NE	Micropolitan Statistical Area
+31177	36540	Omaha, NE-IA	Metropolitan Statistical Area
+31181	25580	Hastings, NE	Micropolitan Statistical Area
+32001	21980	Fallon, NV	Micropolitan Statistical Area
+32003	29820	Las Vegas-Henderson-North Las Vegas, NV	Metropolitan Statistical Area
+32005	23820	Gardnerville Ranchos, NV-CA	Micropolitan Statistical Area
+32007	21220	Elko, NV	Micropolitan Statistical Area
+32011	21220	Elko, NV	Micropolitan Statistical Area
+32013	49080	Winnemucca, NV	Micropolitan Statistical Area
+32019	39900	Reno, NV	Metropolitan Statistical Area
+32023	37220	Pahrump, NV	Micropolitan Statistical Area
+32029	39900	Reno, NV	Metropolitan Statistical Area
+32031	39900	Reno, NV	Metropolitan Statistical Area
+32510	16180	Carson City, NV	Metropolitan Statistical Area
+33001	29060	Laconia, NH	Micropolitan Statistical Area
+33005	28300	Keene, NH	Micropolitan Statistical Area
+33009	30150	Lebanon-Claremont, NH-VT	Micropolitan Statistical Area
+33011	31700	Manchester-Nashua, NH	Metropolitan Statistical Area
+33013	18180	Concord, NH	Micropolitan Statistical Area
+33015	14460	Boston-Cambridge-Newton, MA-NH	Metropolitan Statistical Area
+33017	14460	Boston-Cambridge-Newton, MA-NH	Metropolitan Statistical Area
+33019	30150	Lebanon-Claremont, NH-VT	Micropolitan Statistical Area
+34001	12100	Atlantic City-Hammonton, NJ	Metropolitan Statistical Area
+34003	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+34005	37980	Philadelphia-Camden-Wilmington, PA-NJ-DE-MD	Metropolitan Statistical Area
+34007	37980	Philadelphia-Camden-Wilmington, PA-NJ-DE-MD	Metropolitan Statistical Area
+34009	12100	Atlantic City-Hammonton, NJ	Metropolitan Statistical Area
+34011	47220	Vineland, NJ	Metropolitan Statistical Area
+34013	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+34015	37980	Philadelphia-Camden-Wilmington, PA-NJ-DE-MD	Metropolitan Statistical Area
+34017	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+34019	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+34021	45940	Trenton-Princeton, NJ	Metropolitan Statistical Area
+34023	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+34025	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+34027	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+34029	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+34031	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+34033	37980	Philadelphia-Camden-Wilmington, PA-NJ-DE-MD	Metropolitan Statistical Area
+34035	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+34037	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+34039	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+34041	10900	Allentown-Bethlehem-Easton, PA-NJ	Metropolitan Statistical Area
+35001	10740	Albuquerque, NM	Metropolitan Statistical Area
+35005	40740	Roswell, NM	Micropolitan Statistical Area
+35009	17580	Clovis, NM	Micropolitan Statistical Area
+35013	29740	Las Cruces, NM	Metropolitan Statistical Area
+35015	16100	Carlsbad-Artesia, NM	Micropolitan Statistical Area
+35017	43500	Silver City, NM	Micropolitan Statistical Area
+35025	26020	Hobbs, NM	Micropolitan Statistical Area
+35027	40760	Ruidoso, NM	Micropolitan Statistical Area
+35028	31060	Los Alamos, NM	Micropolitan Statistical Area
+35029	19700	Deming, NM	Micropolitan Statistical Area
+35031	23700	Gallup, NM	Micropolitan Statistical Area
+35033	29780	Las Vegas, NM	Micropolitan Statistical Area
+35035	10460	Alamogordo, NM	Micropolitan Statistical Area
+35039	21580	Española, NM	Micropolitan Statistical Area
+35041	17580	Clovis, NM	Micropolitan Statistical Area
+35043	10740	Albuquerque, NM	Metropolitan Statistical Area
+35045	22140	Farmington, NM	Metropolitan Statistical Area
+35047	29780	Las Vegas, NM	Micropolitan Statistical Area
+35049	42140	Santa Fe, NM	Metropolitan Statistical Area
+35055	45340	Taos, NM	Micropolitan Statistical Area
+35057	10740	Albuquerque, NM	Metropolitan Statistical Area
+35061	10740	Albuquerque, NM	Metropolitan Statistical Area
+36001	10580	Albany-Schenectady-Troy, NY	Metropolitan Statistical Area
+36005	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+36007	13780	Binghamton, NY	Metropolitan Statistical Area
+36009	36460	Olean, NY	Micropolitan Statistical Area
+36011	12180	Auburn, NY	Micropolitan Statistical Area
+36013	27460	Jamestown-Dunkirk, NY	Micropolitan Statistical Area
+36015	21300	Elmira, NY	Metropolitan Statistical Area
+36019	38460	Plattsburgh, NY	Micropolitan Statistical Area
+36021	26460	Hudson, NY	Micropolitan Statistical Area
+36023	18660	Cortland, NY	Micropolitan Statistical Area
+36027	28880	Kiryas Joel-Poughkeepsie-Newburgh, NY	Metropolitan Statistical Area
+36029	15380	Buffalo-Cheektowaga, NY	Metropolitan Statistical Area
+36035	24100	Gloversville, NY	Micropolitan Statistical Area
+36037	12860	Batavia, NY	Micropolitan Statistical Area
+36043	46540	Utica-Rome, NY	Metropolitan Statistical Area
+36045	48060	Watertown-Fort Drum, NY	Metropolitan Statistical Area
+36047	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+36051	40380	Rochester, NY	Metropolitan Statistical Area
+36053	45060	Syracuse, NY	Metropolitan Statistical Area
+36055	40380	Rochester, NY	Metropolitan Statistical Area
+36057	11220	Amsterdam, NY	Micropolitan Statistical Area
+36059	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+36061	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+36063	15380	Buffalo-Cheektowaga, NY	Metropolitan Statistical Area
+36065	46540	Utica-Rome, NY	Metropolitan Statistical Area
+36067	45060	Syracuse, NY	Metropolitan Statistical Area
+36069	40380	Rochester, NY	Metropolitan Statistical Area
+36071	28880	Kiryas Joel-Poughkeepsie-Newburgh, NY	Metropolitan Statistical Area
+36073	40380	Rochester, NY	Metropolitan Statistical Area
+36075	45060	Syracuse, NY	Metropolitan Statistical Area
+36077	36580	Oneonta, NY	Micropolitan Statistical Area
+36079	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+36081	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+36083	10580	Albany-Schenectady-Troy, NY	Metropolitan Statistical Area
+36085	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+36087	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+36089	32390	Massena-Ogdensburg, NY	Micropolitan Statistical Area
+36091	10580	Albany-Schenectady-Troy, NY	Metropolitan Statistical Area
+36093	10580	Albany-Schenectady-Troy, NY	Metropolitan Statistical Area
+36095	10580	Albany-Schenectady-Troy, NY	Metropolitan Statistical Area
+36099	42900	Seneca Falls, NY	Micropolitan Statistical Area
+36101	18500	Corning, NY	Micropolitan Statistical Area
+36103	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+36105	33910	Monticello, NY	Micropolitan Statistical Area
+36107	13780	Binghamton, NY	Metropolitan Statistical Area
+36109	27060	Ithaca, NY	Metropolitan Statistical Area
+36111	28740	Kingston, NY	Metropolitan Statistical Area
+36113	24020	Glens Falls, NY	Metropolitan Statistical Area
+36115	24020	Glens Falls, NY	Metropolitan Statistical Area
+36117	40380	Rochester, NY	Metropolitan Statistical Area
+36119	35620	New York-Newark-Jersey City, NY-NJ	Metropolitan Statistical Area
+37001	15500	Burlington, NC	Metropolitan Statistical Area
+37003	25860	Hickory-Lenoir-Morganton, NC	Metropolitan Statistical Area
+37007	16740	Charlotte-Concord-Gastonia, NC-SC	Metropolitan Statistical Area
+37013	47820	Washington, NC	Micropolitan Statistical Area
+37019	48900	Wilmington, NC	Metropolitan Statistical Area
+37021	11700	Asheville, NC	Metropolitan Statistical Area
+37023	25860	Hickory-Lenoir-Morganton, NC	Metropolitan Statistical Area
+37025	16740	Charlotte-Concord-Gastonia, NC-SC	Metropolitan Statistical Area
+37027	25860	Hickory-Lenoir-Morganton, NC	Metropolitan Statistical Area
+37029	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+37031	33980	Morehead City, NC	Micropolitan Statistical Area
+37035	25860	Hickory-Lenoir-Morganton, NC	Metropolitan Statistical Area
+37037	20500	Durham-Chapel Hill, NC	Metropolitan Statistical Area
+37045	43140	Shelby-Kings Mountain, NC	Micropolitan Statistical Area
+37049	35100	New Bern, NC	Micropolitan Statistical Area
+37051	22180	Fayetteville, NC	Metropolitan Statistical Area
+37053	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+37055	28620	Kill Devil Hills, NC	Micropolitan Statistical Area
+37057	49180	Winston-Salem, NC	Metropolitan Statistical Area
+37059	49180	Winston-Salem, NC	Metropolitan Statistical Area
+37063	20500	Durham-Chapel Hill, NC	Metropolitan Statistical Area
+37065	40580	Rocky Mount, NC	Metropolitan Statistical Area
+37067	49180	Winston-Salem, NC	Metropolitan Statistical Area
+37069	39580	Raleigh-Cary, NC	Metropolitan Statistical Area
+37071	16740	Charlotte-Concord-Gastonia, NC-SC	Metropolitan Statistical Area
+37073	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+37081	24660	Greensboro-High Point, NC	Metropolitan Statistical Area
+37083	40260	Roanoke Rapids, NC	Micropolitan Statistical Area
+37085	11360	Anderson Creek, NC	Micropolitan Statistical Area
+37087	48200	Waynesville, NC	Micropolitan Statistical Area
+37089	11700	Asheville, NC	Metropolitan Statistical Area
+37093	22180	Fayetteville, NC	Metropolitan Statistical Area
+37097	16740	Charlotte-Concord-Gastonia, NC-SC	Metropolitan Statistical Area
+37101	39580	Raleigh-Cary, NC	Metropolitan Statistical Area
+37103	35100	New Bern, NC	Micropolitan Statistical Area
+37105	41820	Sanford, NC	Micropolitan Statistical Area
+37107	28820	Kinston, NC	Micropolitan Statistical Area
+37109	16740	Charlotte-Concord-Gastonia, NC-SC	Metropolitan Statistical Area
+37111	32000	Marion, NC	Micropolitan Statistical Area
+37115	11700	Asheville, NC	Metropolitan Statistical Area
+37119	16740	Charlotte-Concord-Gastonia, NC-SC	Metropolitan Statistical Area
+37125	38240	Pinehurst-Southern Pines, NC	Metropolitan Statistical Area
+37127	40580	Rocky Mount, NC	Metropolitan Statistical Area
+37129	48900	Wilmington, NC	Metropolitan Statistical Area
+37131	40260	Roanoke Rapids, NC	Micropolitan Statistical Area
+37133	27340	Jacksonville, NC	Metropolitan Statistical Area
+37135	20500	Durham-Chapel Hill, NC	Metropolitan Statistical Area
+37137	35100	New Bern, NC	Micropolitan Statistical Area
+37139	21020	Elizabeth City, NC	Micropolitan Statistical Area
+37141	48900	Wilmington, NC	Metropolitan Statistical Area
+37145	20500	Durham-Chapel Hill, NC	Metropolitan Statistical Area
+37147	24780	Greenville, NC	Metropolitan Statistical Area
+37151	24660	Greensboro-High Point, NC	Metropolitan Statistical Area
+37153	40460	Rockingham, NC	Micropolitan Statistical Area
+37155	31300	Lumberton, NC	Micropolitan Statistical Area
+37157	24660	Greensboro-High Point, NC	Metropolitan Statistical Area
+37159	16740	Charlotte-Concord-Gastonia, NC-SC	Metropolitan Statistical Area
+37161	22580	Forest City, NC	Micropolitan Statistical Area
+37165	29900	Laurinburg, NC	Micropolitan Statistical Area
+37167	10620	Albemarle, NC	Micropolitan Statistical Area
+37169	49180	Winston-Salem, NC	Metropolitan Statistical Area
+37171	34340	Mount Airy, NC	Micropolitan Statistical Area
+37175	14820	Brevard, NC	Micropolitan Statistical Area
+37179	16740	Charlotte-Concord-Gastonia, NC-SC	Metropolitan Statistical Area
+37181	25780	Henderson, NC	Micropolitan Statistical Area
+37183	39580	Raleigh-Cary, NC	Metropolitan Statistical Area
+37189	14380	Boone, NC	Micropolitan Statistical Area
+37191	24140	Goldsboro, NC	Metropolitan Statistical Area
+37193	35900	North Wilkesboro, NC	Micropolitan Statistical Area
+37195	48980	Wilson, NC	Micropolitan Statistical Area
+37197	49180	Winston-Salem, NC	Metropolitan Statistical Area
+38007	19860	Dickinson, ND	Micropolitan Statistical Area
+38015	13900	Bismarck, ND	Metropolitan Statistical Area
+38017	22020	Fargo, ND-MN	Metropolitan Statistical Area
+38025	19860	Dickinson, ND	Micropolitan Statistical Area
+38035	24220	Grand Forks, ND-MN	Metropolitan Statistical Area
+38049	33500	Minot, ND	Metropolitan Statistical Area
+38059	13900	Bismarck, ND	Metropolitan Statistical Area
+38065	13900	Bismarck, ND	Metropolitan Statistical Area
+38075	33500	Minot, ND	Metropolitan Statistical Area
+38077	47420	Wahpeton, ND-MN	Micropolitan Statistical Area
+38089	19860	Dickinson, ND	Micropolitan Statistical Area
+38093	27420	Jamestown, ND	Micropolitan Statistical Area
+38101	33500	Minot, ND	Metropolitan Statistical Area
+38105	48780	Williston, ND	Micropolitan Statistical Area
+39003	30620	Lima, OH	Metropolitan Statistical Area
+39005	11740	Ashland, OH	Micropolitan Statistical Area
+39007	17410	Cleveland, OH	Metropolitan Statistical Area
+39009	11900	Athens, OH	Micropolitan Statistical Area
+39011	47540	Wapakoneta, OH	Micropolitan Statistical Area
+39013	48540	Wheeling, WV-OH	Metropolitan Statistical Area
+39015	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+39017	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+39019	15940	Canton-Massillon, OH	Metropolitan Statistical Area
+39021	46500	Urbana, OH	Micropolitan Statistical Area
+39023	44220	Springfield, OH	Metropolitan Statistical Area
+39025	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+39027	48940	Wilmington, OH	Micropolitan Statistical Area
+39029	41400	Salem, OH	Micropolitan Statistical Area
+39031	18740	Coshocton, OH	Micropolitan Statistical Area
+39033	15340	Bucyrus, OH	Micropolitan Statistical Area
+39035	17410	Cleveland, OH	Metropolitan Statistical Area
+39037	24820	Greenville, OH	Micropolitan Statistical Area
+39039	19580	Defiance, OH	Micropolitan Statistical Area
+39041	18140	Columbus, OH	Metropolitan Statistical Area
+39043	41780	Sandusky, OH	Metropolitan Statistical Area
+39045	18140	Columbus, OH	Metropolitan Statistical Area
+39047	47920	Washington Court House, OH	Micropolitan Statistical Area
+39049	18140	Columbus, OH	Metropolitan Statistical Area
+39051	45780	Toledo, OH	Metropolitan Statistical Area
+39053	23680	Gallipolis, OH	Micropolitan Statistical Area
+39055	17410	Cleveland, OH	Metropolitan Statistical Area
+39057	19430	Dayton-Kettering-Beavercreek, OH	Metropolitan Statistical Area
+39059	15740	Cambridge, OH	Micropolitan Statistical Area
+39061	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+39063	22300	Findlay, OH	Micropolitan Statistical Area
+39073	18140	Columbus, OH	Metropolitan Statistical Area
+39077	35940	Norwalk, OH	Micropolitan Statistical Area
+39081	48260	Weirton-Steubenville, WV-OH	Metropolitan Statistical Area
+39083	34540	Mount Vernon, OH	Micropolitan Statistical Area
+39085	17410	Cleveland, OH	Metropolitan Statistical Area
+39087	26580	Huntington-Ashland, WV-KY-OH	Metropolitan Statistical Area
+39089	18140	Columbus, OH	Metropolitan Statistical Area
+39091	13340	Bellefontaine, OH	Micropolitan Statistical Area
+39093	17410	Cleveland, OH	Metropolitan Statistical Area
+39095	45780	Toledo, OH	Metropolitan Statistical Area
+39097	18140	Columbus, OH	Metropolitan Statistical Area
+39099	49660	Youngstown-Warren, OH	Metropolitan Statistical Area
+39101	32020	Marion, OH	Micropolitan Statistical Area
+39103	17410	Cleveland, OH	Metropolitan Statistical Area
+39107	16380	Celina, OH	Micropolitan Statistical Area
+39109	19430	Dayton-Kettering-Beavercreek, OH	Metropolitan Statistical Area
+39113	19430	Dayton-Kettering-Beavercreek, OH	Metropolitan Statistical Area
+39117	18140	Columbus, OH	Metropolitan Statistical Area
+39119	49780	Zanesville, OH	Micropolitan Statistical Area
+39123	41780	Sandusky, OH	Metropolitan Statistical Area
+39127	18140	Columbus, OH	Metropolitan Statistical Area
+39129	18140	Columbus, OH	Metropolitan Statistical Area
+39133	10420	Akron, OH	Metropolitan Statistical Area
+39139	31900	Mansfield, OH	Metropolitan Statistical Area
+39141	17060	Chillicothe, OH	Micropolitan Statistical Area
+39143	23380	Fremont, OH	Micropolitan Statistical Area
+39145	39020	Portsmouth, OH	Micropolitan Statistical Area
+39147	45660	Tiffin, OH	Micropolitan Statistical Area
+39149	43380	Sidney, OH	Micropolitan Statistical Area
+39151	15940	Canton-Massillon, OH	Metropolitan Statistical Area
+39153	10420	Akron, OH	Metropolitan Statistical Area
+39155	49660	Youngstown-Warren, OH	Metropolitan Statistical Area
+39157	35420	New Philadelphia-Dover, OH	Micropolitan Statistical Area
+39159	18140	Columbus, OH	Metropolitan Statistical Area
+39161	46780	Van Wert, OH	Micropolitan Statistical Area
+39165	17140	Cincinnati, OH-KY-IN	Metropolitan Statistical Area
+39167	31930	Marietta, OH	Micropolitan Statistical Area
+39169	49300	Wooster, OH	Micropolitan Statistical Area
+39173	45780	Toledo, OH	Metropolitan Statistical Area
+40009	21120	Elk City, OK	Micropolitan Statistical Area
+40013	20460	Durant, OK	Micropolitan Statistical Area
+40017	36420	Oklahoma City, OK	Metropolitan Statistical Area
+40019	11620	Ardmore, OK	Micropolitan Statistical Area
+40021	45140	Tahlequah, OK	Micropolitan Statistical Area
+40027	36420	Oklahoma City, OK	Metropolitan Statistical Area
+40031	30020	Lawton, OK	Metropolitan Statistical Area
+40033	30020	Lawton, OK	Metropolitan Statistical Area
+40037	46140	Tulsa, OK	Metropolitan Statistical Area
+40039	48220	Weatherford, OK	Micropolitan Statistical Area
+40047	21420	Enid, OK	Metropolitan Statistical Area
+40051	36420	Oklahoma City, OK	Metropolitan Statistical Area
+40065	11060	Altus, OK	Micropolitan Statistical Area
+40071	38620	Ponca City, OK	Micropolitan Statistical Area
+40081	36420	Oklahoma City, OK	Metropolitan Statistical Area
+40083	36420	Oklahoma City, OK	Metropolitan Statistical Area
+40087	36420	Oklahoma City, OK	Metropolitan Statistical Area
+40101	34780	Muskogee, OK	Micropolitan Statistical Area
+40109	36420	Oklahoma City, OK	Metropolitan Statistical Area
+40111	46140	Tulsa, OK	Metropolitan Statistical Area
+40113	46140	Tulsa, OK	Metropolitan Statistical Area
+40115	33060	Miami, OK	Micropolitan Statistical Area
+40117	46140	Tulsa, OK	Metropolitan Statistical Area
+40119	44660	Stillwater, OK	Micropolitan Statistical Area
+40121	32540	McAlester, OK	Micropolitan Statistical Area
+40123	10220	Ada, OK	Micropolitan Statistical Area
+40125	43060	Shawnee, OK	Micropolitan Statistical Area
+40131	46140	Tulsa, OK	Metropolitan Statistical Area
+40135	22900	Fort Smith, AR-OK	Metropolitan Statistical Area
+40137	20340	Duncan, OK	Micropolitan Statistical Area
+40139	25100	Guymon, OK	Micropolitan Statistical Area
+40143	46140	Tulsa, OK	Metropolitan Statistical Area
+40145	46140	Tulsa, OK	Metropolitan Statistical Area
+40147	12780	Bartlesville, OK	Micropolitan Statistical Area
+40149	48220	Weatherford, OK	Micropolitan Statistical Area
+40153	49260	Woodward, OK	Micropolitan Statistical Area
+41001	12520	Baker City, OR	Micropolitan Statistical Area
+41003	18700	Corvallis, OR	Metropolitan Statistical Area
+41005	38900	Portland-Vancouver-Hillsboro, OR-WA	Metropolitan Statistical Area
+41007	11820	Astoria, OR	Micropolitan Statistical Area
+41009	38900	Portland-Vancouver-Hillsboro, OR-WA	Metropolitan Statistical Area
+41011	18300	Coos Bay-North Bend, OR	Micropolitan Statistical Area
+41013	13460	Bend, OR	Metropolitan Statistical Area
+41015	15060	Brookings, OR	Micropolitan Statistical Area
+41017	13460	Bend, OR	Metropolitan Statistical Area
+41019	40700	Roseburg, OR	Micropolitan Statistical Area
+41027	26220	Hood River, OR	Micropolitan Statistical Area
+41029	32780	Medford, OR	Metropolitan Statistical Area
+41031	13460	Bend, OR	Metropolitan Statistical Area
+41033	24420	Grants Pass, OR	Metropolitan Statistical Area
+41035	28900	Klamath Falls, OR	Micropolitan Statistical Area
+41039	21660	Eugene-Springfield, OR	Metropolitan Statistical Area
+41041	35440	Newport, OR	Micropolitan Statistical Area
+41043	10540	Albany, OR	Metropolitan Statistical Area
+41045	36620	Ontario, OR-ID	Micropolitan Statistical Area
+41047	41420	Salem, OR	Metropolitan Statistical Area
+41049	25840	Hermiston-Pendleton, OR	Micropolitan Statistical Area
+41051	38900	Portland-Vancouver-Hillsboro, OR-WA	Metropolitan Statistical Area
+41053	41420	Salem, OR	Metropolitan Statistical Area
+41059	25840	Hermiston-Pendleton, OR	Micropolitan Statistical Area
+41061	29260	La Grande, OR	Micropolitan Statistical Area
+41065	45520	The Dalles, OR	Micropolitan Statistical Area
+41067	38900	Portland-Vancouver-Hillsboro, OR-WA	Metropolitan Statistical Area
+41071	38900	Portland-Vancouver-Hillsboro, OR-WA	Metropolitan Statistical Area
+42001	23900	Gettysburg, PA	Metropolitan Statistical Area
+42003	38300	Pittsburgh, PA	Metropolitan Statistical Area
+42005	38300	Pittsburgh, PA	Metropolitan Statistical Area
+42007	38300	Pittsburgh, PA	Metropolitan Statistical Area
+42011	39740	Reading, PA	Metropolitan Statistical Area
+42013	11020	Altoona, PA	Metropolitan Statistical Area
+42015	42380	Sayre, PA	Micropolitan Statistical Area
+42017	37980	Philadelphia-Camden-Wilmington, PA-NJ-DE-MD	Metropolitan Statistical Area
+42019	38300	Pittsburgh, PA	Metropolitan Statistical Area
+42021	27780	Johnstown, PA	Metropolitan Statistical Area
+42025	10900	Allentown-Bethlehem-Easton, PA-NJ	Metropolitan Statistical Area
+42027	44300	State College, PA	Metropolitan Statistical Area
+42029	37980	Philadelphia-Camden-Wilmington, PA-NJ-DE-MD	Metropolitan Statistical Area
+42033	20180	DuBois, PA	Micropolitan Statistical Area
+42035	30820	Lock Haven, PA	Micropolitan Statistical Area
+42037	14100	Bloomsburg-Berwick, PA	Micropolitan Statistical Area
+42039	32740	Meadville, PA	Micropolitan Statistical Area
+42041	25420	Harrisburg-Carlisle, PA	Metropolitan Statistical Area
+42043	25420	Harrisburg-Carlisle, PA	Metropolitan Statistical Area
+42045	37980	Philadelphia-Camden-Wilmington, PA-NJ-DE-MD	Metropolitan Statistical Area
+42047	41260	St. Marys, PA	Micropolitan Statistical Area
+42049	21500	Erie, PA	Metropolitan Statistical Area
+42051	38300	Pittsburgh, PA	Metropolitan Statistical Area
+42055	16540	Chambersburg, PA	Metropolitan Statistical Area
+42061	26500	Huntingdon, PA	Micropolitan Statistical Area
+42063	26860	Indiana, PA	Micropolitan Statistical Area
+42069	42540	Scranton--Wilkes-Barre, PA	Metropolitan Statistical Area
+42071	29540	Lancaster, PA	Metropolitan Statistical Area
+42073	38300	Pittsburgh, PA	Metropolitan Statistical Area
+42075	30140	Lebanon, PA	Metropolitan Statistical Area
+42077	10900	Allentown-Bethlehem-Easton, PA-NJ	Metropolitan Statistical Area
+42079	42540	Scranton--Wilkes-Barre, PA	Metropolitan Statistical Area
+42081	48700	Williamsport, PA	Metropolitan Statistical Area
+42083	14620	Bradford, PA	Micropolitan Statistical Area
+42085	25850	Hermitage, PA	Micropolitan Statistical Area
+42087	30380	Lewistown, PA	Micropolitan Statistical Area
+42089	20700	East Stroudsburg, PA	Micropolitan Statistical Area
+42091	37980	Philadelphia-Camden-Wilmington, PA-NJ-DE-MD	Metropolitan Statistical Area
+42093	44980	Sunbury, PA	Micropolitan Statistical Area
+42095	10900	Allentown-Bethlehem-Easton, PA-NJ	Metropolitan Statistical Area
+42097	44980	Sunbury, PA	Micropolitan Statistical Area
+42099	25420	Harrisburg-Carlisle, PA	Metropolitan Statistical Area
+42101	37980	Philadelphia-Camden-Wilmington, PA-NJ-DE-MD	Metropolitan Statistical Area
+42103	25770	Hemlock Farms, PA	Micropolitan Statistical Area
+42107	39060	Pottsville, PA	Micropolitan Statistical Area
+42109	42780	Selinsgrove, PA	Micropolitan Statistical Area
+42111	43740	Somerset, PA	Micropolitan Statistical Area
+42119	30260	Lewisburg, PA	Micropolitan Statistical Area
+42121	36340	Oil City, PA	Micropolitan Statistical Area
+42123	47620	Warren, PA	Micropolitan Statistical Area
+42125	38300	Pittsburgh, PA	Metropolitan Statistical Area
+42129	38300	Pittsburgh, PA	Metropolitan Statistical Area
+42131	42540	Scranton--Wilkes-Barre, PA	Metropolitan Statistical Area
+42133	49620	York-Hanover, PA	Metropolitan Statistical Area
+44001	39300	Providence-Warwick, RI-MA	Metropolitan Statistical Area
+44003	39300	Providence-Warwick, RI-MA	Metropolitan Statistical Area
+44005	39300	Providence-Warwick, RI-MA	Metropolitan Statistical Area
+44007	39300	Providence-Warwick, RI-MA	Metropolitan Statistical Area
+44009	39300	Providence-Warwick, RI-MA	Metropolitan Statistical Area
+45001	24940	Greenwood, SC	Micropolitan Statistical Area
+45003	12260	Augusta-Richmond County, GA-SC	Metropolitan Statistical Area
+45007	24860	Greenville-Anderson-Greer, SC	Metropolitan Statistical Area
+45013	25940	Hilton Head Island-Bluffton-Port Royal, SC	Metropolitan Statistical Area
+45015	16700	Charleston-North Charleston, SC	Metropolitan Statistical Area
+45017	17900	Columbia, SC	Metropolitan Statistical Area
+45019	16700	Charleston-North Charleston, SC	Metropolitan Statistical Area
+45021	23500	Gaffney, SC	Micropolitan Statistical Area
+45023	16740	Charlotte-Concord-Gastonia, NC-SC	Metropolitan Statistical Area
+45031	22500	Florence, SC	Metropolitan Statistical Area
+45035	16700	Charleston-North Charleston, SC	Metropolitan Statistical Area
+45037	12260	Augusta-Richmond County, GA-SC	Metropolitan Statistical Area
+45039	17900	Columbia, SC	Metropolitan Statistical Area
+45041	22500	Florence, SC	Metropolitan Statistical Area
+45043	34680	Murrells Inlet, SC	Micropolitan Statistical Area
+45045	24860	Greenville-Anderson-Greer, SC	Metropolitan Statistical Area
+45047	24940	Greenwood, SC	Micropolitan Statistical Area
+45051	34820	Myrtle Beach-Conway-North Myrtle Beach, SC	Metropolitan Statistical Area
+45053	25940	Hilton Head Island-Bluffton-Port Royal, SC	Metropolitan Statistical Area
+45055	17900	Columbia, SC	Metropolitan Statistical Area
+45057	16740	Charlotte-Concord-Gastonia, NC-SC	Metropolitan Statistical Area
+45059	24860	Greenville-Anderson-Greer, SC	Metropolitan Statistical Area
+45063	17900	Columbia, SC	Metropolitan Statistical Area
+45071	35140	Newberry, SC	Micropolitan Statistical Area
+45073	42860	Seneca, SC	Micropolitan Statistical Area
+45075	36700	Orangeburg, SC	Micropolitan Statistical Area
+45077	24860	Greenville-Anderson-Greer, SC	Metropolitan Statistical Area
+45079	17900	Columbia, SC	Metropolitan Statistical Area
+45081	17900	Columbia, SC	Metropolitan Statistical Area
+45083	43900	Spartanburg, SC	Metropolitan Statistical Area
+45085	44940	Sumter, SC	Metropolitan Statistical Area
+45087	43900	Spartanburg, SC	Metropolitan Statistical Area
+45091	16740	Charlotte-Concord-Gastonia, NC-SC	Metropolitan Statistical Area
+46005	26700	Huron, SD	Micropolitan Statistical Area
+46011	15100	Brookings, SD	Micropolitan Statistical Area
+46013	10100	Aberdeen, SD	Micropolitan Statistical Area
+46027	46820	Vermillion, SD	Micropolitan Statistical Area
+46029	47980	Watertown, SD	Micropolitan Statistical Area
+46033	39660	Rapid City, SD	Metropolitan Statistical Area
+46035	33580	Mitchell, SD	Micropolitan Statistical Area
+46045	10100	Aberdeen, SD	Micropolitan Statistical Area
+46061	33580	Mitchell, SD	Micropolitan Statistical Area
+46065	38180	Pierre, SD	Micropolitan Statistical Area
+46081	43940	Spearfish, SD	Micropolitan Statistical Area
+46083	43620	Sioux Falls, SD-MN	Metropolitan Statistical Area
+46087	43620	Sioux Falls, SD-MN	Metropolitan Statistical Area
+46093	39660	Rapid City, SD	Metropolitan Statistical Area
+46099	43620	Sioux Falls, SD-MN	Metropolitan Statistical Area
+46103	39660	Rapid City, SD	Metropolitan Statistical Area
+46111	33580	Mitchell, SD	Micropolitan Statistical Area
+46117	38180	Pierre, SD	Micropolitan Statistical Area
+46125	43620	Sioux Falls, SD-MN	Metropolitan Statistical Area
+46127	43580	Sioux City, IA-NE-SD	Metropolitan Statistical Area
+46135	49460	Yankton, SD	Micropolitan Statistical Area
+47001	28940	Knoxville, TN	Metropolitan Statistical Area
+47003	43180	Shelbyville, TN	Micropolitan Statistical Area
+47009	28940	Knoxville, TN	Metropolitan Statistical Area
+47011	17420	Cleveland, TN	Metropolitan Statistical Area
+47013	28940	Knoxville, TN	Metropolitan Statistical Area
+47015	34980	Nashville-Davidson--Murfreesboro--Franklin, TN	Metropolitan Statistical Area
+47019	27740	Johnson City, TN	Metropolitan Statistical Area
+47021	34980	Nashville-Davidson--Murfreesboro--Franklin, TN	Metropolitan Statistical Area
+47023	27180	Jackson, TN	Metropolitan Statistical Area
+47029	35460	Newport, TN	Micropolitan Statistical Area
+47031	46100	Tullahoma-Manchester, TN	Micropolitan Statistical Area
+47033	27180	Jackson, TN	Metropolitan Statistical Area
+47035	18900	Crossville, TN	Micropolitan Statistical Area
+47037	34980	Nashville-Davidson--Murfreesboro--Franklin, TN	Metropolitan Statistical Area
+47043	34980	Nashville-Davidson--Murfreesboro--Franklin, TN	Metropolitan Statistical Area
+47045	20540	Dyersburg, TN	Micropolitan Statistical Area
+47047	32820	Memphis, TN-MS-AR	Metropolitan Statistical Area
+47051	49010	Winchester, TN	Micropolitan Statistical Area
+47053	27180	Jackson, TN	Metropolitan Statistical Area
+47057	28940	Knoxville, TN	Metropolitan Statistical Area
+47059	24620	Greeneville, TN	Micropolitan Statistical Area
+47063	34100	Morristown, TN	Metropolitan Statistical Area
+47065	16860	Chattanooga, TN-GA	Metropolitan Statistical Area
+47073	28700	Kingsport-Bristol, TN-VA	Metropolitan Statistical Area
+47079	37540	Paris, TN	Micropolitan Statistical Area
+47081	34980	Nashville-Davidson--Murfreesboro--Franklin, TN	Metropolitan Statistical Area
+47087	18260	Cookeville, TN	Micropolitan Statistical Area
+47089	34100	Morristown, TN	Metropolitan Statistical Area
+47093	28940	Knoxville, TN	Metropolitan Statistical Area
+47099	29980	Lawrenceburg, TN	Micropolitan Statistical Area
+47103	22190	Fayetteville, TN	Micropolitan Statistical Area
+47105	28940	Knoxville, TN	Metropolitan Statistical Area
+47107	11940	Athens, TN	Micropolitan Statistical Area
+47111	34980	Nashville-Davidson--Murfreesboro--Franklin, TN	Metropolitan Statistical Area
+47113	27180	Jackson, TN	Metropolitan Statistical Area
+47115	16860	Chattanooga, TN-GA	Metropolitan Statistical Area
+47117	30280	Lewisburg, TN	Micropolitan Statistical Area
+47119	34980	Nashville-Davidson--Murfreesboro--Franklin, TN	Metropolitan Statistical Area
+47121	11940	Athens, TN	Micropolitan Statistical Area
+47125	17300	Clarksville, TN-KY	Metropolitan Statistical Area
+47127	46100	Tullahoma-Manchester, TN	Micropolitan Statistical Area
+47129	28940	Knoxville, TN	Metropolitan Statistical Area
+47131	46460	Union City, TN	Micropolitan Statistical Area
+47133	18260	Cookeville, TN	Micropolitan Statistical Area
+47139	17420	Cleveland, TN	Metropolitan Statistical Area
+47141	18260	Cookeville, TN	Micropolitan Statistical Area
+47145	28940	Knoxville, TN	Metropolitan Statistical Area
+47147	34980	Nashville-Davidson--Murfreesboro--Franklin, TN	Metropolitan Statistical Area
+47149	34980	Nashville-Davidson--Murfreesboro--Franklin, TN	Metropolitan Statistical Area
+47153	16860	Chattanooga, TN-GA	Metropolitan Statistical Area
+47155	42940	Sevierville, TN	Micropolitan Statistical Area
+47157	32820	Memphis, TN-MS-AR	Metropolitan Statistical Area
+47159	34980	Nashville-Davidson--Murfreesboro--Franklin, TN	Metropolitan Statistical Area
+47161	17300	Clarksville, TN-KY	Metropolitan Statistical Area
+47163	28700	Kingsport-Bristol, TN-VA	Metropolitan Statistical Area
+47165	34980	Nashville-Davidson--Murfreesboro--Franklin, TN	Metropolitan Statistical Area
+47167	32820	Memphis, TN-MS-AR	Metropolitan Statistical Area
+47169	34980	Nashville-Davidson--Murfreesboro--Franklin, TN	Metropolitan Statistical Area
+47171	27740	Johnson City, TN	Metropolitan Statistical Area
+47173	28940	Knoxville, TN	Metropolitan Statistical Area
+47177	32660	McMinnville, TN	Micropolitan Statistical Area
+47179	27740	Johnson City, TN	Metropolitan Statistical Area
+47183	32280	Martin, TN	Micropolitan Statistical Area
+47185	18260	Cookeville, TN	Micropolitan Statistical Area
+47187	34980	Nashville-Davidson--Murfreesboro--Franklin, TN	Metropolitan Statistical Area
+47189	34980	Nashville-Davidson--Murfreesboro--Franklin, TN	Metropolitan Statistical Area
+48001	37300	Palestine, TX	Micropolitan Statistical Area
+48003	11380	Andrews, TX	Micropolitan Statistical Area
+48005	31260	Lufkin, TX	Micropolitan Statistical Area
+48007	18580	Corpus Christi, TX	Metropolitan Statistical Area
+48009	48660	Wichita Falls, TX	Metropolitan Statistical Area
+48011	11100	Amarillo, TX	Metropolitan Statistical Area
+48013	41700	San Antonio-New Braunfels, TX	Metropolitan Statistical Area
+48015	26420	Houston-Pasadena-The Woodlands, TX	Metropolitan Statistical Area
+48019	41700	San Antonio-New Braunfels, TX	Metropolitan Statistical Area
+48021	12420	Austin-Round Rock-San Marcos, TX	Metropolitan Statistical Area
+48025	13300	Beeville, TX	Micropolitan Statistical Area
+48027	28660	Killeen-Temple, TX	Metropolitan Statistical Area
+48029	41700	San Antonio-New Braunfels, TX	Metropolitan Statistical Area
+48035	47380	Waco, TX	Metropolitan Statistical Area
+48037	45500	Texarkana, TX-AR	Metropolitan Statistical Area
+48039	26420	Houston-Pasadena-The Woodlands, TX	Metropolitan Statistical Area
+48041	17780	College Station-Bryan, TX	Metropolitan Statistical Area
+48047	10860	Alice, TX	Micropolitan Statistical Area
+48049	15220	Brownwood, TX	Micropolitan Statistical Area
+48051	17780	College Station-Bryan, TX	Metropolitan Statistical Area
+48055	12420	Austin-Round Rock-San Marcos, TX	Metropolitan Statistical Area
+48057	38920	Port Lavaca, TX	Micropolitan Statistical Area
+48059	10180	Abilene, TX	Metropolitan Statistical Area
+48061	15180	Brownsville-Harlingen, TX	Metropolitan Statistical Area
+48063	34420	Mount Pleasant, TX	Micropolitan Statistical Area
+48065	11100	Amarillo, TX	Metropolitan Statistical Area
+48071	26420	Houston-Pasadena-The Woodlands, TX	Metropolitan Statistical Area
+48073	27380	Jacksonville, TX	Micropolitan Statistical Area
+48077	48660	Wichita Falls, TX	Metropolitan Statistical Area
+48079	31180	Lubbock, TX	Metropolitan Statistical Area
+48085	19100	Dallas-Fort Worth-Arlington, TX	Metropolitan Statistical Area
+48091	41700	San Antonio-New Braunfels, TX	Metropolitan Statistical Area
+48097	23620	Gainesville, TX	Micropolitan Statistical Area
+48099	28660	Killeen-Temple, TX	Metropolitan Statistical Area
+48107	31180	Lubbock, TX	Metropolitan Statistical Area
+48113	19100	Dallas-Fort Worth-Arlington, TX	Metropolitan Statistical Area
+48117	25820	Hereford, TX	Micropolitan Statistical Area
+48121	19100	Dallas-Fort Worth-Arlington, TX	Metropolitan Statistical Area
+48135	36220	Odessa, TX	Metropolitan Statistical Area
+48139	19100	Dallas-Fort Worth-Arlington, TX	Metropolitan Statistical Area
+48141	21340	El Paso, TX	Metropolitan Statistical Area
+48143	44500	Stephenville, TX	Micropolitan Statistical Area
+48145	47380	Waco, TX	Metropolitan Statistical Area
+48147	14300	Bonham, TX	Micropolitan Statistical Area
+48153	38380	Plainview, TX	Micropolitan Statistical Area
+48157	26420	Houston-Pasadena-The Woodlands, TX	Metropolitan Statistical Area
+48167	26420	Houston-Pasadena-The Woodlands, TX	Metropolitan Statistical Area
+48169	31180	Lubbock, TX	Metropolitan Statistical Area
+48171	23240	Fredericksburg, TX	Micropolitan Statistical Area
+48175	47020	Victoria, TX	Metropolitan Statistical Area
+48179	37420	Pampa, TX	Micropolitan Statistical Area
+48181	43300	Sherman-Denison, TX	Metropolitan Statistical Area
+48183	30980	Longview, TX	Metropolitan Statistical Area
+48187	41700	San Antonio-New Braunfels, TX	Metropolitan Statistical Area
+48189	38380	Plainview, TX	Micropolitan Statistical Area
+48199	13140	Beaumont-Port Arthur, TX	Metropolitan Statistical Area
+48201	26420	Houston-Pasadena-The Woodlands, TX	Metropolitan Statistical Area
+48203	30980	Longview, TX	Metropolitan Statistical Area
+48209	12420	Austin-Round Rock-San Marcos, TX	Metropolitan Statistical Area
+48213	11980	Athens, TX	Micropolitan Statistical Area
+48215	32580	McAllen-Edinburg-Mission, TX	Metropolitan Statistical Area
+48219	31180	Lubbock, TX	Metropolitan Statistical Area
+48221	24180	Granbury, TX	Micropolitan Statistical Area
+48223	44860	Sulphur Springs, TX	Micropolitan Statistical Area
+48227	13700	Big Spring, TX	Micropolitan Statistical Area
+48229	21340	El Paso, TX	Metropolitan Statistical Area
+48231	19100	Dallas-Fort Worth-Arlington, TX	Metropolitan Statistical Area
+48233	14420	Borger, TX	Micropolitan Statistical Area
+48235	41660	San Angelo, TX	Metropolitan Statistical Area
+48245	13140	Beaumont-Port Arthur, TX	Metropolitan Statistical Area
+48249	10860	Alice, TX	Micropolitan Statistical Area
+48251	19100	Dallas-Fort Worth-Arlington, TX	Metropolitan Statistical Area
+48253	10180	Abilene, TX	Metropolitan Statistical Area
+48257	19100	Dallas-Fort Worth-Arlington, TX	Metropolitan Statistical Area
+48259	41700	San Antonio-New Braunfels, TX	Metropolitan Statistical Area
+48265	28500	Kerrville, TX	Micropolitan Statistical Area
+48273	28780	Kingsville, TX	Micropolitan Statistical Area
+48277	37580	Paris, TX	Micropolitan Statistical Area
+48281	28660	Killeen-Temple, TX	Metropolitan Statistical Area
+48291	26420	Houston-Pasadena-The Woodlands, TX	Metropolitan Statistical Area
+48303	31180	Lubbock, TX	Metropolitan Statistical Area
+48305	31180	Lubbock, TX	Metropolitan Statistical Area
+48309	47380	Waco, TX	Metropolitan Statistical Area
+48317	33260	Midland, TX	Metropolitan Statistical Area
+48321	13060	Bay City, TX	Micropolitan Statistical Area
+48323	20580	Eagle Pass, TX	Metropolitan Statistical Area
+48325	41700	San Antonio-New Braunfels, TX	Metropolitan Statistical Area
+48329	33260	Midland, TX	Metropolitan Statistical Area
+48339	26420	Houston-Pasadena-The Woodlands, TX	Metropolitan Statistical Area
+48341	20300	Dumas, TX	Micropolitan Statistical Area
+48343	34420	Mount Pleasant, TX	Micropolitan Statistical Area
+48347	34860	Nacogdoches, TX	Micropolitan Statistical Area
+48349	18620	Corsicana, TX	Micropolitan Statistical Area
+48353	45020	Sweetwater, TX	Micropolitan Statistical Area
+48355	18580	Corpus Christi, TX	Metropolitan Statistical Area
+48359	11100	Amarillo, TX	Metropolitan Statistical Area
+48361	13140	Beaumont-Port Arthur, TX	Metropolitan Statistical Area
+48363	33420	Mineral Wells, TX	Micropolitan Statistical Area
+48367	19100	Dallas-Fort Worth-Arlington, TX	Metropolitan Statistical Area
+48375	11100	Amarillo, TX	Metropolitan Statistical Area
+48381	11100	Amarillo, TX	Metropolitan Statistical Area
+48387	37580	Paris, TX	Micropolitan Statistical Area
+48389	45880	Town of Pecos, TX	Micropolitan Statistical Area
+48393	37420	Pampa, TX	Micropolitan Statistical Area
+48395	17780	College Station-Bryan, TX	Metropolitan Statistical Area
+48397	19100	Dallas-Fort Worth-Arlington, TX	Metropolitan Statistical Area
+48401	30980	Longview, TX	Metropolitan Statistical Area
+48407	26420	Houston-Pasadena-The Woodlands, TX	Metropolitan Statistical Area
+48409	18580	Corpus Christi, TX	Metropolitan Statistical Area
+48415	43660	Snyder, TX	Micropolitan Statistical Area
+48423	46340	Tyler, TX	Metropolitan Statistical Area
+48427	40100	Rio Grande City-Roma, TX	Micropolitan Statistical Area
+48439	19100	Dallas-Fort Worth-Arlington, TX	Metropolitan Statistical Area
+48441	10180	Abilene, TX	Metropolitan Statistical Area
+48449	34420	Mount Pleasant, TX	Micropolitan Statistical Area
+48451	41660	San Angelo, TX	Metropolitan Statistical Area
+48453	12420	Austin-Round Rock-San Marcos, TX	Metropolitan Statistical Area
+48459	30980	Longview, TX	Metropolitan Statistical Area
+48463	46620	Uvalde, TX	Micropolitan Statistical Area
+48465	19620	Del Rio, TX	Micropolitan Statistical Area
+48469	47020	Victoria, TX	Metropolitan Statistical Area
+48471	26660	Huntsville, TX	Micropolitan Statistical Area
+48473	26420	Houston-Pasadena-The Woodlands, TX	Metropolitan Statistical Area
+48477	14780	Brenham, TX	Micropolitan Statistical Area
+48479	29700	Laredo, TX	Metropolitan Statistical Area
+48481	20900	El Campo, TX	Micropolitan Statistical Area
+48485	48660	Wichita Falls, TX	Metropolitan Statistical Area
+48487	46900	Vernon, TX	Micropolitan Statistical Area
+48489	39700	Raymondville, TX	Micropolitan Statistical Area
+48491	12420	Austin-Round Rock-San Marcos, TX	Metropolitan Statistical Area
+48493	41700	San Antonio-New Braunfels, TX	Metropolitan Statistical Area
+48497	19100	Dallas-Fort Worth-Arlington, TX	Metropolitan Statistical Area
+48505	49820	Zapata, TX	Micropolitan Statistical Area
+49003	14940	Brigham City, UT-ID	Micropolitan Statistical Area
+49005	30860	Logan, UT-ID	Metropolitan Statistical Area
+49007	39220	Price, UT	Micropolitan Statistical Area
+49011	36260	Ogden, UT	Metropolitan Statistical Area
+49021	16260	Cedar City, UT	Micropolitan Statistical Area
+49023	39340	Provo-Orem-Lehi, UT	Metropolitan Statistical Area
+49029	36260	Ogden, UT	Metropolitan Statistical Area
+49033	21740	Evanston, WY-UT	Micropolitan Statistical Area
+49035	41620	Salt Lake City-Murray, UT	Metropolitan Statistical Area
+49043	25720	Heber, UT	Micropolitan Statistical Area
+49045	41620	Salt Lake City-Murray, UT	Metropolitan Statistical Area
+49047	46860	Vernal, UT	Micropolitan Statistical Area
+49049	39340	Provo-Orem-Lehi, UT	Metropolitan Statistical Area
+49051	25720	Heber, UT	Micropolitan Statistical Area
+49053	41100	St. George, UT	Metropolitan Statistical Area
+49057	36260	Ogden, UT	Metropolitan Statistical Area
+50003	13540	Bennington, VT	Micropolitan Statistical Area
+50007	15540	Burlington-South Burlington, VT	Metropolitan Statistical Area
+50011	15540	Burlington-South Burlington, VT	Metropolitan Statistical Area
+50013	15540	Burlington-South Burlington, VT	Metropolitan Statistical Area
+50017	30150	Lebanon-Claremont, NH-VT	Micropolitan Statistical Area
+50021	40860	Rutland, VT	Micropolitan Statistical Area
+50023	12740	Barre, VT	Micropolitan Statistical Area
+50025	14710	Brattleboro, VT	Micropolitan Statistical Area
+50027	30150	Lebanon-Claremont, NH-VT	Micropolitan Statistical Area
+51003	16820	Charlottesville, VA	Metropolitan Statistical Area
+51007	40060	Richmond, VA	Metropolitan Statistical Area
+51009	31340	Lynchburg, VA	Metropolitan Statistical Area
+51011	31340	Lynchburg, VA	Metropolitan Statistical Area
+51013	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51015	44420	Staunton-Stuarts Draft, VA	Metropolitan Statistical Area
+51019	31340	Lynchburg, VA	Metropolitan Statistical Area
+51023	40220	Roanoke, VA	Metropolitan Statistical Area
+51031	31340	Lynchburg, VA	Metropolitan Statistical Area
+51036	40060	Richmond, VA	Metropolitan Statistical Area
+51041	40060	Richmond, VA	Metropolitan Statistical Area
+51043	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51045	40220	Roanoke, VA	Metropolitan Statistical Area
+51047	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51053	40060	Richmond, VA	Metropolitan Statistical Area
+51059	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51061	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51063	13980	Blacksburg-Christiansburg-Radford, VA	Metropolitan Statistical Area
+51065	16820	Charlottesville, VA	Metropolitan Statistical Area
+51067	40220	Roanoke, VA	Metropolitan Statistical Area
+51069	49020	Winchester, VA-WV	Metropolitan Statistical Area
+51071	13980	Blacksburg-Christiansburg-Radford, VA	Metropolitan Statistical Area
+51073	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51075	40060	Richmond, VA	Metropolitan Statistical Area
+51079	16820	Charlottesville, VA	Metropolitan Statistical Area
+51085	40060	Richmond, VA	Metropolitan Statistical Area
+51087	40060	Richmond, VA	Metropolitan Statistical Area
+51089	32300	Martinsville, VA	Micropolitan Statistical Area
+51093	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51095	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51097	40060	Richmond, VA	Metropolitan Statistical Area
+51101	40060	Richmond, VA	Metropolitan Statistical Area
+51107	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51115	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51121	13980	Blacksburg-Christiansburg-Radford, VA	Metropolitan Statistical Area
+51125	16820	Charlottesville, VA	Metropolitan Statistical Area
+51127	40060	Richmond, VA	Metropolitan Statistical Area
+51137	29470	Lake of the Woods, VA	Micropolitan Statistical Area
+51143	19260	Danville, VA	Micropolitan Statistical Area
+51145	40060	Richmond, VA	Metropolitan Statistical Area
+51149	40060	Richmond, VA	Metropolitan Statistical Area
+51153	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51155	13980	Blacksburg-Christiansburg-Radford, VA	Metropolitan Statistical Area
+51157	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51161	40220	Roanoke, VA	Metropolitan Statistical Area
+51165	25500	Harrisonburg, VA	Metropolitan Statistical Area
+51169	28700	Kingsport-Bristol, TN-VA	Metropolitan Statistical Area
+51177	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51179	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51181	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51183	40060	Richmond, VA	Metropolitan Statistical Area
+51185	14140	Bluefield, WV-VA	Micropolitan Statistical Area
+51187	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51191	28700	Kingsport-Bristol, TN-VA	Metropolitan Statistical Area
+51199	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51510	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51520	28700	Kingsport-Bristol, TN-VA	Metropolitan Statistical Area
+51540	16820	Charlottesville, VA	Metropolitan Statistical Area
+51550	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51570	40060	Richmond, VA	Metropolitan Statistical Area
+51590	19260	Danville, VA	Micropolitan Statistical Area
+51600	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51610	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51630	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51650	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51660	25500	Harrisonburg, VA	Metropolitan Statistical Area
+51670	40060	Richmond, VA	Metropolitan Statistical Area
+51680	31340	Lynchburg, VA	Metropolitan Statistical Area
+51683	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51685	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+51690	32300	Martinsville, VA	Micropolitan Statistical Area
+51700	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51710	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51730	40060	Richmond, VA	Metropolitan Statistical Area
+51735	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51740	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51750	13980	Blacksburg-Christiansburg-Radford, VA	Metropolitan Statistical Area
+51760	40060	Richmond, VA	Metropolitan Statistical Area
+51770	40220	Roanoke, VA	Metropolitan Statistical Area
+51775	40220	Roanoke, VA	Metropolitan Statistical Area
+51790	44420	Staunton-Stuarts Draft, VA	Metropolitan Statistical Area
+51800	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51810	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51820	44420	Staunton-Stuarts Draft, VA	Metropolitan Statistical Area
+51830	47260	Virginia Beach-Chesapeake-Norfolk, VA-NC	Metropolitan Statistical Area
+51840	49020	Winchester, VA-WV	Metropolitan Statistical Area
+53001	36830	Othello, WA	Micropolitan Statistical Area
+53003	30300	Lewiston, ID-WA	Metropolitan Statistical Area
+53005	28420	Kennewick-Richland, WA	Metropolitan Statistical Area
+53007	48300	Wenatchee-East Wenatchee, WA	Metropolitan Statistical Area
+53009	38820	Port Angeles, WA	Micropolitan Statistical Area
+53011	38900	Portland-Vancouver-Hillsboro, OR-WA	Metropolitan Statistical Area
+53015	31020	Longview-Kelso, WA	Metropolitan Statistical Area
+53017	48300	Wenatchee-East Wenatchee, WA	Metropolitan Statistical Area
+53021	28420	Kennewick-Richland, WA	Metropolitan Statistical Area
+53025	34180	Moses Lake, WA	Micropolitan Statistical Area
+53027	10140	Aberdeen, WA	Micropolitan Statistical Area
+53029	36020	Oak Harbor, WA	Micropolitan Statistical Area
+53031	39040	Port Townsend, WA	Micropolitan Statistical Area
+53033	42660	Seattle-Tacoma-Bellevue, WA	Metropolitan Statistical Area
+53035	14740	Bremerton-Silverdale-Port Orchard, WA	Metropolitan Statistical Area
+53037	21260	Ellensburg, WA	Micropolitan Statistical Area
+53041	16500	Centralia, WA	Micropolitan Statistical Area
+53045	43220	Shelton, WA	Micropolitan Statistical Area
+53053	42660	Seattle-Tacoma-Bellevue, WA	Metropolitan Statistical Area
+53057	34580	Mount Vernon-Anacortes, WA	Metropolitan Statistical Area
+53059	38900	Portland-Vancouver-Hillsboro, OR-WA	Metropolitan Statistical Area
+53061	42660	Seattle-Tacoma-Bellevue, WA	Metropolitan Statistical Area
+53063	44060	Spokane-Spokane Valley, WA	Metropolitan Statistical Area
+53065	44060	Spokane-Spokane Valley, WA	Metropolitan Statistical Area
+53067	36500	Olympia-Lacey-Tumwater, WA	Metropolitan Statistical Area
+53071	47460	Walla Walla, WA	Metropolitan Statistical Area
+53073	13380	Bellingham, WA	Metropolitan Statistical Area
+53075	39420	Pullman, WA	Micropolitan Statistical Area
+53077	49420	Yakima, WA	Metropolitan Statistical Area
+54003	25180	Hagerstown-Martinsburg, MD-WV	Metropolitan Statistical Area
+54005	16620	Charleston, WV	Metropolitan Statistical Area
+54009	48260	Weirton-Steubenville, WV-OH	Metropolitan Statistical Area
+54011	26580	Huntington-Ashland, WV-KY-OH	Metropolitan Statistical Area
+54015	16620	Charleston, WV	Metropolitan Statistical Area
+54017	17220	Clarksburg, WV	Micropolitan Statistical Area
+54019	13220	Beckley, WV	Metropolitan Statistical Area
+54027	49020	Winchester, VA-WV	Metropolitan Statistical Area
+54029	48260	Weirton-Steubenville, WV-OH	Metropolitan Statistical Area
+54033	17220	Clarksburg, WV	Micropolitan Statistical Area
+54037	47900	Washington-Arlington-Alexandria, DC-VA-MD-WV	Metropolitan Statistical Area
+54039	16620	Charleston, WV	Metropolitan Statistical Area
+54049	21900	Fairmont, WV	Micropolitan Statistical Area
+54051	48540	Wheeling, WV-OH	Metropolitan Statistical Area
+54055	14140	Bluefield, WV-VA	Micropolitan Statistical Area
+54057	19060	Cumberland, MD-WV	Micropolitan Statistical Area
+54061	34060	Morgantown, WV	Metropolitan Statistical Area
+54065	25180	Hagerstown-Martinsburg, MD-WV	Metropolitan Statistical Area
+54069	48540	Wheeling, WV-OH	Metropolitan Statistical Area
+54077	34060	Morgantown, WV	Metropolitan Statistical Area
+54079	26580	Huntington-Ashland, WV-KY-OH	Metropolitan Statistical Area
+54081	13220	Beckley, WV	Metropolitan Statistical Area
+54083	21180	Elkins, WV	Micropolitan Statistical Area
+54091	17220	Clarksburg, WV	Micropolitan Statistical Area
+54099	26580	Huntington-Ashland, WV-KY-OH	Metropolitan Statistical Area
+54105	37620	Parkersburg-Vienna, WV	Metropolitan Statistical Area
+54107	37620	Parkersburg-Vienna, WV	Metropolitan Statistical Area
+55005	39960	Rice Lake, WI	Micropolitan Statistical Area
+55009	24580	Green Bay, WI	Metropolitan Statistical Area
+55015	11540	Appleton, WI	Metropolitan Statistical Area
+55017	20740	Eau Claire, WI	Metropolitan Statistical Area
+55021	31540	Madison, WI	Metropolitan Statistical Area
+55025	31540	Madison, WI	Metropolitan Statistical Area
+55027	13180	Beaver Dam, WI	Micropolitan Statistical Area
+55031	20260	Duluth, MN-WI	Metropolitan Statistical Area
+55033	32860	Menomonie, WI	Micropolitan Statistical Area
+55035	20740	Eau Claire, WI	Metropolitan Statistical Area
+55037	27020	Iron Mountain, MI-WI	Micropolitan Statistical Area
+55039	22540	Fond du Lac, WI	Metropolitan Statistical Area
+55043	38420	Platteville, WI	Micropolitan Statistical Area
+55045	31540	Madison, WI	Metropolitan Statistical Area
+55049	31540	Madison, WI	Metropolitan Statistical Area
+55055	48020	Watertown-Fort Atkinson, WI	Micropolitan Statistical Area
+55059	28450	Kenosha, WI	Metropolitan Statistical Area
+55061	24580	Green Bay, WI	Metropolitan Statistical Area
+55063	29100	La Crosse-Onalaska, WI-MN	Metropolitan Statistical Area
+55071	31820	Manitowoc, WI	Micropolitan Statistical Area
+55073	48140	Wausau, WI	Metropolitan Statistical Area
+55075	31940	Marinette, WI-MI	Micropolitan Statistical Area
+55078	43020	Shawano, WI	Micropolitan Statistical Area
+55079	33340	Milwaukee-Waukesha, WI	Metropolitan Statistical Area
+55081	43890	Sparta, WI	Micropolitan Statistical Area
+55083	24580	Green Bay, WI	Metropolitan Statistical Area
+55087	11540	Appleton, WI	Metropolitan Statistical Area
+55089	33340	Milwaukee-Waukesha, WI	Metropolitan Statistical Area
+55093	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+55097	44620	Stevens Point-Plover, WI	Micropolitan Statistical Area
+55101	39540	Racine-Mount Pleasant, WI	Metropolitan Statistical Area
+55105	27500	Janesville-Beloit, WI	Metropolitan Statistical Area
+55109	33460	Minneapolis-St. Paul-Bloomington, MN-WI	Metropolitan Statistical Area
+55111	12660	Baraboo, WI	Micropolitan Statistical Area
+55115	43020	Shawano, WI	Micropolitan Statistical Area
+55117	43100	Sheboygan, WI	Metropolitan Statistical Area
+55123	29100	La Crosse-Onalaska, WI-MN	Metropolitan Statistical Area
+55127	48580	Whitewater-Elkhorn, WI	Micropolitan Statistical Area
+55131	33340	Milwaukee-Waukesha, WI	Metropolitan Statistical Area
+55133	33340	Milwaukee-Waukesha, WI	Metropolitan Statistical Area
+55139	36780	Oshkosh-Neenah, WI	Metropolitan Statistical Area
+55141	49220	Wisconsin Rapids-Marshfield, WI	Micropolitan Statistical Area
+56001	29660	Laramie, WY	Micropolitan Statistical Area
+56005	23940	Gillette, WY	Micropolitan Statistical Area
+56013	40180	Riverton, WY	Micropolitan Statistical Area
+56021	16940	Cheyenne, WY	Metropolitan Statistical Area
+56025	16220	Casper, WY	Metropolitan Statistical Area
+56029	17650	Cody, WY	Micropolitan Statistical Area
+56033	43260	Sheridan, WY	Micropolitan Statistical Area
+56037	40540	Rock Springs, WY	Micropolitan Statistical Area
+56039	27220	Jackson, WY-ID	Micropolitan Statistical Area
+56041	21740	Evanston, WY-UT	Micropolitan Statistical Area
+72003	10380	Aguadilla, PR	Metropolitan Statistical Area
+72005	10380	Aguadilla, PR	Metropolitan Statistical Area
+72007	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72009	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72011	10380	Aguadilla, PR	Metropolitan Statistical Area
+72013	11640	Arecibo, PR	Metropolitan Statistical Area
+72015	25020	Guayama, PR	Metropolitan Statistical Area
+72017	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72019	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72021	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72023	32420	Mayagüez, PR	Metropolitan Statistical Area
+72025	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72027	11640	Arecibo, PR	Metropolitan Statistical Area
+72029	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72031	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72033	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72035	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72037	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72039	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72041	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72043	17620	Coamo, PR	Micropolitan Statistical Area
+72045	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72047	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72051	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72053	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72054	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72057	25020	Guayama, PR	Metropolitan Statistical Area
+72059	38660	Ponce, PR	Metropolitan Statistical Area
+72061	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72063	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72065	11640	Arecibo, PR	Metropolitan Statistical Area
+72067	32420	Mayagüez, PR	Metropolitan Statistical Area
+72069	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72071	10380	Aguadilla, PR	Metropolitan Statistical Area
+72075	38660	Ponce, PR	Metropolitan Statistical Area
+72077	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72079	32420	Mayagüez, PR	Metropolitan Statistical Area
+72081	29720	Lares, PR	Micropolitan Statistical Area
+72085	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72087	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72089	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72091	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72095	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72097	32420	Mayagüez, PR	Metropolitan Statistical Area
+72099	10380	Aguadilla, PR	Metropolitan Statistical Area
+72101	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72103	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72105	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72107	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72109	25020	Guayama, PR	Metropolitan Statistical Area
+72111	38660	Ponce, PR	Metropolitan Statistical Area
+72113	38660	Ponce, PR	Metropolitan Statistical Area
+72115	11640	Arecibo, PR	Metropolitan Statistical Area
+72117	10380	Aguadilla, PR	Metropolitan Statistical Area
+72119	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72121	32420	Mayagüez, PR	Metropolitan Statistical Area
+72123	17640	Coco, PR	Micropolitan Statistical Area
+72125	32420	Mayagüez, PR	Metropolitan Statistical Area
+72127	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72129	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72131	10380	Aguadilla, PR	Metropolitan Statistical Area
+72133	17620	Coamo, PR	Micropolitan Statistical Area
+72135	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72137	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72139	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72141	46580	Utuado, PR	Micropolitan Statistical Area
+72143	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72145	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72149	38660	Ponce, PR	Metropolitan Statistical Area
+72151	41980	San Juan-Bayamón-Caguas, PR	Metropolitan Statistical Area
+72153	38660	Ponce, PR	Metropolitan Statistical Area

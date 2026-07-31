@@ -57,13 +57,44 @@ an optional `data/geo/dma_by_county.tsv` (columns: `county_fips`, `dma_code`,
 source lands, DMA becomes a **data-only commit** — no code change, no schema change, no
 redeploy of the resolver logic.
 
+## Update 2026-07-31 (later same day): free metro-area substitute shipped, real vendor pricing checked
+
+**Census CBSA (metro/micro area) shipped as a free substitute** — `data/geo/cbsa_by_county.tsv`,
+built from the Census/OMB delineation file, joined onto the same `county_fips` every
+location already resolves to. Every resolved US location now carries an optional
+`cbsa_title` (e.g. "Houston-Pasadena-The Woodlands, TX"), surfaced in the wizard as
+"Metro area (Census): …", labeled by source so it is never mistaken for a licensed
+product. This is **not** a DMA equivalent — CBSA is a coarser, county-level Census
+classification (1,915 counties join to a metro/micro area; rural counties legitimately
+have none) — but it answers most of what clients mean by "metro-level targeting" today,
+for $0 and with unambiguous public-domain provenance.
+
+**Real-world DMA-alternative pricing, checked via public search — no vendor contacted,
+no quote requested, nothing purchased:**
+
+| Vendor | What it is | Public pricing found |
+|---|---|---|
+| ZipInfo.com (Melissa) "ZIP5 Market Area" | Its own proprietary 280-region taxonomy — **not** Nielsen's 210 DMAs, not TV/radio-viewership-based | Yes: $41.95–$104.95 one-time, or $251.95–$628.95/yr enterprise |
+| Claritas PRIZM | Consumer lifestyle segmentation — not a county/ZIP→market-area crosswalk, doesn't substitute for DMA geography | Yes: $109–199/report, or "from $1,645/yr" |
+| comScore Markets | The real Nielsen-DMA equivalent — 210 ZIP-based local markets; this is what Meta is adopting as its own DMA replacement | **No public price.** Contact-sales only; license terms bar resale/redistribution |
+| Neustar/TransUnion geo APIs | — | No public pricing found anywhere |
+| Alteryx geocoder/market-area add-ons | — | Gated behind a Designer license + sales page; no public figure |
+
+**Conclusion: nothing that is actually DMA-equivalent has public pricing.** The two
+products with a real, self-serve price (ZipInfo, Claritas) are both adjacent products
+with different region definitions, not substitutes for DMA geography. comScore Markets —
+the one product that genuinely replaces Nielsen DMA — is enterprise-contract-only with
+no disclosed floor. This confirms the standing conclusion below: Census CBSA remains the
+only verified sub-$5k, non-proprietary option, and it is now shipped.
+
 ## The decision to take to legal/procurement
 
-1. Do we want to license Nielsen DMA definitions for use in client-facing media plans?
-   Nielsen licenses this data commercially; we have not requested pricing.
-2. If not, is there an alternative market taxonomy we already have rights to — for
-   example the Census CBSA/metro-area definitions, which are public domain and cover
-   substantially the same planning need for most clients?
+1. Do we want to license Nielsen DMA definitions (or the comScore Markets equivalent) for
+   use in client-facing media plans? Both are commercial, contact-sales-only products;
+   we have not requested pricing and this document does not authorize doing so.
+2. Given free Census CBSA now covers the metro-grouping need for most clients (shipped
+   2026-07-31), is a paid DMA/comScore license still worth pursuing, or does CBSA close
+   the gap well enough that this stays parked indefinitely?
 3. If a client supplies their own licensed DMA list under their Nielsen contract, may we
    ingest it per-client rather than bundling one globally?
 
@@ -80,7 +111,9 @@ and per-client ingestion sidesteps our own licensing need entirely.
 ## Interim answer for Jesse
 
 > Nova now resolves every location you enter down to city, county, state and ZIP against
-> US Census data, and shows you exactly what it understood before the plan is built.
-> DMA-level targeting isn't in yet — DMA definitions are licensed from Nielsen, and
-> we're working through that properly rather than shipping an approximation. If your
-> team already licenses DMA data, we can look at ingesting yours directly.
+> US Census data, and shows you exactly what it understood before the plan is built —
+> including the Census metro area (CBSA) when one applies, e.g. "Houston-Pasadena-The
+> Woodlands, TX." True Nielsen DMA targeting isn't in yet — DMA definitions are a
+> licensed Nielsen product, and we're working through that properly rather than shipping
+> an approximation. If your team already licenses DMA data, we can look at ingesting
+> yours directly.

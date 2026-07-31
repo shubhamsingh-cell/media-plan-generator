@@ -177,6 +177,66 @@ def test_london_uk_unresolved_and_plan_unaffected():
     assert "no locations provided" not in warnings
 
 
+def test_cbsa_field_contract_for_locationresolution_frontend_row():
+    """Pins the exact data contract `_buildLocationRow` (templates/partials/
+    index/body_app_js.html) switches on for its "Metro area: {cbsa_title}"
+    secondary line. This suite has no JS execution harness, so this test
+    pins the backend contract the renderer depends on instead of the DOM
+    output itself -- see that file's `_buildLocationRow` for the actual
+    (createElement + textContent, never innerHTML) DOM-building code, and
+    the manual live-render check in this branch's validation notes.
+
+    The render rule in `_buildLocationRow`: append the metro line ONLY
+    inside the `status === "resolved" || status === "corrected"` branch,
+    and only when `res.cbsa_status === "available" && res.cbsa_title`.
+    All four cases below are real resolutions, not synthetic stand-ins --
+    see plan_location.py's `_apply_cbsa` and tests/test_plan_location.py's
+    CBSA suite for the underlying pins.
+    """
+    data = {
+        "locations": [
+            "Atlanta, GA",  # known metro -- resolved, real CBSA
+            "Bullock County, AL",  # resolved, but genuinely outside any CBSA
+            "pittsburg",  # ambiguous -- tiebreak pick DOES sit in a real
+            # CBSA internally; must stay hidden
+            "London, UK",  # unresolved -- no county at all
+        ]
+    }
+    app_module._resolve_and_rewrite_locations(data)
+    sidecar = data["_location_resolution"]
+    assert len(sidecar) == 4
+    atlanta, bullock, pittsburg, london = sidecar
+
+    # 1. Known metro, resolved -- the metro line renders.
+    assert atlanta["status"] in ("resolved", "corrected")
+    assert atlanta["cbsa_status"] == "available"
+    assert atlanta["cbsa_title"] and "Atlanta" in atlanta["cbsa_title"]
+
+    # 2. Resolved but genuinely outside any CBSA (rural county) -- silent,
+    #    the same rule as the existing missing-county_name case.
+    assert bullock["status"] == "resolved"
+    assert bullock["cbsa_status"] == "unavailable"
+    assert bullock["cbsa_title"] is None
+
+    # 3. THE TRAP: an ambiguous bare-city resolution still runs its
+    #    internally-picked tiebreak primary through _apply_cbsa, so
+    #    cbsa_status/cbsa_title CAN be populated on an ambiguous row.
+    #    "pittsburg"'s alphabetical tiebreak lands on Pittsburg, CA, which
+    #    really does sit inside a real CBSA -- proving the frontend's
+    #    status gate is load-bearing, not a no-op over an always-empty
+    #    field.
+    assert pittsburg["status"] == "ambiguous"
+    assert pittsburg["cbsa_status"] == "available"
+    assert pittsburg["cbsa_title"]  # populated internally...
+    # ...but must never surface: _buildLocationRow only reads cbsa_title
+    # inside the resolved/corrected branch, never the ambiguous one.
+
+    # 4. Unresolved -- no county at all, cbsa_status stays unavailable.
+    assert london["status"] == "unresolved"
+    assert london["cbsa_status"] == "unavailable"
+    assert london["cbsa_title"] is None
+
+
 @pytest.mark.parametrize("misspelled,expected_city", sorted(_LEGACY_LOCATION_CORRECTIONS.items()))
 def test_all_32_legacy_misspellings_still_resolve(misspelled, expected_city):
     data = {"locations": [misspelled]}

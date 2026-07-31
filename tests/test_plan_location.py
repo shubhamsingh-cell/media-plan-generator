@@ -412,6 +412,68 @@ def test_dma_never_labeled_as_nielsen_anywhere():
 
 
 # ---------------------------------------------------------------------------
+# CBSA -- pluggable like DMA, but ships with the repo (public-domain data,
+# no licensing question) so it is "available" by default whenever the
+# resolution carries a county_fips that sits inside a real CBSA.
+# ---------------------------------------------------------------------------
+
+CBSA_CITY_PINS = [
+    # (query, expected_state, expected substring in cbsa_title)
+    ("Atlanta, GA", "GA", "Atlanta"),
+    ("Houston, TX", "TX", "Houston"),
+    ("Chicago, IL", "IL", "Chicago"),
+    ("Los Angeles, CA", "CA", "Los Angeles"),
+    ("Phoenix, AZ", "AZ", "Phoenix"),
+    ("Seattle, WA", "WA", "Seattle"),
+    ("Denver, CO", "CO", "Denver"),
+    ("Boston, MA", "MA", "Boston"),
+    ("Miami, FL", "FL", "Miami"),
+    ("Dallas, TX", "TX", "Dallas"),
+]
+
+
+@pytest.mark.parametrize("query,expected_state,expected_title_fragment", CBSA_CITY_PINS)
+def test_major_metros_resolve_a_real_cbsa(query, expected_state, expected_title_fragment):
+    r = pl.resolve_location(query)
+    assert r.status == "resolved"
+    assert r.state_usps == expected_state
+    assert r.county_fips
+    assert r.cbsa_status == "available", f"{query} -> cbsa_status={r.cbsa_status}"
+    assert r.cbsa_code and r.cbsa_code.isdigit() and len(r.cbsa_code) == 5
+    assert expected_title_fragment in (r.cbsa_title or "")
+
+
+def test_cbsa_unavailable_when_no_county_fips():
+    """Bare state / remote / nationwide resolutions carry no county_fips, so
+    cbsa_code/cbsa_title must stay None -- never a fabricated CBSA."""
+    for query in ("TX", "Remote", "Nationwide"):
+        r = pl.resolve_location(query)
+        assert not r.county_fips
+        assert r.cbsa_code is None
+        assert r.cbsa_title is None
+        assert r.cbsa_status == "unavailable"
+
+
+def test_cbsa_unavailable_for_a_county_genuinely_outside_any_cbsa():
+    """Bullock County, AL (FIPS 01011) has a county_fips but sits outside
+    any CBSA in the real July 2023 OMB delineation -- this must read as an
+    honest "unavailable", not an error, and never a fabricated CBSA."""
+    r = pl.resolve_location("Bullock County, AL")
+    assert r.status == "resolved"
+    assert r.county_fips == "01011"
+    assert r.cbsa_code is None
+    assert r.cbsa_title is None
+    assert r.cbsa_status == "unavailable"
+
+
+def test_cbsa_never_labeled_as_nielsen_anywhere():
+    import inspect
+
+    source = inspect.getsource(pl)
+    assert "nielsen" not in source.lower()
+
+
+# ---------------------------------------------------------------------------
 # to_dict()
 # ---------------------------------------------------------------------------
 def test_to_dict_shape():
