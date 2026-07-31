@@ -845,6 +845,204 @@
   }
 
   /* ============================================
+           LOCATION RESOLUTION ECHO-BACK (S93)
+           "we understood your location as X" -- renders nothing when
+           empty; see body_app_js.html for the fetch/render logic.
+           ============================================ */
+  .loc-resolution {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 14px;
+  }
+
+  .loc-resolution:empty {
+    margin-top: 0;
+  }
+
+  /* Label rendered by JS only when there's at least one row -- see
+     renderLocationResolution in body_app_js.html. Ties the panel to the
+     rows below it instead of reading as more helper copy. */
+  .loc-resolution-label {
+    font-family: var(--font-heading); /* Poppins — Joveo brand heading font */
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    /* Without this the gap below equals the 6px inter-row gap, so the
+       header reads as another list slot rather than a group heading. */
+    margin-bottom: 5px;
+  }
+
+  .loc-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-subtle);
+    animation: locRowIn var(--duration-slow) var(--ease-out);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .loc-row {
+      animation: none;
+    }
+  }
+
+  @keyframes locRowIn {
+    from {
+      opacity: 0;
+      transform: translateY(-2px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* font-size must be stated: .loc-row no longer sets one, so the glyph
+     was inheriting 16px and its 1.45 line box sat ~3px below the 13px
+     text baseline beside it. Matching main's size aligns the column. */
+  .loc-row-glyph {
+    flex: none;
+    width: 16px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+
+  .loc-row-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* Two-level type hierarchy -- the answer (main) reads heavier than the
+     caveat (note); previously both were a flat 12.5px/18.75px monotone. */
+  .loc-row-main {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.45;
+    color: var(--text-primary);
+  }
+
+  .loc-row-note {
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--text-muted);
+  }
+
+  /* Resolved and corrected share one glyph color -- hue alone isn't a
+     decodable signal; the correction is already carried by the
+     strikethrough original + arrow in the row body. */
+  .loc-row--resolved .loc-row-glyph,
+  .loc-row--corrected .loc-row-glyph {
+    color: var(--success);
+  }
+
+  /* Tint tracks "this row needs you", not the state name -- applied by
+     JS to any row that renders a <select> or a suggestion button, so an
+     unresolved-with-suggestion row gets raised the same as an ambiguous
+     one, while the inert unresolved row stays plain. */
+  .loc-row--actionable {
+    background: rgba(245, 158, 11, 0.06);
+    border-color: rgba(245, 158, 11, 0.2);
+  }
+
+  .loc-row--ambiguous .loc-row-glyph {
+    color: var(--warning);
+  }
+
+  .loc-row--unresolved .loc-row-glyph {
+    color: var(--text-muted);
+  }
+
+  /* Corroborating detail, not the answer -- it sat at the same 13px/500
+     rank as the city itself and competed with it. One grey token
+     (--text-muted) for the whole secondary tier: county and note were
+     using two near-identical greys that nobody had chosen. */
+  .loc-row-county {
+    font-size: 11.5px;
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+
+  .loc-row-original {
+    color: var(--text-muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--text-muted);
+  }
+
+  .loc-row-arrow {
+    color: var(--primary-light);
+    padding: 0 2px;
+  }
+
+  .loc-row select {
+    width: auto;
+    max-width: 100%;
+    padding: 6px 32px 6px 10px;
+    font-size: 13px;
+    height: auto;
+    min-height: 36px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* The .studio cockpit reskin's `.studio .form-group select` rule
+     (2 classes + type) outranks `.loc-row select` (1 class + type) on
+     specificity alone regardless of source order, so it was winning and
+     silently reintroducing the 44px/11px radius this review removed.
+     This selector (3 classes + type) is the more-specific, deliberate
+     override; the reskin rule itself is untouched. The reskin's own
+     border-radius/font-size are `!important`, so those two need
+     `!important` here too to actually win -- min-height/padding aren't
+     `!important` upstream, so plain specificity is enough for those. */
+  .studio .loc-resolution .loc-row select {
+    padding: 6px 32px 6px 10px;
+    font-size: 13px !important;
+    min-height: 36px;
+    border-radius: var(--radius-sm) !important;
+  }
+
+  .loc-row-suggest-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    min-height: 36px;
+    background: var(--primary-pale);
+    /* --primary-light on the tinted actionable row measures 4.75:1 -- the
+       thinnest margin in the panel, on its only CTA. Lifted to ~5.9:1. */
+    color: #9a95e0;
+    border: 1px solid rgba(90, 84, 189, 0.25);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    align-self: flex-start;
+    transition: border-color var(--duration-fast) var(--ease-standard);
+  }
+
+  .loc-row-suggest-btn:hover {
+    border-color: rgba(90, 84, 189, 0.5);
+  }
+
+  /* Keyboard-driven wizard step, and the button had no focus style at all.
+     The select needs no rule here -- it sits inside .form-group and already
+     picks up the house focus treatment, which this matches. */
+  .loc-row-suggest-btn:focus-visible {
+    outline: 2px solid #6bb5ce;
+    outline-offset: 2px;
+  }
+
+  /* ============================================
            CHANNEL SELECTOR
            ============================================ */
   .channel-grid {

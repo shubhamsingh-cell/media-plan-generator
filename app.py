@@ -3768,6 +3768,88 @@ except ImportError as e:
     logger.warning("plan_geo import failed: %s", e)
     plan_geo = None
 
+# S93: location resolver (ZIP/city/county/state fuzzy-match + optional DMA) --
+# replaces the old hardcoded S49 `_LOCATION_CORRECTIONS` dict, see plan_location.py.
+try:
+    import plan_location
+
+    logger.info("plan_location loaded successfully")
+except ImportError as e:
+    logger.warning("plan_location import failed: %s", e)
+    plan_location = None
+
+
+def _canonical_location_display(res: Any) -> str:
+    """Canonical plan-text form for a resolved/corrected LocationResolution.
+
+    Only ever called for status in ("resolved", "corrected") -- see the
+    S93 location-resolution block in `_handle_POST`. County belongs in the
+    echo-back UI via the sidecar, never appended here to the plan string.
+    """
+    kind = getattr(res, "kind", "") or ""
+    if kind == "zip":
+        city = getattr(res, "city", "") or ""
+        state_usps = getattr(res, "state_usps", "") or ""
+        zip5 = getattr(res, "zip5", "") or ""
+        return f"{city}, {state_usps} {zip5}".strip()
+    if kind == "city":
+        display_name = getattr(res, "display_name", "") or ""
+        state_usps = getattr(res, "state_usps", "") or ""
+        return f"{display_name}, {state_usps}" if state_usps else display_name
+    # county / state / country / nationwide / remote: plan_location.py
+    # already builds a sensible human label into display_name for these
+    # (e.g. "{county_name}, {state_usps}" for county, the full state name
+    # for state, "United States" / "Nationwide (US)" / "Remote").
+    return getattr(res, "display_name", "") or getattr(res, "input", "")
+
+
+def _resolve_and_rewrite_locations(data: dict) -> None:
+    """S93: resolve `data["locations"]` via plan_location, in place.
+
+    Replaces the old hardcoded 32-entry `_LOCATION_CORRECTIONS` dict (S49
+    FIX / Issue 14) with general ZIP/city/county/state resolution (incl.
+    fuzzy-match correction covering every one of those 32 misspellings,
+    plus any other typo close enough to a real US place name).
+
+    CRITICAL: `data["locations"]` is only rewritten for entries whose
+    resolution status is "resolved" or "corrected" -- ambiguous/unresolved
+    inputs are left VERBATIM. Silently substituting a guessed city for an
+    ambiguous name (e.g. "Springfield" -> Springfield, AR via alphabetical
+    tiebreak) would be silent data corruption, worse than leaving the
+    user's text alone. The full structured result is stashed as a
+    non-schema sidecar (`_location_resolution`, leading underscore) for
+    the UI to consume -- never added to plan_schema.py, to avoid the
+    id-width-style validator fanout across PDF/deck/Excel exporters.
+
+    Any failure here must never break plan generation: this is wrapped so
+    `data["locations"]` is left exactly as-is and the sidecar is simply
+    omitted on error.
+    """
+    try:
+        _locs = data.get("locations") or []
+        if plan_location is not None and isinstance(_locs, list) and _locs:
+            _loc_resolutions = plan_location.resolve_locations(_locs)
+            # Build both the rewritten list and the sidecar into locals
+            # first -- only commit to `data` once everything has
+            # succeeded, so a mid-computation failure can never leave
+            # `data["locations"]` partially rewritten.
+            _new_locations = [
+                _canonical_location_display(r)
+                if r.status in ("resolved", "corrected")
+                else orig
+                for orig, r in zip(_locs, _loc_resolutions)
+            ]
+            _sidecar = [r.to_dict() for r in _loc_resolutions]
+            data["locations"] = _new_locations
+            data["_location_resolution"] = _sidecar
+    except Exception:
+        logger.error(
+            "plan_location resolution failed for locations=%r; "
+            "leaving data['locations'] untouched",
+            data.get("locations"),
+            exc_info=True,
+        )
+
 try:
     import display_format
 
@@ -15570,63 +15652,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 elif _arr_val is not None and not isinstance(_arr_val, list):
                     data[_arr_field] = [str(_arr_val)]
 
-            # ── S49 FIX (Issue 14): Normalize common location misspellings ──
-            # Applied early so all downstream enrichment, PPT, and Excel
-            # receive correct city names.
-            _LOCATION_CORRECTIONS = {
-                "ithica": "Ithaca",
-                "harrisburgh": "Harrisburg",
-                "murfeesboro": "Murfreesboro",
-                "pittsburg": "Pittsburgh",
-                "albuquerque": "Albuquerque",
-                "cincinatti": "Cincinnati",
-                "colombus": "Columbus",
-                "detriot": "Detroit",
-                "houstan": "Houston",
-                "philladelphia": "Philadelphia",
-                "phoneix": "Phoenix",
-                "sacremento": "Sacramento",
-                "seatle": "Seattle",
-                "tuscon": "Tucson",
-                "milwakee": "Milwaukee",
-                "minnapolis": "Minneapolis",
-                "indianpolis": "Indianapolis",
-                "nashvile": "Nashville",
-                "lousville": "Louisville",
-                "baltamore": "Baltimore",
-                "richmand": "Richmond",
-                "charlote": "Charlotte",
-                "ralegh": "Raleigh",
-                "memhpis": "Memphis",
-                "knoxvile": "Knoxville",
-                "cleavland": "Cleveland",
-                "bufalo": "Buffalo",
-                "rochestor": "Rochester",
-                "siracuse": "Syracuse",
-                "sprinfield": "Springfield",
-                "talahassee": "Tallahassee",
-                "jackonville": "Jacksonville",
-            }
-
-            def _correct_location_spelling(loc_str: str) -> str:
-                """Fix common city misspellings while preserving state/country suffix."""
-                if not loc_str or not isinstance(loc_str, str):
-                    return loc_str
-                parts = [p.strip() for p in loc_str.split(",")]
-                city_part = parts[0]
-                city_lower = city_part.lower().strip()
-                corrected = _LOCATION_CORRECTIONS.get(city_lower)
-                if corrected:
-                    parts[0] = corrected
-                    return ", ".join(parts)
-                return loc_str
-
-            _locs = data.get("locations") or []
-            if isinstance(_locs, list):
-                data["locations"] = [
-                    _correct_location_spelling(l) if isinstance(l, str) else l
-                    for l in _locs
-                ]
+            # ── S93 location resolution (replaces S49 FIX Issue 14) ──
+            _resolve_and_rewrite_locations(data)
 
             # ── S49 FIX (Issue 13): Override "remote" work_environment for
             # trucking/transportation/delivery roles.  OTR trucking is NOT
@@ -23673,6 +23700,108 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except Exception as exc:
                 logger.error("Slack alert send error: %s", exc, exc_info=True)
                 self._send_json({"error": _internal_error_msg()}, status_code=500)
+
+        # ── S93: Location resolution preview (wizard echo-back / validation) ──
+        # No network I/O -- pure TSV-backed lookup via plan_location, so this
+        # can run unauthenticated-adjacent. Treated as hostile input: capped
+        # count/length, sanitized like the plan endpoint's string inputs, and
+        # never raises a 500 on malformed input.
+        elif path == "/api/locations/resolve":
+            try:
+                content_len = int(self.headers.get("Content-Length") or 0)
+            except (ValueError, TypeError):
+                content_len = 0
+            _LOC_RESOLVE_MAX_COUNT = 50
+            _LOC_RESOLVE_MAX_LEN = 200
+            try:
+                body_raw = self.rfile.read(content_len) if content_len > 0 else b"{}"
+                try:
+                    data = json.loads(body_raw) if body_raw else {}
+                except json.JSONDecodeError:
+                    self._send_error("Invalid JSON body", "VALIDATION_ERROR", 400)
+                    return
+
+                # Accept a bare string, {"location": "..."}, or
+                # {"locations": [...]}.
+                if isinstance(data, str):
+                    raw_locations = [data]
+                elif isinstance(data, dict):
+                    raw_locations = data.get("locations")
+                    if raw_locations is None:
+                        raw_locations = data.get("location")
+                    if isinstance(raw_locations, str):
+                        raw_locations = [raw_locations]
+                else:
+                    raw_locations = None
+
+                if raw_locations is None:
+                    self._send_error(
+                        "Expected a JSON body of the form "
+                        '{"locations": ["Atlanta", "30303"]} (or "location": "...").',
+                        "VALIDATION_ERROR",
+                        400,
+                    )
+                    return
+                if not isinstance(raw_locations, list):
+                    self._send_error(
+                        "'locations' must be a string or a list of strings",
+                        "VALIDATION_ERROR",
+                        400,
+                    )
+                    return
+                if len(raw_locations) > _LOC_RESOLVE_MAX_COUNT:
+                    self._send_error(
+                        f"Too many locations: max {_LOC_RESOLVE_MAX_COUNT} per request",
+                        "VALIDATION_ERROR",
+                        400,
+                    )
+                    return
+                if not all(isinstance(item, str) for item in raw_locations):
+                    self._send_error(
+                        "Every entry in 'locations' must be a string",
+                        "VALIDATION_ERROR",
+                        400,
+                    )
+                    return
+                if any(len(item) > _LOC_RESOLVE_MAX_LEN for item in raw_locations):
+                    self._send_error(
+                        f"Each location must be at most {_LOC_RESOLVE_MAX_LEN} characters",
+                        "VALIDATION_ERROR",
+                        400,
+                    )
+                    return
+
+                # Same HTML/script-tag stripping the /api/generate plan
+                # endpoint applies to string inputs (see `_sanitize_val`
+                # above) so a crafted location string can't become
+                # stored/reflected XSS in the echoed `input`/`display_name`/
+                # `note` fields.
+                sanitized_locations = [
+                    re.sub(r"<[^>]+>", "", loc).strip() for loc in raw_locations
+                ]
+
+                if plan_location is None:
+                    self._send_error(
+                        "Location resolution is temporarily unavailable",
+                        "SERVICE_UNAVAILABLE",
+                        503,
+                    )
+                    return
+
+                resolutions = plan_location.resolve_locations(sanitized_locations)
+                self._send_json(
+                    {
+                        "resolutions": [r.to_dict() for r in resolutions],
+                        "status": "ok",
+                    }
+                )
+            except Exception as exc:
+                logger.error(
+                    "/api/locations/resolve failed: %s", exc, exc_info=True
+                )
+                self._send_error(
+                    "Location resolution failed", "INTERNAL_ERROR", 500
+                )
 
         # ── AI Co-Pilot: Inline suggestions for media plan generator ──
         # NOTE: /api/copilot/suggest now handled by routes/copilot.py

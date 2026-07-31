@@ -71,3 +71,8 @@ data/.claude-flow/
 ruvector.db
 *.db
 data/google_trends.json
+
+# Geo-resolution data pipeline (scripts/build_geo_data.py): downloaded
+# Census source files cached here for fast idempotent re-runs. The BUILT
+# outputs (data/geo/*.tsv) are committed; this raw cache is not.
+data/.geo_build_cache/

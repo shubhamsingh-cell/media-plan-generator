@@ -1157,6 +1157,13 @@
         if (el) el.innerHTML = "";
       },
     );
+    // Invalidate any in-flight/pending location resolution and clear the
+    // echo-back panel immediately -- a reset form should never show a
+    // stale "we understood your location" row.
+    clearTimeout(_locResolveTimer);
+    _locResolveSeq++;
+    const locResPanel = document.getElementById("locationResolution");
+    if (locResPanel) locResPanel.innerHTML = "";
     // Reset industry selection visual
     document
       .querySelectorAll(".industry-card")
@@ -2077,13 +2084,19 @@
     arr.push(value);
     renderTags(containerId, inputId, arr);
     document.getElementById(inputId).value = "";
-    if (containerId === "locationsContainer") updateRegionalSections();
+    if (containerId === "locationsContainer") {
+      updateRegionalSections();
+      scheduleLocationResolution();
+    }
   }
 
   function removeTag(containerId, inputId, arr, index) {
     arr.splice(index, 1);
     renderTags(containerId, inputId, arr);
-    if (containerId === "locationsContainer") updateRegionalSections();
+    if (containerId === "locationsContainer") {
+      updateRegionalSections();
+      scheduleLocationResolution();
+    }
   }
 
   function getArrayByContainerId(containerId) {
@@ -2113,6 +2126,276 @@
     });
     container.appendChild(input);
     input.focus();
+  }
+
+  /* ── Location resolution echo-back (S93) ──
+     "we understood your location as X" -- debounced POST to
+     /api/locations/resolve after any add/remove on the `locations`
+     array, race-safe via an incrementing sequence number, never blocks
+     the wizard or throws a visible error on network/HTTP failure. */
+  let _locResolveSeq = 0;
+  let _locResolveTimer = null;
+
+  function scheduleLocationResolution() {
+    clearTimeout(_locResolveTimer);
+    _locResolveTimer = setTimeout(runLocationResolution, 300);
+  }
+
+  function runLocationResolution() {
+    const panel = document.getElementById("locationResolution");
+    if (!panel) return;
+    if (!locations.length) {
+      panel.innerHTML = "";
+      return;
+    }
+    const seq = ++_locResolveSeq;
+    const sentLocations = locations.slice();
+    fetch("/api/locations/resolve", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": getCsrfToken(),
+      },
+      body: JSON.stringify({ locations: sentLocations }),
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        // A later edit may have fired a newer request while this one was
+        // in flight -- discard anything that isn't the latest.
+        if (seq !== _locResolveSeq) return;
+        renderLocationResolution((data && data.resolutions) || [], sentLocations);
+      })
+      .catch(function (err) {
+        console.error("Location resolution request failed:", err);
+        // Assistive layer only -- never show an error, never block the
+        // wizard. Clear rather than leave a stale/misleading panel.
+        if (seq === _locResolveSeq) panel.innerHTML = "";
+      });
+  }
+
+  function renderLocationResolution(resolutions, sentLocations) {
+    const panel = document.getElementById("locationResolution");
+    if (!panel) return;
+    panel.innerHTML = "";
+    if (!resolutions.length) return;
+    // Only rendered when there's at least one row -- never on an empty
+    // panel, where it would just read as more helper copy.
+    const label = document.createElement("div");
+    label.className = "loc-resolution-label";
+    label.textContent = "Understood as";
+    panel.appendChild(label);
+    resolutions.forEach(function (res, idx) {
+      panel.appendChild(_buildLocationRow(res, idx, sentLocations));
+    });
+  }
+
+  function _appendLocSeg(parent, text, cls) {
+    if (cls) {
+      const span = document.createElement("span");
+      span.className = cls;
+      span.textContent = text;
+      parent.appendChild(span);
+    } else {
+      parent.appendChild(document.createTextNode(text));
+    }
+  }
+
+  // Canonical "what we understood" text for resolved/corrected rows.
+  // kind-specific wording per the S93 spec; never fabricates a field
+  // that isn't present in the response.
+  function _locMainText(res) {
+    const kind = res.kind || "unknown";
+    if (kind === "zip") {
+      if (!res.display_name) return res.zip5 || res.input;
+      return (
+        res.zip5 +
+        " — " +
+        res.display_name +
+        (res.state_usps ? ", " + res.state_usps : "")
+      );
+    }
+    if (kind === "state") return res.display_name + " — statewide";
+    if (kind === "remote") return res.display_name + " — nationwide reach";
+    // county's display_name is already "County Name, ST"; nationwide/
+    // country display_name is already the full label.
+    if (kind === "county" || kind === "nationwide" || kind === "country") {
+      return res.display_name;
+    }
+    return res.state_usps ? res.display_name + ", " + res.state_usps : res.display_name;
+  }
+
+  function _buildLocationRow(res, idx, sentLocations) {
+    const status = res.status || "unresolved";
+    const row = document.createElement("div");
+    row.className = "loc-row loc-row--" + status;
+
+    const glyph = document.createElement("span");
+    glyph.className = "loc-row-glyph";
+    glyph.setAttribute("aria-hidden", "true");
+
+    const body = document.createElement("div");
+    body.className = "loc-row-body";
+
+    if (status === "resolved" || status === "corrected") {
+      glyph.textContent = "✓";
+      const line = document.createElement("div");
+      line.className = "loc-row-main";
+      if (status === "corrected") {
+        _appendLocSeg(line, res.input, "loc-row-original");
+        _appendLocSeg(line, " → ", "loc-row-arrow");
+      }
+      _appendLocSeg(line, _locMainText(res));
+      if (res.county_name && res.kind !== "county") {
+        _appendLocSeg(line, " · ");
+        _appendLocSeg(line, res.county_name, "loc-row-county");
+      }
+      body.appendChild(line);
+    } else if (status === "ambiguous") {
+      // MUST read as a question, never a decided answer -- see spec.
+      glyph.textContent = "?";
+      const line = document.createElement("div");
+      line.className = "loc-row-main";
+      const count = (res.alternatives || []).length;
+      _appendLocSeg(
+        line,
+        "“" +
+          res.input +
+          "” matches " +
+          count +
+          " US " +
+          (count === 1 ? "city" : "cities") +
+          " — which one?",
+      );
+      body.appendChild(line);
+      // Ambiguity is the highest-risk state -- an unpicked row silently
+      // plans against whichever city the tiebreak guessed. Say what
+      // happens if the user walks past it.
+      const ambNote = document.createElement("div");
+      ambNote.className = "loc-row-note";
+      ambNote.textContent =
+        "Until you pick one, it stays in your plan exactly as entered.";
+      body.appendChild(ambNote);
+      body.appendChild(
+        _buildAmbiguousSelect(res, sentLocations[idx]),
+      );
+      // Renders a <select> the user must act on -- raise it visually.
+      row.classList.add("loc-row--actionable");
+    } else {
+      // unresolved -- honest and calm, not an error; the plan proceeds
+      // with the text as entered regardless. Circle (not a dash) reads
+      // as "not confirmed" rather than a stray strikethrough.
+      // Hollow, not filled. A filled dot is the universal list bullet, so
+      // in a muted left-hand column these rows stop reading as status and
+      // start reading as bullets under the rows above. It also rasterizes
+      // ~2.6x the ink of the ✓ and ? beside it, putting the panel's
+      // heaviest mark on its least actionable row.
+      glyph.textContent = "○";
+      // Every other row leads with a bright answer line. Without one these
+      // rows render wholly in muted note type, so the highest-stakes row
+      // in the panel would be the dimmest. Promote the note's first
+      // sentence to the answer level and keep the rest beneath it.
+      const noteText =
+        res.note || "Kept “" + res.input + "” as entered; no match found.";
+      const split = noteText.indexOf(". ");
+      const headText = split === -1 ? noteText : noteText.slice(0, split + 1);
+      const restText = split === -1 ? "" : noteText.slice(split + 2);
+
+      const line = document.createElement("div");
+      line.className = "loc-row-main";
+      line.textContent = headText;
+      body.appendChild(line);
+      if (restText) {
+        const rest = document.createElement("div");
+        rest.className = "loc-row-note";
+        rest.textContent = restText;
+        body.appendChild(rest);
+      }
+      if (res.alternatives && res.alternatives.length) {
+        body.appendChild(
+          _buildUnresolvedSuggestButton(res.alternatives[0], sentLocations[idx]),
+        );
+        // Renders a suggestion button the user can act on -- same tint
+        // as an ambiguous row, distinct from the inert unresolved row.
+        row.classList.add("loc-row--actionable");
+      }
+    }
+
+    row.appendChild(glyph);
+    row.appendChild(body);
+    return row;
+  }
+
+  function _buildAmbiguousSelect(res, sentValue) {
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", "Which " + res.input + " did you mean?");
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Select a city…";
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    select.appendChild(placeholder);
+
+    const alts = res.alternatives || [];
+    const shown = alts.slice(0, 25);
+    shown.forEach(function (alt) {
+      const opt = document.createElement("option");
+      const label =
+        alt.display_name + (alt.state_usps ? ", " + alt.state_usps : "");
+      opt.value = label;
+      opt.textContent = label;
+      select.appendChild(opt);
+    });
+    if (alts.length > shown.length) {
+      const more = document.createElement("option");
+      more.disabled = true;
+      more.textContent =
+        "+" + (alts.length - shown.length) + " more matches not shown";
+      select.appendChild(more);
+    }
+
+    select.addEventListener("change", function () {
+      if (!this.value) return;
+      _replaceLocationEntry(sentValue, this.value);
+    });
+    return select;
+  }
+
+  function _buildUnresolvedSuggestButton(alt, sentValue) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "loc-row-suggest-btn";
+    const replacement =
+      alt.zip5 || alt.display_name + (alt.state_usps ? ", " + alt.state_usps : "");
+    const label = alt.zip5
+      ? "Use " + alt.zip5 + " (" + alt.display_name + ", " + alt.state_usps + ") instead"
+      : "Use " + alt.display_name + ", " + alt.state_usps + " instead";
+    btn.textContent = label;
+    btn.addEventListener("click", function () {
+      _replaceLocationEntry(sentValue, replacement);
+    });
+    return btn;
+  }
+
+  // The only two ways this UI is allowed to mutate `locations`: picking
+  // an ambiguous alternative, or accepting a zip suggestion. Looks up
+  // by the original value that was actually sent (not by index) so a
+  // stale click after the array changed elsewhere is a safe no-op
+  // instead of corrupting an unrelated entry.
+  function _replaceLocationEntry(oldValue, newValue) {
+    if (!newValue) return;
+    const idx = locations.indexOf(oldValue);
+    if (idx === -1) return;
+    if (locations.indexOf(newValue) !== -1 && locations.indexOf(newValue) !== idx) {
+      locations.splice(idx, 1);
+    } else {
+      locations[idx] = newValue;
+    }
+    renderTags("locationsContainer", "locationInput", locations);
+    scheduleLocationResolution();
   }
 
   /* ── Competitor Analysis ── */
