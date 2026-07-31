@@ -82,9 +82,15 @@ STRIPPABLE_SUFFIXES = [
     "corporation",
 ]
 _BALANCE_RE = re.compile(r"\s*\(balance\)\s*$", re.IGNORECASE)
+# Case-SENSITIVE by design. Census writes the legal type in lowercase in the
+# NAME field ("Atlanta city", "Boise City city") but capitalises it when the
+# word is part of the proper name ("Carson City", NV -- the state capital,
+# which a case-insensitive match reduced to "Carson"). "CDP" is the one type
+# Census writes uppercase, so it is listed separately rather than folded in.
 _SUFFIX_RE = re.compile(
-    r"\s+(?:" + "|".join(re.escape(s) for s in STRIPPABLE_SUFFIXES) + r")\s*$",
-    re.IGNORECASE,
+    r"\s+(?:CDP|"
+    + "|".join(re.escape(s) for s in STRIPPABLE_SUFFIXES if s != "cdp")
+    + r")\s*$"
 )
 _PUNCT_RE = re.compile(r"[^a-z0-9]+")
 

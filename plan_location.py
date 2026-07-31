@@ -203,6 +203,43 @@ _WELL_KNOWN_METRO_STATE: dict[str, str] = {
     "murfreesboro": "TN",
     "harrisburg": "PA",
     "ithaca": "NY",
+    # Metros reachable only via _CENSUS_NAME_ALIASES below; the tiebreak
+    # needs them too, or the alias-added candidate loses to an alphabetically
+    # earlier small town of the same name.
+    "nashville": "TN",
+    "lexington": "KY",
+    "augusta": "GA",
+    "macon": "GA",
+    "athens": "GA",
+    "butte": "MT",
+    # Both spellings: the tiebreak keys off the normalized input, and
+    # "Saint Louis" normalizes to "saint louis", not "st louis".
+    "st louis": "MO",
+    "saint louis": "MO",
+    "carson city": "NV",
+    "kansas city": "MO",
+    "st paul": "MN",
+    "saint paul": "MN",
+    "st petersburg": "FL",
+    "saint petersburg": "FL",
+}
+
+# Census records some major markets under a legal name nobody types. Without
+# these, "Boise" found no place at all and fell through to fuzzy matching,
+# which silently "corrected" it to Bowie, AZ -- a confident wrong answer on
+# the very surface built to prevent them. Each entry ADDS the real place to
+# the candidate set; it never removes the plain-name matches, so a genuine
+# collision still resolves as ambiguous and asks the user.
+_CENSUS_NAME_ALIASES: dict[str, tuple[str, ...]] = {
+    "boise": ("boise city|id",),
+    "honolulu": ("urban honolulu|hi",),
+    "nashville": ("nashville davidson metropolitan government|tn",),
+    "lexington": ("lexington fayette urban county|ky",),
+    "augusta": ("augusta richmond county consolidated government|ga",),
+    "macon": ("macon bibb county|ga",),
+    "athens": ("athens clarke county unified government|ga",),
+    "butte": ("butte silver bow|mt",),
+    "louisville": ("louisville jefferson county metro government|ky",),
 }
 
 _FUZZY_CUTOFF = 0.75
@@ -450,9 +487,40 @@ def _pick_ambiguous_primary(city_norm: str, candidates: list[tuple[str, str]]) -
     return sorted(candidates, key=lambda t: (t[0], t[1]))[0]
 
 
+def _saint_variants(city_norm: str) -> list[str]:
+    """"Saint Louis" and "St. Louis" are the same place to a user but not to
+    a string index -- Census stores "St. Louis", which normalizes to
+    "st louis"."""
+    out = []
+    if city_norm.startswith("saint "):
+        out.append("st " + city_norm[6:])
+    elif city_norm.startswith("st "):
+        out.append("saint " + city_norm[3:])
+    return out
+
+
+def _city_candidates(city_norm: str) -> list[tuple[str, str]]:
+    """All (state, place_key) candidates for a normalized city name, folding
+    in Saint/St. spellings and the Census legal-name aliases. Runs before any
+    fuzzy matching so a real metro is never "corrected" into a different city."""
+    matches = list(_places_by_city.get(city_norm, []))
+    for variant in _saint_variants(city_norm):
+        for cand in _places_by_city.get(variant, []):
+            if cand not in matches:
+                matches.append(cand)
+    for key in _CENSUS_NAME_ALIASES.get(city_norm, ()):
+        place = _places_by_key.get(key)
+        if not place:
+            continue
+        cand = ((place.get("state_usps") or "").upper(), key)
+        if cand not in matches:
+            matches.append(cand)
+    return matches
+
+
 def _resolve_bare_city(raw_input: str, city_text: str) -> LocationResolution:
     city_norm = _norm_key(city_text)
-    matches = _places_by_city.get(city_norm, [])
+    matches = _city_candidates(city_norm)
     if not matches:
         return LocationResolution(input=raw_input, status="unresolved", kind="unknown")
 
@@ -712,6 +780,15 @@ def _try_comma_or_trailing_state(raw_str: str, stripped: str) -> LocationResolut
 
     place_key = f"{city_norm}|{state_usps.lower()}"
     place = _places_by_key.get(place_key)
+    if not place:
+        # Same Saint/St. + Census-legal-name folding as the bare-city path,
+        # so "Boise, ID" and "Saint Louis, MO" resolve exactly like "Boise"
+        # and "St. Louis" instead of falling through to fuzzy.
+        for cand_state, cand_key in _city_candidates(city_norm):
+            if cand_state == state_usps:
+                place_key = cand_key
+                place = _places_by_key.get(cand_key)
+                break
     if place:
         res = LocationResolution(input=raw_str, status="resolved", confidence=1.0, matched_via="place_city_state")
         _fill_from_place(res, place)

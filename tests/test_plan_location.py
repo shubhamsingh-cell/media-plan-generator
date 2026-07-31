@@ -110,6 +110,53 @@ def test_zip_30301_gap_is_graceful_and_helpful():
     assert r.alternatives[0]["state_usps"] == "GA"
 
 
+def test_boise_is_not_silently_corrected_to_another_city():
+    """Regression, found live: Census stores Boise as "Boise City", so the
+    bare name matched no place and fell through to fuzzy, which "corrected"
+    it to Bowie, AZ -- a confident wrong answer with a checkmark, on the very
+    panel built to prevent those. Fuzzy must never see a real metro."""
+    r = pl.resolve_location("Boise")
+    assert r.status == "resolved", f"expected resolved, got {r.status} ({r.display_name})"
+    assert r.state_usps == "ID"
+    assert "boise" in (r.display_name or "").lower()
+
+
+@pytest.mark.parametrize(
+    "query,expect_state,expect_fragment",
+    [
+        ("Boise", "ID", "boise"),
+        ("Honolulu", "HI", "honolulu"),
+        ("Nashville", "TN", "nashville"),
+        ("Lexington", "KY", "lexington"),
+        ("Augusta", "GA", "augusta"),
+        ("Macon", "GA", "macon"),
+        ("Athens", "GA", "athens"),
+        ("Butte", "MT", "butte"),
+        ("Saint Louis", "MO", "louis"),
+        ("St. Louis", "MO", "louis"),
+        ("Carson City", "NV", "carson city"),
+        ("Kansas City", "MO", "kansas city"),
+        ("Saint Paul", "MN", "paul"),
+    ],
+)
+def test_major_metros_resolve_to_the_right_state(query, expect_state, expect_fragment):
+    """Census legal names ("Urban Honolulu", "Lexington-Fayette urban
+    county") and Saint/St. spellings must not make a major market
+    unreachable or land it in the wrong state."""
+    r = pl.resolve_location(query)
+    assert r.status in ("resolved", "ambiguous"), f"{query} -> {r.status}"
+    assert r.state_usps == expect_state, f"{query} -> {r.display_name}, {r.state_usps}"
+    assert expect_fragment in (r.display_name or "").lower()
+
+
+def test_carson_city_display_name_keeps_its_own_city_word():
+    """The legal-type stripper ran case-insensitively and reduced Nevada's
+    capital "Carson City" to "Carson". Census writes the strippable type in
+    lowercase ("Atlanta city"); a capitalised "City" is part of the name."""
+    r = pl.resolve_location("Carson City, NV")
+    assert r.display_name == "Carson City"
+
+
 def test_no_note_leaks_internal_vocabulary_to_clients():
     """Every `note` is rendered verbatim in the client-facing wizard, so none
     may carry repo paths, module names, or developer jargon. A design review

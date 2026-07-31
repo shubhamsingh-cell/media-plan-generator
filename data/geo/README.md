@@ -98,6 +98,15 @@ counts.
    Census name verbatim (`place_type` for those rows is whatever trailing
    token pattern-matched, e.g. `"(balance)"`, or the row falls through
    with no suffix stripped at all).
+
+   The suffix match is **case-sensitive, deliberately**. Census writes the
+   legal type in lowercase in `NAME` (`"Atlanta city"`, `"Boise City
+   city"`) but capitalises the word when it is part of the proper name.
+   The first build matched case-insensitively and reduced Nevada's capital
+   `"Carson City"` to `"Carson"`. `CDP` is the one type Census writes in
+   uppercase, so it is matched explicitly rather than folded into the
+   lowercase list. Pinned by
+   `tests/test_plan_location.py::test_carson_city_display_name_keeps_its_own_city_word`.
 2. **Place -> county join, and multi-county places (corrected 2026-07-31).**
    `national_place2020.txt`'s `COUNTIES` column lists a place's
    constituent counties `~~~`-joined for multi-county places (e.g.
