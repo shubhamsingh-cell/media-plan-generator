@@ -1101,37 +1101,25 @@
              matching quick-pick card so benchmarks/role chips keep working,
              and additionally records the precise NAICS code/title. -->
         <div class="naics-search-wrap" style="margin-bottom: 16px">
-          <input
-            type="text"
-            id="naicsSearch"
-            placeholder="Search industries (or all of NAICS)…"
-            class="form-input"
-            autocomplete="off"
-            role="combobox"
-            aria-expanded="false"
-            aria-controls="naicsResults"
-            aria-autocomplete="list"
-            style="
-              width: 100%;
-              max-width: 400px;
-              margin: 0 auto;
-              display: block;
-              padding: 12px 16px;
-              border: 1px solid var(--border);
-              border-radius: var(--radius-sm);
-              font-size: 14px;
-              font-family: inherit;
-              background: rgba(255, 255, 255, 0.04);
-              color: var(--text-primary);
-              transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            "
-          />
-          <div
-            id="naicsResults"
-            class="naics-results"
-            role="listbox"
-            style="display: none"
-          ></div>
+          <!-- Restructure 2026-07-31 (dropdown-occlusion fix): the chip
+               and substitution notice now lead the block, ABOVE the
+               input, instead of trailing it. #naicsResults opens at
+               `top: calc(100% + 6px)` off .naics-input-anchor -- with
+               the chip/notice previously rendered BELOW the input, the
+               open dropdown (anchored to the input, but tall enough to
+               reach past it) fully covered them: measured chip
+               488.7-521.9px vs dropdown 468-529.2px, and
+               document.elementFromPoint() at the clear (x) button's
+               centre resolved to the dropdown's own .naics-empty div,
+               not the button. The clear (x) was pointer-dead, and item
+               1's superseded dimming was invisible in exactly the state
+               it exists to communicate. Leading with the chip/notice
+               means the dropdown opens downward into empty space below
+               them and can never cover them again, regardless of
+               dropdown height. New order: chip, notice, input+dropdown
+               (unchanged internally), usage hint (stays directly under
+               the input it describes), live region (stays last -- pure
+               DOM/reading order, no visual position). -->
           <div
             id="naicsSelectedChip"
             class="naics-chip"
@@ -1141,6 +1129,61 @@
             id="naicsMappingHint"
             class="form-hint naics-mapping-hint"
             style="display: none"
+          ></div>
+          <!-- Design panel 2026-07-31 (craft + mechanism lenses): the
+               input and its dropdown still share a dedicated positioning
+               context (.naics-input-anchor, head_styles.html) so
+               #naicsResults measures `top: 100%` against the input
+               alone, not the wrap -- unaffected by the reorder above,
+               see that rule's comment for why. -->
+          <div class="naics-input-anchor">
+            <input
+              type="text"
+              id="naicsSearch"
+              placeholder="Search industries (or all of NAICS)…"
+              class="form-input"
+              autocomplete="off"
+              role="combobox"
+              aria-expanded="false"
+              aria-controls="naicsResults"
+              aria-autocomplete="list"
+              aria-describedby="naicsUsageHint naicsMappingHint"
+              style="
+                width: 100%;
+                max-width: 400px;
+                margin: 0 auto;
+                display: block;
+                padding: 12px 16px;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                font-size: 14px;
+                font-family: inherit;
+                background: rgba(255, 255, 255, 0.04);
+                color: var(--text-primary);
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+              "
+            />
+            <div
+              id="naicsResults"
+              class="naics-results"
+              role="listbox"
+              style="display: none"
+            ></div>
+          </div>
+          <!-- Design panel 2026-07-31 (item 3, mechanism): persistent,
+               quiet explainer -- two reviewers misread "typing filters
+               but attaches nothing until you click a row" as broken. -->
+          <div id="naicsUsageHint" class="form-hint naics-usage-hint">Type to filter the cards below — pick a result to attach its NAICS code</div>
+          <!-- Design panel 2026-07-31 (item 3, a11y): sr-only live region
+               for the announcements _announceNaics() writes into (result
+               counts, attach confirmations, clear confirmations). Last
+               child of the wrap on purpose -- it carries no visual
+               position, only DOM/reading order. -->
+          <div
+            id="naicsLiveRegion"
+            class="sr-only"
+            role="status"
+            aria-live="polite"
           ></div>
         </div>
         <div class="industry-grid" id="industryGrid">

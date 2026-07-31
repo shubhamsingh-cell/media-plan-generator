@@ -99,9 +99,19 @@ INDUSTRY_LABEL_MAP: Dict[str, str] = {
 # that value since both live in the same generation-request dict).
 #
 # format_industry_label() is the single place that appends the NAICS suffix
-# to the canonical label, so every deliverable that reads data["industry_label"]
-# (Excel, PPTX, PDF/HTML report, Nova chat context) picks up the precise NAICS
-# automatically without each consumer needing its own formatting logic.
+# to the canonical label. PPTX (ppt_generator.py), the PDF/HTML report
+# (routes/export.py), and Nova chat context all read data["industry_label"]
+# directly, so they pick up the precise NAICS automatically.
+#
+# Excel (excel_v2.py) is a known gap, NOT a design choice: its sheet
+# builders get industry text from _get_industry_label() (excel_v2.py:2075),
+# which re-derives the label from INDUSTRY_LABEL_MAP by industry KEY and
+# never reads data["industry_label"]. Callers: excel_v2.py:4461, 5749,
+# 6295, 11077 -- none of those sheets see the suffix. (The Quality
+# Intelligence sheet is the one exception: excel_v2.py:9287 and 9644 read
+# data["industry_label"] directly, so it inconsistently does carry the
+# suffix when gold-standard data exists -- don't take that sheet as proof
+# the rest of the workbook does too.)
 
 
 def format_industry_label(

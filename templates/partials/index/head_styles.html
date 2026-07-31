@@ -4057,6 +4057,22 @@
        as the 400px-max-width input above them. */
     text-align: center;
   }
+  /* Design panel 2026-07-31 (craft + mechanism lenses): .naics-results is
+     absolutely positioned against its offsetParent, which used to be
+     .naics-search-wrap -- so `top: 100%` measured past the usage hint, the
+     chip AND the notice, opening the menu ~78px below the input it belongs
+     to (aria-controls) and dropping it on the quick-pick cards. Anchoring
+     to a wrapper around just the input keeps the menu attached to its
+     combobox no matter what renders below it. */
+  .naics-input-anchor {
+    position: relative;
+  }
+  /* Design panel 2026-07-31 (item 3, mechanism): persistent explainer of
+     what typing vs. picking does. Stays at .form-hint's muted 11px --
+     it must never compete with the input or the chip for attention. */
+  .naics-usage-hint {
+    margin-top: 6px;
+  }
   .naics-results {
     position: absolute;
     top: calc(100% + 6px);
@@ -4066,6 +4082,12 @@
     max-width: 400px;
     max-height: 320px;
     overflow-y: auto;
+    /* Design panel 2026-07-31 (craft, fix 3): .naics-search-wrap sets
+       text-align: center for the chip/notice below the input, which
+       leaked into the dropdown too -- each row's two lines started at a
+       different x than the input's own left-aligned query text and the
+       notice (which already opts back into left below). */
+    text-align: left;
     background: rgba(20, 20, 40, 0.98);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
@@ -4115,16 +4137,56 @@
     text-align: center;
   }
   .naics-chip {
-    display: inline-flex;
+    /* Design panel 2026-07-31 (craft lens, top change): inline-flex
+       made the chip hug its own content, so under the wrap's
+       text-align: center (below) its LEFT edge drifted with the title
+       length instead of lining up with the 400px input above it --
+       measured +76.7px vs the input for a short title, +16.8px for a
+       medium one, 0 only once the title was long enough to hit the
+       max-width cap below. display: flex makes the chip a block-level
+       flex container so width/margin behave the same way the input's
+       own `width: 100%; max-width: 400px; margin: 0 auto`
+       (body_content.html, inline style) does -- same column, same
+       centering mechanism, edges always match regardless of title
+       length. */
+    display: flex;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
     align-items: center;
     gap: 8px;
-    margin-top: 10px;
+    /* Restructure 2026-07-31 (dropdown-occlusion fix): the chip now
+       leads .naics-search-wrap, directly under the "Industry *" label
+       (body_content.html), instead of trailing the input. 10px was
+       tuned for sitting below the input/notice; 0 matches how
+       .form-group label's own margin-bottom: 6px already spaces a
+       label from the field under it everywhere else in this form (see
+       .form-group label, ~line 676) -- the chip needs no additional
+       top margin of its own. */
+    margin-top: 0;
     padding: 6px 12px;
     border-radius: 999px;
     background: rgba(90, 84, 189, 0.12);
     border: 1px solid rgba(90, 84, 189, 0.35);
     font-size: 12px;
     color: var(--text-primary);
+    /* Design panel 2026-07-31 (craft, fix 2): the chip sits in the same
+       400px column as the input/dropdown/notice but had no cap of its
+       own -- a long NAICS title measured 471.9px, overhanging the
+       column by 36px per side. Pairs with the label-span rule below,
+       which truncates the text instead of letting the chip overhang. */
+    max-width: 400px;
+  }
+  /* Design panel 2026-07-31 (craft, fix 2): truncates the label instead
+     of the chip overhanging its max-width above. Scoped to the first
+     span -- the label _renderNaicsChip() builds -- so the clear (x)
+     button, the chip's second child, always stays visible and
+     clickable regardless of title length. */
+  .naics-chip > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
   .naics-chip button {
     background: none;
@@ -4134,18 +4196,132 @@
     font-size: 15px;
     line-height: 1;
     padding: 0;
+    /* Design panel 2026-07-31 (craft lens, verified by measurement): the
+       chip's max-width cap makes flex distribute shrink across BOTH
+       children, and this button defaults to `flex: 0 1 auto` -- so a long
+       NAICS title clipped the x glyph (clientWidth 8 vs scrollWidth 9 at
+       73 chars, worse as titles grow). Scoping ellipsis to the label span
+       does not protect a sibling that is itself shrinkable. Pin the
+       button's basis so only the label ever gives up width. */
+    flex: 0 0 auto;
+    /* Design panel 2026-07-31 (craft lens, top change): the chip is now
+       a full 400px-wide flex container (previous comment block above),
+       not one that hugs its content -- with justify-content unset,
+       label + button would just pack together at the left, leaving a
+       bare gap of empty pill on the right for any title short of the
+       column, which reads as a layout bug rather than a chip.
+       margin-left: auto on this, the only other flex item, pushes the
+       clear (x) to the container's hard right edge instead, matching
+       the standard label-left/dismiss-right chip pattern and actually
+       using the width the column now guarantees. */
+    margin-left: auto;
   }
   .naics-chip button:hover {
     color: var(--text-primary);
   }
-  /* Design panel 2026-07-31 (trust): mapping microcopy under the chip.
-     Same style family as .form-hint -- small, dimmed, no emphasis. */
+  /* Design panel 2026-07-31 (item 1, craft): dims (never hides) the chip
+     while a new query is in flight, so the live search results read as
+     the primary surface instead of competing with the still-valid old
+     selection. The clear (x) button stays clickable throughout. */
+  .naics-chip.naics-chip--superseded {
+    opacity: 0.55;
+    filter: saturate(0.7);
+    transition:
+      opacity 0.18s ease,
+      filter 0.18s ease;
+  }
+  /* Design panel 2026-07-31 (final gate, mechanism lens): mapping
+     microcopy under the chip, retreated from the warning affordance to
+     the wizard's existing INFO affordance (same tokens as
+     .copilot-nudge--info, ~4584 below). The 21 quick-pick internal keys
+     drive the whole benchmark stack (shared_utils.py ~90-104); the
+     NAICS code is an optional, label-only descriptor that never keys a
+     benchmark -- so this notice fires on 100% of successful picks,
+     permanently. An amber warning that never *not* fires is a mislabel;
+     info/teal reads it correctly as a standing fact about how
+     benchmarking works, not a per-pick failure. font-size stays
+     inherited from .form-hint (11px) so it still reads as subordinate
+     to the 12px chip above it. inline-flex hugs its own content so it
+     stays centered under the chip inside the wrap's text-align: center. */
   .naics-mapping-hint {
     margin-top: 6px;
+    /* Restructure 2026-07-31 (dropdown-occlusion fix): the notice now
+       leads .naics-search-wrap, right above the input instead of below
+       it, so it needs its own bottom margin to stay clearly separated
+       from the input beneath it -- previously that gap was just
+       whatever the input's own next sibling happened to be. 12px reads
+       as a deliberate group break (bigger than the 6px label-to-chip /
+       chip-to-notice rhythm above it) without being cavernous; it
+       matches the padding/gap magnitudes already used elsewhere in this
+       block (.naics-chip padding: 6px 12px, .naics-results padding:
+       6px) rather than introducing a new one-off value. */
+    margin-bottom: 12px;
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    text-align: left;
+    max-width: 400px;
+    background: rgba(107, 179, 205, 0.1);
+    border: 1px solid rgba(107, 179, 205, 0.25);
+    color: #93d4e8;
+  }
+  /* Design panel 2026-07-31 (item 2, verified in-browser): .studio .form-hint
+     (cockpit reskin) sets `color: var(--np-faint) !important`, which beat the
+     plain .naics-mapping-hint color and rendered this notice muted lavender
+     instead of info/teal -- the ONE property that makes it read correctly.
+     `.studio .naics-search-wrap .naics-mapping-hint` is (0,3,0) vs the
+     reskin's (0,2,0), so this wins on specificity regardless of source order. */
+  .naics-mapping-hint,
+  .studio .naics-search-wrap .naics-mapping-hint {
+    color: #93d4e8 !important;
+  }
+  /* Design panel 2026-07-31 (item 1, restructured 2026-07-31 cont'd --
+     dropdown-occlusion fix, body_content.html .naics-search-wrap
+     comment): dims (never hides) the notice while a new query is in
+     flight, mirroring .naics-chip--superseded above -- renamed from
+     --suppressed since it no longer suppresses. It used to collapse via
+     display:none, which was safe back when the chip/notice trailed the
+     input; now that they LEAD the block, collapsing this element would
+     shift the #naicsSearch input itself upward mid-typing, moving the
+     box out from under the user's cursor -- worse than the dropdown-
+     occlusion problem the collapse used to guard against, which no
+     longer exists now that the chip/notice sit outside the dropdown's
+     path. !important is NOT required here (verified by hand: no other
+     rule in this stylesheet sets opacity or filter on
+     .naics-mapping-hint or .form-hint) -- if that ever changes, raise
+     specificity the same way the color override above does, rather
+     than silently losing the cascade. */
+  .naics-mapping-hint.naics-hint--superseded {
+    opacity: 0.55;
+    filter: saturate(0.7);
+    transition:
+      opacity 0.18s ease,
+      filter 0.18s ease;
+  }
+  /* Design panel 2026-07-31 (item 3, a11y): standard visually-hidden
+     utility, used by #naicsLiveRegion. */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
   @media (prefers-reduced-motion: reduce) {
     .naics-results {
       animation: none;
+    }
+    .naics-chip.naics-chip--superseded {
+      transition: none;
+    }
+    .naics-mapping-hint.naics-hint--superseded {
+      transition: none;
     }
   }
 

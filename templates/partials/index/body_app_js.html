@@ -2780,6 +2780,9 @@
     selectedNaicsCode = null;
     selectedNaicsTitle = null;
     _renderNaicsChip();
+    // Design panel 2026-07-31 (item 3, a11y): the chip disappearing is a
+    // visual-only cue -- narrate it for screen-reader users too.
+    _announceNaics("NAICS code cleared.");
     // Design panel 2026-07-31 (bug 5): clearing is itself a state change
     // that must persist -- otherwise a reload after clearing would
     // resurrect the old chip from a stale sessionStorage snapshot.
@@ -2792,14 +2795,19 @@
   // restoreFormState()/_restoreDraftState() only ever set the JS
   // variables back, they never rebuilt the chip or the mapping hint. This
   // single render function is now the one place that draws the chip +
-  // the substitution-notice microcopy ("No code-level benchmark for X --
-  // using the closest category: Y") from
-  // selectedNaicsCode/Title/selectedIndustry, called from pickResult(),
-  // clearNaicsSelection(), AND both restore paths, so the visual state
-  // can never drift from the persisted state again.
+  // the substitution-notice microcopy (see the hint.innerHTML block below
+  // for the current copy and why it deliberately makes no deliverables
+  // claim) from selectedNaicsCode/Title/selectedIndustry, called from
+  // pickResult(), clearNaicsSelection(), AND both restore paths, so the
+  // visual state can never drift from the persisted state again.
   function _renderNaicsChip() {
     const chip = document.getElementById("naicsSelectedChip");
     const hint = document.getElementById("naicsMappingHint");
+    // Design panel 2026-07-31 (item 1, craft): a fresh pick or a restore
+    // is always a clean render -- unconditionally drop any in-flight
+    // search dimming so it can never get stuck on stale state.
+    if (chip) chip.classList.remove("naics-chip--superseded");
+    if (hint) hint.classList.remove("naics-hint--superseded");
     if (!chip) return;
     if (!selectedNaicsCode) {
       chip.style.display = "none";
@@ -2807,12 +2815,42 @@
       if (hint) hint.style.display = "none";
       return;
     }
-    chip.innerHTML =
-      '<span>NAICS ' +
+    // Design panel 2026-07-31 (craft lens, verified by measurement): the
+    // label span truncates with an ellipsis once the chip's max-width
+    // cap binds, so a cut landing on the parenthetical that
+    // disambiguates near-identical codes (e.g. 621330 "...(except
+    // Physicians)" vs 621111) left the user unable to tell which code
+    // was actually attached -- the label span needs a tooltip carrying
+    // the full text.
+    const naicsLabelHtml =
+      "NAICS " +
       _escHtml(selectedNaicsCode) +
-      (selectedNaicsTitle ? " &mdash; " + _escHtml(selectedNaicsTitle) : "") +
+      (selectedNaicsTitle ? " &mdash; " + _escHtml(selectedNaicsTitle) : "");
+    chip.innerHTML =
+      "<span>" +
+      naicsLabelHtml +
       '</span><button type="button" aria-label="Clear NAICS selection">&times;</button>';
-    chip.style.display = "inline-flex";
+    chip.style.display = "flex";
+    // Final gate (veto fix): _escHtml() (see its definition above) is a
+    // TEXT-context escaper only -- it round-trips the string through
+    // .textContent then reads back .innerHTML, which escapes `& < >`
+    // but leaves `"` completely untouched. naicsLabelHtml above is only
+    // safe because it lands in chip.innerHTML's text/HTML-content
+    // context; interpolating that same _escHtml()'d string into
+    // `title="..."` (an ATTRIBUTE context) let an unescaped quote in a
+    // NAICS title break out of the attribute and inject arbitrary
+    // attributes/handlers onto the span. The tooltip is set as a DOM
+    // property instead, using the RAW (un-escaped) values and a real
+    // em dash rather than the &mdash; entity -- a property assignment
+    // takes plain text verbatim, needs no escaping, and has nothing to
+    // break out of.
+    const labelSpan = chip.querySelector("span");
+    if (labelSpan) {
+      labelSpan.title =
+        "NAICS " +
+        selectedNaicsCode +
+        (selectedNaicsTitle ? " — " + selectedNaicsTitle : "");
+    }
     const clearBtn = chip.querySelector("button");
     if (clearBtn) {
       clearBtn.onclick = function () {
@@ -2820,22 +2858,83 @@
       };
     }
     if (hint) {
-      const mappedLabel =
-        (channelsDB &&
-          channelsDB.industries &&
-          channelsDB.industries[selectedIndustry] &&
-          channelsDB.industries[selectedIndustry].label) ||
-        (selectedIndustry || "").replace(/_/g, " ");
-      // Design panel 2026-07-31 (iteration 2, trust top change): read as an
-      // explicit substitution notice ("no data at this precision, here is
-      // what we used instead"), not a flat statement of fact.
-      hint.textContent =
-        "No code-level benchmark for " +
-        selectedNaicsCode +
-        " — using the closest category: " +
-        mappedLabel;
-      hint.style.display = "block";
+      const mappedLabel = _naicsMappedLabel();
+      // Design panel 2026-07-31 (false-claim fix): benchmarks are keyed
+      // off the 21 quick-pick internal keys, never off the NAICS code
+      // (shared_utils.py ~90-104) -- category-level is a standing
+      // architectural fact, not a per-pick failure, so the copy states it
+      // as a mechanism while keeping the explicit substitution signal
+      // ("using the closest category") so a user still registers that
+      // the benchmark numbers aren't specific to their code. Deliberately
+      // makes NO claim about deliverables: the NAICS code's reach past
+      // this notice is NOT uniform across generated outputs -- PPTX and
+      // PDF/HTML append it via format_industry_label() (shared_utils.py),
+      // but Excel drops it, because excel_v2.py:2075 _get_industry_label()
+      // re-derives the label from the industry key and never reads
+      // data["industry_label"] (callers at excel_v2.py:4461, 5749, 6295,
+      // 11077), so the suffix never reaches the workbook. Still built via
+      // innerHTML so the glyph span can be aria-hidden; the only dynamic
+      // value (mappedLabel) still goes through _escHtml.
+      hint.innerHTML =
+        '<span aria-hidden="true">ℹ</span><span>' +
+        "Benchmarks are category-level, not per-code — using the closest category: " +
+        _escHtml(mappedLabel) +
+        ".</span>";
+      hint.style.display = "inline-flex";
     }
+  }
+
+  // Design panel 2026-07-31 (item 3, a11y): the mapped-industry label
+  // shown in the substitution notice, factored out of _renderNaicsChip()
+  // so pickResult()'s attach announcement can quote the identical value
+  // instead of re-deriving (and risking drifting from) it.
+  function _naicsMappedLabel() {
+    return (
+      (channelsDB &&
+        channelsDB.industries &&
+        channelsDB.industries[selectedIndustry] &&
+        channelsDB.industries[selectedIndustry].label) ||
+      (selectedIndustry || "").replace(/_/g, " ")
+    );
+  }
+
+  // Design panel 2026-07-31 (item 1, craft; restructured 2026-07-31
+  // cont'd -- dropdown-occlusion fix, body_content.html
+  // .naics-search-wrap comment): while a new query is in flight (text
+  // typed, dropdown potentially open) with a NAICS code already
+  // selected, the chip + substitution notice used to sit at equal
+  // visual weight against the live results -- four competing blocks.
+  // Dim (never hide, never clear) BOTH the chip and the hint so the
+  // in-progress search reads as the primary surface. The hint used to
+  // suppress via display:none instead of dimming, which was safe while
+  // it trailed the input; now that the chip/notice LEAD the block,
+  // collapsing it would shift the #naicsSearch input itself upward
+  // mid-typing, moving the box out from under the user's cursor --
+  // worse than the stacking problem the collapse used to solve, which
+  // no longer exists now that the chip/notice sit outside the
+  // dropdown's path. The selection itself (selectedNaicsCode/Title) is
+  // never touched here -- clearing stays an explicit act (the chip's x
+  // button), never an implicit side effect of typing.
+  function _setNaicsSearchInFlight(active) {
+    const chip = document.getElementById("naicsSelectedChip");
+    const hint = document.getElementById("naicsMappingHint");
+    if (active && selectedNaicsCode) {
+      if (chip) chip.classList.add("naics-chip--superseded");
+      if (hint) hint.classList.add("naics-hint--superseded");
+    } else if (!active) {
+      if (chip) chip.classList.remove("naics-chip--superseded");
+      if (hint) hint.classList.remove("naics-hint--superseded");
+    }
+  }
+
+  // Design panel 2026-07-31 (item 3, a11y): sr-only live-region
+  // announcer for state changes the layout alone doesn't narrate for
+  // screen-reader users (typing filters cards but attaches nothing;
+  // picking a row silently attaches a code). textContent only -- never
+  // parsed as HTML, so callers don't need _escHtml.
+  function _announceNaics(msg) {
+    const liveRegion = document.getElementById("naicsLiveRegion");
+    if (liveRegion) liveRegion.textContent = msg;
   }
 
   // Design panel 2026-07-31 (item 1): filters the 21 quick-pick cards by
@@ -2886,6 +2985,13 @@
       input.setAttribute("aria-expanded", "false");
       _matches = [];
       _activeIndex = -1;
+      // Design panel 2026-07-31 (item 1): an outside click while text is
+      // still typed must not un-dim the chip -- only restore once the
+      // box is actually empty. (Also fires harmlessly after pickResult()'s
+      // own input.value="" reset, and after Escape's explicit call below.)
+      if (input.value.trim() === "") {
+        _setNaicsSearchInFlight(false);
+      }
     }
 
     function scrollActiveIntoView() {
@@ -2972,6 +3078,39 @@
       // for) survived fine. Save explicitly, right after the state that
       // needs to persist actually changes.
       if (typeof saveFormState === "function") saveFormState();
+
+      // Design panel 2026-07-31 (item 3, a11y): a click/Enter on a
+      // dropdown row gives no visual confirmation beyond the chip
+      // appearing above the fold -- announce the attach explicitly, plus
+      // the substitution notice's content when it's showing.
+      let attachMsg =
+        "NAICS " + match.code + " attached: " + match.title + ".";
+      const hintEl = document.getElementById("naicsMappingHint");
+      if (hintEl && hintEl.style.display !== "none") {
+        attachMsg +=
+          " Benchmarks are category-level, not per-code — closest category: " +
+          _naicsMappedLabel() +
+          ".";
+      }
+      _announceNaics(attachMsg);
+    }
+
+    // Design panel 2026-07-31 (item 3, a11y): the fetch path is the only
+    // renderResults() caller that should announce -- ArrowUp/ArrowDown
+    // also call renderResults() to redraw the active row, and re-reading
+    // "N industries found" on every arrow press would be noise, not
+    // signal. Kept as a local helper so both fetchMatches() branches
+    // (success and network failure) announce identically.
+    function announceMatchCount() {
+      const n = _matches.length;
+      _announceNaics(
+        n
+          ? n +
+              " NAICS " +
+              (n === 1 ? "industry" : "industries") +
+              " found. Use arrow keys to review, then Enter to attach a code."
+          : "No matching NAICS industries.",
+      );
     }
 
     function fetchMatches(q) {
@@ -2985,11 +3124,13 @@
           _matches = (data && data.results) || [];
           _activeIndex = -1;
           renderResults();
+          announceMatchCount();
         })
         .catch(function () {
           if (seq !== _reqSeq) return;
           _matches = [];
           renderResults();
+          announceMatchCount();
         });
     }
 
@@ -2999,6 +3140,10 @@
       // keystroke (no debounce -- it's a pure client-side text match),
       // independent of the debounced NAICS dropdown fetch below.
       filterIndustryCards(q);
+      // Design panel 2026-07-31 (item 1, craft): dim the stale
+      // chip/hint the instant a new query starts typing; restore the
+      // instant the box goes back to empty.
+      _setNaicsSearchInFlight(q.length > 0);
       if (_debounceTimer) clearTimeout(_debounceTimer);
       if (q.length < 2) {
         closeDropdown();
@@ -3010,6 +3155,22 @@
     });
 
     input.addEventListener("keydown", function (e) {
+      // Design panel 2026-07-31 (item 1, verified): Escape must work while the
+      // dropdown is showing the EMPTY state too (_matches.length === 0) -- that
+      // is precisely the stale-chip-vs-no-results case this dimming exists for.
+      // The guard below is only about arrow/Enter navigation over real rows.
+      if (e.key === "Escape") {
+        // Design panel 2026-07-31 (mechanism lens): Escape is the explicit
+        // abandon gesture, so it must undo the WHOLE transient search -- the
+        // query text and the card filter too, not just the chip dimming.
+        // Un-dimming alone signalled "all clear" while 22 of 23 quick-pick
+        // cards stayed hidden behind a query still sitting in the box.
+        input.value = "";
+        filterIndustryCards("");
+        closeDropdown();
+        _setNaicsSearchInFlight(false);
+        return;
+      }
       if (resultsEl.style.display !== "block" || !_matches.length) return;
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -3026,8 +3187,6 @@
         if (_activeIndex >= 0 && _matches[_activeIndex]) {
           pickResult(_matches[_activeIndex]);
         }
-      } else if (e.key === "Escape") {
-        closeDropdown();
       }
     });
 
@@ -3038,6 +3197,12 @@
     input.addEventListener("blur", function () {
       input.style.borderColor = "";
       input.style.boxShadow = "";
+      // Design panel 2026-07-31 (item 1, verified): leaving the field with a
+      // stale query still typed is abandonment -- restore the chip and the
+      // substitution notice so the disclosure is never left hidden while a
+      // NAICS code is still attached. Picking a row does NOT blur (the row's
+      // mousedown calls preventDefault to keep focus), so this cannot race a pick.
+      _setNaicsSearchInFlight(false);
     });
 
     document.addEventListener("click", function (e) {
