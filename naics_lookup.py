@@ -6,6 +6,12 @@ convention -- see load_channels_db() in app.py) and exposes:
 - ``naics_lookup(code)``  -> single code record + resolved internal_key, or None
 - ``naics_search(q, limit)`` -> ranked matches for the wizard's typeahead
 
+Search matches on WORD BOUNDARIES (whole word > word prefix; a mid-word
+substring is not a match), and bridges the recruiter's vocabulary to the
+industry taxonomy through a curated occupation alias map -- NAICS titles
+name industries, but the wizard asks users what they are hiring for, and
+no NAICS title contains "nurse", "driver" or "cashier". See _ALIAS_GROUPS.
+
 Resolution rule (per the data contract in data/naics_2022.json):
   1. Strip a ranged sector code (e.g. "31-33") to its first component ("31").
   2. Longest-prefix match against ``internal_key_map`` (checking progressively
@@ -35,6 +41,393 @@ _NAICS_PATH = os.path.join(_BASE_DIR, "data", "naics_2022.json")
 
 _MAX_QUERY_LEN = 100
 
+# Word tokenizer shared by the index builder and the query parser, so a
+# title and a query are always split the same way.
+_WORD_RE = re.compile(r"[a-z0-9]+")
+
+# ── Token match strengths (higher = better) ───────────────────────────
+# A query token matches a title word as a WHOLE WORD or as a WORD PREFIX.
+# A mid-word substring is deliberately NOT a match at all: it is what made
+# "rn" return "Corn Farming", "Furniture Retailers" and "International
+# Affairs" (design panel 2026-07-31, mechanism lens).
+_MATCH_NONE = 0
+_MATCH_PREFIX = 1
+_MATCH_WORD = 2
+
+# ── Rank tiers (lower = better) ───────────────────────────────────────
+_TIER_EXACT = 0  # exact code, or title identical to the query
+_TIER_CODE_PREFIX = 1  # numeric query is a prefix of the code
+_TIER_TITLE_PREFIX = 2  # title starts with the query, ending on a word boundary
+_TIER_ALL_WORDS = 3  # every query token appears as a whole word in the title
+_TIER_ALIAS = 4  # curated occupation -> industry alias (see below)
+_TIER_ALL_PREFIXES = 5  # every query token is at least a word prefix
+
+# ── Occupation -> industry aliases ────────────────────────────────────
+# WHY THIS EXISTS (design panel 2026-07-31, mechanism lens VETO):
+# NAICS is an *industry* taxonomy, but the wizard asks recruiters to type
+# what they are hiring for -- step 2 ships an example chip reading "Nurse
+# in LA". The corpus contains no occupation names at all: no NAICS title
+# contains the word "nurse", or "driver", or "cashier". So the flagship
+# recruitment queries could not match anything real, and fell through to
+# accidental word-prefix collisions -- "nurse" prefixes "nursery", which
+# is why q=nurse returned six horticulture codes and zero healthcare ones.
+#
+# Ranking alone cannot fix that (there is nothing correct to rank), and a
+# morphological stemmer cannot either -- "CDL" -> trucking and "CNA" ->
+# nursing care are semantic, not morphological. So this map bridges the
+# two vocabularies explicitly: auditable, testable, and inert for any term
+# it does not cover, which falls through to the ranking tiers unchanged.
+#
+# Rules for editing:
+#   * Phrases are ORDERED -- the first one is the most on-point industry
+#     and sorts first inside the alias tier.
+#   * Every phrase must match a real NAICS title. test_naics_industry_select.py
+#     asserts every key returns results, so a typo or an invented industry
+#     fails the suite rather than silently shipping an empty typeahead.
+#   * Only map an occupation when the industry genuinely employs it.
+#     Deliberately NOT mapped: "welder" (the only welding title is
+#     "Welding and Soldering Equipment Manufacturing" -- that industry
+#     builds the equipment, it is not where welders are hired), and bare
+#     "tech" (ambiguous between the technology sector and "pharmacy tech"
+#     / "vet tech"; the compound forms are mapped instead, and bare "tech"
+#     still word-prefix matches Technical/Technology titles as before).
+_ALIAS_GROUPS: List[tuple] = [
+    # ── Healthcare ────────────────────────────────────────────────────
+    (
+        ["nursing", "home health care", "hospitals"],
+        [
+            "nurse",
+            "nurses",
+            "nursing",
+            "rn",
+            "rns",
+            "registered nurse",
+            "registered nurses",
+            "lpn",
+            "lvn",
+            "licensed practical nurse",
+            "nurse practitioner",
+            "nurse practitioners",
+            "charge nurse",
+            "staff nurse",
+            "travel nurse",
+            "travel nurses",
+            "icu nurse",
+            "er nurse",
+        ],
+    ),
+    # CNAs work primarily in skilled-nursing facilities; home health aides
+    # and caregivers primarily in home health. Same industries, different
+    # order -- the alias order is what decides the top row, so these two
+    # families stay separate rather than sharing one averaged ordering.
+    (
+        ["nursing", "residential care", "home health care", "assisted living"],
+        [
+            "cna",
+            "cnas",
+            "certified nursing assistant",
+            "nursing assistant",
+            "nursing assistants",
+            "patient care technician",
+        ],
+    ),
+    (
+        ["home health care", "nursing", "residential care", "assisted living"],
+        [
+            "aide",
+            "aides",
+            "home health aide",
+            "home health aides",
+            "hha",
+            "caregiver",
+            "caregivers",
+            "caretaker",
+            "personal care aide",
+            "direct support professional",
+        ],
+    ),
+    (
+        ["offices of physicians", "hospitals"],
+        ["physician", "physicians", "doctor", "doctors", "surgeon", "surgeons"],
+    ),
+    (
+        ["offices of dentists", "dental laboratories"],
+        [
+            "dentist",
+            "dentists",
+            "dental hygienist",
+            "dental hygienists",
+            "dental assistant",
+            "dental assistants",
+        ],
+    ),
+    (
+        ["pharmacies", "pharmaceutical"],
+        [
+            "pharmacist",
+            "pharmacists",
+            "pharmacy technician",
+            "pharmacy technicians",
+            "pharmacy tech",
+            "pharmacy techs",
+        ],
+    ),
+    (
+        ["therapists", "mental health", "hospitals"],
+        [
+            "therapist",
+            "therapists",
+            "physical therapist",
+            "physical therapists",
+            "occupational therapist",
+            "occupational therapists",
+            "speech therapist",
+        ],
+    ),
+    (
+        ["medical and diagnostic laboratories", "offices of physicians", "hospitals"],
+        [
+            "medical assistant",
+            "medical assistants",
+            "phlebotomist",
+            "phlebotomists",
+            "medical technologist",
+            "lab tech",
+            "lab technician",
+            "radiology tech",
+            "radiologic technologist",
+        ],
+    ),
+    (["ambulance"], ["emt", "emts", "paramedic", "paramedics"]),
+    (
+        # NAICS 2022 renamed 6244 from "Child Day Care Services" to
+        # "Child Care Services" -- the old phrase matched nothing and sent
+        # q=daycare to "Elementary and Secondary Schools".
+        ["child care services", "child and youth services"],
+        [
+            "daycare",
+            "day care",
+            "childcare",
+            "child care",
+            "preschool teacher",
+            "daycare worker",
+        ],
+    ),
+    # ── Transport & logistics ─────────────────────────────────────────
+    (
+        [
+            "general freight trucking",
+            "specialized freight",
+            "couriers",
+            "transit",
+            "taxi",
+        ],
+        [
+            "driver",
+            "drivers",
+            "truck driver",
+            "truck drivers",
+            "cdl",
+            "cdl a",
+            "cdl driver",
+            "cdl drivers",
+            "class a driver",
+            "otr driver",
+            "otr drivers",
+            "delivery driver",
+            "delivery drivers",
+            "courier",
+            "couriers",
+            "bus driver",
+            "bus drivers",
+        ],
+    ),
+    (
+        ["warehousing and storage", "couriers"],
+        [
+            "warehouse",
+            "warehouse associate",
+            "warehouse worker",
+            "forklift",
+            "forklift operator",
+            "forklift operators",
+            "picker",
+            "packer",
+            "picker packer",
+            "material handler",
+            "material handlers",
+        ],
+    ),
+    (
+        ["freight transportation arrangement", "general freight trucking"],
+        ["dispatcher", "dispatchers", "logistics coordinator"],
+    ),
+    # ── Skilled trades ────────────────────────────────────────────────
+    (
+        ["electrical contractors"],
+        ["electrician", "electricians", "electrical apprentice"],
+    ),
+    (
+        ["plumbing, heating, and air-conditioning contractors"],
+        [
+            "plumber",
+            "plumbers",
+            "hvac",
+            "hvac technician",
+            "hvac technicians",
+            "hvac tech",
+            "pipefitter",
+        ],
+    ),
+    (
+        ["automotive repair", "automotive mechanical", "automobile dealers"],
+        [
+            "mechanic",
+            "mechanics",
+            "auto mechanic",
+            "auto mechanics",
+            "diesel mechanic",
+            "diesel mechanics",
+            "auto technician",
+            "auto tech",
+            "automotive technician",
+        ],
+    ),
+    # ── Food service & hospitality ────────────────────────────────────
+    (
+        ["restaurants", "food service contractors", "drinking places", "caterers"],
+        [
+            "cook",
+            "cooks",
+            "line cook",
+            "line cooks",
+            "prep cook",
+            "chef",
+            "chefs",
+            "server",
+            "servers",
+            "waiter",
+            "waitress",
+            "barista",
+            "baristas",
+            "dishwasher",
+            "dishwashers",
+            "busser",
+            "food service worker",
+        ],
+    ),
+    (
+        ["hotels and motels", "traveler accommodation", "accommodation"],
+        [
+            "housekeeper",
+            "housekeepers",
+            "housekeeping",
+            "front desk agent",
+            "hotel staff",
+        ],
+    ),
+    # ── Retail ────────────────────────────────────────────────────────
+    (
+        [
+            "grocery and convenience retailers",
+            "general merchandise retailers",
+            "clothing and clothing accessories retailers",
+        ],
+        [
+            "cashier",
+            "cashiers",
+            "retail associate",
+            "retail associates",
+            "sales associate",
+            "sales associates",
+            "store associate",
+            "stocker",
+            "stockers",
+        ],
+    ),
+    # ── Everything else, high-frequency in recruitment ────────────────
+    (
+        ["elementary and secondary schools", "educational services"],
+        [
+            "teacher",
+            "teachers",
+            "substitute teacher",
+            "substitute teachers",
+            "tutor",
+            "tutors",
+            "paraprofessional",
+        ],
+    ),
+    (
+        ["security guards", "investigation and security"],
+        [
+            "security guard",
+            "security guards",
+            "security officer",
+            "security officers",
+        ],
+    ),
+    (
+        ["janitorial", "services to buildings"],
+        [
+            "janitor",
+            "janitors",
+            "custodian",
+            "custodians",
+            "cleaner",
+            "cleaners",
+            "housekeeping aide",
+        ],
+    ),
+    (
+        ["accounting", "payroll"],
+        [
+            "accountant",
+            "accountants",
+            "bookkeeper",
+            "bookkeepers",
+            "payroll specialist",
+            "staff accountant",
+        ],
+    ),
+    (
+        ["computer systems design", "software publishers"],
+        [
+            "software engineer",
+            "software engineers",
+            "software developer",
+            "software developers",
+            "developer",
+            "developers",
+            "programmer",
+            "programmers",
+            "data scientist",
+            "devops engineer",
+        ],
+    ),
+    (
+        # NOT bare "construction": that word also appears in "Construction
+        # Sand and Gravel Mining" and "Construction Machinery
+        # Manufacturing", which do not employ construction laborers.
+        [
+            "residential building construction",
+            "nonresidential building construction",
+            "building finishing contractors",
+            "building equipment contractors",
+        ],
+        [
+            "laborer",
+            "laborers",
+            "construction worker",
+            "construction workers",
+            "carpenter",
+            "carpenters",
+            "roofer",
+            "roofers",
+        ],
+    ),
+]
+
 # Populated at import time; stay empty (never raise) if the data file is
 # missing or malformed so a bad/missing NAICS dataset never blocks plan
 # generation or server startup.
@@ -44,6 +437,37 @@ _INTERNAL_KEY_MAP: Dict[str, str] = {}
 _DEFAULT_INTERNAL_KEY: str = "general_entry_level"
 _LOADED: bool = False
 
+# Per-code search index, built once at import so the typeahead does not
+# re-lowercase and re-tokenize 2,125 titles on every keystroke.
+# Each row: (code, title, title_lower, words tuple, words set, level).
+_SEARCH_ROWS: List[tuple] = []
+
+# Normalized alias key -> ordered list of expansion phrases (token tuples).
+_ALIAS_INDEX: Dict[str, List[tuple]] = {}
+
+
+def _words(text: str) -> tuple:
+    """Split text into lowercase alphanumeric word tokens."""
+    return tuple(_WORD_RE.findall((text or "").lower()))
+
+
+def _normalize_key(text: str) -> str:
+    """Normalize an alias key / query for alias lookup ("CDL-A" -> "cdl a")."""
+    return " ".join(_words(text))
+
+
+def _build_alias_index() -> Dict[str, List[tuple]]:
+    index: Dict[str, List[tuple]] = {}
+    for phrases, terms in _ALIAS_GROUPS:
+        expansions = [_words(p) for p in phrases]
+        expansions = [e for e in expansions if e]
+        for term in terms:
+            key = _normalize_key(term)
+            if key:
+                index[key] = expansions
+    return index
+
+
 try:
     with open(_NAICS_PATH, "r", encoding="utf-8") as _f:
         _raw = json.load(_f)
@@ -51,9 +475,30 @@ try:
     _INTERNAL_KEY_MAP = _raw.get("internal_key_map") or {}
     _DEFAULT_INTERNAL_KEY = _raw.get("default_internal_key") or "general_entry_level"
     _BY_CODE = {c["code"]: c for c in _CODES if isinstance(c, dict) and c.get("code")}
+    _SEARCH_ROWS = []
+    for _c in _CODES:
+        if not isinstance(_c, dict):
+            continue
+        _title = _c.get("title") or ""
+        _title_lower = _title.lower()
+        _w = _words(_title_lower)
+        _SEARCH_ROWS.append(
+            (
+                _c.get("code") or "",
+                _title,
+                _title_lower,
+                _w,
+                frozenset(_w),
+                int(_c.get("level") or 0),
+            )
+        )
+    _ALIAS_INDEX = _build_alias_index()
     _LOADED = True
     logger.info(
-        "Loaded %d NAICS 2022 codes (%s)", len(_CODES), _raw.get("version", "?")
+        "Loaded %d NAICS 2022 codes (%s), %d occupation aliases",
+        len(_CODES),
+        _raw.get("version", "?"),
+        len(_ALIAS_INDEX),
     )
 except (FileNotFoundError, json.JSONDecodeError, OSError, KeyError, TypeError) as e:
     logger.error("Failed to load data/naics_2022.json: %s", e, exc_info=True)
@@ -61,6 +506,8 @@ except (FileNotFoundError, json.JSONDecodeError, OSError, KeyError, TypeError) a
     _BY_CODE = {}
     _INTERNAL_KEY_MAP = {}
     _DEFAULT_INTERNAL_KEY = "general_entry_level"
+    _SEARCH_ROWS = []
+    _ALIAS_INDEX = {}
     _LOADED = False
 
 
@@ -103,12 +550,95 @@ def naics_lookup(code: str) -> Optional[Dict[str, Any]]:
     }
 
 
+def _token_strength(token: str, words: tuple, words_set: frozenset) -> int:
+    """How well a query token matches a title: whole word > word prefix > none.
+
+    A mid-word substring is NOT a match -- see _MATCH_NONE above.
+    """
+    if token in words_set:
+        return _MATCH_WORD
+    for w in words:
+        if w.startswith(token):
+            return _MATCH_PREFIX
+    return _MATCH_NONE
+
+
+def _phrase_strength(tokens: tuple, words: tuple, words_set: frozenset) -> int:
+    """Weakest strength across all tokens; _MATCH_NONE if any token misses.
+
+    Every token must match (AND semantics, as before), so the phrase is
+    only as strong as its weakest token.
+    """
+    weakest = _MATCH_WORD
+    for t in tokens:
+        s = _token_strength(t, words, words_set)
+        if s == _MATCH_NONE:
+            return _MATCH_NONE
+        if s < weakest:
+            weakest = s
+    return weakest
+
+
+def _query_expansions(q_key: str, tokens: tuple) -> List[tuple]:
+    """Ordered alias expansions for a query, most on-point phrase first.
+
+    The whole query is looked up first so a specific multi-word alias
+    ("truck driver" -> trucking) wins over the union of its parts
+    ("truck" + "driver"). Only if the whole query is not an alias do the
+    individual tokens get expanded.
+    """
+    if q_key in _ALIAS_INDEX:
+        return _ALIAS_INDEX[q_key]
+    expansions: List[tuple] = []
+    seen: set = set()
+    for t in tokens:
+        for phrase in _ALIAS_INDEX.get(t, ()):
+            if phrase not in seen:
+                seen.add(phrase)
+                expansions.append(phrase)
+    return expansions
+
+
+def _alias_order(
+    expansions: List[tuple], words: tuple, words_set: frozenset
+) -> Optional[int]:
+    """Index of the first alias expansion this title matches, or None."""
+    for i, phrase in enumerate(expansions):
+        if _phrase_strength(phrase, words, words_set) != _MATCH_NONE:
+            return i
+    return None
+
+
+def _starts_on_word_boundary(title_lower: str, q_lower: str) -> bool:
+    """Title begins with the query AND the query ends on a word boundary.
+
+    Without the boundary check, "nurse" counts as a title-prefix match for
+    "Nursery and Tree Production" -- the exact defect that put six
+    horticulture codes above every healthcare code for q=nurse.
+    """
+    if not title_lower.startswith(q_lower):
+        return False
+    tail = title_lower[len(q_lower) :]
+    return not tail or not tail[0].isalnum()
+
+
 def naics_search(q: str, limit: int = 20) -> List[Dict[str, Any]]:
     """Ranked NAICS search for the wizard typeahead.
 
-    Rank tiers (lower = better): 0 exact code, 1 code-prefix, 2 title
-    startswith, 3 all-query-tokens present in title. Ties broken by
-    preferring deeper (6-digit) codes, then shorter titles.
+    Rank tiers (lower = better): 0 exact code or exact title, 1 code
+    prefix, 2 title starts with the query on a word boundary, 3 every
+    query token is a whole word in the title, 4 curated occupation alias
+    (see _ALIAS_GROUPS), 5 every query token is a word prefix. Ties are
+    broken by alias order, then deeper (6-digit) codes, then shorter
+    titles.
+
+    The alias tier sits ABOVE the word-prefix tier on purpose. A curated
+    "nurse means nursing" is a deliberate statement of intent; "nurse
+    happens to prefix nursery" is an accident of spelling, and ranking the
+    accident higher is what made q=nurse return only horticulture codes.
+    No intent heuristic is involved and nothing is suppressed -- the
+    horticulture rows still appear for q=nurse, just below the nursing
+    ones.
 
     Dedupe (design panel 2026-07-31, iteration 2, mechanism finding):
     NAICS titles frequently repeat verbatim across a parent code and its
@@ -121,7 +651,7 @@ def naics_search(q: str, limit: int = 20) -> List[Dict[str, Any]]:
     genuinely distinct titles are never affected.
     """
     q = (q or "").strip()[:_MAX_QUERY_LEN]
-    if not q or not _CODES:
+    if not q or not _SEARCH_ROWS:
         return []
     try:
         limit = max(1, min(int(limit), 50))
@@ -130,38 +660,54 @@ def naics_search(q: str, limit: int = 20) -> List[Dict[str, Any]]:
 
     q_lower = q.lower()
     q_digits = re.sub(r"[^0-9]", "", q)
-    tokens = [t for t in re.split(r"\s+", q_lower) if t]
+    tokens = _words(q_lower)
+    q_key = " ".join(tokens)
+    # Only treat the query as a code lookup when it is ENTIRELY numeric.
+    # Testing `q_digits` alone made "top 40 retail" a prefix search for
+    # every code starting "40".
+    q_is_code = bool(q_digits) and not any(ch.isalpha() for ch in q_lower)
+    expansions = _query_expansions(q_key, tokens)
 
     scored: List[tuple] = []
-    for c in _CODES:
-        code = c.get("code", "")
-        title = c.get("title", "")
-        title_lower = title.lower()
-        rank: Optional[int] = None
+    for code, title, title_lower, words, words_set, level in _SEARCH_ROWS:
+        tier: Optional[int] = None
+        alias_order = 0
 
-        if q_digits and code == q_digits:
-            rank = 0
-        elif q_digits and code.startswith(q_digits):
-            rank = 1
+        if q_is_code and code == q_digits:
+            tier = _TIER_EXACT
         elif title_lower == q_lower:
-            rank = 0
-        elif title_lower.startswith(q_lower):
-            rank = 2
-        elif tokens and all(t in title_lower for t in tokens):
-            rank = 3
+            tier = _TIER_EXACT
+        elif q_is_code and code.startswith(q_digits):
+            tier = _TIER_CODE_PREFIX
+        elif tokens:
+            strength = _phrase_strength(tokens, words, words_set)
+            if strength == _MATCH_WORD:
+                tier = (
+                    _TIER_TITLE_PREFIX
+                    if _starts_on_word_boundary(title_lower, q_lower)
+                    else _TIER_ALL_WORDS
+                )
+            else:
+                # A curated alias outranks a merely-prefix direct match.
+                order = _alias_order(expansions, words, words_set)
+                if order is not None:
+                    tier = _TIER_ALIAS
+                    alias_order = order
+                elif strength == _MATCH_PREFIX:
+                    tier = _TIER_ALL_PREFIXES
 
-        if rank is not None:
-            scored.append((rank, -int(c.get("level") or 0), len(title), c))
+        if tier is not None:
+            scored.append((tier, alias_order, -level, len(title), code, title, level))
 
-    scored.sort(key=lambda item: (item[0], item[1], item[2]))
+    scored.sort(key=lambda item: item[:4])
 
     results: List[Dict[str, Any]] = []
     seen_titles: set = set()
-    for _rank, _neg_level, _title_len, c in scored:
+    for _tier, _order, _neg_level, _title_len, code, title, level in scored:
         if len(results) >= limit:
             break
-        title = c.get("title", "")
-        # -neg_level sorts deepest-first within a rank tier, so the first
+        # -level sorts deepest-first within a tier, and two codes sharing a
+        # title always land in the same tier/alias_order, so the first
         # occurrence of a given title is already the deepest one -- skip
         # any later (shallower) duplicate rather than the reverse.
         if title in seen_titles:
@@ -169,10 +715,10 @@ def naics_search(q: str, limit: int = 20) -> List[Dict[str, Any]]:
         seen_titles.add(title)
         results.append(
             {
-                "code": c.get("code", ""),
+                "code": code,
                 "title": title,
-                "level": c.get("level"),
-                "internal_key": resolve_internal_key(c.get("code", "")),
+                "level": level,
+                "internal_key": resolve_internal_key(code),
             }
         )
     return results

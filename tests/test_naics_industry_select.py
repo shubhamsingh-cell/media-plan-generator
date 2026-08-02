@@ -198,6 +198,225 @@ class TestNaicsSearch:
         titles = {r["title"] for r in results}
         assert len(titles) > 1
 
+    # ── Design panel 2026-07-31, mechanism lens VETO (fixed 2026-08-02) ──
+    # q=nurse returned SIX horticulture codes and ZERO healthcare ones,
+    # because plain substring matching makes "nurse" a prefix of "nursery"
+    # and the horticulture cluster outranked "nursing". The wizard ships an
+    # example chip reading "Nurse in LA" and the typeahead tells users --
+    # including screen-reader users who cannot see that the rows say
+    # "Floriculture" -- to "pick a result to attach its NAICS code", so the
+    # product actively directed people to a result set that was wrong on
+    # its own flagship query.
+
+    def test_nurse_returns_healthcare_not_horticulture(self) -> None:
+        """The reported defect: q=nurse must surface nursing, not nurseries."""
+        results = naics_lookup.naics_search("nurse", limit=6)
+        assert results, "q=nurse must not be empty"
+
+        top = results[0]
+        assert top["internal_key"] in {"healthcare_medical", "mental_health"}, (
+            f"top result for q=nurse is {top['code']} {top['title']!r} "
+            f"({top['internal_key']}) -- expected a healthcare industry"
+        )
+        assert "nursing" in top["title"].lower(), (
+            f"top result for q=nurse is {top['title']!r} -- expected a "
+            "nursing industry"
+        )
+
+        # The specific six horticulture codes from the 2026-08-02 report
+        # must no longer occupy the whole result set.
+        horticulture = {"111421", "444240", "11142", "113210", "424930", "1114"}
+        returned = {r["code"] for r in results}
+        assert (
+            not returned <= horticulture
+        ), f"q=nurse still returns only horticulture codes: {returned}"
+
+    def test_nurse_phrase_queries_are_not_empty(self) -> None:
+        """q=registered nurse / nurse practitioner returned nothing at all."""
+        for query in ("registered nurse", "nurse practitioner", "rn", "cna"):
+            results = naics_lookup.naics_search(query, limit=5)
+            assert results, f"q={query!r} returned no results"
+            assert results[0]["internal_key"] in {
+                "healthcare_medical",
+                "mental_health",
+            }, (
+                f"q={query!r} top result is {results[0]['title']!r} "
+                f"({results[0]['internal_key']}) -- expected healthcare"
+            )
+
+    def test_nursing_spelling_still_works(self) -> None:
+        """q=nursing was the one spelling that already worked -- keep it."""
+        results = naics_lookup.naics_search("nursing", limit=5)
+        assert results
+        assert results[0]["code"] == "623110"
+        assert results[0]["internal_key"] == "healthcare_medical"
+
+    def test_mid_word_substring_is_not_a_match(self) -> None:
+        """q=rn used to return Corn Farming / Furniture Retailers.
+
+        "rn" appears mid-word in "Corn", "Furniture" and "International",
+        which is meaningless -- a match must land on a word boundary.
+        """
+        results = naics_lookup.naics_search("rn", limit=10)
+        for r in results:
+            words = r["title"].lower().replace(",", " ").split()
+            assert any(w.startswith("rn") for w in words) or r["internal_key"] in {
+                "healthcare_medical",
+                "mental_health",
+            }, f"q=rn returned {r['title']!r} on a mid-word substring"
+        titles = " | ".join(r["title"] for r in results)
+        for junk in ("Corn Farming", "Furniture Retailers", "International Affairs"):
+            assert junk not in titles, f"q=rn still returns {junk!r}"
+
+    def test_title_prefix_match_must_end_on_a_word_boundary(self) -> None:
+        """ "Nursery..." starts with "nurse", but mid-word -- not a prefix hit.
+
+        This is the specific scoring rule that let the horticulture cluster
+        claim the top tier for q=nurse.
+        """
+        assert naics_lookup._starts_on_word_boundary(
+            "nursing care facilities", "nursing"
+        )
+        assert not naics_lookup._starts_on_word_boundary(
+            "nursery and tree production", "nurse"
+        )
+
+    def test_whole_word_match_outranks_word_prefix_match(self) -> None:
+        """q=air must rank "Air Transportation" above "Aircraft ...".
+
+        The generic form of the nurse/nursery defect: a title where the
+        query is a whole word must beat one where it is only the start of
+        a longer word. Pre-fix, "Aircraft Manufacturing" landed at index 1
+        and "Air Transportation" at index 6.
+        """
+        titles = [r["title"] for r in naics_lookup.naics_search("air", limit=50)]
+        air_transport = titles.index("Air Transportation")
+        first_aircraft = next(i for i, t in enumerate(titles) if "Aircraft" in t)
+        assert air_transport < first_aircraft, (
+            f"'Air Transportation' (whole word, idx {air_transport}) must "
+            f"outrank 'Aircraft...' (word prefix, idx {first_aircraft})"
+        )
+
+    def test_occupation_queries_return_the_industry_that_employs_them(
+        self,
+    ) -> None:
+        """Occupations the corpus contains no word for at all.
+
+        No NAICS title contains "driver", "cashier" or "forklift" -- these
+        returned nothing before the occupation alias layer existed.
+        """
+        expectations = {
+            "driver": "logistics_supply_chain",
+            "truck driver": "logistics_supply_chain",
+            "cdl": "logistics_supply_chain",
+            "forklift": "logistics_supply_chain",
+            "line cook": "food_beverage",
+            "teacher": "education",
+            # 6244 Child Care Services maps to education in
+            # internal_key_map, not healthcare.
+            "daycare": "education",
+        }
+        for query, expected_key in expectations.items():
+            results = naics_lookup.naics_search(query, limit=5)
+            assert results, f"q={query!r} returned no results"
+            assert results[0]["internal_key"] == expected_key, (
+                f"q={query!r} -> {results[0]['code']} {results[0]['title']!r} "
+                f"({results[0]['internal_key']}), expected {expected_key}"
+            )
+
+    def test_numeric_prefix_search_requires_an_all_digit_query(self) -> None:
+        """A stray digit must not turn a text query into a code search.
+
+        Pre-fix, the code path triggered on ANY digit anywhere in the
+        query, so "top 5 legal" stripped to "5" and prefix-matched every
+        code starting with 5 -- returning Locksmiths, Credit Unions and
+        Pension Funds, none of which contain any query word.
+        """
+        results = naics_lookup.naics_search("top 5 legal", limit=10)
+        for r in results:
+            assert not (
+                r["code"].startswith("5") and "legal" not in r["title"].lower()
+            ), f"digit fragment leaked into a code-prefix search: {r}"
+        titles = [r["title"] for r in results]
+        for junk in ("Locksmiths", "Credit Unions", "Pension Funds"):
+            assert junk not in titles, f"q='top 5 legal' still returns {junk!r}"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# 2c. Occupation -> industry alias map integrity (added 2026-08-02)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestOccupationAliasMap:
+    """The alias map is hand-curated, so it can rot silently.
+
+    NAICS retitles codes between vintages -- "Child Day Care Services"
+    became "Child Care Services" in the 2022 vintage, and that stale phrase
+    silently sent q=daycare to "Elementary and Secondary Schools" during
+    development. These tests make a stale or invented industry phrase fail
+    the suite instead of shipping a wrong (or empty) typeahead.
+    """
+
+    def test_every_expansion_phrase_matches_a_real_naics_title(self) -> None:
+        dead = []
+        for phrases, terms in naics_lookup._ALIAS_GROUPS:
+            for phrase in phrases:
+                tokens = naics_lookup._words(phrase)
+                hit = any(
+                    naics_lookup._phrase_strength(tokens, words, words_set)
+                    for _c, _t, _tl, words, words_set, _l in naics_lookup._SEARCH_ROWS
+                )
+                if not hit:
+                    dead.append((phrase, terms[0]))
+        assert not dead, (
+            "alias expansion phrases matching no NAICS 2022 title "
+            f"(stale or invented): {dead}"
+        )
+
+    def test_every_alias_key_returns_results(self) -> None:
+        empty = [
+            key
+            for key in naics_lookup._ALIAS_INDEX
+            if not naics_lookup.naics_search(key, limit=3)
+        ]
+        assert not empty, f"alias keys returning an empty typeahead: {empty}"
+
+    def test_every_alias_result_resolves_to_a_valid_internal_key(self) -> None:
+        """The data-contract invariant must hold through the alias path too."""
+        for key in naics_lookup._ALIAS_INDEX:
+            for r in naics_lookup.naics_search(key, limit=10):
+                assert r["internal_key"] in INDUSTRY_LABEL_MAP, (
+                    f"q={key!r} -> {r['code']} resolved to orphan key "
+                    f"{r['internal_key']!r}"
+                )
+
+    def test_multi_word_alias_beats_the_union_of_its_tokens(self) -> None:
+        """ "truck driver" uses the trucking expansion, not truck+driver."""
+        results = naics_lookup.naics_search("truck driver", limit=3)
+        assert results
+        assert (
+            "trucking" in results[0]["title"].lower()
+        ), f"q='truck driver' -> {results[0]['title']!r}"
+        # ...and must not surface truck MANUFACTURING, which hires no drivers.
+        titles = " | ".join(r["title"] for r in results)
+        assert "Manufacturing" not in titles
+
+    def test_aliases_do_not_suppress_the_literal_matches(self) -> None:
+        """Nothing is hidden -- horticulture still appears for q=nurse.
+
+        The fix is a ranking fix, not a filter: an intent heuristic that
+        dropped the agriculture cluster would be wrong for a user who
+        really did mean nurseries.
+        """
+        results = naics_lookup.naics_search("nurse", limit=50)
+        titles = [r["title"] for r in results]
+        assert any(
+            "Nursery" in t for t in titles
+        ), "horticulture rows should still be reachable, just ranked below"
+        nursing_idx = next(i for i, t in enumerate(titles) if "Nursing" in t)
+        nursery_idx = next(i for i, t in enumerate(titles) if "Nursery" in t)
+        assert nursing_idx < nursery_idx
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 2b. Mapping fix: 922130/92213 "Legal Counsel and Prosecution" (design
@@ -379,6 +598,29 @@ class TestNaicsSearchEndpointLive:
         assert status == 200
         data = json.loads(body)
         assert len(data["results"]) <= 2
+
+    def test_nurse_query_over_http_returns_healthcare(self, live_server: int) -> None:
+        """The verbatim reproduction from the 2026-08-02 report.
+
+            curl "/api/naics/search?q=nurse&limit=6"
+
+        returned six horticulture codes and zero healthcare ones. Pinned at
+        the HTTP layer, not just the function, because that is the surface
+        the wizard's typeahead and its aria-live announcement consume.
+        """
+        status, body = _http_get(live_server, "/api/naics/search?q=nurse&limit=6")
+        assert status == 200
+        results = json.loads(body)["results"]
+        assert results, "q=nurse returned no results over HTTP"
+        assert results[0]["internal_key"] in {"healthcare_medical", "mental_health"}
+        assert (
+            "Nursing" in results[0]["title"]
+        ), f"top HTTP result for q=nurse is {results[0]['title']!r}"
+        # internal_label is what the wizard renders next to each row -- a
+        # screen-reader user hears this, so it must be resolved, not raw.
+        assert results[0]["internal_label"] == INDUSTRY_LABEL_MAP.get(
+            results[0]["internal_key"]
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════
