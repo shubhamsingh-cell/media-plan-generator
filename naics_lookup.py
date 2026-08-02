@@ -32,7 +32,7 @@ import json
 import logging
 import os
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,11 @@ _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 _NAICS_PATH = os.path.join(_BASE_DIR, "data", "naics_2022.json")
 
 _MAX_QUERY_LEN = 100
+
+# Widest sector range expanded into its members (see _code_match_keys).
+# The real dataset's widest is "31-33"; the cap only exists so a malformed
+# regeneration can never blow up memory at import.
+_MAX_RANGE_SPAN = 20
 
 # Word tokenizer shared by the index builder and the query parser, so a
 # title and a query are always split the same way.
@@ -442,6 +447,11 @@ _LOADED: bool = False
 # Each row: (code, title, title_lower, words tuple, words set, level).
 _SEARCH_ROWS: List[tuple] = []
 
+# Code -> every literal a numeric query may match it by (see
+# _code_match_keys). Kept beside _SEARCH_ROWS rather than inside a row so
+# the row shape stays exactly what the alias-map tests unpack.
+_CODE_KEYS: Dict[str, Tuple[str, ...]] = {}
+
 # Normalized alias key -> ordered list of expansion phrases (token tuples).
 _ALIAS_INDEX: Dict[str, List[tuple]] = {}
 
@@ -449,6 +459,27 @@ _ALIAS_INDEX: Dict[str, List[tuple]] = {}
 def _words(text: str) -> tuple:
     """Split text into lowercase alphanumeric word tokens."""
     return tuple(_WORD_RE.findall((text or "").lower()))
+
+
+def _code_match_keys(code: str) -> Tuple[str, ...]:
+    """Every literal a numeric query can legitimately match ``code`` by.
+
+    A plain code stands only for itself. A ranged sector code ("31-33")
+    also stands for each sector inside the inclusive range -- ("31-33",
+    "31", "32", "33") -- because that is what the NAICS range means, and
+    it is the expansion internal_key_map already spells out by hand
+    (31/32/33 each map to one internal key). Without it a user typing
+    "33" or "45" never sees the sector their code lives under.
+    """
+    if "-" not in code:
+        return (code,)
+    start, _, end = code.partition("-")
+    if not (start.isdigit() and end.isdigit()) or len(start) != len(end):
+        return (code, start) if start else (code,)
+    lo, hi = int(start), int(end)
+    if not 0 <= hi - lo <= _MAX_RANGE_SPAN:
+        return (code, start, end)
+    return (code,) + tuple(str(n).zfill(len(start)) for n in range(lo, hi + 1))
 
 
 def _normalize_key(text: str) -> str:
@@ -492,6 +523,7 @@ try:
                 int(_c.get("level") or 0),
             )
         )
+    _CODE_KEYS = {_code: _code_match_keys(_code) for _code in _BY_CODE}
     _ALIAS_INDEX = _build_alias_index()
     _LOADED = True
     logger.info(
@@ -507,6 +539,7 @@ except (FileNotFoundError, json.JSONDecodeError, OSError, KeyError, TypeError) a
     _INTERNAL_KEY_MAP = {}
     _DEFAULT_INTERNAL_KEY = "general_entry_level"
     _SEARCH_ROWS = []
+    _CODE_KEYS = {}
     _ALIAS_INDEX = {}
     _LOADED = False
 
@@ -640,6 +673,17 @@ def naics_search(q: str, limit: int = 20) -> List[Dict[str, Any]]:
     horticulture rows still appear for q=nurse, just below the nursing
     ones.
 
+    Ranged sector codes (2026-08-02 fix): three sectors are stored with
+    a hyphen -- "31-33" Manufacturing, "44-45" Retail Trade, "48-49"
+    Transportation and Warehousing. A code query containing an internal
+    hyphen is matched literally rather than as concatenated digits;
+    collapsing "31-33" to "3133" used to hit the unrelated 4-digit
+    Textile Mills code and miss the sector entirely, and "44-45"/"48-49"
+    matched nothing at all. Any member of a range ("31", "32", "33") is
+    an exact hit on the sector, so a 2-digit query surfaces its sector
+    row first -- the contract "54" already had for un-ranged sectors,
+    which the -level tie-break otherwise sorted last.
+
     Dedupe (design panel 2026-07-31, iteration 2, mechanism finding):
     NAICS titles frequently repeat verbatim across a parent code and its
     lone child (e.g. 92213 "Legal Counsel and Prosecution" duplicates
@@ -666,18 +710,26 @@ def naics_search(q: str, limit: int = 20) -> List[Dict[str, Any]]:
     # Testing `q_digits` alone made "top 40 retail" a prefix search for
     # every code starting "40".
     q_is_code = bool(q_digits) and not any(ch.isalpha() for ch in q_lower)
+    # Literal form of a code query: "31 - 33" and a pasted en-dash
+    # "31<U+2013>33" both normalize to "31-33"; leading/trailing hyphens
+    # are noise, so only an *internal* hyphen marks a range query, which
+    # is then matched literally instead of being concatenated into the
+    # unrelated code "3133".
+    q_code = re.sub(r"[\u2010-\u2015]", "-", re.sub(r"\s+", "", q)).strip("-")
+    q_num = q_code if "-" in q_code else q_digits
     expansions = _query_expansions(q_key, tokens)
 
     scored: List[tuple] = []
     for code, title, title_lower, words, words_set, level in _SEARCH_ROWS:
         tier: Optional[int] = None
         alias_order = 0
+        code_keys = _CODE_KEYS.get(code) or (code,)
 
-        if q_is_code and code == q_digits:
+        if q_is_code and q_num in code_keys:
             tier = _TIER_EXACT
         elif title_lower == q_lower:
             tier = _TIER_EXACT
-        elif q_is_code and code.startswith(q_digits):
+        elif q_is_code and any(k.startswith(q_num) for k in code_keys):
             tier = _TIER_CODE_PREFIX
         elif tokens:
             strength = _phrase_strength(tokens, words, words_set)

@@ -341,6 +341,104 @@ class TestNaicsSearch:
         for junk in ("Locksmiths", "Credit Unions", "Pension Funds"):
             assert junk not in titles, f"q='top 5 legal' still returns {junk!r}"
 
+    # ── Ranged sector codes (defect found 2026-08-02) ──────────────────
+    # Three sectors are stored with a hyphen: "31-33" Manufacturing,
+    # "44-45" Retail Trade, "48-49" Transportation and Warehousing.
+    # naics_search reduced every code query to its digits, so "31-33"
+    # became "3133" and matched the unrelated 4-digit Textile Mills code
+    # while never reaching Manufacturing, and "44-45"/"48-49" matched
+    # nothing at all. A 2-digit query was broken the other way: it did
+    # reach the sector row by prefix, but the -level tie-break sorts a
+    # level-2 sector below every one of its level-6 descendants, so the
+    # sector came LAST -- off the end of a 20-row typeahead -- while
+    # "54", an un-ranged sector, came first.
+
+    RANGED_SECTORS = [
+        ("31-33", "Manufacturing", ("31", "32", "33")),
+        ("44-45", "Retail Trade", ("44", "45")),
+        ("48-49", "Transportation and Warehousing", ("48", "49")),
+    ]
+
+    def test_ranged_sector_code_is_the_top_exact_match(self) -> None:
+        for code, title, _members in self.RANGED_SECTORS:
+            results = naics_lookup.naics_search(code)
+            assert results, f"{code} returned no matches"
+            assert results[0]["code"] == code, f"{code} -> {results[0]['code']}"
+            assert results[0]["title"] == title
+            assert results[0]["level"] == 2
+
+    def test_ranged_query_never_collapses_into_a_concatenated_code(self) -> None:
+        # "31-33" must not be read as "3133" (Textile and Fabric
+        # Finishing and Fabric Coating Mills) -- a different industry.
+        codes = [r["code"] for r in naics_lookup.naics_search("31-33", limit=50)]
+        assert "3133" not in codes
+        assert not any(c.startswith("3133") for c in codes)
+
+    def test_concatenated_code_still_resolves_to_itself(self) -> None:
+        # The converse guard: "3133" is a real code and must keep
+        # matching Textile Mills, not the Manufacturing sector.
+        results = naics_lookup.naics_search("3133")
+        assert results[0]["code"] == "3133"
+        assert "31-33" not in [r["code"] for r in results]
+
+    def test_any_member_of_a_range_surfaces_its_sector_first(self) -> None:
+        # Typing "33" or "45" means "the sector that owns these codes" --
+        # the same contract "54" already had for the un-ranged sectors.
+        for code, title, members in self.RANGED_SECTORS:
+            for member in members:
+                results = naics_lookup.naics_search(member)
+                assert results, f"{member} returned no matches"
+                assert results[0]["code"] == code, f"{member} -> {results[0]['code']}"
+                assert results[0]["title"] == title
+
+    def test_sector_row_does_not_crowd_out_its_descendants(self) -> None:
+        # The sector is added at the top, not substituted for the deep
+        # codes that used to fill the list.
+        results = naics_lookup.naics_search("31", limit=10)
+        assert results[0]["code"] == "31-33"
+        rest = [r["code"] for r in results[1:]]
+        assert len(rest) >= 5
+        assert all(c.startswith("31") for c in rest)
+
+    def test_partially_typed_range_matches_the_sector(self) -> None:
+        # Typeahead sends every keystroke; "31-3" is mid-way through
+        # "31-33" and must not fall back to a digits-only reading.
+        codes = [r["code"] for r in naics_lookup.naics_search("31-3")]
+        assert codes == ["31-33"]
+
+    def test_range_query_tolerates_spacing_and_unicode_dashes(self) -> None:
+        for variant in ("31 - 33", "31\u201333", "31\u201433", " 31-33 "):
+            results = naics_lookup.naics_search(variant)
+            assert results, f"{variant!r} returned no matches"
+            assert results[0]["code"] == "31-33", f"{variant!r} -> {results[0]}"
+
+    def test_ranged_sector_results_resolve_to_a_valid_internal_key(self) -> None:
+        # Same data-contract invariant as class 1, asserted on the rows
+        # the wizard actually receives for a ranged-sector query.
+        for code, _title, members in self.RANGED_SECTORS:
+            for query in (code,) + members:
+                for r in naics_lookup.naics_search(query, limit=20):
+                    assert r["internal_key"] in INDUSTRY_LABEL_MAP, (query, r)
+
+    def test_hyphenated_title_query_is_unaffected(self) -> None:
+        # A hyphen only means "range" for codes -- hyphenated *titles*
+        # must keep matching by text.
+        results = naics_lookup.naics_search("full-service")
+        assert results
+        assert results[0]["code"] == "722511"
+        assert results[0]["title"] == "Full-Service Restaurants"
+
+    def test_code_match_keys_expands_only_well_formed_ranges(self) -> None:
+        # The expansion helper is defensive: a plain code stands only for
+        # itself, and a malformed/absurd range degrades to its endpoints
+        # instead of raising or exploding at import.
+        assert naics_lookup._code_match_keys("541110") == ("541110",)
+        assert naics_lookup._code_match_keys("31-33") == ("31-33", "31", "32", "33")
+        assert naics_lookup._code_match_keys("31-3a") == ("31-3a", "31")
+        assert naics_lookup._code_match_keys("33-31") == ("33-31", "33", "31")
+        assert naics_lookup._code_match_keys("10-999999") == ("10-999999", "10")
+        assert naics_lookup._code_match_keys("10-99") == ("10-99", "10", "99")
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 2c. Occupation -> industry alias map integrity (added 2026-08-02)
