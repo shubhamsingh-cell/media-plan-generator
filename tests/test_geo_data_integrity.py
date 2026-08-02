@@ -21,11 +21,18 @@ Covers:
     4. Pinned known-good spot checks (Atlanta/NYC/SF ZIPs, multi-state
        Springfield).
     5. Lat/lng plausibility for the 50 states + DC + territories.
+    6. Drift guard for judgment call #4: `county_fips` must stay the true
+       global largest-overlap county for every ZIP whose true winner is
+       present in `us_counties.tsv` (skipped, not silently passed, when
+       the gitignored `data/.geo_build_cache/` isn't populated locally --
+       this one test is the only one in the module that touches it, and
+       only ever reads the already-cached file, never the network).
 """
 
 from __future__ import annotations
 
 import csv
+import sys
 from pathlib import Path
 from typing import Dict, List
 
@@ -383,6 +390,70 @@ def test_roughly_thirty_percent_of_zips_span_multiple_counties(zips):
     multi = sum(1 for r in zips if int(r["county_count"]) > 1)
     share = multi / total if total else 0.0
     assert 0.20 <= share <= 0.40, f"multi-county share {share:.1%} ({multi}/{total}) outside expected range"
+
+
+def test_county_fips_is_true_global_max_overlap_county_where_knowable(zips, county_fips_set):
+    """Drift guard for data/geo/README.md judgment call #4.
+
+    build_zips() filters each ZCTA's overlap-ordered county list down to
+    counties present in us_counties.tsv BEFORE picking the dominant entry
+    (`filtered[0]`), instead of the pre-fix behavior of picking the single
+    best county first and dropping the whole ZIP row if that county wasn't
+    in us_counties.tsv. `county_fips`'s real meaning is therefore "largest
+    overlap among counties present in us_counties.tsv", not "the true
+    largest-overlap county, full stop" -- they coincide for every row in
+    this vintage (0 rows affected), but nothing enforced that beyond this
+    test.
+
+    This recomputes the TRUE, unfiltered largest-overlap county per ZCTA
+    straight from the cached Census relationship file
+    (parse_zcta_county(), before build_zips()'s us_counties.tsv filter)
+    and fails loudly the moment a row's county_fips diverges from it while
+    that true winner is still a county we know about -- i.e. the moment
+    the "coincide today" gap above stops coinciding for a row where it's
+    not supposed to.
+
+    Skipped (not silently passed) when
+    data/.geo_build_cache/tab20_zcta520_county20_natl.txt isn't present --
+    it's gitignored, so a fresh clone/CI checkout won't have it. This
+    keeps the module's "never re-downloads, stays offline" guarantee: the
+    test only ever reads a file already sitting on disk, and calls fetch()
+    which is a pure cache-read whenever that file exists (no network, per
+    scripts/build_geo_data.py::fetch()).
+    """
+    cache_file = PROJECT_ROOT / "data" / ".geo_build_cache" / "tab20_zcta520_county20_natl.txt"
+    if not cache_file.exists():
+        pytest.skip(
+            "data/.geo_build_cache/tab20_zcta520_county20_natl.txt not present "
+            "(gitignored) -- run `python3 scripts/build_geo_data.py` once to "
+            "populate the cache (or copy data/.geo_build_cache/ from a worktree "
+            "that already has), then re-run to exercise this guard."
+        )
+
+    scripts_dir = PROJECT_ROOT / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    import build_geo_data as bgd
+
+    true_dominant_by_zip = {zip5: fips_list[0] for zip5, fips_list in bgd.parse_zcta_county().items()}
+
+    mismatches = []
+    for row in zips:
+        true_dominant = true_dominant_by_zip.get(row["zip5"])
+        if true_dominant is None or true_dominant not in county_fips_set:
+            # Either not derivable from this cache snapshot, or the true
+            # #1 county is legitimately absent from us_counties.tsv --
+            # the documented, expected divergence path. Not a bug.
+            continue
+        if row["county_fips"] != true_dominant:
+            mismatches.append((row["zip5"], row["county_fips"], true_dominant))
+
+    assert not mismatches, (
+        f"{len(mismatches)} zip(s) have county_fips diverging from the true "
+        f"global-max-overlap county despite that county being present in "
+        f"us_counties.tsv (zip5, county_fips, true_dominant -- first 10: "
+        f"{mismatches[:10]}); see data/geo/README.md judgment call #4."
+    )
 
 
 # ---------------------------------------------------------------------

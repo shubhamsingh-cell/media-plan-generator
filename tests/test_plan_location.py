@@ -160,10 +160,16 @@ def test_carson_city_display_name_keeps_its_own_city_word():
 def test_no_note_leaks_internal_vocabulary_to_clients():
     """Every `note` is rendered verbatim in the client-facing wizard, so none
     may carry repo paths, module names, or developer jargon. A design review
-    caught 'see data/geo/README.md' on screen in front of a paying client."""
+    caught 'see data/geo/README.md' on screen in front of a paying client.
+
+    Includes the multi-county disclosure ZIPs (39573, 02861, 20110) --
+    added 2026-08-02 alongside plan_location.py::_resolve_zip()'s new
+    county_count/other_counties note, which this probe list originally
+    missed entirely (it predates that note's construction path)."""
     probes = [
         "30301", "00000", "99999", "London, UK", "Toronto, Canada", "Bangalore",
         "asdfghjkl", "Springfield", "Atlanta", "Cincinatti", "TX", "Remote", "",
+        "39573", "02861", "20110",
     ]
     banned = ("readme", "data/geo", ".py", ".tsv", "zcta", "tabulation",
               "resolver", "out of scope", "not a failure", "--", "traceback")

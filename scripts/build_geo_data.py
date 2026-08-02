@@ -347,9 +347,17 @@ def parse_zcta_county() -> Dict[str, List[str]]:
     ZCTA, ordered by land-area overlap (AREALAND_PART) descending, ties
     broken by county_fips ascending for determinism. The first element is
     the county with the largest overlap (build_zips() uses it as the
-    dominant `county_fips`, same "largest overlap" semantics as before this
-    function returned only that single winner). ~30% of ZCTAs have more
-    than one entry here -- see data/geo/README.md and
+    dominant `county_fips`). For every ZCTA with no tie at the maximum
+    area (all of them, in every vintage checked so far -- see
+    tests/test_geo_data_integrity.py), this picks the same winner this
+    function returned before it exposed the full list. It is NOT literally
+    "the same semantics" in general, though: the old version iterated
+    source rows in file order and only replaced its running best on a
+    strict `>`, so a max-area tie resolved to whichever county appeared
+    FIRST in the source file; this version breaks max-area ties by
+    `county_fips` ascending instead, which is deterministic regardless of
+    source row order but is a different tiebreak rule. ~30% of ZCTAs have
+    more than one entry here -- see data/geo/README.md and
     tests/test_geo_data_integrity.py for the county_count/all_county_fips
     columns this feeds."""
     raw = fetch(ZCTA_COUNTY_URL)

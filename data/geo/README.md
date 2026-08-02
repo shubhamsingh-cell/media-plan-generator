@@ -197,13 +197,34 @@ counts.
    overlap-descending, first entry == `county_fips`, filtered to counties
    present in `us_counties.tsv` so the same referential-integrity
    invariant `test_geo_data_integrity.py` enforces for `county_fips` holds
-   for the new column too). This is purely additive: `county_fips` and
-   `primary_city` keep their exact prior meaning and value; only the new
-   columns are new. `plan_location.py::_resolve_zip()` surfaces this as
-   `county_count`/`other_counties`/`note` on the resolution -- ZIP
+   for the new column too). `plan_location.py::_resolve_zip()` surfaces
+   this as `county_count`/`other_counties`/`note` on the resolution -- ZIP
    resolution itself stays `status="resolved"`, `confidence=1.0` (the ZIP
    really is resolved with certainty; only the county attribution is a
    best guess).
+
+   **Additive for every ZIP this build actually emits, but not literally
+   "same meaning" in one latent edge case.** `county_fips`/`primary_city`
+   keep their exact prior value for every row in this vintage (0 rows
+   affected -- verified against this build). But `build_zips()` now
+   filters `parse_zcta_county()`'s full overlap-ordered list down to
+   counties present in `us_counties.tsv` **before** picking the dominant
+   entry (`filtered[0]`), instead of the pre-fix behavior of picking the
+   single best county first and then dropping the whole ZIP row if *that*
+   county wasn't in `us_counties.tsv`. So if a future Census refresh ever
+   has a ZCTA whose true largest-overlap county is absent from
+   `us_counties.tsv` (e.g. a county merger/rename our county file hasn't
+   picked up yet), this build now **keeps** that ZIP with its
+   second-largest (or lower) known county as `county_fips`, where the
+   pre-fix build would have **dropped the ZIP entirely**. `county_fips`'s
+   real meaning is therefore "largest overlap among counties present in
+   `us_counties.tsv`", not "the true largest-overlap county, full stop" --
+   the two coincide today but are not guaranteed to coincide forever.
+   `tests/test_geo_data_integrity.py` recomputes the true unfiltered
+   largest-overlap county straight from the cached relationship file and
+   fails loudly the moment a row's `county_fips` diverges from it while
+   the true winner is still a known county (it is skipped, not silently
+   passed, when the build cache isn't populated locally).
 5. **ZCTA != USPS ZIP.** Census's ZCTA (ZIP Code Tabulation Area) is a
    geographic proxy for USPS ZIP codes, not an exact 1:1 mapping. A small
    number of real USPS ZIP codes -- mostly PO-Box-only or unique-purpose

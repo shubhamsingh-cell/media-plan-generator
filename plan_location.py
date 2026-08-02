@@ -781,8 +781,18 @@ def _resolve_zip(raw_str: str, zip5: str) -> LocationResolution:
                 f"{c['county_name']}, {c['state_usps']}" if c["county_name"] else c["county_fips"]
                 for c in other_counties
             ]
+            # "county" is inaccurate client-facing copy for the 341 (of
+            # 10,174) multi-county ZIPs whose named units aren't all
+            # Census counties proper -- Louisiana Parishes, Puerto Rico
+            # Municipios, Virginia independent cities, Alaska
+            # Boroughs/Census Areas all live in county_fips/county_name too
+            # (e.g. ZIP 20110: "Manassas city, VA" + "Prince William
+            # County, VA"). Fall back to the Census term of art whenever any
+            # named unit isn't a "* County".
+            unit_names = [res.county_name] + [c["county_name"] for c in other_counties]
+            unit_word = "counties" if all(n.endswith("County") for n in unit_names) else "counties or equivalents"
             res.note = (
-                f"ZIP {zip5} spans {res.county_count} counties. Nova is using "
+                f"ZIP {zip5} spans {res.county_count} {unit_word}. Nova is using "
                 f"{dominant_label} — it covers the largest share of the ZIP’s "
                 f"land area. Also overlapping: {'; '.join(other_names)}."
             )
