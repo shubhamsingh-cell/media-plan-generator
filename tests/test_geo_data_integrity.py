@@ -317,6 +317,75 @@ def test_zip_30301_absent_is_a_known_zcta_gap_not_silent_data_loss(zips):
 
 
 # ---------------------------------------------------------------------
+# ZIP -> multi-county completeness (county_count / all_county_fips)
+#
+# Background: parse_zcta_county() used to keep only the single county
+# with the largest AREALAND_PART overlap per ZCTA and silently discard
+# the rest, so us_zips.tsv's bare county_fips asserted a certainty the
+# data never had for ~30% of ZCTAs that genuinely span multiple
+# counties. This is purely additive: county_fips/county_count[0] is
+# unchanged in meaning (still "the dominant county"); county_count and
+# all_county_fips are new columns disclosing the counties that were
+# previously thrown away.
+# ---------------------------------------------------------------------
+
+
+def test_all_county_fips_entries_are_5_digit_zero_padded_and_known(zips, county_fips_set):
+    for row in zips:
+        entries = row["all_county_fips"].split("|")
+        for fips in entries:
+            assert len(fips) == 5 and fips.isdigit(), f"zip {row['zip5']}: bad fips {fips!r} in all_county_fips"
+            assert fips in county_fips_set, (
+                f"zip {row['zip5']}: all_county_fips references {fips!r}, not in us_counties.tsv"
+            )
+
+
+def test_county_count_matches_all_county_fips_length(zips):
+    for row in zips:
+        entries = row["all_county_fips"].split("|")
+        assert int(row["county_count"]) == len(entries), (
+            f"zip {row['zip5']}: county_count={row['county_count']!r} != "
+            f"len(all_county_fips.split('|'))={len(entries)}"
+        )
+
+
+def test_county_count_is_at_least_one(zips):
+    for row in zips:
+        assert int(row["county_count"]) >= 1, f"zip {row['zip5']}: county_count must be >= 1"
+
+
+def test_all_county_fips_first_element_matches_county_fips(zips):
+    for row in zips:
+        first = row["all_county_fips"].split("|")[0]
+        assert first == row["county_fips"], (
+            f"zip {row['zip5']}: all_county_fips[0]={first!r} != county_fips={row['county_fips']!r}"
+        )
+
+
+def test_zip_39573_spans_multiple_mississippi_counties(zips):
+    """Regression pin for the defect this suite section is named after --
+    39573 (Wiggins, MS) is the example cited when the defect was found:
+    Stone County dominates by land area, but the ZCTA genuinely overlaps
+    several neighboring Mississippi counties that the old single-winner
+    join silently dropped."""
+    row = _zip_row(zips, "39573")
+    assert int(row["county_count"]) > 1, row["county_count"]
+    assert row["county_fips"] in row["all_county_fips"].split("|")
+
+
+def test_roughly_thirty_percent_of_zips_span_multiple_counties(zips):
+    """Pins the order of magnitude of the defect (documented as 30.1% /
+    10,186 of 33,791 ZCTAs at discovery time) so a future regression that
+    silently collapses this back to single-county-only shows up as a
+    failing test. Range, not exact match -- Census vintage churn moves
+    the exact count slightly build to build."""
+    total = len(zips)
+    multi = sum(1 for r in zips if int(r["county_count"]) > 1)
+    share = multi / total if total else 0.0
+    assert 0.20 <= share <= 0.40, f"multi-county share {share:.1%} ({multi}/{total}) outside expected range"
+
+
+# ---------------------------------------------------------------------
 # Lat/lng plausibility (allowing AK/HI/territories)
 # ---------------------------------------------------------------------
 

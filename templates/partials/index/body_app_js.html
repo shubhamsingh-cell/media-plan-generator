@@ -2293,6 +2293,19 @@
         _appendLocSeg(line, res.county_name, "loc-row-county");
       }
       body.appendChild(line);
+      // Multi-county ZIP disclosure -- ~30% of ZCTAs genuinely span more
+      // than one county (see plan_location.py::_resolve_zip). The ZIP
+      // itself is still resolved with full confidence; this is honest
+      // disclosure that the COUNTY attribution above is a best guess
+      // (largest land-area overlap), not a claim of certainty. Gated on
+      // county_count (a structural signal, not a note-content sniff) so
+      // this never fires for any other resolved/corrected row's note.
+      if (res.county_count > 1 && res.note) {
+        const multiCountyLine = document.createElement("div");
+        multiCountyLine.className = "loc-row-note";
+        multiCountyLine.textContent = res.note;
+        body.appendChild(multiCountyLine);
+      }
       // Metro area is a free Census substitute, not a licensed market-area
       // feed -- only ever shown when the backend actually found a match
       // (cbsa_status === "available"); silent otherwise, same rule as a

@@ -280,6 +280,8 @@ class LocationResolution:
     matched_via: str = ""
     note: str = ""
     alternatives: list[dict[str, str]] = field(default_factory=list)
+    county_count: int = 0
+    other_counties: list[dict[str, str]] = field(default_factory=list)
     dma_code: str | None = None
     dma_name: str | None = None
     dma_source: str | None = None
@@ -412,6 +414,10 @@ def _load_places() -> None:
 
 
 def _load_zips() -> None:
+    # _read_tsv (csv.DictReader) captures every column in us_zips.tsv into
+    # `row`, including the county_count/all_county_fips columns build_zips()
+    # added -- no extra plumbing needed here to carry them through; they're
+    # read back out in _resolve_zip() below via record.get(...).
     for row in _read_tsv(_GEO_DIR / "us_zips.tsv"):
         zip5 = (row.get("zip5") or "").strip()
         if not zip5:
@@ -740,6 +746,46 @@ def _resolve_zip(raw_str: str, zip5: str) -> LocationResolution:
         res.county_name = county.get("county_name", "") if county else ""
         res.lat = _to_float(record.get("lat"))
         res.lng = _to_float(record.get("lng"))
+
+        # Additive multi-county disclosure -- see data/geo/README.md and
+        # scripts/build_geo_data.py::parse_zcta_county(). ~30% of ZCTAs
+        # genuinely span more than one county; the ZIP itself is still
+        # resolved with certainty (status/confidence untouched), only the
+        # county attribution carries uncertainty, so it gets its own
+        # signal instead of muddying fields downstream code branches on.
+        try:
+            res.county_count = int(record.get("county_count") or "1")
+        except ValueError:
+            res.county_count = 1
+        all_fips = [f for f in (record.get("all_county_fips") or "").split("|") if f]
+        if res.county_count > 1 and len(all_fips) > 1:
+            other_fips = all_fips[1:]
+            other_counties = []
+            for fips in other_fips:
+                other_county = _counties_by_fips.get(fips)
+                other_counties.append(
+                    {
+                        "county_name": other_county.get("county_name", "") if other_county else "",
+                        "county_fips": fips,
+                        "state_usps": other_county.get("state_usps", "") if other_county else "",
+                    }
+                )
+            res.other_counties = other_counties
+            # county_name already carries its own legal-type suffix
+            # (Census NAME field, e.g. "Stone County", "Acadia Parish",
+            # "Aleutians East Borough") -- do not append "County" again.
+            dominant_label = (
+                f"{res.county_name}, {res.state_usps}" if res.county_name else "the largest county"
+            )
+            other_names = [
+                f"{c['county_name']}, {c['state_usps']}" if c["county_name"] else c["county_fips"]
+                for c in other_counties
+            ]
+            res.note = (
+                f"ZIP {zip5} spans {res.county_count} counties. Nova is using "
+                f"{dominant_label} — it covers the largest share of the ZIP’s "
+                f"land area. Also overlapping: {'; '.join(other_names)}."
+            )
         _apply_dma(res)
         _apply_cbsa(res)
         return res

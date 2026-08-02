@@ -342,10 +342,16 @@ def parse_zcta_gazetteer() -> Dict[str, Tuple[str, str]]:
     return out
 
 
-def parse_zcta_county() -> Dict[str, str]:
-    """Return {zip5: county_fips} picking, per zip, the county with the
-    largest land-area overlap (AREALAND_PART) when a ZCTA spans more than
-    one county."""
+def parse_zcta_county() -> Dict[str, List[str]]:
+    """Return {zip5: [county_fips, ...]} -- EVERY county overlapping the
+    ZCTA, ordered by land-area overlap (AREALAND_PART) descending, ties
+    broken by county_fips ascending for determinism. The first element is
+    the county with the largest overlap (build_zips() uses it as the
+    dominant `county_fips`, same "largest overlap" semantics as before this
+    function returned only that single winner). ~30% of ZCTAs have more
+    than one entry here -- see data/geo/README.md and
+    tests/test_geo_data_integrity.py for the county_count/all_county_fips
+    columns this feeds."""
     raw = fetch(ZCTA_COUNTY_URL)
     header, rows = _rows(raw, "|")
     _require_header(
@@ -358,8 +364,7 @@ def parse_zcta_county() -> Dict[str, str]:
         ],
         "tab20_zcta520_county20_natl.txt",
     )
-    best_area: Dict[str, int] = {}
-    best_county: Dict[str, str] = {}
+    area_by_zip_county: Dict[str, Dict[str, int]] = defaultdict(dict)
     for row in rows:
         zip5 = row[1]
         county_fips = row[9]
@@ -367,10 +372,18 @@ def parse_zcta_county() -> Dict[str, str]:
         if not zip5 or not county_fips:
             continue
         area = int(area_part) if area_part.isdigit() else 0
-        if zip5 not in best_area or area > best_area[zip5]:
-            best_area[zip5] = area
-            best_county[zip5] = county_fips
-    return best_county
+        # A given (zip, county) pair appears once in the source in
+        # practice; keep the larger area defensively if it doesn't.
+        per_zip = area_by_zip_county[zip5]
+        if county_fips not in per_zip or area > per_zip[county_fips]:
+            per_zip[county_fips] = area
+
+    out: Dict[str, List[str]] = {}
+    for zip5, county_areas in area_by_zip_county.items():
+        out[zip5] = [
+            fips for fips, _area in sorted(county_areas.items(), key=lambda kv: (-kv[1], kv[0]))
+        ]
+    return out
 
 
 def parse_zcta_place() -> Dict[str, str]:
@@ -415,10 +428,16 @@ def build_zips(
     out = []
     skipped_no_county = 0
     for zip5, (lat, lng) in zcta_latlng.items():
-        county_fips = zcta_county.get(zip5)
-        if not county_fips or county_fips not in county_state:
+        all_fips = zcta_county.get(zip5) or []
+        # Filter to counties that exist in us_counties.tsv so the new
+        # all_county_fips column upholds the same referential-integrity
+        # invariant test_geo_data_integrity.py already enforces for
+        # county_fips; county_count is computed AFTER this filter.
+        filtered_fips = [f for f in all_fips if f in county_state]
+        if not filtered_fips:
             skipped_no_county += 1
             continue
+        county_fips = filtered_fips[0]
         state_usps = county_state[county_fips]
 
         primary_city = ""
@@ -436,6 +455,8 @@ def build_zips(
                 "county_fips": county_fips,
                 "lat": lat,
                 "lng": lng,
+                "county_count": len(filtered_fips),
+                "all_county_fips": "|".join(filtered_fips),
             }
         )
     return out, skipped_no_county
@@ -582,7 +603,7 @@ def main() -> int:
     )
     n_zips = write_tsv(
         OUTPUT_DIR / "us_zips.tsv",
-        ["zip5", "primary_city", "state_usps", "county_fips", "lat", "lng"],
+        ["zip5", "primary_city", "state_usps", "county_fips", "lat", "lng", "county_count", "all_county_fips"],
         sorted(zips, key=lambda r: r["zip5"]),
     )
 

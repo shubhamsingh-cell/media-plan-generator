@@ -74,7 +74,12 @@ time.
   which was corrected 2026-07-31 after a shipped-data review caught it
   picking the wrong county for essentially every major multi-county city.
 - `us_zips.tsv` -- `zip5 (5-digit zero-padded), primary_city, state_usps,
-  county_fips, lat, lng` (33,486 rows).
+  county_fips, lat, lng, county_count, all_county_fips` (33,486 rows).
+  `county_fips` is still the single dominant (largest-land-area-overlap)
+  county, unchanged in meaning. `county_count` and `all_county_fips`
+  (`|`-joined FIPS, same overlap-descending order, first entry ==
+  `county_fips`) are additive disclosure columns added 2026-08-02 -- see
+  judgment call #4.
 
 Row counts will drift slightly on every re-run as Census updates the
 underlying files; the integrity test pins generous ranges, not exact
@@ -173,13 +178,32 @@ counts.
    (`places_skipped`, `zips_skipped`), never silently dropped. On the
    2026-07-31 build this was 676 of 32,333 places (~2%) and 305 of 33,791
    ZCTAs (~0.9%).
-4. **ZIP -> county / ZIP -> primary_city, and split ZIPs.** Some ZCTAs
-   (Census's ZIP-code proxy) span more than one county or more than one
-   place. For each ZIP we pick the county and the place with the
-   **largest land-area overlap** (`AREALAND_PART` in the relationship
-   files), i.e. the plurality-area component. A ZIP genuinely split
-   across two cities/counties is represented by one row naming its
-   largest-share city/county, not by two rows.
+4. **ZIP -> county / ZIP -> primary_city, and split ZIPs (multi-county
+   disclosure added 2026-08-02).** Some ZCTAs (Census's ZIP-code proxy)
+   span more than one county or more than one place. For each ZIP we pick
+   the county and the place with the **largest land-area overlap**
+   (`AREALAND_PART` in the relationship files), i.e. the plurality-area
+   component, as `county_fips`/`primary_city`. A ZIP genuinely split
+   across two cities/counties is still represented by one row naming its
+   largest-share city/county -- that part is unchanged.
+
+   What changed: `parse_zcta_county()` used to keep **only** the
+   plurality-area county per ZCTA and silently discard every other county
+   it overlaps. 10,174 of 33,486 ZIPs in this build (30.4%, max 6 -- e.g.
+   ZIP `39573`) genuinely span 2+ counties, so `county_fips` alone
+   overstated certainty for ~30% of rows with no signal that it was a
+   plurality pick, not an exhaustive one. `us_zips.tsv` now also carries
+   `county_count` and `all_county_fips` (all overlapping counties,
+   overlap-descending, first entry == `county_fips`, filtered to counties
+   present in `us_counties.tsv` so the same referential-integrity
+   invariant `test_geo_data_integrity.py` enforces for `county_fips` holds
+   for the new column too). This is purely additive: `county_fips` and
+   `primary_city` keep their exact prior meaning and value; only the new
+   columns are new. `plan_location.py::_resolve_zip()` surfaces this as
+   `county_count`/`other_counties`/`note` on the resolution -- ZIP
+   resolution itself stays `status="resolved"`, `confidence=1.0` (the ZIP
+   really is resolved with certainty; only the county attribution is a
+   best guess).
 5. **ZCTA != USPS ZIP.** Census's ZCTA (ZIP Code Tabulation Area) is a
    geographic proxy for USPS ZIP codes, not an exact 1:1 mapping. A small
    number of real USPS ZIP codes -- mostly PO-Box-only or unique-purpose
