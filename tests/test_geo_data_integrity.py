@@ -487,5 +487,104 @@ def test_zip_latlng_plausible(zips):
         _assert_plausible_latlng(row["lat"], row["lng"], f"zip {row['zip5']}")
 
 
+# ---------------------------------------------------------------------
+# Text encoding (mojibake regression)
+#
+# Background: _rows() in scripts/build_geo_data.py used to decode a
+# source as UTF-8 only when it began with a BOM and fall back to latin-1
+# otherwise. The Census Gazetteer files ARE UTF-8 but ship WITHOUT a BOM,
+# so they took the latin-1 branch, were mis-decoded, and were then
+# written back out as UTF-8 -- double-encoding every non-ASCII name
+# ("Dona Ana County, NM" arrived as 'Do' + 'A-tilde' + 'plus-minus' + 'a
+# Ana County'). 134 cells across us_counties/us_places/us_zips shipped
+# corrupted. Fixed by decoding UTF-8 first, latin-1 only as a genuine
+# fallback.
+# ---------------------------------------------------------------------
+
+# Sequences that cannot occur in correctly-decoded Census place names but
+# are the unmistakable signature of UTF-8 text decoded as latin-1: the
+# lead bytes 0xC3 / 0xC2 of a 2-byte UTF-8 sequence rendered as their
+# latin-1 characters, plus U+FFFD from a lossy decode.
+MOJIBAKE_MARKERS = ("Ã", "Â", "�")
+
+ALL_GEO_TSVS = ("us_states.tsv", "us_counties.tsv", "us_places.tsv", "us_zips.tsv")
+
+
+@pytest.mark.parametrize("filename", ALL_GEO_TSVS)
+def test_no_mojibake_markers_in_geo_tsv(filename):
+    offenders = []
+    for i, row in enumerate(_read_tsv(filename)):
+        for column, value in row.items():
+            if value and any(marker in value for marker in MOJIBAKE_MARKERS):
+                offenders.append(f"{filename} row {i} col {column}: {value!r}")
+    assert not offenders, (
+        f"{len(offenders)} double-encoded cell(s) in {filename}; first 10:\n  "
+        + "\n  ".join(offenders[:10])
+    )
+
+
+def test_geo_tsvs_actually_contain_non_ascii_names():
+    """Guard against the mojibake test above going vacuous: if a future
+    build ever stripped or ASCII-folded accented names entirely, the
+    marker scan would pass on data that had lost real information."""
+    non_ascii = 0
+    for filename in ALL_GEO_TSVS:
+        for row in _read_tsv(filename):
+            if any(any(ord(c) > 127 for c in (v or "")) for v in row.values()):
+                non_ascii += 1
+    assert non_ascii > 50, f"only {non_ascii} rows carry non-ASCII text -- names look ASCII-folded"
+
+
+ENCODED_COUNTY_PINS = [
+    # (county_fips, expected county_name) -- all three shipped mojibake'd.
+    ("35013", "Doña Ana County"),        # NM, contains Las Cruces (~220k people)
+    ("72097", "Mayagüez Municipio"),     # PR
+    ("72021", "Bayamón Municipio"),      # PR
+]
+
+
+@pytest.mark.parametrize("county_fips,expected_name", ENCODED_COUNTY_PINS)
+def test_accented_county_names_round_trip(counties, county_fips, expected_name):
+    matches = [r for r in counties if r["county_fips"] == county_fips]
+    assert matches, f"county_fips {county_fips} missing from us_counties.tsv"
+    assert matches[0]["county_name"] == expected_name, (
+        f"county {county_fips}: got {matches[0]['county_name']!r}, expected {expected_name!r}"
+    )
+
+
+ENCODED_PLACE_PINS = [
+    # (display_name, state_usps)
+    ("Cañon City", "CO"),
+    ("La Cañada Flintridge", "CA"),
+]
+
+
+@pytest.mark.parametrize("display_name,state_usps", ENCODED_PLACE_PINS)
+def test_accented_place_names_round_trip(places, display_name, state_usps):
+    matches = [
+        r for r in places
+        if r["display_name"] == display_name and r["state_usps"] == state_usps
+    ]
+    assert matches, f"{display_name!r}, {state_usps} missing from us_places.tsv"
+
+
+def test_accented_zip_primary_city_round_trips(zips):
+    row = _zip_row(zips, "00680")
+    assert row["primary_city"] == "Mayagüez zona urbana", row["primary_city"]
+    assert row["state_usps"] == "PR"
+
+
+def test_every_geo_tsv_is_valid_utf8_and_not_double_encoded():
+    """Byte-level check: each file must decode as UTF-8, and re-breaking
+    that text the way the old latin-1 path did must CHANGE it (i.e. the
+    shipped bytes are not already the broken form of something else)."""
+    for filename in ALL_GEO_TSVS:
+        raw = (GEO_DIR / filename).read_bytes()
+        text = raw.decode("utf-8")  # raises UnicodeDecodeError if not UTF-8
+        assert "Ã" not in text and "Â" not in text, (
+            f"{filename}: contains latin-1-decoded UTF-8 lead bytes"
+        )
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))

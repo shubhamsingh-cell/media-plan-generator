@@ -148,11 +148,15 @@ def fetch_zip_member(url: str) -> bytes:
 
 
 def _rows(raw: bytes, delimiter: str) -> Tuple[List[str], List[List[str]]]:
-    # utf-8-sig transparently drops a leading UTF-8 BOM (several Census
-    # relationship files ship one); fall back to latin-1 for the plain
-    # gazetteer files, which are not valid UTF-8 in general.
+    # Every Census source used here is UTF-8. The gazetteer files ship
+    # WITHOUT a BOM, so a BOM-conditional decode sent them down a latin-1
+    # path and mojibake'd every non-ASCII name ("Doña Ana County" ->
+    # "DoÃ±a Ana County") on the way back out to UTF-8. Decode UTF-8 first
+    # (utf-8-sig transparently drops a leading BOM where one is present,
+    # as on several relationship files); latin-1 stays only as a genuine
+    # fallback for a source that is truly not UTF-8.
     try:
-        text = raw.decode("utf-8-sig") if raw[:3] == b"\xef\xbb\xbf" else raw.decode("latin-1")
+        text = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
         text = raw.decode("latin-1")
     reader = csv.reader(io.StringIO(text), delimiter=delimiter)

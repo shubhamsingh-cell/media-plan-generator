@@ -1803,7 +1803,7 @@ county_fips	county_name	state_usps	lat	lng
 35007	Colfax County	NM	36.612964	-104.64011
 35009	Curry County	NM	34.572984	-103.346055
 35011	De Baca County	NM	34.359273	-104.368696
-35013	DoÃ±a Ana County	NM	32.349919	-106.834968
+35013	Doña Ana County	NM	32.349919	-106.834968
 35015	Eddy County	NM	32.457835	-104.306434
 35017	Grant County	NM	32.732087	-108.381504
 35019	Guadalupe County	NM	34.869748	-104.784898
@@ -3148,30 +3148,30 @@ county_fips	county_name	state_usps	lat	lng
 72005	Aguadilla Municipio	PR	18.480191	-67.143762
 72007	Aguas Buenas Municipio	PR	18.256524	-66.128496
 72009	Aibonito Municipio	PR	18.130723	-66.26446
-72011	AÃ±asco Municipio	PR	18.286905	-67.131282
+72011	Añasco Municipio	PR	18.286905	-67.131282
 72013	Arecibo Municipio	PR	18.434004	-66.674994
 72015	Arroyo Municipio	PR	17.97206	-66.041945
 72017	Barceloneta Municipio	PR	18.469989	-66.55823
 72019	Barranquitas Municipio	PR	18.200018	-66.309282
-72021	BayamÃ³n Municipio	PR	18.34942	-66.168626
+72021	Bayamón Municipio	PR	18.34942	-66.168626
 72023	Cabo Rojo Municipio	PR	17.997138	-67.180862
 72025	Caguas Municipio	PR	18.211109	-66.050964
 72027	Camuy Municipio	PR	18.445469	-66.863134
-72029	CanÃ³vanas Municipio	PR	18.330044	-65.886021
+72029	Canóvanas Municipio	PR	18.330044	-65.886021
 72031	Carolina Municipio	PR	18.396776	-65.968778
-72033	CataÃ±o Municipio	PR	18.444614	-66.148819
+72033	Cataño Municipio	PR	18.444614	-66.148819
 72035	Cayey Municipio	PR	18.103624	-66.151667
 72037	Ceiba Municipio	PR	18.253265	-65.620765
 72039	Ciales Municipio	PR	18.295913	-66.515588
 72041	Cidra Municipio	PR	18.174391	-66.161618
 72043	Coamo Municipio	PR	18.1038	-66.357586
-72045	ComerÃ­o Municipio	PR	18.225032	-66.219481
+72045	Comerío Municipio	PR	18.225032	-66.219481
 72047	Corozal Municipio	PR	18.30391	-66.326179
 72049	Culebra Municipio	PR	18.326611	-65.307771
 72051	Dorado Municipio	PR	18.474376	-66.261973
 72053	Fajardo Municipio	PR	18.386378	-65.588454
 72054	Florida Municipio	PR	18.368659	-66.562734
-72055	GuÃ¡nica Municipio	PR	17.948209	-66.922935
+72055	Guánica Municipio	PR	17.948209	-66.922935
 72057	Guayama Municipio	PR	17.973929	-66.137467
 72059	Guayanilla Municipio	PR	18.005338	-66.798293
 72061	Guaynabo Municipio	PR	18.344357	-66.114056
@@ -3181,35 +3181,35 @@ county_fips	county_name	state_usps	lat	lng
 72069	Humacao Municipio	PR	18.135403	-65.786229
 72071	Isabela Municipio	PR	18.483998	-67.013978
 72073	Jayuya Municipio	PR	18.211152	-66.58687
-72075	Juana DÃ­az Municipio	PR	17.997974	-66.490496
+72075	Juana Díaz Municipio	PR	17.997974	-66.490496
 72077	Juncos Municipio	PR	18.224133	-65.908542
 72079	Lajas Municipio	PR	17.978511	-67.040111
 72081	Lares Municipio	PR	18.276925	-66.869587
-72083	Las MarÃ­as Municipio	PR	18.227594	-66.97758
+72083	Las Marías Municipio	PR	18.227594	-66.97758
 72085	Las Piedras Municipio	PR	18.187148	-65.871189
-72087	LoÃ­za Municipio	PR	18.445503	-65.942649
+72087	Loíza Municipio	PR	18.445503	-65.942649
 72089	Luquillo Municipio	PR	18.367996	-65.709904
-72091	ManatÃ­ Municipio	PR	18.444803	-66.493137
+72091	Manatí Municipio	PR	18.444803	-66.493137
 72093	Maricao Municipio	PR	18.173956	-66.935547
 72095	Maunabo Municipio	PR	17.999786	-65.896403
-72097	MayagÃ¼ez Municipio	PR	18.08385	-67.886337
+72097	Mayagüez Municipio	PR	18.08385	-67.886337
 72099	Moca Municipio	PR	18.377637	-67.079574
 72101	Morovis Municipio	PR	18.318017	-66.420392
 72103	Naguabo Municipio	PR	18.21107	-65.735749
 72105	Naranjito Municipio	PR	18.28992	-66.25344
 72107	Orocovis Municipio	PR	18.218733	-66.436899
 72109	Patillas Municipio	PR	18.000311	-65.986642
-72111	PeÃ±uelas Municipio	PR	18.026618	-66.728125
+72111	Peñuelas Municipio	PR	18.026618	-66.728125
 72113	Ponce Municipio	PR	18.001717	-66.606662
 72115	Quebradillas Municipio	PR	18.466357	-66.927603
-72117	RincÃ³n Municipio	PR	18.33898	-67.250771
-72119	RÃ­o Grande Municipio	PR	18.376369	-65.798434
+72117	Rincón Municipio	PR	18.33898	-67.250771
+72119	Río Grande Municipio	PR	18.376369	-65.798434
 72121	Sabana Grande Municipio	PR	18.084483	-66.947609
 72123	Salinas Municipio	PR	17.971485	-66.262252
-72125	San GermÃ¡n Municipio	PR	18.1078	-67.037263
+72125	San Germán Municipio	PR	18.1078	-67.037263
 72127	San Juan Municipio	PR	18.422249	-66.069081
 72129	San Lorenzo Municipio	PR	18.147107	-65.976167
-72131	San SebastiÃ¡n Municipio	PR	18.331064	-66.969064
+72131	San Sebastián Municipio	PR	18.331064	-66.969064
 72133	Santa Isabel Municipio	PR	17.952922	-66.387588
 72135	Toa Alta Municipio	PR	18.364556	-66.244669
 72137	Toa Baja Municipio	PR	18.45691	-66.193193

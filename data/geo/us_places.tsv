@@ -337,7 +337,7 @@ ugashik|ak	Ugashik	AK	02164	57.64738	-156.994926	CDP	zip_majority
 unalakleet|ak	Unalakleet	AK	02180	63.892966	-160.795819	city	zip_majority
 unalaska|ak	Unalaska	AK	02016	53.910255	-166.529041	city	zip_majority
 upper kalskag|ak	Upper Kalskag	AK	02050	61.539159	-160.350935	city	zip_majority
-utqiag vik|ak	UtqiagÌvik	AK	02185	71.264377	-156.753678	city	zip_majority
+utqiag vik|ak	Utqiaġvik	AK	02185	71.264377	-156.753678	city	zip_majority
 valdez|ak	Valdez	AK	02063	61.083621	-146.317179	city	zip_majority
 venetie|ak	Venetie	AK	02290	67.020691	-146.374276	CDP	zip_majority
 wainwright|ak	Wainwright	AK	02185	70.658232	-159.985214	city	zip_majority
@@ -2756,7 +2756,7 @@ klamath|ca	Klamath	CA	06015	41.572859	-124.055606	CDP	zip_majority
 knights ferry|ca	Knights Ferry	CA	06099	37.821152	-120.669089	CDP	census_first_listed
 knights landing|ca	Knights Landing	CA	06113	38.797972	-121.717447	CDP	census_first_listed
 knightsen|ca	Knightsen	CA	06013	37.962426	-121.64858	CDP	zip_majority
-la ca ada flintridge|ca	La CaÃ±ada Flintridge	CA	06037	34.20969	-118.200139	city	zip_majority
+la ca ada flintridge|ca	La Cañada Flintridge	CA	06037	34.20969	-118.200139	city	zip_majority
 la crescenta montrose|ca	La Crescenta-Montrose	CA	06037	34.233016	-118.235774	CDP	zip_majority
 la cresta|ca	La Cresta	CA	06029	35.397201	-118.989312	CDP	census_first_listed
 la grange|ca	La Grange	CA	06099	37.663456	-120.463147	CDP	census_first_listed
@@ -3147,7 +3147,7 @@ phelan|ca	Phelan	CA	06071	34.439816	-117.524829	CDP	zip_majority
 phillipsville|ca	Phillipsville	CA	06023	40.210704	-123.781212	CDP	zip_majority
 philo|ca	Philo	CA	06045	39.065757	-123.445063	CDP	zip_majority
 phoenix lake|ca	Phoenix Lake	CA	06109	38.011347	-120.309	CDP	zip_majority
-pi on hills|ca	PiÃ±on Hills	CA	06071	34.445607	-117.623563	CDP	zip_majority
+pi on hills|ca	Piñon Hills	CA	06071	34.445607	-117.623563	CDP	zip_majority
 pico rivera|ca	Pico Rivera	CA	06037	33.989524	-118.089295	city	zip_majority
 piedmont|ca	Piedmont	CA	06001	37.822545	-122.230024	city	census_first_listed
 pierpoint|ca	Pierpoint	CA	06107	36.140468	-118.629615	CDP	census_first_listed
@@ -3709,7 +3709,7 @@ brush|co	Brush	CO	08087	40.259263	-103.636334	city	zip_majority
 buena vista|co	Buena Vista	CO	08015	38.831989	-106.138657	town	zip_majority
 burlington|co	Burlington	CO	08063	39.304169	-102.271412	city	zip_majority
 byers|co	Byers	CO	08005	39.709435	-104.212848	CDP	census_first_listed
-ca on city|co	CaÃ±on City	CO	08043	38.441886	-105.220899	city	zip_majority
+ca on city|co	Cañon City	CO	08043	38.441886	-105.220899	city	zip_majority
 calhan|co	Calhan	CO	08041	39.034031	-104.30021	town	census_first_listed
 campo|co	Campo	CO	08009	37.104711	-102.578798	town	zip_majority
 capulin|co	Capulin	CO	08021	37.281886	-106.104946	CDP	zip_majority
@@ -18418,10 +18418,10 @@ brimhall nizhoni|nm	Brimhall Nizhoni	NM	35031	35.790474	-108.629878	CDP	zip_majo
 broadview|nm	Broadview	NM	35006	35.225717	-107.876066	CDP	census_first_listed
 buckhorn|nm	Buckhorn	NM	35017	33.03148	-108.69439	CDP	zip_majority
 butterfield park|nm	Butterfield Park	NM	35013	32.405228	-106.645663	CDP	census_first_listed
-ca ada de los alamos|nm	CaÃ±ada de los Alamos	NM	35049	35.592655	-105.859754	CDP	census_first_listed
-ca oncito|nm	CaÃ±oncito	NM	35049	35.535238	-105.838875	CDP	census_first_listed
-ca ones|nm	CaÃ±ones	NM	35039	36.176434	-106.419355	CDP	zip_majority
-ca on|nm	CaÃ±on	NM	35043	35.671759	-106.752682	CDP	zip_majority
+ca ada de los alamos|nm	Cañada de los Alamos	NM	35049	35.592655	-105.859754	CDP	census_first_listed
+ca oncito|nm	Cañoncito	NM	35049	35.535238	-105.838875	CDP	census_first_listed
+ca ones|nm	Cañones	NM	35039	36.176434	-106.419355	CDP	zip_majority
+ca on|nm	Cañon	NM	35043	35.671759	-106.752682	CDP	zip_majority
 caballo|nm	Caballo	NM	35051	32.980627	-107.307479	CDP	census_first_listed
 candy kitchen|nm	Candy Kitchen	NM	35006	34.909301	-108.496452	CDP	census_first_listed
 canjilon|nm	Canjilon	NM	35039	36.483678	-106.42402	CDP	zip_majority
@@ -18489,7 +18489,7 @@ deming|nm	Deming	NM	35029	32.263076	-107.75249	city	census_first_listed
 des moines|nm	Des Moines	NM	35059	36.761265	-103.834074	village	census_first_listed
 dexter|nm	Dexter	NM	35005	33.194827	-104.368898	town	census_first_listed
 dixon|nm	Dixon	NM	35039	36.179591	-105.891039	CDP	zip_majority
-do a ana|nm	DoÃ±a Ana	NM	35013	32.393941	-106.817714	CDP	census_first_listed
+do a ana|nm	Doña Ana	NM	35013	32.393941	-106.817714	CDP	census_first_listed
 dora|nm	Dora	NM	35041	33.925866	-103.33855	village	zip_majority
 dulce|nm	Dulce	NM	35039	36.953773	-107.000284	CDP	zip_majority
 duran|nm	Duran	NM	35027	34.463621	-105.380715	CDP	zip_majority
@@ -18512,7 +18512,7 @@ encino|nm	Encino	NM	35057	34.651828	-105.458577	village	zip_majority
 ensenada|nm	Ensenada	NM	35039	36.730925	-106.536813	CDP	census_first_listed
 escondida|nm	Escondida	NM	35053	34.101314	-106.897407	CDP	census_first_listed
 escudilla bonita|nm	Escudilla Bonita	NM	35003	34.110067	-109.02277	CDP	zip_majority
-espa ola|nm	EspaÃ±ola	NM	35039	36.003959	-106.070131	city	zip_majority
+espa ola|nm	Española	NM	35039	36.003959	-106.070131	city	zip_majority
 estancia|nm	Estancia	NM	35057	34.764273	-106.038558	town	zip_majority
 eunice|nm	Eunice	NM	35025	32.436147	-103.149043	city	zip_majority
 fairacres|nm	Fairacres	NM	35013	32.304724	-106.836643	CDP	census_first_listed
@@ -18701,8 +18701,8 @@ pajarito mesa|nm	Pajarito Mesa	NM	35001	34.978247	-106.779495	CDP	zip_majority
 paradise hills|nm	Paradise Hills	NM	35001	35.198144	-106.702397	CDP	census_first_listed
 paraje|nm	Paraje	NM	35006	35.044379	-107.468194	CDP	census_first_listed
 pastura|nm	Pastura	NM	35019	34.785104	-104.942098	CDP	census_first_listed
-pe a blanca|nm	PeÃ±a Blanca	NM	35043	35.570919	-106.331955	CDP	zip_majority
-pe asco|nm	PeÃ±asco	NM	35055	36.17032	-105.69072	CDP	zip_majority
+pe a blanca|nm	Peña Blanca	NM	35043	35.570919	-106.331955	CDP	zip_majority
+pe asco|nm	Peñasco	NM	35055	36.17032	-105.69072	CDP	zip_majority
 peak place|nm	Peak Place	NM	35049	35.791172	-105.943204	CDP	census_first_listed
 pecan park|nm	Pecan Park	NM	35029	32.270417	-107.67399	CDP	census_first_listed
 pecos|nm	Pecos	NM	35047	35.575706	-105.678407	village	census_first_listed
@@ -24738,7 +24738,7 @@ youngwood|pa	Youngwood	PA	42129	40.244324	-79.580712	borough	zip_majority
 yukon|pa	Yukon	PA	42129	40.214407	-79.688503	CDP	zip_majority
 zelienople|pa	Zelienople	PA	42019	40.785665	-80.138669	borough	zip_majority
 zion|pa	Zion	PA	42027	40.916761	-77.690776	CDP	zip_majority
-a asco zona urbana|pr	AÃ±asco zona urbana	PR	72011	18.285525	-67.14012	CDP	census_first_listed
+a asco zona urbana|pr	Añasco zona urbana	PR	72011	18.285525	-67.14012	CDP	census_first_listed
 aceitunas comunidad|pr	Aceitunas comunidad	PR	72099	18.445534	-67.066912	CDP	census_first_listed
 adjuntas zona urbana|pr	Adjuntas zona urbana	PR	72001	18.163777	-66.723537	CDP	zip_majority
 aguada zona urbana|pr	Aguada zona urbana	PR	72003	18.380342	-67.188389	CDP	census_first_listed
@@ -24750,10 +24750,10 @@ aibonito zona urbana|pr	Aibonito zona urbana	PR	72009	18.140051	-66.266355	CDP	z
 alianza comunidad|pr	Alianza comunidad	PR	72027	18.453449	-66.855599	CDP	zip_majority
 animas comunidad|pr	Animas comunidad	PR	72013	18.445744	-66.636436	CDP	census_first_listed
 anon raices comunidad|pr	Anon Raices comunidad	PR	72113	18.139059	-66.58577	CDP	census_first_listed
-ant n ru z comunidad|pr	AntÃ³n RuÃ­z comunidad	PR	72069	18.188269	-65.807881	CDP	census_first_listed
+ant n ru z comunidad|pr	Antón Ruíz comunidad	PR	72069	18.188269	-65.807881	CDP	census_first_listed
 arecibo zona urbana|pr	Arecibo zona urbana	PR	72013	18.45486	-66.735442	CDP	zip_majority
 arroyo zona urbana|pr	Arroyo zona urbana	PR	72015	17.969618	-66.059899	CDP	zip_majority
-b falo comunidad|pr	BÃºfalo comunidad	PR	72017	18.416531	-66.57501	CDP	census_first_listed
+b falo comunidad|pr	Búfalo comunidad	PR	72017	18.416531	-66.57501	CDP	census_first_listed
 bairoa la veinticinco comunidad|pr	Bairoa La Veinticinco comunidad	PR	72025	18.263567	-66.021499	CDP	census_first_listed
 bajadero comunidad|pr	Bajadero comunidad	PR	72013	18.420408	-66.671986	CDP	zip_majority
 bajandas comunidad|pr	Bajandas comunidad	PR	72069	18.160142	-65.783104	CDP	census_first_listed
@@ -24761,18 +24761,18 @@ barahona comunidad|pr	Barahona comunidad	PR	72101	18.352202	-66.44428	CDP	census
 barceloneta zona urbana|pr	Barceloneta zona urbana	PR	72017	18.452974	-66.538085	CDP	zip_majority
 barranquitas zona urbana|pr	Barranquitas zona urbana	PR	72019	18.184765	-66.310174	CDP	zip_majority
 bartolo comunidad|pr	Bartolo comunidad	PR	72119	18.362003	-65.841366	CDP	census_first_listed
-bayam n comunidad|pr	BayamÃ³n comunidad	PR	72041	18.178136	-66.109726	CDP	census_first_listed
-bayam n zona urbana|pr	BayamÃ³n zona urbana	PR	72021	18.380055	-66.163253	CDP	zip_majority
-ben tez comunidad|pr	BenÃ­tez comunidad	PR	72029	18.272533	-65.878831	CDP	census_first_listed
+bayam n comunidad|pr	Bayamón comunidad	PR	72041	18.178136	-66.109726	CDP	census_first_listed
+bayam n zona urbana|pr	Bayamón zona urbana	PR	72021	18.380055	-66.163253	CDP	zip_majority
+ben tez comunidad|pr	Benítez comunidad	PR	72029	18.272533	-65.878831	CDP	census_first_listed
 betances comunidad|pr	Betances comunidad	PR	72023	18.029568	-67.133546	CDP	census_first_listed
-boquer n comunidad|pr	BoquerÃ³n comunidad	PR	72023	18.034077	-67.171443	CDP	zip_majority
-boquer n comunidad|pr	BoquerÃ³n comunidad	PR	72023	18.200145	-65.843879	CDP	zip_majority
-bre as comunidad|pr	BreÃ±as comunidad	PR	72143	18.473299	-66.334609	CDP	census_first_listed
+boquer n comunidad|pr	Boquerón comunidad	PR	72023	18.034077	-67.171443	CDP	zip_majority
+boquer n comunidad|pr	Boquerón comunidad	PR	72023	18.200145	-65.843879	CDP	zip_majority
+bre as comunidad|pr	Breñas comunidad	PR	72143	18.473299	-66.334609	CDP	census_first_listed
 brisas del campanero comunidad|pr	Brisas del Campanero comunidad	PR	72137	18.431598	-66.226068	CDP	census_first_listed
 buena vista comunidad|pr	Buena Vista comunidad	PR	72015	17.996468	-66.05155	CDP	census_first_listed
 buena vista comunidad|pr	Buena Vista comunidad	PR	72069	18.115311	-65.799057	CDP	census_first_listed
-ca o martin pe a comunidad|pr	CaÃ±o Martin PeÃ±a comunidad	PR	72127	18.430367	-66.05007	CDP	census_first_listed
-cab n comunidad|pr	CabÃ¡n comunidad	PR	72005	18.445009	-67.136271	CDP	census_first_listed
+ca o martin pe a comunidad|pr	Caño Martin Peña comunidad	PR	72127	18.430367	-66.05007	CDP	census_first_listed
+cab n comunidad|pr	Cabán comunidad	PR	72005	18.445009	-67.136271	CDP	census_first_listed
 cabo rojo zona urbana|pr	Cabo Rojo zona urbana	PR	72023	18.086717	-67.148266	CDP	zip_majority
 cacao comunidad|pr	Cacao comunidad	PR	72115	18.452026	-66.956314	CDP	census_first_listed
 caguas zona urbana|pr	Caguas zona urbana	PR	72025	18.232149	-66.039035	CDP	zip_majority
@@ -24782,7 +24782,7 @@ campanilla comunidad|pr	Campanilla comunidad	PR	72137	18.422435	-66.239169	CDP	c
 campanillas comunidad|pr	Campanillas comunidad	PR	72137	18.438623	-66.21596	CDP	census_first_listed
 campo rico comunidad|pr	Campo Rico comunidad	PR	72029	18.339008	-65.894341	CDP	census_first_listed
 camuy zona urbana|pr	Camuy zona urbana	PR	72027	18.48258	-66.847372	CDP	census_first_listed
-can vanas zona urbana|pr	CanÃ³vanas zona urbana	PR	72029	18.369209	-65.900894	CDP	zip_majority
+can vanas zona urbana|pr	Canóvanas zona urbana	PR	72029	18.369209	-65.900894	CDP	zip_majority
 candelaria arenas comunidad|pr	Candelaria Arenas comunidad	PR	72137	18.417251	-66.220527	CDP	census_first_listed
 candelaria comunidad|pr	Candelaria comunidad	PR	72137	18.406406	-66.218021	CDP	zip_majority
 candelero abajo comunidad|pr	Candelero Abajo comunidad	PR	72069	18.094167	-65.816456	CDP	census_first_listed
@@ -24791,7 +24791,7 @@ canovanillas comunidad|pr	Canovanillas comunidad	PR	72029	18.334528	-65.903963	C
 capitanejo comunidad|pr	Capitanejo comunidad	PR	72113	18.013122	-66.535641	CDP	zip_majority
 carolina zona urbana|pr	Carolina zona urbana	PR	72031	18.412076	-65.979806	CDP	zip_majority
 carrizales comunidad|pr	Carrizales comunidad	PR	72065	18.481088	-66.78791	CDP	census_first_listed
-cata o zona urbana|pr	CataÃ±o zona urbana	PR	72033	18.438069	-66.138834	CDP	zip_majority
+cata o zona urbana|pr	Cataño zona urbana	PR	72033	18.438069	-66.138834	CDP	zip_majority
 cayey zona urbana|pr	Cayey zona urbana	PR	72035	18.115296	-66.162877	CDP	zip_majority
 cayuco comunidad|pr	Cayuco comunidad	PR	72141	18.29229	-66.734847	CDP	census_first_listed
 ceiba comunidad|pr	Ceiba comunidad	PR	72143	18.441375	-66.344269	CDP	census_first_listed
@@ -24803,10 +24803,10 @@ ciales zona urbana|pr	Ciales zona urbana	PR	72039	18.334053	-66.471897	CDP	censu
 cidra zona urbana|pr	Cidra zona urbana	PR	72041	18.177505	-66.158486	CDP	zip_majority
 coamo zona urbana|pr	Coamo zona urbana	PR	72043	18.078302	-66.363161	CDP	zip_majority
 coco comunidad|pr	Coco comunidad	PR	72123	18.001277	-66.2607	CDP	zip_majority
-comer o zona urbana|pr	ComerÃ­o zona urbana	PR	72045	18.219489	-66.225053	CDP	census_first_listed
+comer o zona urbana|pr	Comerío zona urbana	PR	72045	18.219489	-66.225053	CDP	census_first_listed
 comunas comunidad|pr	Comunas comunidad	PR	72151	18.084569	-65.843537	CDP	census_first_listed
-coqu comunidad|pr	CoquÃ­ comunidad	PR	72123	17.979286	-66.225551	CDP	zip_majority
-coraz n comunidad|pr	CorazÃ³n comunidad	PR	72057	17.994008	-66.083355	CDP	census_first_listed
+coqu comunidad|pr	Coquí comunidad	PR	72123	17.979286	-66.225551	CDP	zip_majority
+coraz n comunidad|pr	Corazón comunidad	PR	72057	17.994008	-66.083355	CDP	census_first_listed
 corcovado comunidad|pr	Corcovado comunidad	PR	72065	18.461018	-66.777761	CDP	census_first_listed
 corozal zona urbana|pr	Corozal zona urbana	PR	72047	18.340988	-66.312464	CDP	zip_majority
 corral viejo comunidad|pr	Corral Viejo comunidad	PR	72113	18.075455	-66.652336	CDP	census_first_listed
@@ -24818,32 +24818,32 @@ del carmen comunidad|pr	Del Carmen comunidad	PR	72027	18.46779	-66.848914	CDP	ce
 dorado zona urbana|pr	Dorado zona urbana	PR	72051	18.468976	-66.271108	CDP	zip_majority
 duque comunidad|pr	Duque comunidad	PR	72103	18.237407	-65.742358	CDP	census_first_listed
 el combate comunidad|pr	El Combate comunidad	PR	72023	17.983103	-67.208935	CDP	census_first_listed
-el mang comunidad|pr	El MangÃ³ comunidad	PR	72077	18.23446	-65.875112	CDP	census_first_listed
+el mang comunidad|pr	El Mangó comunidad	PR	72077	18.23446	-65.875112	CDP	census_first_listed
 el negro comunidad|pr	El Negro comunidad	PR	72151	18.036932	-65.849446	CDP	census_first_listed
 el ojo comunidad|pr	El Ojo comunidad	PR	72133	18.003807	-66.391842	CDP	census_first_listed
 el paraiso comunidad|pr	El Paraiso comunidad	PR	72113	18.064841	-66.602092	CDP	census_first_listed
 el tumbao comunidad|pr	El Tumbao comunidad	PR	72055	18.000925	-66.902147	CDP	zip_majority
-el veintis is comunidad|pr	El VeintisÃ©is comunidad	PR	72137	18.439347	-66.203439	CDP	census_first_listed
+el veintis is comunidad|pr	El Veintiséis comunidad	PR	72137	18.439347	-66.203439	CDP	census_first_listed
 emajagua comunidad|pr	Emajagua comunidad	PR	72095	18.001517	-65.882959	CDP	zip_majority
 esperanza comunidad|pr	Esperanza comunidad	PR	72147	18.102317	-65.479735	CDP	zip_majority
 espino comunidad|pr	Espino comunidad	PR	72011	18.279328	-67.119838	CDP	census_first_listed
 fajardo zona urbana|pr	Fajardo zona urbana	PR	72053	18.333339	-65.657626	CDP	zip_majority
 ferrer comunidad|pr	Ferrer comunidad	PR	72099	18.405378	-67.067185	CDP	zip_majority
 florida zona urbana|pr	Florida zona urbana	PR	72054	18.364524	-66.561275	CDP	zip_majority
-fr nquez comunidad|pr	FrÃ¡nquez comunidad	PR	72101	18.340069	-66.42764	CDP	census_first_listed
-front n comunidad|pr	FrontÃ³n comunidad	PR	72039	18.309652	-66.560254	CDP	zip_majority
+fr nquez comunidad|pr	Fránquez comunidad	PR	72101	18.340069	-66.42764	CDP	census_first_listed
+front n comunidad|pr	Frontón comunidad	PR	72039	18.309652	-66.560254	CDP	zip_majority
 fuig comunidad|pr	Fuig comunidad	PR	72055	17.986287	-66.91711	CDP	census_first_listed
-g l garc a comunidad|pr	G. L. GarcÃ­a comunidad	PR	72035	18.125902	-66.102608	CDP	census_first_listed
+g l garc a comunidad|pr	G. L. García comunidad	PR	72035	18.125902	-66.102608	CDP	census_first_listed
 galateo comunidad|pr	Galateo comunidad	PR	72135	18.364048	-66.261809	CDP	census_first_listed
 garrochales comunidad|pr	Garrochales comunidad	PR	72017	18.457199	-66.567551	CDP	census_first_listed
-gu nica zona urbana|pr	GuÃ¡nica zona urbana	PR	72055	17.968376	-66.929187	CDP	zip_majority
+gu nica zona urbana|pr	Guánica zona urbana	PR	72055	17.968376	-66.929187	CDP	zip_majority
 guayabal comunidad|pr	Guayabal comunidad	PR	72075	18.076049	-66.501674	CDP	census_first_listed
 guayama zona urbana|pr	Guayama zona urbana	PR	72057	17.973819	-66.111498	CDP	zip_majority
 guayanilla zona urbana|pr	Guayanilla zona urbana	PR	72059	18.022118	-66.789772	CDP	census_first_listed
 guaynabo zona urbana|pr	Guaynabo zona urbana	PR	72061	18.38399	-66.114942	CDP	zip_majority
 gurabo zona urbana|pr	Gurabo zona urbana	PR	72063	18.252607	-65.978641	CDP	zip_majority
-h rivera col n comunidad|pr	H. Rivera ColÃ³n comunidad	PR	72135	18.34925	-66.276327	CDP	census_first_listed
-hacienda san jos comunidad|pr	Hacienda San JosÃ© comunidad	PR	72025	18.239749	-66.0737	CDP	census_first_listed
+h rivera col n comunidad|pr	H. Rivera Colón comunidad	PR	72135	18.34925	-66.276327	CDP	census_first_listed
+hacienda san jos comunidad|pr	Hacienda San José comunidad	PR	72025	18.239749	-66.0737	CDP	census_first_listed
 hatillo zona urbana|pr	Hatillo zona urbana	PR	72065	18.483817	-66.822157	CDP	census_first_listed
 hato arriba comunidad|pr	Hato Arriba comunidad	PR	72131	18.351982	-67.033598	CDP	census_first_listed
 hato candal comunidad|pr	Hato Candal comunidad	PR	72119	18.37318	-65.790598	CDP	census_first_listed
@@ -24851,7 +24851,7 @@ hato viejo comunidad|pr	Hato Viejo comunidad	PR	72039	18.35978	-66.481138	CDP	ce
 honduras comunidad|pr	Honduras comunidad	PR	72041	18.141188	-66.200504	CDP	census_first_listed
 hormigueros zona urbana|pr	Hormigueros zona urbana	PR	72067	18.143559	-67.120577	CDP	zip_majority
 humacao zona urbana|pr	Humacao zona urbana	PR	72069	18.151768	-65.820599	CDP	zip_majority
-imb ry comunidad|pr	ImbÃ©ry comunidad	PR	72017	18.437106	-66.556498	CDP	census_first_listed
+imb ry comunidad|pr	Imbéry comunidad	PR	72017	18.437106	-66.556498	CDP	census_first_listed
 indios comunidad|pr	Indios comunidad	PR	72059	17.997254	-66.81937	CDP	zip_majority
 ingenio comunidad|pr	Ingenio comunidad	PR	72137	18.445238	-66.22389	CDP	census_first_listed
 isabela zona urbana|pr	Isabela zona urbana	PR	72071	18.501749	-67.023722	CDP	zip_majority
@@ -24861,7 +24861,7 @@ jaguas comunidad|pr	Jaguas comunidad	PR	72039	18.307374	-66.477703	CDP	census_fi
 jauca comunidad|pr	Jauca comunidad	PR	72133	17.96257	-66.366984	CDP	zip_majority
 jayuya zona urbana|pr	Jayuya zona urbana	PR	72073	18.219801	-66.598311	CDP	zip_majority
 jobos comunidad|pr	Jobos comunidad	PR	72057	17.960716	-66.165519	CDP	census_first_listed
-juana d az zona urbana|pr	Juana DÃ­az zona urbana	PR	72075	18.053345	-66.504734	CDP	zip_majority
+juana d az zona urbana|pr	Juana Díaz zona urbana	PR	72075	18.053345	-66.504734	CDP	zip_majority
 juncal comunidad|pr	Juncal comunidad	PR	72131	18.312385	-66.921834	CDP	census_first_listed
 juncos zona urbana|pr	Juncos zona urbana	PR	72077	18.225798	-65.915876	CDP	zip_majority
 la alianza comunidad|pr	La Alianza comunidad	PR	72013	18.395072	-66.597472	CDP	census_first_listed
@@ -24880,37 +24880,37 @@ lares zona urbana|pr	Lares zona urbana	PR	72081	18.296758	-66.883392	CDP	zip_maj
 las carolinas comunidad|pr	Las Carolinas comunidad	PR	72025	18.253768	-66.064316	CDP	census_first_listed
 las croabas comunidad|pr	Las Croabas comunidad	PR	72053	18.367729	-65.630588	CDP	census_first_listed
 las gaviotas comunidad|pr	Las Gaviotas comunidad	PR	72137	18.436804	-66.190702	CDP	census_first_listed
-las mar as comunidad|pr	Las MarÃ­as comunidad	PR	72011	18.292696	-67.144542	CDP	census_first_listed
-las mar as zona urbana|pr	Las MarÃ­as zona urbana	PR	72083	18.254593	-66.986945	CDP	zip_majority
+las mar as comunidad|pr	Las Marías comunidad	PR	72011	18.292696	-67.144542	CDP	census_first_listed
+las mar as zona urbana|pr	Las Marías zona urbana	PR	72083	18.254593	-66.986945	CDP	zip_majority
 las ochenta comunidad|pr	Las Ochenta comunidad	PR	72123	17.983895	-66.317691	CDP	census_first_listed
 las ollas comunidad|pr	Las Ollas comunidad	PR	72133	18.014654	-66.42116	CDP	census_first_listed
 las piedras zona urbana|pr	Las Piedras zona urbana	PR	72085	18.17867	-65.871079	CDP	census_first_listed
 lassalle comunidad|pr	Lassalle comunidad	PR	72099	18.385599	-67.061621	CDP	census_first_listed
-liborio negr n torres comunidad|pr	Liborio NegrÃ³n Torres comunidad	PR	72121	18.043095	-66.942801	CDP	census_first_listed
+liborio negr n torres comunidad|pr	Liborio Negrón Torres comunidad	PR	72121	18.043095	-66.942801	CDP	census_first_listed
 lluveras comunidad|pr	Lluveras comunidad	PR	72121	18.038008	-66.90376	CDP	census_first_listed
-lo za zona urbana|pr	LoÃ­za zona urbana	PR	72087	18.433056	-65.878011	CDP	zip_majority
+lo za zona urbana|pr	Loíza zona urbana	PR	72087	18.433056	-65.878011	CDP	zip_majority
 lomas comunidad|pr	Lomas comunidad	PR	72029	18.268759	-65.909583	CDP	census_first_listed
 lomas verdes comunidad|pr	Lomas Verdes comunidad	PR	72099	18.38226	-67.120054	CDP	census_first_listed
-los h roes comunidad|pr	Los HÃ©roes comunidad	PR	72099	18.391074	-67.118732	CDP	census_first_listed
+los h roes comunidad|pr	Los Héroes comunidad	PR	72099	18.391074	-67.118732	CDP	census_first_listed
 los llanos comunidad|pr	Los Llanos comunidad	PR	72043	18.057963	-66.409135	CDP	census_first_listed
 los panes comunidad|pr	Los Panes comunidad	PR	72025	18.184869	-66.076127	CDP	census_first_listed
 los prados comunidad|pr	Los Prados comunidad	PR	72025	18.23301	-66.062138	CDP	census_first_listed
-luis llor ns torres comunidad|pr	Luis LlorÃ©ns Torres comunidad	PR	72075	18.056544	-66.526722	CDP	census_first_listed
-luis m cintr n comunidad|pr	Luis M. CintrÃ³n comunidad	PR	72053	18.301384	-65.637833	CDP	census_first_listed
+luis llor ns torres comunidad|pr	Luis Lloréns Torres comunidad	PR	72075	18.056544	-66.526722	CDP	census_first_listed
+luis m cintr n comunidad|pr	Luis M. Cintrón comunidad	PR	72053	18.301384	-65.637833	CDP	census_first_listed
 luquillo zona urbana|pr	Luquillo zona urbana	PR	72089	18.375668	-65.72092	CDP	census_first_listed
 luyando comunidad|pr	Luyando comunidad	PR	72003	18.357471	-67.155343	CDP	zip_majority
 magas arriba comunidad|pr	Magas Arriba comunidad	PR	72059	18.023426	-66.766443	CDP	census_first_listed
 maguayo comunidad|pr	Maguayo comunidad	PR	72079	18.009988	-67.085439	CDP	census_first_listed
-manat zona urbana|pr	ManatÃ­ zona urbana	PR	72091	18.431295	-66.477145	CDP	zip_majority
-mansi n del mar comunidad|pr	MansiÃ³n del Mar comunidad	PR	72137	18.446857	-66.178596	CDP	census_first_listed
-mansi n del sol comunidad|pr	MansiÃ³n del Sol comunidad	PR	72137	18.437018	-66.193697	CDP	census_first_listed
-mar a antonia comunidad|pr	MarÃ­a Antonia comunidad	PR	72055	17.978262	-66.889853	CDP	census_first_listed
-mariano col n comunidad|pr	Mariano ColÃ³n comunidad	PR	72043	18.028675	-66.33563	CDP	census_first_listed
+manat zona urbana|pr	Manatí zona urbana	PR	72091	18.431295	-66.477145	CDP	zip_majority
+mansi n del mar comunidad|pr	Mansión del Mar comunidad	PR	72137	18.446857	-66.178596	CDP	census_first_listed
+mansi n del sol comunidad|pr	Mansión del Sol comunidad	PR	72137	18.437018	-66.193697	CDP	census_first_listed
+mar a antonia comunidad|pr	María Antonia comunidad	PR	72055	17.978262	-66.889853	CDP	census_first_listed
+mariano col n comunidad|pr	Mariano Colón comunidad	PR	72043	18.028675	-66.33563	CDP	census_first_listed
 maricao zona urbana|pr	Maricao zona urbana	PR	72093	18.181836	-66.977403	CDP	zip_majority
 martorell comunidad|pr	Martorell comunidad	PR	72151	18.07304	-65.897671	CDP	census_first_listed
-marue o comunidad|pr	MarueÃ±o comunidad	PR	72113	18.05842	-66.656864	CDP	census_first_listed
+marue o comunidad|pr	Marueño comunidad	PR	72113	18.05842	-66.656864	CDP	census_first_listed
 maunabo zona urbana|pr	Maunabo zona urbana	PR	72095	18.006268	-65.90122	CDP	census_first_listed
-mayag ez zona urbana|pr	MayagÃ¼ez zona urbana	PR	72097	18.201221	-67.14178	CDP	zip_majority
+mayag ez zona urbana|pr	Mayagüez zona urbana	PR	72097	18.201221	-67.14178	CDP	zip_majority
 miranda comunidad|pr	Miranda comunidad	PR	72145	18.387052	-66.372629	CDP	census_first_listed
 moca zona urbana|pr	Moca zona urbana	PR	72099	18.394248	-67.113821	CDP	census_first_listed
 monserrate comunidad|pr	Monserrate comunidad	PR	72143	18.43711	-66.356638	CDP	census_first_listed
@@ -24923,7 +24923,7 @@ naguabo zona urbana|pr	Naguabo zona urbana	PR	72103	18.211673	-65.737047	CDP	cen
 naranjito zona urbana|pr	Naranjito zona urbana	PR	72105	18.302821	-66.249638	CDP	zip_majority
 olimpo comunidad|pr	Olimpo comunidad	PR	72057	18.003243	-66.110063	CDP	census_first_listed
 orocovis zona urbana|pr	Orocovis zona urbana	PR	72107	18.225851	-66.390193	CDP	zip_majority
-p jaros comunidad|pr	PÃ¡jaros comunidad	PR	72135	18.36093	-66.218404	CDP	zip_majority
+p jaros comunidad|pr	Pájaros comunidad	PR	72135	18.36093	-66.218404	CDP	zip_majority
 pabellones comunidad|pr	Pabellones comunidad	PR	72137	18.441212	-66.215608	CDP	census_first_listed
 pajonal comunidad|pr	Pajonal comunidad	PR	72054	18.384657	-66.555982	CDP	census_first_listed
 palma sola comunidad|pr	Palma Sola comunidad	PR	72029	18.323943	-65.87151	CDP	census_first_listed
@@ -24940,13 +24940,13 @@ parcelas de navarro comunidad|pr	Parcelas de Navarro comunidad	PR	72063	18.23010
 parcelas la milagrosa comunidad|pr	Parcelas La Milagrosa comunidad	PR	72041	18.171508	-66.186848	CDP	census_first_listed
 parcelas mandry comunidad|pr	Parcelas Mandry comunidad	PR	72113	18.081023	-66.562711	CDP	census_first_listed
 parcelas nuevas comunidad|pr	Parcelas Nuevas comunidad	PR	72041	18.139985	-66.170236	CDP	census_first_listed
-parcelas pe uelas comunidad|pr	Parcelas PeÃ±uelas comunidad	PR	72133	18.009007	-66.353437	CDP	census_first_listed
+parcelas pe uelas comunidad|pr	Parcelas Peñuelas comunidad	PR	72133	18.009007	-66.353437	CDP	census_first_listed
 parcelas viejas borinquen comunidad|pr	Parcelas Viejas Borinquen comunidad	PR	72025	18.173854	-66.04062	CDP	census_first_listed
 pastos comunidad|pr	Pastos comunidad	PR	72009	18.119292	-66.26009	CDP	census_first_listed
 patillas zona urbana|pr	Patillas zona urbana	PR	72109	18.006914	-66.013453	CDP	zip_majority
-pe a pobre comunidad|pr	PeÃ±a Pobre comunidad	PR	72103	18.217437	-65.822196	CDP	census_first_listed
-pe uelas zona urbana|pr	PeÃ±uelas zona urbana	PR	72111	18.059634	-66.72114	CDP	census_first_listed
-pi as comunidad|pr	PiÃ±as comunidad	PR	72045	18.190153	-66.233168	CDP	zip_majority
+pe a pobre comunidad|pr	Peña Pobre comunidad	PR	72103	18.217437	-65.822196	CDP	census_first_listed
+pe uelas zona urbana|pr	Peñuelas zona urbana	PR	72111	18.059634	-66.72114	CDP	census_first_listed
+pi as comunidad|pr	Piñas comunidad	PR	72045	18.190153	-66.233168	CDP	zip_majority
 piedra aguza comunidad|pr	Piedra Aguza comunidad	PR	72075	18.035065	-66.494593	CDP	census_first_listed
 piedra gorda comunidad|pr	Piedra Gorda comunidad	PR	72027	18.434194	-66.886085	CDP	census_first_listed
 playa fortuna comunidad|pr	Playa Fortuna comunidad	PR	72089	18.378224	-65.743837	CDP	census_first_listed
@@ -24957,25 +24957,25 @@ pole ojea comunidad|pr	Pole Ojea comunidad	PR	72023	17.972384	-67.181959	CDP	cen
 ponce zona urbana|pr	Ponce zona urbana	PR	72113	17.999711	-66.62368	CDP	zip_majority
 potala pastillo comunidad|pr	Potala Pastillo comunidad	PR	72075	17.992035	-66.496718	CDP	census_first_listed
 pueblito del carmen comunidad|pr	Pueblito del Carmen comunidad	PR	72057	18.031545	-66.165577	CDP	census_first_listed
-pueblito del r o comunidad|pr	Pueblito del RÃ­o comunidad	PR	72085	18.227979	-65.861538	CDP	census_first_listed
+pueblito del r o comunidad|pr	Pueblito del Río comunidad	PR	72085	18.227979	-65.861538	CDP	census_first_listed
 puerto real comunidad|pr	Puerto Real comunidad	PR	72023	18.076433	-67.18733	CDP	census_first_listed
 punta santiago comunidad|pr	Punta Santiago comunidad	PR	72069	18.16093	-65.758798	CDP	zip_majority
 quebrada comunidad|pr	Quebrada comunidad	PR	72027	18.360396	-66.835453	CDP	census_first_listed
 quebrada del agua comunidad|pr	Quebrada del Agua comunidad	PR	72113	18.038629	-66.683928	CDP	census_first_listed
 quebrada prieta comunidad|pr	Quebrada Prieta comunidad	PR	72029	18.294274	-65.903756	CDP	census_first_listed
 quebradillas zona urbana|pr	Quebradillas zona urbana	PR	72115	18.471343	-66.934902	CDP	zip_majority
-r o blanco comunidad|pr	RÃ­o Blanco comunidad	PR	72103	18.212326	-65.792979	CDP	zip_majority
-r o ca as abajo comunidad|pr	RÃ­o CaÃ±as Abajo comunidad	PR	72075	18.039826	-66.468157	CDP	census_first_listed
-r o grande zona urbana|pr	RÃ­o Grande zona urbana	PR	72119	18.378897	-65.838892	CDP	zip_majority
-r o lajas comunidad|pr	RÃ­o Lajas comunidad	PR	72051	18.396452	-66.263465	CDP	census_first_listed
-rafael cap comunidad|pr	Rafael CapÃ³ comunidad	PR	72065	18.398961	-66.792007	CDP	zip_majority
-rafael gonz lez comunidad|pr	Rafael GonzÃ¡lez comunidad	PR	72065	18.425379	-66.78436	CDP	census_first_listed
-rafael hern ndez comunidad|pr	Rafael HernÃ¡ndez comunidad	PR	72005	18.471859	-67.078583	CDP	census_first_listed
+r o blanco comunidad|pr	Río Blanco comunidad	PR	72103	18.212326	-65.792979	CDP	zip_majority
+r o ca as abajo comunidad|pr	Río Cañas Abajo comunidad	PR	72075	18.039826	-66.468157	CDP	census_first_listed
+r o grande zona urbana|pr	Río Grande zona urbana	PR	72119	18.378897	-65.838892	CDP	zip_majority
+r o lajas comunidad|pr	Río Lajas comunidad	PR	72051	18.396452	-66.263465	CDP	census_first_listed
+rafael cap comunidad|pr	Rafael Capó comunidad	PR	72065	18.398961	-66.792007	CDP	zip_majority
+rafael gonz lez comunidad|pr	Rafael González comunidad	PR	72065	18.425379	-66.78436	CDP	census_first_listed
+rafael hern ndez comunidad|pr	Rafael Hernández comunidad	PR	72005	18.471859	-67.078583	CDP	census_first_listed
 ramos comunidad|pr	Ramos comunidad	PR	72089	18.33891	-65.711101	CDP	zip_majority
-rinc n comunidad|pr	RincÃ³n comunidad	PR	72041	18.14991	-66.156897	CDP	census_first_listed
-rinc n zona urbana|pr	RincÃ³n zona urbana	PR	72117	18.338814	-67.251634	CDP	zip_majority
-rodr guez hevia comunidad|pr	RodrÃ­guez Hevia comunidad	PR	72041	18.202034	-66.182221	CDP	census_first_listed
-rosa s nchez comunidad|pr	Rosa SÃ¡nchez comunidad	PR	72151	18.061788	-65.913635	CDP	census_first_listed
+rinc n comunidad|pr	Rincón comunidad	PR	72041	18.14991	-66.156897	CDP	census_first_listed
+rinc n zona urbana|pr	Rincón zona urbana	PR	72117	18.338814	-67.251634	CDP	zip_majority
+rodr guez hevia comunidad|pr	Rodríguez Hevia comunidad	PR	72041	18.202034	-66.182221	CDP	census_first_listed
+rosa s nchez comunidad|pr	Rosa Sánchez comunidad	PR	72151	18.061788	-65.913635	CDP	census_first_listed
 sabana comunidad|pr	Sabana comunidad	PR	72143	18.464311	-66.351671	CDP	census_first_listed
 sabana eneas comunidad|pr	Sabana Eneas comunidad	PR	72125	18.080974	-67.085196	CDP	census_first_listed
 sabana grande zona urbana|pr	Sabana Grande zona urbana	PR	72121	18.082648	-66.964025	CDP	zip_majority
@@ -24985,19 +24985,19 @@ salinas zona urbana|pr	Salinas zona urbana	PR	72123	17.977857	-66.296187	CDP	cen
 san antonio comunidad|pr	San Antonio comunidad	PR	72005	18.492693	-67.100851	CDP	zip_majority
 san antonio comunidad|pr	San Antonio comunidad	PR	72005	18.447078	-66.299399	CDP	zip_majority
 san antonio comunidad|pr	San Antonio comunidad	PR	72005	18.437042	-66.934719	CDP	zip_majority
-san germ n zona urbana|pr	San GermÃ¡n zona urbana	PR	72125	18.082963	-67.045999	CDP	zip_majority
+san germ n zona urbana|pr	San Germán zona urbana	PR	72125	18.082963	-67.045999	CDP	zip_majority
 san isidro comunidad|pr	San Isidro comunidad	PR	72029	18.392138	-65.884329	CDP	census_first_listed
-san jos comunidad|pr	San JosÃ© comunidad	PR	72137	18.403919	-66.249038	CDP	census_first_listed
+san jos comunidad|pr	San José comunidad	PR	72137	18.403919	-66.249038	CDP	census_first_listed
 san juan zona urbana|pr	San Juan zona urbana	PR	72127	18.404559	-66.063746	CDP	zip_majority
 san lorenzo zona urbana|pr	San Lorenzo zona urbana	PR	72129	18.187061	-65.967354	CDP	zip_majority
-san sebasti n zona urbana|pr	San SebastiÃ¡n zona urbana	PR	72131	18.335498	-66.994756	CDP	zip_majority
-santa b rbara comunidad|pr	Santa BÃ¡rbara comunidad	PR	72029	18.395494	-65.917584	CDP	census_first_listed
+san sebasti n zona urbana|pr	San Sebastián zona urbana	PR	72131	18.335498	-66.994756	CDP	zip_majority
+santa b rbara comunidad|pr	Santa Bárbara comunidad	PR	72029	18.395494	-65.917584	CDP	census_first_listed
 santa clara comunidad|pr	Santa Clara comunidad	PR	72007	18.209339	-66.133428	CDP	census_first_listed
 santa isabel zona urbana|pr	Santa Isabel zona urbana	PR	72133	17.969149	-66.405052	CDP	census_first_listed
-santa mar a comunidad|pr	Santa MarÃ­a comunidad	PR	72037	18.270899	-65.66168	CDP	census_first_listed
+santa mar a comunidad|pr	Santa María comunidad	PR	72037	18.270899	-65.66168	CDP	census_first_listed
 santo domingo comunidad|pr	Santo Domingo comunidad	PR	72111	18.074159	-66.744901	CDP	zip_majority
 stella comunidad|pr	Stella comunidad	PR	72117	18.323631	-67.246448	CDP	census_first_listed
-su rez comunidad|pr	SuÃ¡rez comunidad	PR	72087	18.431752	-65.852355	CDP	census_first_listed
+su rez comunidad|pr	Suárez comunidad	PR	72087	18.431752	-65.852355	CDP	census_first_listed
 tallaboa alta comunidad|pr	Tallaboa Alta comunidad	PR	72111	18.050106	-66.702397	CDP	census_first_listed
 tallaboa comunidad|pr	Tallaboa comunidad	PR	72111	17.993515	-66.706733	CDP	census_first_listed
 tibes comunidad|pr	Tibes comunidad	PR	72113	18.088649	-66.63327	CDP	zip_majority
@@ -25006,10 +25006,10 @@ tierras nuevas poniente comunidad|pr	Tierras Nuevas Poniente comunidad	PR	72091	
 toa alta zona urbana|pr	Toa Alta zona urbana	PR	72135	18.38812	-66.25125	CDP	census_first_listed
 toa baja zona urbana|pr	Toa Baja zona urbana	PR	72137	18.443934	-66.254854	CDP	zip_majority
 toaville comunidad|pr	Toaville comunidad	PR	72137	18.44373	-66.243083	CDP	census_first_listed
-tom s de castro comunidad|pr	TomÃ¡s de Castro comunidad	PR	72025	18.184066	-66.018585	CDP	census_first_listed
+tom s de castro comunidad|pr	Tomás de Castro comunidad	PR	72025	18.184066	-66.018585	CDP	census_first_listed
 trujillo alto zona urbana|pr	Trujillo Alto zona urbana	PR	72139	18.35961	-66.012658	CDP	zip_majority
 utuado zona urbana|pr	Utuado zona urbana	PR	72141	18.26913	-66.706317	CDP	zip_majority
-v zquez comunidad|pr	VÃ¡zquez comunidad	PR	72123	18.068363	-66.233161	CDP	census_first_listed
+v zquez comunidad|pr	Vázquez comunidad	PR	72123	18.068363	-66.233161	CDP	census_first_listed
 valle hill comunidad|pr	Valle Hill comunidad	PR	72029	18.395265	-65.894001	CDP	census_first_listed
 vayas comunidad|pr	Vayas comunidad	PR	72113	18.054008	-66.585737	CDP	census_first_listed
 vega alta zona urbana|pr	Vega Alta zona urbana	PR	72143	18.415176	-66.321158	CDP	zip_majority
@@ -26758,7 +26758,7 @@ bushland|tx	Bushland	TX	48375	35.202905	-102.059002	CDP	census_first_listed
 butterfield|tx	Butterfield	TX	48141	31.842626	-106.082195	CDP	census_first_listed
 byers|tx	Byers	TX	48077	34.069171	-98.190931	city	zip_majority
 bynum|tx	Bynum	TX	48217	31.969071	-97.003078	town	zip_majority
-c sar ch vez|tx	CÃ©sar ChÃ¡vez	TX	48215	26.310953	-98.111875	CDP	census_first_listed
+c sar ch vez|tx	César Chávez	TX	48215	26.310953	-98.111875	CDP	census_first_listed
 cactus|tx	Cactus	TX	48341	36.044376	-102.00803	city	zip_majority
 caddo mills|tx	Caddo Mills	TX	48231	33.074543	-96.226924	city	zip_majority
 cade lakes|tx	Cade Lakes	TX	48051	30.515054	-96.773377	CDP	census_first_listed
@@ -27491,7 +27491,7 @@ lone star|tx	Lone Star	TX	48343	32.93997	-94.709073	city	zip_majority
 longoria|tx	Longoria	TX	48427	26.30238	-98.642489	CDP	census_first_listed
 longview|tx	Longview	TX	48183	32.520234	-94.761114	city	zip_majority
 loop|tx	Loop	TX	48165	32.914189	-102.414709	CDP	zip_majority
-lope o|tx	LopeÃ±o	TX	48505	26.711834	-99.100966	CDP	zip_majority
+lope o|tx	Lopeño	TX	48505	26.711834	-99.100966	CDP	zip_majority
 lopezville|tx	Lopezville	TX	48215	26.245241	-98.153746	CDP	census_first_listed
 loraine|tx	Loraine	TX	48335	32.408651	-100.712515	town	zip_majority
 lorena|tx	Lorena	TX	48309	31.383111	-97.210204	city	census_first_listed
@@ -27988,8 +27988,8 @@ sadler|tx	Sadler	TX	48181	33.680058	-96.846896	city	zip_majority
 saginaw|tx	Saginaw	TX	48439	32.865564	-97.365207	city	census_first_listed
 salado|tx	Salado	TX	48027	30.948383	-97.528337	village	zip_majority
 salida del sol estates|tx	Salida del Sol Estates	TX	48215	26.325684	-98.446923	CDP	census_first_listed
-saline o north|tx	SalineÃ±o North	TX	48427	26.527223	-99.094956	CDP	census_first_listed
-saline o|tx	SalineÃ±o	TX	48427	26.517553	-99.112058	CDP	census_first_listed
+saline o north|tx	Salineño North	TX	48427	26.527223	-99.094956	CDP	census_first_listed
+saline o|tx	Salineño	TX	48427	26.517553	-99.112058	CDP	census_first_listed
 sam rayburn|tx	Sam Rayburn	TX	48241	31.077263	-94.025528	CDP	zip_majority
 sammy martinez|tx	Sammy Martinez	TX	48427	26.432851	-98.751298	CDP	census_first_listed
 samnorwood|tx	Samnorwood	TX	48087	35.050114	-100.281401	CDP	census_first_listed
