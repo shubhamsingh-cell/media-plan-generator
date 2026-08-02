@@ -449,16 +449,49 @@ class TestHeadlineInvariance:
     model was added -- it only ADDS explanatory intermediate stages."""
 
     @pytest.fixture(autouse=True)
-    def _pin_channel_benchmarks_live(self, monkeypatch):
-        """Pin budget_engine's channel_benchmarks_live.json read to the
-        frozen 2026-07-12 fixture (see module-docstring note above) so this
-        test is hermetic: green with NO data/*.json present, and green
-        regardless of what a live scrape refresh produces. Monkeypatching
-        _DATA_DIR is the same hook tests/test_data_sources.py already uses
-        to pin apis.data loaders -- no production code changes needed."""
+    def _pin_invariant_inputs(self, monkeypatch):
+        """Pin the two time-varying inputs this invariant depends on, so
+        the test is hermetic against both a stale/refreshed data file AND
+        the wall clock:
+
+        1. budget_engine's channel_benchmarks_live.json read is pinned to
+           the frozen 2026-07-12 fixture (see module-docstring note above)
+           so this test is green with NO data/*.json present, and green
+           regardless of what a live scrape refresh produces. Monkeypatching
+           _DATA_DIR is the same hook tests/test_data_sources.py already
+           uses to pin apis.data loaders -- no production code changes
+           needed.
+
+        2. ``campaign_start_month`` is pinned to 7 (July) on copies of
+           regen.MANPOWER_BRIEF / regen.ATRIA_BRIEF. Neither reference brief
+           sets campaign_start_month, so tools_regen_bundles.py's
+           ``campaign_start_month=int(data.get("campaign_start_month") or
+           0)`` passes 0 through, and budget_engine.py's
+           ``current_month = month if (month and 1 <= month <= 12) else
+           datetime.datetime.now().month`` falls back to THE REAL CALENDAR
+           MONTH. The seasonal CPC factor is month-dependent (e.g. 0.935 in
+           July vs 1.05 in August), which moves clicks/applications/CPA
+           enough to break the pinned _BEFORE_* expectations below on the
+           1st of every month that isn't July -- NOT a code regression, a
+           non-hermetic test reading the clock. The _BEFORE_* numbers were
+           captured in July, so July is what must be pinned here; do not
+           "fix" a future red run by updating these numbers to whatever
+           month it is -- that erases the invariant's signal. Monkeypatching
+           the module-level brief dicts (never mutating them in place) means
+           this cannot leak into any other test.
+        """
         monkeypatch.setattr(be, "_DATA_DIR", _FUNNEL_INVARIANT_FIXTURE_DIR)
         # Force a re-read: the loader caches at module level after first call.
         monkeypatch.setattr(be, "_channel_bench_live_cache", None)
+
+        import tools_regen_bundles as regen
+
+        pinned_manpower = dict(regen.MANPOWER_BRIEF)
+        pinned_manpower["campaign_start_month"] = 7
+        pinned_atria = dict(regen.ATRIA_BRIEF)
+        pinned_atria["campaign_start_month"] = 7
+        monkeypatch.setattr(regen, "MANPOWER_BRIEF", pinned_manpower)
+        monkeypatch.setattr(regen, "ATRIA_BRIEF", pinned_atria)
 
     @pytest.mark.parametrize(
         "brief_name,expected_total,expected_per_channel,expected_budget",
