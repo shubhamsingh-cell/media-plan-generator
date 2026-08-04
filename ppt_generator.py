@@ -7398,7 +7398,14 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
 
     Uses:
     - competitive_intelligence: company profile, competitor data,
-      industry hiring trends, market positioning
+      industry hiring trends
+
+    Note: this slide no longer renders a "Market Positioning" callout band.
+    fuse_competitive_intelligence's market_positioning dict only ever
+    carries 4 structural fields (industry_sector, is_public_company,
+    competitor_count, has_sec_filings) -- it never produces prose -- so the
+    band's text was always empty on real data. See the retirement comment
+    above the Source line below for the full rationale.
     """
     try:
         slide_layout = prs.slide_layouts[6]
@@ -8161,60 +8168,36 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
 
             _comp_right_bottom_in = _comp_cur_top_in - (comp_card_gap / 914400)
 
-        # fix/gate-confidence-layout: the Market Positioning band and the
-        # Source line below it were both hardcoded to absolute Inches(5.8)
-        # / Inches(6.7) regardless of how tall the competitor-card stack (or
-        # the left column) actually rendered -- reproduced directly: 3 real
-        # competitor cards with longer counter-strategy prose put the 3rd
-        # card's own rounded-rect bottom at y=6.24in, so the "fixed" 5.8in
-        # band drew ITSELF on top of that card's bottom third. Anchor both
-        # to the measured bottom of whichever column (left trends / right
-        # cards) actually renders taller, never ABOVE the old fixed anchors
-        # so a short/typical plan renders byte-identically to before.
+        # fix/gate-confidence-layout: the Source line below the content was
+        # hardcoded to an absolute Inches(6.7) regardless of how tall the
+        # competitor-card stack (or the left column) actually rendered --
+        # reproduced directly: 3 real competitor cards with longer
+        # counter-strategy prose put the 3rd card's own rounded-rect bottom
+        # at y=6.24in, close enough to the fixed 6.7in anchor to leave
+        # almost no margin. Anchor it to the measured bottom of whichever
+        # column (left trends / right cards) actually renders taller, never
+        # ABOVE the old fixed anchor so a short/typical plan renders
+        # byte-identically to before.
+        #
+        # retire(dead-positioning-band): a "Market Positioning" callout band
+        # used to sit between the content and this Source line. It rendered
+        # `positioning.get("summary", positioning.get("insight") or "")`,
+        # but data_synthesizer.fuse_competitive_intelligence -- the sole
+        # producer of competitive_intelligence.market_positioning -- only
+        # ever writes 4 structural fields (industry_sector,
+        # is_public_company, competitor_count, has_sec_filings); it never
+        # sets summary or insight. So pos_text was always "" on real data
+        # and the band never drew -- confirmed against a real prod bundle
+        # (no summary sentence in the Excel Market Intelligence sheet, zero
+        # occurrences of the band's PALE_TEAL fill in the generated slide
+        # XML). Even with text present, the band's own "never overprint"
+        # gate would still suppress it whenever 3 competitor cards render
+        # (measured: would-be bottom 7.29in vs the 6.85in safe ceiling).
+        # Retired rather than fed a fabricated summary synthesized from the
+        # 4 structural fields, which this codebase's insight-integrity
+        # rules forbid.
         _comp_content_bottom_in = max(_cl_left_bottom_in, _comp_right_bottom_in)
-        _comp_pos_band_h_in = 0.7
-        _comp_pos_gap_in = 0.15
-        _comp_safe_bottom_in = 6.85  # keep clear of the Source line/footer
-        pos_top_in = max(5.8, _comp_content_bottom_in + _comp_pos_gap_in)
-        _comp_pos_shown = False
-
-        # Market positioning insight
-        positioning = comp_intel.get("market_positioning", {})
-        if isinstance(positioning, dict) and positioning:
-            pos_text = positioning.get("summary", positioning.get("insight") or "")
-            # Only draw the callout band when there's actual text to show --
-            # an empty highlight band (colored rect with nothing in it) used
-            # to render whenever `positioning` was a non-empty dict with no
-            # summary/insight field -- AND only when it still fits above the
-            # Source line/footer; a card stack tall enough to already reach
-            # the safe ceiling has no room left for it (Task 3: never
-            # overprint -- drop the row rather than collide).
-            if pos_text and pos_top_in + _comp_pos_band_h_in <= _comp_safe_bottom_in:
-                pos_top = Inches(pos_top_in)
-                _add_rounded_rect(
-                    slide, Inches(0.55), pos_top, Inches(12.2), Inches(_comp_pos_band_h_in), PALE_TEAL
-                )
-                _add_filled_rect(
-                    slide, Inches(0.55), pos_top, Inches(0.06), Inches(_comp_pos_band_h_in), TEAL
-                )
-                _add_textbox(
-                    slide,
-                    Inches(0.8),
-                    pos_top + Inches(0.1),
-                    Inches(11.7),
-                    Inches(0.5),
-                    text=_trunc_clause(str(pos_text), 200),
-                    font_size=9,
-                    color=DARK_TEXT,
-                )
-                _comp_pos_shown = True
-
-        # Source line -- cascades from whichever sits lower: the positioning
-        # band (if shown) or the raw content bottom (if it was skipped).
-        if _comp_pos_shown:
-            _comp_source_top_in = pos_top_in + _comp_pos_band_h_in + 0.2
-        else:
-            _comp_source_top_in = max(6.7, _comp_content_bottom_in + 0.15)
+        _comp_source_top_in = max(6.7, _comp_content_bottom_in + 0.15)
         _comp_source_top_in = min(_comp_source_top_in, 7.0)  # keep clear of the footer rule
         _add_textbox(
             slide,

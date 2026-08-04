@@ -241,13 +241,6 @@ MATRIX: Dict[str, Callable[[], Dict[str, Any]]] = {
                 ),
             },
         ],
-        _synthesized={
-            "competitive_intelligence": {
-                "market_positioning": {
-                    "summary": "A positioning insight sentence for the callout band."
-                }
-            }
-        },
     ),
     "more_than_cap_competitors": lambda: _base_plan(
         competitors=[
@@ -748,35 +741,38 @@ class TestQualityOutcomesRollup:
 
 
 class TestCompetitiveLandscapeEnvelope:
-    def test_market_positioning_band_never_overlaps_the_competitor_card_stack(self, decks):
-        """Reproduced directly against origin/main: 3 real competitor cards
-        with longer counter-strategy prose put the last card's own bottom
-        at ~6.24in while the (old) fixed Market Positioning band drew
-        itself at a hardcoded 5.8-6.5in -- directly on top of it."""
+    def test_competitor_card_stack_clears_source_line_and_footer(self, decks):
+        """3 real competitor cards with longer counter-strategy prose put
+        the last card's own bottom at ~6.24in -- the tallest content this
+        slide renders. Reproduced directly against origin/main. The
+        (now-retired) Market Positioning band used to be checked here too;
+        with it gone, the Source line is anchored straight off this same
+        measured card-stack bottom (see ppt_generator.py's
+        retire(dead-positioning-band) comment), so both must still clear
+        the footer and never collide with each other."""
         prs = decks["three_competitors_long_desc"]
         slide = _slide_by_headline(prs, "Competitive Landscape")
         assert slide is not None
-        band = next(
-            (
-                sh
-                for sh in _text_shapes(slide)
-                if sh.text_frame.text.strip()
-                == "A positioning insight sentence for the callout band."
-            ),
-            None,
-        )
         cards = _rounded_rect_cards(slide, min_w_in=4.0, min_h_in=1.0)
         assert cards, "expected competitor cards"
         cards_bottom_in = max(c.top / EMU_PER_IN + c.height / EMU_PER_IN for c in cards)
-        if band is not None:
-            band_top_in = band.top / EMU_PER_IN
-            assert band_top_in >= cards_bottom_in - TOL, (
-                f"Market Positioning band starts at {band_top_in:.2f}in but the "
-                f"competitor card stack extends to {cards_bottom_in:.2f}in"
-            )
-        # Either way, the band (if drawn) or the card stack itself must stay
-        # clear of the Source line / footer.
+        # Card stack itself must stay clear of the Source line / footer.
         assert cards_bottom_in <= 7.12 + TOL
+
+        source_line = next(
+            (
+                sh
+                for sh in _text_shapes(slide)
+                if sh.text_frame.text.strip().startswith("Sources:")
+            ),
+            None,
+        )
+        assert source_line is not None, "expected the Sources line"
+        source_top_in = source_line.top / EMU_PER_IN
+        assert source_top_in >= cards_bottom_in - TOL, (
+            f"Sources line starts at {source_top_in:.2f}in but the "
+            f"competitor card stack extends to {cards_bottom_in:.2f}in"
+        )
 
     def test_competitor_count_variants_all_stay_on_canvas_and_uncollided(self, decks):
         for name in ("zero_competitors", "one_competitor", "more_than_cap_competitors"):
