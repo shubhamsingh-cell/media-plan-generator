@@ -1,17 +1,20 @@
 """Tests for the S89 PPTX deck polish (ppt_generator).
 
-Covers the four executive-grade polish items, all offline (no network / no LLM
+Covers the three executive-grade polish items, all offline (no network / no LLM
 / no Supabase -- the budget engine runs purely on its deterministic math):
 
   1. Currency-correctness -- money renders in the plan's own symbol (USD default,
      GBP / EUR / INR for non-US plans) via plan_currency wiring.
   2. Brand chart fonts -- bundled Poppins .ttf register with matplotlib, with a
      graceful DejaVu fallback when the fonts are absent.
-  3. Data-sources slide freshness ("as of <date>") + provenance footer +
-     "Joveo measured" callout (only when real_outcomes is present; absent-safe).
-  4. Channel table has a totals row.
+  3. Channel table has a totals row.
 
 Plus: the deck still builds end-to-end from a minimal dict.
+
+(Item "Data-sources slide freshness" was retired 2026-08-04: its target,
+_build_slide_data_sources, was dead code -- never called from generate_pptx
+since the S50 slide-order change -- and was deleted along with this test in
+the dead-slide-builder audit. See TestDataSourcesSlide in git history.)
 
 Runs under pytest, or standalone: ``python3 tests/test_ppt_polish.py``.
 """
@@ -76,19 +79,6 @@ def _all_text(pptx_bytes: bytes) -> list[str]:
         for shape in slide.shapes:
             if shape.has_text_frame:
                 out.append(shape.text_frame.text)
-    return out
-
-
-def _data_sources_text(data: dict) -> list[str]:
-    """Render just the data-sources slide and return its text fragments."""
-    prs = Presentation()
-    prs.slide_width = ppt.SLIDE_WIDTH
-    prs.slide_height = ppt.SLIDE_HEIGHT
-    ppt._build_slide_data_sources(prs, data)
-    out: list[str] = []
-    for shape in prs.slides[0].shapes:
-        if shape.has_text_frame:
-            out.append(shape.text_frame.text)
     return out
 
 
@@ -307,55 +297,7 @@ class TestChartFonts:
 
 
 # ---------------------------------------------------------------------------
-# 3. Data-sources slide freshness + provenance + measured callout
-# ---------------------------------------------------------------------------
-class TestDataSourcesSlide:
-    def teardown_method(self):
-        ppt._set_active_currency({})
-
-    def test_freshness_line_present(self):
-        today = datetime.date.today().strftime("%B %d, %Y")
-        texts = _data_sources_text({"client_name": "Acme"})
-        assert any(f"Data current as of {today}" in t for t in texts)
-
-    def test_provenance_footer_present(self):
-        texts = _data_sources_text({"client_name": "Acme"})
-        assert any(t.lower().startswith("provenance:") for t in texts)
-
-    def test_measured_callout_absent_by_default(self):
-        # No real_outcomes -> no "Joveo measured" callout (common no-match case).
-        texts = _data_sources_text({"client_name": "Acme"})
-        assert not any("Joveo measured" in t for t in texts)
-
-    def test_measured_callout_present_with_real_outcomes(self):
-        data = {
-            "client_name": "Acme",
-            "_budget_allocation": {
-                "metadata": {
-                    "real_outcomes": [
-                        {"title": "Registered Nurse", "sample_size": 300},
-                        {"title": "ICU Nurse", "sample_size": 120},
-                    ]
-                }
-            },
-        }
-        texts = _data_sources_text(data)
-        assert any("Joveo measured" in t for t in texts)
-        assert any("2 roles matched" in t for t in texts)
-        # provenance footer also cites the warehouse calibration
-        assert any("cg_benchmarks" in t for t in texts)
-
-    def test_malformed_budget_allocation_is_safe(self):
-        # Defensive reads: metadata not a dict, real_outcomes missing, etc.
-        for bad in (None, [], "x", {"metadata": None}, {"metadata": "x"}):
-            texts = _data_sources_text(
-                {"client_name": "Acme", "_budget_allocation": bad}
-            )
-            assert not any("Joveo measured" in t for t in texts)
-
-
-# ---------------------------------------------------------------------------
-# 4. Channel table totals row
+# 3. Channel table totals row
 # ---------------------------------------------------------------------------
 class TestTotalsRow:
     def teardown_method(self):
@@ -403,7 +345,7 @@ class TestEndToEnd:
 
 
 # ---------------------------------------------------------------------------
-# 5. S6 -- channel percentages always reconcile to 100%, and the slide-6
+# 4. S6 -- channel percentages always reconcile to 100%, and the slide-6
 #    breakdown table always foots (visible rows sum to the printed Total),
 #    even when there are more channels than fit in the visible row cap.
 # ---------------------------------------------------------------------------
