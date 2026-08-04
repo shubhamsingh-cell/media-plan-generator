@@ -109,10 +109,28 @@ def _run_deferred_startup() -> None:
     # Build vector search index in background thread (non-blocking)
     # This takes 3-5 min for 5000+ chunks and was blocking port binding,
     # causing Render's port scan to timeout and reject deploys.
+    #
+    # Gated off by default (NOVA_BUILD_LOCAL_INDEX=1 to opt in). Under
+    # gunicorn --preload + gevent monkey-patching, this "background thread"
+    # does not simply die at fork as a plain OS thread would -- reproduced
+    # directly: it re-runs to completion independently in the master AND in
+    # EVERY forked worker, each doing its own full corpus re-embed (N+1
+    # concurrent builds, all contending on the shared 10 RPM Voyage window,
+    # each ~45 min since the committed embedding cache never reaches
+    # production -- .renderignore excludes it from the slug and the
+    # configured /data/persistent path has no actual disk attached). Retrieval
+    # no longer needs this: search() in vector_search.py lazily attaches to
+    # the Qdrant collection (already built once, offline, and process-shared)
+    # on first use instead. See docs/EMBEDDING_CUTOVER_RUNBOOK.md and the
+    # mpg-indexed-documents-stuck-at-zero memory entry for the full mechanism.
     try:
         from app import _vector_search_available, _vector_index_kb
 
-        if _vector_search_available and _vector_index_kb:
+        if (
+            _vector_search_available
+            and _vector_index_kb
+            and os.environ.get("NOVA_BUILD_LOCAL_INDEX") == "1"
+        ):
 
             def _bg_vector_index():
                 try:
@@ -151,6 +169,11 @@ def _run_deferred_startup() -> None:
             )
             _vt.start()
             logger.info("[wsgi] Vector search indexing started in background thread")
+        else:
+            logger.info(
+                "[wsgi] Local vector index build skipped (NOVA_BUILD_LOCAL_INDEX "
+                "unset) -- relying on lazy Qdrant attach in vector_search.search()"
+            )
     except Exception as ve:
         logger.warning("[wsgi] Vector index setup failed: %s", ve)
 

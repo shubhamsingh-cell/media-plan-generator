@@ -1617,6 +1617,30 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
             # the cause visible only in Render logs.
             "last_embed_error": _vs._last_embed_error,
         }
+
+        # Retrieval-layer observability. indexed_documents above reads 0
+        # PERMANENTLY under the current design (in-memory corpus build is
+        # gated off by default -- see wsgi.py NOVA_BUILD_LOCAL_INDEX) even
+        # when retrieval is fully healthy via the lazy Qdrant attach in
+        # search(). Without this block there is no way to distinguish
+        # "fixed, serving from Qdrant" from "still broken" from outside --
+        # exactly the gap that let the original bug hide for 4 months.
+        # Purely additive: never touches is_ready or the status code below.
+        _status = _vs.get_status()
+        result["retrieval"] = {
+            "pid": os.getpid(),
+            "qdrant_attached": _vs._qdrant_available,
+            "in_memory_documents": len(_vs._index),
+            "bm25_built": _status["bm25_built"],
+            "tfidf_built": _status["tfidf_built"],
+            "search_mode": _status["search_mode"],
+            "can_retrieve": bool(
+                _vs._qdrant_available
+                or _vs._index
+                or _status["bm25_built"]
+                or _status["tfidf_built"]
+            ),
+        }
     except Exception:  # noqa: BLE001 -- observability must never break readiness
         result["embedding"] = {"provider": "unavailable"}
 

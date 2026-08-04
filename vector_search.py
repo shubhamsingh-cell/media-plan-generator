@@ -447,6 +447,22 @@ _QDRANT_TIMEOUT = 15  # seconds
 _qdrant_available: bool = False  # set True after successful collection create/verify
 _qdrant_lock = threading.Lock()
 
+# ── Lazy per-process Qdrant attach ───────────────────────────────────────────
+# gunicorn --preload forks workers from the master AFTER wsgi.py's startup
+# sequence has already run there; module globals (including _qdrant_available)
+# do not cross fork(), so a freshly forked worker's flag reads False even
+# though the collection is fully populated and shared. _qdrant_attach() lets
+# the FIRST search() in each process re-derive availability itself.
+_qdrant_attach_lock = threading.Lock()
+_qdrant_attach_last_attempt: float = 0.0
+_QDRANT_ATTACH_COOLDOWN_S = 60.0
+# Qdrant currently holds duplicate points per doc_id (build_index's point ids
+# are derived from abs(hash(entry["id"])), and str hashing is randomized
+# per-process with PYTHONHASHSEED unset) -- over-fetch then dedupe client-side
+# so a top_k search doesn't return N copies of the same chunk.
+_QDRANT_OVERFETCH = 8
+_retrieval_dead_logged = False
+
 
 def _record_voyage_request() -> None:
     """Record a Voyage request timestamp in the IN-PROCESS fallback window."""
@@ -1177,6 +1193,69 @@ def _deterministic_point_id(doc_id: str) -> int:
     """
     digest = hashlib.md5(doc_id.encode("utf-8"), usedforsecurity=False).hexdigest()
     return int(digest[:15], 16)  # 60 bits -- safely within int64
+
+
+def _qdrant_attach() -> bool:
+    """Arm THIS process's Qdrant tier, lazily, on first search. Read-only.
+
+    gunicorn --preload forks workers after wsgi.py has already run startup in
+    the master; module globals do not cross fork(), so a worker's
+    _qdrant_available stays False for its whole life while _get_vector_results
+    skips a collection that is fully populated and process-shared over HTTP.
+    Re-derive it here per process: one GET /collections, no embedding call,
+    no write, no rate-limit-window usage.
+
+    Deliberately does NOT call _qdrant_ensure_collection() -- its create
+    branch PUTs a brand-new EMPTY collection when the active name doesn't
+    exist (e.g. a provider flip to a collection never backfilled) and would
+    still flip this flag True. A serving worker must never perform DDL;
+    GET-only, fail closed on any error so the caller falls through to BM25/
+    TF-IDF instead of reporting a false "available".
+
+    Returns:
+        True if this process's Qdrant tier is (now, or already) usable.
+    """
+    global _qdrant_available, _qdrant_attach_last_attempt
+
+    if _qdrant_available:
+        return True
+    if not _qdrant_is_configured():
+        return False
+
+    now = time.monotonic()
+    if (
+        _qdrant_attach_last_attempt
+        and now - _qdrant_attach_last_attempt < _QDRANT_ATTACH_COOLDOWN_S
+    ):
+        return False
+
+    with _qdrant_attach_lock:
+        if _qdrant_available:
+            return True
+        now = time.monotonic()
+        if (
+            _qdrant_attach_last_attempt
+            and now - _qdrant_attach_last_attempt < _QDRANT_ATTACH_COOLDOWN_S
+        ):
+            return False
+        _qdrant_attach_last_attempt = now
+
+        check = _qdrant_request("GET", f"/collections/{_active_collection()}")
+        if check and check.get("result"):
+            _qdrant_available = True
+            logger.info(
+                "Qdrant attached lazily in PID %d for collection %s",
+                os.getpid(),
+                _active_collection(),
+            )
+            return True
+
+        logger.warning(
+            "Qdrant lazy-attach failed in PID %d; retry in %.0fs",
+            os.getpid(),
+            _QDRANT_ATTACH_COOLDOWN_S,
+        )
+        return False
 
 
 def _qdrant_upsert_points(
@@ -2584,6 +2663,7 @@ def _get_vector_results(
     query: str,
     query_embedding: list[float] | None,
     fetch_k: int,
+    payload_sink: dict[str, dict] | None = None,
 ) -> list[tuple[str, float]]:
     """Get vector search results as (doc_id, score) tuples.
 
@@ -2593,6 +2673,11 @@ def _get_vector_results(
         query: The search query (for logging).
         query_embedding: Pre-computed query embedding vector.
         fetch_k: Number of results to fetch.
+        payload_sink: Optional dict to fill with {doc_id: {id, text, metadata}}
+            for every Qdrant hit kept. A forked worker's _index is empty, so
+            _resolve_doc has nothing to look up a Qdrant-sourced doc_id
+            against -- this carries Qdrant's own payload (which it already
+            returns) forward instead of discarding it.
 
     Returns:
         List of (doc_id, score) tuples sorted by score descending.
@@ -2603,14 +2688,38 @@ def _get_vector_results(
     # Tier 1: Qdrant production vector store
     if _qdrant_available:
         try:
-            qdrant_results = _qdrant_search(query_embedding, top_k=fetch_k)
+            # Qdrant currently holds ~86x duplicate points per doc_id (see
+            # _QDRANT_OVERFETCH comment), so a plain top_k fetch would often
+            # return mostly copies of one chunk. Over-fetch, then dedupe by
+            # doc_id keeping the first (highest-scoring) occurrence, until
+            # fetch_k distinct documents are collected.
+            qdrant_results = _qdrant_search(
+                query_embedding, top_k=min(fetch_k * _QDRANT_OVERFETCH, 100)
+            )
             if qdrant_results:
                 logger.debug(
-                    "Qdrant search returned %d results for query=%s",
+                    "Qdrant search returned %d raw results for query=%s",
                     len(qdrant_results),
                     query[:50],
                 )
-                return [(r["id"], r.get("score", 0.0)) for r in qdrant_results]
+                deduped: list[tuple[str, float]] = []
+                seen_ids: set[str] = set()
+                for r in qdrant_results:
+                    doc_id = r["id"]
+                    if doc_id in seen_ids:
+                        continue
+                    seen_ids.add(doc_id)
+                    deduped.append((doc_id, r.get("score", 0.0)))
+                    if payload_sink is not None and (r.get("text") or "").strip():
+                        payload_sink[doc_id] = {
+                            "id": doc_id,
+                            "text": r["text"],
+                            "metadata": r.get("metadata") or {},
+                        }
+                    if len(deduped) >= fetch_k:
+                        break
+                if deduped:
+                    return deduped
         except (OSError, ValueError, TypeError) as exc:
             logger.error("Qdrant search error, falling back: %s", exc, exc_info=True)
 
@@ -2628,13 +2737,18 @@ def _get_vector_results(
     return []
 
 
-def _resolve_doc(doc_id: str) -> dict | None:
+def _resolve_doc(doc_id: str, extra: dict[str, dict] | None = None) -> dict | None:
     """Look up full document data by doc_id from any available index.
 
-    Checks in-memory vector index, BM25 index, then TF-IDF index.
+    Checks in-memory vector index, BM25 index, TF-IDF index, then the
+    caller-supplied extra map (Qdrant hit payloads carried through by
+    _get_vector_results -- the only tier a forked worker actually has data
+    in, since _index/BM25/TF-IDF are all built inside build_index()).
 
     Args:
         doc_id: The document identifier.
+        extra: Optional {doc_id: {id, text, metadata}} map from the current
+            search() call, checked last.
 
     Returns:
         Dict with id, text, metadata -- or None if not found.
@@ -2666,7 +2780,39 @@ def _resolve_doc(doc_id: str) -> dict | None:
         except ValueError:
             pass
 
+    # Check the current search()'s Qdrant payload passthrough
+    if extra:
+        hit = extra.get(doc_id)
+        if hit and (hit.get("text") or "").strip():
+            return {
+                "id": hit["id"],
+                "text": hit["text"][:500],
+                "metadata": hit.get("metadata") or {},
+            }
+
     return None
+
+
+def _warn_retrieval_dead() -> None:
+    """Log once per process when search() is about to return [] with every
+    tier empty -- the silence that let production run with zero grounding
+    for months without an error anywhere. Gated so a hot query path can't
+    spam Render's logs.
+    """
+    global _retrieval_dead_logged
+    if _retrieval_dead_logged:
+        return
+    _retrieval_dead_logged = True
+    logger.error(
+        "RETRIEVAL LAYER EMPTY in worker pid=%d: index=%d bm25_built=%s "
+        "tfidf_built=%s qdrant_available=%s -- search() is returning [] and "
+        "every caller proceeds WITHOUT grounding",
+        os.getpid(),
+        len(_index),
+        _bm25_index.is_built,
+        _tfidf_built,
+        _qdrant_available,
+    )
 
 
 def search_bounded(query: str, top_k: int = 5, timeout_s: float = 3.0) -> list[dict]:
@@ -2746,6 +2892,12 @@ def search(query: str, top_k: int = 5) -> list[dict]:
     """
     fetch_k = top_k * 2  # Fetch 2x from each source for better RRF fusion
 
+    # Lazy first-touch: a forked gunicorn worker's _qdrant_available starts
+    # False even though the collection is fully populated and shared over
+    # HTTP (module globals don't cross fork()). Cheap no-op once attached.
+    _qdrant_attach()
+    qdrant_payloads: dict[str, dict] = {}
+
     query_embedding: list[float] | None = None
 
     # Get embedding once (shared by Qdrant and in-memory tiers)
@@ -2758,7 +2910,9 @@ def search(query: str, top_k: int = 5) -> list[dict]:
         )
 
     # ── Hybrid path: Vector + BM25 via RRF ──────────────────────────────
-    vector_results = _get_vector_results(query, query_embedding, fetch_k)
+    vector_results = _get_vector_results(
+        query, query_embedding, fetch_k, payload_sink=qdrant_payloads
+    )
     bm25_results = (
         _bm25_index.search(query, top_k=fetch_k) if _bm25_index.is_built else []
     )
@@ -2776,7 +2930,7 @@ def search(query: str, top_k: int = 5) -> list[dict]:
 
         results: list[dict] = []
         for doc_id, rrf_score in fused[:top_k]:
-            doc = _resolve_doc(doc_id)
+            doc = _resolve_doc(doc_id, extra=qdrant_payloads)
             if doc:
                 doc["score"] = rrf_score
                 doc["search_method"] = "hybrid_rrf"
@@ -2794,7 +2948,7 @@ def search(query: str, top_k: int = 5) -> list[dict]:
         )
         results = []
         for doc_id, score in vector_results[:top_k]:
-            doc = _resolve_doc(doc_id)
+            doc = _resolve_doc(doc_id, extra=qdrant_payloads)
             if doc:
                 doc["score"] = round(score, 4)
                 doc["search_method"] = "vector"
@@ -2813,7 +2967,7 @@ def search(query: str, top_k: int = 5) -> list[dict]:
         )
         results = []
         for doc_id, score in bm25_results[:top_k]:
-            doc = _resolve_doc(doc_id)
+            doc = _resolve_doc(doc_id, extra=qdrant_payloads)
             if doc:
                 doc["score"] = round(score, 4)
                 doc["search_method"] = "bm25"
@@ -2835,6 +2989,7 @@ def search(query: str, top_k: int = 5) -> list[dict]:
         results = _rerank_results(tfidf_results, query, top_k)
         return results
 
+    _warn_retrieval_dead()
     return []
 
 
@@ -3267,6 +3422,7 @@ def get_status() -> dict:
 
     return {
         "voyage_configured": has_key,
+        "qdrant_available": _qdrant_available,
         "index_size": len(_index),
         "index_built": _index_built,
         "bm25_index_size": _bm25_index.N,
