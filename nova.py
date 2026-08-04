@@ -4004,6 +4004,319 @@ _PLATFORM_FALLBACK_SUMMARIES: Dict[str, str] = {
     "Meta/Facebook": "- CPC: $1.11 global median across objectives; career/employment lead ads $0.86 (WordStream/LOCALiQ 2025, Triple Whale)\n- Model: Social PPC\n- Best For: Hourly, local, blue-collar roles\n- Reach: Mobile-first social scale",
 }
 
+# Channel-level CPC detail table, by vertical -- rendered in
+# _fast_path_benchmark_lookup's "### Channel-level CPC detail" section below.
+# Each row is (platform_label, cpc_text, note, source). HONESTY CONTRACT:
+# source is one of three kinds, and the rendered table must show it (never
+# silently uncited) --
+#   1. "KB: <platform_key>.<field>" -- this row's platform has a cited entry
+#      in data/recruitment_industry_knowledge.json benchmarks.cost_per_click
+#      .by_platform, and cpc_text IS that entry's figure verbatim (the KB has
+#      no per-vertical breakdown for job-ad CPC, so the same platform-level
+#      cited figure is reused across every vertical that platform appears
+#      in -- this deliberately REPLACES the prior per-vertical numbers those
+#      platforms carried, which were uncited and did not match the KB).
+#   2. "internal estimate -- not independently benchmarked" -- niche/
+#      specialist boards with no KB by_platform entry. The pre-existing
+#      figure is KEPT (never invented fresh) but now discloses its status
+#      instead of presenting as if cited.
+#   3. "n/a -- not a per-click price" -- rows whose Notes column already
+#      says the platform isn't priced by CPC at all (IncredibleHealth
+#      pay-per-hire, DAT Solutions carrier-matching, Craigslist flat-fee
+#      posting); nothing to cite because there's no CPC claim being made.
+# tests/test_nova_channel_cpc_detail_honesty.py enforces (1) and (2)
+# mechanically; every row must carry a source, checked structurally.
+_CHANNEL_CPC_DETAIL: Dict[str, List[Tuple[str, str, str, str]]] = {
+    "healthcare": [
+        (
+            "Indeed (sponsored)",
+            "$0.97 – $2.71",
+            "Largest volume; best for nurses/techs/allied",
+            "KB: indeed.average_cpc_range",
+        ),
+        (
+            "LinkedIn Jobs",
+            "$1.50 – $4.50",
+            "Strongest for leadership, APPs, physicians",
+            "KB: linkedin.job_ad_cpc_range",
+        ),
+        (
+            "ZipRecruiter",
+            "$0.80 – $1.00",
+            "AI-match for mid-funnel candidates",
+            "KB: ziprecruiter.estimated_cpc_equivalent",
+        ),
+        (
+            "Health eCareers",
+            "$2.00 – $5.50",
+            "Specialty board — higher quality, lower volume",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "Programmatic (Appcast / JobTarget)",
+            "$0.90 – $2.80",
+            "Cross-channel bid optimization",
+            "internal estimate -- not independently benchmarked",
+        ),
+    ],
+    "nursing": [
+        (
+            "Indeed",
+            "$0.97 – $2.71",
+            "Highest volume for RN/LPN",
+            "KB: indeed.average_cpc_range",
+        ),
+        (
+            "LinkedIn",
+            "$1.50 – $4.50",
+            "Best for advanced practice (APRN, NP)",
+            "KB: linkedin.job_ad_cpc_range",
+        ),
+        (
+            "Nurse.com",
+            "$3.50 – $7.50",
+            "Specialty audience, higher apply rate",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "IncredibleHealth",
+            "Pay-per-hire model",
+            "$1,500 – $6,000 per placed nurse",
+            "n/a -- not a per-click price",
+        ),
+        (
+            "Vivian (travel)",
+            "$2.00 – $5.00",
+            "Travel nursing specialist",
+            "internal estimate -- not independently benchmarked",
+        ),
+    ],
+    "physician": [
+        (
+            "Doximity",
+            "$8.00 – $18.00",
+            "80%+ of US physicians are members",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "PracticeLink",
+            "$5.00 – $12.00",
+            "Leading physician recruitment board",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "NEJM CareerCenter",
+            "$9.00 – $20.00",
+            "Premium brand halo",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "LinkedIn",
+            "$1.50 – $4.50",
+            "Good for academic + hospital positions",
+            "KB: linkedin.job_ad_cpc_range",
+        ),
+        (
+            "MDsearch.com",
+            "$4.00 – $10.00",
+            "Generalist physician board",
+            "internal estimate -- not independently benchmarked",
+        ),
+    ],
+    "technology": [
+        (
+            "LinkedIn",
+            "$1.50 – $4.50",
+            "Best for senior/SWE/data roles",
+            "KB: linkedin.job_ad_cpc_range",
+        ),
+        (
+            "Indeed",
+            "$0.97 – $2.71",
+            "High volume, mixed quality",
+            "KB: indeed.average_cpc_range",
+        ),
+        (
+            "Dice",
+            "$3.50 – $8.00",
+            "IT + cleared roles specialist",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "Stack Overflow",
+            "$4.00 – $9.00",
+            "Dev-focused, high signal",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "Built In",
+            "$2.50 – $6.00",
+            "Local tech hubs (e.g. Austin, Seattle)",
+            "internal estimate -- not independently benchmarked",
+        ),
+    ],
+    "retail": [
+        (
+            "Indeed",
+            "$0.97 – $2.71",
+            "Dominant for retail volume",
+            "KB: indeed.average_cpc_range",
+        ),
+        (
+            "Snagajob",
+            "$0.40 – $1.10",
+            "Hourly/part-time focus",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "Facebook Jobs",
+            "$0.86",
+            "Targeted by zip + age",
+            "KB: meta_facebook_ads.career_employment_lead_cpc",
+        ),
+        (
+            "ZipRecruiter",
+            "$0.80 – $1.00",
+            "AI-match mid-funnel",
+            "KB: ziprecruiter.estimated_cpc_equivalent",
+        ),
+        (
+            "Retail-specific boards (iHireRetail etc.)",
+            "$1.00 – $2.50",
+            "Lower volume, higher apply rate",
+            "internal estimate -- not independently benchmarked",
+        ),
+    ],
+    "logistics": [
+        (
+            "Indeed",
+            "$0.97 – $2.71",
+            "Large CDL applicant pool",
+            "KB: indeed.average_cpc_range",
+        ),
+        (
+            "CDLjobs.com",
+            "$1.20 – $3.00",
+            "OTR + regional specialist",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "TruckersReport",
+            "$0.80 – $2.00",
+            "Community-driven, lower CPC",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "Snagajob (local)",
+            "$0.60 – $1.50",
+            "Warehouse + last-mile",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "DAT Solutions",
+            "Varies",
+            "Carrier-matching, not CPC",
+            "n/a -- not a per-click price",
+        ),
+    ],
+    "finance": [
+        (
+            "LinkedIn",
+            "$1.50 – $4.50",
+            "Primary for IB, PE, corp finance",
+            "KB: linkedin.job_ad_cpc_range",
+        ),
+        (
+            "eFinancialCareers",
+            "$3.00 – $7.50",
+            "Specialist finance board",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "Indeed",
+            "$0.97 – $2.71",
+            "Broad coverage, mid-funnel",
+            "KB: indeed.average_cpc_range",
+        ),
+        (
+            "Wall Street Oasis",
+            "$2.00 – $5.00",
+            "IB/PE niche",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "CFA Institute Career Center",
+            "$3.50 – $7.00",
+            "Credential-specific roles",
+            "internal estimate -- not independently benchmarked",
+        ),
+    ],
+    "skilled_trades": [
+        (
+            "Indeed",
+            "$0.97 – $2.71",
+            "Volume leader",
+            "KB: indeed.average_cpc_range",
+        ),
+        (
+            "ZipRecruiter",
+            "$0.80 – $1.00",
+            "AI-match hourly",
+            "KB: ziprecruiter.estimated_cpc_equivalent",
+        ),
+        (
+            "Snagajob",
+            "$0.50 – $1.40",
+            "Entry-level hourly",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "Craigslist (gigs)",
+            "$10-$75 flat-fee",
+            "Not CPC; flat-posting model",
+            "n/a -- not a per-click price",
+        ),
+        (
+            "Trade-specific boards",
+            "$0.80 – $2.30",
+            "GoConstruct, Skilled Trades Jobs, etc.",
+            "internal estimate -- not independently benchmarked",
+        ),
+    ],
+    "hospitality": [
+        (
+            "Indeed",
+            "$0.97 – $2.71",
+            "Dominant for hospitality volume",
+            "KB: indeed.average_cpc_range",
+        ),
+        (
+            "Snagajob",
+            "$0.35 – $0.95",
+            "Hourly/part-time",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "Culinary Agents",
+            "$0.80 – $2.00",
+            "Kitchen + FOH talent",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "Poached",
+            "$0.70 – $1.80",
+            "Restaurant industry specialist",
+            "internal estimate -- not independently benchmarked",
+        ),
+        (
+            "Facebook Jobs",
+            "$0.86",
+            "Local geo-targeting",
+            "KB: meta_facebook_ads.career_employment_lead_cpc",
+        ),
+    ],
+}
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # JOVEO IQ ENGINE
@@ -17724,138 +18037,17 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         lines.append("")
 
         if metric == "cpc":
-            _rows = {
-                "healthcare": [
-                    (
-                        "Indeed (sponsored)",
-                        "$1.25 – $3.50",
-                        "Largest volume; best for nurses/techs/allied",
-                    ),
-                    (
-                        "LinkedIn Jobs",
-                        "$4.00 – $9.00",
-                        "Strongest for leadership, APPs, physicians",
-                    ),
-                    (
-                        "ZipRecruiter",
-                        "$1.50 – $4.00",
-                        "AI-match for mid-funnel candidates",
-                    ),
-                    (
-                        "Health eCareers",
-                        "$2.00 – $5.50",
-                        "Specialty board — higher quality, lower volume",
-                    ),
-                    (
-                        "Programmatic (Appcast / JobTarget)",
-                        "$0.90 – $2.80",
-                        "Cross-channel bid optimization",
-                    ),
-                ],
-                "nursing": [
-                    ("Indeed", "$2.50 – $6.50", "Highest volume for RN/LPN"),
-                    (
-                        "LinkedIn",
-                        "$5.00 – $11.00",
-                        "Best for advanced practice (APRN, NP)",
-                    ),
-                    (
-                        "Nurse.com",
-                        "$3.50 – $7.50",
-                        "Specialty audience, higher apply rate",
-                    ),
-                    (
-                        "IncredibleHealth",
-                        "Pay-per-hire model",
-                        "$1,500 – $6,000 per placed nurse",
-                    ),
-                    ("Vivian (travel)", "$2.00 – $5.00", "Travel nursing specialist"),
-                ],
-                "physician": [
-                    ("Doximity", "$8.00 – $18.00", "80%+ of US physicians are members"),
-                    (
-                        "PracticeLink",
-                        "$5.00 – $12.00",
-                        "Leading physician recruitment board",
-                    ),
-                    ("NEJM CareerCenter", "$9.00 – $20.00", "Premium brand halo"),
-                    (
-                        "LinkedIn",
-                        "$6.00 – $15.00",
-                        "Good for academic + hospital positions",
-                    ),
-                    ("MDsearch.com", "$4.00 – $10.00", "Generalist physician board"),
-                ],
-                "technology": [
-                    ("LinkedIn", "$3.00 – $7.00", "Best for senior/SWE/data roles"),
-                    ("Indeed", "$1.80 – $5.00", "High volume, mixed quality"),
-                    ("Dice", "$3.50 – $8.00", "IT + cleared roles specialist"),
-                    ("Stack Overflow", "$4.00 – $9.00", "Dev-focused, high signal"),
-                    (
-                        "Built In",
-                        "$2.50 – $6.00",
-                        "Local tech hubs (e.g. Austin, Seattle)",
-                    ),
-                ],
-                "retail": [
-                    ("Indeed", "$0.50 – $1.25", "Dominant for retail volume"),
-                    ("Snagajob", "$0.40 – $1.10", "Hourly/part-time focus"),
-                    ("Facebook Jobs", "$0.35 – $0.95", "Targeted by zip + age"),
-                    ("ZipRecruiter", "$0.60 – $1.30", "AI-match mid-funnel"),
-                    (
-                        "Retail-specific boards (iHireRetail etc.)",
-                        "$1.00 – $2.50",
-                        "Lower volume, higher apply rate",
-                    ),
-                ],
-                "logistics": [
-                    ("Indeed", "$1.00 – $2.50", "Large CDL applicant pool"),
-                    ("CDLjobs.com", "$1.20 – $3.00", "OTR + regional specialist"),
-                    ("TruckersReport", "$0.80 – $2.00", "Community-driven, lower CPC"),
-                    ("Snagajob (local)", "$0.60 – $1.50", "Warehouse + last-mile"),
-                    ("DAT Solutions", "Varies", "Carrier-matching, not CPC"),
-                ],
-                "finance": [
-                    ("LinkedIn", "$2.50 – $6.50", "Primary for IB, PE, corp finance"),
-                    ("eFinancialCareers", "$3.00 – $7.50", "Specialist finance board"),
-                    ("Indeed", "$1.50 – $4.00", "Broad coverage, mid-funnel"),
-                    ("Wall Street Oasis", "$2.00 – $5.00", "IB/PE niche"),
-                    (
-                        "CFA Institute Career Center",
-                        "$3.50 – $7.00",
-                        "Credential-specific roles",
-                    ),
-                ],
-                "skilled_trades": [
-                    ("Indeed", "$0.60 – $1.80", "Volume leader"),
-                    ("ZipRecruiter", "$0.70 – $1.90", "AI-match hourly"),
-                    ("Snagajob", "$0.50 – $1.40", "Entry-level hourly"),
-                    (
-                        "Craigslist (gigs)",
-                        "$10-$75 flat-fee",
-                        "Not CPC; flat-posting model",
-                    ),
-                    (
-                        "Trade-specific boards",
-                        "$0.80 – $2.30",
-                        "GoConstruct, Skilled Trades Jobs, etc.",
-                    ),
-                ],
-                "hospitality": [
-                    ("Indeed", "$0.40 – $1.10", "Dominant for hospitality volume"),
-                    ("Snagajob", "$0.35 – $0.95", "Hourly/part-time"),
-                    ("Culinary Agents", "$0.80 – $2.00", "Kitchen + FOH talent"),
-                    ("Poached", "$0.70 – $1.80", "Restaurant industry specialist"),
-                    ("Facebook Jobs", "$0.30 – $0.85", "Local geo-targeting"),
-                ],
-            }.get(matched_vertical, [])
+            # Module-level table (_CHANNEL_CPC_DETAIL, near
+            # _PLATFORM_FALLBACK_SUMMARIES) -- see its docstring for the
+            # honesty contract each row's Source column satisfies.
+            _rows = _CHANNEL_CPC_DETAIL.get(matched_vertical, [])
             if _rows:
                 lines.append("### Channel-level CPC detail")
                 lines.append("")
-                lines.append("| Platform | Typical CPC | Notes |")
-                lines.append("|----------|-------------|-------|")
-                for plat, cpc, note in _rows[:6]:
-                    lines.append(f"| {plat} | {cpc} | {note} |")
+                lines.append("| Platform | Typical CPC | Notes | Source |")
+                lines.append("|----------|-------------|-------|--------|")
+                for plat, cpc, note, source in _rows[:6]:
+                    lines.append(f"| {plat} | {cpc} | {note} | {source} |")
                 lines.append("")
 
         lines.append("### Recent trend")
