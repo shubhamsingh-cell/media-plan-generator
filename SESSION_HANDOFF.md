@@ -1,6 +1,30 @@
 # Session Handoff — S89 "World-Class Upgrade" Program
 
-**Last updated:** 2026-06-13
+> ## ⚠️ STALE — verify against the repo before acting on anything below
+>
+> **This file describes state as of 2026-06-13. It has not been maintained since.**
+> Roughly seven weeks of work has landed on `main` in the meantime, and several
+> sections are now actively wrong, not merely outdated. Known contradictions as of
+> **2026-08-04**:
+>
+> - **§5 `#11` Gemini embeddings is MOOT as written.** It describes a pending
+>   Voyage→Gemini cutover blocked on a 403'd API key. Serving has since moved to
+>   **`voyage-4-lite`** (commit `f8412b0`, 2026-08-04) with blue/green collections;
+>   `/api/deploy/ready` reports the live provider/model/collection. Read that
+>   endpoint, not this file, for embedding state.
+> - **§2's `HEAD ≈ cb3d3ea` / `origin/main ≈ 33661e4` are ~7 weeks behind** and the
+>   "awaiting push" commits listed there are long since landed. `git log origin/main`
+>   is the only trustworthy source for repo state.
+> - **§5's "remaining build work" list has partially completed** via other sessions.
+>   Verify each item against the code before treating it as open.
+>
+> Items in §5/§6 that genuinely remain open and need an owner decision (`#8`
+> refresh-cron scope, `plan_schema` boundary adoption, `#12` true streaming) are
+> still real — but confirm current state before starting any of them.
+>
+> **Do not use this file as a source of truth for what is or isn't shipped.**
+
+**Last updated:** 2026-06-13 (banner added 2026-08-04)
 **Purpose:** Resume this multi-turn upgrade in a fresh session with zero loss.
 **Read order on resume:** this file → `docs/ARCHITECTURE_UPGRADE_2026.md` → memory
 (`mpg-nova-upgrade-backlog.md`) → the session task list (#1–#16, mirrored in §5).
