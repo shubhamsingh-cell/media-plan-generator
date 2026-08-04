@@ -28,6 +28,27 @@ from shared_utils import (
 )
 
 import benchmark_registry
+import research
+
+# ── Optional v3 imports (dynamic benchmarks) ──
+# Same optional-dependency pattern used by budget_engine.py, budget_simulator.py,
+# ppt_generator.py, etc. -- these are standalone modules (no app.py dependency),
+# so a normal top-level import is safe here. Aliased to `_collar_intel_mod` /
+# `_trend_engine_mod` to match the names this file's generate_excel() body
+# already references.
+try:
+    import collar_intelligence as _collar_intel_mod
+
+    _HAS_COLLAR_INTEL = True
+except ImportError:
+    _HAS_COLLAR_INTEL = False
+
+try:
+    import trend_engine as _trend_engine_mod
+
+    _HAS_TREND_ENGINE = True
+except ImportError:
+    _HAS_TREND_ENGINE = False
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +100,28 @@ def generate_excel(data):
         and len(_cn) > 3
     ):
         data["client_name"] = _cn.title()
+
+    # Deferred import: these names live in app.py's module namespace. app.py
+    # itself imports this module (archive/excel_legacy.py) at module load
+    # time (~line 5199), so a top-level `from app import ...` here would
+    # recurse back into a partially-initialized app module whenever this
+    # module is imported standalone (e.g. tests importing generate_excel
+    # directly), before app.py has run far enough to define these names.
+    # Deferring the import to call time (same pattern as
+    # data_orchestrator.py's `_register_default_handlers`) means by the time
+    # this line actually executes, app.py -- if not already loaded -- gets a
+    # clean full import with no cycle, since archive.excel_legacy is already
+    # fully initialized (this function object already exists) before app.py
+    # reaches its own `from archive.excel_legacy import generate_excel`.
+    from app import (
+        load_channels_db,
+        load_joveo_publishers,
+        global_supply_data,
+        classify_role_tier,
+        fetch_client_logo,
+        load_knowledge_base,
+        INDUSTRY_NICHE_CHANNELS,
+    )
 
     db = load_channels_db()
     joveo_pubs = load_joveo_publishers()

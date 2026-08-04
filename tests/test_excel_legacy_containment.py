@@ -54,6 +54,25 @@ here. Because of it, the tests below verify this fix at the SOURCE level
 (the actual file text, which is what will render once/if that separate bug
 is fixed) rather than by rendering a live workbook end-to-end.
 
+UPDATE 2026-08-04 (branch fix/excel-legacy-fallback-crash): the NameError
+chain above is now fixed. It went deeper than the four names originally
+spotted here -- iterating the repro also turned up load_knowledge_base and
+INDUSTRY_NICHE_CHANNELS, plus _HAS_COLLAR_INTEL/_HAS_TREND_ENGINE
+(collar_intelligence/trend_engine were never imported into this module
+either). The app.py-sourced names are wired via a *deferred* `from app
+import ...` inside generate_excel()'s own body (module-level would recurse
+into a partially-initialized `app` whenever this module is imported before
+app.py -- exactly what a standalone test does -- since app.py imports this
+module at its own load time, ~line 5199); collar_intelligence/trend_engine
+are ordinary top-level optional imports, since they're standalone modules
+with no app.py dependency (same pattern budget_engine.py/ppt_generator.py
+already use). `test_generate_excel_still_crashes_on_a_separate_pre_
+existing_bug` below (which asserted the crash) has been replaced by
+`test_generate_excel_no_longer_crashes_and_renders_real_output`, per that
+test's own docstring instruction to update rather than be alarmed. See
+tests/test_excel_legacy_fallback_generation.py for full end-to-end
+regression coverage (openpyxl round-trip, real rendered content).
+
 Runs under pytest, or standalone: ``python3 tests/test_excel_legacy_containment.py``.
 """
 
@@ -366,51 +385,44 @@ def test_generator_still_wired_at_the_documented_app_py_call_site():
     )
 
 
-def test_generate_excel_still_crashes_on_a_separate_pre_existing_bug():
-    """Documents (does not fix) the separate, pre-existing NameError bug
-    this fix's disclosure text is currently blocked behind, so nobody
-    mistakes this containment commit for having made the legacy generator
-    functional. Confirms the crash happens at ``load_channels_db`` -- i.e.
-    at line ~83, more than 1000 lines before any code this commit touches
-    -- so this fix's own correctness does not depend on that bug being
-    fixed. If this test ever fails because generate_excel() stops raising
-    here, that's good news (someone fixed the separate bug) -- update or
-    remove this test rather than being alarmed."""
+def test_generate_excel_no_longer_crashes_and_renders_real_output():
+    """Replaces the old ``test_generate_excel_still_crashes_on_a_separate_
+    pre_existing_bug`` (which asserted the NameError chain), per that test's
+    own docstring instruction to update rather than be alarmed once the
+    separate bug got fixed -- it did, on branch fix/excel-legacy-fallback-
+    crash (see the module docstring's 2026-08-04 UPDATE note above for the
+    full list of names that had to be wired in).
+
+    This is a light structural check that the fix is present and effective;
+    tests/test_excel_legacy_fallback_generation.py owns the full end-to-end
+    regression coverage (openpyxl round-trip, real rendered content,
+    multi-role/multi-location branches)."""
     import importlib
 
     excel_legacy = importlib.import_module("archive.excel_legacy")
-    # Ensure a clean-room NameError (not an artifact of a previous test in
-    # this process having monkeypatched the module).
-    for _name in (
-        "load_channels_db",
-        "load_joveo_publishers",
-        "global_supply_data",
-        "research",
-    ):
-        assert not hasattr(excel_legacy, _name), (
-            f"archive.excel_legacy already has {_name!r} defined -- either "
-            "the separate systemic bug was fixed (update this test) or a "
-            "prior test in this process leaked a monkeypatch"
+    # The previously-missing names are now present on the module (either as
+    # direct module-level imports, or -- for the app.py-sourced ones -- as
+    # local names bound inside generate_excel() at call time; those aren't
+    # module attributes, so we only assert presence for the ones that are).
+    for _name in ("research", "_HAS_COLLAR_INTEL", "_HAS_TREND_ENGINE"):
+        assert hasattr(excel_legacy, _name), (
+            f"archive.excel_legacy no longer has {_name!r} defined -- the "
+            "NameError-chain fix may have regressed"
         )
-    try:
-        excel_legacy.generate_excel(
-            {
-                "client_name": "Acme Corp",
-                "industry": "healthcare_medical",
-                "locations": ["United States"],
-                "roles": ["Registered Nurse"],
-                "budget": "100000",
-                "hire_volume": "20",
-            }
-        )
-    except NameError as exc:
-        assert "load_channels_db" in str(exc)
-        return
-    raise AssertionError(
-        "generate_excel() no longer crashes on the separate pre-existing "
-        "load_channels_db NameError -- if that bug was actually fixed, "
-        "great, but this test needs to be updated/removed to reflect it "
-        "rather than silently passing for the wrong reason"
+
+    result = excel_legacy.generate_excel(
+        {
+            "client_name": "Acme Corp",
+            "industry": "healthcare_medical",
+            "locations": ["United States"],
+            "roles": ["Registered Nurse"],
+            "budget": "100000",
+            "hire_volume": "20",
+        }
+    )
+    assert isinstance(result, (bytes, bytearray)) and len(result) > 1000, (
+        "generate_excel() should return substantial xlsx bytes now that the "
+        "NameError chain is fixed -- if this fails, the fix regressed"
     )
 
 
