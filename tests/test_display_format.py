@@ -204,6 +204,17 @@ class TestWeeksToDurationLabel:
         assert weeks_to_duration_label(12) == "12 weeks"
         assert weeks_to_duration_label(13) == "13 weeks"
 
+    def test_singular_week_is_not_pluralized(self):
+        # Regression: the <=13-weeks branch used a bare f"{w} weeks", so
+        # weeks_to_duration_label(1) returned "1 weeks" -- never singular,
+        # unlike the years branch a few lines down which already handles
+        # this (`yr_txt = f"{yr} year" + ("s" if yr != 1 else "")`). Fixed
+        # by reusing this file's own fmt_count() helper, which exists
+        # exactly for this ("1 market", "6 markets" -- never emits "(s)").
+        assert weeks_to_duration_label(1) == "1 week"
+        assert weeks_to_duration_label(0) == "0 weeks"
+        assert weeks_to_duration_label(2) == "2 weeks"
+
     def test_14_weeks_switches_to_months(self):
         assert "months" in weeks_to_duration_label(14)
 

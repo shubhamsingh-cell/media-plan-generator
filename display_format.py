@@ -297,7 +297,7 @@ def weeks_to_duration_label(weeks: int) -> str:
     <=13 weeks stays expressed in weeks."""
     w = max(0, int(weeks or 0))
     if w <= 13:
-        return f"{w} weeks"
+        return fmt_count(w, "week")
 
     months = round(w * 12.0 / 52.0)
     if months <= 24:
