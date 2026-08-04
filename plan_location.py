@@ -120,6 +120,15 @@ bare-city lookup misses -- a deliberate reordering from the numbered
 list above, kept because the numbered order as literally read would
 misresolve a real legacy-dict entry (Indianapolis). Only when fuzzy
 finds nothing does the non-US classifier get consulted.
+
+Known limitation (rule 2, punctuated state-abbreviation tails): "City, ST"
+tolerates a punctuated USPS code ("Washington, D.C." -> DC), including
+comma-less ("Washington D.C."), via `_states_by_norm_usps`. It does NOT
+tolerate a SPACED abbreviation -- "Washington, D. C." (space between the
+letters) normalizes to "d c" (3 chars), not a 2-char code, so it still
+falls through to fuzzy matching and can mis-resolve the same way "D.C."
+used to (e.g. to Washington Park, AZ). Not covered by the fix that added
+`_states_by_norm_usps` -- see that dict's comment.
 """
 
 from __future__ import annotations
@@ -322,8 +331,12 @@ _state_usps_set: frozenset[str] = frozenset()
 # `_norm_key`'d USPS code ("dc") -> USPS code ("DC"). `_states_by_name` is
 # keyed by the normalized FULL state name ("district of columbia"), which a
 # punctuated abbreviation like "D.C." never matches; this dict closes that
-# gap generally (any punctuated/spaced 2-letter code, not just DC) instead
-# of a per-name special case -- see plan_location.py module docstring.
+# gap generally (any punctuated 2-letter code, not just DC) instead of a
+# per-name special case -- see plan_location.py module docstring.
+# NOT covered: a SPACED abbreviation ("D. C.", with a space between the
+# letters) -- `_norm_key("D. C.")` is "d c" (3 chars, includes the space),
+# not a 2-char code, so it still falls through to fuzzy matching. "Washington,
+# D. C." still reproduces the original Washington-Park-AZ mis-resolution.
 _states_by_norm_usps: dict[str, str] = {}
 
 _counties_by_fips: dict[str, dict[str, str]] = {}
