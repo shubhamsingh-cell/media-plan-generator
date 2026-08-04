@@ -10,9 +10,20 @@ that runs every time the suite runs.
 THE RULE
 --------
 Scan every "shipping" .py module (see SHIPPING FILE SELECTION below) for
-$-range literals ("$X - $Y" style, e.g. "$0.90 - $3.50") that appear within
-+/-2 lines of a case-insensitive "cpc" or "cost-per-click" token. Every
-such hit must be EITHER:
+CPC-adjacent dollar literals within +/-2 lines of a case-insensitive "cpc"
+or "cost-per-click" token, in two shapes:
+  1. $-range literals ("$X - $Y" style, e.g. "$0.90 - $3.50"), via
+     DOLLAR_RANGE_RE -- the original shape this guard covered.
+  2. Bare single-value literals ("$X" / "$X.YY" with no range shape, e.g.
+     a lone "$1.50"), via DOLLAR_SINGLE_RE (added 2026-08-04, closing the
+     blind spot this module's docstring used to name explicitly -- see
+     git history for the pre-extension version). A DOLLAR_SINGLE_RE match
+     that falls inside an already-matched DOLLAR_RANGE_RE span is NOT a
+     separate hit: the range's own two endpoints (e.g. the "$0.90" and
+     "$3.50" inside "$0.90 - $3.50") are part of the range literal, not
+     independent single-value literals -- see
+     scan_file_for_cpc_adjacent_dollar_literals's overlap check.
+Every such hit must be EITHER:
   (a) inside benchmark_registry.py (the canonical registry itself -- the
       thing everything else is supposed to single-source from), OR
   (b) covered by a row in tests/cpc_literal_ledger.json: an exact
@@ -110,28 +121,39 @@ ACCEPTED BLIND SPOTS (silence here is NOT coverage -- named explicitly so
 nobody mistakes a clean run for "there are no more uncited CPC figures
 anywhere," which this guard cannot claim)
 ------------------------------------------------------------------------
-  - Single-value (non-range) CPC dollar literals -- e.g. a lone ``"$1.50"``
-    with no ``"$X-$Y"`` range shape anywhere near it -- are invisible to
-    this scanner: ``DOLLAR_RANGE_RE`` only matches a "$X - $Y"-shaped
-    literal, not a bare single dollar amount. This is a real, known gap
-    (2026-08-04): a 3-site instance of exactly this shape (nova.py's
-    few-shot system-prompt examples, hardcoded ``"$1.50"``/``"$3.80"``
-    Avg-CPC cells with a vague, uncited attribution) was found by manual
-    review, not by this scanner, and fixed in the same pass that added
-    this note -- see tests/cpc_literal_ledger.json's "few-shot 'Example 3:
-    Comparison Query'" rows. Extending the regex to also catch single-value
-    literals is real, tracked follow-up work (see the spawn_task chip filed
-    alongside this note), deliberately NOT done in this pass since it is a
-    larger, separately-scoped change (broadening the pattern risks new
-    false positives on non-CPC dollar amounts that need their own review).
+  - CLOSED (2026-08-04, same day as the gap was first named): single-value
+    (non-range) CPC dollar literals -- e.g. a lone ``"$1.50"`` with no
+    ``"$X-$Y"`` range shape anywhere near it -- used to be invisible to
+    this scanner. The 3-site instance that motivated closing this gap
+    (nova.py's few-shot system-prompt examples, hardcoded ``"$1.50"``/
+    ``"$3.80"`` Avg-CPC cells with a vague, uncited attribution -- see
+    tests/cpc_literal_ledger.json's "few-shot 'Example 3: Comparison
+    Query'" rows) was found by manual review, not this scanner, back when
+    it only had DOLLAR_RANGE_RE. ``DOLLAR_SINGLE_RE`` now catches that
+    shape too (see THE RULE above); proof that it would have caught the
+    original 3-site defect lives in the throwaway check run when this was
+    added (fed the pre-fix literal text through the scanner directly --
+    not committed, since it exists only to gate this change, not to ship
+    as a regression test for defect-shapes that no longer exist in the
+    code). Real residual gap from this extension: DOLLAR_RANGE_RE (and
+    therefore the overlap check that keeps a range's own endpoints from
+    double-counting as single hits) operates per physical line -- a range
+    whose two sides are split across a line break (e.g. a "$X" at the end
+    of one line and "- $Y" at the start of the next) would not be
+    recognized as one range, and its two endpoints would each fire as
+    separate single-value hits instead. Not observed anywhere in this
+    repo as of 2026-08-04 (every existing range literal sits on one
+    physical line), but named here per this docstring's own standard of
+    not hand-waving a limitation just because it hasn't bitten yet.
   - Bare-float dicts with no "$" sign at all (e.g. a raw ``2.60`` next to
-    a ``"cpc"`` key) are invisible to this scanner -- it only matches the
-    literal "$X - $Y" text shape. audit_tool.py's/performance_tracker.py's
+    a ``"cpc"`` key) are invisible to this scanner -- both DOLLAR_RANGE_RE
+    and DOLLAR_SINGLE_RE require a literal "$" prefix; neither matches a
+    bare number. audit_tool.py's/performance_tracker.py's
     ``_FALLBACK_BENCHMARKS``/``_fallbacks`` dicts store their CPC value as
     a bare float (``"cpc": 2.60``) with the dollar-range citation living in
     an adjacent COMMENT, not the value itself -- caught here only because
-    the comment itself contains a "$X-$Y" string; a bare float with no
-    nearby dollar-range text at all would not be caught.
+    the comment itself contains a "$"-prefixed string; a bare float with
+    no nearby "$" text at all would not be caught.
   - Non-dollar percentages, wage-per-hour figures without "cpc" nearby,
     and any other cost metric (CPA, CPH, CPM) that happens to be more than
     2 lines from a "cpc" token are invisible to this scanner even if
@@ -207,6 +229,13 @@ FORCE_INCLUDE_FILES = {"scripts/backup_kb.py"}
 DOLLAR_RANGE_RE = re.compile(
     r"\$[\d,]+(?:\.\d+)?\+?\s*(?:-|–|—|to)\s*\$[\d,]+(?:\.\d+)?\+?"
 )
+# Deliberately NOT `\$[\d,]+...` (DOLLAR_RANGE_RE's per-side atom): that
+# char class treats a comma as valid at ANY position, so on prose like
+# "$4,700, exec CPH..." it greedily swallows the sentence-comma too,
+# matching "$4,700," instead of "$4,700". Requiring the digit group to
+# both start AND end on \d (comma only allowed in the middle) fixes that
+# without needing a full thousands-separator grammar.
+DOLLAR_SINGLE_RE = re.compile(r"\$\d(?:[\d,]*\d)?(?:\.\d+)?\+?")
 CPC_TOKEN_RE = re.compile(r"cpc|cost[\s_-]*per[\s_-]*click", re.IGNORECASE)
 
 VALID_STATUSES = {"cited", "estimate_disclosed", "legacy_contained"}
@@ -226,19 +255,30 @@ def iter_shipping_py_files() -> Iterator[Path]:
         yield rel
 
 
-def scan_file_for_cpc_adjacent_dollar_ranges(rel_path: Path) -> list[tuple[int, str]]:
-    """Return [(line_number, literal_text), ...] for every $-range literal
-    within +/-2 lines of a cpc/cost-per-click token in this file."""
+def scan_file_for_cpc_adjacent_dollar_literals(rel_path: Path) -> list[tuple[int, str]]:
+    """Return [(line_number, literal_text), ...] for every CPC-adjacent
+    dollar literal within +/-2 lines of a cpc/cost-per-click token in this
+    file -- both DOLLAR_RANGE_RE ("$X - $Y") and DOLLAR_SINGLE_RE ("$X")
+    hits. A DOLLAR_SINGLE_RE match whose span falls inside an already-found
+    range span is skipped: it's one of that range's own two endpoints, not
+    an independent single-value literal (see THE RULE in the module
+    docstring)."""
     text = (PROJECT_ROOT / rel_path).read_text(encoding="utf-8", errors="replace")
     lines = text.splitlines()
     hits = []
     for i, line in enumerate(lines):
-        for m in DOLLAR_RANGE_RE.finditer(line):
-            lo = max(0, i - 2)
-            hi = min(len(lines), i + 3)
-            window = "\n".join(lines[lo:hi])
-            if CPC_TOKEN_RE.search(window):
-                hits.append((i + 1, m.group(0)))
+        lo = max(0, i - 2)
+        hi = min(len(lines), i + 3)
+        window = "\n".join(lines[lo:hi])
+        if not CPC_TOKEN_RE.search(window):
+            continue
+        range_spans = [m.span() for m in DOLLAR_RANGE_RE.finditer(line)]
+        for start, end in range_spans:
+            hits.append((i + 1, line[start:end]))
+        for m in DOLLAR_SINGLE_RE.finditer(line):
+            if any(s <= m.start() and m.end() <= e for s, e in range_spans):
+                continue
+            hits.append((i + 1, m.group(0)))
     return hits
 
 
@@ -251,7 +291,7 @@ def scan_all_shipping_files() -> dict[str, set[str]]:
         rel_str = str(rel)
         if rel_str == EXEMPT_FILE:
             continue
-        hits = scan_file_for_cpc_adjacent_dollar_ranges(rel)
+        hits = scan_file_for_cpc_adjacent_dollar_literals(rel)
         if hits:
             result[rel_str] = {literal for _lineno, literal in hits}
     return result

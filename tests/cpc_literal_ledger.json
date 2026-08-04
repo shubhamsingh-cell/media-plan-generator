@@ -1159,25 +1159,25 @@
   },
   {
     "file": "nova.py",
-    "literal": "$0.50 – $2.00",
+    "literal": "$0.50 \u2013 $2.00",
     "status": "cited",
     "source": "2026-08-04 S5 precision fix, _CHANNEL_CPC_DETAIL technology vertical Indeed row; source='KB: recruitment_benchmarks_deep.industry_benchmarks.technology_engineering.cpc.indeed_cpc'; data/recruitment_benchmarks_deep.json industry_benchmarks.technology_engineering.cpc.indeed_cpc = '$0.50-$2.00'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
   },
   {
     "file": "nova.py",
-    "literal": "$0.20 – $0.75",
+    "literal": "$0.20 \u2013 $0.75",
     "status": "cited",
     "source": "2026-08-04 S5 precision fix, _CHANNEL_CPC_DETAIL retail vertical Indeed row; source='KB: recruitment_benchmarks_deep.industry_benchmarks.retail_consumer.cpc.indeed_cpc'; data/recruitment_benchmarks_deep.json industry_benchmarks.retail_consumer.cpc.indeed_cpc = '$0.20-$0.75'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
   },
   {
     "file": "nova.py",
-    "literal": "$0.50 – $1.50",
+    "literal": "$0.50 \u2013 $1.50",
     "status": "cited",
     "source": "2026-08-04 S5 precision fix, _CHANNEL_CPC_DETAIL finance vertical Indeed row; source='KB: recruitment_benchmarks_deep.industry_benchmarks.finance_banking.cpc.indeed_cpc'; data/recruitment_benchmarks_deep.json industry_benchmarks.finance_banking.cpc.indeed_cpc = '$0.50-$1.50'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
   },
   {
     "file": "nova.py",
-    "literal": "$4.50 – $7.00",
+    "literal": "$4.50 \u2013 $7.00",
     "status": "cited",
     "source": "2026-08-04 S5 precision fix, _CHANNEL_CPC_DETAIL finance vertical LinkedIn row; source='KB: recruitment_benchmarks_deep.industry_benchmarks.finance_banking.cpc.linkedin_cpc'; data/recruitment_benchmarks_deep.json industry_benchmarks.finance_banking.cpc.linkedin_cpc = '$4.50-$7.00'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
   },
@@ -1276,5 +1276,407 @@
     "literal": "$0.50-$1.50",
     "status": "cited",
     "source": "TikTok CPC cited to Varos/Lebesgue/WebFX + KB path (verified distinct from the retired Indeed band per the original classification sweep)"
+  },
+  {
+    "file": "app.py",
+    "literal": "$0",
+    "status": "estimate_disclosed",
+    "source": "app.py ~line 6400, docstring for the live-benchmark loader: \"entries whose metadata.cpc_range is absent ... are skipped, not treated as a $0 CPC.\" Not a hardcoded value at all -- it names the $0 fallback the code explicitly does NOT use, disclosing the design decision (skip, don't default-to-zero) directly in the docstring."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$9",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py's peer_industries dict (~3877-3944), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim. Same blanket 2023-vintage LEGACY disclosure (commit 47bc7d8) covers this dict's figures generally; full 77-figure refresh remains separate, escalated work per the original ledger's scope note."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$12",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py's peer_industries dict (~3877-3944), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim. Same blanket 2023-vintage LEGACY disclosure (commit 47bc7d8) covers this dict's figures generally; full 77-figure refresh remains separate, escalated work per the original ledger's scope note."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$6",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py's peer_industries dict (~3877-3944), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim. Same blanket 2023-vintage LEGACY disclosure (commit 47bc7d8) covers this dict's figures generally; full 77-figure refresh remains separate, escalated work per the original ledger's scope note."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$22",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py's peer_industries dict (~3877-3944), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim. Same blanket 2023-vintage LEGACY disclosure (commit 47bc7d8) covers this dict's figures generally; full 77-figure refresh remains separate, escalated work per the original ledger's scope note."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$2.7",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py's peer_industries dict (~3877-3944), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim. Same blanket 2023-vintage LEGACY disclosure (commit 47bc7d8) covers this dict's figures generally; full 77-figure refresh remains separate, escalated work per the original ledger's scope note."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$4",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py's peer_industries dict (~3877-3944), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim. Same blanket 2023-vintage LEGACY disclosure (commit 47bc7d8) covers this dict's figures generally; full 77-figure refresh remains separate, escalated work per the original ledger's scope note."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$5",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py's peer_industries dict (~3877-3944), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim. Same blanket 2023-vintage LEGACY disclosure (commit 47bc7d8) covers this dict's figures generally; full 77-figure refresh remains separate, escalated work per the original ledger's scope note."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$4.5",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py's peer_industries dict (~3877-3944), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim. Same blanket 2023-vintage LEGACY disclosure (commit 47bc7d8) covers this dict's figures generally; full 77-figure refresh remains separate, escalated work per the original ledger's scope note."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$8",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py's peer_industries dict (~3877-3944), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim. Same blanket 2023-vintage LEGACY disclosure (commit 47bc7d8) covers this dict's figures generally; full 77-figure refresh remains separate, escalated work per the original ledger's scope note."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$2.5",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py's peer_industries dict (~3877-3944), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim. Same blanket 2023-vintage LEGACY disclosure (commit 47bc7d8) covers this dict's figures generally; full 77-figure refresh remains separate, escalated work per the original ledger's scope note."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$18",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py's peer_industries dict (~3877-3944), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim. Same blanket 2023-vintage LEGACY disclosure (commit 47bc7d8) covers this dict's figures generally; full 77-figure refresh remains separate, escalated work per the original ledger's scope note."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$2",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py's peer_industries dict (~3877-3944), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim. Same blanket 2023-vintage LEGACY disclosure (commit 47bc7d8) covers this dict's figures generally; full 77-figure refresh remains separate, escalated work per the original ledger's scope note."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$4.7",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py's peer_industries dict (~3877-3944), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim. Same blanket 2023-vintage LEGACY disclosure (commit 47bc7d8) covers this dict's figures generally; full 77-figure refresh remains separate, escalated work per the original ledger's scope note."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$4,700",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py ~line 1112, comment: 'below say \"Avg US CPH $4,700 (SHRM 2025)\" and \"CPCs up 27% in 2024\"'. A CPH figure (not CPC), already source-and-year-tagged (SHRM 2025) in the comment itself; caught only because the same comment separately mentions 'CPCs'."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$851",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py ~line 1153, an f-string literally titled '{_bench_year_label} trends (legacy, not current)': 'Avg programmatic CPH reached $851'. A CPH figure (not CPC); the string already self-discloses as legacy/not-current; caught only because the same string separately says 'CPCs rose 27% YoY'."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$85+",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py ~line 1181, a 'notes' free-text field: 'Hardest to fill; travel nursing $85+ CPA; ...'. A CPA figure (not CPC) in an advisory note, not the row's own 'cpc' field (already ledgered separately as its own range literal 2 lines below); same pattern as this ledger's pre-existing '$12 - $40'/'$15 - $45' CPA-not-CPC rows."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$52+",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py ~line 1213, a 'notes' free-text field: '...CDL roles $52+ CPA'. A CPA figure (not CPC) in an advisory note, not the row's own 'cpc' field; same CPA-not-CPC pattern as this ledger's pre-existing rows for this file."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$100+",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py ~line 1245, a 'notes' free-text field: 'CPAs falling due to white-collar recession; senior/AI roles still $100+; CPCs remain high despite reduced competition'. An advisory note figure (unit not stated as CPC), not the row's own 'cpc' field; caught because the same note separately says 'CPCs'."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$21",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py ~line 1341, a 'notes' free-text field: '...historically ~$21 avg CPA; ...'. A CPA figure (not CPC) in an advisory note, not the row's own 'cpc' field; same CPA-not-CPC pattern as this ledger's pre-existing rows."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$52",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py ~line 1437, a 'notes' free-text field: 'Transportation roles ~$52 CPA; ...'. A CPA figure (not CPC) in an advisory note, not the row's own 'cpc' field; same CPA-not-CPC pattern as this ledger's pre-existing rows."
+  },
+  {
+    "file": "archive/excel_legacy.py",
+    "literal": "$28,000+",
+    "status": "legacy_contained",
+    "source": "archive/excel_legacy.py ~line 2234, sources list entry: '[4] SHRM {_bench_year_label} Benchmarking Reports -- 88 data sets, avg US CPH $4,700, exec CPH $28,000+ (shrm.org/benchmarking)'. A CPH figure (not CPC) that is itself a genuine, named citation (SHRM, shrm.org/benchmarking); caught only via file-level proximity to a 'cpc' token elsewhere in this sources block."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$9",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$12",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$6",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$22",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$2.7",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$4",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$2",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$4.7",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$5",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$4.5",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$8",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$2.5",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$3.5",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$5.6",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "ppt_generator.py",
+    "literal": "$18",
+    "status": "cited",
+    "source": "ppt_generator.py's BENCHMARKS dict (~886-951), \"cph\" field. not a CPC figure -- this is the leading digits of a \"cph\" (cost-per-hire) value written in \"$XK - $YK\" shorthand inside a same-dict industry-benchmark block whose sibling \"cpc\" field carries an explicit \"# KB: recruitment_benchmarks...\" citation comment. DOLLAR_RANGE_RE requires each side of a range to be a bare $-prefixed number with no trailing unit suffix, so the \"K\" breaks the range match and DOLLAR_SINGLE_RE only catches the leading digits of each side; swept into this scan only because \"cph\" sits 1-2 lines from the sub-dict's own \"cpc\" key, not because it is itself a CPC claim."
+  },
+  {
+    "file": "audit_tool.py",
+    "literal": "$45",
+    "status": "cited",
+    "source": "audit_tool.py ~line 320, comment on the linkedin fallback dict: 'Sponsored Jobs CPA $30-$90, US avg $45 (2026-04-07)'. A CPA figure (not CPC) with its own source-date; caught only via proximity to the dict's 'cpc'/'cpa' keys."
+  },
+  {
+    "file": "competitive_intel.py",
+    "literal": "$45",
+    "status": "cited",
+    "source": "competitive_intel.py ~line 1175, comment on the linkedin fallback dict: 'Sponsored Jobs CPA $30-$90, US avg $45 (2026-04-07)'. Same dated CPA-not-CPC fact as audit_tool.py/performance_tracker.py -- one figure documented consistently, not a divergent duplicate."
+  },
+  {
+    "file": "performance_tracker.py",
+    "literal": "$45",
+    "status": "cited",
+    "source": "performance_tracker.py ~line 436, comment on the linkedin fallback dict: 'Sponsored Jobs CPA $30-$90, US avg $45 (2026-04-07)'. Same dated CPA-not-CPC fact as audit_tool.py/competitive_intel.py."
+  },
+  {
+    "file": "market_intel_reports.py",
+    "literal": "$45",
+    "status": "cited",
+    "source": "market_intel_reports.py ~line 591, comment: 'LinkedIn CPA: US avg ~$45 for Sponsored Jobs (range $30-$90). Updated 2026-04-07.' Same dated CPA-not-CPC fact as audit_tool.py/competitive_intel.py/performance_tracker.py, phrased as its own sentence rather than a trailing dict comment."
+  },
+  {
+    "file": "budget_engine.py",
+    "literal": "$0.80",
+    "status": "estimate_disclosed",
+    "source": "budget_engine.py ~line 492-493, comment explaining why _CHANNEL_MIN_CPH exists: 'Programmatic DSP at $0.80 CPC with 2% hire rate can mathematically produce $515/hire, but real-world DSP hires cost $800+.' An illustrative worked-math example in a comment, not an asserted real CPC value -- it exists to justify the real code constant ($800 floor, set 2 lines below) by showing what an unfloored calculation would (wrongly) produce."
+  },
+  {
+    "file": "budget_engine.py",
+    "literal": "$515",
+    "status": "estimate_disclosed",
+    "source": "budget_engine.py ~line 493, same illustrative worked-math example as the '$0.80' row above -- the (wrong, unfloored) computed result the comment uses to justify why _CHANNEL_MIN_CPH's real $800 floor exists."
+  },
+  {
+    "file": "budget_engine.py",
+    "literal": "$800+",
+    "status": "estimate_disclosed",
+    "source": "budget_engine.py ~line 493, same comment as the '$0.80'/'$515' rows above: 'real-world DSP hires cost $800+.' This is the real-world figure the comment cites to justify _CHANNEL_MIN_CPH['programmatic'] = 800, set 2 lines below -- the comment IS the disclosed rationale for that code constant."
+  },
+  {
+    "file": "budget_engine.py",
+    "literal": "$0.85",
+    "status": "estimate_disclosed",
+    "source": "budget_engine.py ~line 677, function docstring: 'The KB stores values as strings like \"$0.85\" or ranges like \"$0.97-$2.71\". We parse and average them.' An illustrative example of the KB's storage FORMAT, not an asserted real CPC value."
+  },
+  {
+    "file": "multi_agent.py",
+    "literal": "$1.50",
+    "status": "estimate_disclosed",
+    "source": "multi_agent.py ~line 296-298, ChannelAgent efficiency scoring: 'cpc = self._cpc_benchmarks.get(ch, 1.50)' with comment 'Lower weighted CPC = higher score. Baseline CPC ~$1.50'. An internal default weight for a scoring heuristic (never rendered to a user as a benchmark citation), explicitly flagged as an approximate baseline ('~') in its own comment rather than presented as a precise cited figure. Not independently named-sourced -- flagged here as the one hit in this sweep closest to a real gap, should a future pass want to wire it to benchmark_registry.py instead."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$0.86",
+    "status": "cited",
+    "source": "nova.py: _PLATFORM_FALLBACK_SUMMARIES['Meta/Facebook'] (~line 4004) 'career/employment lead ads $0.86 (WordStream/LOCALiQ 2025, Triple Whale)', and the Channel-level CPC detail tuple rows for 'Facebook Jobs' (~4188, ~4328) 'KB: meta_facebook_ads.career_employment_lead_cpc'. Same cited figure, three renderings, each carrying its own inline source."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$1.11",
+    "status": "cited",
+    "source": "nova.py: _PLATFORM_FALLBACK_SUMMARIES['Meta/Facebook'] (~line 4004): 'CPC: $1.11 global median across objectives ... (WordStream/LOCALiQ 2025, Triple Whale)'. Cited inline in the same string."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$5.26",
+    "status": "cited",
+    "source": "nova.py: _PLATFORM_FALLBACK_SUMMARIES['Google Ads'] (~line 4003): 'CPC: $5.26 average across industries; est. $3.00-$5.00 for employment services (WordStream/LOCALiQ 2025)'. Cited inline in the same string."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$299",
+    "status": "estimate_disclosed",
+    "source": "nova.py: _PLATFORM_FALLBACK_SUMMARIES['ZipRecruiter'] (~line 4001): 'Model: Subscription-based ($299/month per job slot)'. A subscription PRICE, not a CPC value -- the string itself immediately follows with the real CPC-equivalent estimate ('Estimated CPC Equivalent: $0.80-$1.00', already a separately ledgered range) precisely because ZipRecruiter has no per-click rate to cite."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$454",
+    "status": "cited",
+    "source": "nova.py: query_google_ads_benchmarks tool description (~line 5373): \"Joveo's first-party Google Ads 2025 campaign data: 6,338 keywords, $454K spend across 8 job categories.\" Total ad SPEND (not a CPC value), documented identically in data_synthesizer.py and trend_engine.py -- one consistently-cited dataset fact, not a divergent duplicate."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$850",
+    "status": "legacy_contained",
+    "source": "nova.py: the 3 near-duplicate 'Example 3: Comparison Query' few-shot tables (~4700, ~20211, ~20621), 'Avg CPA' row: '$850' (Indeed). A CPA figure (not CPC), the companion cell to the 'Avg CPC' row directly above it -- the same row this ledger's pre-existing 'few-shot' rows already cover for that row's CPC cells. Out of this guard's CPC-specific scope by design (see module docstring's ACCEPTED BLIND SPOTS re: CPA/CPH); same *Sources* footer as the CPC row above it."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$1,400",
+    "status": "legacy_contained",
+    "source": "nova.py: same 3 near-duplicate 'Example 3' tables as the '$850' row above, 'Avg CPA' row's LinkedIn cell: '$1,400'. Same CPA-not-CPC, same footer, same reasoning."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$7,620",
+    "status": "legacy_contained",
+    "source": "nova.py ~line 4724, 'Example 4: UK Salary Query' few-shot: 'CPH (professional tier, UK): \u00a36,000 (\u2248 $7,620 USD)'. A CPH figure (a USD-equivalent gloss on a GBP figure), not CPC -- caught only because the 'Typical CPC range: \u00a30.20-\u00a31.20' line 2 lines above is a real (separately ledgered) CPC citation."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$100",
+    "status": "estimate_disclosed",
+    "source": "nova.py ~line 23720, chatbot suggested-question copy: 'Try asking something like: ...\"How should I allocate a $100K hiring budget?\"'. An illustrative example question (note the explicit framing as a suggestion, not an assertion), not a benchmark figure; '$100K' truncates to '$100' because the scanner does not recognize the 'K' suffix (same shape as the cph-fragment rows elsewhere in this sweep)."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$12",
+    "status": "estimate_disclosed",
+    "source": "nova.py ~line 4760, DATA CONFLICT RESOLUTION worked example: \"Joveo's first-party campaign data shows a CPA of **$12** [1], while Adzuna reports **$18** [2].\" An illustrative example demonstrating the required RESPONSE FORMAT for conflicting sources, not a real asserted CPA/CPC figure; also CPA, not CPC."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$18",
+    "status": "estimate_disclosed",
+    "source": "nova.py, two unrelated illustrative contexts within the system prompt, both false positives for CPC: (1) ~line 4583, Craigslist category wage guidance -- '$16-28/hr' / '$18-40/hr' style bands (hourly wages, not CPC; DOLLAR_RANGE_RE misses these because only the first side of each band carries a '$', so DOLLAR_SINGLE_RE catches the leading number alone), swept in only because rule 3c two lines above uses 'CPC' in an example phrase ('do not say \"CPC has spiked sharply\"'); (2) ~line 4760, the same DATA CONFLICT RESOLUTION worked example as the '$12' row above ('Adzuna reports **$18**')."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$15",
+    "status": "estimate_disclosed",
+    "source": "nova.py ~line 4583, Craigslist category wage guidance: 'crew/domestic $15-25/hr'. An hourly wage band (not CPC); same single-sided-'$' range shape and same rule-3c proximity false-positive as the '$18'/'$16'/'$25' rows for this same line."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$16",
+    "status": "estimate_disclosed",
+    "source": "nova.py ~line 4583, Craigslist category wage guidance: 'admin $16-28/hr' and 'event/labor $16-30/hr'. Hourly wage bands (not CPC); same single-sided-'$' range shape and rule-3c proximity false-positive as the '$15'/'$18'/'$25' rows for this same line."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$25",
+    "status": "estimate_disclosed",
+    "source": "nova.py ~line 4583, Craigslist category wage guidance: 'computer $25-55/hr'. An hourly wage band (not CPC); same single-sided-'$' range shape and rule-3c proximity false-positive as the '$15'/'$16'/'$18' rows for this same line."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$7.00",
+    "status": "estimate_disclosed",
+    "source": "nova.py ~line 4587, currency-symbol-override rule worked example: \"if currency_symbol is \u20ac and the CPC is 7.00, write \u20ac7.00, not $7.00.\" An illustrative example explicitly instructing the model NOT to use '$' for this value -- it demonstrates the override rule, it does not assert a real USD CPC figure."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$95",
+    "status": "estimate_disclosed",
+    "source": "nova.py ~line 4579, rule 2 ('Lead with numbers, cite sources'): 'Median salary **$95K** [1]' with '[1] Adzuna' at end.' An illustrative example of the required citation FORMAT, not a real asserted figure; also salary, not CPC. Truncates to '$95' because the scanner does not recognize the 'K' suffix (same shape as the cph-fragment and '$100K' rows elsewhere in this sweep)."
+  },
+  {
+    "file": "nova.py",
+    "literal": "$7.63",
+    "status": "estimate_disclosed",
+    "source": "nova.py ~line 14073, comment describing a PAST bug for context: \"S79 added the currency tag but left the numbers in USD, so the LLM rendered Berlin CPCs as `$7.63` despite the `\u20ac` symbol tag.\" Documentation of a historical defect example, not a value the current code emits or asserts."
+  },
+  {
+    "file": "skill_target.py",
+    "literal": "$8.58",
+    "status": "cited",
+    "source": "skill_target.py ~line 1369, comment: 'Updated 2026-03-26. Source: WordStream/LOCALiQ 2025 (Legal CPC $8.58 commercial).' Cited inline with source and update date, directly above the 'avg_cpc_range' field it documents."
+  },
+  {
+    "file": "social_plan.py",
+    "literal": "$0.50",
+    "status": "cited",
+    "source": "social_plan.py ~line 256-261, 'avg_cpc': 0.50, documented in a 5-line comment: 'TikTok basis, NOT the retired Indeed $0.50 (value coincidence): low end of the $0.50-$1.50 estimated recruitment band in recruitment_industry_knowledge.json benchmarks.cost_per_click.by_platform.tiktok_ads (Varos/Lebesgue/WebFX et al., 2025-2026 ...). Verified distinct 2026-07-16.' Explicitly disambiguates against a retired figure of the same numeric value; the flagged hit itself is the comment's mention of that retired figure, named for exactly this disambiguation purpose."
+  },
+  {
+    "file": "data_synthesizer.py",
+    "literal": "$454",
+    "status": "cited",
+    "source": "data_synthesizer.py ~line 951, docstring: 'Source: data/google_ads_2025_benchmarks.json -- 6,338 keywords, $454K spend, 8 job categories ...'. Total ad SPEND (not CPC), same fact as nova.py/trend_engine.py's identical '$454K spend' documentation -- one consistently-cited dataset fact, not a divergent duplicate."
+  },
+  {
+    "file": "trend_engine.py",
+    "literal": "$454",
+    "status": "cited",
+    "source": "trend_engine.py ~line 88, comment: '... Joveo Google Ads 2025 first-party campaign data (6,338 keywords, $454K spend).' Total ad SPEND (not CPC), same fact as nova.py/data_synthesizer.py's identical '$454K spend' documentation."
   }
 ]
