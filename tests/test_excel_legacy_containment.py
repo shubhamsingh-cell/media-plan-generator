@@ -11,7 +11,14 @@ those is a separate, larger, escalated piece of work; this commit only:
    referenced it silently relabeled itself "current" on every year's first
    render while the underlying numbers never moved -- a false-freshness bug
    independent of the numbers' actual staleness) to the figures' true
-   vintage (2023).
+   vintage: ``_current_year = 2026`` / ``_bench_year_label = "2025"``.
+   (2026-08-04 correction: an earlier pass pinned this to 2023, which was
+   itself fabricated -- nothing in this file or in data/*.json supports a
+   2023 vintage. The corrected pin reproduces, verbatim, the citation years
+   this file used before the 2023 regression: "SHRM 2025" / "Appcast 2025
+   ... 379M clicks" / "Appcast 2026 ... 10th annual" -- all independently
+   confirmed against data/*.json KB attributions and this file's own
+   "$4,700 (SHRM 2025)" note.)
 2. Sharpens the wording of the existing blanket source-disclosure (the one
    near the top of the "Recruitment Marketing Benchmarks" section) to
    explicitly say "LEGACY" / "not refreshed since 2023" instead of quietly
@@ -124,13 +131,33 @@ def test_bench_year_label_is_pinned_not_date_derived():
     `_bench_year_label = f"{_current_year - 1}-{_current_year}"` computation
     made every citation string that used it silently relabel itself
     "current" every year while the numbers never moved. Both must now be
-    pinned literals reflecting the true (2023) vintage."""
+    pinned literals reflecting the true vintage: _current_year = 2026 (so
+    that `_current_year - 1` / `_current_year` reproduce the "Appcast 2025
+    ... 379M clicks" / "Appcast 2026 ... 10th annual" footnote pair) and
+    _bench_year_label = "2025" (matching this file's own "$4,700
+    (SHRM 2025)" note -- see test_citation_years_agree_with_the_files_own_
+    shrm_cph_note below for the drift-guard on that specific claim).
+
+    2026-08-04: a prior pass pinned both to 2023, which was itself
+    fabricated -- nothing in this file or in data/*.json supports a 2023
+    vintage. This test now asserts the corrected values and would fail
+    again if either drifted back to 2023 (or to any other unverified
+    value)."""
     src = _src()
-    assert "_current_year = 2023" in src, (
-        "_current_year is no longer pinned to the figures' true vintage"
+    assert "_current_year = 2026" in src, (
+        "_current_year is no longer pinned to the figures' true vintage "
+        "(2026, so that _current_year - 1 == 2025 for the Appcast "
+        "379M-click citation)"
     )
-    assert '_bench_year_label = "2023"' in src, (
-        "_bench_year_label is no longer pinned to the figures' true vintage"
+    assert '_bench_year_label = "2025"' in src, (
+        "_bench_year_label is no longer pinned to the figures' true vintage "
+        "(2025, matching this file's own 'SHRM 2025' / '$4,700' note)"
+    )
+    assert "_current_year = 2023" not in src, (
+        "_current_year has regressed to the fabricated 2023 vintage"
+    )
+    assert '_bench_year_label = "2023"' not in src, (
+        "_bench_year_label has regressed to the fabricated 2023 vintage"
     )
     assert "_current_year = datetime.date.today().year" not in src, (
         "the old date-derived _current_year computation is still present -- "
@@ -139,6 +166,55 @@ def test_bench_year_label_is_pinned_not_date_derived():
     assert '_bench_year_label = f"{_current_year - 1}-{_current_year}"' not in src, (
         "the old date-derived _bench_year_label computation is still present"
     )
+
+
+def test_citation_years_agree_with_the_files_own_shrm_cph_note():
+    """Drift guard (2026-08-04): this file states, in its own hardcoded
+    data (the general_entry_level industry's yoy_trend note), a specific,
+    literal, non-interpolated fact -- "Avg US CPH $4,700 (SHRM 2025)". The
+    SHRM citation footnote a few hundred lines below cites the *same*
+    "avg US CPH $4,700" figure via the interpolated _bench_year_label. If
+    the two ever disagree on the year, the file is citing two different
+    vintages for the identical $4,700 number -- exactly the kind of
+    self-contradiction that let the 2023 fabrication ship undetected
+    (nothing checked the interpolated citation against the file's own
+    literal facts). This test fails if that ever happens again, regardless
+    of what specific year _bench_year_label is pinned to."""
+    src = _src()
+    literal_note_idx = src.index("Avg US CPH $4,700 (SHRM ")
+    literal_year = src[literal_note_idx:].split("(SHRM ", 1)[1].split(")", 1)[0]
+
+    footnote_idx = src.index("SHRM {_bench_year_label} Benchmarking Reports")
+    # Confirm the footnote also asserts the $4,700 figure, so we know it's
+    # the same claim, not a coincidentally-matching year on an unrelated one.
+    footnote_line_end = src.index("\n", footnote_idx)
+    footnote_line = src[footnote_idx:footnote_line_end]
+    assert "$4,700" in footnote_line, (
+        "expected the SHRM footnote to cite the same 'avg US CPH $4,700' "
+        "figure as the file's own literal note -- if the footnote text "
+        "changed, re-verify this test still checks the same claim"
+    )
+
+    rendered_footnote_year = _bench_year_label_value(src)
+    assert rendered_footnote_year == literal_year, (
+        f"citation-year mismatch: the file's own literal note says "
+        f"'SHRM {literal_year}' for the $4,700 CPH figure, but the "
+        f"interpolated SHRM footnote would render as "
+        f"'SHRM {rendered_footnote_year}' -- these must agree, or the "
+        "file is citing two different vintages for the same number"
+    )
+
+
+def _bench_year_label_value(src: str) -> str:
+    """Extract the pinned _bench_year_label literal from the source text
+    (source-level, matching this file's existing convention of testing
+    the .py text rather than executing generate_excel(), since that
+    function crashes on the separate pre-existing bug documented below)."""
+    import re
+
+    match = re.search(r'_bench_year_label = "([^"]+)"', src)
+    assert match, "could not find a pinned _bench_year_label = \"...\" literal"
+    return match.group(1)
 
 
 def test_first_table_disclosure_flags_legacy_and_points_to_current_source():

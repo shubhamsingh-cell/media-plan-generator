@@ -1105,8 +1105,31 @@ def generate_excel(data):
     # itself "current" on every year's first render, while the underlying
     # numbers never moved -- a false-freshness bug independent of the
     # numbers' actual staleness. Pinned to the figures' true vintage instead.
-    _current_year = 2023
-    _bench_year_label = "2023"
+    #
+    # 2026-08-04 correction: an earlier pass pinned this to 2023, which was
+    # ITSELF fabricated -- nothing in this file or in data/*.json supports a
+    # 2023 vintage. The evidence: this file's own notes a few hundred lines
+    # below say "Avg US CPH $4,700 (SHRM 2025)" and "CPCs up 27% in 2024"
+    # (2023 only appears there as a YoY comparison baseline, not the
+    # vintage); every data/*.json KB file that documents the "379M clicks /
+    # 30M+ applies / 1,300+ employers" figure quoted two lines below
+    # attributes it to the "Appcast 2025 Recruitment Marketing Benchmark
+    # Report" (covering 2024 ad data); and the pre-refactor hardcoded text
+    # this block replaced (commit 7d368c0, before it moved into this file)
+    # literally read "Data sourced from 2025 industry benchmark reports
+    # including Appcast Recruitment Marketing Benchmark (379M clicks, 30M
+    # applies analyzed) ... and SHRM 2025 Benchmarking", with its own
+    # citation footnotes reading "Appcast 2025 ... 379M clicks" and
+    # "Appcast 2026 Benchmark Report -- 10th annual" side by side (the 10th
+    # annual Appcast report is the 2026 edition per data/
+    # ad_benchmarks_recruitment_2026.json; the 9th, 379M-click edition is
+    # the 2025 one). _current_year = 2026 reproduces that exact pairing via
+    # `_current_year - 1` / `_current_year`; _bench_year_label = "2025"
+    # matches the file's own "SHRM 2025" citation and the untouched,
+    # already-hardcoded "2025 Trend:" / "2025 Market Intelligence" labels a
+    # few hundred lines below that were never part of the bug.
+    _current_year = 2026
+    _bench_year_label = "2025"
     exec_row += 2
     style_section_header(
         ws_exec,
