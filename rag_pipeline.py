@@ -1428,7 +1428,13 @@ class _Reranker:
                 "top_k": top_k,
             }
             headers = {"Authorization": f"Bearer {self._api_key}"}
-            data = _http_post_json(_VOYAGE_RERANK_URL, payload, headers)
+            # max_retries=0: one reservation above must correspond to at most
+            # one real HTTP request. _http_post_json's default retry-on-429
+            # would otherwise spend a second live request under the exact
+            # condition the shared window exists to prevent -- retrying a 429
+            # here also has zero upside, since a failure already falls back
+            # to the RRF order two lines below the except.
+            data = _http_post_json(_VOYAGE_RERANK_URL, payload, headers, max_retries=0)
             rows = data.get("data")
             if not isinstance(rows, list) or not rows:
                 raise _RestError(f"Voyage rerank missing 'data': {str(data)[:200]}")

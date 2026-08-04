@@ -19,7 +19,12 @@ Covers:
     (``candidates[:top_k]``) the method already returns today when rerank is
     disabled/unavailable -- no new fallback shape invented;
   * the happy path (room in the window) is unaffected: rerank still POSTs
-    and still reorders candidates by the mocked relevance scores.
+    and still reorders candidates by the mocked relevance scores;
+  * one reservation corresponds to AT MOST one real HTTP attempt: the rerank
+    call site disables _http_post_json's default retry-on-429 (max_retries=0),
+    since a retry there would spend a second live request under the exact
+    condition (a 429) the shared window exists to prevent, for zero benefit --
+    a failed attempt already falls back to the RRF order regardless.
 
 All network is mocked at ``rag_pipeline._http_post_json`` -- no live API
 calls. The reservation window file itself is the real vector_search code
@@ -168,6 +173,25 @@ def test_rerank_still_works_when_window_has_room():
         assert fake_post.call_count == 1
         assert [c.doc_id for c in out] == ["d0", "d1"]
         assert all(c.search_method == "rerank" for c in out)
+
+
+def test_rerank_disables_retries_so_one_reservation_is_one_request():
+    """One shared-window reservation must correspond to AT MOST one real HTTP
+    attempt. _http_post_json retries once on 429/5xx by default -- if rerank's
+    call site didn't override that to zero, a single reserved slot could
+    produce two live Voyage requests under exactly the condition (a 429) the
+    shared window exists to prevent, silently doubling the real send rate."""
+    with _rerank_isolated() as fake_post:
+        reranker = rag_pipeline._Reranker(enabled=True)
+        reranker.rerank("some query", _candidates(2), top_k=2)
+
+        assert fake_post.call_count == 1
+        _, kwargs = fake_post.call_args
+        assert kwargs.get("max_retries") == 0, (
+            "rerank's _http_post_json call must pass max_retries=0 -- "
+            "otherwise one shared-window reservation can produce more than "
+            "one real HTTP attempt on a 429"
+        )
 
 
 # ── Standalone runner ────────────────────────────────────────────────────────
