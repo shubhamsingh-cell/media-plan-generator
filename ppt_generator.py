@@ -853,60 +853,99 @@ def _trunc_clause(s: str, maxlen: int = 500) -> str:
 # See trend_engine.get_benchmark() for authoritative CPC/CPA/CPM data with
 # seasonal, regional, and collar-type adjustments. The _get_benchmarks()
 # function below attempts to use trend_engine first, falling back to these.
+#
+# 2026-08-04: the "cpc" figure in every entry below is now the cited
+# data/recruitment_benchmarks_deep.json recruitment_benchmarks
+# .industry_benchmarks[industry]["cpc"]["range"] field verbatim (Appcast
+# 2025/2026 + Recruitics Talent Market Index + SHRM 2025, see that file's
+# top-level "sources" block) -- the SAME KB section _get_benchmarks' Layer
+# 1.5 (_kb_recruitment_industry_benchmark, below) reads to override this
+# fallback when the KB is available, so the static and live-KB paths can no
+# longer disagree. Previously every "cpc" figure here was an uncited
+# hand-typed literal with no traceable source. "cpa"/"cph"/"apply_rate"
+# are a different metric, not CPC, and were left untouched -- out of scope
+# for this fix (not flagged in the CPC classification).
+#
+# Two of the 8 reconciled industries have a KEY NAME MISMATCH against the
+# KB's industry_benchmarks section: this dict's "tech_engineering" and
+# "blue_collar_trades" don't match the KB's "technology_engineering" and
+# "blue_collar_skilled_trades" -- so _kb_recruitment_industry_benchmark
+# never actually finds an entry for those two industries at runtime (Layer
+# 1.5 silently no-ops, always falling through to this static layer). The
+# cited figures below still trace correctly (I looked them up under the
+# KB's real key), but the key-mismatch bug itself is a separate,
+# unaudited defect (a routing bug, not an uncited-CPC-literal one) and is
+# NOT fixed here.
+#
+# "general_entry_level" has no KB industry_benchmarks counterpart at all
+# (it's Joveo's generic fallback bucket, not a real industry) -- its cpc
+# figure is INTENTIONALLY left unchanged rather than inventing one; see the
+# entry's own comment below.
 # ---------------------------------------------------------------------------
 
 BENCHMARKS: Dict[str, Dict[str, str]] = {
     "healthcare_medical": {
         "cpa": "$35 - $85",
-        "cpc": "$0.90 - $3.50",
+        # KB: recruitment_benchmarks.industry_benchmarks.healthcare_medical.cpc.range
+        "cpc": "$0.50-$1.44+",
         "cph": "$9K - $12K",
         "apply_rate": "3.2% - 4.5%",
     },
     "tech_engineering": {
         "cpa": "$25 - $75",
-        "cpc": "$1.20 - $4.50",
+        # KB key is "technology_engineering" (mismatch -- see module note above)
+        "cpc": "$0.75-$3.50",
         "cph": "$6K - $22K",
         "apply_rate": "6.41%",
     },
     "retail_consumer": {
         "cpa": "$8 - $21",
-        "cpc": "$0.25 - $1.00",
+        # KB: recruitment_benchmarks.industry_benchmarks.retail_consumer.cpc.range
+        "cpc": "$0.20-$1.00",
         "cph": "$2.7K - $4K",
         "apply_rate": "4.5% - 5.8%",
     },
     "general_entry_level": {
         "cpa": "$10 - $25",
+        # No cited KB figure exists for this generic (non-industry) bucket --
+        # kept as the pre-existing estimate rather than inventing a "blended"
+        # number; disclosed here rather than presented as if cited.
         "cpc": "$0.35 - $1.30",
         "cph": "$2K - $4.7K",
         "apply_rate": "5.5% - 6.1%",
     },
     "finance_banking": {
         "cpa": "$21 - $65",
-        "cpc": "$0.90 - $3.50",
+        # KB: recruitment_benchmarks.industry_benchmarks.finance_banking.cpc.range
+        "cpc": "$0.80-$3.44",
         "cph": "$5K - $12K",
         "apply_rate": "5.0% - 6.0%",
     },
     "logistics_supply_chain": {
         "cpa": "$15 - $52",
-        "cpc": "$0.40 - $1.80",
+        # KB: recruitment_benchmarks.industry_benchmarks.logistics_supply_chain.cpc.range
+        "cpc": "$0.30-$1.50",
         "cph": "$4.5K - $8K",
         "apply_rate": "4.0% - 5.2%",
     },
     "hospitality_travel": {
         "cpa": "$8 - $25",
-        "cpc": "$0.22 - $1.00",
+        # KB: recruitment_benchmarks.industry_benchmarks.hospitality_travel.cpc.range
+        "cpc": "$0.25-$1.00",
         "cph": "$2.5K - $4K",
         "apply_rate": "4.0% - 5.0%",
     },
     "blue_collar_trades": {
         "cpa": "$12 - $35",
-        "cpc": "$0.40 - $1.60",
+        # KB key is "blue_collar_skilled_trades" (mismatch -- see module note above)
+        "cpc": "$0.40-$1.50",
         "cph": "$3.5K - $5.6K",
         "apply_rate": "4.0% - 5.5%",
     },
     "pharma_biotech": {
         "cpa": "$40 - $110",
-        "cpc": "$1.50 - $5.00",
+        # KB: recruitment_benchmarks.industry_benchmarks.pharma_biotech.cpc.range
+        "cpc": "$1.00-$4.00",
         "cph": "$8K - $18K",
         "apply_rate": "3.8% - 5.2%",
     },
