@@ -331,17 +331,130 @@ def test_every_pr_municipio_resolves_to_its_zona_urbana_place():
         assert r.state_usps == "PR"
 
 
+def test_every_pr_municipio_has_exactly_one_zona_urbana_place():
+    """Data-integrity gate cited by `_pr_municipio_variants`'s docstring:
+    verifies the exhaustive claim made there directly against the loaded
+    geo tables instead of trusting the prose. All 78 PR county rows in
+    us_counties.tsv are suffixed "Municipio"; every one has exactly one
+    "<base name> zona urbana" place in us_places.tsv, county_fips-matched;
+    base names are a perfect 1:1 (no duplicates on either side, nothing
+    missing on either side)."""
+    pl._ensure_loaded()
+    pr_counties = {
+        fips: info["county_name"] for fips, info in pl._counties_by_fips.items() if info["state_usps"] == "PR"
+    }
+    assert len(pr_counties) == 78, f"expected 78 PR municipios, found {len(pr_counties)}"
+
+    non_suffixed = {fips: name for fips, name in pr_counties.items() if not name.endswith("Municipio")}
+    assert not non_suffixed, f"PR county rows missing the 'Municipio' suffix: {non_suffixed}"
+
+    county_base_by_fips = {fips: name[: -len("Municipio")].strip() for fips, name in pr_counties.items()}
+
+    pr_zona_urbana_places = {
+        key: place
+        for key, place in pl._places_by_key.items()
+        if (place.get("state_usps") or "").upper() == "PR" and (place.get("display_name") or "").endswith("zona urbana")
+    }
+    assert len(pr_zona_urbana_places) == 78, f"expected 78 PR 'zona urbana' places, found {len(pr_zona_urbana_places)}"
+
+    place_base_to_keys: dict[str, list[str]] = {}
+    for key, place in pr_zona_urbana_places.items():
+        base = (place.get("display_name") or "")[: -len("zona urbana")].strip()
+        place_base_to_keys.setdefault(base, []).append(key)
+
+    dup_bases = {b: keys for b, keys in place_base_to_keys.items() if len(keys) > 1}
+    assert not dup_bases, f"duplicate PR 'zona urbana' base names: {dup_bases}"
+
+    county_bases = set(county_base_by_fips.values())
+    place_bases = set(place_base_to_keys.keys())
+    assert county_bases == place_bases, (
+        f"county-only base names: {county_bases - place_bases}; "
+        f"place-only base names: {place_bases - county_bases}"
+    )
+
+    mismatches = []
+    for fips, base in county_base_by_fips.items():
+        keys = place_base_to_keys.get(base, [])
+        if len(keys) != 1:
+            mismatches.append((fips, base, "not exactly one zona urbana place", keys))
+            continue
+        matched_fips = pr_zona_urbana_places[keys[0]].get("county_fips")
+        if matched_fips != fips:
+            mismatches.append((fips, base, "county_fips mismatch", matched_fips))
+    assert not mismatches, f"county_fips mismatches: {mismatches}"
+
+
+# Real, verified collision set (see `_pr_municipio_variants`'s docstring):
+# comparing all 78 PR municipio base names against every other state's bare
+# place names, through this module's own accent-folding `_norm_key`, finds
+# exactly 7 collisions -- not 5. An earlier draft of this fix compared raw,
+# un-folded strings and missed the two accented names (Rincón, Río Grande),
+# which is exactly the case `_norm_key`'s accent-folding exists to catch.
+_PR_COLLISION_NAMES: dict[str, set[str]] = {
+    "Carolina": {"AL", "RI", "WV"},
+    "Florida": {"MO", "NY", "OH"},
+    "Rincón": {"GA", "NM"},
+    "Río Grande": {"NJ", "OH"},
+    "Salinas": {"CA"},
+    "San Juan": {"TX"},
+    "San Lorenzo": {"CA", "NM"},
+}
+
+
 def test_pr_municipio_names_that_collide_with_another_state_stay_ambiguous_not_silently_pr():
-    """Five PR municipio names (Carolina, Florida, Salinas, San Juan, San
-    Lorenzo) are ALSO real bare place names elsewhere (AL/RI/WV, MO/NY/OH,
-    CA, TX, CA/NM). `_pr_municipio_variants` must add PR as one more honest
-    ambiguous alternative -- never silently pick PR, and never break the
-    existing non-PR resolution when the state isn't specified."""
-    r = pl.resolve_location("Carolina")
+    """Seven PR municipio base names are ALSO real bare place names
+    elsewhere (`_PR_COLLISION_NAMES`). `_pr_municipio_variants` adds PR as
+    one more honest ambiguous alternative for a bare (no-state) query -- it
+    never silently prefers PR, and it never drops the pre-existing non-PR
+    state(s) from `alternatives`.
+
+    This is a real, verified BEHAVIOR CHANGE for 6 of the 7 names, not a
+    no-op some earlier test coverage implied by only exercising Carolina:
+    pre-fix, none of these bare queries had PR in the picture at all.
+    Salinas is the headline case -- it flips from status="resolved" (the
+    only "Salinas" the old data knew, CA, uniquely) to status="ambiguous"
+    with CA and PR both listed; asserted explicitly below, not just folded
+    into the loop.
+
+    "Florida" is the one name of the 7 that does NOT go ambiguous: it's
+    also a US state name, and the bare-state rule (rule 4) runs before the
+    bare-city rule (rule 5) `_pr_municipio_variants` feeds, so bare
+    "Florida" keeps resolving as the state. That's a pre-existing rule-
+    ordering fact this fix doesn't change -- the Florida/PR municipio
+    collision is only reachable via "Florida, PR" (covered by
+    test_every_pr_municipio_resolves_to_its_zona_urbana_place)."""
+    for name, expected_other_states in _PR_COLLISION_NAMES.items():
+        r = pl.resolve_location(name)
+        if name == "Florida":
+            assert r.status == "resolved" and r.kind == "state", (
+                f"{name!r} -> status={r.status} kind={r.kind}; the bare-state rule should "
+                "still shadow the bare-city PR collision for this one name"
+            )
+            continue
+        assert r.status == "ambiguous", f"{name!r} -> {r.status} ({r.note})"
+        states = {a["state_usps"] for a in r.alternatives}
+        assert "PR" in states, f"{name!r} alternatives missing PR: {states}"
+        assert expected_other_states <= states, (
+            f"{name!r} alternatives dropped a pre-existing state: expected "
+            f"{expected_other_states} <= {states}"
+        )
+
+    # Salinas explicitly: status flips from unique-resolved to
+    # ambiguous-with-CA-and-PR-both-listed. Primary stays CA (see
+    # _WELL_KNOWN_METRO_STATE) -- PR is a listed alternative, never silently
+    # preferred.
+    r = pl.resolve_location("Salinas")
     assert r.status == "ambiguous"
-    states = {a["state_usps"] for a in r.alternatives}
-    assert "PR" in states
-    assert {"AL", "RI", "WV"} <= states
+    assert r.state_usps == "CA"
+    assert {a["state_usps"] for a in r.alternatives} == {"CA", "PR"}
+
+    # San Juan explicitly: this is the name whose primary would silently
+    # flip TX -> PR under the plain alphabetical fallback ("PR" < "TX" as a
+    # bare string) without the explicit _WELL_KNOWN_METRO_STATE entry.
+    r = pl.resolve_location("San Juan")
+    assert r.status == "ambiguous"
+    assert r.state_usps == "TX"
+    assert {a["state_usps"] for a in r.alternatives} == {"TX", "PR"}
 
 
 def test_norm_key_ascii_only_input_is_byte_identical_to_pre_fix_output():

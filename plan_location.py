@@ -238,6 +238,20 @@ _WELL_KNOWN_METRO_STATE: dict[str, str] = {
     "saint paul": "MN",
     "st petersburg": "FL",
     "saint petersburg": "FL",
+    # Two of the 7 PR-municipio name collisions (see _pr_municipio_variants)
+    # need a deliberate entry here, not the plain alphabetical fallback:
+    # "PR" sorts before "TX" and "CA" as a bare string, so without these,
+    # adding PR as a candidate would silently flip "San Juan"'s primary
+    # from TX to PR (an accident of sort order, not a decision -- San Juan
+    # is currently ambiguous-status either way, PR always stays listed in
+    # `alternatives`). "Salinas" doesn't actually flip ("CA" < "PR"
+    # already), but is pinned explicitly too so the choice reads as
+    # intentional rather than a coincidence of string sorting. The other 5
+    # collision names (Carolina, Florida, Rincón, Río Grande, San Lorenzo)
+    # keep their pre-existing alphabetical-fallback primary unchanged --
+    # PR never sorts ahead of their existing state(s) either.
+    "san juan": "TX",
+    "salinas": "CA",
 }
 
 # Census records some major markets under a legal name nobody types. Without
@@ -592,7 +606,22 @@ def _pr_municipio_variants(city_norm: str) -> list[str]:
     once "zona urbana" / "Municipio" are stripped -- see
     tests/test_plan_location.py::test_every_pr_municipio_has_exactly_one_zona_urbana_place.
     Same shape as _saint_variants: a systematic suffix transformation, not
-    a per-name alias table -- a plain dict miss for every non-PR name."""
+    a per-name alias table -- a plain dict miss for every non-PR name.
+
+    Collision risk, verified exhaustively (not the raw-string sweep from an
+    earlier draft of this fix, which missed the two accented names): 7 of
+    the 78 base names, compared via this module's own accent-folding
+    `_norm_key`, are ALSO real bare place names in other states -- Carolina
+    (AL/RI/WV), Florida (MO/NY/OH), Rincón (GA/NM), Río Grande (NJ/OH),
+    Salinas (CA), San Juan (TX), San Lorenzo (CA/NM). Adding PR as one more
+    candidate makes each of those bare queries an honest "ambiguous" (PR
+    listed alongside the pre-existing state(s), nothing dropped) instead of
+    a silently-confident wrong answer -- see
+    tests/test_plan_location.py::test_pr_municipio_names_that_collide_with_another_state_stay_ambiguous_not_silently_pr.
+    Bare "Florida" is the one exception: it's also a US state name, and the
+    bare-state rule runs before the bare-city rule this function feeds, so
+    it keeps resolving as the state -- the municipio collision there is
+    only reachable via "Florida, PR"."""
     return [city_norm + " zona urbana"]
 
 
