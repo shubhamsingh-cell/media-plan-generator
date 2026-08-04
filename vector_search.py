@@ -316,6 +316,30 @@ def _record_embed_error(msg: str) -> None:
     _last_embed_error = sanitized[:300]
 
 
+# Last Qdrant write failure, exposed on /api/deploy/ready's embedding block
+# alongside last_embed_error. Embedding can succeed while every Qdrant
+# upsert still silently fails (_qdrant_upsert_points only logged a warning
+# and returned False) -- that gap was indistinguishable from "still slowly
+# embedding" on the readiness probe. Mirrors _last_embed_error/
+# _record_embed_error exactly: key-redacted, length-capped, cleared on the
+# next fully successful write.
+_last_qdrant_error: str | None = None
+
+
+def _record_qdrant_error(msg: str) -> None:
+    """Record a sanitized one-line Qdrant write failure reason for observability.
+
+    Args:
+        msg: Raw failure text. Redacted/capped the same way as
+            _record_embed_error, even though Qdrant auth is a header (not a
+            URL param) -- consistent behavior is cheaper than a special case.
+    """
+    global _last_qdrant_error
+    sanitized = re.sub(r"key=[^&\s\"']+", "key=REDACTED", msg)
+    sanitized = re.sub(r"[\x00-\x1f]+", " ", sanitized)
+    _last_qdrant_error = sanitized[:300]
+
+
 _GEMINI_EMBED_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 _GEMINI_EMBED_TIMEOUT = 20  # seconds
 _GEMINI_MAX_BATCH = 100  # Gemini batchEmbedContents accepts up to 100 requests
@@ -1137,7 +1161,7 @@ def _qdrant_ensure_collection() -> bool:
     Returns:
         True if collection exists or was created, False on failure.
     """
-    global _qdrant_available
+    global _qdrant_available, _last_qdrant_error
 
     if not _qdrant_is_configured():
         return False
@@ -1148,6 +1172,7 @@ def _qdrant_ensure_collection() -> bool:
     check = _qdrant_request("GET", f"/collections/{collection}")
     if check and check.get("result"):
         _qdrant_available = True
+        _last_qdrant_error = None
         logger.info("Qdrant collection '%s' already exists", collection)
         return True
 
@@ -1164,9 +1189,11 @@ def _qdrant_ensure_collection() -> bool:
     )
     if result is not None:
         _qdrant_available = True
+        _last_qdrant_error = None
         logger.info("Qdrant collection '%s' created successfully", collection)
         return True
 
+    _record_qdrant_error(f"qdrant collection create failed for '{collection}'")
     logger.warning("Failed to create Qdrant collection '%s'", collection)
     return False
 
@@ -1272,23 +1299,32 @@ def _qdrant_upsert_points(
     Returns:
         True if all batches succeeded, False if any failed.
     """
+    global _last_qdrant_error
+
     if not _qdrant_available or not points:
         return False
 
     batch_size = 100
     success = True
+    collection = _active_collection()
 
     for i in range(0, len(points), batch_size):
         batch = points[i : i + batch_size]
         result = _qdrant_request(
             "PUT",
-            f"/collections/{_active_collection()}/points",
+            f"/collections/{collection}/points",
             body={"points": batch},
             timeout=30,  # larger batches need more time
         )
         if result is None:
             success = False
+            _record_qdrant_error(
+                f"qdrant upsert batch {i}-{i + len(batch)} failed for '{collection}'"
+            )
             logger.warning("Qdrant upsert batch %d-%d failed", i, i + len(batch))
+
+    if success:
+        _last_qdrant_error = None
 
     return success
 

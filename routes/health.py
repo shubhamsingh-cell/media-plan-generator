@@ -1616,6 +1616,12 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
             # the 2026-07-21 cutover left indexed_documents stuck at 0 with
             # the cause visible only in Render logs.
             "last_embed_error": _vs._last_embed_error,
+            # Same convention, for the Qdrant write path: embedding can
+            # succeed while every Qdrant upsert/collection-create still
+            # silently fails (that gap was indistinguishable from "still
+            # embedding" -- both looked like qdrant_point_count staying
+            # None/0 with last_embed_error null).
+            "last_qdrant_error": _vs._last_qdrant_error,
         }
 
         # Retrieval-layer observability. indexed_documents above reads 0

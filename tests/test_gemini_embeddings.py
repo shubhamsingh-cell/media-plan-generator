@@ -643,3 +643,125 @@ def test_deploy_ready_qdrant_point_count_none_when_qdrant_unavailable():
     assert emb is not None
     assert emb["qdrant_point_count"] is None
     assert emb["indexed_documents"] == 1
+
+
+# ── last_qdrant_error observability ──────────────────────────────────────────
+#
+# Mirrors the last_embed_error tests above. Embedding can succeed while every
+# Qdrant write silently fails (_qdrant_upsert_points/_qdrant_ensure_collection
+# only logged a warning and returned False) -- that gap was indistinguishable
+# from "still slowly embedding" on the public readiness probe: both look like
+# qdrant_point_count staying None/0 with last_embed_error null. All tests stub
+# _qdrant_request; none touch a real Qdrant instance.
+
+
+def test_qdrant_upsert_records_reason_and_full_success_clears_it():
+    with mock.patch.object(vs, "_qdrant_available", True), mock.patch.object(
+        vs, "_qdrant_request", return_value=None
+    ):
+        assert (
+            vs._qdrant_upsert_points([{"id": 1, "vector": [0.1], "payload": {}}])
+            is False
+        )
+    err = vs._last_qdrant_error
+    assert err is not None
+    assert "upsert batch 0-1" in err
+
+    with mock.patch.object(vs, "_qdrant_available", True), mock.patch.object(
+        vs, "_qdrant_request", return_value={"status": "ok"}
+    ):
+        assert (
+            vs._qdrant_upsert_points([{"id": 1, "vector": [0.1], "payload": {}}])
+            is True
+        )
+    assert vs._last_qdrant_error is None
+
+
+def test_qdrant_upsert_partial_batch_failure_keeps_error_recorded():
+    """If any batch in a multi-batch upsert fails, the call reports overall
+    failure and must NOT clear a previously recorded error -- a later batch's
+    success clearing the signal would mask the earlier batch's real failure."""
+    points = [{"id": i, "vector": [0.1], "payload": {}} for i in range(150)]
+    calls = []
+
+    def fake_request(method, path, body=None, timeout=vs._QDRANT_TIMEOUT):
+        calls.append(body)
+        return None if len(calls) == 1 else {"status": "ok"}
+
+    with mock.patch.object(vs, "_qdrant_available", True), mock.patch.object(
+        vs, "_qdrant_request", side_effect=fake_request
+    ):
+        assert vs._qdrant_upsert_points(points) is False
+    assert vs._last_qdrant_error is not None
+    assert "upsert batch 0-100" in vs._last_qdrant_error
+
+
+def test_qdrant_ensure_collection_records_reason_on_create_failure():
+    def fake_request(method, path, body=None, timeout=vs._QDRANT_TIMEOUT):
+        if method == "GET":
+            return {"result": None}  # collection does not exist yet
+        return None  # PUT create fails
+
+    with _env("gemini"), mock.patch.multiple(
+        vs,
+        _qdrant_is_configured=mock.Mock(return_value=True),
+        _qdrant_request=mock.Mock(side_effect=fake_request),
+    ):
+        assert vs._qdrant_ensure_collection() is False
+    err = vs._last_qdrant_error
+    assert err is not None
+    assert "collection create failed" in err
+
+
+def test_qdrant_ensure_collection_success_clears_previous_error():
+    with mock.patch.object(vs, "_last_qdrant_error", "stale failure from a prior run"):
+        with _env("gemini"), mock.patch.multiple(
+            vs,
+            _qdrant_is_configured=mock.Mock(return_value=True),
+            _qdrant_request=mock.Mock(return_value={"result": True}),
+        ):
+            assert vs._qdrant_ensure_collection() is True
+        assert vs._last_qdrant_error is None
+
+
+def test_deploy_ready_surfaces_last_qdrant_error():
+    import routes.health as rh
+
+    captured = _CapturingHandler()
+
+    def _fake_send(handler, result, status_code=200):
+        captured.payload = result
+        captured.status = status_code
+
+    with mock.patch.object(rh, "_send_json_response", _fake_send), mock.patch.object(
+        vs,
+        "_last_qdrant_error",
+        "qdrant upsert batch 0-100 failed for 'nova_knowledge'",
+    ), _env("gemini"):
+        rh._handle_deploy_ready(handler=None, path="/api/deploy/ready", parsed=None)
+
+    emb = (captured.payload or {}).get("embedding")
+    assert emb is not None
+    assert (
+        emb["last_qdrant_error"]
+        == "qdrant upsert batch 0-100 failed for 'nova_knowledge'"
+    )
+
+
+def test_deploy_ready_last_qdrant_error_none_by_default():
+    import routes.health as rh
+
+    captured = _CapturingHandler()
+
+    def _fake_send(handler, result, status_code=200):
+        captured.payload = result
+        captured.status = status_code
+
+    with mock.patch.object(rh, "_send_json_response", _fake_send), mock.patch.object(
+        vs, "_last_qdrant_error", None
+    ), _env("gemini"):
+        rh._handle_deploy_ready(handler=None, path="/api/deploy/ready", parsed=None)
+
+    emb = (captured.payload or {}).get("embedding")
+    assert emb is not None
+    assert emb["last_qdrant_error"] is None
