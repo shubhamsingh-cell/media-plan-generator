@@ -85,6 +85,15 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
+# Sibling stdlib-only module (no third-party dep added). Imported at module
+# level, not lazily: vector_search.py has zero local-module imports of its
+# own (grepped clean), so there is no import cycle to guard against. Needed
+# so _Reranker.rerank can reserve from the SAME cross-process, per-model
+# Voyage rate window vector_search.py's own rerank caller uses -- Voyage
+# meters rerank-2.5-lite per account regardless of which caller sends the
+# request, so two independently-throttled callers could jointly over-send.
+import vector_search
+
 logger = logging.getLogger(__name__)
 
 
@@ -1395,9 +1404,20 @@ class _Reranker:
             top_k: Number of hits to return.
 
         Returns:
-            Reranked hits. Falls back to RRF input order if rerank fails.
+            Reranked hits. Falls back to RRF input order if rerank fails, or
+            if the shared per-model Voyage rate window is full (see below).
         """
         if not self._enabled or not candidates or len(candidates) <= 1:
+            return candidates[:top_k]
+        # Reserve from rerank-2.5-lite's cross-process, per-model window
+        # BEFORE spending a request -- the same window vector_search.py's
+        # own rerank caller reserves from (_VOYAGE_WINDOW_RERANK), since
+        # Voyage meters each model per-account, not per-caller. Rerank is
+        # best-effort with an RRF-order fallback, so a full window (or a
+        # contended lock) declines here rather than risk a 429, mirroring
+        # vector_search.py's own pre-POST rerank rate-limit check.
+        if not vector_search._voyage_try_reserve_slot():
+            logger.info("Rerank shared rate window full, returning RRF order")
             return candidates[:top_k]
         try:
             documents = [c.text[:2000] for c in candidates]
