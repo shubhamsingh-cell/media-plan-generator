@@ -1373,6 +1373,38 @@ _CACHE_STOP_WORDS = frozenset(
     }
 )
 
+# FAQ answer text for "what is programmatic job advertising" and "what is
+# cpc cpa cph" below, and SINGLE-SOURCED by nova_slack.py's mirror copies of
+# those two answers (nova_slack imports these constants directly and renders
+# them through its own _convert_to_slack_mrkdwn rather than carrying its own
+# copy of the text -- a hardcoded second copy was itself the recurrence
+# vector for a prior uncited-CPC defect). HONESTY CONTRACT: identical to
+# _PLATFORM_FALLBACK_SUMMARIES (module level, below) -- every dollar figure
+# must literally appear in the cited data/recruitment_industry_knowledge.json
+# benchmarks.cost_per_click.by_platform entry named in the comment beside it;
+# tests/test_nova_platform_comparison_honesty.py enforces this mechanically
+# for both nova.py's text and nova_slack.py's rendering of it. CPA/CPH
+# figures in the second answer are a different metric (not CPC) and are
+# out of scope for this contract.
+_FAQ_ANSWER_PROGRAMMATIC_ADVERTISING = (
+    "Programmatic job advertising uses **data-driven automation** to buy, "
+    "place, and optimize job ads in real-time across multiple channels. It "
+    "maximizes ROI by dynamically adjusting bids, budgets, and targeting "
+    "based on performance data. CPC varies significantly by platform, e.g. "
+    "$0.97-$2.71 on Indeed"  # KB by_platform.indeed.average_cpc_range
+    " and $1.50-$4.50 on LinkedIn Promoted Jobs."  # by_platform.linkedin.job_ad_cpc_range
+)
+_FAQ_ANSWER_CPC_CPA_CPH = (
+    "**CPC** (Cost Per Click): You pay each time a candidate clicks your job "
+    "ad ($0.97-$2.71 on Indeed, up to $1.50-$4.50 on LinkedIn Promoted "
+    "Jobs).\n"
+    "**CPA** (Cost Per Application): You pay when a candidate completes an "
+    "application ($5-$50 typical).\n"
+    "**CPH** (Cost Per Hire): Total cost to fill a position ($1,500-$10,000+ "
+    "depending on role).\n"
+    "CPC is best for volume, CPA for quality, CPH for executive/niche roles."
+)
+
 # Preloaded learned answers (same as nova_slack.py)
 _PRELOADED_ANSWERS = [
     {
@@ -1395,13 +1427,13 @@ _PRELOADED_ANSWERS = [
     },
     {
         "question": "what is programmatic job advertising",
-        "answer": "Programmatic job advertising uses **data-driven automation** to buy, place, and optimize job ads in real-time across multiple channels. It maximizes ROI by dynamically adjusting bids, budgets, and targeting based on performance data. Average CPC ranges from $0.50-$2.50 depending on role and industry.",
+        "answer": _FAQ_ANSWER_PROGRAMMATIC_ADVERTISING,
         "keywords": ["programmatic", "advertising", "explain"],
         "confidence": 0.90,
     },
     {
         "question": "what is cpc cpa cph",
-        "answer": "**CPC** (Cost Per Click): You pay each time a candidate clicks your job ad ($0.50-$5.00 typical).\n**CPA** (Cost Per Application): You pay when a candidate completes an application ($5-$50 typical).\n**CPH** (Cost Per Hire): Total cost to fill a position ($1,500-$10,000+ depending on role).\nCPC is best for volume, CPA for quality, CPH for executive/niche roles.",
+        "answer": _FAQ_ANSWER_CPC_CPA_CPH,
         "keywords": ["cpc", "cpa", "cph", "cost per"],
         "confidence": 0.95,
     },

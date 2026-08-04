@@ -11,7 +11,11 @@ Features:
 - Integrates with data_orchestrator.py for real-time data enrichment
 
 Thread-safety: All file writes use an in-process threading lock.
-Dependencies: stdlib only (no slack_sdk -- uses urllib.request).
+Dependencies: stdlib only (no slack_sdk -- uses urllib.request), plus a
+single narrow import of two cited FAQ-answer constants from nova.py (see
+_PRELOADED_ANSWERS below) so the CPC figures in this file's mirror of those
+two answers can never drift from nova.py's -- a hardcoded second copy was
+itself the recurrence vector for a prior uncited-CPC defect.
 """
 
 from __future__ import annotations
@@ -27,6 +31,8 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from nova import _FAQ_ANSWER_CPC_CPA_CPH, _FAQ_ANSWER_PROGRAMMATIC_ADVERTISING
 
 logger = logging.getLogger(__name__)
 
@@ -46,85 +52,12 @@ _TOKEN_RETRY_DELAY = 5 * 60  # Retry after 5 minutes on failure
 _TOKEN_DEFAULT_LIFETIME = 12 * 60 * 60  # Assume 12-hour lifetime if unknown
 
 # ---------------------------------------------------------------------------
-# P1 FIX: Pre-loaded Q&A pairs that survive ephemeral filesystem redeploys
-# ---------------------------------------------------------------------------
-_PRELOADED_ANSWERS = [
-    {
-        "question": "how many publishers does joveo have",
-        "answer": "Joveo has *10,238+ Supply Partners* across *70+ countries*, including major job boards, niche boards, programmatic platforms, and social channels.",
-        "keywords": ["publishers", "supply partners", "how many"],
-        "confidence": 0.95,
-    },
-    {
-        "question": "what is joveo",
-        "answer": "Joveo is a *recruitment marketing platform* that uses programmatic advertising technology to optimize job ad spend across 10,238+ Supply Partners globally. It helps employers reach the right candidates at the right time on the right channels.",
-        "keywords": ["joveo", "what is"],
-        "confidence": 0.95,
-    },
-    {
-        "question": "what countries does joveo operate in",
-        "answer": "Joveo operates across *70+ countries* including the US, UK, Canada, Germany, France, India, Australia, Japan, UAE, Brazil, and many more across EMEA, APAC, and AMER regions.",
-        "keywords": ["countries", "regions", "operate"],
-        "confidence": 0.90,
-    },
-    {
-        "question": "what is programmatic job advertising",
-        "answer": "Programmatic job advertising uses *data-driven automation* to buy, place, and optimize job ads in real-time across multiple channels. It maximizes ROI by dynamically adjusting bids, budgets, and targeting based on performance data. Average CPC ranges from $0.50-$2.50 depending on role and industry.",
-        "keywords": ["programmatic", "advertising", "explain"],
-        "confidence": 0.90,
-    },
-    {
-        "question": "what is cpc cpa cph",
-        "answer": "*CPC* (Cost Per Click): You pay each time a candidate clicks your job ad ($0.50-$5.00 typical).\n*CPA* (Cost Per Application): You pay when a candidate completes an application ($5-$50 typical).\n*CPH* (Cost Per Hire): Total cost to fill a position ($1,500-$10,000+ depending on role).\nCPC is best for volume, CPA for quality, CPH for executive/niche roles.",
-        "keywords": ["cpc", "cpa", "cph", "cost per"],
-        "confidence": 0.95,
-    },
-    {
-        "question": "what pricing models does joveo support",
-        "answer": "Joveo supports multiple pricing models: *CPC* (Cost Per Click), *CPA* (Cost Per Application), *TCPA* (Target CPA with auto-optimization), *Flat CPC*, *ORG* (Organic/free postings), and *PPP* (Pay Per Post). The optimal model depends on your hiring volume and role type.",
-        "keywords": ["pricing", "models", "commission"],
-        "confidence": 0.90,
-    },
-    {
-        "question": "top job boards in the us",
-        "answer": "The top job boards in the US by traffic and performance:\n1. *Indeed* — largest globally, CPC model\n2. *LinkedIn* — best for white-collar/professional\n3. *ZipRecruiter* — strong AI matching\n4. *Glassdoor* (merging into Indeed) — employer brand focused\n5. *CareerBuilder* (under Bold Holdings post-bankruptcy)\n6. *Dice* — tech-specific\n7. *Snagajob/JobGet* — hourly/blue-collar\n8. *Handshake* — early career/campus",
-        "keywords": ["top", "job boards", "us", "united states", "best"],
-        "confidence": 0.85,
-    },
-    {
-        "question": "what happened to monster and careerbuilder",
-        "answer": "Monster and CareerBuilder filed for *Chapter 11 bankruptcy* in July 2025. They were acquired by *Bold Holdings for $28M*. Monster Europe has been shut down (DNS killed). CareerBuilder continues operating in the US under new ownership but with reduced scale.",
-        "keywords": ["monster", "careerbuilder", "bankruptcy", "shut down"],
-        "confidence": 0.95,
-    },
-    {
-        "question": "what is glassdoor status",
-        "answer": "Glassdoor's operations are *merging into Indeed* (both owned by Recruit Holdings). The Glassdoor CEO stepped down in late 2025. The platform still operates but is increasingly integrated with Indeed's infrastructure.",
-        "keywords": ["glassdoor", "status", "indeed"],
-        "confidence": 0.90,
-    },
-    {
-        "question": "best boards for nursing hiring",
-        "answer": "Top job boards for *nursing/healthcare* hiring:\n1. *Health eCareers* — largest healthcare niche board\n2. *Nurse.com* — RN-focused\n3. *NursingJobs.us* — US nursing specific\n4. *Indeed* — high-volume nursing traffic\n5. *Vivian Health* — travel nursing marketplace\n6. *Incredible Health* — RN matching platform\n7. *AlliedHealthJobs* — allied health professionals\nRecommended channel mix: 30% niche boards, 22% programmatic, 15% global boards.",
-        "keywords": ["nursing", "nurse", "healthcare", "boards"],
-        "confidence": 0.90,
-    },
-    {
-        "question": "best boards for blue collar hiring",
-        "answer": "Top channels for *blue-collar/hourly* hiring:\n1. *JobGet* (acquired Snagajob) — 100M+ hourly workers\n2. *Indeed* — highest blue-collar volume\n3. *Craigslist* — local trades & service\n4. *Facebook Jobs* — mobile-first hourly workers\n5. *Wonolo* — on-demand warehouse/logistics\n6. *Instawork* — gig/flexible workers\n7. *ShiftPixy* — restaurant/hospitality shifts\nBudget tip: 40%+ should go to programmatic/mobile-first channels.",
-        "keywords": ["blue collar", "hourly", "warehouse", "driver", "trades"],
-        "confidence": 0.90,
-    },
-    {
-        "question": "joveo vs competitors",
-        "answer": "Joveo's key differentiators:\n- *Broadest global reach*: 10,238+ Supply Partners across 70+ countries -- the largest publisher network in the industry\n- *Multiple pricing models*: CPC, CPA, TCPA, Flat CPC, ORG, and PPP -- more flexibility than any alternative\n- *AI-driven optimization*: Real-time bid optimization maximizes ROI across all channels\n- *Performance marketing focus*: Data-driven programmatic approach with stronger niche board access\n- *Superior cost efficiency*: AI algorithms continuously optimize spend allocation for maximum hires per dollar\nAs per our recommendation, Joveo delivers the best results for recruitment marketing at any scale.",
-        "keywords": ["competitor", "vs", "compare", "alternative"],
-        "confidence": 0.85,
-    },
-]
-
-# ---------------------------------------------------------------------------
 # Slack mrkdwn conversion
+#
+# Defined ahead of _PRELOADED_ANSWERS (moved up from its original position
+# below that list) because two entries below now render their answer text
+# through this converter instead of hardcoding a second, independently
+# drifting copy of nova.py's markdown.
 # ---------------------------------------------------------------------------
 
 
@@ -184,6 +117,87 @@ def _convert_to_slack_mrkdwn(text: str) -> str:
 
     return "\n".join(result_lines)
 
+
+# ---------------------------------------------------------------------------
+# P1 FIX: Pre-loaded Q&A pairs that survive ephemeral filesystem redeploys
+# ---------------------------------------------------------------------------
+_PRELOADED_ANSWERS = [
+    {
+        "question": "how many publishers does joveo have",
+        "answer": "Joveo has *10,238+ Supply Partners* across *70+ countries*, including major job boards, niche boards, programmatic platforms, and social channels.",
+        "keywords": ["publishers", "supply partners", "how many"],
+        "confidence": 0.95,
+    },
+    {
+        "question": "what is joveo",
+        "answer": "Joveo is a *recruitment marketing platform* that uses programmatic advertising technology to optimize job ad spend across 10,238+ Supply Partners globally. It helps employers reach the right candidates at the right time on the right channels.",
+        "keywords": ["joveo", "what is"],
+        "confidence": 0.95,
+    },
+    {
+        "question": "what countries does joveo operate in",
+        "answer": "Joveo operates across *70+ countries* including the US, UK, Canada, Germany, France, India, Australia, Japan, UAE, Brazil, and many more across EMEA, APAC, and AMER regions.",
+        "keywords": ["countries", "regions", "operate"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "what is programmatic job advertising",
+        # SINGLE-SOURCED from nova.py -- see the module docstring and the
+        # honesty-contract comment on nova._FAQ_ANSWER_PROGRAMMATIC_ADVERTISING.
+        "answer": _convert_to_slack_mrkdwn(_FAQ_ANSWER_PROGRAMMATIC_ADVERTISING),
+        "keywords": ["programmatic", "advertising", "explain"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "what is cpc cpa cph",
+        # SINGLE-SOURCED from nova.py -- see nova._FAQ_ANSWER_CPC_CPA_CPH.
+        "answer": _convert_to_slack_mrkdwn(_FAQ_ANSWER_CPC_CPA_CPH),
+        "keywords": ["cpc", "cpa", "cph", "cost per"],
+        "confidence": 0.95,
+    },
+    {
+        "question": "what pricing models does joveo support",
+        "answer": "Joveo supports multiple pricing models: *CPC* (Cost Per Click), *CPA* (Cost Per Application), *TCPA* (Target CPA with auto-optimization), *Flat CPC*, *ORG* (Organic/free postings), and *PPP* (Pay Per Post). The optimal model depends on your hiring volume and role type.",
+        "keywords": ["pricing", "models", "commission"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "top job boards in the us",
+        "answer": "The top job boards in the US by traffic and performance:\n1. *Indeed* — largest globally, CPC model\n2. *LinkedIn* — best for white-collar/professional\n3. *ZipRecruiter* — strong AI matching\n4. *Glassdoor* (merging into Indeed) — employer brand focused\n5. *CareerBuilder* (under Bold Holdings post-bankruptcy)\n6. *Dice* — tech-specific\n7. *Snagajob/JobGet* — hourly/blue-collar\n8. *Handshake* — early career/campus",
+        "keywords": ["top", "job boards", "us", "united states", "best"],
+        "confidence": 0.85,
+    },
+    {
+        "question": "what happened to monster and careerbuilder",
+        "answer": "Monster and CareerBuilder filed for *Chapter 11 bankruptcy* in July 2025. They were acquired by *Bold Holdings for $28M*. Monster Europe has been shut down (DNS killed). CareerBuilder continues operating in the US under new ownership but with reduced scale.",
+        "keywords": ["monster", "careerbuilder", "bankruptcy", "shut down"],
+        "confidence": 0.95,
+    },
+    {
+        "question": "what is glassdoor status",
+        "answer": "Glassdoor's operations are *merging into Indeed* (both owned by Recruit Holdings). The Glassdoor CEO stepped down in late 2025. The platform still operates but is increasingly integrated with Indeed's infrastructure.",
+        "keywords": ["glassdoor", "status", "indeed"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "best boards for nursing hiring",
+        "answer": "Top job boards for *nursing/healthcare* hiring:\n1. *Health eCareers* — largest healthcare niche board\n2. *Nurse.com* — RN-focused\n3. *NursingJobs.us* — US nursing specific\n4. *Indeed* — high-volume nursing traffic\n5. *Vivian Health* — travel nursing marketplace\n6. *Incredible Health* — RN matching platform\n7. *AlliedHealthJobs* — allied health professionals\nRecommended channel mix: 30% niche boards, 22% programmatic, 15% global boards.",
+        "keywords": ["nursing", "nurse", "healthcare", "boards"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "best boards for blue collar hiring",
+        "answer": "Top channels for *blue-collar/hourly* hiring:\n1. *JobGet* (acquired Snagajob) — 100M+ hourly workers\n2. *Indeed* — highest blue-collar volume\n3. *Craigslist* — local trades & service\n4. *Facebook Jobs* — mobile-first hourly workers\n5. *Wonolo* — on-demand warehouse/logistics\n6. *Instawork* — gig/flexible workers\n7. *ShiftPixy* — restaurant/hospitality shifts\nBudget tip: 40%+ should go to programmatic/mobile-first channels.",
+        "keywords": ["blue collar", "hourly", "warehouse", "driver", "trades"],
+        "confidence": 0.90,
+    },
+    {
+        "question": "joveo vs competitors",
+        "answer": "Joveo's key differentiators:\n- *Broadest global reach*: 10,238+ Supply Partners across 70+ countries -- the largest publisher network in the industry\n- *Multiple pricing models*: CPC, CPA, TCPA, Flat CPC, ORG, and PPP -- more flexibility than any alternative\n- *AI-driven optimization*: Real-time bid optimization maximizes ROI across all channels\n- *Performance marketing focus*: Data-driven programmatic approach with stronger niche board access\n- *Superior cost efficiency*: AI algorithms continuously optimize spend allocation for maximum hires per dollar\nAs per our recommendation, Joveo delivers the best results for recruitment marketing at any scale.",
+        "keywords": ["competitor", "vs", "compare", "alternative"],
+        "confidence": 0.85,
+    },
+]
 
 # ---------------------------------------------------------------------------
 # Stop-words removed during keyword matching

@@ -223,6 +223,91 @@ def test_kb_entry_rendering_filter_unit():
     assert "https://example.test/cited" not in resp
 
 
+# ---------------------------------------------------------------------------
+# FAQ answers (nova._PRELOADED_ANSWERS) + their nova_slack.py mirrors
+# (2026-08-04)
+#
+# Two static FAQ answers ("what is programmatic job advertising" and "what
+# is cpc cpa cph") carried uncited CPC bands ($0.50-$2.50 and $0.50-$5.00
+# typical) that traced to no cited KB entry, and nova_slack.py hardcoded a
+# second, independently-typed copy of the same uncited text (4 sites total).
+# Fixed by citing real KB figures (Indeed average_cpc_range, LinkedIn
+# job_ad_cpc_range) in nova.py module-level constants
+# (_FAQ_ANSWER_PROGRAMMATIC_ADVERTISING / _FAQ_ANSWER_CPC_CPA_CPH) and
+# having nova_slack.py render those SAME constants through its own
+# markdown->mrkdwn converter instead of carrying its own copy.
+# ---------------------------------------------------------------------------
+
+
+def test_faq_answer_cpc_figures_trace_to_cited_kb_entries():
+    """Every dollar figure in the CPC-scoped portion of the two FAQ answer
+    constants must literally appear in the cited Indeed/LinkedIn KB
+    by_platform entries (same mechanism as
+    test_every_fallback_dollar_figure_traces_to_cited_kb_entry above,
+    applied to the FAQ surface).
+
+    "what is cpc cpa cph" covers three DIFFERENT metrics (CPC/CPA/CPH) on
+    separate lines; only the first (CPC) line is in this contract's scope
+    -- CPA/CPH figures are a different metric and were never flagged as
+    uncited CPC (classification evidence: 'hardcoded CPC "typical"').
+    """
+    kb = _real_kb()
+    bp = kb["benchmarks"]["cost_per_click"]["by_platform"]
+    haystack = json.dumps(bp["indeed"]) + json.dumps(bp["linkedin"])
+
+    prog_tokens = _DOLLAR_TOKEN.findall(
+        nova._FAQ_ANSWER_PROGRAMMATIC_ADVERTISING
+    )
+    assert prog_tokens, "expected at least one CPC figure in the programmatic-advertising answer"
+
+    cpc_line = nova._FAQ_ANSWER_CPC_CPA_CPH.split("\n")[0]
+    assert cpc_line.startswith("**CPC**"), "CPC line moved -- update the scope slice"
+    def_tokens = _DOLLAR_TOKEN.findall(cpc_line)
+    assert def_tokens, "expected at least one CPC figure on the CPC-definition line"
+
+    for token in prog_tokens + def_tokens:
+        assert re.search(re.escape(token) + r"(?!\d)", haystack), (
+            f"FAQ CPC figure {token!r} does not appear in the cited Indeed/"
+            f"LinkedIn KB entries -- uncited or stale"
+        )
+
+
+def test_faq_cpc_answers_no_longer_carry_the_retired_uncited_bands():
+    """Drift guard against literal regression: the two bands that shipped
+    uncited must never reappear verbatim in either FAQ constant."""
+    combined = (
+        nova._FAQ_ANSWER_PROGRAMMATIC_ADVERTISING + nova._FAQ_ANSWER_CPC_CPA_CPH
+    )
+    assert "$0.50-$2.50" not in combined
+    assert "$0.50-$5.00" not in combined
+
+
+def test_nova_slack_faq_mirrors_are_single_sourced_from_nova():
+    """nova_slack.py must render nova.py's own FAQ constants (through its
+    markdown->mrkdwn converter), not carry an independently hardcoded copy
+    -- a hardcoded second copy was itself the recurrence vector for this
+    defect class (nova_slack drifted to a stale/uncited band while nova.py
+    had already been patched once, and vice versa). Proven by exact
+    equality with the converter's output, not just matching numbers, so
+    prose drift is caught too, not only figure drift."""
+    import nova_slack
+
+    mirrors = {
+        e["question"]: e["answer"]
+        for e in nova_slack._PRELOADED_ANSWERS
+        if e["question"]
+        in ("what is programmatic job advertising", "what is cpc cpa cph")
+    }
+    assert mirrors[
+        "what is programmatic job advertising"
+    ] == nova_slack._convert_to_slack_mrkdwn(
+        nova._FAQ_ANSWER_PROGRAMMATIC_ADVERTISING
+    )
+    assert mirrors["what is cpc cpa cph"] == nova_slack._convert_to_slack_mrkdwn(
+        nova._FAQ_ANSWER_CPC_CPA_CPH
+    )
+
+
 if __name__ == "__main__":
     import pytest
 
