@@ -287,20 +287,61 @@ def test_accent_folding_makes_ascii_spelling_match_accented_dataset_key(accented
     assert r_ascii.state_usps == r_accented.state_usps
 
 
-def test_bare_mayaguez_pr_is_a_separate_still_open_gap_not_this_fix():
-    """Documents a DISTINCT, pre-existing gap surfaced while reproducing the
-    accent-folding bug, so it isn't mistaken for fixed: the bare municipio
-    name ("Mayagüez, PR" / "Mayaguez, PR", no "zona urbana") does not
-    resolve even after accent-folding, in either spelling. Puerto Rico's
-    Census place record is named "Mayagüez zona urbana", and unlike Boise /
-    Honolulu / Nashville (see `_CENSUS_NAME_ALIASES`), there is no alias
-    routing the bare municipio name to it; `_COUNTY_SUFFIXES` also has no
-    "municipio" entry, so the county-equivalent record isn't reached either.
-    Neither gap is accent-related -- plain-ASCII "Mayaguez, PR" fails
-    identically. Tracked as a follow-up, intentionally not fixed here."""
+def test_bare_mayaguez_pr_resolves_to_the_zona_urbana_place():
+    """Was a DISTINCT, pre-existing gap (pinned by this test's earlier
+    unresolved-on-purpose form, test_bare_mayaguez_pr_is_a_separate_still_
+    open_gap_not_this_fix): the bare municipio name ("Mayagüez, PR" /
+    "Mayaguez, PR", no "zona urbana") did not resolve in either spelling,
+    even after accent-folding. Root cause: Puerto Rico's Census place
+    record is named "Mayagüez zona urbana", and unlike Boise / Honolulu /
+    Nashville (`_CENSUS_NAME_ALIASES`), there was no alias routing the bare
+    municipio name to it. Fixed the same way _saint_variants folds
+    "Saint X" <-> "St X" -- see `_pr_municipio_variants`, a systematic
+    "<name> zona urbana" suffix try, not a per-name alias table entry
+    (verified against all 78 PR municipios, not just Mayagüez -- see
+    test_every_pr_municipio_resolves_to_its_zona_urbana_place below)."""
     for query in ("Mayagüez, PR", "Mayaguez, PR"):
         r = pl.resolve_location(query)
-        assert r.status == "unresolved", f"{query!r} unexpectedly resolved to {r.display_name!r} -- update this test and the accent-folding fix's scope note"
+        assert r.status == "resolved", f"{query!r} -> {r.status} ({r.note})"
+        assert r.kind == "city"
+        assert r.matched_via == "place_city_state"
+        assert r.display_name == "Mayagüez zona urbana"
+        assert r.state_usps == "PR"
+
+
+def test_every_pr_municipio_resolves_to_its_zona_urbana_place():
+    """Exhaustive version of the spot-checks above (San Juan, Ponce,
+    Bayamón, plus every other PR municipio): confirms `_pr_municipio_variants`
+    generalizes safely across the full, verified 1:1 mapping (every one of
+    PR's 78 municipios has exactly one "<name> zona urbana" Census place
+    record, county_fips-matched to that municipio) instead of only covering
+    the one name named in the bug report."""
+    pl._ensure_loaded()
+    pr_municipios = {
+        fips: info["county_name"]
+        for fips, info in pl._counties_by_fips.items()
+        if info["state_usps"] == "PR"
+    }
+    assert len(pr_municipios) == 78, f"expected 78 PR municipios, found {len(pr_municipios)}"
+    for fips, county_name in pr_municipios.items():
+        bare_name = county_name[: -len("Municipio")].strip() if county_name.endswith("Municipio") else county_name
+        r = pl.resolve_location(f"{bare_name}, PR")
+        assert r.status == "resolved", f"{bare_name!r}, PR -> {r.status} ({r.note})"
+        assert r.display_name == f"{bare_name} zona urbana", f"{bare_name!r} -> {r.display_name!r}"
+        assert r.state_usps == "PR"
+
+
+def test_pr_municipio_names_that_collide_with_another_state_stay_ambiguous_not_silently_pr():
+    """Five PR municipio names (Carolina, Florida, Salinas, San Juan, San
+    Lorenzo) are ALSO real bare place names elsewhere (AL/RI/WV, MO/NY/OH,
+    CA, TX, CA/NM). `_pr_municipio_variants` must add PR as one more honest
+    ambiguous alternative -- never silently pick PR, and never break the
+    existing non-PR resolution when the state isn't specified."""
+    r = pl.resolve_location("Carolina")
+    assert r.status == "ambiguous"
+    states = {a["state_usps"] for a in r.alternatives}
+    assert "PR" in states
+    assert {"AL", "RI", "WV"} <= states
 
 
 def test_norm_key_ascii_only_input_is_byte_identical_to_pre_fix_output():

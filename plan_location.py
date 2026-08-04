@@ -581,12 +581,32 @@ def _saint_variants(city_norm: str) -> list[str]:
     return out
 
 
+def _pr_municipio_variants(city_norm: str) -> list[str]:
+    """A bare Puerto Rico municipio name ("Mayagüez", "Carolina", "San
+    Juan") is not itself a Census place record -- PR has no incorporated
+    "cities" in the mainland sense. Census instead publishes one CDP per
+    municipio for its urban core, always named "<municipio> zona urbana".
+    Verified exhaustively against data/geo/*.tsv (not just spot-checked):
+    all 78 PR municipios have exactly one such record, county_fips-matched
+    to that municipio, with the base name identical to the municipio name
+    once "zona urbana" / "Municipio" are stripped -- see
+    tests/test_plan_location.py::test_every_pr_municipio_has_exactly_one_zona_urbana_place.
+    Same shape as _saint_variants: a systematic suffix transformation, not
+    a per-name alias table -- a plain dict miss for every non-PR name."""
+    return [city_norm + " zona urbana"]
+
+
 def _city_candidates(city_norm: str) -> list[tuple[str, str]]:
     """All (state, place_key) candidates for a normalized city name, folding
-    in Saint/St. spellings and the Census legal-name aliases. Runs before any
-    fuzzy matching so a real metro is never "corrected" into a different city."""
+    in Saint/St. spellings, Puerto Rico's municipio/"zona urbana" naming,
+    and the Census legal-name aliases. Runs before any fuzzy matching so a
+    real metro is never "corrected" into a different city."""
     matches = list(_places_by_city.get(city_norm, []))
     for variant in _saint_variants(city_norm):
+        for cand in _places_by_city.get(variant, []):
+            if cand not in matches:
+                matches.append(cand)
+    for variant in _pr_municipio_variants(city_norm):
         for cand in _places_by_city.get(variant, []):
             if cand not in matches:
                 matches.append(cand)
