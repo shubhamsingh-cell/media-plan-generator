@@ -11,15 +11,22 @@ UNBLOCK: Google AI Studio / Cloud Console -> Credentials -> that key -> API
 restrictions -> allow the Generative Language API embed methods (or remove
 method restrictions). RE-FLIP: change get_embedding_provider()'s default
 return back to EMBEDDING_PROVIDER_GEMINI (one line, plus its two default
-tests) and ship; the deploy self-migrates and /api/deploy/ready shows
-indexed_documents ~6.2K on success.
+tests) and ship; the deploy self-migrates and /api/deploy/ready's
+`qdrant_point_count` climbs to ~6.2K on success (see §(g)'s Verify section
+for why that field, not `indexed_documents`, is the one to poll).
+
+**Meanwhile (2026-08-04):** Voyage — the provider serving prod this whole
+time — got its own model succession, `voyage-3-lite` → `voyage-4-lite`
+(512-dim → 1024-dim default), independent of and unblocked by the Gemini
+item above. See §(g) below.
 
 ## (a) Why
 
-Nova's vector search has been running on Voyage AI (`voyage-3-lite`,
-512-dim) with a self-imposed `_VOYAGE_RPM_LIMIT = 10` requests/minute
-(`vector_search.py`) — a conservative estimate, not a documented account
-ceiling, but it is the wall search throughput hits today.
+Nova's vector search has been running on Voyage AI (default now
+`voyage-4-lite`, 1024-dim; `voyage-3-lite`, 512-dim, is the legacy
+rollback target — see §(g)) with a self-imposed `_VOYAGE_RPM_LIMIT = 10`
+requests/minute (`vector_search.py`) — a conservative estimate, not a
+documented account ceiling, but it is the wall search throughput hits today.
 
 Separately, the two obvious "free, already in the stack" alternatives are
 both dead:
@@ -152,3 +159,105 @@ field, and response-shape validation all stay the same).
   tool. `scripts/populate_qdrant.py`, an even older one-off with the same
   hardcoded-collection hazard, was deleted for this reason (recoverable from
   git history) — `reindex_embeddings.py` replaces it too.
+
+## (g) Voyage model succession (2026-08-04)
+
+While Gemini embeddings wait on the Google-console key unblock in (a)/(f)
+above, Voyage — the embedding provider that has stayed live and default this
+whole time — got its own model succession, independent of the Gemini
+cutover:
+
+- **Default now `voyage-4-lite` / 1024-dim** (`VOYAGE_MODEL` env-overridable),
+  serving from its own collection: `nova_knowledge__voyage-4-lite_1024`. No
+  `output_dimension` param is sent — the API's own default (1024) is what
+  comes back; validated on every response the same way `_GEMINI_EMBED_DIM`
+  is.
+- **`voyage-3-lite` (fixed 512-dim) is the instant-rollback target**, kept
+  alive as the legacy space at the bare `nova_knowledge` collection name —
+  the SAME collection production served from before this succession. Roll
+  back with `VOYAGE_MODEL=voyage-3-lite` (env, no deploy) or by reverting
+  `_VOYAGE_MODEL`'s code default (one line, then ship).
+- **`input_type` ("query"/"document")** is now threaded through the whole
+  Voyage path: `embed_text` (chat/search queries) sends `"query"`,
+  `build_index` (KB chunk indexing) sends `"document"`, and the disk-cache
+  key is namespaced by `input_type` too so a query-typed and a
+  document-typed embedding of the same text never collide.
+- **Batch sizes:** a raise from 32/16 to 128/128 (`_VOYAGE_MAX_BATCH` /
+  `_VOYAGE_STARTUP_BATCH`) was proposed alongside this migration but was
+  **not** part of the approved scope (approved scope was: blue/green
+  collection scoping extended to Voyage, plus the voyage-3-lite →
+  voyage-4-lite model swap — a separate rate-limit-raise option was
+  explicitly declined) and was reverted before shipping: it quadrupled the
+  per-request payload against an unchanged `_VOYAGE_TIMEOUT = 20`s with no
+  retry path for the resulting socket timeout (a `URLError` whose `.reason`
+  doesn't match the existing SSL-retry branch), which could degrade a whole
+  `build_index` run to BM25-only on one slow request. Batch sizes remain
+  32/16, as they were before this migration.
+- **Self-migrates on deploy** exactly like the Gemini cutover in (b): startup
+  indexing fills the new `nova_knowledge__voyage-4-lite_1024` collection on
+  first boot — a brand-new, empty, model-scoped collection, so every point
+  it receives gets a deterministic ID from its very first write. **The
+  legacy `nova_knowledge` collection is NOT a clean overwrite target for a
+  rollback**, though: every point currently in it was written under the OLD
+  scheme (`abs(hash(entry["id"])) % (2**63)`, randomized per Python process,
+  accumulated since 2026-04-02 across many deploys with no two processes
+  ever agreeing on the same ID for the same chunk). The new deterministic
+  IDs (md5-derived, shared by `build_index` and
+  `scripts/reindex_embeddings.py`) will never collide with any of those old
+  random IDs, so `VOYAGE_MODEL=voyage-3-lite` rollback does not overwrite
+  the legacy points in place — it ADDS a full fresh copy of the corpus
+  (~6,227 points) on top of whatever `nova_knowledge` already accumulated,
+  every time it runs.
+  **Prerequisite for a clean instant rollback (one-time, not yet done, needs
+  prod credentials this environment does not have):** before relying on
+  `VOYAGE_MODEL=voyage-3-lite` as an instant, in-place rollback, someone with
+  `QDRANT_URL`/`QDRANT_API_KEY`/`VOYAGE_API_KEY` needs to run, once:
+  ```
+  VOYAGE_MODEL=voyage-3-lite python3 scripts/reindex_embeddings.py
+  ```
+  (recreate is the script's default — no `--recreate` flag exists or is
+  needed; pass `--no-recreate` only if you deliberately want incremental
+  behavior instead). This drops and rebuilds `nova_knowledge` from scratch
+  under the deterministic ID space, collapsing it onto one point per chunk
+  before any future rollback can rely on overwriting in place.
+  **This step does NOT block or affect the voyage-4-lite migration going
+  live today** — the forward migration writes into
+  `nova_knowledge__voyage-4-lite_1024`, a fresh collection nothing else has
+  ever written to, so it is clean from its first write regardless of
+  whether this legacy-collection cleanup has run.
+
+**Verify** via `GET /api/deploy/ready`'s `embedding` block. `indexed_documents`
+(`len(vector_search._index)`) is an in-process counter: this app's production
+deploy (gunicorn `--preload`, see `render.yaml`/`Procfile`) runs startup
+indexing once in the master before fork, and forked workers — the ones that
+actually answer this request — inherit whatever `_index` was at fork time and
+never see it update again (threads don't survive fork), so this field can
+read permanently stale/zero in every worker regardless of whether indexing
+succeeded. **Poll `qdrant_point_count` instead** — a live count query against
+Qdrant itself (external service, correct no matter which process/worker
+asks):
+```json
+"embedding": {
+  "provider": "voyage",
+  "model": "voyage-4-lite",
+  "dim": 1024,
+  "collection": "nova_knowledge__voyage-4-lite_1024",
+  "indexed_documents": 0,
+  "qdrant_point_count": 6227,
+  "last_embed_error": null
+}
+```
+`qdrant_point_count` climbing to roughly the corpus size (~6.2K chunks) over
+the first few minutes after deploy confirms startup indexing filled the new
+space, independent of which worker answers the poll; `indexed_documents`
+above is left at a realistic in-process value (0) rather than a number this
+field cannot actually reach on the serving path, to avoid re-encoding the
+same wrong assumption this section used to make. `last_embed_error: null`
+confirms no embed call has failed.
+
+`qdrant_point_count` is a workaround (an accurate parallel signal), not a
+fix for `indexed_documents` itself -- it does not touch the `--preload`
+fork-timing mechanics described above. A deeper root-cause fix for that
+underlying staleness is being tracked and validated independently (see
+memory `mpg-indexed-documents-stuck-at-zero.md`); this section does not
+supersede or depend on it.

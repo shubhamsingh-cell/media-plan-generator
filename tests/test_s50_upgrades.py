@@ -1013,10 +1013,13 @@ class TestTier4LiveAPI:
         data = payload.get("data") or []
         assert data, f"Voyage embed payload empty: {raw[:200]}"
         embedding = data[0].get("embedding") or []
-        # voyage-3-lite -> 512 dims (per _QDRANT_VECTOR_DIM = 512).
-        assert len(embedding) == vector_search._QDRANT_VECTOR_DIM, (
-            f"Embedding dim mismatch: got {len(embedding)} "
-            f"expected {vector_search._QDRANT_VECTOR_DIM}"
+        # The active Voyage model's default width (1024 for voyage-4-lite,
+        # 512 for the legacy voyage-3-lite rollback target) -- read
+        # dynamically rather than hardcoded so this live-tier test doesn't
+        # go stale on a model succession.
+        expected_dim = vector_search._voyage_embed_dim()
+        assert len(embedding) == expected_dim, (
+            f"Embedding dim mismatch: got {len(embedding)} " f"expected {expected_dim}"
         )
 
     def test_voyage_rerank_live(self) -> None:

@@ -108,6 +108,11 @@ def _voyage_isolated():
     fake = _CountingUrlopen()
     patches = [
         mock.patch.dict("os.environ", {"NOVA_SLOT_DIR": slot_dir}, clear=False),
+        # Pin the legacy voyage-3-lite model (512-dim): this fixture's fake
+        # embeddings response is a fixed 512-dim stub, and this module is
+        # about the rerank-vs-embed window independence, not the voyage-4-
+        # lite model succession, so pin rather than widen the stub.
+        mock.patch.object(vs, "_VOYAGE_MODEL", "voyage-3-lite"),
         mock.patch.object(vs, "_VOYAGE_API_KEY", "k"),
         mock.patch.object(vs.urllib.request, "urlopen", fake),
         mock.patch.object(vs, "_load_embedding_cache", mock.Mock()),

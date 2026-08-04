@@ -5,8 +5,11 @@ Layer-3 #11: this script (re)builds the ACTIVE embedding space's Qdrant
 collection (see vector_search._active_collection) using whichever embedding
 provider EMBEDDING_PROVIDER selects:
 
-    EMBEDDING_PROVIDER=voyage  (default)  -> voyage-3-lite, 512-dim,
-                                              collection "nova_knowledge"
+    EMBEDDING_PROVIDER=voyage  (default)  -> voyage-4-lite, 1024-dim,
+                                              collection
+                                              "nova_knowledge__voyage-4-lite_1024"
+                                              (VOYAGE_MODEL=voyage-3-lite for
+                                              the legacy 512-dim "nova_knowledge")
     EMBEDDING_PROVIDER=gemini             -> gemini-embedding-2, 768-dim,
                                               collection
                                               "nova_knowledge__gemini-embedding-2_768"
@@ -33,9 +36,12 @@ end:
     4. Upsert vectors + payload into Qdrant with deterministic point IDs, so
        re-running the script is idempotent (same chunk -> same point ID).
 
-Idempotency: deterministic point IDs (md5 of doc_id) mean a re-run overwrites
-points in place rather than duplicating them. With --no-recreate the script is
-fully incremental.
+Idempotency: deterministic point IDs (md5 of doc_id, via
+vector_search._deterministic_point_id -- the SAME helper vector_search's own
+build_index calls, so a startup index and a manual reindex of the same doc_id
+land on the identical point rather than each keeping its own disjoint id
+space) mean a re-run overwrites points in place rather than duplicating them.
+With --no-recreate the script is fully incremental.
 
 Env vars required at RUN TIME:
     QDRANT_URL        -- Qdrant Cloud cluster URL          (WRITE access needed)
@@ -53,7 +59,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import logging
 import sys
@@ -73,17 +78,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 logger = logging.getLogger("reindex_embeddings")
-
-
-def _deterministic_point_id(doc_id: str) -> int:
-    """Stable int64 Qdrant point ID derived from a document id.
-
-    Using a content-addressed ID (not a random/sequential one) makes re-runs
-    idempotent: the same chunk always maps to the same point, so an upsert
-    overwrites in place instead of creating duplicates.
-    """
-    digest = hashlib.md5(doc_id.encode("utf-8")).hexdigest()
-    return int(digest[:15], 16)  # 60 bits -- safely within int64
 
 
 def _collect_documents(limit: int | None = None) -> list[dict]:
@@ -194,7 +188,7 @@ def _embed_and_upsert(documents: list[dict], batch_size: int) -> tuple[int, int]
         texts = [d["text"] for d in batch]
 
         t0 = time.monotonic()
-        vectors = vs.embed_batch(texts)
+        vectors = vs.embed_batch(texts, input_type="document")
         elapsed = time.monotonic() - t0
 
         if not vectors or len(vectors) != len(batch):
@@ -209,7 +203,7 @@ def _embed_and_upsert(documents: list[dict], batch_size: int) -> tuple[int, int]
         embedded += len(vectors)
         points = [
             {
-                "id": _deterministic_point_id(doc["id"]),
+                "id": vs._deterministic_point_id(doc["id"]),
                 "vector": vec,
                 "payload": {
                     "doc_id": doc["id"],

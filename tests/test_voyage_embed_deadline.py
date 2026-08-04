@@ -163,6 +163,12 @@ def _voyage_isolated(index=None, min_delay=None):
             {"NOVA_SLOT_DIR": slot_dir, "EMBEDDING_PROVIDER": "voyage"},
             clear=False,
         ),
+        # Pin the LEGACY voyage-3-lite model (512-dim) rather than widening
+        # every fake response below to 1024: this module is about deadline
+        # propagation, not the model succession, and _CountingUrlopen's
+        # fixed 512-dim stub would otherwise trip the voyage-4-lite-default
+        # response-dim guard added in the same change that introduced it.
+        mock.patch.object(vs, "_VOYAGE_MODEL", "voyage-3-lite"),
         mock.patch.object(vs, "_VOYAGE_API_KEY", "k"),
         mock.patch.object(vs.urllib.request, "urlopen", fake),
         mock.patch.object(vs, "_cache_put_locked", lambda key, value: None),

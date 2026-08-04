@@ -110,9 +110,11 @@ def test_provider_value_is_case_insensitive_and_safe():
         assert vs.get_embedding_provider() == "voyage"
     # Unknown values resolve to the DEFAULT provider (voyage while the prod
     # GEMINI_API_KEY blocks embeddings) -- never crash, never half-recognized.
+    # Dim is read dynamically (not hardcoded) because this test is about
+    # provider-string resolution, not about which Voyage model is active.
     with _env("openai"):
         assert vs.get_embedding_provider() == "voyage"
-        assert vs._active_vector_dim() == 512
+        assert vs._active_vector_dim() == vs._voyage_embed_dim()
 
 
 # ── Dimension selection drives Qdrant collection creation ────────────────────
@@ -140,6 +142,9 @@ def test_collection_created_at_gemini_dim():
 
 
 def test_collection_created_at_voyage_dim():
+    """Collection creation must use whichever dim the active Voyage model
+    resolves to (1024 for the voyage-4-lite default) -- read dynamically so
+    this test doesn't hardcode a model-specific width."""
     captured = {}
 
     def fake_request(method, path, body=None, timeout=vs._QDRANT_TIMEOUT):
@@ -155,6 +160,29 @@ def test_collection_created_at_voyage_dim():
     ):
         assert vs._qdrant_ensure_collection() is True
 
+    assert captured["body"]["vectors"]["size"] == vs._voyage_embed_dim()
+
+
+def test_collection_created_at_voyage_3_lite_legacy_dim():
+    """The legacy rollback target (voyage-3-lite) must still create its
+    collection at the fixed 512-dim width it has always used."""
+    captured = {}
+
+    def fake_request(method, path, body=None, timeout=vs._QDRANT_TIMEOUT):
+        if method == "GET":
+            return {"result": None}
+        captured["body"] = body
+        return {"result": True}
+
+    with _env("voyage"), mock.patch.object(
+        vs, "_VOYAGE_MODEL", "voyage-3-lite"
+    ), mock.patch.multiple(
+        vs,
+        _qdrant_is_configured=mock.Mock(return_value=True),
+        _qdrant_request=mock.Mock(side_effect=fake_request),
+    ):
+        assert vs._qdrant_ensure_collection() is True
+
     assert captured["body"]["vectors"]["size"] == 512
 
 
@@ -162,9 +190,12 @@ def test_collection_created_at_voyage_dim():
 
 
 def test_active_collection_voyage_is_legacy_name():
-    # Voyage keeps the bare legacy name -- it's the collection production has
-    # always served from; renaming it would force a needless reindex.
-    with _env("voyage"):
+    # Only voyage-3-lite (the pre-succession model) keeps the bare legacy
+    # name -- it's the collection production served from before the
+    # voyage-4-lite default, kept as the instant-rollback target. Pin the
+    # model explicitly: the "voyage" provider alone no longer implies the
+    # legacy name now that voyage-4-lite is the default model.
+    with _env("voyage"), mock.patch.object(vs, "_VOYAGE_MODEL", "voyage-3-lite"):
         assert vs._active_collection() == "nova_knowledge"
 
 
@@ -488,3 +519,127 @@ def test_deploy_ready_surfaces_last_embed_error():
     emb = (captured.payload or {}).get("embedding")
     assert emb is not None
     assert emb["last_embed_error"] == "gemini HTTP 400: something"
+
+
+# ── Qdrant collection point count (fork-immune readiness signal) ────────────
+#
+# /api/deploy/ready's indexed_documents field is len(vector_search._index) --
+# an in-process counter. Under this app's production deploy (gunicorn
+# --preload), the deferred-startup indexing thread runs once in the master
+# before fork, and forked workers (the ones actually serving requests)
+# inherit whatever _index was at fork time and never see it update again.
+# _qdrant_collection_point_count() asks Qdrant itself -- an external service,
+# so its answer is correct no matter which process/worker asks.
+
+
+def test_qdrant_point_count_queries_active_collection():
+    captured = {}
+
+    def fake_request(method, path, body=None, timeout=vs._QDRANT_TIMEOUT):
+        captured["method"] = method
+        captured["path"] = path
+        captured["body"] = body
+        return {"result": {"count": 6227}, "status": "ok", "time": 0.001}
+
+    with _env("voyage"), mock.patch.object(
+        vs, "_VOYAGE_MODEL", "voyage-4-lite"
+    ), mock.patch.multiple(
+        vs,
+        _qdrant_is_configured=mock.Mock(return_value=True),
+        _qdrant_request=mock.Mock(side_effect=fake_request),
+    ):
+        assert vs._qdrant_collection_point_count() == 6227
+
+    assert captured["method"] == "POST"
+    assert (
+        captured["path"]
+        == "/collections/nova_knowledge__voyage-4-lite_1024/points/count"
+    )
+    assert captured["body"] == {"exact": True}
+
+
+def test_qdrant_point_count_not_configured_returns_none_without_a_request():
+    """Deliberately gated on _qdrant_is_configured() (env presence), NOT
+    _qdrant_available -- the latter is only set True inside whichever
+    process ran _qdrant_ensure_collection() (the master), so a forked
+    worker's copy is exactly as frozen-at-fork as _index. Gating on it here
+    would just reintroduce the bug this function exists to route around."""
+    with mock.patch.multiple(
+        vs,
+        _qdrant_is_configured=mock.Mock(return_value=False),
+        _qdrant_request=mock.Mock(side_effect=AssertionError("must not be called")),
+    ):
+        assert vs._qdrant_collection_point_count() is None
+
+
+def test_qdrant_point_count_returns_none_on_request_failure():
+    with mock.patch.multiple(
+        vs,
+        _qdrant_is_configured=mock.Mock(return_value=True),
+        _qdrant_request=mock.Mock(return_value=None),
+    ):
+        assert vs._qdrant_collection_point_count() is None
+
+
+def test_qdrant_point_count_returns_none_on_malformed_response():
+    """A response missing the expected result.count shape must degrade to
+    None, never raise -- a readiness endpoint cannot 500 because Qdrant
+    changed its response shape or returned something unexpected."""
+    for bad_response in ({}, {"result": {}}, {"result": {"count": "not-an-int"}}):
+        with mock.patch.multiple(
+            vs,
+            _qdrant_is_configured=mock.Mock(return_value=True),
+            _qdrant_request=mock.Mock(return_value=bad_response),
+        ):
+            assert vs._qdrant_collection_point_count() is None
+
+
+def test_deploy_ready_surfaces_qdrant_point_count():
+    """The readiness payload must carry qdrant_point_count ALONGSIDE (never
+    instead of) indexed_documents -- the new field is the authoritative
+    fork-immune signal, the old one stays for backward compat / the
+    in-process view it does correctly reflect."""
+    import routes.health as rh
+
+    captured = _CapturingHandler()
+
+    def _fake_send(handler, result, status_code=200):
+        captured.payload = result
+        captured.status = status_code
+
+    with mock.patch.object(rh, "_send_json_response", _fake_send), mock.patch.object(
+        vs, "_index", [{"id": "d1"}, {"id": "d2"}]
+    ), mock.patch.object(vs, "_qdrant_collection_point_count", return_value=6227), _env(
+        "gemini"
+    ):
+        rh._handle_deploy_ready(handler=None, path="/api/deploy/ready", parsed=None)
+
+    emb = (captured.payload or {}).get("embedding")
+    assert emb is not None
+    assert emb["qdrant_point_count"] == 6227
+    assert emb["indexed_documents"] == 2  # old field still present, unchanged
+
+
+def test_deploy_ready_qdrant_point_count_none_when_qdrant_unavailable():
+    """Qdrant unreachable/unconfigured must not break the readiness probe --
+    qdrant_point_count degrades to None while the rest of the payload (and
+    the in-process indexed_documents fallback) stays intact."""
+    import routes.health as rh
+
+    captured = _CapturingHandler()
+
+    def _fake_send(handler, result, status_code=200):
+        captured.payload = result
+        captured.status = status_code
+
+    with mock.patch.object(rh, "_send_json_response", _fake_send), mock.patch.object(
+        vs, "_index", [{"id": "d1"}]
+    ), mock.patch.object(vs, "_qdrant_collection_point_count", return_value=None), _env(
+        "gemini"
+    ):
+        rh._handle_deploy_ready(handler=None, path="/api/deploy/ready", parsed=None)
+
+    emb = (captured.payload or {}).get("embedding")
+    assert emb is not None
+    assert emb["qdrant_point_count"] is None
+    assert emb["indexed_documents"] == 1

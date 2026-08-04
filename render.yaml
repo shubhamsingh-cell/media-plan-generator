@@ -28,12 +28,17 @@ services:
         value: INFO
       - key: RENDER
         value: "true"
-      # Embedding space for Nova vector search. "voyage" = legacy voyage-3-lite
-      # 512-dim (collection nova_knowledge). Flip to "gemini" to serve from
+      # Embedding space for Nova vector search. "voyage" (the live default) =
+      # voyage-4-lite 1024-dim (collection nova_knowledge__voyage-4-lite_1024).
+      # VOYAGE_MODEL=voyage-3-lite is the instant-rollback target: 512-dim,
+      # the legacy "nova_knowledge" collection. Flip to "gemini" to serve from
       # gemini-embedding-2 768-dim (model-scoped collection; self-migrates on
-      # deploy via startup indexing). See docs/EMBEDDING_CUTOVER_RUNBOOK.md.
+      # deploy via startup indexing) -- currently blocked, prod GEMINI_API_KEY
+      # 403s on embed calls. See docs/EMBEDDING_CUTOVER_RUNBOOK.md §(b): this
+      # value is documentation only -- Render does not apply this
+      # dashboard-managed service's render.yaml envVars.
       - key: EMBEDDING_PROVIDER
-        value: gemini
+        value: voyage
       # --- Secrets (set via Render dashboard, not committed) ---
       - key: ADMIN_API_KEY
         sync: false  # Must be set in Render dashboard

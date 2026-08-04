@@ -1585,11 +1585,22 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
 
     # Embedding-space observability. The detailed /api/health is admin-gated
     # (Bug #9), which left provider cutovers unverifiable from outside; these
-    # are public-safe (model names + an in-memory counter, no secrets) and
-    # zero-I/O (config reads + len(), never a Qdrant/API call), so they cannot
-    # slow the readiness probe. indexed_documents is the in-memory vector tier
-    # filled by startup indexing -- it climbing from 0 to the corpus size is
-    # the observable proof that a flipped provider actually built its index.
+    # are public-safe (model names + an in-memory counter, no secrets), so
+    # they cannot leak anything sensitive on the readiness probe.
+    # indexed_documents is the in-memory vector tier filled by startup
+    # indexing -- BUT it is NOT fork-immune: this app's production deploy
+    # (gunicorn --preload) runs startup indexing once in the master process
+    # before fork, and forked workers (the ones that actually serve this
+    # request) inherit whatever _index was at fork time and never see it
+    # update again, so this field can read permanently stale/zero in every
+    # worker regardless of whether indexing actually succeeded. Kept for
+    # backward compatibility / the in-process signal it does correctly
+    # reflect (the master's own view, or the dev ThreadedHTTPServer path
+    # where there is no fork at all) -- just not relied on as the ONLY
+    # signal. qdrant_point_count is the authoritative one: a single
+    # lightweight query against the external Qdrant service, correct
+    # regardless of which process/worker asks or when it forked (an
+    # acceptable, expected I/O cost on a readiness endpoint, not a hot path).
     try:
         import vector_search as _vs
 
@@ -1599,6 +1610,7 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
             "dim": _vs._active_vector_dim(),
             "collection": _vs._active_collection(),
             "indexed_documents": len(_vs._index),
+            "qdrant_point_count": _vs._qdrant_collection_point_count(),
             # Key-redacted, length-capped reason for the most recent embed
             # failure (None after a fully successful embed run). Added after
             # the 2026-07-21 cutover left indexed_documents stuck at 0 with

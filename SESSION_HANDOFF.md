@@ -123,7 +123,17 @@ bump · architecture design doc · **keystone accessor** `get_real_outcomes()` �
   #4 KB gap-fill · #5 structured-output primitive · #6 typed schema · #7 excel
   provenance · #10 MCP server · #13 eval gate (**now also runs in CI** + pytest
   suite in CI) · #14 agentic DESIGN · #16 keystone
-- 🟡 #11 Gemini embeddings — cutover EXECUTED then ROLLED BACK 2026-07-21/22: prod GEMINI_API_KEY 403-blocks BatchEmbedContents (Google-console API restriction). **Needs you:** unblock embed methods on the key, then say the word — re-flip is a one-line code-default change (see docs/EMBEDDING_CUTOVER_RUNBOOK.md). All machinery live: gemini-embedding-2 target, blue/green collections, self-migrating deploys, public verify via /api/deploy/ready embedding block. The prior instruction
+- 🟢 Voyage model succession (2026-08-04): `voyage-4-lite` (1024-dim) is now
+  the LIVE default, in its own blue/green collection
+  (`nova_knowledge__voyage-4-lite_1024`); `voyage-3-lite` (512-dim, the old
+  `nova_knowledge` collection) is the instant-rollback target via
+  `VOYAGE_MODEL=voyage-3-lite`. `input_type` ("query"/"document") is now
+  threaded through the whole path, batch sizes raised 32/16 → 128/128, and
+  the Gemini-path dim-validation + `last_embed_error` observability now has a
+  Voyage-side parity implementation. See docs/EMBEDDING_CUTOVER_RUNBOOK.md §(g).
+- 🟡 #11 Gemini embeddings — STILL awaiting the Google-console key unblock;
+  unaffected by the Voyage succession above (Voyage stayed the serving
+  default throughout). cutover EXECUTED then ROLLED BACK 2026-07-21/22: prod GEMINI_API_KEY 403-blocks BatchEmbedContents (Google-console API restriction). **Needs you:** unblock embed methods on the key, then say the word — re-flip is a one-line code-default change (see docs/EMBEDDING_CUTOVER_RUNBOOK.md). All machinery live: gemini-embedding-2 target, blue/green collections, self-migrating deploys, public verify via /api/deploy/ready embedding block. The prior instruction
   here (reindex script + set env in Render dashboard) is **superseded and was
   DANGEROUS as written**: it targeted `text-embedding-004`, which Google shut
   down 2026-01-14, and — before the collection-scoping fix below — a

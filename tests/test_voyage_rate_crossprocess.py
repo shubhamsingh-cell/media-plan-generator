@@ -203,6 +203,10 @@ def test_corrupt_window_file_is_tolerated():
 def test_embed_batch_routes_through_shared_limiter():
     # embed_batch (voyage default) must call _voyage_acquire_send_slot before
     # hitting urlopen -- proving the limiter is on the live request path.
+    # Pinned to the legacy voyage-3-lite model (512-dim) rather than widening
+    # the stub to 1024: this test is about the rate limiter, not the model
+    # succession, and the fixed-512 stub would otherwise trip the
+    # voyage-4-lite-default response-dim guard.
     vecs = [[0.5] * 512]
     with _SlotDir(), _no_cache(), mock.patch.dict(
         # Explicit since the 2026-07-21 cutover made gemini the default:
@@ -210,7 +214,9 @@ def test_embed_batch_routes_through_shared_limiter():
         "os.environ",
         {"EMBEDDING_PROVIDER": "voyage"},
         clear=False,
-    ), mock.patch.object(vs, "_VOYAGE_API_KEY", "k"), mock.patch.object(
+    ), mock.patch.object(vs, "_VOYAGE_MODEL", "voyage-3-lite"), mock.patch.object(
+        vs, "_VOYAGE_API_KEY", "k"
+    ), mock.patch.object(
         vs.time, "sleep"
     ), mock.patch.object(
         vs, "_voyage_acquire_send_slot", wraps=vs._voyage_acquire_send_slot

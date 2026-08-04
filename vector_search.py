@@ -30,7 +30,10 @@ the Nova knowledge base.
 
 Embedding provider switch:
     EMBEDDING_PROVIDER selects which embedding backend to use:
-        "voyage"            -- Voyage AI voyage-3-lite, 512-dim (legacy path)
+        "voyage"            -- Voyage AI voyage-4-lite (VOYAGE_MODEL
+                               overridable), 1024-dim default; voyage-3-lite
+                               (fixed 512-dim) is the legacy space, kept as
+                               the instant-rollback target
         "gemini" (default)  -- Google gemini-embedding-2 (GEMINI_EMBED_MODEL
                                overridable), 768-dim via outputDimensionality,
                                reuses the GEMINI_API_KEY already in the stack
@@ -53,7 +56,9 @@ APIs:
 
 Env vars:
     EMBEDDING_PROVIDER -- "voyage" (default) or "gemini"
-    VOYAGE_API_KEY  -- Voyage AI embeddings (200M free tokens)
+    VOYAGE_MODEL    -- Voyage embedding model (default voyage-4-lite; 200M
+                       free tokens/account -- voyage-3-lite has none)
+    VOYAGE_API_KEY  -- Voyage AI embeddings
     GEMINI_API_KEY  -- Google Gemini embeddings (free; same key as llm_router)
     QDRANT_URL      -- Qdrant Cloud cluster URL
     QDRANT_API_KEY  -- Qdrant Cloud API key
@@ -98,14 +103,46 @@ logger = logging.getLogger(__name__)
 
 # ── Configuration ────────────────────────────────────────────────────────────
 _VOYAGE_API_URL = "https://api.voyageai.com/v1/embeddings"
-_VOYAGE_MODEL = "voyage-3-lite"  # Good balance of quality/speed/cost
-# S50 NOTE (May 2026): voyage-4-large/lite is industry's first shared-embedding-
-# space pair (~6x cheaper queries via voyage-4-lite, +14.05% over OpenAI v3-large
-# per Voyage Jan 2026 benchmarks). MIGRATION REQUIRES Qdrant reindex because
-# voyage-3 and voyage-4 are different embedding spaces. To migrate:
-#   1. Set VOYAGE_MODEL=voyage-4-lite in env
-#   2. Run scripts/migrate_voyage_4.py (see file for steps)
-#   3. Verify recall@5 vs old index before cutover
+_VOYAGE_MODEL = os.environ.get("VOYAGE_MODEL") or "voyage-4-lite"
+# VOYAGE MODEL SUCCESSION (2026-08-04): voyage-4-lite is now the default --
+# native/default dim 1024 (2048/512/256 are available via output_dimension,
+# but we deliberately send NO dimension param and take the 1024 default).
+# voyage-3-lite (fixed 512-dim) is the legacy embedding space, kept as the
+# INSTANT ROLLBACK target: set VOYAGE_MODEL=voyage-3-lite (env override) or
+# revert this line's default. Each model gets its own blue/green Qdrant
+# collection (see _active_collection) and cache namespace (see
+# _text_cache_key), same succession pattern as GEMINI_EMBED_MODEL -- this is
+# config, not surgery. voyage-4-lite also carries 200M free embedding
+# tokens/account (voyage-3-lite has none); both are $0.02/1M after.
+_VOYAGE_MODEL_DIMS = {"voyage-3-lite": 512, "voyage-4-lite": 1024}
+
+
+def _voyage_embed_dim() -> int:
+    """Return the embedding width for the active Voyage model.
+
+    Known models resolve from _VOYAGE_MODEL_DIMS; an unrecognized
+    VOYAGE_MODEL (a future succession not yet added to the map) falls back to
+    VOYAGE_EMBED_DIM (env override) or 1024 (voyage-4-lite's default) rather
+    than raising, so an env-only model bump degrades to "assume the new
+    default" instead of crashing embedding.
+    """
+    return _VOYAGE_MODEL_DIMS.get(_VOYAGE_MODEL) or int(
+        os.environ.get("VOYAGE_EMBED_DIM") or 1024
+    )
+
+
+def _voyage_input_type(input_type: str | None) -> str | None:
+    """Resolve the input_type actually sent/cached for the active model.
+
+    voyage-3-lite is the FROZEN legacy space: it was indexed AND cached
+    without input_type, so keep it untyped or the designated rollback target
+    becomes a different embedding space than the vectors already on disk.
+    Every other (current or future) model passes input_type through
+    unchanged.
+    """
+    return None if _VOYAGE_MODEL == "voyage-3-lite" else input_type
+
+
 _VOYAGE_RERANK_URL = "https://api.voyageai.com/v1/rerank"
 _VOYAGE_RERANK_MODEL = "rerank-2.5-lite"  # +12.7% MAIR vs Cohere v3.5, same $0.05/1M
 _VOYAGE_RERANK_TIMEOUT = 10  # seconds (rerank is faster than embedding)
@@ -299,14 +336,15 @@ def get_active_embedding_model() -> str:
 def _active_vector_dim() -> int:
     """Return the Qdrant vector dimension for the active embedding provider.
 
-    Voyage voyage-3-lite is 512-dim; the Gemini path requests
-    _GEMINI_EMBED_DIM (768) via outputDimensionality. The Qdrant collection
-    must be (re)created at this dimension -- mismatched dims are rejected by
-    Qdrant on upsert.
+    Voyage resolves via _voyage_embed_dim() (1024 for the default
+    voyage-4-lite, 512 for the legacy voyage-3-lite rollback target); the
+    Gemini path requests _GEMINI_EMBED_DIM (768) via outputDimensionality.
+    The Qdrant collection must be (re)created at this dimension -- mismatched
+    dims are rejected by Qdrant on upsert.
     """
     if get_embedding_provider() == EMBEDDING_PROVIDER_GEMINI:
         return _GEMINI_EMBED_DIM
-    return _QDRANT_VECTOR_DIM
+    return _voyage_embed_dim()
 
 
 # ── Embedding disk cache ─────────────────────────────────────────────────────
@@ -368,7 +406,11 @@ _flush_thread_stop = threading.Event()
 _QDRANT_URL: str = os.environ.get("QDRANT_URL") or ""
 _QDRANT_API_KEY: str = os.environ.get("QDRANT_API_KEY") or ""
 _QDRANT_COLLECTION = "nova_knowledge"
-_QDRANT_VECTOR_DIM = 512  # Voyage AI voyage-3-lite produces 512-dim vectors
+# Legacy-space dim only: voyage-3-lite's fixed 512-dim output, kept as the
+# instant-rollback target's known width. The ACTIVE voyage dim is
+# _voyage_embed_dim() (1024 for the voyage-4-lite default) -- this constant
+# is no longer read by _active_vector_dim().
+_QDRANT_VECTOR_DIM = 512
 
 
 def _active_collection() -> str:
@@ -379,18 +421,26 @@ def _active_collection() -> str:
     EMBEDDING_PROVIDER (or GEMINI_EMBED_MODEL) must never write into, or
     destroy, the collection another space is serving from.
 
-    Voyage keeps the legacy bare name because it is the collection production
-    has always served from -- renaming it would force an immediate reindex of
-    the live path for zero benefit. Every non-Voyage space gets a name scoped
-    by model + dimension, so:
-      * flipping to Gemini creates/fills a fresh collection while the Voyage
-        one stays intact -- rollback is an env revert, not a re-embed;
-      * a future model succession (GEMINI_EMBED_MODEL=<new>) auto-scopes a new
-        collection and can never collide with the previous space.
+    The legacy bare name is now pinned to voyage-3-lite SPECIFICALLY, not to
+    "whichever model Voyage is serving" -- it is the collection production
+    served from before the voyage-4-lite succession, kept as the
+    instant-rollback target (VOYAGE_MODEL=voyage-3-lite). Every other space
+    (every other Voyage model, and every Gemini model) gets a name scoped by
+    model + dimension, so:
+      * the voyage-4-lite default creates/fills its own collection while the
+        voyage-3-lite legacy one stays intact -- rollback is an env revert,
+        not a re-embed;
+      * flipping to Gemini likewise creates/fills a fresh collection while
+        Voyage's stays intact;
+      * a future model succession on either provider (VOYAGE_MODEL=<new> or
+        GEMINI_EMBED_MODEL=<new>) auto-scopes a brand new collection and can
+        never collide with the previous space.
     """
     if get_embedding_provider() == EMBEDDING_PROVIDER_GEMINI:
         return f"{_QDRANT_COLLECTION}__{_GEMINI_EMBED_MODEL}_{_GEMINI_EMBED_DIM}"
-    return _QDRANT_COLLECTION
+    if _VOYAGE_MODEL == "voyage-3-lite":
+        return _QDRANT_COLLECTION
+    return f"{_QDRANT_COLLECTION}__{_VOYAGE_MODEL}_{_voyage_embed_dim()}"
 
 
 _QDRANT_TIMEOUT = 15  # seconds
@@ -738,20 +788,38 @@ def _get_api_key() -> str | None:
 # ── Embedding disk cache helpers ─────────────────────────────────────────────
 
 
-def _text_cache_key(text: str) -> str:
+def _text_cache_key(text: str, input_type: str | None = None) -> str:
     """Generate a stable cache key for a text string.
 
     Uses SHA-256 of the text content combined with the active embedding
-    model name so the cache invalidates if the model changes and so vectors
-    from different providers (Voyage 512-dim vs Gemini 768-dim) never collide.
+    model name AND input_type so the cache invalidates if the model changes,
+    vectors from different providers (Voyage 1024-dim vs Gemini 768-dim)
+    never collide, and -- because Voyage's input_type ("query"/"document")
+    makes the server prepend a different retrieval prompt -- a query-typed
+    and a document-typed embedding of the SAME text never share a cache slot
+    either.
+
+    Untyped (input_type falsy, e.g. legacy pre-input_type entries, or the
+    frozen voyage-3-lite rollback space via _voyage_input_type) collapses the
+    input_type segment to empty rather than emitting an empty placeholder, so
+    its key is BYTE-IDENTICAL to the pre-input_type cache format
+    (f"{model}:{text}"). That equivalence is load-bearing: the 4,859/6,227
+    voyage-3-lite entries already on disk were written under that exact
+    format, and rolling back to voyage-3-lite must hit them as cache hits,
+    not treat them as a 100% miss.
 
     Args:
         text: The text to compute a cache key for.
+        input_type: The Voyage input_type ("query", "document", or None) the
+            text was/will be embedded with. Ignored by the Gemini path, but
+            threaded through unconditionally so callers don't need a
+            provider branch.
 
     Returns:
         Hex digest string suitable as a dict key.
     """
-    content = f"{get_active_embedding_model()}:{text}"
+    _seg = f"{input_type}:" if input_type else ""
+    content = f"{get_active_embedding_model()}:{_seg}{text}"
     return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
 
 
@@ -1040,8 +1108,10 @@ def _qdrant_ensure_collection() -> bool:
 
     Uses PUT with on_existing=skip to be idempotent. Sets up cosine
     distance with the correct vector dimension for the *active* embedding
-    provider (512 for Voyage voyage-3-lite, _GEMINI_EMBED_DIM for Gemini),
-    against the *active* collection (_active_collection) -- each embedding
+    provider (_voyage_embed_dim() for Voyage -- 1024 for the voyage-4-lite
+    default, 512 for the legacy voyage-3-lite rollback target;
+    _GEMINI_EMBED_DIM for Gemini), against the *active* collection
+    (_active_collection) -- each embedding
     space owns its own collection, so a provider switch creates a fresh one
     and never mutates the collection another space serves from. A dim
     mismatch inside one space's own collection can therefore only happen if
@@ -1083,6 +1153,30 @@ def _qdrant_ensure_collection() -> bool:
 
     logger.warning("Failed to create Qdrant collection '%s'", collection)
     return False
+
+
+def _deterministic_point_id(doc_id: str) -> int:
+    """Stable int64 Qdrant point ID derived from a document id.
+
+    A content-addressed ID (not Python's per-process-randomized ``hash()``)
+    makes re-indexing idempotent: the same chunk always maps to the same
+    point, so re-embedding it overwrites the existing point in place instead
+    of accumulating a duplicate. Every writer of Qdrant points for this
+    corpus -- build_index (startup indexing) and
+    scripts/reindex_embeddings.py (manual/CI reindex) -- MUST derive point
+    IDs through this one function; two different derivations for the same
+    doc_id would leave two disjoint point sets for the same logical corpus
+    instead of one that overwrites cleanly.
+
+    Args:
+        doc_id: The document's stable string id (e.g. "{filename}:{chunk_id}").
+
+    Returns:
+        A deterministic 60-bit integer, safely within Qdrant's int64 point ID
+        range.
+    """
+    digest = hashlib.md5(doc_id.encode("utf-8"), usedforsecurity=False).hexdigest()
+    return int(digest[:15], 16)  # 60 bits -- safely within int64
 
 
 def _qdrant_upsert_points(
@@ -1165,6 +1259,54 @@ def _qdrant_search(
         )
 
     return results
+
+
+def _qdrant_collection_point_count() -> int | None:
+    """Exact point count of the active Qdrant collection -- a fork-immune
+    readiness signal.
+
+    /api/deploy/ready's ``indexed_documents`` field (``len(_index)``) is an
+    in-process counter: under this app's production deploy (gunicorn
+    --preload, see render.yaml/Procfile), the deferred-startup indexing
+    thread runs once in the gunicorn MASTER before fork, and forked WORKER
+    processes -- the ones that actually answer HTTP requests -- inherit
+    whatever ``_index`` was at fork time and never see it update again
+    (Python threads do not survive fork). So ``indexed_documents`` can read
+    permanently stale/zero in every worker regardless of whether indexing
+    actually succeeded.
+
+    Qdrant is an external service, not in-process state, so asking IT how
+    many points a collection holds is correct no matter which worker (or the
+    master) asks, and no matter when that worker forked. This is deliberately
+    NOT gated on ``_qdrant_available`` -- that flag is itself only set inside
+    whichever process ran ``_qdrant_ensure_collection()`` (the master), so a
+    forked worker's copy is exactly as frozen-at-fork as ``_index`` is; using
+    it here would just reintroduce the same bug in a new field. Gating on
+    ``_qdrant_is_configured()`` instead (a plain env-var check, identical in
+    the master and every worker) means this function always attempts a live
+    query whenever Qdrant credentials are present.
+
+    Returns:
+        The collection's exact point count, or None if Qdrant is not
+        configured, the request fails, or the response has an unexpected
+        shape. Never raises -- a Qdrant hiccup must not break the readiness
+        endpoint that calls this.
+    """
+    if not _qdrant_is_configured():
+        return None
+
+    result = _qdrant_request(
+        "POST",
+        f"/collections/{_active_collection()}/points/count",
+        body={"exact": True},
+    )
+    if result is None:
+        return None
+
+    try:
+        return int(result["result"]["count"])
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 # ── In-memory vector index ───────────────────────────────────────────────────
@@ -1468,36 +1610,55 @@ def _embed_batch_gemini(texts: list[str]) -> list[list[float]] | None:
 
 
 def embed_text(text: str) -> list[float] | None:
-    """Get embedding vector for a single text string via Voyage AI API.
+    """Get embedding vector for a single text string via the active provider.
+
+    This is the QUERY-side embedding path (chat/search queries), so it asks
+    Voyage for a "query"-typed vector -- see embed_batch's input_type param.
 
     Args:
-        text: Text to embed (max ~32K tokens for voyage-3-lite).
+        text: Text to embed (max ~32K tokens for Voyage models).
 
     Returns:
         List of floats (embedding vector), or None on failure.
     """
-    result = embed_batch([text])
+    result = embed_batch([text], input_type="query")
     if result and len(result) > 0:
         return result[0]
     return None
 
 
-def embed_batch(texts: list[str]) -> list[list[float]] | None:
+def embed_batch(
+    texts: list[str], input_type: str | None = None
+) -> list[list[float]] | None:
     """Get embedding vectors for a batch of texts via the active provider.
 
     Routes to Voyage AI (default) or Gemini based on EMBEDDING_PROVIDER.
     Uses a shared disk cache to avoid re-computing embeddings on server
     restart; only texts missing from the cache hit the provider API. The
-    cache key is namespaced by the active model so the two providers'
-    differently-dimensioned vectors never collide.
+    cache key is namespaced by the active model (and input_type) so the two
+    providers' differently-dimensioned vectors, and query- vs document-typed
+    Voyage vectors, never collide.
 
     Args:
         texts: List of texts to embed.
+        input_type: Voyage's asymmetric-retrieval hint -- "query", "document",
+            or None. Passed through to the Voyage payload as input_type
+            (omitted from the payload entirely when None); the Gemini path
+            ignores it. Callers: embed_text (query path) passes "query";
+            build_index (document/chunk path) passes "document".
 
     Returns:
         List of embedding vectors (list[list[float]]), or None on failure.
     """
     global _voyage_last_request
+
+    # Resolve ONCE, up front: _voyage_input_type nulls this out when the
+    # active model is the frozen voyage-3-lite rollback space (it was
+    # indexed and cached untyped). Every cache-key computation below AND the
+    # payload sent to Voyage must use this SAME resolved value -- if the two
+    # ever diverged, the cache key and the payload would describe different
+    # embedding requests for the same call.
+    input_type = _voyage_input_type(input_type)
 
     provider = get_embedding_provider()
 
@@ -1533,7 +1694,7 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
 
     with _embedding_cache_lock:
         for idx, text in enumerate(truncated):
-            key = _text_cache_key(text)
+            key = _text_cache_key(text, input_type)
             cached = _cache_get_locked(key)
             if cached is not None:
                 result_embeddings[idx] = cached
@@ -1567,7 +1728,7 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
             return None
         new_embeddings = gemini_embeddings
     else:
-        new_embeddings = _embed_uncached_voyage(uncached_texts)
+        new_embeddings = _embed_uncached_voyage(uncached_texts, input_type)
         if new_embeddings is None:
             return None
 
@@ -1589,7 +1750,7 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
             result_embeddings[original_idx] = embedding
             # Save to cache under LRU bound (evicts oldest on overflow,
             # bumps dirty counter for the flush timer).
-            key = _text_cache_key(truncated[original_idx])
+            key = _text_cache_key(truncated[original_idx], input_type)
             _cache_put_locked(key, embedding)
             cache_updated = True
 
@@ -1625,7 +1786,9 @@ def embed_batch(texts: list[str]) -> list[list[float]] | None:
     return final
 
 
-def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | None:
+def _embed_uncached_voyage(
+    uncached_texts: list[str], input_type: str | None = None
+) -> list[list[float]] | None:
     """Compute embeddings for uncached texts via the Voyage AI API.
 
     Extracted from embed_batch so the provider switch (Voyage vs Gemini) only
@@ -1635,6 +1798,11 @@ def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | Non
 
     Args:
         uncached_texts: Texts that missed the disk cache.
+        input_type: Voyage's "query"/"document"/None retrieval hint. Added to
+            the payload only when not None -- Voyage's FAQ says not to omit
+            it, but omitting it entirely (rather than sending null) is what
+            existing callers that don't pass it get, so behavior for any
+            caller added later without an opinion is unchanged.
 
     Returns:
         List of embedding vectors (order preserved), or None on failure.
@@ -1644,6 +1812,7 @@ def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | Non
         return None
 
     new_embeddings: list[list[float]] = []
+    expected_dim = _voyage_embed_dim()
 
     # Use smaller batch size during startup to reduce 429 risk
     effective_batch_size = (
@@ -1653,10 +1822,12 @@ def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | Non
     for batch_start in range(0, len(uncached_texts), effective_batch_size):
         batch = uncached_texts[batch_start : batch_start + effective_batch_size]
 
-        payload = {
+        payload: dict[str, Any] = {
             "input": batch,
             "model": _VOYAGE_MODEL,
         }
+        if input_type is not None:
+            payload["input_type"] = input_type
 
         # Retry loop with exponential backoff for 429 errors
         for attempt in range(_VOYAGE_MAX_RETRIES + 1):
@@ -1690,6 +1861,37 @@ def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | Non
                 # Sort by index to preserve order
                 embeddings_data.sort(key=lambda x: x.get("index", 0))
                 batch_embeddings = [e.get("embedding") or [] for e in embeddings_data]
+
+                # Hard guarantee on the embedding-space contract, mirroring
+                # the Gemini path's dim check: every vector must be exactly
+                # expected_dim wide. If Voyage ever ignores the implicit
+                # default (model succession, API change) and ships a
+                # different width, caching or upserting it would poison the
+                # model-scoped cache namespace and the dim-sized Qdrant
+                # collection. Failing to None here instead drops the caller
+                # into the BM25/TF-IDF fallback -- degraded but correct, and
+                # loudly logged. Never cache or return a bad-dim batch.
+                bad_dim = next(
+                    (len(v) for v in batch_embeddings if len(v) != expected_dim),
+                    None,
+                )
+                if bad_dim is not None or len(batch_embeddings) != len(batch):
+                    logger.error(
+                        "Voyage embed contract violation: got %d vectors for "
+                        "%d inputs, unexpected dim %s (want %d) -- refusing "
+                        "batch so cache/index stay clean",
+                        len(batch_embeddings),
+                        len(batch),
+                        bad_dim,
+                        expected_dim,
+                    )
+                    _record_embed_error(
+                        f"voyage contract violation: {len(batch_embeddings)} "
+                        f"vectors for {len(batch)} inputs, dim {bad_dim} "
+                        f"(want {expected_dim})"
+                    )
+                    return None
+
                 new_embeddings.extend(batch_embeddings)
                 break  # Success -- exit retry loop
 
@@ -1728,22 +1930,33 @@ def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | Non
                     )
                     time.sleep(backoff_time)
                     continue  # Retry this batch
-                elif e.code == 429:
-                    # Exhausted retries on 429 -- fall back to TF-IDF gracefully
+
+                # Terminal HTTP failure: either 429 with retries exhausted, or
+                # any other status. Read the body (mirrors the Gemini path)
+                # so _record_embed_error captures the same detail Google's
+                # errors get.
+                try:
+                    err_body = e.read().decode("utf-8", errors="replace")
+                except (OSError, ValueError):
+                    err_body = ""
+                if e.code == 429:
                     logger.warning(
                         "Voyage AI 429 rate limit persists after %d retries, "
-                        "falling back to TF-IDF for remaining embeddings",
+                        "falling back to TF-IDF for remaining embeddings. "
+                        "body=%s",
                         _VOYAGE_MAX_RETRIES,
+                        err_body[:500],
                     )
-                    return None
                 else:
                     logger.error(
-                        "Voyage AI HTTP error %d: %s",
+                        "Voyage AI HTTP error %d: %s body=%s",
                         e.code,
                         e.reason,
+                        err_body[:500],
                         exc_info=True,
                     )
-                    return None
+                _record_embed_error(f"voyage HTTP {e.code}: {err_body or e.reason}")
+                return None
             except urllib.error.URLError as e:
                 reason_str = str(e.reason) if e.reason else ""
                 if "SSL" in reason_str and attempt < _VOYAGE_MAX_RETRIES:
@@ -1768,6 +1981,7 @@ def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | Non
                     e.reason,
                     exc_info=True,
                 )
+                _record_embed_error(f"voyage URL error: {e.reason}")
                 return None
             except OSError as e:
                 err_str = str(e)
@@ -1789,11 +2003,15 @@ def _embed_uncached_voyage(uncached_texts: list[str]) -> list[list[float]] | Non
                     time.sleep(backoff_time)
                     continue
                 logger.error("Voyage AI OS error: %s", e, exc_info=True)
+                _record_embed_error(f"voyage OS error: {e}")
                 return None
             except (json.JSONDecodeError, ValueError, TypeError) as e:
                 logger.error("Voyage AI error: %s", e, exc_info=True)
+                _record_embed_error(f"voyage parse error: {e}")
                 return None
 
+    global _last_embed_error
+    _last_embed_error = None  # full success clears the sticky failure reason
     return new_embeddings
 
 
@@ -1832,7 +2050,15 @@ def build_index(documents: list[dict]) -> None:
     Each document should have at minimum: {"id": str, "text": str}.
     Optional "metadata" dict is preserved for retrieval.
 
-    Falls back to TF-IDF index if Voyage AI embedding fails.
+    BM25 + TF-IDF are built FIRST, before any embedding call -- so a
+    cache-cold startup (a full re-embed can take several minutes) is a
+    keyword-grounded degraded window for search(), never a total blackout,
+    IN THE PROCESS THAT RUNS THIS FUNCTION START-TO-FINISH (the dev/
+    ThreadedHTTPServer path). This app's production deploy (gunicorn
+    --preload) runs this function in the master process before workers fork,
+    so the ordering here does not change what a forked worker sees -- see
+    the comment at the flat_docs assignment below for the full scoping.
+    Falls back to keyword-only search entirely if Voyage AI embedding fails.
 
     Args:
         documents: List of dicts with at least "id" and "text" keys.
@@ -1851,6 +2077,49 @@ def build_index(documents: list[dict]) -> None:
         return
 
     valid_texts = [t for _, t in valid_docs]
+
+    # Prepare flat doc list for BM25 + TF-IDF indexing (shared by both paths
+    # below) and build BOTH keyword indexes RIGHT NOW, BEFORE the embedding
+    # loop -- they need only text, no vectors, so they don't have to wait on
+    # Voyage at all.
+    #
+    # This closes a grounding blackout: on a 100%-cache-cold deploy (e.g. the
+    # voyage-4-lite cutover, or any future model succession), the embedding
+    # loop below can run for several minutes, and search() gates its BM25
+    # branch on _bm25_index.is_built -- which used to flip True only at the
+    # END of this function (or in the all-embeddings-failed branch further
+    # down). Until then, with _index and _qdrant_available both still empty,
+    # search() had no vector, no BM25, AND no TF-IDF fallback (same
+    # end-of-function gating) to fall through to, so it returned [] -- a
+    # TOTAL retrieval blackout, not a degraded one, for the process running
+    # this function.
+    #
+    # SCOPE of that benefit: it applies to the dev/direct-serving path
+    # (ThreadedHTTPServer), where the same process that runs build_index also
+    # serves requests, so internal ordering inside this function is directly
+    # observable to callers of search(). It does NOT apply to this app's
+    # production deploy (gunicorn --preload, see render.yaml/Procfile):
+    # deferred startup runs build_index in the MASTER process, and workers
+    # fork at whatever point that has reached, independent of ordering
+    # *inside* this function -- a worker that forks before build_index
+    # finishes gets neither the keyword indexes nor the vector index yet
+    # either way (see the separate, already-documented fork-timing
+    # limitation: forked workers' in-process _index is frozen at whatever it
+    # was at fork time, since threads do not survive fork). Building both
+    # keyword indexes here converts the blackout into a keyword-grounded
+    # degraded window: BM25/TF-IDF answer queries while embeddings (and
+    # therefore vector/hybrid search) are still pending -- for the process
+    # that actually runs this ordering start-to-finish.
+    flat_docs = [
+        {
+            "id": doc.get("id") or "",
+            "text": text,
+            "metadata": doc.get("metadata") or {},
+        }
+        for doc, text in valid_docs
+    ]
+    _bm25_index.index(flat_docs)
+    _build_tfidf_index(flat_docs)
 
     # Stagger embedding in smaller chunks to avoid overwhelming Voyage AI on startup
     _STAGGER_CHUNK_SIZE = 64  # Process 64 docs at a time with delays between chunks
@@ -1872,7 +2141,7 @@ def build_index(documents: list[dict]) -> None:
             )
             time.sleep(_STAGGER_DELAY)
 
-        chunk_embeddings = embed_batch(chunk_texts)
+        chunk_embeddings = embed_batch(chunk_texts, input_type="document")
         if chunk_embeddings is None:
             embedding_failed = True
             break
@@ -1880,24 +2149,14 @@ def build_index(documents: list[dict]) -> None:
 
     embeddings = all_embeddings if not embedding_failed else None
 
-    # Prepare flat doc list for BM25 + TF-IDF indexing (shared by both paths)
-    flat_docs = [
-        {
-            "id": doc.get("id") or "",
-            "text": text,
-            "metadata": doc.get("metadata") or {},
-        }
-        for doc, text in valid_docs
-    ]
-
     if embeddings is None:
+        # BM25 + TF-IDF are already built (see flat_docs above, built from
+        # this same valid_docs BEFORE the embedding loop) -- nothing left to
+        # do for the keyword paths on an all-failed embedding run.
         logger.info(
-            "build_index: Voyage AI embedding unavailable, building BM25 + TF-IDF fallback"
+            "build_index: Voyage AI embedding unavailable, BM25 + TF-IDF "
+            "fallback already built"
         )
-        # Build BM25 index (always, for hybrid search)
-        _bm25_index.index(flat_docs)
-        # Build TF-IDF fallback index from the valid documents
-        _build_tfidf_index(flat_docs)
         return
 
     with _index_lock:
@@ -1925,7 +2184,7 @@ def build_index(documents: list[dict]) -> None:
                 for idx, entry in enumerate(new_entries):
                     qdrant_points.append(
                         {
-                            "id": abs(hash(entry["id"])) % (2**63),  # int64 ID
+                            "id": _deterministic_point_id(entry["id"]),
                             "vector": entry["embedding"],
                             "payload": {
                                 "doc_id": entry["id"],
@@ -1946,11 +2205,9 @@ def build_index(documents: list[dict]) -> None:
         except (OSError, ValueError, TypeError) as exc:
             logger.error("Qdrant indexing error: %s", exc, exc_info=True)
 
-    # Build BM25 index for hybrid search (always alongside vector index)
-    _bm25_index.index(flat_docs)
-
-    # Also build TF-IDF index as a warm standby for runtime fallback
-    _build_tfidf_index(flat_docs)
+    # BM25 + TF-IDF were already built from flat_docs BEFORE the embedding
+    # loop started (see the comment there) -- so this vector-indexed path has
+    # nothing further to do for either keyword index.
 
     qdrant_msg = f", Qdrant: {_qdrant_index_count}" if _qdrant_index_count else ""
     logger.info(
