@@ -975,49 +975,49 @@
     "file": "ppt_generator.py",
     "literal": "$0.50-$1.44+",
     "status": "cited",
-    "source": "commit b45090b; data/recruitment_industry_knowledge.json recruitment_benchmarks.industry_benchmarks.healthcare_medical.cpc.range; tests/test_ppt_benchmarks_fallback_honesty.py enforces"
+    "source": "commit b45090b; data/recruitment_benchmarks_deep.json recruitment_benchmarks.industry_benchmarks.healthcare_medical.cpc.range (KB_FILES['recruitment_benchmarks'] maps to recruitment_benchmarks_deep.json per kb_loader.py:214, not recruitment_industry_knowledge.json); tests/test_ppt_benchmarks_fallback_honesty.py enforces"
   },
   {
     "file": "ppt_generator.py",
     "literal": "$0.75-$3.50",
     "status": "cited",
-    "source": "commit b45090b; ...industry_benchmarks.technology_engineering.cpc.range (BENCHMARKS key 'tech_engineering' looked up under the KB's real key); tests/test_ppt_benchmarks_fallback_honesty.py enforces"
+    "source": "commit b45090b; data/recruitment_benchmarks_deep.json recruitment_benchmarks.industry_benchmarks.technology_engineering.cpc.range (BENCHMARKS key 'tech_engineering' looked up under the KB's real key); tests/test_ppt_benchmarks_fallback_honesty.py enforces"
   },
   {
     "file": "ppt_generator.py",
     "literal": "$0.20-$1.00",
     "status": "cited",
-    "source": "commit b45090b; ...industry_benchmarks.retail_consumer.cpc.range; tests/test_ppt_benchmarks_fallback_honesty.py enforces"
+    "source": "commit b45090b; data/recruitment_benchmarks_deep.json recruitment_benchmarks.industry_benchmarks.retail_consumer.cpc.range; tests/test_ppt_benchmarks_fallback_honesty.py enforces"
   },
   {
     "file": "ppt_generator.py",
     "literal": "$0.80-$3.44",
     "status": "cited",
-    "source": "commit b45090b; ...industry_benchmarks.finance_banking.cpc.range; tests/test_ppt_benchmarks_fallback_honesty.py enforces"
+    "source": "commit b45090b; data/recruitment_benchmarks_deep.json recruitment_benchmarks.industry_benchmarks.finance_banking.cpc.range; tests/test_ppt_benchmarks_fallback_honesty.py enforces"
   },
   {
     "file": "ppt_generator.py",
     "literal": "$0.30-$1.50",
     "status": "cited",
-    "source": "commit b45090b; ...industry_benchmarks.logistics_supply_chain.cpc.range; tests/test_ppt_benchmarks_fallback_honesty.py enforces"
+    "source": "commit b45090b; data/recruitment_benchmarks_deep.json recruitment_benchmarks.industry_benchmarks.logistics_supply_chain.cpc.range; tests/test_ppt_benchmarks_fallback_honesty.py enforces"
   },
   {
     "file": "ppt_generator.py",
     "literal": "$0.25-$1.00",
     "status": "cited",
-    "source": "commit b45090b; ...industry_benchmarks.hospitality_travel.cpc.range; tests/test_ppt_benchmarks_fallback_honesty.py enforces"
+    "source": "commit b45090b; data/recruitment_benchmarks_deep.json recruitment_benchmarks.industry_benchmarks.hospitality_travel.cpc.range; tests/test_ppt_benchmarks_fallback_honesty.py enforces"
   },
   {
     "file": "ppt_generator.py",
     "literal": "$0.40-$1.50",
     "status": "cited",
-    "source": "commit b45090b; ...industry_benchmarks.blue_collar_skilled_trades.cpc.range (BENCHMARKS key 'blue_collar_trades' looked up under the KB's real key); tests/test_ppt_benchmarks_fallback_honesty.py enforces"
+    "source": "commit b45090b; data/recruitment_benchmarks_deep.json recruitment_benchmarks.industry_benchmarks.blue_collar_skilled_trades.cpc.range (BENCHMARKS key 'blue_collar_trades' looked up under the KB's real key); tests/test_ppt_benchmarks_fallback_honesty.py enforces"
   },
   {
     "file": "ppt_generator.py",
     "literal": "$1.00-$4.00",
     "status": "cited",
-    "source": "commit b45090b; ...industry_benchmarks.pharma_biotech.cpc.range; tests/test_ppt_benchmarks_fallback_honesty.py enforces"
+    "source": "commit b45090b; data/recruitment_benchmarks_deep.json recruitment_benchmarks.industry_benchmarks.pharma_biotech.cpc.range; tests/test_ppt_benchmarks_fallback_honesty.py enforces"
   },
   {
     "file": "ppt_generator.py",
@@ -1156,6 +1156,42 @@
     "literal": "$25-$89",
     "status": "estimate_disclosed",
     "source": "system-prompt DATA ACCURACY RULES example ('When tools give a RANGE (e.g., $25-$89)...') -- illustrative 'e.g.' format example, not a hardcoded claim"
+  },
+  {
+    "file": "nova.py",
+    "literal": "$0.50 – $2.00",
+    "status": "cited",
+    "source": "2026-08-04 S5 precision fix, _CHANNEL_CPC_DETAIL technology vertical Indeed row; source='KB: recruitment_benchmarks_deep.industry_benchmarks.technology_engineering.cpc.indeed_cpc'; data/recruitment_benchmarks_deep.json industry_benchmarks.technology_engineering.cpc.indeed_cpc = '$0.50-$2.00'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
+  },
+  {
+    "file": "nova.py",
+    "literal": "$0.20 – $0.75",
+    "status": "cited",
+    "source": "2026-08-04 S5 precision fix, _CHANNEL_CPC_DETAIL retail vertical Indeed row; source='KB: recruitment_benchmarks_deep.industry_benchmarks.retail_consumer.cpc.indeed_cpc'; data/recruitment_benchmarks_deep.json industry_benchmarks.retail_consumer.cpc.indeed_cpc = '$0.20-$0.75'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
+  },
+  {
+    "file": "nova.py",
+    "literal": "$0.50 – $1.50",
+    "status": "cited",
+    "source": "2026-08-04 S5 precision fix, _CHANNEL_CPC_DETAIL finance vertical Indeed row; source='KB: recruitment_benchmarks_deep.industry_benchmarks.finance_banking.cpc.indeed_cpc'; data/recruitment_benchmarks_deep.json industry_benchmarks.finance_banking.cpc.indeed_cpc = '$0.50-$1.50'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
+  },
+  {
+    "file": "nova.py",
+    "literal": "$4.50 – $7.00",
+    "status": "cited",
+    "source": "2026-08-04 S5 precision fix, _CHANNEL_CPC_DETAIL finance vertical LinkedIn row; source='KB: recruitment_benchmarks_deep.industry_benchmarks.finance_banking.cpc.linkedin_cpc'; data/recruitment_benchmarks_deep.json industry_benchmarks.finance_banking.cpc.linkedin_cpc = '$4.50-$7.00'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
+  },
+  {
+    "file": "nova.py",
+    "literal": "$0.50 - $2.00",
+    "status": "cited",
+    "source": "2026-08-04 fix, few-shot 'Example 3: Comparison Query' system-prompt table (3 near-duplicate copies of the system prompt, 'Indeed vs LinkedIn: Tech Recruiting Comparison'); previously a hardcoded uncited '$1.50' with vague '[1] Platform benchmarks, [2] Joveo campaign data' attribution -- replaced with the same cited technology_engineering.cpc.indeed_cpc figure used in _CHANNEL_CPC_DETAIL so the few-shot example agrees with the real KB-cited answer for the same query shape; footer now names data/recruitment_benchmarks_deep.json explicitly"
+  },
+  {
+    "file": "nova.py",
+    "literal": "$1.50 - $4.50",
+    "status": "cited",
+    "source": "2026-08-04 fix, few-shot 'Example 3: Comparison Query' system-prompt table (3 near-duplicate copies); previously a hardcoded uncited '$3.80' -- replaced with the cited technology_engineering.cpc.linkedin_cpc figure used in _CHANNEL_CPC_DETAIL; see '$0.50 - $2.00' row above for the companion Indeed figure and full context"
   },
   {
     "file": "audit_tool.py",

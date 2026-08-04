@@ -39,6 +39,20 @@ def _real_kb() -> dict:
         return json.load(f)
 
 
+def _deep_kb() -> dict:
+    kb_path = PROJECT_ROOT / "data" / "recruitment_benchmarks_deep.json"
+    with open(kb_path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+# Prefix for the (2026-08-04, S5 precision fix) vertical-specific source
+# kind: "KB: recruitment_benchmarks_deep.industry_benchmarks.<industry>.cpc
+# .<indeed_cpc|linkedin_cpc>". Distinguishes it from the flat "KB:
+# <platform_key>.<field>" kind, which traces against
+# data/recruitment_industry_knowledge.json's by_platform map instead.
+_DEEP_KB_SOURCE_PREFIX = "recruitment_benchmarks_deep."
+
+
 # Same token shape as tests/test_nova_platform_comparison_honesty.py's
 # _DOLLAR_TOKEN -- captures magnitude suffixes into the token and requires a
 # non-digit follower so truncated figures can't false-pass as a prefix of a
@@ -76,12 +90,22 @@ def test_every_row_has_four_fields_and_a_recognized_source():
 
 
 def test_kb_sourced_rows_trace_to_the_cited_kb_entry():
-    """Every dollar figure in a "KB: platform.field"-sourced row must
-    literally appear in the KB entry the source string names (same
-    mechanism as test_every_fallback_dollar_figure_traces_to_cited_kb_entry
-    in test_nova_platform_comparison_honesty.py)."""
+    """Every dollar figure in a "KB: ..."-sourced row must literally appear
+    in the KB entry the source string names (same mechanism as
+    test_every_fallback_dollar_figure_traces_to_cited_kb_entry in
+    test_nova_platform_comparison_honesty.py). Two source kinds are
+    recognized:
+      - flat "KB: <platform_key>.<field>" -- traces against
+        data/recruitment_industry_knowledge.json's benchmarks.cost_per_click
+        .by_platform map.
+      - vertical-specific "KB: recruitment_benchmarks_deep.industry_benchmarks
+        .<industry>.cpc.<field>" -- traces against
+        data/recruitment_benchmarks_deep.json by walking the dotted path
+        (2026-08-04, S5 precision fix: some industries have a more precise
+        indeed_cpc/linkedin_cpc field than the flat platform-level figure)."""
     kb = _real_kb()
     bp = kb["benchmarks"]["cost_per_click"]["by_platform"]
+    deep_kb = _deep_kb()
     checked = 0
 
     for vertical, rows in nova._CHANNEL_CPC_DETAIL.items():
@@ -89,17 +113,33 @@ def test_kb_sourced_rows_trace_to_the_cited_kb_entry():
             if not source.startswith("KB: "):
                 continue
             ref = source[len("KB: ") :]
-            platform_key, field = ref.split(".", 1)
-            assert platform_key in bp, (
-                f"{vertical}/{platform}: source names KB platform "
-                f"{platform_key!r} which doesn't exist"
-            )
-            entry = bp[platform_key]
-            assert field in entry, (
-                f"{vertical}/{platform}: source names KB field {field!r} "
-                f"not present in by_platform[{platform_key!r}]"
-            )
-            cited_value = str(entry[field])
+
+            if ref.startswith(_DEEP_KB_SOURCE_PREFIX):
+                path_parts = ref[len(_DEEP_KB_SOURCE_PREFIX) :].split(".")
+                node = deep_kb
+                for part in path_parts:
+                    assert isinstance(node, dict) and part in node, (
+                        f"{vertical}/{platform}: source path {ref!r} -- "
+                        f"{part!r} not found while walking "
+                        f"data/recruitment_benchmarks_deep.json "
+                        f"(path so far: {path_parts})"
+                    )
+                    node = node[part]
+                cited_value = str(node)
+                field_desc = ref
+            else:
+                platform_key, field = ref.split(".", 1)
+                assert platform_key in bp, (
+                    f"{vertical}/{platform}: source names KB platform "
+                    f"{platform_key!r} which doesn't exist"
+                )
+                entry = bp[platform_key]
+                assert field in entry, (
+                    f"{vertical}/{platform}: source names KB field {field!r} "
+                    f"not present in by_platform[{platform_key!r}]"
+                )
+                cited_value = str(entry[field])
+                field_desc = f"{platform_key}.{field}"
 
             tokens = _DOLLAR_TOKEN.findall(cpc)
             assert tokens, f"{vertical}/{platform}: KB-sourced row has no dollar figure to check: {cpc!r}"
@@ -107,7 +147,7 @@ def test_kb_sourced_rows_trace_to_the_cited_kb_entry():
                 assert re.search(re.escape(token) + r"(?!\d)", cited_value), (
                     f"{vertical}/{platform}: figure {token!r} (from {cpc!r}) "
                     f"not found in cited KB value {cited_value!r} "
-                    f"({platform_key}.{field})"
+                    f"({field_desc})"
                 )
             checked += 1
 
@@ -149,7 +189,10 @@ def test_retired_uncited_platform_level_bands_are_gone():
     per vertical, never matching the KB) must never reappear for a KB-backed
     platform. Before the fix, Indeed alone had 8 different uncited bands
     across verticals ($1.25-$3.50 healthcare, $2.50-$6.50 nursing, ... );
-    after the fix every Indeed row must be the single cited $0.97-$2.71."""
+    after the fix every Indeed row must be either the flat cited
+    $0.97-$2.71 or, where the KB has a more precise vertical-specific
+    figure (2026-08-04, S5 precision fix), that exact figure -- never one
+    of the old uncited literals."""
     retired_indeed_bands = {
         "$1.25 – $3.50",
         "$2.50 – $6.50",
@@ -167,18 +210,37 @@ def test_retired_uncited_platform_level_bands_are_gone():
         "$3.00 – $7.00",
         "$2.50 – $6.50",
     }
+    # (vertical, platform) rows that now correctly render a KB
+    # vertical-specific figure (data/recruitment_benchmarks_deep.json
+    # industry_benchmarks.<industry>.cpc.{indeed_cpc,linkedin_cpc}) instead
+    # of the flat platform-level one -- exempt from the flat-equality
+    # assertion below, but pinned here to their exact KB-cited value so
+    # this exemption can't silently mask a return to an uncited literal.
+    vertical_specific_overrides = {
+        ("technology", "Indeed"): "$0.50 – $2.00",
+        ("retail", "Indeed"): "$0.20 – $0.75",
+        ("finance", "Indeed"): "$0.50 – $1.50",
+        ("finance", "LinkedIn"): "$4.50 – $7.00",
+    }
     for vertical, rows in nova._CHANNEL_CPC_DETAIL.items():
         for platform, cpc, note, source in rows:
+            override = vertical_specific_overrides.get((vertical, platform))
             if platform in ("Indeed", "Indeed (sponsored)"):
                 assert cpc not in retired_indeed_bands, (
                     f"{vertical}: retired uncited Indeed band {cpc!r} still present"
                 )
-                assert cpc == "$0.97 – $2.71"
+                assert cpc == (override if override else "$0.97 – $2.71"), (
+                    f"{vertical}/Indeed: expected "
+                    f"{(override or '$0.97 – $2.71')!r}, got {cpc!r}"
+                )
             if platform in ("LinkedIn", "LinkedIn Jobs"):
                 assert cpc not in retired_linkedin_bands, (
                     f"{vertical}: retired uncited LinkedIn band {cpc!r} still present"
                 )
-                assert cpc == "$1.50 – $4.50"
+                assert cpc == (override if override else "$1.50 – $4.50"), (
+                    f"{vertical}/LinkedIn: expected "
+                    f"{(override or '$1.50 – $4.50')!r}, got {cpc!r}"
+                )
 
 
 def test_rendered_table_shows_the_source_column():

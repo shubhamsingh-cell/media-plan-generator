@@ -4011,11 +4011,26 @@ _PLATFORM_FALLBACK_SUMMARIES: Dict[str, str] = {
 # silently uncited) --
 #   1. "KB: <platform_key>.<field>" -- this row's platform has a cited entry
 #      in data/recruitment_industry_knowledge.json benchmarks.cost_per_click
-#      .by_platform, and cpc_text IS that entry's figure verbatim (the KB has
-#      no per-vertical breakdown for job-ad CPC, so the same platform-level
-#      cited figure is reused across every vertical that platform appears
-#      in -- this deliberately REPLACES the prior per-vertical numbers those
-#      platforms carried, which were uncited and did not match the KB).
+#      .by_platform, and cpc_text IS that entry's figure verbatim. This
+#      flat, platform-level figure is reused across every vertical for that
+#      platform UNLESS the KB has a more precise, vertical-specific figure
+#      (see next bullet) -- this deliberately REPLACES the prior per-vertical
+#      numbers those platforms carried, which were uncited and did not
+#      match the KB.
+#   1a. "KB: recruitment_benchmarks_deep.industry_benchmarks.<industry>.cpc
+#      .<indeed_cpc|linkedin_cpc>" -- data/recruitment_benchmarks_deep.json
+#      DOES carry a per-vertical breakdown for job-ad CPC on some
+#      industries (indeed_cpc/linkedin_cpc fields on technology_engineering,
+#      retail_consumer, finance_banking, and a few others not represented as
+#      a vertical in this table). 2026-08-04 correction: an earlier pass
+#      claimed no such breakdown existed and used the flat platform-level
+#      figure everywhere, which was LESS precise than what the KB actually
+#      supports for these verticals (e.g. it rendered retail-Indeed at the
+#      flat $0.97-$2.71, ~4x the KB's retail-specific $0.20-$0.75). Rows for
+#      technology/retail/finance now use this vertical-specific field where
+#      one exists; every other vertical falls back to the flat platform
+#      figure per bullet 1 above, since the KB has no vertical-specific
+#      field for it.
 #   2. "internal estimate -- not independently benchmarked" -- niche/
 #      specialist boards with no KB by_platform entry. The pre-existing
 #      figure is KEPT (never invented fresh) but now discloses its status
@@ -4128,13 +4143,13 @@ _CHANNEL_CPC_DETAIL: Dict[str, List[Tuple[str, str, str, str]]] = {
             "LinkedIn",
             "$1.50 – $4.50",
             "Best for senior/SWE/data roles",
-            "KB: linkedin.job_ad_cpc_range",
+            "KB: recruitment_benchmarks_deep.industry_benchmarks.technology_engineering.cpc.linkedin_cpc",
         ),
         (
             "Indeed",
-            "$0.97 – $2.71",
+            "$0.50 – $2.00",
             "High volume, mixed quality",
-            "KB: indeed.average_cpc_range",
+            "KB: recruitment_benchmarks_deep.industry_benchmarks.technology_engineering.cpc.indeed_cpc",
         ),
         (
             "Dice",
@@ -4158,9 +4173,9 @@ _CHANNEL_CPC_DETAIL: Dict[str, List[Tuple[str, str, str, str]]] = {
     "retail": [
         (
             "Indeed",
-            "$0.97 – $2.71",
+            "$0.20 – $0.75",
             "Dominant for retail volume",
-            "KB: indeed.average_cpc_range",
+            "KB: recruitment_benchmarks_deep.industry_benchmarks.retail_consumer.cpc.indeed_cpc",
         ),
         (
             "Snagajob",
@@ -4222,9 +4237,9 @@ _CHANNEL_CPC_DETAIL: Dict[str, List[Tuple[str, str, str, str]]] = {
     "finance": [
         (
             "LinkedIn",
-            "$1.50 – $4.50",
+            "$4.50 – $7.00",
             "Primary for IB, PE, corp finance",
-            "KB: linkedin.job_ad_cpc_range",
+            "KB: recruitment_benchmarks_deep.industry_benchmarks.finance_banking.cpc.linkedin_cpc",
         ),
         (
             "eFinancialCareers",
@@ -4234,9 +4249,9 @@ _CHANNEL_CPC_DETAIL: Dict[str, List[Tuple[str, str, str, str]]] = {
         ),
         (
             "Indeed",
-            "$0.97 – $2.71",
+            "$0.50 – $1.50",
             "Broad coverage, mid-funnel",
-            "KB: indeed.average_cpc_range",
+            "KB: recruitment_benchmarks_deep.industry_benchmarks.finance_banking.cpc.indeed_cpc",
         ),
         (
             "Wall Street Oasis",
@@ -4681,7 +4696,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
 ### Indeed vs LinkedIn: Tech Recruiting Comparison
 | Metric | Indeed | LinkedIn |
 |--------|--------|----------|
-| **Avg CPC** | **$1.50** | **$3.80** |
+| **Avg CPC** | **$0.50 - $2.00** | **$1.50 - $4.50** |
 | **Avg CPA** | **$850** | **$1,400** |
 | **Apply Rate** | **8.2%** | **4.5%** |
 | **Quality Score** | **7/10** | **9/10** |
@@ -4689,7 +4704,7 @@ User: "Compare Indeed vs LinkedIn for tech recruiting"
 
 **Recommendation:** Use **Indeed** for volume (junior-mid, 60% budget) and **LinkedIn** for senior/specialized (40% budget). Combined strategy yields the best cost-per-quality-hire ratio.
 
-*Sources: [1] Platform benchmarks, [2] Joveo campaign data (Q1 2026)*
+*Sources: [1] Joveo KB -- recruitment_benchmarks_deep.json industry_benchmarks.technology_engineering.cpc (indeed_cpc/linkedin_cpc), [2] Joveo campaign data (Q1 2026)*
 
 ### Example 4: UK Salary Query (local currency)
 User: "What's the salary for a software engineer in London?"
@@ -20192,7 +20207,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "User: 'Compare Indeed vs LinkedIn for tech recruiting'\n\n"
             "### Indeed vs LinkedIn: Tech Recruiting Comparison\n"
             "| Metric | Indeed | LinkedIn |\n|--------|--------|----------|\n"
-            "| **Avg CPC** | **$1.50** | **$3.80** |\n"
+            "| **Avg CPC** | **$0.50 - $2.00** | **$1.50 - $4.50** |\n"
             "| **Avg CPA** | **$850** | **$1,400** |\n"
             "| **Apply Rate** | **8.2%** | **4.5%** |\n"
             "| **Quality Score** | **7/10** | **9/10** |\n"
@@ -20200,7 +20215,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "**Recommendation:** Use **Indeed** for volume (junior-mid, 60% budget) and "
             "**LinkedIn** for senior/specialized (40% budget). Combined strategy yields "
             "the best cost-per-quality-hire ratio.\n\n"
-            "*Sources: [1] Platform benchmarks, [2] Joveo campaign data (Q1 2026)*"
+            "*Sources: [1] Joveo KB -- recruitment_benchmarks_deep.json "
+            "industry_benchmarks.technology_engineering.cpc "
+            "(indeed_cpc/linkedin_cpc), [2] Joveo campaign data (Q1 2026)*"
         )
         # Inject query-type-specific response template for consistent formatting
         system_prompt += _get_response_template_injection(user_message)
@@ -20600,7 +20617,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "User: 'Compare Indeed vs LinkedIn for tech recruiting'\n\n"
             "### Indeed vs LinkedIn: Tech Recruiting Comparison\n"
             "| Metric | Indeed | LinkedIn |\n|--------|--------|----------|\n"
-            "| **Avg CPC** | **$1.50** | **$3.80** |\n"
+            "| **Avg CPC** | **$0.50 - $2.00** | **$1.50 - $4.50** |\n"
             "| **Avg CPA** | **$850** | **$1,400** |\n"
             "| **Apply Rate** | **8.2%** | **4.5%** |\n"
             "| **Quality Score** | **7/10** | **9/10** |\n"
@@ -20608,7 +20625,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "**Recommendation:** Use **Indeed** for volume (junior-mid, 60% budget) and "
             "**LinkedIn** for senior/specialized (40% budget). Combined strategy yields "
             "the best cost-per-quality-hire ratio.\n\n"
-            "*Sources: [1] Platform benchmarks, [2] Joveo campaign data (Q1 2026)*"
+            "*Sources: [1] Joveo KB -- recruitment_benchmarks_deep.json "
+            "industry_benchmarks.technology_engineering.cpc "
+            "(indeed_cpc/linkedin_cpc), [2] Joveo campaign data (Q1 2026)*"
         )
         # Inject query-type-specific response template for consistent formatting
         system_prompt += _get_response_template_injection(user_message)

@@ -62,13 +62,42 @@ about):
                              path), named per the task's explicit
                              instruction so a future scratchpad directory
                              doesn't silently get scanned as shipping code.
-  - ``.claude/``          -- does not exist in this repo today either (zero
-                             ``*.py`` files), named for the same
-                             future-proofing reason.
+  - ``.claude/``          -- excluded because ``.claude/worktrees/`` holds
+                             stale full-repo copies from prior sessions
+                             (2,409 ``*.py`` files as of 2026-08-04, across
+                             22+ stale worktrees); scanning them would
+                             false-positive on already-fixed literals that
+                             only still exist in an old snapshot, not in
+                             this repo's actual shipping code. (2026-08-04
+                             correction: an earlier pass claimed this
+                             directory "does not exist in this repo today"
+                             with "zero *.py files" -- true only when run
+                             from inside an isolated linked worktree like
+                             this one, which has no .claude/ at all; false
+                             in the outer/main repo, where .claude/
+                             worktrees/ is exactly the known stale-worktree
+                             issue this reasoning now names directly. The
+                             exclusion itself was always correct; only the
+                             stated reason was wrong.)
   - ``scripts/``          -- one-off tooling (data seeders, one-time audit
                              doc generators, migration helpers) run
-                             manually by a developer, never imported by
-                             app.py or any served request path.
+                             manually by a developer, EXCEPT
+                             ``scripts/backup_kb.py``, which IS imported by
+                             app.py (``from scripts.backup_kb import
+                             backup_knowledge_base`` at app.py ~7384 and
+                             ~21226) and therefore reachable from a served
+                             request path -- narrowed via
+                             ``FORCE_INCLUDE_FILES`` below rather than
+                             excluding the whole directory unconditionally.
+                             (2026-08-04 correction: an earlier pass
+                             excluded all of scripts/ and claimed nothing
+                             in it is "ever imported by app.py or any
+                             served request path" -- false, per the two
+                             import sites above. Every other file under
+                             scripts/ genuinely is standalone tooling with
+                             no import site anywhere in the repo, verified
+                             via ``grep -rn 'from scripts[.]|import
+                             scripts[.]'``.)
   - ``.venv/``            -- third-party vendored dependencies, not this
                              repo's own code at all.
   - ``.git/``, ``__pycache__/`` -- not source.
@@ -81,6 +110,20 @@ ACCEPTED BLIND SPOTS (silence here is NOT coverage -- named explicitly so
 nobody mistakes a clean run for "there are no more uncited CPC figures
 anywhere," which this guard cannot claim)
 ------------------------------------------------------------------------
+  - Single-value (non-range) CPC dollar literals -- e.g. a lone ``"$1.50"``
+    with no ``"$X-$Y"`` range shape anywhere near it -- are invisible to
+    this scanner: ``DOLLAR_RANGE_RE`` only matches a "$X - $Y"-shaped
+    literal, not a bare single dollar amount. This is a real, known gap
+    (2026-08-04): a 3-site instance of exactly this shape (nova.py's
+    few-shot system-prompt examples, hardcoded ``"$1.50"``/``"$3.80"``
+    Avg-CPC cells with a vague, uncited attribution) was found by manual
+    review, not by this scanner, and fixed in the same pass that added
+    this note -- see tests/cpc_literal_ledger.json's "few-shot 'Example 3:
+    Comparison Query'" rows. Extending the regex to also catch single-value
+    literals is real, tracked follow-up work (see the spawn_task chip filed
+    alongside this note), deliberately NOT done in this pass since it is a
+    larger, separately-scoped change (broadening the pattern risks new
+    false positives on non-CPC dollar amounts that need their own review).
   - Bare-float dicts with no "$" sign at all (e.g. a raw ``2.60`` next to
     a ``"cpc"`` key) are invisible to this scanner -- it only matches the
     literal "$X - $Y" text shape. audit_tool.py's/performance_tracker.py's
@@ -153,6 +196,14 @@ EXCLUDED_DIR_NAMES = {
 
 EXEMPT_FILE = "benchmark_registry.py"
 
+# Files that live inside an EXCLUDED_DIR_NAMES directory but are genuinely
+# imported by app.py (i.e. reachable from a served request path) and must
+# therefore stay in-scope for this guard despite the directory-level
+# exclusion. Currently just scripts/backup_kb.py -- see the scripts/
+# exclusion note in the module docstring above for the two app.py import
+# sites that make it reachable.
+FORCE_INCLUDE_FILES = {"scripts/backup_kb.py"}
+
 DOLLAR_RANGE_RE = re.compile(
     r"\$[\d,]+(?:\.\d+)?\+?\s*(?:-|–|—|to)\s*\$[\d,]+(?:\.\d+)?\+?"
 )
@@ -162,9 +213,14 @@ VALID_STATUSES = {"cited", "estimate_disclosed", "legacy_contained"}
 
 
 def iter_shipping_py_files() -> Iterator[Path]:
-    """Every *.py file under the repo root not inside an excluded dir."""
+    """Every *.py file under the repo root not inside an excluded dir,
+    plus anything named in FORCE_INCLUDE_FILES even if it would otherwise
+    be caught by a directory-level exclusion (see scripts/backup_kb.py)."""
     for p in sorted(PROJECT_ROOT.rglob("*.py")):
         rel = p.relative_to(PROJECT_ROOT)
+        if rel.as_posix() in FORCE_INCLUDE_FILES:
+            yield rel
+            continue
         if any(part in EXCLUDED_DIR_NAMES for part in rel.parts):
             continue
         yield rel
