@@ -209,12 +209,102 @@ def _bench_year_label_value(src: str) -> str:
     """Extract the pinned _bench_year_label literal from the source text
     (source-level, matching this file's existing convention of testing
     the .py text rather than executing generate_excel(), since that
-    function crashes on the separate pre-existing bug documented below)."""
+    function crashes on the separate pre-existing bug documented below).
+
+    2026-08-04 fix: the regex must be anchored to line-start (``^\\s*``,
+    ``re.M``). Unanchored, ``re.search`` returns the FIRST match anywhere
+    in the file -- and the comment block immediately above the real
+    assignment (added by the same commit that introduced this test) itself
+    contains the literal text ``_bench_year_label = "2025"`` while
+    explaining the pin (see archive/excel_legacy.py line ~1127, one line
+    before the real assignment at line ~1132). An unanchored search always
+    reads that comment's copy, never the actual code, so it could never
+    catch a real drift in the assignment. Anchoring to line-start (after
+    only leading whitespace) skips the ``# ...`` comment line, since a
+    ``#`` there fails the anchor, and matches only the real assignment
+    statement. See test_drift_guard_regex_reads_the_assignment_not_the_
+    comment_near_it below for the regression proof."""
     import re
 
-    match = re.search(r'_bench_year_label = "([^"]+)"', src)
+    match = re.search(r'^\s*_bench_year_label = "([^"]+)"', src, re.M)
     assert match, "could not find a pinned _bench_year_label = \"...\" literal"
     return match.group(1)
+
+
+def test_drift_guard_regex_reads_the_assignment_not_the_comment_near_it():
+    """Negative control for the drift-guard helper above (2026-08-04).
+
+    Proves the anchored regex is actually reading the real code assignment
+    and not the explanatory comment that sits one line above it (which
+    happens to contain the identical literal text ``_bench_year_label =
+    "2025"`` while documenting the pin). Mutates ONLY the real assignment
+    line in an in-memory copy of the source (leaving the comment line
+    untouched) and asserts the extracted value follows the mutation -- if
+    the extractor were reading the comment instead of the code, this
+    mutation would have no effect on its output.
+
+    Also demonstrates, by re-implementing the OLD unanchored pattern
+    inline, that the pre-fix regex fails this exact proof: it keeps
+    reporting the comment's "2025" regardless of what the real assignment
+    line says, because the comment appears first in the file.
+    """
+    import re
+
+    src = _src()
+
+    real_assignment_line = '    _bench_year_label = "2025"'
+    assert src.count(real_assignment_line) == 1, (
+        "expected exactly one real _bench_year_label assignment line to "
+        "mutate -- source layout changed, re-verify this test"
+    )
+    comment_line_fragment = '_bench_year_label = "2025"'
+    # Sanity: the comment line (unindented-to-4-spaces, prefixed with '#')
+    # containing this same literal text must still precede the real
+    # assignment, or this negative control is no longer proving anything.
+    comment_idx = src.index("# `_current_year - 1`")
+    real_idx = src.index(real_assignment_line)
+    assert comment_idx < real_idx, (
+        "sanity: expected the explanatory comment to appear BEFORE the "
+        "real assignment in the file -- if this ordering changed, the "
+        "unanchored regex might no longer reproduce the bug this test "
+        "guards against"
+    )
+
+    mutated_src = src.replace(
+        real_assignment_line, '    _bench_year_label = "1999"', 1
+    )
+    # Confirm the mutation touched only the real assignment, not the
+    # comment above it (which still reads "2025").
+    assert comment_line_fragment in mutated_src, (
+        "sanity: the comment's copy of the literal text should be "
+        "untouched by this targeted mutation"
+    )
+
+    # --- OLD unanchored regex: fails to track the mutation (reads the
+    # comment's stale "2025" instead of the mutated assignment). This is
+    # the exact bug being fixed; kept inline (not calling the helper)
+    # specifically so this proof survives even after the helper itself is
+    # fixed.
+    old_pattern_match = re.search(r'_bench_year_label = "([^"]+)"', mutated_src)
+    assert old_pattern_match, "old pattern should still match something"
+    assert old_pattern_match.group(1) == "2025", (
+        "expected the OLD unanchored regex to still read the comment's "
+        "stale '2025' after mutating only the real assignment -- if this "
+        "fails, the old-regex characterization below is no longer accurate"
+    )
+
+    # --- NEW anchored regex (the fixed helper): tracks the mutation.
+    new_value = _bench_year_label_value(mutated_src)
+    assert new_value == "1999", (
+        f"expected the fixed, line-anchored regex to read the MUTATED "
+        f"real assignment ('1999'), not the untouched comment ('2025') "
+        f"-- got {new_value!r}. The drift guard is not reading actual "
+        "code."
+    )
+
+    # --- Unmutated source: fixed helper still returns the correct,
+    # current value.
+    assert _bench_year_label_value(src) == "2025"
 
 
 def test_first_table_disclosure_flags_legacy_and_points_to_current_source():
