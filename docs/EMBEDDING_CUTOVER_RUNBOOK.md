@@ -149,4 +149,6 @@ field, and response-shape validation all stay the same).
   **not** in the live embedding-provider path and is unaffected by (and
   unaware of) `_active_collection()` / the provider switch — do not confuse
   it with `scripts/reindex_embeddings.py`, which is the current, provider-aware
-  tool.
+  tool. `scripts/populate_qdrant.py`, an even older one-off with the same
+  hardcoded-collection hazard, was deleted for this reason (recoverable from
+  git history) — `reindex_embeddings.py` replaces it too.
