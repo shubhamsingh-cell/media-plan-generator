@@ -400,11 +400,30 @@ class TestNaicsSearch:
         assert len(rest) >= 5
         assert all(c.startswith("31") for c in rest)
 
-    def test_partially_typed_range_matches_the_sector(self) -> None:
-        # Typeahead sends every keystroke; "31-3" is mid-way through
-        # "31-33" and must not fall back to a digits-only reading.
-        codes = [r["code"] for r in naics_lookup.naics_search("31-3")]
-        assert codes == ["31-33"]
+    def test_partially_typed_range_matches_only_the_sector(self) -> None:
+        # Typeahead sends every keystroke. Once an internal hyphen shows
+        # up the query commits to the range reading for good -- "31-3"
+        # is mid-way through "31-33" and must not fall back to a
+        # digits-only reading ("313" Textile Mills, an unrelated code
+        # family), even though "31-3" briefly looks ambiguous.
+        #
+        # This is a deliberate call, not an oversight: re-admitting the
+        # digits-only reading once a hyphen is present is not free.
+        # Digit-stripping the *complete* query "31-33" also produces
+        # "3133", a real code -- so any rule that blends the two
+        # readings back together either resurrects the exact bug this
+        # module fixes for the complete-range query, or has to
+        # special-case "complete" vs. "partial" range to avoid it. Both
+        # cost more than the one keystroke of typeahead gap this trades
+        # away, since the very next keystroke resolves it anyway.
+        partials = {
+            "31-3": "31-33",
+            "44-4": "44-45",
+            "48-4": "48-49",
+        }
+        for partial, sector in partials.items():
+            codes = [r["code"] for r in naics_lookup.naics_search(partial)]
+            assert codes == [sector], f"{partial!r} -> {codes}, expected [{sector!r}]"
 
     def test_range_query_tolerates_spacing_and_unicode_dashes(self) -> None:
         for variant in ("31 - 33", "31\u201333", "31\u201433", " 31-33 "):

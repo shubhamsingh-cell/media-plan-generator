@@ -715,6 +715,17 @@ def naics_search(q: str, limit: int = 20) -> List[Dict[str, Any]]:
     # are noise, so only an *internal* hyphen marks a range query, which
     # is then matched literally instead of being concatenated into the
     # unrelated code "3133".
+    #
+    # An internal hyphen commits the query to this literal reading for
+    # good -- there is no fallback to q_digits once one is present, even
+    # mid-range ("31-3" matches only the "31-33" prefix, not "313"
+    # Textile Mills). Blending the two readings back together on a
+    # partial query is not actually free: digit-stripping the *complete*
+    # query "31-33" also produces "3133", a real code -- so any rule
+    # that re-admits q_digits once a hyphen is present either resurrects
+    # this exact bug for the complete-range case, or needs to special-
+    # case "complete" vs. "partial" range to avoid it. Both cost more
+    # than the one keystroke of typeahead gap this trades away.
     q_code = re.sub(r"[\u2010-\u2015]", "-", re.sub(r"\s+", "", q)).strip("-")
     q_num = q_code if "-" in q_code else q_digits
     expansions = _query_expansions(q_key, tokens)
