@@ -1088,30 +1088,46 @@ def generate_excel(data):
         ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
         exec_row += 1
 
-    # ── Recruitment Marketing Benchmarks (2025-2026 Data) ──
-    _current_year = datetime.date.today().year
-    _bench_year_label = f"{_current_year - 1}-{_current_year}"
+    # ── Recruitment Marketing Benchmarks (LEGACY, 2023-vintage, unrefreshed) ──
+    # 2026-08-04 containment fix: this whole module (archive/excel_legacy.py)
+    # is a fallback-only path (error-recovery in /api/generate's sync mode
+    # when excel_v2.generate_excel_v2 raises mid-generation; also the async
+    # wizard path's fallback if excel_v2 fails to import) -- reachable from a
+    # real brief today, so its numbers are still user-facing when it fires.
+    # The 77 dollar figures in this file's two industry x region CPA/CPC
+    # tables are NOT being refreshed here (that's a separate, larger,
+    # escalated piece of work -- see the KB/benchmark_registry citation sweep
+    # for the current, cited figures instead: data/recruitment_industry_
+    # knowledge.json via benchmark_registry.py's getters).
+    #
+    # _current_year used to be `datetime.date.today().year`, so every one of
+    # this variable's ~8 downstream citation strings silently relabeled
+    # itself "current" on every year's first render, while the underlying
+    # numbers never moved -- a false-freshness bug independent of the
+    # numbers' actual staleness. Pinned to the figures' true vintage instead.
+    _current_year = 2023
+    _bench_year_label = "2023"
     exec_row += 2
     style_section_header(
         ws_exec,
         exec_row,
         2,
         7,
-        f"{_bench_year_label} Recruitment Marketing Benchmarks — CPA / CPC / CPH by Industry & Region",
+        f"{_bench_year_label} Recruitment Marketing Benchmarks (LEGACY -- NOT REFRESHED) — CPA / CPC / CPH by Industry & Region",
     )
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
     ws_exec.cell(
         row=exec_row,
         column=2,
-        value=f"Data sourced from {_bench_year_label} industry benchmark reports including Appcast Recruitment Marketing Benchmark (379M clicks, 30M applies analyzed), Recruitics Talent Market Index, and SHRM Benchmarking.",
+        value=f"LEGACY DATA, not refreshed since {_bench_year_label} -- shown as an archived fallback, not a current benchmark. Originally sourced from {_bench_year_label}-vintage industry benchmark reports including Appcast Recruitment Marketing Benchmark (379M clicks, 30M applies analyzed), Recruitics Talent Market Index, and SHRM Benchmarking; for current cited figures see data/recruitment_industry_knowledge.json via benchmark_registry.py.",
     ).font = Font(name="Calibri", italic=True, size=9, color="596780")
     exec_row += 1
     ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
     ws_exec.cell(
         row=exec_row,
         column=2,
-        value=f"Key {_bench_year_label} trends: CPCs rose 27% YoY | Overall CPA up 4.8% | Apply rates climbed 35% to 6.1% | Avg programmatic CPH reached $851 | Healthcare remains most expensive to hire",
+        value=f"{_bench_year_label} trends (legacy, not current): CPCs rose 27% YoY | Overall CPA up 4.8% | Apply rates climbed 35% to 6.1% | Avg programmatic CPH reached $851 | Healthcare remains most expensive to hire",
     ).font = Font(name="Calibri", italic=True, size=9, color="2E75B6")
 
     enrichment_summary = data.get("_enriched", {}).get("enrichment_summary", {})
@@ -3805,6 +3821,11 @@ def generate_excel(data):
             exec_row += 1
 
     # ── Peer Industry Benchmark Comparison ──
+    # This is the second of this file's two industry x region CPA/CPC tables
+    # (see the containment-fix note above the first one, ~2700 rows earlier
+    # in this same sheet) -- it carried NO citation or vintage marker of its
+    # own before this fix, so a reader scrolling straight to this table saw
+    # bare dollar figures with no source at all, not just a stale one.
     exec_row += 3
     style_section_header(
         ws_exec,
@@ -3820,6 +3841,13 @@ def generate_excel(data):
         column=2,
         value="Your industry's recruitment marketing costs compared to peer industries and the all-industry average. Helps identify relative competitiveness and budget calibration.",
     ).font = Font(name="Calibri", italic=True, size=9, color="596780")
+    exec_row += 1
+    ws_exec.merge_cells(f"B{exec_row}:G{exec_row}")
+    ws_exec.cell(
+        row=exec_row,
+        column=2,
+        value=f"LEGACY DATA, not refreshed since {_bench_year_label} -- shown as an archived fallback, not a current benchmark; same source and vintage as the Recruitment Marketing Benchmarks table above.",
+    ).font = Font(name="Calibri", italic=True, size=8, color="999999")
     exec_row += 2
 
     # Peer comparison data (all North America for consistency)
