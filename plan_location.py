@@ -129,6 +129,7 @@ import difflib
 import logging
 import re
 import threading
+import unicodedata
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -323,9 +324,22 @@ _cbsa_available = False
 
 
 def _norm_key(s: str) -> str:
-    """Lowercase, strip punctuation, collapse whitespace -- matches the
-    `place_key` convention documented in data/geo/README.md."""
+    """Lowercase, fold accents to their ASCII base letter, strip remaining
+    punctuation, collapse whitespace -- matches the `place_key` convention
+    documented in data/geo/README.md.
+
+    Accent-folding (NFD decompose + drop combining marks) runs BEFORE the
+    non-alnum strip below and is a no-op for ASCII input (nothing to
+    decompose or drop), so ASCII-only keys are byte-identical to before.
+    Without it, an accented letter like "u" + COMBINING DIAERESIS ("ü") is
+    just an unrecognized symbol to the strip step and gets deleted outright
+    -- "Mayagüez" normalized to "mayagez" while plain-ASCII "Mayaguez"
+    normalized to "mayaguez", so the two spellings of the same place never
+    matched each other (regression: tests/test_plan_location.py accent-fold
+    tests; found live via "Mayagüez, PR" resolving under neither spelling)."""
     s = s.lower()
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
     s = _NON_ALNUM_SPACE.sub("", s)
     s = _SPLIT_WS.sub(" ", s).strip()
     return s

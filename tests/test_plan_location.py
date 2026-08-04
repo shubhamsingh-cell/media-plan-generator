@@ -237,6 +237,99 @@ def test_city_with_recognized_state_but_no_match_is_honest_unresolved():
 
 
 # ---------------------------------------------------------------------------
+# Accent folding (`_norm_key` must fold accents to their ASCII base letter
+# BEFORE stripping non-alnum characters). Regression, memory precedent:
+# an accented letter like "u" + COMBINING DIAERESIS ("ü") was just an
+# unrecognized symbol to the old strip step and got deleted outright, so
+# "Mayagüez" normalized to "mayagez" while plain-ASCII "Mayaguez" normalized
+# to "mayaguez" -- two different keys for the same place name, neither of
+# which matched the other's data.
+# ---------------------------------------------------------------------------
+def test_dona_ana_county_nm_resolves_both_spellings():
+    """"Doña Ana County, NM" (accented) already matched by accident pre-fix
+    -- the load-time key (built from the accented Census county_name) and
+    the query key went through the same buggy `_norm_key`, so both dropped
+    "ñ" the same way. The plain-ASCII spelling a user is far more likely to
+    type, "Dona Ana County, NM", did NOT match pre-fix: dropping "ñ" from
+    "doña ana" gives "doa ana", which is not "dona ana". Both spellings
+    must resolve to the same county."""
+    for query in ("Doña Ana County, NM", "Dona Ana County, NM"):
+        r = pl.resolve_location(query)
+        assert r.status == "resolved", f"{query!r} -> {r.status} ({r.note})"
+        assert r.kind == "county"
+        assert r.county_fips == "35013"
+        assert r.state_usps == "NM"
+
+
+@pytest.mark.parametrize(
+    "accented,ascii_equivalent",
+    [
+        ("Cañon City, CO", "Canon City, CO"),
+        ("La Cañada Flintridge, CA", "La Canada Flintridge, CA"),
+        ("Mayagüez zona urbana, PR", "Mayaguez zona urbana, PR"),
+    ],
+)
+def test_accent_folding_makes_ascii_spelling_match_accented_dataset_key(accented, ascii_equivalent):
+    """The root-cause assertion: an accented query and its plain-ASCII
+    respelling must normalize to the identical `_norm_key` output, so they
+    always resolve to the same record together instead of the accented
+    spelling working "by accident" (matching itself) while the ASCII
+    spelling silently misses or -- worse -- gets fuzzy-corrected to an
+    unrelated place (pre-fix, "Mayaguez zona urbana, PR" fuzzy-matched to
+    "Jayuya zona urbana, PR", a confident wrong answer)."""
+    assert pl._norm_key(accented) == pl._norm_key(ascii_equivalent)
+    r_accented = pl.resolve_location(accented)
+    r_ascii = pl.resolve_location(ascii_equivalent)
+    assert r_accented.status == "resolved", f"{accented!r} -> {r_accented.status}"
+    assert r_ascii.status == "resolved", f"{ascii_equivalent!r} -> {r_ascii.status}"
+    assert r_accented.matched_via == "place_city_state", accented
+    assert r_ascii.display_name == r_accented.display_name
+    assert r_ascii.state_usps == r_accented.state_usps
+
+
+def test_bare_mayaguez_pr_is_a_separate_still_open_gap_not_this_fix():
+    """Documents a DISTINCT, pre-existing gap surfaced while reproducing the
+    accent-folding bug, so it isn't mistaken for fixed: the bare municipio
+    name ("Mayagüez, PR" / "Mayaguez, PR", no "zona urbana") does not
+    resolve even after accent-folding, in either spelling. Puerto Rico's
+    Census place record is named "Mayagüez zona urbana", and unlike Boise /
+    Honolulu / Nashville (see `_CENSUS_NAME_ALIASES`), there is no alias
+    routing the bare municipio name to it; `_COUNTY_SUFFIXES` also has no
+    "municipio" entry, so the county-equivalent record isn't reached either.
+    Neither gap is accent-related -- plain-ASCII "Mayaguez, PR" fails
+    identically. Tracked as a follow-up, intentionally not fixed here."""
+    for query in ("Mayagüez, PR", "Mayaguez, PR"):
+        r = pl.resolve_location(query)
+        assert r.status == "unresolved", f"{query!r} unexpectedly resolved to {r.display_name!r} -- update this test and the accent-folding fix's scope note"
+
+
+def test_norm_key_ascii_only_input_is_byte_identical_to_pre_fix_output():
+    """Hard constraint: accent-folding must be a no-op for ASCII-only input
+    (NFD-decomposing an ASCII string yields the same string; there are no
+    combining marks to drop), so every ASCII key already in production
+    stays byte-for-byte the same. Pinned against the exact pre-fix
+    `_norm_key` body (lower + strip non-alnum + collapse whitespace) for a
+    representative sweep -- not just the couple of probes exercised above."""
+    pre_fix_non_alnum_space = re.compile(r"[^a-z0-9\s]")
+    pre_fix_split_ws = re.compile(r"\s+")
+
+    def pre_fix_norm_key(s: str) -> str:
+        s = s.lower()
+        s = pre_fix_non_alnum_space.sub("", s)
+        s = pre_fix_split_ws.sub(" ", s).strip()
+        return s
+
+    probes = [
+        "Denver, CO", "Fulton County, GA", "O'Fallon", "St. Louis",
+        "Boise City", "  multi   space  ", "Zzzznotarealcity, TX", "30303",
+        "New York", "Winston-Salem", "Coeur d'Alene", "St. Paul, MN",
+        "Washington, D.C.", "USA", "united states", "Nashville-Davidson",
+    ]
+    for probe in probes:
+        assert pl._norm_key(probe) == pre_fix_norm_key(probe), probe
+
+
+# ---------------------------------------------------------------------------
 # Rule 4: bare state name or USPS abbreviation
 # ---------------------------------------------------------------------------
 def test_bare_state_abbr():
