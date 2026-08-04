@@ -319,6 +319,12 @@ _loaded = False
 _states_by_name: dict[str, str] = {}
 _states_by_usps: dict[str, str] = {}
 _state_usps_set: frozenset[str] = frozenset()
+# `_norm_key`'d USPS code ("dc") -> USPS code ("DC"). `_states_by_name` is
+# keyed by the normalized FULL state name ("district of columbia"), which a
+# punctuated abbreviation like "D.C." never matches; this dict closes that
+# gap generally (any punctuated/spaced 2-letter code, not just DC) instead
+# of a per-name special case -- see plan_location.py module docstring.
+_states_by_norm_usps: dict[str, str] = {}
 
 _counties_by_fips: dict[str, dict[str, str]] = {}
 _counties_by_name_state: dict[tuple[str, str], str] = {}  # (county_name_norm, state_usps) -> fips
@@ -405,6 +411,7 @@ def _load_states() -> None:
             continue
         _states_by_usps[usps] = name
         _states_by_name[_norm_key(name)] = usps
+        _states_by_norm_usps[_norm_key(usps)] = usps
     global _state_usps_set
     _state_usps_set = frozenset(_states_by_usps.keys())
 
@@ -916,9 +923,16 @@ def _try_comma_or_trailing_state(raw_str: str, stripped: str) -> LocationResolut
             tail_text = ",".join(parts[1:]).strip()
     else:
         tokens = _SPLIT_WS.split(stripped)
-        if len(tokens) >= 2 and len(tokens[-1]) == 2 and tokens[-1].isalpha():
-            city_text = " ".join(tokens[:-1])
-            tail_text = tokens[-1]
+        # Compare the NORMALIZED last token (punctuation stripped) so a
+        # punctuated abbreviation like "D.C." (4 raw characters, and not
+        # `.isalpha()` because of the periods) is still recognized as a
+        # 2-letter state-code-shaped tail, instead of being thrown away
+        # before tail-matching below even runs.
+        if len(tokens) >= 2:
+            last_norm = _norm_key(tokens[-1])
+            if len(last_norm) == 2 and last_norm.isalpha():
+                city_text = " ".join(tokens[:-1])
+                tail_text = tokens[-1]
 
     if not city_text or not tail_text:
         return None
@@ -938,6 +952,11 @@ def _try_comma_or_trailing_state(raw_str: str, stripped: str) -> LocationResolut
         state_usps = tail_text.strip().upper()
     elif tail_norm in _states_by_name:
         state_usps = _states_by_name[tail_norm]
+    elif tail_norm in _states_by_norm_usps:
+        # Punctuation-tolerant USPS-code match ("D.C." -> "dc" -> "DC").
+        # Generalizes beyond DC to any punctuated 2-letter code (e.g.
+        # "N.Y." -> "ny" -> "NY") without a per-name special case.
+        state_usps = _states_by_norm_usps[tail_norm]
 
     if not state_usps:
         return None  # not a recognizable state tail; let downstream rules judge (e.g. "City, Country")
@@ -1019,6 +1038,11 @@ def _try_bare_state(raw_str: str, stripped: str, norm_whole: str) -> LocationRes
         usps = stripped.strip().upper()
     elif norm_whole in _states_by_name:
         usps = _states_by_name[norm_whole]
+    elif norm_whole in _states_by_norm_usps:
+        # Same punctuation-tolerant USPS-code match as the comma/tail path
+        # above, for a bare punctuated code with nothing else in the input
+        # (e.g. bare "D.C." alone, not just "Washington, D.C.").
+        usps = _states_by_norm_usps[norm_whole]
     if not usps:
         return None
     res = LocationResolution(input=raw_str, status="resolved", kind="state", confidence=1.0, matched_via="state_bare")

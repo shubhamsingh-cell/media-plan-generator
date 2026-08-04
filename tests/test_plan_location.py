@@ -237,6 +237,69 @@ def test_city_with_recognized_state_but_no_match_is_honest_unresolved():
 
 
 # ---------------------------------------------------------------------------
+# Punctuated state-abbreviation tails ("Washington, D.C." / "Washington
+# D.C."). Regression, found live by an independent adversarial reviewer
+# during an unrelated fix: same failure class as Boise -> Bowie, AZ (a
+# confident wrong answer instead of honest ambiguity or a correct
+# resolution).
+#
+# DC is NOT missing from the data -- data/geo/us_states.tsv has
+# "DC\tDistrict of Columbia" and "Washington, DC" (no periods) already
+# resolved correctly before this fix. Root cause was two punctuation gaps:
+#   1. The comma-tail check only matched a *literal* 2-letter USPS code
+#      ("DC") against `_state_usps_set`, or the tail's `_norm_key`'d form
+#      against `_states_by_name` -- but `_states_by_name` is keyed by the
+#      normalized FULL state name ("district of columbia"), not by the
+#      normalized USPS code ("dc"). "D.C." matched neither, so a real,
+#      recognized state tail was treated as unrecognized and fell through
+#      to fuzzy matching, which "corrected" it to Washington Park, AZ.
+#   2. The comma-LESS path ("Washington D.C." as two whitespace tokens)
+#      rejected the last token before tail-matching even ran: the filter
+#      required exactly 2 alphabetic characters, and "D.C." is 4 characters
+#      and not `.isalpha()` (periods aren't letters).
+# ---------------------------------------------------------------------------
+def test_washington_dc_with_periods_resolves_to_the_federal_district():
+    r = pl.resolve_location("Washington, D.C.")
+    assert r.status == "resolved", f"expected resolved, got {r.status} ({r.display_name}, {r.state_usps})"
+    assert r.kind == "city"
+    assert r.state_usps == "DC"
+    assert "washington" in (r.display_name or "").lower()
+    assert "washington park" not in (r.display_name or "").lower()
+
+
+def test_washington_dc_no_periods_still_resolves_to_the_federal_district():
+    """Guard: the already-correct exact-match path ("DC", no punctuation)
+    must not regress when the punctuated path above is fixed."""
+    r = pl.resolve_location("Washington, DC")
+    assert r.status == "resolved"
+    assert r.kind == "city"
+    assert r.state_usps == "DC"
+    assert r.matched_via == "place_city_state"
+
+
+def test_washington_dc_no_comma_with_periods_resolves_to_the_federal_district():
+    """Comma-less spelling: same "D.C." punctuation gap, but hit through the
+    no-comma token-boundary path (root-cause point 2 above) instead of the
+    comma-split path (point 1)."""
+    r = pl.resolve_location("Washington D.C.")
+    assert r.status == "resolved", f"expected resolved, got {r.status} ({r.display_name}, {r.state_usps})"
+    assert r.kind == "city"
+    assert r.state_usps == "DC"
+    assert "washington park" not in (r.display_name or "").lower()
+
+
+def test_bare_washington_stays_the_state_not_dc():
+    """Guard: bare "Washington" (no tail at all, rule 4) must keep resolving
+    to the state of Washington -- the fix above only touches the comma /
+    comma-less tail-matching path (rule 2/3), which a single bare word never
+    reaches."""
+    r = pl.resolve_location("Washington")
+    assert r.status == "resolved"
+    assert r.kind == "state"
+    assert r.state_usps == "WA"
+
+
+# ---------------------------------------------------------------------------
 # Accent folding (`_norm_key` must fold accents to their ASCII base letter
 # BEFORE stripping non-alnum characters). Regression, memory precedent:
 # an accented letter like "u" + COMBINING DIAERESIS ("ü") was just an
