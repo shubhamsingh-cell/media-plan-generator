@@ -7289,6 +7289,44 @@ except ImportError as _dm_err:
     logger.warning("data_matrix_monitor not available: %s", _dm_err)
     _data_matrix = None
 
+_auto_qc_leader_fds: list = []
+
+
+def _acquire_auto_qc_leader_lock() -> bool:
+    """Cross-process leader election so the AutoQC monitor starts once per
+    instance, not once per gunicorn worker (render.yaml sets --workers 2;
+    the --preload master can run this too -- see wsgi.py's note on gevent
+    threads not simply dying at fork the way a plain OS thread would).
+    Same flock-on-shared-tmpdir primitive as _CrossProcessSlots / vector_search.
+    _voyage_reserve_slot: every process that reaches this races to
+    flock() one shared lock file; exactly one wins. Unlike those two
+    (released after a single request/send), this fd is kept open for the
+    process lifetime -- closing it would release the flock and let a
+    second process start a second monitor. The kernel auto-releases it if
+    this process dies, so a restart re-elects cleanly.
+    """
+    if fcntl is None:
+        return True  # non-POSIX dev box: no cross-process coordination needed
+    slot_dir = os.environ.get("NOVA_SLOT_DIR") or os.path.join(
+        tempfile.gettempdir(),
+        f"nova_gen_slots_{os.environ.get('PORT') or os.environ.get('TEST_PORT') or 'dev'}",
+    )
+    try:
+        os.makedirs(slot_dir, exist_ok=True)
+        lock_fd = open(os.path.join(slot_dir, "auto_qc_leader.lock"), "a+b")
+    except OSError:
+        # Slot dir unusable (read-only fs, etc.) -- fail open rather than
+        # silently losing health monitoring on every worker.
+        return True
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        lock_fd.close()
+        return False  # another process already holds the lock
+    _auto_qc_leader_fds.append(lock_fd)  # never closed -- see docstring
+    return True
+
+
 # Autonomous QC engine (twice-daily tests). S57 audit: the "weekly
 # self-upgrade" feature was never implemented -- log message and docstring
 # corrected to reflect what the engine actually does (periodic health
@@ -7303,10 +7341,15 @@ try:
         # grace on slow/loaded pytest runs and mutates get_status() shape
         # mid-session. The instance stays available for /api/health/auto-qc.
         logger.info("AutoQC engine disabled (NOVA_DISABLE_AUTO_QC=1)")
-    else:
+    elif _acquire_auto_qc_leader_lock():
         _auto_qc.start_background()
         _auto_qc_started = True
-        logger.info("AutoQC engine started (health checks every 12h)")
+        logger.info("AutoQC engine started (health checks every 60s)")
+    else:
+        logger.info(
+            "AutoQC engine already running in another process on this "
+            "instance -- skipping duplicate monitor"
+        )
 except ImportError as _aqc_err:
     logger.warning("auto_qc not available: %s", _aqc_err)
     _auto_qc = None
