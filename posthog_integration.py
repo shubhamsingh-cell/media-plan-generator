@@ -254,19 +254,32 @@ class PostHogClient:
                 body_snippet = http_err.read().decode("utf-8", errors="replace")[:200]
             except Exception:
                 pass
-            logger.error(
-                "PostHog flush HTTP %d: %s",
-                http_err.code,
-                body_snippet,
-                exc_info=True,
-            )
-            # Dead-letter queue: preserve failed events for retry (Phase 6)
-            for evt in batch:
-                _dead_letter_queue.append(evt)
-            logger.info(
-                "[PostHog] %d events moved to dead-letter queue (HTTP error)",
-                len(batch),
-            )
+            if http_err.code in (400, 401, 403):
+                # Permanent failure (bad request / invalid or forbidden API
+                # key): retrying the same batch can never succeed. Log once
+                # and drop it instead of dead-lettering -- unconditional
+                # dead-lettering here is what turned an invalid
+                # POSTHOG_API_KEY into a 5s-interval storm that resent the
+                # same doomed batch forever.
+                logger.error(
+                    "PostHog flush HTTP %d (permanent failure, not retrying): %s",
+                    http_err.code,
+                    body_snippet,
+                )
+            else:
+                logger.error(
+                    "PostHog flush HTTP %d: %s",
+                    http_err.code,
+                    body_snippet,
+                    exc_info=True,
+                )
+                # Dead-letter queue: preserve failed events for retry (Phase 6)
+                for evt in batch:
+                    _dead_letter_queue.append(evt)
+                logger.info(
+                    "[PostHog] %d events moved to dead-letter queue (HTTP error)",
+                    len(batch),
+                )
         except urllib.error.URLError as url_err:
             logger.error("PostHog flush URL error: %s", url_err.reason, exc_info=True)
             for evt in batch:
