@@ -293,9 +293,33 @@ class BudgetAgent(Agent):
         weighted_cpc = 0.0
         total_spend = sum(allocation.values()) or 1.0
         for ch, spend in allocation.items():
+            # Unlisted-channel CPC fallback ($1.50), kept as a bare literal
+            # on purpose -- not sourced from benchmark_registry.py.
+            # Checked 2026-09-07 (tests/cpc_literal_ledger.json CPC-citation
+            # program, closing its last estimate_disclosed survivor):
+            # benchmark_registry.py has no channel-agnostic/blended CPC
+            # constant to read this from. Its two getters fall back for a
+            # DIFFERENT failure mode (a named-channel lookup miss inside
+            # per-channel data), not "give me a generic cross-channel CPC":
+            # get_channel_benchmark() reuses CHANNEL_BENCHMARKS["programmatic"]
+            # (cpc 0.63) for an unrecognized channel key, and
+            # get_benchmark_value() returns 1.0 for an unrecognized metric
+            # name. Routing this fallback through either would silently
+            # change the score this method assigns to any negotiated
+            # proposal channel absent from self._cpc_benchmarks above (e.g.
+            # ChannelAgent's "github_jobs" for the technology industry mix,
+            # reachable via negotiate()'s cross-agent scoring at ~line 257
+            # and ~270) -- a real scoring-behavior change disguised as a
+            # citation fix, not something this pass is authorized to make.
+            # $1.50 is retained unchanged as the pre-existing internal
+            # negotiation-scoring baseline: an approximate blended-CPC
+            # heuristic set when this scorer was written, never rendered to
+            # a user as a benchmark citation (see the ledger row above).
             cpc = self._cpc_benchmarks.get(ch, 1.50)
             weighted_cpc += (spend / total_spend) * cpc
-        # Lower weighted CPC = higher score. Baseline CPC ~$1.50
+        # Lower weighted CPC = higher score. Baseline CPC ~$1.50 (same
+        # internal heuristic default as above -- not an independent figure,
+        # not a KB citation; see the comment in the loop above).
         efficiency = max(0.0, min(100.0, (1.5 / max(weighted_cpc, 0.01)) * 60))
         return round(efficiency, 1)
 

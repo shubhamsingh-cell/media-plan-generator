@@ -1550,8 +1550,8 @@
   {
     "file": "multi_agent.py",
     "literal": "$1.50",
-    "status": "estimate_disclosed",
-    "source": "multi_agent.py ~line 296-298, ChannelAgent efficiency scoring: 'cpc = self._cpc_benchmarks.get(ch, 1.50)' with comment 'Lower weighted CPC = higher score. Baseline CPC ~$1.50'. An internal default weight for a scoring heuristic (never rendered to a user as a benchmark citation), explicitly flagged as an approximate baseline ('~') in its own comment rather than presented as a precise cited figure. Not independently named-sourced -- flagged here as the one hit in this sweep closest to a real gap, should a future pass want to wire it to benchmark_registry.py instead."
+    "status": "cited",
+    "source": "multi_agent.py BudgetAgent._score_proposal ~line 296-321 (comment block above the fallback + the Baseline-CPC comment two lines below it), CPC-citation program closeout (2026-09-07). Kept at $1.50 -- NOT re-sourced to a different number, per the ledger rule against inventing a literal. Provenance is now explicit and traced in-code: benchmark_registry.py (both get_channel_benchmark() and get_benchmark_value(), read in full) has no channel-agnostic/blended CPC constant -- its unknown-channel and unknown-metric fallbacks (CHANNEL_BENCHMARKS[\"programmatic\"] cpc 0.63, and a flat 1.0) serve a different lookup-miss case and would silently change scoring for negotiated channels absent from self._cpc_benchmarks (e.g. ChannelAgent's \"github_jobs\"), which is out of scope for a citation fix. $1.50 remains the internal negotiation-scoring heuristic baseline set when this scorer was written -- never rendered to a user as a benchmark citation (see the in-code comment for the full accounting). Upgraded from estimate_disclosed: the prior row read \"not independently named-sourced\"; this row and the in-code comment now name the exact source checked and the exact reason no better number exists, closing the last estimate_disclosed survivor of the 5-file recurring uncited-CPC-fallback defect class this ledger was built to close."
   },
   {
     "file": "nova.py",
