@@ -9,7 +9,11 @@ CRITICALs two minutes apart; see ``docs/INCIDENT_2026-06-13_alert_noise.md``.)
 
 This store backs the cooldown with Supabase -- shared across workers and durable
 across restarts -- when ``SUPABASE_URL`` / ``SUPABASE_SERVICE_ROLE_KEY`` are set,
-and otherwise falls back to the exact pre-P1 in-memory behavior.
+and otherwise falls back to the exact pre-P1 in-memory behavior. If Supabase
+is configured but the table/RPC has not been created (PostgREST 404), the
+store DEMOTES itself to the in-memory backend for the life of the process --
+a missing table must degrade to the old per-process cooldown, never to no
+cooldown at all (fail-open on every call would re-page every bridge cycle).
 
 **FAIL-OPEN.** Any backend error is treated as "no cooldown -> fire the alert".
 A transient store outage must never silently swallow a real page; a duplicate
@@ -42,6 +46,15 @@ import urllib.request
 from typing import Optional, Protocol
 
 logger = logging.getLogger(__name__)
+
+
+class CooldownBackendMissing(Exception):
+    """The configured backend definitively does not exist (PostgREST 404 --
+    ``alert_cooldowns`` table or ``claim_alert_cooldown`` RPC not created).
+
+    Distinct from a transient error: those stay fail-open (fire once); this one
+    tells ``AlertCooldownStore`` to demote to in-memory so the cooldown holds.
+    """
 
 
 class CooldownBackend(Protocol):
@@ -117,6 +130,12 @@ class SupabaseCooldownBackend:
             "Prefer": "resolution=merge-duplicates",
         }
 
+    @staticmethod
+    def _raise_if_missing(e: Exception) -> None:
+        """404 = table/RPC not created. Everything else stays fail-open."""
+        if isinstance(e, urllib.error.HTTPError) and e.code == 404:
+            raise CooldownBackendMissing(f"HTTP 404 from {e.filename}") from e
+
     def get_last_fired(self, key: str) -> Optional[float]:
         if not self.enabled:
             return None
@@ -146,6 +165,7 @@ class SupabaseCooldownBackend:
                 return last
             return None
         except Exception as e:  # fail-open: any error -> allow the alert
+            self._raise_if_missing(e)
             logger.debug("[cooldown] Supabase read failed (fail-open): %s", e)
             return None
 
@@ -163,6 +183,7 @@ class SupabaseCooldownBackend:
             with urllib.request.urlopen(req, timeout=self._TIMEOUT) as resp:
                 resp.read()
         except Exception as e:
+            self._raise_if_missing(e)
             logger.debug("[cooldown] Supabase write failed: %s", e)
 
     def try_claim(self, key: str, now: float, cooldown_s: float) -> Optional[bool]:
@@ -193,6 +214,7 @@ class SupabaseCooldownBackend:
                 return result
             return None  # unexpected shape -> fail open
         except Exception as e:  # fail-open
+            self._raise_if_missing(e)
             logger.debug("[cooldown] claim RPC failed (fail-open): %s", e)
             return None
 
@@ -211,6 +233,7 @@ class AlertCooldownStore:
         self._backend: CooldownBackend = (
             backend if backend is not None else _default_backend()
         )
+        self._demoted_from: Optional[str] = None
 
     def should_fire(
         self, key: str, cooldown_s: float, now: Optional[float] = None
@@ -233,6 +256,9 @@ class AlertCooldownStore:
         if callable(claim):
             try:
                 result = claim(key, ts, cooldown_s)
+            except CooldownBackendMissing as e:
+                self._demote(str(e))
+                result = self._backend.try_claim(key, ts, cooldown_s)  # type: ignore[attr-defined]
             except Exception as e:  # defensive: backend should already fail-open
                 logger.debug("[cooldown] try_claim raised (fail-open): %s", e)
                 result = None
@@ -243,6 +269,9 @@ class AlertCooldownStore:
         # Fallback: read-then-write (non-atomic; for custom backends only).
         try:
             last = self._backend.get_last_fired(key)
+        except CooldownBackendMissing as e:
+            self._demote(str(e))
+            last = self._backend.get_last_fired(key)
         except Exception as e:  # defensive: backend should already fail-open
             logger.debug("[cooldown] get_last_fired raised (fail-open): %s", e)
             last = None
@@ -252,6 +281,9 @@ class AlertCooldownStore:
         if last is not None and 0 <= (ts - last) < cooldown_s:
             return False
         try:
+            self._backend.record_fired(key, ts)
+        except CooldownBackendMissing as e:
+            self._demote(str(e))
             self._backend.record_fired(key, ts)
         except Exception as e:
             logger.debug("[cooldown] record_fired raised: %s", e)
@@ -267,6 +299,9 @@ class AlertCooldownStore:
         """
         try:
             return self._backend.get_last_fired(key)
+        except CooldownBackendMissing as e:
+            self._demote(str(e))
+            return self._backend.get_last_fired(key)
         except Exception as e:
             logger.debug("[cooldown] store.get_last_fired fail-open: %s", e)
             return None
@@ -274,6 +309,9 @@ class AlertCooldownStore:
     def record_fired(self, key: str, ts: Optional[float] = None) -> None:
         """Record a fire for ``key`` (defaults to now). Errors are swallowed."""
         try:
+            self._backend.record_fired(key, time.time() if ts is None else ts)
+        except CooldownBackendMissing as e:
+            self._demote(str(e))
             self._backend.record_fired(key, time.time() if ts is None else ts)
         except Exception as e:
             logger.debug("[cooldown] store.record_fired swallowed: %s", e)
@@ -283,6 +321,27 @@ class AlertCooldownStore:
             return self._backend.active_count()
         except Exception:
             return -1
+
+    def _demote(self, reason: str) -> None:
+        """Swap to in-memory for the rest of this process. Logged at WARNING
+        once: this is a misconfiguration (run docs/sql/alert_cooldowns.sql),
+        not an outage, and the old per-process cooldown is now in force.
+        """
+        if isinstance(self._backend, InMemoryCooldownBackend):
+            return
+        self._demoted_from = self._backend.name
+        self._backend = InMemoryCooldownBackend()
+        logger.warning(
+            "[cooldown] backend %r missing (%s) -- demoted to in-memory; "
+            "cross-worker dedup is OFF until docs/sql/alert_cooldowns.sql is applied",
+            self._demoted_from,
+            reason,
+        )
+
+    @property
+    def demoted_from(self) -> Optional[str]:
+        """Backend name this store fell back FROM, or None if never demoted."""
+        return self._demoted_from
 
     @property
     def backend_name(self) -> str:

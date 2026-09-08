@@ -7,12 +7,14 @@ disabled/enabled/error paths, and the bridge wiring.
 
 from __future__ import annotations
 
+import urllib.error
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from alert_cooldown_store import (
     AlertCooldownStore,
+    CooldownBackendMissing,
     InMemoryCooldownBackend,
     SupabaseCooldownBackend,
     _default_backend,
@@ -291,3 +293,112 @@ def test_bridge_should_alert_uses_store(monkeypatch: pytest.MonkeyPatch) -> None
     status = bridge.get_status()
     assert status["cooldown_backend"] == "memory"
     assert status["active_cooldowns"] >= 1
+
+
+# --------------------------------------------------------------------------- #
+# Missing table/RPC (PostgREST 404): demote to in-memory, do NOT fail open
+# --------------------------------------------------------------------------- #
+#
+# SUPABASE_URL/SERVICE_ROLE_KEY are set in prod, so the Supabase backend is
+# selected whether or not docs/sql/alert_cooldowns.sql was ever applied. Before
+# this guard, a missing RPC made every claim fail OPEN -> the 1800s cooldown was
+# effectively ZERO and a sustained condition re-paged every 60s bridge cycle.
+
+
+def _http_404() -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        "https://example.supabase.co/rest/v1/rpc/claim_alert_cooldown",
+        404,
+        "Not Found",
+        None,
+        None,
+    )
+
+
+def test_supabase_404_raises_backend_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    _enable_supabase(monkeypatch)
+    be = SupabaseCooldownBackend()
+    with patch("alert_cooldown_store.urllib.request.urlopen", side_effect=_http_404()):
+        with pytest.raises(CooldownBackendMissing):
+            be.try_claim("k", 1.0, 100.0)
+        with pytest.raises(CooldownBackendMissing):
+            be.get_last_fired("k")
+        with pytest.raises(CooldownBackendMissing):
+            be.record_fired("k", 1.0)
+
+
+def test_supabase_non_404_http_error_still_fails_open(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 5xx is transient: fire once (fail-open), keep the backend."""
+    _enable_supabase(monkeypatch)
+    be = SupabaseCooldownBackend()
+    err = urllib.error.HTTPError(
+        "https://example.supabase.co/x", 503, "Unavailable", None, None
+    )
+    with patch("alert_cooldown_store.urllib.request.urlopen", side_effect=err):
+        assert be.try_claim("k", 1.0, 100.0) is None
+        assert be.get_last_fired("k") is None
+        be.record_fired("k", 1.0)  # swallowed
+
+
+def test_store_demotes_on_missing_rpc_and_cooldown_holds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """THE regression: with the RPC absent the 2nd fire inside the window must
+    be suppressed. Previously this returned True, True (cooldown = 0)."""
+    _enable_supabase(monkeypatch)
+    store = AlertCooldownStore(SupabaseCooldownBackend())
+    assert store.backend_name == "supabase"
+    assert store.demoted_from is None
+    with patch("alert_cooldown_store.urllib.request.urlopen", side_effect=_http_404()):
+        assert store.should_fire("k", 1800, now=1000.0) is True  # first page
+        assert store.should_fire("k", 1800, now=1060.0) is False  # 60s later: HELD
+        assert store.should_fire("k", 1800, now=2900.0) is True  # window elapsed
+    assert store.backend_name == "memory"
+    assert store.demoted_from == "supabase"
+
+
+def test_store_get_and_record_demote_on_missing_table(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """alert_manager uses the split get/record path; it must demote too."""
+    _enable_supabase(monkeypatch)
+    store = AlertCooldownStore(SupabaseCooldownBackend())
+    with patch("alert_cooldown_store.urllib.request.urlopen", side_effect=_http_404()):
+        assert store.get_last_fired("subj") is None  # demoted, empty memory
+        store.record_fired("subj", 1000.0)  # lands in memory, no raise
+    assert store.backend_name == "memory"
+    assert store.get_last_fired("subj") == 1000.0
+
+
+def test_demotion_logs_warning_once(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    import logging
+
+    _enable_supabase(monkeypatch)
+    store = AlertCooldownStore(SupabaseCooldownBackend())
+    with caplog.at_level(logging.WARNING, logger="alert_cooldown_store"):
+        with patch(
+            "alert_cooldown_store.urllib.request.urlopen", side_effect=_http_404()
+        ):
+            store.should_fire("a", 100, now=1.0)
+            store.should_fire("b", 100, now=1.0)
+    warnings = [r for r in caplog.records if "demoted to in-memory" in r.getMessage()]
+    assert len(warnings) == 1
+    assert "alert_cooldowns.sql" in warnings[0].getMessage()
+
+
+def test_bridge_demotes_when_rpc_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """End-to-end at the bridge: _should_alert must hold the cooldown and
+    get_status must report the truth (memory), not a phantom 'supabase'."""
+    _enable_supabase(monkeypatch)
+    from monitoring import MonitoringAlertBridge
+
+    with patch("alert_cooldown_store.urllib.request.urlopen", side_effect=_http_404()):
+        bridge = MonitoringAlertBridge()
+        assert bridge._cooldown_store.backend_name == "supabase"
+        assert bridge._should_alert("global_error_rate") is True
+        assert bridge._should_alert("global_error_rate") is False  # HELD
+    assert bridge.get_status()["cooldown_backend"] == "memory"
