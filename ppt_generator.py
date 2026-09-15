@@ -31,11 +31,7 @@ from shared_utils import (
     internal_qc_mode as _internal_qc_mode,
 )
 
-from joveo_brand_2026 import (
-    LAVENDER_50 as _LAVENDER_50_HEX,
-    LAVENDER_100 as _LAVENDER_100_HEX,
-    BLUE_50 as _BLUE_50_HEX,
-)
+import joveo_brand_2026 as _brand
 
 try:
     import plan_currency as _plan_currency
@@ -353,14 +349,14 @@ def _fix_pptx_package_hygiene(pptx_bytes: bytes, n_slides: int) -> bytes:
 # follows the brand guideline series: purple -> teal -> magenta -> purple-light,
 # then deepen within the family. Categorical, high-contrast between neighbors.
 _CHART_COLORS = [
-    "#5A54BE",  # PURPLE — series 1 (primary accent)
-    "#6BB5CE",  # TEAL — series 2
-    "#B7669E",  # MAGENTA — series 3
-    "#8680D6",  # PURPLE_LIGHT — series 4
-    "#202058",  # INDIGO — series 5 (deep)
-    "#3E8FAB",  # TEAL deep — series 6
-    "#C98BB6",  # MAGENTA light — series 7
-    "#3F3A8E",  # PURPLE deep — series 8
+    _brand.PURPLE,  # series 1 (primary accent)
+    _brand.TEAL,  # series 2
+    _brand.MAGENTA,  # series 3
+    _brand.PURPLE_LIGHT,  # series 4
+    _brand.INDIGO,  # series 5 (deep)
+    _brand.TEAL_DEEP,  # series 6
+    _brand.MAGENTA_LIGHT,  # series 7
+    _brand.PURPLE_DEEP,  # series 8
 ]
 
 
@@ -390,7 +386,7 @@ def _generate_pie_chart_image(labels: List[str], sizes: List[float]) -> Optional
             sizes = [sz for _, sz in top] + [round(other_size, 1)]
 
         fig, ax = plt.subplots(figsize=(7, 5), dpi=150)
-        fig.patch.set_facecolor("#FFFCF9")
+        fig.patch.set_facecolor(_brand.CANVAS)
 
         colors = _CHART_COLORS[: len(labels)]
         # Extend colors if we have more channels than palette entries
@@ -429,7 +425,7 @@ def _generate_pie_chart_image(labels: List[str], sizes: List[float]) -> Optional
             "Budget Allocation by Channel",
             fontsize=13,
             fontweight="bold",
-            color="#202058",
+            color=_brand.INDIGO,
             pad=15,
         )
 
@@ -482,10 +478,10 @@ def _generate_funnel_chart_image(
         ]
 
         fig, ax = plt.subplots(figsize=(8, 4.5), dpi=150)
-        fig.patch.set_facecolor("#FFFCF9")
+        fig.patch.set_facecolor(_brand.CANVAS)
 
         # S89: brand-only funnel (was a non-deck green #338721 on the last stage)
-        funnel_colors = ["#202058", "#5A54BE", "#6BB5CE", "#B7669E"]
+        funnel_colors = [_brand.INDIGO, _brand.PURPLE, _brand.TEAL, _brand.MAGENTA]
         max_val = values[0]
 
         y_positions = [3.0, 2.0, 1.0, 0.0]
@@ -515,7 +511,7 @@ def _generate_funnel_chart_image(
                 va="center",
                 fontsize=10,
                 fontweight="bold",
-                color="#202058",
+                color=_brand.INDIGO,
                 transform=ax.get_yaxis_transform(),
             )
 
@@ -542,7 +538,7 @@ def _generate_funnel_chart_image(
                     ha="center",
                     va="top",
                     fontsize=8,
-                    color="#596780",
+                    color=_brand.MUTED,
                     fontstyle="italic",
                 )
 
@@ -554,7 +550,7 @@ def _generate_funnel_chart_image(
             "Recruitment Conversion Funnel",
             fontsize=13,
             fontweight="bold",
-            color="#202058",
+            color=_brand.INDIGO,
             pad=15,
         )
 
@@ -623,54 +619,63 @@ def _proper_client_name(name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Constants & Color Palette (Joveo brand identity)
-# Primary: Port Gore #202058  |  Accent: Blue Violet #5A54BE
-# Secondary: Downy Teal #6BB5CE  |  Extended: Light Purple #8680D6
-# Extended: Light Teal #A8D8EA  |  Emphasis: Magenta #B7669E
+# Constants & Color Palette -- ONE palette, every value imported from
+# joveo_brand_2026 (CLAUDE.md §7: do NOT hardcode brand hexes here).
+# The names below are the deck's semantic roles; the hexes live in the
+# brand module. Contrast notes assume the light deck surfaces (CANVAS,
+# LAVENDER_50/100, BLUE_50, WHITE).
 # ---------------------------------------------------------------------------
 
+
+def _rgb(hex_str: str) -> RGBColor:
+    """'#5A54BE' -> RGBColor for python-pptx."""
+    return RGBColor.from_string(hex_str.lstrip("#"))
+
+
 # -- Joveo brand primaries --
-NAVY = RGBColor(0x20, 0x20, 0x58)  # Port Gore — primary dark / headings
-BLUE = RGBColor(0x5A, 0x54, 0xBE)  # Blue Violet — primary accent
-MEDIUM_BLUE = RGBColor(0x48, 0x43, 0x9E)  # Deeper purple accent
-LIGHT_BLUE = RGBColor(0xDD, 0xDB, 0xFF)  # Light purple background
-PALE_BLUE = RGBColor(0xB8, 0xB4, 0xF7)  # Medium purple accent fill
-SKY_BLUE = RGBColor(0xA8, 0xD8, 0xEA)  # Light teal (Joveo extended)
+NAVY = _rgb(_brand.INDIGO)  # Port Gore -- primary dark / headings
+BLUE = _rgb(_brand.PURPLE)  # Blue Violet -- primary accent
+MEDIUM_BLUE = _rgb(
+    _brand.INDIGO_600
+)  # deeper indigo accent / card fill (white text 14:1)
+LIGHT_BLUE = _rgb(_brand.LAVENDER_100)  # light purple surface
+PALE_BLUE = _rgb(_brand.PURPLE_300)  # medium purple accent fill / series
+JOVEO_LIGHT_PURPLE = _rgb(_brand.PURPLE_LIGHT)  # light purple accent
+JOVEO_PINK = _rgb(_brand.MAGENTA)  # magenta pop accent (was also RED_ACCENT / GOLD)
 
 # -- Joveo secondary --
-TEAL = RGBColor(0x6B, 0xB5, 0xCE)  # Downy Teal — secondary accent
-LIGHT_TEAL = RGBColor(0xA8, 0xD8, 0xEA)  # Light teal (Joveo extended)
-PALE_TEAL = RGBColor(0xDA, 0xF5, 0xFF)  # Pale teal background
+TEAL = _rgb(_brand.TEAL)  # Downy Teal -- secondary accent
+TEAL_DEEP = _rgb(
+    _brand.TEAL_DEEP
+)  # deep teal accent (was misnamed AMBER / JOVEO_BRONZE)
+TEAL_LIGHT = _rgb(
+    _brand.TEAL_LIGHT
+)  # light teal fill (was TEAL_LIGHT / TEAL_LIGHT); INDIGO text only
+PALE_TEAL = _rgb(_brand.BLUE_50)  # pale blue surface
 
 # -- Neutrals --
-WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-OFF_WHITE = RGBColor(0xFF, 0xFC, 0xF9)  # Warm white canvas (page bg)
-WARM_WHITE = RGBColor(0xFF, 0xFC, 0xF9)  # Card backgrounds
-WARM_GRAY = RGBColor(0xEB, 0xE6, 0xE0)  # Borders, dividers
-MEDIUM_GRAY = RGBColor(0xD6, 0xCF, 0xC2)  # Subtle separators
+WHITE = _rgb(_brand.WHITE)
+OFF_WHITE = _rgb(_brand.CANVAS)  # warm white canvas (page bg)
+WARM_GRAY = _rgb(_brand.BORDER)  # borders, dividers, rules
 
 # -- Text colors --
-DARK_TEXT = RGBColor(0x20, 0x20, 0x58)  # Port Gore for body text
-MUTED_TEXT = RGBColor(0x59, 0x67, 0x80)  # Secondary text
-LIGHT_MUTED = RGBColor(0x8C, 0x96, 0xA8)  # Tertiary text
+DARK_TEXT = _rgb(_brand.INDIGO)  # Port Gore for body text
+INK_SLATE = _rgb(_brand.INDIGO_500)  # card body text
+MUTED_TEXT = _rgb(_brand.MUTED)  # secondary text (4.5:1 on LAVENDER_50)
+LIGHT_MUTED = _rgb(_brand.PURPLE_300)  # tertiary text on NAVY surfaces only (5.6:1)
 
-# -- Semantic colors --
-GREEN = RGBColor(0x33, 0x87, 0x21)  # Positive / beating benchmark
-LIGHT_GREEN = RGBColor(0xE6, 0xF2, 0xE0)  # Green background
-AMBER = RGBColor(0x3E, 0x8F, 0xAB)  # Teal deep — trailing benchmark
-LIGHT_AMBER = RGBColor(0xFD, 0xDB, 0xB2)  # Light bronze background
-RED_ACCENT = RGBColor(0xB7, 0x66, 0x9E)  # Magenta — underperformance accent
-GOLD = RGBColor(0xB7, 0x66, 0x9E)  # Magenta — emphasis / highlights
+# -- Semantic / status colors (text-safe variants; see joveo_brand_2026) --
+GREEN = _rgb(_brand.GREEN_TEXT)  # positive / beating benchmark
+LIGHT_GREEN = _rgb(_brand.GREEN_50)  # green surface
+AMBER_TEXT = _rgb(_brand.AMBER_TEXT)  # caution / trailing benchmark / estimated
+LIGHT_AMBER = _rgb(_brand.AMBER_50)  # caution surface
+RED_TEXT = _rgb(_brand.RED_TEXT)  # critical (budget reality check)
+LIGHT_RED = _rgb(_brand.RED_50)  # critical surface
 
-# -- Joveo extended palette --
-JOVEO_LIGHT_PURPLE = RGBColor(0x86, 0x80, 0xD6)  # Light purple accent
-JOVEO_BRONZE = RGBColor(0x3E, 0x8F, 0xAB)  # Teal deep accent / CTAs
-JOVEO_PINK = RGBColor(0xB7, 0x66, 0x9E)  # Magenta accent
-
-# -- Deck narrative surfaces (canonical hexes imported from joveo_brand_2026) --
-LAVENDER_50 = RGBColor.from_string(_LAVENDER_50_HEX.lstrip("#"))  # zebra rows / strips
-LAVENDER_100 = RGBColor.from_string(_LAVENDER_100_HEX.lstrip("#"))  # Push card surface
-BLUE_50 = RGBColor.from_string(_BLUE_50_HEX.lstrip("#"))  # Pull card surface
+# -- Deck narrative surfaces --
+LAVENDER_50 = _rgb(_brand.LAVENDER_50)  # zebra rows / strips / page canvas
+LAVENDER_100 = _rgb(_brand.LAVENDER_100)  # Push card surface
+BLUE_50 = _rgb(_brand.BLUE_50)  # Pull card surface
 
 # -- Fonts (Poppins headings + body -- Joveo deck 2026) --
 # craft:both#5: "Inter" body-font runs were never embedded in the PPTX (only
@@ -1051,7 +1056,7 @@ CHANNEL_ALLOC: Dict[str, Dict[str, Any]] = {
     "social_media": {
         "label": "Social Media",
         "pct": 12,
-        "color": SKY_BLUE,
+        "color": TEAL_LIGHT,
         "category": "Social",
     },
     "regional_boards": {
@@ -1069,7 +1074,7 @@ CHANNEL_ALLOC: Dict[str, Dict[str, Any]] = {
     "apac_regional": {
         "label": "APAC Regional",
         "pct": 3,
-        "color": LIGHT_TEAL,
+        "color": TEAL_LIGHT,
         "category": "Job Boards",
     },
     "emea_regional": {
@@ -1686,9 +1691,8 @@ INV_ACCENTS = [
     TEAL,
     JOVEO_PINK,
     JOVEO_LIGHT_PURPLE,
-    AMBER,
+    TEAL_DEEP,
 ]  # purple/teal/magenta/lilac/teal-deep
-INK_SLATE = RGBColor(0x33, 0x33, 0x4F)  # card body text (source #33334E)
 INV_CANVAS = LAVENDER_50  # #F4F4FF cool light page canvas
 INV_PILL = LAVENDER_50  # #F4F4FF soft pill / row surface
 INV_QBAND = LAVENDER_100  # #ECEAF7 question-band surface
@@ -3313,7 +3317,7 @@ def _confidence_color(confidence: str) -> Tuple[RGBColor, str]:
     elif conf_lower in ("curated", "knowledge_base", "medium"):
         return (MEDIUM_BLUE, "Curated")
     else:
-        return (AMBER, "Estimated")
+        return (AMBER_TEXT, "Estimated")
 
 
 def _add_enrichment_badge(slide, enriched):
@@ -3536,7 +3540,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
         text=client,
         font_size=_client_font_pt,
         bold=True,
-        color=LIGHT_TEAL,
+        color=TEAL_LIGHT,
     )
     _client_bottom_in = _client_top_in + _client_box_h_in
 
@@ -3561,7 +3565,7 @@ def _build_slide_cover(prs: Presentation, data: Dict):
             Inches(0.5),
             text=industry_label,
             font_size=_industry_font_pt,
-            color=LIGHT_TEAL,
+            color=TEAL_LIGHT,
         )
         _industry_bottom_in = _industry_top_in + 0.5
 
@@ -4445,7 +4449,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             bar_top + Inches(0.25),
             Inches(0.015),
             Inches(0.65),
-            RGBColor(0x1A, 0x45, 0x70),
+            INK_SLATE,
         )
 
     # ── Creative Quality Score badge (P1-16) ──
@@ -4463,9 +4467,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         _cqs_score = cqs.get("score", 0)
         _cqs_grade = cqs.get("grade", "—")
         _cqs_color = (
-            GREEN
-            if _cqs_score >= 70
-            else BLUE if _cqs_score >= 50 else RGBColor(0xCC, 0x33, 0x33)
+            GREEN if _cqs_score >= 70 else BLUE if _cqs_score >= 50 else RED_TEXT
         )
         # Placed in the top-right CONTENT corner (below the header band, right of
         # the narrowed title, above the SCR cards) so it never collides with the
@@ -4561,7 +4563,7 @@ def _build_slide_divider_channel_strategy(prs: Presentation, data: Dict):
         text="02",
         font_size=18,
         bold=True,
-        color=LIGHT_TEAL,
+        color=TEAL_LIGHT,
     )
 
     # Large section title
@@ -4602,7 +4604,7 @@ def _build_slide_divider_channel_strategy(prs: Presentation, data: Dict):
         Inches(1.0),
         Inches(3.5),
         Inches(3.5),
-        RGBColor(0x09, 0x58, 0xB0),
+        BLUE,
     )
     _add_oval(
         slide,
@@ -4610,7 +4612,7 @@ def _build_slide_divider_channel_strategy(prs: Presentation, data: Dict):
         Inches(3.5),
         Inches(2.5),
         Inches(2.5),
-        RGBColor(0x08, 0x50, 0xA0),
+        JOVEO_LIGHT_PURPLE,
     )
 
 
@@ -5163,7 +5165,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         val_pt = _bench_row_font_pt[i]
         this_row_h = Inches(row_h_in)
         ry = Inches(_bench_row_top_in[i])
-        bg = WHITE if i % 2 == 0 else RGBColor(0xF8, 0xF6, 0xF3)
+        bg = WHITE if i % 2 == 0 else LAVENDER_50
         _add_filled_rect(slide, table_left, ry, table_w, this_row_h, bg)
         # Thin ruled line between rows (McKinsey/Bain style)
         _add_filled_rect(
@@ -5246,7 +5248,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     cat_colors = {
         "Programmatic": (NAVY, WHITE),
         "Job Boards": (BLUE, WHITE),
-        "Social": (SKY_BLUE, NAVY),
+        "Social": (TEAL_LIGHT, NAVY),
         "Employer Brand": (TEAL, NAVY),
         "Other": (MEDIUM_BLUE, WHITE),
     }
@@ -5513,7 +5515,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         {
             "value": _fmt_currency(avg_cpa) if avg_cpa > 0 else "--",
             "label": "Avg CPA",
-            "accent": RGBColor(0xED, 0x7D, 0x31),
+            "accent": JOVEO_PINK,
         },
         {
             "value": _fmt_currency(ba_avg_cph) if ba_avg_cph > 0 else "--",
@@ -5688,7 +5690,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     # Data rows (top 5 channels)
     for ri, ch in enumerate(ch_display_top5):
         row_y = header_y + row_h + ri * row_h
-        row_bg = WHITE if ri % 2 == 0 else RGBColor(0xF5, 0xF5, 0xF3)
+        row_bg = WHITE if ri % 2 == 0 else LAVENDER_50
         _add_filled_rect(slide, ch_table_left, row_y, ch_table_w, row_h, row_bg)
 
         row_values = [
@@ -5770,8 +5772,8 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         # Red callout box for budget reality check
         reality_top = bottom_section_top
         reality_h = Inches(0.7)
-        RED_BG = RGBColor(0xFD, 0xE8, 0xE8)
-        RED_ACCENT = RGBColor(0xC6, 0x28, 0x28)
+        RED_BG = LIGHT_RED
+        RED_ACCENT = RED_TEXT
         _add_rounded_rect(
             slide, Inches(0.55), reality_top, Inches(12.2), reality_h, RED_BG
         )
@@ -5811,7 +5813,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
             text=_reality_message,
             font_size=10,
             bold=False,
-            color=RGBColor(0xC6, 0x28, 0x28),
+            color=RED_ACCENT,
         )
 
         # Shift insight callout below
@@ -6175,7 +6177,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     max_rows = len(rows_to_render)
     for ri, ch in enumerate(rows_to_render):
         row_y = header_y + row_h + ri * row_h
-        row_bg = WHITE if ri % 2 == 0 else RGBColor(0xF5, 0xF5, 0xF3)
+        row_bg = WHITE if ri % 2 == 0 else LAVENDER_50
         _add_filled_rect(slide, table_left, row_y, table_w, row_h, row_bg)
 
         # Color indicator dot + Channel name
@@ -6421,7 +6423,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         _cbn_p.alignment = PP_ALIGN.LEFT
         _cbn_run = _cbn_p.add_run()
         _cbn_run.text = _note_text
-        _set_font(_cbn_run, size=8, italic=True, color=LIGHT_TEAL)
+        _set_font(_cbn_run, size=8, italic=True, color=TEAL_LIGHT)
     # Deliberately no _autofit_textframe call on this frame: autofit's
     # trailing-paragraph eviction is exactly the mechanism that dropped the
     # note before. Sizing was decided above by direct measurement instead.
@@ -6473,7 +6475,7 @@ def _embed_pie_chart_on_budget_slide(prs: Presentation, data: Dict) -> None:
     # Generate a compact pie chart (smaller than the standalone version)
     try:
         fig, ax = plt.subplots(figsize=(3.5, 2.8), dpi=150)
-        fig.patch.set_facecolor("#FFFCF9")
+        fig.patch.set_facecolor(_brand.CANVAS)
 
         colors = _CHART_COLORS[: len(labels)]
         while len(colors) < len(labels):
@@ -6577,7 +6579,7 @@ def _cmp_status_in_range(
 
 _CMP_STATUS_STYLE = {
     "beating": (GREEN, "▲", "Beating benchmark"),
-    "trailing": (AMBER, "▼", "Trailing benchmark"),
+    "trailing": (AMBER_TEXT, "▼", "Trailing benchmark"),
     "on_par": (MUTED_TEXT, "—", "On par / within range"),
     "none": (MUTED_TEXT, "", ""),
 }
@@ -6911,7 +6913,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
 
     for ri, row in enumerate(comparison_rows):
         ry = comp_top + Inches(0.5) + ri * row_h_comp
-        bg = WHITE if ri % 2 == 0 else RGBColor(0xF8, 0xF6, 0xF3)
+        bg = WHITE if ri % 2 == 0 else LAVENDER_50
         _add_filled_rect(
             slide,
             left_panel_x + Inches(0.05),
@@ -6977,7 +6979,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
 
     for ri, row in enumerate(comparison_rows):
         ry = comp_top + Inches(0.5) + ri * row_h_comp
-        bg = WHITE if ri % 2 == 0 else RGBColor(0xF8, 0xF6, 0xF3)
+        bg = WHITE if ri % 2 == 0 else LAVENDER_50
         _add_filled_rect(
             slide,
             right_panel_x + Inches(0.05),
@@ -7121,7 +7123,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         _set_font(r2, size=8, color=MUTED_TEXT)
         r3 = p.add_run()
         r3.text = "\u25bc "
-        _set_font(r3, size=8, bold=True, color=AMBER)
+        _set_font(r3, size=8, bold=True, color=AMBER_TEXT)
         r4 = p.add_run()
         r4.text = "Trailing benchmark    "
         _set_font(r4, size=8, color=MUTED_TEXT)
@@ -7140,7 +7142,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         _set_font(r2, size=8, color=MUTED_TEXT)
         r3 = p.add_run()
         r3.text = "\u25bc "
-        _set_font(r3, size=8, bold=True, color=AMBER)
+        _set_font(r3, size=8, bold=True, color=AMBER_TEXT)
         r4 = p.add_run()
         r4.text = "Trailing   "
         _set_font(r4, size=8, color=MUTED_TEXT)
@@ -7231,7 +7233,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
                     "Performance review",
                 ],
                 "color": NAVY,
-                "accent_bg": RGBColor(0xE8, 0xED, 0xF4),
+                "accent_bg": BLUE_50,
             },
         ]
     elif cw <= 26:
@@ -7270,7 +7272,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
                     "Quarterly performance review",
                 ],
                 "color": NAVY,
-                "accent_bg": RGBColor(0xE8, 0xED, 0xF4),
+                "accent_bg": BLUE_50,
             },
         ]
     else:
@@ -7309,7 +7311,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
                     "Quarterly performance review",
                 ],
                 "color": NAVY,
-                "accent_bg": RGBColor(0xE8, 0xED, 0xF4),
+                "accent_bg": BLUE_50,
             },
         ]
 
@@ -8375,7 +8377,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     comp_name, str(data.get("industry") or "")
                 )
                 _tag_text, _tag_color = (
-                    ("Talent-market competitor", AMBER)
+                    ("Talent-market competitor", AMBER_TEXT)
                     if _vertical_type == "talent_market"
                     else ("Industry competitor", MUTED_TEXT)
                 )
@@ -8485,7 +8487,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 _add_rounded_rect(slide, right_left, cy, right_w, card_h, WHITE)
 
                 # Competitor name with color accent
-                accent_colors = [BLUE, TEAL, NAVY, GREEN, AMBER]
+                accent_colors = [BLUE, TEAL, NAVY, GREEN, TEAL_DEEP]
                 accent = accent_colors[ci % len(accent_colors)]
                 _add_filled_rect(slide, right_left, cy, Inches(0.06), card_h, accent)
 
@@ -8930,8 +8932,8 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
             _cur_y_in += h_in + 0.25
 
         risk_colors = {
-            "BUDGET": RED_ACCENT,
-            "TIMING": AMBER,
+            "BUDGET": JOVEO_PINK,
+            "TIMING": AMBER_TEXT,
             "CHANNELS": BLUE,
             "COMPETITION": TEAL,
         }
@@ -9309,7 +9311,7 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
     # the two-fixed-column grid.
     _pp_raw_cards = [
         (Inches(0.55), push, LAVENDER_100, BLUE, push_split),
-        (Inches(6.8), pull, BLUE_50, AMBER, pull_split),
+        (Inches(6.8), pull, BLUE_50, TEAL_DEEP, pull_split),
     ]
     _pp_populated = [c for c in _pp_raw_cards if isinstance(c[1], dict) and c[1]]
     _pp_single = len(_pp_populated) == 1
@@ -10489,7 +10491,7 @@ def _build_slide_case_study_next_steps(
 
     # Middle: Challenges vs. The Joveo Solution bullet columns
     columns = [
-        (Inches(0.55), "Challenges", case.get("challenges") or [], RED_ACCENT),
+        (Inches(0.55), "Challenges", case.get("challenges") or [], JOVEO_PINK),
         (Inches(6.8), "The Joveo Solution", case.get("solution") or [], BLUE),
     ]
     col_top = Inches(3.15)

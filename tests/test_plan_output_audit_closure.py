@@ -867,7 +867,7 @@ class TestCurrencyNoteContrast:
     def test_currency_note_clears_aa_contrast(self):
         dark_text = (ppt.DARK_TEXT[0], ppt.DARK_TEXT[1], ppt.DARK_TEXT[2])
         lavender_50 = (ppt.LAVENDER_50[0], ppt.LAVENDER_50[1], ppt.LAVENDER_50[2])
-        light_teal = (ppt.LIGHT_TEAL[0], ppt.LIGHT_TEAL[1], ppt.LIGHT_TEAL[2])
+        light_teal = (ppt.TEAL_LIGHT[0], ppt.TEAL_LIGHT[1], ppt.TEAL_LIGHT[2])
         navy = (ppt.NAVY[0], ppt.NAVY[1], ppt.NAVY[2])
 
         caption_ratio = self._contrast_ratio(dark_text, lavender_50)
@@ -877,7 +877,7 @@ class TestCurrencyNoteContrast:
         band_ratio = self._contrast_ratio(light_teal, navy)
         assert (
             band_ratio >= 4.5
-        ), f"LIGHT_TEAL band paragraph on NAVY fails AA contrast: {band_ratio:.2f}:1"
+        ), f"TEAL_LIGHT band paragraph on NAVY fails AA contrast: {band_ratio:.2f}:1"
 
 
 if __name__ == "__main__":

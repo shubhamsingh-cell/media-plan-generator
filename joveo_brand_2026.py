@@ -66,6 +66,28 @@ GREEN = "#22C55E"
 AMBER = "#F59E0B"
 RED = "#EF4444"
 
+# Text-safe status variants. GREEN / AMBER / RED above are data-viz FILLS:
+# as small text or glyphs on CANVAS / LAVENDER_50 / LAVENDER_100 they sit
+# near 2:1 and fail WCAG AA (4.5:1). Use these for status arrows, badges,
+# tags and captions on CANVAS, LAVENDER_50, BLUE_50, WHITE and their own
+# *_50 tint (measured 4.5-5.0:1). NOT on LAVENDER_100 (4.2:1) -- use INDIGO
+# or PURPLE there. Not deck-exact; derived for legibility.
+GREEN_TEXT = "#15803D"
+AMBER_TEXT = "#B45309"
+RED_TEXT = "#B91C1C"
+GREEN_50 = "#F0FDF4"
+AMBER_50 = "#FEF3C7"
+RED_50 = "#FEF2F2"
+
+# Extended tint (Joveo extended palette, not in the deck's core list): light
+# teal fill for chart series / category cards where TEAL is too saturated.
+# Pair with INDIGO text (9.7:1) -- never white text (1.5:1).
+TEAL_LIGHT = "#A8D8EA"
+# Extended chart-series tints (not deck-exact): pie/legend series 7 and 8.
+# Kept distinct from TEAL / PURPLE so an 8-slice legend stays separable.
+MAGENTA_LIGHT = "#C98BB6"
+PURPLE_DEEP = "#3F3A8E"
+
 # ---------------------------------------------------------------------------
 # Legacy alias names (so existing generator code can swap in cleanly)
 # ---------------------------------------------------------------------------
