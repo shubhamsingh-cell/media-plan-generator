@@ -57,11 +57,11 @@ def _build_alloc(country: str = "United States") -> dict:
     )
 
 
-def _plan(country: str = "United States") -> dict:
+def _plan(country: str = "United States", budget: str = "$150,000") -> dict:
     return {
         "client_name": "Mercy Health",
         "industry": "healthcare",
-        "budget": "$150,000",
+        "budget": budget,
         "locations": [country],
         "roles": ["Registered Nurse", "ICU Nurse"],
         "target_roles": [
@@ -251,12 +251,38 @@ class TestCurrencyFormatting:
 
 class TestNonUsdDeckRendering:
     def test_uk_plan_renders_pounds_not_dollars(self):
-        pptx_bytes = ppt.generate_pptx(_plan("United Kingdom"))
+        # convert-vs-declare: this fixture used to pass budget="$150,000" and
+        # assert the deck rendered "£150K" -- i.e. it pinned the defect, that
+        # a location guess may overwrite the currency the client actually
+        # typed. The plan currency now follows the client's own declaration,
+        # so a genuinely-GBP plan is one whose budget is written in GBP. The
+        # assertion (a GBP plan renders £) is unchanged; only the fixture is
+        # now honest about what makes the plan GBP.
+        pptx_bytes = ppt.generate_pptx(_plan("United Kingdom", budget="£150,000"))
         texts = _all_text(pptx_bytes)
         # The plan's own money figures use the pound symbol...
         pound_cells = [t for t in texts if t.startswith("£")]
         assert pound_cells, "expected GBP-formatted money in a UK plan"
         # ...and the localized total investment hero is present.
+        assert any("£150" in t for t in texts)
+
+    def test_uk_market_does_not_override_a_dollar_budget(self):
+        """The defect the fixture above used to pin: a client who budgets in
+        USD for a UK campaign must not be handed a GBP deck. Nothing is
+        FX-converted, so relabeling 150,000 USD as 150,000 GBP would misstate
+        the budget by the exchange rate on the front page."""
+        pptx_bytes = ppt.generate_pptx(_plan("United Kingdom", budget="$150,000"))
+        texts = _all_text(pptx_bytes)
+        assert any("$150" in t for t in texts), "typed $ budget lost its symbol"
+        assert not any(
+            t.startswith("£") for t in texts
+        ), "a USD-budgeted plan rendered GBP money figures"
+
+    def test_unspecified_currency_still_follows_a_single_market(self):
+        """With nothing declared, one unambiguous market may still fill the
+        gap -- the guess is only barred from CONTRADICTING a declaration."""
+        pptx_bytes = ppt.generate_pptx(_plan("United Kingdom", budget="150,000"))
+        texts = _all_text(pptx_bytes)
         assert any("£150" in t for t in texts)
         ppt._set_active_currency({})  # reset
 

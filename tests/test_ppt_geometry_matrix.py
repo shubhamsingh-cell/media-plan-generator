@@ -116,7 +116,11 @@ def _slide_by_headline(prs: Presentation, headline: str):
             top_in = sh.top / EMU_PER_IN
             for p in sh.text_frame.paragraphs:
                 for r in p.runs:
-                    if r.font.size and abs(r.font.size.pt - 26.0) < 0.1 and 0.4 < top_in < 0.5:
+                    if (
+                        r.font.size
+                        and abs(r.font.size.pt - 26.0) < 0.1
+                        and 0.4 < top_in < 0.5
+                    ):
                         return slide
     return None
 
@@ -129,7 +133,9 @@ def _run_font_pt(shape, default: float = 10.0) -> float:
     return default
 
 
-def _content_h_in(text: str, width_in: float, font_pt: float, char_em: float = 0.53) -> float:
+def _content_h_in(
+    text: str, width_in: float, font_pt: float, char_em: float = 0.53
+) -> float:
     """Same independent estimate test_slide5_slide7_layout_and_claims.py
     uses: ppt_generator's own ``_estimate_lines`` against the ACTUAL
     generated font size/width, times the calibrated 1.42 line-height factor
@@ -169,7 +175,11 @@ def _base_plan(**overrides) -> Dict[str, Any]:
         "roles": ["Commercial Cab Driver"],
         "budget": "£2,000,000",
         "work_environment": "hybrid",
-        "channel_categories": {"programmatic_dsp": True, "global_boards": True, "social_media": True},
+        "channel_categories": {
+            "programmatic_dsp": True,
+            "global_boards": True,
+            "social_media": True,
+        },
     }
     d.update(overrides)
     return d
@@ -287,8 +297,14 @@ MATRIX: Dict[str, Callable[[], Dict[str, Any]]] = {
             hire_volume="5000+ hires",
             work_environment="onsite",
             locations=[
-                "Seattle, WA", "Denver, CO", "Newark, NJ", "Memphis, TN",
-                "Dallas, TX", "Atlanta, GA", "Phoenix, AZ", "Chicago, IL",
+                "Seattle, WA",
+                "Denver, CO",
+                "Newark, NJ",
+                "Memphis, TN",
+                "Dallas, TX",
+                "Atlanta, GA",
+                "Phoenix, AZ",
+                "Chicago, IL",
             ],
             roles=[r["title"] for r in _roles(14)],
             target_roles=_roles(14),
@@ -314,8 +330,14 @@ MATRIX: Dict[str, Callable[[], Dict[str, Any]]] = {
             hire_volume="5000+ hires",
             work_environment="onsite",
             locations=[
-                "Seattle, WA", "Denver, CO", "Newark, NJ", "Memphis, TN",
-                "Dallas, TX", "Atlanta, GA", "Phoenix, AZ", "Chicago, IL",
+                "Seattle, WA",
+                "Denver, CO",
+                "Newark, NJ",
+                "Memphis, TN",
+                "Dallas, TX",
+                "Atlanta, GA",
+                "Phoenix, AZ",
+                "Chicago, IL",
             ],
             roles=[r["title"] for r in _roles(14)],
             target_roles=_roles(14),
@@ -333,7 +355,9 @@ MATRIX: Dict[str, Callable[[], Dict[str, Any]]] = {
             work_environment="onsite",
             locations=["Chicago, IL"],
             roles=["Registered Nurse"],
-            target_roles=[{"title": "Registered Nurse", "count": 200, "tier": "Salaried"}],
+            target_roles=[
+                {"title": "Registered Nurse", "count": 200, "tier": "Salaried"}
+            ],
         )
     ),
     "full_enrichment_10_roles": lambda: _pipeline_plan(
@@ -346,16 +370,30 @@ MATRIX: Dict[str, Callable[[], Dict[str, Any]]] = {
             work_environment="remote",
             locations=["New York, NY"],
             roles=[
-                "Memory Care Associate", "Nurse", "Cook", "Driver",
-                "Maintenance Technician", "Server/Waitstaff", "Shift/Charge Nurse",
-                "Dishwasher", "Housekeeper", "Sales",
+                "Memory Care Associate",
+                "Nurse",
+                "Cook",
+                "Driver",
+                "Maintenance Technician",
+                "Server/Waitstaff",
+                "Shift/Charge Nurse",
+                "Dishwasher",
+                "Housekeeper",
+                "Sales",
             ],
             target_roles=[
                 {"title": t, "count": 50, "tier": "Hourly"}
                 for t in (
-                    "Memory Care Associate", "Nurse", "Cook", "Driver",
-                    "Maintenance Technician", "Server/Waitstaff", "Shift/Charge Nurse",
-                    "Dishwasher", "Housekeeper", "Sales",
+                    "Memory Care Associate",
+                    "Nurse",
+                    "Cook",
+                    "Driver",
+                    "Maintenance Technician",
+                    "Server/Waitstaff",
+                    "Shift/Charge Nurse",
+                    "Dishwasher",
+                    "Housekeeper",
+                    "Sales",
                 )
             ],
             competitors=["Brookdale Senior Living", "Sunrise Senior Living", "Amazon"],
@@ -463,7 +501,9 @@ class TestCoverSlideClientNameFit:
             (
                 sh
                 for sh in _text_shapes(slide)
-                if sh.text_frame.text.strip().startswith("The International Consolidated")
+                if sh.text_frame.text.strip().startswith(
+                    "The International Consolidated"
+                )
             ),
             None,
         )
@@ -476,10 +516,14 @@ class TestCoverSlideClientNameFit:
             None,
         )
         assert client_sh is not None, "expected the client hero text on the cover slide"
-        assert industry_sh is not None, "expected the industry subtitle on the cover slide"
+        assert (
+            industry_sh is not None
+        ), "expected the industry subtitle on the cover slide"
         font_pt = _run_font_pt(client_sh)
         width_in = client_sh.width / EMU_PER_IN
-        needed_in = _content_h_in(client_sh.text_frame.text, width_in, font_pt, char_em=0.53)
+        needed_in = _content_h_in(
+            client_sh.text_frame.text, width_in, font_pt, char_em=0.53
+        )
         client_bottom_in = client_sh.top / EMU_PER_IN + needed_in
         industry_top_in = industry_sh.top / EMU_PER_IN
         assert client_bottom_in <= industry_top_in + TOL, (
@@ -494,7 +538,8 @@ class TestCoverSlideClientNameFit:
         prs = decks["very_short_client_name"]
         slide = prs.slides[0]
         client_sh = next(
-            (sh for sh in _text_shapes(slide) if sh.text_frame.text.strip() == "Zo"), None
+            (sh for sh in _text_shapes(slide) if sh.text_frame.text.strip() == "Zo"),
+            None,
         )
         assert client_sh is not None
         assert _run_font_pt(client_sh) == pytest.approx(42.0)
@@ -513,9 +558,9 @@ class TestPushMeetsPullEnvelope:
         cards = _rounded_rect_cards(slide, min_w_in=5.0, min_h_in=1.0)
         assert cards, "expected at least one Push/Pull card"
         for c in cards:
-            assert c.height / EMU_PER_IN <= 4.6 + TOL, (
-                f"Push/Pull card height {c.height / EMU_PER_IN:.2f}in exceeds the 4.6in ceiling"
-            )
+            assert (
+                c.height / EMU_PER_IN <= 4.6 + TOL
+            ), f"Push/Pull card height {c.height / EMU_PER_IN:.2f}in exceeds the 4.6in ceiling"
 
     def test_single_populated_side_widens_instead_of_stranding_half_the_slide(self):
         """Defensive case: a future deck-KB edit (or caller) supplying only
@@ -533,7 +578,9 @@ class TestPushMeetsPullEnvelope:
         assert len(prs.slides) == 1
         slide = prs.slides[0]
         cards = _rounded_rect_cards(slide, min_w_in=5.0, min_h_in=1.0)
-        assert len(cards) == 1, "expected exactly one card when only one side has content"
+        assert (
+            len(cards) == 1
+        ), "expected exactly one card when only one side has content"
         card = cards[0]
         card_w_in = card.width / EMU_PER_IN
         assert card_w_in > 6.5, (
@@ -547,16 +594,22 @@ class TestRoleBreakdownEnvelope:
         prs = decks["full_enrichment_dense"]  # 14 roles -- past the old rows[:12] cap
         slide = _slide_by_headline(prs, "Role Breakdown")
         if slide is None:
-            pytest.skip("Role Breakdown did not render for this fixture (CPA Reference took the slot)")
+            pytest.skip(
+                "Role Breakdown did not render for this fixture (CPA Reference took the slot)"
+            )
         table_bottoms = [
             sh.top / EMU_PER_IN + sh.height / EMU_PER_IN
             for sh in _iter_shapes(slide.shapes)
             if sh.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE
             and not (sh.has_text_frame and sh.text_frame.text.strip())
             and sh.height / EMU_PER_IN < 1.0  # exclude the full-slide background rect
-            and 11.9 < sh.width / EMU_PER_IN < 12.1  # table-row-width rects only (excludes the footer's own 12.23in-wide rule)
+            and 11.9
+            < sh.width / EMU_PER_IN
+            < 12.1  # table-row-width rects only (excludes the footer's own 12.23in-wide rule)
         ]
-        assert table_bottoms, "expected filled row/header rectangles on the Role Breakdown table"
+        assert (
+            table_bottoms
+        ), "expected filled row/header rectangles on the Role Breakdown table"
         assert max(table_bottoms) <= 7.12 + TOL, (
             f"Role Breakdown table row extends to {max(table_bottoms):.2f}in, "
             "past the footer rule at 7.12in"
@@ -566,7 +619,9 @@ class TestRoleBreakdownEnvelope:
         if "more role" in texts:
             assert "workbook" in texts.lower()
 
-    def test_minimum_eligible_role_count_is_vertically_centered_not_top_stranded(self, decks):
+    def test_minimum_eligible_role_count_is_vertically_centered_not_top_stranded(
+        self, decks
+    ):
         prs = decks["full_enrichment_10_roles"]
         slide = _slide_by_headline(prs, "Role Breakdown")
         assert slide is not None
@@ -576,11 +631,15 @@ class TestRoleBreakdownEnvelope:
             if sh.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE
             and not (sh.has_text_frame and sh.text_frame.text.strip())
             and sh.height / EMU_PER_IN < 1.0  # exclude the full-slide background rect
-            and 11.9 < sh.width / EMU_PER_IN < 12.1  # table-row-width rects only (excludes the footer's own 12.23in-wide rule)
+            and 11.9
+            < sh.width / EMU_PER_IN
+            < 12.1  # table-row-width rects only (excludes the footer's own 12.23in-wide rule)
         ]
         assert header_bgs
         table_top_in = min(sh.top / EMU_PER_IN for sh in header_bgs)
-        table_bottom_in = max(sh.top / EMU_PER_IN + sh.height / EMU_PER_IN for sh in header_bgs)
+        table_bottom_in = max(
+            sh.top / EMU_PER_IN + sh.height / EMU_PER_IN for sh in header_bgs
+        )
         # never above the old fixed anchor
         assert table_top_in >= 1.7 - TOL
         # 10 rows is dense enough it should sit close to the available
@@ -617,11 +676,7 @@ class TestComparisonTimelineEnvelope:
         slide = _slide_by_headline(prs, "Plan Comparison & Implementation")
         assert slide is not None
         goal_band = next(
-            (
-                sh
-                for sh in _text_shapes(slide)
-                if "CLIENT GOAL" in sh.text_frame.text
-            ),
+            (sh for sh in _text_shapes(slide) if "CLIENT GOAL" in sh.text_frame.text),
             None,
         )
         assert goal_band is not None, (
@@ -643,12 +698,22 @@ class TestComparisonTimelineEnvelope:
             )
 
     def test_legend_never_overlaps_the_implementation_timeline_header(self, decks):
-        for name in ("full_enrichment_goal_gap", "full_enrichment_dense", "one_location"):
+        for name in (
+            "full_enrichment_goal_gap",
+            "full_enrichment_dense",
+            "one_location",
+        ):
             prs = decks[name]
             slide = _slide_by_headline(prs, "Plan Comparison & Implementation")
             assert slide is not None
+            # Non-USD decks render the compact legend "▲ Beating ... Figures in
+            # GBP, not FX-converted." -- match on what both the USD and non-USD forms share.
             legend = next(
-                (sh for sh in _text_shapes(slide) if "Beating benchmark" in sh.text_frame.text),
+                (
+                    sh
+                    for sh in _text_shapes(slide)
+                    if "▲" in sh.text_frame.text and "On par" in sh.text_frame.text
+                ),
                 None,
             )
             header = next(
@@ -725,7 +790,9 @@ class TestComparisonTimelineEnvelope:
 
 
 class TestQualityOutcomesRollup:
-    def test_more_than_five_channels_get_an_explicit_rollup_not_silent_drop(self, decks):
+    def test_more_than_five_channels_get_an_explicit_rollup_not_silent_drop(
+        self, decks
+    ):
         prs = decks["all_channels"]  # 8 channels enabled, no _budget_allocation
         slide = _slide_by_headline(prs, "Quality & ROI Projections")
         assert slide is not None, "expected the Quality Outcomes fallback slide"
@@ -737,7 +804,9 @@ class TestQualityOutcomesRollup:
         # 8 enabled channels, _QO_MAX_VISIBLE_ROWS=5 -> 4 visible + 1 rollup
         # row absorbing the remaining 4.
         m = re.search(r"\+(\d+) smaller channels", texts)
-        assert m and int(m.group(1)) == 4, f"expected '+4 smaller channels', got: {texts!r}"
+        assert (
+            m and int(m.group(1)) == 4
+        ), f"expected '+4 smaller channels', got: {texts!r}"
 
 
 class TestCompetitiveLandscapeEnvelope:
@@ -778,7 +847,9 @@ class TestCompetitiveLandscapeEnvelope:
         for name in ("zero_competitors", "one_competitor", "more_than_cap_competitors"):
             prs = decks[name]
             slide = _slide_by_headline(prs, "Competitive Landscape")
-            assert slide is not None, f"[{name}] expected the Competitive Landscape slide"
+            assert (
+                slide is not None
+            ), f"[{name}] expected the Competitive Landscape slide"
             cards = _rounded_rect_cards(slide, min_w_in=4.0, min_h_in=1.0)
             # more_than_cap_competitors must still cap at _MAX_COMPETITOR_CARDS (3)
             if name == "more_than_cap_competitors":
@@ -786,9 +857,9 @@ class TestCompetitiveLandscapeEnvelope:
             for a, b in zip(cards, cards[1:]):
                 a_bottom_in = a.top / EMU_PER_IN + a.height / EMU_PER_IN
                 b_top_in = b.top / EMU_PER_IN
-                assert a_bottom_in <= b_top_in + TOL, (
-                    f"[{name}] competitor cards overlap: {a_bottom_in:.2f}in vs {b_top_in:.2f}in"
-                )
+                assert (
+                    a_bottom_in <= b_top_in + TOL
+                ), f"[{name}] competitor cards overlap: {a_bottom_in:.2f}in vs {b_top_in:.2f}in"
 
 
 # ---------------------------------------------------------------------------
@@ -797,7 +868,9 @@ class TestCompetitiveLandscapeEnvelope:
 # was verified against).
 # ---------------------------------------------------------------------------
 class TestExistingCollisionFixesHoldAcrossMatrix:
-    def test_slide5_benchmark_and_category_rows_never_overlap_across_matrix(self, decks):
+    def test_slide5_benchmark_and_category_rows_never_overlap_across_matrix(
+        self, decks
+    ):
         for name, prs in decks.items():
             slide = _slide_by_headline(prs, "Channel Strategy & Investment")
             if slide is None:
@@ -811,9 +884,9 @@ class TestExistingCollisionFixesHoldAcrossMatrix:
             for a, b in zip(value_cells, value_cells[1:]):
                 a_bottom_in = a.top / EMU_PER_IN + a.height / EMU_PER_IN
                 b_top_in = b.top / EMU_PER_IN
-                assert a_bottom_in <= b_top_in + TOL, (
-                    f"[{name}] benchmark row overlap at {a_bottom_in:.2f}in vs {b_top_in:.2f}in"
-                )
+                assert (
+                    a_bottom_in <= b_top_in + TOL
+                ), f"[{name}] benchmark row overlap at {a_bottom_in:.2f}in vs {b_top_in:.2f}in"
 
     def test_slide7_why_counter_never_overlap_across_matrix(self, decks):
         for name, prs in decks.items():
@@ -821,11 +894,19 @@ class TestExistingCollisionFixesHoldAcrossMatrix:
             if slide is None:
                 continue
             why_shapes = sorted(
-                (sh for sh in _text_shapes(slide) if sh.text_frame.text.startswith("Why:")),
+                (
+                    sh
+                    for sh in _text_shapes(slide)
+                    if sh.text_frame.text.startswith("Why:")
+                ),
                 key=lambda s: s.top,
             )
             counter_shapes = sorted(
-                (sh for sh in _text_shapes(slide) if sh.text_frame.text.startswith("Counter:")),
+                (
+                    sh
+                    for sh in _text_shapes(slide)
+                    if sh.text_frame.text.startswith("Counter:")
+                ),
                 key=lambda s: s.top,
             )
             for why_sh, counter_sh in zip(why_shapes, counter_shapes):

@@ -433,3 +433,130 @@ def is_non_usd(country: str | None) -> bool:
     """True if the country maps to a non-USD currency."""
     code = currency_for_country(country)
     return bool(code and code != "USD")
+
+
+# ---------------------------------------------------------------------------
+# Reading a currency the CLIENT declared (convert-vs-declare, 2026-09).
+#
+# The wizard has no currency field, so plan currency was resolved purely by
+# guessing from the location string -- which meant a client who typed
+# "$2,000,000" against a London office had it rendered back to them as
+# "£2M", their own declaration silently overwritten by a guess, with no
+# conversion applied. Same plan, same number, different sign: a ~27%
+# misstatement of the budget on the front page of a client deck. Worse, the
+# guess flipped on the ORDER of the locations list ("Dallas, London" -> $;
+# "London, Dallas" -> £).
+#
+# So: read the symbol the client actually typed and treat it as a
+# declaration. Location is demoted to a tie-breaker that may only fill a gap
+# or disambiguate WITHIN the declared symbol -- it can never contradict one.
+#
+# Multi-code symbols stay ambiguous on purpose. A bare "$" is USD by
+# convention unless the plan's own market says CAD/AUD/etc; "¥" is JPY unless
+# the market says CNY. The symbol constrains the answer, the market only
+# picks among the codes that share that symbol.
+# ---------------------------------------------------------------------------
+_SYMBOL_TO_CODES: "list[tuple[str, tuple[str, ...]]]" = [
+    # Longest-first, and any symbol that CONTAINS another must be tested
+    # first: "US$" contains "S$" (Singapore), so a US$ budget would otherwise
+    # resolve to SGD. Likewise every "X$" form must precede bare "$".
+    ("US$", ("USD",)),
+    ("NZ$", ("NZD",)),
+    ("HK$", ("HKD",)),
+    ("MX$", ("MXN",)),
+    ("C$", ("CAD",)),
+    ("A$", ("AUD",)),
+    ("S$", ("SGD",)),
+    ("R$", ("BRL",)),
+    ("AED", ("AED",)),
+    ("SAR", ("SAR",)),
+    ("QAR", ("QAR",)),
+    ("CHF", ("CHF",)),
+    ("£", ("GBP",)),
+    ("€", ("EUR",)),
+    ("₹", ("INR",)),
+    ("₱", ("PHP",)),
+    ("฿", ("THB",)),
+    ("₽", ("RUB",)),
+    ("₴", ("UAH",)),
+    ("¥", ("JPY", "CNY")),
+    ("zł", ("PLN",)),
+    ("Kč", ("CZK",)),
+    ("RM", ("MYR",)),
+    ("Rp", ("IDR",)),
+    ("kr", ("SEK", "NOK", "DKK")),
+    ("$", ("USD", "CAD", "AUD", "NZD", "SGD", "HKD", "MXN", "BRL")),
+]
+
+
+def currency_codes_from_symbol(text: str | None) -> "tuple[str, ...]":
+    """ISO codes consistent with the currency symbol written in ``text``.
+
+    Returns ``()`` when no symbol is present (i.e. the client declared
+    nothing). A single-element tuple is an unambiguous declaration; a longer
+    one lists the codes that share that symbol, most common first, for a
+    caller to disambiguate against the plan's market.
+
+        currency_codes_from_symbol("£2,000,000")  -> ("GBP",)
+        currency_codes_from_symbol("$2,000,000")  -> ("USD", "CAD", ...)
+        currency_codes_from_symbol("2,000,000")   -> ()
+    """
+    if not text or not isinstance(text, str):
+        return ()
+    for symbol, codes in _SYMBOL_TO_CODES:
+        if symbol in text:
+            return codes
+    return ()
+
+
+def resolve_declared_currency(
+    budget_text: str | None,
+    explicit_code: str | None = None,
+    market_codes: "list[str] | tuple[str, ...] | None" = None,
+) -> "tuple[str | None, str]":
+    """Resolve a plan's currency, preferring what the client actually declared.
+
+    Args:
+        budget_text: the budget exactly as the client entered it.
+        explicit_code: an explicit ``currency`` / ``currency_code`` field.
+        market_codes: codes implied by the plan's markets, in plan order.
+
+    Returns:
+        ``(code, basis)`` where basis is one of ``"explicit"`` (a currency
+        field), ``"declared"`` (a symbol the client typed), ``"market"``
+        (inferred from a single unambiguous market) or ``"default"`` (nothing
+        to go on, or markets disagreed -- caller should use USD and say so).
+        ``code`` is ``None`` only for ``"default"``.
+    """
+    if isinstance(explicit_code, str) and explicit_code.strip():
+        return explicit_code.strip().upper(), "explicit"
+
+    markets = [c for c in (market_codes or []) if isinstance(c, str) and c]
+    declared = currency_codes_from_symbol(budget_text)
+
+    if declared:
+        if len(declared) == 1:
+            return declared[0], "declared"
+        # Ambiguous symbol ("$" is shared by USD/CAD/AUD/SGD/...). A market may
+        # pick among the codes sharing it, but ONLY when the markets agree on
+        # one currency -- the same bar the market path below has to clear.
+        # Scanning the list for any member of the symbol's code set would let a
+        # London+Singapore plan resolve a "$" budget to SGD purely because
+        # Singapore happens to share the glyph and appears in the list, which
+        # is the list-order guessing this function exists to stop. Unqualified
+        # "$" means USD by convention, so the symbol's primary code is the
+        # safe answer whenever the markets do not speak with one voice.
+        unique_markets = set(markets)
+        if len(unique_markets) == 1:
+            only = next(iter(unique_markets))
+            if only in declared:
+                return only, "declared"
+        return declared[0], "declared"
+
+    # Nothing declared. A market may fill the gap only when every market the
+    # plan targets agrees -- otherwise the "right" answer would depend on
+    # list order, which is exactly the guess this function exists to stop.
+    unique = set(markets)
+    if len(unique) == 1:
+        return markets[0], "market"
+    return None, "default"

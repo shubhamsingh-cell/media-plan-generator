@@ -1002,9 +1002,10 @@ def _parse_money_str(s: Any) -> float | None:
         if not cleaned or cleaned in ("-", "."):
             return None
         try:
-            return float(cleaned) * _MONEY_MAGNITUDE_MULTIPLIER[
-                suffix_match.group(2).lower()
-            ]
+            return (
+                float(cleaned)
+                * _MONEY_MAGNITUDE_MULTIPLIER[suffix_match.group(2).lower()]
+            )
         except ValueError:
             return None
     cleaned = re.sub(r"[^0-9.\-]", "", stripped)
@@ -1479,14 +1480,27 @@ def _resolve_plan_currency(data: dict) -> tuple[str, str]:
                         country = loc.get("country") or loc.get("location") or ""
                         if isinstance(country, str) and country.strip():
                             candidates.append(country)
+            market_codes: list[str] = []
             for cand in candidates:
                 try:
                     resolved = plan_currency.currency_for_country(cand)
                 except Exception:  # noqa: BLE001
                     resolved = None
                 if resolved:
-                    code = resolved
-                    break
+                    market_codes.append(resolved)
+            # convert-vs-declare: this gate must resolve currency the SAME way
+            # the generators do, or it fails the very bundles they now build
+            # correctly. When the generators started honouring the symbol the
+            # client typed, this still guessed from the market -- so a
+            # "$150,000" budget for a London campaign rendered (correctly) in
+            # USD was flagged 50x as "does not match this plan's currency
+            # (GBP)". The gate is the delivery blocker; it has to agree.
+            resolved_code, _basis = plan_currency.resolve_declared_currency(
+                budget_text=data.get("budget") or data.get("budget_range") or "",
+                explicit_code=None,
+                market_codes=market_codes,
+            )
+            code = resolved_code or "USD"
     except Exception:  # noqa: BLE001
         code = "USD"
     try:
@@ -1689,6 +1703,30 @@ def _check_currency_symbol_mixing(
                 if sym != plan_symbol
             }
         )
+        # convert-vs-declare: a local-market figure may legitimately differ
+        # from the plan currency -- a London salary is GBP data even when the
+        # client budgeted in USD -- and the honest way to show one is to state
+        # its denomination on the figure itself ("£60,000 - £97,500 (GBP)").
+        # The rule already accepts an explicit "(USD)" marker on a row/column;
+        # accept the symmetric case here. This does NOT weaken the check: the
+        # symbol must AGREE with the code it declares, so a self-contradictory
+        # "$42,000 (GBP)" is still caught above by
+        # _DOLLAR_WITH_FOREIGN_CODE_RE, and an unmarked stray glyph still
+        # fails. Before this, honouring the client's typed currency turned
+        # every correctly-denominated local salary into a delivery-blocking
+        # critical.
+        if bad_syms:
+            declared_codes = {
+                c for c in re.findall(r"\(([A-Z]{3})\)", text) if c != plan_code
+            }
+            if len(declared_codes) == 1:
+                _declared = next(iter(declared_codes))
+                try:
+                    _declared_sym = plan_currency.symbol_for_code(_declared).strip()
+                except Exception:  # noqa: BLE001
+                    _declared_sym = ""
+                if _declared_sym and all(s == _declared_sym for s in bad_syms):
+                    bad_syms = []
         if bad_syms:
             findings.append(
                 _finding(
@@ -1732,7 +1770,9 @@ def _check_campaign_duration_incoherence(
     as an authoritative duration claim would false-positive on nearly
     every plan whose campaign isn't coincidentally ~13 weeks long.
     """
-    assertions: list[tuple[float, str, str, bool]] = []  # (weeks, label, loc, authoritative)
+    assertions: list[tuple[float, str, str, bool]] = (
+        []
+    )  # (weeks, label, loc, authoritative)
 
     if wb is not None and "Executive Summary" in wb.sheetnames:
         ws = wb["Executive Summary"]
@@ -1743,9 +1783,7 @@ def _check_campaign_duration_incoherence(
                     val_cell = ws.cell(row=cell.row - 1, column=cell.column)
                     if isinstance(val_cell.value, str) and val_cell.value.strip():
                         try:
-                            wk = display_format.parse_duration_to_weeks(
-                                val_cell.value
-                            )
+                            wk = display_format.parse_duration_to_weeks(val_cell.value)
                         except Exception:  # noqa: BLE001
                             wk = 0
                         if wk:
@@ -1767,9 +1805,7 @@ def _check_campaign_duration_incoherence(
                     for other in row[ci + 1 :]:
                         if isinstance(other.value, str) and other.value.strip():
                             try:
-                                wk = display_format.parse_duration_to_weeks(
-                                    other.value
-                                )
+                                wk = display_format.parse_duration_to_weeks(other.value)
                             except Exception:  # noqa: BLE001
                                 wk = 0
                             if wk:
@@ -2298,7 +2334,9 @@ def summarize_findings(findings: list[Finding] | None) -> dict:
         findings = list(findings) if findings else []
     except TypeError:
         findings = []
-    critical = [f for f in findings if isinstance(f, dict) and f.get("severity") == "critical"]
+    critical = [
+        f for f in findings if isinstance(f, dict) and f.get("severity") == "critical"
+    ]
     warn_count = len(findings) - len(critical)
     if critical:
         qa_status = "critical"

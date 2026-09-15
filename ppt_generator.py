@@ -1605,8 +1605,10 @@ def _plan_currency_code(data: Optional[Dict]) -> str:
         return "USD"
     explicit = data.get("currency_code") or data.get("currency")
     if isinstance(explicit, str) and explicit.strip():
+        data["_currency_basis"] = "explicit"
         return explicit.strip().upper()
     if _plan_currency is None:
+        data["_currency_basis"] = "default"
         return "USD"
     candidates: List[str] = []
     for key in ("country", "primary_location"):
@@ -1622,14 +1624,31 @@ def _plan_currency_code(data: Optional[Dict]) -> str:
                 country = loc.get("country") or loc.get("location") or ""
                 if isinstance(country, str) and country.strip():
                     candidates.append(country)
+    market_codes: List[str] = []
     for cand in candidates:
         try:
             code = _plan_currency.currency_for_country(cand)
         except Exception:  # noqa: BLE001 - resolution is best-effort
             code = None
         if code:
-            return code
-    return "USD"
+            market_codes.append(code)
+
+    # convert-vs-declare: the client's own declaration outranks the market
+    # guess. This used to return market_codes[0] outright, so a budget typed
+    # as "$2,000,000" for a London office rendered back as "£2M" -- the
+    # client's own symbol overwritten by a guess, with no conversion done --
+    # and the answer flipped with the ORDER of the locations list.
+    try:
+        code, basis = _plan_currency.resolve_declared_currency(
+            budget_text=data.get("budget") or data.get("budget_range") or "",
+            explicit_code=None,
+            market_codes=market_codes,
+        )
+    except (AttributeError, TypeError, ValueError) as exc:  # noqa: BLE001
+        logger.debug("Declared-currency resolution failed (%s) -- USD", exc)
+        code, basis = None, "default"
+    data["_currency_basis"] = basis
+    return code or "USD"
 
 
 def _set_active_currency(data: Optional[Dict]) -> str:
@@ -2081,6 +2100,102 @@ def _fit_font_to_lines(
     ``width_in`` wide. Used to clamp headlines / multi-line blocks."""
     size = float(start_pt)
     while size > min_pt and _estimate_lines(text, width_in, size, char_em) > max_lines:
+        size -= 0.5
+    return max(min_pt, size)
+
+
+# ---------------------------------------------------------------------------
+# Real-metric line measurement.
+#
+# _estimate_lines models wrapping with ONE average glyph advance for the whole
+# string. That is fine for body prose, but word wrap is decided by the words
+# that actually fill a line, not by the string's average -- and a big bold
+# proper noun breaks that assumption badly. Measured on the shipped Poppins
+# Bold: "Consolidated Transcontinental Healthcare & Rehabilitation Partners
+# International" averages 0.526 em (under _AVG_CHAR_EM's 0.53, so the estimator
+# says it fits in 2 lines) while the words that land on each line run
+# 0.55-0.58 em and it truly needs 3. The cover hero was sized for 2 and its
+# third line printed straight through the Industry subtitle.
+#
+# Raising the constant cannot fix this: realistic client names already reach
+# 0.65 em on their widest word ("UnitedHealth", "Mercy") and all-caps runs
+# exceed 1.0 em, so any single constant is either wrong or so fat it shrinks
+# ordinary names for no reason. Where exactness matters, measure the real font.
+#
+# Pillow is a declared hard dependency (requirements.txt) and the Poppins faces
+# ship in fonts/, so this measures the same file _embed_fonts_in_pptx embeds.
+# It stays strictly best-effort: any missing font, unreadable file or PIL
+# failure falls back to _estimate_lines, so no call site can lose its geometry
+# because a font went missing. Deliberately NOT wired into _estimate_lines
+# itself -- ~40 call sites and the geometry-matrix suite are calibrated against
+# that function's documented "over-estimate rather than clip" behaviour, and a
+# measurement that returned FEWER lines could shrink a box until it clips.
+# ---------------------------------------------------------------------------
+_MEASURE_WIDTH_SAFETY = 0.98  # break marginally earlier than PowerPoint would
+_MEASURE_FONT_PX = 400  # measure at 100pt x4 for sub-point precision
+_measure_font_cache: Dict[Tuple[str, bool], Any] = {}
+
+
+def _measure_font(bold: bool):
+    """Return a PIL font for the bundled Poppins face, or None if unavailable."""
+    key = ("poppins", bold)
+    if key in _measure_font_cache:
+        return _measure_font_cache[key]
+    font = None
+    try:
+        from PIL import ImageFont
+
+        path = _FONTS_DIR / ("Poppins-Bold.ttf" if bold else "Poppins-Regular.ttf")
+        if path.is_file():
+            font = ImageFont.truetype(str(path), _MEASURE_FONT_PX)
+    except (ImportError, OSError, ValueError) as exc:  # noqa: BLE001
+        logger.debug("Real-metric font load unavailable (%s) -- estimating", exc)
+        font = None
+    _measure_font_cache[key] = font
+    return font
+
+
+def _measure_lines(
+    text: str, width_in: float, font_pt: float, bold: bool = False
+) -> int:
+    """Lines ``text`` needs in a ``width_in`` box, using real Poppins advances.
+
+    Falls back to ``_estimate_lines`` whenever the font can't be measured.
+    """
+    if not text or width_in <= 0 or font_pt <= 0:
+        return 1
+    font = _measure_font(bold)
+    if font is None:
+        return _estimate_lines(text, width_in, font_pt)
+    try:
+        # advance(px at _MEASURE_FONT_PX) -> inches at font_pt
+        px_to_in = font_pt / (_MEASURE_FONT_PX * 72.0)
+        avail = width_in * _MEASURE_WIDTH_SAFETY
+        lines, cur = 1, ""
+        for word in str(text).split():
+            trial = (cur + " " + word).strip()
+            if not cur or font.getlength(trial) * px_to_in <= avail:
+                cur = trial
+            else:
+                lines += 1
+                cur = word
+        return max(1, lines)
+    except (OSError, ValueError, AttributeError) as exc:  # noqa: BLE001
+        logger.debug("Real-metric measure failed (%s) -- estimating", exc)
+        return _estimate_lines(text, width_in, font_pt)
+
+
+def _fit_font_to_measured_lines(
+    text: str,
+    width_in: float,
+    start_pt: float,
+    max_lines: int,
+    min_pt: float = 8.0,
+    bold: bool = False,
+) -> float:
+    """``_fit_font_to_lines`` against real glyph advances instead of an average."""
+    size = float(start_pt)
+    while size > min_pt and _measure_lines(text, width_in, size, bold) > max_lines:
         size -= 0.5
     return max(min_pt, size)
 
@@ -3212,6 +3327,48 @@ def _add_enrichment_badge(slide, enriched):
     return
 
 
+def _currency_basis_note(data: Optional[Dict]) -> str:
+    """One-line statement of what currency the deck's figures are in.
+
+    THE RULE (convert-vs-declare): this generator DECLARES a currency, it never
+    CONVERTS one. No FX rate is fetched or applied anywhere in plan generation.
+    Three kinds of money therefore appear in a deck, and each must say which it
+    is rather than leaving the reader to assume a conversion happened:
+
+      1. The client's own money -- budget and its channel allocations. Genuinely
+         in the client's currency, because it is the number they entered.
+      2. US-calibrated benchmark constants (CPA/CPC/CPH lookup tables). Always
+         rendered ``US$`` and never relabeled with the plan symbol -- they were
+         never converted, and a US benchmark converted to GBP would not be a UK
+         benchmark anyway, it would be a fabricated one.
+      3. Figures derived by dividing (1) by (2) -- projected hires, blended
+         cost-per-hire. Their arithmetic silently assumes the budget currency
+         and the benchmark currency are the same unit, so on a non-USD plan
+         they carry a parity assumption that has to be stated.
+
+    Returns "" for a USD plan (nothing to disclose, and the common case must
+    render exactly as before).
+    """
+    code = _get_active_currency()
+    if code == "USD":
+        return ""
+    basis = (data.get("_currency_basis") or "") if isinstance(data, dict) else ""
+    # Kept under ~150 chars: the footnote slot is a single 8pt line in an
+    # 8.85in box (~150 chars of Poppins), and a second line would drop onto
+    # the footer rule at 7.12in -- reintroducing the collision class this
+    # same change set exists to remove.
+    if basis == "market":
+        return (
+            f"Figures in {code} (inferred from market; none specified). "
+            f"US-calibrated benchmarks (US$) not FX-converted — "
+            f"projections assume parity."
+        )
+    return (
+        f"Figures in {code} as entered. US-calibrated benchmarks (US$) not "
+        f"FX-converted — hire and CPH projections assume parity."
+    )
+
+
 def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
     """Confidence indicator + optional disclaimers, placed ABOVE the footer rule.
 
@@ -3244,7 +3401,17 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
     # already carries the full per-location warning; duplicating a truncated
     # version here just repeated it with less detail.
     disclaimers = []
-    if not _is_us_only_campaign(data):
+    # convert-vs-declare: on a non-USD plan the deck mixes two currencies --
+    # the client's own money (budget, allocations), which is genuinely in
+    # their currency, and US-calibrated benchmark constants, which are US$
+    # and were never converted. Nothing here applies an FX rate, so say so on
+    # the page the client actually reads rather than leaving them to assume a
+    # conversion happened. Also disclose when the currency was INFERRED from
+    # the market rather than declared, because that inference can be wrong.
+    _cur_note = _currency_basis_note(data)
+    if _cur_note:
+        disclaimers.append(_cur_note)
+    elif not _is_us_only_campaign(data):
         disclaimers.append(
             "Benchmarks are US-calibrated — international markets may vary."
         )
@@ -3256,9 +3423,9 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
             Inches(8.85),
             Inches(0.22),
             text=_trunc_clause("   ".join(disclaimers), 150),
-            font_size=8,
+            font_size=9,
             italic=True,
-            color=AMBER,
+            color=DARK_TEXT,
             alignment=PP_ALIGN.RIGHT,
             anchor=MSO_ANCHOR.MIDDLE,
         )
@@ -3349,9 +3516,15 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     # element below it from that measured bottom -- the same measure-then-
     # place pattern used elsewhere (Risk Analysis / Push-Pull) -- instead of
     # a fixed box a short name happens to fit and a long one does not.
+    # Measured against the real Poppins Bold advances, not an average one: at
+    # 42pt the average-advance estimator reported 2 lines for an 80-char legal
+    # name that genuinely needs 3, so the box was sized for 2 and the third
+    # line printed through the Industry subtitle below. See _measure_lines.
     _client_top_in = 3.48
-    _client_font_pt = _fit_font_to_lines(client, 11.8, 42, max_lines=2, min_pt=20)
-    _client_n_lines = _estimate_lines(client, 11.8, _client_font_pt)
+    _client_font_pt = _fit_font_to_measured_lines(
+        client, 11.8, 42, max_lines=2, min_pt=20, bold=True
+    )
+    _client_n_lines = _measure_lines(client, 11.8, _client_font_pt, bold=True)
     _client_line_h_in = (_client_font_pt * 1.4) / 72.0
     _client_box_h_in = max(1.0, _client_n_lines * _client_line_h_in + 0.12)
     _add_textbox(
@@ -4335,6 +4508,26 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     # Enrichment badge
     _add_enrichment_badge(slide, enriched)
 
+    # currency-basis disclosure (fix 3): measured, not assumed -- across the
+    # GBP matrix decks no shape on this slide bottoms out below 6.80in, so
+    # the band at 6.84-7.06in is clear for a standalone caption above the
+    # footer rule (7.12in).
+    _cur_basis_note_s2 = _currency_basis_note(data)
+    if _cur_basis_note_s2:
+        _add_textbox(
+            slide,
+            Inches(0.55),
+            Inches(6.84),
+            Inches(12.2),
+            Inches(0.22),
+            text=_trunc_clause(_cur_basis_note_s2, 150),
+            font_size=9,
+            italic=True,
+            color=DARK_TEXT,
+            alignment=PP_ALIGN.RIGHT,
+            anchor=MSO_ANCHOR.MIDDLE,
+        )
+
     # Footer
     _add_footer(slide, today)
 
@@ -5138,15 +5331,11 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             _cl_max_h_in = max(
                 _cl_line_h_in, (box_h / 914400) - _cl_top_offset_in - 0.06
             )
-            _cl_max_lines = max(
-                1, int((_cl_max_h_in - _cl_v_inset_in) / _cl_line_h_in)
-            )
+            _cl_max_lines = max(1, int((_cl_max_h_in - _cl_v_inset_in) / _cl_line_h_in))
             if _estimate_lines(ch_list, _cl_w_in, _cl_font_pt) > _cl_max_lines:
                 for _keep in range(len(_cl_members) - 1, 0, -1):
                     _dropped = len(_cl_members) - _keep
-                    _candidate = (
-                        ", ".join(_cl_members[:_keep]) + f" +{_dropped} more"
-                    )
+                    _candidate = ", ".join(_cl_members[:_keep]) + f" +{_dropped} more"
                     if (
                         _estimate_lines(_candidate, _cl_w_in, _cl_font_pt)
                         <= _cl_max_lines
@@ -6143,7 +6332,9 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
             # -- not fmt_money's hardcoded "$" (this sentence already uses
             # the correct `_cur` symbol for the CPA half above; the CPH half
             # must match it instead of wearing a bare "$").
-            insight_text += f", with {_fmt_currency_whole(avg_cph)} average cost-per-hire"
+            insight_text += (
+                f", with {_fmt_currency_whole(avg_cph)} average cost-per-hire"
+            )
         insight_text += (
             f". At {int(proj_hires):,} projected hires, "
             f"{client}'s investment yields strong programmatic ROI "
@@ -6162,17 +6353,78 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
             f"ensuring maximum ROI through continuous performance optimization."
         )
 
-    _add_textbox(
+    # convert-vs-declare: this is the page the client reads for money -- the
+    # allocation table and the CPA/CPH takeaway directly above -- so the
+    # currency basis belongs here, not only in the slide-5 sources footnote.
+    #
+    # PRIORITY, NOT POSITION: the note is mandatory; the marketing clause
+    # yields to it, never the other way round. Two earlier placements both
+    # silently dropped the note: (1) a separately-positioned textbox below
+    # the band, which a tall allocation table could push past the footer
+    # rule and get skipped outright, and (2) putting it as a second
+    # paragraph in THIS textbox and then calling _autofit_textframe on the
+    # combined frame -- that helper's min-pt fallback drops TRAILING
+    # paragraphs (the ones added last) whenever nothing else lets the frame
+    # fit, and the note is always added last. So it was evicted on every
+    # GBP deck. Fix: measure real line counts up front and pick the
+    # takeaway's size/length so the note always has room, never running
+    # autofit (which can evict paragraphs) on this frame at all.
+    _cur_basis_note = _currency_basis_note(data)
+    _note_text = _trunc_clause(_cur_basis_note, 150) if _cur_basis_note else ""
+    _takeaway_full = _trunc_clause(insight_text, 320)
+    _measure_w = 11.6 - 0.2  # 11.6in box minus python-pptx's default 0.1in L/R insets
+    _usable_h = insight_h / 914400 - 0.10  # band height minus top+bottom v-insets
+
+    def _para_h(text: str, pt: float) -> float:
+        return _measure_lines(text, _measure_w, pt) * (pt * 1.2 / 72.0)
+
+    if _note_text:
+        _note_h = _para_h(_note_text, 8.0)
+        _fit_path = "a"
+        _tw_pt = 10.0
+        _takeaway_final = _takeaway_full
+        if _para_h(_takeaway_final, _tw_pt) + _note_h > _usable_h:
+            _fit_path = "b"
+            _tw_pt = 9.0
+            if _para_h(_takeaway_final, _tw_pt) + _note_h > _usable_h:
+                # First clause only, at 9pt. This is <=1 line at 11.4in for
+                # every real takeaway value (the money sentence "Budget
+                # engine projects ... cost-per-hire." is always first), so
+                # 1 line @9pt (0.15in) + 1 line @8pt (0.13in) = 0.28in fits
+                # inside the smallest real usable height (0.62in funnel-off
+                # band - 0.10in insets = 0.52in; 0.50in funnel-on - 0.10in
+                # = 0.40in) by construction.
+                _fit_path = "c"
+                _first_clause = insight_text.split(". ", 1)[0].rstrip()
+                if _first_clause and _first_clause[-1] not in ".!?":
+                    _first_clause += "."
+                _takeaway_final = _first_clause
+    else:
+        _fit_path = None
+        _tw_pt = 10.0
+        _takeaway_final = _takeaway_full
+
+    _, _insight_tf = _add_textbox(
         slide,
         Inches(0.85),
         insight_top,
         Inches(11.6),
         insight_h,
-        text=_trunc_clause(insight_text, 320),
-        font_size=10,
+        text=_takeaway_final,
+        font_size=_tw_pt,
         color=WHITE,
         anchor=MSO_ANCHOR.MIDDLE,
     )
+
+    if _note_text:
+        _cbn_p = _insight_tf.add_paragraph()
+        _cbn_p.alignment = PP_ALIGN.LEFT
+        _cbn_run = _cbn_p.add_run()
+        _cbn_run.text = _note_text
+        _set_font(_cbn_run, size=8, italic=True, color=LIGHT_TEAL)
+    # Deliberately no _autofit_textframe call on this frame: autofit's
+    # trailing-paragraph eviction is exactly the mechanism that dropped the
+    # note before. Sizing was decided above by direct measurement instead.
 
     # Footer
     _add_footer(slide, today)
@@ -6521,12 +6773,16 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             # figure itself (not just a label) when it's a USD benchmark on a
             # non-USD plan.
             _cpa_industry_val = cpa_str
-            if (
-                bench.get("cpa_is_usd_benchmark", True)
-                and _get_active_currency() != "USD"
-            ):
+            _cpa_is_usd_bench = bench.get("cpa_is_usd_benchmark", True)
+            if _cpa_is_usd_bench and _get_active_currency() != "USD":
                 _cpa_industry_val = _mark_usd(cpa_str)
-            if cpa_low == cpa_high:
+            if _cpa_is_usd_bench and _get_active_currency() != "USD":
+                # A US$ benchmark cannot be compared against a plan-currency
+                # figure with no FX conversion -- render the same neutral
+                # "none" status the "Projected Hires" row uses (em-dash, no
+                # arrow/badge) rather than a fabricated beating/trailing claim.
+                _cpa_status = "none"
+            elif cpa_low == cpa_high:
                 # Point estimate (not a range): lower CPA is better.
                 _cpa_status = _cmp_status(proj_cpa, cpa_low, higher_is_better=False)
             elif cpa_low <= proj_cpa <= cpa_high:
@@ -6791,33 +7047,116 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         _set_font(_gb_r2, size=9, bold=False, color=DARK_TEXT)
 
     # ---- Legend ----
+    # currency-basis disclosure (fix 3): the note used to be appended as a
+    # trailing paragraph to the last implementation-phase bullet card and
+    # then run through _autofit_textframe -- but that helper's min-pt
+    # fallback DROPS TRAILING PARAGRAPHS whenever nothing else lets the
+    # frame fit, and the note is always added last, so it was silently
+    # evicted on every non-USD deck. Fixed the same way as Slide 6:
+    # PRIORITY, NOT POSITION -- the note is mandatory, so on a plan that
+    # carries one the legend LABELS yield to it (a compact wording),
+    # never the other way round -- decided by measuring real line counts
+    # up front, and never calling _autofit_textframe on this frame at all.
+    # The USD case (no note) keeps the box and the original full legend
+    # wording byte-identical to before.
+    legend_w_in = 6.0  # unchanged -- the box the legend has always used
+    legend_measure_w = legend_w_in - 0.2  # box width minus default 0.1in L/R insets
+    legend_full = (
+        "\u25b2 Beating benchmark    \u25bc Trailing benchmark    "
+        "\u2014 On par / within range"
+    )
+    # Compact wording used only when a currency-basis note must share the
+    # line. Measured against every real _currency_basis_note() output
+    # (both the "declared" and "inferred from market" variants, all
+    # non-USD currency codes -- code length doesn't vary, they're all
+    # 3-letter ISO symbols): the FULL note text is always 2 lines on its
+    # own at this box width, so it can never join the legend on one line
+    # -- only the note's first clause can, and only once the legend
+    # itself is this compact. Verified by direct measurement, not assumed.
+    legend_compact = "\u25b2 Beating   \u25bc Trailing   \u2014 On par"
+
+    _cur_basis_note_s8 = _currency_basis_note(data)
+    _legend_text_s8 = legend_full
+    _note_final_s8 = ""
+    if _cur_basis_note_s8:
+        _note_full_s8 = _trunc_clause(_cur_basis_note_s8, 150)
+        _candidate_full_s8 = f"{legend_compact}   \u00b7   {_note_full_s8}"
+        if _measure_lines(_candidate_full_s8, legend_measure_w, 8) == 1:
+            _legend_text_s8 = legend_compact
+            _note_final_s8 = _note_full_s8
+        else:
+            # The note's own first clause ("Figures in GBP as entered.")
+            # drops the ONLY fragment that says "not FX-converted" -- the
+            # disclosure this whole fix exists to keep undroppable -- so
+            # it is not a safe fallback here even though it is the
+            # shortest option. Use a compact rephrasing that keeps both
+            # halves (currency + no-conversion) in one clause instead;
+            # <=1 line at legend_measure_w combined with legend_compact
+            # for every currency code (measured in the fix's verification
+            # pass, both basis variants, GBP and 12 others).
+            _code_s8 = _get_active_currency()
+            if "inferred from market" in _cur_basis_note_s8:
+                _note_final_s8 = (
+                    f"Figures in {_code_s8} (inferred from market), not FX-converted."
+                )
+            else:
+                _note_final_s8 = f"Figures in {_code_s8}, not FX-converted."
+            _legend_text_s8 = legend_compact
+
     legend_y = comp_top + panel_h + Inches(0.04)
     leg_box, leg_tf = _add_textbox(
         slide,
         Inches(0.55),
         legend_y,
-        Inches(6),
+        Inches(legend_w_in),
         Inches(0.22),
     )
     p = leg_tf.paragraphs[0]
-    r1 = p.add_run()
-    r1.text = "\u25b2 "
-    _set_font(r1, size=8, bold=True, color=GREEN)
-    r2 = p.add_run()
-    r2.text = "Beating benchmark    "
-    _set_font(r2, size=8, color=MUTED_TEXT)
-    r3 = p.add_run()
-    r3.text = "\u25bc "
-    _set_font(r3, size=8, bold=True, color=AMBER)
-    r4 = p.add_run()
-    r4.text = "Trailing benchmark    "
-    _set_font(r4, size=8, color=MUTED_TEXT)
-    r5 = p.add_run()
-    r5.text = "\u2014 "
-    _set_font(r5, size=8, bold=True, color=MUTED_TEXT)
-    r6 = p.add_run()
-    r6.text = "On par / within range"
-    _set_font(r6, size=8, color=MUTED_TEXT)
+    if _legend_text_s8 is legend_full:
+        r1 = p.add_run()
+        r1.text = "\u25b2 "
+        _set_font(r1, size=8, bold=True, color=GREEN)
+        r2 = p.add_run()
+        r2.text = "Beating benchmark    "
+        _set_font(r2, size=8, color=MUTED_TEXT)
+        r3 = p.add_run()
+        r3.text = "\u25bc "
+        _set_font(r3, size=8, bold=True, color=AMBER)
+        r4 = p.add_run()
+        r4.text = "Trailing benchmark    "
+        _set_font(r4, size=8, color=MUTED_TEXT)
+        r5 = p.add_run()
+        r5.text = "\u2014 "
+        _set_font(r5, size=8, bold=True, color=MUTED_TEXT)
+        r6 = p.add_run()
+        r6.text = "On par / within range"
+        _set_font(r6, size=8, color=MUTED_TEXT)
+    else:
+        r1 = p.add_run()
+        r1.text = "\u25b2 "
+        _set_font(r1, size=8, bold=True, color=GREEN)
+        r2 = p.add_run()
+        r2.text = "Beating   "
+        _set_font(r2, size=8, color=MUTED_TEXT)
+        r3 = p.add_run()
+        r3.text = "\u25bc "
+        _set_font(r3, size=8, bold=True, color=AMBER)
+        r4 = p.add_run()
+        r4.text = "Trailing   "
+        _set_font(r4, size=8, color=MUTED_TEXT)
+        r5 = p.add_run()
+        r5.text = "\u2014 "
+        _set_font(r5, size=8, bold=True, color=MUTED_TEXT)
+        r6 = p.add_run()
+        r6.text = "On par"
+        _set_font(r6, size=8, color=MUTED_TEXT)
+    if _note_final_s8:
+        r7 = p.add_run()
+        r7.text = f"   \u00b7   {_note_final_s8}"
+        _set_font(r7, size=8, italic=True, color=MUTED_TEXT)
+    # Deliberately no _autofit_textframe call on this frame: autofit's
+    # trailing-run/paragraph eviction is exactly the mechanism that dropped
+    # the note before. Fit was decided above by direct measurement instead.
 
     # ==== IMPLEMENTATION TIMELINE (bottom) ====
     # fix/gate-confidence-layout: this used to be a flat Inches(4.98)
@@ -7023,7 +7362,9 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     _pt_max_bullets_h_in = max(
         (_pt_bullets_h_in(ph.get("bullets") or []) for ph in phases), default=0.0
     )
-    phase_h_in = max(1.65, _pt_bullets_top_in + _pt_max_bullets_h_in + _pt_bottom_pad_in)
+    phase_h_in = max(
+        1.65, _pt_bullets_top_in + _pt_max_bullets_h_in + _pt_bottom_pad_in
+    )
     # Safety clamp: the comparison panel above (now itself content-derived)
     # can push phase_top later than its old fixed position on a plan with
     # many comparison rows -- never let the phase cards' bottom edge run
@@ -7067,10 +7408,16 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
                 break
             longest_i = max(
                 range(len(bullets)),
-                key=lambda i: _estimate_lines(f"✓  {bullets[i]}", _pt_bullets_w_in, _pt_font_pt),
+                key=lambda i: _estimate_lines(
+                    f"✓  {bullets[i]}", _pt_bullets_w_in, _pt_font_pt
+                ),
             )
-            if len(bullets[longest_i]) > 40 and not _pt_is_personalized(bullets[longest_i]):
-                bullets[longest_i] = _trunc_clause(bullets[longest_i], len(bullets[longest_i]) - 12)
+            if len(bullets[longest_i]) > 40 and not _pt_is_personalized(
+                bullets[longest_i]
+            ):
+                bullets[longest_i] = _trunc_clause(
+                    bullets[longest_i], len(bullets[longest_i]) - 12
+                )
                 continue
             if len(bullets) <= 1:
                 break
@@ -7085,7 +7432,9 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             if generic_idx is not None:
                 bullets.pop(generic_idx)
             elif len(bullets[longest_i]) > 40:
-                bullets[longest_i] = _trunc_clause(bullets[longest_i], len(bullets[longest_i]) - 12)
+                bullets[longest_i] = _trunc_clause(
+                    bullets[longest_i], len(bullets[longest_i]) - 12
+                )
             else:
                 bullets.pop(longest_i)
         ph["bullets"] = bullets
@@ -7742,7 +8091,11 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         _cl_trend_box_h_in = max(0.3, _cl_trend_content_h_in)
 
         box_t, tf_t = _add_textbox(
-            slide, Inches(0.55), trends_top + Inches(0.4), left_w, Inches(_cl_trend_box_h_in)
+            slide,
+            Inches(0.55),
+            trends_top + Inches(0.4),
+            left_w,
+            Inches(_cl_trend_box_h_in),
         )
         tf_t.paragraphs[0].space_before = Pt(0)
         tf_t.paragraphs[0].space_after = Pt(0)
@@ -7990,6 +8343,21 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             _comp_gap_in = 0.03  # matches the original cy+0.58 - (0.3 + 0.25)
             _comp_bottom_pad_in = 0.1
             _comp_base_card_h_in = comp_card_h / 914400
+            # The fix above made Counter cascade from Why's measured height but
+            # left Why itself pinned to a constant 0.3in, which silently assumes
+            # the competitor NAME above it is one line. It is 10pt bold in a
+            # 3.0in box, so any name past ~30 characters wraps -- "Universal
+            # Health Services Behavioral Division", "Encompass Health
+            # Rehabilitation Hospital Group" and "Select Medical Critical
+            # Illness Recovery Holdings" all do -- and the name's second line
+            # printed straight through "Why:". Same defect one level up the
+            # card, so apply the same rule: measure the name, cascade Why from
+            # it. max() with the old constant keeps a one-line name (the common
+            # case) rendering byte-identically to before.
+            _comp_name_w_in = 3.0 - 0.2  # name box less python-pptx's 0.1in insets
+            _comp_name_font_pt = 10.0
+            _comp_name_top_in = 0.05
+            _comp_name_line_h_in = (_comp_name_font_pt * 1.35) / 72.0
 
             _cards: list = []
             for ci, (comp_name, comp_data) in enumerate(
@@ -8063,13 +8431,25 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     190,
                 )
 
-                _why_n = _estimate_lines(
-                    f"Why: {why_text}", _comp_body_w_in, _comp_font_pt
+                # Measure the name exactly as it is rendered below (same
+                # stripped string, same 10pt bold, same box width).
+                _name_n = _measure_lines(
+                    _strip_competitor_tag(comp_name) or str(comp_name),
+                    _comp_name_w_in,
+                    _comp_name_font_pt,
+                    bold=True,
+                )
+                _why_top_in = max(
+                    _comp_why_top_in,
+                    _comp_name_top_in + _name_n * _comp_name_line_h_in + _comp_gap_in,
+                )
+                _why_n = _measure_lines(
+                    f"Why: {why_text}", _comp_body_w_in, _comp_font_pt, bold=False
                 )
                 _why_h_in = max(0.25, _why_n * _comp_line_h_in)
-                _counter_top_in = _comp_why_top_in + _why_h_in + _comp_gap_in
-                _counter_n = _estimate_lines(
-                    counter_text, _comp_body_w_in, _comp_font_pt
+                _counter_top_in = _why_top_in + _why_h_in + _comp_gap_in
+                _counter_n = _measure_lines(
+                    counter_text, _comp_body_w_in, _comp_font_pt, bold=False
                 )
                 _counter_h_in = max(0.2, _counter_n * _comp_line_h_in)
                 card_h_in = max(
@@ -8084,7 +8464,9 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                         "tag_text": _tag_text,
                         "tag_color": _tag_color,
                         "why_text": why_text,
+                        "why_top_in": _why_top_in,
                         "why_h_in": _why_h_in,
+                        "name_h_in": max(0.25, _name_n * _comp_name_line_h_in),
                         "counter_text": counter_text,
                         "counter_top_in": _counter_top_in,
                         "counter_h_in": _counter_h_in,
@@ -8112,7 +8494,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     right_left + Inches(0.2),
                     cy + Inches(0.05),
                     Inches(3.0),
-                    Inches(0.25),
+                    Inches(card["name_h_in"]),
                     # Strip the internal scope tag ("(National) Marriott") the
                     # same way the Why/Counter prose already does -- it is an
                     # internal marker, never client-facing copy.
@@ -8139,7 +8521,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 _add_textbox(
                     slide,
                     right_left + Inches(0.2),
-                    cy + Inches(_comp_why_top_in),
+                    cy + Inches(card["why_top_in"]),
                     right_w - Inches(0.4),
                     Inches(card["why_h_in"]),
                     text=f"Why: {card['why_text']}",
@@ -8198,7 +8580,9 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         # rules forbid.
         _comp_content_bottom_in = max(_cl_left_bottom_in, _comp_right_bottom_in)
         _comp_source_top_in = max(6.7, _comp_content_bottom_in + 0.15)
-        _comp_source_top_in = min(_comp_source_top_in, 7.0)  # keep clear of the footer rule
+        _comp_source_top_in = min(
+            _comp_source_top_in, 7.0
+        )  # keep clear of the footer rule
         _add_textbox(
             slide,
             Inches(0.55),
@@ -8986,7 +9370,11 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
     for _card_x, section, _surface, _pill_color, _split in cards:
         if not isinstance(section, dict) or not section:
             _measured.append(
-                {"h_in": 0.0, "detail_pt": _pp_base_detail_pt, "split_pt": _pp_base_split_pt}
+                {
+                    "h_in": 0.0,
+                    "detail_pt": _pp_base_detail_pt,
+                    "split_pt": _pp_base_split_pt,
+                }
             )
             continue
         detail_text = str(section.get("detail") or "")
@@ -9000,22 +9388,39 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
             # to the 8pt readability floor, instead of letting the drawn
             # text silently exceed the card's own declared height.
             scale = 1.0
-            while scale > 8.0 / _pp_base_detail_pt and _pp_measure(
-                detail_text, split_line, detail_pt * scale, max(8.0, split_pt * scale)
-            ) > _pp_ceiling_in:
+            while (
+                scale > 8.0 / _pp_base_detail_pt
+                and _pp_measure(
+                    detail_text,
+                    split_line,
+                    detail_pt * scale,
+                    max(8.0, split_pt * scale),
+                )
+                > _pp_ceiling_in
+            ):
                 scale -= 0.04
             detail_pt = max(8.0, round(detail_pt * scale, 1))
             split_pt = max(8.0, round(split_pt * scale, 1))
-            h_in = min(_pp_ceiling_in, _pp_measure(detail_text, split_line, detail_pt, split_pt))
+            h_in = min(
+                _pp_ceiling_in,
+                _pp_measure(detail_text, split_line, detail_pt, split_pt),
+            )
         elif h_in < _pp_target_in:
             # Sparse content: grow the type scale (bounded to 1.3x) so the
             # card reads as intentionally sized for its content, not as
             # small text floating inside an oversized box.
             scale = 1.0
             _cap_in = min(_pp_target_in, _pp_ceiling_in)
-            while scale < 1.3 and _pp_measure(
-                detail_text, split_line, detail_pt * (scale + 0.05), split_pt * (scale + 0.05)
-            ) <= _cap_in:
+            while (
+                scale < 1.3
+                and _pp_measure(
+                    detail_text,
+                    split_line,
+                    detail_pt * (scale + 0.05),
+                    split_pt * (scale + 0.05),
+                )
+                <= _cap_in
+            ):
                 scale += 0.05
             detail_pt = round(detail_pt * scale, 1)
             split_pt = round(split_pt * scale, 1)
@@ -9334,7 +9739,9 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
             show_rows = rows[:max_shown]
             n_more = n_rows_total - max_shown
 
-    _rb_content_h_in = header_h_in + len(show_rows) * row_h_in + (row_h_in if n_more else 0.0)
+    _rb_content_h_in = (
+        header_h_in + len(show_rows) * row_h_in + (row_h_in if n_more else 0.0)
+    )
     # visual:manpower#4-style: vertically center the table in the space
     # between the subtitle and the footer instead of always anchoring at a
     # fixed y=1.7in -- the minimum-eligible 4-role case previously left
@@ -9524,8 +9931,8 @@ def _build_slide_cpa_reference(prs: Presentation, data: Dict, deck: Dict) -> Non
             show_roles = _cpa_valid_roles[:max_shown]
             n_more = n_roles_total - max_shown
 
-    _cpa_content_h_in = header_h_in + len(show_roles) * row_h_in + (
-        row_h_in if n_more else 0.0
+    _cpa_content_h_in = (
+        header_h_in + len(show_roles) * row_h_in + (row_h_in if n_more else 0.0)
     )
     # visual:manpower#4-style vertical centering (never above the old
     # fixed y=1.8in anchor).
@@ -10150,7 +10557,9 @@ def _build_slide_case_study_next_steps(
 
         strip_top = Inches(5.6)
         strip_h = Inches(_ns_strip_h_in)
-        _add_rounded_rect(slide, Inches(0.55), strip_top, Inches(12.25), strip_h, LAVENDER_50)
+        _add_rounded_rect(
+            slide, Inches(0.55), strip_top, Inches(12.25), strip_h, LAVENDER_50
+        )
         _add_textbox(
             slide,
             Inches(0.8),

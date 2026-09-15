@@ -134,14 +134,72 @@ def _plan_currency_code(data: Optional[dict]) -> str:
                 country = loc.get("country") or loc.get("location") or ""
                 if isinstance(country, str) and country.strip():
                     candidates.append(country)
+    market_codes: List[str] = []
     for cand in candidates:
         try:
             code = _plan_currency.currency_for_country(cand)
         except Exception:  # noqa: BLE001 - resolution is best-effort
             code = None
         if code:
-            return code
-    return "USD"
+            market_codes.append(code)
+
+    # convert-vs-declare: kept identical to ppt_generator._plan_currency_code.
+    # The workbook and the deck ship in the same bundle, so if one honoured the
+    # client's typed symbol and the other kept guessing from the location, the
+    # same client would get a "$" deck and a "£" workbook for one plan.
+    try:
+        code, basis = _plan_currency.resolve_declared_currency(
+            budget_text=data.get("budget") or data.get("budget_range") or "",
+            explicit_code=None,
+            market_codes=market_codes,
+        )
+    except (AttributeError, TypeError, ValueError) as exc:  # noqa: BLE001
+        logger.debug("Declared-currency resolution failed (%s) -- USD", exc)
+        code, basis = None, "default"
+    data["_currency_basis"] = basis
+    return code or "USD"
+
+
+def _market_currency_code(data: Optional[dict], market_label: str) -> str:
+    """ISO currency for one market label, preferring the market's own country.
+
+    ``gold_standard.enrich_city_level_data`` keys markets by the bare city name
+    ("London"), and ``currency_for_country`` only maps countries -- so a city
+    that is not also a country alias used to resolve to nothing and fall back
+    to the plan currency. That was safe only while plan currency was itself
+    guessed from the market. It no longer is (the client's typed symbol now
+    wins), so match the city back to the plan's own locations list, which does
+    carry the country, before falling back.
+    """
+    label = (market_label or "").strip()
+    if not label or _plan_currency is None:
+        return _get_active_currency()
+    for loc in (data or {}).get("locations") or []:
+        probe = ""
+        if isinstance(loc, dict):
+            city = str(loc.get("city") or "").strip()
+            if city and city.lower() == label.lower():
+                probe = str(loc.get("country") or loc.get("location") or "")
+        elif isinstance(loc, str) and "," in loc:
+            head, _, _tail = loc.partition(",")
+            if head.strip().lower() == label.lower():
+                # Hand currency_for_country the WHOLE "City, ST" / "City,
+                # Country" string, never just the trailing token: it owns the
+                # US-state guard that keeps "Denver, CO" from resolving as
+                # Colombia (CO), "Springfield, IL" as Israel, and so on.
+                probe = loc
+        if probe:
+            try:
+                code = _plan_currency.currency_for_country(probe)
+            except Exception:  # noqa: BLE001 - resolution is best-effort
+                code = None
+            if code:
+                return code
+    try:
+        code = _plan_currency.currency_for_country(label)
+    except Exception:  # noqa: BLE001 - resolution is best-effort
+        code = None
+    return code or _get_active_currency()
 
 
 def _set_active_currency(data: Optional[dict]) -> str:
@@ -2211,9 +2269,7 @@ _CONFIDENCE_GATE_TOPICS: Dict[str, str] = {
 }
 
 
-def _section_confidence(
-    data: dict, section_key: str
-) -> Optional[Tuple[float, str]]:
+def _section_confidence(data: dict, section_key: str) -> Optional[Tuple[float, str]]:
     """(score, grade) for ``section_key``, read from the SAME
     ``confidence_scores`` dict the Sources & Confidence sheet's
     Per-Section Confidence table reads (data_synthesizer.compute_confidence_scores).
@@ -2243,9 +2299,7 @@ def _section_confidence(
     return score, _grade_from_score(score)
 
 
-def _confidence_gated_title(
-    base_title: str, conf: Optional[Tuple[float, str]]
-) -> str:
+def _confidence_gated_title(base_title: str, conf: Optional[Tuple[float, str]]) -> str:
     """Section-header title, hedged when ``conf`` is below threshold.
 
     False-positive guard: a well-sourced section (``conf`` is ``None`` --
@@ -6227,7 +6281,9 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                     _loc_info = {}
                 _plats = _loc_info.get("intl_platforms") or []
                 _plat_names = [
-                    p.get("name") for p in _plats if isinstance(p, dict) and p.get("name")
+                    p.get("name")
+                    for p in _plats
+                    if isinstance(p, dict) and p.get("name")
                 ]
                 if _plat_names:
                     _local_board_rows.append(
@@ -9371,16 +9427,21 @@ def _build_sheet_quality_intelligence(
                 # genuinely multi-country plan absent a per-city gazetteer)
                 # and it can never disagree with what every other cell on
                 # this same workbook calls "this plan's currency."
-                _mkt_currency_code = None
-                if _plan_currency is not None:
-                    try:
-                        _mkt_currency_code = _plan_currency.currency_for_country(
-                            market_label
-                        )
-                    except Exception:  # noqa: BLE001 - resolution is best-effort
-                        _mkt_currency_code = None
-                if not _mkt_currency_code:
-                    _mkt_currency_code = _get_active_currency()
+                # convert-vs-declare UPDATE: the reasoning above ("there is
+                # exactly ONE resolved plan currency, so fall back to it")
+                # held only while plan currency was ITSELF guessed from the
+                # market -- the two could not disagree. Now that the client's
+                # own typed symbol sets the plan currency, they legitimately
+                # can: a US company can budget in USD for a London campaign.
+                # A London salary is still GBP data, so falling back to a USD
+                # plan currency would relabel a GBP number as USD -- exactly
+                # the error this whole change set removes.
+                #
+                # So resolve the market's OWN country first, using the plan's
+                # locations list (which carries "London, United Kingdom" even
+                # though gold_standard keys city_data by the bare "London").
+                # Plan currency stays the last resort.
+                _mkt_currency_code = _market_currency_code(data, market_label)
                 row = _write_table_row(
                     ws,
                     row,
@@ -9612,9 +9673,7 @@ def _build_sheet_quality_intelligence(
             _qi_brief_competitors_raw = data.get("competitors") or []
             if isinstance(_qi_brief_competitors_raw, str):
                 _qi_brief_competitors_raw = [
-                    c.strip()
-                    for c in _qi_brief_competitors_raw.split(",")
-                    if c.strip()
+                    c.strip() for c in _qi_brief_competitors_raw.split(",") if c.strip()
                 ]
             if not any(str(c).strip() for c in _qi_brief_competitors_raw):
                 row = _write_footnote(
@@ -10341,9 +10400,7 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     # the printed split always foots exactly to 1.0 (largest-remainder
     # residual push, mirroring _seasonal_monthly_phasing).
     if _short_plan:
-        _phase_ranges = display_format.scale_week_phases(
-            _cw_int, min(3, _cw_int)
-        )
+        _phase_ranges = display_format.scale_week_phases(_cw_int, min(3, _cw_int))
         _phase_pcts = monthly_pcts[: len(_phase_ranges)]
         _pp_total = sum(_phase_pcts) or 1.0
         _phase_pcts = [p / _pp_total for p in _phase_pcts]
@@ -10354,18 +10411,13 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
         if _weekly_frame:
             _period_ranges = [(k, k) for k in range(1, _cw_int + 1)]
         else:
-            _period_ranges = display_format.scale_week_phases(
-                _cw_int, _n_periods
-            )
+            _period_ranges = display_format.scale_week_phases(_cw_int, _n_periods)
         period_pcts = [
-            round(sum(_week_weights[_ps - 1 : _pe]), 4)
-            for (_ps, _pe) in _period_ranges
+            round(sum(_week_weights[_ps - 1 : _pe]), 4) for (_ps, _pe) in _period_ranges
         ]
         _residual = round(1.0 - sum(period_pcts), 4)
         if _residual:
-            _max_idx = max(
-                range(len(period_pcts)), key=lambda i: period_pcts[i]
-            )
+            _max_idx = max(range(len(period_pcts)), key=lambda i: period_pcts[i])
             period_pcts[_max_idx] = round(period_pcts[_max_idx] + _residual, 4)
     else:
         period_pcts = monthly_pcts
@@ -10376,9 +10428,11 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     row = _write_subsection_header(
         ws,
         row,
-        "Weekly Projections Overview"
-        if _weekly_frame
-        else "Monthly Projections Overview",
+        (
+            "Weekly Projections Overview"
+            if _weekly_frame
+            else "Monthly Projections Overview"
+        ),
     )
 
     headers = ["Metric"] + period_labels + [_total_label, "Trend"]
@@ -10477,9 +10531,11 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
         row = _write_subsection_header(
             ws,
             row,
-            "Per-Channel Weekly Spend Forecast"
-            if _weekly_frame
-            else "Per-Channel Monthly Spend Forecast",
+            (
+                "Per-Channel Weekly Spend Forecast"
+                if _weekly_frame
+                else "Per-Channel Monthly Spend Forecast"
+            ),
         )
 
         ch_headers = ["Channel"] + period_labels + ["Total", "% of Budget"]
