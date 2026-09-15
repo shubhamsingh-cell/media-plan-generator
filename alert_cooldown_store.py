@@ -10,8 +10,9 @@ CRITICALs two minutes apart; see ``docs/INCIDENT_2026-06-13_alert_noise.md``.)
 This store backs the cooldown with Supabase -- shared across workers and durable
 across restarts -- when ``SUPABASE_URL`` / ``SUPABASE_SERVICE_ROLE_KEY`` are set,
 and otherwise falls back to the exact pre-P1 in-memory behavior. If Supabase
-is configured but the table/RPC has not been created (PostgREST 404), the
-store DEMOTES itself to the in-memory backend for the life of the process --
+is configured but the table/RPC has not been created (PostgREST 404, or
+401/403 (auth rejected)), the store DEMOTES itself to the in-memory backend
+for the life of the process --
 a missing table must degrade to the old per-process cooldown, never to no
 cooldown at all (fail-open on every call would re-page every bridge cycle).
 
@@ -49,8 +50,9 @@ logger = logging.getLogger(__name__)
 
 
 class CooldownBackendMissing(Exception):
-    """The configured backend definitively does not exist (PostgREST 404 --
-    ``alert_cooldowns`` table or ``claim_alert_cooldown`` RPC not created).
+    """The configured backend definitively does not exist (PostgREST 404, or
+    401/403 (auth rejected) -- ``alert_cooldowns`` table or
+    ``claim_alert_cooldown`` RPC not created).
 
     Distinct from a transient error: those stay fail-open (fire once); this one
     tells ``AlertCooldownStore`` to demote to in-memory so the cooldown holds.
@@ -132,9 +134,16 @@ class SupabaseCooldownBackend:
 
     @staticmethod
     def _raise_if_missing(e: Exception) -> None:
-        """404 = table/RPC not created. Everything else stays fail-open."""
-        if isinstance(e, urllib.error.HTTPError) and e.code == 404:
-            raise CooldownBackendMissing(f"HTTP 404 from {e.filename}") from e
+        """404/401/403 are all definitive, not transient. Everything else
+        (5xx, timeouts, network errors) stays fail-open."""
+        if isinstance(e, urllib.error.HTTPError) and e.code in (401, 403, 404):
+            if e.code == 404:
+                remedy = "table/RPC not created -- run docs/sql/alert_cooldowns.sql"
+            else:
+                remedy = "auth rejected -- check SUPABASE_SERVICE_ROLE_KEY and grants"
+            raise CooldownBackendMissing(
+                f"HTTP {e.code} from {e.filename}: {remedy}"
+            ) from e
 
     def get_last_fired(self, key: str) -> Optional[float]:
         if not self.enabled:
@@ -193,8 +202,9 @@ class SupabaseCooldownBackend:
         or None on any error (-> caller fails open). This closes the read-then-
         write race between the per-process bridges: the check-and-set happens in
         a single server-side statement under a row lock. Requires the RPC in
-        docs/sql/alert_cooldowns.sql; if it is absent the call errors and we
-        fail open (and the caller can still use get/record).
+        docs/sql/alert_cooldowns.sql. If it is absent (404) or auth is
+        rejected (401/403) the store demotes to in-memory for the life of the
+        process; other errors fail open (fire).
         """
         if not self.enabled:
             return None
@@ -333,7 +343,8 @@ class AlertCooldownStore:
         self._backend = InMemoryCooldownBackend()
         logger.warning(
             "[cooldown] backend %r missing (%s) -- demoted to in-memory; "
-            "cross-worker dedup is OFF until docs/sql/alert_cooldowns.sql is applied",
+            "cross-worker dedup is OFF until docs/sql/alert_cooldowns.sql is applied"
+            "; demotion lasts until the process restarts",
             self._demoted_from,
             reason,
         )

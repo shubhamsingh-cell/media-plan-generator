@@ -27,8 +27,10 @@ create table if not exists public.alert_cooldowns (
 -- check-and-set in ONE statement under a row lock: returns TRUE when the alert
 -- is claimed (-> fire) and the row is (re)stamped, FALSE when still cooling
 -- down (-> suppress). A missing/future/corrupt timestamp is treated as
--- claimable (fail-open). If this function is absent the RPC errors and the
--- bridge falls back to read-then-write, so it is optional but recommended.
+-- claimable (fail-open). If this function is absent the RPC 404s and the
+-- store demotes to the in-memory per-process cooldown for the life of the
+-- process (see alert_cooldown_store.py) -- so it is required for
+-- cross-worker dedup, and workers should be restarted after it is created.
 create or replace function public.claim_alert_cooldown(
     p_key      text,
     p_now      double precision,

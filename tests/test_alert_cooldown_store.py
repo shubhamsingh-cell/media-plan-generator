@@ -402,3 +402,70 @@ def test_bridge_demotes_when_rpc_missing(monkeypatch: pytest.MonkeyPatch) -> Non
         assert bridge._should_alert("global_error_rate") is True
         assert bridge._should_alert("global_error_rate") is False  # HELD
     assert bridge.get_status()["cooldown_backend"] == "memory"
+
+
+# --------------------------------------------------------------------------- #
+# Auth failures (401/403): equally deterministic as 404 -- demote, don't
+# fail open forever. Bad/rotated SUPABASE_SERVICE_ROLE_KEY or missing grants
+# will 401/403 on every call for the life of the process, same as a missing
+# table 404s on every call.
+# --------------------------------------------------------------------------- #
+
+
+def _http_error(code: int) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        "https://example.supabase.co/rest/v1/rpc/claim_alert_cooldown",
+        code,
+        "Unauthorized" if code == 401 else "Forbidden",
+        None,
+        None,
+    )
+
+
+@pytest.mark.parametrize("code", [401, 403])
+def test_supabase_401_and_403_raise_backend_missing(
+    monkeypatch: pytest.MonkeyPatch, code: int
+) -> None:
+    _enable_supabase(monkeypatch)
+    be = SupabaseCooldownBackend()
+    with patch(
+        "alert_cooldown_store.urllib.request.urlopen", side_effect=_http_error(code)
+    ):
+        with pytest.raises(CooldownBackendMissing, match="SUPABASE_SERVICE_ROLE_KEY"):
+            be.try_claim("k", 1.0, 100.0)
+        with pytest.raises(CooldownBackendMissing, match="SUPABASE_SERVICE_ROLE_KEY"):
+            be.get_last_fired("k")
+        with pytest.raises(CooldownBackendMissing, match="SUPABASE_SERVICE_ROLE_KEY"):
+            be.record_fired("k", 1.0)
+
+
+def test_store_demotes_on_auth_failure_and_cooldown_holds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """403 (bad/rotated key or missing grants) must demote just like 404."""
+    _enable_supabase(monkeypatch)
+    store = AlertCooldownStore(SupabaseCooldownBackend())
+    assert store.backend_name == "supabase"
+    with patch(
+        "alert_cooldown_store.urllib.request.urlopen", side_effect=_http_error(403)
+    ):
+        assert store.should_fire("k", 1800, now=1000.0) is True  # first page
+        assert store.should_fire("k", 1800, now=1060.0) is False  # HELD
+    assert store.backend_name == "memory"
+    assert store.demoted_from == "supabase"
+
+
+@pytest.mark.parametrize("code", [500, 502])
+def test_supabase_5xx_still_fails_open(
+    monkeypatch: pytest.MonkeyPatch, code: int
+) -> None:
+    """5xx is transient: fail open (fire), do NOT demote."""
+    _enable_supabase(monkeypatch)
+    be = SupabaseCooldownBackend()
+    err = urllib.error.HTTPError(
+        "https://example.supabase.co/x", code, "Server Error", None, None
+    )
+    with patch("alert_cooldown_store.urllib.request.urlopen", side_effect=err):
+        assert be.try_claim("k", 1.0, 100.0) is None
+        assert be.get_last_fired("k") is None
+        be.record_fired("k", 1.0)  # swallowed
