@@ -5176,10 +5176,20 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 _is_fabricated_posting = "Industry Benchmark" in _posting_sources
                 avg_sal = jm_data.get("avg_salary") or 0
                 if posting_count and posting_count > 0 and not _is_fabricated_posting:
+                    # trust-and-proof#2: "N active jobs" carried no source or
+                    # as-of date -- attach both when the row's own data names
+                    # a real provider (Adzuna/Jooble/BLS), so the figure reads
+                    # as sourced and dated rather than an unattributed count.
+                    _postings_val = f"{posting_count:,} active jobs"
+                    if _posting_sources:
+                        _postings_val += (
+                            f" ({', '.join(_posting_sources[:2])}, "
+                            f"as of {datetime.date.today().strftime('%b %d')})"
+                        )
                     bench_rows.append(
                         (
                             f"Live Postings: {role_name}",
-                            f"{posting_count:,} active jobs",
+                            _postings_val,
                         )
                     )
                 if avg_sal and avg_sal > 0:
@@ -5428,10 +5438,25 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     # Source - positioned below the LAST content-derived row (not a fixed
     # row_h * count multiple, which is exactly what let the source line and
     # the category cards below it collide with a table that had grown).
+    # trust-and-proof#1: "validated recruitment data" was an unearned trust
+    # word -- nothing on the slide (or in the data) said what validated it
+    # or who did. Name the actual provenance the benchmark row data carries
+    # (benchmarks["confidence"], set by _get_benchmarks' resolution cascade)
+    # instead, or drop the claim entirely when the row is just Nova's own
+    # static fallback table with no external source to point to.
     source_top = Inches(_bench_cur_top_in) + Inches(0.05)
-    source_text = f"Sources: Industry benchmarks {datetime.date.today().year}, validated recruitment data"
+    _bench_named_source = {
+        "appcast_kb": "Appcast 2026 Recruitment Benchmark Report",
+        "market_intelligence_kb": "Joveo Recruitment Benchmarks KB (2026)",
+        "trend_engine": "Nova Trend Engine (platform CPC/CPA data)",
+    }.get(benchmarks.get("confidence", "curated"))
+    source_text = (
+        f"Sources: {_bench_named_source}"
+        if _bench_named_source
+        else f"Sources: Industry benchmarks {datetime.date.today().year}"
+    )
     if ad_plat:
-        source_text += ", Nova AI Suite Ad Platform Intelligence"
+        source_text += ", Nova Ad Platform Intelligence"
     _add_textbox(
         slide,
         table_left,
