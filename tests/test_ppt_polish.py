@@ -250,6 +250,18 @@ class TestCurrencyFormatting:
 
 
 class TestNonUsdDeckRendering:
+    # ppt._set_active_currency() stores the resolved currency in a
+    # thread-local (ppt._currency_tls) that persists across tests in the
+    # same process. generate_pptx() sets it to GBP for the UK plan below;
+    # if the assertions after that call ever raised, the trailing manual
+    # reset would never run and GBP would leak into every later test in
+    # the process that assumes the USD default (the same failure mode
+    # tests/test_ppt_uber_currency_incident.py's _reset_active_currency
+    # fixture exists to close). Use teardown_method like every sibling
+    # class in this file so the reset runs unconditionally, pass or fail.
+    def teardown_method(self):
+        ppt._set_active_currency({})
+
     def test_uk_plan_renders_pounds_not_dollars(self):
         # convert-vs-declare: this fixture used to pass budget="$150,000" and
         # assert the deck rendered "£150K" -- i.e. it pinned the defect, that
@@ -284,7 +296,6 @@ class TestNonUsdDeckRendering:
         pptx_bytes = ppt.generate_pptx(_plan("United Kingdom", budget="150,000"))
         texts = _all_text(pptx_bytes)
         assert any("£150" in t for t in texts)
-        ppt._set_active_currency({})  # reset
 
     def test_us_plan_still_uses_dollars(self):
         pptx_bytes = ppt.generate_pptx(_plan("United States"))
