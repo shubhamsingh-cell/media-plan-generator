@@ -3246,6 +3246,112 @@ for _lk, _nk in _LEGACY_PRIORITY.items():
 # selected?" test.
 _GENERIC_INDUSTRY_STRINGS = ("", "general", "other", "n/a", "na", "none")
 
+# Product words in the explicit industry text that name a specific
+# manufacturing-adjacent sector. _classify_industry_primary uses them in two
+# places, both via _product_sector_from_industry_text():
+#   - Step 4, when the generic "manufacturing" sector (Manufacturing &
+#     Industrial, legacy_key "automotive") wins. Step 4 scores by
+#     sum(len(keyword)), so manufacturing's "manufactur" (10) beat the
+#     product word: "chocolate manufacturing" (Hershey), "beverage
+#     manufacturing", "pharmaceutical manufacturing" and "aircraft
+#     manufacturing" all resolved to automotive.
+#   - Just before the final general_entry_level fallback, so a product-only
+#     industry ("confectionery", "chocolate") gets a sector instead of none.
+#     It runs only when every other step has already failed to match.
+#     Adding these words to INDUSTRY_NAICS_MAP keywords instead was tried
+#     and rejected: Step 4 scores company and role text too, so a company
+#     named "Sweet Treats Chocolate Co" pulled explicit "software" and
+#     "hospital" plans over to food_beverage.
+#
+# Three constraints, each from a prior fix attempt that failed review:
+#   1. Only the explicit raw_industry text is checked, never company_name
+#      or role titles ("Maintenance Technician" must not move a plan).
+#   2. Only these three sectors can take over. Energy, maritime, tech,
+#      logistics and agriculture can never be the result of this override,
+#      however their keywords happen to match.
+#   3. Whole-word, fully spelled patterns, never bare stems: "sporting"
+#      does not match "port", "agricultural" does not match "agri", and
+#      "space heater" does not match aerospace (bare "space" is excluded).
+# The flag marks sectors where an equipment/packaging qualifier means the
+# product is machinery or containers, which is generic manufacturing ("food
+# processing equipment manufacturing" and "beverage can manufacturing" stay
+# automotive, same as "agricultural equipment manufacturing"). "drug store"
+# is retail, so "drug" followed by "store" does not count as a pharma term.
+# Medical devices go to pharma_biotech: its niche boards (BioSpace, MedReps)
+# serve device makers, and healthcare_medical's boards are for nurses and
+# physicians.
+# The first matching entry wins, in the order listed.
+_PRODUCT_SECTOR_PATTERNS: tuple[tuple[str, "re.Pattern[str]", bool], ...] = (
+    (
+        "food_beverage",
+        re.compile(
+            r"\b(?:foods?|beverages?|chocolates?"
+            r"|confection(?:s|er|ers|ery|eries|ary)?|cand(?:y|ies)|snacks?"
+            r"|bakery|bakeries|baked goods|brewery|breweries|brewing"
+            r"|distillery|distilleries|distilling|dairy|dairies|meats?"
+            r"|poultry|seafood)\b"
+        ),
+        True,
+    ),
+    (
+        "pharma",
+        re.compile(
+            r"\b(?:pharma|pharmaceuticals?|biopharma(?:ceuticals?)?|biotech"
+            r"|biotechnology|biologics?|vaccines?|drugs?(?!\s+stores?\b)"
+            r"|medical devices?"
+            r"|medtech)\b"
+        ),
+        True,
+    ),
+    (
+        "aerospace",
+        re.compile(
+            r"\b(?:aerospace|aircraft|aviation|avionics|spacecraft|satellites?"
+            r"|missiles?|rockets?|defen[cs]e)\b"
+        ),
+        False,
+    ),
+)
+_EQUIPMENT_QUALIFIER_RE = re.compile(
+    r"\b(?:equipment|machinery|machines?|packaging|containers?|cans?"
+    r"|bottles?)\b"
+)
+
+
+def _product_sector_from_industry_text(raw_lower: str) -> Optional[dict]:
+    """Return the INDUSTRY_NAICS_MAP profile whose product words appear in
+    the explicit (lower-cased) industry text, or None. See
+    _PRODUCT_SECTOR_PATTERNS for the rules."""
+    if not raw_lower:
+        return None
+    has_equipment_qualifier = bool(_EQUIPMENT_QUALIFIER_RE.search(raw_lower))
+    for naics_key, pattern, blocked_by_equipment in _PRODUCT_SECTOR_PATTERNS:
+        if blocked_by_equipment and has_equipment_qualifier:
+            continue
+        if pattern.search(raw_lower):
+            return INDUSTRY_NAICS_MAP[naics_key]
+    return None
+
+
+# Step 4 pharma/healthcare tie-break. The healthcare profile lists "pharma"
+# and "biotech" as broad catch-alls, and the pharma profile has the same
+# two keywords. So "pharmaceutical", "biotech" or "Pharma & Biotech" scored
+# a tie, and dict order gave it to healthcare_medical. This tie-break
+# applies ONLY when every healthcare keyword that matched is one of those
+# shared keywords AND the explicit industry text uses one of them as a
+# whole word. "pharmacy" does not count, so a retail pharmacy stays
+# healthcare. A tie that just happens to have equal keyword lengths, like
+# "medical" (7) against a "Vaccine Coordinator" role's "vaccine" (7),
+# leaves healthcare in place because "medical" is not a shared keyword.
+_PHARMA_HEALTHCARE_SHARED_KWS = frozenset(
+    set(INDUSTRY_NAICS_MAP["healthcare"]["keywords"])
+    & set(INDUSTRY_NAICS_MAP["pharma"]["keywords"])
+)
+_PHARMA_INDUSTRY_TERM_RE = re.compile(
+    r"\b(?:pharma|pharmaceuticals?|biopharma(?:ceuticals?)?|biotech"
+    r"|biotechnology)\b"
+)
+
 # Role-title -> NAICS map key, used by classify_industry's Steps 3/6 (role-
 # based industry inference) AND by _infer_industry_from_signals (the
 # independent company/role-only inference industry_conflict is checked
@@ -3689,11 +3795,14 @@ def classify_industry(
 def _classify_industry_primary(
     raw_industry: str, company_name: str = "", roles: list = None
 ) -> dict:
-    """The original classify_industry precedence chain (Steps 1-6),
-    unchanged except Step 4's brand-priority gate (``_prefer_brand_match``
-    below) -- split out so classify_industry() can call it once and diff
-    the result against the independent company/role-only signal
-    (_infer_industry_from_signals) without duplicating this chain."""
+    """The original classify_industry precedence chain (Steps 1-6) -- split
+    out so classify_industry() can call it once and diff the result against
+    the independent company/role-only signal (_infer_industry_from_signals)
+    without duplicating this chain. Changes to the original chain: Step 4's
+    brand-priority gate (``_prefer_brand_match``), Step 4's two narrow
+    corrections (manufacturing product override and the pharma/healthcare
+    shared-keyword tie-break), and Step 7 (product-only industry text
+    before the general fallback)."""
     if not raw_industry:
         raw_industry = ""
 
@@ -3757,23 +3866,51 @@ def _classify_industry_primary(
 
     best_match = None
     best_score = 0
+    # Per-sector score and matched keywords, for the two narrow corrections
+    # after the loop. The loop's scoring itself is unchanged, so any input
+    # whose winner is neither manufacturing nor healthcare still gets the
+    # same result as before.
+    scores: dict[str, int] = {}
+    hits: dict[str, set] = {}
 
     for key, profile in INDUSTRY_NAICS_MAP.items():
         score = 0
+        matched_kws = set()
         for kw in profile["keywords"]:
             if kw in search_text:
                 # Longer keyword matches are weighted higher
                 score += len(kw)
+                matched_kws.add(kw)
             if _prefer_brand_match and company_lower and kw in company_lower:
                 # Exact company-name/brand keyword match -- outranks a
                 # generic keyword regardless of length (see
                 # _infer_industry_from_signals docstring for why).
                 score += 1000
+        scores[key] = score
+        hits[key] = matched_kws
         if score > best_score:
             best_score = score
             best_match = profile
 
     if best_match and best_score >= 3:
+        if best_match is INDUSTRY_NAICS_MAP["manufacturing"]:
+            # Product-qualifier override; see _PRODUCT_SECTOR_PATTERNS. It
+            # reads raw_lower only. When the brand bonus is active,
+            # raw_lower is a generic placeholder ("", "general", ...) that
+            # no pattern matches, so a manufacturing company-name win is
+            # never overridden.
+            _product_sector = _product_sector_from_industry_text(raw_lower)
+            if _product_sector is not None:
+                return _product_sector
+        elif (
+            best_match is INDUSTRY_NAICS_MAP["healthcare"]
+            and hits["healthcare"] <= _PHARMA_HEALTHCARE_SHARED_KWS
+            and scores["pharma"] >= best_score
+            and _PHARMA_INDUSTRY_TERM_RE.search(raw_lower)
+        ):
+            # Shared-keyword pharma/healthcare tie-break; see
+            # _PHARMA_HEALTHCARE_SHARED_KWS.
+            return INDUSTRY_NAICS_MAP["pharma"]
         return best_match
 
     # Step 5: Fallback - try to match the raw industry string directly against sector names
@@ -3807,6 +3944,13 @@ def _classify_industry_primary(
                     _best_role_ind_2,
                 )
                 return INDUSTRY_NAICS_MAP[_best_role_ind_2]
+
+    # Step 7: a product-only industry ("confectionery", "chocolate") that no
+    # step above matched. This runs only in place of the general fallback
+    # below, so it cannot change any input that already resolved above.
+    _product_sector = _product_sector_from_industry_text(raw_lower)
+    if _product_sector is not None:
+        return _product_sector
 
     # Final fallback
     return {
