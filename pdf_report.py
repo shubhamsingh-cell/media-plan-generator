@@ -17,6 +17,7 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
+from xml.sax.saxutils import escape as _xml_escape
 
 from shared_utils import clean_competitor_entries
 
@@ -1159,18 +1160,25 @@ def generate_pdf_report(
             )
         )
         # hershey_2026_09_24 round 6: _scalar_text, not _safe_str -- a nested
-        # dict/list here used to print as Python repr text in the PDF.
+        # dict/list here used to print as Python repr text in the PDF. All
+        # text is xml-escaped before it enters Paragraph markup: it is
+        # caller-supplied (POST /api/export/pdf), and an unbalanced tag
+        # ("<b>x") raised ValueError while "M&M Foods <Canada>" vanished.
         if isinstance(competitive, list):
             for item in competitive:
                 if isinstance(item, dict):
-                    comp_name = _scalar_text(item.get("name") or item.get("competitor"))
+                    comp_name = _xml_escape(
+                        _scalar_text(item.get("name") or item.get("competitor"))
+                    )
                     if not comp_name:
                         continue
-                    comp_detail = _scalar_text(
-                        item.get("strategy")
-                        or item.get("details")
-                        or item.get("notes")
-                        or item.get("description")
+                    comp_detail = _xml_escape(
+                        _scalar_text(
+                            item.get("strategy")
+                            or item.get("details")
+                            or item.get("notes")
+                            or item.get("description")
+                        )
                     )
                     if comp_detail:
                         elements.append(
@@ -1179,17 +1187,17 @@ def generate_pdf_report(
                     else:
                         elements.append(Paragraph(f"- {comp_name}", style_bullet))
                 elif isinstance(item, str) and item.strip():
-                    elements.append(Paragraph(f"- {item.strip()}", style_bullet))
+                    elements.append(
+                        Paragraph(f"- {_xml_escape(item.strip())}", style_bullet)
+                    )
         elif isinstance(competitive, dict):
             for key, value in competitive.items():
-                value_text = _scalar_text(value)
+                value_text = _xml_escape(_scalar_text(value))
                 if not value_text:
                     continue
+                key_text = _xml_escape(str(key).replace("_", " ").title())
                 elements.append(
-                    Paragraph(
-                        f"<b>{str(key).replace('_', ' ').title()}:</b> {value_text}",
-                        style_body,
-                    )
+                    Paragraph(f"<b>{key_text}:</b> {value_text}", style_body)
                 )
         elements.append(Spacer(1, 12))
 

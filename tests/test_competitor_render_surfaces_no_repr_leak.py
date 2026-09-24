@@ -367,6 +367,35 @@ def test_deck_tier2_cards_keep_competitor_metadata(label, raw, via_boundary):
     assert _MARS_DESC in blob, f"{label}: Mars Wrigley's description was lost"
 
 
+def test_pdf_export_escapes_competitor_markup():
+    """The PDF's Competitive Landscape section feeds competitor text into
+    ReportLab Paragraph markup. Unescaped, a description with an unbalanced
+    tag ("<b>x") raised ValueError (a 500 from POST /api/export/pdf) and a
+    name like "M&M Foods <Canada>" silently vanished from the page. Names
+    and descriptions are client text, never markup."""
+    import pdf_report
+
+    plan = {
+        "budget": 100000,
+        "competitors": [
+            {"name": "Mars Wrigley", "description": "<b>unbalanced tag description"},
+            "M&M Foods <Canada>",
+            {"name": "Procter & Gamble <Global>", "description": "a < b & c > d"},
+        ],
+    }
+    blob = "\n".join(
+        _pdf_texts(
+            pdf_report.generate_pdf_report(
+                plan_data=plan, client_name="The Hershey Company", industry="CPG"
+            )
+        )
+    )
+    assert "<b>unbalanced tag description" in blob
+    assert "M&M Foods <Canada>" in blob
+    assert "Procter & Gamble <Global>" in blob
+    assert "a < b & c > d" in blob
+
+
 def test_deck_tier_ladder_is_fully_covered():
     """If deck_generator grows a tier, it must be added to _SURFACES above --
     otherwise it is a client-facing surface this file never renders."""
