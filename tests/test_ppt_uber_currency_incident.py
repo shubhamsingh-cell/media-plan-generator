@@ -309,8 +309,14 @@ class TestBenchmarkProvenanceFlags:
         ]
         # All three rows (CPA / CPC / CPH) must be consistently marked --
         # not two of them wearing a false bare "£".
-        assert any(t.startswith("US$19 - US$49") for t in texts), texts
-        assert any(t.startswith("US$1.86 - US$2.90") for t in texts), texts
+        # C13 (2026-09-24): hospitality_travel has its own KB recruitment
+        # benchmark (industry_benchmarks.hospitality_travel), which now
+        # correctly wins over the generic cross-industry ad-platform blend
+        # ("US$19 - US$49" / "US$1.86 - US$2.90") for the CPA/CPC rows --
+        # the KB's own "$10-$30" / "$0.25-$1.00" range is what renders,
+        # still US$-marked on this non-USD (GBP) plan.
+        assert any(t.startswith("US$10-US$30") for t in texts), texts
+        assert any(t.startswith("US$0.25-US$1.00") for t in texts), texts
         assert any(t.startswith("US$1,500-US$3,500") for t in texts), texts
         # And no bare, unmarked "£" leaks in for these rows.
         assert not any(re.match(r"^£[\d]", t) for t in texts), texts
@@ -370,8 +376,12 @@ class TestUsdPlanUnaffected:
             for shape in prs.slides[0].shapes
             if shape.has_text_frame and shape.text_frame.text.strip()
         ]
-        assert any(t.startswith("$19 - $49") for t in texts), texts
-        assert any(t.startswith("$1.86 - $2.90") for t in texts), texts
+        # C13 (2026-09-24): see the sibling GBP test above -- the KB's own
+        # hospitality_travel benchmark ("$10-$30" / "$0.25-$1.00") now wins
+        # over the generic ad-platform blend ("$19 - $49" / "$1.86 - $2.90")
+        # for this industry's CPA/CPC rows.
+        assert any(t.startswith("$10-$30") for t in texts), texts
+        assert any(t.startswith("$0.25-$1.00") for t in texts), texts
         assert any(t.startswith("$1,500-$3,500") for t in texts), texts
         assert not any("US$" in t for t in texts), texts
 

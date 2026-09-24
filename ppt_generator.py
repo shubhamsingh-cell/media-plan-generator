@@ -2926,6 +2926,17 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                 result.pop("cpc_trend_direction", None)
             result["confidence"] = "market_intelligence_kb"
 
+    # C13: whether this industry has its OWN KB recruitment benchmark for
+    # cpa/cpc (set by Layer 1.5 just above). Layer 1 below must never
+    # override an industry-specific figure with the generic ad-platform
+    # range -- that overwrite is what made slide 5's "Industry CPA/CPC" row
+    # show the identical cross-industry ad-platform range for every
+    # industry (e.g. healthcare and retail both showing the same Google/
+    # Meta/Indeed blend) while slide 8 then compared the plan against that
+    # same wrong, non-industry-specific number.
+    _kb_has_cpa = bool(_mi_bm and _mi_bm.get("cpa")) if data else False
+    _kb_has_cpc = bool(_mi_bm and _mi_bm.get("cpc")) if data else False
+
     # Layer 1: Synthesized ad_platform_analysis overrides (live API data)
     if data:
         synthesized = data.get("_synthesized", {})
@@ -2943,7 +2954,15 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                         live_cpcs.append(cpc)
                     if cpa and isinstance(cpa, (int, float)) and cpa > 0:
                         live_cpas.append(cpa)
-                if live_cpcs:
+                # C13: only fall back to the generic cross-industry
+                # ad-platform range when this industry has no KB
+                # recruitment benchmark of its own (Layer 1.5 above). An
+                # industry-specific figure must win -- the ad-platform
+                # blend is the same Google/Meta/Indeed/LinkedIn/
+                # programmatic range for every industry, so letting it
+                # override an industry-true number silently erased the
+                # industry difference the KB benchmark exists to show.
+                if live_cpcs and not _kb_has_cpc:
                     min_cpc = min(live_cpcs)
                     max_cpc = max(live_cpcs)
                     # NOTE: despite the "live_api" label below, plat_data
@@ -2969,7 +2988,8 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                     )
                     result["confidence"] = "live_api"
                     result["cpc_is_usd_benchmark"] = True
-                if live_cpas:
+                    result["cpc_is_generic_platform_range"] = True
+                if live_cpas and not _kb_has_cpa:
                     min_cpa = min(live_cpas)
                     max_cpa = max(live_cpas)
                     # NOTE: same static-USD-table provenance as cpc above --
@@ -2986,6 +3006,7 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                     )
                     result["confidence"] = "live_api"
                     result["cpa_is_usd_benchmark"] = True
+                    result["cpa_is_generic_platform_range"] = True
 
     # Layer 0: Budget engine CPH and apply_rate overrides
     # These were NEVER overridden before (always hardcoded) -- fix v3.4.1
@@ -3000,8 +3021,20 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
                 # different "plan" cost-per-hire than the hero stat and the
                 # takeaway do -- the raw ``total_projected.cost_per_hire``
                 # read is only the fallback when no channel hires exist.
-                live_cph, _ = _compute_blended_cph(budget_alloc)
-                if not live_cph:
+                #
+                # C18 (zero-hire): ``_compute_blended_cph`` returns
+                # ``(0.0, 0)`` when the plan's own hires -- channel-level
+                # AND total_projected.hires -- are genuinely zero. In that
+                # case ``total_proj["cost_per_hire"]`` is not a fallback
+                # worth trusting: it can be the whole budget divided by a
+                # hires-floor-of-1 rather than a real per-hire figure (a
+                # $3,000 tiny-budget plan projecting 0 hires printed a
+                # "$3,000/hire" cost-per-hire on this slide). Only fall
+                # back to the raw field when the plan has SOME real hires
+                # ``_compute_blended_cph`` simply couldn't derive a blend
+                # for -- never invent a per-hire figure over zero hires.
+                live_cph, live_hires = _compute_blended_cph(budget_alloc)
+                if not live_cph and live_hires > 0:
                     live_cph = total_proj.get("cost_per_hire") or total_proj.get("cph")
                 if isinstance(live_cph, (int, float)) and live_cph > 0:
                     # Format as range: computed +/- 20% to show realistic spread
@@ -3390,6 +3423,149 @@ def _reconcile_channel_percentages(
     return _largest_remainder_round(raw_pcts)
 
 
+def _funded_display_channels(data: Dict) -> List[Dict[str, Any]]:
+    """Return the deck's channel list restricted to the budget engine's
+    FUNDED ``channel_allocations``, with shares that foot to exactly 100%.
+
+    C4 fix: ``_selected_channels`` returns every channel the wizard toggled
+    ON, using the STATIC industry-profile percentage split -- but the
+    budget engine's own ``_budget_allocation['channel_allocations']`` can
+    fund a DIFFERENT set (it may decline to fund a toggled-on channel below
+    its minimum-viable spend, or fund apac_regional/emea_regional at a
+    share the static toggle-set doesn't carry at all). Slides 2, 5, 6 and 8
+    each independently rendered the STATIC set and only overrode the
+    percentage for channels that happened to match an engine entry -- so a
+    channel the engine never funded (no dollar amount, no projected hires)
+    still printed as a phantom row carrying its stale static percentage
+    (e.g. "APAC Regional 1%" with no amount on a single-region UK deck), the
+    channel mix totaled 101%, and the headline's channel COUNT ("8-channel
+    strategy") didn't match the number of rows that actually had money
+    behind them (7 funded). This is the ONE helper every channel-list /
+    share / count surface must call instead of re-deriving its own partial
+    reconciliation, so they can never disagree with each other again.
+
+    Returns a list of dicts (sorted by dollar amount descending, then
+    percentage) with keys: key, label, pct, color, category, dollar,
+    projected_apps, projected_hires, cpa. Percentages are largest-remainder
+    rounded to sum to exactly 100 across the returned (funded) set. When the
+    budget engine has no channel allocation data at all (legacy/API path
+    with no ``_budget_allocation``), falls back to the toggled static set so
+    those plans keep rendering exactly as before.
+    """
+    channels = _selected_channels(data)
+    budget_alloc = data.get("_budget_allocation", {})
+    if not isinstance(budget_alloc, dict):
+        budget_alloc = {}
+    ba_channel_alloc = budget_alloc.get("channel_allocations", {})
+    if not isinstance(ba_channel_alloc, dict):
+        ba_channel_alloc = {}
+    ba_metadata = budget_alloc.get("metadata", {})
+    if not isinstance(ba_metadata, dict):
+        ba_metadata = {}
+    ba_total_budget = ba_metadata.get("total_budget") or 0
+
+    _reconciled_pct = _reconcile_channel_percentages(channels, ba_channel_alloc)
+
+    display_channels: List[Dict[str, Any]] = []
+    _matched_ba_ids: set = set()
+    for ch_key, ch_data in channels.items():
+        entry = {
+            "key": ch_key,
+            "label": ch_data.get("label", ch_key.replace("_", " ").title()),
+            "pct": ch_data.get("pct") or 0,
+            "color": ch_data.get("color", BLUE),
+            "category": ch_data.get("category", "Other"),
+            "dollar": 0,
+            "projected_apps": 0,
+            "projected_hires": 0,
+            "cpa": 0,
+        }
+        # Match with budget engine data
+        ba_match = ba_channel_alloc.get(ch_key)
+        if not ba_match:
+            ch_label_lower = (ch_data.get("label") or "").lower()
+            for ba_key, ba_val in ba_channel_alloc.items():
+                if isinstance(ba_val, dict):
+                    ba_label = ba_val.get("label", ba_key).lower()
+                    if ba_label == ch_label_lower or ba_key.lower() == ch_key.lower():
+                        ba_match = ba_val
+                        break
+        if ba_match and isinstance(ba_match, dict):
+            entry["dollar"] = ba_match.get("dollar_amount") or 0
+            entry["projected_apps"] = ba_match.get("projected_applications") or 0
+            entry["projected_hires"] = ba_match.get("projected_hires") or 0
+            entry["cpa"] = ba_match.get("cpa") or 0
+        if ch_key in _reconciled_pct:
+            entry["pct"] = _reconciled_pct[ch_key]
+        entry["_funded"] = bool(ba_match and isinstance(ba_match, dict))
+        if ba_match and isinstance(ba_match, dict):
+            _matched_ba_ids.add(id(ba_match))
+        # Fallback: compute dollar from percentage ONLY when there is no
+        # budget-engine allocation at all. When one exists, an unmatched
+        # display channel is a channel the engine chose NOT to fund; giving
+        # it a dollar figure from the static profile's percentage invents
+        # a funded-looking row for a channel the engine actually rejected.
+        if (
+            not ba_channel_alloc
+            and entry["dollar"] == 0
+            and ba_total_budget > 0
+            and entry["pct"] > 0
+        ):
+            entry["dollar"] = ba_total_budget * entry["pct"] / 100
+
+        display_channels.append(entry)
+
+    if ba_channel_alloc:
+        # The returned set is the budget engine's FUNDED set, exactly. Two
+        # things used to break that:
+        #   1. display channels the engine did not fund stayed in the list
+        #      (handled above -- they now carry no dollars and are dropped
+        #      here);
+        #   2. channels the engine DID fund but the static display profile
+        #      omits (apac_regional / emea_regional on most industries)
+        #      were absent from the list entirely, so the total silently
+        #      left part of the budget unaccounted for.
+        display_channels = [c for c in display_channels if c["_funded"]]
+        for ba_key, ba_val in ba_channel_alloc.items():
+            if not isinstance(ba_val, dict) or id(ba_val) in _matched_ba_ids:
+                continue
+            _dollar = ba_val.get("dollar_amount") or 0
+            if _dollar <= 0:
+                continue
+            _canon = CHANNEL_ALLOC.get(ba_key, {})
+            display_channels.append(
+                {
+                    "key": ba_key,
+                    "label": ba_val.get("label")
+                    or _canon.get("label")
+                    or str(ba_key).replace("_", " ").title(),
+                    "pct": ba_val.get("percentage") or 0,
+                    "color": MUTED_TEXT,
+                    "category": _canon.get("category", "Other"),
+                    "dollar": _dollar,
+                    "projected_apps": ba_val.get("projected_applications") or 0,
+                    "projected_hires": ba_val.get("projected_hires") or 0,
+                    "cpa": ba_val.get("cpa") or 0,
+                    "_funded": True,
+                }
+            )
+        # Re-round percentages over the FINAL row set so they sum to exactly
+        # 100 and the Investment column foots to the plan budget.
+        _total_dollar_all = sum(c["dollar"] for c in display_channels)
+        if _total_dollar_all > 0:
+            _raw = {
+                str(i): c["dollar"] / _total_dollar_all * 100
+                for i, c in enumerate(display_channels)
+            }
+            _rounded = _largest_remainder_round(_raw)
+            for i, c in enumerate(display_channels):
+                c["pct"] = _rounded.get(str(i), c["pct"])
+
+    # Sort by dollar amount (descending), then by percentage
+    display_channels.sort(key=lambda c: (c["dollar"], c["pct"]), reverse=True)
+    return display_channels
+
+
 def _goal_labels(data: Dict) -> List[str]:
     """Return human-readable campaign goal labels."""
     goals = data.get("campaign_goals") or []
@@ -3419,10 +3595,18 @@ def _format_budget_display(budget_str: str) -> str:
     return f"{sym}{val:,.0f}"
 
 
-def _channel_categories_grouped(channels: Dict) -> Dict[str, List[Dict]]:
-    """Group channels by their category for attribution diagram."""
+def _channel_categories_grouped(
+    channels: "List[Dict] | Dict",
+) -> Dict[str, List[Dict]]:
+    """Group channels by their category for attribution diagram.
+
+    Accepts either a list of channel dicts (e.g. from
+    ``_funded_display_channels``) or the legacy ``{key: channel_dict}``
+    mapping (e.g. from ``_selected_channels``).
+    """
     groups: Dict[str, List[Dict]] = {}
-    for key, ch in channels.items():
+    _iter = channels.values() if isinstance(channels, dict) else channels
+    for ch in _iter:
         cat = ch.get("category", "Other")
         if cat not in groups:
             groups[cat] = []
@@ -3665,17 +3849,62 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
         )
 
 
-def _format_salary(amount):
+def _format_salary(amount, force_usd: bool = False):
     """Format a salary number into human-readable string like $85K or $125K.
 
-    Uses the active plan currency symbol so non-USD plans render correctly.
+    Uses the active plan currency symbol so non-USD plans render correctly
+    -- UNLESS ``force_usd=True``, which prints the literal USD "$" symbol
+    regardless of the active plan currency. C7: pass ``force_usd=True`` for
+    a salary figure sourced from a US-only benchmark that is never
+    converted to the plan's own currency (see ``_salary_is_us_sourced``);
+    the caller then wraps the result in ``_mark_usd()`` on a non-USD plan
+    to get the honest "US$" marker, matching every other US-calibrated
+    benchmark elsewhere in this module.
     """
     if not isinstance(amount, (int, float)) or amount <= 0:
         return ""
-    sym = _cur_symbol()
+    sym = _cur_symbol("USD") if force_usd else _cur_symbol()
     if amount >= 1000:
         return f"{sym}{amount / 1000:.0f}K"
     return f"{sym}{amount:,.0f}"
+
+
+_US_ONLY_SALARY_SOURCE_MARKERS = (
+    "DOL H-1B/LCA",
+    "Industry Benchmark",
+    "General Benchmark",
+    "US-basis",
+)
+
+
+def _salary_is_us_sourced(si_data: Optional[Dict]) -> bool:
+    """C7: True when a per-role salary_intelligence entry traces ENTIRELY to
+    a US-only, never-localized benchmark -- DOL H-1B/LCA certified filings,
+    the BLS/CareerOneStop-derived Industry/General Benchmark fallback
+    table (``_ROLE_SALARY_FALLBACKS`` in data_synthesizer.py), or a driver-
+    family "US-basis" wage estimate (``research.resolve_driver_role_wage``,
+    which is explicitly ``localized: False`` and always ``currency: "USD"``
+    regardless of the plan's market). These figures are never converted to
+    the plan's own currency, so rendering them with the plan's LOCAL symbol
+    on a non-USD plan silently mislabels a US dollar figure -- e.g. prints
+    "£85K" on a GBP plan for a number that is actually a US-basis estimate.
+    A role blended from OTHER sources too (Jooble/BLS market data queried
+    against the plan's own locations) is left alone: only an entry with NO
+    non-US-only source mixed in is forced to US$.
+    """
+    if not isinstance(si_data, dict):
+        return False
+    # Driver-family wage rows (_driver_wage_to_salary_result) carry an
+    # explicit currency marker instead of a "sources" list match.
+    if si_data.get("currency") == "USD":
+        return True
+    sources = si_data.get("sources") or []
+    if not sources:
+        return False
+    return all(
+        any(marker in str(s) for marker in _US_ONLY_SALARY_SOURCE_MARKERS)
+        for s in sources
+    )
 
 
 # ===================================================================
@@ -3944,10 +4173,13 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     industry_label = data.get("industry_label", industry.replace("_", " ").title())
     locations = data.get("locations") or []
     roles = data.get("roles") or []
-    budget = data.get("budget", "TBD")
+    budget = data.get("budget", "Not specified")
     work_env = data.get("work_environment", "hybrid")
     goals = _goal_labels(data)
-    channels = _selected_channels(data)
+    # C4 fix: the FUNDED channel set -- this slide's channel count/checklist
+    # must agree with slides 5, 6 and 8, which all read from the same
+    # ``_funded_display_channels`` helper now.
+    display_channels_funded = _funded_display_channels(data)
     today = datetime.date.today().strftime("%B %d, %Y")
 
     # Pull synthesized + budget allocation data (from pipeline)
@@ -4171,10 +4403,25 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
                     _si_min = _si_data.get("min") or 0
                     _si_max = _si_data.get("max") or 0
                     if _si_median and _si_median > 0:
-                        salary_str = _format_salary(_si_median)
+                        # C7: DOL H-1B/LCA, the US fallback table and
+                        # "US-basis" driver wages are never converted to
+                        # the plan's own currency -- print them with the
+                        # USD symbol and mark them "US$" on a non-USD plan
+                        # instead of silently relabeling a US dollar figure
+                        # with this plan's local currency symbol.
+                        _si_force_usd = _salary_is_us_sourced(_si_data)
+                        salary_str = _format_salary(
+                            _si_median, force_usd=_si_force_usd
+                        )
                         range_str = ""
                         if _si_min > 0 and _si_max > 0:
-                            range_str = f" ({_format_salary(_si_min)}-{_format_salary(_si_max)})"
+                            range_str = (
+                                f" ({_format_salary(_si_min, force_usd=_si_force_usd)}"
+                                f"-{_format_salary(_si_max, force_usd=_si_force_usd)})"
+                            )
+                        if _si_force_usd and _get_active_currency() != "USD":
+                            salary_str = _mark_usd(salary_str)
+                            range_str = _mark_usd(range_str)
                         sit_items.append(
                             (
                                 "Salary Range",
@@ -4188,9 +4435,16 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     if not _salary_added and salary_data:
         try:
             first_role = list(salary_data.keys())[0]
-            median = salary_data[first_role].get("median") or 0
+            _fr_data = salary_data[first_role]
+            median = _fr_data.get("median") or 0
             if median > 0:
-                salary_str = _format_salary(median)
+                # C7: same US-sourced check as the salary_intelligence path
+                # above -- a defensive no-op unless this enrichment entry
+                # also carries one of the US-only source markers.
+                _fr_force_usd = _salary_is_us_sourced(_fr_data)
+                salary_str = _format_salary(median, force_usd=_fr_force_usd)
+                if _fr_force_usd and _get_active_currency() != "USD":
+                    salary_str = _mark_usd(salary_str)
                 sit_items.append(
                     ("Salary Benchmark", f"{salary_str} median ({first_role})")
                 )
@@ -4368,8 +4622,10 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         _thesis_parts.append(
             f"in a {temp_map.get(market_temp_str, market_temp_str)} market"
         )
-    if len(channels) > 0:
-        _thesis_parts.append(f"via {len(channels)}-channel programmatic strategy")
+    if len(display_channels_funded) > 0:
+        _thesis_parts.append(
+            f"via {len(display_channels_funded)}-channel programmatic strategy"
+        )
 
     thesis_text = (
         " ".join(_thesis_parts) + "."
@@ -4405,7 +4661,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     # paragraphs -- the publisher line / goals, which sit AFTER this loop --
     # before anything above them would be cut), so listing all channels here
     # is safe rather than silently truncating the ones a client is paying for.
-    for ch in list(channels.values()):
+    for ch in list(display_channels_funded):
         p = tf4.add_paragraph()
         p.space_before = Pt(1)
         p.space_after = Pt(3)
@@ -4551,7 +4807,11 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
     # Hero stat: budget (if parseable) or channel count
     budget_display = _format_budget_display(budget)
-    hero_value = budget_display if budget_display != budget else str(len(channels))
+    hero_value = (
+        budget_display
+        if budget_display != budget
+        else str(len(display_channels_funded))
+    )
     hero_label = "Campaign Budget" if budget_display != budget else "Channels Selected"
 
     # Hero stat on the left -- O1: autoshrink so a long currency-prefixed budget
@@ -4595,7 +4855,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     secondary_metrics = [
         m
         for m in [
-            (str(len(channels)), "Channels"),
+            (str(len(display_channels_funded)), "Channels"),
             (str(loc_count), "Locations") if loc_count > 0 else None,
             (str(len(roles)), "Target Roles") if roles else None,
         ]
@@ -4872,7 +5132,13 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     client = data.get("client_name", "Client")
     industry = data.get("industry", "general_entry_level")
     industry_label = data.get("industry_label", industry.replace("_", " ").title())
-    channels = _selected_channels(data)
+    # C4 fix: the FUNDED channel set (see ``_funded_display_channels``
+    # docstring) -- this slide's mix bars, category attribution and channel
+    # count must all read from the SAME set slide 6's table and the
+    # headline below derive from, so a channel the budget engine never
+    # funded (no dollar amount behind it) can no longer show up here as a
+    # phantom bar with a stale static percentage.
+    display_channels_funded = _funded_display_channels(data)
     benchmarks = _get_benchmarks(industry, data)
     today = datetime.date.today().strftime("%B %d, %Y")
 
@@ -4887,7 +5153,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     _add_top_band(slide, "CHANNEL STRATEGY & INVESTMENT", today)
 
     # Action title -- insight-rich with WHY reasoning
-    n_cats = len(channels)
+    n_cats = len(display_channels_funded)
     budget_alloc_meta = (
         budget_alloc.get("metadata", {}) if isinstance(budget_alloc, dict) else {}
     )
@@ -4982,41 +5248,13 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     # chart always fits its vertical envelope (above the attribution heading) and
     # the 8th row never collides with / is struck through by that heading.
 
-    # Override channel percentages with real budget allocation if available
-    ba_channel_alloc = (
-        budget_alloc.get("channel_allocations", {}) if budget_alloc else {}
+    # C4 fix: ``display_channels_funded`` (computed above via
+    # ``_funded_display_channels``) already carries the reconciled,
+    # budget-engine-matched pct/dollar for every FUNDED channel -- no
+    # separate override pass needed here.
+    sorted_channels = sorted(
+        display_channels_funded, key=lambda c: c["pct"], reverse=True
     )
-    if ba_channel_alloc:
-        # Map budget engine channel names to display channels
-        ba_total_budget = budget_alloc.get("metadata", {}).get("total_budget") or 0
-        # S6 fix: reconcile ALL channels' percentages together (largest-remainder
-        # rounding) instead of rounding each independently -- independent
-        # round(real_pct) per channel is what let an 8-channel mix's displayed
-        # percentages drift to 101% (e.g. 31+21+16+13+11+4+3+2 = 101).
-        _reconciled_pct = _reconcile_channel_percentages(channels, ba_channel_alloc)
-        for ch_key, ch_data in channels.items():
-            # Try exact key match, then fuzzy label match
-            ba_match = ba_channel_alloc.get(ch_key)
-            if not ba_match:
-                # Try matching by label (case-insensitive)
-                ch_label_lower = (ch_data.get("label") or "").lower()
-                for ba_key, ba_val in ba_channel_alloc.items():
-                    if isinstance(ba_val, dict):
-                        ba_label = ba_val.get("label", ba_key).lower()
-                        if (
-                            ba_label == ch_label_lower
-                            or ba_key.lower() == ch_key.lower()
-                        ):
-                            ba_match = ba_val
-                            break
-            if ba_match and isinstance(ba_match, dict):
-                real_dollar = ba_match.get("dollar_amount") or 0
-                if ch_key in _reconciled_pct:
-                    ch_data["pct"] = _reconciled_pct[ch_key]
-                if real_dollar > 0:
-                    ch_data["_dollar_amount"] = real_dollar
-
-    sorted_channels = sorted(channels.values(), key=lambda c: c["pct"], reverse=True)
 
     # O1: the CHANNEL CATEGORY ATTRIBUTION heading was pinned to a fixed y=4.85in
     # that silently assumed a ~6-row chart (rows start 2.10in, pitch 0.42in ->
@@ -5045,10 +5283,8 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
 
         # Category label (include dollar amount if available from budget engine)
         label_text = ch["label"]
-        if ch.get("_dollar_amount"):
-            label_text = (
-                f"{ch['label']} ({_fmt_currency(ch['_dollar_amount'], compact=True)})"
-            )
+        if ch.get("dollar"):
+            label_text = f"{ch['label']} ({_fmt_currency(ch['dollar'], compact=True)})"
 
         _add_textbox(
             slide,
@@ -5192,6 +5428,14 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     # external benchmark.
     if not _cph_is_usd_benchmark:
         _cph_label = "Est. Cost-per-Hire (this plan)"
+    # C13: when Layer 1 (_get_benchmarks) had to fall back to the generic
+    # cross-industry ad-platform range because this industry has no KB
+    # recruitment benchmark of its own, say so on the row label -- never
+    # let it read as this industry's own figure.
+    if benchmarks.get("cpa_is_generic_platform_range"):
+        _cpa_label = "Industry CPA (cross-industry ad platform range)"
+    if benchmarks.get("cpc_is_generic_platform_range"):
+        _cpc_label = "Industry CPC (cross-industry ad platform range)"
     bench_rows = [
         (_cpa_label, cpa_val),
         (_cpc_label, cpc_val),
@@ -5539,8 +5783,10 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         slide, Inches(0.55), attrib_top + Inches(0.33), Inches(2.8), Inches(0.03), TEAL
     )
 
-    # Build category groups
-    cat_groups = _channel_categories_grouped(channels)
+    # Build category groups -- FUNDED set only (see C4 fix note above), so
+    # an unfunded phantom channel can no longer appear inside a category's
+    # attribution card (e.g. "+1 more" pointing at a channel with $0 spend).
+    cat_groups = _channel_categories_grouped(display_channels_funded)
 
     # Attribution category boxes
     cat_colors = {
@@ -5692,8 +5938,12 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
 
     client = data.get("client_name", "Client")
     industry = data.get("industry", "general_entry_level")
-    channels = _selected_channels(data)
-    budget = data.get("budget", "TBD")
+    # C4 fix: this is "slide 6" (the fallback when ``_build_slide_budget_
+    # allocation`` has no usable budget-allocation data) -- read the same
+    # FUNDED channel set the other slides use so the count and mix here can
+    # never disagree with slide 5.
+    display_channels_funded = _funded_display_channels(data)
+    budget = data.get("budget", "Not specified")
     roles = data.get("roles") or []
     locations = data.get("locations") or []
     today = datetime.date.today().strftime("%B %d, %Y")
@@ -5709,7 +5959,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     _add_top_band(slide, "QUALITY & ROI PROJECTIONS", today)
 
     # Action title
-    n_channels = len(channels)
+    n_channels = len(display_channels_funded)
     action_text = (
         f"Projected quality outcomes across {n_channels} optimized channels "
         f"for {client}'s programmatic media plan"
@@ -5894,17 +6144,18 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
             }
         )
 
-    # If no budget engine data, try to build from channels dict
+    # If no budget engine data, fall back to the FUNDED display-channel list
     if not ch_display_list:
         ba_total_budget_qo = ba_metadata_qo.get("total_budget") or 0
-        for ch_key, ch_data in channels.items():
+        for ch_data in display_channels_funded:
             ch_pct = ch_data.get("pct") or 0
-            ch_dollars = (
+            ch_dollars = ch_data.get("dollar") or (
                 ba_total_budget_qo * ch_pct / 100.0 if ba_total_budget_qo > 0 else 0
             )
             ch_display_list.append(
                 {
-                    "label": ch_data.get("label", ch_key.replace("_", " ").title()),
+                    "label": ch_data.get("label")
+                    or str(ch_data.get("key", "")).replace("_", " ").title(),
                     "budget": ch_dollars,
                     "clicks": 0,
                     "apps": 0,
@@ -6224,8 +6475,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
 
     client = data.get("client_name", "Client")
     industry = data.get("industry", "general_entry_level")
-    channels = _selected_channels(data)
-    budget = data.get("budget", "TBD")
+    budget = data.get("budget", "Not specified")
     today = datetime.date.today().strftime("%B %d, %Y")
 
     budget_alloc = data.get("_budget_allocation", {})
@@ -6244,6 +6494,14 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
 
     enriched = data.get("_enriched", {})
 
+    # C4 fix: the FUNDED channel set (label/pct/color/dollar/proj apps/proj
+    # hires/cpa), reconciled to sum to exactly 100% -- see
+    # ``_funded_display_channels`` docstring. This is the SAME set every
+    # channel-list/share/count surface on the deck now derives from, so
+    # this slide's row count, the Total row and the headline's "N channels"
+    # copy below can never disagree with slide 5's mix or slide 8's count.
+    display_channels = _funded_display_channels(data)
+
     # Off-white background
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
 
@@ -6251,25 +6509,44 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     _add_top_band(slide, "BUDGET ALLOCATION & PROJECTIONS", today)
 
     # Action title
-    n_channels = len(channels)
+    n_channels = len(display_channels)
     action_text = (
         f"Investment breakdown across {n_channels} channels "
         f"with projected outcomes for {client}"
     )
+    # C11 fix: this subhead sat in a fixed 0.92in/0.45in one-line box at a
+    # constant 15pt, with the hero cards row pinned to a fixed y=1.5in right
+    # below it. A long client name (~40+ chars interpolated into "...for
+    # {client}") wraps to 2 lines, and the hero cards' 0.05in accent bars
+    # (drawn at that fixed 1.5in) struck straight through the subhead's
+    # second line. Same measure-then-cascade pattern already used on slide
+    # 5's subhead: size the box to the ACTUAL measured line count, then
+    # push the hero row down from the measured bottom (never above the old
+    # 1.5in anchor, so a short/typical subhead renders byte-identically to
+    # before).
+    _ba_subhead_top_in = 0.92
+    _ba_subhead_w_in = 12.2
+    _ba_subhead_pt = 15.0
+    _ba_subhead_n_lines = _measure_lines(
+        action_text, _ba_subhead_w_in, _ba_subhead_pt, bold=True
+    )
+    _ba_subhead_line_h_in = (_ba_subhead_pt * 1.35) / 72.0
+    _ba_subhead_h_in = max(0.45, _ba_subhead_n_lines * _ba_subhead_line_h_in + 0.08)
     _add_textbox(
         slide,
         Inches(0.55),
-        Inches(0.92),
-        Inches(12.2),
-        Inches(0.45),
+        Inches(_ba_subhead_top_in),
+        Inches(_ba_subhead_w_in),
+        Inches(_ba_subhead_h_in),
         text=action_text,
-        font_size=15,
+        font_size=_ba_subhead_pt,
         bold=True,
         color=NAVY,
     )
+    _ba_subhead_bottom_in = _ba_subhead_top_in + _ba_subhead_h_in
 
     # ---- HERO STATS ROW (3 cards) ----
-    hero_top = Inches(1.5)
+    hero_top = Inches(max(1.5, _ba_subhead_bottom_in + 0.08))
     hero_h = Inches(1.1)
     hero_w = Inches(3.8)
     hero_gap = Inches(0.35)
@@ -6343,7 +6620,12 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         )
 
     # ---- CHANNEL BREAKDOWN TABLE ----
-    table_top = Inches(2.85)
+    # C11 fix (cont.): cascade below the hero row's ACTUAL bottom too --
+    # otherwise a 2-line subhead that pushed hero_top down still left this
+    # section pinned at the old fixed 2.85in, and the hero cards (which grew
+    # taller than the gap to 2.85in) would overlap this header instead of
+    # the subhead being struck through.
+    table_top = Inches(max(2.85, (hero_top / 914400) + (hero_h / 914400) + 0.25))
     table_left = Inches(0.55)
     table_w = Inches(12.2)
 
@@ -6360,105 +6642,11 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         color=BLUE,
     )
 
-    # S6 fix: reconcile ALL channels' percentages together (largest-remainder
-    # rounding) instead of rounding each independently -- this is what let an
-    # 8-channel plan's Total row print "101%" while the underlying dollars
-    # summed to exactly the stated budget.
-    _reconciled_pct = _reconcile_channel_percentages(channels, ba_channel_alloc)
-
-    # Map budget engine channel data onto our display channels
-    display_channels = []
-    _matched_ba_ids: set = set()
-    for ch_key, ch_data in channels.items():
-        entry = {
-            "label": ch_data.get("label", ch_key.replace("_", " ").title()),
-            "pct": ch_data.get("pct") or 0,
-            "color": ch_data.get("color", BLUE),
-            "dollar": 0,
-            "projected_apps": 0,
-            "projected_hires": 0,
-            "cpa": 0,
-        }
-        # Match with budget engine data
-        ba_match = ba_channel_alloc.get(ch_key)
-        if not ba_match:
-            ch_label_lower = (ch_data.get("label") or "").lower()
-            for ba_key, ba_val in ba_channel_alloc.items():
-                if isinstance(ba_val, dict):
-                    ba_label = ba_val.get("label", ba_key).lower()
-                    if ba_label == ch_label_lower or ba_key.lower() == ch_key.lower():
-                        ba_match = ba_val
-                        break
-        if ba_match and isinstance(ba_match, dict):
-            entry["dollar"] = ba_match.get("dollar_amount") or 0
-            entry["projected_apps"] = ba_match.get("projected_applications") or 0
-            entry["projected_hires"] = ba_match.get("projected_hires") or 0
-            entry["cpa"] = ba_match.get("cpa") or 0
-        if ch_key in _reconciled_pct:
-            entry["pct"] = _reconciled_pct[ch_key]
-        entry["_funded"] = bool(ba_match and isinstance(ba_match, dict))
-        if ba_match and isinstance(ba_match, dict):
-            _matched_ba_ids.add(id(ba_match))
-        # Fallback: compute dollar from percentage ONLY when there is no
-        # budget-engine allocation at all. When one exists, an unmatched
-        # display channel is a channel the engine chose NOT to fund; giving it
-        # a dollar figure from the static profile's percentage invented an
-        # $81,000 "Employer Branding" row and pushed a $900,000 plan's Total to
-        # 109% / $981,000 on the client's own slide.
-        if (
-            not ba_channel_alloc
-            and entry["dollar"] == 0
-            and ba_total_budget > 0
-            and entry["pct"] > 0
-        ):
-            entry["dollar"] = ba_total_budget * entry["pct"] / 100
-
-        display_channels.append(entry)
-
-    if ba_channel_alloc:
-        # The table is the budget engine's FUNDED set, exactly. Two things
-        # used to break that and make the Total row contradict the
-        # "Total Investment" tile three inches above it:
-        #   1. display channels the engine did not fund stayed in the table
-        #      (handled above -- they now carry no dollars and are dropped);
-        #   2. channels the engine DID fund but the static display profile
-        #      omits (apac_regional / emea_regional on most industries) were
-        #      absent from the rows AND the Total, so a $12.5M plan printed
-        #      $8,019,032 as "100%" with 36% of the budget unaccounted for.
-        display_channels = [c for c in display_channels if c["_funded"]]
-        for ba_key, ba_val in ba_channel_alloc.items():
-            if not isinstance(ba_val, dict) or id(ba_val) in _matched_ba_ids:
-                continue
-            _dollar = ba_val.get("dollar_amount") or 0
-            if _dollar <= 0:
-                continue
-            display_channels.append(
-                {
-                    "label": ba_val.get("label")
-                    or str(ba_key).replace("_", " ").title(),
-                    "pct": ba_val.get("percentage") or 0,
-                    "color": MUTED_TEXT,
-                    "dollar": _dollar,
-                    "projected_apps": ba_val.get("projected_applications") or 0,
-                    "projected_hires": ba_val.get("projected_hires") or 0,
-                    "cpa": ba_val.get("cpa") or 0,
-                    "_funded": True,
-                }
-            )
-        # Re-round percentages over the FINAL row set so they sum to exactly
-        # 100 and the Investment column foots to the plan budget.
-        _total_dollar_all = sum(c["dollar"] for c in display_channels)
-        if _total_dollar_all > 0:
-            _raw = {
-                str(i): c["dollar"] / _total_dollar_all * 100
-                for i, c in enumerate(display_channels)
-            }
-            _rounded = _largest_remainder_round(_raw)
-            for i, c in enumerate(display_channels):
-                c["pct"] = _rounded.get(str(i), c["pct"])
-
-    # Sort by dollar amount (descending), then by percentage
-    display_channels.sort(key=lambda c: (c["dollar"], c["pct"]), reverse=True)
+    # C4 fix: ``display_channels`` (the FUNDED set, reconciled to 100%) was
+    # already computed above via ``_funded_display_channels`` -- the same
+    # helper every other channel surface on the deck now calls, so this
+    # table's rows, its Total row, and the headline's "N channels" text
+    # above can never disagree with slide 5's mix or slide 8's count again.
 
     # Table header row
     header_y = table_top + Inches(0.35)
@@ -6807,31 +6995,21 @@ def _embed_pie_chart_on_budget_slide(prs: Presentation, data: Dict) -> None:
     if not prs.slides or len(prs.slides) == 0:
         return
 
-    channels = _selected_channels(data)
-    if not channels:
+    # C4 fix: pie slices must match the table on the same slide -- the
+    # FUNDED set only, reconciled to sum to exactly 100%. A static-profile
+    # channel the engine never funded used to draw a slice with no dollars
+    # behind it.
+    display_channels = _funded_display_channels(data)
+    if not display_channels:
         return
-
-    budget_alloc = data.get("_budget_allocation", {})
-    ba_channel_alloc = (
-        budget_alloc.get("channel_allocations", {})
-        if isinstance(budget_alloc, dict)
-        else {}
-    )
 
     labels: List[str] = []
     sizes: List[float] = []
 
-    # S6 fix: reconcile ALL channels' percentages together (largest-remainder
-    # rounding) instead of rounding each independently, so this pie's legend
-    # percentages sum to exactly 100 instead of drifting to 101%/99%.
-    _reconciled_pct = _reconcile_channel_percentages(channels, ba_channel_alloc)
-
-    for ch_key, ch_data in channels.items():
-        label = ch_data.get("label", ch_key.replace("_", " ").title())
-        pct = _reconciled_pct.get(ch_key, ch_data.get("pct") or 0)
-
+    for ch in display_channels:
+        pct = ch.get("pct") or 0
         if pct > 0:
-            labels.append(label)
+            labels.append(ch.get("label") or "")
             sizes.append(pct)
 
     if not labels:
@@ -6963,8 +7141,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     client = data.get("client_name", "Client")
     industry = data.get("industry", "general_entry_level")
     industry_label = data.get("industry_label", industry.replace("_", " ").title())
-    channels = _selected_channels(data)
-    budget = data.get("budget", "TBD")
+    budget = data.get("budget", "Not specified")
     locations = data.get("locations") or []
     roles = data.get("roles") or []
     today = datetime.date.today().strftime("%B %d, %Y")
@@ -6984,55 +7161,68 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         f"{client}'s optimized media plan vs. {industry_label} industry averages "
         f"with phased implementation roadmap"
     )
+    # C12 fix: this subhead sat in a fixed 0.92in/0.45in one-line box at a
+    # constant 15pt, with the comparison panels pinned to a fixed y=1.55in
+    # right below it. The interpolated client name + industry label can
+    # push this sentence to 2 (or, on long_name_120, 3) lines -- and every
+    # generated deck's industry label alone ("...industry averages with
+    # phased implementation roadmap") already wraps to 2 lines, so the
+    # panel header's navy band merged into the subhead's descenders on
+    # EVERY deck, not just long-name outliers. Same measure-then-cascade
+    # pattern as slides 5 and 6's subheads: size the box to the ACTUAL
+    # measured line count, then push the panels down from the measured
+    # bottom (never above the old 1.55in anchor, so a short subhead renders
+    # byte-identically to before).
+    _cmp_subhead_top_in = 0.92
+    _cmp_subhead_w_in = 12.2
+    _cmp_subhead_pt = 15.0
+    _cmp_subhead_n_lines = _measure_lines(
+        action_text, _cmp_subhead_w_in, _cmp_subhead_pt, bold=True
+    )
+    _cmp_subhead_line_h_in = (_cmp_subhead_pt * 1.35) / 72.0
+    _cmp_subhead_h_in = max(
+        0.45, _cmp_subhead_n_lines * _cmp_subhead_line_h_in + 0.08
+    )
     _add_textbox(
         slide,
         Inches(0.55),
-        Inches(0.92),
-        Inches(12.2),
-        Inches(0.45),
+        Inches(_cmp_subhead_top_in),
+        Inches(_cmp_subhead_w_in),
+        Inches(_cmp_subhead_h_in),
         text=action_text,
-        font_size=15,
+        font_size=_cmp_subhead_pt,
         bold=True,
         color=NAVY,
     )
+    _cmp_subhead_bottom_in = _cmp_subhead_top_in + _cmp_subhead_h_in
 
     # ---- SIDE-BY-SIDE COMPARISON ----
-    comp_top = Inches(1.55)
+    comp_top = Inches(max(1.55, _cmp_subhead_bottom_in + 0.08))
     panel_w = Inches(5.9)
     panel_gap = Inches(0.4)
     left_panel_x = Inches(0.55)
     right_panel_x = left_panel_x + panel_w + panel_gap
 
     ind_benchmarks = _get_industry_comparison(industry, data)
-    n_channels = len(channels)
+
+    # C4 fix (visual:atria#1 / strategy:atria#1 / consistency:atria#1 /
+    # copy:both#1 4-critical cluster, plus the phantom-channel defect):
+    # ``_selected_channels`` only carries the STATIC INDUSTRY_ALLOC_PROFILES
+    # percentages, including channels the budget engine never actually
+    # funded. Slides 2, 5 and 6 all read the FUNDED set via
+    # ``_funded_display_channels`` -- this slide's "Channels Selected" count
+    # and "Programmatic Allocation" row (every plan-column value derived
+    # from a channel's ``pct``) must read the SAME set, or the client sees
+    # a different channel count on the comparison slide than the headline
+    # three slides earlier claimed.
+    display_channels_funded = _funded_display_channels(data)
+    n_channels = len(display_channels_funded)
     n_locations = len(locations)
 
-    # visual:atria#1 / strategy:atria#1 / consistency:atria#1 / copy:both#1
-    # (4-critical cluster): ``channels`` (from ``_selected_channels``) only
-    # carries the STATIC INDUSTRY_ALLOC_PROFILES percentages -- slides 5/6
-    # override those with the final post-reweight ``_budget_allocation``
-    # figures before reading them (see ``_build_slide_channel_strategy`` /
-    # ``_build_slide_budget_allocation``), but this slide never did, so its
-    # "Programmatic Allocation" (and every other plan-column row derived
-    # from ``channels[*]["pct"]``) showed the pre-reweight profile split
-    # (e.g. 21%/25%) instead of the plan's actual committed spend (28%/26%).
-    # Apply the SAME reconciliation used on slides 5/6 so every plan-column
-    # value here reads the final allocation data.
-    _cmp_ba_channel_alloc = (
-        budget_alloc.get("channel_allocations", {}) if budget_alloc else {}
-    )
-    if _cmp_ba_channel_alloc:
-        _cmp_reconciled_pct = _reconcile_channel_percentages(
-            channels, _cmp_ba_channel_alloc
-        )
-        for ch_key, ch_data in channels.items():
-            if ch_key in _cmp_reconciled_pct:
-                ch_data["pct"] = _cmp_reconciled_pct[ch_key]
-
     # Calculate client metrics
-    sorted_ch = sorted(channels.values(), key=lambda c: c["pct"], reverse=True)
+    sorted_ch = sorted(display_channels_funded, key=lambda c: c["pct"], reverse=True)
     programmatic_pct = 0
-    for ch in channels.values():
+    for ch in display_channels_funded:
         if ch.get("category") == "Programmatic":
             programmatic_pct += ch["pct"]
     if programmatic_pct == 0:
@@ -7263,14 +7453,31 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     _add_rounded_rect(slide, left_panel_x, comp_top, panel_w, panel_h, WHITE)
     # Header bar
     _add_filled_rect(slide, left_panel_x, comp_top, panel_w, Inches(0.45), NAVY)
+    # C11/C12 class fix: this header bar/box are a fixed one-line 0.45in/
+    # 0.35in regardless of client-name length -- a long legal name (e.g.
+    # long_name_120's 120-char client) needed 2 lines at the fixed 12pt and
+    # got silently clipped, the trailing words (including the entity suffix
+    # "LLC") never drawn. Shrink-to-fit the header's own font instead of
+    # growing the box (which would require reflowing every comparison row
+    # beneath it) -- same real-glyph-metric helper the cover slide's client
+    # name already uses, so the common short-name case renders identically.
+    _left_header_text = f"\u2b22  {client}'s Plan"
+    _left_header_pt = _fit_font_to_measured_lines(
+        _left_header_text,
+        (panel_w / 914400) - 0.4,
+        start_pt=12,
+        max_lines=1,
+        min_pt=8.0,
+        bold=True,
+    )
     _add_textbox(
         slide,
         left_panel_x + Inches(0.2),
         comp_top + Inches(0.05),
         panel_w - Inches(0.4),
         Inches(0.35),
-        text=f"\u2b22  {client}'s Plan",
-        font_size=12,
+        text=_left_header_text,
+        font_size=_left_header_pt,
         bold=True,
         color=WHITE,
         anchor=MSO_ANCHOR.MIDDLE,
@@ -7329,14 +7536,24 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     # ==== RIGHT PANEL: Industry Average ====
     _add_rounded_rect(slide, right_panel_x, comp_top, panel_w, panel_h, WHITE)
     _add_filled_rect(slide, right_panel_x, comp_top, panel_w, Inches(0.45), MUTED_TEXT)
+    # Same shrink-to-fit as the left panel header, for a long industry_label.
+    _right_header_text = f"\u25cb  {industry_label} Average"
+    _right_header_pt = _fit_font_to_measured_lines(
+        _right_header_text,
+        (panel_w / 914400) - 0.4,
+        start_pt=12,
+        max_lines=1,
+        min_pt=8.0,
+        bold=True,
+    )
     _add_textbox(
         slide,
         right_panel_x + Inches(0.2),
         comp_top + Inches(0.05),
         panel_w - Inches(0.4),
         Inches(0.35),
-        text=f"\u25cb  {industry_label} Average",
-        font_size=12,
+        text=_right_header_text,
+        font_size=_right_header_pt,
         bold=True,
         color=WHITE,
         anchor=MSO_ANCHOR.MIDDLE,
@@ -7682,7 +7899,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
 
     # copy:both#2: interpolate this plan's own facts (client name, top
     # channels) into the otherwise-identical phase action items.
-    _interpolate_timeline_bullets(phases, data, channels)
+    _interpolate_timeline_bullets(phases, data, display_channels_funded)
 
     phase_w = Inches(3.85)
     phase_gap = Inches(0.25)
@@ -8196,20 +8413,39 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             f"Market positioning and competitor intelligence for "
             f"{client}'s talent acquisition strategy in {industry_label}"
         )
+        # C10/C11-C12 class fix (slide 7): this subhead sat in a fixed
+        # 0.92in/0.5in box with COMPANY PROFILE pinned to a fixed
+        # y=1.6in right below it. A long client name (e.g. long_name_120's
+        # 120-char legal name) wraps this sentence to 3 lines, and the
+        # third line printed straight through "COMPANY PROFILE". Same
+        # measure-then-cascade pattern as the other slide subheads: size
+        # the box to the ACTUAL measured line count, then push the profile/
+        # competitor columns down from the measured bottom (never above the
+        # old 1.6in anchor, so a short subhead renders byte-identically to
+        # before).
+        _cl_subhead_top_in = 0.92
+        _cl_subhead_w_in = 12.2
+        _cl_subhead_pt = 15.0
+        _cl_subhead_n_lines = _measure_lines(
+            action_text, _cl_subhead_w_in, _cl_subhead_pt, bold=True
+        )
+        _cl_subhead_line_h_in = (_cl_subhead_pt * 1.35) / 72.0
+        _cl_subhead_h_in = max(0.5, _cl_subhead_n_lines * _cl_subhead_line_h_in + 0.08)
         _add_textbox(
             slide,
             Inches(0.55),
-            Inches(0.92),
-            Inches(12.2),
-            Inches(0.5),
+            Inches(_cl_subhead_top_in),
+            Inches(_cl_subhead_w_in),
+            Inches(_cl_subhead_h_in),
             text=action_text,
-            font_size=15,
+            font_size=_cl_subhead_pt,
             bold=True,
             color=NAVY,
         )
+        _cl_subhead_bottom_in = _cl_subhead_top_in + _cl_subhead_h_in
 
         # ---- LEFT: Company Profile ----
-        section_top = Inches(1.6)
+        section_top = Inches(max(1.6, _cl_subhead_bottom_in + 0.08))
         left_w = Inches(5.5)
 
         _add_textbox(
@@ -8703,7 +8939,18 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             # constant), then cascade each card's y position from the
             # ACTUAL heights of the cards above it -- so a taller card can
             # never overlap the next one either.
-            _comp_body_w_in = (right_w / 914400) - 0.4
+            # C10 fix: the Why/Counter textbox itself is ``right_w -
+            # Inches(0.4)`` wide (see the _add_textbox calls below), but
+            # python-pptx's default 0.1in left+right internal text insets
+            # narrow the actually-usable text width by another 0.2in --
+            # the name measure two lines below already accounts for this
+            # (``3.0 - 0.2``), but this one didn't. Undercounting the line
+            # count here means a 2-line "Why:" sentence that really wraps
+            # to 3 lines gets Counter placed only 2 lines down, so Counter's
+            # first line prints on top of Why's real third line (confirmed:
+            # measuring at the box width gives 2 lines, measuring at the
+            # true usable width gives 3, matching the actual render).
+            _comp_body_w_in = (right_w / 914400) - 0.4 - 0.2
             _comp_font_pt = 8.0
             _comp_line_h_in = (_comp_font_pt * 1.35) / 72.0
             _comp_why_top_in = 0.3
@@ -10721,7 +10968,7 @@ def _interpolate_next_steps(steps: List[Any], data: Dict) -> List[str]:
 
 
 def _interpolate_timeline_bullets(
-    phases: List[Dict[str, Any]], data: Dict, channels: Dict
+    phases: List[Dict[str, Any]], data: Dict, channels: List[Dict]
 ) -> None:
     """copy:both#2: splice this plan's own facts into the Implementation
     Timeline's phase action items, which used to be byte-for-byte identical
@@ -10732,9 +10979,14 @@ def _interpolate_timeline_bullets(
     phrase, mirroring :func:`_interpolate_next_steps`. Week counts are
     already plan-specific (derived from ``campaign_weeks`` by the caller);
     this only touches the bullet TEXT.
+
+    ``channels`` is the FUNDED display-channel list (see
+    ``_funded_display_channels``) -- "Scale top performers" must name
+    channels the plan actually funds, not a static toggle that may include
+    a channel the budget engine never allocated a dollar to.
     """
     client = _proper_client_name(str(data.get("client_name") or "").strip())
-    sorted_ch = sorted(channels.values(), key=lambda c: c.get("pct", 0), reverse=True)
+    sorted_ch = sorted(channels, key=lambda c: c.get("pct", 0), reverse=True)
     top_channel_names = [ch["label"] for ch in sorted_ch[:2] if ch.get("label")]
     top_channels_phrase = " and ".join(top_channel_names) if top_channel_names else ""
     for ph in phases:
@@ -11104,7 +11356,15 @@ def _generate_pptx_scoped(data: Dict[str, Any]) -> bytes:
     # Frontend sends "budget_range" but PPT reads "budget" -- normalize
     if data.get("budget_range") and not data.get("budget"):
         data["budget"] = data["budget_range"]
-    data.setdefault("budget", "TBD")
+    # A missing budget renders as "Not specified" -- not the literal "TBD"
+    # jargon-abbreviation -- matching the same fix already made to
+    # hire_volume (app.py) and the workbook's budget default (excel_v2.py).
+    # Confirmed reachable: with no budget on the plan, slide 2's SITUATION
+    # card printed "Budget:  TBD" verbatim, and when a _budget_allocation
+    # was present but its total was 0, slide 6's "Total Investment" hero
+    # value printed the bare "TBD" too (both via _format_budget_display,
+    # whose fallback is a straight pass-through of an unparseable string).
+    data.setdefault("budget", "Not specified")
     # Frontend sends work_environment as array -- normalize to string
     we = data.get("work_environment", "hybrid")
     if isinstance(we, list):
@@ -11116,7 +11376,7 @@ def _generate_pptx_scoped(data: Dict[str, Any]) -> bytes:
         ("client_name", "Client"),
         ("company_name", "Client"),
         ("industry", "general_entry_level"),
-        ("budget", "TBD"),
+        ("budget", "Not specified"),
         ("work_environment", "hybrid"),
     ]:
         if data.get(key) is None:
