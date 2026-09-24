@@ -7284,12 +7284,40 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     # a few screens down so it is wired to the actual code path taken, not
     # shown decoratively regardless of data source.
     _comp_from_static_fallback = False
-    comp_analysis = comp_intel.get(
-        "competitors", comp_intel.get("competitor_analysis") or []
-    )
-    if not comp_analysis and competitors:
-        # Build minimal competitor entries from names list
-        comp_analysis = [{"name": c} for c in competitors]
+    # hershey_2026_09_24 fix: this used to check comp_intel (synthesized/
+    # enriched competitive intelligence) BEFORE the client's own brief-
+    # supplied ``data["competitors"]`` list -- whenever comp_intel had ANY
+    # entries (e.g. Clearbit resolved logos for some competitor query), it
+    # replaced the client's explicit list WHOLESALE with whatever comp_intel
+    # returned, with no relation to what the client actually typed into the
+    # wizard's "Client's Key Competitors" field. Every other competitor
+    # rendering site in this codebase (ppt_generator.py's competitor cards,
+    # gold_standard.build_competitor_map, this same file's Quality
+    # Intelligence sheet) already treats data["competitors"] as
+    # authoritative when present and only supplements it with
+    # enriched/synthesized detail -- mirror that precedence here: when the
+    # brief supplied competitors, comp_intel may only add supplemental
+    # fields (domain, logo, etc.) for those SAME client-named companies,
+    # never substitute a different company list.
+    if competitors:
+        _ci_competitors_raw = comp_intel.get("competitors")
+        _ci_by_name_lower = (
+            {
+                str(_k).strip().lower(): _v
+                for _k, _v in _ci_competitors_raw.items()
+                if isinstance(_v, dict)
+            }
+            if isinstance(_ci_competitors_raw, dict)
+            else {}
+        )
+        comp_analysis = [
+            {**_ci_by_name_lower.get(str(c).strip().lower(), {}), "name": c}
+            for c in competitors
+        ]
+    else:
+        comp_analysis = comp_intel.get(
+            "competitors", comp_intel.get("competitor_analysis") or []
+        )
 
     # Fallback: use industry top employers from knowledge base
     if not comp_analysis:
