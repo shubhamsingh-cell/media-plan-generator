@@ -4578,6 +4578,41 @@ def _find_metro(location_str):
     return None, None
 
 
+def _is_bare_state_location(location_str, state):
+    """True when ``location_str`` names ONLY a US state, with no city --
+    e.g. "PA", "pa", "Pennsylvania" -- as opposed to a specific city
+    within that state, e.g. "Hershey, PA".
+
+    Gates the ``_STATE_PRIMARY_METRO`` fallback below: that mapping exists
+    so a bare state code like "GA" gets the state's flagship metro's data
+    (Atlanta) instead of the generic statewide fallback -- see its own
+    docstring, "Used by get_location_info() when a bare state abbreviation
+    is passed as the location". Before this guard, the fallback fired for
+    ANY location whose state was detected but which didn't match
+    METRO_DATA, which silently relabeled every small/mid-size city
+    METRO_DATA doesn't happen to list as that state's single biggest
+    metro -- e.g. "Hershey, PA", "Hazleton, PA", "Harrisburg, PA" and
+    "Scranton, PA" (none in METRO_DATA) all resolved to
+    "Philadelphia-Camden-Wilmington MSA", even though Harrisburg and
+    Scranton are themselves real, distinct MSAs (Harrisburg-Carlisle;
+    Scranton--Wilkes-Barre, per data/geo/cbsa_by_county.tsv, OMB Bulletin
+    23-01) and Hershey/Hazleton sit in those MSAs, not Philadelphia's. A
+    named city with no METRO_DATA entry should fall through to the
+    (already correctly city-agnostic) statewide branch a few lines below
+    instead of being silently promoted to a same-state metro it may be
+    100+ miles from.
+    """
+    if not location_str or not state:
+        return False
+    norm = location_str.strip()
+    if not norm:
+        return False
+    if norm.upper() == state:
+        return True
+    state_name = (STATE_DATA.get(state) or {}).get("name", "")
+    return bool(state_name) and norm.lower() == state_name.lower()
+
+
 def get_location_info(location_str):
     """Get comprehensive info for a location. Supports US and international locations."""
     # Check for international location first
@@ -4642,10 +4677,19 @@ def get_location_info(location_str):
     state = _extract_state(location_str)
     metro_key, metro = _find_metro(location_str)
 
-    # If _find_metro found nothing and we have a state code, resolve via the
-    # state-to-primary-metro mapping so bare codes like "GA" get Atlanta data
-    # instead of falling through to the generic statewide fallback.
-    if not metro and state and state in _STATE_PRIMARY_METRO:
+    # If _find_metro found nothing and the input is a BARE state code/name
+    # (no city -- e.g. "GA"), resolve via the state-to-primary-metro mapping
+    # so it gets that state's flagship metro's data instead of falling
+    # through to the generic statewide fallback. A named city research.py's
+    # curated METRO_DATA doesn't happen to list must NOT take this branch --
+    # see _is_bare_state_location's docstring for the Hershey/Hazleton/
+    # Harrisburg/Scranton, PA incident this guard fixes.
+    if (
+        not metro
+        and state
+        and state in _STATE_PRIMARY_METRO
+        and _is_bare_state_location(location_str, state)
+    ):
         _primary_key = _STATE_PRIMARY_METRO[state]
         if _primary_key in METRO_DATA:
             metro_key = _primary_key
