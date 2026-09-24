@@ -3272,50 +3272,62 @@ _GENERIC_INDUSTRY_STRINGS = ("", "general", "other", "n/a", "na", "none")
 #   3. Whole-word, fully spelled patterns, never bare stems: "sporting"
 #      does not match "port", "agricultural" does not match "agri", and
 #      "space heater" does not match aerospace (bare "space" is excluded).
-# The flag marks sectors where an equipment/packaging qualifier means the
-# product is machinery or containers, which is generic manufacturing ("food
-# processing equipment manufacturing" and "beverage can manufacturing" stay
-# automotive, same as "agricultural equipment manufacturing"). "drug store"
-# is retail, so "drug" followed by "store" does not count as a pharma term.
+# Equipment makers are generic manufacturing. A food or pharma product word
+# does not count when an equipment/container noun follows it directly, or
+# after at most one word: "food processing equipment manufacturing",
+# "food packaging manufacturing" and "beverage can manufacturing" stay
+# automotive, the same as "agricultural equipment manufacturing". The noun
+# has to follow the product word. A company that makes AND packages its
+# product ("chocolate manufacturing & packaging", "beverage manufacturing
+# (cans and bottles)") still gets its product sector.
+# Other lookaheads cover whole words with the wrong meaning: "drug store"
+# (retail), "food service" (hospitality: restaurants and catering),
+# "food-grade plastics" (plastics), "rocket stove" (appliances) and
+# "self-defense products" (not military defense).
 # Medical devices go to pharma_biotech: its niche boards (BioSpace, MedReps)
 # serve device makers, and healthcare_medical's boards are for nurses and
 # physicians.
 # The first matching entry wins, in the order listed.
-_PRODUCT_SECTOR_PATTERNS: tuple[tuple[str, "re.Pattern[str]", bool], ...] = (
+_EQUIPMENT_QUALIFIER_TAIL = (
+    r"(?![\s-]+(?:[a-z]+[\s-]+)?"
+    r"(?:equipment|machinery|machines?|packaging|containers?|cans?|bottles?)\b)"
+)
+_PRODUCT_SECTOR_PATTERNS: tuple[tuple[str, "re.Pattern[str]"], ...] = (
     (
         "food_beverage",
         re.compile(
-            r"\b(?:foods?|beverages?|chocolates?"
+            r"\b(?:foods?(?![\s-]grade\b)(?!\s+services?\b)|beverages?|chocolates?"
             r"|confection(?:s|er|ers|ery|eries|ary)?|cand(?:y|ies)|snacks?"
             r"|bakery|bakeries|baked goods|brewery|breweries|brewing"
             r"|distillery|distilleries|distilling|dairy|dairies|meats?"
-            r"|poultry|seafood)\b"
+            r"|poultry|seafood)\b" + _EQUIPMENT_QUALIFIER_TAIL
         ),
-        True,
     ),
     (
         "pharma",
         re.compile(
             r"\b(?:pharma|pharmaceuticals?|biopharma(?:ceuticals?)?|biotech"
             r"|biotechnology|biologics?|vaccines?|drugs?(?!\s+stores?\b)"
-            r"|medical devices?"
-            r"|medtech)\b"
+            r"|medical devices?|medtech)\b" + _EQUIPMENT_QUALIFIER_TAIL
         ),
-        True,
     ),
     (
+        # No equipment tail: aircraft equipment and parts are aerospace work.
         "aerospace",
         re.compile(
             r"\b(?:aerospace|aircraft|aviation|avionics|spacecraft|satellites?"
-            r"|missiles?|rockets?|defen[cs]e)\b"
+            r"|missiles?|rockets?(?!\s+stoves?\b)"
+            r"|(?<!self-)(?<!self )defen[cs]e)\b"
         ),
-        False,
     ),
 )
-_EQUIPMENT_QUALIFIER_RE = re.compile(
-    r"\b(?:equipment|machinery|machines?|packaging|containers?|cans?"
-    r"|bottles?)\b"
-)
+
+
+# Private key on the profile copy _classify_industry_primary returns when the
+# Step 4 manufacturing product override fired. classify_industry() reads it
+# to skip the generic-manufacturing conflict the override explains, then
+# removes it, so no caller ever sees it.
+_PRODUCT_OVERRIDE_MARKER = "_via_manufacturing_product_override"
 
 
 def _product_sector_from_industry_text(raw_lower: str) -> Optional[dict]:
@@ -3324,10 +3336,7 @@ def _product_sector_from_industry_text(raw_lower: str) -> Optional[dict]:
     _PRODUCT_SECTOR_PATTERNS for the rules."""
     if not raw_lower:
         return None
-    has_equipment_qualifier = bool(_EQUIPMENT_QUALIFIER_RE.search(raw_lower))
-    for naics_key, pattern, blocked_by_equipment in _PRODUCT_SECTOR_PATTERNS:
-        if blocked_by_equipment and has_equipment_qualifier:
-            continue
+    for naics_key, pattern in _PRODUCT_SECTOR_PATTERNS:
         if pattern.search(raw_lower):
             return INDUSTRY_NAICS_MAP[naics_key]
     return None
@@ -3762,6 +3771,10 @@ def classify_industry(
     pick, instead of shipping silently.
     """
     result = _classify_industry_primary(raw_industry, company_name, roles)
+    via_product_override = bool(result.get(_PRODUCT_OVERRIDE_MARKER))
+    if via_product_override:
+        result = dict(result)
+        del result[_PRODUCT_OVERRIDE_MARKER]
 
     raw_for_conflict = (raw_industry or "").strip().lower()
     if raw_for_conflict not in _GENERIC_INDUSTRY_STRINGS and (company_name or roles):
@@ -3771,6 +3784,15 @@ def classify_industry(
         if inferred is not None:
             inferred_legacy = inferred.get("legacy_key")
             result_legacy = result.get("legacy_key")
+            if via_product_override and inferred_legacy == "automotive":
+                # The product override replaced generic Manufacturing &
+                # Industrial with the specific sector the industry text
+                # names ("chocolate manufacturing" -> food_beverage). Roles
+                # or a company name that read as generic manufacturing
+                # ("Production Supervisor", "Summit Industrial") agree with
+                # that pick. They are not a conflict. Any other inferred
+                # sector (a hospital name, "Uber") is still reported.
+                inferred_legacy = None
             if inferred_legacy and inferred_legacy != result_legacy:
                 result = dict(result)
                 result["industry_conflict"] = {
@@ -3901,7 +3923,12 @@ def _classify_industry_primary(
             # never overridden.
             _product_sector = _product_sector_from_industry_text(raw_lower)
             if _product_sector is not None:
-                return _product_sector
+                # Marked copy: classify_industry reads and strips the marker
+                # (see _PRODUCT_OVERRIDE_MARKER). Never mutate the shared
+                # INDUSTRY_NAICS_MAP profile.
+                _marked = dict(_product_sector)
+                _marked[_PRODUCT_OVERRIDE_MARKER] = True
+                return _marked
         elif (
             best_match is INDUSTRY_NAICS_MAP["healthcare"]
             and hits["healthcare"] <= _PHARMA_HEALTHCARE_SHARED_KWS

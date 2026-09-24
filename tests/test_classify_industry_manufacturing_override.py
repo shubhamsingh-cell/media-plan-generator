@@ -75,6 +75,17 @@ FIXED_CASES = [
     ("aircraft manufacturing", "", [], "aerospace_defense"),
     ("defense manufacturing", "", [], "aerospace_defense"),
     ("satellite manufacturing", "", ["Maintenance Technician"], "aerospace_defense"),
+    ("aircraft parts manufacturing", "", ["CNC Machinist"], "aerospace_defense"),
+    ("rocket manufacturing", "", [], "aerospace_defense"),
+    # Round 3 review: a company that makes AND packages its product keeps its
+    # product sector. The equipment qualifier only blocks when it directly
+    # follows the product word.
+    ("chocolate manufacturing and packaging", "", [], "food_beverage"),
+    ("Chocolate manufacturing & packaging", "The Hershey Company", HERSHEY_ROLES, "food_beverage"),
+    ("Food manufacturing and packaging", "", [], "food_beverage"),
+    ("Beverage manufacturing (cans and bottles)", "", [], "food_beverage"),
+    ("Pharmaceutical manufacturing and packaging", "", [], "pharma_biotech"),
+    ("biopharmaceutical manufacturing", "", ["Production Supervisor"], "pharma_biotech"),
 ]
 
 GUARD_CASES = [
@@ -117,6 +128,13 @@ GUARD_CASES = [
     ("food processing equipment manufacturing", "", [], "automotive"),
     ("food packaging manufacturing", "", [], "automotive"),
     ("beverage can manufacturing", "", [], "automotive"),
+    ("food manufacturing equipment", "", [], "automotive"),
+    ("dairy processing machinery manufacturing", "", [], "automotive"),
+    ("pharmaceutical packaging manufacturing", "", [], "automotive"),
+    # Whole words with the wrong meaning in context.
+    ("food-grade plastics manufacturing", "", [], "automotive"),
+    ("rocket stove manufacturing", "", [], "automotive"),
+    ("self-defense products manufacturing", "", [], "automotive"),
     # "drug store" is retail, not a pharma product term.
     ("drug store", "", ["Production Supervisor"], "automotive"),
     # "pharmacy" is not a pharma-industry term; retail pharmacies stay healthcare.
@@ -128,6 +146,10 @@ GUARD_CASES = [
     ("manufacturing", "", [], "automotive"),
     ("semiconductor manufacturing", "", [], "automotive"),
     ("Food Service", "Sodexo", ["Cook"], "hospitality_travel"),
+    # "food service" is hospitality. The override must not turn a Food
+    # Service plan into food_beverage even when manufacturing-sounding
+    # company/roles made manufacturing the Step 4 winner.
+    ("Food Service", "Summit Industrial", ["Production Supervisor"], "automotive"),
     ("restaurant", "Olive Garden", ["Line Cook", "Server"], "hospitality_travel"),
     ("healthcare", "Mercy General Hospital", ["Registered Nurse"], "healthcare_medical"),
     ("retail", "Target", ["Store Associate", "Cashier"], "retail_consumer"),
@@ -161,19 +183,53 @@ def test_prior_attempt_regressions_stay_fixed(raw, company, roles, expected):
     assert r.get("legacy_key") == expected, (raw, company, roles, r.get("sector"))
 
 
-def test_free_text_hershey_plan_matches_the_dropdown_pick():
-    """Typing the industry must give the same result as picking Food &
-    Beverage from the dropdown (legacy key), including the conflict field."""
-    typed = app.classify_industry(
-        "chocolate manufacturing", "The Hershey Company", HERSHEY_ROLES
-    )
-    picked = app.classify_industry("food_beverage", "The Hershey Company", HERSHEY_ROLES)
-    assert typed.get("legacy_key") == picked.get("legacy_key") == "food_beverage"
-    assert typed.get("industry_conflict") == picked.get("industry_conflict")
+# Round 3 review, ship-blocking: once the override picks the specific sector,
+# production-type roles still read as generic manufacturing. That produced a
+# role_title industry_conflict, which bundle_qa turns into a "warn" on every
+# Hershey-shaped plan. The override is the explanation, so there is no conflict.
+NO_CONFLICT_CASES = [
+    ("chocolate manufacturing", "", ["Production Supervisor"], "food_beverage"),
+    ("food manufacturing", "", ["Production Operator"], "food_beverage"),
+    ("dairy manufacturing", "", ["Manufacturing Technician"], "food_beverage"),
+    ("biopharmaceutical manufacturing", "", ["Production Supervisor"], "pharma_biotech"),
+    ("aircraft parts manufacturing", "", ["CNC Machinist"], "aerospace_defense"),
+    ("chocolate manufacturing", "The Hershey Company", HERSHEY_ROLES, "food_beverage"),
+    ("confectionery manufacturing", "Summit Industrial", ["Production Supervisor"], "food_beverage"),
+]
+
+
+@pytest.mark.parametrize(
+    "raw,company,roles,expected",
+    NO_CONFLICT_CASES,
+    ids=[_case_id(c) for c in NO_CONFLICT_CASES],
+)
+def test_override_does_not_raise_generic_manufacturing_conflict(
+    raw, company, roles, expected
+):
+    r = app.classify_industry(raw, company, list(roles))
+    assert r.get("legacy_key") == expected
+    assert r.get("industry_conflict") is None, r.get("industry_conflict")
+
+
+def test_override_still_reports_a_real_non_manufacturing_conflict():
+    """Only the generic-manufacturing inference is explained by the override.
+    A client name that implies a different industry is still a conflict."""
+    r = app.classify_industry("chocolate manufacturing", "Mercy General Hospital", [])
+    assert r.get("legacy_key") == "food_beverage"
+    conflict = r.get("industry_conflict") or {}
+    assert conflict.get("inferred_legacy_key") == "healthcare_medical", conflict
+    assert conflict.get("signal") == "client_name"
+
+
+def test_override_marker_never_leaks_to_callers():
+    r = app.classify_industry("chocolate manufacturing", "", ["Production Supervisor"])
+    assert app._PRODUCT_OVERRIDE_MARKER not in r
+    # The shared profile must not be mutated either.
+    assert app._PRODUCT_OVERRIDE_MARKER not in app.INDUSTRY_NAICS_MAP["food_beverage"]
 
 
 def test_override_never_returns_a_non_allowlisted_sector():
     """Only food_beverage, pharma and aerospace can replace the generic
     manufacturing bucket, whatever the industry text says."""
     allowed = {"food_beverage", "pharma", "aerospace"}
-    assert {key for key, _, _ in app._PRODUCT_SECTOR_PATTERNS} == allowed
+    assert {key for key, _ in app._PRODUCT_SECTOR_PATTERNS} == allowed
