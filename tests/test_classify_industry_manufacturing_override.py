@@ -297,20 +297,36 @@ def test_round8_intended_cases_still_resolve(raw, expected):
         # The old equipment word list is subsumed: not grammar words.
         "food processing equipment manufacturing",
         "dairy machinery",
+        # Final review: a trailing "and packaging"-style noun is only allowed
+        # after a production noun. A bare product + packaging/distribution is
+        # a packaging or distribution company.
+        "food and packaging",
+        "beverage & packaging",
+        "food, distribution",
     ],
 )
 def test_grammar_fails_closed_on_mixed_lists_and_equipment(raw):
     assert app._clean_product_sector(raw.lower()) is None
 
 
+@pytest.mark.parametrize("raw", ["food and packaging", "beverage & packaging", "food, distribution"])
+def test_packaging_gap_strings_stay_generic_with_industrial_roles(raw):
+    r = app.classify_industry(raw, "Summit Industrial", ["Production Supervisor"])
+    primary = app._classify_industry_primary(raw, "Summit Industrial", ["Production Supervisor"])
+    assert app._PRODUCT_OVERRIDE_MARKER not in primary
+    assert r.get("legacy_key") == "automotive", (raw, r.get("sector"))
+
+
 def test_safety_net_keeps_conflict_visible_if_override_ever_fires_on_complex_text(
     monkeypatch,
 ):
-    """Defense in depth (round 8, part 2). Simulate a future change that
-    widens the override trigger so it fires on text that is NOT a clean
-    product phrase. The conflict suppression re-checks the closed grammar
-    itself, so the generic-manufacturing conflict must still show for a
-    reviewer instead of being silently hidden."""
+    """Defense in depth (round 8, part 2), and its limit. Simulate a future
+    change that widens the override trigger so it fires on text that is NOT
+    a clean product phrase. Because the conflict suppression re-checks the
+    closed grammar, the EXISTING automotive conflict (the industrial client
+    + production role already read as generic manufacturing) is preserved
+    instead of hidden. The net only preserves such a conflict. It does not
+    raise a new one, since it re-checks the same grammar the trigger uses."""
     raw = "HVAC in pharmaceutical manufacturing"
     company, roles = "Summit Industrial", ["Production Supervisor"]
     monkeypatch.setattr(

@@ -3333,11 +3333,15 @@ def _closed_product_grammar(product_words: str, nouns: str) -> "re.Pattern[str]"
     """Compile the closed grammar for one sector (see the comment above)."""
     sep = r"(?:\s*[,&/+]\s*|\s+(?:and|or)\s+|\s+)"
     product_list = product_words + r"(?:" + sep + product_words + r")*"
+    # The trailing "and packaging"-style noun sits INSIDE the optional
+    # production-noun group, so it is only allowed after at least one
+    # production noun: "chocolate manufacturing and packaging" matches,
+    # "food and packaging" / "food, distribution" do not.
     return re.compile(
         r"^(?:" + _PRODUCT_ADJECTIVES + r"\s+){0,2}"
         + product_list
-        + r"(?:\s+" + nouns + r"){0,2}"
-        + r"(?:(?:\s*[,&]\s*|\s+and\s+)" + _TRAILING_NOUNS + r")?$"
+        + r"(?:(?:\s+" + nouns + r"){1,2}"
+        + r"(?:(?:\s*[,&]\s*|\s+and\s+)" + _TRAILING_NOUNS + r")?)?$"
     )
 
 
@@ -3416,10 +3420,13 @@ def _industry_text_names_pharma_company(raw_lower: str) -> bool:
 
 def _product_sector_from_industry_text(raw_lower: str) -> Optional[dict]:
     """The trigger for the Step 4 override and Step 7. Today it is exactly
-    the closed grammar. It stays a separate name on purpose: classify_industry's
-    conflict safety net re-checks _clean_product_sector() itself, so if this
-    trigger is ever widened, a conflict on text that is not a clean product
-    phrase still shows (flagged for review, not silently wrong)."""
+    the closed grammar. It stays a separate name so classify_industry's
+    conflict suppression can re-check _clean_product_sector() itself: if
+    this trigger is ever widened, a generic-manufacturing conflict that
+    already applies to non-grammar text is preserved instead of hidden.
+    That check is narrow. It re-checks the same grammar, so it cannot
+    newly detect a case where the grammar itself is wrong. The grammar is
+    what prevents misroutes."""
     return _clean_product_sector(raw_lower)
 
 # Role-title -> NAICS map key, used by classify_industry's Steps 3/6 (role-
@@ -3858,10 +3865,14 @@ def classify_industry(
                 # ("Production Supervisor", "Summit Industrial") agree with
                 # that pick. They are not a conflict. Any other inferred
                 # sector (a hospital name, "Uber") is still reported.
-                # SAFETY NET: this suppression re-checks the closed grammar
-                # itself instead of trusting the override. If the override
-                # ever fires on text that is not a clean product phrase, the
-                # conflict stays visible to a reviewer.
+                # SAFETY NET (narrow): this suppression re-checks the closed
+                # grammar instead of trusting the override. If the override
+                # ever fires on text that is not a clean product phrase, an
+                # EXISTING automotive-inferred conflict (company or roles that
+                # already read as generic manufacturing) is preserved instead
+                # of hidden. It does not independently detect new problems.
+                # It re-checks the same grammar, so a grammar mistake would
+                # not raise a conflict that is not already there.
                 inferred_legacy = None
             if inferred_legacy and inferred_legacy != result_legacy:
                 result = dict(result)
