@@ -3235,60 +3235,145 @@ def _infer_industry_from_signals(company_name: str = "", roles: list = None) -> 
     Returns None when nothing clears the same confidence bar
     classify_industry's Step 4 uses (best_score >= 3).
 
-    ORDERING FIX (2026-07-26 false-positive regression): role-title votes
-    (``_ROLE_INDUSTRY_MAP``, the same specific, curated keyword set
-    ``classify_industry``'s own Step 3 checks FIRST) are now tried before
-    the generic fuzzy keyword/company-brand scan below, not after. The
-    fuzzy scan does raw substring containment with no word-boundary check,
-    against keyword lists that include very short, generic entries ("ai",
-    "gas", "power", "tech") -- on real, multi-role briefs this produced
-    confident-looking nonsense: "Manpower - Amerigas" scored 2008 for
-    "Energy & Utilities" purely from "gas" inside "amerigas" and "power"
-    inside "manpower" (both also collecting the +1000 company-brand
-    bonus), and a senior-living roster with "Maintenance Technician"
-    scored "Technology & Software" from "tech" inside "technician" and
-    "ai" inside "maintenance". Both are exactly the reference bundles this
-    function's own consumer (bundle_qa's industry_client_conflict check)
-    must never false-positive on. Specific role-title votes ("driver",
-    "nurse", "cab", ...) are a far more reliable signal for any brief that
-    has them, so they now win outright before the noisier fallback ever
-    runs -- which is also full parity with how ``_classify_industry_primary``
-    treats a raw_industry-less brief (its Step 3 role-vote already
-    precedes its own Step 4 fuzzy scan).
+    Return shape: the matched industry profile dict (unchanged, same object
+    identity as INDUSTRY_NAICS_MAP's own entries when returned via the
+    fuzzy-scan branch below) PLUS two caller-facing keys the industry
+    conflict severity decision (bundle_qa's industry_client_conflict rule)
+    reads:
+      - "_inferred_signal": "client_name" when the match came from an
+        exact keyword hit against the company name itself (a real brand
+        signal -- e.g. "Uber" or a hospital's own name), or "role_title"
+        when it came only from role-title text (the curated
+        ``_ROLE_INDUSTRY_MAP`` vote, or the generic fuzzy scan matching
+        role text with no company-name hit at all).
+      - "_role_vote_ratio": for the curated role-vote path, the fraction
+        of supplied roles that voted for the winning industry (None for
+        the fuzzy-scan path, which doesn't count per-role agreement).
+
+    SEVERITY FIX (role-vote-only false positives, e.g. "Regional Sales
+    Manager" alone voting a manufacturing plan to Retail & E-Commerce, or
+    an Australian mining-industry brief's role titles alone voting it to
+    Energy & Utilities): the client name and the role titles are now two
+    INDEPENDENT detectors, checked in this order:
+
+      1. Company-name-only scan (``_infer_from_company_name`` below): does
+         any industry's keyword appear in company_name itself? This is
+         the real "client name implies a different industry" signal (a
+         brand name like "Uber", or a literal industry word in the
+         client's own name, e.g. a hospital's name) -- it does not depend
+         on roles at all, so it still fires exactly as before even when
+         roles also happen to agree (the origin Uber defect: "Uber" the
+         company name AND "commercial cab driver" the role both point to
+         Rideshare & Gig Economy -- this keeps that case "client_name",
+         not merely "role_title", so it still blocks as critical).
+      2. Only when step 1 finds nothing does role-title text get a say,
+         and even then only as the weaker "role_title" signal: the
+         curated ``_ROLE_INDUSTRY_MAP`` vote requires a majority of the
+         supplied roles to agree on the same industry (more than half) --
+         a single outlier role ("Sales Manager" among an otherwise
+         manufacturing-titled roster) no longer manufactures a signal by
+         itself -- and failing that, a generic fuzzy scan of the ROLE TEXT
+         ONLY (never company_name) at the same best_score >= 3 confidence
+         bar Step 4 uses elsewhere.
+
+    ORDERING FIX (2026-07-26 false-positive regression, preserved): within
+    the role-only detector, the curated, specific ``_ROLE_INDUSTRY_MAP``
+    vote is tried before the noisier generic fuzzy scan of role text, not
+    after -- the fuzzy scan does raw substring containment with no
+    word-boundary check, against keyword lists that include very short,
+    generic entries ("ai", "gas", "power", "tech") that produced
+    confident-looking nonsense on real multi-role briefs (a senior-living
+    roster with "Maintenance Technician" scoring "Technology & Software"
+    from "tech" inside "technician" and "ai" inside "maintenance").
+    Specific role-title votes ("driver", "nurse", "cab", ...) remain a far
+    more reliable signal for any brief that has them.
+
+    WORD-BOUNDARY GUARD on the company-name-only detector: it matches a
+    keyword only at a word boundary in company_name, never as a bare
+    substring -- plain ``kw in company_lower`` containment is exactly what
+    produced the "Manpower - Amerigas" false positive this whole function
+    was already hardened against (2026-07-26 fix docstring above): "power"
+    is a substring of "Manpower" and "gas" is a substring of "Amerigas",
+    neither is the company's own name implying Energy & Utilities. A
+    reference-bundle regression test (test_manpower_bundle_has_zero_critical_findings)
+    pins this: making Detector 1 independent of the role vote (so it can
+    still catch a real client-name conflict like Uber even when roles
+    ALSO agree) reintroduced that exact bug until this boundary check was
+    added.
     """
     roles = roles or []
     company_lower = (company_name or "").lower()
-    search_text = f"{company_name} {' '.join(str(r) for r in roles)}".lower()
 
-    _role_votes: dict[str, int] = {}
+    # --- Detector 1: company name only (independent of roles) ------------
+    if company_lower:
+        best_company_match = None
+        best_company_score = 0
+        for _profile in INDUSTRY_NAICS_MAP.values():
+            score = 0
+            for kw in _profile["keywords"]:
+                if re.search(r"\b" + re.escape(kw) + r"\b", company_lower):
+                    # Exact, word-bounded company-name/brand keyword match
+                    # -- any hit at all is a strong, specific signal (see
+                    # docstring). NOT a bare substring match (see the
+                    # WORD-BOUNDARY GUARD note above).
+                    score += len(kw) + 1000
+            if score > best_company_score:
+                best_company_score = score
+                best_company_match = _profile
+        if best_company_match and best_company_score >= 3:
+            result = dict(best_company_match)
+            result["_inferred_signal"] = "client_name"
+            result["_role_vote_ratio"] = None
+            return result
+
+    # --- Detector 2: role-title text only (never company_name) -----------
+    _role_votes: dict[str, int] = {}  # keyword-length-weighted, picks the winner
+    _role_vote_counts: dict[str, int] = {}  # one vote per role, for the majority bar
+    _voted_roles = 0
     for _r in roles:
         _role_str = str(_r).lower().strip() if _r else ""
+        if not _role_str:
+            continue
+        _voted_roles += 1
         for _role_kw, _ind_key in _ROLE_INDUSTRY_MAP.items():
             if _role_kw in _role_str:
                 _role_votes[_ind_key] = _role_votes.get(_ind_key, 0) + len(_role_kw)
+                _role_vote_counts[_ind_key] = _role_vote_counts.get(_ind_key, 0) + 1
                 break
     if _role_votes:
         _best_role_ind = max(_role_votes, key=_role_votes.get)
-        if _best_role_ind in INDUSTRY_NAICS_MAP:
-            return INDUSTRY_NAICS_MAP[_best_role_ind]
+        _agree = _role_vote_counts.get(_best_role_ind, 0)
+        if (
+            _best_role_ind in INDUSTRY_NAICS_MAP
+            and _voted_roles > 0
+            and _agree * 2 > _voted_roles  # strict majority: more than half
+        ):
+            result = dict(INDUSTRY_NAICS_MAP[_best_role_ind])
+            result["_inferred_signal"] = "role_title"
+            result["_role_vote_ratio"] = _agree / _voted_roles
+            return result
+        # No majority -- an outlier role title alone is not confident
+        # enough evidence by itself. Fall through to the generic role-text
+        # fuzzy scan below instead of returning None.
 
-    best_match = None
-    best_score = 0
-    for _key, _profile in INDUSTRY_NAICS_MAP.items():
-        score = 0
-        for kw in _profile["keywords"]:
-            if kw in search_text:
-                score += len(kw)
-            if company_lower and kw in company_lower:
-                # Exact company-name/brand keyword match -- outranks a
-                # generic keyword regardless of length (see docstring).
-                score += 1000
-        if score > best_score:
-            best_score = score
-            best_match = _profile
+    roles_text = " ".join(str(r) for r in roles).lower()
+    best_role_match = None
+    best_role_score = 0
+    if roles_text:
+        for _profile in INDUSTRY_NAICS_MAP.values():
+            score = 0
+            for kw in _profile["keywords"]:
+                if kw in roles_text:
+                    score += len(kw)
+            if score > best_role_score:
+                best_role_score = score
+                best_role_match = _profile
 
-    if best_match and best_score >= 3:
-        return best_match
+    if best_role_match and best_role_score >= 3:
+        result = dict(best_role_match)
+        result["_inferred_signal"] = "role_title"
+        result["_role_vote_ratio"] = None
+        return result
 
     return None
 
@@ -3334,7 +3419,16 @@ def classify_industry(
                     "selected_legacy_key": result_legacy,
                     "inferred_sector": inferred.get("sector"),
                     "inferred_legacy_key": inferred_legacy,
-                    "signal": "company_name_or_role_title_keyword_match",
+                    # Which independent signal produced the inference --
+                    # "client_name" (an exact keyword hit against the
+                    # company name itself) vs "role_title" (role-title
+                    # text only, curated-map vote or generic fuzzy scan).
+                    # bundle_qa's industry_client_conflict rule reads this
+                    # to decide severity: only a client-name signal is
+                    # confident enough to block delivery as a critical.
+                    "signal": inferred.get("_inferred_signal")
+                    or "company_name_or_role_title_keyword_match",
+                    "role_vote_ratio": inferred.get("_role_vote_ratio"),
                 }
     return result
 

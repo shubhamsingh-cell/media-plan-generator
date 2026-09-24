@@ -963,6 +963,52 @@ def test_detects_dollar_with_foreign_currency_code_in_parens():
     assert "GBP" in matches[0]["message"]
 
 
+def test_long_blob_currency_mixing_is_no_longer_skipped():
+    """BLIND SPOT FIX: _CUR_BLOB_LEN_CUTOFF used to skip any text blob
+    longer than 300 chars outright, so a hardcoded bare "$" buried inside a
+    long client-facing paragraph on a non-USD plan shipped silently --
+    while the IDENTICAL defect in a SHORTER blob (same shape, fewer
+    surrounding words) was still caught. A blob's length was never
+    evidence that a currency mismatch inside it is safe to ignore. The fix
+    scans a long blob sentence/line by sentence instead of skipping it."""
+    filler = (
+        "This multi-source recruitment benchmark citation references "
+        "Indeed, LinkedIn, and Appcast platform statistics for workforce "
+        "trend analysis across several markets and industries. "
+    )
+    long_blob = (
+        filler * 3
+        + "The average cost per hire for this role is $4,200 based on "
+        "regional benchmarks."
+    )
+    assert len(long_blob) > bundle_qa._CUR_BLOB_LEN_CUTOFF
+    units = [bundle_qa._TextUnit(long_blob, "slide 9 / TextBox 12")]
+    findings: list[dict] = []
+    bundle_qa._check_currency_symbol_mixing(units, {"currency": "GBP"}, findings)
+    matches = [f for f in findings if f["code"] == "currency_symbol_mixing"]
+    assert matches, "bare '$' inside a long GBP-plan blob must be caught, not skipped"
+    assert "$4,200" in matches[0]["message"] or "4,200" in matches[0]["message"]
+
+
+def test_long_blob_legit_citation_stays_clean_after_segmentation():
+    """No new false positive: a long KB-citation blob whose only currency
+    mentions are the honest "US$"-prefixed marker (never a bare glyph)
+    must still come back clean once it's scanned per-segment instead of
+    being skipped outright."""
+    filler = (
+        "This multi-source recruitment benchmark citation references "
+        "Indeed, LinkedIn, and Appcast platform statistics for workforce "
+        "trend analysis across several markets and industries, all figures "
+        "in US$ per the platform's own reporting convention. "
+    )
+    long_blob = filler * 3
+    assert len(long_blob) > bundle_qa._CUR_BLOB_LEN_CUTOFF
+    units = [bundle_qa._TextUnit(long_blob, "slide 9 / TextBox 12")]
+    findings: list[dict] = []
+    bundle_qa._check_currency_symbol_mixing(units, {"currency": "GBP"}, findings)
+    assert not any(f["code"] == "currency_symbol_mixing" for f in findings)
+
+
 def test_currency_mixing_respects_usd_header_marker_exemption():
     """A column whose header explicitly reads "... (USD)" (the Intl
     Benchmarks sheet's own convention, excel_v2.py ~line 95-98) must not be
@@ -1146,6 +1192,100 @@ def test_industry_client_conflict_still_fires_on_a_real_positive_signal():
         "Rideshare" in matches[0]["message"]
         or "logistics_supply_chain" in matches[0]["message"]
     )
+    # SEVERITY FIX: the Uber defect is a client-name-driven signal (the
+    # company is literally named "Uber") -- it must still block delivery
+    # as "critical", never merely "warn", even though the role title
+    # ("commercial cab driver") independently agrees.
+    assert matches[0]["severity"] == "critical"
+
+
+def test_industry_client_conflict_role_vote_minority_is_not_even_a_warn():
+    """SEVERITY FIX: a single outlier role title (one "Regional Sales
+    Manager" inside an otherwise manufacturing-titled roster) is not
+    confident enough evidence by itself -- the role vote must be a
+    majority (more than half the roles) before it produces ANY
+    industry_client_conflict finding, not even a "warn". Real observed
+    false positive: a manufacturing plan whose only "conflicting" evidence
+    was this one lone Sales Manager role, previously flagged "critical"
+    and blocking delivery."""
+    findings: list[dict] = []
+    bundle_qa._check_industry_client_conflict(
+        {
+            "client_name": "Acme Manufacturing Co",
+            "industry": "Manufacturing",
+            "target_roles": [
+                "Regional Sales Manager",
+                "Machine Operator",
+                "Quality Control Inspector",
+            ],
+        },
+        findings,
+    )
+    assert not any(f["code"] == "industry_client_conflict" for f in findings)
+
+
+def test_industry_client_conflict_role_vote_majority_is_at_most_a_warn():
+    """SEVERITY FIX: even when a role-title vote DOES clear the majority
+    bar, a role-title-only signal (no company-name/brand hit) is weaker
+    evidence than the client's own name -- it is reported at most as
+    "warn", never a blocking "critical". Real observed false positive: an
+    Australian mining/manufacturing brief whose role titles alone (no
+    company-name hit -- "Southern Cross Resources" names neither mining
+    nor energy) voted it to Energy & Utilities."""
+    findings: list[dict] = []
+    bundle_qa._check_industry_client_conflict(
+        {
+            "client_name": "Southern Cross Resources Pty Ltd",
+            "industry": "Manufacturing",
+            "target_roles": [
+                "Mining Supervisor",
+                "Plant Operator",
+                "Maintenance Fitter",
+            ],
+        },
+        findings,
+    )
+    matches = [f for f in findings if f["code"] == "industry_client_conflict"]
+    assert matches
+    assert matches[0]["severity"] == "warn"
+
+
+def test_industry_client_conflict_client_name_signal_is_still_critical():
+    """A conflict inferred from the CLIENT NAME itself -- not merely role
+    titles -- must still block delivery as "critical" (e.g. a hospital's
+    own name on a retail plan)."""
+    findings: list[dict] = []
+    bundle_qa._check_industry_client_conflict(
+        {
+            "client_name": "St. Mary Regional Hospital",
+            "industry": "Retail & E-Commerce",
+            "target_roles": ["Store Associate", "Cashier"],
+        },
+        findings,
+    )
+    matches = [f for f in findings if f["code"] == "industry_client_conflict"]
+    assert matches
+    assert matches[0]["severity"] == "critical"
+
+
+def test_industry_client_conflict_manpower_amerigas_word_boundary_guard():
+    """No new false positive: the client-name-only detector must match a
+    keyword at a WORD boundary, not as a bare substring, or "power" inside
+    "Manpower" and "gas" inside "Amerigas" falsely imply Energy &
+    Utilities -- exactly the false positive the 2026-07-26 ordering fix
+    was written to prevent. This directly pins the reference-bundle
+    regression (test_manpower_bundle_has_zero_critical_findings) at the
+    unit level."""
+    findings: list[dict] = []
+    bundle_qa._check_industry_client_conflict(
+        {
+            "client_name": "Manpower - Amerigas",
+            "industry": "Transportation & Logistics",
+            "target_roles": ["CDL Driver", "Delivery Driver"],
+        },
+        findings,
+    )
+    assert not any(f["code"] == "industry_client_conflict" for f in findings)
 
 
 def test_industry_client_conflict_check_never_raises_on_malformed_roles():

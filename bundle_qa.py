@@ -158,7 +158,48 @@ _DOLLAR_WITH_FOREIGN_CODE_RE = re.compile(
 # cell/sentence is well under this length; every KB-citation blob
 # comfortably exceeds it (measured gap runs from ~230 chars to ~635 chars
 # with nothing in between).
+#
+# NOTE (currency_symbol_mixing blind spot, fixed): this cutoff is still
+# used by RULE 3 (campaign_duration_incoherence) below to separate a short
+# duration-bearing sentence from a long KB blob unlikely to carry a
+# duration assertion worth parsing -- that usage is unchanged. RULE 2
+# (currency_symbol_mixing) USED to skip any blob longer than this outright,
+# which meant a hardcoded bare "$" sitting inside a long client-facing
+# paragraph shipped silently -- the identical defect in a SHORTER blob (on
+# a different market's plan) was caught. A blob's length was never evidence
+# that a currency mismatch inside it is safe to ignore. RULE 2 now scans a
+# long blob per sentence/line instead of skipping it (see
+# ``_iter_currency_segments`` and its call site below); the cutoff there
+# only decides whether to segment first, never whether to check at all.
 _CUR_BLOB_LEN_CUTOFF = 300
+
+# A sentence terminator followed by whitespace, or a bare newline: how a
+# long client-facing blob is split into independently-checked segments for
+# RULE 2 so its length can never hide a real per-sentence currency defect.
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def _iter_currency_segments(text: str) -> list[str]:
+    """Split ``text`` into line- and sentence-level segments for RULE 2.
+
+    Used only when a blob exceeds ``_CUR_BLOB_LEN_CUTOFF``: instead of
+    skipping the whole blob (the fixed blind spot), each segment is
+    checked independently with the exact same logic a short blob gets, so
+    a defect buried mid-paragraph in a long KB-citation dump is still
+    caught. A short blob is still checked as a single segment (its own
+    full text) -- this function is not called for it, preserving prior
+    behavior exactly for the common case.
+    """
+    segments: list[str] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        for sentence in _SENTENCE_SPLIT_RE.split(line):
+            sentence = sentence.strip()
+            if sentence:
+                segments.append(sentence)
+    return segments
 
 # ---------------------------------------------------------------------------
 # RULE 3 (campaign_duration_incoherence).
@@ -1693,52 +1734,66 @@ def _check_currency_symbol_mixing(
         if foreign_code_hit:
             continue  # already flagged this unit via the more specific shape
 
+        # A long blob (KB research-citation dump) is no longer skipped
+        # outright -- it is checked one sentence/line at a time so its
+        # length can never hide a real bare-glyph defect buried mid-blob.
+        # A short blob is still checked as a single segment: identical
+        # behavior to before this fix.
         if len(stripped) > _CUR_BLOB_LEN_CUTOFF:
-            continue  # KB research-citation blob, not this plan's own figure
+            segments = _iter_currency_segments(text)
+        else:
+            segments = [text]
 
-        bad_syms = sorted(
-            {
-                sym
-                for sym in (m.group(0) for m in _CUR_GLYPH_RE.finditer(text))
-                if sym != plan_symbol
-            }
-        )
-        # convert-vs-declare: a local-market figure may legitimately differ
-        # from the plan currency -- a London salary is GBP data even when the
-        # client budgeted in USD -- and the honest way to show one is to state
-        # its denomination on the figure itself ("£60,000 - £97,500 (GBP)").
-        # The rule already accepts an explicit "(USD)" marker on a row/column;
-        # accept the symmetric case here. This does NOT weaken the check: the
-        # symbol must AGREE with the code it declares, so a self-contradictory
-        # "$42,000 (GBP)" is still caught above by
-        # _DOLLAR_WITH_FOREIGN_CODE_RE, and an unmarked stray glyph still
-        # fails. Before this, honouring the client's typed currency turned
-        # every correctly-denominated local salary into a delivery-blocking
-        # critical.
-        if bad_syms:
-            declared_codes = {
-                c for c in re.findall(r"\(([A-Z]{3})\)", text) if c != plan_code
-            }
-            if len(declared_codes) == 1:
-                _declared = next(iter(declared_codes))
-                try:
-                    _declared_sym = plan_currency.symbol_for_code(_declared).strip()
-                except Exception:  # noqa: BLE001
-                    _declared_sym = ""
-                if _declared_sym and all(s == _declared_sym for s in bad_syms):
-                    bad_syms = []
-        if bad_syms:
-            findings.append(
-                _finding(
-                    "critical",
-                    "currency_symbol_mixing",
-                    f"Currency symbol(s) {bad_syms} in client-facing text "
-                    f"do not match this plan's currency ({plan_code} "
-                    f"{plan_symbol!r}) and are not marked with an explicit "
-                    f"foreign-denomination prefix: {stripped[:160]!r}",
-                    u.location,
-                )
+        for seg in segments:
+            seg_stripped = seg.strip()
+            if not seg_stripped:
+                continue
+
+            bad_syms = sorted(
+                {
+                    sym
+                    for sym in (m.group(0) for m in _CUR_GLYPH_RE.finditer(seg))
+                    if sym != plan_symbol
+                }
             )
+            # convert-vs-declare: a local-market figure may legitimately differ
+            # from the plan currency -- a London salary is GBP data even when the
+            # client budgeted in USD -- and the honest way to show one is to state
+            # its denomination on the figure itself ("£60,000 - £97,500 (GBP)").
+            # The rule already accepts an explicit "(USD)" marker on a row/column;
+            # accept the symmetric case here. This does NOT weaken the check: the
+            # symbol must AGREE with the code it declares, so a self-contradictory
+            # "$42,000 (GBP)" is still caught above by
+            # _DOLLAR_WITH_FOREIGN_CODE_RE, and an unmarked stray glyph still
+            # fails. Before this, honouring the client's typed currency turned
+            # every correctly-denominated local salary into a delivery-blocking
+            # critical.
+            if bad_syms:
+                declared_codes = {
+                    c for c in re.findall(r"\(([A-Z]{3})\)", seg) if c != plan_code
+                }
+                if len(declared_codes) == 1:
+                    _declared = next(iter(declared_codes))
+                    try:
+                        _declared_sym = plan_currency.symbol_for_code(
+                            _declared
+                        ).strip()
+                    except Exception:  # noqa: BLE001
+                        _declared_sym = ""
+                    if _declared_sym and all(s == _declared_sym for s in bad_syms):
+                        bad_syms = []
+            if bad_syms:
+                findings.append(
+                    _finding(
+                        "critical",
+                        "currency_symbol_mixing",
+                        f"Currency symbol(s) {bad_syms} in client-facing text "
+                        f"do not match this plan's currency ({plan_code} "
+                        f"{plan_symbol!r}) and are not marked with an explicit "
+                        f"foreign-denomination prefix: {seg_stripped[:160]!r}",
+                        u.location,
+                    )
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -1946,6 +2001,24 @@ def _check_industry_client_conflict(data: dict, findings: list[Finding]) -> None
     still fires, because "uber" clears the bar as an exact brand-keyword
     match).
 
+    SEVERITY FIX (role-vote-only false positives): a conflict inferred
+    from role titles alone (no company-name/brand keyword hit) is weaker
+    evidence than the client's own name implying a different industry, so
+    it is now at most a "warn" -- never a blocking "critical" -- and only
+    when ``classify_industry``'s own majority gate on the role vote
+    already passed (see ``_infer_industry_from_signals``'s
+    ``_role_vote_ratio``; a single outlier role title among an otherwise
+    coherent roster no longer produces ANY signal, let alone a critical
+    one). Real false positives this closes: a manufacturing plan whose
+    only "conflicting" role was "Regional Sales Manager" (-> Retail &
+    E-Commerce), and a mining/manufacturing brief whose role titles alone
+    (no company-name hit) voted it to Energy & Utilities. It stays
+    "critical" only when the independent inference's signal is
+    "client_name" -- an exact keyword hit against the CLIENT NAME itself
+    (e.g. a hospital's own name on a retail plan, or the origin Uber
+    defect above) -- because that is evidence classify_industry's own
+    explicit selection cannot simply outscore or overrule.
+
     Import is local/defensive: app.py is a very large module with
     module-level side effects (Flask/DB/background-thread init) and itself
     imports bundle_qa lazily inside its generation handler specifically to
@@ -1979,15 +2052,25 @@ def _check_industry_client_conflict(data: dict, findings: list[Finding]) -> None
 
     conflict = selected.get("industry_conflict") if isinstance(selected, dict) else None
     if conflict:
+        # Only an exact keyword hit against the CLIENT NAME itself is
+        # confident enough to block delivery outright. A conflict inferred
+        # from role titles alone -- classify_industry's own majority gate
+        # on the role vote already passed by this point, see
+        # ``_infer_industry_from_signals`` -- is real but weaker evidence:
+        # it warns instead of blocking. See this function's docstring
+        # ("SEVERITY FIX") for the false positives this closes.
+        signal = conflict.get("signal")
+        severity = "critical" if signal == "client_name" else "warn"
         findings.append(
             _finding(
-                "critical",
+                severity,
                 "industry_client_conflict",
                 f"Plan industry {conflict.get('selected_sector')!r} "
                 f"(legacy_key={conflict.get('selected_legacy_key')}) conflicts "
                 f"with the industry implied by the client name/roles alone: "
                 f"{conflict.get('inferred_sector')!r} "
-                f"(legacy_key={conflict.get('inferred_legacy_key')})",
+                f"(legacy_key={conflict.get('inferred_legacy_key')}, "
+                f"signal={signal!r})",
                 "industry",
             )
         )
