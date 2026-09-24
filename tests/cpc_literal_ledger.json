@@ -1111,25 +1111,25 @@
   },
   {
     "file": "nova.py",
-    "literal": "$0.97 \u2013 $2.71",
+    "literal": "$0.97 – $2.71",
     "status": "cited",
     "source": "commit 93c9f7a _CHANNEL_CPC_DETAIL, Indeed rows across verticals; source='KB: indeed.average_cpc_range'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
   },
   {
     "file": "nova.py",
-    "literal": "$1.50 \u2013 $4.50",
+    "literal": "$1.50 – $4.50",
     "status": "cited",
     "source": "commit 93c9f7a _CHANNEL_CPC_DETAIL, LinkedIn rows across verticals; source='KB: linkedin.job_ad_cpc_range'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
   },
   {
     "file": "nova.py",
-    "literal": "$0.80 \u2013 $1.00",
+    "literal": "$0.80 – $1.00",
     "status": "cited",
     "source": "commit 93c9f7a _CHANNEL_CPC_DETAIL, ZipRecruiter rows across verticals; source='KB: ziprecruiter.estimated_cpc_equivalent'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
   },
   {
     "file": "nova.py",
-    "literal": "$0.80 \u2013 $2.00",
+    "literal": "$0.80 – $2.00",
     "status": "estimate_disclosed",
     "source": "commit 93c9f7a _CHANNEL_CPC_DETAIL, TruckersReport row; source='internal estimate -- not independently benchmarked' (kept verbatim pre-existing figure, disclosed not cited); tests/test_nova_channel_cpc_detail_honesty.py enforces"
   },
@@ -1159,25 +1159,25 @@
   },
   {
     "file": "nova.py",
-    "literal": "$0.50 \u2013 $2.00",
+    "literal": "$0.50 – $2.00",
     "status": "cited",
     "source": "2026-08-04 S5 precision fix, _CHANNEL_CPC_DETAIL technology vertical Indeed row; source='KB: recruitment_benchmarks_deep.industry_benchmarks.technology_engineering.cpc.indeed_cpc'; data/recruitment_benchmarks_deep.json industry_benchmarks.technology_engineering.cpc.indeed_cpc = '$0.50-$2.00'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
   },
   {
     "file": "nova.py",
-    "literal": "$0.20 \u2013 $0.75",
+    "literal": "$0.20 – $0.75",
     "status": "cited",
     "source": "2026-08-04 S5 precision fix, _CHANNEL_CPC_DETAIL retail vertical Indeed row; source='KB: recruitment_benchmarks_deep.industry_benchmarks.retail_consumer.cpc.indeed_cpc'; data/recruitment_benchmarks_deep.json industry_benchmarks.retail_consumer.cpc.indeed_cpc = '$0.20-$0.75'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
   },
   {
     "file": "nova.py",
-    "literal": "$0.50 \u2013 $1.50",
+    "literal": "$0.50 – $1.50",
     "status": "cited",
     "source": "2026-08-04 S5 precision fix, _CHANNEL_CPC_DETAIL finance vertical Indeed row; source='KB: recruitment_benchmarks_deep.industry_benchmarks.finance_banking.cpc.indeed_cpc'; data/recruitment_benchmarks_deep.json industry_benchmarks.finance_banking.cpc.indeed_cpc = '$0.50-$1.50'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
   },
   {
     "file": "nova.py",
-    "literal": "$4.50 \u2013 $7.00",
+    "literal": "$4.50 – $7.00",
     "status": "cited",
     "source": "2026-08-04 S5 precision fix, _CHANNEL_CPC_DETAIL finance vertical LinkedIn row; source='KB: recruitment_benchmarks_deep.industry_benchmarks.finance_banking.cpc.linkedin_cpc'; data/recruitment_benchmarks_deep.json industry_benchmarks.finance_banking.cpc.linkedin_cpc = '$4.50-$7.00'; tests/test_nova_channel_cpc_detail_honesty.py enforces"
   },
@@ -1599,7 +1599,7 @@
     "file": "nova.py",
     "literal": "$7,620",
     "status": "legacy_contained",
-    "source": "nova.py ~line 4724, 'Example 4: UK Salary Query' few-shot: 'CPH (professional tier, UK): \u00a36,000 (\u2248 $7,620 USD)'. A CPH figure (a USD-equivalent gloss on a GBP figure), not CPC -- caught only because the 'Typical CPC range: \u00a30.20-\u00a31.20' line 2 lines above is a real (separately ledgered) CPC citation."
+    "source": "nova.py ~line 4724, 'Example 4: UK Salary Query' few-shot: 'CPH (professional tier, UK): £6,000 (≈ $7,620 USD)'. A CPH figure (a USD-equivalent gloss on a GBP figure), not CPC -- caught only because the 'Typical CPC range: £0.20-£1.20' line 2 lines above is a real (separately ledgered) CPC citation."
   },
   {
     "file": "nova.py",
@@ -1641,7 +1641,7 @@
     "file": "nova.py",
     "literal": "$7.00",
     "status": "estimate_disclosed",
-    "source": "nova.py ~line 4587, currency-symbol-override rule worked example: \"if currency_symbol is \u20ac and the CPC is 7.00, write \u20ac7.00, not $7.00.\" An illustrative example explicitly instructing the model NOT to use '$' for this value -- it demonstrates the override rule, it does not assert a real USD CPC figure."
+    "source": "nova.py ~line 4587, currency-symbol-override rule worked example: \"if currency_symbol is € and the CPC is 7.00, write €7.00, not $7.00.\" An illustrative example explicitly instructing the model NOT to use '$' for this value -- it demonstrates the override rule, it does not assert a real USD CPC figure."
   },
   {
     "file": "nova.py",
@@ -1653,7 +1653,7 @@
     "file": "nova.py",
     "literal": "$7.63",
     "status": "estimate_disclosed",
-    "source": "nova.py ~line 14073, comment describing a PAST bug for context: \"S79 added the currency tag but left the numbers in USD, so the LLM rendered Berlin CPCs as `$7.63` despite the `\u20ac` symbol tag.\" Documentation of a historical defect example, not a value the current code emits or asserts."
+    "source": "nova.py ~line 14073, comment describing a PAST bug for context: \"S79 added the currency tag but left the numbers in USD, so the LLM rendered Berlin CPCs as `$7.63` despite the `€` symbol tag.\" Documentation of a historical defect example, not a value the current code emits or asserts."
   },
   {
     "file": "skill_target.py",
@@ -1678,5 +1678,11 @@
     "literal": "$454",
     "status": "cited",
     "source": "trend_engine.py ~line 88, comment: '... Joveo Google Ads 2025 first-party campaign data (6,338 keywords, $454K spend).' Total ad SPEND (not CPC), same fact as nova.py/data_synthesizer.py's identical '$454K spend' documentation."
+  },
+  {
+    "file": "excel_v2.py",
+    "literal": "$1.62",
+    "status": "cited",
+    "source": "Illustrative example value inside two docstrings/comments added by the 2026-09-24 CPC-currency-provenance fix (~line 262 the _cpc_number_format docstring, ~line 6186 the rationale-prefix comment) -- prose explaining why an unconverted US-cascade CPC renders as a fixed \"$1.62\" regardless of plan currency, not a hardcoded price used in any generated output."
   }
 ]
