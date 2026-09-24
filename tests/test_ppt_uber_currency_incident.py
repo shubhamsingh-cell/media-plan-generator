@@ -242,23 +242,44 @@ class TestGbpPlanNoHardcodedDollar:
         # the incident this file guards is unchanged. £561.7K -> £558.7K.
         #
         # 2026-09-24 DELIBERATE re-baseline (budget_engine.py F1 fix --
-        # _dedupe_shared_fallback_cpcs currency conversion): niche_boards
-        # and employer_branding both fell to the SAME shared-fallback CPC
-        # collision (see _dedupe_shared_fallback_cpcs), which re-derives a
-        # CPC from BASE_BENCHMARKS['cpc'] -- a USD table -- per category.
-        # That re-derived CPC used to be spent UNCONVERTED against this
-        # plan's GBP dollar_amount (the same class of bug the 2026-09-08
-        # unit-coherence fix closed for the CASCADE's OWN static-benchmark
-        # fallback, but the post-cascade dedup step re-introduced it by
-        # overwriting cpc with a fresh raw-USD lookup). It's now converted
-        # into GBP with the SAME usd_per_local rate. niche_boards/
-        # employer_branding got cheaper (CPC was ~1.27x too high in GBP
-        # terms), which raises their ROI score, which shifts more of the
-        # ROI-based reweight toward them and away from Programmatic DSP.
-        # Slides 4 and 5 still agree -- the incident this file guards is
-        # unchanged. £558.7K -> £551.1K.
-        slide4_hit = any("Programmatic (DSP) £551.1K" in t for t in texts)
-        slide5_hit = any("Programmatic DSP (£551.1K)" in t for t in texts)
+        # _dedupe_shared_fallback_cpcs currency conversion, commit 1205df9):
+        # niche_boards and employer_branding both fell to the SAME
+        # shared-fallback CPC collision (see _dedupe_shared_fallback_cpcs),
+        # which re-derives a CPC from BASE_BENCHMARKS['cpc'] -- a USD table
+        # -- per category. That re-derived CPC used to be spent UNCONVERTED
+        # against this plan's GBP dollar_amount (the same class of bug the
+        # 2026-09-08 unit-coherence fix closed for the CASCADE's OWN
+        # static-benchmark fallback, but the post-cascade dedup step
+        # re-introduced it by overwriting cpc with a fresh raw-USD lookup).
+        # It's now converted into GBP with the SAME usd_per_local rate.
+        # niche_boards/employer_branding got cheaper (CPC was ~1.27x too
+        # high in GBP terms), which raises their ROI score, which shifts
+        # more of the ROI-based reweight toward them and away from
+        # Programmatic DSP. £558.7K -> £551.1K.
+        #
+        # 2026-09-24 second DELIBERATE re-baseline, same day (budget_engine.py
+        # Fix 3): _CHANNEL_MIN_CPH, the efficiency-flag $1000 threshold, and
+        # the flat-cost ~$50/application heuristic (referral/events/staffing)
+        # were ALSO compared directly against this GBP plan's dollar amounts
+        # -- over-suppressing hires (a raw $800 floor read as "£800" is
+        # stricter than the correctly-converted ~£630). With these floors
+        # properly converted (reusing the same usd_per_local rate, and the
+        # same gate as the fixes above), fewer hires are suppressed, shifting
+        # downstream ROI scores and the low-ROI rebalancer's redistribution
+        # again. £558.7K -> £563.9K.
+        #
+        # 2026-09-24 third DELIBERATE re-baseline, same day (a concurrent
+        # session's commit 6e2d797, rebased onto the fixes above):
+        # compute_channel_dollar_amounts's first-pass ``industry_avg_cph =
+        # 6_000.0`` flat USD fallback (fed into each channel's roi_score) and
+        # the total-plan-level CPH floor/roi_score inputs in
+        # calculate_budget_allocation were ALSO USD-scale constants compared
+        # against plan-native figures -- the same bug class, closed the same
+        # way. Fixes across three independent sessions are now all merged;
+        # the net result is £558.7K -> £567K. Slides 4 and 5 still agree --
+        # the incident this file guards is unchanged.
+        slide4_hit = any("Programmatic (DSP) £567K" in t for t in texts)
+        slide5_hit = any("Programmatic DSP (£567K)" in t for t in texts)
         assert slide4_hit, f"slide 4 push/pull figure missing/wrong: {texts!r}"
         assert slide5_hit, f"slide 5 attribution figure missing/wrong: {texts!r}"
 

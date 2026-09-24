@@ -351,9 +351,45 @@ def _usd_const_to_plan_basis(usd_value: float, usd_per_local: Optional[float]) -
     e.g. a multi-market usd_blend plan) leaves ``usd_value`` unconverted,
     matching every pre-fix caller byte-for-byte.
     """
-    if usd_per_local and usd_per_local > 0:
+    if (
+        isinstance(usd_per_local, (int, float))
+        and not isinstance(usd_per_local, bool)
+        and math.isfinite(usd_per_local)
+        and usd_per_local > 0
+    ):
         return usd_value / usd_per_local
     return usd_value
+
+
+def _usd_const_to_intl_basis(
+    usd_value: float, intl_cpc_basis: Optional[Dict[str, Any]]
+) -> float:
+    """Convert a hardcoded USD-scale constant into the plan's local currency,
+    using the same ``usd_per_local`` rate the F1 CPC-cascade fix uses (see
+    ``compute_channel_dollar_amounts``'s "Unit coherence" block).
+
+    ``_CHANNEL_MIN_CPH`` floors and similar USD noise-filter thresholds are
+    compared directly against plan-native dollar amounts elsewhere in this
+    module. That's fine for a USD plan, but for a genuinely local-currency
+    plan (``basis == "local"``, e.g. a JPY or GBP plan) the comparison mixes
+    units: a JPY plan's dollar figures are ~149x the nominal USD figure, so a
+    raw USD floor essentially never triggers (under-suppresses hires); a GBP
+    plan's figures are smaller than the USD-equivalent, so the same raw
+    floor over-triggers (suppresses more hires than intended). Convert with
+    the dataset's own rate -- no exchange rate is invented here. Returns
+    ``usd_value`` unchanged for US plans, multi-market/blended-basis plans,
+    or when the rate is unavailable, so nothing changes for the existing
+    (and overwhelmingly common) case this constant was tuned for.
+
+    Thin wrapper around ``_usd_const_to_plan_basis`` (the canonical
+    USD->local division, shared with ``assess_budget_sufficiency`` and
+    ``calculate_budget_allocation``'s total-level CPH floor/roi_score path)
+    that extracts and gates the rate from an ``intl_cpc_basis`` dict instead
+    of a pre-extracted float -- the two never diverge on the actual math.
+    """
+    if not intl_cpc_basis or intl_cpc_basis.get("basis") != "local":
+        return usd_value
+    return _usd_const_to_plan_basis(usd_value, intl_cpc_basis.get("usd_per_local"))
 
 
 # ── Canonical taxonomy standardizer ──
@@ -567,7 +603,11 @@ def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
 
 
-def _compute_efficiency_flag(dollars: Optional[float], hires: Optional[float]) -> str:
+def _compute_efficiency_flag(
+    dollars: Optional[float],
+    hires: Optional[float],
+    intl_cpc_basis: Optional[Dict[str, Any]] = None,
+) -> str:
     """S49 (Issue 16) rule, factored out so every place that mutates a
     channel's ``projected_hires``/``dollar_amount`` AFTER the initial
     ``compute_channel_dollar_amounts`` pass can recompute ``efficiency_flag``
@@ -587,10 +627,21 @@ def _compute_efficiency_flag(dollars: Optional[float], hires: Optional[float]) -
     projected 0 hires" right next to a channel visibly projecting hundreds
     of hires. Every mutator listed above now calls this after any hires/
     dollars change so the flag always reflects the LIVE values.
+
+    Args:
+        intl_cpc_basis: Fix 3 -- same dict produced by ``_resolve_intl_cpc_basis``.
+            The $1000 noise-filter threshold below is USD-scale but
+            ``dollars`` is plan-native; convert it via
+            ``_usd_const_to_intl_basis`` the same way the CPH floor is, so a
+            JPY plan (that same jp_jpy bundle) doesn't flag every nonzero
+            spend, and a GBP plan doesn't mislabel channels that would clear
+            the correctly-converted threshold. ``None`` (default) keeps the
+            raw $1000 threshold.
     """
     hires_val = hires or 0
     dollars_val = dollars or 0
-    if hires_val == 0 and dollars_val > 1000:
+    _threshold = _usd_const_to_intl_basis(1000, intl_cpc_basis)
+    if hires_val == 0 and dollars_val > _threshold:
         return "Low Efficiency"
     if hires_val == 0 and dollars_val > 0:
         return "No Projected Hires"
@@ -1132,6 +1183,7 @@ def _redistribute_hires_by_conversion(
     channel_allocations: Dict[str, Dict],
     total_hires: int,
     industry_avg_cph: float,
+    intl_cpc_basis: Optional[Dict[str, Any]] = None,
 ) -> None:
     """S92 FIX (THE BIG ONE) -- findings strategy:manpower#6/#8,
     data:manpower#4 root, data:atria#1 root.
@@ -1159,6 +1211,15 @@ def _redistribute_hires_by_conversion(
     industry-specific average -- not a flat fallback) for every channel from
     its new hire count. Uses largest-remainder rounding so per-channel hires
     sum EXACTLY to ``total_hires``. Mutates ``channel_allocations`` in place.
+
+    Args:
+        intl_cpc_basis: Fix 3 -- same dict produced by ``_resolve_intl_cpc_basis``,
+            passed through to ``_compute_efficiency_flag`` so its $1000
+            threshold is converted into the plan's local currency. This
+            function runs AFTER ``compute_channel_dollar_amounts`` and
+            overwrites ``efficiency_flag`` for every channel, so omitting
+            this would silently undo that earlier conversion. ``None``
+            (default) keeps the raw $1000 threshold.
     """
     if not channel_allocations:
         return
@@ -1171,7 +1232,7 @@ def _redistribute_hires_by_conversion(
             ch["roi_score"] = _score_roi(
                 ch["cost_per_hire"], industry_avg_cph, projected_hires=0
             )
-            ch["efficiency_flag"] = _compute_efficiency_flag(dollars, 0)
+            ch["efficiency_flag"] = _compute_efficiency_flag(dollars, 0, intl_cpc_basis)
         return
 
     performance_names = [
@@ -1190,7 +1251,7 @@ def _redistribute_hires_by_conversion(
         ch["roi_score"] = _score_roi(
             ch["cost_per_hire"], industry_avg_cph, projected_hires=0
         )
-        ch["efficiency_flag"] = _compute_efficiency_flag(dollars, 0)
+        ch["efficiency_flag"] = _compute_efficiency_flag(dollars, 0, intl_cpc_basis)
 
     if not performance_names:
         return
@@ -1238,7 +1299,7 @@ def _redistribute_hires_by_conversion(
         ch["roi_score"] = _score_roi(
             ch["cost_per_hire"], industry_avg_cph, projected_hires=hires
         )
-        ch["efficiency_flag"] = _compute_efficiency_flag(dollars, hires)
+        ch["efficiency_flag"] = _compute_efficiency_flag(dollars, hires, intl_cpc_basis)
 
 
 # ---------------------------------------------------------------------------
@@ -1728,6 +1789,13 @@ def _dedupe_shared_fallback_cpcs(
     (synthesized/live/trend/KB/static) on a local-currency plan -- reusing
     it here keeps the dedup path consistent with that existing conversion
     instead of re-deriving or inventing a new exchange rate.
+
+    Args:
+        intl_cpc_basis: Fix 3 -- same dict produced by ``_resolve_intl_cpc_basis``.
+            Converts the re-derived static-benchmark CPC (above) and the
+            ~$50/application flat-cost heuristic (below) into the plan's
+            local currency before use. ``None`` (default) reproduces the
+            prior USD-only behavior.
     """
     usd_per_local: Optional[float] = None
     local_currency = ""
@@ -1756,17 +1824,20 @@ def _dedupe_shared_fallback_cpcs(
         for ch_name in names:
             ch = allocations[ch_name]
             category = ch.get("category", "")
-            new_cpc = BASE_BENCHMARKS["cpc"].get(category, 0.85)
+            # Fix 3: the re-derived static-benchmark CPC is USD-scale;
+            # convert into local currency the same way the main cascade's
+            # "Unit coherence" block does, so a re-derived value doesn't
+            # reintroduce the exact USD/local mixing this dedup exists to fix.
+            # (Single conversion via _usd_const_to_intl_basis, gated on the
+            # SAME usd_per_local computed above -- do not also divide by
+            # usd_per_local again below, that would convert it twice.)
+            new_cpc = _usd_const_to_intl_basis(
+                BASE_BENCHMARKS["cpc"].get(category, 0.85), intl_cpc_basis
+            )
             dollars = ch.get("dollar_amount", 0)
 
             cpc_source = "static_benchmark_dedup"
             if usd_per_local:
-                # Convert the USD static benchmark into the plan's local
-                # currency with the dataset's own rate -- never divide a
-                # local-currency ``dollars`` figure by an unconverted USD
-                # CPC (declare-not-convert: this IS a conversion, using
-                # the dataset's own shipped rate, not an invented one).
-                new_cpc = new_cpc / usd_per_local
                 cpc_source = f"static_benchmark_dedup->{local_currency or 'local'}"
 
             ch["cpc"] = round(new_cpc, 4 if usd_per_local else 2)
@@ -1786,7 +1857,8 @@ def _dedupe_shared_fallback_cpcs(
                 apps = max(0, int(clicks * apply_rate))
             else:
                 clicks = 0
-                apps = max(1, int(dollars / 50.0))
+                _flat_cost_per_app = _usd_const_to_intl_basis(50.0, intl_cpc_basis)
+                apps = max(1, int(dollars / _flat_cost_per_app))
 
             old_apps = ch.get("projected_applications") or 0
             old_hires = ch.get("projected_hires") or 0
@@ -1800,7 +1872,9 @@ def _dedupe_shared_fallback_cpcs(
             ch["cost_per_hire"] = round(
                 _safe_divide(dollars, max(hires, 1), dollars), 2
             )
-            ch["efficiency_flag"] = _compute_efficiency_flag(dollars, hires)
+            ch["efficiency_flag"] = _compute_efficiency_flag(
+                dollars, hires, intl_cpc_basis
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -2685,8 +2759,15 @@ def compute_channel_dollar_amounts(
         for tier, count in _tier_counts.items()
     )
     logger.info("Blended hire_rate=%.4f from tiers: %s", hire_rate, _tier_counts)
-    industry_avg_cph = (
-        6_000.0  # fallback; caller can override via assess_budget_sufficiency
+    # Fix 3 follow-up (peer-session verifier finding, 2026-09-24): this flat
+    # fallback is USD-scale but feeds _score_roi against each channel's
+    # plan-native cost_per_hire below -- convert it the same way as every
+    # other USD constant in this function, or a JPY/INR plan's channels all
+    # collapse to a false "ROI 1/10 ... needs manual review" (cost_per_hire
+    # in the thousands of yen dwarfs an unconverted $6,000 comparison).
+    industry_avg_cph = _usd_const_to_intl_basis(
+        6_000.0,
+        intl_cpc_basis,  # fallback; caller can override via assess_budget_sufficiency
     )
 
     # v3: Determine collar type from roles if not explicitly provided
@@ -2817,10 +2898,12 @@ def compute_channel_dollar_amounts(
         # we estimate outcomes differently.
         if cpc <= 0:
             # Flat-cost channels: estimate a synthetic CPA instead
+            # Fix 3: ~$50/application is USD-scale; convert into the plan's
+            # local currency (same usd_per_local basis as the CPH floor)
+            # before dividing plan-native `dollars` by it.
+            _flat_cost_per_app = _usd_const_to_intl_basis(50.0, intl_cpc_basis)
             projected_clicks = 0
-            projected_applications = max(
-                1, int(dollars / 50.0)
-            )  # ~$50/application heuristic
+            projected_applications = max(1, int(dollars / _flat_cost_per_app))
             projected_hires = max(
                 0, int(projected_applications * hire_rate * 2)
             )  # higher quality
@@ -2837,7 +2920,12 @@ def compute_channel_dollar_amounts(
         # Prevents unrealistically low hire projections (e.g. Programmatic DSP
         # at $515/hire when real-world floor is $800).  Cap projected_hires so
         # that cost_per_hire >= channel minimum.
-        _ch_min_cph = _CHANNEL_MIN_CPH.get(category, 0)
+        # Fix 3: floor is USD-scale; convert into the plan's local currency
+        # (same usd_per_local basis as the F1 CPC fix above) before comparing
+        # against `dollars`, which is already plan-native.
+        _ch_min_cph = _usd_const_to_intl_basis(
+            _CHANNEL_MIN_CPH.get(category, 0), intl_cpc_basis
+        )
         if _ch_min_cph > 0 and dollars > 0 and projected_hires > 0:
             max_hires_at_floor = int(dollars / _ch_min_cph)
             if projected_hires > max_hires_at_floor:
@@ -2909,10 +2997,13 @@ def compute_channel_dollar_amounts(
             cost_per_hire, industry_avg_cph, projected_hires=projected_hires
         )
 
-        # S49 FIX (Issue 16): Flag channels spending >$1000 with 0 hires.
-        # See _compute_efficiency_flag -- every LATER step that changes
-        # this channel's hires/dollars recomputes this the same way.
-        _efficiency_flag = _compute_efficiency_flag(dollars, projected_hires)
+        # S49 FIX (Issue 16): Flag channels spending >$1000 (converted into
+        # the plan's local currency -- Fix 3) with 0 hires. See
+        # _compute_efficiency_flag -- every LATER step that changes this
+        # channel's hires/dollars recomputes this the same way.
+        _efficiency_flag = _compute_efficiency_flag(
+            dollars, projected_hires, intl_cpc_basis
+        )
 
         # ── S49/S50 FIX: Downgrade channel confidence from input data quality ──
         # The CPC-based confidence above only reflects the CPC data source,
@@ -3031,6 +3122,7 @@ def rebalance_low_roi_channels(
     spend_threshold_pct: float = 5.0,
     recipient_roi_min: int = 8,
     exclude: Optional[Any] = None,
+    intl_cpc_basis: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Dict]:
     """Rebalance budget away from low-ROI channels to high-ROI channels.
 
@@ -3094,6 +3186,12 @@ def rebalance_low_roi_channels(
             (the default, and what every pre-existing caller passes) means
             "nothing excluded", byte-identical to before this parameter
             existed.
+        intl_cpc_basis: Fix 3 -- same dict produced by ``_resolve_intl_cpc_basis``
+            and threaded through ``compute_channel_dollar_amounts``. Used only
+            to convert the USD-scale ``_CHANNEL_MIN_CPH`` floor into the
+            plan's local currency inside ``_recompute_channel_metrics``.
+            ``None`` (the default) reproduces the exact prior USD-only
+            behavior.
 
     Returns:
         The (mutated) ``channel_allocations`` dict with updated dollar amounts,
@@ -3177,7 +3275,9 @@ def rebalance_low_roi_channels(
         ch = channel_allocations[ch_name]
         old_dollars = ch.get("dollar_amount", 0)
         new_dollars = round(old_dollars - freed, 2)
-        _recompute_channel_metrics(ch, new_dollars, total_budget)
+        _recompute_channel_metrics(
+            ch, new_dollars, total_budget, intl_cpc_basis=intl_cpc_basis
+        )
         logger.info(
             "  Donor %s: $%.0f -> $%.0f (ROI %d)",
             ch_name,
@@ -3194,7 +3294,9 @@ def rebalance_low_roi_channels(
         bonus = freed_pool * share
         old_dollars = ch.get("dollar_amount", 0)
         new_dollars = round(old_dollars + bonus, 2)
-        _recompute_channel_metrics(ch, new_dollars, total_budget)
+        _recompute_channel_metrics(
+            ch, new_dollars, total_budget, intl_cpc_basis=intl_cpc_basis
+        )
         logger.info(
             "  Recipient %s: $%.0f -> $%.0f (+$%.0f, ROI %d)",
             ch_name,
@@ -3208,7 +3310,10 @@ def rebalance_low_roi_channels(
 
 
 def _recompute_channel_metrics(
-    ch: Dict[str, Any], new_dollars: float, total_budget: float
+    ch: Dict[str, Any],
+    new_dollars: float,
+    total_budget: float,
+    intl_cpc_basis: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Recompute projected metrics for a channel after its dollar amount changes.
 
@@ -3217,6 +3322,12 @@ def _recompute_channel_metrics(
 
     Uses the channel's existing CPC, apply_rate, and hire_rate assumptions
     so that the rebalanced numbers are consistent with the original model.
+
+    Args:
+        intl_cpc_basis: Fix 3 -- see ``rebalance_low_roi_channels``. Converts
+            the USD-scale ``_CHANNEL_MIN_CPH`` floor into the plan's local
+            currency before comparing it against ``new_dollars`` (already
+            plan-native). ``None`` (default) keeps the prior USD-only floor.
     """
     ch["dollar_amount"] = new_dollars
     ch["percentage"] = round(_safe_divide(new_dollars, total_budget, 0.0) * 100.0, 1)
@@ -3237,13 +3348,18 @@ def _recompute_channel_metrics(
         apps = max(0, int(clicks * apply_rate))
         hires = max(0, int(apps * hire_rate))
     else:
+        # Fix 3: ~$50/application is USD-scale; convert into local currency
+        # (same usd_per_local basis as the CPH floor above) before dividing.
         clicks = 0
-        apps = max(1, int(new_dollars / 50.0))
+        _flat_cost_per_app = _usd_const_to_intl_basis(50.0, intl_cpc_basis)
+        apps = max(1, int(new_dollars / _flat_cost_per_app))
         hires = max(0, int(apps * hire_rate * 2))
 
     # Enforce per-channel CPH floor (same logic as primary path)
     category = ch.get("category", "")
-    _ch_min_cph = _CHANNEL_MIN_CPH.get(category, 0)
+    _ch_min_cph = _usd_const_to_intl_basis(
+        _CHANNEL_MIN_CPH.get(category, 0), intl_cpc_basis
+    )
     if _ch_min_cph > 0 and new_dollars > 0 and hires > 0:
         max_hires_at_floor = int(new_dollars / _ch_min_cph)
         if hires > max_hires_at_floor:
@@ -3256,7 +3372,7 @@ def _recompute_channel_metrics(
     ch["cost_per_hire"] = round(
         _safe_divide(new_dollars, max(hires, 1), new_dollars), 2
     )
-    ch["efficiency_flag"] = _compute_efficiency_flag(new_dollars, hires)
+    ch["efficiency_flag"] = _compute_efficiency_flag(new_dollars, hires, intl_cpc_basis)
 
 
 def assess_budget_sufficiency(
@@ -3549,6 +3665,7 @@ def optimize_allocation(
     total_budget: float,
     optimization_goal: str = "hires",
     collar_type: str = "",
+    intl_cpc_basis: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Suggest reallocation to optimise for the specified goal.
@@ -3563,6 +3680,10 @@ def optimize_allocation(
         collar_type: Collar type hint for tier-aware hire/apply rates
             (e.g. ``"blue_collar"``, ``"white_collar"``).  Empty string
             falls back to the flat ``BASE_BENCHMARKS["hire_rate"]``.
+        intl_cpc_basis: Fix 3 -- same dict produced by ``_resolve_intl_cpc_basis``.
+            Converts the USD-scale ``_CHANNEL_MIN_CPH`` floor into the plan's
+            local currency before comparing against ``new_dollars`` (already
+            plan-native). ``None`` (default) keeps the prior USD-only floor.
 
     Returns:
         Dict with ``optimized_allocations``, ``improvement``, ``changes``.
@@ -3726,12 +3847,17 @@ def optimize_allocation(
             new_apps = max(0, int(new_clicks * apply_rate))
             new_hires = max(0, int(new_apps * hire_rate))
         else:
+            # Fix 3: ~$50/application is USD-scale; convert into local
+            # currency (same usd_per_local basis as the CPH floor below).
             new_clicks = 0
-            new_apps = max(1, int(new_dollars / 50.0))
+            _flat_cost_per_app = _usd_const_to_intl_basis(50.0, intl_cpc_basis)
+            new_apps = max(1, int(new_dollars / _flat_cost_per_app))
             new_hires = max(0, int(new_apps * hire_rate * 2))
 
         # S49: Apply per-channel CPH floor in optimizer path (same as primary)
-        _opt_min_cph = _CHANNEL_MIN_CPH.get(category, 0)
+        _opt_min_cph = _usd_const_to_intl_basis(
+            _CHANNEL_MIN_CPH.get(category, 0), intl_cpc_basis
+        )
         if _opt_min_cph > 0 and new_dollars > 0 and new_hires > 0:
             _opt_max_hires = int(new_dollars / _opt_min_cph)
             if new_hires > _opt_max_hires:
@@ -4018,6 +4144,12 @@ def _apply_outcome_calibration(
     scale = est_cpa / calibrated_cpa if calibrated_cpa > 0 else 1.0
     scale = max(0.67, min(1.55, scale))
 
+    # Fix 3: read the plan's resolved intl CPC basis straight off the result
+    # metadata (already set by calculate_budget_allocation before this runs)
+    # so efficiency_flag's $1000 threshold converts into the plan's local
+    # currency, same as every other mutator of this field.
+    _intl_basis = (result.get("metadata") or {}).get("intl_cpc_basis")
+
     # Rescale every channel's applications/hires; recompute their CPA/CPH from
     # the unchanged dollar_amount so channel rows stay internally consistent.
     channels = result.get("channel_allocations") or {}
@@ -4035,7 +4167,9 @@ def _apply_outcome_calibration(
         ch["cost_per_hire"] = round(
             _safe_divide(dollars, max(ch["projected_hires"], 1), 0), 2
         )
-        ch["efficiency_flag"] = _compute_efficiency_flag(dollars, ch["projected_hires"])
+        ch["efficiency_flag"] = _compute_efficiency_flag(
+            dollars, ch["projected_hires"], _intl_basis
+        )
 
     # Re-aggregate the blended totals (clicks/CPC unchanged — calibration acts
     # on apply efficiency, not traffic).
@@ -4577,7 +4711,9 @@ def calculate_budget_allocation(
     # severity-proportional share of their OWN allocation. Freed budget is
     # redistributed proportionally to channels with ROI >= 8. Brand
     # channels are exempt (governed by the 12% cap above instead).
-    channel_allocs = rebalance_low_roi_channels(channel_allocs, total_budget)
+    channel_allocs = rebalance_low_roi_channels(
+        channel_allocs, total_budget, intl_cpc_basis=_intl_cpc_basis
+    )
 
     # S91: never silently accept a bad allocation -- surface any per-channel
     # quality_flag (from the rebalancer or the vendor gate) at the top level.
@@ -4666,7 +4802,9 @@ def calculate_budget_allocation(
             ch["cost_per_hire"] = round(
                 _safe_divide(ch_dollars, max(new_ch_hires, 1), ch_dollars), 2
             )
-            ch["efficiency_flag"] = _compute_efficiency_flag(ch_dollars, new_ch_hires)
+            ch["efficiency_flag"] = _compute_efficiency_flag(
+                ch_dollars, new_ch_hires, _intl_cpc_basis
+            )
         total_hires = new_total_hires
 
     # Step 3.9 (S92 -- THE BIG ONE): total_hires above is the authoritative,
@@ -4686,7 +4824,10 @@ def calculate_budget_allocation(
     # reallocation below (Step 3.9b).
     _industry_avg_cph_val = _industry_avg_cph_plan
     _redistribute_hires_by_conversion(
-        channel_allocs, total_hires, _industry_avg_cph_val
+        channel_allocs,
+        total_hires,
+        _industry_avg_cph_val,
+        intl_cpc_basis=_intl_cpc_basis,
     )
 
     # Step 3.9b (Fix 2 -- ROI score must constrain allocation): the FIRST
@@ -4741,7 +4882,10 @@ def calculate_budget_allocation(
         name: ch.get("dollar_amount") for name, ch in channel_allocs.items()
     }
     channel_allocs = rebalance_low_roi_channels(
-        channel_allocs, total_budget, exclude=_vendor_gated_names
+        channel_allocs,
+        total_budget,
+        exclude=_vendor_gated_names,
+        intl_cpc_basis=_intl_cpc_basis,
     )
     _roi_guard_fired = any(
         abs((channel_allocs[name].get("dollar_amount") or 0) - (old or 0)) > 0.01
@@ -4749,7 +4893,10 @@ def calculate_budget_allocation(
     )
     if _roi_guard_fired:
         _redistribute_hires_by_conversion(
-            channel_allocs, total_hires, _industry_avg_cph_val
+            channel_allocs,
+            total_hires,
+            _industry_avg_cph_val,
+            intl_cpc_basis=_intl_cpc_basis,
         )
         total_clicks = sum(
             ch.get("projected_clicks") or 0 for ch in channel_allocs.values()
@@ -4807,7 +4954,11 @@ def calculate_budget_allocation(
 
     # Step 6: Optimisation suggestions
     optimized = optimize_allocation(
-        channel_allocs, total_budget, "hires", collar_type=collar_type
+        channel_allocs,
+        total_budget,
+        "hires",
+        collar_type=collar_type,
+        intl_cpc_basis=_intl_cpc_basis,
     )
 
     # Consolidate warnings and recommendations

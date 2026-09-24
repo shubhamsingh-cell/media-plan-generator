@@ -1684,5 +1684,17 @@
     "literal": "$1.62",
     "status": "cited",
     "source": "Illustrative example value inside two docstrings/comments added by the 2026-09-24 CPC-currency-provenance fix (~line 262 the _cpc_number_format docstring, ~line 6186 the rationale-prefix comment) -- prose explaining why an unconverted US-cascade CPC renders as a fixed \"$1.62\" regardless of plan currency, not a hardcoded price used in any generated output."
+  },
+  {
+    "file": "budget_engine.py",
+    "literal": "$50",
+    "status": "estimate_disclosed",
+    "source": "budget_engine.py compute_channel_dollar_amounts/_recompute_channel_metrics/optimize_allocation/_dedupe_shared_fallback_cpcs (Fix 3, 2026-09-24): the flat-cost referral/events/staffing '~$50/application' heuristic used when a channel has no CPC model (cpc <= 0). Not sourced from any benchmark dataset -- a disclosed internal estimate, pre-existing before Fix 3, which only added the local-currency conversion (_usd_const_to_plan_basis) alongside it; the underlying $50 figure is unchanged."
+  },
+  {
+    "file": "budget_engine.py",
+    "literal": "$1000",
+    "status": "estimate_disclosed",
+    "source": "budget_engine.py _compute_efficiency_flag (Fix 3, 2026-09-24): the pre-existing S49 Issue-16 'Low Efficiency' vs 'No Projected Hires' noise-filter threshold (0 hires + >$1000 spend). Not sourced from any benchmark dataset -- a disclosed internal heuristic, pre-existing before Fix 3, which only added the local-currency conversion (_usd_const_to_intl_basis) alongside it; the underlying $1000 figure is unchanged."
   }
 ]
