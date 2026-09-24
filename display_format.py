@@ -105,34 +105,88 @@ def channel_label(key: str) -> str:
 # ---------------------------------------------------------------------------
 # Client / company name casing
 # ---------------------------------------------------------------------------
-def _cap_word(word: str) -> str:
+# Lowercase connectives that stay lowercase inside a client name (unless
+# they are the first word) -- "Bank of America", "Procter and Gamble", never
+# "Bank Of America" / "Procter And Gamble". '&' is included for documentation
+# parity with the prose rule even though it never reaches the capitalization
+# branch below (a bare '&' has no cased characters, so it is always
+# preserved as-is regardless of this set).
+_CLIENT_NAME_CONNECTIVES: frozenset[str] = frozenset(
+    {"of", "and", "the", "de", "la", "du", "von", "van", "for", "&"}
+)
+
+# Known brand/acronym tokens for CLIENT NAMES specifically (distinct from
+# the role/credential ACRONYMS table above). Case-insensitive lookup wins
+# over both the "capitalize a bare-lowercase word" rule and the "shouty
+# ALL-CAPS input" rule, so 'kpmg' / 'KPMG' / 'Kpmg' all normalize to the one
+# correct form instead of becoming 'Kpmg'.
+_CLIENT_BRAND_CASING: dict[str, str] = {
+    "ups": "UPS",
+    "ibm": "IBM",
+    "at&t": "AT&T",
+    "hca": "HCA",
+    "cvs": "CVS",
+    "ge": "GE",
+    "3m": "3M",
+    "bp": "BP",
+    "dhl": "DHL",
+    "usps": "USPS",
+    "xpo": "XPO",
+    "bmw": "BMW",
+    "ihg": "IHG",
+    "kpmg": "KPMG",
+    "ey": "EY",
+    "pwc": "PwC",
+}
+
+
+def _cap_word(word: str, is_first: bool = False) -> str:
     if not word:
         return word
+    lower = word.lower()
+    if lower in _CLIENT_BRAND_CASING:
+        return _CLIENT_BRAND_CASING[lower]
+    if not is_first and lower in _CLIENT_NAME_CONNECTIVES:
+        return lower
     if word.islower():
         return word[0].upper() + word[1:]
-    # Has internal capitals (eBay, McKinsey) or is an acronym (AMC, UPS) --
-    # preserve as-is.
+    # Has internal capitals (eBay, McKinsey) or is an acronym (AMC, UPS) not
+    # in the brand table above -- the client's own spelling of their own
+    # proper noun is authoritative, so preserve it as-is.
     return word
 
 
 def client_display_name(raw: str | None) -> str:
-    """Word-wise client name casing.
+    """Word-wise client name casing. The client's own spelling is
+    authoritative wherever it is recognizable; this only touches words that
+    read as raw, uncased source data.
 
-    - A word that is fully lowercase gets its first letter capitalized.
-    - A word with internal capitals (eBay, McKinsey) or an acronym (AMC, UPS)
-      is preserved as-is.
+    - A recognized brand/acronym token (:data:`_CLIENT_BRAND_CASING`, e.g.
+      'ups'/'UPS'/'Ups' -> 'UPS') always wins, in any input casing.
+    - A lowercase connective ('of', 'and', 'the', ...) stays lowercase
+      unless it is the first word ('Bank of America', not 'Bank Of
+      America').
+    - A word that is fully lowercase otherwise gets its first letter
+      capitalized.
+    - A word with internal capitals (eBay, McKinsey) or an acronym typed in
+      caps (AMC) that isn't in the brand table is preserved exactly as the
+      client submitted it.
     - If EVERY word in the string is uppercase, the whole thing reads as raw
-      shouty source data rather than real acronyms, so the whole string is
-      title-cased instead ('MANPOWER - AMERIGAS' -> 'Manpower - Amerigas').
+      shouty source data rather than real acronyms, so it is run through the
+      same per-word rules above after lowering each word first
+      ('MANPOWER - AMERIGAS' -> 'Manpower - Amerigas', but a real acronym
+      like 'UPS' or 'KPMG' still resolves via the brand table instead of
+      being flattened to 'Ups' / 'Kpmg').
     """
     if not raw or not isinstance(raw, str):
         return ""
     collapsed = re.sub(r"\s+", " ", raw).strip()
     if not collapsed:
         return ""
+    words = collapsed.split(" ")
     if collapsed.isupper():
-        return " ".join(w.capitalize() for w in collapsed.split(" "))
-    return " ".join(_cap_word(w) for w in collapsed.split(" "))
+        words = [w.lower() for w in words]
+    return " ".join(_cap_word(w, is_first=(i == 0)) for i, w in enumerate(words))
 
 
 # ---------------------------------------------------------------------------

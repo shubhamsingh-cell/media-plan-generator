@@ -596,21 +596,37 @@ def _check_text_patterns(
 def _check_client_name_casing(
     units: list[_TextUnit], data: dict, findings: list[Finding]
 ) -> None:
+    """Flag any deliverable occurrence of the client name that doesn't match
+    ``display_format.client_display_name``'s canonical casing.
+
+    The gate's canonical form is EXACTLY that function's output -- no second
+    casing implementation here -- so a bundle can never be flagged for
+    matching the same rule the deck/workbook generators use to write the
+    name in the first place. We search for the CANONICAL spelling
+    case-insensitively (not the raw client_name string): the client's own
+    submitted casing is irrelevant to what should appear on a client-facing
+    deliverable, and matching on canonical instead of raw also catches every
+    differently-cased occurrence, not only ones that literally repeat the
+    raw input.
+    """
     raw = str(data.get("client_name") or "").strip()
     if not raw:
         return
     canonical = display_format.client_display_name(raw)
-    if not canonical or canonical == raw:
-        return  # nothing to distinguish -- raw casing already canonical
-    raw_re = re.compile(r"\b" + re.escape(raw) + r"\b")
+    if not canonical:
+        return
+    canonical_re = re.compile(r"\b" + re.escape(canonical) + r"\b", re.IGNORECASE)
     for u in units:
-        if raw_re.search(u.text):
+        for match in canonical_re.finditer(u.text):
+            found = match.group(0)
+            if found == canonical:
+                continue
             findings.append(
                 _finding(
                     "critical",
                     "client_name_wrong_casing",
-                    f"Client name appears in raw casing {raw!r} instead of "
-                    f"the canonical {canonical!r}: {u.text.strip()[:120]!r}",
+                    f"Client name appears as {found!r} instead of the "
+                    f"canonical {canonical!r}: {u.text.strip()[:120]!r}",
                     u.location,
                 )
             )
