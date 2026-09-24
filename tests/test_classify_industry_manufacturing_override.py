@@ -78,12 +78,11 @@ FIXED_CASES = [
     ("aircraft parts manufacturing", "", ["CNC Machinist"], "aerospace_defense"),
     ("rocket manufacturing", "", [], "aerospace_defense"),
     # Round 3 review: a company that makes AND packages its product keeps its
-    # product sector. The equipment qualifier only blocks when it directly
-    # follows the product word.
+    # product sector. In the closed grammar "packaging" is only allowed as
+    # the trailing "and"/"&" noun, never right after the product word.
     ("chocolate manufacturing and packaging", "", [], "food_beverage"),
     ("Chocolate manufacturing & packaging", "The Hershey Company", HERSHEY_ROLES, "food_beverage"),
     ("Food manufacturing and packaging", "", [], "food_beverage"),
-    ("Beverage manufacturing (cans and bottles)", "", [], "food_beverage"),
     ("Pharmaceutical manufacturing and packaging", "", [], "pharma_biotech"),
     ("biopharmaceutical manufacturing", "", ["Production Supervisor"], "pharma_biotech"),
 ]
@@ -235,7 +234,99 @@ def test_override_never_returns_a_non_allowlisted_sector():
     """Only food_beverage, pharma and aerospace can replace the generic
     manufacturing bucket, whatever the industry text says."""
     allowed = {"food_beverage", "pharma", "aerospace"}
-    assert {key for key, _ in app._PRODUCT_SECTOR_PATTERNS} == allowed
+    assert {key for key, _ in app._PRODUCT_SECTOR_GRAMMARS} == allowed
+
+
+# Round 8 review: context/customer text whose production word belongs to the
+# CUSTOMER, equipment makers named by a non-listed equipment noun, and
+# aerospace (previously exempt). The closed grammar must match the WHOLE text,
+# so none of these match. All stay at main's result with the conflict
+# computed normally (the override does not fire, so nothing is suppressed).
+ROUND8_CASES = [
+    ("Industrial cleaning of food processing plants", "Summit Industrial", ["Production Supervisor"]),
+    ("Maintenance at pharmaceutical manufacturing sites", "Summit Industrial", ["Production Supervisor"]),
+    ("HVAC in pharmaceutical manufacturing", "Summit Industrial", ["Production Supervisor"]),
+    ("Pest control in food manufacturing facilities", "Summit Industrial", ["Production Supervisor"]),
+    ("Staffing aircraft manufacturers", "Summit Industrial", ["Machine Operator"]),
+    ("Food processing conveyor manufacturing", "Summit Industrial", ["Machine Operator"]),
+    ("Beverage bottling line manufacturing", "Summit Industrial", ["Machine Operator"]),
+    ("Satellite dish manufacturing", "", []),
+    ("Fire defense systems manufacturing", "", []),
+    ("Aviation fuel production", "", []),
+    ("Satellite dish manufacturing", "Summit Industrial", ["Machine Operator"]),
+    ("Aviation fuel production", "Summit Industrial", ["Machine Operator"]),
+]
+
+
+@pytest.mark.parametrize(
+    "raw,company,roles",
+    ROUND8_CASES,
+    ids=[f"{c[0]}|{c[1] or '-'}" for c in ROUND8_CASES],
+)
+def test_round8_context_and_equipment_text_never_fires(raw, company, roles):
+    assert app._clean_product_sector(raw.lower()) is None
+    primary = app._classify_industry_primary(raw, company, list(roles))
+    assert app._PRODUCT_OVERRIDE_MARKER not in primary
+    r = app.classify_industry(raw, company, list(roles))
+    assert r.get("legacy_key") == "automotive", (raw, company, r.get("sector"))
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("chocolate manufacturing", "food_beverage"),
+        ("pharmaceutical manufacturing", "pharma_biotech"),
+        ("aircraft manufacturing", "aerospace_defense"),
+        ("commercial aircraft parts manufacturing", "aerospace_defense"),
+        ("defense systems manufacturing", "aerospace_defense"),
+        ("pharmaceutical and medical device manufacturing", "pharma_biotech"),
+        ("specialty chocolate", "food_beverage"),
+    ],
+)
+def test_round8_intended_cases_still_resolve(raw, expected):
+    r = app.classify_industry(raw, "Summit Industrial", ["Production Supervisor"])
+    assert r.get("legacy_key") == expected, (raw, r.get("sector"))
+    assert r.get("industry_conflict") is None, r.get("industry_conflict")
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        # Mixed-sector product lists match no single sector.
+        "food and pharmaceutical manufacturing",
+        # The old equipment word list is subsumed: not grammar words.
+        "food processing equipment manufacturing",
+        "dairy machinery",
+    ],
+)
+def test_grammar_fails_closed_on_mixed_lists_and_equipment(raw):
+    assert app._clean_product_sector(raw.lower()) is None
+
+
+def test_safety_net_keeps_conflict_visible_if_override_ever_fires_on_complex_text(
+    monkeypatch,
+):
+    """Defense in depth (round 8, part 2). Simulate a future change that
+    widens the override trigger so it fires on text that is NOT a clean
+    product phrase. The conflict suppression re-checks the closed grammar
+    itself, so the generic-manufacturing conflict must still show for a
+    reviewer instead of being silently hidden."""
+    raw = "HVAC in pharmaceutical manufacturing"
+    company, roles = "Summit Industrial", ["Production Supervisor"]
+    monkeypatch.setattr(
+        app,
+        "_product_sector_from_industry_text",
+        lambda _raw: app.INDUSTRY_NAICS_MAP["pharma"],
+    )
+    primary = app._classify_industry_primary(raw, company, list(roles))
+    assert primary.get(app._PRODUCT_OVERRIDE_MARKER), "override should fire under the patch"
+    r = app.classify_industry(raw, company, list(roles))
+    assert r.get("legacy_key") == "pharma_biotech"
+    conflict = r.get("industry_conflict") or {}
+    assert conflict.get("inferred_legacy_key") == "automotive", conflict
+    # And the same widened trigger on CLEAN text still suppresses as designed.
+    r2 = app.classify_industry("pharmaceutical manufacturing", company, list(roles))
+    assert r2.get("industry_conflict") is None, r2.get("industry_conflict")
 
 
 # Round 5 review: equipment/vehicle/appliance makers named after the product
@@ -393,12 +484,9 @@ def test_leading_product_list_still_counts(raw, company, roles):
 @pytest.mark.parametrize(
     "raw,expected",
     [
-        # Product before the customer clause still counts.
-        ("chocolate manufacturing for retail and wholesale", "food_beverage"),
-        ("pharmaceutical manufacturing for export", "pharma_biotech"),
+        # "ready to eat/drink" and "direct-to-consumer" are listed adjectives.
         ("ready-to-eat food manufacturing", "food_beverage"),
         ("ready to drink beverage manufacturing", "food_beverage"),
-        # A hyphenated "-to-" is never a customer marker.
         ("direct-to-consumer snack manufacturing", "food_beverage"),
     ],
 )
@@ -407,8 +495,28 @@ def test_customer_clause_rule_keeps_own_product(raw, expected):
     assert r.get("legacy_key") == expected, (raw, r.get("sector"))
 
 
+# Round 8, ACCEPTED TRADE-OFF of the fail-closed grammar: a real product
+# maker described with a preposition, parentheses or a dash is a missed
+# improvement. It stays at main's generic automotive result, and the
+# override does not claim it. Locked in here so the trade-off is explicit.
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "chocolate manufacturing for retail and wholesale",
+        "pharmaceutical manufacturing for export",
+        "Beverage manufacturing (cans and bottles)",
+        "Beverage manufacturing - cans and bottles",
+        "manufacturer of chocolate products",
+    ],
+)
+def test_fail_closed_trade_off_stays_at_main_result(raw):
+    assert app._clean_product_sector(raw.lower()) is None
+    r = app.classify_industry(raw, "", [])
+    assert r.get("legacy_key") == "automotive", (raw, r.get("sector"))
+
+
 # Round 6 review: the tie-break decides between two existing, equal
-# keyword scores. It does not use the head-noun rule, so pharma/biotech
+# keyword scores. It has its own closed grammar, so pharma/biotech
 # companies described without a production noun are pharma_biotech again
 # (as on fd052a1), not healthcare_medical.
 @pytest.mark.parametrize(
@@ -446,7 +554,7 @@ def test_tie_break_still_rejects_non_pharma_companies(raw):
 
 
 # Round 6 review: production/business nouns that were missing from the
-# head-noun follower list.
+# closed grammar's production-noun list.
 @pytest.mark.parametrize(
     "raw,company,expected",
     [
@@ -466,9 +574,8 @@ def test_head_noun_allowlist_additions(raw, company, expected):
     assert r.get("legacy_key") == expected, (raw, r.get("sector"))
 
 
-# Phrasings the head-noun rule must keep accepting.
+# Phrasings the closed grammar must keep accepting.
 HEAD_NOUN_POSITIVE_CASES = [
-    ("Beverage manufacturing - cans and bottles", "food_beverage"),
     ("chocolate & confectionery manufacturing", "food_beverage"),
     ("food products manufacturing", "food_beverage"),
     ("food ingredients manufacturing", "food_beverage"),

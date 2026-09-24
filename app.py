@@ -3246,68 +3246,48 @@ for _lk, _nk in _LEGACY_PRIORITY.items():
 # selected?" test.
 _GENERIC_INDUSTRY_STRINGS = ("", "general", "other", "n/a", "na", "none")
 
-# Product words in the explicit industry text that name a specific
-# manufacturing-adjacent sector. _classify_industry_primary uses them in two
-# places, both via _product_sector_from_industry_text():
-#   - Step 4, when the generic "manufacturing" sector (Manufacturing &
-#     Industrial, legacy_key "automotive") wins. Step 4 scores by
-#     sum(len(keyword)), so manufacturing's "manufactur" (10) beat the
-#     product word: "chocolate manufacturing" (Hershey), "beverage
-#     manufacturing", "pharmaceutical manufacturing" and "aircraft
-#     manufacturing" all resolved to automotive.
-#   - Just before the final general_entry_level fallback, so a product-only
-#     industry ("confectionery", "chocolate") gets a sector instead of none.
-#     It runs only when every other step has already failed to match.
-#     Adding these words to INDUSTRY_NAICS_MAP keywords instead was tried
-#     and rejected: Step 4 scores company and role text too, so a company
-#     named "Sweet Treats Chocolate Co" pulled explicit "software" and
-#     "hospital" plans over to food_beverage.
+# Product sectors that can replace the generic "manufacturing" bucket
+# (Manufacturing & Industrial, legacy_key "automotive"). Step 4 scores by
+# sum(len(keyword)), so manufacturing's "manufactur" (10) beat the product
+# word: "chocolate manufacturing" (Hershey), "beverage manufacturing",
+# "pharmaceutical manufacturing" and "aircraft manufacturing" all resolved
+# to automotive. _classify_industry_primary uses _clean_product_sector()
+# twice: in Step 4 when generic manufacturing wins, and in Step 7 in place
+# of the general_entry_level fallback ("confectionery", "chocolate").
 #
-# Three constraints, each from a prior fix attempt that failed review:
-#   1. Only the explicit raw_industry text is checked, never company_name
-#      or role titles ("Maintenance Technician" must not move a plan).
-#   2. Only these three sectors can take over. Energy, maritime, tech,
-#      logistics and agriculture can never be the result of this override,
-#      however their keywords happen to match.
-#   3. Whole-word, fully spelled patterns, never bare stems: "sporting"
-#      does not match "port", "agricultural" does not match "agri", and
-#      "space heater" does not match aerospace (bare "space" is excluded).
-# Food and pharma product words have two more rules, because products and
-# the machines or packaging that serve them share vocabulary. Proximity
-# windows ("no qualifier within one word") failed review twice. Each fix let
-# a longer phrase through ("food processing and packaging equipment", "food
-# truck", "commercial bakery ovens").
-#   4. Head-noun rule (food and pharma): the product word counts only when
-#      it heads the industry phrase. It must be followed by the end of the
-#      text, a closing mark or spaced dash, a conjunction that does not lead
-#      into another product word, or a production/business noun (see
-#      _product_head_pattern). "chocolate manufacturing & packaging",
-#      "dairy processing", "food products", "Food & Beverage" and
-#      "confectionery" count. "food truck", "bakery ovens", "vaccine storage
-#      freezers", "food packaging", "beverage can", "food and beverage
-#      packaging", "pharmaceutical grade glass bottles", "food-grade
-#      plastics", "food service" and "drug store" do not, because another
-#      noun follows the product word, so it is a modifier.
-#   5. Equipment, machinery or machines anywhere in the text (all three
-#      sectors) means the company makes the equipment, so it stays generic
-#      manufacturing ("dairy and food processing equipment manufacturing",
-#      "aircraft equipment manufacturing").
-#   6. Supplier/customer relationships (all three sectors): see
-#      _CUSTOMER_MARKER_RE. A marker anywhere in the text blocks the
-#      override, the same whole-text block as rule 5. "HVAC manufacturing to
-#      the pharmaceutical industry" describes the customer, not the product.
-#   7. Position (all three sectors): the product word must be at the start
-#      of the text, before the first production-activity noun. See
-#      _ACTIVITY_NOUN_RE. This covers customer phrasings no marker list
-#      names.
-# Aerospace is exempt from rule 4. Its words rarely modify an unrelated
-# product ("aircraft parts" and "defense electronics" are aerospace work).
-# Its few ambiguous uses are excluded directly: "rocket stove" (appliances)
-# and "self-/home-/personal defense products" (not military defense).
-# Medical devices go to pharma_biotech: its niche boards (BioSpace, MedReps)
-# serve device makers, and healthcare_medical's boards are for nurses and
-# physicians.
-# The first matching entry wins, in the order listed.
+# FAIL-CLOSED CLOSED GRAMMAR. Rounds 1-7 of review each blocked on some
+# signal of a customer, supplier or equipment phrase (equipment words,
+# connector words, "to"/"for" clauses, a position window). Each round's
+# adversarial generation found a phrasing whose signal was not listed ("HVAC
+# in pharmaceutical manufacturing", "Staffing aircraft manufacturers",
+# "Food processing conveyor manufacturing"). So the logic is inverted.
+# The WHOLE industry text must match a narrow closed grammar, or nothing
+# fires:
+#     [up to 2 listed adjectives] <product list> [up to 2 production or
+#     business nouns] [("and" | "&" | ",") one more such noun]
+# e.g. "chocolate manufacturing", "Food & Beverage", "frozen foods
+# manufacturer", "pharmaceutical contract manufacturing", "chocolate
+# manufacturing and packaging", "commercial aircraft parts manufacturing".
+# Any other word anywhere (a preposition, a verb, an equipment noun, a
+# customer phrase) means no match, and the plan keeps whatever Step 4's
+# normal scoring gives it, as on main. This subsumes the old equipment
+# list ("conveyor", "bottling line", "equipment" are not grammar words) and
+# every connector list.
+# The price is missed improvements, never new misroutes: "manufacturer of
+# chocolate products", "chocolate manufacturing for retail" and "beverage
+# manufacturing (cans and bottles)" stay at main's generic result.
+#
+# Other properties the grammar keeps from earlier rounds:
+#   - Only the explicit raw_industry text is read, never company_name or
+#     role titles.
+#   - Only these three sectors can take over, and a product list must come
+#     from ONE sector ("food and pharmaceutical manufacturing" matches
+#     nothing).
+#   - Whole words only: "sporting", "agricultural", "space heater",
+#     "self-defense", "pharmacy", "food-grade" and "drug store" never match.
+#   - Medical devices go to pharma_biotech: its niche boards (BioSpace,
+#     MedReps) serve device makers, and healthcare_medical's boards are for
+#     nurses and physicians.
 _FOOD_PRODUCT_WORDS = (
     r"(?:foods?|beverages?|chocolates?"
     r"|confection(?:s|er|ers|ery|eries|ary)?|cand(?:y|ies)|snacks?"
@@ -3319,188 +3299,84 @@ _PHARMA_PRODUCT_WORDS = (
     r"(?:pharma|pharmaceuticals?|biopharma(?:ceuticals?)?|biotech"
     r"|biotechnology|biologics?|vaccines?|drugs?|medical devices?|medtech)"
 )
-
-
 _AEROSPACE_PRODUCT_WORDS = (
     r"(?:aerospace|aircraft|aviation|avionics|spacecraft|satellites?"
     r"|missiles?|rockets?|defen[cs]e)"
 )
-
-# Rule 6, supplier/customer relationships. A supplier is often described by
-# its CUSTOMERS' industry ("plastic bottle manufacturing for beverage
-# companies", "HVAC manufacturing to the pharmaceutical industry",
-# "corrugated box manufacturing used by beverage companies"). Rounds 6 and 7
-# tried to parse the clause by listing connector words, and each review found
-# the next one that was missing. So this is a BLOCKLIST, the same design as
-# rule 5's equipment block, which has held since round 5: any relationship
-# marker ANYWHERE in the text blocks the override, the tie-break and Step 7.
-# If the list misses a real product-maker phrasing, the plan stays at main's
-# generic automotive result (a missed improvement). It never produces a
-# new, suppressed misroute.
-# "to" is only a marker before a determiner or collective noun ("to the",
-# "to major", "to companies") or directly before any product word ("to
-# pharmaceutical and biotech companies"). "ready-to-eat food", "ready to
-# drink beverages" and "direct-to-consumer" are not markers. A hyphenated
-# "-to-" never counts.
-_CUSTOMER_MARKER_RE = re.compile(
-    r"\b(?:suppliers?|vendors?|customers?|clients?|serving|serves"
-    r"|supplying|servicing)\b"
-    r"|\bused\s+by\b|\bcatering\s+to\b"
-    r"|(?<![-\w])to\s+(?:the|a|an|major|leading|large|small|global|national"
-    r"|regional|local|top|many|various|several|all|both|other|our|its|their"
-    r"|businesses|companies|manufacturers|brands|producers|makers|firms"
-    r"|industry|industries)\b"
-    r"|(?<![-\w])to\s+(?:" + _FOOD_PRODUCT_WORDS + "|" + _PHARMA_PRODUCT_WORDS
-    + "|" + _AEROSPACE_PRODUCT_WORDS + r")\b"
+# Closed adjective list (at most 2, before the product list).
+_PRODUCT_ADJECTIVES = (
+    r"(?:frozen|fresh|organic|natural|specialty|speciality|premium|artisan"
+    r"|artisanal|gourmet|craft|packaged|processed|branded|private[- ]label"
+    r"|plant-based|gluten-free|pet|baby|infant|generic|global|active|sterile"
+    r"|injectable|clinical-stage|commercial|military"
+    r"|ready[- ]to[- ](?:eat|drink)|direct-to-consumer)"
 )
-# "for" is the one connector that is cut instead of blocked. The text
-# before it ("chocolate manufacturing for retail") is the company's own
-# product and still has to pass every other rule. The text after it is
-# ignored ("HVAC manufacturing for pharmaceutical facilities" is read as
-# "HVAC manufacturing"). Cutting can only narrow what matches.
-_FOR_CLAUSE_RE = re.compile(r"\bfor\b")
-
-
-def _own_product_text(raw_lower: str) -> str:
-    """The industry text before the first "for" (see _FOR_CLAUSE_RE)."""
-    m = _FOR_CLAUSE_RE.search(raw_lower)
-    return raw_lower[: m.start()].strip() if m else raw_lower
-
-
-# Rule 7, position: the customer always comes AFTER the company's own product
-# phrase ("HVAC manufacturing partnering with pharmaceutical companies",
-# "... trusted by beverage brands"). Rule 6's marker list cannot name every
-# connector. Round 7's generated sweep found "partnering with", "working
-# with", "trusted by", "relied on by", "on behalf of" and "in partnership
-# with" all slipping through. So the product word must also be near the
-# start of the text:
-#   - text with a production-activity noun: the product word must come
-#     before the first one and within the first 4 words ("ready to drink
-#     beverage manufacturing", "chocolate manufacturing & packaging");
-#   - text without one: within the first 2 words ("frozen foods", "Food &
-#     Beverage", "biotech startup").
-# Like rules 5 and 6 this only narrows the override. A product described
-# late ("manufacturer of chocolate products") stays at main's generic
-# result, a missed improvement rather than a new misroute.
-_ACTIVITY_NOUN_RE = re.compile(
-    r"\b(?:manufactur\w*|production|processing|packing|bottling|fabrication)\b"
+# Production/business nouns allowed after the product list (at most 2).
+_PRODUCTION_NOUNS = (
+    r"(?:manufactur(?:e|er|ers|ing)|production|producers?|processing"
+    r"|processors?|packing|packers?|bottling|bottlers?|makers?|company"
+    r"|companies|co|corp|corporation|inc|llc|ltd|industry|industries|sector"
+    r"|business|plants?|factory|factories|facility|facilities|products?"
+    r"|goods|ingredients?|bars?|substances?|concentrates?|contract|cdmo|cmo"
+    r"|brands?|operations?)"
 )
-# Position is measured from the start of the product LIST the match ends,
-# so "Food and Beverage" and "Pharma & Biotech" (the head is the last item)
-# count from their first word, while "plastic bottles, beverage brands"
-# still starts at "plastic".
-_PRODUCT_LIST_TAIL_RE = re.compile(
-    r"(?:\b(?:" + _FOOD_PRODUCT_WORDS + "|" + _PHARMA_PRODUCT_WORDS + "|"
-    + _AEROSPACE_PRODUCT_WORDS + r")\b\s*(?:,|&|/|\+|\band\b|\bor\b)\s*)+$"
-)
+# Aerospace work is often described by component, which is still aerospace
+# work ("aircraft parts", "defense electronics").
+_AEROSPACE_NOUNS = r"(?:parts|components|structures|engines?|electronics|systems)"
+# One more noun joined by "and"/"&"/",": "chocolate manufacturing and
+# packaging" (packaging is only allowed HERE, after a production noun, so
+# "food packaging manufacturing" does not match).
+_TRAILING_NOUNS = r"(?:packaging|distribution|" + _PRODUCTION_NOUNS[3:]
 
 
-def _early_match(pattern: "re.Pattern[str]", own: str) -> bool:
-    """True when ``pattern`` matches ``own`` at a position rule 7 allows."""
-    activity = _ACTIVITY_NOUN_RE.search(own)
-    cutoff, max_words = (activity.start(), 4) if activity else (len(own), 2)
-    for m in pattern.finditer(own):
-        if m.start() >= cutoff:
-            return False
-        prefix = _PRODUCT_LIST_TAIL_RE.sub("", own[: m.start()])
-        if len(prefix.split()) < max_words:
-            return True
-    return False
-
-
-def _describes_other_companies_products(raw_lower: str) -> bool:
-    """Rules 5 and 6 as one whole-text block: the text names equipment or a
-    supplier/customer relationship, so any product word in it describes what
-    OTHER companies make. Used by the override, the tie-break and Step 7."""
-    return bool(
-        _EQUIPMENT_ANYWHERE_RE.search(raw_lower)
-        or _CUSTOMER_MARKER_RE.search(raw_lower)
-    )
-
-
-def _product_head_pattern(product_words: str) -> "re.Pattern[str]":
-    """Compile rule 4 for one sector's product words. A conjunction ("and",
-    "or", "&", ",", "/", "+", ";") counts as a follower only when the next
-    word is NOT another product word. In a list, the last product word
-    decides: "food and beverage packaging" heads on "packaging" (no match),
-    while "food & beverage" and "chocolate & confectionery manufacturing"
-    match on their last item."""
-    end = r"\s*$|\s*[().:]|\s+[-\u2013\u2014]\s"
-    conj = (
-        r"(?:\s*[&,/+;]|\s+(?:and|or)\b)"
-        r"(?!\s*" + product_words + r"\b)"
-    )
-    noun = (
-        r"\s+(?:manufactur\w*|production|producers?|processing|processors?"
-        r"|packing|packers?|bottling|bottlers?|makers?|company|companies|co"
-        r"|corp|corporation|inc|llc|ltd|industry|industries|sector|business"
-        r"|plants?|factory|factories|facility|facilities|products?|goods"
-        r"|ingredients?|bars?|substances?|concentrates?|contract|cdmo|cmo"
-        r"|brands?|operations?)\b"
-    )
+def _closed_product_grammar(product_words: str, nouns: str) -> "re.Pattern[str]":
+    """Compile the closed grammar for one sector (see the comment above)."""
+    sep = r"(?:\s*[,&/+]\s*|\s+(?:and|or)\s+|\s+)"
+    product_list = product_words + r"(?:" + sep + product_words + r")*"
     return re.compile(
-        r"\b" + product_words + r"\b(?=" + end + "|" + conj + "|" + noun + ")"
+        r"^(?:" + _PRODUCT_ADJECTIVES + r"\s+){0,2}"
+        + product_list
+        + r"(?:\s+" + nouns + r"){0,2}"
+        + r"(?:(?:\s*[,&]\s*|\s+and\s+)" + _TRAILING_NOUNS + r")?$"
     )
 
 
-_EQUIPMENT_ANYWHERE_RE = re.compile(r"\b(?:equipment|machinery|machines?)\b")
-_PRODUCT_SECTOR_PATTERNS: tuple[tuple[str, "re.Pattern[str]"], ...] = (
-    ("food_beverage", _product_head_pattern(_FOOD_PRODUCT_WORDS)),
-    ("pharma", _product_head_pattern(_PHARMA_PRODUCT_WORDS)),
+_PRODUCT_SECTOR_GRAMMARS: tuple[tuple[str, "re.Pattern[str]"], ...] = (
+    ("food_beverage", _closed_product_grammar(_FOOD_PRODUCT_WORDS, _PRODUCTION_NOUNS)),
+    ("pharma", _closed_product_grammar(_PHARMA_PRODUCT_WORDS, _PRODUCTION_NOUNS)),
     (
         "aerospace",
-        re.compile(
-            r"\b(?:aerospace|aircraft|aviation|avionics|spacecraft|satellites?"
-            r"|missiles?|rockets?(?!\s+stoves?\b)"
-            r"|(?<!self-)(?<!self )(?<!home )(?<!personal )defen[cs]e)\b"
+        _closed_product_grammar(
+            _AEROSPACE_PRODUCT_WORDS,
+            r"(?:" + _PRODUCTION_NOUNS + "|" + _AEROSPACE_NOUNS + ")",
         ),
     ),
 )
 
 
-# Private key on the profile copy _classify_industry_primary returns when the
-# Step 4 manufacturing product override fired. classify_industry() reads it
-# to skip the generic-manufacturing conflict the override explains, then
-# removes it, so no caller ever sees it.
-_PRODUCT_OVERRIDE_MARKER = "_via_manufacturing_product_override"
+def _normalize_industry_text(raw_lower: str) -> str:
+    """Collapse whitespace and drop trailing sentence punctuation, so the
+    closed grammar sees one canonical form."""
+    return " ".join(raw_lower.split()).rstrip(".;:")
 
 
-def _product_sector_from_industry_text(raw_lower: str) -> Optional[dict]:
-    """Return the INDUSTRY_NAICS_MAP profile whose product words appear in
-    the explicit (lower-cased) industry text, or None. See
-    _PRODUCT_SECTOR_PATTERNS for the rules."""
-    if not raw_lower:
+def _clean_product_sector(raw_lower: str) -> Optional[dict]:
+    """The INDUSTRY_NAICS_MAP profile whose closed grammar matches the WHOLE
+    explicit industry text, or None. Fail-closed: anything the grammar does
+    not describe returns None."""
+    text = _normalize_industry_text(raw_lower or "")
+    if not text:
         return None
-    if _describes_other_companies_products(raw_lower):
-        return None  # rules 5 and 6: equipment maker or supplier
-    own = _own_product_text(raw_lower)  # ignore a "for ..." customer clause
-    if not own:
-        return None
-    for naics_key, pattern in _PRODUCT_SECTOR_PATTERNS:
-        if _early_match(pattern, own):  # rule 7: own product comes first
+    for naics_key, grammar in _PRODUCT_SECTOR_GRAMMARS:
+        if grammar.match(text):
             return INDUSTRY_NAICS_MAP[naics_key]
     return None
 
 
-def _industry_text_names_pharma_company(raw_lower: str) -> bool:
-    """Tie-break test (see _PHARMA_HEALTHCARE_SHARED_KWS). Its job differs
-    from the override's, so it does NOT use the head-noun rule: it only
-    breaks an existing exact pharma/healthcare keyword tie. "biotech
-    startup", "pharmaceutical sales" and "Pharmaceutical R&D" are pharma
-    companies even though no production noun follows. It keeps the checks
-    that decide WHAT the company is: whole words ("pharmacy" does not
-    count), the equipment and supplier/customer blocks ("pharmaceutical
-    machinery" and "services to pharmaceutical companies" stay as on main),
-    and the "for" cut."""
-    if _describes_other_companies_products(raw_lower):
-        return False
-    own = _own_product_text(raw_lower)
-    # Rule 7 (first 2 words; the tie-break never involves a production
-    # noun): "pharmaceutical services" counts, "HVAC services trusted by
-    # pharmaceutical companies" does not.
-    for m in _PHARMA_INDUSTRY_TERM_RE.finditer(own):
-        return len(own[: m.start()].split()) < 2
-    return False
+# Private key on the profile copy _classify_industry_primary returns when the
+# Step 4 manufacturing product override fired. classify_industry() reads it
+# (see the safety net there), then removes it, so no caller ever sees it.
+_PRODUCT_OVERRIDE_MARKER = "_via_manufacturing_product_override"
 
 
 # Step 4 pharma/healthcare tie-break. The healthcare profile lists "pharma"
@@ -3508,21 +3384,43 @@ def _industry_text_names_pharma_company(raw_lower: str) -> bool:
 # two keywords. So "pharmaceutical", "biotech" or "Pharma & Biotech" scored
 # a tie, and dict order gave it to healthcare_medical. This tie-break
 # applies ONLY when every healthcare keyword that matched is one of those
-# shared keywords AND _industry_text_names_pharma_company() is true for the
-# explicit industry text: a whole-word pharma/biotech term, no equipment or
-# supplier/customer marker, not after "for". "pharmacy" does not count, so a
-# retail pharmacy stays healthcare. A tie that just happens to have equal
-# keyword lengths, like "medical" (7) against a "Vaccine Coordinator"
-# role's "vaccine" (7), leaves healthcare in place because "medical" is not
-# a shared keyword.
+# shared keywords AND the WHOLE industry text matches its own closed
+# grammar: [adjectives] <pharma/biotech term list> [up to 2 company-type
+# nouns]. It is a different decision from the override's ("what kind of
+# company is this", not "what does it manufacture"), so it has its own
+# noun list ("Biotech research", "Pharmaceutical R&D", "pharmaceutical
+# sales", "biotech startup"). "pharmacy", "pharmaceutical machinery",
+# "services to the pharmaceutical industry" and "pharmaceutical industry
+# supplier" do not match, and stay healthcare as on main. A tie that just
+# happens to have equal keyword lengths, like "medical" (7) against a
+# "Vaccine Coordinator" role's "vaccine" (7), leaves healthcare in place
+# because "medical" is not a shared keyword.
 _PHARMA_HEALTHCARE_SHARED_KWS = frozenset(
     set(INDUSTRY_NAICS_MAP["healthcare"]["keywords"])
     & set(INDUSTRY_NAICS_MAP["pharma"]["keywords"])
 )
-_PHARMA_INDUSTRY_TERM_RE = re.compile(
-    r"\b(?:pharma|pharmaceuticals?|biopharma(?:ceuticals?)?|biotech"
-    r"|biotechnology)\b"
+_PHARMA_COMPANY_GRAMMAR = re.compile(
+    r"^(?:" + _PRODUCT_ADJECTIVES + r"\s+){0,2}"
+    r"(?:pharma|pharmaceuticals?|biopharma(?:ceuticals?)?|biotech|biotechnology)"
+    r"(?:(?:\s*[,&/+]\s*|\s+(?:and|or)\s+)"
+    r"(?:pharma|pharmaceuticals?|biopharma(?:ceuticals?)?|biotech|biotechnology))*"
+    r"(?:\s+(?:research|r&d|sales|startups?|firms?|services|distribution"
+    r"|development|" + _PRODUCTION_NOUNS[3:] + r"){0,2}$"
 )
+
+
+def _industry_text_names_pharma_company(raw_lower: str) -> bool:
+    """Tie-break test: the whole text is a pharma/biotech company label."""
+    return bool(_PHARMA_COMPANY_GRAMMAR.match(_normalize_industry_text(raw_lower or "")))
+
+
+def _product_sector_from_industry_text(raw_lower: str) -> Optional[dict]:
+    """The trigger for the Step 4 override and Step 7. Today it is exactly
+    the closed grammar. It stays a separate name on purpose: classify_industry's
+    conflict safety net re-checks _clean_product_sector() itself, so if this
+    trigger is ever widened, a conflict on text that is not a clean product
+    phrase still shows (flagged for review, not silently wrong)."""
+    return _clean_product_sector(raw_lower)
 
 # Role-title -> NAICS map key, used by classify_industry's Steps 3/6 (role-
 # based industry inference) AND by _infer_industry_from_signals (the
@@ -3947,7 +3845,12 @@ def classify_industry(
         if inferred is not None:
             inferred_legacy = inferred.get("legacy_key")
             result_legacy = result.get("legacy_key")
-            if via_product_override and inferred_legacy == "automotive":
+            if (
+                via_product_override
+                and inferred_legacy == "automotive"
+                and (_clean_product_sector(raw_for_conflict) or {}).get("legacy_key")
+                == result_legacy
+            ):
                 # The product override replaced generic Manufacturing &
                 # Industrial with the specific sector the industry text
                 # names ("chocolate manufacturing" -> food_beverage). Roles
@@ -3955,6 +3858,10 @@ def classify_industry(
                 # ("Production Supervisor", "Summit Industrial") agree with
                 # that pick. They are not a conflict. Any other inferred
                 # sector (a hospital name, "Uber") is still reported.
+                # SAFETY NET: this suppression re-checks the closed grammar
+                # itself instead of trusting the override. If the override
+                # ever fires on text that is not a clean product phrase, the
+                # conflict stays visible to a reviewer.
                 inferred_legacy = None
             if inferred_legacy and inferred_legacy != result_legacy:
                 result = dict(result)
@@ -4079,11 +3986,11 @@ def _classify_industry_primary(
 
     if best_match and best_score >= 3:
         if best_match is INDUSTRY_NAICS_MAP["manufacturing"]:
-            # Product-qualifier override; see _PRODUCT_SECTOR_PATTERNS. It
-            # reads raw_lower only. When the brand bonus is active,
-            # raw_lower is a generic placeholder ("", "general", ...) that
-            # no pattern matches, so a manufacturing company-name win is
-            # never overridden.
+            # Product override; see _clean_product_sector. It reads
+            # raw_lower only. When the brand bonus is active, raw_lower is a
+            # generic placeholder ("", "general", ...) that the grammar
+            # never matches, so a manufacturing company-name win is never
+            # overridden.
             _product_sector = _product_sector_from_industry_text(raw_lower)
             if _product_sector is not None:
                 # Marked copy: classify_industry reads and strips the marker
