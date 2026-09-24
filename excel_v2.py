@@ -3510,6 +3510,21 @@ def _rewrite_low_efficiency_recommendation(channel_allocs: dict) -> Optional[str
     channel(s) here, say so in the SAME sentence instead of silently
     omitting it -- see ``_brand_asymmetry_clause``.
 
+    STALE-FLAG FIX (2026-09-24): ``efficiency_flag`` is set ONCE, when
+    budget_engine first builds each channel's allocation entry -- but
+    ``_redistribute_hires_by_conversion`` (S92) and the low-ROI rebalancer
+    run AFTER that and can mutate the SAME channel dict's
+    ``projected_hires`` in place (e.g. a niche/industry board with real
+    application volume gets redistributed a real hire share) without ever
+    recomputing ``efficiency_flag``. A channel could ship this workbook
+    with ``efficiency_flag == "Low Efficiency"`` while its own
+    ``projected_hires`` on the SAME dict read in the hundreds elsewhere on
+    this sheet (Channels / ROI Projections tables both read
+    ``projected_hires`` live, so they never show the stale number -- only
+    this text-recommendation path trusted the flag by itself). Cross-check
+    the flag against the channel's CURRENT ``projected_hires`` before
+    naming it, so this alert can never contradict the tables next to it.
+
     Returns ``None`` when no non-brand zero-hire channel remains (drop the
     recommendation entirely rather than show an empty alert).
     """
@@ -3519,6 +3534,7 @@ def _rewrite_low_efficiency_recommendation(channel_allocs: dict) -> Optional[str
         if isinstance(ch, dict)
         and ch.get("efficiency_flag") == "Low Efficiency"
         and ch.get("channel_role") != "brand"
+        and _safe_num(ch.get("projected_hires") or 0) == 0
     )
     if not perf_zero_hire:
         return None
@@ -4696,7 +4712,12 @@ def _build_sheet_executive_summary(
         ("Locations", str(len(locations))),
         ("Roles", str(len(roles))),
         ("Industry", industry_label),
-        ("Hire Volume", str(hire_volume) if hire_volume else "TBD"),
+        # Stale-flag fix (2026-09-24, verified): an empty hire_volume used
+        # to ship the literal string "TBD" on this client-facing metric
+        # card -- render a neutral "Not specified" instead (matches the
+        # "Not available"/"—" convention this sheet uses elsewhere for
+        # missing data, rather than a placeholder that reads unfinished).
+        ("Hire Volume", str(hire_volume) if hire_volume else "Not specified"),
     ]
     card_row = row
     for idx, (label, value) in enumerate(metrics):
@@ -6157,7 +6178,22 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             elif fit == "Good":
                 rationale_parts.append(f"Good industry alignment ({fit_score:.0%})")
             if ch_cpc > 0:
-                rationale_parts.append(f"CPC {_fmt_currency(ch_cpc, show_cents=True)}")
+                # C9 FIX (2026-09-24): the CPC cell beside this rationale is
+                # formatted by _cpc_number_format(ch), which prints a fixed
+                # "$" (FMT_USD2) whenever cpc_source shows the figure came
+                # from the un-converted US cascade (static_benchmark/
+                # live_benchmark/trend_engine/knowledge_base/synthesized) on
+                # a non-USD plan -- e.g. "CPC $1.62". The rationale text used
+                # _fmt_currency's default (always the plan's own local
+                # symbol), so the same un-converted USD number read "CPC
+                # ¥1.62"/"CPC €1.62" right next to a cell showing "$1.62".
+                # Route through the exact same decision so they always agree.
+                _rationale_cpc_prefix = (
+                    "US$" if _cpc_number_format(ch) == FMT_USD2 else None
+                )
+                rationale_parts.append(
+                    f"CPC {_fmt_currency(ch_cpc, prefix=_rationale_cpc_prefix, show_cents=True)}"
+                )
             if ch_pct > 15:
                 rationale_parts.append(
                     f"Primary channel — {ch_pct:.0f}% of budget for volume"
@@ -7366,15 +7402,64 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 )
                 is_low_conf = confidence < 0.5
 
-                values = [
-                    role_name if isinstance(role_name, str) else str(role_name),
-                    _fmt_currency(sal_data.get("min", sal_data.get("p10") or 0)),
-                    _fmt_currency(sal_data.get("p25") or 0),
-                    _fmt_currency(sal_data.get("median", sal_data.get("p50") or 0)),
-                    _fmt_currency(sal_data.get("p75") or 0),
-                    _fmt_currency(sal_data.get("max", sal_data.get("p90") or 0)),
-                    f"{confidence:.0%}",
-                ]
+                # C15/C7 FIX (2026-09-24): data_synthesizer.fuse_salary_intelligence
+                # tags every role with "currency" -- "USD" when the figure is
+                # sourced from BLS/O*NET/DataUSA/CareerOneStop/H-1B/Industry
+                # Benchmark (all US-government or US-hardcoded data, never
+                # localized), "" for a plan-local source. Print those USD
+                # records as US$ (declare-not-convert) instead of the plan's
+                # local symbol, which used to print e.g. Rs/GBP/EUR/JPY/AUD
+                # on a US-dollar H-1B salary.
+                _sal_currency_prefix = (
+                    "US$"
+                    if sal_data.get("currency") == "USD"
+                    and _get_active_currency() != "USD"
+                    else None
+                )
+
+                # C14 FIX (2026-09-24): a role with no real or benchmark
+                # salary source now carries kb_validation.flag == "no_data"
+                # (median/min/max all 0) instead of the old fabricated
+                # 85000-95000 catch-all. Render "Not available" instead of
+                # a currency-formatted "$0" for those rows.
+                _sal_no_data = (
+                    isinstance(sal_data.get("kb_validation"), dict)
+                    and sal_data["kb_validation"].get("flag") == "no_data"
+                )
+
+                if _sal_no_data:
+                    values = [
+                        role_name if isinstance(role_name, str) else str(role_name),
+                        "Not available",
+                        "Not available",
+                        "Not available",
+                        "Not available",
+                        "Not available",
+                        "—",
+                    ]
+                else:
+                    values = [
+                        role_name if isinstance(role_name, str) else str(role_name),
+                        _fmt_currency(
+                            sal_data.get("min", sal_data.get("p10") or 0),
+                            prefix=_sal_currency_prefix,
+                        ),
+                        _fmt_currency(
+                            sal_data.get("p25") or 0, prefix=_sal_currency_prefix
+                        ),
+                        _fmt_currency(
+                            sal_data.get("median", sal_data.get("p50") or 0),
+                            prefix=_sal_currency_prefix,
+                        ),
+                        _fmt_currency(
+                            sal_data.get("p75") or 0, prefix=_sal_currency_prefix
+                        ),
+                        _fmt_currency(
+                            sal_data.get("max", sal_data.get("p90") or 0),
+                            prefix=_sal_currency_prefix,
+                        ),
+                        f"{confidence:.0%}",
+                    ]
 
                 # Highlight low-confidence rows
                 row_fill = _FILL_AMBER_BG if is_low_conf else None
@@ -9176,8 +9261,19 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
             continue
 
     # Cost/Hire = total_budget / total_hires (consistent with Executive Summary)
-    avg_cph = round(total_budget / max(total_projected_hires, 1), 2)
-    avg_ttf = round(sum_ttf / max(channels_with_hires, 1))
+    # C6/C18 FIX (2026-09-24): max(total_projected_hires, 1) silently
+    # divided the WHOLE budget by 1 on a zero-hire plan and printed it as
+    # "Avg Cost/Hire" (a channel that produces 0 hires does not cost the
+    # entire budget per hire -- that number is meaningless), and
+    # sum_ttf/max(channels_with_hires, 1) printed a fabricated "0 days" for
+    # the same reason. Both are genuinely not-applicable at zero hires, so
+    # render "—" instead of a manufactured number, consistent with the
+    # existing zero-hire handling for the per-channel hire_range above.
+    _roi_has_hires = total_projected_hires > 0
+    avg_cph = round(total_budget / total_projected_hires, 2) if _roi_has_hires else 0
+    avg_ttf = (
+        round(sum_ttf / max(channels_with_hires, 1)) if _roi_has_hires else 0
+    )
 
     # ── Write summary row at reserved position ──
     # S5 (2026-07-03, findings 44/51): these headline KPIs (ROI Projections
@@ -9192,10 +9288,15 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
     summary_values = [
         _safe_num(total_budget),
         int(total_projected_hires),
-        _safe_num(avg_cph),
-        avg_ttf,
+        _safe_num(avg_cph) if _roi_has_hires else "—",
+        avg_ttf if _roi_has_hires else "—",
     ]
-    summary_formats = [_usd0_fmt(), FMT_INT, _usd2_fmt(), '0" days"']
+    summary_formats = [
+        _usd0_fmt(),
+        FMT_INT,
+        _usd2_fmt() if _roi_has_hires else None,
+        '0" days"' if _roi_has_hires else None,
+    ]
 
     for i, (label, value, fmt) in enumerate(
         zip(summary_labels, summary_values, summary_formats)
@@ -9208,7 +9309,8 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
         cell_l.fill = _FILL_BLUE_PALE
         # Value row
         cell_v = ws.cell(row=summary_row_start + 1, column=col, value=value)
-        cell_v.number_format = fmt
+        if fmt:
+            cell_v.number_format = fmt
         cell_v.font = _FONT_METRIC_VALUE
         cell_v.alignment = _ALIGN_CENTER
         cell_v.fill = _FILL_WHITE

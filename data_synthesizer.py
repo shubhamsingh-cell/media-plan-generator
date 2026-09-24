@@ -1337,8 +1337,21 @@ def fuse_salary_intelligence(
     # wage resolver (see research.resolve_driver_role_wage()).
     _country_for_salary = _first_location_country(input_data)
 
+    # C15/C7 FIX (2026-09-24): BLS OES, O*NET, DataUSA, CareerOneStop and
+    # DOL H-1B/LCA are all US-government sources -- every figure they
+    # return is a US-dollar salary, never localized to the plan's own
+    # market, yet the Salary Intelligence table used to print them with
+    # whatever local symbol (Rs/GBP/EUR/JPY/AUD) the plan's currency
+    # resolved to. Tag every salary_points entry with the currency it is
+    # actually denominated in so the workbook can declare it (US$) instead
+    # of silently relabeling it. Jooble is the one source that is genuinely
+    # location-aware, so it (and any future local source) keeps "" --
+    # meaning "plan-local currency", the existing default behaviour.
+    _USD_SOURCE_CURRENCY = "USD"
+
     for role in roles:
-        salary_points: List[Tuple[float, float, str]] = []  # (value, weight, source)
+        # (value, weight, source, currency) -- currency "" means plan-local
+        salary_points: List[Tuple[float, float, str, str]] = []
 
         # --- BLS OES data ---
         bls_entry = bls_salaries.get(role, {})
@@ -1348,7 +1361,9 @@ def fuse_salary_intelligence(
             for field in ("median", "mean"):
                 val = _safe_float(bls_entry.get(field))
                 if val > 0:
-                    salary_points.append((val, bls_weight, bls_source))
+                    salary_points.append(
+                        (val, bls_weight, bls_source, _USD_SOURCE_CURRENCY)
+                    )
                     break  # prefer median over mean
 
         # --- O*NET salary ---
@@ -1358,7 +1373,9 @@ def fuse_salary_intelligence(
             onet_weight = _weight_for_source(onet_source)
             onet_salary = _safe_float(onet_entry.get("median_salary"))
             if onet_salary > 0:
-                salary_points.append((onet_salary, onet_weight, onet_source))
+                salary_points.append(
+                    (onet_salary, onet_weight, onet_source, _USD_SOURCE_CURRENCY)
+                )
 
         # --- DataUSA wage ---
         datausa_entry = datausa_occupations.get(role, {})
@@ -1366,7 +1383,12 @@ def fuse_salary_intelligence(
             datausa_wage = _safe_float(datausa_entry.get("average_wage"))
             if datausa_wage > 0:
                 salary_points.append(
-                    (datausa_wage, _weight_for_source("DataUSA"), "DataUSA")
+                    (
+                        datausa_wage,
+                        _weight_for_source("DataUSA"),
+                        "DataUSA",
+                        _USD_SOURCE_CURRENCY,
+                    )
                 )
 
         # --- CareerOneStop salary ---
@@ -1378,7 +1400,12 @@ def fuse_salary_intelligence(
                 cos_median = _safe_float(cos_salary_data.get("median"))
                 if cos_median > 0:
                     salary_points.append(
-                        (cos_median, _weight_for_source(cos_source), cos_source)
+                        (
+                            cos_median,
+                            _weight_for_source(cos_source),
+                            cos_source,
+                            _USD_SOURCE_CURRENCY,
+                        )
                     )
 
         # --- Jooble salary range (parse midpoint) ---
@@ -1395,7 +1422,7 @@ def fuse_salary_intelligence(
                             "source", "Jooble Market Benchmarks"
                         )
                         salary_points.append(
-                            (midpoint, _weight_for_source(jooble_src), jooble_src)
+                            (midpoint, _weight_for_source(jooble_src), jooble_src, "")
                         )
                         break  # Use first location with salary data
 
@@ -1425,7 +1452,17 @@ def fuse_salary_intelligence(
                         or 0
                     )
                     if h1b_median and h1b_median > 0:
-                        salary_points.append((float(h1b_median), 0.90, "DOL H-1B/LCA"))
+                        # h1b_result is always US DOL/LCA data (metro or
+                        # national US fallback), so it is always USD --
+                        # C15/C7.
+                        salary_points.append(
+                            (
+                                float(h1b_median),
+                                0.90,
+                                "DOL H-1B/LCA",
+                                _USD_SOURCE_CURRENCY,
+                            )
+                        )
             except Exception as _h1b_exc:
                 logger.debug("H-1B salary lookup skipped for %s: %s", role, _h1b_exc)
 
@@ -1454,22 +1491,34 @@ def fuse_salary_intelligence(
             )
 
             # Use module-level _ROLE_SALARY_FALLBACKS (single source of truth)
+            # C14 FIX (2026-09-24): this used to fall through to a
+            # catch-all "General Benchmark" 85000-95000 placeholder salary
+            # for ANY role with no keyword match at all (bakers, front-desk
+            # agents, medical assistants all landed on the same invented
+            # figure). Never invent a number: if no real source and no
+            # keyword-matched industry benchmark exists, leave
+            # salary_points empty so this role falls through to
+            # _empty_salary_result below ("not available") instead of a
+            # fabricated salary.
             role_lower = role.lower()
             for keyword, sal_data in _ROLE_SALARY_FALLBACKS.items():
                 if keyword in role_lower:
+                    # _ROLE_SALARY_FALLBACKS is a hardcoded US-dollar
+                    # benchmark table (e.g. $130,000 for "software") --
+                    # also always USD, same as the H-1B/BLS/O*NET/DataUSA/
+                    # CareerOneStop sources above (C15/C7).
                     salary_points.append(
-                        (sal_data["median"], 0.3, "Industry Benchmark")
+                        (
+                            sal_data["median"],
+                            0.3,
+                            "Industry Benchmark",
+                            _USD_SOURCE_CURRENCY,
+                        )
                     )
                     break
-            else:
-                # Generic professional fallback
-                salary_points.append((85000, 0.2, "General Benchmark"))
 
         # If only fallback data, use the full fallback structure with percentiles
-        if len(salary_points) == 1 and salary_points[0][2] in (
-            "Industry Benchmark",
-            "General Benchmark",
-        ):
+        if len(salary_points) == 1 and salary_points[0][2] == "Industry Benchmark":
             # Use module-level _ROLE_SALARY_FALLBACKS (single source of truth)
             role_lower = role.lower()
             for keyword, sal_data in _ROLE_SALARY_FALLBACKS.items():
@@ -1497,32 +1546,16 @@ def fuse_salary_intelligence(
                         "confidence": 0.30,
                         "confidence_score": 0.30,
                         "_meta": {"source_count": 1, "kb_validated": False},
+                        # C15/C7: US-dollar fallback table -- see _USD_SOURCE_CURRENCY.
+                        "currency": _USD_SOURCE_CURRENCY,
                     }
                     break
             else:
-                result[role] = {
-                    "median": 85000,
-                    "mean": 85000,
-                    "min": 55000,
-                    "max": 140000,
-                    "p10": 55000,
-                    "p25": 68000,
-                    "p75": 105000,
-                    "p90": 140000,
-                    "sources": ["General Benchmark"],
-                    "outlier_flags": [],
-                    "kb_validation": {
-                        "validated": False,
-                        "deviation": 0.0,
-                        "flag": "fallback_data",
-                    },
-                    # Lower than a keyword-matched fallback (0.30): this is
-                    # the no-keyword-match-at-all catch-all, consistent with
-                    # its 0.2 salary_points weight above.
-                    "confidence": 0.20,
-                    "confidence_score": 0.20,
-                    "_meta": {"source_count": 1, "kb_validated": False},
-                }
+                # Defensive only: salary_points[0][2] == "Industry Benchmark"
+                # guarantees a keyword match exists (same _ROLE_SALARY_FALLBACKS
+                # lookup as above), so this branch should be unreachable. If it
+                # is ever reached, omit the salary rather than invent one (C14).
+                result[role] = _empty_salary_result(role)
             continue
 
         # --- Synthesize ---
@@ -1533,6 +1566,7 @@ def fuse_salary_intelligence(
         values = [sp[0] for sp in salary_points]
         weights = [sp[1] for sp in salary_points]
         sources = [sp[2] for sp in salary_points]
+        currencies = [sp[3] for sp in salary_points]
         source_count = len(salary_points)
 
         # Remove outliers before computing final values
@@ -1543,6 +1577,9 @@ def fuse_salary_intelligence(
         clean_weights = [
             w for w, is_outlier in zip(weights, outlier_flags) if not is_outlier
         ]
+        clean_currencies = [
+            c for c, is_outlier in zip(currencies, outlier_flags) if not is_outlier
+        ]
         flagged_sources = [
             s for s, is_outlier in zip(sources, outlier_flags) if is_outlier
         ]
@@ -1550,6 +1587,17 @@ def fuse_salary_intelligence(
         if not clean_values:
             clean_values = values
             clean_weights = weights
+            clean_currencies = currencies
+
+        # C15/C7: only declare the whole blended figure "USD" when EVERY
+        # surviving point is USD-sourced -- a blend that mixes in even one
+        # plan-local point stays plan-local (unmarked) rather than risk
+        # mislabeling a genuinely local salary as a US one.
+        _salary_currency = (
+            _USD_SOURCE_CURRENCY
+            if clean_currencies and all(c == _USD_SOURCE_CURRENCY for c in clean_currencies)
+            else ""
+        )
 
         w_median = _weighted_median(clean_values, clean_weights)
         sorted_vals = sorted(clean_values)
@@ -1637,6 +1685,10 @@ def fuse_salary_intelligence(
                 "source_count": source_count,
                 "kb_validated": kb_validation.get("validated", False),
             },
+            # C15/C7: "USD" when every contributing source is a US-dollar
+            # source (BLS/O*NET/DataUSA/CareerOneStop/H-1B/Industry
+            # Benchmark); "" (plan-local currency) otherwise.
+            "currency": _salary_currency,
         }
         if flagged_sources:
             logger.warning("Salary outliers detected for %s: %s", role, flagged_sources)
@@ -4300,23 +4352,27 @@ def fuse_workforce_insights(enriched: dict, kb: dict, industry: str) -> dict:
     gads_category = _INDUSTRY_TO_GOOGLE_ADS_CATEGORY.get(industry) or ""
     gads_kb = _kb_google_ads_benchmarks(kb, gads_category) if gads_category else {}
     if gads_kb:
+        # CONFIDENTIALITY FIX (2026-09-24): this KB entry is Joveo's own
+        # first-party Google Ads spend data, keyed by keyword -- it carries
+        # ANOTHER advertiser's brand keywords ("outlier ai jobs", "ai
+        # training jobs") and absolute campaign spend
+        # (top_performing_keywords[].spend, category total_spend). That is
+        # internal/third-party data, not this client's own market
+        # intelligence, and it was rendering verbatim (top_keywords +
+        # total_spend) in every client workbook's Market Intelligence sheet
+        # via excel_v2's generic workforce_insights dump -- e.g. tripping
+        # bundle_qa's ai_training_vocab_leak on plans that have nothing to
+        # do with AI training. Only aggregate, non-identifying category
+        # benchmarks (CPC/CTR ranges) belong in a client deliverable; never
+        # keyword-level rows or absolute spend figures.
         result["google_ads_2025_benchmarks"] = {
-            "source": "Joveo Google Ads 2025 Campaign Data (first-party)",
+            "source": "Joveo Google Ads 2025 Campaign Data (first-party, category aggregates only)",
             "data_priority": 3,
             "category": gads_kb.get("category_name", gads_category),
             "blended_cpc": gads_kb.get("blended_cpc"),
             "blended_ctr": gads_kb.get("blended_ctr"),
             "cpc_stats": gads_kb.get("cpc_stats", {}),
             "total_keywords": gads_kb.get("total_keywords"),
-            "total_spend": gads_kb.get("total_spend"),
-            "top_keywords": [
-                {
-                    "keyword": kw.get("keyword"),
-                    "cpc": kw.get("cpc"),
-                    "ctr_pct": kw.get("ctr_pct"),
-                }
-                for kw in (gads_kb.get("top_performing_keywords") or [] or [])[:5]
-            ],
         }
 
     # Supply partner trends
