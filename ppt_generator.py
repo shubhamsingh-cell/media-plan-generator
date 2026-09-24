@@ -4228,11 +4228,33 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         else "multiple locations"
     )
 
-    # Enhance action text with market temperature if available
+    # Enhance action text with market temperature if available.
+    #
+    # market_temp_str is read in FOUR places on this slide -- the headline
+    # qualifier (~4245: "...in a {temp} talent market"), the situation card
+    # (~4351: "Market Temp.: {temp} (...)"), the strategy thesis clause
+    # (~4623: "...in a {temp} market"), and the secondary metric chip
+    # (~4893) -- so this one selection decides all four. data_synthesizer.
+    # fuse_job_market_demand's generic "Industry Benchmark" fallback
+    # (the SAME branch already gated for Talent Pool/Postings/Temperature/
+    # Trend elsewhere in this file, e.g. the Market Temp row guard above
+    # and excel_v2's Market Demand by Role table) sets market_temperature
+    # to an identical, fabricated "hot"/"cold" for every unmatched role --
+    # picking THAT role here would not just be uninformative but actively
+    # wrong: it can silently override a genuine "cool" from a real-data
+    # role that appears later in the dict, because this loop takes the
+    # FIRST role with any market_temperature at all. Skip fallback roles
+    # so a real reading always wins when one exists; if every role in the
+    # plan hit the fallback, market_temp_str stays "" and all four
+    # consumers correctly omit their temperature clause/line/chip instead
+    # of asserting a guess.
     market_temp_str = ""
     try:
         for _role_key, _role_demand in job_market.items():
             if isinstance(_role_demand, dict):
+                _es_posting_sources = _role_demand.get("posting_sources") or []
+                if "Industry Benchmark" in _es_posting_sources:
+                    continue
                 _temp = _role_demand.get("market_temperature") or ""
                 if _temp:
                     market_temp_str = _temp

@@ -705,3 +705,129 @@ def test_ppt_market_temp_row_present_for_real_data():
         "expected the real-data Market Temp row to survive -- got: "
         f"{[t for t in texts if 'Market Temp' in t]}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Verifier follow-up #2: even with the Market Temp ROW fix above (Channel
+# Strategy slide), the Executive Summary slide (slide 2) built its own
+# `market_temp_str` at ppt_generator.py ~4231-4241 by taking the FIRST role
+# in job_market_demand with ANY market_temperature value -- no fabrication
+# check at all. Four places on that slide read the one variable: the
+# headline qualifier ("...in a {temp} talent market", ~4245), the situation
+# card ("Market Temp.: {temp} (...)",  ~4351), the strategy-thesis clause
+# ("...in a {temp} market", ~4623 -- a 4th site beyond the 3 the verifier
+# named, caught because it derives from the same variable), and the
+# secondary metric chip (~4893). Because dict iteration order put a
+# fabricated-fallback role first, the headline could not just show stale/
+# uninformative data but ACTIVELY CONTRADICT a real role's genuine reading
+# later in the same dict (e.g. asserting "hot" while a real-data role says
+# "cool").
+# ---------------------------------------------------------------------------
+
+
+def _slide2_texts(prs):
+    slide2 = prs.slides[1]  # Executive Summary is the second slide (index 1)
+    return [
+        shape.text_frame.text
+        for shape in slide2.shapes
+        if shape.has_text_frame and shape.text_frame.text.strip()
+    ]
+
+
+def test_slide2_never_shows_fabricated_temp_and_prefers_real_role_data():
+    """3-role plan modeled on the verifier's own repro: 2 fallback roles
+    (posting_sources=["Industry Benchmark"], market_temperature="hot",
+    dict-ordered FIRST) + 1 real-data role reporting "cool". Slide 2 must
+    reflect the real role's "cool" everywhere it mentions temperature, and
+    must never assert the fabricated "hot" -- the headline no longer
+    silently overrides genuine data with a fallback role's fabricated
+    reading just because that role happened to iterate first."""
+    job_market_demand = {
+        "Confectionery Line Operator": {
+            "total_postings": 75000,
+            "posting_sources": ["Industry Benchmark"],
+            "market_temperature": "hot",
+            "trend_direction": "Stable (+2% YoY)",
+            "talent_pool_estimate": 1_500_000,
+        },
+        "Packaging Associate II": {
+            "total_postings": 75000,
+            "posting_sources": ["Industry Benchmark"],
+            "market_temperature": "hot",
+            "trend_direction": "Stable (+2% YoY)",
+            "talent_pool_estimate": 1_500_000,
+        },
+        "Quality Assurance Technician": {
+            "total_postings": 4200,
+            "posting_sources": ["Adzuna"],
+            "market_temperature": "cool",
+            "trend_direction": "Declining",
+            "talent_pool_estimate": 250_000,
+        },
+    }
+    data = _ppt_plan_with_job_market_demand(
+        job_market_demand,
+        roles=[
+            {"title": "Confectionery Line Operator", "count": 20, "tier": "mid"},
+            {"title": "Packaging Associate II", "count": 15, "tier": "mid"},
+            {"title": "Quality Assurance Technician", "count": 5, "tier": "mid"},
+        ],
+    )
+    prs = Presentation(io.BytesIO(ppt.generate_pptx(data)))
+    texts = _slide2_texts(prs)
+    full_text = "\n".join(texts).lower()
+
+    assert "hot" not in full_text, (
+        "slide 2 still asserts the fabricated 'hot' reading from a "
+        f"fallback role: {[t for t in texts if 'hot' in t.lower()]}"
+    )
+    assert any("cool talent market" in t.lower() for t in texts), (
+        f"expected the headline to show the real role's 'cool' -- got: {texts}"
+    )
+    assert any("market temp." in t.lower() and "cool" in t.lower() for t in texts), (
+        f"expected the situation card to show 'Market Temp.: Cool (...)' -- got: {texts}"
+    )
+
+
+def test_slide2_omits_temp_clause_when_every_role_is_fallback():
+    """When EVERY role in the plan hit the Industry Benchmark fallback (no
+    real market_temperature data anywhere), slide 2 must omit the
+    'in a ... talent market' headline clause and the 'Market Temp.'
+    situation-card line entirely -- never fall back to a guess, and never
+    assert the fabricated value just because it's the only one available."""
+    job_market_demand = {
+        "Confectionery Line Operator": {
+            "total_postings": 75000,
+            "posting_sources": ["Industry Benchmark"],
+            "market_temperature": "hot",
+            "trend_direction": "Stable (+2% YoY)",
+            "talent_pool_estimate": 1_500_000,
+        },
+        "Packaging Associate II": {
+            "total_postings": 75000,
+            "posting_sources": ["Industry Benchmark"],
+            "market_temperature": "hot",
+            "trend_direction": "Stable (+2% YoY)",
+            "talent_pool_estimate": 1_500_000,
+        },
+    }
+    data = _ppt_plan_with_job_market_demand(
+        job_market_demand,
+        roles=[
+            {"title": "Confectionery Line Operator", "count": 20, "tier": "mid"},
+            {"title": "Packaging Associate II", "count": 15, "tier": "mid"},
+        ],
+    )
+    prs = Presentation(io.BytesIO(ppt.generate_pptx(data)))
+    texts = _slide2_texts(prs)
+    full_text = "\n".join(texts).lower()
+
+    assert "talent market" not in full_text, (
+        f"headline still carries a fabricated temperature clause: {texts}"
+    )
+    assert "market temp." not in full_text, (
+        f"situation card still shows a fabricated Market Temp. line: {texts}"
+    )
+    assert "hot" not in full_text, (
+        f"the fabricated 'hot' value leaked somewhere on slide 2: {texts}"
+    )
