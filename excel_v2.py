@@ -48,6 +48,7 @@ from shared_utils import (
     INDUSTRY_LABEL_MAP,
     internal_qc_mode as _internal_qc_mode,
     normalize_competitor_names,
+    clean_competitor_entries,
 )
 
 from joveo_brand_2026 import (
@@ -12827,12 +12828,16 @@ def _generate_excel_v2_inner(
     data["client_name"] = _proper_client_name(data["client_name"] or "Client")
     data["company_name"] = _proper_client_name(data["company_name"] or "Client")
 
-    for key in ["locations", "roles", "target_roles", "campaign_goals", "competitors"]:
+    for key in ["locations", "roles", "target_roles", "campaign_goals"]:
         val = data.get(key)
         if val is None:
             data[key] = []
         elif isinstance(val, str):
             data[key] = [val]
+    # Competitors: same cleaner as app.py's request boundary (idempotent on
+    # its output) -- splits a direct caller's "A, B" string instead of
+    # wrapping it as one name; every entry is repr-safe.
+    data["competitors"] = clean_competitor_entries(data.get("competitors"))
 
     # Normalize work_environment: frontend sends array, we need a string
     we = data.get("work_environment", "hybrid")

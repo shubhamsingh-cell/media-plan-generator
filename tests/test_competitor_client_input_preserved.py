@@ -480,18 +480,42 @@ def test_dict_metadata_survives_boundary_and_reaches_ppt_competitor_card():
     assert "regional confectionery chain" in blob
 
 
-def test_mapping_shaped_competitors_input_is_dropped_not_misrendered():
-    """Judgment call (low priority, per adversarial review): a bare
-    mapping ({"Mars Wrigley": {...}}) instead of a list of dicts is a
-    malformed/unexpected input shape -- clean_competitor_entries treats it
-    as a single non-dict-shaped-correctly item (no top-level "name" key)
-    and drops it, yielding []. Documented here as the accepted behavior:
-    it falls through to the SAME fully-inferred, fully-disclosed static
-    fallback as "brief supplied nothing" -- never a wrong or unlabeled
-    company list."""
-    raw = {"Mars Wrigley": {"domain": "mars.com"}}
-    assert shared_utils.clean_competitor_entries(raw) == []
-    assert shared_utils.normalize_competitor_names(raw) == []
+def test_mapping_shaped_competitors_input_is_expanded_not_dropped():
+    """Round 6 (supersedes round 5's accepted "dropped" behavior): a bare
+    name -> metadata mapping ({"Mars Wrigley": {...}}) used to be dropped to
+    [], so the client's own competitors silently vanished and the plan fell
+    back to an industry-inferred list the client never typed. It is now
+    expanded into list entries, keeping scalar metadata. A single entry
+    object ({"name": ...}) is still one entry, not a mapping."""
+    raw = {"Mars Wrigley": {"domain": "mars.com"}, "Ferrero": {}}
+    assert shared_utils.clean_competitor_entries(raw) == [
+        {"domain": "mars.com", "name": "Mars Wrigley"},
+        {"name": "Ferrero"},
+    ]
+    assert shared_utils.normalize_competitor_names(raw) == ["Mars Wrigley", "Ferrero"]
+    assert shared_utils.clean_competitor_entries({"name": "Acme", "domain": "a.example"}) == [
+        {"name": "Acme", "domain": "a.example"}
+    ]
+
+
+def test_clean_competitor_entries_never_stringifies_containers():
+    """Round 6: the boundary cleaner used to ``str()`` any non-dict item and
+    any dict "name" -- a nested list became the literal name "['Acme']" and
+    {"name": {"en": "Acme"}} became "{'en': 'Acme'}", then rendered on every
+    surface. Nested lists are flattened; container names and container
+    metadata values are dropped."""
+    cleaned = shared_utils.clean_competitor_entries(
+        [
+            ["Acme Confections"],
+            {"name": {"en": "Nested Name Co"}},
+            {"name": "Brightline Sweets", "description": {"long": "x"}, "domain": "b.example"},
+            True,
+        ]
+    )
+    assert cleaned == [
+        "Acme Confections",
+        {"name": "Brightline Sweets", "domain": "b.example"},
+    ]
 
 
 if __name__ == "__main__":

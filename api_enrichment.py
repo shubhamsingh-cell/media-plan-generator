@@ -82,6 +82,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from shared_utils import normalize_competitor_names
+
 # Persistent HTTPS connection pool -- reuses TCP+TLS across same-host calls
 try:
     from http_pool import pooled_request as _pooled_request
@@ -14659,14 +14661,13 @@ def enrich_data(
     industry = data.get("industry") or "" or ""
     roles = data.get("roles") or data.get("job_titles") or []
     locations = data.get("locations") or []
-    competitors = data.get("competitors") or []
+    # Same shared cleaner app.py's request boundary uses (names only here).
+    competitors = normalize_competitor_names(data.get("competitors"))
 
     if isinstance(roles, str):
         roles = [r.strip() for r in roles.split(",")]
     if isinstance(locations, str):
         locations = [l.strip() for l in locations.split(",")]
-    if isinstance(competitors, str):
-        competitors = [c.strip() for c in competitors.split(",")]
 
     # Normalize dict inputs to strings (handles structured input like {"title": "...", "count": 5})
     roles = [r.get("title") or "" if isinstance(r, dict) else r for r in roles]
@@ -14683,14 +14684,10 @@ def enrich_data(
         )
         for l in locations
     ]
-    competitors = [
-        c.get("name") or "" if isinstance(c, dict) else c for c in competitors
-    ]
 
     # Filter out empty strings from lists
     roles = [r for r in roles if isinstance(r, str) and r.strip()]
     locations = [l for l in locations if isinstance(l, str) and l.strip()]
-    competitors = [c for c in competitors if isinstance(c, str) and c.strip()]
 
     # --- Result container ---
     enriched: Dict[str, Any] = {

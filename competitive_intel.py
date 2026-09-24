@@ -33,6 +33,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from shared_utils import normalize_competitor_names
+
 logger = logging.getLogger(__name__)
 
 
@@ -873,7 +875,11 @@ def analyze_competitors(
       - competitors: list of profile dicts for each competitor
       - comparison_matrix: summary comparison table data
     """
-    all_names = [company_name] + [c.strip() for c in competitor_names if c.strip()]
+    # hershey_2026_09_24 round 6: Nova's analyze_competitors tool passes an
+    # LLM-built list straight in -- a dict entry raised AttributeError and a
+    # bare "A, B" string was iterated one character at a time.
+    competitor_names = normalize_competitor_names(competitor_names)
+    all_names = [company_name] + competitor_names
 
     # Fetch all profiles concurrently
     profiles: Dict[str, Dict[str, Any]] = {}
@@ -893,9 +899,7 @@ def analyze_competitors(
                 }
 
     company_profile = profiles.get(company_name, {"name": company_name})
-    competitor_profiles = [
-        profiles.get(c, {"name": c}) for c in competitor_names if c.strip()
-    ]
+    competitor_profiles = [profiles.get(c, {"name": c}) for c in competitor_names]
 
     # Build comparison matrix
     comparison = _build_comparison_matrix(company_profile, competitor_profiles)
@@ -2315,6 +2319,11 @@ def run_full_analysis(
     """
     start_time = time.time()
 
+    # hershey_2026_09_24 round 6: POST /api/competitive/analyze passes the
+    # caller's list straight in -- a dict entry raised AttributeError
+    # ('dict' object has no attribute 'strip') and failed the whole request.
+    competitors = normalize_competitor_names(competitors)
+
     result: Dict[str, Any] = {
         "status": "success",
         "company_name": company_name,
@@ -2333,7 +2342,6 @@ def run_full_analysis(
         result["errors"].append("Company name is required")
         return result
 
-    competitors = [c.strip() for c in (competitors or []) if c and c.strip()]
     if not competitors:
         result["status"] = "error"
         result["errors"].append("At least one competitor is required")

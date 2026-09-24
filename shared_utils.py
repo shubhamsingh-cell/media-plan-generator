@@ -602,27 +602,74 @@ def clean_competitor_entries(raw: Any) -> List[Any]:
     drop that metadata for a direct API caller (the wizard itself only
     ever sends plain strings, so this has no effect on wizard-submitted
     plans).
+
+    Every value this returns is safe to interpolate into client-facing text
+    (hershey_2026_09_24 round 6): a name is only ever taken from a string or
+    number -- never ``str()`` of a dict/list, which renders Python repr
+    ("{'en': 'Acme'}", "['Acme']") on every surface downstream -- and a
+    dict entry keeps only scalar metadata values, so no renderer can
+    ``str()`` a nested dict/list out of ``description``/``domain``. Other
+    shapes are normalized rather than dropped:
+
+      - nested lists are flattened (``["Acme", ["Brightline"]]``);
+      - a name -> metadata mapping (``{"Acme": {"domain": "..."}}``)
+        becomes ``[{"domain": "...", "name": "Acme"}]``;
+      - a single entry object (``{"name": "Acme", ...}``) becomes a
+        one-item list.
     """
     if raw is None:
         return []
     if isinstance(raw, str):
         raw = raw.split(",")
-    if not isinstance(raw, (list, tuple)):
+    elif isinstance(raw, dict):
+        if "name" in raw:
+            raw = [raw]
+        else:
+            raw = [
+                {**value, "name": key} if isinstance(value, dict) else key
+                for key, value in raw.items()
+            ]
+    elif not isinstance(raw, (list, tuple)):
         raw = [raw]
     cleaned: List[Any] = []
-    for item in raw:
+    for item in _flatten_competitor_items(raw):
         if isinstance(item, dict):
-            name = str(item.get("name") or "").strip()
+            name = _competitor_scalar_name(item.get("name"))
             if not name:
                 continue
-            entry = dict(item)
+            entry = {
+                key: value
+                for key, value in item.items()
+                if value is None or isinstance(value, (str, int, float, bool))
+            }
             entry["name"] = name
             cleaned.append(entry)
         else:
-            name = str(item or "").strip()
+            name = _competitor_scalar_name(item)
             if name:
                 cleaned.append(name)
     return cleaned
+
+
+def _competitor_scalar_name(value: Any) -> str:
+    """A competitor display name from a string or number; "" for anything
+    else (dict, list, None, bool) -- those must never be ``str()``'d into a
+    name."""
+    if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+        return ""
+    return str(value).strip()
+
+
+def _flatten_competitor_items(items: Any, _depth: int = 0) -> List[Any]:
+    """Flatten nested lists/tuples of competitor entries (bounded depth)."""
+    flat: List[Any] = []
+    for item in items:
+        if isinstance(item, (list, tuple)):
+            if _depth < 3:
+                flat.extend(_flatten_competitor_items(item, _depth + 1))
+        else:
+            flat.append(item)
+    return flat
 
 
 def normalize_competitor_names(raw: Any) -> List[str]:

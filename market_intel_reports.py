@@ -32,6 +32,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from shared_utils import normalize_competitor_names
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -1276,7 +1278,9 @@ def generate_report(data: Dict[str, Any]) -> Dict[str, Any]:
     role_category = data.get("role_category", "general")
     locations = data.get("locations", ["United States"])
     time_period = data.get("time_period", "quarterly")
-    competitors = data.get("competitors") or []
+    # hershey_2026_09_24 round 6: iterated raw -- a "A, B" string became one
+    # "competitor" per character and a dict entry crashed the section.
+    competitors = normalize_competitor_names(data.get("competitors"))
 
     collar_type = _detect_collar(role_category, industry)
 

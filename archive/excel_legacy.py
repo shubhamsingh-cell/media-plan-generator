@@ -25,6 +25,7 @@ from shared_utils import (
     parse_budget,
     INDUSTRY_LABEL_MAP as _SHARED_INDUSTRY_LABEL_MAP,
     standardize_location as _shared_standardize_location,
+    normalize_competitor_names,
 )
 
 import benchmark_registry
@@ -378,7 +379,11 @@ def generate_excel(data):
             pass  # Silently skip if image insertion fails
 
     job_cat_labels = data.get("job_category_labels") or []
-    client_competitors = data.get("competitors") or []
+    # hershey_2026_09_24 round 6: this legacy generator is still live --
+    # app.py falls back to it whenever excel_v2 raises -- and it used to
+    # call c.lower() / ", ".join() on the raw entries: a dict-shaped
+    # competitor crashed the fallback workbook outright. Names only here.
+    client_competitors = normalize_competitor_names(data.get("competitors"))
     # CRITICAL: Filter out self from client-specified competitors (prevents self-as-competitor bug)
     _company_name_for_filter = (data.get("client_name") or "" or "").lower().strip()
     if _company_name_for_filter and client_competitors:

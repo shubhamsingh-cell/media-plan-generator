@@ -37,6 +37,7 @@ from joveo_brand_2026 import (
     MAGENTA,
     LAVENDER_100,
 )
+from shared_utils import normalize_competitor_names
 
 try:
     from intl_benchmark_lookup import get_cpa_median_usd, get_local_salary_summary
@@ -678,7 +679,14 @@ def _slide_benchmarking_1(data: dict) -> tuple[str, list[dict]]:
     b_box = _uid()
     reqs += _text_box(sid, b_box, 5.2, 1.0, 4.4, 1.8)
     comp_text = "B) Competitive Landscape & Concentration\n\n"
-    competitors = data.get("competitors") or []
+    # hershey_2026_09_24 round 6: this box used to f-string the RAW entries,
+    # so a dict-shaped competitor (direct API callers send
+    # {"name": ..., "description": ...}) printed as Python repr text on the
+    # Google Slides deck -- deck_generator's Tier 1, the deck clients get
+    # whenever Google Slides is up. The box is 4.4in x 1.8in at 11pt (five
+    # one-line bullets), so it shows names only; the python-pptx tier's
+    # competitor cards are where description/domain render.
+    competitors = normalize_competitor_names(data.get("competitors"))
     if competitor and isinstance(competitor, dict):
         for comp_name, comp_data in list(competitor.items())[:5]:
             if isinstance(comp_data, dict):
@@ -687,9 +695,13 @@ def _slide_benchmarking_1(data: dict) -> tuple[str, list[dict]]:
                     or comp_data.get("posting_share")
                     or ""
                 )
+                if not isinstance(share, (str, int, float)):
+                    share = ""
                 comp_text += f"{comp_name}: {share}\n"
-            else:
+            elif isinstance(comp_data, (str, int, float)):
                 comp_text += f"{comp_name}: {comp_data}\n"
+            else:
+                comp_text += f"{comp_name}\n"
     elif competitors:
         for c in competitors[:5]:
             comp_text += f"- {c}\n"
@@ -890,7 +902,8 @@ def _slide_targeting(data: dict) -> tuple[str, list[dict]]:
     roles = data.get("roles") or data.get("target_roles") or []
     if roles and isinstance(roles[0], dict):
         roles = [r.get("title") or str(r) for r in roles]
-    competitors = data.get("competitors") or []
+    # Same repr-leak guard as _slide_benchmarking_1 (names only per cell).
+    competitors = normalize_competitor_names(data.get("competitors"))
     goals = data.get("campaign_goals") or []
 
     # 5-column table

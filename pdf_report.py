@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
+from shared_utils import clean_competitor_entries
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -77,6 +79,14 @@ def _safe_str(value: Any) -> str:
     if value is None:
         return ""
     return str(value)
+
+
+def _scalar_text(value: Any) -> str:
+    """Display text for a scalar; "" for None or a dict/list/tuple/set,
+    whose ``str()`` would be Python repr text on the page."""
+    if value is None or isinstance(value, (dict, list, tuple, set)):
+        return ""
+    return str(value).strip()
 
 
 def _format_currency(value: Any) -> str:
@@ -222,8 +232,12 @@ def generate_pdf_report(
     recommendations = plan_data.get("recommendations") or []
     timeline = plan_data.get("timeline") or plan_data.get("campaign_timeline") or []
     risk_analysis = plan_data.get("risk_analysis") or plan_data.get("risks") or []
-    competitive = (
-        plan_data.get("competitive_landscape") or plan_data.get("competitors") or []
+    # hershey_2026_09_24 round 6: POST /api/export/pdf renders the posted plan
+    # payload without ever passing app.py's /api/generate request boundary,
+    # so clean the client's competitor list here (dict entries keep their
+    # description, which the Competitive Landscape section shows).
+    competitive = plan_data.get("competitive_landscape") or clean_competitor_entries(
+        plan_data.get("competitors")
     )
 
     # ── Deck narrative KB + client-safety gate (MPG-F3) ──
@@ -1144,28 +1158,36 @@ def generate_pdf_report(
                 hAlign="LEFT",
             )
         )
+        # hershey_2026_09_24 round 6: _scalar_text, not _safe_str -- a nested
+        # dict/list here used to print as Python repr text in the PDF.
         if isinstance(competitive, list):
             for item in competitive:
                 if isinstance(item, dict):
-                    comp_name = _safe_str(
-                        item.get("name") or item.get("competitor") or ""
-                    )
-                    comp_detail = _safe_str(
+                    comp_name = _scalar_text(item.get("name") or item.get("competitor"))
+                    if not comp_name:
+                        continue
+                    comp_detail = _scalar_text(
                         item.get("strategy")
                         or item.get("details")
                         or item.get("notes")
-                        or ""
+                        or item.get("description")
                     )
-                    elements.append(
-                        Paragraph(f"<b>{comp_name}:</b> {comp_detail}", style_body)
-                    )
-                elif isinstance(item, str):
-                    elements.append(Paragraph(f"- {item}", style_bullet))
+                    if comp_detail:
+                        elements.append(
+                            Paragraph(f"<b>{comp_name}:</b> {comp_detail}", style_body)
+                        )
+                    else:
+                        elements.append(Paragraph(f"- {comp_name}", style_bullet))
+                elif isinstance(item, str) and item.strip():
+                    elements.append(Paragraph(f"- {item.strip()}", style_bullet))
         elif isinstance(competitive, dict):
             for key, value in competitive.items():
+                value_text = _scalar_text(value)
+                if not value_text:
+                    continue
                 elements.append(
                     Paragraph(
-                        f"<b>{key.replace('_', ' ').title()}:</b> {_safe_str(value)}",
+                        f"<b>{str(key).replace('_', ' ').title()}:</b> {value_text}",
                         style_body,
                     )
                 )

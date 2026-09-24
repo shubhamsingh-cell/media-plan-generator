@@ -29,6 +29,8 @@ from shared_utils import (
     parse_budget_display,
     INDUSTRY_LABEL_MAP as _SHARED_INDUSTRY_LABEL_MAP,
     internal_qc_mode as _internal_qc_mode,
+    clean_competitor_entries,
+    normalize_competitor_names,
 )
 
 import joveo_brand_2026 as _brand
@@ -8810,34 +8812,28 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         # presenting a guess with the same confidence as a verified one.
         competitors: Dict[str, Any] = {}
         _competitor_source = "brief"
-        _direct_comps = data.get("competitors") or []
-        if isinstance(_direct_comps, list) and _direct_comps:
-            for _dc in _direct_comps[:_MAX_COMPETITOR_CARDS]:
-                _dc_name = (
-                    str(_dc).strip()
-                    if isinstance(_dc, str)
-                    else (
-                        str(_dc.get("name", "")).strip()
-                        if isinstance(_dc, dict)
-                        else ""
-                    )
-                )
-                if _dc_name:
-                    competitors[_dc_name] = {
-                        "domain": (
-                            _dc.get("domain", "") if isinstance(_dc, dict) else ""
-                        ),
-                        "description": (
-                            _dc.get("description", "") if isinstance(_dc, dict) else ""
-                        ),
-                        "competitor_type": (
-                            _dc.get("competitor_type", "")
-                            if isinstance(_dc, dict)
-                            else ""
-                        ),
-                    }
-        elif isinstance(_direct_comps, dict) and _direct_comps:
-            competitors = dict(list(_direct_comps.items())[:_MAX_COMPETITOR_CARDS])
+        # hershey_2026_09_24 round 6: read through the shared cleaner --
+        # it keeps dict metadata (description/domain/competitor_type, shown
+        # on the cards below) but never yields a non-string name or a
+        # nested dict/list value that the card text would str() into
+        # Python repr, and it expands a name -> metadata mapping instead of
+        # the old branch here that passed such a mapping's raw values on.
+        for _dc in clean_competitor_entries(data.get("competitors"))[
+            :_MAX_COMPETITOR_CARDS
+        ]:
+            if isinstance(_dc, dict):
+                competitors[_dc["name"]] = {
+                    "domain": _dc.get("domain") or "",
+                    "description": _dc.get("description") or "",
+                    "competitor_type": _dc.get("competitor_type") or "",
+                    "hiring_intensity": _dc.get("hiring_intensity") or "",
+                }
+            else:
+                competitors[_dc] = {
+                    "domain": "",
+                    "description": "",
+                    "competitor_type": "",
+                }
 
         if not competitors:
             _competitor_source = "synthesized"
@@ -9551,18 +9547,9 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
             # priority as the Competitive Landscape slide), falling back to
             # the gold-standard competitor mapping's top employer.
             _top_competitor = ""
-            _direct_comps_r = data.get("competitors") or []
-            if isinstance(_direct_comps_r, list) and _direct_comps_r:
-                _first_c = _direct_comps_r[0]
-                _top_competitor = (
-                    str(_first_c).strip()
-                    if isinstance(_first_c, str)
-                    else (
-                        str(_first_c.get("name") or "").strip()
-                        if isinstance(_first_c, dict)
-                        else ""
-                    )
-                )
+            _direct_comps_r = normalize_competitor_names(data.get("competitors"))
+            if _direct_comps_r:
+                _top_competitor = _direct_comps_r[0]
             if not _top_competitor and competitor_map:
                 for _ck, _cv in competitor_map.items():
                     if isinstance(_ck, str) and _ck.startswith("_"):
@@ -11431,12 +11418,16 @@ def _generate_pptx_scoped(data: Dict[str, Any]) -> bytes:
         if data.get(key) is None:
             data[key] = default
     # Ensure list fields are actual lists
-    for key in ["locations", "roles", "target_roles", "campaign_goals", "competitors"]:
+    for key in ["locations", "roles", "target_roles", "campaign_goals"]:
         val = data.get(key)
         if val is None:
             data[key] = []
         elif isinstance(val, str):
             data[key] = [val]
+    # Competitors: same cleaner as app.py's request boundary (idempotent on
+    # its output) -- a direct caller's "A, B" string splits into two names
+    # instead of being wrapped as one, and every entry is repr-safe.
+    data["competitors"] = clean_competitor_entries(data.get("competitors"))
     # Ensure channel_categories is a dict
     cc = data.get("channel_categories")
     if cc is None:
