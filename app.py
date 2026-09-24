@@ -3292,6 +3292,9 @@ _GENERIC_INDUSTRY_STRINGS = ("", "general", "other", "n/a", "na", "none")
 #      sectors) means the company makes the equipment, so it stays generic
 #      manufacturing ("dairy and food processing equipment manufacturing",
 #      "aircraft equipment manufacturing").
+#   6. Customer clauses are ignored (all three sectors): see
+#      _CUSTOMER_CLAUSE_RE. "HVAC manufacturing for pharmaceutical
+#      facilities" describes the customer, not the product.
 # Aerospace is exempt from rule 4. Its words rarely modify an unrelated
 # product ("aircraft parts" and "defense electronics" are aerospace work).
 # Its few ambiguous uses are excluded directly: "rocket stove" (appliances)
@@ -3313,6 +3316,25 @@ _PHARMA_PRODUCT_WORDS = (
 )
 
 
+# Rule 6, customer clauses. A supplier is often described by its CUSTOMERS'
+# industry: "plastic bottle manufacturing for beverage companies", "HVAC
+# manufacturing for pharmaceutical facilities". The product rules only read
+# the part of the text before the first "for", "serving", "supplying" or
+# "servicing". "chocolate manufacturing for retail" still counts, because
+# its product comes before "for". "to" is ambiguous ("ready-to-eat food",
+# "direct-to-consumer snacks"), so it only rejects a product word that
+# directly follows it ("supplier to food companies").
+_CUSTOMER_CLAUSE_RE = re.compile(r"\b(?:for|serving|supplying|servicing)\b")
+_NOT_AFTER_TO = r"(?<!\bto )"
+
+
+def _own_product_text(raw_lower: str) -> str:
+    """The part of the industry text that describes the company's own
+    product: everything before the first customer clause (rule 6)."""
+    m = _CUSTOMER_CLAUSE_RE.search(raw_lower)
+    return raw_lower[: m.start()].strip() if m else raw_lower
+
+
 def _product_head_pattern(product_words: str) -> "re.Pattern[str]":
     """Compile rule 4 for one sector's product words. A conjunction ("and",
     "or", "&", ",", "/", "+", ";") counts as a follower only when the next
@@ -3330,10 +3352,12 @@ def _product_head_pattern(product_words: str) -> "re.Pattern[str]":
         r"|packing|packers?|bottling|bottlers?|makers?|company|companies|co"
         r"|corp|corporation|inc|llc|ltd|industry|industries|sector|business"
         r"|plants?|factory|factories|facility|facilities|products?|goods"
-        r"|ingredients|brands?|operations?)\b"
+        r"|ingredients?|bars?|substances?|concentrates?|contract|cdmo|cmo"
+        r"|brands?|operations?)\b"
     )
     return re.compile(
-        r"\b" + product_words + r"\b(?=" + end + "|" + conj + "|" + noun + ")"
+        _NOT_AFTER_TO + r"\b" + product_words + r"\b(?="
+        + end + "|" + conj + "|" + noun + ")"
     )
 
 
@@ -3344,7 +3368,8 @@ _PRODUCT_SECTOR_PATTERNS: tuple[tuple[str, "re.Pattern[str]"], ...] = (
     (
         "aerospace",
         re.compile(
-            r"\b(?:aerospace|aircraft|aviation|avionics|spacecraft|satellites?"
+            _NOT_AFTER_TO
+            + r"\b(?:aerospace|aircraft|aviation|avionics|spacecraft|satellites?"
             r"|missiles?|rockets?(?!\s+stoves?\b)"
             r"|(?<!self-)(?<!self )(?<!home )(?<!personal )defen[cs]e)\b"
         ),
@@ -3367,10 +3392,27 @@ def _product_sector_from_industry_text(raw_lower: str) -> Optional[dict]:
         return None
     if _EQUIPMENT_ANYWHERE_RE.search(raw_lower):
         return None  # rule 5: an equipment maker is generic manufacturing
+    own = _own_product_text(raw_lower)  # rule 6: ignore the customer clause
+    if not own:
+        return None
     for naics_key, pattern in _PRODUCT_SECTOR_PATTERNS:
-        if pattern.search(raw_lower):
+        if pattern.search(own):
             return INDUSTRY_NAICS_MAP[naics_key]
     return None
+
+
+def _industry_text_names_pharma_company(raw_lower: str) -> bool:
+    """Tie-break test (see _PHARMA_HEALTHCARE_SHARED_KWS). Its job differs
+    from the override's, so it does NOT use the head-noun rule: it only
+    breaks an existing exact pharma/healthcare keyword tie. "biotech
+    startup", "pharmaceutical sales" and "Pharmaceutical R&D" are pharma
+    companies even though no production noun follows. It keeps the checks
+    that decide WHAT the company is: whole words ("pharmacy" does not
+    count), the equipment block ("pharmaceutical machinery" stays as on
+    main) and the customer clause ("services to pharmaceutical companies")."""
+    if _EQUIPMENT_ANYWHERE_RE.search(raw_lower):
+        return False
+    return bool(_PHARMA_INDUSTRY_TERM_RE.search(_own_product_text(raw_lower)))
 
 
 # Step 4 pharma/healthcare tie-break. The healthcare profile lists "pharma"
@@ -3378,18 +3420,21 @@ def _product_sector_from_industry_text(raw_lower: str) -> Optional[dict]:
 # two keywords. So "pharmaceutical", "biotech" or "Pharma & Biotech" scored
 # a tie, and dict order gave it to healthcare_medical. This tie-break
 # applies ONLY when every healthcare keyword that matched is one of those
-# shared keywords AND the explicit industry text names a pharma product
-# under the same rules as the manufacturing override
-# (_product_sector_from_industry_text: whole words, head-noun rule,
-# equipment block). A separate regex here once let "pharmaceutical
-# machinery" through after the override rules tightened. "pharmacy" does
-# not count, so a retail pharmacy stays healthcare. A tie that just happens
-# to have equal keyword lengths, like "medical" (7) against a "Vaccine
-# Coordinator" role's "vaccine" (7), leaves healthcare in place because
-# "medical" is not a shared keyword.
+# shared keywords AND _industry_text_names_pharma_company() is true for the
+# explicit industry text: a whole-word pharma/biotech term, no equipment
+# word, not inside a customer clause. "pharmacy" does not count, so a
+# retail pharmacy stays healthcare. A tie that just happens to have equal
+# keyword lengths, like "medical" (7) against a "Vaccine Coordinator"
+# role's "vaccine" (7), leaves healthcare in place because "medical" is not
+# a shared keyword.
 _PHARMA_HEALTHCARE_SHARED_KWS = frozenset(
     set(INDUSTRY_NAICS_MAP["healthcare"]["keywords"])
     & set(INDUSTRY_NAICS_MAP["pharma"]["keywords"])
+)
+_PHARMA_INDUSTRY_TERM_RE = re.compile(
+    _NOT_AFTER_TO
+    + r"\b(?:pharma|pharmaceuticals?|biopharma(?:ceuticals?)?|biotech"
+    r"|biotechnology)\b"
 )
 
 # Role-title -> NAICS map key, used by classify_industry's Steps 3/6 (role-
@@ -3964,8 +4009,7 @@ def _classify_industry_primary(
             best_match is INDUSTRY_NAICS_MAP["healthcare"]
             and hits["healthcare"] <= _PHARMA_HEALTHCARE_SHARED_KWS
             and scores["pharma"] >= best_score
-            and _product_sector_from_industry_text(raw_lower)
-            is INDUSTRY_NAICS_MAP["pharma"]
+            and _industry_text_names_pharma_company(raw_lower)
         ):
             # Shared-keyword pharma/healthcare tie-break; see
             # _PHARMA_HEALTHCARE_SHARED_KWS.

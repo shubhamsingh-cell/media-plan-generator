@@ -296,6 +296,109 @@ def test_product_helper_rejects_modifier_uses(raw):
     assert app._product_sector_from_industry_text(raw) is None
 
 
+# Round 6 review: a supplier described by its CUSTOMERS' industry makes
+# the supplied thing, not the customer's product. All stay automotive, as
+# on main. With an industrial client name and production role the override
+# does not fire, so no conflict is suppressed.
+SUPPLIER_CASES = [
+    "plastic bottle manufacturing for beverage companies",
+    "HVAC manufacturing for pharmaceutical facilities",
+    "conveyor manufacturing for food processors",
+    "cardboard box manufacturing for food companies",
+    "refrigeration manufacturing for dairy plants",
+    "tank manufacturing for breweries",
+    "cleaning chemicals manufacturing for food plants",
+    "industrial manufacturing serving the pharmaceutical industry",
+    "contract manufacturing supplying dairy brands",
+    "stainless fabrication manufacturing servicing dairy plants",
+    "component manufacturing supplier to aircraft companies",
+]
+
+
+@pytest.mark.parametrize("raw", SUPPLIER_CASES)
+@pytest.mark.parametrize(
+    "company,roles",
+    [("", []), ("Summit Industrial Group", ["Machine Operator"])],
+    ids=["bare", "industrial-client"],
+)
+def test_supplier_described_by_customer_stays_generic(raw, company, roles):
+    r = app.classify_industry(raw, company, list(roles))
+    assert r.get("legacy_key") == "automotive", (raw, r.get("sector"))
+    primary = app._classify_industry_primary(raw, company, list(roles))
+    assert app._PRODUCT_OVERRIDE_MARKER not in primary
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        # Product before the customer clause still counts.
+        ("chocolate manufacturing for retail and wholesale", "food_beverage"),
+        ("pharmaceutical manufacturing for export", "pharma_biotech"),
+        ("ready-to-eat food manufacturing", "food_beverage"),
+        ("ready to drink beverage manufacturing", "food_beverage"),
+    ],
+)
+def test_customer_clause_rule_keeps_own_product(raw, expected):
+    r = app.classify_industry(raw, "", [])
+    assert r.get("legacy_key") == expected, (raw, r.get("sector"))
+
+
+# Round 6 review: the tie-break decides between two existing, equal
+# keyword scores. It does not use the head-noun rule, so pharma/biotech
+# companies described without a production noun are pharma_biotech again
+# (as on fd052a1), not healthcare_medical.
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "Biotech research",
+        "Pharmaceutical R&D",
+        "Pharmaceutical sales",
+        "biotech startup",
+        "biotech firm",
+        "pharmaceutical services",
+        "pharmaceutical distribution",
+    ],
+)
+def test_tie_break_names_pharma_companies(raw):
+    r = app.classify_industry(raw, "", [])
+    assert r.get("legacy_key") == "pharma_biotech", (raw, r.get("sector"))
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "pharmacy",
+        "retail pharmacy",
+        "pharmaceutical machinery",
+        "hospital services for pharmaceutical companies",
+    ],
+)
+def test_tie_break_still_rejects_non_pharma_companies(raw):
+    r = app.classify_industry(raw, "", [])
+    assert r.get("legacy_key") == "healthcare_medical", (raw, r.get("sector"))
+
+
+# Round 6 review: production/business nouns that were missing from the
+# head-noun follower list.
+@pytest.mark.parametrize(
+    "raw,company,expected",
+    [
+        ("chocolate bar manufacturing", "The Hershey Company", "food_beverage"),
+        ("chocolate bar manufacturing", "", "food_beverage"),
+        ("candy bar manufacturing", "", "food_beverage"),
+        ("beverage concentrate manufacturing", "", "food_beverage"),
+        ("food ingredient manufacturing", "", "food_beverage"),
+        ("drug substance manufacturing", "", "pharma_biotech"),
+        ("pharmaceutical contract manufacturing", "", "pharma_biotech"),
+        ("Biologics CDMO manufacturing", "", "pharma_biotech"),
+        ("biologics CMO manufacturing", "", "pharma_biotech"),
+    ],
+)
+def test_head_noun_allowlist_additions(raw, company, expected):
+    r = app.classify_industry(raw, company, [])
+    assert r.get("legacy_key") == expected, (raw, r.get("sector"))
+
+
 # Phrasings the head-noun rule must keep accepting.
 HEAD_NOUN_POSITIVE_CASES = [
     ("Beverage manufacturing - cans and bottles", "food_beverage"),
