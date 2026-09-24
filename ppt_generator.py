@@ -2979,13 +2979,22 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
         if isinstance(budget_alloc, dict) and budget_alloc:
             total_proj = budget_alloc.get("total_projected", {})
             if isinstance(total_proj, dict):
-                # CPH from budget engine
-                live_cph = total_proj.get("cost_per_hire") or total_proj.get("cph")
+                # CPH from budget engine. Derive it through the SAME
+                # blended budget / sum(channel hires) helper slides 2 and 6
+                # use (_compute_blended_cph), so this row can never print a
+                # different "plan" cost-per-hire than the hero stat and the
+                # takeaway do -- the raw ``total_projected.cost_per_hire``
+                # read is only the fallback when no channel hires exist.
+                live_cph, _ = _compute_blended_cph(budget_alloc)
+                if not live_cph:
+                    live_cph = total_proj.get("cost_per_hire") or total_proj.get("cph")
                 if isinstance(live_cph, (int, float)) and live_cph > 0:
                     # Format as range: computed +/- 20% to show realistic spread
                     # S3: this is the plan's OWN cost-per-hire -- localize.
-                    low_cph = live_cph * 0.8
-                    high_cph = live_cph * 1.2
+                    # Whole units: a blended 5,263.16 would otherwise print
+                    # "4,210.53 - 6,315.79" cents on a benchmark row.
+                    low_cph = round(live_cph * 0.8)
+                    high_cph = round(live_cph * 1.2)
                     result["cph"] = (
                         f"{_fmt_currency(low_cph)} - {_fmt_currency(high_cph)}"
                     )
@@ -5121,6 +5130,11 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     if _kb_cph_val:
         _cph_val = _kb_cph_val
         _cph_is_usd_benchmark = True
+        # This is the KB's industry range, not an estimate of this plan --
+        # label it like its "Industry CPA" / "Industry CPC" siblings so a
+        # reader never mistakes the benchmark for the plan's own projection
+        # (which slides 2 and 6 print via _compute_blended_cph).
+        _cph_label = "Industry Cost-per-Hire"
     else:
         _cph_val = benchmarks["cph"]
         _cph_is_usd_benchmark = benchmarks.get("cph_is_usd_benchmark", True)

@@ -350,6 +350,12 @@ class TestCalculateBudgetAllocationWiresFunnel:
 #             (hires 48, cost_per_hire 3125.0 -- unchanged)
 #   Atria:    applications 16893 -> 17874, cost_per_application 17.76 -> 16.78
 #             (hires 57, cost_per_hire 5250.0 -- unchanged)
+#   NOTE (2026-09-16): Atria's cost_per_hire pin is now 5263.16 = 300000/57.
+#   The 5250.0 that stood here was the CPH floor CONSTANT (0.5 x the
+#   healthcare industry midpoint), which budget_engine used to emit under
+#   total_projected.cost_per_hire whenever the floor fired; the engine now
+#   reports the plan's true budget / hires (hires are unchanged at 57).
+#   Manpower is untouched because 150000/48 == 3125.0 exactly.
 # ---------------------------------------------------------------------------
 _FUNNEL_INVARIANT_FIXTURE_DIR = (
     Path(__file__).resolve().parent / "fixtures" / "funnel_invariant"
@@ -368,7 +374,7 @@ _BEFORE_ATRIA_TOTAL = {
     "clicks": 226844,
     "cost_per_application": 16.78,
     "cost_per_click": 1.32,
-    "cost_per_hire": 5250.0,
+    "cost_per_hire": 5263.16,  # 300000 / 57 -- see NOTE above
     "hires": 57,
 }
 _BEFORE_MANPOWER_PER_CHANNEL = {

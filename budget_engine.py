@@ -4364,10 +4364,27 @@ def calculate_budget_allocation(
     # This eliminates the inconsistency where the header showed 10 hires but
     # the channel rows summed to 56.
     _benchmark_cph_floor = _industry_avg_cph(industry) * 0.5  # 50% of avg as floor
+    _cph_floor_applied = False
     if avg_cost_per_hire < _benchmark_cph_floor and total_hires > 0:
         # Adjust hires down so CPH meets benchmark floor
-        avg_cost_per_hire = _benchmark_cph_floor
+        _cph_floor_applied = True
         new_total_hires = max(1, int(total_budget / _benchmark_cph_floor))
+        # The floor governs HIRES, not the reported cost-per-hire: hires are
+        # truncated to an integer, so total_budget / new_total_hires is >=
+        # the floor whenever the budget affords at least one floor-priced
+        # hire (when it does not, hires clamp to 1 and the honest figure is
+        # the whole budget, which sits BELOW the floor -- reported as-is).
+        # Report THAT ratio -- the plan's own figure -- rather than the
+        # floor constant itself. Emitting the bare
+        # floor (0.5 x the industry midpoint, e.g. a flat $5,250 for
+        # healthcare) under ``total_projected.cost_per_hire`` made a
+        # KB-derived constant wear the plan's name: it was invariant to a
+        # 13x budget change and a currency change, and disagreed with every
+        # slide/sheet that derives budget / hires itself (slide 2 hero,
+        # slide 6 takeaway, plan_validator rescale, excel_v2 blended CPH).
+        avg_cost_per_hire = _safe_divide(
+            total_budget, max(new_total_hires, 1), total_budget
+        )
         # Scale per-channel hires proportionally to keep consistency
         scale_factor = new_total_hires / total_hires if total_hires > 0 else 0
         _remaining_hires = new_total_hires
@@ -4567,6 +4584,14 @@ def calculate_budget_allocation(
             "industry": industry,
             "total_openings": total_openings,
             "industry_avg_cph": round(_industry_avg_cph(industry), 2),
+            # Provenance for total_projected.cost_per_hire: when the CPH
+            # floor (0.5 x industry_avg_cph) capped projected hires, the
+            # reported cost_per_hire is still total_budget / hires -- never
+            # the floor constant itself. Consumers wanting the benchmark
+            # should read industry_avg_cph / cph_benchmark_floor, not the
+            # plan's own cost_per_hire.
+            "cph_benchmark_floor": round(_benchmark_cph_floor, 2),
+            "cph_floor_applied": _cph_floor_applied,
             "channels_count": len(channel_allocs),
             "roles_count": len(role_budgets),
             "locations_count": len(location_multipliers),
