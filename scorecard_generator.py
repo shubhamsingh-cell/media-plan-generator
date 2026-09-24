@@ -32,6 +32,9 @@ from joveo_brand_2026 import (
     FONT_HEADING,
     FONT_BODY,
 )
+from display_format import channel_label
+
+MAX_SHOWN_CHANNELS = 10
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +194,58 @@ def _extract_channels(plan_data: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(channels, key=lambda c: c["percentage"], reverse=True)
 
 
+def _display_channel_name(ch: dict[str, Any]) -> str:
+    """Human-facing label for a channel row.
+
+    A ``label`` already present in the data always wins. Otherwise, an
+    internal snake_case channel key (``programmatic_dsp``, ``apac_regional``,
+    ...) is mapped through :func:`display_format.channel_label`, which is
+    the same map ppt_generator.py and excel_v2.py already use for the deck
+    and workbook -- reused here instead of duplicated so the scorecard never
+    drifts from what the other deliverables in the bundle call a channel.
+    Names that already look human (e.g. "LinkedIn", "ZipRecruiter" from the
+    legacy ``summary.channels`` shape) have no underscore and pass through
+    unchanged -- running them through ``str.title()`` would mangle internal
+    capitalization (``LinkedIn`` -> ``Linkedin``).
+    """
+    label = ch.get("label")
+    if label:
+        return str(label)
+    name = str(ch.get("name") or "")
+    if "_" in name:
+        return channel_label(name)
+    return name
+
+
+def _cap_channels_with_other(
+    channels: list[dict[str, Any]], limit: int = MAX_SHOWN_CHANNELS
+) -> list[dict[str, Any]]:
+    """Cap the channel list at ``limit`` rows for display.
+
+    When there are more than ``limit`` channels, the remainder are folded
+    into a single "Other (N channels)" row carrying their true combined
+    percentage and dollar amount -- so the displayed rows still account for
+    100% of the plan's money instead of silently dropping channels while
+    still claiming a bigger count in the header.
+    """
+    if len(channels) <= limit:
+        return list(channels)
+
+    shown = list(channels[:limit])
+    rest = channels[limit:]
+    other_dollar = sum(float(c.get("dollar_amount") or 0) for c in rest)
+    other_pct = sum(float(c.get("percentage") or 0) for c in rest)
+    shown.append(
+        {
+            "name": f"Other ({len(rest)} channels)",
+            "label": f"Other ({len(rest)} channels)",
+            "percentage": other_pct,
+            "dollar_amount": other_dollar,
+        }
+    )
+    return shown
+
+
 def _extract_total_budget(plan_data: dict[str, Any], symbol: str = "$") -> str:
     """Extract and format the total budget from plan data, in its own currency."""
     budget_alloc = (
@@ -254,9 +309,15 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
     currency_symbol = _currency_symbol(plan_data)
     total_budget = _extract_total_budget(plan_data, currency_symbol)
     channels = _extract_channels(plan_data)
-    # Cap at 10 channels for the bar chart, then re-balance the displayed
-    # percentages so they total exactly 100 (no stranded rounding error).
-    shown_channels = channels[:10]
+    # Cap at 10 rows for the bar chart; beyond that, fold the remainder into
+    # a single "Other (N channels)" row carrying its true combined share so
+    # the shown rows still account for 100% of the plan's money -- nothing
+    # is silently dropped the way a bare channels[:10] slice would drop it.
+    # Each channel's raw "percentage" is already computed against the FULL
+    # plan total (see _extract_channels), so normalizing over this capped-
+    # with-Other list re-balances against all money, not just the shown
+    # subset.
+    shown_channels = _cap_channels_with_other(channels)
     _normalize_percentages(shown_channels)
     num_channels = len(channels)
     industry = _safe(
@@ -274,7 +335,7 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
     # Build channel bars HTML (uses the re-balanced display_pct for labels)
     channel_bars_html = ""
     for ch in shown_channels:
-        name = _safe(ch["name"])
+        name = _safe(_display_channel_name(ch))
         pct = int(ch.get("display_pct") or 0)
         dollar = (
             _format_budget(ch["dollar_amount"], currency_symbol)
