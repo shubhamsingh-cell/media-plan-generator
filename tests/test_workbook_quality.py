@@ -120,9 +120,18 @@ def test_low_efficiency_alert_uses_plan_currency_threshold():
     # exactly what trips budget_engine's "Low Efficiency" flag
     # (budget_engine.py: `projected_hires == 0 and dollars > 1000`). Non-USD
     # plan so a mislabeled-currency bug would actually show up.
+    #
+    # Deliberately a market NOT in the 38-country
+    # international_benchmarks_2026.json dataset (e.g. "United Kingdom"
+    # resolves real, cheap local UK job-board CPC via
+    # intl_benchmark_lookup.get_locale_cpc_basis, which reliably funds an
+    # actual hire and never trips this flag) -- this fixture exercises the
+    # currency-LABEL path on the pre-existing US-calibrated cascade, not
+    # locale calibration (covered separately in
+    # test_intl_locale_cpc_calibration.py).
     roles = [{"title": "Warehouse Associate", "count": 2, "tier": "entry"}]
     data, alloc = _plan_data(
-        "United Kingdom",
+        "Egypt",
         5_000,
         plan_currency="GBP",
         roles=roles,

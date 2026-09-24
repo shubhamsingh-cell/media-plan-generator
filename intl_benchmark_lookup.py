@@ -570,7 +570,11 @@ def _normalize_country_2026(country: str | None) -> str | None:
     for underscores (covers "new zealand" -> "new_zealand", "south korea"
     -> "south_korea", "czech republic" -> "czech_republic" for free), the
     small extra-alias table above, and finally a case-insensitive match
-    against each country's own ``name`` field. Never raises.
+    against each country's own ``name`` field. If none of those match and
+    the input looks like "City, Country" (real plan locations always carry
+    a city), retries the whole lookup against the trailing token after the
+    last comma -- mirrors what the older ``_normalize_country`` already
+    does for ``international_role_benchmarks_v1.json``. Never raises.
     """
     if not country or not isinstance(country, str):
         return None
@@ -592,6 +596,10 @@ def _normalize_country_2026(country: str | None) -> str | None:
         name = entry.get("name") if isinstance(entry, dict) else None
         if isinstance(name, str) and name.strip().lower() == key:
             return slug
+    if "," in key:
+        last = key.rsplit(",", 1)[-1].strip()
+        if last and last != key:
+            return _normalize_country_2026(last)
     return None
 
 

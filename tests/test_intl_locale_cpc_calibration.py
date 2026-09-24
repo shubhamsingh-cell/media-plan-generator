@@ -115,6 +115,23 @@ class TestGetLocaleCpcBasis:
         # is_us_plan gate gets None back rather than a fabricated match.
         assert ibl.get_locale_cpc_basis(["United States", "USA"], "USD") is None
 
+    def test_city_country_string_matches_same_as_bare_country(self):
+        """Real plan locations always carry a city (e.g. "London, United
+        Kingdom"), not a bare country -- _normalize_country_2026 must split
+        on the trailing comma token the same way the older _normalize_country
+        already does, or the entire non-US calibration path silently never
+        activates for realistic plan data."""
+        with_city = ibl.get_locale_cpc_basis(["Test City, United Kingdom"], "GBP")
+        bare = ibl.get_locale_cpc_basis(["United Kingdom"], "GBP")
+        assert with_city is not None
+        assert with_city == bare
+
+    def test_city_country_string_still_none_for_unmatched_market(self):
+        """A "City, Country" string for a market genuinely absent from the
+        38-country dataset must still return None, not spuriously match via
+        the comma-split fallback."""
+        assert ibl.get_locale_cpc_basis(["Madrid, Spain"], "EUR") is None
+
 
 # ---------------------------------------------------------------------------
 # Shared fixtures for calculate_budget_allocation integration tests
@@ -128,7 +145,14 @@ _CHANNEL_PCTS = {
     "regional_boards": 13,
     "employer_branding": 5,
 }
-_UBER_LOCATIONS_RAW = ["UK", "Australia", "Mexico", "argentina", "canada", "new zealand"]
+_UBER_LOCATIONS_RAW = [
+    "UK",
+    "Australia",
+    "Mexico",
+    "argentina",
+    "canada",
+    "new zealand",
+]
 
 
 def _non_us_alloc(**overrides):
@@ -281,7 +305,10 @@ class TestUsPlanUnaffected:
         assert with_new_params["metadata"]["intl_cpc_basis"] is None
         # Byte-identical channel_allocations -- the exact numbers, not just
         # "close enough".
-        assert no_new_params["channel_allocations"] == with_new_params["channel_allocations"]
+        assert (
+            no_new_params["channel_allocations"]
+            == with_new_params["channel_allocations"]
+        )
         assert no_new_params["total_projected"] == with_new_params["total_projected"]
 
     def test_single_us_state_bare_token_not_misread_as_non_us(self):
