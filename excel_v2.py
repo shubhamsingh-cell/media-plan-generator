@@ -651,7 +651,16 @@ INDUSTRY_NICHE_CHANNELS: Dict[str, List[str]] = {
         "Built Hire",
     ],
     "automotive": ["AutoJobs.com", "AutomotiveCrossing", "Automotive News Careers"],
-    "food_beverage": ["Poached", "Culinary Agents", "RestaurantJobs.com"],
+    # NAICS "food_beverage" (app.py INDUSTRY_NAICS_MAP) is food/beverage
+    # PRODUCTION -- breweries, distilleries, bakeries, dairy, meat
+    # processing (bls_sector "Manufacturing") -- not restaurants/dining.
+    # Real client incident (Hershey plan, 2026-09): a food & beverage
+    # MANUFACTURING client was shown Poached/Culinary Agents/
+    # RestaurantJobs.com, all restaurant-industry boards, because this
+    # entry had been copy-pasted from "hospitality_travel" below. Restaurant
+    # boards belong under "hospitality_travel" (actual dining/food-service
+    # industry); this key needs food-manufacturing-specific boards instead.
+    "food_beverage": ["CareersInFood.com", "IFT Career Center", "iHireManufacturing"],
     "media_entertainment": ["MediaBistro", "ProductionHub", "Mandy.com", "Staff Me Up"],
     "telecommunications": [
         "WirelessEstimator",
