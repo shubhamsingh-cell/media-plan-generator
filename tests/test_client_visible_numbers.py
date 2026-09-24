@@ -183,15 +183,16 @@ class TestLocalCurrencyBasisIsOneUnit:
             "no channel records a USD->INR conversion; the fallthrough path "
             f"was not exercised: {[c.get('cpc_source') for c in chans.values()]}"
         )
-        # No single "cheap" channel may capture the budget on a unit error.
-        # The real incident this guards (see module docstring #2) was an 83x
-        # CPC unit error that steered ~80% of the budget to job_board/social.
-        # F5 FIX (2026-09-24) made industry_avg_cph currency-correct for
-        # roi_score too, so a *legitimate* INR plan now properly
-        # differentiates ROI (global_boards' real ₹13.37 CPC vs. ₹52-394 for
-        # the rest) and rebalance_low_roi_channels correctly concentrates
-        # spend there -- observed ~64%. The ceiling stays well below the 83x
-        # unit-error's ~80% so a real currency leak still trips this.
+        # Loose sanity bound only -- NOT the leak guard (that's the cpc >= 1.0
+        # assertion above; a currency-leak simulation on this exact scenario
+        # produced ~53% concentration, well under this cap either side of the
+        # fix, so a leak would slip past a tighter cap too). F5 FIX
+        # (2026-09-24) made industry_avg_cph currency-correct for roi_score
+        # too, so a *legitimate* INR plan now properly differentiates ROI
+        # (global_boards' real ₹13.37 CPC vs. ₹52-394 for the rest) and
+        # rebalance_low_roi_channels correctly concentrates spend there --
+        # observed ~64%. This just guards against a single channel taking
+        # the near-entire budget (e.g. a >=90% collapse would still trip it).
         total = sum(c.get("dollar_amount") or 0 for c in chans.values())
         shares = {k: (c.get("dollar_amount") or 0) / total for k, c in chans.items()}
         assert max(shares.values()) < 0.7, shares

@@ -1,8 +1,10 @@
 """Regression: calculate_budget_allocation's total-plan-level industry-CPH
 benchmark must never wear a USD figure on a non-USD plan.
 
-Found 2026-09-24 while converting the per-channel CPH floor to plan currency
-(the per-channel twin of this bug): ``_industry_avg_cph(industry)`` returns a
+Found 2026-09-24 investigating a related report about the per-channel
+``_CHANNEL_MIN_CPH`` floor (a separate, not-yet-landed-here conversion --
+see budget_engine.py's own `_CHANNEL_MIN_CPH` usages, still raw USD in this
+tree as of this commit): ``_industry_avg_cph(industry)`` returns a
 USD constant (e.g. $10,500 for healthcare), but three places in
 ``calculate_budget_allocation`` compared or reported it alongside plan-native
 figures without converting it first --
@@ -47,6 +49,13 @@ _CHANNELS = {
 
 
 def _alloc(total_budget, location, plan_currency, symbol):
+    # knowledge_base={} deliberately -- a real KB blends in a second, KB-
+    # sourced figure (e.g. SHRM's average_cost_per_hire) INTO
+    # sufficiency.industry_avg_cost_per_hire only (see assess_budget_
+    # sufficiency's KB-blend block), which makes it legitimately diverge
+    # from metadata.industry_avg_cph even pre-fix, for a reason unrelated
+    # to currency. Passing {} isolates the currency-agreement invariant
+    # this file tests from that separate, pre-existing KB-blend behavior.
     return be.calculate_budget_allocation(
         total_budget=total_budget,
         roles=_ROLES,
@@ -77,8 +86,13 @@ class TestUsdConstToPlanBasisHelper:
 
 class TestIndustryAvgCphAgreesAcrossOutputs:
     """metadata.industry_avg_cph and sufficiency.industry_avg_cost_per_hire
-    are the same benchmark reported twice -- they must always match, in
-    whichever currency the plan is actually priced in."""
+    must agree on CURRENCY (this file's invariant) whenever nothing else
+    makes them diverge. With knowledge_base={} (see _alloc) there is no
+    KB-blend to introduce a legitimate non-currency difference, so under
+    that condition they must match exactly, in whichever currency the plan
+    is actually priced in. A real KB can still make them differ by design
+    (assess_budget_sufficiency blends a KB figure into its own value only)
+    -- that's a separate, pre-existing behavior this test doesn't cover."""
 
     @pytest.mark.parametrize(
         "total_budget,location,plan_currency,symbol",
