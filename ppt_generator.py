@@ -9488,8 +9488,25 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
         # visual:atria#3): plan-specific numbers, not more prose.
         split_line = _push_pull_split_line(split, _total_budget)
         if split_line:
+            # collide.py's real-Poppins-metric sweep found the split line
+            # overlapping the body's actual last ink line on every deck in
+            # the stress envelope. Two compounding bugs: (1) _estimate_lines'
+            # average-char-width model disagreed with the real glyph
+            # advances collide.py (and _measure_lines) use, and (2) the line
+            # count was measured against the textbox's outer width
+            # (_detail_w_in) instead of its actual usable width -- python-
+            # pptx's default 0.1in left+right text-frame insets shave 0.2in
+            # off what's really available to wrap into, so a body that
+            # really wraps to 4 lines was measured as 3, undershooting the
+            # split line's cascade. Both fixed: measure with real advances
+            # AND the margin-adjusted width, matching the Why -> Counter
+            # measure-then-place pattern on slide 7 (_comp_why_top_in, whose
+            # own _comp_body_w_in already accounts for its box's insets).
+            # max() against the original 0.3in constant keeps a short body
+            # (the common case) placed byte-identically to before.
+            _detail_usable_w_in = max(0.1, _detail_w_in - 0.2)
             n_detail_lines = (
-                _estimate_lines(detail_text, _detail_w_in, _detail_pt)
+                _measure_lines(detail_text, _detail_usable_w_in, _detail_pt)
                 if detail_text
                 else 0
             )
