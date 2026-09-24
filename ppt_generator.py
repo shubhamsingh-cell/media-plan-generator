@@ -3177,18 +3177,17 @@ def _get_industry_comparison(
                     result["avg_cph"] = (
                         f"{_fmt_currency(live_cph * 0.8)} - {_fmt_currency(live_cph * 1.2)}"
                     )
-            ch_allocs = budget_alloc.get("channel_allocations", {})
-            if isinstance(ch_allocs, dict) and ch_allocs:
-                n_ch = len(
-                    [
-                        c
-                        for c in ch_allocs.values()
-                        if isinstance(c, dict) and (c.get("percentage") or 0) > 0
-                    ]
-                )
-                if n_ch > 0:
-                    # Keep as int -- used in arithmetic comparisons downstream
-                    result["avg_channels"] = n_ch
+    # S6-22: this used to overwrite avg_channels (the coded INDUSTRY average)
+    # with len(this plan's own funded channels) whenever budget-allocation
+    # data was present -- so slide 8's "<Industry> Average — Channels
+    # Selected" row silently showed the CLIENT's own channel count relabeled
+    # as the industry figure. Since the client column already reads
+    # n_channels independently (see _build_slide_comparison_timeline), that
+    # made the comparison tautological (client == "industry average" by
+    # construction) and could stamp a false "on par"/"beating benchmark"
+    # badge that had nothing to do with any real industry data. avg_channels
+    # stays exactly what INDUSTRY_BENCHMARKS_COMPARISON says for this
+    # industry; only the client's own count belongs in the client column.
 
     return result
 
@@ -4904,21 +4903,39 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             f"Optimized {n_cats}-channel mix delivers targeted reach for "
             f"{client}'s {industry_label} hiring priorities with data-driven allocation"
         )
+    # S6-13: this subhead sat in a fixed 0.50in one-line box at a constant
+    # 15pt, but the insight-rich sentence (client name + industry label +
+    # compact currency total all interpolated in) can need up to 3 lines --
+    # e.g. a long legal client name paired with a long industry label. The
+    # old fixed box let the wrapped 2nd/3rd lines print straight through
+    # the "CHANNEL MIX" / "INDUSTRY BENCHMARKS" headers 0.68in below.
+    # Measure-then-cascade, same pattern as the cover slide's client-name
+    # fix: size the box to the ACTUAL measured line count, then push both
+    # column headers down from the measured bottom (never above their old
+    # y=1.6in anchor, so a short/typical subhead renders byte-identically
+    # to before).
+    _subhead_top_in = 0.92
+    _subhead_w_in = 12.2
+    _subhead_pt = 15.0
+    _subhead_n_lines = _measure_lines(action_text, _subhead_w_in, _subhead_pt, bold=True)
+    _subhead_line_h_in = (_subhead_pt * 1.35) / 72.0
+    _subhead_h_in = max(0.5, _subhead_n_lines * _subhead_line_h_in + 0.08)
     _add_textbox(
         slide,
         Inches(0.55),
-        Inches(0.92),
-        Inches(12.2),
-        Inches(0.5),
+        Inches(_subhead_top_in),
+        Inches(_subhead_w_in),
+        Inches(_subhead_h_in),
         text=action_text,
-        font_size=15,
+        font_size=_subhead_pt,
         bold=True,
         color=NAVY,
     )
+    _subhead_bottom_in = _subhead_top_in + _subhead_h_in
 
     # ==== LEFT: Channel Mix with horizontal bars ====
     left_col_left = Inches(0.55)
-    section_top = Inches(1.6)
+    section_top = Inches(max(1.6, _subhead_bottom_in + 0.08))
 
     # Section header with teal underline
     _add_textbox(
@@ -5146,13 +5163,20 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             cpc_val = _mark_usd(cpc_val)
         if _cph_is_usd_benchmark:
             _cph_val = _mark_usd(_cph_val)
-        else:
-            # This is the plan's OWN projected cost-per-hire (from the budget
-            # engine or salary intelligence), not an external industry
-            # constant like the CPA/CPC rows above it -- correctly localized,
-            # but relabel it so it doesn't read as an "Industry Benchmark"
-            # sourced the same way as its neighbors.
-            _cph_label = "Est. Cost-per-Hire (this plan)"
+
+    # S6-21: the honest relabel below used to be gated behind
+    # "if not _is_usd_plan" alongside the US$ marking, so a USD plan whose
+    # CPH row is this plan's OWN projected cost-per-hire (+/-20%, from the
+    # budget engine or salary intelligence -- not an external industry
+    # constant) still printed under the unqualified "Est. Cost-per-Hire"
+    # label inside the "INDUSTRY BENCHMARKS" table, silently presenting the
+    # plan's own number as external market data. The US$ marking is
+    # currency-specific (a USD plan's own figures need no "US$" prefix
+    # beside other USD figures), but the label is not -- it must fire for
+    # EVERY currency whenever the value is plan-derived rather than a real
+    # external benchmark.
+    if not _cph_is_usd_benchmark:
+        _cph_label = "Est. Cost-per-Hire (this plan)"
     bench_rows = [
         (_cpa_label, cpa_val),
         (_cpc_label, cpc_val),
@@ -6266,6 +6290,17 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         hx = hero_start_x + hi * (hero_w + hero_gap)
         _add_rounded_rect(slide, hx, hero_top, hero_w, hero_h, WHITE)
         _add_filled_rect(slide, hx, hero_top, hero_w, Inches(0.05), hc["accent"])
+        # S6-11: this card is structurally identical to the exec-summary
+        # hero stat (slide 2), which already autoshrinks via
+        # _fit_font_single_line so a long currency-prefixed value never
+        # wraps to 2 lines in a single-line slot. This card never had that
+        # fit: a fixed 34pt with no autofit means any low-denomination
+        # budget (IDR/VND/KRW/JPY) or a USD budget >= $1B wraps its value
+        # onto the "Total Investment" caption directly below it. Same fix,
+        # same helper, same pattern.
+        _hero_val_pt = _fit_font_single_line(
+            str(hc["value"]), (hero_w / 914400) - 0.2, start_pt=34, min_pt=18
+        )
         _add_textbox(
             slide,
             hx,
@@ -6273,7 +6308,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
             hero_w,
             Inches(0.6),
             text=hc["value"],
-            font_size=34,
+            font_size=_hero_val_pt,
             bold=True,
             color=hc["accent"],
             alignment=PP_ALIGN.CENTER,
