@@ -1687,16 +1687,45 @@ def _check_currency_symbol_mixing(
     #      sanctioning its OWN row's value cell in column D;
     #   B) a table header cell, e.g. "CPC Range (USD)" sanctioning every
     #      data cell below it in the SAME column (Intl Benchmarks E/F/G).
+    #
+    # Shape B is bounded to the marker's OWN table body: the cells directly
+    # below it in its column, stopping at the first row with no text on the
+    # sheet (tables in the workbook are separated by blank rows). It used to
+    # sanction the marker's column for the WHOLE sheet, so one "(USD)" row
+    # label in Executive Summary column B blinded this rule to every other
+    # column-B cell -- the budget tiles included -- on a non-USD plan.
+    #
+    # And only a HEADER sanctions a column: a "(USD)" cell whose own row
+    # already holds a money figure is a labelled DATA row (shape A -- e.g.
+    # "CPA (USD)" beside "$35-$58+"), and clears its own row only.
     usd_marked_rows: set[tuple[str, int]] = set()
-    usd_marked_cols: set[tuple[str, int]] = set()
+    usd_marked_cells: set[tuple[str, int, int]] = set()
+    _occupied_rows: set[tuple[str, int]] = set()
+    _money_rows: set[tuple[str, int]] = set()
+    for u in units:
+        if not u.top:
+            continue
+        _key = (u.location.split("!", 1)[0], u.top)
+        _occupied_rows.add(_key)
+        if _CUR_GLYPH_RE.search(u.text) or re.search(
+            r"[A-Za-z]{1,2}[" + re.escape(_CUR_GLYPHS) + r"]\s?\d", u.text
+        ):
+            _money_rows.add(_key)
     for u in units:
         if "(USD)" not in u.text:
             continue
         sheet = u.location.split("!", 1)[0]
         if u.top:
             usd_marked_rows.add((sheet, u.top))
-        if u.left:
-            usd_marked_cols.add((sheet, u.left))
+        if u.top and u.left and (sheet, u.top) not in _money_rows:
+            # Table body: may start one row below the header (a sub-header
+            # or spacer row), then runs while rows keep carrying text.
+            _r = u.top + 1
+            if (sheet, _r) not in _occupied_rows:
+                _r += 1
+            while (sheet, _r) in _occupied_rows:
+                usd_marked_cells.add((sheet, _r, u.left))
+                _r += 1
 
     for u in units:
         text = u.text
@@ -1705,8 +1734,12 @@ def _check_currency_symbol_mixing(
             continue
 
         sheet = u.location.split("!", 1)[0]
-        if (sheet, u.top) in usd_marked_rows or (sheet, u.left) in usd_marked_cols:
-            continue  # this row/column is an explicitly-marked USD figure
+        if (sheet, u.top) in usd_marked_rows or (
+            sheet,
+            u.top,
+            u.left,
+        ) in usd_marked_cells:
+            continue  # explicitly-marked USD row, or a USD-headed table column
 
         foreign_code_hit = False
         for m in _DOLLAR_WITH_FOREIGN_CODE_RE.finditer(text):

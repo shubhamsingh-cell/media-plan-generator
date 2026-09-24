@@ -103,6 +103,7 @@ logger = logging.getLogger(__name__)
 # under the threading HTTP server, so (as in ppt_generator.py) the active
 # currency is stored per-thread, not as a shared module global.
 # ---------------------------------------------------------------------------
+import contextlib as _contextlib  # noqa: E402
 import threading as _threading  # noqa: E402
 
 _currency_tls = _threading.local()
@@ -111,6 +112,20 @@ _currency_tls = _threading.local()
 def _get_active_currency() -> str:
     """Active plan currency for THIS thread (defaults to USD)."""
     return getattr(_currency_tls, "code", "USD") or "USD"
+
+
+@_contextlib.contextmanager
+def _currency_scope():
+    """Save this thread's active currency and restore it on exit."""
+    _had = hasattr(_currency_tls, "code")
+    _prev = getattr(_currency_tls, "code", None)
+    try:
+        yield
+    finally:
+        if _had:
+            _currency_tls.code = _prev
+        elif hasattr(_currency_tls, "code"):
+            del _currency_tls.code
 
 
 def _plan_currency_code(data: Optional[dict]) -> str:
@@ -5164,6 +5179,16 @@ def _build_sheet_executive_summary(
                 }
                 if filtered_regional:
                     headers = ["Region", "CPA", "CPC", "Cost/Hire", "Apply Rate"]
+                    if _get_active_currency() != "USD":
+                        # Same US-calibrated KB source as the flat branch
+                        # below: mark the money columns' denomination.
+                        headers = [
+                            "Region",
+                            "CPA (USD)",
+                            "CPC (USD)",
+                            "Cost/Hire (USD)",
+                            "Apply Rate",
+                        ]
                     row = _write_table_header(ws, row, headers)
                     for idx, (region, rdata) in enumerate(filtered_regional.items()):
                         if isinstance(rdata, dict):
@@ -5209,9 +5234,18 @@ def _build_sheet_executive_summary(
                                 _scope_benchmark_to_plan_roles(val, roles)
                             )
                         if val_str:
-                            row = _write_kv_row(
-                                ws, row, _humanize_snake_key(key), val_str
-                            )
+                            _bm_label = _humanize_snake_key(key)
+                            # These are US-calibrated KB constants, not this
+                            # plan's own figures. On a non-USD plan, state the
+                            # denomination on the row itself (the "(USD)"
+                            # label convention the delivery gate and the Intl
+                            # Benchmarks sheet already use) so a GBP client
+                            # never reads a bare "$" benchmark as their own
+                            # currency. Rows with no money figure (apply
+                            # rate, time to fill) keep their plain label.
+                            if _get_active_currency() != "USD" and "$" in val_str:
+                                _bm_label = f"{_bm_label} (USD)"
+                            row = _write_kv_row(ws, row, _bm_label, val_str)
 
             # S89A FIX (findings data:manpower#3/#4, visual:manpower#3,
             # strategy:manpower#3): when this plan's own blended CPA/apply
@@ -12029,6 +12063,24 @@ def generate_excel_v2(
     Returns:
         bytes: The Excel file as bytes.
     """
+    # The plan currency lives in a thread-local for the duration of ONE
+    # generation. Restore the thread's prior value on exit (success or
+    # raise): the threading HTTP server reuses request threads, so a GBP
+    # plan must not leave GBP behind for whatever that thread runs next.
+    with _currency_scope():
+        return _generate_excel_v2_scoped(
+            data, research_mod, load_kb_fn, classify_tier_fn, fetch_logo_fn
+        )
+
+
+def _generate_excel_v2_scoped(
+    data: dict,
+    research_mod=None,
+    load_kb_fn=None,
+    classify_tier_fn=None,
+    fetch_logo_fn=None,
+) -> bytes:
+    """Body of :func:`generate_excel_v2`, run inside ``_currency_scope``."""
     try:
         return _generate_excel_v2_inner(
             data, research_mod, load_kb_fn, classify_tier_fn, fetch_logo_fn

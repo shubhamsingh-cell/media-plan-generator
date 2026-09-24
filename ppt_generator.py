@@ -1816,6 +1816,7 @@ _CURRENCY_SYMBOLS = {
 # parallel render each other's symbol. threading.local gives each generation
 # thread its own value.
 # ---------------------------------------------------------------------------
+import contextlib as _contextlib  # noqa: E402
 import threading as _threading  # noqa: E402
 
 _currency_tls = _threading.local()
@@ -1824,6 +1825,20 @@ _currency_tls = _threading.local()
 def _get_active_currency() -> str:
     """Active plan currency for THIS thread (defaults to USD)."""
     return getattr(_currency_tls, "code", "USD") or "USD"
+
+
+@_contextlib.contextmanager
+def _currency_scope():
+    """Save this thread's active currency and restore it on exit."""
+    _had = hasattr(_currency_tls, "code")
+    _prev = getattr(_currency_tls, "code", None)
+    try:
+        yield
+    finally:
+        if _had:
+            _currency_tls.code = _prev
+        elif hasattr(_currency_tls, "code"):
+            del _currency_tls.code
 
 
 def _plan_currency_code(data: Optional[Dict]) -> str:
@@ -11055,6 +11070,16 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         ValueError: If required data fields are missing.
         RuntimeError: If presentation generation fails.
     """
+    # The plan currency lives in a thread-local for the duration of ONE
+    # generation. Restore the thread's prior value on exit (success or
+    # raise): the threading HTTP server reuses request threads, so a GBP
+    # plan must not leave GBP behind for whatever that thread runs next.
+    with _currency_scope():
+        return _generate_pptx_scoped(data)
+
+
+def _generate_pptx_scoped(data: Dict[str, Any]) -> bytes:
+    """Body of :func:`generate_pptx`, run inside ``_currency_scope``."""
     if data is None or not isinstance(data, dict):
         raise ValueError("Data must be a non-null dictionary.")
 
