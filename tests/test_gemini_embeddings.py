@@ -134,6 +134,7 @@ def test_collection_created_at_gemini_dim():
         vs,
         _qdrant_is_configured=mock.Mock(return_value=True),
         _qdrant_request=mock.Mock(side_effect=fake_request),
+        _qdrant_available=False,
     ):
         assert vs._qdrant_ensure_collection() is True
 
@@ -157,6 +158,7 @@ def test_collection_created_at_voyage_dim():
         vs,
         _qdrant_is_configured=mock.Mock(return_value=True),
         _qdrant_request=mock.Mock(side_effect=fake_request),
+        _qdrant_available=False,
     ):
         assert vs._qdrant_ensure_collection() is True
 
@@ -180,6 +182,7 @@ def test_collection_created_at_voyage_3_lite_legacy_dim():
         vs,
         _qdrant_is_configured=mock.Mock(return_value=True),
         _qdrant_request=mock.Mock(side_effect=fake_request),
+        _qdrant_available=False,
     ):
         assert vs._qdrant_ensure_collection() is True
 
