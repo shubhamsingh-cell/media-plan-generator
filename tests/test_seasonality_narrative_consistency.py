@@ -19,15 +19,36 @@ in October, the forecast crowned December -- the calendar's own "Low" /
 "Year End" month -- the heaviest-spend, hardcoded "(peak performance)"
 period, contradicting the calendar two sheets over in the exact same file.
 
-Fix: ``_seasonal_monthly_phasing`` now accepts the plan's own
-``activation_calendar["timeline"]`` (the SAME per-month data the Activation
-Event Calendar table renders) and derives its weights from that instead of a
-second, independent lookup. The ramp narrative's "(learning)" /
-"(optimizing)" / "(peak performance)" labels -- previously hardcoded onto
-Month 1/2/3 by POSITION -- are now derived from each period's ACTUAL rank
-among the real computed shares (``_period_spend_labels``), so the label can
-never claim a month is "heaviest" when the printed numbers (or the
-calendar) say otherwise.
+First-pass fix (commit b802d68): ``_seasonal_monthly_phasing`` was changed to
+accept the plan's own ``activation_calendar["timeline"]`` and read its
+``budget_weight`` per month -- the right field -- but then still multiplied
+that weight by a FIXED [0.25, 0.35, 0.40] ramp-shape base. That base is
+bigger than the calendar's real weight spread (0.7x-1.3x) often enough that
+the final spend ranking could still invert the calendar's own ordering. A
+verifier swept 15 industries x 12 start months (180 cases) and found 3 where
+the calendar's own "Low" month was still crowned heaviest (hospitality/Oct,
+education/Oct, restaurant/Oct) and 105/180 cases where a busier calendar
+month got LESS spend than a quieter one -- including the Hershey repro
+itself (December "Low" 0.7x -> 30.9% of spend vs. October "High" 1.1x ->
+30.4%, a near-tie but backwards). The first pass also added a "matching
+this plan's Activation Event Calendar" sentence unconditionally, which was
+therefore actively false in exactly these cases.
+
+Second-pass fix (this file's target): ``_seasonal_monthly_phasing`` no
+longer multiplies the calendar's budget_weight by any ramp-shape base when
+a real timeline is present -- the per-month split is DIRECTLY proportional
+to budget_weight, so the ordering is mathematically guaranteed to match the
+calendar's ordering (the ramp-shape base is kept only for the
+seasonal_hiring_trends.json fallback path, where no real per-month weight
+exists). ``_period_spend_labels`` collapses to "comparable planned spend"
+for every period when the largest and smallest share are within 2
+percentage points, instead of asserting a coin-flip as a confident
+ranking. The <=4-week "weekly frame" narrative (previously a single
+hardcoded "front-loaded learning ramping to peak performance" phrase, never
+routed through the fix at all) now uses the same rank-derived per-week
+labels. The "matching this plan's Activation Event Calendar" clause is now
+appended only when the split was actually derived from a real timeline
+(``_calendar_backed``), never unconditionally.
 
 This file intentionally does NOT touch or duplicate
 tests/test_gold_standard_seasonality.py's coverage (sub-vertical overrides,
@@ -137,6 +158,17 @@ def test_forecast_phasing_never_crowns_the_calendars_low_month_heaviest():
     # "moderate" calendar month -- never the plan's own "low" month.
     assert by_name[heaviest_month]["hiring_intensity"] != "low"
 
+    # Second-pass fix: since the split is now directly proportional to
+    # budget_weight (no ramp-shape override), the ordering must EXACTLY
+    # match the calendar's own weight ordering, not just "happen" to avoid
+    # December -- October (High, 1.1x) must outrank November (Moderate,
+    # 1.0x) must outrank December (Low, 0.7x).
+    assert heaviest_month == "October", (
+        f"Expected October (High, 1.1x) to be the heaviest-spend month, "
+        f"got {heaviest_month} ({monthly_pcts})"
+    )
+    assert monthly_pcts[0] > monthly_pcts[1] > monthly_pcts[2], monthly_pcts
+
 
 def test_period_spend_labels_match_actual_rank_not_position():
     """_period_spend_labels must label whichever period actually holds the
@@ -155,6 +187,222 @@ def test_period_spend_labels_match_actual_rank_not_position():
     labels2 = excel_v2._period_spend_labels(pcts2)
     assert labels2[2] == "heaviest planned spend"
     assert labels2[0] == "lightest planned spend"
+
+
+def test_period_spend_labels_near_tie_reads_as_comparable_not_a_claim():
+    """A genuine near-tie (e.g. a 2-period 50/50 split, or the Hershey-style
+    30.4% vs 30.9% near-miss the first-pass fix produced) must not be
+    dressed up as a confident "(heaviest)"/"(lightest)" ranking -- that's
+    false precision on what is functionally a coin-flip."""
+    # Exact 50/50 split (verifier's own example).
+    assert excel_v2._period_spend_labels([0.5, 0.5]) == [
+        "comparable planned spend",
+        "comparable planned spend",
+    ]
+    # All 3 periods within the 2-percentage-point tie threshold of each
+    # other (mirrors the real hospitality_travel/October and
+    # restaurant/October sweep cases below, where High/Moderate/Low
+    # budget_weight still lands within ~2pp of each other).
+    labels = excel_v2._period_spend_labels([0.346, 0.327, 0.327])
+    assert labels == ["comparable planned spend"] * 3
+    # A real, non-tied spread still gets real labels.
+    labels2 = excel_v2._period_spend_labels([0.20, 0.35, 0.45])
+    assert "comparable planned spend" not in labels2
+
+
+# ---------------------------------------------------------------------------
+# 1b. Broad invariant sweep: across many industries x many start months, the
+#    forecast's per-month share must never invert the calendar's own
+#    budget_weight ordering, and the calendar's "Low" month must never be
+#    labeled "heaviest" while a non-"low" month sits in the same window.
+#    (This is the check the verifier's panel ran -- 15 industries x 12
+#    start months -- that caught the first-pass fix's ramp-shape override.)
+# ---------------------------------------------------------------------------
+
+_SWEEP_INDUSTRIES = [
+    "manufacturing",
+    "retail_consumer",
+    "healthcare_medical",
+    "tech_engineering",
+    "hospitality_travel",
+    "construction_real_estate",
+    "finance_banking",
+    "logistics_supply_chain",
+    "education",
+    "government",
+    "food_beverage",
+    "automotive",
+    "insurance",
+    "telecommunications",
+    "restaurant",
+]
+
+
+def test_forecast_never_inverts_calendar_ordering_across_industries_and_months():
+    numeric_violations = []
+    label_violations = []
+
+    for industry in _SWEEP_INDUSTRIES:
+        for start_month in range(1, 13):
+            data = {
+                "client_name": "Sweep Co",
+                "industry": industry,
+                "campaign_start_month": start_month,
+                "roles": ["Generic Role"],
+            }
+            cal = gold_standard.build_activation_calendar(data)
+            timeline = cal["timeline"]
+            by_month_num = {m["month"]: m for m in timeline}
+
+            monthly_pcts = excel_v2._seasonal_monthly_phasing(
+                industry, start_month, timeline
+            )
+            months = [((start_month - 1 + i) % 12) + 1 for i in range(3)]
+            weights = [by_month_num[m]["budget_weight"] for m in months]
+
+            # Numeric invariant: a strictly higher calendar weight must
+            # never receive a strictly smaller forecast share.
+            for i in range(3):
+                for j in range(3):
+                    if weights[i] > weights[j] and monthly_pcts[i] < monthly_pcts[j]:
+                        numeric_violations.append(
+                            (industry, start_month, months, weights, monthly_pcts)
+                        )
+
+            # Label invariant: the month crowned "heaviest planned spend"
+            # must never be the calendar's "low" month while a non-"low"
+            # month is also in the 3-month window.
+            labels = excel_v2._period_spend_labels(monthly_pcts)
+            if "heaviest planned spend" in labels:
+                h_idx = labels.index("heaviest planned spend")
+                h_intensity = by_month_num[months[h_idx]]["hiring_intensity"]
+                if h_intensity == "low" and any(
+                    by_month_num[m]["hiring_intensity"] != "low" for m in months
+                ):
+                    label_violations.append(
+                        (
+                            industry,
+                            start_month,
+                            months,
+                            [by_month_num[m]["hiring_intensity"] for m in months],
+                        )
+                    )
+
+    assert not numeric_violations, (
+        f"{len(numeric_violations)} numeric ordering inversions "
+        f"(higher calendar weight got less spend): {numeric_violations[:5]}"
+    )
+    assert not label_violations, (
+        f"{len(label_violations)} cases where the calendar's 'Low' month "
+        f"was crowned 'heaviest planned spend': {label_violations[:5]}"
+    )
+
+
+def test_verifier_flagged_cases_no_longer_contradict():
+    """The 3 specific cases the verifier's panel flagged (calendar's Low
+    month still crowned heaviest under the first-pass fix), re-checked
+    directly starting October."""
+    for industry in ("hospitality_travel", "education", "restaurant"):
+        data = {
+            "client_name": "X",
+            "industry": industry,
+            "campaign_start_month": 10,
+            "roles": ["Role"],
+        }
+        cal = gold_standard.build_activation_calendar(data)
+        timeline = cal["timeline"]
+        by_month_num = {m["month"]: m for m in timeline}
+        months = [((10 - 1 + i) % 12) + 1 for i in range(3)]
+
+        monthly_pcts = excel_v2._seasonal_monthly_phasing(industry, 10, timeline)
+        labels = excel_v2._period_spend_labels(monthly_pcts)
+
+        if "heaviest planned spend" in labels:
+            h_idx = labels.index("heaviest planned spend")
+            h_intensity = by_month_num[months[h_idx]]["hiring_intensity"]
+            assert h_intensity != "low", (industry, months, monthly_pcts, labels)
+
+
+# ---------------------------------------------------------------------------
+# 1c. The <=4-week "weekly frame" path (previously untouched -- hardcoded
+#    "front-loaded learning ramping to peak performance" regardless of the
+#    actual computed split) must also use rank-derived labels.
+# ---------------------------------------------------------------------------
+
+
+def test_weekly_frame_narrative_no_longer_hardcoded():
+    data = _hershey_manufacturing_data()
+    data["campaign_weeks"] = 3  # <=4 weeks -> _weekly_frame
+    data["campaign_duration"] = "3 weeks"
+    gold = gold_standard.apply_all_quality_gates(data)
+    data["_gold_standard"] = gold
+
+    wb = _generate_wb(data)
+    ws = next(
+        (s for s in wb.sheetnames if "Week" in s and "Forecast" in s),
+        None,
+    )
+    assert ws, wb.sheetnames
+    fc_ws = wb[ws]
+    ramp_notes = [
+        c.value
+        for row in fc_ws.iter_rows()
+        for c in row
+        if isinstance(c.value, str) and "phases budget" in c.value
+    ]
+    assert ramp_notes, "Expected the ramp-phasing footnote"
+    ramp_note = ramp_notes[0]
+    # The old hardcoded phrase, regardless of the actual computed split,
+    # must be gone -- replaced by rank-derived per-week labels.
+    assert "front-loaded learning ramping to peak performance" not in ramp_note
+    assert any(
+        lbl in ramp_note
+        for lbl in (
+            "lightest planned spend",
+            "heaviest planned spend",
+            "transitional spend",
+            "comparable planned spend",
+        )
+    ), ramp_note
+
+
+# ---------------------------------------------------------------------------
+# 1d. The "matching this plan's Activation Event Calendar" claim must only
+#    appear when the split was actually derived from that calendar.
+# ---------------------------------------------------------------------------
+
+
+def test_calendar_match_claim_only_printed_when_true():
+    # True case: a real activation_calendar timeline is present.
+    data_with_cal = _hershey_manufacturing_data()
+    gold = gold_standard.apply_all_quality_gates(data_with_cal)
+    data_with_cal["_gold_standard"] = gold
+    wb_with_cal = _generate_wb(data_with_cal)
+    fc_ws = wb_with_cal["90-Day Forecast"]
+    ramp_note = next(
+        c.value
+        for row in fc_ws.iter_rows()
+        for c in row
+        if isinstance(c.value, str) and "phases budget" in c.value
+    )
+    assert "matching this plan's Activation Event Calendar" in ramp_note, ramp_note
+
+    # False case: no _gold_standard / activation_calendar at all -- the
+    # forecast falls back to the generic seasonal_hiring_trends.json lookup
+    # and must NOT claim to match a calendar it never saw.
+    data_no_cal = _hershey_manufacturing_data()
+    assert "_gold_standard" not in data_no_cal
+    wb_no_cal = _generate_wb(data_no_cal)
+    fc_ws2 = wb_no_cal["90-Day Forecast"]
+    ramp_note2 = next(
+        c.value
+        for row in fc_ws2.iter_rows()
+        for c in row
+        if isinstance(c.value, str) and "phases budget" in c.value
+    )
+    assert "matching this plan's Activation Event Calendar" not in ramp_note2, (
+        ramp_note2
+    )
 
 
 # ---------------------------------------------------------------------------
