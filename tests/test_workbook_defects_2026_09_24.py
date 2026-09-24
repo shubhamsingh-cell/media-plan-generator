@@ -424,3 +424,101 @@ def test_empty_hire_volume_never_ships_tbd():
     label = str(hire_volume) if hire_volume else "Not specified"
     assert label == "Not specified"
     assert label != "TBD"
+
+
+# ---------------------------------------------------------------------------
+# Hershey client report (2026-09-24 Slack): every role in a generated plan
+# showed an IDENTICAL talent-pool count (~1.5M) regardless of role/location.
+#
+# Root cause: data_synthesizer.fuse_job_market_demand's generic fallback
+# (fires when a role matches none of _ROLE_DEMAND_FALLBACKS' ~23 keywords
+# AND every live signal -- Adzuna/Jooble/Google Ads/Google Trends/LinkedIn
+# -- came back empty) sets total_postings AND talent_pool_estimate from the
+# SAME hardcoded "Industry Benchmark" dict (job_postings=75000,
+# talent_pool=1500000) for every such role in one shot. excel_v2's Market
+# Demand by Role table already gated the Postings column against this exact
+# fallback (via posting_sources containing "Industry Benchmark" ->
+# "Data not available"), but the Talent Pool column right next to it had no
+# equivalent gate and printed the fabricated 1,500,000 as if it were a real,
+# measured (and coincidentally identical) per-role figure. Manufacturing/CPG
+# role titles (e.g. Hershey's line-operator/packaging roles) are exactly the
+# kind that miss every keyword in that fallback table, so every role in the
+# plan hit the SAME generic bucket and displayed the SAME number.
+# ---------------------------------------------------------------------------
+
+
+def test_unmatched_roles_share_fabricated_talent_pool_value():
+    """Documents the synthesis-layer condition that produces the client's
+    symptom: two different, non-matching roles both fall through to the
+    exact same hardcoded generic-fallback talent_pool_estimate."""
+    result = data_synthesizer.fuse_job_market_demand(
+        {},
+        KB,
+        {
+            "roles": ["Confectionery Line Operator", "Packaging Associate II"],
+            "target_roles": [
+                {"title": "Confectionery Line Operator", "count": 20},
+                {"title": "Packaging Associate II", "count": 15},
+            ],
+            "industry": "manufacturing",
+            "locations": ["Hershey, PA", "Stuarts Draft, VA"],
+        },
+    )
+    op = result.get("Confectionery Line Operator")
+    pkg = result.get("Packaging Associate II")
+    assert op is not None and pkg is not None
+    assert "Industry Benchmark" in (op.get("posting_sources") or [])
+    assert "Industry Benchmark" in (pkg.get("posting_sources") or [])
+    assert op["talent_pool_estimate"] == pkg["talent_pool_estimate"] == 1_500_000
+
+
+def test_excel_talent_pool_column_never_ships_fabricated_number():
+    """excel_v2's Market Demand by Role table must render 'Data not
+    available' for Talent Pool on a fabricated-fallback role -- the SAME
+    gate already applied to the Postings column two cells to its left --
+    instead of the hardcoded 1,500,000 that shipped to the Hershey client
+    identically on every unmatched role."""
+    data = {
+        "client_name": "Hershey Test",
+        "roles": ["Confectionery Line Operator", "Packaging Associate II"],
+        "target_roles": [
+            {"title": "Confectionery Line Operator", "count": 20},
+            {"title": "Packaging Associate II", "count": 15},
+        ],
+        "industry": "manufacturing",
+        "locations": ["Hershey, PA", "Stuarts Draft, VA"],
+        "budget": "150000",
+    }
+    data["_synthesized"] = data_synthesizer.synthesize({}, KB, dict(data))
+
+    from excel_v2 import generate_excel_v2
+
+    xlsx = generate_excel_v2(dict(data), load_kb_fn=load_knowledge_base)
+    if isinstance(xlsx, tuple):
+        xlsx = xlsx[0]
+    wb = openpyxl.load_workbook(io.BytesIO(xlsx))
+    ws = wb["Market Intelligence"]
+
+    demand_rows = {}
+    for row in ws.iter_rows(values_only=True):
+        if not row:
+            continue
+        label = row[1] if len(row) > 1 else None
+        if label in ("Confectionery Line Operator", "Packaging Associate II"):
+            # Postings, Talent Pool are columns 2 and 3 of this table
+            # (col 1 is Role) -- only the Market Demand table has a
+            # "Postings" value of "Data not available" in column index 2.
+            if row[2] == "Data not available":
+                demand_rows[label] = row
+
+    assert len(demand_rows) == 2, (
+        "expected both roles' Market Demand by Role rows, found "
+        f"{list(demand_rows)}"
+    )
+    for label, row in demand_rows.items():
+        talent_pool_cell = row[3]
+        assert talent_pool_cell == "Data not available", (
+            f"{label}: Talent Pool cell still shows the fabricated "
+            f"Industry Benchmark number: {talent_pool_cell!r}"
+        )
+        assert "1,500,000" != talent_pool_cell

@@ -7594,7 +7594,18 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 )
                 # Never present a fabricated industry-benchmark fallback number
                 # as if it were a measured "Live" postings count (S4: no
-                # fabricated stats over empty data).
+                # fabricated stats over empty data). data_synthesizer.
+                # fuse_job_market_demand's generic-fallback branch (no role
+                # keyword match AND all live signals empty) sets
+                # total_postings AND talent_pool_estimate from the SAME
+                # hardcoded "Industry Benchmark" dict in one shot -- this
+                # postings guard already existed, but talent_pool_estimate
+                # had no equivalent gate, so ANY two roles that both miss
+                # every _ROLE_DEMAND_FALLBACKS keyword rendered the exact
+                # same fabricated "1,500,000" Talent Pool figure side by
+                # side, looking like a measured (and coincidentally
+                # identical) value instead of "we have no data for this
+                # role". Reuse the same fabrication flag for both columns.
                 _posting_sources = demand.get("posting_sources") or []
                 _is_fabricated_postings = "Industry Benchmark" in _posting_sources
                 values = [
@@ -7604,7 +7615,11 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                         if (not _postings_val or _is_fabricated_postings)
                         else _fmt_number(_postings_val)
                     ),
-                    _fmt_number(_talent_pool_val),
+                    (
+                        "Data not available"
+                        if (not _talent_pool_val or _is_fabricated_postings)
+                        else _fmt_number(_talent_pool_val)
+                    ),
                     _flatten_value(
                         demand.get("competition", demand.get("competition_level") or "")
                     ),
