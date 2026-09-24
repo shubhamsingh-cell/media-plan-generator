@@ -41,7 +41,9 @@ import pytest
 
 import data_synthesizer
 import excel_v2
+import ppt_generator as ppt
 from kb_loader import load_knowledge_base
+from pptx import Presentation
 
 KB = load_knowledge_base()
 
@@ -447,10 +449,19 @@ def test_empty_hire_volume_never_ships_tbd():
 # ---------------------------------------------------------------------------
 
 
-def test_unmatched_roles_share_fabricated_talent_pool_value():
-    """Documents the synthesis-layer condition that produces the client's
-    symptom: two different, non-matching roles both fall through to the
-    exact same hardcoded generic-fallback talent_pool_estimate."""
+def test_unmatched_roles_share_fabricated_talent_pool_value_precondition():
+    """PRECONDITION test, not a regression guard -- this passes on BOTH
+    pre-fix and post-fix code, because the fix lives downstream in
+    excel_v2/ppt_generator's display gates, not in data_synthesizer itself.
+    It documents the synthesis-layer condition that makes the client's
+    symptom possible: two different, non-matching roles both fall through
+    to the exact same hardcoded generic-fallback talent_pool_estimate (and,
+    see the tests below, the same market_temperature/trend_direction too).
+    The actual regression guards are
+    test_excel_talent_pool_column_never_ships_fabricated_number,
+    test_excel_market_temp_and_trend_columns_never_ship_fabricated_value,
+    and test_ppt_market_temp_row_omitted_for_fabricated_fallback below --
+    each of those fails on pre-fix code and this one does not."""
     result = data_synthesizer.fuse_job_market_demand(
         {},
         KB,
@@ -522,3 +533,175 @@ def test_excel_talent_pool_column_never_ships_fabricated_number():
             f"Industry Benchmark number: {talent_pool_cell!r}"
         )
         assert "1,500,000" != talent_pool_cell
+
+
+# ---------------------------------------------------------------------------
+# Verifier follow-up (post-review of the Talent Pool fix above): the SAME
+# "Industry Benchmark" fallback row also fabricates market_temperature
+# ("hot") and trend_direction ("Stable (+2% YoY)") identically across every
+# unmatched role -- data_synthesizer.fuse_job_market_demand computes
+# temperature = _market_temperature(competition_index * 100) and
+# trend_dir = fallback_demand["trend"] inside the SAME branch that sets
+# posting_sources = ["Industry Benchmark"], so they carry the identical
+# fabrication signal the Postings/Talent Pool columns already gate on.
+# excel_v2's Market Temp / Trend columns had no such gate; neither did
+# ppt_generator's "Market Temp: {role}" benchmark-table line (deck side).
+# ---------------------------------------------------------------------------
+
+
+def test_excel_market_temp_and_trend_columns_never_ship_fabricated_value():
+    """excel_v2's Market Demand by Role table must render 'Data not
+    available' for BOTH Temperature and Trend on a fabricated-fallback
+    role, the same gate as Postings/Talent Pool -- never the fabricated
+    'hot' / 'Stable (+2% YoY)' that is identical for every unmatched role."""
+    data = {
+        "client_name": "Hershey Test",
+        "roles": ["Confectionery Line Operator", "Packaging Associate II"],
+        "target_roles": [
+            {"title": "Confectionery Line Operator", "count": 20},
+            {"title": "Packaging Associate II", "count": 15},
+        ],
+        "industry": "manufacturing",
+        "locations": ["Hershey, PA", "Stuarts Draft, VA"],
+        "budget": "150000",
+    }
+    data["_synthesized"] = data_synthesizer.synthesize({}, KB, dict(data))
+
+    from excel_v2 import generate_excel_v2
+
+    xlsx = generate_excel_v2(dict(data), load_kb_fn=load_knowledge_base)
+    if isinstance(xlsx, tuple):
+        xlsx = xlsx[0]
+    wb = openpyxl.load_workbook(io.BytesIO(xlsx))
+    ws = wb["Market Intelligence"]
+
+    demand_rows = {}
+    for row in ws.iter_rows(values_only=True):
+        if not row:
+            continue
+        label = row[1] if len(row) > 1 else None
+        if label in ("Confectionery Line Operator", "Packaging Associate II"):
+            if row[2] == "Data not available":  # Market Demand table row
+                demand_rows[label] = row
+
+    assert len(demand_rows) == 2, (
+        "expected both roles' Market Demand by Role rows, found "
+        f"{list(demand_rows)}"
+    )
+    for label, row in demand_rows.items():
+        # row[0] is a leading blank (col A). Table columns from row[1]:
+        # Role(1), Postings(2), Talent Pool(3), Competition(4),
+        # Temperature(5), Trend(6), Search Interest(7).
+        temp_cell, trend_cell = row[5], row[6]
+        assert temp_cell == "Data not available", (
+            f"{label}: Temperature cell still shows the fabricated "
+            f"Industry Benchmark value: {temp_cell!r}"
+        )
+        assert trend_cell == "Data not available", (
+            f"{label}: Trend cell still shows the fabricated "
+            f"Industry Benchmark value: {trend_cell!r}"
+        )
+        assert temp_cell != "hot"
+        assert trend_cell != "Stable (+2% YoY)"
+
+
+def _ppt_plan_with_job_market_demand(job_market_demand, **over):
+    """Minimal ppt_generator.generate_pptx input with a hand-built
+    _synthesized.job_market_demand block (bypassing the full enrichment/
+    synthesis pipeline, same pattern as test_plan_output_audit_closure.py's
+    _synth_5platform() helper)."""
+    data = {
+        "client_name": "Hershey Test",
+        "industry": "manufacturing",
+        "industry_label": "Manufacturing",
+        "budget": "$150,000",
+        "budget_period": "campaign",
+        "campaign_duration": "3 months",
+        "campaign_start_month": 9,
+        "hire_volume": "35 hires",
+        "work_environment": "onsite",
+        "locations": [{"city": "Hershey", "state": "PA", "country": "United States"}],
+        "roles": [{"title": "Confectionery Line Operator", "count": 20, "tier": "mid"}],
+        "_synthesized": {"job_market_demand": job_market_demand},
+    }
+    data.update(over)
+    return data
+
+
+def _bench_table_texts(prs):
+    """All text-frame contents across every slide (the benchmark table is
+    built from plain textboxes, not a native pptx table)."""
+    texts = []
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                texts.append(shape.text_frame.text)
+    return texts
+
+
+def test_ppt_market_temp_row_omitted_for_fabricated_fallback():
+    """ppt_generator's Channel Strategy benchmark table already omits the
+    'Live Postings: {role}' row when posting_sources is the fabricated
+    "Industry Benchmark" fallback (existing _is_fabricated_posting guard).
+    The 'Market Temp: {role}' row right below it had no equivalent guard
+    and printed the fabricated, cross-role-identical temperature verbatim
+    -- assert it is now omitted the same way. A single-role fixture is used
+    deliberately: the benchmark table caps at ~5 rows and silently drops
+    trailing ones, so a multi-role fixture could pass for the wrong reason
+    (row-count truncation) rather than because the fabrication guard fired."""
+    job_market_demand = {
+        "Confectionery Line Operator": {
+            "total_postings": 75000,
+            "posting_sources": ["Industry Benchmark"],
+            "market_temperature": "hot",
+            "trend_direction": "Stable (+2% YoY)",
+            "talent_pool_estimate": 1_500_000,
+        },
+    }
+    data = _ppt_plan_with_job_market_demand(job_market_demand)
+    prs = Presentation(io.BytesIO(ppt.generate_pptx(data)))
+    texts = _bench_table_texts(prs)
+    assert not any("Market Temp:" in t for t in texts), (
+        "deck still ships a 'Market Temp: <role>' row sourced from the "
+        "fabricated Industry Benchmark fallback"
+    )
+    assert not any("Live Postings: Confectionery" in t for t in texts), (
+        "sanity check: the pre-existing Live Postings guard regressed too"
+    )
+
+
+def test_ppt_market_temp_row_present_for_real_data():
+    """Negative control: a role with genuine (non-fallback) posting_sources
+    must still show its Market Temp row -- proves the fix gates on the
+    fabrication flag specifically, not on market_temperature being present
+    at all (which would silently break the row for every real plan too).
+
+    total_postings is deliberately 0 here (posting_sources is still a real
+    source, "Adzuna", never "Industry Benchmark") so the pre-existing Live
+    Postings guard omits ITS OWN row -- keeping the benchmark table's total
+    row count under the ~5-row cap the table silently truncates to. A
+    nonzero total_postings would add a 6th row and get Market Temp cut by
+    that unrelated row-count cap instead, making this control meaningless.
+    """
+    job_market_demand = {
+        "Registered Nurse": {
+            "total_postings": 0,
+            "posting_sources": ["Adzuna"],
+            "market_temperature": "cool",
+            "trend_direction": "Declining",
+            "talent_pool_estimate": 500000,
+        },
+    }
+    data = _ppt_plan_with_job_market_demand(
+        job_market_demand,
+        industry="healthcare",
+        industry_label="Healthcare",
+        locations=[{"city": "Dallas", "state": "TX", "country": "United States"}],
+        roles=[{"title": "Registered Nurse", "count": 20, "tier": "mid"}],
+    )
+    prs = Presentation(io.BytesIO(ppt.generate_pptx(data)))
+    texts = _bench_table_texts(prs)
+    assert any("Market Temp: Registered Nurse" in t for t in texts), (
+        "expected the real-data Market Temp row to survive -- got: "
+        f"{[t for t in texts if 'Market Temp' in t]}"
+    )

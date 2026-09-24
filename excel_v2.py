@@ -7623,13 +7623,34 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     _flatten_value(
                         demand.get("competition", demand.get("competition_level") or "")
                     ),
-                    _flatten_value(
-                        demand.get(
-                            "temperature", demand.get("market_temperature") or ""
+                    # Temperature and trend are computed FROM the same
+                    # fabricated-fallback competition_index/trend string the
+                    # Industry Benchmark branch sets alongside total_postings/
+                    # talent_pool_estimate (data_synthesizer.py
+                    # fuse_job_market_demand: temperature =
+                    # _market_temperature(competition_index * 100) and
+                    # trend_dir = fallback_demand["trend"], both inside the
+                    # SAME `if total_postings == 0 and search_volume == 0 and
+                    # talent_pool == 0` branch that also sets posting_sources
+                    # = ["Industry Benchmark"]) -- so every unmatched role
+                    # got the identical "hot" / "Stable (+2% YoY)" alongside
+                    # the identical postings/talent-pool numbers already
+                    # gated above. Same guard, same reason.
+                    (
+                        "Data not available"
+                        if _is_fabricated_postings
+                        else _flatten_value(
+                            demand.get(
+                                "temperature", demand.get("market_temperature") or ""
+                            )
                         )
                     ),
-                    _flatten_value(
-                        demand.get("trend", demand.get("trend_direction") or "")
+                    (
+                        "Data not available"
+                        if _is_fabricated_postings
+                        else _flatten_value(
+                            demand.get("trend", demand.get("trend_direction") or "")
+                        )
                     ),
                     _search_interest_str or "—",
                 ]

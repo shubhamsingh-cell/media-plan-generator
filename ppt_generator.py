@@ -5510,9 +5510,21 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                     bench_rows.append(
                         (f"Avg Salary: {role_name}", _format_salary(avg_sal))
                     )
-                # Synthesized data may have market_temperature
+                # Synthesized data may have market_temperature. data_synthesizer.
+                # fuse_job_market_demand's Industry Benchmark fallback (the SAME
+                # branch that fabricates posting_count/talent_pool above) derives
+                # market_temperature from that fallback's own hardcoded
+                # competition_index, so it is identical across every role that
+                # falls into the generic bucket -- gate it with the same
+                # _is_fabricated_posting flag already used for Live Postings
+                # above, instead of printing a fabricated (and, across roles,
+                # verbatim-identical) "hot"/"cold" reading as if it were measured.
                 market_temp = jm_data.get("market_temperature") or ""
-                if market_temp and isinstance(market_temp, str):
+                if (
+                    market_temp
+                    and isinstance(market_temp, str)
+                    and not _is_fabricated_posting
+                ):
                     bench_rows.append(
                         (f"Market Temp: {role_name}", market_temp.title())
                     )
