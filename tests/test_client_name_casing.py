@@ -1,6 +1,23 @@
 """Client-name casing: the client's own spelling is authoritative.
 
-Covers two verified defects (audit journal wf_dfd34698-6d6):
+Covers three verified defects:
+
+  F1 -- (independent adversarial review of 55bf330/ec676f5, 2026-09-24)
+        client_display_name detected an all-caps input via
+        collapsed.isupper() then lowercased every word before re-title-
+        casing it, so any all-caps client name NOT in the ~16-entry brand
+        table came out wrong: "ADP" -> "Adp", "SAP" -> "Sap",
+        "NASA" -> "Nasa", "GM" -> "Gm", "HP" -> "Hp",
+        "JPMORGAN CHASE" -> "Jpmorgan Chase". This shipped silently wrong
+        to clients because bundle_qa's own casing gate uses this exact
+        function as its ground truth, so the gate could never catch its
+        own bug. Fixed by inverting the precedence: an all-caps word not
+        in the brand table is now preserved verbatim as a likely acronym
+        by default (short words), only flattening to Title Case when it
+        is long enough to read as raw shouted prose rather than a real
+        acronym (see _SHOUT_ACRONYM_MAX_LEN in display_format.py).
+
+Plus two earlier verified defects (audit journal wf_dfd34698-6d6):
 
   C2 -- display_format.client_display_name title-cased every word,
         mangling recognizable brand/acronym names and connectives:
@@ -73,6 +90,20 @@ CANONICAL_CASES: list[tuple[str, str]] = [
     ("McDonald's", "McDonald's"),
     ("eBay", "eBay"),
     (_LONG_NAME, _LONG_NAME),
+    # F1 regression (audit journal wf_dfd34698-6d6): an all-caps client name
+    # NOT in the brand table used to get lowercased-then-titlecased instead
+    # of preserved as a likely acronym -- "ADP" -> "Adp", "NASA" -> "Nasa".
+    ("ADP", "ADP"),
+    ("SAP", "SAP"),
+    ("NASA", "NASA"),
+    ("GM", "GM"),
+    ("HP", "HP"),
+    ("ADT", "ADT"),
+    ("KFC", "KFC"),
+    ("CNN", "CNN"),
+    # Needs a specific brand-table spelling no length heuristic can derive.
+    ("JPMORGAN CHASE", "JPMorgan Chase"),
+    ("FEDEX", "FedEx"),
 ]
 
 
@@ -99,6 +130,29 @@ class TestClientDisplayNameBrandAndConnectives:
         assert fmt.client_display_name("kpmg") == "KPMG"
         assert fmt.client_display_name("pwc") == "PwC"
         assert fmt.client_display_name("ey") == "EY"
+
+    def test_unrecognized_all_caps_acronym_never_lowercased(self):
+        # F1 regression (mpg-ship-ec676f5-review-and-client-complaint-triage
+        # finding F1): client_display_name detected all-caps input then
+        # lowercased every word before re-title-casing it, so any acronym
+        # NOT in the ~16-entry brand table came out wrong -- "ADP" -> "Adp",
+        # "SAP" -> "Sap", "NASA" -> "Nasa", "GM" -> "Gm", "HP" -> "Hp". This
+        # shipped silently wrong to clients because bundle_qa's own casing
+        # gate uses this exact function as its ground truth.
+        for name in ("ADP", "SAP", "NASA", "GM", "HP", "ADT", "KFC", "CNN"):
+            assert fmt.client_display_name(name) == name, (
+                f"{name!r} should be preserved verbatim as a likely "
+                f"acronym, got {fmt.client_display_name(name)!r}"
+            )
+
+    def test_jpmorgan_chase_resolves_via_brand_table(self):
+        assert fmt.client_display_name("JPMORGAN CHASE") == "JPMorgan Chase"
+
+    def test_manpower_amerigas_still_flattens_despite_acronym_fix(self):
+        # The length-based default that preserves short all-caps acronyms
+        # must not regress the pre-existing flattening of long shouted
+        # words that are not acronyms.
+        assert fmt.client_display_name("MANPOWER - AMERIGAS") == "Manpower - Amerigas"
 
     def test_backward_compat_mixed_case_still_smart_titled(self):
         # Pre-existing, unrelated-to-this-fix behavior (tests/test_display_

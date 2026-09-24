@@ -137,10 +137,24 @@ _CLIENT_BRAND_CASING: dict[str, str] = {
     "kpmg": "KPMG",
     "ey": "EY",
     "pwc": "PwC",
+    "jpmorgan": "JPMorgan",
+    "fedex": "FedEx",
 }
 
+# For an ALL-CAPS input, a word longer than this reads as raw shouted prose
+# rather than a real acronym ("MANPOWER" / "AMERIGAS" -> flatten to Title
+# Case); a word this length or shorter is assumed to be a genuine acronym
+# and is preserved verbatim ("ADP" / "NASA" / "GM" stay as typed). This is
+# a length-based BLOCKLIST-style default -- unrecognized short tokens are
+# preserved, not flattened -- because guessing wrong on an unfamiliar
+# acronym prints an obviously-wrong client-facing name, while guessing
+# wrong on a long word does not. A name needing a specific mixed-case
+# spelling that this heuristic can't derive (JPMorgan, FedEx) goes in the
+# brand table above instead, which always takes precedence.
+_SHOUT_ACRONYM_MAX_LEN = 4
 
-def _cap_word(word: str, is_first: bool = False) -> str:
+
+def _cap_word(word: str, is_first: bool = False, shouting: bool = False) -> str:
     if not word:
         return word
     lower = word.lower()
@@ -148,6 +162,10 @@ def _cap_word(word: str, is_first: bool = False) -> str:
         return _CLIENT_BRAND_CASING[lower]
     if not is_first and lower in _CLIENT_NAME_CONNECTIVES:
         return lower
+    if shouting:
+        if len(word) > _SHOUT_ACRONYM_MAX_LEN:
+            return word[:1].upper() + word[1:].lower()
+        return word
     if word.islower():
         return word[0].upper() + word[1:]
     # Has internal capitals (eBay, McKinsey) or is an acronym (AMC, UPS) not
@@ -171,12 +189,15 @@ def client_display_name(raw: str | None) -> str:
     - A word with internal capitals (eBay, McKinsey) or an acronym typed in
       caps (AMC) that isn't in the brand table is preserved exactly as the
       client submitted it.
-    - If EVERY word in the string is uppercase, the whole thing reads as raw
-      shouty source data rather than real acronyms, so it is run through the
-      same per-word rules above after lowering each word first
-      ('MANPOWER - AMERIGAS' -> 'Manpower - Amerigas', but a real acronym
-      like 'UPS' or 'KPMG' still resolves via the brand table instead of
-      being flattened to 'Ups' / 'Kpmg').
+    - If EVERY word in the string is uppercase, each word is judged on its
+      own: a short word (:data:`_SHOUT_ACRONYM_MAX_LEN` or fewer letters)
+      reads as a genuine acronym and is preserved verbatim ('ADP', 'NASA',
+      'GM' stay as typed -- guessing wrong on an unfamiliar acronym prints
+      an obviously-wrong client-facing name), while a longer word reads as
+      raw shouted prose and is flattened to Title Case ('MANPOWER -
+      AMERIGAS' -> 'Manpower - Amerigas'). A real acronym in the brand
+      table (like 'UPS' or 'KPMG') always resolves correctly regardless of
+      length.
     """
     if not raw or not isinstance(raw, str):
         return ""
@@ -184,9 +205,10 @@ def client_display_name(raw: str | None) -> str:
     if not collapsed:
         return ""
     words = collapsed.split(" ")
-    if collapsed.isupper():
-        words = [w.lower() for w in words]
-    return " ".join(_cap_word(w, is_first=(i == 0)) for i, w in enumerate(words))
+    shouting = collapsed.isupper()
+    return " ".join(
+        _cap_word(w, is_first=(i == 0), shouting=shouting) for i, w in enumerate(words)
+    )
 
 
 # ---------------------------------------------------------------------------
