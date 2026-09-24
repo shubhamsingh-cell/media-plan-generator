@@ -595,6 +595,49 @@ def _normalize_country_2026(country: str | None) -> str | None:
     return None
 
 
+def get_market_platform_names(country: str | None, top_n: int = 3) -> list[str]:
+    """Top ``top_n`` recruitment platform names for ``country``, by market
+    share, from ``data/international_benchmarks_2026.json``.
+
+    Used so a "no niche-board data for this market" fallback message can
+    name boards that actually operate in the plan's market (e.g. Reed/
+    Totaljobs for the UK, Naukri/Shine for India) instead of a single
+    hardcoded example market's boards shown to every non-US plan. Returns
+    ``[]`` when the country doesn't match any of the 38 dataset markets or
+    the market has no ``platforms`` entries -- callers should fall back to
+    a generic, non-country-specific phrasing in that case. Never raises.
+
+    ``country`` accepts a bare country name ("United Kingdom") or a
+    location signal in "City, Country" form (e.g. one of ``plan_geo.
+    non_us_signals``'s raw strings) -- the trailing token after the last
+    comma is tried as a country name if the whole string doesn't match.
+    """
+    slug = _normalize_country_2026(country)
+    if not slug and isinstance(country, str) and "," in country:
+        slug = _normalize_country_2026(country.rsplit(",", 1)[-1].strip())
+    if not slug:
+        return []
+    countries = _load_intl_2026_countries()
+    entry = countries.get(slug) or {}
+    platforms = entry.get("platforms")
+    if not isinstance(platforms, list):
+        return []
+
+    def _share(p: Any) -> float:
+        share = p.get("market_share_pct") if isinstance(p, dict) else None
+        return float(share) if isinstance(share, (int, float)) and not isinstance(share, bool) else 0.0
+
+    ranked = sorted((p for p in platforms if isinstance(p, dict)), key=_share, reverse=True)
+    names: list[str] = []
+    for p in ranked:
+        name = p.get("name")
+        if isinstance(name, str) and name.strip() and name not in names:
+            names.append(name.strip())
+        if len(names) >= top_n:
+            break
+    return names
+
+
 def get_locale_cpc_basis(
     countries: list[Any] | None,
     plan_currency: str | None = None,

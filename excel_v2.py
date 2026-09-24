@@ -79,6 +79,7 @@ except ImportError:  # pragma: no cover - plan_currency ships with the repo
 import plan_geo
 import display_format
 import insight_composer
+import intl_benchmark_lookup
 
 # NOTE: aliased -- several functions in this module already use a local
 # variable/parameter literally named `gold_standard` (the enriched
@@ -238,6 +239,36 @@ def _usd0_fmt() -> str:
 def _usd2_fmt() -> str:
     """Active-currency per-unit number format (e.g. NZ$#,##0.00)."""
     return _usd_number_format("#,##0.00")
+
+
+def _cpc_number_format(ch_data: Optional[dict]) -> str:
+    """Number format for a channel's CPC cell -- honest about whether the
+    figure was actually localized.
+
+    FIX (finding #8): a non-US, non-intl-dataset market (e.g. Spain, which
+    is not one of the 38 countries in international_benchmarks_2026.json)
+    falls through budget_engine's CPC cascade to a US-calibrated constant
+    (e.g. Indeed's 1.62) that was NEVER converted -- but the channel table
+    always rendered CPC with ``_usd2_fmt()`` (the ACTIVE plan currency), so
+    that raw USD number shipped with a "€" (or any non-USD) symbol as if it
+    were a real local benchmark. ``budget_engine.compute_channel_dollar_
+    amounts`` already tags every channel's CPC with its own provenance in
+    ``cpc_source`` -- a value starting with "intl_" (or containing "->",
+    the local-currency-converted suffix ``_resolve_intl_cpc_basis``/
+    ``get_locale_cpc_basis`` append) means it genuinely came from that
+    market's own data; anything else (static_benchmark/live_benchmark/
+    trend_engine/knowledge_base/synthesized) is US-cascade and was never
+    converted. Mirrors the same convert-vs-declare rule the India fix uses
+    (usd_per_local conversion in budget_engine): never relabel an
+    unconverted USD figure with the plan's own currency symbol -- use the
+    fixed-USD format (FMT_USD2) instead so it renders "$1.62" regardless
+    of the plan's active currency.
+    """
+    cpc_source = str((ch_data or {}).get("cpc_source") or "")
+    _is_localized = cpc_source.startswith("intl_") or "->" in cpc_source
+    if not _is_localized and _get_active_currency() != "USD":
+        return FMT_USD2
+    return _usd2_fmt()
 
 
 # ---------------------------------------------------------------------------
@@ -3422,9 +3453,16 @@ def _rewrite_low_efficiency_recommendation(channel_allocs: dict) -> Optional[str
     )
     if not perf_zero_hire:
         return None
+    # S3 FIX (finding #2): the >$1,000 threshold is budget_engine's own USD
+    # planning constant (channel "dollars" is always USD-coded, per
+    # plan_currency's "Planning math ... is intentionally USD-coded" rule) --
+    # it was never converted, so it must never be relabeled with the plan's
+    # local currency symbol. Mark it explicitly "US$" (the same convention
+    # ppt_generator._mark_usd uses) instead of a bare "$" that would read as
+    # the plan's own currency on a non-USD plan.
     return (
         f"Low Efficiency alert: {', '.join(perf_zero_hire)} projected 0 hires "
-        f"despite >$1,000 spend. Hold at pilot level; scale only on observed "
+        f"despite >US$1,000 spend. Hold at pilot level; scale only on observed "
         f"conversion rather than reallocating budget already committed to "
         f"this plan." + _brand_asymmetry_clause(channel_allocs)
     )
@@ -4859,13 +4897,19 @@ def _build_sheet_executive_summary(
                 round(_safe_num(_ch_roi), 1),
             ]
             _aligns = [_ALIGN_LEFT] + [_ALIGN_CENTER] * (len(values) - 1)
+            # FIX (finding #8): CPC (column index 6) gets its OWN per-row
+            # format -- honest-USD when this channel's cpc_source shows it
+            # was never localized (see _cpc_number_format), active-currency
+            # otherwise. Every other column keeps the shared _col_formats.
+            _row_formats = list(_col_formats)
+            _row_formats[6] = _cpc_number_format(ch_data)
             row = _write_table_row(
                 ws,
                 row,
                 values,
                 alternate=bool(idx % 2),
                 aligns=_aligns,
-                number_formats=_col_formats,
+                number_formats=_row_formats,
             )
         _last_data_row = row - 1
 
@@ -4936,7 +4980,16 @@ def _build_sheet_executive_summary(
         try:
             if len(_chart_pairs) >= 2:
                 _chart_pairs = _chart_pairs[:8]
-                _helper_col = COL_END + 2  # park well clear of the B..H layout
+                # FIX (finding #16): this table has 9 columns (Channel..ROI
+                # Score, B..J) -- one wider than the general COL_START..
+                # COL_END (B..H) layout every other section uses. Parking
+                # the helper at the generic "COL_END + 2" (column J) landed
+                # it directly on top of the ROI Score column and the
+                # column_dimensions.hidden below silently hid it. Park past
+                # this table's OWN last column instead so a future column
+                # addition here can't collide again either.
+                _table_last_col = COL_START + len(headers) - 1  # J (ROI Score)
+                _helper_col = _table_last_col + 2
                 _helper_top = row + 1
                 _hcat = get_column_letter(_helper_col)
                 _hval = get_column_letter(_helper_col + 1)
@@ -5869,6 +5922,10 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             _row_formats = list(_ch_formats)
             if _fit_val is None:
                 _row_formats[6] = None
+            # FIX (finding #8): same raw-USD-cascade-CPC-stamped-with-local-
+            # symbol defect as the Executive Summary channel table -- see
+            # _cpc_number_format's docstring.
+            _row_formats[4] = _cpc_number_format(ch_data)
             row = _write_table_row(
                 ws, row, values, alternate=idx % 2 == 1, number_formats=_row_formats
             )
@@ -10214,6 +10271,43 @@ def _forecast_sheet_title(data: dict) -> str:
     return "90-Day Forecast"
 
 
+def _derive_forecast_trend(
+    monthly_vals: list, is_cost_metric: bool, trend_ok: bool
+) -> Tuple[str, Font]:
+    """Derive a forecast row's Trend label + font from its OWN period values.
+
+    FIX (finding #18): the Trend column used to print a hardcoded
+    "Increasing"/"Decreasing" (always green) regardless of the row's real
+    series -- a channel with genuinely falling applications still read as
+    "Increasing" in green. Compare the row's first vs. last period value
+    (a small tolerance collapses near-flat series to "Stable" rather than
+    a misleading direction) and colour by whether that direction is GOOD
+    for the metric: CPA falling is good, Applications/Hires rising is
+    good. "Stable" is neutral (amber), never green/red.
+    """
+    if not trend_ok or len(monthly_vals) < 2:
+        return "—", _FONT_BODY
+
+    first = _safe_num(monthly_vals[0])
+    last = _safe_num(monthly_vals[-1])
+
+    if first == 0:
+        pct_change = 0.0 if last == 0 else 1.0
+    else:
+        pct_change = (last - first) / abs(first)
+
+    _STABLE_TOLERANCE = 0.05  # +/-5% first-to-last treated as flat
+    if abs(pct_change) < _STABLE_TOLERANCE:
+        label = "Stable"
+        return label, Font(name=FONT_BODY_NAME, bold=True, size=10, color=AMBER)
+
+    label = "Increasing" if pct_change > 0 else "Decreasing"
+    rising_is_good = not is_cost_metric
+    is_good = (label == "Increasing") == rising_is_good
+    color = GREEN if is_good else RED
+    return label, Font(name=FONT_BODY_NAME, bold=True, size=10, color=color)
+
+
 def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     """Build Sheet 7: Campaign Forecast with periodic spend, applications, hires, and CPA trend.
 
@@ -10474,49 +10568,50 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     # is summable/sortable; units live in the format, not the cell text.
     # S3: Spend/CPA are the plan's OWN figures -- active plan currency.
     # A single-period (1-week) frame has no across-period trend to claim.
+    # FIX (finding #20): CPA elsewhere in the workbook (ROI Projections,
+    # Confidence Intervals, Channels & Strategy) always renders with 2
+    # decimals (_usd2_fmt) -- this row used the whole-dollar _usd0_fmt,
+    # the only CPA in the workbook that did. Use the same 2-decimal format.
+    # Spend never claimed a trend even before this fix (no inherent
+    # "good"/"bad" direction for raw spend) -- keep that, and only derive a
+    # real trend for the three rows that used to carry a fabricated one.
     _trend_ok = _n_periods > 1
     forecast_rows = [
-        ("Spend", monthly_spend, _budget_90d, "—", _usd0_fmt()),
-        (
-            "Applications",
-            monthly_apps,
-            total_apps_90d,
-            "Increasing" if total_apps_90d > 0 and _trend_ok else "—",
-            FMT_INT,
-        ),
-        (
-            "Hires",
-            monthly_hires,
-            total_hires_90d,
-            "Increasing" if total_hires_90d > 0 and _trend_ok else "—",
-            FMT_INT,
-        ),
+        ("Spend", monthly_spend, _budget_90d, False, _usd0_fmt(), False),
+        ("Applications", monthly_apps, total_apps_90d, False, FMT_INT, True),
+        ("Hires", monthly_hires, total_hires_90d, False, FMT_INT, True),
         (
             "CPA (Cost Per Application)",
             monthly_cpa,
             base_cpa,
-            "Decreasing" if base_cpa > 0 and _trend_ok else "—",
-            _usd0_fmt(),
+            True,
+            _usd2_fmt(),
+            True,
         ),
     ]
 
-    for idx, (metric, monthly_vals, total_val, trend, row_fmt) in enumerate(
-        forecast_rows
-    ):
+    for idx, (
+        metric,
+        monthly_vals,
+        total_val,
+        is_cost_metric,
+        row_fmt,
+        _show_trend,
+    ) in enumerate(forecast_rows):
         numeric_vals = [_safe_num(v) for v in monthly_vals] + [_safe_num(total_val)]
+        # FIX (finding #18): derive the Trend label + colour from the row's
+        # OWN first-vs-last period values instead of a hardcoded
+        # "Increasing"/always-green -- see _derive_forecast_trend.
+        if _show_trend:
+            trend, trend_font = _derive_forecast_trend(
+                monthly_vals, is_cost_metric, _trend_ok
+            )
+        else:
+            trend, trend_font = "—", _FONT_BODY
         values = [metric] + numeric_vals + [trend]
         fonts_list = [_FONT_BODY_BOLD] + [_FONT_BODY] * (len(values) - 1)
         # Metric label (text) | month cols (row_fmt) | total (row_fmt) | trend (text)
         number_formats = [None] + [row_fmt] * len(numeric_vals) + [None]
-
-        # Color-code trend
-        trend_font = _FONT_BODY
-        if trend == "Increasing":
-            trend_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=GREEN)
-        elif trend == "Decreasing" and "CPA" in metric:
-            trend_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=GREEN)
-        elif trend == "Decreasing":
-            trend_font = Font(name=FONT_BODY_NAME, bold=True, size=10, color=RED)
         fonts_list[-1] = trend_font
 
         row = _write_table_row(
@@ -10927,10 +11022,6 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
 
         # Hires
         hires = int(_safe_num(ch_data.get("projected_hires") or 0))
-        # Raw (unclamped) low/high used to derive the CPH band below --
-        # keep these separate from the (possibly row-skipping) display band.
-        hires_lo_raw = max(0, int(hires * (1 - variance))) if hires > 0 else 0
-        hires_hi_raw = int(hires * (1 + variance)) if hires > 0 else 0
         # S89A FIX (findings data:manpower#1/#2, data:atria#1): display band
         # routed through the same shared _confidence_range() helper ROI
         # Projections' Hire Range column uses, so the two sheets can never
@@ -10965,14 +11056,20 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
             idx += 1
 
         # CPH (Cost Per Hire)
+        # FIX (finding #5): deriving low/high from INTEGER hire counts
+        # (dollars / max(hires_lo_raw, 1) etc.) blew up for small hire
+        # counts -- e.g. hires=4, variance=20% truncated hires_lo_raw to 3
+        # (a 33% swing) and hires_hi_raw stayed 4 (a 0% swing), so the
+        # printed "+/-20%" Variance column never matched the actual
+        # Low/High values. Derive the band from the SAME printed variance
+        # rate applied directly to the expected CPH, exactly like the CPA
+        # band two rows above -- this keeps the printed variance honest and
+        # preserves low >= expected >= high (cost-metric convention) via
+        # the shared _clamped_band helper.
         if hires > 0 and dollars > 0:
             cph = dollars / hires
-            cph_lo = dollars / max(
-                hires_lo_raw, 1
-            )  # Pessimistic = fewer hires = higher CPH
-            cph_hi = dollars / max(
-                hires_hi_raw, 1
-            )  # Optimistic = more hires = lower CPH
+            cph_lo = cph * (1 + variance)  # Pessimistic = higher CPH
+            cph_hi = cph * (1 - variance)  # Optimistic = lower CPH
             _cph_band = _clamped_band(cph_lo, cph, cph_hi, cost_metric=True)
         else:
             _cph_band = None
@@ -11554,16 +11651,45 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
         if not _is_us:
             _signals = _non_us_signals(data)
             _signal_txt = f" (targets {', '.join(_signals[:3])})" if _signals else ""
-            row = _write_kv_row(
-                ws,
-                row,
-                "Status",
-                "US-domiciled specialty job boards are not shown because this "
-                f"plan targets a non-US market{_signal_txt} and no local "
-                "niche-board data was available for this campaign. Consider "
-                "general-purpose boards available in-market (e.g. Seek, Trade "
-                "Me Jobs, LinkedIn) with targeted ad copy and audience filters.",
-            )
+            # FIX (finding #19): this used to hardcode "Seek, Trade Me Jobs,
+            # LinkedIn" (New Zealand boards) as the example for EVERY non-US
+            # market -- a UK/India/Spain plan all read the identical NZ
+            # example. Look up the plan's OWN market(s) in
+            # international_benchmarks_2026.json (the same 38-country
+            # platform dataset budget_engine's non-US CPC calibration uses)
+            # and name its real top platforms instead; only fall back to a
+            # country-agnostic phrasing when none of the plan's markets are
+            # in that dataset (e.g. Spain -- see finding #8).
+            _market_boards: List[str] = []
+            for _sig in _signals:
+                for _name in intl_benchmark_lookup.get_market_platform_names(_sig):
+                    if _name not in _market_boards:
+                        _market_boards.append(_name)
+                if len(_market_boards) >= 3:
+                    break
+            if _market_boards:
+                _boards_txt = ", ".join(_market_boards[:3])
+                row = _write_kv_row(
+                    ws,
+                    row,
+                    "Status",
+                    "US-domiciled specialty job boards are not shown because this "
+                    f"plan targets a non-US market{_signal_txt} and no local "
+                    "niche-board data was available for this campaign. Consider "
+                    f"general-purpose boards available in-market (e.g. {_boards_txt}) "
+                    "with targeted ad copy and audience filters.",
+                )
+            else:
+                row = _write_kv_row(
+                    ws,
+                    row,
+                    "Status",
+                    "US-domiciled specialty job boards are not shown because this "
+                    f"plan targets a non-US market{_signal_txt} and no local "
+                    "niche-board data was available for this campaign. Consider "
+                    "general-purpose boards available in-market (e.g. LinkedIn, "
+                    "Indeed) with targeted ad copy and audience filters.",
+                )
         else:
             row = _write_kv_row(
                 ws,
