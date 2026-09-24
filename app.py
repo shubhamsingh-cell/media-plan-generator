@@ -76,6 +76,21 @@ def _internal_error_msg() -> str:
     return f"Something went wrong (ref: {ref}). Please try again."
 
 
+def _partial_enrichment_snapshot(partial: dict) -> dict:
+    """Snapshot of api_enrichment.enrich_data()'s in-progress work.
+
+    enrich_data() is passed a shared dict it mutates live (see its
+    `partial_result` param) while running in a worker thread. When an outer
+    per-request timeout fires before that thread returns, `future.result()`
+    is never read and the fully-formed return value is lost -- but whatever
+    enrich_data() had already written into the shared dict by that moment is
+    still there. A plain dict copy (rather than reusing `partial` itself) so
+    the still-running background thread's later writes can't keep mutating
+    what the caller has already moved on to use.
+    """
+    return dict(partial) if partial else {}
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # WEB DATA ENRICHMENT (S72: Firecrawl removed -- module deleted)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -16543,6 +16558,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         # and shutdown(wait=False) to avoid blocking on semaphore.
                         enriched = {}
                         _t_enrich = time.time()
+                        # enrich_data() mutates this dict live from its worker
+                        # thread; fall back to it on a timeout below instead of
+                        # discarding whatever it had already completed.
+                        _enrich_data_partial: dict = {}
                         if enrich_data is not None:
                             _enrich_pool = ThreadPoolExecutor(
                                 max_workers=1, thread_name_prefix="async-enrich"
@@ -16550,10 +16569,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             try:
                                 _enrich_future = (
                                     _enrich_pool.submit(
-                                        enrich_data, gen_data, request_id=rid
+                                        enrich_data,
+                                        gen_data,
+                                        request_id=rid,
+                                        partial_result=_enrich_data_partial,
                                     )
                                     if rid
-                                    else _enrich_pool.submit(enrich_data, gen_data)
+                                    else _enrich_pool.submit(
+                                        enrich_data,
+                                        gen_data,
+                                        partial_result=_enrich_data_partial,
+                                    )
                                 )
                                 enriched = (
                                     _enrich_future.result(timeout=_enrich_timeout) or {}
@@ -16561,12 +16587,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 gen_data["_enriched"] = enriched
                             except TimeoutError:
                                 logger.error(
-                                    "Async enrichment timed out after %ds for job %s -- continuing with empty data",
+                                    "Async enrichment timed out after %ds for job %s -- "
+                                    "continuing with partial data (not discarding)",
                                     _enrich_timeout,
                                     jid,
                                 )
                                 _enrich_future.cancel()
-                                gen_data["_enriched"] = {}
+                                enriched = _partial_enrichment_snapshot(
+                                    _enrich_data_partial
+                                )
+                                gen_data["_enriched"] = enriched
                             except Exception:
                                 logger.error(
                                     "Async enrichment failed for job %s",
@@ -18315,6 +18345,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             _span_fn = getattr(self, "_sentry_span", lambda o, n: _nullctx())
             enriched: dict = {}
             _market_ctx: dict = {}
+            # api_enrichment.enrich_data() mutates this dict live from its
+            # worker thread; read on an outer timeout so a slow-but-partially-
+            # successful run isn't discarded wholesale (see _call_enrich_data).
+            _enrich_data_partial: dict = {}
 
             # -- Extract shared params once for all enrichment tasks --
             _roles_for_api = data.get("target_roles") or data.get("roles") or []
@@ -18379,9 +18413,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 try:
                     _rid = getattr(self, "_request_id", None)
                     result = (
-                        enrich_data(data, request_id=_rid)
+                        enrich_data(
+                            data, request_id=_rid, partial_result=_enrich_data_partial
+                        )
                         if _rid
-                        else enrich_data(data)
+                        else enrich_data(data, partial_result=_enrich_data_partial)
                     ) or {}
                     logger.info(
                         "API enrichment complete: %s",
@@ -18970,6 +19006,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 # Cancel pending futures (running threads can't be cancelled)
                 for future in futures:
                     future.cancel()
+                # The api_enrichment.enrich_data() future is the one task here
+                # that realistically needs more than the shared 20s budget (it
+                # fans out into its own ~15-35 sub-API calls). If its future
+                # never resolved above, `enriched` is still {} even though
+                # enrich_data() had already written real results into
+                # _enrich_data_partial before the timeout hit -- use that
+                # instead of discarding it (was: 100% of location/salary/etc.
+                # enrichment thrown away on a partial timeout).
+                if not enriched:
+                    enriched = _partial_enrichment_snapshot(_enrich_data_partial)
                 # DON'T abort -- continue with whatever data we have
             except Exception as exc:
                 logger.error("Parallel enrichment pool failed: %s", exc, exc_info=True)

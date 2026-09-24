@@ -14610,7 +14610,11 @@ def _geopolitical_fallback(locations: list) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
+def enrich_data(
+    data: Dict[str, Any],
+    request_id: str = "",
+    partial_result: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """
     Main entry point. Takes a media plan request dict and returns an enriched
     dict with salary data, industry stats, demographics, global indicators,
@@ -14627,6 +14631,14 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
     Args:
         data: Media plan request dict.
         request_id: Optional request ID for tracing through all API calls.
+        partial_result: Optional dict the caller already holds a reference
+            to. When given, this function fills IT (instead of a private
+            local dict) with the same keys it would otherwise return, and
+            updates it live as each of the ~15-35 sub-API tasks completes.
+            This lets a caller that wraps this call in its own outer timeout
+            (e.g. app.py's combined enrichment budget) read back whatever
+            had already completed even if that outer timeout fires before
+            this function itself returns -- instead of discarding it.
 
     Returns a dict matching the enrichment schema (see module docstring).
     All sub-keys are populated on a best-effort basis; failures yield empty
@@ -14716,6 +14728,13 @@ def enrich_data(data: Dict[str, Any], request_id: str = "") -> Dict[str, Any]:
         "regional_labour_data": {},
         "enrichment_summary": {},
     }
+    if partial_result is not None:
+        # Fill the CALLER's dict in place (same object) so every write below
+        # is visible to it live, from another thread, before this function
+        # returns -- see the `partial_result` docstring above.
+        partial_result.clear()
+        partial_result.update(enriched)
+        enriched = partial_result
 
     # --- Define tasks for concurrent execution ---
     # Each task is a tuple of (result_key, api_label, callable)
