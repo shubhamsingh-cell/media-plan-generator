@@ -91,6 +91,110 @@ def _partial_enrichment_snapshot(partial: dict) -> dict:
     return dict(partial) if partial else {}
 
 
+def _run_enrich_data_with_partial_fallback(
+    enrich_data_fn: Any, data: dict, request_id: "str | None", timeout: float
+) -> "tuple[dict, bool]":
+    """Run enrich_data_fn(data, ...) in its own single-worker pool with an
+    outer timeout. On timeout, falls back to whatever enrich_data_fn had
+    already written into its live `partial_result` dict instead of
+    discarding it (the fix for the "0% location confidence" bug -- every
+    role/location read 0% because this fallback didn't exist and the
+    caller's shorter outer timeout routinely fired before enrich_data()'s
+    own longer internal budget did).
+
+    Returns (enriched, timed_out); the caller logs with its own
+    request-scoped context (e.g. a job id).
+
+    CRITICAL: do NOT use `with ThreadPoolExecutor() as pool:` here -- the
+    context manager calls pool.shutdown(wait=True) on exit, which blocks
+    until the thread completes even after a TimeoutError, defeating the
+    timeout.
+    """
+    if enrich_data_fn is None:
+        return {}, False
+    partial: dict = {}
+    pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="async-enrich")
+    try:
+        future = (
+            pool.submit(
+                enrich_data_fn, data, request_id=request_id, partial_result=partial
+            )
+            if request_id
+            else pool.submit(enrich_data_fn, data, partial_result=partial)
+        )
+        return (future.result(timeout=timeout) or {}), False
+    except _FutureTimeoutError:
+        future.cancel()
+        return _partial_enrichment_snapshot(partial), True
+    except Exception:
+        logger.error("enrich_data() call failed", exc_info=True)
+        return {}, False
+    finally:
+        # shutdown(wait=False) does NOT block on running threads
+        pool.shutdown(wait=False, cancel_futures=True)
+
+
+def _run_parallel_enrichment_tasks(
+    tasks: list, timeout: float, enrich_data_partial: dict, span_fn: Any = None
+) -> "tuple[dict, dict]":
+    """Run the /api/generate enrichment task closures concurrently with one
+    combined timeout. Each task callable returns (name, result); the
+    special name "api_enrichment" is api_enrichment.enrich_data()'s own
+    task -- unlike its sibling tasks here (simple single-API calls), it
+    realistically needs more than this combined budget on its own (it fans
+    out into its own ~15-35 sub-API calls over 5 workers). On an outer
+    timeout, fall back to whatever it had already written into
+    enrich_data_partial instead of discarding it (the fix for the "0%
+    location confidence" bug -- see _partial_enrichment_snapshot).
+
+    CRITICAL: do NOT use `with ThreadPoolExecutor() as pool:` here -- the
+    context manager calls pool.shutdown(wait=True) on exit, which blocks
+    until ALL threads complete even after a TimeoutError is raised.
+
+    Returns (enriched, market_ctx).
+    """
+    enriched: dict = {}
+    market_ctx: dict = {}
+    span = (
+        span_fn("enrich_parallel", "Parallel API enrichment") if span_fn else _nullctx()
+    )
+    t0 = time.time()
+    pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="gen-enrich")
+    futures: dict = {}
+    try:
+        with span:
+            futures = {pool.submit(fn): fn.__doc__ or fn.__name__ for fn in tasks}
+            for future in as_completed(futures, timeout=timeout):
+                try:
+                    name, result = future.result()
+                    if name == "api_enrichment":
+                        if result:
+                            enriched = result
+                    else:
+                        if result is not None:
+                            market_ctx[name] = result
+                except Exception as exc:
+                    logger.warning("Generate enrichment task error: %s", exc)
+    except _FutureTimeoutError:
+        logger.warning(
+            "Parallel enrichment hit %ss timeout after %.1fs -- "
+            "continuing with partial data (not aborting)",
+            timeout,
+            time.time() - t0,
+        )
+        # Cancel pending futures (running threads can't be cancelled)
+        for future in futures:
+            future.cancel()
+        if not enriched:
+            enriched = _partial_enrichment_snapshot(enrich_data_partial)
+    except Exception as exc:
+        logger.error("Parallel enrichment pool failed: %s", exc, exc_info=True)
+    finally:
+        # shutdown(wait=False) exits immediately without blocking
+        pool.shutdown(wait=False, cancel_futures=True)
+    return enriched, market_ctx
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # WEB DATA ENRICHMENT (S72: Firecrawl removed -- module deleted)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -442,6 +546,7 @@ def _narrative_template_fallback(data: dict, product_context: str) -> str:
 import hashlib
 from concurrent.futures import (
     ThreadPoolExecutor,
+    TimeoutError as _FutureTimeoutError,
     as_completed,
 )
 
@@ -16551,64 +16656,22 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 "Plan generation exceeded 2-minute time limit"
                             )
 
-                        # Enrichment -- ThreadPoolExecutor with 25s hard timeout.
-                        # CRITICAL: Do NOT use context manager (`with ... as pool:`)
-                        # because pool.shutdown(wait=True) blocks until thread completes,
-                        # defeating the timeout. Instead, create pool, submit, get result,
-                        # and shutdown(wait=False) to avoid blocking on semaphore.
-                        enriched = {}
+                        # Enrichment -- see _run_enrich_data_with_partial_fallback
+                        # for why this isn't a plain `with ThreadPoolExecutor()`.
                         _t_enrich = time.time()
-                        # enrich_data() mutates this dict live from its worker
-                        # thread; fall back to it on a timeout below instead of
-                        # discarding whatever it had already completed.
-                        _enrich_data_partial: dict = {}
-                        if enrich_data is not None:
-                            _enrich_pool = ThreadPoolExecutor(
-                                max_workers=1, thread_name_prefix="async-enrich"
+                        enriched, _enrich_timed_out = (
+                            _run_enrich_data_with_partial_fallback(
+                                enrich_data, gen_data, rid, _enrich_timeout
                             )
-                            try:
-                                _enrich_future = (
-                                    _enrich_pool.submit(
-                                        enrich_data,
-                                        gen_data,
-                                        request_id=rid,
-                                        partial_result=_enrich_data_partial,
-                                    )
-                                    if rid
-                                    else _enrich_pool.submit(
-                                        enrich_data,
-                                        gen_data,
-                                        partial_result=_enrich_data_partial,
-                                    )
-                                )
-                                enriched = (
-                                    _enrich_future.result(timeout=_enrich_timeout) or {}
-                                )
-                                gen_data["_enriched"] = enriched
-                            except TimeoutError:
-                                logger.error(
-                                    "Async enrichment timed out after %ds for job %s -- "
-                                    "continuing with partial data (not discarding)",
-                                    _enrich_timeout,
-                                    jid,
-                                )
-                                _enrich_future.cancel()
-                                enriched = _partial_enrichment_snapshot(
-                                    _enrich_data_partial
-                                )
-                                gen_data["_enriched"] = enriched
-                            except Exception:
-                                logger.error(
-                                    "Async enrichment failed for job %s",
-                                    jid,
-                                    exc_info=True,
-                                )
-                                gen_data["_enriched"] = {}
-                            finally:
-                                # shutdown(wait=False) does NOT block on running threads
-                                _enrich_pool.shutdown(wait=False, cancel_futures=True)
-                        else:
-                            gen_data["_enriched"] = {}
+                        )
+                        gen_data["_enriched"] = enriched
+                        if _enrich_timed_out:
+                            logger.error(
+                                "Async enrichment timed out after %ds for job %s -- "
+                                "continuing with partial data (not discarding)",
+                                _enrich_timeout,
+                                jid,
+                            )
 
                         _step_timings["enrichment"] = round(time.time() - _t_enrich, 2)
                         logger.info(
@@ -18966,62 +19029,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
 
+            # See _run_parallel_enrichment_tasks for why this isn't a plain
+            # `with ThreadPoolExecutor() as pool:`.
             _parallel_t0 = time.time()
-
-            # CRITICAL: Do NOT use `with ThreadPoolExecutor() as pool:` context manager.
-            # The context manager calls pool.shutdown(wait=True) on exit, which blocks
-            # until ALL threads complete -- even after TimeoutError is raised.
-            # Threads stuck on semaphore.acquire() or slow API calls will block the
-            # entire response. Use manual pool with shutdown(wait=False) instead.
-            _enrich_pool = ThreadPoolExecutor(
-                max_workers=8, thread_name_prefix="gen-enrich"
+            enriched, _market_ctx = _run_parallel_enrichment_tasks(
+                _enrich_tasks, 20, _enrich_data_partial, span_fn=_span_fn
             )
-            try:
-                with _span_fn(
-                    "enrich_parallel",
-                    "Parallel API enrichment (12 sources, 20s timeout)",
-                ):
-                    futures = {
-                        _enrich_pool.submit(fn): fn.__doc__ or fn.__name__
-                        for fn in _enrich_tasks
-                    }
-                    for future in as_completed(futures, timeout=20):
-                        try:
-                            name, result = future.result()
-                            if name == "api_enrichment":
-                                if result:
-                                    enriched = result
-                            else:
-                                if result is not None:
-                                    _market_ctx[name] = result
-                        except Exception as exc:
-                            logger.warning("Generate enrichment task error: %s", exc)
-            except TimeoutError:
-                elapsed_time: float = time.time() - _parallel_t0
-                logger.warning(
-                    "Parallel enrichment hit 20s timeout after %.1fs -- "
-                    "continuing with partial data (not aborting)",
-                    elapsed_time,
-                )
-                # Cancel pending futures (running threads can't be cancelled)
-                for future in futures:
-                    future.cancel()
-                # The api_enrichment.enrich_data() future is the one task here
-                # that realistically needs more than the shared 20s budget (it
-                # fans out into its own ~15-35 sub-API calls). If its future
-                # never resolved above, `enriched` is still {} even though
-                # enrich_data() had already written real results into
-                # _enrich_data_partial before the timeout hit -- use that
-                # instead of discarding it (was: 100% of location/salary/etc.
-                # enrichment thrown away on a partial timeout).
-                if not enriched:
-                    enriched = _partial_enrichment_snapshot(_enrich_data_partial)
-                # DON'T abort -- continue with whatever data we have
-            except Exception as exc:
-                logger.error("Parallel enrichment pool failed: %s", exc, exc_info=True)
-            finally:
-                # shutdown(wait=False) exits immediately without blocking
-                _enrich_pool.shutdown(wait=False, cancel_futures=True)
 
             # Enrichment complete (or timed out with partial data) -- continue
 

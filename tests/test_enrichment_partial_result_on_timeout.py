@@ -49,12 +49,12 @@ Sections below:
        depends on.
     3. app._partial_enrichment_snapshot -- the small helper both app.py call
        sites use to safely adopt that partial dict after an outer timeout.
-    4. End-to-end pattern test -- reproduces the exact app.py control flow
-       (ThreadPoolExecutor + an outer timeout shorter than the callee's own
-       budget) using the real api_enrichment.enrich_data() and the real
-       app._partial_enrichment_snapshot helper, and proves that with the fix
-       applied, an outer timeout keeps the fast sub-task's real result
-       instead of discarding it.
+    4. The two real app.py functions each call site actually calls --
+       app._run_enrich_data_with_partial_fallback (async job path) and
+       app._run_parallel_enrichment_tasks (sync /api/generate path) -- driven
+       directly (not reimplemented) with a real, slow-but-controlled
+       api_enrichment.enrich_data() call, proving the ACTUAL production code
+       keeps partial data on an outer timeout instead of discarding it.
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ from __future__ import annotations
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -257,22 +257,12 @@ def test_partial_enrichment_snapshot_returns_independent_copy():
     assert snapshot["location_demographics"]["Hershey, PA"]["population"] == 14257
 
 
-# ─── 4. End-to-end pattern: outer timeout shorter than enrich_data()'s own ──
+# ─── 4. The real app.py functions each call site actually calls ─────────────
 
 
-def test_outer_timeout_keeps_partial_enrichment_instead_of_discarding_it(
-    monkeypatch: pytest.MonkeyPatch, _no_circuit_breaker_or_rate_limit
+def _patch_one_fast_one_slow_location_task(
+    monkeypatch: pytest.MonkeyPatch, slow_task_may_return: threading.Event
 ) -> None:
-    """Reproduces app.py's actual control flow: a single enrich_data() future
-    submitted to a pool, read with `future.result(timeout=...)` where the
-    outer timeout is shorter than what enrich_data() needs (mirroring the
-    real 20s-outer-vs-50s-inner mismatch, just compressed to run in
-    milliseconds). Fails (asserts enriched stays {}) against the pre-fix
-    pattern; passes against the fix.
-    """
-    slow_task_may_return = threading.Event()
-    slow_task_started = threading.Event()
-
     monkeypatch.setattr(
         api_enrichment,
         "fetch_location_demographics",
@@ -280,55 +270,86 @@ def test_outer_timeout_keeps_partial_enrichment_instead_of_discarding_it(
             "Hershey, PA": {"population": 14257, "source": "Census-ACS"}
         },
     )
-
-    def _slow_global_indicators(locations):
-        slow_task_started.set()
-        slow_task_may_return.wait(timeout=10)
-        return {}
-
     monkeypatch.setattr(
-        api_enrichment, "fetch_global_indicators", _slow_global_indicators
+        api_enrichment,
+        "fetch_global_indicators",
+        lambda locations: (slow_task_may_return.wait(timeout=10), {})[1],
     )
 
-    _enrich_data_partial: dict = {}
-    enriched: dict = {}
-    pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="test-enrich")
+
+def test_run_enrich_data_with_partial_fallback_keeps_partial_on_timeout(
+    monkeypatch: pytest.MonkeyPatch, _no_circuit_breaker_or_rate_limit
+) -> None:
+    """Drives app._run_enrich_data_with_partial_fallback directly -- the
+    REAL function app.py's async job-generation path calls (not a
+    reimplementation of it). A real api_enrichment.enrich_data() call with
+    one fast and one controlled-slow sub-task, and an outer timeout shorter
+    than enrich_data()'s own budget (mirroring the real 20s-outer-vs-50s-
+    inner mismatch, compressed to run in milliseconds).
+    """
+    slow_task_may_return = threading.Event()
+    _patch_one_fast_one_slow_location_task(monkeypatch, slow_task_may_return)
+
     try:
-        future = pool.submit(
-            api_enrichment.enrich_data,
-            {"locations": ["Hershey, PA"]},
-            partial_result=_enrich_data_partial,
+        enriched, timed_out = app_module._run_enrich_data_with_partial_fallback(
+            api_enrichment.enrich_data, {"locations": ["Hershey, PA"]}, None, 0.2
         )
-        assert slow_task_started.wait(timeout=10)
-        # Give the fast sub-task a moment to land in the shared dict, same
-        # as the app.py sync-path test above.
-        deadline = time.time() + 5
-        while (
-            not _enrich_data_partial.get("location_demographics")
-            and time.time() < deadline
-        ):
-            time.sleep(0.01)
+    finally:
+        slow_task_may_return.set()  # let the still-running background call finish
 
-        with pytest.raises(FutureTimeoutError):
-            future.result(timeout=0.05)  # outer budget << enrich_data()'s own
+    assert timed_out is True
+    assert enriched, (
+        "outer timeout discarded 100% of enrich_data()'s completed work -- "
+        "the exact all-or-nothing bug this test guards against"
+    )
+    assert enriched["location_demographics"] == {
+        "Hershey, PA": {"population": 14257, "source": "Census-ACS"}
+    }
 
-        # THE FIX under test:
-        if not enriched:
-            enriched = app_module._partial_enrichment_snapshot(_enrich_data_partial)
+    # And that non-empty enriched dict is enough to move location confidence
+    # off 0% -- the client-visible end of the bug.
+    synth = data_synthesizer.synthesize(enriched, {}, _HERSHEY_INPUT)
+    assert synth["confidence_scores"]["per_section"]["location_profiles"] > 0.0
 
-        assert enriched, (
-            "outer timeout discarded 100% of enrich_data()'s completed work "
-            "-- the exact all-or-nothing bug this test guards against"
+
+def test_run_parallel_enrichment_tasks_keeps_partial_enrich_data_on_timeout(
+    monkeypatch: pytest.MonkeyPatch, _no_circuit_breaker_or_rate_limit
+) -> None:
+    """Drives app._run_parallel_enrichment_tasks directly -- the REAL
+    function app.py's synchronous /api/generate path calls (not a
+    reimplementation). "api_enrichment" is one of several concurrently
+    dispatched named tasks here, same shape as the real 12-task dispatch:
+    proves the fix keeps enrich_data()'s partial work on an outer timeout
+    AND that a normal fast sibling task's result still lands in
+    market_ctx exactly as before (the pattern the other 11 real tasks
+    already used, now unchanged by this fix).
+    """
+    slow_task_may_return = threading.Event()
+    _patch_one_fast_one_slow_location_task(monkeypatch, slow_task_may_return)
+
+    partial: dict = {}
+
+    def _call_enrich_data() -> "tuple[str, dict]":
+        result = api_enrichment.enrich_data(
+            {"locations": ["Hershey, PA"]}, partial_result=partial
         )
-        assert enriched["location_demographics"] == {
-            "Hershey, PA": {"population": 14257, "source": "Census-ACS"}
-        }
+        return ("api_enrichment", result)
 
-        # And that non-empty enriched dict is enough to move location
-        # confidence off 0% -- the client-visible end of the bug.
-        synth = data_synthesizer.synthesize(enriched, {}, _HERSHEY_INPUT)
-        assert synth["confidence_scores"]["per_section"]["location_profiles"] > 0.0
+    def _call_fast_sibling() -> "tuple[str, dict]":
+        return ("some_other_source", {"fast": True})
+
+    try:
+        enriched, market_ctx = app_module._run_parallel_enrichment_tasks(
+            [_call_enrich_data, _call_fast_sibling], 0.2, partial
+        )
     finally:
         slow_task_may_return.set()
-        future.result(timeout=10)
-        pool.shutdown(wait=True)
+
+    assert enriched, "outer timeout discarded enrich_data()'s completed work"
+    assert enriched["location_demographics"] == {
+        "Hershey, PA": {"population": 14257, "source": "Census-ACS"}
+    }
+    assert market_ctx == {"some_other_source": {"fast": True}}
+
+    synth = data_synthesizer.synthesize(enriched, {}, _HERSHEY_INPUT)
+    assert synth["confidence_scores"]["per_section"]["location_profiles"] > 0.0
