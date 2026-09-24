@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 import re
 import logging
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -561,3 +561,46 @@ def standardize_location(loc_str: str) -> str:
         else:
             standardized.append(part.strip().title())
     return ", ".join(standardized)
+
+
+# ─────────────────────────────────────────────────────────────
+# Competitor list normalization (hershey_2026_09_24 fix, build-quality
+# follow-up)
+# ─────────────────────────────────────────────────────────────
+#
+# data["competitors"] can arrive shaped several ways: the wizard's tag
+# input sends plain strings (and can send whitespace-only entries), while
+# a direct API caller can send dict-shaped entries (e.g.
+# {"name": "Acme", "domain": "..."} -- the same shape
+# api_enrichment.enrich_data's own competitors normalization and
+# ppt_generator.py's competitor-card cascade already expect). Every
+# downstream consumer (excel_v2.py's Market Intelligence AND Quality
+# Intelligence sheets, gold_standard.build_competitor_map, nova.py, ...)
+# needs the SAME clean list of non-blank display-name strings -- a raw
+# dict reaching an Excel cell raises
+# ``ValueError: Cannot convert {...} to Excel``, and a raw dict reaching a
+# ``str(c)`` call renders literal Python dict-repr text
+# ("{'name': 'Mars Wrigley'}, Amazon, Walmart, ..."). Normalize ONCE, at
+# the request boundary (app.py, where the request payload is first
+# validated), instead of every call site re-implementing this.
+def normalize_competitor_names(raw: Any) -> List[str]:
+    """Normalize a raw ``data["competitors"]`` value into a clean list of
+    non-blank display-name strings.
+
+    Accepts a list of plain strings, a list of dicts (``{"name": ...}``),
+    a comma-separated string, or ``None`` -- always returns a plain
+    ``list[str]`` with whitespace-only / empty entries dropped.
+    """
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        raw = raw.split(",")
+    if not isinstance(raw, (list, tuple)):
+        raw = [raw]
+    normalized: List[str] = []
+    for item in raw:
+        name = item.get("name") if isinstance(item, dict) else item
+        name = str(name or "").strip()
+        if name:
+            normalized.append(name)
+    return normalized

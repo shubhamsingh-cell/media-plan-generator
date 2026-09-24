@@ -2945,14 +2945,19 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
     # competitors (e.g. "FedEx, UPS, XPO Logistics") would see a DIFFERENT,
     # generic competitor set here on the Quality Intelligence sheet -- two
     # unreconciled competitor lists in one workbook.
-    _brief_competitors_raw = data.get("competitors") or []
-    if isinstance(_brief_competitors_raw, str):
-        _brief_competitors_raw = [
-            c.strip() for c in _brief_competitors_raw.split(",") if c.strip()
-        ]
-    brief_competitors: list[str] = [
-        str(c).strip() for c in _brief_competitors_raw if str(c).strip()
-    ]
+    # hershey_2026_09_24 fix (build-quality follow-up): a dict-shaped brief
+    # entry ({"name": "Mars Wrigley"}) used to reach the plain ``str(c)``
+    # below unnormalized, so ``brief_competitors`` (and every downstream
+    # "Top Employers" cell it feeds) carried literal Python dict-repr text
+    # ("{'name': 'Mars Wrigley'}"). app.py normalizes data["competitors"]
+    # at the request boundary, but this function is also called directly
+    # (tests, tools_regen_bundles.py) with data that never passed through
+    # that boundary -- normalize via the same shared helper here too.
+    from shared_utils import normalize_competitor_names
+
+    brief_competitors: list[str] = normalize_competitor_names(
+        data.get("competitors")
+    )
 
     # Resolve industry via alias table + substring matching
     resolved_key = _resolve_industry_key(raw_industry)

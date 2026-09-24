@@ -47,6 +47,7 @@ from shared_utils import (
     parse_budget,
     INDUSTRY_LABEL_MAP,
     internal_qc_mode as _internal_qc_mode,
+    normalize_competitor_names,
 )
 
 from joveo_brand_2026 import (
@@ -4285,10 +4286,14 @@ def _gather_narrative_grounding_context(
     ctx["seasonality_text"] = season_text
 
     # Competitors as stated on the plan -- never inferred.
-    competitors = data.get("competitors") or []
-    if isinstance(competitors, str):
-        competitors = [c.strip() for c in competitors.split(",") if c.strip()]
-    ctx["competitors"] = competitors
+    # hershey_2026_09_24 fix (build-quality follow-up): a dict-shaped entry
+    # reaching the ``', '.join(str(c) ...)`` in _build_narrative_facts_block
+    # below rendered literal Python dict-repr text into the LLM prompt's
+    # FACTS block. Normalized here via the same shared helper app.py's
+    # request boundary already uses, so this stays correct even when this
+    # function is called directly (tests, tools_regen_bundles.py) with data
+    # that never passed through app.py's normalization.
+    ctx["competitors"] = normalize_competitor_names(data.get("competitors"))
 
     return ctx
 
@@ -6742,27 +6747,20 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     locations = _get_locations(data)
     roles = _get_roles(data)
     client_name = data.get("client_name", "Client")
-    competitors = data.get("competitors") or []
-    if isinstance(competitors, str):
-        competitors = [c.strip() for c in competitors.split(",") if c.strip()]
     # hershey_2026_09_24 fix (build-quality follow-up): a direct API caller
     # can submit competitor entries as dicts (e.g. {"name": "Acme", ...}) --
     # api_enrichment.enrich_data's own competitors normalization and
     # ppt_generator.py's competitor-card cascade already expect that shape,
     # not just the wizard's plain-string tag input -- and the wizard's tag
-    # input can itself submit whitespace-only entries. Normalize to a clean
-    # list of non-empty display-name strings up front so every consumer
-    # below (comp_analysis construction, case-insensitive comp_intel
-    # matching, row rendering) works from plain strings; a raw dict or
-    # blank string reaching an Excel cell raises
+    # input can itself submit whitespace-only entries. app.py normalizes
+    # data["competitors"] at the request boundary, but this function (and
+    # gold_standard.build_competitor_map below) can be called directly with
+    # data that never passed through that boundary (tests,
+    # tools_regen_bundles.py), so normalize via the SAME shared helper here
+    # too rather than trusting the caller -- a raw dict or blank string
+    # reaching an Excel cell raises
     # ``ValueError: Cannot convert {...} to Excel``.
-    _normalized_competitors: List[str] = []
-    for _c in competitors:
-        _c_name = _c.get("name") if isinstance(_c, dict) else _c
-        _c_name = str(_c_name or "").strip()
-        if _c_name:
-            _normalized_competitors.append(_c_name)
-    competitors = _normalized_competitors
+    competitors = normalize_competitor_names(data.get("competitors"))
 
     synthesized = data.get("_synthesized", {})
     enriched = data.get("_enriched", {})
@@ -10305,16 +10303,20 @@ def _build_sheet_quality_intelligence(
             # observed for this client. Mirrors that same field/precedence
             # rather than re-deriving it, so this stays truthful to the
             # actual code path instead of a decorative guess.
-            _qi_brief_competitors_raw = data.get("competitors") or []
-            if isinstance(_qi_brief_competitors_raw, str):
-                _qi_brief_competitors_raw = [
-                    c.strip() for c in _qi_brief_competitors_raw.split(",") if c.strip()
-                ]
-            _qi_brief_lower = {
-                str(c).strip().lower()
-                for c in _qi_brief_competitors_raw
-                if str(c).strip()
-            }
+            # hershey_2026_09_24 fix (build-quality follow-up): a
+            # dict-shaped brief entry ({"name": "Mars Wrigley"}) used to
+            # reach ``str(c)`` here unnormalized, rendering literal Python
+            # dict-repr text into this section's disclosure check and (via
+            # gold_standard.build_competitor_map's own brief_competitors
+            # read, fixed separately) the "Top Employers" cell itself.
+            # Normalize via the same shared helper app.py's request
+            # boundary uses, so this stays correct even when this function
+            # is called directly with data that never passed through that
+            # boundary (tests, tools_regen_bundles.py).
+            _qi_brief_competitors_raw = normalize_competitor_names(
+                data.get("competitors")
+            )
+            _qi_brief_lower = {c.lower() for c in _qi_brief_competitors_raw}
             # hershey_2026_09_24 fix (build-quality follow-up): this footnote
             # used to gate ONLY on "brief supplied zero competitors" -- but
             # gold_standard.build_competitor_map pads the brief's own list up

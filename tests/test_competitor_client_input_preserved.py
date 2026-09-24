@@ -286,6 +286,25 @@ def test_quality_intelligence_fully_inferred_disclosure_when_brief_empty():
     assert "Additional competitors beyond those the client named" not in text
 
 
+def test_quality_intelligence_dict_shaped_brief_entry_renders_cleanly():
+    """Adversarial-review follow-up: the verifier's exact repro. A
+    dict-shaped brief competitor ([{"name": "Mars Wrigley"}]) must render
+    as the plain name everywhere in the Quality Intelligence sheet --
+    gold_standard.build_competitor_map's own brief_competitors read and
+    excel_v2's _qi_brief_lower computation both used to do a raw
+    ``str(c)`` on the entry, producing literal Python dict-repr text
+    ("{'name': 'Mars Wrigley'}, Amazon, Walmart, UPS") in the "Top
+    Employers" cell and counter-strategy prose instead of just "Mars
+    Wrigley"."""
+    data = _hershey_data(competitors=[{"name": "Mars Wrigley"}])
+    city_data = {"Hershey, PA": {"hiring_difficulty": 6.0}}
+    comp_map = gold_standard.build_competitor_map(data, city_data)
+    gold = {"competitor_mapping": comp_map}
+    text = _sheet_text(_build_quality_intel_ws(data, gold))
+    assert "{'name'" not in text, "dict-repr text leaked into the sheet"
+    assert "Mars Wrigley" in text
+
+
 def test_quality_intelligence_no_disclosure_when_brief_covers_every_rendered_name():
     """False-positive guard: if the client's own brief already names every
     company the industry-generic roster would otherwise have added

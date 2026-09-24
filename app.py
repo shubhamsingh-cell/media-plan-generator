@@ -41,6 +41,7 @@ from shared_utils import (
     parse_budget_strict,
     INDUSTRY_LABEL_MAP,
     format_industry_label,
+    normalize_competitor_names,
 )
 
 import benchmark_registry
@@ -16146,7 +16147,6 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             for _arr_field in (
                 "locations",
                 "job_categories",
-                "competitors",
                 "custom_countries",
             ):
                 _arr_val = data.get(_arr_field)
@@ -16156,6 +16156,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     ]
                 elif _arr_val is not None and not isinstance(_arr_val, list):
                     data[_arr_field] = [str(_arr_val)]
+
+            # hershey_2026_09_24 fix (build-quality follow-up): normalize
+            # data["competitors"] ONCE, here at the request boundary, into a
+            # clean list of non-blank display-name strings -- a direct API
+            # caller can submit dict-shaped entries ({"name": "Acme", ...}),
+            # and the wizard's tag input can submit whitespace-only entries.
+            # Every downstream reader (excel_v2.py's Market Intelligence AND
+            # Quality Intelligence sheets, gold_standard.build_competitor_map,
+            # ppt_generator.py's competitor cards, nova.py) gets the same
+            # clean list instead of each site needing its own dict-vs-string
+            # handling -- see shared_utils.normalize_competitor_names.
+            data["competitors"] = normalize_competitor_names(data.get("competitors"))
 
             # ── S93 location resolution (replaces S49 FIX Issue 14) ──
             _resolve_and_rewrite_locations(data)
