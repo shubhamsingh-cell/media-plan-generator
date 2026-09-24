@@ -98,3 +98,10 @@ and the Render auto-deploy that follows.
   rewritten by tests and servers; restore or ignore them, never commit them.
 - **Stale branches.** A branch whose `git cherry` is all `-` against
   `origin/main` is fully superseded: tag it `archive/<name>` and delete it.
+- **Enforced at stop.** A user-level Stop hook
+  (`~/.claude/hooks/mpg-conclude-guard.py`) blocks ending a turn while this
+  worktree has uncommitted changes or commits not on `origin/main`. It stays
+  quiet while a ship run or pytest is running here. If you are genuinely
+  blocked on the pause list above, or the owner said not to ship, end the
+  reply with one line starting `CONCLUDE-PAUSE:` that names the reason.
+  Never use that line to skip shipping finished work.
