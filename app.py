@@ -3449,7 +3449,12 @@ def _infer_industry_from_signals(
         for _profile in INDUSTRY_NAICS_MAP.values():
             score = 0
             for kw in _profile["keywords"]:
-                if kw in roles_text:
+                # Word-bounded, same as Detector 1's WORD-BOUNDARY GUARD: a
+                # bare substring test scored "tech" inside "technician" and
+                # "ai" inside "maintenance", so a senior-living roster with
+                # no role-vote majority (atria reference brief) fell through
+                # to here and "conflicted" as Technology & Software.
+                if re.search(r"\b" + re.escape(kw) + r"\b", roles_text):
                     score += len(kw)
             if score > best_role_score:
                 best_role_score = score
