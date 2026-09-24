@@ -3442,7 +3442,7 @@ def _add_footer(slide, today: str):
         Inches(0.26),
         text="Created by Shubham Singh Chandel  •  Powered by Joveo's Global Supply Team",
         font_size=9,
-        color=TEAL,
+        color=MUTED_TEXT,
         alignment=PP_ALIGN.RIGHT,
         anchor=MSO_ANCHOR.MIDDLE,
     )
@@ -4236,7 +4236,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         text="COMPLICATION",
         font_size=11,
         bold=True,
-        color=TEAL,
+        color=BLUE,
     )
 
     complications = _get_complications(industry)
@@ -4257,7 +4257,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
         run_bullet = p.add_run()
         run_bullet.text = "\u25b8  "
-        _set_font(run_bullet, size=10, bold=False, color=TEAL)
+        _set_font(run_bullet, size=10, bold=False, color=BLUE)
 
         run_text = p.add_run()
         _item_text = str(item) if item is not None else ""
@@ -6244,7 +6244,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
 
     hero_cards = [
         {"value": total_display, "label": "Total Investment", "accent": BLUE},
-        {"value": apps_display, "label": "Projected Applications", "accent": TEAL},
+        {"value": apps_display, "label": "Projected Applications", "accent": NAVY},
         {"value": hires_display, "label": "Projected Hires", "accent": GREEN},
     ]
 
@@ -7844,7 +7844,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             text="\u25b6",
             font_size=12,
             bold=True,
-            color=TEAL,
+            color=BLUE,
             alignment=PP_ALIGN.CENTER,
         )
 
@@ -8412,7 +8412,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             p.space_after = Pt(4)
             rb = p.add_run()
             rb.text = "\u25b8  "
-            _set_font(rb, size=9, color=TEAL)
+            _set_font(rb, size=9, color=BLUE)
             rt = p.add_run()
             rt.text = str(item)
             _set_font(rt, size=9, color=DARK_TEXT)
