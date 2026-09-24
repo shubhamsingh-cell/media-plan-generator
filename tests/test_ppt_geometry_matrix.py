@@ -414,6 +414,48 @@ MATRIX: Dict[str, Callable[[], Dict[str, Any]]] = {
         )
     ),
     "gbp_narrow_budget": lambda: _base_plan(budget="£2,000,000"),
+    # Hardening fixture for the competitor-card ceiling fallback (no
+    # reproduced defect in the 40-deck envelope -- see
+    # TestCompetitiveLandscapeEnvelope.test_worst_case_competitor_stack_
+    # stays_clear_of_footer). ~45-50-char names + a synthesized (not
+    # brief-supplied) competitor set routes every card's "Why:" line
+    # through _compose_competitor_why, the ONE body text on this slide
+    # with no _trunc_clause cap -- unlike the description path (capped at
+    # 80) and Counter (capped at 190). A long role + long location
+    # substituted into that uncapped template, x3 simultaneous cards, is
+    # the worst case the fit-by-construction fallback exists to catch.
+    "worst_case_competitor_cards": lambda: _base_plan(
+        roles=[
+            "Senior Regional Assistant Nurse Manager of Clinical Care "
+            "Coordination, Patient Experience, and Rehabilitation "
+            "Operations Management Across the Entire Southeast and "
+            "Mid-Atlantic Multi-State Hospital and Outpatient Therapy "
+            "Network"
+        ],
+        locations=[
+            "Greater Metropolitan Dallas-Fort Worth Medical District, "
+            "Downtown Dallas, and Surrounding Tarrant, Collin, and Denton "
+            "County Healthcare Corridor Region, TX"
+        ],
+        competitors=[],
+        _synthesized={
+            "competitive_intelligence": {
+                "competitors": {
+                    name: {
+                        "employee_count": "10,000+",
+                        "hiring_velocity": "high",
+                        "hiring_intensity": "aggressive",
+                        "competitor_type": "national",
+                    }
+                    for name in (
+                        "Universal Health Services Behavioral Division Co",
+                        "Encompass Health Rehabilitation Hospital Group Inc",
+                        "Select Medical Critical Illness Recovery Holdings",
+                    )
+                }
+            }
+        },
+    ),
 }
 
 
@@ -842,6 +884,36 @@ class TestCompetitiveLandscapeEnvelope:
             f"Sources line starts at {source_top_in:.2f}in but the "
             f"competitor card stack extends to {cards_bottom_in:.2f}in"
         )
+
+    def test_worst_case_competitor_stack_stays_clear_of_footer(self, decks):
+        """Hardening case, not a reproduced defect: on pre-fallback code,
+        this fixture's 3 cards (uncapped Why text via
+        _compose_competitor_why, x3 simultaneously) push the stack's
+        measured bottom to ~7.15in -- past the 7.12in footer rule and past
+        the Source line's own 7.0in clamp, so the Source line ends up
+        drawn INSIDE the third card. The fit-by-construction fallback in
+        ppt_generator.py truncates Why (then Counter) to bring the stack
+        back under a 7.0in ceiling without dropping any run below the
+        8pt floor this file's test_no_sub_8pt_runs already enforces."""
+        prs = decks["worst_case_competitor_cards"]
+        slide = _slide_by_headline(prs, "Competitive Landscape")
+        assert slide is not None
+        cards = _rounded_rect_cards(slide, min_w_in=4.0, min_h_in=1.0)
+        assert len(cards) == 3
+        cards_bottom_in = max(c.top / EMU_PER_IN + c.height / EMU_PER_IN for c in cards)
+        assert cards_bottom_in <= 7.0 + TOL, (
+            f"worst-case competitor stack extends to {cards_bottom_in:.2f}in, "
+            "past the 7.0in fit-by-construction ceiling"
+        )
+
+        for sh in _text_shapes(slide):
+            for p in sh.text_frame.paragraphs:
+                for r in p.runs:
+                    if r.font.size is not None:
+                        assert r.font.size.pt >= 7.9, (
+                            f"worst-case competitor card run dropped to "
+                            f"{r.font.size.pt}pt: {r.text!r}"
+                        )
 
     def test_competitor_count_variants_all_stay_on_canvas_and_uncollided(self, decks):
         for name in ("zero_competitors", "one_competitor", "more_than_cap_competitors"):

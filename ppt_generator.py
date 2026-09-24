@@ -8676,6 +8676,41 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             _comp_name_top_in = 0.05
             _comp_name_line_h_in = (_comp_name_font_pt * 1.35) / 72.0
 
+            def _measure_comp_card(
+                comp_name: str, why_text: str, counter_text: str
+            ) -> Dict[str, float]:
+                _name_n = _measure_lines(
+                    _strip_competitor_tag(comp_name) or str(comp_name),
+                    _comp_name_w_in,
+                    _comp_name_font_pt,
+                    bold=True,
+                )
+                why_top_in = max(
+                    _comp_why_top_in,
+                    _comp_name_top_in + _name_n * _comp_name_line_h_in + _comp_gap_in,
+                )
+                why_n = _measure_lines(
+                    f"Why: {why_text}", _comp_body_w_in, _comp_font_pt, bold=False
+                )
+                why_h_in = max(0.25, why_n * _comp_line_h_in)
+                counter_top_in = why_top_in + why_h_in + _comp_gap_in
+                counter_n = _measure_lines(
+                    counter_text, _comp_body_w_in, _comp_font_pt, bold=False
+                )
+                counter_h_in = max(0.2, counter_n * _comp_line_h_in)
+                card_h_in = max(
+                    _comp_base_card_h_in,
+                    counter_top_in + counter_h_in + _comp_bottom_pad_in,
+                )
+                return {
+                    "why_top_in": why_top_in,
+                    "why_h_in": why_h_in,
+                    "name_h_in": max(0.25, _name_n * _comp_name_line_h_in),
+                    "counter_top_in": counter_top_in,
+                    "counter_h_in": counter_h_in,
+                    "card_h_in": card_h_in,
+                }
+
             _cards: list = []
             for ci, (comp_name, comp_data) in enumerate(
                 list(competitors.items())[:_MAX_COMPETITOR_CARDS]
@@ -8748,31 +8783,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     190,
                 )
 
-                # Measure the name exactly as it is rendered below (same
-                # stripped string, same 10pt bold, same box width).
-                _name_n = _measure_lines(
-                    _strip_competitor_tag(comp_name) or str(comp_name),
-                    _comp_name_w_in,
-                    _comp_name_font_pt,
-                    bold=True,
-                )
-                _why_top_in = max(
-                    _comp_why_top_in,
-                    _comp_name_top_in + _name_n * _comp_name_line_h_in + _comp_gap_in,
-                )
-                _why_n = _measure_lines(
-                    f"Why: {why_text}", _comp_body_w_in, _comp_font_pt, bold=False
-                )
-                _why_h_in = max(0.25, _why_n * _comp_line_h_in)
-                _counter_top_in = _why_top_in + _why_h_in + _comp_gap_in
-                _counter_n = _measure_lines(
-                    counter_text, _comp_body_w_in, _comp_font_pt, bold=False
-                )
-                _counter_h_in = max(0.2, _counter_n * _comp_line_h_in)
-                card_h_in = max(
-                    _comp_base_card_h_in,
-                    _counter_top_in + _counter_h_in + _comp_bottom_pad_in,
-                )
+                _m = _measure_comp_card(comp_name, why_text, counter_text)
 
                 _cards.append(
                     {
@@ -8781,15 +8792,58 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                         "tag_text": _tag_text,
                         "tag_color": _tag_color,
                         "why_text": why_text,
-                        "why_top_in": _why_top_in,
-                        "why_h_in": _why_h_in,
-                        "name_h_in": max(0.25, _name_n * _comp_name_line_h_in),
                         "counter_text": counter_text,
-                        "counter_top_in": _counter_top_in,
-                        "counter_h_in": _counter_h_in,
-                        "card_h_in": card_h_in,
+                        **_m,
                     }
                 )
+
+            # fit-by-construction fallback (hardening, not a reproduced
+            # defect -- no deck in the 40-deck envelope reaches this): Why
+            # is the ONE body text on this card with no existing cap --
+            # unlike Counter (already _trunc_clause-capped at 190 chars)
+            # and the description-sourced Why path (capped at 80), the
+            # _compose_competitor_why() path above is plain template
+            # interpolation with no length bound. Three simultaneously
+            # worst-case cards (a long name + long role/city substituted
+            # into the longest template, x3) can push the stack's own
+            # measured bottom past this ceiling toward the 7.12in footer
+            # rule -- _comp_cur_top_in below had no ceiling at all. Fit by
+            # tightening the text, not the font: this file's own
+            # test_no_sub_8pt_runs invariant holds an 8pt floor across
+            # every run in the envelope, which rules out shrinking the
+            # font before truncating -- so the priority order here is
+            # truncate Why first (the uncapped text) to the same 80-char
+            # clause cap the description path already uses, then Counter
+            # (already capped, but tighten further) if that alone isn't
+            # enough.
+            _COMP_STACK_CEILING_IN = 7.0
+            _comp_gap_between_in = comp_card_gap / 914400
+
+            def _comp_stack_bottom_in() -> float:
+                return (
+                    comp_card_top / 914400
+                    + sum(c["card_h_in"] for c in _cards)
+                    + _comp_gap_between_in * max(0, len(_cards) - 1)
+                )
+
+            if _cards and _comp_stack_bottom_in() > _COMP_STACK_CEILING_IN:
+                for card in _cards:
+                    card["why_text"] = _trunc_clause(card["why_text"], 80)
+                    card.update(
+                        _measure_comp_card(
+                            card["comp_name"], card["why_text"], card["counter_text"]
+                        )
+                    )
+                if _comp_stack_bottom_in() > _COMP_STACK_CEILING_IN:
+                    for card in _cards:
+                        card["counter_text"] = _trunc_clause(card["counter_text"], 110)
+                        card.update(
+                            _measure_comp_card(
+                                card["comp_name"],
+                                card["why_text"],
+                                card["counter_text"],
+                            )
+                        )
 
             _comp_cur_top_in = comp_card_top / 914400
             for card in _cards:
