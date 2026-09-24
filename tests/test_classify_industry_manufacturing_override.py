@@ -140,6 +140,9 @@ GUARD_CASES = [
     # "pharmacy" is not a pharma-industry term; retail pharmacies stay healthcare.
     ("retail pharmacy", "", [], "healthcare_medical"),
     ("pharmacy", "", [], "healthcare_medical"),
+    # The tie-break uses the same product rules as the override: a
+    # machinery maker is not a pharma company (stays as on main).
+    ("pharmaceutical machinery", "", [], "healthcare_medical"),
     # Already-correct results that must stay put.
     ("food & beverage manufacturing", "", [], "food_beverage"),
     ("aerospace manufacturing", "", [], "aerospace_defense"),
@@ -233,3 +236,93 @@ def test_override_never_returns_a_non_allowlisted_sector():
     manufacturing bucket, whatever the industry text says."""
     allowed = {"food_beverage", "pharma", "aerospace"}
     assert {key for key, _ in app._PRODUCT_SECTOR_PATTERNS} == allowed
+
+
+# Round 5 review: equipment/vehicle/appliance makers named after the product
+# they serve are generic manufacturing. fd052a1's one-word proximity window
+# let these through, and its conflict suppression then hid the misroute.
+# All stay automotive (as on main), and no conflict is suppressed: the
+# override does not fire, so the conflict field is whatever main computes.
+EQUIPMENT_MAKER_CASES = [
+    ("food processing and packaging equipment manufacturing", "", []),
+    ("pharmaceutical processing and packaging equipment manufacturing", "", []),
+    ("dairy and food processing equipment manufacturing", "", []),
+    ("beverage filling and capping machinery manufacturing", "", []),
+    ("pharmaceutical grade glass bottles manufacturing", "", []),
+    ("food truck manufacturing", "Summit Industrial", ["Production Supervisor"]),
+    ("commercial bakery ovens", "Summit Industrial", ["Production Supervisor"]),
+    ("vaccine storage freezers", "Summit Industrial", ["Production Supervisor"]),
+    ("food truck manufacturing", "", []),
+    ("commercial bakery ovens manufacturing", "", []),
+    ("vaccine storage freezer manufacturing", "", []),
+    ("home defense products manufacturing", "", []),
+    ("personal defense spray manufacturing", "", []),
+    # Equipment anywhere blocks all three sectors, aerospace included.
+    ("aircraft equipment manufacturing", "", []),
+]
+
+
+@pytest.mark.parametrize(
+    "raw,company,roles",
+    EQUIPMENT_MAKER_CASES,
+    ids=[f"{c[0]}|{c[1] or '-'}" for c in EQUIPMENT_MAKER_CASES],
+)
+def test_equipment_makers_stay_generic_and_conflict_is_not_masked(raw, company, roles):
+    r = app.classify_industry(raw, company, list(roles))
+    assert r.get("legacy_key") == "automotive", (raw, r.get("sector"))
+    # The override did not fire, so nothing was suppressed: the conflict
+    # field must equal what the plain precedence chain produces with no
+    # override marker involved.
+    primary = app._classify_industry_primary(raw, company, list(roles))
+    assert app._PRODUCT_OVERRIDE_MARKER not in primary
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        # A conjunction leading into another product word is not a head
+        # follower. The last product word decides, and here it modifies
+        # packaging/cans. (classify_industry still returns food_beverage for
+        # these through Step 4's normal scoring, food 4 + beverage 8 > 10, as
+        # on main. The override itself must not claim them.)
+        "food and beverage packaging manufacturing",
+        "food & beverage cans manufacturing",
+        "dairy and food processing equipment manufacturing",
+        "food truck manufacturing",
+        "pharmaceutical grade glass bottles manufacturing",
+    ],
+)
+def test_product_helper_rejects_modifier_uses(raw):
+    assert app._product_sector_from_industry_text(raw) is None
+
+
+# Phrasings the head-noun rule must keep accepting.
+HEAD_NOUN_POSITIVE_CASES = [
+    ("Beverage manufacturing - cans and bottles", "food_beverage"),
+    ("chocolate & confectionery manufacturing", "food_beverage"),
+    ("food products manufacturing", "food_beverage"),
+    ("food ingredients manufacturing", "food_beverage"),
+    ("frozen foods manufacturer", "food_beverage"),
+    ("meat packing plant", "food_beverage"),
+    ("beverage bottling manufacturing", "food_beverage"),
+    ("chocolate factory", "food_beverage"),
+    ("food, beverage and consumer goods manufacturing", "food_beverage"),
+    ("pharmaceutical company manufacturing", "pharma_biotech"),
+    ("active pharmaceutical ingredients manufacturing", "pharma_biotech"),
+    ("medical devices manufacturing", "pharma_biotech"),
+    ("food & beverage manufacturing", "food_beverage"),
+    ("food and beverage production", "food_beverage"),
+    ("dairy and meat processing", "food_beverage"),
+    ("pharma & biotech manufacturing", "pharma_biotech"),
+    ("defense electronics manufacturing", "aerospace_defense"),
+]
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    HEAD_NOUN_POSITIVE_CASES,
+    ids=[c[0] for c in HEAD_NOUN_POSITIVE_CASES],
+)
+def test_head_noun_rule_keeps_real_product_phrasings(raw, expected):
+    r = app.classify_industry(raw, "", [])
+    assert r.get("legacy_key") == expected, (raw, r.get("sector"))

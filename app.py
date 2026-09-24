@@ -3272,52 +3272,81 @@ _GENERIC_INDUSTRY_STRINGS = ("", "general", "other", "n/a", "na", "none")
 #   3. Whole-word, fully spelled patterns, never bare stems: "sporting"
 #      does not match "port", "agricultural" does not match "agri", and
 #      "space heater" does not match aerospace (bare "space" is excluded).
-# Equipment makers are generic manufacturing. A food or pharma product word
-# does not count when an equipment/container noun follows it directly, or
-# after at most one word: "food processing equipment manufacturing",
-# "food packaging manufacturing" and "beverage can manufacturing" stay
-# automotive, the same as "agricultural equipment manufacturing". The noun
-# has to follow the product word. A company that makes AND packages its
-# product ("chocolate manufacturing & packaging", "beverage manufacturing
-# (cans and bottles)") still gets its product sector.
-# Other lookaheads cover whole words with the wrong meaning: "drug store"
-# (retail), "food service" (hospitality: restaurants and catering),
-# "food-grade plastics" (plastics), "rocket stove" (appliances) and
-# "self-defense products" (not military defense).
+# Food and pharma product words have two more rules, because products and
+# the machines or packaging that serve them share vocabulary. Proximity
+# windows ("no qualifier within one word") failed review twice. Each fix let
+# a longer phrase through ("food processing and packaging equipment", "food
+# truck", "commercial bakery ovens").
+#   4. Head-noun rule (food and pharma): the product word counts only when
+#      it heads the industry phrase. It must be followed by the end of the
+#      text, a closing mark or spaced dash, a conjunction that does not lead
+#      into another product word, or a production/business noun (see
+#      _product_head_pattern). "chocolate manufacturing & packaging",
+#      "dairy processing", "food products", "Food & Beverage" and
+#      "confectionery" count. "food truck", "bakery ovens", "vaccine storage
+#      freezers", "food packaging", "beverage can", "food and beverage
+#      packaging", "pharmaceutical grade glass bottles", "food-grade
+#      plastics", "food service" and "drug store" do not, because another
+#      noun follows the product word, so it is a modifier.
+#   5. Equipment, machinery or machines anywhere in the text (all three
+#      sectors) means the company makes the equipment, so it stays generic
+#      manufacturing ("dairy and food processing equipment manufacturing",
+#      "aircraft equipment manufacturing").
+# Aerospace is exempt from rule 4. Its words rarely modify an unrelated
+# product ("aircraft parts" and "defense electronics" are aerospace work).
+# Its few ambiguous uses are excluded directly: "rocket stove" (appliances)
+# and "self-/home-/personal defense products" (not military defense).
 # Medical devices go to pharma_biotech: its niche boards (BioSpace, MedReps)
 # serve device makers, and healthcare_medical's boards are for nurses and
 # physicians.
 # The first matching entry wins, in the order listed.
-_EQUIPMENT_QUALIFIER_TAIL = (
-    r"(?![\s-]+(?:[a-z]+[\s-]+)?"
-    r"(?:equipment|machinery|machines?|packaging|containers?|cans?|bottles?)\b)"
+_FOOD_PRODUCT_WORDS = (
+    r"(?:foods?|beverages?|chocolates?"
+    r"|confection(?:s|er|ers|ery|eries|ary)?|cand(?:y|ies)|snacks?"
+    r"|bakery|bakeries|baked goods|brewery|breweries|brewing"
+    r"|distillery|distilleries|distilling|dairy|dairies|meats?"
+    r"|poultry|seafood)"
 )
+_PHARMA_PRODUCT_WORDS = (
+    r"(?:pharma|pharmaceuticals?|biopharma(?:ceuticals?)?|biotech"
+    r"|biotechnology|biologics?|vaccines?|drugs?|medical devices?|medtech)"
+)
+
+
+def _product_head_pattern(product_words: str) -> "re.Pattern[str]":
+    """Compile rule 4 for one sector's product words. A conjunction ("and",
+    "or", "&", ",", "/", "+", ";") counts as a follower only when the next
+    word is NOT another product word. In a list, the last product word
+    decides: "food and beverage packaging" heads on "packaging" (no match),
+    while "food & beverage" and "chocolate & confectionery manufacturing"
+    match on their last item."""
+    end = r"\s*$|\s*[().:]|\s+[-\u2013\u2014]\s"
+    conj = (
+        r"(?:\s*[&,/+;]|\s+(?:and|or)\b)"
+        r"(?!\s*" + product_words + r"\b)"
+    )
+    noun = (
+        r"\s+(?:manufactur\w*|production|producers?|processing|processors?"
+        r"|packing|packers?|bottling|bottlers?|makers?|company|companies|co"
+        r"|corp|corporation|inc|llc|ltd|industry|industries|sector|business"
+        r"|plants?|factory|factories|facility|facilities|products?|goods"
+        r"|ingredients|brands?|operations?)\b"
+    )
+    return re.compile(
+        r"\b" + product_words + r"\b(?=" + end + "|" + conj + "|" + noun + ")"
+    )
+
+
+_EQUIPMENT_ANYWHERE_RE = re.compile(r"\b(?:equipment|machinery|machines?)\b")
 _PRODUCT_SECTOR_PATTERNS: tuple[tuple[str, "re.Pattern[str]"], ...] = (
+    ("food_beverage", _product_head_pattern(_FOOD_PRODUCT_WORDS)),
+    ("pharma", _product_head_pattern(_PHARMA_PRODUCT_WORDS)),
     (
-        "food_beverage",
-        re.compile(
-            r"\b(?:foods?(?![\s-]grade\b)(?!\s+services?\b)|beverages?|chocolates?"
-            r"|confection(?:s|er|ers|ery|eries|ary)?|cand(?:y|ies)|snacks?"
-            r"|bakery|bakeries|baked goods|brewery|breweries|brewing"
-            r"|distillery|distilleries|distilling|dairy|dairies|meats?"
-            r"|poultry|seafood)\b" + _EQUIPMENT_QUALIFIER_TAIL
-        ),
-    ),
-    (
-        "pharma",
-        re.compile(
-            r"\b(?:pharma|pharmaceuticals?|biopharma(?:ceuticals?)?|biotech"
-            r"|biotechnology|biologics?|vaccines?|drugs?(?!\s+stores?\b)"
-            r"|medical devices?|medtech)\b" + _EQUIPMENT_QUALIFIER_TAIL
-        ),
-    ),
-    (
-        # No equipment tail: aircraft equipment and parts are aerospace work.
         "aerospace",
         re.compile(
             r"\b(?:aerospace|aircraft|aviation|avionics|spacecraft|satellites?"
             r"|missiles?|rockets?(?!\s+stoves?\b)"
-            r"|(?<!self-)(?<!self )defen[cs]e)\b"
+            r"|(?<!self-)(?<!self )(?<!home )(?<!personal )defen[cs]e)\b"
         ),
     ),
 )
@@ -3336,6 +3365,8 @@ def _product_sector_from_industry_text(raw_lower: str) -> Optional[dict]:
     _PRODUCT_SECTOR_PATTERNS for the rules."""
     if not raw_lower:
         return None
+    if _EQUIPMENT_ANYWHERE_RE.search(raw_lower):
+        return None  # rule 5: an equipment maker is generic manufacturing
     for naics_key, pattern in _PRODUCT_SECTOR_PATTERNS:
         if pattern.search(raw_lower):
             return INDUSTRY_NAICS_MAP[naics_key]
@@ -3347,18 +3378,18 @@ def _product_sector_from_industry_text(raw_lower: str) -> Optional[dict]:
 # two keywords. So "pharmaceutical", "biotech" or "Pharma & Biotech" scored
 # a tie, and dict order gave it to healthcare_medical. This tie-break
 # applies ONLY when every healthcare keyword that matched is one of those
-# shared keywords AND the explicit industry text uses one of them as a
-# whole word. "pharmacy" does not count, so a retail pharmacy stays
-# healthcare. A tie that just happens to have equal keyword lengths, like
-# "medical" (7) against a "Vaccine Coordinator" role's "vaccine" (7),
-# leaves healthcare in place because "medical" is not a shared keyword.
+# shared keywords AND the explicit industry text names a pharma product
+# under the same rules as the manufacturing override
+# (_product_sector_from_industry_text: whole words, head-noun rule,
+# equipment block). A separate regex here once let "pharmaceutical
+# machinery" through after the override rules tightened. "pharmacy" does
+# not count, so a retail pharmacy stays healthcare. A tie that just happens
+# to have equal keyword lengths, like "medical" (7) against a "Vaccine
+# Coordinator" role's "vaccine" (7), leaves healthcare in place because
+# "medical" is not a shared keyword.
 _PHARMA_HEALTHCARE_SHARED_KWS = frozenset(
     set(INDUSTRY_NAICS_MAP["healthcare"]["keywords"])
     & set(INDUSTRY_NAICS_MAP["pharma"]["keywords"])
-)
-_PHARMA_INDUSTRY_TERM_RE = re.compile(
-    r"\b(?:pharma|pharmaceuticals?|biopharma(?:ceuticals?)?|biotech"
-    r"|biotechnology)\b"
 )
 
 # Role-title -> NAICS map key, used by classify_industry's Steps 3/6 (role-
@@ -3933,7 +3964,8 @@ def _classify_industry_primary(
             best_match is INDUSTRY_NAICS_MAP["healthcare"]
             and hits["healthcare"] <= _PHARMA_HEALTHCARE_SHARED_KWS
             and scores["pharma"] >= best_score
-            and _PHARMA_INDUSTRY_TERM_RE.search(raw_lower)
+            and _product_sector_from_industry_text(raw_lower)
+            is INDUSTRY_NAICS_MAP["pharma"]
         ):
             # Shared-keyword pharma/healthcare tie-break; see
             # _PHARMA_HEALTHCARE_SHARED_KWS.
