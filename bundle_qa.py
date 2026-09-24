@@ -1487,53 +1487,20 @@ def _check_recruitment_funnel_footing(wb: Any, findings: list[Finding]) -> None:
 # Shared helpers for the five new rules below
 # ---------------------------------------------------------------------------
 def _resolve_plan_currency(data: dict) -> tuple[str, str]:
-    """Resolve the plan's ISO currency code + display symbol, mirroring
-    excel_v2._plan_currency_code / ppt_generator._plan_currency_code
-    (excel_v2.py:109-160, ppt_generator.py:1507-1545): an explicit
-    ``currency_code``/``currency`` field wins; otherwise
-    ``plan_currency.currency_for_country`` is tried over
-    country/primary_location/locations; otherwise USD. Never raises."""
-    code = "USD"
+    """Resolve the plan's ISO currency code + display symbol.
+
+    Delegates to ``plan_currency.currency_for_plan_with_basis`` -- the SAME
+    shared resolver ``excel_v2._plan_currency_code`` and
+    ``ppt_generator._plan_currency_code`` use. This gate is the delivery
+    blocker, so it has to agree with what the generators actually built: when
+    this used to reimplement the same declare-not-convert logic by hand and
+    the two drifted, correct bundles failed with ~50 false
+    ``currency_symbol_mixing`` criticals (e.g. a "$150,000" budget for a
+    London campaign, correctly rendered in USD by the generators, flagged as
+    "does not match this plan's currency (GBP)" because this resolver still
+    guessed from the market). Never raises."""
     try:
-        explicit = data.get("currency_code") or data.get("currency")
-        if isinstance(explicit, str) and explicit.strip():
-            code = explicit.strip().upper()
-        else:
-            candidates: list[str] = []
-            for key in ("country", "primary_location"):
-                val = data.get(key)
-                if isinstance(val, str) and val.strip():
-                    candidates.append(val)
-            locs = data.get("locations") or []
-            if isinstance(locs, (list, tuple)):
-                for loc in locs:
-                    if isinstance(loc, str) and loc.strip():
-                        candidates.append(loc)
-                    elif isinstance(loc, dict):
-                        country = loc.get("country") or loc.get("location") or ""
-                        if isinstance(country, str) and country.strip():
-                            candidates.append(country)
-            market_codes: list[str] = []
-            for cand in candidates:
-                try:
-                    resolved = plan_currency.currency_for_country(cand)
-                except Exception:  # noqa: BLE001
-                    resolved = None
-                if resolved:
-                    market_codes.append(resolved)
-            # convert-vs-declare: this gate must resolve currency the SAME way
-            # the generators do, or it fails the very bundles they now build
-            # correctly. When the generators started honouring the symbol the
-            # client typed, this still guessed from the market -- so a
-            # "$150,000" budget for a London campaign rendered (correctly) in
-            # USD was flagged 50x as "does not match this plan's currency
-            # (GBP)". The gate is the delivery blocker; it has to agree.
-            resolved_code, _basis = plan_currency.resolve_declared_currency(
-                budget_text=data.get("budget") or data.get("budget_range") or "",
-                explicit_code=None,
-                market_codes=market_codes,
-            )
-            code = resolved_code or "USD"
+        code, _basis = plan_currency.currency_for_plan_with_basis(data)
     except Exception:  # noqa: BLE001
         code = "USD"
     try:

@@ -129,52 +129,34 @@ def _currency_scope():
 
 
 def _plan_currency_code(data: Optional[dict]) -> str:
-    """Resolve the ISO currency code for a plan from its data. Defaults to USD."""
+    """Resolve the ISO currency code for a plan from its data. Defaults to USD.
+
+    Delegates to ``plan_currency.currency_for_plan_with_basis`` -- the single
+    shared resolver the deck (``ppt_generator._plan_currency_code``) and the
+    scorecard (``scorecard_generator._currency_symbol``) already use. This
+    module used to reimplement the same declare-not-convert logic by hand;
+    when the two implementations drifted, correct bundles failed with ~50
+    false ``currency_symbol_mixing`` criticals because the workbook and the
+    gate no longer agreed on the plan's currency. Records the basis on
+    ``data["_currency_basis"]`` exactly as the old inline version did, for
+    callers that read it back off the plan dict.
+    """
     if not isinstance(data, dict):
         return "USD"
-    explicit = data.get("currency_code") or data.get("currency")
-    if isinstance(explicit, str) and explicit.strip():
-        return explicit.strip().upper()
     if _plan_currency is None:
+        explicit = data.get("currency_code") or data.get("currency")
+        if isinstance(explicit, str) and explicit.strip():
+            data["_currency_basis"] = "explicit"
+            return explicit.strip().upper()
+        data["_currency_basis"] = "default"
         return "USD"
-    candidates: List[str] = []
-    for key in ("country", "primary_location"):
-        val = data.get(key)
-        if isinstance(val, str) and val.strip():
-            candidates.append(val)
-    locs = data.get("locations") or []
-    if isinstance(locs, (list, tuple)):
-        for loc in locs:
-            if isinstance(loc, str) and loc.strip():
-                candidates.append(loc)
-            elif isinstance(loc, dict):
-                country = loc.get("country") or loc.get("location") or ""
-                if isinstance(country, str) and country.strip():
-                    candidates.append(country)
-    market_codes: List[str] = []
-    for cand in candidates:
-        try:
-            code = _plan_currency.currency_for_country(cand)
-        except Exception:  # noqa: BLE001 - resolution is best-effort
-            code = None
-        if code:
-            market_codes.append(code)
-
-    # convert-vs-declare: kept identical to ppt_generator._plan_currency_code.
-    # The workbook and the deck ship in the same bundle, so if one honoured the
-    # client's typed symbol and the other kept guessing from the location, the
-    # same client would get a "$" deck and a "£" workbook for one plan.
     try:
-        code, basis = _plan_currency.resolve_declared_currency(
-            budget_text=data.get("budget") or data.get("budget_range") or "",
-            explicit_code=None,
-            market_codes=market_codes,
-        )
-    except (AttributeError, TypeError, ValueError) as exc:  # noqa: BLE001
-        logger.debug("Declared-currency resolution failed (%s) -- USD", exc)
-        code, basis = None, "default"
+        code, basis = _plan_currency.currency_for_plan_with_basis(data)
+    except Exception as exc:  # noqa: BLE001 - resolution is best-effort
+        logger.debug("Plan currency resolution failed (%s) -- USD", exc)
+        code, basis = "USD", "default"
     data["_currency_basis"] = basis
-    return code or "USD"
+    return code
 
 
 def _market_currency_code(data: Optional[dict], market_label: str) -> str:
@@ -1773,6 +1755,45 @@ def _mark_usd(text: str) -> str:
     if not text:
         return text
     return re.sub(r"(?<![A-Za-z])\$", "US$", text)
+
+
+_US_ONLY_SENTENCE_SPLIT_RE = re.compile(r"(?<=;)\s+|(?<=\.)\s+(?=[A-Z(])")
+
+
+def _strip_us_only_sentences(text: str) -> str:
+    """Drop only the US-only-marked SENTENCES from ``text``, keeping the
+    rest -- never the whole line.
+
+    ``_flatten_value`` joins dict entries with "; " (e.g. "AI Ml
+    Engineers: Hiring Growth: 88% ...; Cybersecurity: ...; Healthcare:
+    ..."), so that is the primary split unit here; a ". "-terminated
+    prose sentence (followed by a capital letter or "(") also splits, but
+    a decimal point ("25.2%", "$206,000.50") never does, since the
+    lookahead requires a capital letter or "(" right after the space.
+
+    Prod defect this fixes (2026-09-24): the Workforce Trends
+    "growing_demand" KB entry bundles AI/ML, cybersecurity, healthcare,
+    skilled-trades, and renewable-energy sub-items into ONE semicolon-
+    joined value. It carries a couple of US-only markers ("BLS Growth
+    Projection", "BLS data", ...) buried in the cybersecurity/mental-
+    health sub-items, which used to cause the *entire* value -- including
+    the genuinely-global "AI Ml Engineers: Hiring Growth: 88%
+    year-on-year growth ..." lead sentence -- to be dropped on a non-US
+    plan. Split first, drop only the offending sentences, keep the rest.
+
+    Returns ``""`` (never partial/mangled text) when every sentence in
+    ``text`` carries a marker, so the existing "whole item empty -> drop
+    it" behavior at each call site is unchanged for a fully US-only line.
+    """
+    if not text:
+        return text
+    sentences = [s for s in _US_ONLY_SENTENCE_SPLIT_RE.split(text) if s.strip()]
+    if not sentences:
+        return text
+    kept = [s for s in sentences if not us_only_markers.has_us_only_marker(s)]
+    if len(kept) == len(sentences):
+        return text
+    return "; ".join(s.rstrip("; ").strip() for s in kept)
 
 
 def _flatten_value(val: Any, max_depth: int = 3) -> str:
@@ -7545,12 +7566,23 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         # plan's own market data on a plan with NO US location at all
         # (bundle_qa's ``us_data_on_non_us_plan`` rule exists to catch
         # exactly this leak). Fix at the source instead of weakening that
-        # rule: omit any trend line carrying a US-only marker when the
-        # plan is not a US plan, reusing the SAME marker list/regexes
-        # bundle_qa checks (us_only_markers.py) and the SAME
-        # plan_geo.is_us_plan(data) gate bundle_qa's rule itself branches
-        # on (via this module's own ``_is_us_plan`` delegate), so the two
-        # always agree on which plans get filtered.
+        # rule: reusing the SAME marker list/regexes bundle_qa checks
+        # (us_only_markers.py) and the SAME plan_geo.is_us_plan(data) gate
+        # bundle_qa's rule itself branches on (via this module's own
+        # ``_is_us_plan`` delegate), so the two always agree on which
+        # plans get filtered.
+        #
+        # 2026-09-24 follow-up (this change): the first cut of this fix
+        # dropped a trend line WHOLE if any US-only marker appeared
+        # anywhere in it -- but ``_flatten_value`` joins a KB dict's
+        # entries into one long "; "-separated value, so one buried
+        # US-only clause (e.g. a "BLS Growth Projection" aside inside the
+        # cybersecurity sub-item) threw away the entire line, including
+        # unrelated, genuinely-global sentences (the "AI Ml Engineers:
+        # Hiring Growth: 88% year-on-year growth ..." lead-in). Now
+        # ``_strip_us_only_sentences`` splits the line into sentences and
+        # drops only the ones carrying a marker, keeping the line if any
+        # sentence survives.
         #
         # BYTE-IDENTICAL GUARANTEE for US plans: ``_wf_is_us`` gates the
         # ENTIRE filtered code path below -- when it's True, the loop below
@@ -7579,8 +7611,10 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     val_str = _wf_text(v)
                     if not val_str:
                         continue
-                    if not _wf_is_us and us_only_markers.has_us_only_marker(val_str):
-                        continue
+                    if not _wf_is_us:
+                        val_str = _strip_us_only_sentences(val_str)
+                        if not val_str:
+                            continue
                     _wf_kv_rows.append((k.replace("_", " ").title(), val_str))
                 if _wf_is_us or _wf_kv_rows:
                     row = _write_subsection_header(ws, row, section_label)
@@ -7612,8 +7646,10 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     val_str = _wf_text(_item_for_display)
                     if not val_str:
                         continue
-                    if not _wf_is_us and us_only_markers.has_us_only_marker(val_str):
-                        continue
+                    if not _wf_is_us:
+                        val_str = _strip_us_only_sentences(val_str)
+                        if not val_str:
+                            continue
                     _wf_list_items.append(val_str)
                 if _wf_is_us or _wf_list_items:
                     row = _write_subsection_header(ws, row, section_label)
@@ -7636,9 +7672,9 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 
             elif isinstance(section_val, (str, int, float, bool)):
                 val_str = _wf_text(section_val)
-                if val_str and not (
-                    not _wf_is_us and us_only_markers.has_us_only_marker(val_str)
-                ):
+                if val_str and not _wf_is_us:
+                    val_str = _strip_us_only_sentences(val_str)
+                if val_str:
                     row = _write_kv_row(ws, row, section_label, val_str)
                     _wf_any_written = True
 
