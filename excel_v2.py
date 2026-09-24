@@ -6745,6 +6745,24 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     competitors = data.get("competitors") or []
     if isinstance(competitors, str):
         competitors = [c.strip() for c in competitors.split(",") if c.strip()]
+    # hershey_2026_09_24 fix (build-quality follow-up): a direct API caller
+    # can submit competitor entries as dicts (e.g. {"name": "Acme", ...}) --
+    # api_enrichment.enrich_data's own competitors normalization and
+    # ppt_generator.py's competitor-card cascade already expect that shape,
+    # not just the wizard's plain-string tag input -- and the wizard's tag
+    # input can itself submit whitespace-only entries. Normalize to a clean
+    # list of non-empty display-name strings up front so every consumer
+    # below (comp_analysis construction, case-insensitive comp_intel
+    # matching, row rendering) works from plain strings; a raw dict or
+    # blank string reaching an Excel cell raises
+    # ``ValueError: Cannot convert {...} to Excel``.
+    _normalized_competitors: List[str] = []
+    for _c in competitors:
+        _c_name = _c.get("name") if isinstance(_c, dict) else _c
+        _c_name = str(_c_name or "").strip()
+        if _c_name:
+            _normalized_competitors.append(_c_name)
+    competitors = _normalized_competitors
 
     synthesized = data.get("_synthesized", {})
     enriched = data.get("_enriched", {})
@@ -10292,12 +10310,52 @@ def _build_sheet_quality_intelligence(
                 _qi_brief_competitors_raw = [
                     c.strip() for c in _qi_brief_competitors_raw.split(",") if c.strip()
                 ]
-            if not any(str(c).strip() for c in _qi_brief_competitors_raw):
+            _qi_brief_lower = {
+                str(c).strip().lower()
+                for c in _qi_brief_competitors_raw
+                if str(c).strip()
+            }
+            # hershey_2026_09_24 fix (build-quality follow-up): this footnote
+            # used to gate ONLY on "brief supplied zero competitors" -- but
+            # gold_standard.build_competitor_map pads the brief's own list up
+            # to 8 per-city entries from a static per-industry roster
+            # whenever the brief names fewer than 8 (nearly always -- most
+            # briefs name 2-3), even when the brief named some. Those padded
+            # entries (e.g. "(National) Amazon"/"(National) Walmart" for a
+            # candy manufacturer) render in the SAME "Top Employers" cell as
+            # the client's own named competitors, with the "(National)" tag
+            # stripped a few lines below and no disclosure that they were
+            # never the client's own choice -- reading as if the client's own
+            # research turned them up. Detect actual padding (any employer
+            # across any city/national row that isn't one of the brief's own
+            # names) instead of trusting "brief is non-empty" to mean "every
+            # name here is the client's".
+            _qi_any_non_brief_employer = False
+            if _qi_brief_lower:
+                for _qi_info in competitor_map.values():
+                    for _qi_emp in _qi_info.get("top_employers") or []:
+                        _qi_emp_bare = (
+                            _strip_competitor_scope_tag(_qi_emp).strip().lower()
+                        )
+                        if _qi_emp_bare and _qi_emp_bare not in _qi_brief_lower:
+                            _qi_any_non_brief_employer = True
+                            break
+                    if _qi_any_non_brief_employer:
+                        break
+            if not _qi_brief_lower:
                 row = _write_footnote(
                     ws,
                     row,
                     "Competitor set inferred from industry classification; "
                     "not verified against live posting data.",
+                )
+            elif _qi_any_non_brief_employer:
+                row = _write_footnote(
+                    ws,
+                    row,
+                    "Additional competitors beyond those the client named "
+                    "are inferred from industry classification; not "
+                    "verified against live posting data.",
                 )
             row = _write_table_header(
                 ws,

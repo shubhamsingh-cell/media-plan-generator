@@ -42,6 +42,45 @@ case-insensitive name match, never substitute a different company list.
 comp_intel's own list is only used when the brief supplied no competitors
 at all (matching the existing FIX A static-fallback behavior).
 
+FOLLOW-UP (adversarial review, same day): two more issues found in the
+Market Intelligence precedence fix above plus a SECOND, more consequential
+bug in the actual client-facing mechanism:
+
+  BUILD-QUALITY FIX (crash): ``competitors`` local var in
+  ``_build_sheet_market_intelligence`` is normalized up front now -- a
+  direct API caller can submit dict-shaped entries (the same shape
+  api_enrichment.enrich_data's own competitors normalization and
+  ppt_generator.py's competitor-card cascade already expect, not just the
+  wizard's plain-string tag input), and the wizard's tag input can submit
+  whitespace-only entries. Both used to reach an Excel cell as a raw dict
+  or blank string (``ValueError: Cannot convert {...} to Excel`` / a
+  nonsense "This competitor is a plausible..." row for a blank name).
+
+  THE REAL ROOT CAUSE (gold_standard.build_competitor_map): this function
+  -- which feeds excel_v2's OWN Quality Intelligence "Competitive
+  Landscape & Counter-Strategies" table, NOT the Market Intelligence sheet
+  above -- pads the client's brief-supplied competitor list up to 8
+  per-city entries (and, separately/unboundedly, the "_national" row) with
+  a static per-industry roster whenever the brief names fewer than 8
+  (nearly always true -- most briefs name 2-3). Those padded entries (e.g.
+  "(National) Amazon"/"(National) Walmart" for a candy manufacturer)
+  rendered in the SAME "Top Employers" cell as the client's own named
+  competitors, with the "(National)" tag stripped by excel_v2 before
+  render and -- this was the actual disclosure bug -- the "inferred, not
+  verified" footnote only fired when the brief supplied ZERO competitors,
+  never when it supplied SOME but got padded. A client who named 3
+  competitors would see those 3 plus several unrelated national retailers
+  with no indication any of them weren't theirs. This is the real
+  mechanism behind a report of "the deck/workbook shows companies I never
+  typed" for a brief that DID supply competitors -- the Market
+  Intelligence precedence bug above only manifests when comp_intel has
+  entries unrelated to the brief, which the real fetch_competitor_logos
+  pipeline (keyed by the brief's own names) can't structurally produce.
+  Fixed by detecting actual padding (any rendered employer not in the
+  brief, case-insensitive, scope-tag stripped) and disclosing it with a
+  precise "additional competitors beyond those named" footnote, instead of
+  gating only on "brief is empty".
+
 Runs under pytest, or standalone: ``python3 tests/test_competitor_client_input_preserved.py``.
 """
 
@@ -56,6 +95,7 @@ sys.path.insert(0, PROJECT_ROOT)
 import openpyxl  # noqa: E402
 
 import excel_v2  # noqa: E402
+import gold_standard  # noqa: E402
 import research  # noqa: E402
 
 
@@ -72,6 +112,13 @@ def _build_market_intel_ws(data: dict):
     wb = openpyxl.Workbook()
     ws = wb.active
     excel_v2._build_sheet_market_intelligence(ws, data, research_mod=research)
+    return ws
+
+
+def _build_quality_intel_ws(data: dict, gold_standard_data: dict):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    excel_v2._build_sheet_quality_intelligence(ws, data, gold_standard_data)
     return ws
 
 
@@ -145,6 +192,119 @@ def test_comp_intel_used_only_when_brief_has_no_competitors():
     }
     text = _sheet_text(_build_market_intel_ws(data))
     assert "Mars Wrigley" in text
+
+
+# ===========================================================================
+# Build-quality fix -- dict-shaped / blank competitor entries must not crash
+# _build_sheet_market_intelligence or render nonsense rows.
+# ===========================================================================
+def test_dict_shaped_competitor_entries_do_not_crash():
+    """A direct API caller (not the wizard) can submit competitor entries
+    as dicts, e.g. {"name": "Acme", "domain": "..."} -- the same shape
+    api_enrichment.enrich_data's own normalization and ppt_generator.py's
+    competitor cards already expect. Pre-fix this raised ValueError:
+    Cannot convert {...} to Excel and the whole sheet fell back to an
+    error placeholder."""
+    data = _hershey_data(
+        competitors=[
+            {"name": "Acme Confections"},
+            {"name": "Brightline Sweets", "domain": "brightline.example"},
+        ],
+    )
+    text = _sheet_text(_build_market_intel_ws(data))
+    assert "Acme Confections" in text
+    assert "Brightline Sweets" in text
+
+
+def test_blank_and_whitespace_competitor_entries_are_dropped():
+    """Whitespace-only / empty entries from the wizard's tag input must be
+    dropped, not rendered as a blank-named row with nonsense prose."""
+    data = _hershey_data(competitors=["  ", "", "Acme Confections"])
+    text = _sheet_text(_build_market_intel_ws(data))
+    assert "Acme Confections" in text
+    assert "This competitor is a plausible" not in text
+
+
+# ===========================================================================
+# The real root cause -- gold_standard.build_competitor_map pads the
+# brief's competitor list with a static per-industry roster, and the
+# Quality Intelligence sheet's "inferred" disclosure only fired when the
+# brief was fully empty, never when it was merely padded.
+# ===========================================================================
+def _competitor_map_for(competitors: list, industry: str = "retail_consumer") -> dict:
+    """Call the REAL gold_standard.build_competitor_map (not a hand-planted
+    dict) for a Hershey-shaped single-city plan."""
+    data = _hershey_data(industry=industry, competitors=competitors)
+    city_data = {"Hershey, PA": {"hiring_difficulty": 6.0}}
+    return gold_standard.build_competitor_map(data, city_data)
+
+
+def test_build_competitor_map_pads_brief_with_industry_generic_names():
+    """Documents the real (pre-existing, legitimate-in-principle) padding
+    behavior: gold_standard.build_competitor_map fills remaining "Top
+    Employers" slots with a static per-industry roster when the brief
+    names fewer than 8 competitors -- this is the exact case reported for
+    Hershey (brief named Mars Wrigley/Nestle/Mondelez, workbook showed
+    Amazon too)."""
+    comp_map = _competitor_map_for(["Mars Wrigley", "Nestle", "Mondelez"])
+    employers = comp_map["Hershey, PA"]["top_employers"]
+    for name in ("Mars Wrigley", "Nestle", "Mondelez"):
+        assert name in employers, f"client-named {name!r} missing"
+    # The static per-industry padding for retail_consumer includes Amazon --
+    # confirms the padding path actually fired (not a vacuous pass).
+    assert any("Amazon" in e for e in employers)
+
+
+def test_quality_intelligence_discloses_padded_competitors_even_when_brief_nonempty():
+    """The real client-facing bug: using the REAL build_competitor_map
+    output (not a hand-planted dict) for a brief that named real
+    competitors, the Quality Intelligence sheet's "Competitive Landscape"
+    table must disclose that additional, non-client-named companies were
+    added -- pre-fix, no disclosure appeared at all once the brief was
+    non-empty, even though Amazon/Walmart/etc. were mixed into the same
+    "Top Employers" cell as the client's own names."""
+    comp_map = _competitor_map_for(["Mars Wrigley", "Nestle", "Mondelez"])
+    data = _hershey_data(competitors=["Mars Wrigley", "Nestle", "Mondelez"])
+    gold = {"competitor_mapping": comp_map}
+    text = _sheet_text(_build_quality_intel_ws(data, gold))
+    assert "Mars Wrigley" in text
+    assert "Amazon" in text, "padding path did not fire -- test is vacuous"
+    assert (
+        "Additional competitors beyond those the client named" in text
+    ), "padded/non-client competitors rendered with no disclosure"
+
+
+def test_quality_intelligence_fully_inferred_disclosure_when_brief_empty():
+    """Regression guard: the ORIGINAL "fully inferred" footnote (brief
+    supplied literally zero competitors) must still fire -- this fix only
+    ADDS a second, more precise disclosure for the partial-padding case."""
+    comp_map = _competitor_map_for([])
+    data = _hershey_data(competitors=[])
+    gold = {"competitor_mapping": comp_map}
+    text = _sheet_text(_build_quality_intel_ws(data, gold))
+    assert "Competitor set inferred from industry classification" in text
+    assert "Additional competitors beyond those the client named" not in text
+
+
+def test_quality_intelligence_no_disclosure_when_brief_covers_every_rendered_name():
+    """False-positive guard: if the client's own brief already names every
+    company the industry-generic roster would otherwise have added
+    (discovered here via the REAL synthesizer's own empty-brief output),
+    dict-dedup means nothing NEW was actually padded in -- no disclosure
+    should fire."""
+    baseline_map = _competitor_map_for([])
+    full_roster = sorted(
+        {
+            excel_v2._strip_competitor_scope_tag(e)
+            for info in baseline_map.values()
+            for e in (info.get("top_employers") or [])
+        }
+    )
+    comp_map = _competitor_map_for(full_roster)
+    data = _hershey_data(competitors=full_roster)
+    gold = {"competitor_mapping": comp_map}
+    text = _sheet_text(_build_quality_intel_ws(data, gold))
+    assert "inferred from industry classification" not in text
 
 
 if __name__ == "__main__":
