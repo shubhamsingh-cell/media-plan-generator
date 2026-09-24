@@ -333,6 +333,29 @@ def _resolve_intl_cpc_basis(
         return None
 
 
+def _usd_const_to_plan_basis(usd_value: float, usd_per_local: Optional[float]) -> float:
+    """Convert a USD-denominated benchmark constant into plan-native units.
+
+    ``INDUSTRY_CPH_RANGES``/``_industry_avg_cph``/``_INDUSTRY_MIN_CPH``/
+    ``_MIN_BUDGET_PER_OPENING`` are all fixed USD figures (a $9,000-12,000
+    healthcare CPH range doesn't change with the plan's currency), but every
+    plan-native dollar figure they get compared against or reported alongside
+    (``total_budget``, ``avg_cost_per_hire``, ...) is NOT in USD once
+    ``plan_currency`` is non-USD. ``usd_per_local`` is the same
+    USD-per-one-local-unit rate the rest of the engine uses (see
+    ``_resolve_intl_cpc_basis`` / ``intl_cpc_basis["usd_per_local"]``): one
+    local-currency unit buys that many US dollars, so dividing the USD
+    constant by it yields the equivalent amount in local currency.
+
+    ``usd_per_local`` of ``None``/non-positive (USD plan, or no rate known --
+    e.g. a multi-market usd_blend plan) leaves ``usd_value`` unconverted,
+    matching every pre-fix caller byte-for-byte.
+    """
+    if usd_per_local and usd_per_local > 0:
+        return usd_value / usd_per_local
+    return usd_value
+
+
 # ── Canonical taxonomy standardizer ──
 # Used to normalize industry keys before CPH lookups.
 # Falls back gracefully if unavailable.
@@ -1710,7 +1733,11 @@ def _dedupe_shared_fallback_cpcs(
     local_currency = ""
     if intl_cpc_basis and intl_cpc_basis.get("basis") == "local":
         _rate = intl_cpc_basis.get("usd_per_local")
-        if isinstance(_rate, (int, float)) and not isinstance(_rate, bool) and _rate > 0:
+        if (
+            isinstance(_rate, (int, float))
+            and not isinstance(_rate, bool)
+            and _rate > 0
+        ):
             usd_per_local = float(_rate)
             local_currency = str(intl_cpc_basis.get("currency") or "").upper()
 
@@ -3280,15 +3307,19 @@ def assess_budget_sufficiency(
 
     _code = (plan_currency or "USD").upper()
     _rate = usd_per_local if (usd_per_local and usd_per_local > 0) else None
+
     # Every dollar figure printed below is either genuinely in
     # plan_currency (total_budget, budget_per_opening, gap, ... -- no
     # conversion needed, just the right symbol) or a USD benchmark
     # constant (avg_cph, industry_min_cph, _MIN_BUDGET_PER_OPENING) that
     # needs converting when a rate is known. ``_usd_const`` does that
-    # conversion; ``_money`` formats in plan_currency; ``_usd_money``
-    # is the explicit-USD fallback label for when no rate is known.
+    # conversion (via the shared ``_usd_const_to_plan_basis`` helper --
+    # also used by ``calculate_budget_allocation``'s benchmark-CPH-floor
+    # and roi_score paths, so both stay consistent); ``_money`` formats in
+    # plan_currency; ``_usd_money`` is the explicit-USD fallback label for
+    # when no rate is known.
     def _usd_const(usd_value: float) -> float:
-        return usd_value / _rate if _rate else usd_value
+        return _usd_const_to_plan_basis(usd_value, _rate)
 
     def _money(value: float) -> str:
         if _HAS_PLAN_CURRENCY:
@@ -4451,7 +4482,9 @@ def calculate_budget_allocation(
         try:
             _code, _basis = _plan_currency.currency_for_plan_with_basis(
                 {
-                    "locations": locations_raw if locations_raw is not None else locations,
+                    "locations": (
+                        locations_raw if locations_raw is not None else locations
+                    ),
                     "budget": budget_text,
                 }
             )
@@ -4471,10 +4504,15 @@ def calculate_budget_allocation(
         _resolved_plan_currency != "USD"
         and _intl_cpc_basis
         and _intl_cpc_basis.get("basis") == "local"
-        and str(_intl_cpc_basis.get("currency") or "").upper() == _resolved_plan_currency
+        and str(_intl_cpc_basis.get("currency") or "").upper()
+        == _resolved_plan_currency
     ):
         _rate = _intl_cpc_basis.get("usd_per_local")
-        if isinstance(_rate, (int, float)) and not isinstance(_rate, bool) and _rate > 0:
+        if (
+            isinstance(_rate, (int, float))
+            and not isinstance(_rate, bool)
+            and _rate > 0
+        ):
             _resolved_usd_per_local = float(_rate)
 
     # Step 3: Channel dollar amounts with projections (v3: trend + collar aware)
@@ -4570,7 +4608,21 @@ def calculate_budget_allocation(
     # projected_hires proportionally so that SUM(channel hires) == total_hires.
     # This eliminates the inconsistency where the header showed 10 hires but
     # the channel rows summed to 56.
-    _benchmark_cph_floor = _industry_avg_cph(industry) * 0.5  # 50% of avg as floor
+    # F5 FIX: ``_industry_avg_cph(industry)`` is a USD constant; ``avg_cost_
+    # per_hire`` below is total_budget / total_hires in PLAN-native currency
+    # (JPY/GBP/...). Comparing them raw meant the floor was ~149x too small
+    # to ever fire on a JPY plan (total_hires never got capped, however
+    # unrealistic) and ~27% too aggressive on a GBP plan (over-capping
+    # hires) -- the total-plan-level twin of the per-channel CPH floor bug.
+    # Convert once via the shared helper (same one assess_budget_sufficiency
+    # uses) and reuse the SAME converted value below for the roi_score input
+    # (_industry_avg_cph_val) and the reported metadata.industry_avg_cph --
+    # all three are this same benchmark and must agree with each other and
+    # with total_projected.cost_per_hire's currency.
+    _industry_avg_cph_plan = _usd_const_to_plan_basis(
+        _industry_avg_cph(industry), _resolved_usd_per_local
+    )
+    _benchmark_cph_floor = _industry_avg_cph_plan * 0.5  # 50% of avg as floor
     _cph_floor_applied = False
     if avg_cost_per_hire < _benchmark_cph_floor and total_hires > 0:
         # Adjust hires down so CPH meets benchmark floor
@@ -4625,7 +4677,14 @@ def calculate_budget_allocation(
     # apply->hire conversion table the ROI Projections sheet prints, so
     # niche/social/EB channels with real application volume stop landing on
     # a contradictory 0 hires. See _redistribute_hires_by_conversion.
-    _industry_avg_cph_val = _industry_avg_cph(industry)
+    # F5 FIX: reuse the SAME plan-currency-converted benchmark computed
+    # above for the CPH floor -- this value feeds _score_roi against each
+    # channel's plan-native cost_per_hire, so a raw-USD figure here made
+    # every channel's roi_score collapse to 1/10 on a JPY plan (ratio >> 5,
+    # the hard-cap branch) or saturate near 10/10 on a low-usd_per_local
+    # plan, in both cases feeding bogus scores into the ROI-driven
+    # reallocation below (Step 3.9b).
+    _industry_avg_cph_val = _industry_avg_cph_plan
     _redistribute_hires_by_conversion(
         channel_allocs, total_hires, _industry_avg_cph_val
     )
@@ -4793,7 +4852,11 @@ def calculate_budget_allocation(
             "total_budget": total_budget,
             "industry": industry,
             "total_openings": total_openings,
-            "industry_avg_cph": round(_industry_avg_cph(industry), 2),
+            # F5 FIX: plan-currency-converted (see _industry_avg_cph_plan
+            # above) -- was raw USD, silently disagreeing with
+            # sufficiency.industry_avg_cost_per_hire (already converted)
+            # on any non-USD plan.
+            "industry_avg_cph": round(_industry_avg_cph_plan, 2),
             # Provenance for total_projected.cost_per_hire: when the CPH
             # floor (0.5 x industry_avg_cph) capped projected hires, the
             # reported cost_per_hire is still total_budget / hires -- never

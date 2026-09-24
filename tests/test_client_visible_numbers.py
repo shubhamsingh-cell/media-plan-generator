@@ -184,9 +184,17 @@ class TestLocalCurrencyBasisIsOneUnit:
             f"was not exercised: {[c.get('cpc_source') for c in chans.values()]}"
         )
         # No single "cheap" channel may capture the budget on a unit error.
+        # The real incident this guards (see module docstring #2) was an 83x
+        # CPC unit error that steered ~80% of the budget to job_board/social.
+        # F5 FIX (2026-09-24) made industry_avg_cph currency-correct for
+        # roi_score too, so a *legitimate* INR plan now properly
+        # differentiates ROI (global_boards' real ₹13.37 CPC vs. ₹52-394 for
+        # the rest) and rebalance_low_roi_channels correctly concentrates
+        # spend there -- observed ~64%. The ceiling stays well below the 83x
+        # unit-error's ~80% so a real currency leak still trips this.
         total = sum(c.get("dollar_amount") or 0 for c in chans.values())
         shares = {k: (c.get("dollar_amount") or 0) / total for k, c in chans.items()}
-        assert max(shares.values()) < 0.6, shares
+        assert max(shares.values()) < 0.7, shares
 
 
 class TestZeroHireCostPerHire:
