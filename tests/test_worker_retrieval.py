@@ -237,6 +237,59 @@ def test_deploy_ready_reports_retrieval_without_gating_status():
     assert "retrieval" not in dead.payload["checks"]
 
 
+def test_deploy_ready_attaches_cold_worker_without_a_prior_search():
+    """A freshly forked worker that has never served search() must not
+    report qdrant_attached=False / can_retrieve=False on /api/deploy/ready
+    when Qdrant is actually configured and reachable.
+
+    Before this fix, _handle_deploy_ready read the raw _qdrant_available
+    process global and never called _qdrant_attach() itself, so this exact
+    "cold worker, real Qdrant" case was indistinguishable from a genuinely
+    dead Qdrant from outside -- the probe stayed misleadingly false until
+    some real chat request happened to land on that worker and call
+    search(), which is the only other place _qdrant_attach() was invoked.
+    """
+    import routes.health as rh
+
+    calls = []
+
+    def _fake_request(method, path, body=None, timeout=vs._QDRANT_TIMEOUT):
+        calls.append(method)
+        return {"result": {"status": "green"}}
+
+    captured = _CapturingHandler()
+
+    def _fake_send(handler, result, status_code=200):
+        captured.payload = result
+        captured.status = status_code
+
+    with mock.patch.object(
+        rh, "_send_json_response", _fake_send
+    ), _empty_local_tiers(), mock.patch.object(
+        vs, "_qdrant_available", False
+    ), mock.patch.object(
+        vs, "_qdrant_attach_last_attempt", 0.0
+    ), mock.patch.object(
+        vs, "_QDRANT_URL", "https://fake.qdrant"
+    ), mock.patch.object(
+        vs, "_QDRANT_API_KEY", "fake-key"
+    ), mock.patch.object(
+        vs, "_qdrant_request", side_effect=_fake_request
+    ):
+        # No call to vs.search() here -- that's the point: this worker has
+        # never served a real query, only the readiness probe itself.
+        rh._handle_deploy_ready(handler=None, path="/api/deploy/ready", parsed=None)
+
+    # The embedding block's own qdrant_point_count() call also hits
+    # _qdrant_request (POST, unrelated to the attach) -- assert the attach
+    # itself is exactly one read-only GET, never a PUT/DDL call.
+    assert "GET" in calls, "the readiness probe must trigger a Qdrant attach"
+    assert calls.count("GET") == 1
+    assert "PUT" not in calls, "a serving/probing worker must never create a collection"
+    assert captured.payload["retrieval"]["qdrant_attached"] is True
+    assert captured.payload["retrieval"]["can_retrieve"] is True
+
+
 # ── Once-per-process dead-retrieval log ──────────────────────────────────────
 
 

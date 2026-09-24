@@ -1632,6 +1632,19 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
         # "fixed, serving from Qdrant" from "still broken" from outside --
         # exactly the gap that let the original bug hide for 4 months.
         # Purely additive: never touches is_ready or the status code below.
+        #
+        # Force the same attach here rather than only reading its result.
+        # Without this, a freshly forked worker that has not yet served a
+        # real chat request reports qdrant_attached=False / can_retrieve=
+        # False even though Qdrant is fully populated and reachable --
+        # accurate for "has this worker attached yet" but useless as a
+        # readiness signal, since it stays false until real user traffic
+        # happens to land on that worker. _qdrant_attach() is read-only
+        # (GET the collection, no write, no embedding call) and a no-op
+        # once armed, so calling it here is the same cheap check search()
+        # already makes on every request -- this just makes the probe pay
+        # for it once per worker instead of waiting on a live query to.
+        _vs._qdrant_attach()
         _status = _vs.get_status()
         result["retrieval"] = {
             "pid": os.getpid(),
