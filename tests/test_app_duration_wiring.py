@@ -30,13 +30,27 @@ Two generations of the same bug class:
     and ppt_generator.py delegate to -- so there is only one place left
     that can drift.
 
+  * 2026-09-24 (C17): the sync /api/generate handler's own copy of "call
+    display_format.resolve_campaign_weeks" was itself a duplication risk
+    -- the async job worker (``_run_async_generate``) carried NO campaign-
+    weeks resolution at all, so every async-generated plan's deck timeline
+    silently defaulted to a fixed 12 weeks regardless of the real
+    duration. The week-count resolution (not the label) is now further
+    extracted into ONE shared ``app._resolve_campaign_weeks(data)``
+    helper, called identically by both the sync handler and the async
+    worker, which itself is the sole caller of
+    ``display_format.resolve_campaign_weeks`` -- see
+    tests/test_app_async_wiring_and_trades_adjacency_2026_09_24.py for the
+    two-path wiring and gate-level regression coverage.
+
 app.py's request handler is ~26k lines deep inside a single function (not a
 standalone testable unit -- extracting the whole handler is out of scope
 for this bounded change), so this test verifies the WIRING two ways:
     1. Source inspection: app.py's duration block calls
-       ``display_format.resolve_campaign_weeks`` and
-       ``display_format.resolve_campaign_duration_label`` -- never a
-       locally re-implemented ladder or label formatter.
+       ``app._resolve_campaign_weeks`` (which itself is the sole caller of
+       ``display_format.resolve_campaign_weeks``) and
+       ``display_format.resolve_campaign_duration_label`` directly --
+       never a locally re-implemented ladder or label formatter.
     2. ``app.display_format`` is the real module (not a stub/None) and
        produces the correct, non-buggy value for the exact string that
        shipped broken.
@@ -69,17 +83,29 @@ def _duration_block_source() -> str:
 
 def test_campaign_weeks_delegates_to_shared_resolver():
     block = _duration_block_source()
-    assert "display_format.resolve_campaign_weeks(" in block, (
-        "app.py's campaign_weeks resolution no longer delegates to "
-        "display_format.resolve_campaign_weeks -- a locally re-implemented "
-        "ladder here can silently drift from excel_v2.py/ppt_generator.py "
-        "again (the S91 bug class)"
+    assert "_resolve_campaign_weeks(data)" in block, (
+        "app.py's campaign_weeks resolution no longer delegates to the "
+        "shared app._resolve_campaign_weeks helper -- a locally "
+        "re-implemented ladder here can silently drift from "
+        "excel_v2.py/ppt_generator.py again (the S91 bug class), and the "
+        "async job worker would once again have no way to share this "
+        "logic (the C17 bug class)"
     )
     # The old inline phrase ladder / bare "N months" *4 formula must be
     # gone from this block -- not just guarded, gone -- since both are now
-    # display_format.resolve_campaign_weeks's job.
+    # display_format.resolve_campaign_weeks's job (via the shared helper).
     assert "int(mo_match.group(1)) * 4" not in block
     assert '"1-3 month" in dur_lower' not in block
+
+
+def test_resolve_campaign_weeks_helper_delegates_to_display_format():
+    """The extracted helper itself -- not a re-implemented ladder -- is
+    the ONLY caller of display_format.resolve_campaign_weeks, and it is
+    what both /api/generate paths (sync + async) now call identically."""
+    import inspect
+
+    src = inspect.getsource(app._resolve_campaign_weeks)
+    assert "display_format.resolve_campaign_weeks(" in src
 
 
 def test_canonical_label_delegates_to_shared_resolver():

@@ -3246,6 +3246,29 @@ _GENERIC_COMPANY_NAME_WORDS = frozenset(
     }
 )
 
+# C3: Blue Collar / Skilled Trades is a cross-cutting OCCUPATIONAL category,
+# not a single-sector one -- a real electrical, construction, manufacturing,
+# logistics or energy/utilities contractor's own name almost never contains
+# one of the blue_collar profile's own keywords ("welder", "electrician",
+# "plumber", ...), so Detector 1 below used to score "Sparks Electric",
+# "Summit Industrial Group", "Allied Construction Services" and "RoadRunner
+# Freight Lines" as conflicts against Energy & Utilities / Manufacturing &
+# Industrial / Construction & Real Estate / Transportation & Logistics on
+# CORRECT blue_collar_trades plans. Owner rule: a client-name conflict is
+# critical only when the name implies a genuinely DIFFERENT industry -- a
+# name from one of these adjacent sectors AGREES with a blue_collar_trades
+# selection (general_entry_level is already handled separately, as the
+# catch-all bucket). A name that implies an unrelated industry (a hospital
+# name, a hotel chain) still conflicts as before.
+_BLUE_COLLAR_ADJACENT_LEGACY_KEYS = frozenset(
+    {
+        "construction_real_estate",
+        "automotive",  # "Manufacturing & Industrial" in INDUSTRY_NAICS_MAP
+        "logistics_supply_chain",
+        "energy_utilities",
+    }
+)
+
 
 def _infer_industry_from_signals(
     company_name: str = "", roles: list = None, selected_legacy_key: str = None
@@ -3398,6 +3421,22 @@ def _infer_industry_from_signals(
             # a catch-all hit is never itself reported as the conflict.
             return None
         if matched and selected_legacy_key not in matched:
+            if selected_legacy_key == "blue_collar_trades":
+                # Cross-cutting occupational category: a name hit that
+                # falls entirely within the adjacent-sector set AGREES with
+                # a blue_collar_trades selection (see
+                # _BLUE_COLLAR_ADJACENT_LEGACY_KEYS above), not conflicts
+                # with it. If the name ALSO hits a genuinely unrelated
+                # industry (e.g. a hospital name), that non-adjacent hit is
+                # still a real conflict.
+                _non_adjacent = {
+                    k: v
+                    for k, v in matched.items()
+                    if k not in _BLUE_COLLAR_ADJACENT_LEGACY_KEYS
+                }
+                if not _non_adjacent:
+                    return None
+                matched = _non_adjacent
             # Deterministic representative: first hit in
             # INDUSTRY_NAICS_MAP's own definition order.
             _rep_legacy = next(iter(matched))
@@ -3684,6 +3723,109 @@ def _normalize_dict_roles(data: dict) -> None:
             data[_rkey] = [(r.get("title") or r.get("role") or str(r)) for r in _rlist]
 
 
+def _resolve_campaign_weeks(data: dict) -> int:
+    """Derive ``data["campaign_weeks"]`` from ``data["campaign_duration"]``
+    (or ``data["timeline"]``) via the single shared parser
+    (:func:`display_format.resolve_campaign_weeks`), in place, and return it.
+
+    Single source of truth for both /api/generate paths: the synchronous
+    handler and the X-Async background worker (``_run_async_generate``)
+    must call this identically instead of one carrying its own copy and
+    the other omitting it entirely -- the latter is exactly what happened
+    here. The async worker never set ``campaign_weeks`` at all, so
+    ppt_generator's deck timeline (``data.get("campaign_weeks", 12)``)
+    silently fell back to a fixed 12-week phasing regardless of the
+    plan's real duration, and bundle_qa's campaign_duration_incoherence
+    check (which treats ``campaign_weeks`` as authoritative) then flagged
+    the mismatch between that phantom 12-week timeline and every other
+    duration statement in the bundle as a blocking critical -- on every
+    async-generated plan whose duration wasn't coincidentally 12 weeks.
+    """
+    duration_str = str(data.get("campaign_duration") or data.get("timeline") or "")
+    if display_format is not None:
+        campaign_weeks = display_format.resolve_campaign_weeks(duration_str)
+    else:
+        # Defensive fallback if display_format failed to import --
+        # never the primary path.
+        campaign_weeks = 12
+    data["campaign_weeks"] = campaign_weeks
+    return campaign_weeks
+
+
+def _apply_channel_selection(channel_pcts: dict, data: dict) -> dict:
+    """Zero out (and renormalise the rest of) any channel the user
+    explicitly disabled in ``data["channel_categories"]`` before the
+    percentages are handed to ``calculate_budget_allocation``.
+
+    ``channel_pcts`` is built from ``INDUSTRY_ALLOC_PROFILES`` purely by
+    industry -- it has no idea which channels the wizard's toggles turned
+    off, so a disabled channel still received budget (and projected
+    clicks/applications/hires) in every deliverable. ``channel_categories``
+    is ``{category_key: bool}``; a value of exactly ``False`` means the
+    user explicitly turned that category off (see ppt_generator.py's
+    ``_selected_channels``, the deck's own channel-mix selector, which
+    uses the same convention).
+
+    Single source of truth for both /api/generate paths (sync + async).
+    When ``channel_categories`` is absent, empty, or every referenced
+    category is disabled (which would otherwise zero the whole budget),
+    behaviour is unchanged -- the caller's ``channel_pcts`` is returned
+    as-is, matching current behaviour for legacy/API callers with no
+    explicit selection.
+    """
+    cats = data.get("channel_categories")
+    if not isinstance(cats, dict) or not cats:
+        return channel_pcts
+    disabled = {k for k, v in cats.items() if v is False}
+    if not disabled:
+        return channel_pcts
+    filtered = {k: v for k, v in channel_pcts.items() if k not in disabled}
+    total = sum(filtered.values()) if filtered else 0
+    if not filtered or total <= 0:
+        return channel_pcts
+    return {k: v / total * 100 for k, v in filtered.items()}
+
+
+def _budget_currency_prefix(raw_budget: str) -> str:
+    """Return the currency symbol/prefix a client typed at the start of a
+    raw budget string (e.g. ``"£10,000"`` -> ``"£"``, ``"A$400,000"`` ->
+    ``"A$"``), defaulting to ``"$"`` when the string has no leading symbol
+    (a bare number, or already-USD input).
+
+    Used by budget-period normalisation (monthly/quarterly/annual ->
+    campaign total): that block used to hardcode ``f"${scaled:,.0f}"``
+    regardless of the currency the client actually typed, so a £/€ budget
+    came out of normalisation relabelled as USD -- reading as a USD amount
+    for the rest of the pipeline and tripping bundle_qa's
+    currency_symbol_mixing gate against the correctly-typed symbol
+    everywhere else in the bundle.
+    """
+    m = re.match(r"^\s*([^\d\s]+)", str(raw_budget or "").strip())
+    return m.group(1) if m else "$"
+
+
+def _resolve_plan_currency(data: dict) -> "str | None":
+    """Resolve the plan's currency once via the single shared resolver
+    (:func:`plan_currency.currency_for_plan_with_basis`) so every
+    ``calculate_budget_allocation`` call site tells the engine the same
+    currency the deck/workbook/scorecard/gate resolve -- instead of the
+    engine falling back to its own best-effort location guess, which can
+    disagree (e.g. a USD-typed budget for a single UK market guessing GBP
+    CPCs from the location instead of respecting the declared currency).
+
+    Returns ``None`` (matching ``calculate_budget_allocation``'s documented
+    "no plan_currency" behaviour) when ``plan_currency`` failed to import
+    or resolution fails for any reason -- never raises.
+    """
+    if plan_currency is None:
+        return None
+    try:
+        code, _basis = plan_currency.currency_for_plan_with_basis(data)
+        return code or None
+    except Exception:  # noqa: BLE001 - resolution is best-effort, never fatal
+        return None
+
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
@@ -3954,6 +4096,20 @@ try:
 except ImportError as e:
     logger.warning("plan_geo import failed: %s", e)
     plan_geo = None
+
+# C8: single shared plan-currency resolver (declare-not-convert -- the
+# symbol the client typed outranks any guess from the location list). app.py
+# used to call calculate_budget_allocation with no plan_currency at all, so
+# the engine fell back to its own best-effort location guess, which can
+# disagree with what the deck/workbook/scorecard/gate resolve via this same
+# function (e.g. a USD budget for a single UK market guessing GBP CPCs).
+try:
+    import plan_currency
+
+    logger.info("plan_currency loaded successfully")
+except ImportError as e:
+    logger.warning("plan_currency import failed: %s", e)
+    plan_currency = None
 
 # S93: location resolver (ZIP/city/county/state fuzzy-match + optional DMA) --
 # replaces the old hardcoded S49 `_LOCATION_CORRECTIONS` dict, see plan_location.py.
@@ -4372,6 +4528,7 @@ def _compute_plan_estimate(brief: dict) -> dict:
             brief.get("campaign_start_month") or 0, field_name="campaign_start_month"
         ),
         vendor_availability=vendor_availability,
+        plan_currency=_resolve_plan_currency(brief),
     )
     total_projected = (
         budget_result.get("total_projected", {})
@@ -16184,17 +16341,21 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 ]
                 _multiplier = max(_dur_months / _period_months, 1.0)
                 # Scale the parsed budget value to campaign total
-                _bval_period = parse_budget(
-                    _safe_str(data.get("budget") or data.get("budget_range") or "")
+                _budget_raw_for_period = _safe_str(
+                    data.get("budget") or data.get("budget_range") or ""
                 )
+                _bval_period = parse_budget(_budget_raw_for_period)
                 if _bval_period > 0:
                     _scaled = _bval_period * _multiplier
-                    data["budget"] = f"${_scaled:,.0f}"
+                    _currency_prefix = _budget_currency_prefix(_budget_raw_for_period)
+                    data["budget"] = f"{_currency_prefix}{_scaled:,.0f}"
                     data["budget_range"] = data["budget"]
                     data["_budget_period_original"] = _budget_period
                     data["_budget_multiplier"] = _multiplier
                     logger.info(
-                        f"Budget period normalization: {_budget_period} ${_bval_period:,.0f} x {_multiplier:.1f} = ${_scaled:,.0f}"
+                        f"Budget period normalization: {_budget_period} "
+                        f"{_currency_prefix}{_bval_period:,.0f} x {_multiplier:.1f} "
+                        f"= {_currency_prefix}{_scaled:,.0f}"
                     )
 
             # ── Gold Standard: Campaign start month validation ──
@@ -16314,6 +16475,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         # classify_industry() and other consumers assume
                         # roles: list[str].
                         _normalize_dict_roles(gen_data)
+
+                        # ── campaign_weeks: single-sourced, same as above ──
+                        # The sync /api/generate handler derives
+                        # campaign_weeks via _resolve_campaign_weeks before
+                        # generation; this worker used to skip it entirely,
+                        # so ppt_generator/excel_v2/bundle_qa all fell back
+                        # to a fixed 12-week duration for every async plan.
+                        _resolve_campaign_weeks(gen_data)
 
                         # S29 v2: Quality-first -- give the pipeline enough time
                         # to use ALL data sources (15+ APIs, 25+ KB files, Supabase,
@@ -17059,7 +17228,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     roles=_roles_for_ba,
                                     locations=_locs_for_ba,
                                     industry=gen_data.get("industry", "General"),
-                                    channel_percentages=channel_pcts,
+                                    channel_percentages=_apply_channel_selection(
+                                        channel_pcts, gen_data
+                                    ),
                                     synthesized_data=merged_for_ba,
                                     knowledge_base=kb,
                                     collar_type=gen_data.get("_collar_type") or "",
@@ -17067,6 +17238,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         gen_data.get("campaign_start_month") or 0 or 0
                                     ),
                                     vendor_availability=vendor_availability,
+                                    plan_currency=_resolve_plan_currency(gen_data),
                                 )
                                 gen_data["_budget_allocation"] = budget_result
                                 logger.info(
@@ -18053,14 +18225,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # excel_v2.py and ppt_generator.py delegate to the SAME two
             # functions instead of re-deriving their own answer from the raw
             # string, so every surface in a bundle states the same duration.
-            duration_str = str(data.get("campaign_duration") or "")
-            if display_format is not None:
-                campaign_weeks = display_format.resolve_campaign_weeks(duration_str)
-            else:
-                # Defensive fallback if display_format failed to import --
-                # never the primary path.
-                campaign_weeks = 12
-            data["campaign_weeks"] = campaign_weeks
+            campaign_weeks = _resolve_campaign_weeks(data)
 
             data["campaign_duration_canonical"] = (
                 display_format.resolve_campaign_duration_label(data)
@@ -19280,7 +19445,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         roles=_roles_for_ba,
                         locations=_locs_for_ba,
                         industry=data.get("industry", "General"),
-                        channel_percentages=channel_pcts,
+                        channel_percentages=_apply_channel_selection(
+                            channel_pcts, data
+                        ),
                         synthesized_data=merged_for_ba,
                         knowledge_base=kb,
                         collar_type=data.get("_collar_type") or "",
@@ -19288,6 +19455,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             data.get("campaign_start_month") or 0 or 0
                         ),
                         vendor_availability=vendor_availability,
+                        plan_currency=_resolve_plan_currency(data),
                     )
                     data["_budget_allocation"] = budget_result
                     logger.info(
