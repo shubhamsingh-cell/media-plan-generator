@@ -318,6 +318,7 @@ def build_plan_data(brief: dict[str, Any]) -> dict[str, Any]:
         # side (None on any caller that doesn't pass it -> byte-identical
         # to before this fix).
         locations_raw=data.get("locations"),
+        budget_text=str(data.get("budget") or "").strip(),
     )
     data["_budget_allocation"] = budget_result
 

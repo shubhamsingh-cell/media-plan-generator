@@ -4529,6 +4529,8 @@ def _compute_plan_estimate(brief: dict) -> dict:
         ),
         vendor_availability=vendor_availability,
         plan_currency=_resolve_plan_currency(brief),
+        locations_raw=locs_raw,
+        budget_text=budget_str,
     )
     total_projected = (
         budget_result.get("total_projected", {})
@@ -17239,6 +17241,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     ),
                                     vendor_availability=vendor_availability,
                                     plan_currency=_resolve_plan_currency(gen_data),
+                                    locations_raw=gen_data.get("locations"),
+                                    budget_text=str(
+                                        gen_data.get("budget") or ""
+                                    ).strip(),
                                 )
                                 gen_data["_budget_allocation"] = budget_result
                                 logger.info(
@@ -19456,6 +19462,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         ),
                         vendor_availability=vendor_availability,
                         plan_currency=_resolve_plan_currency(data),
+                        locations_raw=data.get("locations"),
+                        budget_text=str(data.get("budget") or "").strip(),
                     )
                     data["_budget_allocation"] = budget_result
                     logger.info(
