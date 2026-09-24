@@ -240,8 +240,25 @@ class TestGbpPlanNoHardcodedDollar:
         # usd_rate (1.27) before allocation instead of being spent as if a
         # dollar figure were already pounds. Slides 4 and 5 still agree --
         # the incident this file guards is unchanged. £561.7K -> £558.7K.
-        slide4_hit = any("Programmatic (DSP) £558.7K" in t for t in texts)
-        slide5_hit = any("Programmatic DSP (£558.7K)" in t for t in texts)
+        #
+        # 2026-09-24 DELIBERATE re-baseline (budget_engine.py F1 fix --
+        # _dedupe_shared_fallback_cpcs currency conversion): niche_boards
+        # and employer_branding both fell to the SAME shared-fallback CPC
+        # collision (see _dedupe_shared_fallback_cpcs), which re-derives a
+        # CPC from BASE_BENCHMARKS['cpc'] -- a USD table -- per category.
+        # That re-derived CPC used to be spent UNCONVERTED against this
+        # plan's GBP dollar_amount (the same class of bug the 2026-09-08
+        # unit-coherence fix closed for the CASCADE's OWN static-benchmark
+        # fallback, but the post-cascade dedup step re-introduced it by
+        # overwriting cpc with a fresh raw-USD lookup). It's now converted
+        # into GBP with the SAME usd_per_local rate. niche_boards/
+        # employer_branding got cheaper (CPC was ~1.27x too high in GBP
+        # terms), which raises their ROI score, which shifts more of the
+        # ROI-based reweight toward them and away from Programmatic DSP.
+        # Slides 4 and 5 still agree -- the incident this file guards is
+        # unchanged. £558.7K -> £551.1K.
+        slide4_hit = any("Programmatic (DSP) £551.1K" in t for t in texts)
+        slide5_hit = any("Programmatic DSP (£551.1K)" in t for t in texts)
         assert slide4_hit, f"slide 4 push/pull figure missing/wrong: {texts!r}"
         assert slide5_hit, f"slide 5 attribution figure missing/wrong: {texts!r}"
 

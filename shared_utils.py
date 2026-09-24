@@ -137,6 +137,76 @@ def format_industry_label(
 
 _SUFFIX_MULTIPLIERS = {"K": 1_000, "M": 1_000_000, "B": 1_000_000_000}
 
+# Matches a single locale-formatted number token: digit groups possibly
+# separated by '.' and/or ',' in either order (thousands vs decimal role
+# is disambiguated by ``_normalize_locale_number`` below), e.g.
+# "150.000", "1.500.000,50", "150,000.75", "2,50,00,000".
+_NUMBER_TOKEN_RE = re.compile(r"\d[\d.,]*\d|\d+")
+
+
+def _normalize_locale_number(token: str) -> Optional[float]:
+    """Parse a single numeric token that may use EITHER US-style grouping
+    ("150,000.75": comma=thousands, dot=decimal) OR European-style
+    grouping ("150.000" / "1.500.000,50": dot=thousands, comma=decimal)
+    into a plain float. Returns ``None`` when the token has no digits.
+
+    Disambiguation rules (no locale flag is ever guessed from context --
+    this reads the punctuation itself):
+      - Both '.' and ',' present: whichever separator appears LAST is the
+        decimal separator (the other is thousands grouping), e.g.
+        "1.500.000,50" -> comma is last -> European decimal -> 1500000.50;
+        "150,000.75" -> dot is last -> US decimal -> 150000.75.
+      - Only ',' present: always thousands grouping (also covers Indian
+        lakh grouping like "2,50,00,000", whose groups aren't multiples
+        of 3), e.g. "150,000" -> 150000.
+      - Only '.' present with 2+ dots: thousands grouping when every
+        group after the first is exactly 3 digits (e.g. "1.500.000" ->
+        1500000); otherwise the LAST dot is treated as the decimal point.
+      - Only '.' present with exactly 1 dot: thousands grouping ONLY when
+        the fractional part is exactly 3 digits (e.g. "150.000" -> 150000);
+        any other digit count is a genuine decimal (e.g. "150.5" -> 150.5,
+        "1234.56" -> 1234.56).
+    """
+    if not token:
+        return None
+    has_dot = "." in token
+    has_comma = "," in token
+
+    if has_dot and has_comma:
+        last_dot = token.rfind(".")
+        last_comma = token.rfind(",")
+        if last_comma > last_dot:
+            # European: dot(s) = thousands, comma = decimal
+            int_part = token[:last_comma].replace(".", "").replace(",", "")
+            frac_part = token[last_comma + 1 :]
+        else:
+            # US: comma(s) = thousands, dot = decimal
+            int_part = token[:last_dot].replace(",", "").replace(".", "")
+            frac_part = token[last_dot + 1 :]
+        normalized = f"{int_part}.{frac_part}" if frac_part else int_part
+    elif has_comma:
+        normalized = token.replace(",", "")
+    elif has_dot:
+        parts = token.split(".")
+        if len(parts) > 2:
+            if all(len(p) == 3 for p in parts[1:]):
+                normalized = "".join(parts)
+            else:
+                normalized = "".join(parts[:-1]) + "." + parts[-1]
+        else:
+            int_part, frac_part = parts
+            if len(frac_part) == 3:
+                normalized = int_part + frac_part
+            else:
+                normalized = token
+    else:
+        normalized = token
+
+    try:
+        return float(normalized)
+    except ValueError:
+        return None
+
 
 def _parse_budget_core(budget_input, default: float) -> tuple[float, bool]:
     """Pure parsing core shared by ``parse_budget()`` / ``parse_budget_strict()``.
@@ -156,10 +226,13 @@ def _parse_budget_core(budget_input, default: float) -> tuple[float, bool]:
     if not bstr:
         return default, False
 
-    # Clean currency symbols and whitespace
+    # Clean currency symbols and whitespace. NOTE: unlike the old
+    # implementation this deliberately does NOT strip ',' or '.' here --
+    # those are load-bearing for locale-aware number parsing below (a
+    # blind ``.replace(",", "")`` is what made "1.500.000" (European
+    # 1,500,000) parse as 500 -- see _normalize_locale_number).
     clean = (
-        bstr.replace(",", "")
-        .replace("$", "")
+        bstr.replace("$", "")
         .replace("USD", "")
         .replace("usd", "")
         .strip()
@@ -172,22 +245,30 @@ def _parse_budget_core(budget_input, default: float) -> tuple[float, bool]:
         suffix = km_match.group(2).upper()
         return num_part * _SUFFIX_MULTIPLIERS[suffix], False
 
-    # 2. Extract all numbers >= 100 (filter noise like "3 months" but accept
-    #    small employer budgets under $1000 -- lowered from 1000 to 100)
-    all_nums = re.findall(r"[\d]+", clean)
-    parsed_nums = [int(n) for n in all_nums if int(n) >= 100]
+    # 2. Extract all locale-formatted number tokens (each may use US
+    #    "150,000.75" or European "150.000" / "1.500.000,50" grouping --
+    #    see _normalize_locale_number) and filter noise like "3 months",
+    #    but accept small employer budgets under $1000 -- lowered from
+    #    1000 to 100.
+    raw_tokens = _NUMBER_TOKEN_RE.findall(clean)
+    parsed_nums = [
+        v
+        for v in (_normalize_locale_number(t) for t in raw_tokens)
+        if v is not None and v >= 100
+    ]
 
     if len(parsed_nums) >= 2:
         # Range like "$250,000 - $500,000" -> midpoint
         return (parsed_nums[0] + parsed_nums[1]) / 2.0, False
     elif len(parsed_nums) == 1:
-        return float(parsed_nums[0]), False
+        return parsed_nums[0], False
 
-    # 3. Decimal numbers (e.g., "1.5" without suffix, or small values)
-    decimal_match = re.search(r"([\d.]+)", clean)
+    # 3. Decimal numbers below the noise threshold (e.g., "1.5" without a
+    #    suffix, or small values under 100) -- locale-aware as above.
+    decimal_match = re.search(r"[\d.,]+", clean)
     if decimal_match:
-        val = float(decimal_match.group(1))
-        if val > 0:
+        val = _normalize_locale_number(decimal_match.group(0))
+        if val is not None and val > 0:
             return val, False
 
     # 4. Text-based keywords

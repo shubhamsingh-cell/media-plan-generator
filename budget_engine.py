@@ -265,6 +265,7 @@ def _extract_cpc_from_live_benchmarks(category: str) -> Optional[float]:
 def _resolve_intl_cpc_basis(
     locations_for_geo: Any,
     plan_currency: Optional[str],
+    budget_text: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Resolve a non-US locale CPC basis for this plan, or ``None`` when the
     plan is US (or the canonical detector / lookup module aren't available,
@@ -274,6 +275,25 @@ def _resolve_intl_cpc_basis(
     ``plan_geo.non_us_signals`` as ``{"locations": locations_for_geo}`` --
     it should be the plan's ORIGINAL location strings/dicts (e.g.
     ``plan_data["locations"]``), not a lossy reshape. Never raises.
+
+    C16/C8 FIX: when ``plan_currency`` is not supplied, this used to GUESS
+    the currency from the first non-US location (``currency_for_country``)
+    -- so a USD budget typed for a single non-US market (e.g. "$50,000"
+    against a London-only plan) got silently reassigned to that market's
+    OWN currency (GBP), then divided a USD-denominated budget by
+    LOCAL-currency CPCs (hires collapse to near-zero; or the reverse --
+    a GBP budget prints with "$" and clicks inflate ~27%). That guess is
+    replaced with the single canonical resolver, ``plan_currency.
+    currency_for_plan_with_basis`` (the same one the deck/workbook/
+    scorecard/gate already share), which honors the "declare-not-convert"
+    rule -- a currency SYMBOL the client actually typed in the budget
+    field outranks any guess from the location list. ``budget_text`` (the
+    plan's raw, as-typed budget string, e.g. ``plan_data["budget"]``) is
+    what lets that symbol be seen; without it (current callers that
+    haven't been updated to pass it yet -- see calculate_budget_allocation
+    docstring) this still degrades to the same location-derived guess as
+    before for a single-market plan, but no longer arbitrarily picks the
+    FIRST of several disagreeing markets.
     """
     if not _HAS_PLAN_GEO or not _HAS_INTL_BENCHMARK_LOOKUP:
         return None
@@ -286,18 +306,18 @@ def _resolve_intl_cpc_basis(
             return None
         effective_currency = plan_currency
         if not effective_currency and _HAS_PLAN_CURRENCY:
-            # No explicit plan currency supplied -- best-effort guess from
-            # the first non-US location signal. This only ever enables the
-            # local-currency path when exactly ONE country matches (see
-            # get_locale_cpc_basis), so for a single-market plan this is
-            # simply "assume the client's budget is in that market's own
-            # currency", a reasonable default absent a better signal; for a
-            # multi-market plan it can't spuriously trigger the local path
-            # since len(matched) > 1 there regardless of this guess.
             try:
-                effective_currency = _plan_currency.currency_for_country(
-                    non_us_countries[0]
+                _code, _basis = _plan_currency.currency_for_plan_with_basis(
+                    {"locations": locations_for_geo, "budget": budget_text or ""}
                 )
+                # "default" means "nothing to go on" (no declared symbol,
+                # no single-market agreement) -- currency_for_plan_with_
+                # basis answers "USD" for that case as its own safe
+                # fallback, but here None is the correct signal: it tells
+                # get_locale_cpc_basis to skip the local-currency path and
+                # use the USD-blend basis instead of forcing a currency we
+                # don't actually know.
+                effective_currency = _code if _basis != "default" else None
             except Exception:  # noqa: BLE001 -- best-effort only
                 effective_currency = None
         return _intl_benchmark_lookup.get_locale_cpc_basis(
@@ -522,6 +542,36 @@ def _safe_divide(numerator: float, denominator: float, default: float = 0.0) -> 
 
 def _clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
+
+
+def _compute_efficiency_flag(dollars: Optional[float], hires: Optional[float]) -> str:
+    """S49 (Issue 16) rule, factored out so every place that mutates a
+    channel's ``projected_hires``/``dollar_amount`` AFTER the initial
+    ``compute_channel_dollar_amounts`` pass can recompute ``efficiency_flag``
+    the SAME way instead of leaving it stale.
+
+    Coordinator-reported defect (2026-09-24): ``_redistribute_hires_by_
+    conversion`` (and several other post-processing steps --
+    ``_dedupe_shared_fallback_cpcs``, ``_recompute_channel_metrics``, the
+    live-CPA calibration blend, the total-hires rescale step) rewrite
+    ``projected_hires``/``cost_per_hire``/``roi_score`` but never touched
+    ``efficiency_flag``, which was computed ONCE against the channel's
+    ORIGINAL (pre-redistribution) hire count. Observed on a real jp_jpy
+    bundle: niche_boards ends with a live ``projected_hires`` of 514 but
+    kept the "Low Efficiency" flag set when it still had 0 hires, before
+    redistribution gave it its (correct, large) share -- so the client
+    workbook printed "Low Efficiency alert: Niche / Industry Boards
+    projected 0 hires" right next to a channel visibly projecting hundreds
+    of hires. Every mutator listed above now calls this after any hires/
+    dollars change so the flag always reflects the LIVE values.
+    """
+    hires_val = hires or 0
+    dollars_val = dollars or 0
+    if hires_val == 0 and dollars_val > 1000:
+        return "Low Efficiency"
+    if hires_val == 0 and dollars_val > 0:
+        return "No Projected Hires"
+    return ""
 
 
 def _resolve_tier(role: Dict) -> str:
@@ -1098,6 +1148,7 @@ def _redistribute_hires_by_conversion(
             ch["roi_score"] = _score_roi(
                 ch["cost_per_hire"], industry_avg_cph, projected_hires=0
             )
+            ch["efficiency_flag"] = _compute_efficiency_flag(dollars, 0)
         return
 
     performance_names = [
@@ -1116,6 +1167,7 @@ def _redistribute_hires_by_conversion(
         ch["roi_score"] = _score_roi(
             ch["cost_per_hire"], industry_avg_cph, projected_hires=0
         )
+        ch["efficiency_flag"] = _compute_efficiency_flag(dollars, 0)
 
     if not performance_names:
         return
@@ -1163,6 +1215,7 @@ def _redistribute_hires_by_conversion(
         ch["roi_score"] = _score_roi(
             ch["cost_per_hire"], industry_avg_cph, projected_hires=hires
         )
+        ch["efficiency_flag"] = _compute_efficiency_flag(dollars, hires)
 
 
 # ---------------------------------------------------------------------------
@@ -1616,7 +1669,10 @@ def _finalize_channel_ranking(
     return ranking
 
 
-def _dedupe_shared_fallback_cpcs(allocations: Dict[str, Dict]) -> None:
+def _dedupe_shared_fallback_cpcs(
+    allocations: Dict[str, Dict],
+    intl_cpc_basis: Optional[Dict[str, Any]] = None,
+) -> None:
     """S92 FIX -- finding strategy:manpower#5: an upstream CPC source
     (synthesized enrichment, live benchmarks, or the KB) can resolve two
     structurally different channel categories (e.g. niche_board and
@@ -1634,7 +1690,30 @@ def _dedupe_shared_fallback_cpcs(allocations: Dict[str, Dict]) -> None:
     (gold_standard.py) can distinguish it from a genuinely-measured HIGH
     figure. Recomputes clicks/applications/CPA/CPH so the row stays
     internally consistent. Mutates ``allocations`` in place.
+
+    F1 FIX (currency): ``BASE_BENCHMARKS['cpc']`` is a USD table, but
+    ``dollar_amount`` on a non-US plan is denominated in the plan's own
+    local currency (e.g. JPY, INR). Swapping in the raw USD figure without
+    conversion silently divided a local-currency budget by a USD CPC --
+    e.g. a JPY plan's niche_boards channel used CPC=1.40 as if it were
+    JPY 1.40, inflating clicks/hires ~90x (514 of 660 total hires landed
+    on one 3%-of-budget channel). ``intl_cpc_basis`` is the SAME resolved
+    basis (``_resolve_intl_cpc_basis`` -> ``intl_benchmark_lookup.
+    get_locale_cpc_basis``) already threaded through
+    ``compute_channel_dollar_amounts`` and used by the "Unit coherence"
+    conversion a few hundred lines up for every OTHER USD-cascade CPC
+    (synthesized/live/trend/KB/static) on a local-currency plan -- reusing
+    it here keeps the dedup path consistent with that existing conversion
+    instead of re-deriving or inventing a new exchange rate.
     """
+    usd_per_local: Optional[float] = None
+    local_currency = ""
+    if intl_cpc_basis and intl_cpc_basis.get("basis") == "local":
+        _rate = intl_cpc_basis.get("usd_per_local")
+        if isinstance(_rate, (int, float)) and not isinstance(_rate, bool) and _rate > 0:
+            usd_per_local = float(_rate)
+            local_currency = str(intl_cpc_basis.get("currency") or "").upper()
+
     by_cpc: Dict[float, List[str]] = {}
     for ch_name, ch in allocations.items():
         cpc_val = ch.get("cpc")
@@ -1653,11 +1732,21 @@ def _dedupe_shared_fallback_cpcs(allocations: Dict[str, Dict]) -> None:
             new_cpc = BASE_BENCHMARKS["cpc"].get(category, 0.85)
             dollars = ch.get("dollar_amount", 0)
 
-            ch["cpc"] = round(new_cpc, 2)
-            ch["cpc_source"] = "static_benchmark_dedup"
+            cpc_source = "static_benchmark_dedup"
+            if usd_per_local:
+                # Convert the USD static benchmark into the plan's local
+                # currency with the dataset's own rate -- never divide a
+                # local-currency ``dollars`` figure by an unconverted USD
+                # CPC (declare-not-convert: this IS a conversion, using
+                # the dataset's own shipped rate, not an invented one).
+                new_cpc = new_cpc / usd_per_local
+                cpc_source = f"static_benchmark_dedup->{local_currency or 'local'}"
+
+            ch["cpc"] = round(new_cpc, 4 if usd_per_local else 2)
+            ch["cpc_source"] = cpc_source
             ch["confidence"] = "estimated"
             ch["confidence_downgrade_reason"] = (
-                f"Shared upstream CPC (${cpc_val:.2f}) resolved across "
+                f"Shared upstream CPC ({cpc_val:.2f}) resolved across "
                 f"{len(categories)} different channel categories -- "
                 "re-derived from the category-specific static benchmark."
             )
@@ -1684,6 +1773,7 @@ def _dedupe_shared_fallback_cpcs(allocations: Dict[str, Dict]) -> None:
             ch["cost_per_hire"] = round(
                 _safe_divide(dollars, max(hires, 1), dollars), 2
             )
+            ch["efficiency_flag"] = _compute_efficiency_flag(dollars, hires)
 
 
 # ---------------------------------------------------------------------------
@@ -2792,12 +2882,10 @@ def compute_channel_dollar_amounts(
             cost_per_hire, industry_avg_cph, projected_hires=projected_hires
         )
 
-        # S49 FIX (Issue 16): Flag channels spending >$1000 with 0 hires
-        _efficiency_flag = ""
-        if projected_hires == 0 and dollars > 1000:
-            _efficiency_flag = "Low Efficiency"
-        elif projected_hires == 0 and dollars > 0:
-            _efficiency_flag = "No Projected Hires"
+        # S49 FIX (Issue 16): Flag channels spending >$1000 with 0 hires.
+        # See _compute_efficiency_flag -- every LATER step that changes
+        # this channel's hires/dollars recomputes this the same way.
+        _efficiency_flag = _compute_efficiency_flag(dollars, projected_hires)
 
         # ── S49/S50 FIX: Downgrade channel confidence from input data quality ──
         # The CPC-based confidence above only reflects the CPC data source,
@@ -2893,7 +2981,11 @@ def compute_channel_dollar_amounts(
 
     # S92 FIX (strategy:manpower#5): collapse any shared-fallback CPC
     # collision across different channel categories before returning.
-    _dedupe_shared_fallback_cpcs(allocations)
+    # F1 FIX: thread the resolved locale CPC basis through so the
+    # dedup path converts its USD static-benchmark fallback the same way
+    # every other USD-cascade CPC in this function already is (see
+    # _dedupe_shared_fallback_cpcs docstring).
+    _dedupe_shared_fallback_cpcs(allocations, intl_cpc_basis=intl_cpc_basis)
 
     logger.info(
         "Channel dollar amounts computed for %d channels (collar=%s, trend_engine=%s)",
@@ -3137,6 +3229,7 @@ def _recompute_channel_metrics(
     ch["cost_per_hire"] = round(
         _safe_divide(new_dollars, max(hires, 1), new_dollars), 2
     )
+    ch["efficiency_flag"] = _compute_efficiency_flag(new_dollars, hires)
 
 
 def assess_budget_sufficiency(
@@ -3145,6 +3238,8 @@ def assess_budget_sufficiency(
     industry: str,
     channel_allocations: Dict,
     knowledge_base: Optional[Dict] = None,
+    plan_currency: Optional[str] = None,
+    usd_per_local: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Check whether the total budget is sufficient for the hiring goals.
@@ -3153,26 +3248,73 @@ def assess_budget_sufficiency(
     Flags when budget per opening falls below minimum viable thresholds.
 
     Args:
-        total_budget: Campaign budget in USD.
+        total_budget: Campaign budget, in ``plan_currency``.
         total_openings: Number of positions to fill.
         industry: Industry classification string (e.g. "healthcare_medical").
         channel_allocations: Output of ``compute_channel_dollar_amounts``.
         knowledge_base: Loaded KB JSON (optional, for CPH benchmarks).
-
-    Returns:
-        Dict with ``sufficient``, ``budget_per_opening``,
-        ``industry_avg_cost_per_hire``, ``gap_amount``, ``warnings``,
-        ``recommendations``.
+        plan_currency: F4 FIX -- ISO code ``total_budget`` is denominated
+            in (e.g. "GBP"). ``None`` means USD, matching every existing
+            caller and pre-fix behavior byte-for-byte.
+        usd_per_local: F4 FIX -- USD-per-one-local-unit rate (the same
+            ``intl_cpc_basis["usd_per_local"]`` the rest of the engine
+            uses -- see ``_resolve_intl_cpc_basis`` /
+            ``_dedupe_shared_fallback_cpcs``), when known. The industry
+            CPH/threshold constants below (``_industry_avg_cph``,
+            ``_INDUSTRY_MIN_CPH``, ``_MIN_BUDGET_PER_OPENING``) are all in
+            USD; on a non-USD plan they get converted into
+            ``plan_currency`` with this SAME rate before being compared
+            against or printed alongside ``total_budget`` -- previously
+            they were compared/printed raw, so e.g. "Budget of $150 for 40
+            openings ... is below the minimum viable threshold of
+            $200/opening" was hardcoded USD-formatted even when
+            ``total_budget`` was actually GBP/EUR/... (a
+            ``currency_symbol_mixing`` defect in the client workbook).
+            ``None`` (no rate known, e.g. a multi-market usd_blend plan)
+            leaves the USD constants UNCONVERTED but still labels them
+            explicitly as US$ rather than silently mislabeling them in
+            ``plan_currency``'s symbol.
     """
     warnings: List[str] = []
     recommendations: List[str] = []
 
+    _code = (plan_currency or "USD").upper()
+    _rate = usd_per_local if (usd_per_local and usd_per_local > 0) else None
+    # Every dollar figure printed below is either genuinely in
+    # plan_currency (total_budget, budget_per_opening, gap, ... -- no
+    # conversion needed, just the right symbol) or a USD benchmark
+    # constant (avg_cph, industry_min_cph, _MIN_BUDGET_PER_OPENING) that
+    # needs converting when a rate is known. ``_usd_const`` does that
+    # conversion; ``_money`` formats in plan_currency; ``_usd_money``
+    # is the explicit-USD fallback label for when no rate is known.
+    def _usd_const(usd_value: float) -> float:
+        return usd_value / _rate if _rate else usd_value
+
+    def _money(value: float) -> str:
+        if _HAS_PLAN_CURRENCY:
+            return _plan_currency.format_money(value, _code)
+        return f"${value:,.0f}"
+
+    def _bench_money(value: float) -> str:
+        # For a value derived from a USD benchmark constant (already run
+        # through _usd_const above): once a rate converted it, or the
+        # plan genuinely IS in USD, it's safe to print in plan_currency
+        # like any other figure. Absent a rate on a non-USD plan the
+        # value is STILL raw USD (never divided by an unconverted
+        # currency's worth of numbers) -- label it explicitly as US$
+        # rather than print it under plan_currency's symbol (which would
+        # misstate the amount) or silently keep the old bare "$" (which
+        # claimed USD without saying so on a non-USD plan).
+        if _rate or _code == "USD":
+            return _money(value)
+        return f"US${value:,.0f}"
+
     total_openings = max(total_openings, 1)
     n_openings = total_openings  # alias for readability in feasibility block
     budget_per_opening = _safe_divide(total_budget, total_openings, 0.0)
-    avg_cph = _industry_avg_cph(industry)
+    avg_cph = _usd_const(_industry_avg_cph(industry))
 
-    # Try to refine avg_cph from KB
+    # Try to refine avg_cph from KB (KB figure is USD; blend, then convert)
     if knowledge_base:
         kb_benchmarks = knowledge_base.get("benchmarks", {})
         cph_section = kb_benchmarks.get("cost_per_hire", {})
@@ -3180,8 +3322,10 @@ def assess_budget_sufficiency(
         raw = shrm.get("average_cost_per_hire")
         parsed = _parse_dollar_value(raw)
         if parsed and parsed > 0:
-            # Blend KB value with industry-specific range (KB is cross-industry)
-            avg_cph = (avg_cph + parsed) / 2.0
+            # Blend KB value (USD) with industry-specific range, both
+            # already converted to plan_currency via _usd_const above --
+            # blend the USD source AFTER converting it the same way.
+            avg_cph = (avg_cph + _usd_const(parsed)) / 2.0
 
     gap = max(0.0, (avg_cph * total_openings) - total_budget)
     sufficient = budget_per_opening >= avg_cph * 0.5  # at least 50% of avg CPH
@@ -3201,7 +3345,9 @@ def assess_budget_sufficiency(
             industry_key = _cph_key
             break
 
-    industry_min_cph = _INDUSTRY_MIN_CPH.get(industry_key, _INDUSTRY_MIN_CPH["general"])
+    industry_min_cph = _usd_const(
+        _INDUSTRY_MIN_CPH.get(industry_key, _INDUSTRY_MIN_CPH["general"])
+    )
     min_viable_budget = industry_min_cph * n_openings
     budget_utilization = (
         (total_budget / min_viable_budget * 100) if min_viable_budget > 0 else 0
@@ -3212,59 +3358,60 @@ def assess_budget_sufficiency(
         feasibility_tier = "impossible"
         feasibility_label = "UNREALISTIC"
         feasibility_msg = (
-            f"A budget of ${total_budget:,.0f} for {n_openings} hires "
-            f"translates to ${budget_per_opening:,.0f}/hire — far below the "
-            f"{industry_key} industry minimum of ~${industry_min_cph:,.0f}/hire. "
+            f"A budget of {_money(total_budget)} for {n_openings} hires "
+            f"translates to {_money(budget_per_opening)}/hire — far below the "
+            f"{industry_key} industry minimum of ~{_bench_money(industry_min_cph)}/hire. "
             f"This budget could realistically support ~{max(1, int(total_budget / industry_min_cph))} hire(s). "
-            f"Recommended minimum budget: ${min_viable_budget:,.0f}."
+            f"Recommended minimum budget: {_bench_money(min_viable_budget)}."
         )
     elif budget_per_opening < industry_min_cph * 0.3:
         feasibility_tier = "severely_underfunded"
         feasibility_label = "SEVERELY UNDERFUNDED"
         feasibility_msg = (
-            f"At ${budget_per_opening:,.0f}/hire, this budget covers only "
+            f"At {_money(budget_per_opening)}/hire, this budget covers only "
             f"{budget_utilization:.0f}% of the minimum required. "
             f"Realistically achievable hires: ~{max(1, int(total_budget / industry_min_cph))}. "
-            f"Recommended budget for {n_openings} hires: ${min_viable_budget:,.0f}."
+            f"Recommended budget for {n_openings} hires: {_bench_money(min_viable_budget)}."
         )
     elif budget_per_opening < industry_min_cph * 0.5:
         feasibility_tier = "underfunded"
         feasibility_label = "UNDERFUNDED"
         feasibility_msg = (
-            f"Budget of ${budget_per_opening:,.0f}/hire is below the "
-            f"industry average of ~${industry_min_cph:,.0f}/hire. "
+            f"Budget of {_money(budget_per_opening)}/hire is below the "
+            f"industry average of ~{_bench_money(industry_min_cph)}/hire. "
             f"Consider reducing target to {max(1, int(total_budget / industry_min_cph))} hires "
-            f"or increasing budget to ${min_viable_budget:,.0f}."
+            f"or increasing budget to {_bench_money(min_viable_budget)}."
         )
     elif budget_per_opening < industry_min_cph:
         feasibility_tier = "tight"
         feasibility_label = "TIGHT BUT FEASIBLE"
         feasibility_msg = (
-            f"Budget of ${budget_per_opening:,.0f}/hire is below the "
-            f"industry average of ~${industry_min_cph:,.0f}/hire but achievable "
+            f"Budget of {_money(budget_per_opening)}/hire is below the "
+            f"industry average of ~{_bench_money(industry_min_cph)}/hire but achievable "
             f"with optimized channel selection and programmatic buying."
         )
     elif budget_per_opening < industry_min_cph * 1.5:
         feasibility_tier = "adequate"
         feasibility_label = "ADEQUATE"
         feasibility_msg = (
-            f"Budget of ${budget_per_opening:,.0f}/hire is within the normal range "
+            f"Budget of {_money(budget_per_opening)}/hire is within the normal range "
             f"for {industry_key} hiring. Good foundation for a competitive campaign."
         )
     else:
         feasibility_tier = "generous"
         feasibility_label = "WELL-FUNDED"
         feasibility_msg = (
-            f"Budget of ${budget_per_opening:,.0f}/hire exceeds the industry average. "
+            f"Budget of {_money(budget_per_opening)}/hire exceeds the industry average. "
             f"Consider investing surplus in employer branding or premium placements."
         )
 
     # --- Warnings ---
-    if budget_per_opening < _MIN_BUDGET_PER_OPENING:
+    if budget_per_opening < _usd_const(_MIN_BUDGET_PER_OPENING):
+        _min_per_opening = _usd_const(_MIN_BUDGET_PER_OPENING)
         warnings.append(
-            f"Budget of ${total_budget:,.0f} for {total_openings} openings "
-            f"(${budget_per_opening:,.0f}/opening) is below the minimum viable "
-            f"threshold of ${_MIN_BUDGET_PER_OPENING:,.0f}/opening. Most channels "
+            f"Budget of {_money(total_budget)} for {total_openings} openings "
+            f"({_money(budget_per_opening)}/opening) is below the minimum viable "
+            f"threshold of {_bench_money(_min_per_opening)}/opening. Most channels "
             f"cannot generate meaningful results at this level."
         )
 
@@ -3272,11 +3419,11 @@ def assess_budget_sufficiency(
         recommended_budget = avg_cph * total_openings
         reduced_openings = max(1, int(total_budget / avg_cph))
         warnings.append(
-            f"Budget of ${total_budget:,.0f} for {total_openings} openings "
-            f"(${budget_per_opening:,.0f}/opening) is significantly below the "
+            f"Budget of {_money(total_budget)} for {total_openings} openings "
+            f"({_money(budget_per_opening)}/opening) is significantly below the "
             f"{_format_industry_name(industry)} industry average of "
-            f"${avg_cph:,.0f}/hire. Consider reducing to {reduced_openings} "
-            f"priority openings or increasing budget to ${recommended_budget:,.0f}."
+            f"{_bench_money(avg_cph)}/hire. Consider reducing to {reduced_openings} "
+            f"priority openings or increasing budget to {_bench_money(recommended_budget)}."
         )
 
     if total_proj_hires < total_openings and total_proj_hires > 0:
@@ -3291,8 +3438,8 @@ def assess_budget_sufficiency(
     if gap > 0:
         recommendations.append(
             f"To fully fund all {total_openings} openings at industry-average "
-            f"CPH, an additional ${gap:,.0f} would be needed (total "
-            f"${avg_cph * total_openings:,.0f})."
+            f"CPH, an additional {_bench_money(gap)} would be needed (total "
+            f"{_bench_money(avg_cph * total_openings)})."
         )
 
     if budget_per_opening < avg_cph and total_openings > 3:
@@ -3314,7 +3461,10 @@ def assess_budget_sufficiency(
             f"may benefit from budget reallocation to higher-performing channels."
         )
 
-    # S49 Issue 16: Flag channels with low efficiency (spending >$1000, 0 hires)
+    # S49 Issue 16: Flag channels with low efficiency (spending >1000 in the
+    # plan's own currency, 0 hires -- see the "dollars > 1000" check this
+    # mirrors in compute_channel_dollar_amounts, itself a plan-native
+    # comparison, not a USD one, so the label here uses plan_currency too.)
     low_eff_channels = [
         name
         for name, ch in channel_allocations.items()
@@ -3323,7 +3473,7 @@ def assess_budget_sufficiency(
     if low_eff_channels:
         recommendations.append(
             f"Low Efficiency alert: {', '.join(low_eff_channels)} "
-            f"projected 0 hires despite >$1,000 spend. Consider reallocating "
+            f"projected 0 hires despite >{_money(1000)} spend. Consider reallocating "
             f"this budget to channels with measurable hiring outcomes."
         )
 
@@ -3854,6 +4004,7 @@ def _apply_outcome_calibration(
         ch["cost_per_hire"] = round(
             _safe_divide(dollars, max(ch["projected_hires"], 1), 0), 2
         )
+        ch["efficiency_flag"] = _compute_efficiency_flag(dollars, ch["projected_hires"])
 
     # Re-aggregate the blended totals (clicks/CPC unchanged — calibration acts
     # on apply efficiency, not traffic).
@@ -4139,6 +4290,7 @@ def calculate_budget_allocation(
     vendor_availability: Optional[Dict[str, bool]] = None,
     locations_raw: Optional[List[Any]] = None,
     plan_currency: Optional[str] = None,
+    budget_text: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Master budget allocation function.
@@ -4185,9 +4337,19 @@ def calculate_budget_allocation(
             pre-Fix-1 behavior, so nothing regresses for callers that
             haven't been updated to pass it.
         plan_currency: Fix 1 -- ISO code the plan's dollar amounts are
-            denominated in (e.g. "GBP"), if known. ``None`` falls back to a
-            best-effort guess from the first non-US location signal (see
-            ``_resolve_intl_cpc_basis``).
+            denominated in (e.g. "GBP"), if known. ``None`` falls back to
+            ``plan_currency.currency_for_plan_with_basis`` on whatever of
+            ``locations_raw``/``budget_text`` is available (see
+            ``_resolve_intl_cpc_basis``); pass this explicitly whenever the
+            caller has it -- it is always more reliable than the fallback.
+        budget_text: C16/C8 FIX -- the plan's budget EXACTLY as the client
+            typed it (e.g. ``"$50,000"``, before ``shared_utils.
+            parse_budget`` strips it to a float). Only consulted when
+            ``plan_currency`` is ``None``: lets the declared-currency
+            resolver see a typed "$"/"£"/"€" symbol instead of guessing
+            the currency from the plan's location list. Optional and
+            additive -- omitting it is byte-identical to pre-fix behavior
+            for every existing caller.
 
     Returns:
         Dict with keys:
@@ -4268,7 +4430,52 @@ def calculate_budget_allocation(
     _intl_cpc_basis = _resolve_intl_cpc_basis(
         locations_raw if locations_raw is not None else locations,
         plan_currency,
+        budget_text,
     )
+
+    # Resolved plan currency code, for money FORMATTING only (assess_
+    # budget_sufficiency below) -- never for allocation math (that's
+    # entirely _intl_cpc_basis's job above). DELIBERATELY conservative:
+    # only trust an EXPLICIT/DECLARED currency signal (the ``plan_currency``
+    # param, or a symbol actually typed in ``budget_text``), never a bare
+    # location guess (``resolve_declared_currency``'s "market" basis,
+    # single-non-US-market-only). A single-market plan's own currency is
+    # exactly the ambiguous case a typed "$" can disagree with (C16/C8 --
+    # "$50,000 against a London-only plan"), so trusting that guess here
+    # would print benchmark text in the WRONG currency on precisely the
+    # plans this fix targets; defaulting to USD absent a real signal is
+    # also byte-identical to every caller's pre-fix behavior (the old
+    # hardcoded "$" was, in effect, an unconditional USD assumption).
+    _resolved_plan_currency = plan_currency
+    if not _resolved_plan_currency and _HAS_PLAN_CURRENCY and budget_text:
+        try:
+            _code, _basis = _plan_currency.currency_for_plan_with_basis(
+                {
+                    "locations": locations_raw if locations_raw is not None else locations,
+                    "budget": budget_text,
+                }
+            )
+            if _basis in ("explicit", "declared"):
+                _resolved_plan_currency = _code
+        except Exception:  # noqa: BLE001 -- best-effort only
+            _resolved_plan_currency = None
+    _resolved_plan_currency = (_resolved_plan_currency or "USD").upper()
+
+    # usd_per_local for the benchmark-constant conversion in assess_budget_
+    # sufficiency: only when the TRUSTED currency above actually matches
+    # the (possibly guessed) locale basis's own currency -- i.e. only when
+    # they agree do we know the local-CPC-basis rate is the right one to
+    # convert USD benchmarks into _resolved_plan_currency with.
+    _resolved_usd_per_local: Optional[float] = None
+    if (
+        _resolved_plan_currency != "USD"
+        and _intl_cpc_basis
+        and _intl_cpc_basis.get("basis") == "local"
+        and str(_intl_cpc_basis.get("currency") or "").upper() == _resolved_plan_currency
+    ):
+        _rate = _intl_cpc_basis.get("usd_per_local")
+        if isinstance(_rate, (int, float)) and not isinstance(_rate, bool) and _rate > 0:
+            _resolved_usd_per_local = float(_rate)
 
     # Step 3: Channel dollar amounts with projections (v3: trend + collar aware)
     # Extract primary location for regional CPC adjustments
@@ -4407,6 +4614,7 @@ def calculate_budget_allocation(
             ch["cost_per_hire"] = round(
                 _safe_divide(ch_dollars, max(new_ch_hires, 1), ch_dollars), 2
             )
+            ch["efficiency_flag"] = _compute_efficiency_flag(ch_dollars, new_ch_hires)
         total_hires = new_total_hires
 
     # Step 3.9 (S92 -- THE BIG ONE): total_hires above is the authoritative,
@@ -4534,6 +4742,8 @@ def calculate_budget_allocation(
         industry,
         channel_allocs,
         knowledge_base,
+        plan_currency=_resolved_plan_currency,
+        usd_per_local=_resolved_usd_per_local,
     )
 
     # Step 6: Optimisation suggestions
