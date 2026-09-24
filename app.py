@@ -41,7 +41,7 @@ from shared_utils import (
     parse_budget_strict,
     INDUSTRY_LABEL_MAP,
     format_industry_label,
-    normalize_competitor_names,
+    clean_competitor_entries,
 )
 
 import benchmark_registry
@@ -16157,17 +16157,24 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 elif _arr_val is not None and not isinstance(_arr_val, list):
                     data[_arr_field] = [str(_arr_val)]
 
-            # hershey_2026_09_24 fix (build-quality follow-up): normalize
-            # data["competitors"] ONCE, here at the request boundary, into a
-            # clean list of non-blank display-name strings -- a direct API
-            # caller can submit dict-shaped entries ({"name": "Acme", ...}),
-            # and the wizard's tag input can submit whitespace-only entries.
-            # Every downstream reader (excel_v2.py's Market Intelligence AND
-            # Quality Intelligence sheets, gold_standard.build_competitor_map,
-            # ppt_generator.py's competitor cards, nova.py) gets the same
-            # clean list instead of each site needing its own dict-vs-string
-            # handling -- see shared_utils.normalize_competitor_names.
-            data["competitors"] = normalize_competitor_names(data.get("competitors"))
+            # hershey_2026_09_24 fix (build-quality follow-up): clean
+            # data["competitors"] ONCE, here at the request boundary --
+            # trim whitespace and drop blank entries -- WITHOUT collapsing
+            # dict-shaped entries to a bare name. A direct API caller can
+            # submit dict-shaped entries ({"name": "Acme", "description":
+            # "...", "domain": "...", "competitor_type": "..."}), and
+            # ppt_generator.py's competitor cards (_build_slide_
+            # competitive_landscape) already read those supplemental
+            # fields when present -- flattening to bare names here would
+            # silently drop that metadata for the direct-API path (the
+            # wizard's tag input only ever sends plain strings, so this
+            # has no effect on wizard-submitted plans). Downstream
+            # consumers that only need a flat list of names to MATCH/
+            # COMPARE against (gold_standard.build_competitor_map,
+            # excel_v2.py's Quality Intelligence sheet) call
+            # shared_utils.normalize_competitor_names themselves, which
+            # flattens whatever this leaves in place.
+            data["competitors"] = clean_competitor_entries(data.get("competitors"))
 
             # ── S93 location resolution (replaces S49 FIX Issue 14) ──
             _resolve_and_rewrite_locations(data)

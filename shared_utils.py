@@ -583,13 +583,25 @@ def standardize_location(loc_str: str) -> str:
 # ("{'name': 'Mars Wrigley'}, Amazon, Walmart, ..."). Normalize ONCE, at
 # the request boundary (app.py, where the request payload is first
 # validated), instead of every call site re-implementing this.
-def normalize_competitor_names(raw: Any) -> List[str]:
-    """Normalize a raw ``data["competitors"]`` value into a clean list of
-    non-blank display-name strings.
+def clean_competitor_entries(raw: Any) -> List[Any]:
+    """Clean a raw ``data["competitors"]`` value WITHOUT flattening it to
+    plain names.
 
-    Accepts a list of plain strings, a list of dicts (``{"name": ...}``),
-    a comma-separated string, or ``None`` -- always returns a plain
-    ``list[str]`` with whitespace-only / empty entries dropped.
+    A dict-shaped entry (e.g. ``{"name": "Acme", "description": "...",
+    "domain": "...", "competitor_type": "..."}``) is kept as a dict --
+    only its "name" is trimmed/validated -- so supplemental fields a
+    direct API caller supplied survive. A plain string is trimmed. Entries
+    that resolve to a blank name are dropped. Accepts a list of strings
+    and/or dicts, a comma-separated string, or ``None``.
+
+    Use this (not ``normalize_competitor_names``) at the request boundary:
+    ppt_generator.py's competitor-card rendering (``_build_slide_
+    competitive_landscape``) already reads ``description``/``domain``/
+    ``competitor_type`` off a dict-shaped entry when one is supplied --
+    collapsing every entry to a bare name at the boundary would silently
+    drop that metadata for a direct API caller (the wizard itself only
+    ever sends plain strings, so this has no effect on wizard-submitted
+    plans).
     """
     if raw is None:
         return []
@@ -597,10 +609,42 @@ def normalize_competitor_names(raw: Any) -> List[str]:
         raw = raw.split(",")
     if not isinstance(raw, (list, tuple)):
         raw = [raw]
-    normalized: List[str] = []
+    cleaned: List[Any] = []
     for item in raw:
-        name = item.get("name") if isinstance(item, dict) else item
-        name = str(name or "").strip()
-        if name:
-            normalized.append(name)
-    return normalized
+        if isinstance(item, dict):
+            name = str(item.get("name") or "").strip()
+            if not name:
+                continue
+            entry = dict(item)
+            entry["name"] = name
+            cleaned.append(entry)
+        else:
+            name = str(item or "").strip()
+            if name:
+                cleaned.append(name)
+    return cleaned
+
+
+def normalize_competitor_names(raw: Any) -> List[str]:
+    """Normalize a raw ``data["competitors"]`` value into a clean list of
+    non-blank display-name strings.
+
+    Accepts a list of plain strings, a list of dicts (``{"name": ...}``),
+    a comma-separated string, or ``None`` -- always returns a plain
+    ``list[str]`` with whitespace-only / empty entries dropped. Also
+    accepts ``clean_competitor_entries``'s own output (a mix of trimmed
+    strings and dicts) and flattens it the same way, so it's safe to call
+    on either the raw request payload or an already-boundary-cleaned list.
+
+    Use this for consumers that only need to MATCH or COMPARE names
+    (gold_standard.build_competitor_map's brief_competitors, the Quality
+    Intelligence sheet's name-matching) -- it discards any supplemental
+    dict fields (description, domain, competitor_type). Consumers that
+    render that supplemental metadata (ppt_generator.py's competitor
+    cards) should read the un-flattened list instead -- see
+    ``clean_competitor_entries``.
+    """
+    return [
+        item["name"] if isinstance(item, dict) else item
+        for item in clean_competitor_entries(raw)
+    ]
