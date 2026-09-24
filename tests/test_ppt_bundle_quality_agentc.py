@@ -401,7 +401,12 @@ class TestComparisonNeutrality:
         texts = _all_slide_text(_deck_bytes(data))
         blob = "\n".join(texts)
         assert "Client goal:" in blob
-        assert "scaling path:" in blob
+        # "would close the gap" (not the old bare "scaling path: ~$XK
+        # additional") -- a client misreading that trailing dollar figure
+        # as THIS plan's budget, rather than a proposed top-up on top of
+        # it, is a real incident (see ppt_generator.py's exec-summary gap
+        # callout for the fix).
+        assert "would close the gap" in blob
 
     def test_no_goal_gap_when_goal_not_stated(self):
         data = _logistics_plan()
@@ -409,6 +414,25 @@ class TestComparisonNeutrality:
         texts = _all_slide_text(_deck_bytes(data))
         blob = "\n".join(texts)
         assert "Client goal:" not in blob
+
+    def test_goal_gap_topup_names_the_resulting_total(self):
+        """Real client report (2026-09): the deck's gap-callout top-up
+        figure ("scaling path: ~$60K additional") got read back as the
+        plan's OWN budget instead of a proposed increase on top of it,
+        with a $90K-budgeted plan reported as showing "$60,000". The line
+        must name the resulting TOTAL next to the top-up amount so the two
+        numbers are never confusable, and the plan's real budget must
+        still read correctly everywhere else on the slide."""
+        data = _healthcare_plan()  # $300,000 budget, "500+ hires" goal, underfunded
+        texts = _all_slide_text(_deck_bytes(data))
+        blob = "\n".join(texts)
+        goal_line = next((t for t in texts if "Client goal:" in t), "")
+        assert goal_line, "expected a Client goal gap callout on this underfunded plan"
+        assert "would close the gap" in goal_line
+        assert "(total ~$" in goal_line
+        # The plan's OWN budget must still read correctly -- this fix only
+        # clarifies the top-up sentence, never the real budget figure.
+        assert "$300K" in blob
 
 
 # ---------------------------------------------------------------------------

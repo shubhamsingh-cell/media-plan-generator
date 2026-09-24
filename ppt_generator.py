@@ -4410,9 +4410,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
                         # instead of silently relabeling a US dollar figure
                         # with this plan's local currency symbol.
                         _si_force_usd = _salary_is_us_sourced(_si_data)
-                        salary_str = _format_salary(
-                            _si_median, force_usd=_si_force_usd
-                        )
+                        salary_str = _format_salary(_si_median, force_usd=_si_force_usd)
                         range_str = ""
                         if _si_min > 0 and _si_max > 0:
                             range_str = (
@@ -4731,16 +4729,33 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         # A plan projecting zero hires has no cost-per-hire, so it has no
         # scaling path either -- state the gap and stop, rather than the
         # "~$0 additional" a 0.0 cost-per-hire used to multiply out to.
-        _scaling = (
-            f"; scaling path: "
+        #
+        # Disambiguation fix: "scaling path: ~$60K additional" used to be
+        # the ONLY number in this sentence besides percentages -- a client
+        # skimming the slide (or a report of it relayed secondhand) could
+        # misread that trailing "~$60K" as THIS PLAN'S budget rather than a
+        # proposed TOP-UP on top of it (real incident: a client's stated
+        # $90K budget was reported back as "$60K" after reading this line).
+        # Naming the resulting total, the same way the workbook's matching
+        # "Hiring-goal gap" sentence already does (excel_v2.py), makes the
+        # top-up figure impossible to mistake for the plan's own budget.
+        _scaling = ""
+        if _exec_goal_gap.get("additional_budget"):
+            _budget_now = _parse_budget_number(budget) or 0.0
+            _budget_after = _budget_now + _exec_goal_gap["additional_budget"]
             # copy:both#2: compact currency ("~£2.33M") instead of the raw
             # two-decimal amount ("~£2,331,579.88") -- _fmt_currency's
             # compact path matches fmt_money's never-"-.0" rounding while
             # using the plan's own currency symbol.
-            f"~{_fmt_currency(_exec_goal_gap['additional_budget'], compact=True)} additional"
-            if _exec_goal_gap.get("additional_budget")
-            else ""
-        )
+            _scaling = (
+                f"; +~{_fmt_currency(_exec_goal_gap['additional_budget'], compact=True)}"
+                " would close the gap"
+                + (
+                    f" (total ~{_fmt_currency(_budget_after, compact=True)})"
+                    if _budget_now > 0
+                    else ""
+                )
+            )
         _add_paragraph(
             tf4,
             f"Client goal: {_exec_goal_gap['goal']:,} hires — this plan "
@@ -5198,7 +5213,9 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     _subhead_top_in = 0.92
     _subhead_w_in = 12.2
     _subhead_pt = 15.0
-    _subhead_n_lines = _measure_lines(action_text, _subhead_w_in, _subhead_pt, bold=True)
+    _subhead_n_lines = _measure_lines(
+        action_text, _subhead_w_in, _subhead_pt, bold=True
+    )
     _subhead_line_h_in = (_subhead_pt * 1.35) / 72.0
     _subhead_h_in = max(0.5, _subhead_n_lines * _subhead_line_h_in + 0.08)
     _add_textbox(
@@ -7180,9 +7197,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         action_text, _cmp_subhead_w_in, _cmp_subhead_pt, bold=True
     )
     _cmp_subhead_line_h_in = (_cmp_subhead_pt * 1.35) / 72.0
-    _cmp_subhead_h_in = max(
-        0.45, _cmp_subhead_n_lines * _cmp_subhead_line_h_in + 0.08
-    )
+    _cmp_subhead_h_in = max(0.45, _cmp_subhead_n_lines * _cmp_subhead_line_h_in + 0.08)
     _add_textbox(
         slide,
         Inches(0.55),
