@@ -4682,7 +4682,11 @@ def _build_sheet_executive_summary(
     hero_metrics = [
         ("Total Budget", _fmt_currency(budget_num)),
         ("Projected Hires", _fmt_number(_header_hires)),
-        ("Cost / Hire", _fmt_currency(_header_cph)),
+        # "--" rather than "$0": a plan projecting zero hires has an
+        # UNDEFINED cost per hire, and "$0" beside a real committed budget
+        # reads as free hiring. The deck's own table already renders this
+        # cell as "--"; the workbook must not contradict it.
+        ("Cost / Hire", _fmt_currency(_header_cph) if _header_hires > 0 else "--"),
     ]
     for idx, (label, value) in enumerate(hero_metrics):
         col = COL_START + idx * 2
@@ -4720,7 +4724,7 @@ def _build_sheet_executive_summary(
         # Only call out a gap when it's material (>10% short of goal).
         if _gap_result and (100 - _gap_result["pct_of_goal"]) > 10:
             _gap = _gap_result["goal"] - _gap_result["projected"]
-            _extra_budget = _gap_result["additional_budget"]
+            _extra_budget = _gap_result.get("additional_budget") or 0
             _pct_of_goal = round(_gap_result["pct_of_goal"])
             _gap_msg = (
                 f"Hiring-goal gap: this plan projects {_header_hires:,} hires "

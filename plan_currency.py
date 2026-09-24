@@ -31,9 +31,24 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # ISO currency code -> display symbol
 # ---------------------------------------------------------------------------
-# Symbols chosen to render in the Inter / Calibri font families used by the
-# Slides and Excel generators (both cover Latin-1 + common currency glyphs +
-# Cyrillic). JPY/CNY share ¥; INR uses the official ₹ (U+20B9).
+# Every symbol here MUST be renderable by a font the deck actually embeds --
+# Poppins (fonts/Poppins-*.ttf) or the symbol face (fonts/NovaDeckSymbols-*.ttf).
+# Otherwise EVERY money figure for that market carries a currency sign drawn by
+# whatever face the viewer's OS falls back to -- platform-dependent and off-brand.
+# This is enforced by tests/test_currency_formatting.py::
+# test_every_currency_symbol_is_renderable, so the table and the fonts cannot
+# drift apart -- add a market and the test tells you if the glyph needs adding
+# to scripts/build_symbol_font.py.
+#
+# (The superseded rule was "renders in Inter / Calibri", chosen when the
+# generators used those families. The deck standardised on Poppins, a 504-glyph
+# Latin face, which silently invalidated eight of these entries.)
+#
+# Where NO embeddable font covers a currency's sign, use the ISO code plus a
+# space instead -- unambiguous, on-brand, and the same convention this table
+# already uses for AED/SAR/QAR/CHF. BDT is the current case: ৳ (U+09F3) is not
+# in DejaVu, the source of the symbol face.
+# JPY/CNY share ¥; INR uses the official ₹ (U+20B9).
 _CODE_TO_SYMBOL: dict[str, str] = {
     "USD": "$",
     "GBP": "£",
@@ -71,7 +86,9 @@ _CODE_TO_SYMBOL: dict[str, str] = {
     "VND": "₫",
     "KRW": "₩",
     "PKR": "₨ ",
-    "BDT": "৳ ",
+    # ৳ (U+09F3) is in no font the deck can embed -- ISO code, not a fallback
+    # glyph from an arbitrary system face.
+    "BDT": "BDT ",
     "LKR": "₨ ",
     "NGN": "₦",
     "KES": "KSh ",
@@ -560,3 +577,62 @@ def resolve_declared_currency(
     if len(unique) == 1:
         return markets[0], "market"
     return None, "default"
+
+
+def currency_for_plan_with_basis(data: dict | None) -> "tuple[str, str]":
+    """Resolve a plan's currency and say WHY -- the single shared resolver.
+
+    The deck, the workbook, the scorecard and the delivery gate must agree on a
+    plan's currency: when they used separate resolvers the scorecard published
+    every non-USD plan in dollars on a public share link while the deck beside
+    it read correctly. So there is exactly one implementation, here, and it is
+    the declare-not-convert rule above -- the symbol the client typed outranks
+    any guess from the location list.
+
+    Returns ``(code, basis)`` with basis as in :func:`resolve_declared_currency`;
+    code is ``"USD"`` when basis is ``"default"``. Never raises.
+    """
+    if not isinstance(data, dict):
+        return "USD", "default"
+    explicit = data.get("currency_code") or data.get("currency")
+    if isinstance(explicit, str) and explicit.strip():
+        return explicit.strip().upper(), "explicit"
+
+    candidates: list[str] = []
+    for key in ("country", "primary_location"):
+        val = data.get(key)
+        if isinstance(val, str) and val.strip():
+            candidates.append(val)
+    locs = data.get("locations") or []
+    if isinstance(locs, (list, tuple)):
+        for loc in locs:
+            if isinstance(loc, str) and loc.strip():
+                candidates.append(loc)
+            elif isinstance(loc, dict):
+                country = loc.get("country") or loc.get("location") or ""
+                if isinstance(country, str) and country.strip():
+                    candidates.append(country)
+    market_codes: list[str] = []
+    for cand in candidates:
+        try:
+            code = currency_for_country(cand)
+        except Exception:  # noqa: BLE001 - resolution is best-effort
+            code = None
+        if code:
+            market_codes.append(code)
+
+    try:
+        code, basis = resolve_declared_currency(
+            budget_text=data.get("budget") or data.get("budget_range") or "",
+            explicit_code=None,
+            market_codes=market_codes,
+        )
+    except (AttributeError, TypeError, ValueError) as exc:
+        logger.debug("Declared-currency resolution failed (%s) -- USD", exc)
+        code, basis = None, "default"
+    return (code or "USD"), basis
+
+
+def currency_for_plan(data: dict | None) -> str:
+    """ISO currency code for a whole plan dict (see currency_for_plan_with_basis)."""
+    return currency_for_plan_with_basis(data)[0]

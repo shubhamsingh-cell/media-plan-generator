@@ -11,7 +11,12 @@ import html
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
+
+try:
+    import plan_currency as _plan_currency
+except ImportError:  # pragma: no cover - plan_currency ships with the repo
+    _plan_currency = None
 
 from joveo_brand_2026 import (
     INDIGO,
@@ -55,20 +60,39 @@ def _safe(value: Any, default: str = "--") -> str:
     return html.escape(text)
 
 
-def _format_budget(budget: Any) -> str:
-    """Format a budget value as a human-readable dollar string."""
+def _currency_symbol(plan_data: Optional[dict[str, Any]]) -> str:
+    """Display symbol for this plan's currency. Falls back to "$"."""
+    if _plan_currency is None:
+        return "$"
+    try:
+        return _plan_currency.symbol_for_code(
+            _plan_currency.currency_for_plan(plan_data)
+        )
+    except Exception:  # noqa: BLE001 - presentation must never break rendering
+        return "$"
+
+
+def _format_budget(budget: Any, symbol: str = "$") -> str:
+    """Format a budget value in the PLAN's currency, not always dollars.
+
+    ``symbol`` comes from :func:`_currency_symbol`. It is not optional in
+    practice: this page is published at a public share URL with OpenGraph
+    cards, so a hardcoded "$" restated a £420,000 plan as "$420,000" to
+    everyone the link reached -- while the deck and workbook in the same
+    bundle rendered it correctly.
+    """
     if not budget:
         return "--"
     if isinstance(budget, str):
-        # Already formatted (e.g. "$50,000")
+        # Already formatted upstream (e.g. "£50,000") -- trust it.
         return html.escape(budget)
     try:
         amount = float(budget)
         if amount >= 1_000_000:
-            return f"${amount / 1_000_000:,.1f}M"
+            return f"{symbol}{amount / 1_000_000:,.1f}M"
         if amount >= 1_000:
-            return f"${amount:,.0f}"
-        return f"${amount:,.2f}"
+            return f"{symbol}{amount:,.0f}"
+        return f"{symbol}{amount:,.2f}"
     except (ValueError, TypeError):
         return html.escape(str(budget))
 
@@ -167,15 +191,15 @@ def _extract_channels(plan_data: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(channels, key=lambda c: c["percentage"], reverse=True)
 
 
-def _extract_total_budget(plan_data: dict[str, Any]) -> str:
-    """Extract and format the total budget from plan data."""
+def _extract_total_budget(plan_data: dict[str, Any], symbol: str = "$") -> str:
+    """Extract and format the total budget from plan data, in its own currency."""
     budget_alloc = (
         plan_data.get("_budget_allocation") or plan_data.get("budget_allocation") or {}
     )
     meta = budget_alloc.get("metadata") or {}
     total = meta.get("total_budget")
     if total:
-        return _format_budget(total)
+        return _format_budget(total, symbol)
 
     summary = plan_data.get("summary") or plan_data.get("plan_summary") or {}
     budget = (
@@ -185,7 +209,7 @@ def _extract_total_budget(plan_data: dict[str, Any]) -> str:
         or plan_data.get("total_budget")
         or plan_data.get("budget")
     )
-    return _format_budget(budget)
+    return _format_budget(budget, symbol)
 
 
 def _extract_job_info(plan_data: dict[str, Any]) -> tuple[str, str]:
@@ -227,7 +251,8 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
         responsive layout, and the Joveo 2026 LIGHT deck theme.
     """
     job_title, location = _extract_job_info(plan_data)
-    total_budget = _extract_total_budget(plan_data)
+    currency_symbol = _currency_symbol(plan_data)
+    total_budget = _extract_total_budget(plan_data, currency_symbol)
     channels = _extract_channels(plan_data)
     # Cap at 10 channels for the bar chart, then re-balance the displayed
     # percentages so they total exactly 100 (no stranded rounding error).
@@ -251,7 +276,11 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
     for ch in shown_channels:
         name = _safe(ch["name"])
         pct = int(ch.get("display_pct") or 0)
-        dollar = _format_budget(ch["dollar_amount"]) if ch["dollar_amount"] else ""
+        dollar = (
+            _format_budget(ch["dollar_amount"], currency_symbol)
+            if ch["dollar_amount"]
+            else ""
+        )
         bar_width = max(pct, 3)  # Minimum 3% width for visibility
         channel_bars_html += f"""
         <div style="margin-bottom:12px;">

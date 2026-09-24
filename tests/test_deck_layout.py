@@ -201,8 +201,158 @@ def test_brand_font_embedded():
         assert 'embedTrueTypeFonts="1"' in pres, "embedTrueTypeFonts flag not set"
 
 
+# --- Embedded-font GLYPH COVERAGE ------------------------------------------
+# test_brand_font_embedded above proves fonts ship; it does NOT prove they can
+# render the deck's characters. They could not: Poppins is a 504-glyph Latin
+# text face with no check mark, arrow, triangle, circle or hexagon, yet the deck
+# drew ▸ ✓ ○ → ⬢ ▲ ▼ ▶ on 5 of its 11 slides. Those runs escaped the embedding
+# guarantee entirely, so each mark was drawn by whatever face the viewer's OS
+# chose -- platform-dependent, and never the brand's shape or weight.
+# (Measured: macOS CoreText falls back per character, so this was never tofu
+# there; Windows PowerPoint is untested. The defect is loss of control, not a
+# blank box.) The test below closes the real invariant.
+
+
+def _embedded_face_cmaps(zf: zipfile.ZipFile) -> dict:
+    """{typeface name -> set(codepoints)} read from the .pptx's OWN font parts.
+
+    Derived from the package rather than from a hardcoded list, so it keeps
+    testing the truth if the embed list changes.
+    """
+    import re
+
+    from fontTools.ttLib import TTFont
+
+    pres = zf.read("ppt/presentation.xml").decode("utf-8")
+    rels = zf.read("ppt/_rels/presentation.xml.rels").decode("utf-8")
+    rid_to_target = dict(re.findall(r'Id="([^"]+)"[^>]*Target="([^"]+)"', rels))
+
+    faces: dict = {}
+    for block in re.findall(r"<p:embeddedFont>.*?</p:embeddedFont>", pres, re.S):
+        match = re.search(r'<p:font typeface="([^"]+)"', block)
+        if not match:
+            continue
+        face = match.group(1)
+        for rid in re.findall(r'r:id="([^"]+)"', block):
+            target = rid_to_target.get(rid)
+            if not target:
+                continue
+            data = zf.read("ppt/" + target.lstrip("/"))
+            font = TTFont(io.BytesIO(data), fontNumber=0, lazy=True)
+            covered = set()
+            for table in font["cmap"].tables:
+                covered |= set(table.cmap.keys())
+            # Intersect across a face's slots: a glyph in the regular slot but
+            # not the bold one still escapes the guarantee wherever bold is set.
+            faces[face] = covered if face not in faces else (faces[face] & covered)
+    return faces
+
+
+def test_every_rendered_character_is_covered_by_its_embedded_font():
+    """Every character on every slide must be renderable by the face its own run
+    is set to, and that face must actually be embedded.
+
+    This is the invariant the font embedding exists to provide. It is checked
+    against the generated package rather than against source literals on
+    purpose: markers also arrive from KB data (an arrow lives in
+    data/joveo_media_plan_deck_2026.json), so a source-only check would pass
+    while the deck still shipped uncovered characters.
+    """
+    import xml.etree.ElementTree as ET
+
+    ns_a = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+    with zipfile.ZipFile(io.BytesIO(_deck())) as zf:
+        faces = _embedded_face_cmaps(zf)
+        assert faces, "no embedded faces found in the generated deck"
+
+        failures = []
+        slide_names = sorted(
+            (n for n in zf.namelist() if n.startswith("ppt/slides/slide")),
+            key=lambda n: int("".join(c for c in n if c.isdigit()) or 0),
+        )
+        for name in slide_names:
+            root = ET.fromstring(zf.read(name))
+            for run in root.iter(f"{ns_a}r"):
+                t_el = run.find(f"{ns_a}t")
+                if t_el is None or not t_el.text:
+                    continue
+                latin = run.find(f"{ns_a}rPr/{ns_a}latin")
+                typeface = latin.get("typeface") if latin is not None else None
+                if typeface is None:
+                    failures.append(f"{name}: run with no typeface: {t_el.text[:40]!r}")
+                    continue
+                covered = faces.get(typeface)
+                if covered is None:
+                    failures.append(
+                        f"{name}: run set to non-embedded face {typeface!r}: "
+                        f"{t_el.text[:40]!r}"
+                    )
+                    continue
+                for ch in t_el.text:
+                    if ch.isspace() or ord(ch) in covered:
+                        continue
+                    failures.append(
+                        f"{name}: {ch!r} U+{ord(ch):04X} not in embedded "
+                        f"{typeface!r} (run {t_el.text[:40]!r})"
+                    )
+
+    assert not failures, (
+        "Characters no embedded font can render (each is drawn by whatever "
+        "face the viewer's OS falls back to, so it is platform-dependent and "
+        "off-brand):\n  " + "\n  ".join(sorted(set(failures))[:40])
+    )
+
+
+def test_long_client_name_still_produces_a_deck():
+    """A long client name must not cost the client the entire deck.
+
+    The OOXML core properties interpolate the client name, and python-pptx
+    enforces a hard 255-character limit on them. A legal entity name of
+    ~130+ characters -- accepted by the API's own validator -- pushed
+    `keywords` past that limit and made generate_pptx raise, so the bundle
+    shipped with no PPTX at all and the delivery gate had nothing to inspect.
+    """
+    import budget_engine
+
+    alloc = budget_engine.calculate_budget_allocation(
+        total_budget=150_000,
+        roles=[{"title": "Nurse", "count": 10, "tier": "mid"}],
+        locations=[{"city": "Dallas", "state": "TX", "country": "United States"}],
+        industry="healthcare",
+        channel_percentages={"Indeed": 100},
+        collar_type="white",
+        campaign_start_month=9,
+    )
+    for length in (130, 200, 400):
+        name = (
+            "Consolidated Hospitality Leisure Gaming Holdings Group PLC KGaA " * 20
+        )[:length]
+        data = {
+            "client_name": name,
+            "industry": "healthcare",
+            "locations": ["Dallas, TX"],
+            "roles": ["Nurse"],
+            "budget": "150000",
+            "_budget_allocation": alloc,
+        }
+        pptx_bytes = ppt.generate_pptx(data)
+        prs = Presentation(io.BytesIO(pptx_bytes))
+        assert len(prs.slides) >= 10, (
+            f"client name of {length} chars produced only " f"{len(prs.slides)} slides"
+        )
+        core = prs.core_properties
+        for field in ("title", "subject", "keywords", "comments"):
+            value = getattr(core, field) or ""
+            assert len(value) <= 255, (
+                f"core property {field!r} is {len(value)} chars for a "
+                f"{length}-char client name (limit 255)"
+            )
+
+
 if __name__ == "__main__":
     test_text_shapes_within_slide_bounds()
     test_no_text_below_8pt()
     test_brand_font_embedded()
+    test_every_rendered_character_is_covered_by_its_embedded_font()
+    test_long_client_name_still_produces_a_deck()
     print("All deck-layout regression tests passed.")

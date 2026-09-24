@@ -536,10 +536,17 @@ def goal_gap(projected_hires: int, goal: int, cost_per_hire: float) -> dict | No
         cph = 0.0
 
     pct_of_goal = (projected_i / goal_i) * 100 if goal_i else 0.0
-    additional_budget = (goal_i - projected_i) * cph
+    # cost_per_hire <= 0 means UNKNOWN (typically a plan projecting zero
+    # hires, where budget / 0 has no value), not "free". Multiplying the gap
+    # by 0 shipped "scaling path: ~$0 additional" on the deck -- an inverted
+    # message on exactly the plans whose honesty matters most. Report None
+    # and let each surface omit the figure.
+    additional_budget = (goal_i - projected_i) * cph if cph > 0 else None
     return {
         "goal": goal_i,
         "projected": projected_i,
         "pct_of_goal": round(pct_of_goal, 1),
-        "additional_budget": round(additional_budget, 2),
+        "additional_budget": (
+            round(additional_budget, 2) if additional_budget is not None else None
+        ),
     }

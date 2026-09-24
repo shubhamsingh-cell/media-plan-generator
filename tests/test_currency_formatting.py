@@ -428,3 +428,184 @@ class TestCurrencyWithBenchmarkPath:
             f"(otherwise USD is rendered instead of local currency); "
             f"got fast_path response"
         )
+
+
+class TestCurrencySymbolsAreRenderable:
+    """Every display symbol must be drawable by a font the deck EMBEDS.
+
+    The deck embeds Poppins (a 504-glyph Latin text face) plus a small symbol
+    face. A currency sign outside both is drawn by whatever face the viewer's OS
+    falls back to -- on every money figure for that market, not just one label,
+    so the deck's most-scrutinised numbers go off-brand and platform-dependent.
+    This actually happened: the table was originally chosen against
+    "Inter / Calibri", and when the deck standardised on Poppins eight entries
+    (฿ ₦ ₩ ₪ ₫ ₱ ₴ ৳) silently left the guarantee while every test still passed.
+
+    Where no embeddable font covers a sign, the table uses the ISO code plus a
+    space (as it already does for AED/SAR/QAR/CHF) rather than leaving the mark
+    to the viewer's machine.
+    """
+
+    @staticmethod
+    def _embedded_coverage() -> set:
+        from fontTools.ttLib import TTFont
+
+        import ppt_generator as ppt
+
+        covered: set = set()
+        for _typeface, _slot, fname in ppt._EMBED_FONTS:
+            path = ppt._FONTS_DIR / fname
+            assert path.is_file(), f"embedded font missing from repo: {fname}"
+            face: set = set()
+            for table in TTFont(str(path), lazy=True)["cmap"].tables:
+                face |= set(table.cmap.keys())
+            # Union across faces: a run is placed on whichever face covers it.
+            covered |= face
+        return covered
+
+    def test_every_currency_symbol_is_renderable(self):
+        import plan_currency as pc
+
+        covered = self._embedded_coverage()
+        assert covered, "no embedded font coverage could be read"
+
+        unrenderable = []
+        for code, symbol in sorted(pc._CODE_TO_SYMBOL.items()):
+            for ch in symbol:
+                if ch.isspace():
+                    continue
+                if ord(ch) not in covered:
+                    unrenderable.append(
+                        f"{code}: {ch!r} U+{ord(ch):04X} in symbol {symbol!r}"
+                    )
+        assert not unrenderable, (
+            "Currency symbols no embedded font can render (every money figure "
+            "for that market then depends on the viewer's own fonts). Either add the "
+            "codepoint to scripts/build_symbol_font.py and rebuild, or use the "
+            "ISO code + space as the display symbol:\n  " + "\n  ".join(unrenderable)
+        )
+
+    def test_symbol_lookup_still_returns_something_for_every_known_country(self):
+        """The renderability fix must not have emptied any mapping."""
+        import plan_currency as pc
+
+        for code in pc._CODE_TO_SYMBOL:
+            symbol = pc.symbol_for_code(code)
+            assert symbol and symbol.strip(), f"{code} resolved to empty symbol"
+
+    def test_bangladesh_uses_iso_code_not_an_unrenderable_sign(self):
+        """Pins the one currency whose sign is in no embeddable font."""
+        import plan_currency as pc
+
+        assert pc.currency_for_country("Bangladesh") == "BDT"
+        formatted = pc.format_money(1_234_567, "BDT")
+        assert (
+            "৳" not in formatted
+        ), f"BDT rendered the unrenderable ৳ sign: {formatted!r}"
+        assert "BDT" in formatted and "1,234,567" in formatted, formatted
+
+
+class TestScorecardCurrency:
+    """The shareable scorecard must render the PLAN's currency, not always USD.
+
+    routes/campaign.py publishes this page at a public /scorecard/<id> URL with
+    OpenGraph/Twitter cards, so it is the most externally visible artifact in
+    the bundle. It hardcoded "$": a £420,000 UK plan was published as
+    "$420,000" -- a ~27% misstatement of committed spend, contradicting the
+    deck and workbook delivered in the same bundle, and visible in the link
+    preview to people who never open either.
+    """
+
+    import re as _re
+
+    _HERO = _re.compile(r"Total Budget</div>\s*<div[^>]*>([^<]+)</div>", _re.S)
+
+    @staticmethod
+    def _scorecard(country: str, city: str, code: str) -> str:
+        import budget_engine
+        from scorecard_generator import generate_scorecard_html
+
+        alloc = budget_engine.calculate_budget_allocation(
+            total_budget=420_000,
+            roles=[{"title": "Software Engineer", "count": 20, "tier": "mid"}],
+            locations=[{"city": city, "state": "", "country": country}],
+            industry="technology_engineering",
+            channel_percentages={"LinkedIn": 50, "Indeed": 50},
+            collar_type="white",
+            campaign_start_month=9,
+        )
+        return generate_scorecard_html(
+            {
+                "client_name": f"{country} Co",
+                "industry": "technology_engineering",
+                "locations": [f"{city}, {country}"],
+                "country": country,
+                "currency_code": code,
+                "roles": ["Software Engineer"],
+                "budget": "420000",
+                "_budget_allocation": alloc,
+            },
+            "sc_test",
+        )
+
+    @pytest.mark.parametrize(
+        "country,city,code,symbol",
+        [
+            ("United Kingdom", "London", "GBP", "£"),
+            ("India", "Mumbai", "INR", "₹"),
+            ("Australia", "Perth", "AUD", "A$"),
+            ("United States", "Dallas", "USD", "$"),
+            ("South Korea", "Seoul", "KRW", "₩"),
+            ("Canada", "Toronto", "CAD", "C$"),
+            ("Thailand", "Bangkok", "THB", "฿"),
+            ("Bangladesh", "Dhaka", "BDT", "BDT"),
+        ],
+    )
+    def test_scorecard_hero_budget_uses_plan_currency(
+        self, country, city, code, symbol
+    ):
+        html_out = self._scorecard(country, city, code)
+        match = self._HERO.search(html_out)
+        assert match, "scorecard has no 'Total Budget' hero value"
+        shown = match.group(1).strip()
+        assert shown.startswith(symbol), (
+            f"{country} plan ({code}) published its budget as {shown!r}; "
+            f"expected it to start with {symbol!r}"
+        )
+
+    def test_non_usd_scorecard_does_not_say_dollars(self):
+        """The specific shipped defect: a GBP plan rendered as US dollars."""
+        html_out = self._scorecard("United Kingdom", "London", "GBP")
+        match = self._HERO.search(html_out)
+        assert match
+        assert (
+            not match.group(1).strip().startswith("$")
+        ), "GBP plan still publishes a '$' budget on the public share page"
+
+
+class TestPlanCurrencyResolverIsShared:
+    """One resolver, so deck / workbook / scorecard / gate cannot disagree."""
+
+    def test_ppt_generator_delegates_to_plan_currency(self):
+        import plan_currency as pc
+        import ppt_generator as ppt
+
+        for data in (
+            {"currency_code": "GBP"},
+            {"locations": ["London, United Kingdom"]},
+            {"locations": [{"city": "Mumbai", "country": "India"}]},
+            {"country": "Australia"},
+            {"locations": ["Dallas, TX"]},
+            {},
+        ):
+            assert ppt._plan_currency_code(data) == pc.currency_for_plan(data), data
+
+    def test_scorecard_resolves_same_currency_as_the_deck(self):
+        import ppt_generator as ppt
+        import scorecard_generator as sc
+        import plan_currency as pc
+
+        data = {"locations": ["London, United Kingdom"]}
+        assert sc._currency_symbol(data) == pc.symbol_for_code(
+            ppt._plan_currency_code(data)
+        )

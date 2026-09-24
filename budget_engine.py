@@ -2592,9 +2592,11 @@ def compute_channel_dollar_amounts(
 
         if intl_cpc_basis:
             _intl_cpc = (intl_cpc_basis.get("categories") or {}).get(category)
-            if isinstance(_intl_cpc, (int, float)) and not isinstance(
-                _intl_cpc, bool
-            ) and _intl_cpc > 0:
+            if (
+                isinstance(_intl_cpc, (int, float))
+                and not isinstance(_intl_cpc, bool)
+                and _intl_cpc > 0
+            ):
                 cpc = float(_intl_cpc)
                 cpc_source = intl_cpc_basis.get("source") or "intl_locale"
                 # "local" basis means the plan's own currency IS this
@@ -2603,7 +2605,9 @@ def compute_channel_dollar_amounts(
                 # multiple markets/currencies via the dataset's own
                 # pre-computed USD figures, a defensible but blended
                 # estimate -- medium, matching the KB tier's confidence.
-                confidence = "high" if intl_cpc_basis.get("basis") == "local" else "medium"
+                confidence = (
+                    "high" if intl_cpc_basis.get("basis") == "local" else "medium"
+                )
                 logger.info(
                     "CPC for channel=%s category=%s resolved from "
                     "international locale basis: %.4f [%s]",
@@ -2649,6 +2653,41 @@ def compute_channel_dollar_amounts(
             cpc = BASE_BENCHMARKS["cpc"].get(category, 0.85)
             cpc_source = "static_benchmark"
             confidence = "low"
+
+        # ── Unit coherence for a LOCAL-currency basis (Fix: India CPC mix) ──
+        # When the locale basis is "local", every CPC the plan uses must be in
+        # that currency. The basis only covers the categories the market's
+        # platform list contains (India: job_board + social); anything that
+        # fell through to the cascade above is a USD figure. Left as-is it sat
+        # in the same ₹-formatted column -- ₹0.62 next to ₹13.37 -- and the
+        # ~83x unit error made those channels look cheapest, steering ~80% of
+        # an ₹18M budget to them. Convert with the dataset's own rate (USD per
+        # one local unit, shipped alongside every platform's cpc_usd /
+        # cpc_local pair), so no exchange rate is invented here.
+        if (
+            intl_cpc_basis
+            and intl_cpc_basis.get("basis") == "local"
+            and cpc is not None
+            and not str(cpc_source).startswith("intl_")
+        ):
+            _usd_per_local = intl_cpc_basis.get("usd_per_local")
+            if (
+                isinstance(_usd_per_local, (int, float))
+                and not isinstance(_usd_per_local, bool)
+                and _usd_per_local > 0
+            ):
+                cpc = round(float(cpc) / float(_usd_per_local), 4)
+                cpc_source = (
+                    f"{cpc_source}->{intl_cpc_basis.get('currency') or 'local'}"
+                )
+                logger.info(
+                    "CPC for channel=%s category=%s converted from USD "
+                    "cascade into the plan's local basis: %.4f [%s]",
+                    ch_name,
+                    category,
+                    cpc,
+                    cpc_source,
+                )
 
         # ── Apply Rate with Collar Adjustment (v3) ──
         base_apply_rate = BASE_BENCHMARKS["apply_rate"].get(category, 0.05)

@@ -47,7 +47,7 @@ from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
-from pptx.enum.shapes import MSO_SHAPE
+from pptx.enum.shapes import MSO_SHAPE, MSO_SHAPE_TYPE
 
 try:
     import research
@@ -124,9 +124,19 @@ def _register_chart_fonts() -> str:
                 _fm.FontProperties(family="Poppins"), fallback_to_default=False
             )
             if resolved and "poppins" in resolved.lower():
-                plt.rcParams["font.family"] = "Poppins"
-                # Keep DejaVu in the sans-serif chain for glyph coverage (e.g.
-                # currency symbols Poppins may lack).
+                # font.family must be the LIST, not "Poppins" and not
+                # "sans-serif". Both of those resolve to Poppins alone and then
+                # matplotlib draws a literal tofu box for anything outside its
+                # 504-glyph cmap -- measured: family="Poppins" and
+                # family="sans-serif" each emit 6 "Glyph 8594 (RIGHTWARDS ARROW)
+                # missing from font(s) Poppins" warnings on a "Clicks → Apps ▲"
+                # label, while the list form emits none. The sans-serif chain
+                # below does NOT rescue it; matplotlib picks the first available
+                # family from the chain and does no per-glyph fallback.
+                # This matters more than the same gap in slide text: charts are
+                # rasterised to PNG, so a missing glyph is baked in and no
+                # embedded font can fix it afterwards.
+                plt.rcParams["font.family"] = ["Poppins", "DejaVu Sans"]
                 plt.rcParams["font.sans-serif"] = [
                     "Poppins",
                     "DejaVu Sans",
@@ -152,13 +162,233 @@ _CHART_FONT_FAMILY = _register_chart_fonts()
 # ---------------------------------------------------------------------------
 # (typeface, embeddedFont slot, filename). PowerPoint matches an embedded font to
 # text runs by typeface name; the deck sets every run to "Poppins".
+#
+# Poppins is a 504-glyph Latin TEXT face: it has no check mark, arrow, triangle,
+# circle or hexagon, and no currency sign beyond the common few. Every such
+# character the deck draws therefore fell OUTSIDE the embedding guarantee above.
+#
+# What that actually costs, measured rather than assumed: on macOS these do NOT
+# render as tofu -- CoreText does per-character fallback, and a probe deck with
+# the glyphs tagged to a face installed and embedded nowhere still drew all of
+# them. What is lost is CONTROL: the mark comes from whatever face the viewer's
+# OS happens to pick, so it differs by platform and is not the brand's shape or
+# weight. Windows PowerPoint's fallback is untested from here, and an embedded
+# covering face is the only lever available for it either way.
+# (Charts are the one true tofu case -- see _register_chart_fonts above --
+# because matplotlib rasterises them and does no fallback.)
+#
+# "Nova Deck Symbols" is a tiny renamed DejaVu subset covering precisely those
+# characters (see scripts/build_symbol_font.py); _apply_symbol_font() below moves
+# the affected characters onto it so the guarantee holds for the whole deck.
+SYMBOL_FONT_FAMILY = "Nova Deck Symbols"
 _EMBED_FONTS = [
     ("Poppins", "regular", "Poppins-Regular.ttf"),
     ("Poppins", "bold", "Poppins-Bold.ttf"),
+    (SYMBOL_FONT_FAMILY, "regular", "NovaDeckSymbols-Regular.ttf"),
+    (SYMBOL_FONT_FAMILY, "bold", "NovaDeckSymbols-Bold.ttf"),
 ]
 _FONT_REL_TYPE = (
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/font"
 )
+
+_A_NS = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+# Read-once cache of Poppins' coverage. Deliberately NOT lock-guarded: the
+# computation is pure and idempotent (same .ttf files -> same frozenset), so a
+# race between two generator threads can only duplicate the work, never produce
+# a wrong or partial value. A lock here would serialise every deck build behind
+# a one-off file read for no correctness gain.
+_POPPINS_CMAP: Optional[frozenset] = None
+_POPPINS_CMAP_LOADED = False
+
+
+def _poppins_cmap() -> Optional[frozenset]:
+    """Codepoints covered by EVERY embedded Poppins slot, or None if unknowable.
+
+    Intersection, not union: a character present in Poppins-Regular but absent
+    from Poppins-Bold would still fall out of the guarantee wherever the deck
+    sets bold.
+    Returns None (and callers no-op) if fontTools or the .ttf files are absent,
+    so a deployment without them degrades to today's behaviour rather than
+    crashing deck generation.
+    """
+    global _POPPINS_CMAP, _POPPINS_CMAP_LOADED
+    if _POPPINS_CMAP_LOADED:
+        return _POPPINS_CMAP
+    _POPPINS_CMAP_LOADED = True
+    try:
+        from fontTools.ttLib import TTFont
+
+        covered: Optional[set] = None
+        for _typeface, _slot, fname in _EMBED_FONTS:
+            if _typeface != FONT_FAMILY:
+                continue
+            fpath = _FONTS_DIR / fname
+            if not fpath.is_file():
+                return None
+            face: set = set()
+            for table in TTFont(str(fpath), lazy=True)["cmap"].tables:
+                face |= set(table.cmap.keys())
+            covered = face if covered is None else (covered & face)
+        _POPPINS_CMAP = frozenset(covered) if covered else None
+    except (ImportError, OSError, KeyError, ValueError) as exc:
+        logger.debug("Poppins cmap unavailable, symbol pass disabled: %s", exc)
+        _POPPINS_CMAP = None
+    return _POPPINS_CMAP
+
+
+def _iter_text_frames(shapes):
+    """Yield every text frame under ``shapes``, descending into groups and tables."""
+    for shape in shapes:
+        try:
+            if shape.shape_type == MSO_SHAPE_TYPE.GROUP and hasattr(shape, "shapes"):
+                yield from _iter_text_frames(shape.shapes)
+                continue
+            if getattr(shape, "has_text_frame", False):
+                yield shape.text_frame
+            if getattr(shape, "has_table", False):
+                for row in shape.table.rows:
+                    for cell in row.cells:
+                        yield cell.text_frame
+        except (AttributeError, ValueError) as exc:  # pragma: no cover - defensive
+            logger.debug("Symbol pass skipped a shape: %s", exc)
+
+
+# <a:rPr> child order is fixed by the DrawingML schema; <a:latin> sits after the
+# fill/underline group and before these. Insert relative to them rather than
+# appending blindly, or PowerPoint rejects the part as malformed.
+_RPR_AFTER_LATIN = ("ea", "cs", "sym", "hlinkClick", "hlinkMouseOver", "rtl", "extLst")
+
+
+def _force_symbol_typeface(run_el) -> None:
+    """Point one run element at the symbol face, creating rPr/latin if absent.
+
+    A run with no explicit ``<a:latin>`` inherits the theme typeface (Poppins),
+    which is exactly the font that cannot render these characters -- so the
+    missing-element case is the bug, not a safe default. Italic is pinned off:
+    geometric symbols are never italicised, and the symbol face embeds only
+    regular+bold slots, so this keeps every symbol run on a slot that ships
+    instead of relying on the renderer to synthesise an oblique.
+    """
+    rPr = run_el.find(f"{_A_NS}rPr")
+    if rPr is None:
+        rPr = run_el.makeelement(f"{_A_NS}rPr", {})
+        run_el.insert(0, rPr)  # rPr must be the first child of a:r
+    latins = rPr.findall(f"{_A_NS}latin")
+    if not latins:
+        latin = rPr.makeelement(f"{_A_NS}latin", {})
+        anchor = next(
+            (child for child in rPr if child.tag.split("}")[-1] in _RPR_AFTER_LATIN),
+            None,
+        )
+        if anchor is None:
+            rPr.append(latin)
+        else:
+            anchor.addprevious(latin)
+        latins = [latin]
+    for latin in latins:
+        latin.set("typeface", SYMBOL_FONT_FAMILY)
+    rPr.set("i", "0")
+
+
+def _split_run_for_symbols(run, covered: frozenset) -> int:
+    """Split one run so characters outside ``covered`` move to the symbol face.
+
+    The run's TEXT is preserved exactly -- only the ``<a:latin>`` typeface of the
+    uncovered spans changes. That matters: bundle_qa and the geometry tests read
+    slide text to detect markers (e.g. the "beating benchmark" arrow), so drawing
+    these as shapes would have deleted the signal they match on. Returns the
+    number of symbol spans created.
+    """
+    text = run.text or ""
+    if not text or all(ord(c) in covered or c.isspace() for c in text):
+        return 0
+    # Already moved (a second pass over the same deck would otherwise keep
+    # re-splitting symbol runs, since their text is by definition outside
+    # Poppins' cmap).
+    existing = run._r.find(f"{_A_NS}rPr/{_A_NS}latin")
+    if existing is not None and existing.get("typeface") == SYMBOL_FONT_FAMILY:
+        return 0
+
+    # Chunk into alternating covered / uncovered spans. Whitespace counts as
+    # covered (every face has it), so a marker like "▸  " splits into just
+    # two runs -- the symbol, then its trailing spaces on Poppins -- instead of
+    # fragmenting once per character.
+    spans: List[Tuple[bool, str]] = []
+    for ch in text:
+        uncovered = not (ord(ch) in covered or ch.isspace())
+        if spans and spans[-1][0] == uncovered:
+            spans[-1] = (uncovered, spans[-1][1] + ch)
+        else:
+            spans.append((uncovered, ch))
+    if len(spans) == 1 and not spans[0][0]:
+        return 0
+
+    import copy
+
+    r_el = run._r
+    parent = r_el.getparent()
+    if parent is None:  # pragma: no cover - defensive
+        return 0
+    index = list(parent).index(r_el)
+    created = 0
+    for offset, (uncovered, chunk) in enumerate(spans):
+        new_el = copy.deepcopy(r_el)
+        for t_el in new_el.findall(f"{_A_NS}t"):
+            t_el.text = chunk
+        if uncovered:
+            _force_symbol_typeface(new_el)
+            created += 1
+        parent.insert(index + offset, new_el)
+    parent.remove(r_el)
+    return created
+
+
+def _apply_symbol_font(prs: Presentation) -> int:
+    """Move characters Poppins cannot render onto the embedded symbol face.
+
+    Runs BEFORE ``prs.save()``. Without this, any codepoint outside Poppins'
+    504-glyph cmap -- the deck's own bullet/legend markers, and arrows arriving
+    from KB data such as data/joveo_media_plan_deck_2026.json -- escapes the font
+    embedding entirely and is drawn by whatever face the viewer's OS falls back
+    to -- so the mark differs by platform and is not the brand's. (macOS does
+    fall back cleanly; Windows PowerPoint is untested from here.)
+    Best-effort: returns 0 and changes nothing if coverage can't be determined,
+    so this never breaks deck generation.
+    """
+    covered = _poppins_cmap()
+    if not covered:
+        return 0
+    total = 0
+    try:
+        for slide in prs.slides:
+            for text_frame in _iter_text_frames(slide.shapes):
+                for paragraph in text_frame.paragraphs:
+                    for run in list(paragraph.runs):
+                        total += _split_run_for_symbols(run, covered)
+    except (AttributeError, ValueError) as exc:  # pragma: no cover - defensive
+        logger.warning("Symbol font pass incomplete (non-fatal): %s", exc)
+    if total:
+        logger.debug("Symbol font applied to %d run span(s)", total)
+    return total
+
+
+_CORE_PROP_MAX = 255
+
+
+def _clamp_core_prop(value: str) -> str:
+    """Trim an OOXML core property to the 255-character limit python-pptx enforces.
+
+    These strings interpolate the client name, so a long legal entity name --
+    well within what the API's own validator accepts -- pushed ``keywords``
+    past the limit and made ``generate_pptx`` raise. The deck then vanished
+    from the delivery bundle entirely, and the delivery gate could not report
+    it because there were no pptx bytes left to inspect. Metadata is never
+    worth losing the whole deck over.
+    """
+    text = value or ""
+    if len(text) <= _CORE_PROP_MAX:
+        return text
+    return text[: _CORE_PROP_MAX - 1].rstrip() + "…"
 
 
 def _embed_fonts_in_pptx(pptx_bytes: bytes) -> bytes:
@@ -1599,61 +1829,38 @@ def _get_active_currency() -> str:
 def _plan_currency_code(data: Optional[Dict]) -> str:
     """Resolve the ISO currency code for a plan from its data. Defaults to USD.
 
-    Order of precedence:
+    Order of precedence (declare-not-convert):
       1. An explicit ``currency`` / ``currency_code`` on the plan data.
-      2. ``plan_currency.currency_for_country`` applied to the plan's locations
-         (trailing "City, ST, Country" token) or an explicit country field.
-      3. USD.
-    Never raises.
+      2. The currency symbol the client typed in the budget -- a declaration,
+         which the location list may disambiguate but never contradict.
+      3. The plan's markets, only when they all agree on one currency.
+      4. USD.
+    Records the basis on ``data["_currency_basis"]``. Never raises.
+
+    Delegates to ``plan_currency.currency_for_plan_with_basis`` so the deck, the workbook,
+    the scorecard and the delivery gate cannot drift apart on what currency a
+    plan is in -- the failure that let the scorecard publish every non-USD plan
+    in dollars while the deck beside it read correctly.
     """
     if not isinstance(data, dict):
         return "USD"
-    explicit = data.get("currency_code") or data.get("currency")
-    if isinstance(explicit, str) and explicit.strip():
-        data["_currency_basis"] = "explicit"
-        return explicit.strip().upper()
     if _plan_currency is None:
+        explicit = data.get("currency_code") or data.get("currency")
+        if isinstance(explicit, str) and explicit.strip():
+            data["_currency_basis"] = "explicit"
+            return explicit.strip().upper()
         data["_currency_basis"] = "default"
         return "USD"
-    candidates: List[str] = []
-    for key in ("country", "primary_location"):
-        val = data.get(key)
-        if isinstance(val, str) and val.strip():
-            candidates.append(val)
-    locs = data.get("locations") or []
-    if isinstance(locs, (list, tuple)):
-        for loc in locs:
-            if isinstance(loc, str) and loc.strip():
-                candidates.append(loc)
-            elif isinstance(loc, dict):
-                country = loc.get("country") or loc.get("location") or ""
-                if isinstance(country, str) and country.strip():
-                    candidates.append(country)
-    market_codes: List[str] = []
-    for cand in candidates:
-        try:
-            code = _plan_currency.currency_for_country(cand)
-        except Exception:  # noqa: BLE001 - resolution is best-effort
-            code = None
-        if code:
-            market_codes.append(code)
-
-    # convert-vs-declare: the client's own declaration outranks the market
-    # guess. This used to return market_codes[0] outright, so a budget typed
-    # as "$2,000,000" for a London office rendered back as "£2M" -- the
-    # client's own symbol overwritten by a guess, with no conversion done --
-    # and the answer flipped with the ORDER of the locations list.
+    # One resolver for deck, workbook, scorecard and gate: the declare-not-
+    # convert rule lives in plan_currency, and the basis it reports is kept on
+    # the plan so the deck can disclose it.
     try:
-        code, basis = _plan_currency.resolve_declared_currency(
-            budget_text=data.get("budget") or data.get("budget_range") or "",
-            explicit_code=None,
-            market_codes=market_codes,
-        )
-    except (AttributeError, TypeError, ValueError) as exc:  # noqa: BLE001
-        logger.debug("Declared-currency resolution failed (%s) -- USD", exc)
-        code, basis = None, "default"
+        code, basis = _plan_currency.currency_for_plan_with_basis(data)
+    except Exception as exc:  # noqa: BLE001 - resolution is best-effort
+        logger.debug("Plan currency resolution failed (%s) -- USD", exc)
+        code, basis = "USD", "default"
     data["_currency_basis"] = basis
-    return code or "USD"
+    return code
 
 
 def _set_active_currency(data: Optional[Dict]) -> str:
@@ -4220,7 +4427,12 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             p.space_before = Pt(1)
             p.space_after = Pt(2)
             rb = p.add_run()
-            rb.text = "\u25cf  "
+            # U+2022 BULLET, not U+25CF BLACK CIRCLE: Poppins covers •
+            # (the deck already draws it in its own footer) but not ●, so
+            # ● would come from the symbol face -- 764 units of ink against
+            # Poppins' 245, i.e. a visibly heavier dot from a second
+            # typeface next to 8pt body text. Same meaning, one face.
+            rb.text = "\u2022  "
             _set_font(rb, size=8, color=BLUE)
             rt = p.add_run()
             rt.text = g
@@ -4237,16 +4449,24 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     _exec_hire_goal = _fmt.parse_hire_goal(data.get("hire_volume"))
     _exec_goal_gap = _fmt.goal_gap(_ppt_hires_sum, _exec_hire_goal, _ppt_cph)
     if _exec_goal_gap:
-        _add_paragraph(
-            tf4,
-            f"Client goal: {_exec_goal_gap['goal']:,} hires — this plan "
-            f"projects {_exec_goal_gap['projected']:,} "
-            f"({_exec_goal_gap['pct_of_goal']:.0f}% of goal); scaling path: "
+        # A plan projecting zero hires has no cost-per-hire, so it has no
+        # scaling path either -- state the gap and stop, rather than the
+        # "~$0 additional" a 0.0 cost-per-hire used to multiply out to.
+        _scaling = (
+            f"; scaling path: "
             # copy:both#2: compact currency ("~£2.33M") instead of the raw
             # two-decimal amount ("~£2,331,579.88") -- _fmt_currency's
             # compact path matches fmt_money's never-"-.0" rounding while
             # using the plan's own currency symbol.
-            f"~{_fmt_currency(_exec_goal_gap['additional_budget'], compact=True)} additional",
+            f"~{_fmt_currency(_exec_goal_gap['additional_budget'], compact=True)} additional"
+            if _exec_goal_gap.get("additional_budget")
+            else ""
+        )
+        _add_paragraph(
+            tf4,
+            f"Client goal: {_exec_goal_gap['goal']:,} hires — this plan "
+            f"projects {_exec_goal_gap['projected']:,} "
+            f"({_exec_goal_gap['pct_of_goal']:.0f}% of goal){_scaling}",
             font_size=7,
             bold=True,
             color=NAVY,
@@ -6059,6 +6279,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
 
     # Map budget engine channel data onto our display channels
     display_channels = []
+    _matched_ba_ids: set = set()
     for ch_key, ch_data in channels.items():
         entry = {
             "label": ch_data.get("label", ch_key.replace("_", " ").title()),
@@ -6086,11 +6307,66 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
             entry["cpa"] = ba_match.get("cpa") or 0
         if ch_key in _reconciled_pct:
             entry["pct"] = _reconciled_pct[ch_key]
-        # Fallback: compute dollar from percentage if budget engine didn't provide it
-        if entry["dollar"] == 0 and ba_total_budget > 0 and entry["pct"] > 0:
+        entry["_funded"] = bool(ba_match and isinstance(ba_match, dict))
+        if ba_match and isinstance(ba_match, dict):
+            _matched_ba_ids.add(id(ba_match))
+        # Fallback: compute dollar from percentage ONLY when there is no
+        # budget-engine allocation at all. When one exists, an unmatched
+        # display channel is a channel the engine chose NOT to fund; giving it
+        # a dollar figure from the static profile's percentage invented an
+        # $81,000 "Employer Branding" row and pushed a $900,000 plan's Total to
+        # 109% / $981,000 on the client's own slide.
+        if (
+            not ba_channel_alloc
+            and entry["dollar"] == 0
+            and ba_total_budget > 0
+            and entry["pct"] > 0
+        ):
             entry["dollar"] = ba_total_budget * entry["pct"] / 100
 
         display_channels.append(entry)
+
+    if ba_channel_alloc:
+        # The table is the budget engine's FUNDED set, exactly. Two things
+        # used to break that and make the Total row contradict the
+        # "Total Investment" tile three inches above it:
+        #   1. display channels the engine did not fund stayed in the table
+        #      (handled above -- they now carry no dollars and are dropped);
+        #   2. channels the engine DID fund but the static display profile
+        #      omits (apac_regional / emea_regional on most industries) were
+        #      absent from the rows AND the Total, so a $12.5M plan printed
+        #      $8,019,032 as "100%" with 36% of the budget unaccounted for.
+        display_channels = [c for c in display_channels if c["_funded"]]
+        for ba_key, ba_val in ba_channel_alloc.items():
+            if not isinstance(ba_val, dict) or id(ba_val) in _matched_ba_ids:
+                continue
+            _dollar = ba_val.get("dollar_amount") or 0
+            if _dollar <= 0:
+                continue
+            display_channels.append(
+                {
+                    "label": ba_val.get("label")
+                    or str(ba_key).replace("_", " ").title(),
+                    "pct": ba_val.get("percentage") or 0,
+                    "color": MUTED_TEXT,
+                    "dollar": _dollar,
+                    "projected_apps": ba_val.get("projected_applications") or 0,
+                    "projected_hires": ba_val.get("projected_hires") or 0,
+                    "cpa": ba_val.get("cpa") or 0,
+                    "_funded": True,
+                }
+            )
+        # Re-round percentages over the FINAL row set so they sum to exactly
+        # 100 and the Investment column foots to the plan budget.
+        _total_dollar_all = sum(c["dollar"] for c in display_channels)
+        if _total_dollar_all > 0:
+            _raw = {
+                str(i): c["dollar"] / _total_dollar_all * 100
+                for i, c in enumerate(display_channels)
+            }
+            _rounded = _largest_remainder_round(_raw)
+            for i, c in enumerate(display_channels):
+                c["pct"] = _rounded.get(str(i), c["pct"])
 
     # Sort by dollar amount (descending), then by percentage
     display_channels.sort(key=lambda c: (c["dollar"], c["pct"]), reverse=True)
@@ -10534,7 +10810,12 @@ def _build_slide_case_study_next_steps(
             p.space_before = Pt(1)
             p.space_after = Pt(3)
             rb = p.add_run()
-            rb.text = "\u25cf  "
+            # U+2022 BULLET, not U+25CF BLACK CIRCLE: Poppins covers •
+            # (the deck already draws it in its own footer) but not ●, so
+            # ● would come from the symbol face -- 764 units of ink against
+            # Poppins' 245, i.e. a visibly heavier dot from a second
+            # typeface next to 8pt body text. Same meaning, one face.
+            rb.text = "\u2022  "
             _set_font(rb, size=8, color=accent)
             rt = p.add_run()
             rt.text = str(item)
@@ -10733,11 +11014,21 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         industry_label = data.get(
             "industry_label", (data.get("industry") or "").replace("_", " ").title()
         )
-        core_props.title = f"Recruitment Media Plan - {client}"
+        core_props.title = _clamp_core_prop(f"Recruitment Media Plan - {client}")
         core_props.author = "Nova AI Suite"
-        core_props.subject = f"AI-generated recruitment advertising media plan for {client} in the {industry_label} industry"
-        core_props.keywords = f"recruitment media plan, {industry_label}, job advertising, programmatic recruitment, {client}, talent acquisition, hiring strategy"
-        core_props.comments = f"Generated by Nova AI Media Plan Generator (media-plan-generator.onrender.com). Data sourced from 25 real-time APIs, 91+ job board platforms, and Nova AI Suite industry knowledge base."
+        core_props.subject = _clamp_core_prop(
+            f"AI-generated recruitment advertising media plan for {client} "
+            f"in the {industry_label} industry"
+        )
+        core_props.keywords = _clamp_core_prop(
+            f"recruitment media plan, {industry_label}, job advertising, "
+            f"programmatic recruitment, {client}, talent acquisition, hiring strategy"
+        )
+        core_props.comments = _clamp_core_prop(
+            "Generated by Nova AI Media Plan Generator "
+            "(media-plan-generator.onrender.com). Data sourced from 25 real-time "
+            "APIs, 91+ job board platforms, and Nova AI Suite industry knowledge base."
+        )
         core_props.category = "Recruitment Advertising"
         core_props.last_modified_by = "Nova AI Suite"
         # craft:both#2: stamp the REAL generation timestamp -- python-pptx's
@@ -10893,6 +11184,10 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         # ever needs to be resurrected.
 
         _n_slides_final = len(prs.slides)
+        # Move any character Poppins cannot render (bullet/legend markers, and
+        # arrows arriving from KB data) onto the embedded symbol face, so the
+        # font-embedding guarantee below covers every glyph on every slide.
+        _apply_symbol_font(prs)
         buffer = io.BytesIO()
         prs.save(buffer)
         buffer.seek(0)

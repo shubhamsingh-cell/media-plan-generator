@@ -473,7 +473,9 @@ def is_available() -> bool:
 # above so the two coexist without surprises.
 # ═══════════════════════════════════════════════════════════════════════════
 
-_INTL_2026_PATH: Path = Path(__file__).parent / "data" / "international_benchmarks_2026.json"
+_INTL_2026_PATH: Path = (
+    Path(__file__).parent / "data" / "international_benchmarks_2026.json"
+)
 
 _intl_2026_countries: dict[str, Any] = {}
 _intl_2026_loaded: bool = False
@@ -700,7 +702,9 @@ def get_locale_cpc_basis(
             if share <= 0:
                 continue
             cpc_block = p.get("cpc_local") if use_local else p.get("cpc_usd")
-            cpc = (cpc_block or {}).get("median") if isinstance(cpc_block, dict) else None
+            cpc = (
+                (cpc_block or {}).get("median") if isinstance(cpc_block, dict) else None
+            )
             if not isinstance(cpc, (int, float)) or isinstance(cpc, bool) or cpc <= 0:
                 continue
             by_cat.setdefault(category, []).append((float(cpc), share))
@@ -719,9 +723,26 @@ def get_locale_cpc_basis(
     }
     basis = "local" if use_local else "usd_blend"
     tag = "intl_local" if use_local else "intl_usd_blend"
-    return {
+    result: dict[str, Any] = {
         "categories": categories,
         "basis": basis,
         "matched_countries": matched,
         "source": f"{tag}:{','.join(matched)}",
     }
+    if use_local:
+        # A local basis covers ONLY the categories this market's platform
+        # list happens to contain (India: job_board + social). Every other
+        # category falls through to the caller's USD cascade -- and used to
+        # land in the same local-currency column, so an INR workbook showed
+        # $0.62 beside ₹13.37 as if they were comparable, and the ~83x unit
+        # error steered 80% of the budget to the "cheap" channels. Hand the
+        # caller the dataset's OWN rate for this market (USD per one unit of
+        # local currency, the same figure that relates each platform's
+        # cpc_usd to its cpc_local) so it can put its fallbacks in the same
+        # unit. Nothing is fabricated: the rate ships in the source data.
+        entry = countries_data.get(matched[0]) or {}
+        rate = entry.get("usd_rate")
+        if isinstance(rate, (int, float)) and not isinstance(rate, bool) and rate > 0:
+            result["usd_per_local"] = float(rate)
+            result["currency"] = str(entry.get("currency") or plan_cur).upper()
+    return result

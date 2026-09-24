@@ -190,8 +190,7 @@ class TestGbpPlanNoHardcodedDollar:
     def test_no_bare_dollar_sign_anywhere(self, texts):
         hits = _bare_dollar_hits(texts)
         assert not hits, (
-            "GBP plan rendered a bare '$' (not part of a 'US$' marker) in: "
-            f"{hits!r}"
+            "GBP plan rendered a bare '$' (not part of a 'US$' marker) in: " f"{hits!r}"
         )
 
     def test_pound_symbol_actually_renders(self, texts):
@@ -205,9 +204,7 @@ class TestGbpPlanNoHardcodedDollar:
 
     def test_slide6_takeaway_uses_plan_symbol(self, texts):
         # ppt_generator.py budget-allocation takeaway call site (was: "$1,626")
-        assert any(
-            "with £1,626 average cost-per-hire" in t for t in texts
-        ), texts
+        assert any("with £1,626 average cost-per-hire" in t for t in texts), texts
 
     def test_slide11_next_steps_uses_plan_symbol(self, texts):
         # ppt_generator.py _interpolate_next_steps budget_fmt call site.
@@ -233,8 +230,18 @@ class TestGbpPlanNoHardcodedDollar:
         # ROI guard caps Social Media (roi_score == 1) and redistributes the
         # freed share to qualifying high-ROI channels including Programmatic
         # DSP. £557.8K -> £561.7K.
-        slide4_hit = any("Programmatic (DSP) £561.7K" in t for t in texts)
-        slide5_hit = any("Programmatic DSP (£561.7K)" in t for t in texts)
+        #
+        # 2026-09-08 DELIBERATE re-baseline (intl_benchmark_lookup.py /
+        # budget_engine.py -- local-currency-basis unit coherence fix):
+        # Programmatic DSP has no category in the UK dataset's platform list,
+        # so its CPC falls through to the USD cascade. This plan's currency
+        # (GBP) matches its single matched country's native currency, so that
+        # fallback CPC is now converted into GBP via the dataset's own
+        # usd_rate (1.27) before allocation instead of being spent as if a
+        # dollar figure were already pounds. Slides 4 and 5 still agree --
+        # the incident this file guards is unchanged. £561.7K -> £558.7K.
+        slide4_hit = any("Programmatic (DSP) £558.7K" in t for t in texts)
+        slide5_hit = any("Programmatic DSP (£558.7K)" in t for t in texts)
         assert slide4_hit, f"slide 4 push/pull figure missing/wrong: {texts!r}"
         assert slide5_hit, f"slide 5 attribution figure missing/wrong: {texts!r}"
 
@@ -376,17 +383,13 @@ class TestFmtCurrencyWholeHelper:
 class TestPushPullSplitLineHelper:
     def test_uses_active_currency_not_dollar(self):
         ppt._set_active_currency({"locations": ["United Kingdom"]})
-        out = ppt._push_pull_split_line(
-            [("Programmatic (DSP)", 557800.0)], 620000.0
-        )
+        out = ppt._push_pull_split_line([("Programmatic (DSP)", 557800.0)], 620000.0)
         assert "£557.8K" in out
         assert "$" not in out
 
     def test_usd_plan_unaffected(self):
         ppt._set_active_currency({"locations": ["United States"]})
-        out = ppt._push_pull_split_line(
-            [("Programmatic (DSP)", 557800.0)], 620000.0
-        )
+        out = ppt._push_pull_split_line([("Programmatic (DSP)", 557800.0)], 620000.0)
         assert "$557.8K" in out
         assert "£" not in out
 
