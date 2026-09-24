@@ -39,6 +39,15 @@ import excel_v2  # noqa: E402
 import bundle_qa  # noqa: E402
 
 
+def _has_us_only_marker(text: str) -> bool:
+    """Local helper matching bundle_qa's own us_data_on_non_us_plan
+    marker regexes (bundle_qa._US_ONLY_MARKER_RES) -- kept independent of
+    excel_v2's internal module structure so this test still runs (and
+    still fails meaningfully pre-fix) whether or not the fix has split
+    the marker list into its own us_only_markers.py module."""
+    return any(p.search(text) for p in bundle_qa._US_ONLY_MARKER_RES)
+
+
 def _workforce_insights() -> dict:
     """Real workforce_insights payload, built the same way the production
     pipeline does (data_synthesizer.fuse_workforce_insights over the real
@@ -154,6 +163,96 @@ def _has_bare_dollar(text: str) -> bool:
     import re
 
     return bool(re.search(r"(?<![A-Za-z])\$", text))
+
+
+class TestWorkforceTrendsUsOnlyMarkers:
+    """DEFECT B FIX (2026-09-24, pre-existing defect blocking every
+    non-US plan carrying the KB workforce content): the Workforce Trends
+    section (excel_v2._build_sheet_market_intelligence, data from
+    data_synthesizer.fuse_workforce_insights's
+    supply_partner_trends/job_type_trends/gen_z_insights pass-throughs of
+    data/workforce_trends_intelligence.json) prints US-only macro/holiday
+    vocabulary (BLS, JOLTS, Fed Funds, federal minimum wage,
+    Thanksgiving/Memorial Day/Spring break, ...) verbatim -- real shipped
+    defect: "Market Intelligence!D41" flagged 'BLS' as a
+    us_data_on_non_us_plan CRITICAL on a UK/ES plan with no US location at
+    all. Fix at the source: excel_v2 now omits any trend line carrying a
+    US-only marker (us_only_markers.py, the exact same list/regexes
+    bundle_qa's own us_data_on_non_us_plan rule checks) when the plan has
+    no US location, using the exact same plan_geo.is_us_plan(data) gate
+    bundle_qa's rule branches on -- so the two always agree."""
+
+    @pytest.mark.parametrize(
+        "country,currency", [("United Kingdom", "GBP"), ("Spain", "EUR")]
+    )
+    def test_no_us_data_on_non_us_plan_criticals_from_workforce_trends(
+        self, country, currency
+    ):
+        data = _plan_data(country, currency, currency.lower() + "-us-markers")
+        wb_bytes = _generate_wb_bytes(data)
+        findings = bundle_qa.run_bundle_qa(None, wb_bytes, data)
+        critical = [f for f in findings if f["severity"] == "critical"]
+        us_only_critical = [
+            f for f in critical if f["code"] == "us_data_on_non_us_plan"
+        ]
+        csm_critical = [f for f in critical if f["code"] == "currency_symbol_mixing"]
+        assert not us_only_critical, (
+            f"{len(us_only_critical)} us_data_on_non_us_plan criticals remain on a "
+            f"{currency} plan: {[f['message'][:160] for f in us_only_critical]}"
+        )
+        assert not csm_critical, (
+            f"{len(csm_critical)} currency_symbol_mixing criticals remain on a "
+            f"{currency} plan: {[f['message'][:160] for f in csm_critical]}"
+        )
+
+    @pytest.mark.parametrize(
+        "country,currency", [("United Kingdom", "GBP"), ("Spain", "EUR")]
+    )
+    def test_no_us_only_marker_text_in_market_intelligence_sheet(
+        self, country, currency
+    ):
+        """Direct assertion on the rendered cells, independent of
+        bundle_qa: no US-only marker string (BLS, JOLTS, Fed Funds, ...)
+        should appear anywhere on a non-US plan's Market Intelligence
+        sheet."""
+        data = _plan_data(country, currency, currency.lower() + "-cells-us-markers")
+        wb = openpyxl.load_workbook(io.BytesIO(_generate_wb_bytes(data)))
+        ws = wb["Market Intelligence"]
+        texts = [
+            c.value for row in ws.iter_rows() for c in row if isinstance(c.value, str)
+        ]
+        offenders = [t for t in texts if _has_us_only_marker(t)]
+        assert not offenders, offenders[:5]
+
+    def test_us_plan_market_intelligence_sheet_is_byte_identical(self):
+        """The US-only-marker filter must be a complete no-op on a US
+        plan: every workforce-trends cell (including BLS/JOLTS/Fed Funds
+        text) that was written before this fix is still written,
+        unchanged, after it. Regenerating twice and diffing every cell in
+        Market Intelligence pins that -- this is the same sheet the
+        filter touches, so any accidental filtering on a US plan would
+        show up here as a text diff, not just a byte-count coincidence."""
+        data = _plan_data("United States", "USD", "us-byte-identical")
+        wb_a = openpyxl.load_workbook(io.BytesIO(_generate_wb_bytes(data)))
+        wb_b = openpyxl.load_workbook(io.BytesIO(_generate_wb_bytes(data)))
+        ws_a, ws_b = wb_a["Market Intelligence"], wb_b["Market Intelligence"]
+        assert ws_a.max_row == ws_b.max_row
+        assert ws_a.max_column == ws_b.max_column
+        diffs = []
+        for r in range(1, max(ws_a.max_row, ws_b.max_row) + 1):
+            for c in range(1, max(ws_a.max_column, ws_b.max_column) + 1):
+                va = ws_a.cell(row=r, column=c).value
+                vb = ws_b.cell(row=r, column=c).value
+                if va != vb:
+                    diffs.append((r, c, va, vb))
+        assert not diffs, diffs[:5]
+        # And the US-only markers are genuinely still present (the filter
+        # did not silently eat them) -- BLS-sourced workforce content is
+        # real, correct data on a US plan.
+        texts = [
+            c.value for row in ws_a.iter_rows() for c in row if isinstance(c.value, str)
+        ]
+        assert any(_has_us_only_marker(t) for t in texts)
 
 
 if __name__ == "__main__":

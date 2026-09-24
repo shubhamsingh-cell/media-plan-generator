@@ -112,24 +112,15 @@ _AI_TRAINING_VOCAB = (
 # already resolves plan_geo.is_us_plan(data) but the existing check at
 # bundle_qa.py:398 only ever used it for "non-US market" text on a US
 # plan).
+#
+# The marker list itself lives in us_only_markers.py (dependency-free) so
+# excel_v2.py's Workforce Trends writer can omit these markers AT THE
+# SOURCE on a non-US plan using the exact same list this rule checks --
+# re-exported here under their original names so nothing else in this
+# module (or any test importing bundle_qa._US_ONLY_MARKER_RES) has to
+# change.
 # ---------------------------------------------------------------------------
-_US_ONLY_MARKERS: tuple[str, ...] = (
-    "Fed Funds",
-    "CPI Index",
-    "BLS",
-    "JOLTS",
-    "Bls Sector Code",
-    "Total Employment Us",
-    "Job Openings Rate Jolts",
-    "Quits Rate Jolts",
-    "federal minimum wage",
-    "Thanksgiving",
-    "Memorial Day",
-    "Spring break",
-)
-_US_ONLY_MARKER_RES: tuple[re.Pattern, ...] = tuple(
-    re.compile(r"\b" + re.escape(m) + r"\b", re.IGNORECASE) for m in _US_ONLY_MARKERS
-)
+from us_only_markers import _US_ONLY_MARKERS, _US_ONLY_MARKER_RES  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # RULE 2 (currency_symbol_mixing).
@@ -200,6 +191,7 @@ def _iter_currency_segments(text: str) -> list[str]:
             if sentence:
                 segments.append(sentence)
     return segments
+
 
 # ---------------------------------------------------------------------------
 # RULE 3 (campaign_duration_incoherence).
@@ -1775,9 +1767,7 @@ def _check_currency_symbol_mixing(
                 if len(declared_codes) == 1:
                     _declared = next(iter(declared_codes))
                     try:
-                        _declared_sym = plan_currency.symbol_for_code(
-                            _declared
-                        ).strip()
+                        _declared_sym = plan_currency.symbol_for_code(_declared).strip()
                     except Exception:  # noqa: BLE001
                         _declared_sym = ""
                     if _declared_sym and all(s == _declared_sym for s in bad_syms):

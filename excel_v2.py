@@ -80,6 +80,7 @@ import plan_geo
 import display_format
 import insight_composer
 import intl_benchmark_lookup
+import us_only_markers
 
 # NOTE: aliased -- several functions in this module already use a local
 # variable/parameter literally named `gold_standard` (the enriched
@@ -7491,6 +7492,35 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             s = _flatten_value(v)
             return _mark_usd(s) if _wf_non_usd and s else s
 
+        # DEFECT B FIX (2026-09-24): every figure under workforce_insights
+        # is sourced straight from data/workforce_trends_intelligence.json
+        # (data_synthesizer.fuse_workforce_insights's supply_partner_trends
+        # /job_type_trends/gen_z_insights pass-throughs) -- a US
+        # labour-market KB that also carries US-only macro/holiday
+        # vocabulary (BLS, JOLTS, Fed Funds, federal minimum wage,
+        # Thanksgiving/Memorial Day/Spring break, ...), which read as this
+        # plan's own market data on a plan with NO US location at all
+        # (bundle_qa's ``us_data_on_non_us_plan`` rule exists to catch
+        # exactly this leak). Fix at the source instead of weakening that
+        # rule: omit any trend line carrying a US-only marker when the
+        # plan is not a US plan, reusing the SAME marker list/regexes
+        # bundle_qa checks (us_only_markers.py) and the SAME
+        # plan_geo.is_us_plan(data) gate bundle_qa's rule itself branches
+        # on (via this module's own ``_is_us_plan`` delegate), so the two
+        # always agree on which plans get filtered.
+        #
+        # BYTE-IDENTICAL GUARANTEE for US plans: ``_wf_is_us`` gates the
+        # ENTIRE filtered code path below -- when it's True, the loop below
+        # is left completely unchanged from before this fix (every item
+        # written unconditionally, subsection headers always written),
+        # so a US plan's Market Intelligence sheet text is untouched.
+        try:
+            _wf_is_us = _is_us_plan(data)
+        except Exception:  # noqa: BLE001
+            _wf_is_us = True
+
+        _wf_any_written = False
+
         # CRITICAL: Properly flatten nested structures -- never use str() on dicts
         for section_key, section_val in workforce.items():
             if section_key in ("metadata", "source", "sources", "confidence"):
@@ -7499,19 +7529,26 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             section_label = section_key.replace("_", " ").title()
 
             if isinstance(section_val, dict):
-                row = _write_subsection_header(ws, row, section_label)
+                _wf_kv_rows = []
                 for k, v in section_val.items():
                     if k in ("metadata", "source"):
                         continue
                     val_str = _wf_text(v)
-                    if val_str:
-                        row = _write_kv_row(
-                            ws, row, k.replace("_", " ").title(), val_str
-                        )
-                row += 1
+                    if not val_str:
+                        continue
+                    if not _wf_is_us and us_only_markers.has_us_only_marker(val_str):
+                        continue
+                    _wf_kv_rows.append((k.replace("_", " ").title(), val_str))
+                if _wf_is_us or _wf_kv_rows:
+                    row = _write_subsection_header(ws, row, section_label)
+                    for label, val_str in _wf_kv_rows:
+                        row = _write_kv_row(ws, row, label, val_str)
+                    row += 1
+                if _wf_kv_rows:
+                    _wf_any_written = True
 
             elif isinstance(section_val, list):
-                row = _write_subsection_header(ws, row, section_label)
+                _wf_list_items = []
                 for item in section_val[:8]:
                     _item_for_display = item
                     if (
@@ -7530,7 +7567,14 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                             k: v for k, v in item.items() if k != "key"
                         }
                     val_str = _wf_text(_item_for_display)
-                    if val_str:
+                    if not val_str:
+                        continue
+                    if not _wf_is_us and us_only_markers.has_us_only_marker(val_str):
+                        continue
+                    _wf_list_items.append(val_str)
+                if _wf_is_us or _wf_list_items:
+                    row = _write_subsection_header(ws, row, section_label)
+                    for val_str in _wf_list_items:
                         ws.merge_cells(
                             start_row=row,
                             start_column=COL_START,
@@ -7543,10 +7587,31 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                         cell.font = _FONT_BODY
                         cell.alignment = _ALIGN_WRAP
                         row += 1
-                row += 1
+                    row += 1
+                if _wf_list_items:
+                    _wf_any_written = True
 
             elif isinstance(section_val, (str, int, float, bool)):
-                row = _write_kv_row(ws, row, section_label, _wf_text(section_val))
+                val_str = _wf_text(section_val)
+                if val_str and not (
+                    not _wf_is_us and us_only_markers.has_us_only_marker(val_str)
+                ):
+                    row = _write_kv_row(ws, row, section_label, val_str)
+                    _wf_any_written = True
+
+        if not _wf_is_us and not _wf_any_written:
+            # Omitting every US-only trend line left the section with
+            # nothing under its header -- never ship a header with no
+            # content beneath it. This can only happen on a non-US plan
+            # (the ``if _wf_is_us or ...`` guards above always write
+            # subsection content unfiltered for a US plan), so it never
+            # changes US-plan output.
+            row = _write_footnote(
+                ws,
+                row,
+                "Workforce trend data for this market is not yet available.",
+            )
+            row += 1
 
     # ── 7. LinkedIn Benchmarks (SlotOps 108K dataset) ──
     li_intel = (data.get("_gold_standard") or {}).get("linkedin_intelligence", {})

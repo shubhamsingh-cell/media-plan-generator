@@ -1245,9 +1245,20 @@ def test_industry_client_conflict_same_industry_name_matches_is_not_a_conflict()
     name (first-in-dict wins on score ties) and treated generic words as
     industry signals, so a name that matches the plan's OWN industry (as
     well as, or instead of, some other industry) still went critical.
-    These four real-brief shapes -- each clean on origin/main, each
-    reported as a false critical by adversarial review -- must all come
-    back with NO industry_client_conflict finding."""
+    These four real-brief shapes, each reported as a false critical by
+    adversarial review, must all come back with NO industry_client_conflict
+    finding.
+
+    CORRECTION (2026-09-24, this fix's own follow-up): the docstring here
+    used to claim all four were "clean on origin/main" -- that was wrong.
+    Verified directly against origin/main (36f4e57): "Progressive
+    Insurance"/insurance was the only one actually clean there; "General
+    Motors Financial"/finance_banking, "Travel Nurse Across America"/
+    healthcare_medical, and "Children's Health Foundation"/
+    healthcare_medical all produced a critical industry_client_conflict
+    finding on origin/main (this test asserts they were introduced clean
+    by 691dfee, which is the commit this test itself shipped in -- not
+    that they were already clean before it)."""
     cases = [
         (
             "Progressive Insurance",
@@ -1257,6 +1268,42 @@ def test_industry_client_conflict_same_industry_name_matches_is_not_a_conflict()
         ("General Motors Financial", "finance_banking", []),
         ("Travel Nurse Across America", "healthcare_medical", []),
         ("Children's Health Foundation", "healthcare_medical", []),
+    ]
+    for client_name, industry, roles in cases:
+        findings: list[dict] = []
+        bundle_qa._check_industry_client_conflict(
+            {"client_name": client_name, "industry": industry, "roles": roles},
+            findings,
+        )
+        assert not any(
+            f["code"] == "industry_client_conflict" for f in findings
+        ), f"false positive for {client_name}/{industry}: {findings}"
+
+
+def test_industry_client_conflict_nonprofit_catchall_hit_is_not_a_conflict():
+    """DEFECT A FOLLOW-UP FIX (regression introduced by 691dfee): the wizard
+    has NO nonprofit industry card, so a nonprofit client can only ever
+    select "General / Entry-Level" (legacy_key general_entry_level). 691dfee
+    excluded ANY catch-all-profile hit (legacy_key general_entry_level,
+    including the "nonprofit" profile itself: keywords nonprofit/ngo/
+    charity/foundation) from the company-name detector entirely -- so a
+    general_entry_level selection could never be "in the matched set" for a
+    nonprofit-named client, and any OTHER keyword the name also happened to
+    hit (e.g. "Health" in "Community Health Foundation") became a false
+    CRITICAL client-name conflict, even though the name's own nonprofit
+    signal ("Foundation") matches the selection exactly.
+
+    Fix: catch-all hits are now recorded (not discarded) and used to decide
+    whether the selected key counts as "in the matched set" -- a
+    general_entry_level selection with a catch-all hit is never a conflict
+    -- but a catch-all profile is never itself used as a conflict's
+    representative industry, so this cannot manufacture a NEW false
+    "General implies General" signal, only suppress the false positive."""
+    cases = [
+        ("Community Health Foundation", "general_entry_level", ["Program Coordinator"]),
+        ("Children's Health Foundation", "general_entry_level", []),
+        ("Mercy Health Foundation", "general_entry_level", []),
+        ("Feeding America Food Foundation", "general_entry_level", []),
     ]
     for client_name, industry, roles in cases:
         findings: list[dict] = []

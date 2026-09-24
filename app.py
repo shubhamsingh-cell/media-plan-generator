@@ -3217,21 +3217,26 @@ _ROLE_INDUSTRY_MAP: dict[str, str] = {
 }
 
 
-# Company-name Detector 1 (below) excludes these from producing a
-# client-name-conflict signal: (a) any industry profile whose legacy_key
-# is the generic "general_entry_level" catch-all -- picking that bucket
-# from a company name is not a real industry signal, it's the absence of
-# one; (b) these bare generic/corporate-boilerplate words, which appear
-# in real company names constantly ("General Motors", "XYZ Group",
-# "ABC Holdings International", "Acme Global Services") without implying
-# ANYTHING about the client's actual industry. "travel" is the one
-# exception that can be a real signal (e.g. a company literally named
+# Company-name Detector 1 (below) excludes bare generic/corporate-
+# boilerplate words from producing a client-name-conflict signal, because
+# they appear in real company names constantly ("General Motors", "XYZ
+# Group", "ABC Holdings International", "Acme Global Services") without
+# implying ANYTHING about the client's actual industry. "travel" is the
+# one exception that can be a real signal (e.g. a company literally named
 # "Travel"), so it only counts when it IS the entire company name, never
 # as one word inside a longer one (e.g. "Travel Nurse Across America").
+#
+# NOTE: "foundation" is deliberately NOT in this set. Unlike "general" or
+# "group", it isn't generic corporate boilerplate -- it's the specific,
+# curated keyword the "nonprofit" industry profile (legacy_key
+# general_entry_level) uses to recognize itself (alongside "nonprofit",
+# "ngo", "charity"). Treating it as noise silently threw away the one
+# signal that would have let a nonprofit's own catch-all hit explain a
+# General/Entry-Level selection (see the catch-all handling in Detector 1
+# below).
 _GENERIC_COMPANY_NAME_WORDS = frozenset(
     {
         "general",
-        "foundation",
         "group",
         "holdings",
         "international",
@@ -3348,13 +3353,26 @@ def _infer_industry_from_signals(
     # set entirely.
     if company_lower:
         matched: dict[str, dict] = {}  # legacy_key -> representative profile
+        # Catch-all profile hits (legacy_key general_entry_level, e.g. the
+        # "nonprofit" or "general" profiles) are recorded SEPARATELY, never
+        # merged into `matched`: landing on the catch-all bucket from a
+        # company name is weaker, non-specific evidence -- it must never
+        # become the *representative* industry of a reported conflict (a
+        # nonprofit/general hit is not "the name implies industry X").
+        # But it is still real evidence that the name's own signal agrees
+        # with a General/Entry-Level SELECTION (e.g. "Foundation" in
+        # "Community Health Foundation" explains a general_entry_level
+        # pick even though the same name also hits Healthcare's "health"
+        # keyword) -- discarding it entirely made every such nonprofit-named
+        # brief a false-positive client-name conflict, because the wizard
+        # has no nonprofit card, so nonprofits can only ever select
+        # General / Entry-Level.
+        _catchall_hit = False
         for _profile in INDUSTRY_NAICS_MAP.values():
             _legacy = _profile.get("legacy_key")
-            if not _legacy or _legacy == "general_entry_level":
-                # Exclude the generic/catch-all profile(s) -- landing on
-                # the catch-all bucket from a company name is absence of
-                # a real signal, not evidence of a specific industry.
+            if not _legacy:
                 continue
+            _is_catchall = _legacy == "general_entry_level"
             for kw in _profile["keywords"]:
                 if kw in _GENERIC_COMPANY_NAME_WORDS and company_stripped != kw:
                     # Generic/corporate-boilerplate word -- not a real
@@ -3364,8 +3382,21 @@ def _infer_industry_from_signals(
                     # Exact, word-bounded company-name/brand keyword match
                     # -- NOT a bare substring match (see the
                     # WORD-BOUNDARY GUARD note above).
-                    matched.setdefault(_legacy, _profile)
+                    if _is_catchall:
+                        _catchall_hit = True
+                    else:
+                        matched.setdefault(_legacy, _profile)
                     break
+
+        if selected_legacy_key == "general_entry_level" and _catchall_hit:
+            # The name's own catch-all signal (nonprofit/general keyword)
+            # matches the plan's actual General/Entry-Level selection --
+            # that IS the name's own on-selection signal, even when the
+            # name ALSO happens to hit some other industry's keyword (the
+            # nonprofit-named-after-a-cause case above). Must be checked
+            # before the "matched a different industry" branch below, and
+            # a catch-all hit is never itself reported as the conflict.
+            return None
         if matched and selected_legacy_key not in matched:
             # Deterministic representative: first hit in
             # INDUSTRY_NAICS_MAP's own definition order.
