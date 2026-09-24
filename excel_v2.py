@@ -2700,6 +2700,15 @@ def _model_vs_benchmark_note(data: dict, ind_bench: Dict[str, Any]) -> Optional[
         apply_ceiling = apply_range[1]
 
     reasons = []
+    # The cited CPA range is a US-dollar KB constant; the plan's blended CPA
+    # is in the plan's own currency (declare-not-convert: no FX is applied).
+    # On a non-USD plan, comparing the two -- and printing the USD floor
+    # with the plan's symbol, e.g. "(£11.14) sits below ... floor (£35)" --
+    # asserts a relationship that only exists because no conversion
+    # happened. Skip the money comparison there; the apply-rate comparison
+    # is unit-free and still applies.
+    if _get_active_currency() != "USD":
+        cpa_floor = None
     if cpa_floor is not None and blended_cpa < cpa_floor:
         reasons.append(
             f"this plan's blended CPA ({_fmt_currency(blended_cpa, show_cents=True)}) "
