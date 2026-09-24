@@ -132,6 +132,40 @@ class TestGetLocaleCpcBasis:
         the comma-split fallback."""
         assert ibl.get_locale_cpc_basis(["Madrid, Spain"], "EUR") is None
 
+    def test_trailing_us_state_never_misreads_as_a_country(self):
+        """The comma-split fallback in _normalize_country_2026 must never
+        let a trailing US state abbreviation collide with a country slug or
+        alias -- unlike the OTHER, older _normalize_country (used for
+        international_role_benchmarks_v1.json), _COUNTRY_2026_EXTRA_ALIASES
+        carries no 2-letter codes and the 38-country dataset's slugs are all
+        full words, so this holds today, but it's exactly the class of bug
+        the older module's dedicated US-state guard exists to prevent --
+        pin it down here too so a future alias addition can't reintroduce
+        it silently."""
+        for state in (
+            "CA",
+            "TX",
+            "IN",
+            "OR",
+            "NY",
+            "GA",
+            "WA",
+            "MA",
+            "NC",
+            "AZ",
+        ):
+            assert (
+                ibl._normalize_country_2026(f"Some City, {state}") is None
+            ), f"US state '{state}' must not resolve to any country"
+        # Multi-comma strings still resolve via the trailing token.
+        assert ibl._normalize_country_2026("Toronto, ON, Canada") == "canada"
+        assert ibl._normalize_country_2026("Mumbai, India") == "india"
+        assert ibl._normalize_country_2026("London, UK") == "uk"
+        # "Hyderabad, IN" -- "IN" is a real US postal abbreviation
+        # (Indiana) as well as an ISO country-code-shaped token; must not
+        # be misread as India.
+        assert ibl._normalize_country_2026("Hyderabad, IN") is None
+
 
 # ---------------------------------------------------------------------------
 # Shared fixtures for calculate_budget_allocation integration tests
