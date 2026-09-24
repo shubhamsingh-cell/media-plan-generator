@@ -69,3 +69,32 @@ auto-deploys from `main` on every push. Never push directly from a
 worktree by hand -- use `scripts/ship_from_worktree.sh` from a linked
 worktree on a feature branch; it rebases, runs the full suite, waits out
 a stability window, and only fast-forward-pushes (never force).
+
+## 12. Conclude every session: decide, ship, deploy (owner standing directive, 2026-09-24)
+The owner wants every session in this repo to finish its own work end to end
+without waiting for a go. This is durable, pre-given authorization for the
+normal ship path: commit, `scripts/ship_from_worktree.sh` (push to `main`),
+and the Render auto-deploy that follows.
+
+- **Decide, don't ask.** Make routine product and engineering calls yourself
+  and state each decision and its reason in the final report. Pause for the
+  owner ONLY on the global pause list: deleting or migrating data, secrets,
+  billing, auth or permissions, production config, external communications,
+  or an irreversible architecture choice.
+- **Done means live.** A session is concluded only when (1) nothing it changed
+  is left uncommitted, (2) its commits are on `origin/main` (check with
+  `git cherry origin/main <branch>`: all `-` or empty), and (3)
+  `/api/deploy/ready` reports that SHA or a later one. Quote the served SHA
+  in the final report. "Pushed" is not "deployed".
+- **Quality gates still run first.** Full suite green; deck and UI changes
+  rendered and pixel-checked before shipping (see `scripts/deck_qa/`). A
+  failing gate means fix it and ship, not stop and ask.
+- **Other sessions' work.** If another session's branch is committed but its
+  session has been idle 30+ minutes, ship it via the script from that branch.
+  If its session is still active, leave it. Never commit another session's
+  UNcommitted changes blind: message that session to conclude instead.
+- **Never ship runtime churn.** `data/.embedding_cache.json`,
+  `data/nova_memory_default.json` and `data/nova_response_cache.json` are
+  rewritten by tests and servers; restore or ignore them, never commit them.
+- **Stale branches.** A branch whose `git cherry` is all `-` against
+  `origin/main` is fully superseded: tag it `archive/<name>` and delete it.
