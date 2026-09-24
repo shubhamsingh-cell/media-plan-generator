@@ -101,21 +101,32 @@ def _forecast_sheet(wb):
 
 
 # ---------------------------------------------------------------------------
-# Finding #2: ">$1,000 spend" threshold in the Low Efficiency alert must
-# never be relabeled with the plan's local currency -- it's budget_engine's
-# own USD "dollars" planning constant (budget_engine.py: `dollars > 1000`),
-# never converted. Fix: mark it "US$1,000" explicitly (the same US$
-# convention ppt_generator._mark_usd uses).
+# Finding #2 / DEFECT C (2026-09-24 correction): the ">US$1,000" threshold
+# text used to claim budget_engine's `dollars > 1000` check was a fixed-USD
+# planning constant. It is NOT: `dollars` is `total_budget * pct / 100.0`,
+# where `total_budget` is the plan's OWN typed figure in the plan's OWN
+# currency (an INR plan typed as 5,000,000 is 5,000,000 rupees, never
+# converted anywhere in that path) -- so labelling the threshold "US$1,000"
+# on a non-USD plan claimed a wildly wrong (e.g. ~83x too large on an INR
+# plan) US-dollar spend for a flag that actually tripped on a much smaller
+# amount of the plan's own currency. Fix: render the threshold in the
+# plan's own currency (``_fmt_currency``, which defaults to the active
+# plan-currency symbol), matching how the flag is actually computed.
+# budget_engine's `> 1000` threshold value itself is unchanged.
 # ---------------------------------------------------------------------------
-def test_low_efficiency_alert_marks_usd_threshold():
+def test_low_efficiency_alert_uses_plan_currency_threshold():
     # Small goal (2 hires) against a $5,000 budget: every funded channel's
-    # per-channel spend (>$1,000) rounds to 0 projected hires, which is
+    # per-channel spend (>1,000) rounds to 0 projected hires, which is
     # exactly what trips budget_engine's "Low Efficiency" flag
     # (budget_engine.py: `projected_hires == 0 and dollars > 1000`). Non-USD
-    # plan so a relabeled-currency bug would actually show up.
+    # plan so a mislabeled-currency bug would actually show up.
     roles = [{"title": "Warehouse Associate", "count": 2, "tier": "entry"}]
     data, alloc = _plan_data(
-        "United Kingdom", 5_000, plan_currency="GBP", roles=roles, tag="lowseff",
+        "United Kingdom",
+        5_000,
+        plan_currency="GBP",
+        roles=roles,
+        tag="lowseff",
     )
     ch_allocs = alloc.get("channel_allocations", {})
     assert any(
@@ -129,8 +140,10 @@ def test_low_efficiency_alert_marks_usd_threshold():
     alerts = [t for t in texts if "Low Efficiency alert" in t]
     assert alerts, "expected a Low Efficiency alert recommendation"
     for alert in alerts:
-        assert "US$1,000" in alert, alert
-        assert "£1,000" not in alert and ">£" not in alert, alert
+        # The flag is computed on the plan's OWN currency figure -- the
+        # threshold text must match, not claim a fixed-USD amount.
+        assert "£1,000" in alert, alert
+        assert "US$1,000" not in alert, alert
 
 
 # ---------------------------------------------------------------------------
@@ -188,9 +201,9 @@ def test_roi_score_column_not_hidden():
 
     col_letter = get_column_letter(roi_col)
     dim = ws.column_dimensions.get(col_letter)
-    assert dim is None or not dim.hidden, (
-        f"ROI Score column {col_letter} is hidden (dim.hidden={getattr(dim, 'hidden', None)})"
-    )
+    assert (
+        dim is None or not dim.hidden
+    ), f"ROI Score column {col_letter} is hidden (dim.hidden={getattr(dim, 'hidden', None)})"
     # The cell directly below the header must carry a real numeric ROI value.
     data_cell = ws.cell(row=header_row + 1, column=roi_col)
     assert isinstance(data_cell.value, (int, float)), data_cell.value
@@ -217,7 +230,9 @@ def test_forecast_trend_derived_not_hardcoded():
 
     trend, font = excel_v2._derive_forecast_trend([10, 20, 30], False, True)
     assert trend == "Increasing", trend  # hires/apps rising
-    assert font.color.rgb.endswith(excel_v2.GREEN), "rising hires should be green (good)"
+    assert font.color.rgb.endswith(
+        excel_v2.GREEN
+    ), "rising hires should be green (good)"
 
     trend, font = excel_v2._derive_forecast_trend([100, 101, 102], False, True)
     assert trend == "Stable", trend  # <5% change
@@ -240,7 +255,9 @@ def test_forecast_sheet_cpa_row_uses_derived_trend():
         if cpa_row is not None:
             break
     assert cpa_row is not None, "CPA row not found on Forecast sheet"
-    trend_cell = [c for c in cpa_row if c.column > label_col and c.value is not None][-1]
+    trend_cell = [c for c in cpa_row if c.column > label_col and c.value is not None][
+        -1
+    ]
     assert trend_cell.value in ("Increasing", "Decreasing", "Stable", "—")
 
 
@@ -251,7 +268,9 @@ def test_forecast_sheet_cpa_row_uses_derived_trend():
 # shown to every non-US market.
 # ---------------------------------------------------------------------------
 def test_niche_board_fallback_is_market_aware():
-    uk_data, _ = _plan_data("United Kingdom", 50_000, plan_currency="GBP", tag="ukboards")
+    uk_data, _ = _plan_data(
+        "United Kingdom", 50_000, plan_currency="GBP", tag="ukboards"
+    )
     india_data, _ = _plan_data("India", 50_000, plan_currency="INR", tag="indiaboards")
 
     uk_wb = _generate_wb(uk_data)
@@ -274,7 +293,10 @@ def test_niche_board_fallback_is_market_aware():
     assert uk_text != india_text
     # Real UK platforms from the dataset should appear.
     uk_platforms = intl_benchmark_lookup.get_market_platform_names("United Kingdom")
-    assert uk_platforms and any(p in uk_text for p in uk_platforms), (uk_platforms, uk_text)
+    assert uk_platforms and any(p in uk_text for p in uk_platforms), (
+        uk_platforms,
+        uk_text,
+    )
 
 
 def test_niche_board_fallback_generic_when_market_unmapped():
@@ -405,7 +427,8 @@ def test_localized_cpc_keeps_local_currency():
         if isinstance(ch, dict)
     }
     assert any(
-        str(s or "").startswith("intl_") or "->" in str(s or "") for s in sources.values()
+        str(s or "").startswith("intl_") or "->" in str(s or "")
+        for s in sources.values()
     ), sources
 
     wb = _generate_wb(uk_data)

@@ -606,15 +606,33 @@ def test_zero_hire_honesty_does_not_bleed_into_a_later_differently_shaped_table(
     # Column positions mirror the real sheet exactly (leading blank column
     # A; "Proj. Hires" at index 4, "Cost Per Hire" at index 7).
     ws.append(
-        [None, "Channel Name", "Budget ($)", "Proj. Applications", "Proj. Hires",
-         "Confidence", "Hire Range", "Cost Per Hire"]
+        [
+            None,
+            "Channel Name",
+            "Budget ($)",
+            "Proj. Applications",
+            "Proj. Hires",
+            "Confidence",
+            "Hire Range",
+            "Cost Per Hire",
+        ]
     )
-    ws.append([None, "Regional Job Boards", 3575.15, 602, 2, "MEDIUM", "1 - 2", 1787.58])
+    ws.append(
+        [None, "Regional Job Boards", 3575.15, 602, 2, "MEDIUM", "1 - 2", 1787.58]
+    )
     ws.append([None, "Social Media", 136, 1, 0, "LOW", "0", "—"])
     ws.append([])  # table boundary
     ws.append(
-        [None, "Channel Name", "Clicks", "Applications", "Qualified", "Interviews",
-         "Hires", "App→Qualified"]
+        [
+            None,
+            "Channel Name",
+            "Clicks",
+            "Applications",
+            "Qualified",
+            "Interviews",
+            "Hires",
+            "App→Qualified",
+        ]
     )
     # This funnel row's "Qualified" count (misread as hires_col=4, i.e. the
     # position "Proj. Hires" held in the table above) is 0, and its
@@ -718,7 +736,17 @@ def test_allows_large_scale_funnel_rate_reconstruction_residual():
     ws.title = "ROI Projections"
     ws.append(_FUNNEL_HEADERS)
     ws.append(
-        ["Niche / Industry Boards", 12529761, 1754166, 246285, 49257, 7391, 0.1404, 0.2, 0.15]
+        [
+            "Niche / Industry Boards",
+            12529761,
+            1754166,
+            246285,
+            49257,
+            7391,
+            0.1404,
+            0.2,
+            0.15,
+        ]
     )
     ws.append(["TOTAL", 12529761, 1754166, 246285, 49257, 7391, 0.1404, 0.2, 0.15])
     findings: list[dict] = []
@@ -742,7 +770,17 @@ def test_detects_genuine_large_scale_funnel_rate_mismatch():
     ws.title = "ROI Projections"
     ws.append(_FUNNEL_HEADERS)
     ws.append(
-        ["Niche / Industry Boards", 12529761, 1754166, 246285, 49257, 9000, 0.1404, 0.2, 0.15]
+        [
+            "Niche / Industry Boards",
+            12529761,
+            1754166,
+            246285,
+            49257,
+            9000,
+            0.1404,
+            0.2,
+            0.15,
+        ]
     )
     ws.append(["TOTAL", 12529761, 1754166, 246285, 49257, 9000, 0.1404, 0.2, 0.15])
     findings: list[dict] = []
@@ -851,10 +889,12 @@ def test_uber_shipped_bundle_all_five_new_rules_fire_and_nothing_crashed():
         "industry_client_conflict",
         "competitor_count_contradiction",
     ):
-        assert expected in codes, f"{expected} did not fire on the shipped bundle: {codes}"
-    assert not any(
-        f["code"].endswith("_check_crashed") for f in findings
-    ), [f for f in findings if f["code"].endswith("_check_crashed")]
+        assert (
+            expected in codes
+        ), f"{expected} did not fire on the shipped bundle: {codes}"
+    assert not any(f["code"].endswith("_check_crashed") for f in findings), [
+        f for f in findings if f["code"].endswith("_check_crashed")
+    ]
 
 
 # --- RULE 1: us_data_on_non_us_plan ----------------------------------------
@@ -977,8 +1017,7 @@ def test_long_blob_currency_mixing_is_no_longer_skipped():
         "trend analysis across several markets and industries. "
     )
     long_blob = (
-        filler * 3
-        + "The average cost per hire for this role is $4,200 based on "
+        filler * 3 + "The average cost per hire for this role is $4,200 based on "
         "regional benchmarks."
     )
     assert len(long_blob) > bundle_qa._CUR_BLOB_LEN_CUTOFF
@@ -1199,6 +1238,80 @@ def test_industry_client_conflict_still_fires_on_a_real_positive_signal():
     assert matches[0]["severity"] == "critical"
 
 
+def test_industry_client_conflict_same_industry_name_matches_is_not_a_conflict():
+    """DEFECT A FIX (2026-09-24): a client-name conflict is CRITICAL only
+    when the CLIENT NAME implies a DIFFERENT industry than the one
+    selected. The old code picked a SINGLE legacy_key from the company
+    name (first-in-dict wins on score ties) and treated generic words as
+    industry signals, so a name that matches the plan's OWN industry (as
+    well as, or instead of, some other industry) still went critical.
+    These four real-brief shapes -- each clean on origin/main, each
+    reported as a false critical by adversarial review -- must all come
+    back with NO industry_client_conflict finding."""
+    cases = [
+        (
+            "Progressive Insurance",
+            "insurance",
+            ["Claims Adjuster", "Customer Service Rep"],
+        ),
+        ("General Motors Financial", "finance_banking", []),
+        ("Travel Nurse Across America", "healthcare_medical", []),
+        ("Children's Health Foundation", "healthcare_medical", []),
+    ]
+    for client_name, industry, roles in cases:
+        findings: list[dict] = []
+        bundle_qa._check_industry_client_conflict(
+            {"client_name": client_name, "industry": industry, "roles": roles},
+            findings,
+        )
+        assert not any(
+            f["code"] == "industry_client_conflict" for f in findings
+        ), f"false positive for {client_name}/{industry}: {findings}"
+
+
+def test_industry_client_conflict_generic_brand_names_are_not_critical():
+    """Common brand names that happen to share no real industry keyword
+    with the map (or only a generic/boilerplate one) must never be
+    flagged, regardless of the plan's own selected industry."""
+    cases = [
+        ("Target", "tech_engineering"),
+        ("Chase", "healthcare_medical"),
+        ("Shell", "education"),
+        ("Amazon", "education"),
+    ]
+    for client_name, industry in cases:
+        findings: list[dict] = []
+        bundle_qa._check_industry_client_conflict(
+            {"client_name": client_name, "industry": industry, "roles": []},
+            findings,
+        )
+        assert not any(
+            f["code"] == "industry_client_conflict" for f in findings
+        ), f"false positive for {client_name}/{industry}: {findings}"
+
+
+def test_industry_client_conflict_true_client_name_conflict_still_critical():
+    """A real client-name conflict -- a hospital-system name on a retail
+    plan -- must still be caught and still block as critical. This pins
+    the DEFECT A fix against being over-corrected into never firing."""
+    findings: list[dict] = []
+    bundle_qa._check_industry_client_conflict(
+        {
+            "client_name": "Mercy Health System",
+            "industry": "retail_consumer",
+            "roles": [],
+        },
+        findings,
+    )
+    matches = [f for f in findings if f["code"] == "industry_client_conflict"]
+    assert matches
+    assert matches[0]["severity"] == "critical"
+    assert (
+        "Healthcare" in matches[0]["message"]
+        or "healthcare_medical" in matches[0]["message"]
+    )
+
+
 def test_industry_client_conflict_role_vote_minority_is_not_even_a_warn():
     """SEVERITY FIX: a single outlier role title (one "Regional Sales
     Manager" inside an otherwise manufacturing-titled roster) is not
@@ -1355,9 +1468,7 @@ def test_allows_matching_competitor_count():
 @_requires_uber_xlsx
 def test_uber_shipped_bundle_catches_competitor_count_contradiction():
     findings = _scan_uber_shipped_bundle()
-    matches = [
-        f for f in findings if f["code"] == "competitor_count_contradiction"
-    ]
+    matches = [f for f in findings if f["code"] == "competitor_count_contradiction"]
     assert matches
     assert "Competitor Count: 0" in matches[0]["message"]
     assert "5 named competitor" in matches[0]["message"]

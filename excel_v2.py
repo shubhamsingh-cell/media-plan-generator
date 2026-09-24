@@ -265,7 +265,16 @@ def _cpc_number_format(ch_data: Optional[dict]) -> str:
     of the plan's active currency.
     """
     cpc_source = str((ch_data or {}).get("cpc_source") or "")
-    _is_localized = cpc_source.startswith("intl_") or "->" in cpc_source
+    # DEFECT FIX (2026-09-24): "intl_" alone is too broad -- it also
+    # matches "intl_usd_blend:*" (get_locale_cpc_basis's multi-country/
+    # mismatched-currency basis), which is built from the dataset's own
+    # ``cpc_usd`` figures and is NEVER converted into the plan's currency
+    # (see intl_benchmark_lookup.get_locale_cpc_basis's "basis": "usd_blend"
+    # branch). Only "intl_local" (the basis IS the plan's own currency) or
+    # an explicit "->CUR" conversion suffix (appended by budget_engine's
+    # unit-coherence fix, e.g. "synthesized->GBP") means the figure is
+    # genuinely denominated in a non-USD currency.
+    _is_localized = cpc_source.startswith("intl_local") or "->" in cpc_source
     if not _is_localized and _get_active_currency() != "USD":
         return FMT_USD2
     return _usd2_fmt()
@@ -1734,6 +1743,20 @@ def _fmt_pct(val: Any, decimals: int = 1) -> str:
     if 0 < num < 1:
         num *= 100
     return f"{num:.{decimals}f}%"
+
+
+def _mark_usd(text: str) -> str:
+    """Prefix every bare ``$`` in ``text`` with ``US`` (-> ``US$``).
+
+    Mirrors ``ppt_generator._mark_usd`` exactly (same declare-not-convert
+    convention: a fixed US-calibrated figure gets an explicit "US$" marker
+    directly on the figure itself, instead of being silently relabeled with
+    the plan's own currency symbol elsewhere on the same sheet). A no-op on
+    values already prefixed with a currency letter (e.g. ``NZ$``).
+    """
+    if not text:
+        return text
+    return re.sub(r"(?<![A-Za-z])\$", "US$", text)
 
 
 def _flatten_value(val: Any, max_depth: int = 3) -> str:
@@ -3453,18 +3476,23 @@ def _rewrite_low_efficiency_recommendation(channel_allocs: dict) -> Optional[str
     )
     if not perf_zero_hire:
         return None
-    # S3 FIX (finding #2): the >$1,000 threshold is budget_engine's own USD
-    # planning constant (channel "dollars" is always USD-coded, per
-    # plan_currency's "Planning math ... is intentionally USD-coded" rule) --
-    # it was never converted, so it must never be relabeled with the plan's
-    # local currency symbol. Mark it explicitly "US$" (the same convention
-    # ppt_generator._mark_usd uses) instead of a bare "$" that would read as
-    # the plan's own currency on a non-USD plan.
+    # DEFECT C FIX (2026-09-24): this text used to say ">US$1,000" on the
+    # theory that channel "dollars" is always USD-coded. It isn't, for this
+    # flag: budget_engine sets efficiency_flag from `dollars = total_budget
+    # * pct / 100.0` (see calculate_budget_allocation), where total_budget
+    # is the PLAN's own typed figure in the PLAN's own currency (an INR
+    # plan typed as 5,000,000 is 5,000,000 rupees, not USD) -- there is no
+    # conversion anywhere in that path. Labelling the threshold "US$1,000"
+    # on an INR plan claimed a ~83x-larger spend than the ~US$60 (₹5,000)
+    # that actually tripped it. Render the threshold in the plan's own
+    # currency via `_fmt_currency` (defaults to the active plan currency
+    # symbol -- see its docstring), matching how the flag is actually
+    # computed. budget_engine's >1000 threshold itself is unchanged.
     return (
         f"Low Efficiency alert: {', '.join(perf_zero_hire)} projected 0 hires "
-        f"despite >US$1,000 spend. Hold at pilot level; scale only on observed "
-        f"conversion rather than reallocating budget already committed to "
-        f"this plan." + _brand_asymmetry_clause(channel_allocs)
+        f"despite >{_fmt_currency(1000)} spend. Hold at pilot level; scale "
+        f"only on observed conversion rather than reallocating budget "
+        f"already committed to this plan." + _brand_asymmetry_clause(channel_allocs)
     )
 
 
@@ -5991,6 +6019,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 "category": ch_data.get("category") or "",
                 "budget_pct": ch_data.get("percentage") or 0,
                 "cpc": ch_data.get("cpc") or 0,
+                "cpc_source": ch_data.get("cpc_source") or "",
                 "fit_score": ch_data.get("fit_score"),
                 "vetted_tier": ch_data.get("vetted_tier"),
             }
@@ -6105,7 +6134,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 None,
                 None,
                 None,
-                _usd2_fmt() if ch_cpc else None,
+                _cpc_number_format(ch) if ch_cpc else None,
                 FMT_PCT1 if ch_pct else None,
                 None,
                 None,
@@ -7444,6 +7473,24 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         )
         row = _write_confidence_gate_note(ws, row, "workforce_insights", _wf_conf)
 
+        # DEFECT D FIX (2026-09-24): every figure under workforce_insights
+        # is sourced straight from data/workforce_trends_intelligence.json
+        # (data_synthesizer.fuse_workforce_insights copies its
+        # supply_partner_trends/job_type_trends/gen_z_insights sub-dicts
+        # through verbatim) -- a US labour-market/salary/market-size KB, so
+        # every bare "$" figure in it ("$206,000 average", "$95B", "$25
+        # minimum spend", ...) is genuinely USD, never localized. On a
+        # non-USD plan those bare-"$" figures sat right next to real £/€
+        # numbers elsewhere on the sheet, reading as if they shared a
+        # currency. Mark them explicitly "US$" (the same declare-not-
+        # convert convention ppt_generator._mark_usd uses) instead of
+        # weakening bundle_qa's currency_symbol_mixing check.
+        _wf_non_usd = _get_active_currency() != "USD"
+
+        def _wf_text(v: Any) -> str:
+            s = _flatten_value(v)
+            return _mark_usd(s) if _wf_non_usd and s else s
+
         # CRITICAL: Properly flatten nested structures -- never use str() on dicts
         for section_key, section_val in workforce.items():
             if section_key in ("metadata", "source", "sources", "confidence"):
@@ -7456,7 +7503,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 for k, v in section_val.items():
                     if k in ("metadata", "source"):
                         continue
-                    val_str = _flatten_value(v)
+                    val_str = _wf_text(v)
                     if val_str:
                         row = _write_kv_row(
                             ws, row, k.replace("_", " ").title(), val_str
@@ -7482,7 +7529,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                         _item_for_display = {
                             k: v for k, v in item.items() if k != "key"
                         }
-                    val_str = _flatten_value(_item_for_display)
+                    val_str = _wf_text(_item_for_display)
                     if val_str:
                         ws.merge_cells(
                             start_row=row,
@@ -7499,7 +7546,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 row += 1
 
             elif isinstance(section_val, (str, int, float, bool)):
-                row = _write_kv_row(ws, row, section_label, _flatten_value(section_val))
+                row = _write_kv_row(ws, row, section_label, _wf_text(section_val))
 
     # ── 7. LinkedIn Benchmarks (SlotOps 108K dataset) ──
     li_intel = (data.get("_gold_standard") or {}).get("linkedin_intelligence", {})
@@ -11396,12 +11443,18 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
             _fonts = (
                 [_FONT_BODY_BOLD] + [_FONT_BODY] * (len(values) - 2) + [_FONT_FOOTNOTE]
             )
+            # FIX (finding #8): CPC (column index 4) gets its OWN per-row
+            # format -- honest-USD when this channel's cpc_source shows it
+            # was never localized (see _cpc_number_format), active-currency
+            # otherwise. Every other column keeps the shared _row_formats.
+            _row_formats_for_row = list(_row_formats)
+            _row_formats_for_row[4] = _cpc_number_format(ch)
             row = _write_table_row(
                 ws,
                 row,
                 values,
                 fonts=_fonts,
-                number_formats=_row_formats,
+                number_formats=_row_formats_for_row,
             )
             if len(_rationale) > 70:
                 ws.row_dimensions[row - 1].height = 34

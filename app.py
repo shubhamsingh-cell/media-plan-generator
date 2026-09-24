@@ -3217,7 +3217,34 @@ _ROLE_INDUSTRY_MAP: dict[str, str] = {
 }
 
 
-def _infer_industry_from_signals(company_name: str = "", roles: list = None) -> dict:
+# Company-name Detector 1 (below) excludes these from producing a
+# client-name-conflict signal: (a) any industry profile whose legacy_key
+# is the generic "general_entry_level" catch-all -- picking that bucket
+# from a company name is not a real industry signal, it's the absence of
+# one; (b) these bare generic/corporate-boilerplate words, which appear
+# in real company names constantly ("General Motors", "XYZ Group",
+# "ABC Holdings International", "Acme Global Services") without implying
+# ANYTHING about the client's actual industry. "travel" is the one
+# exception that can be a real signal (e.g. a company literally named
+# "Travel"), so it only counts when it IS the entire company name, never
+# as one word inside a longer one (e.g. "Travel Nurse Across America").
+_GENERIC_COMPANY_NAME_WORDS = frozenset(
+    {
+        "general",
+        "foundation",
+        "group",
+        "holdings",
+        "international",
+        "services",
+        "global",
+        "travel",
+    }
+)
+
+
+def _infer_industry_from_signals(
+    company_name: str = "", roles: list = None, selected_legacy_key: str = None
+) -> dict:
     """Infer an industry profile from company_name + roles ONLY, ignoring any
     explicit raw_industry the caller may also have -- that independence is
     the whole point: this is the signal classify_industry() compares an
@@ -3303,28 +3330,56 @@ def _infer_industry_from_signals(company_name: str = "", roles: list = None) -> 
     """
     roles = roles or []
     company_lower = (company_name or "").lower()
+    company_stripped = company_lower.strip()
 
     # --- Detector 1: company name only (independent of roles) ------------
+    # OWNER RULE (client-name conflict severity): a client-name conflict is
+    # CRITICAL only when the company name implies a DIFFERENT industry than
+    # the one actually selected -- not merely "the name matches some
+    # industry's keyword list, and that industry happens not to be the
+    # first one in dict order". A name can legitimately hit more than one
+    # industry's keywords (e.g. "Progressive Insurance" matches both
+    # Finance's "insurance" keyword AND Insurance's own "insurance"
+    # keyword); picking a single "best" match on score/dict-order ties and
+    # diffing THAT against the selection produced false criticals whenever
+    # the selection was any match other than the arbitrary tie-winner.
+    # Fix: compute the whole SET of legacy_keys the name hits, and only
+    # treat it as a conflict when the selected legacy_key is outside that
+    # set entirely.
     if company_lower:
-        best_company_match = None
-        best_company_score = 0
+        matched: dict[str, dict] = {}  # legacy_key -> representative profile
         for _profile in INDUSTRY_NAICS_MAP.values():
-            score = 0
+            _legacy = _profile.get("legacy_key")
+            if not _legacy or _legacy == "general_entry_level":
+                # Exclude the generic/catch-all profile(s) -- landing on
+                # the catch-all bucket from a company name is absence of
+                # a real signal, not evidence of a specific industry.
+                continue
             for kw in _profile["keywords"]:
+                if kw in _GENERIC_COMPANY_NAME_WORDS and company_stripped != kw:
+                    # Generic/corporate-boilerplate word -- not a real
+                    # industry signal unless it IS the whole company name.
+                    continue
                 if re.search(r"\b" + re.escape(kw) + r"\b", company_lower):
                     # Exact, word-bounded company-name/brand keyword match
-                    # -- any hit at all is a strong, specific signal (see
-                    # docstring). NOT a bare substring match (see the
+                    # -- NOT a bare substring match (see the
                     # WORD-BOUNDARY GUARD note above).
-                    score += len(kw) + 1000
-            if score > best_company_score:
-                best_company_score = score
-                best_company_match = _profile
-        if best_company_match and best_company_score >= 3:
-            result = dict(best_company_match)
+                    matched.setdefault(_legacy, _profile)
+                    break
+        if matched and selected_legacy_key not in matched:
+            # Deterministic representative: first hit in
+            # INDUSTRY_NAICS_MAP's own definition order.
+            _rep_legacy = next(iter(matched))
+            result = dict(matched[_rep_legacy])
             result["_inferred_signal"] = "client_name"
             result["_role_vote_ratio"] = None
             return result
+        if matched and selected_legacy_key in matched:
+            # The name's own industry signal(s) include the plan's actual
+            # selection -- no client-name conflict. Do not fall through to
+            # the weaker role-title detector either: the company name
+            # already provided a positive, on-selection signal.
+            return None
 
     # --- Detector 2: role-title text only (never company_name) -----------
     _role_votes: dict[str, int] = {}  # keyword-length-weighted, picks the winner
@@ -3408,7 +3463,9 @@ def classify_industry(
 
     raw_for_conflict = (raw_industry or "").strip().lower()
     if raw_for_conflict not in _GENERIC_INDUSTRY_STRINGS and (company_name or roles):
-        inferred = _infer_industry_from_signals(company_name, roles)
+        inferred = _infer_industry_from_signals(
+            company_name, roles, result.get("legacy_key")
+        )
         if inferred is not None:
             inferred_legacy = inferred.get("legacy_key")
             result_legacy = result.get("legacy_key")
@@ -3928,9 +3985,11 @@ def _resolve_and_rewrite_locations(data: dict) -> None:
             # succeeded, so a mid-computation failure can never leave
             # `data["locations"]` partially rewritten.
             _new_locations = [
-                _canonical_location_display(r)
-                if r.status in ("resolved", "corrected")
-                else orig
+                (
+                    _canonical_location_display(r)
+                    if r.status in ("resolved", "corrected")
+                    else orig
+                )
                 for orig, r in zip(_locs, _loc_resolutions)
             ]
             _sidecar = [r.to_dict() for r in _loc_resolutions]
@@ -3943,6 +4002,7 @@ def _resolve_and_rewrite_locations(data: dict) -> None:
             data.get("locations"),
             exc_info=True,
         )
+
 
 try:
     import display_format
@@ -13199,8 +13259,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             {
                                 "job_id": job_id,
                                 "status": "processing",
-                                "progress_pct": _mirror_data.get("progress_pct")
-                                or 0,
+                                "progress_pct": _mirror_data.get("progress_pct") or 0,
                                 "status_message": _mirror_data.get("status_message")
                                 or "Processing...",
                                 "created": datetime.datetime.fromtimestamp(
@@ -14216,9 +14275,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     self._send_json({"results": results})
             except Exception as e:
                 logger.error("NAICS search error: %s", e, exc_info=True)
-                self._send_json(
-                    {"error": f"NAICS search failed: {e}"}, status_code=500
-                )
+                self._send_json({"error": f"NAICS search failed: {e}"}, status_code=500)
 
         # ── Role Taxonomy (semantic similarity) ──
         elif path == "/api/roles/similar":
@@ -15239,9 +15296,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             with _generation_jobs_lock:
                 _qa_ack_job = _generation_jobs.get(_qa_ack_job_id)
             if _qa_ack_job is None:
-                self._send_json(
-                    {"error": "Job not found or expired"}, status_code=404
-                )
+                self._send_json({"error": "Job not found or expired"}, status_code=404)
                 return
             # Same session-ownership check as the /api/jobs/<id> poll/
             # download endpoint (Bug #14 fix, IDOR prevention) -- only the
@@ -15251,9 +15306,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             if _qa_ack_job_session:
                 _qa_ack_csrf = _parse_cookie_value(
                     self.headers.get("Cookie") or "", "nova_session"
-                ) or _parse_cookie_value(
-                    self.headers.get("Cookie") or "", "csrf_token"
-                )
+                ) or _parse_cookie_value(self.headers.get("Cookie") or "", "csrf_token")
                 if not hmac.compare_digest(_qa_ack_job_session, _qa_ack_csrf):
                     self._send_json(
                         {"error": "Access denied: job belongs to a different session"},
@@ -15293,9 +15346,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 with _generation_jobs_lock:
                     if _qa_ack_job_id in _generation_jobs:
-                        _generation_jobs[_qa_ack_job_id]["_qa_acknowledged_by"] = (
-                            _qa_ack_by
-                        )
+                        _generation_jobs[_qa_ack_job_id][
+                            "_qa_acknowledged_by"
+                        ] = _qa_ack_by
                 self._send_json({"ok": True, "acknowledged_by": _qa_ack_by})
             except Exception as _qa_ack_err:
                 logger.warning(
@@ -23933,12 +23986,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     }
                 )
             except Exception as exc:
-                logger.error(
-                    "/api/locations/resolve failed: %s", exc, exc_info=True
-                )
-                self._send_error(
-                    "Location resolution failed", "INTERNAL_ERROR", 500
-                )
+                logger.error("/api/locations/resolve failed: %s", exc, exc_info=True)
+                self._send_error("Location resolution failed", "INTERNAL_ERROR", 500)
 
         # ── AI Co-Pilot: Inline suggestions for media plan generator ──
         # NOTE: /api/copilot/suggest now handled by routes/copilot.py
