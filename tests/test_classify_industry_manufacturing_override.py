@@ -312,6 +312,22 @@ SUPPLIER_CASES = [
     "contract manufacturing supplying dairy brands",
     "stainless fabrication manufacturing servicing dairy plants",
     "component manufacturing supplier to aircraft companies",
+    # Round 7 review: connector phrasings the round-6 clause list missed.
+    # Rule 6 is now a whole-text marker blocklist, not a connector parser.
+    "HVAC manufacturing to the pharmaceutical industry",
+    "packaging manufacturing, supplier to the food industry",
+    "plastics manufacturing with customers in the pharmaceutical industry",
+    "corrugated box manufacturing used by beverage companies",
+    "industrial manufacturing (pharmaceutical industry supplier)",
+    "manufacturing supplier to pharmaceutical and food companies",
+    "contract manufacturing to pharmaceutical and biotech companies",
+    # "to the" was never in the round-6 corpus.
+    "valve manufacturing to the dairy industry",
+    "label manufacturing to major beverage brands",
+    "fastener manufacturing to aircraft makers",
+    "precision parts manufacturing vendor to aircraft makers",
+    "mold manufacturing, clients include chocolate companies",
+    "pallet manufacturing catering to breweries",
 ]
 
 
@@ -322,10 +338,56 @@ SUPPLIER_CASES = [
     ids=["bare", "industrial-client"],
 )
 def test_supplier_described_by_customer_stays_generic(raw, company, roles):
+    """The product override never claims a supplier phrasing. With an
+    industrial client + production role, Step 4's winner is generic
+    manufacturing and must stay there. Bare, a few phrasings resolve
+    through Step 4's normal scoring before the override is involved, the
+    same as on main: "contract manufacturing to pharmaceutical and biotech
+    companies" is a healthcare/pharma keyword tie (13 vs 13 > 10) that the
+    tie-break now leaves alone because of the "to" + product marker."""
     r = app.classify_industry(raw, company, list(roles))
-    assert r.get("legacy_key") == "automotive", (raw, r.get("sector"))
     primary = app._classify_industry_primary(raw, company, list(roles))
     assert app._PRODUCT_OVERRIDE_MARKER not in primary
+    assert r.get("legacy_key") not in {
+        "food_beverage",
+        "pharma_biotech",
+        "aerospace_defense",
+    }, (raw, company, r.get("sector"))
+    if company:
+        assert r.get("legacy_key") == "automotive", (raw, r.get("sector"))
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        # Round 7: connectors no marker list names. Rule 7 (position)
+        # catches them structurally: the customer comes after the product.
+        "HVAC manufacturing partnering with pharmaceutical companies",
+        "conveyor manufacturing trusted by beverage brands",
+        "label manufacturing relied on by dairy plants",
+        "contract manufacturing on behalf of biotech firms",
+        "corrugated boxes working with chocolate makers",
+        "plastic bottles, beverage brands",
+    ],
+)
+def test_unlisted_connectors_never_let_the_override_claim_a_customer(raw):
+    assert app._product_sector_from_industry_text(raw.lower()) is None
+    r = app.classify_industry(raw, "Summit Industrial Group", ["Machine Operator"])
+    assert r.get("legacy_key") == "automotive", (raw, r.get("sector"))
+
+
+@pytest.mark.parametrize(
+    "raw,company,roles",
+    [
+        # A product LIST at the start counts from its first word.
+        ("Food and Beverage", "Summit Industrial", ["Production Supervisor"]),
+        ("food & beverage", "Summit Industrial", ["Production Supervisor"]),
+        ("Pharma & Biotech", "Summit Industrial", ["Production Supervisor"]),
+    ],
+)
+def test_leading_product_list_still_counts(raw, company, roles):
+    r = app.classify_industry(raw, company, list(roles))
+    assert r.get("legacy_key") in {"food_beverage", "pharma_biotech"}, (raw, r.get("sector"))
 
 
 @pytest.mark.parametrize(
@@ -336,6 +398,8 @@ def test_supplier_described_by_customer_stays_generic(raw, company, roles):
         ("pharmaceutical manufacturing for export", "pharma_biotech"),
         ("ready-to-eat food manufacturing", "food_beverage"),
         ("ready to drink beverage manufacturing", "food_beverage"),
+        # A hyphenated "-to-" is never a customer marker.
+        ("direct-to-consumer snack manufacturing", "food_beverage"),
     ],
 )
 def test_customer_clause_rule_keeps_own_product(raw, expected):
@@ -371,6 +435,9 @@ def test_tie_break_names_pharma_companies(raw):
         "retail pharmacy",
         "pharmaceutical machinery",
         "hospital services for pharmaceutical companies",
+        # The supplier/customer blocklist applies to the tie-break too.
+        "pharmaceutical industry supplier",
+        "services to the pharmaceutical industry",
     ],
 )
 def test_tie_break_still_rejects_non_pharma_companies(raw):
