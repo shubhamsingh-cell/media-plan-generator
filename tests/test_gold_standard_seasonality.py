@@ -213,3 +213,99 @@ def test_fallback_uniform_field_always_present_and_boolean():
     row = city_data["Chicago"]
     assert "fallback_uniform" in row
     assert isinstance(row["fallback_uniform"], bool)
+
+
+# ---------------------------------------------------------------------------
+# 3. Real client bug (Hershey Company, Slack report, 2026-09-24): a
+#    10-location plan showed only 4 locations in the Excel workbook's
+#    Quality Intelligence sheet. Root cause: enrich_city_level_data's state
+#    extraction required an EXACT 2-letter USPS code
+#    (``len(_state_code) == 2``) to apply state-level salary/difficulty
+#    differentiation. None of the small/mid PA towns near Hershey (Hershey,
+#    Hazleton, Harrisburg, Scranton, Allentown, Reading, ...) are in the
+#    hand-curated city/metro tables, so a location typed with the FULL
+#    state name ("Hershey, Pennsylvania" instead of "Hershey, PA") skipped
+#    state differentiation entirely and bottomed out on the flat generic
+#    default (1.0x / 5.5) -- flagged fallback_uniform=True. Once 2+ such
+#    rows exist, excel_v2._collapse_fallback_market_rows (Quality
+#    Intelligence's "City-Level Supply-Demand Data" table) intentionally
+#    collapses them into ONE anonymous "All listed markets" row that names
+#    none of them -- so a 10-city list typed with inconsistent state
+#    formatting (some "PA", some "Pennsylvania") looked like 6 of the
+#    client's locations had vanished.
+# ---------------------------------------------------------------------------
+
+
+def test_full_state_name_gets_same_differentiation_as_abbreviation():
+    """ "Hershey, Pennsylvania" must resolve the same state-level multiplier/
+    difficulty as "Hershey, PA" -- not silently fall through to the flat
+    generic default just because the client spelled the state out."""
+    data_abbr = {"locations": ["Hershey, PA"], "target_roles": ["Production Associate"]}
+    data_full = {
+        "locations": ["Hershey, Pennsylvania"],
+        "target_roles": ["Production Associate"],
+    }
+    row_abbr = gs.enrich_city_level_data(data_abbr)["Hershey"]
+    row_full = gs.enrich_city_level_data(data_full)["Hershey"]
+
+    assert row_full["fallback_uniform"] is False
+    assert row_full["salary_multiplier"] == row_abbr["salary_multiplier"]
+    assert row_full["hiring_difficulty"] == row_abbr["hiring_difficulty"]
+
+
+def test_hershey_ten_city_mixed_state_format_all_survive_distinctly():
+    """Reproduces the real client report at the enrich_city_level_data
+    layer: 10 distinct PA towns, some typed "City, PA" and others "City,
+    Pennsylvania" (the mixed formatting a real client conversation
+    produces). Every one of the 10 must get real state-level
+    differentiation -- none may fall to the flat generic default that
+    triggers the Quality Intelligence sheet's anonymous collapse row."""
+    locations = [
+        "Hershey, PA",
+        "Hazleton, PA",
+        "Harrisburg, PA",
+        "Scranton, PA",
+        "Allentown, Pennsylvania",
+        "Reading, Pennsylvania",
+        "Lancaster, Pennsylvania",
+        "York, Pennsylvania",
+        "Wilkes-Barre, Pennsylvania",
+        "Altoona, Pennsylvania",
+    ]
+    data = {"locations": locations, "target_roles": ["Production Associate"]}
+    city_data = gs.enrich_city_level_data(data)
+
+    assert len(city_data) == 10
+    for city_name, row in city_data.items():
+        assert row["fallback_uniform"] is False, (
+            f"{city_name} incorrectly fell to the flat generic default -- "
+            "would be silently collapsed with any other such row"
+        )
+
+
+def test_collapse_fallback_market_rows_does_not_erase_named_pa_towns():
+    """End-to-end: the Quality Intelligence sheet's City-Level
+    Supply-Demand table (excel_v2._collapse_fallback_market_rows) must show
+    all 10 client-specified PA towns by name, not 4 named rows plus one
+    anonymous catch-all that erases the other 6 -- the exact shape of the
+    real Hershey Company client report."""
+    import excel_v2
+
+    locations = [
+        "Hershey, PA",
+        "Hazleton, PA",
+        "Harrisburg, PA",
+        "Scranton, PA",
+        "Allentown, Pennsylvania",
+        "Reading, Pennsylvania",
+        "Lancaster, Pennsylvania",
+        "York, Pennsylvania",
+        "Wilkes-Barre, Pennsylvania",
+        "Altoona, Pennsylvania",
+    ]
+    data = {"locations": locations, "target_roles": ["Production Associate"]}
+    city_data = gs.enrich_city_level_data(data)
+    display_rows = excel_v2._collapse_fallback_market_rows(city_data)
+
+    assert len(display_rows) == 10
+    assert not any(is_collapsed for _, _, is_collapsed in display_rows)

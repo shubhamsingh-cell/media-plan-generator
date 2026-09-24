@@ -33,6 +33,11 @@ try:
 except ImportError:  # pragma: no cover - plan_currency ships with the repo
     _plan_currency_gs = None
 
+try:
+    from plan_geo import US_STATE_NAME_TO_ABBR as _US_STATE_NAME_TO_ABBR
+except ImportError:  # pragma: no cover - plan_geo ships with the repo
+    _US_STATE_NAME_TO_ABBR = {}
+
 # S50: Seasonal hiring trends -- enriches activation calendar with
 # industry-specific peak/low multipliers from seasonal_hiring_trends.json.
 _SEASONAL_PATTERNS_GS: dict = {}
@@ -1122,6 +1127,30 @@ def effective_work_model(stated: str, roles: list[str]) -> tuple[str, str | None
     )
 
 
+def _normalize_state_code(raw_state: str) -> str:
+    """Coerce a free-typed state token to its lowercase 2-letter USPS code.
+
+    Real client location lists mix "City, PA" with "City, Pennsylvania"
+    (and everything in between) depending on who typed which row. Only the
+    2-letter form fed ``_STATE_SALARY_MULTIPLIERS``/``_STATE_HIRING_
+    DIFFICULTY`` below (the ``len(_state_code) == 2`` gate) -- a full state
+    name silently skipped state-level differentiation. For any city not
+    also in the small hand-curated ``_CITY_SALARY_MULTIPLIERS``/research
+    METRO_DATA tables (most small/mid PA towns, for example), that meant
+    falling all the way to the flat generic default (1.0x / 5.5) --
+    flagged ``fallback_uniform`` and, once 2+ such rows appear,
+    silently COLLAPSED into one anonymous "All listed markets" row by
+    ``excel_v2._collapse_fallback_market_rows``. A 10-city list typed with
+    inconsistent state formatting (some "PA", some "Pennsylvania", some
+    bare) could look like the Quality Intelligence sheet dropped most of
+    the client's locations, when it only failed to recognize their state.
+    """
+    token = (raw_state or "").strip().lower()
+    if len(token) == 2:
+        return token
+    return _US_STATE_NAME_TO_ABBR.get(token, "").lower() or token
+
+
 def enrich_city_level_data(data: dict) -> dict:
     """Produce per-city salary, hiring difficulty, and supply segmentation.
 
@@ -1201,9 +1230,10 @@ def enrich_city_level_data(data: dict) -> dict:
                 _state_code = _parts[1].strip().lower().rstrip(".")
                 # Handle "Hartford, CT 06103" -- strip zip
                 _state_code = re.sub(r"\s*\d+.*$", "", _state_code)
+                _state_code = _normalize_state_code(_state_code)
         elif isinstance(loc, dict):
             city_name = str(loc.get("city") or loc.get("name") or "").strip()
-            _state_code = str(loc.get("state") or "").strip().lower()
+            _state_code = _normalize_state_code(str(loc.get("state") or ""))
         if not city_name:
             continue
 
