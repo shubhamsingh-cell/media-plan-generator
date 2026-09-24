@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import io
 import logging
+import math
 import random
 import re
 import time
@@ -308,209 +309,316 @@ def _load_seasonal_patterns() -> dict:
     return _SEASONAL_PATTERNS
 
 
-def _seasonal_monthly_phasing(
-    industry: str,
-    campaign_start_month: int,
-    activation_timeline: list | None = None,
-) -> list[float]:
-    """Compute 3-month budget phasing adjusted for seasonal hiring patterns.
+_DEFAULT_RAMP_PHASING = [0.25, 0.35, 0.40]
 
-    Falls back to the standard ramp-up curve [0.25, 0.35, 0.40] when no
-    seasonal data is available for the given industry.
+# Keyword -> seasonal_hiring_trends.json key, for industry strings that don't
+# substring-match a JSON key directly (legacy fallback lookup only).
+_SEASONAL_TRENDS_INDUSTRY_MAP = {
+    "tech": "technology",
+    "software": "technology",
+    "it ": "technology",
+    "information technology": "technology",
+    "saas": "technology",
+    "health": "healthcare",
+    "medical": "healthcare",
+    "pharma": "healthcare",
+    "hospital": "healthcare",
+    "nursing": "healthcare",
+    "retail": "retail",
+    "ecommerce": "retail",
+    "e-commerce": "retail",
+    "hospitality": "hospitality",
+    "hotel": "hospitality",
+    "restaurant": "hospitality",
+    "food service": "hospitality",
+    "construction": "construction",
+    "building": "construction",
+    "education": "education",
+    "university": "education",
+    "school": "education",
+    "finance": "finance",
+    "banking": "finance",
+    "insurance": "finance",
+    "financial": "finance",
+    "manufactur": "manufacturing",
+    "industrial": "manufacturing",
+    "logistics": "logistics",
+    "warehouse": "logistics",
+    "supply chain": "logistics",
+    "shipping": "logistics",
+    "freight": "logistics",
+    "staffing": "staffing",
+    "recruiting": "staffing",
+    "temp agency": "staffing",
+    "transport": "transportation",
+    "trucking": "transportation",
+    "driving": "transportation",
+    "cdl": "transportation",
+    "government": "government",
+    "federal": "government",
+    "public sector": "government",
+}
 
-    DEFECT FIX (2026-09-24, client-reported): this used to derive its
-    per-month weight from an independent reload of
-    ``seasonal_hiring_trends.json``, keyed by its OWN industry-string
-    matching (a second, different key namespace than
-    ``gold_standard._get_industry_key`` -- e.g. "manufacturing" plans here
-    vs. "blue_collar_trades" there, which isn't even a key in that JSON).
-    That meant this sheet's monthly split could -- and did -- disagree with
-    the SAME workbook's own Activation Event Calendar (Section 7, built by
-    ``gold_standard.build_activation_calendar``, which also folds in
-    sub-vertical overrides and the generic hiring-intensity calendar that
-    this function never saw). Real repro: a manufacturing plan starting in
-    October had this sheet call December -- the calendar's own "Low" /
-    "Year End: minimal active recruiting" month -- its heaviest-spend
-    "peak performance" period, in the SAME generated workbook.
 
-    When the caller passes ``activation_timeline`` (the plan's already-built
-    ``activation_calendar["timeline"]`` -- the normal case, since
-    gold_standard's quality gates run before Excel generation), each
-    forecast month's weight is read from that SAME per-month
-    ``budget_weight`` the Activation Event Calendar table renders, AND the
-    monthly split is derived DIRECTLY from those weights (proportional,
-    with no fixed ramp-shape multiplier on top). Falls back to the old
-    seasonal_hiring_trends.json lookup (with the base ramp-up curve
-    modulation) only when no timeline is available (e.g. a direct
-    unit-test call that doesn't run the gold-standard gates).
-
-    VERIFIER FOLLOW-UP FIX (2026-09-24): the first pass of this fix still
-    multiplied the calendar's own ``budget_weight`` by a fixed [0.25, 0.35,
-    0.40] ramp-shape base -- that base is bigger than the calendar's real
-    weight spread (0.7-1.3x) often enough that the final ranking could
-    still invert the calendar's own ordering (Hershey repro: October
-    "High" 1.1x still lost to December "Low" 0.7x, 30.4% vs 30.9%, because
-    month 3's 0.40 base outweighs a 1.1-vs-0.7 weight difference). A
-    15-industries x 12-start-months sweep found 3 cases where the
-    calendar's own Low month was still crowned heaviest, and 105/180 cases
-    where a busier calendar month got LESS spend than a quieter one. The
-    ramp-shape multiply is now skipped ENTIRELY whenever a real timeline is
-    present -- shares are directly proportional to ``budget_weight``, so
-    the forecast's ordering is mathematically guaranteed to match the
-    calendar's ordering (ties stay ties; a strictly higher-weight month can
-    never receive a strictly smaller share). The ramp-shape base is kept
-    ONLY for the JSON-fallback path below, where no real per-month weight
-    exists to derive a split from.
-
-    Args:
-        industry: Raw industry string from form input.
-        campaign_start_month: 1-12, the month the campaign begins.
-        activation_timeline: Optional ``activation_calendar["timeline"]``
-            list (from ``gold_standard.build_activation_calendar``) -- the
-            SAME per-month data the Activation Event Calendar section
-            renders. When present, its ``budget_weight`` values are used
-            instead of re-deriving weights from seasonal_hiring_trends.json.
-
-    Returns:
-        List of 3 floats summing to 1.0 representing monthly budget shares.
+def _calendar_budget_weights(activation_timeline: list | None) -> dict[int, float]:
+    """Month number -> ``budget_weight`` from an ``activation_calendar``
+    timeline, keeping ONLY entries that are real calendar data: a dict with
+    an integer ``month`` in 1..12 AND a finite, positive numeric
+    ``budget_weight``. Anything else (missing ``month`` key, missing or
+    non-numeric weight) is skipped, so a malformed timeline can never be
+    mistaken for calendar-backed data.
     """
-    default_phasing = [0.25, 0.35, 0.40]
-    base = [0.25, 0.35, 0.40]
+    weights: dict[int, float] = {}
+    for entry in activation_timeline or []:
+        if not isinstance(entry, dict):
+            continue
+        month_raw = entry.get("month")
+        weight_raw = entry.get("budget_weight")
+        if isinstance(month_raw, bool) or isinstance(weight_raw, bool):
+            continue
+        try:
+            month_num = int(month_raw)
+            weight = float(weight_raw)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= month_num <= 12 and math.isfinite(weight) and weight > 0:
+            weights[month_num] = weight
+    return weights
 
-    raw_weights: list[float] | None = None
-    _from_calendar = False
-    if activation_timeline:
-        _weight_by_month = {}
-        for _m in activation_timeline:
-            if not isinstance(_m, dict):
-                continue
-            try:
-                _mnum = int(_m.get("month") or 0)
-            except (TypeError, ValueError):
-                continue
-            if 1 <= _mnum <= 12:
-                _weight_by_month[_mnum] = _safe_num(_m.get("budget_weight") or 1.0, 1.0)
-        if _weight_by_month:
-            raw_weights = [
-                _weight_by_month.get(((campaign_start_month - 1 + i) % 12) + 1, 1.0)
-                for i in range(3)
-            ]
-            _from_calendar = True
 
-    if raw_weights is None:
-        patterns = _load_seasonal_patterns()
-        if not patterns or not industry:
-            return default_phasing
-
-        # Normalize industry to match seasonal_hiring_trends.json keys
-        ind_lower = industry.lower().strip()
-        # Direct and substring matching
-        matched_key = ""
-        for key in patterns:
-            if key in ind_lower or ind_lower in key:
-                matched_key = key
+def _seasonal_trends_month_weights(industry: str) -> dict[int, float] | None:
+    """Legacy fallback: month -> generic peak/low multiplier for ``industry``
+    from ``data/seasonal_hiring_trends.json`` (its own industry-string
+    matching). Returns None when no pattern matches. Used ONLY when the plan
+    has no activation-calendar weights at all.
+    """
+    patterns = _load_seasonal_patterns()
+    if not patterns or not industry:
+        return None
+    ind_lower = industry.lower().strip()
+    matched_key = ""
+    for key in patterns:
+        if key in ind_lower or ind_lower in key:
+            matched_key = key
+            break
+    if not matched_key:
+        for keyword, seasonal_key in _SEASONAL_TRENDS_INDUSTRY_MAP.items():
+            if keyword in ind_lower:
+                matched_key = seasonal_key
                 break
-        # Broader keyword mapping for common industry names
-        if not matched_key:
-            _industry_map = {
-                "tech": "technology",
-                "software": "technology",
-                "it ": "technology",
-                "information technology": "technology",
-                "saas": "technology",
-                "health": "healthcare",
-                "medical": "healthcare",
-                "pharma": "healthcare",
-                "hospital": "healthcare",
-                "nursing": "healthcare",
-                "retail": "retail",
-                "ecommerce": "retail",
-                "e-commerce": "retail",
-                "hospitality": "hospitality",
-                "hotel": "hospitality",
-                "restaurant": "hospitality",
-                "food service": "hospitality",
-                "construction": "construction",
-                "building": "construction",
-                "education": "education",
-                "university": "education",
-                "school": "education",
-                "finance": "finance",
-                "banking": "finance",
-                "insurance": "finance",
-                "financial": "finance",
-                "manufactur": "manufacturing",
-                "industrial": "manufacturing",
-                "logistics": "logistics",
-                "warehouse": "logistics",
-                "supply chain": "logistics",
-                "shipping": "logistics",
-                "freight": "logistics",
-                "staffing": "staffing",
-                "recruiting": "staffing",
-                "temp agency": "staffing",
-                "transport": "transportation",
-                "trucking": "transportation",
-                "driving": "transportation",
-                "cdl": "transportation",
-                "government": "government",
-                "federal": "government",
-                "public sector": "government",
-            }
-            for keyword, seasonal_key in _industry_map.items():
-                if keyword in ind_lower:
-                    matched_key = seasonal_key
-                    break
+    if not matched_key or matched_key not in patterns:
+        return None
+    pattern = patterns[matched_key]
+    peak_months = set(pattern.get("peak_months", []))
+    low_months = set(pattern.get("low_months", []))
+    peak_mult = pattern.get("peak_multiplier", 1.15)
+    low_mult = pattern.get("low_multiplier", 0.85)
+    out: dict[int, float] = {}
+    for m in range(1, 13):
+        if m in peak_months:
+            out[m] = peak_mult
+        elif m in low_months:
+            out[m] = low_mult
+        else:
+            out[m] = 1.0
+    return out
 
-        if not matched_key or matched_key not in patterns:
-            return default_phasing
 
-        pattern = patterns[matched_key]
-        peak_months = set(pattern.get("peak_months", []))
-        low_months = set(pattern.get("low_months", []))
-        peak_mult = pattern.get("peak_multiplier", 1.15)
-        low_mult = pattern.get("low_multiplier", 0.85)
+def _resolve_month_weights(
+    industry: str, months: list[int], activation_timeline: list | None
+) -> tuple[list[float], str]:
+    """Per-month budget weights for ``months`` and where they came from.
 
-        # Build raw weights for the 3 campaign months
-        raw_weights = []
-        for i in range(3):
-            m = ((campaign_start_month - 1 + i) % 12) + 1
-            if m in peak_months:
-                raw_weights.append(peak_mult)
-            elif m in low_months:
-                raw_weights.append(low_mult)
-            else:
-                raw_weights.append(1.0)
+    Source is one of:
+      * ``"calendar"`` -- EVERY month in ``months`` has a real entry in this
+        plan's own Activation Event Calendar (the only source under which
+        the forecast may claim to match that calendar);
+      * ``"partial_calendar"`` -- the calendar has usable entries but not
+        for every month here (missing months weigh 1.0);
+      * ``"seasonal_trends"`` -- no usable calendar; generic
+        seasonal_hiring_trends.json multipliers for the industry;
+      * ``"none"`` -- no seasonal data at all (every month 1.0).
+    """
+    cal = _calendar_budget_weights(activation_timeline)
+    if cal:
+        weights = [cal.get(m, 1.0) for m in months]
+        source = "calendar" if all(m in cal for m in months) else "partial_calendar"
+        return weights, source
+    trends = _seasonal_trends_month_weights(industry)
+    if trends is not None:
+        return [trends[m] for m in months], "seasonal_trends"
+    return [1.0] * len(months), "none"
 
-    if _from_calendar:
-        # DEFECT FIX (verifier follow-up): no ramp-shape multiply here --
-        # the calendar's own budget_weight values ARE the split, directly
-        # proportional, so this sheet's ordering can never invert the
-        # Activation Event Calendar's ordering for the same plan.
-        adjusted = list(raw_weights)
-    else:
-        # JSON-fallback path only (no real per-month calendar weight
-        # available): apply the standard ramp-up curve as a base, then
-        # modulate by the generic industry peak/low multiplier.
-        adjusted = [b * w for b, w in zip(base, raw_weights)]
 
-    # Normalize to sum to 1.0
-    total = sum(adjusted)
-    if total <= 0:
-        return default_phasing
-    shares = [round(a / total, 4) for a in adjusted]
-    # Rounding each share to 4 decimals independently can leave the list
-    # summing to e.g. 0.9999 instead of 1.0 (observed: seasonal weights on
-    # a 24-week logistics campaign summed to 0.9999, silently under-spending
-    # the printed 90-Day Total by ~$8 relative to the sum of the three
-    # printed monthly Spend cells). Push the residual onto the largest
-    # share so the three values always sum to EXACTLY 1.0 -- monthly_spend
-    # (== _budget_90d * share) then foots exactly to _budget_90d.
+def _normalize_shares(raw: list[float]) -> list[float]:
+    """Normalize to shares rounded to 4 dp that sum to EXACTLY 1.0.
+
+    Rounding each share independently can leave the list summing to e.g.
+    0.9999 (observed: seasonal weights on a 24-week logistics campaign,
+    silently under-spending the printed total by ~$8 against the sum of the
+    printed period cells). The residual is pushed onto the largest share so
+    period spend (== budget * share) always foots exactly to the total.
+    """
+    total = sum(raw)
+    shares = [round(r / total, 4) for r in raw]
     residual = round(1.0 - sum(shares), 4)
     if residual:
         max_idx = max(range(len(shares)), key=lambda i: shares[i])
         shares[max_idx] = round(shares[max_idx] + residual, 4)
     return shares
+
+
+def _seasonal_monthly_phasing_detail(
+    industry: str,
+    campaign_start_month: int,
+    activation_timeline: list | None = None,
+) -> dict:
+    """3-month budget phasing for the classic 90-Day frame, with provenance.
+
+    Returns ``{"pcts": [3 shares summing to 1.0], "source": <see
+    _resolve_month_weights>, "used_real_calendar": bool}``.
+    ``used_real_calendar`` is True ONLY when all three plotted months'
+    weights were read from real Activation Event Calendar entries -- it is
+    the sole gate for the forecast narrative's "matching this plan's
+    Activation Event Calendar" claim (never a proxy such as "a timeline
+    object existed").
+
+    Calendar-backed (full or partial): shares are DIRECTLY proportional to
+    ``budget_weight`` -- no ramp-shape multiplier -- so a strictly
+    higher-weight month can never receive a strictly smaller share.
+    seasonal_trends fallback: the legacy [0.25, 0.35, 0.40] ramp modulated
+    by the generic peak/low multiplier. No data: the plain ramp.
+
+    History (client-reported, Hershey): this used to read an independent
+    seasonal_hiring_trends.json lookup and then a calendar weight multiplied
+    by the ramp base, either of which could crown the calendar's own "Low"
+    month the heaviest-spend month (b802d68, 01f8d6c).
+    """
+    months = [((campaign_start_month - 1 + i) % 12) + 1 for i in range(3)]
+    weights, source = _resolve_month_weights(industry, months, activation_timeline)
+    if source in ("calendar", "partial_calendar"):
+        adjusted = list(weights)
+    elif source == "seasonal_trends":
+        adjusted = [b * w for b, w in zip(_DEFAULT_RAMP_PHASING, weights)]
+    else:
+        return {
+            "pcts": list(_DEFAULT_RAMP_PHASING),
+            "source": "none",
+            "used_real_calendar": False,
+        }
+    if sum(adjusted) <= 0:
+        return {
+            "pcts": list(_DEFAULT_RAMP_PHASING),
+            "source": "none",
+            "used_real_calendar": False,
+        }
+    return {
+        "pcts": _normalize_shares(adjusted),
+        "source": source,
+        "used_real_calendar": source == "calendar",
+    }
+
+
+def _seasonal_monthly_phasing(
+    industry: str,
+    campaign_start_month: int,
+    activation_timeline: list | None = None,
+) -> list[float]:
+    """3 monthly budget shares (summing to 1.0) for the classic 90-Day frame.
+
+    Thin wrapper over :func:`_seasonal_monthly_phasing_detail` -- see there
+    for the weighting rules and provenance.
+    """
+    return _seasonal_monthly_phasing_detail(
+        industry, campaign_start_month, activation_timeline
+    )["pcts"]
+
+
+def _short_plan_forecast_split(
+    industry: str,
+    forecast_start: datetime.date,
+    campaign_weeks: int,
+    weekly_frame: bool,
+    activation_timeline: list | None = None,
+) -> dict:
+    """Period split for a campaign that fits inside the 90-day window
+    (1..13 weeks), derived day by day from the calendar months the campaign
+    ACTUALLY runs in.
+
+    DEFECT FIX (2026-09-24, Hershey follow-up #3): short plans used to take
+    the 3-month split for the start month and the TWO FOLLOWING months and
+    stretch those three phases across the campaign's weeks, then re-bucket
+    the weeks into columns labelled with calendar-month names. That (a) let
+    months OUTSIDE the campaign window set spend (a 4-week June plan was
+    priced partly at August's weight), and (b) put the wrong days under a
+    month's name (a 5-week June plan's "July" column was 2 weeks of mostly
+    June, priced at July's weight -- 63% "heaviest" on the calendar's own
+    "Low" month). Both paths also printed "matching this plan's Activation
+    Event Calendar".
+
+    The campaign is days ``forecast_start .. forecast_start + 7*weeks - 1``.
+    Each day is weighted by the budget weight of the calendar month it falls
+    in (:func:`_resolve_month_weights`), so daily spend pacing is
+    proportional to that month's weight and no month outside the window can
+    influence anything. Columns are:
+      * ``weekly_frame``: Week 1..N (7 days each);
+      * otherwise: each calendar month the campaign touches, holding exactly
+        that month's campaign days -- so the "July 2026" column is July.
+    A column's share = its days' summed weight / the campaign's total, so it
+    reflects BOTH its month's pacing and how many campaign days it holds.
+
+    Returns a dict:
+      labels, pcts (sum to exactly 1.0), days (campaign days per column),
+      col_weights (per-column average daily weight -- the pacing driver),
+      months [(year, month)], month_weights, source, used_real_calendar
+      (True only when every month the campaign touches has a real calendar
+      entry).
+    """
+    n_days = max(1, int(campaign_weeks)) * 7
+    day_list = [forecast_start + datetime.timedelta(days=i) for i in range(n_days)]
+    months: list[tuple[int, int]] = []
+    for d in day_list:
+        if not months or months[-1] != (d.year, d.month):
+            months.append((d.year, d.month))
+    month_weights, source = _resolve_month_weights(
+        industry, [m for _, m in months], activation_timeline
+    )
+    weight_of = dict(zip(months, month_weights))
+    day_weights = [weight_of[(d.year, d.month)] for d in day_list]
+
+    if weekly_frame:
+        buckets = [list(range(7 * k, 7 * k + 7)) for k in range(n_days // 7)]
+        labels = [f"Week {k + 1}" for k in range(len(buckets))]
+    else:
+        buckets = [
+            [i for i, d in enumerate(day_list) if (d.year, d.month) == ym]
+            for ym in months
+        ]
+        labels = [datetime.date(y, m, 1).strftime("%B %Y") for y, m in months]
+
+    raw = [sum(day_weights[i] for i in b) for b in buckets]
+    days = [len(b) for b in buckets]
+    # A column inside one month carries that month's weight EXACTLY (the
+    # same float the Activation Event Calendar table formats) -- re-deriving
+    # it as sum/len accumulates float error that can flip a one-decimal
+    # render at a .x5 boundary (0.85 -> "0.9x" here vs "0.8x" in the table).
+    col_weights = []
+    for b, r, n in zip(buckets, raw, days):
+        b_months = {(day_list[i].year, day_list[i].month) for i in b}
+        if len(b_months) == 1:
+            col_weights.append(weight_of[next(iter(b_months))])
+        else:
+            col_weights.append(round(r / n, 9))
+    return {
+        "labels": labels,
+        "pcts": _normalize_shares(raw),
+        "days": days,
+        "col_weights": col_weights,
+        "months": months,
+        "month_weights": month_weights,
+        "source": source,
+        "used_real_calendar": source == "calendar",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -10770,6 +10878,160 @@ def _period_spend_labels(pcts: list[float]) -> list[str]:
     return labels
 
 
+def _fmt_budget_weight(weight: float, source: str) -> str:
+    """Render a month's budget weight for the forecast narrative.
+
+    Calendar-sourced weights use the SAME one-decimal "1.1x" format the
+    Activation Event Calendar table prints, so a reader comparing the two
+    sees identical numbers; generic seasonal-trend multipliers keep two
+    decimals (e.g. "1.15x").
+    """
+    if source in ("calendar", "partial_calendar"):
+        return f"{weight:.1f}x"
+    return f"{weight:.2f}x"
+
+
+def _pacing_labels(col_weights: list[float], source: str) -> list[str]:
+    """Daily-pacing labels for short-plan columns, ranked by each column's
+    budget weight AS DISPLAYED (see :func:`_fmt_budget_weight`).
+
+    Short-plan columns can hold very different numbers of campaign days (a
+    5-week June plan holds 30 June days and 5 July days), so total share is
+    NOT a seasonal signal and must never be labelled "heaviest"/"lightest".
+    What the calendar's weight drives is daily pacing, so that is what these
+    labels rank. Columns whose displayed weights are equal get the same
+    label, and when every column displays the same weight nothing is
+    ranked at all ("comparable daily pacing") -- no ranking the data (or the
+    calendar table a reader would check it against) doesn't show.
+    """
+    if not col_weights:
+        return []
+    keys = [float(_fmt_budget_weight(w, source)[:-1]) for w in col_weights]
+    hi, lo = max(keys), min(keys)
+    if hi == lo:
+        return ["comparable daily pacing"] * len(keys)
+    if len(keys) == 2:
+        return [
+            "heavier daily pacing" if k == hi else "lighter daily pacing" for k in keys
+        ]
+    return [
+        "heaviest daily pacing"
+        if k == hi
+        else ("lightest daily pacing" if k == lo else "mid-range daily pacing")
+        for k in keys
+    ]
+
+
+def _short_plan_ramp_note(split: dict, weekly_frame: bool, campaign_weeks: int) -> str:
+    """Narrative footnote for a short (<=13-week) plan's forecast split from
+    :func:`_short_plan_forecast_split`.
+
+    Every figure it quotes comes from ``split``; every ranking word comes
+    from :func:`_pacing_labels` (never position, never raw share); and the
+    "matching this plan's Activation Event Calendar" clause appears ONLY
+    when ``split["used_real_calendar"]`` is True.
+    """
+    pcts = split["pcts"]
+    labels = split["labels"]
+    days = split["days"]
+    source = split["source"]
+    n = len(pcts)
+    cal_clause = (
+        ", matching this plan's Activation Event Calendar"
+        if split["used_real_calendar"]
+        else ""
+    )
+    basis = {
+        "calendar": "budget weight",
+        "partial_calendar": "seasonal budget weight",
+        "seasonal_trends": "seasonal hiring weight for this industry",
+    }.get(source, "")
+    month_names = [
+        datetime.date(y, m, 1).strftime("%B %Y") for y, m in split["months"]
+    ]
+    wdesc = ", ".join(
+        f"{name} {_fmt_budget_weight(w, source)}"
+        for name, w in zip(month_names, split["month_weights"])
+    )
+    weeks_txt = f"{campaign_weeks} week{'s' if campaign_weeks != 1 else ''}"
+    tail = " Actual distribution may vary based on channel mix and market conditions."
+    pace = _pacing_labels(split["col_weights"], source)
+    comparable = n == 1 or pace[0] == "comparable daily pacing"
+
+    if weekly_frame:
+        if len(month_names) == 1:
+            where = f"falls inside {month_names[0]}"
+            if source != "none":
+                where += (
+                    f" ({_fmt_budget_weight(split['month_weights'][0], source)} "
+                    f"{basis}{cal_clause})"
+                )
+            if n == 1:
+                return (
+                    f"This forecast phases budget 100% Week 1 -- the campaign's "
+                    f"single week, which {where}." + tail
+                )
+            return (
+                f"This forecast phases budget evenly across the campaign's "
+                f"{weeks_txt} -- {100 / n:.0f}% per week, comparable planned "
+                f"spend in every week -- because the whole campaign {where}, "
+                "so there is no seasonal shift to phase within it." + tail
+            )
+        parts = ", ".join(
+            f"{p * 100:.0f}% Week {i + 1} ({lbl})"
+            for i, (p, lbl) in enumerate(zip(pcts, pace))
+        )
+        if source == "none" or comparable:
+            why = (
+                "spend is paced evenly per day (no seasonal weighting is "
+                "available for this plan)"
+                if source == "none"
+                else f"daily spend pacing is comparable ({wdesc}){cal_clause}"
+            )
+        else:
+            why = (
+                f"each week is paced by the {basis} of the calendar month(s) "
+                f"it falls in ({wdesc}){cal_clause}"
+            )
+        return (
+            f"This forecast phases budget {parts} across the campaign's "
+            f"{weeks_txt} -- {why}." + tail
+        )
+
+    ranked = source != "none" and not comparable
+    parts = ", ".join(
+        f"{p * 100:.0f}% {lbl} ({d} campaign day{'s' if d != 1 else ''}"
+        + (
+            f"; {_fmt_budget_weight(w, source)}, {pl})"
+            if ranked
+            else ")"
+        )
+        for p, lbl, d, w, pl in zip(pcts, labels, days, split["col_weights"], pace)
+    )
+    if source == "none":
+        why = (
+            "spend is paced evenly per day (no seasonal weighting is available "
+            "for this plan), so each month's share reflects how many campaign "
+            "days fall in it"
+        )
+    elif comparable:
+        why = (
+            f"daily spend pacing is comparable across these months ({wdesc})"
+            f"{cal_clause}, so each month's share mainly reflects how many "
+            "campaign days fall in it"
+        )
+    else:
+        why = (
+            f"daily spend pacing follows each month's {basis}{cal_clause}, so "
+            "each month's share reflects both that pacing and how many "
+            "campaign days fall in it"
+        )
+    return (
+        f"This forecast phases budget {parts} across the campaign's "
+        f"{weeks_txt} -- {why}." + tail
+    )
+
+
 def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     """Build Sheet 7: Campaign Forecast with periodic spend, applications, hires, and CPA trend.
 
@@ -10780,22 +11042,88 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     instead -- "4-Week Forecast" with weekly columns for a <=4-week plan,
     "N-Week Forecast" with monthly columns otherwise, totalling to a
     "Campaign Total" of the full budget (scale 1.0, no first-90-days
-    language). Ramp-up weights use the same _seasonal_monthly_phasing curve
-    (base shape 25/35/40, seasonally adjusted per industry and start month)
-    spread across the campaign's real weeks -- the rendered narrative always
-    quotes the actual computed split, never a hardcoded percentage.
+    language).
+
+    Phasing (Hershey defect, 2026-09-24): the 90-Day frame splits its three
+    full months by _seasonal_monthly_phasing_detail. A short plan's columns
+    come from _short_plan_forecast_split: Week 1..N for a <=4-week plan,
+    otherwise one column per calendar month the campaign actually touches
+    (2 for 5-8 weeks, 3-4 for 9-13 weeks), each day paced by ITS OWN
+    month's weight. The rendered narrative always quotes the actual computed
+    split, and claims to match the Activation Event Calendar only when every
+    plotted month's weight came from real calendar entries.
     """
     _plan_duration = _resolve_campaign_duration(data)
     _cw_int = _forecast_weeks(data)
     # A plan that fits inside the 90-day window is framed by its own duration.
     _short_plan = 1 <= _cw_int <= 13
     _weekly_frame = _short_plan and _cw_int <= 4
-    if _weekly_frame:
-        _n_periods = _cw_int
-    elif _short_plan:
-        _n_periods = 2 if _cw_int <= 8 else 3
+
+    today = datetime.date.today()
+
+    # S49 FIX (Issue 18): Use campaign_start_month from form data instead of
+    # today's month so the forecast aligns with the activation timeline.
+    # e.g. if campaign starts May, forecast = May/Jun/Jul (not Apr/May/Jun).
+    _csm_raw = data.get("campaign_start_month") or 0
+    try:
+        _campaign_start_month = int(_csm_raw) if _csm_raw else 0
+    except (ValueError, TypeError):
+        _campaign_start_month = 0
+    if _campaign_start_month < 1 or _campaign_start_month > 12:
+        _campaign_start_month = today.month  # fallback to current month
+
+    # Forecast window starts on the 1st of the campaign start month (this
+    # year) -- the same date the "Forecast Period" row prints below.
+    _forecast_year = today.year
+    _forecast_start = datetime.date(_forecast_year, _campaign_start_month, 1)
+
+    # DEFECT FIX (2026-09-24, Hershey): every phasing path reads this plan's
+    # OWN activation_calendar timeline -- the SAME per-month budget_weight
+    # the Activation Event Calendar section renders -- and reports whether it
+    # actually used real calendar entries for every plotted month
+    # (_used_real_calendar), which alone gates the narrative's calendar claim.
+    _industry_raw = str(data.get("industry") or "")
+    _gs_block = data.get("_gold_standard")
+    _activation_cal = (
+        _gs_block.get("activation_calendar") if isinstance(_gs_block, dict) else None
+    )
+    _activation_timeline = (
+        _activation_cal.get("timeline") if isinstance(_activation_cal, dict) else None
+    ) or []
+    if not isinstance(_activation_timeline, list):
+        _activation_timeline = []
+
+    monthly_pcts: list[float] = []
+    _short_split: dict = {}
+    if _short_plan:
+        _short_split = _short_plan_forecast_split(
+            _industry_raw,
+            _forecast_start,
+            _cw_int,
+            _weekly_frame,
+            _activation_timeline,
+        )
+        period_pcts = list(_short_split["pcts"])
+        period_labels = list(_short_split["labels"])
+        _phasing_source = _short_split["source"]
+        _used_real_calendar = bool(_short_split["used_real_calendar"])
     else:
-        _n_periods = 3
+        _phasing = _seasonal_monthly_phasing_detail(
+            _industry_raw, _campaign_start_month, _activation_timeline
+        )
+        monthly_pcts = list(_phasing["pcts"])
+        period_pcts = monthly_pcts
+        _phasing_source = _phasing["source"]
+        _used_real_calendar = bool(_phasing["used_real_calendar"])
+        period_labels = []
+        for i in range(3):
+            m = _campaign_start_month + i
+            y = _forecast_year
+            if m > 12:
+                m -= 12
+                y += 1
+            period_labels.append(datetime.date(y, m, 1).strftime("%B %Y"))
+    _n_periods = len(period_pcts)
 
     ws.title = _forecast_sheet_title(data)
     ws.sheet_properties.tabColor = SAPPHIRE
@@ -10838,66 +11166,7 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     if total_hires == 0:
         total_hires = int(_safe_num(ba_total_proj.get("hires") or 0))
 
-    today = datetime.date.today()
-
-    # S49 FIX (Issue 18): Use campaign_start_month from form data instead of
-    # today's month so the forecast aligns with the activation timeline.
-    # e.g. if campaign starts May, forecast = May/Jun/Jul (not Apr/May/Jun).
-    _csm_raw = data.get("campaign_start_month") or 0
-    try:
-        _campaign_start_month = int(_csm_raw) if _csm_raw else 0
-    except (ValueError, TypeError):
-        _campaign_start_month = 0
-    if _campaign_start_month < 1 or _campaign_start_month > 12:
-        _campaign_start_month = today.month  # fallback to current month
-
-    # S50: Seasonal-aware budget phasing replaces the flat 25/35/40 ramp-up.
-    # DEFECT FIX (2026-09-24): pass this plan's OWN activation_calendar
-    # timeline (the SAME per-month budget_weight the Activation Event
-    # Calendar section, below, renders) so this sheet's monthly split can
-    # never contradict that section for the same plan -- see
-    # _seasonal_monthly_phasing's docstring for the client-reported repro.
-    # Falls back to seasonal_hiring_trends.json (then [0.25, 0.35, 0.40])
-    # only when no activation calendar was built for this plan.
-    _industry_raw = str(data.get("industry") or "")
-    _activation_timeline = (
-        (data.get("_gold_standard") or {}).get("activation_calendar") or {}
-    ).get("timeline") or []
-    monthly_pcts = _seasonal_monthly_phasing(
-        _industry_raw, _campaign_start_month, _activation_timeline
-    )
-    # DEFECT FIX (verifier follow-up, 2026-09-24): only claim this sheet
-    # "matches" the Activation Event Calendar when it actually does --
-    # i.e. when a real calendar timeline was available to derive the split
-    # from (gold_standard always populates "month" on every timeline entry,
-    # so a non-empty timeline reliably means _seasonal_monthly_phasing used
-    # it). When no timeline was available, the split falls back to the
-    # generic seasonal_hiring_trends.json lookup and must NOT claim to
-    # match a calendar it never saw.
-    _calendar_backed = bool(_activation_timeline)
-
-    # Determine the forecast start year: if campaign month is in the past
-    # relative to current date, assume it starts this year anyway (form input);
-    # otherwise use current year.
-    _forecast_year = today.year
-
-    # Period labels: calendar months for the classic 90-day frame (and for
-    # short plans longer than ~a month), "Week N" columns for a plan that
-    # fits inside a single month.
-    if _weekly_frame:
-        period_labels = [f"Week {k}" for k in range(1, _n_periods + 1)]
-    else:
-        period_labels = []
-        for i in range(_n_periods):
-            m = _campaign_start_month + i
-            y = _forecast_year
-            if m > 12:
-                m -= 12
-                y += 1
-            period_labels.append(datetime.date(y, m, 1).strftime("%B %Y"))
-
-    # Compute forecast period start/end from campaign start month
-    _forecast_start = datetime.date(_forecast_year, _campaign_start_month, 1)
+    # Compute forecast period end from the campaign start (set above)
     if _short_plan:
         # The forecast window IS the campaign: exactly campaign_weeks long.
         _forecast_end = _forecast_start + datetime.timedelta(days=_cw_int * 7 - 1)
@@ -10952,10 +11221,10 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     # monthly split (which may be seasonally shifted away from the base
     # 25/35/40 ramp-up curve by _seasonal_monthly_phasing), never a
     # hardcoded "25/35/40" that can silently drift out of sync with the
-    # monthly spend row below it.
-    _ramp_pct_str = "/".join(f"{p * 100:.0f}" for p in monthly_pcts)
-
+    # monthly spend row below it. (Only the >13-week 90-Day frame uses the
+    # 3-month split; short plans never reach this footnote.)
     if _cw_int > 13:
+        _ramp_pct_str = "/".join(f"{p * 100:.0f}" for p in monthly_pcts)
         row = _write_footnote(
             ws,
             row,
@@ -10971,34 +11240,14 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
         )
     row += 1
 
-    # Per-period budget weights. The classic 3-month frame uses the seasonal
-    # monthly split directly. A short plan spreads the SAME 3-phase ramp
-    # curve across its real weeks, then sums per-week weights into its
-    # period columns -- so a 4-week plan still ramps learning -> peak, and
-    # the printed split always foots exactly to 1.0 (largest-remainder
-    # residual push, mirroring _seasonal_monthly_phasing).
-    if _short_plan:
-        _phase_ranges = display_format.scale_week_phases(_cw_int, min(3, _cw_int))
-        _phase_pcts = monthly_pcts[: len(_phase_ranges)]
-        _pp_total = sum(_phase_pcts) or 1.0
-        _phase_pcts = [p / _pp_total for p in _phase_pcts]
-        _week_weights: list[float] = []
-        for (_ps, _pe), _pct in zip(_phase_ranges, _phase_pcts):
-            _span = max(1, _pe - _ps + 1)
-            _week_weights.extend([_pct / _span] * _span)
-        if _weekly_frame:
-            _period_ranges = [(k, k) for k in range(1, _cw_int + 1)]
-        else:
-            _period_ranges = display_format.scale_week_phases(_cw_int, _n_periods)
-        period_pcts = [
-            round(sum(_week_weights[_ps - 1 : _pe]), 4) for (_ps, _pe) in _period_ranges
-        ]
-        _residual = round(1.0 - sum(period_pcts), 4)
-        if _residual:
-            _max_idx = max(range(len(period_pcts)), key=lambda i: period_pcts[i])
-            period_pcts[_max_idx] = round(period_pcts[_max_idx] + _residual, 4)
-    else:
-        period_pcts = monthly_pcts
+    # Per-period budget shares (period_pcts) were computed at the top of this
+    # function: the 3-month seasonal split for the 90-Day frame, or the
+    # day-by-day calendar-month split for a short plan. Both foot to exactly
+    # 1.0 (largest-remainder residual push, _normalize_shares).
+    # DEFECT FIX (2026-09-24, Hershey follow-up #3): the short-plan path used
+    # to stretch the start month's 3-month split (including months AFTER the
+    # campaign ended) across the campaign's weeks and re-bucket it under
+    # month names -- see _short_plan_forecast_split for the repro.
 
     _total_label = "Campaign Total" if _short_plan else "90-Day Total"
 
@@ -11214,78 +11463,45 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
 
     row += 1
     # S89 (finding data:manpower#5/atria#5): quote this plan's ACTUAL
-    # computed split (from _seasonal_monthly_phasing, which may shift
-    # budget toward peak hiring months for this industry), not a hardcoded
-    # 25/35/40 that can drift out of sync with the Spend row above. The
-    # classic 3-month wording is kept verbatim whenever the frame has 3
-    # monthly columns; shorter frames state the same ramp in their own
-    # period vocabulary.
-    # DEFECT FIX (verifier follow-up, 2026-09-24): "matching this plan's
-    # Activation Event Calendar" is only true when the split was actually
-    # derived from that calendar (_calendar_backed) -- printing it
-    # unconditionally was itself a false/misleading claim in exactly the
-    # cases where the two could diverge. Appended only when true; the plain
-    # "this plan's own computed split" wording (still accurate either way)
-    # is used otherwise.
-    _calendar_match_clause = (
-        " and matching this plan's Activation Event Calendar"
-        if _calendar_backed
-        else ""
-    )
-    if _weekly_frame:
-        # DEFECT FIX (verifier follow-up): a <=4-week plan used to get a
-        # single hardcoded "front-loaded learning ramping to peak
-        # performance" phrase regardless of the actual computed split --
-        # the same class of bug as the 2/3-period cases below, just never
-        # routed through the earlier fix. Per-week labels are now derived
-        # from each week's real rank (see _period_spend_labels), same as
-        # the monthly cases, so the sentence can't assert a week is
-        # heaviest when the numbers say otherwise.
-        _labels = _period_spend_labels(period_pcts)
-        _week_parts = [
-            f"{p * 100:.0f}% Week {i + 1} ({lbl})"
-            for i, (p, lbl) in enumerate(zip(period_pcts, _labels))
-        ]
-        _ramp_note = (
-            f"This forecast phases budget {', '.join(_week_parts)} across the "
-            f"campaign's {_cw_int} week{'s' if _cw_int != 1 else ''} -- this "
-            f"plan's own computed split{_calendar_match_clause}. Actual "
-            "distribution may vary based on channel mix and market "
-            "conditions."
-        )
-    elif _n_periods == 2:
-        # DEFECT FIX (2026-09-24): labels derived from actual rank, not
-        # position -- see _period_spend_labels.
-        _labels = _period_spend_labels(period_pcts)
-        _ramp_note = (
-            f"This forecast phases budget {period_pcts[0] * 100:.0f}% Month 1 "
-            f"({_labels[0]}), {period_pcts[1] * 100:.0f}% Month 2 "
-            f"({_labels[1]}) -- this plan's own computed split, seasonally "
-            f"adjusted for its industry and start month{_calendar_match_clause}. "
-            "Actual distribution may vary based on channel mix and market "
-            "conditions."
-        )
+    # computed split, never a hardcoded 25/35/40 that can drift out of sync
+    # with the Spend row above.
+    # DEFECT FIX (2026-09-24, Hershey, follow-up #3): the calendar-match
+    # claim is gated on _used_real_calendar -- returned by the SAME function
+    # that computed the split, True only when every plotted month's weight
+    # came from a real Activation Event Calendar entry -- never on a proxy
+    # such as "a timeline list was non-empty" (a malformed timeline with no
+    # "month" keys used to fall back to generic math yet still print the
+    # claim). Ranking words come from actual shares/weights, never position.
+    if _short_plan:
+        # Short plans: columns can hold very different numbers of campaign
+        # days, so the note ranks DAILY PACING (driven by each month's
+        # weight) and states each column's day count -- see
+        # _short_plan_ramp_note / _pacing_labels.
+        _ramp_note = _short_plan_ramp_note(_short_split, _weekly_frame, _cw_int)
     else:
-        # DEFECT FIX (2026-09-24, client-reported): "(peak performance)" used
-        # to be hardcoded onto Month 3 regardless of whether it actually held
-        # the largest share -- a seasonally light month landing in that slot
-        # could be called "peak performance" here while this SAME workbook's
-        # Activation Event Calendar (Section 7) called that exact month
-        # "Low". Labels below are derived from each period's real rank among
-        # period_pcts (see _period_spend_labels), which are themselves now
-        # sourced -- proportionally, with no ramp-shape override -- from this
-        # plan's activation_calendar budget_weight (see
-        # _seasonal_monthly_phasing) -- so this sentence can never contradict
-        # either the numbers it prints or the calendar elsewhere in this
-        # workbook.
+        # 90-Day frame: three full months; shares are proportional to the
+        # calendar weight (_seasonal_monthly_phasing_detail), so ranking by
+        # share IS ranking by calendar weight (_period_spend_labels, with a
+        # 2pp near-tie collapse).
+        _calendar_match_clause = (
+            " and matching this plan's Activation Event Calendar"
+            if _used_real_calendar
+            else ""
+        )
+        _basis = (
+            "a standard learning-to-scale ramp (no seasonal data is available "
+            "for this industry)"
+            if _phasing_source == "none"
+            else "seasonally adjusted for its industry and start month"
+        )
         _labels = _period_spend_labels(period_pcts)
         _ramp_note = (
             f"This forecast phases budget {period_pcts[0] * 100:.0f}% Month 1 "
             f"({_labels[0]}), {period_pcts[1] * 100:.0f}% Month 2 ({_labels[1]}), "
             f"{period_pcts[2] * 100:.0f}% Month 3 ({_labels[2]}) -- this "
-            f"plan's own computed split, seasonally adjusted for its industry "
-            f"and start month{_calendar_match_clause}. Actual distribution may "
-            "vary based on channel mix and market conditions."
+            f"plan's own computed split, {_basis}{_calendar_match_clause}. "
+            "Actual distribution may vary based on channel mix and market "
+            "conditions."
         )
     row = _write_footnote(ws, row, _ramp_note)
     row += 1

@@ -50,6 +50,14 @@ labels. The "matching this plan's Activation Event Calendar" clause is now
 appended only when the split was actually derived from a real timeline
 (``_calendar_backed``), never unconditionally.
 
+Third pass (see tests/test_forecast_short_plan_calendar_phasing.py): the
+second pass covered only the 3-month 90-Day path. Short plans (<=13 weeks)
+went through a separate stretch-and-rebucket path that still contradicted
+the calendar; they now derive every column from the campaign's own
+calendar-month days, and ``_calendar_backed`` (a "timeline is non-empty"
+proxy) is replaced by an explicit ``used_real_calendar`` returned by the
+function that computed the split.
+
 This file intentionally does NOT touch or duplicate
 tests/test_gold_standard_seasonality.py's coverage (sub-vertical overrides,
 fallback_uniform) -- this is a narrative/calendar CONSISTENCY bug, not a
