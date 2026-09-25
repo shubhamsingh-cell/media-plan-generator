@@ -18,6 +18,8 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from role_match import match_role_phrase
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -222,28 +224,16 @@ def _normalize_role(role: str) -> Optional[str]:
     if role_lower in _ROLE_ALIASES:
         return _ROLE_ALIASES[role_lower]
 
-    # Whole-phrase match: the alias must appear in the title as whole words.
+    # Whole-phrase, then all-words match -- never a single shared word.
     # A raw substring test matched "ee" inside "engineer" and let any
     # one-word overlap through, so blue-collar titles borrowed H-1B
     # white-collar wages -- "Machine Operator" matched "machine learning
     # engineer" (Data Scientist, $140K) and "Electrical Technician" matched
     # Electrical Engineer ($115K) on a Hershey plant plan (2026-09-24).
-    for alias, key in _ROLE_ALIASES.items():
-        if re.search(rf"\b{re.escape(alias)}\b", role_lower):
-            return key
-
-    # Word-bag match: every word of the alias must be in the title (e.g.
-    # "Electrical Controls Engineer" -> electrical engineer), never a
-    # single shared word.
-    role_words = set(re.split(r"\W+", role_lower))
-    best_key: Optional[str] = None
-    best_score = 0
-    for alias, key in _ROLE_ALIASES.items():
-        alias_words = set(re.split(r"\W+", alias))
-        if alias_words <= role_words and len(alias_words) > best_score:
-            best_score = len(alias_words)
-            best_key = key
-    return best_key
+    # The rule lives in role_match so gold_standard's difficulty lookup
+    # uses the same one.
+    alias = match_role_phrase(role_lower, _ROLE_ALIASES)
+    return _ROLE_ALIASES[alias] if alias is not None else None
 
 
 def _normalize_metro(location: str) -> Optional[str]:

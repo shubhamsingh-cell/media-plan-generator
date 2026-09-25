@@ -23,6 +23,8 @@ import re
 import time as _time_mod
 from typing import Any
 
+from role_match import match_role_phrase
+
 try:
     from research import METRO_DATA as _RESEARCH_METRO_DATA
 except ImportError:
@@ -2893,16 +2895,17 @@ def _lookup_role_difficulty(role_title: str) -> dict[str, Any] | None:
     alias = _match_token_alias(title_lower)
     if alias is not None and alias in _ROLE_DIFFICULTY_MAP:
         return dict(_ROLE_DIFFICULTY_MAP[alias])
-    # Sort keys by length descending so more specific patterns match first
-    for pattern in sorted(_ROLE_DIFFICULTY_MAP, key=len, reverse=True):
-        if pattern in title_lower:
-            return dict(_ROLE_DIFFICULTY_MAP[pattern])
-    # S27: Fuzzy fallback -- partial word match for unmatched roles
-    title_words = set(title_lower.split())
-    for pattern in sorted(_ROLE_DIFFICULTY_MAP, key=len, reverse=True):
-        pattern_words = set(pattern.split())
-        if pattern_words & title_words:  # any overlapping words
-            return dict(_ROLE_DIFFICULTY_MAP[pattern])
+    # Whole-phrase (longest first), then all-words match -- the same rule
+    # h1b_data._normalize_role uses (role_match.match_role_phrase). The old
+    # raw-substring pass matched "cto" inside "director", and the old S27
+    # fuzzy fallback accepted ANY single shared word, so "Machine Operator"
+    # (shares "machine" with "machine learning engineer") was rated
+    # Senior 9/10 / Executive Search on a Hershey plant plan (2026-09-24).
+    # Unmatched titles fall through to the caller's seniority-keyword
+    # detection, which still rates Director/VP/Chief titles as senior.
+    pattern = match_role_phrase(title_lower, _ROLE_DIFFICULTY_MAP)
+    if pattern is not None:
+        return dict(_ROLE_DIFFICULTY_MAP[pattern])
     return None
 
 
