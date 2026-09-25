@@ -3863,6 +3863,96 @@ def _infer_industry_from_signals(
     return None
 
 
+# The wizard's Food & Beverage card (key "food_beverage", described "CPG,
+# QSR, Agriculture"; the NAICS picker also maps "line cook" to it) covers
+# BOTH food manufacturers and restaurants. 70e65a6 made the key mean food
+# manufacturing (NAICS 311) unconditionally, so Chipotle/Darden/Starbucks
+# plans got production boards and manufacturing benchmarks with no conflict
+# flag. The key is resolved by signals instead; see
+# _resolve_food_beverage_card.
+_FB_RESTAURANT_RE = re.compile(
+    r"\b(?:restaurants?|qsr|quick[- ]service|fast[- ]food|cafes?|cafés?|"
+    r"coffee ?shops?|dining|diner|bistro|eatery|food ?service|catering|"
+    r"franchisee?s?|crew (?:member|leader|trainer)s?|(?:line |prep |sous |head )?cooks?|"
+    r"chefs?|servers?|waiters?|waitress(?:es)?|waitstaff|baristas?|kitchen|"
+    r"bartenders?|hosts?|hostess(?:es)?|dishwashers?|bussers?|shift (?:lead|leader|manager)s?|"
+    r"general manager in training|chipotle|starbucks|mcdonald'?s|darden|olive garden|"
+    r"taco bell|yum brands|wendy'?s|burger king|subway|domino'?s|chick-fil-a|panera|"
+    r"dunkin'?|sweetgreen|shake shack|texas roadhouse|applebee'?s|chili'?s|"
+    r"cracker barrel|denny'?s|ihop|popeyes|kfc|pizza hut|jack in the box|sonic)\b",
+    re.IGNORECASE,
+)
+_FB_MANUFACTURING_RE = re.compile(
+    r"\b(?:plants?|production|manufactur\w*|machine operators?|operators?|"
+    r"maintenance (?:technician|mechanic|tech)s?|mechanics?|technicians?|electricians?|"
+    r"cpg|consumer packaged goods|packag\w*|confection\w*|processing|bottling|"
+    r"brewer(?:y|ies)|distiller(?:y|ies)|assemblers?|forklift|warehouse|sanitation|"
+    r"quality (?:assurance|control|technician)|food scientists?|process engineers?|"
+    r"hershey|mars|nestl[eé]|mondelez|pepsico|frito-lay|kraft|heinz|general mills|"
+    r"kellogg'?s?|kellanova|conagra|tyson|cargill|smucker'?s?|campbell'?s?|hormel|"
+    r"coca-cola|keurig|anheuser-busch|molson coors|ferrero|danone|unilever|"
+    r"post holdings|pilgrim'?s|jbs|land o'?lakes|dole|del monte|mccormick|"
+    r"lamb weston|j\.? ?m\.? smucker)\b",
+    re.IGNORECASE,
+)
+
+
+def _resolve_food_beverage_card(
+    company_name: str = "", roles: Any = None, industry_text: str = ""
+) -> str:
+    """Resolve the ambiguous Food & Beverage wizard card by signals.
+
+    Returns "food_beverage" (food/beverage MANUFACTURING, NAICS 311) or
+    "hospitality" (restaurants / food service, NAICS 722).
+
+    Each role title votes for the side whose signals it names (restaurant
+    titles: crew member, cook, server, barista, kitchen...; production
+    titles: machine operator, maintenance technician, production...);
+    client-name or industry text (a known manufacturer or chain, "plant",
+    "CPG", "restaurant", "QSR"...) counts as two votes. Manufacturing wins
+    ties, so a manufacturer is never handed restaurant boards on a split
+    signal. With no signal at all the card resolves to hospitality -- the
+    behaviour plain "Food & Beverage" had before 70e65a6 (the standardizer
+    aliased the key to hospitality).
+    """
+    titles: list = []
+    for r in roles or []:
+        if isinstance(r, dict):
+            titles.append(str(r.get("title") or r.get("role") or ""))
+        elif r:
+            titles.append(str(r))
+    mfg = sum(1 for t in titles if _FB_MANUFACTURING_RE.search(t))
+    rest = sum(
+        1 for t in titles if _FB_RESTAURANT_RE.search(t) and not _FB_MANUFACTURING_RE.search(t)
+    )
+    context = f"{company_name or ''} {industry_text or ''}"
+    if _FB_MANUFACTURING_RE.search(context):
+        mfg += 2
+    if _FB_RESTAURANT_RE.search(context):
+        rest += 2
+    if mfg == 0 and rest == 0:
+        return "hospitality"
+    return "food_beverage" if mfg >= rest else "hospitality"
+
+
+def _canonical_industry_for_request(data: dict) -> str:
+    """Phase-0 canonical industry key for a /api/generate request.
+
+    The standardizer's key, except that the ambiguous Food & Beverage card
+    is resolved by role / client signals -- the SAME inputs classify_industry
+    later resolves it from, so the two can never disagree -- so a restaurant
+    never gets food-manufacturing KB keys or boards and a manufacturer never
+    gets hospitality ones.
+    """
+    canonical = std_normalize_industry(data.get("industry") or "")
+    if canonical == "food_beverage":
+        canonical = _resolve_food_beverage_card(
+            data.get("client_name") or data.get("company_name") or "",
+            data.get("target_roles") or data.get("roles") or [],
+        )
+    return canonical
+
+
 def classify_industry(
     raw_industry: str, company_name: str = "", roles: list = None
 ) -> dict:
@@ -3962,6 +4052,13 @@ def _classify_industry_primary(
 
     # Step 1: Check if the input is already a legacy key (from frontend dropdown)
     raw_stripped = raw_industry.strip()
+    if (
+        raw_stripped == "food_beverage"
+        and _resolve_food_beverage_card(company_name, roles) == "hospitality"
+    ):
+        # Ambiguous Food & Beverage card with restaurant (or no) signals:
+        # restaurant / food service, not food manufacturing.
+        return INDUSTRY_NAICS_MAP["hospitality"]
     if raw_stripped in _LEGACY_TO_NAICS_KEY:
         return INDUSTRY_NAICS_MAP[_LEGACY_TO_NAICS_KEY[raw_stripped]]
 
@@ -18841,7 +18938,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 try:
                     # -- Normalize industry --
                     raw_ind = data.get("industry") or ""
-                    canonical_ind = std_normalize_industry(raw_ind)
+                    canonical_ind = _canonical_industry_for_request(data)
                     data["_industry_original"] = raw_ind
                     data["_industry_canonical"] = canonical_ind
                     ind_meta = CANONICAL_INDUSTRIES.get(canonical_ind, {})
