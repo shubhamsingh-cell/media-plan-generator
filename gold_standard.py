@@ -892,12 +892,15 @@ def _match_role_to_salary_range(
 ) -> tuple[tuple[int, int], str] | tuple[None, str]:
     """Return (range, matched_keyword) for a role title using pre-sorted keywords.
 
-    Uses the pre-computed _ROLE_SALARY_KEYWORDS_SORTED for O(k) lookup
-    instead of sorting on every call.  Returns (None, "") when no match found.
+    Matching is role_match.match_role_phrase (whole words or all words of
+    the keyword, plurals allowed) -- the same rule h1b_data and the
+    difficulty lookup use. A raw substring test priced "Cookie Packer" as a
+    cook, "Nursery Worker" as a nurse and "Observer" as a server.
+    Returns (None, "") when no match found.
     """
-    for keyword in _ROLE_SALARY_KEYWORDS_SORTED:
-        if keyword in title_lower:
-            return _ROLE_SALARY_RANGES[keyword], keyword
+    keyword = match_role_phrase(title_lower, _ROLE_SALARY_KEYWORDS_SORTED)
+    if keyword is not None:
+        return _ROLE_SALARY_RANGES[keyword], keyword
     alias = _match_token_alias(title_lower)
     if alias is not None and alias in _ROLE_SALARY_RANGES:
         return _ROLE_SALARY_RANGES[alias], alias
