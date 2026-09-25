@@ -188,7 +188,6 @@ CANONICAL_INDUSTRIES: Dict[str, Dict[str, Any]] = {
             "hospitality_travel",
             "hospitality_food",
             "food_service",
-            "food_beverage",
             "restaurant",
             "hotel",
             "tourism",
@@ -199,6 +198,27 @@ CANONICAL_INDUSTRIES: Dict[str, Dict[str, Any]] = {
         "deep_bench_key": "hospitality_travel",
         "label": "Hospitality & Food Service",
         "soc_prefix": "35",
+    },
+    # The wizard's "food_beverage" key is Food & Beverage MANUFACTURING
+    # (classify_industry maps it to NAICS 31 / BLS "Manufacturing"; restaurants
+    # and food service have their own hospitality_travel key). It used to be
+    # an alias of "hospitality" above, and app.py's Phase-0 normalisation
+    # overwrites data["industry"] with the canonical key BEFORE
+    # classify_industry runs -- so every food manufacturer (e.g. a Hershey
+    # confectionery-plant plan) was reclassified hospitality_travel and got
+    # hospitality benchmarks, boards, seasonality and risk copy.
+    "food_beverage": {
+        "aliases": [
+            "food_and_beverage",
+            "food_manufacturing",
+            "food_processing",
+            "beverage_manufacturing",
+        ],
+        "naics": "311",
+        "kb_key": "manufacturing",
+        "deep_bench_key": "food_beverage",
+        "label": "Food & Beverage",
+        "soc_prefix": "51",
     },
     "construction": {
         "aliases": [

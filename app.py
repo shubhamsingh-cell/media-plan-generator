@@ -1256,7 +1256,7 @@ def _copilot_suggest_roles(
             "tech_engineering": "technology",
             "retail_consumer": "retail_hospitality",
             "hospitality_travel": "retail_hospitality",
-            "food_beverage": "retail_hospitality",
+            "food_beverage": "manufacturing",  # NAICS 311 manufacturer, not hospitality
             "automotive": "manufacturing",
             "logistics_supply_chain": "manufacturing",
             "energy_utilities": "manufacturing",
@@ -2571,7 +2571,7 @@ _INDUSTRY_KEY_TO_KB_KEY = {
     "retail_consumer": "retail_hospitality",
     "hospitality": "retail_hospitality",
     "hospitality_travel": "retail_hospitality",
-    "food_beverage": "retail_hospitality",
+    "food_beverage": "manufacturing",  # NAICS 311 manufacturer, not hospitality
     "construction": "construction_infrastructure",
     "construction_real_estate": "construction_infrastructure",
     "transportation": "transportation_logistics",
@@ -4235,6 +4235,35 @@ def _resolve_campaign_weeks(data: dict) -> int:
     return campaign_weeks
 
 
+def _sanitize_request_value(val: Any) -> Any:
+    """Strip HTML/script tags from every string in an /api/generate payload
+    value (recursively), to prevent stored XSS.
+
+    Booleans are returned UNCHANGED: they cannot carry markup, and
+    stringifying them turned the wizard's ``channel_categories`` toggles
+    (and every ``include_*`` flag) into the strings ``"True"``/``"False"``
+    -- both truthy -- so ``_apply_channel_selection``'s ``v is False`` test
+    and ppt_generator's ``cats.get(key, False)`` selector never saw an
+    unselected channel, and an unticked Employer Branding still got budget
+    on every surface (Hershey plan, 2026-09-24). Numbers keep their
+    long-standing str() coercion for backward compatibility with callers
+    that ``.strip()`` numeric fields.
+    """
+    if val is None:
+        return ""
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, (int, float)):
+        return str(val)
+    if isinstance(val, str):
+        return re.sub(r"<[^>]+>", "", val).strip()
+    if isinstance(val, list):
+        return [_sanitize_request_value(v) for v in val]
+    if isinstance(val, dict):
+        return {k: _sanitize_request_value(v) for k, v in val.items()}
+    return val
+
+
 def _apply_channel_selection(channel_pcts: dict, data: dict) -> dict:
     """Zero out (and renormalise the rest of) any channel the user
     explicitly disabled in ``data["channel_categories"]`` before the
@@ -4259,7 +4288,13 @@ def _apply_channel_selection(channel_pcts: dict, data: dict) -> dict:
     cats = data.get("channel_categories")
     if not isinstance(cats, dict) or not cats:
         return channel_pcts
-    disabled = {k for k, v in cats.items() if v is False}
+    # A stringified "False" (what the /api/generate boundary sanitizer used
+    # to turn every JSON boolean into) is an explicit off, not a truthy value.
+    disabled = {
+        k
+        for k, v in cats.items()
+        if v is False or (isinstance(v, str) and v.strip().lower() == "false")
+    }
     if not disabled:
         return channel_pcts
     filtered = {k: v for k, v in channel_pcts.items() if k not in disabled}
@@ -5856,11 +5891,16 @@ INDUSTRY_NICHE_CHANNELS = {
         "SAE International Jobs",
         "AutoCareers",
     ],
+    # Food/beverage PRODUCTION boards, not restaurant/dining boards
+    # ("iHireHospitality" was misrecommended to food manufacturers). Kept in
+    # sync with excel_v2.INDUSTRY_NICHE_CHANNELS["food_beverage"] and
+    # data/channels_db.json niche_by_industry.food_beverage.
     "food_beverage": [
-        "FoodIndustryJobs.com",
-        "iHireHospitality",
-        "FoodProcessing.com Careers",
+        "CareersInFood.com",
         "IFT Career Center",
+        "iHireManufacturing",
+        "FoodIndustryJobs.com",
+        "FoodProcessing.com Careers",
     ],
     "logistics_supply_chain": [
         "SupplyChainRecruit.com",
@@ -16554,21 +16594,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 return
 
             # Sanitize all string inputs: strip HTML/script tags to prevent stored XSS
-            def _sanitize_val(val):
-                if val is None:
-                    return ""
-                if isinstance(val, (int, float, bool)):
-                    return str(val)
-                if isinstance(val, str):
-                    return re.sub(r"<[^>]+>", "", val).strip()
-                if isinstance(val, list):
-                    return [_sanitize_val(v) for v in val]
-                if isinstance(val, dict):
-                    return {k: _sanitize_val(v) for k, v in val.items()}
-                return val
-
             for _skey in list(data.keys()):
-                data[_skey] = _sanitize_val(data[_skey])
+                data[_skey] = _sanitize_request_value(data[_skey])
 
             # Validate required fields
             client_name_input = _safe_str(data.get("client_name")).strip()
@@ -24660,7 +24687,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     return
 
                 # Same HTML/script-tag stripping the /api/generate plan
-                # endpoint applies to string inputs (see `_sanitize_val`
+                # endpoint applies to string inputs (see `_sanitize_request_value`
                 # above) so a crafted location string can't become
                 # stored/reflected XSS in the echoed `input`/`display_name`/
                 # `note` fields.

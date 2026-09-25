@@ -951,8 +951,9 @@
       },
       "cph": {
         "recruitment_marketing_only": "$350-$700",
-        "total_cost_per_hire": "$1,070 (accommodation and food service)",
-        "food_manufacturing": "$3,000-$5,000"
+        "total_cost_per_hire": "$3,000-$5,000 (food manufacturing)",
+        "food_manufacturing": "$3,000-$5,000",
+        "accommodation_food_service": "$1,070"
       },
       "apply_rate": {
         "2024": "5-8%",

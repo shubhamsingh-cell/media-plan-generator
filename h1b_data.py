@@ -215,30 +215,35 @@ def _normalize_role(role: str) -> Optional[str]:
         Canonical role key or None if no match found.
     """
     role_lower = role.lower().strip()
+    if not role_lower:
+        return None
 
     # Direct alias match
     if role_lower in _ROLE_ALIASES:
         return _ROLE_ALIASES[role_lower]
 
-    # Substring match in aliases
+    # Whole-phrase match: the alias must appear in the title as whole words.
+    # A raw substring test matched "ee" inside "engineer" and let any
+    # one-word overlap through, so blue-collar titles borrowed H-1B
+    # white-collar wages -- "Machine Operator" matched "machine learning
+    # engineer" (Data Scientist, $140K) and "Electrical Technician" matched
+    # Electrical Engineer ($115K) on a Hershey plant plan (2026-09-24).
     for alias, key in _ROLE_ALIASES.items():
-        if alias in role_lower or role_lower in alias:
+        if re.search(rf"\b{re.escape(alias)}\b", role_lower):
             return key
 
-    # Word overlap match
+    # Word-bag match: every word of the alias must be in the title (e.g.
+    # "Electrical Controls Engineer" -> electrical engineer), never a
+    # single shared word.
     role_words = set(re.split(r"\W+", role_lower))
     best_key: Optional[str] = None
     best_score = 0
     for alias, key in _ROLE_ALIASES.items():
         alias_words = set(re.split(r"\W+", alias))
-        overlap = len(role_words & alias_words)
-        if overlap > best_score:
-            best_score = overlap
+        if alias_words <= role_words and len(alias_words) > best_score:
+            best_score = len(alias_words)
             best_key = key
-    if best_score >= 1:
-        return best_key
-
-    return None
+    return best_key
 
 
 def _normalize_metro(location: str) -> Optional[str]:

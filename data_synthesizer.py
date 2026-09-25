@@ -169,7 +169,7 @@ _INDUSTRY_TO_KB_KEY: Dict[str, str] = {
     "retail_consumer": "retail_hospitality",
     "hospitality": "retail_hospitality",
     "hospitality_travel": "retail_hospitality",
-    "food_beverage": "retail_hospitality",
+    "food_beverage": "manufacturing",  # NAICS 311 manufacturer
     "restaurant": "retail_hospitality",
     # Construction
     "construction": "construction_infrastructure",
@@ -411,6 +411,15 @@ _ROLE_SALARY_FALLBACKS: Dict[str, Dict[str, int]] = {
         "max": 160000,
     },
 }
+
+
+def _title_has_keyword(role_lower: str, keyword: str) -> bool:
+    """True when ``keyword`` appears in ``role_lower`` as a whole word
+    (plural allowed). A bare substring test priced "Production Supervisor"
+    off the "product" bucket ($130,000 Product Manager band) on a Hershey
+    plant plan (2026-09-24)."""
+    return re.search(rf"\b{re.escape(keyword)}(?:s|es)?\b", role_lower) is not None
+
 
 # ---------------------------------------------------------------------------
 # Hardcoded fallback demand data by common role keywords.
@@ -1042,7 +1051,7 @@ _INDUSTRY_TO_APPCAST_OCCUPATION: Dict[str, str] = {
     "manufacturing": "manufacturing",
     "hospitality": "hospitality",
     "hospitality_travel": "hospitality",
-    "food_beverage": "food_service",
+    "food_beverage": "manufacturing",  # NAICS 311 manufacturer
     "education": "education",
     "legal_services": "legal",
     "marketing": "marketing_advertising",
@@ -1067,7 +1076,7 @@ _INDUSTRY_TO_GOOGLE_ADS_CATEGORY: Dict[str, str] = {
     "retail_consumer": "retail_hospitality",
     "hospitality": "retail_hospitality",
     "hospitality_travel": "retail_hospitality",
-    "food_beverage": "retail_hospitality",
+    "food_beverage": "logistics_supply_chain",  # same bucket as manufacturing
     "logistics": "logistics_supply_chain",
     "logistics_supply_chain": "logistics_supply_chain",
     "transportation": "logistics_supply_chain",
@@ -1502,7 +1511,7 @@ def fuse_salary_intelligence(
             # fabricated salary.
             role_lower = role.lower()
             for keyword, sal_data in _ROLE_SALARY_FALLBACKS.items():
-                if keyword in role_lower:
+                if _title_has_keyword(role_lower, keyword):
                     # _ROLE_SALARY_FALLBACKS is a hardcoded US-dollar
                     # benchmark table (e.g. $130,000 for "software") --
                     # also always USD, same as the H-1B/BLS/O*NET/DataUSA/
@@ -1522,7 +1531,7 @@ def fuse_salary_intelligence(
             # Use module-level _ROLE_SALARY_FALLBACKS (single source of truth)
             role_lower = role.lower()
             for keyword, sal_data in _ROLE_SALARY_FALLBACKS.items():
-                if keyword in role_lower:
+                if _title_has_keyword(role_lower, keyword):
                     result[role] = {
                         "median": sal_data["median"],
                         "mean": sal_data["median"],
@@ -1662,15 +1671,19 @@ def fuse_salary_intelligence(
         _confidence = _derive_fused_confidence(
             source_count, _avg_weight, kb_validation.get("validated", False)
         )
+        _ladder = _monotonic_salary_ladder(
+            min(sorted_vals) if sorted_vals else 0.0,
+            p10,
+            p25,
+            w_median,
+            p75,
+            p90,
+            max(sorted_vals) if sorted_vals else 0.0,
+        )
         result[role] = {
             "median": round(w_median),
             "mean": round(statistics.mean(clean_values)) if clean_values else 0,
-            "min": round(min(sorted_vals)) if sorted_vals else 0,
-            "max": round(max(sorted_vals)) if sorted_vals else 0,
-            "p10": round(p10),
-            "p25": round(p25),
-            "p75": round(p75),
-            "p90": round(p90),
+            **_ladder,
             "sources": list(set(sources)),
             "outlier_flags": flagged_sources,
             "kb_validation": kb_validation,
@@ -1716,6 +1729,38 @@ def fuse_salary_intelligence(
 
     logger.info("Salary intelligence fused for %d roles", len(result))
     return result
+
+
+def _monotonic_salary_ladder(
+    lo: float,
+    p10: float,
+    p25: float,
+    median: float,
+    p75: float,
+    p90: float,
+    hi: float,
+) -> Dict[str, int]:
+    """Return ``min/p10/p25/p75/p90/max`` ordered around ``median``.
+
+    With fewer than three salary points the fused band is synthesised
+    (p25 = 0.82x, p75 = 1.18x median) while min/max are the raw observed
+    values -- one point makes min == median == max, so the workbook printed
+    Min $115,000 > P25 $94,300 and Max $115,000 < P75 $135,700. Widen
+    min/max to the band and keep every percentile on the correct side of
+    the median, so min <= p10 <= p25 <= median <= p75 <= p90 <= max.
+    """
+    p25 = min(p25, median)
+    p75 = max(p75, median)
+    p10 = min(p10, p25)
+    p90 = max(p90, p75)
+    return {
+        "min": round(min(lo, p10)) if lo > 0 else 0,
+        "max": round(max(hi, p90)) if hi > 0 else 0,
+        "p10": round(p10),
+        "p25": round(p25),
+        "p75": round(p75),
+        "p90": round(p90),
+    }
 
 
 def _empty_salary_result(role: str) -> Dict[str, Any]:
@@ -4460,21 +4505,23 @@ def synthesize(
     # gold_standard never read data["_synthesized"]["per_role_salaries"]),
     # so it could never have converged the two sheets even by coincidence.
     #
-    # Scoped to driver-family roles only (the reported defect class) and
-    # copied directly FROM the salary_intelligence result just computed
-    # above, rather than re-derived independently -- this is what makes the
+    # Copied directly FROM the salary_intelligence result just computed
+    # above for EVERY role that has a median (originally driver-family
+    # only), rather than re-derived independently -- this is what makes the
     # Market Intelligence and Quality Intelligence salary tables agree by
-    # construction instead of by coincidence, while every other role keeps
-    # gold_standard's existing, fully-tested per-city tier/multiplier
-    # differentiation untouched.
+    # construction instead of by coincidence. Roles with no median keep
+    # gold_standard's per-city tier/multiplier estimate.
     try:
-        _country_for_per_role = _first_location_country(input_data)
         _per_role_salaries: Dict[str, Dict[str, Any]] = {}
         for _role_title, _sal in synthesis.get("salary_intelligence", {}).items():
             if not isinstance(_sal, dict) or not _sal.get("median"):
                 continue
-            if _resolve_driver_role_wage(_role_title, _country_for_per_role) is None:
-                continue
+            # Every role Market Intelligence prices gets the SAME figure on
+            # Quality Intelligence and the deck's Role Breakdown (Hershey
+            # 2026-09-24: Lead Electrical Controls Specialist read $115,000
+            # on one sheet, $76,500 on another and $76K on the deck). Roles
+            # with no sourced median here keep gold_standard's labelled
+            # per-city estimate.
             _sources = _sal.get("sources") or []
             _confidence_num = _sal.get("confidence", _sal.get("confidence_score", 0.0))
             _per_role_salaries[_role_title] = {
@@ -4487,9 +4534,8 @@ def synthesize(
                 # gold_standard's per_role_salary contract uses a string
                 # enum here ("benchmark" / "estimated"), not the numeric
                 # confidence_num above -- only a genuinely sourced row earns
-                # "benchmark"; every driver-family band here is a keyword-
-                # matched estimate, so this is honestly "estimated" (this
-                # also drives the Quality Intelligence sheet's existing
+                # "benchmark"; keyword-matched and single-source bands stay
+                # below 0.5 and are honestly "estimated" (this also drives the Quality Intelligence sheet's existing
                 # "(est.)" tag / amber highlight for these rows).
                 "confidence": "benchmark" if _confidence_num >= 0.5 else "estimated",
             }

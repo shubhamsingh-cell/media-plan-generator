@@ -2574,6 +2574,7 @@ _CONFIDENCE_GATE_TOPICS: Dict[str, str] = {
     "ad_platform_analysis": "live ad-platform reporting",
     "competitive_intelligence": "live market signal",
     "workforce_insights": "live labour-market reporting",
+    "job_market_demand": "live job-posting and candidate-supply data",
 }
 
 
@@ -7768,7 +7769,15 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 _gt_roles_for_demand = _gt_data_raw.get("roles", {})
 
     if market_demand:
-        row = _write_section_header(ws, row, "Market Demand by Role")
+        # Same confidence gate the Salary / Workforce sections use: when the
+        # live posting/supply feeds returned nothing, every row below reads
+        # "Data not available" -- say so at the section, not only on the
+        # Sources & Confidence sheet.
+        _dem_conf = _section_confidence(data, "job_market_demand")
+        row = _write_section_header(
+            ws, row, _confidence_gated_title("Market Demand by Role", _dem_conf)
+        )
+        row = _write_confidence_gate_note(ws, row, "job_market_demand", _dem_conf)
 
         headers = [
             "Role",

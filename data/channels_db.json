@@ -120,12 +120,10 @@
         "IndustryWeek Jobs"
       ],
       "food_beverage": [
-        "FoodIndustryJobs.com", "iHireHospitality", "CulinaryAgents.com",
-        "FoodManufacturing.com Jobs", "BevNET Jobs", "FoodProcessing.com Jobs",
-        "Snagajob", "Poached Jobs", "CareersInFood.com", "FoodAndDrinkJobs.com",
-        "Institute of Food Technologists (IFT) Jobs", "Food Safety Jobs",
-        "Bakery Jobs Online", "Restaurant Business Jobs", "QSRMagazine Careers",
-        "National Restaurant Association Jobs", "FoodJobsCanada"
+        "CareersInFood.com", "IFT Career Center", "iHireManufacturing",
+        "FoodIndustryJobs.com", "FoodManufacturing.com Jobs", "BevNET Jobs",
+        "FoodProcessing.com Jobs", "FoodAndDrinkJobs.com", "Food Safety Jobs",
+        "Bakery Jobs Online", "FoodJobsCanada", "Snagajob"
       ],
       "logistics_supply_chain": [
         "SupplyChainOnline", "LogisticsJobShop.com", "APICS Career Center",
