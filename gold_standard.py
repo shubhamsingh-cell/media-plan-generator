@@ -731,6 +731,14 @@ _ROLE_SALARY_RANGES: dict[str, tuple[int, int]] = {
     "behavioral health": (45_000, 85_000),
     "psychologist": (75_000, 130_000),
     "social worker": (40_000, 70_000),
+    # Case workers are social-services professionals, most of them in BLS
+    # "Social and Human Service Assistants" (OOH lists "case work aide"):
+    # median $45,930, May 2025 (bls.gov/ooh/community-and-social-service/
+    # social-and-human-service-assistants.htm, checked 2026-09-25). Band
+    # midpoint $46,000. Without it "Case Worker" priced at the generic
+    # professional default ($76,500 in Hershey, PA).
+    "case worker": (36_000, 56_000),
+    "caseworker": (36_000, 56_000),
     # Healthcare operations & aide roles
     "care director": (85_000, 130_000),
     "director of nursing": (80_000, 120_000),
@@ -2976,6 +2984,23 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "tier": "skilled_trade",
         "channel_emphasis": "balanced",
     },
+    # Social-services professional (see the "case worker" salary band).
+    # Explicit so the frontline head-noun rule's "case" blocker leaves it a
+    # professional tier at the job-board channel weight 932bb65 gave it.
+    "case worker": {
+        "seniority": "entry",
+        "base_difficulty": 4,
+        "avg_ttf_days": 30,
+        "supply_level": "moderate",
+        "tier": "professional",
+    },
+    "caseworker": {
+        "seniority": "entry",
+        "base_difficulty": 4,
+        "avg_ttf_days": 30,
+        "supply_level": "moderate",
+        "tier": "professional",
+    },
     "maintenance technician": {
         "seniority": "mid",
         "base_difficulty": 5,
@@ -3424,6 +3449,29 @@ _SENIORITY_KEYWORDS: dict[str, list[str]] = {
     "executive": ["chief", "cto", "cfo", "coo", "cio", "ceo", "partner", "evp", "svp"],
 }
 
+# Seniority is resolved TOP-DOWN: the most senior keyword present wins.
+# _SENIORITY_KEYWORDS is declared bottom-up, and iterating it in that order
+# rated "Associate Director" / "Assistant Director" junior ("associate",
+# "assistant" matched first), "Senior Associate" junior and "Senior
+# Director" merely senior. "associate"/"assistant" mean junior only when no
+# higher keyword is present. Intern stays checked before junior, as before.
+_SENIORITY_PRECEDENCE: tuple[str, ...] = (
+    "executive",
+    "director",
+    "senior",
+    "mid",
+    "intern",
+    "junior",
+)
+
+
+def _detect_seniority_level(title_lower: str) -> str | None:
+    """Most senior _SENIORITY_KEYWORDS level whose keyword is in the title."""
+    for level in _SENIORITY_PRECEDENCE:
+        if any(_token_boundary_match(kw, title_lower) for kw in _SENIORITY_KEYWORDS[level]):
+            return level
+    return None
+
 _DIFFICULTY_PROFILES: dict[str, dict[str, Any]] = {
     "intern": {
         "complexity_score": 1,
@@ -3570,12 +3618,7 @@ def classify_difficulty(data: dict) -> list[dict[str, Any]]:
             # misclassified as executive/10.0-difficulty/"retained search".
             # _token_boundary_match requires a real word/phrase match.
             title_lower = title.lower()
-            detected_level: str | None = None
-
-            for level, keywords in _SENIORITY_KEYWORDS.items():
-                if any(_token_boundary_match(kw, title_lower) for kw in keywords):
-                    detected_level = level
-                    break
+            detected_level = _detect_seniority_level(title_lower)
 
             if detected_level is not None:
                 classification_source = "seniority_keyword_match"
