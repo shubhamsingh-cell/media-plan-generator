@@ -5235,7 +5235,42 @@ def _compute_plan_estimate(brief: dict) -> dict:
         "est_cph": round(float(cost_per_hire), 2) if cost_per_hire else 0.0,
         "est_applications": int(applications),
         "est_cpa": est_cpa,
+        "channels": _estimate_funded_channels(budget_result),
     }
+
+
+def _estimate_funded_channels(budget_result: Any) -> list[dict]:
+    """Channels the engine actually funded, largest first.
+
+    The wizard's live preview and review step list THESE (not the toggles'
+    checked state or a fixed starter mix), so preview = review = plan: an
+    untouched wizard shows the recommended industry mix, a touched one its
+    selection after _apply_channel_selection (including that helper's
+    "every channel off -> recommended mix" fallback).
+    Each item: {"key", "pct", "amount"}; channels with no budget are left out.
+    """
+    allocs = (
+        budget_result.get("channel_allocations")
+        if isinstance(budget_result, dict)
+        else None
+    )
+    if not isinstance(allocs, dict):
+        return []
+    funded: list[dict] = []
+    for key, alloc in allocs.items():
+        if not isinstance(alloc, dict):
+            continue
+        try:
+            amount = float(alloc.get("dollar_amount") or 0)
+            pct = float(alloc.get("percentage") or 0)
+        except (TypeError, ValueError):
+            continue
+        if amount > 0:
+            funded.append(
+                {"key": str(key), "pct": round(pct, 2), "amount": round(amount, 2)}
+            )
+    funded.sort(key=lambda c: c["amount"], reverse=True)
+    return funded
 
 
 # v3: Trend engine and collar intelligence for new Excel worksheets

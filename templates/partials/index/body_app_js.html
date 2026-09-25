@@ -64,6 +64,61 @@
     },
     true,
   );
+  // Review step "Channel categories": the channels the plan will FUND, not
+  // each toggle's checked state. An untouched wizard (only Social
+  // pre-checked) and a touched-but-all-unchecked one both get the
+  // recommended industry mix server-side (_apply_channel_selection), so the
+  // review says "Recommended mix" and lists what /api/estimate funded --
+  // the same list the live preview shows (NovaPreview.fundedChannels).
+  const NOVA_CHANNEL_LABELS = {
+    chRegionalBoards: "Regional & Local Job Boards",
+    chGlobalBoards: "Global Reach Job Boards",
+    chNicheBoards: "Niche & Industry-Specific Boards",
+    chSocial: "Social Media Channels",
+    chProgrammatic: "Programmatic & DSP Channels",
+    chEmployerBrand: "Employer Branding Platforms",
+    chApac: "APAC Regional Channels",
+    chEmea: "EMEA Regional Channels",
+  };
+  function novaReviewChannelList() {
+    const checked = Object.keys(NOVA_CHANNEL_LABELS).filter((id) => {
+      const el = document.getElementById(id);
+      return !!(el && el.checked);
+    });
+    const recommended = !_novaChannelsTouched || checked.length === 0;
+    const funded =
+      window.NovaPreview && typeof window.NovaPreview.fundedChannels === "function"
+        ? window.NovaPreview.fundedChannels()
+        : null;
+    const ids = funded || (recommended ? [] : checked);
+    return {
+      recommended,
+      pending: !funded,
+      labels: ids.map((id) => NOVA_CHANNEL_LABELS[id]).filter(Boolean),
+    };
+  }
+  function renderReviewChannels() {
+    const el = document.getElementById("reviewChannelCategories");
+    if (!el) return;
+    const list = novaReviewChannelList();
+    el.innerHTML = "";
+    const addChip = (text, extraClass) => {
+      const chip = document.createElement("span");
+      chip.className = extraClass ? `chip ${extraClass}` : "chip";
+      chip.textContent = text;
+      el.appendChild(chip);
+    };
+    if (list.recommended) addChip("Recommended mix", "chip-recommended");
+    list.labels.forEach((label) => addChip(label));
+    if (!list.labels.length) {
+      const note = document.createElement("span");
+      note.textContent = list.recommended
+        ? " Nova's recommended industry mix (channels appear once a budget and a role are set)"
+        : "No channel categories selected";
+      el.appendChild(note);
+    }
+  }
+  if (typeof window !== "undefined") window.novaRenderReviewChannels = renderReviewChannels;
   // ── end channel selection ──
 
   // ============================================
@@ -4239,33 +4294,7 @@
     document.getElementById("reviewDemographic").textContent =
       document.getElementById("targetDemographic").value || "Not specified";
 
-    const channelCategoryMap = {
-      chRegionalBoards: "Regional & Local Job Boards",
-      chGlobalBoards: "Global Reach Job Boards",
-      chNicheBoards: "Niche & Industry-Specific Boards",
-      chSocial: "Social Media Channels",
-      chProgrammatic: "Programmatic & DSP Channels",
-      chEmployerBrand: "Employer Branding Platforms",
-      chApac: "APAC Regional Channels",
-      chEmea: "EMEA Regional Channels",
-    };
-    const selectedCategories = [];
-    for (const [id, label] of Object.entries(channelCategoryMap)) {
-      const el = document.getElementById(id);
-      if (el && el.checked) selectedCategories.push(label);
-    }
-    const reviewChCatsEl = document.getElementById("reviewChannelCategories");
-    reviewChCatsEl.innerHTML = "";
-    if (selectedCategories.length > 0) {
-      selectedCategories.forEach((c) => {
-        const chip = document.createElement("span");
-        chip.className = "chip";
-        chip.textContent = c;
-        reviewChCatsEl.appendChild(chip);
-      });
-    } else {
-      reviewChCatsEl.textContent = "No channel categories selected";
-    }
+    renderReviewChannels();
 
     const sections = [];
     sections.push(

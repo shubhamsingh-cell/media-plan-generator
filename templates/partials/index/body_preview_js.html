@@ -38,8 +38,21 @@
     // Order in which channels appear in the mix bar / legend
     var ORDER = ["chProgrammatic", "chGlobalBoards", "chNicheBoards", "chSocial",
       "chRegionalBoards", "chEmployerBrand", "chApac", "chEmea"];
-    // Sensible default mix shown before the user picks channels
-    var STARTER = ["chProgrammatic", "chGlobalBoards", "chSocial", "chNicheBoards"];
+    // /api/estimate channel key -> Step 3 toggle id (app.py
+    // _estimate_funded_channels returns the keys the engine funded).
+    var KEY_TO_ID = {
+      programmatic_dsp: "chProgrammatic", global_boards: "chGlobalBoards",
+      niche_boards: "chNicheBoards", social_media: "chSocial",
+      regional_boards: "chRegionalBoards", employer_branding: "chEmployerBrand",
+      apac_regional: "chApac", emea_regional: "chEmea",
+    };
+    // Channels the latest /api/estimate response actually funded:
+    // [{id, key, share}] or null. The mix bar, legend and review step list
+    // THESE, so preview = review = plan. There used to be a fixed 4-channel
+    // STARTER mix here that no server surface ever funded (food_beverage
+    // funds 6, incl. Regional and Employer Branding).
+    var fundedChannels = null;
+    var fundedSetSig = "";   // industry/locations/selection the list belongs to
 
     var BUDGET_MIDPOINTS = {
       "< $50,000": 35000,
@@ -195,11 +208,12 @@
         total = base * Math.max(months / PERIOD_MONTHS[period], 1);
       }
 
-      // channels — show Nova's recommended mix until the user engages
-      // the channel toggles (the markup pre-checks only Social by default).
+      // channels — untouched toggles (the markup pre-checks only Social)
+      // or a touched-then-all-unchecked set both mean Nova's recommended
+      // industry mix, exactly as app._apply_channel_selection treats "every
+      // channel off". The rows come from what /api/estimate funded.
       var selected = ORDER.filter(function (id) { var el = $(id); return el && el.checked; });
-      var usingStarter = !channelsTouched() || selected.length === 0;
-      var active = usingStarter ? STARTER.slice() : selected;
+      var recommended = !channelsTouched() || selected.length === 0;
 
       // role class, used downstream (BENCH lookup, insight copy). Explicit
       // experience-level checkboxes win; otherwise infer from role text.
@@ -244,14 +258,29 @@
       // on the Manpower-AmeriGas brief). Those numbers now come from
       // /api/estimate, which calls the SAME calculate_budget_allocation()
       // /api/generate uses -- see fetchEstimate() / paintOutcomes() below.
-      var wsum = 0;
-      active.forEach(function (id) { wsum += CHANNELS[id].w; });
-      var rows = active.map(function (id) {
-        var c = CHANNELS[id];
-        var share = wsum > 0 ? c.w / wsum : 0;
-        var spend = total * share;
-        return { id: id, name: c.name, color: c.color, share: share, spend: spend };
-      });
+      var rows;
+      if (fundedChannels) {
+        // The engine's own split (same call /api/generate makes).
+        rows = fundedChannels.map(function (f) {
+          var c = CHANNELS[f.id];
+          return { id: f.id, name: c.name, color: c.color, share: f.share, spend: total * f.share };
+        });
+      } else if (!recommended) {
+        // Estimate pending for a new selection: the selected channels are
+        // what the server will fund; shares are a placeholder weighting
+        // until the engine's split arrives.
+        var wsum = 0;
+        selected.forEach(function (id) { wsum += CHANNELS[id].w; });
+        rows = selected.map(function (id) {
+          var c = CHANNELS[id];
+          var share = wsum > 0 ? c.w / wsum : 0;
+          return { id: id, name: c.name, color: c.color, share: share, spend: total * share };
+        });
+      } else {
+        // Recommended mix not computed yet (needs a budget and a role):
+        // show no channels rather than a mix the plan would not fund.
+        rows = [];
+      }
 
       // identity bits
       var client = val("clientName");
@@ -263,7 +292,7 @@
       if (!role) role = val("naicsSearch");
 
       return {
-        total: total, base: base, rows: rows, usingStarter: usingStarter,
+        total: total, base: base, rows: rows, recommended: recommended,
         client: client, role: role, locs: locs, period: period, months: months,
         roleClass: roleClass, targetHires: targetHires, startMonth: startMonth,
         metro: metroMult > 1, channelsTouched: channelsTouched(),
@@ -290,6 +319,38 @@
     var ESTIMATE_MAX_AUTO_RETRIES = 3;
     var estimateRetrySig = "";   // sig currently being auto-retried
     var estimateRetryCount = 0;  // consecutive failures for estimateRetrySig
+
+    function setFunded(data, setSig) {
+      var list = (data && Array.isArray(data.channels)) ? data.channels : null;
+      var rows = [];
+      var sum = 0;
+      (list || []).forEach(function (c) {
+        var id = c && KEY_TO_ID[c.key];
+        var amt = c ? Number(c.amount) : 0;
+        if (id && CHANNELS[id] && amt > 0) { rows.push({ id: id, key: c.key, amt: amt }); sum += amt; }
+      });
+      fundedChannels = (rows.length && sum > 0) ? rows.map(function (r) {
+        return { id: r.id, key: r.key, share: r.amt / sum };
+      }) : null;
+      fundedSetSig = fundedChannels ? setSig : "";
+      notifyFunded();
+    }
+    // The funded channel SET depends on industry, locations (US-only strips
+    // APAC/EMEA) and the selection; a budget/role edit only moves the
+    // shares, so the list is kept until the new split arrives.
+    function dropStaleFunded(locs, industry, channelCats) {
+      var setSig = JSON.stringify([(locs || []).slice().sort(), industry, channelCats]);
+      if (setSig !== fundedSetSig && fundedChannels) {
+        fundedChannels = null;
+        notifyFunded();
+      }
+      return setSig;
+    }
+    function notifyFunded() {
+      if (typeof window.novaRenderReviewChannels === "function") {
+        try { window.novaRenderReviewChannels(); } catch (e) { /* review step not mounted */ }
+      }
+    }
 
     function resolveIndustry() {
       var industry = "";
@@ -348,6 +409,7 @@
         Math.round(m.total), (m.locs || []).slice().sort(), roles.slice().sort(),
         industry, clientName, channelCats
       ]);
+      var setSig = dropStaleFunded(m.locs, industry, channelCats);
       if (sig === lastScheduledSig) return;
       if (sig !== estimateRetrySig) {
         // A genuinely new input state, not just fetchEstimate() re-running
@@ -386,6 +448,7 @@
         }).then(function (data) {
           if (requestSig !== lastScheduledSig) return; // superseded by a newer request
           latestEstimate = (data && typeof data.est_hires === "number") ? data : null;
+          setFunded(data, setSig);
           estimateRetryCount = 0; // a response (even a malformed one) ends the failure streak
           // Repaint from a FRESH gather(), not the `m` snapshot captured when
           // this fetch was scheduled -- targetHires/roleClass/channels can
@@ -448,7 +511,7 @@
         }
       }
       // 3. channel fit
-      if (!m.usingStarter && m.rows.length === 1) {
+      if (!m.recommended && m.rows.length === 1) {
         ins.push({ tone: "info", text: "Single channel — diversifying lowers risk and blended CPA." });
       } else if ((m.roleClass === "senior" || m.roleClass === "executive" || m.roleClass === "tech") && m.channelsTouched && !channelOn("chNicheBoards") && !channelOn("chEmployerBrand")) {
         ins.push({ tone: "info", text: "For " + (role || "senior roles") + ", add <b>Niche</b> or <b>Employer-brand</b> channels to reach passive talent." });
@@ -550,7 +613,7 @@
         var periodWord = m.period === "campaign" ? "total campaign" :
           m.period === "monthly" ? ("over ~" + trim(m.months, 0) + " mo (" + hero(m.base) + "/mo)") :
           m.period === "quarterly" ? "across the campaign" : "annualized";
-        foot.innerHTML = "<b>" + (m.usingStarter ? "Recommended" : m.rows.length + "-channel") + "</b> mix · " + periodWord;
+        foot.innerHTML = "<b>" + (m.recommended ? "Recommended" : m.rows.length + "-channel") + "</b> mix · " + periodWord;
       } else {
         foot.textContent = "Set a budget to model your plan";
       }
@@ -558,14 +621,14 @@
       // mix note
       var note = $("npMixNote");
       var nCh = m.rows.length;
-      note.textContent = m.usingStarter
-        ? "· Nova recommended starter mix"
+      note.textContent = m.recommended
+        ? "· Nova recommended industry mix" + (nCh ? " (" + nCh + " channels)" : "")
         : "· " + nCh + " channel" + (nCh === 1 ? "" : "s") + " selected";
 
       // agent-strip line 2 — reflect the real channel count being modeled
       var agentCh = $("npAgentChannels");
       if (agentCh) {
-        agentCh.textContent = m.usingStarter
+        agentCh.textContent = m.recommended
           ? "Matching Nova's recommended mix"
           : "Matching " + nCh + " channel" + (nCh === 1 ? "" : "s");
       }
@@ -577,7 +640,14 @@
       var pcts = pctRound(m.rows.map(function (r) { return r.share; }));
       var ids = m.rows.map(function (r) { return r.id; }).join(",");
       var inPlace = ids === lastChannelIds && bar.children.length === m.rows.length && legend.children.length === m.rows.length;
-      if (inPlace) {
+      if (!m.rows.length) {
+        lastChannelIds = "";
+        bar.innerHTML = "";
+        legend.innerHTML = '<div class="np-leg-row np-leg-empty"><span class="np-leg-name">' +
+          (m.recommended
+            ? "Recommended industry mix appears once a budget and a role are set"
+            : "No channels selected") + "</span></div>";
+      } else if (inPlace) {
         m.rows.forEach(function (r, i) {
           bar.children[i].style.width = (r.share * 100).toFixed(1) + "%";
           var row = legend.children[i];
@@ -609,7 +679,7 @@
       // action card — let Nova apply its recommended mix to the real form
       var act = $("npAction");
       if (act) {
-        if (hasBudget && m.usingStarter) {
+        if (hasBudget && m.recommended && fundedChannels && fundedChannels.length) {
           act.style.display = "";
           act.innerHTML =
             '<button type="button" class="np-apply-mix" onclick="NovaPreview.applyMix()">' +
@@ -740,20 +810,32 @@
       setInterval(function () { render(); updateStepNum(); }, 1600);
     }
 
-    // Apply Nova's recommended starter mix to the real channel toggles.
+    // Apply the recommended mix the engine funded to the real toggles:
+    // exactly those channels on, every other channel off.
     function applyMix() {
+      if (!fundedChannels || !fundedChannels.length) return;
+      var on = {};
+      fundedChannels.forEach(function (f) { on[f.id] = true; });
       markChannelsTouched();
-      STARTER.forEach(function (id) {
+      ORDER.forEach(function (id) {
         var el = $(id);
-        if (el && !el.checked) {
-          el.checked = true;
+        if (el && el.checked !== !!on[id]) {
+          el.checked = !!on[id];
           el.dispatchEvent(new Event("change", { bubbles: true }));
         }
       });
       render();
     }
 
-    window.NovaPreview = { update: render, finalize: finalize, applyMix: applyMix };
+    // The funded channel ids for the review step (body_app_js.html), or
+    // null while no estimate for the current inputs has arrived.
+    function funded() {
+      return fundedChannels ? fundedChannels.map(function (f) { return f.id; }) : null;
+    }
+
+    window.NovaPreview = {
+      update: render, finalize: finalize, applyMix: applyMix, fundedChannels: funded,
+    };
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", boot);
     } else {
