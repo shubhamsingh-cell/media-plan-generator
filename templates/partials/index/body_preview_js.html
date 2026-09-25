@@ -272,13 +272,30 @@
       return industry;
     }
 
-    function estimatePayload(m, roles, industry, clientName) {
+    // The same channel_categories the /api/generate payload sends
+    // (body_app_js.html), so the preview funds only the channels the plan
+    // will fund -- the server applies the same _apply_channel_selection.
+    function estimateChannelCategories() {
+      return {
+        regional_boards: channelOn("chRegionalBoards"),
+        global_boards: channelOn("chGlobalBoards"),
+        niche_boards: channelOn("chNicheBoards"),
+        social_media: channelOn("chSocial"),
+        programmatic_dsp: channelOn("chProgrammatic"),
+        employer_branding: channelOn("chEmployerBrand"),
+        apac_regional: channelOn("chApac"),
+        emea_regional: channelOn("chEmea"),
+      };
+    }
+
+    function estimatePayload(m, roles, industry, clientName, channelCats) {
       return {
         budget: String(Math.round(m.total)),
         industry: industry,
         client_name: clientName,
         roles: roles,
         locations: m.locs,
+        channel_categories: channelCats,
       };
     }
 
@@ -296,9 +313,10 @@
       var roles = readTags("rolesContainer");
       var industry = resolveIndustry();
       var clientName = val("clientName");
+      var channelCats = estimateChannelCategories();
       var sig = JSON.stringify([
         Math.round(m.total), (m.locs || []).slice().sort(), roles.slice().sort(),
-        industry, clientName
+        industry, clientName, channelCats
       ]);
       if (sig === lastScheduledSig) return;
       if (sig !== estimateRetrySig) {
@@ -324,7 +342,7 @@
 
       estimateTimer = setTimeout(function () {
         var requestSig = sig;
-        var payload = estimatePayload(m, roles, industry, clientName);
+        var payload = estimatePayload(m, roles, industry, clientName, channelCats);
         fetch("/api/estimate", {
           method: "POST",
           headers: {

@@ -5019,6 +5019,12 @@ def _compute_plan_estimate(brief: dict) -> dict:
             top_ch = max(channel_pcts, key=lambda k: channel_pcts[k])
             channel_pcts[top_ch] = channel_pcts[top_ch] + intl_pct
 
+    # Honour the wizard's channel toggles exactly as both /api/generate
+    # paths do (same helper, same bool / stringified-"False" handling).
+    # Without this the preview funded channels the plan would not -- an
+    # unticked Employer Branding still got budget here (Hershey, 2026-09-24).
+    channel_pcts = _apply_channel_selection(channel_pcts, brief)
+
     # kb_loader's load_knowledge_base() is cached after first load and reads
     # only local data/*.json files -- cheap enough to call on every preview.
     try:

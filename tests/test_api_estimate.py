@@ -585,7 +585,9 @@ class TestPreviewJsRefetchSignature:
         snippet = preview_js_source[idx:end_idx]
         assert "var industry = resolveIndustry();" in snippet
         assert 'var clientName = val("clientName");' in snippet
-        assert "estimatePayload(m, roles, industry, clientName)" in snippet
+        assert (
+            "estimatePayload(m, roles, industry, clientName, channelCats)" in snippet
+        )
 
 
 class TestPreviewJsStaleRepaintAndRetry:
