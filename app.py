@@ -4170,6 +4170,42 @@ BUDGET_DURATION_MONTHS: dict = {
 _BUDGET_PERIOD_MONTHS: dict = {"monthly": 1, "quarterly": 3, "annual": 12}
 
 
+# "N weeks" / "N months" / "N years" / "N days", or a range "N-M <unit>"
+# (midpoint, the same convention BUDGET_DURATION_MONTHS uses for the
+# dropdown ranges). Mirrored by freeTextDurationMonths() in
+# templates/partials/index/body_preview_js.html.
+_EXPLICIT_DURATION_RE = re.compile(
+    r"(\d+(?:\.\d+)?)(?:\s*(?:-|\u2013|to)\s*(\d+(?:\.\d+)?))?\s*"
+    r"(days?|weeks?|wks?|months?|mos?|years?|yrs?)\b",
+    re.IGNORECASE,
+)
+_EXPLICIT_DURATION_UNIT_MONTHS: dict = {
+    "d": 12 / 365,
+    "w": 12 / 52,
+    "m": 1.0,
+    "y": 12.0,
+}
+
+
+def _explicit_duration_months(duration: str) -> float:
+    """Months for an explicit free-text duration ("24 months" -> 24,
+    "16 weeks" -> 16*12/52, "1 year" -> 12, "6-12 months" -> 9), or 0.0
+    when the string states no number+unit.
+
+    Must run BEFORE display_format.resolve_campaign_weeks: that parser
+    buckets by SUBSTRING against 4-week-month marketing bands, so
+    "24 months" hit the "4 month" bucket (24 weeks) and "12 months" the
+    48-week bucket -- a x5.5 / x11.08 multiplier instead of x24 / x12.
+    """
+    m = _EXPLICIT_DURATION_RE.search(duration or "")
+    if not m:
+        return 0.0
+    lo = float(m.group(1))
+    hi = float(m.group(2)) if m.group(2) else lo
+    unit = _EXPLICIT_DURATION_UNIT_MONTHS[m.group(3)[0].lower()]
+    return (lo + hi) / 2 * unit
+
+
 def _budget_duration_months(campaign_duration: Any) -> float:
     """Months a campaign runs, for budget-period scaling only.
 
@@ -4185,6 +4221,9 @@ def _budget_duration_months(campaign_duration: Any) -> float:
     for option, months in BUDGET_DURATION_MONTHS.items():
         if dur.lower() == option.lower():
             return float(months)
+    explicit = _explicit_duration_months(dur)
+    if explicit > 0:
+        return explicit
     if display_format is not None and re.search(r"\d", dur):
         weeks = display_format.resolve_campaign_weeks(dur)
         if weeks > 0:

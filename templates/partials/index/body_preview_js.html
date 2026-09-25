@@ -49,6 +49,18 @@
       "1-2 years": 18, "2-5 years (Long-term)": 42, "Ongoing": 12,
     };
     var PERIOD_MONTHS = { monthly: 1, quarterly: 3, annual: 12 };
+    // Free-text duration ("24 months", "16 weeks", "1-2 years" -> midpoint)
+    // in months, or 0 when no number+unit is stated. Mirrors
+    // app._explicit_duration_months so a non-dropdown value (e.g. a restored
+    // or API-seeded duration) previews the same total the server generates.
+    var UNIT_MONTHS = { d: 12 / 365, w: 12 / 52, m: 1, y: 12 };
+    function freeTextDurationMonths(s) {
+      var m = /(\d+(?:\.\d+)?)(?:\s*(?:-|\u2013|to)\s*(\d+(?:\.\d+)?))?\s*(days?|weeks?|wks?|months?|mos?|years?|yrs?)\b/i.exec(s || "");
+      if (!m) return 0;
+      var lo = parseFloat(m[1]);
+      var hi = m[2] ? parseFloat(m[2]) : lo;
+      return (lo + hi) / 2 * UNIT_MONTHS[m[3].charAt(0).toLowerCase()];
+    }
 
     // ── Small helpers ─────────────────────────────────────────────────
     function $(id) { return document.getElementById(id); }
@@ -160,6 +172,9 @@
       if (!base) base = BUDGET_MIDPOINTS[br] || 0;
 
       var months = DURATION_MONTHS[val("campaignDuration")] || 6;
+      if (!DURATION_MONTHS[val("campaignDuration")]) {
+        months = freeTextDurationMonths(val("campaignDuration")) || 6;
+      }
       var period = val("budgetPeriod") || "campaign";
       // Same rule as app._budget_period_multiplier: periods covered by the
       // campaign, never below 1 (a per-period amount is not shrunk).
