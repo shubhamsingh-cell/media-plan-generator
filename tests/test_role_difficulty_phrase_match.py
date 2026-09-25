@@ -35,7 +35,9 @@ def _by_title(roles: list[str]) -> dict[str, dict]:
 
 
 def test_machine_operator_is_not_rated_senior_executive_search():
-    assert gold_standard._lookup_role_difficulty("Machine Operator") is None
+    # Its own plant profile (skilled trade), never the ML/data-science one.
+    profile = gold_standard._lookup_role_difficulty("Machine Operator")
+    assert profile is not None and profile["tier"] == "skilled_trade"
     row = _by_title(["Machine Operator"])["Machine Operator"]
     assert row["seniority_level"] not in ("senior", "staff", "director", "executive")
     assert row["complexity_score"] < 7

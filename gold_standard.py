@@ -808,6 +808,10 @@ _ROLE_SALARY_RANGES: dict[str, tuple[int, int]] = {
     "housekeeping": (28_000, 38_000),
     "custodian": (27_000, 38_000),
     "janitor": (27_000, 38_000),
+    # "Janitorial Staff" is a janitor. match_role_phrase is whole-word, so
+    # "janitor" alone no longer matches "janitorial" (the old substring test
+    # did) -- keep the band via its own keyword.
+    "janitorial": (27_000, 38_000),
     "server": (20_000, 34_000),
     "waitstaff": (20_000, 34_000),
     "memory care": (28_000, 40_000),
@@ -2780,6 +2784,198 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "channel_emphasis": "volume",
         "tier": "frontline",
     },
+    # -- Plant / production floor (Hershey plan, 2026-09-25) --
+    # Whole-phrase matching (role_match) stopped these titles borrowing an
+    # unrelated profile on ONE shared word ("Machine Operator" -> ML
+    # engineer), but also stopped the accidental matches that had kept
+    # them hourly ("Production Worker" -> construction worker, "Line
+    # Operator" -> heavy equipment operator). Name them explicitly, at the
+    # same tier/difficulty the old accidental match produced.
+    "production worker": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "line worker": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "processing worker": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "sanitation worker": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "factory worker": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "plant worker": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "manufacturing worker": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "production associate": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "manufacturing associate": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "processing associate": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "sanitation associate": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "packer": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "general laborer": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "production helper": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "crew member": {
+        "seniority": "entry",
+        "base_difficulty": 3,
+        "avg_ttf_days": 14,
+        "supply_level": "abundant",
+        "tier": "frontline",
+    },
+    "janitorial": {
+        "seniority": "entry",
+        "base_difficulty": 2.5,
+        "avg_ttf_days": 12,
+        "supply_level": "abundant",
+        "tier": "frontline",
+        "channel_emphasis": "volume",
+    },
+    "janitorial staff": {
+        "seniority": "entry",
+        "base_difficulty": 2.5,
+        "avg_ttf_days": 12,
+        "supply_level": "abundant",
+        "tier": "frontline",
+        "channel_emphasis": "volume",
+    },
+    "cleaner": {
+        "seniority": "entry",
+        "base_difficulty": 2.5,
+        "avg_ttf_days": 12,
+        "supply_level": "abundant",
+        "tier": "frontline",
+        "channel_emphasis": "volume",
+    },
+    "cleaning staff": {
+        "seniority": "entry",
+        "base_difficulty": 2.5,
+        "avg_ttf_days": 12,
+        "supply_level": "abundant",
+        "tier": "frontline",
+        "channel_emphasis": "volume",
+    },
+    "machine operator": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 35,
+        "supply_level": "moderate",
+        "tier": "skilled_trade",
+        "channel_emphasis": "balanced",
+    },
+    "line operator": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 35,
+        "supply_level": "moderate",
+        "tier": "skilled_trade",
+        "channel_emphasis": "balanced",
+    },
+    "packaging operator": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 35,
+        "supply_level": "moderate",
+        "tier": "skilled_trade",
+        "channel_emphasis": "balanced",
+    },
+    "production operator": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 35,
+        "supply_level": "moderate",
+        "tier": "skilled_trade",
+        "channel_emphasis": "balanced",
+    },
+    "mixer operator": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 35,
+        "supply_level": "moderate",
+        "tier": "skilled_trade",
+        "channel_emphasis": "balanced",
+    },
+    "processing operator": {
+        "seniority": "mid",
+        "base_difficulty": 5,
+        "avg_ttf_days": 35,
+        "supply_level": "moderate",
+        "tier": "skilled_trade",
+        "channel_emphasis": "balanced",
+    },
     "maintenance technician": {
         "seniority": "mid",
         "base_difficulty": 5,
@@ -2920,6 +3116,58 @@ def _lookup_role_difficulty(role_title: str) -> dict[str, Any] | None:
     pattern = match_role_phrase(title_lower, _ROLE_DIFFICULTY_MAP)
     if pattern is not None:
         return dict(_ROLE_DIFFICULTY_MAP[pattern])
+    return _frontline_head_noun_profile(title_lower)
+
+
+# Head nouns that make an otherwise-unknown title an hourly/frontline role
+# ("Candy Line Worker", "Bakery Associate", "Shift Helper"). Checked only
+# after every explicit profile missed, so an unknown plant title gets a
+# conservative frontline tier instead of the "professional" default.
+_FRONTLINE_HEAD_NOUNS: frozenset[str] = frozenset(
+    {"worker", "associate", "helper", "laborer", "labourer", "handler", "packer"}
+)
+_FRONTLINE_HEAD_PHRASES: tuple[str, ...] = ("crew member", "team member")
+# Words that make a "worker"/"associate" title professional or senior --
+# leave those to the caller's seniority/professional defaults.
+_FRONTLINE_HEAD_NOUN_BLOCKERS: frozenset[str] = frozenset(
+    {
+        # seniority / leadership
+        "senior", "sr", "lead", "principal", "staff", "chief", "head",
+        "director", "manager", "supervisor", "vp", "president", "partner",
+        # professional "associate"/"worker" titles
+        "social", "case", "knowledge", "research", "legal", "law", "audit",
+        "tax", "investment", "banking", "consulting", "finance", "financial",
+        "clinical", "marketing", "analytics", "engineering", "product",
+    }
+)
+_FRONTLINE_HEAD_NOUN_PROFILE: dict[str, Any] = {
+    "seniority": "entry",
+    "base_difficulty": 3,
+    "avg_ttf_days": 14,
+    "supply_level": "abundant",
+    "tier": "frontline",
+}
+
+
+def _frontline_head_noun_profile(title_lower: str) -> dict[str, Any] | None:
+    """Frontline profile for an unknown title whose head noun is hourly.
+
+    The head noun is the last word of the title after dropping any
+    parenthetical or trailing " - shift" / ", location" qualifier. Returns
+    None when a seniority or professional qualifier is present (e.g.
+    "Senior Associate", "Social Worker", "Research Associate").
+    """
+    core = re.split(r"\s[-\u2013\u2014]\s|[,(/|]", title_lower, maxsplit=1)[0]
+    words = re.findall(r"[a-z]+", core)
+    if not words or set(words) & _FRONTLINE_HEAD_NOUN_BLOCKERS:
+        return None
+    last = words[-1]
+    head = last[:-1] if last.endswith("s") and last[:-1] in _FRONTLINE_HEAD_NOUNS else last
+    joined = " ".join(words)
+    if head in _FRONTLINE_HEAD_NOUNS or any(
+        re.search(rf"\b{ph}s?$", joined) for ph in _FRONTLINE_HEAD_PHRASES
+    ):
+        return dict(_FRONTLINE_HEAD_NOUN_PROFILE)
     return None
 
 
