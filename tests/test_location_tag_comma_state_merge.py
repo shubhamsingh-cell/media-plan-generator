@@ -65,7 +65,7 @@ def test_merge_only_applies_to_locations_container():
     must stay scoped to locationsContainer and not leak into those tag
     inputs."""
     src = _source()
-    idx = src.index("_LOCATION_MERGE_EXCLUDED")
+    idx = src.index("const _LOCATION_MERGE_EXCLUDED")
     merge_block = src[idx : idx + 2000]
     assert 'containerId === "locationsContainer"' in merge_block
 

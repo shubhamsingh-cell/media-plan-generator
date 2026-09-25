@@ -4629,6 +4629,34 @@ def _canonical_location_display(res: Any) -> str:
     return getattr(res, "display_name", "") or getattr(res, "input", "")
 
 
+def _normalize_location_field(data: dict) -> None:
+    """Request boundary: one ``data["locations"]`` entry per site, in place.
+
+    Hershey plan, 2026-09-24: ten sites entered, four planned. Several
+    sites could arrive in ONE list entry (a list pasted into the wizard's
+    tag box), and a string payload was split on every comma, tearing
+    "Hershey, PA" into "Hershey" + "PA". plan_location.split_location_entries
+    keeps "City, ST" pairs together and never drops an entry. Falls back to
+    the legacy comma split for a string if plan_location is unavailable.
+    """
+    raw = data.get("locations")
+    if raw is None:
+        return
+    if plan_location is not None:
+        try:
+            data["locations"] = plan_location.split_location_entries(raw)
+            return
+        except (ValueError, TypeError, AttributeError, OSError):
+            logger.error(
+                "split_location_entries failed; using legacy normalization",
+                exc_info=True,
+            )
+    if isinstance(raw, str):
+        data["locations"] = [s.strip() for s in raw.split(",") if s.strip()]
+    elif not isinstance(raw, list):
+        data["locations"] = [str(raw)]
+
+
 def _resolve_and_rewrite_locations(data: dict) -> None:
     """S93: resolve `data["locations"]` via plan_location, in place.
 
@@ -16550,9 +16578,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             if isinstance(roles_input, str):
                 roles_input = [r.strip() for r in roles_input.split(",") if r.strip()]
             data["target_roles"] = roles_input
+            # One entry per site, "City, ST" pairs kept whole (Hershey
+            # 2026-09-24: sites pasted as one entry were planned as one).
+            _normalize_location_field(data)
             # Bug #2 fix: Auto-wrap string values to lists for array fields
             for _arr_field in (
-                "locations",
                 "job_categories",
                 "custom_countries",
             ):

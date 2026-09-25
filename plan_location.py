@@ -1116,6 +1116,98 @@ def _try_fuzzy(raw_str: str, stripped: str) -> LocationResolution | None:
     return res
 
 
+_HARD_LOCATION_SEPARATORS = re.compile(r"[\r\n;|\t]+")
+_TRAILING_USPS_RE = re.compile(r"\s([A-Z]{2})$")
+
+
+def _is_state_token(tok: str) -> bool:
+    """True for a bare US state/territory: USPS code ("PA", "D.C.") or
+    full name ("Pennsylvania")."""
+    _ensure_loaded()
+    key = _norm_key(tok)
+    return key in _states_by_norm_usps or key in _states_by_name
+
+
+def _split_location_chunk(chunk: str) -> list[tuple[str, bool]]:
+    """Split one chunk on commas into sites. A state (code or name) or a
+    US-country token right after a city is that city's qualifier, not a new
+    site; a bare state/country or a location kind ("Remote") never absorbs
+    the next token. Returns (text, state_qualified) per site."""
+    kinds = _REMOTE_TOKENS | _NATIONWIDE_TOKENS
+    sites: list[dict[str, Any]] = []
+    for raw in chunk.split(","):
+        tok = raw.strip()
+        if not tok:
+            continue
+        is_state = _is_state_token(tok)
+        is_country = _norm_key(tok) in _COUNTRY_TOKENS
+        prev = sites[-1] if sites else None
+        can_qualify = bool(prev) and not prev["bare"] and _norm_key(prev["text"]) not in kinds
+        if can_qualify and is_state and not prev["state"] and not prev["country"]:
+            prev["text"] = f"{prev['text']}, {tok}"
+            prev["state"] = True
+            continue
+        if can_qualify and is_country and not prev["country"]:
+            prev["text"] = f"{prev['text']}, {tok}"
+            prev["country"] = True
+            continue
+        trailing = _TRAILING_USPS_RE.search(tok)
+        sites.append(
+            {
+                "text": tok,
+                "bare": is_state or is_country,
+                "state": bool(trailing and _is_state_token(trailing.group(1))),
+                "country": False,
+            }
+        )
+    return [(s["text"], bool(s["state"])) for s in sites]
+
+
+def split_location_entries(value: Any) -> list[Any]:
+    """Normalize a request's ``locations`` field to one entry per site.
+
+    Hershey plan, 2026-09-24: ten sites entered, four planned. A list the
+    user pasted (or typed with separators) reached the server as ONE entry
+    holding several sites, and the old string branch split on EVERY comma,
+    tearing "Hershey, PA" into "Hershey" + "PA". Rules:
+
+    - line breaks, ";", "|" and tabs always separate sites;
+    - a list ITEM is comma-split only when it clearly holds two or more
+      state-qualified sites ("Hershey, PA, Hazleton, PA"), so single-site
+      items ("Springfield, MO", "Cook County, IL", "Paris, France",
+      "Hershey, PA, USA") are left exactly as sent;
+    - a STRING payload keeps its legacy one-site-per-comma meaning, but
+      "City, ST" / "City, State Name" pairs stay together.
+
+    Never drops or de-duplicates an entry; non-string items pass through.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        out_s: list[Any] = []
+        for chunk in _HARD_LOCATION_SEPARATORS.split(value):
+            out_s.extend(text for text, _q in _split_location_chunk(chunk))
+        return out_s
+    if not isinstance(value, list):
+        return [value]
+    out: list[Any] = []
+    for item in value:
+        if not isinstance(item, str):
+            out.append(item)
+            continue
+        chunks = [c.strip() for c in _HARD_LOCATION_SEPARATORS.split(item) if c.strip()]
+        if not chunks:
+            out.append(item)  # blank stays blank: request validation reports it
+            continue
+        for chunk in chunks:
+            sites = _split_location_chunk(chunk)
+            if len(sites) >= 2 and sum(1 for _t, q in sites if q) >= 2:
+                out.extend(text for text, _q in sites)
+            else:
+                out.append(chunk)
+    return out
+
+
 def resolve_locations(raw_list: list[str]) -> list[LocationResolution]:
     """Resolve a list of free-text locations, preserving order. Never
     raises -- a bad entry produces an unresolved result, it does not abort
