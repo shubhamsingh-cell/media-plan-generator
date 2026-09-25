@@ -17,6 +17,55 @@
   let lastGeneratedBlob = null;
   let lastGeneratedFilename = null;
 
+  // ── Channel selection (one rule for generate, estimate and preview) ──
+  // The Step 3 markup pre-checks only Social. Until the user touches a
+  // channel toggle, every surface uses Nova's recommended industry mix:
+  // channel_categories is OMITTED from /api/generate (and, via
+  // body_preview_js.html, /api/estimate), so the server's
+  // _apply_channel_selection and the deck's _selected_channels take their
+  // "no explicit selection" path. Once touched, the exact selection is
+  // sent and honoured everywhere. Sending the untouched default funded
+  // Social only (100%) while the preview showed the recommended mix.
+  const NOVA_CHANNEL_TOGGLES = {
+    regional_boards: "chRegionalBoards",
+    global_boards: "chGlobalBoards",
+    niche_boards: "chNicheBoards",
+    social_media: "chSocial",
+    programmatic_dsp: "chProgrammatic",
+    employer_branding: "chEmployerBrand",
+    apac_regional: "chApac",
+    emea_regional: "chEmea",
+  };
+  let _novaChannelsTouched = false;
+  function novaChannelsTouched() {
+    return _novaChannelsTouched;
+  }
+  function setNovaChannelsTouched(touched) {
+    _novaChannelsTouched = !!touched;
+  }
+  function isNovaChannelToggle(id) {
+    return Object.values(NOVA_CHANNEL_TOGGLES).indexOf(id) !== -1;
+  }
+  // channel_categories for a request payload: undefined (key dropped by
+  // JSON.stringify) until the user touches a toggle.
+  function novaChannelCategoriesPayload() {
+    if (!_novaChannelsTouched) return undefined;
+    const cats = {};
+    Object.keys(NOVA_CHANNEL_TOGGLES).forEach((key) => {
+      const el = document.getElementById(NOVA_CHANNEL_TOGGLES[key]);
+      cats[key] = !!(el && el.checked);
+    });
+    return cats;
+  }
+  document.addEventListener(
+    "change",
+    (e) => {
+      if (e.target && isNovaChannelToggle(e.target.id)) _novaChannelsTouched = true;
+    },
+    true,
+  );
+  // ── end channel selection ──
+
   // ============================================
   // File upload state & handlers
   // ============================================
@@ -4761,16 +4810,8 @@
       work_environment: getCheckboxGroupValues("workEnvironment"),
       competitors: competitors,
       experience_level: getCheckboxGroupValues("experienceLevel"),
-      channel_categories: {
-        regional_boards: document.getElementById("chRegionalBoards").checked,
-        global_boards: document.getElementById("chGlobalBoards").checked,
-        niche_boards: document.getElementById("chNicheBoards").checked,
-        social_media: document.getElementById("chSocial").checked,
-        programmatic_dsp: document.getElementById("chProgrammatic").checked,
-        employer_branding: document.getElementById("chEmployerBrand").checked,
-        apac_regional: document.getElementById("chApac")?.checked || false,
-        emea_regional: document.getElementById("chEmea")?.checked || false,
-      },
+      // Omitted until a toggle is touched -> recommended industry mix.
+      channel_categories: novaChannelCategoriesPayload(),
       include_educational:
         document.getElementById("includeEducational").checked,
       include_events: document.getElementById("includeEvents").checked,
@@ -5555,6 +5596,7 @@
       targetDemographic: getVal("targetDemographic"),
       requesterName: getVal("requesterName"),
       requesterEmail: getVal("requesterEmail"),
+      channelsTouched: novaChannelsTouched(),
       selectedIndustry: selectedIndustry || null,
       selectedNaicsCode: selectedNaicsCode || null,
       selectedNaicsTitle: selectedNaicsTitle || null,
@@ -5700,6 +5742,16 @@
         if (el) el.checked = s.channels[id];
       });
     }
+    // A draft saved before channelsTouched existed counts as touched when
+    // its toggles differ from the markup default (Social only).
+    setNovaChannelsTouched(
+      typeof s.channelsTouched === "boolean"
+        ? s.channelsTouched
+        : !!(s.channels && typeof s.channels === "object") &&
+            Object.keys(s.channels).some(function (id) {
+              return !!s.channels[id] !== (id === "chSocial");
+            }),
+    );
 
     // Restore section checkboxes
     if (s.sections && typeof s.sections === "object") {

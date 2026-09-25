@@ -8,8 +8,20 @@
   (function () {
     "use strict";
 
-    // True once the user toggles any channel in Step 3.
-    var channelsTouched = false;
+    // True once the user toggles any channel in Step 3. The flag lives in
+    // body_app_js.html (novaChannelsTouched) so the preview, /api/estimate
+    // and /api/generate all read ONE state; the local copy is a fallback
+    // for a page without that script.
+    var channelsTouchedLocal = false;
+    function channelsTouched() {
+      return typeof novaChannelsTouched === "function"
+        ? novaChannelsTouched()
+        : channelsTouchedLocal;
+    }
+    function markChannelsTouched() {
+      channelsTouchedLocal = true;
+      if (typeof setNovaChannelsTouched === "function") setNovaChannelsTouched(true);
+    }
 
     // ── Channel model (recruitment-marketing benchmarks) ──────────────
     // w = allocation weight · cpa = baseline cost per application (mid-skill)
@@ -186,7 +198,7 @@
       // channels — show Nova's recommended mix until the user engages
       // the channel toggles (the markup pre-checks only Social by default).
       var selected = ORDER.filter(function (id) { var el = $(id); return el && el.checked; });
-      var usingStarter = !channelsTouched || selected.length === 0;
+      var usingStarter = !channelsTouched() || selected.length === 0;
       var active = usingStarter ? STARTER.slice() : selected;
 
       // role class, used downstream (BENCH lookup, insight copy). Explicit
@@ -254,7 +266,7 @@
         total: total, base: base, rows: rows, usingStarter: usingStarter,
         client: client, role: role, locs: locs, period: period, months: months,
         roleClass: roleClass, targetHires: targetHires, startMonth: startMonth,
-        metro: metroMult > 1, channelsTouched: channelsTouched,
+        metro: metroMult > 1, channelsTouched: channelsTouched(),
       };
     }
 
@@ -290,7 +302,10 @@
     // The same channel_categories the /api/generate payload sends
     // (body_app_js.html), so the preview funds only the channels the plan
     // will fund -- the server applies the same _apply_channel_selection.
+    // Untouched toggles send nothing (undefined): the server then uses the
+    // recommended industry mix, as the preview's "Recommended mix" shows.
     function estimateChannelCategories() {
+      if (!channelsTouched()) return undefined;
       return {
         regional_boards: channelOn("chRegionalBoards"),
         global_boards: channelOn("chGlobalBoards"),
@@ -707,7 +722,7 @@
       updateStepNum();
       document.addEventListener("input", schedule, true);
       document.addEventListener("change", function (e) {
-        if (e.target && e.target.id && CHANNELS[e.target.id]) channelsTouched = true;
+        if (e.target && e.target.id && CHANNELS[e.target.id]) markChannelsTouched();
         schedule();
       }, true);
       document.addEventListener("click", function (e) {
@@ -727,7 +742,7 @@
 
     // Apply Nova's recommended starter mix to the real channel toggles.
     function applyMix() {
-      channelsTouched = true;
+      markChannelsTouched();
       STARTER.forEach(function (id) {
         var el = $(id);
         if (el && !el.checked) {
