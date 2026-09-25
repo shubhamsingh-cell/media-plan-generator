@@ -1595,7 +1595,8 @@ def fuse_salary_intelligence(
         # mislabeling a genuinely local salary as a US one.
         _salary_currency = (
             _USD_SOURCE_CURRENCY
-            if clean_currencies and all(c == _USD_SOURCE_CURRENCY for c in clean_currencies)
+            if clean_currencies
+            and all(c == _USD_SOURCE_CURRENCY for c in clean_currencies)
             else ""
         )
 
@@ -1657,9 +1658,7 @@ def fuse_salary_intelligence(
                             tolerance=0.30,  # S27: tightened from 0.50
                         )
 
-        _avg_weight = (
-            sum(clean_weights) / len(clean_weights) if clean_weights else 0.0
-        )
+        _avg_weight = sum(clean_weights) / len(clean_weights) if clean_weights else 0.0
         _confidence = _derive_fused_confidence(
             source_count, _avg_weight, kb_validation.get("validated", False)
         )
@@ -1948,6 +1947,17 @@ def fuse_job_market_demand(
             source_count += 1
         if talent_pool > 0:
             source_count += 1
+
+        # S_confidence_leak: the generic "Industry Benchmark" fallback above
+        # derives total_postings, search_volume (= total_postings // 10) and
+        # talent_pool from ONE hardcoded dict -- none of it is an
+        # independent live source, so it must not count as 3 toward
+        # _score_section's source_count (which would grade this section
+        # 100%/A via the max_sources >= 3 rule even though every demand cell
+        # for this role renders "Data not available"). Zero it out here so
+        # _score_section falls through to its no-live-source bands instead.
+        if _used_fallback:
+            source_count = 0
 
         # KB validation
         kb_validated = False

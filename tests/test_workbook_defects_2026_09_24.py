@@ -345,9 +345,7 @@ def test_zero_hire_roi_summary_is_not_applicable_not_whole_budget():
     channels_with_hires = 0
 
     _roi_has_hires = total_projected_hires > 0
-    avg_cph = (
-        round(total_budget / total_projected_hires, 2) if _roi_has_hires else 0
-    )
+    avg_cph = round(total_budget / total_projected_hires, 2) if _roi_has_hires else 0
     avg_ttf = round(sum_ttf / max(channels_with_hires, 1)) if _roi_has_hires else 0
 
     summary_values = [
@@ -369,9 +367,7 @@ def test_nonzero_hire_roi_summary_unchanged():
     channels_with_hires = 5
 
     _roi_has_hires = total_projected_hires > 0
-    avg_cph = (
-        round(total_budget / total_projected_hires, 2) if _roi_has_hires else 0
-    )
+    avg_cph = round(total_budget / total_projected_hires, 2) if _roi_has_hires else 0
     avg_ttf = round(sum_ttf / max(channels_with_hires, 1)) if _roi_has_hires else 0
 
     assert avg_cph == 5000.0
@@ -523,8 +519,7 @@ def test_excel_talent_pool_column_never_ships_fabricated_number():
                 demand_rows[label] = row
 
     assert len(demand_rows) == 2, (
-        "expected both roles' Market Demand by Role rows, found "
-        f"{list(demand_rows)}"
+        "expected both roles' Market Demand by Role rows, found " f"{list(demand_rows)}"
     )
     for label, row in demand_rows.items():
         talent_pool_cell = row[3]
@@ -585,8 +580,7 @@ def test_excel_market_temp_and_trend_columns_never_ship_fabricated_value():
                 demand_rows[label] = row
 
     assert len(demand_rows) == 2, (
-        "expected both roles' Market Demand by Role rows, found "
-        f"{list(demand_rows)}"
+        "expected both roles' Market Demand by Role rows, found " f"{list(demand_rows)}"
     )
     for label, row in demand_rows.items():
         # row[0] is a leading blank (col A). Table columns from row[1]:
@@ -665,9 +659,9 @@ def test_ppt_market_temp_row_omitted_for_fabricated_fallback():
         "deck still ships a 'Market Temp: <role>' row sourced from the "
         "fabricated Industry Benchmark fallback"
     )
-    assert not any("Live Postings: Confectionery" in t for t in texts), (
-        "sanity check: the pre-existing Live Postings guard regressed too"
-    )
+    assert not any(
+        "Live Postings: Confectionery" in t for t in texts
+    ), "sanity check: the pre-existing Live Postings guard regressed too"
 
 
 def test_ppt_market_temp_row_present_for_real_data():
@@ -781,12 +775,12 @@ def test_slide2_never_shows_fabricated_temp_and_prefers_real_role_data():
         "slide 2 still asserts the fabricated 'hot' reading from a "
         f"fallback role: {[t for t in texts if 'hot' in t.lower()]}"
     )
-    assert any("cool talent market" in t.lower() for t in texts), (
-        f"expected the headline to show the real role's 'cool' -- got: {texts}"
-    )
-    assert any("market temp." in t.lower() and "cool" in t.lower() for t in texts), (
-        f"expected the situation card to show 'Market Temp.: Cool (...)' -- got: {texts}"
-    )
+    assert any(
+        "cool talent market" in t.lower() for t in texts
+    ), f"expected the headline to show the real role's 'cool' -- got: {texts}"
+    assert any(
+        "market temp." in t.lower() and "cool" in t.lower() for t in texts
+    ), f"expected the situation card to show 'Market Temp.: Cool (...)' -- got: {texts}"
 
 
 def test_slide2_omits_temp_clause_when_every_role_is_fallback():
@@ -822,12 +816,120 @@ def test_slide2_omits_temp_clause_when_every_role_is_fallback():
     texts = _slide2_texts(prs)
     full_text = "\n".join(texts).lower()
 
-    assert "talent market" not in full_text, (
-        f"headline still carries a fabricated temperature clause: {texts}"
+    assert (
+        "talent market" not in full_text
+    ), f"headline still carries a fabricated temperature clause: {texts}"
+    assert (
+        "market temp." not in full_text
+    ), f"situation card still shows a fabricated Market Temp. line: {texts}"
+    assert (
+        "hot" not in full_text
+    ), f"the fabricated 'hot' value leaked somewhere on slide 2: {texts}"
+
+
+# ---------------------------------------------------------------------------
+# Verifier follow-up #2: the Postings/Talent Pool/Temperature/Trend cells
+# above are correctly suppressed to "Data not available" for a fabricated
+# Industry Benchmark role -- but data_synthesizer.fuse_job_market_demand's
+# SAME fallback branch (data_synthesizer.py, "Source counting" block) still
+# set _meta.source_count = 3 (1 for the "Industry Benchmark" posting entry,
+# +1 because the derived search_volume = total_postings // 10 happens to be
+# non-zero, +1 because the fallback talent_pool value happens to be
+# non-zero). _score_section() (used by compute_confidence_scores, read by
+# excel_v2._build_sheet_sources for the "Sources & Confidence" sheet) treats
+# source_count >= 3 as "1.0 / grade A" regardless of whether those "sources"
+# are real. Result: a plan where EVERY role hits the fallback (every demand
+# cell in Market Intelligence literally reads "Data not available") still
+# showed "Job Market Demand | 100% | A" on the Sources & Confidence sheet,
+# and that 1.0 fed into the plan's Overall Confidence average too.
+# ---------------------------------------------------------------------------
+
+
+def test_sources_confidence_job_market_demand_not_graded_a_when_all_fallback():
+    """Sources & Confidence's 'Job Market Demand' row must NOT read 100%/A
+    when every role in the plan hit the generic Industry Benchmark fallback
+    -- the exact Hershey-style manufacturing roles used above, which match
+    none of the ~23 _ROLE_DEMAND_FALLBACKS keywords and have no live signal
+    data (Adzuna/Jooble/Google Ads/Google Trends/LinkedIn all empty)."""
+    data = {
+        "client_name": "Hershey Test",
+        "roles": ["Confectionery Line Operator", "Packaging Associate II"],
+        "target_roles": [
+            {"title": "Confectionery Line Operator", "count": 20},
+            {"title": "Packaging Associate II", "count": 15},
+        ],
+        "industry": "manufacturing",
+        "locations": ["Hershey, PA", "Stuarts Draft, VA"],
+        "budget": "150000",
+    }
+    data["_synthesized"] = data_synthesizer.synthesize({}, KB, dict(data))
+
+    # Precondition: both roles really did hit the fabricated fallback, and
+    # their per-role _meta no longer claims 3 independent sources.
+    jmd = data["_synthesized"]["job_market_demand"]
+    for role in ("Confectionery Line Operator", "Packaging Associate II"):
+        role_data = jmd[role]
+        assert "Industry Benchmark" in (role_data.get("posting_sources") or [])
+        meta = role_data.get("_meta") or {}
+        assert meta.get("source_count") == 0, (
+            f"{role}: fallback _meta.source_count still claims real sources: "
+            f"{meta!r}"
+        )
+
+    # The synthesis-level confidence score for this section must not be the
+    # 1.0 ("3+ independent sources agree") band.
+    per_section = data["_synthesized"]["confidence_scores"]["per_section"]
+    assert per_section.get("job_market_demand") != 1.0, (
+        "job_market_demand confidence score is still 1.0 (grade A) for an "
+        "all-fallback plan"
     )
-    assert "market temp." not in full_text, (
-        f"situation card still shows a fabricated Market Temp. line: {texts}"
+
+    from excel_v2 import generate_excel_v2
+
+    xlsx = generate_excel_v2(dict(data), load_kb_fn=load_knowledge_base)
+    if isinstance(xlsx, tuple):
+        xlsx = xlsx[0]
+    wb = openpyxl.load_workbook(io.BytesIO(xlsx))
+    ws = wb["Sources & Confidence"]
+
+    jmd_row = None
+    for row in ws.iter_rows(values_only=True):
+        if row and row[1] == "Job Market Demand":
+            jmd_row = row
+            break
+
+    assert (
+        jmd_row is not None
+    ), "Job Market Demand row not found on Sources & Confidence sheet"
+    score_cell, grade_cell = jmd_row[2], jmd_row[3]
+    assert score_cell != "100%", (
+        f"Sources & Confidence still grades Job Market Demand 100% for an "
+        f"all-fallback plan: {jmd_row!r}"
     )
-    assert "hot" not in full_text, (
-        f"the fabricated 'hot' value leaked somewhere on slide 2: {texts}"
+    assert grade_cell != "A", (
+        f"Sources & Confidence still grades Job Market Demand 'A' for an "
+        f"all-fallback plan: {jmd_row!r}"
+    )
+
+
+def test_sources_confidence_job_market_demand_still_grades_a_with_real_data():
+    """Composition check: a role with genuine live signal data (real
+    posting/search/talent-pool sources, NOT the Industry Benchmark fallback)
+    must still be able to earn the 1.0/A band -- the fix above must not
+    down-weight real, independently-sourced data."""
+    role_data = {
+        "total_postings": 12000,
+        "posting_sources": ["Adzuna", "Jooble"],
+        "search_volume_monthly": 4500,
+        "trend_direction": "up",
+        "talent_pool_estimate": 250000,
+        "competition_index": 0.048,
+        "market_temperature": "hot",
+        "kb_industry_context": {},
+        "_meta": {"source_count": 3, "kb_validated": True},
+    }
+    score = data_synthesizer._score_section({"Registered Nurse": role_data})
+    assert score == 1.0, (
+        f"a role with real, independently-sourced demand data no longer "
+        f"scores 1.0: {score!r}"
     )
