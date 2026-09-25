@@ -1128,24 +1128,81 @@ def _is_state_token(tok: str) -> bool:
     return key in _states_by_norm_usps or key in _states_by_name
 
 
+# First-level regions of the main non-US markets (names and postal codes),
+# _norm_key-normalized. "City, Region" / "City, Region, Country" is ONE site
+# ("Bengaluru, Karnataka, India" used to split into three). A known list
+# rather than "any middle token", so "London, Manchester, UK" stays two.
+# MUST match INTL_REGIONS in templates/partials/index/body_app_js.html
+# (tests/test_location_regressions.py enforces parity).
+_INTL_REGION_TOKENS = frozenset(
+    {
+        # Canada
+        "alberta", "british columbia", "manitoba", "new brunswick",
+        "newfoundland and labrador", "nova scotia", "ontario",
+        "prince edward island", "quebec", "saskatchewan", "yukon",
+        "northwest territories", "nunavut",
+        "ab", "bc", "mb", "nb", "nl", "ns", "nt", "nu", "on", "pe", "qc", "sk", "yt",
+        # Australia
+        "new south wales", "victoria", "queensland", "western australia",
+        "south australia", "tasmania", "australian capital territory",
+        "northern territory", "nsw", "vic", "qld", "sa", "tas", "act",
+        # India
+        "andhra pradesh", "assam", "bihar", "chhattisgarh", "goa", "gujarat",
+        "haryana", "himachal pradesh", "jharkhand", "karnataka", "kerala",
+        "madhya pradesh", "maharashtra", "odisha", "punjab", "rajasthan",
+        "tamil nadu", "telangana", "uttar pradesh", "uttarakhand",
+        "west bengal", "ncr",
+        # United Kingdom
+        "scotland", "wales", "northern ireland",
+    }
+)
+# Countries that qualify a city ("Paris, France"). MUST match
+# VALID_COUNTRIES in templates/partials/index/body_app_js.html.
+_SPLIT_COUNTRY_TOKENS = _COUNTRY_TOKENS | frozenset(
+    {
+        "canada", "mexico", "united kingdom", "uk", "england", "ireland",
+        "france", "germany", "netherlands", "belgium", "italy", "spain",
+        "portugal", "switzerland", "austria", "sweden", "norway", "denmark",
+        "finland", "australia", "new zealand", "singapore", "malaysia",
+        "india", "japan", "south korea", "korea", "china", "hong kong",
+        "philippines", "thailand", "vietnam", "brazil", "argentina", "chile",
+        "colombia", "peru", "south africa", "uae",
+    }
+)
+_REGION_CODE_RE = re.compile(r"^[a-z]{2,3}$")
+
+
 def _split_location_chunk(chunk: str) -> list[tuple[str, bool]]:
-    """Split one chunk on commas into sites. A state (code or name) or a
-    US-country token right after a city is that city's qualifier, not a new
-    site; a bare state/country or a location kind ("Remote") never absorbs
-    the next token. Returns (text, state_qualified) per site."""
+    """Split one chunk on commas into sites. A state (code or name), a known
+    non-US region, or a country right after a city is that city's
+    qualifier, not a new site; a bare state code/country or a location kind
+    ("Remote") never absorbs the next token. A full state name that is also
+    a city ("New York", "Washington", "Indiana") is a bare state only when
+    no state/region CODE follows it: "New York, NY" is one site.
+    Returns (text, qualified) per site -- qualified by a state or region."""
     kinds = _REMOTE_TOKENS | _NATIONWIDE_TOKENS
     sites: list[dict[str, Any]] = []
     for raw in chunk.split(","):
         tok = raw.strip()
         if not tok:
             continue
+        key = _norm_key(tok)
         is_state = _is_state_token(tok)
-        is_country = _norm_key(tok) in _COUNTRY_TOKENS
+        is_region = not is_state and key in _INTL_REGION_TOKENS
+        is_code = bool(_REGION_CODE_RE.match(key)) and (
+            key in _states_by_norm_usps or key in _INTL_REGION_TOKENS
+        )
+        is_country = key in _SPLIT_COUNTRY_TOKENS
         prev = sites[-1] if sites else None
-        can_qualify = bool(prev) and not prev["bare"] and _norm_key(prev["text"]) not in kinds
-        if can_qualify and is_state and not prev["state"] and not prev["country"]:
+        can_qualify = (
+            bool(prev)
+            and (not prev["bare"] or (prev["state_name"] and is_code and not prev["state"]))
+            and _norm_key(prev["text"]) not in kinds
+        )
+        if can_qualify and (is_state or is_region) and not prev["state"] and not prev["country"]:
             prev["text"] = f"{prev['text']}, {tok}"
             prev["state"] = True
+            prev["bare"] = False
             continue
         if can_qualify and is_country and not prev["country"]:
             prev["text"] = f"{prev['text']}, {tok}"
@@ -1156,6 +1213,7 @@ def _split_location_chunk(chunk: str) -> list[tuple[str, bool]]:
             {
                 "text": tok,
                 "bare": is_state or is_country,
+                "state_name": is_state and not is_code,
                 "state": bool(trailing and _is_state_token(trailing.group(1))),
                 "country": False,
             }

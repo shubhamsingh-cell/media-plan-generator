@@ -2053,6 +2053,34 @@
     "PUERTO RICO", "GUAM",
   ]);
 
+  // First-level regions of the main non-US markets (provinces, states,
+  // territories -- names and postal codes). "City, Region" and
+  // "City, Region, Country" are ONE site: without this, "Bengaluru,
+  // Karnataka, India" split into "Bengaluru" + "Karnataka, India". A known
+  // list (not "any middle token") so "London, Manchester, UK" is still two.
+  // MUST match plan_location._INTL_REGION_TOKENS
+  // (tests/test_location_regressions.py enforces parity).
+  const INTL_REGIONS = new Set([
+    // Canada
+    "ALBERTA", "BRITISH COLUMBIA", "MANITOBA", "NEW BRUNSWICK",
+    "NEWFOUNDLAND AND LABRADOR", "NOVA SCOTIA", "ONTARIO",
+    "PRINCE EDWARD ISLAND", "QUEBEC", "SASKATCHEWAN", "YUKON",
+    "NORTHWEST TERRITORIES", "NUNAVUT",
+    "AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT",
+    // Australia
+    "NEW SOUTH WALES", "VICTORIA", "QUEENSLAND", "WESTERN AUSTRALIA",
+    "SOUTH AUSTRALIA", "TASMANIA", "AUSTRALIAN CAPITAL TERRITORY",
+    "NORTHERN TERRITORY", "NSW", "VIC", "QLD", "SA", "TAS", "ACT",
+    // India
+    "ANDHRA PRADESH", "ASSAM", "BIHAR", "CHHATTISGARH", "GOA", "GUJARAT",
+    "HARYANA", "HIMACHAL PRADESH", "JHARKHAND", "KARNATAKA", "KERALA",
+    "MADHYA PRADESH", "MAHARASHTRA", "ODISHA", "PUNJAB", "RAJASTHAN",
+    "TAMIL NADU", "TELANGANA", "UTTAR PRADESH", "UTTARAKHAND",
+    "WEST BENGAL", "NCR",
+    // United Kingdom
+    "SCOTLAND", "WALES", "NORTHERN IRELAND",
+  ]);
+
   function _locKey(text) {
     return String(text || "").trim().replace(/\./g, "").replace(/\s+/g, " ").toUpperCase();
   }
@@ -2068,6 +2096,12 @@
   // name) or a country right after a city is that city's qualifier, not a
   // new site. A bare state/country, or a location KIND ("Remote"), never
   // absorbs the token after it, so "CA, NY" and "Remote, TX" stay two.
+  //
+  // A full state name that is also a city ("New York", "Washington",
+  // "Indiana") is a bare state only when NO state/province code follows it:
+  // "New York, NY", "Washington, DC", "Indiana, PA" are one site each.
+  // A known first-level region ("Karnataka", "Ontario", "NSW") qualifies the
+  // city before it like a state does, so "City, Region, Country" is one site.
   function parseLocationEntries(text) {
     const out = [];
     String(text || "")
@@ -2077,15 +2111,24 @@
         chunk.split(",").forEach(function (raw) {
           const tok = raw.trim();
           if (!tok) return;
+          const key = _locKey(tok);
           const isState = _isUsStateToken(tok);
-          const isCountry = VALID_COUNTRIES.has(_locKey(tok));
+          const isRegion = !isState && INTL_REGIONS.has(key);
+          const isCode =
+            /^[A-Z]{2,3}$/.test(key) &&
+            (VALID_US_STATES.has(key) || INTL_REGIONS.has(key));
+          const isCountry = VALID_COUNTRIES.has(key);
           const canQualify =
             prev &&
-            !prev.bare &&
+            (!prev.bare || (prev.stateName && isCode && !prev.hasState)) &&
             !_LOCATION_MERGE_EXCLUDED.has(prev.text.toLowerCase());
-          if (canQualify && isState && !prev.hasState && !prev.hasCountry) {
+          if (
+            canQualify && (isState || isRegion) &&
+            !prev.hasState && !prev.hasCountry
+          ) {
             prev.text += ", " + tok;
             prev.hasState = true;
+            prev.bare = false;
             return;
           }
           if (canQualify && isCountry && !prev.hasCountry) {
@@ -2096,6 +2139,7 @@
           prev = {
             text: tok,
             bare: isState || isCountry,
+            stateName: isState && !isCode,
             hasState: false,
             hasCountry: false,
           };
@@ -2208,7 +2252,31 @@
       const bare = value.trim().toUpperCase();
       const prevTag = arr[arr.length - 1];
       const prevKey = prevTag.trim().toLowerCase();
-      const prevIsBareState = _isUsStateToken(prevTag);
+      // A full state name that is also a city ("New York", "Washington",
+      // "Indiana") followed by a state code is "City, ST", not two states.
+      const prevIsBareState =
+        _isUsStateToken(prevTag) &&
+        !(
+          bare.length === 2 && VALID_US_STATES.has(bare) &&
+          US_STATE_NAMES.has(_locKey(prevTag))
+        );
+      // "Bengaluru," then "Karnataka," then "India": a region or country
+      // right after a comma-committed city qualifies it, exactly as the
+      // paste path (parseLocationEntries) reads the same text.
+      if (_lastLocCommitByComma && !_isUsStateToken(value)) {
+        const vKey = _locKey(value);
+        if (INTL_REGIONS.has(vKey) || VALID_COUNTRIES.has(vKey)) {
+          const joined = prevTag + ", " + value.trim();
+          if (parseLocationEntries(joined).length === 1) {
+            arr[arr.length - 1] = joined;
+            document.getElementById(inputId).value = "";
+            renderTags(containerId, inputId, arr);
+            updateRegionalSections();
+            scheduleLocationResolution();
+            return;
+          }
+        }
+      }
       // A full state name ("Hazleton," then "Pennsylvania") merges only
       // when the city was just committed by the comma key -- after an
       // Enter-committed "Buffalo", "Washington" is its own location.
