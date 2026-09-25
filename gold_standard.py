@@ -2955,9 +2955,7 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
     # that boundary -- normalize via the same shared helper here too.
     from shared_utils import normalize_competitor_names
 
-    brief_competitors: list[str] = normalize_competitor_names(
-        data.get("competitors")
-    )
+    brief_competitors: list[str] = normalize_competitor_names(data.get("competitors"))
 
     # Resolve industry via alias table + substring matching
     resolved_key = _resolve_industry_key(raw_industry)
@@ -4523,6 +4521,27 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
         "low": 0.7,
     }
 
+    # strategy:hershey#2 fix: hiring_intensity (the WORD) and budget_weight
+    # (the NUMBER) used to come from two independently-computed sources for
+    # non-subvertical months -- the word from the generic
+    # _HIRING_EVENTS_CALENDAR entry, the number from that same word blended
+    # with an industry-specific seasonal_hiring_trends.json multiplier (S50)
+    # -- so the blend could shift the number without the word ever
+    # reflecting it (e.g. retail March: word "very_high" but a low-season
+    # blend drops its weight to 0.98, below April's unblended "high" 1.05).
+    # Derive the word FROM the final weight instead, via one fixed
+    # threshold rule anchored at the midpoints between the canonical
+    # intensity_weights values above, so word and weight can never diverge
+    # for any month in any calendar.
+    def _intensity_word_from_weight(weight: float) -> str:
+        if weight >= 1.2:  # midpoint of high (1.1) and very_high (1.3)
+            return "very_high"
+        if weight >= 1.05:  # midpoint of moderate (1.0) and high (1.1)
+            return "high"
+        if weight >= 0.85:  # midpoint of low (0.7) and moderate (1.0)
+            return "moderate"
+        return "low"
+
     # strategy:atria#8 fix: build a full 12-month forward calendar (was a
     # 6-month window) so a multi-year campaign's seasonality is shown for
     # its entire annual cycle rather than truncated to the first half.
@@ -4539,10 +4558,11 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
             # calendar or the generic industry-level seasonal_hiring_trends
             # blend, so it is NOT further blended with either.
             season = _sv_month.get("season", month_info["season"])
-            hiring_intensity = _sv_month.get(
+            _sv_intensity_word = _sv_month.get(
                 "hiring_intensity", month_info["hiring_intensity"]
             )
-            budget_weight = intensity_weights.get(hiring_intensity, 1.0)
+            budget_weight = intensity_weights.get(_sv_intensity_word, 1.0)
+            hiring_intensity = _intensity_word_from_weight(budget_weight)
             month_events = _sv_month.get("events") or month_info["events"]
             recommendation = _sv_month.get(
                 "recommendation", month_info["recommendation"]
@@ -4551,8 +4571,8 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
             seasonal_mult = budget_weight
         else:
             season = month_info["season"]
-            hiring_intensity = month_info["hiring_intensity"]
-            budget_weight = intensity_weights.get(hiring_intensity, 1.0)
+            _generic_intensity_word = month_info["hiring_intensity"]
+            budget_weight = intensity_weights.get(_generic_intensity_word, 1.0)
 
             # S50: Overlay seasonal hiring multiplier from
             # seasonal_hiring_trends.json. This provides more granular,
@@ -4570,6 +4590,10 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
                     seasonal_phase = "low"
                 # Blend: average the generic intensity weight with seasonal multiplier
                 budget_weight = round((budget_weight + seasonal_mult) / 2, 2)
+
+            # The word must reflect the final (possibly blended) weight, not
+            # the pre-blend generic value -- see strategy:hershey#2 above.
+            hiring_intensity = _intensity_word_from_weight(budget_weight)
 
             # Use industry-specific events when available, fall back to generic
             month_events = ind_monthly.get(month_num, month_info["events"])
