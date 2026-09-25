@@ -4511,11 +4511,24 @@ def synthesize(
     # Market Intelligence and Quality Intelligence salary tables agree by
     # construction instead of by coincidence. Roles with no median keep
     # gold_standard's per-city tier/multiplier estimate.
+    #
+    # ONE base salary per role: non-driver roles carry the plan-level
+    # (national) band Market Intelligence shows and gold_standard scales it
+    # by each city's multiplier ("city_adjust": True), so the Quality
+    # Intelligence City Multiplier column and its "adjusted by city
+    # multiplier" footnote stay true. Driver-family bands come from a
+    # market-level resolver and are used verbatim ("city_adjust": False).
+    # The band's currency is carried through so a non-USD plan's rows keep
+    # their currency.
     try:
+        _country_for_per_role = _first_location_country(input_data)
         _per_role_salaries: Dict[str, Dict[str, Any]] = {}
         for _role_title, _sal in synthesis.get("salary_intelligence", {}).items():
             if not isinstance(_sal, dict) or not _sal.get("median"):
                 continue
+            _is_driver_band = (
+                _resolve_driver_role_wage(_role_title, _country_for_per_role) is not None
+            )
             # Every role Market Intelligence prices gets the SAME figure on
             # Quality Intelligence and the deck's Role Breakdown (Hershey
             # 2026-09-24: Lead Electrical Controls Specialist read $115,000
@@ -4538,6 +4551,8 @@ def synthesize(
                 # below 0.5 and are honestly "estimated" (this also drives the Quality Intelligence sheet's existing
                 # "(est.)" tag / amber highlight for these rows).
                 "confidence": "benchmark" if _confidence_num >= 0.5 else "estimated",
+                "currency": _sal.get("currency") or "",
+                "city_adjust": not _is_driver_band,
             }
         if _per_role_salaries:
             synthesis["per_role_salaries"] = _per_role_salaries

@@ -1372,25 +1372,35 @@ def enrich_city_level_data(data: dict) -> dict:
             # multiplier) -- the resolver already returns an honestly-
             # labelled, market-appropriate estimate; the two client-facing
             # salary tables must show one identical number for one role.
+            #
+            # Non-driver roles (70e65a6 extended the override to every priced
+            # role) carry ONE plan-level base band with "city_adjust": True:
+            # it is scaled by THIS city's multiplier, so city rows differ as
+            # the City Multiplier column and footnote say. Driver bands stay
+            # verbatim ("city_adjust" False/absent) and record 1.0 as the
+            # multiplier actually applied. The band's currency is kept.
             _synth_override = _synth_per_role_salaries.get(title)
             if isinstance(_synth_override, dict) and _synth_override.get("median"):
                 tier, tier_source = _role_tier_cache[title]
+                _applied = multiplier if _synth_override.get("city_adjust") else 1.0
                 per_role_salary[title] = {
-                    "min": round(_synth_override.get("min", 0)),
+                    "min": round(_synth_override.get("min", 0) * _applied),
                     "p25": round(
-                        _synth_override.get("p25", _synth_override.get("min", 0))
+                        _synth_override.get("p25", _synth_override.get("min", 0)) * _applied
                     ),
-                    "median": round(_synth_override.get("median", 0)),
+                    "median": round(_synth_override.get("median", 0) * _applied),
                     "p75": round(
-                        _synth_override.get("p75", _synth_override.get("max", 0))
+                        _synth_override.get("p75", _synth_override.get("max", 0)) * _applied
                     ),
-                    "max": round(_synth_override.get("max", 0)),
-                    "multiplier": round(multiplier, 2),
+                    "max": round(_synth_override.get("max", 0) * _applied),
+                    "multiplier": round(_applied, 2),
                     "source": _synth_override.get("source") or "Industry Benchmark",
                     "confidence": _synth_override.get("confidence") or "estimated",
                     "tier": tier,
                     "tier_source": tier_source,
                 }
+                if "currency" in _synth_override:
+                    per_role_salary[title]["currency"] = _synth_override.get("currency") or ""
                 continue
 
             # PERF: Use cached role-to-range/tier mapping instead of
