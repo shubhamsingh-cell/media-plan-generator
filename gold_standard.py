@@ -61,6 +61,20 @@ def _load_seasonal_patterns_gs() -> dict:
     return _SEASONAL_PATTERNS_GS
 
 
+# S50 fix: _get_industry_key() buckets that don't share a name with their
+# seasonal_hiring_trends.json ``seasonal_patterns`` key. Used ONLY to look
+# up the seasonal-overlay pattern below -- _get_industry_key()'s own return
+# values must NOT be renamed, since they are also the keys into
+# _INDUSTRY_MONTHLY_EVENTS. Buckets not listed here use their _get_industry_key()
+# value unchanged (identity mapping).
+_SEASONAL_PATTERNS_KEY_MAP: dict[str, str] = {
+    "tech": "technology",
+    "trucking": "transportation",
+    "defense": "government",
+    "blue_collar_trades": "manufacturing",
+}
+
+
 # S: Sub-vertical seasonal overrides -- corrects generic industry-level
 # seasonality for narrower sub-verticals whose real demand driver differs
 # from their parent industry (e.g. propane/heating-fuel delivery vs. generic
@@ -4580,8 +4594,9 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
             _seasonal_pats = _load_seasonal_patterns_gs()
             seasonal_mult = 1.0
             seasonal_phase = "normal"
-            if _seasonal_pats and ind_key in _seasonal_pats:
-                _sp = _seasonal_pats[ind_key]
+            _seasonal_pat_key = _SEASONAL_PATTERNS_KEY_MAP.get(ind_key, ind_key)
+            if _seasonal_pats and _seasonal_pat_key in _seasonal_pats:
+                _sp = _seasonal_pats[_seasonal_pat_key]
                 if month_num in (_sp.get("peak_months") or []):
                     seasonal_mult = _sp.get("peak_multiplier", 1.15)
                     seasonal_phase = "peak"

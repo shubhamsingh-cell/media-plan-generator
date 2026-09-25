@@ -359,6 +359,22 @@ _SEASONAL_TRENDS_INDUSTRY_MAP = {
     "government": "government",
     "federal": "government",
     "public sector": "government",
+    "defense": "government",
+    "aerospace": "government",
+    # Blue-collar / skilled trades -- mirrors gold_standard._get_industry_key()'s
+    # "blue_collar_trades" keyword set (S50 fix: that bucket has no matching
+    # seasonal_hiring_trends.json key of its own and translates to
+    # "manufacturing" there; this legacy fallback lookup needs the same
+    # keywords so the 90-Day Forecast and Activation Calendar keep agreeing).
+    "skilled_trade": "manufacturing",
+    "skilled trade": "manufacturing",
+    "blue_collar": "manufacturing",
+    "blue collar": "manufacturing",
+    "plumb": "manufacturing",
+    "electric": "manufacturing",
+    "hvac": "manufacturing",
+    "mechanic": "manufacturing",
+    "weld": "manufacturing",
 }
 
 

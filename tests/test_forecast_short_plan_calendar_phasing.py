@@ -297,7 +297,16 @@ def test_manufacturing_june_5_weeks_july_low_is_not_heaviest():
     timeline = _calendar_for("manufacturing", 6)
     w = {e["month"]: e["budget_weight"] for e in timeline}
     inten = {e["month"]: e["hiring_intensity"] for e in timeline}
-    assert inten[7] == "low" and w[7] < w[6], (w[6], w[7])  # repro is real
+    # S50 fix (seasonal key-mismatch): "manufacturing" now correctly matches
+    # its own seasonal_hiring_trends.json pattern (previously it resolved to
+    # _get_industry_key() bucket "blue_collar_trades", which never matched
+    # any JSON key, so July's word came only from the generic
+    # _HIRING_EVENTS_CALENDAR and happened to read "low"). July isn't a
+    # peak/low month in the JSON manufacturing pattern, so its budget_weight
+    # is now blended toward the neutral 1.0 seasonal multiplier and the word
+    # is "moderate" -- the repro's actual invariant (July must stay lighter
+    # than June, never the heaviest month) still holds on the weights.
+    assert inten[7] == "moderate" and w[7] < w[6], (w[6], w[7])  # repro is real
 
     p = _parse(_render("manufacturing", 6, 5, timeline))
     assert [c.split()[0] for c in p["cols"]] == ["June", "July"], p["cols"]
@@ -307,7 +316,10 @@ def test_manufacturing_june_5_weeks_july_low_is_not_heaviest():
     assert p["shares"][0] > p["shares"][1]
     note = p["note"]
     assert "heaviest planned spend" not in note, note
-    assert re.search(r"July \d{4} \(5 campaign days; 0\.7x, lighter daily pacing\)", note), note
+    # 0.7x -> 0.8x: July's budget_weight is now 0.85 (was a generic 0.7 pre-
+    # fix), since it's blended against the real manufacturing seasonal
+    # pattern's neutral 1.0x instead of never being blended at all.
+    assert re.search(r"July \d{4} \(5 campaign days; 0\.8x, lighter daily pacing\)", note), note
     assert re.search(r"June \d{4} \(30 campaign days; 1\.0x, heavier daily pacing\)", note), note
     assert "matching this plan's Activation Event Calendar" in note
     assert _violations(p, timeline) == []
@@ -536,7 +548,15 @@ def test_hershey_90_day_repro_still_ranks_october_over_december():
     p = _parse(wb["90-Day Forecast"])
     assert [c.split()[0] for c in p["cols"]] == ["October", "November", "December"]
     assert p["shares"][0] > p["shares"][1] > p["shares"][2], p["shares"]
-    assert "25% Month 3 (lightest planned spend)" in p["note"], p["note"]
+    # S50 fix (seasonal key-mismatch): industry "manufacturing" now correctly
+    # matches its own seasonal_hiring_trends.json pattern (low_months
+    # include November AND December, not just December), instead of never
+    # matching at all (it used to resolve to _get_industry_key() bucket
+    # "blue_collar_trades", which has no JSON key of its own). December's
+    # share moves from 25% to 28% under the real low_multiplier blend, but
+    # the invariant this test is named for -- October ranked heaviest,
+    # December lightest -- still holds.
+    assert "28% Month 3 (lightest planned spend)" in p["note"], p["note"]
     assert "matching this plan's Activation Event Calendar" in p["note"]
     assert _violations(p, data["_gold_standard"]["activation_calendar"]["timeline"]) == []
 

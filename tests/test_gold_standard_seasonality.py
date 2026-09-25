@@ -309,3 +309,69 @@ def test_collapse_fallback_market_rows_does_not_erase_named_pa_towns():
 
     assert len(display_rows) == 10
     assert not any(is_collapsed for _, _, is_collapsed in display_rows)
+
+
+# ---------------------------------------------------------------------------
+# 4. S50 seasonal_patterns key-mismatch -- _get_industry_key() buckets
+#    (tech/trucking/defense/blue_collar_trades) never match
+#    seasonal_hiring_trends.json's keys (technology/transportation/
+#    government/manufacturing), so the peak/low overlay silently never
+#    applies for these four industries (e.g. The Hershey Company, a food
+#    manufacturer, resolves to blue_collar_trades).
+# ---------------------------------------------------------------------------
+
+
+def _calendar_weight_for_month(industry: str, target_month: int) -> dict:
+    """Build a 12-month activation calendar starting this month and return
+    the timeline entry for ``target_month`` (1-12)."""
+    cal = gs.build_activation_calendar(
+        {
+            "industry": industry,
+            "campaign_start_month": target_month,
+            "roles": ["Associate"],
+        }
+    )
+    by_month = {m["month"]: m for m in cal["timeline"]}
+    return by_month[target_month]
+
+
+def test_tech_industry_gets_seasonal_overlay_on_json_peak_month():
+    """Industry 'Technology' resolves to _get_industry_key() == 'tech', but
+    seasonal_hiring_trends.json's key is 'technology' (peak_months include
+    January, peak_multiplier 1.15). Before the fix, 'tech' never matched
+    'technology' so seasonal_phase stayed 'normal' and budget_weight was
+    never blended with the JSON multiplier."""
+    assert gs._get_industry_key("technology") == "tech"
+    entry = _calendar_weight_for_month("technology", 1)  # January = JSON peak
+    assert entry["seasonal_phase"] == "peak"
+    assert entry["seasonal_multiplier"] == 1.15
+
+
+def test_trucking_industry_gets_seasonal_overlay_on_json_peak_month():
+    """Industry 'Trucking' resolves to _get_industry_key() == 'trucking',
+    but the JSON key is 'transportation' (peak_months include March,
+    peak_multiplier 1.25)."""
+    assert gs._get_industry_key("trucking") == "trucking"
+    entry = _calendar_weight_for_month("trucking", 3)  # March = JSON peak
+    assert entry["seasonal_phase"] == "peak"
+    assert entry["seasonal_multiplier"] == 1.25
+
+
+def test_defense_industry_gets_seasonal_overlay_on_json_peak_month():
+    """Industry 'Defense' resolves to _get_industry_key() == 'defense', but
+    the JSON key is 'government' (peak_months include July,
+    peak_multiplier 1.15)."""
+    assert gs._get_industry_key("defense") == "defense"
+    entry = _calendar_weight_for_month("defense", 7)  # July = JSON peak
+    assert entry["seasonal_phase"] == "peak"
+    assert entry["seasonal_multiplier"] == 1.15
+
+
+def test_food_beverage_manufacturing_gets_seasonal_overlay_on_json_peak_month():
+    """The Hershey Company case: 'Food & Beverage Manufacturing' resolves to
+    _get_industry_key() == 'blue_collar_trades', but the JSON key is
+    'manufacturing' (peak_months include January, peak_multiplier 1.2)."""
+    assert gs._get_industry_key("Food & Beverage Manufacturing") == "blue_collar_trades"
+    entry = _calendar_weight_for_month("Food & Beverage Manufacturing", 1)
+    assert entry["seasonal_phase"] == "peak"
+    assert entry["seasonal_multiplier"] == 1.2
