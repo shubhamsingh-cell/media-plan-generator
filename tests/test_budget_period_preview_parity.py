@@ -151,6 +151,24 @@ def test_server_duration_map_matches_preview_map():
     assert {k: float(v) for k, v in app.BUDGET_DURATION_MONTHS.items()} == js_pairs
 
 
+def test_only_6_12_months_reads_first_number_6():
+    # Prod log for all 4 reported runs: "monthly $10,000 x 6.0 = $60,000".
+    # The only wizard option whose first integer is 6 is "6-12 months".
+    sixes = [d for d in _wizard_duration_options() if re.match(r"\s*6\D", d)]
+    assert sixes == ["6-12 months"]
+
+
+@needs_node
+def test_hershey_prod_case_monthly_10k_over_6_12_months_is_90k():
+    # Exact prod inputs (Render log): Per month, $10,000, "6-12 months".
+    preview = _preview_campaign_total(10000.0, "monthly", "6-12 months")
+    server = _server_campaign_budget("10,000", "monthly", "6-12 months")
+    assert preview == 90000.0
+    assert server == 90000.0, (
+        f"preview showed ${preview:,.0f} but /api/generate used ${server:,.0f}"
+    )
+
+
 def test_free_text_weeks_are_not_read_as_months():
     # API callers: "16 weeks" used to become a 16-MONTH multiplier.
     assert _server_campaign_budget("$10,000", "monthly", "16 weeks") < 40000
