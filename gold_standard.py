@@ -74,6 +74,7 @@ _SEASONAL_PATTERNS_KEY_MAP: dict[str, str] = {
     "trucking": "transportation",
     "defense": "government",
     "blue_collar_trades": "manufacturing",
+    "food_manufacturing": "manufacturing",
 }
 
 
@@ -4386,6 +4387,62 @@ _INDUSTRY_MONTHLY_EVENTS: dict[str, dict[int, list[str]]] = {
         11: ["Spring semester planning", "Adjunct recruitment cycle"],
         12: ["Winter break prep", "Spring hiring pipeline building"],
     },
+    # Manufacturing buckets (Hershey plan, 2026-09-24): a food & beverage
+    # manufacturer used to get the generic/tech calendar (Grace Hopper,
+    # SXSW, Dreamforce) and general manufacturers the construction-flavoured
+    # blue_collar_trades list. Named events are verified real recurring
+    # events (checked 2026-09-25): MFG Day = first Friday of October
+    # (mfgday.com); PACK EXPO International = Chicago, Oct 18-21 2026, even
+    # years (packexpointernational.com); IFT FIRST = Chicago, July
+    # (ift.org/first); IPPE = Atlanta, late January (ippexpo.org); Sweets &
+    # Snacks Expo = NCA, May (sweetsandsnacks.com). Everything else is a
+    # descriptive label, not an invented event name.
+    "manufacturing": {
+        1: ["Post-holiday production ramp-up", "New-year plant staffing plans"],
+        2: ["Q1 production ramp continues", "Technical-college recruiting season"],
+        3: ["Spring technical-college career fairs", "Q1 production peak"],
+        4: ["Q2 production planning", "Skilled-trades graduate pipeline"],
+        5: ["Technical-school graduations", "Summer shift and seasonal-hire planning"],
+        6: ["Summer seasonal production hiring", "Pre-shutdown maintenance staffing"],
+        7: [
+            "Summer plant shutdown / maintenance week (often around July 4)",
+            "Maintenance and changeover crew demand",
+        ],
+        8: ["Post-shutdown restart staffing", "Fall production ramp planning"],
+        9: ["Fall production ramp", "Manufacturing Day open-house planning"],
+        10: ["Manufacturing Day (first Friday of October)", "Q4 production ramp"],
+        11: ["Year-end production push", "Holiday plant shutdown planning"],
+        12: [
+            "Holiday plant shutdown / maintenance window",
+            "Next-year plant staffing plans",
+        ],
+    },
+    "food_manufacturing": {
+        1: ["IPPE (Atlanta, late January)", "Post-holiday production ramp-up"],
+        2: ["Spring seasonal-product production runs", "Q1 plant staffing plans"],
+        3: ["Spring technical-college career fairs", "Spring seasonal-product production"],
+        4: ["Summer seasonal-hire planning", "Technical-school graduate pipeline"],
+        5: ["Sweets & Snacks Expo (NCA, May)", "Technical-school graduations"],
+        6: ["Summer seasonal production hiring", "Pre-shutdown maintenance staffing"],
+        7: [
+            "IFT FIRST (Chicago, July)",
+            "Summer plant shutdown / sanitation and maintenance week",
+        ],
+        8: [
+            "Fall and holiday seasonal-product production ramp",
+            "Seasonal line and packaging hiring",
+        ],
+        9: ["Holiday seasonal production peak", "Seasonal line and packaging hiring"],
+        10: [
+            "Manufacturing Day (first Friday of October)",
+            "PACK EXPO International (Chicago, even years)",
+        ],
+        11: ["Holiday production peak", "Holiday plant shutdown planning"],
+        12: [
+            "Holiday plant shutdown / sanitation and maintenance window",
+            "Next-year plant staffing plans",
+        ],
+    },
     "construction": {
         1: ["New Year project planning", "Permit cycle begins"],
         2: ["Pre-spring hiring ramp", "Apprenticeship program starts"],
@@ -4474,6 +4531,24 @@ def _get_industry_key(industry: str) -> str:
         )
     ):
         return "education"
+    # Food & beverage MANUFACTURING (the wizard's "food_beverage" key is
+    # NAICS 31 manufacturing, not food service -- restaurants and food
+    # service already matched hospitality above). Checked before the
+    # generic manufacturing bucket so food plants get food-industry shows.
+    if any(
+        kw in industry
+        for kw in (
+            "food_beverage",
+            "food & beverage",
+            "food and beverage",
+            "food_manufactur",
+            "food manufactur",
+            "food_processing",
+            "food processing",
+            "confection",
+        )
+    ):
+        return "food_manufacturing"
     # Construction (separate from general blue-collar)
     if any(
         kw in industry
@@ -4485,11 +4560,14 @@ def _get_industry_key(industry: str) -> str:
         )
     ):
         return "construction"
-    # Blue-collar / skilled trades / manufacturing
+    # Manufacturing gets its own plant calendar (MFG Day, shutdown weeks),
+    # not the construction-flavoured blue_collar_trades list.
+    if "manufactur" in industry:
+        return "manufacturing"
+    # Blue-collar / skilled trades
     if any(
         kw in industry
         for kw in (
-            "manufactur",
             "skilled_trade",
             "blue_collar",
             "trade",
@@ -4685,6 +4763,20 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
             "Peak construction season (Apr-Sep)",
             "Apprenticeship program starts (Feb)",
             "Pre-winter project rush (Sep-Oct)",
+        ],
+        "manufacturing": [
+            "Manufacturing Day (first Friday of Oct)",
+            "Technical-school graduations (May)",
+            "Summer plant shutdown (Jul)",
+            "Holiday plant shutdown (Dec)",
+        ],
+        "food_manufacturing": [
+            "IPPE (Jan)",
+            "Sweets & Snacks Expo (May)",
+            "IFT FIRST (Jul)",
+            "Manufacturing Day (first Friday of Oct)",
+            "PACK EXPO International (Oct, even years)",
+            "Holiday production peak and plant shutdown (Nov-Dec)",
         ],
         "blue_collar_trades": [
             "Skilled trades job fairs (May)",

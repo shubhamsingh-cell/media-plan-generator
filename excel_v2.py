@@ -344,6 +344,14 @@ _SEASONAL_TRENDS_INDUSTRY_MAP = {
     "financial": "finance",
     "manufactur": "manufacturing",
     "industrial": "manufacturing",
+    # Mirrors gold_standard._get_industry_key()'s "food_manufacturing"
+    # bucket (translated to "manufacturing" there) so the 90-Day Forecast
+    # and Activation Calendar agree for the wizard's food_beverage key.
+    "food_beverage": "manufacturing",
+    "food & beverage": "manufacturing",
+    "food and beverage": "manufacturing",
+    "food processing": "manufacturing",
+    "confection": "manufacturing",
     "logistics": "logistics",
     "warehouse": "logistics",
     "supply chain": "logistics",

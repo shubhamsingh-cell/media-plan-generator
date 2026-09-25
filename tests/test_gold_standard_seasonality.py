@@ -369,9 +369,9 @@ def test_defense_industry_gets_seasonal_overlay_on_json_peak_month():
 
 def test_food_beverage_manufacturing_gets_seasonal_overlay_on_json_peak_month():
     """The Hershey Company case: 'Food & Beverage Manufacturing' resolves to
-    _get_industry_key() == 'blue_collar_trades', but the JSON key is
+    _get_industry_key() == 'food_manufacturing', but the JSON key is
     'manufacturing' (peak_months include January, peak_multiplier 1.2)."""
-    assert gs._get_industry_key("Food & Beverage Manufacturing") == "blue_collar_trades"
+    assert gs._get_industry_key("Food & Beverage Manufacturing") == "food_manufacturing"
     entry = _calendar_weight_for_month("Food & Beverage Manufacturing", 1)
     assert entry["seasonal_phase"] == "peak"
     assert entry["seasonal_multiplier"] == 1.2
