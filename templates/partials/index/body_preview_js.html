@@ -37,10 +37,18 @@
       "$1,000,000 - $3,000,000": 2000000,
       "$3,000,000+": 4000000,
     };
+    // Campaign months per #campaignDuration option, used to scale a
+    // per-month/quarter/year budget to the campaign total. MUST stay
+    // identical to app.BUDGET_DURATION_MONTHS (the server applies the same
+    // map to the same inputs) -- tests/test_budget_period_preview_parity.py
+    // enforces it. A mismatch here is what made a plan preview $90K and
+    // generate $60K (client report 2026-09-24).
     var DURATION_MONTHS = {
+      "2 weeks": 0.5, "1 month": 1, "2 months": 2, "3 months": 3,
       "1-3 months": 2, "3-6 months": 4.5, "6-12 months": 9,
       "1-2 years": 18, "2-5 years (Long-term)": 42, "Ongoing": 12,
     };
+    var PERIOD_MONTHS = { monthly: 1, quarterly: 3, annual: 12 };
 
     // ── Small helpers ─────────────────────────────────────────────────
     function $(id) { return document.getElementById(id); }
@@ -153,10 +161,12 @@
 
       var months = DURATION_MONTHS[val("campaignDuration")] || 6;
       var period = val("budgetPeriod") || "campaign";
+      // Same rule as app._budget_period_multiplier: periods covered by the
+      // campaign, never below 1 (a per-period amount is not shrunk).
       var total = base;
-      if (period === "monthly") total = base * months;
-      else if (period === "quarterly") total = base * (months / 3);
-      else if (period === "annual") total = base * (months / 12);
+      if (PERIOD_MONTHS[period]) {
+        total = base * Math.max(months / PERIOD_MONTHS[period], 1);
+      }
 
       // channels — show Nova's recommended mix until the user engages
       // the channel toggles (the markup pre-checks only Social by default).
@@ -226,7 +236,7 @@
       if (!role) role = val("naicsSearch");
 
       return {
-        total: total, rows: rows, usingStarter: usingStarter,
+        total: total, base: base, rows: rows, usingStarter: usingStarter,
         client: client, role: role, locs: locs, period: period, months: months,
         roleClass: roleClass, targetHires: targetHires, startMonth: startMonth,
         metro: metroMult > 1, channelsTouched: channelsTouched,
@@ -490,7 +500,7 @@
       var foot = $("npBudgetFoot");
       if (hasBudget) {
         var periodWord = m.period === "campaign" ? "total campaign" :
-          m.period === "monthly" ? ("over ~" + trim(m.months, 0) + " mo (" + hero(m.total / m.months) + "/mo)") :
+          m.period === "monthly" ? ("over ~" + trim(m.months, 0) + " mo (" + hero(m.base) + "/mo)") :
           m.period === "quarterly" ? "across the campaign" : "annualized";
         foot.innerHTML = "<b>" + (m.usingStarter ? "Recommended" : m.rows.length + "-channel") + "</b> mix · " + periodWord;
       } else {

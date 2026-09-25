@@ -4147,6 +4147,65 @@ def _normalize_dict_roles(data: dict) -> None:
             data[_rkey] = [(r.get("title") or r.get("role") or str(r)) for r in _rlist]
 
 
+# Campaign months per wizard #campaignDuration option, used ONLY to scale a
+# per-month/quarter/year budget to the campaign total. MUST stay identical to
+# DURATION_MONTHS in templates/partials/index/body_preview_js.html: the live
+# preview shows the user this exact product, so any divergence makes the plan
+# generate a different budget than the one the user just saw (client report
+# 2026-09-24: preview $90K, plan $60K -- the handler used the FIRST number of
+# "3-6 months" = 3 while the preview used 4.5). Enforced by
+# tests/test_budget_period_preview_parity.py.
+BUDGET_DURATION_MONTHS: dict = {
+    "2 weeks": 0.5,
+    "1 month": 1,
+    "2 months": 2,
+    "3 months": 3,
+    "1-3 months": 2,
+    "3-6 months": 4.5,
+    "6-12 months": 9,
+    "1-2 years": 18,
+    "2-5 years (Long-term)": 42,
+    "Ongoing": 12,
+}
+_BUDGET_PERIOD_MONTHS: dict = {"monthly": 1, "quarterly": 3, "annual": 12}
+
+
+def _budget_duration_months(campaign_duration: Any) -> float:
+    """Months a campaign runs, for budget-period scaling only.
+
+    Wizard dropdown values resolve through :data:`BUDGET_DURATION_MONTHS`
+    (the preview's map). Free-text durations from API callers ("16 weeks",
+    "18 months") go through the shared week parser -- never a bare
+    first-integer read, which treated "16 weeks" as 16 months. Empty or
+    unparseable input falls back to 6 months, the preview's own default.
+    """
+    dur = str(campaign_duration or "").strip()
+    if not dur:
+        return 6.0
+    for option, months in BUDGET_DURATION_MONTHS.items():
+        if dur.lower() == option.lower():
+            return float(months)
+    if display_format is not None and re.search(r"\d", dur):
+        weeks = display_format.resolve_campaign_weeks(dur)
+        if weeks > 0:
+            return weeks * 12 / 52
+    return 6.0
+
+
+def _budget_period_multiplier(budget_period: Any, campaign_duration: Any) -> float:
+    """How many budget periods the campaign covers (>= 1; 1 for "campaign").
+
+    Single source of truth for turning a per-period amount into the campaign
+    total; the wizard preview applies the identical rule in gather().
+    The floor of 1 keeps a per-period amount from ever being shrunk below
+    what the user typed.
+    """
+    period_months = _BUDGET_PERIOD_MONTHS.get(str(budget_period or "").strip().lower())
+    if not period_months:
+        return 1.0
+    return max(_budget_duration_months(campaign_duration) / period_months, 1.0)
+
+
 def _resolve_campaign_weeks(data: dict) -> int:
     """Derive ``data["campaign_weeks"]`` from ``data["campaign_duration"]``
     (or ``data["timeline"]``) via the single shared parser
@@ -16812,23 +16871,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 str(data.get("budget_period") or "campaign").strip().lower()
             )
             if _budget_period in ("monthly", "quarterly", "annual"):
-                _dur_str = str(data.get("campaign_duration") or "").lower()
-                # Extract campaign duration in months from strings like "3 months", "6 months", "1 year"
-                _dur_months = 1
-                _dur_match = re.search(r"(\d+)", _dur_str)
-                if _dur_match:
-                    _dur_num = int(_dur_match.group(1))
-                    if "year" in _dur_str:
-                        _dur_months = _dur_num * 12
-                    elif "quarter" in _dur_str:
-                        _dur_months = _dur_num * 3
-                    else:
-                        _dur_months = max(_dur_num, 1)
-                # Compute multiplier: how many periods fit in the campaign duration
-                _period_months = {"monthly": 1, "quarterly": 3, "annual": 12}[
-                    _budget_period
-                ]
-                _multiplier = max(_dur_months / _period_months, 1.0)
+                # Same rule the wizard's live preview applies (shared map) so
+                # the plan is generated for the total the user was shown.
+                _multiplier = _budget_period_multiplier(
+                    _budget_period, data.get("campaign_duration")
+                )
                 # Scale the parsed budget value to campaign total
                 _budget_raw_for_period = _safe_str(
                     data.get("budget") or data.get("budget_range") or ""
