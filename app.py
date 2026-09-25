@@ -551,6 +551,48 @@ from concurrent.futures import (
     as_completed,
 )
 
+
+def _run_pool_submit_with_timeout(
+    fn: "callable",
+    timeout: float,
+    *,
+    shutdown_cancel_futures: bool = True,
+) -> "tuple[Any, bool]":
+    """Submit a zero-arg callable to a fresh single-worker pool with a timeout.
+
+    Shared primitive behind several `_handle_POST` pipeline steps (KB
+    synthesis, Gold Standard quality gates, plan-data verification, Excel
+    and PPT generation) that each used to build their own
+    ``ThreadPoolExecutor`` + ``future.result(timeout=...)`` around a
+    single call. Centralising it here means the
+    ``concurrent.futures.TimeoutError`` vs builtin ``TimeoutError`` class
+    split (unified only on Python 3.11+; this repo's dev/CI interpreter is
+    3.9.x) only has to be handled correctly once.
+
+    Returns ``(result, timed_out)``. On a genuine timeout, the future is
+    cancelled (best-effort -- it may already be running) and
+    ``(None, True)`` is returned instead of raising, so each call site can
+    keep applying its own existing fallback value / log message. Any
+    *other* exception raised by ``fn`` propagates unchanged so each call
+    site's existing ``except`` clauses keep working exactly as before.
+    The pool is always shut down without waiting for a straggler thread,
+    matching what every original call site already did.
+    """
+    pool = ThreadPoolExecutor(max_workers=1)
+    try:
+        future = pool.submit(fn)
+        try:
+            return future.result(timeout=timeout), False
+        except _FutureTimeoutError:
+            future.cancel()
+            return None, True
+    finally:
+        try:
+            pool.shutdown(wait=False, cancel_futures=shutdown_cancel_futures)
+        except TypeError:
+            pool.shutdown(wait=False)
+
+
 _insights_cache: dict[str, tuple[str, float]] = {}
 _insights_cache_lock = threading.Lock()
 _INSIGHTS_CACHE_TTL = 3600.0  # 1 hour
@@ -1991,7 +2033,7 @@ def _generate_product_insights(
                         ]:
                             del _insights_cache[k]
         return text
-    except TimeoutError:
+    except _FutureTimeoutError:
         logger.warning(
             f"LLM insights timed out for {product_name} (>{_INSIGHTS_LLM_TIMEOUT}s)"
         )
@@ -3338,10 +3380,16 @@ def _closed_product_grammar(product_words: str, nouns: str) -> "re.Pattern[str]"
     # production noun: "chocolate manufacturing and packaging" matches,
     # "food and packaging" / "food, distribution" do not.
     return re.compile(
-        r"^(?:" + _PRODUCT_ADJECTIVES + r"\s+){0,2}"
+        r"^(?:"
+        + _PRODUCT_ADJECTIVES
+        + r"\s+){0,2}"
         + product_list
-        + r"(?:(?:\s+" + nouns + r"){1,2}"
-        + r"(?:(?:\s*[,&]\s*|\s+and\s+)" + _TRAILING_NOUNS + r")?)?$"
+        + r"(?:(?:\s+"
+        + nouns
+        + r"){1,2}"
+        + r"(?:(?:\s*[,&]\s*|\s+and\s+)"
+        + _TRAILING_NOUNS
+        + r")?)?$"
     )
 
 
@@ -3415,7 +3463,9 @@ _PHARMA_COMPANY_GRAMMAR = re.compile(
 
 def _industry_text_names_pharma_company(raw_lower: str) -> bool:
     """Tie-break test: the whole text is a pharma/biotech company label."""
-    return bool(_PHARMA_COMPANY_GRAMMAR.match(_normalize_industry_text(raw_lower or "")))
+    return bool(
+        _PHARMA_COMPANY_GRAMMAR.match(_normalize_industry_text(raw_lower or ""))
+    )
 
 
 def _product_sector_from_industry_text(raw_lower: str) -> Optional[dict]:
@@ -3428,6 +3478,7 @@ def _product_sector_from_industry_text(raw_lower: str) -> Optional[dict]:
     newly detect a case where the grammar itself is wrong. The grammar is
     what prevents misroutes."""
     return _clean_product_sector(raw_lower)
+
 
 # Role-title -> NAICS map key, used by classify_industry's Steps 3/6 (role-
 # based industry inference) AND by _infer_industry_from_signals (the
@@ -7354,6 +7405,99 @@ def _run_with_timeout(
     return default
 
 
+def _try_import_module(name: str) -> bool:
+    """Attempt to import a module by name, returning success/failure."""
+    try:
+        __import__(name)
+        return True
+    except Exception:
+        return False
+
+
+def _health_self_heal_imports(
+    missing: "list[str]", timeout: float = 3.0
+) -> "dict[str, bool]":
+    """Attempt to import each of `missing` concurrently, self-healing
+    /api/health's optional-module status.
+
+    Each import is bounded by `timeout` seconds; a module whose import
+    doesn't finish in time is reported as failed (down) rather than
+    blocking the health check.
+
+    Returns {module_name: success}.
+    """
+    results: "dict[str, bool]" = {}
+    if not missing:
+        return results
+    _hp = ThreadPoolExecutor(max_workers=len(missing))
+    try:
+        _futs = {_hp.submit(_try_import_module, m): m for m in missing}
+        for _fut in _futs:
+            _name = _futs[_fut]
+            try:
+                _ok = _fut.result(timeout=timeout)
+                results[_name] = _ok
+                if _ok:
+                    logger.info(
+                        f"Self-healed module '{_name}' -- imported on health check"
+                    )
+            except _FutureTimeoutError:
+                results[_name] = False
+    finally:
+        try:
+            _hp.shutdown(wait=False, cancel_futures=True)
+        except TypeError:
+            _hp.shutdown(wait=False)
+    return results
+
+
+def _run_status_checks(
+    status_checks: "dict[str, tuple]",
+    overall_timeout: float = 3.5,
+    per_result_timeout: float = 0.1,
+) -> dict:
+    """Run each ``{name: (fn, default)}`` check concurrently and collect results.
+
+    Bounded by `overall_timeout` for the whole batch (via `as_completed`)
+    and `per_result_timeout` for reading each individually-completed
+    future's result. Any check that doesn't finish in time reports its
+    `default` instead of blocking /api/health.
+    """
+    result: dict = {}
+    if not status_checks:
+        return result
+    _sp = ThreadPoolExecutor(max_workers=len(status_checks))
+    try:
+        _sfuts = {
+            _sp.submit(fn): (name, default)
+            for name, (fn, default) in status_checks.items()
+        }
+        try:
+            for _sfut in as_completed(_sfuts, timeout=overall_timeout):
+                _sname, _sdefault = _sfuts[_sfut]
+                try:
+                    result[_sname] = _sfut.result(timeout=per_result_timeout)
+                except _FutureTimeoutError:
+                    result[_sname] = _sdefault
+                except Exception as _status_err:
+                    logger.warning(
+                        f"Health status check '{_sname}' failed: {_status_err}"
+                    )
+                    result[_sname] = _sdefault
+        except _FutureTimeoutError:
+            # as_completed itself timed out -- mark remaining checks as
+            # default and move on.
+            for _fut2, (_sname2, _sdefault2) in _sfuts.items():
+                if _sname2 not in result:
+                    result[_sname2] = _sdefault2
+    finally:
+        try:
+            _sp.shutdown(wait=False, cancel_futures=True)
+        except TypeError:
+            _sp.shutdown(wait=False)
+    return result
+
+
 def _build_health_response() -> dict:
     """Build the detailed health check response with subsystem status.
 
@@ -7510,39 +7654,14 @@ def _build_health_response() -> dict:
     _modules.update(_mod_already)
 
     if _mod_missing:
-        from concurrent.futures import ThreadPoolExecutor as _HealthPool
-
-        def _try_import(name: str) -> tuple[str, bool]:
-            """Attempt to import a module, returning (name, success)."""
-            try:
-                __import__(name)
-                return (name, True)
-            except Exception:
-                return (name, False)
-
-        # S61 FIX: do NOT use `with _HealthPool(...) as _hp:`.  The
-        # context-manager __exit__ blocks on shutdown(wait=True), so a
-        # single slow import locks the health check (stress test measured
-        # /api/health at 8.5s, burning 17% of each worker's capacity).
-        # Use finally + shutdown(wait=False, cancel_futures=True).
-        _hp = _HealthPool(max_workers=len(_mod_missing))
-        try:
-            _futs = {_hp.submit(_try_import, m): m for m in _mod_missing}
-            for _fut in _futs:
-                try:
-                    _name, _ok = _fut.result(timeout=3.0)
-                    _modules[_name] = "ok" if _ok else "down"
-                    if _ok:
-                        logger.info(
-                            f"Self-healed module '{_name}' -- imported on health check"
-                        )
-                except TimeoutError:
-                    _modules[_futs[_fut]] = "down"
-        finally:
-            try:
-                _hp.shutdown(wait=False, cancel_futures=True)
-            except TypeError:
-                _hp.shutdown(wait=False)
+        # S61 FIX: the self-heal pool must never be waited on with
+        # shutdown(wait=True) -- a single slow import would lock the
+        # health check (stress test measured /api/health at 8.5s, burning
+        # 17% of each worker's capacity). _health_self_heal_imports uses
+        # shutdown(wait=False, cancel_futures=True) internally.
+        _heal_results = _health_self_heal_imports(_mod_missing, timeout=3.0)
+        for _name, _ok in _heal_results.items():
+            _modules[_name] = "ok" if _ok else "down"
 
     # ---- LLM provider info for dashboard ----
     _llm_info: dict = {}
@@ -7641,42 +7760,15 @@ def _build_health_response() -> dict:
         result["chroma_rag"] = {"status": "not_available"}
 
     if _status_checks:
-        from concurrent.futures import (
-            ThreadPoolExecutor as _StatusPool,
-            as_completed as _as_done,
-        )
-
         # S61 FIX: same pattern -- context manager's shutdown(wait=True)
         # was making /api/health wait for all status checks even when the
-        # 3.5s deadline elapsed.
-        _sp = _StatusPool(max_workers=len(_status_checks))
-        try:
-            _sfuts = {
-                _sp.submit(fn): (name, default)
-                for name, (fn, default) in _status_checks.items()
-            }
-            try:
-                for _sfut in _as_done(_sfuts, timeout=3.5):
-                    _sname, _sdefault = _sfuts[_sfut]
-                    try:
-                        result[_sname] = _sfut.result(timeout=0.1)
-                    except TimeoutError:
-                        result[_sname] = _sdefault
-                    except Exception as _status_err:
-                        logger.warning(
-                            f"Health status check '{_sname}' failed: {_status_err}"
-                        )
-                        result[_sname] = _sdefault
-            except TimeoutError:
-                # _as_done timed out -- mark remaining checks as default and move on
-                for _fut2, (_sname2, _sdefault2) in _sfuts.items():
-                    if _sname2 not in result:
-                        result[_sname2] = _sdefault2
-        finally:
-            try:
-                _sp.shutdown(wait=False, cancel_futures=True)
-            except TypeError:
-                _sp.shutdown(wait=False)
+        # 3.5s deadline elapsed. _run_status_checks uses
+        # shutdown(wait=False, cancel_futures=True) internally.
+        result.update(
+            _run_status_checks(
+                _status_checks, overall_timeout=3.5, per_result_timeout=0.1
+            )
+        )
 
     if _health_expired():
         result["warning"] = (
@@ -9128,6 +9220,7 @@ def _parse_file_attachment(file_attachment: dict) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 # SHARED CHAT CONTEXT ENRICHMENT (C-03 dedup + C-02 parallel)
 # ═══════════════════════════════════════════════════════════════════════════════
+_CHAT_ENRICHMENT_TASK_TIMEOUT = 8  # seconds -- per-task budget, see docstring below
 
 
 def _enrich_chat_context(data: dict, message: str) -> dict:
@@ -9345,9 +9438,12 @@ def _enrich_chat_context(data: dict, message: str) -> dict:
         futures = [pool.submit(fn) for fn in enrichment_fns]
         for fut in futures:
             try:
-                fut.result(timeout=8)
-            except TimeoutError:
-                logger.warning("Chat enrichment task timed out (8s)")
+                fut.result(timeout=_CHAT_ENRICHMENT_TASK_TIMEOUT)
+            except _FutureTimeoutError:
+                logger.warning(
+                    "Chat enrichment task timed out (%ds)",
+                    _CHAT_ENRICHMENT_TASK_TIMEOUT,
+                )
             except Exception as exc:
                 logger.error("Chat enrichment task error: %s", exc, exc_info=True)
     except Exception as exc:
@@ -17262,28 +17358,27 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             return {}
 
                         _t_synth = time.time()
-                        _synth_pool = ThreadPoolExecutor(
-                            max_workers=1, thread_name_prefix="async-synth"
-                        )
                         try:
-                            _synth_future = _synth_pool.submit(_supabase_and_synthesize)
-                            gen_data["_synthesized"] = (
-                                _synth_future.result(timeout=_synth_timeout) or {}
+                            _synth_result, _synth_timed_out = (
+                                _run_pool_submit_with_timeout(
+                                    _supabase_and_synthesize,
+                                    _synth_timeout,
+                                    shutdown_cancel_futures=True,
+                                )
                             )
-                        except TimeoutError:
-                            logger.warning(
-                                "KB synthesis timed out after %ds for job %s -- continuing with empty synthesis",
-                                _synth_timeout,
-                                jid,
-                            )
-                            _synth_future.cancel()
-                            gen_data["_synthesized"] = {}
-                            gen_data["_knowledge_base"] = kb
+                            if _synth_timed_out:
+                                logger.warning(
+                                    "KB synthesis timed out after %ds for job %s -- continuing with empty synthesis",
+                                    _synth_timeout,
+                                    jid,
+                                )
+                                gen_data["_synthesized"] = {}
+                                gen_data["_knowledge_base"] = kb
+                            else:
+                                gen_data["_synthesized"] = _synth_result or {}
                         except Exception:
                             gen_data["_synthesized"] = {}
                             gen_data["_knowledge_base"] = kb
-                        finally:
-                            _synth_pool.shutdown(wait=False, cancel_futures=True)
                         _step_timings["synthesis"] = round(time.time() - _t_synth, 2)
                         logger.info(
                             "PERF: Synthesis took %.2fs", _step_timings["synthesis"]
@@ -17729,23 +17824,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         try:
                             from gold_standard import apply_all_quality_gates
 
-                            _gs_pool = ThreadPoolExecutor(max_workers=1)
-                            _gs_future = _gs_pool.submit(
-                                apply_all_quality_gates, gen_data
+                            _gs_result, _gs_timed_out = _run_pool_submit_with_timeout(
+                                lambda: apply_all_quality_gates(gen_data),
+                                _gs_timeout,
+                                shutdown_cancel_futures=False,
                             )
-                            try:
-                                _gs_future.result(timeout=_gs_timeout)
-                            except TimeoutError:
+                            if _gs_timed_out:
                                 logger.warning(
                                     "Async Gold Standard gates timed out after %ds -- continuing with partial data",
                                     _gs_timeout,
                                 )
-                                _gs_future.cancel()
                                 gen_data["_gold_standard"] = (
                                     gen_data.get("_gold_standard") or {}
                                 )
-                            finally:
-                                _gs_pool.shutdown(wait=False)
                         except ImportError:
                             logger.warning(
                                 "gold_standard module not available -- skipping quality gates"
@@ -17778,25 +17869,23 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             # Also wrapped with 30s timeout to prevent hangs
                             _t_verify = time.time()
                             try:
-                                _vf_pool = ThreadPoolExecutor(max_workers=1)
-                                _vf_future = _vf_pool.submit(
-                                    _verify_plan_data, gen_data
-                                )
-                                try:
-                                    gen_data["_verification"] = _vf_future.result(
-                                        timeout=_verify_timeout
+                                _vf_result, _vf_timed_out = (
+                                    _run_pool_submit_with_timeout(
+                                        lambda: _verify_plan_data(gen_data),
+                                        _verify_timeout,
+                                        shutdown_cancel_futures=False,
                                     )
-                                except TimeoutError:
+                                )
+                                if _vf_timed_out:
                                     logger.warning(
                                         "Plan data verification timed out after 30s -- skipping"
                                     )
-                                    _vf_future.cancel()
                                     gen_data["_verification"] = {
                                         "status": "skipped",
                                         "reason": "verification_timeout",
                                     }
-                                finally:
-                                    _vf_pool.shutdown(wait=False)
+                                else:
+                                    gen_data["_verification"] = _vf_result
                             except Exception:
                                 gen_data["_verification"] = {
                                     "status": "skipped",
@@ -17914,13 +18003,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         # Excel generation -- wrapped in 60s timeout to prevent
                         # indefinite hangs on LLM calls during cold starts
                         _t_excel = time.time()
-                        _excel_pool = ThreadPoolExecutor(
-                            max_workers=1, thread_name_prefix="async-excel"
-                        )
-                        try:
+
+                        def _run_async_excel_gen():
                             if generate_excel_v2 is not None:
-                                _excel_future = _excel_pool.submit(
-                                    generate_excel_v2,
+                                return generate_excel_v2(
                                     gen_data,
                                     research_mod=research,
                                     load_kb_fn=load_knowledge_base,
@@ -17928,28 +18014,27 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     fetch_logo_fn=fetch_client_logo,
                                 )
                             elif generate_excel is not None:
-                                _excel_future = _excel_pool.submit(
-                                    generate_excel, gen_data
-                                )
-                            else:
-                                raise RuntimeError("No Excel generator available")
-                            excel_bytes = _excel_future.result(timeout=_excel_timeout)
-                            logger.info(
-                                "Async Excel generated (%d bytes)",
-                                len(excel_bytes) if excel_bytes else 0,
-                            )
-                        except TimeoutError:
+                                return generate_excel(gen_data)
+                            raise RuntimeError("No Excel generator available")
+
+                        excel_bytes, _excel_timed_out = _run_pool_submit_with_timeout(
+                            _run_async_excel_gen,
+                            _excel_timeout,
+                            shutdown_cancel_futures=True,
+                        )
+                        if _excel_timed_out:
                             logger.error(
                                 "Excel generation timed out after %ds for job %s",
                                 _excel_timeout,
                                 jid,
                             )
-                            _excel_future.cancel()
                             raise TimeoutError(
                                 "Excel generation exceeded 60-second limit"
                             )
-                        finally:
-                            _excel_pool.shutdown(wait=False, cancel_futures=True)
+                        logger.info(
+                            "Async Excel generated (%d bytes)",
+                            len(excel_bytes) if excel_bytes else 0,
+                        )
 
                         _step_timings["excel"] = round(time.time() - _t_excel, 2)
                         logger.info(
@@ -18018,44 +18103,39 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             _mirror_job(jid)
                             # PPT wrapped in adaptive timeout
                             _ppt_timeout = 90  # S29 v2: generous -- quality PPT
-                            _ppt_pool = ThreadPoolExecutor(
-                                max_workers=1, thread_name_prefix="async-ppt"
-                            )
-                            try:
-                                # S48 FIX: Route through DeckGenerator for Joveo template + Google Slides
-                                # Previously called generate_pptx directly, bypassing Tier 1 (Google Slides)
+
+                            # S48 FIX: Route through DeckGenerator for Joveo template + Google Slides
+                            # Previously called generate_pptx directly, bypassing Tier 1 (Google Slides)
+                            def _run_async_ppt_gen():
                                 if _deck_generator is not None:
-
-                                    def _async_deck_gen(d):
-                                        """Wrapper: DeckGenerator returns (bytes, provider); we need just bytes."""
-                                        pptx_b, provider = _deck_generator.generate(d)
-                                        logger.info(
-                                            "Async PPT generated via %s (%d bytes)",
-                                            provider,
-                                            len(pptx_b),
-                                        )
-                                        return pptx_b
-
-                                    _ppt_future = _ppt_pool.submit(
-                                        _async_deck_gen, gen_data
+                                    pptx_b, provider = _deck_generator.generate(
+                                        gen_data
                                     )
-                                else:
-                                    _ppt_future = _ppt_pool.submit(
-                                        generate_pptx, gen_data
+                                    logger.info(
+                                        "Async PPT generated via %s (%d bytes)",
+                                        provider,
+                                        len(pptx_b),
                                     )
-                                pptx_bytes = _ppt_future.result(timeout=_ppt_timeout)
-                            except TimeoutError:
-                                logger.warning(
-                                    "PPT generation timed out after %ds for job %s -- skipping PPT",
-                                    _ppt_timeout,
-                                    jid,
+                                    return pptx_b
+                                return generate_pptx(gen_data)
+
+                            try:
+                                pptx_bytes, _ppt_timed_out = (
+                                    _run_pool_submit_with_timeout(
+                                        _run_async_ppt_gen,
+                                        _ppt_timeout,
+                                        shutdown_cancel_futures=True,
+                                    )
                                 )
-                                _ppt_future.cancel()
-                                pptx_bytes = None
+                                if _ppt_timed_out:
+                                    logger.warning(
+                                        "PPT generation timed out after %ds for job %s -- skipping PPT",
+                                        _ppt_timeout,
+                                        jid,
+                                    )
+                                    pptx_bytes = None
                             except Exception:
                                 pptx_bytes = None
-                            finally:
-                                _ppt_pool.shutdown(wait=False, cancel_futures=True)
                         elif _requested_format == "excel":
                             logger.info("Skipping PPT generation (output_format=excel)")
 
@@ -19879,22 +19959,21 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             try:
                 from gold_standard import apply_all_quality_gates
 
-                _gs_pool = ThreadPoolExecutor(max_workers=1)
-                _gs_future = _gs_pool.submit(apply_all_quality_gates, data)
-                try:
-                    _gs_result = _gs_future.result(timeout=30)
+                _gs_result, _gs_timed_out = _run_pool_submit_with_timeout(
+                    lambda: apply_all_quality_gates(data),
+                    30,
+                    shutdown_cancel_futures=False,
+                )
+                if _gs_timed_out:
+                    logger.warning(
+                        "Gold Standard gates timed out after 30s -- continuing with partial data"
+                    )
+                    data["_gold_standard"] = data.get("_gold_standard") or {}
+                else:
                     logger.info(
                         "Gold Standard gates complete: %d gates produced data",
                         len(_gs_result),
                     )
-                except TimeoutError:
-                    logger.warning(
-                        "Gold Standard gates timed out after 30s -- continuing with partial data"
-                    )
-                    _gs_future.cancel()
-                    data["_gold_standard"] = data.get("_gold_standard") or {}
-                finally:
-                    _gs_pool.shutdown(wait=False)
             except ImportError:
                 logger.warning(
                     "gold_standard module not available -- skipping quality gates"
@@ -19912,21 +19991,21 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # ── Gemini/LLM verification of plan data (same as async path) ──
             # Wrapped in ThreadPoolExecutor with 30s timeout to prevent hangs.
             try:
-                _vf_pool = ThreadPoolExecutor(max_workers=1)
-                _vf_future = _vf_pool.submit(_verify_plan_data, data)
-                try:
-                    data["_verification"] = _vf_future.result(timeout=30)
-                except TimeoutError:
+                _vf_result, _vf_timed_out = _run_pool_submit_with_timeout(
+                    lambda: _verify_plan_data(data),
+                    30,
+                    shutdown_cancel_futures=False,
+                )
+                if _vf_timed_out:
                     logger.warning(
                         "Plan data verification timed out after 30s -- skipping"
                     )
-                    _vf_future.cancel()
                     data["_verification"] = {
                         "status": "skipped",
                         "reason": "verification_timeout",
                     }
-                finally:
-                    _vf_pool.shutdown(wait=False)
+                else:
+                    data["_verification"] = _vf_result
             except Exception:
                 data["_verification"] = {
                     "status": "skipped",
