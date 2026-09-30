@@ -233,6 +233,20 @@ _LIVE_CHANNEL_TO_CATEGORY: Dict[str, str] = {
 }
 
 
+# Categories whose industry-aware trend_engine CPC outranks the flat live
+# benchmark (see compute_channel_dollar_amounts' cascade). Only job_board:
+# for "social" the live tier is LinkedIn's Promoted Jobs band and
+# trend_engine's Meta series is a general-commercial 2025 figure, 3-6x
+# LocaliQ's 2026 Career & Employment Meta CPC (benchmark_registry
+# meta_facebook), so promoting it would move social CPCs further from the
+# verified source, not closer.
+_TREND_BEFORE_LIVE_CATEGORIES = frozenset({"job_board"})
+
+# Categories trend_engine prices off the SAME platform series (Indeed), so an
+# identical CPC across them is expected (see _dedupe_shared_fallback_cpcs).
+_SAME_PLATFORM_CATEGORIES = frozenset({"job_board", "regional"})
+
+
 def _extract_cpc_from_live_benchmarks(category: str) -> Optional[float]:
     """Try to get a CPC for a category from channel_benchmarks_live.json.
 
@@ -1996,6 +2010,16 @@ def _dedupe_shared_fallback_cpcs(
         categories = {allocations[n].get("category") for n in names}
         if len(names) < 2 or len(categories) < 2:
             continue  # same-category sharing a CPC is expected, not a defect
+        if categories <= _SAME_PLATFORM_CATEGORIES and all(
+            str(allocations[n].get("cpc_source") or "").startswith("trend_engine")
+            for n in names
+        ):
+            # job_board and regional both price off trend_engine's Indeed
+            # series by design (it has no separate regional-board series):
+            # a same-platform price, not a shared fallback proxy. Resetting
+            # both to the flat static table would erase the industry
+            # differentiation the job-board ladder change exists for.
+            continue
 
         for ch_name in names:
             ch = allocations[ch_name]
@@ -2995,6 +3019,24 @@ def compute_channel_dollar_amounts(
             cpc = _extract_cpc_from_synthesized(category, synthesized_data)
             cpc_source = "synthesized"
             confidence = "high"
+
+        if cpc is None and category in _TREND_BEFORE_LIVE_CATEGORIES:
+            # 2026-10-01 (audit F §3.7/§4.5): the live tier is ONE flat
+            # Indeed figure for every industry; trend_engine's Indeed series
+            # is industry-, collar- and season-aware (retail well below tech,
+            # the direction the repo KB and the Pin/ThePricer 2026 bands
+            # agree on). Job boards read it first.
+            te_result = _get_trend_engine_cpc(
+                category,
+                industry=industry,
+                collar_type=effective_collar,
+                location=location,
+                month=month,
+            )
+            if te_result is not None:
+                cpc, trend_meta = te_result
+                cpc_source = "trend_engine"
+                confidence = "high"
 
         if cpc is None:
             # v4: Try live channel benchmarks (channel_benchmarks_live.json)

@@ -388,8 +388,15 @@ class TestUsdPlanUnaffected:
         # Social Media (roi_score == 1) and redistributes the freed share to
         # qualifying high-ROI channels including Programmatic DSP.
         # $557.8K -> $582K.
-        slide4_hit = any("Programmatic (DSP) $582K" in t for t in texts)
-        slide5_hit = any("Programmatic DSP ($582K)" in t for t in texts)
+        #
+        # 2026-10-01 DELIBERATE re-baseline (budget_engine.py job-board CPC
+        # ladder, audit F §4.5): Global Job Boards now prices off
+        # trend_engine's industry-aware Indeed CPC instead of the flat live
+        # figure, which moves the efficiency reweight between channels.
+        # Slides 4 and 5 still agree -- the incident this guards is
+        # unchanged. $582K -> $561.7K.
+        slide4_hit = any("Programmatic (DSP) $561.7K" in t for t in texts)
+        slide5_hit = any("Programmatic DSP ($561.7K)" in t for t in texts)
         assert slide4_hit, texts
         assert slide5_hit, texts
 

@@ -361,19 +361,32 @@ _FUNNEL_INVARIANT_FIXTURE_DIR = (
     Path(__file__).resolve().parent / "fixtures" / "funnel_invariant"
 )
 
+#
+# 2026-10-01 DELIBERATE re-baseline (budget_engine.py job-board CPC ladder,
+# audit F §4.5): Global Job Boards now prices off trend_engine's industry-,
+# collar- and season-aware Indeed CPC (Manpower CDL, July: 0.53; Atria
+# healthcare: 1.81) instead of the flat live_benchmark Indeed figure (1.62
+# for every industry), and regional boards -- which already priced off that
+# same Indeed series -- are no longer reset to the static table by the
+# shared-fallback dedup when the two coincide. Clicks/applications/CPA and
+# the per-channel dollar split move (the efficiency reweight sees the new
+# CPCs); hires and cost_per_hire are unchanged (48 / 57; the CPH floor
+# governs both plans).
+#   Manpower: applications 18730 -> 25570, cost_per_application 8.01 -> 5.87
+#   Atria:    applications 17874 -> 17295, cost_per_application 16.78 -> 17.35
 _BEFORE_MANPOWER_TOTAL = {
-    "applications": 18730,
-    "clicks": 229046,
-    "cost_per_application": 8.01,
-    "cost_per_click": 0.65,
+    "applications": 25570,
+    "clicks": 289717,
+    "cost_per_application": 5.87,
+    "cost_per_click": 0.52,
     "cost_per_hire": 3125.0,
     "hires": 48,
 }
 _BEFORE_ATRIA_TOTAL = {
-    "applications": 17874,
-    "clicks": 226844,
-    "cost_per_application": 16.78,
-    "cost_per_click": 1.32,
+    "applications": 17295,
+    "clicks": 222307,
+    "cost_per_application": 17.35,
+    "cost_per_click": 1.35,
     "cost_per_hire": 5263.16,  # 300000 / 57 -- see NOTE above
     "hires": 57,
 }
@@ -384,60 +397,60 @@ _BEFORE_MANPOWER_PER_CHANNEL = {
         "projected_hires": 0,
     },
     "global_boards": {
-        "dollar_amount": 32270.19,
-        "projected_applications": 2230,
-        "projected_hires": 8,
+        "dollar_amount": 41284.71,
+        "projected_applications": 8724,
+        "projected_hires": 20,
     },
     "niche_boards": {
-        "dollar_amount": 30622.95,
-        "projected_applications": 1531,
-        "projected_hires": 6,
+        "dollar_amount": 16308.0,
+        "projected_applications": 815,
+        "projected_hires": 2,
     },
     "programmatic_dsp": {
-        "dollar_amount": 39356.43,
-        "projected_applications": 8527,
-        "projected_hires": 18,
+        "dollar_amount": 42531.64,
+        "projected_applications": 9215,
+        "projected_hires": 14,
     },
     "regional_boards": {
-        "dollar_amount": 36026.43,
-        "projected_applications": 6185,
-        "projected_hires": 16,
+        "dollar_amount": 38211.64,
+        "projected_applications": 6560,
+        "projected_hires": 12,
     },
     "social_media": {
-        "dollar_amount": 4224.0,
-        "projected_applications": 58,
+        "dollar_amount": 4164.0,
+        "projected_applications": 57,
         "projected_hires": 0,
     },
 }
 _BEFORE_ATRIA_PER_CHANNEL = {
     "employer_branding": {
-        "dollar_amount": 23997.6,
+        "dollar_amount": 24000.0,
         "projected_applications": 639,
         "projected_hires": 0,
     },
     "global_boards": {
-        "dollar_amount": 78865.36,
-        "projected_applications": 5452,
-        "projected_hires": 21,
+        "dollar_amount": 76097.8,
+        "projected_applications": 4708,
+        "projected_hires": 19,
     },
     "niche_boards": {
-        "dollar_amount": 39978.5,
-        "projected_applications": 1998,
+        "dollar_amount": 40801.38,
+        "projected_applications": 2040,
         "projected_hires": 10,
     },
     "programmatic_dsp": {
-        "dollar_amount": 85785.49,
-        "projected_applications": 6691,
-        "projected_hires": 17,
+        "dollar_amount": 86808.86,
+        "projected_applications": 6771,
+        "projected_hires": 18,
     },
     "regional_boards": {
-        "dollar_amount": 57828.28,
-        "projected_applications": 2907,
-        "projected_hires": 9,
+        "dollar_amount": 58638.86,
+        "projected_applications": 2948,
+        "projected_hires": 10,
     },
     "social_media": {
-        "dollar_amount": 13544.75,
-        "projected_applications": 187,
+        "dollar_amount": 13653.1,
+        "projected_applications": 189,
         "projected_hires": 0,
     },
 }
