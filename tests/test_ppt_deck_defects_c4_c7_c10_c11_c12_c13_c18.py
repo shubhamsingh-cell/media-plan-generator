@@ -211,11 +211,15 @@ def test_no_phantom_apac_channel_and_consistent_count_across_slides():
 # US$ marker on a non-USD plan, not the plan's local currency symbol.
 # ---------------------------------------------------------------------------
 def _gbp_plan_with_us_sourced_salary() -> Dict[str, Any]:
+    # Audit F 3.4 (2026-10-01): a plan with NO US market no longer prints a
+    # US-sourced salary at all (tests/test_non_us_salary_honesty.py). C7's
+    # rule -- a US figure on a non-USD plan carries "US$" -- still governs a
+    # GBP-budgeted plan that includes a US market, so the fixture has one.
     return {
         "client_name": "Thameside Freight",
         "industry": "blue_collar_trades",
         "industry_label": "Blue Collar / Skilled Trades",
-        "locations": ["London, United Kingdom"],
+        "locations": ["Chicago, IL", "London, United Kingdom"],
         "roles": ["CDL-A Truck Driver"],
         "budget": "£300,000",
         "channel_categories": {"programmatic_dsp": True, "global_boards": True},

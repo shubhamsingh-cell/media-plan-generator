@@ -3911,6 +3911,38 @@ def _salary_is_us_sourced(si_data: Optional[Dict]) -> bool:
     )
 
 
+_LOCAL_SALARY_NA = "Local salary data n/a"
+
+
+def _local_salary_range_text(data: Dict) -> str:
+    """Salary Range text for a plan with no US market (audit F 3.4).
+
+    The local market range for the plan's first non-US location from
+    ``intl_role_benchmarks_v1.json`` (``get_local_salary_summary``, values
+    and currency travel together), declared with its own ISO code --
+    "₹180,000 - ₹720,000 (INR) local benchmark". "Local salary data n/a"
+    when the knowledge base holds no sourced local figure. Never a US number.
+    """
+    try:
+        from intl_benchmark_lookup import get_local_salary_summary
+    except ImportError:  # pragma: no cover - module ships with the repo
+        return _LOCAL_SALARY_NA
+    industry = data.get("industry_label") or data.get("industry")
+    for loc in data.get("locations") or []:
+        if _plan_geo.location_is_us(loc) is True:
+            continue
+        if isinstance(loc, dict):
+            loc = str(loc.get("country") or loc.get("location") or loc.get("city") or "")
+        try:
+            summary = get_local_salary_summary(industry, str(loc or ""))
+        except (AttributeError, TypeError, ValueError) as exc:
+            logger.error("local salary lookup failed: %s", exc, exc_info=True)
+            summary = None
+        if summary and summary.get("local_display") and summary.get("currency"):
+            return f"{summary['local_display']} ({summary['currency']}) local benchmark"
+    return _LOCAL_SALARY_NA
+
+
 # ===================================================================
 # SLIDE 1 - Cover / Section Divider: Title Slide
 # ===================================================================
@@ -4428,10 +4460,18 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     enriched = data.get("_enriched", {})
     salary_data = enriched.get("salary_data", {}) if enriched else {}
     _salary_added = False
+    # Audit F 3.4: a US-market salary (BLS / DOL H-1B / US benchmark table /
+    # US-basis driver wage) never prints on a plan with no US market -- the
+    # "US$" marker was honest about currency but the number was still a US
+    # one (Bangalore nurse plan: "US$78K median"). Fall back to the local
+    # market range from intl_role_benchmarks_v1 or say "Local salary data n/a".
+    _has_us_market = _plan_geo.plan_has_us_market(data)
     if salary_intel:
         try:
             for _si_role, _si_data in salary_intel.items():
                 if isinstance(_si_data, dict):
+                    if not _has_us_market and _salary_is_us_sourced(_si_data):
+                        continue
                     _si_median = _si_data.get("median") or 0
                     _si_min = _si_data.get("min") or 0
                     _si_max = _si_data.get("max") or 0
@@ -4463,6 +4503,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
                         break
         except (AttributeError, TypeError):
             pass
+    if not _salary_added and not _has_us_market:
+        sit_items.append(("Salary Range", _local_salary_range_text(data)))
+        _salary_added = True
     if not _salary_added and salary_data:
         try:
             first_role = list(salary_data.keys())[0]
@@ -10408,7 +10451,8 @@ def _role_breakdown_median_salary(
         if not isinstance(role_salary, dict):
             continue
         sal = role_salary.get(title)
-        if not isinstance(sal, dict):
+        if not isinstance(sal, dict) or sal.get("local_salary_na"):
+            # A withheld non-US row is not a $0 salary (audit F 3.4).
             continue
         median = sal.get("median")
         try:
@@ -10421,6 +10465,33 @@ def _role_breakdown_median_salary(
     if not medians:
         return None, False
     return sum(medians) / len(medians), any_estimated
+
+
+def _role_breakdown_salary_basis(gold: Dict[str, Any], title: str) -> "tuple[bool, bool]":
+    """``(withheld, usd)`` for ``title``'s per-city salary rows.
+
+    ``withheld``: every row is a "Local salary data n/a" row (a non-US
+    market with no sourced local figure). ``usd``: every contributing row
+    carries a USD figure, so the Role Breakdown prints it with a US$ marker
+    on a non-USD plan instead of the plan's symbol (K-05b: "₹78K" for a US
+    H-1B dollar median on a Bangalore plan).
+    """
+    city_level = gold.get("city_level_data") if isinstance(gold, dict) else None
+    if not isinstance(city_level, dict):
+        return False, False
+    rows = [
+        (info.get("per_role_salary") or {}).get(title)
+        for info in city_level.values()
+        if isinstance(info, dict) and isinstance(info.get("per_role_salary"), dict)
+    ]
+    rows = [r for r in rows if isinstance(r, dict)]
+    if not rows:
+        return False, False
+    shown = [r for r in rows if not r.get("local_salary_na")]
+    if not shown:
+        return True, False
+    usd = all(str(r.get("currency") or "").upper() == "USD" for r in shown)
+    return False, usd
 
 
 def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
@@ -10477,6 +10548,7 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
         # consistency:atria#2: read the SAME per_role_salary data the
         # workbook renders, not the (often-empty) _enriched.salary_data.
         median, is_estimated = _role_breakdown_median_salary(gold, title)
+        salary_withheld, salary_usd = _role_breakdown_salary_basis(gold, title)
         # strategy:atria#5: surface the same per-role Difficulty
         # (complexity_score) and Budget Weight the workbook's Role
         # Difficulty Classification table carries, so a 10-role plan with a
@@ -10488,6 +10560,8 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
                 "tier": tier,
                 "median": median,
                 "is_estimated": is_estimated,
+                "salary_withheld": salary_withheld,
+                "salary_usd": salary_usd,
                 "difficulty": d.get("complexity_score"),
                 "budget_weight": d.get("budget_weight"),
                 "emphasis": emphasis,
@@ -10508,12 +10582,16 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
             _median_counts[r["median"]] = _median_counts.get(r["median"], 0) + 1
     for r in rows:
         if r["median"]:
-            salary_str = _format_salary(r["median"])
+            salary_str = _format_salary(r["median"], force_usd=r["salary_usd"])
+            if r["salary_usd"] and _get_active_currency() != "USD":
+                salary_str = _mark_usd(salary_str)
             if r["is_estimated"] and salary_str:
                 if _median_counts.get(r["median"], 0) > 1:
                     salary_str += " (est., shared band)"
                 else:
                     salary_str += " (est.)"
+        elif r["salary_withheld"]:
+            salary_str = _LOCAL_SALARY_NA
         else:
             salary_str = "--"
         r["salary_str"] = salary_str

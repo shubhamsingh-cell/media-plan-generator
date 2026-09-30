@@ -87,13 +87,20 @@ _EXPECTED_MEDIAN_INCOME = {
 }
 
 # Quality Intelligence's "Market" column is title-cased (excel_v2._title_case_city).
+#
+# Audit F 3.4 / K-05b (2026-10-01): these cells used to read
+# "£25,500 - £42,500 (GBP)", "A$27,000 - A$45,000 (AUD)" ... -- the US
+# "driver" band ($30-50K) times a country salary multiplier, i.e. a
+# US-dollar-derived figure wearing the local sign. No sourced local salary
+# exists for these markets, so the honest cell is now the n/a label; the
+# defect this test guards (a bare "$" on a non-USD market) stays fixed.
 _EXPECTED_SALARY_RANGE = {
-    "Uk": "£25,500 - £42,500 (GBP)",
-    "Australia": "A$27,000 - A$45,000 (AUD)",
-    "Mexico": "MX$6,000 - MX$10,000 (MXN)",
-    "Argentina": "AR$3,600 - AR$6,000 (ARS)",
-    "Canada": "C$25,500 - C$42,500 (CAD)",
-    "New Zealand": "NZ$22,500 - NZ$37,500 (NZD)",
+    "Uk": "Local salary data n/a",
+    "Australia": "Local salary data n/a",
+    "Mexico": "Local salary data n/a",
+    "Argentina": "Local salary data n/a",
+    "Canada": "Local salary data n/a",
+    "New Zealand": "Local salary data n/a",
 }
 
 
@@ -406,9 +413,12 @@ def test_defect5_single_market_city_only_label_resolves_plan_currency_gbp(
         if mkt:
             seen[mkt] = ws.cell(row=r, column=range_col).value
     assert "London" in seen, f"expected a London row, found {sorted(seen)}"
-    assert seen["London"] == "£60,000 - £97,500 (GBP)", (
-        f"London Salary Range = {seen['London']!r} -- bare '$' city-name "
-        "currency-resolution gap not fixed"
+    # Audit F 3.4 (2026-10-01): was "£60,000 - £97,500 (GBP)" -- the US
+    # national average x tier scaling wearing a £ sign. No sourced local
+    # salary exists, so the cell is the n/a label; still never a bare "$".
+    assert seen["London"] == "Local salary data n/a", (
+        f"London Salary Range = {seen['London']!r} -- a US-derived figure "
+        "must not print on a non-US market"
     )
 
 
@@ -428,9 +438,11 @@ def test_defect5_second_market_sydney_au_resolves_plan_currency_aud(
         if mkt:
             seen[mkt] = ws.cell(row=r, column=range_col).value
     assert "Sydney" in seen, f"expected a Sydney row, found {sorted(seen)}"
-    assert seen["Sydney"] == "A$60,000 - A$97,500 (AUD)", (
-        f"Sydney Salary Range = {seen['Sydney']!r} -- bare '$' city-name "
-        "currency-resolution gap not fixed"
+    # Audit F 3.4 (2026-10-01): was "A$60,000 - A$97,500 (AUD)" -- a
+    # US-derived figure wearing A$. Now the n/a label; never a bare "$".
+    assert seen["Sydney"] == "Local salary data n/a", (
+        f"Sydney Salary Range = {seen['Sydney']!r} -- a US-derived figure "
+        "must not print on a non-US market"
     )
 
 

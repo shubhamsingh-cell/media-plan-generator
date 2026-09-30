@@ -332,6 +332,19 @@ def is_us_plan(data: dict) -> bool:
     return is_us
 
 
+def plan_has_us_market(data: dict) -> bool:
+    """True if at least one of the plan's markets is in the US.
+
+    Weaker than :func:`is_us_plan`: a plan listing "New York, NY" and
+    "London, UK" is not a US plan, but a US-sourced salary still describes
+    its New York market. A plan whose every resolvable location is outside
+    the US has no market a US figure can describe.
+    """
+    if is_us_plan(data):
+        return True
+    return any(location_is_us(raw) is True for raw in _gather_candidates(data))
+
+
 def non_us_signals(data: dict) -> list[str]:
     """Return the location strings that drove ``is_us_plan`` to False, for
     honest workbook/deck messaging ("these locations pulled this plan

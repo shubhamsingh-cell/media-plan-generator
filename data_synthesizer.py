@@ -1897,6 +1897,40 @@ def _clamp_salary_intelligence_to_role_bands(
         }
 
 
+def _withhold_us_salaries_without_us_market(
+    salary_intel: Dict[str, Any], input_data: dict
+) -> None:
+    """Replace, in place, every US-sourced role salary on a plan with NO US
+    market by an honest "local salary data n/a" row.
+
+    Audit F 3.4: BLS / O*NET / DataUSA / CareerOneStop / DOL H-1B, the
+    US fallback table and the US-basis driver wages are US-market figures
+    tagged ``currency: "USD"``. Labelling them US$ was honest about the
+    currency but still put a US number on a non-US plan: Bangalore RN
+    US$78,000, London software engineer US$150,000, Sao Paulo retail
+    US$90,000. No sourced per-role local salary exists in the knowledge
+    base, so the row says so instead. Plan-local figures ("" currency, e.g.
+    Jooble queried against the plan's own locations) are kept. A plan with
+    any US market keeps its US figures -- they describe that market.
+    """
+    if not isinstance(salary_intel, dict) or not salary_intel:
+        return
+    try:
+        import plan_geo as _pg
+    except ImportError:  # pragma: no cover - plan_geo ships with the repo
+        return
+    if _pg.plan_has_us_market(input_data):
+        return
+    for role, sal in list(salary_intel.items()):
+        if not isinstance(sal, dict) or not sal.get("median"):
+            continue
+        if str(sal.get("currency") or "").upper() != "USD":
+            continue
+        withheld = _empty_salary_result(role)
+        withheld["local_salary_na"] = True
+        salary_intel[role] = withheld
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # FUSE: JOB MARKET DEMAND
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4492,6 +4526,13 @@ def synthesize(
         )
     except Exception as exc:
         logger.error("salary role-band clamp failed: %s", exc, exc_info=True)
+
+    try:
+        _withhold_us_salaries_without_us_market(
+            synthesis.get("salary_intelligence") or {}, input_data
+        )
+    except Exception as exc:
+        logger.error("non-US salary withhold failed: %s", exc, exc_info=True)
 
     # Salary-intelligence defect fix (2026-07): synthesis["per_role_salaries"]
     # is the wiring point gold_standard.enrich_city_level_data() reads (as an

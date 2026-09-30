@@ -244,6 +244,11 @@ def _usd2_fmt() -> str:
     return _usd_number_format("#,##0.00")
 
 
+# A US-dollar figure on a non-USD plan (declare-not-convert): the explicit
+# "US$" marker, matching _mark_usd on text cells.
+_USD_MARKED_FMT = '"US$"#,##0'
+
+
 def _cpc_number_format(ch_data: Optional[dict]) -> str:
     """Number format for a channel's CPC cell -- honest about whether the
     figure was actually localized.
@@ -6996,11 +7001,16 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         row = _write_table_header(ws, row, headers)
         for idx, lc in enumerate(loc_contexts):
             if isinstance(lc, dict):
+                _lc_salary = _flatten_value(lc.get("median_salary") or "")
+                # K-05b: research labels a US market's figure "$76,000 USD";
+                # on a non-USD plan the "$" must read "US$".
+                if _get_active_currency() != "USD" and re.search(r"\bUSD\b", _lc_salary):
+                    _lc_salary = _mark_usd(_lc_salary)
                 values = [
                     lc.get("location") or "",
                     lc.get("country") or "",
                     _flatten_value(lc.get("unemployment_rate") or ""),
-                    _flatten_value(lc.get("median_salary") or ""),
+                    _lc_salary,
                     _truncate_at_clause_boundary(lc.get("context_note") or "", 80),
                 ]
                 row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
@@ -7248,6 +7258,10 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 income_str = _fmt_currency(median_income, prefix="$")
         else:
             income_str = _flatten_value(median_income)
+        # K-05b: a US market's income is US dollars; on a non-USD plan it
+        # reads "US$" (it printed a bare "$76,000 USD" on a GBP plan).
+        if _income_code == "USD" and _get_active_currency() != "USD":
+            income_str = _mark_usd(income_str)
         industry_str = _flatten_value(key_industries)
 
         _rationale = insight_composer.geography_rationale(loc, loc_data)
@@ -7809,6 +7823,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 
         headers = ["Role", "Min", "P25", "Median", "P75", "Max", "Confidence"]
         row = _write_table_header(ws, row, headers)
+        _mi_local_na = False
 
         salary_items = salary_intel
         if isinstance(salary_intel, dict):
@@ -7855,7 +7870,20 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     and sal_data["kb_validation"].get("flag") == "no_data"
                 )
 
-                if _sal_no_data:
+                if sal_data.get("local_salary_na"):
+                    # Audit F 3.4: a US-sourced figure withheld on a plan with
+                    # no US market (data_synthesizer) -- say why, not "$0".
+                    _mi_local_na = True
+                    values = [
+                        role_name if isinstance(role_name, str) else str(role_name),
+                        "n/a",
+                        "n/a",
+                        "Local salary data n/a",
+                        "n/a",
+                        "n/a",
+                        "—",
+                    ]
+                elif _sal_no_data:
                     values = [
                         role_name if isinstance(role_name, str) else str(role_name),
                         "Not available",
@@ -7919,6 +7947,14 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                         sources.add(str(src))
         if sources:
             row = _write_footnote(ws, row, f"Sources: {', '.join(sorted(sources))}")
+        if _mi_local_na:
+            row = _write_footnote(
+                ws,
+                row,
+                "Local salary data n/a: no sourced local salary exists for these "
+                "roles in this plan's markets. US-market figures are not shown "
+                "for a plan with no US market.",
+            )
 
     row += 2
 
@@ -10160,18 +10196,27 @@ def _salary_range_from_per_role(
     suffix) -- a USD-only plan is completely unaffected.
     """
     per_role: Dict[str, Any] = info.get("per_role_salary") or {}
-    mins = [
-        r.get("min")
+    # K-05b / audit F 3.4: "Local salary data n/a" rows carry zeros, not a
+    # salary -- never fold them into the range.
+    rows = [
+        r
         for r in per_role.values()
-        if isinstance(r, dict) and isinstance(r.get("min"), (int, float))
+        if isinstance(r, dict) and not r.get("local_salary_na")
     ]
-    maxes = [
-        r.get("max")
-        for r in per_role.values()
-        if isinstance(r, dict) and isinstance(r.get("max"), (int, float))
-    ]
+    mins = [r.get("min") for r in rows if isinstance(r.get("min"), (int, float))]
+    maxes = [r.get("max") for r in rows if isinstance(r.get("max"), (int, float))]
     if not mins or not maxes:
         return None
+    # Label the range by the currency of the figures it summarises: rows
+    # tagged USD are US-market figures and read "US$" on a non-USD plan
+    # (they used to take the market's own code -- "£97,500 - £217,500 (GBP)"
+    # for US H-1B dollars on a London plan).
+    row_codes = {str(r.get("currency") or "").strip().upper() for r in rows}
+    if row_codes == {"USD"}:
+        lo, hi = f"${min(mins):,.0f}", f"${max(maxes):,.0f}"
+        if _get_active_currency() != "USD":
+            return _mark_usd(f"{lo} - {hi}")
+        return f"{lo} - {hi}"
     code = (currency_code or "USD").strip().upper()
     sym = _plan_currency.symbol_for_code(code) if _plan_currency is not None else "$"
     lo, hi = f"{sym}{min(mins):,.0f}", f"{sym}{max(maxes):,.0f}"
@@ -10314,6 +10359,21 @@ def _build_sheet_quality_intelligence(
                 # though gold_standard keys city_data by the bare "London").
                 # Plan currency stays the last resort.
                 _mkt_currency_code = _market_currency_code(data, market_label)
+                # K-05b / audit F 3.4: Estimated Salary is a US national
+                # average x multiplier. Withheld ("n/a") on a non-US market;
+                # on a US market it is USD and reads US$ on a non-USD plan.
+                _city_row_fmts = list(_city_money_fmts)
+                if info.get("local_salary_na"):
+                    _est_cell: Any = "n/a"
+                    # A text cell: a number format would coerce it to 0.
+                    _city_row_fmts[2] = None
+                else:
+                    _est_cell = _safe_num(info.get("estimated_salary", 0))
+                    if (
+                        str(info.get("salary_currency") or "").upper() == "USD"
+                        and _get_active_currency() != "USD"
+                    ):
+                        _city_row_fmts[2] = _USD_MARKED_FMT
                 row = _write_table_row(
                     ws,
                     row,
@@ -10321,7 +10381,7 @@ def _build_sheet_quality_intelligence(
                         market_label
                         + ("" if _is_collapsed else _geo_basis_suffix(info)),
                         f"{info.get('salary_multiplier', 1.0):.2f}x",
-                        _safe_num(info.get("estimated_salary", 0)),
+                        _est_cell,
                         f"{info.get('hiring_difficulty', 0):.1f}/10",
                         str(info.get("supply_tier") or "balanced")
                         .replace("_", " ")
@@ -10334,7 +10394,7 @@ def _build_sheet_quality_intelligence(
                         ),
                     ],
                     alternate=idx % 2 == 1,
-                    number_formats=_city_money_fmts,
+                    number_formats=_city_row_fmts,
                 )
             _city_footnote = (
                 "Salary multipliers relative to national average. "
@@ -10414,6 +10474,8 @@ def _build_sheet_quality_intelligence(
                 # asserts it literally).
                 _SOURCE_DISPLAY_LABELS = {"generic_enrichment": "Tier-Scaled Estimate"}
                 _all_salary_rows: List[Dict[str, Any]] = []
+                _any_local_na = False
+                _any_us_marked = False
                 for city_name, info in city_data.items():
                     role_salary: dict = info.get("per_role_salary") or {}
                     for role_name, sal in role_salary.items():
@@ -10426,6 +10488,32 @@ def _build_sheet_quality_intelligence(
                         _source_display = _SOURCE_DISPLAY_LABELS.get(
                             _source_raw, _source_raw
                         )
+                        # K-05b: format each row in the currency of the figure
+                        # it holds (the row's own ``currency`` tag), never the
+                        # plan's symbol on a US-dollar figure. Audit F 3.4: a
+                        # withheld non-US row prints "n/a", not zeros.
+                        if sal.get("local_salary_na"):
+                            _any_local_na = True
+                            _money_cells: List[Any] = ["n/a"] * 5
+                            # Text cells: a number format would coerce "n/a" to 0.
+                            _row_fmts = [None] * 9
+                        else:
+                            _money_cells = [
+                                _safe_num(sal.get("min", 0)),
+                                _safe_num(sal.get("p25", sal.get("min", 0))),
+                                _safe_num(sal.get("median", 0)),
+                                _safe_num(sal.get("p75", sal.get("max", 0))),
+                                _safe_num(sal.get("max", 0)),
+                            ]
+                            _row_fmts = _role_sal_fmts
+                            if (
+                                str(sal.get("currency") or "").upper() == "USD"
+                                and _get_active_currency() != "USD"
+                            ):
+                                _any_us_marked = True
+                                _row_fmts = (
+                                    [None, None] + [_USD_MARKED_FMT] * 5 + [None, None]
+                                )
                         row = _write_table_row(
                             ws,
                             row,
@@ -10433,30 +10521,35 @@ def _build_sheet_quality_intelligence(
                                 _title_case_city(city_name)
                                 + _geo_basis_suffix(info),
                                 _role_display,
-                                _safe_num(sal.get("min", 0)),
-                                _safe_num(sal.get("p25", sal.get("min", 0))),
-                                _safe_num(sal.get("median", 0)),
-                                _safe_num(sal.get("p75", sal.get("max", 0))),
-                                _safe_num(sal.get("max", 0)),
+                                *_money_cells,
                                 f"{sal.get('multiplier', 1.0):.2f}x",
                                 str(_source_display or "—"),
                             ],
-                            number_formats=_role_sal_fmts,
+                            number_formats=_row_fmts,
                             alternate=alt_idx % 2 == 1,
                             fills=([_estimated_fill] * 9 if _is_estimated else None),
                         )
                         alt_idx += 1
                 _conf = gs_lib.confidence_summary(_all_salary_rows)
-                row = _write_footnote(
-                    ws,
-                    row,
+                _role_sal_note = (
                     "Per-role salaries adjusted by city multiplier; P25/P75 "
                     "bands are ordered (min<=P25<=median<=P75<=max). Rows "
                     "marked (est.) use a tier-scaled generic estimate rather "
                     "than a specific industry benchmark -- "
                     f"{_conf['benchmark_count']} of {_conf['total_rows']} rows "
-                    f"({_conf['pct_benchmark']:.0f}%) are benchmark-sourced.",
+                    f"({_conf['pct_benchmark']:.0f}%) are benchmark-sourced."
                 )
+                if _any_us_marked:
+                    _role_sal_note += (
+                        " US$ rows are US-market figures shown in US dollars, "
+                        "not converted."
+                    )
+                if _any_local_na:
+                    _role_sal_note += (
+                        " n/a: no sourced local salary exists for this market; "
+                        "US-market figures are not shown for non-US markets."
+                    )
+                row = _write_footnote(ws, row, _role_sal_note)
                 row += 1
     except Exception as exc:
         logger.error(

@@ -31,11 +31,6 @@ except ImportError:
     _RESEARCH_METRO_DATA = {}
 
 try:
-    import plan_currency as _plan_currency_gs
-except ImportError:  # pragma: no cover - plan_currency ships with the repo
-    _plan_currency_gs = None
-
-try:
     import plan_geo as _plan_geo_gs
     from plan_geo import US_STATE_NAME_TO_ABBR as _US_STATE_NAME_TO_ABBR
 except ImportError:  # pragma: no cover - plan_geo ships with the repo
@@ -925,6 +920,10 @@ def _match_role_to_salary_range(
 # wrong-role / wrong-bucket figure (same 15% _clamp_salary_for_role uses).
 _ROLE_BAND_TOLERANCE: float = 0.15
 
+# Printed in place of a salary on a non-US market when the only figure the
+# pipeline has is a US one (audit F 3.4) -- never a US number on that row.
+LOCAL_SALARY_NA_LABEL: str = "Local salary data n/a"
+
 
 def role_band_salary(title: str, multiplier: float = 1.0) -> dict[str, float] | None:
     """The role's OWN band from _ROLE_SALARY_RANGES scaled by ``multiplier``,
@@ -1489,7 +1488,10 @@ def enrich_city_level_data(data: dict) -> dict:
                 _applied = multiplier if _synth_override.get("city_adjust") else 1.0
                 _ov_cur = str(_synth_override.get("currency") or "").upper()
                 _ov_is_usd = _ov_cur == "USD" or (not _ov_cur and city_is_us)
-                if _ov_is_usd and salary_outside_role_band(
+                if _ov_is_usd and not city_is_us:
+                    # A US-market figure on a non-US market: n/a row below.
+                    _use_override = False
+                elif _ov_is_usd and salary_outside_role_band(
                     title, _synth_override.get("median", 0) * _applied, _applied
                 ):
                     _use_override = False
@@ -1511,7 +1513,11 @@ def enrich_city_level_data(data: dict) -> dict:
                     "tier": tier,
                     "tier_source": tier_source,
                 }
-                if "currency" in _synth_override:
+                if city_is_us:
+                    # K-05b: every renderer labels a row by the currency of
+                    # the figure it shows; a US market's figure is USD.
+                    per_role_salary[title]["currency"] = "USD"
+                elif "currency" in _synth_override:
                     per_role_salary[title]["currency"] = _synth_override.get("currency") or ""
                 continue
 
@@ -1519,6 +1525,29 @@ def enrich_city_level_data(data: dict) -> dict:
             # re-scanning keyword tables for every city.
             matched_range, matched_keyword = _role_range_cache[title]
             tier, tier_source = _role_tier_cache[title]
+
+            if not city_is_us:
+                # Audit F 3.4: the band and tier-scaled paths below are US
+                # dollar figures (the _ROLE_SALARY_RANGES table and a US
+                # national average). They used to print for Bangalore /
+                # London / Sao Paulo / Berlin rows in the plan's own symbol
+                # (₹78,000 for a nurse). No sourced per-role local salary
+                # exists, so the row says so instead of inventing one.
+                per_role_salary[title] = {
+                    "min": 0,
+                    "p25": 0,
+                    "median": 0,
+                    "p75": 0,
+                    "max": 0,
+                    "multiplier": round(multiplier, 2),
+                    "source": LOCAL_SALARY_NA_LABEL,
+                    "confidence": "n/a",
+                    "tier": tier,
+                    "tier_source": tier_source,
+                    "currency": "",
+                    "local_salary_na": True,
+                }
+                continue
 
             if matched_range is not None:
                 role_min = matched_range[0] * multiplier
@@ -1560,12 +1589,30 @@ def enrich_city_level_data(data: dict) -> dict:
                 "confidence": confidence,
                 "tier": tier,
                 "tier_source": tier_source,
+                "currency": "USD",
+            }
+
+        if city_is_us:
+            _city_salary: dict[str, Any] = {
+                "estimated_salary": est_salary,
+                "salary_range": (
+                    f"${est_salary - 10_000:,.0f} - ${est_salary + 15_000:,.0f}"
+                ),
+                "salary_currency": "USD",
+            }
+        else:
+            # est_salary is the US national average x this market's
+            # multiplier -- a US figure. Withheld on a non-US market (F 3.4).
+            _city_salary = {
+                "estimated_salary": 0,
+                "salary_range": LOCAL_SALARY_NA_LABEL,
+                "salary_currency": "",
+                "local_salary_na": True,
             }
 
         city_data[city_name] = {
             "salary_multiplier": multiplier,
-            "estimated_salary": est_salary,
-            "salary_range": f"${est_salary - 10_000:,.0f} - ${est_salary + 15_000:,.0f}",
+            **_city_salary,
             "hiring_difficulty": round(difficulty, 1),
             "supply_tier": supply_tier,
             "cost_of_living_index": round(col_index, 1),

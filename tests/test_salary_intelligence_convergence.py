@@ -52,6 +52,16 @@ def _uk_cab_driver_plan() -> dict:
     }
 
 
+def _us_cab_driver_plan() -> dict:
+    # The wage-model and confidence assertions below are about how the
+    # driver resolver classifies a gig driver, which does not depend on the
+    # market. Since audit F 3.4 (2026-10-01) the resolver's US-basis wage
+    # is withheld on a plan with no US market, so they run on a US plan.
+    plan = _uk_cab_driver_plan()
+    plan["locations"] = ["Chicago, IL"]
+    return plan
+
+
 def _run_full_pipeline(input_data: dict) -> tuple[dict, dict]:
     """Run the real two-stage pipeline (synthesize, then quality gates) the
     way app.py does, and return (market_intelligence_row, quality_
@@ -111,8 +121,16 @@ def test_uk_gig_driver_does_not_resolve_to_us_salaried_trucking_figure():
     _ROLE_SALARY_FALLBACKS["driver"] bucket (median 52,000) on Market
     Intelligence -- a US salaried CDL/trucking-employee wage, not a
     gig/private-hire driver's. Post-fix it must resolve to the distinct,
-    lower gig bucket instead."""
-    mi_row, qi_row = _run_full_pipeline(_uk_cab_driver_plan())
+    lower gig bucket instead.
+
+    Since audit F 3.4 the UK plan shows no US-basis figure at all ("Local
+    salary data n/a" on both sheets); the wage model is checked on a US
+    plan, where the resolver's figure is shown."""
+    uk_mi, uk_qi = _run_full_pipeline(_uk_cab_driver_plan())
+    assert uk_mi["median"] == 0 and uk_mi.get("local_salary_na") is True, uk_mi
+    assert uk_qi["median"] == 0 and uk_qi.get("local_salary_na") is True, uk_qi
+
+    mi_row, qi_row = _run_full_pipeline(_us_cab_driver_plan())
 
     OLD_SALARIED_TRUCKING_MEDIAN = 52_000
     assert mi_row["median"] != OLD_SALARIED_TRUCKING_MEDIAN, mi_row
@@ -164,7 +182,7 @@ def test_gig_driver_confidence_is_derived_not_constant_half():
     for a fallback role, so the excel_v2 renderer's
     ``.get("confidence", 0.5)`` default silently fired for every row. The
     resolved row must now carry an explicit, non-0.5 numeric confidence."""
-    mi_row, qi_row = _run_full_pipeline(_uk_cab_driver_plan())
+    mi_row, qi_row = _run_full_pipeline(_us_cab_driver_plan())
 
     assert "confidence" in mi_row
     assert mi_row["confidence"] != 0.5
