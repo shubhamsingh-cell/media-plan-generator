@@ -612,6 +612,20 @@ _CACHE_CLEANUP_INTERVAL = 300.0  # 5 minutes between cleanup sweeps
 _FRAGMENT_CACHE_TTL = 600.0  # 10 minutes for HTML fragments (picks up file changes)
 
 
+def _is_expired(created: Any, now: float, ttl: float) -> bool:
+    """True when an entry created at ``created`` is older than ``ttl`` seconds.
+
+    A missing / None / 0 timestamp counts as stale (``now - 0`` is far past any
+    TTL), so a malformed entry is swept next cycle instead of raising
+    ``TypeError`` and aborting the whole store's sweep.
+
+    The parentheses matter: ``now - x or 0 > ttl`` parses as
+    ``(now - x) or (0 > ttl)``, whose left side is truthy for every real entry,
+    so every entry was judged expired (the shared-plan / plan-result purge bug).
+    """
+    return (now - (created or 0)) > ttl
+
+
 def _cache_cleanup_loop() -> None:
     """Periodically purge stale entries from all in-memory response caches.
 
@@ -698,7 +712,7 @@ def _cache_cleanup_loop() -> None:
                     stale_keys = [
                         k
                         for k, v in _shared_plans.items()
-                        if now - v.get("created_at") or 0 > _SHARED_PLANS_TTL
+                        if _is_expired(v.get("created_at"), now, _SHARED_PLANS_TTL)
                     ]
                     for k in stale_keys:
                         del _shared_plans[k]
@@ -768,14 +782,14 @@ def _cache_cleanup_loop() -> None:
             except Exception as e:
                 logger.error(f"Cache cleanup failed for scorecards: {e}", exc_info=True)
 
-            # ── Plan results store (30min TTL, background sweep) ──
+            # ── Plan results store (24h TTL, background sweep) ──
             purged_plan_results = 0
             try:
                 with _plan_results_lock:
                     stale_keys = [
                         k
                         for k, v in _plan_results_store.items()
-                        if now - v.get("created") or 0 > _PLAN_RESULTS_TTL_SECONDS
+                        if _is_expired(v.get("created"), now, _PLAN_RESULTS_TTL_SECONDS)
                     ]
                     for k in stale_keys:
                         del _plan_results_store[k]
@@ -7096,7 +7110,7 @@ def _mirror_job(job_id: str) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PLAN RESULTS STORE (in-memory, TTL 30min, for on-screen dashboard)
+# PLAN RESULTS STORE (in-memory, TTL 24h, for on-screen dashboard)
 # ═══════════════════════════════════════════════════════════════════════════════
 _plan_results_store: dict[str, dict] = {}
 _plan_results_lock = threading.Lock()
