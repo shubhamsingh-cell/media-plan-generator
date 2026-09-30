@@ -214,7 +214,11 @@ class StructuredJsonFormatter(logging.Formatter):
 
         # Include exception info if present
         if record.exc_info and record.exc_info[0] is not None:
-            entry["exception"] = self.formatException(record.exc_info)
+            # Prefer the pre-formatted text when present: SecretRedactingFilter
+            # (log_redaction.py) stores the secret-scrubbed traceback there.
+            entry["exception"] = record.exc_text or self.formatException(
+                record.exc_info
+            )
 
         # Include any extra fields set via logger.info("msg", extra={...})
         standard_attrs = {
@@ -1820,6 +1824,20 @@ def configure_logging(level: str = "INFO", json_format: bool = True) -> None:
             datefmt="%Y-%m-%d %H:%M:%S",
         )
     handler.setFormatter(formatter)
+    # Redact API keys / tokens / passwords from every formatted message and
+    # exception text before any handler sees them (prod WARNING lines printed
+    # full Adzuna/FRED keys from URL query strings). Logging must never fail
+    # because scrubbing did, so a broken import degrades to a loud error.
+    try:
+        from log_redaction import install_log_redaction
+
+        install_log_redaction(handler)
+        # gunicorn's own loggers write through their own handlers (access log
+        # request lines can carry ?api_key=...), so scrub them at logger level.
+        for _gname in ("gunicorn.access", "gunicorn.error"):
+            install_log_redaction(logging.getLogger(_gname))
+    except Exception:
+        logger.error("Log redaction filter could not be installed", exc_info=True)
     root.addHandler(handler)
 
     # Suppress noisy third-party loggers
