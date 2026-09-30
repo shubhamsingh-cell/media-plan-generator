@@ -65,6 +65,24 @@ class TestNoStatedGoal:
     def test_source_is_recorded(self):
         assert _plan()["metadata"]["target_hires_source"] == "projected_hires"
 
+    def test_no_goal_relative_advice_against_the_plans_own_projection(self):
+        """With the projection as the target there is no client goal: the
+        floor-vs-average spread must not be restated as a funding gap
+        ("To fully fund all 2197 openings ... an additional $4,996,350")."""
+        res = be.calculate_budget_allocation(
+            total_budget=5_000_000.0,
+            roles=[{"title": "Machine Operator", "count": 1, "tier": "Skilled Trades / Technical"}],
+            locations=[{"city": "Cleveland", "state": "OH", "country": "United States"}],
+            industry="blue_collar_trades",
+            channel_percentages=dict(_CHANNELS),
+            knowledge_base=None,
+        )
+        suff = res["sufficiency"]
+        assert suff["gap_amount"] == 0.0
+        text = " ".join(suff["recommendations"] + suff["warnings"])
+        for phrase in ("fully fund all", "phased hiring", "fall short of", "exceeds 1.5x"):
+            assert phrase not in text, (phrase, text)
+
 
 class TestStatedGoal:
     def test_goal_drives_budget_per_hire_and_shortfall(self):

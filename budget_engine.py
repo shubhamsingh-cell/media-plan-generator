@@ -3546,6 +3546,7 @@ def assess_budget_sufficiency(
     plan_currency: Optional[str] = None,
     usd_per_local: Optional[float] = None,
     industry_cph: Optional[Dict[str, Any]] = None,
+    target_is_goal: bool = True,
 ) -> Dict[str, Any]:
     """
     Check whether the total budget is sufficient for the hiring goals.
@@ -3580,6 +3581,14 @@ def assess_budget_sufficiency(
             has no local cost-per-hire benchmark) the benchmark comparisons
             are skipped and said so, instead of comparing against an
             FX-translated US figure.
+        target_is_goal: ``False`` when ``total_openings`` is the plan's OWN
+            projected hires (no stated goal, no role headcounts -- see
+            calculate_budget_allocation's target order). There is then no
+            client goal to fall short of or to fund, so the goal-relative
+            outputs (funding gap, "fully fund all N openings", shortfall,
+            phased-hiring and surplus advice) are skipped instead of
+            restating the plan's own floor-vs-average spread as a budget
+            gap. Direct callers pass real openings and keep the default.
     """
     warnings: List[str] = []
     recommendations: List[str] = []
@@ -3626,7 +3635,9 @@ def assess_budget_sufficiency(
     # projects a cost per hire below half the industry average.
     floor_cph = avg_cph * 0.5
 
-    gap = max(0.0, (avg_cph * total_openings) - total_budget)
+    gap = (
+        max(0.0, (avg_cph * total_openings) - total_budget) if target_is_goal else 0.0
+    )
     sufficient = (
         budget_per_opening >= floor_cph if benchmark_available else True
     )
@@ -3729,7 +3740,7 @@ def assess_budget_sufficiency(
             f"cannot generate meaningful results at this level."
         )
 
-    if not sufficient:
+    if target_is_goal and not sufficient:
         recommended_budget = avg_cph * total_openings
         reduced_openings = max(1, int(total_budget / avg_cph))
         warnings.append(
@@ -3740,7 +3751,7 @@ def assess_budget_sufficiency(
             f"priority openings or increasing budget to {_bench_money(recommended_budget)}."
         )
 
-    if total_proj_hires < total_openings and total_proj_hires > 0:
+    if target_is_goal and 0 < total_proj_hires < total_openings:
         shortfall = total_openings - total_proj_hires
         warnings.append(
             f"Projected hires ({total_proj_hires}) fall short of the "
@@ -3756,7 +3767,12 @@ def assess_budget_sufficiency(
             f"{_bench_money(avg_cph * total_openings)})."
         )
 
-    if benchmark_available and budget_per_opening < avg_cph and total_openings > 3:
+    if (
+        target_is_goal
+        and benchmark_available
+        and budget_per_opening < avg_cph
+        and total_openings > 3
+    ):
         recommendations.append(
             "Consider a phased hiring approach: prioritise the most critical "
             "roles in Phase 1, then reinvest savings into subsequent phases."
@@ -3791,7 +3807,11 @@ def assess_budget_sufficiency(
             f"this budget to channels with measurable hiring outcomes."
         )
 
-    if benchmark_available and total_budget > avg_cph * total_openings * 1.5:
+    if (
+        target_is_goal
+        and benchmark_available
+        and total_budget > avg_cph * total_openings * 1.5
+    ):
         recommendations.append(
             "Budget exceeds 1.5x the industry average per hire. Consider "
             "investing the surplus in employer branding, referral incentives, "
@@ -5175,6 +5195,7 @@ def calculate_budget_allocation(
         plan_currency=_resolved_plan_currency,
         usd_per_local=_resolved_usd_per_local,
         industry_cph=_industry_cph,
+        target_is_goal=_target_source != "projected_hires",
     )
 
     # Step 6: Optimisation suggestions
