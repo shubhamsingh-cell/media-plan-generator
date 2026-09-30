@@ -86,15 +86,24 @@ _supabase_global_fail_time: float = 0.0
 _SUPABASE_GLOBAL_COOLDOWN = 600  # 10 min global cooldown if ALL tables fail
 
 # -- On-conflict columns for each Supabase table --------------------------------
+# PostgREST's ?on_conflict= must list EXACTLY the columns of an existing UNIQUE
+# constraint, or Postgres answers 42P10 ("no unique or exclusion constraint
+# matching the ON CONFLICT specification") -> HTTP 400.
+#
+# enrichment_log is deliberately ABSENT: it is an append-only audit trail keyed
+# only by a serial id (scripts/supabase_schema.sql). A former
+# "enrichment_log": "source,action" entry had no matching constraint, so every
+# refresh logged a 400 and the persisted state was never written -- which made
+# every source look stale after each deploy (see _save_enrichment_log_to_supabase).
 _ON_CONFLICT_MAP: dict[str, str] = {
     "knowledge_base": "category,key",
     "channel_benchmarks": "channel,industry",
     "vendor_profiles": "name",
     "supply_repository": "name",
-    "salary_data": "role,location",
+    # scripts/supabase_schema.sql: UNIQUE(role, location, industry)
+    "salary_data": "role,location,industry",
     "compliance_rules": "rule_type,jurisdiction",
     "market_trends": "category,title,source",
-    "enrichment_log": "source,action",
 }
 
 # -- Smart freshness thresholds (hours) per source -----------------------------
@@ -180,6 +189,59 @@ _AD_PLATFORMS: list[str] = [
 
 _RETRYABLE_EXCEPTIONS = (urllib.error.URLError, OSError, TimeoutError, ValueError)
 
+# HTTP statuses worth retrying: request timeout / too early / rate limited and
+# every 5xx. Every other 4xx (400 bad payload or ON CONFLICT mismatch, 401, 403,
+# 404, 409, 422, ...) is deterministic -- retrying the identical request can
+# never succeed and only burns ~14 s of backoff per batch.
+_TRANSIENT_HTTP_CODES = frozenset({408, 425, 429})
+_ERROR_BODY_LOG_CHARS = 300
+
+
+def _is_transient_http(code: int) -> bool:
+    """True when an HTTP status may succeed on retry (408/425/429/5xx)."""
+    return code in _TRANSIENT_HTTP_CODES or code >= 500
+
+
+def _http_error_body(
+    exc: urllib.error.HTTPError, limit: int = _ERROR_BODY_LOG_CHARS
+) -> str:
+    """Return an HTTPError response body safe to log: read once, one line,
+    secrets redacted, truncated to ``limit`` chars.
+
+    The body is what makes a PostgREST 400 diagnosable (``{"code":"42P10",
+    "message":"there is no unique or exclusion constraint matching the ON
+    CONFLICT specification"}``). It is cached on the exception because reading
+    an HTTPError consumes it.
+    """
+    # __dict__ access: HTTPError.__getattr__ delegates to the response file and
+    # raises KeyError (not AttributeError) when the error has no fp.
+    cached = exc.__dict__.get("_nova_body")
+    if isinstance(cached, str):
+        return cached[:limit]
+    try:
+        raw = exc.read(2048).decode("utf-8", errors="replace")
+    except (OSError, ValueError, AttributeError, KeyError):
+        # KeyError: an HTTPError built without a response fp raises
+        # KeyError('file') from addinfourl on Python 3.9.
+        raw = ""
+    body = " ".join(raw.split())
+    try:
+        from log_redaction import redact_secrets
+
+        body = redact_secrets(body)
+    except ImportError:  # pragma: no cover - module ships with the app
+        pass
+    exc.__dict__["_nova_body"] = body
+    return body[:limit]
+
+
+def _describe_exc(exc: BaseException) -> str:
+    """``str(exc)`` plus the response body for HTTP errors (one log line)."""
+    if isinstance(exc, urllib.error.HTTPError):
+        body = _http_error_body(exc)
+        return f"{exc} | body: {body}" if body else str(exc)
+    return str(exc)
+
 
 def _retry_with_backoff(
     fn: callable,
@@ -192,6 +254,11 @@ def _retry_with_backoff(
     and ValueError. Uses exponential backoff: base_delay * 2^attempt
     (e.g., 2s, 4s, 8s for base_delay=2.0).
 
+    Permanent HTTP client errors (4xx other than 408/425/429) are NOT retried:
+    they are re-raised immediately so the caller can read the response body and
+    decide (before this, a deterministic 400 was retried three times with
+    2+4+8 s of backoff and its body was never read).
+
     Args:
         fn: Zero-argument callable to execute.
         max_retries: Maximum number of retry attempts (default 3).
@@ -199,6 +266,9 @@ def _retry_with_backoff(
 
     Returns:
         The return value of fn on success, or None after all retries exhausted.
+
+    Raises:
+        urllib.error.HTTPError: for a permanent (non-transient) HTTP status.
     """
     import random as _random_mod
 
@@ -207,19 +277,23 @@ def _retry_with_backoff(
         try:
             return fn()
         except _RETRYABLE_EXCEPTIONS as exc:
+            if isinstance(exc, urllib.error.HTTPError) and not _is_transient_http(
+                exc.code
+            ):
+                raise
             last_exc = exc
             if attempt < max_retries:
                 # S27: Add jitter to prevent thundering herd on retries
                 delay = base_delay * (2**attempt) + _random_mod.uniform(0, 1.0)
                 logger.warning(
                     f"Retry {attempt + 1}/{max_retries} after "
-                    f"{delay:.1f}s for {fn.__name__ if hasattr(fn, '__name__') else 'callable'}: {exc}"
+                    f"{delay:.1f}s for {fn.__name__ if hasattr(fn, '__name__') else 'callable'}: {_describe_exc(exc)}"
                 )
                 time.sleep(delay)
             else:
                 logger.error(
                     f"All {max_retries} retries exhausted for "
-                    f"{fn.__name__ if hasattr(fn, '__name__') else 'callable'}: {last_exc}",
+                    f"{fn.__name__ if hasattr(fn, '__name__') else 'callable'}: {_describe_exc(last_exc)}",
                     exc_info=True,
                 )
                 return None
@@ -254,6 +328,8 @@ def _build_supabase_headers(*, prefer: str = "") -> dict[str, str]:
 def _upsert_to_supabase(
     table: str,
     rows: list[dict[str, Any]],
+    *,
+    append_only: bool = False,
 ) -> int:
     """Upsert rows into a Supabase table via PostgREST.
 
@@ -265,6 +341,10 @@ def _upsert_to_supabase(
     Args:
         table: Target Supabase table name.
         rows: List of row dicts to upsert.
+        append_only: Plain INSERT (no ``on_conflict``, no merge-duplicates) for
+            append-only audit tables such as ``enrichment_log``, whose only
+            key is a serial ``id``. Sending ``on_conflict`` for columns that
+            have no UNIQUE constraint makes Postgres answer 42P10 -> HTTP 400.
 
     Returns:
         Number of rows successfully upserted (0 on any failure).
@@ -308,13 +388,15 @@ def _upsert_to_supabase(
             del _supabase_table_fail_times[table]
 
     base = SUPABASE_URL.rstrip("/")
-    on_conflict = _ON_CONFLICT_MAP.get(table) or ""
+    on_conflict = "" if append_only else (_ON_CONFLICT_MAP.get(table) or "")
     url = f"{base}/rest/v1/{table}"
     if on_conflict:
         # PostgREST expects commas unencoded: ?on_conflict=category,key
         url += f"?on_conflict={on_conflict}"
 
-    headers = _build_supabase_headers(prefer="resolution=merge-duplicates")
+    headers = _build_supabase_headers(
+        prefer="return=minimal" if append_only else "resolution=merge-duplicates"
+    )
     total_upserted = 0
 
     for i in range(0, len(rows), _BATCH_SIZE):
@@ -346,11 +428,9 @@ def _upsert_to_supabase(
             if result is not None:
                 total_upserted += result
         except urllib.error.HTTPError as exc:
-            error_body = ""
-            try:
-                error_body = exc.read().decode("utf-8", errors="replace")[:300]
-            except OSError:
-                pass
+            # Only permanent (non-retryable) statuses reach here: see
+            # _retry_with_backoff. The body is the diagnosis -- log it.
+            error_body = _http_error_body(exc)
             if exc.code == 401:
                 # Trip PER-TABLE circuit breaker (not global)
                 now = time.monotonic()
@@ -386,9 +466,13 @@ def _upsert_to_supabase(
                     pass
                 break
             logger.error(
-                f"Supabase HTTP {exc.code} upserting to {table}: {error_body}",
-                exc_info=True,
+                f"Supabase HTTP {exc.code} upserting to '{table}' "
+                f"(on_conflict={on_conflict or 'none'}, batch of {len(chunk)}, "
+                f"not retried -- the same request cannot succeed): {error_body}"
             )
+            # Every remaining chunk has the same shape and would fail the same
+            # way; stop instead of repeating the error per batch.
+            break
         except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             logger.error(f"Supabase error upserting to {table}: {exc}", exc_info=True)
 
@@ -647,7 +731,11 @@ class DataEnrichmentEngine:
             "records_affected": records,
             "details": json.dumps({"success": success}),
         }
-        _upsert_to_supabase("enrichment_log", [row])
+        # Append-only INSERT. The table is an audit trail with a serial id and
+        # no UNIQUE(source, action); upserting with on_conflict=source,action
+        # made Postgres reject every write (42P10 -> HTTP 400), so no state
+        # ever persisted and all sources re-ran after every deploy.
+        _upsert_to_supabase("enrichment_log", [row], append_only=True)
 
     # -- Freshness checks ------------------------------------------------------
 
@@ -771,18 +859,24 @@ class DataEnrichmentEngine:
                 for role_name, role_data in data.items():
                     if not isinstance(role_data, dict):
                         continue
+                    # Column names follow scripts/supabase_schema.sql
+                    # (median_salary / salary_10th / salary_90th / data_source /
+                    # updated_at); the former salary_range_low / salary_range_high
+                    # / source / scraped_at columns exist in no schema file, so
+                    # PostgREST rejected the whole batch (HTTP 400, PGRST204).
                     sb_rows.append(
                         {
                             "role": role_name,
                             "location": (role_data.get("location") or "national"),
+                            "industry": "overall",
                             "median_salary": role_data.get("median_salary")
                             or role_data.get("median"),
-                            "salary_range_low": role_data.get("p10")
+                            "salary_10th": role_data.get("p10")
                             or role_data.get("salary_range_low"),
-                            "salary_range_high": role_data.get("p90")
+                            "salary_90th": role_data.get("p90")
                             or role_data.get("salary_range_high"),
-                            "source": "BLS",
-                            "scraped_at": now_iso,
+                            "data_source": "BLS",
+                            "updated_at": now_iso,
                             "metadata": {
                                 **role_data,
                                 "ai_salary_insight": (
