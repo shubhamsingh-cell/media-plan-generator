@@ -384,7 +384,8 @@
           <div class="file-upload-icon">&#128206;</div>
           <div class="file-upload-text">Drop files here or click to upload</div>
           <div class="file-upload-hint">
-            PDF, DOCX, TXT -- max 10MB each. RFPs, briefs, or any context docs.
+            PDF, DOCX, TXT -- up to 7 MB in total across all uploads. RFPs,
+            briefs, or any context docs.
           </div>
         </div>
         <div id="briefFileList" class="file-list"></div>
@@ -454,7 +455,7 @@
               placeholder="150,000"
               aria-required="true"
               aria-label="Total campaign budget amount"
-              aria-describedby="budgetRange-error budget-hint"
+              aria-describedby="budgetRange-error budget-hint budgetResolved"
             />
           </div>
           <input type="hidden" id="budgetRange" value="" />
@@ -480,9 +481,17 @@
             </select>
           </div>
           <div class="form-hint" id="budget-hint">
-            Type any amount &mdash; shorthand works (12.5M, 500K, 2B), or tap a
+            Type any amount &mdash; 150,000, 1.5M, 1.5 million, 500K, 5 lakh,
+            or a range like 10k-15k (planned at its midpoint) &mdash; or tap a
             quick amount.
           </div>
+          <!-- The figure the plan will use, read by the server's own rules
+               (novaBudgetReadingText, body_inputs_js.html). -->
+          <div
+            class="form-hint budget-resolved"
+            id="budgetResolved"
+            aria-live="polite"
+          ></div>
           <div
             class="copilot-nudge"
             id="nudge-budget"

@@ -56,54 +56,25 @@ def _slice(src: str, start: str, end: str) -> str:
 
 
 def _wizard_payloads(touch: dict | None) -> dict:
-    """Run the wizard's real channel code under node.
+    """Run the wizard's real request builders under node
+    (tests/wizard_js_harness.py: the generatePlan payload literal and the
+    preview's estimatePayload, from one form state).
 
     touch: None for an untouched wizard, else {toggle_id: checked} applied
     as user changes (each fires a bubbling 'change' event).
     Returns the channel_categories each payload would carry after
     JSON.stringify ("<absent>" when the key is dropped).
     """
-    app_src = _APP_JS.read_text()
-    prev_src = _PREVIEW_JS.read_text()
-    parts = []
-    marker = "// ── Channel selection (one rule for generate, estimate and preview)"
-    if marker in app_src:
-        parts.append(_slice(app_src, marker, "// ── end channel selection ──"))
-    gen_prop = _slice(
-        app_src[app_src.index("// 28. Updated payload with new fields") :],
-        "channel_categories:",
-        "include_educational:",
-    )
-    parts.append(_slice(prev_src, "// True once the user toggles any channel", "// ── Channel model"))
-    parts.append(_slice(prev_src, "function estimateChannelCategories", "function estimatePayload"))
-    script = "\n".join(
-        [
-            "var state = " + json.dumps({t: t == "chSocial" for t in _TOGGLES}) + ";",
-            "var listeners = [];",
-            "var document = {",
-            "  getElementById: function (id) { return id in state ? {",
-            "    get checked() { return state[id]; }, id: id } : null; },",
-            "  addEventListener: function (t, fn) { if (t === 'change') listeners.push(fn); },",
-            "};",
-            "function $(id) { return document.getElementById(id); }",
-            "function channelOn(id) { var el = $(id); return !!(el && el.checked); }",
-            *parts,
-            "var touch = " + json.dumps(touch) + ";",
-            "if (touch) Object.keys(touch).forEach(function (id) {",
-            "  state[id] = touch[id];",
-            "  listeners.forEach(function (fn) { fn({ target: { id: id } }); });",
-            "  if (typeof channelsTouched === 'boolean') channelsTouched = true;",
-            "});",
-            "var gen = JSON.parse(JSON.stringify({" + gen_prop + "}));",
-            "var est = JSON.parse(JSON.stringify({ channel_categories: estimateChannelCategories() }));",
-            "function out(p) { return 'channel_categories' in p ? p.channel_categories : '<absent>'; }",
-            "process.stdout.write(JSON.stringify({ generate: out(gen), estimate: out(est) }));",
-        ]
-    )
-    res = subprocess.run(
-        [_NODE, "-e", script], capture_output=True, text=True, timeout=30, check=True
-    )
-    return json.loads(res.stdout)
+    from tests.wizard_js_harness import wizard_payloads
+
+    state = {t: {"checked": t == "chSocial"} for t in _TOGGLES}
+    state["regionSelector"] = {"value": "us_only"}
+    got = wizard_payloads(state, touch=touch)
+
+    def out(p: dict):
+        return p["channel_categories"] if "channel_categories" in p else "<absent>"
+
+    return {"generate": out(got["generate"]), "estimate": out(got["estimate"])}
 
 
 def _brief_with(cats) -> dict:

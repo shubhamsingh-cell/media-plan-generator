@@ -11,6 +11,7 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -105,7 +106,32 @@ def compose_template(page_name: str) -> Optional[bytes]:
         return None
 
     composed = _resolve_includes(shell_text, page_partials_dir)
+    composed = embed_server_constants(composed)
     return composed.encode("utf-8")
+
+
+# ── Server-owned constants embedded into pages ──
+# The wizard reads budget text, durations and field limits with the SAME
+# tables the server enforces (wizard_inputs.page_config), embedded here at
+# compose time instead of re-typed in JS where they could drift.
+WIZARD_INPUTS_PLACEHOLDER = "__NOVA_WIZARD_INPUTS_JSON__"
+
+
+def wizard_inputs_json() -> str:
+    """wizard_inputs.page_config() as JSON that is safe inside a <script>
+    element (ASCII-only, and "</" escaped so it can never close the tag)."""
+    import wizard_inputs
+
+    return json.dumps(
+        wizard_inputs.page_config(), ensure_ascii=True, sort_keys=True
+    ).replace("</", "<\\/")
+
+
+def embed_server_constants(html: str) -> str:
+    """Replace server-constant placeholders in composed page text."""
+    if WIZARD_INPUTS_PLACEHOLDER in html:
+        html = html.replace(WIZARD_INPUTS_PLACEHOLDER, wizard_inputs_json())
+    return html
 
 
 def get_composed_template(page_name: str) -> Optional[bytes]:

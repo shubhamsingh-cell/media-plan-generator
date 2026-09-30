@@ -80,16 +80,17 @@ def test_estimate_without_selection_is_unchanged(captured):
 
 
 def test_wizard_preview_sends_channel_categories_to_estimate():
-    with open(
-        os.path.join(_ROOT, "templates", "partials", "index", "body_preview_js.html"),
-        encoding="utf-8",
-    ) as fh:
-        js = fh.read()
-    payload_fn = re.search(
-        r"function estimatePayload\([^)]*\)\s*\{(.*?)\n    \}", js, re.S
-    )
-    assert payload_fn, "estimatePayload() not found"
-    assert "channel_categories" in payload_fn.group(1)
+    # 2026-10-01: the preview posts the generate payload's core inputs
+    # (novaPlanCoreInputs), which carry channel_categories -- checked on the
+    # real builders under node (tests/wizard_js_harness.py).
+    from tests.wizard_js_harness import NODE, wizard_payloads
+
+    if NODE is None:
+        pytest.skip("node not installed")
+    state = {"regionSelector": {"value": "us_only"}, "chSocial": {"checked": True}}
+    got = wizard_payloads(state, touch={"chProgrammatic": False})
+    assert got["estimate"]["channel_categories"] == got["generate"]["channel_categories"]
+    assert got["estimate"]["channel_categories"]["programmatic_dsp"] is False
 
 
 def test_wizard_preview_refetches_when_channel_toggles_change():
@@ -99,6 +100,6 @@ def test_wizard_preview_refetches_when_channel_toggles_change():
     ) as fh:
         js = fh.read()
     start = js.index("function fetchEstimate(m)")
-    sig = js[js.index("var sig = JSON.stringify(", start) :]
-    sig = sig[: sig.index(");")]
-    assert "channelCats" in sig
+    # The refetch signature is the whole request body, channel_categories
+    # included, so a toggle change always refetches.
+    assert "var sig = JSON.stringify(payload);" in js[start:]

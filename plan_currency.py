@@ -526,6 +526,19 @@ def currency_codes_from_symbol(text: str | None) -> "tuple[str, ...]":
     return ()
 
 
+def declared_currency_symbol(text: str | None) -> str:
+    """The symbol :func:`currency_codes_from_symbol` reads in ``text`` (the
+    same longest-first scan), or ``""`` when none is written. Used to carry a
+    client's declared currency over when their budget text is rewritten to a
+    canonical amount ("1.5 million" -> "1,500,000", "£1.5M" -> "£1,500,000")."""
+    if not text or not isinstance(text, str):
+        return ""
+    for symbol, _codes in _SYMBOL_TO_CODES:
+        if symbol in text:
+            return symbol
+    return ""
+
+
 def resolve_declared_currency(
     budget_text: str | None,
     explicit_code: str | None = None,

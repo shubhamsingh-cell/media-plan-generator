@@ -96,9 +96,13 @@ def _run_wizard(touch: dict | None, estimate: dict | None) -> dict:
     Returns {"preview": [toggle ids of the mix rows], "recommended": bool,
     "review": {...} | None}.
     """
+    from tests.wizard_js_harness import inputs_functions_js
+
     app_src = _APP_JS.read_text()
     prev_src = _PREVIEW_JS.read_text()
     parts = [
+        # gather() reads the budget through body_inputs_js.html (2026-10-01).
+        inputs_functions_js(),
         _slice(
             app_src,
             "// ── Channel selection (one rule for generate, estimate and preview)",
@@ -108,12 +112,25 @@ def _run_wizard(touch: dict | None, estimate: dict | None) -> dict:
         _slice(prev_src, "function gather()", "// ── Live plan estimate"),
     ]
     if "function setFunded(" in prev_src:
-        parts.append(_slice(prev_src, "function setFunded(", "function resolveIndustry()"))
+        end = (
+            "function resolveIndustry()"
+            if "function resolveIndustry()" in prev_src
+            else "function estimatePayload("
+        )
+        parts.append(_slice(prev_src, "function setFunded(", end))
     state = {t: t == "chSocial" for t in _TOGGLES}
-    values = {"exactBudget": _BRIEF["budget"], "budgetPeriod": "campaign"}
+    values = {
+        "exactBudget": _BRIEF["budget"],
+        "budgetRange": "__exact__",
+        "budgetPeriod": "campaign",
+    }
     script = "\n".join(
         [
             "var window = {};",
+            # novaPlanCoreInputs (the payload builder gather() reads) globals
+            "var selectedIndustry = " + json.dumps(_BRIEF["industry"]) + ";",
+            "var locations = " + json.dumps(_BRIEF["locations"]) + ";",
+            "var roles = " + json.dumps(_BRIEF["roles"]) + ";",
             "var state = " + json.dumps(state) + ";",
             "var values = " + json.dumps(values) + ";",
             "var listeners = [];",

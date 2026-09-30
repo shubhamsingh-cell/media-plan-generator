@@ -24,6 +24,12 @@ These tests execute the REAL server block (extracted from app.py source and
 run against app's own globals) and the REAL preview arithmetic (extracted
 from the template and run under node) for every duration option in the
 wizard's <select>, and require the two to agree.
+
+2026-10-01 (wizard audit D-02/D-05): the preview no longer carries its own
+DURATION_MONTHS literal -- it reads budget text, months and the per-period
+multiplier through body_inputs_js.html (the JS port of wizard_inputs.py)
+with the server's tables embedded at compose time, so the preview side of
+these checks now runs THAT code with the config the page actually gets.
 """
 
 from __future__ import annotations
@@ -78,31 +84,53 @@ def _server_campaign_budget(amount: str, period: str, duration: str) -> float:
 
 
 def _preview_campaign_total(base: float, period: str, duration: str) -> float:
-    """Run the preview's own gather() budget arithmetic under node."""
-    src = _PREVIEW_JS.read_text()
-    # The preview's module-level duration/period tables live between the
-    # DURATION_MONTHS declaration and the "Small helpers" section.
-    dm_start = src.index("var DURATION_MONTHS = {")
-    dm_end = src.index("// ── Small helpers", dm_start)
-    g_start = src.index('var months = DURATION_MONTHS[val("campaignDuration")]')
-    g_end = src.index("// channels", g_start)
+    """Run the preview's budget arithmetic (novaResolvePlanBudget, which
+    gather() calls with the payload's budget text/period/duration) under
+    node, with the tables the page embeds."""
+    from tests.wizard_js_harness import inputs_functions_js
+
     script = "\n".join(
         [
-            src[dm_start:dm_end],
-            "function val(id) { return ({campaignDuration: "
-            + json.dumps(duration)
-            + ", budgetPeriod: "
+            inputs_functions_js(),
+            "var plan = novaResolvePlanBudget("
+            + json.dumps(base)
+            + ", "
             + json.dumps(period)
-            + "})[id] || ''; }",
-            f"var base = {base!r};",
-            src[g_start:g_end],
-            "process.stdout.write(String(total));",
+            + ", "
+            + json.dumps(duration)
+            + ");",
+            "process.stdout.write(String(plan.total));",
         ]
     )
     out = subprocess.run(
         [_NODE, "-e", script], capture_output=True, text=True, timeout=30, check=True
     )
     return float(out.stdout)
+
+
+def _preview_gather_uses_shared_reader() -> bool:
+    """gather() must take its budget from novaResolvePlanBudget over the
+    SAME budget_range/budget_period/campaign_duration the payload sends."""
+    src = _PREVIEW_JS.read_text()
+    g_start = src.index("function gather()")
+    g_end = src.index("// channels", g_start)
+    body = src[g_start:g_end]
+    return (
+        "novaResolvePlanBudget(inputs.budget_range, inputs.budget_period, "
+        "inputs.campaign_duration)" in body
+        and "var inputs = planInputs();" in body
+    )
+
+
+def _embedded_duration_months() -> dict:
+    """The duration table the composed wizard page actually carries."""
+    import template_composer
+
+    html = template_composer.compose_template("index").decode("utf-8")
+    start = html.index('<script type="application/json" id="novaWizardInputs">')
+    start = html.index(">", start) + 1
+    end = html.index("</script>", start)
+    return json.loads(html[start:end])["duration_months"]
 
 
 needs_node = pytest.mark.skipif(_NODE is None, reason="node not installed")
@@ -132,29 +160,29 @@ def test_every_duration_option_scales_identically_in_preview_and_server(period):
 
 
 def test_preview_duration_map_covers_every_wizard_option():
-    src = _PREVIEW_JS.read_text()
-    dm_start = src.index("var DURATION_MONTHS = {")
-    dm_end = src.index("};", dm_start)
-    literal = src[dm_start:dm_end]
-    missing = [d for d in _wizard_duration_options() if f'"{d}"' not in literal]
-    assert not missing, f"preview DURATION_MONTHS lacks wizard options: {missing}"
+    embedded = _embedded_duration_months()
+    missing = [d for d in _wizard_duration_options() if d not in embedded]
+    assert not missing, f"embedded duration table lacks wizard options: {missing}"
 
 
 def test_server_duration_map_matches_preview_map():
-    src = _PREVIEW_JS.read_text()
-    dm_start = src.index("var DURATION_MONTHS = {")
-    dm_end = src.index("};", dm_start)
-    js_pairs = dict(
-        (k, float(v))
-        for k, v in re.findall(r'"([^"]+)"\s*:\s*([0-9.]+)', src[dm_start:dm_end])
-    )
+    js_pairs = {k: float(v) for k, v in _embedded_duration_months().items()}
     assert {k: float(v) for k, v in app.BUDGET_DURATION_MONTHS.items()} == js_pairs
+
+
+def test_preview_gather_reads_budget_through_the_shared_reader():
+    assert _preview_gather_uses_shared_reader()
 
 
 def test_only_6_12_months_reads_first_number_6():
     # Prod log for all 4 reported runs: "monthly $10,000 x 6.0 = $60,000".
-    # The only wizard option whose first integer is 6 is "6-12 months".
-    sixes = [d for d in _wizard_duration_options() if re.match(r"\s*6\D", d)]
+    # The only RANGE option whose first integer is 6 is "6-12 months" (the
+    # exact "6 months" option added 2026-10-01 is not a range).
+    sixes = [
+        d
+        for d in _wizard_duration_options()
+        if "-" in d and re.match(r"\s*6\D", d)
+    ]
     assert sixes == ["6-12 months"]
 
 

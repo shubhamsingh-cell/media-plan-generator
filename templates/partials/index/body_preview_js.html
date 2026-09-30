@@ -54,55 +54,30 @@
     var fundedChannels = null;
     var fundedSetSig = "";   // industry/locations/selection the list belongs to
 
-    var BUDGET_MIDPOINTS = {
-      "< $50,000": 35000,
-      "$50,000 - $250,000": 150000,
-      "$250,000 - $500,000": 375000,
-      "$500,000 - $1,000,000": 750000,
-      "$1,000,000 - $3,000,000": 2000000,
-      "$3,000,000+": 4000000,
-    };
-    // Campaign months per #campaignDuration option, used to scale a
-    // per-month/quarter/year budget to the campaign total. MUST stay
-    // identical to app.BUDGET_DURATION_MONTHS (the server applies the same
-    // map to the same inputs) -- tests/test_budget_period_preview_parity.py
-    // enforces it. A mismatch here is what made a plan preview $90K and
-    // generate $60K (client report 2026-09-24).
-    var DURATION_MONTHS = {
-      "2 weeks": 0.5, "1 month": 1, "2 months": 2, "3 months": 3,
-      "1-3 months": 2, "3-6 months": 4.5, "6-12 months": 9,
-      "1-2 years": 18, "2-5 years (Long-term)": 42, "Ongoing": 12,
-    };
-    var PERIOD_MONTHS = { monthly: 1, quarterly: 3, annual: 12 };
-    // Free-text duration ("24 months", "16 weeks", "1-2 years" -> midpoint)
-    // in months, or 0 when no number+unit is stated. Mirrors
-    // app._explicit_duration_months so a non-dropdown value (e.g. a restored
-    // or API-seeded duration) previews the same total the server generates.
-    var UNIT_MONTHS = { d: 12 / 365, w: 12 / 52, m: 1, y: 12 };
-    function freeTextDurationMonths(s) {
-      var m = /(\d+(?:\.\d+)?)(?:\s*(?:-|\u2013|to)\s*(\d+(?:\.\d+)?))?\s*(days?|weeks?|wks?|months?|mos?|years?|yrs?)\b/i.exec(s || "");
-      if (!m) return 0;
-      var lo = parseFloat(m[1]);
-      var hi = m[2] ? parseFloat(m[2]) : lo;
-      return (lo + hi) / 2 * UNIT_MONTHS[m[3].charAt(0).toLowerCase()];
-    }
-
+    // Budget text, duration months and the per-period multiplier are read
+    // by body_inputs_js.html (novaResolvePlanBudget / novaCampaignMonths /
+    // novaBudgetMultiplier) -- the JS port of wizard_inputs.py, fed the
+    // server's own embedded tables. The preview used to carry its own
+    // parseMoney() ("1.5 million" -> 1.5M here, $1.50 on the server) and
+    // its own duration map (wizard audit D-02, client report 2026-09-24).
+    // tests/test_budget_period_preview_parity.py + test_wizard_budget_parser.py.
     // ── Small helpers ─────────────────────────────────────────────────
     function $(id) { return document.getElementById(id); }
     function val(id) { var el = $(id); return el ? (el.value || "").trim() : ""; }
 
-    function parseMoney(s) {
-      if (!s) return 0;
-      s = String(s).trim().toLowerCase().replace(/[$,\s]/g, "");
-      var m = s.match(/^([0-9]*\.?[0-9]+)\s*([kmb])?/);
-      if (!m) return 0;
-      var n = parseFloat(m[1]);
-      if (!isFinite(n)) return 0;
-      var suf = m[2];
-      if (suf === "k") n *= 1e3;
-      else if (suf === "m") n *= 1e6;
-      else if (suf === "b") n *= 1e9;
-      return n;
+    // The fields /api/generate will receive (body_app_js.html builds both
+    // payloads from novaPlanCoreInputs); a bare-form fallback for a page
+    // without that script.
+    function planInputs() {
+      if (typeof novaPlanCoreInputs === "function") return novaPlanCoreInputs();
+      var br = val("budgetRange");
+      return {
+        budget_range: br === "__exact__" || !br ? val("exactBudget") : br,
+        budget_period: val("budgetPeriod") || "campaign",
+        campaign_duration: val("campaignDuration"),
+        locations: readTags("locationsContainer"),
+        target_roles: readTags("rolesContainer"),
+      };
     }
 
     function readTags(containerId) {
@@ -191,22 +166,19 @@
 
     // ── Gather model from the form ────────────────────────────────────
     function gather() {
-      // budget — exact-first: prefer the typed amount, fall back to bucket
-      var br = val("budgetRange");
-      var base = parseMoney(val("exactBudget"));
-      if (!base) base = BUDGET_MIDPOINTS[br] || 0;
-
-      var months = DURATION_MONTHS[val("campaignDuration")] || 6;
-      if (!DURATION_MONTHS[val("campaignDuration")]) {
-        months = freeTextDurationMonths(val("campaignDuration")) || 6;
-      }
-      var period = val("budgetPeriod") || "campaign";
-      // Same rule as app._budget_period_multiplier: periods covered by the
-      // campaign, never below 1 (a per-period amount is not shrunk).
-      var total = base;
-      if (PERIOD_MONTHS[period]) {
-        total = base * Math.max(months / PERIOD_MONTHS[period], 1);
-      }
+      // budget — the SAME text, period and duration the generate payload
+      // sends, read by the server's rules (range -> midpoint; per-period
+      // amount x the campaign's months; bounds on the total). An amount the
+      // server would reject previews as no budget, with its message.
+      var inputs = planInputs();
+      var plan = (typeof novaResolvePlanBudget === "function")
+        ? novaResolvePlanBudget(inputs.budget_range, inputs.budget_period, inputs.campaign_duration)
+        : null;
+      var base = plan && plan.parse.ok ? plan.parse.amount : 0;
+      var months = plan ? plan.months : 6;
+      var period = (plan && plan.period) || "campaign";
+      var total = plan && plan.ok ? plan.total : 0;
+      var budgetError = plan && !plan.ok && inputs.budget_range ? plan.message : "";
 
       // channels — untouched toggles (the markup pre-checks only Social)
       // or a touched-then-all-unchecked set both mean Nova's recommended
@@ -246,7 +218,7 @@
       var startMonth = parseInt(val("campaignStartMonth"), 10) || 0;
 
       // metro premium
-      var locs = readTags("locationsContainer");
+      var locs = inputs.locations || readTags("locationsContainer");
       var locStr = locs.join(" ").toLowerCase();
       var metroMult = /(san francisco|bay area|new york|nyc|london|seattle|boston)/.test(locStr) ? 1.12 : 1.0;
 
@@ -296,6 +268,7 @@
         client: client, role: role, locs: locs, period: period, months: months,
         roleClass: roleClass, targetHires: targetHires, startMonth: startMonth,
         metro: metroMult > 1, channelsTouched: channelsTouched(),
+        plan: plan, budgetError: budgetError, inputs: inputs,
       };
     }
 
@@ -338,8 +311,8 @@
     // The funded channel SET depends on industry, locations (US-only strips
     // APAC/EMEA) and the selection; a budget/role edit only moves the
     // shares, so the list is kept until the new split arrives.
-    function dropStaleFunded(locs, industry, channelCats) {
-      var setSig = JSON.stringify([(locs || []).slice().sort(), industry, channelCats]);
+    function dropStaleFunded(locs, industry, channelCats, region) {
+      var setSig = JSON.stringify([(locs || []).slice().sort(), industry, channelCats, region]);
       if (setSig !== fundedSetSig && fundedChannels) {
         fundedChannels = null;
         notifyFunded();
@@ -352,64 +325,28 @@
       }
     }
 
-    function resolveIndustry() {
-      var industry = "";
-      var icard = document.querySelector(".industry-card.selected, .industry-card[aria-pressed='true']");
-      if (icard) industry = icard.dataset.industry || "";
-      if (!industry) industry = val("naicsSearch");
-      return industry;
+    // The /api/estimate body: EXACTLY the core fields the /api/generate
+    // payload carries (novaPlanCoreInputs, body_app_js.html) -- the raw
+    // budget text + period + duration (the server reads and scales them, as
+    // it will at Generate), target_region, start month, the selected
+    // industry key, roles, locations and the channel selection. It used to
+    // post its own pre-multiplied budget, no region, no start month and the
+    // typed NAICS search text as the industry (wizard audit D-02/D-04/D-23).
+    function estimatePayload(m) {
+      return m.inputs || planInputs();
     }
 
-    // The same channel_categories the /api/generate payload sends
-    // (body_app_js.html), so the preview funds only the channels the plan
-    // will fund -- the server applies the same _apply_channel_selection.
-    // Untouched toggles send nothing (undefined): the server then uses the
-    // recommended industry mix, as the preview's "Recommended mix" shows.
-    function estimateChannelCategories() {
-      if (!channelsTouched()) return undefined;
-      return {
-        regional_boards: channelOn("chRegionalBoards"),
-        global_boards: channelOn("chGlobalBoards"),
-        niche_boards: channelOn("chNicheBoards"),
-        social_media: channelOn("chSocial"),
-        programmatic_dsp: channelOn("chProgrammatic"),
-        employer_branding: channelOn("chEmployerBrand"),
-        apac_regional: channelOn("chApac"),
-        emea_regional: channelOn("chEmea"),
-      };
-    }
-
-    function estimatePayload(m, roles, industry, clientName, channelCats) {
-      return {
-        budget: String(Math.round(m.total)),
-        industry: industry,
-        client_name: clientName,
-        roles: roles,
-        locations: m.locs,
-        channel_categories: channelCats,
-      };
-    }
-
-    // Fetches a fresh /api/estimate only when the inputs that actually
-    // feed calculate_budget_allocation (budget, roles, locations, industry,
-    // client_name) have changed -- not on every mix-bar-only or copy-only
-    // render() tick. industry/client_name are resolved once here and
-    // threaded through to estimatePayload() below so the signature always
-    // matches exactly what gets sent -- they used to be missing from this
-    // signature entirely, so switching industry (which materially changes
-    // the engine's channel mix and result) with an unchanged budget/roles/
-    // locations silently kept showing the PREVIOUS industry's stale
-    // estimate.
+    // Fetches a fresh /api/estimate only when the request body would change
+    // -- the signature IS the payload, so it can never omit a field the
+    // server reads (industry / client name / channel toggles each once went
+    // missing from a hand-picked signature and left a stale estimate up).
     function fetchEstimate(m) {
-      var roles = readTags("rolesContainer");
-      var industry = resolveIndustry();
-      var clientName = val("clientName");
-      var channelCats = estimateChannelCategories();
-      var sig = JSON.stringify([
-        Math.round(m.total), (m.locs || []).slice().sort(), roles.slice().sort(),
-        industry, clientName, channelCats
-      ]);
-      var setSig = dropStaleFunded(m.locs, industry, channelCats);
+      var payload = estimatePayload(m);
+      var roles = payload.target_roles || [];
+      var sig = JSON.stringify(payload);
+      var setSig = dropStaleFunded(
+        payload.locations, payload.industry, payload.channel_categories, payload.target_region
+      );
       if (sig === lastScheduledSig) return;
       if (sig !== estimateRetrySig) {
         // A genuinely new input state, not just fetchEstimate() re-running
@@ -434,7 +371,6 @@
 
       estimateTimer = setTimeout(function () {
         var requestSig = sig;
-        var payload = estimatePayload(m, roles, industry, clientName, channelCats);
         fetch("/api/estimate", {
           method: "POST",
           headers: {
@@ -610,10 +546,18 @@
       setNum($("npBudget"), m.total, hero);
       var foot = $("npBudgetFoot");
       if (hasBudget) {
+        // Months to one decimal: "3-6 months" plans 4.5, not "~5".
         var periodWord = m.period === "campaign" ? "total campaign" :
-          m.period === "monthly" ? ("over ~" + trim(m.months, 0) + " mo (" + hero(m.base) + "/mo)") :
-          m.period === "quarterly" ? "across the campaign" : "annualized";
-        foot.innerHTML = "<b>" + (m.recommended ? "Recommended" : m.rows.length + "-channel") + "</b> mix · " + periodWord;
+          m.period === "monthly" ? ("over ~" + trim(m.months, 1) + " mo (" + hero(m.base) + "/mo)") :
+          m.period === "quarterly" ? ("over ~" + trim(m.months, 1) + " mo (" + hero(m.base) + "/qtr)") :
+          ("over ~" + trim(m.months, 1) + " mo (" + hero(m.base) + "/yr)");
+        if (m.plan && m.plan.parse.is_range) {
+          periodWord += " · midpoint of " + hero(m.plan.parse.low) + "–" + hero(m.plan.parse.high);
+        }
+        foot.innerHTML = "<b>" + (m.recommended ? "Recommended" : m.rows.length + "-channel") + "</b> mix · " + escapeHtml(periodWord);
+      } else if (m.budgetError) {
+        // The server's own message for this amount (it would reject it).
+        foot.textContent = m.budgetError;
       } else {
         foot.textContent = "Set a budget to model your plan";
       }

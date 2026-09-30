@@ -451,17 +451,28 @@ class TestBudgetPeriodCurrencySymbolSurvives:
         assert f"{prefix}{scaled:,.0f}" == "€15,000"
 
     def test_budget_period_block_uses_the_shared_prefix_helper(self):
+        # The block delegates to _normalize_request_budget (2026-10-01, the
+        # one budget reading shared with /api/estimate); its prefix comes
+        # from _canonical_budget_prefix -> _budget_currency_prefix, never a
+        # hardcoded "$".
         src = _app_source()
         start = src.index(
             "# ── Budget period normalization (monthly/quarterly/annual"
         )
         end = src.index("# ── Gold Standard: Campaign start month validation", start)
         block = src[start:end]
-        assert "_budget_currency_prefix(" in block
+        assert "_normalize_request_budget(data)" in block
         assert 'f"${_scaled:,.0f}"' not in block, (
             "the budget-period block must not hardcode a '$' prefix when "
             "formatting the scaled budget"
         )
+        prefix_src = src[src.index("def _canonical_budget_prefix(") :]
+        prefix_src = prefix_src[: prefix_src.index("\ndef ")]
+        assert "_budget_currency_prefix(" in prefix_src
+        for raw, expected in (("£10,000", "£30,000"), ("€5,000", "€15,000")):
+            data = {"budget": raw, "budget_period": "monthly", "campaign_duration": "3 months"}
+            app._normalize_request_budget(data)
+            assert data["budget"] == expected, (raw, data["budget"])
 
 
 if __name__ == "__main__":

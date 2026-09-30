@@ -1,0 +1,326 @@
+<!-- ════════════════════════════════════════════════════════════════════
+     WIZARD INPUT RULES — budget text, campaign duration, field limits.
+     The tables below are wizard_inputs.page_config(), embedded at compose
+     time by template_composer (never re-typed here). The functions are the
+     JS port of wizard_inputs.parse_budget_input / resolve_plan_budget:
+     tests/test_wizard_budget_parser.py runs BOTH over one golden table
+     (tests/fixtures/budget_input_golden.json), so the live preview, the
+     inline validation, /api/estimate and /api/generate read "1.5 million"
+     as the same number (wizard audit D-02, 2026-10-01).
+     ════════════════════════════════════════════════════════════════════ -->
+<script type="application/json" id="novaWizardInputs">__NOVA_WIZARD_INPUTS_JSON__</script>
+<script>
+  var NOVA_INPUTS = (function () {
+    try {
+      var el = document.getElementById("novaWizardInputs");
+      var cfg = JSON.parse(el ? el.textContent : "null");
+      return cfg && cfg.budget ? cfg : null;
+    } catch (e) {
+      return null;
+    }
+  })();
+  /* @@wizard-inputs:functions-start */
+  var _novaRxCache = {};
+  // Compiled from the server's own regex sources. "g" variants replace or
+  // collect; the plain ones are only used with test()/exec() (a global
+  // RegExp carries lastIndex state between test() calls).
+  function _novaRx(name, global) {
+    var key = name + (global ? "/g" : "");
+    if (!_novaRxCache[key]) {
+      _novaRxCache[key] = new RegExp(NOVA_INPUTS.budget.regex[name], global ? "g" : "");
+    }
+    return _novaRxCache[key];
+  }
+
+  function _novaBudgetFail(code) {
+    var msgs = (NOVA_INPUTS && NOVA_INPUTS.budget.messages) || {};
+    return {
+      ok: false, amount: 0, low: 0, high: 0, is_range: false,
+      currency: "", period: "", error: code, message: msgs[code] || "",
+    };
+  }
+
+  // Replace each match with its left-boundary group (when the pattern has
+  // one and it took part) plus a space -- Python's _sub_keep_boundary.
+  function _novaSubKeepBoundary(name, text) {
+    return text.replace(_novaRx(name, true), function (m, g1) {
+      return (typeof g1 === "string" ? g1 : "") + " ";
+    });
+  }
+
+  // wizard_inputs._number_parts: [integer digits, fraction digits] or null.
+  function _novaNumberParts(token, hasMult) {
+    var seps = token.match(_novaRx("sep", true)) || [];
+    var groups = token.split(_novaRx("sep", false));
+    if (!seps.length) return [token, ""];
+    var last = seps[seps.length - 1];
+    if (seps.length === 1) {
+      var lead = groups[0], tail = groups[1];
+      var thousands = tail.length === 3 && lead.length >= 1 && lead.length <= 3;
+      if (last === " " || last === "'") return thousands ? [lead + tail, ""] : null;
+      if (thousands && !(last === "." && hasMult)) return [lead + tail, ""];
+      if (last === "." || tail.length <= 3) return [lead, tail];
+      return null;
+    }
+    var lastCount = seps.filter(function (s) { return s === last; }).length;
+    var intGroups = groups, frac = "", intSeps = seps;
+    if ((last === "." || last === ",") && lastCount === 1) {
+      intGroups = groups.slice(0, -1);
+      frac = groups[groups.length - 1];
+      intSeps = seps.slice(0, -1);
+    }
+    for (var i = 1; i < intSeps.length; i++) {
+      if (intSeps[i] !== intSeps[0]) return null;
+    }
+    var n = intGroups.length;
+    var western = intGroups[0].length >= 1 && intGroups[0].length <= 3 &&
+      intGroups.slice(1).every(function (g) { return g.length === 3; });
+    var indian = intSeps[0] === "," && n >= 3 &&
+      intGroups[0].length >= 1 && intGroups[0].length <= 2 &&
+      intGroups.slice(1, n - 1).every(function (g) { return g.length === 2; }) &&
+      intGroups[n - 1].length === 3;
+    if (!(western || indian)) return null;
+    return [intGroups.join(""), frac];
+  }
+
+  // wizard_inputs._amount_value: digits x 10^exp / 10^fraction_digits,
+  // exact in both languages while significant digits + exp <= max_digits.
+  function _novaAmountValue(token, exp) {
+    var parts = _novaNumberParts(token, exp > 0);
+    if (!parts) return null;
+    var digits = parts[0] + parts[1];
+    var significant = digits.replace(/^0+/, "");
+    if (significant.length + exp > NOVA_INPUTS.budget.max_digits) return null;
+    var numerator = digits ? Number(digits) : 0;
+    return numerator * Math.pow(10, exp) / Math.pow(10, parts[1].length);
+  }
+
+  // JS port of wizard_inputs.parse_budget_input -- same result object.
+  function novaParseBudget(raw) {
+    if (!NOVA_INPUTS) return _novaBudgetFail("unavailable");
+    var B = NOVA_INPUTS.budget;
+    if (raw === null || raw === undefined) return _novaBudgetFail("empty");
+    if (typeof raw === "boolean") return _novaBudgetFail("not_a_number");
+    if (typeof raw === "number") {
+      if (!isFinite(raw)) return _novaBudgetFail("not_a_number");
+      if (raw < 0) return _novaBudgetFail("negative");
+      if (raw === 0) return _novaBudgetFail("zero");
+      return { ok: true, amount: raw, low: raw, high: raw, is_range: false,
+        currency: "", period: "", error: "", message: "" };
+    }
+    if (typeof raw !== "string") return _novaBudgetFail("not_a_number");
+    if (Array.from(raw).length > NOVA_INPUTS.limits.budget_max_chars) {
+      return _novaBudgetFail("too_long");
+    }
+
+    var text = raw.normalize("NFKC")
+      .replace(_novaRx("spaces", true), " ")
+      .replace(_novaRx("dashes", true), "-")
+      .replace(_novaRx("quotes", true), "'")
+      .toLowerCase()
+      .replace(/^ +| +$/g, "");
+    if (!text) return _novaBudgetFail("empty");
+    if (text.indexOf("%") !== -1) return _novaBudgetFail("percent");
+    if (_novaRx("exponent").test(text)) return _novaBudgetFail("exponent");
+
+    var currency = "";
+    var mSym = _novaRx("currency_symbol").exec(text);
+    var mWord = _novaRx("currency_word").exec(text);
+    if (mSym && (!mWord || mSym.index <= mWord.index)) {
+      currency = mSym[0].toUpperCase();
+    } else if (mWord) {
+      currency = mWord[0].slice((mWord[1] || "").length).replace(/\.+$/, "").toUpperCase();
+    }
+    text = text.replace(_novaRx("currency_symbol", true), " ");
+    text = _novaSubKeepBoundary("currency_word", text);
+
+    if (_novaRx("period_unsupported").test(text)) {
+      return _novaBudgetFail("unsupported_period");
+    }
+    var periods = [];
+    ["monthly", "quarterly", "annual"].forEach(function (name) {
+      if (_novaRx("period_" + name).test(text)) {
+        periods.push(name);
+        text = _novaSubKeepBoundary("period_" + name, text);
+      }
+    });
+    if (periods.length > 1) return _novaBudgetFail("conflicting_period");
+    var period = periods.length ? periods[0] : "";
+
+    var between = _novaRx("between").test(text);
+    text = _novaSubKeepBoundary("filler_words", text);
+    text = text.replace(_novaRx("filler_symbols", true), " ");
+    text = text.replace(/ +/g, " ").replace(/^ +| +$/g, "");
+    while (/[.,]$/.test(text)) text = text.slice(0, -1).replace(/ +$/, "");
+    if (!text) return _novaBudgetFail("not_a_number");
+
+    var tokens = text.match(_novaRx("token", true)) || [];
+    if (tokens.length && tokens[0] === "-") return _novaBudgetFail("negative");
+
+    var shape = [];
+    var amounts = []; // [numberToken, exponent|null]
+    for (var i = 0; i < tokens.length; i++) {
+      var tok = tokens[i];
+      var bare = tok.replace(/\.+$/, "");
+      if (_novaRx("number").test(tok)) {
+        var exp = null;
+        if (i + 1 < tokens.length && _novaRx("word").test(tokens[i + 1])) {
+          var word = tokens[i + 1].replace(/\.+$/, "");
+          if (Object.prototype.hasOwnProperty.call(B.multiplier_exp, word)) {
+            exp = B.multiplier_exp[word];
+            i += 1;
+          }
+        }
+        amounts.push([tok, exp]);
+        shape.push("A");
+      } else if (tok === "-" || B.range_words.indexOf(bare) !== -1 ||
+                 (between && bare === "and")) {
+        shape.push("S");
+      } else {
+        return _novaBudgetFail("not_a_number");
+      }
+    }
+    var shapeStr = shape.join("");
+    if (!amounts.length) return _novaBudgetFail("not_a_number");
+    if (amounts.length > 2 || (amounts.length === 2 && shapeStr !== "ASA")) {
+      return _novaBudgetFail("multiple_amounts");
+    }
+    if (shapeStr !== "A" && shapeStr !== "ASA") return _novaBudgetFail("not_a_number");
+
+    if (amounts.length === 2 && amounts[0][1] === null && amounts[1][1] !== null) {
+      amounts[0][1] = amounts[1][1]; // "10-15k" -> 10k to 15k
+    }
+    var values = [];
+    for (var j = 0; j < amounts.length; j++) {
+      var v = _novaAmountValue(amounts[j][0], amounts[j][1] || 0);
+      if (v === null) return _novaBudgetFail("malformed_number");
+      values.push(v);
+    }
+    if (values.some(function (x) { return x === 0; })) return _novaBudgetFail("zero");
+    var low = Math.min.apply(null, values), high = Math.max.apply(null, values);
+    if (high > low * B.max_range_ratio) return _novaBudgetFail("implausible_range");
+    return {
+      ok: true,
+      amount: values.length === 2 ? (low + high) / 2 : low,
+      low: low, high: high, is_range: values.length === 2,
+      currency: currency, period: period, error: "", message: "",
+    };
+  }
+
+  // wizard_inputs.known_campaign_months + DEFAULT_CAMPAIGN_MONTHS: a
+  // wizard option (case-insensitive), an explicit "N weeks/months/years"
+  // (a range -> midpoint), else the default.
+  function novaCampaignMonths(duration) {
+    var dur = String(duration || "").trim();
+    if (!NOVA_INPUTS) return 6;
+    if (dur) {
+      var low = dur.toLowerCase();
+      var map = NOVA_INPUTS.duration_months;
+      for (var k in map) {
+        if (Object.prototype.hasOwnProperty.call(map, k) && k.toLowerCase() === low) {
+          return Number(map[k]);
+        }
+      }
+      var m = /(\d+(?:\.\d+)?)(?:\s*(?:-|–|to)\s*(\d+(?:\.\d+)?))?\s*(days?|weeks?|wks?|months?|mos?|years?|yrs?)\b/i.exec(dur);
+      if (m) {
+        var lo = parseFloat(m[1]);
+        var hi = m[2] ? parseFloat(m[2]) : lo;
+        var unit = { d: 12 / 365, w: 12 / 52, m: 1, y: 12 }[m[3].charAt(0).toLowerCase()];
+        return (lo + hi) / 2 * unit;
+      }
+    }
+    return NOVA_INPUTS.default_months;
+  }
+
+  // wizard_inputs.months_to_weeks (round half up == Math.round for > 0).
+  function novaMonthsToWeeks(months) {
+    return Math.floor(months * 52 / 12 + 0.5);
+  }
+
+  // wizard_inputs.budget_period_multiplier.
+  function novaBudgetMultiplier(period, months) {
+    var pm = NOVA_INPUTS ? NOVA_INPUTS.period_months[String(period || "").trim().toLowerCase()] : 0;
+    return pm ? Math.max(months / pm, 1) : 1;
+  }
+
+  // wizard_inputs.resolve_plan_budget: parse, scale by the budget period
+  // over the campaign's months, then check the bounds on the TOTAL.
+  function novaResolvePlanBudget(raw, period, duration) {
+    var parsed = novaParseBudget(raw);
+    var per = String(period || "campaign").trim().toLowerCase() || "campaign";
+    var months = novaCampaignMonths(duration);
+    var out = { ok: false, parse: parsed, period: per, months: months,
+      multiplier: 1, total: 0, error: parsed.error, message: parsed.message };
+    if (!parsed.ok) return out;
+    out.multiplier = novaBudgetMultiplier(per, months);
+    out.total = parsed.amount * out.multiplier;
+    var B = NOVA_INPUTS.budget;
+    out.error = out.total < B.min ? "too_small" : out.total > B.max ? "too_large" : "";
+    out.message = out.error ? B.messages[out.error] : "";
+    out.ok = !out.error;
+    return out;
+  }
+
+  // "$1,500,000" -- the typed currency when there is one (a symbol, or an
+  // ISO code as "EUR 1,500,000"), else "$" like the budget field's prefix.
+  function novaFormatMoney(amount, currency) {
+    var cents = Number.isInteger(Number(amount)) ? 0 : 2; // "$10,000.50", never "$10,000.5"
+    var num = Number(amount).toLocaleString("en-US", {
+      minimumFractionDigits: cents, maximumFractionDigits: cents,
+    });
+    var cur = String(currency || "");
+    if (/^[A-Z]{3}$/.test(cur)) return cur + " " + num;
+    if (!cur || /^[A-Z]+$/.test(cur)) cur = "$";
+    return cur + num;
+  }
+
+  var _NOVA_PERIOD_WORDS = { monthly: "month", quarterly: "quarter", annual: "year" };
+
+  // One line saying which figure the plan uses -- shown under the budget
+  // field and on the review step (the audit's "planning at $X"): the range
+  // midpoint rule and any per-period scaling are spelled out, never implied.
+  function novaBudgetReadingText(plan) {
+    if (!plan || !plan.parse || !plan.parse.ok) return "";
+    var p = plan.parse, cur = p.currency;
+    var money = function (x) { return novaFormatMoney(x, cur); };
+    var round1 = function (x) { return Math.round(x * 10) / 10; };
+    var months = round1(plan.months);
+    var text = "Planning at " + money(plan.total);
+    var unit = _NOVA_PERIOD_WORDS[plan.period];
+    if (unit === "month") {
+      text += " total: " + money(p.amount) + " per month × " +
+        months + " month" + (months === 1 ? "" : "s");
+    } else if (unit) {
+      var n = round1(plan.multiplier);
+      text += " total: " + money(p.amount) + " per " + unit + " × " + n +
+        " " + unit + (n === 1 ? "" : "s") + " (" + months + "-month campaign" +
+        (plan.multiplier === 1 && plan.months < NOVA_INPUTS.period_months[plan.period]
+          ? "; never scaled below the amount typed)" : ")");
+    }
+    if (p.is_range) {
+      text += " (midpoint of " + money(p.low) + "–" + money(p.high) + ")";
+    }
+    if (p.period && p.period !== plan.period) {
+      text += ". Your amount says per " + _NOVA_PERIOD_WORDS[p.period] +
+        "; set the period to “Per " + _NOVA_PERIOD_WORDS[p.period] +
+        "” if that's what you mean.";
+    }
+    return text;
+  }
+
+  // "6-12 months -- planned as 9 months (~39 weeks)": the months the budget
+  // and the plan's timeline actually use (wizard_inputs.campaign_months).
+  function novaDurationReadingText(duration) {
+    var dur = String(duration || "").trim();
+    if (!dur) return "";
+    var months = novaCampaignMonths(dur);
+    var weeks = novaMonthsToWeeks(months);
+    if (/ongoing/i.test(dur)) return dur + " (budgeted as " + months + " months)";
+    if (/-|–|to/.test(dur) || !Number.isInteger(months)) {
+      return dur + " — planned as " + (Math.round(months * 10) / 10) +
+        " months (~" + weeks + " weeks)";
+    }
+    return /week/i.test(dur) ? dur : dur + " (~" + weeks + " weeks)";
+  }
+  /* @@wizard-inputs:functions-end */
+</script>

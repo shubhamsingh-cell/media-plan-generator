@@ -556,38 +556,34 @@ class TestPreviewJsRefetchSignature:
     def test_fetch_estimate_signature_includes_industry_and_client_name(
         self, preview_js_source: str
     ) -> None:
+        """2026-10-01: the signature IS the request body
+        (``JSON.stringify(payload)``), and the body is the generate payload's
+        core inputs (novaPlanCoreInputs), which carry industry and
+        client_name -- a stricter form of the Finding 1 guard: no field the
+        server reads can ever be missing from the refetch gate."""
         idx = preview_js_source.index("function fetchEstimate(m)")
         end_idx = preview_js_source.index("function channelOn(", idx)
         snippet = preview_js_source[idx:end_idx]
-        sig_start = snippet.index("var sig = JSON.stringify(")
-        sig_end = snippet.index(");", sig_start)
-        sig_expr = snippet[sig_start:sig_end]
-        assert "industry" in sig_expr, (
-            "fetchEstimate()'s sig must include industry -- omitting it "
-            "reproduces Finding 1 (stale preview on industry change)"
-        )
-        assert "clientName" in sig_expr, (
-            "fetchEstimate()'s sig must include clientName -- omitting it "
-            "reproduces Finding 1 (stale preview on client-name change)"
-        )
+        assert "var payload = estimatePayload(m);" in snippet
+        assert "var sig = JSON.stringify(payload);" in snippet
+        app_js = (
+            PROJECT_ROOT / "templates" / "partials" / "index" / "body_app_js.html"
+        ).read_text(encoding="utf-8")
+        core = app_js[app_js.index("function novaPlanCoreInputs()") :]
+        core = core[: core.index("\n  }\n")]
+        assert "industry: selectedIndustry" in core
+        assert 'client_name: v("clientName")' in core
 
     def test_signature_industry_and_client_name_match_payload_variables(
         self, preview_js_source: str
     ) -> None:
-        """Not just present in the sig -- the SAME resolved values that
-        estimatePayload() sends, so the gate can't drift from the actual
-        request body again. Both fetchEstimate()'s sig and its call to
-        estimatePayload() must reference the same local `industry` /
-        `clientName` variables (resolved once via resolveIndustry() /
-        val("clientName"))."""
+        """The request posted is the SAME object the signature was built
+        from (no second, hand-assembled body that could drift)."""
         idx = preview_js_source.index("function fetchEstimate(m)")
         end_idx = preview_js_source.index("function channelOn(", idx)
         snippet = preview_js_source[idx:end_idx]
-        assert "var industry = resolveIndustry();" in snippet
-        assert 'var clientName = val("clientName");' in snippet
-        assert (
-            "estimatePayload(m, roles, industry, clientName, channelCats)" in snippet
-        )
+        assert snippet.count("estimatePayload(") == 1
+        assert "body: JSON.stringify(payload)" in snippet
 
 
 class TestPreviewJsStaleRepaintAndRetry:

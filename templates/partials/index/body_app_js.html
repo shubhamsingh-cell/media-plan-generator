@@ -57,6 +57,41 @@
     });
     return cats;
   }
+
+  // ── Plan inputs: ONE builder for /api/generate AND /api/estimate ──
+  // Every field the server's budget engine reads, built once from the form.
+  // generatePlan() spreads this into its payload and the live preview
+  // (body_preview_js.html) posts exactly this object to /api/estimate, so
+  // the preview estimates the brief Generate sends. The preview used to post
+  // its own pre-multiplied budget, no target_region, no start month and the
+  // typed NAICS text as the industry (wizard audit D-02/D-04):
+  // "Zurich" + the default "US Only" previewed 8 channels, generated 6.
+  // tests/test_wizard_plan_inputs_parity.py pins this.
+  function novaPlanCoreInputs() {
+    const v = (id) => (document.getElementById(id) || {}).value || "";
+    const region =
+      typeof getSelectedRegion === "function"
+        ? getSelectedRegion()
+        : { region: "us_only", custom_countries: [] };
+    return {
+      client_name: v("clientName"),
+      industry: selectedIndustry,
+      locations: locations.slice(),
+      target_roles: roles.slice(),
+      budget_range:
+        v("budgetRange") === "__exact__"
+          ? v("exactBudget").trim()
+          : v("budgetRange"),
+      budget_period: v("budgetPeriod") || "campaign",
+      campaign_duration: v("campaignDuration"),
+      campaign_start_month:
+        parseInt(v("campaignStartMonth")) || new Date().getMonth() + 1,
+      // Omitted until a toggle is touched -> recommended industry mix.
+      channel_categories: novaChannelCategoriesPayload(),
+      target_region: region.region,
+      custom_countries: region.custom_countries,
+    };
+  }
   document.addEventListener(
     "change",
     (e) => {
@@ -172,11 +207,26 @@
           syncFlag();
           var fg = amt.closest(".form-group");
           if (fg) fg.classList.remove("field-error");
+          novaRenderBudgetReading(false);
           if (typeof checkBudgetFeasibility === "function") {
             try { checkBudgetFeasibility(); } catch (e) {}
           }
         });
+        // Validate where the user types: a budget that is not an amount,
+        // is <= 0 or outside the server's bounds is flagged on leaving the
+        // field, not as a toast at Generate (wizard audit D-11).
+        amt.addEventListener("blur", function () {
+          novaRenderBudgetReading(true);
+        });
       }
+      ["budgetPeriod", "campaignDuration"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) {
+          el.addEventListener("change", function () {
+            novaRenderBudgetReading(!!(amt && amt.value.trim()));
+          });
+        }
+      });
       if (quick) {
         quick.querySelectorAll("button[data-amt]").forEach(function (b) {
           b.addEventListener("click", function () {
@@ -248,10 +298,7 @@
 
   async function handleBriefFiles(fileList) {
     for (const f of fileList) {
-      if (f.size > 10 * 1024 * 1024) {
-        showToast(f.name + " exceeds 10MB limit", "warning");
-        continue;
-      }
+      if (novaRejectUpload("briefFileList", f)) continue;
       const data = await _readFileAsBase64(f);
       briefFiles.push({
         name: f.name,
@@ -265,10 +312,7 @@
 
   async function handleTranscriptFiles(fileList) {
     for (const f of fileList) {
-      if (f.size > 10 * 1024 * 1024) {
-        showToast(f.name + " exceeds 10MB limit", "warning");
-        continue;
-      }
+      if (novaRejectUpload("transcriptFileList", f)) continue;
       const data = await _readFileAsBase64(f);
       transcriptFiles.push({
         name: f.name,
@@ -282,10 +326,7 @@
 
   async function handleHistoricalFiles(fileList) {
     for (const f of fileList) {
-      if (f.size > 10 * 1024 * 1024) {
-        showToast(f.name + " exceeds 10MB limit", "warning");
-        continue;
-      }
+      if (novaRejectUpload("historicalFileList", f)) continue;
       const data = await _readFileAsBase64(f);
       historicalFiles.push({
         name: f.name,
@@ -419,17 +460,14 @@
       return;
     }
 
-    // Exact-first: parse the real amount; fall back to bucket midpoints.
+    // Exact-first: the campaign total the plan will use (server's reading
+    // via validateBudgetInput); fall back to bucket midpoints.
     var budgetMid;
     if (budgetStr === "__exact__") {
-      var _raw = ((document.getElementById("exactBudget") || {}).value || "")
-        .replace(/[$,\s]/g, "")
-        .toUpperCase();
-      var _m = _raw.match(/^([0-9]*\.?[0-9]+)([KMB])?$/);
-      budgetMid = _m
-        ? parseFloat(_m[1]) *
-          (_m[2] === "K" ? 1e3 : _m[2] === "M" ? 1e6 : _m[2] === "B" ? 1e9 : 1)
-        : 0;
+      var _chk = validateBudgetInput(
+        ((document.getElementById("exactBudget") || {}).value || "").trim(),
+      );
+      budgetMid = _chk.valid && _chk.plan ? _chk.plan.total : 0;
       if (!budgetMid) {
         var _ew = document.getElementById("budgetFeasibilityWarning");
         if (_ew) _ew.remove();
@@ -2407,6 +2445,13 @@
     // populated glued the NEXT site onto it ("PennsylvaniaLancaster").
     document.getElementById(inputId).value = "";
     if (arr.includes(value)) return;
+    // Per-plan count limits (roles/competitors/locations) -- the server's.
+    if (
+      typeof novaTagLimitReached === "function" &&
+      novaTagLimitReached(containerId, arr)
+    ) {
+      return;
+    }
     arr.push(value);
     renderTags(containerId, inputId, arr);
     if (containerId === "locationsContainer") {
@@ -3864,12 +3909,35 @@
         } else {
           _clearFieldError(useCaseEl);
         }
+        // --- Field limits (the server's own; checked here, not at Generate) ---
+        var limitErrId = ["clientName", "useCase", "callTranscript"].find(
+          function (id) { return !!novaCheckTextLimit(id); },
+        );
+        if (limitErrId) {
+          var limitEl = document.getElementById(limitErrId);
+          showToast(novaTextLimitError(limitErrId), "error");
+          if (limitEl) {
+            limitEl.focus();
+            limitEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+          return;
+        }
         // --- Budget (exact-first; #budgetRange is the hidden filled-flag) ---
+        // Read and bounded exactly as the server will (validateBudgetInput):
+        // "-5", "abc", "1.5" (too small) or "2B" stop HERE, at the field.
         var budgetRangeEl = document.getElementById("budgetRange");
         var budgetAmtEl = document.getElementById("exactBudget");
-        if (!budgetRangeEl || !budgetRangeEl.value) {
-          showToast("Please enter a budget", "error");
-          _showFieldError(budgetAmtEl || budgetRangeEl, "Please enter a budget");
+        var budgetCheck =
+          budgetRangeEl && budgetRangeEl.value
+            ? validateBudgetInput(
+                budgetRangeEl.value === "__exact__"
+                  ? (budgetAmtEl || {}).value.trim()
+                  : budgetRangeEl.value,
+              )
+            : { valid: false, error: "Please enter a budget" };
+        if (!budgetCheck.valid) {
+          showToast(budgetCheck.error, "error");
+          _showFieldError(budgetAmtEl || budgetRangeEl, budgetCheck.error);
           if (budgetAmtEl) {
             budgetAmtEl.focus();
             budgetAmtEl.scrollIntoView({
@@ -4181,11 +4249,20 @@
     };
     var _bpVal = document.getElementById("budgetPeriod")?.value || "campaign";
     var _amtVal = (document.getElementById("exactBudget") || {}).value || "";
+    // The figure the plan uses, read by the server's rules -- "Planning at
+    // $90,000 total: $10,000 per month x 9 months" -- so a mis-read amount
+    // is visible before Generate (a raw "$10000 (Monthly)" hid it).
+    var _budgetCheck = _amtVal ? validateBudgetInput(_amtVal.trim()) : null;
     document.getElementById("reviewBudget").textContent =
-      (_amtVal ? "$" + _amtVal.replace(/^\$/, "") : "Not specified") +
-      (_bpVal !== "campaign" ? " (" + (_bpLabel[_bpVal] || _bpVal) + ")" : "");
+      _budgetCheck && _budgetCheck.plan && _budgetCheck.valid
+        ? novaBudgetReadingText(_budgetCheck.plan)
+        : (_amtVal ? "$" + _amtVal.replace(/^\$/, "") : "Not specified") +
+          (_bpVal !== "campaign" ? " (" + (_bpLabel[_bpVal] || _bpVal) + ")" : "");
+    var _durVal = document.getElementById("campaignDuration").value;
     document.getElementById("reviewDuration").textContent =
-      document.getElementById("campaignDuration").value || "Not specified";
+      (_durVal && typeof novaDurationReadingText === "function"
+        ? novaDurationReadingText(_durVal)
+        : _durVal) || "Not specified";
     const reviewLocationsEl = document.getElementById("reviewLocations");
     reviewLocationsEl.innerHTML = "";
     locations.forEach((l) => {
@@ -4516,46 +4593,165 @@
     "INDIA",
   ]);
 
+  // The line under the budget field: which figure the plan uses ("Planning
+  // at $90,000 total: $10,000 per month x 9 months"), or -- when showErrors
+  // -- the server's own error message at the field.
+  function novaRenderBudgetReading(showErrors) {
+    var out = document.getElementById("budgetResolved");
+    var amt = document.getElementById("exactBudget");
+    if (!out || !amt) return;
+    var text = amt.value.trim();
+    if (!text || typeof novaResolvePlanBudget !== "function") {
+      out.textContent = "";
+      return;
+    }
+    var check = validateBudgetInput(text);
+    if (!check.valid) {
+      out.textContent = "";
+      if (showErrors) _showFieldError(amt, check.error);
+      return;
+    }
+    if (check.plan) {
+      _clearFieldError(amt);
+      out.textContent = novaBudgetReadingText(check.plan);
+    }
+  }
+
+  // Budget check for step 1, the budget field itself and Generate: the
+  // server's own reading and bounds (novaResolvePlanBudget in
+  // body_inputs_js.html == wizard_inputs.resolve_plan_budget), applied to
+  // the campaign TOTAL the plan will use. The old local parser accepted
+  // "1.5 million" as 1.5 and "2B" at step 1, and only failed at Generate.
   function validateBudgetInput(budgetValue) {
     if (!budgetValue) {
       return { valid: false, error: "Budget is required" };
     }
-
-    // Predefined dropdown values are always valid (no need to parse)
-    if (
-      budgetValue !== "__exact__" &&
-      document.querySelector(
-        '#budgetRange option[value="' + CSS.escape(budgetValue) + '"]',
-      )
-    ) {
-      return { valid: true, amount: 0 };
+    if (typeof novaResolvePlanBudget !== "function") {
+      return { valid: true, error: "" }; // server still validates
     }
+    const v = (id) => (document.getElementById(id) || {}).value || "";
+    const plan = novaResolvePlanBudget(
+      budgetValue,
+      v("budgetPeriod") || "campaign",
+      v("campaignDuration"),
+    );
+    if (plan.error === "unavailable") return { valid: true, error: "" };
+    if (!plan.ok) return { valid: false, error: plan.message, plan: plan };
+    return { valid: true, error: "", amount: plan.total, plan: plan };
+  }
 
-    // Parse budget string (handles formats like $50,000, 50K, 50000, etc)
-    const budgetStr = budgetValue.replace(/[\$,]/g, "").trim();
-    let amount = 0;
-
-    // Handle K, M, B suffixes
-    if (/^\d+\.?\d*[KMB]$/.test(budgetStr.toUpperCase())) {
-      const num = parseFloat(budgetStr);
-      const suffix = budgetStr.charAt(budgetStr.length - 1).toUpperCase();
-      if (suffix === "K") amount = num * 1000;
-      else if (suffix === "M") amount = num * 1000000;
-      else if (suffix === "B") amount = num * 1000000000;
-    } else {
-      amount = parseFloat(budgetStr);
+  // ── Field limits where the user types ──────────────────────────────
+  // NOVA_INPUTS.limits is wizard_inputs.INPUT_LIMITS, embedded at compose
+  // time; /api/generate enforces the same table (400 + field name). Missing
+  // config (Infinity) skips the client check -- the server still enforces.
+  function novaLimit(name) {
+    const lim =
+      typeof NOVA_INPUTS !== "undefined" && NOVA_INPUTS && NOVA_INPUTS.limits
+        ? NOVA_INPUTS.limits[name]
+        : 0;
+    return lim > 0 ? lim : Infinity;
+  }
+  var NOVA_TEXT_LIMITS = {
+    clientName: ["client_name_max_chars", "Client name"],
+    useCase: ["use_case_max_chars", "Use case / brief"],
+    callTranscript: ["call_transcript_max_chars", "Call transcript"],
+  };
+  // Same wording as the server's 400 for the field.
+  function novaTextLimitError(id) {
+    const spec = NOVA_TEXT_LIMITS && NOVA_TEXT_LIMITS[id];
+    const el = document.getElementById(id);
+    if (!spec || !el) return "";
+    const max = novaLimit(spec[0]);
+    const n = Array.from(el.value || "").length;
+    if (n <= max) return "";
+    return (
+      spec[1] + " is too long (" + n.toLocaleString("en-US") +
+      " characters; max " + max.toLocaleString("en-US") + ")."
+    );
+  }
+  function novaCheckTextLimit(id) {
+    const el = document.getElementById(id);
+    const err = novaTextLimitError(id);
+    if (err) _showFieldError(el, err);
+    else if (el && el.closest(".form-group.field-error")) _clearFieldError(el);
+    return err;
+  }
+  Object.keys(NOVA_TEXT_LIMITS).forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", function () { novaCheckTextLimit(id); });
+  });
+  var NOVA_TAG_LIMITS = {
+    rolesContainer: ["roles_max", "roleInput", "target roles"],
+    competitorsContainer: ["competitors_max", "competitorInput", "competitors"],
+    locationsContainer: ["locations_max", "locationInput", "locations"],
+  };
+  // True (and an inline message at the tag box) when one more tag would
+  // exceed the server's per-plan count.
+  function novaTagLimitReached(containerId, arr) {
+    const spec = NOVA_TAG_LIMITS && NOVA_TAG_LIMITS[containerId];
+    if (!spec) return false;
+    const max = novaLimit(spec[0]);
+    if (arr.length < max) return false;
+    _showFieldError(
+      document.getElementById(spec[1]),
+      "You can add up to " + max + " " + spec[2] + " per plan.",
+    );
+    return true;
+  }
+  // Uploads travel base64-encoded inside the /api/generate body, so the
+  // limit is on the TOTAL of all attached files (not "10MB each", which a
+  // single 8 MB file then broke at Generate with a 413).
+  function novaUploadRoomError(file) {
+    const max = novaLimit("upload_total_max_bytes");
+    const used = []
+      .concat(briefFiles, transcriptFiles, historicalFiles)
+      .reduce((s, f) => s + (f.size || 0), 0);
+    if (used + (file.size || 0) <= max) return "";
+    const mb = (b) => (b / 1048576).toFixed(1).replace(/\.0$/, "");
+    return (
+      file.name + " doesn't fit: attachments must total under " + mb(max) +
+      " MB (" + mb(used) + " MB already attached)."
+    );
+  }
+  // Request key (as named in a server 400) -> the input where it is typed.
+  var NOVA_FIELD_TARGETS = {
+    budget: "exactBudget",
+    budget_range: "exactBudget",
+    exact_budget: "exactBudget",
+    budget_period: "budgetPeriod",
+    campaign_duration: "campaignDuration",
+    client_name: "clientName",
+    client_website: "clientWebsite",
+    use_case: "useCase",
+    call_transcript: "callTranscript",
+    locations: "locationInput",
+    competitors: "competitorInput",
+    target_roles: "roleInput",
+    roles: "roleInput",
+  };
+  // Show `message` at the input for a request field, switching to its
+  // wizard step first; false when the field has no input on the page.
+  function novaShowFieldErrorAt(field, message) {
+    var id = (NOVA_FIELD_TARGETS && NOVA_FIELD_TARGETS[field]) || "";
+    var el = id ? document.getElementById(id) : null;
+    if (!el) return false;
+    var stepEl = el.closest(".wizard-step");
+    var step = stepEl ? parseInt(String(stepEl.id).replace(/\D/g, ""), 10) : 0;
+    if (step && step !== currentStep) goToStep(step);
+    _showFieldError(el, message);
+    try {
+      el.focus();
+    } catch (e) {
+      /* not focusable */
     }
-
-    if (isNaN(amount) || amount <= 0) {
-      return { valid: false, error: "Budget must be greater than 0" };
-    }
-    if (amount > 1000000000) {
-      return {
-        valid: false,
-        error: "Budget exceeds maximum allowed value ($1B)",
-      };
-    }
-    return { valid: true, error: "" };
+    return true;
+  }
+  function novaRejectUpload(listId, file) {
+    const err = novaUploadRoomError(file);
+    if (!err) return false;
+    _showFieldError(document.getElementById(listId), err);
+    showToast(err, "warning");
+    return true;
   }
 
   function validateLocations(locationList) {
@@ -4719,7 +4915,12 @@
 
     const budgetValidation = validateBudgetInput(budgetValue);
     if (!budgetValidation.valid) {
-      showFormError("budgetRange", budgetValidation.error);
+      // Take the user to the budget field (step 1), not a toast on step 5.
+      if (!novaShowFieldErrorAt("budget_range", budgetValidation.error)) {
+        showFormError("budgetRange", budgetValidation.error);
+      } else {
+        showToast(budgetValidation.error, "error");
+      }
       return;
     }
 
@@ -4783,14 +4984,16 @@
     // Show generation overlay
     showGenerationOverlay();
 
-    // 28. Updated payload with new fields
+    // 28. Updated payload with new fields. The budget / duration / region /
+    // location / role / industry / channel fields come from
+    // novaPlanCoreInputs() -- the SAME object the live preview estimates --
+    // and must not be re-declared below (a later key would override it).
     const payload = {
+      ...novaPlanCoreInputs(),
       requester_name: document.getElementById("requesterName").value.trim(),
       requester_email: document.getElementById("requesterEmail").value.trim(),
-      client_name: document.getElementById("clientName").value,
       client_website: document.getElementById("clientWebsite").value,
       use_case: document.getElementById("useCase").value,
-      industry: selectedIndustry,
       industry_label:
         channelsDB?.industries?.[selectedIndustry]?.label || selectedIndustry,
       // S94: precise NAICS 2022 pick from the industry typeahead (optional --
@@ -4801,19 +5004,7 @@
       job_category_labels: selectedJobCategories.map(
         (k) => channelsDB?.job_categories?.[k]?.label || k,
       ),
-      locations: locations,
-      target_roles: roles,
       target_demographic: document.getElementById("targetDemographic").value,
-      budget_range:
-        document.getElementById("budgetRange").value === "__exact__"
-          ? document.getElementById("exactBudget").value.trim() || ""
-          : document.getElementById("budgetRange").value,
-      budget_period:
-        document.getElementById("budgetPeriod")?.value || "campaign",
-      campaign_duration: document.getElementById("campaignDuration").value,
-      campaign_start_month:
-        parseInt(document.getElementById("campaignStartMonth").value) ||
-        new Date().getMonth() + 1,
       campaign_goals: getCheckboxGroupValues("campaignGoals"),
       hire_volume:
         document.getElementById("hireVolume").value === "__exact__"
@@ -4839,8 +5030,6 @@
       work_environment: getCheckboxGroupValues("workEnvironment"),
       competitors: competitors,
       experience_level: getCheckboxGroupValues("experienceLevel"),
-      // Omitted until a toggle is touched -> recommended industry mix.
-      channel_categories: novaChannelCategoriesPayload(),
       include_educational:
         document.getElementById("includeEducational").checked,
       include_events: document.getElementById("includeEvents").checked,
@@ -4854,8 +5043,6 @@
         .checked,
       include_budget_guide:
         document.getElementById("includeBudgetGuide").checked,
-      target_region: getSelectedRegion().region,
-      custom_countries: getSelectedRegion().custom_countries,
       output_format:
         typeof _selectedOutputFormat !== "undefined" &&
         _selectedOutputFormat === "google"
@@ -4882,6 +5069,7 @@
           errData.error || `Server returned ${initResponse.status}`;
         const serverErr = new Error(errMsg);
         serverErr.httpStatus = initResponse.status;
+        serverErr.field = errData.field || ""; // request key the 400 is about
         throw serverErr;
       }
       const initData = await initResponse.json();
@@ -5195,6 +5383,11 @@
         }
         userMsg =
           "Something went wrong generating your media plan. Please try again, or contact us if it persists.";
+      }
+      // A validation 400 names its field: show the server's message AT the
+      // field (on its step) instead of a generic toast on the review step.
+      if (err.httpStatus === 400 && err.field && novaShowFieldErrorAt(err.field, err.message)) {
+        userMsg = err.message;
       }
       showToast(userMsg, "error");
       btn.disabled = false;

@@ -46,6 +46,7 @@ from shared_utils import (
 
 import benchmark_registry
 import hashlib
+import wizard_inputs
 
 # Static asset minifier -- minify CSS/JS at import time for zero-latency serving
 try:
@@ -4310,102 +4311,184 @@ def _normalize_dict_roles(data: dict) -> None:
             data[_rkey] = [(r.get("title") or r.get("role") or str(r)) for r in _rlist]
 
 
-# Campaign months per wizard #campaignDuration option, used ONLY to scale a
-# per-month/quarter/year budget to the campaign total. MUST stay identical to
-# DURATION_MONTHS in templates/partials/index/body_preview_js.html: the live
-# preview shows the user this exact product, so any divergence makes the plan
-# generate a different budget than the one the user just saw (client report
-# 2026-09-24: preview $90K, plan $60K -- the handler used the FIRST number of
-# "3-6 months" = 3 while the preview used 4.5). Enforced by
-# tests/test_budget_period_preview_parity.py.
-BUDGET_DURATION_MONTHS: dict = {
-    "2 weeks": 0.5,
-    "1 month": 1,
-    "2 months": 2,
-    "3 months": 3,
-    "1-3 months": 2,
-    "3-6 months": 4.5,
-    "6-12 months": 9,
-    "1-2 years": 18,
-    "2-5 years (Long-term)": 42,
-    "Ongoing": 12,
-}
-_BUDGET_PERIOD_MONTHS: dict = {"monthly": 1, "quarterly": 3, "annual": 12}
-
-
-# "N weeks" / "N months" / "N years" / "N days", or a range "N-M <unit>"
-# (midpoint, the same convention BUDGET_DURATION_MONTHS uses for the
-# dropdown ranges). Mirrored by freeTextDurationMonths() in
-# templates/partials/index/body_preview_js.html.
-_EXPLICIT_DURATION_RE = re.compile(
-    r"(\d+(?:\.\d+)?)(?:\s*(?:-|\u2013|to)\s*(\d+(?:\.\d+)?))?\s*"
-    r"(days?|weeks?|wks?|months?|mos?|years?|yrs?)\b",
-    re.IGNORECASE,
-)
-_EXPLICIT_DURATION_UNIT_MONTHS: dict = {
-    "d": 12 / 365,
-    "w": 12 / 52,
-    "m": 1.0,
-    "y": 12.0,
-}
+# Campaign months per wizard #campaignDuration option, used to scale a
+# per-month/quarter/year budget to the campaign total AND (via
+# display_format.resolve_campaign_weeks) to size the campaign in weeks. The
+# table lives in wizard_inputs (one definition for preview, estimate and
+# generate; the wizard page embeds it) -- client report 2026-09-24: preview
+# $90K, plan $60K, when the handler read the FIRST number of "3-6 months".
+# Enforced by tests/test_budget_period_preview_parity.py.
+BUDGET_DURATION_MONTHS: dict = wizard_inputs.CAMPAIGN_DURATION_MONTHS
+_BUDGET_PERIOD_MONTHS: dict = wizard_inputs.BUDGET_PERIOD_MONTHS
 
 
 def _explicit_duration_months(duration: str) -> float:
     """Months for an explicit free-text duration ("24 months" -> 24,
     "16 weeks" -> 16*12/52, "1 year" -> 12, "6-12 months" -> 9), or 0.0
-    when the string states no number+unit.
-
-    Must run BEFORE display_format.resolve_campaign_weeks: that parser
-    buckets by SUBSTRING against 4-week-month marketing bands, so
-    "24 months" hit the "4 month" bucket (24 weeks) and "12 months" the
-    48-week bucket -- a x5.5 / x11.08 multiplier instead of x24 / x12.
-    """
-    m = _EXPLICIT_DURATION_RE.search(duration or "")
-    if not m:
-        return 0.0
-    lo = float(m.group(1))
-    hi = float(m.group(2)) if m.group(2) else lo
-    unit = _EXPLICIT_DURATION_UNIT_MONTHS[m.group(3)[0].lower()]
-    return (lo + hi) / 2 * unit
+    when the string states no number+unit (wizard_inputs is the source)."""
+    return wizard_inputs.explicit_duration_months(duration)
 
 
 def _budget_duration_months(campaign_duration: Any) -> float:
-    """Months a campaign runs, for budget-period scaling only.
+    """Months a campaign runs -- wizard_inputs.campaign_months, with
+    display_format's legacy phrase ladder as the fallback for API free text.
 
-    Wizard dropdown values resolve through :data:`BUDGET_DURATION_MONTHS`
-    (the preview's map). Free-text durations from API callers ("16 weeks",
-    "18 months") go through the shared week parser -- never a bare
-    first-integer read, which treated "16 weeks" as 16 months. Empty or
-    unparseable input falls back to 6 months, the preview's own default.
+    Wizard dropdown values and explicit durations ("16 weeks", "18 months")
+    never touch the ladder (a bare first-integer read once treated
+    "16 weeks" as 16 months). Empty or unparseable input falls back to 6
+    months, the preview's own default.
     """
-    dur = str(campaign_duration or "").strip()
-    if not dur:
-        return 6.0
-    for option, months in BUDGET_DURATION_MONTHS.items():
-        if dur.lower() == option.lower():
-            return float(months)
-    explicit = _explicit_duration_months(dur)
-    if explicit > 0:
-        return explicit
-    if display_format is not None and re.search(r"\d", dur):
-        weeks = display_format.resolve_campaign_weeks(dur)
-        if weeks > 0:
-            return weeks * 12 / 52
-    return 6.0
+    return wizard_inputs.campaign_months(
+        campaign_duration,
+        display_format.resolve_campaign_weeks if display_format is not None else None,
+    )
 
 
 def _budget_period_multiplier(budget_period: Any, campaign_duration: Any) -> float:
     """How many budget periods the campaign covers (>= 1; 1 for "campaign").
 
     Single source of truth for turning a per-period amount into the campaign
-    total; the wizard preview applies the identical rule in gather().
-    The floor of 1 keeps a per-period amount from ever being shrunk below
-    what the user typed.
+    total; the wizard preview applies the identical rule
+    (novaBudgetMultiplier). The floor of 1 keeps a per-period amount from
+    ever being shrunk below what the user typed.
     """
-    period_months = _BUDGET_PERIOD_MONTHS.get(str(budget_period or "").strip().lower())
-    if not period_months:
-        return 1.0
-    return max(_budget_duration_months(campaign_duration) / period_months, 1.0)
+    return wizard_inputs.budget_period_multiplier(
+        budget_period, _budget_duration_months(campaign_duration)
+    )
+
+
+# Request keys a budget may arrive under, in precedence order: the wizard
+# sends budget_range, API callers budget (or exact_budget).
+_BUDGET_REQUEST_KEYS: tuple = ("budget", "budget_range", "exact_budget")
+
+
+def _request_budget_raw(data: dict) -> "tuple[Any, str]":
+    """(raw budget value, request key it came from) -- first non-blank key."""
+    for key in _BUDGET_REQUEST_KEYS:
+        val = data.get(key)
+        if val is None or (isinstance(val, str) and not val.strip()):
+            continue
+        return val, key
+    return "", "budget_range"
+
+
+def _resolve_request_budget(data: dict) -> "wizard_inputs.PlanBudget":
+    """The campaign budget a request plans with -- ONE reading for
+    /api/estimate and both /api/generate paths (and, via the embedded JS
+    port, the wizard preview): parse the budget text, scale it by
+    budget_period over the campaign's months, check the bounds."""
+    raw, _key = _request_budget_raw(data)
+    return wizard_inputs.resolve_plan_budget(
+        raw,
+        data.get("budget_period"),
+        data.get("campaign_duration"),
+        display_format.resolve_campaign_weeks if display_format is not None else None,
+    )
+
+
+def _canonical_budget_prefix(raw_text: str, parsed_currency: str, scaled: bool) -> str:
+    """Currency prefix for the canonical budget string, chosen so the plan's
+    DECLARED currency (plan_currency reads the symbol typed in the budget
+    text) is exactly what it was for the raw text: the symbol plan_currency
+    detects in the raw text; else, for a per-period budget, the legacy
+    normalisation prefix (``_budget_currency_prefix`` -- "$" for a bare
+    number, unchanged behaviour); else a typed 3-letter ISO code ("EUR ",
+    which plan_currency does not read either); else nothing."""
+    symbol = ""
+    if plan_currency is not None:
+        try:
+            symbol = plan_currency.declared_currency_symbol(raw_text)
+        except (AttributeError, TypeError, ValueError):
+            symbol = ""
+    if symbol:
+        return symbol
+    if scaled:
+        return _budget_currency_prefix(raw_text)
+    if re.fullmatch(r"[A-Z]{3}", parsed_currency or ""):
+        return f"{parsed_currency} "
+    return ""
+
+
+def _normalize_request_budget(data: dict, log: bool = True) -> "wizard_inputs.PlanBudget":
+    """Rewrite ``data["budget"]``/``data["budget_range"]`` IN PLACE to the
+    canonical campaign total ("$1,500,000"), so every downstream reader
+    (budget engine, workbook, deck, Slack notifier -- all of which re-read
+    the string with shared_utils.parse_budget) sees the amount the wizard
+    preview showed, never a re-parse of the raw text ("1.5 million" used to
+    plan $1.50). The raw text is kept in ``_budget_input_raw``. A request
+    whose budget does not resolve is left untouched (callers reject it
+    first). Returns the resolution."""
+    plan = _resolve_request_budget(data)
+    if not plan.ok:
+        return plan
+    raw, _key = _request_budget_raw(data)
+    raw_text = str(raw).strip()
+    scaled = plan.period in _BUDGET_PERIOD_MONTHS
+    prefix = _canonical_budget_prefix(raw_text, plan.parse.currency, scaled)
+    canonical = f"{prefix}{wizard_inputs.format_budget_amount(plan.total)}"
+    data["_budget_input_raw"] = raw_text
+    data["_budget_resolution"] = plan.as_dict()
+    data["budget"] = canonical
+    data["budget_range"] = canonical
+    if scaled:
+        data["_budget_period_original"] = plan.period
+        data["_budget_multiplier"] = plan.multiplier
+        if log:
+            logger.info(
+                f"Budget period normalization: {plan.period} "
+                f"{prefix}{plan.parse.amount:,.0f} x {plan.multiplier:.1f} "
+                f"= {prefix}{plan.total:,.0f}"
+            )
+    if log:
+        logger.info(
+            f"Budget resolved: {raw_text!r} -> {canonical}"
+            + (" (range midpoint)" if plan.parse.is_range else "")
+        )
+    return plan
+
+
+_VALID_TARGET_REGIONS: frozenset = frozenset(
+    {"us_only", "global", "emea", "apac", "custom"}
+)
+
+
+def _normalize_target_region(value: Any) -> str:
+    """The wizard's region select value, normalised exactly as /api/generate
+    has always done: lower-cased, anything unknown or missing -> "us_only"."""
+    region = _safe_str(value or "us_only").strip().lower()
+    return region if region in _VALID_TARGET_REGIONS else "us_only"
+
+
+def _apply_target_region(channel_pcts: dict, target_region: str) -> "tuple[dict, str]":
+    """Fold the regional channels for ``target_region`` -- the rule both
+    /api/generate paths apply before calculate_budget_allocation, shared so
+    /api/estimate (the wizard preview) funds the same channels:
+
+    - us_only: APAC + EMEA shares go to the largest remaining channel;
+    - emea / apac: the other region's share is ADDED to the kept regional
+      channel (_move_regional_pct, the D-09 precedence fix);
+    - global / custom: unchanged.
+
+    Returns (new pcts, log detail or "" when nothing moved). Never mutates
+    the caller's dict.
+    """
+    pcts = dict(channel_pcts)
+    detail = ""
+    if target_region == "us_only":
+        intl = pcts.pop("apac_regional", 0) + pcts.pop("emea_regional", 0)
+        if intl > 0 and pcts:
+            top = max(pcts, key=lambda k: pcts[k])
+            pcts[top] = pcts[top] + intl
+            detail = f"redistributed {intl}% from APAC/EMEA to {top}"
+    elif target_region == "emea":
+        moved = _move_regional_pct(pcts, "apac_regional", "emea_regional")
+        if moved > 0:
+            detail = f"redistributed {moved}% from APAC to EMEA"
+    elif target_region == "apac":
+        moved = _move_regional_pct(pcts, "emea_regional", "apac_regional")
+        if moved > 0:
+            detail = f"redistributed {moved}% from EMEA to APAC"
+    return pcts, detail
 
 
 def _resolve_campaign_weeks(data: dict) -> int:
@@ -5018,7 +5101,13 @@ class _EstimateValidationError(ValueError):
     """Raised by ``_compute_plan_estimate`` on a malformed/insufficient brief.
 
     Caught at the ``/api/estimate`` route and turned into a 400, never a 500.
+    ``field`` names the request key at fault (e.g. "budget_range") so the
+    wizard can show the message at that field.
     """
+
+    def __init__(self, message: str, field: str = "") -> None:
+        super().__init__(message)
+        self.field = field
 
 
 def _coerce_int_field(raw: Any, *, field_name: str) -> int:
@@ -5092,53 +5181,43 @@ def _compute_plan_estimate(brief: dict) -> dict:
     if calculate_budget_allocation is None:
         raise _EstimateValidationError("Budget engine unavailable")
 
-    budget_raw = (
-        brief.get("budget")
-        or brief.get("budget_range")
-        or brief.get("exact_budget")
-        or ""
-    )
-    # Reject non-finite JSON numbers (json.loads() parses bare NaN /
-    # Infinity / -Infinity tokens into non-finite floats) before they hit
-    # the string-based parser below, and reject a negative numeric budget
-    # outright while its sign is still intact.
-    if isinstance(budget_raw, float) and (
-        math.isnan(budget_raw) or math.isinf(budget_raw)
+    # The SAME budget reading /api/generate plans with (and the preview's JS
+    # port shows): budget text -> amount (range midpoint), x budget_period
+    # over the campaign's months, bounds on the total. The preview sends the
+    # raw typed text plus period and duration -- exactly the fields the
+    # generate payload carries -- never its own pre-multiplied number.
+    # Negative, NaN/Infinity, garbage ("1.5.2M" used to 500 here) and
+    # out-of-range budgets are 400s naming the field, never a silent default.
+    brief = dict(brief)
+    budget_plan = _resolve_request_budget(brief)
+    if not budget_plan.ok:
+        raise _EstimateValidationError(
+            budget_plan.message, field=_request_budget_raw(brief)[1]
+        )
+    _normalize_request_budget(brief, log=False)
+    budget_val = budget_plan.total
+    budget_str = str(brief.get("budget") or "")
+    # Region exactly as /api/generate reads it (default "us_only"): the
+    # preview used to infer "international" from the locations while the
+    # plan honoured the region select, funding 8 channels in the preview
+    # and 6 in the plan (wizard audit D-04).
+    brief["target_region"] = _normalize_target_region(brief.get("target_region"))
+    # Locations exactly as /api/generate reads them: one entry per site,
+    # then US names resolved/corrected (same two helpers, same order). This
+    # endpoint's contract stays "locations must be a list".
+    if brief.get("locations") is not None and not isinstance(
+        brief.get("locations"), list
     ):
-        raise _EstimateValidationError("Budget must be a finite number")
-    if isinstance(budget_raw, (int, float)) and budget_raw < 0:
-        raise _EstimateValidationError("A positive budget is required")
-    budget_str = str(budget_raw).strip()
-    if not budget_str:
-        raise _EstimateValidationError("A budget is required")
-    # shared_utils.parse_budget()'s regex-based number extractor strips a
-    # leading "-" when pulling digits out of a string (e.g. "-$50,000" ->
-    # 50000), which would silently flip a negative budget positive instead
-    # of rejecting it -- guard explicitly rather than trusting the parser.
-    if budget_str.lstrip().startswith("-"):
-        raise _EstimateValidationError("A positive budget is required")
-    # parse_budget_strict() is the race-free variant of parse_budget(): it
-    # returns (value, was_defaulted) directly instead of the
-    # parse_budget.last_was_defaulted module-level function attribute,
-    # which two concurrent /api/estimate requests (ThreadedHTTPServer) can
-    # interleave and clobber between the call and the getattr() read below.
-    budget_val, budget_was_defaulted = parse_budget_strict(budget_str)
-    # parse_budget_strict() silently falls back to a $100,000 default
-    # (was_defaulted=True) when it can't parse the string at all -- e.g.
-    # "$0" or garbage input. Surfacing that as a real number here would be
-    # exactly the kind of not-what-the-user-typed estimate this endpoint
-    # exists to eliminate, so treat it as a validation error instead.
-    if budget_was_defaulted:
-        raise _EstimateValidationError("Could not parse a valid budget")
-    if not isinstance(budget_val, (int, float)) or budget_val <= 0:
-        raise _EstimateValidationError("A positive budget is required")
+        raise _EstimateValidationError("locations must be a list", field="locations")
+    _normalize_location_field(brief)
+    _resolve_and_rewrite_locations(brief)
 
     industry_raw = str(brief.get("industry") or "").strip()
     company_name = str(brief.get("client_name") or "").strip()
 
     roles_raw = brief.get("target_roles") or brief.get("roles") or []
     if not isinstance(roles_raw, list):
-        raise _EstimateValidationError("roles must be a list")
+        raise _EstimateValidationError("roles must be a list", field="target_roles")
     roles_titles: list[str] = []
     roles_for_ba: list[dict] = []
     for r in roles_raw[:50]:  # cap -- this is a live preview, not bulk import
@@ -5164,11 +5243,13 @@ def _compute_plan_estimate(brief: dict) -> dict:
                 }
             )
     if not roles_for_ba:
-        raise _EstimateValidationError("At least one role is required")
+        raise _EstimateValidationError(
+            "At least one role is required", field="target_roles"
+        )
 
     locs_raw = brief.get("locations") or []
     if not isinstance(locs_raw, list):
-        raise _EstimateValidationError("locations must be a list")
+        raise _EstimateValidationError("locations must be a list", field="locations")
     locs_for_ba: list[dict] = []
     for loc in locs_raw[:50]:
         if isinstance(loc, str):
@@ -5204,22 +5285,13 @@ def _compute_plan_estimate(brief: dict) -> dict:
     else:
         channel_pcts = dict(_DEFAULT_ALLOC_ESTIMATE)
 
-    # US-only redistribution -- mirrors app.py's generate path: strip
-    # APAC/EMEA and fold into the strongest channel unless a location is
-    # explicitly non-US.
-    _all_us = True
-    for loc in locs_for_ba:
-        country = (loc.get("country") or "").strip().lower()
-        if country and country not in ("us", "usa", "united states"):
-            _all_us = False
-            break
-    if _all_us:
-        intl_pct = channel_pcts.pop("apac_regional", 0) + channel_pcts.pop(
-            "emea_regional", 0
-        )
-        if intl_pct > 0:
-            top_ch = max(channel_pcts, key=lambda k: channel_pcts[k])
-            channel_pcts[top_ch] = channel_pcts[top_ch] + intl_pct
+    # Regional channels folded by the wizard's region select -- the SAME
+    # helper both /api/generate paths call (it used to be inferred from the
+    # locations here, so "Zurich" + the default "US Only" previewed APAC/EMEA
+    # funding the plan then stripped).
+    channel_pcts, _region_detail = _apply_target_region(
+        channel_pcts, brief["target_region"]
+    )
 
     # Honour the wizard's channel toggles exactly as both /api/generate
     # paths do (same helper, same bool / stringified-"False" handling).
@@ -5296,12 +5368,18 @@ def _compute_plan_estimate(brief: dict) -> dict:
     cost_per_hire = total_projected.get("cost_per_hire") or 0.0
     est_cpa = round(budget_val / applications, 2) if applications else 0.0
 
+    budget_info = budget_plan.as_dict()
+    budget_info["canonical"] = budget_str
     return {
         "est_hires": int(hires),
         "est_cph": round(float(cost_per_hire), 2) if cost_per_hire else 0.0,
         "est_applications": int(applications),
         "est_cpa": est_cpa,
         "channels": _estimate_funded_channels(budget_result),
+        # How the budget text was read -- the figure the plan will use
+        # ("planning at $X"), so the wizard shows the server's own reading.
+        "budget": budget_info,
+        "target_region": brief["target_region"],
     }
 
 
@@ -12754,7 +12832,7 @@ def _generate_post_campaign_ppt(data: dict) -> bytes:
 # API HARDENING: Consistent Error Envelope
 # ═══════════════════════════════════════════════════════════════════════════════
 def _error_response(
-    message: str, code: str = "UNKNOWN_ERROR", status: int = 400
+    message: str, code: str = "UNKNOWN_ERROR", status: int = 400, field: str = ""
 ) -> tuple[bytes, int]:
     """Build a consistent JSON error response.
 
@@ -12764,16 +12842,19 @@ def _error_response(
         message: Human-readable error description.
         code: Machine-readable error code (e.g., VALIDATION_ERROR, RATE_LIMITED).
         status: HTTP status code.
+        field: Request key the error is about (e.g. "budget_range"), so the
+            wizard can show the message at that field; omitted when empty.
     """
-    body = json.dumps(
-        {
-            "success": False,
-            "error": message,
-            "code": code,
-            "data": None,
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        }
-    )
+    payload: dict = {
+        "success": False,
+        "error": message,
+        "code": code,
+        "data": None,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    if field:
+        payload["field"] = field
+    body = json.dumps(payload)
     return body.encode("utf-8"), status
 
 
@@ -13020,7 +13101,11 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         return ""  # No CORS header = browser blocks
 
     def _send_error(
-        self, message: str, code: str = "UNKNOWN_ERROR", status: int = 400
+        self,
+        message: str,
+        code: str = "UNKNOWN_ERROR",
+        status: int = 400,
+        field: str = "",
     ) -> None:
         """Send a consistent JSON error response with CORS headers.
 
@@ -13031,8 +13116,9 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             message: Human-readable error description.
             code: Machine-readable error code.
             status: HTTP status code.
+            field: Request key at fault (added to the body when set).
         """
-        body, status_code = _error_response(message, code, status)
+        body, status_code = _error_response(message, code, status, field)
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json")
         cors_origin = self._get_cors_origin()
@@ -16521,7 +16607,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         except (ValueError, TypeError):
             content_length = 0
 
-        MAX_BODY_SIZE = 10485760  # 10 MB absolute max (file uploads)
+        # 10 MB absolute max (file uploads) -- wizard_inputs.INPUT_LIMITS, the
+        # same table the wizard page checks attachments against.
+        MAX_BODY_SIZE = wizard_inputs.INPUT_LIMITS["request_max_bytes"]
         MAX_API_BODY_SIZE = 1048576  # 1 MB for non-file-upload routes
 
         # File-upload routes that may need the larger 10 MB limit
@@ -16535,10 +16623,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         )
 
         if content_length > MAX_BODY_SIZE:
+            _upload_mb = wizard_inputs.INPUT_LIMITS["upload_total_max_bytes"] // (
+                1024 * 1024
+            )
             self._send_error(
-                "Request body too large. Maximum size is 10 MB.",
+                "Request body too large. Maximum size is 10 MB"
+                + (
+                    f" -- attached files must total under {_upload_mb} MB."
+                    if path == "/api/generate"
+                    else "."
+                ),
                 "PAYLOAD_TOO_LARGE",
                 413,
+                field="uploaded_briefs" if path == "/api/generate" else "",
             )
             return
 
@@ -17430,7 +17527,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             try:
                 _est_result = _compute_plan_estimate(_est_brief)
             except _EstimateValidationError as _est_val_err:
-                self._send_error(str(_est_val_err), "VALIDATION_ERROR", 400)
+                self._send_error(
+                    str(_est_val_err),
+                    "VALIDATION_ERROR",
+                    400,
+                    field=_est_val_err.field,
+                )
                 return
             except Exception as _est_err:
                 logger.error("Estimate calculation failed: %s", _est_err, exc_info=True)
@@ -17503,7 +17605,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _gen_timer.cancel()
                 self._send_error("Empty request body", "VALIDATION_ERROR", 400)
                 return
-            if content_len > 10 * 1024 * 1024:  # 10MB limit for JSON API requests
+            if content_len > wizard_inputs.INPUT_LIMITS["request_max_bytes"]:
                 _gen_timer.cancel()
                 self._send_error("Request too large", "VALIDATION_ERROR", 413)
                 return
@@ -17685,12 +17787,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     )
 
             # ── Region selector: validate and normalize ──
-            _valid_regions = {"us_only", "global", "emea", "apac", "custom"}
-            target_region = (
-                _safe_str(data.get("target_region") or "us_only").strip().lower()
-            )
-            if target_region not in _valid_regions:
-                target_region = "us_only"
+            # (_normalize_target_region is shared with /api/estimate.)
+            target_region = _normalize_target_region(data.get("target_region"))
             data["target_region"] = target_region
             custom_countries = data.get("custom_countries") or []
             if not isinstance(custom_countries, list):
@@ -17757,29 +17855,62 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 return
 
             # ── API HARDENING: Input length limits (Issue 2) ──
+            # Limits live in wizard_inputs.INPUT_LIMITS -- the wizard page
+            # embeds the same table and checks them where the user types.
+            _limits = wizard_inputs.INPUT_LIMITS
             _use_case = data.get("use_case") or data.get("brief") or ""
-            if isinstance(_use_case, str) and len(_use_case) > 10_000:
+            if (
+                isinstance(_use_case, str)
+                and len(_use_case) > _limits["use_case_max_chars"]
+            ):
+                _gen_timer.cancel()
                 self._send_error(
-                    "use_case exceeds 10,000 character limit", "VALIDATION_ERROR", 400
+                    f"Use case / brief is too long ({len(_use_case):,} characters; "
+                    f"max {_limits['use_case_max_chars']:,}).",
+                    "VALIDATION_ERROR",
+                    400,
+                    field="use_case",
                 )
                 return
             _transcript = data.get("call_transcript") or ""
-            if isinstance(_transcript, str) and len(_transcript) > 50_000:
+            if (
+                isinstance(_transcript, str)
+                and len(_transcript) > _limits["call_transcript_max_chars"]
+            ):
+                _gen_timer.cancel()
                 self._send_error(
-                    "call_transcript exceeds 50,000 character limit",
+                    f"Call transcript is too long ({len(_transcript):,} characters; "
+                    f"max {_limits['call_transcript_max_chars']:,}).",
                     "VALIDATION_ERROR",
                     400,
+                    field="call_transcript",
                 )
                 return
             _competitors = data.get("competitors") or []
-            if isinstance(_competitors, list) and len(_competitors) > 20:
+            if (
+                isinstance(_competitors, list)
+                and len(_competitors) > _limits["competitors_max"]
+            ):
+                _gen_timer.cancel()
                 self._send_error(
-                    "competitors list exceeds 20 items limit", "VALIDATION_ERROR", 400
+                    f"Too many competitors ({len(_competitors)}; "
+                    f"max {_limits['competitors_max']}).",
+                    "VALIDATION_ERROR",
+                    400,
+                    field="competitors",
                 )
                 return
-            if isinstance(client_name_input, str) and len(client_name_input) > 200:
+            if (
+                isinstance(client_name_input, str)
+                and len(client_name_input) > _limits["client_name_max_chars"]
+            ):
+                _gen_timer.cancel()
                 self._send_error(
-                    "client_name exceeds 200 character limit", "VALIDATION_ERROR", 400
+                    f"Client name is too long ({len(client_name_input)} characters; "
+                    f"max {_limits['client_name_max_chars']}).",
+                    "VALIDATION_ERROR",
+                    400,
+                    field="client_name",
                 )
                 return
 
@@ -17799,53 +17930,50 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # Validate critical input fields (non-blocking: store warnings, don't 400)
             _roles_input = data.get("target_roles") or data.get("roles") or []
             _locs_input = data.get("locations") or []
-            if isinstance(_locs_input, list) and len(_locs_input) > 100:
-                self._send_error(
-                    "Locations list exceeds 100 items limit", "VALIDATION_ERROR", 400
-                )
-                return
-            if isinstance(_roles_input, list) and len(_roles_input) > 30:
-                self._send_error(
-                    "Maximum 30 roles supported per plan. Please split into multiple plans.",
-                    "VALIDATION_ERROR",
-                    400,
-                )
-                return
-
-            # P2: Numeric range validation -- budget cap
-            _budget_raw_str = _safe_str(
-                data.get("budget") or data.get("budget_range") or ""
-            )
-            _bval = parse_budget(_budget_raw_str)
-            if parse_budget.last_was_defaulted and _budget_raw_str.strip():
-                self._send_error(
-                    f"Could not parse budget '{_budget_raw_str}'. "
-                    "Please enter a numeric value like $50,000",
-                    "VALIDATION_ERROR",
-                    400,
-                )
-                return
-            if _bval <= 0:
-                _bval = 100_000.0  # Default to $100K instead of blocking
             if (
-                _bval > 1_000_000_000
-            ):  # $1B cap (raised from $100M to support large enterprise budgets)
+                isinstance(_locs_input, list)
+                and len(_locs_input) > _limits["locations_max"]
+            ):
+                _gen_timer.cancel()
                 self._send_error(
-                    "Budget exceeds maximum allowed value ($1B). Please enter a value under $1,000,000,000.",
+                    f"Too many locations ({len(_locs_input)}; "
+                    f"max {_limits['locations_max']}).",
                     "VALIDATION_ERROR",
                     400,
+                    field="locations",
+                )
+                return
+            if (
+                isinstance(_roles_input, list)
+                and len(_roles_input) > _limits["roles_max"]
+            ):
+                _gen_timer.cancel()
+                self._send_error(
+                    f"Maximum {_limits['roles_max']} roles supported per plan. "
+                    "Please split into multiple plans.",
+                    "VALIDATION_ERROR",
+                    400,
+                    field="target_roles",
                 )
                 return
 
-            # ── CRITICAL: Validate budget is explicitly set (Ashlie Issue #1) ──
-            _budget_input = str(
-                data.get("budget") or "" or data.get("budget_range") or "" or ""
-            ).strip()
-            if not _budget_input or _budget_input == "":
+            # ── Budget: ONE reading for the preview, /api/estimate and this
+            # handler (wizard_inputs via _resolve_request_budget). The old
+            # shared_utils.parse_budget read "1.5 million" as $1.50 and
+            # generated a 0-hire plan (wizard audit D-02); any budget that
+            # is not an amount, is <= 0, or whose campaign total is outside
+            # wizard_inputs' bounds is a 400 naming the field, never a
+            # silent default. (Ashlie Issue #1 / P2 cap / Gold Standard
+            # negative-budget checks all live in that one resolution now.)
+            _budget_input = _safe_str(_request_budget_raw(data)[0]).strip()
+            _budget_check = _resolve_request_budget(data)
+            if not _budget_check.ok:
+                _gen_timer.cancel()
                 self._send_error(
-                    "Budget must be specified. Please select a budget range or enter an exact amount.",
+                    _budget_check.message,
                     "VALIDATION_ERROR",
                     400,
+                    field=_request_budget_raw(data)[1],
                 )
                 return
 
@@ -17894,48 +18022,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         )
                         return
 
-            # ── Gold Standard: Negative budget rejection ──
-            _budget_raw_str = str(
-                data.get("budget") or data.get("budget_range") or ""
-            ).strip()
-            if _budget_raw_str and re.match(
-                r"^-", _budget_raw_str.replace("$", "").strip()
-            ):
-                _gen_timer.cancel()
-                self._send_error(
-                    "Budget cannot be negative. Please enter a positive value.",
-                    "VALIDATION_ERROR",
-                    400,
-                )
-                return
-
             # ── Budget period normalization (monthly/quarterly/annual → campaign total) ──
-            _budget_period = (
-                str(data.get("budget_period") or "campaign").strip().lower()
-            )
-            if _budget_period in ("monthly", "quarterly", "annual"):
-                # Same rule the wizard's live preview applies (shared map) so
-                # the plan is generated for the total the user was shown.
-                _multiplier = _budget_period_multiplier(
-                    _budget_period, data.get("campaign_duration")
-                )
-                # Scale the parsed budget value to campaign total
-                _budget_raw_for_period = _safe_str(
-                    data.get("budget") or data.get("budget_range") or ""
-                )
-                _bval_period = parse_budget(_budget_raw_for_period)
-                if _bval_period > 0:
-                    _scaled = _bval_period * _multiplier
-                    _currency_prefix = _budget_currency_prefix(_budget_raw_for_period)
-                    data["budget"] = f"{_currency_prefix}{_scaled:,.0f}"
-                    data["budget_range"] = data["budget"]
-                    data["_budget_period_original"] = _budget_period
-                    data["_budget_multiplier"] = _multiplier
-                    logger.info(
-                        f"Budget period normalization: {_budget_period} "
-                        f"{_currency_prefix}{_bval_period:,.0f} x {_multiplier:.1f} "
-                        f"= {_currency_prefix}{_scaled:,.0f}"
-                    )
+            # Rewrites budget/budget_range to the canonical campaign total the
+            # preview showed ("$90,000" for $10,000/month over "6-12 months";
+            # "$1,500,000" for "1.5 million"), keeping the typed currency.
+            _normalize_request_budget(data)
 
             # ── Gold Standard: Campaign start month validation ──
             _csm_raw = data.get("campaign_start_month")
@@ -18561,72 +18652,22 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     channel_pcts = dict(_DEFAULT_ALLOC_BA)
 
                                 # ── Strip APAC/EMEA channels based on target_region (async path) ──
-                                _target_region_async = (
-                                    gen_data.get("target_region") or "us_only"
+                                # Shared with /api/estimate and the sync path.
+                                _target_region_async = _normalize_target_region(
+                                    gen_data.get("target_region")
                                 )
-                                _locs_raw_async = gen_data.get("locations") or []
-                                _all_us_async = _target_region_async == "us_only"
-                                if not _all_us_async and _target_region_async not in (
-                                    "global",
-                                    "emea",
-                                    "apac",
-                                    "custom",
-                                ):
-                                    # Infer from locations if region not explicitly set
-                                    _all_us_async = True
-                                    if _locs_raw_async:
-                                        for _loc_a in (
-                                            _locs_raw_async
-                                            if isinstance(_locs_raw_async, list)
-                                            else [_locs_raw_async]
-                                        ):
-                                            _loc_str_a = str(
-                                                _loc_a.get("country")
-                                                if isinstance(_loc_a, dict)
-                                                else _loc_a
-                                            ).lower()
-                                            if _loc_str_a and _loc_str_a not in (
-                                                "us",
-                                                "usa",
-                                                "united states",
-                                                "",
-                                            ):
-                                                _all_us_async = False
-                                                break
-
                                 if isinstance(channel_pcts, dict):
-                                    if (
-                                        _all_us_async
-                                        or _target_region_async == "us_only"
-                                    ):
-                                        _intl_pct_a = channel_pcts.pop(
-                                            "apac_regional", 0
-                                        ) + channel_pcts.pop("emea_regional", 0)
-                                        if _intl_pct_a > 0:
-                                            _top_ch_a = max(
-                                                channel_pcts,
-                                                key=lambda k: channel_pcts[k],
-                                            )
-                                            channel_pcts[_top_ch_a] = (
-                                                channel_pcts[_top_ch_a] + _intl_pct_a
-                                            )
-                                            logger.info(
-                                                "Async US-only plan (region=%s): redistributed %d%% from APAC/EMEA to %s",
-                                                _target_region_async,
-                                                _intl_pct_a,
-                                                _top_ch_a,
-                                            )
-                                    elif _target_region_async == "emea":
-                                        _move_regional_pct(
-                                            channel_pcts,
-                                            "apac_regional",
-                                            "emea_regional",
-                                        )
-                                    elif _target_region_async == "apac":
-                                        _move_regional_pct(
-                                            channel_pcts,
-                                            "emea_regional",
-                                            "apac_regional",
+                                    channel_pcts, _region_detail_a = _apply_target_region(
+                                        channel_pcts, _target_region_async
+                                    )
+                                    if _region_detail_a:
+                                        logger.info(
+                                            "Async %s plan (region=%s): %s",
+                                            "US-only"
+                                            if _target_region_async == "us_only"
+                                            else _target_region_async.upper(),
+                                            _target_region_async,
+                                            _region_detail_a,
                                         )
 
                                 _bstr_ba = str(
@@ -20664,72 +20705,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             )
                         )
 
-                    # Strip APAC/EMEA channels based on target_region or location inference
-                    _target_region = data.get("target_region") or "us_only"
-                    _locs_raw = data.get("locations") or []
-                    _all_us = _target_region == "us_only"
-                    if not _all_us and _target_region not in (
-                        "global",
-                        "emea",
-                        "apac",
-                        "custom",
-                    ):
-                        # Infer from locations if region not explicitly set
-                        _all_us = True
-                        if _locs_raw:
-                            for _loc in (
-                                _locs_raw
-                                if isinstance(_locs_raw, list)
-                                else [_locs_raw]
-                            ):
-                                _loc_str = str(
-                                    _loc.get("country")
-                                    if isinstance(_loc, dict)
-                                    else _loc
-                                ).lower()
-                                if _loc_str and _loc_str not in (
-                                    "us",
-                                    "usa",
-                                    "united states",
-                                    "",
-                                ):
-                                    _all_us = False
-                                    break
-
+                    # Strip APAC/EMEA channels based on target_region -- shared
+                    # with /api/estimate and the async path (_apply_target_region).
+                    _target_region = _normalize_target_region(data.get("target_region"))
                     if isinstance(channel_pcts, dict):
-                        if _all_us or _target_region == "us_only":
-                            # US-only: remove APAC/EMEA channels
-                            _intl_pct = channel_pcts.pop(
-                                "apac_regional", 0
-                            ) + channel_pcts.pop("emea_regional", 0)
-                            if _intl_pct > 0:
-                                _top_ch = max(
-                                    channel_pcts, key=lambda k: channel_pcts[k]
-                                )
-                                channel_pcts[_top_ch] = (
-                                    channel_pcts[_top_ch] + _intl_pct
-                                )
-                                logger.info(
-                                    f"US-only plan (region={_target_region}): redistributed {_intl_pct}%% from APAC/EMEA to {_top_ch}"
-                                )
-                        elif _target_region == "emea":
-                            # EMEA-only: remove APAC channels, boost EMEA
-                            _apac_pct = _move_regional_pct(
-                                channel_pcts, "apac_regional", "emea_regional"
+                        channel_pcts, _region_detail = _apply_target_region(
+                            channel_pcts, _target_region
+                        )
+                        if _region_detail:
+                            logger.info(
+                                f"{'US-only' if _target_region == 'us_only' else _target_region.upper()} "
+                                f"plan (region={_target_region}): {_region_detail}"
                             )
-                            if _apac_pct > 0:
-                                logger.info(
-                                    f"EMEA plan: redistributed {_apac_pct}%% from APAC to EMEA"
-                                )
-                        elif _target_region == "apac":
-                            # APAC-only: remove EMEA channels, boost APAC
-                            _emea_pct = _move_regional_pct(
-                                channel_pcts, "emea_regional", "apac_regional"
-                            )
-                            if _emea_pct > 0:
-                                logger.info(
-                                    f"APAC plan: redistributed {_emea_pct}%% from EMEA to APAC"
-                                )
 
                     # Parse budget to float — uses shared_utils.parse_budget (single source of truth)
                     _bstr_ba = str(

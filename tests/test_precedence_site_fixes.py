@@ -127,11 +127,19 @@ class TestMoveRegionalPct:
         assert pcts2 == {"emea_regional": 15}
 
     def test_all_four_inline_sites_use_the_helper(self) -> None:
-        """Two plan paths (sync + async) x two regions (emea, apac)."""
+        """Two plan paths (sync + async) x two regions (emea, apac).
+
+        2026-10-01 (wizard audit D-04): both paths -- and /api/estimate --
+        now fold regions through ONE helper, app._apply_target_region, which
+        calls _move_regional_pct once per region (def + 2 call sites)."""
         src = (PROJECT_ROOT / "app.py").read_text(encoding="utf-8")
-        assert src.count("_move_regional_pct(") == 1 + 4  # def + 4 call sites
+        assert src.count("_move_regional_pct(") == 1 + 2  # def + emea/apac in the helper
+        fold = src[src.index("def _apply_target_region(") :]
+        fold = fold[: fold.index("\ndef ")]
+        assert fold.count("_move_regional_pct(") == 2
+        assert src.count("_apply_target_region(") == 1 + 3  # def + sync, async, estimate
         assert not re.search(
-            r'channel_pcts\.get\("(emea|apac)_regional"\)\s*or 0 \+', src
+            r'(channel_)?pcts\.get\("(emea|apac)_regional"\)\s*or 0 \+', src
         )
 
 
