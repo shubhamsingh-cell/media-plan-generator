@@ -4213,9 +4213,20 @@ def _assess_data_quality(enriched: dict) -> Dict[str, Any]:
     succeeded = len(summary.get("apis_succeeded") or [])
     failed = len(summary.get("apis_failed") or [])
     skipped = len(summary.get("apis_skipped") or [])
+    not_applicable = len(summary.get("apis_not_applicable") or [])
     elapsed = summary.get("total_time_seconds") or 0
 
-    success_rate = (succeeded / called * 100) if called > 0 else 0.0
+    # The one enrichment-confidence metric (sources with data / sources
+    # attempted and applicable) -- the same number app.py's quality warning,
+    # plan_validator and the enrichment log line use. It used to be its own
+    # succeeded/called ratio here.
+    try:
+        from api_enrichment import enrichment_confidence
+    except ImportError:
+        logger.error("api_enrichment unavailable for data quality", exc_info=True)
+        success_rate = 0.0
+    else:
+        success_rate = enrichment_confidence(summary) * 100
 
     if success_rate >= 80:
         quality_tier = "excellent"
@@ -4233,6 +4244,7 @@ def _assess_data_quality(enriched: dict) -> Dict[str, Any]:
         "apis_succeeded": succeeded,
         "apis_failed": failed,
         "apis_skipped": skipped,
+        "apis_applicable": max(0, called - not_applicable),
         "success_rate": round(success_rate, 1),
         "total_time_seconds": elapsed,
         "quality_tier": quality_tier,
@@ -4856,7 +4868,8 @@ def _build_narrative_context(
     dq = synthesis.get("data_quality", {})
     if dq:
         parts.append(
-            f"APIs: {dq.get('apis_succeeded') or 0}/{dq.get('apis_called') or 0} succeeded, "
+            f"APIs: {dq.get('apis_succeeded') or 0}/{dq.get('apis_applicable') or 0} "
+            f"applicable sources returned data, "
             f"quality_tier={dq.get('quality_tier', 'unknown')}"
         )
 

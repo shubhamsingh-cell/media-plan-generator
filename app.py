@@ -135,6 +135,57 @@ def _run_enrich_data_with_partial_fallback(
         pool.shutdown(wait=False, cancel_futures=True)
 
 
+# Enrichment-quality warning threshold ("min 3"): below this many sources
+# returning live data, the plan rests mostly on KB benchmarks and gets a
+# quality_warning. Counted from enrich_data()'s enrichment_summary, which it
+# keeps current as each source finishes -- so on a deadline hit the partial
+# snapshot counts what had actually arrived by then (it used to read the {}
+# placeholder: "0 APIs succeeded, confidence=0.00" on 5/5 prod runs).
+_ENRICHMENT_MIN_SOURCES_WITH_DATA = 3
+
+_ENRICHMENT_WARNING_MINIMAL = (
+    "Minimal data available. Plan is heavily estimated. "
+    "Recommend API enrichment before executing."
+)
+_ENRICHMENT_WARNING_LIMITED = (
+    "Limited data available. This plan uses estimated benchmarks. "
+    "Results may vary significantly."
+)
+_ENRICHMENT_WARNING_SOME = (
+    "Some market data sources were unavailable. Plan uses benchmark estimates."
+)
+
+
+def _enrichment_quality_warning(enriched: Any) -> "tuple[str, int, float]":
+    """Return ``(quality_warning, n_sources_with_data, confidence)`` for an
+    enrich_data() result or a partial snapshot of one.
+
+    The warning is "" when at least _ENRICHMENT_MIN_SOURCES_WITH_DATA
+    sources returned data. Below that, its wording is tiered by the one
+    enrichment-confidence metric (``enrichment_summary.confidence_score`` =
+    api_enrichment.enrichment_confidence: sources with data / sources
+    attempted and applicable): < 0.40 "Minimal", < 0.60 "Limited", else
+    "Some sources unavailable". Shared by the async job path and the sync
+    /api/generate path so both read the same numbers.
+    """
+    summary = enriched.get("enrichment_summary") if isinstance(enriched, dict) else None
+    if not isinstance(summary, dict):
+        summary = {}
+    succeeded = summary.get("apis_succeeded")
+    n_ok = len(succeeded) if isinstance(succeeded, list) else 0
+    try:
+        confidence = float(summary.get("confidence_score") or 0.0)
+    except (TypeError, ValueError):
+        confidence = 0.0
+    if enriched and n_ok >= _ENRICHMENT_MIN_SOURCES_WITH_DATA:
+        return "", n_ok, confidence
+    if confidence < 0.40:
+        return _ENRICHMENT_WARNING_MINIMAL, n_ok, confidence
+    if confidence < 0.60:
+        return _ENRICHMENT_WARNING_LIMITED, n_ok, confidence
+    return _ENRICHMENT_WARNING_SOME, n_ok, confidence
+
+
 def _run_parallel_enrichment_tasks(
     tasks: list, timeout: float, enrich_data_partial: dict, span_fn: Any = None
 ) -> "tuple[dict, dict]":
@@ -17418,46 +17469,31 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         # ── Fix 25 + S49 Issue 17: Detect enrichment quality degradation ──
                         # Scale warning text with confidence level so PPT disclaimer
                         # is stronger when data quality is worse.
-                        _enr = gen_data.get("_enriched") or {}
-                        _enr_summary = (
-                            _enr.get("enrichment_summary", {})
-                            if isinstance(_enr, dict)
-                            else {}
-                        )
-                        _enr_succeeded = _enr_summary.get("apis_succeeded") or []
-                        _enr_confidence = float(
-                            _enr_summary.get("confidence_score") or 0
-                            if isinstance(_enr_summary, dict)
-                            else 0
-                        )
-                        if not _enr or (
-                            isinstance(_enr_succeeded, list) and len(_enr_succeeded) < 3
-                        ):
-                            # S49: Tiered warning based on confidence score
-                            if _enr_confidence < 0.40:
-                                gen_data["quality_warning"] = (
-                                    "Minimal data available. Plan is heavily estimated. "
-                                    "Recommend API enrichment before executing."
-                                )
-                            elif _enr_confidence < 0.60:
-                                gen_data["quality_warning"] = (
-                                    "Limited data available. This plan uses estimated benchmarks. "
-                                    "Results may vary significantly."
-                                )
-                            else:
-                                gen_data["quality_warning"] = (
-                                    "Some market data sources were unavailable. "
-                                    "Plan uses benchmark estimates."
-                                )
+                        (
+                            _enr_warning,
+                            _enr_n_ok,
+                            _enr_confidence,
+                        ) = _enrichment_quality_warning(gen_data.get("_enriched"))
+                        if _enr_warning:
+                            gen_data["quality_warning"] = _enr_warning
                             logger.warning(
-                                "Enrichment quality degraded for job %s: %d APIs succeeded (min 3), confidence=%.2f",
+                                "Enrichment quality degraded for job %s: %d APIs succeeded (min 3), confidence=%.2f%s",
                                 jid,
-                                (
-                                    len(_enr_succeeded)
-                                    if isinstance(_enr_succeeded, list)
-                                    else 0
-                                ),
+                                _enr_n_ok,
                                 _enr_confidence,
+                                " (partial snapshot at deadline)"
+                                if _enrich_timed_out
+                                else "",
+                            )
+                        else:
+                            logger.info(
+                                "Enrichment quality for job %s: %d sources returned data, confidence=%.2f%s",
+                                jid,
+                                _enr_n_ok,
+                                _enr_confidence,
+                                " (partial snapshot at deadline)"
+                                if _enrich_timed_out
+                                else "",
                             )
 
                         with _generation_jobs_lock:
@@ -19756,44 +19792,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # ── Fix 25 + S49 Issue 17: Detect enrichment quality degradation ──
             # Scale warning text with confidence level so PPT disclaimer
             # is stronger when data quality is worse.
-            _enr_sync = data.get("_enriched") or {}
-            _enr_sync_summary = (
-                _enr_sync.get("enrichment_summary", {})
-                if isinstance(_enr_sync, dict)
-                else {}
-            )
-            _enr_sync_succeeded = _enr_sync_summary.get("apis_succeeded") or []
-            _enr_sync_confidence = float(
-                _enr_sync_summary.get("confidence_score") or 0
-                if isinstance(_enr_sync_summary, dict)
-                else 0
-            )
-            if not _enr_sync or (
-                isinstance(_enr_sync_succeeded, list) and len(_enr_sync_succeeded) < 3
-            ):
-                # S49: Tiered warning based on confidence score
-                if _enr_sync_confidence < 0.40:
-                    data["quality_warning"] = (
-                        "Minimal data available. Plan is heavily estimated. "
-                        "Recommend API enrichment before executing."
-                    )
-                elif _enr_sync_confidence < 0.60:
-                    data["quality_warning"] = (
-                        "Limited data available. This plan uses estimated benchmarks. "
-                        "Results may vary significantly."
-                    )
-                else:
-                    data["quality_warning"] = (
-                        "Some market data sources were unavailable. "
-                        "Plan uses benchmark estimates."
-                    )
+            (
+                _enr_sync_warning,
+                _enr_sync_n_ok,
+                _enr_sync_confidence,
+            ) = _enrichment_quality_warning(data.get("_enriched"))
+            if _enr_sync_warning:
+                data["quality_warning"] = _enr_sync_warning
                 logger.warning(
                     "Enrichment quality degraded: %d APIs succeeded (min 3), confidence=%.2f",
-                    (
-                        len(_enr_sync_succeeded)
-                        if isinstance(_enr_sync_succeeded, list)
-                        else 0
-                    ),
+                    _enr_sync_n_ok,
                     _enr_sync_confidence,
                 )
 

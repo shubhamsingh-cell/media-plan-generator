@@ -14734,6 +14734,85 @@ def _geopolitical_fallback(locations: list) -> dict:
     }
 
 
+# Enrichment confidence -- ONE metric, one definition
+# ---------------------------------------------------------------------------
+ENRICHMENT_CONFIDENCE_BASIS = "succeeded / attempted-and-applicable"
+
+
+def enrichment_confidence(summary: Any) -> float:
+    """THE enrichment-confidence metric, read by every consumer (the
+    enrich_data summary + its log line, app.py's quality_warning,
+    plan_validator's channel-confidence check, data_synthesizer's
+    data_quality):
+
+        sources that returned live data
+        / sources that were attempted and applicable
+
+    From an ``enrichment_summary`` dict: numerator = ``apis_succeeded``;
+    denominator = ``apis_called`` minus ``apis_not_applicable`` (sources that
+    ran cleanly but had nothing for this request, e.g. UK-ONS on a US-only
+    plan). Failed, timed-out, circuit-broken, rate-limited and still-pending
+    sources stay IN the denominator: they applied and we did not get their
+    data. Returns 0.0 when nothing applicable was attempted, or for anything
+    that is not a summary dict.
+
+    Replaces the S23 ratio, which dropped skipped/circuit-broken sources from
+    the denominator while still counting "empty" ones as successes, so it
+    read 1.0 on runs where 2 of 18 sources had failed.
+
+    Limitation: a source that swallows its own failure and returns {} is
+    indistinguishable here from "not applicable"; that belongs in the source.
+    """
+    if not isinstance(summary, dict):
+        return 0.0
+
+    def _labels(key: str) -> set:
+        value = summary.get(key)
+        return {str(v) for v in value} if isinstance(value, (list, tuple)) else set()
+
+    applicable = _labels("apis_called") - _labels("apis_not_applicable")
+    if not applicable:
+        return 0.0
+    succeeded = applicable & _labels("apis_succeeded")
+    return round(len(succeeded) / len(applicable), 3)
+
+
+def _build_enrichment_summary(
+    *,
+    apis_called: List[str],
+    apis_succeeded: List[str],
+    apis_skipped: List[str],
+    apis_failed: List[str],
+    apis_circuit_broken: List[str],
+    apis_not_applicable: List[str],
+    api_details: Dict[str, Dict[str, Any]],
+    elapsed: float,
+    complete: bool,
+    geopolitical_status: str,
+) -> Dict[str, Any]:
+    """A fresh, self-contained enrichment_summary (every list copied), so a
+    caller that snapshots it mid-run can't see it mutate afterwards."""
+    finished = set(apis_succeeded) | set(apis_skipped) | set(apis_failed)
+    summary: Dict[str, Any] = {
+        "apis_called": list(apis_called),
+        "apis_succeeded": list(apis_succeeded),
+        "apis_skipped": list(apis_skipped),
+        "apis_failed": list(apis_failed),
+        "apis_circuit_broken": list(apis_circuit_broken),
+        "apis_not_applicable": list(apis_not_applicable),
+        "apis_pending": [a for a in apis_called if a not in finished],
+        "total_time_seconds": elapsed,
+        "confidence_score": 0.0,
+        "confidence_basis": ENRICHMENT_CONFIDENCE_BASIS,
+        "api_details": {k: dict(v) for k, v in api_details.items()},
+        "complete": complete,
+        "geopolitical_status": geopolitical_status,
+        "cached": False,  # would be True if entire result was from cache
+    }
+    summary["confidence_score"] = enrichment_confidence(summary)
+    return summary
+
+
 # Main enrichment orchestrator
 # ---------------------------------------------------------------------------
 
@@ -15140,7 +15219,42 @@ def enrich_data(
 
     apis_skipped: List[str] = []
     apis_circuit_broken: List[str] = []
+    apis_not_applicable: List[str] = []  # ran cleanly, nothing for this request
     api_details: Dict[str, Dict[str, Any]] = {}  # per-API metadata
+
+    # Build the list of api_labels up front for summary tracking
+    for _rk, _al, _fn in tasks:
+        apis_called.append(_al)
+
+    # Guards writes into `enriched` (the caller's live partial_result dict).
+    _results_lock = threading.Lock()
+
+    def _publish_summary(
+        complete: bool = False, geopolitical_status: str = "pending"
+    ) -> Dict[str, Any]:
+        """Replace enriched["enrichment_summary"] with a fresh summary of
+        what has finished SO FAR. Called before any source starts and after
+        each one finishes, so a caller whose outer deadline fires mid-run
+        (app.py adopts a snapshot of partial_result) reads real counts and a
+        real confidence instead of the {} placeholder. A new dict object
+        each time: a snapshot already taken never changes under the caller."""
+        summary = _build_enrichment_summary(
+            apis_called=apis_called,
+            apis_succeeded=apis_succeeded,
+            apis_skipped=apis_skipped,
+            apis_failed=apis_failed,
+            apis_circuit_broken=apis_circuit_broken,
+            apis_not_applicable=apis_not_applicable,
+            api_details=api_details,
+            elapsed=round(time.time() - start_time, 2),
+            complete=complete,
+            geopolitical_status=geopolitical_status,
+        )
+        with _results_lock:
+            enriched["enrichment_summary"] = summary
+        return summary
+
+    _publish_summary()
 
     # Gate concurrent enrichments to avoid thread explosion under load.
     # Semaphore limits global concurrency (max 3 parallel enrichments).
@@ -15151,6 +15265,8 @@ def enrich_data(
         _log_warn(
             "enrich_data: too many concurrent enrichments, returning partial data"
         )
+        # Nothing ran: every source stays pending, confidence 0.0.
+        _publish_summary(complete=True, geopolitical_status="not_started")
         return enriched  # Return what we have so far
 
     # Capture request_id so we can propagate it to worker threads
@@ -15171,13 +15287,6 @@ def enrich_data(
     )
 
     try:
-        # Build the list of api_labels up front for summary tracking
-        for _rk, _al, _fn in tasks:
-            apis_called.append(_al)
-
-        # Thread-safe collectors (only appends, protected by GIL for list.append)
-        _results_lock = threading.Lock()
-
         def _run_task(result_key: str, api_label: str, func: Any) -> tuple:
             """Execute a single enrichment task in a worker thread."""
             # Propagate request_id to this worker thread
@@ -15254,6 +15363,7 @@ def enrich_data(
                         apis_succeeded.append(api_label)
                     elif status == "empty":
                         apis_skipped.append(api_label)
+                        apis_not_applicable.append(api_label)
                     elif status == "circuit_open":
                         apis_circuit_broken.append(api_label)
                         apis_failed.append(api_label)
@@ -15284,6 +15394,10 @@ def enrich_data(
                         "status": "error",
                         "error_message": str(exc),
                     }
+                finally:
+                    # Every outcome (incl. the `continue` above) lands in
+                    # the live summary before the next source is processed.
+                    _publish_summary()
         finally:
             executor.shutdown(wait=False, cancel_futures=True)
 
@@ -15310,48 +15424,25 @@ def enrich_data(
     # Geopolitical context: take it only if it arrived within its budget
     # (counted from before the pool started, so no serial wait here).
     geo_context, geo_status = _collect_geopolitical_context(_geo_handle)
+    with _results_lock:
+        enriched["geopolitical_context"] = geo_context
 
-    # --- Build enhanced summary ---
-    elapsed = round(time.time() - start_time, 2)
+    # --- Final summary (same builder + metric as the live ones) ---
+    summary = _publish_summary(complete=True, geopolitical_status=geo_status)
 
-    # S23: Confidence score -- exclude skipped/circuit-broken APIs from denominator.
-    # Previously, skipped APIs inflated total_calls, dragging confidence to ~50%
-    # even when 0 APIs actually failed.
-    _skipped_set = set(apis_skipped) | set(apis_circuit_broken)
-    _effective_calls = [a for a in apis_called if a not in _skipped_set]
-    total_calls = len(_effective_calls) if _effective_calls else 1
-    successful_calls = sum(
-        1
-        for d in api_details.values()
-        if d.get("success", False) and d.get("source") in ("live", "cached")
-    )
-    confidence_score = round(min(1.0, successful_calls / total_calls), 3)
-
-    enriched["geopolitical_context"] = geo_context
-
-    enriched["enrichment_summary"] = {
-        "apis_called": apis_called,
-        "apis_succeeded": apis_succeeded,
-        "apis_skipped": apis_skipped,
-        "apis_failed": apis_failed,
-        "apis_circuit_broken": apis_circuit_broken,
-        "total_time_seconds": elapsed,
-        "confidence_score": confidence_score,
-        "api_details": api_details,
-        "geopolitical_status": geo_status,
-        "cached": False,  # would be True if entire result was from cache
-    }
-
-    ok_count = len(apis_succeeded) + len(apis_skipped)
+    n_applicable = len(set(apis_called) - set(apis_not_applicable))
+    n_rate_limited = len(apis_skipped) - len(apis_not_applicable)
+    rl_msg = f", {n_rate_limited} rate-limited" if n_rate_limited else ""
     cb_msg = (
         f", {len(apis_circuit_broken)} circuit-broken" if apis_circuit_broken else ""
     )
     _log_info(
-        f"Enrichment complete in {elapsed}s — "
-        f"{ok_count}/{len(apis_called)} APIs ok "
-        f"({len(apis_succeeded)} data, {len(apis_skipped)} skipped, "
-        f"{len(apis_failed)} failed{cb_msg}) "
-        f"[confidence={confidence_score}]"
+        f"Enrichment complete in {summary['total_time_seconds']}s — "
+        f"{len(apis_succeeded)}/{n_applicable} applicable sources returned data "
+        f"[confidence={summary['confidence_score']}] "
+        f"({len(apis_called)} dispatched: {len(apis_succeeded)} data, "
+        f"{len(apis_not_applicable)} not applicable, "
+        f"{len(apis_failed)} failed{rl_msg}{cb_msg}; geopolitical={geo_status})"
     )
 
     return enriched
