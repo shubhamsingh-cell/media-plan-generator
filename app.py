@@ -14855,17 +14855,24 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── Saved Plans (Supabase persistence -- Cindy request S47) ──
         elif path == "/api/saved-plans":
             try:
-                if not _check_joveo_auth(self):
-                    self._send_error("Authentication required", 401)
+                # _check_joveo_auth is a METHOD: a bare call raised NameError
+                # (swallowed below into 200 + empty list) from 2026-04-07 until
+                # the ops-hygiene fix. Fails closed: unauthenticated -> 401.
+                if not self._check_joveo_auth():
+                    self._send_error("Authentication required", "AUTH_REQUIRED", 401)
                     return
                 try:
                     from supabase_client import get_client
 
                     sb = get_client()
                 except Exception:
+                    logger.error(
+                        "Saved plans: Supabase client init failed", exc_info=True
+                    )
                     sb = None
                 if not sb:
-                    self._send_json({"plans": []})
+                    # Never report "storage down" as "you have no saved plans".
+                    self._send_json({"error": "Storage unavailable"}, status_code=503)
                     return
                 email = _parse_cookie_value(
                     self.headers.get("Cookie") or "", "nova_user_email"
@@ -14882,14 +14889,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 self._send_json({"plans": result.data or []})
             except Exception as exc:
+                # A swallowed error here used to return 200 + [] so users
+                # believed they had no saved plans. The UI already renders
+                # "Could not load saved plans" on any non-2xx response.
                 logger.error("Saved plans list error: %s", exc, exc_info=True)
-                self._send_json({"plans": []})
+                self._send_json(
+                    {"error": "Failed to list saved plans"}, status_code=500
+                )
 
         elif path.startswith("/api/saved-plans/") and not path.endswith("/"):
             # GET /api/saved-plans/<id> -- fetch full plan data
             try:
-                if not _check_joveo_auth(self):
-                    self._send_error("Authentication required", 401)
+                if not self._check_joveo_auth():
+                    self._send_error("Authentication required", "AUTH_REQUIRED", 401)
                     return
                 plan_id = path.split("/")[-1]
                 if not plan_id.isdigit():
@@ -16636,8 +16648,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── S47: Save Plan to Supabase (Cindy request) ──
         if path == "/api/saved-plans":
             try:
-                if not _check_joveo_auth(self):
-                    self._send_error("Authentication required", 401)
+                if not self._check_joveo_auth():
+                    self._send_error("Authentication required", "AUTH_REQUIRED", 401)
                     return
                 content_len = int(self.headers.get("Content-Length") or 0)
                 body = self.rfile.read(content_len) if content_len > 0 else b"{}"
