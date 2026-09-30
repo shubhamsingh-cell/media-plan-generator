@@ -389,20 +389,18 @@ def _handle_pdf_export_get(handler: Any, path: str, parsed: Any) -> None:
             handler._send_json({"error": "Missing or invalid plan_id"}, status_code=400)
             return
 
-        # Look up plan data from the in-memory store
+        # Look up plan data: this worker's dict, else the shared layers
+        # (the plan may have been generated on another worker / pre-deploy).
         _app = sys.modules.get("app") or sys.modules.get("__main__")
         _plan_results_store = getattr(_app, "_plan_results_store", {})
         _plan_results_lock = getattr(_app, "_plan_results_lock", None)
 
-        entry = None
-        if _plan_results_lock:
-            with _plan_results_lock:
-                entry = _plan_results_store.get(plan_id)
-                if entry and time.time() - entry.get("created", 0) > 86400:
+        entry = _app._plan_result_lookup(plan_id)
+        if entry and time.time() - (entry.get("created") or 0) > 86400:
+            if _plan_results_lock:
+                with _plan_results_lock:
                     _plan_results_store.pop(plan_id, None)
-                    entry = None
-        else:
-            entry = _plan_results_store.get(plan_id)
+            entry = None
 
         if not entry:
             handler._send_json({"error": "Plan not found or expired"}, status_code=404)

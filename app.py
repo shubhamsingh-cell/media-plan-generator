@@ -844,6 +844,11 @@ def _cache_cleanup_loop() -> None:
                     f"Cache cleanup failed for plan results: {e}", exc_info=True
                 )
 
+            # ── Shared-state file layer: TTL + caps across ALL workers' files ──
+            # (the stores never raise; each call is its own error boundary)
+            _shared_plan_store.sweep()
+            _plan_result_store.sweep()
+
             total_purged = (
                 purged_insights
                 + purged_copilot
@@ -7110,6 +7115,86 @@ def _shared_plans_enforce_caps_locked() -> int:
     return evicted
 
 
+# ── Cross-worker / restart-surviving layers under the in-process dicts ──
+# Prod runs `gunicorn --workers 4 --preload` on one Render instance, so each
+# dict above/below is only ONE worker's view: a share link, plan result or job
+# written by worker A 404'd on B, C and D, and every deploy wiped them all.
+# shared_state.py adds an instance-wide file layer and a sealed Supabase
+# `cache` table layer beneath each dict (reads: dict -> file -> Supabase,
+# backfilling upward; writes: every layer). NOVA_SHARED_STATE=0 restores the
+# dict-only behaviour without a code change.
+import shared_state  # noqa: E402
+
+
+def _shared_state_dir() -> str:
+    """Instance-local directory shared by every worker: the /api/generate slot
+    dir, resolved at call time (defined further down; tests repoint it)."""
+    return _generate_slots._slot_dir
+
+
+def _shared_state_flush(timeout: float = 5.0) -> bool:
+    """Wait for queued durable (Supabase) writes -- tests and shutdown."""
+    return shared_state.flush(timeout)
+
+
+# Share ids: 22-char urlsafe (128-bit, secrets.token_urlsafe(16)) since the
+# shared-state change, 8 lowercase hex (32-bit) before it -- kept readable.
+# This is the share-id family, not a job/plan hex id (see the hex-width lint
+# in tests/test_multiprocess_serving.py); it is also the path-traversal guard
+# for the file layer.
+_SHARE_ID_RE = re.compile(r"(?:[0-9a-f]{8}|[A-Za-z0-9_-]{22})")
+# The per-plan cap applies on every layer: the record is the plan_data JSON
+# (<= _SHARED_PLAN_MAX_BYTES) plus the <=200-char client label and 2 numbers.
+_SHARED_PLAN_RECORD_MAX_BYTES = _SHARED_PLAN_MAX_BYTES + 2048
+_SHARED_PLANS_FILE_MAX_BYTES = 64 * 1024 * 1024  # instance disk budget
+_shared_plan_store = shared_state.SharedRecordStore(
+    "share",
+    _shared_state_dir,
+    subdir=os.path.join("shared_state", "shared_plans"),
+    key_pattern=_SHARE_ID_RE,
+    created_field="created_at",
+    ttl_seconds=_SHARED_PLANS_TTL,
+    max_record_bytes=_SHARED_PLAN_RECORD_MAX_BYTES,
+    max_records=_SHARED_PLANS_MAX,
+    max_total_bytes=_SHARED_PLANS_FILE_MAX_BYTES,
+)
+
+
+def _new_share_id() -> str:
+    """128-bit share id: the link is the only credential for the plan."""
+    return secrets.token_urlsafe(16)
+
+
+def _shared_plan_put(share_id: str, entry: dict) -> None:
+    """Store a shared plan on every layer (memory caps enforced at insert)."""
+    with _shared_plans_lock:
+        _shared_plans[share_id] = entry
+        _shared_plans_enforce_caps_locked()
+    _shared_plan_store.put(share_id, entry)
+
+
+def _shared_plan_get(share_id: str) -> Optional[dict]:
+    """A live shared plan from this worker's dict, else the shared layers.
+
+    The 24h TTL is checked on every read (it used to be enforced only by the
+    5-minute sweep), so no worker serves a share another worker calls expired.
+    """
+    if not isinstance(share_id, str) or not _SHARE_ID_RE.fullmatch(share_id):
+        return None
+    with _shared_plans_lock:
+        entry = _shared_plans.get(share_id)
+    if entry is None:
+        entry = _shared_plan_store.get(share_id)
+        if entry is None:
+            return None
+        with _shared_plans_lock:
+            entry = _shared_plans.setdefault(share_id, entry)
+            _shared_plans_enforce_caps_locked()
+    if _is_expired(entry.get("created_at"), time.time(), _SHARED_PLANS_TTL):
+        return None
+    return entry
+
+
 _plan_feedback: dict[str, list[dict]] = {}
 _plan_feedback_lock = threading.Lock()
 _plan_feedback_ts: dict[str, float] = {}  # track last-update time per key
@@ -7131,18 +7216,80 @@ _GENERATION_JOB_EXPIRY_SECONDS = (
     24 * 60 * 60
 )  # 24 hours (was 30 min -- Slack users download hours later)
 
+# Job ids: 32-char (128-bit) now, 12-char legacy -- same as the route validators.
+_JOB_ID_RE = re.compile(r"^([a-f0-9]{12}|[a-f0-9]{32})\Z")
+# Status records keep the pre-existing mirror location and flat format
+# (<slot dir>/job_<id>.json) so a mirror written by the previous build stays
+# readable. Small JSON only; bundle_qa findings are the bulk of a record.
+_JOB_RECORD_MAX_BYTES = 128 * 1024
+_JOB_RECORDS_MAX = 1000
+_JOB_RECORDS_FILE_MAX_BYTES = 16 * 1024 * 1024
+_job_record_store = shared_state.SharedRecordStore(
+    "job",
+    _shared_state_dir,
+    prefix="job_",
+    key_pattern=_JOB_ID_RE,
+    created_field="created",
+    ttl_seconds=_GENERATION_JOB_EXPIRY_SECONDS,
+    max_record_bytes=_JOB_RECORD_MAX_BYTES,
+    max_records=_JOB_RECORDS_MAX,
+    max_total_bytes=_JOB_RECORDS_FILE_MAX_BYTES,
+)
+# Finished plan ZIPs (~270 KB in prod) for downloads that land on another
+# worker. File layer only -- the S47 nova_generated_plans table is the copy
+# that survives a deploy -- and bounded per blob, by count and by bytes.
+_JOB_RESULT_MAX_BYTES = 32 * 1024 * 1024
+_JOB_RESULTS_MAX = 100
+_JOB_RESULTS_FILE_MAX_BYTES = 128 * 1024 * 1024
+_job_result_blobs = shared_state.SharedBlobStore(
+    "job_result",
+    _shared_state_dir,
+    subdir=os.path.join("shared_state", "job_results"),
+    key_pattern=_JOB_ID_RE,
+    ttl_seconds=_GENERATION_JOB_EXPIRY_SECONDS,
+    max_blob_bytes=_JOB_RESULT_MAX_BYTES,
+    max_blobs=_JOB_RESULTS_MAX,
+    max_total_bytes=_JOB_RESULTS_FILE_MAX_BYTES,
+)
+
+
+def _job_record_get(job_id: str) -> Optional[dict]:
+    """A job's shared status record (file layer, then Supabase), or None."""
+    return _job_record_store.get(job_id)
+
+
+def _job_record_session_ok(record: dict, cookie_header: str) -> bool:
+    """Does the request's session cookie own this job status record?
+
+    Records store only sha256(session token) (the raw token never touches
+    disk); a record written before that hardening carries the raw token.
+    A record with neither has no owner to enforce.
+    """
+    cookie = _parse_cookie_value(cookie_header, "nova_session") or _parse_cookie_value(
+        cookie_header, "csrf_token"
+    )
+    token_sha = record.get("_session_token_sha256") or ""
+    if token_sha:
+        cookie_sha = hashlib.sha256(cookie.encode("utf-8")).hexdigest()
+        return hmac.compare_digest(token_sha.encode("utf-8"), cookie_sha.encode("utf-8"))
+    legacy_raw = record.get("_session_token") or ""
+    if legacy_raw:
+        return hmac.compare_digest(legacy_raw.encode("utf-8"), cookie.encode("utf-8"))
+    return True
+
 
 def _mirror_job(job_id: str) -> None:
-    """Snapshot a generation job's JSON-safe status fields to a file in
-    the same slot dir _generate_slots uses, so a GET /api/jobs/<id> poll
-    that lands on a gunicorn worker OTHER than the one running the job
-    (numInstances: 1, but --workers N -- see the _CrossProcessSlots
-    comment above) can still see live progress instead of a false 404
-    until the S47 Supabase fallback has bytes (only on completion).
+    """Publish a generation job's JSON-safe status fields to the shared
+    layers, so a GET /api/jobs/<id> poll or a qa-ack that lands on a gunicorn
+    worker OTHER than the one running the job (numInstances: 1, but
+    --workers N -- see the _CrossProcessSlots comment) sees live progress
+    and the final verdict instead of a false 404.
 
-    Whitelist only -- never result_bytes, which can be tens of MB and is
-    never needed by the mirror path (completed+download falls through to
-    Supabase, the only place with the actual bytes cross-worker).
+    Whitelist only. result_bytes (can be tens of MB) never goes into the
+    record: a completed job's ZIP goes to the size-capped file blob store
+    instead. Terminal records (completed / failed) are also written to the
+    durable layer, so status and qa-ack survive a deploy; in-flight progress
+    stays instance-local (a restart kills the job that would update it).
     """
     with _generation_jobs_lock:
         job = _generation_jobs.get(job_id)
@@ -7165,26 +7312,28 @@ def _mirror_job(job_id: str) -> None:
             "bundle_qa": job.get("bundle_qa"),
         }
         # Security hardening: never write the raw session token to disk --
-        # the mirror file is world-readable (default-0644) and lives up to
-        # 24h. Only the sha256 hex digest is persisted; the poll handler
-        # hashes the cookie value the same way and compares digests.
+        # the record lives up to 24h on disk and in Supabase. Only the
+        # sha256 hex digest is persisted; readers hash the cookie value the
+        # same way and compare digests (_job_record_session_ok).
         _raw_session_token = job.get("_session_token") or ""
         if _raw_session_token:
             snapshot["_session_token_sha256"] = hashlib.sha256(
                 _raw_session_token.encode("utf-8")
             ).hexdigest()
-    slot_dir = _generate_slots._slot_dir
-    mirror_path = os.path.join(slot_dir, f"job_{job_id}.json")
-    # Include the pid in the tmp name so two workers racing to mirror the
-    # same job_id never clobber each other's in-flight write.
-    tmp_path = f"{mirror_path}.{os.getpid()}.tmp"
-    try:
-        os.makedirs(slot_dir, exist_ok=True)
-        with open(tmp_path, "w") as f:
-            json.dump(snapshot, f)
-        os.replace(tmp_path, mirror_path)
-    except OSError as e:
-        logger.warning(f"_mirror_job: failed to write mirror for job {job_id}: {e}")
+        _acked_by = job.get("_qa_acknowledged_by") or ""
+        if _acked_by:
+            snapshot["_qa_acknowledged_by"] = _acked_by
+        _terminal = snapshot["status"] in ("completed", "failed")
+        _result_bytes = job.get("result_bytes") if snapshot["status"] == "completed" else None
+    if _terminal and not _acked_by:
+        # An override acknowledged on ANOTHER worker lives only in the shared
+        # record; this worker's rewrite must not erase it.
+        _previous = _job_record_store.get(job_id, local_only=True) or {}
+        if _previous.get("_qa_acknowledged_by"):
+            snapshot["_qa_acknowledged_by"] = _previous["_qa_acknowledged_by"]
+    if _result_bytes and not _job_result_blobs.exists(job_id):
+        _job_result_blobs.put(job_id, _result_bytes, snapshot.get("created") or time.time())
+    _job_record_store.put(job_id, snapshot, durable=_terminal)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -7211,6 +7360,57 @@ def _plan_results_enforce_cap_locked() -> int:
     for k in oldest[:excess]:
         del _plan_results_store[k]
     return excess
+
+
+# Same id family as job ids (see _JOB_ID_RE); the 256 KiB per-plan cap of the
+# share store bounds each persisted result on every layer.
+_PLAN_RESULT_RECORD_MAX_BYTES = 256 * 1024
+_PLAN_RESULTS_FILE_MAX_BYTES = 32 * 1024 * 1024
+_plan_result_store = shared_state.SharedRecordStore(
+    "plan_result",
+    _shared_state_dir,
+    subdir=os.path.join("shared_state", "plan_results"),
+    key_pattern=_JOB_ID_RE,
+    created_field="created",
+    ttl_seconds=_PLAN_RESULTS_TTL_SECONDS,
+    max_record_bytes=_PLAN_RESULT_RECORD_MAX_BYTES,
+    max_records=_PLAN_RESULTS_MAX,
+    max_total_bytes=_PLAN_RESULTS_FILE_MAX_BYTES,
+)
+
+
+def _plan_result_lookup(plan_id: str) -> Optional[dict]:
+    """This worker's plan-result entry (returned as-is; callers keep their own
+    TTL checks and messages), else a live one from the shared layers, which is
+    backfilled into this worker's dict."""
+    with _plan_results_lock:
+        entry = _plan_results_store.get(plan_id)
+    if entry is not None:
+        return entry
+    entry = _plan_result_store.get(plan_id)
+    if entry is None:
+        return None
+    with _plan_results_lock:
+        entry = _plan_results_store.setdefault(plan_id, entry)
+        _plan_results_enforce_cap_locked()
+    return entry
+
+
+def _plan_result_set_sheets_url(plan_id: str, sheet_url: str) -> None:
+    """Attach the async Google Sheet URL to a plan result on every layer."""
+    with _plan_results_lock:
+        entry = _plan_results_store.get(plan_id)
+        if entry is not None:
+            entry["sheets_url"] = sheet_url
+            record = dict(entry)
+        else:
+            record = None
+    if record is None:
+        record = _plan_result_store.get(plan_id)
+        if record is None:
+            return
+        record = {**record, "sheets_url": sheet_url}
+    _plan_result_store.put(plan_id, record)
 
 
 def _move_regional_pct(channel_pcts: dict, src: str, dst: str) -> float:
@@ -7392,9 +7592,11 @@ def _store_plan_result(plan_id: str, data: dict) -> None:
     """Store extracted plan JSON with TTL for dashboard retrieval."""
     try:
         plan_json = _extract_plan_json(data)
+        entry = {"data": plan_json, "created": time.time()}
         with _plan_results_lock:
-            _plan_results_store[plan_id] = {"data": plan_json, "created": time.time()}
+            _plan_results_store[plan_id] = entry
             _plan_results_enforce_cap_locked()
+        _plan_result_store.put(plan_id, entry)
         logger.info("Plan result stored: %s", plan_id)
     except Exception as e:
         logger.error("Failed to store plan result: %s", e, exc_info=True)
@@ -7512,6 +7714,7 @@ def _cleanup_generation_jobs():
         try:
             time.sleep(300)  # Every 5 minutes
             now = time.time()
+            stale: list[str] = []
             with _generation_jobs_lock:
                 # Mark stale "processing" jobs as failed (stuck > 10 minutes)
                 # S29 v2: raised from 3min to 10min for quality-first pipeline
@@ -7523,6 +7726,7 @@ def _cleanup_generation_jobs():
                         jdata["status"] = "failed"
                         jdata["error"] = "Generation timed out after 10 minutes"
                         jdata["result_bytes"] = None
+                        stale.append(jid)
                         logger.warning(
                             "Marked stale job %s as failed (stuck in processing > 10min)",
                             jid,
@@ -7542,28 +7746,26 @@ def _cleanup_generation_jobs():
                     _generation_jobs.pop(jid, None)
             if expired:
                 logger.info("Cleaned up %d expired generation jobs", len(expired))
-            # Cross-process job-status mirror files (written by _mirror_job)
-            # have no in-memory dict entry to expire them, so sweep the
-            # slot dir directly in the same pass.
-            try:
-                _mirror_dir = _generate_slots._slot_dir
-                for _mirror_fname in os.listdir(_mirror_dir):
-                    if not (
-                        _mirror_fname.startswith("job_")
-                        and _mirror_fname.endswith(".json")
-                    ):
-                        continue
-                    _mirror_fpath = os.path.join(_mirror_dir, _mirror_fname)
-                    try:
-                        if (
-                            now - os.path.getmtime(_mirror_fpath)
-                            > _GENERATION_JOB_EXPIRY_SECONDS
-                        ):
-                            os.unlink(_mirror_fpath)
-                    except OSError:
-                        pass
-            except OSError:
-                pass  # slot dir doesn't exist yet -- nothing to clean up
+            # The dict entries just marked failed were also dropped above, so
+            # every later poll (on any worker, this one included) reads the
+            # shared record: publish the timeout there or it says
+            # "processing" until the 24h expiry.
+            for jid in stale:
+                _stale_record = _job_record_store.get(jid, local_only=True)
+                if _stale_record and _stale_record.get("status") == "processing":
+                    _job_record_store.put(
+                        jid,
+                        {
+                            **_stale_record,
+                            "status": "failed",
+                            "error": "Generation timed out after 10 minutes",
+                        },
+                        durable=True,
+                    )
+            # Shared job records and result ZIPs have no in-memory dict entry
+            # to expire them: sweep their TTL and caps in the same pass.
+            _job_record_store.sweep()
+            _job_result_blobs.sweep()
         except Exception as e:
             logger.warning("Generation job cleanup error: %s", e)
 
@@ -9059,6 +9261,17 @@ class _CrossProcessSlots:
 
 
 _generate_slots = _CrossProcessSlots(_MAX_CONCURRENT_GENERATE)
+
+# Startup pass over the shared-state file layer (runs once per instance boot
+# in the --preload master): drop expired records and orphaned temp files and
+# re-apply the caps before any worker serves traffic.
+for _startup_store in (
+    _shared_plan_store,
+    _plan_result_store,
+    _job_record_store,
+    _job_result_blobs,
+):
+    _startup_store.sweep()
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CSRF: Cookie-based double-submit pattern (stateless)
@@ -14313,56 +14526,24 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             with _generation_jobs_lock:
                 job = _generation_jobs.get(job_id)
             if not job:
-                # Cross-process job-status mirror: this poll may have
-                # landed on a gunicorn worker OTHER than the one running
-                # the job (the in-memory dict above is per-process), so
-                # check the file _mirror_job() wrote before falling
-                # back to the S47 Supabase lookup below, which only has
-                # bytes once the job has fully completed.
-                _mirror_path = os.path.join(
-                    _generate_slots._slot_dir, f"job_{job_id}.json"
-                )
-                _mirror_data = None
-                try:
-                    with open(_mirror_path, "r") as _mf:
-                        _mirror_data = json.load(_mf)
-                except (OSError, ValueError):
-                    _mirror_data = None
+                # Shared job-status record: this poll may have landed on a
+                # gunicorn worker OTHER than the one running the job (the
+                # in-memory dict above is per-process), or on a new instance
+                # after a deploy. _mirror_job() published the record to the
+                # instance file layer (and, once terminal, to Supabase);
+                # check it before the S47 nova_generated_plans lookup below,
+                # which only has bytes once the job has fully completed.
+                _mirror_data = _job_record_store.get(job_id, allow_expired=True)
                 if _mirror_data is not None:
                     # A completed job's id is a bearer token: the Slack
                     # notification hands the link to teammates who by
                     # definition do not share the generating session, so
                     # ownership only gates in-flight jobs (see the
-                    # _mirror_session_ok gate below).
-                    _mirror_session_ok = True
-                    _mirror_sha = _mirror_data.get("_session_token_sha256") or ""
-                    _mirror_legacy_raw = _mirror_data.get("_session_token") or ""
-                    if _mirror_sha:
-                        _mirror_csrf = _parse_cookie_value(
-                            self.headers.get("Cookie") or "", "nova_session"
-                        ) or _parse_cookie_value(
-                            self.headers.get("Cookie") or "", "csrf_token"
-                        )
-                        _mirror_csrf_sha = hashlib.sha256(
-                            _mirror_csrf.encode("utf-8")
-                        ).hexdigest()
-                        _mirror_session_ok = hmac.compare_digest(
-                            _mirror_sha, _mirror_csrf_sha
-                        )
-                    elif _mirror_legacy_raw:
-                        # Legacy mirror file written before the sha256
-                        # hardening (pre-existing on disk, up to 24h
-                        # old) -- fall back to the raw compare so these
-                        # stragglers still enforce ownership instead of
-                        # silently skipping the check.
-                        _mirror_csrf = _parse_cookie_value(
-                            self.headers.get("Cookie") or "", "nova_session"
-                        ) or _parse_cookie_value(
-                            self.headers.get("Cookie") or "", "csrf_token"
-                        )
-                        _mirror_session_ok = hmac.compare_digest(
-                            _mirror_legacy_raw, _mirror_csrf
-                        )
+                    # _mirror_session_ok gate below). Legacy records carry
+                    # the raw token and are still enforced.
+                    _mirror_session_ok = _job_record_session_ok(
+                        _mirror_data, self.headers.get("Cookie") or ""
+                    )
                     _mirror_created = _mirror_data.get("created") or 0
                     _mirror_status = _mirror_data.get("status")
                     # Gate BEFORE the expiry branch below: that branch
@@ -14381,10 +14562,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         )
                         return
                     if now - _mirror_created > _GENERATION_JOB_EXPIRY_SECONDS:
-                        try:
-                            os.unlink(_mirror_path)
-                        except OSError:
-                            pass
+                        _job_record_store.delete(job_id)
                         self.send_response(404)
                         self.send_header("Content-Type", "application/json")
                         self.end_headers()
@@ -14416,8 +14594,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 }
                             )
                             return
-                        # Download mode: only Supabase (S47 below) has
-                        # the actual bytes cross-worker -- fall through.
+                        # Download mode: the worker that ran the job left
+                        # the ZIP in the instance blob store; after a
+                        # deploy only Supabase (S47 below) has it.
+                        if self._serve_job_blob(
+                            job_id,
+                            _mirror_data.get("result_filename") or "result.zip",
+                            _mirror_data.get("result_content_type")
+                            or "application/zip",
+                        ):
+                            return
                     elif _mirror_status == "failed":
                         self._send_json(
                             {
@@ -14525,6 +14711,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     if not result_bytes:
                         if self._serve_plan_from_supabase(job_id):
                             return
+                        # No Supabase copy (not configured, or down): the
+                        # instance blob store still holds the ZIP for 24h.
+                        if self._serve_job_blob(job_id, filename, content_type):
+                            return
                         self._send_json(
                             {
                                 "job_id": job_id,
@@ -14598,18 +14788,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json({"error": "Invalid plan_id"}, status_code=400)
                 return
             now = time.time()
-            with _plan_results_lock:
-                _pr_entry = _plan_results_store.get(_pr_id)
-                if not _pr_entry:
-                    self._send_json(
-                        {"error": "Plan not found or expired"}, status_code=404
-                    )
-                    return
-                if now - _pr_entry["created"] > _PLAN_RESULTS_TTL_SECONDS:
+            # This worker's dict, else the shared layers (another worker, or
+            # before a deploy).
+            _pr_entry = _plan_result_lookup(_pr_id)
+            if not _pr_entry:
+                self._send_json({"error": "Plan not found or expired"}, status_code=404)
+                return
+            if now - _pr_entry["created"] > _PLAN_RESULTS_TTL_SECONDS:
+                with _plan_results_lock:
                     _plan_results_store.pop(_pr_id, None)
-                    self._send_json({"error": "Plan expired"}, status_code=404)
-                    return
-                self._send_json({"plan_id": _pr_id, **_pr_entry["data"]})
+                self._send_json({"error": "Plan expired"}, status_code=404)
+                return
+            self._send_json({"plan_id": _pr_id, **_pr_entry["data"]})
         # ── Google Sheets URL for a generated plan ──
         # ── Campaign Intelligence live metrics (replaces Google Sheet fetch) ──
         # Drop-in for the Campaign Intelligence tool that previously tried to
@@ -14777,14 +14967,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     {"error": "Missing or invalid plan_id"}, status_code=400
                 )
                 return
-            with _plan_results_lock:
-                _su_entry = _plan_results_store.get(_su_plan_id)
-                if not _su_entry:
-                    self._send_json(
-                        {"error": "Plan not found or expired"}, status_code=404
-                    )
-                    return
-                _su_url = _su_entry.get("sheets_url") or ""
+            _su_entry = _plan_result_lookup(_su_plan_id)
+            if not _su_entry:
+                self._send_json({"error": "Plan not found or expired"}, status_code=404)
+                return
+            _su_url = _su_entry.get("sheets_url") or ""
+            if not _su_url:
+                # The URL is attached later by the worker that generated the
+                # plan; this worker's copy may predate it.
+                _su_url = (_plan_result_store.get(_su_plan_id) or {}).get(
+                    "sheets_url"
+                ) or ""
             if _su_url:
                 self._send_json(
                     {"plan_id": _su_plan_id, "sheets_url": _su_url, "ready": True}
@@ -16491,24 +16684,40 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 return
             with _generation_jobs_lock:
                 _qa_ack_job = _generation_jobs.get(_qa_ack_job_id)
-            if _qa_ack_job is None:
+            # The job may have run on another worker (or before a deploy):
+            # its shared status record carries the verdict and the owner.
+            _qa_ack_record = (
+                _job_record_store.get(_qa_ack_job_id) if _qa_ack_job is None else None
+            )
+            if _qa_ack_job is None and _qa_ack_record is None:
                 self._send_json({"error": "Job not found or expired"}, status_code=404)
                 return
             # Same session-ownership check as the /api/jobs/<id> poll/
             # download endpoint (Bug #14 fix, IDOR prevention) -- only the
             # session that generated this bundle may acknowledge its QA
             # findings.
-            _qa_ack_job_session = _qa_ack_job.get("_session_token") or ""
-            if _qa_ack_job_session:
-                _qa_ack_csrf = _parse_cookie_value(
-                    self.headers.get("Cookie") or "", "nova_session"
-                ) or _parse_cookie_value(self.headers.get("Cookie") or "", "csrf_token")
-                if not hmac.compare_digest(_qa_ack_job_session, _qa_ack_csrf):
-                    self._send_json(
-                        {"error": "Access denied: job belongs to a different session"},
-                        status_code=403,
+            if _qa_ack_job is not None:
+                _qa_ack_job_session = _qa_ack_job.get("_session_token") or ""
+                _qa_ack_session_ok = True
+                if _qa_ack_job_session:
+                    _qa_ack_csrf = _parse_cookie_value(
+                        self.headers.get("Cookie") or "", "nova_session"
+                    ) or _parse_cookie_value(
+                        self.headers.get("Cookie") or "", "csrf_token"
                     )
-                    return
+                    _qa_ack_session_ok = hmac.compare_digest(
+                        _qa_ack_job_session, _qa_ack_csrf
+                    )
+            else:
+                _qa_ack_session_ok = _job_record_session_ok(
+                    _qa_ack_record, self.headers.get("Cookie") or ""
+                )
+            if not _qa_ack_session_ok:
+                self._send_json(
+                    {"error": "Access denied: job belongs to a different session"},
+                    status_code=403,
+                )
+                return
             try:
                 _qa_ack_cl = int(self.headers.get("Content-Length") or 0)
                 _qa_ack_cl = min(_qa_ack_cl, 10240)  # 10 KB is plenty
@@ -16521,7 +16730,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 or str(_qa_ack_body.get("acknowledged_by") or "")[:200]
                 or "unknown"
             )
-            _qa_ack_bq = _qa_ack_job.get("bundle_qa") or {}
+            _qa_ack_bq = (_qa_ack_job or _qa_ack_record or {}).get("bundle_qa") or {}
             _qa_ack_codes = _qa_ack_bq.get("codes") or []
             try:
                 from audit_logger import log_event as _qa_ack_log_event
@@ -16545,6 +16754,15 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         _generation_jobs[_qa_ack_job_id][
                             "_qa_acknowledged_by"
                         ] = _qa_ack_by
+                # Publish the acknowledgement to every worker (and Supabase).
+                if _qa_ack_job is not None:
+                    _mirror_job(_qa_ack_job_id)
+                else:
+                    _job_record_store.put(
+                        _qa_ack_job_id,
+                        {**_qa_ack_record, "_qa_acknowledged_by": _qa_ack_by},
+                        durable=_qa_ack_record.get("status") in ("completed", "failed"),
+                    )
                 self._send_json({"ok": True, "acknowledged_by": _qa_ack_by})
             except Exception as _qa_ack_err:
                 logger.warning(
@@ -20750,10 +20968,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
                     sheet_url = export_media_plan(plan_data_copy)
                     if sheet_url:
-                        with _plan_results_lock:
-                            entry = _plan_results_store.get(plan_id_ref)
-                            if entry:
-                                entry["sheets_url"] = sheet_url
+                        _plan_result_set_sheets_url(plan_id_ref, sheet_url)
                         logger.info(
                             "Async Google Sheets created for plan %s: %s",
                             plan_id_ref,
@@ -25387,6 +25602,25 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         """Override to track the response status code for metrics."""
         self._response_status = code
         super().send_response(code, message)
+
+    def _serve_job_blob(self, job_id: str, filename: str, content_type: str) -> bool:
+        """Serve a completed job's ZIP from the instance blob store, where the
+        worker that ran the job left it (_mirror_job). Same bearer-token and
+        24h rules as the Supabase path below. True if a response was sent."""
+        blob = _job_result_blobs.get(job_id)
+        if not blob:
+            return False
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Content-Length", str(len(blob)))
+        self.end_headers()
+        try:
+            self.wfile.write(blob)
+        except OSError as _blob_write_err:
+            # Headers are committed; the caller must not send a second status.
+            logger.debug("Job blob: client disconnected during download: %s", _blob_write_err)
+        return True
 
     def _serve_plan_from_supabase(self, job_id: str) -> bool:
         """S47: serve a completed plan from Supabase, the only store that keeps

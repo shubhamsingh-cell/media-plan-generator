@@ -79,8 +79,6 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
     import html as _html_mod
 
     _app = sys.modules.get("app") or sys.modules.get("__main__")
-    _shared_plans = getattr(_app, "_shared_plans", {})
-    _shared_plans_lock = getattr(_app, "_shared_plans_lock", None)
     _plan_feedback = getattr(_app, "_plan_feedback", {})
     _plan_feedback_lock = getattr(_app, "_plan_feedback_lock", None)
 
@@ -89,11 +87,9 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
         handler.send_error(404, "Share ID required")
         return
 
-    if _shared_plans_lock:
-        with _shared_plans_lock:
-            shared = _shared_plans.get(share_id)
-    else:
-        shared = _shared_plans.get(share_id)
+    # Any worker's share (and a share from before a deploy): app.py checks this
+    # worker's dict, then the shared file / Supabase layers. Malformed ids -> None.
+    shared = _app._shared_plan_get(share_id)
 
     if not shared:
         handler.send_error(404, "Shared plan not found or expired")
@@ -360,15 +356,13 @@ def _handle_plan_direct_view(handler: Any, path: str, parsed: Any) -> None:
         handler.send_error(404)
         return
 
-    _pv_entry = None
-    if _plan_results_lock:
-        with _plan_results_lock:
-            _pv_entry = _plan_results_store.get(_pv_id)
-            if _pv_entry and time.time() - _pv_entry["created"] > 86400:
+    # This worker's dict, else the shared layers (another worker / pre-deploy).
+    _pv_entry = _app._plan_result_lookup(_pv_id)
+    if _pv_entry and time.time() - _pv_entry["created"] > 86400:
+        if _plan_results_lock:
+            with _plan_results_lock:
                 _plan_results_store.pop(_pv_id, None)
-                _pv_entry = None
-    else:
-        _pv_entry = _plan_results_store.get(_pv_id)
+        _pv_entry = None
 
     if not _pv_entry:
         handler.send_response(404)
@@ -461,8 +455,6 @@ def _handle_campaign_save(handler: Any, path: str, parsed: Any) -> None:
 def _handle_plan_share(handler: Any, path: str, parsed: Any) -> None:
     """POST /api/plan/share -- create a shareable plan link."""
     _app = sys.modules.get("app") or sys.modules.get("__main__")
-    _shared_plans = getattr(_app, "_shared_plans", {})
-    _shared_plans_lock = getattr(_app, "_shared_plans_lock", None)
 
     try:
         content_len = int(handler.headers.get("Content-Length") or 0)
@@ -510,7 +502,9 @@ def _handle_plan_share(handler: Any, path: str, parsed: Any) -> None:
             )
             return
 
-        share_id = uuid.uuid4().hex[:8]
+        # 128-bit urlsafe id (was uuid4().hex[:8] = 32 bits): the link is the
+        # only credential, and the plan now outlives any single worker.
+        share_id = _app._new_share_id()
         mem_factor = getattr(_app, "_SHARED_PLAN_MEM_FACTOR", 8)
         entry = {
             "plan_data": plan_data,
@@ -518,16 +512,8 @@ def _handle_plan_share(handler: Any, path: str, parsed: Any) -> None:
             "created_at": time.time(),
             "est_bytes": (plan_bytes + len(client)) * mem_factor,
         }
-        enforce = getattr(_app, "_shared_plans_enforce_caps_locked", None)
-        if _shared_plans_lock:
-            with _shared_plans_lock:
-                _shared_plans[share_id] = entry
-                if enforce:
-                    enforce()
-        else:
-            _shared_plans[share_id] = entry
-            if enforce:
-                enforce()
+        # This worker's dict (caps enforced at insert) + the shared layers.
+        _app._shared_plan_put(share_id, entry)
         handler._send_json(
             {
                 "share_id": share_id,
@@ -544,7 +530,6 @@ def _handle_plan_share(handler: Any, path: str, parsed: Any) -> None:
 def _handle_plan_feedback(handler: Any, path: str, parsed: Any) -> None:
     """POST /api/plan/feedback -- submit feedback on a shared plan."""
     _app = sys.modules.get("app") or sys.modules.get("__main__")
-    _shared_plans = getattr(_app, "_shared_plans", {})
     _plan_feedback = getattr(_app, "_plan_feedback", {})
     _plan_feedback_lock = getattr(_app, "_plan_feedback_lock", None)
 
@@ -556,7 +541,8 @@ def _handle_plan_feedback(handler: Any, path: str, parsed: Any) -> None:
         name = data.get("name") or "Anonymous"
         comment = data.get("comment") or ""
 
-        if not share_id or share_id not in _shared_plans:
+        # Any worker's live share counts, not just this worker's dict.
+        if not share_id or not _app._shared_plan_get(share_id):
             handler._send_json({"error": "Invalid share ID"}, status_code=404)
             return
         if not comment.strip():
