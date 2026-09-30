@@ -12579,13 +12579,22 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             return False
         return host.lower() in _SAME_ORIGIN_ALLOWED_HOSTS
 
-    def _check_joveo_auth(self) -> bool:
+    def _check_joveo_auth(self, allow_widget_origin: bool = True) -> bool:
         """Check if request is from an authenticated @joveo.com user or has valid API key.
 
         Three authentication paths (S58 hardened after security audit):
           1. X-Nova-Api-Key header (for embedded widgets on CG/GeoViz)
           2. Supabase JWT with @joveo.com email (HMAC-verified)
           3. Cookie-based session signed with SESSION_SIGNING_SECRET
+        plus a fourth, weaker fallback (Origin/Referer of a known widget
+        domain) that callers holding per-user data can switch off.
+
+        Args:
+            allow_widget_origin: When False, skip the Origin/Referer widget-domain
+                fallback (Path 4). That check is a substring match on headers any
+                client can set, so user-scoped endpoints such as /api/saved-plans
+                pass False: a spoofed ``Origin: geoviz.joveo.com`` must not open
+                someone's saved plans.
 
         Returns:
             True if the request is authorized, False otherwise.
@@ -12700,6 +12709,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
             "geoviz-3d.vercel.app",
             "geoviz.joveo.com",
         }
+        if not allow_widget_origin:
+            return False
         origin = self.headers.get("Origin") or ""
         referer = self.headers.get("Referer") or ""
         for _jd in _joveo_widget_domains:
@@ -14858,7 +14869,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 # _check_joveo_auth is a METHOD: a bare call raised NameError
                 # (swallowed below into 200 + empty list) from 2026-04-07 until
                 # the ops-hygiene fix. Fails closed: unauthenticated -> 401.
-                if not self._check_joveo_auth():
+                # allow_widget_origin=False on all three saved-plans handlers:
+                # plans are per-user data and Origin/Referer is client-settable.
+                if not self._check_joveo_auth(allow_widget_origin=False):
                     self._send_error("Authentication required", "AUTH_REQUIRED", 401)
                     return
                 try:
@@ -14900,7 +14913,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         elif path.startswith("/api/saved-plans/") and not path.endswith("/"):
             # GET /api/saved-plans/<id> -- fetch full plan data
             try:
-                if not self._check_joveo_auth():
+                if not self._check_joveo_auth(allow_widget_origin=False):
                     self._send_error("Authentication required", "AUTH_REQUIRED", 401)
                     return
                 plan_id = path.split("/")[-1]
@@ -16648,7 +16661,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── S47: Save Plan to Supabase (Cindy request) ──
         if path == "/api/saved-plans":
             try:
-                if not self._check_joveo_auth():
+                if not self._check_joveo_auth(allow_widget_origin=False):
                     self._send_error("Authentication required", "AUTH_REQUIRED", 401)
                     return
                 content_len = int(self.headers.get("Content-Length") or 0)

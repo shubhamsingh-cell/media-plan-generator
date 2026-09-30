@@ -291,6 +291,79 @@ class TestSavedPlansFailClosed:
         assert status == 401
         assert fake_sb.rows == []
 
+    @pytest.mark.parametrize(
+        "spoof",
+        [
+            {"Origin": "https://geoviz.joveo.com"},
+            {"Origin": "https://cg-automation.onrender.com"},
+            {"Referer": "https://evil.example/?x=geoviz-3d.vercel.app"},
+        ],
+    )
+    def test_spoofed_widget_origin_header_does_not_open_saved_plans(
+        self,
+        live_port: int,
+        auth_env: None,
+        fake_sb: _FakeSupabase,
+        spoof: dict[str, str],
+    ) -> None:
+        """``_check_joveo_auth`` Path 4 trusts a substring of client-settable
+        Origin/Referer headers (meant for embedded CG/GeoViz widgets). Saved
+        plans are per-user data: with the handlers live again (they were dead
+        from 2026-04-07), that path must not apply to them."""
+        fake_sb.rows.append(
+            {"id": 9, "user_email": "victim@joveo.com", "plan_data": {"secret": 1}}
+        )
+        for method, path, payload in (
+            ("GET", "/api/saved-plans", None),
+            ("GET", "/api/saved-plans/9", None),
+            ("POST", "/api/saved-plans", _PLAN),
+        ):
+            status, body = _request(live_port, method, path, payload, headers=spoof)
+            assert status == 401, (method, path, spoof, status, body)
+            assert body.get("code") == "AUTH_REQUIRED"
+            assert "plan_data" not in body and "plans" not in body
+        assert len(fake_sb.rows) == 1, "nothing was written"
+
+
+class _Headers(dict):
+    """Case-sensitive stand-in for http.client.HTTPMessage (``get`` only)."""
+
+
+class _FakeReq:
+    def __init__(self, **headers: str) -> None:
+        self.headers = _Headers(headers)
+
+
+class TestWidgetOriginFallbackIsOptInPerCaller:
+    """The parameter defaults to True so every other endpoint keeps its behavior."""
+
+    def test_default_still_accepts_a_known_widget_origin(self, auth_env: None) -> None:
+        req = _FakeReq(Origin="https://geoviz.joveo.com")
+        assert app.MediaPlanHandler._check_joveo_auth(req) is True
+
+    def test_switched_off_refuses_the_same_request(self, auth_env: None) -> None:
+        req = _FakeReq(Origin="https://geoviz.joveo.com")
+        assert (
+            app.MediaPlanHandler._check_joveo_auth(req, allow_widget_origin=False)
+            is False
+        )
+
+    def test_switched_off_still_accepts_a_valid_api_key(self, auth_env: None) -> None:
+        req = _FakeReq(**{"X-Nova-Api-Key": _API_KEY})
+        assert (
+            app.MediaPlanHandler._check_joveo_auth(req, allow_widget_origin=False)
+            is True
+        )
+
+    def test_switched_off_still_accepts_a_valid_signed_cookie(
+        self, auth_env: None
+    ) -> None:
+        req = _FakeReq(Cookie=_signed_cookie())
+        assert (
+            app.MediaPlanHandler._check_joveo_auth(req, allow_widget_origin=False)
+            is True
+        )
+
 
 # ---------------------------------------------------------------------------
 # 2. Authenticated: save succeeds and the list returns it
