@@ -607,10 +607,9 @@ def _build_collar_cases() -> List[Dict[str, Any]]:
         # Blue collar strategy should have programmatic + global_job_boards + social_media > 40%
         # These map to Indeed (global_job_boards) and Facebook (social_media)
         indeed_fb = (
-            mix.get("global_job_boards")
-            or 0 + mix.get("social_media")
-            or 0 + mix.get("programmatic")
-            or 0
+            (mix.get("global_job_boards") or 0)
+            + (mix.get("social_media") or 0)
+            + (mix.get("programmatic") or 0)
         )
         if indeed_fb >= 0.40:
             return (

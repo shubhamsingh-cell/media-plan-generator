@@ -1200,7 +1200,7 @@ def generate_audit_scorecard(
     if total_budget > 0:
         weighted_score = (
             sum(
-                ar.get("efficiency_score", 50) * ar.get("planned_budget") or 0
+                ar.get("efficiency_score", 50) * (ar.get("planned_budget") or 0)
                 for ar in audit_results
             )
             / total_budget

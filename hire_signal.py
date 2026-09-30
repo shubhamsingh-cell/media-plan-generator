@@ -1159,8 +1159,8 @@ def generate_recommendations(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
             impact = min(
                 90,
                 int(
-                    (100 - src["avg_qoh_score"]) * 0.8 + src.get("total_cost")
-                    or 0 / 1000
+                    (100 - src["avg_qoh_score"]) * 0.8
+                    + (src.get("total_cost") or 0) / 1000
                 ),
             )
             recommendations.append(

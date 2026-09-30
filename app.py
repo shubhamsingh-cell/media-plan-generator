@@ -7117,6 +7117,22 @@ _plan_results_lock = threading.Lock()
 _PLAN_RESULTS_TTL_SECONDS = 24 * 60 * 60  # 24 hours (was 30 min)
 
 
+def _move_regional_pct(channel_pcts: dict, src: str, dst: str) -> float:
+    """Move channel ``src``'s budget share into ``dst`` and return the amount moved.
+
+    ``dst`` keeps any share it already had: the moved share is ADDED to it, so
+    the percentages still sum to the same total. (The inline form was
+    ``pcts.get(dst) or 0 + moved``, which parses as ``pcts.get(dst) or
+    (0 + moved)`` and silently dropped the moved share whenever ``dst``
+    already had one.) Returns 0 and leaves ``dst`` untouched when ``src`` is
+    absent, None or not positive.
+    """
+    moved = channel_pcts.pop(src, 0) or 0
+    if moved > 0:
+        channel_pcts[dst] = (channel_pcts.get(dst) or 0) + moved
+    return moved
+
+
 def _extract_plan_json(data: dict) -> dict:
     """Extract a JSON summary from generation data for the on-screen dashboard."""
     budget_alloc = data.get("_budget_allocation") or {}
@@ -7392,7 +7408,7 @@ def _cleanup_generation_jobs():
                 for jid, jdata in _generation_jobs.items():
                     if (
                         jdata.get("status") == "processing"
-                        and (now - jdata.get("created") or 0) > 600
+                        and (now - (jdata.get("created") or 0)) > 600
                     ):
                         jdata["status"] = "failed"
                         jdata["error"] = "Generation timed out after 10 minutes"
@@ -7405,11 +7421,11 @@ def _cleanup_generation_jobs():
                 expired = [
                     jid
                     for jid, jdata in _generation_jobs.items()
-                    if (now - jdata.get("created") or 0)
+                    if (now - (jdata.get("created") or 0))
                     > _GENERATION_JOB_EXPIRY_SECONDS
                     or (
                         jdata.get("status") in ("completed", "failed")
-                        and (now - jdata.get("created") or 0) > 600
+                        and (now - (jdata.get("created") or 0)) > 600
                     )
                 ]
                 for jid in expired:
@@ -17841,23 +17857,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                                 _top_ch_a,
                                             )
                                     elif _target_region_async == "emea":
-                                        _apac_pct_a = channel_pcts.pop(
-                                            "apac_regional", 0
+                                        _move_regional_pct(
+                                            channel_pcts,
+                                            "apac_regional",
+                                            "emea_regional",
                                         )
-                                        if _apac_pct_a > 0:
-                                            channel_pcts["emea_regional"] = (
-                                                channel_pcts.get("emea_regional")
-                                                or 0 + _apac_pct_a
-                                            )
                                     elif _target_region_async == "apac":
-                                        _emea_pct_a = channel_pcts.pop(
-                                            "emea_regional", 0
+                                        _move_regional_pct(
+                                            channel_pcts,
+                                            "emea_regional",
+                                            "apac_regional",
                                         )
-                                        if _emea_pct_a > 0:
-                                            channel_pcts["apac_regional"] = (
-                                                channel_pcts.get("apac_regional")
-                                                or 0 + _emea_pct_a
-                                            )
 
                                 _bstr_ba = str(
                                     gen_data.get("budget")
@@ -20024,21 +20034,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 )
                         elif _target_region == "emea":
                             # EMEA-only: remove APAC channels, boost EMEA
-                            _apac_pct = channel_pcts.pop("apac_regional", 0)
+                            _apac_pct = _move_regional_pct(
+                                channel_pcts, "apac_regional", "emea_regional"
+                            )
                             if _apac_pct > 0:
-                                channel_pcts["emea_regional"] = (
-                                    channel_pcts.get("emea_regional") or 0 + _apac_pct
-                                )
                                 logger.info(
                                     f"EMEA plan: redistributed {_apac_pct}%% from APAC to EMEA"
                                 )
                         elif _target_region == "apac":
                             # APAC-only: remove EMEA channels, boost APAC
-                            _emea_pct = channel_pcts.pop("emea_regional", 0)
+                            _emea_pct = _move_regional_pct(
+                                channel_pcts, "emea_regional", "apac_regional"
+                            )
                             if _emea_pct > 0:
-                                channel_pcts["apac_regional"] = (
-                                    channel_pcts.get("apac_regional") or 0 + _emea_pct
-                                )
                                 logger.info(
                                     f"APAC plan: redistributed {_emea_pct}%% from EMEA to APAC"
                                 )

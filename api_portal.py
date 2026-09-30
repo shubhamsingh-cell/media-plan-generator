@@ -469,10 +469,10 @@ def _maybe_flush_usage():
             kh = entry["key_hash"]
             if kh in data["keys"]:
                 rec = data["keys"][kh]
-                rec["total_requests"] = rec.get("total_requests") or 0 + 1
+                rec["total_requests"] = (rec.get("total_requests") or 0) + 1
                 rec["last_used"] = entry["timestamp"]
                 if entry.get("error"):
-                    rec["total_errors"] = rec.get("total_errors") or 0 + 1
+                    rec["total_errors"] = (rec.get("total_errors") or 0) + 1
                 # Track endpoint usage
                 ep = entry["endpoint"]
                 if "endpoints_used" not in rec:

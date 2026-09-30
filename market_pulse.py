@@ -1203,7 +1203,7 @@ def generate_pulse_html(report_data: Dict[str, Any]) -> str:
             change_color = (
                 "#d32f2f" if change > 0 else "#2e7d32" if change < 0 else TEXT_MUTED
             )
-            bg = BG_ZEBRA if p.get("rank") or 0 % 2 == 0 else "#ffffff"
+            bg = BG_ZEBRA if (p.get("rank") or 0) % 2 == 0 else "#ffffff"
             rows.append(
                 f"""
             <tr style="background:{bg};">

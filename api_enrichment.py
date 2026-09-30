@@ -877,7 +877,7 @@ def _circuit_breaker_check(api_name: str) -> bool:
         if not state.get("is_open", False):
             return False
         # Check if recovery timeout has elapsed — allow a retry
-        elapsed = time.time() - state.get("last_failure_time") or 0
+        elapsed = time.time() - (state.get("last_failure_time") or 0)
         if elapsed >= _CB_RECOVERY_TIMEOUT:
             # Half-open: allow one request through
             state["is_open"] = False
@@ -8365,6 +8365,16 @@ def _refresh_bing_oauth_token(client_id: str, refresh_token: str) -> Optional[st
         return None
 
 
+def _avg_min_max(minimum: Dict[str, Any], maximum: Dict[str, Any], key: str) -> float:
+    """Mean of the Minimum and Maximum estimates for ``key`` (missing/None -> 0).
+
+    The inline form was ``min.get(k) or 0 + max.get(k) or 0``, which parses as
+    ``min.get(k) or (0 + max.get(k)) or 0`` -- it returned the Minimum alone
+    (then halved it) instead of averaging the two.
+    """
+    return ((minimum.get(key) or 0) + (maximum.get(key) or 0)) / 2.0
+
+
 def _bing_ads_soap_request(
     access_token: str,
     developer_token: str,
@@ -8483,17 +8493,9 @@ def _bing_ads_soap_request(
                     kw_text = keywords[idx]
                     minimum = est.get("Minimum", {})
                     maximum = est.get("Maximum", {})
-                    avg_cpc = (
-                        minimum.get("AverageCpc") or 0 + maximum.get("AverageCpc") or 0
-                    ) / 2.0
-                    avg_impressions = (
-                        minimum.get("Impressions")
-                        or 0 + maximum.get("Impressions")
-                        or 0
-                    ) / 2.0
-                    avg_clicks = (
-                        minimum.get("Clicks") or 0 + maximum.get("Clicks") or 0
-                    ) / 2.0
+                    avg_cpc = _avg_min_max(minimum, maximum, "AverageCpc")
+                    avg_impressions = _avg_min_max(minimum, maximum, "Impressions")
+                    avg_clicks = _avg_min_max(minimum, maximum, "Clicks")
 
                     if kw_text not in results:
                         results[kw_text] = {}

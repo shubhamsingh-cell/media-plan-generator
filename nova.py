@@ -10487,7 +10487,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     summary_lines.append(
                         f"{seg.get('title', 'N/A'):<25} "
                         f"{seg.get('count') or 0:>6} "
-                        f"{seg.get('pct_of_total') or 0*100:>9.0f}% "
+                        f"{(seg.get('pct_of_total') or 0) * 100:>9.0f}% "
                         f"{seg.get('cpa_multiplier', 1.0):>8.2f}x "
                         f"{seg.get('collar_type', 'unknown')}"
                     )
