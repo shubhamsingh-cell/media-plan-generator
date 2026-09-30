@@ -340,7 +340,13 @@ class TestBenchmarkProvenanceFlags:
         # still US$-marked on this non-USD (GBP) plan.
         assert any(t.startswith("US$10-US$30") for t in texts), texts
         assert any(t.startswith("US$0.25-US$1.00") for t in texts), texts
-        assert any(t.startswith("US$1,500-US$3,500") for t in texts), texts
+        # 2026-10-01 (audit F §3.5): the CPH row now prints the plan's ONE
+        # industry-average cost per hire (budget_engine.resolve_industry_cph
+        # -> hospitality_travel $2,500-$4,000, avg $3,250 -- the range the
+        # engine's floor uses), no longer the KB's separate $1,500-$3,500.
+        assert any(
+            t.startswith("US$2,500-US$4,000 (avg US$3,250)") for t in texts
+        ), texts
         # And no bare, unmarked "£" leaks in for these rows.
         assert not any(re.match(r"^£[\d]", t) for t in texts), texts
 
@@ -405,7 +411,8 @@ class TestUsdPlanUnaffected:
         # for this industry's CPA/CPC rows.
         assert any(t.startswith("$10-$30") for t in texts), texts
         assert any(t.startswith("$0.25-$1.00") for t in texts), texts
-        assert any(t.startswith("$1,500-$3,500") for t in texts), texts
+        # 2026-10-01: the engine's one CPH benchmark (see the GBP test above).
+        assert any(t.startswith("$2,500-$4,000 (avg $3,250)") for t in texts), texts
         assert not any("US$" in t for t in texts), texts
 
 

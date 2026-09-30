@@ -2849,6 +2849,68 @@ def _parse_cph_point_estimate(raw: Any) -> float:
     return nums[0]
 
 
+def _plan_industry_cph(budget_alloc: Any) -> Dict[str, Any]:
+    """The plan's ONE industry-average cost-per-hire record
+    (``budget_engine.resolve_industry_cph``, on
+    ``_budget_allocation.metadata.industry_cph``); ``{}`` when absent."""
+    if not isinstance(budget_alloc, dict):
+        return {}
+    meta = budget_alloc.get("metadata")
+    info = meta.get("industry_cph") if isinstance(meta, dict) else None
+    return info if isinstance(info, dict) else {}
+
+
+def _plan_industry_cph_value(budget_alloc: Any) -> float:
+    """The resolver's presentable industry-average CPH, or 0.0 (none /
+    suppressed). Workbook sites that cite "the industry average cost per
+    hire" read this first, so they print the same figure as the engine's
+    floor, its sufficiency check and the deck (audit 2026-10-01 §3.5)."""
+    info = _plan_industry_cph(budget_alloc)
+    val = info.get("value")
+    if info.get("claim_suppressed") or not isinstance(val, (int, float)):
+        return 0.0
+    return float(val) if val > 0 else 0.0
+
+
+def _fmt_industry_cph(value: float, cph_info: Dict[str, Any]) -> str:
+    """Money text for the resolver's figure: plan currency when it is in
+    the plan currency; explicit "US$" when it is a US figure on a non-USD
+    plan (parity basis)."""
+    if cph_info.get("currency") == "USD" and _get_active_currency() != "USD":
+        return f"US${value:,.0f}"
+    return _fmt_currency(value)
+
+
+def _hires_range_line(
+    total_proj: Any, cph_info: Dict[str, Any], header_hires: int
+) -> str:
+    """One sentence stating the projected-hires range and what bounds it,
+    or "" when the engine emitted no genuine range (audit 2026-10-01 §4.2)."""
+    if not isinstance(total_proj, dict) or header_hires <= 0:
+        return ""
+    lo, hi = total_proj.get("hires_low"), total_proj.get("hires_high")
+    avg = cph_info.get("value") if isinstance(cph_info, dict) else None
+    if not (
+        isinstance(lo, int)
+        and isinstance(hi, int)
+        and 0 <= lo < hi
+        and isinstance(avg, (int, float))
+        and avg > 0
+    ):
+        return ""
+    which = (
+        "local-market average"
+        if cph_info.get("basis") == "local_kb"
+        else "industry average"
+    )
+    return (
+        f"Projected hires range: {lo:,}–{hi:,} ({lo:,} if every hire costs "
+        f"the {which} of {_fmt_industry_cph(avg, cph_info)}; {hi:,} at this "
+        f"plan's efficiency floor of {_fmt_industry_cph(avg * 0.5, cph_info)}"
+        f"/hire). {header_hires:,} is the plan's point estimate."
+    )
+
+
 def _kb_industry_cph_benchmark(
     industry: str, load_kb_fn=None, kb: Optional[dict] = None
 ) -> float:
@@ -4373,10 +4435,17 @@ def _gather_narrative_grounding_context(
     ctx["goal"] = goal
     ctx["gap_result"] = None
     if goal > 0 and header_hires >= 0:
+        # Zero-hire fallback: the plan's ONE industry-average CPH (the
+        # engine's resolver value carried on sufficiency), KB only if absent.
+        _suff_avg = (sufficiency or {}).get("industry_avg_cost_per_hire")
         cph_basis = (
             header_cph
             if header_cph and header_cph > 0
-            else _kb_industry_cph_benchmark(industry, load_kb_fn=load_kb_fn)
+            else (
+                float(_suff_avg)
+                if isinstance(_suff_avg, (int, float)) and _suff_avg > 0
+                else _kb_industry_cph_benchmark(industry, load_kb_fn=load_kb_fn)
+            )
         )
         gap_result = display_format.goal_gap(header_hires, goal, cph_basis)
         if gap_result and (100 - gap_result.get("pct_of_goal", 100)) > 10:
@@ -5211,6 +5280,8 @@ def _build_sheet_executive_summary(
         round(budget_num / max(_header_hires, 1), 2) if _header_hires > 0 else 0
     )
 
+    _cph_info = _plan_industry_cph(budget_alloc)
+    _cph_suppressed = bool(_cph_info.get("claim_suppressed"))
     # Hero metrics row: Total Budget | Projected Hires | Cost/Hire
     hero_metrics = [
         ("Total Budget", _fmt_currency(budget_num)),
@@ -5218,13 +5289,30 @@ def _build_sheet_executive_summary(
         # "--" rather than "$0": a plan projecting zero hires has an
         # UNDEFINED cost per hire, and "$0" beside a real committed budget
         # reads as free hiring. The deck's own table already renders this
-        # cell as "--"; the workbook must not contradict it.
-        ("Cost / Hire", _fmt_currency(_header_cph) if _header_hires > 0 else "--"),
+        # cell as "--"; the workbook must not contradict it. Also "--" when
+        # the market has no local cost-per-hire benchmark (audit 2026-10-01
+        # §4.1): the figure would be an FX-translated US constant.
+        (
+            "Cost / Hire",
+            _fmt_currency(_header_cph)
+            if _header_hires > 0 and not _cph_suppressed
+            else "--",
+        ),
     ]
     for idx, (label, value) in enumerate(hero_metrics):
         col = COL_START + idx * 2
         _write_metric_card(ws, row, col, label, value)
-    row += 3  # 2-row cards + gap
+    # Hires range (audit 2026-10-01 §4.2), in the cards' gap row so no row
+    # below moves: the headline is benchmark-driven, so say what bounds it.
+    _range_line = _hires_range_line(total_proj, _cph_info, _header_hires)
+    if _range_line:
+        ws.merge_cells(
+            start_row=row + 2, start_column=COL_START, end_row=row + 2, end_column=COL_END
+        )
+        _rcell = ws.cell(row=row + 2, column=COL_START, value=_range_line)
+        _rcell.font = _FONT_BODY
+        _rcell.alignment = _ALIGN_LEFT
+    row += 3  # 2-row cards + gap (range line)
 
     # ── Hiring-goal vs projection reconciliation (O2, findings 42/49/64) ──
     # The client's stated hiring goal must be addressed head-on, never silently
@@ -5252,7 +5340,11 @@ def _build_sheet_executive_summary(
         # hires.
         _cph_basis = _header_cph if _header_cph and _header_cph > 0 else 0
         if _cph_basis <= 0:
-            _cph_basis = _kb_industry_cph_benchmark(industry, load_kb_fn=load_kb_fn)
+            # the plan's ONE industry-average CPH first (audit 2026-10-01
+            # §3.5), the KB's range only when the engine carried none.
+            _cph_basis = _plan_industry_cph_value(
+                budget_alloc
+            ) or _kb_industry_cph_benchmark(industry, load_kb_fn=load_kb_fn)
         _gap_result = display_format.goal_gap(_header_hires, _goal, _cph_basis)
         # Only call out a gap when it's material (>10% short of goal).
         if _gap_result and (100 - _gap_result["pct_of_goal"]) > 10:

@@ -543,6 +543,15 @@ _DEFAULT_CPH_RANGE: Tuple[float, float] = (4_000, 8_000)
 # essentially unfundable for most channels.
 _MIN_BUDGET_PER_OPENING: float = 200.0
 
+# Per-metro depth guard for projected hires (warning only; never changes a
+# number). The hire model has no talent-supply term -- hires are budget /
+# benchmark CPH -- so past ~1,000 hires in one metro for one plan the figure
+# is budget extrapolation, not a market read. A judgment threshold, not a
+# sourced statistic: it flags the audit's 3,809-RNs-in-Dallas ($20M) and
+# 2,197-machine-operators-in-Cleveland ($5M) plans without firing on typical
+# $25K-$1M single-metro plans.
+_METRO_DEPTH_GUARD_HIRES: int = 1000
+
 # S49: Per-channel minimum CPH floors (USD).
 # Prevents unrealistically low cost-per-hire projections for individual
 # channels.  E.g. Programmatic DSP at $0.80 CPC with 2% hire rate can
@@ -1216,6 +1225,7 @@ def resolve_industry_cph(
         "usd_per_local": rate,
         "as_of": basis.get("usd_rate_as_of"),
         "source": basis.get("usd_rate_source"),
+        "source_short": basis.get("usd_rate_source_short"),
     }
     local = None
     vertical = _INTL_CPH_VERTICAL_BY_INDUSTRY.get(_industry_cph_key(industry) or "")
@@ -5158,6 +5168,30 @@ def calculate_budget_allocation(
         ),
         "cost_per_click": round(_safe_divide(total_budget, max(total_clicks, 1), 0), 2),
     }
+    # Hires range (audit 2026-10-01 §3.1/§4.2). ``hires`` above stays the
+    # headline point estimate. The range makes its benchmark-driven nature
+    # explicit: hires_low = budget / industry-average CPH (every hire costs
+    # the average); hires_high = budget / (0.5 x average) (every hire at the
+    # plan's efficiency floor -- the most the model ever projects, and where
+    # the floor-capped headline usually sits). Clamped so the range always
+    # brackets the headline (a raw funnel CPH above the average puts the
+    # headline below budget / average; the 1-hire minimum can exceed
+    # budget / floor). None when the plan has no presentable benchmark
+    # (claim_suppressed: local-currency market without a local CPH).
+    _range_avg = _industry_cph.get("value")
+    if (
+        isinstance(_range_avg, (int, float))
+        and not isinstance(_range_avg, bool)
+        and _range_avg > 0
+        and not _industry_cph.get("claim_suppressed")
+    ):
+        total_projected["hires_low"] = min(int(total_budget / _range_avg), total_hires)
+        total_projected["hires_high"] = max(
+            int(total_budget / (0.5 * _range_avg)), total_hires
+        )
+    else:
+        total_projected["hires_low"] = None
+        total_projected["hires_high"] = None
 
     # Step 5: Budget sufficiency assessment
     # Target hires (audit 2026-10-01 §3.6): the wizard sends roles as bare
@@ -5209,6 +5243,20 @@ def calculate_budget_allocation(
 
     # Consolidate warnings and recommendations
     all_warnings = list(sufficiency.get("warnings") or [])
+    # Per-metro depth guard (audit 2026-10-01 §3.1): projected hires scale
+    # linearly with budget and nothing models local talent supply, so a
+    # $20M single-metro RN plan printed 3,809 hires with warnings: [].
+    _n_locations = max(1, len({_location_key(loc) for loc in (locations or [])}))
+    _hires_per_location = total_hires / _n_locations
+    if _hires_per_location > _METRO_DEPTH_GUARD_HIRES:
+        all_warnings.append(
+            f"Projected {total_hires:,} hires is about "
+            f"{_hires_per_location:,.0f} per location, above the "
+            f"{_METRO_DEPTH_GUARD_HIRES:,}-hires-per-metro depth guard. "
+            f"This projection scales with budget and does not model local "
+            f"talent supply; validate against the local labor market before "
+            f"committing to this volume."
+        )
     all_recommendations = list(sufficiency.get("recommendations") or [])
     if (optimized.get("improvement", {}).get("pct_change") or 0) > 5:
         all_recommendations.append(

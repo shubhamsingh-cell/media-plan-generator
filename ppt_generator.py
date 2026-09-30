@@ -3749,24 +3749,150 @@ def _add_enrichment_badge(slide, enriched):
     return
 
 
-def _currency_basis_note(data: Optional[Dict]) -> str:
-    """One-line statement of what currency the deck's figures are in.
+def _industry_cph_info(data_or_alloc: Optional[Dict]) -> Dict[str, Any]:
+    """The plan's ONE industry-average cost-per-hire record
+    (``budget_engine.resolve_industry_cph``, carried on
+    ``_budget_allocation.metadata.industry_cph``). Accepts the plan ``data``
+    dict or the ``_budget_allocation`` dict itself; ``{}`` when absent."""
+    if not isinstance(data_or_alloc, dict):
+        return {}
+    alloc = data_or_alloc.get("_budget_allocation")
+    if not isinstance(alloc, dict):
+        alloc = data_or_alloc
+    meta = alloc.get("metadata")
+    info = meta.get("industry_cph") if isinstance(meta, dict) else None
+    return info if isinstance(info, dict) else {}
 
-    THE RULE (convert-vs-declare): this generator DECLARES a currency, it never
-    CONVERTS one. No FX rate is fetched or applied anywhere in plan generation.
-    Three kinds of money therefore appear in a deck, and each must say which it
-    is rather than leaving the reader to assume a conversion happened:
+
+def _cph_claim_suppressed(data_or_alloc: Optional[Dict]) -> bool:
+    """True when the plan's market has no local cost-per-hire benchmark and
+    its only CPH basis is an FX-translated US figure -- such a plan must not
+    print "N hires at X/hire" (audit 2026-10-01 §4.1)."""
+    return bool(_industry_cph_info(data_or_alloc).get("claim_suppressed"))
+
+
+def _hires_range(data_or_alloc: Optional[Dict]) -> Optional[Tuple[int, int]]:
+    """(hires_low, hires_high) from ``total_projected`` when the engine
+    emitted a genuine range (low < high); else ``None``."""
+    if not isinstance(data_or_alloc, dict):
+        return None
+    alloc = data_or_alloc.get("_budget_allocation")
+    if not isinstance(alloc, dict):
+        alloc = data_or_alloc
+    tp = alloc.get("total_projected")
+    if not isinstance(tp, dict):
+        return None
+    lo, hi = tp.get("hires_low"), tp.get("hires_high")
+    if isinstance(lo, int) and isinstance(hi, int) and 0 <= lo < hi:
+        return lo, hi
+    return None
+
+
+def _fx_per_usd_text(cph_info: Dict[str, Any], code: str) -> str:
+    """ "US$1 = ₹95.83" -- the engine's rate as local units per US dollar
+    (the conventional quote, and never a >2-decimal raw float, which
+    bundle_qa's raw_float_precision gate rejects on client text)."""
+    fx = cph_info.get("fx") if isinstance(cph_info, dict) else None
+    rate = fx.get("usd_per_local") if isinstance(fx, dict) else None
+    if not isinstance(rate, (int, float)) or isinstance(rate, bool) or rate <= 0:
+        return ""
+    per_usd = f"{1.0 / rate:,.2f}"
+    if per_usd.endswith(".00"):
+        per_usd = per_usd[:-3]
+    return f"US$1 = {_cur_symbol(code)}{per_usd}"
+
+
+def _fx_rate_clause(cph_info: Dict[str, Any], code: str) -> str:
+    """ "US$1 = ₹95.83 (ECB, 2026-09-30)" -- the rate the engine applied to
+    US$ inputs, with its as-of date when the data carries one."""
+    clause = _fx_per_usd_text(cph_info, code)
+    if not clause:
+        return ""
+    fx = cph_info.get("fx") or {}
+    as_of = str(fx.get("as_of") or "").strip()
+    src = str(fx.get("source_short") or "").strip()
+    if as_of and src:
+        clause += f" ({src}, {as_of})"
+    elif as_of:
+        clause += f" (as of {as_of})"
+    return clause
+
+
+def _industry_cph_row_text(
+    data: Optional[Dict],
+) -> Optional[Tuple[str, bool, str]]:
+    """(value text, needs US$ mark, row label) for the slide-5 "Industry
+    Cost-per-Hire" row, from the plan's ONE resolver record -- or ``None``
+    when the deck has no engine result (caller falls back to the KB range).
+
+    * US benchmark: "$9,000-$12,000 (avg $10,500)" -- US$-marked by the
+      caller on a non-USD (parity) plan.
+    * Local-market benchmark: plan-currency range + median, labelled as
+      the market's own figure; never US$-marked (it is not a US figure).
+    * Suppressed (no local benchmark): says so instead of printing an
+      FX-translated US figure.
+    """
+    info = _industry_cph_info(data)
+    if not info:
+        return None
+    label = "Industry Cost-per-Hire"
+    if info.get("claim_suppressed"):
+        return ("No local benchmark for this market", False, label)
+    value = info.get("value")
+    if not isinstance(value, (int, float)) or value <= 0:
+        return None
+    low, high = info.get("low"), info.get("high")
+    if info.get("basis") == "local_kb":
+        mid_txt = _fmt_currency_whole(value)
+        if isinstance(low, (int, float)) and isinstance(high, (int, float)):
+            text = (
+                f"{_fmt_currency_whole(low)}-{_fmt_currency_whole(high)} "
+                f"(median {mid_txt})"
+            )
+        else:
+            text = f"{mid_txt} (median)"
+        return (text, False, "Industry Cost-per-Hire (local market)")
+    # US benchmark: US$ figures (currency "USD"), marked by the caller on a
+    # non-USD plan.
+    usd = "USD"
+    text = (
+        f"{_fmt_currency_whole(low, usd)}-{_fmt_currency_whole(high, usd)} "
+        f"(avg {_fmt_currency_whole(value, usd)})"
+        if isinstance(low, (int, float)) and isinstance(high, (int, float))
+        else f"{_fmt_currency_whole(value, usd)} (avg)"
+    )
+    return (text, True, label)
+
+
+def _currency_basis_note(data: Optional[Dict]) -> str:
+    """One-line statement of what currency the deck's figures are in and
+    which basis the hire / cost-per-hire projections actually used.
+
+    Three kinds of money appear in a deck, and each must say which it is
+    rather than leaving the reader to assume a conversion happened:
 
       1. The client's own money -- budget and its channel allocations. Genuinely
          in the client's currency, because it is the number they entered.
-      2. US-calibrated benchmark constants (CPA/CPC/CPH lookup tables). Always
-         rendered ``US$`` and never relabeled with the plan symbol -- they were
-         never converted, and a US benchmark converted to GBP would not be a UK
-         benchmark anyway, it would be a fabricated one.
-      3. Figures derived by dividing (1) by (2) -- projected hires, blended
-         cost-per-hire. Their arithmetic silently assumes the budget currency
-         and the benchmark currency are the same unit, so on a non-USD plan
-         they carry a parity assumption that has to be stated.
+      2. Displayed benchmark strings from US-calibrated tables (CPA/CPC rows).
+         Always rendered ``US$`` and never relabeled with the plan symbol --
+         they are not converted for display.
+      3. Figures derived by dividing (1) by a benchmark -- projected hires,
+         blended cost-per-hire. What that benchmark was depends on the plan,
+         and the note states it (audit 2026-10-01 §3.2: the old text claimed
+         "no FX rate is applied anywhere ... projections assume parity" even
+         on plans where budget_engine divides US$ inputs by the market rate):
+
+         * ``local_kb`` -- the market's own cost-per-hire benchmark
+           (intl_role_benchmarks_v1); US$ inputs the engine still needs (CPC
+           fallbacks, flat per-application costs) are converted at the
+           dataset's ``usd_rate`` for that market -- named, with its as-of
+           date, in the note.
+         * ``us_benchmark_fx_no_local`` -- no local cost-per-hire benchmark:
+           the note says hire counts are indicative (the deck also drops its
+           "at X/hire" claims) and names the conversion rate.
+         * anything else on a non-USD plan (no single market rate: multi-
+           market or a typed currency that disagrees with the market) --
+           US-calibrated figures are used at parity, and the note says so.
 
     Returns "" for a USD plan (nothing to disclose, and the common case must
     render exactly as before).
@@ -3775,20 +3901,54 @@ def _currency_basis_note(data: Optional[Dict]) -> str:
     if code == "USD":
         return ""
     basis = (data.get("_currency_basis") or "") if isinstance(data, dict) else ""
+    lead = (
+        f"Figures in {code} (inferred from market; none specified)."
+        if basis == "market"
+        else f"Figures in {code} as entered."
+    )
+    cph = _industry_cph_info(data)
+    cph_basis = cph.get("basis") or ""
+    rate_clause = _fx_rate_clause(cph, code)
     # Kept under ~150 chars: the footnote slot is a single 8pt line in an
     # 8.85in box (~150 chars of Poppins), and a second line would drop onto
     # the footer rule at 7.12in -- reintroducing the collision class this
     # same change set exists to remove.
+    if cph_basis == "local_kb" and rate_clause:
+        return (
+            f"{lead} CPH: local-market benchmark; US$ inputs converted at "
+            f"{rate_clause}."
+        )
+    if cph_basis == "us_benchmark_fx_no_local" and rate_clause:
+        return (
+            f"{lead} No local CPH benchmark: hires indicative; US$ inputs at "
+            f"{rate_clause}."
+        )
     if basis == "market":
         return (
-            f"Figures in {code} (inferred from market; none specified). "
-            f"US-calibrated benchmarks (US$) not FX-converted — "
+            f"{lead} US-calibrated benchmarks (US$) not FX-converted — "
             f"projections assume parity."
         )
     return (
-        f"Figures in {code} as entered. US-calibrated benchmarks (US$) not "
+        f"{lead} US-calibrated benchmarks (US$) not "
         f"FX-converted — hire and CPH projections assume parity."
     )
+
+
+def _currency_basis_note_compact(data: Optional[Dict]) -> str:
+    """Shortest honest form of ``_currency_basis_note`` for the slide-8
+    legend line: keeps both halves (currency + what happened to US$ inputs)."""
+    code = _get_active_currency()
+    if code == "USD":
+        return ""
+    inferred = (
+        isinstance(data, dict) and (data.get("_currency_basis") or "") == "market"
+    )
+    lead = f"Figures in {code}" + (" (inferred from market)" if inferred else "")
+    cph = _industry_cph_info(data)
+    per_usd = _fx_per_usd_text(cph, code)
+    if cph.get("basis") in ("local_kb", "us_benchmark_fx_no_local") and per_usd:
+        return f"{lead}; US$ inputs at {per_usd}."
+    return f"{lead}, not FX-converted."
 
 
 def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
@@ -4671,7 +4831,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         if _proj_h > 0:
             _thesis_parts.append(f"This plan projects {int(_proj_h)} hires")
             _thesis_has_lead = True
-        if _proj_cph > 0:
+        # 2026-10-01 (audit §4.1): no "at X/hire" when the market has no local
+        # cost-per-hire benchmark -- X would be an FX-translated US figure.
+        if _proj_cph > 0 and not _cph_claim_suppressed(budget_alloc):
             # copy:both#2: whole-number currency (never cents) instead of
             # raw _fmt_currency, which rendered "$5,263.16" whenever the
             # rounded CPH wasn't a whole dollar figure. _fmt_currency_whole
@@ -4967,15 +5129,29 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
     # Outcome metrics from the budget engine (projected hires, avg CPA)
     # S48: use per-channel-sum hires for consistency
+    # Secondary line under a metric's label (e.g. the hires range), keyed by
+    # label. Only "Projected Hires" uses it today.
+    _metric_sublabels: Dict[str, str] = {}
     if ba_total_projected:
         projected_hires = _ppt_hires_sum
         avg_cpa_val = ba_total_projected.get("cost_per_application") or 0
         avg_cph_val = _ppt_cph
         if projected_hires and projected_hires > 0:
             secondary_metrics.append((str(int(projected_hires)), "Projected Hires"))
+            # 2026-10-01 (audit §4.2): the headline is benchmark-driven; show
+            # the range it sits in (budget / industry avg .. budget / floor).
+            _rng = _hires_range(budget_alloc)
+            if _rng:
+                _metric_sublabels["Projected Hires"] = (
+                    f"range {_rng[0]:,}–{_rng[1]:,}"
+                )
         if avg_cpa_val and avg_cpa_val > 0:
             secondary_metrics.append((_fmt_currency(avg_cpa_val), "Avg CPA"))
-        elif avg_cph_val and avg_cph_val > 0:
+        elif (
+            avg_cph_val
+            and avg_cph_val > 0
+            and not _cph_claim_suppressed(budget_alloc)
+        ):
             secondary_metrics.append(
                 (_fmt_currency(avg_cph_val, compact=True), "Cost/Hire")
             )
@@ -5022,18 +5198,43 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             alignment=PP_ALIGN.CENTER,
             anchor=MSO_ANCHOR.MIDDLE,
         )
-        _add_textbox(
-            slide,
-            mx,
-            bar_top + Inches(0.72),
-            metric_w,
-            Inches(0.3),
-            text=label,
-            font_size=9,
-            bold=False,
-            color=LIGHT_MUTED,
-            alignment=PP_ALIGN.CENTER,
-        )
+        _sublabel = _metric_sublabels.get(label)
+        if _sublabel:
+            # Label + range as two tight lines in the SAME 0.72-1.10in band
+            # (bar is 1.15in tall), so nothing new sits below the bar.
+            _lbl_box, _lbl_tf = _add_textbox(
+                slide,
+                mx,
+                bar_top + Inches(0.66),
+                metric_w,
+                Inches(0.44),
+            )
+            _lbl_tf.margin_top = Inches(0.02)
+            _lbl_tf.margin_bottom = Inches(0.0)
+            _p1 = _lbl_tf.paragraphs[0]
+            _p1.alignment = PP_ALIGN.CENTER
+            _r1 = _p1.add_run()
+            _r1.text = label
+            _set_font(_r1, size=9, color=LIGHT_MUTED)
+            _p2 = _lbl_tf.add_paragraph()
+            _p2.alignment = PP_ALIGN.CENTER
+            _p2.space_before = Pt(0)
+            _r2 = _p2.add_run()
+            _r2.text = _sublabel
+            _set_font(_r2, size=8, color=LIGHT_MUTED)
+        else:
+            _add_textbox(
+                slide,
+                mx,
+                bar_top + Inches(0.72),
+                metric_w,
+                Inches(0.3),
+                text=label,
+                font_size=9,
+                bold=False,
+                color=LIGHT_MUTED,
+                alignment=PP_ALIGN.CENTER,
+            )
 
     # Thin dividers between secondary metrics
     for i in range(1, n_secondary):
@@ -5489,7 +5690,16 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     # KB section directly for this one row.
     _kb_cph_bm = _kb_recruitment_industry_benchmark(industry, data)
     _kb_cph_val = (_kb_cph_bm or {}).get("cph") or ""
-    if _kb_cph_val:
+    # 2026-10-01 (audit §3.5/§4.6): the row prints the plan's ONE
+    # industry-average cost per hire (budget_engine.resolve_industry_cph) --
+    # the same figure the engine's floor, sufficiency check and workbook use
+    # -- as its range plus the average itself. The KB-range read below stays
+    # only as the fallback for a deck built without an engine result.
+    _cph_row = _industry_cph_row_text(data)
+    _cph_label_is_final = _cph_row is not None
+    if _cph_row is not None:
+        _cph_val, _cph_is_usd_benchmark, _cph_label = _cph_row
+    elif _kb_cph_val:
         _cph_val = _kb_cph_val
         _cph_is_usd_benchmark = True
         # This is the KB's industry range, not an estimate of this plan --
@@ -5520,7 +5730,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     # beside other USD figures), but the label is not -- it must fire for
     # EVERY currency whenever the value is plan-derived rather than a real
     # external benchmark.
-    if not _cph_is_usd_benchmark:
+    if not _cph_is_usd_benchmark and not _cph_label_is_final:
         _cph_label = "Est. Cost-per-Hire (this plan)"
     # C13: when Layer 1 (_get_benchmarks) had to fall back to the generic
     # cross-industry ad-platform range because this industry has no KB
@@ -6113,6 +6323,10 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         if projected_hires > 0
         else (ba_total_proj.get("cost_per_hire") or 0)
     )
+    if _cph_claim_suppressed(data):
+        # No local cost-per-hire benchmark for this market: the CPH is an
+        # FX-translated US figure, so the card shows "--" (audit §4.1).
+        ba_avg_cph = 0
 
     benchmarks = _get_benchmarks(industry, data)
     cpa_str = benchmarks.get("cpa", "$25")
@@ -6408,13 +6622,26 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         _gap = _suff_data.get("gap_amount") or 0
         _avg_cph_suff = _suff_data.get("industry_avg_cost_per_hire") or 0
         _bpo = _suff_data.get("budget_per_opening") or 0
+        # Plan-currency money via _fmt_currency (was a hardcoded "$" on every
+        # plan); the benchmark is the plan's ONE resolver value, US$-marked
+        # when it was not converted into the plan currency.
+        _cph_rec = _industry_cph_info(budget_alloc)
+        _avg_txt = _fmt_currency(_avg_cph_suff)
+        if _cph_rec.get("currency") == "USD" and _get_active_currency() != "USD":
+            _avg_txt = _mark_usd(f"${_avg_cph_suff:,.0f}")
         _reality_message = (
-            f"Budget per opening (${_bpo:,.0f}) is below industry average "
-            f"cost-per-hire (${_avg_cph_suff:,.0f}). "
+            f"Budget per opening ({_fmt_currency(_bpo)}) is below half the "
+            f"industry average cost-per-hire ({_avg_txt}). "
         )
         if _gap > 0:
+            _gap_txt = (
+                _mark_usd(f"${_gap:,.0f}")
+                if _cph_rec.get("currency") == "USD"
+                and _get_active_currency() != "USD"
+                else _fmt_currency(_gap)
+            )
             _reality_message += (
-                f"An additional ${_gap:,.0f} is recommended to meet all hiring targets."
+                f"An additional {_gap_txt} is recommended to meet all hiring targets."
             )
 
     # Position for reality check or insight callout -- dynamically BELOW the
@@ -6988,7 +7215,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
 
     if avg_cpa and avg_cpa > 0 and proj_hires and proj_hires > 0:
         insight_text = f"Budget engine projects {_cur}{avg_cpa:,.0f} average CPA across all channels"
-        if avg_cph and avg_cph > 0:
+        if avg_cph and avg_cph > 0 and not _cph_claim_suppressed(budget_alloc):
             # copy:both#2: whole-number currency (never cents), plan symbol
             # -- not fmt_money's hardcoded "$" (this sentence already uses
             # the correct `_cur` symbol for the CPA half above; the CPH half
@@ -7782,13 +8009,10 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             # <=1 line at legend_measure_w combined with legend_compact
             # for every currency code (measured in the fix's verification
             # pass, both basis variants, GBP and 12 others).
-            _code_s8 = _get_active_currency()
-            if "inferred from market" in _cur_basis_note_s8:
-                _note_final_s8 = (
-                    f"Figures in {_code_s8} (inferred from market), not FX-converted."
-                )
-            else:
-                _note_final_s8 = f"Figures in {_code_s8}, not FX-converted."
+            # 2026-10-01: the compact form must state the SAME basis as the
+            # full note -- "not FX-converted" is false on a local-market plan
+            # whose US$ inputs the engine converts at the market rate.
+            _note_final_s8 = _currency_basis_note_compact(data)
             _legend_text_s8 = legend_compact
 
     legend_y = comp_top + panel_h + Inches(0.04)
