@@ -193,9 +193,16 @@ class TestLocalCurrencyBasisIsOneUnit:
         # rebalance_low_roi_channels correctly concentrates spend there --
         # observed ~64%. This just guards against a single channel taking
         # the near-entire budget (e.g. a >=90% collapse would still trip it).
+        # 2026-10-01 (audit F §4.1): roi_score now compares against India's
+        # OWN blue-collar cost per hire (₹12,000, intl_role_benchmarks_v1)
+        # instead of $6,250 / 0.012 = ₹520,833, so the three channels priced
+        # off FX-translated US CPCs (CPH 11-48x the local average) score
+        # ROI 1 and the rebalancer (max 60% shave) moves spend to the
+        # locally-priced job boards: observed ~76%. Cap raised 0.7 -> 0.8;
+        # the >=90% collapse this guard exists for still trips it.
         total = sum(c.get("dollar_amount") or 0 for c in chans.values())
         shares = {k: (c.get("dollar_amount") or 0) / total for k, c in chans.items()}
-        assert max(shares.values()) < 0.7, shares
+        assert max(shares.values()) < 0.8, shares
 
 
 class TestZeroHireCostPerHire:

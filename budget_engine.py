@@ -336,7 +336,7 @@ def _resolve_intl_cpc_basis(
 def _usd_const_to_plan_basis(usd_value: float, usd_per_local: Optional[float]) -> float:
     """Convert a USD-denominated benchmark constant into plan-native units.
 
-    ``INDUSTRY_CPH_RANGES``/``_industry_avg_cph``/``_INDUSTRY_MIN_CPH``/
+    ``INDUSTRY_CPH_RANGES``/``_industry_avg_cph``/``_CHANNEL_MIN_CPH``/
     ``_MIN_BUDGET_PER_OPENING`` are all fixed USD figures (a $9,000-12,000
     healthcare CPH range doesn't change with the plan's currency), but every
     plan-native dollar figure they get compared against or reported alongside
@@ -543,29 +543,6 @@ _DEFAULT_CPH_RANGE: Tuple[float, float] = (4_000, 8_000)
 # essentially unfundable for most channels.
 _MIN_BUDGET_PER_OPENING: float = 200.0
 
-# Industry-specific realistic minimum cost-per-hire thresholds
-# Based on recruitment industry benchmarks
-_INDUSTRY_MIN_CPH = {
-    "technology": 4000,
-    "healthcare": 3500,
-    "finance": 4500,
-    "engineering": 5000,
-    "executive": 8000,
-    "legal": 5000,
-    "pharmaceutical": 6000,
-    "energy": 4000,
-    "aerospace": 5500,
-    "manufacturing": 2500,
-    "construction": 2000,
-    "retail": 1200,
-    "hospitality": 800,
-    "logistics": 1500,
-    "education": 2000,
-    "government": 2500,
-    "nonprofit": 1800,
-    "general": 2000,
-}
-
 # S49: Per-channel minimum CPH floors (USD).
 # Prevents unrealistically low cost-per-hire projections for individual
 # channels.  E.g. Programmatic DSP at $0.80 CPC with 2% hire rate can
@@ -585,6 +562,32 @@ _CHANNEL_MIN_CPH: Dict[str, float] = {
     "staffing": 1000,
     "email": 300,
 }
+
+
+def _channel_min_cph(category: str, intl_cpc_basis: Optional[Dict[str, Any]]) -> float:
+    """Per-channel minimum CPH in plan-native units.
+
+    ``_CHANNEL_MIN_CPH`` is a US$ table calibrated against the US industry
+    cost-per-hire ranges. A local-currency plan whose market has its own
+    cost-per-hire benchmark (``resolve_industry_cph`` basis ``local_kb``)
+    carries ``intl_cpc_basis["local_cph_scale"]`` = local industry average /
+    FX-translated US industry average, so each channel floor keeps the SAME
+    proportion to the market's own average that it has to the US average.
+    Without it an FX-translated US floor (India programmatic: $800 / 0.0104
+    = ₹76,700 per hire, against a ₹45,000 India healthcare average) would
+    silently set the plan's cost per hire. Every other plan: unchanged
+    (plain FX translation via ``_usd_const_to_intl_basis``, or raw US$).
+    """
+    floor = _usd_const_to_intl_basis(_CHANNEL_MIN_CPH.get(category, 0), intl_cpc_basis)
+    scale = (intl_cpc_basis or {}).get("local_cph_scale")
+    if (
+        isinstance(scale, (int, float))
+        and not isinstance(scale, bool)
+        and math.isfinite(scale)
+        and scale > 0
+    ):
+        floor *= float(scale)
+    return floor
 
 
 # ---------------------------------------------------------------------------
@@ -1061,8 +1064,9 @@ def _parse_dollar_value(val: Any) -> Optional[float]:
         return None
 
 
-def _industry_avg_cph(industry: str) -> float:
-    """Return the midpoint cost-per-hire for an industry.
+def _industry_cph_key(industry: str) -> Optional[str]:
+    """Map an industry string to its ``INDUSTRY_CPH_RANGES`` key, or ``None``
+    when only the default range applies.
 
     Uses the canonical standardizer's ``deep_bench_key`` to map incoming
     industry strings to ``INDUSTRY_CPH_RANGES`` keys, with direct-match
@@ -1070,27 +1074,189 @@ def _industry_avg_cph(industry: str) -> float:
     """
     # 1. Try direct match first (fast path for canonical keys)
     if industry in INDUSTRY_CPH_RANGES:
-        low, high = INDUSTRY_CPH_RANGES[industry]
-        return (low + high) / 2.0
+        return industry
 
     # 2. Try via standardizer -> deep_bench_key, then aliases
-    if _HAS_STANDARDIZER:
+    if _HAS_STANDARDIZER and industry:
         canonical = _std_normalize_industry(industry)
         meta = _CANON_INDUSTRIES.get(canonical, {})
         deep_key = meta.get("deep_bench_key") or ""
         if deep_key and deep_key in INDUSTRY_CPH_RANGES:
-            low, high = INDUSTRY_CPH_RANGES[deep_key]
-            return (low + high) / 2.0
+            return deep_key
         # deep_bench_key might not match CPH keys exactly;
         # scan aliases for a match in INDUSTRY_CPH_RANGES
         for alias in meta.get("aliases") or []:
             if alias in INDUSTRY_CPH_RANGES:
-                low, high = INDUSTRY_CPH_RANGES[alias]
-                return (low + high) / 2.0
+                return alias
 
-    # 3. Fallback to default range
-    low, high = _DEFAULT_CPH_RANGE
+    # 3. No industry-specific range -- caller falls back to the default
+    return None
+
+
+def _industry_cph_range_usd(industry: str) -> Tuple[float, float]:
+    """(low, high) USD industry cost-per-hire range for ``industry``."""
+    key = _industry_cph_key(industry)
+    if key is not None:
+        return INDUSTRY_CPH_RANGES[key]
+    return _DEFAULT_CPH_RANGE
+
+
+def _industry_avg_cph(industry: str) -> float:
+    """Return the midpoint cost-per-hire (USD) for an industry."""
+    low, high = _industry_cph_range_usd(industry)
     return (low + high) / 2.0
+
+
+# Engine industry key -> intl_role_benchmarks_v1.json vertical. Deliberately an
+# EXPLICIT map rather than intl_benchmark_lookup's fuzzy substring matcher,
+# whose short aliases misfire on engine keys ("it" inside energy_utIlITies and
+# marITime_marine -> technology; "tech" inside pharma_bioTECH -> technology).
+# An industry absent here has no local cost-per-hire benchmark, so a
+# local-currency plan in that industry gets its CPH claim suppressed instead of
+# an FX-translated US figure (see resolve_industry_cph). retail -> hospitality
+# mirrors intl_benchmark_lookup's own "retail" alias (both are frontline
+# hourly hiring); insurance -> finance mirrors its "insurance" alias.
+_INTL_CPH_VERTICAL_BY_INDUSTRY: Dict[str, str] = {
+    "healthcare_medical": "healthcare_nursing",
+    "tech_engineering": "technology",
+    "blue_collar_trades": "blue_collar",
+    "logistics_supply_chain": "blue_collar",
+    "hospitality_travel": "hospitality",
+    "retail_consumer": "hospitality",
+    "finance_banking": "finance",
+    "insurance": "finance",
+}
+
+_US_CPH_SOURCE = (
+    "Nova industry cost-per-hire table (budget_engine.INDUSTRY_CPH_RANGES, "
+    "US$ midpoint)"
+)
+
+
+def resolve_industry_cph(
+    industry: str,
+    usd_per_local: Optional[float] = None,
+    plan_currency: Optional[str] = None,
+    intl_cpc_basis: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """THE single industry-average cost-per-hire for one plan.
+
+    Every client-visible "industry average cost per hire" (the benchmark CPH
+    floor, ``metadata.industry_avg_cph``, ``sufficiency.
+    industry_avg_cost_per_hire``, ``budget_reality_check.industry_avg_cph``,
+    the deck's Industry Cost-per-Hire row, the workbook's goal-gap fallback)
+    reads this one dict, so a build can no longer print six different
+    figures for the same benchmark (audit 2026-10-01 §3.5).
+
+    Bases, in order:
+
+    * ``local_kb`` -- the plan is priced in a single market's own currency
+      (``usd_per_local`` known, i.e. ``intl_cpc_basis["basis"] == "local"``
+      and the plan currency matches it) AND
+      ``data/intl_role_benchmarks_v1.json`` has a cost-per-hire for that
+      market's vertical. The market's own median is used; a USD-only
+      median is converted with the plan's rate.
+    * ``us_benchmark_fx_no_local`` -- local-currency plan with NO local
+      cost-per-hire. The engine still needs a floor, so the US range is
+      FX-translated for the math, but ``claim_suppressed`` is True and
+      ``value`` is ``None``: presenters must not print an FX-translated US
+      figure as this market's cost per hire (the "India RN ₹444K/hire"
+      defect).
+    * ``us_benchmark`` -- everything else (US plans, and non-USD plans
+      with no known rate, which keep their pre-existing parity basis):
+      ``INDUSTRY_CPH_RANGES`` midpoint, unchanged, so US headline hires
+      are byte-identical.
+
+    Returns a dict with ``value``/``low``/``high`` (plan currency, the
+    presentable figures; ``None`` when suppressed), ``math_value`` (what the
+    engine's CPH floor and roi_score use), ``currency``, ``basis``,
+    ``source``, ``as_of``, ``fx`` (rate + as-of when a rate was applied),
+    ``claim_suppressed`` and ``usd_low``/``usd_high``/``usd_value`` (the
+    US range, for provenance). Never raises.
+    """
+    usd_low, usd_high = _industry_cph_range_usd(industry)
+    usd_mid = (usd_low + usd_high) / 2.0
+    code = (plan_currency or "USD").upper()
+    rate = (
+        float(usd_per_local)
+        if isinstance(usd_per_local, (int, float))
+        and not isinstance(usd_per_local, bool)
+        and math.isfinite(usd_per_local)
+        and usd_per_local > 0
+        else None
+    )
+    result: Dict[str, Any] = {
+        "value": usd_mid,
+        "low": usd_low,
+        "high": usd_high,
+        "math_value": usd_mid,
+        "currency": "USD" if rate is None else code,
+        "plan_currency": code,
+        "basis": "us_benchmark",
+        "source": _US_CPH_SOURCE,
+        "as_of": None,
+        "fx": None,
+        "claim_suppressed": False,
+        "usd_value": usd_mid,
+        "usd_low": usd_low,
+        "usd_high": usd_high,
+    }
+    if rate is None:
+        # USD plan, or a non-USD plan with no trusted rate (multi-market
+        # usd_blend, or a typed currency that disagrees with the market):
+        # unchanged pre-fix basis. The figure is still US$ (``currency``),
+        # and on a non-USD plan the engine divides plan-currency money by it
+        # at parity -- ``basis`` says so for the deck's footnote.
+        if code != "USD":
+            result["basis"] = "us_benchmark_parity"
+        return result
+
+    basis = intl_cpc_basis if isinstance(intl_cpc_basis, dict) else {}
+    result["fx"] = {
+        "usd_per_local": rate,
+        "as_of": basis.get("usd_rate_as_of"),
+        "source": basis.get("usd_rate_source"),
+    }
+    local = None
+    vertical = _INTL_CPH_VERTICAL_BY_INDUSTRY.get(_industry_cph_key(industry) or "")
+    countries = basis.get("matched_countries") or []
+    if vertical and len(countries) == 1 and _HAS_INTL_BENCHMARK_LOOKUP:
+        try:
+            local = _intl_benchmark_lookup.get_local_cph_benchmark(
+                vertical, str(countries[0]), code, rate
+            )
+        except Exception as exc:  # noqa: BLE001 -- lookup must never break a plan
+            logger.error("local CPH benchmark lookup failed: %s", exc, exc_info=True)
+            local = None
+    if local and local.get("value"):
+        result.update(
+            {
+                "value": float(local["value"]),
+                "low": local.get("low"),
+                "high": local.get("high"),
+                "math_value": float(local["value"]),
+                "basis": "local_kb",
+                "source": local.get("source") or "intl_role_benchmarks_v1",
+                "as_of": local.get("as_of"),
+                "local_method": local.get("method"),
+            }
+        )
+        return result
+
+    # Local-currency plan, no local benchmark: FX-translated US range keeps
+    # the engine's floor working, but it is never presented as this market's
+    # cost per hire.
+    result.update(
+        {
+            "value": None,
+            "low": None,
+            "high": None,
+            "math_value": _usd_const_to_plan_basis(usd_mid, rate),
+            "basis": "us_benchmark_fx_no_local",
+            "claim_suppressed": True,
+        }
+    )
+    return result
 
 
 def estimate_cph_from_salary(annual_salary: float) -> float:
@@ -2923,9 +3089,7 @@ def compute_channel_dollar_amounts(
         # Fix 3: floor is USD-scale; convert into the plan's local currency
         # (same usd_per_local basis as the F1 CPC fix above) before comparing
         # against `dollars`, which is already plan-native.
-        _ch_min_cph = _usd_const_to_intl_basis(
-            _CHANNEL_MIN_CPH.get(category, 0), intl_cpc_basis
-        )
+        _ch_min_cph = _channel_min_cph(category, intl_cpc_basis)
         if _ch_min_cph > 0 and dollars > 0 and projected_hires > 0:
             max_hires_at_floor = int(dollars / _ch_min_cph)
             if projected_hires > max_hires_at_floor:
@@ -3357,9 +3521,7 @@ def _recompute_channel_metrics(
 
     # Enforce per-channel CPH floor (same logic as primary path)
     category = ch.get("category", "")
-    _ch_min_cph = _usd_const_to_intl_basis(
-        _CHANNEL_MIN_CPH.get(category, 0), intl_cpc_basis
-    )
+    _ch_min_cph = _channel_min_cph(category, intl_cpc_basis)
     if _ch_min_cph > 0 and new_dollars > 0 and hires > 0:
         max_hires_at_floor = int(new_dollars / _ch_min_cph)
         if hires > max_hires_at_floor:
@@ -3383,57 +3545,58 @@ def assess_budget_sufficiency(
     knowledge_base: Optional[Dict] = None,
     plan_currency: Optional[str] = None,
     usd_per_local: Optional[float] = None,
+    industry_cph: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Check whether the total budget is sufficient for the hiring goals.
 
-    Compares projected cost-per-hire against industry benchmarks.
-    Flags when budget per opening falls below minimum viable thresholds.
+    Compares budget per target hire against the plan's ONE industry-average
+    cost-per-hire benchmark (``resolve_industry_cph``) and the plan's own
+    efficiency floor (0.5x that benchmark -- the same floor
+    ``calculate_budget_allocation`` caps projected hires with).
 
     Args:
         total_budget: Campaign budget, in ``plan_currency``.
         total_openings: Number of positions to fill.
         industry: Industry classification string (e.g. "healthcare_medical").
         channel_allocations: Output of ``compute_channel_dollar_amounts``.
-        knowledge_base: Loaded KB JSON (optional, for CPH benchmarks).
+        knowledge_base: Accepted for call-site compatibility; no longer
+            read. It used to blend a KB SHRM figure into this function's
+            own benchmark, which is how one build printed $7,650 here next
+            to $10,500 in ``metadata.industry_avg_cph`` (audit 2026-10-01
+            §3.5). The benchmark now comes only from ``industry_cph``.
         plan_currency: F4 FIX -- ISO code ``total_budget`` is denominated
-            in (e.g. "GBP"). ``None`` means USD, matching every existing
-            caller and pre-fix behavior byte-for-byte.
+            in (e.g. "GBP"). ``None`` means USD.
         usd_per_local: F4 FIX -- USD-per-one-local-unit rate (the same
             ``intl_cpc_basis["usd_per_local"]`` the rest of the engine
-            uses -- see ``_resolve_intl_cpc_basis`` /
-            ``_dedupe_shared_fallback_cpcs``), when known. The industry
-            CPH/threshold constants below (``_industry_avg_cph``,
-            ``_INDUSTRY_MIN_CPH``, ``_MIN_BUDGET_PER_OPENING``) are all in
-            USD; on a non-USD plan they get converted into
-            ``plan_currency`` with this SAME rate before being compared
-            against or printed alongside ``total_budget`` -- previously
-            they were compared/printed raw, so e.g. "Budget of $150 for 40
-            openings ... is below the minimum viable threshold of
-            $200/opening" was hardcoded USD-formatted even when
-            ``total_budget`` was actually GBP/EUR/... (a
-            ``currency_symbol_mixing`` defect in the client workbook).
-            ``None`` (no rate known, e.g. a multi-market usd_blend plan)
-            leaves the USD constants UNCONVERTED but still labels them
-            explicitly as US$ rather than silently mislabeling them in
-            ``plan_currency``'s symbol.
+            uses), when known. ``_MIN_BUDGET_PER_OPENING`` (USD) is
+            converted into ``plan_currency`` with this SAME rate before being
+            compared against or printed alongside ``total_budget``; ``None``
+            leaves it unconverted and labels it US$.
+        industry_cph: the plan's ``resolve_industry_cph`` result. ``None``
+            (direct callers) resolves it here from ``industry`` /
+            ``usd_per_local`` / ``plan_currency``. When its
+            ``claim_suppressed`` is set (a local-currency plan whose market
+            has no local cost-per-hire benchmark) the benchmark comparisons
+            are skipped and said so, instead of comparing against an
+            FX-translated US figure.
     """
     warnings: List[str] = []
     recommendations: List[str] = []
 
     _code = (plan_currency or "USD").upper()
     _rate = usd_per_local if (usd_per_local and usd_per_local > 0) else None
+    if not isinstance(industry_cph, dict):
+        industry_cph = resolve_industry_cph(
+            industry, usd_per_local=_rate, plan_currency=_code
+        )
 
-    # Every dollar figure printed below is either genuinely in
-    # plan_currency (total_budget, budget_per_opening, gap, ... -- no
-    # conversion needed, just the right symbol) or a USD benchmark
-    # constant (avg_cph, industry_min_cph, _MIN_BUDGET_PER_OPENING) that
-    # needs converting when a rate is known. ``_usd_const`` does that
-    # conversion (via the shared ``_usd_const_to_plan_basis`` helper --
-    # also used by ``calculate_budget_allocation``'s benchmark-CPH-floor
-    # and roi_score paths, so both stay consistent); ``_money`` formats in
-    # plan_currency; ``_usd_money`` is the explicit-USD fallback label for
-    # when no rate is known.
+    # Every money figure printed below is either genuinely in plan_currency
+    # (total_budget, budget_per_opening, gap, ...) or the benchmark, whose
+    # currency the resolver states (``industry_cph["currency"]``): the plan
+    # currency when it was converted or sourced locally, else US$ (a non-USD
+    # plan with no known rate keeps its pre-existing parity basis and gets
+    # an explicit US$ label rather than the plan's symbol).
     def _usd_const(usd_value: float) -> float:
         return _usd_const_to_plan_basis(usd_value, _rate)
 
@@ -3443,15 +3606,6 @@ def assess_budget_sufficiency(
         return f"${value:,.0f}"
 
     def _bench_money(value: float) -> str:
-        # For a value derived from a USD benchmark constant (already run
-        # through _usd_const above): once a rate converted it, or the
-        # plan genuinely IS in USD, it's safe to print in plan_currency
-        # like any other figure. Absent a rate on a non-USD plan the
-        # value is STILL raw USD (never divided by an unconverted
-        # currency's worth of numbers) -- label it explicitly as US$
-        # rather than print it under plan_currency's symbol (which would
-        # misstate the amount) or silently keep the old bare "$" (which
-        # claimed USD without saying so on a non-USD plan).
         if _rate or _code == "USD":
             return _money(value)
         return f"US${value:,.0f}"
@@ -3459,23 +3613,23 @@ def assess_budget_sufficiency(
     total_openings = max(total_openings, 1)
     n_openings = total_openings  # alias for readability in feasibility block
     budget_per_opening = _safe_divide(total_budget, total_openings, 0.0)
-    avg_cph = _usd_const(_industry_avg_cph(industry))
 
-    # Try to refine avg_cph from KB (KB figure is USD; blend, then convert)
-    if knowledge_base:
-        kb_benchmarks = knowledge_base.get("benchmarks", {})
-        cph_section = kb_benchmarks.get("cost_per_hire", {})
-        shrm = cph_section.get("shrm_2026") or cph_section.get("shrm_2025", {})
-        raw = shrm.get("average_cost_per_hire")
-        parsed = _parse_dollar_value(raw)
-        if parsed and parsed > 0:
-            # Blend KB value (USD) with industry-specific range, both
-            # already converted to plan_currency via _usd_const above --
-            # blend the USD source AFTER converting it the same way.
-            avg_cph = (avg_cph + _usd_const(parsed)) / 2.0
+    _bench_value = industry_cph.get("value")
+    benchmark_available = (
+        not industry_cph.get("claim_suppressed")
+        and isinstance(_bench_value, (int, float))
+        and not isinstance(_bench_value, bool)
+        and _bench_value > 0
+    )
+    avg_cph = float(_bench_value) if benchmark_available else 0.0
+    # The plan's own efficiency floor: calculate_budget_allocation never
+    # projects a cost per hire below half the industry average.
+    floor_cph = avg_cph * 0.5
 
     gap = max(0.0, (avg_cph * total_openings) - total_budget)
-    sufficient = budget_per_opening >= avg_cph * 0.5  # at least 50% of avg CPH
+    sufficient = (
+        budget_per_opening >= floor_cph if benchmark_available else True
+    )
 
     # Build projected totals from allocations
     total_proj_hires = sum(
@@ -3483,73 +3637,80 @@ def assess_budget_sufficiency(
     )
 
     # ── Budget Reality Check ──────────────────────────────────────
-    # Map the raw industry key (e.g. "healthcare_medical") to a
-    # simplified key for _INDUSTRY_MIN_CPH lookup.
-    _ind_lower = industry.lower().replace("-", "_") if industry else "general"
-    industry_key = "general"
-    for _cph_key in _INDUSTRY_MIN_CPH:
-        if _cph_key in _ind_lower:
-            industry_key = _cph_key
-            break
-
-    industry_min_cph = _usd_const(
-        _INDUSTRY_MIN_CPH.get(industry_key, _INDUSTRY_MIN_CPH["general"])
+    # Tiers are ratios of budget-per-target-hire to the SAME industry
+    # average every other surface prints (previously a separate
+    # _INDUSTRY_MIN_CPH table, ~1/3 of the average, whose messages still
+    # said "industry average" -- so a plan pricing hires at half the
+    # average read "WELL-FUNDED ... exceeds the industry average").
+    # 0.5 is the plan's own floor: below it the plan itself projects fewer
+    # hires than the target.
+    realistic_hires = (
+        max(1, int(total_budget / floor_cph)) if floor_cph > 0 else n_openings
     )
-    min_viable_budget = industry_min_cph * n_openings
+    min_viable_budget = floor_cph * n_openings
     budget_utilization = (
         (total_budget / min_viable_budget * 100) if min_viable_budget > 0 else 0
     )
+    _ratio = budget_per_opening / avg_cph if avg_cph > 0 else 0.0
 
-    # Determine feasibility tier
-    if budget_per_opening < industry_min_cph * 0.1:
+    if not benchmark_available:
+        feasibility_tier = "not_assessed"
+        feasibility_label = "NOT ASSESSED"
+        feasibility_msg = (
+            "No local industry cost-per-hire benchmark exists for this "
+            "market, so budget feasibility is not scored against one."
+        )
+    elif _ratio < 0.1:
         feasibility_tier = "impossible"
         feasibility_label = "UNREALISTIC"
         feasibility_msg = (
             f"A budget of {_money(total_budget)} for {n_openings} hires "
             f"translates to {_money(budget_per_opening)}/hire — far below the "
-            f"{industry_key} industry minimum of ~{_bench_money(industry_min_cph)}/hire. "
-            f"This budget could realistically support ~{max(1, int(total_budget / industry_min_cph))} hire(s). "
+            f"industry average of ~{_bench_money(avg_cph)}/hire. "
+            f"This budget could realistically support ~{realistic_hires} hire(s). "
             f"Recommended minimum budget: {_bench_money(min_viable_budget)}."
         )
-    elif budget_per_opening < industry_min_cph * 0.3:
+    elif _ratio < 0.25:
         feasibility_tier = "severely_underfunded"
         feasibility_label = "SEVERELY UNDERFUNDED"
         feasibility_msg = (
             f"At {_money(budget_per_opening)}/hire, this budget covers only "
             f"{budget_utilization:.0f}% of the minimum required. "
-            f"Realistically achievable hires: ~{max(1, int(total_budget / industry_min_cph))}. "
+            f"Realistically achievable hires: ~{realistic_hires}. "
             f"Recommended budget for {n_openings} hires: {_bench_money(min_viable_budget)}."
         )
-    elif budget_per_opening < industry_min_cph * 0.5:
+    elif _ratio < 0.5:
         feasibility_tier = "underfunded"
         feasibility_label = "UNDERFUNDED"
         feasibility_msg = (
-            f"Budget of {_money(budget_per_opening)}/hire is below the "
-            f"industry average of ~{_bench_money(industry_min_cph)}/hire. "
-            f"Consider reducing target to {max(1, int(total_budget / industry_min_cph))} hires "
+            f"Budget of {_money(budget_per_opening)}/hire is below half the "
+            f"industry average of ~{_bench_money(avg_cph)}/hire. "
+            f"Consider reducing target to {realistic_hires} hires "
             f"or increasing budget to {_bench_money(min_viable_budget)}."
         )
-    elif budget_per_opening < industry_min_cph:
+    elif _ratio < 1.0:
         feasibility_tier = "tight"
         feasibility_label = "TIGHT BUT FEASIBLE"
         feasibility_msg = (
             f"Budget of {_money(budget_per_opening)}/hire is below the "
-            f"industry average of ~{_bench_money(industry_min_cph)}/hire but achievable "
+            f"industry average of ~{_bench_money(avg_cph)}/hire but achievable "
             f"with optimized channel selection and programmatic buying."
         )
-    elif budget_per_opening < industry_min_cph * 1.5:
+    elif _ratio < 1.5:
         feasibility_tier = "adequate"
         feasibility_label = "ADEQUATE"
         feasibility_msg = (
-            f"Budget of {_money(budget_per_opening)}/hire is within the normal range "
-            f"for {industry_key} hiring. Good foundation for a competitive campaign."
+            f"Budget of {_money(budget_per_opening)}/hire is at or above the "
+            f"industry average of ~{_bench_money(avg_cph)}/hire. Good "
+            f"foundation for a competitive campaign."
         )
     else:
         feasibility_tier = "generous"
         feasibility_label = "WELL-FUNDED"
         feasibility_msg = (
-            f"Budget of {_money(budget_per_opening)}/hire exceeds the industry average. "
-            f"Consider investing surplus in employer branding or premium placements."
+            f"Budget of {_money(budget_per_opening)}/hire exceeds the industry "
+            f"average of ~{_bench_money(avg_cph)}/hire. Consider investing "
+            f"surplus in employer branding or premium placements."
         )
 
     # --- Warnings ---
@@ -3589,7 +3750,7 @@ def assess_budget_sufficiency(
             f"{_bench_money(avg_cph * total_openings)})."
         )
 
-    if budget_per_opening < avg_cph and total_openings > 3:
+    if benchmark_available and budget_per_opening < avg_cph and total_openings > 3:
         recommendations.append(
             "Consider a phased hiring approach: prioritise the most critical "
             "roles in Phase 1, then reinvest savings into subsequent phases."
@@ -3624,7 +3785,7 @@ def assess_budget_sufficiency(
             f"this budget to channels with measurable hiring outcomes."
         )
 
-    if total_budget > avg_cph * total_openings * 1.5:
+    if benchmark_available and total_budget > avg_cph * total_openings * 1.5:
         recommendations.append(
             "Budget exceeds 1.5x the industry average per hire. Consider "
             "investing the surplus in employer branding, referral incentives, "
@@ -3634,7 +3795,12 @@ def assess_budget_sufficiency(
     result = {
         "sufficient": sufficient,
         "budget_per_opening": round(budget_per_opening, 2),
-        "industry_avg_cost_per_hire": round(avg_cph, 2),
+        # The resolver's value -- None when the claim is suppressed (no local
+        # benchmark for a local-currency plan).
+        "industry_avg_cost_per_hire": (
+            round(avg_cph, 2) if benchmark_available else None
+        ),
+        "benchmark_available": benchmark_available,
         "gap_amount": round(gap, 2),
         "total_projected_hires": total_proj_hires,
         "warnings": warnings,
@@ -3646,13 +3812,11 @@ def assess_budget_sufficiency(
         "feasibility_label": feasibility_label,
         "feasibility_message": feasibility_msg,
         "budget_per_hire": round(budget_per_opening, 2),
-        "industry_avg_cph": industry_min_cph,
-        "min_viable_budget": min_viable_budget,
-        "realistic_hires": (
-            max(1, int(total_budget / industry_min_cph))
-            if industry_min_cph > 0
-            else n_openings
-        ),
+        # Same resolver value as sufficiency.industry_avg_cost_per_hire and
+        # metadata.industry_avg_cph (was the separate _INDUSTRY_MIN_CPH).
+        "industry_avg_cph": round(avg_cph, 2) if benchmark_available else None,
+        "min_viable_budget": round(min_viable_budget, 2),
+        "realistic_hires": realistic_hires,
         "budget_utilization_pct": round(budget_utilization, 1),
         "target_hires": n_openings,
     }
@@ -3855,9 +4019,7 @@ def optimize_allocation(
             new_hires = max(0, int(new_apps * hire_rate * 2))
 
         # S49: Apply per-channel CPH floor in optimizer path (same as primary)
-        _opt_min_cph = _usd_const_to_intl_basis(
-            _CHANNEL_MIN_CPH.get(category, 0), intl_cpc_basis
-        )
+        _opt_min_cph = _channel_min_cph(category, intl_cpc_basis)
         if _opt_min_cph > 0 and new_dollars > 0 and new_hires > 0:
             _opt_max_hires = int(new_dollars / _opt_min_cph)
             if new_hires > _opt_max_hires:
@@ -4649,6 +4811,33 @@ def calculate_budget_allocation(
         ):
             _resolved_usd_per_local = float(_rate)
 
+    # 2026-10-01 (audit F §3.2/§3.5): the plan's ONE industry-average cost
+    # per hire -- every client-visible "industry average CPH" reads this.
+    # US plans: the same INDUSTRY_CPH_RANGES midpoint as before (headline
+    # hires unchanged). Local-currency plans: the market's own cost per hire
+    # from intl_role_benchmarks_v1.json instead of an FX-translated US
+    # constant (India RN: ₹45,000 from the KB, not $10,500 / 0.012 =
+    # ₹875,000); no local figure -> the FX-translated US value still drives
+    # the floor math but the claim is suppressed (claim_suppressed).
+    _industry_cph = resolve_industry_cph(
+        industry,
+        usd_per_local=_resolved_usd_per_local,
+        plan_currency=_resolved_plan_currency,
+        intl_cpc_basis=_intl_cpc_basis,
+    )
+    if _industry_cph.get("basis") == "local_kb" and _intl_cpc_basis:
+        # Per-channel CPH floors follow the market's own average too (see
+        # _channel_min_cph); a copy, so the caller-visible basis dict in
+        # metadata stays what _resolve_intl_cpc_basis produced plus this key.
+        _fx_us_avg = _usd_const_to_plan_basis(
+            _industry_cph["usd_value"], _resolved_usd_per_local
+        )
+        if _fx_us_avg > 0:
+            _intl_cpc_basis = dict(_intl_cpc_basis)
+            _intl_cpc_basis["local_cph_scale"] = round(
+                float(_industry_cph["math_value"]) / _fx_us_avg, 6
+            )
+
     # Step 3: Channel dollar amounts with projections (v3: trend + collar aware)
     # Extract primary location for regional CPC adjustments
     primary_location = ""
@@ -4755,9 +4944,9 @@ def calculate_budget_allocation(
     # (_industry_avg_cph_val) and the reported metadata.industry_avg_cph --
     # all three are this same benchmark and must agree with each other and
     # with total_projected.cost_per_hire's currency.
-    _industry_avg_cph_plan = _usd_const_to_plan_basis(
-        _industry_avg_cph(industry), _resolved_usd_per_local
-    )
+    # The benchmark comes from the ONE resolver (_industry_cph, resolved
+    # above before Step 3).
+    _industry_avg_cph_plan = float(_industry_cph["math_value"])
     _benchmark_cph_floor = _industry_avg_cph_plan * 0.5  # 50% of avg as floor
     _cph_floor_applied = False
     if avg_cost_per_hire < _benchmark_cph_floor and total_hires > 0:
@@ -4950,6 +5139,7 @@ def calculate_budget_allocation(
         knowledge_base,
         plan_currency=_resolved_plan_currency,
         usd_per_local=_resolved_usd_per_local,
+        industry_cph=_industry_cph,
     )
 
     # Step 6: Optimisation suggestions
@@ -5008,6 +5198,11 @@ def calculate_budget_allocation(
             # sufficiency.industry_avg_cost_per_hire (already converted)
             # on any non-USD plan.
             "industry_avg_cph": round(_industry_avg_cph_plan, 2),
+            # The ONE industry-average cost-per-hire (resolve_industry_cph):
+            # value/low/high are what every client-visible surface prints
+            # (None + claim_suppressed when a local-currency market has no
+            # local benchmark); basis/source/as_of/fx say where it came from.
+            "industry_cph": _industry_cph,
             # Provenance for total_projected.cost_per_hire: when the CPH
             # floor (0.5 x industry_avg_cph) capped projected hires, the
             # reported cost_per_hire is still total_budget / hires -- never

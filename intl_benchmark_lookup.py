@@ -351,6 +351,137 @@ def get_cpa_median_usd(industry: str | None, country: str | None) -> float | Non
     return None
 
 
+# cph_cost_per_hire entries that are NOT a cost per hire (an agency fee
+# percentage, a monthly platform subscription) share the block with the real
+# ones; their keys say what they are.
+_NON_CPH_ENTRY_MARKERS: tuple[str, ...] = ("pct", "percent", "monthly", "platform", "fee")
+
+
+def get_local_cph_benchmark(
+    vertical: str,
+    country: str,
+    plan_currency: str | None,
+    usd_per_local: float | None,
+) -> dict[str, Any] | None:
+    """Industry-average cost per hire for one market, in the plan's currency.
+
+    Reads ``verticals.<vertical>.by_country.<country>.cph_cost_per_hire``.
+    ``vertical`` must already be a dataset vertical key (``healthcare_
+    nursing``, ``technology``, ...) -- no fuzzy industry matching here.
+
+    Entry selection (a block can hold several):
+      1. drop entries that are not a cost per hire (fee %, monthly
+         platform cost -- see ``_NON_CPH_ENTRY_MARKERS``);
+      2. prefer the market's ``general*`` rows (the dataset's own vertical
+         average) over role- or channel-specific rows;
+      3. prefer rows already in ``plan_currency`` -- local figures are the
+         dataset's primary numbers (``_metadata.currency_note``), so a row in
+         the plan's own currency is used as printed, never round-tripped
+         through USD at a different rate;
+      4. otherwise convert each row's ``median_usd`` into the plan currency
+         with ``usd_per_local`` (the plan's own rate);
+      5. the benchmark is the median of the remaining rows' medians.
+
+    Returns ``None`` when the market/vertical has no usable cost-per-hire
+    row (callers suppress the claim rather than invent one). Never raises.
+    """
+    slug = _normalize_country(country)
+    if not vertical or not slug:
+        return None
+    data = _load()
+    try:
+        block = (
+            data.get("verticals", {})
+            .get(vertical, {})
+            .get("by_country", {})
+            .get(slug, {})
+            .get("cph_cost_per_hire")
+        )
+    except AttributeError:
+        return None
+    if not isinstance(block, dict):
+        return None
+    code = (plan_currency or "").strip().upper()
+    rate = (
+        float(usd_per_local)
+        if isinstance(usd_per_local, (int, float))
+        and not isinstance(usd_per_local, bool)
+        and usd_per_local > 0
+        else None
+    )
+
+    candidates: list[tuple[str, dict[str, Any]]] = []
+    for key, entry in block.items():
+        if not isinstance(entry, dict) or not isinstance(key, str):
+            continue
+        if any(marker in key.lower() for marker in _NON_CPH_ENTRY_MARKERS):
+            continue
+        candidates.append((key, entry))
+    general = [(k, e) for k, e in candidates if "general" in k.lower()]
+    pool = general or candidates
+
+    def _num(val: Any) -> float | None:
+        if isinstance(val, (int, float)) and not isinstance(val, bool) and val > 0:
+            return float(val)
+        return None
+
+    native = [
+        (k, e)
+        for k, e in pool
+        if str(e.get("currency") or "").upper() == code and _num(e.get("median"))
+    ]
+    rows: list[tuple[str, float, float | None, float | None, dict[str, Any]]] = []
+    method = "local_median"
+    if native:
+        for k, e in native:
+            rows.append((k, _num(e["median"]), _num(e.get("low")), _num(e.get("high")), e))
+    elif rate:
+        method = "usd_median_fx"
+        for k, e in pool:
+            med = _num(e.get("median_usd")) or _num(e.get("value_usd"))
+            if med is None:
+                continue
+            lo, hi = _num(e.get("low_usd")), _num(e.get("high_usd"))
+            rows.append(
+                (
+                    k,
+                    med / rate,
+                    lo / rate if lo else None,
+                    hi / rate if hi else None,
+                    e,
+                )
+            )
+    if not rows:
+        return None
+
+    def _median(vals: list[float]) -> float:
+        ordered = sorted(vals)
+        mid = len(ordered) // 2
+        if len(ordered) % 2:
+            return ordered[mid]
+        return (ordered[mid - 1] + ordered[mid]) / 2.0
+
+    value = _median([r[1] for r in rows])
+    lows = [r[2] for r in rows if r[2]]
+    highs = [r[3] for r in rows if r[3]]
+    retrieved = sorted(
+        {str(r[4].get("retrieved")) for r in rows if r[4].get("retrieved")}
+    )
+    return {
+        "value": round(value, 2),
+        "low": round(min(lows), 2) if lows else None,
+        "high": round(max(highs), 2) if highs else None,
+        "currency": code,
+        "method": method,
+        "entries": [r[0] for r in rows],
+        "as_of": retrieved[-1] if retrieved else None,
+        "source": (
+            f"intl_role_benchmarks_v1.json {vertical}/{slug} "
+            f"({', '.join(r[0] for r in rows)})"
+        ),
+    }
+
+
 def get_top_platforms(industry: str | None, country: str | None) -> list[str]:
     """Convenience: top recruitment platforms for (industry, country)."""
     block = get_role_country_benchmarks(industry, country)
