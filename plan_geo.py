@@ -177,14 +177,65 @@ def _extract_str(raw: Any) -> str:
     return ""
 
 
+_US_COUNTRY_TOKENS: frozenset[str] = frozenset(
+    {
+        "us",
+        "usa",
+        "u.s.",
+        "u.s.a.",
+        "united states",
+        "united states of america",
+        "america",
+    }
+)
+
+# "Hartford, CT 06103" -- a trailing ZIP / ZIP+4 after the state token.
+_ZIP_TAIL_RE = re.compile(r"\s+\d{5}(?:-\d{4})?$")
+
+
+def us_state_for_location(loc: Any) -> str | None:
+    """Return the USPS state code when ``loc`` names a place in a US state.
+
+    The single shared answer to "is this 'City, ST' string a US location?"
+    for every lookup that maps free-form locations onto country tables.
+    Two-letter US state codes collide with ISO country codes (CA = Canada,
+    IN = India, DE = Germany, IL = Israel, CO = Colombia, ...), so a country
+    table consulted with the trailing token of "Los Angeles, CA" answers
+    Canada -- the K-08 defect. Recognised shapes:
+
+    * "City, ST" / "City, ST 12345" (trailing ZIP allowed)
+    * "City, State Name" ("Indianapolis, Indiana")
+    * "City, ST, United States" (trailing US country token is skipped)
+    * a bare full state name ("Indiana")
+
+    A bare 2-letter token ("CA") is deliberately NOT recognised: in a
+    country field it is an ISO country code (Canada), and callers that
+    read country fields must keep resolving it that way.
+    """
+    s = _extract_str(loc).strip().lower()
+    if not s:
+        return None
+    if s in US_STATE_NAME_TO_ABBR:
+        return US_STATE_NAME_TO_ABBR[s]
+    parts = [p.strip() for p in s.split(",")]
+    while len(parts) > 1 and parts[-1] in _US_COUNTRY_TOKENS:
+        parts.pop()
+    if len(parts) < 2:
+        return None
+    tail = _ZIP_TAIL_RE.sub("", parts[-1]).strip().rstrip(".")
+    if len(tail) == 2 and tail.isalpha() and tail.upper() in US_STATE_ABBR:
+        return tail.upper()
+    return US_STATE_NAME_TO_ABBR.get(tail)
+
+
 def _us_state_signal(loc_str: str) -> bool | None:
-    """True if ``loc_str`` is unambiguously a US state (bare name or a
-    trailing 2-letter postal abbreviation), without any currency lookup."""
+    """True if ``loc_str`` is unambiguously a US state (bare name, a
+    trailing 2-letter postal abbreviation, or a "City, State Name" /
+    "City, ST 12345" pair), without any currency lookup."""
     s = loc_str.strip()
     if not s:
         return None
-    low = s.lower()
-    if low in US_STATE_NAME_TO_ABBR:
+    if us_state_for_location(s):
         return True
     tokens = [t for t in _SPLIT_RE.split(s) if t]
     if tokens:
@@ -218,6 +269,17 @@ def _resolve_candidate(loc_str: str) -> bool | None:
         return False
 
     return None
+
+
+def location_is_us(loc: Any) -> bool | None:
+    """Resolve ONE location (str or dict) to True (US), False (non-US) or
+    None (unresolvable -- the caller decides the default).
+
+    The per-location building block of :func:`is_us_plan`, for callers that
+    must decide market by market (a plan listing "New York, NY" and
+    "London, UK" is non-US as a whole, yet its New York rows are US data).
+    """
+    return _resolve_candidate(_extract_str(loc))
 
 
 def _gather_candidates(data: dict) -> list[Any]:

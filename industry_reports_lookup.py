@@ -21,8 +21,17 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
+
+try:
+    from plan_geo import us_state_for_location as _us_state_for_location
+except ImportError:  # pragma: no cover - plan_geo ships with the repo
+
+    def _us_state_for_location(loc: Any) -> str | None:
+        return None
+
 
 logger = logging.getLogger(__name__)
 
@@ -113,8 +122,16 @@ def _load() -> dict[str, Any]:
 
 
 def _normalize_country_to_iso(country: str | None) -> str | None:
-    """Map a free-form country name to one of the dataset geography keys."""
+    """Map a free-form country name to one of the dataset geography keys.
+
+    A US location ("Los Angeles, CA", "Indianapolis, Indiana") returns None
+    -- the Global-report fallback every other US city already gets -- so a
+    state code never hits a country alias (CA -> Canada, IN -> India, DE ->
+    Germany; audit K-08). A bare 2-letter code is still a country code.
+    """
     if not country or not isinstance(country, str):
+        return None
+    if _us_state_for_location(country):
         return None
     key = country.strip().lower()
     # Try comma-separated last token first ("London, UK" -> "uk")
@@ -127,10 +144,13 @@ def _normalize_country_to_iso(country: str | None) -> str | None:
         if key in aliases:
             return iso
     # Substring fallback ONLY for aliases >= 5 chars to avoid spurious
-    # matches like "antarctica" matching the "ca" Canada alias.
+    # matches like "antarctica" matching the "ca" Canada alias, and only on
+    # word boundaries ("indianapolis" must not match "india").
     for iso, aliases in _GEO_ALIASES.items():
         for alias in sorted(aliases, key=len, reverse=True):
-            if len(alias) >= 5 and alias in key:
+            if len(alias) >= 5 and re.search(
+                r"(?<![a-z0-9])" + re.escape(alias) + r"(?![a-z0-9])", key
+            ):
                 return iso
     return None
 

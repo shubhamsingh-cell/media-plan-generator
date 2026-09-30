@@ -25,6 +25,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -430,6 +431,17 @@ def currency_for_country(country: str | None) -> str | None:
         # code (IL=Illinois not Israel, CA=California not Canada).
         if last.upper() in _US_STATE_ABBR:
             return "USD"
+        # "City, State Name" ("Mexico, Missouri", "Lebanon, Ohio") and
+        # "City, ST 12345": the shared plan_geo helper owns US-state
+        # recognition. Imported here, not at module top, because plan_geo
+        # itself imports this module. Checked BEFORE the Canadian provinces
+        # so a US state still wins wherever both could apply.
+        try:
+            from plan_geo import us_state_for_location
+        except ImportError:  # pragma: no cover - plan_geo ships with the repo
+            us_state_for_location = None
+        if us_state_for_location is not None and us_state_for_location(key):
+            return "USD"
         # "City, BC" / "City, Ontario": a Canadian province (code or name)
         # is Canada -- "Victoria, BC" used to resolve to nothing (so the plan
         # stayed USD/US-only). NL is left to the country table (see
@@ -439,12 +451,21 @@ def currency_for_country(country: str | None) -> str | None:
         if last in _COUNTRY_TO_CODE:
             return _COUNTRY_TO_CODE[last]
     # Substring fallback only for aliases >= 5 chars (avoid "ca"/"in" inside
-    # unrelated words like "antarctica" / "india" collisions handled by exact
-    # match above).
+    # unrelated words like "antarctica"), and only on WORD boundaries: a raw
+    # substring test read "Indianapolis" and "Fort Wayne, Indiana" as India
+    # (INR plan currency for a US client) because "india" sits inside both.
     for alias in sorted(_COUNTRY_TO_CODE, key=len, reverse=True):
-        if len(alias) >= 5 and alias in key:
+        if len(alias) >= 5 and _contains_word(key, alias):
             return _COUNTRY_TO_CODE[alias]
     return None
+
+
+def _contains_word(text: str, phrase: str) -> bool:
+    """True when ``phrase`` occurs in ``text`` bounded by non-alphanumerics."""
+    return (
+        re.search(r"(?<![a-z0-9])" + re.escape(phrase) + r"(?![a-z0-9])", text)
+        is not None
+    )
 
 
 def format_money(

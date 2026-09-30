@@ -28,8 +28,17 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
+
+try:
+    from plan_geo import us_state_for_location as _us_state_for_location
+except ImportError:  # pragma: no cover - plan_geo ships with the repo
+
+    def _us_state_for_location(loc: Any) -> str | None:
+        return None
+
 
 logger = logging.getLogger(__name__)
 
@@ -230,9 +239,26 @@ def _normalize_industry(industry: str | None) -> str | None:
     return None
 
 
+def _contains_word(text: str, phrase: str) -> bool:
+    """True when ``phrase`` occurs in ``text`` bounded by non-alphanumerics."""
+    return (
+        re.search(r"(?<![a-z0-9])" + re.escape(phrase) + r"(?![a-z0-9])", text)
+        is not None
+    )
+
+
 def _normalize_country(country: str | None) -> str | None:
-    """Map a free-form country label to a dataset country slug, or None."""
+    """Map a free-form country label to a dataset country slug, or None.
+
+    A US location ("Los Angeles, CA", "Indianapolis, Indiana") returns None
+    -- the US-default path every other US city already takes -- instead of
+    letting the state code hit a country alias (CA -> Canada, IN -> India,
+    DE -> Germany; audit K-08). A bare 2-letter code is still a country
+    code ("CA" -> canada).
+    """
     if not country or not isinstance(country, str):
+        return None
+    if _us_state_for_location(country):
         return None
     key = country.strip().lower()
     # Strip common city-prefix patterns: "London, UK" -> "uk"
@@ -244,9 +270,10 @@ def _normalize_country(country: str | None) -> str | None:
     if key in _COUNTRY_TO_SLUG:
         return _COUNTRY_TO_SLUG[key]
     # Substring fallback ONLY for aliases >= 5 chars to avoid spurious
-    # matches like "antarctica" matching the "ca" Canada alias.
+    # matches like "antarctica" matching the "ca" Canada alias, and only on
+    # word boundaries ("indianapolis" must not match "india").
     for alias in sorted(_COUNTRY_TO_SLUG, key=len, reverse=True):
-        if len(alias) >= 5 and alias in key:
+        if len(alias) >= 5 and _contains_word(key, alias):
             return _COUNTRY_TO_SLUG[alias]
     return None
 
