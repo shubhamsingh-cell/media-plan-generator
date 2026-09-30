@@ -285,6 +285,38 @@ _ROLE_SALARY_FALLBACKS: Dict[str, Dict[str, int]] = {
         "p75": 105000,
         "max": 140000,
     },
+    # Retail frontline and store-level keys MUST precede the generic "sales"
+    # and "manager" buckets: first match wins, and those buckets priced a
+    # Retail Sales Associate at $90,000 and a Store Manager at $105,000
+    # (audit F 3.3; deck slide 7 printed "$86K (est.)" for Columbus, OH).
+    # Retail sales median: BLS OOH "Retail Sales Workers", retail
+    # salespersons median $17.03/hour, May 2025 (= $35,422/yr at 2,080 h),
+    # https://www.bls.gov/ooh/sales/retail-sales-workers.htm (read
+    # 2026-10-01). min/max are gold_standard's own "sales associate" band
+    # ($28,000-$42,000); p25/p75 sit halfway between band edge and median.
+    # Store manager: gold_standard's own "store manager" band
+    # ($45,000-$75,000), midpoint median -- no primary figure fetched.
+    "store manager": {
+        "median": 60000,
+        "min": 45000,
+        "p25": 52500,
+        "p75": 67500,
+        "max": 75000,
+    },
+    "retail sales": {
+        "median": 35400,
+        "min": 28000,
+        "p25": 31700,
+        "p75": 38700,
+        "max": 42000,
+    },
+    "sales associate": {
+        "median": 35400,
+        "min": 28000,
+        "p25": 31700,
+        "p75": 38700,
+        "max": 42000,
+    },
     "sales": {
         "median": 90000,
         "min": 50000,
@@ -1785,6 +1817,84 @@ def _empty_salary_result(role: str) -> Dict[str, Any]:
         "confidence_score": 0.0,
         "_meta": {"source_count": 0, "kb_validated": False},
     }
+
+
+def _clamp_salary_intelligence_to_role_bands(
+    salary_intel: Dict[str, Any], input_data: dict
+) -> None:
+    """Hold every US-dollar role salary to the role's OWN band, in place.
+
+    Generic keyword buckets and loose H-1B title matching price one
+    occupation off another's wage: "sales" ($90K) for a Retail Sales
+    Associate, "manager" ($105K) for a Warehouse Manager, "medical" ($95K)
+    for a Medical Assistant, the H-1B "nurse" alias (Registered Nurse, $78K)
+    for a Nurse Practitioner or an LPN. A figure more than
+    gold_standard._ROLE_BAND_TOLERANCE outside the title's band in
+    gold_standard._ROLE_SALARY_RANGES is replaced by that band (midpoint
+    median), labelled "Industry Benchmark" at the 0.30 keyword-match
+    confidence. Applied here, at national scale, so Market Intelligence and
+    the Quality Intelligence / deck rows that scale this base per city keep
+    showing one figure per role. Titles with no band are left alone; so is a
+    plan-local ("" currency) figure on a non-US plan, which a USD band cannot
+    judge.
+    """
+    if not isinstance(salary_intel, dict) or not salary_intel:
+        return
+    try:
+        import gold_standard as _gs
+    except ImportError:  # pragma: no cover - gold_standard ships with the repo
+        return
+    try:
+        import plan_geo as _pg
+
+        plan_is_us = _pg.is_us_plan(input_data)
+    except ImportError:  # pragma: no cover - plan_geo ships with the repo
+        plan_is_us = True
+    for role, sal in list(salary_intel.items()):
+        if not isinstance(sal, dict) or not sal.get("median"):
+            continue
+        cur = str(sal.get("currency") or "").upper()
+        if not (cur == "USD" or (not cur and plan_is_us)):
+            continue
+        if not _gs.salary_outside_role_band(role, sal.get("median"), 1.0):
+            continue
+        band = _gs.role_band_salary(role, 1.0)
+        if not band:
+            continue
+        logger.info(
+            "Salary for %r (%s, %s) outside its role band -- using band midpoint %s",
+            role,
+            sal.get("median"),
+            sal.get("sources"),
+            round(band["median"]),
+        )
+        salary_intel[role] = {
+            "median": round(band["median"]),
+            "mean": round(band["median"]),
+            "min": round(band["min"]),
+            "max": round(band["max"]),
+            "p10": round(band["min"]),
+            "p25": round(band["p25"]),
+            "p75": round(band["p75"]),
+            "p90": round(band["max"]),
+            "sources": ["Industry Benchmark"],
+            "outlier_flags": [],
+            "kb_validation": {
+                "validated": False,
+                "deviation": 0.0,
+                "flag": "role_band_clamped",
+            },
+            "confidence": 0.30,
+            "confidence_score": 0.30,
+            "_meta": {
+                "source_count": 1,
+                "kb_validated": False,
+                "role_band_clamped": True,
+                "replaced_median": sal.get("median"),
+                "replaced_sources": list(sal.get("sources") or []),
+            },
+            "currency": "USD",
+        }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4375,6 +4485,13 @@ def synthesize(
     except Exception as exc:
         logger.error("fuse_salary_intelligence failed: %s", exc, exc_info=True)
         synthesis["salary_intelligence"] = {}
+
+    try:
+        _clamp_salary_intelligence_to_role_bands(
+            synthesis.get("salary_intelligence") or {}, input_data
+        )
+    except Exception as exc:
+        logger.error("salary role-band clamp failed: %s", exc, exc_info=True)
 
     # Salary-intelligence defect fix (2026-07): synthesis["per_role_salaries"]
     # is the wiring point gold_standard.enrich_city_level_data() reads (as an

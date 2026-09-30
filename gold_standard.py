@@ -921,6 +921,45 @@ def _match_role_to_salary_range(
     return None, ""
 
 
+# Tolerance around a role's own band before a salary is treated as a
+# wrong-role / wrong-bucket figure (same 15% _clamp_salary_for_role uses).
+_ROLE_BAND_TOLERANCE: float = 0.15
+
+
+def role_band_salary(title: str, multiplier: float = 1.0) -> dict[str, float] | None:
+    """The role's OWN band from _ROLE_SALARY_RANGES scaled by ``multiplier``,
+    as an ordered min/p25/median/p75/max dict (median = band midpoint), or
+    None when the title matches no band. The same figures the per-role band
+    path in enrich_city_level_data prints for a matched role."""
+    matched_range, _kw = _match_role_to_salary_range((title or "").lower().strip())
+    if matched_range is None:
+        return None
+    lo = matched_range[0] * multiplier
+    hi = matched_range[1] * multiplier
+    mid = (matched_range[0] + matched_range[1]) / 2.0 * multiplier
+    return _ordered_salary_band(lo, mid * 0.90, mid, mid * 1.12, hi)
+
+
+def salary_outside_role_band(
+    title: str, median: float, multiplier: float = 1.0
+) -> bool:
+    """True when ``median`` (USD) sits more than _ROLE_BAND_TOLERANCE outside
+    the title's own band x ``multiplier``. False when there is no band --
+    an unmatched title cannot be judged here."""
+    try:
+        med = float(median or 0)
+    except (TypeError, ValueError):
+        return False
+    if med <= 0:
+        return False
+    matched_range, _kw = _match_role_to_salary_range((title or "").lower().strip())
+    if matched_range is None:
+        return False
+    return med > matched_range[1] * multiplier * (1 + _ROLE_BAND_TOLERANCE) or (
+        med < matched_range[0] * multiplier * (1 - _ROLE_BAND_TOLERANCE)
+    )
+
+
 def _clamp_salary_for_role(
     est_salary: float, multiplier: float, role_titles: list[str]
 ) -> float:
@@ -1258,6 +1297,11 @@ def enrich_city_level_data(data: dict) -> dict:
         synthesized.get("per_role_salaries") or {}
     )
 
+    # Whether each market is a US market decides whether a USD figure can be
+    # judged against (and shown for) it. Resolved per location by the shared
+    # plan_geo resolver; an unresolvable bare city falls back to the plan.
+    _plan_is_us = _plan_geo_gs.is_us_plan(data) if _plan_geo_gs is not None else True
+
     for loc in (locations_raw if isinstance(locations_raw, list) else []):
         city_name = ""
         _state_code = ""  # S50 FIX (Issue 19): capture state code
@@ -1274,6 +1318,9 @@ def enrich_city_level_data(data: dict) -> dict:
             _state_code = _normalize_state_code(str(loc.get("state") or ""))
         if not city_name:
             continue
+
+        _loc_is_us = _plan_geo_gs.location_is_us(loc) if _plan_geo_gs is not None else None
+        city_is_us = _plan_is_us if _loc_is_us is None else _loc_is_us
 
         city_key = city_name.lower()
         multiplier = _CITY_SALARY_MULTIPLIERS.get(city_key, None)
@@ -1424,10 +1471,30 @@ def enrich_city_level_data(data: dict) -> dict:
             # the City Multiplier column and footnote say. Driver bands stay
             # verbatim ("city_adjust" False/absent) and record 1.0 as the
             # multiplier actually applied. The band's currency is kept.
+            #
+            # The override must still respect the role's OWN band (audit F
+            # 3.3): it used to be taken verbatim, so a generic keyword bucket
+            # ("sales" $90K, "manager" $105K) priced a Retail Sales Associate
+            # at $86K and a Store Manager at $101K against their own $28-42K
+            # and $45-75K bands. A USD figure more than _ROLE_BAND_TOLERANCE
+            # outside band x the multiplier applied falls through to the band
+            # path below (band midpoint x this city's multiplier). A plan-
+            # local ("" currency) figure on a non-US market is not comparable
+            # to a USD band and is left alone.
             _synth_override = _synth_per_role_salaries.get(title)
-            if isinstance(_synth_override, dict) and _synth_override.get("median"):
-                tier, tier_source = _role_tier_cache[title]
+            _use_override = isinstance(_synth_override, dict) and bool(
+                _synth_override.get("median")
+            )
+            if _use_override:
                 _applied = multiplier if _synth_override.get("city_adjust") else 1.0
+                _ov_cur = str(_synth_override.get("currency") or "").upper()
+                _ov_is_usd = _ov_cur == "USD" or (not _ov_cur and city_is_us)
+                if _ov_is_usd and salary_outside_role_band(
+                    title, _synth_override.get("median", 0) * _applied, _applied
+                ):
+                    _use_override = False
+            if _use_override:
+                tier, tier_source = _role_tier_cache[title]
                 per_role_salary[title] = {
                     "min": round(_synth_override.get("min", 0) * _applied),
                     "p25": round(

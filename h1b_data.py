@@ -258,12 +258,25 @@ def _normalize_metro(location: str) -> Optional[str]:
     if loc_no_state in _METRO_ALIASES:
         return _METRO_ALIASES[loc_no_state]
 
-    # Substring match
+    # Word-bounded containment either way. A raw substring test matched the
+    # "la" alias inside "Cleveland", "Philadelphia", "Orlando", "Oakland",
+    # "Salt Lake City" and "Auckland", pricing those plans off Los Angeles
+    # H-1B wages.
     for alias, key in _METRO_ALIASES.items():
-        if alias in loc_clean or loc_clean in alias:
+        if _contains_words(loc_clean, alias) or _contains_words(alias, loc_clean):
             return key
 
     return None
+
+
+def _contains_words(text: str, phrase: str) -> bool:
+    """True when ``phrase`` occurs in ``text`` bounded by non-alphanumerics."""
+    if not phrase:
+        return False
+    return (
+        re.search(r"(?<![a-z0-9])" + re.escape(phrase) + r"(?![a-z0-9])", text)
+        is not None
+    )
 
 
 # ---------------------------------------------------------------------------
