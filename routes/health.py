@@ -5,11 +5,13 @@ accepts ``handler`` (a ``MediaPlanHandler`` instance) and ``path`` (the
 parsed URL path string).  Returns ``True`` if the route was handled.
 """
 
+import copy
 import datetime
 import json
 import logging
 import os
 import sys
+import threading
 import time
 import urllib.parse
 from typing import Any
@@ -264,56 +266,133 @@ def _handle_resilience_dashboard(handler, path: str, parsed: Any) -> None:
         handler.wfile.write(_rr_err)
 
 
+# -- /api/dashboard/widgets cache ------------------------------------------------
+# The payload costs a live Supabase read (get_market_trends: 1-3.6 s; 605 SLOW
+# ENDPOINT warnings/week, all from the AutoQC self-probe). Cache it:
+#   * fresh for _WIDGETS_FRESH_TTL_S -> served from memory;
+#   * older but under _WIDGETS_STALE_MAX_S -> served stale immediately while ONE
+#     background thread refreshes (nobody waits on Supabase in steady state);
+#   * cold or older than the stale window -> built synchronously, single-flight
+#     (concurrent cold requests share one build).
+# A failed build is reported (500) and never cached. The liveness ping
+# (/api/health/ping) is a separate handler and is intentionally NOT cached.
+_WIDGETS_FRESH_TTL_S = 60.0
+_WIDGETS_STALE_MAX_S = 600.0
+_widgets_lock = threading.Lock()
+_widgets_build_lock = threading.Lock()
+_widgets_entry: dict = {"ts": 0.0, "value": None, "refreshing": False}
+
+
+def _build_dashboard_widgets() -> dict:
+    """Build the widgets payload (may take 1-3 s when Supabase is reachable)."""
+    import random
+
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
+    _supabase_data_available = getattr(_app, "_supabase_data_available", None)
+
+    widgets = {
+        "campaigns": {
+            "count": 0,
+            "active_name": "",
+            "status": "no_campaigns",
+        },
+        "budget": {
+            "total": 0,
+            "spent": 0,
+            "spent_pct": 0,
+            "status": "healthy",
+        },
+        "market": {
+            "trend": "stable",
+            "label": "Labor market trends steady",
+            "cpc_change": round(random.uniform(-5, 5), 1),
+            "demand_index": round(random.uniform(60, 95), 0),
+        },
+        "compliance": {
+            "score": 0,
+            "status": "unknown",
+            "last_checked": None,
+        },
+        "recent_activity": [],
+    }
+
+    # Pull real data from Supabase if available
+    if _supabase_data_available:
+        try:
+            get_market_trends = getattr(_app, "get_market_trends", None)
+
+            trends = get_market_trends()
+            if trends:
+                widgets["market"]["trend"] = "growing" if len(trends) > 3 else "stable"
+                widgets["market"]["label"] = f"{len(trends)} active market signals"
+        except Exception as e:
+            logger.error("Dashboard widget market data error: %s", e, exc_info=True)
+    return widgets
+
+
+def _refresh_dashboard_widgets() -> dict:
+    """Build the payload and publish it to the cache."""
+    value = _build_dashboard_widgets()
+    with _widgets_lock:
+        _widgets_entry["value"] = value
+        _widgets_entry["ts"] = time.monotonic()
+        _widgets_entry["refreshing"] = False
+    return value
+
+
+def _refresh_dashboard_widgets_bg() -> None:
+    """Background refresh: never raises, always clears the refreshing flag."""
+    try:
+        _refresh_dashboard_widgets()
+    except Exception as e:
+        logger.error(
+            "Dashboard widgets background refresh failed: %s", e, exc_info=True
+        )
+    finally:
+        with _widgets_lock:
+            _widgets_entry["refreshing"] = False
+
+
+def get_dashboard_widgets() -> dict:
+    """Return the widgets payload from cache (fresh / stale-while-revalidate)."""
+    start_refresh = False
+    with _widgets_lock:
+        value = _widgets_entry["value"]
+        age = time.monotonic() - _widgets_entry["ts"]
+        if value is not None and age < _WIDGETS_FRESH_TTL_S:
+            return copy.deepcopy(value)
+        if value is not None and age < _WIDGETS_STALE_MAX_S:
+            if not _widgets_entry["refreshing"]:
+                _widgets_entry["refreshing"] = True
+                start_refresh = True
+            result = copy.deepcopy(value)
+        else:
+            result = None
+    if result is not None:
+        if start_refresh:
+            threading.Thread(
+                target=_refresh_dashboard_widgets_bg,
+                daemon=True,
+                name="dashboard-widgets-refresh",
+            ).start()
+        return result
+
+    # Cold (or beyond the stale window): single-flight synchronous build.
+    with _widgets_build_lock:
+        with _widgets_lock:
+            value = _widgets_entry["value"]
+            if (
+                value is not None
+                and time.monotonic() - _widgets_entry["ts"] < _WIDGETS_FRESH_TTL_S
+            ):
+                return copy.deepcopy(value)  # a concurrent caller just built it
+        return copy.deepcopy(_refresh_dashboard_widgets())
+
+
 def _handle_dashboard_widgets(handler, path: str, parsed: Any) -> None:
     """/api/dashboard/widgets -- live dashboard widget data for platform home."""
     try:
-        import random
-
-        _app = sys.modules.get("app") or sys.modules.get("__main__")
-        _supabase_data_available = getattr(_app, "_supabase_data_available", None)
-
-        widgets = {
-            "campaigns": {
-                "count": 0,
-                "active_name": "",
-                "status": "no_campaigns",
-            },
-            "budget": {
-                "total": 0,
-                "spent": 0,
-                "spent_pct": 0,
-                "status": "healthy",
-            },
-            "market": {
-                "trend": "stable",
-                "label": "Labor market trends steady",
-                "cpc_change": round(random.uniform(-5, 5), 1),
-                "demand_index": round(random.uniform(60, 95), 0),
-            },
-            "compliance": {
-                "score": 0,
-                "status": "unknown",
-                "last_checked": None,
-            },
-            "recent_activity": [],
-        }
-
-        # Pull real data from Supabase if available
-        if _supabase_data_available:
-            try:
-                _app = sys.modules.get("app") or sys.modules.get("__main__")
-                get_market_trends = getattr(_app, "get_market_trends", None)
-
-                trends = get_market_trends()
-                if trends:
-                    widgets["market"]["trend"] = (
-                        "growing" if len(trends) > 3 else "stable"
-                    )
-                    widgets["market"]["label"] = f"{len(trends)} active market signals"
-            except Exception as e:
-                logger.error("Dashboard widget market data error: %s", e, exc_info=True)
-
-        _send_json_response(handler, widgets)
+        _send_json_response(handler, get_dashboard_widgets())
     except Exception as e:
         logger.error("Dashboard widgets error: %s", e, exc_info=True)
         _send_json_response(handler, {"error": str(e)}, status_code=500)

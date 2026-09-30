@@ -7,6 +7,12 @@ Runs every 60 seconds as a background thread:
 3. Checks data source availability
 4. Triggers alerts via alert_manager on degradation
 
+Probe cadence: each endpoint is really probed at most once per _CHECK_INTERVAL
+(60 s) for the WHOLE instance. Forked gunicorn workers inherit the loop, so every
+process still runs its own check cycle (own history/status) but shares the HTTP
+readings through a file in the slot dir -- see _probe(). Liveness
+(/api/health/ping) is one of the 5 probed endpoints and is never cached itself.
+
 Startup behavior:
 - Waits _STARTUP_GRACE_PERIOD (90s) before first check to let server warm up
 - First _WARMUP_GRACE_CHECKS (5) cycles use relaxed thresholds and suppress alerts
@@ -69,8 +75,94 @@ def _is_warming_up() -> bool:
     return elapsed < warmup_window or _check_count < _WARMUP_GRACE_CHECKS
 
 
+# -- Instance-wide probe sharing ------------------------------------------------
+# Under ``gunicorn --preload`` + gevent the monitor greenlet started at import is
+# inherited by every forked worker (see wsgi.py: threads "re-run ... in the
+# master AND in EVERY forked worker"), so N+1 copies of _run_loop are alive and
+# each used to fire its own 5-endpoint probe cycle: ~24 loopback requests/min
+# instead of the documented 5/min, and /api/dashboard/widgets (1-3 s) alone was
+# 605 SLOW ENDPOINT warnings a week. The flock leader election in app.py runs
+# once, in the master, before the fork, so it cannot stop the inherited copies.
+#
+# Every loop still runs _check_cycle() (each process keeps its own truthful
+# history/status for /api/health/auto-qc), but the HTTP probe itself is shared:
+# the first loop to need an endpoint reading older than _PROBE_SHARE_TTL_S really
+# probes it and publishes {ok, latency_ms, ts} to a small file in the slot dir;
+# the other loops reuse it. Effective cadence per endpoint: one real probe per
+# _CHECK_INTERVAL (60 s) for the whole instance, however many loops are alive.
+_PROBE_SHARE_TTL_S = float(_CHECK_INTERVAL)
+
+
+def _probe_cache_file(path: str) -> Optional[str]:
+    """Shared-cache file for one probed path, or None when no dir is usable."""
+    import os
+    import re
+    import tempfile
+
+    slot_dir = os.environ.get("NOVA_SLOT_DIR") or os.path.join(
+        tempfile.gettempdir(),
+        f"nova_gen_slots_{os.environ.get('PORT') or os.environ.get('TEST_PORT') or 'dev'}",
+    )
+    try:
+        os.makedirs(slot_dir, exist_ok=True)
+    except OSError:
+        return None
+    safe = re.sub(r"[^A-Za-z0-9]+", "_", path).strip("_") or "root"
+    return os.path.join(slot_dir, f"auto_qc_probe_{safe}.json")
+
+
+def _read_shared_probe(path: str) -> Optional[tuple[bool, float]]:
+    """A fresh shared reading for ``path`` or None (missing/stale/corrupt)."""
+    import json
+
+    cache_file = _probe_cache_file(path)
+    if not cache_file:
+        return None
+    try:
+        with open(cache_file, "r", encoding="utf-8") as fh:
+            entry = json.load(fh)
+        age = time.time() - float(entry["ts"])
+        if 0 <= age < _PROBE_SHARE_TTL_S:
+            return bool(entry["ok"]), float(entry["latency_ms"])
+    except (OSError, ValueError, KeyError, TypeError):
+        pass  # missing, unreadable or half-written: just probe for real
+    return None
+
+
+def _write_shared_probe(path: str, ok: bool, latency_ms: float) -> None:
+    """Publish a probe reading atomically (tmp + rename). Never raises."""
+    import json
+    import os
+
+    cache_file = _probe_cache_file(path)
+    if not cache_file:
+        return
+    tmp = f"{cache_file}.{os.getpid()}.tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump({"ok": ok, "latency_ms": latency_ms, "ts": time.time()}, fh)
+        os.replace(tmp, cache_file)
+    except OSError as exc:
+        logger.debug("[AutoQC] could not publish shared probe for %s: %s", path, exc)
+
+
 def _probe(path: str, timeout: int = 15) -> tuple[bool, float]:
-    """Probe a local endpoint. Returns (ok, latency_ms).
+    """Probe a local endpoint, sharing the reading across processes.
+
+    Returns (ok, latency_ms). Reuses a reading published by any process in the
+    last _PROBE_SHARE_TTL_S seconds; otherwise probes for real (_probe_direct)
+    and publishes the result for the other loops.
+    """
+    shared = _read_shared_probe(path)
+    if shared is not None:
+        return shared
+    ok, latency = _probe_direct(path, timeout)
+    _write_shared_probe(path, ok, latency)
+    return ok, latency
+
+
+def _probe_direct(path: str, timeout: int = 15) -> tuple[bool, float]:
+    """Probe a local endpoint over HTTP. Returns (ok, latency_ms).
 
     S63: timeout raised 10s -> 15s to buffer above /api/health's internal
     8s time-box. One silent retry on first failure to absorb transient stalls.
