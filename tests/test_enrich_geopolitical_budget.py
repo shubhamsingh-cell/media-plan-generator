@@ -228,6 +228,30 @@ def test_geopolitical_call_overlaps_the_pool_and_is_used_when_on_time(
     assert elapsed < 0.8 + 0.3 + 1.0  # overlapped, not pool + geo in series
 
 
+def test_failed_llm_chain_placeholder_is_not_shipped(
+    monkeypatch: pytest.MonkeyPatch, isolated_breakers
+) -> None:
+    """The prod pattern once the wait is bounded: the provider chain fails
+    INSIDE the budget, so fetch_geopolitical_context() returns its static
+    placeholder ("... default low-risk assumption", risk_level "low") in
+    time. excel_v2 renders any non-empty geopolitical_context as a client
+    "Geopolitical Context" section, so the placeholder must not be stored
+    -- prod never showed it (the deadline always won) and it asserts a risk
+    level nobody assessed."""
+    monkeypatch.setenv("NOVA_GEOPOLITICAL_TIMEOUT_S", "2")
+    monkeypatch.setattr(
+        llm_router,
+        "call_llm",
+        lambda **kwargs: {"text": "", "error": "global timeout budget exceeded"},
+    )
+    stub_sources(monkeypatch, LOCATION_SOURCE_FETCHERS)
+
+    result = api_enrichment.enrich_data(dict(HERSHEY_REQUEST))
+
+    assert result["geopolitical_context"] == {}
+    assert result["enrichment_summary"]["geopolitical_status"] == "fallback"
+
+
 _DEFAULT = "default"
 
 

@@ -14489,8 +14489,9 @@ def _fetch_h1b_salary_intelligence(
 #     max(pool completion, start + budget);
 #   * the same value goes to llm_router as timeout_budget, so the provider
 #     chain itself stops by then instead of running on as a 35 s orphan.
-# Its content is used only if it arrived within the budget; otherwise
-# geopolitical_context stays {} (what an LLM exception already yielded).
+# Only real LLM analysis is used, and only if it arrived within the budget;
+# otherwise geopolitical_context stays {} -- its static "default low-risk"
+# placeholder is not shipped either (see _collect_geopolitical_context).
 # Override: env NOVA_GEOPOLITICAL_TIMEOUT_S (seconds, read on every call),
 # clamped to GEOPOLITICAL_TIMEOUT_MAX_S; "0" disables the call entirely;
 # a non-numeric or negative value falls back to the default.
@@ -14562,8 +14563,16 @@ def _start_geopolitical_context(
 def _collect_geopolitical_context(handle: Dict[str, Any]) -> "tuple[dict, str]":
     """Return (geopolitical_context, status) for a _start_geopolitical_context()
     handle, waiting at most until its start + budget. status is one of
-    "ok" (LLM analysis arrived in time), "fallback" (the function's own
-    static fallback), "timeout", "error" or "disabled"."""
+    "ok" (LLM analysis arrived in time), "fallback" (the function returned
+    its static placeholder), "timeout", "error" or "disabled".
+
+    Only an "ok" result is returned as content. The static placeholder
+    ("Geopolitical risk analysis unavailable. Using default low-risk
+    assumption.", risk_level "low") is NOT: excel_v2 renders any non-empty
+    geopolitical_context as a client-facing "Geopolitical Context" section,
+    and with the chain failing inside its budget that placeholder would
+    otherwise appear on every plan, asserting a "low" risk nobody assessed.
+    """
     future = handle.get("future")
     executor = handle.get("executor")
     if future is None:
@@ -14588,8 +14597,9 @@ def _collect_geopolitical_context(handle: Dict[str, Any]) -> "tuple[dict, str]":
             executor.shutdown(wait=False, cancel_futures=True)
     if not isinstance(result, dict):
         return {}, "error"
-    source = str(result.get("source") or "")
-    return result, ("ok" if source.startswith("llm_") else "fallback")
+    if str(result.get("source") or "").startswith("llm_"):
+        return result, "ok"
+    return {}, "fallback"
 
 
 def fetch_geopolitical_context(
