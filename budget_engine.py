@@ -3644,9 +3644,15 @@ def assess_budget_sufficiency(
     # average read "WELL-FUNDED ... exceeds the industry average").
     # 0.5 is the plan's own floor: below it the plan itself projects fewer
     # hires than the target.
-    realistic_hires = (
-        max(1, int(total_budget / floor_cph)) if floor_cph > 0 else n_openings
-    )
+    # Realistic hires = the plan's OWN projection (the same channel-summed
+    # total total_projected.hires reports), not a second budget / constant
+    # estimate that disagreed with it (71 vs 47 on the audit's RN plan).
+    if total_proj_hires > 0:
+        realistic_hires = int(total_proj_hires)
+    elif floor_cph > 0:
+        realistic_hires = max(1, int(total_budget / floor_cph))
+    else:
+        realistic_hires = n_openings
     min_viable_budget = floor_cph * n_openings
     budget_utilization = (
         (total_budget / min_viable_budget * 100) if min_viable_budget > 0 else 0
@@ -4618,6 +4624,7 @@ def calculate_budget_allocation(
     locations_raw: Optional[List[Any]] = None,
     plan_currency: Optional[str] = None,
     budget_text: Optional[str] = None,
+    target_hires: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Master budget allocation function.
@@ -4677,6 +4684,13 @@ def calculate_budget_allocation(
             the currency from the plan's location list. Optional and
             additive -- omitting it is byte-identical to pre-fix behavior
             for every existing caller.
+        target_hires: the client's stated hiring goal (the wizard's
+            ``hire_volume``, parsed by ``display_format.parse_hire_goal``).
+            It is the sufficiency check's target. ``None``/0 falls back to
+            explicit role headcounts when the roles carry any (a count
+            above 1), else to the plan's own projected hires -- never to
+            "1 opening per role title", which graded every string-role plan
+            as "$250,000/hire ... WELL-FUNDED" (audit 2026-10-01 §3.6).
 
     Returns:
         Dict with keys:
@@ -5126,10 +5140,31 @@ def calculate_budget_allocation(
     }
 
     # Step 5: Budget sufficiency assessment
-    total_openings = sum(
+    # Target hires (audit 2026-10-01 §3.6): the wizard sends roles as bare
+    # titles, each counted as ONE opening, so every such plan was graded as
+    # if it had to fill one seat per role ("WELL-FUNDED: $250,000/hire").
+    # Stated goal first; explicit role headcounts second; else the plan's
+    # own projection, so the grade describes the plan actually shipped.
+    _role_count_sum = sum(
         max(1, int(r.get("count", r.get("openings", 1)) or 1))
         for r in (roles or [{"count": 1}])
     )
+    _stated_goal = (
+        int(target_hires)
+        if isinstance(target_hires, (int, float))
+        and not isinstance(target_hires, bool)
+        and target_hires > 0
+        else 0
+    )
+    if _stated_goal > 0:
+        total_openings = _stated_goal
+        _target_source = "stated_goal"
+    elif _role_count_sum > len(roles or [1]):
+        total_openings = _role_count_sum
+        _target_source = "role_counts"
+    else:
+        total_openings = max(1, int(total_hires))
+        _target_source = "projected_hires"
 
     sufficiency = assess_budget_sufficiency(
         total_budget,
@@ -5193,6 +5228,9 @@ def calculate_budget_allocation(
             "total_budget": total_budget,
             "industry": industry,
             "total_openings": total_openings,
+            # Where total_openings (the sufficiency target) came from:
+            # "stated_goal" | "role_counts" | "projected_hires".
+            "target_hires_source": _target_source,
             # F5 FIX: plan-currency-converted (see _industry_avg_cph_plan
             # above) -- was raw USD, silently disagreeing with
             # sufficiency.industry_avg_cost_per_hire (already converted)

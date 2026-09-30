@@ -4312,6 +4312,24 @@ def _normalize_dict_roles(data: dict) -> None:
             data[_rkey] = [(r.get("title") or r.get("role") or str(r)) for r in _rlist]
 
 
+def _hire_goal_for_budget(data: dict) -> int:
+    """The client's stated hiring goal, as budget_engine's ``target_hires``.
+
+    Both /api/generate paths build role dicts with ``count: 1`` per title
+    (roles arrive as bare strings), so without this the sufficiency check
+    graded every plan as one seat per role -- "WELL-FUNDED: Budget of
+    $250,000/hire", ``target_hires: 1`` (audit 2026-10-01 §3.6). Parsed with
+    the SAME ``display_format.parse_hire_goal`` the deck and workbook use for
+    their goal-gap line, so all three read one goal. 0 = no goal stated.
+    """
+    if display_format is None or not isinstance(data, dict):
+        return 0
+    try:
+        return int(display_format.parse_hire_goal(data.get("hire_volume")))
+    except (TypeError, ValueError):
+        return 0
+
+
 # Campaign months per wizard #campaignDuration option, used to scale a
 # per-month/quarter/year budget to the campaign total AND (via
 # display_format.resolve_campaign_weeks) to size the campaign in weeks. The
@@ -5736,6 +5754,7 @@ def _compute_plan_estimate(brief: dict) -> dict:
         plan_currency=_resolve_plan_currency(brief),
         locations_raw=locs_raw,
         budget_text=budget_str,
+        target_hires=_hire_goal_for_budget(brief),
     )
     total_projected = (
         budget_result.get("total_projected", {})
@@ -19218,6 +19237,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     budget_text=str(
                                         gen_data.get("budget") or ""
                                     ).strip(),
+                                    target_hires=_hire_goal_for_budget(gen_data),
                                 )
                                 gen_data["_budget_allocation"] = budget_result
                                 logger.info(
@@ -21263,6 +21283,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         plan_currency=_resolve_plan_currency(data),
                         locations_raw=data.get("locations"),
                         budget_text=str(data.get("budget") or "").strip(),
+                        target_hires=_hire_goal_for_budget(data),
                     )
                     data["_budget_allocation"] = budget_result
                     logger.info(

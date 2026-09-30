@@ -319,6 +319,9 @@ def build_plan_data(brief: dict[str, Any]) -> dict[str, Any]:
         # to before this fix).
         locations_raw=data.get("locations"),
         budget_text=str(data.get("budget") or "").strip(),
+        # Mirrors app._hire_goal_for_budget: the stated hire_volume is the
+        # sufficiency target (audit 2026-10-01 §3.6).
+        target_hires=app._hire_goal_for_budget(data),
     )
     data["_budget_allocation"] = budget_result
 
