@@ -25,12 +25,26 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════════════
-POSTHOG_API_KEY: str = (
-    os.environ.get("POSTHOG_PROJECT_API_KEY") or os.environ.get("POSTHOG_API_KEY") or ""
-)
+def _resolve_capture_key() -> tuple[str, str]:
+    """Return ``(key, env_var_name)`` for the configured capture key.
+
+    ``POSTHOG_PROJECT_API_KEY`` wins over ``POSTHOG_API_KEY``. Returns
+    ``("", "")`` when neither is set.
+    """
+    for name in ("POSTHOG_PROJECT_API_KEY", "POSTHOG_API_KEY"):
+        value = (os.environ.get(name) or "").strip()
+        if value:
+            return value, name
+    return "", ""
+
+
+POSTHOG_API_KEY: str
+_POSTHOG_KEY_ENV: str
+POSTHOG_API_KEY, _POSTHOG_KEY_ENV = _resolve_capture_key()
 POSTHOG_HOST: str = os.environ.get("POSTHOG_HOST") or "https://us.i.posthog.com"
 CAPTURE_URL: str = f"{POSTHOG_HOST}/batch/"
 
@@ -39,6 +53,42 @@ _BATCH_SIZE: int = 10  # Flush when batch hits 10 events
 _RATE_LIMIT_MAX: int = 100  # Max events per minute
 _RATE_LIMIT_WINDOW_S: float = 60.0
 _API_TIMEOUT_S: int = 5  # HTTP timeout for PostHog API
+
+# Permanent auth failures (HTTP 401/403) back off exponentially: the first
+# failure pauses flushing for _AUTH_BACKOFF_BASE_S, every further consecutive
+# failure doubles the pause, capped at _AUTH_BACKOFF_MAX_S (1 h). One log line
+# per backoff window instead of one per flush attempt.
+_AUTH_BACKOFF_BASE_S: float = 30.0
+_AUTH_BACKOFF_MAX_S: float = 3600.0
+
+# PostHog PERSONAL api keys start with "phx_"; the /batch capture endpoint only
+# accepts a PROJECT key ("phc_..."). Using a personal key here 401s on every
+# flush (prod 2026-10-01: ~286 ERROR lines/hour, 100% of analytics dropped).
+_PERSONAL_KEY_PREFIX: str = "phx_"
+
+
+def _is_personal_api_key(key: str) -> bool:
+    """True when ``key`` is a PostHog personal api key (``phx_`` prefix)."""
+    return (key or "").strip().lower().startswith(_PERSONAL_KEY_PREFIX)
+
+
+# Warn-once registry (bounded): log a given warning key at most once per
+# process so a chatty caller cannot flood the log.
+_WARN_ONCE_MAX: int = 200
+_warned_once: set = set()
+_warned_once_lock: threading.Lock = threading.Lock()
+
+
+def _warn_once(key: str, message: str, *args: Any) -> None:
+    """Log ``message`` at WARNING the first time ``key`` is seen (bounded set)."""
+    with _warned_once_lock:
+        if key in _warned_once:
+            return
+        if len(_warned_once) >= _WARN_ONCE_MAX:
+            return
+        _warned_once.add(key)
+    logger.warning(message, *args)
+
 
 # Dead-letter queue for events that failed to flush (Phase 6)
 _dead_letter_queue: deque = deque(maxlen=500)
@@ -52,6 +102,7 @@ class PostHogClient:
 
     def __init__(self) -> None:
         self._enabled: bool = bool(POSTHOG_API_KEY)
+        self._disabled_reason: str = "" if self._enabled else "no_api_key"
         self._queue: List[Dict[str, Any]] = []
         self._lock: threading.Lock = threading.Lock()
         self._flush_thread: Optional[threading.Thread] = None
@@ -68,12 +119,35 @@ class PostHogClient:
         self._rate_timestamps: List[float] = []
         self._rate_lock: threading.Lock = threading.Lock()
 
-        if self._enabled:
+        # Auth-failure backoff (HTTP 401/403): monotonic deadline before which
+        # no flush is attempted, plus the consecutive-failure streak that
+        # drives the exponential window.
+        self._backoff_lock: threading.Lock = threading.Lock()
+        self._backoff_until: float = 0.0
+        self._auth_fail_streak: int = 0
+        self._dropped_in_backoff: int = 0
+
+        if self._enabled and _is_personal_api_key(POSTHOG_API_KEY):
+            # A personal key can never capture events. Disable up front with
+            # ONE clear warning instead of 401-ing on every flush forever.
+            # The key itself is never logged.
+            self._enabled = False
+            self._disabled_reason = "personal_api_key"
+            logger.warning(
+                "PostHog analytics DISABLED: env var %s holds a PostHog "
+                "PERSONAL api key (phx_ prefix), which the capture API "
+                "rejects with HTTP 401. A PROJECT api key (phc_...) from "
+                "PostHog > Project settings is required: set it in "
+                "POSTHOG_PROJECT_API_KEY (takes precedence over "
+                "POSTHOG_API_KEY).",
+                _POSTHOG_KEY_ENV or "POSTHOG_API_KEY",
+            )
+        elif self._enabled:
             self._start_flush_thread()
             logger.info(
-                "PostHog integration initialized (host=%s, key=%s...)",
+                "PostHog integration initialized (host=%s, key=%s)",
                 POSTHOG_HOST,
-                POSTHOG_API_KEY[:8],
+                "phc_..." if POSTHOG_API_KEY.startswith("phc_") else "set",
             )
         else:
             logger.warning("PostHog integration disabled: POSTHOG_API_KEY not set")
@@ -155,6 +229,10 @@ class PostHogClient:
                 "last_flush_time": self._last_flush_time,
                 "total_flushes": self._flush_count,
                 "posthog_host": POSTHOG_HOST,
+                "disabled_reason": self._disabled_reason,
+                "auth_backoff_active": self._in_backoff(),
+                "auth_fail_streak": self._auth_fail_streak,
+                "dropped_in_backoff": self._dropped_in_backoff,
             }
 
     def shutdown(self) -> None:
@@ -167,6 +245,12 @@ class PostHogClient:
 
     def _enqueue(self, event_payload: Dict[str, Any]) -> None:
         """Add event to queue; trigger flush if batch is full."""
+        if self._in_backoff():
+            # Permanent auth failure window: nothing can be delivered, so do
+            # not let the queue grow. Dropped events are counted in stats.
+            with self._backoff_lock:
+                self._dropped_in_backoff += 1
+            return
         if not self._is_rate_allowed():
             logger.debug(
                 "PostHog rate limit reached, dropping event: %s",
@@ -207,8 +291,57 @@ class PostHogClient:
             self._rate_timestamps = [t for t in self._rate_timestamps if t > cutoff]
             return len(self._rate_timestamps) < _RATE_LIMIT_MAX
 
+    def _in_backoff(self) -> bool:
+        """True while a permanent-auth-failure backoff window is open."""
+        return time.monotonic() < self._backoff_until
+
+    def _open_backoff_window(self, code: int, body_snippet: str) -> None:
+        """Open (or extend the streak of) the exponential backoff window.
+
+        Logs ONCE per window: if another flush thread already opened the
+        current window, this call is silent.
+        """
+        now = time.monotonic()
+        with self._backoff_lock:
+            if now < self._backoff_until:
+                return  # a concurrent flush already opened + logged this window
+            self._auth_fail_streak += 1
+            streak = self._auth_fail_streak
+            delay = min(
+                _AUTH_BACKOFF_MAX_S,
+                _AUTH_BACKOFF_BASE_S * (2 ** min(streak - 1, 16)),
+            )
+            self._backoff_until = now + delay
+        logger.error(
+            "PostHog flush HTTP %d (permanent auth failure #%d): pausing "
+            "flushes for %ds; events in the window are dropped. Check the "
+            "PostHog PROJECT key (phc_...) in %s: %s",
+            code,
+            streak,
+            int(delay),
+            _POSTHOG_KEY_ENV or "POSTHOG_PROJECT_API_KEY",
+            body_snippet,
+        )
+
+    def _reset_backoff(self) -> None:
+        """A successful flush closes the window and resets the streak."""
+        with self._backoff_lock:
+            self._auth_fail_streak = 0
+            self._backoff_until = 0.0
+
     def _flush(self) -> None:
         """Send all queued events to PostHog in a single batch."""
+        if self._in_backoff():
+            # Inside an auth-failure window: drop whatever is queued rather
+            # than hitting the API (and the log) again.
+            with self._lock:
+                dropped = len(self._queue)
+                self._queue.clear()
+            if dropped:
+                with self._backoff_lock:
+                    self._dropped_in_backoff += dropped
+            return
+
         # Retry dead-letter events first (Phase 6)
         retried: List[Dict[str, Any]] = []
         while _dead_letter_queue:
@@ -248,19 +381,23 @@ class PostHogClient:
                     )
                 else:
                     logger.debug("PostHog batch flush OK: %d events sent", len(batch))
+                    self._reset_backoff()
         except urllib.error.HTTPError as http_err:
             body_snippet = ""
             try:
                 body_snippet = http_err.read().decode("utf-8", errors="replace")[:200]
             except Exception:
                 pass
-            if http_err.code in (400, 401, 403):
-                # Permanent failure (bad request / invalid or forbidden API
-                # key): retrying the same batch can never succeed. Log once
-                # and drop it instead of dead-lettering -- unconditional
-                # dead-lettering here is what turned an invalid
-                # POSTHOG_API_KEY into a 5s-interval storm that resent the
-                # same doomed batch forever.
+            if http_err.code in (401, 403):
+                # Permanent auth failure (invalid / forbidden API key):
+                # retrying can never succeed. Drop the batch (no dead-letter)
+                # AND stop calling the API for an exponentially growing window
+                # (30 s doubling, cap 1 h), logging once per window -- before
+                # this, every flush attempt logged an ERROR (~286/h in prod).
+                self._open_backoff_window(http_err.code, body_snippet)
+            elif http_err.code == 400:
+                # Bad request: this batch is unsendable as-is. Log and drop it
+                # instead of dead-lettering (see test_posthog_dead_letter).
                 logger.error(
                     "PostHog flush HTTP %d (permanent failure, not retrying): %s",
                     http_err.code,
@@ -405,7 +542,8 @@ def track_event(
         "system.",
     )
     if not any(event.startswith(p) for p in VALID_PREFIXES):
-        logger.warning(
+        _warn_once(
+            f"event-name:{event}",
             "[PostHog] Non-standard event name: %s (should start with %s)",
             event,
             "/".join(VALID_PREFIXES),
@@ -416,7 +554,8 @@ def track_event(
         expected = _EVENT_SCHEMAS[event]
         missing = [k for k in expected if k not in properties]
         if missing:
-            logger.warning(
+            _warn_once(
+                f"event-props:{event}:{','.join(missing)}",
                 "[PostHog] Event %s missing expected properties: %s",
                 event,
                 ", ".join(missing),
@@ -497,6 +636,8 @@ def is_feature_enabled(
     """
     if not POSTHOG_API_KEY or not POSTHOG_HOST:
         return default
+    if _is_personal_api_key(POSTHOG_API_KEY):
+        return default  # /decide needs a PROJECT key; see PostHogClient.__init__
 
     cache_key = f"ff:{flag_name}:{distinct_id}"
     now = time.monotonic()

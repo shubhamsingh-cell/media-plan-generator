@@ -37,7 +37,12 @@ POSTHOG_API_KEY = (
     os.environ.get("POSTHOG_PROJECT_API_KEY") or os.environ.get("POSTHOG_API_KEY") or ""
 ).strip()
 POSTHOG_HOST = "https://us.i.posthog.com"  # US cloud instance
-_ENABLED = bool(POSTHOG_API_KEY)
+# A PostHog PERSONAL api key ("phx_...") can never capture events (the /batch
+# endpoint answers 401); only a PROJECT key ("phc_...") can. Stay disabled
+# instead of queueing and POSTing events that are guaranteed to be rejected.
+# posthog_integration emits the one operator-facing WARNING for this misconfig.
+_PERSONAL_KEY = POSTHOG_API_KEY.lower().startswith("phx_")
+_ENABLED = bool(POSTHOG_API_KEY) and not _PERSONAL_KEY
 
 # Batching config
 _BATCH_SIZE = 20
@@ -332,6 +337,14 @@ def get_posthog_stats() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 if _ENABLED:
-    logger.info("PostHog analytics enabled (project key: %s...)", POSTHOG_API_KEY[:10])
+    logger.info(
+        "PostHog analytics enabled (project key: %s)",
+        "phc_..." if POSTHOG_API_KEY.startswith("phc_") else "set",
+    )
+elif _PERSONAL_KEY:
+    logger.info(
+        "PostHog analytics disabled (configured key is a personal phx_ key; "
+        "a PROJECT phc_ key is required)"
+    )
 else:
     logger.info("PostHog analytics disabled (POSTHOG_API_KEY not set)")
