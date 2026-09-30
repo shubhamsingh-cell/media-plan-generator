@@ -114,7 +114,17 @@ def _forecast_sheet(wb):
 # plan-currency symbol), matching how the flag is actually computed.
 # budget_engine's `> 1000` threshold value itself is unchanged.
 # ---------------------------------------------------------------------------
-def test_low_efficiency_alert_uses_plan_currency_threshold():
+def test_low_efficiency_alert_uses_plan_currency_threshold(monkeypatch):
+    # 2026-10-01: job boards now price off trend_engine's industry-aware
+    # Indeed CPC before the flat live figure (budget_engine
+    # _TREND_BEFORE_LIVE_CATEGORIES, audit F §4.5). For this fixture that
+    # cuts the job-board CPC from the flat 1.62 to ~0.54, so every funded
+    # channel projects a hire and the "Low Efficiency" precondition this
+    # test needs never occurs. The test is about the alert's currency
+    # LABEL, not CPC resolution, so pin the pre-change cascade order here.
+    import budget_engine as _be
+
+    monkeypatch.setattr(_be, "_TREND_BEFORE_LIVE_CATEGORIES", frozenset())
     # Small goal (2 hires) against a $5,000 budget: every funded channel's
     # per-channel spend (>1,000) rounds to 0 projected hires, which is
     # exactly what trips budget_engine's "Low Efficiency" flag
