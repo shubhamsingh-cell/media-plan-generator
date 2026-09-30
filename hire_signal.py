@@ -1222,8 +1222,7 @@ def generate_recommendations(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
         if (
             app_to_hire > 0
             and app_to_hire < 1.0
-            and src_data.get("total_applications")
-            or 0 > 20
+            and (src_data.get("total_applications") or 0) > 20
         ):
             recommendations.append(
                 {

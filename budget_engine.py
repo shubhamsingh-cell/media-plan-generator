@@ -5893,7 +5893,7 @@ def simulate_channel_swap(
                 # Try category-based matching
                 remove_cat = _category_for_channel(remove_channel)
                 for ch_name, ch_data in channel_allocs.items():
-                    if ch_data.get("category") or "" == remove_cat:
+                    if (ch_data.get("category") or "") == remove_cat:
                         matched_remove_key = ch_name
                         break
             if matched_remove_key:

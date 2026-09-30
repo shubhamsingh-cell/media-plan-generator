@@ -717,14 +717,7 @@ def _cache_cleanup_loop() -> None:
                     for k in stale_keys:
                         del _shared_plans[k]
                     purged_shared_plans = len(stale_keys)
-                    if len(_shared_plans) > _SHARED_PLANS_MAX:
-                        sorted_keys = sorted(
-                            _shared_plans,
-                            key=lambda k: _shared_plans[k].get("created_at") or 0,
-                        )
-                        for k in sorted_keys[: len(_shared_plans) - _SHARED_PLANS_MAX]:
-                            del _shared_plans[k]
-                            purged_shared_plans += 1
+                    purged_shared_plans += _shared_plans_enforce_caps_locked()
             except Exception as e:
                 logger.error(
                     f"Cache cleanup failed for shared plans: {e}", exc_info=True
@@ -794,6 +787,7 @@ def _cache_cleanup_loop() -> None:
                     for k in stale_keys:
                         del _plan_results_store[k]
                     purged_plan_results = len(stale_keys)
+                    purged_plan_results += _plan_results_enforce_cap_locked()
             except Exception as e:
                 logger.error(
                     f"Cache cleanup failed for plan results: {e}", exc_info=True
@@ -7031,6 +7025,39 @@ _shared_plans: dict[str, dict] = {}
 _shared_plans_lock = threading.Lock()
 _SHARED_PLANS_MAX = 1000
 _SHARED_PLANS_TTL = 86400.0  # 24 hours
+# /api/plan/share is unauthenticated, and a stored plan is a parsed JSON object
+# (~7.6x its wire size: a 954 KB body measured 7.24 MiB resident), so bound
+# memory three ways: a per-plan cap, a count cap, and a total-size budget.
+# Per-plan cap on the serialized plan_data JSON (real plans measure 20-136 KiB).
+_SHARED_PLAN_MAX_BYTES = 256 * 1024
+_SHARED_PLAN_MEM_FACTOR = 8  # serialized bytes -> estimated resident bytes
+_SHARED_PLANS_MAX_EST_BYTES = 64 * 1024 * 1024  # estimated resident budget, whole store
+
+
+def _shared_plans_enforce_caps_locked() -> int:
+    """Evict oldest shared plans until the count and size caps both hold.
+
+    Caller must hold ``_shared_plans_lock``. Returns the number evicted. The
+    newest entry is evicted last (oldest-first by ``created_at``).
+    """
+    total = sum(e.get("est_bytes") or 0 for e in _shared_plans.values())
+    if len(_shared_plans) <= _SHARED_PLANS_MAX and total <= _SHARED_PLANS_MAX_EST_BYTES:
+        return 0
+    evicted = 0
+    oldest_first = sorted(
+        _shared_plans, key=lambda k: _shared_plans[k].get("created_at") or 0
+    )
+    for k in oldest_first:
+        if (
+            len(_shared_plans) <= _SHARED_PLANS_MAX
+            and total <= _SHARED_PLANS_MAX_EST_BYTES
+        ):
+            break
+        total -= _shared_plans[k].get("est_bytes") or 0
+        del _shared_plans[k]
+        evicted += 1
+    return evicted
+
 
 _plan_feedback: dict[str, list[dict]] = {}
 _plan_feedback_lock = threading.Lock()
@@ -7115,6 +7142,24 @@ def _mirror_job(job_id: str) -> None:
 _plan_results_store: dict[str, dict] = {}
 _plan_results_lock = threading.Lock()
 _PLAN_RESULTS_TTL_SECONDS = 24 * 60 * 60  # 24 hours (was 30 min)
+# Oldest-first cap: entries live 24h, so the store must be bounded.
+_PLAN_RESULTS_MAX = 200
+
+
+def _plan_results_enforce_cap_locked() -> int:
+    """Evict oldest plan results beyond ``_PLAN_RESULTS_MAX``.
+
+    Caller must hold ``_plan_results_lock``. Returns the number evicted.
+    """
+    excess = len(_plan_results_store) - _PLAN_RESULTS_MAX
+    if excess <= 0:
+        return 0
+    oldest = sorted(
+        _plan_results_store, key=lambda k: _plan_results_store[k].get("created") or 0
+    )
+    for k in oldest[:excess]:
+        del _plan_results_store[k]
+    return excess
 
 
 def _move_regional_pct(channel_pcts: dict, src: str, dst: str) -> float:
@@ -7131,6 +7176,19 @@ def _move_regional_pct(channel_pcts: dict, src: str, dst: str) -> float:
     if moved > 0:
         channel_pcts[dst] = (channel_pcts.get(dst) or 0) + moved
     return moved
+
+
+def _location_label(loc: Any) -> Any:
+    """``"City, ST"`` label for a location dict; any non-dict passes through.
+
+    Empty / None parts are dropped, so a city with no state is just ``"City"``
+    (no trailing ``", "``). Matches the sync path's ``", ".join(filter(None, ...))``.
+    (The inline form was ``city or "" + ", " + state or ""``, which parses as
+    ``city or ("" + ", " + state) or ""`` and returned the bare city.)
+    """
+    if isinstance(loc, dict):
+        return ", ".join(filter(None, [loc.get("city") or "", loc.get("state") or ""]))
+    return loc
 
 
 def _extract_plan_json(data: dict) -> dict:
@@ -7285,6 +7343,7 @@ def _store_plan_result(plan_id: str, data: dict) -> None:
         plan_json = _extract_plan_json(data)
         with _plan_results_lock:
             _plan_results_store[plan_id] = {"data": plan_json, "created": time.time()}
+            _plan_results_enforce_cap_locked()
         logger.info("Plan result stored: %s", plan_id)
     except Exception as e:
         logger.error("Failed to store plan result: %s", e, exc_info=True)
@@ -17434,11 +17493,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             ]
                             _locs_raw = gen_data.get("locations") or []
                             _locs_list = [
-                                (
-                                    (l.get("city") or "" + ", " + l.get("state") or "")
-                                    if isinstance(l, dict)
-                                    else l
-                                )
+                                _location_label(l)
                                 for l in (
                                     _locs_raw if isinstance(_locs_raw, list) else []
                                 )

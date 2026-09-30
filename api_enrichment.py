@@ -2194,7 +2194,7 @@ def fetch_industry_employment(industry: str) -> Optional[Dict[str, Any]]:
 
                     area = row.get("area_fips") or ""
                     # National total row + private ownership
-                    if area == "US000" and row.get("own_code") or "" == "5":
+                    if area == "US000" and (row.get("own_code") or "") == "5":
                         try:
                             emp = int(
                                 row.get("annual_avg_emplvl", "0")
@@ -5116,7 +5116,7 @@ def fetch_geonames_data(locations: List[str]) -> Dict[str, Any]:
                                 "distance_km": n.get("distance") or "",
                             }
                             for n in nearby_data["geonames"][:5]
-                            if n.get("name") or "" != entry["name"]
+                            if (n.get("name") or "") != entry["name"]
                         ]
                 except Exception:
                     pass

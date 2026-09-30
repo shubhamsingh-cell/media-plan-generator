@@ -469,7 +469,9 @@ def _handle_plan_share(handler: Any, path: str, parsed: Any) -> None:
         body = handler.rfile.read(content_len) if content_len > 0 else b"{}"
         data = json.loads(body)
         plan_data = data.get("plan_data") or {}
-        client = data.get("client") or "Unnamed"
+        # Cap the client label: an unbounded string here would bypass the
+        # per-plan size cap below (the body limit alone is 1 MB).
+        client = str(data.get("client") or "Unnamed")[:200]
 
         # ── Gold Standard: Reject empty/null share creation ──
         if not plan_data or (
@@ -487,17 +489,45 @@ def _handle_plan_share(handler: Any, path: str, parsed: Any) -> None:
             )
             return
 
+        # ── Memory guard: the endpoint is unauthenticated and plans now live
+        # 24h, so reject oversized plans (real plans are 20-136 KiB of JSON).
+        max_bytes = getattr(_app, "_SHARED_PLAN_MAX_BYTES", 256 * 1024)
+        plan_bytes = len(
+            json.dumps(plan_data, ensure_ascii=False, separators=(",", ":")).encode(
+                "utf-8"
+            )
+        )
+        if plan_bytes > max_bytes:
+            handler._send_json(
+                {
+                    "error": (
+                        f"Plan is too large to share ({plan_bytes // 1024} KiB; "
+                        f"the limit is {max_bytes // 1024} KiB). Remove large "
+                        "sections and try again."
+                    ),
+                },
+                status_code=413,
+            )
+            return
+
         share_id = uuid.uuid4().hex[:8]
+        mem_factor = getattr(_app, "_SHARED_PLAN_MEM_FACTOR", 8)
         entry = {
             "plan_data": plan_data,
             "client": client,
             "created_at": time.time(),
+            "est_bytes": (plan_bytes + len(client)) * mem_factor,
         }
+        enforce = getattr(_app, "_shared_plans_enforce_caps_locked", None)
         if _shared_plans_lock:
             with _shared_plans_lock:
                 _shared_plans[share_id] = entry
+                if enforce:
+                    enforce()
         else:
             _shared_plans[share_id] = entry
+            if enforce:
+                enforce()
         handler._send_json(
             {
                 "share_id": share_id,

@@ -1413,12 +1413,12 @@ class NovaSlackBot:
         recent_pending = [
             q
             for q in questions
-            if q["status"] == "pending" and q.get("timestamp") or "" >= week_ago
+            if q["status"] == "pending" and (q.get("timestamp") or "") >= week_ago
         ]
         recent_answered = [
             q
             for q in questions
-            if q["status"] == "answered" and q.get("answered_at") or "" >= week_ago
+            if q["status"] == "answered" and (q.get("answered_at") or "") >= week_ago
         ]
         total_pending = len([q for q in questions if q["status"] == "pending"])
 

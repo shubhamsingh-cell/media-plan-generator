@@ -89,9 +89,16 @@ class TestMoveRegionalPct:
     """app._move_regional_pct (extracted from four inline sites).
 
     Pre-fix inline form: ``pcts.get("emea_regional") or 0 + apac`` ==
-    ``pcts.get("emea_regional") or apac``. When EMEA already had a share the
-    APAC share was popped and DROPPED, so the channel percentages no longer
-    summed to the original total (budget silently lost on EMEA/APAC plans).
+    ``pcts.get("emea_regional") or apac``. When the destination already had a
+    share (every standard profile does) the source share was popped and
+    DROPPED instead of added. No budget was lost, because
+    ``budget_engine.compute_channel_dollar_amounts`` renormalises the percentages to
+    100: the dropped points were spread proportionally across ALL remaining
+    channels, and the regional channel the user asked for stayed at its base
+    share. Measured on the shipped profiles: an EMEA plan for a healthcare /
+    tech / finance profile (emea 2% + apac 3%) funded EMEA at ~2.06% instead of
+    5%; a retail / hospitality / entry-level profile (1% + 1%) at ~1.01%
+    instead of 2%.
     """
 
     def test_adds_to_existing_destination_share(self) -> None:
