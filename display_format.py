@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 import re
+import unicodedata
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -105,14 +106,32 @@ def channel_label(key: str) -> str:
 # ---------------------------------------------------------------------------
 # Client / company name casing
 # ---------------------------------------------------------------------------
-# Lowercase connectives that stay lowercase inside a client name (unless
-# they are the first word) -- "Bank of America", "Procter and Gamble", never
-# "Bank Of America" / "Procter And Gamble". '&' is included for documentation
-# parity with the prose rule even though it never reaches the capitalization
-# branch below (a bare '&' has no cased characters, so it is always
-# preserved as-is regardless of this set).
+# Articles / prepositions / conjunctions that go lowercase inside a client
+# name (unless they are the first word, where normal title case capitalises
+# them: "The Hershey Company", "Bank of America", "Bank of the West"). '&' is
+# included for documentation parity with the prose rule even though it never
+# reaches the word classifier below (a bare '&' has no letters, so it is
+# always preserved as-is regardless of this set).
 _CLIENT_NAME_CONNECTIVES: frozenset[str] = frozenset(
-    {"of", "and", "the", "de", "la", "du", "von", "van", "for", "&"}
+    {
+        "of",
+        "and",
+        "the",
+        "de",
+        "la",
+        "du",
+        "von",
+        "van",
+        "for",
+        "in",
+        "on",
+        "at",
+        "to",
+        "by",
+        "with",
+        "or",
+        "&",
+    }
 )
 
 # Known brand/acronym tokens for CLIENT NAMES specifically (distinct from
@@ -139,76 +158,361 @@ _CLIENT_BRAND_CASING: dict[str, str] = {
     "pwc": "PwC",
     "jpmorgan": "JPMorgan",
     "fedex": "FedEx",
+    # Spellings no rule can derive from an all-caps input.
+    "ebay": "eBay",
+    "geico": "GEICO",
+    "iqvia": "IQVIA",
+    "nvidia": "NVIDIA",
+    "pepsico": "PepsiCo",
+    "linkedin": "LinkedIn",
+    "paypal": "PayPal",
+    "doordash": "DoorDash",
+    "jetblue": "JetBlue",
+    "gamestop": "GameStop",
+    "autozone": "AutoZone",
+    "autonation": "AutoNation",
+    "carmax": "CarMax",
+    "dewalt": "DeWalt",
+    "unitedhealth": "UnitedHealth",
+    "blackrock": "BlackRock",
+    "chick-fil-a": "Chick-fil-A",
 }
 
-# For an ALL-CAPS input, a word longer than this reads as raw shouted prose
-# rather than a real acronym ("MANPOWER" / "AMERIGAS" -> flatten to Title
-# Case); a word this length or shorter is assumed to be a genuine acronym
-# and is preserved verbatim ("ADP" / "NASA" / "GM" stay as typed). This is
-# a length-based BLOCKLIST-style default -- unrecognized short tokens are
-# preserved, not flattened -- because guessing wrong on an unfamiliar
-# acronym prints an obviously-wrong client-facing name, while guessing
-# wrong on a long word does not. A name needing a specific mixed-case
-# spelling that this heuristic can't derive (JPMorgan, FedEx) goes in the
-# brand table above instead, which always takes precedence.
-_SHOUT_ACRONYM_MAX_LEN = 4
+# Abbreviations whose conventional casing differs from plain Title Case (or
+# that an all-caps input would otherwise leave shouted). Keys are lowercase
+# and looked up per letter-run, so "LTD." / "(plc)" / "SA/NV" all resolve and
+# the punctuation the client typed is kept. Suffixes that Title Case already
+# renders correctly (Inc, Corp, Co, Company, Corporation, Pty, Limited) are
+# deliberately absent.
+_CLIENT_NAME_ABBREVIATIONS: dict[str, str] = {
+    # Corporate / legal suffixes.
+    "ltd": "Ltd",
+    "plc": "plc",
+    "llc": "LLC",
+    "llp": "LLP",
+    "lp": "LP",
+    "gmbh": "GmbH",
+    "ag": "AG",
+    "sa": "SA",
+    "se": "SE",
+    "nv": "NV",
+    "bv": "BV",
+    "ab": "AB",
+    "kg": "KG",
+    # Titles and place abbreviations that appear inside client names.
+    "st": "St",
+    "mt": "Mt",
+    "ft": "Ft",
+    "dr": "Dr",
+    "jr": "Jr",
+    "sr": "Sr",
+    "ii": "II",
+    "iii": "III",
+    "iv": "IV",
+    # Consonant-only abbreviations that are words, not acronyms.
+    "intl": "Intl",
+    "mfg": "Mfg",
+    "mgmt": "Mgmt",
+    "svcs": "Svcs",
+}
+
+# Acronym-shaped tokens an ALL-CAPS input keeps as typed. A token with no
+# vowel and at most _ACRONYM_MAX_LEN letters (GM, HP, CVS, KFC, CDW) is kept
+# by shape; this list covers the ones that contain a vowel and so look like
+# words (ADP, SAP, NASA, IKEA, USAA, CBRE...). Only non-words belong here --
+# anything that is also an English word ("ARM", "ACE", "GAP") would be
+# mis-kept, so spell those via the brand table instead. Extend as real
+# client names surface. An acronym missing from both falls back to Title
+# Case; a client can always type it mixed-case to have it preserved as-is.
+_CLIENT_ACRONYMS: frozenset[str] = frozenset(
+    {
+        "AAA",
+        "ABB",
+        "ABC",
+        "ABM",
+        "ADM",
+        "ADP",
+        "ADT",
+        "AEP",
+        "AES",
+        "AIA",
+        "AIG",
+        "AMC",
+        "AMD",
+        "AMN",
+        "ANZ",
+        "AOL",
+        "AXA",
+        "BAE",
+        "BDO",
+        "BNY",
+        "CBRE",
+        "CNA",
+        "CNH",
+        "CSL",
+        "DXC",
+        "EA",
+        "EMC",
+        "EPAM",
+        "ESPN",
+        "FIS",
+        "HBO",
+        "HPE",
+        "IKEA",
+        "ING",
+        "MCI",
+        "MUFG",
+        "NASA",
+        "NBA",
+        "NEC",
+        "NY",
+        "SAIC",
+        "SAP",
+        "SAS",
+        "TIAA",
+        "UBS",
+        "UHS",
+        "UK",
+        "US",
+        "USA",
+        "USAA",
+    }
+)
+_ACRONYM_MAX_LEN = 4
+
+# "MACDONALD" -> "MacDonald" needs an explicit list: a blanket Mac- rule
+# would mangle MACHINE, MACY'S, MACK, MACHO. (Mc- has no common English-word
+# collisions at 5+ letters, so it is a rule, not a list.)
+_MAC_SURNAMES: frozenset[str] = frozenset(
+    {
+        "macdonald",
+        "macarthur",
+        "macgregor",
+        "mackenzie",
+        "maclean",
+        "macleod",
+        "macmillan",
+        "macpherson",
+    }
+)
+
+# After an apostrophe these stay lowercase (McDonald's, Macy's, Don't); any
+# other tail is a name part and is capitalised (O'Reilly, L'Oréal, D'Angelo).
+_APOSTROPHE_TAILS: frozenset[str] = frozenset(
+    {"s", "t", "d", "m", "n", "ll", "re", "ve"}
+)
+
+# A trailing ".com"-style label inside one word stays lowercase (Amazon.com).
+_DOMAIN_LABELS: frozenset[str] = frozenset({"com", "net", "org", "io", "ai", "tv"})
+
+# Longest name the casing rules are applied to. app.py rejects client_name
+# above 200 characters; anything past this bound is not a name, so it is
+# returned whitespace-collapsed and otherwise untouched instead of being
+# re-cased (no silent truncation, no quadratic work on pasted junk).
+_CLIENT_NAME_MAX_LEN = 1000
+
+_ORDINAL_RUN = re.compile(r"\d+(?:st|nd|rd|th)", re.IGNORECASE)
 
 
-def _cap_word(word: str, is_first: bool = False, shouting: bool = False) -> str:
-    if not word:
+def _has_vowel(text: str) -> bool:
+    """True if ``text`` contains a vowel (Y counts, so SKY/GYM/DRY read as
+    words; accents are ignored, so É is a vowel)."""
+    decomposed = unicodedata.normalize("NFD", text.upper())
+    return any(ch in "AEIOUY" for ch in decomposed)
+
+
+def _is_acronym(run: str) -> bool:
+    """An acronym-shaped letter run: on the known list, or short with no
+    vowel (GM, HP, KFC). Everything else in a shouted name is a word."""
+    if run.upper() in _CLIENT_ACRONYMS:
+        return True
+    return len(run) <= _ACRONYM_MAX_LEN and not _has_vowel(run)
+
+
+def _title(run: str) -> str:
+    """Capitalise the first letter, lowercase the rest ('4IMPRINT' ->
+    '4Imprint'; accents and titlecase letters handled by str.capitalize)."""
+    for i, ch in enumerate(run):
+        if ch.isalpha():
+            return run[:i] + run[i:].capitalize()
+    return run
+
+
+def _fix_run(run: str, shouting: bool) -> str:
+    """Case one run of letters/digits (no punctuation inside)."""
+    if run.isdigit():
+        return run
+    if run.lower() in _CLIENT_NAME_ABBREVIATIONS:
+        return _CLIENT_NAME_ABBREVIATIONS[run.lower()]  # LTD -> Ltd, SA/NV
+    if _ORDINAL_RUN.fullmatch(run):
+        return run.lower()  # 21ST -> 21st
+    if any(ch.isdigit() for ch in run):
+        # 3M / B2B stay shouted; a longer mixed token is a word (4Imprint)
+        return run.upper() if len(run) <= 4 else _title(run)
+    if shouting and _is_acronym(run):
+        return run
+    if len(run) >= 5 and run.isalpha() and run[:2].upper() == "MC":
+        return "Mc" + _title(run[2:])  # MCKESSON -> McKesson
+    if run.lower() in _MAC_SURNAMES:
+        return "Mac" + _title(run[3:])  # MACDONALD -> MacDonald
+    return _title(run)
+
+
+def _is_word_char(ch: str) -> bool:
+    """Letter, digit, or a combining mark (which belongs to the letter it
+    follows -- lowercasing 'İ' yields 'i' + a combining dot)."""
+    return ch.isalnum() or unicodedata.category(ch).startswith("M")
+
+
+def _split_runs(text: str) -> list[str]:
+    """Split into [run, sep, run, sep, ..., run]: a run is a stretch of word
+    characters (possibly empty between two separators), a sep is exactly one
+    non-word character. Linear."""
+    parts: list[str] = []
+    current: list[str] = []
+    for ch in text:
+        if _is_word_char(ch):
+            current.append(ch)
+        else:
+            parts.append("".join(current))
+            parts.append(ch)
+            current = []
+    parts.append("".join(current))
+    return parts
+
+
+def _fix_core(core: str, shouting: bool) -> str:
+    """Case one punctuation-stripped word, run by run. Hyphens, dots,
+    ampersands and apostrophes inside the word are kept where they are; each
+    letter/digit run between them is cased on its own, so '7-ELEVEN' ->
+    '7-Eleven', "O'REILLY" -> "O'Reilly", 'J.P' -> 'J.P', 'M&T' -> 'M&T'."""
+    parts = _split_runs(core)
+    for i in range(0, len(parts), 2):
+        run = parts[i]
+        if not run:
+            continue
+        if i >= 2 and parts[i - 1] in ("'", "\u2019"):
+            tail = run.lower()
+            parts[i] = tail if tail in _APOSTROPHE_TAILS else _title(run)
+        else:
+            parts[i] = _fix_run(run, shouting)
+    if (
+        len(parts) >= 3
+        and parts[-2] == "."
+        and len(parts[0]) > 1
+        and parts[-1].lower() in _DOMAIN_LABELS
+    ):
+        parts[-1] = parts[-1].lower()  # AMAZON.COM -> Amazon.com
+    return "".join(parts)
+
+
+def _fix_word(word: str, is_first: bool, repair: bool, shouting: bool) -> str:
+    """Case one space-delimited word of a client name.
+
+    Edge punctuation (commas, dots, brackets) is peeled off, looked up or
+    recased, and put back exactly as typed. ``repair=False`` leaves the word
+    as typed unless it is a brand-table entry; ``shouting`` marks a word
+    that came from an all-caps name (enables the acronym rule). The peel is
+    a linear scan, not a regex, so a long punctuation-heavy token cannot go
+    quadratic."""
+    start, end = 0, len(word)
+    while start < end and not _is_word_char(word[start]):
+        start += 1
+    while end > start and not _is_word_char(word[end - 1]):
+        end -= 1
+    core = word[start:end]
+    if not core:
+        return word  # '&', '-', '...': nothing to case
+    key = core.lower()
+    if key in _CLIENT_BRAND_CASING:
+        fixed = _CLIENT_BRAND_CASING[key]
+    elif not repair:
         return word
-    lower = word.lower()
-    if lower in _CLIENT_BRAND_CASING:
-        return _CLIENT_BRAND_CASING[lower]
-    if not is_first and lower in _CLIENT_NAME_CONNECTIVES:
-        return lower
-    if shouting:
-        if len(word) > _SHOUT_ACRONYM_MAX_LEN:
-            return word[:1].upper() + word[1:].lower()
-        return word
-    if word.islower():
-        return word[0].upper() + word[1:]
-    # Has internal capitals (eBay, McKinsey) or is an acronym (AMC, UPS) not
-    # in the brand table above -- the client's own spelling of their own
-    # proper noun is authoritative, so preserve it as-is.
-    return word
+    elif not is_first and key in _CLIENT_NAME_CONNECTIVES:
+        fixed = key
+    else:
+        fixed = _fix_core(core, shouting)
+    return word[:start] + fixed + word[end:]
 
 
 def client_display_name(raw: str | None) -> str:
-    """Word-wise client name casing. The client's own spelling is
-    authoritative wherever it is recognizable; this only touches words that
-    read as raw, uncased source data.
+    """Client-facing casing of a client name. The client's own spelling is
+    authoritative wherever they typed it deliberately; only raw source data
+    (all-caps or all-lowercase) is rewritten.
 
-    - A recognized brand/acronym token (:data:`_CLIENT_BRAND_CASING`, e.g.
-      'ups'/'UPS'/'Ups' -> 'UPS') always wins, in any input casing.
-    - A lowercase connective ('of', 'and', 'the', ...) stays lowercase
-      unless it is the first word ('Bank of America', not 'Bank Of
-      America').
-    - A word that is fully lowercase otherwise gets its first letter
-      capitalized.
-    - A word with internal capitals (eBay, McKinsey) or an acronym typed in
-      caps (AMC) that isn't in the brand table is preserved exactly as the
-      client submitted it.
-    - If EVERY word in the string is uppercase, each word is judged on its
-      own: a short word (:data:`_SHOUT_ACRONYM_MAX_LEN` or fewer letters)
-      reads as a genuine acronym and is preserved verbatim ('ADP', 'NASA',
-      'GM' stay as typed -- guessing wrong on an unfamiliar acronym prints
-      an obviously-wrong client-facing name), while a longer word reads as
-      raw shouted prose and is flattened to Title Case ('MANPOWER -
-      AMERIGAS' -> 'Manpower - Amerigas'). A real acronym in the brand
-      table (like 'UPS' or 'KPMG') always resolves correctly regardless of
-      length.
+    Whitespace is always trimmed and collapsed; the text is NFC-normalised
+    (a decomposed 'E' + accent composes to one letter). Empty, ``None`` and
+    non-string input give ``""``. The function never raises, is idempotent
+    (``f(f(x)) == f(x)``, which matters because app.py, ppt_generator,
+    excel_v2 and bundle_qa each re-apply it), and does linear work; a name
+    longer than :data:`_CLIENT_NAME_MAX_LEN` is returned collapsed but
+    un-cased.
+
+    Rules, in the order a word meets them:
+
+    1. Mixed-case input is kept as typed -- 'FORD Motor Company', 'Walmart
+       INC', 'McKesson Corp', 'eBay' and 'Bank Of America' come back
+       unchanged. Only two repairs apply to a mixed-case name: a
+       brand-table word (:data:`_CLIENT_BRAND_CASING`) is respelled in any
+       casing ('Ups' -> 'UPS', 'Fedex' -> 'FedEx'), and a word typed in
+       ALL LOWERCASE is treated as raw data and run through rule 2
+       ('atria Senior living' -> 'Atria Senior Living'). If those repairs
+       leave a name of nothing but capitals ('THE HERSHEY llc' -> 'THE
+       HERSHEY LLC'), it is then cased as an all-caps name ('The Hershey
+       LLC') so that applying the function twice changes nothing more.
+    2. A word being repaired -- every word of an all-caps name, or a
+       lowercase word of a mixed one -- is resolved by the first rule that
+       fits:
+
+       a. brand table: 'JPMORGAN' -> 'JPMorgan', 'AT&T' stays, '3M' stays.
+       b. connective (:data:`_CLIENT_NAME_CONNECTIVES`: the/of/and/for...):
+          lowercase, except as the first word ('The Home Depot', 'Bank of
+          America').
+       c. otherwise each letter/digit run inside the word is cased on its
+          own, so hyphens, dots, '&', slashes and apostrophes survive and
+          the punctuation the client typed is kept. A run is, in order:
+          an abbreviation with a conventional casing
+          (:data:`_CLIENT_NAME_ABBREVIATIONS`: 'LTD.' -> 'Ltd.', 'PLC' ->
+          'plc', 'GMBH' -> 'GmbH', 'ST.' -> 'St.', 'SA/NV' -> 'SA/NV'); an
+          ordinal ('21ST' -> '21st'); an acronym, which an all-caps name
+          keeps as typed (on the :data:`_CLIENT_ACRONYMS` list, or at most
+          4 letters with no vowel: 'ADP', 'NASA', 'GM', 'CVS', 'J.P.'); a
+          Mc- prefix or listed Mac- surname with its inner capital
+          ('MCKESSON' -> 'McKesson', 'MACDONALD' -> 'MacDonald', while
+          'MACHINE' and 'MACY'S' stay ordinary words); otherwise Title
+          Case ('MANPOWER' -> 'Manpower'). The tail after an apostrophe is
+          capitalised unless it is a contraction ("O'REILLY" ->
+          "O'Reilly", "L'ORÉAL" -> "L'Oréal", "MCDONALD'S" ->
+          "McDonald's"), and a trailing '.com' stays lowercase
+          ('AMAZON.COM' -> 'Amazon.com').
+
+    Known limit: an unfamiliar vowel-bearing acronym of four letters or
+    fewer that is typed ALL CAPS and is not on the list is Title-Cased
+    ('AAON' -> 'Aaon'); add it to the list, or type it mixed-case.
     """
     if not raw or not isinstance(raw, str):
         return ""
-    collapsed = re.sub(r"\s+", " ", raw).strip()
-    if not collapsed:
-        return ""
-    words = collapsed.split(" ")
+    collapsed = re.sub(r"\s+", " ", unicodedata.normalize("NFC", raw)).strip()
+    if not collapsed or len(collapsed) > _CLIENT_NAME_MAX_LEN:
+        return collapsed
     shouting = collapsed.isupper()
-    return " ".join(
-        _cap_word(w, is_first=(i == 0), shouting=shouting) for i, w in enumerate(words)
+    # Re-normalise: capitalising a letter can create a new composable pair
+    # (the 'ß' + combining-accent case), and the output must be a fixed point.
+    result = unicodedata.normalize(
+        "NFC",
+        " ".join(
+            _fix_word(w, i == 0, shouting or w.islower(), shouting)
+            for i, w in enumerate(collapsed.split(" "))
+        ),
     )
+    if not shouting and result.isupper():
+        # Repairing the lowercase words of a mixed-case name can leave
+        # nothing but capitals ('THE HERSHEY llc' -> 'THE HERSHEY LLC'). The
+        # next call would then see an all-caps name and case it again, so
+        # settle it now: f(f(x)) == f(x). `result` is upper-case, so this
+        # recursion takes the all-caps branch and stops there.
+        return client_display_name(result)
+    return result
 
 
 # ---------------------------------------------------------------------------

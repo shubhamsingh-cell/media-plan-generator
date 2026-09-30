@@ -17,6 +17,24 @@ Covers three verified defects:
         is long enough to read as raw shouted prose rather than a real
         acronym (see _SHOUT_ACRONYM_MAX_LEN in display_format.py).
 
+  F2 -- (client report, 2026-10-01) the all-caps branch kept every word of
+        <= 4 letters verbatim and title-cased every longer word, so FILLER
+        words stayed shouted while real words were flattened:
+        "THE HERSHEY COMPANY" -> "THE Hershey Company",
+        "THE HOME DEPOT" -> "THE HOME Depot",
+        "BANK OF AMERICA" -> "BANK of America",
+        "MACHINE WORKS INC" -> "Machine Works INC",
+        "JPMORGAN CHASE & CO." -> "JPMorgan Chase & CO.".
+        It also knew nothing about Mc/O'/L' prefixes ("MCDONALD'S" ->
+        "Mcdonald's", "L'OREAL" -> "L'oreal", "O'REILLY" -> "O'reilly"),
+        hyphen/digit words ("7-ELEVEN" -> "7-eleven") or corporate suffix
+        conventions. The fix is a per-word classifier (see the display_format
+        docstring); the EXPLICIT_CASES table below is the independent safety
+        net -- it spells out every expected string by hand and never calls
+        the function under test to derive one, because bundle_qa's casing
+        gate uses client_display_name as its own ground truth and so cannot
+        catch this class of bug.
+
 Plus two earlier verified defects (audit journal wf_dfd34698-6d6):
 
   C2 -- display_format.client_display_name title-cased every word,
@@ -48,7 +66,9 @@ Runs under pytest, or standalone: ``python3 tests/test_client_name_casing.py``.
 from __future__ import annotations
 
 import os
+import random
 import sys
+import time
 
 import pytest
 
@@ -241,6 +261,330 @@ class TestBundleQaClientNameCasingGate:
         # "KPMG" (canonical) is fine; "kpmg" (wrong case) is flagged once.
         assert len(findings) == 1
         assert findings[0]["message"].startswith("Client name appears as 'kpmg'")
+
+
+# ---------------------------------------------------------------------------
+# F2: EXPLICIT expectation table.
+#
+# Every expected string below is typed by hand from the documented rules
+# (and from how the client writes its own name). NOTHING here is computed by
+# calling client_display_name -- that is the whole point.
+#
+# Rules under test:
+#   1. A string that is not purely upper-case is kept as typed (only
+#      whitespace is collapsed), except that a word the client wrote in all
+#      lowercase is repaired (brand table, corporate-suffix convention,
+#      Mc/O' prefix, Title Case, connectives stay lower).
+#   2. A purely upper-case string is converted word by word: brand table
+#      wins; the/of/and/for... go lower (The at the start); corporate
+#      suffixes get their conventional casing; acronym-shaped tokens
+#      (known list, or <= 4 letters with no vowel) are kept; Mc/Mac/O'/L'
+#      prefixes are handled; everything else is Title Case.
+# ---------------------------------------------------------------------------
+_EXPLICIT_ALL_CAPS: list[tuple[str, str]] = [
+    # -- the reported defect and its siblings --
+    ("THE HERSHEY COMPANY", "The Hershey Company"),
+    ("THE HOME DEPOT", "The Home Depot"),
+    ("BANK OF AMERICA", "Bank of America"),
+    ("BANK OF THE WEST", "Bank of the West"),
+    ("PROCTER & GAMBLE", "Procter & Gamble"),
+    ("JOHNSON AND JOHNSON", "Johnson and Johnson"),
+    ("WALMART INC", "Walmart Inc"),
+    ("MACHINE WORKS INC", "Machine Works Inc"),
+    ("FORD MOTOR COMPANY", "Ford Motor Company"),
+    ("TARGET CORPORATION", "Target Corporation"),
+    ("GENERAL MOTORS CO", "General Motors Co"),
+    ("HERSHEY CO.", "Hershey Co."),
+    ("WELLS FARGO & COMPANY", "Wells Fargo & Company"),
+    ("NEW YORK LIFE", "New York Life"),
+    ("DELTA AIR LINES", "Delta Air Lines"),
+    ("MANPOWER", "Manpower"),
+    ("MANPOWER - AMERIGAS", "Manpower - Amerigas"),
+    # -- Mc / Mac / O' / L' prefixes, without mangling ordinary words --
+    ("MCKESSON CORP", "McKesson Corp"),
+    ("MCDONALD'S", "McDonald's"),
+    ("MCDONALD’S", "McDonald’s"),  # typographic apostrophe, kept as typed
+    ("MCKINSEY & COMPANY", "McKinsey & Company"),
+    ("MACY'S", "Macy's"),
+    ("O'REILLY AUTO PARTS", "O'Reilly Auto Parts"),
+    ("L'ORÉAL", "L'Oréal"),
+    (
+        "MACDONALD, DETTWILER AND ASSOCIATES LTD.",
+        "MacDonald, Dettwiler and Associates Ltd.",
+    ),
+    ("DEUTSCHE BANK AG", "Deutsche Bank AG"),
+    # -- apostrophes, ampersands, hyphens, digits, dots, accents --
+    ("AT&T", "AT&T"),
+    ("AT&T INC.", "AT&T Inc."),
+    ("3M", "3M"),
+    ("3M COMPANY", "3M Company"),
+    ("7-ELEVEN", "7-Eleven"),
+    ("COCA-COLA CO", "Coca-Cola Co"),
+    ("T-MOBILE US, INC.", "T-Mobile US, Inc."),
+    ("ROLLS-ROYCE HOLDINGS PLC", "Rolls-Royce Holdings plc"),
+    ("AMAZON.COM, INC.", "Amazon.com, Inc."),
+    ("J.P. MORGAN", "J.P. Morgan"),
+    ("JPMORGAN CHASE & CO.", "JPMorgan Chase & Co."),
+    ("JPMORGAN CHASE", "JPMorgan Chase"),
+    ("U.S. BANCORP", "U.S. Bancorp"),
+    ("ST. JUDE MEDICAL", "St. Jude Medical"),
+    ("21ST CENTURY FOX", "21st Century Fox"),
+    ("A&W", "A&W"),
+    ("M&T BANK", "M&T Bank"),
+    ("L.L.BEAN", "L.L.Bean"),
+    ("CHICK-FIL-A", "Chick-fil-A"),
+    ("ROCK'N'ROLL INC", "Rock'n'Roll Inc"),
+    ("ANHEUSER-BUSCH INBEV SA/NV", "Anheuser-Busch Inbev SA/NV"),
+    ("UNITEDHEALTH GROUP INCORPORATED", "UnitedHealth Group Incorporated"),
+    ("ZÜRICH INSURANCE GROUP", "Zürich Insurance Group"),
+    ("ÉCOLE POLYTECHNIQUE", "École Polytechnique"),
+    # -- legal-suffix variants --
+    ("PEPSICO, INC.", "PepsiCo, Inc."),
+    ("FEDEX CORPORATION", "FedEx Corporation"),
+    ("EBAY INC.", "eBay Inc."),
+    ("ACME HOLDINGS LLC", "Acme Holdings LLC"),
+    ("KPMG LLP", "KPMG LLP"),
+    ("BDO USA, LLP", "BDO USA, LLP"),
+    ("SIEMENS AG", "Siemens AG"),
+    ("SAP SE", "SAP SE"),
+    ("VOLKSWAGEN GMBH", "Volkswagen GmbH"),
+    ("NESTLÉ S.A.", "Nestlé S.A."),
+    ("HEINEKEN N.V.", "Heineken N.V."),
+    ("ACME PTY LTD", "Acme Pty Ltd"),
+    ("BHP GROUP LIMITED", "BHP Group Limited"),
+    ("CVS HEALTH CORPORATION", "CVS Health Corporation"),
+    ("HP INC.", "HP Inc."),
+    ("IBM CORP.", "IBM Corp."),
+    ("US STEEL CORP", "US Steel Corp"),
+    ("LG ELECTRONICS", "LG Electronics"),
+    ("BNY MELLON", "BNY Mellon"),
+    # -- lone acronyms / tickers stay as typed --
+    ("ADP", "ADP"),
+    ("SAP", "SAP"),
+    ("NASA", "NASA"),
+    ("GM", "GM"),
+    ("HP", "HP"),
+    ("IBM", "IBM"),
+    ("UPS", "UPS"),
+    ("CVS", "CVS"),
+    ("KPMG", "KPMG"),
+    ("AMD", "AMD"),
+    ("USAA", "USAA"),
+    ("CDW", "CDW"),
+    ("CBRE", "CBRE"),
+    ("KFC", "KFC"),
+    ("CNN", "CNN"),
+    ("IKEA", "IKEA"),
+    ("PWC", "PwC"),
+]
+
+_EXPLICIT_MIXED: list[tuple[str, str]] = [
+    # -- not purely upper-case: preserved exactly as typed --
+    ("FORD Motor Company", "FORD Motor Company"),
+    ("Walmart INC", "Walmart INC"),
+    ("Mckesson CORP", "Mckesson CORP"),
+    ("O'reilly AUTO Parts", "O'reilly AUTO Parts"),
+    ("THE Hershey Company", "THE Hershey Company"),
+    ("Bank Of America", "Bank Of America"),
+    ("iPhone Corp", "iPhone Corp"),
+    ("eBay", "eBay"),
+    ("McKesson Corp", "McKesson Corp"),
+    ("O'Reilly Auto Parts", "O'Reilly Auto Parts"),
+    ("DHL Supply Chain", "DHL Supply Chain"),
+    ("PricewaterhouseCoopers LLP", "PricewaterhouseCoopers LLP"),
+    ("Johnson & Johnson", "Johnson & Johnson"),
+    ("Procter and Gamble", "Procter and Gamble"),
+    # -- a word the client typed in all lowercase is still repaired --
+    ("atria Senior living", "Atria Senior Living"),
+    ("bank of america", "Bank of America"),
+    ("hershey company", "Hershey Company"),
+    ("mckesson corp", "McKesson Corp"),
+    ("Hershey Company, inc.", "Hershey Company, Inc."),
+    ("kpmg", "KPMG"),
+    ("ups", "UPS"),
+]
+
+_EXPLICIT_EDGE: list[tuple[object, str]] = [
+    (None, ""),
+    ("", ""),
+    ("   ", ""),
+    ("\t\n ", ""),
+    (123, ""),
+    ("  THE   HERSHEY\tCOMPANY \n", "The Hershey Company"),
+    ("  Walmart   INC  ", "Walmart INC"),
+    # decomposed accent (NFD) must still compose to one letter and cap right
+    ("L'ORE\u0301AL", "L'Oréal"),
+    # uncased scripts pass through untouched
+    ("日本電産", "日本電産"),
+    # 200-character inputs (app.py rejects client_name > 200): upper and mixed
+    (("ACME " * 40).strip(), ("Acme " * 40).strip()),
+    (("Acme Corp " * 20).strip(), ("Acme Corp " * 20).strip()),
+]
+
+EXPLICIT_CASES: list[tuple[object, str]] = (
+    list(_EXPLICIT_ALL_CAPS) + list(_EXPLICIT_MIXED) + list(_EXPLICIT_EDGE)
+)
+
+
+class TestExplicitExpectationTable:
+    def test_table_is_large_enough(self):
+        # The brief asks for >= 60 independent cases.
+        assert len(EXPLICIT_CASES) >= 60
+
+    @pytest.mark.parametrize(
+        "raw,expected", _EXPLICIT_ALL_CAPS, ids=[c[0] for c in _EXPLICIT_ALL_CAPS]
+    )
+    def test_all_caps_input(self, raw, expected):
+        assert fmt.client_display_name(raw) == expected
+
+    @pytest.mark.parametrize(
+        "raw,expected", _EXPLICIT_MIXED, ids=[c[0] for c in _EXPLICIT_MIXED]
+    )
+    def test_mixed_case_input(self, raw, expected):
+        assert fmt.client_display_name(raw) == expected
+
+    @pytest.mark.parametrize(
+        "raw,expected", _EXPLICIT_EDGE, ids=[repr(c[0])[:30] for c in _EXPLICIT_EDGE]
+    )
+    def test_edge_input(self, raw, expected):
+        assert fmt.client_display_name(raw) == expected
+
+
+class TestClientNameInvariants:
+    def test_idempotent_over_table_inputs_and_outputs(self):
+        # f(f(x)) == f(x): app.py, ppt_generator, excel_v2 and bundle_qa all
+        # re-apply the function to a name that was already normalised.
+        for raw, expected in EXPLICIT_CASES:
+            once = fmt.client_display_name(raw)
+            assert fmt.client_display_name(once) == once, (raw, once)
+            # the hand-written expectation is itself a fixed point
+            assert fmt.client_display_name(expected) == expected, (raw, expected)
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            # repairing the lowercase words leaves an all-caps string, which a
+            # second pass used to re-case as shouted data (found by fuzzing)
+            "THE HERSHEY llc",
+            "OF a.b. MCKESSON PLC a.b. OF",
+            # capitalising a letter next to a combining mark (found by fuzzing)
+            "ß\u0301 X",
+            # Turkish dotted capital I lowercases to i + a combining dot
+            "日CİOS",
+        ],
+    )
+    def test_idempotent_on_fuzz_found_shapes(self, raw):
+        once = fmt.client_display_name(raw)
+        assert fmt.client_display_name(once) == once
+
+    def test_repair_that_leaves_only_capitals_is_settled_as_shouted_data(self):
+        assert fmt.client_display_name("THE HERSHEY llc") == "The Hershey LLC"
+
+    def test_idempotent_and_never_raises_on_random_text(self):
+        rng = random.Random(20261001)
+        alphabet = (
+            list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+            + list("abcdefghijklmnopqrstuvwxyz")
+            + list("0123456789")
+            + list(" &'-.,/()_+!@#")
+            + [
+                "’",
+                "É",
+                "é",
+                "ß",
+                "İ",
+                "ǅ",
+                "Ω",
+                "日",
+                "\u0301",
+                "\u200b",
+                "\u00a0",
+                "\n",
+                "\t",
+                "\x00",
+                "\ud800",
+                "🙂",
+            ]
+        )
+        words = [
+            "THE",
+            "OF",
+            "INC",
+            "CO.",
+            "MC",
+            "MCKESSON",
+            "O'",
+            "AT&T",
+            "3M",
+            "of",
+            "and",
+            "corp",
+            "ltd",
+            "PLC",
+            "eBay",
+            "FORD",
+            "a.b.",
+        ]
+        for _ in range(4000):
+            if rng.random() < 0.5:
+                raw = "".join(rng.choice(alphabet) for _ in range(rng.randint(0, 40)))
+            else:
+                raw = " ".join(rng.choice(words) for _ in range(rng.randint(1, 8)))
+            once = fmt.client_display_name(raw)
+            assert isinstance(once, str)
+            assert fmt.client_display_name(once) == once, (raw, once)
+
+    def test_output_has_no_repeated_or_edge_whitespace(self):
+        for raw in ("  A  B ", "THE\t\tHOME\nDEPOT", "x\u00a0\u00a0y"):
+            out = fmt.client_display_name(raw)
+            assert out == out.strip()
+            assert "  " not in out
+
+    def test_very_long_input_passes_through_sanely_and_fast(self):
+        long_upper = "THE HERSHEY COMPANY " * 5000  # 100k chars
+        start = time.monotonic()
+        out = fmt.client_display_name(long_upper)
+        elapsed = time.monotonic() - start
+        assert elapsed < 2.0, f"took {elapsed:.2f}s"
+        # beyond the bound the name is returned whitespace-collapsed, uncased
+        assert out == long_upper.strip()
+        assert fmt.client_display_name(out) == out
+
+    def test_adversarial_punctuation_is_linear(self):
+        # alternating word/non-word characters in one token is the shape
+        # that makes an edge-stripping regex go quadratic
+        raw = "A!" * 400
+        start = time.monotonic()
+        fmt.client_display_name(raw)
+        assert time.monotonic() - start < 1.0
+
+
+class TestCallSitesAgreeOnTheFixedName:
+    """ppt_generator, excel_v2 and bundle_qa must all produce/accept the same
+    corrected name (they each call the shared function)."""
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("THE HERSHEY COMPANY", "The Hershey Company"),
+            ("JPMORGAN CHASE & CO.", "JPMorgan Chase & Co."),
+            ("MCKESSON CORP", "McKesson Corp"),
+        ],
+    )
+    def test_deck_and_workbook_helpers_agree(self, raw, expected):
+        import excel_v2
+        import ppt_generator
+
+        assert ppt_generator._proper_client_name(raw) == expected
+        assert excel_v2._proper_client_name(raw) == expected
+
+    def test_gate_accepts_corrected_name(self):
+        assert _gate("THE HERSHEY COMPANY", "Media plan for The Hershey Company") == []
+
+    def test_gate_flags_the_old_half_shouted_name(self):
+        findings = _gate("THE HERSHEY COMPANY", "Media plan for THE Hershey Company")
+        assert len(findings) == 1
+        assert findings[0]["code"] == "client_name_wrong_casing"
 
 
 if __name__ == "__main__":
