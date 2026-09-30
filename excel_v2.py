@@ -2436,6 +2436,65 @@ def _non_us_signals(data: dict) -> List[str]:
     return plan_geo.non_us_signals(data)
 
 
+def _write_local_market_indicators(ws, row: int, data: dict) -> int:
+    """Market Intelligence's labour-market snapshot for a non-US plan (B-39).
+
+    The US "National Economic Snapshot" does not describe a non-US market.
+    Writes the cited, country-matched indicators the knowledge base holds
+    for the plan's first non-US market that has any
+    (``industry_reports_2026.json`` via
+    ``industry_reports_lookup.get_cited_metrics_for_country``; only
+    ``geo_match`` rows -- a Global report is not a local indicator), each
+    with its publisher and year. When there are none, one honest note row.
+    Returns the next free row.
+    """
+    row = _write_subsection_header(ws, row, "Local Market Indicators")
+    lines: List[Tuple[str, str]] = []
+    try:
+        from industry_reports_lookup import get_cited_metrics_for_country
+        from cited_data_block import _format_metric_value
+    except ImportError:  # pragma: no cover - modules ship with the repo
+        get_cited_metrics_for_country = None
+    if get_cited_metrics_for_country is not None:
+        for loc in data.get("locations") or []:
+            if plan_geo.location_is_us(loc) is True:
+                continue
+            if isinstance(loc, dict):
+                loc = loc.get("country") or loc.get("location") or loc.get("city") or ""
+            try:
+                cited = get_cited_metrics_for_country(str(loc or ""), limit=3)
+            except (AttributeError, TypeError, ValueError) as exc:
+                logger.error("local market indicators failed: %s", exc, exc_info=True)
+                cited = []
+            for cm in cited or []:
+                if not cm.get("geo_match"):
+                    continue
+                unit = str(cm.get("unit") or "")
+                sep = "" if unit.strip().startswith("%") else " "
+                publisher = str(cm.get("publisher") or "").split("(", 1)[0].strip()
+                lines.append(
+                    (
+                        str(cm.get("metric") or "")[:60],
+                        f"{_format_metric_value(cm.get('value'))}{sep}{unit} "
+                        f"({publisher}, {cm.get('year') or ''})",
+                    )
+                )
+            if lines:
+                break
+    if not lines:
+        lines.append(
+            (
+                "Note",
+                "No sourced national labour-market indicators for this plan's "
+                "market are held in the knowledge base; US national figures are "
+                "not shown for a non-US plan.",
+            )
+        )
+    for key, val in lines:
+        row = _write_kv_row(ws, row, key, val)
+    return row
+
+
 def _get_budget_numeric(data: dict) -> float:
     """Parse budget from data dict to numeric value."""
     budget_raw = data.get("budget") or data.get("budget_range") or ""
@@ -6919,36 +6978,45 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     national = labour_data.get("national_summary", {})
     ind_metrics = labour_data.get("industry_metrics", {})
 
-    # National Economic Snapshot -- use live data or hardcoded fallback
-    row = _write_subsection_header(ws, row, "National Economic Snapshot")
-    if national:
-        display_fields = [
-            ("Unemployment Rate", national.get("unemployment_rate") or ""),
-            ("Job Openings", national.get("job_openings") or ""),
-            ("Hires Rate", national.get("hires_rate") or ""),
-            ("Quits Rate", national.get("quits_rate") or ""),
-            (
-                "Labor Force Participation",
-                national.get("labor_force_participation") or "",
-            ),
-        ]
+    # B-39: the National Economic Snapshot is US data (JOLTS / US
+    # unemployment / US participation, live or the hardcoded fallback
+    # below) and printed on every non-US plan. A non-US plan gets the
+    # sourced local indicators the knowledge base holds for its market
+    # instead, or an honest note -- never the US series.
+    # Same canonical US-plan gate as the Industry Metrics subsection below.
+    if not _is_us_plan(data):
+        row = _write_local_market_indicators(ws, row, data)
     else:
-        # Fallback: latest available government figures (updated quarterly)
-        display_fields = [
-            ("Unemployment Rate", "4.0% (Q1 2026 est.)"),
-            ("Job Openings", "~8.0M (latest available)"),
-            ("Hires Rate", "3.4% (latest available)"),
-            ("Quits Rate", "2.2% (latest available)"),
-            ("Labor Force Participation", "62.5% (latest available)"),
-            (
-                "Note",
-                "Live data unavailable; figures are latest published government estimates",
-            ),
-        ]
-    for key, val in display_fields:
-        val_str = _flatten_value(val)
-        if val_str:
-            row = _write_kv_row(ws, row, key, val_str)
+        # National Economic Snapshot -- use live data or hardcoded fallback
+        row = _write_subsection_header(ws, row, "National Economic Snapshot")
+        if national:
+            display_fields = [
+                ("Unemployment Rate", national.get("unemployment_rate") or ""),
+                ("Job Openings", national.get("job_openings") or ""),
+                ("Hires Rate", national.get("hires_rate") or ""),
+                ("Quits Rate", national.get("quits_rate") or ""),
+                (
+                    "Labor Force Participation",
+                    national.get("labor_force_participation") or "",
+                ),
+            ]
+        else:
+            # Fallback: latest available government figures (updated quarterly)
+            display_fields = [
+                ("Unemployment Rate", "4.0% (Q1 2026 est.)"),
+                ("Job Openings", "~8.0M (latest available)"),
+                ("Hires Rate", "3.4% (latest available)"),
+                ("Quits Rate", "2.2% (latest available)"),
+                ("Labor Force Participation", "62.5% (latest available)"),
+                (
+                    "Note",
+                    "Live data unavailable; figures are latest published government estimates",
+                ),
+            ]
+        for key, val in display_fields:
+            val_str = _flatten_value(val)
+            if val_str:
+                row = _write_kv_row(ws, row, key, val_str)
     row += 1
 
     # INCIDENT FIX: ind_metrics is US BLS/JOLTS sector data (research.py
