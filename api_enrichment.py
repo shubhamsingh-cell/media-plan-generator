@@ -14474,13 +14474,136 @@ def _fetch_h1b_salary_intelligence(
     return result if result.get("roles") else {}
 
 
+# ---------------------------------------------------------------------------
+# Geopolitical-context budget (enrich_data critical path)
+# ---------------------------------------------------------------------------
+# fetch_geopolitical_context() is an LLM call (TASK_RESEARCH). It used to run
+# SERIALLY after enrich_data()'s API pool with llm_router's default 35 s
+# budget; in prod its provider chain timed out on 5 of 5 generations
+# (2026-09-24/25), so app.py's 20 s enrichment deadline fired on every plan
+# and ~12 s of each one was spent waiting on it. It now starts on its own
+# thread BEFORE the pool, runs concurrently with it, and gets this hard
+# budget, measured from when it starts:
+#   * enrich_data() waits for it only until start + budget -- never a fresh
+#     wait after the pool -- so it cannot hold enrichment past
+#     max(pool completion, start + budget);
+#   * the same value goes to llm_router as timeout_budget, so the provider
+#     chain itself stops by then instead of running on as a 35 s orphan.
+# Its content is used only if it arrived within the budget; otherwise
+# geopolitical_context stays {} (what an LLM exception already yielded).
+# Override: env NOVA_GEOPOLITICAL_TIMEOUT_S (seconds, read on every call),
+# clamped to GEOPOLITICAL_TIMEOUT_MAX_S; "0" disables the call entirely;
+# a non-numeric or negative value falls back to the default.
+GEOPOLITICAL_TIMEOUT_DEFAULT_S = 8.0
+GEOPOLITICAL_TIMEOUT_MAX_S = 8.0
+
+
+def _geopolitical_timeout_s() -> float:
+    """Current geopolitical-context budget in seconds (see block above)."""
+    raw = (os.environ.get("NOVA_GEOPOLITICAL_TIMEOUT_S") or "").strip()
+    if not raw:
+        return GEOPOLITICAL_TIMEOUT_DEFAULT_S
+    try:
+        value = float(raw)
+    except ValueError:
+        value = -1.0
+    if not value >= 0.0:  # negative, NaN or unparseable
+        _log_warn(
+            f"NOVA_GEOPOLITICAL_TIMEOUT_S={raw!r} is not a usable number of "
+            f"seconds; using the {GEOPOLITICAL_TIMEOUT_DEFAULT_S}s default"
+        )
+        return GEOPOLITICAL_TIMEOUT_DEFAULT_S
+    return min(value, GEOPOLITICAL_TIMEOUT_MAX_S)
+
+
+def _start_geopolitical_context(
+    locations: List[str],
+    industry: str,
+    roles: List[str],
+    campaign_start_month: int,
+    request_id: str,
+) -> Dict[str, Any]:
+    """Start fetch_geopolitical_context() on its own thread under the
+    current budget. Returns a handle for _collect_geopolitical_context()."""
+    budget = _geopolitical_timeout_s()
+    handle: Dict[str, Any] = {
+        "budget": budget,
+        "started": time.time(),
+        "future": None,
+        "executor": None,
+        "status": "disabled",
+    }
+    if budget <= 0:
+        return handle
+
+    def _run() -> dict:
+        if request_id:
+            set_request_id(request_id)
+        return fetch_geopolitical_context(
+            locations=locations,
+            industry=industry,
+            roles=roles,
+            campaign_start_month=campaign_start_month,
+            timeout_budget=budget,
+        )
+
+    executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="enrich-geo")
+    handle["executor"] = executor
+    try:
+        handle["future"] = executor.submit(_run)
+    except RuntimeError as exc:  # thread could not start (interpreter shutdown / limits)
+        _log_warn(f"Geopolitical context not started: {exc}")
+        executor.shutdown(wait=False)
+        handle["executor"] = None
+        handle["status"] = "error"
+    return handle
+
+
+def _collect_geopolitical_context(handle: Dict[str, Any]) -> "tuple[dict, str]":
+    """Return (geopolitical_context, status) for a _start_geopolitical_context()
+    handle, waiting at most until its start + budget. status is one of
+    "ok" (LLM analysis arrived in time), "fallback" (the function's own
+    static fallback), "timeout", "error" or "disabled"."""
+    future = handle.get("future")
+    executor = handle.get("executor")
+    if future is None:
+        return {}, str(handle.get("status") or "disabled")
+    budget = float(handle.get("budget") or 0.0)
+    remaining = budget - (time.time() - float(handle.get("started") or 0.0))
+    try:
+        result = future.result(timeout=max(0.0, remaining))
+    except concurrent.futures.TimeoutError:
+        # Explicitly the futures class: on Python < 3.11 (local/CI 3.9) it is
+        # NOT the builtin TimeoutError, which would miss it.
+        _log_warn(
+            f"Geopolitical context not ready within its {budget}s budget -- "
+            "enrichment continues without it"
+        )
+        return {}, "timeout"
+    except Exception as exc:
+        _log_warn(f"Geopolitical context enrichment failed: {exc}")
+        return {}, "error"
+    finally:
+        if executor is not None:
+            executor.shutdown(wait=False, cancel_futures=True)
+    if not isinstance(result, dict):
+        return {}, "error"
+    source = str(result.get("source") or "")
+    return result, ("ok" if source.startswith("llm_") else "fallback")
+
+
 def fetch_geopolitical_context(
     locations: list,
     industry: str = "",
     roles: list = None,
     campaign_start_month: int = 0,
+    timeout_budget: Optional[float] = None,
 ) -> dict:
-    """Use LLM to assess geopolitical/macro events impacting recruitment in given locations."""
+    """Use LLM to assess geopolitical/macro events impacting recruitment in given locations.
+
+    ``timeout_budget`` (seconds) is passed to llm_router so the provider
+    chain stops by then; None keeps the router's default budget.
+    """
     if not locations:
         return {
             "overall_risk_score": 1.0,
@@ -14568,6 +14691,7 @@ Respond ONLY in valid JSON with this exact structure:
             max_tokens=2048,
             task_type=TASK_RESEARCH,
             query_text=f"geopolitical risk for recruitment in {locations_str}",
+            timeout_budget=timeout_budget,
         )
         if result and (result.get("text") or result.get("content")):
             content = result.get("text") or result.get("content") or ""
@@ -15032,6 +15156,20 @@ def enrich_data(
     # Capture request_id so we can propagate it to worker threads
     _parent_request_id = request_id
 
+    # Geopolitical context (LLM) runs CONCURRENTLY with the API pool below
+    # under its own short budget -- see GEOPOLITICAL_TIMEOUT_DEFAULT_S.
+    try:
+        _campaign_start_month = int(data.get("campaign_start_month") or 0)
+    except (TypeError, ValueError):
+        _campaign_start_month = 0
+    _geo_handle = _start_geopolitical_context(
+        locations=locations,
+        industry=industry,
+        roles=roles,
+        campaign_start_month=_campaign_start_month,
+        request_id=_parent_request_id,
+    )
+
     try:
         # Build the list of api_labels up front for summary tracking
         for _rk, _al, _fn in tasks:
@@ -15169,17 +15307,9 @@ def enrich_data(
     finally:
         _enrichment_semaphore.release()
 
-    # Geopolitical context (LLM-based)
-    geo_context = {}
-    try:
-        geo_context = fetch_geopolitical_context(
-            locations=locations,
-            industry=industry,
-            roles=roles,
-            campaign_start_month=int(data.get("campaign_start_month") or 0 or 0),
-        )
-    except Exception as e:
-        _log_warn("Geopolitical context enrichment failed: %s" % e)
+    # Geopolitical context: take it only if it arrived within its budget
+    # (counted from before the pool started, so no serial wait here).
+    geo_context, geo_status = _collect_geopolitical_context(_geo_handle)
 
     # --- Build enhanced summary ---
     elapsed = round(time.time() - start_time, 2)
@@ -15208,6 +15338,7 @@ def enrich_data(
         "total_time_seconds": elapsed,
         "confidence_score": confidence_score,
         "api_details": api_details,
+        "geopolitical_status": geo_status,
         "cached": False,  # would be True if entire result was from cache
     }
 
