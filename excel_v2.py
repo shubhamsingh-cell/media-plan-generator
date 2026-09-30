@@ -8470,6 +8470,30 @@ def _build_provenance_section(ws, data: dict, row: int) -> int:
         return row
 
 
+def _live_api_confidence(summary: dict) -> "Tuple[int, int, float]":
+    """(sources with data, applicable sources, confidence) for an
+    enrichment_summary, using the ONE enrichment-confidence metric
+    (api_enrichment.enrichment_confidence) -- the number the enrichment log
+    line, app.py's quality warning and plan metadata carry. This row used to
+    compute its own apis_succeeded / apis_called ratio, so the workbook could
+    read "8/18 responded | Medium" beside a plan confidence of 0.80."""
+    labels_called = {str(a) for a in (summary.get("apis_called") or [])}
+    labels_na = {str(a) for a in (summary.get("apis_not_applicable") or [])}
+    n_ok = len(summary.get("apis_succeeded") or [])
+    n_applicable = len(labels_called - labels_na) or n_ok
+    try:
+        from api_enrichment import enrichment_confidence
+    except ImportError:
+        logger.error("api_enrichment unavailable for provenance row", exc_info=True)
+        try:
+            confidence = float(summary.get("confidence_score") or 0.0)
+        except (TypeError, ValueError):
+            confidence = 0.0
+    else:
+        confidence = enrichment_confidence(summary)
+    return n_ok, n_applicable, confidence
+
+
 def _build_provenance_section_inner(ws, data: dict, row: int) -> int:
     row = _write_section_header(ws, row, "Data Provenance & Vintage")
 
@@ -8501,14 +8525,19 @@ def _build_provenance_section_inner(ws, data: dict, row: int) -> int:
     if isinstance(summary, dict):
         succeeded = summary.get("apis_succeeded") or []
         if isinstance(succeeded, list) and succeeded:
-            n_ok = len(succeeded)
-            n_called = len(summary.get("apis_called") or []) or n_ok
+            n_ok, n_applicable, confidence = _live_api_confidence(summary)
             prov_rows.append(
                 {
-                    "source": f"Live market APIs ({n_ok}/{n_called} responded)",
+                    "source": (
+                        f"Live market APIs ({n_ok}/{n_applicable} applicable "
+                        "sources returned data)"
+                    ),
                     "vintage": str(datetime.date.today().year),
+                    # Same 0.40 / 0.60 boundaries as app.py's quality warning.
                     "confidence": (
-                        "High" if n_ok >= max(1, n_called * 0.6) else "Medium"
+                        "High"
+                        if confidence >= 0.60
+                        else ("Medium" if confidence >= 0.40 else "Low")
                     ),
                 }
             )
