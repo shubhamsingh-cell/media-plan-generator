@@ -1208,4 +1208,10 @@ def get_locale_cpc_basis(
         if isinstance(rate, (int, float)) and not isinstance(rate, bool) and rate > 0:
             result["usd_per_local"] = float(rate)
             result["currency"] = str(entry.get("currency") or plan_cur).upper()
+            # Rate provenance (2026-10-01): refreshed rates carry an as-of
+            # date + source, which the deck's currency-basis note prints
+            # wherever it states the rate; legacy rates carry none (None).
+            result["usd_rate_as_of"] = entry.get("usd_rate_as_of")
+            result["usd_rate_source"] = entry.get("usd_rate_source")
+            result["usd_rate_source_short"] = entry.get("usd_rate_source_short")
     return result

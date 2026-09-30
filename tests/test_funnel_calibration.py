@@ -374,6 +374,16 @@ _FUNNEL_INVARIANT_FIXTURE_DIR = (
 # governs both plans).
 #   Manpower: applications 18730 -> 25570, cost_per_application 8.01 -> 5.87
 #   Atria:    applications 17874 -> 17295, cost_per_application 16.78 -> 17.35
+#
+# 2026-10-01 second DELIBERATE re-baseline, Atria only (budget_engine.py
+# industry apply-rate re-level, audit F §4.8): healthcare plans' apply rates
+# now scale so job boards land on the repo KB's healthcare apply rate
+# (live_market_data.json industry_benchmarks.healthcare.apply_rate_pct 3.2,
+# vs the generic 8% table rate), every channel by the same factor. Atria's
+# roles are blue-collar, so its boards keep the 1.4x blue-collar uplift
+# (4.48%). Applications fall and CPA rises; hires/CPH unchanged (57,
+# floor-governed). Manpower (logistics) is not re-levelled -- unchanged.
+#   Atria:    applications 17295 -> 7116, cost_per_application 17.35 -> 42.16
 _BEFORE_MANPOWER_TOTAL = {
     "applications": 25570,
     "clicks": 289717,
@@ -383,10 +393,10 @@ _BEFORE_MANPOWER_TOTAL = {
     "hires": 48,
 }
 _BEFORE_ATRIA_TOTAL = {
-    "applications": 17295,
-    "clicks": 222307,
-    "cost_per_application": 17.35,
-    "cost_per_click": 1.35,
+    "applications": 7116,
+    "clicks": 226713,
+    "cost_per_application": 42.16,
+    "cost_per_click": 1.32,
     "cost_per_hire": 5263.16,  # 300000 / 57 -- see NOTE above
     "hires": 57,
 }
@@ -424,33 +434,33 @@ _BEFORE_MANPOWER_PER_CHANNEL = {
 }
 _BEFORE_ATRIA_PER_CHANNEL = {
     "employer_branding": {
-        "dollar_amount": 24000.0,
-        "projected_applications": 639,
+        "dollar_amount": 23997.6,
+        "projected_applications": 255,
         "projected_hires": 0,
     },
     "global_boards": {
-        "dollar_amount": 76097.8,
-        "projected_applications": 4708,
+        "dollar_amount": 78039.34,
+        "projected_applications": 1931,
         "projected_hires": 19,
     },
     "niche_boards": {
-        "dollar_amount": 40801.38,
-        "projected_applications": 2040,
-        "projected_hires": 10,
+        "dollar_amount": 31748.82,
+        "projected_applications": 634,
+        "projected_hires": 8,
     },
     "programmatic_dsp": {
-        "dollar_amount": 86808.86,
-        "projected_applications": 6771,
-        "projected_hires": 18,
+        "dollar_amount": 98295.89,
+        "projected_applications": 3066,
+        "projected_hires": 20,
     },
     "regional_boards": {
-        "dollar_amount": 58638.86,
-        "projected_applications": 2948,
+        "dollar_amount": 58631.29,
+        "projected_applications": 1179,
         "projected_hires": 10,
     },
     "social_media": {
-        "dollar_amount": 13653.1,
-        "projected_applications": 189,
+        "dollar_amount": 9287.07,
+        "projected_applications": 51,
         "projected_hires": 0,
     },
 }

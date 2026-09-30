@@ -949,6 +949,39 @@ def _get_trend_engine_cpc(
     return None
 
 
+# Engine industry -> (data/live_market_data.json industry_benchmarks key,
+# the collar that KB figure describes). Its apply_rate_pct re-levels the
+# plan's apply rates (see compute_channel_dollar_amounts). Deliberately only
+# the two industries the 2026-10-01 audit found contradicted by the repo's
+# own KB: healthcare (8% generic job-board rate vs 3.2% KB) and blue-collar
+# trades (8% x 1.4 blue-collar = 11.2% vs manufacturing 4.5% KB). Tech is
+# NOT mapped: the engine's 7.2% already matches Appcast 2026's verified
+# 7.14%, and the KB's 6.41% would move it away from that. Source of the KB
+# rates: live_market_data.json industry_benchmarks (reconciled 2026-06-02;
+# Appcast-derived -- the Appcast report itself is gated and was not
+# re-verified on 2026-10-01).
+_JOB_BOARD_APPLY_RATE_KB_KEY: Dict[str, Tuple[str, str]] = {
+    "healthcare_medical": ("healthcare", "both"),
+    "blue_collar_trades": ("manufacturing", "blue_collar"),
+}
+
+
+def _industry_job_board_apply_rate(industry: str) -> Tuple[Optional[float], str]:
+    """(KB industry job-board apply rate as a fraction, the collar it
+    describes), or ``(None, "")``."""
+    kb_key, ref_collar = _JOB_BOARD_APPLY_RATE_KB_KEY.get(
+        _industry_cph_key(industry) or "", ("", "")
+    )
+    if not kb_key:
+        return None, ""
+    try:
+        from benchmark_registry import get_industry_apply_rate
+
+        return get_industry_apply_rate(kb_key), ref_collar
+    except ImportError:
+        return None, ""
+
+
 def _get_collar_apply_rate_adjustment(category: str, collar_type: str) -> float:
     """
     Return an apply-rate multiplier based on collar type.
@@ -2975,6 +3008,36 @@ def compute_channel_dollar_amounts(
     if not effective_collar:
         effective_collar = _classify_roles_collar(role_budgets, industry)
 
+    # 2026-10-01 (audit F §2 row 10 / §4.8): industry apply propensity. Where
+    # the repo KB carries an industry apply rate the audit found the generic
+    # table contradicting (healthcare 3.2% and manufacturing 4.5% against a
+    # job-board 8% / blue-collar 11.2%), scale EVERY channel's apply rate by
+    # kb_rate / (the job-board table rate at the KB's reference collar):
+    # job boards land on the KB figure at that collar and the relative
+    # channel ranking is preserved.
+    # Overriding job boards alone left boards at 3.2% beside programmatic
+    # at 7.8% in the same healthcare plan and shifted the efficiency
+    # reweight on nothing but which constant had been refreshed. US plans
+    # only: the KB rates are US (Appcast) figures.
+    _industry_apply_scale: Optional[float] = None
+    if not intl_cpc_basis:
+        _kb_apply, _kb_ref_collar = _industry_job_board_apply_rate(industry)
+        if _kb_apply is not None:
+            # The KB figure is the industry's job-board rate at its OWN
+            # typical collar mix (healthcare: mixed; manufacturing: blue
+            # collar), so the scale is taken against the table rate at that
+            # reference collar. The plan's own collar multiplier still
+            # applies on top: an RN plan's boards land on 3.2%, a
+            # blue-collar hourly healthcare plan keeps its blue-collar
+            # uplift instead of being priced like nurses.
+            _jb_table = BASE_BENCHMARKS["apply_rate"]["job_board"]
+            if _kb_ref_collar and _kb_ref_collar != "both":
+                _jb_table *= _get_collar_apply_rate_adjustment(
+                    "job_board", _kb_ref_collar
+                )
+            if _jb_table > 0:
+                _industry_apply_scale = _kb_apply / _jb_table
+
     allocations: Dict[str, Dict] = {}
     for ch_name, raw_pct in channel_percentages.items():
         pct = raw_pct * norm_factor
@@ -3111,6 +3174,14 @@ def compute_channel_dollar_amounts(
         if effective_collar and effective_collar != "both":
             collar_mult = _get_collar_apply_rate_adjustment(category, effective_collar)
         apply_rate_adj = round(base_apply_rate * collar_mult, 4)
+        _apply_rate_source = "base_table"
+        if _industry_apply_scale is not None:
+            # 2026-10-01 (audit F §2 row 10 / §4.8): see
+            # _industry_apply_scale above -- job boards land exactly on the
+            # KB industry rate and every other channel moves by the same
+            # factor, so the channel ranking is unchanged.
+            apply_rate_adj = round(apply_rate_adj * _industry_apply_scale, 4)
+            _apply_rate_source = "kb_industry"
 
         # For channels without a CPC model (referral, events, staffing),
         # we estimate outcomes differently.
@@ -3288,6 +3359,9 @@ def compute_channel_dollar_amounts(
             "cpc_source": cpc_source,
             "apply_rate": round(apply_rate_adj, 4),
             "apply_rate_collar_adjusted": collar_mult != 1.0,
+            # "kb_industry" when the rate was re-levelled to the repo KB's
+            # industry apply rate (see _JOB_BOARD_APPLY_RATE_KB_KEY).
+            "apply_rate_source": _apply_rate_source,
             # S91 fields
             "channel_role": _ch_role,
             "roi_scoring_excluded": _ch_role == "brand",
@@ -4069,7 +4143,10 @@ def optimize_allocation(
 
         # H7 FIX: Use collar-adjusted apply rate when available,
         # otherwise fall back to base rate with collar adjustment.
-        if ch_data.get("apply_rate") and ch_data.get("apply_rate_collar_adjusted"):
+        if ch_data.get("apply_rate") and (
+            ch_data.get("apply_rate_collar_adjusted")
+            or ch_data.get("apply_rate_source") == "kb_industry"
+        ):
             apply_rate = ch_data["apply_rate"]
         else:
             apply_rate = BASE_BENCHMARKS["apply_rate"].get(category, 0.05)

@@ -2832,26 +2832,29 @@ def fuse_ad_platform_analysis(
     # reactivated. See tests/test_platform_benchmark_fallback.py and
     # tests/test_ad_platform_benchmark_regime.py.
     _PLATFORM_BENCHMARKS = {
-        # CPC 2.90 = benchmark_registry.CHANNEL_BENCHMARKS["google_ads"]
-        # (WordStream/LOCALiQ 2025 + Appcast 2026 + Joveo 2025, updated
-        # 2026-03-26). Prior 2.69 was earlier-vintage. CPM/CPA unchanged
-        # (original 2024-2025 vintage; no fresher cited figure).
+        # CPC 5.81 / CPA 67.36 = benchmark_registry.CHANNEL_BENCHMARKS
+        # ["google_ads"] (LocaliQ 2026 Search Advertising Benchmarks, Career &
+        # Employment, updated 2026-06-01; refreshed 2026-10-01 -- see the
+        # registry entry for the source's own CPL/CVR caveat). Prior 2.90 /
+        # 48.96. CPM unchanged (original 2024-2025 vintage; no fresher cited
+        # figure).
         "Google Ads": {
-            "cpc": 2.90,
+            "cpc": 5.81,
             "cpm": 3.12,
-            "cpa": 48.96,
+            "cpa": 67.36,
             "audience_reach": "5.6B+ monthly searches",
             "daily_budget_range": "$50 - $500",
             "best_for": "Active job seekers, high intent",
         },
-        # CPC 1.86 = benchmark_registry.CHANNEL_BENCHMARKS["meta_facebook"]
-        # (WordStream 2025 Facebook Ads Benchmarks, updated 2026-03-26).
-        # Prior 1.72 was earlier-vintage. CPM/CPA unchanged (original
-        # 2024-2025 vintage; no fresher cited figure).
+        # CPC 0.73 / CPA 12.30 = benchmark_registry.CHANNEL_BENCHMARKS
+        # ["meta_facebook"] (LocaliQ 2026 Facebook Advertising Benchmarks,
+        # Career & Employment, leads objective, updated 2026-09-23; refreshed
+        # 2026-10-01). Prior 1.86 / 18.68. CPM unchanged (original 2024-2025
+        # vintage; no fresher cited figure).
         "Meta (Facebook/Instagram)": {
-            "cpc": 1.86,
+            "cpc": 0.73,
             "cpm": 7.19,
-            "cpa": 18.68,
+            "cpa": 12.30,
             "audience_reach": "3.0B+ monthly active users",
             "daily_budget_range": "$20 - $300",
             "best_for": "Passive candidates, employer branding",

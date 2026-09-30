@@ -3815,6 +3815,10 @@ def _fx_rate_clause(cph_info: Dict[str, Any], code: str) -> str:
         clause += f" ({src}, {as_of})"
     elif as_of:
         clause += f" (as of {as_of})"
+    else:
+        # legacy dataset rate with no recorded as-of date -- say so rather
+        # than let the rate read as current
+        clause += " (undated rate)"
     return clause
 
 

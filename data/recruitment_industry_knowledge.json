@@ -293,7 +293,7 @@
     "cost_per_hire": {
       "description": "Average cost-per-hire benchmarks",
       "shrm_2025": {
-        "average_cost_per_hire": "$4,700",
+        "average_cost_per_hire": "$5,475 (nonexecutive average)",
         "median_non_executive": "$1,200",
         "median_executive": "$10,625",
         "executive_vs_non_executive_ratio": "7x",
@@ -305,7 +305,9 @@
         "critical_skill_5yr": "Critical thinking at 71% (top skill needed)",
         "_source": "SHRM 2025 Recruiting Executives Benchmarking Report",
         "_year": "2025",
-        "year": "2025"
+        "year": "2025",
+        "average_cost_per_hire_executive": "$35,879",
+        "_verified": "average_cost_per_hire / average_cost_per_hire_executive verified 2026-10-01 against SHRM's 2025 Benchmarking press release (2025-10-15): nonexecutive average $5,475, executive average $35,879. Prior value $4,700 was an older SHRM figure."
       },
       "shrm_2026": {
         "average_cost_per_hire": "$4,800",
@@ -314,7 +316,8 @@
         "notes": "Average cost per hire has increased over past three years, correlating with increased use of generative AI. Varies widely by company size, role type, and industry.",
         "_source": "SHRM Benchmarking Survey Q3 2026",
         "_year": "2026",
-        "year": "2026"
+        "year": "2026",
+        "_verification_note": "UNVERIFIED as a SHRM 2026 figure (checked 2026-10-01): SHRM's 2026 recruiting-benchmarking pages publish no dollar cost per hire. Do not cite these dollar values as SHRM 2026; the verified SHRM figure is shrm_2025 (nonexecutive average $5,475)."
       },
       "appcast_2024": {
         "average_cost_per_hire": "$851",

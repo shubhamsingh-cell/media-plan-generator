@@ -2534,17 +2534,25 @@ _ROLE_DIFFICULTY_MAP: dict[str, dict[str, Any]] = {
         "tier": "professional",
     },
     # -- Healthcare --
+    # RN time to fill: 78 days = NSI Nursing Solutions "2026 NSI National
+    # Health Care Retention & RN Staffing Report" (March 2026, CY2025 data,
+    # 527 hospitals; 56-102 days by specialty), fetched 2026-10-01 from
+    # nsinursingsolutions.com/documents/library/nsi_national_health_care_
+    # retention_report.pdf. Was 30 (unsourced; below even the all-roles
+    # SHRM median of 39). "nurse" (generic) follows RN, the dominant nurse
+    # hire. The other licensed-clinical rows below are unchanged: NSI prints
+    # no time to fill for them and no other primary source was found.
     "nurse": {
         "seniority": "mid",
         "base_difficulty": 6,
-        "avg_ttf_days": 30,
+        "avg_ttf_days": 78,
         "supply_level": "moderate",
         "tier": "licensed_clinical",
     },
     "registered nurse": {
         "seniority": "mid",
         "base_difficulty": 6,
-        "avg_ttf_days": 30,
+        "avg_ttf_days": 78,
         "supply_level": "moderate",
         "tier": "licensed_clinical",
     },

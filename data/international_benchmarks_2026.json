@@ -52,7 +52,8 @@
       "high": "Published industry benchmark reports, government statistics, platform-published data with large sample sizes",
       "medium": "Analyst reports, aggregated survey data, cross-referenced estimates",
       "low": "Single-source estimates, self-reported surveys, extrapolated data"
-    }
+    },
+    "usd_rate_note": "usd_rate = US dollars per 1 unit of local currency. Refreshed 2026-10-01 from the ECB 2026-09-30 reference rates for INR, GBP, EUR (every EUR country), JPY and BRL -- those entries carry usd_rate_as_of / usd_rate_source. Every other usd_rate is an undated legacy value (pre-2026-06-13) with no as-of field; cpc_usd figures were computed at the legacy rates and were not recomputed."
   },
   "regions": {
     "apac": {
@@ -180,7 +181,7 @@
       "name": "India",
       "region": "apac",
       "currency": "INR",
-      "usd_rate": 0.012,
+      "usd_rate": 0.0104351,
       "currency_symbol": "₹",
       "market_size": {
         "active_job_postings_monthly_est": 2500000,
@@ -415,7 +416,10 @@
             "confidence": "low"
           }
         ]
-      }
+      },
+      "usd_rate_as_of": "2026-09-30",
+      "usd_rate_source": "ECB euro reference rates via Frankfurter (https://api.frankfurter.app/2026-09-30?from=USD, which serves ECB data), inverted to USD per 1 local unit; fetched 2026-10-01",
+      "usd_rate_source_short": "ECB"
     },
     "australia": {
       "name": "Australia",
@@ -605,7 +609,7 @@
       "name": "Japan",
       "region": "apac",
       "currency": "JPY",
-      "usd_rate": 0.0067,
+      "usd_rate": 0.00636943,
       "currency_symbol": "¥",
       "market_size": {
         "active_job_postings_monthly_est": 1200000,
@@ -785,7 +789,10 @@
           "Work Style Reform laws cap overtime at 45 hrs/month, 360 hrs/year"
         ],
         "compliance_notes": "Lifetime employment culture (shuushin koyou) weakening but still influential. Dismissal is extremely difficult legally. Strong labor protections."
-      }
+      },
+      "usd_rate_as_of": "2026-09-30",
+      "usd_rate_source": "ECB euro reference rates via Frankfurter (https://api.frankfurter.app/2026-09-30?from=USD, which serves ECB data), inverted to USD per 1 local unit; fetched 2026-10-01",
+      "usd_rate_source_short": "ECB"
     },
     "singapore": {
       "name": "Singapore",
@@ -1193,7 +1200,7 @@
       "name": "United Kingdom",
       "region": "emea",
       "currency": "GBP",
-      "usd_rate": 1.27,
+      "usd_rate": 1.32864,
       "currency_symbol": "£",
       "market_size": {
         "active_job_postings_monthly_est": 900000,
@@ -1414,13 +1421,16 @@
           "Skilled Worker visa: minimum salary £38,700 (from April 2024)"
         ],
         "compliance_notes": "Post-Brexit immigration system requires sponsorship license for non-UK/Irish workers. Right to Work checks now digital. GDPR compliance critical for recruitment marketing."
-      }
+      },
+      "usd_rate_as_of": "2026-09-30",
+      "usd_rate_source": "ECB euro reference rates via Frankfurter (https://api.frankfurter.app/2026-09-30?from=USD, which serves ECB data), inverted to USD per 1 local unit; fetched 2026-10-01",
+      "usd_rate_source_short": "ECB"
     },
     "germany": {
       "name": "Germany",
       "region": "emea",
       "currency": "EUR",
-      "usd_rate": 1.09,
+      "usd_rate": 1.13551,
       "currency_symbol": "€",
       "market_size": {
         "active_job_postings_monthly_est": 800000,
@@ -1627,13 +1637,16 @@
           "Skilled Immigration Act (Fachkraefteeinwanderungsgesetz) 2023 -- simplified visa for skilled workers"
         ],
         "compliance_notes": "Works councils (Betriebsrat) have co-determination rights in hiring decisions at companies with 5+ employees. Notice periods increase with tenure (up to 7 months after 20 years). GDPR compliance is non-negotiable -- German DPAs are among the strictest in the EU."
-      }
+      },
+      "usd_rate_as_of": "2026-09-30",
+      "usd_rate_source": "ECB euro reference rates via Frankfurter (https://api.frankfurter.app/2026-09-30?from=USD, which serves ECB data), inverted to USD per 1 local unit; fetched 2026-10-01",
+      "usd_rate_source_short": "ECB"
     },
     "france": {
       "name": "France",
       "region": "emea",
       "currency": "EUR",
-      "usd_rate": 1.09,
+      "usd_rate": 1.13551,
       "currency_symbol": "€",
       "market_size": {
         "active_job_postings_monthly_est": 600000,
@@ -1823,7 +1836,10 @@
           "Anti-discrimination: Defenseur des Droits enforces 25 protected criteria"
         ],
         "compliance_notes": "France has among the strictest labor protections globally. Dismissal requires real and serious cause (cause reelle et serieuse). Severance costs can be 3-20 months salary. CDD vs CDI choice has significant legal implications."
-      }
+      },
+      "usd_rate_as_of": "2026-09-30",
+      "usd_rate_source": "ECB euro reference rates via Frankfurter (https://api.frankfurter.app/2026-09-30?from=USD, which serves ECB data), inverted to USD per 1 local unit; fetched 2026-10-01",
+      "usd_rate_source_short": "ECB"
     },
     "uae": {
       "name": "United Arab Emirates",
@@ -2041,7 +2057,7 @@
       "name": "Netherlands",
       "region": "emea",
       "currency": "EUR",
-      "usd_rate": 1.09,
+      "usd_rate": 1.13551,
       "currency_symbol": "€",
       "market_size": {
         "active_job_postings_monthly_est": 300000,
@@ -2216,13 +2232,16 @@
           "Works council (Ondernemingsraad) required at 50+ employees"
         ],
         "compliance_notes": "The 30% ruling is a major draw for international talent but has been limited. Strong flex work regulations mean many roles are through staffing agencies (uitzendbureau). Payrolling common."
-      }
+      },
+      "usd_rate_as_of": "2026-09-30",
+      "usd_rate_source": "ECB euro reference rates via Frankfurter (https://api.frankfurter.app/2026-09-30?from=USD, which serves ECB data), inverted to USD per 1 local unit; fetched 2026-10-01",
+      "usd_rate_source_short": "ECB"
     },
     "brazil": {
       "name": "Brazil",
       "region": "latam",
       "currency": "BRL",
-      "usd_rate": 0.19,
+      "usd_rate": 0.192208,
       "currency_symbol": "R$",
       "market_size": {
         "active_job_postings_monthly_est": 1500000,
@@ -2457,7 +2476,10 @@
             "confidence": "high"
           }
         ]
-      }
+      },
+      "usd_rate_as_of": "2026-09-30",
+      "usd_rate_source": "ECB euro reference rates via Frankfurter (https://api.frankfurter.app/2026-09-30?from=USD, which serves ECB data), inverted to USD per 1 local unit; fetched 2026-10-01",
+      "usd_rate_source_short": "ECB"
     },
     "mexico": {
       "name": "Mexico",
@@ -4767,7 +4789,7 @@
       "name": "Belgium",
       "region": "emea",
       "currency": "EUR",
-      "usd_rate": 1.09,
+      "usd_rate": 1.13551,
       "currency_symbol": "EUR",
       "market_size": {
         "active_job_postings_monthly_est": 95000,
@@ -4945,13 +4967,16 @@
           "Very long notice periods (up to 13 weeks per 5 years of seniority)"
         ],
         "compliance_notes": "Highest employer labor costs in EU. Automatic wage indexation means annual salary increases. Very strong worker protections and lengthy notice periods. Bilingual job ads often required in Brussels."
-      }
+      },
+      "usd_rate_as_of": "2026-09-30",
+      "usd_rate_source": "ECB euro reference rates via Frankfurter (https://api.frankfurter.app/2026-09-30?from=USD, which serves ECB data), inverted to USD per 1 local unit; fetched 2026-10-01",
+      "usd_rate_source_short": "ECB"
     },
     "austria": {
       "name": "Austria",
       "region": "emea",
       "currency": "EUR",
-      "usd_rate": 1.09,
+      "usd_rate": 1.13551,
       "currency_symbol": "EUR",
       "market_size": {
         "active_job_postings_monthly_est": 85000,
@@ -5130,7 +5155,10 @@
           "Works councils (Betriebsrat) mandatory for companies with 5+ employees"
         ],
         "compliance_notes": "EU member, full GDPR compliance. Collective agreements (Kollektivvertrag) set minimum terms for most industries. German language proficiency typically required. DACH region mobility common."
-      }
+      },
+      "usd_rate_as_of": "2026-09-30",
+      "usd_rate_source": "ECB euro reference rates via Frankfurter (https://api.frankfurter.app/2026-09-30?from=USD, which serves ECB data), inverted to USD per 1 local unit; fetched 2026-10-01",
+      "usd_rate_source_short": "ECB"
     },
     "nigeria": {
       "name": "Nigeria",

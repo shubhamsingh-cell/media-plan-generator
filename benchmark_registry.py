@@ -72,9 +72,15 @@ def _load_live_data() -> dict[str, Any]:
 # Conflict resolution methodology:
 #   - Indeed CPC: $1.62 (July-2026 refresh; see the per-entry comment below.
 #     Prior $0.50 "typical" of 2026-03-26 retired by the cited July-2026 research.)
-#   - Google Ads CPC: $2.90 (updated Q1 2026; recruitment-specific, up from $2.69)
-#   - Meta/Facebook CPC: $1.86 (updated Q1 2026; recruitment-specific, up from $1.72)
+#   - Google Ads CPC/CPA: $5.81 / $67.36 (2026-10-01 refresh; LocaliQ 2026
+#     Search Advertising Benchmarks, Career & Employment -- see the entry).
+#   - Meta/Facebook CPC/CPA: $0.73 / $12.30 (2026-10-01 refresh; LocaliQ 2026
+#     Facebook Advertising Benchmarks, Career & Employment -- see the entry).
 #   - All other values: cross-referenced with live_market_data.json where available
+# Coherence rule (2026-10-01, audit F §3.7): an entry's stated cpa should
+#   equal cpc / apply_rate within ~15% unless its comment says why not;
+#   tests/test_benchmark_constants_refresh.py enforces it for the entries
+#   fixed on that date.
 # Sources: WordStream 2025 Google Ads Benchmarks, Appcast 2026 Benchmark Report,
 #   Joveo Google Ads 2025 first-party data. Updated 2026-03-26; Indeed/LinkedIn
 #   CPCs refreshed 2026-07-16 to match the cited July-2026 research shipped to
@@ -106,9 +112,14 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
     # no figure). Prior 5.26 blended sponsored-content CPC ($5-$12) into what
     # should be a job-ads figure -- retired by the July-2026 research (see KB
     # cpc_by_platform refreshed_2026_07_16 note). CPC updated: 2026-07-16.
+    # 2026-10-01 (audit F §3.7): stated CPA was 45.0 against an implied
+    # cpc / apply_rate of 2.60 / 0.035 = 74.29 (-39%). CPA is now that
+    # derived value -- still inside the cited $30-$90 CPA band above, while
+    # the alternative (apply_rate = 2.60 / 45 = 5.8%) would leave the cited
+    # 3-5% apply-rate band.
     "linkedin": {
         "cpc": 2.60,
-        "cpa": 45.0,
+        "cpa": 74.29,
         "cpa_min": 30.0,
         "cpa_max": 90.0,
         "apply_rate": 0.035,
@@ -141,14 +152,20 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
         "pricing_model": "subscription + CPC",
         "category": "employer_brand",
     },
-    # Google Ads (recruitment-specific benchmarks, not general commercial $5.26 avg)
-    # Source: WordStream/LOCALiQ 2025 Benchmarks + Appcast 2026 Report + Joveo 2025 data
-    # General commercial CTR: 6.66%, CVR: 7.52%, CPL: $70.11 (WordStream 2025)
-    # Recruitment-specific values below are lower due to job advertising dynamics.
-    # Updated 2026-03-26.
+    # Google Ads -- 2026-10-01 refresh. Source: LocaliQ "Search Advertising
+    # Benchmarks for Every Industry [2026 Data]", Career & Employment row
+    # (https://localiq.com/blog/search-advertising-benchmarks/, last updated
+    # 2026-06-01, fetched 2026-10-01): avg CPC $5.81, avg cost per lead
+    # $67.36, CTR 5.88%, CVR 3.05%. Prior 2.90 / 48.0: the 48.0 CPA matched
+    # WordStream's Aug 2017-Jan 2018 Employment Services figure.
+    # NOT CPC/apply_rate-coherent, deliberately: the source's own triple is
+    # internally inconsistent (5.81 / 3.05% = ~$190 per lead, not $67.36; the
+    # page prints the identical $67.36 for Health & Fitness), so neither a
+    # derived CPA nor a derived apply rate would be a sourced number. The
+    # printed CPC and CPL are used as published; apply_rate stays 0.04.
     "google_ads": {
-        "cpc": 2.90,
-        "cpa": 48.0,
+        "cpc": 5.81,
+        "cpa": 67.36,
         "apply_rate": 0.04,
         "ctr": 0.045,
         "cpm": 11.00,
@@ -159,8 +176,8 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
     },
     # Alias: many files use "google_search" instead of "google_ads"
     "google_search": {
-        "cpc": 2.90,
-        "cpa": 48.0,
+        "cpc": 5.81,
+        "cpa": 67.36,
         "apply_rate": 0.04,
         "ctr": 0.045,
         "cpm": 11.00,
@@ -169,11 +186,17 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
         "pricing_model": "CPC/CPM",
         "category": "search_engine",
     },
-    # Meta/Facebook -- Updated 2026-03-26. Source: WordStream 2025 Facebook Ads Benchmarks.
+    # Meta/Facebook -- 2026-10-01 refresh. Source: LocaliQ "Facebook
+    # Advertising Benchmarks" 2026, Career & Employment row, leads objective
+    # (https://localiq.com/blog/facebook-advertising-benchmarks/, last
+    # updated 2026-09-23, fetched 2026-10-01): CPC $0.73, cost per lead
+    # $12.30, CVR 5.38%. apply_rate = that 5.38% click-to-lead rate, so the
+    # entry is coherent: 0.73 / 0.0538 = 13.57 vs 12.30 (-9%). Prior
+    # 1.86 / 32.0 / 0.025 (WordStream 2025) implied a $74.40 CPA.
     "meta_facebook": {
-        "cpc": 1.86,
-        "cpa": 32.0,
-        "apply_rate": 0.025,
+        "cpc": 0.73,
+        "cpa": 12.30,
+        "apply_rate": 0.0538,
         "ctr": 0.013,
         "cpm": 8.20,
         "quality_score": 5.5,
@@ -181,11 +204,11 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
         "pricing_model": "CPC/CPM",
         "category": "social_media",
     },
-    # Alias: some files use just "meta"
+    # Alias: some files use just "meta" -- same 2026-10-01 LocaliQ values.
     "meta": {
-        "cpc": 1.86,
-        "cpa": 32.0,
-        "apply_rate": 0.025,
+        "cpc": 0.73,
+        "cpa": 12.30,
+        "apply_rate": 0.0538,
         "ctr": 0.013,
         "cpm": 8.20,
         "quality_score": 5.5,
@@ -226,9 +249,13 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
         "pricing_model": "subscription",
         "category": "major_job_board",
     },
+    # 2026-10-01 (audit F §3.7): no cited CPA exists for CareerBuilder
+    # (its employer pricing now 301-redirects to Monster+; see
+    # data/channel_benchmarks_seed.json). Stated 50.0 vs implied
+    # 0.80 / 0.035 = 22.86 (+119%); CPA is now the derived figure.
     "careerbuilder": {
         "cpc": 0.80,
-        "cpa": 50.0,
+        "cpa": 22.86,
         "apply_rate": 0.035,
         "ctr": 0.022,
         "cpm": 5.50,
@@ -237,9 +264,13 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
         "pricing_model": "subscription",
         "category": "major_job_board",
     },
+    # 2026-10-01 (audit F §3.7): stated CPA 22.0 vs implied 0.63 / 0.07 =
+    # 9.00 (+144%). CPA is now the derived 9.00, inside the Recruitonomics
+    # $7-16 per-application sector band cited in
+    # data/channel_benchmarks_seed.json (Indeed entry notes).
     "programmatic": {
         "cpc": 0.63,
-        "cpa": 22.0,
+        "cpa": 9.00,
         "apply_rate": 0.07,
         "ctr": 0.025,
         "cpm": 4.50,
@@ -335,7 +366,13 @@ INDUSTRY_MULTIPLIERS: dict[str, float] = {
 }
 
 
-# Cost per hire by industry (from live market data + SHRM 2026)
+# Cost per hire by industry (live market data first; see get_cost_per_hire).
+# "overall" = SHRM 2025 Benchmarking nonexecutive AVERAGE cost per hire,
+# $5,475 (SHRM press release 2025-10-15,
+# https://www.shrm.org/about/press-room/shrm-releases-2025-benchmarking-reports--how-does-your-organizat,
+# fetched 2026-10-01). The prior 4750 was labelled "SHRM 2026" but was the
+# average of an older $4,700 SHRM figure and a secondary $4,800; SHRM's 2026
+# benchmarking pages publish no dollar cost per hire.
 COST_PER_HIRE: dict[str, float] = {
     "technology": 6200.0,
     "healthcare": 9000.0,
@@ -347,7 +384,7 @@ COST_PER_HIRE: dict[str, float] = {
     "cybersecurity": 10000.0,
     "data_science": 10000.0,
     "engineering": 6200.0,
-    "overall": 4750.0,
+    "overall": 5475.0,
 }
 
 
@@ -441,6 +478,21 @@ def get_cost_per_hire(industry: str = "overall") -> float:
     if live_cph and isinstance(live_cph, (int, float)) and live_cph > 0:
         return float(live_cph)
     return COST_PER_HIRE.get(industry.lower(), COST_PER_HIRE["overall"])
+
+
+def get_industry_apply_rate(industry: str) -> float | None:
+    """Industry apply rate (fraction, e.g. 0.032) from
+    data/live_market_data.json ``industry_benchmarks[industry].apply_rate_pct``
+    (keys: technology, healthcare, retail, finance, manufacturing,
+    hospitality, ...), or ``None`` when absent. Never raises."""
+    live = _load_live_data()
+    entry = (live.get("industry_benchmarks") or {}).get(str(industry or "").lower())
+    if not isinstance(entry, dict):
+        return None
+    pct = entry.get("apply_rate_pct")
+    if isinstance(pct, (int, float)) and not isinstance(pct, bool) and 0 < pct < 100:
+        return float(pct) / 100.0
+    return None
 
 
 def get_benchmark_value(

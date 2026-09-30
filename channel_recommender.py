@@ -550,8 +550,50 @@ def _overlay_live_benchmarks() -> Dict[str, Tuple[float, float]]:
     return result
 
 
-# Build the effective benchmark table -- live overlay on static defaults
-_CHANNEL_BENCH: Dict[str, Tuple[float, float]] = _overlay_live_benchmarks()
+# Platforms the benchmark registry prices on the same job-ads basis -- the
+# SAME mapping data_synthesizer._REGISTRY_CPC_KEYS uses for the ad-platform
+# table, so one platform carries one CPC across the plan (audit 2026-10-01
+# §3.7: Meta was 1.86 in the registry vs 1.20 here, Google 2.90 vs 2.50,
+# ZipRecruiter 1.50 vs 0.95). Microsoft/Bing, Snapchat and X stay on the
+# static values above: the registry has no Bing/Snapchat entry, and its X
+# figure is a different uncited vintage (data_synthesizer leaves X unmapped
+# for the same reason).
+_REGISTRY_CPC_KEYS: Dict[str, str] = {
+    "Google Ads": "google_ads",
+    "Meta (Facebook/Instagram)": "meta_facebook",
+    "LinkedIn Ads": "linkedin",
+    "TikTok Ads": "tiktok",
+    "Programmatic Display (DSP)": "programmatic",
+    "Indeed Sponsored Jobs": "indeed",
+    "ZipRecruiter Sponsored": "ziprecruiter",
+}
+
+
+def _overlay_registry_cpcs(
+    table: Dict[str, Tuple[float, float]],
+) -> Dict[str, Tuple[float, float]]:
+    """Replace each mapped platform's CPC with benchmark_registry's (which
+    itself carries the live_market_data overlay); apply rates unchanged."""
+    result = dict(table)
+    try:
+        from benchmark_registry import get_channel_benchmark
+
+        for platform, rkey in _REGISTRY_CPC_KEYS.items():
+            if platform not in result:
+                continue
+            reg_cpc = get_channel_benchmark(rkey).get("cpc")
+            if isinstance(reg_cpc, (int, float)) and reg_cpc > 0:
+                result[platform] = (float(reg_cpc), result[platform][1])
+    except (ImportError, KeyError, TypeError, ValueError) as exc:
+        logger.error("channel_recommender: registry CPC overlay failed: %s", exc, exc_info=True)
+    return result
+
+
+# Build the effective benchmark table -- live overlay on static defaults,
+# then the registry's CPC for every platform it covers.
+_CHANNEL_BENCH: Dict[str, Tuple[float, float]] = _overlay_registry_cpcs(
+    _overlay_live_benchmarks()
+)
 _CHANNEL_CPC = {k: v[0] for k, v in _CHANNEL_BENCH.items()}
 _CHANNEL_APPLY_RATE = {k: v[1] for k, v in _CHANNEL_BENCH.items()}
 

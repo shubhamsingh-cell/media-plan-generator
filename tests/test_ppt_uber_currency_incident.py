@@ -280,8 +280,14 @@ class TestGbpPlanNoHardcodedDollar:
         # way. Fixes across three independent sessions are now all merged;
         # the net result is £558.7K -> £567K. Slides 4 and 5 still agree --
         # the incident this file guards is unchanged.
-        slide4_hit = any("Programmatic (DSP) £567K" in t for t in texts)
-        slide5_hit = any("Programmatic DSP (£567K)" in t for t in texts)
+        #
+        # 2026-10-01 DELIBERATE re-baseline (data/international_benchmarks_
+        # 2026.json usd_rate refresh, audit F §4.8): GBP's usd_rate moved from
+        # the undated 1.27 to the ECB 2026-09-30 rate 1.32864, so the
+        # USD-cascade CPCs converted into GBP are ~4% lower, which shifts the
+        # efficiency reweight. Slides 4 and 5 still agree. £567K -> £568.4K.
+        slide4_hit = any("Programmatic (DSP) £568.4K" in t for t in texts)
+        slide5_hit = any("Programmatic DSP (£568.4K)" in t for t in texts)
         assert slide4_hit, f"slide 4 push/pull figure missing/wrong: {texts!r}"
         assert slide5_hit, f"slide 5 attribution figure missing/wrong: {texts!r}"
 
