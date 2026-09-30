@@ -34,7 +34,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import ssl
+import tempfile
 import threading
 import time
 import urllib.error
@@ -42,7 +44,12 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
+
+try:  # POSIX only; absent on Windows dev boxes (claims then fail open)
+    import fcntl
+except ImportError:  # pragma: no cover
+    fcntl = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -298,6 +305,93 @@ def _retry_with_backoff(
                 )
                 return None
     return None  # pragma: no cover
+
+
+# ==============================================================================
+# TIMESTAMPS + CROSS-PROCESS REFRESH CLAIMS
+# ==============================================================================
+
+_FRACTION_RE = re.compile(r"\.(\d+)")
+
+
+def _parse_iso(value: Any) -> Optional[datetime]:
+    """Parse an ISO-8601 timestamp, tolerating what PostgREST emits.
+
+    Python < 3.11's ``datetime.fromisoformat`` rejects a trailing ``Z`` and any
+    fractional-seconds part that is not exactly 3 or 6 digits; PostgREST trims
+    trailing zeros (``...29.12345+00:00``). An unparseable persisted timestamp
+    would make a source look permanently stale and get refetched every cycle.
+
+    Returns a timezone-aware datetime (naive input is taken as UTC) or None.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip()
+    if text.endswith(("Z", "z")):
+        text = text[:-1] + "+00:00"
+    text = _FRACTION_RE.sub(lambda m: "." + (m.group(1) + "000000")[:6], text, count=1)
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _claim_dir() -> str:
+    """Directory shared by every process of this instance (same rule as app.py's
+    AutoQC leader lock / _CrossProcessSlots)."""
+    return os.environ.get("NOVA_SLOT_DIR") or os.path.join(
+        tempfile.gettempdir(),
+        f"nova_gen_slots_{os.environ.get('PORT') or os.environ.get('TEST_PORT') or 'dev'}",
+    )
+
+
+def _noop_release() -> None:
+    return None
+
+
+def _claim_source(source: str) -> Optional[Callable[[], None]]:
+    """Claim the right to refresh ``source`` across every process of this instance.
+
+    Under gunicorn --preload + gevent the enrichment timer is inherited by every
+    forked worker (wsgi.py documents the N+1 re-run), so several copies can find
+    the same source stale in the same second. The first caller wins an exclusive
+    non-blocking ``flock`` on a per-source file opened FRESH here (flock contends
+    per open-file-description, so this works across fork and between threads);
+    the others are refused and skip -- one BLS pass instead of N+1.
+
+    Returns:
+        A ``release()`` callable when the claim is held, or ``None`` when another
+        process/thread is refreshing this source right now. Fails OPEN (returns a
+        no-op release) when locking is unavailable -- enrichment must never be
+        blocked by its own coordination.
+    """
+    if fcntl is None:
+        return _noop_release
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", source)
+    try:
+        slot_dir = _claim_dir()
+        os.makedirs(slot_dir, exist_ok=True)
+        fd = open(os.path.join(slot_dir, f"data_enrichment_{safe}.lock"), "a+b")
+    except OSError:
+        return _noop_release
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        fd.close()
+        return None
+
+    def _release() -> None:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        except OSError:
+            pass
+        finally:
+            fd.close()
+
+    return _release
 
 
 # ==============================================================================
@@ -647,11 +741,16 @@ class DataEnrichmentEngine:
         select_param = urllib.parse.quote(
             "source,records_affected,details,created_at", safe=""
         )
+        # Filter to this module's own rows and read a generous window: rows are
+        # tiny, and a 50-row window let a chatty 12 h source push the weekly
+        # sources (BLS, FRED, Adzuna) out of view, which made them look
+        # never-refreshed after a redeploy.
         url = (
             f"{base}/rest/v1/enrichment_log"
             f"?select={select_param}"
+            "&table_name=eq.data_enrichment"
             "&order=created_at.desc"
-            "&limit=50"
+            "&limit=500"
         )
         headers = _build_supabase_headers()
 
@@ -737,6 +836,24 @@ class DataEnrichmentEngine:
         # ever persisted and all sources re-ran after every deploy.
         _upsert_to_supabase("enrichment_log", [row], append_only=True)
 
+    def _adopt_persisted_state(self) -> None:
+        """Merge the persisted ``last_runs`` into memory (newest timestamp wins).
+
+        Called at the start of every cycle and again right before a stale source
+        is refreshed, so a process learns about refreshes done by its siblings
+        (or by the pre-deploy instance) instead of trusting a boot-time snapshot.
+        Best-effort: any failure leaves the in-memory state untouched.
+        """
+        persisted = self._load_state_from_supabase()
+        if not persisted:
+            return
+        with self._lock:
+            mine = self._state.setdefault("last_runs", {})
+            for source, stamp in (persisted.get("last_runs") or {}).items():
+                new_dt, old_dt = _parse_iso(stamp), _parse_iso(mine.get(source))
+                if new_dt is not None and (old_dt is None or new_dt > old_dt):
+                    mine[source] = stamp
+
     # -- Freshness checks ------------------------------------------------------
 
     def _is_stale(self, source: str) -> bool:
@@ -753,15 +870,10 @@ class DataEnrichmentEngine:
         last_run = self._state.get("last_runs", {}).get(source)
         if not last_run:
             return True
-        try:
-            last_dt = datetime.fromisoformat(last_run)
-            if last_dt.tzinfo is None:
-                last_dt = last_dt.replace(tzinfo=timezone.utc)
-            return datetime.now(timezone.utc) - last_dt > timedelta(
-                hours=threshold_hours
-            )
-        except (ValueError, TypeError):
+        last_dt = _parse_iso(last_run)
+        if last_dt is None:
             return True
+        return datetime.now(timezone.utc) - last_dt > timedelta(hours=threshold_hours)
 
     def _mark_refreshed(
         self, source: str, success: bool = True, records: int = 0
@@ -1538,33 +1650,56 @@ class DataEnrichmentEngine:
 
         failed_source_names: list[str] = []
 
+        # Learn what the pre-deploy instance / sibling workers already refreshed.
+        # Without this a redeploy (empty ephemeral disk) re-ran every source --
+        # BLS v1 allows 25 queries/day and one pass is 10.
+        self._adopt_persisted_state()
+
         for source, task_fn in tasks:
             results["checked"] += 1
             if not self._is_stale(source):
                 results["skipped"] += 1
                 continue
-            try:
-                task_fn()
-                # Check the latest log entry (now populated by _mark_refreshed)
-                if (
-                    self._enrichment_log
-                    and self._enrichment_log[-1].get("source") == source
-                ):
-                    if self._enrichment_log[-1].get("success"):
-                        results["refreshed"] += 1
-                    else:
-                        results["failed"] += 1
-                        failed_source_names.append(source)
-                else:
-                    # Task didn't call _mark_refreshed -- assume success
-                    results["refreshed"] += 1
-            except (ValueError, KeyError, TypeError, OSError, RuntimeError) as e:
-                results["failed"] += 1
-                failed_source_names.append(source)
-                self._mark_refreshed(source, success=False)
-                logger.error(
-                    "Enrichment task '%s' failed: %s", source, e, exc_info=True
+            # Only one process/copy may refresh a source at a time (the timer is
+            # inherited by every forked worker).
+            release = _claim_source(source)
+            if release is None:
+                logger.info(
+                    "Enrichment '%s' is being refreshed by another process -- skipping",
+                    source,
                 )
+                results["skipped"] += 1
+                continue
+            try:
+                # A sibling may have finished between our snapshot and the claim.
+                self._adopt_persisted_state()
+                if not self._is_stale(source):
+                    results["skipped"] += 1
+                    continue
+                try:
+                    task_fn()
+                    # Check the latest log entry (now populated by _mark_refreshed)
+                    if (
+                        self._enrichment_log
+                        and self._enrichment_log[-1].get("source") == source
+                    ):
+                        if self._enrichment_log[-1].get("success"):
+                            results["refreshed"] += 1
+                        else:
+                            results["failed"] += 1
+                            failed_source_names.append(source)
+                    else:
+                        # Task didn't call _mark_refreshed -- assume success
+                        results["refreshed"] += 1
+                except (ValueError, KeyError, TypeError, OSError, RuntimeError) as e:
+                    results["failed"] += 1
+                    failed_source_names.append(source)
+                    self._mark_refreshed(source, success=False)
+                    logger.error(
+                        "Enrichment task '%s' failed: %s", source, e, exc_info=True
+                    )
+            finally:
+                release()
 
         elapsed = round(time.time() - cycle_start, 2)
         results["elapsed_seconds"] = elapsed
