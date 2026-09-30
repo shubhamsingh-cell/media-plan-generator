@@ -208,13 +208,15 @@ class TestGbpPlanNoHardcodedDollar:
 
     def test_slide11_next_steps_uses_plan_symbol(self, texts):
         # ppt_generator.py _interpolate_next_steps budget_fmt call site.
-        # Duration reads the canonical resolved value ("12 weeks"), not the
+        # Duration reads the canonical resolved value ("9 weeks": the 2
+        # months "1-3 months" budgets at -- it was the 12-week marketing
+        # bucket until wizard audit D-05, 2026-10-01), not the
         # raw brief string ("1-3 months") -- see the campaign-duration
         # single-source-of-truth fix (display_format.resolve_campaign_
         # duration_label) closing the real shipped defect where this exact
         # slide echoed "1-3 months" verbatim while the workbook's Executive
         # Summary/90-Day Forecast had already resolved to a different value.
-        assert any("£2M over 12 weeks" in t for t in texts), texts
+        assert any("£2M over 9 weeks" in t for t in texts), texts
 
     def test_slides_4_and_5_channel_money_match(self, texts):
         # slide 4 (Push/Pull money list) and slide 5 (channel-strategy
@@ -366,10 +368,10 @@ class TestUsdPlanUnaffected:
         assert any("with $1,626 average cost-per-hire" in t for t in texts), texts
 
     def test_slide11_next_steps_unchanged(self, texts):
-        # Duration reads the canonical resolved value ("12 weeks"), not the
+        # Duration reads the canonical resolved value ("9 weeks"), not the
         # raw brief string -- see test_slide11_next_steps_uses_plan_symbol
         # above.
-        assert any("$2M over 12 weeks" in t for t in texts), texts
+        assert any("$2M over 9 weeks" in t for t in texts), texts
 
     def test_slides_4_and_5_channel_money_match(self, texts):
         # 2026-07-26 DELIBERATE re-baseline (budget_engine.py Fix 2 -- ROI

@@ -14,6 +14,8 @@ import re
 import unicodedata
 from typing import Any
 
+import wizard_inputs
+
 # ---------------------------------------------------------------------------
 # Channel display names
 # ---------------------------------------------------------------------------
@@ -871,15 +873,31 @@ def resolve_campaign_weeks(duration_str: Any) -> int:
     same duration string can never produce two different week counts
     depending on which module happened to parse it.
 
-    Resolution order: a fixed marketing-bucket phrase first (dropdown
-    option -- includes "ongoing" -> 52, an annual-cycle approximation used
-    for PHASING math only, never for the duration label -- see
-    :func:`resolve_campaign_duration_label`), then
-    :func:`parse_duration_to_weeks` for anything else (explicit "N
-    weeks"/"N months"/"N years", bare numerics). Unparseable/unrecognized
-    input defaults to 12 weeks, matching the legacy ladder's own default.
+    Resolution order:
+      1. a literal "(~N weeks)" (a label this module produced) -> N, so a
+         label always round-trips;
+      2. a wizard duration option or an explicit "N weeks/months/years"
+         -> the campaign's months (``wizard_inputs.known_campaign_months``,
+         the SAME months the budget multiplier uses) at 52/12 weeks per
+         month. "6-12 months" is 9 months -> 39 weeks, never the 48-week
+         bucket that made a $10,000/month x 9 plan read "over 11 months
+         (~48 weeks)" (wizard audit D-05); "24 months" is 104 weeks, not
+         the "4 month" substring bucket (24 weeks);
+      3. a legacy marketing-bucket phrase (API free text such as
+         "long-term"), then :func:`parse_duration_to_weeks` for bare
+         numerics. "ongoing" is 52 -- an annual-cycle approximation for
+         PHASING math only, never the duration label (see
+         :func:`resolve_campaign_duration_label`).
+    Unparseable/unrecognized input defaults to 12 weeks, matching the legacy
+    ladder's own default.
     """
     s = str(duration_str or "").strip().lower()
+    literal = _WEEKS_RE.search(s)
+    if literal:
+        return max(0, int(literal.group(1)))
+    months = wizard_inputs.known_campaign_months(s)
+    if months > 0:
+        return wizard_inputs.months_to_weeks(months)
     for phrases, weeks in _DURATION_PHRASE_LADDER:
         if any(p in s for p in phrases):
             return weeks
@@ -921,6 +939,11 @@ def resolve_campaign_duration_label(data: dict) -> str:
         weeks_int = int(weeks) if weeks else 0
     except (TypeError, ValueError):
         weeks_int = 0
+    # A wizard range option plans at its midpoint months ("3-6 months" ->
+    # 4.5): state THOSE months, not the weeks rounded back to 5.
+    months = wizard_inputs.known_campaign_months(raw)
+    if months > 0 and weeks_int in (0, wizard_inputs.months_to_weeks(months)):
+        return duration_label_for_months(months)
     if weeks_int > 0:
         return weeks_to_duration_label(weeks_int)
 
@@ -931,6 +954,16 @@ def resolve_campaign_duration_label(data: dict) -> str:
     if derived > 0:
         return weeks_to_duration_label(derived)
     return raw or "Not specified"
+
+
+def duration_label_for_months(months: float) -> str:
+    """Label for a campaign of ``months`` (the months the budget used):
+    whole months read as :func:`weeks_to_duration_label` of their weeks;
+    a fractional midpoint states itself -- 4.5 -> "4.5 months (~20 weeks)"."""
+    weeks = wizard_inputs.months_to_weeks(months)
+    if float(months).is_integer() or weeks <= 13:
+        return weeks_to_duration_label(weeks)
+    return f"{months:g} months (~{weeks} weeks)"
 
 
 def scale_week_phases(total_weeks: int, num_phases: int) -> list[tuple[int, int]]:

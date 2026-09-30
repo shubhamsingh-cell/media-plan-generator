@@ -508,11 +508,21 @@
             aria-describedby="campaignDuration-error"
           >
             <option value="">Select duration</option>
+            <!-- Every value here must be a key of
+                 wizard_inputs.CAMPAIGN_DURATION_MONTHS (budget multiplier and
+                 campaign weeks both come from it) --
+                 tests/test_budget_period_preview_parity.py. -->
             <optgroup label="Exact duration">
               <option value="2 weeks">2 weeks</option>
               <option value="1 month">1 month</option>
               <option value="2 months">2 months</option>
               <option value="3 months">3 months</option>
+              <option value="4 months">4 months</option>
+              <option value="6 months">6 months</option>
+              <option value="9 months">9 months</option>
+              <option value="12 months">12 months</option>
+              <option value="18 months">18 months</option>
+              <option value="24 months">24 months</option>
             </optgroup>
             <optgroup label="Flexible range">
               <option value="1-3 months">1-3 months</option>

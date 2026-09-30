@@ -152,16 +152,20 @@ def test_80_weeks_label_matches_weeks_to_duration_label_not_a_local_variant():
 
 
 def test_wizard_duration_buckets_resolve_through_one_function():
-    """Every one of app.py's original phrase-ladder buckets must still
-    resolve to the SAME week counts now that they live in
-    display_format.resolve_campaign_weeks instead of app.py's own inline
-    ladder -- the refactor must not silently change any bucket's value."""
+    """Every duration resolves through display_format.resolve_campaign_weeks.
+
+    2026-10-01 (wizard audit D-05): the wizard's RANGE options no longer use
+    the 4-week-month phrase-ladder buckets -- they resolve to the months the
+    budget multiplier uses (wizard_inputs; midpoint of the range) at 52/12
+    weeks per month, so "6-12 months" is 9 months = 39 weeks, not the 48
+    that made a x9 budget read "over 11 months (~48 weeks)". Phrases with no
+    number ("Long-term", "Ongoing") keep their ladder values."""
     cases = {
-        "1-3 months": 12,
-        "3-6 months": 24,
-        "6-12 months": 48,
-        "1-2 years": 80,
-        "2-5 years": 156,
+        "1-3 months": 9,
+        "3-6 months": 20,
+        "6-12 months": 39,
+        "1-2 years": 78,
+        "2-5 years": 182,
         "Long-term": 156,
         "Ongoing": 52,
         "4 weeks": 4,
