@@ -2223,6 +2223,69 @@
     "SCOTLAND", "WALES", "NORTHERN IRELAND",
   ]);
 
+  // Country names that are ALSO US places, with the states that have such a
+  // town (codes and full names): "Lebanon, TN", "Peru, IL", "Turkey, TX",
+  // "Poland, OH". A state right after one of these is a city qualifier, not
+  // a second site, so the world country list cannot tear a real US town in
+  // two -- while "Mexico City, Mexico, Texas" (no Mexico in Texas) still reads
+  // as Mexico City, Mexico plus the state of Texas. MUST equal the pairs in
+  // data/geo/us_places.tsv whose name is a VALID_COUNTRIES entry (a test
+  // derives them from the data, so a refresh cannot leave this stale).
+  const COUNTRY_NAMED_US_TOWNS = {
+    "ANGOLA": ["IN", "INDIANA", "NY", "NEW YORK"],
+    "BELGIUM": ["IL", "ILLINOIS", "WI", "WISCONSIN"],
+    "BOLIVIA": ["NC", "NORTH CAROLINA"],
+    "BRAZIL": ["IN", "INDIANA"],
+    "CHINA": ["TX", "TEXAS"],
+    "CUBA": [
+      "AL", "ALABAMA", "IL", "ILLINOIS", "KS", "KANSAS", "MO", "MISSOURI",
+      "NM", "NEW MEXICO", "NY", "NEW YORK",
+    ],
+    "DENMARK": ["IA", "IOWA", "SC", "SOUTH CAROLINA", "WI", "WISCONSIN"],
+    "EGYPT": ["AL", "ALABAMA", "AR", "ARKANSAS", "PA", "PENNSYLVANIA"],
+    "ENGLAND": ["AR", "ARKANSAS"],
+    "FINLAND": ["MN", "MINNESOTA"],
+    "GREECE": ["NY", "NEW YORK"],
+    "GRENADA": ["CA", "CALIFORNIA", "MS", "MISSISSIPPI"],
+    "ITALY": ["TX", "TEXAS"],
+    "JAMAICA": ["IA", "IOWA", "VT", "VERMONT"],
+    "JORDAN": ["MN", "MINNESOTA", "MT", "MONTANA", "NY", "NEW YORK"],
+    "LEBANON": [
+      "IL", "ILLINOIS", "IN", "INDIANA", "KS", "KANSAS", "KY", "KENTUCKY",
+      "MO", "MISSOURI", "NE", "NEBRASKA", "NH", "NEW HAMPSHIRE", "NJ",
+      "NEW JERSEY", "OH", "OHIO", "OK", "OKLAHOMA", "OR", "OREGON", "PA",
+      "PENNSYLVANIA", "SD", "SOUTH DAKOTA", "TN", "TENNESSEE", "VA",
+      "VIRGINIA", "WI", "WISCONSIN",
+    ],
+    "MALTA": ["ID", "IDAHO", "IL", "ILLINOIS", "MT", "MONTANA", "OH", "OHIO"],
+    "MEXICO": [
+      "IN", "INDIANA", "ME", "MAINE", "MO", "MISSOURI", "NY", "NEW YORK",
+      "PA", "PENNSYLVANIA",
+    ],
+    "MOROCCO": ["IN", "INDIANA"],
+    "NORWAY": [
+      "IA", "IOWA", "IN", "INDIANA", "KS", "KANSAS", "ME", "MAINE", "MI",
+      "MICHIGAN", "SC", "SOUTH CAROLINA",
+    ],
+    "PALESTINE": [
+      "AR", "ARKANSAS", "IL", "ILLINOIS", "OH", "OHIO", "TX", "TEXAS",
+    ],
+    "PANAMA": [
+      "IA", "IOWA", "IL", "ILLINOIS", "NE", "NEBRASKA", "NY", "NEW YORK",
+      "OK", "OKLAHOMA",
+    ],
+    "PERU": [
+      "IL", "ILLINOIS", "IN", "INDIANA", "KS", "KANSAS", "NE", "NEBRASKA",
+      "NY", "NEW YORK", "PA", "PENNSYLVANIA",
+    ],
+    "POLAND": ["NY", "NEW YORK", "OH", "OHIO"],
+    "RUSSIA": ["OH", "OHIO"],
+    "SAMOA": ["CA", "CALIFORNIA"],
+    "SAN MARINO": ["CA", "CALIFORNIA"],
+    "SUDAN": ["TX", "TEXAS"],
+    "TURKEY": ["NC", "NORTH CAROLINA", "TX", "TEXAS"],
+  };
+
   function _locKey(text) {
     return String(text || "").trim().replace(/\./g, "").replace(/\s+/g, " ").toUpperCase();
   }
@@ -2230,6 +2293,30 @@
   function _isUsStateToken(text) {
     const k = _locKey(text);
     return (k.length === 2 && VALID_US_STATES.has(k)) || US_STATE_NAMES.has(k);
+  }
+
+  // Key for the VALID_COUNTRIES lookup: the same fold as the server's
+  // plan_location._norm_key (lower case, accents stripped, punctuation
+  // dropped, whitespace collapsed), upper-cased. "Türkiye", "Côte d'Ivoire",
+  // "Guinea-Bissau" and "U.A.E." all resolve to their list entry.
+  function _countryKey(text) {
+    return String(text || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toUpperCase();
+  }
+
+  // True when "<country name>, <state>" is a real US town whose name is also
+  // a country: isCountryTown("LEBANON", "TN") and ("LEBANON", "Tennessee").
+  function _isCountryTown(countryKey, stateTok) {
+    if (!Object.prototype.hasOwnProperty.call(COUNTRY_NAMED_US_TOWNS, countryKey)) {
+      return false;
+    }
+    return COUNTRY_NAMED_US_TOWNS[countryKey].indexOf(_locKey(stateTok)) !== -1;
   }
 
   // Split free text into one entry per site. Hard separators (line breaks,
@@ -2250,16 +2337,57 @@
       .split(/[\r\n;|\t]+/)
       .forEach(function (chunk) {
         let prev = null;
-        chunk.split(",").forEach(function (raw) {
-          const tok = raw.trim();
-          if (!tok) return;
+        const toks = chunk
+          .split(",")
+          .map(function (raw) {
+            return raw.trim();
+          })
+          .filter(Boolean);
+        toks.forEach(function (tok, i) {
           const key = _locKey(tok);
           const isState = _isUsStateToken(tok);
           const isRegion = !isState && INTL_REGIONS.has(key);
           const isCode =
             /^[A-Z]{2,3}$/.test(key) &&
             (VALID_US_STATES.has(key) || INTL_REGIONS.has(key));
-          const isCountry = VALID_COUNTRIES.has(key);
+          const countryKey = _countryKey(tok);
+          const isCountry = VALID_COUNTRIES.has(countryKey);
+          // A country-named town whose state follows ("Atlanta, Lebanon,
+          // TN"), or a city-state spelled twice ("Dallas, TX, Singapore,
+          // Singapore"), starts its own site; it is not the previous city's
+          // country.
+          const startsTown =
+            isCountry && i + 1 < toks.length &&
+            (_isCountryTown(countryKey, toks[i + 1]) ||
+              (_countryKey(toks[i + 1]) === countryKey &&
+                !(i + 2 < toks.length &&
+                  _isCountryTown(countryKey, toks[i + 2]))));
+          // A country name that is also a US town takes its state
+          // ("Lebanon, TN", "Turkey, Texas"): one site, not a country plus
+          // a state.
+          if (
+            prev && prev.bareCountry && isState &&
+            !prev.hasState && !prev.hasCountry &&
+            _isCountryTown(_countryKey(prev.text), tok)
+          ) {
+            prev.text += ", " + tok;
+            prev.hasState = true;
+            prev.bareCountry = false;
+            prev.bare = false;
+            return;
+          }
+          // A city-state spelled as its own country ("Singapore, Singapore")
+          // is one site, not the same country twice.
+          if (
+            prev && prev.bareCountry && isCountry &&
+            _countryKey(prev.text) === countryKey
+          ) {
+            prev.text += ", " + tok;
+            prev.bareCountry = false;
+            prev.bare = false;
+            prev.hasCountry = true;
+            return;
+          }
           const canQualify =
             prev &&
             (!prev.bare || (prev.stateName && isCode && !prev.hasState)) &&
@@ -2273,7 +2401,7 @@
             prev.bare = false;
             return;
           }
-          if (canQualify && isCountry && !prev.hasCountry) {
+          if (canQualify && isCountry && !startsTown && !prev.hasCountry) {
             prev.text += ", " + tok;
             prev.hasCountry = true;
             return;
@@ -2281,6 +2409,7 @@
           prev = {
             text: tok,
             bare: isState || isCountry,
+            bareCountry: isCountry,
             stateName: isState && !isCode,
             hasState: false,
             hasCountry: false,
@@ -2402,12 +2531,39 @@
           bare.length === 2 && VALID_US_STATES.has(bare) &&
           US_STATE_NAMES.has(_locKey(prevTag))
         );
+      // "Atlanta," "Lebanon," then "TN": "Lebanon" was read as a country
+      // qualifier ("Atlanta, Lebanon") before its state arrived. A state
+      // right after it makes it a US town, so split it back out -- the
+      // paste path reads the same text with a look-ahead.
+      if (_lastLocCommitByComma && _isUsStateToken(value)) {
+        const cut = prevTag.lastIndexOf(", ");
+        if (cut > 0) {
+          const head = prevTag.slice(0, cut);
+          const town = prevTag.slice(cut + 2);
+          if (
+            _isCountryTown(_countryKey(town), value) &&
+            parseLocationEntries(head).length === 1
+          ) {
+            const withState = town + ", " + (bare.length === 2 ? bare : value.trim());
+            arr[arr.length - 1] = head;
+            if (!arr.includes(withState)) arr.push(withState);
+            document.getElementById(inputId).value = "";
+            renderTags(containerId, inputId, arr);
+            updateRegionalSections();
+            scheduleLocationResolution();
+            return;
+          }
+        }
+      }
       // "Bengaluru," then "Karnataka," then "India": a region or country
       // right after a comma-committed city qualifies it, exactly as the
       // paste path (parseLocationEntries) reads the same text.
       if (_lastLocCommitByComma && !_isUsStateToken(value)) {
         const vKey = _locKey(value);
-        if (INTL_REGIONS.has(vKey) || VALID_COUNTRIES.has(vKey)) {
+        if (
+          INTL_REGIONS.has(vKey) ||
+          VALID_COUNTRIES.has(_countryKey(value))
+        ) {
           const joined = prevTag + ", " + value.trim();
           if (parseLocationEntries(joined).length === 1) {
             arr[arr.length - 1] = joined;
@@ -4545,52 +4701,84 @@
     "MP",
   ]);
 
-  // Valid countries (common recruitment markets)
+  // Valid countries: every sovereign state (English short names plus the
+  // aliases people type) and its ISO 3166-1 alpha-2 code. A country right
+  // after a city qualifies it, so "Warsaw, Poland" is ONE site (it split in
+  // two while this list held ~43 markets). Keys are folded like
+  // plan_location._norm_key (accents stripped, punctuation dropped, upper
+  // case -- see _countryKey) and MUST equal plan_location._SPLIT_COUNTRY_TOKENS
+  // (tests/test_location_regressions.py enforces parity). An alpha-2 code is
+  // listed only when it is not a US state or INTL_REGIONS code. No "Georgia":
+  // the US state wins.
   const VALID_COUNTRIES = new Set([
-    "UNITED STATES",
-    "USA",
-    "US",
-    "CANADA",
-    "MEXICO",
-    "UNITED KINGDOM",
-    "UK",
-    "ENGLAND",
-    "IRELAND",
-    "FRANCE",
-    "GERMANY",
-    "NETHERLANDS",
-    "BELGIUM",
-    "ITALY",
-    "SPAIN",
-    "PORTUGAL",
-    "SWITZERLAND",
-    "AUSTRIA",
-    "SWEDEN",
-    "NORWAY",
-    "DENMARK",
-    "FINLAND",
-    "AUSTRALIA",
-    "NEW ZEALAND",
-    "SINGAPORE",
-    "MALAYSIA",
-    "INDIA",
-    "JAPAN",
-    "SOUTH KOREA",
-    "KOREA",
-    "CHINA",
-    "HONG KONG",
-    "PHILIPPINES",
-    "THAILAND",
-    "VIETNAM",
-    "BRAZIL",
-    "ARGENTINA",
-    "CHILE",
-    "COLOMBIA",
-    "PERU",
-    "SOUTH AFRICA",
-    "UAE",
-    "AUSTRALIA",
-    "INDIA",
+    "UNITED STATES", "USA", "US",
+    // Europe
+    "ALBANIA", "ANDORRA", "AUSTRIA", "BELARUS", "BELGIUM",
+    "BOSNIA AND HERZEGOVINA", "BOSNIA", "BULGARIA", "CROATIA", "CYPRUS",
+    "CZECH REPUBLIC", "CZECHIA", "DENMARK", "ESTONIA", "FINLAND", "FRANCE",
+    "GERMANY", "GREECE", "HUNGARY", "ICELAND", "IRELAND",
+    "REPUBLIC OF IRELAND", "ITALY", "KOSOVO", "LATVIA", "LIECHTENSTEIN",
+    "LITHUANIA", "LUXEMBOURG", "MALTA", "MOLDOVA", "MONACO", "MONTENEGRO",
+    "NETHERLANDS", "THE NETHERLANDS", "NORTH MACEDONIA", "NORWAY", "POLAND",
+    "PORTUGAL", "ROMANIA", "RUSSIA",
+    "RUSSIAN FEDERATION", "SAN MARINO", "SERBIA", "SLOVAKIA",
+    "SLOVAK REPUBLIC", "SLOVENIA", "SPAIN", "SWEDEN", "SWITZERLAND",
+    "UKRAINE", "UNITED KINGDOM", "UK", "GREAT BRITAIN", "BRITAIN", "ENGLAND",
+    "VATICAN CITY",
+    // Asia and Middle East
+    "AFGHANISTAN", "ARMENIA", "AZERBAIJAN", "BAHRAIN", "BANGLADESH", "BHUTAN",
+    "BRUNEI", "CAMBODIA", "CHINA", "PEOPLES REPUBLIC OF CHINA", "HONG KONG",
+    "MACAU", "MACAO", "INDIA", "INDONESIA", "IRAN", "IRAQ", "ISRAEL", "JAPAN",
+    "JORDAN", "KAZAKHSTAN", "KUWAIT", "KYRGYZSTAN", "LAOS", "LEBANON",
+    "MALAYSIA", "MALDIVES", "MONGOLIA", "MYANMAR", "BURMA", "NEPAL",
+    "NORTH KOREA", "OMAN", "PAKISTAN", "PALESTINE", "PHILIPPINES", "QATAR",
+    "SAUDI ARABIA", "KSA", "SINGAPORE", "SOUTH KOREA", "KOREA",
+    "REPUBLIC OF KOREA", "SRI LANKA", "SYRIA", "TAIWAN", "TAJIKISTAN",
+    "THAILAND", "TIMORLESTE", "EAST TIMOR", "TURKEY", "TURKIYE",
+    "TURKMENISTAN", "UAE", "UNITED ARAB EMIRATES", "UZBEKISTAN", "VIETNAM",
+    "VIET NAM", "YEMEN",
+    // Africa
+    "ALGERIA", "ANGOLA", "BENIN", "BOTSWANA", "BURKINA FASO", "BURUNDI",
+    "CABO VERDE", "CAPE VERDE", "CAMEROON", "CENTRAL AFRICAN REPUBLIC",
+    "CHAD", "COMOROS", "CONGO", "DR CONGO", "DRC",
+    "DEMOCRATIC REPUBLIC OF THE CONGO", "REPUBLIC OF THE CONGO",
+    "COTE DIVOIRE", "IVORY COAST", "DJIBOUTI", "EGYPT", "EQUATORIAL GUINEA",
+    "ERITREA", "ESWATINI", "SWAZILAND", "ETHIOPIA", "GABON", "GAMBIA",
+    "THE GAMBIA", "GHANA", "GUINEA", "GUINEABISSAU", "KENYA", "LESOTHO",
+    "LIBERIA", "LIBYA", "MADAGASCAR", "MALAWI", "MALI", "MAURITANIA",
+    "MAURITIUS", "MOROCCO", "MOZAMBIQUE", "NAMIBIA", "NIGER", "NIGERIA",
+    "RWANDA", "SAO TOME AND PRINCIPE", "SENEGAL", "SEYCHELLES",
+    "SIERRA LEONE", "SOMALIA", "SOUTH AFRICA", "SOUTH SUDAN", "SUDAN",
+    "TANZANIA", "TOGO", "TUNISIA", "UGANDA", "ZAMBIA", "ZIMBABWE",
+    // Americas
+    "ANTIGUA AND BARBUDA", "ARGENTINA", "BAHAMAS", "THE BAHAMAS", "BARBADOS",
+    "BELIZE", "BOLIVIA", "BRAZIL", "BRASIL", "CANADA", "CHILE", "COLOMBIA",
+    "COSTA RICA", "CUBA", "DOMINICA", "DOMINICAN REPUBLIC", "ECUADOR",
+    "EL SALVADOR", "GRENADA", "GUATEMALA", "GUYANA", "HAITI", "HONDURAS",
+    "JAMAICA", "MEXICO", "NICARAGUA", "PANAMA", "PARAGUAY", "PERU",
+    "SAINT KITTS AND NEVIS", "ST KITTS AND NEVIS", "SAINT LUCIA", "ST LUCIA",
+    "SAINT VINCENT AND THE GRENADINES", "ST VINCENT AND THE GRENADINES",
+    "SURINAME", "TRINIDAD AND TOBAGO", "URUGUAY", "VENEZUELA",
+    // Oceania
+    "AUSTRALIA", "FIJI", "KIRIBATI", "MARSHALL ISLANDS", "MICRONESIA",
+    "NAURU", "NEW ZEALAND", "PALAU", "PAPUA NEW GUINEA", "SAMOA",
+    "SOLOMON ISLANDS", "TONGA", "TUVALU", "VANUATU",
+    // ISO 3166-1 alpha-2 codes (never a US state or INTL_REGIONS code)
+    "AD", "AE", "AF", "AG", "AM", "AO", "AT", "AU", "BA", "BB", "BD", "BE",
+    "BF", "BG", "BH", "BI", "BJ", "BN", "BO", "BR", "BS", "BT", "BW", "BY",
+    "BZ", "CD", "CF", "CG", "CH", "CI", "CL", "CM", "CN", "CR", "CU", "CV",
+    "CY", "CZ", "DJ", "DK", "DM", "DO", "DZ", "EC", "EE", "EG", "ER", "ES",
+    "ET", "FI", "FJ", "FM", "FR", "GB", "GD", "GE", "GH", "GM", "GN", "GQ",
+    "GR", "GT", "GW", "GY", "HK", "HN", "HR", "HT", "HU", "IE", "IQ", "IR",
+    "IS", "IT", "JM", "JO", "JP", "KE", "KG", "KH", "KI", "KM", "KN", "KP",
+    "KR", "KW", "KZ", "LB", "LC", "LI", "LK", "LR", "LS", "LT", "LU", "LV",
+    "LY", "MC", "MG", "MH", "MK", "ML", "MM", "MR", "MU", "MV", "MW", "MX",
+    "MY", "MZ", "NA", "NG", "NI", "NO", "NP", "NR", "NZ", "OM", "PG", "PH",
+    "PK", "PL", "PS", "PT", "PW", "PY", "QA", "RO", "RS", "RU", "RW", "SB",
+    "SE", "SG", "SI", "SL", "SM", "SN", "SO", "SR", "SS", "ST", "SV", "SY",
+    "SZ", "TD", "TG", "TH", "TJ", "TL", "TM", "TO", "TR", "TT", "TV", "TW",
+    "TZ", "UA", "UG", "UY", "UZ", "VC", "VE", "VN", "VU", "WS", "YE", "ZA",
+    "ZM", "ZW",
   ]);
 
   // The line under the budget field: which figure the plan uses ("Planning

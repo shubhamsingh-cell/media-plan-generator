@@ -59,6 +59,13 @@ punctuation insensitive via ``_norm_key``):
      same US-state-table + currency-lookup + intl-token classifier
      `plan_geo.is_us_plan` uses) instead of a second hand-maintained
      country list -- see plan_geo.py's module docstring.
+ 8a. A non-US country, alone ("Poland", "UAE", "Türkiye") or as the tail of
+     a "City, Country" entry ("Warsaw, Poland", "Warsaw, PL"), is decided
+     BEFORE rules 5 and 9 (`_try_non_us_country`) and returns the same
+     non_us_signal result as rule 8. Without it a bare country name was
+     matched to a US town (Poland, OH / Poland, NY) or fuzzy-corrected to one
+     ("France" -> a Wyoming place). The state rules (2, 4) run first, so
+     "Georgia" stays the US state and "Lebanon, TN" stays Lebanon, Tennessee.
   9. Fuzzy correction (stdlib `difflib.get_close_matches`) against real
      place names -> status="corrected", noting the correction made.
  10. Nothing matched -> status="unresolved", kind="unknown".
@@ -772,6 +779,14 @@ def _resolve_location_inner(raw: Any) -> LocationResolution:
     if keyword_res is not None:
         return keyword_res
 
+    # Rule 8a (D-12): a non-US country, alone or as the tail of a "City,
+    # Country" entry, is non-US -- decided BEFORE the bare-city / fuzzy rules,
+    # which would otherwise read "Poland" as Poland, OH / Poland, ME. The state
+    # rules above already ran, so "Georgia" stays the US state.
+    non_us_res = _try_non_us_country(raw_str, stripped, norm_whole)
+    if non_us_res is not None:
+        return non_us_res
+
     # Rule 5: bare city, no state.
     bare = _resolve_bare_city(raw_str, stripped)
     if bare.status in ("resolved", "ambiguous"):
@@ -792,16 +807,7 @@ def _resolve_location_inner(raw: Any) -> LocationResolution:
     except Exception:
         us_signal = None
     if us_signal is False:
-        return LocationResolution(
-            input=raw_str,
-            status="unresolved",
-            kind="unknown",
-            matched_via="non_us_signal",
-            note=(
-                f"“{stripped}” is outside the US. It stays in your plan exactly as "
-                "entered — Nova can only confirm US locations today."
-            ),
-        )
+        return _non_us_unresolved(raw_str, stripped)
 
     # Rule 10: nothing matched.
     return LocationResolution(
@@ -813,6 +819,38 @@ def _resolve_location_inner(raw: Any) -> LocationResolution:
             "It stays in your plan exactly as entered."
         ),
     )
+
+
+def _non_us_unresolved(raw_str: str, stripped: str) -> LocationResolution:
+    """The one result shape for a location outside the US (rules 8 and 8a)."""
+    return LocationResolution(
+        input=raw_str,
+        status="unresolved",
+        kind="unknown",
+        matched_via="non_us_signal",
+        note=(
+            f"“{stripped}” is outside the US. It stays in your plan exactly as "
+            "entered — Nova can only confirm US locations today."
+        ),
+    )
+
+
+def _try_non_us_country(raw_str: str, stripped: str, norm_whole: str) -> LocationResolution | None:
+    """Rule 8a: the whole input is a non-US country name ("Poland", "UAE",
+    "Türkiye"), or the trailing comma token of a "City, Country" /
+    "City, Region, Country" entry is a country name or ISO alpha-2 code
+    ("Warsaw, Poland", "Warsaw, PL"). Returns None otherwise so the US rules
+    keep the floor. "City ST" (no comma) and a bare two-letter code are NOT
+    read as countries here: "PL" alone stays unresolved rather than guessed."""
+    if norm_whole in _NON_US_PLACE_TOKENS:
+        return _non_us_unresolved(raw_str, stripped)
+    if "," in stripped:
+        parts = [p.strip() for p in stripped.split(",") if p.strip()]
+        if len(parts) >= 2:
+            tail = _norm_key(parts[-1])
+            if tail in _NON_US_PLACE_TOKENS or tail in _WORLD_COUNTRY_CODE_TOKENS:
+                return _non_us_unresolved(raw_str, stripped)
+    return None
 
 
 def _resolve_zip(raw_str: str, zip5: str) -> LocationResolution:
@@ -1128,6 +1166,23 @@ def _is_state_token(tok: str) -> bool:
     return key in _states_by_norm_usps or key in _states_by_name
 
 
+def _is_country_named_us_town(town_key: str, state_tok: str) -> bool:
+    """True when "<town>, <state>" is a real US place whose name is also a
+    country: ("lebanon", "TN"), ("peru", "Illinois"), ("turkey", "TX"). A
+    state right after one of these is a city qualifier, not a second site, so
+    the world country list cannot tear "Lebanon, TN" in two -- while "Mexico
+    City, Mexico, Texas" (no Mexico in Texas) keeps reading as a city, its
+    country and the state of Texas. Mirrors COUNTRY_NAMED_US_TOWNS in
+    templates/partials/index/body_app_js.html (derived from the same place
+    data; tests/test_location_city_country_pairs.py checks the two agree)."""
+    if town_key not in _SPLIT_COUNTRY_TOKENS:
+        return False
+    _ensure_loaded()
+    state_key = _norm_key(state_tok)
+    usps = _states_by_norm_usps.get(state_key) or _states_by_name.get(state_key) or ""
+    return bool(usps) and f"{town_key}|{usps.lower()}" in _places_by_key
+
+
 # First-level regions of the main non-US markets (names and postal codes),
 # _norm_key-normalized. "City, Region" / "City, Region, Country" is ONE site
 # ("Bengaluru, Karnataka, India" used to split into three). A known list
@@ -1156,19 +1211,85 @@ _INTL_REGION_TOKENS = frozenset(
         "scotland", "wales", "northern ireland",
     }
 )
-# Countries that qualify a city ("Paris, France"). MUST match
-# VALID_COUNTRIES in templates/partials/index/body_app_js.html.
-_SPLIT_COUNTRY_TOKENS = _COUNTRY_TOKENS | frozenset(
-    {
-        "canada", "mexico", "united kingdom", "uk", "england", "ireland",
-        "france", "germany", "netherlands", "belgium", "italy", "spain",
-        "portugal", "switzerland", "austria", "sweden", "norway", "denmark",
-        "finland", "australia", "new zealand", "singapore", "malaysia",
-        "india", "japan", "south korea", "korea", "china", "hong kong",
-        "philippines", "thailand", "vietnam", "brazil", "argentina", "chile",
-        "colombia", "peru", "south africa", "uae",
-    }
+# World countries, English short names plus the aliases people type ("Czechia",
+# "Türkiye", "KSA", "Ivory Coast"). A country right after a city qualifies
+# it: "Paris, France" and "Warsaw, Poland" are ONE site. The list used to hold
+# ~43 markets, so "Warsaw, Poland" split in two (D-12). Spelled the natural
+# way here and folded with _norm_key below; the wizard carries the folded
+# form. Deliberately absent: "Georgia" (the US state wins -- the state rules
+# run first), "Holland" / "Macedonia" (Holland, MI and Macedonia, OH are real
+# US towns and "Netherlands" / "North Macedonia" are the names people use in
+# a plan) and Puerto Rico / Guam / the US Virgin Islands (US territories,
+# resolved as states). Scotland / Wales / Northern Ireland are INTL_REGIONS
+# (they qualify a city like a region), not countries here.
+_WORLD_COUNTRY_NAMES: tuple[str, ...] = (
+    # Europe
+    "Albania", "Andorra", "Austria", "Belarus", "Belgium", "Bosnia and Herzegovina", "Bosnia",
+    "Bulgaria", "Croatia", "Cyprus", "Czech Republic", "Czechia", "Denmark", "Estonia",
+    "Finland", "France", "Germany", "Greece", "Hungary", "Iceland", "Ireland",
+    "Republic of Ireland", "Italy", "Kosovo", "Latvia", "Liechtenstein", "Lithuania",
+    "Luxembourg", "Malta", "Moldova", "Monaco", "Montenegro", "Netherlands", "The Netherlands",
+    "North Macedonia", "Norway", "Poland", "Portugal", "Romania",
+    "Russia", "Russian Federation", "San Marino", "Serbia", "Slovakia", "Slovak Republic",
+    "Slovenia", "Spain", "Sweden", "Switzerland", "Ukraine", "United Kingdom", "UK",
+    "Great Britain", "Britain", "England", "Vatican City",
+    # Asia and Middle East
+    "Afghanistan", "Armenia", "Azerbaijan", "Bahrain", "Bangladesh", "Bhutan", "Brunei",
+    "Cambodia", "China", "People's Republic of China", "Hong Kong", "Macau", "Macao", "India",
+    "Indonesia", "Iran", "Iraq", "Israel", "Japan", "Jordan", "Kazakhstan", "Kuwait",
+    "Kyrgyzstan", "Laos", "Lebanon", "Malaysia", "Maldives", "Mongolia", "Myanmar", "Burma",
+    "Nepal", "North Korea", "Oman", "Pakistan", "Palestine", "Philippines", "Qatar",
+    "Saudi Arabia", "KSA", "Singapore", "South Korea", "Korea", "Republic of Korea",
+    "Sri Lanka", "Syria", "Taiwan", "Tajikistan", "Thailand", "Timor-Leste", "East Timor",
+    "Turkey", "Türkiye", "Turkmenistan", "UAE", "United Arab Emirates", "Uzbekistan", "Vietnam",
+    "Viet Nam", "Yemen",
+    # Africa
+    "Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde",
+    "Cape Verde", "Cameroon", "Central African Republic", "Chad", "Comoros", "Congo",
+    "DR Congo", "DRC", "Democratic Republic of the Congo", "Republic of the Congo",
+    "Côte d'Ivoire", "Ivory Coast", "Djibouti", "Egypt", "Equatorial Guinea", "Eritrea",
+    "Eswatini", "Swaziland", "Ethiopia", "Gabon", "Gambia", "The Gambia", "Ghana", "Guinea",
+    "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Libya", "Madagascar", "Malawi", "Mali",
+    "Mauritania", "Mauritius", "Morocco", "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda",
+    "Sao Tome and Principe", "Senegal", "Seychelles", "Sierra Leone", "Somalia", "South Africa",
+    "South Sudan", "Sudan", "Tanzania", "Togo", "Tunisia", "Uganda", "Zambia", "Zimbabwe",
+    # Americas
+    "Antigua and Barbuda", "Argentina", "Bahamas", "The Bahamas", "Barbados", "Belize",
+    "Bolivia", "Brazil", "Brasil", "Canada", "Chile", "Colombia", "Costa Rica", "Cuba",
+    "Dominica", "Dominican Republic", "Ecuador", "El Salvador", "Grenada", "Guatemala",
+    "Guyana", "Haiti", "Honduras", "Jamaica", "Mexico", "Nicaragua", "Panama", "Paraguay",
+    "Peru", "Saint Kitts and Nevis", "St Kitts and Nevis", "Saint Lucia", "St Lucia",
+    "Saint Vincent and the Grenadines", "St Vincent and the Grenadines", "Suriname",
+    "Trinidad and Tobago", "Uruguay", "Venezuela",
+    # Oceania
+    "Australia", "Fiji", "Kiribati", "Marshall Islands", "Micronesia", "Nauru", "New Zealand",
+    "Palau", "Papua New Guinea", "Samoa", "Solomon Islands", "Tonga", "Tuvalu", "Vanuatu",
 )
+_WORLD_COUNTRY_NAME_TOKENS = frozenset(_norm_key(n) for n in _WORLD_COUNTRY_NAMES)
+# ISO 3166-1 alpha-2 codes of the sovereign states ("Warsaw, PL"). A code is
+# listed ONLY when it is not a US state/territory code and not an
+# INTL_REGIONS code: AL AR AZ CA CO DE GA ID IL IN LA MA MD ME MN MT NE PA
+# SC SD TN VA stay US states, and NL PE SA SK stay Canadian/Australian
+# regions, so "Jakarta, ID" is Idaho and "Adelaide, SA" is South Australia.
+# tests/test_location_city_country_pairs.py guards the no-overlap rule.
+_WORLD_COUNTRY_CODE_TOKENS = frozenset(
+    """
+    ad ae af ag am ao at au ba bb bd be bf bg bh bi bj bn bo br bs bt bw by bz cd cf cg ch ci
+    cl cm cn cr cu cv cy cz dj dk dm do dz ec ee eg er es et fi fj fm fr gb gd ge gh gm gn gq
+    gr gt gw gy hk hn hr ht hu ie iq ir is it jm jo jp ke kg kh ki km kn kp kr kw kz lb lc li
+    lk lr ls lt lu lv ly mc mg mh mk ml mm mr mu mv mw mx my mz na ng ni no np nr nz om pg ph
+    pk pl ps pt pw py qa ro rs ru rw sb se sg si sl sm sn so sr ss st sv sy sz td tg th tj tl
+    tm to tr tt tv tw tz ua ug uy uz vc ve vn vu ws ye za zm zw
+    """.split()
+)
+# Countries that qualify a city. MUST match VALID_COUNTRIES in
+# templates/partials/index/body_app_js.html (tests/test_location_regressions.py
+# enforces parity; the wizard carries the _norm_key-folded, upper-cased form).
+_SPLIT_COUNTRY_TOKENS = _COUNTRY_TOKENS | _WORLD_COUNTRY_NAME_TOKENS | _WORLD_COUNTRY_CODE_TOKENS
+# Whole-input / trailing-token check of the resolver's non-US pre-rule
+# (_try_non_us_country): a country name, or one of the UK nations, never
+# resolves to a US town. An ISO code counts only as a "City, XX" tail.
+_NON_US_PLACE_TOKENS = _WORLD_COUNTRY_NAME_TOKENS | frozenset({"scotland", "wales", "northern ireland"})
 _REGION_CODE_RE = re.compile(r"^[a-z]{2,3}$")
 
 
@@ -1178,14 +1299,14 @@ def _split_location_chunk(chunk: str) -> list[tuple[str, bool]]:
     qualifier, not a new site; a bare state code/country or a location kind
     ("Remote") never absorbs the next token. A full state name that is also
     a city ("New York", "Washington", "Indiana") is a bare state only when
-    no state/region CODE follows it: "New York, NY" is one site.
+    no state/region CODE follows it: "New York, NY" is one site. A country
+    name that is also a US town ("Lebanon", "Peru") takes a following state
+    ("Lebanon, TN") instead of reading as a country.
     Returns (text, qualified) per site -- qualified by a state or region."""
     kinds = _REMOTE_TOKENS | _NATIONWIDE_TOKENS
     sites: list[dict[str, Any]] = []
-    for raw in chunk.split(","):
-        tok = raw.strip()
-        if not tok:
-            continue
+    tokens = [t.strip() for t in chunk.split(",") if t.strip()]
+    for i, tok in enumerate(tokens):
         key = _norm_key(tok)
         is_state = _is_state_token(tok)
         is_region = not is_state and key in _INTL_REGION_TOKENS
@@ -1193,7 +1314,40 @@ def _split_location_chunk(chunk: str) -> list[tuple[str, bool]]:
             key in _states_by_norm_usps or key in _INTL_REGION_TOKENS
         )
         is_country = key in _SPLIT_COUNTRY_TOKENS
+        # A country-named town whose state follows ("Atlanta, Lebanon, TN"), or
+        # a city-state spelled twice ("Dallas, TX, Singapore, Singapore"),
+        # starts its own site; it is not the previous city's country.
+        starts_town = is_country and i + 1 < len(tokens) and (
+            _is_country_named_us_town(key, tokens[i + 1])
+            or (
+                _norm_key(tokens[i + 1]) == key
+                and not (i + 2 < len(tokens) and _is_country_named_us_town(key, tokens[i + 2]))
+            )
+        )
         prev = sites[-1] if sites else None
+        # A country name that is also a US town takes its state ("Lebanon,
+        # TN", "Turkey, Texas"): one site, not a country plus a state.
+        if (
+            prev
+            and prev["bare_country"]
+            and is_state
+            and not prev["state"]
+            and not prev["country"]
+            and _is_country_named_us_town(_norm_key(prev["text"]), tok)
+        ):
+            prev["text"] = f"{prev['text']}, {tok}"
+            prev["state"] = True
+            prev["bare"] = False
+            prev["bare_country"] = False
+            continue
+        # A city-state spelled as its own country ("Singapore, Singapore") is
+        # one site, not the same country twice.
+        if prev and prev["bare_country"] and is_country and _norm_key(prev["text"]) == key:
+            prev["text"] = f"{prev['text']}, {tok}"
+            prev["bare_country"] = False
+            prev["bare"] = False
+            prev["country"] = True
+            continue
         can_qualify = (
             bool(prev)
             and (not prev["bare"] or (prev["state_name"] and is_code and not prev["state"]))
@@ -1204,7 +1358,7 @@ def _split_location_chunk(chunk: str) -> list[tuple[str, bool]]:
             prev["state"] = True
             prev["bare"] = False
             continue
-        if can_qualify and is_country and not prev["country"]:
+        if can_qualify and is_country and not starts_town and not prev["country"]:
             prev["text"] = f"{prev['text']}, {tok}"
             prev["country"] = True
             continue
@@ -1213,6 +1367,7 @@ def _split_location_chunk(chunk: str) -> list[tuple[str, bool]]:
             {
                 "text": tok,
                 "bare": is_state or is_country,
+                "bare_country": is_country,
                 "state_name": is_state and not is_code,
                 "state": bool(trailing and _is_state_token(trailing.group(1))),
                 "country": False,
