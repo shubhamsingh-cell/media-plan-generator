@@ -214,6 +214,18 @@ def _rest_url(path: str) -> str:
     return f"{base}/rest/v1/{path}"
 
 
+def _upsert_url() -> str:
+    """REST URL for an upsert into the cache table, keyed on ``key``.
+
+    ``?on_conflict=key`` is REQUIRED for ``Prefer: resolution=merge-duplicates``
+    to work: without it PostgREST resolves conflicts against the PRIMARY KEY
+    (``id``), the incoming row has no id, the INSERT runs, and Postgres raises a
+    unique violation on ``cache_key_key`` -> HTTP 409 for every re-write of an
+    existing (e.g. expired) key.
+    """
+    return _rest_url(f"{_TABLE}?on_conflict=key")
+
+
 def _http_request(
     url: str,
     method: str = "GET",
@@ -432,7 +444,7 @@ def cache_set(
     if not _ENABLED:
         return False
 
-    url = _rest_url(_TABLE)
+    url = _upsert_url()
     headers = _build_headers(
         {
             "Prefer": "resolution=merge-duplicates,return=minimal",
@@ -675,7 +687,7 @@ def cache_set_many(entries: List[Dict[str, Any]]) -> int:
     if not _ENABLED or not entries:
         return 0
 
-    url = _rest_url(_TABLE)
+    url = _upsert_url()
     headers = _build_headers(
         {
             "Prefer": "resolution=merge-duplicates,return=minimal",
@@ -683,7 +695,10 @@ def cache_set_many(entries: List[Dict[str, Any]]) -> int:
     )
 
     now = _now_iso()
-    rows = []
+    # Keyed by cache key, last entry wins: Postgres rejects an ON CONFLICT DO
+    # UPDATE batch that touches the same key twice ("cannot affect row a second
+    # time", HTTP 400). dict preserves first-seen order.
+    rows_by_key: Dict[Any, Dict[str, Any]] = {}
     for entry in entries:
         key = entry.get("key")
         data = entry.get("data")
@@ -691,16 +706,15 @@ def cache_set_many(entries: List[Dict[str, Any]]) -> int:
             continue
         ttl = entry.get("ttl", DEFAULT_TTL)
         category = entry.get("category", "general")
-        rows.append(
-            {
-                "key": key,
-                "data": data,
-                "created_at": now,
-                "expires_at": _expires_iso(ttl),
-                "category": category,
-                "hit_count": 0,
-            }
-        )
+        rows_by_key[key] = {
+            "key": key,
+            "data": data,
+            "created_at": now,
+            "expires_at": _expires_iso(ttl),
+            "category": category,
+            "hit_count": 0,
+        }
+    rows = list(rows_by_key.values())
 
     if not rows:
         return 0
