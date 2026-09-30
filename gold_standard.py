@@ -36,8 +36,10 @@ except ImportError:  # pragma: no cover - plan_currency ships with the repo
     _plan_currency_gs = None
 
 try:
+    import plan_geo as _plan_geo_gs
     from plan_geo import US_STATE_NAME_TO_ABBR as _US_STATE_NAME_TO_ABBR
 except ImportError:  # pragma: no cover - plan_geo ships with the repo
+    _plan_geo_gs = None
     _US_STATE_NAME_TO_ABBR = {}
 
 # S50: Seasonal hiring trends -- enriches activation calendar with
@@ -1610,11 +1612,6 @@ _CLEARANCE_ELIGIBLE_INDUSTRIES: set[str] = {
 }
 
 
-_US_COUNTRY_TOKENS_GS: frozenset[str] = frozenset(
-    {"us", "usa", "u.s.", "u.s.a.", "united states", "america"}
-)
-
-
 def _is_us_country_gs(data: dict) -> bool:
     """True when the plan's target country is the United States.
 
@@ -1623,42 +1620,16 @@ def _is_us_country_gs(data: dict) -> bool:
     codebase. Gate it on country so a non-US plan (e.g. New Zealand, which
     uses NZSIS CV/SV levels -- a different system entirely) never receives
     fabricated US clearance data (S4).
+
+    K-14: delegates to the shared ``plan_geo.is_us_plan`` resolver. The old
+    inline check took the token after the last comma ("va", "dc", "al") and
+    returned False whenever it was not a currency-table country, so every
+    bare "City, ST" plan -- the production location shape -- was read as
+    NON-US and a US federal plan got the "non-US reference-only" note.
     """
-    explicit = str(data.get("country") or "").strip().lower()
-    if explicit:
-        if explicit in _US_COUNTRY_TOKENS_GS:
-            return True
-        if _plan_currency_gs is not None:
-            code = _plan_currency_gs.currency_for_country(explicit)
-            if code:
-                return code == "USD"
+    if _plan_geo_gs is None:  # pragma: no cover - plan_geo ships with the repo
         return False
-
-    locations = data.get("locations") or []
-    if isinstance(locations, str):
-        locations = [locations]
-    if isinstance(locations, list):
-        for loc in locations:
-            loc_str = ""
-            if isinstance(loc, str):
-                loc_str = loc
-            elif isinstance(loc, dict):
-                loc_str = loc.get("country") or loc.get("location") or ""
-            loc_str = loc_str.strip().lower()
-            if not loc_str:
-                continue
-            tail = loc_str.rsplit(",", 1)[-1].strip()
-            if tail in _US_COUNTRY_TOKENS_GS:
-                return True
-            if _plan_currency_gs is not None:
-                code = _plan_currency_gs.currency_for_country(tail)
-                if code:
-                    return code == "USD"
-            return False
-
-    # No location signal at all -- assume domestic (matches the historical
-    # default used elsewhere in the pipeline when no country is specified).
-    return True
+    return _plan_geo_gs.is_us_plan(data)
 
 
 def _is_clearance_eligible_industry(industry: str) -> bool:
@@ -1709,8 +1680,12 @@ def detect_clearance_requirements(data: dict) -> dict[str, Any] | None:
         elif isinstance(r, dict):
             all_text += f" {str(r.get('title') or '').lower()}"
 
-    # Gate 2: Check for defense keywords in the combined text
-    matches = [kw for kw in _DEFENSE_KEYWORDS if kw in all_text]
+    # Gate 2: Check for defense keywords in the combined text. Whole words
+    # only (C-18): a raw substring test found "cia" in "Social Worker" and
+    # "secret" in "Administrative Secretary".
+    matches = [
+        kw for kw in sorted(_DEFENSE_KEYWORDS) if _token_boundary_match(kw, all_text)
+    ]
     if not matches:
         return None
 
@@ -1732,12 +1707,21 @@ def detect_clearance_requirements(data: dict) -> dict[str, Any] | None:
             ],
         }
 
-    # Determine the likely clearance level
-    if any(kw in all_text for kw in ("ts/sci", "sci", "compartmented")):
+    # Determine the likely clearance level from an EXPLICIT clearance token
+    # in the client/industry/brief/role text. Whole words only (C-18): the
+    # old substring test priced every "Data Scientist" / "Research
+    # Scientist" as Top Secret / SCI (25% premium, 16 weeks, 2.5x budget)
+    # because "sci" sits inside "scientist", and every "Secretary" as
+    # Secret. With no explicit tier token a clearance-eligible plan keeps
+    # the lowest tier (Public Trust), as before.
+    def _has_token(*keywords: str) -> bool:
+        return any(_token_boundary_match(kw, all_text) for kw in keywords)
+
+    if _has_token("ts/sci", "sci", "compartmented"):
         primary_clearance = _CLEARANCE_TYPES[0]
-    elif any(kw in all_text for kw in ("top secret",)):
+    elif _has_token("top secret"):
         primary_clearance = _CLEARANCE_TYPES[1]
-    elif any(kw in all_text for kw in ("secret", "classified", "cleared")):
+    elif _has_token("secret", "classified", "cleared"):
         primary_clearance = _CLEARANCE_TYPES[2]
     else:
         primary_clearance = _CLEARANCE_TYPES[3]
