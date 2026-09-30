@@ -4549,6 +4549,66 @@ def _sanitize_request_value(val: Any) -> Any:
     return val
 
 
+# URL-scheme screen for /api/generate string fields (defence in depth next to
+# _sanitize_request_value's tag stripping). A scheme only counts in URL FORM:
+# it must start a token (start of text or after a non-alphanumeric, so
+# "profile:", "metadata:", "bigdata:" never match) AND look like a link --
+#   javascript:/vbscript:  colon followed directly by a non-space
+#                          ("javascript:alert(1)", "javascript://..."), or in
+#                          an attribute position (after =, a quote or "(");
+#   data:                  a media type after it ("data:text/html;base64,...");
+#   file:                  a path after it ("file:///etc/passwd").
+# Prose -- "Ideal candidate profile:", "Big data: 5 yrs", "File: RFP.pdf",
+# "JavaScript: 3+ years", "Note: ...", "10:30" -- passes. A URL-typed field
+# (client_website, *_url, *link*) is rejected whenever its value itself STARTS
+# with one of the schemes (browsers ignore tabs/newlines inside a URL).
+_URL_SCHEME_LEAD = r"(?:^|(?<=[^A-Za-z0-9+.\-]))"
+_DANGEROUS_URL_PATTERNS: "tuple[tuple[str, re.Pattern[str]], ...]" = (
+    (
+        "javascript",
+        re.compile(
+            rf"{_URL_SCHEME_LEAD}javascript\s*:(?=\S)"
+            r"|[=\"'(`]\s*javascript\s*:",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "vbscript",
+        re.compile(
+            rf"{_URL_SCHEME_LEAD}vbscript\s*:(?=\S)|[=\"'(`]\s*vbscript\s*:",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "data",
+        re.compile(
+            rf"{_URL_SCHEME_LEAD}data\s*:\s*[a-z]+/[a-z0-9.+\-]+\s*[;,]",
+            re.IGNORECASE,
+        ),
+    ),
+    ("file", re.compile(rf"{_URL_SCHEME_LEAD}file\s*:\s*/", re.IGNORECASE)),
+)
+_URL_FIELD_HINTS: tuple = ("url", "website", "link", "href")
+_URL_FIELD_SCHEME_RE = re.compile(r"^(javascript|vbscript|data|file):", re.IGNORECASE)
+
+
+def _dangerous_url_scheme(field_name: Any, value: str) -> str:
+    """The dangerous scheme ("javascript", "vbscript", "data", "file") that
+    ``value`` carries as a link, or "" -- see the table above."""
+    if not value or ":" not in value:
+        return ""
+    key = str(field_name or "").lower()
+    if any(hint in key for hint in _URL_FIELD_HINTS):
+        compact = re.sub(r"[\x00-\x20]+", "", value)
+        m = _URL_FIELD_SCHEME_RE.match(compact)
+        if m:
+            return m.group(1).lower()
+    for scheme, pattern in _DANGEROUS_URL_PATTERNS:
+        if pattern.search(value):
+            return scheme
+    return ""
+
+
 def _apply_channel_selection(channel_pcts: dict, data: dict) -> dict:
     """Zero out (and renormalise the rest of) any channel the user
     explicitly disabled in ``data["channel_categories"]`` before the
@@ -18052,29 +18112,30 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
                     data["campaign_start_month"] = _dt_fix.datetime.now().month
 
-            # ── Gold Standard: Reject javascript:/file:// URLs in all string fields ──
-            _DANGEROUS_URL_RE = re.compile(
-                r"(?:javascript|file|data|vbscript)\s*:", re.IGNORECASE
-            )
+            # ── Gold Standard: Reject javascript:/vbscript:/data:/file: URLs ──
+            # Only a scheme in URL form is rejected (_dangerous_url_scheme);
+            # prose such as "Ideal candidate profile:", "Metadata:",
+            # "Big data: ..." or "JavaScript: 3 years" used to 400 because
+            # the old pattern had no word boundary (wizard audit D-10).
             for _fkey, _fval in data.items():
-                if isinstance(_fval, str) and _DANGEROUS_URL_RE.search(_fval):
-                    _gen_timer.cancel()
-                    self._send_error(
-                        f"Field '{_fkey}' contains a disallowed URL scheme (javascript/file/data).",
-                        "VALIDATION_ERROR",
-                        400,
+                _items = _fval if isinstance(_fval, list) else [_fval]
+                for _item in _items:
+                    _scheme = (
+                        _dangerous_url_scheme(_fkey, _item)
+                        if isinstance(_item, str)
+                        else ""
                     )
-                    return
-                if isinstance(_fval, list):
-                    for _item in _fval:
-                        if isinstance(_item, str) and _DANGEROUS_URL_RE.search(_item):
-                            _gen_timer.cancel()
-                            self._send_error(
-                                f"Field '{_fkey}' contains a disallowed URL scheme.",
-                                "VALIDATION_ERROR",
-                                400,
-                            )
-                            return
+                    if _scheme:
+                        _gen_timer.cancel()
+                        self._send_error(
+                            f"Field '{_fkey}' contains a {_scheme}: link, which "
+                            "isn't allowed. Remove the link (or paste it without "
+                            f"'{_scheme}:') and try again.",
+                            "VALIDATION_ERROR",
+                            400,
+                            field=str(_fkey),
+                        )
+                        return
 
             _validation_warnings = []
             if not _roles_input or (
