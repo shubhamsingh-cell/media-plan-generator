@@ -31,7 +31,7 @@ import pytest
 
 import posthog_integration as ph
 
-_PERSONAL_KEY = "phx_SECRETSECRETSECRET0123456789"
+_PERSONAL_KEY = "phx_" + "FAKE" * 8
 _PROJECT_KEY = "phc_projectkey0123456789"
 
 
