@@ -2835,7 +2835,7 @@ def fuse_ad_platform_analysis(
         # CPC 5.81 = benchmark_registry.CHANNEL_BENCHMARKS["google_ads"]
         # (LocaliQ 2026 Search Advertising Benchmarks, Career & Employment,
         # updated 2026-06-01; refreshed 2026-10-01). Prior CPC 2.90. CPA
-        # 48.96: unverified -- held (the source's $67.36 cost per lead is
+        # 48.96: unverified -- held (the source's 67.36 cost per lead is
         # likely a source error, see the registry entry). CPM unchanged
         # (original 2024-2025 vintage; no fresher cited figure).
         "Google Ads": {

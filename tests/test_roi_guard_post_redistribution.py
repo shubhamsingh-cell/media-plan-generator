@@ -297,7 +297,16 @@ class TestRealBriefDiscriminators:
     def _build(self, brief_name):
         import tools_regen_bundles as regen
 
-        brief = regen.MANPOWER_BRIEF if brief_name == "manpower" else regen.ATRIA_BRIEF
+        brief = dict(
+            regen.MANPOWER_BRIEF if brief_name == "manpower" else regen.ATRIA_BRIEF
+        )
+        # Pin the campaign month (July), exactly as test_funnel_calibration's
+        # TestHeadlineInvariance does: neither brief sets one, so the seasonal
+        # CPC factor otherwise follows the REAL calendar month. 2026-10-01: in
+        # October Atria's Social Media drew enough applications to earn one
+        # redistributed hire (roi 6, 5.5% share) -- a calendar artifact, not
+        # the provisional-ROI defect this discriminator guards.
+        brief["campaign_start_month"] = 7
         return regen.build_plan_data(brief)["_budget_allocation"]
 
     @pytest.mark.parametrize("brief_name", ["manpower", "atria"])
