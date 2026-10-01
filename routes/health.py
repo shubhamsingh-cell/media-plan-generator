@@ -1683,6 +1683,12 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
     try:
         import vector_search as _vs
 
+        # Attach FIRST so the dim guard and last_qdrant_error below reflect
+        # this worker's real view of the collection, not a cold-start None
+        # (the attach is what runs the dimension/distance compatibility check).
+        # Read-only GET and a no-op once armed; the later call in the
+        # retrieval block below stays as a no-op inside the 60s cooldown.
+        _vs._qdrant_attach()
         result["embedding"] = {
             "provider": _vs.get_embedding_provider(),
             "model": _vs.get_active_embedding_model(),
@@ -1701,6 +1707,13 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
             # embedding" -- both looked like qdrant_point_count staying
             # None/0 with last_embed_error null).
             "last_qdrant_error": _vs._last_qdrant_error,
+            # Embedding-dimension guard: None when the active collection's
+            # vector size/distance match the active model; otherwise a dict
+            # {collection, model, expected_dim, actual_dim, expected_distance,
+            # actual_distance, named_vectors, reason}. While set, this worker
+            # refuses to search/upsert that collection and serves BM25/TF-IDF
+            # -- a silent wrong-dim collection used to look healthy here.
+            "dim_guard": _vs._qdrant_dim_guard,
         }
 
         # Retrieval-layer observability. indexed_documents above reads 0

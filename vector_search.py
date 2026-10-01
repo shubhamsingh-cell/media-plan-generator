@@ -340,6 +340,18 @@ def _record_qdrant_error(msg: str) -> None:
     _last_qdrant_error = sanitized[:300]
 
 
+# Embedding-dimension guard state (see _qdrant_dim_guard_check). Set when the
+# ACTIVE collection already exists in Qdrant but its configured vector size /
+# distance does not match the active embedding model; None whenever the
+# collection is compatible (or its config could not be read). Exposed on
+# /api/deploy/ready's embedding block as ``dim_guard`` and in get_status().
+_qdrant_dim_guard: dict[str, Any] | None = None
+# Mismatch signatures already reported by logger.error in THIS process, so the
+# 60s attach retry cadence (and every worker's cold start) logs the error once
+# instead of once a minute forever.
+_qdrant_dim_guard_logged: set[tuple] = set()
+
+
 _GEMINI_EMBED_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 _GEMINI_EMBED_TIMEOUT = 20  # seconds
 _GEMINI_MAX_BATCH = 100  # Gemini batchEmbedContents accepts up to 100 requests
@@ -1143,6 +1155,133 @@ def _qdrant_request(
         return None
 
 
+def _qdrant_vector_params(info: Any) -> tuple[int | None, str | None, bool]:
+    """Extract ``(size, distance, named_vectors)`` from a collection-info dict.
+
+    ``info`` is the ``result`` object of ``GET /collections/{name}``. A single
+    unnamed vector config looks like ``{"size": 1024, "distance": "Cosine"}``; a
+    named-vector collection maps names to such dicts. Never raises: anything
+    unrecognised yields ``(None, None, False)`` ("could not read the config").
+    """
+    if not isinstance(info, dict):
+        return None, None, False
+    config = info.get("config")
+    params = config.get("params") if isinstance(config, dict) else None
+    vectors = params.get("vectors") if isinstance(params, dict) else None
+    if not isinstance(vectors, dict) or not vectors:
+        return None, None, False
+    if "size" in vectors:
+        try:
+            size: int | None = int(vectors["size"])
+        except (TypeError, ValueError):
+            size = None
+        distance = vectors.get("distance")
+        return size, (str(distance) if distance is not None else None), False
+    # Named-vector collection: this module upserts/searches the unnamed default
+    # vector, which such a collection does not have.
+    return None, None, True
+
+
+def _qdrant_dim_guard_check(collection: str, info: Any) -> bool:
+    """Compare an EXISTING collection's vector config with the active embedding.
+
+    Collection names encode model + dim (``_active_collection``), so a mismatch
+    can only appear if a dim constant changed without a rename, the collection
+    was created by hand/another tool, or ``VOYAGE_EMBED_DIM`` was set for an
+    unknown model. Without this check that case is silent: upserts are rejected
+    by Qdrant (or, on a hand-made collection with the right size but a
+    different distance, scored on the wrong metric) while ``qdrant_attached``
+    reads true and /api/deploy/ready looks healthy.
+
+    On a mismatch: record ``_qdrant_dim_guard`` (surfaced on /api/deploy/ready),
+    set ``last_qdrant_error``, log ONE error per process per distinct mismatch,
+    and return True so the caller refuses to attach/upsert/search -- search()
+    then falls through to BM25/TF-IDF. Fail-soft by construction: it only
+    reads the dict it is handed and never raises, so a worker can neither crash
+    nor crash-loop on it.
+
+    A config that cannot be read (older Qdrant, unexpected shape) is NOT a
+    proven mismatch: it logs a one-time warning and returns False (fail open),
+    which keeps the pre-guard behaviour.
+
+    Args:
+        collection: The collection name being checked (for messages).
+        info: ``result`` dict from ``GET /collections/{collection}``.
+
+    Returns:
+        True if the collection is incompatible and must not be used.
+    """
+    global _qdrant_dim_guard, _last_qdrant_error
+
+    size, distance, named = _qdrant_vector_params(info)
+    expected_dim = _active_vector_dim()
+    reason: str | None = None
+    if named:
+        reason = (
+            f"collection '{collection}' uses named vectors; this code addresses "
+            "the unnamed default vector"
+        )
+    elif size is None:
+        key = ("unverifiable", collection)
+        if key not in _qdrant_dim_guard_logged:
+            _qdrant_dim_guard_logged.add(key)
+            logger.warning(
+                "Qdrant dim guard: cannot read vector config of '%s'; "
+                "dimension/distance not verified",
+                collection,
+            )
+        _qdrant_dim_guard = None
+        return False
+    elif size != expected_dim:
+        reason = (
+            f"collection '{collection}' vector size {size} != active embedding "
+            f"dim {expected_dim} ({get_active_embedding_model()})"
+        )
+    elif distance is not None and distance.lower() != "cosine":
+        reason = f"collection '{collection}' distance {distance} != Cosine"
+
+    if reason is None:
+        # Compatible (again): drop a stale guard + the error it recorded.
+        if (
+            _qdrant_dim_guard is not None
+            and _qdrant_dim_guard.get("collection") == collection
+        ):
+            if (_last_qdrant_error or "").startswith("dim guard:"):
+                _last_qdrant_error = None
+        _qdrant_dim_guard = None
+        return False
+
+    _qdrant_dim_guard = {
+        "collection": collection,
+        "model": get_active_embedding_model(),
+        "expected_dim": expected_dim,
+        "actual_dim": size,
+        "expected_distance": "Cosine",
+        "actual_distance": distance,
+        "named_vectors": named,
+        "reason": reason,
+    }
+    _record_qdrant_error(f"dim guard: {reason}")
+    signature = (collection, size, distance, named, expected_dim)
+    if signature not in _qdrant_dim_guard_logged:
+        _qdrant_dim_guard_logged.add(signature)
+        logger.error(
+            "QDRANT DIM GUARD: %s -- refusing to attach, search or upsert this "
+            "collection (pid=%d); retrieval falls back to BM25/TF-IDF. Fix by "
+            "renaming/recreating the collection at the active dim "
+            "(scripts/reindex_embeddings.py --recreate) or reverting the model.",
+            reason,
+            os.getpid(),
+        )
+    return True
+
+
+def _qdrant_guarded() -> bool:
+    """True while the ACTIVE collection is refused by the dim guard."""
+    guard = _qdrant_dim_guard
+    return guard is not None and guard.get("collection") == _active_collection()
+
+
 def _qdrant_ensure_collection() -> bool:
     """Create the Qdrant collection if it does not already exist.
 
@@ -1171,6 +1310,11 @@ def _qdrant_ensure_collection() -> bool:
     # Check if collection already exists
     check = _qdrant_request("GET", f"/collections/{collection}")
     if check and check.get("result"):
+        # An existing collection at the wrong dim/distance must never be
+        # upserted into (build_index only upserts when this returns True).
+        if _qdrant_dim_guard_check(collection, check["result"]):
+            _qdrant_available = False
+            return False
         _qdrant_available = True
         _last_qdrant_error = None
         logger.info("Qdrant collection '%s' already exists", collection)
@@ -1269,6 +1413,10 @@ def _qdrant_attach() -> bool:
 
         check = _qdrant_request("GET", f"/collections/{_active_collection()}")
         if check and check.get("result"):
+            # Dim/distance guard: attach only to a collection this process's
+            # embedding model can actually search (see _qdrant_dim_guard_check).
+            if _qdrant_dim_guard_check(_active_collection(), check["result"]):
+                return False
             _qdrant_available = True
             logger.info(
                 "Qdrant attached lazily in PID %d for collection %s",
@@ -1302,6 +1450,8 @@ def _qdrant_upsert_points(
     global _last_qdrant_error
 
     if not _qdrant_available or not points:
+        return False
+    if _qdrant_guarded():  # defence in depth: never write into a wrong-dim collection
         return False
 
     batch_size = 100
@@ -1345,6 +1495,8 @@ def _qdrant_search(
         Returns None on failure (so caller can fall back to in-memory).
     """
     if not _qdrant_available:
+        return None
+    if _qdrant_guarded():  # defence in depth: wrong-dim collection -> next tier
         return None
 
     result = _qdrant_request(
@@ -3508,4 +3660,7 @@ def get_status() -> dict:
         "embedding_provider": get_embedding_provider(),
         "embedding_model": get_active_embedding_model(),
         "embedding_dim": _active_vector_dim(),
+        # Non-None while the active Qdrant collection is refused because its
+        # vector size/distance does not match the active embedding model.
+        "qdrant_dim_guard": _qdrant_dim_guard,
     }
