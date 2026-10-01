@@ -55,6 +55,7 @@ class Worker:
         env = {k: v for k, v in os.environ.items() if not k.startswith("SUPABASE_")}
         env.pop("NOVA_STATE_SUPABASE_URL", None)
         env.pop("NOVA_STATE_SUPABASE_KEY", None)
+        env.pop("NOVA_SHARED_STATE_DURABLE", None)  # opt-in only via extra_env
         env.update({"NOVA_SLOT_DIR": state_dir, "PYTHONUNBUFFERED": "1"})
         env.update(extra_env)
         self.name = name
@@ -340,6 +341,7 @@ def test_in_flight_job_progress_is_visible_and_session_locked(cluster) -> None:
 def test_state_survives_a_restart_onto_an_empty_disk(log_dir: str) -> None:
     fake = FakePostgrest()
     durable_env = {
+        "NOVA_SHARED_STATE_DURABLE": "1",  # the Supabase layer is opt-in
         "NOVA_STATE_SUPABASE_URL": fake.url,
         "NOVA_STATE_SUPABASE_KEY": "test-service-key",
     }

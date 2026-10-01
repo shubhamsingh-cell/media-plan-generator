@@ -22,7 +22,10 @@ falls through -- nothing here raises into a request handler.
   across processes with ``fcntl.flock`` (non-blocking + retry: a blocking flock
   would stall a gevent worker's whole event loop). Render's disk is wiped on
   deploy, so this layer alone does not survive restarts.
-* **Durable layer** -- the Supabase ``cache`` table that already exists in prod
+* **Durable layer** (OPT-IN, default OFF: ``NOVA_SHARED_STATE_DURABLE=1``;
+  it stays off until it has had an independent security review, because it
+  writes client plan data into a table the public anon key can read) -- the
+  Supabase ``cache`` table that already exists in prod
   (supabase_cache.py writes it; its 409 ``cache_key_key`` errors in the
   2026-10-01 telemetry prove the table, its columns, and that ``key`` is a
   UNIQUE non-primary column). No schema change: rows are upserted with
@@ -39,10 +42,14 @@ anyone can READ and WRITE that table. Each id stored here (share id, job id,
 plan id) is a >=128-bit bearer secret, and the records are client plans, so:
 
 * the row key is an HMAC of the id -- listing the table reveals no id;
-* the payload is encrypted and authenticated (encrypt-then-MAC: SHAKE-256
-  keystream, HMAC-SHA256 tag over nonce + ciphertext) under keys derived from
-  a SERVER-ONLY secret and the id. Readers of the table learn nothing, and a
-  forged or swapped row fails authentication and is treated as a miss --
+* the payload is encrypted and authenticated under a key derived from a
+  SERVER-ONLY secret, the id and the namespace, with a fresh random nonce per
+  seal stored beside the ciphertext (so re-writing the same id never reuses a
+  keystream). AES-256-GCM (``cryptography``, in requirements.txt) is used when
+  it imports, with id + namespace as associated data; otherwise a stdlib
+  fallback (SHAKE-256 keystream over key || nonce, HMAC-SHA256 over
+  nonce || ciphertext, encrypt-then-MAC). Readers of the table learn nothing,
+  and a forged, tampered or moved row fails authentication and is a miss --
   without that, anyone could plant a "plan result" and have /plan/<id> render
   it from our origin.
 * the server-only secret is the service-role key the layer authenticates
@@ -52,14 +59,14 @@ plan id) is a >=128-bit bearer secret, and the records are client plans, so:
 Ids shorter than 22 characters (legacy 8-hex share ids, 12-hex job ids) are
 never written durably.
 
-Kill switches (environment, read at call time): ``NOVA_SHARED_STATE=0`` turns
-both layers off (exact pre-change behaviour: in-process dicts only);
-``NOVA_SHARED_STATE_DURABLE=0`` turns off only the Supabase layer.
+Switches (environment, read at call time): ``NOVA_SHARED_STATE=0`` turns both
+layers off (exact pre-change behaviour: in-process dicts only);
+``NOVA_SHARED_STATE_DURABLE=1`` opts IN to the Supabase layer (default off).
 ``NOVA_STATE_SUPABASE_URL`` / ``NOVA_STATE_SUPABASE_KEY`` override the
 Supabase target (tests point them at a loopback fake); otherwise
 ``SUPABASE_URL`` with ``SUPABASE_SERVICE_ROLE_KEY`` is used.
 
-Stdlib only.
+Stdlib only (``cryptography`` is used opportunistically, never required).
 """
 
 from __future__ import annotations
@@ -114,9 +121,12 @@ _DURABLE_CONFIG_BACKOFF_SECONDS = 600.0
 _DURABLE_MIN_KEY_LEN = 22
 _DURABLE_QUEUE_MAX = 256
 _DURABLE_MAX_RESPONSE_BYTES = 4 * 1024 * 1024
-_SEAL_VERSION = 1
-_NONCE_BYTES = 16
-_TAG_BYTES = 32
+_SEAL_VERSION = 1  # key-derivation / row-key scheme (stable across ciphers)
+_ENVELOPE_STDLIB = 1  # SHAKE-256 keystream + HMAC-SHA256 (fallback)
+_ENVELOPE_AESGCM = 2  # AES-256-GCM via `cryptography` (preferred)
+_NONCE_BYTES = 16  # stdlib envelope
+_TAG_BYTES = 32  # stdlib envelope
+_AESGCM_NONCE_BYTES = 12
 
 
 
@@ -361,14 +371,20 @@ _durable_down_until = 0.0
 _ssl_context: Optional[ssl.SSLContext] = None
 
 
+def durable_opted_in() -> bool:
+    """The Supabase layer is OPT-IN: only ``NOVA_SHARED_STATE_DURABLE=1``."""
+    return (os.environ.get("NOVA_SHARED_STATE_DURABLE") or "").strip() == "1"
+
+
 def _durable_config() -> tuple[str, str]:
     """(base_url, server_key) of the durable layer, or ("", "") when it is off.
 
-    The key must be server-only: it authenticates the PostgREST calls AND is
-    the secret rows are sealed under. The anon key is public (``/api/config``
-    serves it), so it is never used here -- anon-only means the layer is off.
+    Off unless opted in. The key must be server-only: it authenticates the
+    PostgREST calls AND is the secret rows are sealed under. The anon key is
+    public (``/api/config`` serves it), so it is never used here -- anon-only
+    means the layer is off.
     """
-    if (os.environ.get("NOVA_SHARED_STATE_DURABLE") or "1").strip() == "0":
+    if not durable_opted_in():
         return "", ""
     url = (
         os.environ.get("NOVA_STATE_SUPABASE_URL") or os.environ.get("SUPABASE_URL") or ""
@@ -392,6 +408,24 @@ def _durable_config() -> tuple[str, str]:
 
 def durable_configured() -> bool:
     return layers_enabled() and bool(_durable_config()[0])
+
+
+def startup_summary() -> str:
+    """One log line naming which layers are live in this process."""
+    if not layers_enabled():
+        return "shared_state: all layers OFF (NOVA_SHARED_STATE=0): in-process dicts only"
+    if not durable_opted_in():
+        return (
+            "shared_state: instance file layer ON; "
+            "durable layer OFF (opt-in: NOVA_SHARED_STATE_DURABLE=1)"
+        )
+    if not durable_configured():
+        return (
+            "shared_state: instance file layer ON; durable layer OFF: opted in but "
+            "SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY are not both set"
+        )
+    cipher = "AES-256-GCM" if _aesgcm_class() is not None else "stdlib SHAKE-256/HMAC"
+    return f"shared_state: instance file layer ON; durable layer ON (Supabase cache, {cipher})"
 
 
 def _durable_ready() -> bool:
@@ -485,7 +519,37 @@ def _row_key(secret: str, namespace: str, key: str) -> str:
     return f"mpgstate:v{_SEAL_VERSION}:{namespace}:{_derive(secret, key, namespace, 'row').hex()}"
 
 
+def _aesgcm_class() -> Optional[Any]:
+    """``cryptography``'s AESGCM when it imports (prod), else None.
+
+    Resolved per call (a sys.modules lookup once imported) so a test can
+    force the stdlib fallback by making the import fail.
+    """
+    try:
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    except ImportError:
+        return None
+    return AESGCM
+
+
+def _associated_data(key: str, namespace: str) -> bytes:
+    return f"mpgstate/v{_SEAL_VERSION}/aead/{namespace}/{key}".encode("utf-8")
+
+
+def _b64(raw: bytes) -> str:
+    return base64.b64encode(raw).decode("ascii")
+
+
+def _unb64(value: Any) -> Optional[bytes]:
+    try:
+        return base64.b64decode(str(value or ""), validate=True)
+    except (binascii.Error, ValueError):
+        return None
+
+
 def _xor_keystream(data: bytes, enc_key: bytes, nonce: bytes) -> bytes:
+    """Fallback cipher: SHAKE-256(key || nonce) keystream. The nonce is fresh
+    per seal, so re-sealing the same id never reuses a keystream."""
     if not data:
         return b""
     stream = hashlib.shake_256(enc_key + nonce).digest(len(data))
@@ -493,38 +557,62 @@ def _xor_keystream(data: bytes, enc_key: bytes, nonce: bytes) -> bytes:
 
 
 def seal(secret: str, key: str, namespace: str, plaintext: bytes) -> dict:
-    """Encrypt-then-MAC ``plaintext`` for record ``key`` of ``namespace``."""
+    """Encrypt and authenticate ``plaintext`` for record ``key`` of ``namespace``.
+
+    AES-256-GCM (random 12-byte nonce, id + namespace as associated data) when
+    ``cryptography`` imports; otherwise the stdlib envelope (random 16-byte
+    nonce mixed into the keystream and covered by the MAC, encrypt-then-MAC).
+    Both nonces are stored in the clear beside the ciphertext.
+    """
+    aesgcm = _aesgcm_class()
+    if aesgcm is not None:
+        nonce = secrets.token_bytes(_AESGCM_NONCE_BYTES)
+        sealed = aesgcm(_derive(secret, key, namespace, "aead")).encrypt(
+            nonce, plaintext, _associated_data(key, namespace)
+        )
+        return {"v": _ENVELOPE_AESGCM, "n": _b64(nonce), "c": _b64(sealed)}
     nonce = secrets.token_bytes(_NONCE_BYTES)
     ciphertext = _xor_keystream(plaintext, _derive(secret, key, namespace, "enc"), nonce)
     tag = hmac.new(
         _derive(secret, key, namespace, "mac"), nonce + ciphertext, hashlib.sha256
     ).digest()
-    return {
-        "v": _SEAL_VERSION,
-        "n": base64.b64encode(nonce).decode("ascii"),
-        "c": base64.b64encode(ciphertext).decode("ascii"),
-        "t": base64.b64encode(tag).decode("ascii"),
-    }
+    return {"v": _ENVELOPE_STDLIB, "n": _b64(nonce), "c": _b64(ciphertext), "t": _b64(tag)}
 
 
 def unseal(secret: str, key: str, namespace: str, envelope: Any) -> Optional[bytes]:
-    """Plaintext of a :func:`seal` envelope, or None if malformed or forged."""
-    if not isinstance(envelope, dict) or envelope.get("v") != _SEAL_VERSION:
+    """Plaintext of a :func:`seal` envelope, or None if malformed, forged,
+    tampered, sealed for another id / namespace, or unreadable here (an
+    AES-GCM envelope on a host without ``cryptography``)."""
+    if not isinstance(envelope, dict):
         return None
-    try:
-        nonce = base64.b64decode(str(envelope.get("n") or ""), validate=True)
-        ciphertext = base64.b64decode(str(envelope.get("c") or ""), validate=True)
-        tag = base64.b64decode(str(envelope.get("t") or ""), validate=True)
-    except (binascii.Error, ValueError):
+    version = envelope.get("v")
+    nonce = _unb64(envelope.get("n"))
+    body = _unb64(envelope.get("c"))
+    if nonce is None or body is None:
         return None
-    if len(nonce) != _NONCE_BYTES or len(tag) != _TAG_BYTES:
+    if version == _ENVELOPE_AESGCM:
+        aesgcm = _aesgcm_class()
+        if aesgcm is None or len(nonce) != _AESGCM_NONCE_BYTES:
+            return None
+        from cryptography.exceptions import InvalidTag
+
+        try:
+            return aesgcm(_derive(secret, key, namespace, "aead")).decrypt(
+                nonce, body, _associated_data(key, namespace)
+            )
+        except (InvalidTag, ValueError):
+            return None
+    if version != _ENVELOPE_STDLIB:
+        return None
+    tag = _unb64(envelope.get("t"))
+    if tag is None or len(nonce) != _NONCE_BYTES or len(tag) != _TAG_BYTES:
         return None
     expected = hmac.new(
-        _derive(secret, key, namespace, "mac"), nonce + ciphertext, hashlib.sha256
+        _derive(secret, key, namespace, "mac"), nonce + body, hashlib.sha256
     ).digest()
     if not hmac.compare_digest(expected, tag):
         return None
-    return _xor_keystream(ciphertext, _derive(secret, key, namespace, "enc"), nonce)
+    return _xor_keystream(body, _derive(secret, key, namespace, "enc"), nonce)
 
 
 class _DurableWriter:

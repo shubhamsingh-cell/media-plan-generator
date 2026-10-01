@@ -7119,10 +7119,13 @@ def _shared_plans_enforce_caps_locked() -> int:
 # Prod runs `gunicorn --workers 4 --preload` on one Render instance, so each
 # dict above/below is only ONE worker's view: a share link, plan result or job
 # written by worker A 404'd on B, C and D, and every deploy wiped them all.
-# shared_state.py adds an instance-wide file layer and a sealed Supabase
-# `cache` table layer beneath each dict (reads: dict -> file -> Supabase,
-# backfilling upward; writes: every layer). NOVA_SHARED_STATE=0 restores the
-# dict-only behaviour without a code change.
+# shared_state.py adds an instance-wide file layer beneath each dict (every
+# worker on the instance sees the same state; it survives worker restarts but
+# not deploys) and an OPT-IN sealed Supabase `cache` table layer
+# (NOVA_SHARED_STATE_DURABLE=1, default off pending a security review) that
+# would also survive deploys. Reads: dict -> file -> Supabase, backfilling
+# upward; writes: every live layer. NOVA_SHARED_STATE=0 restores the dict-only
+# behaviour without a code change.
 import shared_state  # noqa: E402
 
 
@@ -7299,9 +7302,10 @@ def _mirror_job(job_id: str) -> None:
 
     Whitelist only. result_bytes (can be tens of MB) never goes into the
     record: a completed job's ZIP goes to the size-capped file blob store
-    instead. Terminal records (completed / failed) are also written to the
-    durable layer, so status and qa-ack survive a deploy; in-flight progress
-    stays instance-local (a restart kills the job that would update it).
+    instead. Terminal records (completed / failed) are also queued for the
+    opt-in durable layer, so with NOVA_SHARED_STATE_DURABLE=1 status and
+    qa-ack survive a deploy; in-flight progress stays instance-local (a
+    restart kills the job that would update it).
     """
     with _generation_jobs_lock:
         job = _generation_jobs.get(job_id)
@@ -9284,6 +9288,9 @@ for _startup_store in (
     _job_result_blobs,
 ):
     _startup_store.sweep()
+# One line per boot naming the live layers; the Supabase layer is opt-in and
+# says so ("durable layer OFF (opt-in: NOVA_SHARED_STATE_DURABLE=1)").
+logger.info(shared_state.startup_summary())
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CSRF: Cookie-based double-submit pattern (stateless)

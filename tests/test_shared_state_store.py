@@ -84,7 +84,11 @@ def _child(
         max_records=max_records,
         max_total=max_total,
     ) + textwrap.dedent(body)
-    child_env = {k: v for k, v in os.environ.items() if not k.startswith(("SUPABASE_", "NOVA_STATE_"))}
+    child_env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith(("SUPABASE_", "NOVA_STATE_", "NOVA_SHARED_STATE"))
+    }
     child_env.update(env or {})
     proc = subprocess.Popen(
         [sys.executable, "-c", code],
@@ -116,11 +120,13 @@ def no_durable(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(var, raising=False)
     monkeypatch.delenv("NOVA_STATE_SUPABASE_URL", raising=False)
     monkeypatch.delenv("NOVA_STATE_SUPABASE_KEY", raising=False)
+    monkeypatch.delenv("NOVA_SHARED_STATE_DURABLE", raising=False)
 
 
 @pytest.fixture()
 def fake(monkeypatch: pytest.MonkeyPatch) -> Iterator[FakePostgrest]:
     server = FakePostgrest()
+    monkeypatch.setenv("NOVA_SHARED_STATE_DURABLE", "1")  # opt-in, default off
     monkeypatch.setenv("NOVA_STATE_SUPABASE_URL", server.url)
     monkeypatch.setenv("NOVA_STATE_SUPABASE_KEY", "test-service-key")
     monkeypatch.setattr(shared_state, "_durable_down_until", 0.0)
@@ -341,7 +347,11 @@ def test_blob_store_caps_and_ttl(base: str) -> None:
 def test_durable_round_trip_restores_state_on_an_empty_disk(
     tmp_path: Path, fake: FakePostgrest
 ) -> None:
-    env = {"NOVA_STATE_SUPABASE_URL": fake.url, "NOVA_STATE_SUPABASE_KEY": "k"}
+    env = {
+        "NOVA_SHARED_STATE_DURABLE": "1",
+        "NOVA_STATE_SUPABASE_URL": fake.url,
+        "NOVA_STATE_SUPABASE_KEY": "k",
+    }
     key = _key()
     old_disk, new_disk = str(tmp_path / "old"), str(tmp_path / "new")
     _child(
@@ -448,18 +458,134 @@ def test_durable_get_failure_on_file_miss_returns_none(
     assert shared_state._durable_down_until > time.time()
 
 
-def test_seal_round_trip_and_authentication() -> None:
-    secret, key = "server-only-secret", secrets.token_urlsafe(16)
-    env = shared_state.seal(secret, key, "share", b'{"a": 1}')
-    assert shared_state.unseal(secret, key, "share", env) == b'{"a": 1}'
-    assert shared_state.unseal("public-anon-key", key, "share", env) is None  # forged
-    assert shared_state.unseal(secret, secrets.token_urlsafe(16), "share", env) is None  # moved
-    assert shared_state.unseal(secret, key, "job", env) is None  # namespace-bound
-    assert shared_state.unseal(secret, key, "share", {**env, "v": 2}) is None
-    assert shared_state.unseal(secret, key, "share", {**env, "n": "!!"}) is None
-    assert shared_state.unseal(secret, key, "share", "not-a-dict") is None
-    empty = shared_state.seal(secret, key, "share", b"")
-    assert shared_state.unseal(secret, key, "share", empty) == b""
+# ---------------------------------------------------------------------------
+# Sealing: AES-256-GCM when `cryptography` imports, stdlib fallback otherwise.
+# Both paths run here: the stdlib one by making the import fail; the AES-GCM
+# one wherever `cryptography` is installed (prod; skipped on a bare dev box).
+# ---------------------------------------------------------------------------
+
+_AEAD_MODULE = "cryptography.hazmat.primitives.ciphers.aead"
+_SECRET = "server-only-secret"
+
+
+@pytest.fixture(params=["stdlib", "aesgcm"])
+def seal_path(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> int:
+    """The envelope version the active path writes."""
+    if request.param == "stdlib":
+        monkeypatch.setitem(sys.modules, _AEAD_MODULE, None)  # import -> ImportError
+        assert shared_state._aesgcm_class() is None
+        return shared_state._ENVELOPE_STDLIB
+    pytest.importorskip(_AEAD_MODULE)
+    assert shared_state._aesgcm_class() is not None
+    return shared_state._ENVELOPE_AESGCM
+
+
+def _xor(a: bytes, b: bytes) -> bytes:
+    assert len(a) == len(b)
+    return bytes(a[i] ^ b[i] for i in range(len(a)))
+
+
+def test_seal_round_trip_on_each_path(seal_path: int) -> None:
+    key = secrets.token_urlsafe(16)
+    env = shared_state.seal(_SECRET, key, "share", b'{"a": 1}')
+    assert env["v"] == seal_path
+    assert shared_state.unseal(_SECRET, key, "share", env) == b'{"a": 1}'
+    empty = shared_state.seal(_SECRET, key, "share", b"")
+    assert shared_state.unseal(_SECRET, key, "share", empty) == b""
+
+
+def test_resealing_the_same_id_never_reuses_a_keystream(seal_path: int) -> None:
+    """A job record is re-sealed on completion and again on qa-ack. If the
+    keystream depended only on (secret, id, namespace), the XOR of the two
+    ciphertexts would equal the XOR of the two plaintexts (a two-time pad).
+    A fresh per-seal nonce must break that relation."""
+    key = secrets.token_urlsafe(16)
+    p1 = b'{"status":"processing","acked_by":"","pct":40}'
+    p2 = p1.replace(b"processing", b"completed!").replace(b'"pct":40', b'"pct":99')
+    assert len(p1) == len(p2) and p1 != p2
+    e1 = shared_state.seal(_SECRET, key, "job", p1)
+    e2 = shared_state.seal(_SECRET, key, "job", p2)
+    e1_again = shared_state.seal(_SECRET, key, "job", p1)
+    assert len({e1["n"], e2["n"], e1_again["n"]}) == 3, "nonce reused"
+    c1 = shared_state._unb64(e1["c"])[: len(p1)]
+    c2 = shared_state._unb64(e2["c"])[: len(p2)]
+    assert _xor(c1, c2) != _xor(p1, p2), "keystream reused across re-seals"
+    assert shared_state._unb64(e1_again["c"])[: len(p1)] != c1
+    assert shared_state.unseal(_SECRET, key, "job", e1) == p1
+    assert shared_state.unseal(_SECRET, key, "job", e2) == p2
+
+
+def test_tampered_forged_or_replayed_envelopes_are_rejected(seal_path: int) -> None:
+    key, other = secrets.token_urlsafe(16), secrets.token_urlsafe(16)
+    env = shared_state.seal(_SECRET, key, "share", b'{"client": "Acme"}')
+    other_env = shared_state.seal(_SECRET, other, "share", b'{"client": "Other"}')
+    body = bytearray(shared_state._unb64(env["c"]))
+    body[0] ^= 1
+    for label, candidate in {
+        "public anon key": ("public-anon-key", key, "share", env),
+        "replayed under another id": (_SECRET, other, "share", env),
+        "replayed under another namespace": (_SECRET, key, "job", env),
+        "flipped ciphertext bit": (_SECRET, key, "share", {**env, "c": shared_state._b64(bytes(body))}),
+        "nonce from another envelope": (_SECRET, key, "share", {**env, "n": other_env["n"]}),
+        "unknown version": (_SECRET, key, "share", {**env, "v": 99}),
+        "bad base64": (_SECRET, key, "share", {**env, "n": "!!"}),
+        "not a dict": (_SECRET, key, "share", "not-a-dict"),
+    }.items():
+        assert shared_state.unseal(*candidate) is None, label
+
+
+def test_aesgcm_envelope_on_a_host_without_cryptography_is_a_miss(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(sys.modules, _AEAD_MODULE, None)
+    env = {
+        "v": shared_state._ENVELOPE_AESGCM,
+        "n": shared_state._b64(secrets.token_bytes(12)),
+        "c": shared_state._b64(secrets.token_bytes(48)),
+    }
+    assert shared_state.unseal(_SECRET, _key(), "share", env) is None
+
+
+def test_stdlib_envelopes_stay_readable_where_aesgcm_is_preferred(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pytest.importorskip(_AEAD_MODULE)
+    key = _key()
+    with monkeypatch.context() as m:
+        m.setitem(sys.modules, _AEAD_MODULE, None)
+        env = shared_state.seal(_SECRET, key, "share", b"legacy")
+    assert env["v"] == shared_state._ENVELOPE_STDLIB
+    assert shared_state.unseal(_SECRET, key, "share", env) == b"legacy"
+
+
+# ---------------------------------------------------------------------------
+# The durable layer is OPT-IN
+# ---------------------------------------------------------------------------
+
+
+def test_durable_layer_is_off_unless_explicitly_opted_in(
+    base: str, fake: FakePostgrest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for value in (None, "", "0", "true", "yes"):
+        if value is None:
+            monkeypatch.delenv("NOVA_SHARED_STATE_DURABLE", raising=False)
+        else:
+            monkeypatch.setenv("NOVA_SHARED_STATE_DURABLE", value)
+        assert shared_state.durable_configured() is False, value
+        assert "durable layer OFF (opt-in: NOVA_SHARED_STATE_DURABLE=1)" in (
+            shared_state.startup_summary()
+        )
+        store = _store(base)
+        key = _key()
+        assert store.put(key, {"created": time.time()})  # file layer still works
+        assert shared_state.flush(5)
+        assert _store(str(Path(base) / "fresh")).get(key) is None
+    assert fake.request_count() == 0
+    monkeypatch.setenv("NOVA_SHARED_STATE_DURABLE", "1")
+    assert shared_state.durable_configured() is True
+    assert "durable layer ON" in shared_state.startup_summary()
+    monkeypatch.setenv("NOVA_SHARED_STATE", "0")
+    assert "all layers OFF" in shared_state.startup_summary()
 
 
 def test_rows_forged_with_the_public_key_or_moved_between_ids_are_rejected(
