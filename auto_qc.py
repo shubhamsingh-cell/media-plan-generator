@@ -28,7 +28,12 @@ import urllib.request
 import urllib.error
 from collections import deque
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
+
+try:  # POSIX only; without it probe sharing degrades to the file reading alone
+    import fcntl
+except ImportError:  # pragma: no cover
+    fcntl = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -86,11 +91,18 @@ def _is_warming_up() -> bool:
 #
 # Every loop still runs _check_cycle() (each process keeps its own truthful
 # history/status for /api/health/auto-qc), but the HTTP probe itself is shared:
-# the first loop to need an endpoint reading older than _PROBE_SHARE_TTL_S really
-# probes it and publishes {ok, latency_ms, ts} to a small file in the slot dir;
-# the other loops reuse it. Effective cadence per endpoint: one real probe per
-# _CHECK_INTERVAL (60 s) for the whole instance, however many loops are alive.
+# a loop that needs an endpoint reading older than _PROBE_SHARE_TTL_S takes a
+# NON-BLOCKING per-endpoint flock; the one that gets it really probes and
+# publishes {ok, latency_ms, ts} to a small file in the slot dir, the others see
+# the lock is held, wait for that published reading (cooperative polling, so a
+# gevent worker is never frozen) and reuse it. Without the lock, loops that
+# start together all see "stale" at the same instant and all probe (4 processes
+# started at once made 4 real probes; only a lucky stagger made 1). The flock is
+# taken on a freshly opened file per attempt, so it contends correctly across
+# fork. Effective cadence per endpoint: one real probe per _CHECK_INTERVAL (60 s)
+# for the whole instance, however many loops are alive.
 _PROBE_SHARE_TTL_S = float(_CHECK_INTERVAL)
+_PROBE_WAIT_POLL_S = 0.1  # how often a follower re-reads the leader's result
 
 
 def _probe_cache_file(path: str) -> Optional[str]:
@@ -146,19 +158,80 @@ def _write_shared_probe(path: str, ok: bool, latency_ms: float) -> None:
         logger.debug("[AutoQC] could not publish shared probe for %s: %s", path, exc)
 
 
+def _noop_release() -> None:
+    return None
+
+
+def _try_probe_lock(path: str) -> Optional[Callable[[], None]]:
+    """Non-blocking exclusive flock for probing ``path`` (one per endpoint).
+
+    Returns a ``release()`` callable when this caller holds the lock, ``None``
+    when another process/thread holds it. Fails OPEN (no-op release) when
+    locking is unavailable, so monitoring is never lost to its own coordination.
+    """
+    cache_file = _probe_cache_file(path)
+    if fcntl is None or not cache_file:
+        return _noop_release
+    try:
+        fd = open(cache_file[: -len(".json")] + ".lock", "a+b")
+    except OSError:
+        return _noop_release
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        fd.close()
+        return None
+
+    def _release() -> None:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        except OSError:
+            pass
+        finally:
+            fd.close()
+
+    return _release
+
+
 def _probe(path: str, timeout: int = 15) -> tuple[bool, float]:
     """Probe a local endpoint, sharing the reading across processes.
 
     Returns (ok, latency_ms). Reuses a reading published by any process in the
-    last _PROBE_SHARE_TTL_S seconds; otherwise probes for real (_probe_direct)
-    and publishes the result for the other loops.
+    last _PROBE_SHARE_TTL_S seconds. Otherwise exactly one process (the one that
+    wins the per-endpoint try-lock) probes for real (_probe_direct) and
+    publishes; the rest wait for that reading instead of probing.
     """
     shared = _read_shared_probe(path)
     if shared is not None:
         return shared
-    ok, latency = _probe_direct(path, timeout)
-    _write_shared_probe(path, ok, latency)
-    return ok, latency
+
+    release = _try_probe_lock(path)
+    if release is None:
+        # Someone else is probing this endpoint right now. Wait (cooperatively)
+        # for their published reading; the leader needs at most two attempts of
+        # `timeout` seconds plus the retry pause. If it dies without publishing,
+        # its lock frees and we take over; if we still get nothing, probe anyway.
+        polls = int((2 * timeout + 3) / _PROBE_WAIT_POLL_S)
+        for _ in range(polls):
+            time.sleep(_PROBE_WAIT_POLL_S)
+            shared = _read_shared_probe(path)
+            if shared is not None:
+                return shared
+            release = _try_probe_lock(path)
+            if release is not None:
+                break
+        else:
+            release = _noop_release
+    try:
+        # The previous holder may have published between our read and the lock.
+        shared = _read_shared_probe(path)
+        if shared is not None:
+            return shared
+        ok, latency = _probe_direct(path, timeout)
+        _write_shared_probe(path, ok, latency)
+        return ok, latency
+    finally:
+        release()
 
 
 def _probe_direct(path: str, timeout: int = 15) -> tuple[bool, float]:

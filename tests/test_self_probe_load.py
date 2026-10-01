@@ -206,6 +206,205 @@ def test_check_cycle_from_many_loops_keeps_per_process_results(
     assert len(probe_env["net"].urls) == len(auto_qc._check_definitions)
 
 
+# ---------------------------------------------------------------------------
+# 1b. The per-endpoint try-lock: simultaneous loops probe exactly once
+# ---------------------------------------------------------------------------
+# A shared result file alone only de-duplicates loops that happen to be staggered:
+# processes that start together all read "stale" at the same instant and all
+# probe (independent verification: 4 simultaneous processes made 4 real probes,
+# a staggered start made 1). The flock makes exactly one of them probe.
+
+
+class _CountingServer:
+    """Real HTTP server that counts hits per path (and takes a moment to answer
+    so concurrent probes genuinely overlap)."""
+
+    def __init__(self, delay_s: float = 0.25) -> None:
+        import http.server
+        import socketserver
+
+        self.hits: dict[str, int] = {}
+        self._lock = threading.Lock()
+        outer = self
+
+        class _Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self) -> None:  # noqa: N802
+                with outer._lock:
+                    outer.hits[self.path] = outer.hits.get(self.path, 0) + 1
+                import time
+
+                time.sleep(delay_s)
+                body = b"{}"
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *a: Any) -> None:
+                return None
+
+        class _Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
+            daemon_threads = True
+
+        self.server = _Server(("127.0.0.1", 0), _Handler)
+        self.port = self.server.server_address[1]
+        self._thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self._thread.start()
+
+    def close(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+
+
+_PROBER = r"""
+import json, os, sys, time
+sys.path.insert(0, os.environ["ROOT"])
+import auto_qc
+
+auto_qc._PROBE_SHARE_TTL_S = float(os.environ["TTL"])
+start_at = float(os.environ["START_AT"])
+gap = float(os.environ["GAP"])
+out = []
+for rnd in range(int(os.environ["ROUNDS"])):
+    while time.time() < start_at + rnd * gap:
+        time.sleep(0.002)
+    for _name, path in auto_qc._check_definitions:
+        ok, latency = auto_qc._probe(path, timeout=5)
+        out.append([rnd, path, ok])
+print(json.dumps(out))
+"""
+
+
+def _run_prober_processes(
+    port: int, slot_dir: Path, procs: int, rounds: int, ttl: float, gap: float
+) -> list[list]:
+    import os
+    import subprocess
+    import sys
+    import time
+
+    env = dict(os.environ)
+    env.update(
+        {
+            "ROOT": str(Path(__file__).resolve().parent.parent),
+            "PORT": str(port),
+            "NOVA_SLOT_DIR": str(slot_dir),
+            "TTL": str(ttl),
+            "GAP": str(gap),
+            "ROUNDS": str(rounds),
+            "START_AT": str(time.time() + 1.5),
+        }
+    )
+    children = [
+        subprocess.Popen(
+            [sys.executable, "-c", _PROBER],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        for _ in range(procs)
+    ]
+    results: list[list] = []
+    for child in children:
+        out, err = child.communicate(timeout=120)
+        assert child.returncode == 0, err
+        results.extend(json.loads(out))
+    return results
+
+
+def test_four_real_processes_started_together_make_one_probe_per_endpoint_per_window(
+    tmp_path: Path,
+) -> None:
+    server = _CountingServer(delay_s=0.25)
+    try:
+        results = _run_prober_processes(
+            server.port, tmp_path, procs=4, rounds=2, ttl=1.0, gap=2.5
+        )
+    finally:
+        server.close()
+    paths = [p for _n, p in auto_qc._check_definitions]
+    # 2 windows (the second starts after the first reading expired): 1 probe each
+    assert server.hits == {p: 2 for p in paths}, server.hits
+    assert len(results) == 4 * 2 * len(paths)
+    assert all(ok for _r, _p, ok in results), "followers got the leader's reading"
+
+
+def test_single_window_four_processes_is_exactly_one_request_per_endpoint(
+    tmp_path: Path,
+) -> None:
+    server = _CountingServer(delay_s=0.25)
+    try:
+        _run_prober_processes(server.port, tmp_path, procs=4, rounds=1, ttl=30.0, gap=0)
+    finally:
+        server.close()
+    paths = [p for _n, p in auto_qc._check_definitions]
+    assert server.hits == {p: 1 for p in paths}, server.hits
+
+
+@pytest.fixture()
+def real_clock_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Any]:
+    net = _CountingUrlopen()
+    monkeypatch.setenv("NOVA_SLOT_DIR", str(tmp_path))
+    monkeypatch.setenv("PORT", "10000")
+    monkeypatch.setattr(auto_qc.urllib.request, "urlopen", net)
+    return {"net": net, "dir": tmp_path}
+
+
+def test_follower_waits_for_the_lock_holders_reading_instead_of_probing(
+    real_clock_env: dict[str, Any],
+) -> None:
+    release = auto_qc._try_probe_lock("/api/channels")
+    assert release is not None
+    assert auto_qc._try_probe_lock("/api/channels") is None, "held: refused"
+    answer: list[tuple[bool, float]] = []
+    follower = threading.Thread(
+        target=lambda: answer.append(auto_qc._probe("/api/channels"))
+    )
+    follower.start()
+    threading.Event().wait(0.3)  # follower is polling, not probing
+    assert real_clock_env["net"].urls == []
+    auto_qc._write_shared_probe("/api/channels", True, 42.0)  # the leader publishes
+    release()
+    follower.join(timeout=5)
+    assert answer == [(True, 42.0)]
+    assert real_clock_env["net"].urls == [], "the follower never made an HTTP request"
+
+
+def test_follower_takes_over_when_the_leader_dies_without_publishing(
+    real_clock_env: dict[str, Any],
+) -> None:
+    release = auto_qc._try_probe_lock("/api/channels")
+    assert release is not None
+    answer: list[tuple[bool, float]] = []
+    follower = threading.Thread(
+        target=lambda: answer.append(auto_qc._probe("/api/channels"))
+    )
+    follower.start()
+    threading.Event().wait(0.3)
+    release()  # leader gone: lock freed, nothing published
+    follower.join(timeout=10)
+    assert answer and answer[0][0] is True
+    assert len(real_clock_env["net"].urls) == 1, "exactly one takeover probe"
+
+
+def test_probe_lock_is_per_endpoint(real_clock_env: dict[str, Any]) -> None:
+    a = auto_qc._try_probe_lock("/api/channels")
+    b = auto_qc._try_probe_lock("/")
+    assert a is not None and b is not None
+    a()
+    b()
+
+
+def test_lock_unavailable_fails_open_and_still_probes(
+    real_clock_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(auto_qc, "fcntl", None)
+    assert auto_qc._try_probe_lock("/") is not None
+    assert auto_qc._probe("/")[0] is True
+    assert len(real_clock_env["net"].urls) == 1
+
+
 # ===========================================================================
 # 2. /api/dashboard/widgets: cached, stale-while-revalidate, single-flight
 # ===========================================================================
