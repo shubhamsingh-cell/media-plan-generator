@@ -2860,6 +2860,69 @@ def _plan_industry_cph(budget_alloc: Any) -> Dict[str, Any]:
     return info if isinstance(info, dict) else {}
 
 
+# Suppressed claim (local-currency market with no verified local cost per
+# hire): the ONE note the per-hire cells' "—" points to (round 2, verifier
+# item 1).
+_SUPPRESSED_CPH_NOTE = (
+    "Cost per hire: — (indicative — no verified local cost-per-hire "
+    "benchmark for this market, so no per-hire cost is shown; hire counts "
+    "are indicative)."
+)
+
+
+def _fx_per_usd_phrase(cph_info: Dict[str, Any]) -> str:
+    """ "US$1 = R$5.20 (ECB, 2026-09-30)" from the resolver's fx block, or
+    "" when no rate was applied."""
+    fx = cph_info.get("fx") if isinstance(cph_info, dict) else None
+    rate = fx.get("usd_per_local") if isinstance(fx, dict) else None
+    if not isinstance(rate, (int, float)) or isinstance(rate, bool) or rate <= 0:
+        return ""
+    per_usd = f"{1.0 / rate:,.2f}"
+    if per_usd.endswith(".00"):
+        per_usd = per_usd[:-3]
+    out = f"US$1 = {_cur_symbol()}{per_usd}"
+    src = str(fx.get("source_short") or "").strip()
+    as_of = str(fx.get("as_of") or "").strip()
+    if src and as_of:
+        out += f" ({src}, {as_of})"
+    elif as_of:
+        out += f" (as of {as_of})"
+    return out
+
+
+def _roi_methodology_note(budget_alloc: Any) -> str:
+    """The ROI Projections methodology line, true to what drives the hire
+    totals. With a cost-per-hire benchmark the totals are capped by its
+    floor; WITHOUT one (suppressed claim) they are the funnel's projection
+    capped by an FX-translated US bound that is never printed -- the old
+    "anchored to industry cost-per-hire benchmarks" claimed a benchmark the
+    market does not have (round 2, verifier item 1)."""
+    stage = (
+        "the stage rates above are planning assumptions fitted within the "
+        "stated bands so their product reproduces this plan's own hires ÷ "
+        "applications rate exactly per channel -- they explain the math, "
+        "they do not drive it."
+    )
+    info = _plan_industry_cph(budget_alloc)
+    if info.get("claim_suppressed"):
+        fx = _fx_per_usd_phrase(info)
+        bound = (
+            "half the US industry-average cost per hire converted at " + fx
+            if fx
+            else "half the US industry-average cost per hire"
+        )
+        return (
+            "Methodology: this market has no verified local cost-per-hire "
+            "benchmark, so hire totals are indicative -- this funnel's "
+            f"projection, capped so no hire costs less than {bound} (a bound "
+            f"on the math, never shown as a cost per hire); {stage}"
+        )
+    return (
+        "Methodology: hire totals are anchored to industry cost-per-hire "
+        f"benchmarks (not to this funnel); {stage}"
+    )
+
+
 def _plan_industry_cph_value(budget_alloc: Any) -> float:
     """The resolver's presentable industry-average CPH, or 0.0 (none /
     suppressed). Workbook sites that cite "the industry average cost per
@@ -4512,6 +4575,7 @@ def _gather_narrative_grounding_context(
     if cph_suppressed:
         header_cph = 0
     ctx: Dict[str, Any] = {
+        "cph_suppressed": bool(cph_suppressed),
         "client_name": client_name,
         "industry_label": industry_label,
         "budget_num": budget_num,
@@ -4790,7 +4854,7 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
             bits.append(f"{_fmt_number(hires)} hires")
         if cpa:
             bits.append(f"CPA {_fmt_currency(cpa, show_cents=True)}")
-        if cph:
+        if cph and not ctx.get("cph_suppressed"):
             bits.append(f"CPH {_fmt_currency(cph, show_cents=True)}")
         lines.append(" ".join(bits))
 
@@ -4852,7 +4916,7 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
                 cph_field.get("total_cost_per_hire")
                 or cph_field.get("recruitment_marketing_only")
             )
-        if cph_val > 0:
+        if cph_val > 0 and not ctx.get("cph_suppressed"):
             lines.append(f"Industry Cost/Hire Benchmark: {_fmt_currency(cph_val)}")
 
         ttf_field = ind_bench.get("time_to_fill")
@@ -4992,7 +5056,7 @@ def _curated_narrative_derivations(ctx: Dict[str, Any]) -> Dict[str, Tuple[str, 
         )
         cpa = _safe_num(ch_data.get("cpa") or 0)
         _key = f"channel_{idx}"
-        if ch_hires > 0 and dollars > 0:
+        if ch_hires > 0 and dollars > 0 and not ctx.get("cph_suppressed"):
             _add(f"{_key}_cph", "money", dollars / ch_hires)
         if cpa:
             _add(f"{_key}_cpa", "money", cpa)
@@ -9982,6 +10046,12 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
 
     budget_alloc = data.get("_budget_allocation", {})
     channel_allocs = budget_alloc.get("channel_allocations", {})
+    # No verified local cost-per-hire benchmark (round 2, verifier item 1):
+    # every per-hire cost on this sheet would be bounded by an FX-translated
+    # US figure -- print "—" and say why, like the Executive Summary card.
+    _roi_cph_suppressed = bool(
+        _plan_industry_cph(budget_alloc).get("claim_suppressed")
+    )
 
     row = 2
 
@@ -10278,16 +10348,17 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
         "Avg Cost/Hire",
         "Avg Time to Fill",
     ]
+    _show_avg_cph = _roi_has_hires and not _roi_cph_suppressed
     summary_values = [
         _safe_num(total_budget),
         int(total_projected_hires),
-        _safe_num(avg_cph) if _roi_has_hires else "—",
+        _safe_num(avg_cph) if _show_avg_cph else "—",
         avg_ttf if _roi_has_hires else "—",
     ]
     summary_formats = [
         _usd0_fmt(),
         FMT_INT,
-        _usd2_fmt() if _roi_has_hires else None,
+        _usd2_fmt() if _show_avg_cph else None,
         '0" days"' if _roi_has_hires else None,
     ]
 
@@ -10359,7 +10430,7 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
         # Units are carried by the number_format (e.g. 0" days", 0"/10").
         # S89: a zero-hire channel has no cost-per-hire -- show "—" as text
         # rather than a fabricated budget-as-CPH number.
-        _cph = roi_data["cost_per_hire"]
+        _cph = None if _roi_cph_suppressed else roi_data["cost_per_hire"]
         _cph_val = _safe_num(_cph) if _cph is not None else "—"
         _cph_fmt = _usd0_fmt() if _cph is not None else None
         _notes = roi_data.get("brand_note") or ""
@@ -10402,6 +10473,8 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
         roi_cell.font = score_font
         roi_cell.fill = score_fill
 
+    if _roi_cph_suppressed:
+        row = _write_footnote(ws, row, _SUPPRESSED_CPH_NOTE)
     row += 1
 
     # ── Recruitment Funnel (S93: funnel-calibration model) ──
@@ -10530,11 +10603,7 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
     row = _write_footnote(
         ws,
         row,
-        "Methodology: hire totals are anchored to industry cost-per-hire "
-        "benchmarks (not to this funnel); the stage rates above are "
-        "planning assumptions fitted within the stated bands so their "
-        "product reproduces this plan's own hires ÷ applications rate "
-        "exactly per channel -- they explain the math, they do not drive it.",
+        _roi_methodology_note(budget_alloc),
     )
     row = _write_footnote(
         ws,
@@ -12569,6 +12638,9 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
     budget_alloc = data.get("_budget_allocation", {})
     if not isinstance(budget_alloc, dict):
         budget_alloc = {}
+    # round 2 (verifier item 1): no per-hire figures without a verified
+    # local cost-per-hire benchmark
+    _ci_cph_suppressed = bool(_plan_industry_cph(budget_alloc).get("claim_suppressed"))
     ba_channel_alloc = budget_alloc.get("channel_allocations", {})
     if not isinstance(ba_channel_alloc, dict):
         ba_channel_alloc = {}
@@ -12816,7 +12888,25 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
             _cph_band = _clamped_band(cph_lo, cph, cph_hi, cost_metric=True)
         else:
             _cph_band = None
-        if hires > 0 and dollars > 0 and _cph_band is not None:
+        if hires > 0 and dollars > 0 and _cph_band is not None and _ci_cph_suppressed:
+            # no verified local cost per hire: "—", explained once below
+            row = _write_table_row(
+                ws,
+                row,
+                [ch_label, "Cost Per Hire", "—", "—", "—", "—", confidence],
+                alternate=(idx % 2 == 0),
+                fonts=[
+                    _FONT_BODY_BOLD,
+                    _FONT_BODY,
+                    _FONT_BODY,
+                    _FONT_BODY_BOLD,
+                    _FONT_BODY,
+                    _FONT_BODY,
+                    conf_font,
+                ],
+            )
+            idx += 1
+        elif hires > 0 and dollars > 0 and _cph_band is not None:
             cph_lo, cph_hi = _cph_band
             row = _write_table_row(
                 ws,
@@ -12845,6 +12935,8 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
             idx += 1
 
     row += 1
+    if _ci_cph_suppressed:
+        row = _write_footnote(ws, row, _SUPPRESSED_CPH_NOTE)
     row = _write_footnote(
         ws,
         row,
@@ -13304,11 +13396,21 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
                 "this plan's modeled niche-board hires already meet or exceed "
                 "what a 5% general-board floor rate would imply."
             )
+        # round 2 (verifier item 1): a market with no verified local cost
+        # per hire has no cost-per-hire benchmark to "anchor" to
+        _niche_anchor = (
+            "This plan's hire totals are indicative (no verified local "
+            "cost-per-hire benchmark for this market) and capped rather than "
+            "funnel-driven (see ROI Projections, Methodology)"
+            if _plan_industry_cph(data.get("_budget_allocation") or {}).get(
+                "claim_suppressed"
+            )
+            else "This plan anchors total hires to cost-per-hire benchmarks "
+            "rather than a funnel model (see ROI Projections, Methodology)"
+        )
         _niche_purpose = (
             "Specialty job boards matched to your target roles for higher-quality, "
-            "lower-CPA applicants. This plan anchors total hires to cost-per-hire "
-            "benchmarks rather than a funnel model (see ROI Projections, "
-            "Methodology), so the implied "
+            f"lower-CPA applicants. {_niche_anchor}, so the implied "
             f"{_rate_str} apply-to-hire rate shown here ({_niche_hires} hires / "
             f"{_niche_apps} applications) is a conservative lower bound of this "
             "channel's modeled contribution, not a literal conversion assumption. "
