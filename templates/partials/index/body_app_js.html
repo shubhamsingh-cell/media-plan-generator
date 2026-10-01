@@ -5482,9 +5482,23 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        const safeName = payload.client_name.replace(/[^\w\-]/g, "_");
+        // The server names the file (app._client_file_slug: accents folded,
+        // "Client" for a non-Latin name) -- use its Content-Disposition; the
+        // local fallback applies the same collapse + "Client" rule, so a name
+        // like "朝日新聞" never downloads as "____Media_Plan_Bundle.zip".
+        const _disp = _dlRes.headers.get("Content-Disposition") || "";
+        const _dispName = /filename="?([^";]+)"?/.exec(_disp);
+        const safeName =
+          String(payload.client_name || "")
+            .normalize("NFKD")
+            .replace(/[̀-ͯ]/g, "")
+            .replace(/[^A-Za-z0-9_\-]/g, "_")
+            .replace(/_+/g, "_")
+            .replace(/^_+|_+$/g, "") || "Client";
         let filename;
-        if (contentType.includes("zip")) {
+        if (_dispName && _dispName[1]) {
+          filename = _dispName[1];
+        } else if (contentType.includes("zip")) {
           filename = `${safeName}_Media_Plan_Bundle.zip`;
         } else {
           filename = `${safeName}_Media_Plan.xlsx`;

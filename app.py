@@ -14,6 +14,7 @@ import zipfile
 import uuid
 import time
 import secrets
+import unicodedata
 
 try:
     import fcntl
@@ -4550,6 +4551,21 @@ def _plan_budget_summary(data: dict) -> dict:
         "high": res.get("high"),
         "note": cur.get("note") or "",
     }
+
+
+def _client_file_slug(name: Any) -> str:
+    """Filename-safe client name for every generated file (zip, xlsx, pptx,
+    saved copy): accents folded (NFKD -> ASCII, "Société" -> "Societe"),
+    anything else -> "_", runs collapsed, capped at the client-name limit,
+    and "Client" when nothing ASCII is left. Non-Latin names ("朝日新聞",
+    "Яндекс") are accepted since the name rule allows any script, and used
+    to yield "_Media_Plan_Bundle.zip" with no name at all."""
+    text = _safe_str(name).strip()[: wizard_inputs.INPUT_LIMITS["client_name_max_chars"]]
+    ascii_text = (
+        unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    )
+    slug = re.sub(r"_+", "_", re.sub(r"[^a-zA-Z0-9_\-]", "_", ascii_text)).strip("_")
+    return slug or "Client"
 
 
 def _has_name_character(text: Any) -> bool:
@@ -19401,15 +19417,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             if display_format is not None
                             else _raw_client_a
                         ) or _raw_client_a
-                        client_name = re.sub(
-                            r"_+",
-                            "_",  # S27: Collapse multiple underscores
-                            re.sub(
-                                r"[^a-zA-Z0-9_\-]",
-                                "_",
-                                _display_client_a,
-                            ),
-                        ).strip("_")
+                        # S27 collapse + non-Latin fallback: one helper
+                        client_name = _client_file_slug(_display_client_a)
                         pptx_bytes = None
                         if generate_pptx is not None and _requested_format in (
                             "all",
@@ -21413,11 +21422,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 if display_format is not None
                 else _raw_client
             ) or _raw_client
-            client_name = re.sub(
-                r"_+",
-                "_",  # S27: Collapse multiple underscores
-                re.sub(r"[^a-zA-Z0-9_\-]", "_", _display_client),
-            ).strip("_")
+            # S27 collapse + non-Latin fallback: one helper
+            client_name = _client_file_slug(_display_client)
             # S47: Build descriptive filename with industry, location, and date
             _fn_industry = re.sub(
                 r"[^a-zA-Z0-9]", "_", (data.get("industry") or "").strip().title()
@@ -21586,9 +21592,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     docs_dir = os.path.join(DATA_DIR, "generated_docs")
                     os.makedirs(docs_dir, exist_ok=True)
                     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                    client_slug = re.sub(
-                        r"[^a-zA-Z0-9_\-]", "_", data.get("client_name") or "Client"
-                    )
+                    client_slug = _client_file_slug(data.get("client_name"))
                     doc_filename = f"{timestamp}_{client_slug}.zip"
                     doc_path = os.path.join(docs_dir, doc_filename)
                     with open(doc_path, "wb") as df:
@@ -21739,9 +21743,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     docs_dir = os.path.join(DATA_DIR, "generated_docs")
                     os.makedirs(docs_dir, exist_ok=True)
                     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                    client_slug = re.sub(
-                        r"[^a-zA-Z0-9_\-]", "_", data.get("client_name") or "Client"
-                    )
+                    client_slug = _client_file_slug(data.get("client_name"))
                     # Wrap the Excel in a ZIP for consistent storage
                     doc_zip_buffer = io.BytesIO()
                     with zipfile.ZipFile(
