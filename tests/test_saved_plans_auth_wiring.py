@@ -130,7 +130,13 @@ class _FakeSupabase:
 
 
 class _ExplodingSupabase:
+    """Every table access raises; ``table_calls`` proves storage was reached."""
+
+    def __init__(self) -> None:
+        self.table_calls = 0
+
     def table(self, _name: str) -> Any:
+        self.table_calls += 1
         raise RuntimeError("supabase is down")
 
 
@@ -416,12 +422,41 @@ class TestSavedPlansAuthenticated:
     def test_list_is_scoped_to_the_caller(
         self, live_port: int, auth_env: None, fake_sb: _FakeSupabase
     ) -> None:
-        mine = _signed_cookie("me@joveo.com")
-        other = _signed_cookie("other@joveo.com")
-        _request(live_port, "POST", "/api/saved-plans", _PLAN, cookie=mine)
-        status, listed = _request(live_port, "GET", "/api/saved-plans", cookie=other)
-        assert status == 200
+        """The caller's scope must be visible in the OUTGOING query.
+
+        An empty ``plans`` list proves nothing by itself: before the NameError
+        fix the list endpoint swallowed the error and returned ``200 {"plans":
+        []}`` to everyone, which also "passes" an emptiness check. So seed the
+        owner's row directly (independent of POST), then assert the exact
+        ``user_email`` equality filter the handler sent to storage for each
+        caller, and that only the owner gets the row back.
+        """
+        mine, other = "me@joveo.com", "other@joveo.com"
+        fake_sb.rows.append(
+            {
+                "id": 41,
+                "user_email": mine,
+                "plan_name": "mine",
+                "plan_data": {},
+                "created_at": "2026-10-01T00:00:00Z",
+            }
+        )
+        fake_sb.log.clear()
+
+        status, listed = _request(
+            live_port, "GET", "/api/saved-plans", cookie=_signed_cookie(other)
+        )
+        assert status == 200, (status, listed)
         assert listed["plans"] == []
+        assert fake_sb.log == [("select", [("user_email", other)])], fake_sb.log
+
+        fake_sb.log.clear()
+        status, listed = _request(
+            live_port, "GET", "/api/saved-plans", cookie=_signed_cookie(mine)
+        )
+        assert status == 200, (status, listed)
+        assert [p["id"] for p in listed["plans"]] == [41], listed
+        assert fake_sb.log == [("select", [("user_email", mine)])], fake_sb.log
 
 
 # ---------------------------------------------------------------------------
@@ -601,18 +636,25 @@ class TestSavedPlansOwnership:
         auth_env: None,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        """The 500 body is a fixed message with no exception text.
+
+        Asserting only that the storage error text is absent is vacuous: before
+        the NameError fix the handler never reached storage and answered
+        ``Failed to save plan: name '_check_joveo_auth' is not defined`` -- a
+        leak of a different exception that such a check cannot see. Pin the exact
+        body, and prove the storage layer was actually reached.
+        """
         import supabase_client
 
-        monkeypatch.setattr(
-            supabase_client,
-            "get_client",
-            lambda: _ExplodingSupabase(),
-        )
+        boom = _ExplodingSupabase()
+        monkeypatch.setattr(supabase_client, "get_client", lambda: boom)
         status, body = _request(
             live_port, "POST", "/api/saved-plans", _PLAN, cookie=_signed_cookie(_A)
         )
-        assert status == 500
+        assert status == 500, (status, body)
+        assert body["error"] == "Failed to save plan", body
         assert "supabase is down" not in json.dumps(body)
+        assert boom.table_calls >= 1, "the save never reached the storage layer"
 
 
 class TestOwnerMustBeAVerifiedIdentity:
@@ -813,6 +855,148 @@ class TestVerifiedIdentityHelper:
             )
             == _A
         )
+
+
+# ---------------------------------------------------------------------------
+# 2c. Plan-id validation: ASCII digits only, bounded; anything else is a 404
+# ---------------------------------------------------------------------------
+# ``"²".isdigit()`` is True but ``int("²")`` raises ValueError, so the old
+# ``plan_id.isdigit()`` guard let a superscript digit through to ``int()`` and
+# the request ended in a 500. (``str.isdigit`` also accepts Arabic-Indic and
+# fullwidth digits, and it is unbounded.) Ids now go through
+# ``re.fullmatch(r"[0-9]{1,16}", ...)``, and a non-matching id is answered with
+# the SAME 404 as a missing one -- no 400/500 side channel.
+
+_BAD_IDS: list[str] = [
+    "²",  # superscript two: isdigit() True, int() raises
+    "³",  # superscript three
+    "¹",  # superscript one
+    "٣",  # ARABIC-INDIC DIGIT THREE
+    "٣٤",  # two Arabic-Indic digits
+    "３",  # FULLWIDTH DIGIT THREE
+    "１２",  # two fullwidth digits
+    "1" * 17,  # one digit past the bound
+    "",  # empty
+    "-5",  # negative
+    "+5",  # explicit sign
+    " 7",  # whitespace
+    "7 ",
+    "7\n",  # fullmatch must not tolerate a trailing newline
+    "\t7",
+    "7.0",
+    "0x1f",
+    "abc",
+]
+
+
+class TestSavedPlanIdValidation:
+    @pytest.mark.parametrize("raw", ["7", "0", "42", "1234567890", "9" * 16])
+    def test_helper_accepts_plain_ascii_digit_ids(self, raw: str) -> None:
+        assert app._parse_saved_plan_id(raw) == int(raw)
+
+    @pytest.mark.parametrize("raw", _BAD_IDS)
+    def test_helper_rejects_everything_else_without_raising(self, raw: str) -> None:
+        assert app._parse_saved_plan_id(raw) is None
+
+    def test_a_missing_id_is_a_404_with_a_fixed_body(
+        self, live_port: int, auth_env: None, fake_sb: _FakeSupabase
+    ) -> None:
+        status, body = _request(
+            live_port,
+            "GET",
+            "/api/saved-plans/987654321",
+            cookie=_signed_cookie(_A),
+        )
+        assert status == 404, (status, body)
+        assert body["error"] == "Plan not found"
+
+    def test_superscript_two_on_the_wire_is_the_same_404_not_a_500(
+        self, live_port: int, auth_env: None, fake_sb: _FakeSupabase
+    ) -> None:
+        """BaseHTTPRequestHandler decodes the request line as ISO-8859-1, so the
+        single byte 0xB2 arrives as U+00B2 -- the verifier's repro."""
+        cookie = _signed_cookie(_A)
+        missing = _request(
+            live_port, "GET", "/api/saved-plans/987654321", cookie=cookie
+        )
+        sock = socket.create_connection(("127.0.0.1", live_port), timeout=30)
+        try:
+            sock.sendall(
+                b"GET /api/saved-plans/\xb2 HTTP/1.1\r\n"
+                b"Host: 127.0.0.1\r\n"
+                + f"X-Forwarded-For: {_fresh_ip()}\r\n".encode("ascii")
+                + f"Cookie: {cookie}\r\n".encode("ascii")
+                + b"Connection: close\r\n\r\n"
+            )
+            chunks: list[bytes] = []
+            while True:
+                data = sock.recv(65536)
+                if not data:
+                    break
+                chunks.append(data)
+        finally:
+            sock.close()
+        head, _, raw_body = b"".join(chunks).partition(b"\r\n\r\n")
+        status = int(head.split(b" ", 2)[1])
+        assert status == 404, (head[:200], raw_body[:200])
+        assert (status, json.loads(raw_body)) == missing
+
+    @pytest.mark.parametrize(
+        "segment",
+        [
+            "%C2%B2",  # what a browser sends for U+00B2 (UTF-8, percent-encoded)
+            "%D9%A3",  # percent-encoded Arabic-Indic digit three
+            "%EF%BC%93",  # percent-encoded fullwidth digit three
+            "12345678901234567",  # 17 digits
+            "-5",
+            "%207",  # encoded leading space
+            "7%20",
+            "abc",
+        ],
+    )
+    def test_bad_ids_over_http_are_the_same_404_as_a_missing_id(
+        self, live_port: int, auth_env: None, fake_sb: _FakeSupabase, segment: str
+    ) -> None:
+        cookie = _signed_cookie(_A)
+        fake_sb.rows.append({"id": 7, "user_email": _A, "plan_data": {"k": 1}})
+        missing = _request(
+            live_port, "GET", "/api/saved-plans/987654321", cookie=cookie
+        )
+        got = _request(live_port, "GET", f"/api/saved-plans/{segment}", cookie=cookie)
+        assert got == missing, (segment, got, missing)
+        assert got[0] == 404
+
+    def test_an_empty_id_is_a_404_and_leaks_nothing(
+        self, live_port: int, auth_env: None, fake_sb: _FakeSupabase
+    ) -> None:
+        fake_sb.rows.append({"id": 7, "user_email": _A, "plan_data": {"k": 1}})
+        status, body = _request(
+            live_port, "GET", "/api/saved-plans/", cookie=_signed_cookie(_A)
+        )
+        assert status == 404, (status, body)
+        assert "plan_data" not in body and "plans" not in body
+
+    def test_an_invalid_id_does_not_touch_storage(
+        self, live_port: int, auth_env: None, fake_sb: _FakeSupabase
+    ) -> None:
+        fake_sb.log.clear()
+        status, _ = _request(
+            live_port,
+            "GET",
+            "/api/saved-plans/12345678901234567",
+            cookie=_signed_cookie(_A),
+        )
+        assert status == 404
+        assert fake_sb.log == [], "an id that cannot exist must not hit the database"
+
+    def test_a_valid_id_still_resolves_for_its_owner(
+        self, live_port: int, auth_env: None, fake_sb: _FakeSupabase
+    ) -> None:
+        fake_sb.rows.append({"id": 7, "user_email": _A, "plan_data": {"k": 1}})
+        status, body = _request(
+            live_port, "GET", "/api/saved-plans/7", cookie=_signed_cookie(_A)
+        )
+        assert (status, body["plan_data"]) == (200, {"k": 1})
 
 
 # ---------------------------------------------------------------------------

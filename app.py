@@ -9141,6 +9141,28 @@ def _parse_cookie_value(cookie_header: str, name: str) -> str:
     return ""
 
 
+_SAVED_PLAN_ID_RE = re.compile(r"[0-9]{1,16}")
+
+
+def _parse_saved_plan_id(raw: str) -> Optional[int]:
+    """Parse a saved-plan id from a URL path segment, or None if it is not one.
+
+    Accepts only 1-16 ASCII digits. ``str.isdigit()`` is NOT a safe guard before
+    ``int()``: it is True for superscript digits, Arabic-Indic digits and fullwidth
+    digits, some of which ``int()`` rejects with ValueError (a 500), and it is
+    unbounded. ``re.fullmatch`` also refuses a trailing newline.
+
+    Args:
+        raw: The last path segment of ``/api/saved-plans/<id>``.
+
+    Returns:
+        The id as an int, or None when ``raw`` is not a valid id.
+    """
+    if _SAVED_PLAN_ID_RE.fullmatch(raw or ""):
+        return int(raw)
+    return None
+
+
 def _validate_csrf_double_submit(cookie_token: str, header_token: str) -> bool:
     """Validate CSRF using the double-submit cookie pattern.
 
@@ -14951,9 +14973,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 email = self._require_saved_plans_owner()
                 if not email:
                     return
-                plan_id = path.split("/")[-1]
-                if not plan_id.isdigit():
-                    self._send_json({"error": "Invalid plan ID"}, status_code=400)
+                plan_id = _parse_saved_plan_id(path.split("/")[-1])
+                if plan_id is None:
+                    # Not a possible id: the same 404 as an id that does not
+                    # exist, so malformed ids reveal nothing and never 500.
+                    self._send_json({"error": "Plan not found"}, status_code=404)
                     return
                 try:
                     from supabase_client import get_client
@@ -14970,7 +14994,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 result = (
                     sb.table("nova_saved_plans")
                     .select("*")
-                    .eq("id", int(plan_id))
+                    .eq("id", plan_id)
                     .eq("user_email", email)
                     .execute()
                 )
