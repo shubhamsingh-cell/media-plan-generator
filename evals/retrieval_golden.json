@@ -1,0 +1,834 @@
+{
+  "version": 1,
+  "rows": [
+    {
+      "id": "g001",
+      "domain": "cpc_cpa",
+      "query": "What CPC and CPA range should I expect for executive and leadership hiring?",
+      "expected_ids": [
+        "platform_intelligence_deep.json#recruitment_channel_strategy_guide.executive_leadership"
+      ],
+      "notes": "Strategy-guide budget range for executive roles (CPC $3-12, CPA $50-150)."
+    },
+    {
+      "id": "g002",
+      "domain": "cpc_cpa",
+      "query": "typical cost per click and cost per application for high volume hourly roles",
+      "expected_ids": [
+        "platform_intelligence_deep.json#recruitment_channel_strategy_guide.high_volume_hourly"
+      ],
+      "notes": "Strategy-guide budget range for high-volume hourly hiring."
+    },
+    {
+      "id": "g003",
+      "domain": "cpc_cpa",
+      "query": "What budget range of CPC and CPA applies to tech and engineering recruitment campaigns?",
+      "expected_ids": [
+        "platform_intelligence_deep.json#recruitment_channel_strategy_guide.tech_engineering"
+      ],
+      "notes": "Strategy-guide budget range for tech/engineering."
+    },
+    {
+      "id": "g004",
+      "domain": "cpc_cpa",
+      "query": "Why is healthcare the most expensive sector for cost per application?",
+      "expected_ids": [
+        "recruitment_industry_knowledge.json#industry_specific_benchmarks.healthcare",
+        "recruitment_benchmarks_deep.json#industry_benchmarks.healthcare_medical.cpa",
+        "industry_white_papers.json#aggregated_benchmarks.cpa_by_industry",
+        "supply_ecosystem_intelligence.json#publisher_tiers.tier_3_niche_industry.categories.healthcare.sector_performance",
+        "joveo_2026_benchmarks.json#median_cpa_by_occupation_2025",
+        "external_benchmarks_2025.json#reports.appcast_benchmark_2025.industry_data.standing_up_jobs"
+      ],
+      "notes": "Several files state healthcare has the highest CPA because of persistent shortages and standing-up roles."
+    },
+    {
+      "id": "g005",
+      "domain": "cpc_cpa",
+      "query": "How does TikTok recruitment advertising compare to Facebook on cost per click?",
+      "expected_ids": [
+        "recruitment_industry_knowledge.json#benchmarks.cost_per_click.by_platform.tiktok_ads",
+        "recruitment_industry_knowledge.json#benchmarks.cost_per_click.by_platform.meta_facebook_ads"
+      ],
+      "notes": "TikTok chunk states it is 42% cheaper than Facebook; Facebook chunk has the CPC band."
+    },
+    {
+      "id": "g006",
+      "domain": "cpc_cpa",
+      "query": "What is the typical LinkedIn sponsored content CPC when advertising jobs?",
+      "expected_ids": [
+        "ad_benchmarks_recruitment_2026.json#linkedin_ads.recruitment_specific.sources[0]",
+        "ad_benchmarks_recruitment_2026.json#linkedin_ads.recruitment_specific",
+        "recruitment_industry_knowledge.json#benchmarks.cost_per_click.by_platform.linkedin"
+      ],
+      "notes": "LinkedIn CPC band quoted in the ad-benchmarks and industry-knowledge files."
+    },
+    {
+      "id": "g007",
+      "domain": "cpc_cpa",
+      "query": "Google Ads CPC and click-through rate benchmark for the career and employment category",
+      "expected_ids": [
+        "ad_benchmarks_recruitment_2026.json#google_ads.recruitment_specific.sources[0]",
+        "recruitment_benchmarks_comprehensive_2026.json#A_cpa_cph_benchmarks_by_channel.cpc_by_platform.data[13]"
+      ],
+      "notes": "WordStream/LocaliQ 2026 Career & Employment line: CPC $5.81, CTR 5.88%."
+    },
+    {
+      "id": "g008",
+      "domain": "cpc_cpa",
+      "query": "average cost per hire for non-executive versus executive roles from SHRM",
+      "expected_ids": [
+        "ad_benchmarks_recruitment_2026.json#cost_per_hire.sources[0]",
+        "industry_white_papers.json#reports.shrm_recruiting_benchmarking_2025.key_findings[1]",
+        "industry_white_papers.json#reports.shrm_recruiting_benchmarking_2025.key_findings[2]",
+        "external_benchmarks_2025.json#reports.shrm_benchmarking_2025.key_findings[1]"
+      ],
+      "notes": "SHRM 2025 cost-per-hire figures split by executive vs non-executive."
+    },
+    {
+      "id": "g009",
+      "domain": "cpc_cpa",
+      "query": "Does Indeed charge per application or per click these days?",
+      "expected_ids": [
+        "platform_intelligence_deep.json#platforms.indeed.pricing_model",
+        "recruitment_industry_knowledge.json#benchmarks.cost_per_click.by_platform.indeed",
+        "recruitment_benchmarks_deep.json#platform_cpc_benchmarks.indeed",
+        "ad_benchmarks_recruitment_2026.json#indeed_sponsored.official_pricing.models[0]",
+        "ad_benchmarks_recruitment_2026.json#indeed_sponsored.official_pricing.models[1]"
+      ],
+      "notes": "Indeed pricing model: CPA since 2022 / CPC auction; PPA discontinued Dec 2023."
+    },
+    {
+      "id": "g010",
+      "domain": "cpc_cpa",
+      "query": "What is cost per qualified application and why is it replacing plain CPA?",
+      "expected_ids": [
+        "recruitment_benchmarks_deep.json#programmatic_benchmarks.bidding_models.cpqa",
+        "supply_ecosystem_intelligence.json#key_metrics_glossary",
+        "recruitment_industry_knowledge.json#benchmarks.cost_per_application.joveo_historical"
+      ],
+      "notes": "CPQA rationale: AI-generated applications inflate CPA."
+    },
+    {
+      "id": "g011",
+      "domain": "cpc_cpa",
+      "query": "When does CPM bidding make sense for recruitment ads?",
+      "expected_ids": [
+        "recruitment_benchmarks_deep.json#programmatic_benchmarks.bidding_models.cpm"
+      ],
+      "notes": "CPM best for brand awareness / employer branding campaigns."
+    },
+    {
+      "id": "g012",
+      "domain": "cpc_cpa",
+      "query": "What did the Appcast 2025 report say about the CPA trend and healthcare cost?",
+      "expected_ids": [
+        "recruitment_industry_knowledge.json#benchmarks.cost_per_application.appcast_2025_report",
+        "supply_ecosystem_intelligence.json#advertising_economics.cost_trends",
+        "recruitment_benchmarks_deep.json#industry_benchmarks.healthcare_medical.cpa"
+      ],
+      "notes": "Appcast 2025: CPA +4.8% YoY, healthcare highest, high CPA range $15-35."
+    },
+    {
+      "id": "g013",
+      "domain": "cpc_cpa",
+      "query": "How much do slot and subscription billing models cost for job boards?",
+      "expected_ids": [
+        "global_supply.json#billing_models.Slot",
+        "global_supply.json#billing_models.Subscription"
+      ],
+      "notes": "Billing-model typical ranges in global_supply."
+    },
+    {
+      "id": "g014",
+      "domain": "cpc_cpa",
+      "query": "How much does a TikTok ad click cost for hiring?",
+      "expected_ids": [
+        "ad_benchmarks_recruitment_2026.json#tiktok_ads.sources[0]",
+        "ad_benchmarks_recruitment_2026.json#tiktok_ads.avg_cpc_range_usd",
+        "recruitment_industry_knowledge.json#benchmarks.cost_per_click.by_platform.tiktok_ads"
+      ],
+      "notes": "TikTok CPC range ~$0.30-$1.50 (some $0.17-$1.00)."
+    },
+    {
+      "id": "g015",
+      "domain": "cpc_cpa",
+      "query": "What does Naukri charge per click in India?",
+      "expected_ids": [
+        "supply_ecosystem_intelligence.json#publisher_performance.naukri"
+      ],
+      "notes": "Naukri avg CPC INR 8-25 ($0.10-$0.30)."
+    },
+    {
+      "id": "g016",
+      "domain": "cpc_cpa",
+      "query": "How much did Joveo cut cost per application in global staffing campaigns?",
+      "expected_ids": [
+        "supply_ecosystem_intelligence.json#advertising_economics.roi_benchmarks",
+        "recruitment_industry_knowledge.json#benchmarks.cost_per_application.joveo_historical"
+      ],
+      "notes": "Joveo client results: 50%+ reduction; CPA reduced from $40 to $4 in optimized campaigns."
+    },
+    {
+      "id": "g017",
+      "domain": "cpc_cpa",
+      "query": "Why does retail have the lowest CPC of the major industries?",
+      "expected_ids": [
+        "recruitment_benchmarks_deep.json#industry_benchmarks.retail_consumer.cpc",
+        "live_market_data.json#industry_benchmarks.retail"
+      ],
+      "notes": "Retail: high candidate volume, lowest cost per hire / CPC."
+    },
+    {
+      "id": "g018",
+      "domain": "salary",
+      "query": "What premium do AI and ML engineers command over general software engineers?",
+      "expected_ids": [
+        "salary_benchmarks_detailed_2026.json#compensation_structure_notes",
+        "workforce_trends_intelligence.json#job_type_trends.growing_demand.ai_ml_engineers"
+      ],
+      "notes": "AI/ML engineers command a 30-40% premium (salary notes) and $206K average (workforce trends)."
+    },
+    {
+      "id": "g019",
+      "domain": "salary",
+      "query": "What was the average tech salary in the Dice 2025 report?",
+      "expected_ids": [
+        "industry_white_papers.json#reports.dice_tech_salary_2025.key_findings[0]"
+      ],
+      "notes": "Dice 2025 average tech salary $112,521."
+    },
+    {
+      "id": "g020",
+      "domain": "salary",
+      "query": "median salary for cybersecurity professionals",
+      "expected_ids": [
+        "workforce_trends_intelligence.json#job_type_trends.growing_demand.cybersecurity"
+      ],
+      "notes": "Cybersecurity median salary $124,910 (BLS May 2024)."
+    },
+    {
+      "id": "g021",
+      "domain": "salary",
+      "query": "What is the median starting salary for new graduates?",
+      "expected_ids": [
+        "industry_white_papers.json#reports.handshake_early_talent_2025_2026.key_findings[0]",
+        "external_benchmarks_2025.json#reports.handshake_early_talent_2025.key_findings[0]",
+        "external_benchmarks_2025.json#aggregated_benchmarks.top_hiring_trends_2025[7].data_points[1]"
+      ],
+      "notes": "Handshake early-talent median full-time salary $67,500."
+    },
+    {
+      "id": "g022",
+      "domain": "salary",
+      "query": "What starting salary do Gen Z job seekers expect?",
+      "expected_ids": [
+        "workforce_trends_intelligence.json#generational_trends.gen_z.salary_expectations",
+        "workforce_trends_intelligence.json#compensation_trends.salary_negotiation_by_generation"
+      ],
+      "notes": "Gen Z expects $101,500 starting salary (ZipRecruiter 2025)."
+    },
+    {
+      "id": "g023",
+      "domain": "salary",
+      "query": "How much of total compensation is base pay for senior tech employees?",
+      "expected_ids": [
+        "salary_benchmarks_detailed_2026.json#compensation_structure_notes"
+      ],
+      "notes": "Base salary is only 40-60% of total comp at senior levels; total comp 2-3x base."
+    },
+    {
+      "id": "g024",
+      "domain": "salary",
+      "query": "What does Robert Half project for data scientist pay?",
+      "expected_ids": [
+        "industry_white_papers.json#aggregated_benchmarks.salary_benchmarks_2025_2026"
+      ],
+      "notes": "Robert Half projected data scientist $153,750 in the aggregated salary benchmarks."
+    },
+    {
+      "id": "g025",
+      "domain": "salary",
+      "query": "What do external recruiters charge as a share of first-year salary?",
+      "expected_ids": [
+        "recruitment_benchmarks_deep.json#industry_benchmarks.technology_engineering.cph",
+        "recruitment_strategy_intelligence.json#budget_frameworks.percentage_of_salary",
+        "live_market_data.json#hidden_costs_of_hiring[0]"
+      ],
+      "notes": "External recruiter fee 15-30% of first-year salary."
+    },
+    {
+      "id": "g026",
+      "domain": "salary",
+      "query": "How do developer hourly rates in India compare with the US?",
+      "expected_ids": [
+        "workforce_trends_intelligence.json#regional_shifts.international_hiring.india"
+      ],
+      "notes": "India developer rates $18-$40/hour, 40-70% lower than US/Western Europe."
+    },
+    {
+      "id": "g027",
+      "domain": "salary",
+      "query": "What share of Gen Z would ghost an employer that does not disclose pay?",
+      "expected_ids": [
+        "workforce_trends_intelligence.json#generational_trends.gen_z.ghosting_behavior",
+        "workforce_trends_intelligence.json#compensation_trends.pay_transparency.gen_z_impact"
+      ],
+      "notes": "44% of Gen Z would ghost if salary range not disclosed."
+    },
+    {
+      "id": "g028",
+      "domain": "salary",
+      "query": "How much does a cloud solutions architect earn on average?",
+      "expected_ids": [
+        "industry_white_papers.json#reports.dice_tech_salary_2025.key_findings[11]"
+      ],
+      "notes": "Dice 2025: Cloud Solutions Architect average $157,978."
+    },
+    {
+      "id": "g029",
+      "domain": "channel",
+      "query": "How can text messages be used to re-engage dormant candidates?",
+      "expected_ids": [
+        "recruitment_strategy_intelligence.json#content_marketing.sms_text_recruiting.benchmarks",
+        "recruitment_strategy_intelligence.json#content_marketing.sms_text_recruiting.use_cases[3]"
+      ],
+      "notes": "SMS recruiting benchmarks (98% open rate) and re-engagement use case."
+    },
+    {
+      "id": "g030",
+      "domain": "channel",
+      "query": "How effective are employee referrals compared with job boards?",
+      "expected_ids": [
+        "recruitment_industry_knowledge.json#benchmarks.source_of_hire.employee_referrals",
+        "global_supply.json#innovative_channels_2025.employee_referral_platforms",
+        "recruitment_benchmarks_deep.json#funnel_conversion_rates.by_candidate_source.employee_referrals",
+        "recruitment_industry_knowledge.json#recruitment_advertising_market.channel_effectiveness.employee_referrals"
+      ],
+      "notes": "Referrals: 4x more high-quality candidates, hired 55% faster."
+    },
+    {
+      "id": "g031",
+      "domain": "channel",
+      "query": "What percent of career site visitors actually complete an application?",
+      "expected_ids": [
+        "recruitment_industry_knowledge.json#benchmarks.apply_rates.career_site_benchmark",
+        "recruitment_industry_knowledge.json#benchmarks.conversion_rates.recruitment_funnel_benchmarks",
+        "recruitment_strategy_intelligence.json#content_marketing.career_page_optimization.conversion_benchmarks"
+      ],
+      "notes": "95% of visits do not convert; 5-6% visitor-to-applicant rate."
+    },
+    {
+      "id": "g032",
+      "domain": "channel",
+      "query": "What share of job applications are submitted from mobile phones?",
+      "expected_ids": [
+        "recruitment_benchmarks_deep.json#funnel_conversion_rates.overall_benchmarks.click_to_application_start",
+        "recruitment_strategy_intelligence.json#creative_best_practices.mobile_optimization.stats",
+        "recruitment_strategy_intelligence.json#content_marketing.career_page_optimization.optimization_elements[0]"
+      ],
+      "notes": "Mobile 67-90% of applications depending on source."
+    },
+    {
+      "id": "g033",
+      "domain": "channel",
+      "query": "What image sizes and video lengths work for LinkedIn, Instagram and TikTok job ads?",
+      "expected_ids": [
+        "recruitment_strategy_intelligence.json#creative_best_practices.visual_creative.format_recommendations"
+      ],
+      "notes": "Creative format recommendations per platform."
+    },
+    {
+      "id": "g034",
+      "domain": "channel",
+      "query": "Does video outperform static images for recruitment ad click-through?",
+      "expected_ids": [
+        "recruitment_strategy_intelligence.json#creative_best_practices.visual_creative.image_vs_video",
+        "recruitment_strategy_intelligence.json#content_marketing.social_media_content.engagement_benchmarks",
+        "recruitment_strategy_intelligence.json#employer_branding.channel_effectiveness.social_media",
+        "ad_benchmarks_recruitment_2026.json#meta_ads.trends_2026[2]"
+      ],
+      "notes": "Video boosts CTR by up to 120%."
+    },
+    {
+      "id": "g035",
+      "domain": "channel",
+      "query": "Which job platform is best for hiring military veterans?",
+      "expected_ids": [
+        "recruitment_strategy_intelligence.json#dei_recruitment.channels.diversity_job_boards.Hirepurpose",
+        "joveo_publishers.json#publisher_verification.Military.com"
+      ],
+      "notes": "Hirepurpose: veteran and military spouse platform."
+    },
+    {
+      "id": "g036",
+      "domain": "channel",
+      "query": "What is Reddit advertising good for in recruiting?",
+      "expected_ids": [
+        "recruitment_industry_knowledge.json#benchmarks.cost_per_click.by_platform.reddit_ads"
+      ],
+      "notes": "Reddit: tech roles, niche communities, passive candidates."
+    },
+    {
+      "id": "g037",
+      "domain": "channel",
+      "query": "Walk me through how programmatic bid optimization works",
+      "expected_ids": [
+        "supply_ecosystem_intelligence.json#programmatic_ecosystem.how_it_works.step_by_step_process[3]",
+        "supply_ecosystem_intelligence.json#programmatic_ecosystem.how_it_works.step_by_step_process[6]",
+        "recruitment_benchmarks_comprehensive_2026.json#E_programmatic_recruitment_benchmarks.bid_optimization.data.bid_strategy_tips[1]",
+        "recruitment_benchmarks_comprehensive_2026.json#E_programmatic_recruitment_benchmarks.bid_optimization.data.bid_strategy_tips[2]"
+      ],
+      "notes": "Step-by-step programmatic process: bid optimization and continuous optimization."
+    },
+    {
+      "id": "g038",
+      "domain": "channel",
+      "query": "Do I need to sponsor Glassdoor separately from Indeed?",
+      "expected_ids": [
+        "recruitment_benchmarks_deep.json#platform_cpc_benchmarks.glassdoor",
+        "platform_intelligence_deep.json#platforms.glassdoor",
+        "live_market_data.json#job_boards.glassdoor",
+        "ad_benchmarks_recruitment_2026.json#glassdoor",
+        "platform_intelligence_deep.json#platforms.glassdoor.recent_changes[0]",
+        "platform_intelligence_deep.json#platforms.indeed.recent_changes[1]"
+      ],
+      "notes": "Glassdoor jobs flow through Indeed; sponsoring on Indeed also posts to Glassdoor."
+    },
+    {
+      "id": "g039",
+      "domain": "channel",
+      "query": "Why should recruitment budgets go beyond job boards into social and display?",
+      "expected_ids": [
+        "supply_ecosystem_intelligence.json#publisher_tiers.tier_4_social_display.tier_4_benchmarks_summary"
+      ],
+      "notes": "Companies spend 95% of budget on job boards to reach 20% of the talent pool."
+    },
+    {
+      "id": "g040",
+      "domain": "channel",
+      "query": "Can YouTube ads drive job applications?",
+      "expected_ids": [
+        "ad_benchmarks_recruitment_2026.json#youtube_ads"
+      ],
+      "notes": "YouTube is awareness/retargeting; weak as a direct apply channel."
+    },
+    {
+      "id": "g041",
+      "domain": "channel",
+      "query": "Which job boards serve government and cleared candidates?",
+      "expected_ids": [
+        "platform_intelligence_deep.json#platform_comparisons.best_for_government[0]",
+        "platform_intelligence_deep.json#platform_comparisons.best_for_government[1]",
+        "platform_intelligence_deep.json#platform_comparisons.best_for_government[2]"
+      ],
+      "notes": "Government/cleared platform recommendations."
+    },
+    {
+      "id": "g042",
+      "domain": "channel",
+      "query": "Where do I find physician and academic medical center candidates?",
+      "expected_ids": [
+        "platform_intelligence_deep.json#platform_comparisons.best_for_healthcare[1]",
+        "platform_intelligence_deep.json#platform_comparisons.best_for_healthcare[2]",
+        "platform_intelligence_deep.json#platforms.jama_career_center.best_for[0]",
+        "platform_intelligence_deep.json#platforms.jama_career_center.best_for[1]"
+      ],
+      "notes": "Physician-focused and AMA-backed boards."
+    },
+    {
+      "id": "g043",
+      "domain": "channel",
+      "query": "Should Easy Apply or ATS apply be used on LinkedIn jobs?",
+      "expected_ids": [
+        "linkedin_performance_benchmarks.json#key_insights[14]",
+        "linkedin_performance_benchmarks.json#easy_apply_vs_ats_summary",
+        "recruitment_benchmarks_comprehensive_2026.json#D_linkedin_specific_benchmarks.easy_apply_vs_ats.data",
+        "linkedin_performance_benchmarks.json#key_insights[15]",
+        "recruitment_benchmarks_comprehensive_2026.json#B_apply_rate_conversion_benchmarks.easy_apply_vs_standard_apply.data.slotops_internal_data"
+      ],
+      "notes": "Easy Apply: 2.3x apply-rate lift but lower quality than ATS."
+    },
+    {
+      "id": "g044",
+      "domain": "seasonality",
+      "query": "When do CPAs rise in the fall and what should I do before December?",
+      "expected_ids": [
+        "recruitment_benchmarks_deep.json#seasonal_patterns.cpa_monthly_fluctuation_patterns.q4_oct_dec",
+        "recruitment_benchmarks_deep.json#seasonal_patterns.general_patterns.september_october"
+      ],
+      "notes": "Q4: front-load October; September surge raises CPAs."
+    },
+    {
+      "id": "g045",
+      "domain": "seasonality",
+      "query": "How much do CPAs jump during holiday retail hiring?",
+      "expected_ids": [
+        "recruitment_benchmarks_deep.json#seasonal_patterns.industry_specific_seasonality.retail"
+      ],
+      "notes": "Retail CPA +25-30% during holiday seasonal hiring."
+    },
+    {
+      "id": "g046",
+      "domain": "seasonality",
+      "query": "Is summer a good time to run cheaper recruitment ads?",
+      "expected_ids": [
+        "recruitment_benchmarks_deep.json#seasonal_patterns.general_patterns.june_july_august",
+        "recruitment_benchmarks_deep.json#seasonal_patterns.cpa_monthly_fluctuation_patterns.q3_jul_sep"
+      ],
+      "notes": "Summer slowdown: lower CPA bids possible; July-August dip."
+    },
+    {
+      "id": "g047",
+      "domain": "seasonality",
+      "query": "What are the peak hiring months for logistics and warehousing?",
+      "expected_ids": [
+        "industry_hiring_patterns_2026.json#seasonal_hiring_patterns.by_industry[7]",
+        "recruitment_benchmarks_deep.json#industry_benchmarks.logistics_supply_chain.seasonal_patterns",
+        "recruitment_benchmarks_deep.json#seasonal_patterns.industry_specific_seasonality.logistics",
+        "seasonal_hiring_trends.json#seasonal_patterns.logistics"
+      ],
+      "notes": "Logistics peaks for the holiday shipping season (+40% CPA, driving jobs +153%)."
+    },
+    {
+      "id": "g048",
+      "domain": "seasonality",
+      "query": "How does the federal fiscal year affect government hiring?",
+      "expected_ids": [
+        "recruitment_benchmarks_deep.json#seasonal_patterns.industry_specific_seasonality.government",
+        "recruitment_benchmarks_deep.json#industry_benchmarks.government.seasonal_patterns",
+        "seasonal_hiring_trends.json#seasonal_patterns.government",
+        "recruitment_benchmarks_deep.json#industry_benchmarks.aerospace_defense.seasonal_patterns"
+      ],
+      "notes": "Federal fiscal year (Oct 1) drives end-of-year spending and hiring urgency."
+    },
+    {
+      "id": "g049",
+      "domain": "seasonality",
+      "query": "What does the general month-by-month hiring cycle look like?",
+      "expected_ids": [
+        "industry_hiring_patterns_2026.json#seasonal_hiring_patterns.general_cycle",
+        "supply_ecosystem_intelligence.json#advertising_economics.seasonality"
+      ],
+      "notes": "January-February peak, summer slowdown, September rebound, holiday mix."
+    },
+    {
+      "id": "g050",
+      "domain": "seasonality",
+      "query": "When is agricultural hiring busiest?",
+      "expected_ids": [
+        "recruitment_benchmarks_deep.json#seasonal_patterns.industry_specific_seasonality.agriculture"
+      ],
+      "notes": "Planting (spring) and harvest (fall) bimodal peaks."
+    },
+    {
+      "id": "g051",
+      "domain": "seasonality",
+      "query": "When does construction hiring ramp up and how does it affect CPA?",
+      "expected_ids": [
+        "recruitment_benchmarks_deep.json#seasonal_patterns.industry_specific_seasonality.construction",
+        "recruitment_benchmarks_deep.json#seasonal_patterns.general_patterns.march_april_may",
+        "seasonal_hiring_trends.json#seasonal_patterns.construction",
+        "recruitment_benchmarks_deep.json#industry_benchmarks.construction_real_estate.seasonal_patterns"
+      ],
+      "notes": "Construction CPA +30% in spring ramp-up; spring trades ramp."
+    },
+    {
+      "id": "g052",
+      "domain": "seasonality",
+      "query": "Does healthcare hiring have a seasonal surge?",
+      "expected_ids": [
+        "seasonal_hiring_trends.json#seasonal_patterns.healthcare",
+        "recruitment_benchmarks_deep.json#seasonal_patterns.industry_specific_seasonality.healthcare"
+      ],
+      "notes": "Post-holiday surge Jan-Feb and fall flu season Sep-Oct."
+    },
+    {
+      "id": "g053",
+      "domain": "seasonality",
+      "query": "How should I budget in January when new hiring budgets open up?",
+      "expected_ids": [
+        "recruitment_benchmarks_deep.json#seasonal_patterns.general_patterns.january_february",
+        "recruitment_benchmarks_deep.json#seasonal_patterns.cpa_monthly_fluctuation_patterns.q1_jan_mar"
+      ],
+      "notes": "January-February: maximize budget, launch major campaigns."
+    },
+    {
+      "id": "g054",
+      "domain": "recruitment_marketing",
+      "query": "How long should a job title be to get the best apply rate?",
+      "expected_ids": [
+        "industry_white_papers.json#reports.appcast_benchmark_2026.key_findings[15]",
+        "industry_white_papers.json#reports.appcast_benchmark_2026.benchmarks.job_ad_insights_2025"
+      ],
+      "notes": "Titles of 4-6 words get highest apply rate (4.80%)."
+    },
+    {
+      "id": "g055",
+      "domain": "recruitment_marketing",
+      "query": "How do skills-based hiring practices show up in screening and interviews?",
+      "expected_ids": [
+        "recruitment_industry_knowledge.json#market_trends.skills_based_hiring.methods",
+        "recruitment_industry_knowledge.json#market_trends.skills_based_hiring.adoption"
+      ],
+      "notes": "Skills-based approach: 87% interviewing, 65% screening."
+    },
+    {
+      "id": "g056",
+      "domain": "recruitment_marketing",
+      "query": "What share of job postings are hybrid versus on-site now?",
+      "expected_ids": [
+        "recruitment_industry_knowledge.json#market_trends.remote_hybrid_work.job_postings",
+        "workforce_trends_intelligence.json#job_type_trends.remote_work.job_postings_breakdown",
+        "linkedin_performance_benchmarks.json#key_insights[5]"
+      ],
+      "notes": "Hybrid 24% vs on-site 66% in Q2 2025."
+    },
+    {
+      "id": "g057",
+      "domain": "recruitment_marketing",
+      "query": "How much does a strong employer brand reduce cost per hire?",
+      "expected_ids": [
+        "industry_white_papers.json#reports.radancy_employer_brand_insights_2025.key_findings[0]",
+        "industry_white_papers.json#reports.radancy_employer_brand_insights_2025.benchmarks",
+        "recruitment_strategy_intelligence.json#employer_branding.roi_data.cost_per_hire_reduction",
+        "platform_intelligence_deep.json#platforms.glassdoor.pros[2]"
+      ],
+      "notes": "Strong employer brands: 50% lower cost per hire, 28% lower turnover."
+    },
+    {
+      "id": "g058",
+      "domain": "recruitment_marketing",
+      "query": "How much does AI cut recruiter screening time?",
+      "expected_ids": [
+        "workforce_trends_intelligence.json#ai_impact.ai_in_recruitment.efficiency_gains"
+      ],
+      "notes": "71% reduction in initial review time (Workday)."
+    },
+    {
+      "id": "g059",
+      "domain": "recruitment_marketing",
+      "query": "Do Gen Z candidates apply on mobile or desktop?",
+      "expected_ids": [
+        "workforce_trends_intelligence.json#generational_trends.gen_z.job_search_behavior.mobile_vs_desktop",
+        "workforce_trends_intelligence.json#supply_partner_trends.programmatic_trends.mobile_apply_optimization"
+      ],
+      "notes": "Gen Z discovers on mobile but 75% switch to desktop to apply."
+    },
+    {
+      "id": "g060",
+      "domain": "recruitment_marketing",
+      "query": "How much more likely are people to apply to a company with a positive reputation?",
+      "expected_ids": [
+        "recruitment_strategy_intelligence.json#employer_branding.candidate_behavior_stats.reputation_impact[1]"
+      ],
+      "notes": "96% more likely to apply to companies with a positive employer brand."
+    },
+    {
+      "id": "g061",
+      "domain": "recruitment_marketing",
+      "query": "What are the programmatic advertising trends for 2026?",
+      "expected_ids": [
+        "recruitment_industry_knowledge.json#market_trends.programmatic_job_advertising.key_trends_2026",
+        "recruitment_benchmarks_deep.json#programmatic_benchmarks.rtb_real_time_bidding",
+        "recruitment_marketing_trends_2026.json#programmatic_advertising.key_trends[0]",
+        "recruitment_marketing_trends_2026.json#programmatic_advertising.key_trends[1]",
+        "recruitment_marketing_trends_2026.json#programmatic_advertising.key_trends[2]",
+        "recruitment_marketing_trends_2026.json#programmatic_advertising.key_trends[3]",
+        "recruitment_marketing_trends_2026.json#programmatic_advertising.key_trends[4]",
+        "recruitment_marketing_trends_2026.json#programmatic_advertising.key_trends[5]",
+        "recruitment_marketing_trends_2026.json#programmatic_advertising.key_trends[6]"
+      ],
+      "notes": "Programmatic video, first-party data, AI contextual targeting trends."
+    },
+    {
+      "id": "g062",
+      "domain": "recruitment_marketing",
+      "query": "How many candidates drop out of long application forms?",
+      "expected_ids": [
+        "recruitment_strategy_intelligence.json#creative_best_practices.mobile_optimization.stats",
+        "joveo_2026_benchmarks.json#cpa_by_application_type",
+        "recruitment_strategy_intelligence.json#recruiter_workload_trends",
+        "recruitment_strategy_intelligence.json#content_marketing.chatbot_effectiveness.impact[0]"
+      ],
+      "notes": "60% drop off if application takes >10 minutes; fewer pages = more applies."
+    },
+    {
+      "id": "g063",
+      "domain": "recruitment_marketing",
+      "query": "Why shouldn't a falling CPA be read as proof that hiring is easier?",
+      "expected_ids": [
+        "joveo_2026_benchmarks.json#two_market_strategies.market_a_flood.what_fails[1]",
+        "joveo_2026_benchmarks.json#two_market_strategies.market_a_flood",
+        "industry_white_papers.json#reports.joveo_recruiting_benchmarks_2026.key_findings[2]"
+      ],
+      "notes": "Flooded-market strategy: declining CPA is not evidence hiring is easier."
+    },
+    {
+      "id": "g064",
+      "domain": "recruitment_marketing",
+      "query": "What is the median time to fill a role?",
+      "expected_ids": [
+        "industry_white_papers.json#reports.shrm_recruiting_benchmarking_2025.key_findings[0]",
+        "external_benchmarks_2025.json#reports.shrm_benchmarking_2025.key_findings[0]"
+      ],
+      "notes": "SHRM: median time to fill about 45 days."
+    },
+    {
+      "id": "g065",
+      "domain": "recruitment_marketing",
+      "query": "How many job seekers expect pay information in a job ad?",
+      "expected_ids": [
+        "industry_white_papers.json#reports.appcast_benchmark_2023.benchmarks.job_seeker_preferences_2022"
+      ],
+      "notes": "Job-ad must-haves: 38% salary range, 34% clear task description."
+    },
+    {
+      "id": "g066",
+      "domain": "platform_performance",
+      "query": "Which country has the highest LinkedIn apply rate?",
+      "expected_ids": [
+        "linkedin_performance_benchmarks.json#key_insights[0]",
+        "linkedin_performance_benchmarks.json#key_insights[8]"
+      ],
+      "notes": "India 19.14% (2.2x global), UAE 16.34%."
+    },
+    {
+      "id": "g067",
+      "domain": "platform_performance",
+      "query": "What is the global average LinkedIn apply rate?",
+      "expected_ids": [
+        "linkedin_performance_benchmarks.json#key_insights[13]"
+      ],
+      "notes": "Global average apply rate 8.56%, median 6.0%."
+    },
+    {
+      "id": "g068",
+      "domain": "platform_performance",
+      "query": "Does how long a LinkedIn job stays posted change its apply rate?",
+      "expected_ids": [
+        "linkedin_performance_benchmarks.json#key_insights[4]"
+      ],
+      "notes": "Posting duration has near-zero correlation with apply rate."
+    },
+    {
+      "id": "g069",
+      "domain": "platform_performance",
+      "query": "How long should a Craigslist job description be?",
+      "expected_ids": [
+        "craigslist_performance_benchmarks.json#craigslist_post_optimization.description_word_count",
+        "craigslist_performance_benchmarks.json#key_insights[9]"
+      ],
+      "notes": "201-400 words optimal for apply rate."
+    },
+    {
+      "id": "g070",
+      "domain": "platform_performance",
+      "query": "Should pay go in the first line of a Craigslist post?",
+      "expected_ids": [
+        "craigslist_performance_benchmarks.json#craigslist_post_optimization.salary_first_line",
+        "craigslist_performance_benchmarks.json#key_insights[8]"
+      ],
+      "notes": "Salary in first line gives 3.8x more applications."
+    },
+    {
+      "id": "g071",
+      "domain": "platform_performance",
+      "query": "What Craigslist apply rates should I expect for blue collar, professional and gig roles?",
+      "expected_ids": [
+        "craigslist_performance_benchmarks.json#key_insights[7]"
+      ],
+      "notes": "Impression-to-apply 12% professional, 18% hourly/gig, 25% blue collar."
+    },
+    {
+      "id": "g072",
+      "domain": "platform_performance",
+      "query": "Which month shows elevated LinkedIn apply rates across markets?",
+      "expected_ids": [
+        "linkedin_performance_benchmarks.json#key_insights[3]"
+      ],
+      "notes": "December elevated across markets (US 14.67%, UK 10.9%)."
+    },
+    {
+      "id": "g073",
+      "domain": "platform_performance",
+      "query": "Which job title has the best apply rate on LinkedIn among top titles?",
+      "expected_ids": [
+        "linkedin_performance_benchmarks.json#key_insights[7]"
+      ],
+      "notes": "Warehouse Associate 14.95%."
+    },
+    {
+      "id": "g074",
+      "domain": "regional_supply",
+      "query": "Who are the dominant job boards in Australia and New Zealand?",
+      "expected_ids": [
+        "supply_ecosystem_intelligence.json#publisher_tiers.tier_6_regional_international.regions.australia_nz.dominant_boards[0]",
+        "supply_ecosystem_intelligence.json#publisher_performance.seek"
+      ],
+      "notes": "SEEK / Jobsdb / Jobstreet unified platform."
+    },
+    {
+      "id": "g075",
+      "domain": "regional_supply",
+      "query": "What is the latest Naukri JobSpeak Index reading?",
+      "expected_ids": [
+        "recruitment_industry_knowledge.json#regional_data.asia_pacific.india",
+        "supply_ecosystem_intelligence.json#publisher_performance.naukri",
+        "recruitment_industry_knowledge.json#platform_insights.naukri.key_data"
+      ],
+      "notes": "Naukri JobSpeak Index Feb 2026: 3,233 points (+12% YoY)."
+    },
+    {
+      "id": "g076",
+      "domain": "regional_supply",
+      "query": "Which job site leads the market in Brazil?",
+      "expected_ids": [
+        "platform_intelligence_deep.json#platforms.infojobs.pros[0]",
+        "platform_intelligence_deep.json#platforms.infojobs"
+      ],
+      "notes": "InfoJobs Brazil: market leader, 12M unique monthly users."
+    },
+    {
+      "id": "g077",
+      "domain": "regional_supply",
+      "query": "Which countries does StepStone cover and how does it bill?",
+      "expected_ids": [
+        "supply_ecosystem_intelligence.json#publisher_performance.stepstone_germany",
+        "recruitment_industry_knowledge.json#platform_insights.stepstone_totaljobs.key_data"
+      ],
+      "notes": "StepStone: Germany, Austria, Belgium, Netherlands; posting/slot billing."
+    },
+    {
+      "id": "g078",
+      "domain": "regional_supply",
+      "query": "Who owns Appcast and what did it launch in 2025?",
+      "expected_ids": [
+        "joveo_publishers.json#publisher_verification.Appcast",
+        "recruitment_strategy_intelligence.json#technology_landscape.programmatic.platforms.appcast",
+        "joveo_publishers.json#publisher_verification.StepStone",
+        "platform_intelligence_deep.json#platforms.appcast",
+        "platform_intelligence_deep.json#programmatic_competitors.appcast",
+        "recruitment_industry_knowledge.json#market_trends.programmatic_job_advertising.key_players.appcast",
+        "recruitment_industry_knowledge.json#recruitment_advertising_market.major_players[1]"
+      ],
+      "notes": "Appcast owned by StepStone Group; Search Ads (May 2025) and Brand Ads (Jun 2025)."
+    },
+    {
+      "id": "g079",
+      "domain": "regional_supply",
+      "query": "What is PandoLogic called now?",
+      "expected_ids": [
+        "joveo_publishers.json#publisher_verification.PandoLogic",
+        "supply_ecosystem_intelligence.json#competitive_landscape.competitors.pandologic",
+        "recruitment_industry_knowledge.json#market_trends.programmatic_job_advertising.key_players.pandologic",
+        "recruitment_industry_knowledge.json#recruitment_advertising_market.major_players[4]",
+        "platform_intelligence_deep.json#industry_benchmarks.programmatic_market_dynamics_2026.consolidation[1]",
+        "platform_intelligence_deep.json#programmatic_competitors.pandologic",
+        "recruitment_benchmarks_deep.json#platform_cpc_benchmarks.programmatic_platforms.pandologic_2026_data",
+        "workforce_trends_intelligence.json#supply_partner_trends.programmatic_trends.programmatic_adoption_2026"
+      ],
+      "notes": "Now Veritone Hire."
+    }
+  ]
+}

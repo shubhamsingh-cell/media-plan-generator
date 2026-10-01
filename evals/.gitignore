@@ -1,0 +1,2 @@
+# retrieval_eval.py --voyage caches real embeddings here (tens of MB); never commit.
+.cache/
