@@ -31,6 +31,7 @@ import logging
 import re
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 try:
     from plan_geo import us_state_for_location as _us_state_for_location
@@ -643,6 +644,12 @@ def get_local_role_salary_band(
     source_names = [
         str((sources.get(s) or {}).get("name") or s) for s in source_ids
     ]
+    source_domains: list[str] = []
+    for s in source_ids:
+        host = urlparse(str((sources.get(s) or {}).get("url") or "")).netloc.lower()
+        host = re.sub(r"^(www|api)\.", "", host)
+        if host and host not in source_domains:
+            source_domains.append(host)
     return {
         "role": role,
         "low": float(entry["low"]),
@@ -654,8 +661,18 @@ def get_local_role_salary_band(
         "label": _LOCAL_BAND_OCCUPATIONS[key][2],
         "source_ids": source_ids,
         "source": "; ".join(source_names),
+        "source_short": ", ".join(source_domains) or "; ".join(source_names),
         "confidence": str(entry.get("confidence") or "").lower(),
     }
+
+
+def band_source_label(band: dict[str, Any]) -> str:
+    """Workbook Source cell for a band: full source name plus the statistic
+    it is -- "Shework Average Cost Per Hire in India 2026 (staff nurse,
+    government)". One spelling for every sheet."""
+    source = band.get("source") or "Local benchmark"
+    label = band.get("label") or ""
+    return f"{source} ({label})" if label else source
 
 
 def compact_money(value: float, symbol: str) -> str:
@@ -668,12 +685,16 @@ def compact_money(value: float, symbol: str) -> str:
     return f"{symbol}{value:,.0f}"
 
 
-def format_local_band(band: dict[str, Any], plan_currency: str | None = None) -> str:
+def format_local_band(
+    band: dict[str, Any], plan_currency: str | None = None, compact: bool = False
+) -> str:
     """One client-facing line for a band from :func:`get_local_role_salary_band`:
     "₹300K median (₹180K-₹480K) - Registered Nurse (staff nurse, government;
     source: Shework ...)". The ISO code is appended -- "(GBP)" -- when the band's
     currency differs from the plan's, so a declared GBP figure on a USD plan
-    can never read as dollars."""
+    can never read as dollars. ``compact`` (the deck's one-line card item)
+    names the source by its domain only: "... - Registered Nurse [shework.in]";
+    the workbook carries the statistic label and full source name."""
     sym = band.get("symbol") or ""
     text = (
         f"{compact_money(band['median'], sym)} median "
@@ -682,6 +703,9 @@ def format_local_band(band: dict[str, Any], plan_currency: str | None = None) ->
     code = str(band.get("currency") or "").upper()
     if code and code != str(plan_currency or "").upper():
         text += f" ({code})"
+    if compact:
+        short = band.get("source_short") or band.get("source") or ""
+        return f"{text} - {band.get('role') or ''}" + (f" [{short}]" if short else "")
     detail = band.get("label") or ""
     if band.get("source"):
         detail = f"{detail}; source: {band['source']}" if detail else f"source: {band['source']}"

@@ -1897,6 +1897,14 @@ def _clamp_salary_intelligence_to_role_bands(
         }
 
 
+def _band_source_label(band: Dict[str, Any]) -> str:
+    try:
+        from intl_benchmark_lookup import band_source_label
+    except ImportError:  # pragma: no cover - module ships with the repo
+        return band.get("source") or "Local benchmark"
+    return band_source_label(band)
+
+
 def local_band_salary_result(band: Dict[str, Any]) -> Dict[str, Any]:
     """salary_intelligence row for a published local band from
     ``intl_benchmark_lookup.get_local_role_salary_band``: low / median / high
@@ -1913,7 +1921,7 @@ def local_band_salary_result(band: Dict[str, Any]) -> Dict[str, Any]:
         "p25": None,
         "p75": None,
         "p90": None,
-        "sources": [band.get("source") or "Local benchmark"],
+        "sources": [_band_source_label(band)],
         "outlier_flags": [],
         "kb_validation": {"validated": False, "deviation": 0.0, "flag": "local_band"},
         "confidence": confidence,

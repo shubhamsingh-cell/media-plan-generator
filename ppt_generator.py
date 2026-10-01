@@ -3933,7 +3933,9 @@ def _local_salary_range_text(data: Dict) -> str:
     band = get_plan_local_salary_band(data)
     if not band:
         return _LOCAL_SALARY_NA
-    return format_local_band(band, _get_active_currency())
+    # Compact: the SITUATION card trims trailing items when a line wraps
+    # long; the statistic label and full source name are on the workbook.
+    return format_local_band(band, _get_active_currency(), compact=True)
 
 
 # ===================================================================

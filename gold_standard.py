@@ -933,10 +933,13 @@ def _local_role_band(location: Any, title: str) -> dict[str, Any] | None:
             location.get("country") or location.get("location") or location.get("city") or ""
         )
     try:
-        from intl_benchmark_lookup import get_local_role_salary_band
+        from intl_benchmark_lookup import band_source_label, get_local_role_salary_band
     except ImportError:  # pragma: no cover - module ships with the repo
         return None
-    return get_local_role_salary_band(str(location or ""), title)
+    band = get_local_role_salary_band(str(location or ""), title)
+    if band:
+        band = dict(band, source_label=band_source_label(band))
+    return band
 
 
 def role_band_salary(title: str, multiplier: float = 1.0) -> dict[str, float] | None:
@@ -1566,7 +1569,7 @@ def enrich_city_level_data(data: dict) -> dict:
                         "p75": None,
                         "max": round(_band["high"]),
                         "multiplier": 1.0,
-                        "source": _band.get("source") or "Local benchmark",
+                        "source": _band["source_label"],
                         "confidence": (
                             "benchmark" if _band.get("confidence") == "high" else "estimated"
                         ),

@@ -106,9 +106,10 @@ def test_salary_range_text_never_pairs_unrelated_statistics():
     india = ppt_generator._local_salary_range_text(
         {"locations": _INDIA, "roles": _INDIA_IT_ROLES, "industry": "tech_engineering"}
     )
-    assert "₹500K median (₹400K-₹600K)" in india
-    assert "Software Engineer (Fresher)" in india
-    assert "source: Plugscale" in india
+    # Compact on the deck card: figures, role and source domain. (Outside a
+    # render the active currency is USD, so the INR code is declared too.)
+    assert india.startswith("₹500K median (₹400K-₹600K)")
+    assert india.endswith("- Software Engineer (Fresher) [plugscale.com]")
     assert "7.5M" not in india and "7,500,000" not in india
 
 
@@ -119,6 +120,7 @@ def test_cited_block_uses_the_same_band():
         {"locations": _INDIA, "roles": _INDIA_IT_ROLES}
     )
     assert "₹500K median (₹400K-₹600K)" in india["salary_line"]
+    assert "software engineer, entry level; source: Plugscale" in india["salary_line"]
 
 
 def test_market_and_quality_intelligence_carry_the_same_band():
@@ -127,14 +129,17 @@ def test_market_and_quality_intelligence_carry_the_same_band():
     mi = synth["salary_intelligence"]["Software Engineer (Fresher)"]
     assert (mi["min"], mi["median"], mi["max"]) == (400000, 500000, 600000)
     assert mi["currency"] == "INR" and mi["p25"] is None and mi["local_band"]
-    assert mi["sources"][0].startswith("Plugscale")
+    assert mi["sources"][0] == (
+        "Plugscale Software Engineer Compensation Benchmark India 2026 "
+        "(software engineer, entry level)"
+    )
     data["_synthesized"] = synth
     for path_data in (data, {"roles": _INDIA_IT_ROLES, "locations": _INDIA}):
         for info in gs.enrich_city_level_data(path_data).values():
             row = info["per_role_salary"]["Software Engineer (Fresher)"]
             assert (row["min"], row["median"], row["max"]) == (400000, 500000, 600000)
             assert row["p25"] is None and row["currency"] == "INR"
-            assert row["source"].startswith("Plugscale")
+            assert row["source"] == mi["sources"][0]  # one spelling, both paths
             assert info["per_role_salary"]["QA Engineer"]["local_salary_na"] is True
 
 
