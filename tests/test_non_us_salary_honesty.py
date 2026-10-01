@@ -187,7 +187,11 @@ def test_mixed_plan_role_breakdown_marks_us_dollars(mixed):
 def test_columbus_retail_deck_prints_band_salary(columbus):
     slides = _slides(columbus["pptx"])
     text = " ".join(t for ts in slides.values() for t in ts)
-    assert "$86K" not in text and "$90K median" not in text
+    # The defect was the salary cell reading "$86K (est.)" (slide 7) and
+    # "$90K median" (slide 2). Match the salary-cell shape, not the bare
+    # "$86K": a channel allocation can legitimately total "$86K" ("Programmatic
+    # (DSP) $86K") once the CPC ladder moves, and that is not a salary.
+    assert "$86K (est.)" not in text and "$90K median" not in text
     assert "$35K median ($28K-$42K) - Retail Sales Associate" in " ".join(slides[2])
 
 
