@@ -171,6 +171,12 @@ def _scan_xlsx(blob: bytes) -> list:
                 if isinstance(c.value, str) and not c.value.startswith("="):
                     out += [(f"{ws.title}!{c.coordinate}", t, c.value[:120]) for t in _leaks(c.value)]
     with zipfile.ZipFile(io.BytesIO(blob)) as zf:
+        for name in ("docProps/core.xml", "docProps/app.xml"):
+            if name in zf.namelist():
+                # document properties (title/subject/keywords) show in the
+                # file's Info pane -- the keywords used to carry the raw key
+                for m in re.finditer(r">([^<]+)<", zf.read(name).decode("utf-8", "replace")):
+                    out += [(name, t, m.group(1)[:120]) for t in _leaks(unescape(m.group(1)))]
         for name in zf.namelist():
             if name.startswith("xl/charts/") and name.endswith(".xml"):
                 xml = zf.read(name).decode("utf-8", "replace")

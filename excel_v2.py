@@ -13121,7 +13121,9 @@ def _generate_excel_v2_inner(
     wb.properties.subject = f"AI-generated recruitment media plan for {client_name}"
     wb.properties.keywords = (
         f"recruitment media plan, "
-        f"{data.get('industry') or ''.replace('_', ' ').title()}, "
+        # was `x or ''.replace(...)` -- the replace bound to '' (precedence),
+        # so the raw snake_case key shipped in the file's keywords property
+        f"{display_format.humanize_key(data.get('industry') or '')}, "
         "job advertising"
     )
     wb.properties.description = (
