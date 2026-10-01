@@ -1,0 +1,79 @@
+{
+ "_recorded_at": "2026-10-01",
+ "population": {
+  "annotations": {
+   "dataset_link": "http://www.census.gov/programs-surveys/acs/",
+   "source_description": "The American Community Survey (ACS) is conducted by the US Census and sent to a portion of the population every year.",
+   "source_name": "Census Bureau",
+   "topic": "Diversity",
+   "subtopic": "Demographics",
+   "dataset_name": "ACS 5-year Estimate",
+   "table_id": "B01003"
+  },
+  "page": {
+   "limit": 0,
+   "offset": 0,
+   "total": 3
+  },
+  "columns": [
+   "State ID",
+   "State",
+   "Population"
+  ],
+  "data": [
+   {
+    "State ID": "04000US20",
+    "State": "Kansas",
+    "Population": 2947197.0
+   },
+   {
+    "State ID": "04000US42",
+    "State": "Pennsylvania",
+    "Population": 13018639.0
+   },
+   {
+    "State ID": "04000US54",
+    "State": "West Virginia",
+    "Population": 1778373.0
+   }
+  ]
+ },
+ "income": {
+  "annotations": {
+   "dataset_link": "http://www.census.gov/programs-surveys/acs/",
+   "source_description": "The American Community Survey (ACS) is conducted by the US Census and sent to a portion of the population every year.",
+   "source_name": "Census Bureau",
+   "topic": "Housing & Living",
+   "subtopic": "Income",
+   "dataset_name": "ACS 5-year Estimate",
+   "table_id": "B19013,B19013A,B19013B,B19013C,B19013D,B19013E,B19013F,B19013G,B19013H"
+  },
+  "page": {
+   "limit": 0,
+   "offset": 0,
+   "total": 3
+  },
+  "columns": [
+   "State ID",
+   "State",
+   "Household Income by Race"
+  ],
+  "data": [
+   {
+    "State ID": "04000US20",
+    "State": "Kansas",
+    "Household Income by Race": 74275.0
+   },
+   {
+    "State ID": "04000US42",
+    "State": "Pennsylvania",
+    "Household Income by Race": 77971.0
+   },
+   {
+    "State ID": "04000US54",
+    "State": "West Virginia",
+    "Household Income by Race": 59608.0
+   }
+  ]
+ }
+}

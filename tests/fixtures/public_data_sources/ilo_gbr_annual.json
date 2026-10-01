@@ -1,0 +1,492 @@
+{
+ "_recorded_at": "2026-10-01",
+ "GBR:unemployment": {
+  "meta": {
+   "schema": "https://raw.githubusercontent.com/sdmx-twg/sdmx-json/master/data-message/tools/schemas/2.0.0/sdmx-json-data-schema.json",
+   "id": "dacfb665-2455-49ad-b9b0-3f97b8f47eb3",
+   "prepared": "2026-10-01T06:56:20Z",
+   "test": false,
+   "contentLanguages": [
+    "en",
+    "en-GB"
+   ],
+   "sender": {
+    "id": "ILO",
+    "name": "ILOSTAT",
+    "names": {
+     "en": "ILOSTAT"
+    }
+   }
+  },
+  "data": {
+   "dataSets": [
+    {
+     "structure": 0,
+     "action": "Information",
+     "links": [
+      {
+       "urn": "urn:sdmx:org.sdmx.infomodel.datastructure.DataStructure=ILO:UNE_DEAP_SEX_AGE_RT(1.0)",
+       "rel": "DataStructure"
+      }
+     ],
+     "annotations": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "series": {
+      "0:0:0:0:0": {
+       "attributes": [
+        null,
+        null,
+        null
+       ],
+       "annotations": [],
+       "observations": {
+        "0": [
+         4.025,
+         0,
+         0,
+         null,
+         null,
+         null,
+         0,
+         null,
+         null
+        ],
+        "1": [
+         4.361,
+         0,
+         0,
+         null,
+         null,
+         null,
+         0,
+         null,
+         null
+        ],
+        "2": [
+         4.896,
+         0,
+         0,
+         null,
+         null,
+         null,
+         0,
+         null,
+         null
+        ]
+       }
+      }
+     }
+    }
+   ],
+   "structures": [
+    {
+     "name": "Unemployment rate by sex and age",
+     "dimensions": {
+      "series": [
+       {
+        "id": "REF_AREA",
+        "values": [
+         {
+          "id": "GBR",
+          "name": "United Kingdom of Great Britain and Northern Ireland"
+         }
+        ]
+       },
+       {
+        "id": "FREQ",
+        "values": [
+         {
+          "id": "A",
+          "name": "Annual"
+         }
+        ]
+       },
+       {
+        "id": "MEASURE",
+        "values": [
+         {
+          "id": "UNE_DEAP_RT",
+          "name": "Unemployment rate (previous ILO definition - ICLS13)"
+         }
+        ]
+       },
+       {
+        "id": "SEX",
+        "values": [
+         {
+          "id": "SEX_T",
+          "name": "Total"
+         }
+        ]
+       },
+       {
+        "id": "AGE",
+        "values": [
+         {
+          "id": "AGE_YTHADULT_YGE15",
+          "name": "15+"
+         }
+        ]
+       }
+      ],
+      "observation": [
+       {
+        "id": "TIME_PERIOD",
+        "values": [
+         {
+          "id": "2023",
+          "name": "2023"
+         },
+         {
+          "id": "2024",
+          "name": "2024"
+         },
+         {
+          "id": "2025",
+          "name": "2025"
+         }
+        ]
+       }
+      ]
+     },
+     "dataSets": [
+      0
+     ]
+    }
+   ]
+  },
+  "errors": []
+ },
+ "GBR:youth_unemployment": {
+  "meta": {
+   "schema": "https://raw.githubusercontent.com/sdmx-twg/sdmx-json/master/data-message/tools/schemas/2.0.0/sdmx-json-data-schema.json",
+   "id": "6365b8ad-e380-465c-87d9-82af6f3f192f",
+   "prepared": "2026-10-01T06:56:20Z",
+   "test": false,
+   "contentLanguages": [
+    "en",
+    "en-GB"
+   ],
+   "sender": {
+    "id": "ILO",
+    "name": "ILOSTAT",
+    "names": {
+     "en": "ILOSTAT"
+    }
+   }
+  },
+  "data": {
+   "dataSets": [
+    {
+     "structure": 0,
+     "action": "Information",
+     "links": [
+      {
+       "urn": "urn:sdmx:org.sdmx.infomodel.datastructure.DataStructure=ILO:UNE_DEAP_SEX_AGE_RT(1.0)",
+       "rel": "DataStructure"
+      }
+     ],
+     "annotations": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "series": {
+      "0:0:0:0:0": {
+       "attributes": [
+        null,
+        null,
+        null
+       ],
+       "annotations": [],
+       "observations": {
+        "0": [
+         11.959,
+         0,
+         0,
+         null,
+         null,
+         null,
+         0,
+         null,
+         null
+        ],
+        "1": [
+         14.291,
+         0,
+         0,
+         null,
+         null,
+         null,
+         0,
+         null,
+         null
+        ],
+        "2": [
+         15.2,
+         0,
+         0,
+         null,
+         null,
+         null,
+         0,
+         null,
+         null
+        ]
+       }
+      }
+     }
+    }
+   ],
+   "structures": [
+    {
+     "name": "Unemployment rate by sex and age",
+     "dimensions": {
+      "series": [
+       {
+        "id": "REF_AREA",
+        "values": [
+         {
+          "id": "GBR",
+          "name": "United Kingdom of Great Britain and Northern Ireland"
+         }
+        ]
+       },
+       {
+        "id": "FREQ",
+        "values": [
+         {
+          "id": "A",
+          "name": "Annual"
+         }
+        ]
+       },
+       {
+        "id": "MEASURE",
+        "values": [
+         {
+          "id": "UNE_DEAP_RT",
+          "name": "Unemployment rate (previous ILO definition - ICLS13)"
+         }
+        ]
+       },
+       {
+        "id": "SEX",
+        "values": [
+         {
+          "id": "SEX_T",
+          "name": "Total"
+         }
+        ]
+       },
+       {
+        "id": "AGE",
+        "values": [
+         {
+          "id": "AGE_YTHADULT_Y15-24",
+          "name": "15-24"
+         }
+        ]
+       }
+      ],
+      "observation": [
+       {
+        "id": "TIME_PERIOD",
+        "values": [
+         {
+          "id": "2023",
+          "name": "2023"
+         },
+         {
+          "id": "2024",
+          "name": "2024"
+         },
+         {
+          "id": "2025",
+          "name": "2025"
+         }
+        ]
+       }
+      ]
+     },
+     "dataSets": [
+      0
+     ]
+    }
+   ]
+  },
+  "errors": []
+ },
+ "GBR:lfp": {
+  "meta": {
+   "schema": "https://raw.githubusercontent.com/sdmx-twg/sdmx-json/master/data-message/tools/schemas/2.0.0/sdmx-json-data-schema.json",
+   "id": "dd1553a1-af81-4f65-b331-4098f1934d55",
+   "prepared": "2026-10-01T06:56:21Z",
+   "test": false,
+   "contentLanguages": [
+    "en",
+    "en-GB"
+   ],
+   "sender": {
+    "id": "ILO",
+    "name": "ILOSTAT",
+    "names": {
+     "en": "ILOSTAT"
+    }
+   }
+  },
+  "data": {
+   "dataSets": [
+    {
+     "structure": 0,
+     "action": "Information",
+     "links": [
+      {
+       "urn": "urn:sdmx:org.sdmx.infomodel.datastructure.DataStructure=ILO:EAP_DWAP_SEX_AGE_RT(1.0)",
+       "rel": "DataStructure"
+      }
+     ],
+     "annotations": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "series": {
+      "0:0:0:0:0": {
+       "attributes": [
+        null,
+        null,
+        null
+       ],
+       "annotations": [],
+       "observations": {
+        "0": [
+         62.227,
+         0,
+         0,
+         null,
+         null,
+         null,
+         0,
+         null,
+         null
+        ],
+        "1": [
+         62.044,
+         0,
+         0,
+         null,
+         null,
+         null,
+         0,
+         null,
+         null
+        ],
+        "2": [
+         62.842,
+         0,
+         0,
+         null,
+         null,
+         null,
+         0,
+         null,
+         null
+        ]
+       }
+      }
+     }
+    }
+   ],
+   "structures": [
+    {
+     "name": "Labour force participation rate by sex and age",
+     "dimensions": {
+      "series": [
+       {
+        "id": "REF_AREA",
+        "values": [
+         {
+          "id": "GBR",
+          "name": "United Kingdom of Great Britain and Northern Ireland"
+         }
+        ]
+       },
+       {
+        "id": "FREQ",
+        "values": [
+         {
+          "id": "A",
+          "name": "Annual"
+         }
+        ]
+       },
+       {
+        "id": "MEASURE",
+        "values": [
+         {
+          "id": "EAP_DWAP_RT",
+          "name": "Labour force participation rate (previous ILO definition - ICLS13)"
+         }
+        ]
+       },
+       {
+        "id": "SEX",
+        "values": [
+         {
+          "id": "SEX_T",
+          "name": "Total"
+         }
+        ]
+       },
+       {
+        "id": "AGE",
+        "values": [
+         {
+          "id": "AGE_YTHADULT_YGE15",
+          "name": "15+"
+         }
+        ]
+       }
+      ],
+      "observation": [
+       {
+        "id": "TIME_PERIOD",
+        "values": [
+         {
+          "id": "2023",
+          "name": "2023"
+         },
+         {
+          "id": "2024",
+          "name": "2024"
+         },
+         {
+          "id": "2025",
+          "name": "2025"
+         }
+        ]
+       }
+      ]
+     },
+     "dataSets": [
+      0
+     ]
+    }
+   ]
+  },
+  "errors": []
+ }
+}

@@ -1,0 +1,16 @@
+{
+ "_recorded_at": "2026-10-01",
+ "status": 301,
+ "location": "https://files-03.restcountries.com/countries.00/legacy.json?fields=name,population",
+ "redirect_body": "<html>\r\n<head><title>301 Moved Permanently</title></head>\r\n<body>\r\n<center><h1>301 Moved Permanently</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\r\n",
+ "followed_status": 200,
+ "followed_body": {
+  "success": false,
+  "data": null,
+  "errors": [
+   {
+    "message": "This API version has been deprecated. Please visit https://restcountries.com/docs/countries/legacy-api-deprecation to migrate to our new version (v5)."
+   }
+  ]
+ }
+}

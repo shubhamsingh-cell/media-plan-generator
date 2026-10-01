@@ -1,0 +1,59 @@
+{
+ "_recorded_at": "2026-10-01",
+ "population": {
+  "annotations": {
+   "dataset_link": "http://www.census.gov/programs-surveys/acs/",
+   "source_description": "The American Community Survey (ACS) is conducted by the US Census and sent to a portion of the population every year.",
+   "source_name": "Census Bureau",
+   "topic": "Diversity",
+   "subtopic": "Demographics",
+   "dataset_name": "ACS 5-year Estimate",
+   "table_id": "B01003"
+  },
+  "page": {
+   "limit": 0,
+   "offset": 0,
+   "total": 1
+  },
+  "columns": [
+   "County ID",
+   "County",
+   "Population"
+  ],
+  "data": [
+   {
+    "County ID": "05000US42043",
+    "County": "Dauphin County, PA",
+    "Population": 289593.0
+   }
+  ]
+ },
+ "income": {
+  "annotations": {
+   "dataset_link": "http://www.census.gov/programs-surveys/acs/",
+   "source_description": "The American Community Survey (ACS) is conducted by the US Census and sent to a portion of the population every year.",
+   "source_name": "Census Bureau",
+   "topic": "Housing & Living",
+   "subtopic": "Income",
+   "dataset_name": "ACS 5-year Estimate",
+   "table_id": "B19013,B19013A,B19013B,B19013C,B19013D,B19013E,B19013F,B19013G,B19013H"
+  },
+  "page": {
+   "limit": 0,
+   "offset": 0,
+   "total": 1
+  },
+  "columns": [
+   "County ID",
+   "County",
+   "Household Income by Race"
+  ],
+  "data": [
+   {
+    "County ID": "05000US42043",
+    "County": "Dauphin County, PA",
+    "Household Income by Race": 76242.0
+   }
+  ]
+ }
+}

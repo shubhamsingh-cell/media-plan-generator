@@ -1,0 +1,95 @@
+{
+ "_recorded_at": "2026-10-01",
+ "response": [
+  {
+   "page": 1,
+   "pages": 2,
+   "per_page": 5,
+   "total": 6,
+   "sourceid": "2",
+   "lastupdated": "2026-07-13"
+  },
+  [
+   {
+    "indicator": {
+     "id": "SP.POP.TOTL",
+     "value": "Population, total"
+    },
+    "country": {
+     "id": "GB",
+     "value": "United Kingdom"
+    },
+    "countryiso3code": "GBR",
+    "date": "2024",
+    "value": 69281000,
+    "unit": "",
+    "obs_status": "",
+    "decimal": 0
+   },
+   {
+    "indicator": {
+     "id": "SP.POP.TOTL",
+     "value": "Population, total"
+    },
+    "country": {
+     "id": "GB",
+     "value": "United Kingdom"
+    },
+    "countryiso3code": "GBR",
+    "date": "2023",
+    "value": 68526000,
+    "unit": "",
+    "obs_status": "",
+    "decimal": 0
+   },
+   {
+    "indicator": {
+     "id": "SP.POP.TOTL",
+     "value": "Population, total"
+    },
+    "country": {
+     "id": "GB",
+     "value": "United Kingdom"
+    },
+    "countryiso3code": "GBR",
+    "date": "2022",
+    "value": 67636000,
+    "unit": "",
+    "obs_status": "",
+    "decimal": 0
+   },
+   {
+    "indicator": {
+     "id": "SP.POP.TOTL",
+     "value": "Population, total"
+    },
+    "country": {
+     "id": "GB",
+     "value": "United Kingdom"
+    },
+    "countryiso3code": "GBR",
+    "date": "2021",
+    "value": 66978000,
+    "unit": "",
+    "obs_status": "",
+    "decimal": 0
+   },
+   {
+    "indicator": {
+     "id": "SP.POP.TOTL",
+     "value": "Population, total"
+    },
+    "country": {
+     "id": "GB",
+     "value": "United Kingdom"
+    },
+    "countryiso3code": "GBR",
+    "date": "2020",
+    "value": 66740000,
+    "unit": "",
+    "obs_status": "",
+    "decimal": 0
+   }
+  ]
+ ]
+}

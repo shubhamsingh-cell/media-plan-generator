@@ -1,0 +1,248 @@
+{
+ "_recorded_at": "2026-10-01",
+ "by_search": {
+  "Hershey": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US3122290",
+     "caption": "Hershey, NE"
+    },
+    {
+     "key": "16000US4234144",
+     "caption": "Hershey, PA"
+    }
+   ]
+  },
+  "Edgerton": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US2019825",
+     "caption": "Edgerton, KS"
+    },
+    {
+     "key": "16000US2718152",
+     "caption": "Edgerton, MN"
+    },
+    {
+     "key": "16000US2921250",
+     "caption": "Edgerton, MO"
+    },
+    {
+     "key": "16000US3924486",
+     "caption": "Edgerton, OH"
+    },
+    {
+     "key": "16000US5522575",
+     "caption": "Edgerton, WI"
+    },
+    {
+     "key": "16000US5623155",
+     "caption": "Edgerton, WY"
+    }
+   ]
+  },
+  "Hazleton": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US1832728",
+     "caption": "Hazleton, IN"
+    },
+    {
+     "key": "16000US1935580",
+     "caption": "Hazleton, IA"
+    },
+    {
+     "key": "16000US4233408",
+     "caption": "Hazleton, PA"
+    },
+    {
+     "key": "16000US4283136",
+     "caption": "West Hazleton, PA"
+    }
+   ]
+  },
+  "Lancaster": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US0640130",
+     "caption": "Lancaster, CA"
+    },
+    {
+     "key": "16000US2038325",
+     "caption": "Lancaster, KS"
+    },
+    {
+     "key": "16000US2143840",
+     "caption": "Lancaster, KY"
+    },
+    {
+     "key": "16000US2564460",
+     "caption": "South Lancaster, MA"
+    },
+    {
+     "key": "16000US2735378",
+     "caption": "Lancaster, MN"
+    },
+    {
+     "key": "16000US2940610",
+     "caption": "Lancaster, MO"
+    },
+    {
+     "key": "16000US3340340",
+     "caption": "Lancaster, NH"
+    },
+    {
+     "key": "16000US3641135",
+     "caption": "Lancaster, NY"
+    },
+    {
+     "key": "16000US3941720",
+     "caption": "Lancaster, OH"
+    },
+    {
+     "key": "16000US4228828",
+     "caption": "Georgetown (Lancaster County), PA"
+    },
+    {
+     "key": "16000US4241216",
+     "caption": "Lancaster, PA"
+    },
+    {
+     "key": "16000US4539895",
+     "caption": "Lancaster, SC"
+    },
+    {
+     "key": "16000US4568380",
+     "caption": "Springdale (Lancaster County), SC"
+    },
+    {
+     "key": "16000US4841212",
+     "caption": "Lancaster, TX"
+    },
+    {
+     "key": "16000US5143704",
+     "caption": "Lancaster, VA"
+    },
+    {
+     "key": "16000US5542250",
+     "caption": "Lancaster, WI"
+    }
+   ]
+  },
+  "Wheeling": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US1781087",
+     "caption": "Wheeling, IL"
+    },
+    {
+     "key": "16000US2979180",
+     "caption": "Wheeling, MO"
+    },
+    {
+     "key": "16000US5486452",
+     "caption": "Wheeling, WV"
+    }
+   ]
+  },
+  "Zzqxville": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": []
+  }
+ }
+}

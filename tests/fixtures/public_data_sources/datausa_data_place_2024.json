@@ -1,0 +1,107 @@
+{
+ "_recorded_at": "2026-10-01",
+ "year": 2024,
+ "ids": {
+  "Hershey, PA": "16000US4234144",
+  "Edgerton, KS": "16000US2019825",
+  "Hazleton, PA": "16000US4233408",
+  "Lancaster, PA": "16000US4241216",
+  "Wheeling, WV": "16000US5486452"
+ },
+ "population": {
+  "annotations": {
+   "source_name": "Census Bureau",
+   "source_description": "The American Community Survey (ACS) is conducted by the US Census and sent to a portion of the population every year.",
+   "table_id": "B01003",
+   "dataset_name": "ACS 5-year Estimate",
+   "topic": "Diversity",
+   "dataset_link": "http://www.census.gov/programs-surveys/acs/",
+   "subtopic": "Demographics"
+  },
+  "page": {
+   "limit": 0,
+   "offset": 0,
+   "total": 5
+  },
+  "columns": [
+   "Place ID",
+   "Place",
+   "Population"
+  ],
+  "data": [
+   {
+    "Place ID": "16000US2019825",
+    "Place": "Edgerton, KS",
+    "Population": 1924.0
+   },
+   {
+    "Place ID": "16000US4233408",
+    "Place": "Hazleton, PA",
+    "Population": 30111.0
+   },
+   {
+    "Place ID": "16000US4234144",
+    "Place": "Hershey, PA",
+    "Population": 14242.0
+   },
+   {
+    "Place ID": "16000US4241216",
+    "Place": "Lancaster, PA",
+    "Population": 57719.0
+   },
+   {
+    "Place ID": "16000US5486452",
+    "Place": "Wheeling, WV",
+    "Population": 26350.0
+   }
+  ]
+ },
+ "income": {
+  "annotations": {
+   "dataset_name": "ACS 5-year Estimate",
+   "subtopic": "Income",
+   "dataset_link": "http://www.census.gov/programs-surveys/acs/",
+   "source_description": "The American Community Survey (ACS) is conducted by the US Census and sent to a portion of the population every year.",
+   "table_id": "B19013,B19013A,B19013B,B19013C,B19013D,B19013E,B19013F,B19013G,B19013H",
+   "source_name": "Census Bureau",
+   "topic": "Housing & Living"
+  },
+  "page": {
+   "limit": 0,
+   "offset": 0,
+   "total": 5
+  },
+  "columns": [
+   "Place ID",
+   "Place",
+   "Household Income by Race"
+  ],
+  "data": [
+   {
+    "Place ID": "16000US2019825",
+    "Place": "Edgerton, KS",
+    "Household Income by Race": 84838.0
+   },
+   {
+    "Place ID": "16000US4233408",
+    "Place": "Hazleton, PA",
+    "Household Income by Race": 46177.0
+   },
+   {
+    "Place ID": "16000US4234144",
+    "Place": "Hershey, PA",
+    "Household Income by Race": 78587.0
+   },
+   {
+    "Place ID": "16000US4241216",
+    "Place": "Lancaster, PA",
+    "Household Income by Race": 63690.0
+   },
+   {
+    "Place ID": "16000US5486452",
+    "Place": "Wheeling, WV",
+    "Household Income by Race": 48590.0
+   }
+  ]
+ }
+}

@@ -1,0 +1,49 @@
+{
+ "_recorded_at": "2026-10-01",
+ "name": "Year",
+ "caption": "Year",
+ "depth": 1,
+ "annotations": {},
+ "properties": [],
+ "dtypes": {
+  "Year": "u16"
+ },
+ "members": [
+  {
+   "key": 2013
+  },
+  {
+   "key": 2014
+  },
+  {
+   "key": 2015
+  },
+  {
+   "key": 2016
+  },
+  {
+   "key": 2017
+  },
+  {
+   "key": 2018
+  },
+  {
+   "key": 2019
+  },
+  {
+   "key": 2020
+  },
+  {
+   "key": 2021
+  },
+  {
+   "key": 2022
+  },
+  {
+   "key": 2023
+  },
+  {
+   "key": 2024
+  }
+ ]
+}
