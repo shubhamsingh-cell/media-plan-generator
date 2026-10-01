@@ -14,12 +14,46 @@ import datetime
 import html
 import json
 import logging
+import math
 import sys
 import time
 import uuid
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Render-site escaping. Shared plans come from the unauthenticated
+# POST /api/plan/share, so EVERY value interpolated into these pages is
+# attacker-controlled: escape each one where it is rendered (text and quoted
+# attributes alike), and coerce numbers through float with a safe fallback.
+# ---------------------------------------------------------------------------
+
+
+def _esc(value: Any) -> str:
+    """HTML-escape any value for element text or a quoted attribute."""
+    return html.escape(str(value), quote=True)
+
+
+def _fmt_num(value: Any, spec: str, prefix: str = "", suffix: str = "") -> str:
+    """A finite number formatted with ``spec``; anything else, escaped as-is."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return _esc(value)
+    if not math.isfinite(number):
+        return _esc(value)
+    return _esc(f"{prefix}{number:{spec}}{suffix}")
+
+
+def _bar_width(value: Any) -> float:
+    """A CSS percentage width clamped to [0, 100] (0 for anything non-numeric)."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+    return max(0.0, min(100.0, number)) if math.isfinite(number) else 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -76,8 +110,6 @@ def _handle_campaign_list(handler: Any, path: str, parsed: Any) -> None:
 
 def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
     """GET /plan/shared/<id> -- read-only dashboard view with OG tags and feedback."""
-    import html as _html_mod
-
     _app = sys.modules.get("app") or sys.modules.get("__main__")
     _plan_feedback = getattr(_app, "_plan_feedback", {})
     _plan_feedback_lock = getattr(_app, "_plan_feedback_lock", None)
@@ -96,6 +128,8 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
         return
 
     plan_data = shared.get("plan_data") or {}
+    if not isinstance(plan_data, dict):
+        plan_data = {}
     client_name = shared.get("client") or "Unnamed"
     created_at = shared.get("created_at") or 0
     created_str = (
@@ -104,8 +138,10 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
         else "Unknown"
     )
 
-    # Extract plan metrics
+    # Extract plan metrics (a non-object summary falls back to the plan itself)
     summary = plan_data.get("summary") or plan_data.get("plan_summary") or plan_data
+    if not isinstance(summary, dict):
+        summary = plan_data
     channels = (
         summary.get("channels")
         or summary.get("recommended_channels")
@@ -142,29 +178,16 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
         for i, ch in enumerate(channels[:15]):
             if not isinstance(ch, dict):
                 continue
-            ch_name = _html_mod.escape(
-                str(ch.get("name") or ch.get("channel") or "N/A")
-            )
+            ch_name = _esc(ch.get("name") or ch.get("channel") or "N/A")
             ch_spend = ch.get("spend") or ch.get("budget") or 0
             ch_alloc = ch.get("allocation_pct") or 0
             ch_cpc = ch.get("cpc") or ch.get("cost_per_click") or "--"
             ch_cpa = ch.get("cpa") or ch.get("cost_per_apply") or "--"
-            try:
-                spend_fmt = f"${float(ch_spend):,.0f}"
-            except (ValueError, TypeError):
-                spend_fmt = str(ch_spend)
-            try:
-                alloc_fmt = f"{float(ch_alloc):.1f}%"
-            except (ValueError, TypeError):
-                alloc_fmt = str(ch_alloc)
-            try:
-                cpc_fmt = f"${float(ch_cpc):,.2f}"
-            except (ValueError, TypeError):
-                cpc_fmt = str(ch_cpc)
-            try:
-                cpa_fmt = f"${float(ch_cpa):,.2f}"
-            except (ValueError, TypeError):
-                cpa_fmt = str(ch_cpa)
+            # Every value below is HTML-safe (numbers formatted, text escaped).
+            spend_fmt = _fmt_num(ch_spend, ",.0f", prefix="$")
+            alloc_fmt = _fmt_num(ch_alloc, ".1f", suffix="%")
+            cpc_fmt = _fmt_num(ch_cpc, ",.2f", prefix="$")
+            cpa_fmt = _fmt_num(ch_cpa, ",.2f", prefix="$")
 
             zebra = "background:rgba(255,255,255,0.02);" if i % 2 == 1 else ""
             ch_table_html += f'<tr style="{zebra}"><td style="padding:10px 12px;font-weight:500;">{ch_name}</td><td style="padding:10px 12px;text-align:right;">{spend_fmt}</td><td style="padding:10px 12px;text-align:right;">{alloc_fmt}</td><td style="padding:10px 12px;text-align:right;">{cpc_fmt}</td><td style="padding:10px 12px;text-align:right;">{cpa_fmt}</td></tr>'
@@ -180,10 +203,7 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
                 "#4A9CB5",
             ]
             bar_color = bar_colors[i % len(bar_colors)]
-            try:
-                bar_w = float(ch_alloc)
-            except (ValueError, TypeError):
-                bar_w = 0
+            bar_w = _bar_width(ch_alloc)
             ch_bar_html += f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;"><span style="width:120px;font-size:12px;text-align:right;color:rgba(255,255,255,0.7);flex-shrink:0;">{ch_name}</span><div style="flex:1;height:20px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden;"><div style="height:100%;width:{bar_w}%;background:{bar_color};border-radius:4px;min-width:2px;"></div></div><span style="width:80px;font-size:11px;color:rgba(255,255,255,0.5);">{alloc_fmt}</span></div>'
 
     # Existing feedback
@@ -200,11 +220,18 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
         fb_time = time.strftime(
             "%b %d, %Y %H:%M", time.gmtime(fb.get("created_at") or 0)
         )
-        feedback_html += f'<div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:8px;"><div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:4px;">{_html_mod.escape(str(fb_name))} -- {fb_time}</div><div style="font-size:13px;color:rgba(255,255,255,0.8);">{_html_mod.escape(str(fb_comment))}</div></div>'
+        feedback_html += f'<div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:8px;"><div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:4px;">{_esc(fb_name)} -- {_esc(fb_time)}</div><div style="font-size:13px;color:rgba(255,255,255,0.8);">{_esc(fb_comment)}</div></div>'
+
+    # Escaped once, here, for every interpolation below (text and attributes).
+    client_html = _esc(client_name)
+    industry_html = _esc(industry_val)
+    budget_html = _esc(budget_val)
+    channels_html = _esc(num_channels)
+    created_html = _esc(created_str)
 
     # OG meta description
-    og_desc = f"Media plan for {_html_mod.escape(str(client_name))} - {_html_mod.escape(str(industry_val))} industry, {num_channels} channels, budget: {_html_mod.escape(str(budget_val))}"
-    og_title = f"Media Plan: {_html_mod.escape(str(client_name))} | Nova AI Suite"
+    og_desc = f"Media plan for {client_html} - {industry_html} industry, {channels_html} channels, budget: {budget_html}"
+    og_title = f"Media Plan: {client_html} | Nova AI Suite"
 
     page_html = f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -251,21 +278,21 @@ input:focus,textarea:focus{{outline:none;border-color:rgba(90,84,189,0.5)}}
 @media(max-width:600px){{.metrics-grid{{grid-template-columns:repeat(2,1fr)}}.hero h1{{font-size:22px}}}}
 </style></head><body>
 <div class="hero"><div class="hero-inner">
-  <h1>Media Plan: {_html_mod.escape(str(client_name))}</h1>
+  <h1>Media Plan: {client_html}</h1>
   <div class="meta">
-    <span>{_html_mod.escape(str(industry_val))}</span>
-    <span>Budget: {_html_mod.escape(str(budget_val))}</span>
-    <span>Shared on {created_str}</span>
+    <span>{industry_html}</span>
+    <span>Budget: {budget_html}</span>
+    <span>Shared on {created_html}</span>
     <span class="badge">Read-only Dashboard</span>
   </div>
 </div></div>
 <div class="container">
   <!-- Key Metrics Cards -->
   <div class="metrics-grid">
-    <div class="metric-card"><div class="metric-value">{num_channels}</div><div class="metric-label">Channels</div></div>
-    <div class="metric-card"><div class="metric-value">{_html_mod.escape(str(budget_val))}</div><div class="metric-label">Total Budget</div></div>
-    <div class="metric-card"><div class="metric-value">{_html_mod.escape(est_applications)}</div><div class="metric-label">Est. Applications</div></div>
-    <div class="metric-card"><div class="metric-value">{_html_mod.escape(est_hires)}</div><div class="metric-label">Est. Hires</div></div>
+    <div class="metric-card"><div class="metric-value">{channels_html}</div><div class="metric-label">Channels</div></div>
+    <div class="metric-card"><div class="metric-value">{budget_html}</div><div class="metric-label">Total Budget</div></div>
+    <div class="metric-card"><div class="metric-value">{_esc(est_applications)}</div><div class="metric-label">Est. Applications</div></div>
+    <div class="metric-card"><div class="metric-value">{_esc(est_hires)}</div><div class="metric-label">Est. Hires</div></div>
   </div>
 
   <!-- Channel Allocation Chart -->
@@ -306,7 +333,7 @@ async function submitFeedback() {{
     var resp = await fetch('/api/plan/feedback', {{
       method: 'POST',
       headers: {{'Content-Type': 'application/json'}},
-      body: JSON.stringify({{ share_id: '{share_id}', name: name || 'Anonymous', comment: comment }})
+      body: JSON.stringify({{ share_id: {json.dumps(share_id)}, name: name || 'Anonymous', comment: comment }})
     }});
     var result = await resp.json();
     if (result.ok) {{
@@ -341,7 +368,6 @@ function showFbToast(msg) {{
 
 def _handle_plan_direct_view(handler: Any, path: str, parsed: Any) -> None:
     """GET /plan/{id} -- read-only shareable plan view via plan_id (24h TTL)."""
-    import html as _html_m
     import re as _re_m
 
     _app = sys.modules.get("app") or sys.modules.get("__main__")
@@ -378,27 +404,32 @@ def _handle_plan_direct_view(handler: Any, path: str, parsed: Any) -> None:
         return
 
     try:
+        # Every interpolated value is escaped (or number-formatted) here, at
+        # the render site, whatever produced the stored result.
         _pd = _pv_entry.get("data") or {}
+        _pd = _pd if isinstance(_pd, dict) else {}
         _ps = _pd.get("summary") or {}
+        _ps = _ps if isinstance(_ps, dict) else {}
         _pch = _ps.get("channels") or []
         _mt = _pd.get("metadata") or {}
-        _cl = _html_m.escape(_mt.get("client_name") or "Client")
-        _ind = _html_m.escape(_mt.get("industry_label") or "")
-        _bud = _html_m.escape(str(_mt.get("total_budget") or ""))
-        _gen = _html_m.escape((_mt.get("generated_at") or "")[:10])
+        _mt = _mt if isinstance(_mt, dict) else {}
+        _cl = _esc(_mt.get("client_name") or "Client")
+        _ind = _esc(_mt.get("industry_label") or "")
+        _bud = _esc(_mt.get("total_budget") or "")
+        _gen = _esc(str(_mt.get("generated_at") or "")[:10])
         _rows = ""
         for _c in (_pch if isinstance(_pch, list) else [])[:20]:
             if isinstance(_c, dict):
                 _rows += (
-                    f"<tr><td>{_html_m.escape(str(_c.get('name', '')))}</td>"
-                    f"<td>${_c.get('budget', 0):,.0f}</td>"
-                    f"<td>{_c.get('allocation_pct', 0)}%</td>"
-                    f"<td>{_html_m.escape(str(_c.get('cpc_range', '--')))}</td>"
-                    f"<td>{_html_m.escape(str(_c.get('cpa_range', '--')))}</td></tr>"
+                    f"<tr><td>{_esc(_c.get('name') or '')}</td>"
+                    f"<td>{_fmt_num(_c.get('budget') or 0, ',.0f', prefix='$')}</td>"
+                    f"<td>{_esc(_c.get('allocation_pct') or 0)}%</td>"
+                    f"<td>{_esc(_c.get('cpc_range') or '--')}</td>"
+                    f"<td>{_esc(_c.get('cpa_range') or '--')}</td></tr>"
                 )
-        _nc = _ps.get("total_channels") or (len(_pch) if isinstance(_pch, list) else 0)
-        _ea = _ps.get("est_applications") or "--"
-        _eh = _ps.get("est_hires") or "--"
+        _nc = _esc(_ps.get("total_channels") or (len(_pch) if isinstance(_pch, list) else 0))
+        _ea = _esc(_ps.get("est_applications") or "--")
+        _eh = _esc(_ps.get("est_hires") or "--")
         _empty_row = '<tr><td colspan="5" style="text-align:center;color:#94a3b8">No data</td></tr>'
         _body = f"""<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">

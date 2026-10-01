@@ -7258,6 +7258,18 @@ def _job_record_get(job_id: str) -> Optional[dict]:
     return _job_record_store.get(job_id)
 
 
+def _session_tokens_match(expected: str, presented: str) -> bool:
+    """Constant-time token compare that cannot raise.
+
+    hmac.compare_digest(str, str) raises TypeError for non-ASCII strings, and
+    http.server decodes headers as latin-1, so one cookie byte >= 0x80 turned
+    an ownership check into a 500. Compare UTF-8 bytes instead.
+    """
+    return hmac.compare_digest(
+        (expected or "").encode("utf-8"), (presented or "").encode("utf-8")
+    )
+
+
 def _job_record_session_ok(record: dict, cookie_header: str) -> bool:
     """Does the request's session cookie own this job status record?
 
@@ -7271,10 +7283,10 @@ def _job_record_session_ok(record: dict, cookie_header: str) -> bool:
     token_sha = record.get("_session_token_sha256") or ""
     if token_sha:
         cookie_sha = hashlib.sha256(cookie.encode("utf-8")).hexdigest()
-        return hmac.compare_digest(token_sha.encode("utf-8"), cookie_sha.encode("utf-8"))
+        return _session_tokens_match(token_sha, cookie_sha)
     legacy_raw = record.get("_session_token") or ""
     if legacy_raw:
-        return hmac.compare_digest(legacy_raw.encode("utf-8"), cookie.encode("utf-8"))
+        return _session_tokens_match(legacy_raw, cookie)
     return True
 
 
@@ -14657,7 +14669,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     ) or _parse_cookie_value(
                         self.headers.get("Cookie") or "", "csrf_token"
                     )
-                    if not hmac.compare_digest(_job_session, _poll_csrf):
+                    if not _session_tokens_match(_job_session, _poll_csrf):
                         self.send_response(403)
                         self.send_header("Content-Type", "application/json")
                         self.end_headers()
@@ -16707,7 +16719,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     ) or _parse_cookie_value(
                         self.headers.get("Cookie") or "", "csrf_token"
                     )
-                    _qa_ack_session_ok = hmac.compare_digest(
+                    _qa_ack_session_ok = _session_tokens_match(
                         _qa_ack_job_session, _qa_ack_csrf
                     )
             else:
