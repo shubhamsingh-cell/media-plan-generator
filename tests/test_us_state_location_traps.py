@@ -153,3 +153,26 @@ def test_cited_block_carries_no_foreign_data_for_us_city(loc, wrong_publisher):
     assert ibl.get_cpa_median_usd("technology", loc) == ibl.get_cpa_median_usd(
         "technology", "Dallas, TX"
     )
+
+
+@pytest.mark.parametrize(
+    "loc,currency,is_us",
+    [
+        # US state recognition (K-08) and Canadian provinces (input-parity)
+        # share currency_for_country: US states are checked first.
+        ("Victoria, BC", "CAD", False),
+        ("Toronto, ON", "CAD", False),
+        ("Indianapolis, IN", "USD", True),
+        ("Los Angeles, CA", "USD", True),
+        ("Paris, TX", "USD", True),
+        ("Fort Wayne, Indiana", "USD", True),
+        # "PE" stays Prince Edward Island; Peru resolves by name. Peru had no
+        # entry at all, so "Lima, Peru" resolved to nothing and is_us_plan's
+        # no-signal default read the plan as US.
+        ("Charlottetown, PE", "CAD", False),
+        ("Lima, Peru", "PEN", False),
+    ],
+)
+def test_us_states_provinces_and_countries_resolve_together(loc, currency, is_us):
+    assert plan_currency.currency_for_country(loc) == currency, loc
+    assert plan_geo.is_us_plan({"locations": [loc]}) is is_us, loc

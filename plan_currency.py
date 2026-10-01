@@ -263,6 +263,11 @@ _COUNTRY_TO_CODE: dict[str, str] = {
     "chile": "CLP",
     "cl": "CLP",
     "chl": "CLP",
+    # Peru: name + ISO3 only -- the 2-letter "pe" stays Prince Edward
+    # Island (see _CA_PROVINCE_CODES). Without an entry "Lima, Peru"
+    # resolved to nothing and is_us_plan's no-signal default read it as US.
+    "peru": "PEN",
+    "per": "PEN",
     # Africa
     "south africa": "ZAR",
     "za": "ZAR",
