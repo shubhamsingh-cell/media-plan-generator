@@ -72,6 +72,11 @@ def _is_personal_api_key(key: str) -> bool:
     return (key or "").strip().lower().startswith(_PERSONAL_KEY_PREFIX)
 
 
+# PostHog PROJECT keys ("phc_...") are write-only capture keys that PostHog's own
+# snippet ships to every browser. They are the ONLY PostHog key a browser may see.
+_PROJECT_KEY_PREFIX: str = "phc_"
+
+
 # Warn-once registry (bounded): log a given warning key at most once per
 # process so a chatty caller cannot flood the log.
 _WARN_ONCE_MAX: int = 200
@@ -88,6 +93,35 @@ def _warn_once(key: str, message: str, *args: Any) -> None:
             return
         _warned_once.add(key)
     logger.warning(message, *args)
+
+
+def get_browser_capture_key() -> str:
+    """Return the PostHog key that is safe to serve to a browser, else ``""``.
+
+    Resolves the key exactly like the server-side client (``_resolve_capture_key``:
+    ``POSTHOG_PROJECT_API_KEY`` wins over ``POSTHOG_API_KEY``), but at CALL time,
+    and returns it only when it is a PROJECT key (``phc_`` prefix). Anything else
+    -- above all a PERSONAL api key (``phx_``), which grants read/admin access to
+    the PostHog account -- yields ``""`` and one warning that names the env var
+    and never the value. An allowlist on purpose: an unknown prefix is withheld.
+
+    This is the single gate for ``GET /api/config`` (public, unauthenticated), so
+    the browser receives a key iff the server-side client could also use it.
+    """
+    key, env_name = _resolve_capture_key()
+    if key.startswith(_PROJECT_KEY_PREFIX):
+        return key
+    if key:
+        _warn_once(
+            f"browser-key-withheld:{env_name}",
+            "PostHog key in %s is not a project key (expected the %s prefix): "
+            "NOT served to browsers. If it is a personal api key (%s prefix) it "
+            "was exposed before this guard -- rotate it in PostHog.",
+            env_name,
+            _PROJECT_KEY_PREFIX,
+            _PERSONAL_KEY_PREFIX,
+        )
+    return ""
 
 
 # Dead-letter queue for events that failed to flush (Phase 6)

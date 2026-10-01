@@ -5,6 +5,7 @@ accepts ``handler`` (a ``MediaPlanHandler`` instance) and ``path`` (the
 parsed URL path string).  Returns ``True`` if the route was handled.
 """
 
+import base64
 import copy
 import datetime
 import json
@@ -1288,21 +1289,61 @@ def _handle_audit_events(handler, path: str, parsed: Any) -> None:
 # alias separately to keep the dispatch O(1).
 
 
+_SUPABASE_SECRET_KEY_PREFIX = "sb_secret_"
+_config_secret_warned: set[str] = set()
+
+
+def _is_supabase_secret_key(key: str) -> bool:
+    """True when ``key`` is a Supabase SECRET key and must never reach a browser.
+
+    ``SUPABASE_ANON_KEY`` is public by design; this catches the misconfiguration
+    where a server secret is pasted into that variable. Recognised shapes: the
+    new ``sb_secret_...`` format, a legacy JWT whose ``role`` claim is
+    ``service_role`` (payload decoded, NOT verified -- only the role is read),
+    and any value equal to ``SUPABASE_SERVICE_ROLE_KEY``.
+    """
+    key = (key or "").strip()
+    if not key:
+        return False
+    if key.startswith(_SUPABASE_SECRET_KEY_PREFIX):
+        return True
+    if key == (os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip():
+        return True
+    parts = key.split(".")
+    if len(parts) == 3:
+        try:
+            padded = parts[1] + "=" * (-len(parts[1]) % 4)
+            claims = json.loads(base64.urlsafe_b64decode(padded))
+        except ValueError:  # bad base64 / bad utf-8 / bad json all subclass it
+            return False
+        if isinstance(claims, dict):
+            return str(claims.get("role") or "").strip().lower() == "service_role"
+    return False
+
+
 def _handle_config(handler, path: str, parsed: Any) -> None:
     """/api/config -- public frontend configuration (PostHog key, feature flags).
 
-    This endpoint exposes only public frontend configuration values.
-    Sensitive keys and internal details are NOT included.
+    PUBLIC and UNAUTHENTICATED: every value here is readable by anyone, so each
+    secret-capable field has a shape gate. A value that fails its gate is
+    omitted (never served "just this once"), because an env var that is
+    mis-set must not become a public leak:
+
+    * ``posthog_key``: only a project key (``phc_``) -- a personal api key
+      (``phx_``) read/administers the whole PostHog account.
+    * ``supabase_anon_key``: never a service-role / secret key.
     """
-    _ph_key: str = (
-        os.environ.get("POSTHOG_PROJECT_API_KEY")
-        or os.environ.get("POSTHOG_API_KEY")
-        or ""
-    ).strip()
+    try:
+        from posthog_integration import get_browser_capture_key
+
+        _ph_key: str = get_browser_capture_key()
+    except ImportError:
+        logger.error("posthog_integration not importable; no PostHog key served")
+        _ph_key = ""
     config: dict[str, Any] = {}
     if _ph_key:
         config["posthog_configured"] = True
-        config["posthog_key"] = _ph_key  # Frontend needs actual key to init PostHog
+        config["posthog_key"] = _ph_key  # project key: meant for the browser
     else:
         config["posthog_configured"] = False
     config["posthog_host"] = "https://us.i.posthog.com"
@@ -1310,6 +1351,15 @@ def _handle_config(handler, path: str, parsed: Any) -> None:
     # S32: Supabase Auth config (public keys only, never secrets)
     _sb_url = (os.environ.get("SUPABASE_URL") or "").strip()
     _sb_anon = (os.environ.get("SUPABASE_ANON_KEY") or "").strip()
+    if _is_supabase_secret_key(_sb_anon):
+        if "supabase_anon_key" not in _config_secret_warned:
+            _config_secret_warned.add("supabase_anon_key")
+            logger.error(
+                "SUPABASE_ANON_KEY holds a Supabase SECRET key: NOT served to "
+                "browsers (sign-in disabled). Set it to the anon/publishable key "
+                "and rotate the secret key."
+            )
+        _sb_anon = ""
     config["supabase_url"] = _sb_url
     config["supabase_anon_key"] = _sb_anon
     config["auth_enabled"] = bool(_sb_url and _sb_anon)
