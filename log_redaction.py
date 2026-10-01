@@ -26,7 +26,10 @@ left intact so cache/upsert failures stay diagnosable.
 
 Cheap by construction: all patterns are precompiled, and a single trigger
 regex short-circuits the (vast majority of) records that contain none of the
-sensitive words.
+sensitive words. Hostile-input safe: every pattern is linear-time (verified on
+1 MB adversarial lines in tests/test_log_redaction_redos.py) and at most
+``_MAX_SCAN_CHARS`` characters are scanned -- an oversized message is truncated
+with a marker rather than scanned (or emitted) unbounded.
 """
 
 from __future__ import annotations
@@ -85,22 +88,45 @@ _BEARER = re.compile(
     re.IGNORECASE,
 )
 
-# scheme://user:password@host -- password only
-_USERINFO = re.compile(
-    rf"(?P<scheme>[A-Za-z][A-Za-z0-9+.\-]*://)(?P<user>[^/\s:@]+):"
-    rf"{_NOT_REDACTED}(?P<pw>[^@\s/?#]+)@"
-)
+# scheme://user:password@host -- password only.
+#
+# Anchored on the literal "://" and deliberately NOT preceded by a scheme matcher
+# such as ``[A-Za-z][A-Za-z0-9+.\-]*``: tried at every position of a long run of
+# scheme characters that prefix costs O(n) each, i.e. O(n^2) overall (10 KB 0.12 s,
+# 80 KB 7 s -- an unauthenticated request body could freeze a worker). Starting at
+# "://" is linear (``user`` and ``pw`` both exclude "/", so scans never overlap)
+# and it also redacts odd schemes the old prefix could miss.
+_USERINFO = re.compile(rf"(?P<head>://[^/\s:@]+:){_NOT_REDACTED}(?P<pw>[^@\s/?#]+)@")
+
+# redact_secrets() scans at most this many characters; the rest of an oversized
+# message is dropped (replaced by a marker), never emitted unscanned. Bounds the
+# filter's CPU per log record no matter what a client managed to get logged.
+_MAX_SCAN_CHARS = 65536
 
 
 def redact_secrets(text: str) -> str:
     """Return ``text`` with secret values replaced by ``[REDACTED]``.
 
     Idempotent and safe on any string. Returns the input object unchanged
-    (no copy) when nothing sensitive could be present.
+    (no copy) when nothing sensitive could be present. Only the first
+    ``_MAX_SCAN_CHARS`` characters are scanned; anything longer is truncated
+    (redact-by-truncation) and ends with a ``[truncated N chars]`` marker, so a
+    secret in the unscanned tail can never be emitted and CPU stays bounded.
     """
-    if not text or not _TRIGGER.search(text):
+    if not text:
         return text
-    text = _USERINFO.sub(rf"\g<scheme>\g<user>:{REDACTED}@", text)
+    if len(text) > _MAX_SCAN_CHARS:
+        dropped = len(text) - _MAX_SCAN_CHARS
+        head = _redact_bounded(text[:_MAX_SCAN_CHARS])
+        return f"{head}...[truncated {dropped} chars]"
+    return _redact_bounded(text)
+
+
+def _redact_bounded(text: str) -> str:
+    """Apply every pattern to ``text`` (already capped by redact_secrets)."""
+    if not _TRIGGER.search(text):
+        return text
+    text = _USERINFO.sub(rf"\g<head>{REDACTED}@", text)
     text = _QUOTED.sub(
         lambda m: f"{m.group('q')}{m.group('name')}{m.group('q')}"
         f"{m.group('sep')}{m.group('vq')}{REDACTED}{m.group('vq')}",
