@@ -3810,7 +3810,9 @@ def _hires_range_sublabel(
     info = _industry_cph_info(data_or_alloc)
     if info.get("basis") == "local_kb":
         lows = ["local-average cost", "local-avg cost", "local avg"]
-    elif info.get("industry_matched") is False:
+    elif info.get("industry_matched") is False and not info.get("display_row"):
+        # (with a display_row the low end IS the slide-5 industry row's
+        # midpoint -- budget_engine, design-judge round 2 item 3)
         lows = ["cross-industry avg cost", "cross-industry avg", "default avg"]
     else:
         lows = ["industry-average cost", "industry-avg cost", "industry avg"]
@@ -3818,7 +3820,7 @@ def _hires_range_sublabel(
     lo, hi = f"{rng[0]:,}", f"{rng[1]:,}"
     for low_w in lows[:2]:
         one = f"{lo} at {low_w} · {hi} at {highs[0]}"
-        if _estimate_lines(one, width_in, 8.0) <= 1:
+        if _fits_one_line(one, width_in, 8.0):
             return [one]
     return [
         _first_one_line([f"{lo} at {w}" for w in lows], width_in, 8.0),
@@ -3878,11 +3880,25 @@ def _industry_cph_display(data: Optional[Dict]) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _first_one_line(variants: List[str], width_in: float, font_pt: float) -> str:
+def _fits_one_line(text: str, width_in: float, font_pt: float, bold: bool = False) -> bool:
+    """True when ``text`` fits ONE line by BOTH the average-advance estimate
+    and the real Poppins advances (regular or BOLD). The estimate alone
+    under-counts bold digits: "$2,000–$4,700 (midpoint $3,350)" passed it
+    and wrapped in the bold slide-5 cell (design-judge round 2, item 4)."""
+    return (
+        _estimate_lines(text, width_in, font_pt) <= 1
+        and _measure_lines(text, width_in, font_pt, bold) <= 1
+    )
+
+
+def _first_one_line(
+    variants: List[str], width_in: float, font_pt: float, bold: bool = False
+) -> str:
     """First variant that fits ONE line at ``font_pt`` in ``width_in``
-    (longest first); the last (shortest) variant when none does."""
+    (longest first; measured as bold text when ``bold``); the last
+    (shortest) variant when none does."""
     for v in variants:
-        if _estimate_lines(v, width_in, font_pt) <= 1:
+        if _fits_one_line(v, width_in, font_pt, bold):
             return v
     return variants[-1] if variants else ""
 
@@ -3955,6 +3971,135 @@ def _currency_basis_note(data: Optional[Dict]) -> str:
         f"{lead} US-calibrated benchmarks (US$) not "
         f"FX-converted — hire and CPH projections assume parity."
     )
+
+
+# Media-only vs all-in (verifier round 2, item 6): the plan's budget buys
+# media; the industry cost-per-hire ranges it is compared with are all-in
+# hiring costs. Longest first; slides pick the first that fits.
+_MEDIA_VS_ALLIN_NOTES = [
+    "Plan budget covers media spend; industry cost-per-hire ranges include "
+    "all hiring costs.",
+    "Budget covers media spend; cost-per-hire ranges include all hiring costs.",
+    "Budget is media spend; cost-per-hire ranges are all-in.",
+]
+
+
+def _local_cph_assumption_variants(data: Optional[Dict]) -> List[str]:
+    """``budget_engine.local_cph_assumption`` for this deck's plan (the
+    plan's own budget / hires, the same figures slides 2 and 6 print), or
+    ``[]`` when the plan has no cited local cost-per-hire range."""
+    info = _industry_cph_info(data)
+    if info.get("basis") != "local_kb" or not isinstance(data, dict):
+        return []
+    alloc = data.get("_budget_allocation")
+    if not isinstance(alloc, dict):
+        return []
+    _cph, hires = _compute_blended_cph(alloc)
+    meta = alloc.get("metadata") if isinstance(alloc.get("metadata"), dict) else {}
+    try:
+        import budget_engine as _be_assume
+
+        return _be_assume.local_cph_assumption(
+            info, float(meta.get("total_budget") or 0), hires
+        )
+    except (ImportError, AttributeError, TypeError, ValueError) as exc:
+        logger.error("local CPH assumption failed: %s", exc, exc_info=True)
+        return []
+
+
+def _currency_basis_note_variants(data: Optional[Dict]) -> List[str]:
+    """``_currency_basis_note`` and shorter forms that keep both halves
+    (currency + what happened to US$ inputs). ``[]`` on a USD plan."""
+    full = _currency_basis_note(data)
+    if not full:
+        return []
+    out = [full]
+    code = _get_active_currency()
+    cph = _industry_cph_info(data)
+    rate_clause = _fx_rate_clause(cph, code)
+    if cph.get("basis") == "local_kb" and rate_clause:
+        inferred = (data or {}).get("_currency_basis") == "market"
+        lead = (
+            f"Figures in {code} (inferred from market)."
+            if inferred
+            else f"Figures in {code} as entered."
+        )
+        out.append(f"{lead} US$ inputs at {rate_clause}.")
+    compact = _currency_basis_note_compact(data)
+    if compact and compact not in out:
+        out.append(compact)
+    return out
+
+
+def _pack_note_lines(
+    items: List[List[str]], width_in: float, font_pt: float, max_lines: int
+) -> List[str]:
+    """Pack footnote items (each a list of variants, longest first) into at
+    most ``max_lines`` one-line strings, in order, never splitting an item.
+    The FULLEST wording wins over fewer lines: every item tries its longest
+    form first (all on as few lines as fit), and only when no packing fits
+    do the items drop to shorter forms together. Falls back to each item's
+    shortest form on its own line (truncated to ``max_lines``)."""
+    items = [list(v) for v in items if v]
+    if not items:
+        return []
+
+    def _join(group: List[List[str]], k: int) -> Optional[str]:
+        line = " ".join(v[min(k, len(v) - 1)] for v in group)
+        return line if _fits_one_line(line, width_in, font_pt) else None
+
+    def _splits(seq: List[List[str]], n: int):
+        if n == 1:
+            yield [seq]
+            return
+        for i in range(1, len(seq) - n + 2):
+            for rest in _splits(seq[i:], n - 1):
+                yield [seq[:i]] + rest
+
+    for k in range(max(len(v) for v in items)):
+        for n in range(1, min(max_lines, len(items)) + 1):
+            for split in _splits(items, n):
+                lines = [_join(g, k) for g in split]
+                if all(lines):
+                    return [str(x) for x in lines]
+    return [v[-1] for v in items][:max_lines]
+
+
+def _add_note_stack(
+    slide,
+    lines: List[str],
+    bottom_in: float,
+    left_in: float = 0.55,
+    width_in: float = 12.2,
+    font_pt: int = 9,
+    alignment=PP_ALIGN.RIGHT,
+) -> None:
+    """Footnote lines as ONE bottom-anchored textbox ending at ``bottom_in``
+    (zero vertical insets, one paragraph per line), so a second line grows
+    upward into the free band instead of onto the footer rule."""
+    if not lines:
+        return
+    line_in = font_pt * 1.4 / 72.0
+    height_in = line_in * len(lines) + 0.02
+    _box, tf = _add_textbox(
+        slide,
+        Inches(left_in),
+        Inches(bottom_in - height_in),
+        Inches(width_in),
+        Inches(height_in),
+        anchor=MSO_ANCHOR.BOTTOM,
+        alignment=alignment,
+    )
+    tf.margin_top = Inches(0.0)
+    tf.margin_bottom = Inches(0.0)
+    for i, line in enumerate(lines):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.alignment = alignment
+        p.space_before = Pt(0)
+        p.space_after = Pt(0)
+        run = p.add_run()
+        run.text = line
+        _set_font(run, size=font_pt, italic=True, color=DARK_TEXT)
 
 
 def _currency_basis_note_compact(data: Optional[Dict]) -> str:
@@ -5037,6 +5182,25 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             space_before=4,
             space_after=1,
         )
+    else:
+        # Goal judged at the CONSERVATIVE end (design-judge round 2, item
+        # 1): the headline meets the goal only at plan efficiency.
+        _rng_goal = _hires_range(budget_alloc)
+        _cons = _fmt.goal_at_conservative_end(
+            _ppt_hires_sum, _exec_hire_goal, _rng_goal[0] if _rng_goal else None
+        )
+        if _cons:
+            _add_paragraph(
+                tf4,
+                f"Client goal: {_cons['goal']:,} hires — met at plan efficiency "
+                f"({_cons['projected']:,}); at the midpoint cost the plan buys "
+                f"{_cons['hires_low']:,} hires against a goal of {_cons['goal']:,}",
+                font_size=7,
+                bold=True,
+                color=NAVY,
+                space_before=4,
+                space_after=1,
+            )
 
     # ---- S82: Cited 2026 market data (parity with Google Slides deck) ----
     # The curated 2026 cited metric + TA-leader quote previously rendered ONLY
@@ -5341,25 +5505,26 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     # Enrichment badge
     _add_enrichment_badge(slide, enriched)
 
-    # currency-basis disclosure (fix 3): measured, not assumed -- across the
-    # GBP matrix decks no shape on this slide bottoms out below 6.80in, so
-    # the band at 6.84-7.06in is clear for a standalone caption above the
-    # footer rule (7.12in).
-    _cur_basis_note_s2 = _currency_basis_note(data)
-    if _cur_basis_note_s2:
-        _add_textbox(
-            slide,
-            Inches(0.55),
-            Inches(6.84),
-            Inches(12.2),
-            Inches(0.22),
-            text=_trunc_clause(_cur_basis_note_s2, 150),
-            font_size=9,
-            italic=True,
-            color=DARK_TEXT,
-            alignment=PP_ALIGN.RIGHT,
-            anchor=MSO_ANCHOR.MIDDLE,
-        )
+    # Footnotes, bottom-anchored at 7.06in above the footer rule (7.12in):
+    # (1) what a local-benchmark plan assumes per hire (design-judge round 2,
+    # item 1), (2) the currency-basis disclosure (fix 3), (3) media-only vs
+    # all-in cost per hire (verifier round 2, item 6). At most two lines:
+    # the KPI bar ends at 6.62in at its deepest, so the band 6.64-7.06in
+    # holds two 9pt lines.
+    _add_note_stack(
+        slide,
+        _pack_note_lines(
+            [
+                _local_cph_assumption_variants(data),
+                _currency_basis_note_variants(data),
+                _MEDIA_VS_ALLIN_NOTES,
+            ],
+            12.2 - 0.2,
+            9.0,
+            max_lines=2,
+        ),
+        bottom_in=7.06,
+    )
 
     # Footer
     _add_footer(slide, today)
@@ -5725,6 +5890,12 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     # KB section directly for this one row.
     _kb_cph_bm = _kb_recruitment_industry_benchmark(industry, data)
     _kb_cph_val = (_kb_cph_bm or {}).get("cph") or ""
+    # The engine recorded the SAME KB row (budget_engine._kb_industry_cph_row)
+    # when it took the hires range's low end from it -- print that text so
+    # the row and the slide-2 range can never come from different rows.
+    _kb_cph_val = (
+        (_industry_cph_info(data).get("display_row") or {}).get("text") or _kb_cph_val
+    )
     # 2026-10-01 (audit §3.5/§4.6, design-judge items 2/3): the row prints
     # the plan's ONE industry-average cost per hire
     # (budget_engine.resolve_industry_cph -> industry_cph_display, shared
@@ -5740,15 +5911,19 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     _cph_label_is_final = False
     _cph_local_sources: List[str] = []
     if _cph_disp is not None and not (_cph_disp.get("prefer_kb_row") and _kb_cph_val):
+        # the value cell is BOLD 10pt: measure it as bold (round 2, item 4)
         _cph_val = _first_one_line(
             list(_cph_disp.get("variants") or [_cph_disp["text"]]),
             (Inches(2.5) / 914400) - 0.2,
             10.0,
+            bold=True,
         )
         # industry_cph_display already applied the US$ marker where due
         _cph_is_usd_benchmark = False
         _cph_label = _cph_disp["label"]
-        if _estimate_lines(_cph_label, (Inches(2.2) / 914400) - 0.2, 9.0) > 1:
+        if not _fits_one_line(
+            _cph_label, (Inches(2.2) / 914400) - 0.2, 9.0, bold=True
+        ):
             _cph_label = {
                 "Cost-per-Hire (cross-industry default)": "Cross-industry CPH",
             }.get(_cph_label, _cph_label)
@@ -6307,6 +6482,21 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             diamond.fill.solid()
             diamond.fill.fore_color.rgb = TEAL
             diamond.line.fill.background()
+
+    # What a local-benchmark plan assumes per hire (design-judge round 2,
+    # item 1) + media-only vs all-in (verifier round 2, item 6): one line in
+    # the free band between the attribution cards (end 6.55in) and the
+    # sources/currency caption row (6.84in).
+    _add_note_stack(
+        slide,
+        _pack_note_lines(
+            [_local_cph_assumption_variants(data), _MEDIA_VS_ALLIN_NOTES],
+            12.2 - 0.2,
+            9.0,
+            max_lines=1,
+        ),
+        bottom_in=6.82,
+    )
 
     # v3: Data sources footnote with confidence indicator
     _add_data_sources_footnote(slide, data, benchmarks)
@@ -7285,8 +7475,17 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     # ``total_projected.cost_per_hire`` read -- the two used to disagree
     # ("$5,263.16/hire" on Slide 2 vs. an unexplained "$5,250" here).
     avg_cph, _ = _compute_blended_cph(budget_alloc)
+    # A local-benchmark plan states what it assumes per hire here too
+    # (design-judge round 2, item 1): it replaces the marketing clause, and
+    # survives every fit path below.
+    _assume_s6 = _local_cph_assumption_variants(data)
 
-    if avg_cpa and avg_cpa > 0 and proj_hires and proj_hires > 0:
+    if avg_cpa and avg_cpa > 0 and proj_hires and proj_hires > 0 and _assume_s6:
+        insight_text = (
+            f"Budget engine projects {_cur}{avg_cpa:,.0f} average CPA across "
+            f"all channels. {_assume_s6[0]}"
+        )
+    elif avg_cpa and avg_cpa > 0 and proj_hires and proj_hires > 0:
         insight_text = f"Budget engine projects {_cur}{avg_cpa:,.0f} average CPA across all channels"
         if avg_cph and avg_cph > 0 and not _cph_claim_suppressed(budget_alloc):
             # copy:both#2: whole-number currency (never cents), plan symbol
@@ -7359,7 +7558,11 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
                 _first_clause = insight_text.split(". ", 1)[0].rstrip()
                 if _first_clause and _first_clause[-1] not in ".!?":
                     _first_clause += "."
-                _takeaway_final = _first_clause
+                _takeaway_final = (
+                    _first_one_line(_assume_s6, _measure_w, _tw_pt)
+                    if _assume_s6
+                    else _first_clause
+                )
     else:
         _fit_path = None
         _tw_pt = 10.0

@@ -22,6 +22,7 @@ import logging
 import datetime
 import math
 import os
+import re
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 
@@ -1237,9 +1238,111 @@ def resolve_industry_cph(
     ``claim_suppressed``, ``value_label`` ("midpoint" of the benchmark
     range, "midpoint of cited range" or "median"), ``source_names`` (short
     names of the local source, for the deck's sources line),
-    ``industry_matched`` and ``usd_low``/``usd_high``/``usd_value`` (the
-    US range, for provenance). Never raises.
+    ``industry_matched``, ``usd_low``/``usd_high``/``usd_value`` (the
+    US range, for provenance) and ``floor``/``floor_rule`` (the plan's
+    lowest projected cost per hire -- see ``_attach_cph_floor``). Never
+    raises.
     """
+    return _attach_cph_floor(
+        _resolve_industry_cph(industry, usd_per_local, plan_currency, intl_cpc_basis)
+    )
+
+
+def _kb_industry_cph_row(
+    knowledge_base: Optional[Dict[str, Any]], industry: str
+) -> Optional[Dict[str, Any]]:
+    """The knowledge base's own cost-per-hire row for ``industry``
+    (``recruitment_benchmarks.industry_benchmarks[industry].cph``) -- the
+    row the deck's slide 5 and the workbook print when the industry has no
+    range in ``INDUSTRY_CPH_RANGES``. Picks the string the deck picks
+    (ppt_generator._kb_extract_range: "range", "total_cost_per_hire",
+    "median", "recruitment_marketing_only", newest year, first string) and
+    parses its US$ figures. ``{"text", "low", "high", "mid"}`` or None."""
+    if not isinstance(knowledge_base, dict):
+        return None
+    rb = knowledge_base.get("recruitment_benchmarks")
+    ib = rb.get("industry_benchmarks") if isinstance(rb, dict) else None
+    entry = ib.get(industry) if isinstance(ib, dict) else None
+    node = entry.get("cph") if isinstance(entry, dict) else None
+    text = ""
+    if isinstance(node, str):
+        text = node.strip()
+    elif isinstance(node, dict):
+        for key in ("range", "total_cost_per_hire", "median", "recruitment_marketing_only"):
+            val = node.get(key)
+            if isinstance(val, str) and val.strip():
+                text = val.strip()
+                break
+        if not text:
+            years = [k for k in node if isinstance(k, str) and re.fullmatch(r"20\d{2}", k)]
+            val = node.get(max(years)) if years else None
+            if isinstance(val, str) and val.strip():
+                text = val.strip()
+        if not text:
+            text = next(
+                (v.strip() for v in node.values() if isinstance(v, str) and v.strip()),
+                "",
+            )
+    nums: List[float] = []
+    for amt, suffix in re.findall(r"\$\s*([\d,]+(?:\.\d+)?)\s*([kKmM])?\b", text):
+        try:
+            v = float(amt.replace(",", ""))
+        except ValueError:
+            continue
+        v *= {"k": 1_000.0, "m": 1_000_000.0}.get(suffix.lower(), 1.0)
+        if v > 0:
+            nums.append(v)
+    if not nums:
+        return None
+    low, high = nums[0], (nums[1] if len(nums) > 1 else nums[0])
+    if high < low:
+        low, high = high, low
+    return {"text": text, "low": low, "high": high, "mid": (low + high) / 2.0}
+
+
+def _attach_cph_floor(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Set ``floor`` (plan basis) and ``floor_rule`` on a resolver record.
+
+    PRODUCT DECISION (orchestrator, 2026-10-01, under the owner's standing
+    "decide, don't ask" directive): when the cost-per-hire basis is a LOCAL
+    range from a single published source (``value_label`` "midpoint of
+    cited range"), the plan must NEVER project a cost per hire below the
+    cited LOW END -- floor = max(0.5 x midpoint, low end). A weakly-sourced
+    range must not be extrapolated beyond what the source says (India IT
+    ₹25M: 869 hires at ₹28,750 -> 714 at ₹35,000). US plans and the
+    industry / cross-industry bases keep the established 0.5 x midpoint
+    floor unchanged (``floor_rule`` "half_midpoint"); the slide-2 range
+    ("23 at industry-avg cost / 47 at plan efficiency") discloses it.
+    """
+    math_value = result.get("math_value")
+    floor = (
+        float(math_value) * 0.5
+        if isinstance(math_value, (int, float)) and not isinstance(math_value, bool)
+        else 0.0
+    )
+    rule = "half_midpoint"
+    low = result.get("low")
+    if (
+        result.get("basis") == "local_kb"
+        and result.get("value_label") == "midpoint of cited range"
+        and isinstance(low, (int, float))
+        and not isinstance(low, bool)
+        and low > floor
+    ):
+        floor = float(low)
+        rule = "cited_low_end"
+    result["floor"] = floor
+    result["floor_rule"] = rule
+    return result
+
+
+def _resolve_industry_cph(
+    industry: str,
+    usd_per_local: Optional[float],
+    plan_currency: Optional[str],
+    intl_cpc_basis: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """``resolve_industry_cph`` before the floor is attached."""
     usd_low, usd_high = _industry_cph_range_usd(industry)
     usd_mid = (usd_low + usd_high) / 2.0
     code = (plan_currency or "USD").upper()
@@ -1435,6 +1538,84 @@ def industry_cph_display(
         entry["kind"] = "default"
         entry["prefer_kb_row"] = True
     return entry
+
+
+def _cph_text(val: float, ccy: str, style: str = "full") -> str:
+    """Money for cost-per-hire disclosures in the plan's own currency:
+    ``full`` "₹35,000", ``compact`` "₹35K" / "₹57.5K", ``k1`` "₹35.0K"."""
+    sym = f"{ccy} "
+    if ccy == "USD":
+        sym = "$"
+    elif _HAS_PLAN_CURRENCY:
+        one = _plan_currency.format_money(1, ccy)
+        if one.endswith("1"):
+            sym = one[:-1]
+    v = float(val)
+    if style in ("compact", "k1"):
+        for div, suffix in ((1_000_000, "M"), (1_000, "K")):
+            if abs(v) >= div:
+                body = (
+                    f"{v / div:,.1f}"
+                    if style == "k1"
+                    else f"{v / div:,.2f}".rstrip("0").rstrip(".")
+                )
+                return f"{sym}{body}{suffix}"
+    return f"{sym}{v:,.0f}"
+
+
+def local_cph_assumption(
+    cph: Optional[Dict[str, Any]], total_budget: float, hires: int
+) -> List[str]:
+    """What a LOCAL-benchmark plan assumes per hire, stated plainly (design-
+    judge 2026-10-01, item 1) -- the deck footnotes on slides 2/5/6 and the
+    workbook print this verbatim. Longest variant first, e.g.
+
+      "Plan assumes ₹35.0K per hire (plan efficiency: the low end of the
+       cited ₹35K–₹80K range); at the range midpoint (₹57.5K) this budget
+       buys 434 hires."
+
+    "Plan efficiency" is the plan's own cost per hire (budget / projected
+    hires); the midpoint clause is the conservative end of the hires range.
+    ``[]`` unless the basis is a cited local benchmark with a range."""
+    if not isinstance(cph, dict) or cph.get("basis") != "local_kb":
+        return []
+    value, low, high = cph.get("value"), cph.get("low"), cph.get("high")
+    nums = (value, low, high, total_budget)
+    if not all(
+        isinstance(n, (int, float)) and not isinstance(n, bool) and n > 0 for n in nums
+    ):
+        return []
+    try:
+        hires_i = int(hires)
+    except (TypeError, ValueError):
+        return []
+    if hires_i <= 0:
+        return []
+    ccy = str(cph.get("currency") or "USD").upper()
+    plan = float(total_budget) / hires_i
+    rng = f"{_cph_text(low, ccy, 'compact')}–{_cph_text(high, ccy, 'compact')}"
+    if cph.get("floor_rule") == "cited_low_end" and abs(plan - low) <= 0.01 * low:
+        where = f"the low end of the cited {rng} range"
+    elif low <= plan <= high:
+        where = f"within the cited {rng} range"
+    elif plan > high:
+        where = f"above the cited {rng} range"
+    else:
+        where = f"below the cited {rng} range"
+    word = "median" if cph.get("value_label") == "median" else "midpoint"
+    at_mid = int(float(total_budget) / float(value))
+    plan_txt = _cph_text(plan, ccy, "k1")
+    mid_txt = _cph_text(value, ccy, "compact")
+    # every form keeps "plan efficiency" defined -- the slide-2 range
+    # sublabel ("714 at plan efficiency") sits right above this footnote
+    return [
+        f"Plan assumes {plan_txt} per hire (plan efficiency: {where}); at the "
+        f"range {word} ({mid_txt}) this budget buys {at_mid:,} hires.",
+        f"Plan assumes {plan_txt}/hire (plan efficiency: {where}); at the "
+        f"{mid_txt} {word} this budget buys {at_mid:,} hires.",
+        f"Plan efficiency: {plan_txt}/hire ({where}); at the {mid_txt} "
+        f"{word}, {at_mid:,} hires.",
+    ]
 
 
 def estimate_cph_from_salary(annual_salary: float) -> float:
@@ -5058,6 +5239,10 @@ def calculate_budget_allocation(
     # also byte-identical to every caller's pre-fix behavior (the old
     # hardcoded "$" was, in effect, an unconditional USD assumption).
     _resolved_plan_currency = plan_currency
+    # The currency the deck/workbook will DISPLAY this plan in (any basis,
+    # including a market inference) -- used only to withhold the hires range
+    # when that currency is not the cost-per-hire's own (below).
+    _display_currency = (plan_currency or "").upper() or None
     if not _resolved_plan_currency and _HAS_PLAN_CURRENCY and budget_text:
         try:
             _code, _basis = _plan_currency.currency_for_plan_with_basis(
@@ -5070,6 +5255,7 @@ def calculate_budget_allocation(
             )
             if _basis in ("explicit", "declared"):
                 _resolved_plan_currency = _code
+            _display_currency = str(_code or "").upper() or None
         except Exception:  # noqa: BLE001 -- best-effort only
             _resolved_plan_currency = None
     _resolved_plan_currency = (_resolved_plan_currency or "USD").upper()
@@ -5231,7 +5417,11 @@ def calculate_budget_allocation(
     # The benchmark comes from the ONE resolver (_industry_cph, resolved
     # above before Step 3).
     _industry_avg_cph_plan = float(_industry_cph["math_value"])
-    _benchmark_cph_floor = _industry_avg_cph_plan * 0.5  # 50% of avg as floor
+    # 0.5 x the average, or the cited low end for a single-source local range
+    # (product decision, see _attach_cph_floor).
+    _benchmark_cph_floor = float(
+        _industry_cph.get("floor") or _industry_avg_cph_plan * 0.5
+    )
     _cph_floor_applied = False
     if avg_cost_per_hire < _benchmark_cph_floor and total_hires > 0:
         # Adjust hires down so CPH meets benchmark floor
@@ -5410,39 +5600,53 @@ def calculate_budget_allocation(
     }
     # Hires range (audit 2026-10-01 §3.1/§4.2). ``hires`` above stays the
     # headline point estimate. The range makes its benchmark-driven nature
-    # explicit: hires_low = budget / industry-average CPH (every hire costs
-    # the average); hires_high = budget / (0.5 x average) (every hire at the
-    # plan's efficiency floor -- the most the model ever projects, and where
-    # the floor-capped headline usually sits). Clamped so the range always
-    # brackets the headline (a raw funnel CPH above the average puts the
-    # headline below budget / average; the 1-hire minimum can exceed
-    # budget / floor). None when the plan has no presentable benchmark
-    # (claim_suppressed: local-currency market without a local CPH).
-    _range_avg = _industry_cph.get("value")
+    # explicit: hires_low = budget / the industry-average CPH the plan
+    # DISPLAYS (every hire costs that midpoint); hires_high = budget / the
+    # floor (every hire at plan efficiency -- the most the model ever
+    # projects, and where the floor-capped headline usually sits). Clamped
+    # so the range always brackets the headline (a raw funnel CPH above the
+    # average puts the headline below budget / average; the 1-hire minimum
+    # can exceed budget / floor).
+    #
+    # Only when the plan has a cost per hire IN ITS OWN CURRENCY: a US plan
+    # or a cited local benchmark. None for a suppressed claim (local market
+    # without a local CPH) and for ``us_benchmark_parity`` -- a non-USD plan
+    # with no exchange rate divides its own money by a US$ figure at parity
+    # (KSh 100,000 "buys 7-16 hires at US$5,000"), which is not a range --
+    # including a plan the engine prices at parity while it is DISPLAYED in
+    # another currency (a market-inferred KES plan resolves to USD here).
+    _cph_ccy = str(_industry_cph.get("currency") or "USD").upper()
+    _range_currency_ok = _industry_cph.get("basis") == "local_kb" or (
+        _cph_ccy == "USD" and _display_currency in (None, "USD")
+    )
+    #
+    # Design-judge 2026-10-01 (item 3): when the industry has no range of
+    # its own, the deck and workbook show the knowledge base's row for it
+    # ("$3,000-$5,000 (food manufacturing)"), so the low end is that row's
+    # midpoint -- never the cross-industry default the reader cannot see.
+    if (
+        _industry_cph.get("basis") == "us_benchmark"
+        and not _industry_cph.get("industry_matched", True)
+    ):
+        _display_row = _kb_industry_cph_row(knowledge_base, industry)
+        if _display_row:
+            _industry_cph["display_row"] = _display_row
+    _range_avg = (_industry_cph.get("display_row") or {}).get("mid") or _industry_cph.get(
+        "value"
+    )
     if (
         isinstance(_range_avg, (int, float))
         and not isinstance(_range_avg, bool)
         and _range_avg > 0
+        and _benchmark_cph_floor > 0
         and not _industry_cph.get("claim_suppressed")
+        and _industry_cph.get("basis") in ("us_benchmark", "local_kb")
+        and _range_currency_ok
     ):
         total_projected["hires_low"] = min(int(total_budget / _range_avg), total_hires)
         total_projected["hires_high"] = max(
-            int(total_budget / (0.5 * _range_avg)), total_hires
+            int(total_budget / _benchmark_cph_floor), total_hires
         )
-        # Hires if every hire cost the benchmark range's high / low end --
-        # provenance for the open product question of where the CPH floor
-        # should sit (today 0.5 x the midpoint, below the range's low end).
-        _bl, _bh = _industry_cph.get("low"), _industry_cph.get("high")
-        if (
-            isinstance(_bl, (int, float))
-            and isinstance(_bh, (int, float))
-            and _bl > 0
-            and _bh > 0
-        ):
-            _industry_cph["hires_at_range"] = [
-                int(total_budget / _bh),
-                int(total_budget / _bl),
-            ]
     else:
         total_projected["hires_low"] = None
         total_projected["hires_high"] = None

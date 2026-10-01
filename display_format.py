@@ -1029,6 +1029,23 @@ def parse_hire_goal(hire_volume: Any) -> int:
         return 0
 
 
+def goal_at_conservative_end(
+    projected_hires: Any, goal: Any, hires_low: Any
+) -> dict | None:
+    """The hiring goal judged at the CONSERVATIVE end of the hires range
+    (design-judge round 2, 2026-10-01, item 1): when the headline meets the
+    stated goal but every hire costing the industry midpoint (``hires_low``)
+    does not, the goal sentence must say so -- "at the midpoint cost the
+    plan buys 434 hires against a goal of 500". ``None`` otherwise."""
+    try:
+        goal_i, projected_i, low_i = int(goal), int(projected_hires), int(hires_low)
+    except (TypeError, ValueError):
+        return None
+    if goal_i <= 0 or projected_i < goal_i or not 0 <= low_i < goal_i:
+        return None
+    return {"goal": goal_i, "projected": projected_i, "hires_low": low_i}
+
+
 def goal_gap(
     projected_hires: int,
     goal: int,

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import sys
 
 import pytest
@@ -61,8 +62,14 @@ def _shape_with_text(slide, text):
 
 
 def _sublabel(slide):
+    # the KPI range box: its first line is "<n> at <basis>" (the thesis
+    # card and footnotes also mention "plan efficiency" in prose)
     for sh in slide.shapes:
-        if sh.has_text_frame and " at plan " in sh.text_frame.text:
+        if (
+            sh.has_text_frame
+            and re.match(r"^\d[\d,]* at ", sh.text_frame.paragraphs[0].text)
+            and " at plan " in sh.text_frame.text
+        ):
             return sh
     return None
 
@@ -138,7 +145,7 @@ class TestProjectedHiresKpi:
     def test_local_basis_is_named_local(self, india_it):
         sub = _sublabel(india_it[1].slides[1])
         lines = [p.text for p in sub.text_frame.paragraphs]
-        assert lines == ["434 at local-avg cost", "869 at plan efficiency"], lines
+        assert lines == ["434 at local-avg cost", "714 at plan efficiency"], lines
 
     def test_suppressed_plan_has_no_range(self, uk_finance):
         s2 = uk_finance[1].slides[1]

@@ -182,7 +182,7 @@ class TestWorkbook:
     def test_summary_prints_the_range(self, dallas):
         rows = _xlsx_text(dallas)
         assert any(
-            isinstance(v, str) and v.startswith("Projected hires range: 23–47")
+            isinstance(v, str) and v.startswith("Projected hires: 23–47.")
             for r in rows
             for v in r
         ), rows[:20]

@@ -122,10 +122,16 @@ class TestIndustryAvgCphAgreesAcrossOutputs:
             assert meta["industry_avg_cph"] == pytest.approx(
                 suff["industry_avg_cost_per_hire"]
             ), (meta["industry_avg_cph"], suff["industry_avg_cost_per_hire"])
-        # And the floor is always exactly half of that SAME agreed figure.
-        assert meta["cph_benchmark_floor"] == pytest.approx(
-            meta["industry_avg_cph"] * 0.5
-        )
+        # And the floor is half of that SAME agreed figure -- or, for a
+        # single-source local range, never below the cited low end
+        # (product decision 2026-10-01, budget_engine._attach_cph_floor).
+        expected_floor = meta["industry_avg_cph"] * 0.5
+        if cph["basis"] == "local_kb" and cph["value_label"] == (
+            "midpoint of cited range"
+        ):
+            expected_floor = max(expected_floor, cph["low"])
+        assert meta["cph_benchmark_floor"] == pytest.approx(expected_floor)
+        assert cph["floor"] == pytest.approx(expected_floor)
 
     def test_usd_plan_unchanged_raw_constant(self):
         """No conversion path taken for a USD plan -- byte-identical to

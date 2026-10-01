@@ -107,8 +107,12 @@ class TestNoCrossIndustryDefaultUnderAnIndustryName:
     def test_workbook_states_the_same_row_and_names_the_default(self, hershey):
         flat = [str(v) for r in _exec_summary_rows(hershey) for v in r]
         assert any("$3,000-$5,000 (food manufacturing)" in v for v in flat)
-        rng = [v for v in flat if v.startswith("Projected hires range")]
-        assert rng and "cross-industry default midpoint" in rng[0], rng
+        # round 2 (item 3): the range's low end is the SHOWN row's midpoint
+        rng = [v for v in flat if v.startswith("Projected hires:")]
+        assert rng and (
+            "$4,000, the midpoint of the industry row "
+            "($3,000-$5,000, food manufacturing)" in rng[0]
+        ), rng
 
 
 class TestMidpointLabelAndAgreement:
