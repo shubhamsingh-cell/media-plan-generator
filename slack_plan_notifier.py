@@ -67,6 +67,11 @@ def qa_line(plan_data: Dict[str, Any]) -> str:
     """
     if "qa_critical_count" not in plan_data:
         return ""
+    if plan_data.get("qa_status") == "timeout":
+        return (
+            f"QA: not checked -- qa_gate_timeout after "
+            f"{plan_data.get('qa_elapsed_s') or '?'}s (bundle delivered unchecked)"
+        )
     try:
         crit = int(plan_data.get("qa_critical_count") or 0)
     except (TypeError, ValueError):

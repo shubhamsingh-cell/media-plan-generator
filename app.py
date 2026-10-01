@@ -10006,6 +10006,14 @@ def _run_bundle_qa_gate(
             summary.get("repairs") or {},
             summary.get("initial_critical_ids") or [],
         )
+    if summary.get("qa_status") == "timeout":
+        logger.error(
+            "bundle_qa: qa_gate_timeout for %s after %.1fs (budget %.1fs) -- "
+            "the ORIGINAL bundle was delivered unchecked",
+            resource_id,
+            float(summary.get("elapsed_s") or 0),
+            float(summary.get("budget_s") or 0),
+        )
     if summary.get("critical_count"):
         logger.error(
             "bundle_qa: %d critical finding(s) remain after repair -- bundle "
@@ -10053,6 +10061,11 @@ def _slack_qa_fields(bundle_qa_summary: Optional[dict]) -> dict:
         "qa_critical_codes": bundle_qa_summary.get("codes") or [],
         "qa_critical_ids": bundle_qa_summary.get("critical_ids") or [],
         "qa_repaired_count": bundle_qa_summary.get("repaired_count") or 0,
+        # "timeout" when the gate hit its wall-clock budget and the ORIGINAL
+        # bundle shipped unchecked (bundle_qa.gate_bundle) -- the Slack line
+        # then says so instead of claiming "0 critical".
+        "qa_status": bundle_qa_summary.get("qa_status") or "",
+        "qa_elapsed_s": bundle_qa_summary.get("elapsed_s") or 0,
     }
 
 

@@ -36,7 +36,10 @@ from __future__ import annotations
 import difflib
 import io
 import logging
+import os
 import re
+import threading
+import time
 from datetime import datetime
 from typing import Any
 
@@ -400,7 +403,29 @@ _TRUNC_NEEDLE_CHARS = 40
 _TRUNC_NEEDLE_MIN = 12
 
 
-def _truncation_corpus(units: list[_TextUnit], data: dict) -> list[str]:
+# Gate CPU bounds (verifier, 2026-10-01: the per-unit corpus scan was
+# quadratic -- 2,500 truncated cells took 51 s, 10,000 took 613 s of pure CPU
+# holding the interpreter lock). The corpus is now ONE joined string searched
+# with str.find (C speed), and at most _TRUNC_MAX_CLASSIFY cuts per pass are
+# classified; anything beyond stays "unknown" (the heuristic warn stands,
+# nothing is rewritten).
+_TRUNC_MAX_CLASSIFY = 400
+_TRUNC_MAX_HITS = 50
+_UNIT_SEP = "\x00"
+
+
+class _TruncationIndex:
+    """Every deck/workbook text (plus the plan's long-form source strings)
+    joined into one searchable blob, with a per-pass classification budget."""
+
+    __slots__ = ("blob", "remaining")
+
+    def __init__(self, texts: list[str]) -> None:
+        self.blob = _UNIT_SEP.join(t for t in texts if isinstance(t, str))
+        self.remaining = _TRUNC_MAX_CLASSIFY
+
+
+def _truncation_corpus(units: list[_TextUnit], data: dict) -> _TruncationIndex:
     """Full texts a truncated string can be checked against: every other
     deck/workbook text plus the plan's own long-form source strings (the
     company description the cover tagline is cut from)."""
@@ -412,7 +437,7 @@ def _truncation_corpus(units: list[_TextUnit], data: dict) -> list[str]:
             corpus.append(desc)
     except AttributeError:
         pass
-    return corpus
+    return _TruncationIndex(corpus)
 
 
 def _strip_ellipsis(text: str) -> str:
@@ -424,7 +449,7 @@ def _strip_ellipsis(text: str) -> str:
     return body
 
 
-def _truncation_kind(text: str, corpus: list[str]) -> str:
+def _truncation_kind(text: str, corpus: _TruncationIndex) -> str:
     """Classify a trailing-ellipsis cut against the full text it came from.
 
     ``"boundary"``: the same words appear un-truncated elsewhere and the
@@ -432,26 +457,61 @@ def _truncation_kind(text: str, corpus: list[str]) -> str:
     is the house style (company_blurb.truncate_at_boundary), not a defect.
     ``"mid_word"``: the next character there is a letter -- the cut split a
     word ("...the Brit..."), repairable by trimming to the previous word.
-    ``"unknown"``: no full source found; the heuristic warn stands.
+    ``"unknown"``: no full source found (or the pass's classification budget
+    is spent); the heuristic warn stands.
     """
+    _check_deadline()
     body = _strip_ellipsis(text)
     needle = body[-_TRUNC_NEEDLE_CHARS:].strip()
-    if len(needle) < _TRUNC_NEEDLE_MIN:
+    if len(needle) < _TRUNC_NEEDLE_MIN or corpus.remaining <= 0:
         return "unknown"
+    corpus.remaining -= 1
+    blob = corpus.blob
     verdict = "unknown"
-    for src in corpus:
-        if not isinstance(src, str) or src is text or len(src) <= len(needle):
-            continue
-        start = src.find(needle)
-        while start != -1:
-            after = start + len(needle)
-            rest = src[after:]
-            if rest and not rest.startswith(("…", "...")):
-                if rest[0].isalnum():
-                    return "mid_word"
-                verdict = "boundary"
-            start = src.find(needle, start + 1)
+    start = blob.find(needle)
+    hits = 0
+    while start != -1 and hits < _TRUNC_MAX_HITS:
+        hits += 1
+        after = start + len(needle)
+        nxt = blob[after : after + 3]
+        # a hit that ends where its unit ends, or at another ellipsis, is a
+        # copy of a truncated string (incl. this one) -- not a full source
+        if nxt and nxt[0] != _UNIT_SEP and not nxt.startswith(("…", "...")):
+            if nxt[0].isalnum():
+                return "mid_word"
+            verdict = "boundary"
+        start = blob.find(needle, start + 1)
     return verdict
+
+
+# ---------------------------------------------------------------------------
+# Gate wall-clock budget (cooperative + thread backstop)
+# ---------------------------------------------------------------------------
+GATE_BUDGET_S_DEFAULT = 8.0
+_GATE_DEADLINE = threading.local()
+
+
+class _GateTimeout(BaseException):
+    """Raised inside the gate when its wall-clock budget is spent. A
+    BaseException so the per-check ``except Exception`` isolation in
+    run_bundle_qa cannot swallow it into a "check crashed" finding."""
+
+
+def _check_deadline() -> None:
+    deadline = getattr(_GATE_DEADLINE, "t", None)
+    if deadline is not None and time.monotonic() > deadline:
+        raise _GateTimeout()
+
+
+def gate_budget_s() -> float:
+    """The gate's wall-clock budget: ``BUNDLE_QA_GATE_BUDGET_S`` env
+    override, else ``GATE_BUDGET_S_DEFAULT`` (8 s)."""
+    raw = os.environ.get("BUNDLE_QA_GATE_BUDGET_S") or ""
+    try:
+        val = float(raw) if raw else GATE_BUDGET_S_DEFAULT
+    except ValueError:
+        val = GATE_BUDGET_S_DEFAULT
+    return val if val > 0 else GATE_BUDGET_S_DEFAULT
 
 
 def _check_text_patterns(
@@ -479,6 +539,7 @@ def _check_text_patterns(
     truncation_corpus = _truncation_corpus(units, data)
 
     for u in units:
+        _check_deadline()
         text = u.text
         stripped = text.strip()
         if not stripped:
@@ -2352,16 +2413,19 @@ def run_bundle_qa(
             )
 
     all_units = pptx_units + xlsx_units
+    _check_deadline()
     try:
         _check_text_patterns(all_units, data, findings)
     except Exception as exc:  # noqa: BLE001
         findings.append(_finding("warn", "text_pattern_check_crashed", f"{exc!r}", ""))
 
+    _check_deadline()
     try:
         _check_client_name_casing(all_units, data, findings)
     except Exception as exc:  # noqa: BLE001
         findings.append(_finding("warn", "client_name_check_crashed", f"{exc!r}", ""))
 
+    _check_deadline()
     try:
         _check_comparison_badges(pptx_units, findings)
     except Exception as exc:  # noqa: BLE001
@@ -2379,6 +2443,7 @@ def run_bundle_qa(
             _finding("warn", "counter_strategy_check_crashed", f"{exc!r}", "")
         )
 
+    _check_deadline()
     try:
         _check_90_day_forecast_footing(wb, findings)
     except Exception as exc:  # noqa: BLE001
@@ -2386,6 +2451,7 @@ def run_bundle_qa(
             _finding("warn", "forecast_footing_check_crashed", f"{exc!r}", "")
         )
 
+    _check_deadline()
     try:
         _check_executive_summary_budget_footing(wb, findings)
     except Exception as exc:  # noqa: BLE001
@@ -2393,11 +2459,13 @@ def run_bundle_qa(
             _finding("warn", "exec_summary_footing_check_crashed", f"{exc!r}", "")
         )
 
+    _check_deadline()
     try:
         _check_zero_hire_honesty(wb, findings)
     except Exception as exc:  # noqa: BLE001
         findings.append(_finding("warn", "zero_hire_check_crashed", f"{exc!r}", ""))
 
+    _check_deadline()
     try:
         _check_recruitment_funnel_footing(wb, findings)
     except Exception as exc:  # noqa: BLE001
@@ -2405,11 +2473,13 @@ def run_bundle_qa(
             _finding("warn", "recruitment_funnel_check_crashed", f"{exc!r}", "")
         )
 
+    _check_deadline()
     try:
         _check_us_data_on_non_us_plan(all_units, wb, data, findings)
     except Exception as exc:  # noqa: BLE001
         findings.append(_finding("warn", "us_data_check_crashed", f"{exc!r}", ""))
 
+    _check_deadline()
     try:
         _check_currency_symbol_mixing(all_units, data, findings)
     except Exception as exc:  # noqa: BLE001
@@ -2417,6 +2487,7 @@ def run_bundle_qa(
             _finding("warn", "currency_mixing_check_crashed", f"{exc!r}", "")
         )
 
+    _check_deadline()
     try:
         _check_campaign_duration_incoherence(all_units, wb, findings)
     except Exception as exc:  # noqa: BLE001
@@ -2424,6 +2495,7 @@ def run_bundle_qa(
             _finding("warn", "duration_incoherence_check_crashed", f"{exc!r}", "")
         )
 
+    _check_deadline()
     try:
         _check_industry_client_conflict(data, findings)
     except Exception as exc:  # noqa: BLE001
@@ -2431,6 +2503,7 @@ def run_bundle_qa(
             _finding("warn", "industry_conflict_check_crashed", f"{exc!r}", "")
         )
 
+    _check_deadline()
     try:
         _check_competitor_count_contradiction(wb, findings)
     except Exception as exc:  # noqa: BLE001
@@ -2438,6 +2511,7 @@ def run_bundle_qa(
             _finding("warn", "competitor_count_check_crashed", f"{exc!r}", "")
         )
 
+    _check_deadline()
     try:
         _check_unsourced_competitor_claim(
             all_units, findings, str(data.get("client_name") or "")
@@ -2523,6 +2597,7 @@ def _repair_text(text: str, ctx: _RepairContext) -> tuple[str, set[str]]:
     """Apply the repairable-class fixes to one client-facing string, using
     the SAME predicates the checks use -- so a repair only ever touches
     text the gate itself would flag. Returns ``(new_text, codes_fixed)``."""
+    _check_deadline()
     fixed: set[str] = set()
     if not isinstance(text, str) or not text.strip():
         return text, fixed
@@ -2714,8 +2789,75 @@ def repair_bundle(
     return new_pptx, new_xlsx, counts
 
 
-def gate_bundle(
+def _gate_impl(
     pptx_bytes: bytes | None, xlsx_bytes: bytes | None, data: dict
+) -> dict:
+    """Lint -> repair -> re-lint (see ``gate_bundle``). Raises _GateTimeout
+    when the per-thread deadline passes; every other error is handled by
+    the caller."""
+    result: dict = {
+        "pptx_bytes": pptx_bytes,
+        "xlsx_bytes": xlsx_bytes,
+        "findings": [],
+        "summary": None,
+    }
+    findings = run_bundle_qa(pptx_bytes, xlsx_bytes, data)
+    initial_critical = [
+        f for f in findings if isinstance(f, dict) and f.get("severity") == "critical"
+    ]
+    repairs: dict = {}
+    if any(isinstance(f, dict) and f.get("code") in REPAIRABLE_CODES for f in findings):
+        new_pptx, new_xlsx, repairs = repair_bundle(pptx_bytes, xlsx_bytes, data)
+        if repairs:
+            refound = run_bundle_qa(new_pptx, new_xlsx, data)
+            broken = {
+                f.get("code") for f in refound if f.get("code") in _PARSE_FAILURE_CODES
+            } - {f.get("code") for f in findings}
+            if broken:
+                repairs = {}  # repaired bytes unreadable -> ship originals
+            else:
+                result["pptx_bytes"], result["xlsx_bytes"] = new_pptx, new_xlsx
+                findings = refound
+    summary = summarize_findings(findings)
+    summary["repairs"] = dict(repairs)
+    summary["repaired_count"] = sum(repairs.values())
+    summary["initial_critical_count"] = len(initial_critical)
+    summary["initial_critical_ids"] = [finding_id(f) for f in initial_critical][:25]
+    result["findings"] = findings
+    result["summary"] = summary
+    return result
+
+
+def _timeout_summary(elapsed_s: float, budget_s: float) -> dict:
+    finding = _finding(
+        "warn",
+        "qa_gate_timeout",
+        f"bundle_qa gate exceeded its {budget_s:.1f}s budget after "
+        f"{elapsed_s:.1f}s -- the ORIGINAL bundle was delivered unchecked",
+        "bundle",
+    )
+    return {
+        "qa_status": "timeout",
+        "critical_count": 0,
+        "warn_count": 1,
+        "codes": ["qa_gate_timeout"],
+        "critical_ids": [],
+        "findings": [finding],
+        "repairs": {},
+        "repaired_count": 0,
+        "initial_critical_count": 0,
+        "initial_critical_ids": [],
+        "timed_out": True,
+        "elapsed_s": round(elapsed_s, 2),
+        "budget_s": budget_s,
+    }
+
+
+def gate_bundle(
+    pptx_bytes: bytes | None,
+    xlsx_bytes: bytes | None,
+    data: dict,
+    budget_s: float | None = None,
 ) -> dict:
     """The delivery gate app.py runs on every bundle BEFORE packaging.
 
@@ -2737,7 +2879,13 @@ def gate_bundle(
        plan notification, and records the summary on the job/plan result
        (``/api/jobs/<id>`` exposes it; the sync path's X-Bundle-QA-Status
        header too).
-    4. FAIL SAFE: any exception inside the gate returns the ORIGINAL bytes
+    4. BOUNDED: the gate is pure CPU on the request's critical path, so it
+       has a hard wall-clock budget (``gate_budget_s()``: 8 s, env
+       ``BUNDLE_QA_GATE_BUDGET_S``). It runs in a worker thread with
+       cooperative deadline checks; past the budget the ORIGINAL bytes ship
+       with ``summary["qa_status"] == "timeout"`` / code
+       ``qa_gate_timeout`` and an ERROR log line with the elapsed time.
+    5. FAIL SAFE: any exception inside the gate returns the ORIGINAL bytes
        with ``summary=None`` (treated as "clean" downstream) -- a broken
        gate must never cost the user their bundle.
 
@@ -2746,53 +2894,65 @@ def gate_bundle(
     rewritten), ``repaired_count``, ``initial_critical_count`` and
     ``initial_critical_ids``.
     """
-    result: dict = {
+    budget = gate_budget_s() if budget_s is None else float(budget_s)
+    original = {
         "pptx_bytes": pptx_bytes,
         "xlsx_bytes": xlsx_bytes,
         "findings": [],
         "summary": None,
     }
-    try:
-        findings = run_bundle_qa(pptx_bytes, xlsx_bytes, data)
-        initial_critical = [
-            f for f in findings if isinstance(f, dict) and f.get("severity") == "critical"
-        ]
-        repairs: dict = {}
-        if any(isinstance(f, dict) and f.get("code") in REPAIRABLE_CODES for f in findings):
-            new_pptx, new_xlsx, repairs = repair_bundle(pptx_bytes, xlsx_bytes, data)
-            if repairs:
-                refound = run_bundle_qa(new_pptx, new_xlsx, data)
-                broken = {
-                    f.get("code") for f in refound if f.get("code") in _PARSE_FAILURE_CODES
-                } - {f.get("code") for f in findings}
-                if broken:
-                    repairs = {}  # repaired bytes unreadable -> ship originals
-                else:
-                    result["pptx_bytes"], result["xlsx_bytes"] = new_pptx, new_xlsx
-                    findings = refound
-        summary = summarize_findings(findings)
-        summary["repairs"] = dict(repairs)
-        summary["repaired_count"] = sum(repairs.values())
-        summary["initial_critical_count"] = len(initial_critical)
-        summary["initial_critical_ids"] = [finding_id(f) for f in initial_critical][:25]
-        result["findings"] = findings
-        result["summary"] = summary
-    except Exception as exc:  # noqa: BLE001 -- fail safe: original bytes, no verdict
+    box: dict = {}
+    t0 = time.monotonic()
+
+    def _worker() -> None:
+        _GATE_DEADLINE.t = t0 + budget
+        try:
+            box["result"] = _gate_impl(pptx_bytes, xlsx_bytes, data)
+        except _GateTimeout:
+            box["timeout"] = True
+        except Exception as exc:  # noqa: BLE001 -- fail safe, reported below
+            box["error"] = exc
+        finally:
+            _GATE_DEADLINE.t = None
+
+    worker = threading.Thread(target=_worker, name="bundle-qa-gate", daemon=True)
+    worker.start()
+    # Backstop for a single long non-cooperative step (e.g. parsing a huge
+    # workbook): stop waiting shortly after the budget; the worker hits its
+    # next deadline check and exits on its own.
+    worker.join(budget + 0.5)
+    elapsed = time.monotonic() - t0
+    if worker.is_alive() or box.get("timeout"):
+        logger.error(
+            "bundle_qa gate exceeded its %.1fs budget (qa_gate_timeout) after "
+            "%.1fs -- delivering the ORIGINAL bundle unchecked",
+            budget,
+            elapsed,
+        )
+        out = dict(original)
+        out["summary"] = _timeout_summary(elapsed, budget)
+        out["findings"] = list(out["summary"]["findings"])
+        out["error"] = "qa_gate_timeout"
+        return out
+    if "error" in box:
+        exc = box["error"]
         logger.error(
             "bundle_qa gate failed (%s) -- delivering the unrepaired bundle "
             "with no QA verdict",
             exc,
-            exc_info=True,
+            exc_info=(type(exc), exc, exc.__traceback__),
         )
-        result["pptx_bytes"], result["xlsx_bytes"] = pptx_bytes, xlsx_bytes
-        result["findings"], result["summary"] = [], None
-        result["error"] = f"{type(exc).__name__}: {exc}"[:300]
-    return result
+        out = dict(original)
+        out["error"] = f"{type(exc).__name__}: {exc}"[:300]
+        return out
+    return box.get("result") or original
 
 
 __all__ = [
+    "GATE_BUDGET_S_DEFAULT",
     "REPAIRABLE_CODES",
     "finding_id",
+    "gate_budget_s",
     "gate_bundle",
     "repair_bundle",
     "run_bundle_qa",

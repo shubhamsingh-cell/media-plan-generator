@@ -318,3 +318,99 @@ def test_async_job_records_ids_and_slack_gets_the_qa_line(live_server):  # noqa:
     assert sent, "Slack notifier was not called"
     assert sent[0]["qa_critical_count"] == 1
     assert slack_plan_notifier.qa_line(sent[0]).startswith("QA: 1 critical")
+
+
+# ---------------------------------------------------------------------------
+# Verifier follow-ups (2026-10-01)
+# ---------------------------------------------------------------------------
+def test_gate_flags_a_competitor_claim_that_follows_the_client_name():
+    findings: list = []
+    bundle_qa._check_unsourced_competitor_claim(
+        _units("Hershey and Mars are drawing from the same maintenance talent pool."),
+        findings,
+        "The Hershey Company",
+    )
+    assert len(findings) == 1 and "'Mars'" in findings[0]["message"]
+
+
+def _truncated_workbook(n: int) -> bytes:
+    """n trailing-ellipsis cells, each with its full text elsewhere -- the
+    shape that made the old per-unit corpus scan quadratic."""
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Market Intelligence"
+    for i in range(n):
+        full = (
+            f"Row {i} describes the regional hiring landscape for maintenance "
+            f"technicians in market {i}"
+        )
+        ws.cell(row=i + 1, column=2, value=full[: 60 + (i % 7)] + "…")
+        ws.cell(row=i + 1, column=3, value=full)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_truncation_classification_has_a_per_pass_budget():
+    texts = [f"text number {i} with enough characters to be a needle" for i in range(5)]
+    index = bundle_qa._TruncationIndex(texts)
+    index.remaining = 2
+    kinds = [
+        bundle_qa._truncation_kind(f"text number {i} with enough characters to be a nee…", index)
+        for i in range(4)
+    ]
+    assert kinds[:2] == ["mid_word", "mid_word"]
+    assert kinds[2:] == ["unknown", "unknown"]  # budget spent -> warn stands, no rewrite
+
+
+def test_truncation_scan_scales_linearly(monkeypatch):
+    """6,000 truncated cells: pre-fix gate 46.6 s on the dev Mac (verifier:
+    2,500 -> 51 s, 10,000 -> 613 s), post-fix ~4 s. The 20 s bound is
+    generous for a loaded CI box. (Budget raised through the env so the
+    timeout path cannot mask a slow scan.)"""
+    monkeypatch.setenv("BUNDLE_QA_GATE_BUDGET_S", "120")
+    blob = _truncated_workbook(6000)
+    t0 = time.monotonic()
+    res = bundle_qa.gate_bundle(None, blob, DATA)
+    elapsed = time.monotonic() - t0
+    assert res["summary"]["qa_status"] != "timeout"
+    assert elapsed < 20, f"gate took {elapsed:.1f}s on 6,000 truncated cells"
+
+
+def test_gate_over_budget_ships_original_bytes_and_says_so(caplog):
+    blob = _truncated_workbook(3000)
+    with caplog.at_level(logging.ERROR):
+        res = bundle_qa.gate_bundle(None, blob, DATA, budget_s=0.05)
+    assert res["xlsx_bytes"] == blob
+    s = res["summary"]
+    assert s["qa_status"] == "timeout" and s["codes"] == ["qa_gate_timeout"]
+    assert s["critical_count"] == 0 and s["timed_out"] is True
+    msgs = [r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR]
+    assert any("qa_gate_timeout" in m and "ORIGINAL bundle" in m for m in msgs), msgs
+
+
+def test_gate_budget_has_an_env_override(monkeypatch):
+    assert bundle_qa.gate_budget_s() == bundle_qa.GATE_BUDGET_S_DEFAULT == 8.0
+    monkeypatch.setenv("BUNDLE_QA_GATE_BUDGET_S", "0.05")
+    assert bundle_qa.gate_budget_s() == 0.05
+    res = bundle_qa.gate_bundle(None, _truncated_workbook(3000), DATA)
+    assert res["summary"]["qa_status"] == "timeout"
+    monkeypatch.setenv("BUNDLE_QA_GATE_BUDGET_S", "not-a-number")
+    assert bundle_qa.gate_budget_s() == 8.0
+
+
+def test_timeout_reaches_the_job_record_and_the_slack_line(caplog):
+    blob = _truncated_workbook(3000)
+    with mock.patch.dict("os.environ", {"BUNDLE_QA_GATE_BUDGET_S": "0.05"}):
+        with caplog.at_level(logging.ERROR):
+            _p, xlsx, summary = app_module._run_bundle_qa_gate(None, blob, DATA, "job-timeout")
+    assert xlsx == blob
+    fields = app_module._bundle_qa_response_fields(summary)
+    assert fields["qa_status"] == "timeout"
+    assert fields["qa_codes"] == ["qa_gate_timeout"]
+    line = slack_plan_notifier.qa_line(app_module._slack_qa_fields(summary))
+    assert line.startswith("QA: not checked -- qa_gate_timeout")
+    msgs = [r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR]
+    assert any("qa_gate_timeout for job-timeout" in m for m in msgs), msgs
