@@ -8837,6 +8837,9 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     "description": _dc.get("description") or "",
                     "competitor_type": _dc.get("competitor_type") or "",
                     "hiring_intensity": _dc.get("hiring_intensity") or "",
+                    # evidence record (competitor_claims.competitor_has_evidence)
+                    "evidence": _dc.get("evidence") or "",
+                    "source_url": _dc.get("source_url") or "",
                 }
             else:
                 competitors[_dc] = {

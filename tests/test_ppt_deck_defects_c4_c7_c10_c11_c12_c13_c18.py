@@ -343,7 +343,14 @@ def _competitor_card_stress_plan() -> Dict[str, Any]:
         "industry_label": "Healthcare & Medical",
         "roles": [role],
         "locations": ["Rancho Santa Margarita, CA"],
-        "competitors": ["Tenet Health"],
+        # mpg-content-gate: a bare typed name now gets the short neutral
+        # no-evidence Why line; the composed (long) Why sentence this
+        # fixture is calibrated on only renders for an evidence-backed
+        # competitor, so give it an evidence record (no description, so the
+        # composed-sentence path still runs).
+        "competitors": [
+            {"name": "Tenet Health", "source_url": "https://example.com/tenet-careers"}
+        ],
         "budget": "$500,000",
         "channel_categories": {"programmatic_dsp": True},
     }

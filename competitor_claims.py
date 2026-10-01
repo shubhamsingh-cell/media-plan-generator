@@ -31,7 +31,10 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import company_blurb
 
-NO_EVIDENCE_LINE = "No verified public hiring data available for this competitor."
+# Kept short on purpose: "Why: " + CLIENT_NAMED_LINE must stay ONE line in
+# the slide-7 card's 5.7in usable width at 8pt (a ~104-char version sat on
+# the wrap boundary and overprinted the Counter line in the geometry matrix).
+NO_EVIDENCE_LINE = "No verified public hiring data available."
 CLIENT_NAMED_LINE = f"Named in the brief as a competitor. {NO_EVIDENCE_LINE}"
 INFERRED_LINE = f"Inferred from industry classification. {NO_EVIDENCE_LINE}"
 
