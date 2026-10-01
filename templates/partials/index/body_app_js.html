@@ -636,104 +636,61 @@
     const recs = sd.recommendations || [];
     const meta = sd.metadata || {};
 
-    // Fallback values from payload when server data is unavailable
-    const budgetDisplay = bs.total
-      ? "$" + Number(bs.total).toLocaleString()
-      : novaPlanBudgetLabel(payload);
+    // Every figure here is a REAL value of the generated plan or its tile is
+    // not shown (owner rule: no invented proof on a client-facing screen).
+    // The "Avg CPC" tile's last-resort fallback was a typed-in 1.50-dollar
+    // figure -- shown on a £ plan too -- and
+    // "Channels Selected 0" counted the untouched channel toggles while the
+    // plan funded 6-7 channels. payload._plan_results is the job's
+    // results_summary (app._plan_results_summary: the engine output the
+    // workbook's Executive Summary prints).
+    const res = payload._plan_results || {};
+    const budgetDisplay = novaPlanBudgetLabel(payload);
     const rolesCount = (meta.roles || payload.target_roles || []).length;
     const locationsCount = (meta.locations || payload.locations || []).length;
-    const channelCount =
-      channels.length ||
-      Object.keys(payload.channel_categories || {}).filter(
-        (k) => payload.channel_categories[k] !== false,
-      ).length;
-
-    // Compute avg CPC from server channels with multi-layer fallback
-    let avgCpc = "N/A";
-    if (channels.length > 0) {
-      // Layer 1: Parse cpc_range / avg_cpc / cpc fields from channel objects
-      const cpcNums = channels
-        .map((c) => {
-          const raw = c.cpc_range || c.avg_cpc || c.cpc || "";
-          return parseFloat(String(raw).replace(/[^0-9.]/g, ""));
-        })
-        .filter((n) => n > 0);
-      if (cpcNums.length > 0) {
-        avgCpc =
-          "$" +
-          (cpcNums.reduce((a, b) => a + b, 0) / cpcNums.length).toFixed(2);
-      } else {
-        // Layer 2: Compute effective CPC from budget / projected_clicks
-        let totalBudget = 0,
-          totalClicks = 0;
-        channels.forEach((c) => {
-          const b = parseFloat(c.budget) || 0;
-          const cl = parseInt(c.projected_clicks) || 0;
-          if (b > 0 && cl > 0) {
-            totalBudget += b;
-            totalClicks += cl;
-          }
-        });
-        if (totalClicks > 0) {
-          avgCpc = "$" + (totalBudget / totalClicks).toFixed(2);
-        }
-      }
-    }
-    // Layer 3: If still N/A, try gold-standard channel benchmarks from response
-    if (avgCpc === "N/A" && sd.channel_strategy) {
-      const cs = sd.channel_strategy;
-      const benchCpcs = Object.values(cs)
-        .map((v) =>
-          parseFloat(
-            String((v && v.cpc) || (v && v.avg_cpc) || "").replace(
-              /[^0-9.]/g,
-              "",
-            ),
-          ),
-        )
-        .filter((n) => n > 0);
-      if (benchCpcs.length > 0) {
-        avgCpc =
-          "~$" +
-          (benchCpcs.reduce((a, b) => a + b, 0) / benchCpcs.length).toFixed(2);
-      }
-    }
-    // Layer 4: Industry benchmark hint
-    if (avgCpc === "N/A") {
-      avgCpc = "~$1.50";
-    }
-
-    const hiringDiff = mi.hiring_difficulty || "moderate";
+    const fundedNames = Array.isArray(res.channels)
+      ? res.channels
+      : channels.map((c) => c.name).filter(Boolean);
+    const channelCount = Number(res.channels_funded) || fundedNames.length;
+    const blendedCpc =
+      res.blended_cpc && res.blended_cpc.display ? String(res.blended_cpc.display) : "";
+    const hiringDiff = mi.hiring_difficulty ? String(mi.hiring_difficulty) : "";
     const diffClass = /easy|low|favorable/i.test(hiringDiff)
       ? "favorable"
       : /hard|high|challenging|difficult/i.test(hiringDiff)
         ? "challenging"
         : "moderate";
+    const tile = (label, value, cls) =>
+      '<div class="plan-metric-card"><div class="plan-metric-label">' +
+      escapeHtml(label) +
+      '</div><div class="plan-metric-value' +
+      (cls ? " " + cls : "") +
+      '">' +
+      escapeHtml(value) +
+      "</div></div>";
 
     let html = '<div class="plan-dashboard">';
 
     // ── 1. Summary Cards Row ──
     html += '<div class="plan-dashboard-title">Plan Results Dashboard</div>';
     html += '<div class="plan-metrics-row">';
-    html +=
-      '<div class="plan-metric-card"><div class="plan-metric-label">Total Budget</div><div class="plan-metric-value accent">' +
-      escapeHtml(budgetDisplay) +
-      "</div></div>";
-    html +=
-      '<div class="plan-metric-card"><div class="plan-metric-label">Channels Selected</div><div class="plan-metric-value">' +
-      channelCount +
-      "</div></div>";
-    html +=
-      '<div class="plan-metric-card"><div class="plan-metric-label">Avg CPC</div><div class="plan-metric-value">' +
-      escapeHtml(avgCpc) +
-      "</div></div>";
-    html +=
-      '<div class="plan-metric-card"><div class="plan-metric-label">Hiring Difficulty</div><div class="plan-metric-value ' +
-      diffClass +
-      '">' +
-      escapeHtml(hiringDiff.charAt(0).toUpperCase() + hiringDiff.slice(1)) +
-      "</div></div>";
+    html += tile("Total Budget", budgetDisplay, "accent");
+    if (channelCount > 0) html += tile("Channels Funded", String(channelCount));
+    if (blendedCpc) html += tile("Blended CPC", blendedCpc);
+    if (hiringDiff) {
+      html += tile(
+        "Hiring Difficulty",
+        hiringDiff.charAt(0).toUpperCase() + hiringDiff.slice(1),
+        diffClass,
+      );
+    }
     html += "</div>";
+    if (fundedNames.length > 0) {
+      html +=
+        '<div class="plan-funded-channels"><span class="plan-funded-label">Funded:</span> ' +
+        fundedNames.map((n) => escapeHtml(n)).join(" &middot; ") +
+        "</div>";
+    }
 
     // ── 2. Channel Allocation Chart (inline SVG) ──
     if (channels.length > 0) {
@@ -849,47 +806,35 @@
     }
 
     // ── 4. Market Insights Panel ──
-    html += '<div class="plan-section-label">Market Insights</div>';
-    html += '<div class="plan-market-insights">';
+    // Only values the server returned: the defaults ("Moderate", "Medium",
+    // "Varies by role", "Stable") rendered as if they were plan findings.
+    const realVal = (v) => (v && !/^n\/?a$/i.test(String(v).trim()) ? String(v) : "");
     const insightItems = [
-      {
-        label: "Hiring Difficulty",
-        val: mi.hiring_difficulty || "moderate",
-      },
-      { label: "Competition Level", val: mi.competition_level || "medium" },
+      { label: "Hiring Difficulty", val: realVal(mi.hiring_difficulty) },
+      { label: "Competition Level", val: realVal(mi.competition_level) },
       {
         label: "Salary Range",
         val: (function () {
-          // Layer 1: market_insights.salary_range (skip if literal "N/A")
-          var sr = mi.salary_range;
-          if (sr && sr !== "N/A" && sr !== "n/a") return sr;
-          // Layer 2: city_level_data first entry salary range
+          if (realVal(mi.salary_range)) return realVal(mi.salary_range);
+          // the first city entry's salary range text, as the server wrote it
           var cld = sd.city_level_data;
           if (cld && typeof cld === "object") {
             var cityKeys = Object.keys(cld);
             for (var ci = 0; ci < cityKeys.length; ci++) {
               var cityEntry = cld[cityKeys[ci]];
-              if (cityEntry && cityEntry.salary_range)
-                return cityEntry.salary_range;
-              if (cityEntry && cityEntry.median_salary)
-                return "$" + Number(cityEntry.median_salary).toLocaleString();
+              if (cityEntry && realVal(cityEntry.salary_range))
+                return realVal(cityEntry.salary_range);
             }
           }
-          // Layer 3: supabase_salary_data median
-          var ssd = sd.supabase_salary_data;
-          if (Array.isArray(ssd) && ssd.length > 0) {
-            var med =
-              ssd[0].median_salary ||
-              ssd[0].salary_median ||
-              ssd[0].annual_median;
-            if (med) return "$" + Number(med).toLocaleString();
-          }
-          // Layer 4: human-friendly fallback instead of N/A
-          return "Varies by role";
+          return "";
         })(),
       },
-      { label: "Demand Trend", val: mi.demand_trend || "stable" },
-    ];
+      { label: "Demand Trend", val: realVal(mi.demand_trend) },
+    ].filter((item) => item.val);
+    if (insightItems.length > 0) {
+      html += '<div class="plan-section-label">Market Insights</div>';
+      html += '<div class="plan-market-insights">';
+    }
     insightItems.forEach((item) => {
       const cls = /easy|low|favorable|growing|high.demand/i.test(item.val)
         ? "favorable"
@@ -907,108 +852,31 @@
         ) +
         "</div></div>";
     });
-    html += "</div>";
+    if (insightItems.length > 0) html += "</div>";
 
-    // ── 4b. Seasonal Impact Card ──
-    var startMonth = payload.campaign_start_month || new Date().getMonth() + 1;
-    var seasonalData = {
-      quarter: "",
-      label: "",
-      impact: "",
-      color: "",
-      adjustment: 1.0,
-    };
-    if (startMonth >= 1 && startMonth <= 3) {
-      seasonalData = {
-        quarter: "Q1",
-        label: "Peak Hiring Season",
-        impact:
-          "Expect 15-20% higher costs due to New Year hiring surge and budget refreshes. Competition for talent is at its highest.",
-        color: "#f87171",
-        adjustment: 1.18,
-      };
-    } else if (startMonth >= 4 && startMonth <= 6) {
-      seasonalData = {
-        quarter: "Q2",
-        label: "Strong Hiring Period",
-        impact:
-          "Moderate competition with steady demand. Good balance of candidate availability and cost efficiency.",
-        color: "#fbbf24",
-        adjustment: 1.08,
-      };
-    } else if (startMonth >= 7 && startMonth <= 9) {
-      seasonalData = {
-        quarter: "Q3",
-        label: "Summer Slowdown",
-        impact:
-          "Potential cost savings as competition decreases. Candidate response rates may be lower due to vacations.",
-        color: "#4ade80",
-        adjustment: 0.92,
-      };
-    } else {
-      seasonalData = {
-        quarter: "Q4",
-        label: "Holiday Slowdown",
-        impact:
-          "Reduced activity as holiday season approaches. Plan ahead for Q1 ramp-up to secure budget and placements early.",
-        color: "#60a5fa",
-        adjustment: 0.88,
-      };
-    }
-    html += '<div class="plan-section-label">Seasonal Impact</div>';
-    html +=
-      '<div class="plan-insights-card" style="border-left:3px solid ' +
-      seasonalData.color +
-      '">';
-    html +=
-      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">';
-    html +=
-      '<span style="font-size:24px;font-weight:700;color:' +
-      seasonalData.color +
-      '">' +
-      seasonalData.quarter +
-      "</span>";
-    html +=
-      '<div><div style="color:white;font-weight:600;font-size:14px">' +
-      escapeHtml(seasonalData.label) +
-      "</div>";
-    html +=
-      '<div style="color:var(--text-muted);font-size:12px">Month ' +
-      startMonth +
-      " start</div></div></div>";
-    html +=
-      '<div style="color:var(--text-secondary);font-size:13px;line-height:1.6">' +
-      escapeHtml(seasonalData.impact) +
-      "</div>";
-    html +=
-      '<div style="margin-top:10px;padding:8px 12px;background:rgba(255,255,255,0.04);border-radius:8px;font-size:12px;color:var(--text-muted)">';
-    html +=
-      'Budget adjustment factor: <strong style="color:' +
-      seasonalData.color +
-      '">' +
-      (seasonalData.adjustment >= 1 ? "+" : "") +
-      Math.round((seasonalData.adjustment - 1) * 100) +
-      "%</strong>";
-    html +=
-      " — Consider " +
-      (seasonalData.adjustment >= 1 ? "increasing" : "decreasing") +
-      " budget by this factor for optimal ROI.</div>";
-    html += "</div>";
+    // (A "Seasonal Impact" card used to sit here: a per-quarter table typed
+    // into this file -- "Expect 15-20% higher costs", "Budget adjustment
+    // factor -12%" -- shown as if it were this plan's analysis. Removed:
+    // the workbook and deck carry the plan's sourced seasonal patterns.)
 
-    // ── 5. AI Recommendations ──
+    // ── 5. Recommendations ──
+    const plural = (n, word) => n + " " + word + (n === 1 ? "" : "s");
     const finalRecs =
       recs.length > 0
         ? recs
         : [
             "Targeting " +
-              rolesCount +
-              " role(s) across " +
-              locationsCount +
-              " location(s).",
+              plural(rolesCount, "role") +
+              " across " +
+              plural(locationsCount, "location") +
+              ".",
             "Full channel strategy included in downloaded files.",
             "Review plan and reallocate underperforming channels after 2 weeks.",
           ];
-    html += '<div class="plan-section-label">AI Recommendations</div>';
+    html +=
+      '<div class="plan-section-label">' +
+      (recs.length > 0 ? "AI Recommendations" : "Next steps") +
+      "</div>";
     html += '<div class="plan-insights-card"><ul class="plan-recs-list">';
     finalRecs.forEach((r, i) => {
       html +=
@@ -5476,6 +5344,7 @@
       // The budget the server is generating for (resolved total, plan
       // currency) -- every results-screen echo reads this, not the typed text.
       payload._plan_budget = initData.budget || null;
+      payload._plan_results = null;
       const jobId = initData.job_id;
       if (!jobId) throw new Error("Server did not return a job_id");
       genCurrentJobId = jobId;
@@ -5526,6 +5395,11 @@
           }
         }, 2000);
       });
+
+      // The finished plan's headline figures (channels funded, blended CPC)
+      // for the results screen -- absent figures hide their tile.
+      payload._plan_results =
+        (_completedPollData && _completedPollData.results_summary) || null;
 
       // ── Generation-time QA gate ──
       // The bundle already exists server-side either way -- this only

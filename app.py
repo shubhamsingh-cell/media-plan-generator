@@ -4618,6 +4618,68 @@ def _plan_budget_summary(data: dict) -> dict:
     }
 
 
+def _plan_results_summary(data: dict) -> dict:
+    """Headline figures for the wizard's results screen, read from the SAME
+    engine output (``data["_budget_allocation"]``) the workbook's Executive
+    Summary channel table prints -- never a placeholder. The screen used to
+    show "Channels Selected 0" (it counted the untouched channel toggles)
+    and an "Avg CPC" tile whose last resort was a typed-in 1.50-dollar
+    figure (shown on a £ plan too).
+
+    - ``channels``: funded channels (amount > 0), largest first, with the
+      workbook's display names;
+    - ``blended_cpc``: total planned spend / total projected clicks over
+      those channels -- the Executive Summary's Amount total / Proj. Clicks
+      total -- in the plan currency, with its display string.
+
+    A figure that is not available is simply absent ({} when nothing is):
+    the results screen hides that tile."""
+    alloc = data.get("_budget_allocation") or {}
+    chans = alloc.get("channel_allocations") or {}
+    if not isinstance(chans, dict):
+        return {}
+    funded = []
+    for key, ch in chans.items():
+        if not isinstance(ch, dict):
+            continue
+        try:
+            amount = float(ch.get("dollar_amount", ch.get("dollars") or 0) or 0)
+            clicks = int(float(ch.get("projected_clicks") or 0))
+        except (TypeError, ValueError):
+            continue
+        if amount > 0:
+            funded.append((amount, clicks, str(key)))
+    if not funded:
+        return {}
+    funded.sort(key=lambda t: -t[0])
+    label = (
+        display_format.channel_label
+        if display_format is not None
+        else (lambda k: k.replace("_", " ").title())
+    )
+    summary: dict = {
+        "channels": [label(key) for _amount, _clicks, key in funded],
+        "channels_funded": len(funded),
+    }
+    spend = sum(a for a, _c, _k in funded)
+    clicks = sum(c for _a, c, _k in funded)
+    if spend > 0 and clicks > 0:
+        code, display = "USD", ""
+        cpc = round(spend / clicks, 2)
+        if plan_currency is not None:
+            try:
+                code, _basis = plan_currency.currency_for_plan_with_basis(data)
+                display = plan_currency.format_money(cpc, code, decimals=2)
+            except (AttributeError, TypeError, ValueError):
+                logger.error("results-screen CPC currency failed", exc_info=True)
+        summary["blended_cpc"] = {
+            "value": cpc,
+            "currency": code,
+            "display": display or f"{cpc:,.2f}",
+        }
+    return summary
+
+
 def _drop_internal_request_keys(data: dict) -> dict:
     """``data`` without any client-sent key starting with "_". Those names
     are reserved for flags and sidecars this server sets on the request
@@ -7915,6 +7977,11 @@ def _mirror_job(job_id: str) -> None:
             # it's "completed".
             "bundle_qa": job.get("bundle_qa"),
         }
+        # Results-screen headline figures (_plan_results_summary: JSON-safe
+        # names/numbers) so a poll answered by another worker renders the
+        # same tiles. Shared layers only: the kill-switch mirror stays the
+        # legacy whitelist byte for byte (its polls just hide those tiles).
+        _results_summary = job.get("results_summary")
         # Security hardening: never write the raw session token to disk --
         # the record lives up to 24h on disk and in Supabase. Only the
         # sha256 hex digest is persisted; readers hash the cookie value the
@@ -7931,6 +7998,8 @@ def _mirror_job(job_id: str) -> None:
         # Kill switch: exactly the mirror prod wrote before the shared layers.
         _legacy_mirror_write(job_id, snapshot)
         return
+    if _results_summary:
+        snapshot["results_summary"] = _results_summary
     if _acked_by:
         snapshot["_qa_acknowledged_by"] = _acked_by
     if _terminal and not _acked_by:
@@ -15339,6 +15408,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     **_bundle_qa_response_fields(
                                         _mirror_data.get("bundle_qa")
                                     ),
+                                    "results_summary": _mirror_data.get(
+                                        "results_summary"
+                                    )
+                                    or {},
                                 }
                             )
                             return
@@ -15446,6 +15519,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             "download_url": f"/api/jobs/{job_id}",
                             "elapsed_seconds": elapsed,
                             **_bundle_qa_response_fields(job.get("bundle_qa")),
+                            "results_summary": job.get("results_summary") or {},
                         }
                     )
                 else:
@@ -19617,6 +19691,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             result_ct = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             result_fn = f"{client_name}_Media_Plan.xlsx"
 
+                        # Results-screen headline figures, from the engine
+                        # output the workbook just printed (never a
+                        # placeholder; a missing figure hides its tile).
+                        try:
+                            _results_summary = _plan_results_summary(gen_data)
+                        except (TypeError, ValueError, AttributeError) as _rs_err:
+                            logger.error(
+                                "results summary failed (non-fatal): %s",
+                                _rs_err,
+                                exc_info=True,
+                            )
+                            _results_summary = {}
+
                         # ── S94: Executive narrative failure observability ──
                         # excel_v2.py's Executive Strategic Summary is a
                         # best-effort LLM call that never blocks the bundle:
@@ -19685,6 +19772,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                         "progress_pct": 100,
                                         "status_message": "Complete",
                                         "bundle_qa": _bundle_qa_summary,
+                                        "results_summary": _results_summary,
                                         "narrative_status": _narrative_status,
                                         "result_bytes": result_bytes,
                                         "result_content_type": result_ct,
@@ -26253,6 +26341,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "download_url": f"/api/jobs/{job_id}",
                     "source": "supabase",
                     **_bundle_qa_response_fields(None),
+                    # not persisted there either: the results screen hides
+                    # those tiles rather than show a placeholder
+                    "results_summary": {},
                 }
             )
             return True

@@ -7225,6 +7225,21 @@
     color: var(--np-paper-muted) !important;
     font-weight: 700;
   }
+  /* Tiles render only for figures the plan has (buildPlanDashboard), so
+     the row holds 1-4 of them: fill it instead of leaving empty slots. */
+  .studio .plan-metrics-row {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+  .studio .plan-funded-channels {
+    margin-top: 12px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--np-paper-ink);
+  }
+  .studio .plan-funded-label {
+    color: var(--np-paper-muted);
+    font-weight: 600;
+  }
   .studio .plan-svg-chart,
   .studio .plan-table-wrap,
   .studio .plan-insights-card,

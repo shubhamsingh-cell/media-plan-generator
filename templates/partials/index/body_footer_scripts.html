@@ -829,8 +829,9 @@
         if (totalClicks > 0)
           return "$" + (totalBudget / totalClicks).toFixed(2);
       }
-      // Layer 3: Industry benchmark hint
-      return "~$1.50";
+      // No figure for this plan: say so. An invented 1.50-dollar CPC used
+      // to stand in here, on every plan without channel data.
+      return "--";
     }
     if (key === "avgCpa") {
       var ch =
