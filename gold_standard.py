@@ -1544,6 +1544,9 @@ def enrich_city_level_data(data: dict) -> dict:
                     per_role_salary[title]["local_label"] = (
                         _synth_override.get("local_label") or ""
                     )
+                    per_role_salary[title]["median_stated"] = bool(
+                        _synth_override.get("median_stated")
+                    )
                 continue
 
             # PERF: Use cached role-to-range/tier mapping instead of
@@ -1565,7 +1568,13 @@ def enrich_city_level_data(data: dict) -> dict:
                     per_role_salary[title] = {
                         "min": round(_band["low"]),
                         "p25": None,
-                        "median": round(_band["median"]),
+                        # The published median when the page states one,
+                        # else the band midpoint flagged median_stated=False
+                        # (renderers then print the band, never "median").
+                        "median": round(
+                            _band["median"] if _band.get("median_stated") else _band["midpoint"]
+                        ),
+                        "median_stated": bool(_band.get("median_stated")),
                         "p75": None,
                         "max": round(_band["high"]),
                         "multiplier": 1.0,

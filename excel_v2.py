@@ -8023,7 +8023,11 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                         role_name if isinstance(role_name, str) else str(role_name),
                         _sal_cell(sal_data.get("min")),
                         _sal_cell(sal_data.get("p25")),
-                        _sal_cell(sal_data.get("median")),
+                        # Median only when the cited page states one -- a band
+                        # midpoint is not a median (design-judge round 2).
+                        _sal_cell(
+                            sal_data.get("median") if sal_data.get("median_stated") else None
+                        ),
                         _sal_cell(sal_data.get("p75")),
                         _sal_cell(sal_data.get("max")),
                         f"{confidence:.0%}",
@@ -8087,8 +8091,8 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 ws,
                 row,
                 "Local rows show one published salary band per role (low / "
-                "median / high, as published by the source named above); the "
-                "source publishes no P25/P75 for these bands (—).",
+                "high, and the median only where the source named above states "
+                "one); figures the source does not publish read —.",
             )
         if _mi_local_na:
             row = _write_footnote(
@@ -10691,7 +10695,10 @@ def _build_sheet_quality_intelligence(
                             _money_cells = [
                                 _safe_num(sal.get("min", 0)),
                                 "—" if sal.get("p25") is None else _safe_num(sal["p25"]),
-                                _safe_num(sal.get("median", 0)),
+                                # Median only when the cited page states one.
+                                _safe_num(sal.get("median", 0))
+                                if sal.get("median_stated")
+                                else "—",
                                 "—" if sal.get("p75") is None else _safe_num(sal["p75"]),
                                 _safe_num(sal.get("max", 0)),
                             ]
@@ -10749,8 +10756,8 @@ def _build_sheet_quality_intelligence(
                 if _any_local_band:
                     _role_sal_note += (
                         " Non-US rows show one published local band per role "
-                        "(low / median / high as published, source in the "
-                        "Source column); no P25/P75 is published for these (—)."
+                        "(low / high, and the median only where the source in "
+                        "the Source column states one); unpublished figures read —."
                     )
                 if _any_local_na:
                     _role_sal_note += (

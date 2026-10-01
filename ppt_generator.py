@@ -10490,22 +10490,35 @@ def _role_breakdown_salary_basis(gold: Dict[str, Any], title: str) -> "tuple[boo
     return False, usd
 
 
-def _role_breakdown_local_code(gold: Dict[str, Any], title: str) -> str:
-    """ISO code of ``title``'s published local band when every shown row is
-    one (a non-US market's band from intl_benchmark_lookup), else ""."""
+def _role_breakdown_local_band(gold: Dict[str, Any], title: str) -> Optional[Dict[str, Any]]:
+    """``title``'s published local band when every shown row is the SAME
+    one (a non-US market's audited band from intl_benchmark_lookup):
+    ``{"code", "low", "high", "median", "median_stated"}``, else None."""
     city_level = gold.get("city_level_data") if isinstance(gold, dict) else None
     if not isinstance(city_level, dict):
-        return ""
+        return None
     rows = [
         (info.get("per_role_salary") or {}).get(title)
         for info in city_level.values()
         if isinstance(info, dict) and isinstance(info.get("per_role_salary"), dict)
     ]
     shown = [r for r in rows if isinstance(r, dict) and not r.get("local_salary_na")]
-    codes = {str(r.get("currency") or "").upper() for r in shown if r.get("local_band")}
-    if shown and len(codes) == 1 and all(r.get("local_band") for r in shown):
-        return next(iter(codes))
-    return ""
+    if not shown or not all(r.get("local_band") for r in shown):
+        return None
+    bands = {
+        (
+            str(r.get("currency") or "").upper(),
+            r.get("min"),
+            r.get("max"),
+            r.get("median"),
+            bool(r.get("median_stated")),
+        )
+        for r in shown
+    }
+    if len(bands) != 1:
+        return None
+    code, low, high, median, stated = next(iter(bands))
+    return {"code": code, "low": low, "high": high, "median": median, "median_stated": stated}
 
 
 def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
@@ -10563,7 +10576,7 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
         # workbook renders, not the (often-empty) _enriched.salary_data.
         median, is_estimated = _role_breakdown_median_salary(gold, title)
         salary_withheld, salary_usd = _role_breakdown_salary_basis(gold, title)
-        salary_local_code = _role_breakdown_local_code(gold, title)
+        salary_local_band = _role_breakdown_local_band(gold, title)
         # strategy:atria#5: surface the same per-role Difficulty
         # (complexity_score) and Budget Weight the workbook's Role
         # Difficulty Classification table carries, so a 10-role plan with a
@@ -10577,7 +10590,7 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
                 "is_estimated": is_estimated,
                 "salary_withheld": salary_withheld,
                 "salary_usd": salary_usd,
-                "salary_local_code": salary_local_code,
+                "salary_local_band": salary_local_band,
                 "difficulty": d.get("complexity_score"),
                 "budget_weight": d.get("budget_weight"),
                 "emphasis": emphasis,
@@ -10597,15 +10610,24 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
         if r["median"]:
             _median_counts[r["median"]] = _median_counts.get(r["median"], 0) + 1
     for r in rows:
-        if r["median"] and r["salary_local_code"]:
-            # A published local band's median, in its own currency (code
-            # appended when it differs from the plan's).
+        if r["salary_local_band"]:
+            # A published local band, in its own currency (code appended when
+            # it differs from the plan's): "€51K median" only when the cited
+            # page states a median, otherwise the band itself -- "€55K-€65K
+            # band" -- never a midpoint dressed as a median (design-judge r2).
             from intl_benchmark_lookup import compact_money
 
-            _lc = r["salary_local_code"]
-            salary_str = compact_money(r["median"], _cur_symbol(_lc))
-            if _lc != _get_active_currency():
-                salary_str += f" ({_lc})"
+            _lb = r["salary_local_band"]
+            _sym = _cur_symbol(_lb["code"])
+            if _lb["median_stated"] and _lb["median"]:
+                salary_str = f"{compact_money(_lb['median'], _sym)} median"
+            else:
+                salary_str = (
+                    f"{compact_money(_lb['low'], _sym)}-"
+                    f"{compact_money(_lb['high'], _sym)} band"
+                )
+            if _lb["code"] != _get_active_currency():
+                salary_str += f" ({_lb['code']})"
         elif r["median"]:
             salary_str = _format_salary(r["median"], force_usd=r["salary_usd"])
             if r["salary_usd"] and _get_active_currency() != "USD":
@@ -10688,7 +10710,13 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
         headers = [
             "Role",
             "Tier",
-            "Est. Median Salary",
+            # A published local band is not a median unless its page states
+            # one; each such cell says "median" or "band" itself.
+            (
+                "Salary Benchmark"
+                if any(r["salary_local_band"] for r in rows)
+                else "Est. Median Salary"
+            ),
             "Difficulty",
             "Budget Weight",
             "Channel Emphasis",

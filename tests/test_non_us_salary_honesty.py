@@ -165,13 +165,15 @@ def test_bangalore_deck_prints_local_range_not_a_us_salary(bangalore):
     slides = _slides(bangalore["pptx"])
     text = " ".join(t for ts in slides.values() for t in ts)
     assert "US$78K" not in text and "₹78K" not in text
-    # One published band (staff nurse, government) -- not a span of entries.
-    assert "₹300K median (₹180K-₹480K) - Registered Nurse" in " ".join(slides[2])
+    # Design-judge round 2: no Indian nurse band survived the citation audit
+    # (the "staff nurse, government" band was cited to a cost-per-hire page
+    # that states no salary), so no salary prints at all -- not a US one,
+    # not an unverifiable local one.
+    assert "₹300K" not in text and "Salary Range: ₹" not in text
     role_breakdown = [i for i, ts in slides.items() if any(t == "Role Breakdown" for t in ts)]
     assert role_breakdown, "Role Breakdown slide not rendered"
     cells = slides[role_breakdown[0]]
-    assert cells.count("₹300K") == 2  # Registered Nurse, Staff Nurse
-    assert sum("n/a" in t for t in cells) == 2  # Nurse Practitioner, Medical Assistant
+    assert any(t.startswith("Role-level salary benchmarks are not available for India") for t in cells)
 
 
 def test_mixed_plan_role_breakdown_marks_us_dollars(mixed):

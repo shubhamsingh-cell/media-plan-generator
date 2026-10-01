@@ -49,7 +49,8 @@ def _bundle(roles, locations, budget, industry, synthesize=False):
 
 
 _JP_ROLES = ["Embedded Software Engineer", "Firmware Engineer", "Hardware Design Engineer", "Product Manager"]
-_IN_ROLES = ["Software Engineer (Fresher)", "Java Developer", "QA Engineer", "Business Analyst"]
+# Partially withheld: two roles with an audited Irish band, two without.
+_IE_ROLES = ["Clinical Nurse Specialist", "Software Engineer", "QA Engineer", "Business Analyst"]
 _US_ROLES = ["Registered Nurse", "Certified Nursing Assistant", "Pharmacist", "ICU Nurse"]
 
 
@@ -59,8 +60,8 @@ def japan():
 
 
 @pytest.fixture(scope="module")
-def india():
-    return _bundle(_IN_ROLES, ["Bengaluru, Karnataka, India"], "₹25,000,000", "technology")
+def ireland():
+    return _bundle(_IE_ROLES, ["Dublin, Ireland"], "€400,000", "technology")
 
 
 @pytest.fixture(scope="module")
@@ -103,10 +104,11 @@ def test_all_withheld_slide7_drops_salary_column_and_says_so(japan):
     ) in texts
 
 
-def test_partially_withheld_slide7_keeps_the_column(india):
-    texts = _role_slide(india["pptx"])
-    assert "Est. Median Salary" in texts
-    assert "₹500K" in texts and "Local salary data n/a" in texts
+def test_partially_withheld_slide7_keeps_the_column(ireland):
+    texts = _role_slide(ireland["pptx"])
+    assert "Salary Benchmark" in texts
+    assert "€55K-€65K band" in texts and "€51K median" in texts
+    assert "Local salary data n/a" in texts
     assert any(t.startswith("Tier, salary band, and channel emphasis") for t in texts)
 
 
@@ -121,8 +123,8 @@ def test_all_withheld_workbook_tables_collapse(japan):
     assert any(t.startswith("Role-level salary benchmarks are not available for Japan") for t in mi)
 
 
-def test_partially_withheld_workbook_keeps_role_rows(india):
-    qi = _sheet_text(india["xlsx"], "Quality Intelligence")
+def test_partially_withheld_workbook_keeps_role_rows(ireland):
+    qi = _sheet_text(ireland["xlsx"], "Quality Intelligence")
     assert "Median Salary" in qi  # header with data under it
     assert "n/a" in qi  # the withheld roles' cells
     # City salary columns: every city's estimate is withheld -> dropped.

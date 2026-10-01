@@ -1910,11 +1910,16 @@ def local_band_salary_result(band: Dict[str, Any]) -> Dict[str, Any]:
     ``intl_benchmark_lookup.get_local_role_salary_band``: low / median / high
     as published, in the band's own currency, attributed to its source. The
     band publishes no percentiles, so p10/p25/p75/p90 are None (rendered
-    "—"), never derived."""
+    "—"), never derived. ``median`` holds the published median when the page
+    states one; otherwise the band's midpoint with ``median_stated`` False,
+    and every renderer prints it as a band, never as a median."""
     confidence = 0.70 if band.get("confidence") == "high" else 0.45
+    stated = bool(band.get("median_stated") and band.get("median"))
+    centre = band["median"] if stated else band["midpoint"]
     return {
-        "median": band["median"],
-        "mean": band["median"],
+        "median": centre,
+        "median_stated": stated,
+        "mean": centre,
         "min": band["low"],
         "max": band["high"],
         "p10": None,
@@ -4658,6 +4663,9 @@ def synthesize(
                 _per_role_salaries[_role_title]["local_band"] = True
                 _per_role_salaries[_role_title]["local_label"] = (
                     _sal.get("local_label") or ""
+                )
+                _per_role_salaries[_role_title]["median_stated"] = bool(
+                    _sal.get("median_stated")
                 )
         if _per_role_salaries:
             synthesis["per_role_salaries"] = _per_role_salaries

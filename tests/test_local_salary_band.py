@@ -1,20 +1,19 @@
-"""Design-judge 2026-10-01: a local salary is ONE published, role-matched
-band -- never a span across different statistics -- and the deck and the
-workbook state the same one.
+"""A local salary is ONE published, role-matched band that a client can find
+on its cited page -- never a span across statistics, never a figure the page
+does not state, never a midpoint labelled "median".
 
-Shipped defect: the deck's slide-2 Salary Range for a UK finance plan read
-"£39,000 - £49,983 (GBP) local benchmark" -- the ONS all-occupations median
-paired with an Adzuna category average (min/max over every entry of the
-vertical) -- while the workbook printed n/a for the same data. India IT
-read "₹400,000 - ₹7,500,000" (an entry-level band's low to a senior
-top-company band's high).
+Design-judge round 1 (2026-10-01): the UK finance deck printed "£39,000 -
+£49,983 (GBP) local benchmark" -- an all-occupations median paired with a
+category average. Round 2: India's "₹500K median (₹400K-₹600K)" was the
+arithmetic midpoint of a KB note ("Entry: ₹4-6 LPA") that the cited page
+(plugscale.com, lowest figure "₹5 lakh to ₹25 lakh") does not contain. An
+audit of all 35 rows the resolver could return kept only the 6 whose cited
+page states the band (intl_benchmark_lookup._AUDITED_LOCAL_BANDS).
 """
 
 from __future__ import annotations
 
 import io
-import json
-from pathlib import Path
 
 import pytest
 from openpyxl import load_workbook
@@ -29,130 +28,113 @@ import ppt_generator
 import research as research_mod
 import tools_regen_bundles as T
 
-_DATA = json.loads(
-    (Path(__file__).resolve().parent.parent / "data" / "intl_role_benchmarks_v1.json")
-    .read_text(encoding="utf-8")
+_IE = ["Dublin, Ireland"]
+_IE_ROLES = ["Clinical Nurse Specialist", "Software Engineer", "Public Health Nurse", "Data Analyst"]
+_INDIA = ["Bengaluru, Karnataka, India"]
+
+# Rows the round-2 audit dropped: the cited page does not state the band,
+# the citation is for something else, or the page is unreachable.
+_DROPPED_SOURCE_HOSTS = (
+    "plugscale.com", "shework.in", "rcn.org.uk", "reed.com", "linkedin.com",
+    "asanify.com", "eurodev.com", "workstaff360.com", "mexicobusiness.news",
+    "mavenside.co", "huduri.com", "alcor.com", "rfsonshr.com", "adzuna.com",
+    "melmc.edu.au", "gitnux.org", "hiringlab.org",
 )
 
-_INDIA_IT_ROLES = [
-    "Software Engineer (Fresher)",
-    "Java Developer",
-    "QA Engineer",
-    "Senior Data Engineer (Lateral)",
-]
-_INDIA = ["Bengaluru, Karnataka, India", "Pune, Maharashtra, India"]
-_UK_FIN_ROLES = ["Financial Analyst", "Compliance Analyst", "Software Developer"]
-_UK = ["London, UK", "Manchester, UK"]
+
+def test_audited_rows_carry_their_evidence():
+    assert len(ibl._AUDITED_LOCAL_BANDS) == 6
+    for key, row in ibl._AUDITED_LOCAL_BANDS.items():
+        assert row["url"].startswith("https://"), key
+        assert row["quote"] and row["retrieved"] == "2026-10-01", key
+        assert 0 < row["low"] < row["high"], key
+        if row["median"] is not None:
+            assert row["low"] <= row["median"] <= row["high"], key
+        assert not any(h in row["url"] for h in _DROPPED_SOURCE_HOSTS), key
 
 
-def _entries():
-    for vertical in _DATA["verticals"].values():
-        for slug, block in vertical["by_country"].items():
-            for key, entry in (block.get("annual_salary") or {}).items():
-                yield slug, key, entry
+@pytest.mark.parametrize(
+    "location,role",
+    [
+        ("Bengaluru, Karnataka, India", "Software Engineer (Fresher)"),
+        ("Bengaluru, Karnataka, India", "Java Developer"),
+        ("Bangalore, India", "Registered Nurse"),
+        ("London, UK", "Registered Nurse"),
+        ("London, UK", "Warehouse Associate"),
+        ("Toronto, Canada", "Registered Nurse"),
+        ("Sydney, Australia", "Registered Nurse"),
+        ("Dubai, UAE", "Registered Nurse"),
+        ("Berlin, Germany", "Warehouse Associate"),
+        ("Mexico City, Mexico", "Software Engineer"),
+        ("Tokyo, Japan", "CFO"),
+        ("Columbus, OH", "Registered Nurse"),
+    ],
+)
+def test_unverified_or_us_rows_return_nothing(location, role):
+    assert ibl.get_local_role_salary_band(location, role) is None
 
 
-_SWEEP_ROLES = [
-    "Registered Nurse", "Staff Nurse", "Nurse Practitioner", "Software Engineer",
-    "Senior Software Engineer", "Software Engineer (Fresher)", "Java Developer",
-    "Warehouse Associate", "Accountant", "Chartered Accountant",
-    "Financial Analyst", "Compliance Analyst", "Customer Service Representative",
-]
-_SWEEP_COUNTRIES = [
-    "UK", "India", "Germany", "France", "Canada", "Australia", "Netherlands",
-    "Spain", "Brazil", "Mexico", "Singapore", "UAE", "Japan", "Ireland",
-]
+def test_band_is_exactly_the_audited_row():
+    cns = ibl.get_local_role_salary_band("Dublin, Ireland", "Clinical Nurse Specialist")
+    assert (cns["low"], cns["high"], cns["median"]) == (55_000, 65_000, None)
+    assert cns["median_stated"] is False and cns["midpoint"] == 60_000
+    assert cns["source_short"] == "frsrecruitment.com"
+    swe = ibl.get_local_role_salary_band("Dublin, Ireland", "Software Engineer")
+    assert (swe["low"], swe["high"], swe["median"]) == (36_000, 77_000, 51_000)
+    assert swe["median_stated"] is True
 
 
-@pytest.mark.parametrize("country", _SWEEP_COUNTRIES)
-def test_every_band_is_exactly_one_published_entry(country):
-    """low / median / high always come from ONE dataset entry -- never a
-    min/max assembled across entries."""
-    by_key = {(s, k): e for s, k, e in _entries()}
-    slug = ibl._normalize_country(country)
-    for role in _SWEEP_ROLES:
-        band = ibl.get_local_role_salary_band(country, role)
-        if band is None:
-            continue
-        entry = by_key[(slug, band["statistic"])]
-        assert (band["low"], band["median"], band["high"]) == (
-            entry["low"], entry["median"], entry["high"],
-        ), (country, role, band)
-        assert band["source"]
-
-
-def test_uk_finance_roles_have_no_band():
-    for role in _UK_FIN_ROLES:
-        assert ibl.get_local_role_salary_band("London, UK", role) is None
-
-
-def test_india_bands_follow_title_seniority():
-    fresher = ibl.get_local_role_salary_band(_INDIA[0], "Software Engineer (Fresher)")
-    java = ibl.get_local_role_salary_band(_INDIA[0], "Java Developer")
-    assert fresher["statistic"] == "swe_entry_4_6_lpa"
-    assert java["statistic"] == "swe_mid_8_15_lpa"
-    assert ibl.get_local_role_salary_band(_INDIA[0], "QA Engineer") is None
-
-
-def test_us_location_never_gets_a_local_band():
-    assert ibl.get_local_role_salary_band("Columbus, OH", "Registered Nurse") is None
-
-
-def test_salary_range_text_never_pairs_unrelated_statistics():
-    uk = ppt_generator._local_salary_range_text(
-        {"locations": _UK, "roles": _UK_FIN_ROLES, "industry": "finance_banking"}
+def test_median_word_only_when_the_page_states_a_median():
+    cns = ibl.get_local_role_salary_band("Dublin, Ireland", "Clinical Nurse Specialist")
+    text = ibl.format_local_band(cns, "EUR", compact=True)
+    assert text == (
+        "€60K midpoint of published band (€55K-€65K) - Clinical Nurse Specialist "
+        "[frsrecruitment.com]"
     )
-    assert uk == "Local salary data n/a"
-    india = ppt_generator._local_salary_range_text(
-        {"locations": _INDIA, "roles": _INDIA_IT_ROLES, "industry": "tech_engineering"}
+    assert " median " not in text
+    swe = ibl.get_local_role_salary_band("Dublin, Ireland", "Software Engineer")
+    assert ibl.format_local_band(swe, "EUR", compact=True) == (
+        "€51K median (€36K-€77K) - Software Engineer [payscale.com]"
     )
-    # Compact on the deck card: figures, role and source domain. (Outside a
-    # render the active currency is USD, so the INR code is declared too.)
-    assert india.startswith("₹500K median (₹400K-₹600K)")
-    assert india.endswith("- Software Engineer (Fresher) [plugscale.com]")
-    assert "7.5M" not in india and "7,500,000" not in india
 
 
-def test_cited_block_uses_the_same_band():
-    uk = cited_data_block.build_cited_2026_block({"locations": _UK, "roles": _UK_FIN_ROLES})
-    assert uk["salary_line"] == ""
-    india = cited_data_block.build_cited_2026_block(
-        {"locations": _INDIA, "roles": _INDIA_IT_ROLES}
-    )
-    assert "₹500K median (₹400K-₹600K)" in india["salary_line"]
-    assert "software engineer, entry level; source: Plugscale" in india["salary_line"]
+def test_salary_range_text_and_cited_line_share_the_decision():
+    india = {"locations": _INDIA, "roles": ["Software Engineer (Fresher)"]}
+    assert ppt_generator._local_salary_range_text(india) == "Local salary data n/a"
+    assert cited_data_block.build_cited_2026_block(india)["salary_line"] == ""
+    ie = {"locations": _IE, "roles": _IE_ROLES}
+    assert "midpoint of published band (€55K-€65K)" in ppt_generator._local_salary_range_text(ie)
+    assert "source: FRS Recruitment" in cited_data_block.build_cited_2026_block(ie)["salary_line"]
 
 
 def test_market_and_quality_intelligence_carry_the_same_band():
-    data = {"roles": _INDIA_IT_ROLES, "locations": _INDIA, "industry": "tech_engineering"}
+    data = {"roles": _IE_ROLES, "locations": _IE, "industry": "healthcare"}
     synth = data_synthesizer.synthesize({}, {}, data)
-    mi = synth["salary_intelligence"]["Software Engineer (Fresher)"]
-    assert (mi["min"], mi["median"], mi["max"]) == (400000, 500000, 600000)
-    assert mi["currency"] == "INR" and mi["p25"] is None and mi["local_band"]
-    assert mi["sources"][0] == (
-        "Plugscale Software Engineer Compensation Benchmark India 2026 "
-        "(software engineer, entry level)"
-    )
+    mi = synth["salary_intelligence"]["Clinical Nurse Specialist"]
+    assert (mi["min"], mi["max"]) == (55_000, 65_000)
+    assert mi["median_stated"] is False and mi["currency"] == "EUR"
+    assert mi["sources"][0].startswith("FRS Recruitment")
     data["_synthesized"] = synth
-    for path_data in (data, {"roles": _INDIA_IT_ROLES, "locations": _INDIA}):
-        for info in gs.enrich_city_level_data(path_data).values():
-            row = info["per_role_salary"]["Software Engineer (Fresher)"]
-            assert (row["min"], row["median"], row["max"]) == (400000, 500000, 600000)
-            assert row["p25"] is None and row["currency"] == "INR"
-            assert row["source"] == mi["sources"][0]  # one spelling, both paths
-            assert info["per_role_salary"]["QA Engineer"]["local_salary_na"] is True
+    for path_data in (data, {"roles": _IE_ROLES, "locations": _IE}):
+        info = next(iter(gs.enrich_city_level_data(path_data).values()))
+        row = info["per_role_salary"]["Clinical Nurse Specialist"]
+        assert (row["min"], row["max"], row["median_stated"]) == (55_000, 65_000, False)
+        assert row["source"] == mi["sources"][0]
+        swe = info["per_role_salary"]["Software Engineer"]
+        assert (swe["median"], swe["median_stated"]) == (51_000, True)
+        assert info["per_role_salary"]["Data Analyst"]["local_salary_na"] is True
 
 
 @pytest.fixture(scope="module")
-def india_bundle():
+def ireland_bundle():
     brief = {
-        "client_name": "Nimbus Infotech Services",
-        "budget": "₹25,000,000",
+        "client_name": "Liffey Health Group",
+        "budget": "€400,000",
         "campaign_duration": "3-6 months",
-        "industry": "Information Technology",
-        "locations": _INDIA,
-        "roles": _INDIA_IT_ROLES,
-        "target_roles": [{"title": r, "count": 10} for r in _INDIA_IT_ROLES],
+        "industry": "Healthcare",
+        "locations": _IE,
+        "roles": _IE_ROLES,
+        "target_roles": [{"title": r, "count": 10} for r in _IE_ROLES],
     }
     data = T.build_plan_data(brief)  # no synthesis: the tools_regen path
     xlsx = excel_v2.generate_excel_v2(dict(data), research_mod=research_mod)
@@ -162,22 +144,28 @@ def india_bundle():
     return {"xlsx": xlsx, "pptx": pptx}
 
 
-def test_deck_slide2_and_workbook_state_one_decision(india_bundle):
-    prs = Presentation(io.BytesIO(india_bundle["pptx"]))
-    slide2 = " ".join(
-        sh.text_frame.text for sh in prs.slides[1].shapes if sh.has_text_frame
-    )
-    assert "₹500K median (₹400K-₹600K) - Software Engineer (Fresher)" in slide2
-    ws = load_workbook(io.BytesIO(india_bundle["xlsx"]))["Quality Intelligence"]
-    rows = [
-        [c for c in r if c.value is not None]
-        for r in ws.iter_rows()
-        if len(r) > 2 and r[2].value in ("Software Engineer (Fresher)", "Software Engineer (Fresher) (est.)")
-        and r[1].value in ("Bengaluru", "Pune")
+def test_deck_prints_band_or_stated_median_never_a_midpoint_median(ireland_bundle):
+    prs = Presentation(io.BytesIO(ireland_bundle["pptx"]))
+    slides = [
+        [sh.text_frame.text for sh in s.shapes if sh.has_text_frame] for s in prs.slides
     ]
-    assert rows, "role row missing on Quality Intelligence"
-    for r in rows:
-        vals = [c.value for c in r]
-        assert vals[2:7] == [400000, "—", 500000, "—", 600000], vals
-        assert r[2].number_format == '"₹"#,##0'
-        assert str(vals[-1]).startswith("Plugscale")
+    slide2 = " ".join(slides[1])
+    assert "€60K midpoint of published band (€55K-€65K) - Clinical Nurse Specialist" in slide2
+    rb = next(t for t in slides if "Role Breakdown" in t)
+    assert "Salary Benchmark" in rb and "Est. Median Salary" not in rb
+    assert "€55K-€65K band" in rb  # CNS: no published median
+    assert "€51K median" in rb  # Software Engineer: PayScale states a median
+    assert not any(t.endswith("median") and t.startswith("€60K") for t in rb)
+
+
+def test_workbook_median_cell_only_for_a_stated_median(ireland_bundle):
+    ws = load_workbook(io.BytesIO(ireland_bundle["xlsx"]))["Quality Intelligence"]
+    rows = {
+        r[2].value: [c.value for c in r[3:8]]
+        for r in ws.iter_rows()
+        if len(r) > 8 and r[1].value == "Dublin"
+    }
+    cns = rows["Clinical Nurse Specialist"]
+    assert cns == [55_000, "—", "—", "—", 65_000], cns
+    swe = rows["Software Engineer"]
+    assert swe == [36_000, "—", 51_000, "—", 77_000], swe
