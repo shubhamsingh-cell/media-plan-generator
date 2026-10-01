@@ -523,7 +523,7 @@ _JUSTIFIED_READS: Dict[tuple, str] = {
     ("excel_v2.py", 'if ctx.get("competitors"):'): (
         "ctx['competitors'] is normalize_competitor_names output"
     ),
-    ("excel_v2.py", """f"Named Competitors: {', '.join(str(c) for c in ctx['competitors'][:5])}\""""): (
+    ("excel_v2.py", """f"{', '.join(str(c) for c in ctx['competitors'][:5])}\""""): (
         "ctx['competitors'] is normalize_competitor_names output"
     ),
     ("excel_v2.py", '_ci_competitors_raw = comp_intel.get("competitors")'): (

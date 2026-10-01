@@ -56,6 +56,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+import competitor_claims  # noqa: E402
 import ppt_generator as ppt  # noqa: E402
 from pptx import Presentation  # noqa: E402
 from pptx.enum.shapes import MSO_SHAPE, MSO_SHAPE_TYPE  # noqa: E402
@@ -440,10 +441,14 @@ def test_slide7_why_text_has_no_banned_asserted_behaviour_verbs():
         low = t.lower()
         for banned in _BANNED_SUBSTRINGS:
             assert banned not in low, f"banned asserted-behaviour phrase {banned!r} in {t!r}"
-        # still names the competitor -- the fix must not have gone so far
-        # as to stop naming it (presence/capability framing is allowed and
-        # expected, not silence).
-        assert any(name in t for name in ("Marriott", "Hilton", "Hyatt"))
+        # mpg-content-gate (2026-10-01): these industry-fallback competitors
+        # carry NO evidence record, so the Why line is the neutral
+        # no-evidence line -- not presence/capability framing, which is
+        # itself an unverified template claim ("is a major employer in this
+        # industry"). The competitor is still named, on the card title.
+        assert competitor_claims.NO_EVIDENCE_LINE in t, t
+    texts = [sh.text_frame.text for sh in _text_shapes(slide)]
+    assert any(t.strip() in ("Marriott", "Hilton", "Hyatt") for t in texts)
 
 
 def test_why_templates_module_level_contain_no_banned_verbs_at_any_ordinal():

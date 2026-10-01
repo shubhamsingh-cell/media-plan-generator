@@ -80,6 +80,8 @@ except ImportError:  # pragma: no cover - plan_currency ships with the repo
     _plan_currency = None
 
 import plan_geo
+import company_blurb
+import competitor_claims
 import display_format
 import insight_composer
 import intl_benchmark_lookup
@@ -4134,6 +4136,66 @@ def _narrative_is_grounded(
     return (len(untraceable) == 0, untraceable)
 
 
+def _sanitize_narrative_competitor_claims(
+    text: str,
+    status: Dict[str, Any],
+    data: dict,
+    ctx: Dict[str, Any],
+) -> Tuple[str, Dict[str, Any]]:
+    """Remove competitor claims from an accepted (grounded) LLM narrative.
+
+    Drops every sentence that asserts behaviour about a named non-client
+    company (competitor_claims' verb phrases -- the same ones bundle_qa
+    gates on) or names a client-typed competitor that has no evidence
+    record. When at least two sentences survive, the trimmed narrative is
+    kept and the status records how many were removed; otherwise the
+    deterministic, competitor-free summary replaces it and the status says
+    the model text was rejected. Never raises -- on any error the input is
+    returned unchanged (bundle_qa's repair pass is the backstop).
+    """
+    try:
+        unevidenced = []
+        for entry in clean_competitor_entries(data.get("competitors")):
+            name = entry.get("name") if isinstance(entry, dict) else entry
+            if isinstance(name, str) and not competitor_claims.competitor_has_evidence(
+                entry
+            ):
+                unevidenced.append(name)
+        clean, removed = competitor_claims.strip_claim_sentences(
+            text, str(data.get("client_name") or ""), unevidenced
+        )
+        if not removed:
+            return text, status
+        logger.warning(
+            "Executive narrative: removed %d unsourced competitor sentence(s): %s",
+            len(removed),
+            [s[:120] for s in removed],
+        )
+        if len(company_blurb.split_sentences(clean)) >= 2:
+            new_status = dict(status)
+            new_status["competitor_sentences_removed"] = len(removed)
+            return clean, new_status
+        fallback = _build_deterministic_executive_summary(ctx)
+        return fallback, {
+            "generated": bool(fallback),
+            "status": "llm_rejected_fabrication" if fallback else "skipped_error",
+            "reason": (
+                f"unsourced competitor claims ({len(removed)} sentence(s)) "
+                "left too little narrative"
+            ),
+            "untraceable_figures": [],
+            "provider": status.get("provider") or "",
+            "model": status.get("model") or "",
+        }
+    except Exception as exc:  # noqa: BLE001 -- sanitizer must never break the sheet
+        logger.error(
+            "Executive narrative competitor-claim sanitizer failed: %s",
+            exc,
+            exc_info=True,
+        )
+        return text, status
+
+
 def _is_llm_concurrency_busy_error(error_text: str) -> bool:
     """True when `error_text` is llm_router's global concurrency-limiter
     rejection (`_llm_concurrency_semaphore` full, ``attempts=[]`` -- no
@@ -4541,8 +4603,13 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
         lines.append(f"Seasonality: {ctx['seasonality_text']}")
 
     if ctx.get("competitors"):
+        # The plan holds NO hiring evidence for these names (typed by the
+        # client; see competitor_claims) -- label them so, and the prompt
+        # forbids describing their behaviour. _sanitize_narrative_competitor_
+        # claims() enforces it on the model's answer.
         lines.append(
-            f"Named Competitors: {', '.join(str(c) for c in ctx['competitors'][:5])}"
+            "Client-Named Competitors (names only -- no verified hiring data): "
+            f"{', '.join(str(c) for c in ctx['competitors'][:5])}"
         )
 
     return "\n".join(lines)
@@ -5641,7 +5708,11 @@ def _build_sheet_executive_summary(
             "cost per application' are both fine derivations of FACTS above -- but "
             "do NOT invent or estimate an industry-average benchmark, external ROI "
             "multiplier, 'total value'/'savings' dollar figure, or supply-gap "
-            "percentage that is not itself a number in FACTS."
+            "percentage that is not itself a number in FACTS.\n\n"
+            "The plan has NO verified data about any competitor. Do not state "
+            "or imply what any competitor is doing (hiring, recruiting, "
+            "drawing from a talent pool, paying, expanding) -- leave "
+            "competitors out of the summary."
         )
         _narrative_system_prompt = (
             "You are a senior recruitment marketing strategist presenting to "
@@ -5912,6 +5983,16 @@ def _build_sheet_executive_summary(
     if _retried_on_busy:
         _narrative_status = dict(_narrative_status)
         _narrative_status["retried_on_busy"] = True
+
+    # Competitor-claim gate on the MODEL's text (deterministic templates
+    # never name competitors). Prod Hershey 2026-09-24, 4/4 runs: the
+    # grounded narrative asserted "...named competitors (Nestle Purina,
+    # Campbell's, Land O'Lakes, Treehouse Foods) drawing from the same..."
+    # -- the figures were grounded, the competitor behaviour was not.
+    if exec_narrative and _narrative_status.get("status") == "llm_grounded":
+        exec_narrative, _narrative_status = _sanitize_narrative_competitor_claims(
+            exec_narrative, _narrative_status, data, _narrative_ctx
+        )
     data["_narrative_status"] = _narrative_status
 
     if exec_narrative:
@@ -7334,9 +7415,25 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             )
 
         if isinstance(company_profile, dict):
+            _entity_failed = bool(company_profile.get("_entity_mismatch"))
             for k, v in company_profile.items():
-                if k not in ("metadata", "source") and v:
-                    profile_fields[k.replace("_", " ").title()] = v
+                # "_"-prefixed keys are internal diagnostics: the sweep
+                # shipped " Entity Mismatch: Yes" and " Entity Mismatch
+                # Reason: ...sniper rifle..." rows into client workbooks.
+                if not isinstance(k, str) or k.startswith("_"):
+                    continue
+                if k in ("metadata", "source") or not v:
+                    continue
+                if _entity_failed and k in ("description", "summary"):
+                    continue
+                if k == "name":
+                    # The raw synthesis input ('THE HERSHEY COMPANY' next to
+                    # a 'The Hershey Company' cover -> bundle_qa
+                    # client_name_wrong_casing), and a duplicate of the
+                    # "Company Name" row above, which already carries the
+                    # plan's display-cased client name.
+                    continue
+                profile_fields[k.replace("_", " ").title()] = v
 
         for key, val in profile_fields.items():
             val_str = _flatten_value(val)
@@ -12749,7 +12846,10 @@ def _build_sheet_international_benchmarks(
     ws.cell(
         row=row,
         column=COL_START,
-        value=f"Regions: {_region_label or 'Global'} | Source: {intl_benchmarks.get('source', 'International Benchmarks 2026')}",
+        # The JSON's "source" is a raw file id ("international_benchmarks_
+        # 2026") -- humanize it (sweep: snake_case_leak on every non-US plan).
+        value=f"Regions: {_region_label or 'Global'} | Source: "
+        f"{display_format.humanize_snake_tokens(intl_benchmarks.get('source') or 'international_benchmarks_2026', prose=False)}",
     ).font = _FONT_FOOTNOTE
     row += 2
 
@@ -12840,7 +12940,8 @@ def _build_sheet_international_benchmarks(
         column=COL_START,
         value="All USD figures use March 2026 mid-market exchange rates. "
         "CPC/CPA from top 3 platforms per country. CPH = Cost-Per-Hire by role tier. "
-        "Source: 28 industry reports aggregated in international_benchmarks_2026.json.",
+        "Source: 28 industry reports aggregated in the International "
+        "Benchmarks 2026 dataset.",
     ).font = _FONT_FOOTNOTE
     ws.merge_cells(
         start_row=row,

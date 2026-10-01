@@ -42,6 +42,8 @@ except ImportError:  # pragma: no cover - plan_currency ships with the repo
 
 import plan_geo as _plan_geo
 import display_format as _fmt
+import company_blurb
+import competitor_claims
 import insight_composer as _insight
 import gold_standard as _gold_standard
 
@@ -4037,16 +4039,14 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     # name can't push the bottom-of-slide brand bars off-canvas.
     _cover_shift_in = min(0.5, max(0.0, _industry_bottom_in - _old_industry_bottom_in))
 
-    # Company tagline from enrichment data (Wikipedia description)
-    enriched = data.get("_enriched", {})
-    company_info = enriched.get("company_info", {}) if enriched else {}
-    if company_info and company_info.get("description"):
-        desc = company_info["description"]
-        first_sentence_end = desc.find(".")
-        if 0 < first_sentence_end < 120:
-            tagline = desc[: first_sentence_end + 1]
-        else:
-            tagline = desc[:120].rsplit(" ", 1)[0] + "..." if len(desc) > 120 else desc
+    # Company tagline from enrichment data (Wikipedia description). Only a
+    # description that passes company_blurb's entity validation may print
+    # under the client's name -- prod AWP Safety's cover carried the AWP
+    # sniper-rifle article (2026-09-25) because this read the raw lookup.
+    # Omitted entirely otherwise; shortened on a sentence/word boundary.
+    _cover_desc = company_blurb.client_company_description(data)
+    if _cover_desc:
+        tagline = company_blurb.company_tagline(_cover_desc, 120)
         _add_textbox(
             slide,
             Inches(0.64),
@@ -8523,10 +8523,20 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         if not isinstance(company, dict):
             company = {}
 
+        # The client's own profile: always the plan's display-cased client
+        # name. company_profile["name"] is the RAW synthesis input (prod
+        # Hershey: 'Company:  THE HERSHEY COMPANY' next to a cover reading
+        # 'The Hershey Company' -> bundle_qa client_name_wrong_casing).
         profile_items = [
-            ("Company", company.get("name", client)),
+            ("Company", client),
         ]
-        desc = company.get("description") or ""
+        # Entity-failed descriptions are blanked by data_synthesizer; the
+        # flag check keeps a stale/cached profile from ever printing one.
+        desc = (
+            ""
+            if company.get("_entity_mismatch")
+            else (company.get("description") or "")
+        )
         if desc:
             # Word-boundary truncation (never mid-word), ellipsis only when
             # the text was actually cut.
@@ -9103,7 +9113,18 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                     "competitor",
                     "industry competitor",
                 ) or comp_desc.lower().startswith("competing employer in")
-                if comp_desc and not _generic_desc:
+                # Evidence gate (prod Hershey 2026-09-24: every search tier
+                # failed for all four typed competitors, yet the cards read
+                # "is a major employer in this industry"): a competitor with
+                # no evidence record gets a neutral line, never a template
+                # or model-knowledge claim. A domain alone is not evidence.
+                if not competitor_claims.competitor_has_evidence(comp_data):
+                    why_text = (
+                        competitor_claims.CLIENT_NAMED_LINE
+                        if _competitor_source == "brief"
+                        else competitor_claims.NO_EVIDENCE_LINE
+                    )
+                elif comp_desc and not _generic_desc:
                     why_text = _trunc_clause(comp_desc, 80)
                 elif comp_domain:
                     why_text = f"Competes for the same talent pool via {comp_domain}"

@@ -104,6 +104,77 @@ def channel_label(key: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Internal-key humanizer (industry / channel / supply tier / data-source id)
+# ---------------------------------------------------------------------------
+# Same token shape bundle_qa's snake_case_leak rule flags (one-or-more
+# "_word" segments, so multi-underscore keys match too).
+SNAKE_TOKEN_RE = re.compile(r"\b[a-z0-9]+(?:_[a-z0-9]+)+\b")
+_URL_OR_EMAIL_RE = re.compile(r"https?://|www\.|[\w.+-]+@[\w-]+\.[\w.-]+")
+
+# Keys that reach client text but live in neither shared_utils'
+# INDUSTRY_LABEL_MAP nor CHANNEL_DISPLAY above. Anything not listed still
+# humanizes generically -- this map only upgrades the wording.
+KEY_DISPLAY: dict[str, str] = {
+    # wizard-only industry value (app.classify_industry sector name)
+    "rideshare": "Rideshare & Gig Economy",
+    # gold_standard._SUPPLY_TIERS
+    "critically_scarce": "Critically Scarce",
+    # data/international_benchmarks_2026.json "source" id
+    "international_benchmarks_2026": "International Benchmarks 2026",
+}
+
+
+def _industry_label_map() -> dict[str, str]:
+    # Local import: shared_utils is the single source of truth for industry
+    # labels and is itself a leaf module (no import cycle), but keeping the
+    # import lazy leaves display_format importable in isolation.
+    try:
+        from shared_utils import INDUSTRY_LABEL_MAP
+    except ImportError:  # pragma: no cover -- shared_utils ships with the app
+        return {}
+    return INDUSTRY_LABEL_MAP
+
+
+def humanize_key(key: Any, prose: bool = False) -> str:
+    """Client-facing wording for ANY internal key that can reach a deck or
+    workbook: an industry key (``construction_real_estate`` -> "Construction
+    & Real Estate"), a channel key, a supply tier, a data-source id.
+
+    Curated labels win (INDUSTRY_LABEL_MAP, CHANNEL_DISPLAY, KEY_DISPLAY).
+    Anything else is humanized generically so no raw snake_case key can ever
+    reach client text: ``prose=False`` title-cases it for a label/cell
+    (``smart_title``), ``prose=True`` keeps it lower-case for use inside a
+    sentence ("a critically scarce talent-supply tier"). Known acronyms
+    (``ACRONYMS``) are upper-cased either way.
+    """
+    if not isinstance(key, str) or not key.strip():
+        return ""
+    k = key.strip()
+    lk = k.lower()
+    label = (
+        _industry_label_map().get(lk) or CHANNEL_DISPLAY.get(lk) or KEY_DISPLAY.get(lk)
+    )
+    if label:
+        return label
+    if not prose:
+        return smart_title(k)
+    words = [w for w in k.replace("_", " ").split() if w]
+    return " ".join(w.upper() if w.upper() in ACRONYMS else w for w in words)
+
+
+def humanize_snake_tokens(text: Any, prose: bool = True) -> str:
+    """Replace every raw snake_case token inside free ``text`` with its
+    ``humanize_key`` form. Text carrying a URL or e-mail address is returned
+    unchanged (the same exemption bundle_qa's snake_case rule applies --
+    underscores are legitimate there)."""
+    if not isinstance(text, str) or not text:
+        return text if isinstance(text, str) else ""
+    if _URL_OR_EMAIL_RE.search(text):
+        return text
+    return SNAKE_TOKEN_RE.sub(lambda m: humanize_key(m.group(0), prose=prose), text)
+
+
+# ---------------------------------------------------------------------------
 # Client / company name casing
 # ---------------------------------------------------------------------------
 # Articles / prepositions / conjunctions that go lowercase inside a client

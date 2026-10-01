@@ -44,6 +44,8 @@ import statistics
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+import company_blurb
+
 logger = logging.getLogger(__name__)
 
 # ── Canonical taxonomy standardizer ──
@@ -3485,138 +3487,6 @@ def _classify_role_type(roles: List[str]) -> str:
 # ENTITY VALIDATION -- catch wrong-company descriptions from Wikipedia/Clearbit
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Words to strip when comparing company names to descriptions
-_ENTITY_STRIP_SUFFIXES = frozenset(
-    {
-        "inc",
-        "inc.",
-        "llc",
-        "llc.",
-        "ltd",
-        "ltd.",
-        "corp",
-        "corp.",
-        "corporation",
-        "company",
-        "co",
-        "co.",
-        "plc",
-        "plc.",
-        "gmbh",
-        "ag",
-        "sa",
-        "nv",
-        "bv",
-        "pty",
-        "group",
-        "holdings",
-        "international",
-        "global",
-        "the",
-        "a",
-        "an",
-        "of",
-        "and",
-        "&",
-    }
-)
-
-# Industry mismatch keywords -- if the description contains these but
-# the plan industry clearly does NOT match, flag as mismatch.
-_INDUSTRY_MISMATCH_MAP: Dict[str, List[str]] = {
-    "video game": [
-        "localization",
-        "translation",
-        "staffing",
-        "healthcare",
-        "financial",
-        "insurance",
-        "logistics",
-        "manufacturing",
-    ],
-    "anime": [
-        "localization",
-        "translation",
-        "staffing",
-        "healthcare",
-        "financial",
-        "insurance",
-        "logistics",
-        "manufacturing",
-    ],
-    "manga": [
-        "localization",
-        "translation",
-        "staffing",
-        "healthcare",
-        "financial",
-        "insurance",
-        "logistics",
-        "manufacturing",
-    ],
-    "record label": [
-        "technology",
-        "software",
-        "healthcare",
-        "staffing",
-        "localization",
-        "financial",
-        "insurance",
-    ],
-    "professional wrestler": [
-        "technology",
-        "software",
-        "healthcare",
-        "localization",
-        "financial",
-        "staffing",
-    ],
-    "television series": [
-        "technology",
-        "software",
-        "healthcare",
-        "localization",
-        "financial",
-        "staffing",
-    ],
-    "film": [
-        "technology",
-        "software",
-        "healthcare",
-        "localization",
-        "financial",
-        "staffing",
-        "logistics",
-    ],
-    "musical group": [
-        "technology",
-        "software",
-        "healthcare",
-        "localization",
-        "financial",
-        "staffing",
-    ],
-    "fictional": [
-        "technology",
-        "software",
-        "healthcare",
-        "localization",
-        "financial",
-        "staffing",
-        "logistics",
-    ],
-}
-
-
-def _normalize_name_tokens(name: str) -> set:
-    """Extract meaningful tokens from a company name, lowercased.
-
-    Strips common suffixes like Inc, LLC, Corp so that
-    'WeLocalize Inc.' becomes {'welocalize'}.
-    """
-    tokens = re.split(r"[\s\-_.,/&]+", name.lower())
-    return {t for t in tokens if t and t not in _ENTITY_STRIP_SUFFIXES}
-
 
 def _validate_entity_description(
     company_name: str,
@@ -3625,63 +3495,24 @@ def _validate_entity_description(
 ) -> Tuple[bool, str]:
     """Check if a fetched description actually belongs to the expected company.
 
+    Thin delegate to ``company_blurb.validate_company_description`` -- the
+    single rule the cover tagline, this profile and the api_enrichment
+    lookup all share (name in the article SUBJECT, organisation definition,
+    not a person, no industry-mismatch keyword). The old local check split
+    the first sentence at the first "." (so "Automatic Data Processing,
+    Inc. (ADP) is ..." lost its "(ADP)" and was wrongly rejected) and
+    accepted any article whose extract merely contained "company" (the AWP
+    sniper-rifle article).
+
     Returns:
         (is_valid, reason)  -- is_valid=True means description looks correct.
-        When is_valid=False, ``reason`` explains why.
+        When is_valid=False, ``reason`` explains why (log-only text).
     """
     if not description or not company_name:
         return True, ""
-
-    desc_lower = description.lower()
-    name_tokens = _normalize_name_tokens(company_name)
-    industry_lower = industry.lower() if industry else ""
-
-    # --- Check 1: first-sentence entity match ---
-    # The first sentence of a Wikipedia article usually names the entity.
-    first_sentence = description.split(".")[0] if "." in description else description
-    first_lower = first_sentence.lower()
-    first_tokens = set(re.split(r"[\s\-_.,/&()\"']+", first_lower))
-
-    # At least one meaningful company-name token should appear in the first
-    # sentence.  E.g. "WeLocalize" should appear if the article is truly
-    # about WeLocalize.
-    has_name_overlap = bool(name_tokens & first_tokens)
-
-    # Also accept if the description starts with a token that is a substring
-    # of the company name (handles cases like "Welocalize" vs "WeLoc").
-    if not has_name_overlap:
-        for tok in name_tokens:
-            if len(tok) >= 4 and tok in first_lower:
-                has_name_overlap = True
-                break
-
-    if not has_name_overlap and name_tokens:
-        return False, (
-            f"Entity mismatch: first sentence does not mention "
-            f"any token from '{company_name}'. First sentence: "
-            f"'{first_sentence[:120]}'"
-        )
-
-    # --- Check 2: industry mismatch keywords ---
-    if industry_lower:
-        for mismatch_kw, blocked_industries in _INDUSTRY_MISMATCH_MAP.items():
-            if mismatch_kw in desc_lower:
-                for blocked in blocked_industries:
-                    if blocked in industry_lower:
-                        return False, (
-                            f"Industry mismatch: description contains "
-                            f"'{mismatch_kw}' but plan industry is "
-                            f"'{industry}'"
-                        )
-
-    return True, ""
-
-
-def _safe_fallback_description(company_name: str, industry: str) -> str:
-    """Generate a safe generic description when entity validation fails."""
-    if industry:
-        return f"{company_name} is a company in the {industry} industry."
-    return f"{company_name} is a company."
+    return company_blurb.validate_company_description(
+        company_name, description, industry=industry or ""
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4078,18 +3909,27 @@ def fuse_competitive_intelligence(
     _summary = company_profile.get("summary") or ""
     _text_to_check = _desc or _summary
     if _text_to_check and company_name:
-        is_valid, mismatch_reason = _validate_entity_description(
-            company_name, _text_to_check, industry
+        is_valid, mismatch_reason = company_blurb.validate_company_description(
+            company_name,
+            _text_to_check,
+            title=(wiki_data.get("wiki_title") or "")
+            if isinstance(wiki_data, dict)
+            else "",
+            industry=industry,
         )
         if not is_valid:
             logger.warning(
-                "Entity validation FAILED for '%s': %s",
+                "Entity validation FAILED for '%s': %s -- description omitted",
                 company_name,
                 mismatch_reason,
             )
-            fallback = _safe_fallback_description(company_name, industry)
-            company_profile["description"] = fallback
-            company_profile["summary"] = fallback
+            # Omit, never substitute: the old "<Client> is a company in the
+            # <raw_industry_key> industry." fallback said nothing true and
+            # leaked the snake_case key into slide 8 + Market Intelligence
+            # (prod AWP run: 'construction_real_estate'). The _entity_*
+            # markers are internal -- renderers must skip "_"-prefixed keys.
+            company_profile["description"] = ""
+            company_profile["summary"] = ""
             company_profile["_entity_mismatch"] = True
             company_profile["_entity_mismatch_reason"] = mismatch_reason
 
@@ -4180,11 +4020,12 @@ def fuse_competitive_intelligence(
             )
             if not _wiki_valid:
                 logger.warning(
-                    "Entity validation FAILED for company_wikipedia '%s': %s",
+                    "Entity validation FAILED for company_wikipedia '%s': %s "
+                    "-- description omitted",
                     company_name,
                     _wiki_reason,
                 )
-                _wiki_desc = _safe_fallback_description(company_name, industry)
+                _wiki_desc = ""
         result["company_wikipedia"] = {
             "description": _wiki_desc,
             "founded": _cmeta.get("founded"),

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import hashlib
 
+import display_format as _fmt
+
 # ---------------------------------------------------------------------------
 # Counter-strategy prose
 # ---------------------------------------------------------------------------
@@ -324,13 +326,21 @@ def geography_rationale(location: str, city_data: dict | None) -> str:
     if isinstance(unemployment, (int, float)) and not isinstance(unemployment, bool):
         parts.append(f"a {unemployment:g}% unemployment rate")
 
+    # Both values can be raw internal keys (gold_standard._SUPPLY_TIERS emits
+    # "critically_scarce") -- humanize before they reach a sentence (sweep
+    # o_channel_deselect slide 8: "...based on a critically_scarce
+    # talent-supply tier").
     difficulty = city_data.get("hiring_difficulty") or city_data.get("difficulty")
     if isinstance(difficulty, str) and difficulty.strip():
-        parts.append(f"{difficulty.strip().lower()} hiring difficulty")
+        parts.append(
+            f"{_fmt.humanize_key(difficulty, prose=True).lower()} hiring difficulty"
+        )
 
     supply_tier = city_data.get("supply_tier") or city_data.get("tier")
     if isinstance(supply_tier, str) and supply_tier.strip():
-        parts.append(f"a {supply_tier.strip().lower()} talent-supply tier")
+        tier_words = _fmt.humanize_key(supply_tier, prose=True).lower()
+        article = "an" if tier_words[:1] in "aeiou" else "a"  # "an abundant"
+        parts.append(f"{article} {tier_words} talent-supply tier")
 
     salary_index = city_data.get("salary_index")
     if isinstance(salary_index, (int, float)) and not isinstance(salary_index, bool):

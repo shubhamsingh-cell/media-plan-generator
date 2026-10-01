@@ -87,6 +87,7 @@ import plan_location as _plan_location
 import public_data_sources as _pds
 from public_data_sources import SourceFailure
 from shared_utils import normalize_competitor_names
+import company_blurb as _company_blurb
 
 # Persistent HTTPS connection pool -- reuses TCP+TLS across same-host calls
 try:
@@ -2883,11 +2884,46 @@ def fetch_company_info(
         info["logo_url"] = logo
 
     # --- Wikipedia summary ---
-    cache_k = _cache_key("wikipedia", client_name)
+    # Every candidate article -- including a cache hit -- must pass
+    # company_blurb.validate_company_description (client named in the
+    # article SUBJECT + an organisation definition + not a person). The old
+    # acceptance test was "the extract contains a business word", which
+    # accepted the AWP sniper-rifle article for client "AWP Safety" because
+    # it says "...manufactured by the British company Accuracy
+    # International" (prod, 2026-09-25). The cache key is versioned so a
+    # wrong-entity extract cached under the old rule (L1-L4 incl.
+    # Supabase) is never read back.
+    cache_k = _cache_key("wikipedia_v2", client_name)
     cached = _get_cached(cache_k)
-    if cached is not None:
-        info["description"] = cached
-        return info
+    if isinstance(cached, dict) and cached.get("extract"):
+        ok, _why = _company_blurb.validate_company_description(
+            client_name, cached.get("extract"), title=cached.get("title") or ""
+        )
+        if ok:
+            info["description"] = cached["extract"]
+            info["wiki_title"] = cached.get("title") or ""
+            return info
+
+    def _accept(resp: Any) -> bool:
+        """Validate one REST summary response; on success fill ``info``."""
+        if not isinstance(resp, dict):
+            return False
+        extract = resp.get("extract") or ""
+        title = resp.get("title") or ""
+        ok, why = _company_blurb.validate_company_description(
+            client_name, extract, title=title, page_type=resp.get("type") or ""
+        )
+        if not ok:
+            if extract:
+                _log_info(
+                    f"Wikipedia candidate rejected for {client_name!r} "
+                    f"(title={title!r}): {why}"
+                )
+            return False
+        info["description"] = extract
+        info["wiki_title"] = title
+        _set_cached(cache_k, {"extract": extract, "title": title})
+        return True
 
     # Try company-specific disambiguations FIRST, then generic name.
     # This prevents getting wrong articles (e.g. "Guidewire" returning
@@ -2905,52 +2941,10 @@ def fetch_company_info(
         encoded = urllib.parse.quote(name, safe="()_")
         url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{encoded}"
         try:
-            resp = _http_get_json(url)
-            if resp and resp.get("type") == "standard":
-                extract = resp.get("extract") or ""
-                if extract and len(extract) > 30:
-                    # Verify the article is about a company/organization, not
-                    # some unrelated topic. Check for business-related terms.
-                    extract_lower = extract.lower()
-                    is_company_article = any(
-                        term in extract_lower
-                        for term in [
-                            "company",
-                            "corporation",
-                            "inc.",
-                            "ltd",
-                            "software",
-                            "founded",
-                            "headquartered",
-                            "business",
-                            "firm",
-                            "enterprise",
-                            "organization",
-                            "provider",
-                            "platform",
-                            "technology",
-                            "services",
-                            "solutions",
-                            "startup",
-                            "subsidiary",
-                            "group",
-                            "brand",
-                            "manufacturer",
-                            "hospital",
-                            "clinic",
-                            "bank",
-                            "financial",
-                            "retailer",
-                            "store",
-                            "chain",
-                            "restaurant",
-                        ]
-                    )
-                    if is_company_article:
-                        info["description"] = extract
-                        _set_cached(cache_k, extract)
-                        return info
-        except Exception:
+            if _accept(_http_get_json(url)):
+                return info
+        except Exception as exc:
+            _log_warn(f"Wikipedia summary lookup failed for {name!r}: {exc}")
             continue
 
     # If no company-specific article found, try Wikipedia search API
@@ -2973,54 +2967,13 @@ def fetch_company_info(
                     f"https://en.wikipedia.org/api/rest_v1/page/summary/{encoded}"
                 )
                 try:
-                    resp = _http_get_json(summary_url)
-                    if resp and resp.get("type") == "standard":
-                        extract = resp.get("extract") or ""
-                        if extract and len(extract) > 30:
-                            # Verify the article is about a company/organization
-                            extract_lower = extract.lower()
-                            is_company_article = any(
-                                term in extract_lower
-                                for term in [
-                                    "company",
-                                    "corporation",
-                                    "inc.",
-                                    "ltd",
-                                    "software",
-                                    "founded",
-                                    "headquartered",
-                                    "business",
-                                    "firm",
-                                    "enterprise",
-                                    "organization",
-                                    "provider",
-                                    "platform",
-                                    "technology",
-                                    "services",
-                                    "solutions",
-                                    "startup",
-                                    "subsidiary",
-                                    "group",
-                                    "brand",
-                                    "manufacturer",
-                                    "hospital",
-                                    "clinic",
-                                    "bank",
-                                    "financial",
-                                    "retailer",
-                                    "store",
-                                    "chain",
-                                    "restaurant",
-                                ]
-                            )
-                            if is_company_article:
-                                info["description"] = extract
-                                _set_cached(cache_k, extract)
-                                return info
-                except Exception:
+                    if _accept(_http_get_json(summary_url)):
+                        return info
+                except Exception as exc:
+                    _log_warn(f"Wikipedia summary lookup failed for {title!r}: {exc}")
                     continue
-    except Exception:
-        pass
+    except Exception as exc:
+        _log_warn(f"Wikipedia search failed for {client_name!r}: {exc}")
 
     _log_warn(f"Wikipedia summary not found for: {client_name}")
     return info
@@ -3045,7 +2998,9 @@ def fetch_company_metadata(
     if not company_name:
         return None
 
-    cache_k = _cache_key("clearbit_auto", company_name)
+    # v2: entries cached before the name-agreement rule below may hold a
+    # different company's suggestion -- never read them back.
+    cache_k = _cache_key("clearbit_auto_v2", company_name)
     cached = _get_cached(cache_k)
     if cached is not None:
         return cached
@@ -3056,12 +3011,31 @@ def fetch_company_metadata(
     try:
         resp = _http_get_json(url, timeout=5)
         if resp and isinstance(resp, list) and resp:
-            # Find best match — prefer exact name match
-            best = resp[0]
+            # Find best match -- prefer an exact name match, else the first
+            # suggestion whose name agrees with the client's (company_blurb
+            # name rule). The old fallback took resp[0] unconditionally, so a
+            # suggestion for a different company still put ITS domain in the
+            # deck's "Domain:" row.
+            best = None
             for item in resp:
                 if (item.get("name") or "").lower() == company_name.lower():
                     best = item
                     break
+            if best is None:
+                for item in resp:
+                    if _company_blurb.name_agrees(
+                        company_name, item.get("name") or "", item.get("domain") or ""
+                    ):
+                        best = item
+                        break
+            if best is None:
+                if not client_website:
+                    _log_info(
+                        f"Clearbit suggestions for {company_name!r} name other "
+                        f"companies ({[i.get('name') for i in resp[:3]]}); omitted"
+                    )
+                    return None
+                best = {"name": company_name, "domain": "", "logo": ""}
 
             domain = best.get("domain") or ""
 
@@ -3072,8 +3046,9 @@ def fetch_company_metadata(
                 if cw.startswith("http"):
                     parsed = urllib.parse.urlparse(cw)
                     cw = parsed.hostname or cw
-                # Only override if Clearbit domain looks wrong
-                if domain and cw and domain != cw:
+                # Only override if Clearbit domain looks wrong (or no
+                # suggestion agreed with the client name at all)
+                if cw and domain != cw:
                     _log_info(
                         f"Clearbit returned domain '{domain}' but "
                         f"client_website is '{cw}'; using client_website"
