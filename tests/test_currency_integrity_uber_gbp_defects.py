@@ -88,20 +88,39 @@ _EXPECTED_MEDIAN_INCOME = {
 
 # Quality Intelligence's "Market" column is title-cased (excel_v2._title_case_city).
 #
-# Audit F 3.4 / K-05b (2026-10-01): these cells used to read
-# "£25,500 - £42,500 (GBP)", "A$27,000 - A$45,000 (AUD)" ... -- the US
-# "driver" band ($30-50K) times a country salary multiplier, i.e. a
+# Audit F 3.4 / K-05b (2026-10-01): these markets' Salary Range cells used
+# to read "£25,500 - £42,500 (GBP)", "A$27,000 - A$45,000 (AUD)" ... -- the
+# US "driver" band ($30-50K) times a country salary multiplier, i.e. a
 # US-dollar-derived figure wearing the local sign. No sourced local salary
-# exists for these markets, so the honest cell is now the n/a label; the
-# defect this test guards (a bare "$" on a non-USD market) stays fixed.
-_EXPECTED_SALARY_RANGE = {
-    "Uk": "Local salary data n/a",
-    "Australia": "Local salary data n/a",
-    "Mexico": "Local salary data n/a",
-    "Argentina": "Local salary data n/a",
-    "Canada": "Local salary data n/a",
-    "New Zealand": "Local salary data n/a",
-}
+# exists for these markets, so every market's salary is withheld, and
+# (design-judge 2026-10-01) a table whose salary columns would be all n/a
+# drops them and says why once. The defect these tests guard -- a bare "$"
+# (or any US figure) on a non-USD market -- cannot recur: the cells are gone.
+_EXPECTED_MARKETS = ["Uk", "Australia", "Mexico", "Argentina", "Canada", "New Zealand"]
+
+
+def _assert_city_salary_withheld(ws, markets: list) -> None:
+    header_row, cols = _find_table(ws, "Hiring Difficulty")
+    assert header_row is not None, "City-Level Supply-Demand Data table not found"
+    for dropped in ("Salary Multiplier", "Estimated Salary", "Salary Range"):
+        assert dropped not in cols, f"withheld salary column {dropped!r} still rendered"
+    market_col = cols["Market"]
+    difficulty_col = cols["Hiring Difficulty"]
+    seen = set()
+    r = header_row + 1
+    while ws.cell(row=r, column=difficulty_col).value:
+        mkt = ws.cell(row=r, column=market_col).value
+        seen.add(mkt)
+        row_text = " ".join(
+            str(ws.cell(row=r, column=c).value or "") for c in range(1, ws.max_column + 1)
+        )
+        assert "$" not in row_text, (mkt, row_text)
+        r += 1
+    assert set(markets) <= seen, f"expected rows for {sorted(markets)}, found {sorted(seen)}"
+    footnote = str(ws.cell(row=r, column=market_col).value or "") + " ".join(
+        str(ws.cell(row=r + i, column=market_col).value or "") for i in range(1, 3)
+    )
+    assert "Market-level salary estimates are not available" in footnote, footnote
 
 
 def _generate_bundle(brief: dict) -> dict:
@@ -211,26 +230,7 @@ def test_defect1_usd_plan_median_income_unaffected(usd_bundle):
 
 def test_defect2_city_level_salary_range_uses_local_currency(gbp_bundle):
     wb = load_workbook(io.BytesIO(gbp_bundle["xlsx"]))
-    ws = wb["Quality Intelligence"]
-    header_row, cols = _find_table(ws, "Salary Range")
-    assert header_row is not None, "City-Level Supply-Demand Data table not found"
-    market_col = cols["Market"]
-    range_col = cols["Salary Range"]
-
-    seen = {}
-    for r in range(header_row + 1, header_row + 1 + len(_EXPECTED_SALARY_RANGE) + 3):
-        mkt = ws.cell(row=r, column=market_col).value
-        if mkt in _EXPECTED_SALARY_RANGE:
-            seen[mkt] = ws.cell(row=r, column=range_col).value
-
-    assert set(seen) == set(_EXPECTED_SALARY_RANGE), (
-        f"expected rows for {sorted(_EXPECTED_SALARY_RANGE)}, found {sorted(seen)}"
-    )
-    for mkt, expected in _EXPECTED_SALARY_RANGE.items():
-        assert seen[mkt] == expected, (
-            f"{mkt}: Salary Range cell = {seen[mkt]!r}, expected {expected!r} "
-            "(bare '$' range on a GBP plan's own local-currency figure)"
-        )
+    _assert_city_salary_withheld(wb["Quality Intelligence"], _EXPECTED_MARKETS)
 
 
 def test_defect2_usd_plan_salary_range_unaffected(usd_bundle):
@@ -400,50 +400,22 @@ def aviva_au_bundle():
 def test_defect5_single_market_city_only_label_resolves_plan_currency_gbp(
     pearson_uk_bundle,
 ):
+    # Audit F 3.4 (2026-10-01): London's Salary Range was "£60,000 - £97,500
+    # (GBP)" -- the US national average x tier scaling wearing a £ sign. No
+    # sourced local salary exists, so the salary columns are withheld (and
+    # dropped, design-judge 2026-10-01); never a bare "$".
     wb = load_workbook(io.BytesIO(pearson_uk_bundle["xlsx"]))
-    ws = wb["Quality Intelligence"]
-    header_row, cols = _find_table(ws, "Salary Range")
-    assert header_row is not None
-    market_col = cols["Market"]
-    range_col = cols["Salary Range"]
-
-    seen = {}
-    for r in range(header_row + 1, header_row + 5):
-        mkt = ws.cell(row=r, column=market_col).value
-        if mkt:
-            seen[mkt] = ws.cell(row=r, column=range_col).value
-    assert "London" in seen, f"expected a London row, found {sorted(seen)}"
-    # Audit F 3.4 (2026-10-01): was "£60,000 - £97,500 (GBP)" -- the US
-    # national average x tier scaling wearing a £ sign. No sourced local
-    # salary exists, so the cell is the n/a label; still never a bare "$".
-    assert seen["London"] == "Local salary data n/a", (
-        f"London Salary Range = {seen['London']!r} -- a US-derived figure "
-        "must not print on a non-US market"
-    )
+    _assert_city_salary_withheld(wb["Quality Intelligence"], ["London"])
 
 
 def test_defect5_second_market_sydney_au_resolves_plan_currency_aud(
     aviva_au_bundle,
 ):
+    # Audit F 3.4 (2026-10-01): Sydney's Salary Range was "A$60,000 -
+    # A$97,500 (AUD)" -- a US-derived figure wearing A$. Withheld (columns
+    # dropped, design-judge 2026-10-01); never a bare "$".
     wb = load_workbook(io.BytesIO(aviva_au_bundle["xlsx"]))
-    ws = wb["Quality Intelligence"]
-    header_row, cols = _find_table(ws, "Salary Range")
-    assert header_row is not None
-    market_col = cols["Market"]
-    range_col = cols["Salary Range"]
-
-    seen = {}
-    for r in range(header_row + 1, header_row + 5):
-        mkt = ws.cell(row=r, column=market_col).value
-        if mkt:
-            seen[mkt] = ws.cell(row=r, column=range_col).value
-    assert "Sydney" in seen, f"expected a Sydney row, found {sorted(seen)}"
-    # Audit F 3.4 (2026-10-01): was "A$60,000 - A$97,500 (AUD)" -- a
-    # US-derived figure wearing A$. Now the n/a label; never a bare "$".
-    assert seen["Sydney"] == "Local salary data n/a", (
-        f"Sydney Salary Range = {seen['Sydney']!r} -- a US-derived figure "
-        "must not print on a non-US market"
-    )
+    _assert_city_salary_withheld(wb["Quality Intelligence"], ["Sydney"])
 
 
 def test_defect5_guard_zero_currency_symbol_mixing_single_market_uk_plan(

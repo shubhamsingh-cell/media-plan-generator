@@ -345,6 +345,39 @@ def plan_has_us_market(data: dict) -> bool:
     return any(location_is_us(raw) is True for raw in _gather_candidates(data))
 
 
+def non_us_market_names(data: dict) -> list[str]:
+    """Display names of the plan's non-US markets, deduplicated in plan
+    order: the country part of each location ("Bengaluru, Karnataka,
+    India" -> "India", "London, UK" -> "UK", a dict's ``country``)."""
+    names: list[str] = []
+    locations = (data.get("locations") or []) if isinstance(data, dict) else []
+    for raw in locations if isinstance(locations, (list, tuple)) else [locations]:
+        if location_is_us(raw) is True:
+            continue
+        if isinstance(raw, dict):
+            name = str(raw.get("country") or raw.get("city") or "").strip()
+        else:
+            name = str(raw or "").rsplit(",", 1)[-1].strip()
+        if not name:
+            continue
+        if len(name) <= 3:
+            name = name.upper()  # "uk" -> "UK"
+        elif name.islower():
+            name = name.title()  # "new zealand" -> "New Zealand"
+        if name not in names:
+            names.append(name)
+    return names
+
+
+def join_market_names(names: list[str]) -> str:
+    """'India' / 'UK and India' / 'UK, India and Japan' ('this market' if empty)."""
+    if not names:
+        return "this market"
+    if len(names) == 1:
+        return names[0]
+    return f"{', '.join(names[:-1])} and {names[-1]}"
+
+
 def non_us_signals(data: dict) -> list[str]:
     """Return the location strings that drove ``is_us_plan`` to False, for
     honest workbook/deck messaging ("these locations pulled this plan

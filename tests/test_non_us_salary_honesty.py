@@ -202,23 +202,21 @@ def _qi_role_rows(xlsx: bytes):
     )]
 
 
-def test_london_quality_intelligence_prints_na_not_us_dollars(london):
-    rows = _qi_role_rows(london["xlsx"])
-    assert len(rows) == 4
-    for r in rows:
-        assert [c.value for c in r[2:7]] == ["n/a"] * 5
-        assert r[8].value == _NA
+def test_london_quality_intelligence_shows_no_us_dollars(london):
+    # Every London row is withheld -> no table of n/a cells (design-judge
+    # 2026-10-01; tests/test_withheld_salary_collapse.py), one sentence.
+    assert _qi_role_rows(london["xlsx"]) == []
     _, all_rows = _sheet_rows(london["xlsx"], "Quality Intelligence")
-    city = next(r for r in all_rows if r and r[0].value == "London")
-    assert [c.value for c in city][2] == "n/a"
-    assert city[-1].value == _NA
+    flat = [str(c.value) for r in all_rows for c in r]
+    assert not any(v in ("97500", "150000", "217500") for v in flat)
+    assert any(v.startswith("Role-level salary benchmarks are not available for UK") for v in flat)
 
 
 def test_london_market_intelligence_withholds_us_salary(london):
     _, rows = _sheet_rows(london["xlsx"], "Market Intelligence")
     flat = [str(c.value) for r in rows for c in r]
     assert not any("US$150,000" in v for v in flat)
-    assert flat.count("Local salary data n/a") >= 4
+    assert any(v.startswith("Role-level salary benchmarks are not available for UK") for v in flat)
 
 
 def test_mixed_plan_us_rows_formatted_us_dollars(mixed):

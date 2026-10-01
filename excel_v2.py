@@ -7903,8 +7903,6 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         )
         row = _write_confidence_gate_note(ws, row, "salary_intelligence", _sal_conf)
 
-        headers = ["Role", "Min", "P25", "Median", "P75", "Max", "Confidence"]
-        row = _write_table_header(ws, row, headers)
         _mi_local_na = False
         _mi_local_band = False
 
@@ -7915,6 +7913,32 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 salary_items = salary_intel
             else:
                 salary_items = {"All Roles": salary_intel}
+
+        # Design-judge 2026-10-01: no role has a figure (all withheld or no
+        # data) -> one plain sentence, not a table of "n/a" cells.
+        _mi_entries = list(salary_items.values()) if isinstance(salary_items, dict) else []
+        if _mi_entries and all(
+            isinstance(_s, dict) and not _s.get("median") for _s in _mi_entries
+        ):
+            if plan_geo.plan_has_us_market(data):
+                _mi_scope = "these roles"
+            else:
+                _mi_scope = plan_geo.join_market_names(plan_geo.non_us_market_names(data))
+            row = _write_footnote(
+                ws,
+                row,
+                f"Role-level salary benchmarks are not available for {_mi_scope} "
+                "in our sourced data"
+                + (
+                    "."
+                    if plan_geo.plan_has_us_market(data)
+                    else "; US salary figures are not used for non-US markets."
+                ),
+            )
+            salary_items = {}
+        else:
+            headers = ["Role", "Min", "P25", "Median", "P75", "Max", "Confidence"]
+            row = _write_table_header(ws, row, headers)
 
         for idx, (role_key, sal_data) in enumerate(
             salary_items.items()
@@ -10399,22 +10423,27 @@ def _build_sheet_quality_intelligence(
     try:
         if city_data:
             row = _write_subsection_header(ws, row, "City-Level Supply-Demand Data")
+            # Design-judge 2026-10-01: when EVERY market's salary estimate is
+            # withheld (non-US markets, audit F 3.4) the three salary columns
+            # would be all "n/a" -- drop them and say so once instead.
+            _city_salary_withheld = all(
+                isinstance(_i, dict) and _i.get("local_salary_na")
+                for _i in city_data.values()
+            )
+            _city_keep = [0, 3, 4, 5] if _city_salary_withheld else list(range(7))
             # S89A FIX (finding data:manpower#5): header was "City" even
             # though this table also carries state/region-level fallback
             # rows -- "Market" is accurate for both.
-            row = _write_table_header(
-                ws,
-                row,
-                [
-                    "Market",
-                    "Salary Multiplier",
-                    "Estimated Salary",
-                    "Hiring Difficulty",
-                    "Supply Tier",
-                    "COL Index",
-                    "Salary Range",
-                ],
-            )
+            _city_headers = [
+                "Market",
+                "Salary Multiplier",
+                "Estimated Salary",
+                "Hiring Difficulty",
+                "Supply Tier",
+                "COL Index",
+                "Salary Range",
+            ]
+            row = _write_table_header(ws, row, [_city_headers[i] for i in _city_keep])
             # S5 (2026-07-03, findings 44/51/54): title-case the city name for
             # display and write Estimated Salary as a live number instead of
             # a pre-formatted string.
@@ -10499,32 +10528,43 @@ def _build_sheet_quality_intelligence(
                         and _get_active_currency() != "USD"
                     ):
                         _city_row_fmts[2] = _USD_MARKED_FMT
+                _city_values = [
+                    # Area-level label survives the salary-column collapse:
+                    # it is on the Market cell, which is always kept.
+                    market_label
+                    + ("" if _is_collapsed else _geo_basis_suffix(info)),
+                    f"{info.get('salary_multiplier', 1.0):.2f}x",
+                    _est_cell,
+                    f"{info.get('hiring_difficulty', 0):.1f}/10",
+                    str(info.get("supply_tier") or "balanced")
+                    .replace("_", " ")
+                    .title(),
+                    f"{info.get('cost_of_living_index', 100):.1f}",
+                    str(
+                        _salary_range_from_per_role(info, _mkt_currency_code)
+                        or info.get("salary_range")
+                        or "—"
+                    ),
+                ]
                 row = _write_table_row(
                     ws,
                     row,
-                    [
-                        market_label
-                        + ("" if _is_collapsed else _geo_basis_suffix(info)),
-                        f"{info.get('salary_multiplier', 1.0):.2f}x",
-                        _est_cell,
-                        f"{info.get('hiring_difficulty', 0):.1f}/10",
-                        str(info.get("supply_tier") or "balanced")
-                        .replace("_", " ")
-                        .title(),
-                        f"{info.get('cost_of_living_index', 100):.1f}",
-                        str(
-                            _salary_range_from_per_role(info, _mkt_currency_code)
-                            or info.get("salary_range")
-                            or "—"
-                        ),
-                    ],
+                    [_city_values[i] for i in _city_keep],
                     alternate=idx % 2 == 1,
-                    number_formats=_city_row_fmts,
+                    number_formats=[_city_row_fmts[i] for i in _city_keep],
                 )
-            _city_footnote = (
-                "Salary multipliers relative to national average. "
-                "Hiring difficulty: 1 (easy) to 10 (hardest)."
-            )
+            if _city_salary_withheld:
+                _city_footnote = (
+                    "Hiring difficulty: 1 (easy) to 10 (hardest). Market-level "
+                    "salary estimates are not available for "
+                    f"{plan_geo.join_market_names(plan_geo.non_us_market_names(data))} "
+                    "in our sourced data; US figures are not used for non-US markets."
+                )
+            else:
+                _city_footnote = (
+                    "Salary multipliers relative to national average. "
+                    "Hiring difficulty: 1 (easy) to 10 (hardest)."
+                )
             if _has_collapsed_market_row:
                 _city_footnote += (
                     ' "All listed markets" is a national-default estimate '
@@ -10549,7 +10589,25 @@ def _build_sheet_quality_intelligence(
             has_role_salary = any(
                 info.get("per_role_salary") for info in city_data.values()
             )
-            if has_role_salary:
+            # Design-judge 2026-10-01: every role row withheld -> no table of
+            # n/a cells; one plain sentence under the section title instead.
+            _all_roles_withheld = has_role_salary and all(
+                isinstance(_sal, dict) and _sal.get("local_salary_na")
+                for _info in city_data.values()
+                for _sal in (_info.get("per_role_salary") or {}).values()
+            )
+            if _all_roles_withheld:
+                row = _write_subsection_header(ws, row, "Salary Intelligence")
+                row = _write_footnote(
+                    ws,
+                    row,
+                    "Role-level salary benchmarks are not available for "
+                    f"{plan_geo.join_market_names(plan_geo.non_us_market_names(data))} "
+                    "in our sourced data; US salary figures are not used for "
+                    "non-US markets.",
+                )
+                row += 1
+            elif has_role_salary:
                 # S89: honest section title -- the old "Per-Role Salary
                 # Breakdown by City" title implied every row was sourced
                 # data; a large share are tier-scaled estimates for roles

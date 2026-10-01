@@ -10636,6 +10636,12 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
     today = datetime.date.today().strftime("%B %d, %Y")
     client = data.get("client_name", "Client")
 
+    # Design-judge 2026-10-01: when EVERY role's salary is withheld (a non-US
+    # market with no published local band), a column of "Local salary data
+    # n/a" under a subtitle promising a salary band reads as a broken
+    # template. Drop the column, say so once, and never promise a band.
+    _all_salary_withheld = all(r["salary_withheld"] for r in rows)
+
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
     _add_top_band(slide, "ROLE BREAKDOWN", today)
     _add_textbox(
@@ -10645,7 +10651,10 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
         Inches(12.2),
         Inches(0.45),
         text=(
-            f"Tier, salary band, and channel emphasis across {client}'s "
+            f"Tier, difficulty, and channel emphasis across {client}'s "
+            f"{len(rows)} target roles"
+            if _all_salary_withheld
+            else f"Tier, salary band, and channel emphasis across {client}'s "
             f"{len(rows)} target roles"
         ),
         font_size=15,
@@ -10658,25 +10667,36 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
     # Budget Weight, sourced from the same _gold_standard difficulty_
     # framework rows the workbook's Role Difficulty Classification table
     # renders) so a 10-role plan carries real per-role substance here.
-    col_widths = [
-        Inches(3.1),
-        Inches(1.2),
-        Inches(2.15),
-        Inches(1.25),
-        Inches(1.5),
-        Inches(2.8),
-    ]
-    headers = [
-        "Role",
-        "Tier",
-        "Est. Median Salary",
-        "Difficulty",
-        "Budget Weight",
-        "Channel Emphasis",
-    ]
+    if _all_salary_withheld:
+        col_widths = [
+            Inches(3.6),
+            Inches(1.4),
+            Inches(1.5),
+            Inches(1.7),
+            Inches(3.8),
+        ]
+        headers = ["Role", "Tier", "Difficulty", "Budget Weight", "Channel Emphasis"]
+    else:
+        col_widths = [
+            Inches(3.1),
+            Inches(1.2),
+            Inches(2.15),
+            Inches(1.25),
+            Inches(1.5),
+            Inches(2.8),
+        ]
+        headers = [
+            "Role",
+            "Tier",
+            "Est. Median Salary",
+            "Difficulty",
+            "Budget Weight",
+            "Channel Emphasis",
+        ]
     header_h_in = 0.42
     _rb_base_row_h_in = 0.42
     _rb_base_font_pt = 9.0
+    _rb_note_h_in = 0.5 if _all_salary_withheld else 0.0
     # visual:atria#4-followup: this table used to hard-cap at rows[:12]
     # with a fixed 0.42in row pitch regardless of the footer -- exactly 12
     # roles put the last row's bottom at 7.16in, past the footer rule at
@@ -10687,7 +10707,9 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
     # drop roles, never overprint past the footer.
     _rb_avail_top_in = 1.7  # never starts above the old fixed anchor
     _rb_avail_bottom_in = 6.95  # keep clear of the footer rule at 7.12in
-    _rb_avail_h_in = max(0.5, _rb_avail_bottom_in - (_rb_avail_top_in + header_h_in))
+    _rb_avail_h_in = max(
+        0.5, _rb_avail_bottom_in - _rb_note_h_in - (_rb_avail_top_in + header_h_in)
+    )
     n_rows_total = len(rows)
     _rb_max_rows_at_base = max(1, int(_rb_avail_h_in / _rb_base_row_h_in))
 
@@ -10709,7 +10731,10 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
             n_more = n_rows_total - max_shown
 
     _rb_content_h_in = (
-        header_h_in + len(show_rows) * row_h_in + (row_h_in if n_more else 0.0)
+        header_h_in
+        + len(show_rows) * row_h_in
+        + (row_h_in if n_more else 0.0)
+        + _rb_note_h_in
     )
     # visual:manpower#4-style: vertically center the table in the space
     # between the subtitle and the footer instead of always anchoring at a
@@ -10760,6 +10785,8 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
             (r["budget_weight_str"], row_font_pt, False, DARK_TEXT),
             (r["emphasis"], row_font_pt, False, MUTED_TEXT),
         ]
+        if _all_salary_withheld:
+            del cells[2]
         cx = table_left
         for (cell_text, fsize, fbold, fcolor), cw in zip(cells, col_widths):
             _add_textbox(
@@ -10800,6 +10827,31 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
             italic=True,
             color=MUTED_TEXT,
             anchor=MSO_ANCHOR.MIDDLE,
+        )
+
+    if _all_salary_withheld:
+        _note_y = (
+            header_top
+            + header_h
+            + len(show_rows) * row_h
+            + (row_h if n_more else 0)
+            + Inches(0.12)
+        )
+        _markets = _plan_geo.join_market_names(_plan_geo.non_us_market_names(data))
+        _add_textbox(
+            slide,
+            table_left,
+            _note_y,
+            sum(col_widths, Inches(0)),
+            Inches(_rb_note_h_in - 0.12),
+            text=(
+                f"Role-level salary benchmarks are not available for {_markets} "
+                "in our sourced data; US salary figures are not used for "
+                "non-US markets."
+            ),
+            font_size=10,
+            color=DARK_TEXT,
+            anchor=MSO_ANCHOR.TOP,
         )
 
     _add_footer(slide, today)
