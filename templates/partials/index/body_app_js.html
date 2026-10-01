@@ -4046,6 +4046,12 @@
             });
           }
           return;
+        } else if (novaClientNameProblem(clientNameEl.value)) {
+          // Same rule as the server (app._client_name_problem).
+          showToast(novaClientNameProblem(clientNameEl.value), "error");
+          _showFieldError(clientNameEl, novaClientNameProblem(clientNameEl.value));
+          clientNameEl.focus();
+          return;
         } else {
           _clearFieldError(clientNameEl);
         }
@@ -4857,6 +4863,18 @@
       " characters; max " + max.toLocaleString("en-US") + ")."
     );
   }
+  // app._has_name_character: one letter or digit in ANY script ("3M",
+  // "H&M", "X", "朝日新聞", "Яндекс" pass; "!!!" and emoji-only fail).
+  // RegExp built at runtime so an engine without \p{} support skips the
+  // check (the server still applies it) instead of failing to parse.
+  var _novaNameCharRx = (function () {
+    try { return new RegExp("[\\p{L}\\p{N}]", "u"); } catch (e) { return null; }
+  })();
+  function novaClientNameProblem(value) {
+    var text = String(value || "").trim();
+    if (!text || !_novaNameCharRx) return "";
+    return _novaNameCharRx.test(text) ? "" : "Valid client name (needs a letter or digit)";
+  }
   function novaCheckTextLimit(id) {
     const el = document.getElementById(id);
     const err = novaTextLimitError(id);
@@ -4916,6 +4934,10 @@
     competitors: "competitorInput",
     target_roles: "roleInput",
     roles: "roleInput",
+    requester_name: "requesterName",
+    requester_email: "requesterEmail",
+    hire_volume: "hireVolume",
+    campaign_start_month: "campaignStartMonth",
   };
   // Show `message` at the input for a request field, switching to its
   // wizard step first; false when the field has no input on the page.

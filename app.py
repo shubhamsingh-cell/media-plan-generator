@@ -4447,6 +4447,30 @@ def _normalize_request_budget(data: dict, log: bool = True) -> "wizard_inputs.Pl
     return plan
 
 
+def _has_name_character(text: Any) -> bool:
+    """True when ``text`` has at least one letter or digit in ANY script
+    (str.isalnum): "3M", "H&M", "P&G", "O2", "X", "朝日新聞", "Яндекс" pass;
+    "!!!", blanks and emoji-only do not. The wizard checks the same rule
+    (/[\\p{L}\\p{N}]/u)."""
+    return any(ch.isalnum() for ch in _safe_str(text).strip())
+
+
+def _client_name_problem(name: Any) -> "tuple[str, str]":
+    """("", "") for an acceptable client name, else (code, message) with
+    code "chars" (no letter/digit) or "too_long". ONE rule for /api/estimate
+    and /api/generate; an EMPTY name is the caller's call (generate requires
+    one, the live preview does not)."""
+    text = _safe_str(name).strip()
+    if not text:
+        return "", ""
+    if not _has_name_character(text):
+        return "chars", "Valid client name (needs a letter or digit)"
+    limit = wizard_inputs.INPUT_LIMITS["client_name_max_chars"]
+    if len(text) > limit:
+        return "too_long", f"Client name is too long ({len(text)} characters; max {limit})."
+    return "", ""
+
+
 _VALID_TARGET_REGIONS: frozenset = frozenset(
     {"us_only", "global", "emea", "apac", "custom"}
 )
@@ -5274,6 +5298,9 @@ def _compute_plan_estimate(brief: dict) -> dict:
 
     industry_raw = str(brief.get("industry") or "").strip()
     company_name = str(brief.get("client_name") or "").strip()
+    _cn_code, _cn_message = _client_name_problem(company_name)
+    if _cn_code:  # the same rule /api/generate applies (empty is fine here)
+        raise _EstimateValidationError(_cn_message, field="client_name")
 
     roles_raw = brief.get("target_roles") or brief.get("roles") or []
     if not isinstance(roles_raw, list):
@@ -17857,20 +17884,26 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 c.strip()[:5] for c in custom_countries if isinstance(c, str)
             ][:20]
             if isinstance(roles_input, list) and len(roles_input) > 50:
+                _gen_timer.cancel()
                 self._send_error(
-                    "Target roles list exceeds 50 items limit", "VALIDATION_ERROR", 400
+                    "Target roles list exceeds 50 items limit",
+                    "VALIDATION_ERROR",
+                    400,
+                    field="target_roles",
                 )
                 return
 
-            _missing = []
+            # (label, request field) per problem; the 400 names the FIRST
+            # field so the wizard can take the user to it.
+            _missing: list = []
             if not client_name_input:
-                _missing.append("Client name")
+                _missing.append(("Client name", "client_name"))
             if not requester_name_input:
-                _missing.append("Requester name")
+                _missing.append(("Requester name", "requester_name"))
             if not requester_email_input:
-                _missing.append("Requester email")
+                _missing.append(("Requester email", "requester_email"))
             if requester_email_input and not _EMAIL_RE.match(requester_email_input):
-                _missing.append("Valid email address")
+                _missing.append(("Valid email address", "requester_email"))
             # Strip any characters that passed regex but are suspicious
             # Must match _EMAIL_RE charset: a-zA-Z0-9._%+-@
             if requester_email_input:
@@ -17878,25 +17911,31 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     r"[^a-zA-Z0-9._%+@-]", "", requester_email_input
                 )
 
-            # Sanity checks: reject obviously bogus inputs
-            if client_name_input and not re.search(r"[a-zA-Z]{2,}", client_name_input):
-                _missing.append("Valid client name (must contain letters)")
-            if requester_name_input and not re.search(
-                r"[a-zA-Z]{2,}", requester_name_input
-            ):
-                _missing.append("Valid requester name (must contain letters)")
+            # Sanity checks: reject obviously bogus inputs. A name needs one
+            # letter or digit in ANY script (_has_name_character -- shared with
+            # /api/estimate): the old [a-zA-Z]{2,} rule rejected "3M", "H&M",
+            # "P&G", "O2", "X" and every CJK / Cyrillic / Arabic name.
+            _cn_code, _cn_message = _client_name_problem(client_name_input)
+            if _cn_code == "chars":
+                _missing.append((_cn_message, "client_name"))
+            if requester_name_input and not _has_name_character(requester_name_input):
+                _missing.append(
+                    ("Valid requester name (needs a letter or digit)", "requester_name")
+                )
 
             if not roles_input or (
                 isinstance(roles_input, list) and len(roles_input) == 0
             ):
-                _missing.append("At least one target role")
+                _missing.append(("At least one target role", "target_roles"))
 
             if _missing:
                 _gen_timer.cancel()
                 self._send_error(
-                    f"Required fields missing: {', '.join(_missing)}.",
+                    "Required fields missing: "
+                    f"{', '.join(label for label, _f in _missing)}.",
                     "VALIDATION_ERROR",
                     400,
+                    field=_missing[0][1],
                 )
                 return
 
@@ -17960,14 +17999,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     field="competitors",
                 )
                 return
-            if (
-                isinstance(client_name_input, str)
-                and len(client_name_input) > _limits["client_name_max_chars"]
-            ):
+            if _client_name_problem(client_name_input)[0] == "too_long":
                 _gen_timer.cancel()
                 self._send_error(
-                    f"Client name is too long ({len(client_name_input)} characters; "
-                    f"max {_limits['client_name_max_chars']}).",
+                    _client_name_problem(client_name_input)[1],
                     "VALIDATION_ERROR",
                     400,
                     field="client_name",
@@ -18043,18 +18078,22 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 for loc in _locs_input:
                     loc_lower = str(loc or "").lower().strip()
                     if loc_lower in _invalid_locations:
+                        _gen_timer.cancel()
                         self._send_error(
                             f'Location "{loc}" is not valid. Please enter a real city, state, or country.',
                             "VALIDATION_ERROR",
                             400,
+                            field="locations",
                         )
                         return
                     # Reject locations that are too short or have no letters
                     if len(loc_lower) < 2 or not any(c.isalpha() for c in loc_lower):
+                        _gen_timer.cancel()
                         self._send_error(
                             f'Location "{loc}" is invalid. Please use a real city, state, or country name.',
                             "VALIDATION_ERROR",
                             400,
+                            field="locations",
                         )
                         return
 
@@ -18068,17 +18107,21 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 if _hire_match:
                     _hire_num = int(_hire_match.group(1))
                     if _hire_num <= 0:
+                        _gen_timer.cancel()
                         self._send_error(
                             "Hire volume must be greater than 0.",
                             "VALIDATION_ERROR",
                             400,
+                            field="hire_volume",
                         )
                         return
                     if _hire_num > 100000:
+                        _gen_timer.cancel()
                         self._send_error(
                             "Hire volume exceeds maximum (100,000).",
                             "VALIDATION_ERROR",
                             400,
+                            field="hire_volume",
                         )
                         return
 
@@ -18104,6 +18147,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             f"Invalid campaign_start_month: {_csm_val}. Must be 1-12.",
                             "VALIDATION_ERROR",
                             400,
+                            field="campaign_start_month",
                         )
                         return
                 except (ValueError, TypeError):
