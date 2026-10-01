@@ -7,6 +7,9 @@ of the same wiring (sweeps, id validation, TTL on read, kill switch).
 
 from __future__ import annotations
 
+import hashlib
+import json
+import os
 import time
 import uuid
 from pathlib import Path
@@ -128,6 +131,74 @@ def test_kill_switch_restores_dict_only_behaviour(
     with app._shared_plans_lock:
         app._shared_plans.clear()
     assert app._shared_plan_get(share_id) is None
+
+
+def _legacy_snapshot(job: dict) -> dict:
+    """The exact whitelist origin/main's _mirror_job wrote (b2764e0..caa3c47)."""
+    snap = {
+        "status": job.get("status"),
+        "progress_pct": job.get("progress_pct"),
+        "status_message": job.get("status_message"),
+        "created": job.get("created"),
+        "error": job.get("error"),
+        "result_filename": job.get("result_filename"),
+        "result_content_type": job.get("result_content_type"),
+        "bundle_qa": job.get("bundle_qa"),
+    }
+    if job.get("_session_token"):
+        snap["_session_token_sha256"] = hashlib.sha256(
+            job["_session_token"].encode("utf-8")
+        ).hexdigest()
+    return snap
+
+
+def test_kill_switch_mirror_file_is_byte_identical_to_the_legacy_mirror(
+    slot_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """NOVA_SHARED_STATE=0 must still write prod's job mirror -- same path,
+    same bytes (json.dump default formatting), same whitelist -- and nothing
+    this change added (ack field, ZIP blob, shared_state dir)."""
+    monkeypatch.setenv("NOVA_SHARED_STATE", "0")
+    job_id = uuid.uuid4().hex
+    job = {
+        "status": "completed",
+        "progress_pct": 100,
+        "status_message": "Complete",
+        "created": time.time(),
+        "error": None,
+        "result_bytes": b"PK\x03\x04zip",
+        "result_filename": "Plan.zip",
+        "result_content_type": "application/zip",
+        "bundle_qa": {"qa_status": "critical", "critical_count": 1, "codes": ["x"]},
+        "_session_token": "tok",
+        "_qa_acknowledged_by": "someone@joveo.com",
+    }
+    with app._generation_jobs_lock:
+        app._generation_jobs[job_id] = job
+    try:
+        app._mirror_job(job_id)
+        written = (slot_dir / f"job_{job_id}.json").read_bytes()
+        assert written == json.dumps(_legacy_snapshot(job)).encode("utf-8")
+        assert not (slot_dir / "shared_state").exists()
+    finally:
+        with app._generation_jobs_lock:
+            app._generation_jobs.pop(job_id, None)
+
+
+def test_kill_switch_keeps_the_legacy_mirror_sweep(
+    slot_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NOVA_SHARED_STATE", "0")
+    stale = slot_dir / f"job_{uuid.uuid4().hex}.json"
+    fresh = slot_dir / f"job_{uuid.uuid4().hex}.json"
+    lock = slot_dir / "generate_slot_0.lock"
+    for f in (stale, fresh, lock):
+        f.write_text("{}")
+    old = time.time() - app._GENERATION_JOB_EXPIRY_SECONDS - 60
+    os.utime(stale, (old, old))
+    os.utime(lock, (old, old))
+    run_one_sweep(monkeypatch, loop=app._cleanup_generation_jobs)
+    assert not stale.exists() and fresh.exists() and lock.exists()
 
 
 def test_oversized_plan_result_stays_memory_only(slot_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:

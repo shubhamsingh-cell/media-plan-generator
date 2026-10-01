@@ -164,6 +164,53 @@ def cluster(log_dir: str) -> Iterator[tuple[Worker, Worker, Worker]]:
                 w.stop()
 
 
+@pytest.fixture(scope="module")
+def legacy_cluster(log_dir: str) -> Iterator[tuple[Worker, Worker, str]]:
+    """Two workers with the kill switch thrown (NOVA_SHARED_STATE=0)."""
+    with tempfile.TemporaryDirectory(prefix="nova_state_killswitch_") as state_dir:
+        workers = _start(
+            [(n, state_dir, {"NOVA_SHARED_STATE": "0"}) for n in ("K1", "K2")], log_dir
+        )
+        try:
+            yield workers[0], workers[1], state_dir
+        finally:
+            for w in workers:
+                w.stop()
+
+
+def test_kill_switch_restores_exact_pre_change_behaviour(legacy_cluster) -> None:
+    """NOVA_SHARED_STATE=0 must be a true rollback: prod today mirrors job
+    status to the slot dir, so cross-worker progress polls work -- that must
+    keep working -- while everything this change added is off again."""
+    a, b, state_dir = legacy_cluster
+    job_id = uuid.uuid4().hex
+    assert a.cmd(op="make_job", job_id=job_id, session=_SESSION, status="processing")["ok"]
+    status, _h, raw = b.http(
+        "GET",
+        f"/api/jobs/{job_id}",
+        headers={"Accept": "application/json", "Cookie": f"nova_session={_SESSION}"},
+    )
+    assert status == 200, raw
+    assert json.loads(raw)["progress_pct"] == 40
+    assert json.loads(raw)["source"] == "mirror"
+
+    done = _completed_job(a, _SESSION)
+    status, _h, raw = b.http("GET", f"/api/jobs/{done}", headers={"Accept": "application/json"})
+    assert status == 200 and json.loads(raw)["status"] == "completed", raw
+    # Pre-change behaviour, deliberately restored by the switch:
+    status, _h, _b = b.http("GET", f"/api/jobs/{done}")  # no shared ZIP layer
+    assert status == 404
+    status, _h, _b = b.http(
+        "POST", f"/api/jobs/{done}/qa-ack", {"acknowledged_by": "x@joveo.com"}, _post_headers()
+    )
+    assert status == 404  # dict-only qa-ack
+    status, payload = _share(a, {"summary": {"industry": "Retail"}}, "Switch Co")
+    assert status == 200, payload
+    status, _h, _b = b.http("GET", f"/plan/shared/{payload['share_id']}")
+    assert status == 404  # dict-only shares
+    assert not os.path.exists(os.path.join(state_dir, "shared_state"))
+
+
 def _share(worker: Worker, plan: dict, client: str) -> tuple[int, dict]:
     status, _h, raw = worker.http(
         "POST", "/api/plan/share", {"plan_data": plan, "client": client}, _post_headers()

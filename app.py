@@ -7347,6 +7347,61 @@ def _job_record_session_ok(record: dict, cookie_header: str) -> bool:
     return True
 
 
+# ── Kill switch (NOVA_SHARED_STATE=0): the pre-shared-state job mirror ──
+# Prod mirrored job status to <slot dir>/job_<id>.json before this change, so
+# cross-worker progress polls worked. The switch must restore exactly that --
+# not drop it -- so these three are origin/main's code (b2764e0..caa3c47),
+# used only while the shared layers are off.
+
+
+def _legacy_mirror_write(job_id: str, snapshot: dict) -> None:
+    slot_dir = _generate_slots._slot_dir
+    mirror_path = os.path.join(slot_dir, f"job_{job_id}.json")
+    # Include the pid in the tmp name so two workers racing to mirror the
+    # same job_id never clobber each other's in-flight write.
+    tmp_path = f"{mirror_path}.{os.getpid()}.tmp"
+    try:
+        os.makedirs(slot_dir, exist_ok=True)
+        with open(tmp_path, "w") as f:
+            json.dump(snapshot, f)
+        os.replace(tmp_path, mirror_path)
+    except OSError as e:
+        logger.warning(f"_mirror_job: failed to write mirror for job {job_id}: {e}")
+
+
+def _legacy_mirror_read(job_id: str) -> Optional[dict]:
+    try:
+        with open(os.path.join(_generate_slots._slot_dir, f"job_{job_id}.json")) as _mf:
+            data = json.load(_mf)
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _legacy_mirror_sweep(now: float) -> None:
+    try:
+        _mirror_dir = _generate_slots._slot_dir
+        for _mirror_fname in os.listdir(_mirror_dir):
+            if not (_mirror_fname.startswith("job_") and _mirror_fname.endswith(".json")):
+                continue
+            _mirror_fpath = os.path.join(_mirror_dir, _mirror_fname)
+            try:
+                if now - os.path.getmtime(_mirror_fpath) > _GENERATION_JOB_EXPIRY_SECONDS:
+                    os.unlink(_mirror_fpath)
+            except OSError:
+                pass
+    except OSError:
+        pass  # slot dir doesn't exist yet -- nothing to clean up
+
+
+def _job_record_load(job_id: str, *, allow_expired: bool = False) -> Optional[dict]:
+    """The job's status record: shared layers, or the legacy mirror when the
+    kill switch is thrown."""
+    if shared_state.layers_enabled():
+        return _job_record_store.get(job_id, allow_expired=allow_expired)
+    return _legacy_mirror_read(job_id)
+
+
 def _mirror_job(job_id: str) -> None:
     """Publish a generation job's JSON-safe status fields to the shared
     layers, so a GET /api/jobs/<id> poll or a qa-ack that lands on a gunicorn
@@ -7391,10 +7446,14 @@ def _mirror_job(job_id: str) -> None:
                 _raw_session_token.encode("utf-8")
             ).hexdigest()
         _acked_by = job.get("_qa_acknowledged_by") or ""
-        if _acked_by:
-            snapshot["_qa_acknowledged_by"] = _acked_by
         _terminal = snapshot["status"] in ("completed", "failed")
         _result_bytes = job.get("result_bytes") if snapshot["status"] == "completed" else None
+    if not shared_state.layers_enabled():
+        # Kill switch: exactly the mirror prod wrote before the shared layers.
+        _legacy_mirror_write(job_id, snapshot)
+        return
+    if _acked_by:
+        snapshot["_qa_acknowledged_by"] = _acked_by
     if _terminal and not _acked_by:
         # An override acknowledged on ANOTHER worker lives only in the shared
         # record; this worker's rewrite must not erase it.
@@ -7816,6 +7875,10 @@ def _cleanup_generation_jobs():
                     _generation_jobs.pop(jid, None)
             if expired:
                 logger.info("Cleaned up %d expired generation jobs", len(expired))
+            if not shared_state.layers_enabled():
+                # Kill switch: the pre-shared-state mirror sweep, unchanged.
+                _legacy_mirror_sweep(now)
+                continue
             # The dict entries just marked failed were also dropped above, so
             # every later poll (on any worker, this one included) reads the
             # shared record: publish the timeout there or it says
@@ -14607,7 +14670,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 # instance file layer (and, once terminal, to Supabase);
                 # check it before the S47 nova_generated_plans lookup below,
                 # which only has bytes once the job has fully completed.
-                _mirror_data = _job_record_store.get(job_id, allow_expired=True)
+                _mirror_data = _job_record_load(job_id, allow_expired=True)
                 if _mirror_data is not None:
                     # A completed job's id is a bearer token: the Slack
                     # notification hands the link to teammates who by
@@ -16830,9 +16893,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         _generation_jobs[_qa_ack_job_id][
                             "_qa_acknowledged_by"
                         ] = _qa_ack_by
-                # Publish the acknowledgement to every worker (and Supabase).
+                # Publish the acknowledgement to every worker (and Supabase);
+                # with the kill switch thrown, qa-ack is dict-only as before.
                 if _qa_ack_job is not None:
-                    _mirror_job(_qa_ack_job_id)
+                    if shared_state.layers_enabled():
+                        _mirror_job(_qa_ack_job_id)
                 else:
                     _job_record_store.put(
                         _qa_ack_job_id,
