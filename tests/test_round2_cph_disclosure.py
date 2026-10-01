@@ -166,7 +166,8 @@ class TestLocalAssumptionDisclosed:
             "against a goal of 500" in b17
         ), b17
         deck = " ".join(india.paras(2))
-        assert "at the midpoint cost the plan buys 434 hires against a goal of 500" in deck
+        # round 4 (F1): the slide states the range and the break-even
+        assert "500 hires — this plan projects 434–714" in deck, deck
 
 
 class TestOneCostBasis:

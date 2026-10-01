@@ -561,9 +561,11 @@ class TestEmDashCopyDefects:
 # ---------------------------------------------------------------------------
 class TestSlide2ResolutionCardGlyphConsistency:
     def test_goals_section_has_its_own_heading(self):
-        """The channel checklist (green check, 9pt) and the goals list
-        (blue dot, 8pt) must no longer share one unbroken list -- a
-        sub-heading now marks the transition."""
+        """The channel checklist (green check, 9pt) and the client's goals
+        must not share one unbroken list. 2026-10-01 (design-judge round 4,
+        F2): the goals are ONE labelled inline line ("Client goals: A · B")
+        instead of a heading plus bullets, so the card's autofit can never
+        trim it into a partial list."""
         data = _lean_gbp_plan(with_goals=True)
         pptx_bytes = ppt.generate_pptx(dict(data))
         texts = _all_slide_texts(pptx_bytes)
@@ -572,12 +574,13 @@ class TestSlide2ResolutionCardGlyphConsistency:
             None,
         )
         assert resolution_card is not None, texts
-        assert "Client Goals:" in resolution_card, resolution_card
-        # Heading must appear strictly between the last channel checkmark
-        # section and the first goal bullet.
-        goals_idx = resolution_card.index("Client Goals:")
+        assert "Client goals:" in resolution_card, resolution_card
+        # The label sits on the same line as the goals, after the checklist.
+        goals_idx = resolution_card.index("Client goals:")
         speed_idx = resolution_card.find("Speed to Hire")
         assert speed_idx != -1 and speed_idx > goals_idx, resolution_card
+        line = resolution_card[goals_idx:].split("\n")[0]
+        assert "Speed to Hire" in line, line
 
     def test_no_goals_no_heading_no_op(self):
         """When there are no campaign goals, no dangling heading is added
@@ -590,6 +593,7 @@ class TestSlide2ResolutionCardGlyphConsistency:
             None,
         )
         assert resolution_card is not None, texts
+        assert "Client goals:" not in resolution_card
         assert "Client Goals:" not in resolution_card
 
 
