@@ -850,6 +850,13 @@ def _try_non_us_country(raw_str: str, stripped: str, norm_whole: str) -> Locatio
             tail = _norm_key(parts[-1])
             if tail in _NON_US_PLACE_TOKENS or tail in _WORLD_COUNTRY_CODE_TOKENS:
                 return _non_us_unresolved(raw_str, stripped)
+            # A first-level region of a non-US market (Canadian province code
+            # or name, Australian/Indian state, UK nation) -- "Victoria, BC"
+            # was fuzzy-"corrected" to "Victoria Vera, TX", "Paris, ON" to
+            # "Pearson, GA", "St. John's, NL" to "St. Johnsville, NY". US
+            # state codes never reach here: the City, ST rule runs first.
+            if tail in _INTL_REGION_TOKENS:
+                return _non_us_unresolved(raw_str, stripped)
     return None
 
 

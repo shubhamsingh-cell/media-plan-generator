@@ -321,6 +321,35 @@ def symbol_for_code(code: str | None) -> str:
     return _CODE_TO_SYMBOL.get(code.strip().upper(), code.strip().upper() + " ")
 
 
+# Canadian provinces/territories as the trailing token of "City, PROV" --
+# every postal code but NL (also the Netherlands' ISO code, already EUR in
+# the country table; "St. John's, NL" cannot be told from "Amsterdam, NL"),
+# and every full name. PE / SK are ISO codes too (Peru, Slovakia) but no
+# market table here maps them, and the wizard already reads them as
+# provinces; "Lima, Peru" / "Bratislava, Slovakia" still resolve by name.
+_CA_PROVINCE_CODES = frozenset(
+    {"AB", "BC", "MB", "NB", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"}
+)
+_CA_PROVINCE_NAMES = frozenset(
+    {
+        "alberta",
+        "british columbia",
+        "manitoba",
+        "new brunswick",
+        "newfoundland",
+        "newfoundland and labrador",
+        "nova scotia",
+        "northwest territories",
+        "nunavut",
+        "ontario",
+        "prince edward island",
+        "quebec",
+        "québec",
+        "saskatchewan",
+        "yukon",
+    }
+)
+
 # US state / territory abbreviations. These collide with ISO country codes
 # (IL=Illinois vs Israel, CA=California vs Canada, IN=Indiana vs India,
 # DE=Delaware vs Germany, AL=Alabama vs Albania, ...). A trailing 2-letter US
@@ -401,6 +430,12 @@ def currency_for_country(country: str | None) -> str | None:
         # code (IL=Illinois not Israel, CA=California not Canada).
         if last.upper() in _US_STATE_ABBR:
             return "USD"
+        # "City, BC" / "City, Ontario": a Canadian province (code or name)
+        # is Canada -- "Victoria, BC" used to resolve to nothing (so the plan
+        # stayed USD/US-only). NL is left to the country table (see
+        # _CA_PROVINCE_CODES).
+        if last.upper() in _CA_PROVINCE_CODES or last in _CA_PROVINCE_NAMES:
+            return "CAD"
         if last in _COUNTRY_TO_CODE:
             return _COUNTRY_TO_CODE[last]
     # Substring fallback only for aliases >= 5 chars (avoid "ca"/"in" inside
