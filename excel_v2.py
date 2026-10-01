@@ -2881,6 +2881,19 @@ def _fmt_industry_cph(value: float, cph_info: Dict[str, Any]) -> str:
     return _fmt_currency(value)
 
 
+def _industry_cph_basis_phrase(cph_info: Dict[str, Any]) -> str:
+    """What the resolver's figure is, named exactly (design-judge items 2/3,
+    2026-10-01): a range MIDPOINT (or a source-stated median), of the plan's
+    own industry or the cross-industry default, local source or not."""
+    if cph_info.get("basis") == "local_kb":
+        names = ", ".join(cph_info.get("source_names") or []) or "local source"
+        word = "median" if cph_info.get("value_label") == "median" else "midpoint"
+        return f"cited local range {word} ({names})"
+    if cph_info.get("industry_matched", True):
+        return "industry-range midpoint"
+    return "cross-industry default midpoint"
+
+
 def _hires_range_line(
     total_proj: Any, cph_info: Dict[str, Any], header_hires: int
 ) -> str:
@@ -2898,17 +2911,7 @@ def _hires_range_line(
         and avg > 0
     ):
         return ""
-    # Name the basis exactly (design-judge items 2/3, 2026-10-01): the
-    # figure is a range MIDPOINT (or a source-stated median), the plan's own
-    # industry or the cross-industry default, local source or not.
-    if cph_info.get("basis") == "local_kb":
-        names = ", ".join(cph_info.get("source_names") or []) or "local source"
-        word = "median" if cph_info.get("value_label") == "median" else "midpoint"
-        which = f"cited local range {word} ({names})"
-    elif cph_info.get("industry_matched", True):
-        which = "industry-range midpoint"
-    else:
-        which = "cross-industry default midpoint"
+    which = _industry_cph_basis_phrase(cph_info)
     sentence = (
         f"Projected hires range: {lo:,}–{hi:,} ({lo:,} if every hire costs "
         f"the {which} of {_fmt_industry_cph(avg, cph_info)}; {hi:,} at this "
@@ -4430,12 +4433,19 @@ def _gather_narrative_grounding_context(
     sufficiency: dict,
     channel_allocs: dict,
     load_kb_fn=None,
+    cph_suppressed: bool = False,
 ) -> Dict[str, Any]:
     """Gather every REAL, plan-derived number the Executive Strategic
     Summary could legitimately cite, computed exactly once and shared by
     both `_build_narrative_facts_block` (what the LLM is told) and
     `_build_deterministic_executive_summary` (the no-LLM fallback) -- so
-    the two paths can never drift apart on what counts as "real"."""
+    the two paths can never drift apart on what counts as "real".
+
+    ``cph_suppressed`` (the market has no local cost-per-hire benchmark):
+    no per-hire cost and no budget-to-close-the-gap figure are citable --
+    both would be an FX-translated US figure (design-judge item 5)."""
+    if cph_suppressed:
+        header_cph = 0
     ctx: Dict[str, Any] = {
         "client_name": client_name,
         "industry_label": industry_label,
@@ -4482,7 +4492,11 @@ def _gather_narrative_grounding_context(
                 else _kb_industry_cph_benchmark(industry, load_kb_fn=load_kb_fn)
             )
         )
-        gap_result = display_format.goal_gap(header_hires, goal, cph_basis)
+        if cph_suppressed:
+            cph_basis = 0
+        gap_result = display_format.goal_gap(
+            header_hires, goal, cph_basis, budget=budget_num
+        )
         if gap_result and (100 - gap_result.get("pct_of_goal", 100)) > 10:
             ctx["gap_result"] = gap_result
 
@@ -5374,13 +5388,24 @@ def _build_sheet_executive_summary(
         # read, never a budget_engine constant -- when the plan projects zero
         # hires.
         _cph_basis = _header_cph if _header_cph and _header_cph > 0 else 0
+        _cph_basis_is_industry = False
         if _cph_basis <= 0:
             # the plan's ONE industry-average CPH first (audit 2026-10-01
             # §3.5), the KB's range only when the engine carried none.
-            _cph_basis = _plan_industry_cph_value(
-                budget_alloc
-            ) or _kb_industry_cph_benchmark(industry, load_kb_fn=load_kb_fn)
-        _gap_result = display_format.goal_gap(_header_hires, _goal, _cph_basis)
+            _cph_basis = _plan_industry_cph_value(budget_alloc)
+            _cph_basis_is_industry = _cph_basis > 0
+            if _cph_basis <= 0 and not _cph_suppressed:
+                _cph_basis = _kb_industry_cph_benchmark(
+                    industry, load_kb_fn=load_kb_fn
+                )
+        if _cph_suppressed:
+            # No local cost-per-hire benchmark: the plan's per-hire cost is
+            # bounded by an FX-translated US figure that is never printed,
+            # so no per-hire or top-up arithmetic (design-judge item 5).
+            _cph_basis = 0
+        _gap_result = display_format.goal_gap(
+            _header_hires, _goal, _cph_basis, budget=budget_num
+        )
         # Only call out a gap when it's material (>10% short of goal).
         if _gap_result and (100 - _gap_result["pct_of_goal"]) > 10:
             _gap = _gap_result["goal"] - _gap_result["projected"]
@@ -5391,7 +5416,31 @@ def _build_sheet_executive_summary(
                 f"against a stated goal of {_goal:,} "
                 f"({_pct_of_goal}% of goal). "
             )
-            if _extra_budget > 0:
+            if _header_hires < 1:
+                # design-judge item 5: never "add $X" for a plan that buys
+                # less than one hire -- state the indicative cost of one.
+                _gap_msg = (
+                    "Hiring-goal gap: at this budget the plan projects fewer "
+                    f"than 1 hire against a stated goal of {_goal:,}"
+                )
+                _one = _gap_result.get("cost_per_hire")
+                if _one:
+                    _gap_msg += f"; indicative budget for one hire ≈ {_fmt_currency(_one)}"
+                    if _cph_basis_is_industry:
+                        _gap_msg += f" (the {_industry_cph_basis_phrase(_cph_info)})"
+                _gap_msg += (
+                    ". Consider increasing budget, phasing the goal across "
+                    "multiple hiring cycles, or narrowing to the highest-ROI "
+                    "roles."
+                )
+            elif _cph_suppressed:
+                _gap_msg += (
+                    "This market has no local cost-per-hire benchmark, so the "
+                    "budget needed to close the gap is not estimated. Consider "
+                    "phasing the goal across multiple hiring cycles or "
+                    "narrowing to the highest-ROI roles within this budget."
+                )
+            elif _extra_budget > 0:
                 _gap_msg += (
                     f"Closing the ~{_gap:,}-hire gap at this plan's "
                     f"{_fmt_currency(_cph_basis)}/hire would need roughly "
@@ -5888,6 +5937,7 @@ def _build_sheet_executive_summary(
         sufficiency=sufficiency,
         channel_allocs=channel_allocs,
         load_kb_fn=load_kb_fn,
+        cph_suppressed=_cph_suppressed,
     )
     _facts_block = _build_narrative_facts_block(_narrative_ctx)
     _allowed_numbers = _build_narrative_allowed_numbers(_narrative_ctx, _facts_block)

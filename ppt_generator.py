@@ -4986,7 +4986,15 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     # this higher-priority honesty signal must not be added after lower-
     # priority context that's fine to lose first.
     _exec_hire_goal = _fmt.parse_hire_goal(data.get("hire_volume"))
-    _exec_goal_gap = _fmt.goal_gap(_ppt_hires_sum, _exec_hire_goal, _ppt_cph)
+    # No top-up figure when the market has no local cost-per-hire benchmark:
+    # the plan's per-hire cost there is bounded by an FX-translated US figure
+    # that is never printed (design-judge item 5, 2026-10-01).
+    _exec_goal_gap = _fmt.goal_gap(
+        _ppt_hires_sum,
+        _exec_hire_goal,
+        0.0 if _cph_claim_suppressed(data) else _ppt_cph,
+        budget=_parse_budget_number(budget) or None,
+    )
     if _exec_goal_gap:
         # A plan projecting zero hires has no cost-per-hire, so it has no
         # scaling path either -- state the gap and stop, rather than the

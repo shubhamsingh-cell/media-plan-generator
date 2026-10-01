@@ -1029,10 +1029,27 @@ def parse_hire_goal(hire_volume: Any) -> int:
         return 0
 
 
-def goal_gap(projected_hires: int, goal: int, cost_per_hire: float) -> dict | None:
+def goal_gap(
+    projected_hires: int,
+    goal: int,
+    cost_per_hire: float,
+    budget: float | None = None,
+) -> dict | None:
     """Honest gap statement between the client's stated hiring goal and the
     plan's projected hires. ``None`` when there is no goal to compare against
-    (``goal <= 0``) or the plan already meets/exceeds it."""
+    (``goal <= 0``) or the plan already meets/exceeds it.
+
+    ``additional_budget`` is what the goal costs at ``cost_per_hire`` minus
+    what is already committed: ``goal x cost_per_hire - budget`` when
+    ``budget`` is given (else ``(goal - projected) x cost_per_hire``, the
+    same figure when the cost per hire is the plan's own budget / hires).
+    It is ``None`` -- each surface then omits the figure -- when the cost
+    per hire is unknown, or when the plan projects fewer than one hire: a
+    top-up multiplied out from a cost the plan never achieves is arithmetic,
+    not a plan (a $3,000 plan was told to "add $3,350" for its one hire --
+    design-judge, 2026-10-01). ``cost_per_hire`` is echoed back (``None``
+    when unknown) so a surface can state the indicative budget for one
+    hire instead."""
     try:
         goal_i = int(goal)
     except (TypeError, ValueError):
@@ -1047,6 +1064,10 @@ def goal_gap(projected_hires: int, goal: int, cost_per_hire: float) -> dict | No
         cph = float(cost_per_hire)
     except (TypeError, ValueError):
         cph = 0.0
+    try:
+        budget_f = float(budget) if budget is not None else 0.0
+    except (TypeError, ValueError):
+        budget_f = 0.0
 
     pct_of_goal = (projected_i / goal_i) * 100 if goal_i else 0.0
     # cost_per_hire <= 0 means UNKNOWN (typically a plan projecting zero
@@ -1054,7 +1075,14 @@ def goal_gap(projected_hires: int, goal: int, cost_per_hire: float) -> dict | No
     # by 0 shipped "scaling path: ~$0 additional" on the deck -- an inverted
     # message on exactly the plans whose honesty matters most. Report None
     # and let each surface omit the figure.
-    additional_budget = (goal_i - projected_i) * cph if cph > 0 else None
+    additional_budget = None
+    if cph > 0 and projected_i >= 1:
+        if budget_f > 0:
+            additional_budget = goal_i * cph - budget_f
+            if additional_budget <= 0:
+                additional_budget = None
+        else:
+            additional_budget = (goal_i - projected_i) * cph
     return {
         "goal": goal_i,
         "projected": projected_i,
@@ -1062,4 +1090,5 @@ def goal_gap(projected_hires: int, goal: int, cost_per_hire: float) -> dict | No
         "additional_budget": (
             round(additional_budget, 2) if additional_budget is not None else None
         ),
+        "cost_per_hire": round(cph, 2) if cph > 0 else None,
     }
