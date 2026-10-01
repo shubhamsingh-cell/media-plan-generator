@@ -3076,6 +3076,22 @@ def _industry_cph_basis_phrase(cph_info: Dict[str, Any]) -> str:
     return "cross-industry default midpoint"
 
 
+def _break_even_phrase(budget_num: float, goal: int) -> str:
+    """display_format.goal_break_even_phrase with the workbook's compact
+    plan-currency money ("goal met if hires cost ≤ ₹50K each") -- the same
+    wording the deck prints (design-judge round 4, F1)."""
+    try:
+        import budget_engine as _be_money
+
+        ccy = _get_active_currency()
+        return display_format.goal_break_even_phrase(
+            budget_num, goal, lambda v: _be_money._cph_text(v, ccy, "compact")
+        )
+    except (ImportError, AttributeError) as exc:
+        logger.error("break-even phrase failed: %s", exc, exc_info=True)
+        return ""
+
+
 def _goal_conservative_sentence(
     header_hires: int,
     goal: int,
@@ -3099,9 +3115,8 @@ def _goal_conservative_sentence(
         f"a stated goal of {cons['goal']:,} at plan efficiency "
         f"({_fmt_currency(budget_num / header_hires)}/hire). At the midpoint "
         f"cost ({_fmt_industry_cph(mid, cph_info)}/hire) the plan buys "
-        f"{cons['hires_low']:,} hires against a goal of {cons['goal']:,}, so "
-        f"the goal holds only if hires cost at most "
-        f"{_fmt_currency(budget_num / cons['goal'])} each."
+        f"{cons['hires_low']:,} hires against a goal of {cons['goal']:,}; "
+        f"{_break_even_phrase(budget_num, cons['goal'])}."
     )
 
 
@@ -4939,9 +4954,10 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
             )
     cons = ctx.get("goal_conservative")
     if cons:
+        _be_facts = _break_even_phrase(ctx.get("budget_num") or 0, cons["goal"])
         lines.append(
             f"Hires At Industry-Midpoint Cost: {cons['hires_low']:,} (below the "
-            f"{cons['goal']:,} goal; the goal is met only at plan efficiency)"
+            f"{cons['goal']:,} goal; {_be_facts})"
         )
 
     # Every channel (not just the top 3) -- matches the Budget Allocation
@@ -5139,6 +5155,8 @@ def _curated_narrative_derivations(ctx: Dict[str, Any]) -> Dict[str, Tuple[str, 
     _cons = ctx.get("goal_conservative")
     if _cons:
         _add("hires_at_midpoint_cost", "int", _cons["hires_low"])
+        if budget > 0 and _cons["goal"] > 0:
+            _add("goal_break_even_cph", "money", budget / _cons["goal"])
     gap = ctx.get("gap_result")
     if gap:
         _add("gap_hires", "int", gap["goal"] - gap["projected"])
@@ -5330,11 +5348,12 @@ def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
         pct = round((header_hires / goal) * 100)
         _cons = ctx.get("goal_conservative")
         if header_hires >= goal and _cons:
+            _be_sum = _break_even_phrase(ctx.get("budget_num") or 0, goal)
             sentences.append(
-                f"The plan is projected to deliver {header_hires:,} hires, meeting "
-                f"the stated goal of {goal:,} only at plan efficiency; at the "
-                f"midpoint cost the plan buys {_cons['hires_low']:,} hires against "
-                f"a goal of {goal:,}."
+                f"The plan is projected to deliver {header_hires:,} hires against "
+                f"a stated goal of {goal:,}; at the midpoint cost it buys "
+                f"{_cons['hires_low']:,}"
+                + (f" — {_be_sum}." if _be_sum else ".")
             )
         elif header_hires >= goal:
             sentences.append(
@@ -6152,6 +6171,19 @@ def _build_sheet_executive_summary(
                         ):
                             row = _write_kv_row(
                                 ws, row, _cph_disp["label"], _cph_disp["text"]
+                            )
+                            _cph_row_written = True
+                            continue
+                        _shown_row = (
+                            _plan_industry_cph(budget_alloc).get("display_row") or {}
+                        ).get("text")
+                        if key == "cph" and _shown_row:
+                            # Round 4 (F5): the ONE industry row the deck's
+                            # slide 5 and the hires range use, not the KB's
+                            # whole cost-per-hire dict (three bases in one
+                            # cell: media-only, total, a sister sector).
+                            row = _write_kv_row(
+                                ws, row, "Industry Cost-per-Hire", _shown_row
                             )
                             _cph_row_written = True
                             continue

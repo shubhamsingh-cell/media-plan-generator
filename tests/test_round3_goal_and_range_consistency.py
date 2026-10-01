@@ -153,8 +153,10 @@ class TestGoalStatementSurvives:
         assert "cited metric one" not in kept  # trailing filler still goes
 
     def test_india_slide2_keeps_the_conservative_goal_line(self, india_full):
+        # round 4 (F1): one break-even phrasing on every surface
         assert any(
-            "at the midpoint cost the plan buys 434 hires against a goal of 500" in p
+            p.startswith("Client goal: 500 hires — this plan projects 434–714; "
+                         "goal met if hires cost ≤ ₹50K each")
             for p in india_full.paras(2)
         ), india_full.paras(2)
 
@@ -168,7 +170,12 @@ class TestGoalStatementSurvives:
             if p.startswith("CLIENT GOAL")
         ]
         assert band, "no CLIENT GOAL band on any slide"
-        assert "500 hires target  —  this plan projects 434–714; met only at ₹35K/hire" in band[0]
+        # round 4 (F1): the break-even is budget ÷ goal (₹25M ÷ 500 = ₹50K),
+        # not the plan's own ₹35K cost per hire
+        assert (
+            "500 hires target  —  this plan projects 434–714; "
+            "goal met if hires cost ≤ ₹50K each" in band[0]
+        ), band[0]
 
 
 def _sheet_hires(wb):
@@ -231,11 +238,20 @@ class TestKpiQualifier:
             if abs(sh.top / EMU - 5.35) < 0.01 and abs(sh.width / EMU - 12.2) < 0.01
             and sh.height / EMU > 1.0
         )
-        assert (bar.top + bar.height) - (sub.top + sub.height) >= int(0.12 * EMU)
+        # >= 0.12in (1 EMU of rounding slack)
+        assert (bar.top + bar.height) - (sub.top + sub.height) >= int(0.12 * EMU) - 1
 
 
 class TestMediaOnlyKbRowLabelled:
     def test_no_bare_marketing_only_figure(self, hershey):
+        # round 4 (F5): the row is now the ONE industry row the deck shows
+        # (no media-only or sister-sector figure in the cell at all)
         texts = hershey.texts("Executive Summary")
         assert not any("Recruitment Marketing Only" in t for t in texts)
-        assert any("Media Spend Only (Not All-In): $350-$700" in t for t in texts)
+        rows = [r for r in hershey.wb["Executive Summary"].iter_rows()]
+        cph = [
+            [c.value for c in r if c.value]
+            for r in rows
+            if any(c.value == "Industry Cost-per-Hire" for c in r)
+        ]
+        assert cph and cph[0][1] == "$3,000-$5,000 (food manufacturing)", cph
