@@ -28,6 +28,25 @@ _US_ONLY_MARKERS: tuple[str, ...] = (
     "Thanksgiving",
     "Memorial Day",
     "Spring break",
+    # US pay statistics in data/workforce_trends_intelligence.json, as the
+    # workbook flattens their KB keys ("Label: value"). None cites a
+    # US-only source the markers above recognise, so on a UK/India/Japan
+    # plan they printed as "US$101,500", "US$206,000", "US$16.67" ...
+    # (2026-10-01). US graduate salary survey (gen_z.salary_expectations):
+    "Expected Starting Salary",
+    "Actual Average Starting Salary",
+    "Expectation Gap",
+    "Financial Success Threshold",
+    "Middle Class Perception",
+    "Financial Health Requirement",
+    # US AI/ML engineer pay (growing_demand.ai_ml_engineers):
+    "Salary Average",
+    "Senior Level Median",
+    # US gig workforce earnings (gig_economy.us_workforce):
+    "High Earners",
+    "Average Hourly Pay",
+    "Average Freelancer Salary",
+    "Skilled Freelancer Earnings",
 )
 
 _US_ONLY_MARKER_RES: tuple[re.Pattern, ...] = tuple(

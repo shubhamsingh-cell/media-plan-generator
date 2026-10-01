@@ -8783,14 +8783,31 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             hiring_trends = {}
 
         trend_items = []
+        # BLS QCEW figures (employment, average weekly wage, establishments)
+        # are the US national private-sector row for the industry's NAICS
+        # sector (api_enrichment.fetch_industry_employment reads area_fips
+        # US000). They describe no market on a plan with no US location: a
+        # UK/India/Japan deck printed "Avg weekly wage: US$2,751" as its own
+        # industry trend (2026-10-01). Same gate the salary rows use.
+        _qcew_applies = _plan_geo.plan_has_us_market(data)
         emp_count = hiring_trends.get("employment_count")
-        if emp_count and isinstance(emp_count, (int, float)) and emp_count > 0:
+        if (
+            _qcew_applies
+            and emp_count
+            and isinstance(emp_count, (int, float))
+            and emp_count > 0
+        ):
             trend_items.append(f"Industry employment: {int(emp_count):,}")
         emp_growth = hiring_trends.get("employment_growth_rate")
         if emp_growth is not None:
             trend_items.append(f"Growth rate: {emp_growth}")
         avg_wage = hiring_trends.get("average_weekly_wage")
-        if avg_wage and isinstance(avg_wage, (int, float)) and avg_wage > 0:
+        if (
+            _qcew_applies
+            and avg_wage
+            and isinstance(avg_wage, (int, float))
+            and avg_wage > 0
+        ):
             # S3: sourced from BLS QCEW (US Bureau of Labor Statistics) --
             # a fixed US-benchmark constant. Mark the figure itself.
             _wage_str = f"Avg weekly wage: ${avg_wage:,.0f}"
@@ -8799,7 +8816,8 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             trend_items.append(_wage_str)
         establishments = hiring_trends.get("establishments")
         if (
-            establishments
+            _qcew_applies
+            and establishments
             and isinstance(establishments, (int, float))
             and establishments > 0
         ):
