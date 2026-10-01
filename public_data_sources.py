@@ -357,6 +357,7 @@ def tesseract_records(
 # -- place name matching ----------------------------------------------------
 
 _PARENS_RE = re.compile(r"\s*\([^)]*\)\s*$")
+_PARENS_INNER_RE = re.compile(r"\(([^)]*)\)\s*$")
 
 
 def _norm_name(text: str) -> str:
@@ -368,50 +369,110 @@ def _norm_name(text: str) -> str:
     return re.sub(r"\s+", " ", folded).strip()
 
 
-def match_place_member(
-    city: str, state_usps: str, members: Iterable[Dict[str, Any]]
-) -> Optional[Tuple[str, str]]:
-    """Pick the ACS place for "City, ST" from a name-search result.
+# What a Census LEGAL name may add to the everyday place name. Derived from the
+# ACS place-name conventions recorded in tests/fixtures/public_data_sources
+# ("Indianapolis city (balance)", "Louisville/Jefferson County metro government
+# (balance)", "Nashville-Davidson metropolitan government (balance)",
+# "Athens-Clarke County unified government (balance)", "Augusta-Richmond County
+# consolidated government (balance)", "Anchorage municipality", "<x> city and
+# borough") plus the plain legal forms of the place_type column of the Census
+# gazetteer. Anything else after the name ("Wayne HEIGHTS", "Wayne PARK",
+# "Waynesboro") is a DIFFERENT place.
+_LEGAL_NAME_SUFFIX_RE = re.compile(
+    r"^(?:"
+    r"city|town|village|borough|township|cdp|municipality|plantation|city and borough"
+    r"|(?:[a-z0-9]+ ){0,2}(?:county )?(?:metro|metropolitan|unified|consolidated) government"
+    r")$"
+)
 
-    Exact name match (after normalisation, ignoring the "(balance)" suffix) is
-    preferred. Census legal names often EXTEND the everyday name
-    ("Louisville/Jefferson County metro government (balance)"), so a UNIQUE
-    "<city> ..." prefix match is the second choice. Ambiguity returns None --
-    the caller then falls back to the (labelled) county, never to a guess.
+
+def is_legal_name_suffix(leftover: str) -> bool:
+    """True when ``leftover`` (normalised words after the everyday place name)
+    is only a legal-form suffix of that SAME place."""
+    return bool(_LEGAL_NAME_SUFFIX_RE.match(leftover or ""))
+
+
+def _county_qualifier(raw_base: str) -> str:
+    """Normalised county qualifier of a same-name ACS place, or "".
+
+    ACS disambiguates places that share a name inside one state by appending
+    their county: "Burbank (Santa Clara County), CA" next to plain "Burbank, CA".
+    "(balance)" is a legal-form note, not a county."""
+    match = _PARENS_INNER_RE.search(raw_base)
+    inner = _norm_name(match.group(1)) if match else ""
+    return "" if inner in ("", "balance") else inner
+
+
+def match_place_member(
+    city: str,
+    state_usps: str,
+    members: Iterable[Dict[str, Any]],
+    county_name: str = "",
+) -> Optional[Tuple[str, str]]:
+    """Pick the ACS place for "City, ST" from a name-search result -- or None.
+
+    Never returns a different place that merely shares the first letters of the
+    name ("Wayne, PA" must not become "Wayne Heights, PA", a place in another
+    county 180 km away):
+
+    * an EXACT name match (accents/punctuation folded, "(balance)" ignored) wins;
+    * otherwise ONE candidate "<city> ..." is accepted only when the extra text
+      is a legal-form suffix of the same place (``is_legal_name_suffix``);
+    * a candidate carrying a county qualifier ("Burbank (Santa Clara County)") is
+      accepted only when that county IS the target's (``county_name``); the
+      unqualified sibling is then the target's only when no qualifier names the
+      target's county;
+    * ambiguity returns None -- the caller falls back to the (labelled) county,
+      never to a guess.
     """
     suffix = f", {state_usps.upper()}"
     target = _norm_name(city)
+    county = _norm_name(county_name)
     if not target:
         return None
     exact: List[Tuple[str, str]] = []
     prefixed: List[Tuple[str, str]] = []
+    county_exact: List[Tuple[str, str]] = []  # explicitly the target's county
     for member in members:
         caption = str(member.get("caption") or "")
         key = str(member.get("key") or "")
         if not key or not caption.endswith(suffix):
             continue
-        base = _norm_name(_PARENS_RE.sub("", caption[: -len(suffix)]))
+        raw_base = caption[: -len(suffix)]
+        base = _norm_name(_PARENS_RE.sub("", raw_base))
+        qualifier = _county_qualifier(raw_base)
+        if qualifier and qualifier != county:
+            continue  # a same-name place in ANOTHER county (or unverifiable)
         if base == target:
-            exact.append((key, caption))
-        elif base.startswith(target + " "):
+            (county_exact if qualifier else exact).append((key, caption))
+        elif base.startswith(target + " ") and is_legal_name_suffix(
+            base[len(target) + 1 :]
+        ):
             prefixed.append((key, caption))
-    if len(exact) == 1:
+    if len(county_exact) == 1:
+        return county_exact[0]
+    if len(exact) == 1 and not county_exact:
         return exact[0]
-    if not exact and len(prefixed) == 1:
+    if not exact and not county_exact and len(prefixed) == 1:
         return prefixed[0]
     return None
 
 
 def resolve_place_id(
-    city: str, state_usps: str, timeout: float = CALL_TIMEOUT_S
+    city: str,
+    state_usps: str,
+    timeout: float = CALL_TIMEOUT_S,
+    county_name: str = "",
 ) -> Optional[Tuple[str, str]]:
     """(place_id, caption) for the city, or None when ACS has no such place."""
-    cache_key = f"place::{_norm_name(city)}::{state_usps.upper()}"
+    cache_key = (
+        f"place::{_norm_name(city)}::{state_usps.upper()}::{_norm_name(county_name)}"
+    )
     cached = _cache_get(cache_key, 30 * 24 * 3600.0)
     if cached is not None:
         return tuple(cached) if cached else None  # type: ignore[return-value]
     members = tesseract_members(CUBE_POPULATION, "Place", search=city, timeout=timeout)
-    match = match_place_member(city, state_usps, members)
+    match = match_place_member(city, state_usps, members, county_name)
     # Cache hits AND clean misses (an absent place stays absent for a vintage).
     _cache_put(cache_key, list(match) if match else [])
     return match
@@ -528,7 +589,10 @@ def fetch_us_demographics(
                 (
                     t.location,
                     lambda t=t: resolve_place_id(
-                        t.city, t.state_usps, timeout=_remaining(deadline)
+                        t.city,
+                        t.state_usps,
+                        timeout=_remaining(deadline),
+                        county_name=t.county_name,
                     ),
                 )
                 for t in city_targets

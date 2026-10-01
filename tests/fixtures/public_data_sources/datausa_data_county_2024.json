@@ -2,18 +2,18 @@
  "_recorded_at": "2026-10-01",
  "population": {
   "annotations": {
-   "dataset_link": "http://www.census.gov/programs-surveys/acs/",
-   "source_description": "The American Community Survey (ACS) is conducted by the US Census and sent to a portion of the population every year.",
-   "source_name": "Census Bureau",
-   "topic": "Diversity",
-   "subtopic": "Demographics",
    "dataset_name": "ACS 5-year Estimate",
+   "dataset_link": "http://www.census.gov/programs-surveys/acs/",
+   "subtopic": "Demographics",
+   "source_description": "The American Community Survey (ACS) is conducted by the US Census and sent to a portion of the population every year.",
+   "topic": "Diversity",
+   "source_name": "Census Bureau",
    "table_id": "B01003"
   },
   "page": {
    "limit": 0,
    "offset": 0,
-   "total": 1
+   "total": 2
   },
   "columns": [
    "County ID",
@@ -21,6 +21,11 @@
    "Population"
   ],
   "data": [
+   {
+    "County ID": "05000US42029",
+    "County": "Chester County, PA",
+    "Population": 547840.0
+   },
    {
     "County ID": "05000US42043",
     "County": "Dauphin County, PA",
@@ -30,18 +35,18 @@
  },
  "income": {
   "annotations": {
-   "dataset_link": "http://www.census.gov/programs-surveys/acs/",
-   "source_description": "The American Community Survey (ACS) is conducted by the US Census and sent to a portion of the population every year.",
    "source_name": "Census Bureau",
    "topic": "Housing & Living",
+   "source_description": "The American Community Survey (ACS) is conducted by the US Census and sent to a portion of the population every year.",
    "subtopic": "Income",
-   "dataset_name": "ACS 5-year Estimate",
-   "table_id": "B19013,B19013A,B19013B,B19013C,B19013D,B19013E,B19013F,B19013G,B19013H"
+   "table_id": "B19013,B19013A,B19013B,B19013C,B19013D,B19013E,B19013F,B19013G,B19013H",
+   "dataset_link": "http://www.census.gov/programs-surveys/acs/",
+   "dataset_name": "ACS 5-year Estimate"
   },
   "page": {
    "limit": 0,
    "offset": 0,
-   "total": 1
+   "total": 2
   },
   "columns": [
    "County ID",
@@ -49,6 +54,11 @@
    "Household Income by Race"
   ],
   "data": [
+   {
+    "County ID": "05000US42029",
+    "County": "Chester County, PA",
+    "Household Income by Race": 127208.0
+   },
    {
     "County ID": "05000US42043",
     "County": "Dauphin County, PA",

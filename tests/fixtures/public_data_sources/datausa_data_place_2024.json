@@ -6,22 +6,23 @@
   "Edgerton, KS": "16000US2019825",
   "Hazleton, PA": "16000US4233408",
   "Lancaster, PA": "16000US4241216",
-  "Wheeling, WV": "16000US5486452"
+  "Wheeling, WV": "16000US5486452",
+  "Wayne Heights, PA": "16000US4281808"
  },
  "population": {
   "annotations": {
    "source_name": "Census Bureau",
-   "source_description": "The American Community Survey (ACS) is conducted by the US Census and sent to a portion of the population every year.",
-   "table_id": "B01003",
-   "dataset_name": "ACS 5-year Estimate",
    "topic": "Diversity",
+   "source_description": "The American Community Survey (ACS) is conducted by the US Census and sent to a portion of the population every year.",
+   "subtopic": "Demographics",
+   "table_id": "B01003",
    "dataset_link": "http://www.census.gov/programs-surveys/acs/",
-   "subtopic": "Demographics"
+   "dataset_name": "ACS 5-year Estimate"
   },
   "page": {
    "limit": 0,
    "offset": 0,
-   "total": 5
+   "total": 6
   },
   "columns": [
    "Place ID",
@@ -50,6 +51,11 @@
     "Population": 57719.0
    },
    {
+    "Place ID": "16000US4281808",
+    "Place": "Wayne Heights, PA",
+    "Population": 3293.0
+   },
+   {
     "Place ID": "16000US5486452",
     "Place": "Wheeling, WV",
     "Population": 26350.0
@@ -69,7 +75,7 @@
   "page": {
    "limit": 0,
    "offset": 0,
-   "total": 5
+   "total": 6
   },
   "columns": [
    "Place ID",
@@ -96,6 +102,11 @@
     "Place ID": "16000US4241216",
     "Place": "Lancaster, PA",
     "Household Income by Race": 63690.0
+   },
+   {
+    "Place ID": "16000US4281808",
+    "Place": "Wayne Heights, PA",
+    "Household Income by Race": 83700.0
    },
    {
     "Place ID": "16000US5486452",

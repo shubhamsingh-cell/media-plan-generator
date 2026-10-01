@@ -225,6 +225,30 @@
     }
    ]
   },
+  "Wayne Heights": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US4281808",
+     "caption": "Wayne Heights, PA"
+    }
+   ]
+  },
   "Zzqxville": {
    "name": "Place",
    "caption": "Place",
@@ -243,6 +267,846 @@
     "Place": "str"
    },
    "members": []
+  },
+  "Wayne": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US1380984",
+     "caption": "Waynesboro, GA"
+    },
+    {
+     "key": "16000US1779397",
+     "caption": "Wayne, IL"
+    },
+    {
+     "key": "16000US1779436",
+     "caption": "Wayne City, IL"
+    },
+    {
+     "key": "16000US1779449",
+     "caption": "Waynesville, IL"
+    },
+    {
+     "key": "16000US1825000",
+     "caption": "Fort Wayne, IN"
+    },
+    {
+     "key": "16000US1882052",
+     "caption": "Waynetown, IN"
+    },
+    {
+     "key": "16000US2684940",
+     "caption": "Wayne, MI"
+    },
+    {
+     "key": "16000US2878360",
+     "caption": "Waynesboro, MS"
+    },
+    {
+     "key": "16000US2977992",
+     "caption": "Waynesville, MO"
+    },
+    {
+     "key": "16000US3151840",
+     "caption": "Wayne, NE"
+    },
+    {
+     "key": "16000US3771500",
+     "caption": "Waynesville, NC"
+    },
+    {
+     "key": "16000US3982334",
+     "caption": "Wayne, OH"
+    },
+    {
+     "key": "16000US3982348",
+     "caption": "Wayne Lakes, OH"
+    },
+    {
+     "key": "16000US3982376",
+     "caption": "Waynesburg, OH"
+    },
+    {
+     "key": "16000US3982390",
+     "caption": "Waynesfield, OH"
+    },
+    {
+     "key": "16000US3982418",
+     "caption": "Waynesville, OH"
+    },
+    {
+     "key": "16000US4079300",
+     "caption": "Wayne, OK"
+    },
+    {
+     "key": "16000US4281808",
+     "caption": "Wayne Heights, PA"
+    },
+    {
+     "key": "16000US4281824",
+     "caption": "Waynesboro, PA"
+    },
+    {
+     "key": "16000US4281832",
+     "caption": "Waynesburg, PA"
+    },
+    {
+     "key": "16000US4284176",
+     "caption": "West Waynesburg, PA"
+    },
+    {
+     "key": "16000US4778600",
+     "caption": "Waynesboro, TN"
+    },
+    {
+     "key": "16000US5183680",
+     "caption": "Waynesboro, VA"
+    },
+    {
+     "key": "16000US5484940",
+     "caption": "Wayne, WV"
+    },
+    {
+     "key": "16000US5575275",
+     "caption": "South Wayne, WI"
+    }
+   ]
+  },
+  "Columbia": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US0116744",
+     "caption": "Columbia, AL"
+    },
+    {
+     "key": "16000US0116768",
+     "caption": "Columbiana, AL"
+    },
+    {
+     "key": "16000US0614904",
+     "caption": "Columbia, CA"
+    },
+    {
+     "key": "16000US1715833",
+     "caption": "Columbia, IL"
+    },
+    {
+     "key": "16000US1814716",
+     "caption": "Columbia City, IN"
+    },
+    {
+     "key": "16000US2116750",
+     "caption": "Columbia, KY"
+    },
+    {
+     "key": "16000US2216830",
+     "caption": "Columbia, LA"
+    },
+    {
+     "key": "16000US2419125",
+     "caption": "Columbia, MD"
+    },
+    {
+     "key": "16000US2617460",
+     "caption": "Columbiaville, MI"
+    },
+    {
+     "key": "16000US2712700",
+     "caption": "Columbia Heights, MN"
+    },
+    {
+     "key": "16000US2815340",
+     "caption": "Columbia, MS"
+    },
+    {
+     "key": "16000US2915670",
+     "caption": "Columbia, MO"
+    },
+    {
+     "key": "16000US3016600",
+     "caption": "Columbia Falls, MT"
+    },
+    {
+     "key": "16000US3414590",
+     "caption": "Columbia, NJ"
+    },
+    {
+     "key": "16000US3713940",
+     "caption": "Columbia, NC"
+    },
+    {
+     "key": "16000US3917036",
+     "caption": "Columbiana, OH"
+    },
+    {
+     "key": "16000US4114750",
+     "caption": "Columbia City, OR"
+    },
+    {
+     "key": "16000US4215384",
+     "caption": "Columbia, PA"
+    },
+    {
+     "key": "16000US4238392",
+     "caption": "Jonestown (Columbia County), PA"
+    },
+    {
+     "key": "16000US4253432",
+     "caption": "New Columbia, PA"
+    },
+    {
+     "key": "16000US4516000",
+     "caption": "Columbia, SC"
+    },
+    {
+     "key": "16000US4575850",
+     "caption": "West Columbia, SC"
+    },
+    {
+     "key": "16000US4613420",
+     "caption": "Columbia, SD"
+    },
+    {
+     "key": "16000US4716540",
+     "caption": "Columbia, TN"
+    },
+    {
+     "key": "16000US4877416",
+     "caption": "West Columbia, TX"
+    },
+    {
+     "key": "16000US5118624",
+     "caption": "Columbia, VA"
+    }
+   ]
+  },
+  "Franklin": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US0128024",
+     "caption": "Franklin, AL"
+    },
+    {
+     "key": "16000US0425650",
+     "caption": "Franklin, AZ"
+    },
+    {
+     "key": "16000US0525030",
+     "caption": "Franklin, AR"
+    },
+    {
+     "key": "16000US0625488",
+     "caption": "Franklin, CA"
+    },
+    {
+     "key": "16000US0625506",
+     "caption": "Franklin (Sacramento County), CA"
+    },
+    {
+     "key": "16000US1224710",
+     "caption": "Franklin Park, FL"
+    },
+    {
+     "key": "16000US1331292",
+     "caption": "Franklin, GA"
+    },
+    {
+     "key": "16000US1331320",
+     "caption": "Franklin Springs, GA"
+    },
+    {
+     "key": "16000US1628810",
+     "caption": "Franklin, ID"
+    },
+    {
+     "key": "16000US1727663",
+     "caption": "Franklin, IL"
+    },
+    {
+     "key": "16000US1727689",
+     "caption": "Franklin Grove, IL"
+    },
+    {
+     "key": "16000US1727702",
+     "caption": "Franklin Park, IL"
+    },
+    {
+     "key": "16000US1825450",
+     "caption": "Franklin, IN"
+    },
+    {
+     "key": "16000US1928740",
+     "caption": "Franklin, IA"
+    },
+    {
+     "key": "16000US2024325",
+     "caption": "Franklin, KS"
+    },
+    {
+     "key": "16000US2128918",
+     "caption": "Franklin, KY"
+    },
+    {
+     "key": "16000US2227155",
+     "caption": "Franklin, LA"
+    },
+    {
+     "key": "16000US2227190",
+     "caption": "Franklinton, LA"
+    },
+    {
+     "key": "16000US2430100",
+     "caption": "Franklin, MD"
+    },
+    {
+     "key": "16000US2525172",
+     "caption": "Franklin Town, MA"
+    },
+    {
+     "key": "16000US2630340",
+     "caption": "Franklin, MI"
+    },
+    {
+     "key": "16000US2722364",
+     "caption": "Franklin, MN"
+    },
+    {
+     "key": "16000US2925624",
+     "caption": "Franklin, MO"
+    },
+    {
+     "key": "16000US2951824",
+     "caption": "New Franklin, MO"
+    },
+    {
+     "key": "16000US3117530",
+     "caption": "Franklin, NE"
+    },
+    {
+     "key": "16000US3327380",
+     "caption": "Franklin, NH"
+    },
+    {
+     "key": "16000US3419130",
+     "caption": "East Franklin, NJ"
+    },
+    {
+     "key": "16000US3424930",
+     "caption": "Franklin, NJ"
+    },
+    {
+     "key": "16000US3424965",
+     "caption": "Franklin Center, NJ"
+    },
+    {
+     "key": "16000US3424990",
+     "caption": "Franklin Lakes, NJ"
+    },
+    {
+     "key": "16000US3425020",
+     "caption": "Franklin Park, NJ"
+    },
+    {
+     "key": "16000US3627221",
+     "caption": "Franklin, NY"
+    },
+    {
+     "key": "16000US3627309",
+     "caption": "Franklin Square, NY"
+    },
+    {
+     "key": "16000US3627331",
+     "caption": "Franklinville, NY"
+    },
+    {
+     "key": "16000US3724640",
+     "caption": "Franklin, NC"
+    },
+    {
+     "key": "16000US3724720",
+     "caption": "Franklinton, NC"
+    },
+    {
+     "key": "16000US3724740",
+     "caption": "Franklinville, NC"
+    },
+    {
+     "key": "16000US3928476",
+     "caption": "Franklin, OH"
+    },
+    {
+     "key": "16000US3928532",
+     "caption": "Franklin Furnace, OH"
+    },
+    {
+     "key": "16000US3954562",
+     "caption": "New Franklin, OH"
+    },
+    {
+     "key": "16000US4227360",
+     "caption": "Franklin (Cambria County), PA"
+    },
+    {
+     "key": "16000US4227456",
+     "caption": "Franklin, PA"
+    },
+    {
+     "key": "16000US4227552",
+     "caption": "Franklin Park, PA"
+    },
+    {
+     "key": "16000US4227576",
+     "caption": "Franklintown, PA"
+    },
+    {
+     "key": "16000US4727740",
+     "caption": "Franklin, TN"
+    },
+    {
+     "key": "16000US4827288",
+     "caption": "Franklin, TX"
+    },
+    {
+     "key": "16000US5129600",
+     "caption": "Franklin, VA"
+    },
+    {
+     "key": "16000US5129628",
+     "caption": "Franklin Farm, VA"
+    },
+    {
+     "key": "16000US5429044",
+     "caption": "Franklin, WV"
+    },
+    {
+     "key": "16000US5527300",
+     "caption": "Franklin, WI"
+    }
+   ]
+  },
+  "Springfield": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US0873330",
+     "caption": "Springfield, CO"
+    },
+    {
+     "key": "16000US1268275",
+     "caption": "Springfield, FL"
+    },
+    {
+     "key": "16000US1372780",
+     "caption": "Springfield, GA"
+    },
+    {
+     "key": "16000US1772000",
+     "caption": "Springfield, IL"
+    },
+    {
+     "key": "16000US2172660",
+     "caption": "Springfield, KY"
+    },
+    {
+     "key": "16000US2272415",
+     "caption": "Springfield, LA"
+    },
+    {
+     "key": "16000US2567000",
+     "caption": "Springfield, MA"
+    },
+    {
+     "key": "16000US2577890",
+     "caption": "West Springfield Town, MA"
+    },
+    {
+     "key": "16000US2675700",
+     "caption": "Springfield, MI"
+    },
+    {
+     "key": "16000US2761816",
+     "caption": "Springfield, MN"
+    },
+    {
+     "key": "16000US2970000",
+     "caption": "Springfield, MO"
+    },
+    {
+     "key": "16000US3146520",
+     "caption": "Springfield, NE"
+    },
+    {
+     "key": "16000US3924066",
+     "caption": "East Springfield, OH"
+    },
+    {
+     "key": "16000US3974118",
+     "caption": "Springfield, OH"
+    },
+    {
+     "key": "16000US4169600",
+     "caption": "Springfield, OR"
+    },
+    {
+     "key": "16000US4568470",
+     "caption": "Springfield, SC"
+    },
+    {
+     "key": "16000US4660660",
+     "caption": "Springfield, SD"
+    },
+    {
+     "key": "16000US4770500",
+     "caption": "Springfield, TN"
+    },
+    {
+     "key": "16000US5051925",
+     "caption": "North Springfield, VT"
+    },
+    {
+     "key": "16000US5069475",
+     "caption": "Springfield, VT"
+    },
+    {
+     "key": "16000US5157560",
+     "caption": "North Springfield, VA"
+    },
+    {
+     "key": "16000US5174592",
+     "caption": "Springfield, VA"
+    },
+    {
+     "key": "16000US5184976",
+     "caption": "West Springfield, VA"
+    },
+    {
+     "key": "16000US5476084",
+     "caption": "Springfield, WV"
+    },
+    {
+     "key": "16000US5575975",
+     "caption": "Springfield, WI"
+    }
+   ]
+  },
+  "Louisville": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US0144344",
+     "caption": "Louisville, AL"
+    },
+    {
+     "key": "16000US0846355",
+     "caption": "Louisville, CO"
+    },
+    {
+     "key": "16000US1347560",
+     "caption": "Louisville, GA"
+    },
+    {
+     "key": "16000US1744927",
+     "caption": "Louisville, IL"
+    },
+    {
+     "key": "16000US2042925",
+     "caption": "Louisville, KS"
+    },
+    {
+     "key": "16000US2148006",
+     "caption": "Louisville/Jefferson County metro government (balance), KY"
+    },
+    {
+     "key": "16000US2842280",
+     "caption": "Louisville, MS"
+    },
+    {
+     "key": "16000US3129260",
+     "caption": "Louisville, NE"
+    },
+    {
+     "key": "16000US3945094",
+     "caption": "Louisville, OH"
+    },
+    {
+     "key": "16000US3969652",
+     "caption": "St. Louisville, OH"
+    },
+    {
+     "key": "16000US4743820",
+     "caption": "Louisville, TN"
+    }
+   ]
+  },
+  "Indianapolis": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US1836003",
+     "caption": "Indianapolis city (balance), IN"
+    }
+   ]
+  },
+  "Burbank": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US0608954",
+     "caption": "Burbank, CA"
+    },
+    {
+     "key": "16000US0608968",
+     "caption": "Burbank (Santa Clara County), CA"
+    },
+    {
+     "key": "16000US1709642",
+     "caption": "Burbank, IL"
+    },
+    {
+     "key": "16000US3910254",
+     "caption": "Burbank, OH"
+    },
+    {
+     "key": "16000US4009950",
+     "caption": "Burbank, OK"
+    },
+    {
+     "key": "16000US5308780",
+     "caption": "Burbank, WA"
+    }
+   ]
+  },
+  "Mountain View": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US0547540",
+     "caption": "Mountain View, AR"
+    },
+    {
+     "key": "16000US0649651",
+     "caption": "Mountain View (Contra Costa County), CA"
+    },
+    {
+     "key": "16000US0649670",
+     "caption": "Mountain View, CA"
+    },
+    {
+     "key": "16000US0649684",
+     "caption": "Mountain View Acres, CA"
+    },
+    {
+     "key": "16000US0852350",
+     "caption": "Mountain View, CO"
+    },
+    {
+     "key": "16000US1553300",
+     "caption": "Mountain View, HI"
+    },
+    {
+     "key": "16000US2950438",
+     "caption": "Mountain View, MO"
+    },
+    {
+     "key": "16000US3550515",
+     "caption": "Mountain View, NM"
+    },
+    {
+     "key": "16000US3744770",
+     "caption": "Mountain View, NC"
+    },
+    {
+     "key": "16000US4049650",
+     "caption": "Mountain View, OK"
+    },
+    {
+     "key": "16000US5655200",
+     "caption": "Mountain View (Natrona County), WY"
+    },
+    {
+     "key": "16000US5655345",
+     "caption": "Mountain View, WY"
+    }
+   ]
+  },
+  "Nashville": {
+   "name": "Place",
+   "caption": "Place",
+   "depth": 2,
+   "annotations": {},
+   "properties": [
+    {
+     "name": "Area",
+     "caption": "Area",
+     "type": "i64",
+     "annotations": {}
+    }
+   ],
+   "dtypes": {
+    "Place ID": "str",
+    "Place": "str"
+   },
+   "members": [
+    {
+     "key": "16000US0548560",
+     "caption": "Nashville, AR"
+    },
+    {
+     "key": "16000US1354264",
+     "caption": "Nashville, GA"
+    },
+    {
+     "key": "16000US1751700",
+     "caption": "Nashville, IL"
+    },
+    {
+     "key": "16000US1852038",
+     "caption": "Nashville, IN"
+    },
+    {
+     "key": "16000US2049400",
+     "caption": "Nashville, KS"
+    },
+    {
+     "key": "16000US2656680",
+     "caption": "Nashville, MI"
+    },
+    {
+     "key": "16000US3746000",
+     "caption": "Nashville, NC"
+    },
+    {
+     "key": "16000US3953634",
+     "caption": "Nashville, OH"
+    },
+    {
+     "key": "16000US4752006",
+     "caption": "Nashville-Davidson metropolitan government (balance), TN"
+    }
+   ]
   }
  }
 }

@@ -31,12 +31,24 @@ UA = "MediaPlanGenerator/1.0 (media-plan-generator.onrender.com)"
 TESS = "https://api.datausa.io/tesseract"
 
 # The real production locations from the 2026-09 telemetry (small US places).
+# Same-name / look-alike place searches recorded to pin the matcher's wrong-place
+# guards (Wayne PA must never resolve to Wayne Heights; Burbank / Mountain View /
+# Franklin carry county-qualified siblings; Louisville / Indianapolis are the
+# legal-name suffix conventions).
+NAME_CASES = [
+    "Wayne", "Lancaster", "Columbia", "Franklin", "Springfield", "Louisville",
+    "Indianapolis", "Burbank", "Mountain View", "Nashville",
+]
+
 PLACES = {
     "Hershey": "PA",
     "Edgerton": "KS",
     "Hazleton": "PA",
     "Lancaster": "PA",
     "Wheeling": "WV",
+    # The look-alike the matcher must NEVER pick for "Wayne, PA": its figures are
+    # recorded so a regression would publish them (3,293) instead of failing quietly.
+    "Wayne Heights": "PA",
 }
 
 
@@ -86,6 +98,8 @@ def record_datausa() -> None:
     for city, st in PLACES.items():
         members[city] = _tess("members", cube="acs_yg_total_population_5", level="Place", search=city)
     members["Zzqxville"] = _tess("members", cube="acs_yg_total_population_5", level="Place", search="Zzqxville")
+    for name in NAME_CASES:
+        members.setdefault(name, _tess("members", cube="acs_yg_total_population_5", level="Place", search=name))
     _write("datausa_members_place.json", {"by_search": members})
     _write("datausa_members_year.json", _tess("members", cube="acs_yg_total_population_5", level="Year"))
 
@@ -114,8 +128,8 @@ def record_datausa() -> None:
     _write(
         "datausa_data_county_2024.json",
         {
-            "population": data("acs_yg_total_population_5", "County", "Population", "05000US42043"),
-            "income": data("acs_ygr_median_household_income_race_5", "County", "Household Income by Race", "05000US42043", race=True),
+            "population": data("acs_yg_total_population_5", "County", "Population", "05000US42043,05000US42029"),
+            "income": data("acs_ygr_median_household_income_race_5", "County", "Household Income by Race", "05000US42043,05000US42029", race=True),
         },
     )
     st_ids = "04000US42,04000US20,04000US54"
