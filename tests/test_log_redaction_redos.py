@@ -40,8 +40,13 @@ from log_redaction import REDACTED, SecretRedactingFilter, redact_secrets
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-REGEX_BUDGET_S = 0.25  # one pattern, 1 MB adversarial line
-FILTER_BUDGET_S = 0.5  # whole redact_secrets / logging filter, 1 MB line
+# Budgets are deliberately loose in absolute terms: the defect this guards is
+# QUADRATIC time (the old userinfo regex took 7.3 s at 80 KB, i.e. roughly
+# 1,100 s at 1 MB), so 3 s still separates linear from quadratic by two orders
+# of magnitude while surviving a heavily loaded CI box or dev machine (a 250 ms
+# budget failed at 261-377 ms for correct, linear patterns under load).
+REGEX_BUDGET_S = 3.0  # one pattern, 1 MB adversarial line
+FILTER_BUDGET_S = 3.0  # whole redact_secrets / logging filter, 1 MB line
 SUBPROCESS_TIMEOUT_S = 60
 
 _HARNESS_BODY = r"""
