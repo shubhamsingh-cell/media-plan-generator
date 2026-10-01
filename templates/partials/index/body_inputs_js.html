@@ -52,6 +52,9 @@
   function _novaNumberParts(token, hasMult) {
     var seps = token.match(_novaRx("sep", true)) || [];
     var groups = token.split(_novaRx("sep", false));
+    // Zero-led integer part: only exactly "0" is meaningful ("0,750M");
+    // "01,500k" / "0050" are errors, never a guessed magnitude.
+    if (groups[0].length > 1 && groups[0].charAt(0) === "0") return null;
     if (!seps.length) return [token, ""];
     var last = seps[seps.length - 1];
     if (seps.length === 1) {

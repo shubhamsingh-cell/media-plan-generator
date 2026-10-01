@@ -380,6 +380,11 @@ def _number_parts(token: str, has_mult: bool) -> Optional[tuple[str, str]]:
     """
     seps = _RX["sep"].findall(token)
     groups = _RX["sep"].split(token)
+    # A zero-led integer part is only meaningful as exactly "0" ("0,750M" =
+    # 0.750M); "01,500k", "010,000k", "07,620 lacs", "0050" are typos whose
+    # magnitude cannot be known -- an explicit error, never a guess.
+    if len(groups[0]) > 1 and groups[0][:1] == "0":
+        return None
     if not seps:
         return token, ""
     last = seps[-1]
