@@ -610,6 +610,22 @@
   // ============================================
   // Plan Summary Dashboard Builder
   // ============================================
+  // The budget a generated plan was built for, as text: the server's
+  // resolved campaign total in the plan currency (returned with the job id;
+  // $10,000/month x "6-12 months" -> "$90,000"), else the same reading
+  // computed locally by the server's rules -- never the raw typed text,
+  // which is exactly the preview-vs-output gap the Hershey client hit.
+  function novaPlanBudgetLabel(p) {
+    p = p || {};
+    if (p._plan_budget && p._plan_budget.display) return p._plan_budget.display;
+    var raw = p.budget_range || "";
+    if (raw && typeof novaResolvePlanBudget === "function") {
+      var plan = novaResolvePlanBudget(raw, p.budget_period, p.campaign_duration);
+      if (plan.ok) return novaFormatMoney(plan.total, novaPlanCurrency() || { symbol: "$" });
+    }
+    return raw || "Not specified";
+  }
+
   function buildPlanDashboard(payload, serverData) {
     const container = document.getElementById("planDashboardContent");
     if (!container) return;
@@ -623,7 +639,7 @@
     // Fallback values from payload when server data is unavailable
     const budgetDisplay = bs.total
       ? "$" + Number(bs.total).toLocaleString()
-      : payload.budget_range || "Not specified";
+      : novaPlanBudgetLabel(payload);
     const rolesCount = (meta.roles || payload.target_roles || []).length;
     const locationsCount = (meta.locations || payload.locations || []).length;
     const channelCount =
@@ -1817,7 +1833,7 @@
         parts.push("Roles: " + p.target_roles.join(", "));
       if (p.locations && p.locations.length)
         parts.push("Locations: " + p.locations.join(", "));
-      if (p.budget_range) parts.push("Budget: " + p.budget_range);
+      if (p.budget_range) parts.push("Budget: " + novaPlanBudgetLabel(p));
       if (p.hire_volume) parts.push("Hire volume: " + p.hire_volume);
       if (p.campaign_duration) parts.push("Duration: " + p.campaign_duration);
       var regionInfo = getSelectedRegion();
@@ -5323,6 +5339,9 @@
         throw serverErr;
       }
       const initData = await initResponse.json();
+      // The budget the server is generating for (resolved total, plan
+      // currency) -- every results-screen echo reads this, not the typed text.
+      payload._plan_budget = initData.budget || null;
       const jobId = initData.job_id;
       if (!jobId) throw new Error("Server did not return a job_id");
       genCurrentJobId = jobId;
@@ -5500,7 +5519,7 @@
                 " - " +
                 new Date().toLocaleDateString(),
               client: payload.client_name || "",
-              budget: payload.budget_range || "",
+              budget: novaPlanBudgetLabel(payload),
               industry: payload.industry || "",
               roles: payload.target_roles || [],
               locations: payload.locations || [],
@@ -5553,7 +5572,7 @@
               " - " +
               (payload.target_roles || []).join(", "),
             industry: payload.industry_label || payload.industry || "",
-            budget: payload.budget_range || "",
+            budget: novaPlanBudgetLabel(payload),
             locations: (payload.locations || []).join(", "),
             timestamp: new Date().toISOString(),
             url: "/media-plan",

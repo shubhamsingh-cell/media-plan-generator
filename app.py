@@ -4378,9 +4378,12 @@ def _resolve_request_budget(data: dict) -> "wizard_inputs.PlanBudget":
     port, the wizard preview): parse the budget text, scale it by
     budget_period over the campaign's months, check the bounds."""
     raw, _key = _request_budget_raw(data)
+    # After _normalize_request_budget the stored budget IS the campaign total;
+    # re-reading it must never scale it by the period a second time.
+    period = "campaign" if data.get("_budget_normalized") else data.get("budget_period")
     return wizard_inputs.resolve_plan_budget(
         raw,
-        data.get("budget_period"),
+        period,
         data.get("campaign_duration"),
         display_format.resolve_campaign_weeks if display_format is not None else None,
     )
@@ -4417,9 +4420,11 @@ def _normalize_request_budget(data: dict, log: bool = True) -> "wizard_inputs.Pl
     preview showed, never a re-parse of the raw text ("1.5 million" used to
     plan $1.50). The raw text is kept in ``_budget_input_raw``. A request
     whose budget does not resolve is left untouched (callers reject it
-    first). Returns the resolution."""
+    first). Idempotent: a second call never rescales. Also records the
+    plan currency reading (``_budget_resolution["plan_currency"]``).
+    Returns the resolution."""
     plan = _resolve_request_budget(data)
-    if not plan.ok:
+    if not plan.ok or data.get("_budget_normalized"):
         return plan
     raw, _key = _request_budget_raw(data)
     raw_text = str(raw).strip()
@@ -4430,6 +4435,8 @@ def _normalize_request_budget(data: dict, log: bool = True) -> "wizard_inputs.Pl
     data["_budget_resolution"] = plan.as_dict()
     data["budget"] = canonical
     data["budget_range"] = canonical
+    data["_budget_normalized"] = True
+    data["_budget_resolution"]["plan_currency"] = _plan_currency_reading(data, plan)
     if scaled:
         data["_budget_period_original"] = plan.period
         data["_budget_multiplier"] = plan.multiplier
@@ -4510,6 +4517,38 @@ def _plan_currency_reading(data: dict, plan: "wizard_inputs.PlanBudget") -> dict
         "suffix": suffix,
         "typed": typed,
         "note": note,
+    }
+
+
+def _plan_budget_summary(data: dict) -> dict:
+    """The budget the plan was generated for, for the wizard's results
+    screen (returned with the async job id): the RESOLVED campaign total in
+    the plan's currency -- never the typed text ($10,000/month x "6-12
+    months" is $90,000, not "$10,000"). {} when the request carried none."""
+    res = data.get("_budget_resolution") or {}
+    if not res.get("ok"):
+        return {}
+    cur = res.get("plan_currency") or {}
+    code = cur.get("code") or "USD"
+    total = res.get("total") or 0
+    display = ""
+    if plan_currency is not None:
+        try:
+            display = plan_currency.format_money(total, code)
+        except (TypeError, ValueError):
+            display = ""
+    return {
+        "total": total,
+        "display": display or f"{total:,.0f}",
+        "currency": code,
+        "amount": res.get("amount"),
+        "period": res.get("period"),
+        "months": res.get("months"),
+        "multiplier": res.get("multiplier"),
+        "is_range": res.get("is_range"),
+        "low": res.get("low"),
+        "high": res.get("high"),
+        "note": cur.get("note") or "",
     }
 
 
@@ -19734,6 +19773,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "job_id": job_id,
                         "status": "processing",
                         "poll_url": f"/api/jobs/{job_id}",
+                        # The budget this plan is generated for (resolved
+                        # campaign total, plan currency) -- the results
+                        # screen echoes THIS, never the typed text.
+                        "budget": _plan_budget_summary(data),
                     }
                 )
                 # ── PostHog: Track async media plan generation ──
