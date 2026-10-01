@@ -106,30 +106,77 @@ def is_client_reference(name: Any, client_name: Any) -> bool:
 
 def find_asserted_claims(text: Any, client_name: Any = "") -> List[Dict[str, Any]]:
     """Every asserted-behaviour claim in ``text`` whose named subject is NOT
-    the client. Each hit: ``{"name", "label", "start", "end"}``."""
+    the client. Each hit: ``{"name", "label", "start", "end"}``.
+
+    A match whose name is the client does not end the scan of that span:
+    the search resumes just past the client's name, so "Hershey and Mars are
+    drawing from the same..." still reports Mars (verifier, 2026-10-01 --
+    finditer resumed AFTER the whole match and never saw Mars)."""
     if not isinstance(text, str) or not text.strip():
         return []
     hits: List[Dict[str, Any]] = []
     for pattern, label in ASSERTED_BEHAVIOR_VERB_RES:
-        for m in pattern.finditer(text):
+        pos = 0
+        while pos < len(text):
+            m = pattern.search(text, pos)
+            if not m:
+                break
             name = (m.group(1) or "").strip().rstrip(",")
-            if not name or is_client_reference(name, client_name):
-                continue
-            hits.append({"name": name, "label": label, "start": m.start(), "end": m.end()})
+            if name and not is_client_reference(name, client_name):
+                hits.append(
+                    {"name": name, "label": label, "start": m.start(), "end": m.end()}
+                )
+                pos = m.end()
+            else:
+                # step past the client's first word only, then keep looking
+                first = re.match(r"\S+", text[m.start(1):])
+                pos = m.start(1) + (len(first.group(0)) if first else 1)
     hits.sort(key=lambda h: h["start"])
     return hits
 
 
+# Words that, right after a single-word name, mark it as a common noun or a
+# metric label rather than the company ("Target CPA", "Gap analysis").
+_NAME_FOLLOWER_NON_COMPANY = frozenset(
+    {
+        "cpa", "cph", "cpc", "cpm", "cost", "costs", "rate", "rates", "budget",
+        "hires", "hire", "audience", "audiences", "market", "markets", "roles",
+        "role", "analysis", "date", "dates", "goal", "goals", "range", "list",
+    }
+)
+
+
 def _mentions(sentence: str, names: Iterable[str]) -> Optional[str]:
-    low = sentence.lower()
+    """The first client-typed competitor name used AS A PROPER NOUN in
+    ``sentence``: case-sensitive (the typed casing or ALL-CAPS) on word
+    boundaries, so the common words "target", "gap", "apple", "delta",
+    "visa", "shell" never match (verifier, 2026-10-01: "The hiring target of
+    238..." was deleted for a plan that typed Target). A single-word name
+    also does not count at the start of a sentence (capitalised there
+    anyway) or directly before a metric word ("Target CPA sits at $7.50")."""
     for n in names:
         if not isinstance(n, str):
             continue
         n_clean = n.strip()
-        if len(n_clean) < 3:
+        if len(n_clean) < 2:
             continue
-        if re.search(rf"(?<![A-Za-z]){re.escape(n_clean.lower())}(?![A-Za-z])", low):
-            return n_clean
+        single = len(n_clean.split()) == 1
+        forms = {n_clean, n_clean.upper()}
+        for form in forms:
+            for m in re.finditer(
+                rf"(?<![A-Za-z0-9]){re.escape(form)}(?![A-Za-z0-9])", sentence
+            ):
+                if single:
+                    before = sentence[: m.start()]
+                    if not re.search(r"[A-Za-z0-9]", re.sub(r"^\W*\w+:\s*", "", before)):
+                        continue  # sentence-initial (after an optional "Label:")
+                    nxt = re.match(r"\s+([A-Za-z]+)", sentence[m.end() :])
+                    if nxt and (
+                        nxt.group(1).lower() in _NAME_FOLLOWER_NON_COMPANY
+                        or (nxt.group(1).isupper() and len(nxt.group(1)) <= 4)
+                    ):
+                        continue
+                return n_clean
     return None
 
 

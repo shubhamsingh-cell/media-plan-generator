@@ -23,6 +23,8 @@ import sys
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -163,3 +165,65 @@ def test_evidence_backed_competitor_still_renders_its_sourced_description():
     lines = _slide7_why_lines([sourced, "Campbell's"])
     assert any("Confectionery manufacturer with plants" in ln for ln in lines), lines
     assert any(competitor_claims.NO_EVIDENCE_LINE in ln for ln in lines), lines
+
+
+# ---------------------------------------------------------------------------
+# Verifier follow-ups (2026-10-01)
+# ---------------------------------------------------------------------------
+def test_a_client_name_first_does_not_hide_the_competitor_after_it():
+    """'Hershey and Mars are drawing from the same...' -- the leftmost name
+    is the client, the claim is still about Mars (base flagged it; the first
+    client-exclusion version reported it clean)."""
+    text = "Hershey and Mars are drawing from the same maintenance talent pool."
+    hits = competitor_claims.find_asserted_claims(text, "The Hershey Company")
+    assert [h["name"] for h in hits] == ["Mars"]
+    clean, removed = competitor_claims.strip_claim_sentences(text, "The Hershey Company")
+    assert removed and clean == ""
+
+
+COMMON_WORD_SENTENCES = [
+    ("Target", "The hiring target is ambitious for this market."),
+    ("Target", "Target CPA sits below the benchmark across channels."),
+    ("Gap", "Closing the gap requires a faster offer cycle."),
+    ("Gap", "Gap analysis shows the weekend shift is understaffed."),
+    ("Apple", "An apple-a-day wellness perk is part of the benefits pitch."),
+    ("Delta", "Delta in applications versus last quarter is small."),
+    ("Visa", "Applicants needing a visa get a sponsorship contact."),
+    ("Shell", "The shell of the career site needs mobile fixes."),
+]
+
+
+@pytest.mark.parametrize("typed,sentence", COMMON_WORD_SENTENCES)
+def test_common_words_are_never_treated_as_competitor_mentions(typed, sentence):
+    clean, removed = competitor_claims.strip_claim_sentences(sentence, "Acme Health", [typed])
+    assert removed == [] and clean == sentence
+
+
+@pytest.mark.parametrize("typed", ["Target", "Gap", "Apple", "Delta", "Visa", "Shell"])
+def test_the_typed_company_as_a_proper_noun_is_still_removed(typed):
+    sentence = f"Candidates also weigh offers from {typed} and other large employers."
+    _clean, removed = competitor_claims.strip_claim_sentences(sentence, "Acme Health", [typed])
+    assert removed == [sentence]
+    upper = f"Candidates also weigh offers from {typed.upper()} stores nearby."
+    assert competitor_claims.strip_claim_sentences(upper, "Acme Health", [typed])[1] == [upper]
+
+
+def test_narrative_keeps_common_word_sentences_for_a_plan_that_typed_target():
+    narrative = (
+        "The hiring target is ambitious for this market. "
+        "Target CPA sits below the benchmark across channels. "
+        "Programmatic (DSP) is the core engine of the mix. "
+        "Candidates also weigh offers from Target and other large employers."
+    )
+
+    def _fake_call_llm(**kwargs):
+        return {"text": narrative, "provider": "deepseek", "model": "m", "attempts": []}
+
+    data = _narrative_data(
+        competitors=["Target", "Gap"], client_name="Acme Health", company_name="Acme Health"
+    )
+    with mock.patch("llm_router.call_llm", side_effect=_fake_call_llm):
+        text = _exec_summary_text(excel_v2.generate_excel_v2(data))
+    assert "The hiring target is ambitious for this market." in text
+    assert "Target CPA sits below the benchmark across channels." in text
+    assert "weigh offers from Target" not in text
