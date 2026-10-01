@@ -111,8 +111,6 @@ def _handle_campaign_list(handler: Any, path: str, parsed: Any) -> None:
 def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
     """GET /plan/shared/<id> -- read-only dashboard view with OG tags and feedback."""
     _app = sys.modules.get("app") or sys.modules.get("__main__")
-    _plan_feedback = getattr(_app, "_plan_feedback", {})
-    _plan_feedback_lock = getattr(_app, "_plan_feedback_lock", None)
 
     share_id = path.split("/plan/shared/")[-1].rstrip("/")
     if not share_id:
@@ -206,12 +204,9 @@ def _handle_shared_plan_view(handler: Any, path: str, parsed: Any) -> None:
             bar_w = _bar_width(ch_alloc)
             ch_bar_html += f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;"><span style="width:120px;font-size:12px;text-align:right;color:rgba(255,255,255,0.7);flex-shrink:0;">{ch_name}</span><div style="flex:1;height:20px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden;"><div style="height:100%;width:{bar_w}%;background:{bar_color};border-radius:4px;min-width:2px;"></div></div><span style="width:80px;font-size:11px;color:rgba(255,255,255,0.5);">{alloc_fmt}</span></div>'
 
-    # Existing feedback
-    if _plan_feedback_lock:
-        with _plan_feedback_lock:
-            feedbacks = _plan_feedback.get(share_id, [])
-    else:
-        feedbacks = _plan_feedback.get(share_id, [])
+    # Existing feedback: the shared record, so a comment posted on any worker
+    # shows on every worker (the page reloads after a post onto any worker).
+    feedbacks = _app._plan_feedback_list(share_id)
 
     feedback_html = ""
     for fb in feedbacks:
@@ -561,16 +556,16 @@ def _handle_plan_share(handler: Any, path: str, parsed: Any) -> None:
 def _handle_plan_feedback(handler: Any, path: str, parsed: Any) -> None:
     """POST /api/plan/feedback -- submit feedback on a shared plan."""
     _app = sys.modules.get("app") or sys.modules.get("__main__")
-    _plan_feedback = getattr(_app, "_plan_feedback", {})
-    _plan_feedback_lock = getattr(_app, "_plan_feedback_lock", None)
 
     try:
         content_len = int(handler.headers.get("Content-Length") or 0)
         body = handler.rfile.read(content_len) if content_len > 0 else b"{}"
         data = json.loads(body)
+        if not isinstance(data, dict):
+            data = {}
         share_id = data.get("share_id") or ""
-        name = data.get("name") or "Anonymous"
-        comment = data.get("comment") or ""
+        name = str(data.get("name") or "Anonymous")
+        comment = str(data.get("comment") or "")
 
         # Any worker's live share counts, not just this worker's dict.
         if not share_id or not _app._shared_plan_get(share_id):
@@ -580,26 +575,9 @@ def _handle_plan_feedback(handler: Any, path: str, parsed: Any) -> None:
             handler._send_json({"error": "Comment is required"}, status_code=400)
             return
 
-        feedback_entry = {
-            "name": name[:100],
-            "comment": comment[:2000],
-            "created_at": time.time(),
-        }
-        _plan_feedback_ts = getattr(_app, "_plan_feedback_ts", {})
-        if _plan_feedback_lock:
-            with _plan_feedback_lock:
-                if share_id not in _plan_feedback:
-                    _plan_feedback[share_id] = []
-                _plan_feedback[share_id].append(feedback_entry)
-                _plan_feedback_ts[share_id] = time.time()
-                count = len(_plan_feedback[share_id])
-        else:
-            if share_id not in _plan_feedback:
-                _plan_feedback[share_id] = []
-            _plan_feedback[share_id].append(feedback_entry)
-            _plan_feedback_ts[share_id] = time.time()
-            count = len(_plan_feedback[share_id])
-
+        # Shared layer (every worker renders it) + this worker's dict; bounded
+        # per share and per comment. The count is the shared count.
+        count = _app._plan_feedback_add(share_id, name, comment)
         handler._send_json({"ok": True, "feedback_count": count})
     except json.JSONDecodeError:
         handler._send_json({"error": "Invalid JSON"}, status_code=400)

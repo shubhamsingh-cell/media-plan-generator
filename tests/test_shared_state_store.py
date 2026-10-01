@@ -188,6 +188,29 @@ def test_concurrent_writers_never_corrupt_and_caps_hold(base: str, no_durable: N
         assert rec["pad"] == "x" * 300
 
 
+def test_concurrent_updates_from_many_processes_lose_nothing(
+    base: str, no_durable: None
+) -> None:
+    """update() is a locked read-modify-write: 4 processes x 25 appends to ONE
+    record (share feedback's shape) must leave exactly 100 items."""
+    key = _key()
+    appender = f"""
+    for i in range(25):
+        store.update({key!r}, lambda cur: {{
+            "created": time.time(),
+            "items": ((cur or {{}}).get("items") or []) + [[os.getpid(), i]],
+        }})
+    print(json.dumps(True))
+    """
+    procs = [_child(base, appender, max_bytes=64 * 1024, wait=False) for _ in range(4)]
+    for p in procs:
+        _out, err = p.communicate(timeout=60)
+        assert p.returncode == 0, err
+    final = _store(base, max_record_bytes=64 * 1024).get(key)
+    items = [tuple(x) for x in final["items"]]
+    assert len(items) == 100 and len(set(items)) == 100
+
+
 def test_ttl_expiry_holds_across_processes(base: str, no_durable: None) -> None:
     stale, fresh = _key(), _key()
     _child(

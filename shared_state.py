@@ -202,6 +202,7 @@ class _FileDir:
         self.max_entries = int(max_entries)
         self.max_total_bytes = int(max_total_bytes)
         self._lock_name = f".{prefix}sweep.lock"
+        self.update_lock_name = f".{prefix}update.lock"
 
     def directory(self) -> str:
         base = self._base_dir()
@@ -278,16 +279,16 @@ class _FileDir:
             os.unlink(path)
 
     @contextlib.contextmanager
-    def _sweep_lock(self, directory: str) -> Iterator[bool]:
-        """Cross-process exclusive lock for a sweep; yields False if not taken."""
+    def dir_lock(self, directory: str, lock_name: str) -> Iterator[bool]:
+        """Cross-process exclusive flock on ``directory/lock_name``; yields
+        False if not taken within the wait budget (non-blocking + retry, so a
+        gevent worker's event loop never stalls on it)."""
         if fcntl is None:
             yield True
             return
         try:
             os.makedirs(directory, mode=_DIR_MODE, exist_ok=True)
-            fd = os.open(
-                os.path.join(directory, self._lock_name), os.O_RDWR | os.O_CREAT, _FILE_MODE
-            )
+            fd = os.open(os.path.join(directory, lock_name), os.O_RDWR | os.O_CREAT, _FILE_MODE)
         except OSError:
             yield False
             return
@@ -320,7 +321,7 @@ class _FileDir:
         if not os.path.isdir(directory):
             return 0
         removed = 0
-        with self._sweep_lock(directory) as locked:
+        with self.dir_lock(directory, self._lock_name) as locked:
             if not locked:
                 return 0
             try:
@@ -904,6 +905,44 @@ class SharedRecordStore:
         except Exception as exc:  # error isolation
             logger.error(f"shared_state[{self.name}].put failed: {exc.__class__.__name__}", exc_info=True)
             return False
+
+    def update(
+        self,
+        key: str,
+        mutate: Callable[[Optional[dict]], Optional[dict]],
+        *,
+        durable: bool = True,
+    ) -> Optional[dict]:
+        """Read-modify-write ``key`` under a cross-process lock.
+
+        ``mutate`` receives the current live record (or None) and returns the
+        record to store (or None to store nothing). Without the lock, two
+        workers appending to the same record would each overwrite the other's
+        addition. If the lock cannot be taken within the wait budget the write
+        still happens (a rare lost update beats dropping the caller's change).
+        Returns the stored record, or None if nothing was stored.
+        """
+        if not layers_enabled():
+            return None
+        try:
+            path = self._files.path(key)
+            if path is None:
+                return None
+            directory = os.path.dirname(path)
+            with self._files.dir_lock(directory, self._files.update_lock_name) as locked:
+                if not locked:
+                    _log_once(
+                        f"update-unlocked-{self.name}",
+                        logging.WARNING,
+                        f"shared_state[{self.name}]: update lock busy; writing without it",
+                    )
+                record = mutate(self.get(key))
+                if record is None or not self.put(key, record, durable=durable):
+                    return None
+                return record
+        except Exception as exc:  # error isolation
+            logger.error(f"shared_state[{self.name}].update failed: {exc.__class__.__name__}", exc_info=True)
+            return None
 
     def delete(self, key: str) -> None:
         """Remove the file-layer copy (durable rows expire on their own)."""

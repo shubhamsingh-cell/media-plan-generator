@@ -208,6 +208,13 @@ def test_kill_switch_restores_exact_pre_change_behaviour(legacy_cluster) -> None
     assert status == 200, payload
     status, _h, _b = b.http("GET", f"/plan/shared/{payload['share_id']}")
     assert status == 404  # dict-only shares
+    status, _h, _b = b.http(
+        "POST",
+        "/api/plan/feedback",
+        {"share_id": payload["share_id"], "name": "x", "comment": "y"},
+        _post_headers(),
+    )
+    assert status == 404  # dict-only feedback
     assert not os.path.exists(os.path.join(state_dir, "shared_state"))
 
 
@@ -246,6 +253,34 @@ def test_share_feedback_is_accepted_on_a_worker_that_did_not_create_it(cluster) 
     )
     assert status == 200, raw
     assert json.loads(raw)["ok"] is True
+
+
+def test_share_feedback_posted_on_any_worker_shows_on_every_worker(cluster) -> None:
+    """The share page re-loads itself after a comment is posted; the reload
+    can land on any worker, so every worker must render every comment (the
+    verifier saw a just-posted comment on 2 of 24 reloads)."""
+    a, b, c = cluster
+    status, payload = _share(a, {"summary": {"industry": "Retail"}}, "Feedback Everywhere")
+    assert status == 200, payload
+    share_id = payload["share_id"]
+    first, second = f"from-A-{secrets.token_hex(4)}", f"from-B-{secrets.token_hex(4)}"
+    for worker, comment in ((a, first), (b, second)):
+        status, _h, raw = worker.http(
+            "POST",
+            "/api/plan/feedback",
+            {"share_id": share_id, "name": "Rev", "comment": comment},
+            _post_headers(),
+        )
+        assert status == 200, raw
+    count_after_second = json.loads(raw)["feedback_count"]
+    for _round in range(4):
+        for worker in (a, b, c):
+            status, _h, body = worker.http("GET", f"/plan/shared/{share_id}")
+            assert status == 200
+            assert first.encode() in body and second.encode() in body, (
+                f"worker {worker.name} is missing feedback posted on another worker"
+            )
+    assert count_after_second == 2
 
 
 def test_new_share_ids_are_unguessable(cluster) -> None:

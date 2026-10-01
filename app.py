@@ -849,6 +849,7 @@ def _cache_cleanup_loop() -> None:
             _shared_plan_store.sweep()
             _plan_result_store.sweep()
             _scorecard_store.sweep()
+            _plan_feedback_store.sweep()
 
             total_purged = (
                 purged_insights
@@ -7204,6 +7205,90 @@ _plan_feedback_lock = threading.Lock()
 _plan_feedback_ts: dict[str, float] = {}  # track last-update time per key
 _PLAN_FEEDBACK_MAX = 1000
 _PLAN_FEEDBACK_TTL = 86400.0  # 24 hours
+# Feedback is posted to an unauthenticated endpoint and the share page reloads
+# after each post onto ANY worker, so comments live in the shared layer
+# (record = {"created": last update, "items": [...]}) with hard bounds:
+_PLAN_FEEDBACK_PER_SHARE = 50  # newest kept
+_PLAN_FEEDBACK_NAME_MAX = 100
+_PLAN_FEEDBACK_COMMENT_MAX = 2000
+_PLAN_FEEDBACK_RECORD_MAX_BYTES = 256 * 1024
+_PLAN_FEEDBACK_FILE_MAX_BYTES = 32 * 1024 * 1024
+_plan_feedback_store = shared_state.SharedRecordStore(
+    "feedback",
+    _shared_state_dir,
+    subdir=os.path.join("shared_state", "plan_feedback"),
+    key_pattern=_SHARE_ID_RE,
+    created_field="created",
+    ttl_seconds=_PLAN_FEEDBACK_TTL,
+    max_record_bytes=_PLAN_FEEDBACK_RECORD_MAX_BYTES,
+    max_records=_PLAN_FEEDBACK_MAX,
+    max_total_bytes=_PLAN_FEEDBACK_FILE_MAX_BYTES,
+)
+
+
+def _clean_feedback_items(items: Any) -> list[dict]:
+    """Well-formed, bounded feedback entries (a record may come from disk)."""
+    if not isinstance(items, list):
+        return []
+    clean = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        created_at = item.get("created_at")
+        if isinstance(created_at, bool) or not isinstance(created_at, (int, float)):
+            continue
+        clean.append(
+            {
+                "name": str(item.get("name") or "Anonymous")[:_PLAN_FEEDBACK_NAME_MAX],
+                "comment": str(item.get("comment") or "")[:_PLAN_FEEDBACK_COMMENT_MAX],
+                "created_at": float(created_at),
+            }
+        )
+    return clean[-_PLAN_FEEDBACK_PER_SHARE:]
+
+
+def _plan_feedback_add(share_id: str, name: str, comment: str) -> int:
+    """Append a comment to a share; returns how many comments it now has.
+
+    This worker's dict always gets it (the kill-switch / fallback path); with
+    the shared layers on, the shared record is appended under a cross-process
+    lock and is the count every worker reports.
+    """
+    entry = {
+        "name": str(name or "Anonymous")[:_PLAN_FEEDBACK_NAME_MAX],
+        "comment": str(comment or "")[:_PLAN_FEEDBACK_COMMENT_MAX],
+        "created_at": time.time(),
+    }
+    with _plan_feedback_lock:
+        local = _plan_feedback.setdefault(share_id, [])
+        local.append(entry)
+        del local[:-_PLAN_FEEDBACK_PER_SHARE]
+        _plan_feedback_ts[share_id] = entry["created_at"]
+        count = len(local)
+
+    def _append(current: Optional[dict]) -> dict:
+        items = _clean_feedback_items((current or {}).get("items")) + [entry]
+        record = {"created": entry["created_at"], "items": items[-_PLAN_FEEDBACK_PER_SHARE:]}
+        # Keep the record under its byte cap by dropping the oldest comments.
+        while len(record["items"]) > 1 and len(
+            json.dumps(record, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        ) > _PLAN_FEEDBACK_RECORD_MAX_BYTES:
+            record["items"] = record["items"][1:]
+        return record
+
+    shared = _plan_feedback_store.update(share_id, _append)
+    return len(shared["items"]) if shared else count
+
+
+def _plan_feedback_list(share_id: str) -> list[dict]:
+    """Every comment on a share, from the shared layer (any worker's posts);
+    this worker's dict when the layers are off or unavailable."""
+    if shared_state.layers_enabled():
+        record = _plan_feedback_store.get(share_id)
+        if record is not None:
+            return _clean_feedback_items(record.get("items"))
+    with _plan_feedback_lock:
+        return list(_plan_feedback.get(share_id, []))
 
 # SCORECARD STORE (in-memory, for shareable plan scorecards)
 # Values are (html_string, created_timestamp) tuples
@@ -9402,6 +9487,7 @@ for _startup_store in (
     _shared_plan_store,
     _plan_result_store,
     _scorecard_store,
+    _plan_feedback_store,
     _job_record_store,
     _job_result_blobs,
 ):

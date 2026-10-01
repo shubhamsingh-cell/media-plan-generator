@@ -24,6 +24,7 @@ import socket
 import threading
 import time
 import uuid
+from html import escape as html_escape
 from html.parser import HTMLParser
 from typing import Any, Iterator
 
@@ -167,6 +168,31 @@ def test_shared_plan_view_escapes_every_field(server: int, payload: str, channel
 
     status, page = _request(server, "GET", f"/plan/shared/{share_id}")
     assert status == 200, page[:300]
+    _assert_no_injected_markup(page, allowed_handlers={("button", "onclick")})
+
+
+@pytest.mark.parametrize("payload", [_SCRIPT, _IMG, _ATTR], ids=["script", "img", "attr"])
+def test_shared_plan_feedback_is_escaped_on_render(server: int, payload: str) -> None:
+    status, raw = _request(
+        server,
+        "POST",
+        "/api/plan/share",
+        {"plan_data": {"summary": {"industry": "Retail"}}, "client": "Co"},
+        _csrf_headers(),
+    )
+    assert status == 200, raw
+    share_id = json.loads(raw)["share_id"]
+    status, raw = _request(
+        server,
+        "POST",
+        "/api/plan/feedback",
+        {"share_id": share_id, "name": payload, "comment": payload},
+        _csrf_headers(),
+    )
+    assert status == 200, raw
+    status, page = _request(server, "GET", f"/plan/shared/{share_id}")
+    assert status == 200
+    assert html_escape(payload) in page  # the comment is shown, escaped
     _assert_no_injected_markup(page, allowed_handlers={("button", "onclick")})
 
 

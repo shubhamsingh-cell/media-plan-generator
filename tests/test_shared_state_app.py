@@ -201,6 +201,43 @@ def test_kill_switch_keeps_the_legacy_mirror_sweep(
     assert not stale.exists() and fresh.exists() and lock.exists()
 
 
+def test_share_feedback_is_bounded_per_share_and_per_comment(slot_dir: Path) -> None:
+    share_id = app._new_share_id()
+    for i in range(app._PLAN_FEEDBACK_PER_SHARE + 10):
+        count = app._plan_feedback_add(share_id, f"n{i}" + "N" * 500, f"c{i}" + "x" * 5000)
+    assert count == app._PLAN_FEEDBACK_PER_SHARE
+    items = app._plan_feedback_list(share_id)
+    assert len(items) == app._PLAN_FEEDBACK_PER_SHARE
+    assert items[0]["comment"].startswith("c10") and items[-1]["comment"].startswith("c59")
+    assert all(len(i["comment"]) <= app._PLAN_FEEDBACK_COMMENT_MAX for i in items)
+    assert all(len(i["name"]) <= app._PLAN_FEEDBACK_NAME_MAX for i in items)
+    with app._plan_feedback_lock:
+        assert len(app._plan_feedback[share_id]) == app._PLAN_FEEDBACK_PER_SHARE
+        app._plan_feedback.pop(share_id, None)
+        app._plan_feedback_ts.pop(share_id, None)
+    # Another worker (empty dict) sees the same bounded list from the shared layer.
+    assert len(app._plan_feedback_list(share_id)) == app._PLAN_FEEDBACK_PER_SHARE
+
+
+def test_corrupt_feedback_records_render_nothing_rather_than_crash(slot_dir: Path) -> None:
+    share_id = app._new_share_id()
+    app._plan_feedback_store.put(
+        share_id,
+        {
+            "created": time.time(),
+            "items": [
+                {"name": "ok", "comment": "fine", "created_at": time.time()},
+                {"name": "bad", "comment": "no time", "created_at": "yesterday"},
+                "not-a-dict",
+                {"name": ["list"], "comment": {"x": 1}, "created_at": 5},
+            ],
+        },
+    )
+    items = app._plan_feedback_list(share_id)
+    assert [i["name"] for i in items] == ["ok", "['list']"]
+    assert all(isinstance(i["comment"], str) for i in items)
+
+
 def test_oversized_plan_result_stays_memory_only(slot_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     plan_id = uuid.uuid4().hex
     monkeypatch.setattr(app, "_extract_plan_json", lambda _d: {"blob": "x" * (300 * 1024)})
