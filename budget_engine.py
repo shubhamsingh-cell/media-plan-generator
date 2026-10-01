@@ -1380,7 +1380,8 @@ def industry_cph_display(
         return {
             "label": "Industry Cost-per-Hire",
             "text": text,
-            "variants": [text],
+            # the short form keeps a narrow deck cell to ONE line
+            "variants": [text, "No local benchmark"],
             "source_names": [],
             "kind": "suppressed",
         }

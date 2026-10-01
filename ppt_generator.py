@@ -3788,6 +3788,44 @@ def _hires_range(data_or_alloc: Optional[Dict]) -> Optional[Tuple[int, int]]:
     return None
 
 
+# Slide-2 KPI strip geometry (inches below the bar's top edge): every metric
+# label shares one baseline; the hires-range sublabel sits in its own box
+# beneath the label, one 8pt line per _KPI_SUBLABEL_LINE_IN.
+_KPI_LABEL_TOP_IN = 0.72
+_KPI_SUBLABEL_TOP_IN = 0.93
+_KPI_SUBLABEL_LINE_IN = 0.14
+
+
+def _hires_range_sublabel(
+    data_or_alloc: Optional[Dict], rng: Tuple[int, int], width_in: float
+) -> List[str]:
+    """The lines under "Projected Hires" that say what each end of the range
+    assumes, e.g. ``["23 at industry-average cost · 47 at plan efficiency"]``
+    when that fits ONE 8pt line in ``width_in``, else one line per end
+    (``["23 at industry-average cost", "47 at plan efficiency"]``), each
+    shortened until it fits. The low end is the budget at the plan's one
+    industry-average cost per hire, so it is named for that record's basis:
+    a cited local figure, the cross-industry default, or the industry's own
+    range (design-judge, 2026-10-01: "range 23-47" did not explain itself)."""
+    info = _industry_cph_info(data_or_alloc)
+    if info.get("basis") == "local_kb":
+        lows = ["local-average cost", "local-avg cost", "local avg"]
+    elif info.get("industry_matched") is False:
+        lows = ["cross-industry avg cost", "cross-industry avg", "default avg"]
+    else:
+        lows = ["industry-average cost", "industry-avg cost", "industry avg"]
+    highs = ["plan efficiency", "plan rate"]
+    lo, hi = f"{rng[0]:,}", f"{rng[1]:,}"
+    for low_w in lows[:2]:
+        one = f"{lo} at {low_w} · {hi} at {highs[0]}"
+        if _estimate_lines(one, width_in, 8.0) <= 1:
+            return [one]
+    return [
+        _first_one_line([f"{lo} at {w}" for w in lows], width_in, 8.0),
+        _first_one_line([f"{hi} at {w}" for w in highs], width_in, 8.0),
+    ]
+
+
 def _fx_per_usd_text(cph_info: Dict[str, Any], code: str) -> str:
     """ "US$1 = ₹95.83" -- the engine's rate as local units per US dollar
     (the conventional quote, and never a >2-decimal raw float, which
@@ -5038,8 +5076,8 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     bar_top = Inches(5.35)
     bar_h = Inches(1.15)
 
-    # Main bar background
-    _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), bar_h, NAVY)
+    # Main bar background (kept so a two-line hires sublabel can deepen it)
+    _bar_rect = _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), bar_h, NAVY)
 
     # Teal accent line at top of bar
     _add_filled_rect(slide, Inches(0.55), bar_top, Inches(12.2), Inches(0.04), TEAL)
@@ -5114,9 +5152,10 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
     # Outcome metrics from the budget engine (projected hires, avg CPA)
     # S48: use per-channel-sum hires for consistency
-    # Secondary line under a metric's label (e.g. the hires range), keyed by
-    # label. Only "Projected Hires" uses it today.
-    _metric_sublabels: Dict[str, str] = {}
+    # Hires range shown under a metric's label, keyed by label. Only
+    # "Projected Hires" uses it today; the wording is fitted to the column
+    # once its width is known (_hires_range_sublabel).
+    _metric_ranges: Dict[str, Tuple[int, int]] = {}
     if ba_total_projected:
         projected_hires = _ppt_hires_sum
         avg_cpa_val = ba_total_projected.get("cost_per_application") or 0
@@ -5124,12 +5163,10 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         if projected_hires and projected_hires > 0:
             secondary_metrics.append((str(int(projected_hires)), "Projected Hires"))
             # 2026-10-01 (audit §4.2): the headline is benchmark-driven; show
-            # the range it sits in (budget / industry avg .. budget / floor).
+            # the range it sits in, each end saying what it assumes.
             _rng = _hires_range(budget_alloc)
             if _rng:
-                _metric_sublabels["Projected Hires"] = (
-                    f"range {_rng[0]:,}–{_rng[1]:,}"
-                )
+                _metric_ranges["Projected Hires"] = _rng
         if avg_cpa_val and avg_cpa_val > 0:
             secondary_metrics.append((_fmt_currency(avg_cpa_val), "Avg CPA"))
         elif (
@@ -5183,43 +5220,48 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             alignment=PP_ALIGN.CENTER,
             anchor=MSO_ANCHOR.MIDDLE,
         )
-        _sublabel = _metric_sublabels.get(label)
-        if _sublabel:
-            # Label + range as two tight lines in the SAME 0.72-1.10in band
-            # (bar is 1.15in tall), so nothing new sits below the bar.
-            _lbl_box, _lbl_tf = _add_textbox(
+        # Every label sits on the SAME baseline (0.72in into the bar).
+        _add_textbox(
+            slide,
+            mx,
+            bar_top + Inches(_KPI_LABEL_TOP_IN),
+            metric_w,
+            Inches(0.3),
+            text=label,
+            font_size=9,
+            bold=False,
+            color=LIGHT_MUTED,
+            alignment=PP_ALIGN.CENTER,
+        )
+        _rng_lbl = _metric_ranges.get(label)
+        if _rng_lbl:
+            # The range goes in its OWN box under the label, one line per
+            # end when the column cannot hold both on one line; the bar is
+            # deepened below just enough to keep them inside it.
+            _sub_lines = _hires_range_sublabel(
+                budget_alloc, _rng_lbl, _metric_w_in - 0.2
+            )
+            _sub_h = Inches(_KPI_SUBLABEL_LINE_IN * len(_sub_lines))
+            _sub_box, _sub_tf = _add_textbox(
                 slide,
                 mx,
-                bar_top + Inches(0.66),
+                bar_top + Inches(_KPI_SUBLABEL_TOP_IN),
                 metric_w,
-                Inches(0.44),
+                _sub_h,
             )
-            _lbl_tf.margin_top = Inches(0.02)
-            _lbl_tf.margin_bottom = Inches(0.0)
-            _p1 = _lbl_tf.paragraphs[0]
-            _p1.alignment = PP_ALIGN.CENTER
-            _r1 = _p1.add_run()
-            _r1.text = label
-            _set_font(_r1, size=9, color=LIGHT_MUTED)
-            _p2 = _lbl_tf.add_paragraph()
-            _p2.alignment = PP_ALIGN.CENTER
-            _p2.space_before = Pt(0)
-            _r2 = _p2.add_run()
-            _r2.text = _sublabel
-            _set_font(_r2, size=8, color=LIGHT_MUTED)
-        else:
-            _add_textbox(
-                slide,
-                mx,
-                bar_top + Inches(0.72),
-                metric_w,
-                Inches(0.3),
-                text=label,
-                font_size=9,
-                bold=False,
-                color=LIGHT_MUTED,
-                alignment=PP_ALIGN.CENTER,
-            )
+            _sub_tf.margin_top = Inches(0.0)
+            _sub_tf.margin_bottom = Inches(0.0)
+            for _li, _line in enumerate(_sub_lines):
+                _sp = _sub_tf.paragraphs[0] if _li == 0 else _sub_tf.add_paragraph()
+                _sp.alignment = PP_ALIGN.CENTER
+                _sp.space_before = Pt(0)
+                _sp.space_after = Pt(0)
+                _sr = _sp.add_run()
+                _sr.text = _line
+                _set_font(_sr, size=8, color=LIGHT_MUTED)
+            _need_h = Inches(_KPI_SUBLABEL_TOP_IN + 0.06) + _sub_h
+            if _need_h > _bar_rect.height:
+                _bar_rect.height = Emu(int(_need_h))
 
     # Thin dividers between secondary metrics
     for i in range(1, n_secondary):
@@ -6079,11 +6121,20 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     if _cph_local_sources:
         # design-judge item 3: a local cost-per-hire figure names its own
         # source on the slide (one line: the short form when the full one
-        # would wrap).
-        _src_w_in = table_w / 914400
-        _full = f"{source_text}; local cost per hire: {', '.join(_cph_local_sources)}"
-        _short = f"{source_text}; local CPH: {', '.join(_cph_local_sources)}"
-        source_text = _first_one_line([_full, _short], _src_w_in, 7.0)
+        # would wrap). Measured at 8pt -- _set_font floors the 7pt request
+        # to 8 -- inside the box's 0.1in side insets.
+        _src_w_in = table_w / 914400 - 0.2
+        _local_names = ", ".join(_cph_local_sources)
+        _src_bare = re.sub(r" \([^)]*\)", "", source_text)
+        source_text = _first_one_line(
+            [
+                f"{source_text}; local cost per hire: {_local_names}",
+                f"{source_text}; local CPH: {_local_names}",
+                f"{_src_bare}; local CPH: {_local_names}",
+            ],
+            _src_w_in,
+            8.0,
+        )
     _add_textbox(
         slide,
         table_left,

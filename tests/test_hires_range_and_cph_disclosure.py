@@ -155,7 +155,9 @@ def tokyo():
 class TestDeck:
     def test_slide2_prints_the_range(self, dallas):
         lines = [t for s, t in _deck_lines(dallas) if s == 2]
-        assert any("range 23–47" in t for t in lines), lines
+        assert any(
+            "23 at industry-avg cost | 47 at plan efficiency" in t for t in lines
+        ), lines
 
     def test_slide5_row_is_the_one_benchmark(self, dallas):
         lines = [t for s, t in _deck_lines(dallas) if s == 5]
