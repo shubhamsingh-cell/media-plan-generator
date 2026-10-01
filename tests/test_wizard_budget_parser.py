@@ -320,7 +320,7 @@ def test_api_budget_shapes_resolve_as_on_origin_main(shape):
     50000/3) briefly 400'd on generate after the first parity commit; every
     shape must resolve to origin/main's amount (to the cent) both ways."""
     legacy = parse_budget(shape)
-    for data in ({"budget": shape}, app._sanitize_request_value({"budget": shape})):
+    for data in ({"budget": shape}, app._sanitize_generate_request({"budget": shape})):
         plan = app._resolve_request_budget(dict(data, budget_period="campaign"))
         assert plan.ok, (shape, data, plan.error)
         assert plan.total == pytest.approx(round(legacy, 2), abs=0.005), (shape, data)

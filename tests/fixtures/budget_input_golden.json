@@ -137,6 +137,8 @@
     {"input": "$007", "ok": false, "error": "malformed_number"},
     {"input": "0", "ok": false, "error": "zero"},
     {"input": "0.5M", "ok": true, "amount": 500000},
+    {"input": 750.125, "ok": true, "amount": 750.13},
+    {"input": "750.125", "ok": true, "amount": 750125},
     {"input": "0.750M", "ok": true, "amount": 750000},
     {"input": "0,750 million", "ok": true, "amount": 750000},
     {"input": "0,75k", "ok": true, "amount": 750},

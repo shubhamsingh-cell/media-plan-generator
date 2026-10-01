@@ -4553,6 +4553,41 @@ def _plan_budget_summary(data: dict) -> dict:
     }
 
 
+def _drop_internal_request_keys(data: dict) -> dict:
+    """``data`` without any client-sent key starting with "_". Those names
+    are reserved for flags and sidecars this server sets on the request
+    (_budget_normalized, _budget_resolution, _role_tiers, _collar_type,
+    _location_resolution, ...); honouring a client-sent one let a request
+    skip the budget rewrite. Logged, never an error."""
+    dropped = sorted(k for k in data if isinstance(k, str) and k.startswith("_"))
+    if dropped:
+        logger.warning(f"Ignoring client-sent internal request keys: {dropped}")
+    return {k: v for k, v in data.items() if not (isinstance(k, str) and k.startswith("_"))}
+
+
+def _sanitize_generate_request(data: dict) -> dict:
+    """The /api/generate request boundary, in one place:
+
+    - every client-sent "_"-prefixed key is dropped -- those are flags this
+      server sets (a client "_budget_normalized": true skipped the canonical
+      budget rewrite, so "1.5 million" validated and then planned $1.50);
+    - every string is tag-stripped (_sanitize_request_value, stored XSS);
+    - a JSON-NUMBER budget stays a number: the sanitizer str()s numbers, and
+      the TEXT reader then took 750.125 for 750,125 (a single "." before
+      three digits is a thousands separator in text) while /api/estimate,
+      which gets the number, read $750.13.
+    """
+    data = _drop_internal_request_keys(data)
+    numeric_budget = {
+        key: data[key]
+        for key in _BUDGET_REQUEST_KEYS
+        if isinstance(data.get(key), (int, float)) and not isinstance(data.get(key), bool)
+    }
+    out = {key: _sanitize_request_value(val) for key, val in data.items()}
+    out.update(numeric_budget)
+    return out
+
+
 def _client_file_slug(name: Any) -> str:
     """Filename-safe client name for every generated file (zip, xlsx, pptx,
     saved copy): accents folded (NFKD -> ASCII, "Société" -> "Societe"),
@@ -5393,7 +5428,9 @@ def _compute_plan_estimate(brief: dict) -> dict:
     # generate payload carries -- never its own pre-multiplied number.
     # Negative, NaN/Infinity, garbage ("1.5.2M" used to 500 here) and
     # out-of-range budgets are 400s naming the field, never a silent default.
-    brief = dict(brief)
+    # Client-sent "_"-prefixed keys are server-internal flags (see
+    # _drop_internal_request_keys): never honoured here either.
+    brief = _drop_internal_request_keys(dict(brief))
     budget_plan = _resolve_request_budget(brief)
     if not budget_plan.ok:
         raise _EstimateValidationError(
@@ -17895,9 +17932,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
 
-            # Sanitize all string inputs: strip HTML/script tags to prevent stored XSS
-            for _skey in list(data.keys()):
-                data[_skey] = _sanitize_request_value(data[_skey])
+            # Sanitize all string inputs (strip HTML/script tags against stored
+            # XSS), drop client-sent "_" keys, keep JSON-number budgets numbers.
+            data = _sanitize_generate_request(data)
 
             # Validate required fields
             client_name_input = _safe_str(data.get("client_name")).strip()
