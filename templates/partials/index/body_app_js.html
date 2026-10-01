@@ -4068,7 +4068,7 @@
           if (clientNameEl) {
             clientNameEl.focus();
             clientNameEl.scrollIntoView({
-              behavior: "smooth",
+              behavior: novaScrollBehavior(),
               block: "center",
             });
           }
@@ -4090,7 +4090,7 @@
           if (useCaseEl) {
             useCaseEl.focus();
             useCaseEl.scrollIntoView({
-              behavior: "smooth",
+              behavior: novaScrollBehavior(),
               block: "center",
             });
           }
@@ -4107,7 +4107,7 @@
           showToast(novaTextLimitError(limitErrId), "error");
           if (limitEl) {
             limitEl.focus();
-            limitEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            limitEl.scrollIntoView({ behavior: novaScrollBehavior(), block: "center" });
           }
           return;
         }
@@ -4130,7 +4130,7 @@
           if (budgetAmtEl) {
             budgetAmtEl.focus();
             budgetAmtEl.scrollIntoView({
-              behavior: "smooth",
+              behavior: novaScrollBehavior(),
               block: "center",
             });
           }
@@ -4146,7 +4146,7 @@
           if (durationEl) {
             durationEl.focus();
             durationEl.scrollIntoView({
-              behavior: "smooth",
+              behavior: novaScrollBehavior(),
               block: "center",
             });
           }
@@ -4176,7 +4176,7 @@
           if (locInput) {
             locInput.focus();
             locInput.scrollIntoView({
-              behavior: "smooth",
+              behavior: novaScrollBehavior(),
               block: "center",
             });
           }
@@ -4189,7 +4189,7 @@
         showToast("Please select an industry", "error");
         var indGrid = document.querySelector(".industry-grid");
         if (indGrid)
-          indGrid.scrollIntoView({ behavior: "smooth", block: "center" });
+          indGrid.scrollIntoView({ behavior: novaScrollBehavior(), block: "center" });
         return;
       }
       if (currentStep === 2 && roles.length === 0) {
@@ -4202,7 +4202,7 @@
           _showFieldError(roleInputEl, "At least one target role is required");
           roleInputEl.focus();
           roleInputEl.scrollIntoView({
-            behavior: "smooth",
+            behavior: novaScrollBehavior(),
             block: "center",
           });
         }
@@ -4330,6 +4330,18 @@
     }
   }
 
+  // "auto" (an instant jump) when the user asked the OS for reduced motion,
+  // else "smooth" -- every programmatic scroll in the wizard goes through
+  // this (goToStep's scroll-to-top and the field-error scrolls had no
+  // guard; CLAUDE.md quality gate: animations respect prefers-reduced-motion).
+  function novaPrefersReducedMotion() {
+    return !!(window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+  function novaScrollBehavior() {
+    return novaPrefersReducedMotion() ? "auto" : "smooth";
+  }
+
   // goToStep function for review edit buttons
   function goToStep(step) {
     if (step >= 1 && step <= totalSteps && step !== currentStep) {
@@ -4339,12 +4351,14 @@
       currentStep = step;
       const targetEl = document.getElementById(`step${currentStep}`);
       targetEl.classList.add("active");
-      targetEl.classList.add("step-animating");
-      setTimeout(() => targetEl.classList.remove("step-animating"), 400);
+      if (!novaPrefersReducedMotion()) {
+        targetEl.classList.add("step-animating");
+        setTimeout(() => targetEl.classList.remove("step-animating"), 400);
+      }
       updateProgress();
       // Mark previous steps as completed with checkmarks
       updateStepCheckmarks();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: novaScrollBehavior() });
     }
   }
 
@@ -5729,7 +5743,7 @@
           document.getElementById("planDashboardSection") || heroSection;
         if (scrollTarget) {
           scrollTarget.scrollIntoView({
-            behavior: "smooth",
+            behavior: novaScrollBehavior(),
             block: "start",
           });
         }
