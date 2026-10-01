@@ -4834,6 +4834,10 @@
           if (key !== _novaCurrencyKey) return; // superseded
           _novaCurrency = d && d.plan_currency ? d.plan_currency : null;
           novaRenderBudgetReading(false);
+          // the review step states the same reading -- refresh it if shown
+          if (currentStep === totalSteps && typeof populateReview === "function") {
+            populateReview();
+          }
           if (window.NovaPreview && typeof window.NovaPreview.update === "function") {
             window.NovaPreview.update();
           }

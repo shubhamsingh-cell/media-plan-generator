@@ -77,6 +77,15 @@ def test_results_label_prefers_the_server_total_and_never_the_typed_text():
     assert _label(dict(typed, budget_range="1.5 million", budget_period="campaign")) == "$1,500,000"
 
 
+def test_review_restates_the_budget_once_the_plan_currency_arrives():
+    # Real-browser run 2026-10-01: entering the review right after a budget
+    # edit showed "Planning at 90,000" (symbol pending) until a later
+    # re-render; the currency response now refreshes the review step.
+    src = APP_JS.read_text(encoding="utf-8")
+    fn = js_block(src, "function novaRefreshPlanCurrency(")
+    assert "currentStep === totalSteps" in fn and "populateReview()" in fn
+
+
 def test_every_results_echo_uses_the_label():
     src = APP_JS.read_text(encoding="utf-8")
     dash = js_block(src, "function buildPlanDashboard(")
