@@ -477,6 +477,16 @@ def _fix_core(core: str, shouting: bool) -> str:
     return "".join(parts)
 
 
+def _strip_edge_punct(word: str) -> str:
+    """``word`` without leading/trailing non-word characters."""
+    start, end = 0, len(word)
+    while start < end and not _is_word_char(word[start]):
+        start += 1
+    while end > start and not _is_word_char(word[end - 1]):
+        end -= 1
+    return word[start:end]
+
+
 def _fix_word(word: str, is_first: bool, repair: bool, shouting: bool) -> str:
     """Case one space-delimited word of a client name.
 
@@ -557,9 +567,14 @@ def client_display_name(raw: str | None) -> str:
           "McDonald's"), and a trailing '.com' stays lowercase
           ('AMAZON.COM' -> 'Amazon.com').
 
-    Known limit: an unfamiliar vowel-bearing acronym of four letters or
-    fewer that is typed ALL CAPS and is not on the list is Title-Cased
-    ('AAON' -> 'Aaon'); add it to the list, or type it mixed-case.
+    0. A name that is a single all-caps token of 2-4 letters ('AWP', 'ACE',
+       'BMW', 'A&W') is the client's own acronym and is kept as typed,
+       vowels or not; only the brand table overrides it ('PWC' -> 'PwC').
+
+    Known limit: inside a LONGER all-caps name, an unfamiliar vowel-bearing
+    word of four letters or fewer that is not on the acronym list is
+    Title-Cased ('AAON HOLDINGS' -> 'Aaon Holdings'); add it to the list,
+    or type it mixed-case.
     """
     if not raw or not isinstance(raw, str):
         return ""
@@ -567,6 +582,19 @@ def client_display_name(raw: str | None) -> str:
     if not collapsed or len(collapsed) > _CLIENT_NAME_MAX_LEN:
         return collapsed
     shouting = collapsed.isupper()
+    if (
+        shouting
+        and " " not in collapsed
+        and 2 <= sum(ch.isalpha() for ch in collapsed) <= _ACRONYM_MAX_LEN
+        and _strip_edge_punct(collapsed).lower() not in _CLIENT_BRAND_CASING
+    ):
+        # A client name that is ONE all-caps token of 2-4 letters (AWP, ADP,
+        # GM, UPS, ACE, BMW, A&W) is the client's own acronym: keep it as
+        # typed, vowels or not. The vowel test below is for words INSIDE a
+        # longer shouted name (BIG LOTS, HOME DEPOT); applied to a lone
+        # token it turned the prod client "AWP" into "Awp" on 15 surfaces.
+        # The brand table still wins (PWC -> PwC).
+        return collapsed
     # Re-normalise: capitalising a letter can create a new composable pair
     # (the 'ß' + combining-accent case), and the output must be a fixed point.
     result = unicodedata.normalize(

@@ -246,6 +246,14 @@ class TestBundleQaClientNameCasingGate:
         assert findings[0]["code"] == "client_name_wrong_casing"
         assert findings[0]["severity"] == "critical"
 
+    def test_awp_is_canonical_and_awp_title_cased_is_the_miscasing(self):
+        # mpg-content-gate: the gate canonicalised "AWP" to "Awp" and so
+        # flagged (and its repair path trusted) the wrong spelling.
+        assert _gate("AWP", "Media Plan for AWP | Company:  AWP") == []
+        findings = _gate("AWP", "Media Plan for Awp")
+        assert len(findings) == 1
+        assert findings[0]["code"] == "client_name_wrong_casing"
+
     def test_genuine_miscasing_flagged_for_acronym(self):
         findings = _gate("UPS", "a plan for Ups Inc")
         assert len(findings) == 1
@@ -376,6 +384,20 @@ _EXPLICIT_ALL_CAPS: list[tuple[str, str]] = [
     ("CNN", "CNN"),
     ("IKEA", "IKEA"),
     ("PWC", "PwC"),
+    # -- mpg-content-gate (prod client "AWP" printed "Awp" on 15 surfaces):
+    #    ONE all-caps token of 2-4 letters is kept as typed, vowels or not --
+    ("AWP", "AWP"),
+    ("ABC", "ABC"),
+    ("BMW", "BMW"),
+    ("NBC", "NBC"),
+    ("ACE", "ACE"),
+    ("TJX", "TJX"),
+    ("PNC", "PNC"),
+    ("UBS", "UBS"),
+    # ...while multi-word / longer shouted names keep per-word casing
+    ("BIG LOTS", "Big Lots"),
+    ("HOME DEPOT", "Home Depot"),
+    ("AWP SAFETY", "Awp Safety"),
 ]
 
 _EXPLICIT_MIXED: list[tuple[str, str]] = [
