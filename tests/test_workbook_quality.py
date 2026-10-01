@@ -177,18 +177,29 @@ def test_confidence_intervals_cph_band_matches_printed_variance():
     wb = _generate_wb(data)
     ws = wb["Confidence Intervals"]
 
-    rows = list(ws.iter_rows(min_row=1, values_only=False))
+    # 2026-10-01 (design-judge round 3, item 2): a channel's Cost Per Hire
+    # band is now its budget at the SAME pessimistic / optimistic hires the
+    # Hires row above prints (the channel's share of the plan's hires
+    # range), so cost and hires can never imply two different ranges; the
+    # Variance cell says "from hires band". The finding-#5 invariant this
+    # test guards -- the band is derived from what is printed, never from a
+    # truncated hire count of its own -- holds against that printed row.
+    rows = [[c.value for c in row] for row in ws.iter_rows(min_row=1)]
+    hires_rows = {
+        vals[1]: vals for vals in rows if len(vals) >= 7 and vals[2] == "Hires"
+    }
     found = 0
-    for i, row in enumerate(rows):
-        vals = [c.value for c in row]
+    for vals in rows:
         if len(vals) < 7 or vals[2] != "Cost Per Hire":
             continue
         lo, expected, hi = vals[3], vals[4], vals[5]
-        variance_str = vals[6]  # e.g. "+/-20%"
-        assert isinstance(variance_str, str) and variance_str.startswith("+/-")
-        rate = float(variance_str.replace("+/-", "").replace("%", "")) / 100.0
-        assert lo == pytest.approx(expected * (1 + rate)), (lo, expected, rate)
-        assert hi == pytest.approx(expected * (1 - rate)), (hi, expected, rate)
+        assert vals[6] == "from hires band", vals
+        h = hires_rows[vals[1]]
+        h_lo, h_exp, h_hi = h[3], h[4], h[5]
+        dollars = expected * h_exp
+        if h_lo:
+            assert lo == pytest.approx(dollars / h_lo), (lo, dollars, h_lo)
+        assert hi == pytest.approx(dollars / h_hi), (hi, dollars, h_hi)
         assert lo >= expected >= hi, (lo, expected, hi)
         found += 1
     assert found > 0, "expected at least one Cost Per Hire row"

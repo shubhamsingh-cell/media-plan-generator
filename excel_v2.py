@@ -2089,6 +2089,24 @@ def _flatten_value(val: Any, max_depth: int = 3) -> str:
     return str(val)[:200]
 
 
+# KB cost-per-hire sub-keys that measure MEDIA spend only, relabelled so the
+# Recruitment Benchmarks row never reads as contradicting the all-in basis
+# the range line states (design-judge round 3, item 6: "Recruitment
+# Marketing Only: $350-$700" beside "industry cost-per-hire ranges include
+# all hiring costs").
+_MEDIA_ONLY_CPH_KEYS = {
+    "recruitment_marketing_only": "Media spend only (not all-in)",
+    "appcast_2025_median_cph": "Appcast 2025 median (media spend only, not all-in)",
+}
+
+
+def _relabel_media_only_cph(val: Any) -> Any:
+    """The KB ``cph`` dict with its media-only sub-keys relabelled."""
+    if not isinstance(val, dict):
+        return val
+    return {_MEDIA_ONLY_CPH_KEYS.get(k, k): v for k, v in val.items()}
+
+
 def _truncate_at_word_boundary(text: str, max_len: int) -> str:
     """Truncate `text` to at most `max_len` characters without ever cutting
     a word in half.
@@ -2830,6 +2848,107 @@ def _confidence_range(
     return _clamped_band(lo, value, hi, cost_metric=cost_metric)
 
 
+def _plan_hire_bands(data: dict) -> Tuple[Dict[str, Tuple[int, int]], bool]:
+    """Per-channel (low, high) projected hires that ADD UP to the plan's own
+    hires range -- the SAME hires_low / hires_high the Executive Summary's
+    range line (B16) states -- split across channels in proportion to each
+    channel's expected hires (largest remainder, so the sums are exact).
+
+    Design-judge round 3 (2026-10-01, item 2): the old +/-15/20/25% band on
+    every channel summed to 533-891 hires on the India plan (891 = ₹28K per
+    hire, BELOW the plan's ₹35,000 floor) while B16 said 434-714, and to
+    35-56 on the hospital plan against B16's 23-47. With no plan range
+    (no presentable cost-per-hire benchmark) the pessimistic side keeps the
+    confidence ladder and the optimistic side is capped at the channel's
+    own projection, so the optimistic column never sums past the headline.
+
+    Returns ``(bands, has_range)``; channels with no expected hires are
+    absent."""
+    alloc = data.get("_budget_allocation") if isinstance(data, dict) else None
+    alloc = alloc if isinstance(alloc, dict) else {}
+    chans = alloc.get("channel_allocations")
+    chans = chans if isinstance(chans, dict) else {}
+    expected = {
+        name: int(_safe_num(ch.get("projected_hires") or 0))
+        for name, ch in chans.items()
+        if isinstance(ch, dict)
+    }
+    expected = {n: e for n, e in expected.items() if e > 0}
+    total = sum(expected.values())
+    if total <= 0:
+        return {}, False
+    tp = alloc.get("total_projected")
+    tp = tp if isinstance(tp, dict) else {}
+    lo_p, hi_p = tp.get("hires_low"), tp.get("hires_high")
+    _info = _plan_industry_cph(alloc)
+    has_range = (
+        isinstance(lo_p, int)
+        and isinstance(hi_p, int)
+        and 0 <= lo_p < hi_p
+        and lo_p <= total
+        # the same rule as the Executive Summary range line: no range from a
+        # US$ cost per hire on a non-USD plan
+        and not (
+            _info.get("basis") != "local_kb"
+            and str(_info.get("currency") or "USD").upper() == "USD"
+            and _get_active_currency() != "USD"
+        )
+    )
+
+    def _share(target: int) -> Dict[str, int]:
+        raw = {n: e * target / total for n, e in expected.items()}
+        out = {n: int(v) for n, v in raw.items()}
+        extra = target - sum(out.values())
+        for n in sorted(raw, key=lambda k: raw[k] - out[k], reverse=True)[
+            : max(0, extra)
+        ]:
+            out[n] += 1
+        return out
+
+    if has_range:
+        lows, highs = _share(lo_p), _share(max(hi_p, total))
+    else:
+        highs = dict(expected)
+        lows = {}
+        for n, e in expected.items():
+            band = _confidence_range(
+                e, _derive_channel_confidence(data, chans[n]), cost_metric=False
+            )
+            lows[n] = int(band[0]) if band else e
+    return {n: (min(lows[n], highs[n]), highs[n]) for n in expected}, has_range
+
+
+def _hire_band_note(data: dict, has_range: bool) -> str:
+    """Footnote for the per-channel hires / cost-per-hire bands (design-
+    judge round 3, item 2)."""
+    alloc = data.get("_budget_allocation") if isinstance(data, dict) else None
+    alloc = alloc if isinstance(alloc, dict) else {}
+    tp = alloc.get("total_projected") if isinstance(alloc.get("total_projected"), dict) else {}
+    floor = (alloc.get("metadata") or {}).get("cph_benchmark_floor")
+    if has_range:
+        lead = (
+            f"Hires ranges split the plan's own range ({tp.get('hires_low'):,}–"
+            f"{tp.get('hires_high'):,}, Executive Summary) across channels in "
+            "proportion to each channel's expected hires, so the columns add up."
+        )
+    else:
+        lead = (
+            "Hires: pessimistic follows the confidence ladder; optimistic is "
+            "capped at each channel's projection, so no column adds up to more "
+            "hires than the plan projects."
+        )
+    if _plan_industry_cph(alloc).get("claim_suppressed"):
+        return lead  # no per-hire cost is shown (see the "—" note)
+    tail = (
+        " Per-channel cost per hire is a channel-share view (the channel's "
+        "budget ÷ the hires allocated to it) -- not additive, and it can sit "
+        "below the plan-level cost-per-hire floor"
+    )
+    if isinstance(floor, (int, float)) and floor > 0:
+        tail += f" ({_fmt_currency(floor)}/hire)"
+    return lead + tail + "."
+
+
 def _parse_cph_point_estimate(raw: Any) -> float:
     """Parse a KB cost-per-hire benchmark value into one numeric estimate.
 
@@ -3003,6 +3122,12 @@ def _hires_range_line(
     per hire (item 1), the same sentence the deck's footnotes print."""
     if not isinstance(total_proj, dict) or header_hires <= 0 or budget_num <= 0:
         return ""
+    if (
+        cph_info.get("basis") != "local_kb"
+        and str(cph_info.get("currency") or "USD").upper() == "USD"
+        and _get_active_currency() != "USD"
+    ):
+        return ""  # US$ cost per hire at parity on a non-USD plan: no range
     lo, hi = total_proj.get("hires_low"), total_proj.get("hires_high")
     avg = cph_info.get("value") if isinstance(cph_info, dict) else None
     floor = cph_info.get("floor") if isinstance(cph_info, dict) else None
@@ -3038,7 +3163,7 @@ def _hires_range_line(
     elif row.get("mid"):
         floor_basis = ""
     else:
-        floor_basis = ", half the midpoint"
+        floor_basis = f", half the {_fmt_industry_cph(avg, cph_info)} midpoint"
     plan_cph = budget_num / header_hires
     sentence = (
         f"Projected hires: {lo:,}–{hi:,}. {lo:,} if every hire costs "
@@ -6049,7 +6174,12 @@ def _build_sheet_executive_summary(
                             # sees physician compensation presented as its
                             # own hiring intelligence.
                             val_str = _flatten_value(
-                                _scope_benchmark_to_plan_roles(val, roles)
+                                _scope_benchmark_to_plan_roles(
+                                    _relabel_media_only_cph(val)
+                                    if key == "cph"
+                                    else val,
+                                    roles,
+                                )
                             )
                         if val_str:
                             _bm_label = _humanize_snake_key(key)
@@ -10052,6 +10182,8 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
     _roi_cph_suppressed = bool(
         _plan_industry_cph(budget_alloc).get("claim_suppressed")
     )
+    # per-channel hire ranges that add up to the plan's own range (round 3)
+    _roi_hire_bands, _roi_bands_range = _plan_hire_bands(data)
 
     row = 2
 
@@ -10276,11 +10408,11 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
             # Intervals sheet uses, with the same 15/20/25% ladder -- this
             # column previously computed its own 10/25/40% variance and
             # disagreed with Confidence Intervals on every channel.
-            _hire_band = _confidence_range(
-                projected_hires, hire_confidence, cost_metric=False
-            )
-            if _hire_band is not None:
-                hire_lo, hire_hi = (int(v) for v in _hire_band)
+            # design-judge round 3 (item 2): the channel's share of the
+            # plan's own range (adds up to the Executive Summary's range)
+            _hire_band = _roi_hire_bands.get(ch_name)
+            if _hire_band is not None and projected_hires > 0:
+                hire_lo, hire_hi = _hire_band
                 hire_range_str = f"{hire_lo} - {hire_hi}"
             else:
                 # S89: never show a fabricated "0 - 0" (or nonzero) range
@@ -10475,6 +10607,8 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
 
     if _roi_cph_suppressed:
         row = _write_footnote(ws, row, _SUPPRESSED_CPH_NOTE)
+    if _roi_hire_bands:
+        row = _write_footnote(ws, row, _hire_band_note(data, _roi_bands_range))
     row += 1
 
     # ── Recruitment Funnel (S93: funnel-calibration model) ──
@@ -12641,6 +12775,8 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
     # round 2 (verifier item 1): no per-hire figures without a verified
     # local cost-per-hire benchmark
     _ci_cph_suppressed = bool(_plan_industry_cph(budget_alloc).get("claim_suppressed"))
+    # per-channel hire bands that add up to the plan's own range (round 3)
+    _ci_hire_bands, _ci_bands_range = _plan_hire_bands(data)
     ba_channel_alloc = budget_alloc.get("channel_allocations", {})
     if not isinstance(ba_channel_alloc, dict):
         ba_channel_alloc = {}
@@ -12841,9 +12977,12 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
         # routed through the same shared _confidence_range() helper ROI
         # Projections' Hire Range column uses, so the two sheets can never
         # show two different ranges for the same channel again.
-        _hires_band = _confidence_range(hires, confidence, cost_metric=False)
+        # Design-judge round 3 (item 2): the channel's share of the plan's
+        # own hires range, so the column adds up to the Executive Summary's
+        # range and never past the plan's cost-per-hire floor.
+        _hires_band = _ci_hire_bands.get(ch_name)
         if hires > 0 and _hires_band is not None:
-            hires_lo, hires_hi = (int(v) for v in _hires_band)
+            hires_lo, hires_hi = _hires_band
             row = _write_table_row(
                 ws,
                 row,
@@ -12853,7 +12992,9 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
                     hires_lo,
                     hires,
                     hires_hi,
-                    f"+/-{int(variance * 100)}%",
+                    "plan range"
+                    if _ci_bands_range
+                    else f"-{int(variance * 100)}% / capped",
                     confidence,
                 ],
                 alternate=(idx % 2 == 0),
@@ -12885,6 +13026,14 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
             cph = dollars / hires
             cph_lo = cph * (1 + variance)  # Pessimistic = higher CPH
             cph_hi = cph * (1 - variance)  # Optimistic = lower CPH
+            # Design-judge round 3 (item 2): derived from the SAME hires band
+            # the row above prints (the channel's budget at its pessimistic /
+            # optimistic hires), so the optimistic cost never implies more
+            # hires than the plan's range allows.
+            _hb = _ci_hire_bands.get(ch_name)
+            if _hb is not None and _hb[1] > 0:
+                cph_hi = dollars / _hb[1]
+                cph_lo = dollars / _hb[0] if _hb[0] > 0 else cph * (1 + variance)
             _cph_band = _clamped_band(cph_lo, cph, cph_hi, cost_metric=True)
         else:
             _cph_band = None
@@ -12917,7 +13066,9 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
                     cph_lo,
                     cph,
                     cph_hi,
-                    f"+/-{int(variance * 100)}%",
+                    "from hires band"
+                    if ch_name in _ci_hire_bands
+                    else f"+/-{int(variance * 100)}%",
                     confidence,
                 ],
                 alternate=(idx % 2 == 0),
@@ -12937,6 +13088,8 @@ def _build_sheet_confidence_intervals(ws, data: dict) -> None:
     row += 1
     if _ci_cph_suppressed:
         row = _write_footnote(ws, row, _SUPPRESSED_CPH_NOTE)
+    if _ci_hire_bands:
+        row = _write_footnote(ws, row, _hire_band_note(data, _ci_bands_range))
     row = _write_footnote(
         ws,
         row,
