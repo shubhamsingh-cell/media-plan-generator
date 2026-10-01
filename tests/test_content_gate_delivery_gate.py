@@ -414,3 +414,12 @@ def test_timeout_reaches_the_job_record_and_the_slack_line(caplog):
     assert line.startswith("QA: not checked -- qa_gate_timeout")
     msgs = [r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR]
     assert any("qa_gate_timeout for job-timeout" in m for m in msgs), msgs
+
+
+def test_repair_humanises_a_supply_tier_in_sentence_case():
+    """design review 2026-10-01: the repair pass wrote 'a Critically Scarce
+    talent-supply tier' (Title Case mid-sentence)."""
+    pptx = _deck("Seattle, WA was prioritized based on a critically_scarce talent-supply tier.")
+    res = bundle_qa.gate_bundle(pptx, None, DATA)
+    lines = _deck_lines(res["pptx_bytes"])
+    assert "Seattle, WA was prioritized based on a critically scarce talent-supply tier." in lines

@@ -117,8 +117,9 @@ _URL_OR_EMAIL_RE = re.compile(r"https?://|www\.|[\w.+-]+@[\w-]+\.[\w.-]+")
 KEY_DISPLAY: dict[str, str] = {
     # wizard-only industry value (app.classify_industry sector name)
     "rideshare": "Rideshare & Gig Economy",
-    # gold_standard._SUPPLY_TIERS
-    "critically_scarce": "Critically Scarce",
+    # (gold_standard._SUPPLY_TIERS such as "critically_scarce" are ordinary
+    # words: deliberately NOT listed, so prose gets "critically scarce" and
+    # a label cell gets smart_title's "Critically Scarce".)
     # data/international_benchmarks_2026.json "source" id
     "international_benchmarks_2026": "International Benchmarks 2026",
 }
