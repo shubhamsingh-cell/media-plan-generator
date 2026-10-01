@@ -63,6 +63,7 @@ _CODE_TO_SYMBOL: dict[str, str] = {
     "HKD": "HK$",
     "BRL": "R$",
     "MXN": "MX$",
+    "TWD": "NT$",
     "AED": "AED ",
     "SAR": "SAR ",
     "QAR": "QAR ",
@@ -478,6 +479,11 @@ _SYMBOL_TO_CODES: "list[tuple[str, tuple[str, ...]]]" = [
     # first: "US$" contains "S$" (Singapore), so a US$ budget would otherwise
     # resolve to SGD. Likewise every "X$" form must precede bare "$".
     ("US$", ("USD",)),
+    # Country-prefixed dollar designators (wizard audit 2026-10-01): "CA$"
+    # contains "A$" (Australia), so it must be tested first.
+    ("CA$", ("CAD",)),
+    ("AU$", ("AUD",)),
+    ("NT$", ("TWD",)),
     ("NZ$", ("NZD",)),
     ("HK$", ("HKD",)),
     ("MX$", ("MXN",)),

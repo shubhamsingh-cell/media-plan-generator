@@ -56,7 +56,9 @@
     var last = seps[seps.length - 1];
     if (seps.length === 1) {
       var lead = groups[0], tail = groups[1];
-      var thousands = tail.length === 3 && lead.length >= 1 && lead.length <= 3;
+      // A leading-zero group is never thousands: "0,750" is 0.750.
+      var thousands = tail.length === 3 && lead.length >= 1 && lead.length <= 3 &&
+        lead.charAt(0) !== "0";
       if (last === " " || last === "'") return thousands ? [lead + tail, ""] : null;
       if (thousands && !(last === "." && hasMult)) return [lead + tail, ""];
       if (last === "." || tail.length <= 3) return [lead, tail];
@@ -72,6 +74,7 @@
     for (var i = 1; i < intSeps.length; i++) {
       if (intSeps[i] !== intSeps[0]) return null;
     }
+    if (intGroups[0].charAt(0) === "0") return null; // "0,750,000"
     var n = intGroups.length;
     var western = intGroups[0].length >= 1 && intGroups[0].length <= 3 &&
       intGroups.slice(1).every(function (g) { return g.length === 3; });
@@ -83,16 +86,56 @@
     return [intGroups.join(""), frac];
   }
 
-  // wizard_inputs._amount_value: digits x 10^exp / 10^fraction_digits,
-  // exact in both languages while significant digits + exp <= max_digits.
+  // wizard_inputs._cents: intDigits.fracDigits x 10^exp rounded HALF UP to
+  // cents with exact integer (BigInt) arithmetic, then one division of an
+  // integer below 2^53 -- the identical double Python returns. null when
+  // the integer part has more than max_digits digits.
+  function _novaCents(intDigits, fracDigits, exp) {
+    if (intDigits.replace(/^0+/, "").length + exp > NOVA_INPUTS.budget.max_digits) {
+      return null;
+    }
+    var digits = (intDigits + fracDigits) || "0";
+    if (typeof BigInt !== "function") { // very old browser: float math
+      var v = Number(digits) * Math.pow(10, exp) / Math.pow(10, fracDigits.length);
+      return Math.floor(v * 100 + 0.5) / 100;
+    }
+    var ten = BigInt(10), two = BigInt(2);
+    var scale = ten ** BigInt(fracDigits.length);
+    var cents = (BigInt(digits) * ten ** BigInt(exp + 2) * two + scale) / (two * scale);
+    return Number(cents) / 100;
+  }
+
+  // wizard_inputs._amount_value: [amount, ""] or [null, error code].
   function _novaAmountValue(token, exp) {
     var parts = _novaNumberParts(token, exp > 0);
-    if (!parts) return null;
-    var digits = parts[0] + parts[1];
-    var significant = digits.replace(/^0+/, "");
-    if (significant.length + exp > NOVA_INPUTS.budget.max_digits) return null;
-    var numerator = digits ? Number(digits) : 0;
-    return numerator * Math.pow(10, exp) / Math.pow(10, parts[1].length);
+    if (!parts) return [null, "malformed_number"];
+    var v = _novaCents(parts[0], parts[1], exp);
+    return v === null ? [null, "too_large"] : [v, ""];
+  }
+
+  // wizard_inputs._ascii_digits: Unicode decimal digits (Arabic-Indic,
+  // Devanagari...) as ASCII, via the server's own digit-zero table.
+  function _novaAsciiDigits(text) {
+    var zeros = NOVA_INPUTS.budget.digit_zeros;
+    var out = "";
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i), cp = text.charCodeAt(i);
+      if (cp >= 0xd800 && cp <= 0xdbff && i + 1 < text.length) { // astral pair
+        cp = text.codePointAt(i);
+        ch = text.slice(i, i + 2);
+        i++;
+      }
+      if (cp > 0x7f) {
+        for (var z = 0; z < zeros.length; z++) {
+          if (zeros[z] <= cp && cp <= zeros[z] + 9) {
+            ch = String.fromCharCode(0x30 + cp - zeros[z]);
+            break;
+          }
+        }
+      }
+      out += ch;
+    }
+    return out;
   }
 
   // JS port of wizard_inputs.parse_budget_input -- same result object.
@@ -105,7 +148,14 @@
       if (!isFinite(raw)) return _novaBudgetFail("not_a_number");
       if (raw < 0) return _novaBudgetFail("negative");
       if (raw === 0) return _novaBudgetFail("zero");
-      return { ok: true, amount: raw, low: raw, high: raw, is_range: false,
+      var num = raw;
+      if (raw >= 0.01 && raw < Math.pow(10, NOVA_INPUTS.budget.max_digits)) {
+        // Same cents rounding as the same number arriving as text.
+        var str = String(raw), dot = str.indexOf(".");
+        num = _novaCents(dot < 0 ? str : str.slice(0, dot),
+          dot < 0 ? "" : str.slice(dot + 1), 0) || raw;
+      }
+      return { ok: true, amount: num, low: num, high: num, is_range: false,
         currency: "", period: "", error: "", message: "" };
     }
     if (typeof raw !== "string") return _novaBudgetFail("not_a_number");
@@ -113,7 +163,9 @@
       return _novaBudgetFail("too_long");
     }
 
-    var text = raw.normalize("NFKC")
+    var text = _novaAsciiDigits(raw.normalize("NFKC"))
+      .replace(_novaRx("arabic_decimal", true), ".")
+      .replace(_novaRx("arabic_group", true), ",")
       .replace(_novaRx("spaces", true), " ")
       .replace(_novaRx("dashes", true), "-")
       .replace(_novaRx("quotes", true), "'")
@@ -192,9 +244,9 @@
     }
     var values = [];
     for (var j = 0; j < amounts.length; j++) {
-      var v = _novaAmountValue(amounts[j][0], amounts[j][1] || 0);
-      if (v === null) return _novaBudgetFail("malformed_number");
-      values.push(v);
+      var av = _novaAmountValue(amounts[j][0], amounts[j][1] || 0);
+      if (av[0] === null) return _novaBudgetFail(av[1]);
+      values.push(av[0]);
     }
     if (values.some(function (x) { return x === 0; })) return _novaBudgetFail("zero");
     var low = Math.min.apply(null, values), high = Math.max.apply(null, values);
@@ -253,7 +305,7 @@
       multiplier: 1, total: 0, error: parsed.error, message: parsed.message };
     if (!parsed.ok) return out;
     out.multiplier = novaBudgetMultiplier(per, months);
-    out.total = parsed.amount * out.multiplier;
+    out.total = Math.floor(parsed.amount * out.multiplier * 100 + 0.5) / 100;
     var B = NOVA_INPUTS.budget;
     out.error = out.total < B.min ? "too_small" : out.total > B.max ? "too_large" : "";
     out.message = out.error ? B.messages[out.error] : "";

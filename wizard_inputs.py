@@ -203,7 +203,7 @@ BUDGET_REGEX: dict[str, str] = {
     # apostrophe variants (Swiss grouping 1'000'000) -> "'"
     "quotes": r"[‘’ʼ´`]",
     "exponent": r"[0-9] ?e ?[-+]?[0-9]",
-    "currency_symbol": r"(?:us|nz|hk|mx|c|a|s|r)?\$|[€£₹¥₩₱฿₽₴₦₪₺]|zł|kč",
+    "currency_symbol": r"(?:cad|aud|nzd|hkd|sgd|usd|us|ca|au|nz|hk|mx|sg|nt|c|a|s|r)?\$|[€£₹¥₩₱฿₽₴₦₪₺]|zł|kč",
     "currency_word": _B
     + r"(?:usd|eur|gbp|inr|cad|aud|nzd|sgd|hkd|jpy|cny|rmb|chf|sek|nok|dkk|pln|czk|huf|mxn|brl|zar|aed|sar|qar|kwd|myr|idr|php|thb|krw|try|ils|egp|ngn|kes|pkr|bdt|lkr|vnd|ron|rm|rp|kr|rs|dollars?|euros?|pounds?|rupees?)"
     + _E
@@ -260,8 +260,11 @@ BUDGET_REGEX: dict[str, str] = {
     + _E
     + r"\.?",
     "filler_symbols": r"[<>~=:+≤≥≈]",
-    "token": r"[0-9]+(?:[.,' ][0-9]+)*|[a-z]+\.?|-|[^ ]",
-    "number": r"^[0-9]+(?:[.,' ][0-9]+)*$",
+    "token": r"(?:[0-9]+|\.[0-9]+)(?:[.,' ][0-9]+)*|[a-z]+\.?|-|[^ ]",
+    "number": r"^(?:[0-9]+|\.[0-9]+)(?:[.,' ][0-9]+)*$",
+    # Arabic decimal / thousands separators (U+066B / U+066C)
+    "arabic_decimal": r"\u066b",
+    "arabic_group": r"\u066c",
     "word": r"^[a-z]+\.?$",
     "sep": r"[.,' ]",
 }
@@ -294,9 +297,10 @@ BUDGET_RANGE_WORDS: tuple[str, ...] = ("to",)
 # A range whose high end is more than this multiple of its low end is almost
 # certainly a typo ("10-15000" -> planning $7,505 silently) -- error instead.
 BUDGET_MAX_RANGE_RATIO: float = 100.0
-# Significant digits (digits + magnitude exponent) both parsers can compute
-# exactly: every product stays below 2**53.
-BUDGET_MAX_DIGITS: int = 15
+# Integer digits (+ magnitude exponent) above which an amount is too_large
+# outright (>= 10**13, 10,000x the cap): keeps every amount in cents below
+# 2**53 so both parsers convert it to the identical double.
+BUDGET_MAX_DIGITS: int = 13
 
 BUDGET_ERROR_MESSAGES: dict[str, str] = {
     "empty": "Enter a budget amount, e.g. 150,000 or 1.5M.",
@@ -381,7 +385,9 @@ def _number_parts(token: str, has_mult: bool) -> Optional[tuple[str, str]]:
     last = seps[-1]
     if len(seps) == 1:
         lead, tail = groups[0], groups[1]
-        thousands = len(tail) == 3 and 1 <= len(lead) <= 3
+        # A leading-zero group is never a thousands group: "0,750" is 0.750
+        # ("0,750M" used to plan $750,000,000).
+        thousands = len(tail) == 3 and 1 <= len(lead) <= 3 and lead[:1] != "0"
         if last in " '":
             return (lead + tail, "") if thousands else None
         if thousands and not (last == "." and has_mult):
@@ -396,6 +402,8 @@ def _number_parts(token: str, has_mult: bool) -> Optional[tuple[str, str]]:
         int_groups, frac, int_seps = groups, "", seps
     if len(set(int_seps)) != 1:
         return None
+    if int_groups[0][:1] == "0":
+        return None  # "0,750,000": a grouped number never leads with 0
     western = 1 <= len(int_groups[0]) <= 3 and all(len(g) == 3 for g in int_groups[1:])
     indian = (
         int_seps[0] == ","
@@ -409,27 +417,62 @@ def _number_parts(token: str, has_mult: bool) -> Optional[tuple[str, str]]:
     return "".join(int_groups), frac
 
 
-def _amount_value(token: str, exp: int) -> Optional[float]:
-    """Exact value of a digit run times 10**exp, or None if malformed.
+def _cents(int_digits: str, frac_digits: str, exp: int) -> Optional[float]:
+    """int_digits.frac_digits x 10**exp rounded HALF UP to cents, or None when
+    it has more than BUDGET_MAX_DIGITS integer digits.
 
-    Integer arithmetic (digits * 10**exp / 10**fraction_digits) so Python and
-    the JS port produce the identical float: with <= 15 significant digits
-    every intermediate is an exact double in both languages.
+    Exact integer arithmetic (JS: BigInt), then one division of an integer
+    below 2**53 by 100, so Python and the JS port return the identical
+    double -- and float noise from API clients ("110000.00000000001",
+    50000/3) rounds to cents instead of failing.
     """
+    if len(int_digits.lstrip("0")) + exp > BUDGET_MAX_DIGITS:
+        return None
+    numerator = int((int_digits + frac_digits) or "0")
+    scale = 10 ** len(frac_digits)
+    cents = (numerator * 10 ** (exp + 2) * 2 + scale) // (2 * scale)
+    return cents / 100
+
+
+def _amount_value(token: str, exp: int) -> "tuple[Optional[float], str]":
+    """(amount in cents precision, "") or (None, error code) for a digit run
+    times 10**exp."""
     parts = _number_parts(token, exp > 0)
     if parts is None:
-        return None
-    int_digits, frac_digits = parts
-    digits = int_digits + frac_digits
-    significant = digits.lstrip("0")
-    if len(significant) + exp > BUDGET_MAX_DIGITS:
-        return None
-    numerator = int(digits) if digits else 0
-    return numerator * (10**exp) / (10 ** len(frac_digits))
+        return None, "malformed_number"
+    value = _cents(parts[0], parts[1], exp)
+    if value is None:
+        return None, "too_large"
+    return value, ""
+
+
+_DIGIT_ZEROS: "tuple[int, ...]" = tuple(
+    cp
+    for cp in range(0x80, 0x20000)
+    if unicodedata.decimal(chr(cp), -1) == 0
+    and all(unicodedata.decimal(chr(cp + d), -1) == d for d in range(10))
+)
+
+
+def _ascii_digits(text: str) -> str:
+    """Every Unicode decimal digit (Arabic-Indic, Devanagari, Bengali...) as
+    its ASCII digit -- via the _DIGIT_ZEROS table the page also gets."""
+    out = []
+    for ch in text:
+        cp = ord(ch)
+        if cp > 0x7F:
+            for zero in _DIGIT_ZEROS:
+                if zero <= cp <= zero + 9:
+                    ch = chr(0x30 + cp - zero)
+                    break
+        out.append(ch)
+    return "".join(out)
 
 
 def _clean(raw: str) -> str:
-    text = unicodedata.normalize("NFKC", raw)
+    text = _ascii_digits(unicodedata.normalize("NFKC", raw))
+    text = _RX["arabic_decimal"].sub(".", text)
+    text = _RX["arabic_group"].sub(",", text)
     text = _RX["spaces"].sub(" ", text)
     text = _RX["dashes"].sub("-", text)
     text = _RX["quotes"].sub("'", text)
@@ -466,6 +509,12 @@ def parse_budget_input(raw: Any) -> BudgetParse:
             return _fail("negative")
         if value == 0:
             return _fail("zero")
+        if 0.01 <= value < 10**BUDGET_MAX_DIGITS:
+            # Round JSON-number noise to cents exactly as the same number
+            # arrives as text (/api/generate's sanitizer str()s numbers):
+            # repr() and JS String() print the same plain decimal here.
+            int_digits, _, frac_digits = repr(value).partition(".")
+            value = _cents(int_digits, frac_digits, 0) or value
         return BudgetParse(ok=True, amount=value, low=value, high=value)
     if not isinstance(raw, str):
         return _fail("not_a_number")
@@ -549,9 +598,9 @@ def parse_budget_input(raw: Any) -> BudgetParse:
         amounts[0][1] = amounts[1][1]  # "10-15k" -> 10k to 15k
     values: list[float] = []
     for tok, exp in amounts:
-        value = _amount_value(tok, exp or 0)
+        value, error = _amount_value(tok, exp or 0)
         if value is None:
-            return _fail("malformed_number")
+            return _fail(error)
         values.append(value)
     if any(v == 0 for v in values):
         return _fail("zero")
@@ -633,7 +682,8 @@ def resolve_plan_budget(
             message=parsed.message,
         )
     multiplier = budget_period_multiplier(period, months)
-    total = parsed.amount * multiplier
+    # Cents, rounded half up with the identical float ops the JS port runs.
+    total = math.floor(parsed.amount * multiplier * 100 + 0.5) / 100
     bound = budget_bounds_error(total)
     return PlanBudget(
         ok=not bound,
@@ -667,6 +717,7 @@ def page_config() -> dict[str, Any]:
             "range_words": list(BUDGET_RANGE_WORDS),
             "max_range_ratio": BUDGET_MAX_RANGE_RATIO,
             "max_digits": BUDGET_MAX_DIGITS,
+            "digit_zeros": list(_DIGIT_ZEROS),
             "min": BUDGET_MIN,
             "max": BUDGET_MAX,
             "messages": dict(BUDGET_ERROR_MESSAGES),

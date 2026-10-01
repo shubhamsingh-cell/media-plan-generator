@@ -227,7 +227,8 @@ def test_js_and_server_agree_on_generated_inputs():
         "usd", "Rs.", "kr", "/mo", "per month", "monthly", "per quarter", "p.a.",
         "annual", "per week", "daily", "~", "<", ">", "+", "up to", "approx",
         "budget:", "total", "%", "e", "1e9", "(", ")", "x", "abc", " ", " ",
-        "５", "١",
+        "５", "١", "0,750", "0.750", "CA$", "AU$", "NT$", "٫", "٬",
+        "१", "৫", "16666.666666666668", ".5",
     ]
     inputs = []
     for _ in range(4000):
@@ -240,6 +241,42 @@ def test_js_and_server_agree_on_generated_inputs():
         if _actual_parse(res) != _actual_parse(py):
             diffs.append((s, _actual_parse(py), _actual_parse(res)))
     assert not diffs, diffs[:10]
+
+
+# ── API clients: every budget shape the suite posts behaves as on origin/main ─
+
+
+# Shapes taken from the payloads the existing tests post (number, int, float
+# with noise, $/£/₹/A$/GBP strings, "120k", "... total").
+_API_SHAPES = [
+    20000, 50000, 100000, 2_000_000, 8000, 50000.0, 110000.00000000001, 50000 / 3,
+    "$120,000", "120000", "120k", "$90,000", "$150,000", "$1,000,000", "$1,200",
+    "£50,000", "£50,000 total", "₹2,50,00,000", "₹9,00,000 total", "A$80,000",
+    "GBP 2,000,000", "¥5,000,000", "$250,000", "150000", "250000",
+]
+
+
+@pytest.mark.parametrize("shape", _API_SHAPES, ids=repr)
+def test_api_budget_shapes_resolve_as_on_origin_main(shape):
+    """origin/main read these with shared_utils.parse_budget on both
+    endpoints; JSON numbers reach /api/estimate as numbers and /api/generate
+    as str() (the request sanitizer). Float noise (110000.00000000001,
+    50000/3) briefly 400'd on generate after the first parity commit; every
+    shape must resolve to origin/main's amount (to the cent) both ways."""
+    legacy = parse_budget(shape)
+    for data in ({"budget": shape}, app._sanitize_request_value({"budget": shape})):
+        plan = app._resolve_request_budget(dict(data, budget_period="campaign"))
+        assert plan.ok, (shape, data, plan.error)
+        assert plan.total == pytest.approx(round(legacy, 2), abs=0.005), (shape, data)
+
+
+def test_float_noise_budget_estimate_endpoint(live_port):  # noqa: F811
+    for shape in (110000.00000000001, 50000 / 3 * 6):
+        status, body = post_json(
+            live_port, "/api/estimate", dict(_EST_BRIEF, budget=shape, budget_range=None)
+        )
+        assert status == 200, (shape, body)
+        assert body["budget"]["total"] == round(shape, 2)
 
 
 # ── what downstream readers see ──────────────────────────────────────────
