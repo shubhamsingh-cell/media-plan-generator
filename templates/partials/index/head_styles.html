@@ -2496,7 +2496,11 @@
   }
 
   @media (max-width: 768px) {
-    .form-row {
+    .form-row,
+    .form-row.form-row-3 {
+      /* .form-row-3 out-specifies .form-row: without it the budget /
+         duration / start-month row stayed 3 columns and the budget field
+         was 61 px wide at 375 px. */
       grid-template-columns: 1fr;
     }
     .industry-grid {

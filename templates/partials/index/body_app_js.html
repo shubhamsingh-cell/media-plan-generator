@@ -5003,12 +5003,35 @@
     if (!el) return false;
     var stepEl = el.closest(".wizard-step");
     var step = stepEl ? parseInt(String(stepEl.id).replace(/\D/g, ""), 10) : 0;
-    if (step && step !== currentStep) goToStep(step);
+    var switching = !!(step && step !== currentStep);
+    if (switching) goToStep(step);
     _showFieldError(el, message);
-    try {
-      el.focus();
-    } catch (e) {
-      /* not focusable */
+    var reduce = !!(window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    function inView() {
+      var r = el.getBoundingClientRect();
+      return r.top >= 0 && r.bottom <= (window.innerHeight || 0);
+    }
+    function land() {
+      try {
+        el.focus({ preventScroll: true });
+      } catch (e) {
+        /* not focusable */
+      }
+      el.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+    }
+    // goToStep animates the new step in (.step-animating, 400 ms) and
+    // smooth-scrolls the window to the TOP; focusing at once let that scroll
+    // win, leaving the errored field ~1300 px below the fold (verifier, 2 of
+    // 4 runs at 1024 px). Land after the transition, and once more if a late
+    // scroll still moved the field out of view.
+    if (switching) {
+      setTimeout(land, reduce ? 30 : 450);
+      setTimeout(function () {
+        if (!inView()) el.scrollIntoView({ block: "center", behavior: "auto" });
+      }, reduce ? 300 : 1200);
+    } else {
+      land();
     }
     return true;
   }
