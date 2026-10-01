@@ -269,13 +269,13 @@
       "notes": "Clinical: 50-60 days, experienced RN: 70-90 days, specialty: 90+ days."
     },
     "S16": {
-      "name": "Eurojob-Consulting: Recruitment Costs in Germany 2025",
+      "name": "Eurojob-Consulting: Recruitment costs in Germany (undated page)",
       "url": "https://www.eurojob-consulting.com/en/a/recruitment-costs-in-germany-what-you-need-to-know-and-how-to-reduce-them",
       "retrieved": "2026-05-22",
       "type": "industry_report",
       "tier": 2,
       "notes": "StepStone ~€1,200/listing. Agency fees 15-30% annual salary. Total hire cost €6k-€25k.",
-      "short_name": "Eurojob-Consulting 2025 (Germany, all industries)"
+      "short_name": "Eurojob-Consulting, Germany: varies by seniority, location and industry"
     },
     "S17": {
       "name": "StepStone Germany Salary Report 2026",
@@ -2598,7 +2598,7 @@
                 "checked": "2026-10-01",
                 "verdict": "RANGE-ONLY",
                 "scope": "all-industry",
-                "evidence": "S16 Eurojob-Consulting: \"total cost of hiring one employee ranges from €6,000 to €25,000\" (all industries)",
+                "evidence": "S16 Eurojob-Consulting: \"The total cost of hiring one employee ranges from €6,000 to €25,000, depending on the seniority, location, and industry.\" (not sector-specific; re-checked 2026-10-01)",
                 "was": "EUR 6,000-25,000, median 12,000 (median not in source)"
               }
             }
@@ -6928,7 +6928,7 @@
                 "checked": "2026-10-01",
                 "verdict": "RANGE-ONLY",
                 "scope": "all-industry",
-                "evidence": "S16 Eurojob-Consulting: \"total cost of hiring one employee ranges from €6,000 to €25,000\" (all industries)",
+                "evidence": "S16 Eurojob-Consulting: \"The total cost of hiring one employee ranges from €6,000 to €25,000, depending on the seniority, location, and industry.\" (not sector-specific; re-checked 2026-10-01)",
                 "was": "EUR 6,000-25,000, median 12,000 (median not in source)"
               }
             }

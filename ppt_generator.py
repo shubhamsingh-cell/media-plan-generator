@@ -6309,11 +6309,17 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         _src_w_in = table_w / 914400 - 0.2
         _local_names = ", ".join(_cph_local_sources)
         _src_bare = re.sub(r" \([^)]*\)", "", source_text)
+        # last resort: the publisher alone ("Eurojob-Consulting") -- the
+        # full label with its scope stays in the workbook
+        _local_pub = ", ".join(
+            re.split(r"[,(:]", n, maxsplit=1)[0].strip() for n in _cph_local_sources
+        )
         source_text = _first_one_line(
             [
                 f"{source_text}; local cost per hire: {_local_names}",
                 f"{source_text}; local CPH: {_local_names}",
                 f"{_src_bare}; local CPH: {_local_names}",
+                f"{_src_bare}; local CPH: {_local_pub}",
             ],
             _src_w_in,
             8.0,
