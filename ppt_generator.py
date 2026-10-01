@@ -2452,6 +2452,10 @@ def _fit_font_single_line(
     )
 
 
+# Paragraphs _autofit_textframe never trims (honesty signals, not filler).
+_AUTOFIT_PROTECTED_PREFIXES = ("Client goal:",)
+
+
 def _autofit_textframe(tf, width_in: float, max_height_in: float, min_pt: float = 8.0):
     """Shrink every run's font (and proportionally its paragraph spacing) until
     the text frame's estimated rendered height fits within ``max_height_in``.
@@ -2534,15 +2538,34 @@ def _autofit_textframe(tf, width_in: float, max_height_in: float, min_pt: float 
     # actually reaching ``max_height_in`` when a card is content-overloaded
     # (e.g. the RESOLUTION card's thesis + 5 channels + ML line + goals + cited
     # 2026 block). Rather than let the tail spill below the card, drop trailing
-    # paragraphs (lowest-priority content, added last) until it genuinely fits.
+    # paragraphs (lowest-priority content, added last) until it genuinely fits
+    # -- but NEVER a protected one (the client-goal line: design-judge round
+    # 3, item 1 -- India's "…434 hires against a goal of 500" was generated
+    # and then trimmed here); the last unprotected paragraph goes instead.
     body = tf._txBody
+
+    def _protected(p) -> bool:
+        return p.text.strip().startswith(_AUTOFIT_PROTECTED_PREFIXES)
+
     while _measure_current() > max_height_in and len(tf.paragraphs) > 1:
-        last_p = tf.paragraphs[-1]._p
-        body.remove(last_p)
+        removable = [p for p in list(tf.paragraphs)[1:] if not _protected(p)]
+        if not removable:
+            break
+        body.remove(removable[-1]._p)
     # Don't leave a dangling section header (e.g. "2026 Market Data:") whose
     # content was just trimmed away -- drop it too so the card ends cleanly.
-    while len(tf.paragraphs) > 1 and tf.paragraphs[-1].text.strip().endswith(":"):
-        body.remove(tf.paragraphs[-1]._p)
+    # A header left directly above a protected line ("Client Goals:" over
+    # "Client goal: ...") has lost its own content the same way.
+    changed = True
+    while changed and len(tf.paragraphs) > 1:
+        changed = False
+        paras = list(tf.paragraphs)
+        for i, p in enumerate(paras[1:], start=1):
+            nxt = paras[i + 1] if i + 1 < len(paras) else None
+            if p.text.strip().endswith(":") and (nxt is None or _protected(nxt)):
+                body.remove(p._p)
+                changed = True
+                break
 
 
 def _add_filled_rect(slide, left, top, width, height, fill_color: RGBColor):
@@ -3783,16 +3806,27 @@ def _hires_range(data_or_alloc: Optional[Dict]) -> Optional[Tuple[int, int]]:
     if not isinstance(tp, dict):
         return None
     lo, hi = tp.get("hires_low"), tp.get("hires_high")
-    if isinstance(lo, int) and isinstance(hi, int) and 0 <= lo < hi:
-        return lo, hi
-    return None
+    if not (isinstance(lo, int) and isinstance(hi, int) and 0 <= lo < hi):
+        return None
+    # A US$ cost per hire on a deck shown in another currency is parity
+    # arithmetic, not a range (verifier round 2, item 2) -- the engine
+    # withholds it when it can see the display currency; this covers callers
+    # that price the plan without one.
+    info = _industry_cph_info(alloc)
+    if (
+        info.get("basis") != "local_kb"
+        and str(info.get("currency") or "USD").upper() == "USD"
+        and _get_active_currency() != "USD"
+    ):
+        return None
+    return lo, hi
 
 
 # Slide-2 KPI strip geometry (inches below the bar's top edge): every metric
 # label shares one baseline; the hires-range sublabel sits in its own box
 # beneath the label, one 8pt line per _KPI_SUBLABEL_LINE_IN.
 _KPI_LABEL_TOP_IN = 0.72
-_KPI_SUBLABEL_TOP_IN = 0.93
+_KPI_SUBLABEL_TOP_IN = 0.92
 _KPI_SUBLABEL_LINE_IN = 0.14
 
 
@@ -3800,25 +3834,25 @@ def _hires_range_sublabel(
     data_or_alloc: Optional[Dict], rng: Tuple[int, int], width_in: float
 ) -> List[str]:
     """The lines under "Projected Hires" that say what each end of the range
-    assumes, e.g. ``["23 at industry-average cost · 47 at plan efficiency"]``
-    when that fits ONE 8pt line in ``width_in``, else one line per end
-    (``["23 at industry-average cost", "47 at plan efficiency"]``), each
-    shortened until it fits. The low end is the budget at the plan's one
-    industry-average cost per hire, so it is named for that record's basis:
-    a cited local figure, the cross-industry default, or the industry's own
-    range (design-judge, 2026-10-01: "range 23-47" did not explain itself)."""
+    assumes, e.g. ``["23 at range midpoint · 47 at plan efficiency"]`` when
+    that fits ONE 8pt line in ``width_in``, else one line per end
+    (``["23 at range midpoint", "47 at plan efficiency"]``), each shortened
+    until it fits. The low end is the budget at the midpoint of the cost-
+    per-hire range slide 5 prints (design-judge round 3, item 5: it is a
+    range MIDPOINT, not an "average" -- "local-avg cost" said otherwise), or
+    at the source's own median when it states one; "plan efficiency" is
+    defined in the slide footnote."""
     info = _industry_cph_info(data_or_alloc)
-    if info.get("basis") == "local_kb":
-        lows = ["local-average cost", "local-avg cost", "local avg"]
+    if info.get("basis") == "local_kb" and info.get("value_label") == "median":
+        lows = ["cited median"]
     elif info.get("industry_matched") is False and not info.get("display_row"):
-        # (with a display_row the low end IS the slide-5 industry row's
-        # midpoint -- budget_engine, design-judge round 2 item 3)
-        lows = ["cross-industry avg cost", "cross-industry avg", "default avg"]
+        # the cross-industry default (no KB row to show)
+        lows = ["default midpoint"]
     else:
-        lows = ["industry-average cost", "industry-avg cost", "industry avg"]
+        lows = ["range midpoint"]
     highs = ["plan efficiency", "plan rate"]
     lo, hi = f"{rng[0]:,}", f"{rng[1]:,}"
-    for low_w in lows[:2]:
+    for low_w in lows[:1]:
         one = f"{lo} at {low_w} · {hi} at {highs[0]}"
         if _fits_one_line(one, width_in, 8.0):
             return [one]
@@ -4007,6 +4041,61 @@ def _local_cph_assumption_variants(data: Optional[Dict]) -> List[str]:
         return []
 
 
+def _media_note_variants(data: Optional[Dict]) -> List[str]:
+    """The media-only vs all-in note, ONLY when the deck prints a cost-per-
+    hire range (design-judge round 3, item 4: on a market with no local
+    benchmark slide 5 says there is none, so "cost-per-hire ranges" pointed
+    at nothing)."""
+    info = _industry_cph_info(data)
+    if not info or info.get("claim_suppressed"):
+        return []
+    return list(_MEDIA_VS_ALLIN_NOTES)
+
+
+def _plan_efficiency_variants(data: Optional[Dict]) -> List[str]:
+    """ "Plan efficiency: $5,250/hire (half the $10.5K midpoint)." -- what the
+    slide-2 range's high end assumes on a plan WITHOUT a cited local range
+    (that one says it in ``_local_cph_assumption_variants``). Design-judge
+    round 3, item 3: US decks never defined "plan efficiency", and it means
+    something else there (half the industry midpoint, the established US
+    floor) than on a local-range plan (the cited low end). ``[]`` when the
+    deck shows no hires range."""
+    info = _industry_cph_info(data)
+    alloc = data.get("_budget_allocation") if isinstance(data, dict) else None
+    if (
+        not info
+        or info.get("basis") == "local_kb"
+        or _hires_range(data) is None
+        # no "Projected Hires" KPI (0 hires) -> no "plan efficiency" to define
+        or _compute_blended_cph(alloc)[1] <= 0
+        or not isinstance(info.get("floor"), (int, float))
+        or info["floor"] <= 0
+    ):
+        return []
+    try:
+        import budget_engine as _be_pe
+
+        ccy = str(info.get("currency") or "USD").upper()
+        floor_txt = _be_pe._cph_text(info["floor"], ccy, "full")
+        row = info.get("display_row") or {}
+        if row.get("mid"):
+            # the floor is the engine's, not the KB row shown -- no basis
+            # claim beyond what it is
+            return [f"Plan efficiency: {floor_txt}/hire, the model's lowest cost per hire."]
+        mid = info.get("value")
+        if not isinstance(mid, (int, float)) or mid <= 0:
+            return []
+        mid_txt = _be_pe._cph_text(mid, ccy, "compact")
+        return [
+            f"Plan efficiency: {floor_txt}/hire (half the {mid_txt} midpoint), "
+            "the model's lowest cost per hire.",
+            f"Plan efficiency: {floor_txt}/hire (half the {mid_txt} midpoint).",
+        ]
+    except (ImportError, AttributeError, TypeError, ValueError) as exc:
+        logger.error("plan efficiency note failed: %s", exc, exc_info=True)
+        return []
+
+
 def _currency_basis_note_variants(data: Optional[Dict]) -> List[str]:
     """``_currency_basis_note`` and shorter forms that keep both halves
     (currency + what happened to US$ inputs). ``[]`` on a USD plan."""
@@ -4079,7 +4168,7 @@ def _add_note_stack(
     upward into the free band instead of onto the footer rule."""
     if not lines:
         return
-    line_in = font_pt * 1.4 / 72.0
+    line_in = font_pt * 1.3 / 72.0
     height_in = line_in * len(lines) + 0.02
     _box, tf = _add_textbox(
         slide,
@@ -5242,6 +5331,8 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
     # O1: clamp RESOLUTION body (market thesis + strategy + cited data) to the
     # card bounds so its final rows never spill below the card / onto the KPI band.
+    # The client-goal line is protected from trimming (design-judge round 3,
+    # item 1); lower-priority trailing lines go first.
     _autofit_textframe(tf4, res_w / 914400, _card_body_h)
 
     # ---- HERO STAT METRICS BAR ----
@@ -5431,7 +5522,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
                 _sr = _sp.add_run()
                 _sr.text = _line
                 _set_font(_sr, size=8, color=LIGHT_MUTED)
-            _need_h = Inches(_KPI_SUBLABEL_TOP_IN + 0.06) + _sub_h
+            # >= 0.12in clear below the last line (design-judge round 3,
+            # item 5: 0.06in read as ~8px against the band edge)
+            _need_h = Inches(_KPI_SUBLABEL_TOP_IN + 0.12) + _sub_h
             if _need_h > _bar_rect.height:
                 _bar_rect.height = Emu(int(_need_h))
 
@@ -5515,15 +5608,16 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         slide,
         _pack_note_lines(
             [
-                _local_cph_assumption_variants(data),
+                _local_cph_assumption_variants(data)
+                or _plan_efficiency_variants(data),
                 _currency_basis_note_variants(data),
-                _MEDIA_VS_ALLIN_NOTES,
+                _media_note_variants(data),
             ],
             12.2 - 0.2,
             9.0,
             max_lines=2,
         ),
-        bottom_in=7.06,
+        bottom_in=7.08,
     )
 
     # Footer
@@ -6496,7 +6590,11 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     _add_note_stack(
         slide,
         _pack_note_lines(
-            [_local_cph_assumption_variants(data), _MEDIA_VS_ALLIN_NOTES],
+            [
+                _local_cph_assumption_variants(data)
+                or _plan_efficiency_variants(data),
+                _media_note_variants(data),
+            ],
             12.2 - 0.2,
             9.0,
             max_lines=1,
@@ -8027,7 +8125,31 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             (r for r in comparison_rows if r["metric"] == "vs. Client Goal"), None
         )
         comparison_rows = [r for r in comparison_rows if r is not _goal_row]
-    comparison_rows = comparison_rows[:4] if _goal_row else comparison_rows[:5]
+    # The band's text. Under goal: the gap. At or over goal on the headline
+    # but UNDER it at the conservative end of the hires range (every hire at
+    # the industry midpoint): the goal is met only at plan efficiency -- say
+    # so instead of dropping the band (design-judge round 3, item 1: the
+    # India deck's 714-hire headline vs a 500 goal lost its goal statement).
+    _goal_band_text = ""
+    if _goal_row and _goal_gap:
+        _goal_band_text = (
+            f"{_goal_gap['goal']:,} hires target  —  this plan projects "
+            f"{_goal_gap['projected']:,} ({_goal_gap['pct_of_goal']:.0f}%)"
+        )
+    else:
+        _rng_s9 = _hires_range(budget_alloc)
+        _cons_s9 = _fmt.goal_at_conservative_end(
+            proj_hires, _hire_goal, _rng_s9[0] if _rng_s9 else None
+        )
+        if _cons_s9 and _rng_s9 and comp_cph and comp_cph > 0:
+            _goal_band_text = (
+                f"{_cons_s9['goal']:,} hires target  —  this plan projects "
+                f"{_rng_s9[0]:,}–{_rng_s9[1]:,}; met only at "
+                f"{_fmt_currency(comp_cph, compact=True)}/hire"
+            )
+    comparison_rows = (
+        comparison_rows[:4] if _goal_band_text else comparison_rows[:5]
+    )
 
     # fix/gate-confidence-layout: this panel used to be a flat fixed
     # Inches(2.95) regardless of how many rows (2-5) plus an optional goal
@@ -8052,7 +8174,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     # deliberately tight (not the first-draft 0.15) because every inch here
     # is inches the Implementation Timeline phase cards below don't get.
     bottom_clearance_in = 0.08
-    panel_content_rows = len(comparison_rows) + (1 if (_goal_row and _goal_gap) else 0)
+    panel_content_rows = len(comparison_rows) + (1 if _goal_band_text else 0)
     panel_h_in = (
         header_bar_h_in
         + row_start_offset_in
@@ -8213,7 +8335,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
 
     # ---- CLIENT GOAL band (own row, never inside the industry-average
     # column -- strategy:manpower#3) ----
-    if _goal_row and _goal_gap:
+    if _goal_band_text:
         _goal_band_y = comp_top + Inches(0.5) + len(comparison_rows) * row_h_comp
         _goal_band_w = (right_panel_x + panel_w) - left_panel_x
         _add_filled_rect(
@@ -8237,10 +8359,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         _gb_r1.text = "CLIENT GOAL (not an industry benchmark):  "
         _set_font(_gb_r1, size=9, bold=True, color=NAVY)
         _gb_r2 = _gb_p.add_run()
-        _gb_r2.text = (
-            f"{_goal_gap['goal']:,} hires target  —  this plan projects "
-            f"{_goal_gap['projected']:,} ({_goal_gap['pct_of_goal']:.0f}%)"
-        )
+        _gb_r2.text = _goal_band_text
         _set_font(_gb_r2, size=9, bold=False, color=DARK_TEXT)
 
     # ---- Legend ----

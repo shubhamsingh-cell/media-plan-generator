@@ -130,7 +130,8 @@ class TestProjectedHiresKpi:
         sub = _sublabel(s2)
         assert sub is not None
         lines = [p.text for p in sub.text_frame.paragraphs]
-        assert lines == ["23 at industry-avg cost", "47 at plan efficiency"], lines
+        # round 3 (item 5): it is the range MIDPOINT, not an "average"
+        assert lines == ["23 at range midpoint", "47 at plan efficiency"], lines
         for line in lines:
             assert ppt_generator._estimate_lines(line, _KPI_TEXT_W, 8.0) == 1, line
 
@@ -145,7 +146,7 @@ class TestProjectedHiresKpi:
     def test_local_basis_is_named_local(self, india_it):
         sub = _sublabel(india_it[1].slides[1])
         lines = [p.text for p in sub.text_frame.paragraphs]
-        assert lines == ["434 at local-avg cost", "714 at plan efficiency"], lines
+        assert lines == ["434 at range midpoint", "714 at plan efficiency"], lines
 
     def test_suppressed_plan_has_no_range(self, uk_finance):
         s2 = uk_finance[1].slides[1]
@@ -178,4 +179,4 @@ class TestOneLineRows:
 
 def test_wide_column_keeps_one_line_with_both_ends():
     lines = ppt_generator._hires_range_sublabel({}, (23, 47), 4.0)
-    assert lines == ["23 at industry-average cost · 47 at plan efficiency"]
+    assert lines == ["23 at range midpoint · 47 at plan efficiency"]

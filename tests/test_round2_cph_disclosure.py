@@ -172,7 +172,7 @@ class TestLocalAssumptionDisclosed:
 class TestOneCostBasis:
     def test_hershey_low_end_is_the_shown_row(self, hershey):
         assert hershey.tp["hires_low"] == 11
-        assert "11 at industry-avg cost" in hershey.paras(2)
+        assert "11 at range midpoint" in hershey.paras(2)
         b16 = hershey.cell("Projected hires:")
         assert b16.startswith("Projected hires: 11–15."), b16
         assert "$4,000, the midpoint of the industry row" in b16, b16
@@ -210,5 +210,6 @@ class TestNoRangeWithoutAPlanCurrencyCph:
 
 class TestMediaVsAllIn:
     def test_slides_2_and_5_say_it(self, hospital):
-        assert _MEDIA in hospital.paras(2)
-        assert _MEDIA in hospital.paras(5)
+        # (round 3: shares its footnote line with the plan-efficiency note)
+        assert any(_MEDIA in p for p in hospital.paras(2))
+        assert any(_MEDIA in p for p in hospital.paras(5))
