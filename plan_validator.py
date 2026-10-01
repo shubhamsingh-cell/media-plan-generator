@@ -679,6 +679,47 @@ def _check_location_sanity(data: dict) -> list[dict[str, Any]]:
 
     for fp, cities in fingerprints.items():
         if len(cities) > 1:
+            # Root cause of the "Duplicate city data" warning on every real
+            # run: same-state cities with no city-level entry all receive the
+            # SAME state-level multiplier / difficulty (gold_standard
+            # ``geo_basis`` "state"), so identical fingerprints are the
+            # expected result of an area-level fallback -- not templated data.
+            # Those rows are labelled as area-level estimates downstream, so
+            # report them for what they are (informational) instead of
+            # raising a medium "templated/duplicated data" alarm.
+            bases = {
+                str((city_data.get(c) or {}).get("geo_basis") or "") for c in cities
+            }
+            if bases and bases <= {"state", "country", "generic"}:
+                areas = sorted(
+                    {
+                        str((city_data.get(c) or {}).get("geo_basis_area") or "")
+                        for c in cities
+                    }
+                    - {""}
+                )
+                level = "/".join(sorted(bases))
+                findings.append(
+                    {
+                        "check": "location_sanity",
+                        "severity": "low",
+                        "cities": cities,
+                        "geo_basis": sorted(bases),
+                        "message": (
+                            f"Cities {cities} share one {level}-level estimate"
+                            f"{' (' + ', '.join(areas) + ')' if areas else ''}: "
+                            f"no city-specific salary/cost data on file. They are "
+                            f"labelled as {level}-level estimates, not city data."
+                        ),
+                        "auto_corrected": False,
+                    }
+                )
+                logger.info(
+                    "Validator: %s share a %s-level fallback (labelled, not duplicated data)",
+                    cities,
+                    level,
+                )
+                continue
             findings.append(
                 {
                     "check": "location_sanity",

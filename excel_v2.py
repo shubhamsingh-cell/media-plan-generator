@@ -7092,6 +7092,19 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             if isinstance(population, (int, float))
             else _flatten_value(population)
         )
+        # A county / state / country figure is NEVER shown as this city's
+        # population: the national number used to be repeated on every city row
+        # (UK / India / Germany / Japan / Brazil workbooks). When only an
+        # area-level value exists, say which level it is.
+        if not pop_str and isinstance(loc_data, dict):
+            _area_pop = loc_data.get("area_population")
+            if isinstance(_area_pop, (int, float)) and _area_pop > 0:
+                _area_scope = str(loc_data.get("area_population_scope") or "area")
+                _area_label = str(loc_data.get("area_population_label") or "").strip()
+                pop_str = (
+                    f"{_fmt_number(_area_pop)} ({_area_scope}-level"
+                    f"{', ' + _area_label if _area_label else ''}; not city)"
+                )
         unemp_str = _flatten_value(unemployment)
         # INCIDENT FIX (currency-integrity defect 1): the comment here used
         # to claim this figure is "US Census/METRO_DATA source only --
@@ -9961,6 +9974,23 @@ def _collapse_fallback_market_rows(
     return out
 
 
+def _geo_basis_suffix(info: Dict[str, Any]) -> str:
+    """Bracketed label for a CITY market whose figures are its STATE's.
+
+    ``gold_standard.enrich_city_level_data`` stamps every city with no
+    city-level entry with its state's multiplier / difficulty -- so three PA
+    towns printed byte-identical "city" rows. Mark those rows so the table
+    never implies city-specific data: " [PA state-level estimate]".
+    City-specific rows, the collapsed default-index row and markets that ARE a
+    country ("India", "Canada" -- ``geo_basis`` "country": the figures describe
+    the market itself, not a fallback) carry no suffix.
+    """
+    if not isinstance(info, dict) or info.get("geo_basis") != "state":
+        return ""
+    area = str(info.get("geo_basis_area") or "").strip()
+    return f" [{area + ' ' if area else ''}state-level estimate]"
+
+
 def _salary_range_from_per_role(
     info: Dict[str, Any], currency_code: str | None = None
 ) -> str | None:
@@ -10142,7 +10172,8 @@ def _build_sheet_quality_intelligence(
                     ws,
                     row,
                     [
-                        market_label,
+                        market_label
+                        + ("" if _is_collapsed else _geo_basis_suffix(info)),
                         f"{info.get('salary_multiplier', 1.0):.2f}x",
                         _safe_num(info.get("estimated_salary", 0)),
                         f"{info.get('hiring_difficulty', 0):.1f}/10",
@@ -10168,6 +10199,16 @@ def _build_sheet_quality_intelligence(
                     ' "All listed markets" is a national-default estimate '
                     "(confidence: estimated) -- no market-specific salary/cost "
                     "data was available to differentiate these locations."
+                )
+            if any(
+                isinstance(_i, dict) and _geo_basis_suffix(_i)
+                for _i in city_data.values()
+            ):
+                _city_footnote += (
+                    " Rows marked [state-level estimate] use that state's "
+                    "multiplier and difficulty -- no city-specific data was on "
+                    "file -- so markets in the same state share identical "
+                    "figures."
                 )
             row = _write_footnote(ws, row, _city_footnote)
             row += 1
@@ -10243,7 +10284,8 @@ def _build_sheet_quality_intelligence(
                             ws,
                             row,
                             [
-                                _title_case_city(city_name),
+                                _title_case_city(city_name)
+                                + _geo_basis_suffix(info),
                                 _role_display,
                                 _safe_num(sal.get("min", 0)),
                                 _safe_num(sal.get("p25", sal.get("min", 0))),

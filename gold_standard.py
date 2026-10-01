@@ -1183,6 +1183,10 @@ def _normalize_state_code(raw_state: str) -> str:
     return _US_STATE_NAME_TO_ABBR.get(token, "").lower() or token
 
 
+# Specificity ranking for ``geo_basis`` (higher = more specific to the city).
+_GEO_BASIS_RANK: dict[str, int] = {"city": 3, "state": 2, "country": 1, "generic": 0}
+
+
 def enrich_city_level_data(data: dict) -> dict:
     """Produce per-city salary, hiring difficulty, and supply segmentation.
 
@@ -1272,6 +1276,13 @@ def enrich_city_level_data(data: dict) -> dict:
         city_key = city_name.lower()
         multiplier = _CITY_SALARY_MULTIPLIERS.get(city_key, None)
         difficulty = _CITY_HIRING_DIFFICULTY.get(city_key, None)
+        # Geographic basis of each figure ("city" | "state" | "country" |
+        # "generic"): lets the validator and the workbook tell a city's own
+        # numbers apart from a state/country-level fallback that every
+        # same-state city shares (3 PA towns printed byte-identical rows that
+        # read as city-specific data, and tripped the duplicate-city check).
+        _salary_basis = "city" if multiplier is not None else ""
+        _difficulty_basis = "city" if difficulty is not None else ""
 
         # S49 FIX: Country-level fallback for international locations.
         # When city_key is not a US city (multiplier is None), check if
@@ -1285,6 +1296,8 @@ def enrich_city_level_data(data: dict) -> dict:
                 multiplier = _COUNTRY_SALARY_MULTIPLIERS[_resolved_country]
                 difficulty = _COUNTRY_HIRING_DIFFICULTY.get(_resolved_country, 5.5)
                 _country_col = _COUNTRY_COL_INDEX.get(_resolved_country)
+                _salary_basis = "country"
+                _difficulty_basis = "country"
 
         # S50 FIX (Issue 19): State-level fallback before research/flat defaults.
         # When a city isn't in our metro lookup but we know its state, use the
@@ -1294,10 +1307,12 @@ def enrich_city_level_data(data: dict) -> dict:
             _st_mult = _STATE_SALARY_MULTIPLIERS.get(_state_code)
             if _st_mult is not None:
                 multiplier = _st_mult
+                _salary_basis = "state"
         if difficulty is None and _state_code and len(_state_code) == 2:
             _st_diff = _STATE_HIRING_DIFFICULTY.get(_state_code)
             if _st_diff is not None:
                 difficulty = _st_diff
+                _difficulty_basis = "state"
 
         # S49 FIX (Issue 10): When no hardcoded multiplier/difficulty exists,
         # fall back to research.METRO_DATA for COLI-based differentiation
@@ -1321,9 +1336,11 @@ def enrich_city_level_data(data: dict) -> dict:
                 and _metro_coli > 0
             ):
                 multiplier = _metro_coli / 100.0
+                _salary_basis = "city"  # research.METRO_DATA is per-metro
             else:
                 multiplier = 1.0
                 _mult_is_pure_fallback = True
+                _salary_basis = "generic"
 
         if difficulty is None:
             # Derive difficulty from metro unemployment rate:
@@ -1333,9 +1350,11 @@ def enrich_city_level_data(data: dict) -> dict:
                 _metro_unemp = float(_metro_unemp_str.replace("%", "").strip())
                 # Map: 2% unemployment -> difficulty 7.5, 5% -> 5.0, 8% -> 3.0
                 difficulty = max(2.0, min(9.5, 10.0 - _metro_unemp))
+                _difficulty_basis = "city"  # research.METRO_DATA is per-metro
             except (ValueError, TypeError):
                 difficulty = 5.5
                 _diff_is_pure_fallback = True
+                _difficulty_basis = "generic"
 
         # A row is a "fallback_uniform" row only when BOTH salary and
         # difficulty bottomed out on the flat generic default with zero
@@ -1344,6 +1363,15 @@ def enrich_city_level_data(data: dict) -> dict:
         # such rows in the same plan would render as identical fabricated
         # figures rather than genuine per-market differentiation.
         fallback_uniform = _mult_is_pure_fallback and _diff_is_pure_fallback
+        geo_basis = min(
+            (_salary_basis or "generic", _difficulty_basis or "generic"),
+            key=lambda b: _GEO_BASIS_RANK.get(b, 0),
+        )
+        geo_basis_area = ""
+        if geo_basis == "state":
+            geo_basis_area = (_state_code or "").upper()
+        elif geo_basis == "country":
+            geo_basis_area = _resolved_country or ""
 
         # Determine supply tier
         supply_tier = "balanced"
@@ -1479,6 +1507,14 @@ def enrich_city_level_data(data: dict) -> dict:
             # collapse multiple such rows instead of presenting them as
             # distinct per-market figures.
             "fallback_uniform": fallback_uniform,
+            # Geographic basis of this row's figures -- the LESS specific of
+            # the salary and difficulty bases (city > state > country >
+            # generic). "state" = a CITY that fell back to its state's
+            # multiplier / difficulty (shared by every such city in the state;
+            # ``geo_basis_area`` names the state). "country" = the market IS a
+            # country token ("India"), so its figures are its own.
+            "geo_basis": geo_basis,
+            "geo_basis_area": geo_basis_area,
         }
 
     return city_data

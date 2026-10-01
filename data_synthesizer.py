@@ -2256,6 +2256,13 @@ def fuse_location_profiles(
         # --- Census / Demographics ---
         census_entry = census_data.get(loc, {}) if isinstance(census_data, dict) else {}
         if isinstance(census_entry, dict) and census_entry:
+            # ``population`` / ``median_income`` are present ONLY when the
+            # figure describes this very location (the city's own ACS place,
+            # or a county/state location asked for as such). A county/state/
+            # country fallback arrives as ``area_*`` / ``country_population``
+            # and is carried under its own labelled keys -- it must never be
+            # presented as the city's population (a state figure used to be
+            # stamped on one city; the national figure on every non-US city).
             population = _safe_int(census_entry.get("population"))
             median_income = _safe_int(census_entry.get("median_income"))
             if population > 0:
@@ -2263,6 +2270,19 @@ def fuse_location_profiles(
                 source_count += 1
             if median_income > 0:
                 loc_profile["median_household_income"] = median_income
+            _area_pop = _safe_int(
+                census_entry.get("area_population")
+                or census_entry.get("country_population")
+            )
+            if _area_pop > 0:
+                loc_profile["area_population"] = _area_pop
+                loc_profile["area_population_scope"] = (
+                    census_entry.get("geo_level") or ""
+                ).lower()
+                loc_profile["area_population_label"] = census_entry.get("geo_name") or ""
+            _area_income = _safe_int(census_entry.get("area_median_income"))
+            if _area_income > 0:
+                loc_profile["area_median_household_income"] = _area_income
             loc_profile["state_name"] = census_entry.get("state_name") or ""
             loc_profile["geo_level"] = census_entry.get("geo_level") or ""
             loc_profile["demographics_source"] = census_entry.get("source", "Census")
