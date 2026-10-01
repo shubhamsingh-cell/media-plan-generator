@@ -128,6 +128,12 @@ FRESHNESS_THRESHOLDS: dict[str, int] = {
     # firecrawl_salary, job_density, platform_ad_specs, competitor_analysis.
 }
 
+# After a FAILED refresh attempt a source is retried after this many hours
+# (constant), not after its success threshold above. Persisting a failure for the
+# full threshold (168 h for BLS) meant one transient 429 skipped BLS for a week
+# across deploys; retrying on every boot burned the daily quota. See _is_stale.
+_FAILURE_RETRY_HOURS = 6
+
 # -- Top roles for salary enrichment -------------------------------------------
 _TOP_SALARY_ROLES: list[str] = [
     "Software Engineer",
@@ -202,6 +208,10 @@ _RETRYABLE_EXCEPTIONS = (urllib.error.URLError, OSError, TimeoutError, ValueErro
 # never succeed and only burns ~14 s of backoff per batch.
 _TRANSIENT_HTTP_CODES = frozenset({408, 425, 429})
 _ERROR_BODY_LOG_CHARS = 300
+# Permanent statuses that describe ONE batch's rows rather than the table or the
+# credentials: skip that batch and carry on. Everything else permanent (401, 403,
+# 404, ...) is table-/auth-wide, so the remaining batches are abandoned.
+_BATCH_SKIPPABLE_CODES = frozenset({400, 409, 422})
 
 
 def _is_transient_http(code: int) -> bool:
@@ -559,13 +569,25 @@ def _upsert_to_supabase(
                 except Exception:
                     pass
                 break
+            if exc.code in _BATCH_SKIPPABLE_CODES:
+                # Row/payload-specific (400 bad row, 409 conflict, 422): only THIS
+                # batch is unsendable -- log it (redacted body), never retry the
+                # identical request, and keep uploading the remaining batches.
+                logger.error(
+                    f"Supabase HTTP {exc.code} upserting to '{table}' "
+                    f"(on_conflict={on_conflict or 'none'}, batch "
+                    f"{i // _BATCH_SIZE + 1}/"
+                    f"{(len(rows) + _BATCH_SIZE - 1) // _BATCH_SIZE} of "
+                    f"{len(chunk)} rows skipped, not retried): {error_body}"
+                )
+                continue
             logger.error(
                 f"Supabase HTTP {exc.code} upserting to '{table}' "
-                f"(on_conflict={on_conflict or 'none'}, batch of {len(chunk)}, "
-                f"not retried -- the same request cannot succeed): {error_body}"
+                f"(on_conflict={on_conflict or 'none'}, not retried -- a "
+                f"table-wide failure, remaining batches skipped): {error_body}"
             )
-            # Every remaining chunk has the same shape and would fail the same
-            # way; stop instead of repeating the error per batch.
+            # 403 (forbidden) / 404 (no such table) / other: every remaining
+            # chunk would fail the same way, so stop instead of repeating it.
             break
         except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             logger.error(f"Supabase error upserting to {table}: {exc}", exc_info=True)
@@ -769,12 +791,11 @@ class DataEnrichmentEngine:
                 return None
 
             last_runs: dict[str, str] = {}
+            last_success: dict[str, bool] = {}
             total_ok = 0
             total_fail = 0
             for row in rows:
                 source = row.get("source") or ""
-                if source and source not in last_runs:
-                    last_runs[source] = row.get("created_at") or ""
                 # Parse success from details JSONB
                 details = row.get("details")
                 if isinstance(details, str):
@@ -782,13 +803,19 @@ class DataEnrichmentEngine:
                         details = json.loads(details)
                     except (json.JSONDecodeError, TypeError):
                         details = {}
-                if isinstance(details, dict) and details.get("success"):
+                row_ok = isinstance(details, dict) and bool(details.get("success"))
+                # Rows arrive newest first: the first row per source is its last run.
+                if source and source not in last_runs:
+                    last_runs[source] = row.get("created_at") or ""
+                    last_success[source] = row_ok
+                if row_ok:
                     total_ok += 1
                 else:
                     total_fail += 1
 
             return {
                 "last_runs": last_runs,
+                "last_success": last_success,
                 "stats": {
                     "total_enrichments": total_ok,
                     "total_failures": total_fail,
@@ -849,10 +876,14 @@ class DataEnrichmentEngine:
             return
         with self._lock:
             mine = self._state.setdefault("last_runs", {})
+            ok_flags = self._state.setdefault("last_success", {})
+            persisted_ok = persisted.get("last_success") or {}
             for source, stamp in (persisted.get("last_runs") or {}).items():
                 new_dt, old_dt = _parse_iso(stamp), _parse_iso(mine.get(source))
                 if new_dt is not None and (old_dt is None or new_dt > old_dt):
                     mine[source] = stamp
+                    if source in persisted_ok:
+                        ok_flags[source] = bool(persisted_ok[source])
 
     # -- Freshness checks ------------------------------------------------------
 
@@ -862,9 +893,17 @@ class DataEnrichmentEngine:
         Args:
             source: Key from FRESHNESS_THRESHOLDS.
 
+        A source whose last attempt SUCCEEDED is stale after its configured
+        threshold. A source whose last attempt FAILED (quota hit, 429, timeout)
+        is retried after the much shorter, constant ``_FAILURE_RETRY_HOURS``
+        instead: persisting a failure for the full success threshold meant one
+        transient BLS 429 skipped BLS for a week across deploys, while
+        retrying on every boot is what burned the quota. Six hours spaces the
+        retries out without leaving data stale for days.
+
         Returns:
-            True if the source has never been refreshed or its last refresh
-            exceeds the configured threshold.
+            True if the source has never been refreshed or its last attempt is
+            older than the applicable window.
         """
         threshold_hours = FRESHNESS_THRESHOLDS.get(source, 24)
         last_run = self._state.get("last_runs", {}).get(source)
@@ -873,6 +912,9 @@ class DataEnrichmentEngine:
         last_dt = _parse_iso(last_run)
         if last_dt is None:
             return True
+        last_ok = self._state.get("last_success", {}).get(source, True)
+        if not last_ok:
+            threshold_hours = min(threshold_hours, _FAILURE_RETRY_HOURS)
         return datetime.now(timezone.utc) - last_dt > timedelta(hours=threshold_hours)
 
     def _mark_refreshed(
@@ -895,6 +937,7 @@ class DataEnrichmentEngine:
                 }
 
             self._state["last_runs"][source] = datetime.now(timezone.utc).isoformat()
+            self._state.setdefault("last_success", {})[source] = bool(success)
 
             if success:
                 self._state["stats"]["total_enrichments"] = (
@@ -1813,6 +1856,8 @@ class DataEnrichmentEngine:
                     "stale": self._is_stale(source),
                     "threshold_hours": hours,
                     "last_run": last_run,
+                    "last_run_ok": self._state.get("last_success", {}).get(source),
+                    "retry_hours_after_failure": min(hours, _FAILURE_RETRY_HOURS),
                 }
 
             # Benchmark file freshness (runs outside the lock-critical path)

@@ -257,16 +257,64 @@ def test_permanent_400_is_not_retried_and_its_body_is_logged(
     assert "All 3 retries exhausted" not in text
 
 
-@pytest.mark.parametrize("code", [400, 404, 409, 422])
-def test_permanent_client_errors_stop_after_one_request_per_table(
+def _kb_rows(batches: int) -> list[dict[str, Any]]:
+    return [
+        {"category": "c", "key": str(i), "data": {}}
+        for i in range(de._BATCH_SIZE * batches)
+    ]
+
+
+@pytest.mark.parametrize("code", [403, 404])
+def test_table_wide_client_errors_abandon_the_remaining_batches(
     sb: dict[str, Any], code: int
 ) -> None:
+    """403 (forbidden) / 404 (no such table) hit every batch identically."""
     net = _install(sb, _Net(lambda req: _http_error(code, b"{}")))
-    rows = [
-        {"category": "c", "key": str(i), "data": {}} for i in range(de._BATCH_SIZE * 3)
-    ]
-    de._upsert_to_supabase("knowledge_base", rows)
+    de._upsert_to_supabase("knowledge_base", _kb_rows(3))
     assert len(net.requests) == 1, "remaining chunks would fail identically"
+    assert sb["sleeps"] == []
+
+
+@pytest.mark.parametrize("code", [400, 409, 422])
+def test_row_specific_errors_skip_only_that_batch_and_continue(
+    sb: dict[str, Any], caplog: pytest.LogCaptureFixture, code: int
+) -> None:
+    """One bad row must not stop the rest of the upload: batch 2 of 3 is
+    rejected, batches 1 and 3 are still sent and counted; nothing is retried."""
+    state = {"n": 0}
+
+    def outcome(req: Any) -> Exception | None:
+        state["n"] += 1
+        if state["n"] == 2:
+            return _http_error(code, b'{"message":"bad row","api_key":"x"}')
+        return None
+
+    net = _install(sb, _Net(outcome))
+    with caplog.at_level(logging.DEBUG, logger="data_enrichment"):
+        stored = de._upsert_to_supabase("knowledge_base", _kb_rows(3))
+    assert len(net.requests) == 3, "one request per batch, the failed one NOT retried"
+    assert sb["sleeps"] == []
+    assert stored == de._BATCH_SIZE * 2, "batches 1 and 3 were stored"
+    errors = [r.getMessage() for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(errors) == 1, errors
+    assert "batch 2/3" in errors[0] and "bad row" in errors[0]
+    assert str(code) in errors[0]
+
+
+def test_row_specific_error_body_is_still_redacted(
+    sb: dict[str, Any], caplog: pytest.LogCaptureFixture
+) -> None:
+    body = b'{"message":"https://x.example/?api_key=FAKESECRETKEY9999&a=1"}'
+    _install(sb, _Net(lambda req: _http_error(400, body)))
+    with caplog.at_level(logging.DEBUG, logger="data_enrichment"):
+        de._upsert_to_supabase("knowledge_base", _kb_rows(1))
+    assert "FAKESECRETKEY9999" not in " ".join(r.getMessage() for r in caplog.records)
+
+
+def test_a_401_still_abandons_the_remaining_batches(sb: dict[str, Any]) -> None:
+    net = _install(sb, _Net(lambda req: _http_error(401, b"{}")))
+    de._upsert_to_supabase("knowledge_base", _kb_rows(3))
+    assert len(net.requests) == 1
 
 
 def test_error_body_is_redacted_and_truncated_in_the_log(

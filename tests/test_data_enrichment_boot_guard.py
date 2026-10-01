@@ -36,7 +36,7 @@ import threading
 import time
 import urllib.error
 import urllib.parse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.message import Message
 from pathlib import Path
 from typing import Any, Callable
@@ -411,3 +411,100 @@ def test_state_loader_reads_a_generous_filtered_window(world: dict[str, Any]) ->
         int(qs["limit"][0]) >= 500
     ), "one chatty source must not evict the weekly ones"
     assert qs["order"] == ["created_at.desc"]
+
+
+# ---------------------------------------------------------------------------
+# 4. A FAILED refresh is retried on a short constant backoff, not after the
+#    full success threshold (one transient BLS 429 must not skip BLS for 168 h)
+# ---------------------------------------------------------------------------
+
+
+def _age_persisted_rows(world: dict[str, Any], source: str, hours: float) -> None:
+    """Make the persisted rows of ``source`` look ``hours`` old."""
+    when = datetime.fromtimestamp(time.time() - hours * 3600, tz=timezone.utc)
+    stamp = when.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-1] + "+00:00"
+    for row in world["pg"].log_rows:
+        if row["source"] == source:
+            row["created_at"] = stamp
+
+
+def test_failure_retry_window_is_a_short_constant() -> None:
+    assert de._FAILURE_RETRY_HOURS == 6
+    assert de._FAILURE_RETRY_HOURS < de.FRESHNESS_THRESHOLDS["bls_salary"]
+
+
+def test_a_transient_bls_failure_is_retried_after_six_hours_not_a_week(
+    world: dict[str, Any],
+) -> None:
+    world["bls"]["data"] = {}  # 429 / quota: the fetch returns nothing
+    _boot(world).run_cycle()
+    assert world["counts"]["bls"] == 1
+    world["bls"]["data"] = {"Registered Nurse": {"median": 82000}}  # recovered
+
+    _age_persisted_rows(world, "bls_salary", hours=7)
+    _boot(world).run_cycle()  # next deploy, 7 h after the failure
+    assert world["counts"]["bls"] == 2, "failure backoff elapsed: BLS is retried"
+
+    _boot(world).run_cycle()  # success is persisted: another deploy skips it
+    assert world["counts"]["bls"] == 2
+
+
+def test_a_failure_is_not_retried_inside_the_backoff_window(
+    world: dict[str, Any],
+) -> None:
+    world["bls"]["data"] = {}
+    _boot(world).run_cycle()
+    _age_persisted_rows(world, "bls_salary", hours=5)
+    for _ in range(3):  # a deploy burst 5 h later
+        _boot(world).run_cycle()
+    assert world["counts"]["bls"] == 1, "still inside the 6 h window: no hammering"
+
+
+def test_a_success_keeps_the_full_threshold_regardless_of_the_failure_window(
+    world: dict[str, Any],
+) -> None:
+    _boot(world).run_cycle()  # BLS succeeds
+    _age_persisted_rows(world, "bls_salary", hours=7)
+    _boot(world).run_cycle()
+    assert world["counts"]["bls"] == 1, "a success 7 h ago is fresh (168 h threshold)"
+    _age_persisted_rows(
+        world, "bls_salary", hours=de.FRESHNESS_THRESHOLDS["bls_salary"] + 1
+    )
+    _boot(world).run_cycle()
+    assert world["counts"]["bls"] == 2, "past the success threshold: refreshed"
+
+
+def test_is_stale_uses_the_failure_window_only_for_failed_attempts(
+    world: dict[str, Any],
+) -> None:
+    eng = _boot(world)
+    now = datetime.now(timezone.utc)
+
+    def stamp(hours: float) -> str:
+        return (now - timedelta(hours=hours)).isoformat()
+
+    eng._state["last_runs"]["bls_salary"] = stamp(7)
+    eng._state["last_success"] = {"bls_salary": False}
+    assert eng._is_stale("bls_salary") is True
+    eng._state["last_success"] = {"bls_salary": True}
+    assert eng._is_stale("bls_salary") is False
+    eng._state["last_runs"]["bls_salary"] = stamp(5)
+    eng._state["last_success"] = {"bls_salary": False}
+    assert eng._is_stale("bls_salary") is False
+    # legacy state without the flag (old local file) is treated as a success
+    eng._state.pop("last_success")
+    eng._state["last_runs"]["bls_salary"] = stamp(7)
+    assert eng._is_stale("bls_salary") is False
+
+
+def test_adopted_state_carries_the_success_flag_from_the_persisted_row(
+    world: dict[str, Any],
+) -> None:
+    world["bls"]["data"] = {}
+    _boot(world).run_cycle()  # persisted: bls_salary failed
+    fresh_boot = _boot(world)
+    assert fresh_boot._state["last_success"]["bls_salary"] is False
+    assert fresh_boot._state["last_success"]["fred_economic"] is True
+    status = fresh_boot.get_status()["freshness"]["bls_salary"]
+    assert status["last_run_ok"] is False
+    assert status["retry_hours_after_failure"] == de._FAILURE_RETRY_HOURS
