@@ -145,65 +145,6 @@ _NAME_STOP = frozenset(
         "and",
     }
 )
-# A multi-word client name whose FIRST word is one of these can't be
-# confirmed by that word alone ("General Motors" vs "General Electric").
-_GENERIC_NAME_WORDS = frozenset(
-    {
-        "american",
-        "america",
-        "national",
-        "united",
-        "general",
-        "first",
-        "north",
-        "south",
-        "east",
-        "west",
-        "northern",
-        "southern",
-        "eastern",
-        "western",
-        "central",
-        "pacific",
-        "atlantic",
-        "new",
-        "great",
-        "royal",
-        "standard",
-        "universal",
-        "premier",
-        "advanced",
-        "community",
-        "city",
-        "state",
-        "county",
-        "metro",
-        "capital",
-        "summit",
-        "allied",
-        "consolidated",
-        "integrated",
-        "applied",
-        "modern",
-        "superior",
-        "quality",
-        "smart",
-        "digital",
-        "health",
-        "care",
-        "home",
-        "family",
-        "star",
-        "green",
-        "blue",
-        "red",
-        "golden",
-        "silver",
-        "world",
-        "us",
-        "usa",
-    }
-)
 _ACRONYM_SKIP = frozenset({"of", "and", "the", "&", "for", "de"})
 
 
@@ -260,12 +201,16 @@ def _acronyms(text: str) -> set:
 
 def name_agrees(client_name: Any, *candidates: Any) -> bool:
     """True when ``candidates`` (a sentence subject, an article title, a
-    Clearbit suggestion name ...) plausibly name the client.
+    Clearbit suggestion name ...) name the client -- the FULL distinctive
+    name, not a fragment of it.
 
-    Single-token names need that token (or, for a 2-6 letter name, a
-    matching acronym). Multi-token names need every token, or two of them,
-    or a non-generic leading token ("Delta Airlines" ~ "Delta Air Lines"),
-    or the client's own initials as a token.
+    Every distinctive client token must appear (adjacent candidate tokens
+    may join: "Delta Airlines" ~ "Delta Air Lines"); a 2-6 letter
+    single-token name may instead match an acronym of the candidate
+    ("ADP" ~ "Automatic Data Processing"), and a multi-token name may match
+    via its own initials appearing as a token. Sharing some words is NOT
+    enough: "Brookdale Senior Living" must not match "Emeritus Senior
+    Living" (verifier, 2026-10-01 -- the old two-shared-words rule did).
     """
     ctoks = name_tokens(client_name)
     if not ctoks:
@@ -274,7 +219,9 @@ def name_agrees(client_name: Any, *candidates: Any) -> bool:
     acr: set = set()
     for c in candidates:
         if isinstance(c, str) and c:
-            hay.update(_tokens(c))
+            toks = _tokens(c)
+            hay.update(toks)
+            hay.update(a + b for a, b in zip(toks, toks[1:]))
             acr |= _acronyms(c)
     if not hay:
         return False
@@ -282,14 +229,21 @@ def name_agrees(client_name: Any, *candidates: Any) -> bool:
         return True
     if len(ctoks) == 1:
         t = ctoks[0]
-        return t in hay or (2 <= len(t) <= 6 and t in acr)
-    head = ctoks[0]
-    if head in hay and head not in _GENERIC_NAME_WORDS and len(head) >= 3:
-        return True
-    if sum(1 for t in ctoks if t in hay) >= 2:
-        return True
+        return 2 <= len(t) <= 6 and t in acr
     initials = "".join(t[0] for t in ctoks)
     return len(initials) >= 2 and initials in hay
+
+
+def title_matches_name(client_name: Any, title: Any) -> bool:
+    """True when an article TITLE is the client's own name (suffixes such as
+    Inc./Company/Corporation and a trailing "(company)" qualifier ignored).
+    Required for any article reached only through the free-text search
+    fallback, where the top hit for "<name> company" is very often a
+    different company that merely shares a word."""
+    if not isinstance(title, str) or not title.strip():
+        return False
+    bare = re.sub(r"\s*\([^()]*\)\s*$", "", title)
+    return bool(name_tokens(client_name)) and name_tokens(client_name) == name_tokens(bare)
 
 
 # ---------------------------------------------------------------------------
@@ -306,7 +260,7 @@ _ORG_NOUN_RE = re.compile(
     r"charit(?:y|ies)|foundations?|associations?|institutions?|hospitals?|"
     r"clinics?|health ?(?:care )?systems?|universit(?:y|ies)|colleges?|"
     r"school (?:district|system)s?|utilit(?:y|ies)|start-?ups?|"
-    r"consultanc(?:y|ies)|partnerships?|record labels?|brands?|employers?|"
+    r"consultanc(?:y|ies)|partnerships?|record labels?|brands?|employers?|consortium|consortia|"
     r"restaurants?|hotels?|casinos?|stores?|railroads?|marketplaces?)\b",
     re.IGNORECASE,
 )
@@ -338,8 +292,13 @@ _CORP_SUFFIX_RE = re.compile(
     r"K\.K\.|S\.p\.A\.|Pty|LLP|LP|Holdings|Group)(?=$|[\s,.)(])"
 )
 _COPULA_RE = re.compile(r"\b(?:is|was|are|were)\b")
+# The definition's head runs to the first clause-ending marker -- NOT to the
+# first comma: "Johnson & Johnson is an American multinational,
+# pharmaceutical, and medical technologies corporation" was cut at
+# "multinational," and wrongly omitted (verifier, 2026-10-01).
+_HEAD_MAX_WORDS = 20
 _HEAD_CUT_RE = re.compile(
-    r",|;|:|—|\s(?:which|that|who|whose|where|designed|manufactured|"
+    r";|:|—|\s(?:which|that|who|whose|where|designed|manufactured|"
     r"made|produced|developed|owned|operated|founded|based|headquartered|"
     r"created|written|directed|released|known|located|by)\s",
     re.IGNORECASE,
@@ -435,6 +394,93 @@ INDUSTRY_MISMATCH_MAP: Dict[str, Tuple[str, ...]] = {
 }
 
 
+# Positive industry agreement (verifier, 2026-10-01): a real organisation
+# that merely shares the client's name ("Pinnacle" -> Pinnacle Foods for a
+# healthcare plan, "Atlas" -> Atlas Copco for a trucking plan, "AWP" -> a
+# Swiss news agency) must not be presented as the client. When the plan's
+# industry is known, the article must use at least one of that industry's
+# words (or a distinctive word from the plan's own role titles); otherwise
+# the blurb is omitted -- omission is the safe failure.
+INDUSTRY_KEYWORDS: Dict[str, Tuple[str, ...]] = {
+    "healthcare_medical": ("health", "healthcare", "health care", "hospital", "hospitals", "medical", "clinic", "clinics", "nursing", "senior living", "assisted living", "physician", "physicians", "patient", "patients", "care"),
+    "mental_health": ("mental health", "behavioral", "behavioural", "psychiatric", "counseling", "therapy", "addiction", "hospital", "hospitals", "health", "healthcare"),
+    "pharma_biotech": ("pharmaceutical", "pharmaceuticals", "biotechnology", "biotech", "drug", "drugs", "medicine", "medicines", "vaccine", "vaccines", "life sciences", "medical"),
+    "tech_engineering": ("technology", "technologies", "software", "computer", "computing", "internet", "semiconductor", "semiconductors", "electronics", "engineering", "cloud computing", "information technology", "it services", "consulting", "payroll", "human resources"),
+    "finance_banking": ("bank", "banks", "banking", "financial", "finance", "investment", "investments", "payment", "payments", "credit", "lending", "mortgage", "brokerage", "asset management", "fintech", "insurance"),
+    "insurance": ("insurance", "insurer", "insurers", "reinsurance", "assurance", "underwriting", "annuities", "annuity"),
+    "retail_consumer": ("retail", "retailer", "retailers", "store", "stores", "supermarket", "supermarkets", "grocery", "department store", "apparel", "clothing", "consumer", "e-commerce", "home improvement", "chain", "fashion"),
+    "hospitality_travel": ("hotel", "hotels", "hospitality", "restaurant", "restaurants", "fast food", "airline", "airlines", "travel", "resort", "resorts", "cruise", "casino", "casinos", "tourism", "lodging", "dining", "food service", "foodservice"),
+    "food_beverage": ("food", "foods", "beverage", "beverages", "chocolate", "confectionery", "snack", "snacks", "dairy", "drink", "drinks", "brewing", "brewery", "coffee", "bakery", "meat", "candy", "restaurant", "restaurants", "fast food", "coffeehouse", "coffeehouses", "roastery"),
+    "logistics_supply_chain": ("logistics", "freight", "shipping", "transport", "transportation", "trucking", "delivery", "courier", "package", "parcel", "supply chain", "warehouse", "warehousing", "railroad", "e-commerce", "distribution", "moving"),
+    "automotive": ("automobile", "automobiles", "automotive", "automaker", "vehicle", "vehicles", "car", "cars", "trucks", "motor", "motors", "auto parts", "manufacturing", "manufacturer"),
+    "construction_real_estate": ("construction", "contractor", "contractors", "building", "buildings", "engineering", "real estate", "property", "properties", "infrastructure", "homebuilder", "civil engineering", "traffic control", "road", "roads", "highway"),
+    "energy_utilities": ("energy", "oil", "gas", "petroleum", "electric", "electricity", "power", "utility", "utilities", "natural gas", "renewable", "solar", "nuclear", "pipeline"),
+    "telecommunications": ("telecommunications", "telecom", "wireless", "mobile", "cable", "broadband", "network", "networks", "telephone", "internet service", "fiber"),
+    "media_entertainment": ("media", "entertainment", "television", "film", "films", "studio", "studios", "broadcasting", "broadcaster", "publishing", "publisher", "music", "streaming", "news", "newspaper", "video games"),
+    "legal_services": ("law firm", "legal", "attorneys", "lawyers", "litigation", "law"),
+    "education": ("university", "college", "school", "schools", "education", "educational", "academy", "learning", "research university"),
+    "aerospace_defense": ("aerospace", "defense", "defence", "aircraft", "aviation", "space", "spacecraft", "military", "missile", "missiles", "security"),
+    "military_recruitment": ("armed forces", "army", "navy", "air force", "military", "marine corps", "defense", "defence"),
+    "maritime_marine": ("shipping", "maritime", "marine", "ship", "ships", "vessel", "vessels", "shipbuilding", "port", "ports", "container", "offshore", "cruise"),
+    "blue_collar_trades": ("manufacturing", "manufacturer", "construction", "industrial", "maintenance", "contractor", "contractors", "facilities", "trades", "staffing", "services"),
+    "general_entry_level": ("retail", "retailer", "store", "stores", "restaurant", "restaurants", "chain", "warehouse", "logistics", "staffing", "call center", "customer service", "hospitality", "nonprofit", "non-profit", "charity", "food bank"),
+    "rideshare": ("ridesharing", "ride-hailing", "ride sharing", "rideshare", "delivery", "gig", "transportation", "taxi", "mobility"),
+}
+_ROLE_STOPWORDS = frozenset(
+    {
+        "senior", "junior", "lead", "manager", "associate", "specialist",
+        "assistant", "coordinator", "director", "officer", "analyst",
+        "engineer", "technician", "operator", "worker", "representative",
+        "supervisor", "staff", "team", "member", "general", "entry", "level",
+        "part", "time", "full", "shift", "hourly", "sales", "service",
+        "services", "customer", "head", "chief", "principal", "intern",
+    }
+)
+
+
+def _industry_key(industry: Any) -> str:
+    """Industry key or label -> an INDUSTRY_KEYWORDS key ("" if unknown)."""
+    if not isinstance(industry, str) or not industry.strip():
+        return ""
+    raw = industry.strip()
+    if raw.lower() in INDUSTRY_KEYWORDS:
+        return raw.lower()
+    try:
+        from shared_utils import INDUSTRY_LABEL_MAP
+    except ImportError:  # pragma: no cover
+        INDUSTRY_LABEL_MAP = {}
+    for key, label in INDUSTRY_LABEL_MAP.items():
+        if label.lower() == raw.lower():
+            return key
+    return ""
+
+
+def industry_agrees(description: Any, industry: Any, roles: Any = ()) -> bool:
+    """True when ``description`` uses a word of the plan's industry (or a
+    distinctive word of one of its role titles). An industry we cannot map
+    to a keyword set falls back to its own label words."""
+    if not isinstance(description, str) or not description.strip():
+        return False
+    low = description.lower()
+    key = _industry_key(industry)
+    words: List[str] = list(INDUSTRY_KEYWORDS.get(key, ()))
+    if not words and isinstance(industry, str):
+        words = [
+            w
+            for w in re.split(r"[^a-z]+", industry.lower().replace("_", " "))
+            if len(w) >= 4
+        ]
+    role_list = roles if isinstance(roles, (list, tuple)) else [roles]
+    for r in role_list:
+        title = (r.get("title") or r.get("role") or "") if isinstance(r, dict) else r
+        for w in re.split(r"[^a-z]+", str(title or "").lower()):
+            if len(w) >= 5 and w not in _ROLE_STOPWORDS:
+                words.append(w)
+    return any(
+        re.search(rf"(?<![a-z]){re.escape(w)}(?![a-z])", low) for w in words if w
+    )
+
+
 def _industry_text(industry: Any) -> str:
     """Industry key or label -> lower-case words for the mismatch check
     ("healthcare_medical" -> "healthcare & medical")."""
@@ -454,6 +500,7 @@ def validate_company_description(
     *,
     title: Any = "",
     industry: Any = "",
+    roles: Any = (),
     page_type: Any = "standard",
 ) -> Tuple[bool, str]:
     """Decide whether ``description`` may be shown as ``client_name``'s own
@@ -462,7 +509,11 @@ def validate_company_description(
 
     See the module docstring for the policy. ``title`` is the source
     article title when known (Wikipedia), ``page_type`` the Wikipedia REST
-    ``type`` ("standard" / "disambiguation" / ...).
+    ``type`` ("standard" / "disambiguation" / ...). When ``industry`` is
+    given (every deliverable surface passes the plan's), the article must
+    also positively agree with it (``industry_agrees``) -- a same-name
+    company in another sector is omitted. The industry-less form is only the
+    lookup's pre-filter (name + organisation).
     """
     name = client_name if isinstance(client_name, str) else ""
     desc = description if isinstance(description, str) else ""
@@ -480,14 +531,29 @@ def validate_company_description(
     no_paren = re.sub(r"\([^()]*\)", " ", sent)
     cop = _COPULA_RE.search(no_paren)
     if not cop:
-        return False, f"no 'X is a ...' definition sentence: {sent[:120]!r}"
+        # Verb-led definitions ("Brookdale Senior Living Solutions owns and
+        # operates retirement homes ... The company was established in
+        # 1978"): accept only when the sentence OPENS with the client's full
+        # name, an organisation noun follows within two sentences and the
+        # opening sentence carries no person cue.
+        lead = " ".join(no_paren.split()[: len(name.split()) + 2])
+        two = " ".join(split_sentences(desc)[:2])
+        if not (
+            name_agrees(name, lead)
+            and _ORG_NOUN_RE.search(two)
+            and not _PERSON_NOUN_RE.search(sent)
+        ):
+            return False, f"no 'X is a ...' definition sentence: {sent[:120]!r}"
+        return _industry_verdict(desc, industry, roles)
     subject = no_paren[: cop.start()]
     # Parenthetical aliases ("(ADP)", "(commonly known as Ford)") belong to
     # the subject for name matching.
     raw_cop = _COPULA_RE.search(sent)
     subject_full = sent[: raw_cop.start()] if raw_cop else sent
     predicate = no_paren[cop.end() :]
-    head = _HEAD_CUT_RE.split(predicate, maxsplit=1)[0]
+    head = " ".join(
+        _HEAD_CUT_RE.split(predicate, maxsplit=1)[0].split()[:_HEAD_MAX_WORDS]
+    )
 
     if not name_agrees(name, subject, subject_full, ttl):
         return False, (
@@ -510,6 +576,12 @@ def validate_company_description(
         why = "non-organisation" if _NON_ORG_HEAD_RE.search(head) else "no organisation"
         return False, f"{why} definition: {head.strip()[:80]!r}"
 
+    return _industry_verdict(desc, industry, roles)
+
+
+def _industry_verdict(desc: str, industry: Any, roles: Any) -> Tuple[bool, str]:
+    """Industry-mismatch keywords + positive industry agreement (skipped
+    when no industry is given -- the lookup's name/organisation pre-filter)."""
     ind = _industry_text(industry)
     if ind:
         low = desc.lower()
@@ -519,6 +591,12 @@ def validate_company_description(
                     f"industry mismatch: description mentions {kw!r} but the "
                     f"plan industry is {industry!r}"
                 )
+        if not industry_agrees(desc, industry, roles):
+            return False, (
+                f"no industry agreement: the article never mentions a "
+                f"{industry!r} keyword or a role-title word -- a same-name "
+                f"organisation in another sector"
+            )
     return True, ""
 
 
@@ -593,11 +671,15 @@ def client_company_description(data: Any) -> str:
     desc = info.get("description") or ""
     if not isinstance(desc, str) or not desc.strip():
         return ""
+    industry = data.get("industry") or data.get("industry_label") or ""
+    if not industry:
+        return ""  # cannot check sector agreement -> omit (safe failure)
     ok, _reason = validate_company_description(
         data.get("client_name") or "",
         desc,
         title=info.get("wiki_title") or "",
-        industry=data.get("industry") or "",
+        industry=industry,
+        roles=data.get("target_roles") or data.get("roles") or [],
     )
     return desc.strip() if ok else ""
 

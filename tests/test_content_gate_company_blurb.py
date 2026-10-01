@@ -167,12 +167,102 @@ def test_name_with_no_page_has_no_description(wiki):
     assert "description" not in api_enrichment.fetch_company_info("Northwind Traders")
 
 
-def test_disambiguation_page_skipped_then_real_company_accepted(wiki):
+def test_disambiguation_page_skipped_and_search_hit_needs_the_clients_title(wiki):
+    """'Delta' lands on a disambiguation page (rejected); the search
+    fallback's 'Delta Air Lines' is NOT the client's name, so it is not
+    trusted either (verifier 2026-10-01: search hits are where same-word
+    companies come from). The client typed as 'Delta Air Lines' resolves by
+    direct title."""
     disamb = {"type": "disambiguation", "title": "Delta", "extract": "Delta may refer to:"}
     airline = next(s for c, s, _ in CASES if s["title"] == "Delta Air Lines")
-    wiki({"Delta": disamb, "Delta Air Lines": airline}, {"Delta company": ["Delta", "Delta Air Lines"]})
-    info = api_enrichment.fetch_company_info("Delta")
+    wiki(
+        {"Delta": disamb, "Delta Air Lines": airline},
+        {"Delta company": ["Delta", "Delta Air Lines"]},
+    )
+    assert "description" not in api_enrichment.fetch_company_info("Delta")
+    info = api_enrichment.fetch_company_info("Delta Air Lines")
     assert info.get("wiki_title") == "Delta Air Lines"
+
+
+# Recorded live shapes (Wikipedia REST, 2026-10-01) -- the verifier's
+# wrong-company cases.
+EMERITUS = {"type": "standard", "title": "Emeritus Senior Living", "extract": "Emeritus Corporation doing business as Emeritus Senior Living was a provider of independent living, assisted living, Alzheimer's care, and skilled nursing for seniors living in Emeritus communities throughout the United States."}
+BROOKDALE = {"type": "standard", "title": "Brookdale Senior Living", "extract": "Brookdale Senior Living Solutions owns and operates retirement homes across the United States. The company was established in 1978 and is based in Brentwood, Tennessee."}
+JNJ = {"type": "standard", "title": "Johnson & Johnson", "extract": "Johnson & Johnson (J&J) is an American multinational pharmaceutical, biotechnology, and medical technologies corporation headquartered in New Brunswick, New Jersey."}
+JNJ_COMMAS = {"type": "standard", "title": "Johnson & Johnson", "extract": "Johnson & Johnson is an American multinational, pharmaceutical, and medical technologies corporation headquartered in New Brunswick, New Jersey."}
+KAISER = {"type": "standard", "title": "Kaiser Permanente", "extract": "Kaiser Permanente is an American integrated managed care consortium headquartered in Oakland, California."}
+SAME_NAME_OTHER_SECTOR = [
+    ("AWP", "construction_real_estate", {"type": "standard", "title": "Awp Finanznachrichten", "extract": "Awp Finanznachrichten AG is a leading Swiss business news agency based in Zurich, Switzerland."}),
+    ("Pinnacle", "healthcare_medical", {"type": "standard", "title": "Pinnacle Foods", "extract": "Pinnacle Foods, Inc., is a packaged foods company headquartered in Parsippany, New Jersey, that specializes in shelf-stable and frozen foods."}),
+    ("Delta", "construction_real_estate", {"type": "standard", "title": "Delta (company)", "extract": "DELTA is a cable operator in the Netherlands, providing digital cable television, Internet, and telephone service to residential and commercial customers."}),
+    ("Mercury", "logistics_supply_chain", {"type": "standard", "title": "Mercury (automobile)", "extract": "Mercury was a brand of medium-priced automobiles that was produced by American manufacturer Ford Motor Company between the 1939 and 2011 motor years."}),
+    ("Atlas", "logistics_supply_chain", {"type": "standard", "title": "Atlas Copco", "extract": "Atlas Copco Group is a Swedish multinational industrial company. It manufactures compressors, vacuum equipment, pumps, generators and assembly tools."}),
+    ("Liberty", "healthcare_medical", {"type": "standard", "title": "Liberty Mutual", "extract": "Liberty Mutual Insurance Company is an American diversified global insurer and the sixth-largest property and casualty insurer in the world."}),
+]
+
+
+@pytest.mark.parametrize("client,industry,summary", SAME_NAME_OTHER_SECTOR)
+def test_same_name_company_in_another_sector_is_omitted(client, industry, summary):
+    ok, why = company_blurb.validate_company_description(
+        client, summary["extract"], title=summary["title"], industry=industry
+    )
+    assert not ok, why
+
+
+def test_same_article_is_accepted_when_the_sector_agrees():
+    pinnacle = SAME_NAME_OTHER_SECTOR[1][2]
+    liberty = SAME_NAME_OTHER_SECTOR[5][2]
+    assert company_blurb.validate_company_description(
+        "Pinnacle Foods", pinnacle["extract"], title=pinnacle["title"], industry="food_beverage"
+    )[0]
+    assert company_blurb.validate_company_description(
+        "Liberty Mutual", liberty["extract"], title=liberty["title"], industry="insurance"
+    )[0]
+
+
+def test_full_distinctive_name_required_not_shared_words():
+    ok, _ = company_blurb.validate_company_description(
+        "Brookdale Senior Living", EMERITUS["extract"], title=EMERITUS["title"],
+        industry="healthcare_medical",
+    )
+    assert not ok
+    # the right article -- a verb-led definition -- is accepted
+    ok, why = company_blurb.validate_company_description(
+        "Brookdale Senior Living", BROOKDALE["extract"], title=BROOKDALE["title"],
+        industry="healthcare_medical",
+    )
+    assert ok, why
+
+
+@pytest.mark.parametrize(
+    "summary,industry",
+    [(JNJ, "pharma_biotech"), (JNJ_COMMAS, "pharma_biotech"), (KAISER, "healthcare_medical")],
+)
+def test_definition_is_not_cut_at_the_first_comma(summary, industry):
+    ok, why = company_blurb.validate_company_description(
+        summary["title"], summary["extract"], title=summary["title"], industry=industry
+    )
+    assert ok, why
+
+
+def test_search_fallback_hit_with_another_title_is_not_trusted(wiki):
+    """Prod-shaped: no direct 'Brookdale Senior Living' page; the search's
+    top hit is a different company sharing two words."""
+    wiki(
+        {"Emeritus Senior Living": EMERITUS},
+        {"Brookdale Senior Living company": ["Emeritus Senior Living"]},
+    )
+    assert "description" not in api_enrichment.fetch_company_info("Brookdale Senior Living")
+
+
+def test_cover_needs_a_plan_industry_to_show_a_blurb():
+    data = {
+        "client_name": "The Hershey Company",
+        "_enriched": {"company_info": {"description": HERSHEY["extract"]}},
+    }
+    assert company_blurb.client_company_description(data) == ""
+    data["industry"] = "food_beverage"
+    assert company_blurb.client_company_description(data).startswith("The Hershey Company")
 
 
 def test_cached_wrong_entity_is_revalidated_on_cache_hit(wiki):
@@ -180,7 +270,7 @@ def test_cached_wrong_entity_is_revalidated_on_cache_hit(wiki):
     the pre-fix key; neither it nor a v2 entry may come back unvalidated."""
     _fake, cache = wiki({}, {})
     cache[api_enrichment._cache_key("wikipedia", "AWP Safety")] = RIFLE["extract"]
-    cache[api_enrichment._cache_key("wikipedia_v2", "AWP Safety")] = {
+    cache[api_enrichment._cache_key("wikipedia_v3", "AWP Safety")] = {
         "extract": RIFLE["extract"],
         "title": RIFLE["title"],
     }
@@ -219,14 +309,14 @@ def test_synthesized_profile_omits_failed_blurb_and_never_falls_back():
     assert "construction_real_estate industry" not in blob
 
 
-def _bundle_for(client: str, description: str):
+def _bundle_for(client: str, description: str, industry: str = "construction_real_estate"):
     import excel_v2
     import ppt_generator
     from tools_regen_bundles import build_plan_data
 
     brief = {
         "client_name": client,
-        "industry": "construction_real_estate",
+        "industry": industry,
         "budget": "$150,000",
         "campaign_duration": "6 months",
         "hire_volume": "50-100 hires",
@@ -285,7 +375,7 @@ def test_awp_bundle_has_no_rifle_blurb_anywhere():
 
 
 def test_correct_blurb_renders_on_cover_at_a_clean_boundary():
-    pptx_bytes, _ = _bundle_for("THE HERSHEY COMPANY", HERSHEY["extract"])
+    pptx_bytes, _ = _bundle_for("THE HERSHEY COMPANY", HERSHEY["extract"], "food_beverage")
     cover = _deck_text(pptx_bytes)[0]
     tagline = [t for t in cover if t.startswith("The Hershey Company, commonly known")]
     assert tagline, cover

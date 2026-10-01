@@ -2893,7 +2893,7 @@ def fetch_company_info(
     # International" (prod, 2026-09-25). The cache key is versioned so a
     # wrong-entity extract cached under the old rule (L1-L4 incl.
     # Supabase) is never read back.
-    cache_k = _cache_key("wikipedia_v2", client_name)
+    cache_k = _cache_key("wikipedia_v3", client_name)
     cached = _get_cached(cache_k)
     if isinstance(cached, dict) and cached.get("extract"):
         ok, _why = _company_blurb.validate_company_description(
@@ -2904,12 +2904,25 @@ def fetch_company_info(
             info["wiki_title"] = cached.get("title") or ""
             return info
 
-    def _accept(resp: Any) -> bool:
-        """Validate one REST summary response; on success fill ``info``."""
+    def _accept(resp: Any, via_search: bool = False) -> bool:
+        """Validate one REST summary response; on success fill ``info``.
+
+        An article reached only through the free-text search fallback must
+        also carry the client's full name as its TITLE: the top hit for
+        "<name> company" is very often a different company that shares a
+        word ("Brookdale Senior Living" -> "Emeritus Senior Living").
+        """
         if not isinstance(resp, dict):
             return False
         extract = resp.get("extract") or ""
         title = resp.get("title") or ""
+        if via_search and not _company_blurb.title_matches_name(client_name, title):
+            if extract:
+                _log_info(
+                    f"Wikipedia search hit rejected for {client_name!r}: title "
+                    f"{title!r} is not the client's name"
+                )
+            return False
         ok, why = _company_blurb.validate_company_description(
             client_name, extract, title=title, page_type=resp.get("type") or ""
         )
@@ -2967,7 +2980,7 @@ def fetch_company_info(
                     f"https://en.wikipedia.org/api/rest_v1/page/summary/{encoded}"
                 )
                 try:
-                    if _accept(_http_get_json(summary_url)):
+                    if _accept(_http_get_json(summary_url), via_search=True):
                         return info
                 except Exception as exc:
                     _log_warn(f"Wikipedia summary lookup failed for {title!r}: {exc}")

@@ -3510,8 +3510,10 @@ def _validate_entity_description(
     """
     if not description or not company_name:
         return True, ""
+    if not industry:
+        return False, "no plan industry to agree with"
     return company_blurb.validate_company_description(
-        company_name, description, industry=industry or ""
+        company_name, description, industry=industry
     )
 
 
@@ -3909,14 +3911,19 @@ def fuse_competitive_intelligence(
     _summary = company_profile.get("summary") or ""
     _text_to_check = _desc or _summary
     if _text_to_check and company_name:
-        is_valid, mismatch_reason = company_blurb.validate_company_description(
-            company_name,
-            _text_to_check,
-            title=(wiki_data.get("wiki_title") or "")
-            if isinstance(wiki_data, dict)
-            else "",
-            industry=industry,
-        )
+        if industry:
+            is_valid, mismatch_reason = company_blurb.validate_company_description(
+                company_name,
+                _text_to_check,
+                title=(wiki_data.get("wiki_title") or "")
+                if isinstance(wiki_data, dict)
+                else "",
+                industry=industry,
+                roles=input_data.get("target_roles") or input_data.get("roles") or [],
+            )
+        else:
+            # No plan industry -> sector agreement cannot be checked -> omit.
+            is_valid, mismatch_reason = False, "no plan industry to agree with"
         if not is_valid:
             logger.warning(
                 "Entity validation FAILED for '%s': %s -- description omitted",
