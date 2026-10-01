@@ -4417,7 +4417,7 @@
     var _budgetCheck = _amtVal ? validateBudgetInput(_amtVal.trim()) : null;
     document.getElementById("reviewBudget").textContent =
       _budgetCheck && _budgetCheck.plan && _budgetCheck.valid
-        ? novaBudgetReadingText(_budgetCheck.plan)
+        ? novaBudgetReadingText(_budgetCheck.plan, novaPlanCurrency())
         : (_amtVal ? "$" + _amtVal.replace(/^\$/, "") : "Not specified") +
           (_bpVal !== "campaign" ? " (" + (_bpLabel[_bpVal] || _bpVal) + ")" : "");
     var _durVal = document.getElementById("campaignDuration").value;
@@ -4787,10 +4787,50 @@
     "ZM", "ZW",
   ]);
 
+  // The plan's currency as the SERVER resolves it (plan_currency's one
+  // resolver, declare-not-convert) for the current budget text + locations:
+  // {code, basis, symbol, suffix, typed, note} or null until it arrives.
+  // Fetched from /api/estimate in budget_only mode (no roles needed), once
+  // per distinct input, so the preview never invents a currency symbol.
+  var _novaCurrency = null, _novaCurrencyKey = "", _novaCurrencyTimer = null;
+  function novaPlanCurrency() {
+    return _novaCurrency;
+  }
+  function novaRefreshPlanCurrency() {
+    if (typeof novaPlanCoreInputs !== "function") return;
+    var core = novaPlanCoreInputs();
+    var key = JSON.stringify([core.budget_range, core.locations,
+      core.budget_period, core.campaign_duration]);
+    if (key === _novaCurrencyKey) return;
+    _novaCurrencyKey = key;
+    _novaCurrency = null;
+    clearTimeout(_novaCurrencyTimer);
+    if (!core.budget_range) return;
+    _novaCurrencyTimer = setTimeout(function () {
+      var body = Object.assign({}, core, { budget_only: true });
+      fetch("/api/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (key !== _novaCurrencyKey) return; // superseded
+          _novaCurrency = d && d.plan_currency ? d.plan_currency : null;
+          novaRenderBudgetReading(false);
+          if (window.NovaPreview && typeof window.NovaPreview.update === "function") {
+            window.NovaPreview.update();
+          }
+        })
+        .catch(function () { /* the reading stays symbol-less */ });
+    }, 350);
+  }
+
   // The line under the budget field: which figure the plan uses ("Planning
   // at $90,000 total: $10,000 per month x 9 months"), or -- when showErrors
   // -- the server's own error message at the field.
   function novaRenderBudgetReading(showErrors) {
+    novaRefreshPlanCurrency();
     var out = document.getElementById("budgetResolved");
     var amt = document.getElementById("exactBudget");
     if (!out || !amt) return;
@@ -4807,7 +4847,7 @@
     }
     if (check.plan) {
       _clearFieldError(amt);
-      out.textContent = novaBudgetReadingText(check.plan);
+      out.textContent = novaBudgetReadingText(check.plan, novaPlanCurrency());
     }
   }
 

@@ -313,28 +313,31 @@
     return out;
   }
 
-  // "$1,500,000" -- the typed currency when there is one (a symbol, or an
-  // ISO code as "EUR 1,500,000"), else "$" like the budget field's prefix.
-  function novaFormatMoney(amount, currency) {
+  // "£1,500,000" in the PLAN's currency as the server resolves it
+  // (planCurrency = {symbol, suffix} from /api/estimate's plan_currency --
+  // plan_currency.currency_for_plan_with_basis, never guessed here). With no
+  // server answer yet the figure carries no symbol at all rather than a
+  // wrong one ("EUR 50,000" for a Dallas plan is priced in USD).
+  function novaFormatMoney(amount, planCurrency) {
     var cents = Number.isInteger(Number(amount)) ? 0 : 2; // "$10,000.50", never "$10,000.5"
     var num = Number(amount).toLocaleString("en-US", {
       minimumFractionDigits: cents, maximumFractionDigits: cents,
     });
-    var cur = String(currency || "");
-    if (/^[A-Z]{3}$/.test(cur)) return cur + " " + num;
-    if (!cur || /^[A-Z]+$/.test(cur)) cur = "$";
-    return cur + num;
+    var sym = planCurrency && planCurrency.symbol ? String(planCurrency.symbol) : "";
+    if (!sym) return num;
+    return planCurrency.suffix ? num + " " + sym.trim() : sym + num;
   }
 
   var _NOVA_PERIOD_WORDS = { monthly: "month", quarterly: "quarter", annual: "year" };
 
   // One line saying which figure the plan uses -- shown under the budget
   // field and on the review step (the audit's "planning at $X"): the range
-  // midpoint rule and any per-period scaling are spelled out, never implied.
-  function novaBudgetReadingText(plan) {
+  // midpoint rule, any per-period scaling and -- when what was typed is not
+  // the plan's currency -- the server's plain note are spelled out.
+  function novaBudgetReadingText(plan, planCurrency) {
     if (!plan || !plan.parse || !plan.parse.ok) return "";
-    var p = plan.parse, cur = p.currency;
-    var money = function (x) { return novaFormatMoney(x, cur); };
+    var p = plan.parse;
+    var money = function (x) { return novaFormatMoney(x, planCurrency); };
     var round1 = function (x) { return Math.round(x * 10) / 10; };
     var months = round1(plan.months);
     var text = "Planning at " + money(plan.total);
@@ -351,6 +354,9 @@
     }
     if (p.is_range) {
       text += " (midpoint of " + money(p.low) + "–" + money(p.high) + ")";
+    }
+    if (planCurrency && planCurrency.note) {
+      text += " — " + planCurrency.note;
     }
     if (p.period && p.period !== plan.period) {
       text += ". Your amount says per " + _NOVA_PERIOD_WORDS[p.period] +

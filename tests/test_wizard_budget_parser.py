@@ -173,40 +173,96 @@ def test_js_and_server_agree_beyond_the_table():
         assert _actual_parse(res) == _actual_parse(py), s
 
 
+def _server_currency(raw, period, duration, locations):
+    """plan_currency reading exactly as /api/estimate returns it."""
+    brief = {"budget_range": raw, "budget_period": period,
+             "campaign_duration": duration, "locations": locations}
+    plan = app._resolve_request_budget(brief)
+    app._normalize_request_budget(brief, log=False)
+    return app._plan_currency_reading(brief, plan)
+
+
 @needs_node
 def test_budget_field_and_review_state_the_planned_figure():
     """The line under the budget field and the review step's Budget row
-    (novaBudgetReadingText) say which figure the plan uses -- including the
-    range-midpoint rule and any per-period scaling."""
+    (novaBudgetReadingText) say which figure the plan uses -- range midpoint,
+    per-period scaling -- in the PLAN's currency as the server resolves it,
+    with a plain note when what was typed is not that currency."""
+    dallas, london, mumbai = ["Dallas, TX"], ["London, UK"], ["Mumbai, India"]
     cases = [
-        ("1.5 million", "campaign", "3 months"),
-        ("10000-15000", "campaign", "3 months"),
-        ("$10,000", "monthly", "6-12 months"),
-        ("60,000", "quarterly", "3-6 months"),
-        ("120k", "annual", "3 months"),
-        ("€50.000,50", "campaign", "3 months"),
-        ("50k/mo", "campaign", "3 months"),
+        ("1.5 million", "campaign", "3 months", dallas),
+        ("10000-15000", "campaign", "3 months", dallas),
+        ("$10,000", "monthly", "6-12 months", dallas),
+        ("60,000", "quarterly", "3-6 months", dallas),
+        ("120k", "annual", "3 months", dallas),
+        ("€50.000,50", "campaign", "3 months", dallas),
+        ("50k/mo", "campaign", "3 months", dallas),
+        ("EUR 50,000", "campaign", "3 months", dallas),
+        ("50,000 euros", "campaign", "3 months", dallas),
+        ("Rs 12,50,000", "campaign", "3 months", dallas),
+        ("Rs 12,50,000", "campaign", "3 months", mumbai),
+        ("50,000", "campaign", "3 months", london),
+        ("CA$50,000", "campaign", "3 months", ["Toronto, ON"]),
+    ]
+    rows = [
+        {"input": c[0], "period": c[1], "duration": c[2],
+         "cur": _server_currency(*c)}
+        for c in cases
     ]
     got = _js_results(
-        [{"input": c[0], "period": c[1], "duration": c[2]} for c in cases],
-        "novaBudgetReadingText(novaResolvePlanBudget(r.input, r.period, r.duration))",
+        rows,
+        "novaBudgetReadingText(novaResolvePlanBudget(r.input, r.period, r.duration), r.cur)",
     )
     assert got == [
         "Planning at $1,500,000",
-        "Planning at $12,500 (midpoint of $10,000–$15,000)",
-        "Planning at $90,000 total: $10,000 per month × 9 months",
-        "Planning at $90,000 total: $60,000 per quarter × 1.5 quarters (4.5-month campaign)",
-        "Planning at $120,000 total: $120,000 per year × 1 year (3-month campaign;"
+        "Planning at $12,500 (midpoint of $10,000\u2013$15,000)",
+        "Planning at $90,000 total: $10,000 per month \u00d7 9 months",
+        "Planning at $90,000 total: $60,000 per quarter \u00d7 1.5 quarters (4.5-month campaign)",
+        "Planning at $120,000 total: $120,000 per year \u00d7 1 year (3-month campaign;"
         " never scaled below the amount typed)",
-        "Planning at €50,000.50",
+        "Planning at \u20ac50,000.50",
         "Planning at $50,000. Your amount says per month; set the period to"
-        " “Per month” if that's what you mean.",
+        " \u201cPer month\u201d if that's what you mean.",
+        "Planning at $50,000 \u2014 plan currency is USD for your locations;"
+        " \u201cEUR\u201d isn\u2019t read as a currency symbol",
+        "Planning at $50,000 \u2014 plan currency is USD for your locations;"
+        " \u201cEUROS\u201d isn\u2019t read as a currency symbol",
+        "Planning at $1,250,000 \u2014 plan currency is USD for your locations;"
+        " \u201cRS\u201d isn\u2019t read as a currency symbol",
+        "Planning at \u20b91,250,000",  # typed Rs == plan INR: nothing to flag
+        "Planning at \u00a350,000 \u2014 plan currency is GBP for your locations",
+        "Planning at C$50,000",
     ]
-    # the server plans exactly the figure each line states
-    for (raw, period, duration), line in zip(cases, got):
+    # the server plans exactly the figure each line states, in that currency
+    for (raw, period, duration, locs), line, row in zip(cases, got, rows):
         total = wizard_inputs.resolve_plan_budget(raw, period, duration).total
-        assert line.startswith("Planning at ")
+        assert line.startswith("Planning at " + row["cur"]["symbol"].strip())
         assert f"{total:,.2f}".rstrip("0").rstrip(".") in line
+
+
+def test_plan_currency_reading_uses_the_one_resolver():
+    import plan_currency
+
+    for raw, locs in [("EUR 50,000", ["Dallas, TX"]), ("\u00a350,000", ["Dallas, TX"]),
+                      ("50,000", ["London, UK"]), ("CA$50,000", ["Toronto, ON"]),
+                      ("$50,000", ["London, UK", "Berlin, Germany"])]:
+        reading = _server_currency(raw, "campaign", "3 months", locs)
+        brief = {"budget_range": raw, "locations": locs}
+        app._normalize_request_budget(brief, log=False)
+        assert (reading["code"], reading["basis"]) == \
+            plan_currency.currency_for_plan_with_basis(brief), raw
+
+
+def test_estimate_budget_only_mode_returns_the_plan_currency(live_port):  # noqa: F811
+    status, body = post_json(
+        live_port, "/api/estimate",
+        {"budget_range": "EUR 50,000", "locations": ["Dallas, TX"], "budget_only": True},
+    )
+    assert status == 200, body
+    assert body["budget"]["total"] == 50000
+    assert body["plan_currency"]["code"] == "USD"
+    assert "EUR" in body["plan_currency"]["note"]
+    assert "est_hires" not in body  # no engine call, no roles needed
 
 
 @needs_node

@@ -101,20 +101,27 @@
 
     // ── Money formatters ──────────────────────────────────────────────
     function trim(x, d) { return Number(x.toFixed(d)).toString(); }
+    // The plan's currency symbol as the SERVER resolves it (plan_currency via
+    // /api/estimate's plan_currency); "$" only until it is known.
+    function sym() {
+      var c = (latestEstimate && latestEstimate.plan_currency) ||
+        (typeof novaPlanCurrency === "function" ? novaPlanCurrency() : null);
+      return c && c.symbol ? String(c.symbol) : "$";
+    }
     function hero(v) {
       v = Math.max(0, v);
-      if (v >= 1e6) return "$" + trim(v / 1e6, 2) + "M";
-      if (v >= 1e3) return "$" + Math.round(v / 1e3) + "K";
-      return "$" + Math.round(v);
+      if (v >= 1e6) return sym() + trim(v / 1e6, 2) + "M";
+      if (v >= 1e3) return sym() + Math.round(v / 1e3) + "K";
+      return sym() + Math.round(v);
     }
     function amtShort(v) {
       v = Math.max(0, v);
-      if (v >= 1e6) return "$" + trim(v / 1e6, 1) + "M";
-      if (v >= 1e3) return "$" + Math.round(v / 1e3) + "K";
-      return "$" + Math.round(v);
+      if (v >= 1e6) return sym() + trim(v / 1e6, 1) + "M";
+      if (v >= 1e3) return sym() + Math.round(v / 1e3) + "K";
+      return sym() + Math.round(v);
     }
     function intc(v) { return Math.round(Math.max(0, v)).toLocaleString(); }
-    function cpaFmt(v) { return v > 0 ? "$" + v.toFixed(2) : "—"; }
+    function cpaFmt(v) { return v > 0 ? sym() + v.toFixed(2) : "—"; }
 
     // ── Screenshot-safe count-up ──────────────────────────────────────
     var COUNTERS = new Set();
@@ -641,6 +648,8 @@
       // paintOutcomes() renders whatever the latest resolved state is
       // (placeholder while pending or on failure — never a local formula).
       fetchEstimate(m);
+      // the plan currency follows the budget text AND the locations
+      if (typeof novaRefreshPlanCurrency === "function") novaRefreshPlanCurrency();
       paintOutcomes(m);
 
       // pop + recompute shimmer on real change

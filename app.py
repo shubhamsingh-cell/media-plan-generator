@@ -4447,6 +4447,72 @@ def _normalize_request_budget(data: dict, log: bool = True) -> "wizard_inputs.Pl
     return plan
 
 
+# Currency WORDS the budget reader recognises (it reports them upper-cased),
+# as ISO codes -- only to decide whether a note is needed; plan_currency's
+# resolver alone decides the plan currency.
+_TYPED_CURRENCY_WORDS: dict = {
+    "DOLLAR": "USD",
+    "DOLLARS": "USD",
+    "EURO": "EUR",
+    "EUROS": "EUR",
+    "POUND": "GBP",
+    "POUNDS": "GBP",
+    "RUPEE": "INR",
+    "RUPEES": "INR",
+    "RS": "INR",
+    "RM": "MYR",
+    "RP": "IDR",
+}
+
+_CURRENCY_BASIS_WHY: dict = {
+    "explicit": "as set on the request",
+    "declared": "from the currency you typed",
+    "market": "for your locations",
+    "default": "(no single market currency in your locations)",
+}
+
+
+def _plan_currency_reading(data: dict, plan: "wizard_inputs.PlanBudget") -> dict:
+    """The currency the plan will be priced in -- plan_currency's ONE
+    resolver (currency_for_plan_with_basis, declare-not-convert) over the
+    request as /api/generate will see it (budget already canonical) -- plus
+    a plain note when what was typed is not that currency, so the wizard
+    never silently relabels "EUR 50,000" as $50,000.
+
+    {"code", "basis", "symbol", "suffix", "typed", "note"}; never raises.
+    """
+    code, basis = "USD", "default"
+    symbol, suffix = "$", False
+    if plan_currency is not None:
+        try:
+            code, basis = plan_currency.currency_for_plan_with_basis(data)
+            symbol = plan_currency.symbol_for_code(code)
+            suffix = code in plan_currency._SUFFIX_CODES
+        except (AttributeError, TypeError, ValueError):
+            logger.error("plan currency reading failed", exc_info=True)
+    typed = plan.parse.currency if plan.parse.ok else ""
+    typed_code = _TYPED_CURRENCY_WORDS.get(typed) or (
+        typed if re.fullmatch(r"[A-Z]{3}", typed) else ""
+    )
+    why = _CURRENCY_BASIS_WHY.get(basis, "")
+    note = ""
+    if typed and basis != "declared" and typed_code != code:
+        note = (
+            f"plan currency is {code} {why}; “{typed}” isn’t read "
+            "as a currency symbol"
+        )
+    elif not typed and code != "USD":
+        note = f"plan currency is {code} {why}"
+    return {
+        "code": code,
+        "basis": basis,
+        "symbol": symbol,
+        "suffix": suffix,
+        "typed": typed,
+        "note": note,
+    }
+
+
 def _has_name_character(text: Any) -> bool:
     """True when ``text`` has at least one letter or digit in ANY script
     (str.isalnum): "3M", "H&M", "P&G", "O2", "X", "朝日新聞", "Яндекс" pass;
@@ -5295,6 +5361,13 @@ def _compute_plan_estimate(brief: dict) -> dict:
         raise _EstimateValidationError("locations must be a list", field="locations")
     _normalize_location_field(brief)
     _resolve_and_rewrite_locations(brief)
+    budget_info = budget_plan.as_dict()
+    budget_info["canonical"] = budget_str
+    plan_currency_info = _plan_currency_reading(brief, budget_plan)
+    if brief.get("budget_only") is True:
+        # Step 1 of the wizard (no roles yet): just how the budget reads and
+        # which currency the plan will be priced in -- no engine call.
+        return {"budget": budget_info, "plan_currency": plan_currency_info}
 
     industry_raw = str(brief.get("industry") or "").strip()
     company_name = str(brief.get("client_name") or "").strip()
@@ -5455,8 +5528,6 @@ def _compute_plan_estimate(brief: dict) -> dict:
     cost_per_hire = total_projected.get("cost_per_hire") or 0.0
     est_cpa = round(budget_val / applications, 2) if applications else 0.0
 
-    budget_info = budget_plan.as_dict()
-    budget_info["canonical"] = budget_str
     return {
         "est_hires": int(hires),
         "est_cph": round(float(cost_per_hire), 2) if cost_per_hire else 0.0,
@@ -5466,6 +5537,7 @@ def _compute_plan_estimate(brief: dict) -> dict:
         # How the budget text was read -- the figure the plan will use
         # ("planning at $X"), so the wizard shows the server's own reading.
         "budget": budget_info,
+        "plan_currency": plan_currency_info,
         "target_region": brief["target_region"],
     }
 
