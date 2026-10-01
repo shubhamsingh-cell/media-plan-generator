@@ -224,8 +224,20 @@ def test_recall_and_reciprocal_rank():
 
 def test_aggregate_metrics_are_percentage_points():
     recs = [
-        {"recall@1": 1.0, "recall@3": 1.0, "recall@5": 1.0, "recall@10": 1.0, "rr": 1.0},
-        {"recall@1": 0.0, "recall@3": 0.0, "recall@5": 1.0, "recall@10": 1.0, "rr": 0.2},
+        {
+            "recall@1": 1.0,
+            "recall@3": 1.0,
+            "recall@5": 1.0,
+            "recall@10": 1.0,
+            "rr": 1.0,
+        },
+        {
+            "recall@1": 0.0,
+            "recall@3": 0.0,
+            "recall@5": 1.0,
+            "recall@10": 1.0,
+            "rr": 0.2,
+        },
     ]
     agg = rev.aggregate_metrics(recs)
     assert agg == {
@@ -360,7 +372,8 @@ def test_injected_embedder_runs_dense_and_hybrid_tiers():
 def test_dense_index_python_fallback_matches_numpy():
     pytest.importorskip("numpy")
     vecs = HashingEmbedder(32).embed(
-        ["welding trades", "nursing healthcare", "retail holiday", "tech hiring"], "document"
+        ["welding trades", "nursing healthcare", "retail holiday", "tech hiring"],
+        "document",
     )
     query = HashingEmbedder(32).embed(["healthcare nursing boards"], "query")[0]
     fast = rev._DenseIndex(vecs).top_k(query, 4)
@@ -381,7 +394,14 @@ def test_embedder_failure_becomes_explicit_skip(tmp_path):
     data = _write_kb(tmp_path)
     golden = _write_golden(
         tmp_path / "g.json",
-        [{"id": "a", "query": "welding", "expected_ids": ["mini_kb.json#alpha_topic"], "notes": "n"}],
+        [
+            {
+                "id": "a",
+                "query": "welding",
+                "expected_ids": ["mini_kb.json#alpha_topic"],
+                "notes": "n",
+            }
+        ],
     )
     report = rev.run_eval(
         golden, data_dir=data, kb_files=["mini_kb.json"], embedder=Boom()
@@ -413,7 +433,12 @@ def test_repo_cache_is_used_only_when_it_covers_everything(tmp_path):
     golden = _write_golden(
         tmp_path / "g.json",
         [
-            {"id": f"q{i}", "query": q, "expected_ids": [f"mini_kb.json#{t}"], "notes": "n"}
+            {
+                "id": f"q{i}",
+                "query": q,
+                "expected_ids": [f"mini_kb.json#{t}"],
+                "notes": "n",
+            }
             for i, (q, t) in enumerate(
                 zip(queries, ("alpha_topic", "beta_topic", "gamma_topic"))
             )
@@ -488,7 +513,11 @@ class _FakeVoyage:
         if self.fail_429_times > 0:
             self.fail_429_times -= 1
             raise urllib.error.HTTPError(
-                req.full_url, 429, "Too Many Requests", {"Retry-After": "1"}, io.BytesIO(b"")
+                req.full_url,
+                429,
+                "Too Many Requests",
+                {"Retry-After": "1"},
+                io.BytesIO(b""),
             )
         body = json.loads(req.data.decode("utf-8"))
         self.requests.append(body)
@@ -586,7 +615,9 @@ def test_voyage_embedder_http_error_is_unavailable_not_crash(tmp_path):
 
 def test_cli_update_then_check_roundtrip(tmp_path, capsys):
     base = tmp_path / "baseline.json"
-    assert rev.main(["--tiers", "bm25", "--update-baseline", "--baseline", str(base)]) == 0
+    assert (
+        rev.main(["--tiers", "bm25", "--update-baseline", "--baseline", str(base)]) == 0
+    )
     written = json.loads(base.read_text(encoding="utf-8"))
     assert written["tiers"]["bm25"]["status"] == "ok"
     assert "per_query" not in written
@@ -602,7 +633,9 @@ def test_cli_update_then_check_roundtrip(tmp_path, capsys):
 
 def test_cli_check_without_baseline_is_an_error(tmp_path):
     assert (
-        rev.main(["--tiers", "bm25", "--check", "--baseline", str(tmp_path / "nope.json")])
+        rev.main(
+            ["--tiers", "bm25", "--check", "--baseline", str(tmp_path / "nope.json")]
+        )
         == rev.EXIT_ERROR
     )
 

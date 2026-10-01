@@ -782,7 +782,9 @@ class VoyageEmbedder(Embedder):
                 with self._opener(req, timeout=30) as resp:
                     parsed = json.loads(resp.read().decode("utf-8"))
                 self.requests_sent += 1
-                items = sorted(parsed.get("data") or [], key=lambda d: d.get("index", 0))
+                items = sorted(
+                    parsed.get("data") or [], key=lambda d: d.get("index", 0)
+                )
                 vecs = [d.get("embedding") or [] for d in items]
                 if len(vecs) != len(batch) or any(not v for v in vecs):
                     raise EmbedderUnavailable(
@@ -791,7 +793,9 @@ class VoyageEmbedder(Embedder):
                 return vecs
             except urllib.error.HTTPError as exc:
                 if exc.code == 429 and attempt < self._max_retries:
-                    retry_after = exc.headers.get("Retry-After") if exc.headers else None
+                    retry_after = (
+                        exc.headers.get("Retry-After") if exc.headers else None
+                    )
                     try:
                         delay = float(retry_after) if retry_after else 2.0 * 2**attempt
                     except ValueError:
@@ -1156,7 +1160,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return EXIT_ERROR
 
     print(format_table(report))
-    scorable = {s.row.row_id: s for s in resolve_golden(load_golden(args.golden), build_corpus())}
+    scorable = {
+        s.row.row_id: s
+        for s in resolve_golden(load_golden(args.golden), build_corpus())
+    }
     for tier_name in ("bm25", "tfidf"):
         worst = worst_queries(report, tier_name, scorable, args.worst)
         if worst:
@@ -1186,7 +1193,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         for tier_name, base in sorted((baseline.get("tiers") or {}).items()):
             cur = report["tiers"].get(tier_name) or {}
             if base.get("status") == "ok" and cur.get("status") != "ok":
-                print(f"NOTE: {tier_name} not compared ({cur.get('reason') or 'not run'})")
+                print(
+                    f"NOTE: {tier_name} not compared ({cur.get('reason') or 'not run'})"
+                )
         if violations:
             print("\nRETRIEVAL GATE: FAIL")
             for v in violations:
