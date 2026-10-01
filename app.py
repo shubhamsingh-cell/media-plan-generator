@@ -14974,10 +14974,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             _su_url = _su_entry.get("sheets_url") or ""
             if not _su_url:
                 # The URL is attached later by the worker that generated the
-                # plan; this worker's copy may predate it.
-                _su_url = (_plan_result_store.get(_su_plan_id) or {}).get(
-                    "sheets_url"
-                ) or ""
+                # plan; this worker's copy may predate it. Instance file layer
+                # only: a copy from Supabase was backfilled there already, so
+                # this poll never costs a network call.
+                _su_url = (
+                    _plan_result_store.get(_su_plan_id, local_only=True) or {}
+                ).get("sheets_url") or ""
             if _su_url:
                 self._send_json(
                     {"plan_id": _su_plan_id, "sheets_url": _su_url, "ready": True}

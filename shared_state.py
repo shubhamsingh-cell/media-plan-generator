@@ -786,8 +786,8 @@ class SharedRecordStore:
             if record is None or not self._fresh(record, now):
                 return None
             encoded = self._encode(key, record)
-            if encoded is not None:
-                self._files.write(path, encoded[0], encoded[1])
+            if encoded is not None and self._files.write(path, encoded[0], encoded[1]):
+                self._files.sweep()  # backfills count against the caps too
             return record
         except Exception as exc:  # error isolation: a store bug must never 500 a request
             logger.error(f"shared_state[{self.name}].get failed: {exc.__class__.__name__}", exc_info=True)

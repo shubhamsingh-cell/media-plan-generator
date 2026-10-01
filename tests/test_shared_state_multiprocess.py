@@ -38,7 +38,7 @@ from tests.fake_postgrest import FakePostgrest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 WORKER = PROJECT_ROOT / "tests" / "shared_state_worker.py"
 
-_CSRF = f"{secrets.token_hex(16)}.{int(time.time()) + 3600}"
+_SESSION = secrets.token_hex(16)  # the generating session (nova_session cookie)
 _ZIP = b"PK\x03\x04" + b"cross-worker-zip-payload" * 64
 _BUNDLE_QA = {
     "qa_status": "critical",
@@ -129,10 +129,17 @@ def _start(specs: list[tuple[str, str, dict]], log_dir: str) -> list[Worker]:
     return workers
 
 
-def _post_headers(session: str = _CSRF) -> dict:
+def _csrf_token() -> str:
+    """Fresh double-submit token per request: the token embeds its expiry, so
+    one minted at import goes stale if the wall clock jumps (host sleep)."""
+    return f"{secrets.token_hex(16)}.{int(time.time()) + 3600}"
+
+
+def _post_headers(session: str = _SESSION) -> dict:
+    csrf = _csrf_token()
     return {
-        "Cookie": f"csrf_token={_CSRF}; nova_session={session}",
-        "X-CSRF-Token": _CSRF,
+        "Cookie": f"csrf_token={csrf}; nova_session={session}",
+        "X-CSRF-Token": csrf,
         "Origin": "http://localhost",
     }
 
@@ -262,7 +269,7 @@ def _completed_job(worker: Worker, session: str) -> str:
 
 def test_completed_job_poll_and_download_work_on_other_workers(cluster) -> None:
     a, b, c = cluster
-    job_id = _completed_job(a, _CSRF)
+    job_id = _completed_job(a, _SESSION)
     status, _h, raw = b.http(
         "GET", f"/api/jobs/{job_id}", headers={"Accept": "application/json"}
     )
@@ -280,7 +287,7 @@ def test_completed_job_poll_and_download_work_on_other_workers(cluster) -> None:
 
 def test_qa_ack_works_on_a_worker_that_did_not_run_the_job(cluster) -> None:
     a, b, c = cluster
-    job_id = _completed_job(a, _CSRF)
+    job_id = _completed_job(a, _SESSION)
     status, _h, raw = b.http(
         "POST", f"/api/jobs/{job_id}/qa-ack", {"acknowledged_by": "ops@joveo.com"}, _post_headers()
     )
@@ -293,7 +300,7 @@ def test_qa_ack_works_on_a_worker_that_did_not_run_the_job(cluster) -> None:
 
 def test_qa_ack_on_another_worker_still_rejects_a_different_session(cluster) -> None:
     a, b, _c = cluster
-    job_id = _completed_job(a, _CSRF)
+    job_id = _completed_job(a, _SESSION)
     other = f"{secrets.token_hex(16)}.{int(time.time()) + 3600}"
     headers = {
         "Cookie": f"csrf_token={other}",
@@ -309,11 +316,11 @@ def test_qa_ack_on_another_worker_still_rejects_a_different_session(cluster) -> 
 def test_in_flight_job_progress_is_visible_and_session_locked(cluster) -> None:
     a, b, c = cluster
     job_id = uuid.uuid4().hex
-    assert a.cmd(op="make_job", job_id=job_id, session=_CSRF, status="processing")["ok"]
+    assert a.cmd(op="make_job", job_id=job_id, session=_SESSION, status="processing")["ok"]
     status, _h, raw = b.http(
         "GET",
         f"/api/jobs/{job_id}",
-        headers={"Accept": "application/json", "Cookie": f"nova_session={_CSRF}"},
+        headers={"Accept": "application/json", "Cookie": f"nova_session={_SESSION}"},
     )
     assert status == 200, raw
     assert json.loads(raw)["progress_pct"] == 40
@@ -347,7 +354,7 @@ def test_state_survives_a_restart_onto_an_empty_disk(log_dir: str) -> None:
                 assert writer.cmd(
                     op="store_plan_result", plan_id=plan_id, data={"client_name": "Durable"}
                 )["ok"]
-                job_id = _completed_job(writer, _CSRF)
+                job_id = _completed_job(writer, _SESSION)
                 assert writer.cmd(op="flush", timeout=10)["flushed"] is True
             finally:
                 writer.stop()
