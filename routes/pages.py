@@ -6,6 +6,7 @@ routes that serve templates from the templates/ directory.  Returns
 """
 
 import gzip
+import json
 import logging
 import os
 import re
@@ -311,6 +312,27 @@ def _serve_template(handler: Any, templates_dir: str, template: str) -> None:
 
 _BASE_URL = "https://media-plan-generator.onrender.com"
 
+# Frontend router paths ("plan/budget", "intelligence/talent/hire-signal").
+# Anything else in /platform/<section>/<...> falls back to the section default.
+_PLATFORM_ROUTE_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*(?:/[A-Za-z0-9_-]+){0,5}")
+_PLATFORM_ROUTE_MAX = 120
+
+
+def _json_for_inline_script(value: Any) -> str:
+    """JSON literal that is safe inside an inline <script>.
+
+    json.dumps alone is not enough in HTML: ``</script>`` ends the element and
+    ``<!--`` changes script parsing. Escape ``<``, ``>`` and ``&`` as \\uXXXX;
+    the default ensure_ascii already escapes U+2028/U+2029, which older JS
+    engines treat as line terminators inside string literals.
+    """
+    return (
+        json.dumps(value, ensure_ascii=True)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
+
 
 def _serve_platform_with_route(
     handler: Any,
@@ -347,11 +369,16 @@ def _serve_platform_with_route(
     # If the URL is /platform/plan/budget, use "plan/budget" directly.
     # If just /platform/plan, use the default initial_route from metadata.
     section_root = sub_path.split("/")[0]
-    if "/" in sub_path:
+    if (
+        "/" in sub_path
+        and len(sub_path) <= _PLATFORM_ROUTE_MAX
+        and _PLATFORM_ROUTE_RE.fullmatch(sub_path)
+    ):
         # Deeper path like plan/budget or intelligence/talent/hire-signal
         initial_route = sub_path
     else:
-        # Top-level section: use the default first module route
+        # Top-level section, or a path that is not a router path (the request
+        # path is attacker-controlled): use the default first module route
         initial_route = meta["initial_route"]
 
     # Canonical URL always points to the clean section URL
@@ -385,7 +412,8 @@ def _serve_platform_with_route(
     # The frontend router reads this to navigate on page load instead of
     # relying on hash fragments.
     route_script = (
-        f'<script>window.__NOVA_INITIAL_ROUTE = "{initial_route}";</script>\n'
+        "<script>window.__NOVA_INITIAL_ROUTE = "
+        f"{_json_for_inline_script(initial_route)};</script>\n"
     )
     html = html.replace("</head>", f"{route_script}</head>", 1)
 
