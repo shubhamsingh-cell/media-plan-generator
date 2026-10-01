@@ -89,12 +89,12 @@ class TestEngineReportsTrueRatio:
         """Boundary: a budget below one floor-priced hire clamps hires to 1.
         The honest cost-per-hire is then the whole budget (below the floor),
         never the floor constant the pre-fix engine emitted (5250)."""
-        # 2026-10-01: healthcare apply rates are now re-levelled to the repo
-        # KB's 3.2% healthcare rate (budget_engine
-        # _JOB_BOARD_APPLY_RATE_KB_KEY, audit F §4.8), which leaves this
-        # $5,000 fixture with 0 raw hires, so the floor never fires and the
-        # boundary under test is never reached. This test is about the
-        # floor's reporting, not apply rates: pin the table apply rates.
+        # The KB apply-rate re-level (budget_engine
+        # _JOB_BOARD_APPLY_RATE_KB_KEY, audit F §4.8) covers trades only;
+        # the healthcare re-level is held. Were it re-enabled, this $5,000
+        # fixture would project 0 raw hires and the floor boundary under
+        # test would never be reached. This test is about the floor's
+        # reporting, not apply rates: pin the table apply rates.
         monkeypatch.setattr(budget_engine, "_JOB_BOARD_APPLY_RATE_KB_KEY", {})
         # Two openings across two channels: raw projected hires > 0 so the
         # floor fires, but 5,000 < the 5,250 floor.

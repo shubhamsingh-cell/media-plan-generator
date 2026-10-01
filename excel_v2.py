@@ -2979,6 +2979,23 @@ def _plan_industry_cph(budget_alloc: Any) -> Dict[str, Any]:
     return info if isinstance(info, dict) else {}
 
 
+def _drop_cph_keys(obj: Any) -> Any:
+    """A copy of a nested KB dict/list without its cost-per-hire entries
+    (keys ``cph``, ``*_cph``, ``cost_per_hire*``) -- for plans whose market
+    has no verified local cost-per-hire benchmark (verifier round 3, N1)."""
+    if isinstance(obj, dict):
+        out = {}
+        for k, v in obj.items():
+            ks = str(k).lower()
+            if ks == "cph" or ks.endswith("_cph") or ks.startswith("cost_per_hire"):
+                continue
+            out[k] = _drop_cph_keys(v)
+        return out
+    if isinstance(obj, list):
+        return [_drop_cph_keys(v) for v in obj]
+    return obj
+
+
 # Suppressed claim (local-currency market with no verified local cost per
 # hire): the ONE note the per-hire cells' "—" points to (round 2, verifier
 # item 1).
@@ -3025,16 +3042,13 @@ def _roi_methodology_note(budget_alloc: Any) -> str:
     info = _plan_industry_cph(budget_alloc)
     if info.get("claim_suppressed"):
         fx = _fx_per_usd_phrase(info)
-        bound = (
-            "half the US industry-average cost per hire converted at " + fx
-            if fx
-            else "half the US industry-average cost per hire"
-        )
+        rate = f" (US$ inputs converted at {fx})" if fx else ""
         return (
             "Methodology: this market has no verified local cost-per-hire "
             "benchmark, so hire totals are indicative -- this funnel's "
-            f"projection, capped so no hire costs less than {bound} (a bound "
-            f"on the math, never shown as a cost per hire); {stage}"
+            "projection, capped by half the US industry average converted "
+            f"to the plan currency{rate}; that bound is never shown as a "
+            f"per-hire figure; {stage}"
         )
     return (
         "Methodology: hire totals are anchored to industry cost-per-hire "
@@ -7438,7 +7452,13 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 "US-domiciled niche boards for this industry are not shown because "
                 "this plan targets a non-US market. Local job boards for each "
                 "market are listed below (see the Intl Benchmarks sheet for full "
-                "CPC/CPA/CPH detail).",
+                + (
+                    "CPC/CPA detail)."
+                    if _plan_industry_cph(data.get("_budget_allocation") or {}).get(
+                        "claim_suppressed"
+                    )
+                    else "CPC/CPA/CPH detail)."
+                ),
             )
             headers = ["Location", "Country", "Local Job Boards"]
             row = _write_table_header(ws, row, headers)
@@ -8805,6 +8825,13 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 
     # ── 6. Workforce Trends ──
     workforce = synthesized.get("workforce_insights", {})
+    # Numbers verifier round 3 (N1): a market with no verified local
+    # cost-per-hire benchmark prints no per-hire figure -- including the
+    # US KB's Appcast "CPH: US$1,244" / "Overall Median CPH: US$1,053".
+    if workforce and _plan_industry_cph(
+        data.get("_budget_allocation") or {}
+    ).get("claim_suppressed"):
+        workforce = _drop_cph_keys(workforce)
 
     if workforce:
         _wf_conf = _section_confidence(data, "workforce_insights")
@@ -13850,6 +13877,11 @@ def _build_sheet_international_benchmarks(
         c.border = _BORDER_THIN
     row += 1
 
+    _intl_cph_suppressed = bool(
+        _plan_industry_cph(data.get("_budget_allocation") or {}).get(
+            "claim_suppressed"
+        )
+    )
     countries = intl_benchmarks.get("countries", {})
     for _ck, _cv in sorted(countries.items(), key=lambda x: x[1].get("name", x[0])):
         _name = _cv.get("name", _ck.replace("_", " ").title())
@@ -13879,8 +13911,10 @@ def _build_sheet_international_benchmarks(
                 )
         _cpa_str = "; ".join(_cpa_parts[:2]) if _cpa_parts else "—"
 
-        # CPH by tier
-        _cph = _cv.get("cph_by_tier", {})
+        # CPH by tier -- none on a plan whose market has no verified local
+        # cost-per-hire benchmark (verifier round 3, N1: the same workbook
+        # says "No local benchmark for this market")
+        _cph = {} if _intl_cph_suppressed else _cv.get("cph_by_tier", {})
         _cph_parts = []
         for tier_key in ("entry_level", "professional", "senior", "executive"):
             tier_data = _cph.get(tier_key, {})
@@ -13918,8 +13952,14 @@ def _build_sheet_international_benchmarks(
         row=row,
         column=COL_START,
         value="All USD figures use March 2026 mid-market exchange rates. "
-        "CPC/CPA from top 3 platforms per country. CPH = Cost-Per-Hire by role tier. "
-        "Source: 28 industry reports aggregated in the International "
+        "CPC/CPA from top 3 platforms per country. "
+        + (
+            "CPH by tier is not shown: this plan's market has no verified "
+            "local cost-per-hire benchmark. "
+            if _intl_cph_suppressed
+            else "CPH = Cost-Per-Hire by role tier. "
+        )
+        + "Source: 28 industry reports aggregated in the International "
         "Benchmarks 2026 dataset.",
     ).font = _FONT_FOOTNOTE
     ws.merge_cells(

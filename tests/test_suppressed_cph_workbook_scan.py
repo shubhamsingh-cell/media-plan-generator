@@ -14,6 +14,7 @@ that has none. Every such figure is bounded by an FX-translated US value.
 from __future__ import annotations
 
 import io
+import json
 import os
 import re
 import sys
@@ -45,22 +46,100 @@ def _brief(name, industry, budget, locations, roles, hire_volume):
     }
 
 
-@pytest.fixture(scope="module", params=["brazil", "uk"])
+_BRIEFS = {
+    "brazil": _brief(
+        "Probe Contact BR", "general_entry_level", "R$1,200,000",
+        ["São Paulo, Brazil", "Rio de Janeiro, Brazil"],
+        ["Customer Service Representative", "Telemarketing Agent"], "500+ hires"),
+    "uk": _brief(
+        "Probe Bank", "finance_banking", "£150,000", ["London, UK"],
+        ["Financial Analyst", "Accountant"], "50 hires"),
+    "japan": _brief(
+        "Probe Denki", "tech_engineering", "¥45,000,000", ["Tokyo, Japan"],
+        ["Software Engineer"], "60 hires"),
+    "germany_auto": _brief(
+        "Probe Auto", "automotive_manufacturing", "€400,000", ["Stuttgart, Germany"],
+        ["Production Technician", "Quality Engineer"], "80 hires"),
+}
+
+
+def _enriched(data):
+    """What the live /api/generate path attaches and T.build_plan_data does
+    not: the international benchmarks dataset (Intl Benchmarks sheet) and
+    the synthesizer's workforce insights carrying the US KB's Appcast
+    occupation / full-funnel costs (Market Intelligence) -- the two places
+    the numbers verifier (round 3, N1) found per-hire figures."""
+    path = os.path.join(PROJECT_ROOT, "data", "international_benchmarks_2026.json")
+    with open(path, encoding="utf-8") as fh:
+        data["_intl_benchmarks"] = json.load(fh)
+    synth = dict(data.get("_synthesized") or {})
+    synth["workforce_insights"] = {
+        "appcast_2026_benchmarks": {
+            "data_year": 2025,
+            "occupation_benchmarks": {
+                "occupation_key": "finance", "cpa": "US$15.55", "cph": "US$1,244",
+            },
+            "full_funnel_costs": {
+                "overall_median_cpa": "US$19.20", "overall_median_cph": "US$1,053",
+            },
+        }
+    }
+    data["_synthesized"] = synth
+    return data
+
+
+@pytest.fixture(scope="module", params=sorted(_BRIEFS))
 def suppressed_wb(request):
-    brief = {
-        "brazil": _brief(
-            "Probe Contact BR", "general_entry_level", "R$1,200,000",
-            ["São Paulo, Brazil", "Rio de Janeiro, Brazil"],
-            ["Customer Service Representative", "Telemarketing Agent"], "500+ hires"),
-        "uk": _brief(
-            "Probe Bank", "finance_banking", "£150,000", ["London, UK"],
-            ["Financial Analyst", "Accountant"], "50 hires"),
-    }[request.param]
-    data = T.build_plan_data(brief)
+    data = T.build_plan_data(_BRIEFS[request.param])
     assert data["_budget_allocation"]["metadata"]["industry_cph"]["claim_suppressed"]
+    _enriched(data)
     raw = excel_v2.generate_excel_v2(dict(data), load_kb_fn=load_knowledge_base)
     raw = raw[0] if isinstance(raw, tuple) else raw
     return load_workbook(io.BytesIO(raw))
+
+
+# A money amount in a per-hire context, inside ONE text cell:
+# "CPH: US$1,244", "Overall Median CPH: US$1,053", "R$8,759/hire",
+# "Entry Level: $3,175" under a "CPH by Tier" header (checked separately).
+_MONEY = r"(?:US\$|R\$|[$£€¥₹])\s?\d[\d,.]*\s*[KMk]?"
+_PER_HIRE_TEXT = re.compile(
+    rf"(?:\bCPH\b|cost[- ]per[- ]hire|cost per hire)[^;|\n]{{0,25}}?{_MONEY}"
+    rf"|{_MONEY}\s*(?:/hire|per hire)",
+    re.I,
+)
+
+
+def _per_hire_text_cells(wb):
+    hits = []
+    for ws in wb.worksheets:
+        grid = {
+            (c.row, c.column): c.value
+            for row in ws.iter_rows()
+            for c in row
+            if c.value not in (None, "")
+        }
+        for (r, col), v in grid.items():
+            if not isinstance(v, str):
+                continue
+            hdr = next(
+                (grid[(rr, col)] for rr in range(r - 1, max(0, r - 60), -1)
+                 if isinstance(grid.get((rr, col)), str) and len(grid[(rr, col)]) < 40),
+                "",
+            )
+            if _PER_HIRE_TEXT.search(v) or (
+                _PER_HIRE.search(hdr) and re.search(_MONEY, v)
+            ):
+                hits.append((ws.title, ws.cell(row=r, column=col).coordinate, v[:120]))
+    return hits
+
+
+def test_no_per_hire_figure_in_any_text_cell(suppressed_wb):
+    assert _per_hire_text_cells(suppressed_wb) == []
+
+
+def test_no_sheet_promises_cph_detail(suppressed_wb):
+    texts = [t[2] for t in _all_text(suppressed_wb)]
+    assert not any("CPC/CPA/CPH detail" in t for t in texts)
 
 
 def _per_hire_numbers(wb):
