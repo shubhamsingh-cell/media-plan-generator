@@ -4564,6 +4564,28 @@ def _plan_currency_reading(data: dict, plan: "wizard_inputs.PlanBudget") -> dict
     }
 
 
+def _market_currency_reading(data: dict) -> dict:
+    """The currency a BARE amount (nothing typed but digits) is priced in
+    for this request -- plan_currency's one resolver over the request with
+    its budget removed. The wizard labels its quick-amount buttons with it:
+    they insert bare numbers, so "£50K" must be what a click plans.
+    {"code", "symbol", "suffix"}; never raises."""
+    code, symbol, suffix = "USD", "$", False
+    if plan_currency is not None:
+        bare = {
+            k: v
+            for k, v in data.items()
+            if k not in _BUDGET_REQUEST_KEYS and not str(k).startswith("_")
+        }
+        try:
+            code, _basis = plan_currency.currency_for_plan_with_basis(bare)
+            symbol = plan_currency.symbol_for_code(code)
+            suffix = code in plan_currency._SUFFIX_CODES
+        except (AttributeError, TypeError, ValueError):
+            logger.error("market currency reading failed", exc_info=True)
+    return {"code": code, "symbol": symbol, "suffix": suffix}
+
+
 def _plan_budget_summary(data: dict) -> dict:
     """The budget the plan was generated for, for the wizard's results
     screen (returned with the async job id): the RESOLVED campaign total in
@@ -5456,6 +5478,20 @@ def _compute_plan_estimate(brief: dict) -> dict:
     # Client-sent "_"-prefixed keys are server-internal flags (see
     # _drop_internal_request_keys): never honoured here either.
     brief = _drop_internal_request_keys(dict(brief))
+    if brief.get("budget_only") is True and _request_budget_raw(brief)[0] == "":
+        # Nothing typed yet: only the currency a bare amount would be priced
+        # in for these locations (the quick-amount buttons' labels).
+        if brief.get("locations") is not None and not isinstance(
+            brief.get("locations"), list
+        ):
+            raise _EstimateValidationError("locations must be a list", field="locations")
+        _normalize_location_field(brief)
+        _resolve_and_rewrite_locations(brief)
+        return {
+            "budget": None,
+            "plan_currency": None,
+            "market_currency": _market_currency_reading(brief),
+        }
     budget_plan = _resolve_request_budget(brief)
     if not budget_plan.ok:
         raise _EstimateValidationError(
@@ -5484,7 +5520,11 @@ def _compute_plan_estimate(brief: dict) -> dict:
     if brief.get("budget_only") is True:
         # Step 1 of the wizard (no roles yet): just how the budget reads and
         # which currency the plan will be priced in -- no engine call.
-        return {"budget": budget_info, "plan_currency": plan_currency_info}
+        return {
+            "budget": budget_info,
+            "plan_currency": plan_currency_info,
+            "market_currency": _market_currency_reading(brief),
+        }
 
     industry_raw = str(brief.get("industry") or "").strip()
     company_name = str(brief.get("client_name") or "").strip()

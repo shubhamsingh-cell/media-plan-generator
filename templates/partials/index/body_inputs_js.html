@@ -369,6 +369,16 @@
     return text;
   }
 
+  // True when the reading carries something the user should act on: a
+  // currency note (what was typed is not read as, or is not, the plan's
+  // currency) or a period in the text that differs from the selected one.
+  // The budget field shows those readings as a warning, not a hint.
+  function novaBudgetReadingWarns(plan, planCurrency) {
+    if (!plan || !plan.parse || !plan.parse.ok) return false;
+    if (planCurrency && planCurrency.note) return true;
+    return !!(plan.parse.period && plan.parse.period !== plan.period);
+  }
+
   // "6-12 months -- planned as 9 months (~39 weeks)": the months the budget
   // and the plan's timeline actually use (wizard_inputs.campaign_months).
   function novaDurationReadingText(duration) {

@@ -438,12 +438,14 @@
         <div id="transcriptFileList" class="file-list"></div>
       </div>
 
-      <div class="form-row form-row-3">
-        <div class="form-group">
+      <div class="form-row form-row-3 form-row-budget">
+        <div class="form-group budget-group">
           <label for="exactBudget">Total Campaign Budget *</label>
-          <!-- Exact-first single control: type any $ amount; quick chips below.
+          <!-- Exact-first single control: type any amount; quick chips below.
                #budgetRange is a hidden flag ("__exact__" when filled) so the
-               existing validation/payload/exact-path keep working. -->
+               existing validation/payload/exact-path keep working. The
+               prefix and the chip labels carry the plan's currency as the
+               server resolves it (novaSyncBudgetCurrency). -->
           <div class="budget-input-wrap" id="exactBudgetWrap">
             <span class="budget-currency" aria-hidden="true">$</span>
             <input
@@ -455,9 +457,23 @@
               placeholder="150,000"
               aria-required="true"
               aria-label="Total campaign budget amount"
-              aria-describedby="budgetRange-error budget-hint budgetResolved"
+              aria-describedby="budgetRange-error budgetResolved budget-hint"
             />
           </div>
+          <!-- Error and reading sit directly under the box: at 375 px the
+               error used to land 226 px below it, behind the quick amounts,
+               the period select and two hint lines. -->
+          <div class="field-error-msg" id="budgetRange-error" role="alert"></div>
+          <!-- The figure the plan will use, read by the server's own rules
+               (novaBudgetReadingText, body_inputs_js.html). Not a live
+               region: #budgetResolvedLive announces it once typing settles. -->
+          <div class="budget-resolved" id="budgetResolved"></div>
+          <div
+            class="sr-only"
+            id="budgetResolvedLive"
+            aria-live="polite"
+            aria-atomic="true"
+          ></div>
           <input type="hidden" id="budgetRange" value="" />
           <div
             class="budget-quickfill"
@@ -485,20 +501,12 @@
             or a range like 10k-15k (planned at its midpoint) &mdash; or tap a
             quick amount.
           </div>
-          <!-- The figure the plan will use, read by the server's own rules
-               (novaBudgetReadingText, body_inputs_js.html). -->
-          <div
-            class="form-hint budget-resolved"
-            id="budgetResolved"
-            aria-live="polite"
-          ></div>
           <div
             class="copilot-nudge"
             id="nudge-budget"
             aria-live="polite"
             aria-label="Budget insight"
           ></div>
-          <div class="field-error-msg" id="budgetRange-error"></div>
         </div>
         <div class="form-group">
           <label for="campaignDuration">Campaign Duration *</label>

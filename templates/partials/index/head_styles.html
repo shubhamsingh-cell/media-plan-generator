@@ -7772,6 +7772,80 @@
   .studio .budget-period-row select {
     width: 100%;
   }
+  /* The typed text carries its own currency ("£75,000", "EUR 50,000"): no
+     second symbol in front of it (novaSyncBudgetCurrency). */
+  .studio .budget-input-wrap.typed-currency .budget-currency {
+    display: none;
+  }
+  .studio .budget-input-wrap.typed-currency #exactBudget.budget-amount-input {
+    padding-left: 14px !important;
+  }
+
+  /* ── Budget error on the control the error is about ──────────────
+     #exactBudget's own rule (an id) out-specified the generic
+     `.studio .form-group.field-error input` rule, so the box never turned
+     red while the neighbouring period <select> did -- and after the jump
+     the focused box showed only its purple focus ring (design panel
+     2026-10-01). The error marks the control it is about with
+     aria-invalid (_showFieldError); only that control turns red. */
+  .studio .form-group.field-error #exactBudget.budget-amount-input[aria-invalid="true"],
+  .studio .form-group.field-error #exactBudget.budget-amount-input[aria-invalid="true"]:hover,
+  .studio .form-group.field-error #exactBudget.budget-amount-input[aria-invalid="true"]:focus {
+    border-color: var(--error, #ef4444) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18) !important;
+  }
+  .studio .form-group.field-error #exactBudget.budget-amount-input:not([aria-invalid="true"]):not(:focus) {
+    box-shadow: none !important;
+  }
+  .studio .form-group.field-error #budgetPeriod:not([aria-invalid="true"]) {
+    border-color: var(--np-hair) !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18) !important;
+    animation: none;
+  }
+  .studio .form-group.field-error #budgetPeriod:not([aria-invalid="true"]):focus {
+    border-color: var(--np-purple) !important;
+    box-shadow:
+      0 0 0 3px rgba(90, 84, 190, 0.22),
+      inset 0 1px 2px rgba(0, 0, 0, 0.18) !important;
+  }
+  .studio .budget-group .field-error-msg {
+    font-size: 12.5px;
+    margin-top: 7px;
+  }
+
+  /* ── "Planning at ..." -- the figure the plan uses, not help text ──
+     Its own ink style directly under the box (it shared .form-hint's muted
+     11.5 px and read as a tip); amber when it carries a currency note or
+     the typed period differs from the selected one (.is-warning,
+     novaBudgetReadingWarns). */
+  .studio .budget-resolved {
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--np-ink);
+    font-weight: 500;
+    margin-top: 7px;
+  }
+  .studio .budget-resolved:empty {
+    display: none;
+  }
+  .studio .budget-resolved.is-warning {
+    color: #fcd34d;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.32);
+    border-radius: 9px;
+    padding: 7px 10px;
+  }
+  /* Budget spans the whole row above Duration + Start month: in a third of
+     the row (188 px at 1280) the reading wrapped to four lines and the
+     quick amounts to three rows. Phones keep the single-column stack. */
+  @media (min-width: 769px) {
+    .form-row.form-row-3.form-row-budget {
+      grid-template-columns: 1fr 1fr;
+    }
+    .form-row.form-row-budget > .budget-group {
+      grid-column: 1 / -1;
+    }
+  }
 
   @media (prefers-reduced-motion: reduce) {
     body::before {

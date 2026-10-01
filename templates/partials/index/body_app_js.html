@@ -4019,18 +4019,26 @@
     ).map((cb) => cb.value);
   }
 
-  // Helper: show inline validation error on a form group
+  // Helper: show inline validation error on a form group. The control the
+  // error is about gets aria-invalid (assistive tech, and the CSS that
+  // turns THAT control red -- not its neighbour in the group); the message
+  // is an alert so it is announced when it appears.
   function _showFieldError(el, message) {
     if (!el) return;
     var group = el.closest(".form-group");
     if (!group) return;
     group.classList.add("field-error");
+    group.querySelectorAll('[aria-invalid="true"]').forEach(function (c) {
+      if (c !== el) c.removeAttribute("aria-invalid");
+    });
+    if (el.setAttribute && el.type !== "hidden") el.setAttribute("aria-invalid", "true");
     var errEl = group.querySelector(".field-error-msg");
     if (!errEl) {
       errEl = document.createElement("div");
       errEl.className = "field-error-msg";
       group.appendChild(errEl);
     }
+    errEl.setAttribute("role", "alert");
     errEl.textContent = message;
     errEl.style.display = "block";
   }
@@ -4041,6 +4049,9 @@
     var group = el.closest(".form-group");
     if (!group) return;
     group.classList.remove("field-error");
+    group.querySelectorAll('[aria-invalid="true"]').forEach(function (c) {
+      c.removeAttribute("aria-invalid");
+    });
     var errEl = group.querySelector(".field-error-msg");
     if (errEl) errEl.style.display = "none";
   }
@@ -4809,8 +4820,54 @@
   // Fetched from /api/estimate in budget_only mode (no roles needed), once
   // per distinct input, so the preview never invents a currency symbol.
   var _novaCurrency = null, _novaCurrencyKey = "", _novaCurrencyTimer = null;
+  // ...and the currency a BARE amount is priced in for these locations
+  // (/api/estimate's market_currency): the quick-amount buttons insert bare
+  // numbers, so their labels carry this one.
+  var _novaMarketCurrency = null;
   function novaPlanCurrency() {
     return _novaCurrency;
+  }
+  function novaMarketCurrency() {
+    return _novaMarketCurrency;
+  }
+  // "£50K" / "50K kr" for a quick-amount label.
+  function novaCompactMoney(amount, cur) {
+    var n = Number(amount) || 0;
+    var body = n >= 1e6 ? Number((n / 1e6).toFixed(2)) + "M"
+      : n >= 1e3 ? Number((n / 1e3).toFixed(1)) + "K" : String(n);
+    var sym = cur && cur.symbol ? String(cur.symbol).trim() : "";
+    if (!sym) return body;
+    return cur.suffix ? body + " " + sym : sym + body;
+  }
+  // The box's currency prefix and the quick-amount labels from the SAME
+  // resolver output the reading's note uses -- never a fixed "$" next to
+  // "plan currency is GBP" (design panel 2026-10-01). Text that carries its
+  // own currency ("£75,000", "EUR 50,000") gets no second symbol in front.
+  function novaSyncBudgetCurrency() {
+    var wrap = document.getElementById("exactBudgetWrap");
+    var amt = document.getElementById("exactBudget");
+    if (!wrap || !amt) return;
+    var text = amt.value.trim();
+    var low = text.toLowerCase(); // the parser's tables are lower-case
+    var typed = !!text && typeof _novaRx === "function" &&
+      (_novaRx("currency_symbol").test(low) || _novaRx("currency_word").test(low));
+    wrap.classList.toggle("typed-currency", typed);
+    var pre = wrap.querySelector(".budget-currency");
+    var cur = (text && _novaCurrency) || _novaMarketCurrency;
+    if (pre && cur && cur.symbol) {
+      pre.textContent = String(cur.symbol).trim();
+      if (!typed) {
+        // room for "C$" / "HK$" / "kr": the prefix is absolutely positioned
+        amt.style.setProperty("padding-left", (pre.offsetWidth + 22) + "px", "important");
+      }
+    }
+    if (typed) amt.style.removeProperty("padding-left");
+    var mkt = _novaMarketCurrency;
+    if (mkt && mkt.symbol) {
+      document.querySelectorAll("#budgetQuickfill button[data-amt]").forEach(function (b) {
+        b.textContent = novaCompactMoney(b.getAttribute("data-amt"), mkt);
+      });
+    }
   }
   function novaRefreshPlanCurrency() {
     if (typeof novaPlanCoreInputs !== "function") return;
@@ -4821,18 +4878,31 @@
     _novaCurrencyKey = key;
     _novaCurrency = null;
     clearTimeout(_novaCurrencyTimer);
-    if (!core.budget_range) return;
     _novaCurrencyTimer = setTimeout(function () {
+      // An empty budget still asks: the answer is the market currency the
+      // quick amounts are labelled in (budget_only with no budget).
       var body = Object.assign({}, core, { budget_only: true });
-      fetch("/api/estimate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-        .then(function (r) { return r.ok ? r.json() : null; })
+      var ask = function (b) {
+        return fetch("/api/estimate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(b),
+        });
+      };
+      ask(body)
+        .then(function (r) {
+          if (r.ok) return r.json();
+          // A budget the server rejects (400) still has locations: ask for
+          // the bare-amount currency so the chips never keep the last
+          // market's symbol ("£50K" after switching London -> Dallas).
+          return ask(Object.assign({}, body, { budget_range: "", budget: "", exact_budget: "" }))
+            .then(function (r2) { return r2.ok ? r2.json() : null; });
+        })
         .then(function (d) {
           if (key !== _novaCurrencyKey) return; // superseded
           _novaCurrency = d && d.plan_currency ? d.plan_currency : null;
+          if (d && d.market_currency) _novaMarketCurrency = d.market_currency;
+          novaSyncBudgetCurrency();
           novaRenderBudgetReading(false);
           // the review step states the same reading -- refresh it if shown
           if (currentStep === totalSteps && typeof populateReview === "function") {
@@ -4851,24 +4921,47 @@
   // -- the server's own error message at the field.
   function novaRenderBudgetReading(showErrors) {
     novaRefreshPlanCurrency();
+    novaSyncBudgetCurrency();
     var out = document.getElementById("budgetResolved");
     var amt = document.getElementById("exactBudget");
     if (!out || !amt) return;
     var text = amt.value.trim();
+    var show = function (line, warns) {
+      out.textContent = line;
+      out.classList.toggle("is-warning", !!(line && warns));
+      novaAnnounceBudgetReading(line);
+    };
     if (!text || typeof novaResolvePlanBudget !== "function") {
-      out.textContent = "";
+      show("", false);
       return;
     }
     var check = validateBudgetInput(text);
     if (!check.valid) {
-      out.textContent = "";
+      show("", false);
       if (showErrors) _showFieldError(amt, check.error);
       return;
     }
     if (check.plan) {
       _clearFieldError(amt);
-      out.textContent = novaBudgetReadingText(check.plan, novaPlanCurrency());
+      var cur = novaPlanCurrency();
+      show(novaBudgetReadingText(check.plan, cur), novaBudgetReadingWarns(check.plan, cur));
     }
+  }
+  // The visible reading updates on every keystroke; a screen reader hears
+  // it once typing has settled (it used to be aria-live itself and the
+  // field's description, so every keystroke re-announced it).
+  var _novaAnnounceTimer = null;
+  function novaAnnounceBudgetReading(line) {
+    var live = document.getElementById("budgetResolvedLive");
+    if (!live) return;
+    clearTimeout(_novaAnnounceTimer);
+    if (!line) {
+      live.textContent = "";
+      return;
+    }
+    _novaAnnounceTimer = setTimeout(function () {
+      if (live.textContent !== line) live.textContent = line;
+    }, 600);
   }
 
   // Budget check for step 1, the budget field itself and Generate: the
@@ -5209,10 +5302,10 @@
     const budgetValidation = validateBudgetInput(budgetValue);
     if (!budgetValidation.valid) {
       // Take the user to the budget field (step 1), not a toast on step 5.
+      // No toast once the jump landed: at 375 px it covered the inline
+      // message the jump exists to show.
       if (!novaShowFieldErrorAt("budget_range", budgetValidation.error)) {
         showFormError("budgetRange", budgetValidation.error);
-      } else {
-        showToast(budgetValidation.error, "error");
       }
       return;
     }
@@ -5695,11 +5788,11 @@
           "Something went wrong generating your media plan. Please try again, or contact us if it persists.";
       }
       // A validation 400 names its field: show the server's message AT the
-      // field (on its step) instead of a generic toast on the review step.
-      if (err.httpStatus === 400 && err.field && novaShowFieldErrorAt(err.field, err.message)) {
-        userMsg = err.message;
-      }
-      showToast(userMsg, "error");
+      // field (on its step) -- and only there; a toast on top of it hid the
+      // inline message at 375 px.
+      var _landedAtField =
+        err.httpStatus === 400 && !!err.field && novaShowFieldErrorAt(err.field, err.message);
+      if (!_landedAtField) showToast(userMsg, "error");
       btn.disabled = false;
       btn.classList.add("ready-pulse");
       btn.innerHTML =
