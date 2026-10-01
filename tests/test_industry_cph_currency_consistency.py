@@ -99,6 +99,7 @@ class TestIndustryAvgCphAgreesAcrossOutputs:
         [
             (30_000_000.0, "Tokyo, Japan", "JPY", "¥"),
             (200_000.0, "London, UK", "GBP", "£"),
+            (20_000_000.0, "Bangalore, India", "INR", "₹"),
             (150_000.0, "Dallas, TX", "USD", "$"),
         ],
     )
@@ -108,9 +109,19 @@ class TestIndustryAvgCphAgreesAcrossOutputs:
         result = _alloc(total_budget, location, plan_currency, symbol)
         meta = result["metadata"]
         suff = result["sufficiency"]
-        assert meta["industry_avg_cph"] == pytest.approx(
-            suff["industry_avg_cost_per_hire"]
-        ), (meta["industry_avg_cph"], suff["industry_avg_cost_per_hire"])
+        # 2026-10-01: Japan and UK healthcare have no TRACEABLE local cost
+        # per hire after the source audit (resolve_industry_cph suppresses
+        # the claim). Their math basis (FX-translated US midpoint, plan
+        # currency) is never printed, so sufficiency carries None -- the
+        # currency invariant then applies to the math value and the floor.
+        cph = meta["industry_cph"]
+        if cph["claim_suppressed"]:
+            assert suff["industry_avg_cost_per_hire"] is None
+            assert meta["industry_avg_cph"] == pytest.approx(cph["math_value"])
+        else:
+            assert meta["industry_avg_cph"] == pytest.approx(
+                suff["industry_avg_cost_per_hire"]
+            ), (meta["industry_avg_cph"], suff["industry_avg_cost_per_hire"])
         # And the floor is always exactly half of that SAME agreed figure.
         assert meta["cph_benchmark_floor"] == pytest.approx(
             meta["industry_avg_cph"] * 0.5

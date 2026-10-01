@@ -127,31 +127,52 @@ class TestLocalMarketCostPerHire:
             loc_raw=["Bangalore, India"],
         )
         meta = res["metadata"]
-        # The plan's own CPH sits inside the KB's ₹20K-80K band, not ~₹444K.
-        assert 20_000 <= res["total_projected"]["cost_per_hire"] <= 80_000, res[
+        # The plan's own CPH is the floor of the CITED ₹30K-70K range
+        # (Shework 2026, Healthcare & Pharma), not ~₹444K.
+        assert 25_000 <= res["total_projected"]["cost_per_hire"] <= 70_000, res[
             "total_projected"
         ]
-        assert meta["industry_avg_cph"] == 45_000.0
-        assert res["sufficiency"]["industry_avg_cost_per_hire"] == 45_000.0
+        # 2026-10-01 source audit: the source gives a range only, so the
+        # benchmark is its midpoint -- labelled so, never a "median".
+        assert meta["industry_avg_cph"] == 50_000.0
+        assert res["sufficiency"]["industry_avg_cost_per_hire"] == 50_000.0
         cph = meta["industry_cph"]
         assert cph["basis"] == "local_kb", cph
-        assert cph["value"] == 45_000.0  # KB India general_hire median, ₹
+        assert (cph["value"], cph["low"], cph["high"]) == (50_000.0, 30_000.0, 70_000.0)
+        assert cph["value_label"] == "midpoint of cited range"
+        assert cph["source_names"] == ["Shework 2026 (India)"]
         assert cph["fx"]["usd_per_local"] > 0
 
-    def test_brazil_retail_uses_brazil_benchmark(self):
-        res = _plan(
-            "retail_consumer",
-            ["Retail Sales Associate"],
-            {"city": "Sao Paulo", "state": "", "country": "Brazil"},
-            500_000.0,
-            "BRL",
-            "R$",
-            loc_raw=["Sao Paulo, Brazil"],
-        )
+    @pytest.mark.parametrize(
+        "industry,role,city,country,budget,ccy,sym",
+        [
+            # Brazil: every local row cites a page with no cost per hire
+            ("retail_consumer", "Retail Sales Associate", "Sao Paulo", "Brazil",
+             500_000.0, "BRL", "R$"),
+            # Japan tech: low confidence + Gitnux states no cost per hire
+            ("tech_engineering", "Software Developer", "Tokyo", "Japan",
+             45_000_000.0, "JPY", "¥"),
+            # UK finance: not in the cited Appcast UK release
+            ("finance_banking", "Financial Analyst", "London", "UK",
+             150_000.0, "GBP", "£"),
+        ],
+    )
+    def test_untraceable_local_figure_is_suppressed_not_used(
+        self, industry, role, city, country, budget, ccy, sym
+    ):
+        res = _plan(industry, [role], {"city": city, "state": "", "country": country},
+                    budget, ccy, sym, loc_raw=[f"{city}, {country}"])
         cph = res["metadata"]["industry_cph"]
-        assert cph["basis"] == "local_kb", cph
-        assert cph["value"] == 1_800.0  # KB Brazil hospitality median, R$
-        assert cph["currency"] == "BRL"
+        assert cph["claim_suppressed"] is True, cph
+        assert cph["basis"] == "us_benchmark_fx_no_local"
+        assert cph["value"] is None
+        assert res["total_projected"]["hires_low"] is None
+        # no hires uplift: the floor is the FX-translated US midpoint (the
+        # base engine's own basis), not a smaller local figure
+        rate = cph["fx"]["usd_per_local"]
+        assert res["metadata"]["cph_benchmark_floor"] == pytest.approx(
+            0.5 * cph["usd_value"] / rate, rel=1e-6
+        )
 
     def test_no_local_benchmark_suppresses_the_claim(self):
         """general_entry_level has no intl vertical: the FX-translated US
@@ -186,20 +207,45 @@ class TestLocalMarketCostPerHire:
 
 
 class TestLocalCphLookup:
-    def test_native_currency_median(self):
-        got = ibl.get_local_cph_benchmark("healthcare_nursing", "India", "INR", 0.012)
-        assert got["value"] == 45_000.0 and got["method"] == "local_median"
-        assert got["low"] == 20_000.0 and got["high"] == 80_000.0
+    def test_range_only_source_gives_its_midpoint(self):
+        got = ibl.get_local_cph_benchmark("technology", "India", "INR", 0.0104351)
+        assert (got["value"], got["low"], got["high"]) == (57_500.0, 35_000.0, 80_000.0)
+        assert got["value_label"] == "midpoint of cited range"
 
     def test_fee_and_platform_rows_are_not_a_cost_per_hire(self):
         # UAE healthcare holds only an agency-fee % and a monthly platform cost
         assert ibl.get_local_cph_benchmark("healthcare_nursing", "UAE", "AED", 0.27) is None
 
-    def test_median_across_rows_when_no_general_row(self):
-        got = ibl.get_local_cph_benchmark("healthcare_nursing", "UK", "GBP", 1.3)
-        assert got["value"] == pytest.approx((9_500 + 3_500) / 2)
+    def test_role_specific_row_is_not_a_market_cost_per_hire(self):
+        # UK: only the overseas-nurse recruitment cost (Nuffield) traces
+        assert ibl.get_local_cph_benchmark("healthcare_nursing", "UK", "GBP", 1.3) is None
 
-    def test_usd_rows_converted_with_the_plans_rate(self):
-        got = ibl.get_local_cph_benchmark("healthcare_nursing", "India", "EUR", 1.1)
-        assert got["method"] == "usd_median_fx"
-        assert got["value"] == pytest.approx((535.5 / 1.1 + 535.0 / 1.1) / 2, rel=1e-3)
+    @pytest.mark.parametrize(
+        "vertical,country,ccy",
+        [("technology", "Japan", "JPY"), ("finance", "UK", "GBP"),
+         ("hospitality", "Brazil", "BRL"), ("technology", "Singapore", "SGD")],
+    )
+    def test_untraceable_rows_return_nothing(self, vertical, country, ccy):
+        assert ibl.get_local_cph_benchmark(vertical, country, ccy, 1.0) is None
+
+    def test_no_usd_round_trip_for_another_currency(self):
+        assert ibl.get_local_cph_benchmark("healthcare_nursing", "India", "EUR", 1.1) is None
+
+
+class TestAuditedData:
+    def test_every_local_cph_row_is_verified_and_has_no_invented_median(self):
+        import json
+
+        d = json.load(open(ibl._DATA_PATH, encoding="utf-8"))
+        markers = ibl._NON_CPH_ENTRY_MARKERS
+        for vk, vv in d["verticals"].items():
+            for c, cv in vv["by_country"].items():
+                if c == "us":
+                    continue
+                for k, e in (cv.get("cph_cost_per_hire") or {}).items():
+                    if any(m in k.lower() for m in markers):
+                        continue
+                    ver = e.get("cph_verification") or {}
+                    assert ver.get("verdict") in ("SUPPORTED", "RANGE-ONLY"), (vk, c, k)
+                    if ver["verdict"] == "RANGE-ONLY":
+                        assert "median" not in e, (vk, c, k)

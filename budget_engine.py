@@ -1209,25 +1209,35 @@ def resolve_industry_cph(
     * ``local_kb`` -- the plan is priced in a single market's own currency
       (``usd_per_local`` known, i.e. ``intl_cpc_basis["basis"] == "local"``
       and the plan currency matches it) AND
-      ``data/intl_role_benchmarks_v1.json`` has a cost-per-hire for that
-      market's vertical. The market's own median is used; a USD-only
-      median is converted with the plan's rate.
+      ``data/intl_role_benchmarks_v1.json`` has a TRACEABLE cost per hire
+      for that market's vertical (``get_local_cph_benchmark``: audited
+      source, confidence medium or high, sector/all-industry scope). The
+      source's median when it states one, else the midpoint of the cited
+      range (``value_label`` says which).
     * ``us_benchmark_fx_no_local`` -- local-currency plan with NO local
       cost-per-hire. The engine still needs a floor, so the US range is
       FX-translated for the math, but ``claim_suppressed`` is True and
       ``value`` is ``None``: presenters must not print an FX-translated US
       figure as this market's cost per hire (the "India RN ₹444K/hire"
-      defect).
+      defect), and it never raises hires above the base engine's -- it IS
+      the base engine's basis. Untraceable or low-confidence local figures
+      (Japan, UK, Brazil, ... after the 2026-10-01 source audit) land here.
     * ``us_benchmark`` -- everything else (US plans, and non-USD plans
       with no known rate, which keep their pre-existing parity basis):
       ``INDUSTRY_CPH_RANGES`` midpoint, unchanged, so US headline hires
-      are byte-identical.
+      are byte-identical. ``industry_matched`` is False when the industry
+      has no row there and the cross-industry default range was used --
+      presenters must say "cross-industry default", never print it under
+      the plan's own industry name.
 
     Returns a dict with ``value``/``low``/``high`` (plan currency, the
     presentable figures; ``None`` when suppressed), ``math_value`` (what the
     engine's CPH floor and roi_score use), ``currency``, ``basis``,
     ``source``, ``as_of``, ``fx`` (rate + as-of when a rate was applied),
-    ``claim_suppressed`` and ``usd_low``/``usd_high``/``usd_value`` (the
+    ``claim_suppressed``, ``value_label`` ("midpoint" of the benchmark
+    range, "midpoint of cited range" or "median"), ``source_names`` (short
+    names of the local source, for the deck's sources line),
+    ``industry_matched`` and ``usd_low``/``usd_high``/``usd_value`` (the
     US range, for provenance). Never raises.
     """
     usd_low, usd_high = _industry_cph_range_usd(industry)
@@ -1253,6 +1263,10 @@ def resolve_industry_cph(
         "as_of": None,
         "fx": None,
         "claim_suppressed": False,
+        # INDUSTRY_CPH_RANGES holds (low, high); the value is their midpoint.
+        "value_label": "midpoint",
+        "source_names": [],
+        "industry_matched": _industry_cph_key(industry) is not None,
         "usd_value": usd_mid,
         "usd_low": usd_low,
         "usd_high": usd_high,
@@ -1296,6 +1310,8 @@ def resolve_industry_cph(
                 "source": local.get("source") or "intl_role_benchmarks_v1",
                 "as_of": local.get("as_of"),
                 "local_method": local.get("method"),
+                "value_label": local.get("value_label") or "midpoint of cited range",
+                "source_names": list(local.get("source_names") or []),
             }
         )
         return result
@@ -1314,6 +1330,93 @@ def resolve_industry_cph(
         }
     )
     return result
+
+
+def industry_cph_display(
+    cph: Optional[Dict[str, Any]], active_currency: str = "USD"
+) -> Optional[Dict[str, Any]]:
+    """Label + text for the plan's ONE industry-average cost per hire, shared
+    verbatim by the deck's slide-5 benchmark row and the workbook's
+    Recruitment Benchmarks row so the two can never disagree.
+
+    Returns ``None`` when there is no resolver record. For a US-basis plan
+    whose industry has no range of its own (``industry_matched`` False) the
+    entry is labelled "cross-industry default" and ``prefer_kb_row`` is
+    True: callers show the knowledge base's own row for the industry when
+    one exists, and this explicitly-labelled default only when none does --
+    printing the default under the plan's industry name was the Hershey
+    regression (design-judge, 2026-10-01).
+
+    Keys: ``label``, ``text`` (longest form), ``variants`` (longest to
+    shortest, all carrying the same figures -- narrow slots pick the first
+    that fits one line), ``source_names`` and ``kind``
+    (``local``/``industry``/``suppressed``).
+    """
+    if not isinstance(cph, dict) or not cph:
+        return None
+    code = (active_currency or "USD").upper()
+
+    def _money(val: Any, ccy: str) -> str:
+        v = float(val)
+        if ccy == "USD":
+            return f"{'US$' if code != 'USD' else '$'}{v:,.0f}"
+        if _HAS_PLAN_CURRENCY:
+            return _plan_currency.format_money(v, ccy)
+        return f"{ccy} {v:,.0f}"
+
+    if cph.get("claim_suppressed"):
+        text = "No local benchmark for this market"
+        return {
+            "label": "Industry Cost-per-Hire",
+            "text": text,
+            "variants": [text],
+            "source_names": [],
+            "kind": "suppressed",
+        }
+    value, low, high = cph.get("value"), cph.get("low"), cph.get("high")
+    if not isinstance(value, (int, float)) or value <= 0:
+        return None
+    ccy = str(cph.get("currency") or "USD").upper()
+    mid = _money(value, ccy)
+    rng = (
+        f"{_money(low, ccy)}–{_money(high, ccy)}"
+        if isinstance(low, (int, float)) and isinstance(high, (int, float))
+        else ""
+    )
+    label_word = cph.get("value_label") or "midpoint"
+    if cph.get("basis") == "local_kb":
+        names = list(cph.get("source_names") or [])
+        word = "median" if label_word == "median" else "midpoint"
+        variants = [v for v in (
+            f"{rng} ({word} {mid})" if rng else f"{mid} ({word})",
+            f"{rng}, {word} {mid}" if rng else "",
+            rng,
+        ) if v]
+        return {
+            "label": "Local Cost-per-Hire",
+            "text": variants[0],
+            "variants": variants,
+            "source_names": names,
+            "kind": "local",
+        }
+    variants = [v for v in (
+        f"{rng} (midpoint {mid})" if rng else f"{mid} (midpoint)",
+        f"{rng}, mid {mid}" if rng else "",
+        rng,
+    ) if v]
+    entry = {
+        "label": "Industry Cost-per-Hire",
+        "text": variants[0],
+        "variants": variants,
+        "source_names": [],
+        "kind": "industry",
+        "prefer_kb_row": False,
+    }
+    if not cph.get("industry_matched", True):
+        entry["label"] = "Cost-per-Hire (cross-industry default)"
+        entry["kind"] = "default"
+        entry["prefer_kb_row"] = True
+    return entry
 
 
 def estimate_cph_from_salary(annual_salary: float) -> float:
@@ -5308,6 +5411,20 @@ def calculate_budget_allocation(
         total_projected["hires_high"] = max(
             int(total_budget / (0.5 * _range_avg)), total_hires
         )
+        # Hires if every hire cost the benchmark range's high / low end --
+        # provenance for the open product question of where the CPH floor
+        # should sit (today 0.5 x the midpoint, below the range's low end).
+        _bl, _bh = _industry_cph.get("low"), _industry_cph.get("high")
+        if (
+            isinstance(_bl, (int, float))
+            and isinstance(_bh, (int, float))
+            and _bl > 0
+            and _bh > 0
+        ):
+            _industry_cph["hires_at_range"] = [
+                int(total_budget / _bh),
+                int(total_budget / _bl),
+            ]
     else:
         total_projected["hires_low"] = None
         total_projected["hires_high"] = None

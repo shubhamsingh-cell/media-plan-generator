@@ -363,27 +363,35 @@ def get_local_cph_benchmark(
     plan_currency: str | None,
     usd_per_local: float | None,
 ) -> dict[str, Any] | None:
-    """Industry-average cost per hire for one market, in the plan's currency.
+    """Traceable cost per hire for one market, in the plan's currency.
 
     Reads ``verticals.<vertical>.by_country.<country>.cph_cost_per_hire``.
     ``vertical`` must already be a dataset vertical key (``healthcare_
     nursing``, ``technology``, ...) -- no fuzzy industry matching here.
 
-    Entry selection (a block can hold several):
-      1. drop entries that are not a cost per hire (fee %, monthly
-         platform cost -- see ``_NON_CPH_ENTRY_MARKERS``);
-      2. prefer the market's ``general*`` rows (the dataset's own vertical
-         average) over role- or channel-specific rows;
-      3. prefer rows already in ``plan_currency`` -- local figures are the
-         dataset's primary numbers (``_metadata.currency_note``), so a row in
-         the plan's own currency is used as printed, never round-tripped
-         through USD at a different rate;
-      4. otherwise convert each row's ``median_usd`` into the plan currency
-         with ``usd_per_local`` (the plan's own rate);
-      5. the benchmark is the median of the remaining rows' medians.
+    A row is usable ONLY when it is traceable and not low-confidence
+    (design-judge veto, 2026-10-01: Japan/UK/India figures that did not
+    trace to their cited pages were driving headline hires):
 
-    Returns ``None`` when the market/vertical has no usable cost-per-hire
-    row (callers suppress the claim rather than invent one). Never raises.
+      * it is a cost per hire (fee %, monthly platform cost rows are
+        skipped -- ``_NON_CPH_ENTRY_MARKERS``);
+      * ``cph_verification.verdict`` is ``SUPPORTED`` or ``RANGE-ONLY``
+        (the 2026-10-01 source audit found the figure on the cited page);
+      * ``cph_verification.scope`` is ``sector`` or ``all-industry`` -- a
+        role-specific figure (e.g. the UK overseas-nurse recruitment cost)
+        is not a market's cost per hire;
+      * ``confidence`` is ``medium`` or ``high``;
+      * the row is already in ``plan_currency`` (the audited rows carry the
+        source's own local figures and no derived USD fields).
+
+    Value: the source's median when the source states one (``SUPPORTED``);
+    otherwise the MIDPOINT of the cited range (``RANGE-ONLY``) -- labelled
+    as such, never presented as a median. Several usable rows -> the median
+    of their values, the widest low/high.
+
+    Returns ``None`` when nothing usable exists (callers suppress the claim
+    rather than invent one). Never raises. ``usd_per_local`` is accepted for
+    call-site compatibility; no USD round trip is performed.
     """
     slug = _normalize_country(country)
     if not vertical or not slug:
@@ -402,55 +410,37 @@ def get_local_cph_benchmark(
     if not isinstance(block, dict):
         return None
     code = (plan_currency or "").strip().upper()
-    rate = (
-        float(usd_per_local)
-        if isinstance(usd_per_local, (int, float))
-        and not isinstance(usd_per_local, bool)
-        and usd_per_local > 0
-        else None
-    )
-
-    candidates: list[tuple[str, dict[str, Any]]] = []
-    for key, entry in block.items():
-        if not isinstance(entry, dict) or not isinstance(key, str):
-            continue
-        if any(marker in key.lower() for marker in _NON_CPH_ENTRY_MARKERS):
-            continue
-        candidates.append((key, entry))
-    general = [(k, e) for k, e in candidates if "general" in k.lower()]
-    pool = general or candidates
 
     def _num(val: Any) -> float | None:
         if isinstance(val, (int, float)) and not isinstance(val, bool) and val > 0:
             return float(val)
         return None
 
-    native = [
-        (k, e)
-        for k, e in pool
-        if str(e.get("currency") or "").upper() == code and _num(e.get("median"))
-    ]
-    rows: list[tuple[str, float, float | None, float | None, dict[str, Any]]] = []
-    method = "local_median"
-    if native:
-        for k, e in native:
-            rows.append((k, _num(e["median"]), _num(e.get("low")), _num(e.get("high")), e))
-    elif rate:
-        method = "usd_median_fx"
-        for k, e in pool:
-            med = _num(e.get("median_usd")) or _num(e.get("value_usd"))
-            if med is None:
-                continue
-            lo, hi = _num(e.get("low_usd")), _num(e.get("high_usd"))
-            rows.append(
-                (
-                    k,
-                    med / rate,
-                    lo / rate if lo else None,
-                    hi / rate if hi else None,
-                    e,
-                )
-            )
+    rows: list[tuple[str, float, float | None, float | None, str, dict[str, Any]]] = []
+    for key, entry in block.items():
+        if not isinstance(entry, dict) or not isinstance(key, str):
+            continue
+        if any(marker in key.lower() for marker in _NON_CPH_ENTRY_MARKERS):
+            continue
+        ver = entry.get("cph_verification")
+        if not isinstance(ver, dict):
+            continue
+        verdict = str(ver.get("verdict") or "").upper()
+        scope = str(ver.get("scope") or "").lower()
+        if verdict not in ("SUPPORTED", "RANGE-ONLY"):
+            continue
+        if scope not in ("sector", "all-industry"):
+            continue
+        if str(entry.get("confidence") or "").lower() not in ("medium", "high"):
+            continue
+        if str(entry.get("currency") or "").upper() != code:
+            continue
+        lo, hi = _num(entry.get("low")), _num(entry.get("high"))
+        med = _num(entry.get("median")) if verdict == "SUPPORTED" else None
+        if med is not None:
+            rows.append((key, med, lo, hi, "median", entry))
+        elif lo is not None and hi is not None:
+            rows.append((key, (lo + hi) / 2.0, lo, hi, "midpoint of cited range", entry))
     if not rows:
         return None
 
@@ -464,20 +454,31 @@ def get_local_cph_benchmark(
     value = _median([r[1] for r in rows])
     lows = [r[2] for r in rows if r[2]]
     highs = [r[3] for r in rows if r[3]]
-    retrieved = sorted(
-        {str(r[4].get("retrieved")) for r in rows if r[4].get("retrieved")}
-    )
+    labels = {r[4] for r in rows}
+    label = labels.pop() if len(labels) == 1 else "median of cited figures"
+    retrieved = sorted({str(r[5].get("retrieved")) for r in rows if r[5].get("retrieved")})
+    sources = data.get("sources") or {}
+    names: list[str] = []
+    for r in rows:
+        for sid in r[5].get("source_ids") or []:
+            s = sources.get(sid) if isinstance(sources, dict) else None
+            nm = (s.get("short_name") or s.get("name")) if isinstance(s, dict) else None
+            if nm and nm not in names:
+                names.append(str(nm))
     return {
         "value": round(value, 2),
         "low": round(min(lows), 2) if lows else None,
         "high": round(max(highs), 2) if highs else None,
         "currency": code,
-        "method": method,
+        "method": "range_midpoint" if label == "midpoint of cited range" else "median",
+        "value_label": label,
+        "scope": sorted({str(r[5]["cph_verification"].get("scope")) for r in rows}),
         "entries": [r[0] for r in rows],
         "as_of": retrieved[-1] if retrieved else None,
+        "source_names": names,
         "source": (
             f"intl_role_benchmarks_v1.json {vertical}/{slug} "
-            f"({', '.join(r[0] for r in rows)})"
+            f"({', '.join(r[0] for r in rows)}; {'; '.join(names)})"
         ),
     }
 
