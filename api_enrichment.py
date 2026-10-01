@@ -80,8 +80,12 @@ import urllib.request
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
+import plan_geo as _plan_geo
+import plan_location as _plan_location
+import public_data_sources as _pds
+from public_data_sources import SourceFailure
 from shared_utils import normalize_competitor_names
 
 # Persistent HTTPS connection pool -- reuses TCP+TLS across same-host calls
@@ -1756,6 +1760,51 @@ def _extract_state_abbr(location: str) -> Optional[str]:
     return None
 
 
+def _location_iso3(location: Any) -> Optional[str]:
+    """ISO-3 country of ONE plan location, or None when it cannot be told.
+
+    The standardizer-backed parser decides first (it knows "Toronto, ON" is
+    Canada, which ``plan_geo`` alone cannot tell); a location it cannot place
+    counts as US only when ``plan_geo`` says so (state signal / domestic).
+    Non-string entries (a list/dict where a string was expected) are coerced
+    through ``plan_geo`` rather than crashing a country-gated source.
+    """
+    if isinstance(location, dict):
+        location = ", ".join(
+            str(location.get(k) or "") for k in ("city", "state", "country") if location.get(k)
+        )
+    if not isinstance(location, str) or not location.strip():
+        return None
+    iso3 = _parse_country_from_location(location)
+    if iso3:
+        return iso3
+    return "USA" if _plan_geo.is_us_plan({"locations": [location]}) else None
+
+
+def plan_location_countries(locations: Any) -> set:
+    """Set of ISO-3 codes the plan's locations resolve to (unknowns omitted)."""
+    if isinstance(locations, (str, dict)):
+        locations = [locations]
+    countries: set = set()
+    for loc in locations or []:
+        iso3 = _location_iso3(loc)
+        if iso3:
+            countries.add(iso3)
+    return countries
+
+
+def source_applies_to_plan(label: str, locations: Any) -> bool:
+    """False when ``label`` is a country-gated source with no location in its
+    country. Sources without a gate always apply."""
+    gate = COUNTRY_GATED_SOURCES.get(label)
+    if gate is None:
+        return True
+    countries = plan_location_countries(locations)
+    if "*" in gate:
+        return bool(countries - {"USA"})
+    return bool(countries & gate)
+
+
 # ---------------------------------------------------------------------------
 # API 1: BLS (Bureau of Labor Statistics) — OES Salary Data
 # ---------------------------------------------------------------------------
@@ -2228,137 +2277,186 @@ def fetch_industry_employment(industry: str) -> Optional[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# API 3: US Census ACS (Demographics)
+# API 3: US Census ACS (Demographics) -- place level, keyless via Data USA
 # ---------------------------------------------------------------------------
+# Root cause of "Census ACS fetch failed for all years" on EVERY production run
+# (2026-09-23..30): api.census.gov now demands a key on every data query and
+# answers a keyless one with ``302 -> /data/missing_key.html`` (empty body). The
+# old client followed no redirects, json-parsed the empty body ("Expecting
+# value") and retried three vintages serially at 10 s each -- one prod run hung
+# past the 20 s enrichment deadline. The loop also never tried the newest
+# published vintage (2024) and only ever asked for STATE rows, which the
+# synthesizer then stamped onto a single city as that city's population.
+#
+# Now (public_data_sources.fetch_us_demographics): the same ACS 5-year tables
+# (B01003 population, B19013 median household income) are read keyless from the
+# Data USA Tesseract API at PLACE level, with labelled county / state fallbacks;
+# api.census.gov itself is used as a state-level fallback only when
+# CENSUS_API_KEY is set. Failures are explicit per location (``_unresolved``)
+# and a source with no data at all RAISES so the enrichment metric counts it as
+# failed instead of "not applicable".
+
+_CENSUS_KEY_ENV = "CENSUS_API_KEY"
+_LOCATION_DEMOGRAPHICS_CACHE = "location_demographics_v2"
+
+
+def _us_geo_target(loc: str) -> Tuple[Optional[_pds.UsGeoTarget], str]:
+    """Resolve a plan location to a US lookup target.
+
+    Returns ``(target, "")`` for a place/county/state, ``(None, "")`` for a
+    location that is not a place at all ("Remote", "Nationwide") and
+    ``(None, reason)`` when it IS a place we could not pin down.
+    """
+    res = _plan_location.resolve_location(loc)
+    if res.status in ("resolved", "corrected"):
+        if res.kind in ("country", "nationwide", "remote"):
+            return None, ""
+        usps = res.state_usps or ""
+        state_fips = US_STATE_FIPS.get(usps) or (
+            res.county_fips[:2] if res.county_fips else ""
+        )
+        if not usps or not state_fips:
+            return None, "state_not_resolved"
+        if res.kind in ("city", "zip"):
+            kind = "city"
+        elif res.kind in ("county", "state"):
+            kind = res.kind
+        else:
+            return None, "unsupported_location_kind"
+        return (
+            _pds.UsGeoTarget(
+                location=loc,
+                kind=kind,
+                city=(res.city or res.display_name) if kind == "city" else "",
+                state_usps=usps,
+                state_name=res.state_name or US_STATE_NAMES.get(usps, ""),
+                state_fips=state_fips,
+                county_fips=res.county_fips or "",
+                county_name=res.county_name or "",
+            ),
+            "",
+        )
+    if res.status == "ambiguous":
+        return None, "ambiguous_location"
+    return None, "location_not_recognised"
+
+
+def _country_population_entries(
+    countries: Dict[str, List[str]], deadline: float
+) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    """COUNTRY-level population for non-US locations (one call per country).
+
+    The figure is published as ``country_population`` -- never as
+    ``population`` -- so no consumer can present the national number as the
+    city's (the UK/India/Germany workbooks repeated one national figure on
+    every city row).
+    """
+    entries: Dict[str, Dict[str, Any]] = {}
+    failed: Dict[str, Dict[str, Any]] = {}
+    jobs = [
+        (
+            iso3,
+            lambda i=iso3: _pds.fetch_country_population(
+                i, timeout=max(0.5, min(_pds.CALL_TIMEOUT_S, deadline - time.monotonic()))
+            ),
+        )
+        for iso3 in countries
+    ]
+    outcomes = _pds.run_parallel(jobs, max_workers=4, deadline=deadline)
+    for iso3, locs in countries.items():
+        outcome = outcomes.get(iso3)
+        for loc in locs:
+            if isinstance(outcome, int):
+                entries[loc] = {
+                    "geo_level": "Country",
+                    "geo_name": ISO_3_TO_COUNTRY.get(iso3, iso3),
+                    "country": iso3,
+                    "country_population": outcome,
+                    "geo_matches_location": False,
+                    "source": "World Bank (country-level)",
+                }
+            else:
+                kind = (
+                    getattr(outcome, "kind", None)
+                    or ("no_value" if outcome is None else type(outcome).__name__)
+                )
+                failed[loc] = {"reason": f"worldbank_{kind}", "tried": ["country"]}
+    return entries, failed
 
 
 def fetch_location_demographics(locations: List[str]) -> Dict[str, Any]:
+    """Demographics per plan location (see the API 3 block comment above).
+
+    Result: ``{location: entry}``. An entry's ``geo_level`` says what the
+    figures describe -- ``Place`` (the city itself), ``County`` / ``State``
+    (a labelled fallback: ``area_population`` / ``area_median_income``, no
+    ``population``) or ``Country`` (``country_population`` only). Locations
+    that could not be resolved are listed under ``_unresolved`` with a reason.
+
+    Status contract (see ``_safe_call``): data -> a populated dict; nothing to
+    fetch for this plan (no places) -> ``{}``; applicable locations but no data
+    at all -> raises ``SourceFailure`` (reported as failed, not "n/a").
     """
-    Fetch demographic data for US locations from the Census Bureau ACS API.
-    Returns population and median household income at state level.
-    Falls back to providing state-level data when city-level is unavailable.
+    entries: Dict[str, Any] = {}
+    unresolved: Dict[str, Dict[str, Any]] = {}
+    us_targets: List[_pds.UsGeoTarget] = []
+    countries: Dict[str, List[str]] = {}
 
-    For non-US locations, returns basic info from WorldBank if available.
-    """
-    demo_data: Dict[str, Any] = {}
-
-    # First, fetch all US state data in one call (efficient)
-    state_data = _fetch_census_state_data()
-
-    for loc in locations:
-        cache_k = _cache_key("census_geo", loc)
-        cached = _get_cached(cache_k)
-        if cached is not None:
-            demo_data[loc] = cached
+    for loc in locations or []:
+        if not isinstance(loc, str) or not loc.strip():
             continue
+        cached = _get_cached(_cache_key(_LOCATION_DEMOGRAPHICS_CACHE, loc))
+        if cached is not None:
+            entries[loc] = cached
+            continue
+        iso3 = _location_iso3(loc)
+        if iso3 and iso3 != "USA":
+            countries.setdefault(iso3, []).append(loc)
+            continue
+        target, why = _us_geo_target(loc)
+        if target is not None:
+            us_targets.append(target)
+        elif why:
+            unresolved[loc] = {"reason": why, "tried": []}
 
-        # Parse location
-        parts = [p.strip() for p in loc.split(",")]
-        city = parts[0] if parts else ""
-        state_abbr = _extract_state_abbr(loc)
-
-        # Check if US location
-        country = _parse_country_from_location(loc)
-
-        if country == "USA" and state_abbr and state_abbr in US_STATE_FIPS:
-            fips = US_STATE_FIPS[state_abbr]
-            if fips in state_data:
-                entry = {
-                    "population": state_data[fips].get("population"),
-                    "median_income": state_data[fips].get("median_income"),
-                    "state_name": state_data[fips].get("name", state_abbr),
-                    "city": city,
-                    "source": "US Census ACS",
-                    "geo_level": "State",
-                }
-                demo_data[loc] = entry
-                _set_cached(cache_k, entry)
-                continue
-
-        # For non-US or unmatched US locations, try WorldBank population
-        if country and country != "USA":
-            wb_url = (
-                f"https://api.worldbank.org/v2/country/{country}/indicator/"
-                f"SP.POP.TOTL?format=json&per_page=5&date=2019:2024"
-            )
-            try:
-                resp = _http_get_json(wb_url, timeout=8)
-                if resp and isinstance(resp, list) and len(resp) >= 2 and resp[1]:
-                    for rec in resp[1]:
-                        if rec.get("value") is not None:
-                            entry = {
-                                "population": int(rec["value"]),
-                                "source": "WorldBank",
-                                "geo_level": "Country",
-                                "country": country,
-                            }
-                            demo_data[loc] = entry
-                            _set_cached(cache_k, entry)
-                            break
-            except Exception:
-                pass
-
-        if loc not in demo_data:
-            _log_warn(f"No demographic data for: {loc}")
-
-    return demo_data
-
-
-def _fetch_census_state_data() -> Dict[str, Dict[str, Any]]:
-    """
-    Fetch all US state-level population and median income from Census ACS.
-    Returns dict keyed by state FIPS code.
-    No API key required for state-level queries.
-    """
-    cache_k = _cache_key("census_states", "all")
-    cached = _get_cached(cache_k)
-    if cached is not None:
-        return cached
-
-    # Try multiple ACS vintages in case the most recent isn't available yet
-    for acs_year in ["2023", "2022", "2021"]:
-        # ACS 5-year estimates — B01001_001E = total population,
-        # B19013_001E = median household income
-        url = (
-            f"https://api.census.gov/data/{acs_year}/acs/acs5"
-            "?get=NAME,B01001_001E,B19013_001E&for=state:*"
+    attempted = bool(us_targets or countries)
+    fresh: Dict[str, Dict[str, Any]] = {}
+    started = time.monotonic()
+    if countries:
+        got, failed = _country_population_entries(countries, started + 6.0)
+        fresh.update(got)
+        unresolved.update(failed)
+    if us_targets:
+        budget = max(2.0, _pds.DEMOGRAPHICS_BUDGET_S - (time.monotonic() - started))
+        result = _pds.fetch_us_demographics(
+            us_targets,
+            budget_s=budget,
+            census_key=(os.environ.get(_CENSUS_KEY_ENV) or "").strip(),
         )
+        fresh.update(result.entries)
+        unresolved.update(result.unresolved)
 
-        try:
-            resp = _http_get_json(url, timeout=10)
-            if not resp or not isinstance(resp, list) or len(resp) < 2:
-                _log_warn(
-                    f"Census ACS {acs_year} state data request failed, trying older year"
+    for loc, entry in fresh.items():
+        _set_cached(_cache_key(_LOCATION_DEMOGRAPHICS_CACHE, loc), entry)
+    entries.update(fresh)
+
+    if unresolved:
+        _log_warn(
+            "No demographic data for: "
+            + "; ".join(f"{loc} ({info.get('reason')})" for loc, info in unresolved.items())
+        )
+    if not entries:
+        if attempted or unresolved:
+            raise SourceFailure(
+                "Census-ACS resolved no demographics: "
+                + "; ".join(
+                    f"{loc}={info.get('reason')}" for loc, info in list(unresolved.items())[:5]
                 )
-                continue
-
-            # First row is headers: ["NAME","B01001_001E","B19013_001E","state"]
-            headers = resp[0]
-            state_data: Dict[str, Dict[str, Any]] = {}
-
-            for row in resp[1:]:
-                if len(row) < 4:
-                    continue
-                fips = row[3]  # state FIPS code
-                try:
-                    state_data[fips] = {
-                        "name": row[0],
-                        "population": int(row[1]) if row[1] else None,
-                        "median_income": int(row[2]) if row[2] else None,
-                    }
-                except (ValueError, TypeError):
-                    continue
-
-            if state_data:
-                _set_cached(cache_k, state_data)
-                _log_info(f"Census ACS {acs_year} loaded {len(state_data)} states")
-                return state_data
-
-        except Exception as exc:
-            _log_warn(f"Census ACS {acs_year} fetch failed: {exc}")
-
-    _log_warn("Census ACS fetch failed for all years")
-    return {}
+            )
+        return {}
+    if unresolved:
+        entries["_unresolved"] = unresolved
+    return entries
 
 
 # ---------------------------------------------------------------------------
