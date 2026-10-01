@@ -978,17 +978,24 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
     },
     CLAUDE: {
-        # S95 UPGRADE (Jul 2026): bump Sonnet 4.6 -> Sonnet 5 (current GA).
-        # Owner directive: whenever the product uses Sonnet, use Sonnet 5 --
-        # never an older 4.x snapshot. Same API key, model-string-only change.
-        # This is the strong instruction-follower now serving the client-facing
-        # Executive Strategic Summary narrative (TASK_PLAN_NARRATIVE, Sonnet-first)
-        # because it reliably honours the "cite only FACTS numbers" grounding
-        # rules that Haiku broke. Override via env: CLAUDE_SONNET_MODEL=claude-sonnet-5
-        "name": "Claude Sonnet 5 (Anthropic)",
+        # S95 UPGRADE (Jul 2026): Sonnet 4.6 -> Sonnet 5. Owner directive: whenever
+        # the product uses Sonnet, use the current Sonnet -- never an older 4.x
+        # snapshot. This is the strong instruction-follower serving the
+        # client-facing Executive Strategic Summary narrative (TASK_PLAN_NARRATIVE,
+        # Sonnet-first) because it reliably honours the "cite only FACTS numbers"
+        # grounding rules that Haiku broke.
+        # 2026-10-01 AI-STACK REFRESH: Sonnet 5 -> Sonnet 5.5 (`claude-sonnet-5-5`).
+        # Docs [platform.claude.com/docs/en/about-claude/models/overview and
+        # /model-deprecations, retrieved 2026-10-01]: Active, retirement not
+        # sooner than 2027-09-28, same $2/$10 per MTok as Sonnet 5. Same request
+        # surface for this builder: adaptive thinking already runs by default on
+        # both, and this builder sends no thinking / temperature / top_p / top_k /
+        # tool_choice (see tests/test_anthropic_request_contract.py). Rollback is
+        # env-only: CLAUDE_SONNET_MODEL=claude-sonnet-5.
+        "name": "Claude Sonnet 5.5 (Anthropic)",
         "api_style": "anthropic",  # Anthropic-specific format
         "endpoint": "https://api.anthropic.com/v1/messages",
-        "model": os.environ.get("CLAUDE_SONNET_MODEL") or "claude-sonnet-5",
+        "model": os.environ.get("CLAUDE_SONNET_MODEL") or "claude-sonnet-5-5",
         "env_key": "ANTHROPIC_API_KEY",
         "rpm_limit": 50,
         "rpd_limit": 10000,
@@ -996,15 +1003,22 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_tokens": 4096,
     },
     CLAUDE_OPUS: {
-        # S89 UPGRADE (Jun 2026): bumped Opus 4.7 -> Opus 4.8. 4.8 is the current
-        # Opus tier (most capable GA model), same $5/$25 per M and identical
-        # request surface as 4.7 (adaptive thinking only; no temperature /
-        # budget_tokens) -- a strictly-better drop-in, no code changes needed.
-        # Override via env if needed: CLAUDE_OPUS_MODEL=claude-opus-4-7
-        "name": "Claude Opus 4.8 (Anthropic)",
+        # S89 UPGRADE (Jun 2026): Opus 4.7 -> Opus 4.8.
+        # 2026-10-01 AI-STACK REFRESH: Opus 4.8 -> Opus 5.5 (`claude-opus-5-5`),
+        # the current Opus. Docs [platform.claude.com/docs/en/about-claude/models/
+        # overview and /model-deprecations, retrieved 2026-10-01]: Active,
+        # retirement not sooner than 2027-09-22, $4/$20 per MTok (4.8 was $5/$25).
+        # Behaviour notes for this route (last-resort tier in every task chain):
+        #   * thinking is always on (adaptive) and cannot be disabled; `thinking:
+        #     {type: disabled}` and budget_tokens both return 400, so this builder
+        #     sends no thinking field at all;
+        #   * default effort is `medium`; thinking tokens count against max_tokens;
+        #   * non-default temperature/top_p/top_k return 400 -- none are sent.
+        # Rollback is env-only: CLAUDE_OPUS_MODEL=claude-opus-4-8.
+        "name": "Claude Opus 5.5 (Anthropic)",
         "api_style": "anthropic",  # Anthropic-specific format
         "endpoint": "https://api.anthropic.com/v1/messages",
-        "model": os.environ.get("CLAUDE_OPUS_MODEL") or "claude-opus-4-8",
+        "model": os.environ.get("CLAUDE_OPUS_MODEL") or "claude-opus-5-5",
         "env_key": "ANTHROPIC_API_KEY",  # Same API key, different model
         "rpm_limit": 25,  # Conservative -- most expensive model
         "rpd_limit": 2000,
@@ -1695,8 +1709,11 @@ _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
     CEREBRAS_SCOUT: {"input": 0.0, "output": 0.0},
     CLAUDE_HAIKU: {"input": 1.0, "output": 5.0},
     GPT4O: {"input": 2.5, "output": 10.0},
-    CLAUDE: {"input": 3.0, "output": 15.0},
-    CLAUDE_OPUS: {"input": 15.0, "output": 75.0},
+    # 2026-10-01: Sonnet 5.5 $2/$10 and Opus 5.5 $4/$20 per MTok
+    # [platform.claude.com/docs/en/about-claude/models/overview, retrieved
+    # 2026-10-01]; the previous 3/15 and 15/75 were Sonnet 4.x / Opus 4.0-4.1 rates.
+    CLAUDE: {"input": 2.0, "output": 10.0},
+    CLAUDE_OPUS: {"input": 4.0, "output": 20.0},
     # 2026-07-04: official DeepSeek API, deepseek-v4-pro tier
     # (~$0.435/$0.87 per M in/out, confirmed 2026-07-02 in talent-crm's
     # config.py). The owner-quoted "$0.28/M output" figure is v4-flash
@@ -2932,6 +2949,20 @@ def _build_openai_request(
     return endpoint, headers, json.dumps(payload).encode("utf-8")
 
 
+# Anthropic model IDs that return HTTP 400 for an assistant-message prefill:
+# Opus 4.6/4.7/4.8/5/5.5, Sonnet 4.6/5/5.5, and the Fable/Mythos families
+# (platform.claude.com/docs/en/models/*/migration-guide, retrieved 2026-10-01).
+# Haiku 4.5 and the retired 3.x/4.0 IDs are deliberately not matched.
+_ANTHROPIC_PREFILL_REJECTED_RE = re.compile(
+    r"^claude-(opus-(4-[678]|5(-5)?)|sonnet-(4-6|5(-5)?)|fable-|mythos-)"
+)
+
+
+def _anthropic_model_rejects_prefill(model: str) -> bool:
+    """True if ``model`` returns HTTP 400 when the last message is the assistant's."""
+    return bool(_ANTHROPIC_PREFILL_REJECTED_RE.match(model or ""))
+
+
 def _build_anthropic_request(
     messages: List[Dict],
     system_prompt: str,
@@ -3022,6 +3053,25 @@ def _build_anthropic_request(
     # Flush any remaining tool results
     if pending_tool_results:
         api_messages.append({"role": "user", "content": pending_tool_results})
+
+    # Assistant-message prefill (a trailing plain-text assistant turn) returns
+    # HTTP 400 on the current Sonnet/Opus/Fable IDs [platform.claude.com model
+    # migration guides, retrieved 2026-10-01]; it would fail the whole provider
+    # instead of answering. Drop it (keeping at least the preceding turn) so the
+    # request still succeeds. Haiku 4.5 and older IDs keep prefill semantics.
+    if (
+        len(api_messages) > 1
+        and api_messages[-1]["role"] == "assistant"
+        and isinstance(api_messages[-1]["content"], str)
+        and _anthropic_model_rejects_prefill(config["model"])
+    ):
+        logger.warning(
+            "Anthropic %s rejects assistant prefill; dropping trailing "
+            "assistant message (%d chars)",
+            config["model"],
+            len(api_messages[-1]["content"]),
+        )
+        api_messages.pop()
 
     payload: Dict[str, Any] = {
         "model": config["model"],
@@ -3856,6 +3906,14 @@ def _stream_anthropic(
         content = msg.get("content") or ""
         if role in ("user", "assistant") and isinstance(content, str) and content:
             api_messages.append({"role": role, "content": content})
+
+    # Same prefill guard as _build_anthropic_request (400 on current IDs).
+    if (
+        len(api_messages) > 1
+        and api_messages[-1]["role"] == "assistant"
+        and _anthropic_model_rejects_prefill(config["model"])
+    ):
+        api_messages.pop()
 
     payload: Dict[str, Any] = {
         "model": config["model"],

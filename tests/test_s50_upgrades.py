@@ -181,9 +181,11 @@ class TestTier1StaticValidation:
 
             assert fresh_cfg[GPT4O]["model"] == "gpt-5.4-mini"
 
-    def test_claude_sonnet_uses_sonnet_5(self) -> None:
-        """CLAUDE entry must point to claude-sonnet-5 by default (S95: bumped
-        from claude-sonnet-4-6 -- owner directive to always use Sonnet 5)."""
+    def test_claude_sonnet_uses_sonnet_5_5(self) -> None:
+        """CLAUDE entry must point to claude-sonnet-5-5 by default (S95: bumped
+        from claude-sonnet-4-6 to Sonnet 5; 2026-10-01 AI-stack refresh: Sonnet 5.5,
+        the current Sonnet per platform.claude.com/docs/en/about-claude/models/overview).
+        """
         from llm_router import CLAUDE
 
         with mock.patch.dict(os.environ, {}, clear=False):
@@ -191,10 +193,11 @@ class TestTier1StaticValidation:
             importlib.reload(importlib.import_module("llm_router"))
             from llm_router import PROVIDER_CONFIG as fresh_cfg
 
-            assert fresh_cfg[CLAUDE]["model"] == "claude-sonnet-5"
+            assert fresh_cfg[CLAUDE]["model"] == "claude-sonnet-5-5"
 
-    def test_claude_opus_uses_4_8(self) -> None:
-        """CLAUDE_OPUS entry must point to claude-opus-4-8 by default (S89)."""
+    def test_claude_opus_uses_5_5(self) -> None:
+        """CLAUDE_OPUS entry must point to claude-opus-5-5 by default (S89: 4.8;
+        2026-10-01 AI-stack refresh: Opus 5.5, the current Opus)."""
         from llm_router import CLAUDE_OPUS
 
         with mock.patch.dict(os.environ, {}, clear=False):
@@ -202,7 +205,7 @@ class TestTier1StaticValidation:
             importlib.reload(importlib.import_module("llm_router"))
             from llm_router import PROVIDER_CONFIG as fresh_cfg
 
-            assert fresh_cfg[CLAUDE_OPUS]["model"] == "claude-opus-4-8"
+            assert fresh_cfg[CLAUDE_OPUS]["model"] == "claude-opus-5-5"
 
     def test_openrouter_uses_qwen3_coder(self) -> None:
         """OPENROUTER entry must point to qwen/qwen3-coder:free by default."""
