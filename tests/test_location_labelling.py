@@ -138,7 +138,7 @@ def test_workbook_suffix_marks_only_city_rows_that_fell_back_to_their_state() ->
     assert excel_v2._geo_basis_suffix({}) == ""  # legacy rows: no claim either way
 
 
-def _quality_sheet_text(locations: list) -> list:
+def _quality_sheet(locations: list):
     import budget_engine
     import openpyxl
 
@@ -163,7 +163,11 @@ def _quality_sheet_text(locations: list) -> list:
     }
     data["_gold_standard"] = gold_standard.apply_all_quality_gates(data)
     wb = openpyxl.load_workbook(io.BytesIO(excel_v2.generate_excel_v2(data)))
-    ws = wb["Quality Intelligence"]
+    return wb["Quality Intelligence"]
+
+
+def _quality_sheet_text(locations: list) -> list:
+    ws = _quality_sheet(locations)
     return [c.value for row in ws.iter_rows() for c in row if isinstance(c.value, str)]
 
 
@@ -302,3 +306,53 @@ def test_us_workbook_shows_each_citys_own_population(net: FakeNet) -> None:
 
     assert rows["Hershey, PA"]["Population"] == "14,242"
     assert rows["Lancaster, PA"]["Population"] == "57,719"  # was PA's 12,961,683
+
+
+# ---------------------------------------------------------------------------
+# A wrapped footnote in a MERGED row needs an explicit height (Excel never
+# auto-fits merged cells, so the 265-char Quality Intelligence footnote clipped)
+# ---------------------------------------------------------------------------
+
+
+def test_long_quality_intelligence_footnote_row_has_a_height_that_fits_its_lines() -> None:
+    import math
+
+    from openpyxl.utils import get_column_letter
+
+    ws = _quality_sheet(PA_TOWNS)
+    cell = next(
+        c
+        for row in ws.iter_rows()
+        for c in row
+        if isinstance(c.value, str) and "share identical figures" in c.value
+    )
+    assert len(cell.value) > 250
+    assert cell.alignment.wrap_text is True
+    assert any(
+        m.min_row == cell.row == m.max_row and m.min_col == 2 and m.max_col == 8
+        for m in ws.merged_cells.ranges
+    )
+
+    merged_width = sum(
+        ws.column_dimensions[get_column_letter(c)].width for c in range(2, 9)
+    )
+    # independent, deliberately generous bound: even at 1.3 chars per width unit
+    # the text needs this many 11 pt lines
+    min_lines = math.ceil(len(cell.value) / (merged_width * 1.3))
+    height = ws.row_dimensions[cell.row].height
+    assert height is not None, "merged wrapped footnote left at the default one-line height"
+    assert height >= min_lines * 11.5 and min_lines >= 2
+
+
+def test_footnote_height_helper_leaves_short_footnotes_alone() -> None:
+    import openpyxl
+
+    ws = openpyxl.Workbook().active
+    for col, width in zip("BCDEFGH", (22, 18, 18, 18, 18, 18, 18)):
+        ws.column_dimensions[col].width = width
+    assert excel_v2._footnote_row_height(ws, "A short note.") is None
+    assert excel_v2._footnote_row_height(ws, "x" * 265) >= 26.0
+    assert excel_v2._footnote_row_height(ws, "x" * 600) > excel_v2._footnote_row_height(
+        ws, "x" * 265
+    )
+

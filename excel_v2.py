@@ -3272,6 +3272,26 @@ def _write_kv_row(
     return row + 1
 
 
+def _footnote_row_height(ws, text: str) -> float | None:
+    """Explicit row height for a merged footnote that wraps to 2+ lines.
+
+    Excel does not auto-fit the height of a MERGED cell, so a wrapped footnote
+    kept the default one-line row and its second line was clipped (the 265-char
+    Quality Intelligence footnote). Lines are estimated from the merged width
+    (sum of the B..H column widths) with the 9 pt italic font fitting ~1.1
+    characters per width unit; ``None`` when one line is enough.
+    """
+    total_width = sum(
+        ws.column_dimensions[get_column_letter(c)].width or 8.43
+        for c in range(COL_START, COL_END + 1)
+    )
+    per_line = max(10.0, total_width * 1.1)
+    lines = sum(
+        max(1, math.ceil(len(part) / per_line)) for part in str(text).split("\n")
+    )
+    return None if lines <= 1 else round(lines * 12.5 + 2, 1)
+
+
 def _write_footnote(ws, row: int, text: str) -> int:
     """Write a footnote row spanning full width. Returns next row."""
     ws.merge_cells(
@@ -3283,6 +3303,11 @@ def _write_footnote(ws, row: int, text: str) -> int:
     cell = ws.cell(row=row, column=COL_START, value=text)
     cell.font = _FONT_FOOTNOTE
     cell.alignment = _ALIGN_LEFT
+    height = _footnote_row_height(ws, text)
+    if height is not None:
+        ws.row_dimensions[row].height = max(
+            ws.row_dimensions[row].height or 0, height
+        )
     return row + 1
 
 
