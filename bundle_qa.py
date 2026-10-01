@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import difflib
 import io
+import logging
 import re
 from datetime import datetime
 from typing import Any
@@ -49,6 +50,7 @@ try:
 except ImportError:  # pragma: no cover -- openpyxl is a hard runtime dep
     openpyxl = None  # type: ignore[assignment]
 
+import competitor_claims
 import display_format
 import plan_currency
 import plan_geo
@@ -62,6 +64,8 @@ except ImportError:  # pragma: no cover -- defensive only
 
 
 Finding = dict[str, Any]
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Shared regexes / vocab
@@ -372,6 +376,84 @@ def _iter_xlsx_strings(
 # ---------------------------------------------------------------------------
 # Generic text-pattern checks (run over BOTH deck + workbook text units)
 # ---------------------------------------------------------------------------
+# A dotted number right after a legal-citation word is a statute/decree
+# NUMBER with a thousands separator, not a float: "Ley 20.744" is Argentina's
+# Labour Contract Law no. 20,744 (data/international_benchmarks_2026.json).
+# Sweep j/l/m flagged it as a critical raw_float_precision -- the only
+# raw_float_precision findings in all 20 sweep bundles.
+_LEGAL_CITATION_BEFORE_RE = re.compile(
+    r"(?:\b(?:Ley|Lei|Law|Loi|Gesetz|Decreto|Decree|Act|Art(?:icle)?|No)\.?"
+    r"|N[º°]\.?|§)\s*$",
+    re.IGNORECASE,
+)
+
+
+def _has_raw_float(text: str) -> bool:
+    for m in _MANY_DECIMALS_RE.finditer(text):
+        if _LEGAL_CITATION_BEFORE_RE.search(text[max(0, m.start() - 16) : m.start()]):
+            continue
+        return True
+    return False
+
+
+_TRUNC_NEEDLE_CHARS = 40
+_TRUNC_NEEDLE_MIN = 12
+
+
+def _truncation_corpus(units: list[_TextUnit], data: dict) -> list[str]:
+    """Full texts a truncated string can be checked against: every other
+    deck/workbook text plus the plan's own long-form source strings (the
+    company description the cover tagline is cut from)."""
+    corpus = [u.text for u in units if isinstance(u.text, str)]
+    try:
+        info = (data.get("_enriched") or {}).get("company_info") or {}
+        desc = info.get("description") if isinstance(info, dict) else ""
+        if isinstance(desc, str) and desc:
+            corpus.append(desc)
+    except AttributeError:
+        pass
+    return corpus
+
+
+def _strip_ellipsis(text: str) -> str:
+    body = text.rstrip()
+    if body.endswith("…"):
+        return body[:-1]
+    if body.endswith("..."):
+        return body[:-3]
+    return body
+
+
+def _truncation_kind(text: str, corpus: list[str]) -> str:
+    """Classify a trailing-ellipsis cut against the full text it came from.
+
+    ``"boundary"``: the same words appear un-truncated elsewhere and the
+    next character there is a space/punctuation -- a whole-word cut, which
+    is the house style (company_blurb.truncate_at_boundary), not a defect.
+    ``"mid_word"``: the next character there is a letter -- the cut split a
+    word ("...the Brit..."), repairable by trimming to the previous word.
+    ``"unknown"``: no full source found; the heuristic warn stands.
+    """
+    body = _strip_ellipsis(text)
+    needle = body[-_TRUNC_NEEDLE_CHARS:].strip()
+    if len(needle) < _TRUNC_NEEDLE_MIN:
+        return "unknown"
+    verdict = "unknown"
+    for src in corpus:
+        if not isinstance(src, str) or src is text or len(src) <= len(needle):
+            continue
+        start = src.find(needle)
+        while start != -1:
+            after = start + len(needle)
+            rest = src[after:]
+            if rest and not rest.startswith(("…", "...")):
+                if rest[0].isalnum():
+                    return "mid_word"
+                verdict = "boundary"
+            start = src.find(needle, start + 1)
+    return verdict
+
+
 def _check_text_patterns(
     units: list[_TextUnit], data: dict, findings: list[Finding]
 ) -> None:
@@ -393,6 +475,8 @@ def _check_text_patterns(
         is_ai_training = _is_ai_training_plan(data)
     except Exception:  # noqa: BLE001
         pass
+
+    truncation_corpus = _truncation_corpus(units, data)
 
     for u in units:
         text = u.text
@@ -450,16 +534,20 @@ def _check_text_patterns(
                 )
 
         if _MID_WORD_ELLIPSIS_RE.search(text):
-            findings.append(
-                _finding(
-                    "warn",
-                    "mid_word_truncation",
-                    f"Text appears truncated mid-word: {stripped[-60:]!r}",
-                    u.location,
+            kind = _truncation_kind(text, truncation_corpus)
+            if kind != "boundary":
+                findings.append(
+                    _finding(
+                        "warn",
+                        "mid_word_truncation",
+                        f"Text appears truncated mid-word"
+                        f"{' (confirmed against the full text)' if kind == 'mid_word' else ''}"
+                        f": {stripped[-60:]!r}",
+                        u.location,
+                    )
                 )
-            )
 
-        if _MANY_DECIMALS_RE.search(text):
+        if _has_raw_float(text):
             findings.append(
                 _finding(
                     "critical",
@@ -2173,63 +2261,15 @@ def _check_competitor_count_contradiction(wb: Any, findings: list[Finding]) -> N
 # excluded from the name match via a lookahead so the regex keeps scanning
 # past the label to the actual company name instead of matching (and then
 # discarding) the label itself.
-_NON_NAME_LEAD_WORDS: tuple[str, ...] = (
-    "Why",
-    "Counter",
-    "Where",
-    "Expect",
-    "Against",
-    "This",
-    "That",
-    "These",
-    "Those",
-    "The",
-    "A",
-    "An",
-    "To",
-    "If",
-    "Because",
-    "Candidates",
-    "Impact",
-    "Mitigation",
-)
-_NON_NAME_LEAD_ALT = "|".join(re.escape(w) for w in _NON_NAME_LEAD_WORDS)
-# Up to 4 title-case words (e.g. "Bank of America" has 2 capitalized words
-# plus a lowercase "of" -- kept simple/conservative on purpose, since a
-# false NEGATIVE here just means the rule occasionally misses a valid name,
-# while a false POSITIVE on a "critical" severity rule is the costlier
-# failure mode).
-_COMPETITOR_NAME_RE = (
-    rf"(?!(?:{_NON_NAME_LEAD_ALT})\b)[A-Z][A-Za-z0-9&.,’'-]*"
-    r"(?:\s+[A-Z][A-Za-z0-9&.,’'-]*){0,3}"
-)
-# Bridges the gap between the competitor name and the verb phrase so
-# "Hyatt's hiring activity for similar roles puts direct pressure on..."
-# and "Expect Hilton to keep pressure on..." both match without hardcoding
-# every connective phrase -- capped at 60 non-period chars to stay inside
-# one sentence rather than spanning into unrelated text.
-_CLAIM_BRIDGE_RE = r"[^.]{0,60}?"
-
-_ASSERTED_BEHAVIOR_PHRASES: tuple[tuple[str, str], ...] = (
-    (
-        r"actively\s+(?:recruiting|recruits|staffing|competing\s+for)\b",
-        "actively recruits/staffs/competes for",
-    ),
-    (r"keeps?\s+pressure\s+on\b", "keeps pressure on"),
-    (r"puts?\s+direct\s+pressure\s+on\b", "hiring activity puts direct pressure on"),
-    (r"drawing\s+from\s+the\s+same\b", "is drawing from the same"),
-    (r"is\s+slower\s+to\s+respond\b", "is slower to respond"),
-    (r"is\s+hiring\b[^.]{0,60}?\bdirectly\b", "is hiring ... directly"),
-    (r"has\s+been\s+especially\s+aggressive\b", "has been especially aggressive"),
-)
-_ASSERTED_BEHAVIOR_VERB_RES: tuple[tuple[re.Pattern, str], ...] = tuple(
-    (re.compile(rf"({_COMPETITOR_NAME_RE}){_CLAIM_BRIDGE_RE}\b{phrase}"), label)
-    for phrase, label in _ASSERTED_BEHAVIOR_PHRASES
-)
+# The name/verb-phrase patterns live in competitor_claims (shared with the
+# executive-narrative sanitizer and this module's repair pass) so the gate,
+# the generator and the repair can never drift apart.
+_ASSERTED_BEHAVIOR_PHRASES = competitor_claims.ASSERTED_BEHAVIOR_PHRASES
+_ASSERTED_BEHAVIOR_VERB_RES = competitor_claims.ASSERTED_BEHAVIOR_VERB_RES
 
 
 def _check_unsourced_competitor_claim(
-    units: list[_TextUnit], findings: list[Finding]
+    units: list[_TextUnit], findings: list[Finding], client_name: str = ""
 ) -> None:
     """Flag a specific, asserted-behaviour verb phrase ("is actively
     competing for", "keeps pressure on", "hiring activity puts direct
@@ -2252,29 +2292,33 @@ def _check_unsourced_competitor_claim(
     Counter-strategy ADVICE on its own is not flagged either; only the verb
     phrases above, which assert third-party behaviour as verified fact,
     trip this rule.
+
+    A sentence whose subject is the CLIENT itself is not a competitor claim
+    (prod Hershey 2026-09-24: "...labor market where Hershey is drawing from
+    the same electrical, HVAC ... talent" describes the plan's own hiring and
+    was reported as a critical against competitor 'Hershey'). Every
+    remaining hit in a unit is scanned -- the old one-hit-per-unit break
+    let that client false positive mask the real competitor claim two
+    sentences later in the same cell.
     """
     for unit in units:
         text = unit.text
         if not text or not text.strip():
             continue
-        for pattern, label in _ASSERTED_BEHAVIOR_VERB_RES:
-            m = pattern.search(text)
-            if not m:
-                continue
-            name = (m.group(1) or "").strip()
-            if not name:
-                continue
-            findings.append(
-                _finding(
-                    "critical",
-                    "unsourced_competitor_claim",
-                    f"Asserted-behaviour claim ({label}) about named "
-                    f"competitor {name!r} with no supporting enrichment: "
-                    f"{text!r}",
-                    unit.location,
-                )
+        hits = competitor_claims.find_asserted_claims(text, client_name)
+        if not hits:
+            continue
+        hit = hits[0]
+        findings.append(
+            _finding(
+                "critical",
+                "unsourced_competitor_claim",
+                f"Asserted-behaviour claim ({hit['label']}) about named "
+                f"competitor {hit['name']!r} with no supporting enrichment: "
+                f"{text!r}",
+                unit.location,
             )
-            break  # one finding per text unit is enough
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -2395,7 +2439,9 @@ def run_bundle_qa(
         )
 
     try:
-        _check_unsourced_competitor_claim(all_units, findings)
+        _check_unsourced_competitor_claim(
+            all_units, findings, str(data.get("client_name") or "")
+        )
     except Exception as exc:  # noqa: BLE001
         findings.append(
             _finding("warn", "unsourced_competitor_claim_check_crashed", f"{exc!r}", "")
@@ -2438,8 +2484,317 @@ def summarize_findings(findings: list[Finding] | None) -> dict:
         "critical_count": len(critical),
         "warn_count": warn_count,
         "codes": sorted({f.get("code") for f in critical if f.get("code")}),
+        # "<code>@<location>" per critical -- what the ERROR log line, the
+        # Slack "QA: N critical" line and the job record cite.
+        "critical_ids": [finding_id(f) for f in critical][:25],
         "findings": findings[:25],  # cap job-record/response size
     }
 
 
-__all__ = ["run_bundle_qa", "summarize_findings"]
+def finding_id(finding: Finding) -> str:
+    """Stable, log-friendly id for one finding: ``<code>@<location>``."""
+    if not isinstance(finding, dict):
+        return ""
+    return f"{finding.get('code') or '?'}@{finding.get('location') or '?'}"
+
+
+# ---------------------------------------------------------------------------
+# Delivery gate: repair what is mechanically repairable, re-check, report
+# ---------------------------------------------------------------------------
+REPAIRABLE_CODES = frozenset(
+    {"snake_case_leak", "unsourced_competitor_claim", "mid_word_truncation"}
+)
+_PARSE_FAILURE_CODES = frozenset(
+    {"pptx_parse_failed", "xlsx_parse_failed", "pptx_qa_crashed", "xlsx_qa_crashed"}
+)
+_CLAIM_LABEL_RE = re.compile(r"^(\s*(?:Why|Counter|Impact|Mitigation):\s*)")
+_XML_T_RE = re.compile(r"(<t(?:\s[^>]*)?>)(.*?)(</t>)", re.S)
+
+
+class _RepairContext:
+    __slots__ = ("client_name", "corpus")
+
+    def __init__(self, client_name: str, corpus: list[str]) -> None:
+        self.client_name = client_name
+        self.corpus = corpus
+
+
+def _repair_text(text: str, ctx: _RepairContext) -> tuple[str, set[str]]:
+    """Apply the repairable-class fixes to one client-facing string, using
+    the SAME predicates the checks use -- so a repair only ever touches
+    text the gate itself would flag. Returns ``(new_text, codes_fixed)``."""
+    fixed: set[str] = set()
+    if not isinstance(text, str) or not text.strip():
+        return text, fixed
+    new = text
+
+    # snake_case -> the shared humanizer (curated industry/channel labels,
+    # generic words otherwise). A bare key cell becomes a Title-Case label;
+    # a key inside prose stays lower-case.
+    if not _is_ignorable_for_snake_case(new) and _SNAKE_CASE_RE.search(new):
+        core = new.strip()
+        if _SNAKE_CASE_RE.fullmatch(core):
+            cand = new.replace(core, display_format.humanize_key(core))
+        else:
+            cand = display_format.humanize_snake_tokens(new, prose=True)
+        if cand != new:
+            new = cand
+            fixed.add("snake_case_leak")
+
+    # unsourced competitor claim -> drop the claiming sentence(s); a card
+    # line left empty gets the neutral no-evidence line.
+    if competitor_claims.find_asserted_claims(new, ctx.client_name):
+        lm = _CLAIM_LABEL_RE.match(new)
+        label = lm.group(1) if lm else ""
+        clean, removed = competitor_claims.strip_claim_sentences(
+            new[len(label) :], ctx.client_name
+        )
+        if removed:
+            new = label + (clean.strip() or competitor_claims.NO_EVIDENCE_LINE)
+            fixed.add("unsourced_competitor_claim")
+
+    # CONFIRMED mid-word cut (the full text elsewhere shows a letter right
+    # after the cut) -> trim back to the last whole word. A cut that cannot
+    # be confirmed is left alone: trimming a possibly-complete word would
+    # destroy text to silence a heuristic.
+    if _MID_WORD_ELLIPSIS_RE.search(new) and _truncation_kind(new, ctx.corpus) == (
+        "mid_word"
+    ):
+        body = _strip_ellipsis(new).rstrip()
+        if " " in body.strip():
+            trimmed = body.rsplit(" ", 1)[0].rstrip(" ,;:-—–")
+            if trimmed.strip():
+                new = trimmed + "…"
+                fixed.add("mid_word_truncation")
+    return new, fixed
+
+
+def _flagged(text: str, ctx: _RepairContext) -> bool:
+    return bool(_repair_text(text, ctx)[1])
+
+
+def _repair_pptx(blob: bytes, ctx: _RepairContext, counts: dict) -> bytes | None:
+    """Rewrite flagged deck paragraphs in place (python-pptx round-trips
+    every part it does not model, so nothing else in the deck changes).
+    Returns new bytes, or None when nothing needed repair."""
+    prs = Presentation(io.BytesIO(blob))
+    changed = False
+
+    def _fix_frame(tf: Any) -> None:
+        nonlocal changed
+        for para in tf.paragraphs:
+            runs = list(para.runs)
+            if not runs:
+                continue
+            original = "".join(r.text for r in runs)
+            if not _flagged(original, ctx):
+                continue
+            codes: set[str] = set()
+            for r in runs:  # run-level first: keeps per-run formatting
+                nr, c = _repair_text(r.text, ctx)
+                if c:
+                    r.text = nr
+                    codes |= c
+            joined = "".join(r.text for r in runs)
+            if _flagged(joined, ctx):  # the defect spans runs
+                nr, c = _repair_text(joined, ctx)
+                runs[0].text = nr
+                for r in runs[1:]:
+                    r.text = ""
+                codes |= c
+            if codes:
+                changed = True
+                for c in codes:
+                    counts[c] = counts.get(c, 0) + 1
+
+    def _walk(shapes: Any) -> None:
+        for shape in shapes:
+            if getattr(shape, "shape_type", None) == 6:  # group
+                _walk(shape.shapes)
+            if getattr(shape, "has_text_frame", False):
+                _fix_frame(shape.text_frame)
+            if getattr(shape, "has_table", False):
+                for row in shape.table.rows:
+                    for cell in row.cells:
+                        _fix_frame(cell.text_frame)
+
+    for slide in prs.slides:
+        _walk(slide.shapes)
+    if not changed:
+        return None
+    out = io.BytesIO()
+    prs.save(out)
+    return out.getvalue()
+
+
+def _is_xlsx_text_part(name: str) -> bool:
+    # Cell text lives either in the shared-string table or inline in each
+    # worksheet (<c t="inlineStr"><is><t>..</t></is></c> -- what excel_v2's
+    # workbooks actually contain). In worksheet XML a <t> element only ever
+    # appears inside <is>, so every <t> node there is cell text.
+    return name == "xl/sharedStrings.xml" or (
+        name.startswith("xl/worksheets/sheet") and name.endswith(".xml")
+    )
+
+
+def _repair_xlsx(blob: bytes, ctx: _RepairContext, counts: dict) -> bytes | None:
+    """Rewrite flagged workbook strings at the XML level (the <t> text nodes
+    of xl/sharedStrings.xml and of each worksheet's inline strings) and copy
+    every other package part byte-for-byte. Deliberately NOT an openpyxl
+    load/save: openpyxl does not round-trip every workbook feature (its docs
+    warn shapes are lost, and charts are re-serialised from its own model).
+    Returns None when nothing changed."""
+    import html
+    import zipfile
+    from xml.sax.saxutils import escape
+
+    def _sub(m: "re.Match[str]") -> str:
+        text = html.unescape(m.group(2))
+        new, codes = _repair_text(text, ctx)
+        if not codes or new == text:
+            return m.group(0)
+        for c in codes:
+            counts[c] = counts.get(c, 0) + 1
+        open_tag = m.group(1)
+        if new != new.strip() and "xml:space" not in open_tag:
+            open_tag = open_tag[:-1] + ' xml:space="preserve">'
+        return open_tag + escape(new) + m.group(3)
+
+    replaced: dict[str, bytes] = {}
+    with zipfile.ZipFile(io.BytesIO(blob)) as zin:
+        for info in zin.infolist():
+            if not _is_xlsx_text_part(info.filename):
+                continue
+            xml = zin.read(info).decode("utf-8")
+            new_xml = _XML_T_RE.sub(_sub, xml)
+            if new_xml != xml:
+                replaced[info.filename] = new_xml.encode("utf-8")
+        if not replaced:
+            return None
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w") as zout:
+            for info in zin.infolist():
+                zout.writestr(info, replaced.get(info.filename) or zin.read(info))
+    return out.getvalue()
+
+
+def repair_bundle(
+    pptx_bytes: bytes | None, xlsx_bytes: bytes | None, data: dict
+) -> tuple[bytes | None, bytes | None, dict]:
+    """Repair the mechanically repairable critical/warn classes in an
+    already-generated bundle (see ``REPAIRABLE_CODES``). Returns
+    ``(pptx_bytes, xlsx_bytes, repairs)`` where ``repairs`` maps a finding
+    code to the number of strings rewritten. A file that needed no repair
+    (or failed to repair) comes back unchanged. Never raises."""
+    data = data if isinstance(data, dict) else {}
+    counts: dict = {}
+    units: list[_TextUnit] = []
+    scratch: list[Finding] = []
+    try:
+        if pptx_bytes:
+            units += _iter_pptx_texts(pptx_bytes, scratch)
+        if xlsx_bytes:
+            units += _iter_xlsx_strings(xlsx_bytes, scratch)[0]
+    except Exception:  # noqa: BLE001
+        units = []
+    ctx = _RepairContext(
+        str(data.get("client_name") or ""), _truncation_corpus(units, data)
+    )
+    new_pptx, new_xlsx = pptx_bytes, xlsx_bytes
+    if pptx_bytes:
+        try:
+            new_pptx = _repair_pptx(pptx_bytes, ctx, counts) or pptx_bytes
+        except Exception:  # noqa: BLE001 -- a failed repair ships the original
+            new_pptx = pptx_bytes
+    if xlsx_bytes:
+        try:
+            new_xlsx = _repair_xlsx(xlsx_bytes, ctx, counts) or xlsx_bytes
+        except Exception:  # noqa: BLE001
+            new_xlsx = xlsx_bytes
+    return new_pptx, new_xlsx, counts
+
+
+def gate_bundle(
+    pptx_bytes: bytes | None, xlsx_bytes: bytes | None, data: dict
+) -> dict:
+    """The delivery gate app.py runs on every bundle BEFORE packaging.
+
+    Policy (mpg-content-gate, 2026-10-01 -- prod shipped >=1 critical on 5/5
+    real runs with nothing but a warning log line):
+
+    1. Lint the bundle (``run_bundle_qa``).
+    2. REPAIR, then re-lint: the classes a string rewrite can fix without
+       changing meaning are fixed in the bytes that ship --
+       ``snake_case_leak`` -> the shared display_format humanizer,
+       ``unsourced_competitor_claim`` -> the claiming sentence is dropped
+       (a card line left empty gets competitor_claims.NO_EVIDENCE_LINE),
+       ``mid_word_truncation`` -> trimmed to the last whole word, but only
+       when the full text proves the cut split a word. A repaired file that
+       no longer parses is discarded and the original ships.
+    3. DELIVER regardless: criticals that survive repair never block the
+       download. They are made loud instead of silent -- the caller logs
+       them at ERROR with their ids, puts "QA: N critical" in the Slack
+       plan notification, and records the summary on the job/plan result
+       (``/api/jobs/<id>`` exposes it; the sync path's X-Bundle-QA-Status
+       header too).
+    4. FAIL SAFE: any exception inside the gate returns the ORIGINAL bytes
+       with ``summary=None`` (treated as "clean" downstream) -- a broken
+       gate must never cost the user their bundle.
+
+    Returns ``{"pptx_bytes", "xlsx_bytes", "findings", "summary"}``; the
+    summary is ``summarize_findings()``'s plus ``repairs`` (code -> strings
+    rewritten), ``repaired_count``, ``initial_critical_count`` and
+    ``initial_critical_ids``.
+    """
+    result: dict = {
+        "pptx_bytes": pptx_bytes,
+        "xlsx_bytes": xlsx_bytes,
+        "findings": [],
+        "summary": None,
+    }
+    try:
+        findings = run_bundle_qa(pptx_bytes, xlsx_bytes, data)
+        initial_critical = [
+            f for f in findings if isinstance(f, dict) and f.get("severity") == "critical"
+        ]
+        repairs: dict = {}
+        if any(isinstance(f, dict) and f.get("code") in REPAIRABLE_CODES for f in findings):
+            new_pptx, new_xlsx, repairs = repair_bundle(pptx_bytes, xlsx_bytes, data)
+            if repairs:
+                refound = run_bundle_qa(new_pptx, new_xlsx, data)
+                broken = {
+                    f.get("code") for f in refound if f.get("code") in _PARSE_FAILURE_CODES
+                } - {f.get("code") for f in findings}
+                if broken:
+                    repairs = {}  # repaired bytes unreadable -> ship originals
+                else:
+                    result["pptx_bytes"], result["xlsx_bytes"] = new_pptx, new_xlsx
+                    findings = refound
+        summary = summarize_findings(findings)
+        summary["repairs"] = dict(repairs)
+        summary["repaired_count"] = sum(repairs.values())
+        summary["initial_critical_count"] = len(initial_critical)
+        summary["initial_critical_ids"] = [finding_id(f) for f in initial_critical][:25]
+        result["findings"] = findings
+        result["summary"] = summary
+    except Exception as exc:  # noqa: BLE001 -- fail safe: original bytes, no verdict
+        logger.error(
+            "bundle_qa gate failed (%s) -- delivering the unrepaired bundle "
+            "with no QA verdict",
+            exc,
+            exc_info=True,
+        )
+        result["pptx_bytes"], result["xlsx_bytes"] = pptx_bytes, xlsx_bytes
+        result["findings"], result["summary"] = [], None
+        result["error"] = f"{type(exc).__name__}: {exc}"[:300]
+    return result
+
+
+__all__ = [
+    "REPAIRABLE_CODES",
+    "finding_id",
+    "gate_bundle",
+    "repair_bundle",
+    "run_bundle_qa",
+    "summarize_findings",
+]

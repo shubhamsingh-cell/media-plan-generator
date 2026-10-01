@@ -56,6 +56,34 @@ def _format_budget(budget_val: Any) -> str:
         return str(budget_val)
 
 
+def qa_line(plan_data: Dict[str, Any]) -> str:
+    """The notification's delivery-gate line, e.g. "QA: 2 critical
+    (snake_case_leak, unsourced_competitor_claim) -- 3 auto-repaired".
+
+    Empty string when the caller passed no QA result at all (older call
+    sites / bundle_qa unavailable) so the message never claims a verdict it
+    was not given. A bundle is delivered even with criticals (bundle_qa.
+    gate_bundle policy) -- this line is what keeps that from being silent.
+    """
+    if "qa_critical_count" not in plan_data:
+        return ""
+    try:
+        crit = int(plan_data.get("qa_critical_count") or 0)
+    except (TypeError, ValueError):
+        crit = 0
+    codes = [str(c) for c in (plan_data.get("qa_critical_codes") or [])][:6]
+    try:
+        repaired = int(plan_data.get("qa_repaired_count") or 0)
+    except (TypeError, ValueError):
+        repaired = 0
+    line = f"QA: {crit} critical"
+    if crit and codes:
+        line += f" ({', '.join(codes)})"
+    if repaired:
+        line += f" -- {repaired} auto-repaired before delivery"
+    return line
+
+
 def _build_plan_notification_blocks(plan_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Build Slack Block Kit blocks for a plan generation notification.
 
@@ -153,6 +181,16 @@ def _build_plan_notification_blocks(plan_data: Dict[str, Any]) -> List[Dict[str,
             },
         },
     ]
+
+    _qa = qa_line(plan_data)
+    if _qa:
+        _crit_ids = [str(i) for i in (plan_data.get("qa_critical_ids") or [])][:5]
+        # Bold only when something is still critical -- that is the line a
+        # reviewer must not scroll past.
+        _qa_text = _qa if _qa.startswith("QA: 0 critical") else f"*{_qa}*"
+        if _crit_ids:
+            _qa_text += "\n" + "\n".join(f"• {i}" for i in _crit_ids)
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": _qa_text}})
 
     # Add download button if job_id available
     if download_url:
@@ -316,6 +354,9 @@ def notify_plan_generated(plan_data: Dict[str, Any]) -> None:
             client = plan_data.get("client_name") or "Unknown"
             user = plan_data.get("user_name") or "Unknown"
             fallback_text = f"New Media Plan Generated: {client} by {user}"
+            _qa = qa_line(plan_data)
+            if _qa:
+                fallback_text += f" | {_qa}"
 
             # Try webhook first, then bot API
             sent = _send_via_webhook(blocks, fallback_text)

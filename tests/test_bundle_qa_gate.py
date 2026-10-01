@@ -151,6 +151,10 @@ def test_response_fields_default_to_clean_when_summary_missing():
         "qa_critical_count": 0,
         "qa_codes": [],
         "qa_findings": [],
+        # mpg-content-gate: ids of criticals delivered after the repair
+        # pass, and what the pass rewrote (both empty with no verdict).
+        "qa_critical_ids": [],
+        "qa_repairs": {},
     }
 
 

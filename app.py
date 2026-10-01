@@ -9943,6 +9943,116 @@ def _bundle_qa_response_fields(bundle_qa_summary: Optional[dict]) -> dict:
         "qa_critical_count": summary.get("critical_count") or 0,
         "qa_codes": summary.get("codes") or [],
         "qa_findings": summary.get("findings") or [],
+        # bundle_qa.gate_bundle: "<code>@<location>" ids of the criticals
+        # that survived the pre-delivery repair pass, and what that pass
+        # rewrote (code -> strings) -- so a poller can see a critical was
+        # delivered, not just that one existed.
+        "qa_critical_ids": summary.get("critical_ids") or [],
+        "qa_repairs": summary.get("repairs") or {},
+    }
+
+
+def _run_bundle_qa_gate(
+    pptx_bytes: Optional[bytes],
+    xlsx_bytes: Optional[bytes],
+    data: dict,
+    resource_id: str,
+) -> tuple[Optional[bytes], Optional[bytes], Optional[dict]]:
+    """Run the delivery gate (``bundle_qa.gate_bundle``) on a generated
+    bundle BEFORE it is packaged, shared by the async job path and the sync
+    /api/generate path.
+
+    Policy (see ``bundle_qa.gate_bundle`` for the full statement): repair
+    what is mechanically repairable (snake_case keys, unsourced competitor
+    claims, confirmed mid-word cuts) in the bytes that ship, re-lint, and
+    ALWAYS deliver. Criticals that survive repair are never silent: logged
+    here at ERROR with their ids, written to the audit log, carried on the
+    returned summary (job record / X-Bundle-QA-Status header) and passed to
+    the Slack plan notification's "QA: N critical" line by the callers.
+    Fail-safe: any gate error returns the original bytes and a None summary
+    (treated as "clean" downstream) -- it never blocks delivery.
+
+    Returns ``(pptx_bytes, xlsx_bytes, summary_or_None)``.
+    """
+    if bundle_qa is None:
+        return pptx_bytes, xlsx_bytes, None
+    try:
+        gate = bundle_qa.gate_bundle(pptx_bytes, xlsx_bytes, data)
+    except Exception as gate_err:
+        logger.error(
+            "bundle_qa gate crashed for %s (delivering unrepaired bundle): %s",
+            resource_id,
+            gate_err,
+            exc_info=True,
+        )
+        return pptx_bytes, xlsx_bytes, None
+    summary = gate.get("summary")
+    for _f in gate.get("findings") or []:
+        logger.warning(
+            "bundle_qa [%s] %s: %s (%s)",
+            _f.get("severity"),
+            _f.get("code"),
+            _f.get("message"),
+            _f.get("location"),
+        )
+    if not isinstance(summary, dict):
+        return pptx_bytes, xlsx_bytes, None
+    if summary.get("repaired_count"):
+        logger.info(
+            "bundle_qa repaired %d string(s) before delivery for %s: %s "
+            "(pre-repair criticals: %s)",
+            summary.get("repaired_count") or 0,
+            resource_id,
+            summary.get("repairs") or {},
+            summary.get("initial_critical_ids") or [],
+        )
+    if summary.get("critical_count"):
+        logger.error(
+            "bundle_qa: %d critical finding(s) remain after repair -- bundle "
+            "delivered anyway for %s: %s",
+            summary.get("critical_count") or 0,
+            resource_id,
+            summary.get("critical_ids") or [],
+        )
+        try:
+            from audit_logger import log_event as _bq_log_event
+
+            _bq_log_event(
+                action="bundle_qa.critical_findings",
+                actor="system",
+                resource=resource_id,
+                details={
+                    "client_name": data.get("client_name") or "",
+                    "critical_count": summary.get("critical_count") or 0,
+                    "codes": summary.get("codes") or [],
+                    "critical_ids": summary.get("critical_ids") or [],
+                    "repairs": summary.get("repairs") or {},
+                },
+                severity="warning",
+            )
+        except Exception as _bq_audit_err:
+            logger.debug(
+                "bundle_qa audit_log write failed (non-fatal): %s", _bq_audit_err
+            )
+    return (
+        gate.get("pptx_bytes") if gate.get("pptx_bytes") is not None else pptx_bytes,
+        gate.get("xlsx_bytes") if gate.get("xlsx_bytes") is not None else xlsx_bytes,
+        summary,
+    )
+
+
+def _slack_qa_fields(bundle_qa_summary: Optional[dict]) -> dict:
+    """The QA keys every notify_plan_generated() call site passes, so the
+    Slack message carries a "QA: N critical" line (slack_plan_notifier.
+    qa_line). Empty when no QA verdict exists (gate unavailable/crashed):
+    the message then states nothing rather than a false "0 critical"."""
+    if not isinstance(bundle_qa_summary, dict):
+        return {}
+    return {
+        "qa_critical_count": bundle_qa_summary.get("critical_count") or 0,
+        "qa_critical_codes": bundle_qa_summary.get("codes") or [],
+        "qa_critical_ids": bundle_qa_summary.get("critical_ids") or [],
+        "qa_repaired_count": bundle_qa_summary.get("repaired_count") or 0,
     }
 
 
@@ -19092,6 +19202,21 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             ),
                         )
 
+                        # ── Delivery gate (bundle_qa.gate_bundle) ──
+                        # Runs BEFORE packaging so the repaired deck/workbook
+                        # are what ship: repairable criticals (snake_case
+                        # keys, unsourced competitor claims) are fixed in the
+                        # bytes, the bundle is re-linted, and anything still
+                        # critical is logged at ERROR with its ids, audited,
+                        # carried on the job record (job["bundle_qa"] ->
+                        # /api/jobs/<id> qa_* fields) and put in the Slack
+                        # notification's "QA: N critical" line. Never blocks
+                        # the download; a gate crash ships the original
+                        # bytes with no verdict (see _run_bundle_qa_gate).
+                        pptx_bytes, excel_bytes, _bundle_qa_summary = (
+                            _run_bundle_qa_gate(pptx_bytes, excel_bytes, gen_data, jid)
+                        )
+
                         if pptx_bytes:
                             zip_buffer = io.BytesIO()
                             with zipfile.ZipFile(
@@ -19110,74 +19235,6 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             result_bytes = excel_bytes
                             result_ct = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             result_fn = f"{client_name}_Media_Plan.xlsx"
-
-                        # ── Generation-time output QA (bundle_qa) ──
-                        # Lints the bundle we just assembled for the class of
-                        # client-facing defect a human reviewer previously
-                        # had to catch by hand (snake_case leaks, footing
-                        # mismatches, fabricated comparison badges,
-                        # near-duplicate competitor prose, ...). Entirely
-                        # isolated: never blocks or fails generation, only
-                        # observes and records what it finds -- but a
-                        # critical finding now travels with the job record
-                        # (job["bundle_qa"]["qa_status"]) so the /api/jobs
-                        # poll response and wizard UI can gate the DOWNLOAD
-                        # (never the generation itself) on it. See
-                        # bundle_qa.summarize_findings for the qa_status
-                        # values a caller can rely on.
-                        _bundle_qa_summary = None
-                        if bundle_qa is not None:
-                            try:
-                                _bq_findings = bundle_qa.run_bundle_qa(
-                                    pptx_bytes, excel_bytes, gen_data
-                                )
-                                _bundle_qa_summary = bundle_qa.summarize_findings(
-                                    _bq_findings
-                                )
-                                for _f in _bq_findings:
-                                    logger.warning(
-                                        "bundle_qa [%s] %s: %s (%s)",
-                                        _f.get("severity"),
-                                        _f.get("code"),
-                                        _f.get("message"),
-                                        _f.get("location"),
-                                    )
-                                if _bundle_qa_summary["critical_count"]:
-                                    try:
-                                        from audit_logger import (
-                                            log_event as _bq_log_event,
-                                        )
-
-                                        _bq_log_event(
-                                            action="bundle_qa.critical_findings",
-                                            actor="system",
-                                            resource=jid,
-                                            details={
-                                                "client_name": gen_data.get(
-                                                    "client_name"
-                                                )
-                                                or "",
-                                                "critical_count": _bundle_qa_summary[
-                                                    "critical_count"
-                                                ],
-                                                "codes": _bundle_qa_summary["codes"],
-                                            },
-                                            severity="warning",
-                                        )
-                                    except Exception as _bq_audit_err:
-                                        logger.debug(
-                                            "bundle_qa audit_log write failed "
-                                            "(non-fatal): %s",
-                                            _bq_audit_err,
-                                        )
-                            except Exception as _bq_err:
-                                logger.warning(
-                                    "bundle_qa crashed (non-fatal): %s", _bq_err
-                                )
-                                # Degrade to today's behaviour: a linter
-                                # crash must never lock the download behind
-                                # a gate it never got to evaluate.
-                                _bundle_qa_summary = None
 
                         # ── S94: Executive narrative failure observability ──
                         # excel_v2.py's Executive Strategic Summary is a
@@ -19366,6 +19423,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     "job_id": jid,
                                     "drive_url": _drive_download_url,
                                     "filename": result_fn,
+                                    **_slack_qa_fields(_bundle_qa_summary),
                                     "timestamp": time.strftime(
                                         "%Y-%m-%d %H:%M:%S UTC", time.gmtime()
                                     ),
@@ -21282,60 +21340,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "PPT generation skipped: neither deck_generator nor ppt_generator available"
                 )
 
-            # ── Generation-time output QA (bundle_qa) -- sync path ──
-            # Mirrors the async job path's bundle_qa call (see the
-            # _bundle_qa_summary block above the "Async job %s completed"
-            # log line): isolated, never blocks or fails generation, only
-            # observes and records. This path has no job record to poll,
-            # so the verdict travels out as the X-Bundle-QA-Status header
-            # instead (see _build_bundle_qa_status_header) -- the sync
-            # caller (Slack, an API integration, ...) gets the same
-            # "can't ship unknowingly" signal the async wizard gets via
-            # the job-poll response, without ever altering what bytes are
-            # returned. A bundle_qa crash degrades to "clean" (today's
-            # behaviour), never to a blocked/altered response.
-            _sync_bundle_qa_summary = None
-            if bundle_qa is not None:
-                try:
-                    _sbq_findings = bundle_qa.run_bundle_qa(
-                        pptx_bytes, excel_bytes, data
-                    )
-                    _sync_bundle_qa_summary = bundle_qa.summarize_findings(
-                        _sbq_findings
-                    )
-                    for _sbq_f in _sbq_findings:
-                        logger.warning(
-                            "bundle_qa [%s] %s: %s (%s)",
-                            _sbq_f.get("severity"),
-                            _sbq_f.get("code"),
-                            _sbq_f.get("message"),
-                            _sbq_f.get("location"),
-                        )
-                    if _sync_bundle_qa_summary["critical_count"]:
-                        try:
-                            from audit_logger import log_event as _sbq_log_event
-
-                            _sbq_log_event(
-                                action="bundle_qa.critical_findings",
-                                actor="system",
-                                resource=_plan_id,
-                                details={
-                                    "client_name": data.get("client_name") or "",
-                                    "critical_count": _sync_bundle_qa_summary[
-                                        "critical_count"
-                                    ],
-                                    "codes": _sync_bundle_qa_summary["codes"],
-                                },
-                                severity="warning",
-                            )
-                        except Exception as _sbq_audit_err:
-                            logger.debug(
-                                "bundle_qa audit_log write failed (non-fatal): %s",
-                                _sbq_audit_err,
-                            )
-                except Exception as _sbq_err:
-                    logger.warning("bundle_qa crashed (non-fatal): %s", _sbq_err)
-                    _sync_bundle_qa_summary = None
+            # ── Delivery gate (bundle_qa.gate_bundle) -- sync path ──
+            # Same gate as the async job path (see _run_bundle_qa_gate):
+            # repairs the repairable criticals in the bytes this response
+            # returns, re-lints, and never blocks or fails the response. This
+            # path has no job record to poll, so the verdict travels out as
+            # the X-Bundle-QA-Status header (see
+            # _build_bundle_qa_status_header) plus the Slack "QA: N critical"
+            # line. A gate crash degrades to "clean" with the original bytes.
+            pptx_bytes, excel_bytes, _sync_bundle_qa_summary = _run_bundle_qa_gate(
+                pptx_bytes, excel_bytes, data, _plan_id
+            )
 
             if pptx_bytes:
                 # Bundle both files in a ZIP
@@ -21488,6 +21503,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             "generation_time_seconds": generation_time,
                             "job_id": "",
                             "filename": f"{client_name}_Media_Plan_Bundle.zip",
+                            **_slack_qa_fields(_sync_bundle_qa_summary),
                             "timestamp": time.strftime(
                                 "%Y-%m-%d %H:%M:%S UTC", time.gmtime()
                             ),
@@ -21589,6 +21605,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             "generation_time_seconds": generation_time,
                             "job_id": "",
                             "filename": f"{client_name}_Media_Plan.xlsx",
+                            **_slack_qa_fields(_sync_bundle_qa_summary),
                             "timestamp": time.strftime(
                                 "%Y-%m-%d %H:%M:%S UTC", time.gmtime()
                             ),
