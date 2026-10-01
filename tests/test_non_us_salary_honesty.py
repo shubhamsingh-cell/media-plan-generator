@@ -135,6 +135,12 @@ def test_no_us_salary_survives_on_a_plan_with_no_us_market(roles, location):
     assert info["estimated_salary"] == 0
     assert info["salary_range"] == _NA
     for role, row in info["per_role_salary"].items():
+        # Either the role's ONE published local band (its own currency,
+        # named source -- tests/test_local_salary_band.py) or withheld.
+        if row.get("local_band"):
+            assert row["currency"] not in ("", "USD"), (role, row)
+            assert row["source"] != _NA
+            continue
         assert row["local_salary_na"] is True, role
         assert row["median"] == 0
         assert row["source"] == _NA
@@ -159,12 +165,13 @@ def test_bangalore_deck_prints_local_range_not_a_us_salary(bangalore):
     slides = _slides(bangalore["pptx"])
     text = " ".join(t for ts in slides.values() for t in ts)
     assert "US$78K" not in text and "₹78K" not in text
-    assert "(INR) local benchmark" in " ".join(slides[2])
+    # One published band (staff nurse, government) -- not a span of entries.
+    assert "₹300K median (₹180K-₹480K) - Registered Nurse" in " ".join(slides[2])
     role_breakdown = [i for i, ts in slides.items() if any(t == "Role Breakdown" for t in ts)]
     assert role_breakdown, "Role Breakdown slide not rendered"
-    assert (
-        sum(t == "Local salary data n/a" for t in slides[role_breakdown[0]]) == 4
-    )
+    cells = slides[role_breakdown[0]]
+    assert cells.count("₹300K") == 2  # Registered Nurse, Staff Nurse
+    assert sum("n/a" in t for t in cells) == 2  # Nurse Practitioner, Medical Assistant
 
 
 def test_mixed_plan_role_breakdown_marks_us_dollars(mixed):

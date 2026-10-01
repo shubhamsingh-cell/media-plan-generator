@@ -28,13 +28,14 @@ logger = logging.getLogger(__name__)
 # Defensive imports: output generation must succeed even if a lookup module is
 # unavailable in a given deployment. Each shim mirrors the real signature.
 try:
-    from intl_benchmark_lookup import get_local_salary_summary
+    from intl_benchmark_lookup import format_local_band, get_plan_local_salary_band
 except ImportError:  # pragma: no cover -- modules ship in repo
 
-    def get_local_salary_summary(
-        industry: Optional[str], country: Optional[str]
-    ) -> Optional[dict]:
+    def get_plan_local_salary_band(data: Optional[dict]) -> Optional[dict]:
         return None
+
+    def format_local_band(band: dict, plan_currency: Optional[str] = None) -> str:
+        return ""
 
 
 try:
@@ -70,18 +71,22 @@ def _format_metric_value(v: Any) -> str:
     return str(v) if v is not None else ""
 
 
-def build_local_salary_line(
-    industry: Optional[str], primary_country: Optional[str]
-) -> str:
-    """Return a single 'Local salary benchmark: ...' line, or '' on miss."""
+def build_local_salary_line(data: dict) -> str:
+    """Return a single 'Local salary benchmark: ...' line, or '' on miss.
+
+    One published band for one of the plan's roles, from the same resolver
+    the deck's Salary Range and the workbook use
+    (``intl_benchmark_lookup.get_plan_local_salary_band``), with its
+    statistic and source named. It used to print the min/max across every
+    salary entry of the vertical -- different statistics and occupation
+    scopes ("£39,000 - £110,200": an all-occupations median beside a senior
+    engineer median).
+    """
     try:
-        sal = get_local_salary_summary(industry, primary_country)
-        if sal and sal.get("local_display"):
-            line = f"Local salary benchmark: {sal['local_display']} ({sal['currency']})"
-            usd_eq = sal.get("usd_display")
-            if usd_eq:
-                line += f" [~{usd_eq} USD]"
-            return line
+        band = get_plan_local_salary_band(data)
+        if band:
+            plan_ccy = data.get("_plan_currency_code") if isinstance(data, dict) else None
+            return f"Local salary benchmark: {format_local_band(band, plan_ccy)}"
     except Exception:  # pragma: no cover -- never break output
         logger.error("local salary enrichment failed", exc_info=True)
     return ""
@@ -140,12 +145,11 @@ def build_cited_2026_block(data: dict) -> dict:
         }
     """
     locations = data.get("locations") or []
-    industry = data.get("industry_label") or data.get("industry")
     primary_country = (
         locations[0] if isinstance(locations, list) and locations else None
     )
     return {
-        "salary_line": build_local_salary_line(industry, primary_country),
+        "salary_line": build_local_salary_line(data),
         "metric_lines": build_cited_metrics_lines(primary_country, limit=2),
         "quote_line": build_leader_quote_line(limit=1),
     }

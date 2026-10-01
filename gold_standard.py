@@ -925,6 +925,20 @@ _ROLE_BAND_TOLERANCE: float = 0.15
 LOCAL_SALARY_NA_LABEL: str = "Local salary data n/a"
 
 
+def _local_role_band(location: Any, title: str) -> dict[str, Any] | None:
+    """The role's one published local band for a non-US ``location``
+    (intl_benchmark_lookup.get_local_role_salary_band), or None."""
+    if isinstance(location, dict):
+        location = (
+            location.get("country") or location.get("location") or location.get("city") or ""
+        )
+    try:
+        from intl_benchmark_lookup import get_local_role_salary_band
+    except ImportError:  # pragma: no cover - module ships with the repo
+        return None
+    return get_local_role_salary_band(str(location or ""), title)
+
+
 def role_band_salary(title: str, multiplier: float = 1.0) -> dict[str, float] | None:
     """The role's OWN band from _ROLE_SALARY_RANGES scaled by ``multiplier``,
     as an ordered min/p25/median/p75/max dict (median = band midpoint), or
@@ -1497,15 +1511,18 @@ def enrich_city_level_data(data: dict) -> dict:
                     _use_override = False
             if _use_override:
                 tier, tier_source = _role_tier_cache[title]
+
+                def _scaled(key: str, fallback: str) -> int | None:
+                    # A published local band carries no percentiles (None):
+                    # keep them unpublished rather than deriving one.
+                    val = _synth_override.get(key, _synth_override.get(fallback, 0))
+                    return None if val is None else round(val * _applied)
+
                 per_role_salary[title] = {
                     "min": round(_synth_override.get("min", 0) * _applied),
-                    "p25": round(
-                        _synth_override.get("p25", _synth_override.get("min", 0)) * _applied
-                    ),
+                    "p25": _scaled("p25", "min"),
                     "median": round(_synth_override.get("median", 0) * _applied),
-                    "p75": round(
-                        _synth_override.get("p75", _synth_override.get("max", 0)) * _applied
-                    ),
+                    "p75": _scaled("p75", "max"),
                     "max": round(_synth_override.get("max", 0) * _applied),
                     "multiplier": round(_applied, 2),
                     "source": _synth_override.get("source") or "Industry Benchmark",
@@ -1519,6 +1536,11 @@ def enrich_city_level_data(data: dict) -> dict:
                     per_role_salary[title]["currency"] = "USD"
                 elif "currency" in _synth_override:
                     per_role_salary[title]["currency"] = _synth_override.get("currency") or ""
+                if _synth_override.get("local_band"):
+                    per_role_salary[title]["local_band"] = True
+                    per_role_salary[title]["local_label"] = (
+                        _synth_override.get("local_label") or ""
+                    )
                 continue
 
             # PERF: Use cached role-to-range/tier mapping instead of
@@ -1531,8 +1553,30 @@ def enrich_city_level_data(data: dict) -> dict:
                 # dollar figures (the _ROLE_SALARY_RANGES table and a US
                 # national average). They used to print for Bangalore /
                 # London / Sao Paulo / Berlin rows in the plan's own symbol
-                # (₹78,000 for a nurse). No sourced per-role local salary
-                # exists, so the row says so instead of inventing one.
+                # (₹78,000 for a nurse). A non-US market gets the role's ONE
+                # published local band from the shared resolver (the same one
+                # the deck's Salary Range and Market Intelligence use), or
+                # says "Local salary data n/a" -- never an invented figure.
+                _band = _local_role_band(loc, title)
+                if _band:
+                    per_role_salary[title] = {
+                        "min": round(_band["low"]),
+                        "p25": None,
+                        "median": round(_band["median"]),
+                        "p75": None,
+                        "max": round(_band["high"]),
+                        "multiplier": 1.0,
+                        "source": _band.get("source") or "Local benchmark",
+                        "confidence": (
+                            "benchmark" if _band.get("confidence") == "high" else "estimated"
+                        ),
+                        "tier": tier,
+                        "tier_source": tier_source,
+                        "currency": _band.get("currency") or "",
+                        "local_band": True,
+                        "local_label": _band.get("label") or "",
+                    }
+                    continue
                 per_role_salary[title] = {
                     "min": 0,
                     "p25": 0,

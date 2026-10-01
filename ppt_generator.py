@@ -3917,30 +3917,23 @@ _LOCAL_SALARY_NA = "Local salary data n/a"
 def _local_salary_range_text(data: Dict) -> str:
     """Salary Range text for a plan with no US market (audit F 3.4).
 
-    The local market range for the plan's first non-US location from
-    ``intl_role_benchmarks_v1.json`` (``get_local_salary_summary``, values
-    and currency travel together), declared with its own ISO code --
-    "₹180,000 - ₹720,000 (INR) local benchmark". "Local salary data n/a"
-    when the knowledge base holds no sourced local figure. Never a US number.
+    ONE published band for one role, from the shared resolver
+    (``intl_benchmark_lookup.get_plan_local_salary_band``) that also feeds
+    Market Intelligence and the Quality Intelligence role rows, with its
+    statistic and source named -- "₹300K median (₹180K-₹480K) - Registered
+    Nurse (staff nurse, government; source: ...)". Never a range spanning
+    different statistics (design-judge 2026-10-01: "£39,000-£49,983" was an
+    all-occupations median beside a category average). "Local salary data
+    n/a" when no role has a published band. Never a US number.
     """
     try:
-        from intl_benchmark_lookup import get_local_salary_summary
+        from intl_benchmark_lookup import format_local_band, get_plan_local_salary_band
     except ImportError:  # pragma: no cover - module ships with the repo
         return _LOCAL_SALARY_NA
-    industry = data.get("industry_label") or data.get("industry")
-    for loc in data.get("locations") or []:
-        if _plan_geo.location_is_us(loc) is True:
-            continue
-        if isinstance(loc, dict):
-            loc = str(loc.get("country") or loc.get("location") or loc.get("city") or "")
-        try:
-            summary = get_local_salary_summary(industry, str(loc or ""))
-        except (AttributeError, TypeError, ValueError) as exc:
-            logger.error("local salary lookup failed: %s", exc, exc_info=True)
-            summary = None
-        if summary and summary.get("local_display") and summary.get("currency"):
-            return f"{summary['local_display']} ({summary['currency']}) local benchmark"
-    return _LOCAL_SALARY_NA
+    band = get_plan_local_salary_band(data)
+    if not band:
+        return _LOCAL_SALARY_NA
+    return format_local_band(band, _get_active_currency())
 
 
 # ===================================================================
@@ -4466,12 +4459,13 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     # one (Bangalore nurse plan: "US$78K median"). Fall back to the local
     # market range from intl_role_benchmarks_v1 or say "Local salary data n/a".
     _has_us_market = _plan_geo.plan_has_us_market(data)
-    if salary_intel:
+    # A plan with no US market takes its Salary Range from the one local
+    # resolver below (_local_salary_range_text), the same decision Market
+    # Intelligence and Quality Intelligence show -- never from this loop.
+    if salary_intel and _has_us_market:
         try:
             for _si_role, _si_data in salary_intel.items():
                 if isinstance(_si_data, dict):
-                    if not _has_us_market and _salary_is_us_sourced(_si_data):
-                        continue
                     _si_median = _si_data.get("median") or 0
                     _si_min = _si_data.get("min") or 0
                     _si_max = _si_data.get("max") or 0
@@ -10494,6 +10488,24 @@ def _role_breakdown_salary_basis(gold: Dict[str, Any], title: str) -> "tuple[boo
     return False, usd
 
 
+def _role_breakdown_local_code(gold: Dict[str, Any], title: str) -> str:
+    """ISO code of ``title``'s published local band when every shown row is
+    one (a non-US market's band from intl_benchmark_lookup), else ""."""
+    city_level = gold.get("city_level_data") if isinstance(gold, dict) else None
+    if not isinstance(city_level, dict):
+        return ""
+    rows = [
+        (info.get("per_role_salary") or {}).get(title)
+        for info in city_level.values()
+        if isinstance(info, dict) and isinstance(info.get("per_role_salary"), dict)
+    ]
+    shown = [r for r in rows if isinstance(r, dict) and not r.get("local_salary_na")]
+    codes = {str(r.get("currency") or "").upper() for r in shown if r.get("local_band")}
+    if shown and len(codes) == 1 and all(r.get("local_band") for r in shown):
+        return next(iter(codes))
+    return ""
+
+
 def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
     """Compact role-by-role table: tier, est. median salary, and channel
     emphasis per role -- sourced from ``_gold_standard.difficulty_framework``
@@ -10549,6 +10561,7 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
         # workbook renders, not the (often-empty) _enriched.salary_data.
         median, is_estimated = _role_breakdown_median_salary(gold, title)
         salary_withheld, salary_usd = _role_breakdown_salary_basis(gold, title)
+        salary_local_code = _role_breakdown_local_code(gold, title)
         # strategy:atria#5: surface the same per-role Difficulty
         # (complexity_score) and Budget Weight the workbook's Role
         # Difficulty Classification table carries, so a 10-role plan with a
@@ -10562,6 +10575,7 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
                 "is_estimated": is_estimated,
                 "salary_withheld": salary_withheld,
                 "salary_usd": salary_usd,
+                "salary_local_code": salary_local_code,
                 "difficulty": d.get("complexity_score"),
                 "budget_weight": d.get("budget_weight"),
                 "emphasis": emphasis,
@@ -10581,7 +10595,16 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
         if r["median"]:
             _median_counts[r["median"]] = _median_counts.get(r["median"], 0) + 1
     for r in rows:
-        if r["median"]:
+        if r["median"] and r["salary_local_code"]:
+            # A published local band's median, in its own currency (code
+            # appended when it differs from the plan's).
+            from intl_benchmark_lookup import compact_money
+
+            _lc = r["salary_local_code"]
+            salary_str = compact_money(r["median"], _cur_symbol(_lc))
+            if _lc != _get_active_currency():
+                salary_str += f" ({_lc})"
+        elif r["median"]:
             salary_str = _format_salary(r["median"], force_usd=r["salary_usd"])
             if r["salary_usd"] and _get_active_currency() != "USD":
                 salary_str = _mark_usd(salary_str)

@@ -440,6 +440,13 @@ def get_local_salary_summary(
 
     Returns ``None`` when the (industry, country) pair has no salary data.
     Never raises.
+
+    NOT a client-facing salary range: low/high are the min/max across every
+    entry of the vertical -- different statistics and occupation scopes (an
+    all-occupations median beside an Adzuna category average beside a
+    senior top-company band). Client surfaces use
+    :func:`get_local_role_salary_band` / :func:`get_plan_local_salary_band`,
+    which return ONE role-matched published band or nothing.
     """
     try:
         from plan_currency import format_money, symbol_for_code
@@ -479,6 +486,232 @@ def get_local_salary_summary(
             else f"{format_money(u_low, 'USD')} - {format_money(u_high, 'USD')}"
         )
     return summary
+
+
+# ---------------------------------------------------------------------------
+# Role-level local salary bands -- the ONE resolver every client surface uses
+# ---------------------------------------------------------------------------
+# A client-facing local salary must be a single published band for the
+# role's own occupation -- never min/max across different statistics or
+# occupation scopes (design-judge 2026-10-01: the UK deck printed
+# "£39,000 - £49,983" = the ONS all-occupations median beside an Adzuna
+# category average). So only the dataset's RANGE entries (low/high/median
+# from one source) whose occupation is listed here qualify. Sector-wide
+# bands (tech_annual_range, blue_collar_typical, finance_typical_range),
+# monthly figures, top-company outliers (Levels.fyi L5, Google Madrid),
+# occupation-less keys (india private_hospital) and low-confidence rows are
+# deliberately absent. A key the chatbot adds later is not listed, so it
+# yields no band until someone maps it -- the safe default.
+#
+# entry key -> (role phrases matched with role_match.match_role_phrase,
+#               seniority tier or None, human label of the statistic)
+_RN_PHRASES: tuple[str, ...] = ("registered nurse", "staff nurse", "rn")
+_SWE_PHRASES: tuple[str, ...] = ("software engineer", "software developer", "swe")
+_WAREHOUSE_PHRASES: tuple[str, ...] = (
+    "warehouse associate",
+    "warehouse operative",
+    "warehouse worker",
+)
+_LOCAL_BAND_OCCUPATIONS: dict[str, tuple[tuple[str, ...], str | None, str]] = {
+    "private_sector_nurse": (_RN_PHRASES, None, "private-sector nurse"),
+    "specialist_band6": (("specialist nurse",), None, "NHS Band 6 specialist nurse"),
+    "staff_nurse_govt": (_RN_PHRASES, None, "staff nurse, government"),
+    "rn_typical_range": (_RN_PHRASES, None, "registered nurse"),
+    "rn_mid_annual_range": (_RN_PHRASES, "mid", "registered nurse, mid-level"),
+    "rpn_typical": (("practical nurse", "rpn", "lpn"), None, "registered practical nurse"),
+    "nurse_practitioner": (("nurse practitioner",), None, "nurse practitioner"),
+    "verpleegkundige_typical": (_RN_PHRASES + ("verpleegkundige",), None, "verpleegkundige (nurse)"),
+    "enfermero_typical": (_RN_PHRASES + ("enfermero",), None, "enfermero (nurse)"),
+    "enfermeiro_typical": (_RN_PHRASES + ("enfermeiro",), None, "enfermeiro (nurse)"),
+    "enfermero_imss_typical": (_RN_PHRASES + ("enfermero",), None, "enfermero, IMSS"),
+    "physician_typical": (("physician", "doctor"), None, "physician"),
+    "specialist_physician_annual": (("specialist physician",), None, "specialist physician"),
+    "cns": (("clinical nurse specialist",), None, "clinical nurse specialist"),
+    "anp": (("nurse practitioner",), None, "advanced nurse practitioner"),
+    "public_health_nurse_hse": (("public health nurse",), None, "public health nurse, HSE scale"),
+    "asst_director_nursing_band1": (
+        ("director of nursing",),
+        None,
+        "assistant director of nursing, HSE scale",
+    ),
+    "swe_entry_4_6_lpa": (_SWE_PHRASES, "entry", "software engineer, entry level"),
+    "swe_mid_8_15_lpa": (_SWE_PHRASES, "mid", "software engineer, mid level"),
+    "swe_senior_20_35_lpa": (_SWE_PHRASES, "senior", "software engineer, senior"),
+    "swe_typical_range_toronto": (_SWE_PHRASES, None, "software engineer, Toronto"),
+    "swe_mid_typical": (_SWE_PHRASES, "mid", "software engineer, mid level"),
+    "swe_senior_dxb_dubai": (_SWE_PHRASES, "senior", "software engineer, senior, Dubai"),
+    "swe_range_payscale": (_SWE_PHRASES, None, "software engineer"),
+    "warehouse_typical": (_WAREHOUSE_PHRASES, None, "warehouse worker"),
+    "hospitality_manager_typical": (("hospitality manager",), None, "hospitality manager"),
+    "accountant_typical_lpa": (("accountant",), None, "accountant"),
+    "accountant_typical_range": (("accountant",), None, "accountant"),
+    "ca_typical_first_5yr": (("chartered accountant",), None, "chartered accountant, first 5 years"),
+    "compliance_market_risk_typical": (
+        ("compliance analyst", "compliance officer", "compliance manager", "risk analyst"),
+        None,
+        "compliance / market risk",
+    ),
+    "cfo_executive_range": (("cfo", "chief financial officer"), None, "CFO"),
+}
+
+_ENTRY_CUES = frozenset({"entry", "junior", "jr", "graduate", "grad", "fresher", "trainee", "intern"})
+_SENIOR_CUES = frozenset({"senior", "sr", "lead", "principal"})
+_CONFIDENCE_RANK = {"high": 2, "medium": 1}
+
+
+def _role_seniority(role_lower: str) -> str:
+    """'entry' / 'senior' from explicit title words, else 'mid'."""
+    words = set(re.findall(r"[a-z]+", role_lower))
+    if words & _ENTRY_CUES:
+        return "entry"
+    if words & _SENIOR_CUES:
+        return "senior"
+    return "mid"
+
+
+def get_local_role_salary_band(
+    country: str | None, role: str | None
+) -> dict[str, Any] | None:
+    """The one published local salary band for ``role`` in ``country``.
+
+    Searches every vertical's ``annual_salary`` block for the country, keeps
+    the RANGE entries listed in :data:`_LOCAL_BAND_OCCUPATIONS` whose role
+    phrases match ``role`` (longest phrase wins), prefers the entry whose
+    seniority tier matches the title's (``Software Engineer (Fresher)`` ->
+    entry; no cue -> mid; an untiered band also qualifies), then the higher
+    dataset confidence. Returns ONE band -- never a span across entries::
+
+        {"role", "low", "high", "median", "currency", "symbol", "statistic",
+         "label", "source_ids", "source", "confidence"}
+
+    ``None`` when no listed band matches (or for a US location -- US plans
+    use US data). Never raises.
+    """
+    if not country or not role or not isinstance(role, str):
+        return None
+    slug = _normalize_country(country)
+    if not slug or slug == "us":
+        return None
+    try:
+        from role_match import match_role_phrase
+        from plan_currency import symbol_for_code
+    except ImportError:  # pragma: no cover - modules ship with the repo
+        return None
+    data = _load()
+    role_lower = role.lower().strip()
+    seniority = _role_seniority(role_lower)
+    candidates: list[tuple[int, int, int, int, str, dict[str, Any]]] = []
+    order = 0
+    for vertical in (data.get("verticals") or {}).values():
+        if not isinstance(vertical, dict):
+            continue
+        block = (vertical.get("by_country") or {}).get(slug)
+        if not isinstance(block, dict):
+            continue
+        for key, entry in (block.get("annual_salary") or {}).items():
+            order += 1
+            spec = _LOCAL_BAND_OCCUPATIONS.get(key)
+            if spec is None or not isinstance(entry, dict):
+                continue
+            low, high, median = entry.get("low"), entry.get("high"), entry.get("median")
+            if not all(
+                isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0
+                for v in (low, high, median)
+            ):
+                continue
+            conf = str(entry.get("confidence") or "").lower()
+            if conf not in _CONFIDENCE_RANK:
+                continue
+            phrases, band_tier, _label = spec
+            matched = match_role_phrase(role_lower, phrases)
+            if matched is None:
+                continue
+            if band_tier is not None and band_tier != seniority:
+                continue
+            tier_rank = 1 if band_tier == seniority else 0
+            candidates.append(
+                (len(matched.split()), tier_rank, _CONFIDENCE_RANK[conf], -order, key, entry)
+            )
+    if not candidates:
+        return None
+    _w, _t, _c, _o, key, entry = max(candidates, key=lambda c: c[:4])
+    currency = str(entry.get("currency") or "").upper()
+    if not currency:
+        return None
+    sources = data.get("sources") or {}
+    source_ids = [s for s in (entry.get("source_ids") or []) if isinstance(s, str)]
+    source_names = [
+        str((sources.get(s) or {}).get("name") or s) for s in source_ids
+    ]
+    return {
+        "role": role,
+        "low": float(entry["low"]),
+        "high": float(entry["high"]),
+        "median": float(entry["median"]),
+        "currency": currency,
+        "symbol": symbol_for_code(currency),
+        "statistic": key,
+        "label": _LOCAL_BAND_OCCUPATIONS[key][2],
+        "source_ids": source_ids,
+        "source": "; ".join(source_names),
+        "confidence": str(entry.get("confidence") or "").lower(),
+    }
+
+
+def compact_money(value: float, symbol: str) -> str:
+    """150000 -> '£150K'; 1150000 -> '₹1.15M'; trailing zeros stripped."""
+    if value >= 1_000_000:
+        body = f"{value / 1_000_000:.2f}".rstrip("0").rstrip(".")
+        return f"{symbol}{body}M"
+    if value >= 1_000:
+        return f"{symbol}{value / 1_000:.0f}K"
+    return f"{symbol}{value:,.0f}"
+
+
+def format_local_band(band: dict[str, Any], plan_currency: str | None = None) -> str:
+    """One client-facing line for a band from :func:`get_local_role_salary_band`:
+    "₹300K median (₹180K-₹480K) - Registered Nurse (staff nurse, government;
+    source: Shework ...)". The ISO code is appended -- "(GBP)" -- when the band's
+    currency differs from the plan's, so a declared GBP figure on a USD plan
+    can never read as dollars."""
+    sym = band.get("symbol") or ""
+    text = (
+        f"{compact_money(band['median'], sym)} median "
+        f"({compact_money(band['low'], sym)}-{compact_money(band['high'], sym)})"
+    )
+    code = str(band.get("currency") or "").upper()
+    if code and code != str(plan_currency or "").upper():
+        text += f" ({code})"
+    detail = band.get("label") or ""
+    if band.get("source"):
+        detail = f"{detail}; source: {band['source']}" if detail else f"source: {band['source']}"
+    return f"{text} - {band.get('role') or ''} ({detail})"
+
+
+def get_plan_local_salary_band(data: dict | None) -> dict[str, Any] | None:
+    """Plan-level answer for a plan's headline local salary: the band of the
+    FIRST role (in plan order) that has one in the plan's first non-US market
+    that has any. ``None`` -> print "Local salary data n/a". The deck's
+    Salary Range, the cited-data block and the Google Slides line all use
+    this, so every surface states the same figure."""
+    if not isinstance(data, dict):
+        return None
+    roles_raw = data.get("target_roles") or data.get("roles") or []
+    roles: list[str] = []
+    for r in roles_raw if isinstance(roles_raw, list) else [roles_raw]:
+        title = (r.get("title") or r.get("role") or "") if isinstance(r, dict) else r
+        if isinstance(title, str) and title.strip():
+            roles.append(title.strip())
+    for loc in data.get("locations") or []:
+        if isinstance(loc, dict):
+            loc = loc.get("country") or loc.get("location") or loc.get("city") or ""
+        if not isinstance(loc, str) or not loc.strip():
+            continue
+        for role in roles:
+            band = get_local_role_salary_band(loc, role)
+            if band:
+                return band
+    return None
 
 
 def is_available() -> bool:

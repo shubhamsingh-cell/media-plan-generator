@@ -249,6 +249,20 @@ def _usd2_fmt() -> str:
 _USD_MARKED_FMT = '"US$"#,##0'
 
 
+def _currency_number_format(code: str) -> str:
+    """Whole-number format for a figure in ``code`` -- the figure's OWN
+    currency, not the plan's (a published GBP band on a USD plan reads £).
+    USD on a non-USD plan carries the explicit US$ marker; an empty code is
+    the plan's own currency."""
+    code = (code or "").strip().upper()
+    if not code or code == _get_active_currency():
+        return _usd0_fmt()
+    if code == "USD":
+        return _USD_MARKED_FMT
+    sym = _plan_currency.symbol_for_code(code) if _plan_currency is not None else code
+    return f'"{sym.strip()}"#,##0'
+
+
 def _cpc_number_format(ch_data: Optional[dict]) -> str:
     """Number format for a channel's CPC cell -- honest about whether the
     figure was actually localized.
@@ -7892,6 +7906,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         headers = ["Role", "Min", "P25", "Median", "P75", "Max", "Confidence"]
         row = _write_table_header(ws, row, headers)
         _mi_local_na = False
+        _mi_local_band = False
 
         salary_items = salary_intel
         if isinstance(salary_intel, dict):
@@ -7927,6 +7942,23 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     and _get_active_currency() != "USD"
                     else None
                 )
+                # A published local band is in its own market's currency;
+                # label it by that currency even when the plan's differs.
+                _sal_code = str(sal_data.get("currency") or "").upper()
+                if (
+                    _sal_code
+                    and _sal_code != "USD"
+                    and _sal_code != _get_active_currency()
+                    and _plan_currency is not None
+                ):
+                    _sal_currency_prefix = _plan_currency.symbol_for_code(_sal_code)
+
+                def _sal_cell(value: Any) -> str:
+                    # None = not published by the source (local bands carry
+                    # low / median / high only) -- never a derived figure.
+                    if value is None:
+                        return "—"
+                    return _fmt_currency(value or 0, prefix=_sal_currency_prefix)
 
                 # C14 FIX (2026-09-24): a role with no real or benchmark
                 # salary source now carries kb_validation.flag == "no_data"
@@ -7960,6 +7992,17 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                         "Not available",
                         "Not available",
                         "—",
+                    ]
+                elif sal_data.get("local_band"):
+                    _mi_local_band = True
+                    values = [
+                        role_name if isinstance(role_name, str) else str(role_name),
+                        _sal_cell(sal_data.get("min")),
+                        _sal_cell(sal_data.get("p25")),
+                        _sal_cell(sal_data.get("median")),
+                        _sal_cell(sal_data.get("p75")),
+                        _sal_cell(sal_data.get("max")),
+                        f"{confidence:.0%}",
                     ]
                 else:
                     values = [
@@ -8015,6 +8058,14 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                         sources.add(str(src))
         if sources:
             row = _write_footnote(ws, row, f"Sources: {', '.join(sorted(sources))}")
+        if _mi_local_band:
+            row = _write_footnote(
+                ws,
+                row,
+                "Local rows show one published salary band per role (low / "
+                "median / high, as published by the source named above); the "
+                "source publishes no P25/P75 for these bands (—).",
+            )
         if _mi_local_na:
             row = _write_footnote(
                 ws,
@@ -10263,6 +10314,12 @@ def _salary_range_from_per_role(
     convention. ``None``/"USD" renders exactly as before (bare "$", no
     suffix) -- a USD-only plan is completely unaffected.
     """
+    if info.get("local_salary_na"):
+        # A non-US market's city estimate is withheld (audit F 3.4). Its role
+        # rows may carry published local bands, but each is a different
+        # statistic for a different occupation -- a min-of-mins/max-of-maxes
+        # across them would pair unrelated numbers (design-judge 2026-10-01).
+        return None
     per_role: Dict[str, Any] = info.get("per_role_salary") or {}
     # K-05b / audit F 3.4: "Local salary data n/a" rows carry zeros, not a
     # salary -- never fold them into the range.
@@ -10543,6 +10600,7 @@ def _build_sheet_quality_intelligence(
                 _SOURCE_DISPLAY_LABELS = {"generic_enrichment": "Tier-Scaled Estimate"}
                 _all_salary_rows: List[Dict[str, Any]] = []
                 _any_local_na = False
+                _any_local_band = False
                 _any_us_marked = False
                 for city_name, info in city_data.items():
                     role_salary: dict = info.get("per_role_salary") or {}
@@ -10565,6 +10623,24 @@ def _build_sheet_quality_intelligence(
                             _money_cells: List[Any] = ["n/a"] * 5
                             # Text cells: a number format would coerce "n/a" to 0.
                             _row_fmts = [None] * 9
+                        elif sal.get("local_band"):
+                            # One published local band (low / median / high) in
+                            # its own currency; P25/P75 unpublished -> "—".
+                            _any_local_band = True
+                            _band_fmt = _currency_number_format(
+                                str(sal.get("currency") or "")
+                            )
+                            _money_cells = [
+                                _safe_num(sal.get("min", 0)),
+                                "—" if sal.get("p25") is None else _safe_num(sal["p25"]),
+                                _safe_num(sal.get("median", 0)),
+                                "—" if sal.get("p75") is None else _safe_num(sal["p75"]),
+                                _safe_num(sal.get("max", 0)),
+                            ]
+                            _row_fmts = [None, None] + [
+                                _band_fmt if not isinstance(v, str) else None
+                                for v in _money_cells
+                            ] + [None, None]
                         else:
                             _money_cells = [
                                 _safe_num(sal.get("min", 0)),
@@ -10611,6 +10687,12 @@ def _build_sheet_quality_intelligence(
                     _role_sal_note += (
                         " US$ rows are US-market figures shown in US dollars, "
                         "not converted."
+                    )
+                if _any_local_band:
+                    _role_sal_note += (
+                        " Non-US rows show one published local band per role "
+                        "(low / median / high as published, source in the "
+                        "Source column); no P25/P75 is published for these (—)."
                     )
                 if _any_local_na:
                     _role_sal_note += (

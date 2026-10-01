@@ -40,16 +40,21 @@ from joveo_brand_2026 import (
 from shared_utils import normalize_competitor_names
 
 try:
-    from intl_benchmark_lookup import get_cpa_median_usd, get_local_salary_summary
+    from intl_benchmark_lookup import (
+        format_local_band,
+        get_cpa_median_usd,
+        get_plan_local_salary_band,
+    )
 except ImportError:  # pragma: no cover -- defensive; module is in repo
 
     def get_cpa_median_usd(industry: str | None, country: str | None) -> float | None:
         return None
 
-    def get_local_salary_summary(
-        industry: str | None, country: str | None
-    ) -> dict | None:
+    def get_plan_local_salary_band(data: dict | None) -> dict | None:
         return None
+
+    def format_local_band(band: dict, plan_currency: str | None = None) -> str:
+        return ""
 
 
 try:
@@ -740,20 +745,18 @@ def _slide_benchmarking_1(data: dict) -> tuple[str, list[dict]]:
         locations[0] if isinstance(locations, list) and locations else None
     )
 
-    # Currency localization (backlog Q5): for non-US plans, show the role's
-    # salary band in LOCAL currency (GBP/EUR/INR/JPY...) with a USD equivalent,
-    # sourced from intl_role_benchmarks_v1.json where value + currency travel
-    # together. Self-consistent; never relabels a USD figure with a £/€ sign.
+    # Currency localization (backlog Q5): for non-US plans, show ONE role's
+    # published salary band in LOCAL currency with its statistic and source,
+    # from the same resolver the python-pptx deck and the workbook use
+    # (intl_benchmark_lookup.get_plan_local_salary_band) -- never a min/max
+    # spanning different statistics (design-judge 2026-10-01).
     try:
-        sal = get_local_salary_summary(industry, primary_country)
-        if sal and sal.get("local_display"):
-            line = (
-                f"\nLocal salary benchmark: {sal['local_display']} ({sal['currency']})"
+        band = get_plan_local_salary_band(data)
+        if band:
+            diff_text += (
+                "\nLocal salary benchmark: "
+                f"{format_local_band(band, data.get('_plan_currency_code'))}"
             )
-            usd_eq = sal.get("usd_display")
-            if usd_eq:
-                line += f" [~{usd_eq} USD]"
-            diff_text += line
     except Exception:  # pragma: no cover -- never break the deck
         logger.error("local salary enrichment failed", exc_info=True)
 

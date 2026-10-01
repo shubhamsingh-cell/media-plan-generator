@@ -1897,38 +1897,89 @@ def _clamp_salary_intelligence_to_role_bands(
         }
 
 
-def _withhold_us_salaries_without_us_market(
+def local_band_salary_result(band: Dict[str, Any]) -> Dict[str, Any]:
+    """salary_intelligence row for a published local band from
+    ``intl_benchmark_lookup.get_local_role_salary_band``: low / median / high
+    as published, in the band's own currency, attributed to its source. The
+    band publishes no percentiles, so p10/p25/p75/p90 are None (rendered
+    "—"), never derived."""
+    confidence = 0.70 if band.get("confidence") == "high" else 0.45
+    return {
+        "median": band["median"],
+        "mean": band["median"],
+        "min": band["low"],
+        "max": band["high"],
+        "p10": None,
+        "p25": None,
+        "p75": None,
+        "p90": None,
+        "sources": [band.get("source") or "Local benchmark"],
+        "outlier_flags": [],
+        "kb_validation": {"validated": False, "deviation": 0.0, "flag": "local_band"},
+        "confidence": confidence,
+        "confidence_score": confidence,
+        "_meta": {
+            "source_count": 1,
+            "kb_validated": False,
+            "statistic": band.get("statistic"),
+        },
+        "currency": band.get("currency") or "",
+        "local_band": True,
+        "local_label": band.get("label") or "",
+    }
+
+
+def _localize_salaries_without_us_market(
     salary_intel: Dict[str, Any], input_data: dict
 ) -> None:
-    """Replace, in place, every US-sourced role salary on a plan with NO US
-    market by an honest "local salary data n/a" row.
+    """On a plan with NO US market, replace every role's salary, in place,
+    by the role's one published local band -- or an honest "local salary
+    data n/a" row when the role has none.
 
-    Audit F 3.4: BLS / O*NET / DataUSA / CareerOneStop / DOL H-1B, the
-    US fallback table and the US-basis driver wages are US-market figures
-    tagged ``currency: "USD"``. Labelling them US$ was honest about the
-    currency but still put a US number on a non-US plan: Bangalore RN
-    US$78,000, London software engineer US$150,000, Sao Paulo retail
-    US$90,000. No sourced per-role local salary exists in the knowledge
-    base, so the row says so instead. Plan-local figures ("" currency, e.g.
-    Jooble queried against the plan's own locations) are kept. A plan with
-    any US market keeps its US figures -- they describe that market.
+    Audit F 3.4: BLS / O*NET / DataUSA / CareerOneStop / DOL H-1B, the US
+    fallback table and the US-basis driver wages are US-market figures
+    (``currency: "USD"``); labelling them US$ still put a US number on a
+    non-US plan (Bangalore RN US$78,000, London SWE US$150,000). The local
+    band comes from the SAME resolver the deck's Salary Range and the
+    workbook's per-city rows use
+    (``intl_benchmark_lookup.get_local_role_salary_band``), so every surface
+    states one figure. Plan-local figures ("" currency, e.g. Jooble queried
+    against the plan's own locations) are kept. A plan with any US market
+    keeps its US figures -- they describe that market.
     """
     if not isinstance(salary_intel, dict) or not salary_intel:
         return
     try:
         import plan_geo as _pg
-    except ImportError:  # pragma: no cover - plan_geo ships with the repo
+        from intl_benchmark_lookup import get_local_role_salary_band
+    except ImportError:  # pragma: no cover - modules ship with the repo
         return
     if _pg.plan_has_us_market(input_data):
         return
+    markets = [
+        loc
+        for loc in (input_data.get("locations") or [])
+        if _pg.location_is_us(loc) is not True
+    ]
     for role, sal in list(salary_intel.items()):
-        if not isinstance(sal, dict) or not sal.get("median"):
+        if not isinstance(sal, dict):
             continue
-        if str(sal.get("currency") or "").upper() != "USD":
-            continue
-        withheld = _empty_salary_result(role)
-        withheld["local_salary_na"] = True
-        salary_intel[role] = withheld
+        band = None
+        for loc in markets:
+            if isinstance(loc, dict):
+                loc = loc.get("country") or loc.get("location") or loc.get("city") or ""
+            band = get_local_role_salary_band(str(loc or ""), role)
+            if band:
+                break
+        if band:
+            # The published band wins for every role it covers, so this
+            # sheet and the deck's Salary Range state the same figure.
+            salary_intel[role] = local_band_salary_result(band)
+        elif sal.get("median") and str(sal.get("currency") or "").upper() == "USD":
+            withheld = _empty_salary_result(role)
+            withheld["local_salary_na"] = True
+            salary_intel[role] = withheld
+        # else: a plan-local figure ("" currency) or no data -- kept as is.
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4528,11 +4579,11 @@ def synthesize(
         logger.error("salary role-band clamp failed: %s", exc, exc_info=True)
 
     try:
-        _withhold_us_salaries_without_us_market(
+        _localize_salaries_without_us_market(
             synthesis.get("salary_intelligence") or {}, input_data
         )
     except Exception as exc:
-        logger.error("non-US salary withhold failed: %s", exc, exc_info=True)
+        logger.error("non-US salary localization failed: %s", exc, exc_info=True)
 
     # Salary-intelligence defect fix (2026-07): synthesis["per_role_salaries"]
     # is the wiring point gold_standard.enrich_city_level_data() reads (as an
@@ -4590,8 +4641,16 @@ def synthesize(
                 # "(est.)" tag / amber highlight for these rows).
                 "confidence": "benchmark" if _confidence_num >= 0.5 else "estimated",
                 "currency": _sal.get("currency") or "",
-                "city_adjust": not _is_driver_band,
+                # A published local band is a national figure for its own
+                # market: used as published, never re-scaled by a US-built
+                # city multiplier.
+                "city_adjust": not _is_driver_band and not _sal.get("local_band"),
             }
+            if _sal.get("local_band"):
+                _per_role_salaries[_role_title]["local_band"] = True
+                _per_role_salaries[_role_title]["local_label"] = (
+                    _sal.get("local_label") or ""
+                )
         if _per_role_salaries:
             synthesis["per_role_salaries"] = _per_role_salaries
     except Exception as exc:
