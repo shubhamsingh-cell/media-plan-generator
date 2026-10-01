@@ -164,16 +164,42 @@ def stable_id_for(chunk_text: str) -> Optional[str]:
     return f"{source}#{prefix}"
 
 
+#: Indexed KB files that are gitignored runtime artifacts (written by the
+#: enrichment jobs, the server and the test suite; absent on a fresh checkout).
+#: The eval excludes them so its corpus -- and therefore the committed baseline --
+#: is the same on every machine instead of drifting with whatever a prior run
+#: left in data/.  Pass ``include_runtime=True`` to mirror production exactly.
+RUNTIME_GENERATED_KB_FILES = frozenset(
+    {
+        "channel_benchmarks_live.json",
+        "competitor_careers.json",
+        "google_trends.json",
+        "job_posting_volumes.json",
+    }
+)
+
+
 def build_corpus(
-    data_dir: Optional[Path] = None, kb_files: Optional[Sequence[str]] = None
+    data_dir: Optional[Path] = None,
+    kb_files: Optional[Sequence[str]] = None,
+    include_runtime: bool = False,
 ) -> List[Chunk]:
     """Rebuild the production chunk list (mirrors ``index_knowledge_base``).
 
-    ``tests/test_retrieval_eval.py`` pins parity with the real indexer, so a
-    change to chunking cannot silently desynchronise this harness.
+    ``tests/test_retrieval_eval.py`` pins parity with the real indexer (with
+    ``include_runtime=True``), so a change to chunking cannot silently
+    desynchronise this harness.  By default the gitignored runtime artifacts in
+    ``RUNTIME_GENERATED_KB_FILES`` are skipped (see that constant).
     """
     data_dir = Path(data_dir) if data_dir else PROJECT_ROOT / "data"
-    files = list(kb_files) if kb_files is not None else list(vs._KB_INDEX_FILES)
+    if kb_files is not None:
+        files = list(kb_files)
+    else:
+        files = [
+            f
+            for f in vs._KB_INDEX_FILES
+            if include_runtime or f not in RUNTIME_GENERATED_KB_FILES
+        ]
     chunks: List[Chunk] = []
     counter = 0
     for filename in files:

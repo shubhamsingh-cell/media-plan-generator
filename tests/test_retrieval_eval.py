@@ -124,8 +124,9 @@ def test_stable_id_for_dict_and_leaf_chunks():
     assert rev.stable_id_for("no header at all") is None
 
 
-def test_corpus_matches_production_indexer(corpus):
+def test_corpus_matches_production_indexer():
     """The harness must index exactly what index_knowledge_base() builds."""
+    corpus = rev.build_corpus(include_runtime=True)
     captured: List[dict] = []
     # index_knowledge_base() also flips the module's startup flag; patch it so
     # the real value is restored afterwards.
@@ -136,6 +137,25 @@ def test_corpus_matches_production_indexer(corpus):
     assert n == len(corpus) == len(captured)
     assert [c.doc_id for c in corpus] == [d["id"] for d in captured]
     assert [c.text for c in corpus] == [d["text"] for d in captured]
+
+
+def test_default_corpus_excludes_gitignored_runtime_artifacts(tmp_path):
+    """A prior run's data/*.json byproducts must not move the baseline corpus."""
+    data = _write_kb(tmp_path)
+    runtime = sorted(rev.RUNTIME_GENERATED_KB_FILES)[0]
+    (data / runtime).write_text(
+        json.dumps({"x": {"summary": "runtime artifact text long enough to chunk"}}),
+        encoding="utf-8",
+    )
+    with mock.patch.object(vs, "_KB_INDEX_FILES", ["mini_kb.json", runtime]):
+        default = rev.build_corpus(data)
+        full = rev.build_corpus(data, include_runtime=True)
+    assert {c.source for c in default} == {"mini_kb.json"}
+    assert {c.source for c in full} == {"mini_kb.json", runtime}
+    # Every excluded name really is gitignored runtime output, never a tracked file.
+    ignore = (PROJECT_ROOT / ".gitignore").read_text(encoding="utf-8")
+    for name in rev.RUNTIME_GENERATED_KB_FILES:
+        assert f"data/{name}" in ignore, f"{name} is not gitignored; do not exclude it"
 
 
 def test_stable_ids_are_nearly_unique(corpus):
