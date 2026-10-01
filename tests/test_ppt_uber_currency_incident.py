@@ -351,7 +351,9 @@ class TestBenchmarkProvenanceFlags:
         # -> hospitality_travel $2,500-$4,000, avg $3,250 -- the range the
         # engine's floor uses), no longer the KB's separate $1,500-$3,500.
         assert any(
-            t.startswith("US$2,500-US$4,000 (avg US$3,250)") for t in texts
+            # 2026-10-01 design-judge item 3: "midpoint" (it is the range's
+            # midpoint, not an average); one-line compact form on the slide.
+            t.startswith("US$2.5K–4K (midpoint US$3.25K)") for t in texts
         ), texts
         # And no bare, unmarked "£" leaks in for these rows.
         assert not any(re.match(r"^£[\d]", t) for t in texts), texts
@@ -425,7 +427,10 @@ class TestUsdPlanUnaffected:
         assert any(t.startswith("$10-$30") for t in texts), texts
         assert any(t.startswith("$0.25-$1.00") for t in texts), texts
         # 2026-10-01: the engine's one CPH benchmark (see the GBP test above).
-        assert any(t.startswith("$2,500-$4,000 (avg $3,250)") for t in texts), texts
+        # 2026-10-01: "midpoint", not "avg" (design-judge item 3).
+        assert any(
+            t.startswith("$2,500–$4,000 (midpoint $3,250)") for t in texts
+        ), texts
         assert not any("US$" in t for t in texts), texts
 
 

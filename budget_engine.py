@@ -1356,13 +1356,24 @@ def industry_cph_display(
         return None
     code = (active_currency or "USD").upper()
 
-    def _money(val: Any, ccy: str) -> str:
-        v = float(val)
+    def _symbol(ccy: str) -> str:
         if ccy == "USD":
-            return f"{'US$' if code != 'USD' else '$'}{v:,.0f}"
+            return "US$" if code != "USD" else "$"
         if _HAS_PLAN_CURRENCY:
-            return _plan_currency.format_money(v, ccy)
-        return f"{ccy} {v:,.0f}"
+            one = _plan_currency.format_money(1, ccy)  # "₹1", "CHF 1"
+            if one.endswith("1"):
+                return one[:-1]
+        return f"{ccy} "
+
+    def _money(val: Any, ccy: str, compact: bool = False, bare: bool = False) -> str:
+        v = float(val)
+        sym = "" if bare else _symbol(ccy)
+        if compact:
+            for div, suffix in ((1_000_000, "M"), (1_000, "K")):
+                if abs(v) >= div:
+                    body = f"{v / div:,.2f}".rstrip("0").rstrip(".")
+                    return f"{sym}{body}{suffix}"
+        return f"{sym}{v:,.0f}"
 
     if cph.get("claim_suppressed"):
         text = "No local benchmark for this market"
@@ -1377,21 +1388,31 @@ def industry_cph_display(
     if not isinstance(value, (int, float)) or value <= 0:
         return None
     ccy = str(cph.get("currency") or "USD").upper()
-    mid = _money(value, ccy)
-    rng = (
-        f"{_money(low, ccy)}–{_money(high, ccy)}"
-        if isinstance(low, (int, float)) and isinstance(high, (int, float))
-        else ""
-    )
+    has_rng = isinstance(low, (int, float)) and isinstance(high, (int, float))
+
+    def _variants(word: str) -> List[str]:
+        # Longest first; every form keeps the range AND the named point
+        # (midpoint / median) until the last-resort range-only form.
+        out: List[str] = []
+        for compact in (False, True):
+            mid = _money(value, ccy, compact)
+            for bare_high in (False, True):
+                rng = (
+                    f"{_money(low, ccy, compact)}–"
+                    f"{_money(high, ccy, compact, bare=bare_high)}"
+                    if has_rng
+                    else ""
+                )
+                out.append(f"{rng} ({word} {mid})" if rng else f"{mid} ({word})")
+        if has_rng:
+            out.append(f"{_money(low, ccy)}–{_money(high, ccy)}")
+        return [v for i, v in enumerate(out) if v and v not in out[:i]]
+
     label_word = cph.get("value_label") or "midpoint"
     if cph.get("basis") == "local_kb":
         names = list(cph.get("source_names") or [])
         word = "median" if label_word == "median" else "midpoint"
-        variants = [v for v in (
-            f"{rng} ({word} {mid})" if rng else f"{mid} ({word})",
-            f"{rng}, {word} {mid}" if rng else "",
-            rng,
-        ) if v]
+        variants = _variants(word)
         return {
             "label": "Local Cost-per-Hire",
             "text": variants[0],
@@ -1399,11 +1420,7 @@ def industry_cph_display(
             "source_names": names,
             "kind": "local",
         }
-    variants = [v for v in (
-        f"{rng} (midpoint {mid})" if rng else f"{mid} (midpoint)",
-        f"{rng}, mid {mid}" if rng else "",
-        rng,
-    ) if v]
+    variants = _variants("midpoint")
     entry = {
         "label": "Industry Cost-per-Hire",
         "text": variants[0],

@@ -159,7 +159,8 @@ class TestDeck:
 
     def test_slide5_row_is_the_one_benchmark(self, dallas):
         lines = [t for s, t in _deck_lines(dallas) if s == 5]
-        assert any("$9,000-$12,000 (avg $10,500)" in t for t in lines), lines
+        # one-line compact form of "$9,000–$12,000 (midpoint $10,500)"
+        assert any("$9K–$12K (midpoint $10.5K)" in t for t in lines), lines
 
     def test_local_market_footnote_names_the_rate_not_parity(self, bangalore):
         notes = [t for _, t in _deck_lines(bangalore) if t.startswith("Figures in INR")]

@@ -2898,17 +2898,52 @@ def _hires_range_line(
         and avg > 0
     ):
         return ""
-    which = (
-        "local-market average"
-        if cph_info.get("basis") == "local_kb"
-        else "industry average"
-    )
-    return (
+    # Name the basis exactly (design-judge items 2/3, 2026-10-01): the
+    # figure is a range MIDPOINT (or a source-stated median), the plan's own
+    # industry or the cross-industry default, local source or not.
+    if cph_info.get("basis") == "local_kb":
+        names = ", ".join(cph_info.get("source_names") or []) or "local source"
+        word = "median" if cph_info.get("value_label") == "median" else "midpoint"
+        which = f"cited local range {word} ({names})"
+    elif cph_info.get("industry_matched", True):
+        which = "industry-range midpoint"
+    else:
+        which = "cross-industry default midpoint"
+    sentence = (
         f"Projected hires range: {lo:,}–{hi:,} ({lo:,} if every hire costs "
         f"the {which} of {_fmt_industry_cph(avg, cph_info)}; {hi:,} at this "
         f"plan's efficiency floor of {_fmt_industry_cph(avg * 0.5, cph_info)}"
-        f"/hire). {header_hires:,} is the plan's point estimate."
+        f"/hire). {header_hires:,} is the plan's point estimate"
     )
+    at_range = cph_info.get("hires_at_range")
+    lo_c, hi_c = cph_info.get("low"), cph_info.get("high")
+    if (
+        isinstance(at_range, (list, tuple))
+        and len(at_range) == 2
+        and isinstance(lo_c, (int, float))
+        and isinstance(hi_c, (int, float))
+    ):
+        sentence += (
+            f"; at the range's ends ({_fmt_industry_cph(lo_c, cph_info)}–"
+            f"{_fmt_industry_cph(hi_c, cph_info)} per hire) the budget buys "
+            f"{int(at_range[0]):,}–{int(at_range[1]):,} hires"
+        )
+    return sentence + "."
+
+
+def _plan_industry_cph_display(budget_alloc: Any) -> Optional[Dict[str, Any]]:
+    """``budget_engine.industry_cph_display`` for this plan -- the SAME label
+    and figures the deck's slide-5 cost-per-hire row prints."""
+    info = _plan_industry_cph(budget_alloc)
+    if not info:
+        return None
+    try:
+        import budget_engine as _be_disp
+
+        return _be_disp.industry_cph_display(info, _get_active_currency())
+    except (ImportError, AttributeError, TypeError, ValueError) as exc:
+        logger.error("industry CPH display failed: %s", exc, exc_info=True)
+        return None
 
 
 def _kb_industry_cph_benchmark(
@@ -5755,8 +5790,28 @@ def _build_sheet_executive_summary(
                         row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
             else:
                 # Flat benchmarks (no regional breakdown)
+                # Design-judge item 2 (2026-10-01): the cost-per-hire row is
+                # the plan's ONE resolver figure with the SAME label and text
+                # as deck slide 5 (budget_engine.industry_cph_display), except
+                # where the plan's industry has no range of its own -- then
+                # the KB's own industry row stays, which is what the deck
+                # shows too.
+                _cph_disp = _plan_industry_cph_display(budget_alloc)
+                _cph_row_written = False
                 for key, val in ind_bench.items():
                     if key not in ("regional", "by_region", "metadata"):
+                        if (
+                            key == "cph"
+                            and _cph_disp is not None
+                            and not _cph_disp.get("prefer_kb_row")
+                        ):
+                            row = _write_kv_row(
+                                ws, row, _cph_disp["label"], _cph_disp["text"]
+                            )
+                            _cph_row_written = True
+                            continue
+                        if key == "cph":
+                            _cph_row_written = True
                         if key == "seasonal_patterns":
                             # S: prefer a matched sub-vertical's own seasonal
                             # profile (gold_standard Gate 7) over the generic
@@ -5789,6 +5844,11 @@ def _build_sheet_executive_summary(
                             if _get_active_currency() != "USD" and "$" in val_str:
                                 _bm_label = f"{_bm_label} (USD)"
                             row = _write_kv_row(ws, row, _bm_label, val_str)
+                if _cph_disp is not None and not _cph_row_written:
+                    # The KB has no cost-per-hire row for this industry (or
+                    # no entry at all): still print the plan's figure so the
+                    # workbook states what slide 5 states.
+                    row = _write_kv_row(ws, row, _cph_disp["label"], _cph_disp["text"])
 
             # S89A FIX (findings data:manpower#3/#4, visual:manpower#3,
             # strategy:manpower#3): when this plan's own blended CPA/apply
