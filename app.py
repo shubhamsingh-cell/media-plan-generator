@@ -848,6 +848,7 @@ def _cache_cleanup_loop() -> None:
             # (the stores never raise; each call is its own error boundary)
             _shared_plan_store.sweep()
             _plan_result_store.sweep()
+            _scorecard_store.sweep()
 
             total_purged = (
                 purged_insights
@@ -7210,6 +7211,59 @@ _scorecards: dict[str, tuple[str, float]] = {}
 _scorecards_lock = threading.Lock()
 _SCORECARDS_MAX = 500
 _SCORECARDS_TTL = 43200.0  # 12 hours
+# Scorecard ids are scorecard_generator.generate_share_id(): the first 12 hex
+# of sha256(plan) -- the scorecard-id family, not a job/plan hex id (see the
+# hex-width lint in tests/test_multiprocess_serving.py). Also the
+# path-traversal / PostgREST-filter guard for every lookup.
+_SCORECARD_ID_RE = re.compile(r"[0-9a-f]{12}")
+_SCORECARD_RECORD_MAX_BYTES = 256 * 1024
+_SCORECARDS_FILE_MAX_BYTES = 32 * 1024 * 1024
+# Instance file layer only: a 12-hex (48-bit) id is too short to key the
+# sealed Supabase layer, and the page is public-by-design anyway.
+_scorecard_store = shared_state.SharedRecordStore(
+    "scorecard",
+    _shared_state_dir,
+    subdir=os.path.join("shared_state", "scorecards"),
+    key_pattern=_SCORECARD_ID_RE,
+    created_field="created",
+    ttl_seconds=_SCORECARDS_TTL,
+    max_record_bytes=_SCORECARD_RECORD_MAX_BYTES,
+    max_records=_SCORECARDS_MAX,
+    max_total_bytes=_SCORECARDS_FILE_MAX_BYTES,
+    durable=False,
+)
+
+
+def _scorecard_put(share_id: str, page_html: str) -> None:
+    """Keep a rendered scorecard in this worker's dict and the instance file
+    layer, so every worker serves it (it used to 404 on 3 of 4 workers)."""
+    created = time.time()
+    with _scorecards_lock:
+        _scorecards[share_id] = (page_html, created)
+    _scorecard_store.put(share_id, {"html": page_html, "created": created}, durable=False)
+
+
+def _scorecard_get(share_id: str) -> Optional[str]:
+    """A live scorecard's HTML from this worker's dict, else the file layer.
+
+    Only pages this build rendered ever reach either layer; the legacy
+    Supabase fallback in routes/campaign.py re-renders instead of echoing.
+    """
+    if not isinstance(share_id, str) or not _SCORECARD_ID_RE.fullmatch(share_id):
+        return None
+    now = time.time()
+    with _scorecards_lock:
+        entry = _scorecards.get(share_id)
+    if entry is not None:
+        page_html, created = entry if isinstance(entry, tuple) else (entry, now)
+        return None if now - (created or 0) > _SCORECARDS_TTL else page_html
+    record = _scorecard_store.get(share_id) or {}
+    page_html = record.get("html")
+    if not isinstance(page_html, str):
+        return None
+    with _scorecards_lock:
+        _scorecards.setdefault(share_id, (page_html, record.get("created") or now))
+    return page_html
 
 # ASYNC GENERATION JOB STORE
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -9284,6 +9338,7 @@ _generate_slots = _CrossProcessSlots(_MAX_CONCURRENT_GENERATE)
 for _startup_store in (
     _shared_plan_store,
     _plan_result_store,
+    _scorecard_store,
     _job_record_store,
     _job_result_blobs,
 ):

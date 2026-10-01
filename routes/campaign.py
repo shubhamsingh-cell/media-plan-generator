@@ -616,8 +616,6 @@ def _handle_plan_feedback(handler: Any, path: str, parsed: Any) -> None:
 def _handle_plan_scorecard(handler: Any, path: str, parsed: Any) -> None:
     """POST /api/plan/scorecard -- generate a shareable plan scorecard."""
     _app = sys.modules.get("app") or sys.modules.get("__main__")
-    _scorecards = getattr(_app, "_scorecards", {})
-    _scorecards_lock = getattr(_app, "_scorecards_lock", None)
 
     try:
         content_len = int(handler.headers.get("Content-Length") or 0)
@@ -628,18 +626,17 @@ def _handle_plan_scorecard(handler: Any, path: str, parsed: Any) -> None:
         if not plan_data:
             handler._send_json({"error": "plan_data is required"}, status_code=400)
             return
+        if not isinstance(plan_data, dict):
+            handler._send_json({"error": "plan_data must be a JSON object"}, status_code=400)
+            return
 
         from scorecard_generator import generate_share_id, generate_scorecard_html
 
         share_id = generate_share_id(plan_data)
         scorecard_html = generate_scorecard_html(plan_data, share_id)
 
-        # Store in memory as (html, timestamp) tuple
-        if _scorecards_lock:
-            with _scorecards_lock:
-                _scorecards[share_id] = (scorecard_html, time.time())
-        else:
-            _scorecards[share_id] = (scorecard_html, time.time())
+        # This worker's dict + the instance file layer (every worker serves it).
+        _app._scorecard_put(share_id, scorecard_html)
 
         # Persist to Supabase if available
         try:
@@ -675,51 +672,71 @@ def _handle_plan_scorecard(handler: Any, path: str, parsed: Any) -> None:
         handler._send_json({"error": "Failed to generate scorecard"}, status_code=500)
 
 
+def _rerender_stored_scorecard(_app: Any, share_id: str) -> str:
+    """Re-render a scorecard from the plan stored in Supabase ("" on a miss).
+
+    ``share_id`` must already have passed ``_SCORECARD_ID_RE``.
+    """
+    _supabase_rest = getattr(_app, "_supabase_rest", None)
+    if not _supabase_rest:
+        return ""
+    try:
+        result = _supabase_rest(
+            "scorecards",
+            method="GET",
+            params=f"?share_id=eq.{share_id}&select=plan_data,created_at&limit=1",
+        )
+    except Exception as e:  # error isolation: a lookup failure is a 404
+        logger.warning("Supabase scorecard lookup failed: %s", e)
+        return ""
+    if not (result and isinstance(result, list) and isinstance(result[0], dict)):
+        return ""
+    row = result[0]
+    plan_data = row.get("plan_data")
+    if isinstance(plan_data, str):
+        try:
+            plan_data = json.loads(plan_data)
+        except ValueError:
+            return ""
+    if not isinstance(plan_data, dict) or not plan_data:
+        return ""
+    generated_at = None
+    try:
+        generated_at = datetime.datetime.strptime(
+            str(row.get("created_at") or "")[:19], "%Y-%m-%dT%H:%M:%S"
+        ).replace(tzinfo=datetime.timezone.utc)
+    except ValueError:
+        pass  # unknown creation time: the re-render is dated today
+    try:
+        from scorecard_generator import generate_scorecard_html
+
+        return generate_scorecard_html(plan_data, share_id, generated_at)
+    except Exception as e:  # error isolation: a bad legacy row is a 404, not a 500
+        logger.error("Scorecard re-render failed: %s", e, exc_info=True)
+        return ""
+
+
 def _handle_scorecard_view(handler: Any, path: str, parsed: Any) -> None:
     """GET /scorecard/<share_id> -- serve a shareable plan scorecard."""
     _app = sys.modules.get("app") or sys.modules.get("__main__")
-    _scorecards = getattr(_app, "_scorecards", {})
-    _scorecards_lock = getattr(_app, "_scorecards_lock", None)
 
     share_id = path.split("/scorecard/")[-1].rstrip("/")
-    if not share_id:
-        handler.send_error(404, "Scorecard ID required")
+    # The id regex runs before ANY lookup: it is the path-traversal guard for
+    # the file layer and keeps request text out of the PostgREST filter below.
+    if not share_id or not _app._SCORECARD_ID_RE.fullmatch(share_id):
+        handler.send_error(404, "Scorecard not found")
         return
 
-    # Look up in memory first -- values are (html, timestamp) tuples
-    html_content = None
-    if _scorecards_lock:
-        with _scorecards_lock:
-            _sc_entry = _scorecards.get(share_id)
-            if _sc_entry:
-                html_content = (
-                    _sc_entry[0] if isinstance(_sc_entry, tuple) else _sc_entry
-                )
-    else:
-        _sc_entry = _scorecards.get(share_id)
-        if _sc_entry:
-            html_content = _sc_entry[0] if isinstance(_sc_entry, tuple) else _sc_entry
+    # This worker's dict, else the instance file layer (any worker's scorecard).
+    html_content = _app._scorecard_get(share_id)
 
-    # Fallback: try Supabase
+    # Legacy fallback: the Supabase scorecards table. Its stored `html` may have
+    # been rendered by a build that did not escape caller input, so it is never
+    # served; the stored plan is re-rendered by the current (escaping) generator.
     if not html_content:
-        try:
-            _supabase_rest = getattr(_app, "_supabase_rest", None)
-            if _supabase_rest:
-                result = _supabase_rest(
-                    "scorecards",
-                    method="GET",
-                    params=f"?share_id=eq.{share_id}&select=html&limit=1",
-                )
-                if result and isinstance(result, list) and result[0].get("html"):
-                    html_content = result[0]["html"]
-                    # Cache in memory for subsequent requests as (html, ts) tuple
-                    if _scorecards_lock:
-                        with _scorecards_lock:
-                            _scorecards[share_id] = (html_content, time.time())
-                    else:
-                        _scorecards[share_id] = (html_content, time.time())
-        except Exception as e:
-            logger.warning("Supabase scorecard lookup failed: %s", e)
+        html_content = _rerender_stored_scorecard(_app, share_id)
+        if html_content:
+            _app._scorecard_put(share_id, html_content)
 
     if not html_content:
         handler.send_error(404, "Scorecard not found")

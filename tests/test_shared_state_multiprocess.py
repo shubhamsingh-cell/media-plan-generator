@@ -219,6 +219,18 @@ def test_unknown_share_is_still_404_everywhere(cluster) -> None:
         assert status == 404
 
 
+def test_scorecard_created_on_one_worker_is_viewable_on_every_worker(cluster) -> None:
+    a, b, c = cluster
+    plan = {"roles": ["Cross Worker Nurse"], "budget": 120000, "nonce": secrets.token_hex(8)}
+    status, _h, raw = a.http("POST", "/api/plan/scorecard", {"plan_data": plan}, _post_headers())
+    assert status == 200, raw
+    share_id = json.loads(raw)["share_id"]
+    for worker in (a, b, c):
+        status, _h, body = worker.http("GET", f"/scorecard/{share_id}")
+        assert status == 200, f"worker {worker.name}: GET scorecard -> {status}"
+        assert b"Cross Worker Nurse" in body
+
+
 # ---------------------------------------------------------------------------
 # Plan results (on-screen dashboard, /plan/<id>, sheets-url)
 # ---------------------------------------------------------------------------

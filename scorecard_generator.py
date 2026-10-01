@@ -10,6 +10,8 @@ import hashlib
 import html
 import json
 import logging
+import math
+import re
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -58,21 +60,56 @@ def generate_share_id(plan_data: dict[str, Any]) -> str:
 
 
 def _safe(value: Any, default: str = "--") -> str:
-    """Safely convert a value to an HTML-escaped string."""
+    """Safely convert a value to an HTML-escaped string (text or attribute)."""
     text = str(value) if value else default
-    return html.escape(text)
+    return html.escape(text, quote=True)
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    """``value`` if it is a dict, else {} -- plans arrive from any caller."""
+    return value if isinstance(value, dict) else {}
+
+
+def _to_float(value: Any) -> float:
+    """A finite float, or 0.0 for anything that is not a number."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+    return number if math.isfinite(number) else 0.0
+
+
+# Symbols the page may print: every symbol plan_currency knows, or the
+# "<ISO code> " text form it uses for codes without a glyph. Anything else
+# (symbol_for_code echoes unknown input back upper-cased) is replaced by "$".
+_ISO_SYMBOL_RE = re.compile(r"[A-Z]{3} ")
+
+
+def _known_symbols() -> frozenset:
+    table = getattr(_plan_currency, "_CODE_TO_SYMBOL", None) or {}
+    return frozenset(v for v in table.values() if isinstance(v, str))
 
 
 def _currency_symbol(plan_data: Optional[dict[str, Any]]) -> str:
-    """Display symbol for this plan's currency. Falls back to "$"."""
+    """Display symbol for this plan's currency. Falls back to "$".
+
+    The plan's currency is caller-supplied; only an allow-listed symbol (or an
+    ISO-code text form) is ever returned, so it is safe in HTML text and
+    attributes even before escaping.
+    """
     if _plan_currency is None:
         return "$"
     try:
-        return _plan_currency.symbol_for_code(
+        symbol = _plan_currency.symbol_for_code(
             _plan_currency.currency_for_plan(plan_data)
         )
     except Exception:  # noqa: BLE001 - presentation must never break rendering
         return "$"
+    if isinstance(symbol, str) and (
+        symbol in _known_symbols() or _ISO_SYMBOL_RE.fullmatch(symbol)
+    ):
+        return symbol
+    return "$"
 
 
 def _format_budget(budget: Any, symbol: str = "$") -> str:
@@ -82,22 +119,23 @@ def _format_budget(budget: Any, symbol: str = "$") -> str:
     practice: this page is published at a public share URL with OpenGraph
     cards, so a hardcoded "$" restated a £420,000 plan as "$420,000" to
     everyone the link reached -- while the deck and workbook in the same
-    bundle rendered it correctly.
+    bundle rendered it correctly. The result is always HTML-escaped.
     """
     if not budget:
         return "--"
     if isinstance(budget, str):
-        # Already formatted upstream (e.g. "£50,000") -- trust it.
-        return html.escape(budget)
-    try:
-        amount = float(budget)
-        if amount >= 1_000_000:
-            return f"{symbol}{amount / 1_000_000:,.1f}M"
-        if amount >= 1_000:
-            return f"{symbol}{amount:,.0f}"
-        return f"{symbol}{amount:,.2f}"
-    except (ValueError, TypeError):
-        return html.escape(str(budget))
+        # Already formatted upstream (e.g. "£50,000") -- escaped, never trusted.
+        return html.escape(budget, quote=True)
+    amount = _to_float(budget)
+    if not amount and not isinstance(budget, (int, float)):
+        return html.escape(str(budget), quote=True)
+    if amount >= 1_000_000:
+        text = f"{symbol}{amount / 1_000_000:,.1f}M"
+    elif amount >= 1_000:
+        text = f"{symbol}{amount:,.0f}"
+    else:
+        text = f"{symbol}{amount:,.2f}"
+    return html.escape(text, quote=True)
 
 
 def _normalize_percentages(channels: list[dict[str, Any]]) -> None:
@@ -112,7 +150,7 @@ def _normalize_percentages(channels: list[dict[str, Any]]) -> None:
     if not channels:
         return
 
-    raw = [max(float(c.get("percentage") or 0), 0.0) for c in channels]
+    raw = [max(_to_float(c.get("percentage")), 0.0) for c in channels]
     total = sum(raw)
     if total <= 0:
         for c in channels:
@@ -140,19 +178,19 @@ def _extract_channels(plan_data: dict[str, Any]) -> list[dict[str, Any]]:
     channels: list[dict[str, Any]] = []
 
     # Try budget_allocation.channel_allocations first
-    budget_alloc = (
-        plan_data.get("_budget_allocation") or plan_data.get("budget_allocation") or {}
+    budget_alloc = _as_dict(
+        plan_data.get("_budget_allocation") or plan_data.get("budget_allocation")
     )
     ch_allocs = budget_alloc.get("channel_allocations") or {}
 
     if ch_allocs and isinstance(ch_allocs, dict):
-        meta = budget_alloc.get("metadata") or {}
-        total_budget = float(meta.get("total_budget") or 0)
+        meta = _as_dict(budget_alloc.get("metadata"))
+        total_budget = _to_float(meta.get("total_budget"))
         for ch_name, ch_data in ch_allocs.items():
             if not isinstance(ch_data, dict):
                 continue
-            dollar_amt = float(ch_data.get("dollar_amount") or 0)
-            pct = float(ch_data.get("percentage") or ch_data.get("pct") or 0)
+            dollar_amt = _to_float(ch_data.get("dollar_amount"))
+            pct = _to_float(ch_data.get("percentage") or ch_data.get("pct"))
             if pct == 0 and total_budget > 0 and dollar_amt > 0:
                 pct = round(dollar_amt / total_budget * 100, 1)
             channels.append(
@@ -165,7 +203,7 @@ def _extract_channels(plan_data: dict[str, Any]) -> list[dict[str, Any]]:
         return sorted(channels, key=lambda c: c["percentage"], reverse=True)
 
     # Fallback: try summary.channels or plan_data.channels
-    summary = plan_data.get("summary") or plan_data.get("plan_summary") or {}
+    summary = _as_dict(plan_data.get("summary") or plan_data.get("plan_summary"))
     ch_list = (
         summary.get("channels")
         or summary.get("recommended_channels")
@@ -177,10 +215,10 @@ def _extract_channels(plan_data: dict[str, Any]) -> list[dict[str, Any]]:
         for ch in ch_list:
             if isinstance(ch, dict):
                 name = ch.get("name") or ch.get("channel") or "Unknown"
-                pct = float(
-                    ch.get("percentage") or ch.get("pct") or ch.get("allocation") or 0
+                pct = _to_float(
+                    ch.get("percentage") or ch.get("pct") or ch.get("allocation")
                 )
-                dollar_amt = float(ch.get("dollar_amount") or ch.get("budget") or 0)
+                dollar_amt = _to_float(ch.get("dollar_amount") or ch.get("budget"))
                 channels.append(
                     {
                         "name": name,
@@ -233,8 +271,8 @@ def _cap_channels_with_other(
 
     shown = list(channels[:limit])
     rest = channels[limit:]
-    other_dollar = sum(float(c.get("dollar_amount") or 0) for c in rest)
-    other_pct = sum(float(c.get("percentage") or 0) for c in rest)
+    other_dollar = sum(_to_float(c.get("dollar_amount")) for c in rest)
+    other_pct = sum(_to_float(c.get("percentage")) for c in rest)
     shown.append(
         {
             "name": f"Other ({len(rest)} channels)",
@@ -248,15 +286,15 @@ def _cap_channels_with_other(
 
 def _extract_total_budget(plan_data: dict[str, Any], symbol: str = "$") -> str:
     """Extract and format the total budget from plan data, in its own currency."""
-    budget_alloc = (
-        plan_data.get("_budget_allocation") or plan_data.get("budget_allocation") or {}
+    budget_alloc = _as_dict(
+        plan_data.get("_budget_allocation") or plan_data.get("budget_allocation")
     )
-    meta = budget_alloc.get("metadata") or {}
+    meta = _as_dict(budget_alloc.get("metadata"))
     total = meta.get("total_budget")
     if total:
         return _format_budget(total, symbol)
 
-    summary = plan_data.get("summary") or plan_data.get("plan_summary") or {}
+    summary = _as_dict(plan_data.get("summary") or plan_data.get("plan_summary"))
     budget = (
         summary.get("total_budget")
         or summary.get("budget_range")
@@ -275,8 +313,11 @@ def _extract_job_info(plan_data: dict[str, Any]) -> tuple[str, str]:
     """
     roles = plan_data.get("target_roles") or plan_data.get("roles") or []
     if isinstance(roles, list) and roles:
+        first = roles[0]
         job_title = (
-            roles[0] if isinstance(roles[0], str) else (roles[0].get("title") or "")
+            first
+            if isinstance(first, str)
+            else str(_as_dict(first).get("title") or "")
         )
     elif isinstance(roles, str):
         job_title = roles
@@ -294,17 +335,26 @@ def _extract_job_info(plan_data: dict[str, Any]) -> tuple[str, str]:
     return (job_title or "Media Plan", location or "Global")
 
 
-def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
+def generate_scorecard_html(
+    plan_data: dict[str, Any],
+    share_id: str,
+    generated_at: Optional[datetime] = None,
+) -> str:
     """Generate a complete, self-contained HTML scorecard page.
 
     Args:
         plan_data: The media plan data dictionary.
         share_id: The unique share identifier for the scorecard.
+        generated_at: Creation time to print (default: now, UTC).
 
     Returns:
         Complete HTML page as a string with inline CSS, OG meta tags,
         responsive layout, and the Joveo 2026 LIGHT deck theme.
     """
+    # Every value interpolated below is either a constant, a number, or passed
+    # through _safe()/_format_budget() (HTML-escaped, text and attributes):
+    # POST /api/plan/scorecard accepts a plan from any caller.
+    plan_data = _as_dict(plan_data)
     job_title, location = _extract_job_info(plan_data)
     currency_symbol = _currency_symbol(plan_data)
     total_budget = _extract_total_budget(plan_data, currency_symbol)
@@ -323,12 +373,13 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
     industry = _safe(
         plan_data.get("industry_label")
         or plan_data.get("industry")
-        or (plan_data.get("summary") or {}).get("industry")
+        or _as_dict(plan_data.get("summary")).get("industry")
         or ""
     )
 
-    # Generation date / trust signals (UTC, ISO-friendly for the date attr)
-    now_utc = datetime.now(timezone.utc)
+    # Generation date / trust signals (UTC, ISO-friendly for the date attr).
+    # A re-render of a stored scorecard passes its original creation time.
+    now_utc = generated_at or datetime.now(timezone.utc)
     generated_on = now_utc.strftime("%b %d, %Y")
     generated_iso = now_utc.strftime("%Y-%m-%d")
 
@@ -375,7 +426,7 @@ def generate_scorecard_html(plan_data: dict[str, Any], share_id: str) -> str:
     og_description += f" | {num_channels} channels"
 
     base_url = "https://media-plan-generator.onrender.com"
-    scorecard_url = f"{base_url}/scorecard/{share_id}"
+    scorecard_url = f"{base_url}/scorecard/{_safe(share_id, '')}"
 
     return f"""<!DOCTYPE html>
 <html lang="en">
