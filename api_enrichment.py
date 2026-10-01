@@ -1018,6 +1018,64 @@ def _rate_limit_status() -> Dict[str, Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Source registry -- providers that are gone or were merged into another source
+# ---------------------------------------------------------------------------
+# A retired source is NOT dispatched by enrich_data (so it neither burns a
+# pool slot, nor logs a failure every run, nor lands in ``apis_failed`` and
+# drags the confidence metric down). Keep an entry here instead of leaving a
+# dead call in the dispatch list; the reason is the audit trail.
+
+RETIRED_SOURCES: Dict[str, Dict[str, str]] = {
+    "RESTCountries": {
+        "status": "retired",
+        "verified": "2026-10-01",
+        "reason": (
+            "restcountries.com v1-v4 were switched off: every request 301-redirects "
+            "to a static JSON saying the version is deprecated (the old client read "
+            "that redirect as 'Expecting value'). v5 needs an account and a bearer "
+            "key, and its response shape is not drop-in."
+        ),
+        "replacement": (
+            "Nothing consumed it: the old payload was {'countries': {...}} while "
+            "data_synthesizer.fuse_location_profiles iterates top-level country "
+            "keys, so country_info was never populated. Country population comes "
+            "from the Census-ACS source (World Bank, labelled country-level)."
+        ),
+    },
+    "DataUSA-Loc": {
+        "status": "retired",
+        "verified": "2026-10-01",
+        "reason": (
+            "Merged into Census-ACS. The legacy datausa.io/api/data endpoint was "
+            "removed (HTTP 404 HTML shell); the same ACS 5-year tables are now read "
+            "ONCE, place-level, from the Tesseract API by the Census-ACS source "
+            "(public_data_sources.fetch_us_demographics). Running both would double-"
+            "count one upstream and stamped a state figure onto a single city."
+        ),
+        "replacement": "Census-ACS",
+    },
+}
+
+
+def is_source_retired(label: str) -> bool:
+    """True when ``label`` is in RETIRED_SOURCES (never dispatch it)."""
+    return label in RETIRED_SOURCES
+
+
+# Dispatch labels of COUNTRY-SPECIFIC sources -> the ISO-3 codes of the countries
+# whose locations make them applicable ("*" = every country except the US).
+# A plan with no location in one of these countries must not dispatch the
+# source at all (a US-only plan used to call UK-ONS, StatCan and ILO and report
+# them failed on every run). Eurostat and RegionalLabour already self-gate
+# inside the source (EU country map / "US locations are skipped").
+COUNTRY_GATED_SOURCES: Dict[str, frozenset] = {
+    "UK-ONS": frozenset({"GBR"}),
+    "StatCan": frozenset({"CAN"}),
+    "ILO-ILOSTAT": frozenset({"*"}),
+}
+
+
+# ---------------------------------------------------------------------------
 # API Key Auth Failure Tracking (self-healing: key rotation detection)
 # ---------------------------------------------------------------------------
 
@@ -4399,83 +4457,24 @@ def fetch_imf_indicators(locations: List[str]) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# REST Countries v3.1 — Country data for international campaigns
+# REST Countries -- RETIRED (RETIRED_SOURCES["RESTCountries"])
 # ---------------------------------------------------------------------------
 
 
 def fetch_country_data(locations: List[str]) -> Dict[str, Any]:
+    """RETIRED: restcountries.com v1-v4 are switched off.
+
+    Verified live 2026-10-01: ``/v3.1/alpha/<iso3>?fields=...`` answers
+    ``301 -> files-03.restcountries.com/countries.00/legacy.json`` whose body is
+    ``{"success": false, "errors": [{"message": "This API version has been
+    deprecated ..."}]}`` -- the old client json-parsed the 301's HTML body and
+    logged ``Expecting value`` for every country on every run. v5 requires an
+    account and an ``Authorization: Bearer`` key with a different response shape.
+
+    Kept as an inert stub for any caller that still imports it; ``enrich_data``
+    no longer dispatches it (``is_source_retired("RESTCountries")``), so it
+    neither fails noisily nor counts against the enrichment confidence metric.
     """
-    Fetch country details (population, currency, languages, region, capital)
-    from the REST Countries API.
-    """
-    if not locations:
-        return {}
-
-    # Extract unique ISO-3 codes
-    codes: Dict[str, str] = {}
-    for loc in locations:
-        iso3 = _extract_iso3_from_location(loc)
-        if iso3 and iso3 not in codes:
-            codes[iso3] = ISO_3_TO_COUNTRY.get(iso3, iso3)
-
-    if not codes:
-        return {}
-
-    cache_k = _cache_key("restcountries", ",".join(sorted(codes.keys())))
-    cached = _get_cached(cache_k)
-    if cached is not None:
-        return cached
-
-    result: Dict[str, Any] = {"source": "REST Countries", "countries": {}}
-
-    for iso3, name in codes.items():
-        try:
-            url = f"https://restcountries.com/v3.1/alpha/{iso3}?fields=name,capital,region,subregion,population,currencies,languages,timezones,flags"
-            data = _http_get_json(url, timeout=8)
-            if not data:
-                continue
-
-            # REST Countries returns a list for alpha endpoints
-            country = data[0] if isinstance(data, list) else data
-
-            entry: Dict[str, Any] = {
-                "name": country.get("name", {}).get("common", name),
-                "official_name": country.get("name", {}).get("official") or "",
-                "capital": (
-                    (country.get("capital") or [""])[0]
-                    if country.get("capital")
-                    else ""
-                ),
-                "region": country.get("region") or "",
-                "subregion": country.get("subregion") or "",
-                "population": country.get("population") or 0,
-                "timezones": country.get("timezones") or [],
-            }
-
-            # Extract currency info
-            currencies = country.get("currencies", {})
-            if currencies:
-                for code, info in currencies.items():
-                    entry["currency_code"] = code
-                    entry["currency_name"] = info.get("name") or ""
-                    entry["currency_symbol"] = info.get("symbol") or ""
-                    break
-
-            # Extract languages
-            langs = country.get("languages", {})
-            entry["languages"] = list(langs.values()) if langs else []
-
-            # Flag URL
-            flags = country.get("flags", {})
-            entry["flag_svg"] = flags.get("svg") or ""
-
-            result["countries"][iso3] = entry
-        except Exception as exc:
-            _log_warn(f"REST Countries failed for {iso3}: {exc}")
-
-    if result["countries"]:
-        _set_cached(cache_k, result)
-        return result
     return {}
 
 
@@ -5856,344 +5855,42 @@ def fetch_datausa_occupation_stats(roles: List[str]) -> Dict[str, Any]:
 
 
 def fetch_datausa_location_data(locations: List[str]) -> Dict[str, Any]:
+    """Legacy-shaped view of the place-level ACS demographics.
+
+    RETIRED as a separate ``enrich_data`` source (``RETIRED_SOURCES["DataUSA-Loc"]``):
+    the legacy ``datausa.io/api/data`` endpoint it called is gone (HTTP 404 HTML
+    shell, verified 2026-10-01), and it only ever fetched STATE rows -- then
+    attached one state's population to a single city of that state (the last one
+    listed), so "Lancaster, PA" showed Pennsylvania's 12.9M. Its curated
+    "Census/ACS Benchmarks" table, returned as if it were live data when the call
+    failed, is deleted: a failure is now reported, not papered over.
+
+    The same ACS tables are read once, place-level, by ``fetch_location_demographics``;
+    this wrapper only re-shapes that result for any direct caller. Raises
+    ``SourceFailure`` exactly like ``fetch_location_demographics``.
     """
-    Fetch demographic data for US states from DataUSA API.
-    Includes population, median income, poverty rate.
-    Set DATAUSA_DISABLED=1 to skip live API and use benchmarks only.
-    """
-    if not locations:
+    demographics = fetch_location_demographics(locations)
+    out: Dict[str, Any] = {}
+    for loc, entry in demographics.items():
+        if loc.startswith("_") or not isinstance(entry, dict):
+            continue
+        if entry.get("geo_level") == "Country":
+            continue  # a country figure is not a US demographic row
+        out[loc] = {
+            "state": entry.get("state_name") or "",
+            "geo_level": entry.get("geo_level") or "",
+            "geo_name": entry.get("geo_name") or "",
+            "population": entry.get("population"),
+            "median_income": entry.get("median_income"),
+            "median_household_income": entry.get("median_income"),
+            "area_population": entry.get("area_population"),
+            "area_median_income": entry.get("area_median_income"),
+            "year": entry.get("year") or "",
+            "source": entry.get("source") or "",
+        }
+    if not out:
         return {}
-
-    _datausa_disabled = (os.environ.get("DATAUSA_DISABLED") or "").strip() in (
-        "1",
-        "true",
-        "yes",
-    )
-
-    cache_k = _cache_key(
-        "datausa_loc", ",".join(sorted(l.lower() for l in locations[:10]))
-    )
-    cached = _get_cached(cache_k)
-    if cached is not None:
-        return cached
-
-    result: Dict[str, Any] = {"source": "DataUSA", "locations": {}}
-
-    # Collect unique US states from locations
-    state_locs: Dict[str, str] = {}  # state_name -> original_location
-    for loc in locations:
-        parts = [p.strip() for p in loc.split(",")]
-        for part in parts:
-            upper = part.upper().strip()
-            if upper in US_STATE_NAMES:
-                state_locs[US_STATE_NAMES[upper]] = loc
-                break
-            # Check full state name
-            for abbr, full_name in US_STATE_NAMES.items():
-                if full_name.lower() == part.lower().strip():
-                    state_locs[full_name] = loc
-                    break
-
-    if not state_locs:
-        return {}
-
-    # Curated state-level Census/ACS benchmark data (2024 estimates)
-    _STATE_BENCHMARKS: Dict[str, Dict[str, Any]] = {
-        "California": {
-            "population": 39538223,
-            "median_household_income": 91905,
-            "poverty_rate": 11.0,
-        },
-        "Texas": {
-            "population": 30503340,
-            "median_household_income": 73035,
-            "poverty_rate": 13.4,
-        },
-        "Florida": {
-            "population": 22610726,
-            "median_household_income": 67917,
-            "poverty_rate": 11.5,
-        },
-        "New York": {
-            "population": 19571216,
-            "median_household_income": 75910,
-            "poverty_rate": 12.7,
-        },
-        "Pennsylvania": {
-            "population": 12961683,
-            "median_household_income": 72627,
-            "poverty_rate": 11.1,
-        },
-        "Illinois": {
-            "population": 12549689,
-            "median_household_income": 74235,
-            "poverty_rate": 10.6,
-        },
-        "Ohio": {
-            "population": 11780017,
-            "median_household_income": 62262,
-            "poverty_rate": 13.0,
-        },
-        "Georgia": {
-            "population": 10912876,
-            "median_household_income": 66559,
-            "poverty_rate": 12.2,
-        },
-        "North Carolina": {
-            "population": 10698973,
-            "median_household_income": 64003,
-            "poverty_rate": 12.3,
-        },
-        "Michigan": {
-            "population": 10037261,
-            "median_household_income": 63202,
-            "poverty_rate": 13.0,
-        },
-        "New Jersey": {
-            "population": 9288994,
-            "median_household_income": 89296,
-            "poverty_rate": 9.4,
-        },
-        "Virginia": {
-            "population": 8631393,
-            "median_household_income": 82246,
-            "poverty_rate": 9.6,
-        },
-        "Washington": {
-            "population": 7715946,
-            "median_household_income": 85748,
-            "poverty_rate": 10.0,
-        },
-        "Arizona": {
-            "population": 7303398,
-            "median_household_income": 65913,
-            "poverty_rate": 13.5,
-        },
-        "Massachusetts": {
-            "population": 7029917,
-            "median_household_income": 89645,
-            "poverty_rate": 10.0,
-        },
-        "Tennessee": {
-            "population": 7051339,
-            "median_household_income": 59695,
-            "poverty_rate": 13.2,
-        },
-        "Indiana": {
-            "population": 6806460,
-            "median_household_income": 62743,
-            "poverty_rate": 11.4,
-        },
-        "Maryland": {
-            "population": 6177224,
-            "median_household_income": 87063,
-            "poverty_rate": 9.1,
-        },
-        "Missouri": {
-            "population": 6154913,
-            "median_household_income": 60990,
-            "poverty_rate": 12.1,
-        },
-        "Wisconsin": {
-            "population": 5893718,
-            "median_household_income": 67125,
-            "poverty_rate": 10.4,
-        },
-        "Colorado": {
-            "population": 5812069,
-            "median_household_income": 82254,
-            "poverty_rate": 9.1,
-        },
-        "Minnesota": {
-            "population": 5706494,
-            "median_household_income": 78474,
-            "poverty_rate": 8.3,
-        },
-        "South Carolina": {
-            "population": 5190705,
-            "median_household_income": 59318,
-            "poverty_rate": 13.4,
-        },
-        "Alabama": {
-            "population": 5024279,
-            "median_household_income": 56950,
-            "poverty_rate": 14.8,
-        },
-        "Louisiana": {
-            "population": 4657757,
-            "median_household_income": 54216,
-            "poverty_rate": 18.6,
-        },
-        "Kentucky": {
-            "population": 4505836,
-            "median_household_income": 55573,
-            "poverty_rate": 15.5,
-        },
-        "Oregon": {
-            "population": 4237256,
-            "median_household_income": 71562,
-            "poverty_rate": 11.2,
-        },
-        "Connecticut": {
-            "population": 3605944,
-            "median_household_income": 83771,
-            "poverty_rate": 9.8,
-        },
-        "Utah": {
-            "population": 3337975,
-            "median_household_income": 79449,
-            "poverty_rate": 8.2,
-        },
-        "Nevada": {
-            "population": 3104614,
-            "median_household_income": 65686,
-            "poverty_rate": 11.2,
-        },
-        # Remaining states (Census ACS 2024 estimates)
-        "Iowa": {
-            "population": 3190369,
-            "median_household_income": 65573,
-            "poverty_rate": 10.4,
-        },
-        "Arkansas": {
-            "population": 3011524,
-            "median_household_income": 52528,
-            "poverty_rate": 15.2,
-        },
-        "Mississippi": {
-            "population": 2961279,
-            "median_household_income": 48610,
-            "poverty_rate": 18.7,
-        },
-        "Kansas": {
-            "population": 2937880,
-            "median_household_income": 64521,
-            "poverty_rate": 10.3,
-        },
-        "New Mexico": {
-            "population": 2117522,
-            "median_household_income": 53992,
-            "poverty_rate": 17.6,
-        },
-        "Nebraska": {
-            "population": 1961504,
-            "median_household_income": 66644,
-            "poverty_rate": 10.0,
-        },
-        "Idaho": {
-            "population": 1939033,
-            "median_household_income": 65988,
-            "poverty_rate": 10.1,
-        },
-        "West Virginia": {
-            "population": 1793716,
-            "median_household_income": 50884,
-            "poverty_rate": 16.8,
-        },
-        "Hawaii": {
-            "population": 1455271,
-            "median_household_income": 88005,
-            "poverty_rate": 9.3,
-        },
-        "New Hampshire": {
-            "population": 1377529,
-            "median_household_income": 88235,
-            "poverty_rate": 6.4,
-        },
-        "Maine": {
-            "population": 1362359,
-            "median_household_income": 64767,
-            "poverty_rate": 10.9,
-        },
-        "Montana": {
-            "population": 1084225,
-            "median_household_income": 60560,
-            "poverty_rate": 12.1,
-        },
-        "Rhode Island": {
-            "population": 1097379,
-            "median_household_income": 74008,
-            "poverty_rate": 10.3,
-        },
-        "Delaware": {
-            "population": 989948,
-            "median_household_income": 72724,
-            "poverty_rate": 11.3,
-        },
-        "South Dakota": {
-            "population": 886667,
-            "median_household_income": 63920,
-            "poverty_rate": 11.9,
-        },
-        "North Dakota": {
-            "population": 779094,
-            "median_household_income": 68131,
-            "poverty_rate": 10.5,
-        },
-        "Alaska": {
-            "population": 733391,
-            "median_household_income": 77640,
-            "poverty_rate": 10.2,
-        },
-        "Vermont": {
-            "population": 643077,
-            "median_household_income": 69543,
-            "poverty_rate": 10.3,
-        },
-        "Wyoming": {
-            "population": 576851,
-            "median_household_income": 68002,
-            "poverty_rate": 9.6,
-        },
-        "District of Columbia": {
-            "population": 689545,
-            "median_household_income": 90842,
-            "poverty_rate": 13.5,
-        },
-    }
-
-    # Try live API first, fall back to benchmarks
-    for state_name, orig_loc in state_locs.items():
-        if not _datausa_disabled:
-            try:
-                url = (
-                    f"https://datausa.io/api/data?"
-                    f"drilldowns=State&measures=Population,Median+Household+Income,Poverty+Rate"
-                    f"&State={urllib.parse.quote(state_name)}&Year=latest"
-                )
-                data = _http_get_json(url, timeout=10)
-
-                if data and data.get("data"):
-                    entry = data["data"][0]
-                    result["locations"][orig_loc] = {
-                        "state": entry.get("State", state_name),
-                        "population": entry.get("Population"),
-                        "median_household_income": entry.get("Median Household Income"),
-                        "poverty_rate": entry.get("Poverty Rate"),
-                        "year": entry.get("Year") or "",
-                        "source": "DataUSA (live)",
-                    }
-                    continue
-            except Exception as exc:
-                _log_warn(f"DataUSA live API failed for {state_name}: {exc}")
-
-        # Fallback: curated Census/ACS data
-        if state_name in _STATE_BENCHMARKS:
-            bm = _STATE_BENCHMARKS[state_name]
-            result["locations"][orig_loc] = {
-                "state": state_name,
-                "population": bm["population"],
-                "median_household_income": bm["median_household_income"],
-                "poverty_rate": bm["poverty_rate"],
-                "year": "2024",
-                "source": "Census/ACS Benchmarks",
-            }
-
-    if result["locations"]:
-        result["source"] = "DataUSA (curated benchmarks)"
-        _set_cached(cache_k, result)
-        return result
-    return {}
+    return {"source": "DataUSA (Tesseract, ACS 5-year)", "locations": out}
 
 
 # ---------------------------------------------------------------------------
@@ -13733,323 +13430,39 @@ def fetch_eurostat_labour_data(locations: List[str]) -> Dict[str, Any]:
 # Unemployment rates for 190+ countries via SDMX REST
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_ILO_COUNTRY_MAP: Dict[str, str] = {
-    "united states": "USA",
-    "us": "USA",
-    "usa": "USA",
-    "canada": "CAN",
-    "mexico": "MEX",
-    "united kingdom": "GBR",
-    "uk": "GBR",
-    "germany": "DEU",
-    "france": "FRA",
-    "spain": "ESP",
-    "italy": "ITA",
-    "japan": "JPN",
-    "china": "CHN",
-    "india": "IND",
-    "brazil": "BRA",
-    "australia": "AUS",
-    "south korea": "KOR",
-    "singapore": "SGP",
-    "hong kong": "HKG",
-    "south africa": "ZAF",
-    "nigeria": "NGA",
-    "kenya": "KEN",
-    "saudi arabia": "SAU",
-    "uae": "ARE",
-    "united arab emirates": "ARE",
-    "indonesia": "IDN",
-    "philippines": "PHL",
-    "vietnam": "VNM",
-    "thailand": "THA",
-    "malaysia": "MYS",
-    "argentina": "ARG",
-    "colombia": "COL",
-    "chile": "CHL",
-    "peru": "PER",
-    "egypt": "EGY",
-    "turkey": "TUR",
-    "israel": "ISR",
-    "poland": "POL",
-    "netherlands": "NLD",
-    "belgium": "BEL",
-    "sweden": "SWE",
-    "norway": "NOR",
-    "denmark": "DNK",
-    "finland": "FIN",
-    "switzerland": "CHE",
-    "austria": "AUT",
-    "ireland": "IRL",
-    "portugal": "PRT",
-    "greece": "GRC",
-    "czech republic": "CZE",
-    "new zealand": "NZL",
-    "taiwan": "TWN",
-}
-
-_ILO_FALLBACK: Dict[str, Dict[str, Any]] = {
-    "USA": {
-        "unemployment_rate": 3.7,
-        "youth_unemployment": 8.5,
-        "labor_force_participation": 62.5,
-    },
-    "GBR": {
-        "unemployment_rate": 4.0,
-        "youth_unemployment": 12.0,
-        "labor_force_participation": 78.5,
-    },
-    "DEU": {
-        "unemployment_rate": 3.4,
-        "youth_unemployment": 6.1,
-        "labor_force_participation": 79.2,
-    },
-    "FRA": {
-        "unemployment_rate": 7.3,
-        "youth_unemployment": 17.4,
-        "labor_force_participation": 72.1,
-    },
-    "JPN": {
-        "unemployment_rate": 2.6,
-        "youth_unemployment": 4.2,
-        "labor_force_participation": 62.8,
-    },
-    "CHN": {
-        "unemployment_rate": 5.1,
-        "youth_unemployment": 14.9,
-        "labor_force_participation": 68.4,
-    },
-    "IND": {
-        "unemployment_rate": 7.7,
-        "youth_unemployment": 23.2,
-        "labor_force_participation": 51.8,
-    },
-    "BRA": {
-        "unemployment_rate": 7.8,
-        "youth_unemployment": 17.5,
-        "labor_force_participation": 63.2,
-    },
-    "AUS": {
-        "unemployment_rate": 3.7,
-        "youth_unemployment": 9.2,
-        "labor_force_participation": 66.8,
-    },
-    "CAN": {
-        "unemployment_rate": 5.4,
-        "youth_unemployment": 10.8,
-        "labor_force_participation": 65.2,
-    },
-    "KOR": {
-        "unemployment_rate": 2.7,
-        "youth_unemployment": 6.5,
-        "labor_force_participation": 64.1,
-    },
-    "SGP": {
-        "unemployment_rate": 2.0,
-        "youth_unemployment": 6.8,
-        "labor_force_participation": 69.5,
-    },
-    "MEX": {
-        "unemployment_rate": 2.8,
-        "youth_unemployment": 6.2,
-        "labor_force_participation": 60.1,
-    },
-    "ZAF": {
-        "unemployment_rate": 32.1,
-        "youth_unemployment": 59.7,
-        "labor_force_participation": 56.3,
-    },
-    "NGA": {
-        "unemployment_rate": 33.3,
-        "youth_unemployment": 42.5,
-        "labor_force_participation": 55.2,
-    },
-    "SAU": {
-        "unemployment_rate": 5.6,
-        "youth_unemployment": 27.0,
-        "labor_force_participation": 61.8,
-    },
-    "ARE": {
-        "unemployment_rate": 2.7,
-        "youth_unemployment": 7.5,
-        "labor_force_participation": 82.1,
-    },
-    "IDN": {
-        "unemployment_rate": 5.3,
-        "youth_unemployment": 14.0,
-        "labor_force_participation": 69.1,
-    },
-    "PHL": {
-        "unemployment_rate": 4.3,
-        "youth_unemployment": 9.2,
-        "labor_force_participation": 65.8,
-    },
-    "VNM": {
-        "unemployment_rate": 2.3,
-        "youth_unemployment": 7.5,
-        "labor_force_participation": 76.4,
-    },
-    "THA": {
-        "unemployment_rate": 1.1,
-        "youth_unemployment": 5.2,
-        "labor_force_participation": 68.5,
-    },
-    "MYS": {
-        "unemployment_rate": 3.4,
-        "youth_unemployment": 12.1,
-        "labor_force_participation": 69.8,
-    },
-    "ARG": {
-        "unemployment_rate": 6.2,
-        "youth_unemployment": 18.0,
-        "labor_force_participation": 64.5,
-    },
-    "COL": {
-        "unemployment_rate": 10.2,
-        "youth_unemployment": 19.8,
-        "labor_force_participation": 63.1,
-    },
-    "CHL": {
-        "unemployment_rate": 8.5,
-        "youth_unemployment": 21.3,
-        "labor_force_participation": 62.0,
-    },
-    "EGY": {
-        "unemployment_rate": 7.1,
-        "youth_unemployment": 17.8,
-        "labor_force_participation": 43.2,
-    },
-    "TUR": {
-        "unemployment_rate": 9.4,
-        "youth_unemployment": 18.5,
-        "labor_force_participation": 53.8,
-    },
-    "ISR": {
-        "unemployment_rate": 3.4,
-        "youth_unemployment": 7.2,
-        "labor_force_participation": 64.1,
-    },
-    "NZL": {
-        "unemployment_rate": 3.9,
-        "youth_unemployment": 9.8,
-        "labor_force_participation": 71.2,
-    },
-    "POL": {
-        "unemployment_rate": 2.8,
-        "youth_unemployment": 11.2,
-        "labor_force_participation": 73.5,
-    },
-    "NLD": {
-        "unemployment_rate": 3.6,
-        "youth_unemployment": 8.9,
-        "labor_force_participation": 82.9,
-    },
-    "SWE": {
-        "unemployment_rate": 7.5,
-        "youth_unemployment": 20.1,
-        "labor_force_participation": 79.0,
-    },
-    "NOR": {
-        "unemployment_rate": 3.5,
-        "youth_unemployment": 10.5,
-        "labor_force_participation": 78.8,
-    },
-    "DNK": {
-        "unemployment_rate": 4.8,
-        "youth_unemployment": 10.3,
-        "labor_force_participation": 79.5,
-    },
-    "CHE": {
-        "unemployment_rate": 4.3,
-        "youth_unemployment": 8.2,
-        "labor_force_participation": 81.0,
-    },
-}
-
 
 def fetch_ilo_labour_data(locations: List[str]) -> Dict[str, Any]:
-    """Fetch global labour market data from ILO ILOSTAT (free, no auth).
+    """Live ILOSTAT annual labour indicators for the plan's NON-US countries.
 
-    Returns unemployment rates and labour force participation for 190+ countries.
+    Root cause of "ILO sdmx 404" on every run: the dataflow the old client
+    queried (``DF_STI_ALL_UNE_DEA1_SEX_AGE_RT``) no longer exists
+    (HTTP 404 "Could not find Dataflow"); the annual flows are now
+    ``DF_UNE_DEAP_SEX_AGE_RT`` (unemployment, total + youth) and
+    ``DF_EAP_DWAP_SEX_AGE_RT`` (participation) with a 5-dimension key
+    ``REF_AREA.FREQ.MEASURE.SEX.AGE``. The old code also matched countries by
+    SUBSTRING ("us" matched "Columbus, OH"), so US-only plans queried ILO, and
+    fell back to curated constants when the call failed -- returned as if live.
+
+    Now: countries come from the plan's own locations (``plan_location_countries``);
+    the US is excluded (BLS/FRED cover it); one single-series request per
+    indicator, each <= 6 s, run in a small pool under an 8 s source budget; no
+    curated fallback. Status contract: no non-US country in the plan -> ``{}``
+    (not applicable); countries requested but no data -> raises ``SourceFailure``.
     """
-    # Extract ISO3 country codes from locations
-    ilo_codes = []
-    for loc in locations:
-        loc_lower = loc.lower().strip()
-        for name, code in _ILO_COUNTRY_MAP.items():
-            if name in loc_lower:
-                ilo_codes.append(code)
-                break
-
-    if not ilo_codes:
+    codes = sorted(c for c in plan_location_countries(locations) if c != "USA")
+    if not codes:
         return {}
-
-    ilo_codes = list(set(ilo_codes))
-    result: Dict[str, Any] = {"source": "ILO ILOSTAT", "countries": {}}
-
-    for code in ilo_codes:
-        cache_k = _cache_key("ilo", code)
-        cached = _get_cached(cache_k)
-        if cached is not None:
-            result["countries"][code] = cached
-            continue
-
-        country_data = None
-        try:
-            # ILO SDMX REST API: unemployment rate, annual, total
-            url = (
-                f"https://sdmx.ilo.org/rest/data/ILO,DF_STI_ALL_UNE_DEA1_SEX_AGE_RT"
-                f"/{code}.A......?format=jsondata&startPeriod=2022&detail=dataonly"
-            )
-            resp = _http_get_json(url, timeout=12)
-            if resp and "dataSets" in resp:
-                datasets = resp.get("dataSets") or []
-                if datasets:
-                    series = datasets[0].get("series", {})
-                    # Get first series with observations
-                    for _sk, sdata in series.items():
-                        obs = sdata.get("observations", {})
-                        if obs:
-                            # Get latest observation
-                            latest_key = max(obs.keys(), key=int)
-                            val = obs[latest_key]
-                            if isinstance(val, list) and val:
-                                unemp = float(val[0])
-                                country_data = {
-                                    "unemployment_rate": round(unemp, 1),
-                                    "source": "ILO ILOSTAT SDMX (live)",
-                                    "data_confidence": 0.90,
-                                }
-                                break
-        except Exception as e:
-            _log_warn(f"ILO ILOSTAT API failed for {code}: {e}")
-
-        # Fallback
-        if not country_data:
-            fb = _ILO_FALLBACK.get(code)
-            if fb:
-                country_data = {
-                    **fb,
-                    "source": "ILO ILOSTAT (curated benchmark)",
-                    "data_confidence": 0.68,
-                }
-            else:
-                continue
-
-        _set_cached(cache_k, country_data)
-        result["countries"][code] = country_data
-
-    if not result["countries"]:
-        return {}
-
-    result["data_confidence"] = max(
-        (d.get("data_confidence", 0.5) for d in result["countries"].values()),
-        default=0.5,
-    )
+    cache_k = _cache_key("ilo_v2", ",".join(codes))
+    cached = _get_cached(cache_k)
+    if cached is not None:
+        return cached
+    result = _pds.fetch_ilo_labour(codes)  # raises SourceFailure on no data
+    if result:
+        _set_cached(cache_k, result)
     return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+#═══════════════════════════════════════════════════════════════════════════════
 # INTERNATIONAL DATA SOURCE STUBS
 # Regional labour-market APIs for non-US locations. These stubs are wired into
 # the enrichment dispatcher (enrich_data) so that non-US plans automatically
@@ -15161,13 +14574,16 @@ def enrich_data(
         tasks.append(
             ("imf_indicators", "IMF", lambda _l=locations: fetch_imf_indicators(_l))
         )
-        tasks.append(
-            (
-                "country_data",
-                "RESTCountries",
-                lambda _l=locations: fetch_country_data(_l),
+        # RESTCountries and DataUSA-Loc are RETIRED_SOURCES: never dispatched
+        # (they used to fail or mislabel state data on every run).
+        if not is_source_retired("RESTCountries"):
+            tasks.append(
+                (
+                    "country_data",
+                    "RESTCountries",
+                    lambda _l=locations: fetch_country_data(_l),
+                )
             )
-        )
         tasks.append(
             ("geonames_data", "GeoNames", lambda _l=locations: fetch_geonames_data(_l))
         )
@@ -15178,13 +14594,14 @@ def enrich_data(
                 lambda _l=locations: fetch_teleport_city_data(_l),
             )
         )
-        tasks.append(
-            (
-                "datausa_location",
-                "DataUSA-Loc",
-                lambda _l=locations: fetch_datausa_location_data(_l),
+        if not is_source_retired("DataUSA-Loc"):
+            tasks.append(
+                (
+                    "datausa_location",
+                    "DataUSA-Loc",
+                    lambda _l=locations: fetch_datausa_location_data(_l),
+                )
             )
-        )
 
     # --- Ad Platform & Job Market APIs (19-25) ---
 
@@ -15259,9 +14676,15 @@ def enrich_data(
                 lambda _l=locations: fetch_eurostat_labour_data(_l),
             )
         )
-        tasks.append(
-            ("ilo_data", "ILO-ILOSTAT", lambda _l=locations: fetch_ilo_labour_data(_l))
-        )
+        # ILO: only for plans with a non-US location (COUNTRY_GATED_SOURCES).
+        if source_applies_to_plan("ILO-ILOSTAT", locations):
+            tasks.append(
+                (
+                    "ilo_data",
+                    "ILO-ILOSTAT",
+                    lambda _l=locations: fetch_ilo_labour_data(_l),
+                )
+            )
 
     if roles:
         tasks.append(
