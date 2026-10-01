@@ -98,8 +98,8 @@ def test_partial_snapshot_at_deadline_reports_what_actually_arrived(
             "fetch_location_demographics": _data("census"),
             "fetch_geonames_data": _data("geonames"),
             "fetch_imf_indicators": _data("imf"),
-            "fetch_datausa_location_data": _data("datausa"),
-            "fetch_country_data": _boom,  # RESTCountries fails
+            "fetch_teleport_city_data": _data("teleport"),
+            "fetch_eurostat_labour_data": _boom,  # Eurostat fails
             "fetch_global_indicators": stall,  # WorldBank hangs
         },
     )
@@ -114,13 +114,13 @@ def test_partial_snapshot_at_deadline_reports_what_actually_arrived(
         "Census-ACS",
         "GeoNames",
         "IMF",
-        "DataUSA-Loc",
+        "Teleport",
     }
-    assert "RESTCountries" in summary["apis_failed"]
+    assert "Eurostat" in summary["apis_failed"]
     assert summary["apis_pending"] == ["WorldBank"]
     assert summary["complete"] is False
-    # 13 dispatched, 7 "empty" (not applicable) -> 6 applicable, 4 with data.
-    assert len(summary["apis_not_applicable"]) == 7
+    # 8 dispatched, 2 "empty" (not applicable) -> 6 applicable, 4 with data.
+    assert len(summary["apis_not_applicable"]) == 2
     assert summary["confidence_score"] == round(4 / 6, 3)
 
     warning, n_ok, confidence = app_module._enrichment_quality_warning(enriched)
@@ -141,7 +141,7 @@ def test_thin_partial_snapshot_still_warns_with_real_counts(
         {
             "fetch_location_demographics": _data("census"),
             "fetch_geonames_data": _data("geonames"),
-            "fetch_country_data": _boom,
+            "fetch_eurostat_labour_data": _boom,
             "fetch_global_indicators": stall,
         },
     )
@@ -195,17 +195,17 @@ def test_telemetry_run_final_confidence_counts_failures(
         "fetch_company_info",
         "fetch_company_metadata",
         "fetch_geonames_data",
-        "fetch_datausa_location_data",
+        "fetch_teleport_city_data",
         "fetch_industry_employment",
         "fetch_imf_indicators",
-        "fetch_ilo_labour_data",
+        "fetch_sec_company_data",
         "fetch_currency_rates",
         "fetch_fred_indicators",
         "fetch_competitor_logos",
     ]
     overrides: Dict[str, Any] = {name: _data(name) for name in ok}
     overrides["fetch_location_demographics"] = _boom  # Census-ACS
-    overrides["fetch_country_data"] = _boom  # RESTCountries
+    overrides["fetch_eurostat_labour_data"] = _boom  # Eurostat
     stub_sources(monkeypatch, TELEMETRY_SOURCE_FETCHERS, overrides)
 
     result = api_enrichment.enrich_data(
@@ -218,9 +218,11 @@ def test_telemetry_run_final_confidence_counts_failures(
     )
 
     summary = result["enrichment_summary"]
-    assert len(summary["apis_called"]) == 18
+    # 13 dispatched for a US-only plan (RESTCountries / DataUSA-Loc retired;
+    # ILO / UK-ONS / StatCan country-gated): 10 data, 1 n/a (WorldBank), 2 failed.
+    assert len(summary["apis_called"]) == 13
     assert len(summary["apis_succeeded"]) == 10
-    assert len(summary["apis_not_applicable"]) == 6
+    assert len(summary["apis_not_applicable"]) == 1
     assert len(summary["apis_failed"]) == 2
     assert summary["apis_pending"] == []
     assert summary["complete"] is True

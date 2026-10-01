@@ -37,25 +37,25 @@ if str(PROJECT_ROOT) not in sys.path:
 import api_enrichment  # noqa: E402
 import llm_router  # noqa: E402
 
-# The 13 source fetchers enrich_data() dispatches for a locations-only request.
+# The 8 source fetchers enrich_data() dispatches for a US-only, locations-only
+# request. (It used to be 13: RESTCountries and DataUSA-Loc are retired
+# (api_enrichment.RETIRED_SOURCES) and ILO / UK-ONS / StatCan are country-gated
+# -- a US-only plan has no non-US / UK / Canadian location, so none of the five
+# is dispatched any more.)
 LOCATION_SOURCE_FETCHERS: List[str] = [
     "fetch_location_demographics",  # Census-ACS
     "fetch_global_indicators",  # WorldBank
     "fetch_currency_rates",  # CurrencyRates
     "fetch_fred_indicators",  # FRED
     "fetch_imf_indicators",  # IMF
-    "fetch_country_data",  # RESTCountries
     "fetch_geonames_data",  # GeoNames
     "fetch_teleport_city_data",  # Teleport
-    "fetch_datausa_location_data",  # DataUSA-Loc
     "fetch_eurostat_labour_data",  # Eurostat
-    "fetch_ilo_labour_data",  # ILO-ILOSTAT
-    "fetch_uk_ons_data",  # UK-ONS
-    "fetch_statcan_data",  # StatCan
 ]
 
-# The 18 dispatched for the telemetry-shaped request (industry + locations +
-# client_name + competitors, no roles): prod logged "16/18 APIs ok".
+# The 13 dispatched for the telemetry-shaped request (industry + locations +
+# client_name + competitors, no roles); prod logged "16/18 APIs ok" before the
+# five retired / country-gated sources were removed from a US-only dispatch.
 TELEMETRY_SOURCE_FETCHERS: List[str] = LOCATION_SOURCE_FETCHERS + [
     "fetch_industry_employment",  # BLS-QCEW
     "fetch_company_info",  # Wikipedia

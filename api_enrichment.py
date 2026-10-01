@@ -14711,22 +14711,25 @@ def enrich_data(
 
     # --- S30: International labour market APIs (UK ONS, StatCan, CareerJet) ---
     if locations:
-        # UK ONS -- employment/wage data for UK plans
-        tasks.append(
-            (
-                "uk_ons_data",
-                "UK-ONS",
-                lambda _l=locations: fetch_uk_ons_data(_l),
+        # UK ONS -- only for plans with a UK location (a US-only plan used to
+        # dispatch it and report a failure on every run).
+        if source_applies_to_plan("UK-ONS", locations):
+            tasks.append(
+                (
+                    "uk_ons_data",
+                    "UK-ONS",
+                    lambda _l=locations: fetch_uk_ons_for_locations(_l),
+                )
             )
-        )
-        # StatCan -- job vacancies/wages for Canada plans
-        tasks.append(
-            (
-                "statcan_data",
-                "StatCan",
-                lambda _l=locations: fetch_statcan_data(_l),
+        # StatCan -- only for plans with a Canadian location.
+        if source_applies_to_plan("StatCan", locations):
+            tasks.append(
+                (
+                    "statcan_data",
+                    "StatCan",
+                    lambda _l=locations: fetch_statcan_for_locations(_l),
+                )
             )
-        )
 
     if roles and locations:
         # CareerJet -- global job counts (60+ countries, free)
@@ -15929,7 +15932,7 @@ def fetch_eurostat_data(
 # the ONS taxonomy path the timeseries lives under; ``lms`` is the source
 # dataset (Labour Market Statistics) for all four series.
 _UK_ONS_BASE_URL = "https://api.beta.ons.gov.uk/v1/data"
-_UK_ONS_DEFAULT_TIMEOUT = 15
+_UK_ONS_DEFAULT_TIMEOUT = 6  # one ONS call is ~1.4 s (174 KB); never wait longer
 _UK_ONS_RECENT_LIMIT = 12  # Trailing observations returned to the caller.
 
 # dataset -> (cdid, topic_path, source_dataset, human description, frequency).
@@ -16039,7 +16042,10 @@ def fetch_uk_ons_data(
         ``"recent_monthly"`` = [] and ``"latest_value"`` = None. ``"source"``
         and ``"tool"`` are ALWAYS present. Never raises.
     """
-    dataset_norm = (dataset or "").lower().strip()
+    # Boundary guard: a non-string (e.g. the plan's location LIST, the exact
+    # mistake enrich_data used to make) is an unknown dataset -> clean error
+    # envelope, never an AttributeError.
+    dataset_norm = dataset.lower().strip() if isinstance(dataset, str) else ""
 
     def _error(reason: str, *, url: Optional[str] = None) -> Dict[str, Any]:
         """Build a consistent failure envelope (matches the success shape)."""
@@ -16172,92 +16178,102 @@ def fetch_uk_ons_data(
     return result
 
 
-def fetch_statcan_data(
-    table: str = "14-10-0326-01",
-    vector: str = "",
-) -> Dict[str, Any]:
-    """Fetch Canadian labor market data from Statistics Canada WDS API (free, no key).
+def fetch_uk_ons_for_locations(locations: List[str]) -> Dict[str, Any]:
+    """UK ONS headline labour series for a plan that has a UK location.
 
-    Args:
-        table: StatCan table ID. Default is Job Vacancies (JVWS).
-        vector: Optional specific vector/series ID.
+    Root cause of ``API 'UK-ONS' raised an exception: 'list' object has no
+    attribute 'lower'`` on every run: ``enrich_data`` called
+    ``fetch_uk_ons_data(locations)``, but that function's only parameter is a
+    *dataset name* -- the plan's whole location LIST landed in it and
+    ``(dataset or "").lower()`` blew up. This wrapper is the real plan-level
+    entry point: it checks the plan actually has a UK location (a US-only plan
+    returns ``{}`` = not applicable, with no network call) and fetches the four
+    ONS series in a small pool under an 8 s budget.
 
-    Returns:
-        Dict with Canadian labor market statistics.
+    Status contract: no UK location -> ``{}``; UK location but no series came
+    back -> raises ``SourceFailure`` (failed); otherwise a populated dict.
+    """
+    if "GBR" not in plan_location_countries(locations):
+        return {}
+    names = list(_UK_ONS_SERIES)
+    outcomes = _pds.run_parallel(
+        [(n, lambda n=n: fetch_uk_ons_data(n)) for n in names],
+        max_workers=4,
+        deadline=time.monotonic() + 8.0,
+    )
+    datasets: Dict[str, Any] = {}
+    failed: Dict[str, str] = {}
+    for name in names:
+        out = outcomes.get(name)
+        if isinstance(out, dict) and not out.get("error") and out.get("latest_value") is not None:
+            datasets[name] = out
+        elif isinstance(out, dict):
+            failed[name] = str(out.get("error") or "no observation")
+        else:
+            failed[name] = repr(out)
+    if not datasets:
+        raise SourceFailure(f"UK ONS returned no series: {failed}")
+    result: Dict[str, Any] = {"source": "uk_ons", "datasets": datasets}
+    if failed:
+        result["failed_datasets"] = failed
+    return result
+
+
+# Labour Force Survey headline series (table 14-10-0287-01) -- see
+# public_data_sources.STATCAN_UNEMPLOYMENT_VECTOR.
+def fetch_statcan_data(vector_id: Any = None) -> Dict[str, Any]:
+    """Canada's headline labour series from the StatCan Web Data Service.
+
+    Root cause of ``API 'StatCan' raised an exception: 'list' object has no
+    attribute 'replace'``: ``enrich_data`` passed the plan's location LIST as the
+    ``table`` string. Behind that, the old body asked the JSON-stat URL
+    ``/n1/tbl/json/<pid>.json`` (HTTP 404) and then returned a populated
+    "metadata only" envelope -- a failure dressed up as data. The WDS REST API
+    (``POST .../t1/wds/rest/getDataFromVectorsAndLatestNPeriods``) is the
+    documented keyless route; ``vector_id`` defaults to Canada's seasonally
+    adjusted unemployment rate (v2062815, verified live 2026-10-01).
+
+    Returns the series, or an in-band ``{"source": "statcan", "error": ...}``
+    envelope on any failure (never raises; ``fetch_statcan_for_locations``
+    turns that into a ``SourceFailure``).
     """
     try:
-        # StatCan WDS endpoint for cube metadata + data
-        base = "https://www150.statcan.gc.ca/t1/tbl1/en/dtl!downloadTbl/en"
-        api_url = f"https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid={table.replace('-', '')}"
-
-        # Use the JSON endpoint
-        json_url = (
-            f"https://www150.statcan.gc.ca/n1/tbl/csv/{table.replace('-', '')}-eng.zip"
+        vid = (
+            int(vector_id)
+            if vector_id not in (None, "") and not isinstance(vector_id, (list, tuple, dict))
+            else _pds.STATCAN_UNEMPLOYMENT_VECTOR
         )
+    except (TypeError, ValueError):
+        return {"source": "statcan", "error": f"invalid StatCan vector id {vector_id!r}"}
+    cache_k = _cache_key("statcan_wds", str(vid))
+    cached = _get_cached(cache_k)
+    if cached is not None:
+        return cached
+    try:
+        series = _pds.fetch_statcan_vector(vid)
+    except _pds.FetchError as exc:
+        _api_logger.error(f"StatCan WDS failed: {exc}", exc_info=True)
+        return {"source": "statcan", "vector_id": vid, "error": str(exc)}
+    result: Dict[str, Any] = {"source": "statcan", **series}
+    if vid == _pds.STATCAN_UNEMPLOYMENT_VECTOR:
+        result["series"] = _pds.STATCAN_UNEMPLOYMENT_SERIES
+        result["unemployment_rate"] = series["latest_value"]
+    _set_cached(cache_k, result)
+    return result
 
-        # Alternative: use the WDS REST API for specific vectors
-        wds_url = "https://www150.statcan.gc.ca/t1/tbl1/en/dtl!downloadTbl/en"
 
-        # For quick access, use the cube metadata endpoint
-        meta_url = f"https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid={table.replace('-', '')}"
+def fetch_statcan_for_locations(locations: List[str]) -> Dict[str, Any]:
+    """Plan-level StatCan entry point: ``{}`` unless the plan has a Canadian
+    location; a failed fetch raises ``SourceFailure`` (reported as failed)."""
+    if "CAN" not in plan_location_countries(locations):
+        return {}
+    data = fetch_statcan_data()
+    if data.get("error"):
+        raise SourceFailure(f"StatCan WDS: {data['error']}")
+    return data
 
-        # Use getCubeMetadata for table info
-        cube_url = "https://www150.statcan.gc.ca/t1/tbl1/en/dtl!downloadTbl/en"
 
-        # Simplified: use the series metadata API
-        series_url = f"https://www150.statcan.gc.ca/t1/tbl1/en/ctv.action?pid={table.replace('-', '')}"
 
-        result = {
-            "table": table,
-            "name": _STATCAN_TABLES.get(table, "Unknown"),
-            "source": "statcan",
-            "api_url": api_url,
-            "note": "StatCan data available via WDS API and CSV downloads",
-        }
-
-        # Try to get latest data via the JSON-stat endpoint
-        jsonstat_url = (
-            f"https://www150.statcan.gc.ca/n1/tbl/json/{table.replace('-', '')}.json"
-        )
-        req = urllib.request.Request(
-            jsonstat_url,
-            headers={
-                "User-Agent": "Nova AI Suite/4.0",
-                "Accept": "application/json",
-            },
-        )
-        ctx = ssl.create_default_context()
-        try:
-            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                result["metadata"] = {
-                    "title": data.get("label", ""),
-                    "updated": data.get("updated", ""),
-                    "dimensions": len(data.get("dimension", {})),
-                }
-                values = data.get("value", [])
-                if values:
-                    result["data_points"] = len(values)
-                    result["sample_values"] = (
-                        values[:10]
-                        if isinstance(values, list)
-                        else list(values.items())[:10]
-                    )
-                _api_logger.info(
-                    f"StatCan: {len(values)} data points for table {table}"
-                )
-        except (urllib.error.URLError, OSError):
-            # Fallback: return metadata only
-            result["note"] = (
-                "Data download requires CSV/SDMX format. Metadata available."
-            )
-            _api_logger.info(f"StatCan: metadata only for table {table}")
-
-        return result
-
-    except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError) as e:
-        _api_logger.error(f"StatCan API failed: {e}", exc_info=True)
-        return {"table": table, "source": "statcan", "error": str(e)}
 
 
 # ── OECD SDMX (Data Explorer API) ───────────────────────────────────────────
