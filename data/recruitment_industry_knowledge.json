@@ -293,7 +293,7 @@
     "cost_per_hire": {
       "description": "Average cost-per-hire benchmarks",
       "shrm_2025": {
-        "average_cost_per_hire": "$5,475 (nonexecutive average)",
+        "average_cost_per_hire": "$5,475 (SHRM 2025 average (mean), nonexecutive)",
         "median_non_executive": "$1,200",
         "median_executive": "$10,625",
         "executive_vs_non_executive_ratio": "7x",

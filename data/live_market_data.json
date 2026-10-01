@@ -177,7 +177,7 @@
   "industry_benchmarks": {
     "overall": {
       "avg_cost_per_hire": 5475,
-      "avg_cost_per_hire_source": "SHRM 2025 Benchmarking Reports: nonexecutive average cost per hire $5,475 (press release 2025-10-15, https://www.shrm.org/about/press-room/shrm-releases-2025-benchmarking-reports--how-does-your-organizat; verified 2026-10-01). Replaces 4750, which was mislabelled 'SHRM 2026' (average of an older $4,700 SHRM figure and a secondary $4,800).",
+      "avg_cost_per_hire_source": "SHRM 2025 average (mean): nonexecutive cost per hire $5,475, SHRM 2025 Benchmarking Reports (press release 2025-10-15, https://www.shrm.org/about/press-room/shrm-releases-2025-benchmarking-reports--how-does-your-organizat; verified 2026-10-01). Replaces 4750, which was mislabelled 'SHRM 2026' (average of an older $4,700 SHRM figure and a secondary $4,800).",
       "avg_apply_rate_pct": 5.19,
       "avg_apply_rate_source": "Appcast 2026 Recruitment Marketing Benchmark Report"
     },

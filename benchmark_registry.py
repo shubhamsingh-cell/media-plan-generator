@@ -72,8 +72,9 @@ def _load_live_data() -> dict[str, Any]:
 # Conflict resolution methodology:
 #   - Indeed CPC: $1.62 (July-2026 refresh; see the per-entry comment below.
 #     Prior $0.50 "typical" of 2026-03-26 retired by the cited July-2026 research.)
-#   - Google Ads CPC/CPA: $5.81 / $67.36 (2026-10-01 refresh; LocaliQ 2026
-#     Search Advertising Benchmarks, Career & Employment -- see the entry).
+#   - Google Ads CPC $5.81 (2026-10-01 refresh; LocaliQ 2026 Search
+#     Advertising Benchmarks, Career & Employment -- see the entry); CPA
+#     $48.0 unverified -- held at its prior value.
 #   - Meta/Facebook CPC/CPA: $0.73 / $12.30 (2026-10-01 refresh; LocaliQ 2026
 #     Facebook Advertising Benchmarks, Career & Employment -- see the entry).
 #   - All other values: cross-referenced with live_market_data.json where available
@@ -162,10 +163,15 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
     # internally inconsistent (5.81 / 3.05% = ~$190 per lead, not $67.36; the
     # page prints the identical $67.36 for Health & Fitness), so neither a
     # derived CPA nor a derived apply rate would be a sourced number. The
-    # printed CPC and CPL are used as published; apply_rate stays 0.04.
+    # printed CPC is used as published; apply_rate stays 0.04.
+    # CPA: unverified -- held (numbers verifier round 2, 2026-10-01). The
+    # page's $67.36 cost per lead is the identical figure it prints for
+    # Health & Fitness and disagrees with its own CPC / CVR (~$190), so it
+    # is likely a source error; the prior 48.0 stays until a source checks
+    # out. Only the verified CPC changed.
     "google_ads": {
         "cpc": 5.81,
-        "cpa": 67.36,
+        "cpa": 48.0,
         "apply_rate": 0.04,
         "ctr": 0.045,
         "cpm": 11.00,
@@ -177,7 +183,7 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
     # Alias: many files use "google_search" instead of "google_ads"
     "google_search": {
         "cpc": 5.81,
-        "cpa": 67.36,
+        "cpa": 48.0,  # unverified -- held (see google_ads)
         "apply_rate": 0.04,
         "ctr": 0.045,
         "cpm": 11.00,
@@ -190,7 +196,12 @@ CHANNEL_BENCHMARKS: dict[str, dict[str, Any]] = {
     # Advertising Benchmarks" 2026, Career & Employment row, leads objective
     # (https://localiq.com/blog/facebook-advertising-benchmarks/, last
     # updated 2026-09-23, fetched 2026-10-01): CPC $0.73, cost per lead
-    # $12.30, CVR 5.38%. apply_rate = that 5.38% click-to-lead rate, so the
+    # $12.30, CVR 5.38% (re-fetched 2026-10-01 for the numbers verifier: the
+    # live localiq.com page, last updated 2026-09-23, prints exactly these
+    # figures; the $0.86 / $17.64 pair is WordStream's 2025 dataset, kept as
+    # such in data/ad_benchmarks_recruitment_2026.json; the wordstream.com
+    # 2025 page returned HTTP 403). apply_rate = that 5.38% click-to-lead
+    # rate, so the
     # entry is coherent: 0.73 / 0.0538 = 13.57 vs 12.30 (-9%). Prior
     # 1.86 / 32.0 / 0.025 (WordStream 2025) implied a $74.40 CPA.
     "meta_facebook": {
@@ -367,8 +378,8 @@ INDUSTRY_MULTIPLIERS: dict[str, float] = {
 
 
 # Cost per hire by industry (live market data first; see get_cost_per_hire).
-# "overall" = SHRM 2025 Benchmarking nonexecutive AVERAGE cost per hire,
-# $5,475 (SHRM press release 2025-10-15,
+# "overall" = "SHRM 2025 average (mean)" -- the nonexecutive MEAN cost per
+# hire, $5,475, not a median (SHRM press release 2025-10-15,
 # https://www.shrm.org/about/press-room/shrm-releases-2025-benchmarking-reports--how-does-your-organizat,
 # fetched 2026-10-01). The prior 4750 was labelled "SHRM 2026" but was the
 # average of an older $4,700 SHRM figure and a secondary $4,800; SHRM's 2026

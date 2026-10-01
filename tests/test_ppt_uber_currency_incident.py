@@ -353,7 +353,9 @@ class TestBenchmarkProvenanceFlags:
         assert any(
             # 2026-10-01 design-judge item 3: "midpoint" (it is the range's
             # midpoint, not an average); one-line compact form on the slide.
-            t.startswith("US$2.5K–4K (midpoint US$3.25K)") for t in texts
+            # round 2 (item 4): measured as BOLD text every midpoint form
+            # wraps in the 2.3in cell, so the one-line range form prints
+            t.startswith("US$2,500–US$4,000") for t in texts
         ), texts
         # And no bare, unmarked "£" leaks in for these rows.
         assert not any(re.match(r"^£[\d]", t) for t in texts), texts
@@ -429,7 +431,8 @@ class TestUsdPlanUnaffected:
         # 2026-10-01: the engine's one CPH benchmark (see the GBP test above).
         # 2026-10-01: "midpoint", not "avg" (design-judge item 3).
         assert any(
-            t.startswith("$2,500–$4,000 (midpoint $3,250)") for t in texts
+            # round 2 (item 4): the full form wraps as bold text -> compact
+            t.startswith("$2.5K–$4K (midpoint $3.25K)") for t in texts
         ), texts
         assert not any("US$" in t for t in texts), texts
 

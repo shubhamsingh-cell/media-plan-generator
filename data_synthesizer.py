@@ -2832,16 +2832,16 @@ def fuse_ad_platform_analysis(
     # reactivated. See tests/test_platform_benchmark_fallback.py and
     # tests/test_ad_platform_benchmark_regime.py.
     _PLATFORM_BENCHMARKS = {
-        # CPC 5.81 / CPA 67.36 = benchmark_registry.CHANNEL_BENCHMARKS
-        # ["google_ads"] (LocaliQ 2026 Search Advertising Benchmarks, Career &
-        # Employment, updated 2026-06-01; refreshed 2026-10-01 -- see the
-        # registry entry for the source's own CPL/CVR caveat). Prior 2.90 /
-        # 48.96. CPM unchanged (original 2024-2025 vintage; no fresher cited
-        # figure).
+        # CPC 5.81 = benchmark_registry.CHANNEL_BENCHMARKS["google_ads"]
+        # (LocaliQ 2026 Search Advertising Benchmarks, Career & Employment,
+        # updated 2026-06-01; refreshed 2026-10-01). Prior CPC 2.90. CPA
+        # 48.96: unverified -- held (the source's $67.36 cost per lead is
+        # likely a source error, see the registry entry). CPM unchanged
+        # (original 2024-2025 vintage; no fresher cited figure).
         "Google Ads": {
             "cpc": 5.81,
             "cpm": 3.12,
-            "cpa": 67.36,
+            "cpa": 48.96,
             "audience_reach": "5.6B+ monthly searches",
             "daily_budget_range": "$50 - $500",
             "best_for": "Active job seekers, high intent",

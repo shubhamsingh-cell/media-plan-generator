@@ -961,8 +961,14 @@ def _get_trend_engine_cpc(
 # rates: live_market_data.json industry_benchmarks (reconciled 2026-06-02;
 # Appcast-derived -- the Appcast report itself is gated and was not
 # re-verified on 2026-10-01).
+#
+# HEALTHCARE: unverified -- held (numbers verifier round 2, 2026-10-01).
+# The 3.2% healthcare rate could not be checked (Appcast's tables are
+# gated) and it put the hospital plan's CPA at $41-47, 4-5x Joveo's own
+# published RN median of $9.73, so healthcare keeps its previous generic
+# apply rates until the figure is verified. Trades keep the 4.5%
+# manufacturing re-level.
 _JOB_BOARD_APPLY_RATE_KB_KEY: Dict[str, Tuple[str, str]] = {
-    "healthcare_medical": ("healthcare", "both"),
     "blue_collar_trades": ("manufacturing", "blue_collar"),
 }
 

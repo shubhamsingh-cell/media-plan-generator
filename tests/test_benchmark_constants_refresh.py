@@ -3,7 +3,8 @@ coherent, and single-valued per platform (audit 2026-10-01, F §2 / §3.7 /
 §4.6-§4.8). Sources were re-fetched 2026-10-01:
 
 * LocaliQ 2026 Search Advertising Benchmarks (updated 2026-06-01), Career &
-  Employment: Google CPC $5.81, CPL $67.36.
+  Employment: Google CPC $5.81 (its CPL $67.36 is held out as unverified --
+  numbers verifier round 2; the Google CPA stays 48.0).
 * LocaliQ 2026 Facebook Advertising Benchmarks (updated 2026-09-23), Career &
   Employment, leads objective: CPC $0.73, CPL $12.30, CVR 5.38%.
 * SHRM 2025 Benchmarking press release (2025-10-15): nonexecutive average
@@ -36,8 +37,10 @@ import ppt_generator as ppt
 class TestRegistryRefresh:
     @pytest.mark.parametrize("key", ["google_ads", "google_search"])
     def test_google(self, key):
+        # CPC refreshed; CPA unverified -- held at 48.0 (numbers verifier
+        # round 2: the source's $67.36 CPL duplicates its Health & Fitness row)
         b = br.CHANNEL_BENCHMARKS[key]
-        assert (b["cpc"], b["cpa"]) == (5.81, 67.36)
+        assert (b["cpc"], b["cpa"]) == (5.81, 48.0)
 
     @pytest.mark.parametrize("key", ["meta_facebook", "meta"])
     def test_meta(self, key):
@@ -50,7 +53,7 @@ class TestRegistryRefresh:
         src = br._load_live_data()["industry_benchmarks"]["overall"][
             "avg_cost_per_hire_source"
         ]
-        assert src.startswith("SHRM 2025"), src
+        assert src.startswith("SHRM 2025 average (mean)"), src
 
     @pytest.mark.parametrize(
         "key", ["meta_facebook", "meta", "linkedin", "programmatic", "careerbuilder"]
@@ -89,35 +92,18 @@ class TestApplyRates:
         )
         return res["channel_allocations"]["global_boards"]
 
-    def test_healthcare_job_boards_use_kb_rate(self):
-        # the KB healthcare rate describes healthcare's mixed collar ("both")
+    def test_healthcare_rate_held_at_the_generic_table(self):
+        # unverified -- held (numbers verifier round 2): the 3.2% KB rate
+        # could not be checked and put hospital CPA at 4-5x Joveo's own RN
+        # median, so healthcare keeps the generic job-board rate
         gb = self._gb("healthcare_medical", "Registered Nurse", "Dallas", "TX", "both")
-        assert gb["apply_rate"] == 0.032 and gb["apply_rate_source"] == "kb_industry"
-
-    def test_collar_uplift_still_applies_on_top(self):
-        gb = self._gb("healthcare_medical", "Housekeeper", "Dallas", "TX", "blue_collar")
-        assert gb["apply_rate"] == pytest.approx(0.032 * 1.4, abs=1e-4)
-
-    def test_other_channels_move_by_the_same_factor(self):
-        """Uniform re-level: channel ranking unchanged (programmatic's table
-        rate is 0.06 vs job boards' 0.08; both scale by 0.032 / 0.08)."""
-        res = be.calculate_budget_allocation(
-            total_budget=250_000.0,
-            roles=[{"title": "Registered Nurse", "count": 1, "tier": "Professional"}],
-            locations=[{"city": "Dallas", "state": "TX", "country": "United States"}],
-            industry="healthcare_medical",
-            channel_percentages={"global_boards": 60, "programmatic_dsp": 40},
-            knowledge_base=None,
-            collar_type="both",
-        )
-        prog = res["channel_allocations"]["programmatic_dsp"]
-        assert prog["apply_rate"] == pytest.approx(0.06 * 0.032 / 0.08, abs=1e-4)
+        assert gb["apply_rate"] == 0.08 and gb["apply_rate_source"] == "base_table"
 
     def test_trades_job_boards_use_kb_manufacturing_rate(self):
         gb = self._gb(
             "blue_collar_trades", "Machine Operator", "Cleveland", "OH", "blue_collar"
         )
-        assert gb["apply_rate"] == 0.045
+        assert gb["apply_rate"] == 0.045 and gb["apply_rate_source"] == "kb_industry"
 
     def test_tech_unchanged(self):
         gb = self._gb("tech_engineering", "Software Developer", "Austin", "TX")
