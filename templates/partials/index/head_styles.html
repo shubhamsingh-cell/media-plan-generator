@@ -7034,6 +7034,12 @@
   .studio .plan-clear-form:hover {
     color: var(--np-magenta);
   }
+  /* armed (first click of the two-step clear): reads as a warning */
+  .plan-clear-form.is-armed,
+  .studio .plan-clear-form.is-armed {
+    color: var(--error);
+    font-weight: 600;
+  }
   /* big generate CTA */
   .studio .btn-success {
     background: var(--np-grad-warm) !important;

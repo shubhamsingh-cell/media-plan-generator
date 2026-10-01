@@ -1170,19 +1170,48 @@
       "requesterEmail",
     ].forEach((id) => {
       const el = document.getElementById(id);
-      if (el) el.value = "";
+      if (!el) return;
+      if (el.tagName === "SELECT") {
+        // Back to the option the page loaded with -- value "" selected
+        // nothing at all on a select with no empty option (budgetPeriod).
+        const def = Array.from(el.options).findIndex((o) => o.defaultSelected);
+        el.selectedIndex = def >= 0 ? def : 0;
+      } else {
+        el.value = "";
+      }
     });
     selectedIndustry = null;
     clearNaicsSelection();
     locations = [];
     roles = [];
     competitors = [];
-    ["locationsContainer", "rolesContainer", "competitorsContainer"].forEach(
-      (id) => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = "";
-      },
-    );
+    // Drop the tags only: each container also HOLDS its text input
+    // (#locationInput / #roleInput / #competitorInput -- renderTags
+    // re-appends it after the tags). Wiping innerHTML deleted the inputs,
+    // so steps 1-2 could never be completed again until a reload.
+    [
+      ["locationsContainer", "locationInput"],
+      ["rolesContainer", "roleInput"],
+      ["competitorsContainer", "competitorInput"],
+    ].forEach(([containerId, inputId]) => {
+      const box = document.getElementById(containerId);
+      if (!box) return;
+      box.querySelectorAll(".tag").forEach((t) => t.remove());
+      box.classList.remove("field-error");
+      const input = document.getElementById(inputId);
+      if (input) input.value = "";
+    });
+    ["campaignGoals", "workEnvironment", "experienceLevel"].forEach((name) => {
+      document
+        .querySelectorAll('input[name="' + name + '"]')
+        .forEach((cb) => (cb.checked = cb.defaultChecked));
+    });
+    selectedJobCategories = [];
+    document
+      .querySelectorAll(".job-category-card.selected")
+      .forEach((c) => c.classList.remove("selected"));
+    if (typeof updateJobCategoryInsight === "function") updateJobCategoryInsight();
+    if (typeof updateRegionalSections === "function") updateRegionalSections();
     // Invalidate any in-flight/pending location resolution and clear the
     // echo-back panel immediately -- a reset form should never show a
     // stale "we understood your location" row.
@@ -1194,7 +1223,51 @@
     document
       .querySelectorAll(".industry-card")
       .forEach((c) => c.classList.remove("selected"));
+    if (window.NovaPreview && typeof window.NovaPreview.update === "function") {
+      window.NovaPreview.update();
+    }
+    // Start over where the form starts: step 1, first field focused.
+    if (typeof goToStep === "function") goToStep(1);
+    const first = document.getElementById("clientName");
+    if (first) {
+      first.focus({ preventScroll: true });
+      // On phones the live preview sits above step 1, so the top-of-page
+      // scroll leaves the focused field off screen: bring it into view
+      // once goToStep's own scroll has run (same 400 ms as the step
+      // transition; instant under reduced motion).
+      setTimeout(
+        () => {
+          const r = first.getBoundingClientRect();
+          if (r.top < 0 || r.bottom > window.innerHeight) {
+            first.scrollIntoView({ block: "center", behavior: novaScrollBehavior() });
+          }
+        },
+        novaPrefersReducedMotion() ? 0 : 400,
+      );
+    }
     showToast("Form cleared", "success");
+  }
+
+  // "Clear Form" is two-step: the first click arms the button ("Click
+  // again to clear"), a second click within 4 s clears. One stray click
+  // can no longer wipe a filled-in plan.
+  let _clearFormArmTimer = null;
+  function _disarmClearForm(btn) {
+    clearTimeout(_clearFormArmTimer);
+    _clearFormArmTimer = null;
+    btn.classList.remove("is-armed");
+    btn.textContent = "Clear Form";
+  }
+  function requestClearForm(btn) {
+    if (!btn) return clearFormState();
+    if (btn.classList.contains("is-armed")) {
+      _disarmClearForm(btn);
+      clearFormState();
+      return;
+    }
+    btn.classList.add("is-armed");
+    btn.textContent = "Click again to clear all inputs";
+    _clearFormArmTimer = setTimeout(() => _disarmClearForm(btn), 4000);
   }
   function _wireFormPersistence() {
     // Save on every input/change event in the form area
@@ -1273,6 +1346,15 @@
   let genCurrentJobId = null;
   const GEN_TIMEOUT_SECS = 510; // 8.5 minutes -- quality-first: let the pipeline use ALL data sources
 
+  // Settles generatePlan's poll wait (set while a job is being polled).
+  // Cancel rejects through it so generatePlan's own catch re-enables the
+  // Generate button -- clearing the interval alone left that promise
+  // pending forever and the button stuck on "Generating...".
+  let _genPollReject = null;
+  // Consecutive 404/410 poll answers that mean the job no longer exists
+  // (a deploy or restart dropped it); 2 in a row ends the wait.
+  const GEN_JOB_GONE_POLLS = 2;
+
   function cancelGeneration() {
     if (genPollInterval) {
       clearInterval(genPollInterval);
@@ -1283,8 +1365,14 @@
       _genAbortController.abort();
       _genAbortController = null;
     }
+    if (_genPollReject) {
+      const reject = _genPollReject;
+      _genPollReject = null;
+      const cancelled = new Error("Generation cancelled.");
+      cancelled.name = "AbortError";
+      reject(cancelled);
+    }
     hideGenerationOverlay(false);
-    showToast("Generation cancelled", "info");
   }
 
   function updateGenProgress(pct, statusMessage) {
@@ -5320,10 +5408,14 @@
 
     // ── Async generation with progress polling ──
     genCurrentJobId = null;
+    _genAbortController =
+      typeof AbortController === "function" ? new AbortController() : null;
+    const _genSignal = _genAbortController ? _genAbortController.signal : undefined;
     try {
       // Step 1: Submit async generation request
       const initResponse = await fetch("/api/generate", {
         method: "POST",
+        signal: _genSignal,
         headers: {
           "Content-Type": "application/json",
           "X-CSRF-Token": getCsrfToken(),
@@ -5355,12 +5447,17 @@
         pollReject,
       ) {
         var _pst = Date.now(),
-          _ptm = GEN_TIMEOUT_SECS * 1000;
+          _ptm = GEN_TIMEOUT_SECS * 1000,
+          _goneCount = 0;
+        _genPollReject = pollReject;
         genPollInterval = setInterval(async function () {
+          // Cancelled (or settled) since this tick was scheduled.
+          if (_genPollReject !== pollReject) return;
           if (Date.now() - _pst > _ptm) {
             clearInterval(genPollInterval);
             genPollInterval = null;
             genCurrentJobId = null;
+            _genPollReject = null;
             pollReject(
               new Error(
                 "Generation timed out after 8 minutes. This is unusual -- please try again or contact support.",
@@ -5371,9 +5468,30 @@
           try {
             var pr = await fetch("/api/jobs/" + jobId, {
               headers: { Accept: "application/json" },
+              signal: _genSignal,
             });
+            if (_genPollReject !== pollReject) return;
+            if (pr.status === 404 || pr.status === 410) {
+              // The server no longer knows this job (a deploy/restart
+              // dropped it) -- it will never finish, so stop now rather
+              // than spin until the 8.5-minute ceiling.
+              if (++_goneCount >= GEN_JOB_GONE_POLLS) {
+                clearInterval(genPollInterval);
+                genPollInterval = null;
+                genCurrentJobId = null;
+                _genPollReject = null;
+                var gone = new Error("Generation job no longer exists");
+                gone.jobGone = true;
+                pollReject(gone);
+              }
+              return;
+            }
+            _goneCount = 0;
+            // Other non-OK answers (5xx, 429) are transient: keep polling
+            // up to the ceiling, which exists for genuinely slow jobs.
             if (!pr.ok) return;
             var pd = await pr.json();
+            if (_genPollReject !== pollReject) return;
             if (pd.status === "processing") {
               updateGenProgress(
                 pd.progress_pct || 0,
@@ -5382,12 +5500,14 @@
             } else if (pd.status === "completed") {
               clearInterval(genPollInterval);
               genPollInterval = null;
+              _genPollReject = null;
               updateGenProgress(100, "Complete");
               pollResolve(pd);
             } else if (pd.status === "failed") {
               clearInterval(genPollInterval);
               genPollInterval = null;
               genCurrentJobId = null;
+              _genPollReject = null;
               pollReject(new Error(pd.error || "Generation failed."));
             }
           } catch (pe) {
@@ -5648,10 +5768,18 @@
       }
       genCurrentJobId = null;
       _genAbortController = null;
+      _genPollReject = null;
       hideGenerationOverlay(false);
       let userMsg;
+      let toastType = "error";
       if (err.name === "AbortError") {
-        userMsg = "Generation cancelled.";
+        // The user's own Cancel: not an error, and the inputs stay intact
+        // on the review step -- Generate is re-enabled below.
+        userMsg = "Generation cancelled -- your inputs are kept.";
+        toastType = "info";
+      } else if (err.jobGone) {
+        userMsg =
+          "This generation was interrupted -- your inputs are saved; click Generate to retry.";
       } else if (!navigator.onLine) {
         userMsg =
           "You appear to be offline. Please check your internet connection and try again.";
@@ -5680,7 +5808,7 @@
       // inline message at 375 px.
       var _landedAtField =
         err.httpStatus === 400 && !!err.field && novaShowFieldErrorAt(err.field, err.message);
-      if (!_landedAtField) showToast(userMsg, "error");
+      if (!_landedAtField) showToast(userMsg, toastType);
       btn.disabled = false;
       btn.classList.add("ready-pulse");
       btn.innerHTML =
