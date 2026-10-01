@@ -29,6 +29,7 @@ import io
 import json
 import logging
 import re
+import threading
 import urllib.error
 from email.message import Message
 from pathlib import Path
@@ -91,7 +92,21 @@ def sb(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     monkeypatch.setattr(de, "SUPABASE_KEY", "test-service-role-key")
     monkeypatch.setattr(de, "_supabase_global_fail_time", 0.0)
     monkeypatch.setattr(de, "_supabase_table_fail_times", {})
-    monkeypatch.setattr(de.time, "sleep", lambda s: sleeps.append(s))
+    # `de.time` IS the global time module, so patching its sleep reaches every
+    # thread in the process. A stray 60 s background loop (AutoQC, enrichment
+    # timer) leaked by another test would then spin hot and flood `sleeps`
+    # (observed: 35,403 entries). Record only the test thread's sleeps and let
+    # every other thread keep the real sleep.
+    real_sleep = de.time.sleep
+    owner = threading.get_ident()
+
+    def _recording_sleep(seconds: float) -> None:
+        if threading.get_ident() == owner:
+            sleeps.append(seconds)
+        else:
+            real_sleep(seconds)
+
+    monkeypatch.setattr(de.time, "sleep", _recording_sleep)
     monkeypatch.setattr(
         de,
         "send_alert",
