@@ -12719,13 +12719,21 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
         return False
 
-    def _extract_authenticated_email(self) -> str:
+    def _extract_authenticated_email(self, allow_unsigned_cookie: bool = True) -> str:
         """Return the lowercase @joveo.com email if the request carries a verified
         session (HMAC-verified JWT or HMAC-signed cookie), else empty string.
 
         This mirrors the decoding logic in ``_check_joveo_auth`` but returns the
         identity instead of a bool so the rate limiter can key per-user.  Fails
         closed: if signatures do not verify, returns "".
+
+        Args:
+            allow_unsigned_cookie: Default True keeps the legacy migration
+                behavior (while STRICT_AUTH is off an UNSIGNED ``nova_user_email``
+                cookie is accepted as the identity -- fine for per-IP rate-limit
+                keying, NOT for authorization: anyone can type that cookie).
+                Callers that scope DATA to the returned identity (saved plans)
+                pass False so only an HMAC-verified JWT or signed cookie counts.
         """
         import base64
         import hmac as _hmac_mod
@@ -12792,12 +12800,41 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             return email_lower
                 except Exception as _cookie_err:
                     logger.debug("Cookie email extract failed: %s", _cookie_err)
-            if not strict_auth:
+            if allow_unsigned_cookie and not strict_auth:
                 email_lower = raw_cookie.lower().strip()
                 if email_lower.endswith("@joveo.com"):
                     return email_lower
 
         return ""
+
+    def _require_saved_plans_owner(self) -> str:
+        """Authenticate a per-user saved-plans request and return the OWNER email.
+
+        The owner comes ONLY from a verified identity (HMAC-verified Supabase JWT
+        or HMAC-signed session cookie) -- never from the raw ``nova_user_email``
+        cookie, which any client can set, and never from an API key alone (it
+        proves a caller, not a user). Sends the refusal itself and returns "" when
+        the request must not proceed:
+
+        * no credentials at all (or only a client-settable widget Origin) -> 401
+        * credentials but no verified user identity (API key only, forged or
+          badly-signed cookie while STRICT_AUTH is off) -> 403
+
+        Requires SESSION_SIGNING_SECRET (signed cookie, minted by
+        /api/auth/session) or SUPABASE_JWT_SECRET (Bearer JWT) to be configured.
+        """
+        if not self._check_joveo_auth(allow_widget_origin=False):
+            self._send_error("Authentication required", "AUTH_REQUIRED", 401)
+            return ""
+        email = self._extract_authenticated_email(allow_unsigned_cookie=False)
+        if not email:
+            self._send_error(
+                "A verified @joveo.com session is required for saved plans",
+                "AUTH_REQUIRED",
+                403,
+            )
+            return ""
+        return email
 
     def _check_rate_limit(self):
         """Tiered rate limiting: API key tier limits take precedence over per-IP limits.
@@ -14869,10 +14906,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 # _check_joveo_auth is a METHOD: a bare call raised NameError
                 # (swallowed below into 200 + empty list) from 2026-04-07 until
                 # the ops-hygiene fix. Fails closed: unauthenticated -> 401.
-                # allow_widget_origin=False on all three saved-plans handlers:
-                # plans are per-user data and Origin/Referer is client-settable.
-                if not self._check_joveo_auth(allow_widget_origin=False):
-                    self._send_error("Authentication required", "AUTH_REQUIRED", 401)
+                # All three saved-plans handlers authenticate through
+                # _require_saved_plans_owner: no widget-Origin fallback, and the
+                # owner is the VERIFIED identity (never the raw cookie).
+                email = self._require_saved_plans_owner()
+                if not email:
                     return
                 try:
                     from supabase_client import get_client
@@ -14887,15 +14925,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     # Never report "storage down" as "you have no saved plans".
                     self._send_json({"error": "Storage unavailable"}, status_code=503)
                     return
-                email = _parse_cookie_value(
-                    self.headers.get("Cookie") or "", "nova_user_email"
-                )
                 result = (
                     sb.table("nova_saved_plans")
                     .select(
                         "id,plan_name,industry,location,budget,created_at,updated_at"
                     )
-                    .eq("user_email", email or "unknown")
+                    .eq("user_email", email)
                     .order("created_at", desc=True)
                     .limit(20)
                     .execute()
@@ -14913,8 +14948,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         elif path.startswith("/api/saved-plans/") and not path.endswith("/"):
             # GET /api/saved-plans/<id> -- fetch full plan data
             try:
-                if not self._check_joveo_auth(allow_widget_origin=False):
-                    self._send_error("Authentication required", "AUTH_REQUIRED", 401)
+                email = self._require_saved_plans_owner()
+                if not email:
                     return
                 plan_id = path.split("/")[-1]
                 if not plan_id.isdigit():
@@ -14929,10 +14964,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 if not sb:
                     self._send_json({"error": "Storage unavailable"}, status_code=503)
                     return
+                # Ownership is enforced IN the query. Someone else's plan is
+                # indistinguishable from a missing one (404, never 403) so ids
+                # cannot be probed for existence.
                 result = (
                     sb.table("nova_saved_plans")
                     .select("*")
                     .eq("id", int(plan_id))
+                    .eq("user_email", email)
                     .execute()
                 )
                 if not result.data:
@@ -16661,8 +16700,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         # ── S47: Save Plan to Supabase (Cindy request) ──
         if path == "/api/saved-plans":
             try:
-                if not self._check_joveo_auth(allow_widget_origin=False):
-                    self._send_error("Authentication required", "AUTH_REQUIRED", 401)
+                email = self._require_saved_plans_owner()
+                if not email:
                     return
                 content_len = int(self.headers.get("Content-Length") or 0)
                 body = self.rfile.read(content_len) if content_len > 0 else b"{}"
@@ -16674,9 +16713,6 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 industry = (data.get("industry") or "")[:100]
                 location = (data.get("location") or "")[:200]
                 budget = data.get("budget") or 0
-                email = _parse_cookie_value(
-                    self.headers.get("Cookie") or "", "nova_user_email"
-                )
                 try:
                     from supabase_client import get_client
 
@@ -16686,29 +16722,45 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 if not sb:
                     self._send_json({"error": "Storage unavailable"}, status_code=503)
                     return
-                result = (
-                    sb.table("nova_saved_plans")
-                    .insert(
-                        {
-                            "user_email": email or "unknown",
-                            "plan_name": plan_name,
-                            "plan_data": plan_data,
-                            "industry": industry,
-                            "location": location,
-                            "budget": float(budget),
-                        }
-                    )
-                    .execute()
-                )
-                saved = (result.data or [{}])[0]
+                # New plans get a random 52-bit id instead of the table's
+                # sequential BIGSERIAL (52 bits stays exact as a JS Number, which
+                # the UI uses). Reads are owner-filtered regardless; this just
+                # keeps ids unguessable. Old sequential ids stay valid for their
+                # owners only. A collision (23505) retries with a fresh id.
+                saved = {}
+                for _attempt in range(3):
+                    try:
+                        result = (
+                            sb.table("nova_saved_plans")
+                            .insert(
+                                {
+                                    "id": secrets.randbits(52) or 1,
+                                    "user_email": email,
+                                    "plan_name": plan_name,
+                                    "plan_data": plan_data,
+                                    "industry": industry,
+                                    "location": location,
+                                    "budget": float(budget),
+                                }
+                            )
+                            .execute()
+                        )
+                        saved = (result.data or [{}])[0]
+                        break
+                    except Exception as insert_exc:
+                        if _attempt < 2 and (
+                            "23505" in str(insert_exc)
+                            or "duplicate key" in str(insert_exc).lower()
+                        ):
+                            continue
+                        raise
                 self._send_json(
                     {"id": saved.get("id"), "plan_name": plan_name, "saved": True}
                 )
             except Exception as exc:
                 logger.error("Save plan error: %s", exc, exc_info=True)
-                self._send_json(
-                    {"error": f"Failed to save plan: {exc}"}, status_code=500
-                )
+                # No exception text to the client: it can carry storage details.
+                self._send_json({"error": "Failed to save plan"}, status_code=500)
             return
 
         # ── S46: Campaign Optimization API ──
