@@ -104,6 +104,24 @@ def test_all_withheld_slide7_drops_salary_column_and_says_so(japan):
     ) in texts
 
 
+def _slide2(pptx: bytes) -> str:
+    slide = Presentation(io.BytesIO(pptx)).slides[1]
+    return "\n".join(sh.text_frame.text for sh in slide.shapes if sh.has_text_frame)
+
+
+def test_slide2_omits_an_na_salary_line(japan):
+    """Design-judge round 2: "Salary Range: Local salary data n/a" said
+    nothing -- the item is omitted; the card's other items flow up."""
+    text = _slide2(japan["pptx"])
+    assert "Salary Range" not in text
+    assert "Local salary data n/a" not in text
+    assert "Budget:" in text and "Target Roles:" in text
+
+
+def test_slide2_keeps_a_sourced_salary_line(ireland):
+    assert "Salary Range:" in _slide2(ireland["pptx"])
+
+
 def test_partially_withheld_slide7_keeps_the_column(ireland):
     texts = _role_slide(ireland["pptx"])
     assert "Salary Benchmark" in texts

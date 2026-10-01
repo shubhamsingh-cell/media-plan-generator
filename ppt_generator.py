@@ -4500,8 +4500,13 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         except (AttributeError, TypeError):
             pass
     if not _salary_added and not _has_us_market:
-        sit_items.append(("Salary Range", _local_salary_range_text(data)))
-        _salary_added = True
+        # Design-judge round 2: a "Salary Range: Local salary data n/a" line
+        # says nothing -- omit the item (the card's items simply flow up; no
+        # gap). The workbook still explains the withheld salaries.
+        _local_range = _local_salary_range_text(data)
+        if _local_range != _LOCAL_SALARY_NA:
+            sit_items.append(("Salary Range", _local_range))
+        _salary_added = True  # never fall back to US enrichment salaries
     if not _salary_added and salary_data:
         try:
             first_role = list(salary_data.keys())[0]
