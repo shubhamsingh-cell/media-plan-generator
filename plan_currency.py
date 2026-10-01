@@ -513,6 +513,17 @@ _SYMBOL_TO_CODES: "list[tuple[str, tuple[str, ...]]]" = [
     # Longest-first, and any symbol that CONTAINS another must be tested
     # first: "US$" contains "S$" (Singapore), so a US$ budget would otherwise
     # resolve to SGD. Likewise every "X$" form must precede bare "$".
+    # ISO-code-prefixed dollar designators ("AUD$100k") first: without them
+    # only the bare "$" was read, so "AUD$100k" for Sydney priced in USD
+    # (delta verifier 2026-10-01).
+    ("AUD$", ("AUD",)),
+    ("CAD$", ("CAD",)),
+    ("NZD$", ("NZD",)),
+    ("HKD$", ("HKD",)),
+    ("SGD$", ("SGD",)),
+    ("USD$", ("USD",)),
+    ("MXN$", ("MXN",)),
+    ("TWD$", ("TWD",)),
     ("US$", ("USD",)),
     # Country-prefixed dollar designators (wizard audit 2026-10-01): "CA$"
     # contains "A$" (Australia), so it must be tested first.

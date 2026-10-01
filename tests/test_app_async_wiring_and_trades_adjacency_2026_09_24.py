@@ -47,7 +47,8 @@ Also covers the currency-symbol-preservation fix in budget-period
 normalisation (monthly/quarterly/annual -> campaign total): that block
 used to hardcode ``f"${scaled:,.0f}"`` regardless of the currency symbol
 the client actually typed, so a GBP/EUR budget came out of normalisation
-relabelled as USD. Fixed by ``app._budget_currency_prefix``.
+relabelled as USD. Fixed by ``app._budget_currency_prefix`` (replaced
+2026-10-01 by ``app._canonical_budget_prefix``).
 
 Root-cause gate: every test below that asserts NEW behaviour was proven to
 fail against the pre-fix code (throwaway ``git worktree add`` at the
@@ -424,6 +425,11 @@ class TestBlueCollarTradesAdjacency:
 # Budget-period normalisation: currency symbol must survive
 # ---------------------------------------------------------------------------
 class TestBudgetPeriodCurrencySymbolSurvives:
+    # 2026-10-01: the prefix now comes from _canonical_budget_prefix (the
+    # symbol plan_currency itself reads), which replaced the legacy
+    # _budget_currency_prefix. One deliberate change: a BARE number gets no
+    # prefix -- the old "$" default declared USD for "30000 per month" in
+    # London / Toronto and read as "the currency you typed".
     @pytest.mark.parametrize(
         "raw,expected_prefix",
         [
@@ -432,29 +438,31 @@ class TestBudgetPeriodCurrencySymbolSurvives:
             ("€5,000", "€"),
             ("€5.000 monthly", "€"),
             ("A$400,000", "A$"),
-            ("10,000", "$"),
+            ("10,000", ""),
             ("$10,000", "$"),
         ],
     )
     def test_budget_currency_prefix(self, raw, expected_prefix):
-        assert app._budget_currency_prefix(raw) == expected_prefix
+        import wizard_inputs
 
-    def test_gbp_monthly_budget_scales_without_becoming_usd(self):
+        parsed = wizard_inputs.parse_budget_input(raw)
+        assert app._canonical_budget_prefix(raw, parsed.currency) == expected_prefix
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [("£10,000", "£30,000"), ("€5,000", "€15,000"), ("10,000", "30,000")],
+    )
+    def test_monthly_budget_scales_without_changing_currency(self, raw, expected):
         # £10,000/month over a 3-month campaign -> £30,000, not $30,000.
-        prefix = app._budget_currency_prefix("£10,000")
-        scaled = app.parse_budget("£10,000") * 3
-        assert f"{prefix}{scaled:,.0f}" == "£30,000"
-
-    def test_eur_comma_budget_scales_without_becoming_usd(self):
-        prefix = app._budget_currency_prefix("€5,000")
-        scaled = app.parse_budget("€5,000") * 3
-        assert f"{prefix}{scaled:,.0f}" == "€15,000"
+        data = {"budget": raw, "budget_period": "monthly", "campaign_duration": "3 months"}
+        app._normalize_request_budget(data)
+        assert data["budget"] == expected, (raw, data["budget"])
 
     def test_budget_period_block_uses_the_shared_prefix_helper(self):
         # The block delegates to _normalize_request_budget (2026-10-01, the
         # one budget reading shared with /api/estimate); its prefix comes
-        # from _canonical_budget_prefix -> _budget_currency_prefix, never a
-        # hardcoded "$".
+        # from _canonical_budget_prefix -> plan_currency's own symbol table,
+        # never a hardcoded "$".
         src = _app_source()
         start = src.index(
             "# ── Budget period normalization (monthly/quarterly/annual"
@@ -468,11 +476,8 @@ class TestBudgetPeriodCurrencySymbolSurvives:
         )
         prefix_src = src[src.index("def _canonical_budget_prefix(") :]
         prefix_src = prefix_src[: prefix_src.index("\ndef ")]
-        assert "_budget_currency_prefix(" in prefix_src
-        for raw, expected in (("£10,000", "£30,000"), ("€5,000", "€15,000")):
-            data = {"budget": raw, "budget_period": "monthly", "campaign_duration": "3 months"}
-            app._normalize_request_budget(data)
-            assert data["budget"] == expected, (raw, data["budget"])
+        assert "plan_currency.declared_currency_symbol(" in prefix_src
+        assert "def _budget_currency_prefix(" not in src  # no second reader
 
 
 if __name__ == "__main__":

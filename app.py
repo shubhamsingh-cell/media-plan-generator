@@ -4390,14 +4390,29 @@ def _resolve_request_budget(data: dict) -> "wizard_inputs.PlanBudget":
     )
 
 
-def _canonical_budget_prefix(raw_text: str, parsed_currency: str, scaled: bool) -> str:
+# Rupee tokens the budget reader reports, and the Indian magnitude words /
+# lakh grouping that make them unambiguously Indian rupees.
+_RUPEE_TOKENS: frozenset = frozenset({"RS", "INR", "RUPEE", "RUPEES"})
+_INDIAN_UNITS_RE = re.compile(
+    r"(?<![a-z])(?:lakhs?|lacs?|crores?|cr)(?![a-z])|\d{1,2}(?:,\d\d)+,\d{3}"
+)
+
+
+def _canonical_budget_prefix(raw_text: str, parsed_currency: str) -> str:
     """Currency prefix for the canonical budget string, chosen so the plan's
     DECLARED currency (plan_currency reads the symbol typed in the budget
-    text) is exactly what it was for the raw text: the symbol plan_currency
-    detects in the raw text; else, for a per-period budget, the legacy
-    normalisation prefix (``_budget_currency_prefix`` -- "$" for a bare
-    number, unchanged behaviour); else a typed 3-letter ISO code ("EUR ",
-    which plan_currency does not read either); else nothing."""
+    text) is exactly what it was for the raw text:
+
+    - the symbol plan_currency detects in the raw text ("£", "CA$", "AUD$");
+    - "₹" for a rupee token (Rs / INR / rupees) with lakh / crore words or
+      lakh grouping -- "Rs 50 lakh" for a Mumbai plan used to price as a
+      $5,000,000 USD plan;
+    - a typed 3-letter ISO code ("EUR "), which plan_currency does not read;
+    - else nothing: a bare number declares no currency, so the plan's
+      market decides. (Per-period budgets used to get a "$" here -- the
+      legacy normalisation default -- which declared USD for a bare
+      "30000 per month" in London and read as "the currency you typed".)
+    """
     symbol = ""
     if plan_currency is not None:
         try:
@@ -4406,8 +4421,10 @@ def _canonical_budget_prefix(raw_text: str, parsed_currency: str, scaled: bool) 
             symbol = ""
     if symbol:
         return symbol
-    if scaled:
-        return _budget_currency_prefix(raw_text)
+    if parsed_currency in _RUPEE_TOKENS and _INDIAN_UNITS_RE.search(
+        (raw_text or "").lower()
+    ):
+        return "₹"
     if re.fullmatch(r"[A-Z]{3}", parsed_currency or ""):
         return f"{parsed_currency} "
     return ""
@@ -4430,7 +4447,7 @@ def _normalize_request_budget(data: dict, log: bool = True) -> "wizard_inputs.Pl
     raw, _key = _request_budget_raw(data)
     raw_text = str(raw).strip()
     scaled = plan.period in _BUDGET_PERIOD_MONTHS
-    prefix = _canonical_budget_prefix(raw_text, plan.parse.currency, scaled)
+    prefix = _canonical_budget_prefix(raw_text, plan.parse.currency)
     canonical = f"{prefix}{wizard_inputs.format_budget_amount(plan.total)}"
     data["_budget_input_raw"] = raw_text
     data["_budget_resolution"] = plan.as_dict()
@@ -4472,6 +4489,27 @@ _TYPED_CURRENCY_WORDS: dict = {
     "RP": "IDR",
 }
 
+def _typed_currency_code(typed: str) -> str:
+    """ISO code a typed currency token stands for ("" when unknown): words
+    ("RUPEES" -> INR), 3-letter codes, and symbols / XXX$ designators through
+    plan_currency's own symbol table ("AUD$" -> AUD, "CA$" -> CAD, "$" ->
+    USD by convention). Only decides whether the reading needs a note."""
+    if not typed:
+        return ""
+    if typed in _TYPED_CURRENCY_WORDS:
+        return _TYPED_CURRENCY_WORDS[typed]
+    if re.fullmatch(r"[A-Z]{3}", typed):
+        return typed
+    if plan_currency is not None:
+        try:
+            codes = plan_currency.currency_codes_from_symbol(typed)
+        except (AttributeError, TypeError, ValueError):
+            codes = ()
+        if codes:
+            return codes[0]
+    return ""
+
+
 _CURRENCY_BASIS_WHY: dict = {
     "explicit": "as set on the request",
     "declared": "from the currency you typed",
@@ -4499,18 +4537,23 @@ def _plan_currency_reading(data: dict, plan: "wizard_inputs.PlanBudget") -> dict
         except (AttributeError, TypeError, ValueError):
             logger.error("plan currency reading failed", exc_info=True)
     typed = plan.parse.currency if plan.parse.ok else ""
-    typed_code = _TYPED_CURRENCY_WORDS.get(typed) or (
-        typed if re.fullmatch(r"[A-Z]{3}", typed) else ""
-    )
+    typed_code = _typed_currency_code(typed)
     why = _CURRENCY_BASIS_WHY.get(basis, "")
     note = ""
-    if typed and basis != "declared" and typed_code != code:
+    if typed and basis == "declared" and typed_code and typed_code != code:
+        # e.g. "$" for a Toronto plan: the symbol is read, as CAD
+        note = (
+            f"plan currency is {code} (“{typed}” is read as {code} "
+            f"{_CURRENCY_BASIS_WHY['market']})"
+        )
+    elif typed and basis != "declared" and typed_code != code:
         note = (
             f"plan currency is {code} {why}; “{typed}” isn’t read "
             "as a currency symbol"
         )
     elif not typed and code != "USD":
-        note = f"plan currency is {code} {why}"
+        # nothing typed: the market decided, whatever the basis says
+        note = f"plan currency is {code} {_CURRENCY_BASIS_WHY['market']}"
     return {
         "code": code,
         "basis": basis,
@@ -4827,24 +4870,6 @@ def _apply_channel_selection(channel_pcts: dict, data: dict) -> dict:
     if not filtered or total <= 0:
         return channel_pcts
     return {k: v / total * 100 for k, v in filtered.items()}
-
-
-def _budget_currency_prefix(raw_budget: str) -> str:
-    """Return the currency symbol/prefix a client typed at the start of a
-    raw budget string (e.g. ``"£10,000"`` -> ``"£"``, ``"A$400,000"`` ->
-    ``"A$"``), defaulting to ``"$"`` when the string has no leading symbol
-    (a bare number, or already-USD input).
-
-    Used by budget-period normalisation (monthly/quarterly/annual ->
-    campaign total): that block used to hardcode ``f"${scaled:,.0f}"``
-    regardless of the currency the client actually typed, so a £/€ budget
-    came out of normalisation relabelled as USD -- reading as a USD amount
-    for the rest of the pipeline and tripping bundle_qa's
-    currency_symbol_mixing gate against the correctly-typed symbol
-    everywhere else in the bundle.
-    """
-    m = re.match(r"^\s*([^\d\s]+)", str(raw_budget or "").strip())
-    return m.group(1) if m else "$"
 
 
 def _resolve_plan_currency(data: dict) -> "str | None":

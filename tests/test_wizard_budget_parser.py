@@ -199,6 +199,7 @@ def test_budget_field_and_review_state_the_planned_figure():
         ("50k/mo", "campaign", "3 months", dallas),
         ("EUR 50,000", "campaign", "3 months", dallas),
         ("50,000 euros", "campaign", "3 months", dallas),
+        ("Rs 50,000", "campaign", "3 months", dallas),
         ("Rs 12,50,000", "campaign", "3 months", dallas),
         ("Rs 12,50,000", "campaign", "3 months", mumbai),
         ("50,000", "campaign", "3 months", london),
@@ -227,8 +228,11 @@ def test_budget_field_and_review_state_the_planned_figure():
         " \u201cEUR\u201d isn\u2019t read as a currency symbol",
         "Planning at $50,000 \u2014 plan currency is USD for your locations;"
         " \u201cEUROS\u201d isn\u2019t read as a currency symbol",
-        "Planning at $1,250,000 \u2014 plan currency is USD for your locations;"
+        # bare "Rs" is also PKR / LKR / NPR: not read as a currency ...
+        "Planning at $50,000 \u2014 plan currency is USD for your locations;"
         " \u201cRS\u201d isn\u2019t read as a currency symbol",
+        # ... but with lakh grouping (or lakh / crore words) it is INR, declared
+        "Planning at \u20b91,250,000",
         "Planning at \u20b91,250,000",  # typed Rs == plan INR: nothing to flag
         "Planning at \u00a350,000 \u2014 plan currency is GBP for your locations",
         "Planning at C$50,000",
@@ -285,6 +289,7 @@ def test_js_and_server_agree_on_generated_inputs():
         "budget:", "total", "%", "e", "1e9", "(", ")", "x", "abc", " ", " ",
         "５", "١", "0,750", "0.750", "CA$", "AU$", "NT$", "٫", "٬",
         "१", "৫", "16666.666666666668", ".5",
+        "AUD$", "MXN$", "TWD$", "usd$", "0050", "01,500", "Rs", "lakh rupees",
     ]
     inputs = []
     for _ in range(4000):
@@ -355,9 +360,13 @@ def test_canonical_budget_string_reads_back_identically(row):
     assert parse_budget(data["budget"]) == pytest.approx(plan.total, abs=0.005)
     assert data["budget_range"] == data["budget"]
     raw = str(row["input"])
-    assert plan_currency.currency_codes_from_symbol(
-        data["budget"]
-    ) == plan_currency.currency_codes_from_symbol(raw)
+    declared = plan_currency.currency_codes_from_symbol(raw)
+    if (row.get("currency") or "") in app._RUPEE_TOKENS and app._INDIAN_UNITS_RE.search(raw.lower()):
+        # the one deliberate difference: "Rs 50 lakh" / "INR 2 crore" are
+        # Indian rupees, so the canonical string declares "₹" (plan_currency
+        # reads no word tokens; the raw text priced in USD)
+        declared = ("INR",)
+    assert plan_currency.currency_codes_from_symbol(data["budget"]) == declared
 
 
 def test_generate_budget_block_plans_the_parsed_amount():

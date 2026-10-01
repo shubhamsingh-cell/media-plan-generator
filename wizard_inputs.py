@@ -203,7 +203,7 @@ BUDGET_REGEX: dict[str, str] = {
     # apostrophe variants (Swiss grouping 1'000'000) -> "'"
     "quotes": r"[‘’ʼ´`]",
     "exponent": r"[0-9] ?e ?[-+]?[0-9]",
-    "currency_symbol": r"(?:cad|aud|nzd|hkd|sgd|usd|us|ca|au|nz|hk|mx|sg|nt|c|a|s|r)?\$|[€£₹¥₩₱฿₽₴₦₪₺]|zł|kč",
+    "currency_symbol": r"(?:cad|aud|nzd|hkd|sgd|usd|mxn|twd|us|ca|au|nz|hk|mx|sg|nt|c|a|s|r)?\$|[€£₹¥₩₱฿₽₴₦₪₺]|zł|kč",
     "currency_word": _B
     + r"(?:usd|eur|gbp|inr|cad|aud|nzd|sgd|hkd|jpy|cny|rmb|chf|sek|nok|dkk|pln|czk|huf|mxn|brl|zar|aed|sar|qar|kwd|myr|idr|php|thb|krw|try|ils|egp|ngn|kes|pkr|bdt|lkr|vnd|ron|rm|rp|kr|rs|dollars?|euros?|pounds?|rupees?)"
     + _E
