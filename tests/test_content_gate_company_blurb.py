@@ -380,12 +380,13 @@ def test_correct_blurb_renders_on_cover_at_a_clean_boundary():
     tagline = [t for t in cover if t.startswith("The Hershey Company, commonly known")]
     assert tagline, cover
     t = tagline[0]
-    assert len(t) <= 121
-    # whole sentence, or a whole-word cut marked with an ellipsis
-    assert t.endswith(".") or (t.endswith("…") and t[-2].isalpha())
-    assert t.rstrip("…") in HERSHEY["extract"]
-    nxt = HERSHEY["extract"][len(t.rstrip("…"))]
-    assert not nxt.isalnum(), f"cut mid-word: {t!r}"
+    # design review 2026-10-01: the tagline may use two lines, so the whole
+    # first sentence -- including its defining "chocolate" clause -- fits
+    assert t == (
+        "The Hershey Company, commonly known as Hershey's, is an American "
+        "multinational company and one of the largest chocolate "
+        "manufacturers in the world."
+    ), t
 
 
 def test_truncation_never_cuts_mid_word():
@@ -397,6 +398,19 @@ def test_truncation_never_cuts_mid_word():
         out = company_blurb.truncate_at_boundary(text, limit)
         assert len(out) <= limit
         if out != text:
-            body = out.rstrip("…")
+            assert not out.endswith("…") or out.endswith(" …"), out  # word-boundary convention
+            body = out[: -2] if out.endswith(" …") else out
             assert text.startswith(body)
             assert len(text) == len(body) or not text[len(body)].isalnum(), (text, out)
+
+
+def test_profile_description_uses_the_same_ellipsis_as_the_cover():
+    """design review 2026-10-01: slide 8 ended '...' where the cover used
+    the ellipsis glyph -- one boundary-safe convention everywhere."""
+    long_desc = HERSHEY["extract"] + " " + ("It operates many plants worldwide " * 6)
+    pptx_bytes, _ = _bundle_for("THE HERSHEY COMPANY", long_desc, "food_beverage")
+    descs = [
+        t for s_ in _deck_text(pptx_bytes) for t in s_ if t.startswith("Description:")
+    ]
+    assert descs, "no Description row"
+    assert not descs[0].endswith("..."), descs[0]

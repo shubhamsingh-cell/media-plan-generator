@@ -121,9 +121,7 @@ def test_narrative_that_is_mostly_competitor_claims_falls_back_to_template():
     assert data["_narrative_status"]["status"] == "llm_rejected_fabrication"
 
 
-def _slide7_why_lines(competitors) -> list:
-    import ppt_generator
-    from pptx import Presentation
+def _plan(competitors, **extra):
     from tools_regen_bundles import build_plan_data
 
     data = build_plan_data(
@@ -133,38 +131,200 @@ def _slide7_why_lines(competitors) -> list:
             "budget": "$150,000",
             "campaign_duration": "6 months",
             "hire_volume": "50-100 hires",
-            "locations": ["Hershey, PA"],
+            "locations": ["Hershey, PA", "Lancaster, PA"],
             "roles": ["Machine Operator"],
             "target_roles": ["Machine Operator"],
             "competitors": competitors,
         }
     )
+    data.update(extra)
+    return data
+
+
+def _slide7_texts(data) -> list:
+    import ppt_generator
+    from pptx import Presentation
+
     prs = Presentation(io.BytesIO(ppt_generator.generate_pptx(data)))
-    lines = []
     for slide in prs.slides:
-        for sh in slide.shapes:
-            if getattr(sh, "has_text_frame", False) and sh.text_frame.text.startswith("Why:"):
-                lines.append(sh.text_frame.text)
-    return lines
+        texts = [
+            sh.text_frame.text
+            for sh in slide.shapes
+            if getattr(sh, "has_text_frame", False) and sh.text_frame.text.strip()
+        ]
+        if "COMPETITOR LANDSCAPE" in texts:
+            return texts
+    raise AssertionError("no Competitive Landscape slide")
 
 
-def test_typed_competitor_without_evidence_gets_the_neutral_line():
-    lines = _slide7_why_lines(list(TYPED[:3]))
-    assert len(lines) == 3
-    for line in lines:
-        assert competitor_claims.NO_EVIDENCE_LINE in line, line
-        assert "major employer" not in line and "likely competitor" not in line
+def _slide7_why_lines(competitors) -> list:
+    return [t for t in _slide7_texts(_plan(competitors)) if t.startswith("Why:")]
 
 
-def test_evidence_backed_competitor_still_renders_its_sourced_description():
+LOW_CI_CONFIDENCE = {
+    "_synthesized": {
+        "confidence_scores": {"per_section": {"competitive_intelligence": 0.2}}
+    }
+}
+
+
+def test_no_evidence_competitors_render_as_one_group_block_not_cards():
+    """Design review 2026-10-01: three cards each repeating the same "no
+    verified data" line read as a broken template. With NO evidence record,
+    every typed name is listed once (beyond the 3-card cap too) with one
+    neutral sentence, and nothing says "inferred from industry
+    classification" about names the client typed -- even when the
+    competitive-intelligence confidence score is low."""
+    texts = _slide7_texts(_plan(list(TYPED), **LOW_CI_CONFIDENCE))
+    assert not [t for t in texts if t.startswith(("Why:", "Counter:"))], texts
+    group = [t for t in texts if competitor_claims.BRIEF_GROUP_LABEL in t]
+    assert len(group) == 1, texts
+    assert all(n in group[0] for n in TYPED)  # all 4, not just 3
+    assert group[0].count(competitor_claims.GROUP_NO_EVIDENCE_SENTENCE) == 1
+    assert not [t for t in texts if "inferred from industry classification" in t]
+
+
+def test_evidence_backed_competitor_keeps_its_card_and_the_rest_share_one_line():
     sourced = {
         "name": "Mars Wrigley",
-        "description": "Confectionery manufacturer with plants in Hackettstown, NJ",
-        "source_url": "https://example.com/mars-careers",
+        "description": (
+            "Confectionery manufacturer with plants in Hackettstown, NJ and "
+            "Elizabethtown, PA (careers page lists 40 open maintenance roles "
+            "across its Pennsylvania sites this quarter)"
+        ),
+        "source_url": "https://www.example.com/mars-careers",
     }
-    lines = _slide7_why_lines([sourced, "Campbell's"])
-    assert any("Confectionery manufacturer with plants" in ln for ln in lines), lines
-    assert any(competitor_claims.NO_EVIDENCE_LINE in ln for ln in lines), lines
+    texts = _slide7_texts(_plan([sourced, "Campbell's", "Land O'Lakes"]))
+    whys = [t for t in texts if t.startswith("Why:")]
+    assert len(whys) == 1 and "Confectionery manufacturer with plants" in whys[0]
+    # attributable + cut on a boundary, never a dangling "(careers ..."
+    assert whys[0].endswith("(source: example.com)"), whys[0]
+    assert "(careers" not in whys[0]
+    assert len([t for t in texts if t.startswith("Counter:")]) == 1
+    rest = [t for t in texts if t.startswith("Also named in your brief")]
+    assert len(rest) == 1 and "Campbell's" in rest[0] and "Land O'Lakes" in rest[0]
+    assert not [t for t in texts if "inferred from industry classification" in t]
+
+
+_CLAIM_WORDS = (
+    "presence",
+    "known name",
+    "well-known",
+    "reputation",
+    "recognition",
+    "top employer",
+    "major employer",
+    "plausible competitor",
+    "likely competitor",
+    "is a staffing agency",
+    "is a direct employer",
+)
+
+
+def test_claim_free_counter_bank_makes_no_claim_about_the_competitor():
+    import insight_composer
+
+    seen = set()
+    for i in range(12):
+        text = insight_composer.compose_counter_strategy(
+            "Flagger Force",
+            {"role": "Flagger", "city": "Wheeling", "ordinal": i, "has_evidence": False},
+        )
+        seen.add(text)
+        low = text.lower()
+        assert not [w for w in _CLAIM_WORDS if w in low], text
+        assert not competitor_claims.find_asserted_claims(text, "AWP")
+    assert len(seen) >= 10  # ordinal rows never repeat
+
+
+def _workbook_cells(data) -> dict:
+    import openpyxl
+
+    wb = openpyxl.load_workbook(io.BytesIO(excel_v2.generate_excel_v2(data)))
+    return {
+        f"{ws.title}!{c.coordinate}": c.value
+        for ws in wb.worksheets
+        for row in ws.iter_rows()
+        for c in row
+        if isinstance(c.value, str)
+    }
+
+
+def test_workbook_competitor_sheets_have_no_claims_for_unevidenced_names():
+    """Cell-by-cell scan of EVERY sheet (design review 2026-10-01): typed
+    competitors with no evidence are listed under "Named in brief", the
+    neutral sentence appears once per sheet that lists them, and no cell
+    pairs one of their names with a presence / known-name / reputation /
+    top-employer claim."""
+    from tools_regen_bundles import build_plan_data
+
+    names = ["Flagger Force", "Traffic Management Inc.", "RoadSafe Traffic Systems", "Altus Traffic"]
+    data = build_plan_data(
+        {
+            "client_name": "AWP",
+            "industry": "construction_real_estate",
+            "budget": "$495,000",
+            "campaign_duration": "6-12 months",
+            "hire_volume": "100-500 hires",
+            "locations": ["Wheeling, WV", "Nashville, TN", "Raleigh, NC", "Columbus, OH"],
+            "roles": ["Traffic Control Flagger"],
+            "target_roles": ["Traffic Control Flagger"],
+            "competitors": names,
+        }
+    )
+    cells = _workbook_cells(data)
+    offenders = {
+        k: v
+        for k, v in cells.items()
+        if any(n in v for n in names) and any(w in v.lower() for w in _CLAIM_WORDS)
+    }
+    assert not offenders, offenders
+    headers = {k: v for k, v in cells.items() if v in ("Top Employers", competitor_claims.NAMED_IN_BRIEF_HEADER)}
+    assert headers and set(headers.values()) == {competitor_claims.NAMED_IN_BRIEF_HEADER}, headers
+    by_sheet = {}
+    for k, v in cells.items():
+        if competitor_claims.GROUP_NO_EVIDENCE_SENTENCE in v:
+            by_sheet[k.split("!")[0]] = by_sheet.get(k.split("!")[0], 0) + 1
+    assert by_sheet.get("Quality Intelligence") == 1, by_sheet
+    assert by_sheet.get("Market Intelligence") == 1, by_sheet
+    assert all(n == 1 for n in by_sheet.values()), by_sheet
+    # the inferred padding is not presented as the client's "Named in brief"
+    qi_lists = [v for k, v in cells.items() if k.startswith("Quality Intelligence!C") and "Flagger Force" in v]
+    assert qi_lists and all(
+        set(x.strip() for x in v.split(",")) <= set(names) for v in qi_lists
+    ), qi_lists
+
+
+def test_workbook_inferred_roster_is_not_called_top_employers():
+    """A brief with NO competitors gets gold_standard's static per-industry
+    roster (e.g. Amazon/Walmart/UPS for a food bank). Nothing about those
+    employers was observed, so the column is "Inferred competitors" -- not
+    "Top Employers" -- and the Why column stays market-level ("Active but
+    not dominant" characterises employers nobody looked at)."""
+    from tools_regen_bundles import build_plan_data
+
+    data = build_plan_data(
+        {
+            "client_name": "Riverbend Community Food Bank",
+            "industry": "general_entry_level",
+            "budget": "$3,000",
+            "campaign_duration": "1 month",
+            "hire_volume": "1-10 hires",
+            "locations": ["Sacramento, CA"],
+            "roles": ["Volunteer Coordinator", "Warehouse Associate"],
+            "target_roles": ["Volunteer Coordinator", "Warehouse Associate"],
+            "competitors": [],
+        }
+    )
+    qi = {
+        k: v
+        for k, v in _workbook_cells(data).items()
+        if k.startswith("Quality Intelligence!")
+    }
+    assert competitor_claims.INFERRED_HEADER in qi.values(), sorted(set(qi.values()))[:40]
+    assert "Top Employers" not in qi.values()
+    assert not [v for v in qi.values() if "Active but not dominant" in v]
+    assert [v for v in qi.values() if v.startswith("Moderate hiring competition in ")]
 
 
 # ---------------------------------------------------------------------------

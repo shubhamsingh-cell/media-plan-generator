@@ -7487,8 +7487,19 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             if isinstance(_ci_competitors_raw, dict)
             else {}
         )
+        # The brief's own dict entries (description / evidence / source_url)
+        # ride along so an evidence-backed competitor is recognised as such.
+        _brief_meta_by_name = {
+            str(e.get("name") or "").strip().lower(): e
+            for e in clean_competitor_entries(data.get("competitors"))
+            if isinstance(e, dict)
+        }
         comp_analysis = [
-            {**_ci_by_name_lower.get(str(c).strip().lower(), {}), "name": c}
+            {
+                **_ci_by_name_lower.get(str(c).strip().lower(), {}),
+                **_brief_meta_by_name.get(str(c).strip().lower(), {}),
+                "name": c,
+            }
             for c in competitors
         ]
     else:
@@ -7640,9 +7651,15 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         # reads as "we looked and found nothing" rather than "this was
         # never sourced."
         _comp_rows: List[Dict[str, str]] = []
+        # Competitors with no evidence record get claim-free counter
+        # strategies (no presence / known-name / reputation statement) and
+        # one neutral sentence for the table (design review 2026-10-01).
+        _any_unevidenced = False
         for idx, comp in enumerate(comp_list[:10]):
             if isinstance(comp, dict):
                 _comp_name = comp.get("name", comp.get("company") or "")
+                _has_ev = competitor_claims.competitor_has_evidence(comp)
+                _any_unevidenced = _any_unevidenced or not _has_ev
                 _counter = insight_composer.compose_counter_strategy(
                     _comp_name,
                     {
@@ -7652,6 +7669,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                         "competitor_type": comp.get("competitor_type") or "",
                         "intensity": comp.get("hiring_activity") or "",
                         "ordinal": idx,
+                        "has_evidence": _has_ev,
                     },
                 )
                 _comp_rows.append(
@@ -7673,6 +7691,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     }
                 )
             elif isinstance(comp, str):
+                _any_unevidenced = True
                 _counter = insight_composer.compose_counter_strategy(
                     comp,
                     {
@@ -7680,6 +7699,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                         "city": _first_city,
                         "industry": industry_label,
                         "ordinal": idx,
+                        "has_evidence": False,
                     },
                 )
                 _comp_rows.append(
@@ -7702,6 +7722,10 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     row,
                     "Competitor set inferred from industry classification; "
                     "not verified against live posting data.",
+                )
+            if _any_unevidenced:
+                row = _write_footnote(
+                    ws, row, competitor_claims.GROUP_NO_EVIDENCE_SENTENCE
                 )
 
             _optional_cols = [
@@ -10571,6 +10595,19 @@ def _build_sheet_quality_intelligence(
                             break
                     if _qi_any_non_brief_employer:
                         break
+            # Evidence gate (design review 2026-10-01): when the client
+            # typed its competitors and none carries an evidence record,
+            # the table lists ONLY those names under "Named in brief" (no
+            # inferred padding presented as their "Top Employers"), says
+            # once that no verified public hiring data exists, and uses
+            # claim-free counter-strategies.
+            _qi_evidenced_lower = {
+                str(e.get("name") or "").strip().lower()
+                for e in clean_competitor_entries(data.get("competitors"))
+                if isinstance(e, dict)
+                and competitor_claims.competitor_has_evidence(e)
+            }
+            _qi_named_only = bool(_qi_brief_lower) and not _qi_evidenced_lower
             if not _qi_brief_lower:
                 row = _write_footnote(
                     ws,
@@ -10578,7 +10615,7 @@ def _build_sheet_quality_intelligence(
                     "Competitor set inferred from industry classification; "
                     "not verified against live posting data.",
                 )
-            elif _qi_any_non_brief_employer:
+            elif _qi_any_non_brief_employer and not _qi_named_only:
                 row = _write_footnote(
                     ws,
                     row,
@@ -10586,12 +10623,23 @@ def _build_sheet_quality_intelligence(
                     "are inferred from industry classification; not "
                     "verified against live posting data.",
                 )
+            if not _qi_evidenced_lower:
+                row = _write_footnote(
+                    ws, row, competitor_claims.GROUP_NO_EVIDENCE_SENTENCE
+                )
+            if _qi_named_only:
+                _qi_employer_header = competitor_claims.NAMED_IN_BRIEF_HEADER
+            elif not _qi_brief_lower:
+                # static per-industry roster, never observed for this client
+                _qi_employer_header = competitor_claims.INFERRED_HEADER
+            else:
+                _qi_employer_header = "Top Employers"
             row = _write_table_header(
                 ws,
                 row,
                 [
                     "City",
-                    "Top Employers",
+                    _qi_employer_header,
                     "Hiring Intensity",
                     "Why They Matter",
                     "Counter-Strategy",
@@ -10621,18 +10669,35 @@ def _build_sheet_quality_intelligence(
                     _strip_competitor_scope_tag(e)
                     for e in (info.get("top_employers") or [])
                 ]
+                if _qi_named_only:
+                    employers = [
+                        e for e in employers if e.strip().lower() in _qi_brief_lower
+                    ] or list(_qi_brief_competitors_raw)
                 intensity = str(info.get("hiring_intensity") or "moderate").lower()
 
                 # Generate WHY each competitor group matters
-                if intensity in ("high", "very_high"):
+                if intensity in ("high", "very_high") and _qi_evidenced_lower:
                     why_matter = (
                         f"High hiring volume in {city_name} — "
                         f"these employers compete for the same {industry_label_qs} talent pool"
                     )
-                elif intensity == "moderate":
+                elif intensity in ("high", "very_high"):
+                    # market-level only: nothing observed about the employers
+                    why_matter = (
+                        f"High hiring volume in {city_name} — a competitive "
+                        f"market for {industry_label_qs} talent"
+                    )
+                elif intensity == "moderate" and _qi_evidenced_lower:
                     why_matter = (
                         f"Active but not dominant — opportunity to capture market share "
                         f"with targeted positioning in {city_name}"
+                    )
+                elif intensity == "moderate":
+                    # market-level only: "active but not dominant" would
+                    # characterise employers nobody observed
+                    why_matter = (
+                        f"Moderate hiring competition in {city_name} — room to "
+                        f"stand out with targeted positioning"
                     )
                 else:
                     why_matter = (
@@ -10666,6 +10731,8 @@ def _build_sheet_quality_intelligence(
                         "industry": industry_label_qs,
                         "intensity": intensity,
                         "ordinal": idx,
+                        "has_evidence": top_employer.strip().lower()
+                        in _qi_evidenced_lower,
                     },
                 )
 
@@ -10693,6 +10760,12 @@ def _build_sheet_quality_intelligence(
                     _strip_competitor_scope_tag(e)
                     for e in (national.get("top_employers") or [])
                 ]
+                if _qi_named_only:
+                    national_employers = [
+                        e
+                        for e in national_employers
+                        if e.strip().lower() in _qi_brief_lower
+                    ] or list(_qi_brief_competitors_raw)
                 row = _write_table_row(
                     ws,
                     row,
@@ -10700,7 +10773,9 @@ def _build_sheet_quality_intelligence(
                         "National (All Markets)",
                         ", ".join(national_employers[:5]),
                         str(national.get("hiring_intensity") or "moderate").title(),
-                        "National competitors set salary and benefits benchmarks",
+                        "National competitors set salary and benefits benchmarks"
+                        if _qi_evidenced_lower
+                        else "Applies across every market in this plan",
                         "Match or exceed top benefits; lead with mission and impact",
                     ],
                     fonts=[

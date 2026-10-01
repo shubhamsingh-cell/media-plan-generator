@@ -446,6 +446,9 @@ MATRIX: Dict[str, Callable[[], Dict[str, Any]]] = {
                         "hiring_velocity": "high",
                         "hiring_intensity": "aggressive",
                         "competitor_type": "national",
+                        # mpg-content-gate: only evidence-backed competitors
+                        # get full cards; keep this stress case on cards
+                        "evidence": "fixture: synthesized intel record",
                     }
                     for name in (
                         "Universal Health Services Behavioral Division Co",

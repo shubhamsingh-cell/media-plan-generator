@@ -132,6 +132,20 @@ def _deck() -> bytes:
     return ppt.generate_pptx(_uber_style_plan())
 
 
+def _evidenced_deck() -> bytes:
+    """mpg-content-gate (2026-10-01): only a competitor with an evidence
+    record gets a full Why/Counter card -- no-evidence names are listed once
+    as a group. The card-geometry tests therefore run on evidence-backed
+    competitors (no description, so the long composed Why sentence still
+    stresses the wrap/cascade logic these tests pin)."""
+    data = _uber_style_plan()
+    data["competitors"] = [
+        {"name": n, "source_url": f"https://example.com/{n.lower()}-careers"}
+        for n in ("Marriott", "Hilton", "Hyatt")
+    ]
+    return ppt.generate_pptx(data)
+
+
 # ---------------------------------------------------------------------------
 # Shape-geometry helpers
 # ---------------------------------------------------------------------------
@@ -361,7 +375,7 @@ def test_slide7_why_text_fits_before_counter_starts():
     (~1 line at 8pt) while "Counter:" was hardcoded at cy+0.58in. The Why
     sentence reliably wraps to 2 lines at this column width, so its
     second line overprinted Counter's first line on every card."""
-    prs = Presentation(io.BytesIO(_deck()))
+    prs = Presentation(io.BytesIO(_evidenced_deck()))
     slide = _slide_by_headline(prs, "Competitive Landscape")
     why_shapes = [sh for sh in _text_shapes(slide) if sh.text_frame.text.startswith("Why:")]
     counter_shapes = [
@@ -386,7 +400,7 @@ def test_slide7_why_text_fits_before_counter_starts():
 
 
 def test_slide7_competitor_cards_do_not_overlap_each_other():
-    prs = Presentation(io.BytesIO(_deck()))
+    prs = Presentation(io.BytesIO(_evidenced_deck()))
     slide = _slide_by_headline(prs, "Competitive Landscape")
     cards = _rounded_rect_cards(slide, min_w_in=4.0, min_h_in=1.0)
     assert len(cards) >= 2, "expected multiple competitor cards"
@@ -409,7 +423,12 @@ def test_slide7_shows_provenance_hedge_for_inferred_competitor_set():
     prs = Presentation(io.BytesIO(_deck()))
     slide = _slide_by_headline(prs, "Competitive Landscape")
     texts = [sh.text_frame.text for sh in _text_shapes(slide)]
-    assert any(_INFERRED_LABEL in t for t in texts), (
+    # mpg-content-gate: with no evidence the set is listed once under the
+    # inferred group label (the separate hedge note is for evidence cards)
+    assert any(
+        _INFERRED_LABEL in t or competitor_claims.INFERRED_GROUP_LABEL in t
+        for t in texts
+    ), (
         "expected the provenance/hedge line since the competitor set is "
         "inferred, not client-supplied or independently verified"
     )
@@ -433,22 +452,19 @@ def test_slide7_why_text_has_no_banned_asserted_behaviour_verbs():
     about a named third party -- only presence/capability framing."""
     prs = Presentation(io.BytesIO(_deck()))
     slide = _slide_by_headline(prs, "Competitive Landscape")
-    why_texts = [
-        sh.text_frame.text for sh in _text_shapes(slide) if sh.text_frame.text.startswith("Why:")
-    ]
-    assert why_texts, "expected Why: lines on the competitor cards"
-    for t in why_texts:
+    texts = [sh.text_frame.text for sh in _text_shapes(slide)]
+    for t in texts:
         low = t.lower()
         for banned in _BANNED_SUBSTRINGS:
             assert banned not in low, f"banned asserted-behaviour phrase {banned!r} in {t!r}"
-        # mpg-content-gate (2026-10-01): these industry-fallback competitors
-        # carry NO evidence record, so the Why line is the neutral
-        # no-evidence line -- not presence/capability framing, which is
-        # itself an unverified template claim ("is a major employer in this
-        # industry"). The competitor is still named, on the card title.
-        assert competitor_claims.NO_EVIDENCE_LINE in t, t
-    texts = [sh.text_frame.text for sh in _text_shapes(slide)]
-    assert any(t.strip() in ("Marriott", "Hilton", "Hyatt") for t in texts)
+    # mpg-content-gate (2026-10-01): these industry-fallback competitors
+    # carry NO evidence record, so there are no per-competitor Why/Counter
+    # cards at all -- one group block names them with one neutral sentence.
+    assert not [t for t in texts if t.startswith(("Why:", "Counter:"))]
+    group = [t for t in texts if competitor_claims.INFERRED_GROUP_LABEL in t]
+    assert len(group) == 1, texts
+    assert all(n in group[0] for n in ("Marriott", "Hilton", "Hyatt"))
+    assert group[0].count(competitor_claims.GROUP_NO_EVIDENCE_SENTENCE) == 1
 
 
 def test_why_templates_module_level_contain_no_banned_verbs_at_any_ordinal():

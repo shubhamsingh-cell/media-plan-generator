@@ -290,7 +290,17 @@ def test_quality_intelligence_discloses_padded_competitors_even_when_brief_nonem
     non-empty, even though Amazon/Walmart/etc. were mixed into the same
     "Top Employers" cell as the client's own names."""
     comp_map = _competitor_map_for(["Mars Wrigley", "Nestle", "Mondelez"])
-    data = _hershey_data(competitors=["Mars Wrigley", "Nestle", "Mondelez"])
+    # mpg-content-gate (2026-10-01): a brief whose competitors carry NO
+    # evidence lists only those names ("Named in brief", no padding) -- see
+    # tests/test_content_gate_competitor_claims.py. The padding + disclosure
+    # path this test pins runs when at least one has an evidence record.
+    data = _hershey_data(
+        competitors=[
+            {"name": "Mars Wrigley", "source_url": "https://example.com/mars-careers"},
+            "Nestle",
+            "Mondelez",
+        ]
+    )
     gold = {"competitor_mapping": comp_map}
     text = _sheet_text(_build_quality_intel_ws(data, gold))
     assert "Mars Wrigley" in text

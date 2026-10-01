@@ -612,7 +612,7 @@ ELLIPSIS = "…"
 def truncate_at_boundary(text: Any, max_chars: int) -> str:
     """Shorten ``text`` to at most ``max_chars``: whole sentences when at
     least one fits (no ellipsis -- nothing is visibly cut), otherwise the
-    last whole word followed by an ellipsis. Never cuts inside a word and
+    last whole word followed by " …". Never cuts inside a word and
     never leaves a dangling article/preposition before the ellipsis."""
     if not isinstance(text, str):
         return ""
@@ -627,8 +627,8 @@ def truncate_at_boundary(text: Any, max_chars: int) -> str:
         kept = cand
     if kept:
         return kept
-    cut = text[: max_chars - 1]
-    if " " in cut and not text[max_chars - 1].isspace():
+    cut = text[: max_chars - 2]  # room for the " …" suffix
+    if " " in cut and not text[max_chars - 2].isspace():
         cut = cut.rsplit(" ", 1)[0]
     # Prefer ending at a clause boundary when one sits in the last half of
     # the budget: "...is an American multinational company…" reads better
@@ -644,7 +644,10 @@ def truncate_at_boundary(text: Any, max_chars: int) -> str:
     words = cut.rstrip(" ,;:-—–").split(" ")
     while len(words) > 1 and words[-1].lower() in _TRAILING_STOPWORDS:
         words.pop()
-    return " ".join(words).rstrip(" ,;:-—–") + ELLIPSIS
+    # " …" (space + ellipsis): the deck/workbook convention for a cut ON a
+    # word boundary -- a letter directly before the ellipsis is what
+    # bundle_qa and the geometry matrix read as a mid-word cut.
+    return " ".join(words).rstrip(" ,;:-—–") + " " + ELLIPSIS
 
 
 def company_tagline(description: Any, max_chars: int = 120) -> str:

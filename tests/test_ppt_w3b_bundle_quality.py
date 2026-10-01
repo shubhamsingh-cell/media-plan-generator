@@ -540,6 +540,17 @@ class TestCompetitorVerticalClassification:
 
     def test_competitive_landscape_slide_tags_amazon_talent_market(self):
         data = _healthcare_plan()  # competitors: Brookdale, Sunrise, Amazon
+        # mpg-content-gate (2026-10-01): vertical tags live on per-competitor
+        # cards, which only an evidence record earns (unevidenced names are
+        # listed once in a group block) -- give each one a fixture record.
+        data["competitors"] = [
+            {
+                "name": n,
+                "description": f"{n} fixture evidence record for this test.",
+                "source_url": "https://example.test/careers",
+            }
+            for n in data["competitors"]
+        ]
         prs = _new_prs()
         ppt._build_slide_competitive_landscape(prs, data)
         assert len(prs.slides) == 1
@@ -663,6 +674,32 @@ class TestCompetitorCardOverflowFix:
             ), f"competitor card bottom {bottom} exceeds footer y {footer_rule_y}"
 
     def test_card_count_capped_at_three(self):
+        names = [
+            "Brookdale Senior Living",
+            "Sunrise Senior Living",
+            "Sonida Senior Living",
+            "Five Star Senior Living",
+        ]
+        data = _healthcare_plan()
+        # cards are earned by an evidence record (mpg-content-gate 2026-10-01)
+        data["competitors"] = [
+            {
+                "name": n,
+                "description": f"{n} fixture evidence record for this test.",
+                "source_url": "https://example.test/careers",
+            }
+            for n in names
+        ]
+        prs = _new_prs()
+        ppt._build_slide_competitive_landscape(prs, data)
+        blob = "\n".join(_all_slide_text(prs))
+        # The 4th card should never appear -- a clean cap, not a
+        # partially-drawn card.
+        assert "Five Star Senior Living" not in blob
+
+    def test_unevidenced_fourth_name_is_listed_once_not_drawn_as_a_card(self):
+        """Without evidence there are no cards at all: every typed name --
+        the 4th included -- is listed once in the group block."""
         data = _healthcare_plan()
         data["competitors"] = [
             "Brookdale Senior Living",
@@ -672,10 +709,9 @@ class TestCompetitorCardOverflowFix:
         ]
         prs = _new_prs()
         ppt._build_slide_competitive_landscape(prs, data)
-        blob = "\n".join(_all_slide_text(prs))
-        # The 4th competitor should never appear -- a clean cap, not a
-        # partially-drawn card.
-        assert "Five Star Senior Living" not in blob
+        texts = _all_slide_text(prs)
+        assert "Five Star Senior Living" not in texts  # no card title
+        assert sum("Five Star Senior Living" in t for t in texts) == 1
 
 
 if __name__ == "__main__":

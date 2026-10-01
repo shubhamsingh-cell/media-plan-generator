@@ -174,6 +174,40 @@ _SKELETON_BANKS: dict[str, tuple[str, ...]] = {
 }
 
 
+# Claim-free counter-strategies for a competitor with NO evidence record
+# (mpg-content-gate, design review 2026-10-01). Every skeleton above opens
+# with a statement ABOUT the competitor -- "is a staffing agency", "'s
+# presence in this pool", "is a known name to", "is a well-known employer
+# brand", "'s reputation" -- which for a name the client merely typed is an
+# unverified claim. These are advice the plan controls; the competitor is
+# only the reference point, never the subject of a factual statement.
+# >= 10 skeletons so ordinal-indexed rows never repeat (bundle_qa's
+# counter_strategy_near_duplicate rule).
+_NO_EVIDENCE_BANK: tuple[str, ...] = (
+    "Lead {angle} with total-comp clarity and a same-week interview slot; "
+    "that answers a comparison with {competitor} on terms the plan controls.",
+    "A 48-hour offer turnaround and pre-screened shortlists keep {angle} "
+    "from drifting toward named alternatives such as {competitor}.",
+    "Reply to {angle} within one business day — speed-to-contact decides "
+    "more of these hires than any head-to-head with {competitor}.",
+    "Publish a specific, verifiable pay figure for {angle}; it settles a "
+    "comparison with {competitor} without any claim about them.",
+    "Offer {angle} a single-visit interview loop so a decision lands before "
+    "a candidate weighs {competitor}.",
+    "Make schedule flexibility the headline for {angle} — a lever the plan "
+    "controls whatever {competitor} offers.",
+    "Use referral incentives and manager-led outreach to reach {angle} "
+    "before they compare offers with {competitor}.",
+    "Keep requisitions for {angle} always-on with rolling interviews so "
+    "timing never hands a candidate to {competitor}.",
+    "Give {angle} a named hiring contact and a clear growth path; verify any "
+    "head-to-head point about {competitor} before using it in outreach.",
+    "Run a same-week site visit or shadow shift for {angle}; it "
+    "differentiates the offer from {competitor} without an unverified "
+    "comparison.",
+)
+
+
 def _pick_index(key: str, n: int) -> int:
     """Deterministic (process-stable) index in [0, n) from a hash of ``key``.
 
@@ -190,11 +224,16 @@ def _pick_index(key: str, n: int) -> int:
 def compose_counter_strategy(competitor: str, ctx: dict | None = None) -> str:
     """One sentence of competitor-specific counter-strategy prose.
 
-    ``ctx`` (all optional): role, city, industry, intensity, competitor_type.
-    Always interpolates the competitor name and at least one role- or
-    city-specific angle. Phrasing varies deterministically by a hash of
-    (competitor, role) across >=4 skeletons per bucket, so two competitors
-    in the same bucket never render byte-identical text.
+    ``ctx`` (all optional): role, city, industry, intensity, competitor_type,
+    has_evidence. Always interpolates the competitor name and at least one
+    role- or city-specific angle. Phrasing varies deterministically by a
+    hash of (competitor, role) across >=4 skeletons per bucket, so two
+    competitors in the same bucket never render byte-identical text.
+
+    ``has_evidence=False`` (a competitor the client typed, with no evidence
+    record -- see competitor_claims.competitor_has_evidence) selects the
+    claim-free bank: advice only, no presence / recognition / reputation /
+    type statement about the competitor.
     """
     ctx = ctx or {}
     name = str(competitor or "").strip() or "This competitor"
@@ -218,7 +257,10 @@ def compose_counter_strategy(competitor: str, ctx: dict | None = None) -> str:
     else:
         angle = "candidates in this pool"
 
-    bank = _SKELETON_BANKS.get(competitor_type, _SKELETON_BANKS["default"])
+    if ctx.get("has_evidence") is False:
+        bank = _NO_EVIDENCE_BANK
+    else:
+        bank = _SKELETON_BANKS.get(competitor_type, _SKELETON_BANKS["default"])
     # ``ordinal`` (the competitor's position in the rendered list) selects
     # the skeleton DIRECTLY (idx = ordinal % len(bank)) rather than merely
     # offsetting a per-name hash. A hash-plus-offset scheme still let two

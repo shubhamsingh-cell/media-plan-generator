@@ -4046,13 +4046,22 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     # Omitted entirely otherwise; shortened on a sentence/word boundary.
     _cover_desc = company_blurb.client_company_description(data)
     if _cover_desc:
-        tagline = company_blurb.company_tagline(_cover_desc, 120)
+        # Up to TWO lines (the 0.6in gap above the "Created by" line fits
+        # two 11pt lines): a one-line 120-char budget cut Hershey's first
+        # sentence before its defining clause ("...one of the largest
+        # chocolate manufacturers in the world"). Shrink the budget only if
+        # the measured text would need a third line.
+        _tag_limit = 210
+        tagline = company_blurb.company_tagline(_cover_desc, _tag_limit)
+        while _tag_limit > 60 and _measure_lines(tagline, 9 - 0.2, 11) > 2:
+            _tag_limit -= 20
+            tagline = company_blurb.company_tagline(_cover_desc, _tag_limit)
         _add_textbox(
             slide,
             Inches(0.64),
             Inches(5.02 + _cover_shift_in),
             Inches(9),
-            Inches(0.4),
+            Inches(0.56),
             text=tagline,
             font_size=11,
             italic=True,
@@ -8375,6 +8384,103 @@ def _compose_competitor_why(
 # itself. Cap the rendered (and collected) competitor count here so a 4th
 # card never gets drawn partially off the slide.
 _MAX_COMPETITOR_CARDS = 3
+# Names a brief may list in the no-evidence summary block (cards stay
+# capped at _MAX_COMPETITOR_CARDS).
+_MAX_NAMED_COMPETITORS_LISTED = 8
+
+
+def _evidence_source_label(comp_data: Dict[str, Any]) -> str:
+    """Domain of an evidence record's source_url ("careers.mars.com"), or
+    "" when the competitor carries no usable URL."""
+    url = str((comp_data or {}).get("source_url") or "").strip()
+    if not url:
+        return ""
+    try:
+        from urllib.parse import urlparse
+
+        host = urlparse(url if "//" in url else f"https://{url}").hostname or ""
+    except ValueError:
+        return ""
+    return host[4:] if host.startswith("www.") else host
+
+
+def _render_named_competitor_group(
+    slide, left, top, width, label: str, names: List[str]
+) -> float:
+    """ONE compact card listing every no-evidence competitor plus one
+    neutral sentence (replaces a stack of identical per-competitor cards).
+    Returns the card's bottom edge in inches."""
+    names_text = " · ".join(n for n in names if n)
+    body_w_in = (width / 914400) - 0.4 - 0.2
+    # label and names are separate paragraphs: a bold label run followed by
+    # a regular names run in ONE paragraph wraps a name across the label's
+    # line ("... · Nestle / USA") and renders as one bold run in QA renders
+    head_lines = _measure_lines(f"{label}:", body_w_in, 10.0, bold=True)
+    name_lines = _measure_lines(names_text, body_w_in, 10.0, bold=False)
+    note_lines = _measure_lines(
+        competitor_claims.GROUP_NO_EVIDENCE_SENTENCE, body_w_in, 8.0, bold=False
+    )
+    text_h_in = (
+        (head_lines + name_lines) * (10.0 * 1.35) / 72.0
+        + 0.04
+        + 0.06
+        + note_lines * (8.0 * 1.35) / 72.0
+    )
+    card_h_in = max(0.62, text_h_in + 0.3)
+    _add_rounded_rect(slide, left, top, width, Inches(card_h_in), WHITE)
+    _add_filled_rect(slide, left, top, Inches(0.06), Inches(card_h_in), BLUE)
+    _box, tf = _add_textbox(
+        slide,
+        left + Inches(0.2),
+        top + Inches(0.12),
+        width - Inches(0.4),
+        Inches(card_h_in - 0.18),
+    )
+    p = tf.paragraphs[0]
+    r1 = p.add_run()
+    r1.text = f"{label}:"
+    _set_font(r1, size=10, bold=True, color=DARK_TEXT)
+    p1 = tf.add_paragraph()
+    p1.space_before = Pt(3)
+    r2 = p1.add_run()
+    r2.text = names_text
+    _set_font(r2, size=10, color=DARK_TEXT)
+    p2 = tf.add_paragraph()
+    p2.space_before = Pt(4)
+    r3 = p2.add_run()
+    r3.text = competitor_claims.GROUP_NO_EVIDENCE_SENTENCE
+    _set_font(r3, size=8, italic=True, color=MUTED_TEXT)
+    return (top / 914400) + card_h_in
+
+
+def _render_named_competitor_line(
+    slide, left, top, width, names: List[str], inferred: bool
+) -> float:
+    """One compact line under the evidence-backed cards for the competitors
+    that have no evidence record. Returns its bottom edge in inches."""
+    lead = (
+        "Also inferred from industry classification"
+        if inferred
+        else "Also named in your brief"
+    )
+    text = (
+        f"{lead} (no verified public hiring data): "
+        + " · ".join(n for n in names if n)
+    )
+    n_lines = _measure_lines(text, (width / 914400) - 0.2, 8.0, bold=False)
+    h_in = max(0.2, n_lines * (8.0 * 1.35) / 72.0 + 0.04)
+    _add_textbox(
+        slide,
+        left,
+        top,
+        width,
+        Inches(h_in),
+        text=text,
+        font_size=8,
+        italic=True,
+        color=MUTED_TEXT,
+    )
+    return (top / 914400) + h_in
 
 
 def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
@@ -8540,7 +8646,10 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         if desc:
             # Word-boundary truncation (never mid-word), ellipsis only when
             # the text was actually cut.
-            profile_items.append(("Description", _trunc_clause(str(desc), 100)))
+            # same boundary-safe cut + "…" the cover uses (was "...")
+            profile_items.append(
+                ("Description", company_blurb.truncate_at_boundary(str(desc), 100))
+            )
         domain = company.get("domain") or ""
         if domain:
             profile_items.append(("Domain", str(domain)))
@@ -8829,7 +8938,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         # Python repr, and it expands a name -> metadata mapping instead of
         # the old branch here that passed such a mapping's raw values on.
         for _dc in clean_competitor_entries(data.get("competitors"))[
-            :_MAX_COMPETITOR_CARDS
+            :_MAX_NAMED_COMPETITORS_LISTED
         ]:
             if isinstance(_dc, dict):
                 competitors[_dc["name"]] = {
@@ -8919,38 +9028,32 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         comp_card_h = Inches(0.8)
         comp_card_gap = Inches(0.12)
 
-        # brand-liability: when the competitor set isn't the client's own
-        # explicit list, it's an inferred guess -- the industry-keyed
-        # fallback carries no relation to the client's actual roles, and
-        # even synthesized competitive intelligence can be exactly the
-        # low-confidence data this plan's own Sources & Confidence sheet
-        # grades poorly. Say so on the slide instead of presenting an
-        # inferred list with the same unhedged confidence as a verified
-        # one. Prefer the plan's real per-section confidence score when one
-        # exists; fall back to the fact that the list came from the
-        # industry/gold-standard fallback path when it doesn't.
-        _ci_confidence = None
-        _conf_scores = (
-            synthesized.get("confidence_scores", {})
-            if isinstance(synthesized, dict)
-            else {}
+        # Evidence mechanism (design review 2026-10-01): only a competitor
+        # with an evidence record (competitor_claims.competitor_has_evidence)
+        # gets a full card. The rest are listed ONCE as a group with one
+        # neutral sentence -- three cards repeating the same "no verified
+        # data" line read as a broken template. A brief-typed set is never
+        # labelled "inferred from industry classification" (that wording
+        # used to key off the competitive-intelligence confidence score,
+        # which drops whenever the company blurb is rejected).
+        _ev_competitors: Dict[str, Any] = {
+            n: d
+            for n, d in competitors.items()
+            if isinstance(d, dict) and competitor_claims.competitor_has_evidence(d)
+        }
+        _group_names = [
+            _strip_competitor_tag(n) or str(n)
+            for n in competitors
+            if n not in _ev_competitors
+        ]
+        _competitor_set_inferred = _competitor_source != "brief"
+        _group_label = (
+            competitor_claims.INFERRED_GROUP_LABEL
+            if _competitor_set_inferred
+            else competitor_claims.BRIEF_GROUP_LABEL
         )
-        if isinstance(_conf_scores, dict):
-            _per_section_conf = _conf_scores.get(
-                "per_section", _conf_scores.get("sections", {})
-            )
-            if isinstance(_per_section_conf, dict):
-                _raw_ci_conf = _per_section_conf.get("competitive_intelligence")
-                if isinstance(_raw_ci_conf, (int, float)) and not isinstance(
-                    _raw_ci_conf, bool
-                ):
-                    _ci_confidence = float(_raw_ci_conf)
-        if _ci_confidence is not None:
-            _competitor_set_inferred = _ci_confidence < 0.6
-        else:
-            _competitor_set_inferred = _competitor_source != "brief"
 
-        if competitors and _competitor_set_inferred:
+        if _ev_competitors and _competitor_set_inferred:
             _add_textbox(
                 slide,
                 right_left,
@@ -8979,6 +9082,15 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 font_size=10,
                 italic=True,
                 color=MUTED_TEXT,
+            )
+        elif not _ev_competitors:
+            _comp_right_bottom_in = _render_named_competitor_group(
+                slide,
+                right_left,
+                comp_card_top,
+                right_w,
+                _group_label,
+                _group_names,
             )
         else:
             # Taller cards for counter-strategy -- compose_counter_strategy's
@@ -9068,7 +9180,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
 
             _cards: list = []
             for ci, (comp_name, comp_data) in enumerate(
-                list(competitors.items())[:_MAX_COMPETITOR_CARDS]
+                list(_ev_competitors.items())[:_MAX_COMPETITOR_CARDS]
             ):
                 if not isinstance(comp_data, dict):
                     continue
@@ -9121,14 +9233,14 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 # "is a major employer in this industry"): a competitor with
                 # no evidence record gets a neutral line, never a template
                 # or model-knowledge claim. A domain alone is not evidence.
-                if not competitor_claims.competitor_has_evidence(comp_data):
-                    why_text = (
-                        competitor_claims.CLIENT_NAMED_LINE
-                        if _competitor_source == "brief"
-                        else competitor_claims.NO_EVIDENCE_LINE
-                    )
-                elif comp_desc and not _generic_desc:
-                    why_text = _trunc_clause(comp_desc, 80)
+                _src = _evidence_source_label(comp_data)
+                if comp_desc and not _generic_desc:
+                    # sentence / clause / word boundary + "…", never a
+                    # dangling "(careers ..." fragment; the source domain
+                    # follows so the evidence is attributable.
+                    why_text = company_blurb.truncate_at_boundary(
+                        comp_desc, 110 - len(_src)
+                    ) + (f" (source: {_src})" if _src else "")
                 elif comp_domain:
                     why_text = f"Competes for the same talent pool via {comp_domain}"
                 else:
@@ -9286,6 +9398,15 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 _comp_cur_top_in += card_h_in + (comp_card_gap / 914400)
 
             _comp_right_bottom_in = _comp_cur_top_in - (comp_card_gap / 914400)
+            if _group_names:
+                _comp_right_bottom_in = _render_named_competitor_line(
+                    slide,
+                    right_left,
+                    Inches(_comp_right_bottom_in + 0.08),
+                    right_w,
+                    _group_names,
+                    inferred=_competitor_set_inferred,
+                )
 
         # fix/gate-confidence-layout: the Source line below the content was
         # hardcoded to an absolute Inches(6.7) regardless of how tall the

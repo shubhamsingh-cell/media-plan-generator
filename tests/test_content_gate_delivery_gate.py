@@ -144,7 +144,7 @@ def test_mid_word_cut_is_confirmed_and_trimmed_but_a_word_boundary_cut_is_not_fl
     findings = bundle_qa.run_bundle_qa(None, xlsx, DATA)
     assert [f for f in findings if f["code"] == "mid_word_truncation"]
     res = bundle_qa.gate_bundle(None, xlsx, DATA)
-    assert _cells(res["xlsx_bytes"])["D10"] == "The Accuracy International rifle is made by the…"
+    assert _cells(res["xlsx_bytes"])["D10"] == "The Accuracy International rifle is made by the …"
     clean = _workbook({"D10": WORD_CUT, "D11": FULL}, with_chart=False)
     assert not [
         f for f in bundle_qa.run_bundle_qa(None, clean, DATA) if f["code"] == "mid_word_truncation"

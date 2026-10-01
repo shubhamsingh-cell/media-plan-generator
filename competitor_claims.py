@@ -37,6 +37,19 @@ import company_blurb
 NO_EVIDENCE_LINE = "No verified public hiring data available."
 CLIENT_NAMED_LINE = f"Named in the brief as a competitor. {NO_EVIDENCE_LINE}"
 INFERRED_LINE = f"Inferred from industry classification. {NO_EVIDENCE_LINE}"
+# Group-level wording (design review 2026-10-01): when competitors have no
+# evidence they are listed ONCE as a group with ONE neutral sentence --
+# never a per-competitor card repeating the same line.
+BRIEF_GROUP_LABEL = "Competitors named in your brief"
+INFERRED_GROUP_LABEL = "Competitors inferred from industry classification"
+GROUP_NO_EVIDENCE_SENTENCE = (
+    "No verified public hiring data found for these employers; add evidence "
+    "or run competitive intelligence to profile them."
+)
+# Workbook column headers for an employer list with no evidence record:
+# never "Top Employers", which asserts a standing nobody observed.
+NAMED_IN_BRIEF_HEADER = "Named in brief"
+INFERRED_HEADER = "Inferred competitors"
 
 # Generic capitalised sentence/label openers that precede the real name in
 # "Why: <Name> ..." / "Counter: <Name> ..." text -- skipped by the name

@@ -2639,7 +2639,7 @@ def _repair_text(text: str, ctx: _RepairContext) -> tuple[str, set[str]]:
         if " " in body.strip():
             trimmed = body.rsplit(" ", 1)[0].rstrip(" ,;:-—–")
             if trimmed.strip():
-                new = trimmed + "…"
+                new = trimmed + " …"
                 fixed.add("mid_word_truncation")
     return new, fixed
 
