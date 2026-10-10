@@ -779,13 +779,39 @@ const NovaRouter = (() => {
     return html;
   }
 
+  /* Script types the browser runs as JavaScript. Anything else (the
+     wizard's <script type="application/json" id="novaWizardInputs"> budget
+     rules, JSON-LD, templates) is DATA: it stays in the DOM untouched, id
+     and type intact. The old copy dropped every attribute, so the JSON ran
+     as code (SyntaxError) and getElementById("novaWizardInputs") found
+     nothing -- the wizard lost its budget rules inside the platform. */
+  const _JS_SCRIPT_TYPES = new Set([
+    "",
+    "text/javascript",
+    "application/javascript",
+    "module",
+  ]);
+
+  /* True once any fragment's scripts have run in this document. Fragment
+     scripts declare top-level const/let/class (currentStep, locations, ...);
+     running a second fragment -- or the same one again -- in the same
+     document throws "Identifier 'currentStep' has already been declared",
+     the whole script dies, and the freshly injected form has no handlers:
+     budget never registers, tags never stick, every button is dead. */
+  let _documentRanFragmentScripts = false;
+
   function _executeScripts(container) {
     const scripts = container.querySelectorAll("script");
     scripts.forEach((oldScript) => {
+      const type = (oldScript.getAttribute("type") || "").trim().toLowerCase();
+      if (!_JS_SCRIPT_TYPES.has(type)) return;
       const newScript = document.createElement("script");
-      if (oldScript.src) newScript.src = oldScript.src;
-      else newScript.textContent = oldScript.textContent;
+      for (const attr of Array.from(oldScript.attributes)) {
+        newScript.setAttribute(attr.name, attr.value);
+      }
+      if (!oldScript.src) newScript.textContent = oldScript.textContent;
       oldScript.parentNode.replaceChild(newScript, oldScript);
+      _documentRanFragmentScripts = true;
     });
   }
 
@@ -894,6 +920,15 @@ const NovaRouter = (() => {
 
     if (routeKey === _currentRoute + (_currentTabId ? "/" + _currentTabId : ""))
       return;
+
+    /* A fragment after another fragment's scripts already ran here: load
+       the URL (already pushed) as a fresh document instead of injecting --
+       see _documentRanFragmentScripts. A direct load of /platform/<route>
+       injects exactly one fragment, which is the path that works. */
+    if (config.fragment && _documentRanFragmentScripts) {
+      window.location.reload();
+      return;
+    }
 
     const sameModule = config.route === _currentRoute;
     _currentRoute = config.route;
