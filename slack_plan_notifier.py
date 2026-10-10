@@ -14,6 +14,8 @@ Graceful degradation: logs a warning if Slack credentials are missing, never cra
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -39,6 +41,62 @@ _BASE_URL: str = (
     or "https://media-plan-generator.onrender.com"
 )
 _SEND_TIMEOUT = 15
+
+# How long a Slack download button keeps working. The plain /api/jobs/<id>
+# link dies with the 24h job expiry, and the "permanent" Drive copy has never
+# uploaded in prod (service accounts have no Drive quota without a shared-
+# drive NOVA_DRIVE_FOLDER_ID), so every button in #nova-media-plans was a
+# 404 by the next day. The S47 Supabase copy keeps the ZIP; this link reads
+# it for SLACK_DOWNLOAD_LINK_DAYS behind a token only the Slack message has.
+_SLACK_LINK_DAYS_DEFAULT = 30
+
+
+def slack_download_link_seconds() -> int:
+    """Lifetime of a Slack download link, in seconds (env-tunable)."""
+    raw = (os.environ.get("SLACK_DOWNLOAD_LINK_DAYS") or "").strip()
+    try:
+        days = int(raw) if raw else _SLACK_LINK_DAYS_DEFAULT
+    except ValueError:
+        days = _SLACK_LINK_DAYS_DEFAULT
+    return max(1, min(days, 365)) * 86400
+
+
+def _slack_link_key() -> bytes:
+    # Read fresh on every call (never cached at import): a test or a rotated
+    # secret must not leave a stale key behind. Any server-only secret works;
+    # rotating it simply retires the outstanding links.
+    for name in ("SESSION_SIGNING_SECRET", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_KEY"):
+        val = (os.environ.get(name) or "").strip()
+        if val:
+            return val.encode("utf-8")
+    return b""
+
+
+def slack_download_token(job_id: str) -> str:
+    """HMAC token binding a Slack download link to one job ("" if no key)."""
+    key = _slack_link_key()
+    if not key or not job_id:
+        return ""
+    msg = f"nova-slack-plan-download:v1:{job_id}".encode("utf-8")
+    return hmac.new(key, msg, hashlib.sha256).hexdigest()[:32]
+
+
+def verify_slack_download_token(job_id: str, token: str) -> bool:
+    """Constant-time check of a Slack download token."""
+    expected = slack_download_token(job_id)
+    return bool(expected) and hmac.compare_digest(
+        expected, (token or "").strip().lower()
+    )
+
+
+def slack_download_url(job_id: str) -> str:
+    """The Slack button's link: the long-lived signed route when a key is
+    configured, else the 24h job link."""
+    base = _BASE_URL.rstrip("/")
+    token = slack_download_token(job_id)
+    if token:
+        return f"{base}/api/plans/{job_id}/download?t={token}"
+    return f"{base}/api/jobs/{job_id}"
 
 
 def _format_budget(budget_val: Any) -> str:
@@ -120,7 +178,7 @@ def _build_plan_notification_blocks(plan_data: Dict[str, Any]) -> List[Dict[str,
     if drive_url:
         download_url = drive_url
     elif job_id:
-        download_url = f"{_BASE_URL.rstrip('/')}/api/jobs/{job_id}"
+        download_url = slack_download_url(job_id)
 
     # Channels display (show up to 5, then "+N more")
     channels_display = "N/A"

@@ -15344,6 +15344,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             self.send_header("Cache-Control", "public, max-age=3600")
             self.end_headers()
             self.wfile.write(body)
+        # ── Slack download button: signed, long-lived plan link ──
+        elif path.startswith("/api/plans/") and path.endswith("/download"):
+            self._handle_slack_plan_download(path)
         # ── Feature 2c: Async job polling ──
         elif path.startswith("/api/jobs/"):
             job_id = path.split("/")[-1]
@@ -26299,7 +26302,91 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             logger.debug("Job blob: client disconnected during download: %s", _blob_write_err)
         return True
 
-    def _serve_plan_from_supabase(self, job_id: str) -> bool:
+    def _send_plan_link_page(self, status: int, title: str, body: str) -> None:
+        """A short human page for a Slack download link that cannot serve a
+        file -- a browser tab showing raw JSON read as "the product is
+        broken"."""
+        page = (
+            '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            f"<title>{html_mod.escape(title)} | Nova</title>"
+            "<style>body{font-family:Inter,system-ui,sans-serif;background:#FFFCF9;"
+            "color:#202058;display:flex;min-height:100vh;align-items:center;"
+            "justify-content:center;margin:0;padding:16px}main{max-width:460px}"
+            "h1{font-size:22px;margin:0 0 12px}p{line-height:1.5;color:#3d3d6b}"
+            "a{display:inline-block;margin-top:12px;background:#5A54BE;color:#fff;"
+            "padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600}"
+            "</style></head><body><main>"
+            f"<h1>{html_mod.escape(title)}</h1><p>{html_mod.escape(body)}</p>"
+            '<a href="/media-plan">Open the Media Plan Generator</a>'
+            "</main></body></html>"
+        ).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(page)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.end_headers()
+        self.wfile.write(page)
+
+    def _handle_slack_plan_download(self, path: str) -> None:
+        """GET /api/plans/<job_id>/download?t=<token> -- the Slack button.
+
+        The bare /api/jobs/<id> link is a bearer URL and must keep its 24h
+        bound; this route serves the S47 Supabase copy for
+        SLACK_DOWNLOAD_LINK_DAYS, but only with the HMAC token minted into
+        the Slack message (slack_plan_notifier.slack_download_url).
+        """
+        from slack_plan_notifier import (
+            slack_download_link_seconds,
+            verify_slack_download_token,
+        )
+
+        parts = path.strip("/").split("/")  # api, plans, <id>, download
+        job_id = parts[2] if len(parts) == 4 else ""
+        if not _JOB_ID_RE.match(job_id):
+            self._send_plan_link_page(
+                400, "Link not recognised", "This download link is malformed."
+            )
+            return
+        token = (
+            urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("t")
+            or [""]
+        )[0]
+        if not verify_slack_download_token(job_id, token):
+            self._send_plan_link_page(
+                403,
+                "Link not valid",
+                "This download link is incomplete or no longer valid. "
+                "Use the button in the Slack message, or generate the plan again.",
+            )
+            return
+        if self._serve_plan_from_supabase(
+            job_id, max_age_seconds=slack_download_link_seconds()
+        ):
+            return
+        # Not in Supabase (its write is best-effort): a plan still inside its
+        # 24h window may live in a worker's memory or the file layer, which
+        # the job route already knows how to search.
+        with _generation_jobs_lock:
+            _live = job_id in _generation_jobs
+        if _live or _job_result_blobs.get(job_id) is not None:
+            self.send_response(302)
+            self.send_header("Location", f"/api/jobs/{job_id}")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        _days = slack_download_link_seconds() // 86400
+        self._send_plan_link_page(
+            404,
+            "This plan has expired",
+            f"Generated plans are kept for {_days} days, and this one is no "
+            "longer stored. Generate it again in the Media Plan Generator.",
+        )
+
+    def _serve_plan_from_supabase(
+        self, job_id: str, max_age_seconds: Optional[int] = None
+    ) -> bool:
         """S47: serve a completed plan from Supabase, the only store that keeps
         the ZIP bytes past a worker restart or the in-memory 5-minute cleanup.
 
@@ -26309,7 +26396,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         mirror paths enforce, or the link outlives every other expiry check and
         becomes permanent public access. nova_generated_plans has no TTL of its
         own (the cleanup job in scripts/create_s47_tables.sql is commented out),
-        so the bound has to be applied here, at read time.
+        so the bound has to be applied here, at read time. ``max_age_seconds``
+        widens it only for the Slack route (/api/plans/<id>/download), whose
+        link carries an HMAC token the bare job id does not.
 
         Returns True if a response was sent, False if the caller should fall
         through to its own not-found/expired handling. Once headers are on the
@@ -26326,7 +26415,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 return False
             _sb_cutoff = time.strftime(
                 "%Y-%m-%dT%H:%M:%SZ",
-                time.gmtime(time.time() - _GENERATION_JOB_EXPIRY_SECONDS),
+                time.gmtime(
+                    time.time() - (max_age_seconds or _GENERATION_JOB_EXPIRY_SECONDS)
+                ),
             )
             _sb_result = (
                 _sb_dl.table("nova_generated_plans")

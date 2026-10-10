@@ -114,7 +114,13 @@ function _buildDashboardHome() { return ""; }
 
 
 def _run(body: str) -> dict:
-    script = _STUB + _router_js() + "\n(async function () {\n" + body + "\n})().catch(function (e) { console.log(JSON.stringify({error: String(e)})); });"
+    script = (
+        _STUB
+        + _router_js()
+        + "\n(async function () {\n"
+        + body
+        + "\n})().catch(function (e) { console.log(JSON.stringify({error: String(e)})); });"
+    )
     return run_node(script)
 
 
