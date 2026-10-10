@@ -26,6 +26,7 @@ import re
 
 import pytest
 
+from tests.test_multiprocess_serving import _http_get, live_server  # noqa: F401
 from tests.wizard_js_harness import NODE, ROOT, js_block, run_node
 
 PLATFORM_JS = ROOT / "static" / "js" / "platform.js"
@@ -82,9 +83,11 @@ var document = {
   querySelector: function () { return contentArea; },
   querySelectorAll: function () { return []; },
 };
+var assigns = [];
 var location = {
   pathname: "/platform/plan/campaign/full-plan", hash: "",
   reload: function () { reloads++; },
+  assign: function (u) { assigns.push(u); },
 };
 var window = { location: location, addEventListener: function () {} };
 var history = { pushState: function (s, t, u) { location.pathname = u; }, replaceState: function () {} };
@@ -178,6 +181,7 @@ def test_revisiting_a_module_loads_a_fresh_document_instead_of_rerunning_scripts
         console.log(JSON.stringify({
           afterFirst: afterFirst,
           reloads: reloads,
+          assigns: assigns,
           fetches: fetches.length,
           path: location.pathname,
         }));
@@ -187,10 +191,41 @@ def test_revisiting_a_module_loads_a_fresh_document_instead_of_rerunning_scripts
     # The first module in a document is injected normally ...
     assert out["afterFirst"] == {"reloads": 0, "fetches": 1}
     # ... a second one would redeclare `const currentStep`, so the router
-    # loads the (already pushed) URL as a fresh document instead.
-    assert out["path"] == "/platform/plan/campaign/quick-plan"
-    assert out["reloads"] == 1
+    # loads the new URL as a fresh document -- assign(), never pushState
+    # first, so a cancelled "Leave site?" prompt leaves URL and page in step.
+    assert out["assigns"] == ["/platform/plan/campaign/quick-plan"]
+    assert out["path"] == "/platform/plan/campaign/full-plan"
     assert out["fetches"] == 1
+
+
+def test_back_button_into_another_module_reloads_the_moved_url():
+    """popstate: the browser already moved the URL, so handleRoute reloads."""
+    out = _run(
+        """
+        var popstate = null;
+        window.addEventListener = function (ev, fn) { if (ev === "popstate") popstate = fn; };
+        NovaRouter.init();
+        await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+        location.pathname = "/platform/plan/campaign/quick-plan";
+        await popstate();
+        console.log(JSON.stringify({ reloads: reloads, fetches: fetches.length }));
+        """
+    )
+    assert "error" not in out, out
+    assert out == {"reloads": 1, "fetches": 1}
+
+
+def test_every_platform_module_route_is_served(live_server: int) -> None:  # noqa: F811
+    """A module switch loads /platform/<route> as a document, so every
+    MODULES route must be a page -- products/* and api-portal were a bare
+    404 because only plan/intelligence/compliance/nova had a section."""
+    src = PLATFORM_JS.read_text(encoding="utf-8")
+    start = src.index("const MODULES")
+    routes = set(re.findall(r'route:\s*"([^"]+)"', src[start : src.index("\n];", start)]))
+    assert {"plan/campaign", "products/slotops", "api-portal"} <= routes
+    for route in sorted(routes):
+        status, _h, _b = _http_get(live_server, "/platform/" + route)
+        assert status == 200, (route, status)
 
 
 def test_dashboard_home_needs_no_reload():

@@ -19,6 +19,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import threading
 import time
 import urllib.error
@@ -84,9 +85,12 @@ def slack_download_token(job_id: str) -> str:
 def verify_slack_download_token(job_id: str, token: str) -> bool:
     """Constant-time check of a Slack download token."""
     expected = slack_download_token(job_id)
-    return bool(expected) and hmac.compare_digest(
-        expected, (token or "").strip().lower()
-    )
+    token = (token or "").strip().lower()
+    # Shape-check before compare_digest: it raises TypeError on a non-ASCII
+    # str (?t=%C3%A9), which would surface as an unauthenticated 500.
+    if not expected or not re.fullmatch(r"[0-9a-f]{32}", token):
+        return False
+    return hmac.compare_digest(expected, token)
 
 
 def slack_download_url(job_id: str) -> str:

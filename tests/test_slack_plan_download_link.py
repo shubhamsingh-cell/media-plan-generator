@@ -106,6 +106,9 @@ def test_signed_link_rejects_bad_token(
         f"/api/plans/{job_id}/download",
         f"/api/plans/{job_id}/download?t=" + "0" * 32,
         f"/api/plans/{job_id}/download?t={spn.slack_download_token(_job_id())}",
+        # non-ASCII: compare_digest raises TypeError on it -> was a 500
+        f"/api/plans/{job_id}/download?t=%C3%A9",
+        f"/api/plans/{job_id}/download?t=" + "%C3%A9" * 16,
     ):
         status, headers, body = _http_get(live_server, path)
         assert status == 403, (path, status)

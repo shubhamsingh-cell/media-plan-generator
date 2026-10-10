@@ -42,6 +42,19 @@ _PLATFORM_SUB_ROUTES: dict[str, dict[str, str]] = {
         "description": "Nova AI assistant for recruitment intelligence, campaign analysis, and market insights.",
         "initial_route": "nova",
     },
+    # Every MODULES route in static/js/platform.js needs a section here: a
+    # module switch now loads /platform/<route> as a fresh document, so a
+    # missing section is a hard 404 (tests/test_platform_fragment_scripts.py).
+    "products": {
+        "title": "Products | Nova Platform - SlotOps & CG Automation",
+        "description": "Joveo products inside Nova: SlotOps interview scheduling and CG Automation.",
+        "initial_route": "products/slotops",
+    },
+    "api-portal": {
+        "title": "API Portal | Nova Platform - Developer Access",
+        "description": "Nova API portal: keys, endpoints and usage for recruitment intelligence APIs.",
+        "initial_route": "api-portal",
+    },
 }
 
 

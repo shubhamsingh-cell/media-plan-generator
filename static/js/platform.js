@@ -319,25 +319,37 @@ const NovaContext = (() => {
     },
   };
 
+  function _persistNow() {
+    _debounceTimer = null;
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          campaign: state.campaign,
+          user: state.user,
+          shared: state.shared,
+          store: _store,
+          _ts: Date.now(),
+        }),
+      );
+    } catch (e) {
+      /* localStorage full or unavailable */
+    }
+  }
+
   function _persistDebounced() {
     if (_debounceTimer) clearTimeout(_debounceTimer);
-    _debounceTimer = setTimeout(() => {
-      try {
-        localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify({
-            campaign: state.campaign,
-            user: state.user,
-            shared: state.shared,
-            store: _store,
-            _ts: Date.now(),
-          }),
-        );
-      } catch (e) {
-        /* localStorage full or unavailable */
-      }
-    }, 500);
+    _debounceTimer = setTimeout(_persistNow, 500);
   }
+
+  /* Module switches load a fresh document (NovaRouter), so a save still
+     waiting on the debounce must land before the page goes away. */
+  window.addEventListener("pagehide", () => {
+    if (_debounceTimer) {
+      clearTimeout(_debounceTimer);
+      _persistNow();
+    }
+  });
 
   function _loadFromLocal() {
     try {
@@ -684,6 +696,21 @@ const NovaSidebar = (() => {
       document
         .getElementById("platform-shell")
         .classList.toggle("sidebar-collapsed", _collapsed);
+      try {
+        sessionStorage.setItem("nova_sidebar_collapsed", _collapsed ? "1" : "");
+      } catch (e) {
+        /* storage unavailable */
+      }
+    },
+    /* Re-apply the collapsed state after a module switch reloaded the page. */
+    restore() {
+      let saved = "";
+      try {
+        saved = sessionStorage.getItem("nova_sidebar_collapsed") || "";
+      } catch (e) {
+        /* storage unavailable */
+      }
+      if (saved === "1" && !_collapsed) this.toggle();
     },
     toggleGroup(groupId) {
       const el = document.querySelector(
@@ -813,6 +840,17 @@ const NovaRouter = (() => {
       oldScript.parentNode.replaceChild(newScript, oldScript);
       _documentRanFragmentScripts = true;
     });
+  }
+
+  /* Would routing to ``route`` inject a fragment into a document that already
+     ran one? (popstate has no choice -- the browser already moved the URL --
+     so handleRoute reloads; navigate/switchTab load the new URL instead.) */
+  function _needsFreshDocument(route) {
+    if (!_documentRanFragmentScripts) return false;
+    const config = _getRouteConfig(route || "");
+    const key = config.route + (config.tabId ? "/" + config.tabId : "");
+    const current = _currentRoute + (_currentTabId ? "/" + _currentTabId : "");
+    return !!config.fragment && key !== current;
   }
 
   function _showLoadingBar() {
@@ -1027,6 +1065,12 @@ const NovaRouter = (() => {
   return {
     navigate(route) {
       const newPath = route ? "/platform/" + route : "/platform";
+      if (_needsFreshDocument(route)) {
+        /* assign, not pushState + reload: if the user cancels a "Leave
+           site?" prompt, the URL still matches the page on screen. */
+        window.location.assign(newPath);
+        return;
+      }
       history.pushState({ novaRoute: route }, "", newPath);
       handleRoute();
     },
@@ -1037,6 +1081,10 @@ const NovaRouter = (() => {
       const tab = mod.tabs.find((t) => t.id === tabId);
       if (!tab) return;
       const newRoute = mod.route + "/" + tabId;
+      if (_needsFreshDocument(newRoute)) {
+        window.location.assign("/platform/" + newRoute);
+        return;
+      }
       history.pushState({ novaRoute: newRoute }, "", "/platform/" + newRoute);
       handleRoute();
     },
@@ -1610,9 +1658,29 @@ const NovaDrawer = (() => {
 
   let _chatHistory = [];
 
+  /* A module switch reloads the page (NovaRouter); the drawer stays open
+     across it instead of closing on every navigation it triggers itself. */
+  function _rememberOpen(open) {
+    try {
+      sessionStorage.setItem("nova_drawer_open", open ? "1" : "");
+    } catch (e) {
+      /* storage unavailable */
+    }
+  }
+
   return {
+    restore() {
+      let saved = "";
+      try {
+        saved = sessionStorage.getItem("nova_drawer_open") || "";
+      } catch (e) {
+        /* storage unavailable */
+      }
+      if (saved === "1" && !_isOpen) this.open();
+    },
     open() {
       _isOpen = true;
+      _rememberOpen(true);
       document.getElementById("nova-drawer").classList.add("open");
       document.getElementById("nova-fab").classList.add("hidden");
       /* P1-7: Shrink content area to avoid clipping behind drawer */
@@ -1636,6 +1704,7 @@ const NovaDrawer = (() => {
     },
     close() {
       _isOpen = false;
+      _rememberOpen(false);
       document.getElementById("nova-drawer").classList.remove("open");
       document.getElementById("nova-fab").classList.remove("hidden");
       document.getElementById("nova-overlay").classList.remove("visible");
@@ -2376,7 +2445,9 @@ document.addEventListener("DOMContentLoaded", () => {
   NovaSidebar.build();
   NovaRoleSelector.init();
   NovaDrawer.updateSuggestions("home");
+  NovaSidebar.restore();
   NovaRouter.init();
+  NovaDrawer.restore();
   /* Start proactive insights polling */
   NovaInsights.start();
   /* Safety net: rebuild sidebar if empty after 500ms (P1-6 fix) */
