@@ -15402,6 +15402,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         return
                     if now - _mirror_created > _GENERATION_JOB_EXPIRY_SECONDS:
                         _job_record_store.delete(job_id)
+                        if self._browser_navigation():
+                            self._send_expired_job_page()
+                            return
                         self.send_response(404)
                         self.send_header("Content-Type", "application/json")
                         self.end_headers()
@@ -15480,6 +15483,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 # S47: Fallback to Supabase for restart-safe Slack download links
                 if self._serve_plan_from_supabase(job_id):
                     return
+                if self._browser_navigation():
+                    self._send_expired_job_page()
+                    return
                 self.send_response(404)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -15515,6 +15521,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 # Auto-expire check
                 if now - job["created"] > _GENERATION_JOB_EXPIRY_SECONDS:
                     _generation_jobs.pop(job_id, None)
+                    if self._browser_navigation():
+                        self._send_expired_job_page()
+                        return
                     self.send_response(404)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
@@ -26302,19 +26311,37 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             logger.debug("Job blob: client disconnected during download: %s", _blob_write_err)
         return True
 
+    def _browser_navigation(self) -> bool:
+        """True for a person opening the URL in a tab (a Slack button), not
+        the wizard's fetch() poll, which never sends text/html in Accept."""
+        accept = (self.headers.get("Accept") or "").lower()
+        return "text/html" in accept and "application/json" not in accept
+
+    def _send_expired_job_page(self) -> None:
+        self._send_plan_link_page(
+            404,
+            "This download link has expired",
+            "Plan download links from before 2026-10-11 work for 24 hours; "
+            "newer Slack buttons work for 30 days. Generate the plan again "
+            "to get a fresh file.",
+        )
+
     def _send_plan_link_page(self, status: int, title: str, body: str) -> None:
         """A short human page for a Slack download link that cannot serve a
         file -- a browser tab showing raw JSON read as "the product is
         broken"."""
+        from joveo_brand_2026 import CANVAS, INDIGO, PURPLE
+
         page = (
             '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             f"<title>{html_mod.escape(title)} | Nova</title>"
-            "<style>body{font-family:Inter,system-ui,sans-serif;background:#FFFCF9;"
-            "color:#202058;display:flex;min-height:100vh;align-items:center;"
+            "<style>body{font-family:Inter,system-ui,sans-serif;"
+            f"background:{CANVAS};color:{INDIGO};"
+            "display:flex;min-height:100vh;align-items:center;"
             "justify-content:center;margin:0;padding:16px}main{max-width:460px}"
-            "h1{font-size:22px;margin:0 0 12px}p{line-height:1.5;color:#3d3d6b}"
-            "a{display:inline-block;margin-top:12px;background:#5A54BE;color:#fff;"
+            "h1{font-size:22px;margin:0 0 12px}p{line-height:1.5;opacity:.85}"
+            f"a{{display:inline-block;margin-top:12px;background:{PURPLE};color:#fff;"
             "padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600}"
             "</style></head><body><main>"
             f"<h1>{html_mod.escape(title)}</h1><p>{html_mod.escape(body)}</p>"

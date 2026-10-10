@@ -141,3 +141,23 @@ def test_link_days_env_is_bounded(monkeypatch) -> None:
     assert spn.slack_download_link_seconds() == 365 * DAY
     monkeypatch.setenv("SLACK_DOWNLOAD_LINK_DAYS", "junk")
     assert spn.slack_download_link_seconds() == 30 * DAY
+
+
+def test_expired_job_link_opened_in_a_browser_shows_a_page(
+    live_server: int, isolated_slot_dir: str
+) -> None:
+    """Old Slack buttons (bare /api/jobs/<id>) opened after 24h showed raw
+    JSON in the tab; a person gets a page, the wizard's poll keeps JSON."""
+    job_id = _job_id()
+    status, headers, body = _http_get(
+        live_server,
+        f"/api/jobs/{job_id}",
+        headers={"Accept": "text/html,application/xhtml+xml,*/*;q=0.8"},
+    )
+    assert status == 404
+    assert headers.get("Content-Type", "").startswith("text/html")
+    assert b"expired" in body
+
+    status, headers, body = _http_get(live_server, f"/api/jobs/{job_id}")
+    assert status == 404
+    assert headers.get("Content-Type", "").startswith("application/json")
