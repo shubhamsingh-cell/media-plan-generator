@@ -2009,30 +2009,73 @@
     _applyUrlParamPrefill();
   }
 
+  // Quick Brief's "Generate Full Plan" link and the hub quick-start cards
+  // both prefill the wizard through the URL. Quick Brief sends PLURAL keys
+  // (roles=, locations=, hires=, timeline=) and its own industry LABEL
+  // ("Healthcare"); this used to read only role=/location= and a card key,
+  // so every Quick Brief handoff arrived with just the budget and the plan
+  // fell back to General / Entry-Level (Brendan, RTI International,
+  // 2026-10-09). Labels that don't name one wizard industry are left for
+  // the user to pick rather than guessed.
+  var _PREFILL_INDUSTRY_LABELS = {
+    healthcare: "healthcare_medical",
+    technology: "tech_engineering",
+    finance: "finance_banking",
+    education: "education",
+    retail: "retail_consumer",
+    construction: "construction_real_estate",
+    "skilled trades": "blue_collar_trades",
+    "facilities & maintenance": "blue_collar_trades",
+    hospitality: "hospitality_travel",
+    "hospitality & food service": "hospitality_travel",
+    "logistics & supply chain": "logistics_supply_chain",
+    "transportation & logistics": "logistics_supply_chain",
+  };
+
+  function _prefillIndustryKey(raw) {
+    var v = String(raw || "").trim();
+    if (!v) return "";
+    if (document.querySelector('.industry-card[data-industry="' + v + '"]')) return v;
+    return _PREFILL_INDUSTRY_LABELS[v.toLowerCase()] || "";
+  }
+
+  // "8 weeks", "3 months", "1 year" -> the nearest campaign-duration option.
+  function _prefillDurationOption(raw) {
+    var m = String(raw || "").toLowerCase().match(/(\d+(?:\.\d+)?)\s*(week|wk|month|mo|year|yr)/);
+    var sel = document.getElementById("campaignDuration");
+    if (!m || !sel) return "";
+    var n = parseFloat(m[1]);
+    var months = /^w/.test(m[2]) ? n / 4.345 : /^y/.test(m[2]) ? n * 12 : n;
+    var best = "", bestGap = Infinity;
+    Array.prototype.forEach.call(sel.options, function (o) {
+      var om = o.value.match(/^(\d+)\s*(week|month)s?$/);
+      if (!om) return;
+      var oMonths = om[2] === "week" ? +om[1] / 4.345 : +om[1];
+      var gap = Math.abs(oMonths - months);
+      if (gap < bestGap) { bestGap = gap; best = o.value; }
+    });
+    return best;
+  }
+
   function _applyUrlParamPrefill() {
     try {
       var params = new URLSearchParams(window.location.search);
-      if (
-        !params.has("industry") &&
-        !params.has("role") &&
-        !params.has("location")
-      )
-        return;
+      var keys = ["industry", "role", "roles", "location", "locations",
+        "budget", "hires", "timeline", "client"];
+      if (!keys.some(function (k) { return params.get(k); })) return;
+
+      var fire = function (el, type) { el.dispatchEvent(new Event(type, { bubbles: true })); };
 
       // Client name
       if (params.get("client")) {
         var cn = document.getElementById("clientName");
-        if (cn) {
-          cn.value = params.get("client");
-          cn.dispatchEvent(new Event("input", { bubbles: true }));
-        }
+        if (cn) { cn.value = params.get("client"); fire(cn, "input"); }
       }
 
-      // Industry
-      if (params.get("industry")) {
-        var ic = document.querySelector(
-          '.industry-card[data-industry="' + params.get("industry") + '"]',
-        );
+      // Industry: a wizard key or a Quick Brief label
+      var indKey = _prefillIndustryKey(params.get("industry"));
+      if (indKey) {
+        var ic = document.querySelector('.industry-card[data-industry="' + indKey + '"]');
         if (ic && typeof selectIndustry === "function") selectIndustry(ic);
       }
 
@@ -2043,59 +2086,78 @@
         if (eb) {
           eb.value = params.get("budget");
           if (bflag) bflag.value = eb.value.trim() ? "__exact__" : "";
-          eb.dispatchEvent(new Event("input", { bubbles: true }));
+          fire(eb, "input");
         }
       }
 
-      // Location
-      if (params.get("location")) {
+      // Hires: an exact count
+      var hires = parseInt(String(params.get("hires") || "").replace(/[^\d]/g, ""), 10);
+      if (hires > 0) {
+        var hv = document.getElementById("hireVolume");
+        var eh = document.getElementById("exactHires");
+        if (hv && eh) {
+          hv.value = "__exact__";
+          if (typeof toggleExactHires === "function") toggleExactHires();
+          eh.value = String(hires);
+          fire(hv, "change");
+          fire(eh, "input");
+        }
+      }
+
+      // Timeline -> nearest duration option
+      var dur = _prefillDurationOption(params.get("timeline"));
+      if (dur) {
+        var ds = document.getElementById("campaignDuration");
+        ds.value = dur;
+        fire(ds, "change");
+      }
+
+      // Locations: through the same parser as typing/pasting a list, so
+      // "City, ST" stays one site and "MD, NY" stay two.
+      var locText = params.get("locations") || params.get("location") || "";
+      var locInputEl = document.getElementById("locationInput");
+      if (locText && locInputEl && typeof commitLocationInput === "function") {
         locations.length = 0;
-        if (typeof addTag === "function") {
-          addTag(
-            "locationsContainer",
-            "locationInput",
-            locations,
-            params.get("location"),
-          );
-        }
+        commitLocationInput(locInputEl, locText, false);
       }
 
-      // Role
-      if (params.get("role")) {
+      // Roles: comma-separated (role titles never contain commas here)
+      var roleText = params.get("roles") || params.get("role") || "";
+      var roleList = roleText.split(/[;,]/).map(function (r) { return r.trim(); })
+        .filter(Boolean);
+      if (roleList.length) {
         setTimeout(function () {
-          if (
-            typeof addTag === "function" &&
-            !roles.includes(params.get("role"))
-          ) {
-            addTag("rolesContainer", "roleInput", roles, params.get("role"));
-          }
+          roleList.forEach(function (r) {
+            if (typeof addTag === "function" && !roles.includes(r)) {
+              addTag("rolesContainer", "roleInput", roles, r);
+            }
+          });
         }, 150);
       }
 
       // Use case
-      if (params.get("role") && params.get("location")) {
+      if (roleList.length && locations.length) {
         var uc = document.getElementById("useCase");
         if (uc && !uc.value) {
           uc.value =
-            "Hiring " +
-            params.get("role") +
-            " roles in " +
-            params.get("location") +
+            "Hiring " + roleList.join(", ") + " in " + locations.join("; ") +
             ". Looking for a data-driven media plan to optimize recruitment spend and maximize qualified applicant volume.";
-          uc.dispatchEvent(new Event("input", { bubbles: true }));
+          fire(uc, "input");
         }
       }
 
       // Region
       if (params.get("region")) {
         var rs = document.getElementById("regionSelector");
-        if (rs) {
-          rs.value = params.get("region");
-          rs.dispatchEvent(new Event("change", { bubbles: true }));
-        }
+        if (rs) { rs.value = params.get("region"); fire(rs, "change"); }
       }
 
-      showToast("Template loaded from quick-start", "success");
+      showToast(
+        params.get("roles") || params.get("locations")
+          ? "Brief loaded -- check the details before generating"
+          : "Template loaded from quick-start",
+        "success",
+      );
     } catch (e) {
       console.warn("URL param prefill error:", e);
     }
@@ -6287,7 +6349,7 @@
     var hvEl = document.getElementById("hireVolume");
     if (hvEl) {
       var ehw = document.getElementById("exactHiresWrap");
-      if (ehw) ehw.style.display = hvEl.value === "custom" ? "block" : "none";
+      if (ehw) ehw.style.display = hvEl.value === "__exact__" ? "block" : "none";
     }
 
     // Restore industry selection (fromNaics:true -- don't let the card

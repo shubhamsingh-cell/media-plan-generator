@@ -1218,8 +1218,15 @@
             return b.length - a.length;
           });
           var consumed = "";
+          // Whole words only (plural allowed): a substring scan read "RTI
+          // International" as an RN role and "internal"/"government" too.
+          var hasWord = function (role) {
+            var esc = role.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            return new RegExp("(^|[^a-z])" + esc + "s?([^a-z]|$)").test(t);
+          };
+          var ACRONYMS = { rn: "RN", lpn: "LPN", cna: "CNA", sre: "SRE", qa: "QA", hvac: "HVAC", ux: "UX", ui: "UI" };
           sorted.forEach(function (role) {
-            if (t.indexOf(role) !== -1 && consumed.indexOf(role) === -1) {
+            if (hasWord(role) && consumed.indexOf(role) === -1) {
               // Check it's not a substring of an already-found role
               var isSubstr = found.some(function (f) {
                 return f.toLowerCase().indexOf(role) !== -1;
@@ -1229,7 +1236,7 @@
                   role
                     .split(" ")
                     .map(function (w) {
-                      return w.charAt(0).toUpperCase() + w.slice(1);
+                      return ACRONYMS[w] || w.charAt(0).toUpperCase() + w.slice(1);
                     })
                     .join(" "),
                 );
@@ -1741,12 +1748,17 @@
 
         function inferIndustry(text, roles) {
           var t = text.toLowerCase();
+          // Whole words only, as in extractRoles ("International" is not "rn").
+          var hasWord = function (hay, word) {
+            var esc = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            return new RegExp("(^|[^a-z])" + esc + "s?([^a-z]|$)").test(hay);
+          };
           // Check role-to-industry mapping
           var keys = Object.keys(ROLE_INDUSTRY_MAP).sort(function (a, b) {
             return b.length - a.length;
           });
           for (var i = 0; i < keys.length; i++) {
-            if (t.indexOf(keys[i]) !== -1) {
+            if (hasWord(t, keys[i])) {
               return { value: ROLE_INDUSTRY_MAP[keys[i]], confidence: "high" };
             }
           }
@@ -1755,7 +1767,7 @@
             for (var j = 0; j < roles.length; j++) {
               var r = roles[j].toLowerCase();
               for (var k = 0; k < keys.length; k++) {
-                if (r.indexOf(keys[k]) !== -1) {
+                if (hasWord(r, keys[k])) {
                   return {
                     value: ROLE_INDUSTRY_MAP[keys[k]],
                     confidence: "medium",
@@ -2011,12 +2023,14 @@
           var params = [];
           if (brief.roles.raw && brief.roles.raw.length > 0) {
             params.push(
-              "roles=" + encodeURIComponent(brief.roles.raw.join(", ")),
+              "roles=" + encodeURIComponent(brief.roles.raw.join("; ")),
             );
           }
           if (brief.locations.raw && brief.locations.raw.length > 0) {
             params.push(
-              "locations=" + encodeURIComponent(brief.locations.raw.join(", ")),
+              // "; " not ", ": the wizard splits sites on ";" but reads
+              // "Jacksonville, Washington" as one City, State site.
+              "locations=" + encodeURIComponent(brief.locations.raw.join("; ")),
             );
           }
           if (brief.budget.raw > 0) {
