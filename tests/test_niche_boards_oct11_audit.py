@@ -32,3 +32,15 @@ def test_rn_only_plan_does_not_list_mycnajobs():
         "healthcare_medical", ["Registered Nurse", "Nursing Assistant"]
     )
     assert any("myCNAjobs" in str(b) for b in mixed)
+
+
+def test_certified_nurse_midwife_is_not_a_cna():
+    """Review 2026-10-11: the CNA pattern matched any 'certified nurs...' title."""
+    import excel_v2
+
+    for role in ("Certified Nurse Midwife", "CRNA", "Certified Registered Nurse Anesthetist"):
+        boards = excel_v2._industry_niche_boards_for_roles("healthcare_medical", [role])
+        assert not any("myCNAjobs" in str(b) for b in boards), role
+    for role in ("Certified Nursing Assistant", "Certified Nurse Aide", "CNA"):
+        boards = excel_v2._industry_niche_boards_for_roles("healthcare_medical", [role])
+        assert any("myCNAjobs" in str(b) for b in boards), role

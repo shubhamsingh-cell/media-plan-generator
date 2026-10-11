@@ -1845,7 +1845,7 @@ def _channel_target_roles(channel_name: str, roles: List[str], industry: str) ->
 # nurse / NP / LPN plan). Review 2026-10-11.
 _ROLE_TOKEN_GATED_INDUSTRY_BOARDS: Dict[str, "re.Pattern[str]"] = {
     "myCNAjobs.com": re.compile(
-        r"\bcnas?\b|\bnurs(?:e|ing)\s+(?:assistant|aide)s?\b|\bcertified\s+nurs",
+        r"\bcnas?\b|\bnurs(?:e|ing)\s+(?:assistant|aide)s?\b",
         re.IGNORECASE,
     ),
 }
