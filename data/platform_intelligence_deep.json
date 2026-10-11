@@ -1455,38 +1455,6 @@
         "smaller candidate pool"
       ]
     },
-    "stackoverflow_jobs": {
-      "name": "Stack Overflow Jobs",
-      "type": "developer_community_job_board",
-      "url": "https://stackoverflow.com/jobs",
-      "monthly_visitors": "~100M (Stack Overflow total, jobs subset)",
-      "countries": [
-        "global"
-      ],
-      "industries": [
-        "software_development",
-        "devops",
-        "data_engineering"
-      ],
-      "pricing_model": {
-        "primary": "posting fee"
-      },
-      "best_for": [
-        "developer_hiring",
-        "technical_roles",
-        "open_source_community"
-      ],
-      "pros": [
-        "massive developer audience",
-        "high-quality technical candidates",
-        "community credibility"
-      ],
-      "cons": [
-        "jobs section reduced in recent years",
-        "developer-only focus",
-        "competitive market"
-      ]
-    },
     "efinancialcareers": {
       "name": "eFinancialCareers",
       "type": "niche_finance_job_board",
@@ -3518,10 +3486,6 @@
         "reason": "city-specific tech communities, employer branding"
       },
       {
-        "platform": "stackoverflow_jobs",
-        "reason": "100M developer audience"
-      },
-      {
         "platform": "hired",
         "reason": "pre-vetted tech talent marketplace"
       },
@@ -3803,7 +3767,6 @@
         "wellfound"
       ],
       "community": [
-        "stackoverflow_jobs",
         "builtin",
         "weworkremotely"
       ],

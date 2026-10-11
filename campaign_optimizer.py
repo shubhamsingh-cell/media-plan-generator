@@ -656,7 +656,7 @@ def _warns(
     if industry == "healthcare_medical" and month in (6, 7):
         w.append(
             "Summer travel nurse season -- healthcare CPA peaks in June/July. "
-            "Niche health boards (Vivian, NurseFly) may offer better ROI."
+            "Niche health boards (Vivian Health) may offer better ROI."
         )
     if budget < 5_000 and len(alloc) > 2:
         w.append(

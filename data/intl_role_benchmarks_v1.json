@@ -6112,11 +6112,6 @@
               "share_pct": 25
             },
             {
-              "name": "Stack Overflow Jobs (now retired)",
-              "share_pct": 0,
-              "notes": "Retired 2024"
-            },
-            {
               "name": "Hired / Triplebyte",
               "share_pct": 5
             },
@@ -9666,7 +9661,7 @@
               "share_pct": 12
             },
             {
-              "name": "Stack Overflow / specialist",
+              "name": "Specialist tech boards",
               "share_pct": 5
             }
           ],

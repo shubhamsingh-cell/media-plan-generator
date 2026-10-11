@@ -250,8 +250,7 @@
         "Coding Challenge Platforms (HackerRank, LeetCode, CodeSignal)",
         "Developer Newsletters (TLDR, JavaScript Weekly, Hacker Newsletter)",
         "Reddit Tech Communities (r/cscareerquestions, r/programming, r/devops)",
-        "Twitch Developer Streaming & Coding Streams",
-        "Stack Overflow Talent & Developer Surveys"
+        "Twitch Developer Streaming & Coding Streams"
       ],
       "healthcare_medical": [
         "Medical Conference Sponsorships (AAMC, AMA, AACN, HIMSS)",
@@ -736,14 +735,14 @@
       "example_roles": ["Software Engineers", "Data Scientists", "DevOps Engineers", "Cybersecurity Analysts", "IT Support", "Cloud Architects"],
       "recommended_channels": {
         "primary": ["LinkedIn", "Indeed", "Dice", "BuiltIn", "Glassdoor"],
-        "secondary": ["Stack Overflow Talent", "Wellfound", "HackerRank", "Remote.io", "Hired"],
+        "secondary": ["Wellfound", "HackerRank", "Remote.io", "Hired"],
         "social": ["LinkedIn Ads", "Reddit Ads", "Google Ads", "Discord"],
         "niche": ["HackerNews Jobs", "No Fluff Jobs", "Just Join IT", "Toptal", "Gun.io"]
       },
       "strategy_emphasis": {"awareness": 35, "hiring": 65},
       "avg_cpa_range": "$5.00 - $25.00",
       "avg_time_to_fill": "30-60 days",
-      "best_practices": ["GitHub/Stack Overflow community engagement", "Tech blog content marketing", "Hackathon sponsorship", "Developer-focused employer branding", "Open source contributions as recruitment tool"],
+      "best_practices": ["GitHub and developer community engagement", "Tech blog content marketing", "Hackathon sponsorship", "Developer-focused employer branding", "Open source contributions as recruitment tool"],
       "joveo_supply_fit": ["Indeed", "LinkedIn", "Dice", "BuiltIn", "Talent.com", "Monster"],
       "competitor_channels": []
     },

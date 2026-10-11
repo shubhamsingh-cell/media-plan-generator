@@ -131,7 +131,7 @@
       "time_to_fill_days": {"p25": 32, "median": 44, "p75": 62, "source_ids": ["shrm_ttf_2024", "dhi_dice_report", "shrm_ttf_2025"]},
       "time_to_hire_days_2026": {"tech_media": 20, "engineering": 62, "source_ids": ["ams_genius_tth_2024", "indeed_hiringlab_2026"], "confidence": "medium", "note": "Tech & media time-to-hire ~20 days (AMS via Genius, 2024); engineering ~62 days. Technology postings ran ~one-third lower than early 2020 per Indeed Hiring Lab 2026. Time-to-hire (offer accepted from candidate entry) differs from the requisition-to-offer time_to_fill_days above."},
       "seasonal_pattern": "Sharpest hiring pullback Q2-Q3 2024 through 2025. Renewed growth signaled by Recruitics May 2025 +28.9% MoM CPC.",
-      "dominant_channels": ["linkedin", "dice", "stackoverflow", "builtin", "hired", "wellfound", "indeed"],
+      "dominant_channels": ["linkedin", "dice", "builtin", "hired", "wellfound", "indeed"],
       "notes": "Software dev saw 9x application growth Nov 2022 to Nov 2025. Candidates with 5+ yrs experience grew from 37% to 42% of applicants.",
       "source_ids": ["joveo_internal_2026", "appcast_2025", "dhi_dice_report"]
     },

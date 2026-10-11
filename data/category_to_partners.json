@@ -4198,17 +4198,6 @@
         ]
       },
       {
-        "name": "NurseFly (now Vivian)",
-        "url": "vivian.com",
-        "status": "Recommended",
-        "priority": "-",
-        "source_category": "Travel / Gig / PRN",
-        "specialties": "Travel nurses",
-        "sources": [
-          "Healthcare_Supply_Partners_US.xlsx"
-        ]
-      },
-      {
         "name": "PRN Healthcare",
         "url": "prnhealthcare.com",
         "status": "Recommended",
@@ -4242,7 +4231,7 @@
         ]
       },
       {
-        "name": "Vivian Health (formerly NurseFly)",
+        "name": "Vivian Health",
         "url": "vivian.com",
         "status": "Recommended",
         "priority": "-",

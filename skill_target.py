@@ -1115,9 +1115,9 @@ _SKILL_CATEGORY_CHANNELS: Dict[str, Dict[str, Any]] = {
             },
             {"name": "Dice", "weight": 0.15, "reason": "Tech-specific job board"},
             {
-                "name": "GitHub Jobs / StackOverflow",
+                "name": "HackerNews (Who's Hiring)",
                 "weight": 0.12,
-                "reason": "Developer community boards",
+                "reason": "Developer community board",
             },
             {
                 "name": "Indeed Sponsored",
@@ -1149,8 +1149,8 @@ _SKILL_CATEGORY_CHANNELS: Dict[str, Dict[str, Any]] = {
         "channels": [
             {
                 "name": "Vivian Health",
-                "weight": 0.22,
-                "reason": "Nursing/allied health marketplace",
+                "weight": 0.30,
+                "reason": "Nursing/allied health and travel nursing marketplace",
             },
             {
                 "name": "Health eCareers",
@@ -1171,11 +1171,6 @@ _SKILL_CATEGORY_CHANNELS: Dict[str, Dict[str, Any]] = {
                 "name": "Programmatic Display",
                 "weight": 0.15,
                 "reason": "Target healthcare content readers",
-            },
-            {
-                "name": "NurseFly",
-                "weight": 0.08,
-                "reason": "Travel nursing specialists",
             },
             {
                 "name": "Facebook/Instagram",

@@ -7958,7 +7958,7 @@ def get_client_competitor_intelligence(competitors, industry):
         "blue_collar_trades": "Indeed (primary), Craigslist, Facebook Jobs, local union boards, trade school partnerships, industry job fairs",
         "maritime_marine": "Indeed, Maritime Jobs, MarineLink, MARAD job boards, maritime academy career services, industry associations",
         "military_recruitment": "Military.com, GoArmy.com, branch-specific sites, social media (Instagram/TikTok), high school/college events, recruiters in field",
-        "tech_engineering": "LinkedIn (primary), Direct career site, HackerRank, Stack Overflow Talent, GitHub, Wellfound, employee referrals, university OCR",
+        "tech_engineering": "LinkedIn (primary), Direct career site, HackerRank, GitHub, Wellfound, employee referrals, university OCR",
         "general_entry_level": "Indeed (primary), Snagajob, Facebook Jobs, Craigslist, in-store applications, local job fairs, walk-in hiring events",
         "legal_services": "LinkedIn, Direct career site, LawCrossing, Above The Law job board, law school OCI programs, Lateral Link",
         "finance_banking": "LinkedIn (primary), eFinancialCareers, Direct career site, university OCR, Handshake, CFA Institute career center",

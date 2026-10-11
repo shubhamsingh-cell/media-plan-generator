@@ -274,8 +274,6 @@ _CHANNEL_TO_PLATFORM: Dict[str, str] = {
     "snagajob": "indeed",
     "handshake": "indeed",
     "wellfound": "linkedin",
-    "stackoverflow": "linkedin",
-    "github jobs": "linkedin",
     "dice": "linkedin",
     "hired": "linkedin",
     "tiktok": "meta_facebook",
@@ -413,7 +411,7 @@ _RECOMMENDED_CHANNELS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "Niche Job Boards": {
             "platform": "indeed",
             "importance": "critical",
-            "reason": "Specialized boards (Vivian, NurseFly, HealthJobsNationwide) convert 2x better than general boards for healthcare and technical roles.",
+            "reason": "Specialized boards (Vivian Health, HealthJobsNationwide) convert 2x better than general boards for healthcare and technical roles.",
         },
         "Programmatic (Appcast/Joveo)": {
             "platform": "programmatic",
@@ -1159,9 +1157,9 @@ def generate_recommendations(
 def _get_industry_tips(industry: str) -> str:
     """Return industry-specific recruitment advertising tips."""
     tips = {
-        "healthcare_medical": "Healthcare: Prioritize niche boards (Vivian, NurseFly) and sign-on bonus campaigns. Travel nursing demand is seasonal -- Q1 and Q4 see highest demand.",
+        "healthcare_medical": "Healthcare: Prioritize niche boards (Vivian Health) and sign-on bonus campaigns. Travel nursing demand is seasonal -- Q1 and Q4 see highest demand.",
         "blue_collar_trades": "Blue Collar: Mobile-first apply experience is critical (78% apply via mobile). Indeed and programmatic dominate. Keep applications under 2 minutes.",
-        "tech_engineering": "Tech: Developer communities (GitHub, Stack Overflow) outperform LinkedIn for IC roles. Technical assessment platforms improve quality-of-hire metrics.",
+        "tech_engineering": "Tech: Developer communities (GitHub, HackerNews) outperform LinkedIn for IC roles. Technical assessment platforms improve quality-of-hire metrics.",
         "finance_banking": "Finance: LinkedIn InMail and niche boards (eFinancialCareers) drive highest quality. Compliance messaging is essential in regulated markets.",
         "logistics_supply_chain": "Logistics: High-volume programmatic with CPA caps is most efficient. Geo-fence distribution centers and competitor locations for targeted reach.",
         "retail_consumer": "Retail: Seasonal hiring requires 60-90 day lead time. Facebook and Indeed dominate hourly retail recruitment. Volume discounts on job board packages reduce CPA 20-30%.",

@@ -3927,18 +3927,6 @@ _TRADITIONAL_CHANNELS: dict[str, dict[str, Any]] = {
 }
 
 _NON_TRADITIONAL_CHANNELS: dict[str, dict[str, Any]] = {
-    "GitHub Jobs / ReadMe": {
-        "type": "developer",
-        "reach": "niche",
-        "best_for": ["technology"],
-        "industry": "technology",
-    },
-    "Stack Overflow Talent": {
-        "type": "developer",
-        "reach": "niche",
-        "best_for": ["technology"],
-        "industry": "technology",
-    },
     "AngelList / Wellfound": {
         "type": "startup",
         "reach": "niche",

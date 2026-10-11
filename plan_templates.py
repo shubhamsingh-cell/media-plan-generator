@@ -25,7 +25,7 @@ _BUILTIN_TEMPLATES: List[Dict] = [
         "name": "Tech Startup Engineer Hiring",
         "description": (
             "Optimised for early-stage startups hiring software engineers. "
-            "Heavy LinkedIn and Stack Overflow weighting with GitHub sponsorship "
+            "Heavy LinkedIn and Dice weighting with GitHub sponsorship "
             "for passive-candidate reach."
         ),
         "category": "technology",
@@ -34,7 +34,7 @@ _BUILTIN_TEMPLATES: List[Dict] = [
         "channels": [
             {"name": "LinkedIn", "allocation_pct": 40},
             {"name": "Indeed", "allocation_pct": 25},
-            {"name": "Stack Overflow", "allocation_pct": 20},
+            {"name": "Dice", "allocation_pct": 20},
             {"name": "GitHub", "allocation_pct": 15},
         ],
         "tags": ["startup", "engineering", "software", "tech"],
@@ -151,7 +151,7 @@ _BUILTIN_TEMPLATES: List[Dict] = [
         "name": "Data Science Recruitment",
         "description": (
             "Specialist channel mix for data scientists, ML engineers, and analytics roles. "
-            "Kaggle and Stack Overflow capture passive technical talent alongside LinkedIn."
+            "Kaggle and HackerNews capture passive technical talent alongside LinkedIn."
         ),
         "category": "technology",
         "role_family": "data_science",
@@ -159,7 +159,7 @@ _BUILTIN_TEMPLATES: List[Dict] = [
         "channels": [
             {"name": "LinkedIn", "allocation_pct": 30},
             {"name": "Kaggle", "allocation_pct": 25},
-            {"name": "Stack Overflow", "allocation_pct": 25},
+            {"name": "HackerNews", "allocation_pct": 25},
             {"name": "GitHub", "allocation_pct": 20},
         ],
         "tags": ["data-science", "machine-learning", "analytics", "ai"],

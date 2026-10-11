@@ -4158,12 +4158,6 @@ _CHANNEL_CPC_DETAIL: Dict[str, List[Tuple[str, str, str, str]]] = {
             "internal estimate -- not independently benchmarked",
         ),
         (
-            "Stack Overflow",
-            "$4.00 – $9.00",
-            "Dev-focused, high signal",
-            "internal estimate -- not independently benchmarked",
-        ),
-        (
             "Built In",
             "$2.50 – $6.00",
             "Local tech hubs (e.g. Austin, Seattle)",
@@ -17532,7 +17526,6 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "top_channels": [
                 "LinkedIn",
                 "Dice",
-                "Stack Overflow",
                 "Indeed",
                 "Built In",
             ],

@@ -1556,7 +1556,7 @@ _PROFILE_CHANNELS: dict[str, list[tuple[str, float, str]]] = {
         (
             "Niche & Industry-Specific Boards",
             0.92,
-            "Dice, Built In & Stack Overflow reach targeted tech talent",
+            "Dice and Built In reach targeted tech talent",
         ),
         (
             "Programmatic/DSP",
@@ -6027,7 +6027,6 @@ ROLE_TIER_KEYWORDS = {
             "conversion": 0.25,
         },
         "channels": [
-            "NurseFly",
             "Vivian Health",
             "Health eCareers",
             "Indeed Healthcare",
@@ -6402,10 +6401,9 @@ def fetch_client_logo(client_name, client_website=""):
 # ═══════════════════════════════════════════════════════════════════════════════
 # INDUSTRY-SPECIFIC NICHE CHANNELS MAPPING
 # ═══════════════════════════════════════════════════════════════════════════════
+# NOTE: no in-repo callers; excel_v2.INDUSTRY_NICHE_CHANNELS is the live table.
 INDUSTRY_NICHE_CHANNELS = {
     "technology": [
-        "Stack Overflow Jobs",
-        "GitHub Jobs",
         "HackerNews (Who's Hiring)",
         "AngelList/Wellfound",
         "Dice",
@@ -6413,8 +6411,6 @@ INDUSTRY_NICHE_CHANNELS = {
         "Triplebyte",
     ],
     "tech_engineering": [
-        "Stack Overflow Jobs",
-        "GitHub Jobs",
         "HackerNews (Who's Hiring)",
         "AngelList/Wellfound",
         "Dice",
@@ -6422,7 +6418,6 @@ INDUSTRY_NICHE_CHANNELS = {
         "Triplebyte",
     ],
     "healthcare": [
-        "NurseFly",
         "Vivian Health",
         "Health eCareers",
         "Doximity",
@@ -6431,7 +6426,6 @@ INDUSTRY_NICHE_CHANNELS = {
         "AllNurses",
     ],
     "healthcare_medical": [
-        "NurseFly",
         "Vivian Health",
         "Health eCareers",
         "Doximity",

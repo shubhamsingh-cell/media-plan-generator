@@ -669,7 +669,6 @@ COLLAR_STRATEGY: Dict[str, Dict[str, Any]] = {
         "preferred_platforms": [
             "Indeed",
             "Vivian Health",
-            "NurseFly",
             "Health eCareers",
             "LinkedIn",
         ],
@@ -695,7 +694,7 @@ COLLAR_STRATEGY: Dict[str, Dict[str, Any]] = {
         ],
         "mobile_apply_pct": 0.62,
         "avg_apply_rate": 0.048,
-        "key_insight": "Grey collar (nurses, therapists, techs) are in critical shortage. Sign-on bonuses ($5K-$20K) are standard. Niche boards (Vivian, NurseFly) convert 2x better than general boards.",
+        "key_insight": "Grey collar (nurses, therapists, techs) are in critical shortage. Sign-on bonuses ($5K-$20K) are standard. Niche boards (Vivian Health) convert 2x better than general boards.",
     },
     "pink_collar": {
         "channel_mix": {

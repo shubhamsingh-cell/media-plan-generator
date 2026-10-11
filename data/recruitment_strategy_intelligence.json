@@ -1367,7 +1367,7 @@
         "emphasis": "Technical assessments, employer branding, competitive compensation positioning",
         "top_channels": [
           "LinkedIn",
-          "GitHub/Stack Overflow",
+          "GitHub",
           "Technical communities",
           "Employee referrals"
         ]
@@ -2084,8 +2084,7 @@
           "audience": "Open source developers",
           "ad_formats": [
             "Sponsors",
-            "README placements",
-            "GitHub Jobs"
+            "README placements"
           ]
         },
         "blind": {

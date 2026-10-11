@@ -838,8 +838,8 @@ INDUSTRY_NICHE_CHANNELS: Dict[str, List[str]] = {
         "NursingJobs.com",
         "CareListings.com",
     ],
-    # Stack Overflow Jobs (shut 2022-03-31) and GitHub Jobs (shut 2021) are
-    # defunct and deliberately absent -- do not re-add.
+    # The defunct developer job boards (shut 2021-2022) are deliberately
+    # absent -- do not re-add (tests/test_dead_job_boards.py).
     "tech_engineering": [
         "Wellfound (AngelList)",
         "Dice",
@@ -1861,7 +1861,7 @@ INDUSTRY_CHANNEL_REQUIREMENTS: Dict[str, Dict[str, Any]] = {
             "doximity",
             "practicelink",
         ],
-        "excluded_keywords": ["developer", "github", "stack overflow", "hacker"],
+        "excluded_keywords": ["developer", "github", "hacker"],
     },
     "tech_engineering": {
         "preferred": [
@@ -1869,7 +1869,6 @@ INDUSTRY_CHANNEL_REQUIREMENTS: Dict[str, Dict[str, Any]] = {
             "engineer",
             "developer",
             "github",
-            "stack overflow",
             "dice",
             "wellfound",
             "hacker",

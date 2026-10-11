@@ -4365,7 +4365,7 @@
       ]
     },
     {
-      "name": "Vivian Health (formerly NurseFly)",
+      "name": "Vivian Health",
       "status": "Recommended",
       "priority": "",
       "category": "Travel / Gig / PRN",
@@ -4401,20 +4401,6 @@
       "specialties": "Travel RNs",
       "notes": "Travel nursing aggregator",
       "type": "Travel Nursing Board",
-      "why_it_matters": "",
-      "sources": [
-        "comprehensive_partners"
-      ]
-    },
-    {
-      "name": "NurseFly (now Vivian)",
-      "status": "Recommended",
-      "priority": "",
-      "category": "Travel / Gig / PRN",
-      "url": "vivian.com",
-      "specialties": "Travel nurses",
-      "notes": "Rebranded to Vivian",
-      "type": "Travel Platform",
       "why_it_matters": "",
       "sources": [
         "comprehensive_partners"
@@ -5733,10 +5719,9 @@
     "Travel / Gig / PRN": [
       "Kare (now part of ShiftMed ecosystem)",
       "NurseChoice / CrossCountry Healthcare",
-      "NurseFly (now Vivian)",
       "PRN Healthcare",
       "TravelNursing.com",
-      "Vivian Health (formerly NurseFly)"
+      "Vivian Health"
     ],
     "Travel Healthcare": [
       "American Mobile (AMN)",
@@ -6215,7 +6200,6 @@
       "Nursa",
       "NurseChoice / CrossCountry Healthcare",
       "NurseDash",
-      "NurseFly (now Vivian)",
       "NurseJobBoard.com",
       "Nurses.com (NurseTogether)",
       "Nursing Jobs (AACN)",
@@ -6278,7 +6262,7 @@
       "USAJOBS (healthcare)",
       "USPHS Commissioned Corps",
       "VA Careers",
-      "Vivian Health (formerly NurseFly)",
+      "Vivian Health",
       "We Work Remotely",
       "Weatherby Healthcare",
       "Wellfound (AngelList Talent)",

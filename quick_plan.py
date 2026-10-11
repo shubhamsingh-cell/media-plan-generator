@@ -217,7 +217,7 @@ _CHANNEL_REASONING: Dict[str, Dict[str, str]] = {
         "programmatic": "Good for volume clinical hiring across multiple facilities.",
         "ziprecruiter": "Helpful for mid-level clinical roles but niche boards outperform.",
         "glassdoor": "Limited impact for clinical roles vs specialized health boards.",
-        "niche_boards": "Vivian, NurseFly, Health eCareers convert 2x better than general boards.",
+        "niche_boards": "Vivian Health, Health eCareers convert 2x better than general boards.",
     },
     "pink_collar": {
         "indeed": "Strong for admin, service, and care roles. High apply volume.",

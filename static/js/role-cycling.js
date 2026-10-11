@@ -55,8 +55,8 @@
       channels: [
         { name: "LinkedIn", pct: 68, amount: "$27,200", color: "#06b6d4" },
         { name: "Indeed", pct: 42, amount: "$16,800", color: "var(--accent)" },
-        { name: "GitHub Jobs", pct: 30, amount: "$12,000", color: "#22c55e" },
-        { name: "Stack Overflow", pct: 22, amount: "$8,800", color: "#f59e0b" },
+        { name: "Dice", pct: 30, amount: "$12,000", color: "#22c55e" },
+        { name: "Wellfound", pct: 22, amount: "$8,800", color: "#f59e0b" },
         { name: "Programmatic", pct: 19, amount: "$15,200", color: "#8b5cf6" },
       ],
     },

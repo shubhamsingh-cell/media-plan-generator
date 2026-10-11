@@ -1495,7 +1495,6 @@ PLATFORM_ALIASES: Dict[str, List[str]] = {
     "craigslist": ["Craigslist", "craigslist.org"],
     "handshake": ["Handshake", "handshake.com"],
     "dice": ["Dice", "dice.com"],
-    "stackoverflow": ["Stack Overflow", "stack overflow", "stackoverflow.com"],
     "snagajob": ["Snagajob", "snag a job", "snagajob.com"],
     "jooble": ["Jooble", "jooble.org"],
     "adzuna": ["Adzuna", "adzuna.com"],

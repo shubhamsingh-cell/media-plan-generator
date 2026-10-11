@@ -113,8 +113,6 @@ GEO_COST_INDEX: Dict[str, Dict[str, Any]] = {
 CHANNEL_EFFECTIVENESS: Dict[str, Dict[str, float]] = {
     "engineering": {
         "LinkedIn": 0.85,
-        "GitHub Jobs": 0.80,
-        "Stack Overflow": 0.78,
         "Indeed": 0.60,
         "Glassdoor": 0.55,
         "AngelList": 0.70,
