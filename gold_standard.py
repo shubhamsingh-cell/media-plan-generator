@@ -2231,31 +2231,36 @@ _INDUSTRY_TOP_EMPLOYERS: dict[str, dict[str, list[str]]] = {
 }
 
 # Aliases for flexible industry matching (user input -> canonical key)
+# Every target MUST be a key of _INDUSTRY_TOP_EMPLOYERS (asserted by
+# tests/test_gold_standard_industry_aliases.py). Aliases used to point at
+# "healthcare" / "finance" / "retail" -- keys that do not exist -- so the
+# lookup returned {} and plans silently got the generic Amazon/Walmart/UPS
+# list. There is deliberately NO "food" / "cpg" alias: no food / CPG-manufacturing
+# roster exists in the repo, so food_beverage falls back and is flagged
+# (see _industry_roster_is_fallback).
 _INDUSTRY_ALIASES: dict[str, str] = {
     "tech": "technology",
     "software": "technology",
     "it": "technology",
     "information technology": "technology",
     "saas": "technology",
-    "health": "healthcare",
-    "healthcare_medical": "healthcare",
-    "medical": "healthcare",
-    "hospital": "healthcare",
-    "pharma": "healthcare",
-    "pharmaceutical": "healthcare",
-    "biotech": "healthcare",
-    "banking": "finance",
-    "finance_banking": "finance",
-    "financial": "finance",
-    "financial services": "finance",
-    "fintech": "finance",
-    "insurance": "finance",
-    "consumer": "retail",
-    "retail_consumer": "retail",
-    "ecommerce": "retail",
-    "e-commerce": "retail",
-    "cpg": "retail",
-    "food": "retail",
+    "health": "healthcare_medical",
+    "healthcare_medical": "healthcare_medical",
+    "medical": "healthcare_medical",
+    "hospital": "healthcare_medical",
+    "pharma": "healthcare_medical",
+    "pharmaceutical": "healthcare_medical",
+    "biotech": "healthcare_medical",
+    "banking": "finance_banking",
+    "finance_banking": "finance_banking",
+    "financial": "finance_banking",
+    "financial services": "finance_banking",
+    "fintech": "finance_banking",
+    "insurance": "finance_banking",
+    "consumer": "retail_consumer",
+    "retail_consumer": "retail_consumer",
+    "ecommerce": "retail_consumer",
+    "e-commerce": "retail_consumer",
     "defense": "aerospace_defense",
     "aerospace": "aerospace_defense",
     "military": "aerospace_defense",
@@ -2322,6 +2327,13 @@ _INDUSTRY_ALIASES: dict[str, str] = {
     "plumbing": "construction",
     "electrical contractor": "construction",
 }
+
+
+def _industry_roster_is_fallback(raw_industry: str) -> bool:
+    """True when ``raw_industry`` has no employer roster of its own, i.e. the
+    generic "general" list is what a plan would read."""
+    key = _resolve_industry_key(raw_industry)
+    return not key or key not in _INDUSTRY_TOP_EMPLOYERS
 
 
 def _resolve_industry_key(raw_industry: str) -> str:
@@ -5659,8 +5671,7 @@ def apply_all_quality_gates(data: dict) -> dict[str, Any]:
 
     # Check if industry resolved to generic fallback and flag it
     raw_industry = str(data.get("industry") or "general_entry_level")
-    resolved_key = _resolve_industry_key(raw_industry)
-    if not resolved_key:
+    if _industry_roster_is_fallback(raw_industry):
         gold["industry_fallback"] = True
 
     # Compute aggregate quality score: gates_passed / 8
