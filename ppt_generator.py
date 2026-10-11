@@ -10386,7 +10386,8 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
                 (
                     "COMPETITION",
                     f"High Competition ({_n_high_comp_txt})",
-                    f"Fortune 500+ companies hiring same roles in {_n_high_comp_txt}",
+                    f"{_n_high_comp_txt} score high on modeled hiring difficulty "
+                    f"(not observed postings)",
                     "Differentiate with employer brand; emphasize career growth and culture",
                 )
             )

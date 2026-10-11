@@ -6862,12 +6862,16 @@ def _build_sheet_executive_summary(
         and str(info.get("hiring_intensity") or "").lower() in ("high", "very_high")
     )
     if n_competitive_cities > 0:
-        _market_noun = "market has" if n_competitive_cities == 1 else "markets have"
+        # hiring_intensity is a static hiring-DIFFICULTY proxy
+        # (gold_standard), not an observed count of employers hiring --
+        # never phrase it as "Fortune 500+ companies actively hiring".
+        _market_noun = "market scores" if n_competitive_cities == 1 else "markets score"
         risk_items.append(
             (
                 "Competitive Pressure",
-                f"{n_competitive_cities} {_market_noun} high competitive intensity — "
-                f"Fortune 500+ companies actively hiring similar roles",
+                f"{n_competitive_cities} {_market_noun} high hiring difficulty "
+                f"(modeled difficulty score, not observed postings) — "
+                f"expect strong competition for qualified candidates",
                 "Differentiate with employer brand messaging; emphasize career growth, culture, flexibility",
             )
         )
@@ -11666,7 +11670,7 @@ def _build_sheet_quality_intelligence(
                 [
                     "City",
                     _qi_employer_header,
-                    "Hiring Intensity",
+                    "Hiring Difficulty",
                     "Why They Matter",
                     "Counter-Strategy",
                 ],
@@ -11704,14 +11708,14 @@ def _build_sheet_quality_intelligence(
                 # Generate WHY each competitor group matters
                 if intensity in ("high", "very_high") and _qi_evidenced_lower:
                     why_matter = (
-                        f"High hiring volume in {city_name} — "
+                        f"Hard-to-fill market in {city_name} (hiring-difficulty score) — "
                         f"these employers compete for the same {industry_label_qs} talent pool"
                     )
                 elif intensity in ("high", "very_high"):
                     # market-level only: nothing observed about the employers
                     why_matter = (
-                        f"High hiring volume in {city_name} — a competitive "
-                        f"market for {industry_label_qs} talent"
+                        f"Hard-to-fill market in {city_name} (hiring-difficulty "
+                        f"score) for {industry_label_qs} talent"
                     )
                 elif intensity == "moderate" and _qi_evidenced_lower:
                     why_matter = (
