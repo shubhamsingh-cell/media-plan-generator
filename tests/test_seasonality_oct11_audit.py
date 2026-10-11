@@ -74,6 +74,28 @@ _BRIEFS = {
         "hire_volume": "150 hires",
         "competitors": ["Mars", "Mondelez International", "Ferrero"],
     },
+    "q1_start": {
+        "client_name": "Northside Health",
+        "industry": "healthcare_medical",
+        "locations": ["Philadelphia, PA", "Pittsburgh, PA"],
+        "target_roles": ["RN", "Medical Assistant"],
+        "budget": "$120,000",
+        "campaign_duration": "3 months",
+        "campaign_start_month": 1,
+        "hire_volume": "60 hires",
+        "competitors": ["Westat"],
+    },
+    "q2_start": {
+        "client_name": "Keystone Foods",
+        "industry": "food_beverage",
+        "locations": ["Hershey, PA", "Lancaster, PA"],
+        "target_roles": ["Production Operator", "Maintenance Technician"],
+        "budget": "$120,000",
+        "campaign_duration": "3 months",
+        "campaign_start_month": 4,
+        "hire_volume": "60 hires",
+        "competitors": ["Mars"],
+    },
 }
 
 
@@ -352,3 +374,38 @@ def test_s9_unsourced_january_search_statistic_is_gone():
         assert "25-30%" not in gold_standard._HIRING_EVENTS_CALENDAR[m]["recommendation"]
     for slug in ("rti", "hershey"):
         assert "25-30% more job searches" not in _all_text(slug)
+
+
+# ---------------------------------------------------------------------------
+# Timing-risk block: no unsourced Q1/Q2 percentage claims (start months 1-6)
+# ---------------------------------------------------------------------------
+
+_UNSOURCED_TIMING_CLAIMS = (
+    "15-20% more competitive",
+    "25% more job seekers",
+    "20% more employer competition",
+    "25% increase in job seeker activity",
+)
+
+
+@pytest.mark.parametrize("slug", ["q1_start", "q2_start"])
+def test_timing_risk_has_no_unsourced_percentages_and_names_in_window_months(slug):
+    timeline = _timeline(slug)
+    window = {m["month_name"] for m in timeline}
+    high = {
+        m["month_name"]
+        for m in timeline
+        if m["hiring_intensity"] in ("high", "very_high")
+    }
+    assert high, "fixture must have a high-intensity month in its window"
+    text = _all_text(slug)
+    for claim in _UNSOURCED_TIMING_CLAIMS:
+        assert claim not in text, (slug, claim)
+    deck = "\n".join(_bundle(slug)[2])
+    risk = re.search(r"Impact: ([A-Za-z, ]+?) runs? high hiring intensity", deck)
+    assert risk, "deck timing risk not found"
+    assert set(_month_list(risk.group(1))) <= high
+    sheet = _bundle(slug)[1]["Executive Summary"]
+    cell = next(c for c in sheet if "high hiring intensity for this plan" in c)
+    named = set(_month_list(cell))
+    assert named and named <= high and named <= window, (named, high)

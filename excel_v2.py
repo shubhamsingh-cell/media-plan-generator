@@ -6859,27 +6859,38 @@ def _build_sheet_executive_summary(
             )
         )
 
-    # Market timing risk
+    # Market timing risk -- derived from this plan's own activation calendar
+    # (the SAME per-month weights the calendar table and deck print): the
+    # in-window months running highest by budget weight. No generic
+    # "Q1/Q2 is N% more competitive" figures -- none has a source in the repo.
     import datetime as _dt_risk
 
-    current_month = _dt_risk.date.today().month
-    _q2_months = {4, 5, 6}
-    _q1_months = {1, 2, 3}
-    campaign_start = data.get("campaign_start_month") or current_month
-    if isinstance(campaign_start, int) and campaign_start in _q2_months:
+    campaign_start = data.get("campaign_start_month") or _dt_risk.date.today().month
+    _cal_timeline = (
+        (data.get("_gold_standard") or {}).get("activation_calendar") or {}
+    ).get("timeline") or []
+    _window_n = gs_lib.campaign_window_months(
+        data, int(campaign_start) if isinstance(campaign_start, int) else 0
+    )
+    _high_months = sorted(
+        [
+            m
+            for m in _cal_timeline[:_window_n]
+            if isinstance(m, dict)
+            and str(m.get("hiring_intensity") or "").lower() in ("high", "very_high")
+        ],
+        key=lambda m: -(float(m.get("budget_weight") or 0)),
+    )[:3]
+    if _high_months:
+        _hm_names = [str(m.get("month_name") or "") for m in _high_months]
+        _plural = len(_hm_names) != 1
         risk_items.append(
             (
-                "Market Timing: Q2 Competition",
-                "Q2 hiring is 15-20% more competitive than Q4 due to fiscal year budget cycles",
-                "Front-load spend in first 4 weeks; lock in niche channel inventory early",
-            )
-        )
-    elif isinstance(campaign_start, int) and campaign_start in _q1_months:
-        risk_items.append(
-            (
-                "Market Timing: New Year Surge",
-                "Q1 sees 25% increase in job seeker activity but also 20% more employer competition",
-                "Leverage higher candidate supply with aggressive apply-rate optimization",
+                "Market Timing: Seasonal Variations",
+                f"{', '.join(_hm_names)} {'run' if _plural else 'runs'} high hiring "
+                "intensity for this plan (per the Activation Event Calendar)",
+                f"Front-load budget into {'these months' if _plural else 'this month'}; "
+                "monitor weekly CPA trends and shift spend to high-performing periods",
             )
         )
 

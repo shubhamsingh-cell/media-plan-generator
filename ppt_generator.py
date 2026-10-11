@@ -10301,76 +10301,57 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
 
         # 2. Market timing
         campaign_start = data.get("campaign_start_month") or 0
-        if isinstance(campaign_start, int) and campaign_start in (4, 5, 6):
+        # copy:both#5: cite this plan's own 2-3 highest-intensity
+        # months + actual events from the activation calendar instead
+        # of the generic sentence that rendered byte-identically across
+        # every bundle regardless of client/industry.
+        _activation_cal = (gold.get("activation_calendar") or {}).get(
+            "timeline"
+        ) or []
+        # Only months INSIDE the campaign window (the timeline starts at
+        # the campaign's first month), strongest budget weight first --
+        # the old first-three-in-calendar-order picked months after a
+        # 2-month plan ended and ranked by position, not by weight.
+        _window_n = _gold_standard.campaign_window_months(
+            data, int(campaign_start) if isinstance(campaign_start, int) else 0
+        )
+        _high_months = sorted(
+            [
+                m
+                for m in _activation_cal[:_window_n]
+                if isinstance(m, dict)
+                and str(m.get("hiring_intensity") or "").lower()
+                in ("high", "very_high")
+            ],
+            key=lambda m: -(float(m.get("budget_weight") or 0)),
+        )[:3]
+        if _high_months:
+            _month_names = [str(m.get("month_name") or "") for m in _high_months]
+            _events: list = []
+            for m in _high_months:
+                _events.extend(str(e) for e in (m.get("key_events") or [])[:1])
+            _events_str = f" ({', '.join(_events[:3])})" if _events else ""
             risks.append(
                 (
                     "TIMING",
-                    "Q2 Competitive Peak",
-                    "Q2 hiring is 15-20% more competitive due to fiscal year budget cycles",
-                    "Front-load spend in weeks 1-4; lock niche channel inventory early",
-                )
-            )
-        elif isinstance(campaign_start, int) and campaign_start in (1, 2, 3):
-            risks.append(
-                (
-                    "TIMING",
-                    "Q1 New Year Surge",
-                    "25% more job seekers but 20% more employer competition in Q1",
-                    "Capitalize on high candidate supply with aggressive apply-rate optimization",
+                    "Seasonal Variations",
+                    f"{', '.join(_month_names)} "
+                    f"{'runs' if len(_month_names) == 1 else 'run'} high "
+                    f"hiring intensity for this plan{_events_str}",
+                    f"Front-load budget into {'this month' if len(_month_names) == 1 else 'these months'}; "
+                    "monitor weekly CPA trends and shift spend to "
+                    "high-performing periods",
                 )
             )
         else:
-            # copy:both#5: cite this plan's own 2-3 highest-intensity
-            # months + actual events from the activation calendar instead
-            # of the generic sentence that rendered byte-identically across
-            # every bundle regardless of client/industry.
-            _activation_cal = (gold.get("activation_calendar") or {}).get(
-                "timeline"
-            ) or []
-            # Only months INSIDE the campaign window (the timeline starts at
-            # the campaign's first month), strongest budget weight first --
-            # the old first-three-in-calendar-order picked months after a
-            # 2-month plan ended and ranked by position, not by weight.
-            _window_n = _gold_standard.campaign_window_months(
-                data, int(campaign_start) if isinstance(campaign_start, int) else 0
+            risks.append(
+                (
+                    "TIMING",
+                    "Seasonal Variations",
+                    "Hiring demand and candidate supply fluctuate throughout the year",
+                    "Monitor weekly CPA trends; shift budget to high-performing periods",
+                )
             )
-            _high_months = sorted(
-                [
-                    m
-                    for m in _activation_cal[:_window_n]
-                    if isinstance(m, dict)
-                    and str(m.get("hiring_intensity") or "").lower()
-                    in ("high", "very_high")
-                ],
-                key=lambda m: -(float(m.get("budget_weight") or 0)),
-            )[:3]
-            if _high_months:
-                _month_names = [str(m.get("month_name") or "") for m in _high_months]
-                _events: list = []
-                for m in _high_months:
-                    _events.extend(str(e) for e in (m.get("key_events") or [])[:1])
-                _events_str = f" ({', '.join(_events[:3])})" if _events else ""
-                risks.append(
-                    (
-                        "TIMING",
-                        "Seasonal Variations",
-                        f"{', '.join(_month_names)} "
-                        f"{'runs' if len(_month_names) == 1 else 'run'} high "
-                        f"hiring intensity for this plan{_events_str}",
-                        f"Front-load budget into {'this month' if len(_month_names) == 1 else 'these months'}; "
-                        "monitor weekly CPA trends and shift spend to "
-                        "high-performing periods",
-                    )
-                )
-            else:
-                risks.append(
-                    (
-                        "TIMING",
-                        "Seasonal Variations",
-                        "Hiring demand and candidate supply fluctuate throughout the year",
-                        "Monitor weekly CPA trends; shift budget to high-performing periods",
-                    )
-                )
 
         # 3. Channel dependency
         if channel_allocs:
