@@ -587,6 +587,7 @@ def _short_plan_forecast_split(
     campaign_weeks: int,
     weekly_frame: bool,
     activation_timeline: list | None = None,
+    window_end: datetime.date | None = None,
 ) -> dict:
     """Period split for a campaign that fits inside the 90-day window
     (1..13 weeks), derived day by day from the calendar months the campaign
@@ -620,8 +621,15 @@ def _short_plan_forecast_split(
       months [(year, month)], month_weights, source, used_real_calendar
       (True only when every month the campaign touches has a real calendar
       entry).
+    ``window_end`` (optional): the campaign's last day when the brief stated
+    whole months; ignored for the weekly (<=4-week) frame.
     """
     n_days = max(1, int(campaign_weeks)) * 7
+    if window_end is not None and not weekly_frame:
+        # The brief stated whole months ("2 months"): the campaign runs
+        # start + N calendar months - 1 day, not weeks * 7 days (9 weeks from
+        # Oct 1 spilled two days into December for a 2-month plan).
+        n_days = max(1, (window_end - forecast_start).days + 1)
     day_list = [forecast_start + datetime.timedelta(days=i) for i in range(n_days)]
     months: list[tuple[int, int]] = []
     for d in day_list:
@@ -665,6 +673,7 @@ def _short_plan_forecast_split(
         "month_weights": month_weights,
         "source": source,
         "used_real_calendar": source == "calendar",
+        "window_days": n_days,
     }
 
 
@@ -2437,15 +2446,6 @@ def _subvertical_seasonal_override_text(data: dict) -> str:
     return "; ".join(parts)
 
 
-# S5 (2026-07-03, finding 54): a small number of city names shipped from
-# upstream enrichment lookups all-lowercase (and "Phoenix" as "pheonix") --
-# never client-facing. Title-case is applied at every display call site via
-# ``_title_case_city``; known misspellings are corrected in this map before
-# the generic ``.title()`` normalization runs.
-_CITY_NAME_CORRECTIONS: Dict[str, str] = {
-    "pheonix": "Phoenix",
-}
-
 def _calendar_seasonal_text(data: dict) -> str:
     """Seasonality text for the Executive Summary's "Seasonal Patterns" row
     and its "Timing:" sentence, derived from THIS plan's own Activation Event
@@ -2496,6 +2496,15 @@ def _calendar_seasonal_text(data: dict) -> str:
     parts.append(f"Basis: this plan's Activation Event Calendar ({window})")
     return "; ".join(parts)
 
+
+# S5 (2026-07-03, finding 54): a small number of city names shipped from
+# upstream enrichment lookups all-lowercase (and "Phoenix" as "pheonix") --
+# never client-facing. Title-case is applied at every display call site via
+# ``_title_case_city``; known misspellings are corrected in this map before
+# the generic ``.title()`` normalization runs.
+_CITY_NAME_CORRECTIONS: Dict[str, str] = {
+    "pheonix": "Phoenix",
+}
 
 
 def _title_case_city(city_name: Any) -> str:
@@ -12204,7 +12213,7 @@ def _build_sheet_quality_intelligence(
                             str(month_info.get("hiring_intensity") or "")
                             .replace("_", " ")
                             .title(),
-                            f"{month_info.get('budget_weight', 1.0):.1f}x",
+                            f"{month_info.get('budget_weight', 1.0):.2f}x",
                             "; ".join(events),
                             str(month_info.get("recommendation") or ""),
                         ],
@@ -12364,13 +12373,10 @@ def _period_spend_labels(pcts: list[float]) -> list[str]:
 def _fmt_budget_weight(weight: float, source: str) -> str:
     """Render a month's budget weight for the forecast narrative.
 
-    Calendar-sourced weights use the SAME one-decimal "1.1x" format the
-    Activation Event Calendar table prints, so a reader comparing the two
-    sees identical numbers; generic seasonal-trend multipliers keep two
-    decimals (e.g. "1.15x").
+    Two decimals everywhere, matching the Activation Event Calendar table
+    ("0.85x"), so a reader comparing the two sees identical numbers and
+    0.85 ("Moderate") never collapses to the same text as 0.75 ("Low").
     """
-    if source in ("calendar", "partial_calendar"):
-        return f"{weight:.1f}x"
     return f"{weight:.2f}x"
 
 
@@ -12437,6 +12443,10 @@ def _short_plan_ramp_note(split: dict, weekly_frame: bool, campaign_weeks: int) 
         for name, w in zip(month_names, split["month_weights"])
     )
     weeks_txt = f"{campaign_weeks} week{'s' if campaign_weeks != 1 else ''}"
+    window_days = int(split.get("window_days") or 0)
+    if not weekly_frame and window_days and window_days != campaign_weeks * 7:
+        # Whole-month brief: the window is N calendar months, not weeks * 7.
+        weeks_txt = f"{window_days} days"
     tail = " Actual distribution may vary based on channel mix and market conditions."
     pace = _pacing_labels(split["col_weights"], source)
     comparable = n == 1 or pace[0] == "comparable daily pacing"
@@ -12576,6 +12586,16 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     if not isinstance(_activation_timeline, list):
         _activation_timeline = []
 
+    # When the brief stated whole months, the forecast window ends on the last
+    # day of the Nth calendar month (2 months from Oct 1 -> Nov 30), never
+    # spilling into the next month because weeks * 7 days overshoots. The
+    # weekly (<=4-week) frame keeps its week-count window.
+    _brief_window_end = (
+        gs_lib.campaign_window_end(data, _forecast_start)
+        if _short_plan and not _weekly_frame
+        else None
+    )
+
     monthly_pcts: list[float] = []
     _short_split: dict = {}
     if _short_plan:
@@ -12585,6 +12605,7 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
             _cw_int,
             _weekly_frame,
             _activation_timeline,
+            window_end=_brief_window_end,
         )
         period_pcts = list(_short_split["pcts"])
         period_labels = list(_short_split["labels"])
@@ -12652,7 +12673,9 @@ def _build_sheet_rolling_forecast(ws, data: dict) -> None:
     # Compute forecast period end from the campaign start (set above)
     if _short_plan:
         # The forecast window IS the campaign: exactly campaign_weeks long.
-        _forecast_end = _forecast_start + datetime.timedelta(days=_cw_int * 7 - 1)
+        _forecast_end = _brief_window_end or (
+            _forecast_start + datetime.timedelta(days=_cw_int * 7 - 1)
+        )
     else:
         _forecast_end_m = _campaign_start_month + 2
         _forecast_end_y = _forecast_year

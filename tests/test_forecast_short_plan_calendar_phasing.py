@@ -209,12 +209,12 @@ def _violations(parsed: dict, timeline: list[dict]) -> list[tuple]:
                 out.append(("share_not_from_own_days", c, round(s, 4), round(exp, 4)))
 
     # Labels: short-plan notes print the calendar-table-formatted weight
-    # ("0.7x") beside each label, so they are judged on that displayed
+    # ("0.70x") beside each label, so they are judged on that displayed
     # value; 90-Day notes print no weight and rank share, so raw weight.
     def shown(i: int) -> float:
         months = {d.month for d in days[i]}
         if not is90 and len(months) == 1:
-            return float(f"{w[months.pop()]:.1f}")
+            return float(f"{w[months.pop()]:.2f}")
         return round(cw[i], 6)
 
     dw = [shown(i) for i in range(n)]
@@ -316,11 +316,11 @@ def test_manufacturing_june_5_weeks_july_low_is_not_heaviest():
     assert p["shares"][0] > p["shares"][1]
     note = p["note"]
     assert "heaviest planned spend" not in note, note
-    # 0.7x -> 0.8x: July's budget_weight is now 0.85 (was a generic 0.7 pre-
+    # 0.7x -> 0.85x: July's budget_weight is now 0.85 (was a generic 0.7 pre-
     # fix), since it's blended against the real manufacturing seasonal
     # pattern's neutral 1.0x instead of never being blended at all.
-    assert re.search(r"July \d{4} \(5 campaign days; 0\.8x, lighter daily pacing\)", note), note
-    assert re.search(r"June \d{4} \(30 campaign days; 1\.0x, heavier daily pacing\)", note), note
+    assert re.search(r"July \d{4} \(5 campaign days; 0\.85x, lighter daily pacing\)", note), note
+    assert re.search(r"June \d{4} \(30 campaign days; 1\.00x, heavier daily pacing\)", note), note
     assert "matching this plan's Activation Event Calendar" in note
     assert _violations(p, timeline) == []
 

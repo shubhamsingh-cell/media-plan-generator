@@ -260,6 +260,52 @@ def test_s4_generic_fallback_drops_other_industry_events():
 
 
 # ---------------------------------------------------------------------------
+# S5 -- "2 months" forecast ends on the last day of month 2
+# ---------------------------------------------------------------------------
+
+
+def test_s5_two_month_forecast_window_ends_nov_30_with_no_december_spend():
+    _data, sheets, _slides = _bundle("rti")
+    title = next(t for t in sheets if t.endswith("Forecast"))
+    cells = sheets[title]
+    period = next(c for c in cells if c.startswith("Oct 01, "))
+    assert period.endswith("Nov 30, " + period[-4:]), period
+    assert not any(c.startswith("December ") for c in cells), [
+        c for c in cells if c.startswith("December ")
+    ]
+    note = next(c for c in cells if c.startswith("This forecast phases budget"))
+    assert "December" not in note, note
+
+
+def test_s5_campaign_window_end_helper():
+    start = datetime.date(2026, 10, 1)
+    assert gold_standard.campaign_window_end({"campaign_duration": "2 months"}, start) == (
+        datetime.date(2026, 11, 30)
+    )
+    assert gold_standard.campaign_window_end({"campaign_duration": "3 months"}, start) == (
+        datetime.date(2026, 12, 31)
+    )
+    assert gold_standard.campaign_window_end({"campaign_duration": "9 weeks"}, start) is None
+
+
+# ---------------------------------------------------------------------------
+# S6 -- calendar weights printed to 2 decimals
+# ---------------------------------------------------------------------------
+
+
+def test_s6_calendar_weight_uses_two_decimals_so_moderate_and_low_differ():
+    cells = _bundle("hershey")[1]["Quality Intelligence"]
+    start = cells.index("Activation Event Calendar")
+    weights = [c for c in cells[start:] if re.fullmatch(r"\d\.\d+x", c)][:6]
+    assert weights, "no calendar weight cells found"
+    assert all(re.fullmatch(r"\d\.\d\dx", w) for w in weights), weights
+    # Direct: 0.85 (Moderate) and 0.75 (Low) must not collapse to one string.
+    assert excel_v2._fmt_budget_weight(0.85, "calendar") != excel_v2._fmt_budget_weight(
+        0.75, "calendar"
+    )
+
+
+# ---------------------------------------------------------------------------
 # S7 -- event text agrees with the month's label
 # ---------------------------------------------------------------------------
 
