@@ -1905,9 +1905,12 @@ METRO_DATA = {
 }
 
 # ── State-code to primary metro key mapping (all 50 US states + DC) ──
-# Used by get_location_info() when a bare state abbreviation is passed as
-# the location (e.g. "GA", "IL"). Maps to the largest / most representative
-# metro area in METRO_DATA for that state.
+# Largest / most representative metro in METRO_DATA for each state.
+# NO LONGER used to answer a state entry: a state ("NY", "Maryland", "PA") gets
+# its STATEWIDE figures, labelled statewide, in every path -- answering it with
+# one metro's data (MD -> Baltimore, PA -> Philadelphia, NC -> Charlotte, OH ->
+# Columbus) presented one metro as the whole state (RTI audit, 2026-10-11).
+# Kept as reference data (tests, tooling); DC is handled by geo_market.
 _STATE_PRIMARY_METRO: dict[str, str] = {
     "AL": "birmingham",
     "AK": "anchorage",
@@ -4536,44 +4539,94 @@ def _extract_state(location_str):
     return None
 
 
-def _find_metro(location_str):
-    """Find matching metro area from location string.
+# Documented spellings that name a curated metro but are not its METRO_DATA key.
+# Normalised (lower-case alphanumerics only) -> METRO_DATA key. This is the ONLY
+# way a spelling other than the key itself (or the metro's own official name,
+# see ``_metro_name_forms``) can match: never substring containment, which
+# answered "Jackson" with Jacksonville's data (RTI audit, 2026-10-11).
+_METRO_ALIASES: dict[str, str] = {
+    "washingtondc": "washington_dc",
+    "districtofcolumbia": "washington_dc",
+    "nyc": "new_york",
+    "newyorkcity": "new_york",
+    "saintlouis": "st_louis",
+    "stpaul": "minneapolis",
+    "dfw": "dallas",
+}
 
-    IMPORTANT: Rejects bare 2-letter state abbreviations (e.g. "GA", "IL")
-    to prevent false substring matches like "ga" in "lasvegas" or "il" in
-    "philadelphia".  Callers should use ``_STATE_PRIMARY_METRO`` for
-    state-code -> metro resolution instead.
+
+def _metro_name_forms(data):
+    """Normalised official-name spellings of one METRO_DATA entry: the full
+    ``metro_name`` (with/without "MSA") and every hyphenated prefix of TWO or
+    more segments ("Dallas-Fort Worth", "Washington-Arlington"). A single
+    leading segment is deliberately excluded -- it is the city's bare name,
+    which is exactly the ambiguity this matcher must not resolve."""
+    name = re.sub(r"\s+MSA\s*$", "", (data.get("metro_name") or "").strip())
+    forms = {_normalize(f"{name} MSA")}
+    segments = [seg for seg in name.split("-") if seg.strip()]
+    for n in range(2, len(segments) + 1):
+        forms.add(_normalize("-".join(segments[:n])))
+    forms.discard("")
+    return forms
+
+
+def _explicit_state_suffix(location_str):
+    """USPS code from a trailing ", ST" / ", State Name" -- else ""."""
+    if "," not in location_str:
+        return ""
+    tail = location_str.rsplit(",", 1)[1].strip().rstrip(".")
+    tail = re.sub(r"\s*\d+.*$", "", tail)
+    if len(tail) == 2 and tail.upper() in STATE_DATA:
+        return tail.upper()
+    for abbr, sd in STATE_DATA.items():
+        if sd["name"].lower() == tail.lower():
+            return abbr
+    return ""
+
+
+def _find_metro(location_str):
+    """Find the curated metro a location string names, by EXACT normalised
+    match -- never substring containment.
+
+    Match order: (1) the whole string against a METRO_DATA key, (2) the city
+    part (text before the comma) against a key, (3) a documented alias or the
+    metro's official name (``_METRO_ALIASES`` / ``_metro_name_forms``). A
+    "City, ST" string whose state disagrees with the metro's state ("Columbus,
+    GA" vs the Ohio metro) matches nothing.
+
+    Bare 2-letter state codes ("GA", "IL") match only an exact key; state
+    resolution is ``geo_market``'s job, not this function's.
     """
     norm = _normalize(location_str)
-
-    # Guard: if the normalized input is <= 2 chars and looks like a US state
-    # abbreviation, skip substring matching entirely -- it would produce wrong
-    # results (e.g. "ga" matches "lasvegas", "il" matches "philadelphia").
-    _is_bare_state = len(norm) <= 2 and location_str.strip().upper() in STATE_DATA
-
-    # Direct matches -- require exact equality when input is very short
-    for key, data in METRO_DATA.items():
-        key_norm = _normalize(key)
-        if _is_bare_state:
-            # Only allow exact match, never substring
-            if key_norm == norm:
-                return key, data
-        else:
-            if key_norm in norm or norm in key_norm:
-                return key, data
-
-    if _is_bare_state:
+    if not norm:
         return None, None
 
-    # City name matches
-    city_part = re.sub(r",.*$", "", location_str).strip().lower()
-    city_norm = _normalize(city_part)
+    is_bare_state = len(norm) <= 2 and location_str.strip().upper() in STATE_DATA
+    if is_bare_state:
+        for key, data in METRO_DATA.items():
+            if _normalize(key) == norm:
+                return key, data
+        return None, None
+
+    city_norm = _normalize(re.sub(r",.*$", "", location_str))
+    explicit_state = _explicit_state_suffix(location_str)
+
+    def _state_ok(data):
+        return not explicit_state or (data.get("state") or "") == explicit_state
+
     for key, data in METRO_DATA.items():
-        if city_norm == _normalize(key) or _normalize(key).startswith(city_norm):
+        if _normalize(key) == norm and _state_ok(data):
             return key, data
-    # Fuzzy match on metro_name
     for key, data in METRO_DATA.items():
-        if city_part.lower() in (data.get("metro_name") or "").lower():
+        if _normalize(key) == city_norm and _state_ok(data):
+            return key, data
+    for candidate in (norm, city_norm):
+        alias_key = _METRO_ALIASES.get(candidate)
+        if alias_key and alias_key in METRO_DATA:
+            return alias_key, METRO_DATA[alias_key]
+    for key, data in METRO_DATA.items():
+        forms = _metro_name_forms(data)
+        if (norm in forms or city_norm in forms) and _state_ok(data):
             return key, data
     return None, None
 
@@ -4613,10 +4666,29 @@ def _is_bare_state_location(location_str, state):
     return bool(state_name) and norm.lower() == state_name.lower()
 
 
-def get_location_info(location_str):
-    """Get comprehensive info for a location. Supports US and international locations."""
-    # Check for international location first
+def get_location_info(location_str, resolution=None):
+    """Get comprehensive info for a location. Supports US and international locations.
+
+    ``resolution`` is this location's ``plan_location`` result
+    (``data["_location_resolution"][i]``) when the caller has it: it tells a
+    state entry from a city, flags an ambiguous bare name, and carries the
+    site's MSA title. Without it the string alone is interpreted.
+    """
+    # Check for international location first. A location plan_location resolved
+    # as a US state / city / county / ZIP, or a bare US state name, is never
+    # international ("New Mexico" is a state, not Mexico).
     country = _detect_country(location_str)
+    # Only a CONFIRMED verdict (resolved / corrected) cancels country detection:
+    # plan_location tags a bare "Toronto" or "London" as an AMBIGUOUS US city,
+    # and that must not turn a foreign capital into a US place with US$ figures.
+    if (
+        (resolution or {}).get("status") in ("resolved", "corrected")
+        and (resolution or {}).get("kind") in ("state", "city", "county", "zip")
+    ) or (
+        _extract_state(location_str)
+        and _is_bare_state_location(location_str, _extract_state(location_str))
+    ):
+        country = None
     if country and country != "United States":
         cd = COUNTRY_DATA[country]
         info = {
@@ -4673,27 +4745,16 @@ def get_location_info(location_str):
             )
         return info
 
-    # US location handling
-    state = _extract_state(location_str)
-    metro_key, metro = _find_metro(location_str)
+    # US location handling. ``geo_market.resolve_market`` is the ONE place a
+    # location string is interpreted (state vs city vs not-a-place, assumed
+    # reading of an ambiguous bare name) -- gold_standard, data_synthesizer and
+    # the deck read the same object, so one location can't mean two places.
+    import geo_market
 
-    # If _find_metro found nothing and the input is a BARE state code/name
-    # (no city -- e.g. "GA"), resolve via the state-to-primary-metro mapping
-    # so it gets that state's flagship metro's data instead of falling
-    # through to the generic statewide fallback. A named city research.py's
-    # curated METRO_DATA doesn't happen to list must NOT take this branch --
-    # see _is_bare_state_location's docstring for the Hershey/Hazleton/
-    # Harrisburg/Scranton, PA incident this guard fixes.
-    if (
-        not metro
-        and state
-        and state in _STATE_PRIMARY_METRO
-        and _is_bare_state_location(location_str, state)
-    ):
-        _primary_key = _STATE_PRIMARY_METRO[state]
-        if _primary_key in METRO_DATA:
-            metro_key = _primary_key
-            metro = METRO_DATA[_primary_key]
+    market = geo_market.resolve_market(location_str, resolution)
+    state = market.state or _extract_state(location_str)
+    if market.kind in ("remote", "nationwide"):
+        state = None
 
     info = {
         "location": location_str,
@@ -4701,23 +4762,39 @@ def get_location_info(location_str):
         "country": "United States",
         "region": "North America",
         "is_international": False,
+        "geo_level": market.level,
+        "assumed_location": market.assumed,
+        "ambiguity_note": market.ambiguity_note,
+        "cbsa_title": market.cbsa_title,
     }
 
-    if metro:
+    metro = METRO_DATA.get(market.metro_key) if market.metro_key else None
+    if market.level == "metro" and metro:
         info["coli"] = metro.get("coli", 100)
         info["population"] = metro.get("population") or ""
         info["median_salary"] = metro.get("median_salary") or 0
         info["unemployment"] = metro.get("unemployment") or ""
         info["metro_name"] = metro.get("metro_name") or ""
         info["major_employers"] = metro.get("major_employers") or ""
-    elif state and state in STATE_DATA:
-        sd = STATE_DATA[state]
+        info["population_level"] = "metro"
+    elif market.level == "state" and market.state in STATE_DATA:
+        # A STATE entry -- or a city METRO_DATA doesn't curate (Hershey,
+        # Harrisburg, Cleveland...). The figures are the state's, and the label
+        # says so. When plan_location knows the site's MSA, name it in the
+        # label: the state figures still describe the state, not that MSA.
+        sd = STATE_DATA[market.state]
         info["coli"] = sd.get("coli", 100)
         info["population"] = sd.get("population") or ""
         info["median_salary"] = sd.get("median_household_income") or 0
         info["unemployment"] = sd.get("unemployment") or ""
-        info["metro_name"] = f"{sd['name']} (statewide)"
+        if market.kind == "city" and market.cbsa_title:
+            info["metro_name"] = (
+                f"{market.cbsa_title} area (figures: {sd['name']} statewide)"
+            )
+        else:
+            info["metro_name"] = f"{sd['name']} (statewide)"
         info["major_employers"] = sd.get("top_industries") or ""
+        info["population_level"] = "state"
     else:
         # Silent-fallback fix (sibling of the INDUSTRY_LABOUR_MARKET /
         # get_labour_market_intelligence coverage-gap fix): this branch fires
@@ -4733,6 +4810,8 @@ def get_location_info(location_str):
         # disclose the substitution instead of presenting a generic
         # national estimate as if it were location-specific data (the same
         # rule this fix's sibling already applies to industry data).
+        # Remote / Nationwide are not places at all: ``is_not_a_place`` lets
+        # a table show "\u2014" instead of the placeholder.
         info["coli"] = 100
         info["population"] = "Data not available"
         info["median_salary"] = 60000
@@ -4740,6 +4819,8 @@ def get_location_info(location_str):
         info["metro_name"] = location_str
         info["major_employers"] = "Varies by area"
         info["is_generic_fallback"] = True
+        if not market.is_physical:
+            info["is_not_a_place"] = True
 
     return info
 
@@ -7653,7 +7734,73 @@ NATIONAL_JOLTS_SUMMARY = {
 }
 
 
-def get_labour_market_intelligence(industry, locations):
+def _us_location_context(loc, info):
+    """One US row of the Location Economic Context table.
+
+    Every figure is labelled at the geographic level it truly is: a state
+    entry (or a city METRO_DATA doesn't curate) says "statewide", an ambiguous
+    bare name says which reading was assumed, and Remote / Nationwide -- which
+    are not places -- show "\u2014" rather than a national placeholder. A
+    generic-fallback figure is flagged (``is_generic_fallback``) so the
+    renderer can asterisk it.
+    """
+    level = info.get("geo_level") or ""
+    assumed = info.get("assumed_location") or ""
+    lead = f"Assumed {assumed}. " if assumed else ""
+    if info.get("is_not_a_place"):
+        return {
+            "location": loc,
+            "country": "United States",
+            "unemployment_rate": "\u2014",
+            "median_salary": "\u2014",
+            "population": "\u2014",
+            "top_industries": "",
+            "coli": None,
+            "geo_level": "none",
+            "is_not_a_place": True,
+            "context_note": "Targeting mode, not a place; no market figures apply.",
+        }
+    if info.get("is_generic_fallback"):
+        note = info.get("ambiguity_note") or ""
+        return {
+            "location": loc,
+            "country": "United States",
+            "unemployment_rate": info.get("unemployment", "3.7%"),
+            "median_salary": f"${info.get('median_salary', 50000):,} USD",
+            "population": info.get("population", "N/A"),
+            "top_industries": info.get("major_employers") or "",
+            "coli": info.get("coli", 100),
+            "geo_level": "generic",
+            "is_generic_fallback": True,
+            "context_note": (
+                (note + " " if note else "")
+                + "No market data on file; national placeholder figures."
+            ),
+        }
+    place = info.get("metro_name", loc)
+    if level == "state":
+        context = f"{lead}{place}."
+        # STATE_DATA carries the state's median HOUSEHOLD income, not a wage:
+        # say so on the figure rather than leave it reading as a salary.
+        salary_label = f"${info.get('median_salary', 50000):,} USD (household)"
+    else:
+        context = f"{lead}US market \u2014 {place}."
+        salary_label = f"${info.get('median_salary', 50000):,} USD"
+    return {
+        "location": loc,
+        "country": "United States",
+        "unemployment_rate": info.get("unemployment", "3.7%"),
+        "median_salary": salary_label,
+        "population": info.get("population", "N/A"),
+        "top_industries": info.get("major_employers") or "",
+        "coli": info.get("coli", 100),
+        "geo_level": level,
+        "assumed_location": assumed,
+        "context_note": context,
+    }
+
+
+def get_labour_market_intelligence(industry, locations, location_resolutions=None):
     """
     Return rich, curated labour market intelligence data combining
     BLS/JOLTS-style industry metrics with location-specific context.
@@ -7678,8 +7825,9 @@ def get_labour_market_intelligence(industry, locations):
 
     # Build location-specific context
     location_contexts = []
+    _resolutions = location_resolutions if isinstance(location_resolutions, dict) else {}
     for loc in locations or ["United States"]:
-        info = get_location_info(loc)
+        info = get_location_info(loc, _resolutions.get(loc))
         is_intl = info.get("is_international", False)
         country = _detect_country(loc)
 
@@ -7710,18 +7858,7 @@ def get_labour_market_intelligence(industry, locations):
         else:
             # Genuinely USD -- this branch only fires for US locations, so
             # the literal "$" here is correct and stays untouched.
-            location_contexts.append(
-                {
-                    "location": loc,
-                    "country": "United States",
-                    "unemployment_rate": info.get("unemployment", "3.7%"),
-                    "median_salary": f"${info.get('median_salary', 50000):,} USD",
-                    "population": info.get("population", "N/A"),
-                    "top_industries": info.get("major_employers") or "",
-                    "coli": info.get("coli", 100),
-                    "context_note": f"US market — {info.get('state') or ''} {info.get('metro_name', loc)}.",
-                }
-            )
+            location_contexts.append(_us_location_context(loc, info))
 
     return {
         "industry_metrics": ind_data,

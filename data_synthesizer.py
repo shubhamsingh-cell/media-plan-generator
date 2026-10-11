@@ -46,6 +46,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import company_blurb
 import competitor_claims
+import geo_market
 
 logger = logging.getLogger(__name__)
 
@@ -2401,6 +2402,31 @@ def _parse_audience_number(audience_str: str) -> int:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+def _statewide_profile(state: str) -> Dict[str, Any]:
+    """Statewide population / income / unemployment from research.STATE_DATA,
+    tagged ``population_level: state``. Empty when the state is unknown."""
+    try:
+        from research import STATE_DATA
+    except ImportError:
+        return {}
+    sd = STATE_DATA.get(state)
+    if not isinstance(sd, dict):
+        return {}
+    out: Dict[str, Any] = {"population_level": "state", "state_name": sd.get("name") or ""}
+    pop_match = re.search(r"([\d.]+)\s*([mk]?)", str(sd.get("population") or "").lower())
+    if pop_match:
+        scale = {"m": 1_000_000, "k": 1_000}.get(pop_match.group(2), 1)
+        out["population"] = int(float(pop_match.group(1)) * scale)
+    income = sd.get("median_household_income")
+    if isinstance(income, (int, float)) and income > 0:
+        out["median_household_income"] = int(income)
+    try:
+        out["unemployment_rate"] = float(str(sd.get("unemployment") or "").replace("%", "").strip())
+    except ValueError:
+        pass
+    return out
+
+
 def fuse_location_profiles(
     enriched: dict, kb: dict, input_data: dict
 ) -> Dict[str, Any]:
@@ -2459,10 +2485,17 @@ def fuse_location_profiles(
 
     result: Dict[str, Any] = {}
 
+    # One resolution per location (plan_location verdict + research tables),
+    # shared with every other sheet: it tells a STATE entry from a city so a
+    # city's population is never stamped on a state ("NY" -> NYC 8.3M).
+    _resolutions = geo_market.resolution_map(input_data)
+
     for loc in locations:
         loc_profile: Dict[str, Any] = {"location": loc}
         source_count = 0
         kb_validated = False
+        _market = geo_market.resolve_market(loc, _resolutions.get(loc))
+        _is_state_entry = _market.kind == "state" and _market.level == "state"
 
         # --- Census / Demographics ---
         census_entry = census_data.get(loc, {}) if isinstance(census_data, dict) else {}
@@ -2476,10 +2509,17 @@ def fuse_location_profiles(
             # stamped on one city; the national figure on every non-US city).
             population = _safe_int(census_entry.get("population"))
             median_income = _safe_int(census_entry.get("median_income"))
-            if population > 0:
+            if population > 0 and not _is_state_entry:
                 loc_profile["population"] = population
+                loc_profile["population_level"] = (
+                    "state"
+                    if (census_entry.get("geo_level") or "").lower() == "state"
+                    else "county"
+                    if (census_entry.get("geo_level") or "").lower() == "county"
+                    else "city"
+                )
                 source_count += 1
-            if median_income > 0:
+            if median_income > 0 and not _is_state_entry:
                 loc_profile["median_household_income"] = median_income
             _area_pop = _safe_int(
                 census_entry.get("area_population")
@@ -2502,11 +2542,16 @@ def fuse_location_profiles(
         datausa_entry = datausa_locations.get(loc, {})
         if isinstance(datausa_entry, dict) and datausa_entry:
             dusa_pop = _safe_int(datausa_entry.get("population"))
-            if dusa_pop > 0 and "population" not in loc_profile:
+            if dusa_pop > 0 and "population" not in loc_profile and not _is_state_entry:
                 loc_profile["population"] = dusa_pop
+                loc_profile["population_level"] = "city"
                 source_count += 1
             dusa_income = _safe_int(datausa_entry.get("median_income"))
-            if dusa_income > 0 and "median_household_income" not in loc_profile:
+            if (
+                dusa_income > 0
+                and "median_household_income" not in loc_profile
+                and not _is_state_entry
+            ):
                 loc_profile["median_household_income"] = dusa_income
 
         # --- GeoNames ---
@@ -2518,8 +2563,9 @@ def fuse_location_profiles(
             }
             loc_profile["timezone"] = geo_entry.get("timezone") or ""
             geo_pop = _safe_int(geo_entry.get("population"))
-            if geo_pop > 0 and "population" not in loc_profile:
+            if geo_pop > 0 and "population" not in loc_profile and not _is_state_entry:
                 loc_profile["population"] = geo_pop
+                loc_profile["population_level"] = "city"
             loc_profile["country_code"] = geo_entry.get("country_code") or ""
             source_count += 1
 
@@ -2624,8 +2670,14 @@ def fuse_location_profiles(
         # enrichment failed to provide population, unemployment, or median_income.
         # This eliminates the 123 N/A cells seen in J&R Schugel audit.
         if _RESEARCH_METRO_DATA:
-            _loc_city = re.sub(r",.*$", "", loc).strip().lower()
-            _metro_fb = _RESEARCH_METRO_DATA.get(_loc_city, {})
+            # The metro geo_market resolved for THIS location -- exact, never
+            # a lookup of the raw city text ("Washington" -> the DC metro, as
+            # every other table says; "Jackson" -> no metro, not Jacksonville).
+            _metro_fb = (
+                _RESEARCH_METRO_DATA.get(_market.metro_key, {})
+                if _market.level == "metro"
+                else {}
+            )
             if isinstance(_metro_fb, dict) and _metro_fb:
                 if "population" not in loc_profile or not loc_profile.get("population"):
                     _pop_str = str(_metro_fb.get("population") or "").lower()
@@ -2644,6 +2696,7 @@ def fuse_location_profiles(
                                     loc_profile["population"] = int(_pop_val * 1_000)
                                 else:
                                     loc_profile["population"] = int(_pop_val)
+                                loc_profile["population_level"] = "metro"
                                 loc_profile["demographics_source"] = (
                                     loc_profile.get("demographics_source")
                                     or "METRO_DATA fallback"
@@ -2685,6 +2738,14 @@ def fuse_location_profiles(
                     _employers = _metro_fb.get("major_employers")
                     if _employers:
                         loc_profile["major_employers"] = _employers
+
+        # A STATE entry carries its own statewide figures, labelled as such --
+        # never a city's (census / GeoNames) and never one metro's.
+        if _is_state_entry and _market.state:
+            _statewide = _statewide_profile(_market.state)
+            if _statewide:
+                loc_profile.update(_statewide)
+                source_count += 1
 
         # --- KB validation ---
         loc_lower = loc.lower()
@@ -3965,9 +4026,22 @@ def _validate_location_plausibility(
     if not description_states:
         return warnings
 
+    # One interpretation of each location, shared with every location table
+    # (geo_market): bare "Washington" is the assumed Washington, DC -- not
+    # Washington State -- and Remote / Nationwide are not places, so neither
+    # can be "outside the operating region".
+    _resolutions = geo_market.resolution_map(input_data)
+
     for loc in user_locations:
         loc_str = str(loc) if not isinstance(loc, str) else loc
-        user_state = _extract_state_abbr(loc_str)
+        _market = geo_market.resolve_market(loc_str, _resolutions.get(loc_str))
+        if not _market.is_physical:
+            continue
+        user_state = _market.state or _extract_state_abbr(loc_str)
+        if _market.assumed == "Washington, DC" and "WA" in description_states:
+            # The company's own footprint includes Washington State, which
+            # settles the ambiguity of the bare name: nothing to flag.
+            continue
 
         if not user_state:
             # International location or unresolvable -- do not flag
@@ -4018,6 +4092,9 @@ def _validate_location_plausibility(
             if company_hq:
                 reason += f" (HQ: {company_hq})"
             reason += "."
+
+        if _market.assumed:
+            reason += f" Assumed {_market.assumed}."
 
         # Build known-states display string
         known_display = []

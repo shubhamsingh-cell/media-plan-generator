@@ -77,7 +77,9 @@ class _ResearchStub:
     def __init__(self, context_note: str):
         self._note = context_note
 
-    def get_labour_market_intelligence(self, industry, locations):
+    def get_labour_market_intelligence(
+        self, industry, locations, location_resolutions=None
+    ):
         return {
             "location_contexts": [
                 {

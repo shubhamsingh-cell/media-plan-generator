@@ -360,6 +360,16 @@ def geography_rationale(location: str, city_data: dict | None) -> str:
     if not city_data or not isinstance(city_data, dict):
         return f"{loc} was selected by client footprint."
 
+    # A fallback row (no city / state / metro signal) or a STATE-level estimate
+    # says nothing about THIS market, so it can't be the reason it was chosen:
+    # "Remote was prioritized based on a balanced talent-supply tier" was
+    # invented from the flat default (RTI audit, 2026-10-11).
+    if city_data.get("fallback_uniform") or (
+        (city_data.get("difficulty_basis") or city_data.get("geo_basis") or "")
+        in ("state", "generic")
+    ):
+        return f"{loc} was selected by client footprint."
+
     parts: list[str] = []
 
     unemployment = city_data.get("unemployment")

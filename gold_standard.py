@@ -31,6 +31,11 @@ except ImportError:
     _RESEARCH_METRO_DATA = {}
 
 try:
+    import geo_market as _geo_market_gs
+except ImportError:  # pragma: no cover - geo_market ships with the repo
+    _geo_market_gs = None
+
+try:
     import plan_geo as _plan_geo_gs
     from plan_geo import US_STATE_NAME_TO_ABBR as _US_STATE_NAME_TO_ABBR
 except ImportError:  # pragma: no cover - plan_geo ships with the repo
@@ -1322,6 +1327,12 @@ def enrich_city_level_data(data: dict) -> dict:
     # plan_geo resolver; an unresolvable bare city falls back to the plan.
     _plan_is_us = _plan_geo_gs.is_us_plan(data) if _plan_geo_gs is not None else True
 
+    # plan_location's verdict per location: tells a STATE entry ("NY" arrives
+    # here as the display name "New York") from the city of the same name.
+    _location_resolutions = (
+        _geo_market_gs.resolution_map(data) if _geo_market_gs is not None else {}
+    )
+
     for loc in (locations_raw if isinstance(locations_raw, list) else []):
         city_name = ""
         _state_code = ""  # S50 FIX (Issue 19): capture state code
@@ -1343,8 +1354,24 @@ def enrich_city_level_data(data: dict) -> dict:
         city_is_us = _plan_is_us if _loc_is_us is None else _loc_is_us
 
         city_key = city_name.lower()
-        multiplier = _CITY_SALARY_MULTIPLIERS.get(city_key, None)
-        difficulty = _CITY_HIRING_DIFFICULTY.get(city_key, None)
+        # A STATE entry ("MD", "Maryland", "NY") is priced at STATEWIDE figures
+        # and labelled so -- never the national default (bare codes used to
+        # fall through to 1.00x / 5.5) and never one metro's. DC is a
+        # city-state: it reads the same "washington" entry as bare Washington.
+        _state_entry = ""
+        if _geo_market_gs is not None and isinstance(loc, str):
+            _mkt = _geo_market_gs.resolve_market(loc, _location_resolutions.get(loc))
+            if _mkt.kind == "state" and _mkt.level == "state":
+                _state_entry = _mkt.state.lower()
+            elif _mkt.metro_key == "washington_dc":
+                city_key = "washington"
+        if _state_entry:
+            _state_code = _state_entry
+            multiplier = None
+            difficulty = None
+        else:
+            multiplier = _CITY_SALARY_MULTIPLIERS.get(city_key, None)
+            difficulty = _CITY_HIRING_DIFFICULTY.get(city_key, None)
         # Geographic basis of each figure ("city" | "state" | "country" |
         # "generic"): lets the validator and the workbook tell a city's own
         # numbers apart from a state/country-level fallback that every
@@ -1359,7 +1386,7 @@ def enrich_city_level_data(data: dict) -> dict:
         # This prevents India/China/etc. from getting the US $75K default.
         _resolved_country: str | None = None
         _country_col: float | None = None
-        if multiplier is None:
+        if multiplier is None and not _state_entry:
             _resolved_country = _resolve_country(city_key)
             if _resolved_country is not None:
                 multiplier = _COUNTRY_SALARY_MULTIPLIERS[_resolved_country]
@@ -1691,6 +1718,13 @@ def enrich_city_level_data(data: dict) -> dict:
             # country token ("India"), so its figures are its own.
             "geo_basis": geo_basis,
             "geo_basis_area": geo_basis_area,
+            # The salary multiplier and the hiring difficulty can sit at
+            # DIFFERENT levels (Pittsburgh: a city multiplier, a state
+            # difficulty). ``geo_basis`` above is the less specific of the
+            # two; these two say which figure is which so a label never
+            # borrows one figure's level for the other.
+            "salary_basis": _salary_basis or "generic",
+            "difficulty_basis": _difficulty_basis or "generic",
         }
 
     return city_data

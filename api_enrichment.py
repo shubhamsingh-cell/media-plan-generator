@@ -5080,6 +5080,12 @@ _HARDCODED_GEO: Dict[str, Dict[str, Any]] = {
 }
 
 
+# Each live GeoNames lookup is up to three sequential HTTP calls, so the LIVE
+# loop keeps a cap; locations past it are answered from the local table and the
+# cap is disclosed in the result (``live_lookup_cap``), never silent.
+_GEONAMES_LIVE_LOOKUP_CAP = 10
+
+
 def _geonames_hardcoded_lookup(locations: List[str]) -> Dict[str, Any]:
     """Look up locations in the hardcoded metro area table.
 
@@ -5097,7 +5103,9 @@ def _geonames_hardcoded_lookup(locations: List[str]) -> Dict[str, Any]:
         "source": "GeoNames (hardcoded fallback)",
         "locations": {},
     }
-    for loc in locations[:10]:
+    # Local data: no API cost, so EVERY location is looked up -- the silent
+    # 10-location cap dropped sites 11+ with no trace (RTI audit, 2026-10-11).
+    for loc in locations:
         city = loc.split(",")[0].strip().lower()
         entry = _HARDCODED_GEO.get(city)
         if entry:
@@ -5116,9 +5124,7 @@ def fetch_geonames_data(locations: List[str]) -> Dict[str, Any]:
     if not locations:
         return {}
 
-    cache_k = _cache_key(
-        "geonames", ",".join(sorted(l.lower() for l in locations[:10]))
-    )
+    cache_k = _cache_key("geonames", ",".join(sorted(l.lower() for l in locations)))
     cached = _get_cached(cache_k)
     if cached is not None:
         return cached
@@ -5136,7 +5142,7 @@ def fetch_geonames_data(locations: List[str]) -> Dict[str, Any]:
 
     result: Dict[str, Any] = {"source": "GeoNames", "locations": {}}
 
-    for loc in locations[:10]:
+    for loc in locations[:_GEONAMES_LIVE_LOOKUP_CAP]:
         try:
             # Extract city name (first part before comma)
             city = loc.split(",")[0].strip()
@@ -5209,6 +5215,22 @@ def fetch_geonames_data(locations: List[str]) -> Dict[str, Any]:
             result["locations"][loc] = entry
         except Exception as exc:
             _log_warn(f"GeoNames failed for {loc}: {exc}")
+
+    overflow = locations[_GEONAMES_LIVE_LOOKUP_CAP:]
+    if overflow:
+        # Past the live-API cap: answer from the local table and say so.
+        local = _geonames_hardcoded_lookup(overflow)
+        result["locations"].update(local.get("locations") or {})
+        result["live_lookup_cap"] = {
+            "limit": _GEONAMES_LIVE_LOOKUP_CAP,
+            "requested": len(locations),
+            "local_data_only": list(overflow),
+            "no_data": [l for l in overflow if l not in result["locations"]],
+        }
+        _log_warn(
+            f"GeoNames live lookups capped at {_GEONAMES_LIVE_LOOKUP_CAP} of "
+            f"{len(locations)} locations; the rest use local data only"
+        )
 
     if result["locations"]:
         _set_cached(cache_k, result)
@@ -5523,9 +5545,7 @@ def fetch_teleport_city_data(locations: List[str]) -> Dict[str, Any]:
     if not locations:
         return {}
 
-    cache_k = _cache_key(
-        "teleport", ",".join(sorted(l.lower() for l in locations[:10]))
-    )
+    cache_k = _cache_key("teleport", ",".join(sorted(l.lower() for l in locations)))
     cached = _get_cached(cache_k)
     if cached is not None:
         return cached
@@ -5534,7 +5554,8 @@ def fetch_teleport_city_data(locations: List[str]) -> Dict[str, Any]:
 
     result: Dict[str, Any] = {"source": "Teleport (curated benchmarks)", "cities": {}}
 
-    for loc in locations[:10]:
+    # Curated local data, no API cost: every location is looked up.
+    for loc in locations:
         city_name = loc.split(",")[0].strip().lower()
 
         # Resolve city to slug via the existing mapping

@@ -79,6 +79,7 @@ try:
 except ImportError:  # pragma: no cover - plan_currency ships with the repo
     _plan_currency = None
 
+import geo_market
 import plan_geo
 import company_blurb
 import competitor_claims
@@ -1810,7 +1811,7 @@ def _match_roles_to_niche_boards(
 _ROLE_GATED_INDUSTRY_BOARDS: Dict[str, set] = {
     "PracticeLink": {"physician"},
     "JAMA Career Center": {"physician"},
-    "myCNAjobs.com": {"senior_care"},
+    "myCNAjobs.com": {"senior_care"},  # CNA roles: see _ROLE_TOKEN_GATED_INDUSTRY_BOARDS
     "CareListings.com": {"senior_care"},
     "Nurse.com": {"nursing"},
     "AllNurses.com": {"nursing"},
@@ -1839,6 +1840,17 @@ def _channel_target_roles(channel_name: str, roles: List[str], industry: str) ->
     return list(roles)
 
 
+# Boards a role-TEXT match also justifies (the broad "nursing" category is not
+# enough: gating myCNAjobs.com on it listed a CNA board for every RN / ICU
+# nurse / NP / LPN plan). Review 2026-10-11.
+_ROLE_TOKEN_GATED_INDUSTRY_BOARDS: Dict[str, "re.Pattern[str]"] = {
+    "myCNAjobs.com": re.compile(
+        r"\bcnas?\b|\bnurs(?:e|ing)\s+(?:assistant|aide)s?\b|\bcertified\s+nurs",
+        re.IGNORECASE,
+    ),
+}
+
+
 def _industry_niche_boards_for_roles(industry: str, roles: List[str]) -> List[str]:
     """INDUSTRY_NICHE_CHANNELS[industry] minus role-gated boards that no
     role of this plan justifies. Generic industry boards are kept."""
@@ -1850,6 +1862,10 @@ def _industry_niche_boards_for_roles(industry: str, roles: List[str]) -> List[st
     kept: List[str] = []
     for name in boards:
         needs = _ROLE_GATED_INDUSTRY_BOARDS.get(name)
+        token_gate = _ROLE_TOKEN_GATED_INDUSTRY_BOARDS.get(name)
+        if token_gate and any(token_gate.search(str(r)) for r in roles or []):
+            kept.append(name)
+            continue
         if needs and not (needs & plan_categories):
             continue
         kept.append(name)
@@ -3957,6 +3973,27 @@ def _footnote_row_height(ws, text: str) -> float | None:
         max(1, math.ceil(len(part) / per_line)) for part in str(text).split("\n")
     )
     return None if lines <= 1 else round(lines * 12.5 + 2, 1)
+
+
+def _same_market_name(a: Any, b: Any) -> bool:
+    """True when two location strings name the same place -- EXACT normalised
+    equality, never substring containment. A bare city equals the same city
+    carrying a ", ST" suffix ("Pittsburgh" == "Pittsburgh, PA"); two strings
+    that BOTH carry a state must match in full ("Columbus, GA" != "Columbus,
+    OH"). Substring matching answered "Jackson" with Jacksonville's profile
+    (RTI audit, 2026-10-11)."""
+
+    def _n(text: Any) -> str:
+        return re.sub(r"[^a-z0-9]", "", str(text or "").lower())
+
+    sa, sb = str(a or ""), str(b or "")
+    if not _n(sa) or not _n(sb):
+        return False
+    if _n(sa) == _n(sb):
+        return True
+    if ("," in sa) == ("," in sb):
+        return False
+    return _n(sa.split(",")[0]) == _n(sb.split(",")[0])
 
 
 def _write_footnote(ws, row: int, text: str) -> int:
@@ -7760,7 +7797,9 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     if research_mod:
         try:
             labour_data = research_mod.get_labour_market_intelligence(
-                industry, locations
+                industry,
+                locations,
+                location_resolutions=geo_market.resolution_map(data),
             )
         except Exception as exc:
             logger.warning("Labour market intelligence lookup failed: %s", exc)
@@ -7857,6 +7896,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         row = _write_subsection_header(ws, row, "Location Economic Context")
         headers = ["Location", "Country", "Unemployment", "Median Salary", "Context"]
         row = _write_table_header(ws, row, headers)
+        _lc_generic_rows = False
         for idx, lc in enumerate(loc_contexts):
             if isinstance(lc, dict):
                 _lc_salary = _flatten_value(lc.get("median_salary") or "")
@@ -7864,14 +7904,29 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 # on a non-USD plan the "$" must read "US$".
                 if _get_active_currency() != "USD" and re.search(r"\bUSD\b", _lc_salary):
                     _lc_salary = _mark_usd(_lc_salary)
+                _lc_unemp = _flatten_value(lc.get("unemployment_rate") or "")
+                # A flat national placeholder is never shown as this market's
+                # own figure: asterisk it (footnote below). Remote / Nationwide
+                # carry "\u2014" and are not asterisked.
+                if lc.get("is_generic_fallback"):
+                    _lc_generic_rows = True
+                    _lc_unemp = f"{_lc_unemp}*" if _lc_unemp else _lc_unemp
+                    _lc_salary = f"{_lc_salary}*" if _lc_salary else _lc_salary
                 values = [
                     lc.get("location") or "",
                     lc.get("country") or "",
-                    _flatten_value(lc.get("unemployment_rate") or ""),
+                    _lc_unemp,
                     _lc_salary,
                     _truncate_at_clause_boundary(lc.get("context_note") or "", 80),
                 ]
                 row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
+        if _lc_generic_rows:
+            row = _write_footnote(
+                ws,
+                row,
+                "* No location-specific data on file for this market; figures "
+                "shown are flat national placeholders, not measured for it.",
+            )
         row += 1
 
     row += 1
@@ -7902,6 +7957,9 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     # writing headers -- a header promising a field that's blank for every
     # location reads as "we looked and found nothing," not "never sourced."
     _loc_rows: List[Dict[str, str]] = []
+    # One resolution per location, shared with every other sheet / the deck:
+    # carries the "assumed <City, ST>" reading of an ambiguous bare name.
+    _markets_by_loc = {m.location: m for m in geo_market.plan_markets(data)}
     for idx, loc in enumerate(locations):
         # Data cascade: synthesized > enriched > research fallback
         loc_data = {}
@@ -7909,9 +7967,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         # Try synthesized location profiles
         if loc_profiles:
             for loc_key, profile in loc_profiles.items():
-                if isinstance(profile, dict) and (
-                    loc.lower() in loc_key.lower() or loc_key.lower() in loc.lower()
-                ):
+                if isinstance(profile, dict) and _same_market_name(loc, loc_key):
                     loc_data = profile
                     break
 
@@ -7919,9 +7975,8 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         if not loc_data and loc_demographics:
             if isinstance(loc_demographics, dict):
                 for demo_key, demo_data in loc_demographics.items():
-                    if isinstance(demo_data, dict) and (
-                        loc.lower() in demo_key.lower()
-                        or demo_key.lower() in loc.lower()
+                    if isinstance(demo_data, dict) and _same_market_name(
+                        loc, demo_key
                     ):
                         loc_data = demo_data
                         break
@@ -7931,7 +7986,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                         demo_loc = demo_item.get(
                             "location", demo_item.get("name") or ""
                         )
-                        if loc.lower() in str(demo_loc).lower():
+                        if _same_market_name(loc, demo_loc):
                             loc_data = demo_item
                             break
 
@@ -8079,6 +8134,12 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     f"{_fmt_number(_area_pop)} ({_area_scope}-level"
                     f"{', ' + _area_label if _area_label else ''}; not city)"
                 )
+        # Population mixes levels across rows (a census city, a METRO_DATA
+        # metro): say which one each figure is.
+        if pop_str and isinstance(loc_data, dict) and "(" not in pop_str:
+            _pop_level = str(loc_data.get("population_level") or "").strip()
+            if _pop_level and not pop_str.lower().endswith(_pop_level):
+                pop_str = f"{pop_str} ({_pop_level})"
         unemp_str = _flatten_value(unemployment)
         # INCIDENT FIX (currency-integrity defect 1): the comment here used
         # to claim this figure is "US Census/METRO_DATA source only --
@@ -8123,6 +8184,9 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         industry_str = _flatten_value(key_industries)
 
         _rationale = insight_composer.geography_rationale(loc, loc_data)
+        _loc_market = _markets_by_loc.get(loc)
+        if _loc_market is not None and _loc_market.assumed:
+            _rationale = f"{_rationale} Assumed {_loc_market.assumed}."
 
         # Silent-fallback fix: research.get_location_info flags
         # is_generic_fallback=True when it has NO metro/state entry at all
@@ -8188,6 +8252,18 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 "* No location-specific data on file for this market; "
                 "Unemployment/Income shown are flat national averages, not "
                 "measured for this location.",
+            )
+
+        # The live GeoNames lookups are capped for API cost; say so when the
+        # cap was hit instead of leaving later locations looking looked-up.
+        _geo_raw = enriched.get("geonames_data") if isinstance(enriched, dict) else None
+        _live_cap = _geo_raw.get("live_lookup_cap") if isinstance(_geo_raw, dict) else None
+        if isinstance(_live_cap, dict) and _live_cap.get("limit"):
+            row = _write_footnote(
+                ws,
+                row,
+                f"Live lookups covered the first {_live_cap['limit']} locations; "
+                "the rest use Nova's curated data.",
             )
 
     # ── 2b. Macro Economic Context (FRED indicators) ──
@@ -11109,20 +11185,42 @@ def _collapse_fallback_market_rows(
 
 
 def _geo_basis_suffix(info: Dict[str, Any]) -> str:
-    """Bracketed label for a CITY market whose figures are its STATE's.
+    """Bracketed label for a market whose figures are (partly) its STATE's.
 
     ``gold_standard.enrich_city_level_data`` stamps every city with no
     city-level entry with its state's multiplier / difficulty -- so three PA
     towns printed byte-identical "city" rows. Mark those rows so the table
     never implies city-specific data: " [PA state-level estimate]".
+
+    The salary multiplier and the hiring difficulty carry their OWN basis
+    (``salary_basis`` / ``difficulty_basis``): Pittsburgh has a city salary
+    multiplier (0.94x) but only a state difficulty, so its label must name the
+    difficulty -- " [PA state-level difficulty estimate]" -- not claim the
+    whole row, salary included, is the state's (RTI audit, 2026-10-11).
     City-specific rows, the collapsed default-index row and markets that ARE a
     country ("India", "Canada" -- ``geo_basis`` "country": the figures describe
     the market itself, not a fallback) carry no suffix.
     """
-    if not isinstance(info, dict) or info.get("geo_basis") != "state":
+    if not isinstance(info, dict):
+        return ""
+    salary_basis = str(info.get("salary_basis") or "")
+    difficulty_basis = str(info.get("difficulty_basis") or "")
+    if salary_basis and difficulty_basis:
+        salary_state = salary_basis == "state"
+        difficulty_state = difficulty_basis == "state"
+    else:  # rows without the per-figure bases: the combined basis
+        salary_state = difficulty_state = info.get("geo_basis") == "state"
+    if not (salary_state or difficulty_state):
         return ""
     area = str(info.get("geo_basis_area") or "").strip()
-    return f" [{area + ' ' if area else ''}state-level estimate]"
+    which = (
+        ""
+        if salary_state and difficulty_state
+        else "difficulty "
+        if difficulty_state
+        else "salary "
+    )
+    return f" [{area + ' ' if area else ''}state-level {which}estimate]"
 
 
 def _salary_range_from_per_role(
@@ -11386,9 +11484,9 @@ def _build_sheet_quality_intelligence(
             ):
                 _city_footnote += (
                     " Rows marked [state-level estimate] use that state's "
-                    "multiplier and difficulty -- no city-specific data was on "
-                    "file -- so markets in the same state share identical "
-                    "figures."
+                    "multiplier and/or difficulty (the label names which) -- "
+                    "no city-specific data was on file -- so markets in the "
+                    "same state share identical figures for that measure."
                 )
             row = _write_footnote(ws, row, _city_footnote)
             row += 1

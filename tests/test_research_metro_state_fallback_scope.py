@@ -92,27 +92,29 @@ def test_harrisburg_and_scranton_are_not_mislabeled_philadelphia():
 
 
 # ---------------------------------------------------------------------------
-# 3. The _STATE_PRIMARY_METRO fallback's actual documented purpose (a bare
-#    state code/name with NO city) must still work -- this fix narrows
-#    the branch, it must not disable it.
+# 3. A BARE state code/name is answered with the STATE's figures, labelled
+#    statewide -- never one metro's (RTI audit G4, 2026-10-11: PA used to be
+#    Philadelphia, MD Baltimore, NC Charlotte, OH Columbus, presenting one
+#    metro as the whole state). Supersedes the earlier "_STATE_PRIMARY_METRO
+#    still serves a bare state" contract this section pinned.
 # ---------------------------------------------------------------------------
 
 
-def test_bare_state_abbreviation_still_uses_primary_metro():
+def test_bare_state_abbreviation_is_statewide_not_one_metro():
     info = research.get_location_info("PA")
-    assert info.get("metro_name") == "Philadelphia-Camden-Wilmington MSA"
+    assert info.get("metro_name") == "Pennsylvania (statewide)"
+    assert info.get("geo_level") == "state"
 
 
-def test_bare_full_state_name_still_uses_primary_metro():
+def test_bare_full_state_name_is_statewide_not_one_metro():
     info = research.get_location_info("Pennsylvania")
-    assert info.get("metro_name") == "Philadelphia-Camden-Wilmington MSA"
+    assert info.get("metro_name") == "Pennsylvania (statewide)"
 
 
-def test_bare_state_abbreviation_other_state_unaffected():
-    """Sibling state, same mechanism -- confirms the fix is general, not a
-    PA-only special case."""
+def test_bare_state_abbreviation_other_state_is_statewide_too():
+    """Sibling state, same mechanism -- confirms it is general, not PA-only."""
     info = research.get_location_info("GA")
-    assert info.get("metro_name") == "Atlanta-Sandy Springs-Alpharetta MSA"
+    assert info.get("metro_name") == "Georgia (statewide)"
 
 
 # ---------------------------------------------------------------------------

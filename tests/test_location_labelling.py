@@ -304,8 +304,9 @@ def test_us_workbook_shows_each_citys_own_population(net: FakeNet) -> None:
     demo = api_enrichment.fetch_location_demographics(["Hershey, PA", "Lancaster, PA"])
     rows = _workbook_location_rows(_data_for(["Hershey, PA", "Lancaster, PA"], demo))
 
-    assert rows["Hershey, PA"]["Population"] == "14,242"
-    assert rows["Lancaster, PA"]["Population"] == "57,719"  # was PA's 12,961,683
+    # each figure now says which level it is (a mixed column: city / metro / state)
+    assert rows["Hershey, PA"]["Population"] == "14,242 (city)"
+    assert rows["Lancaster, PA"]["Population"] == "57,719 (city)"  # was PA's 12,961,683
 
 
 # ---------------------------------------------------------------------------

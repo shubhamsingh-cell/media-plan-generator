@@ -40,6 +40,7 @@ try:
 except ImportError:  # pragma: no cover - plan_currency ships with the repo
     _plan_currency = None
 
+import geo_market as _geo_market
 import plan_geo as _plan_geo
 import display_format as _fmt
 import company_blurb
@@ -4678,12 +4679,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
 
     # Action title
     role_summary = _cap_roles_for_headline(roles, cap=2)
-    loc_count = len(locations)
-    loc_text = (
-        f"{loc_count} location{'s' if loc_count != 1 else ''}"
-        if loc_count > 0
-        else "multiple locations"
-    )
+    loc_count, loc_text = _location_scope(data)
 
     # Enhance action text with market temperature if available.
     #
@@ -7178,6 +7174,28 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
 # ===================================================================
 
 
+def _location_scope(data: Dict) -> "tuple[int, str]":
+    """(distinct physical sites, headline phrase) for the plan's locations.
+
+    "Remote" and "Nationwide" are targeting modes, not places, and two
+    spellings of one site ("DC" + "Washington") are one site: counting
+    ``len(locations)`` printed "16 markets" for 13 physical sites plus two
+    modes (RTI audit, 2026-10-11).
+    """
+    markets = _geo_market.plan_markets(data)
+    count = len(_geo_market.physical_markets(data))
+    modes = []
+    if any(m.kind == "nationwide" for m in markets):
+        modes.append("nationwide reach")
+    if any(m.kind == "remote" for m in markets):
+        modes.append("remote hiring")
+    base = f"{count} location{'s' if count != 1 else ''}" if count > 0 else ""
+    extra = " and ".join(modes)
+    if base and extra:
+        return count, f"{base} plus {extra}"
+    return count, base or extra or "multiple locations"
+
+
 def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     """Build a dedicated Budget Allocation slide showing dollar breakdown per channel,
     projected applications, projected hires, and ROI projections.
@@ -7943,7 +7961,11 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     # three slides earlier claimed.
     display_channels_funded = _funded_display_channels(data)
     n_channels = len(display_channels_funded)
-    n_locations = len(locations)
+    # Distinct PHYSICAL sites only; the "3-5 markets" benchmark is a count of
+    # places, so with Nationwide in the plan (or no physical site at all) there
+    # is nothing honest to compare and the Geographic Coverage row is omitted.
+    n_locations = len(_geo_market.physical_markets(data))
+    _show_geo_row = n_locations > 0 and not _geo_market.has_nationwide(data)
 
     # Calculate client metrics
     sorted_ch = sorted(display_channels_funded, key=lambda c: c["pct"], reverse=True)
@@ -7969,6 +7991,20 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     # traces to ``_selected_channels``/``_budget_allocation``/the industry
     # benchmark KB.
     _geo_status = _cmp_status_in_range(n_locations, 3, 5)
+    _geo_rows = [
+        {
+            "metric": "Geographic Coverage",
+            "client_val": f"{n_locations} market{'s' if n_locations != 1 else ''}",
+            # A value INSIDE the 3-5 benchmark range is 'within range' -- it
+            # is never rendered as "beating" just for landing inside it.
+            "industry_val": (
+                "3-5 markets (within range)"
+                if _geo_status == "on_par"
+                else "3-5 markets"
+            ),
+            "status": _geo_status,
+        }
+    ]
     all_comparison_rows = [
         {
             "metric": "Channels Selected",
@@ -7984,19 +8020,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
                 programmatic_pct, ind_benchmarks.get("avg_budget_pct_programmatic", 30)
             ),
         },
-        {
-            "metric": "Geographic Coverage",
-            "client_val": f"{n_locations} market{'s' if n_locations != 1 else ''}",
-            # A value INSIDE the 3-5 benchmark range is 'within range' -- it
-            # is never rendered as "beating" just for landing inside it.
-            "industry_val": (
-                "3-5 markets (within range)"
-                if _geo_status == "on_par"
-                else "3-5 markets"
-            ),
-            "status": _geo_status,
-        },
-    ]
+    ] + (_geo_rows if _show_geo_row else [])
 
     # Add budget-allocation-powered comparison rows if real data is available
     ba_total_proj_comp = budget_alloc.get("total_projected", {}) if budget_alloc else {}
@@ -11946,10 +11970,14 @@ def _interpolate_next_steps(steps: List[Any], data: Dict) -> List[str]:
             role_names.append(rt)
     roles_phrase = _cap_roles_for_headline(role_names, cap=2) if role_names else ""
 
-    locations = data.get("locations") or []
-    if isinstance(locations, str):
-        locations = [locations]
-    loc_names = [str(loc).strip() for loc in locations if str(loc).strip()]
+    # Distinct physical sites only -- "Remote" / "Nationwide" are targeting
+    # modes (named after the sites), and "DC" + "Washington" is one site.
+    loc_names = [m.location for m in _geo_market.physical_markets(data)]
+    _scope_modes = [
+        label
+        for kind, label in (("nationwide", "nationwide reach"), ("remote", "remote hiring"))
+        if any(m.kind == kind for m in _geo_market.plan_markets(data))
+    ]
     if len(loc_names) == 1:
         loc_phrase = f"{loc_names[0]} market"
     elif len(loc_names) == 2:
@@ -11961,6 +11989,12 @@ def _interpolate_next_steps(steps: List[Any], data: Dict) -> List[str]:
         )
     else:
         loc_phrase = ""
+    if _scope_modes:
+        loc_phrase = (
+            f"{loc_phrase} plus {' and '.join(_scope_modes)}"
+            if loc_phrase
+            else " and ".join(_scope_modes)
+        )
 
     # copy:both#4 follow-up / S95-style defect: ``data["budget"]`` can arrive
     # either as a pre-formatted display string ("$150,000", from the wizard)
