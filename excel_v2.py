@@ -834,14 +834,13 @@ INDUSTRY_NICHE_CHANNELS: Dict[str, List[str]] = {
         "PracticeLink",
         "JAMA Career Center",
         "myCNAjobs.com",
-        "SeniorJobBank.com",
         "AllNurses.com",
         "NursingJobs.com",
         "CareListings.com",
     ],
+    # Stack Overflow Jobs (shut 2022-03-31) and GitHub Jobs (shut 2021) are
+    # defunct and deliberately absent -- do not re-add.
     "tech_engineering": [
-        "GitHub Jobs",
-        "Stack Overflow",
         "Wellfound (AngelList)",
         "Dice",
         "HackerRank",
@@ -950,16 +949,6 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
                 "name": "Dice",
                 "url": "dice.com",
                 "strength": "Tech-focused aggregator, strong for contract/perm",
-            },
-            {
-                "name": "Stack Overflow Jobs",
-                "url": "stackoverflow.com/jobs",
-                "strength": "Developer community, passive candidates",
-            },
-            {
-                "name": "GitHub Jobs",
-                "url": "github.com/jobs",
-                "strength": "Open source community reach",
             },
             {
                 "name": "Wellfound (AngelList)",
@@ -1078,11 +1067,6 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
                 "strength": "Multi-specialty healthcare",
             },
             {
-                "name": "NurseFly",
-                "url": "nursefly.com",
-                "strength": "Travel nursing marketplace",
-            },
-            {
                 "name": "Incredible Health",
                 "url": "incrediblehealth.com",
                 "strength": "Employer-applies-to-nurse model",
@@ -1120,11 +1104,6 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
                 "name": "myCNAjobs.com",
                 "url": "mycnajobs.com",
                 "strength": "CNA/caregiver-focused, senior care specialty",
-            },
-            {
-                "name": "SeniorJobBank.com",
-                "url": "seniorjobbank.com",
-                "strength": "Senior living industry job board",
             },
             {
                 "name": "Health eCareers",
@@ -1325,6 +1304,50 @@ ROLE_NICHE_BOARDS: Dict[str, Dict[str, Any]] = {
                 "name": "Jobcase",
                 "url": "jobcase.com",
                 "strength": "Hourly/blue collar community",
+            },
+        ],
+    },
+    "food_production": {
+        "industry": "food_beverage",
+        "keywords": [
+            "production operator",
+            "machine operator",
+            "maintenance technician",
+            "industrial maintenance",
+            "production",
+        ],
+        "boards": [
+            {
+                "name": "iHireManufacturing",
+                "url": "ihiremanufacturing.com",
+                "strength": "Manufacturing-only board, plant operator and maintenance roles",
+            },
+            {
+                "name": "CareersInFood",
+                "url": "careersinfood.com",
+                "strength": "Food and beverage industry jobs, plant and production roles",
+            },
+        ],
+    },
+    "food_science_qa": {
+        "industry": "food_beverage",
+        "keywords": [
+            "food scientist",
+            "food science",
+            "quality assurance",
+            "qa technician",
+            "food safety",
+        ],
+        "boards": [
+            {
+                "name": "IFT Career Center",
+                "url": "careers.ift.org",
+                "strength": "Institute of Food Technologists board, food science and QA talent",
+            },
+            {
+                "name": "CareersInFood",
+                "url": "careersinfood.com",
+                "strength": "Food and beverage industry jobs, R&D and quality roles",
             },
         ],
     },
@@ -1628,6 +1651,68 @@ _INDUSTRY_COMPATIBILITY: Dict[str, set] = {
     "hospitality_travel": {
         "hospitality_travel",
         "retail_consumer",
+        "general",
+    },
+    # Plan-industry keys whose role boards are tagged under a differently
+    # spelled board industry (audit 2026-10-11: Hershey / food_beverage got
+    # zero role-level boards because the warehouse boards are tagged
+    # "transportation_logistics" and the default allowed-set was
+    # {plan industry, "general"}). Keep each set to genuinely adjacent
+    # board industries.
+    "food_beverage": {
+        "food_beverage",
+        "transportation_logistics",
+        "general",
+    },
+    "logistics_supply_chain": {
+        "logistics_supply_chain",
+        "transportation_logistics",
+        "general",
+    },
+    "legal_services": {
+        "legal_services",
+        "professional_services",
+        "general",
+    },
+    "blue_collar_trades": {
+        "blue_collar_trades",
+        "transportation_logistics",
+        "construction_real_estate",
+        "general",
+    },
+    "insurance": {
+        "insurance",
+        "finance_banking",
+        "general",
+    },
+    "pharma_biotech": {
+        "pharma_biotech",
+        "healthcare_medical",
+        "general",
+    },
+    "mental_health": {
+        "mental_health",
+        "healthcare_medical",
+        "general",
+    },
+    "aerospace_defense": {
+        "aerospace_defense",
+        "tech_engineering",
+        "general",
+    },
+    "telecommunications": {
+        "telecommunications",
+        "tech_engineering",
+        "general",
+    },
+    "maritime_marine": {
+        "maritime_marine",
+        "transportation_logistics",
+        "general",
+    },
+    "energy_utilities": {
+        "energy_utilities",
+        "construction_real_estate",
         "general",
     },
 }
