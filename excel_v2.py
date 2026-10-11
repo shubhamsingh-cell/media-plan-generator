@@ -8580,6 +8580,13 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     market_pos["industry_sector"],
                     _humanize_snake_key(market_pos["industry_sector"]),
                 )
+            for _unk_key in ("is_public_company", "has_sec_filings"):
+                # None = the lookup that would settle it returned nothing --
+                # print "Unknown", never the old default-False "No".
+                if _unk_key in _market_pos_display and (
+                    _market_pos_display[_unk_key] is None
+                ):
+                    _market_pos_display[_unk_key] = "Unknown"
             if "competitor_count" in _market_pos_display:
                 # INCIDENT FIX: data_synthesizer.fuse_competitive_intelligence
                 # snapshots competitor_count from its own raw competitor-logo
@@ -9875,6 +9882,12 @@ def _build_sheet_sources(ws, data: dict):
             else:
                 continue
 
+            if section == "competitive_intelligence":
+                _ci_meta = (synthesized.get("competitive_intelligence") or {}).get(
+                    "_meta"
+                ) or {}
+                if _ci_meta.get("competitor_evidence_count") == 0:
+                    sources_str = "No competitor evidence"
             grade = _grade_from_score(score)
             values = [
                 section.replace("_", " ").title(),

@@ -9170,6 +9170,45 @@ def _render_named_competitor_line(
     return (top / 914400) + h_in
 
 
+def _competitive_landscape_sources_line(comp_intel: Dict) -> str:
+    """Source footer for the Competitive Landscape slide, built from the
+    sources the synthesis actually holds (audit 2026-10-11: a hard-coded
+    "Public company filings, industry employment data, curated knowledge
+    base" sat under a "No verified public hiring data" card for plans with
+    none of those). Returns "" when nothing is attributable."""
+    if not isinstance(comp_intel, dict):
+        return ""
+    profile = comp_intel.get("company_profile")
+    profile = profile if isinstance(profile, dict) else {}
+    trends = comp_intel.get("hiring_trends")
+    trends = trends if isinstance(trends, dict) else {}
+    names: List[str] = []
+    if profile.get("sec_ticker") or comp_intel.get("company_sec"):
+        names.append("SEC filings")
+    if profile.get("wikipedia_url") or profile.get("description"):
+        names.append("Wikipedia")
+    if profile.get("domain"):
+        names.append("Clearbit company data")
+    if trends.get("employment_count") is not None:
+        names.append(f"{trends.get('source') or 'BLS'} industry employment")
+    if (
+        trends.get("kb_context")
+        or trends.get("market_context")
+        or trends.get("avg_time_to_fill")
+    ):
+        names.append("curated knowledge base")
+    if not names:
+        return ""
+    meta = comp_intel.get("_meta")
+    meta = meta if isinstance(meta, dict) else {}
+    suffix = (
+        " (client and industry context; no competitor-level sources)"
+        if meta.get("competitor_evidence_count") == 0
+        else ""
+    )
+    return f"Sources: {', '.join(names)}{suffix}"
+
+
 def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
     """Build the Competitive Landscape slide.
 
@@ -10146,17 +10185,19 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
         _comp_source_top_in = min(
             _comp_source_top_in, 7.0
         )  # keep clear of the footer rule
-        _add_textbox(
-            slide,
-            Inches(0.55),
-            Inches(_comp_source_top_in),
-            Inches(12.2),
-            Inches(0.2),
-            text="Sources: Public company filings, industry employment data, curated knowledge base",
-            font_size=7,
-            italic=True,
-            color=MUTED_TEXT,
-        )
+        _comp_sources_text = _competitive_landscape_sources_line(comp_intel)
+        if _comp_sources_text:
+            _add_textbox(
+                slide,
+                Inches(0.55),
+                Inches(_comp_source_top_in),
+                Inches(12.2),
+                Inches(0.2),
+                text=_comp_sources_text,
+                font_size=7,
+                italic=True,
+                color=MUTED_TEXT,
+            )
 
         # Footer
         _add_footer(slide, today)

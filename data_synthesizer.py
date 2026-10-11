@@ -45,6 +45,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import company_blurb
+import competitor_claims
 
 logger = logging.getLogger(__name__)
 
@@ -4110,7 +4111,11 @@ def fuse_competitive_intelligence(
         company_profile["sec_cik"] = sec_data.get("cik") or ""
         company_profile["sec_sic"] = sec_data.get("sic") or ""
         company_profile["sec_sic_description"] = sec_data.get("sic_description") or ""
-        company_profile["is_public"] = bool(sec_data.get("ticker"))
+        # A ticker proves the client is public; a lookup that returned no
+        # ticker does NOT prove it is private (name-match misses are common),
+        # so absence stays unknown (None) rather than False.
+        if sec_data.get("ticker"):
+            company_profile["is_public"] = True
         filings = sec_data.get("recent_filings") or []
         if isinstance(filings, list):
             company_profile["recent_filings_count"] = len(filings)
@@ -4163,6 +4168,11 @@ def fuse_competitive_intelligence(
                     "logo", logo_data.get("url") or ""
                 )
                 comp_entry["domain"] = logo_data.get("domain") or ""
+                # carry through sourced content so competitor_has_evidence
+                # can tell an evidenced competitor from a bare name/logo
+                for _ev_key in ("description", "evidence", "source_url", "sources"):
+                    if logo_data.get(_ev_key):
+                        comp_entry[_ev_key] = logo_data[_ev_key]
             elif isinstance(logo_data, str):
                 comp_entry["logo_url"] = logo_data
             competitors_info[comp_name] = comp_entry
@@ -4203,17 +4213,37 @@ def fuse_competitive_intelligence(
     result["hiring_trends"] = hiring_trends
 
     # --- Market positioning ---
+    # None = unknown (the lookup that would settle it returned nothing); the
+    # renderers print "Unknown". A missing lookup used to default to False
+    # and read "Is Public Company: No" for NYSE-listed Hershey.
     result["market_positioning"] = {
         "industry_sector": industry,
-        "is_public_company": company_profile.get("is_public", False),
+        "is_public_company": company_profile.get("is_public"),
         "competitor_count": len(competitors_info),
-        "has_sec_filings": bool(company_profile.get("sec_ticker")),
+        "has_sec_filings": (True if company_profile.get("sec_ticker") else None),
     }
 
+    # Confidence for THIS section is about the competitor evidence only. The
+    # client's own Wikipedia / Clearbit / SEC / BLS data (counted in
+    # ``source_count`` above) describe the client, not its competitors, so
+    # they must not lift "Competitive Intelligence" to grade A while the same
+    # workbook says no verified public hiring data was found for competitors.
+    competitor_evidence_count = sum(
+        1
+        for entry in competitors_info.values()
+        if competitor_claims.competitor_has_evidence(entry)
+    )
     result["_meta"] = {
-        "source_count": source_count,
-        "kb_validated": kb_validated,
+        "source_count": competitor_evidence_count,
+        "kb_validated": bool(kb_validated and competitor_evidence_count > 0),
+        "competitor_evidence_count": competitor_evidence_count,
+        "client_source_count": source_count,
     }
+    if competitor_evidence_count == 0:
+        result["_meta"]["note"] = (
+            "No competitor evidence: the sources behind this section "
+            "describe the client, not its competitors."
+        )
 
     # --- Enrich from company_info API (Clearbit, previously orphaned) ---
     _cinfo = enriched.get("company_info", {})
