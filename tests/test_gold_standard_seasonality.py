@@ -369,9 +369,16 @@ def test_defense_industry_gets_seasonal_overlay_on_json_peak_month():
 
 def test_food_beverage_manufacturing_gets_seasonal_overlay_on_json_peak_month():
     """The Hershey Company case: 'Food & Beverage Manufacturing' resolves to
-    _get_industry_key() == 'food_manufacturing', but the JSON key is
-    'manufacturing' (peak_months include January, peak_multiplier 1.2)."""
+    _get_industry_key() == 'food_manufacturing', which has its OWN
+    seasonal_hiring_trends.json entry copied from
+    recruitment_benchmarks_deep.json food_beverage (peak Mar-May and Sep-Oct,
+    trough Jan-Feb). It used to translate to generic "manufacturing" (peaks
+    Jan-Mar), so the calendar called January High while the Executive
+    Summary's KB row called it a trough."""
     assert gs._get_industry_key("Food & Beverage Manufacturing") == "food_manufacturing"
-    entry = _calendar_weight_for_month("Food & Beverage Manufacturing", 1)
-    assert entry["seasonal_phase"] == "peak"
-    assert entry["seasonal_multiplier"] == 1.2
+    march = _calendar_weight_for_month("Food & Beverage Manufacturing", 3)
+    assert march["seasonal_phase"] == "peak"
+    assert march["seasonal_multiplier"] == 1.15
+    jan = _calendar_weight_for_month("Food & Beverage Manufacturing", 1)
+    assert jan["seasonal_phase"] == "low"
+    assert jan["seasonal_multiplier"] == 0.85

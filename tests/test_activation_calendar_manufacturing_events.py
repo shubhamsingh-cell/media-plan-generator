@@ -79,14 +79,16 @@ def test_food_manufacturer_gets_food_industry_trade_shows(industry):
     assert _all_text(industry).count("plant shutdown") >= 1
 
 
-def test_food_beverage_calendar_keeps_manufacturing_seasonal_overlay():
-    # seasonal_hiring_trends.json "manufacturing" peaks in January.
+def test_food_beverage_calendar_uses_food_seasonal_overlay():
+    # seasonal_hiring_trends.json "food_manufacturing" (copied from
+    # recruitment_benchmarks_deep.json food_beverage) has January as a low
+    # month -- generic "manufacturing" (a January peak) no longer applies.
     cal = gs.build_activation_calendar(
         {"industry": "food_beverage", "campaign_start_month": 1}
     )
     jan = cal["timeline"][0]
-    assert jan["seasonal_phase"] == "peak"
-    assert jan["seasonal_multiplier"] == 1.2
+    assert jan["seasonal_phase"] == "low"
+    assert jan["seasonal_multiplier"] == 0.85
 
 
 def test_restaurants_and_tech_keep_their_own_calendars():

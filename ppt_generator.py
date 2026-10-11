@@ -10327,13 +10327,23 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
             _activation_cal = (gold.get("activation_calendar") or {}).get(
                 "timeline"
             ) or []
-            _high_months = [
-                m
-                for m in _activation_cal
-                if isinstance(m, dict)
-                and str(m.get("hiring_intensity") or "").lower()
-                in ("high", "very_high")
-            ][:3]
+            # Only months INSIDE the campaign window (the timeline starts at
+            # the campaign's first month), strongest budget weight first --
+            # the old first-three-in-calendar-order picked months after a
+            # 2-month plan ended and ranked by position, not by weight.
+            _window_n = _gold_standard.campaign_window_months(
+                data, int(campaign_start) if isinstance(campaign_start, int) else 0
+            )
+            _high_months = sorted(
+                [
+                    m
+                    for m in _activation_cal[:_window_n]
+                    if isinstance(m, dict)
+                    and str(m.get("hiring_intensity") or "").lower()
+                    in ("high", "very_high")
+                ],
+                key=lambda m: -(float(m.get("budget_weight") or 0)),
+            )[:3]
             if _high_months:
                 _month_names = [str(m.get("month_name") or "") for m in _high_months]
                 _events: list = []
@@ -10344,10 +10354,12 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
                     (
                         "TIMING",
                         "Seasonal Variations",
-                        f"{', '.join(_month_names)} run high hiring intensity "
-                        f"for this plan{_events_str}",
-                        "Front-load budget into these months; monitor weekly "
-                        "CPA trends and shift spend to high-performing periods",
+                        f"{', '.join(_month_names)} "
+                        f"{'runs' if len(_month_names) == 1 else 'run'} high "
+                        f"hiring intensity for this plan{_events_str}",
+                        f"Front-load budget into {'this month' if len(_month_names) == 1 else 'these months'}; "
+                        "monitor weekly CPA trends and shift spend to "
+                        "high-performing periods",
                     )
                 )
             else:

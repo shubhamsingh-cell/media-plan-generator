@@ -71,7 +71,11 @@ _SEASONAL_PATTERNS_KEY_MAP: dict[str, str] = {
     "trucking": "transportation",
     "defense": "government",
     "blue_collar_trades": "manufacturing",
-    "food_manufacturing": "manufacturing",
+    # food_manufacturing has its OWN seasonal_hiring_trends.json entry
+    # (copied from recruitment_benchmarks_deep.json food_beverage) -- it used
+    # to translate to generic "manufacturing" (peaks Jan-Mar), which called
+    # Hershey's January/February "High" while the Executive Summary's KB
+    # benchmark called the same months its trough.
 }
 
 
@@ -4652,7 +4656,7 @@ _HIRING_EVENTS_CALENDAR: dict[int, dict[str, Any]] = {
             "Budget cycle kickoff",
             "College winter graduates",
         ],
-        "recommendation": "Front-load budget -- January sees 25-30% more job searches",
+        "recommendation": "Front-load budget while new-year requisitions open",
     },
     2: {
         "season": "Early Spring",
@@ -4672,7 +4676,7 @@ _HIRING_EVENTS_CALENDAR: dict[int, dict[str, Any]] = {
             "SXSW (tech)",
             "Spring career fairs peak",
         ],
-        "recommendation": "Maximum ad spend -- spring is the highest hiring season",
+        "recommendation": "Scale ad spend with spring career-fair season",
     },
     4: {
         "season": "Q2 Kickoff",
@@ -4708,7 +4712,7 @@ _HIRING_EVENTS_CALENDAR: dict[int, dict[str, Any]] = {
             "Back-to-school prep (education)",
             "AWS re:Invent prep (tech)",
         ],
-        "recommendation": "Lowest cost-per-click -- good time for brand awareness campaigns",
+        "recommendation": "Good time for brand awareness and employer-branding campaigns",
     },
     8: {
         "season": "Late Summer",
@@ -4728,7 +4732,7 @@ _HIRING_EVENTS_CALENDAR: dict[int, dict[str, Any]] = {
             "Fall campus recruiting",
             "Dreamforce (Salesforce)",
         ],
-        "recommendation": "Second biggest hiring wave -- maximize programmatic spend",
+        "recommendation": "Scale programmatic spend into the fall hiring wave",
     },
     10: {
         "season": "October Peak",
@@ -4748,7 +4752,7 @@ _HIRING_EVENTS_CALENDAR: dict[int, dict[str, Any]] = {
             "Black Friday/Cyber Monday",
             "Year-end budget spend",
         ],
-        "recommendation": "Retail: maximum seasonal spend. Others: use remaining budget strategically",
+        "recommendation": "Use remaining budget strategically ahead of year-end",
     },
     12: {
         "season": "Year End",
@@ -5084,6 +5088,206 @@ def _get_industry_key(industry: str) -> str:
     return ""
 
 
+# Industry-tagged entries in the GENERIC month calendar above. The generic
+# list is the fallback for an industry with no month-by-month events of its
+# own; an entry that names another industry's show or cycle ("SXSW (tech)",
+# "Tax season (finance)") must not appear in a plan for an unrelated industry.
+_GENERIC_EVENT_INDUSTRY: dict[str, str] = {
+    "Tax season (finance)": "finance",
+    "SXSW (tech)": "tech",
+    "AWS re:Invent prep (tech)": "tech",
+    "Dreamforce (Salesforce)": "tech",
+    "Grace Hopper (diversity/tech)": "tech",
+    "Back-to-school prep (education)": "education",
+    "Open enrollment (healthcare)": "healthcare",
+    "Healthcare conference season": "healthcare",
+    "Holiday seasonal hiring (retail)": "retail",
+    "Black Friday/Cyber Monday": "retail",
+}
+
+# Recommendation copy that is true only for one industry.
+_INDUSTRY_MONTH_RECOMMENDATION: dict[tuple[str, int], str] = {
+    ("retail", 11): "Scale spend for holiday seasonal staffing",
+}
+
+_PEAK_WORD_RE = re.compile(r"\bpeak\b", re.IGNORECASE)
+
+
+def _events_for_industry(events: list[str], ind_key: str) -> list[str]:
+    """Drop generic-calendar events that name a different industry."""
+    return [e for e in events if _GENERIC_EVENT_INDUSTRY.get(e) in (None, ind_key)]
+
+
+def _events_agreeing_with_label(events: list[str], hiring_intensity: str) -> list[str]:
+    """Drop an event whose text claims a "peak" in a month the calendar
+    itself labels moderate or low (Hershey: "Holiday production peak" in a
+    Moderate November) -- the event line and the label beside it must agree.
+    """
+    if hiring_intensity in ("high", "very_high"):
+        return list(events)
+    return [e for e in events if not _PEAK_WORD_RE.search(e)]
+
+
+def _brief_whole_months(data: dict) -> int:
+    """Whole calendar months the brief stated for the campaign (a wizard
+    option such as "2 months" or an explicit "6 months"), else 0. A range or
+    a weeks/days phrase yields 0 so the weeks-based window applies."""
+    from wizard_inputs import known_campaign_months
+
+    months = known_campaign_months(
+        data.get("campaign_duration") or data.get("timeline") or ""
+    )
+    if months >= 1 and abs(months - round(months)) < 1e-9:
+        return int(round(months))
+    return 0
+
+
+def _plan_campaign_weeks(data: dict) -> int:
+    """Campaign weeks: the plan's carried ``campaign_weeks``, else derived
+    from the stated duration; 0 when neither is known."""
+    try:
+        weeks = int(float(data.get("campaign_weeks") or 0))
+    except (TypeError, ValueError):
+        weeks = 0
+    if weeks > 0:
+        return weeks
+    from wizard_inputs import known_campaign_months, months_to_weeks
+
+    months = known_campaign_months(
+        data.get("campaign_duration") or data.get("timeline") or ""
+    )
+    return months_to_weeks(months) if months > 0 else 0
+
+
+def _add_calendar_months(start: datetime.date, months: int) -> datetime.date:
+    """``start`` (a 1st of a month) moved forward by whole calendar months."""
+    idx = start.year * 12 + (start.month - 1) + months
+    return datetime.date(idx // 12, idx % 12 + 1, 1)
+
+
+def campaign_window_end(data: dict, start: datetime.date) -> datetime.date | None:
+    """Last day of the campaign when the brief stated whole months: ``start``
+    plus N calendar months minus one day (2 months from Oct 1 ends Nov 30).
+    None when the brief gave no whole-month duration -- callers then use
+    ``start + weeks * 7 - 1 day``."""
+    n = _brief_whole_months(data)
+    if n <= 0:
+        return None
+    return _add_calendar_months(start, n) - datetime.timedelta(days=1)
+
+
+def campaign_window_months(
+    data: dict, start_month: int, year: int | None = None
+) -> int:
+    """Number of calendar months (1-12) the campaign window touches, from
+    ``start_month``: the whole months the brief stated, else the months the
+    carried campaign weeks reach from the 1st of the start month. 12 when the
+    length is unknown (the full annual cycle)."""
+    n = _brief_whole_months(data)
+    if n > 0:
+        return min(12, n)
+    weeks = _plan_campaign_weeks(data)
+    if weeks <= 0:
+        return 12
+    if not 1 <= int(start_month or 0) <= 12:
+        start_month = datetime.date.today().month  # same fallback as the calendar
+    start = datetime.date(year or datetime.date.today().year, int(start_month), 1)
+    end = start + datetime.timedelta(days=weeks * 7 - 1)
+    return max(1, min(12, (end.year - start.year) * 12 + end.month - start.month + 1))
+
+
+_MONTH_ABBR = (
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "may",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "oct",
+    "nov",
+    "dec",
+)
+_MONTH_PAT = "(" + "|".join(_MONTH_ABBR) + ")[a-z]*"
+_MONTH_TOKEN_RE = re.compile(rf"\b{_MONTH_PAT}\b", re.IGNORECASE)
+_MONTH_RANGE_RE = re.compile(
+    rf"\b{_MONTH_PAT}\s*-\s*{_MONTH_PAT}\b", re.IGNORECASE
+)
+
+
+def _event_month_set(event: str) -> set[int]:
+    """Months an industry-events summary line names in its parenthetical
+    ("IPPE (Jan)" -> {1}; "Peak freight season (Oct-Dec)" -> {10, 11, 12});
+    empty when it names none (e.g. "(quarterly)")."""
+    paren = event[event.rfind("(") :] if "(" in event else ""
+    months: set[int] = set()
+    for m in _MONTH_RANGE_RE.finditer(paren):
+        a = _MONTH_ABBR.index(m.group(1).lower()[:3]) + 1
+        b = _MONTH_ABBR.index(m.group(2).lower()[:3]) + 1
+        cur = a
+        while True:
+            months.add(cur)
+            if cur == b:
+                break
+            cur = cur % 12 + 1
+    for m in _MONTH_TOKEN_RE.finditer(paren):
+        months.add(_MONTH_ABBR.index(m.group(1).lower()[:3]) + 1)
+    return months
+
+
+def _events_in_window(events: list[str], window_months: set[int]) -> list[str]:
+    """Keep summary events that fall in the campaign window (or name no
+    month); a full-year window keeps everything."""
+    if len(window_months) >= 12:
+        return list(events)
+    kept = []
+    for e in events:
+        months = _event_month_set(e)
+        if not months or months & window_months:
+            kept.append(e)
+    return kept
+
+
+def _phasing_note_from_timeline(timeline: list[dict[str, Any]]) -> str:
+    """Budget-phasing guidance derived from THIS window's own budget weights
+    (never a fixed "front-load the first 2 months": Hershey's high months are
+    January-March, months 4-6 of a 6-month plan)."""
+    weights = [
+        (float(m.get("budget_weight") or 0), str(m.get("month_name") or ""))
+        for m in timeline
+        if isinstance(m, dict) and m.get("month_name")
+    ]
+    if not weights:
+        return ""
+    top = max(w for w, _n in weights)
+    low = min(w for w, _n in weights)
+    if top - low < 0.05:
+        return (
+            "Demand is level across this campaign window; spread budget "
+            "evenly and shift spend to whichever channels convert best."
+        )
+    high = [
+        (float(m.get("budget_weight") or 0), str(m.get("month_name") or ""))
+        for m in timeline
+        if isinstance(m, dict)
+        and m.get("month_name")
+        and str(m.get("hiring_intensity") or "") in ("high", "very_high")
+    ]
+    if not high:
+        lead = next(n for w, n in weights if w == top)
+        return (
+            "No month in this campaign window reaches high hiring intensity; "
+            f"keep spend near even, leaning toward {lead}."
+        )
+    ranked = [n for _w, n in sorted(high, key=lambda x: -x[0])][:3]
+    return (
+        "Budget should be weighted toward this window's high-intensity "
+        f"months, highest first: {', '.join(ranked)}."
+    )
+
+
 def build_activation_calendar(data: dict) -> dict[str, Any]:
     """Build activation event calendar based on campaign start month and industry.
 
@@ -5139,11 +5343,15 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
             return "moderate"
         return "low"
 
-    # strategy:atria#8 fix: build a full 12-month forward calendar (was a
-    # 6-month window) so a multi-year campaign's seasonality is shown for
-    # its entire annual cycle rather than truncated to the first half.
+    # strategy:atria#8 fix: a campaign of a year or more shows the full
+    # 12-month annual cycle. A shorter campaign shows ONLY the months it runs
+    # (2026-10 seasonality audit: a 2-month plan listed all twelve, and the
+    # Executive Summary / deck then cited months after the campaign ended).
+    # The window is the stated whole months, else the months the campaign
+    # weeks reach; 12 when the length is unknown.
+    window_months = campaign_window_months(data, campaign_month)
     timeline: list[dict[str, Any]] = []
-    for offset in range(12):
+    for offset in range(window_months):
         month_num = ((campaign_month - 1 + offset) % 12) + 1
         month_info = _HIRING_EVENTS_CALENDAR[month_num]
         month_name = datetime.date(2026, month_num, 1).strftime("%B")
@@ -5193,9 +5401,18 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
             # the pre-blend generic value -- see strategy:hershey#2 above.
             hiring_intensity = _intensity_word_from_weight(budget_weight)
 
-            # Use industry-specific events when available, fall back to generic
-            month_events = ind_monthly.get(month_num, month_info["events"])
-            recommendation = month_info["recommendation"]
+            # Use industry-specific events when available, fall back to the
+            # generic list minus entries that name another industry; then
+            # drop any event whose "peak" claim contradicts this month's
+            # own label (Hershey: "Holiday production peak" in a Moderate
+            # November).
+            month_events = ind_monthly.get(month_num)
+            if month_events is None:
+                month_events = _events_for_industry(month_info["events"], ind_key)
+            month_events = _events_agreeing_with_label(month_events, hiring_intensity)
+            recommendation = _INDUSTRY_MONTH_RECOMMENDATION.get(
+                (ind_key, month_num), month_info["recommendation"]
+            )
 
         timeline.append(
             {
@@ -5278,7 +5495,7 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
             "IFT FIRST (Jul)",
             "Manufacturing Day (first Friday of Oct)",
             "PACK EXPO International (Oct, even years)",
-            "Holiday production peak and plant shutdown (Nov-Dec)",
+            "Holiday plant shutdown planning and window (Nov-Dec)",
         ],
         "blue_collar_trades": [
             "Skilled trades job fairs (May)",
@@ -5287,12 +5504,12 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
             "Union apprenticeship deadlines (Jun)",
         ],
     }
-    industry_events: list[str] = _INDUSTRY_EVENTS_SUMMARY.get(ind_key, [])
-
-    budget_phasing_note = (
-        "Budget should be weighted toward high-intensity months. "
-        "Front-load spend in the first 2 months for maximum visibility."
+    industry_events: list[str] = _events_in_window(
+        _INDUSTRY_EVENTS_SUMMARY.get(ind_key, []),
+        {m["month"] for m in timeline},
     )
+
+    budget_phasing_note = _phasing_note_from_timeline(timeline)
     if _subvertical_profile:
         budget_phasing_note = (
             f"{(_subvertical_profile.get('label') or _subvertical_key)} seasonal "

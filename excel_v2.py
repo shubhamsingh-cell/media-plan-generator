@@ -2446,6 +2446,57 @@ _CITY_NAME_CORRECTIONS: Dict[str, str] = {
     "pheonix": "Phoenix",
 }
 
+def _calendar_seasonal_text(data: dict) -> str:
+    """Seasonality text for the Executive Summary's "Seasonal Patterns" row
+    and its "Timing:" sentence, derived from THIS plan's own Activation Event
+    Calendar -- the same per-month ``hiring_intensity`` the calendar table
+    and the deck print -- so the three can never disagree (2026-10 audit:
+    Hershey's summary named January/February its trough while the calendar
+    and deck called them High; the KB benchmark row is keyed by industry
+    alone and ignored the plan's start month and length).
+
+    The calendar's timeline covers only the campaign's own months, so months
+    outside the campaign are never cited. A matched sub-vertical keeps its
+    labelled profile text. Returns "" when the plan carries no calendar --
+    callers then fall back to the generic KB benchmark text.
+    """
+    override = _subvertical_seasonal_override_text(data)
+    if override:
+        return override
+    gold = data.get("_gold_standard") or {}
+    activation = gold.get("activation_calendar") or {}
+    timeline = [
+        m
+        for m in (activation.get("timeline") or [])
+        if isinstance(m, dict) and m.get("month_name")
+    ]
+    if not timeline:
+        return ""
+    peak = [
+        str(m["month_name"])
+        for m in timeline
+        if str(m.get("hiring_intensity") or "").lower() in ("high", "very_high")
+    ]
+    trough = [
+        str(m["month_name"])
+        for m in timeline
+        if str(m.get("hiring_intensity") or "").lower() == "low"
+    ]
+    first, last = str(timeline[0]["month_name"]), str(timeline[-1]["month_name"])
+    window = first if first == last else f"{first} to {last}"
+    parts: list[str] = []
+    if peak:
+        parts.append(f"Peak Months: {', '.join(peak)}")
+    if trough:
+        parts.append(f"Trough Months: {', '.join(trough)}")
+    if not parts:
+        parts.append(
+            "No month in this campaign window is flagged as peak or trough"
+        )
+    parts.append(f"Basis: this plan's Activation Event Calendar ({window})")
+    return "; ".join(parts)
+
+
 
 def _title_case_city(city_name: Any) -> str:
     """Normalize a city name for client-facing display.
@@ -5023,7 +5074,7 @@ def _gather_narrative_grounding_context(
     # Seasonality -- prefer a matched sub-vertical override (gold_standard
     # Gate 7), else the generic KB seasonal_patterns text; SAME sources the
     # Recruitment Benchmarks section reads.
-    season_text = _subvertical_seasonal_override_text(data)
+    season_text = _calendar_seasonal_text(data)
     if not season_text and ctx["ind_bench"]:
         _generic = ctx["ind_bench"].get("seasonal_patterns")
         if _generic:
@@ -6353,9 +6404,9 @@ def _build_sheet_executive_summary(
                             # profile (gold_standard Gate 7) over the generic
                             # KB benchmark for this row -- see
                             # _subvertical_seasonal_override_text for why.
-                            val_str = _subvertical_seasonal_override_text(
-                                data
-                            ) or _flatten_value(val)
+                            val_str = _calendar_seasonal_text(data) or _flatten_value(
+                                val
+                            )
                         else:
                             # copy:both#6 fix: strip physician/MD-only
                             # sub-stats (e.g. cph.physician_recruitment) out
