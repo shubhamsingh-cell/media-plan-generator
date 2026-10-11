@@ -7799,7 +7799,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             labour_data = research_mod.get_labour_market_intelligence(
                 industry,
                 locations,
-                location_resolutions=geo_market.resolution_map(data),
+                location_resolutions=geo_market.resolution_list(data, locations),
             )
         except Exception as exc:
             logger.warning("Labour market intelligence lookup failed: %s", exc)
@@ -7959,7 +7959,10 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
     _loc_rows: List[Dict[str, str]] = []
     # One resolution per location, shared with every other sheet / the deck:
     # carries the "assumed <City, ST>" reading of an ambiguous bare name.
-    _markets_by_loc = {m.location: m for m in geo_market.plan_markets(data)}
+    _markets_by_pos = [
+        geo_market.resolve_market(_l, _r)
+        for _l, _r in zip(locations, geo_market.resolution_list(data, locations))
+    ]
     for idx, loc in enumerate(locations):
         # Data cascade: synthesized > enriched > research fallback
         loc_data = {}
@@ -8184,7 +8187,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         industry_str = _flatten_value(key_industries)
 
         _rationale = insight_composer.geography_rationale(loc, loc_data)
-        _loc_market = _markets_by_loc.get(loc)
+        _loc_market = _markets_by_pos[idx] if idx < len(_markets_by_pos) else None
         if _loc_market is not None and _loc_market.assumed:
             _rationale = f"{_rationale} Assumed {_loc_market.assumed}."
 

@@ -7825,9 +7825,13 @@ def get_labour_market_intelligence(industry, locations, location_resolutions=Non
 
     # Build location-specific context
     location_contexts = []
-    _resolutions = location_resolutions if isinstance(location_resolutions, dict) else {}
-    for loc in locations or ["United States"]:
-        info = get_location_info(loc, _resolutions.get(loc))
+    # A list is matched by position (display names collide: "NY" and "New York"
+    # are both shown as "New York"); a dict is the legacy name-keyed form.
+    _res_by_name = location_resolutions if isinstance(location_resolutions, dict) else {}
+    _res_by_pos = location_resolutions if isinstance(location_resolutions, list) else []
+    for _idx, loc in enumerate(locations or ["United States"]):
+        _res = _res_by_pos[_idx] if _idx < len(_res_by_pos) else _res_by_name.get(loc)
+        info = get_location_info(loc, _res)
         is_intl = info.get("is_international", False)
         country = _detect_country(loc)
 

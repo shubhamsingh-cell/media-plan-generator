@@ -2488,13 +2488,13 @@ def fuse_location_profiles(
     # One resolution per location (plan_location verdict + research tables),
     # shared with every other sheet: it tells a STATE entry from a city so a
     # city's population is never stamped on a state ("NY" -> NYC 8.3M).
-    _resolutions = geo_market.resolution_map(input_data)
+    _resolutions = geo_market.resolution_list(input_data, locations)
 
-    for loc in locations:
+    for _loc_idx, loc in enumerate(locations):
         loc_profile: Dict[str, Any] = {"location": loc}
         source_count = 0
         kb_validated = False
-        _market = geo_market.resolve_market(loc, _resolutions.get(loc))
+        _market = geo_market.resolve_market(loc, _resolutions[_loc_idx])
         _is_state_entry = _market.kind == "state" and _market.level == "state"
 
         # --- Census / Demographics ---
@@ -4030,11 +4030,11 @@ def _validate_location_plausibility(
     # (geo_market): bare "Washington" is the assumed Washington, DC -- not
     # Washington State -- and Remote / Nationwide are not places, so neither
     # can be "outside the operating region".
-    _resolutions = geo_market.resolution_map(input_data)
+    _resolutions = geo_market.resolution_list(input_data, user_locations)
 
-    for loc in user_locations:
+    for _loc_idx, loc in enumerate(user_locations):
         loc_str = str(loc) if not isinstance(loc, str) else loc
-        _market = geo_market.resolve_market(loc_str, _resolutions.get(loc_str))
+        _market = geo_market.resolve_market(loc_str, _resolutions[_loc_idx])
         if not _market.is_physical:
             continue
         user_state = _market.state or _extract_state_abbr(loc_str)

@@ -145,6 +145,9 @@ def _table_rows(ws, start_marker: str, stop_markers: tuple[str, ...]) -> Dict[st
             break
         loc = str(cells.get(header["Location"]) or "")
         if loc:
+            n = 2
+            while loc in rows:  # two entries with the same display name
+                loc, n = f"{loc.split('#')[0]}#{n}", n + 1
             rows[loc] = {name: str(cells.get(col) or "") for name, col in header.items()}
     return rows
 

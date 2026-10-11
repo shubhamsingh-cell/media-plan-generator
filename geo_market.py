@@ -198,8 +198,10 @@ def _metro_market(
     kind: str,
     assumed: str = "",
     note: str = "",
+    state: str = "",
 ) -> Market:
-    state = str(metro.get("state") or "")
+    # The site's state is its ADDRESS's; the metro (CBSA) only names the figures.
+    state = state or str(metro.get("state") or "")
     if metro_key == "washington_dc":
         site_key = "city:washington,DC"
     else:
@@ -294,7 +296,9 @@ def resolve_market(location_str: Any, resolution: dict | None = None) -> Market:
     city_text = str(res.get("city") or "") or re.sub(r",.*$", "", loc).strip()
     query = f"{city_text}, {resolved_state}" if resolved_state else loc
     metro_key, metro = research._find_metro(query)
-    if not metro:
+    if not metro and resolved_state:
+        # Only a CONFIRMED site: an ambiguous name's cbsa_title is
+        # plan_location's alphabetical tie-break pick, not evidence.
         metro_key, metro = _metro_from_cbsa(str(res.get("cbsa_title") or ""))
     state = resolved_state or _explicit_state(loc) or str((metro or {}).get("state") or "")
 
@@ -321,7 +325,9 @@ def resolve_market(location_str: Any, resolution: dict | None = None) -> Market:
         )
 
     if metro:
-        return _metro_market(loc, metro_key, metro, res, kind="city", assumed=assumed, note=note)
+        return _metro_market(
+            loc, metro_key, metro, res, kind="city", assumed=assumed, note=note, state=state
+        )
     if state:
         return Market(
             location=loc,
@@ -378,6 +384,32 @@ def resolution_map(data: dict | None) -> dict[str, dict]:
     return out
 
 
+def resolution_list(data: dict | None, locations: list | None = None) -> list[dict | None]:
+    """The plan_location result for each entry of ``locations`` (default
+    ``data["locations"]``), matched by POSITION.
+
+    Display names are not unique -- "NY" and "New York" are both displayed as
+    "New York", "WA" and "Washington" as "Washington" -- so a name-keyed lookup
+    hands the second entry the first one's verdict. When ``locations`` is the
+    plan's own list the sidecar is index-aligned; otherwise fall back to the
+    name map.
+    """
+    if not isinstance(data, dict):
+        return [None] * len(locations or [])
+    plan_locs = data.get("locations")
+    locs = list(locations if locations is not None else plan_locs or [])
+    sidecar = data.get("_location_resolution")
+    if (
+        isinstance(plan_locs, list)
+        and isinstance(sidecar, list)
+        and len(sidecar) == len(plan_locs)
+        and locs == plan_locs
+    ):
+        return [r if isinstance(r, dict) else None for r in sidecar]
+    by_name = resolution_map(data)
+    return [by_name.get(loc) if isinstance(loc, str) else None for loc in locs]
+
+
 def plan_markets(data: dict | None) -> list[Market]:
     """One ``Market`` per entry of ``data["locations"]``, in order."""
     if not isinstance(data, dict):
@@ -385,10 +417,10 @@ def plan_markets(data: dict | None) -> list[Market]:
     locs = data.get("locations") or []
     if isinstance(locs, str):
         locs = [locs]
-    resolutions = resolution_map(data)
+    resolutions = resolution_list(data, locs)
     return [
-        resolve_market(loc, resolutions.get(loc))
-        for loc in locs
+        resolve_market(loc, res)
+        for loc, res in zip(locs, resolutions)
         if isinstance(loc, str) and loc.strip()
     ]
 

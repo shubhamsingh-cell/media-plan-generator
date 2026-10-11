@@ -1329,11 +1329,14 @@ def enrich_city_level_data(data: dict) -> dict:
 
     # plan_location's verdict per location: tells a STATE entry ("NY" arrives
     # here as the display name "New York") from the city of the same name.
+    _loc_list = locations_raw if isinstance(locations_raw, list) else []
     _location_resolutions = (
-        _geo_market_gs.resolution_map(data) if _geo_market_gs is not None else {}
+        _geo_market_gs.resolution_list(data, _loc_list)
+        if _geo_market_gs is not None
+        else [None] * len(_loc_list)
     )
 
-    for loc in (locations_raw if isinstance(locations_raw, list) else []):
+    for _loc_idx, loc in enumerate(_loc_list):
         city_name = ""
         _state_code = ""  # S50 FIX (Issue 19): capture state code
         if isinstance(loc, str):
@@ -1360,7 +1363,7 @@ def enrich_city_level_data(data: dict) -> dict:
         # city-state: it reads the same "washington" entry as bare Washington.
         _state_entry = ""
         if _geo_market_gs is not None and isinstance(loc, str):
-            _mkt = _geo_market_gs.resolve_market(loc, _location_resolutions.get(loc))
+            _mkt = _geo_market_gs.resolve_market(loc, _location_resolutions[_loc_idx])
             if _mkt.kind == "state" and _mkt.level == "state":
                 _state_entry = _mkt.state.lower()
             elif _mkt.metro_key == "washington_dc":
