@@ -1718,6 +1718,35 @@ _INDUSTRY_COMPATIBILITY: Dict[str, set] = {
 }
 
 
+def _allowed_board_industries(industry: str) -> Optional[set]:
+    """Board-industry tags a plan industry may draw role boards from."""
+    ind_lower = (industry or "").lower().strip().replace(" ", "_").replace("-", "_")
+    if not ind_lower:
+        return None
+    # Look up compatibility; if the industry has an explicit set, use it.
+    # Otherwise, allow boards from the same industry + "general".
+    allowed = _INDUSTRY_COMPATIBILITY.get(ind_lower)
+    if allowed is None:
+        allowed = {ind_lower, "general"}
+    return allowed
+
+
+def _role_board_categories(role: str, allowed: Optional[set]) -> List[str]:
+    """ROLE_NICHE_BOARDS category keys whose keywords match ``role``."""
+    role_lower = role.lower().strip()
+    matched: List[str] = []
+    for category, config in ROLE_NICHE_BOARDS.items():
+        # Industry filter: skip categories whose industry is incompatible
+        board_industry = config.get("industry", "general")
+        if allowed and board_industry not in allowed:
+            continue
+        for kw in config.get("keywords") or []:
+            if _keyword_matches_role(kw, role_lower):
+                matched.append(category)
+                break
+    return matched
+
+
 def _match_roles_to_niche_boards(
     roles: List[str],
     industry: str = "",
@@ -1741,37 +1770,14 @@ def _match_roles_to_niche_boards(
     if not roles:
         return {}
 
-    # Determine which board industries are allowed for this plan industry
-    ind_lower = (industry or "").lower().strip().replace(" ", "_").replace("-", "_")
-    allowed_industries: Optional[set] = None
-    if ind_lower:
-        # Look up compatibility; if the industry has an explicit set, use it.
-        # Otherwise, allow boards from the same industry + "general".
-        allowed_industries = _INDUSTRY_COMPATIBILITY.get(ind_lower)
-        if allowed_industries is None:
-            allowed_industries = {ind_lower, "general"}
-
+    allowed_industries = _allowed_board_industries(industry)
     results: Dict[str, List[Dict[str, str]]] = {}
 
     for role in roles:
-        role_lower = role.lower().strip()
         matched_boards: List[Dict[str, str]] = []
-        matched_categories: set = set()
-
-        for category, config in ROLE_NICHE_BOARDS.items():
-            # Industry filter: skip categories whose industry is incompatible
-            board_industry = config.get("industry", "general")
-            if allowed_industries and board_industry not in allowed_industries:
-                continue
-
-            keywords = config.get("keywords") or []
-            for kw in keywords:
-                if _keyword_matches_role(kw, role_lower):
-                    if category not in matched_categories:
-                        matched_categories.add(category)
-                        for board in config.get("boards") or []:
-                            matched_boards.append(dict(board))
-                    break
+        for category in _role_board_categories(role, allowed_industries):
+            for board in ROLE_NICHE_BOARDS[category].get("boards") or []:
+                matched_boards.append(dict(board))
 
         if matched_boards:
             # Deduplicate by board name
@@ -1784,6 +1790,61 @@ def _match_roles_to_niche_boards(
             results[role] = deduped
 
     return results
+
+
+# Industry-list boards that only make sense when the plan has a role in the
+# named ROLE_NICHE_BOARDS category (audit 2026-10-11: RTI International, a plan
+# with Coordinator / Worker / RN, was shown PracticeLink and JAMA Career
+# Center -- physician-only boards -- because the static industry list printed
+# regardless of roles). Boards NOT listed here are generic for the industry
+# (e.g. Health eCareers, Supply Chain Online) and always shown.
+_ROLE_GATED_INDUSTRY_BOARDS: Dict[str, set] = {
+    "PracticeLink": {"physician"},
+    "JAMA Career Center": {"physician"},
+    "myCNAjobs.com": {"senior_care"},
+    "CareListings.com": {"senior_care"},
+    "Nurse.com": {"nursing"},
+    "AllNurses.com": {"nursing"},
+    "NursingJobs.com": {"nursing"},
+    "Vivian Health": {"nursing", "senior_care"},
+    "CDLjobs.com": {"trucking"},
+    "TruckingJobs.com": {"trucking"},
+    "WarehouseJobs.com": {"warehouse"},
+}
+
+
+def _channel_target_roles(channel_name: str, roles: List[str], industry: str) -> List[str]:
+    """Roles a channel's rationale may claim to target.
+
+    A niche-board channel serves only the roles that actually matched a
+    specialty board (audit 2026-10-11: RTI's niche channel claimed to target
+    "Coordinator, Worker", roles no board in the plan serves). Every other
+    channel keeps the plan-wide role list (unchanged behaviour, capped at 3
+    roles as before). Returns [] when nothing may be claimed.
+    """
+    if not roles or len(roles) > 3:
+        return []
+    if _roi_category_for_channel(channel_name) == "niche_board":
+        matched = _match_roles_to_niche_boards(roles, industry=industry)
+        return [r for r in roles if matched.get(r)]
+    return list(roles)
+
+
+def _industry_niche_boards_for_roles(industry: str, roles: List[str]) -> List[str]:
+    """INDUSTRY_NICHE_CHANNELS[industry] minus role-gated boards that no
+    role of this plan justifies. Generic industry boards are kept."""
+    boards = INDUSTRY_NICHE_CHANNELS.get(industry, [])
+    allowed = _allowed_board_industries(industry)
+    plan_categories: set = set()
+    for role in roles or []:
+        plan_categories.update(_role_board_categories(role, allowed))
+    kept: List[str] = []
+    for name in boards:
+        needs = _ROLE_GATED_INDUSTRY_BOARDS.get(name)
+        if needs and not (needs & plan_categories):
+            continue
+        kept.append(name)
+    return kept
 
 
 # ---------------------------------------------------------------------------
@@ -7249,8 +7310,9 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             elif ch_pct > 5:
                 rationale_parts.append(f"Supporting channel at {ch_pct:.0f}%")
             # Add role/location context
-            if roles and len(roles) <= 3:
-                rationale_parts.append(f"targets {', '.join(roles[:2])}")
+            _targets = _channel_target_roles(ch.get("name") or "", roles, industry)
+            if _targets:
+                rationale_parts.append(f"targets {', '.join(_targets[:2])}")
             if locations and len(locations) <= 3:
                 rationale_parts.append(
                     f"in {', '.join(str(l).split(',')[0] for l in locations[:2])}"
@@ -7485,7 +7547,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
     # clearly-labeled reference-framework note instead of fabricating local
     # board data we don't have.
     niche_channels = (
-        INDUSTRY_NICHE_CHANNELS.get(industry, []) if _is_us_plan(data) else []
+        _industry_niche_boards_for_roles(industry, roles) if _is_us_plan(data) else []
     )
 
     if niche_channels:
@@ -13774,7 +13836,9 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
         row += 1
 
     # ── Industry-Based Matches ──
-    industry_boards = INDUSTRY_NICHE_CHANNELS.get(industry, []) if _is_us else []
+    industry_boards = (
+        _industry_niche_boards_for_roles(industry, roles) if _is_us else []
+    )
     if industry_boards:
         row = _write_subsection_header(ws, row, "Industry-Specific Boards")
 
