@@ -86,15 +86,51 @@ def test_signed_link_serves_plan_older_than_24h(
     assert "attachment" in headers.get("Content-Disposition", "")
 
 
-def test_bare_job_link_still_expires_at_24h(
+def test_old_slack_button_still_downloads_the_next_day(
     live_server: int, isolated_slot_dir: str, monkeypatch, link_key: str
 ) -> None:
-    """Widening the Slack route must not widen the bearer job link."""
+    """The reported case: a Slack button posted BEFORE the signed link existed
+    (bare /api/jobs/<id>) opened 26h later returned 404 'expired' although
+    the Supabase copy of the ZIP was still there (prod 2026-10-10 22:43 UTC)."""
     job_id = _job_id()
     _install_fake_supabase(monkeypatch, [_supabase_row(job_id, age_seconds=26 * 3600)])
     status, _h, body = _http_get(live_server, f"/api/jobs/{job_id}")
+    assert status == 200, body[:200]
+    assert body == b"PK\x03\x04supabase-copy"
+
+
+def test_bare_job_link_is_still_bounded(
+    live_server: int, isolated_slot_dir: str, monkeypatch, link_key: str
+) -> None:
+    job_id = _job_id()
+    _install_fake_supabase(monkeypatch, [_supabase_row(job_id, age_seconds=31 * DAY)])
+    status, _h, body = _http_get(live_server, f"/api/jobs/{job_id}")
     assert status == 404
     assert b"supabase-copy" not in body
+
+
+def test_in_memory_job_past_24h_falls_back_to_supabase(
+    live_server: int, isolated_slot_dir: str, monkeypatch, link_key: str
+) -> None:
+    """A worker that still holds the expired job in memory must not 404
+    before looking at the Supabase copy."""
+    import time as _t
+
+    job_id = _job_id()
+    with app_module._generation_jobs_lock:
+        app_module._generation_jobs[job_id] = {
+            "status": "completed", "created": _t.time() - 26 * 3600,
+            "result_bytes": b"", "result_content_type": "application/zip",
+            "result_filename": "x.zip", "error": None, "_session_token": "",
+        }
+    _install_fake_supabase(monkeypatch, [_supabase_row(job_id, age_seconds=26 * 3600)])
+    try:
+        status, _h, body = _http_get(live_server, f"/api/jobs/{job_id}")
+        assert status == 200, body[:200]
+        assert body == b"PK\x03\x04supabase-copy"
+    finally:
+        with app_module._generation_jobs_lock:
+            app_module._generation_jobs.pop(job_id, None)
 
 
 def test_signed_link_rejects_bad_token(

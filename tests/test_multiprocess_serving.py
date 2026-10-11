@@ -346,10 +346,12 @@ def test_supabase_refuses_row_older_than_job_expiry(
     live_server: int, isolated_slot_dir: str, monkeypatch
 ) -> None:
     """A completed job_id is a bearer token, so an unbounded Supabase read
-    would make that token valid forever to anyone who ever saw the link."""
+    would make that token valid forever to anyone who ever saw the link. The
+    bound is the plan-download window (30 days), not the 24h job lifetime --
+    Slack buttons must work the next week (2026-10-11)."""
     port = live_server
     job_id = uuid.uuid4().hex[:12]  # not in this process's dict, no mirror file
-    stale_age = app_module._GENERATION_JOB_EXPIRY_SECONDS + 3600
+    stale_age = app_module._plan_download_link_seconds() + 3600
     _install_fake_supabase(monkeypatch, [_supabase_row(job_id, age_seconds=stale_age)])
 
     status, _headers, body = _http_get(port, f"/api/jobs/{job_id}")

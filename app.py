@@ -7835,6 +7835,21 @@ _GENERATION_JOB_EXPIRY_SECONDS = (
 
 # Job ids: 32-char (128-bit) now, 12-char legacy -- same as the route validators.
 _JOB_ID_RE = re.compile(r"^([a-f0-9]{12}|[a-f0-9]{32})\Z")
+
+
+def _plan_download_link_seconds() -> int:
+    """How long a FINISHED plan stays downloadable from its Supabase copy.
+
+    The in-memory, mirror and blob layers keep the 24h job lifetime; only the
+    S47 Supabase read widens to this window, so a Slack button (bare
+    /api/jobs/<id> or the signed /api/plans/<id>/download) still works the
+    next week. Bounded (SLACK_DOWNLOAD_LINK_DAYS, default 30, max 365) --
+    never permanent. Both link shapes are bearer URLs living in the same
+    private channel and the same access logs, so they share one window.
+    """
+    from slack_plan_notifier import slack_download_link_seconds
+
+    return slack_download_link_seconds()
 # Status records keep the pre-existing mirror location and flat format
 # (<slot dir>/job_<id>.json) so a mirror written by the previous build stays
 # readable. Small JSON only; bundle_qa findings are the bulk of a record.
@@ -15402,6 +15417,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         return
                     if now - _mirror_created > _GENERATION_JOB_EXPIRY_SECONDS:
                         _job_record_store.delete(job_id)
+                        if self._serve_plan_from_supabase(
+                            job_id, max_age_seconds=_plan_download_link_seconds()
+                        ):
+                            return
                         if self._browser_navigation():
                             self._send_expired_job_page()
                             return
@@ -15481,7 +15500,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         )
                         return
                 # S47: Fallback to Supabase for restart-safe Slack download links
-                if self._serve_plan_from_supabase(job_id):
+                if self._serve_plan_from_supabase(
+                    job_id, max_age_seconds=_plan_download_link_seconds()
+                ):
                     return
                 if self._browser_navigation():
                     self._send_expired_job_page()
@@ -15492,6 +15513,24 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.wfile.write(
                     _error_response("Job not found or expired", "NOT_FOUND", 404)[0]
                 )
+                return
+            # Past the 24h in-memory lifetime: the finished ZIP is still in
+            # Supabase for the plan-link window (outside the lock -- it is a
+            # network read).
+            if now - job["created"] > _GENERATION_JOB_EXPIRY_SECONDS:
+                with _generation_jobs_lock:
+                    _generation_jobs.pop(job_id, None)
+                if self._serve_plan_from_supabase(
+                    job_id, max_age_seconds=_plan_download_link_seconds()
+                ):
+                    return
+                if self._browser_navigation():
+                    self._send_expired_job_page()
+                    return
+                self.send_response(404)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(_error_response("Job expired", "NOT_FOUND", 410)[0])
                 return
             with _generation_jobs_lock:
                 # Ownership gates in-flight jobs only. Once a job completes its
@@ -15562,7 +15601,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     # previous download), return 410 so frontend can show a
                     # helpful message instead of silently serving 0 bytes.
                     if not result_bytes:
-                        if self._serve_plan_from_supabase(job_id):
+                        if self._serve_plan_from_supabase(
+                            job_id, max_age_seconds=_plan_download_link_seconds()
+                        ):
                             return
                         # No Supabase copy (not configured, or down): the
                         # instance blob store still holds the ZIP for 24h.
@@ -26321,9 +26362,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         self._send_plan_link_page(
             404,
             "This download link has expired",
-            "Plan download links from before 2026-10-11 work for 24 hours; "
-            "newer Slack buttons work for 30 days. Generate the plan again "
-            "to get a fresh file.",
+            f"Plan download links work for {_plan_download_link_seconds() // 86400} "
+            "days, and this plan is no longer stored. Generate it again to get "
+            "a fresh file.",
         )
 
     def _send_plan_link_page(self, status: int, title: str, body: str) -> None:
@@ -26419,13 +26460,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
         A completed job's id is a bearer token (the Slack notification posts the
         link to a channel), so this deliberately does NOT check session
-        ownership -- but it MUST honour the same 24h lifetime the in-memory and
-        mirror paths enforce, or the link outlives every other expiry check and
-        becomes permanent public access. nova_generated_plans has no TTL of its
-        own (the cleanup job in scripts/create_s47_tables.sql is commented out),
-        so the bound has to be applied here, at read time. ``max_age_seconds``
-        widens it only for the Slack route (/api/plans/<id>/download), whose
-        link carries an HMAC token the bare job id does not.
+        ownership -- but it MUST apply a bound, or the link becomes permanent
+        public access: nova_generated_plans has no TTL of its own (the cleanup
+        job in scripts/create_s47_tables.sql is commented out), so the bound is
+        applied here, at read time. Default: the 24h job lifetime. Download
+        callers pass ``max_age_seconds=_plan_download_link_seconds()`` (30 days
+        by default) so Slack buttons keep working; the in-memory, mirror and
+        blob layers stay at 24h.
 
         Returns True if a response was sent, False if the caller should fall
         through to its own not-found/expired handling. Once headers are on the
