@@ -4920,17 +4920,31 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 ]
                 _hints = []
                 for _ind, _sp in _patterns.items():
+                    # A sector without stated multipliers (food_manufacturing)
+                    # gets no percentage: a default would read as data. The
+                    # bare _sp['peak_multiplier'] here raised KeyError and
+                    # crashed every seasonal chat turn (2026-10-11).
                     if _cur_month in _sp.get("peak_months", []):
+                        _pm = _sp.get("peak_multiplier")
+                        _pct = (
+                            f"(+{int((_pm - 1) * 100)}% demand). "
+                            if isinstance(_pm, (int, float))
+                            else ""
+                        )
                         _hints.append(
                             f"- **{_ind.title()}**: PEAK season now "
-                            f"(+{int((_sp['peak_multiplier']-1)*100)}% demand). "
-                            f"{_sp.get('notes', '')}"
+                            f"{_pct}{_sp.get('notes') or ''}"
                         )
                     elif _cur_month in _sp.get("low_months", []):
+                        _lm = _sp.get("low_multiplier")
+                        _pct = (
+                            f"({int((_lm - 1) * 100)}% demand). "
+                            if isinstance(_lm, (int, float))
+                            else ""
+                        )
                         _hints.append(
                             f"- **{_ind.title()}**: LOW season now "
-                            f"({int((_sp['low_multiplier']-1)*100)}% demand). "
-                            f"{_sp.get('notes', '')}"
+                            f"{_pct}{_sp.get('notes') or ''}"
                         )
                 if _hints:
                     core += (
