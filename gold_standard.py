@@ -5128,18 +5128,30 @@ def _events_agreeing_with_label(events: list[str], hiring_intensity: str) -> lis
     return [e for e in events if not _PEAK_WORD_RE.search(e)]
 
 
-def _brief_whole_months(data: dict) -> int:
-    """Whole calendar months the brief stated for the campaign (a wizard
-    option such as "2 months" or an explicit "6 months"), else 0. A range or
-    a weeks/days phrase yields 0 so the weeks-based window applies."""
-    from wizard_inputs import known_campaign_months
+_WHOLE_MONTHS_RE = re.compile(r"^\s*(\d+)\s*(?:months?|mos?)\.?\s*$", re.IGNORECASE)
 
-    months = known_campaign_months(
-        data.get("campaign_duration") or data.get("timeline") or ""
+
+def _brief_whole_months(data: dict) -> int:
+    """Whole calendar months the brief stated as a single "N months" figure
+    (the wizard's "2 months", "6 months"), else 0. A range ("1-3 months"), a
+    weeks/days phrase or text whose carried ``campaign_weeks`` disagrees with
+    N months yields 0, so the weeks-based window applies instead."""
+    m = _WHOLE_MONTHS_RE.match(
+        str(data.get("campaign_duration") or data.get("timeline") or "")
     )
-    if months >= 1 and abs(months - round(months)) < 1e-9:
-        return int(round(months))
-    return 0
+    if not m or int(m.group(1)) < 1:
+        return 0
+    n = int(m.group(1))
+    try:
+        carried = int(float(data.get("campaign_weeks") or 0))
+    except (TypeError, ValueError):
+        carried = 0
+    if carried > 0:
+        from wizard_inputs import months_to_weeks
+
+        if abs(carried - months_to_weeks(n)) > 1:
+            return 0
+    return n
 
 
 def _plan_campaign_weeks(data: dict) -> int:

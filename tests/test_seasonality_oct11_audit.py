@@ -286,6 +286,11 @@ def test_s5_campaign_window_end_helper():
         datetime.date(2026, 12, 31)
     )
     assert gold_standard.campaign_window_end({"campaign_duration": "9 weeks"}, start) is None
+    # A range or a months figure that disagrees with the carried weeks is not
+    # a stated whole-month duration.
+    assert gold_standard.campaign_window_end({"campaign_duration": "1-3 months"}, start) is None
+    conflict = {"campaign_duration": "2 months", "campaign_weeks": 12}
+    assert gold_standard.campaign_window_end(conflict, start) is None
 
 
 # ---------------------------------------------------------------------------
