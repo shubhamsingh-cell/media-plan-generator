@@ -3991,7 +3991,9 @@ def _resolve_food_beverage_card(
             titles.append(str(r))
     mfg = sum(1 for t in titles if _FB_MANUFACTURING_RE.search(t))
     rest = sum(
-        1 for t in titles if _FB_RESTAURANT_RE.search(t) and not _FB_MANUFACTURING_RE.search(t)
+        1
+        for t in titles
+        if _FB_RESTAURANT_RE.search(t) and not _FB_MANUFACTURING_RE.search(t)
     )
     context = f"{company_name or ''} {industry_text or ''}"
     if _FB_MANUFACTURING_RE.search(context):
@@ -4448,7 +4450,9 @@ def _canonical_budget_prefix(raw_text: str, parsed_currency: str) -> str:
     return ""
 
 
-def _normalize_request_budget(data: dict, log: bool = True) -> "wizard_inputs.PlanBudget":
+def _normalize_request_budget(
+    data: dict, log: bool = True
+) -> "wizard_inputs.PlanBudget":
     """Rewrite ``data["budget"]``/``data["budget_range"]`` IN PLACE to the
     canonical campaign total ("$1,500,000"), so every downstream reader
     (budget engine, workbook, deck, Slack notifier -- all of which re-read
@@ -4506,6 +4510,7 @@ _TYPED_CURRENCY_WORDS: dict = {
     "RM": "MYR",
     "RP": "IDR",
 }
+
 
 def _typed_currency_code(typed: str) -> str:
     """ISO code a typed currency token stands for ("" when unknown): words
@@ -4707,7 +4712,9 @@ def _drop_internal_request_keys(data: dict) -> dict:
     dropped = sorted(k for k in data if isinstance(k, str) and k.startswith("_"))
     if dropped:
         logger.warning(f"Ignoring client-sent internal request keys: {dropped}")
-    return {k: v for k, v in data.items() if not (isinstance(k, str) and k.startswith("_"))}
+    return {
+        k: v for k, v in data.items() if not (isinstance(k, str) and k.startswith("_"))
+    }
 
 
 def _sanitize_generate_request(data: dict) -> dict:
@@ -4726,7 +4733,8 @@ def _sanitize_generate_request(data: dict) -> dict:
     numeric_budget = {
         key: data[key]
         for key in _BUDGET_REQUEST_KEYS
-        if isinstance(data.get(key), (int, float)) and not isinstance(data.get(key), bool)
+        if isinstance(data.get(key), (int, float))
+        and not isinstance(data.get(key), bool)
     }
     out = {key: _sanitize_request_value(val) for key, val in data.items()}
     out.update(numeric_budget)
@@ -4740,7 +4748,9 @@ def _client_file_slug(name: Any) -> str:
     and "Client" when nothing ASCII is left. Non-Latin names ("朝日新聞",
     "Яндекс") are accepted since the name rule allows any script, and used
     to yield "_Media_Plan_Bundle.zip" with no name at all."""
-    text = _safe_str(name).strip()[: wizard_inputs.INPUT_LIMITS["client_name_max_chars"]]
+    text = _safe_str(name).strip()[
+        : wizard_inputs.INPUT_LIMITS["client_name_max_chars"]
+    ]
     ascii_text = (
         unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
     )
@@ -4768,7 +4778,10 @@ def _client_name_problem(name: Any) -> "tuple[str, str]":
         return "chars", "Valid client name (needs a letter or digit)"
     limit = wizard_inputs.INPUT_LIMITS["client_name_max_chars"]
     if len(text) > limit:
-        return "too_long", f"Client name is too long ({len(text)} characters; max {limit})."
+        return (
+            "too_long",
+            f"Client name is too long ({len(text)} characters; max {limit}).",
+        )
     return "", ""
 
 
@@ -4892,8 +4905,7 @@ _DANGEROUS_URL_PATTERNS: "tuple[tuple[str, re.Pattern[str]], ...]" = (
     (
         "javascript",
         re.compile(
-            rf"{_URL_SCHEME_LEAD}javascript\s*:(?=\S)"
-            r"|[=\"'(`]\s*javascript\s*:",
+            rf"{_URL_SCHEME_LEAD}javascript\s*:(?=\S)" r"|[=\"'(`]\s*javascript\s*:",
             re.IGNORECASE,
         ),
     ),
@@ -5083,14 +5095,44 @@ def _cleanup_old_docs(docs_dir, max_files=200):
         pass
 
 
+_PLAN_EVENT_TERMINAL_STATUSES = frozenset({"success", "error"})
+_plan_event_logged_lock = threading.Lock()
+
+
 def log_request(
-    data, status, file_size=0, generation_time=0, error_msg=None, doc_filename=None
+    data,
+    status,
+    file_size=0,
+    generation_time=0,
+    error_msg=None,
+    doc_filename=None,
+    plan_id: Optional[str] = None,
 ):
     """Append a log entry with file locking and persist to Supabase plan_events table.
 
     Writes to both the local JSON file (backward compat) and the Supabase
     ``plan_events`` table for durable storage that survives deploys.
+
+    One generation gets exactly ONE terminal row (``success``/``error``): the
+    first terminal call stamps ``data["_plan_event_logged"]`` and any later
+    terminal call on the same request dict is a no-op returning None. The
+    async worker logs from both its success and failure branches, and the
+    sync handler shares the same ``data`` dict, so this is what keeps one
+    job from ever being counted twice. ``plan_id`` (the async job id) wins
+    over the ``_plan_id``/``_request_id`` fallbacks so plan_events rows join
+    to ``nova_generated_plans.job_id``.
     """
+    if status in _PLAN_EVENT_TERMINAL_STATUSES:
+        with _plan_event_logged_lock:
+            if data.get("_plan_event_logged"):
+                logger.debug(
+                    "plan event already logged as %r; skipping duplicate %r",
+                    data.get("_plan_event_logged"),
+                    status,
+                )
+                return None
+            data["_plan_event_logged"] = status
+
     # Determine event_type from status
     event_type_map = {
         "success": "plan_generated",
@@ -5157,7 +5199,8 @@ def log_request(
         if client is not None:
             supabase_row = {
                 "event_type": event_type,
-                "plan_id": data.get("_plan_id")
+                "plan_id": plan_id
+                or data.get("_plan_id")
                 or data.get("_request_id")
                 or entry["id"],
                 "client_name": entry["client_name"],
@@ -5564,7 +5607,9 @@ def _compute_plan_estimate(brief: dict) -> dict:
         if brief.get("locations") is not None and not isinstance(
             brief.get("locations"), list
         ):
-            raise _EstimateValidationError("locations must be a list", field="locations")
+            raise _EstimateValidationError(
+                "locations must be a list", field="locations"
+            )
         _normalize_location_field(brief)
         _resolve_and_rewrite_locations(brief)
         return {
@@ -7737,11 +7782,20 @@ def _plan_feedback_add(share_id: str, name: str, comment: str) -> int:
 
     def _append(current: Optional[dict]) -> dict:
         items = _clean_feedback_items((current or {}).get("items")) + [entry]
-        record = {"created": entry["created_at"], "items": items[-_PLAN_FEEDBACK_PER_SHARE:]}
+        record = {
+            "created": entry["created_at"],
+            "items": items[-_PLAN_FEEDBACK_PER_SHARE:],
+        }
         # Keep the record under its byte cap by dropping the oldest comments.
-        while len(record["items"]) > 1 and len(
-            json.dumps(record, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-        ) > _PLAN_FEEDBACK_RECORD_MAX_BYTES:
+        while (
+            len(record["items"]) > 1
+            and len(
+                json.dumps(record, ensure_ascii=False, separators=(",", ":")).encode(
+                    "utf-8"
+                )
+            )
+            > _PLAN_FEEDBACK_RECORD_MAX_BYTES
+        ):
             record["items"] = record["items"][1:]
         return record
 
@@ -7758,6 +7812,7 @@ def _plan_feedback_list(share_id: str) -> list[dict]:
             return _clean_feedback_items(record.get("items"))
     with _plan_feedback_lock:
         return list(_plan_feedback.get(share_id, []))
+
 
 # SCORECARD STORE (in-memory, for shareable plan scorecards)
 # Values are (html_string, created_timestamp) tuples
@@ -7794,7 +7849,9 @@ def _scorecard_put(share_id: str, page_html: str) -> None:
     created = time.time()
     with _scorecards_lock:
         _scorecards[share_id] = (page_html, created)
-    _scorecard_store.put(share_id, {"html": page_html, "created": created}, durable=False)
+    _scorecard_store.put(
+        share_id, {"html": page_html, "created": created}, durable=False
+    )
 
 
 def _scorecard_get(share_id: str) -> Optional[str]:
@@ -7818,6 +7875,7 @@ def _scorecard_get(share_id: str) -> Optional[str]:
     with _scorecards_lock:
         _scorecards.setdefault(share_id, (page_html, record.get("created") or now))
     return page_html
+
 
 # ASYNC GENERATION JOB STORE
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -7844,6 +7902,8 @@ def _plan_download_link_seconds() -> int:
     from slack_plan_notifier import slack_download_link_seconds
 
     return slack_download_link_seconds()
+
+
 # Status records keep the pre-existing mirror location and flat format
 # (<slot dir>/job_<id>.json) so a mirror written by the previous build stays
 # readable. Small JSON only; bundle_qa findings are the bulk of a record.
@@ -7951,11 +8011,16 @@ def _legacy_mirror_sweep(now: float) -> None:
     try:
         _mirror_dir = _generate_slots._slot_dir
         for _mirror_fname in os.listdir(_mirror_dir):
-            if not (_mirror_fname.startswith("job_") and _mirror_fname.endswith(".json")):
+            if not (
+                _mirror_fname.startswith("job_") and _mirror_fname.endswith(".json")
+            ):
                 continue
             _mirror_fpath = os.path.join(_mirror_dir, _mirror_fname)
             try:
-                if now - os.path.getmtime(_mirror_fpath) > _GENERATION_JOB_EXPIRY_SECONDS:
+                if (
+                    now - os.path.getmtime(_mirror_fpath)
+                    > _GENERATION_JOB_EXPIRY_SECONDS
+                ):
                     os.unlink(_mirror_fpath)
             except OSError:
                 pass
@@ -8021,7 +8086,9 @@ def _mirror_job(job_id: str) -> None:
             ).hexdigest()
         _acked_by = job.get("_qa_acknowledged_by") or ""
         _terminal = snapshot["status"] in ("completed", "failed")
-        _result_bytes = job.get("result_bytes") if snapshot["status"] == "completed" else None
+        _result_bytes = (
+            job.get("result_bytes") if snapshot["status"] == "completed" else None
+        )
     if not shared_state.layers_enabled():
         # Kill switch: exactly the mirror prod wrote before the shared layers.
         _legacy_mirror_write(job_id, snapshot)
@@ -8037,7 +8104,9 @@ def _mirror_job(job_id: str) -> None:
         if _previous.get("_qa_acknowledged_by"):
             snapshot["_qa_acknowledged_by"] = _previous["_qa_acknowledged_by"]
     if _result_bytes and not _job_result_blobs.exists(job_id):
-        _job_result_blobs.put(job_id, _result_bytes, snapshot.get("created") or time.time())
+        _job_result_blobs.put(
+            job_id, _result_bytes, snapshot.get("created") or time.time()
+        )
     _job_record_store.put(job_id, snapshot, durable=_terminal)
 
 
@@ -18715,9 +18784,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 jid,
                                 _enr_n_ok,
                                 _enr_confidence,
-                                " (partial snapshot at deadline)"
-                                if _enrich_timed_out
-                                else "",
+                                (
+                                    " (partial snapshot at deadline)"
+                                    if _enrich_timed_out
+                                    else ""
+                                ),
                             )
                         else:
                             logger.info(
@@ -18725,9 +18796,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 jid,
                                 _enr_n_ok,
                                 _enr_confidence,
-                                " (partial snapshot at deadline)"
-                                if _enrich_timed_out
-                                else "",
+                                (
+                                    " (partial snapshot at deadline)"
+                                    if _enrich_timed_out
+                                    else ""
+                                ),
                             )
 
                         with _generation_jobs_lock:
@@ -19131,15 +19204,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     gen_data.get("target_region")
                                 )
                                 if isinstance(channel_pcts, dict):
-                                    channel_pcts, _region_detail_a = _apply_target_region(
-                                        channel_pcts, _target_region_async
+                                    channel_pcts, _region_detail_a = (
+                                        _apply_target_region(
+                                            channel_pcts, _target_region_async
+                                        )
                                     )
                                     if _region_detail_a:
                                         logger.info(
                                             "Async %s plan (region=%s): %s",
-                                            "US-only"
-                                            if _target_region_async == "us_only"
-                                            else _target_region_async.upper(),
+                                            (
+                                                "US-only"
+                                                if _target_region_async == "us_only"
+                                                else _target_region_async.upper()
+                                            ),
                                             _target_region_async,
                                             _region_detail_a,
                                         )
@@ -19851,6 +19928,29 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             "Async job %s completed (%d bytes)", jid, len(result_bytes)
                         )
 
+                        # ── plan_events: same durable usage row the sync path
+                        # writes. Logged AFTER the job is marked completed so
+                        # the Supabase round-trip never delays the user, and
+                        # wrapped so a logging fault can't fall through to
+                        # the failure branch and flip a delivered job to
+                        # failed (log_request itself dedupes per job).
+                        try:
+                            log_request(
+                                gen_data,
+                                "success",
+                                file_size=len(result_bytes),
+                                generation_time=time.time()
+                                - (gen_data.get("_gen_created") or time.time()),
+                                doc_filename=result_fn,
+                                plan_id=jid,
+                            )
+                        except Exception as _pe_err:
+                            logger.warning(
+                                "plan_events success log failed for job %s: %s",
+                                jid,
+                                _pe_err,
+                            )
+
                         # ── S47: Persist ZIP to Supabase for restart-safe Slack links ──
                         try:
                             from supabase_client import get_client as _sb_client
@@ -19982,6 +20082,24 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     }
                                 )
                         _mirror_job(jid)
+                        # plan_events: the only durable record of a failed
+                        # async plan (matches sync path). No-op if this job
+                        # already logged its success row.
+                        try:
+                            log_request(
+                                gen_data,
+                                "error",
+                                generation_time=time.time()
+                                - (gen_data.get("_gen_created") or time.time()),
+                                error_msg=str(async_err),
+                                plan_id=jid,
+                            )
+                        except Exception as _pe_err:
+                            logger.warning(
+                                "plan_events failure log failed for job %s: %s",
+                                jid,
+                                _pe_err,
+                            )
                         # Send email alert for async generation failure (matches sync path)
                         try:
                             from email_alerts import send_generation_failure_alert
@@ -20033,6 +20151,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 }
                             )
                     _mirror_job(job_id)
+                    try:
+                        log_request(
+                            data,
+                            "error",
+                            error_msg="Async generation worker thread failed to start",
+                            plan_id=job_id,
+                        )
+                    except Exception as _pe_err:
+                        logger.warning(
+                            "plan_events failure log failed for job %s: %s",
+                            job_id,
+                            _pe_err,
+                        )
                     raise
                 self._send_json(
                     {
@@ -26343,7 +26474,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             self.wfile.write(blob)
         except OSError as _blob_write_err:
             # Headers are committed; the caller must not send a second status.
-            logger.debug("Job blob: client disconnected during download: %s", _blob_write_err)
+            logger.debug(
+                "Job blob: client disconnected during download: %s", _blob_write_err
+            )
         return True
 
     def _browser_navigation(self) -> bool:
