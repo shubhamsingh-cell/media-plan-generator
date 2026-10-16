@@ -2165,9 +2165,20 @@ html.lenis body {
 .moment-5 .outcome-stats {
   margin-top: 0;
 }
+.moment-text h2,
 .moment-text p,
 .moment-figure-sub {
   text-wrap: balance;
+}
+/* Phones: the three outcome tiles share ~311px; a 32px gap forced the labels
+   onto two ragged lines. Tighter gap + balanced labels keep the row even. */
+@media (max-width: 480px) {
+  .outcome-stats {
+    gap: 12px;
+  }
+  .outcome-stat-label {
+    text-wrap: balance;
+  }
 }
 .moment-ctas {
   display: flex;

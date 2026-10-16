@@ -6,8 +6,8 @@
   },
   "static/css/hub.css": {
     "referrer": "hub.html",
-    "sha256": "63d387871954fab0c4442ab14049fa2e6577da7cc277ffa4fcc1857646bc7258",
-    "version": "2.14.1"
+    "sha256": "efd7ca1ca34f95cc222307cefa067b64993f29ba872ac5f32e5c139dcb332fbb",
+    "version": "2.14.2"
   },
   "static/css/motion.css": {
     "referrer": "hub.html",

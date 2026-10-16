@@ -273,7 +273,7 @@ _PROOF_SLOT_PATTERNS = (
     r'<div class="outcome-stat-value[^"]*">(.*?)</div>',
     r'<p class="trust-bar-label">(.*?)</p>|<div class="trust-bar-label">(.*?)</div>',
     r'<p class="channel-logos-label">(.*?)</p>',
-    r'(?:og:description|twitter:description|name="description")"\s*content="(.*?)"',
+    r'(?:og:description|twitter:description|name="description)"\s*content="(.*?)"',
     r'<p class="hero-subline[^"]*">(.*?)</p>',
     r'<div class="moment-3 ">.*?<div class="moment-text">.*?<p>(.*?)</p>|class="story-moment moment-3".*?<div class="moment-text">.*?<p>(.*?)</p>',
     r'class="product-hero-card product-plan".*?<p>(.*?)</p>',
