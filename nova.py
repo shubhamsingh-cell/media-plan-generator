@@ -8477,18 +8477,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             # (data/joveo_network_groups.json) answer a name or group query
             # even when the older catalogs do not list them (CareerStructure,
             # "the Stepstone Group").
-            _net_group = publisher_filter.network_group_for_query(search_term)
-            _net_names = (
-                publisher_filter.network_member_names(_net_group, _pf_country)
-                if _net_group
-                else []
-            )
-            if not _net_group and not matches:
-                _net_names = [
-                    n
-                    for n in publisher_filter.network_boards_for(_pf_country)
-                    if search_term in n.lower()
-                ]
+            _net_names = publisher_filter.network_search(search_term, _pf_country)
             for _nn in _net_names:
                 if not any(
                     publisher_filter.names_match(_nn, m.get("name")) for m in matches
@@ -8504,6 +8493,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             _before = len(matches)
             matches = publisher_filter.clean_items(
                 matches, _pf_data, country=_pf_country
+            )
+            # the board the user named ranks above substring look-alikes
+            matches.sort(
+                key=lambda m: 0
+                if publisher_filter.names_match(search_term, m.get("name"))
+                else 1
             )
             _net_hits: Dict[str, Dict[str, Any]] = {}
             for _m in matches:

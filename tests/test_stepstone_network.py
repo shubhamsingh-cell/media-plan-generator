@@ -86,7 +86,9 @@ def test_markets_whose_group_board_missed_the_cut_now_show_it():
         ]
     )
     assert "StepStone Netherlands" in bands["Netherlands"]["boards"]
-    assert "StepStone Denmark" in bands["Denmark"]["boards"]
+    # Denmark is not on the group's find-a-job index: a member, never a lead
+    assert "StepStone Denmark" not in bands["Denmark"]["boards"]
+    assert pf.network_member("StepStone Denmark", "Denmark")
     assert any("pnet" in b.lower() for b in bands["South Africa"]["boards"])
     for g in bands.values():
         assert len(g["boards"]) <= 3
@@ -223,3 +225,88 @@ def test_availability_entry_beats_the_network_registry():
         ["Indeed UK", "Reed.co.uk", "LinkedIn UK"], "United Kingdom", {}, 3
     )
     assert "Totaljobs" not in band
+
+
+# ---- review round 1 --------------------------------------------------------
+
+
+def test_nova_search_finds_a_group_board_with_no_country(nova_engine):
+    # S1: a board only the registry knows, and one an earlier loose substring
+    # match used to shadow
+    res = nova_engine._query_publishers({"search_term": "careerstructure"})
+    assert res["in_joveo_network"] is True
+    assert [m["name"] for m in res["search_results"]] == ["CareerStructure"]
+    res = nova_engine._query_publishers({"search_term": "jobsite"})
+    names = [m["name"] for m in res["search_results"]]
+    assert names[0] == "Jobsite" and res["in_joveo_network"] is True
+    assert res["search_results"][0]["relationship"] == "In Joveo Network"
+    # a whole-name match ranks above a substring match
+    res = nova_engine._query_publishers({"search_term": "totaljobs"})
+    assert res["search_results"][0]["name"] == "Totaljobs"
+
+
+def test_excluding_every_group_board_in_a_market_keeps_the_gap_line():
+    # S2: Ireland's only boards are the group's; a client who excluded them
+    # has neither a band nor a silent hole
+    data = {
+        "locations": ["Dublin, Ireland"],
+        "excluded_publishers": ["IrishJobs", "Jobs.ie"],
+    }
+    assert pf.plan_market_boards(data) == []
+    assert pf.plan_market_board_gaps(data) == ["Ireland"]
+    one = {"locations": ["Dublin, Ireland"], "excluded_publishers": ["IrishJobs"]}
+    assert _band(one["locations"], excluded_publishers=["IrishJobs"])["Ireland"][
+        "boards"
+    ] == ["Jobs.ie"]
+    assert pf.plan_market_board_gaps(one) == []
+
+
+@pytest.mark.parametrize(
+    "typed", ["Stepstone Group", "The Stepstone Group", "StepGroup"]
+)
+def test_excluding_the_group_by_name_excludes_every_member(typed):
+    # S3
+    for locations, country, member in (
+        (["Vienna, Austria"], "Austria", "StepStone Austria"),
+        (["London, United Kingdom"], "United Kingdom", "Totaljobs"),
+        (["Dublin, Ireland"], "Ireland", "IrishJobs"),
+        (["Amsterdam, Netherlands"], "Netherlands", "StepStone Netherlands"),
+    ):
+        data = {"locations": locations, "excluded_publishers": [typed]}
+        assert pf.is_excluded(member, data, country)
+        band = _band(locations, excluded_publishers=[typed])
+        boards = band.get(country, {}).get("boards", [])
+        assert not [b for b in boards if pf.network_member(b, country)], boards
+    # scoped: Jobs.ch is not a member
+    data = {"excluded_publishers": ["Stepstone Group"]}
+    assert not pf.is_excluded("Jobs.ch", data, "Switzerland")
+    assert not pf.is_excluded("Indeed UK", data, "United Kingdom")
+
+
+def test_nova_group_exclusion_lists_no_group_board(nova_engine):
+    ex = ["The Stepstone Group"]
+    res = nova_engine._query_publishers(
+        {"country": "Germany", "excluded_publishers": ex}
+    )
+    assert not res.get("in_network_group_boards")
+    res = nova_engine._query_publishers(
+        {"search_term": "stepgroup", "excluded_publishers": ex}
+    )
+    assert res["match_count"] == 0 and res["in_joveo_network"] is False
+    assert "network" not in res
+    res = nova_engine._query_global_supply(
+        {"country": "United Kingdom", "excluded_publishers": ex}
+    )
+    assert "Totaljobs" not in [b["name"] for b in res["country_boards"]["boards"]]
+    assert "network" not in res or all(
+        "Totaljobs" not in n["note"] for n in res["network"]
+    )
+
+
+def test_registry_sources_for_the_national_stepstone_sites():
+    raw = json.load(open(os.path.join(ROOT, "data", "joveo_network_groups.json")))
+    members = {m["name"]: m for m in raw["groups"][0]["members"]}
+    for name in ("StepStone Austria", "StepStone Belgium", "StepStone Netherlands"):
+        assert members[name]["source"].endswith("/english/jobseekers/find-a-job/")
+    # Denmark is not on the group's find-a-job index: kept as a member, not offered as a lead board
+    assert members["StepStone Denmark"]["lead_in"] == []

@@ -500,6 +500,16 @@ def _user_keys(data: Any) -> set:
     return keys
 
 
+def _user_group_ids(data: Any) -> set:
+    """Ids of the board groups the client excluded by the group's own name."""
+    out: set = set()
+    for name in user_excluded(data):
+        group = network_group_for_query(name)
+        if group:
+            out.add(group.get("id") or group["name"])
+    return out
+
+
 def is_excluded(name: Any, data: Any = None, country: Any = None) -> bool:
     """True when ``name`` must not appear on a plan surface: the client
     excluded it, or it is not available through Joveo (in ``country``)."""
@@ -514,6 +524,13 @@ def is_excluded(name: Any, data: Any = None, country: Any = None) -> bool:
     brand = _brand_key(name)
     if (keys or brand) and (keys | ({brand} if brand else set())) & _user_keys(data):
         return True
+    # Excluding a board GROUP by name ("The Stepstone Group") excludes every
+    # member of it, country-scoped like the membership itself.
+    excluded_groups = _user_group_ids(data)
+    if excluded_groups:
+        hit = network_member(name, country)
+        if hit and hit["group_id"] in excluded_groups:
+            return True
     return availability_for(name, country) is not None
 
 
@@ -773,6 +790,13 @@ def _compute_mention_terms(data: Any, countries: Sequence[str]) -> Tuple[str, ..
     trailing country on a multi-country brand ("Indeed France") is dropped."""
     terms: List[str] = []
     for name in user_excluded(data):
+        group = network_group_for_query(name)
+        if group:  # a whole group: each member's own name, never an alias word
+            for member in group["_members"]:
+                term = _PAREN_RE.sub(" ", _fold(member["name"])).strip()
+                if term and term not in _COMMON_WORDS:
+                    terms.append(term)
+            continue
         if not is_known_board(name):
             continue  # structured lists only; never a prose pattern
         base = _PAREN_RE.sub(" ", _fold(name)).strip()
@@ -1312,7 +1336,7 @@ def _load_network_groups() -> List[Dict[str, Any]]:
 def _network_hit(group: Dict[str, Any], member: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "group": group["name"],
-        "group_id": group.get("id") or "",
+        "group_id": group.get("id") or group["name"],
         "member": member["name"],
         "status": group.get("status") or "In Joveo Network",
         "as_of": group.get("as_of") or "",
@@ -1328,7 +1352,7 @@ def network_member(name: Any, country: Any = None) -> Optional[Dict[str, Any]]:
 
     A member is scoped to its countries (``Jobs.ie`` is Ireland's, never
     ``Jobs.ch``); with no country known a member whose key is an ordinary word
-    is not matched at all."""
+    ("Jobs.ie" -> "jobs") is matched only by its exact name."""
     text = str(name or "").strip()
     if not text:
         return None
@@ -1345,8 +1369,12 @@ def network_member(name: Any, country: Any = None) -> Optional[Dict[str, Any]]:
             if want:
                 if member["_countries"] and want not in member["_countries"]:
                     continue
-            elif hit <= ordinary:
-                continue
+            elif hit <= ordinary and _fold(text) not in {
+                _fold(n)
+                for n in [member["name"]]
+                + [a for a in (member.get("aliases") or []) if isinstance(a, str)]
+            }:
+                continue  # an ordinary-word key matches by exact name only
             return _network_hit(group, member)
     return None
 
@@ -1394,6 +1422,31 @@ def network_lead_boards(country: Any) -> List[str]:
         for m in group["_members"]
         if want in m["_lead_in"]
     ]
+
+
+def network_search(term: Any, country: Any = None) -> List[str]:
+    """Group-board names a free-text publisher search names: every member of a
+    group queried by its own name, else the members (in ``country`` when one is
+    given, anywhere when not) whose name or alias equals the term or, for a
+    term of four letters or more, contains it."""
+    text = _fold(term).strip()
+    if len(text) < 3:
+        return []
+    group = network_group_for_query(text)
+    if group:
+        return network_member_names(group, country)
+    want = canonical_country(country)
+    found: List[str] = []
+    for grp in _load_network_groups():
+        for mem in grp["_members"]:
+            if want and mem["_countries"] and want not in mem["_countries"]:
+                continue
+            labels = [_fold(mem["name"])] + [
+                _fold(a) for a in (mem.get("aliases") or []) if isinstance(a, str)
+            ]
+            if any(text == lb or (len(text) >= 4 and text in lb) for lb in labels):
+                found.append(mem["name"])
+    return found
 
 
 def network_note(hit: Optional[Dict[str, Any]]) -> str:
@@ -1532,7 +1585,9 @@ def plan_market_board_gaps(data: Any) -> List[str]:
         country = canonical_country(country)
         if (
             not dataset_platform_names(country)
-            and not network_lead_boards(country)
+            # the market's group boards count only when the client has not
+            # excluded them all (and none is unavailable)
+            and not clean_names(network_lead_boards(country), data, country)
             and country not in gaps
         ):
             gaps.append(country)

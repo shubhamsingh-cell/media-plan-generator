@@ -37,8 +37,8 @@
           "countries": [
             "Austria"
           ],
-          "source": "https://www.thestepstonegroup.com/english/about-us/our-history/",
-          "basis": "Stepstone-branded national site named by the group's history page (Austria among the 2000 launch markets); stepstone.at resolved on 2026-10-17",
+          "source": "https://www.thestepstonegroup.com/english/jobseekers/find-a-job/",
+          "basis": "Country listed on the group's own find-a-job index; stepstone.at resolved on 2026-10-17",
           "lead_in": [
             "Austria"
           ]
@@ -52,8 +52,8 @@
           "countries": [
             "Belgium"
           ],
-          "source": "https://www.thestepstonegroup.com/english/about-us/our-history/",
-          "basis": "Stepstone-branded national site named by the group's history page (Belgium among the 2000 launch markets); stepstone.be resolved on 2026-10-17",
+          "source": "https://www.thestepstonegroup.com/english/jobseekers/find-a-job/",
+          "basis": "Country listed on the group's own find-a-job index; stepstone.be resolved on 2026-10-17",
           "lead_in": [
             "Belgium"
           ]
@@ -66,8 +66,8 @@
           "countries": [
             "Netherlands"
           ],
-          "source": "https://www.thestepstonegroup.com/english/about-us/our-history/",
-          "basis": "Stepstone-branded national site named by the group's history page (Netherlands among the 2000 launch markets); stepstone.nl resolved on 2026-10-17",
+          "source": "https://www.thestepstonegroup.com/english/jobseekers/find-a-job/",
+          "basis": "Country listed on the group's own find-a-job index; stepstone.nl resolved on 2026-10-17",
           "lead_in": [
             "Netherlands"
           ]
@@ -82,10 +82,8 @@
             "Denmark"
           ],
           "source": "https://www.thestepstonegroup.com/english/about-us/our-history/",
-          "basis": "Stepstone-branded national site named by the group's history page (Denmark among the 2000 launch markets); stepstone.dk resolved on 2026-10-17",
-          "lead_in": [
-            "Denmark"
-          ]
+          "basis": "Stepstone-branded national site; Denmark is named by the group's history page (2000 launch markets) but is NOT on the group's current find-a-job country index, so it is a network member but is never offered as a market's lead board",
+          "lead_in": []
         },
         {
           "name": "meinestadt.de",
