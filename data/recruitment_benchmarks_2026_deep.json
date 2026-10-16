@@ -2,7 +2,7 @@
   "metadata": {
     "title": "Deep Recruitment Benchmarks 2026 - CPC/CPA/CPH/Apply-Rate/Time-to-Fill",
     "description": "Comprehensive recruitment marketing benchmarks covering 12 industry verticals, 40 US metros with cost-of-living multipliers, and 7 primary recruitment channels. Every metric cites a public or syndicated source.",
-    "last_updated": "2026-06-13",
+    "last_updated": "2026-10-17",
     "version": "1.2",
     "data_period": "2024-01 through 2025-12 (rolling 24 months); CPH/time-to-fill benchmarks refreshed to SHRM 2025 + 2026 vintage on 2026-06-13",
     "vintage_note": "Per-vertical and per-channel CPC/CPA cells below are sourced primarily to Appcast 2025 (covering 2024 ad data), i.e. 2024-2025 vintage. The Appcast 2026 (10th Annual) report was verified as published on 2026-06-03 (covering 2025 data: 302M clicks, 27.4M applies, ~1,200 US employers) and its qualitative direction (CPA and CPH rose sharply in 2025; apply rates surged; remote roles lost footing) is recorded in source 'appcast_2026' and in market_context_2025. The 2026 report's detailed per-vertical CPC/CPA/CPH figures are gated behind a download form and could NOT be independently verified cell-by-cell, so those numeric cells were left at their cited 2024-2025 values rather than guessed. 2026-06-13 refresh: cost-per-hire and time-to-fill benchmarks were updated against newer tier-1 sources - SHRM 2025 Benchmarking Reports ($5,475 non-exec CPH, $35,879 exec CPH, ~44-day all-industry median TTF; sources shrm_cph_2025 / shrm_ttf_2025), iCIMS/Nucleus 2026 (20-25 day time-to-hire; icims_nucleus_2026), NSI 2026 (78-day experienced-RN TTF; nsi_rn_2026), and Indeed Hiring Lab 2026 (indeed_hiringlab_2026). The all-industry SHRM 2025 baseline CPH/TTF is recorded in cross_references.time_to_fill_benchmarks and cross_references.cost_per_hire_benchmarks_2025. Healthcare/nursing per-cell time_to_fill_days were lifted toward the NSI/SHRM 2025/2026 figures (the legacy shrm_*_2024 figures are retained in source_ids for traceability). Manufacturing/blue-collar, finance, and logistics/warehouse per-cell CPH figures from this round are only available via secondary aggregators (TimeClick, HireVelocity, Drive My Way) and are recorded with confidence:'low' and named sources in cross_references.aggregated_cph_ranges_low_confidence; the per-cell cph_range_usd values for those verticals were NOT overwritten with low-confidence aggregator numbers. Treat per-cell ad costs as a 2024-2025 floor and apply Appcast 2026's documented upward CPA/CPH trend when pricing 2026 plans.",
@@ -92,7 +92,7 @@
       "seasonal_pattern": "Demand peaks Jan-Mar (enrollment) and Aug-Oct (nursing school grads).",
       "dominant_channels": ["indeed", "programmatic", "niche_nursing_boards", "linkedin"],
       "notes": "Healthcare maintained highest-cost category status through 2024-2025 (Recruitics). CPA trending up +8% YoY. Indeed Hiring Lab 2026 (Dec 2025 data): healthcare = 47.5% of all 2025 US job growth, postings 22.6% above pre-pandemic, and 7 of the top 10 signing-bonus occupations were healthcare (physicians & surgeons 10.6% of postings offered signing bonuses; nursing 8.4%, down from 13.5% in Dec 2024).",
-      "source_ids": ["appcast_2025", "recruitics_tmi_2025", "shrm_cph_2025", "indeed_hiringlab_2026"]
+      "source_ids": ["appcast_2025", "recruitics_tmi_2025", "indeed_hiringlab_2026"]
     },
     "nursing": {
       "_description": "RN, LPN, CNA, travel nurses - drought market, licensed roles.",

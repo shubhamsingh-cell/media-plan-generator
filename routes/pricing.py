@@ -78,16 +78,19 @@ def build_live_pricing(role: str, location: str, industry: str) -> dict:
 
       * ``channels`` -- ``by_channel.*.typical_cpc_usd`` / ``typical_cpa_usd``,
         US ranges (low / median / high), NOT adjusted per industry, role or city;
-      * ``industry`` -- ``by_industry.<key>`` quartiles (p25 / median / p75) for
-        the industry / role, when one row clearly fits;
+      * ``industry`` -- ``by_industry.<key>`` CPC / CPA quartiles (p25 / median /
+        p75) for the industry / role, when one row clearly fits. The cost-per-hire
+        quartiles are Nova working estimates marked ``illustrative_unverified``
+        (provenance audit 2026-10-17), so ``cph`` is None with an empty source;
       * ``metro`` -- the SAME ``by_metro`` multipliers step 1 quotes
         (plan_copilot.metro_benchmark), shown beside the ranges, never applied.
 
     It used to be a hand-typed table (per-channel bases x an industry multiplier
     of 2.2 for healthcare x a city index with Los Angeles at 1.20 x a seniority
     multiplier), which disagreed with the benchmark file (Los Angeles 1.24) and
-    with the preview (every CPH above the nursing upper quartile), plus Adzuna /
-    Supabase overlays scaled by typed factors. Those are gone.
+    with the preview, plus Adzuna / Supabase overlays scaled by typed factors.
+    Those are gone, and the preview no longer grades cost per hire against
+    per-industry quartiles (cph_benchmark.lookup returns None for them).
     """
     import cph_benchmark
     import plan_copilot
