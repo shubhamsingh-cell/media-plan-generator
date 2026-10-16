@@ -13317,8 +13317,17 @@ def _generate_ab_test_template(
         f"Join {company} as a {job_title}. Enjoy {selected_benefits[0]}, "
         f"{selected_benefits[1]}, and {selected_benefits[2]}."
     )
+    # Possessive via the shared helper ("McDonald's" stays "McDonald's",
+    # "Services" -> "Services'"), with the deck's own fallback when
+    # display_format is unavailable -- the bare f"{company}'s" printed
+    # "McDonald's's" (2026-10-16 sweep).
+    company_possessive = (
+        display_format.possessive(company)
+        if display_format is not None
+        else f"{company}'s"
+    )
     desc_b = (
-        f"Be part of {company}'s {selected_cultures[0]}. As a {job_title}, "
+        f"Be part of {company_possessive} {selected_cultures[0]}. As a {job_title}, "
         f"you will experience {selected_cultures[1]}."
     )
 
@@ -23301,7 +23310,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     chunk.get("kb_files_queried") or []
                                 )
                                 _sse_timing_ms = chunk.get("timing_ms")
-                                _sse_media_plan_handoff = chunk.get("media_plan_handoff")
+                                _sse_media_plan_handoff = chunk.get(
+                                    "media_plan_handoff"
+                                )
                             elif chunk.get("type") in ("tool_start", "tool_complete"):
                                 # S18: Real-time tool status -- forward to client
                                 if not _sse_write(
