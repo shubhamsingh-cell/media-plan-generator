@@ -585,6 +585,11 @@ def _detect_country(location_str):
     space_parts = loc_lower.split()
     if len(space_parts) >= 2 and space_parts[-1] in _US_STATE_ABBREVS:
         return None  # This is a US location like "Indianapolis IN"
+    # "San Jose, Costa Rica": a registry country in the trailing token wins over
+    # the US-metro guard below (which would read the city part as San Jose, CA).
+    _tail_country = country_registry.trailing_country(location_str)
+    if _tail_country:
+        return _tail_country
     # Check if location matches a known US metro area — prevents "Indianapolis" matching "India"
     # Extract the city part (before comma or state abbreviation) for matching
     _city_part = loc_lower.split(",")[0].strip()
@@ -608,8 +613,15 @@ def _detect_country(location_str):
         if re.search(r"\b" + re.escape(country_lower) + r"\b", loc_lower):
             return country
     # Alias match — also require word boundary or exact positional match
+    _later_parts = [p.strip() for p in loc_lower.split(",")[1:]]
     for alias, country in COUNTRY_ALIASES.items():
-        if alias == loc_lower or f", {alias}" in loc_lower or f"({alias})" in loc_lower:
+        # ", uk" must be the WHOLE token: ", ukraine" is not the UK, ", serbia"
+        # is not Sweden (", se"), ", fiji" is not Finland (", fi")
+        if (
+            alias == loc_lower
+            or any(re.match(re.escape(alias) + r"(?![a-z0-9])", p) for p in _later_parts)
+            or f"({alias})" in loc_lower
+        ):
             # Extra guard: if alias is a US state abbreviation, skip it
             if alias in _US_STATE_ABBREVS:
                 continue
@@ -637,6 +649,7 @@ def _detect_country(location_str):
         "osaka": "Japan",
         "nagoya": "Japan",
         "milan": "Italy",
+        "milano": "Italy",
         "rome": "Italy",
         "turin": "Italy",
         "mumbai": "India",

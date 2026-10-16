@@ -145,11 +145,30 @@ _EXTRA_COUNTRIES: Dict[str, Tuple[Tuple[str, ...], Tuple[str, ...]]] = {
     ),
 }
 
-# Sizeable US places: never a bare-city match even if a future edit adds one to
-# the tables above.  (A bare COUNTRY name such as "Peru" is read as the country,
-# the way "Mexico" and "India" are; "City, ST" / "City, State" is always the US
-# place -- ``plan_geo.us_state_for_location`` runs first.)
-_BARE_CITY_DENYLIST = frozenset({"athens", "moscow", "alexandria"})
+# Bare city names that are ALSO US places (audited against data/geo/us_places.tsv
+# by tests/test_unknown_country_not_us.py): a bare "Odessa", "Medina" or "Lima"
+# keeps the existing (US-leaning / ambiguous) reading; the "City, Country" form
+# ("Odessa, Ukraine") still resolves abroad.  (A bare COUNTRY name such as
+# "Peru" is read as the country, the way "Mexico" and "India" are; "City, ST" /
+# "City, State" is always the US place -- ``plan_geo.us_state_for_location``.)
+_BARE_CITY_DENYLIST = frozenset(
+    {
+        "athens",
+        "moscow",
+        "alexandria",
+        "cairo",
+        "cartago",
+        "casablanca",
+        "lima",
+        "mecca",
+        "medina",
+        "odessa",
+        "saint petersburg",
+        "st petersburg",
+        "suez",
+        "tangier",
+    }
+)
 
 
 def _fold(text: Any) -> str:
@@ -193,19 +212,42 @@ def canonical_name(text: Any) -> Optional[str]:
 
 
 def _is_us_form(folded: str) -> bool:
-    """ "Lima, OH" / "Peru, Indiana" / "Lima OH": a US place, never a country."""
+    """ "Lima, OH" / "Peru, Indiana" / "Lima OH" / "Peru Indiana" / "Greece New
+    York": a US place, never a country."""
     try:
-        from plan_geo import US_STATE_ABBR, us_state_for_location
+        from plan_geo import US_STATE_ABBR, US_STATE_NAME_TO_ABBR, us_state_for_location
     except ImportError:  # pragma: no cover - plan_geo ships with the repo
         return False
     if us_state_for_location(folded):
         return True
-    tokens = folded.split()
-    return (
-        len(tokens) >= 2
-        and len(tokens[-1]) == 2
-        and tokens[-1].upper() in US_STATE_ABBR
-    )
+    text = re.sub(r"\s+\d{5}(?:-\d{4})?$", "", folded.rstrip(". "))  # trailing ZIP
+    tokens = text.split()
+    if len(tokens) < 2:
+        return False
+    if len(tokens[-1]) == 2 and tokens[-1].upper() in US_STATE_ABBR:
+        return True
+    # a trailing full state name without a comma, one or two words
+    for width in (2, 1):
+        if len(tokens) > width and " ".join(tokens[-width:]) in US_STATE_NAME_TO_ABBR:
+            return True
+    return False
+
+
+def trailing_country(location: Any) -> Optional[str]:
+    """Registry country named by the TRAILING token of a "City, Country" /
+    "City (Country)" string, else None.  Checked before a US-metro guard so
+    "San Jose, Costa Rica" is not read as San Jose, CA."""
+    if not isinstance(location, str) or not location.strip():
+        return None
+    folded = _fold(location)
+    if not folded or _is_us_form(folded):
+        return None
+    tail = folded.rsplit(",", 1)[-1].strip() if "," in folded else ""
+    paren = re.search(r"\(([^()]+)\)\s*$", folded)
+    for token in (tail, paren.group(1).strip() if paren else ""):
+        if token and token in _NAMES:
+            return _NAMES[token]
+    return None
 
 
 def detect_extra(location: Any) -> Optional[str]:

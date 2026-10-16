@@ -238,11 +238,20 @@ def _us_state_signal(loc_str: str) -> bool | None:
         return None
     if us_state_for_location(s):
         return True
-    tokens = [t for t in _SPLIT_RE.split(s) if t]
+    tokens = [t for t in _SPLIT_RE.split(_ZIP_TAIL_RE.sub("", s)) if t]
     if tokens:
         tail = tokens[-1]
         if len(tail) == 2 and tail.isalpha() and tail.upper() in US_STATE_ABBR:
             return True
+        # "Peru Indiana" / "Greece New York": a comma-less place + full state
+        # name (one or two words) is a US place, not a country.
+        lowered = [t.lower() for t in tokens]
+        for width in (2, 1):
+            if (
+                len(lowered) > width
+                and " ".join(lowered[-width:]) in US_STATE_NAME_TO_ABBR
+            ):
+                return True
     return None
 
 

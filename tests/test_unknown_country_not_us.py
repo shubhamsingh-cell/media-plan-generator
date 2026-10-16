@@ -31,13 +31,11 @@ _NO_ROW = {
 }
 _BARE = {
     "Istanbul": "Turkey",
-    "Lima": "Peru",
     "Riyadh": "Saudi Arabia",
     "Lagos": "Nigeria",
     "Bucharest": "Romania",
     "Taipei": "Taiwan",
     "Dhaka": "Bangladesh",
-    "Cairo": "Egypt",
 }
 _DATA = Path(__file__).resolve().parent.parent / "data"
 
@@ -243,3 +241,183 @@ def test_bundle_qa_raises_no_us_data_on_non_us_plan(bundles, tag):
     assert gate is not None, "bundle_qa gate did not run"
     codes = {f.get("code") for f in gate.get("findings") or []}
     assert "us_data_on_non_us_plan" not in codes, codes
+
+
+# --------------------------------------------------------------------------
+# Review round: bare names shared with US places, "Place State" forms, alias
+# prefix collisions, METRO guard
+# --------------------------------------------------------------------------
+
+_SHARED_BARE = [
+    "Lima",
+    "Cairo",
+    "Odessa",
+    "Medina",
+    "Mecca",
+    "St Petersburg",
+    "Saint Petersburg",
+    "Casablanca",
+    "Suez",
+    "Tangier",
+    "Cartago",
+    "Athens",
+    "Moscow",
+    "Alexandria",
+]
+
+
+@pytest.mark.parametrize("loc", _SHARED_BARE)
+def test_bare_name_shared_with_a_us_place_is_not_read_abroad(loc):
+    assert research._detect_country(loc) is None
+    assert country_registry_detect(loc) is None
+    assert research.get_location_info(loc)["country"] == "United States"
+    assert plan_geo.location_is_us(loc) is not False
+
+
+def country_registry_detect(loc):
+    import country_registry
+
+    return country_registry.detect_extra(loc)
+
+
+@pytest.mark.parametrize(
+    "loc,expected",
+    [
+        ("Odessa, Ukraine", "Ukraine"),
+        ("Medina, Saudi Arabia", "Saudi Arabia"),
+        ("St Petersburg, Russia", "Russia"),
+        ("Lima, Peru", "Peru"),
+        ("Cairo, Egypt", "Egypt"),
+        ("Casablanca, Morocco", "Morocco"),
+    ],
+)
+def test_city_country_form_still_resolves_abroad(loc, expected):
+    assert research._detect_country(loc) == expected
+
+
+def test_every_bare_registry_city_is_absent_from_the_us_gazetteer():
+    """Audit guard: a city name the US place gazetteer also holds must be in
+    the denylist, so a US-region plan never reads it abroad."""
+    import csv
+
+    import country_registry
+
+    def norm(text):
+        text = country_registry._fold(text).replace("saint ", "st ").replace(".", "")
+        return re.sub(r"[^a-z0-9]", "", text)
+
+    us = set()
+    with open(_DATA / "geo" / "us_places.tsv", encoding="utf-8") as fh:
+        for row in csv.DictReader(fh, delimiter="\t"):
+            us.add(norm(row["display_name"]))
+    metro = {norm(k.replace("_", " ")) for k in research.METRO_DATA}
+    clash = sorted(c for c in country_registry._CITIES if norm(c) in us | metro)
+    assert not clash, clash
+
+
+@pytest.mark.parametrize(
+    "loc",
+    [
+        "Peru Indiana",
+        "Peru Illinois",
+        "Greece New York",
+        "Egypt Texas",
+        "Turkey Texas",
+        "Peru IN 46970",
+        "Lima OH",
+        "Egypt North Carolina",
+        "Peru West Virginia",
+    ],
+)
+def test_place_state_without_a_comma_is_a_us_place(loc):
+    assert research._detect_country(loc) is None
+    assert plan_geo.location_is_us(loc) is True
+
+
+@pytest.mark.parametrize(
+    "loc,expected",
+    [
+        ("Kyiv, Ukraine", "Ukraine"),
+        ("Kharkiv, Ukraine", "Ukraine"),
+        ("Belgrade, Serbia", None),
+        ("Suva, Fiji", None),
+        ("Yangon, Myanmar", None),
+        ("Tallinn, Estonia", None),
+        ("London, UK", "United Kingdom"),
+        ("Mumbai, IN", None),
+        ("Paris, Serbia", "France"),
+    ],
+)
+def test_alias_must_be_the_whole_trailing_token(loc, expected):
+    # ", uk" matched inside ", ukraine"; ", se" inside ", serbia"; ", fi" in
+    # ", fiji"; ", my" in ", myanmar"; ", es" in ", estonia"
+    assert research._detect_country(loc) == expected
+
+
+def test_ukraine_is_not_the_united_kingdom():
+    info = research.get_location_info("Kyiv, Ukraine")
+    assert info["country"] == "Ukraine" and info["currency"] == "UAH"
+
+
+@pytest.mark.parametrize(
+    "loc,expected",
+    [
+        ("San Jose, Costa Rica", "Costa Rica"),
+        ("San José, Costa Rica", "Costa Rica"),
+        ("Valencia, Peru", "Peru"),
+        ("Portland, Turkey", "Turkey"),
+    ],
+)
+def test_registry_country_beats_the_us_metro_guard(loc, expected):
+    assert research._detect_country(loc) == expected
+    assert research.get_location_info(loc)["country"] == expected
+
+
+def test_us_san_jose_stays_us():
+    assert research._detect_country("San Jose, CA") is None
+    assert research.get_location_info("San Jose, CA")["country"] == "United States"
+
+
+@pytest.fixture(scope="module")
+def us_bundles(live_port):  # noqa: F811
+    import bundle_qa
+
+    captured: dict = {}
+    real_gate = bundle_qa.gate_bundle
+
+    def spy(pptx, xlsx, data, *a, **k):
+        out = real_gate(pptx, xlsx, data, *a, **k)
+        captured[str((data.get("locations") or [""])[0])] = out
+        return out
+
+    bundle_qa.gate_bundle = spy
+    try:
+        out = {}
+        for n, loc in enumerate(["Odessa", "Peru Indiana", "St Petersburg"], 1):
+            payload = dict(
+                _BASE,
+                client_name=f"Us Shared Name Fixture {n}",
+                locations=[loc],
+                target_region="us_only",
+                custom_countries=[],
+                competitors=["DHL"],
+            )
+            status, raw = post_json(live_port, "/api/generate", payload, timeout=300.0)
+            assert status == 200 and isinstance(raw, bytes), (loc, status)
+            out[loc] = (_read(raw), captured.get(loc) or next(iter(captured.values())))
+        return out
+    finally:
+        bundle_qa.gate_bundle = real_gate
+
+
+@pytest.mark.parametrize("loc", ["Odessa", "Peru Indiana", "St Petersburg"])
+def test_us_region_plan_with_a_shared_place_name_has_no_qa_criticals(us_bundles, loc):
+    (xlsx, deck), gate = us_bundles[loc]
+    summary = gate["summary"]
+    criticals = [
+        f for f in gate.get("findings") or [] if f.get("severity") == "critical"
+    ]
+    assert not criticals, [(f.get("code"), f.get("message")) for f in criticals]
+    texts = [t for _, t in xlsx + deck]
+    assert not [t for t in texts if t.strip() == "No country data"], summary
+    assert not [t for t in texts if re.search(r"Ukraine|Russia|Saudi", t)]
