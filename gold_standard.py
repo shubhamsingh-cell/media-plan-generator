@@ -5271,10 +5271,56 @@ def _without_us_holidays(events: list[str]) -> list[str]:
     return kept
 
 
-def _plan_has_us_market_gs(data: dict) -> bool:
+_TRAILING_PAREN_RE = re.compile(r"\(([^()]*)\)\s*$")
+
+
+def _labelled_us_holidays(events: list[str]) -> list[str]:
+    """Attribute each US-holiday event to the US for a plan that also spans
+    other countries -- a Canada leg must not read November "Thanksgiving"
+    as its own (Canadian Thanksgiving is in October): "Thanksgiving
+    staffing surge (US markets)", "... (often around July 4 in US
+    markets)", "Spring break peak hiring (Mar, US markets)"."""
+    out: list[str] = []
+    for event in events:
+        text = str(event)
+        if not _names_us_holiday(text):
+            out.append(text)
+            continue
+        m = _TRAILING_PAREN_RE.search(text)
+        if m:
+            joiner = " in " if _names_us_holiday(m.group(1)) else ", "
+            out.append(f"{text[: m.end(1)]}{joiner}US markets{text[m.end(1):]}")
+        else:
+            out.append(f"{text} (US markets)")
+    return out
+
+
+def _us_holiday_mode(data: dict) -> str:
+    """Per-country holiday gate. US holidays belong to US markets only:
+    ``"keep"`` for an all-US plan, ``"label"`` (attributed to the US) when
+    US and non-US markets mix, ``"drop"`` when the plan has no US market.
+    No other country's holidays are listed -- the repo holds no structured
+    holiday dataset for them -- so nothing is ever borrowed across borders."""
     if _plan_geo_gs is None:  # pragma: no cover - plan_geo ships with the repo
-        return True
-    return _plan_geo_gs.plan_has_us_market(data)
+        return "keep"
+    if not _plan_geo_gs.plan_has_us_market(data):
+        return "drop"
+    locs = data.get("locations") or []
+    if not isinstance(locs, (list, tuple)):
+        locs = [locs]
+    # Only a location that resolves definitively outside the US makes the
+    # plan mixed; an unresolvable one ("Remote") does not.
+    if any(_plan_geo_gs.location_is_us(loc) is False for loc in locs):
+        return "label"
+    return "keep"
+
+
+def _gate_us_holidays(events: list[str], mode: str) -> list[str]:
+    if mode == "drop":
+        return _without_us_holidays(events)
+    if mode == "label":
+        return _labelled_us_holidays(events)
+    return list(events)
 
 
 def _events_agreeing_with_label(events: list[str], hiring_intensity: str) -> list[str]:
@@ -5521,10 +5567,11 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
     # The window is the stated whole months, else the months the campaign
     # weeks reach; 12 when the length is unknown.
     window_months = campaign_window_months(data, campaign_month)
-    # US holidays only when the plan has a US market (2026-10-16: a London
-    # hospitality plan listed "Memorial Day staffing" and "Thanksgiving
-    # staffing surge"; a Munich plant plan "(often around July 4)").
-    _has_us_market = _plan_has_us_market_gs(data)
+    # US holidays only for US markets (2026-10-16: a London hospitality plan
+    # listed "Memorial Day staffing" and "Thanksgiving staffing surge", a
+    # Munich plant plan "(often around July 4)", a Canada plan US
+    # Thanksgiving in November). Mixed plans attribute them to the US.
+    _holiday_mode = _us_holiday_mode(data)
     timeline: list[dict[str, Any]] = []
     for offset in range(window_months):
         month_num = ((campaign_month - 1 + offset) % 12) + 1
@@ -5589,8 +5636,7 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
                 (ind_key, month_num), month_info["recommendation"]
             )
 
-        if not _has_us_market:
-            month_events = _without_us_holidays(list(month_events or []))
+        month_events = _gate_us_holidays(list(month_events or []), _holiday_mode)
 
         timeline.append(
             {
@@ -5686,8 +5732,7 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
         _INDUSTRY_EVENTS_SUMMARY.get(ind_key, []),
         {m["month"] for m in timeline},
     )
-    if not _has_us_market:
-        industry_events = _without_us_holidays(industry_events)
+    industry_events = _gate_us_holidays(industry_events, _holiday_mode)
 
     budget_phasing_note = _phasing_note_from_timeline(timeline)
     if _subvertical_profile:

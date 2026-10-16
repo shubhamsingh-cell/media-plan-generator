@@ -4886,6 +4886,21 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
                     _si_median = _si_data.get("median") or 0
                     _si_min = _si_data.get("min") or 0
                     _si_max = _si_data.get("max") or 0
+                    # One figure per role per deck: when the gold-standard
+                    # per-market rows price this role, print the SAME
+                    # resolved median (and band) the Role Breakdown slide
+                    # shows -- never the plan-level salary_intelligence
+                    # base beside a city-adjusted figure for the same role
+                    # (2026-10-16 sweep: $150K here vs $186K on slide 7).
+                    _si_resolved = None
+                    if _si_median and _si_median > 0:
+                        _si_gold = data.get("_gold_standard") or {}
+                        if not _role_breakdown_local_band(_si_gold, _si_role):
+                            _si_resolved = _role_salary_resolved(_si_gold, _si_role)
+                    if _si_resolved and _si_resolved["median"] > 0:
+                        _si_median = _si_resolved["median"]
+                        _si_min = _si_resolved["min"]
+                        _si_max = _si_resolved["max"]
                     if _si_median and _si_median > 0:
                         # C7: DOL H-1B/LCA, the US fallback table and
                         # "US-basis" driver wages are never converted to
@@ -4893,7 +4908,11 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
                         # USD symbol and mark them "US$" on a non-USD plan
                         # instead of silently relabeling a US dollar figure
                         # with this plan's local currency symbol.
-                        _si_force_usd = _salary_is_us_sourced(_si_data)
+                        _si_force_usd = (
+                            _si_resolved["usd"]
+                            if _si_resolved and _si_resolved["median"] > 0
+                            else _salary_is_us_sourced(_si_data)
+                        )
                         salary_str = _format_salary(_si_median, force_usd=_si_force_usd)
                         range_str = ""
                         if _si_min > 0 and _si_max > 0:
@@ -11160,11 +11179,32 @@ def _role_breakdown_median_salary(
     caller can append the same "(est.)" honesty marker the workbook uses.
     Returns ``(None, False)`` when no city has data for this role.
     """
+    rows = _role_salary_rows(gold, title)
+    if not rows:
+        return None, False
+    medians = [float(r["median"]) for r in rows]
+    any_estimated = any(r.get("confidence") == "estimated" for r in rows)
+    return sum(medians) / len(medians), any_estimated
+
+
+def _role_salary_rows(gold: Dict[str, Any], title: str) -> list:
+    """The per-city ``per_role_salary`` rows the deck prices ``title`` from
+    -- the ONE row set behind both the Situation card's "Salary Range"
+    (slide 2) and the Role Breakdown table (slide 7), so the same role can
+    never show two medians in one deck (2026-10-16 sweep: ADP Software
+    Engineer "$150K median" on slide 2, "$186K" on slide 7 -- slide 2 read
+    the plan-level salary_intelligence base, slide 7 the city-adjusted
+    rows).
+
+    Withheld non-US rows (audit F 3.4) and rows without a numeric median
+    are skipped. When the shown rows carry more than one currency (a mixed
+    US + non-US plan), only the USD rows are kept: a GBP band averaged into
+    US-dollar medians is no figure at all.
+    """
     city_level = gold.get("city_level_data") if isinstance(gold, dict) else None
     if not isinstance(city_level, dict) or not city_level:
-        return None, False
-    medians: list = []
-    any_estimated = False
+        return []
+    rows: list = []
     for city_info in city_level.values():
         if not isinstance(city_info, dict):
             continue
@@ -11175,17 +11215,43 @@ def _role_breakdown_median_salary(
         if not isinstance(sal, dict) or sal.get("local_salary_na"):
             # A withheld non-US row is not a $0 salary (audit F 3.4).
             continue
-        median = sal.get("median")
         try:
-            median = float(median)
+            float(sal.get("median"))
         except (TypeError, ValueError):
             continue
-        medians.append(median)
-        if sal.get("confidence") == "estimated":
-            any_estimated = True
-    if not medians:
-        return None, False
-    return sum(medians) / len(medians), any_estimated
+        rows.append(sal)
+    currencies = {str(r.get("currency") or "").upper() for r in rows}
+    if len(currencies) > 1:
+        rows = [r for r in rows if str(r.get("currency") or "").upper() == "USD"]
+    return rows
+
+
+def _role_salary_resolved(
+    gold: Dict[str, Any], title: str
+) -> Optional[Dict[str, Any]]:
+    """``{"median", "min", "max", "estimated", "usd"}`` for ``title`` from
+    :func:`_role_salary_rows` (equal weight per market), or None when no
+    market has a figure. ``usd`` mirrors :func:`_role_breakdown_salary_basis`."""
+    rows = _role_salary_rows(gold, title)
+    if not rows:
+        return None
+
+    def _avg(key: str) -> float:
+        vals = []
+        for r in rows:
+            try:
+                vals.append(float(r.get(key)))
+            except (TypeError, ValueError):
+                continue
+        return sum(vals) / len(vals) if vals else 0.0
+
+    return {
+        "median": _avg("median"),
+        "min": _avg("min"),
+        "max": _avg("max"),
+        "estimated": any(r.get("confidence") == "estimated" for r in rows),
+        "usd": all(str(r.get("currency") or "").upper() == "USD" for r in rows),
+    }
 
 
 def _role_breakdown_salary_basis(gold: Dict[str, Any], title: str) -> "tuple[bool, bool]":
@@ -11211,7 +11277,10 @@ def _role_breakdown_salary_basis(gold: Dict[str, Any], title: str) -> "tuple[boo
     shown = [r for r in rows if not r.get("local_salary_na")]
     if not shown:
         return True, False
-    usd = all(str(r.get("currency") or "").upper() == "USD" for r in shown)
+    # The currency of the rows the median is actually averaged from (a
+    # mixed-currency set keeps only its USD rows -- _role_salary_rows).
+    basis = _role_salary_rows(gold, title) or shown
+    usd = all(str(r.get("currency") or "").upper() == "USD" for r in basis)
     return False, usd
 
 

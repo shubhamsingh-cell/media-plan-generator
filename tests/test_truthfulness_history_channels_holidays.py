@@ -245,11 +245,35 @@ def test_non_us_plans_print_no_us_holidays():
     generic = _gated(_plan(industry="general_entry_level", locations=["Toronto, ON, Canada"]))
     assert not [e for e in _calendar_text(generic) if _US_HOLIDAY.search(e)]
 
+    # Canadian Thanksgiving is in October: US Thanksgiving in November must
+    # not appear on a Canada-only plan (2026-10-16 sweep, x_canada_cad F73).
+    canada = _gated(_plan(locations=["Toronto, ON, Canada", "Vancouver, BC, Canada"]))
+    assert not [e for e in _calendar_text(canada) if _US_HOLIDAY.search(e)]
 
-@pytest.mark.parametrize(
-    "locations", [["Dallas, TX"], ["Dallas, TX", "London, UK"]]
-)
-def test_plans_with_a_us_market_keep_us_holidays(locations):
-    events = _calendar_text(_gated(_plan(locations=locations)))
+
+def test_us_plan_keeps_us_holidays_unlabelled():
+    events = _calendar_text(_gated(_plan(locations=["Dallas, TX", "Remote"])))
     assert "Memorial Day staffing" in events
     assert "Thanksgiving staffing surge" in events
+
+
+def test_mixed_plan_attributes_us_holidays_to_us_markets():
+    data = _gated(_plan(locations=["Dallas, TX", "Toronto, ON, Canada"]))
+    events = _calendar_text(data)
+    assert "Memorial Day staffing (US markets)" in events
+    assert "Thanksgiving staffing surge (US markets)" in events
+    assert "Spring break peak hiring (Mar, US markets)" in events
+    unlabelled = [e for e in events if _US_HOLIDAY.search(e) and "US markets" not in e]
+    assert not unlabelled, unlabelled
+
+    plant = _gated(
+        _plan(industry="manufacturing", locations=["Dallas, TX", "Munich, Germany"])
+    )
+    july = next(
+        m for m in plant["_gold_standard"]["activation_calendar"]["timeline"]
+        if m["month"] == 7
+    )
+    assert (
+        "Summer plant shutdown / maintenance week (often around July 4 in US markets)"
+        in july["key_events"]
+    ), july["key_events"]

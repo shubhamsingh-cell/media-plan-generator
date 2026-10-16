@@ -2173,10 +2173,24 @@ def _mark_usd(text: str) -> str:
     return re.sub(r"(?<![A-Za-z])\$", "US$", text)
 
 
-_US_ONLY_SENTENCE_SPLIT_RE = re.compile(r"(?<=;)\s+|(?<=\.)\s+(?=[A-Z(])")
+# Never split after the abbreviation "U.S." ("47.5% of total U.S. TV viewing
+# time" is one sentence): splitting there dropped "...of total U.S." and
+# left the orphan fragment "TV viewing time (December 2025)".
+_US_ONLY_SENTENCE_SPLIT_RE = re.compile(
+    r"(?<=;)\s+|(?<!U\.S\.)(?<=\.)\s+(?=[A-Z(])"
+)
 
 
-def _strip_us_only_sentences(text: str) -> str:
+# A clause that labels its statistic as a US figure ("US Remote Rate: 22.8%
+# of US employees", "Average US cost per hire", "30% of the U.S. workforce",
+# "112+ million Americans", "US-based"). "US$" (this module's own
+# declare-not-convert currency marker) and "USD" are currency, not a label.
+_US_LABELLED_RE = re.compile(
+    r"(?<![\w$])US(?![\w$])|U\.S\.|\bAmericans?\b|\bUnited States\b|\bCensus Bureau\b"
+)
+
+
+def _strip_us_only_sentences(text: str, drop_us_labelled: bool = False) -> str:
     """Drop only the US-only-marked SENTENCES from ``text``, keeping the
     rest -- never the whole line.
 
@@ -2200,13 +2214,24 @@ def _strip_us_only_sentences(text: str) -> str:
     Returns ``""`` (never partial/mangled text) when every sentence in
     ``text`` carries a marker, so the existing "whole item empty -> drop
     it" behavior at each call site is unchanged for a fully US-only line.
+
+    ``drop_us_labelled`` (a plan with NO US market, 2026-10-16 sweep: 9-14
+    cells per non-US plan such as "US Remote Rate: 22.8% of US employees",
+    "US Ctv Users 2026: 69.9% of US population") also drops every sentence
+    that labels its figure as a US statistic (:data:`_US_LABELLED_RE`) --
+    omitted, never relabelled.
     """
     if not text:
         return text
     sentences = [s for s in _US_ONLY_SENTENCE_SPLIT_RE.split(text) if s.strip()]
     if not sentences:
         return text
-    kept = [s for s in sentences if not us_only_markers.has_us_only_marker(s)]
+    kept = [
+        s
+        for s in sentences
+        if not us_only_markers.has_us_only_marker(s)
+        and not (drop_us_labelled and _US_LABELLED_RE.search(s))
+    ]
     if len(kept) == len(sentences):
         return text
     return "; ".join(s.rstrip("; ").strip() for s in kept)
@@ -4907,6 +4932,15 @@ def _sanitize_narrative_competitor_claims(
         return text, status
 
 
+# Output cap for every executive-narrative call (TASK_PLAN_NARRATIVE).
+# Claude Sonnet 5.5 runs adaptive thinking by default and thinking tokens
+# count toward max_tokens: the old 600 cap was spent entirely on thinking
+# (prod jobs 10-08 and 10-09 logged "out=600", empty text, fallback_template:
+# the template narrative shipped instead of the LLM one). The narrative itself
+# is 4-5 sentences; 4096 leaves room for thinking plus that text.
+_NARRATIVE_MAX_TOKENS = 4096
+
+
 def _is_llm_concurrency_busy_error(error_text: str) -> bool:
     """True when `error_text` is llm_router's global concurrency-limiter
     rejection (`_llm_concurrency_semaphore` full, ``attempts=[]`` -- no
@@ -6619,7 +6653,7 @@ def _build_sheet_executive_summary(
             messages=[{"role": "user", "content": _narrative_prompt}],
             system_prompt=_narrative_system_prompt,
             task_type=TASK_PLAN_NARRATIVE,  # S48: Route narratives to fast-prose providers
-            max_tokens=600,
+            max_tokens=_NARRATIVE_MAX_TOKENS,
             timeout_budget=25.0,
         )
         exec_narrative = _exec_result.get("text") or ""
@@ -6655,7 +6689,7 @@ def _build_sheet_executive_summary(
                             messages=[{"role": "user", "content": _narrative_prompt}],
                             system_prompt=_narrative_system_prompt,
                             task_type=TASK_PLAN_NARRATIVE,
-                            max_tokens=600,
+                            max_tokens=_NARRATIVE_MAX_TOKENS,
                             timeout_budget=25.0,
                         )
                     except Exception as exc:
@@ -6763,7 +6797,7 @@ def _build_sheet_executive_summary(
                         "generic platitudes."
                     ),
                     task_type=TASK_PLAN_NARRATIVE,
-                    max_tokens=600,
+                    max_tokens=_NARRATIVE_MAX_TOKENS,
                     timeout_budget=20.0,
                 )
                 _retry_narrative = _retry_result.get("text") or ""
@@ -9219,6 +9253,13 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             _wf_is_us = _is_us_plan(data)
         except Exception:  # noqa: BLE001
             _wf_is_us = True
+        # A plan with no US market at all also loses every US-labelled stat
+        # sentence (US remote rate, US CTV users, ...); a mixed US + non-US
+        # plan keeps them -- they describe its US markets.
+        try:
+            _wf_no_us_market = not plan_geo.plan_has_us_market(data)
+        except Exception:  # noqa: BLE001
+            _wf_no_us_market = False
 
         _wf_any_written = False
 
@@ -9238,7 +9279,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     if not val_str:
                         continue
                     if not _wf_is_us:
-                        val_str = _strip_us_only_sentences(val_str)
+                        val_str = _strip_us_only_sentences(val_str, _wf_no_us_market)
                         if not val_str:
                             continue
                     _wf_kv_rows.append((k.replace("_", " ").title(), val_str))
@@ -9273,7 +9314,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     if not val_str:
                         continue
                     if not _wf_is_us:
-                        val_str = _strip_us_only_sentences(val_str)
+                        val_str = _strip_us_only_sentences(val_str, _wf_no_us_market)
                         if not val_str:
                             continue
                     _wf_list_items.append(val_str)
@@ -9299,7 +9340,7 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             elif isinstance(section_val, (str, int, float, bool)):
                 val_str = _wf_text(section_val)
                 if val_str and not _wf_is_us:
-                    val_str = _strip_us_only_sentences(val_str)
+                    val_str = _strip_us_only_sentences(val_str, _wf_no_us_market)
                 if val_str:
                     row = _write_kv_row(ws, row, section_label, val_str)
                     _wf_any_written = True
@@ -9911,6 +9952,24 @@ def _build_warehouse_provenance(ws, data: dict, row: int) -> int:
     return row
 
 
+def _with_display_client_name(text: Any, data: dict) -> str:
+    """``text`` with every differently-cased occurrence of the client name
+    rewritten to the workbook's display casing (``data["client_name"]``,
+    already normalised by :func:`_proper_client_name` before any sheet is
+    built). Upstream sentences embed the name as the client typed it --
+    2026-10-16 sweep: Sources & Confidence D21:F25 read "THE HERSHEY
+    COMPANY" while every other sheet read "The Hershey Company" (10
+    bundle_qa client_name_wrong_casing criticals)."""
+    text = str(text or "")
+    name = _proper_client_name(str(data.get("client_name") or "").strip())
+    if not text or not name or name == "Client":
+        return text
+    pattern = re.compile(
+        r"(?<!\w)" + re.escape(name) + r"(?!\w)", re.IGNORECASE
+    )
+    return pattern.sub(lambda _m: name, text)
+
+
 def _client_history_note_text(data: dict) -> str:
     """One-line summary of the client's uploaded campaign history
     (``data["historical_performance"]``, from file_processor
@@ -10175,13 +10234,16 @@ def _build_sheet_sources(ws, data: dict):
 
             # S5 (2026-07-03, finding 39): never hard-truncate mid-word --
             # write the full text and wrap/tallen the row instead.
-            reason_val = warn.get("reason") or ""
+            # data_synthesizer writes these sentences with the client name
+            # as received ("THE HERSHEY COMPANY"); print it in the casing
+            # every other sheet uses.
+            reason_val = _with_display_client_name(warn.get("reason") or "", data)
             values = [
                 warn.get("location", ""),
                 severity,
                 reason_val,
                 warn.get("known_states_display") or "—",
-                warn.get("suggestion") or "",
+                _with_display_client_name(warn.get("suggestion") or "", data),
             ]
             fills_list = [None, sev_fill, None, None, None]
             fonts_list = [None, sev_font, None, None, None]

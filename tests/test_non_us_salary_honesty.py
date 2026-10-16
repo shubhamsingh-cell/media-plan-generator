@@ -192,7 +192,14 @@ def test_columbus_retail_deck_prints_band_salary(columbus):
     # "$86K": a channel allocation can legitimately total "$86K" ("Programmatic
     # (DSP) $86K") once the CPC ladder moves, and that is not a salary.
     assert "$86K (est.)" not in text and "$90K median" not in text
-    assert "$35K median ($28K-$42K) - Retail Sales Associate" in " ".join(slides[2])
+    # Slide 2 prints the SAME resolved figure as the Role Breakdown (the
+    # role's $28K-$42K band x Columbus's city multiplier) -- 2026-10-16: it
+    # used to print the unadjusted "$35K median ($28K-$42K)" beside slide
+    # 7's "$34K (est.)" for the same role.
+    assert "$34K median ($27K-$40K) - Retail Sales Associate" in " ".join(slides[2])
+    rb = next(i for i, ts in slides.items() if "Role Breakdown" in ts)
+    cells = slides[rb]
+    assert cells[cells.index("Retail Sales Associate") + 2] == "$34K (est.)"
 
 
 # --------------------------------------------------------------------------
