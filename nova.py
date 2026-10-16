@@ -3053,6 +3053,79 @@ def _extract_session_id(conversation_history: Optional[list] = None) -> str:
     return "default"
 
 
+def _turn_conversation_id() -> str:
+    """Conversation id of the chat turn running on this thread ("" if none)."""
+    try:
+        state = _get_turn_tool_capture() or {}
+        return str(state.get("conversation_id") or "").strip()
+    except Exception:
+        return ""
+
+
+def _conversation_memory_context() -> str:
+    """Memory block for THIS conversation only; "" when the turn has no id.
+
+    Memory used to live in one shared "default" bucket, so any user's saved
+    summaries and "User said: ..." facts were injected into every other
+    user's prompt. It is now keyed by the client conversation id; a request
+    with no id neither reads nor writes memory.
+    """
+    cid = _turn_conversation_id()
+    if not cid:
+        return ""
+    try:
+        from nova_memory import get_conversation_memory
+
+        memory = get_conversation_memory(cid)
+        return memory.get_context_injection() if memory is not None else ""
+    except Exception:
+        logger.error("Conversation memory injection failed", exc_info=True)
+        return ""
+
+
+_MEMORY_STATEMENT_KEYWORDS = (
+    "prefer",
+    "always",
+    "never",
+    "my budget",
+    "our company",
+    "i work",
+)
+
+
+def _save_conversation_memory(
+    conversation_id: str, history: list, message: str, response_text: str
+) -> bool:
+    """Persist a turn summary (and stated preferences) for ONE conversation.
+
+    Returns False without touching storage when there is no conversation id
+    or no response, so id-less requests can never populate shared memory.
+    """
+    cid = str(conversation_id or "").strip()
+    if not cid or not response_text:
+        return False
+    try:
+        from nova_memory import get_conversation_memory
+
+        memory = get_conversation_memory(cid)
+        if memory is None:
+            return False
+        memory.save_conversation_summary(
+            cid,
+            list(history or [])
+            + [
+                {"role": "user", "text": message},
+                {"role": "assistant", "text": response_text},
+            ],
+        )
+        if any(kw in message.lower() for kw in _MEMORY_STATEMENT_KEYWORDS):
+            memory.learn_fact(f"User said: {message[:200]}", category="user_statement")
+        return True
+    except Exception:
+        logger.error("Memory save failed", exc_info=True)
+        return False
+
+
 def _inject_user_profile_context(
     conversation_history: Optional[list] = None,
     session_id: str = "",
@@ -3072,7 +3145,13 @@ def _inject_user_profile_context(
     try:
         from nova_memory import get_user_profile
 
-        sid = session_id or _extract_session_id(conversation_history) or "default"
+        sid = session_id or _extract_session_id(conversation_history)
+        if not sid or sid == "default":
+            # The turn's own conversation id; never the shared "default"
+            # profile, which would hand one user's roles/locations to another.
+            sid = _turn_conversation_id()
+        if not sid:
+            return ""
         profile = get_user_profile(sid)
         return profile.get_context_injection()
     except Exception:
@@ -20376,15 +20455,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 )
 
         # Inject persistent memory (cross-session context)
-        try:
-            from nova_memory import get_memory
-
-            memory = get_memory()
-            memory_context = memory.get_context_injection()
-            if memory_context:
-                system_prompt += memory_context
-        except Exception:
-            pass  # Memory is optional enhancement
+        memory_context = _conversation_memory_context()
+        if memory_context:
+            system_prompt += memory_context
 
         # Inject user personalization profile (S18 -- free LLM no-tools path)
         system_prompt += _inject_user_profile_context(conversation_history)
@@ -20814,15 +20887,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 )
 
         # Inject persistent memory (cross-session context)
-        try:
-            from nova_memory import get_memory
-
-            memory = get_memory()
-            memory_context = memory.get_context_injection()
-            if memory_context:
-                system_prompt += memory_context
-        except Exception:
-            pass  # Memory is optional enhancement
+        memory_context = _conversation_memory_context()
+        if memory_context:
+            system_prompt += memory_context
 
         # Inject user personalization profile (S18 -- free LLM tools path)
         system_prompt += _inject_user_profile_context(conversation_history)
@@ -21887,15 +21954,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 )
 
         # Inject persistent memory (cross-session context)
-        try:
-            from nova_memory import get_memory
-
-            memory = get_memory()
-            memory_context = memory.get_context_injection()
-            if memory_context:
-                dynamic_parts.append(f"## CROSS-SESSION MEMORY\n{memory_context}")
-        except Exception:
-            pass  # Memory is optional enhancement
+        memory_context = _conversation_memory_context()
+        if memory_context:
+            dynamic_parts.append(f"## CROSS-SESSION MEMORY\n{memory_context}")
 
         # Inject user personalization profile (S18 -- Claude API path)
         _profile_ctx_claude = _inject_user_profile_context(conversation_history)
@@ -22943,15 +23004,16 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 _budget_num = int(_budget_val)
                 # Save to memory + user context
                 try:
-                    from nova_memory import get_memory
+                    from nova_memory import get_conversation_memory
 
-                    _mem = get_memory(session_id)
-                    _mem.learn_fact(
-                        f"User's campaign budget is ${_budget_num:,}",
-                        category="user_context",
-                    )
+                    _mem = get_conversation_memory(session_id)
+                    if _mem is not None:
+                        _mem.learn_fact(
+                            f"User's campaign budget is ${_budget_num:,}",
+                            category="user_context",
+                        )
                 except Exception:
-                    pass
+                    logger.error("Budget memory save failed", exc_info=True)
                 # Update conversation context (LRU-bounded, thread-safe).
                 with self._conversations_lock:
                     sess = self._conversations.get(session_id)
@@ -27786,67 +27848,43 @@ def handle_chat_request(
                     exc_info=True,
                 )
 
-        # Save conversation to memory
-        try:
-            from nova_memory import get_memory
-
-            memory = get_memory()
-            conv_id = request_data.get("conversation_id") or ""
-            response_text = result.get("response") or ""
-            if conv_id and response_text:
-                memory.save_conversation_summary(
-                    conv_id,
-                    history
-                    + [
-                        {"role": "user", "text": message},
-                        {"role": "assistant", "text": response_text},
-                    ],
-                )
-                # Learn facts from conversation
-                if any(
-                    kw in message.lower()
-                    for kw in [
-                        "prefer",
-                        "always",
-                        "never",
-                        "my budget",
-                        "our company",
-                        "i work",
-                    ]
-                ):
-                    memory.learn_fact(
-                        f"User said: {message[:200]}", category="user_statement"
-                    )
-        except Exception as e:
-            logger.warning("Memory save failed: %s", e, exc_info=True)
+        # Save conversation to memory (scoped to this conversation id)
+        _save_conversation_memory(
+            request_data.get("conversation_id") or "",
+            history,
+            message,
+            result.get("response") or "",
+        )
 
         # Update user profile for personalization (S18)
-        try:
-            from nova_memory import update_user_profile
+        # No conversation id means no owner: skip, never share a bucket.
+        if (request_data.get("conversation_id") or "").strip():
+            try:
+                from nova_memory import update_user_profile
 
-            _profile_sid = request_data.get("conversation_id") or "default"
-            _tools_used_list = (
-                result.get("tools_used") or [] if isinstance(result, dict) else []
-            )
-            _updated_profile = update_user_profile(
-                _profile_sid, message, _tools_used_list
-            )
+                _profile_sid = (request_data.get("conversation_id") or "").strip()
+                _tools_used_list = (
+                    result.get("tools_used") or [] if isinstance(result, dict) else []
+                )
+                _updated_profile = update_user_profile(
+                    _profile_sid, message, _tools_used_list
+                )
 
-            # Restore profile from frontend localStorage if provided
-            _frontend_profile = request_data.get("user_profile")
-            if (
-                isinstance(_frontend_profile, dict)
-                and _updated_profile.query_count <= 1
-            ):
-                _updated_profile.from_dict(_frontend_profile)
-                # Re-update with current query to merge
-                _updated_profile.update(message, _tools_used_list)
+                # Restore profile from frontend localStorage if provided
+                _frontend_profile = request_data.get("user_profile")
+                if (
+                    isinstance(_frontend_profile, dict)
+                    and _updated_profile.query_count <= 1
+                ):
+                    _updated_profile.from_dict(_frontend_profile)
+                    # Re-update with current query to merge
+                    _updated_profile.update(message, _tools_used_list)
 
-            # Attach profile to response for frontend localStorage persistence
-            if isinstance(result, dict):
-                result["user_profile"] = _updated_profile.to_dict()
-        except Exception as _prof_err:
-            logger.debug("User profile update failed (non-blocking): %s", _prof_err)
+                # Attach profile to response for frontend localStorage persistence
+                if isinstance(result, dict):
+                    result["user_profile"] = _updated_profile.to_dict()
+            except Exception as _prof_err:
+                logger.debug("User profile update failed (non-blocking): %s", _prof_err)
 
         # Feature B: Persist this turn's tool outputs into the multi-turn
         # cache (in-memory + Supabase). The thread-local capture was

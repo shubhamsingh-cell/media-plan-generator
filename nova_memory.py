@@ -11,13 +11,14 @@ Architecture:
 - Storage: Supabase nova_memory table + local fallback
 """
 
+import hashlib
 import json
 import logging
 import os
 import re
 import time
 import threading
-from collections import Counter, deque
+from collections import Counter, OrderedDict, deque
 from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -30,8 +31,11 @@ _SUMMARY_MAX_CHARS = 500  # Max chars per conversation summary
 class NovaMemory:
     """Persistent memory manager for Nova AI."""
 
-    def __init__(self, user_id: str = "default"):
+    def __init__(self, user_id: str = "default", persist_local: bool = True):
         self._user_id = user_id
+        # Conversation-scoped instances skip the data/ JSON fallback: one file
+        # per conversation would grow without bound.
+        self._persist_local = persist_local
         self._short_term: deque = deque(maxlen=_MAX_SHORT_TERM)
         self._long_term: list = []
         self._preferences: dict = {}
@@ -92,7 +96,7 @@ class NovaMemory:
         # Local fallback
         try:
             mem_file = os.path.join("data", f"nova_memory_{self._user_id}.json")
-            if os.path.exists(mem_file):
+            if self._persist_local and os.path.exists(mem_file):
                 with open(mem_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 for entry in data.get("short_term") or []:
@@ -245,6 +249,8 @@ class NovaMemory:
             logger.debug("[NovaMemory] Supabase persist failed: %s", e)
 
         # Local fallback
+        if not self._persist_local:
+            return
         try:
             mem_file = os.path.join("data", f"nova_memory_{self._user_id}.json")
             existing: dict = {"short_term": [], "long_term": [], "preferences": {}}
@@ -710,11 +716,62 @@ _memory_instances: dict = {}
 _global_lock = threading.Lock()
 
 
-def get_memory(user_id: str = "default") -> NovaMemory:
-    """Get or create a NovaMemory instance for a user."""
+def get_memory(user_id: str) -> NovaMemory:
+    """Get or create a NovaMemory instance for an explicit user_id.
+
+    There is deliberately no default: a shared "default" bucket leaked one
+    user's summaries and facts into every other user's system prompt. Chat
+    code goes through :func:`get_conversation_memory` instead.
+    """
     with _global_lock:
         if user_id not in _memory_instances:
             mem = NovaMemory(user_id)
             mem.load()
             _memory_instances[user_id] = mem
         return _memory_instances[user_id]
+
+
+_MAX_CONVERSATION_MEMORIES = 500  # LRU cap on per-conversation instances
+_conversation_memories: "OrderedDict[str, NovaMemory]" = OrderedDict()
+
+
+def conversation_memory_key(conversation_id: Optional[str]) -> str:
+    """Return the storage key for a client conversation id ("" when absent).
+
+    The id is client supplied, so it is hashed: it never reaches a file path
+    or a database filter verbatim, and it can never collide with a legacy
+    bucket such as "default".
+    """
+    cid = str(conversation_id or "").strip()
+    if not cid:
+        return ""
+    return "conv_" + hashlib.sha256(cid.encode("utf-8")).hexdigest()[:32]
+
+
+def get_conversation_memory(conversation_id: Optional[str]) -> Optional[NovaMemory]:
+    """Get the memory scoped to one conversation, or None without an id.
+
+    None means "do not save and do not inject": a request that carries no
+    conversation id has no owner, so it must not read or write shared memory.
+    """
+    key = conversation_memory_key(conversation_id)
+    if not key:
+        return None
+    with _global_lock:
+        mem = _conversation_memories.get(key)
+        if mem is not None:
+            _conversation_memories.move_to_end(key)
+            return mem
+    # Load outside the global lock (Supabase round trip); a racing duplicate
+    # load is harmless because the first stored instance wins below.
+    fresh = NovaMemory(key, persist_local=False)
+    try:
+        fresh.load()
+    except Exception as exc:  # load() isolates its own errors; belt and braces
+        logger.error("[NovaMemory] conversation load failed: %s", exc, exc_info=True)
+    with _global_lock:
+        mem = _conversation_memories.setdefault(key, fresh)
+        _conversation_memories.move_to_end(key)
+        while len(_conversation_memories) > _MAX_CONVERSATION_MEMORIES:
+            _conversation_memories.popitem(last=False)
+        return mem
