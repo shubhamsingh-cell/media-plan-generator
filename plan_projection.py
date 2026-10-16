@@ -292,32 +292,34 @@ def _cpa_range(
     engine_cpa: float, kb: Optional[Dict[str, Any]]
 ) -> Tuple[float, float, Optional[str]]:
     """(low, high, note) for cost per application -- see the module docstring.
-    ``note`` is the cited form (file + key); ``cpa_note_short`` derives the
-    on-screen form from the same facts."""
+
+    The range is the HULL of the engine figure and the knowledge base's band:
+    ``[min(engine, kb_low), max(engine, kb_high)]``. That makes it continuous
+    and monotone in the engine figure (a $14.77 engine CPA against a $14.78
+    benchmark low no longer yields a $0.01-wide range while $14.79 yields
+    $14.79-$89), never narrower than the KB band, and it keeps the engine
+    figure as the low end whenever the engine is cheaper than the benchmark.
+    ``note`` is the cited form (file + key)."""
     if not kb or engine_cpa <= 0:
         return engine_cpa, engine_cpa, None
     lo, hi = float(kb["low"]), float(kb["high"])
     where = "sub-role" if kb.get("scope") == "sub_role" else "industry"
     band = f"{_money(lo)}\u2013{_money(hi)}"
     cite = f"({where}; source: {kb['source']})"
+    low, high = min(engine_cpa, lo), max(engine_cpa, hi)
     if engine_cpa < lo:
-        return (
-            engine_cpa,
-            lo,
+        note = (
             f"Industry benchmarks run higher: {band} per application {cite}. "
-            f"The modelled {_money(engine_cpa)} is the optimistic end.",
+            f"The modelled {_money(engine_cpa)} is the optimistic end."
         )
-    if engine_cpa <= hi:
-        return (
-            engine_cpa,
-            max(hi, engine_cpa),
-            f"Industry benchmark range {band} per application {cite}.",
+    elif engine_cpa <= hi:
+        note = (
+            f"Industry benchmark range {band} per application {cite}; "
+            f"the modelled {_money(engine_cpa)} sits inside it."
         )
-    return (
-        lo,
-        engine_cpa,
-        f"Industry benchmarks run lower: {band} per application {cite}.",
-    )
+    else:
+        note = f"Industry benchmarks run lower: {band} per application {cite}."
+    return low, high, note
 
 
 def _symbol_for(code: str) -> str:
@@ -362,6 +364,8 @@ def ranges_from_engine_result(
     role_titles: Optional[List[str]] = None,
     knowledge_base: Optional[Dict[str, Any]] = None,
     symbol: Optional[str] = None,
+    display_currency: Optional[str] = None,
+    non_us_market: bool = False,
 ) -> Dict[str, Any]:
     """Build the projection dict from an existing ``calculate_budget_allocation``
     result. Pure; used by ``project_plan`` and by callers that already hold an
@@ -372,6 +376,12 @@ def ranges_from_engine_result(
     meta = meta if isinstance(meta, dict) else {}
     _icph = meta.get("industry_cph") if isinstance(meta.get("industry_cph"), dict) else {}
     plan_ccy = str(_icph.get("plan_currency") or "USD").upper()
+    engine_ccy = plan_ccy
+    # A plan the engine priced in one currency but the deliverable DISPLAYS in
+    # another (the engine ran without a plan currency) is parity arithmetic:
+    # treat it as the display currency, whose benchmarks it never had.
+    if display_currency and str(display_currency).upper() != plan_ccy:
+        plan_ccy = str(display_currency).upper()
     if symbol is None:
         symbol = _symbol_for(plan_ccy)
 
@@ -399,8 +409,8 @@ def ranges_from_engine_result(
     if cpa_note:
         notes.append(cpa_note)
     if cpa_engine > 0:
-        # The optimistic end IS the engine's own application count (when the
-        # CPA low end is the engine figure), so it is never re-rounded.
+        # The optimistic end IS the engine's own application count when the
+        # CPA low end is the engine figure, so it is never re-rounded.
         apps_hi = apps_engine if cpa_lo == cpa_engine else budget / cpa_lo
         apps = _int_range(budget / cpa_hi, apps_hi, None)
         cpa = _float_range(cpa_lo, cpa_hi, None)
@@ -409,36 +419,109 @@ def ranges_from_engine_result(
         cpa = _float_range(None, None, None)
 
     # -- hires / cost per hire ----------------------------------------------
-    h_lo, h_hi = tp.get("hires_low"), tp.get("hires_high")
-    if isinstance(h_lo, (int, float)) and isinstance(h_hi, (int, float)) and h_hi > 0:
-        hires = _int_range(h_lo, h_hi, hires_engine)
-        cph = _float_range(
-            budget / max(hires["high"], 1), budget / max(hires["low"], 1), cph_engine or None
-        )
-        hires_is_range = hires["low"] != hires["high"]
+    # Bounds come from the cost-per-hire BASIS the plan cites (the industry
+    # average and the plan-efficiency floor = half of it): hires are budget /
+    # basis (rounded down at both ends) and cost per hire IS the basis, so a
+    # rounded hire count can never push the displayed cost per hire outside
+    # the basis it states ($15k: 1-2 hires at $5,250-$10,500, not $7,500-$15,000).
+    icph = meta.get("industry_cph") if isinstance(meta.get("industry_cph"), dict) else {}
+    floor = _num(meta.get("cph_benchmark_floor"))
+    math_avg = _num(icph.get("math_value")) or _num(icph.get("value")) or _num(meta.get("industry_avg_cph"))
+    basis_ccy = str(icph.get("currency") or "USD").upper()
+    suppressed = bool(icph.get("claim_suppressed"))
+    # a USD benchmark under a non-USD plan with no exchange rate is parity
+    # arithmetic, not a range (KSh 100,000 does not buy "7-16 hires at US$5,000")
+    parity = basis_ccy != plan_ccy or engine_ccy != plan_ccy
+    translated = suppressed and not parity  # US benchmark converted at a stated rate
+    # The cost-per-hire basis is a US figure whenever the market is outside the
+    # US and the basis is not a cited local range: say so on the figures.
+    us_tag = translated or (non_us_market and str(icph.get("basis") or "") != "local_kb")
+    fx = icph.get("fx") if isinstance(icph.get("fx"), dict) else {}
+    basis_ok = bool(math_avg and math_avg > 0 and floor and floor > 0 and not parity)
+    hires_is_range = False
+    below_one_hire = False
+    if basis_ok:
+        h_lo = min(int(budget / math_avg), hires_engine)
+        h_hi = max(int(budget / floor), hires_engine)
+        if h_hi <= 0:
+            below_one_hire = True
+            hires = _int_range(0, 0, 0)
+            cph = _float_range(None, None, None)
+            notes.append(
+                "Budget is below one hire at the industry cost per hire "
+                f"({_money(floor, symbol)}-{_money(math_avg, symbol)}); no hires "
+                "are projected and cost per hire is not defined."
+            )
+        else:
+            hires = _int_range(h_lo, h_hi, hires_engine)
+            cph = _float_range(
+                min(floor, cph_engine or floor),
+                max(math_avg, cph_engine or math_avg),
+                cph_engine or None,
+            )
+            hires_is_range = hires["low"] != hires["high"]
     else:
-        hires = _int_range(hires_engine, hires_engine, hires_engine)
-        cph = _float_range(cph_engine, cph_engine, cph_engine) if cph_engine else _float_range(None, None, None)
-        hires_is_range = False
+        e_lo, e_hi = tp.get("hires_low"), tp.get("hires_high")
+        if (
+            not parity
+            and isinstance(e_lo, (int, float))
+            and isinstance(e_hi, (int, float))
+            and e_hi > 0
+        ):
+            hires = _int_range(e_lo, e_hi, hires_engine)
+            cph = _float_range(
+                budget / max(hires["high"], 1), budget / max(hires["low"], 1), cph_engine or None
+            )
+            hires_is_range = hires["low"] != hires["high"]
+        elif hires_engine <= 0:
+            below_one_hire = True
+            hires = _int_range(0, 0, 0)
+            cph = _float_range(None, None, None)
+            notes.append("Budget is below one hire at industry cost per hire; cost per hire is not defined.")
+        else:
+            hires = _int_range(hires_engine, hires_engine, hires_engine)
+            cph = (
+                _float_range(cph_engine, cph_engine, cph_engine)
+                if cph_engine
+                else _float_range(None, None, None)
+            )
+            if parity:
+                notes.append(
+                    f"Hires are a single estimate: this plan is priced in {plan_ccy} "
+                    f"and the cost-per-hire benchmark is in {basis_ccy}, so no range "
+                    "can be bounded without a local figure."
+                )
+            elif suppressed:
+                notes.append(
+                    "Hires are a single estimate: this market has no local "
+                    "cost-per-hire benchmark."
+                )
+            else:
+                notes.append("Hires are a single estimate: no cost-per-hire benchmark bounds a range.")
+    if translated and basis_ok and not below_one_hire:
+        rate = _num(fx.get("usd_per_local"))
+        rate_txt = f"US$1 = {symbol}{1.0 / rate:,.2f}" if rate else "the engine's rate"
+        when = f", {fx.get('source_short') or 'rate'} {fx['as_of']}" if fx.get("as_of") else ""
         notes.append(
-            "Hires are a single estimate: this plan has no cost-per-hire benchmark "
-            "in its own currency to bound a range."
+            f"US benchmark — no local data: cost-per-hire basis is the US benchmark "
+            f"converted at {rate_txt}{when}."
         )
 
     # -- assumptions (what the hires / CPH numbers rest on) ------------------
-    icph = meta.get("industry_cph") if isinstance(meta.get("industry_cph"), dict) else {}
-    floor = _num(meta.get("cph_benchmark_floor"))
-    avg = _num(icph.get("value")) or _num(meta.get("industry_avg_cph"))
+    avg = math_avg
     conv = kb_hire_conversion(industry_key, knowledge_base)
+    if us_tag:
+        basis_src = "the US cost-per-hire benchmark (US benchmark \u2014 no local data)"
+    else:
+        basis_src = "Nova's cost-per-hire table"
     assumptions: Dict[str, Any] = {
         "client_hire_history": False,
         "hires_basis": (
-            "Estimated, not forecast: budget divided by the industry cost per hire "
-            "from Nova's cost-per-hire table"
+            f"Estimated, not forecast: budget divided by the industry cost per hire from {basis_src}"
             + (
                 f" (low end at the industry average {_money(avg, symbol)}, high end at "
                 f"the plan-efficiency floor {_money(floor, symbol)} = half that average)"
-                if avg and floor
+                if basis_ok
                 else ""
             )
             + "; no client hire history was provided."
@@ -446,11 +529,19 @@ def ranges_from_engine_result(
         "cph_concept": "total",
         "cph_basis": (
             "Cost per hire here is budget / estimated hires, compared against the "
-            "industry's TOTAL cost per hire (Nova's INDUSTRY_CPH_RANGES table), "
-            "not a media-only figure."
+            "industry's TOTAL cost per hire ("
+            + (
+                "the US benchmark \u2014 no local data"
+                if us_tag
+                else "Nova's INDUSTRY_CPH_RANGES table"
+            )
+            + "), not a media-only figure."
         ),
-        "industry_cph_avg": avg,
-        "industry_cph_floor": floor,
+        "industry_cph_avg": avg if basis_ok else None,
+        "industry_cph_floor": floor if basis_ok else None,
+        "us_benchmark_translated": translated,
+        "us_benchmark_no_local": us_tag,
+        "below_one_hire": below_one_hire,
         "kb_cpa": kb_cpa,
         **conv,
     }
@@ -458,7 +549,7 @@ def ranges_from_engine_result(
     if media:
         assumptions["cph_basis"] += (
             f" The knowledge base's media-only benchmark is {media['text']} "
-            f"(source: {media['source']})."
+            f"(US$; source: {media['source']})."
         )
     aph = conv.get("applicants_per_hire")
     if aph:
@@ -470,6 +561,7 @@ def ranges_from_engine_result(
     return {
         "ok": True,
         "budget": float(budget),
+        "currency": {"code": plan_ccy, "symbol": symbol},
         "industry": industry_key,
         "applications": apps,
         "hires": hires,
@@ -503,6 +595,39 @@ def ranges_from_engine_result(
     }
 
 
+def projection_for_alloc(
+    alloc: Dict[str, Any],
+    *,
+    budget: float,
+    industry_key: str,
+    role_titles: Optional[List[str]] = None,
+    symbol: Optional[str] = None,
+    display_currency: Optional[str] = None,
+    non_us_market: bool = False,
+) -> Dict[str, Any]:
+    """The projection a deliverable (workbook, deck) shows for an engine result.
+
+    ``alloc["headline_projection"]`` -- stamped at /api/generate time by
+    ``project_plan`` with the wizard preview's inputs (no live enrichment) -- is
+    the headline: live market data may refine channel detail but never moves
+    these ranges. Used when it is present and in the deliverable's currency;
+    otherwise the ranges are built from the engine result itself."""
+    hp = alloc.get("headline_projection") if isinstance(alloc, dict) else None
+    if isinstance(hp, dict) and hp.get("ok") and hp.get("applications"):
+        code = str((hp.get("currency") or {}).get("code") or "USD").upper()
+        if not display_currency or str(display_currency).upper() == code:
+            return hp
+    return ranges_from_engine_result(
+        alloc,
+        budget=budget,
+        industry_key=industry_key,
+        role_titles=role_titles,
+        symbol=symbol,
+        display_currency=display_currency,
+        non_us_market=non_us_market,
+    )
+
+
 # --------------------------------------------------------------------------
 # display strings -- ONE wording for every surface
 # --------------------------------------------------------------------------
@@ -534,8 +659,15 @@ def describe(proj: Dict[str, Any], symbol: str = "$") -> Dict[str, str]:
     cph_txt = range_text(proj["cph"], "cph", symbol)
     apps_txt = range_text(proj["applications"], "count", symbol)
     cpa_txt = range_text(proj["cpa"], "cpa", symbol)
-    hires_label = f"Estimated hires {hires_txt} (assumes industry cost per hire; no client hire history provided)"
-    cph_label = f"Estimated cost per hire {cph_txt} (total cost-per-hire basis, not media-only)"
+    if a.get("below_one_hire"):
+        hires_label = (
+            f"Estimated hires {hires_txt} (budget is below one hire at industry "
+            "cost per hire; no client hire history provided)"
+        )
+        cph_label = "Estimated cost per hire n/a (budget is below one hire at industry cost per hire)"
+    else:
+        hires_label = f"Estimated hires {hires_txt} (assumes industry cost per hire; no client hire history provided)"
+        cph_label = f"Estimated cost per hire {cph_txt} (total cost-per-hire basis, not media-only)"
     kb = a.get("kb_cpa") or {}
     cpa_short = ""
     if kb:
@@ -551,10 +683,23 @@ def describe(proj: Dict[str, Any], symbol: str = "$") -> Dict[str, str]:
         "hires_label": hires_label,
         "cph_label": cph_label,
         "hires_short": (
-            "Hires are an estimate (budget \u00f7 industry cost per hire); "
-            "no client hire history provided."
+            "Budget is below one hire at industry cost per hire; no client hire "
+            "history provided."
+            if a.get("below_one_hire")
+            else (
+                "Hires are an estimate (budget \u00f7 industry cost per hire, "
+                "US benchmark \u2014 no local data); no client hire "
+                "history provided."
+                if a.get("us_benchmark_no_local")
+                else "Hires are an estimate (budget \u00f7 industry cost per hire); "
+                "no client hire history provided."
+            )
         ),
-        "cph_short": "total cost-per-hire basis, not media-only",
+        "cph_short": (
+            "US benchmark \u2014 no local data; total cost-per-hire basis"
+            if a.get("us_benchmark_no_local")
+            else "total cost-per-hire basis, not media-only"
+        ),
         "hires_basis": str(a.get("hires_basis") or ""),
         "cph_basis": str(a.get("cph_basis") or ""),
         "cpa_note": cpa_short,
@@ -565,7 +710,7 @@ def public_view(proj: Dict[str, Any]) -> Dict[str, Any]:
     """The JSON-safe slice of a projection that API responses and tool results
     carry (everything except the raw engine result)."""
     keep = (
-        "budget", "industry", "industry_source", "applications", "hires", "cpa",
+        "budget", "currency", "industry", "industry_source", "applications", "hires", "cpa",
         "cph", "engine", "is_range", "assumptions", "notes", "text",
     )
     return {k: proj[k] for k in keep if k in proj}
@@ -689,15 +834,23 @@ def project_plan(
                 brief.get("industry"), brief.get("client_name"), titles
             )
         kb = _load_kb(knowledge_base)
-        pcts = channel_percentages or default_channel_percentages(key)
+        region = str(brief.get("target_region") or "us_only")
+        pcts = channel_percentages or default_channel_percentages(key, region)
 
         if vendor_availability is None:
             try:
                 import excel_v2
                 import plan_geo
 
+                # the SAME region-aware check the wizard makes: its brief
+                # carries target_region (default "us_only"), which is_us_plan
+                # honours first -- without it Quick Plan / Nova gated niche
+                # boards off for a London plan the wizard funded.
                 us_plan = plan_geo.is_us_plan(
-                    {"locations": brief.get("locations_raw") or locs_in}
+                    {
+                        "locations": brief.get("locations_raw") or locs_in,
+                        "target_region": region,
+                    }
                 )
                 vendor_availability = excel_v2.get_niche_vendor_availability(
                     industry=key, us_plan=us_plan
@@ -736,12 +889,22 @@ def project_plan(
             budget_text=str(brief.get("budget_text") or "") or None,
             target_hires=int(brief.get("target_hires") or 0) or None,
         )
+        non_us_market = False
+        try:
+            import plan_geo as _pg
+
+            non_us_market = not _pg.is_us_plan(
+                {"locations": brief.get("locations_raw") or locs_in}
+            )
+        except Exception as exc:  # noqa: BLE001 - label only
+            logger.debug("plan_projection: market check unavailable: %s", exc)
         proj = ranges_from_engine_result(
             result,
             budget=budget,
             industry_key=key,
             role_titles=titles,
             knowledge_base=kb,
+            non_us_market=non_us_market,
         )
         proj["industry_source"] = source
         proj["budget_result"] = result

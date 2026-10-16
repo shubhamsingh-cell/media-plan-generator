@@ -526,11 +526,15 @@
         "):</strong><br>" +
         "At " +
         escapeHtml(f.budget) +
-        " the estimate supports <strong>~" +
+        " the estimate supports <strong>" +
+        (f.ranged ? "" : "~") +
         escapeHtml(f.hires) +
-        " hires</strong> (~" +
+        " hires</strong> (" +
+        (f.ranged ? "" : "~") +
         escapeHtml(f.cph) +
-        "/hire) against your " +
+        "/hire" +
+        (f.ranged ? ", estimated" : "") +
+        ") against your " +
         escapeHtml(f.goal) +
         ".<br>" +
         "<strong>To get there:</strong> raise the budget by ~" +

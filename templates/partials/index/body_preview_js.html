@@ -662,13 +662,20 @@
         // was no hires figure to put in the sentence)
         return { ratio: 0, belowOne: true, budget: hero(m.total), goal: goalText(m) };
       }
+      // The banner quotes the SAME ranges as the tiles (never the optimistic
+      // point): the verdict uses the upper end of the hires range, so
+      // "underfunded" only fires when even the optimistic end falls short.
+      var pj = est.projection || null;
+      var hiHigh = pj && pj.hires && pj.hires.high > 0 ? pj.hires.high : est.est_hires;
+      var txt = pj && pj.text ? pj.text : null;
       return {
-        ratio: est.est_hires / m.targetHires,
+        ratio: hiHigh / m.targetHires,
         budget: hero(m.total),
-        hires: intc(est.est_hires),
+        hires: txt && txt.hires ? txt.hires : intc(est.est_hires),
         goal: goalText(m),
-        cph: hero(est.est_cph),
-        gap: hero(m.total * (m.targetHires / est.est_hires - 1)),
+        cph: txt && txt.cph && txt.cph !== "n/a" ? txt.cph : hero(est.est_cph),
+        ranged: !!(txt && txt.hires),
+        gap: hero(m.total * (m.targetHires / hiHigh - 1)),
       };
     }
 

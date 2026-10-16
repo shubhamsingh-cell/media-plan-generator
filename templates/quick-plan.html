@@ -1625,12 +1625,15 @@
           if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "K";
           return n.toLocaleString("en-US");
         }
+        // Every money figure on the page is in the PLAN's currency (the server
+        // resolves it from the location); "$" only until a result arrives.
+        var CUR = "$";
         function fmtDollar(n) {
-          if (n === undefined || n === null) return "$0";
-          if (n >= 1000000) return "$" + (n / 1000000).toFixed(1) + "M";
+          if (n === undefined || n === null) return CUR + "0";
+          if (n >= 1000000) return CUR + (n / 1000000).toFixed(1) + "M";
           if (n >= 1000)
-            return "$" + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "K";
-          return "$" + n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+            return CUR + (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "K";
+          return CUR + n.toLocaleString("en-US", { maximumFractionDigits: 2 });
         }
 
         /* ──────────────────────────────────────────────────────
@@ -1702,6 +1705,7 @@
            MAIN RENDER
            ────────────────────────────────────────────────────── */
         function renderResults(data) {
+          CUR = (data.currency && data.currency.symbol) || "$";
           renderRoleInsight(data.role_analysis);
           renderLocationInsight(data.location_analysis);
           renderTotals(data.total_projected);

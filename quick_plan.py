@@ -1139,6 +1139,8 @@ def _assess_budget(
     industry: str,
     channel_recommendations: List[Dict],
     projected_hires: Optional[int] = None,
+    symbol: str = "$",
+    basis: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Assess whether the budget is sufficient for the role/location combo.
 
@@ -1183,6 +1185,19 @@ def _assess_budget(
 
         industry_cph = cph_ranges.get(industry, (4000, 8000))
         avg_cph = (industry_cph[0] + industry_cph[1]) / 2
+        # A non-USD plan compares its own money with ITS cost-per-hire basis
+        # (the projection's industry average / efficiency floor in the plan
+        # currency), never the US$ table or US$ collar minimums.
+        local_basis = bool(basis and symbol != "$" and basis.get("avg") and basis.get("floor"))
+        if local_basis:
+            avg_cph = float(basis["avg"])
+            band_txt = f"about {symbol}{avg_cph:,.0f}" + (
+                " (US benchmark converted \u2014 no local data)"
+                if basis.get("translated")
+                else ""
+            )
+        else:
+            band_txt = f"{symbol}{industry_cph[0]:,}-{symbol}{industry_cph[1]:,}"
 
         # Collar-based minimum viable budgets per hire
         collar_minimums = {
@@ -1192,28 +1207,30 @@ def _assess_budget(
             "pink_collar": 3000,
         }
         min_viable_cph = collar_minimums.get(collar_type, 4000)
+        if local_basis:
+            min_viable_cph = float(basis["floor"])
 
         if budget_per_hire >= avg_cph:
             status = "sufficient"
             explanation = (
-                f"Your budget of ${budget:,.0f} provides ${budget_per_hire:,.0f} per projected hire, "
-                f"which meets or exceeds the industry average of ${industry_cph[0]:,}-${industry_cph[1]:,} per hire. "
+                f"Your budget of {symbol}{budget:,.0f} provides {symbol}{budget_per_hire:,.0f} per projected hire, "
+                f"which meets or exceeds the industry average of {band_txt} per hire. "
                 f"You have room for competitive bids and premium placements."
             )
         elif budget_per_hire >= min_viable_cph:
             status = "tight"
             explanation = (
-                f"Your budget of ${budget:,.0f} provides ${budget_per_hire:,.0f} per projected hire. "
-                f"This is below the industry average of ${industry_cph[0]:,}-${industry_cph[1]:,} but workable. "
+                f"Your budget of {symbol}{budget:,.0f} provides {symbol}{budget_per_hire:,.0f} per projected hire. "
+                f"This is below the industry average of {band_txt} but workable. "
                 f"Focus on high-converting channels and optimize bids carefully."
             )
         else:
             status = "insufficient"
             recommended = int(total_projected_hires * avg_cph)
             explanation = (
-                f"Your budget of ${budget:,.0f} provides only ${budget_per_hire:,.0f} per projected hire, "
-                f"well below the minimum viable ${min_viable_cph:,} for {collar_type.replace('_', ' ')} roles. "
-                f"Consider increasing to ${recommended:,} or reducing scope to fewer channels."
+                f"Your budget of {symbol}{budget:,.0f} provides only {symbol}{budget_per_hire:,.0f} per projected hire, "
+                f"well below the minimum viable {symbol}{min_viable_cph:,.0f} for {collar_type.replace('_', ' ')} roles. "
+                f"Consider increasing to {symbol}{recommended:,} or reducing scope to fewer channels."
             )
 
         recommended_budget = int(total_projected_hires * avg_cph)
@@ -1222,7 +1239,7 @@ def _assess_budget(
             "status": status,
             "explanation": explanation,
             "budget_per_hire": round(budget_per_hire, 2),
-            "industry_avg_cph": list(industry_cph),
+            "industry_avg_cph": [avg_cph, avg_cph] if local_basis else list(industry_cph),
             "recommended_budget": recommended_budget,
         }
 
@@ -1669,6 +1686,9 @@ def generate_quick_plan(
                     "roles": [role],
                     "locations": [location],
                     "industry": industry,
+                    # the budget as typed: a "$" / "\u00a3" the user typed is the
+                    # plan's declared currency, exactly as in the wizard
+                    "budget_text": budget if isinstance(budget, str) else "",
                 }
             )
         projection_ok = bool(projection.get("ok"))
@@ -1687,6 +1707,16 @@ def generate_quick_plan(
             or "general_entry_level",
             channel_recommendations=channel_recommendations,
             projected_hires=projection["engine"]["hires"] if projection_ok else None,
+            symbol=(projection.get("currency") or {}).get("symbol", "$") if projection_ok else "$",
+            basis=(
+                {
+                    "avg": projection["assumptions"].get("industry_cph_avg"),
+                    "floor": projection["assumptions"].get("industry_cph_floor"),
+                    "translated": projection["assumptions"].get("us_benchmark_translated"),
+                }
+                if projection_ok
+                else None
+            ),
         )
 
         # ── Seasonal advice ──
@@ -1745,6 +1775,10 @@ def generate_quick_plan(
             "seasonal_advice": seasonal_advice,
             "ab_testing_recommendations": ab_testing,
             "total_projected": total_projected,
+            # every money figure on the page is in this currency (the plan's,
+            # resolved from the location by the one projection)
+            "currency": (projection.get("currency") if projection_ok else None)
+            or {"code": "USD", "symbol": "$"},
             "generated_at": datetime.now().isoformat(),
         }
 
