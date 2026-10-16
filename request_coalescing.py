@@ -106,9 +106,13 @@ def _normalize(query: str) -> str:
     return q
 
 
-def _hash_query(query: str) -> str:
-    """Return first 16 hex chars of SHA-256 of normalised query."""
-    normalised = _normalize(query)
+def _hash_query(query: str, scope: str = "") -> str:
+    """Return first 16 hex chars of SHA-256 of the scope marker + normalised query.
+
+    ``scope`` keeps stateless requests in their own key space so a result can
+    never be shared with a request that was not marked stateless.
+    """
+    normalised = (scope + "\x1f" if scope else "") + _normalize(query)
     return hashlib.sha256(normalised.encode("utf-8")).hexdigest()[:16]
 
 
@@ -213,11 +217,14 @@ class RequestCoalescer:
         coalescer.complete(qhash, result_dict)
     """
 
-    def check_or_register(self, query: str) -> tuple[bool, str, Optional[dict]]:
+    def check_or_register(
+        self, query: str, scope: str = ""
+    ) -> tuple[bool, str, Optional[dict]]:
         """Check if this query is already in-flight; register if not.
 
         Args:
             query: Raw user message.
+            scope: Marker mixed into the hash (e.g. "stateless-v1").
 
         Returns:
             (is_leader, query_hash, cached_result)
@@ -228,7 +235,7 @@ class RequestCoalescer:
         if not _ENABLED:
             return True, "", None
 
-        qhash = _hash_query(query)
+        qhash = _hash_query(query, scope)
         lock_key = f"{_KEY_PREFIX}lock:{qhash}"
         result_key = f"{_KEY_PREFIX}res:{qhash}"
 
@@ -273,6 +280,10 @@ class RequestCoalescer:
                 except (RuntimeError, json.JSONDecodeError) as exc:
                     logger.debug("Follower result read failed: %s", exc)
                     break
+                # Event set but no result: the leader released the slot (its
+                # result was not shareable). Proceed independently.
+                _inc("timeout_count")
+                return True, qhash, None
 
             # Also poll Redis (handles cross-process coalescing)
             try:
@@ -292,6 +303,27 @@ class RequestCoalescer:
             "Coalesce TIMEOUT for hash %s -- proceeding independently", qhash
         )
         return True, qhash, None
+
+    def release(self, qhash: str) -> None:
+        """Free the slot WITHOUT publishing a result (leader's was not shareable).
+
+        Local followers wake up and proceed independently; nothing is stored.
+        """
+        if not _ENABLED or not qhash:
+            return
+        try:
+            _redis_del(f"{_KEY_PREFIX}lock:{qhash}")
+        except RuntimeError as exc:
+            logger.debug("Coalesce lock release failed: %s", exc)
+        with _inflight_lock:
+            event = _inflight.get(qhash)
+            if event:
+                event.set()
+        threading.Thread(
+            target=lambda: (time.sleep(1.0), _unregister_local(qhash)),
+            daemon=True,
+            name=f"coal-release-{qhash}",
+        ).start()
 
     def complete(self, qhash: str, result: dict) -> None:
         """Store the leader's result in Redis and signal local followers.

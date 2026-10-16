@@ -423,9 +423,10 @@ def _should_skip_caching(
     if len(query.strip()) < _MIN_QUERY_LENGTH:
         return True, "short_query"
 
-    # Follow-up detection: if history has 3+ messages, likely a follow-up
+    # Any prior history means the answer may be shaped by it, and the cache
+    # key is the query alone: never share such an answer (or serve one).
     history = conversation_history or []
-    if len(history) > 2:
+    if len(history) > 0:
         return True, "followup"
 
     # Check response quality for write decisions

@@ -3919,6 +3919,61 @@ def _turn_is_personalized() -> bool:
     return bool(state and state.get("personalized"))
 
 
+def _turn_cache_blocked() -> bool:
+    """True when this chat turn must not touch the shared response caches.
+
+    Only stateless first-turn answers (no history, no client context, no
+    conversation memory/profile in the prompt) are shareable. Outside a chat
+    turn (cache pre-warm, tests) there is no turn state and nothing blocks.
+    """
+    state = _get_turn_tool_capture()
+    if state is None:
+        return False
+    return bool(state.get("personalized")) or not state.get("stateless", False)
+
+
+def _coalesce_scope() -> Optional[str]:
+    """Coalescing scope for this turn, or None when it must not coalesce.
+
+    Identical in-flight messages share ONE leader result, so only stateless,
+    identity-free requests qualify: no history/context, no conversation id
+    (memory, profile and prior tool state are keyed by it) and nothing
+    personalised. No turn state means unknown, so never coalesce.
+    """
+    state = _get_turn_tool_capture()
+    if not state or _turn_cache_blocked() or state.get("conversation_id"):
+        return None
+    return "stateless-v1"
+
+
+def _complete_coalesced(coalescer: Any, qhash: str, result: Any) -> None:
+    """Publish a leader's result to followers -- unless it is personalised.
+
+    A personalised result is never stored; the slot is released instead so
+    followers proceed on their own rather than waiting out the window.
+    """
+    if _turn_cache_blocked():
+        release = getattr(coalescer, "release", None)
+        if callable(release):
+            release(qhash)
+        return
+    coalescer.complete(qhash, result)
+
+
+def _set_intent_hint(hint: Optional[dict]) -> None:
+    """Store the planner hint on THIS request's turn state (never on the
+    shared Nova instance, where concurrent requests would swap it)."""
+    state = _get_turn_tool_capture()
+    if state is not None:
+        state["intent_hint"] = hint
+
+
+def _get_intent_hint() -> Optional[dict]:
+    state = _get_turn_tool_capture()
+    hint = state.get("intent_hint") if state else None
+    return hint if isinstance(hint, dict) else None
+
+
 def _shareable_copy(data: Any) -> Optional[Dict[str, Any]]:
     """Deep copy of ``data`` without per-user fields, or None if not copyable.
 
@@ -3941,6 +3996,8 @@ def _shareable_copy(data: Any) -> Optional[Dict[str, Any]]:
 def _intelligent_cache_get(
     query: str, conversation_history: Optional[list] = None
 ) -> Optional[Dict[str, Any]]:
+    if _turn_cache_blocked():
+        return None
     return _shareable_copy(_intelligent_cache_get_raw(query, conversation_history))
 
 
@@ -3950,7 +4007,7 @@ def _intelligent_cache_set(
     conversation_history: Optional[list] = None,
     ttl_hours: Optional[int] = None,
 ) -> bool:
-    if _turn_is_personalized():
+    if _turn_cache_blocked():
         return False
     safe = _shareable_copy(response)
     if safe is None:
@@ -3963,6 +4020,8 @@ def _get_response_cache(key: str) -> Optional[Dict[str, Any]]:
 
     Returns cached result dict or None on miss.
     """
+    if _turn_cache_blocked():
+        return None
     now = time.time()
     _redis_key = f"nova_resp:{_CACHE_VERSION}:{key}"
 
@@ -4021,8 +4080,8 @@ def _set_response_cache(
 
     Falls back to disk when Upstash is not configured.
     """
-    if _turn_is_personalized():
-        return  # prompt carried this conversation's memory: not shareable
+    if _turn_cache_blocked():
+        return  # history/context/memory shaped this answer: not shareable
     data = _shareable_copy(data)  # type: ignore[assignment]
     if data is None:
         return
@@ -16080,6 +16139,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "conversation_id": session_id or "",
             "tools": {},  # filled by _record_turn_tool_result
             "tools_used": [],
+            # Stateless = a first-turn answer that depends on the message
+            # alone. Anything shaped by prior history or client context must
+            # never be read from, or written to, a cache/coalescer shared
+            # with other users.
+            "stateless": not conversation_history and not enrichment_context,
         }
         _set_turn_tool_capture(_turn_state)
 
@@ -16630,19 +16694,19 @@ When two or more tools return conflicting data for the same metric (e.g., differ
 
         # --- T3-1: Planner step (Haiku, <=2s, cached) ----------------------
         # Runs ONLY when no fast path matched AND the query is non-trivial.
-        # Output is stashed on `self._intent_hint` so the downstream tool
+        # Output is stashed on the request's turn state so the downstream tool
         # loop can read it without changing method signatures. Failures are
         # silent -- the planner is a hint, not a requirement.
-        self._intent_hint: Optional[dict] = None
+        _set_intent_hint(None)
         try:
             _intent = self._run_planner_step(user_message, conversation_history)
             if _intent:
-                self._intent_hint = _intent
+                _set_intent_hint(_intent)
         except Exception as _planner_err:  # noqa: BLE001
             logger.warning(
                 "T3-1 planner unexpected failure (non-fatal): %s", _planner_err
             )
-            self._intent_hint = None
+            _set_intent_hint(None)
 
         # --- LLM routing strategy (v3.6 -- SMART: complexity-aware routing) ---
         # PRINCIPLE: Unknown queries default to tool path (safe).
@@ -19115,9 +19179,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if not _is_planner_eligible_query(user_message):
             return None
 
-        # Cache lookup first -- cheap and safe.
+        # Cache lookup first -- cheap and safe. The cache is keyed by the
+        # message alone, so it is only used (read AND written) for requests
+        # without history: an intent built from one user's prior turns must
+        # not be handed to another user sending the same message.
         cache_key = self._planner_cache_key(user_message)
-        cached = self._intent_cache_get(cache_key)
+        use_cache = not conversation_history
+        cached = self._intent_cache_get(cache_key) if use_cache else None
         if cached is not None:
             logger.info(
                 "T3-1 planner: cache HIT (intent=%s, tools=%d)",
@@ -19148,7 +19216,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             return None
 
         # Persist and log.
-        self._intent_cache_put(cache_key, intent)
+        if use_cache:
+            self._intent_cache_put(cache_key, intent)
         logger.info(
             "T3-1 planner: %dms intent=%s country=%s role=%s tools=%s",
             planner_ms,
@@ -20906,7 +20975,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         # T3-1: If the planner produced an intent hint, prepend a concise
         # "preferred tools / parsed entities" block so the model picks the
         # right tools on iteration 0 instead of fishing.
-        _hint = getattr(self, "_intent_hint", None)
+        _hint = _get_intent_hint()
         if isinstance(_hint, dict):
             _hint_parts: List[str] = []
             _country = _hint.get("country")
@@ -21848,7 +21917,14 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             from request_coalescing import get_coalescer
 
             _coalescer = get_coalescer()
-            _is_leader, _qhash, _cached = _coalescer.check_or_register(user_message)
+            _coalesce_scope_id = _coalesce_scope()
+            if _coalesce_scope_id is None:
+                # History/context/identity-bearing turns never coalesce.
+                _is_leader, _qhash, _cached = True, "", None
+            else:
+                _is_leader, _qhash, _cached = _coalescer.check_or_register(
+                    user_message, scope=_coalesce_scope_id
+                )
             if not _is_leader and _cached:
                 logger.info("Returning coalesced result for: %.40s...", user_message)
                 return _cached
@@ -21985,7 +22061,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
 
         # T3-1: Planner intent hint (Haiku-classified). Appears as dynamic
         # context so it doesn't invalidate the prompt-caching block above.
-        _hint_c = getattr(self, "_intent_hint", None)
+        _hint_c = _get_intent_hint()
         if isinstance(_hint_c, dict):
             _hint_lines: List[str] = []
             for _label, _key in (
@@ -22691,7 +22767,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 # Store result for request coalescing
                 try:
                     if _coalescer and _is_leader and _qhash:
-                        _coalescer.complete(_qhash, _result)
+                        _complete_coalesced(_coalescer, _qhash, _result)
                 except Exception as _coal_err:
                     logger.debug("Coalescing complete skipped: %s", _coal_err)
                 return _result
@@ -22720,7 +22796,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             }
             try:
                 if _coalescer and _is_leader and _qhash:
-                    _coalescer.complete(_qhash, _result)
+                    _complete_coalesced(_coalescer, _qhash, _result)
             except Exception as _coal_err:
                 logger.debug("Coalescing complete skipped: %s", _coal_err)
             return _result
@@ -22821,7 +22897,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 }
                 try:
                     if _coalescer and _is_leader and _qhash:
-                        _coalescer.complete(_qhash, _result)
+                        _complete_coalesced(_coalescer, _qhash, _result)
                 except Exception as _coal_err:
                     logger.debug("Coalescing complete skipped: %s", _coal_err)
                 return _result
@@ -22838,7 +22914,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         # Store result for request coalescing
         try:
             if _coalescer and _is_leader and _qhash:
-                _coalescer.complete(_qhash, _result)
+                _complete_coalesced(_coalescer, _qhash, _result)
         except Exception as _coal_err:
             logger.debug("Coalescing complete skipped: %s", _coal_err)
         return _result
