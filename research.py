@@ -7087,7 +7087,7 @@ def _drop_unavailable_boards(boards, country):
     try:
         import publisher_filter
 
-        return publisher_filter.clean_names(boards, None, country)
+        return publisher_filter.clean_names(boards, None, country, dedupe=False)
     except (ImportError, TypeError, ValueError):
         return list(boards)
 

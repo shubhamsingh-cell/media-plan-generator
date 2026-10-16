@@ -523,11 +523,15 @@ def is_folded(name: Any, country: Any = None) -> bool:
 
 
 def clean_names(
-    names: Iterable[Any], data: Any = None, country: Any = None
+    names: Iterable[Any],
+    data: Any = None,
+    country: Any = None,
+    dedupe: bool = True,
 ) -> List[str]:
     """The board list a surface may print: excluded / unavailable / folded
     boards removed (part-wise inside 'A / B' compounds), sourced renames
-    applied, duplicates dropped, order preserved."""
+    applied, duplicates dropped (``dedupe=False`` keeps them, for a list whose
+    entry count is itself meaningful), order preserved."""
     out: List[str] = []
     seen: set = set()
     for raw in names:
@@ -539,14 +543,14 @@ def clean_names(
             originals = [
                 p.strip() for p in re.split(r"\s+/\s+|\s*\|\s*", text) if p.strip()
             ]
-            kept = clean_names(originals, data, country)
+            kept = clean_names(originals, data, country, dedupe)
             text = " / ".join(kept)
         else:
             if is_excluded(text, data, country) or is_folded(text, country):
                 continue
             text = display_name(text, country)
         key = normalize(text)
-        if not text or (key and key in seen):
+        if not text or (dedupe and key and key in seen):
             continue
         seen.add(key)
         out.append(text)
