@@ -16,6 +16,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from market_evidence import market_metric_is_observed
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -225,11 +227,10 @@ def _check_salary_vs_role(data: dict) -> list[dict[str, Any]]:
 
 
 def _check_demand_vs_temperature(data: dict) -> list[dict[str, Any]]:
-    """Check 2: Demand vs Temperature consistency.
+    """Check 2: market temperature carries observed evidence.
 
-    In ``_synthesized.job_market_demand``, verify that market_temperature
-    aligns with total_postings.  Zero postings should not be "hot"; 50K+
-    postings should not be "cold".
+    Temperature is a postings-to-supply ratio. The validator may remove an
+    unsupported label, but must not invent a replacement from posting volume.
     """
     findings: list[dict[str, Any]] = []
     synthesized = data.get("_synthesized") or {}
@@ -253,65 +254,35 @@ def _check_demand_vs_temperature(data: dict) -> list[dict[str, Any]]:
         if not temperature:
             continue
 
-        corrected_temp: str | None = None
-
-        if total_postings == 0 and temperature == "hot":
-            corrected_temp = "cold"
+        is_observed = market_metric_is_observed(role_data, "market_temperature")
+        if not is_observed or total_postings <= 0:
+            role_data["market_temperature"] = ""
+            role_data["_validator_corrected_temperature"] = True
+            reason = (
+                "no observed market-temperature evidence"
+                if not is_observed
+                else "no positive observed postings"
+            )
             findings.append(
                 {
                     "check": "demand_vs_temperature",
                     "severity": "high",
                     "role": role_key,
                     "message": (
-                        f"Temperature is 'hot' but total_postings=0 for '{role_key}'"
+                        f"Removed unsupported temperature '{temperature}' for "
+                        f"'{role_key}': {reason}"
                     ),
                     "auto_corrected": True,
                     "old_value": temperature,
-                    "new_value": corrected_temp,
+                    "new_value": "",
                 }
             )
-        elif total_postings == 0 and temperature in ("warm", "hot"):
-            corrected_temp = "cold"
-            findings.append(
-                {
-                    "check": "demand_vs_temperature",
-                    "severity": "medium",
-                    "role": role_key,
-                    "message": (
-                        f"Temperature is '{temperature}' but total_postings=0 "
-                        f"for '{role_key}'"
-                    ),
-                    "auto_corrected": True,
-                    "old_value": temperature,
-                    "new_value": corrected_temp,
-                }
-            )
-        elif total_postings > 50_000 and temperature == "cold":
-            corrected_temp = "hot"
-            findings.append(
-                {
-                    "check": "demand_vs_temperature",
-                    "severity": "medium",
-                    "role": role_key,
-                    "message": (
-                        f"Temperature is 'cold' but total_postings={total_postings:,} "
-                        f"for '{role_key}'"
-                    ),
-                    "auto_corrected": True,
-                    "old_value": temperature,
-                    "new_value": corrected_temp,
-                }
-            )
-
-        if corrected_temp is not None:
-            role_data["market_temperature"] = corrected_temp
-            role_data["_validator_corrected_temperature"] = True
             logger.info(
-                "Validator: Temperature %s -> %s for %s (postings=%d)",
+                "Validator: removed temperature %s for %s (postings=%d; %s)",
                 temperature,
-                corrected_temp,
                 role_key,
                 total_postings,
+                reason,
             )
 
     return findings

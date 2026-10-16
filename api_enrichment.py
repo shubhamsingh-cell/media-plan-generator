@@ -2918,6 +2918,8 @@ def _adzuna_benchmark_fallback(
             "avg_salary": bench["avg_salary"],
             "competition": bench["competition"],
             "source": "Adzuna (curated benchmark)",
+            "posting_observation": "estimated",
+            "posting_provider_id": "adzuna_benchmark",
             "data_confidence": 0.55,
         }
     return result
@@ -2981,6 +2983,9 @@ def fetch_job_market(roles: List[str], locations: List[str]) -> Dict[str, Any]:
                     "avg_salary": int(mean_salary) if mean_salary else None,
                     "competition": competition,
                     "source": "Adzuna",
+                    "posting_observation": "observed",
+                    "posting_provider_id": "adzuna",
+                    "posting_observed_at": time.strftime("%Y-%m-%d", time.gmtime()),
                 }
                 job_market[role] = entry
                 _set_cached(cache_k, entry)
@@ -3498,7 +3503,12 @@ def _google_trends_fallback(keywords: List[str]) -> Dict[str, Any]:
                 break
         if not matched:
             matched = {"avg_interest": 50, "latest_interest": 48, "trend": "stable"}
-        result[kw] = {**matched, "data_confidence": 0.45}
+        result[kw] = {
+            **matched,
+            "data_confidence": 0.45,
+            "trend_observation": "estimated",
+            "trend_provider_id": "google_trends_benchmark",
+        }
     return result
 
 
@@ -3539,6 +3549,11 @@ def fetch_search_trends(keywords: List[str]) -> Dict[str, Any]:
                         "avg_interest": avg_interest,
                         "latest_interest": latest,
                         "trend": "rising" if latest > avg_interest else "stable",
+                        "trend_observation": "observed",
+                        "trend_provider_id": "google_trends",
+                        "trend_observed_at": time.strftime(
+                            "%Y-%m-%d", time.gmtime()
+                        ),
                     }
             if len(result) > 1:
                 _set_cached(cache_k, result)
@@ -6955,6 +6970,11 @@ def fetch_google_ads_data(roles: List[str], locations: List[str]) -> Dict[str, A
                             "competition": competition,
                             "click_through_rate": ctr_estimate,
                             "cost_per_application": cpa_estimate,
+                            "search_volume_observation": "observed",
+                            "search_volume_provider_id": "google_ads",
+                            "search_volume_observed_at": time.strftime(
+                                "%Y-%m-%d", time.gmtime()
+                            ),
                         }
                     else:
                         _build_benchmark_for_role(role, result)
@@ -6995,6 +7015,8 @@ def _build_benchmark_for_role(role: str, result: Dict[str, Any]) -> None:
         "conversion_rate": benchmark["conversion_rate"],
         "cost_per_application": benchmark["cost_per_application"],
         "top_category_keywords": benchmark["top_keywords"],
+        "search_volume_observation": "estimated",
+        "search_volume_provider_id": "google_ads_benchmark",
     }
 
 
@@ -9955,6 +9977,8 @@ def fetch_linkedin_ads_data(
             "cost_per_quality_hire": benchmark["cost_per_quality_hire"],
             "inmail_response_rate": benchmark["inmail_response_rate"],
             "category": category,
+            "audience_observation": "estimated",
+            "audience_provider_id": "linkedin_benchmark",
         }
 
         if has_credentials:
@@ -9963,6 +9987,11 @@ def fetch_linkedin_ads_data(
             if audience is not None:
                 role_metrics["estimated_audience"] = audience
                 role_metrics["audience_source"] = "api"
+                role_metrics["audience_observation"] = "observed"
+                role_metrics["audience_provider_id"] = "linkedin"
+                role_metrics["audience_observed_at"] = time.strftime(
+                    "%Y-%m-%d", time.gmtime()
+                )
                 used_live_api = True
 
             # --- Ad forecast ---------------------------------------------------
@@ -9995,6 +10024,7 @@ def fetch_linkedin_ads_data(
 
     result = {
         "source": source,
+        "provider_id": "linkedin",
         "target_locations": location_note,
         "roles": roles_data,
         "platform_summary": _LINKEDIN_PLATFORM_SUMMARY,
@@ -12710,6 +12740,8 @@ def _get_fallback_data(role: str, location: str) -> Dict[str, Any]:
                 "freshness": f"Benchmark data (avg time to fill: {cat_data['avg_time_to_fill_days']} days)",
                 "top_cities": cat_data["top_cities"],
                 "avg_time_to_fill_days": cat_data["avg_time_to_fill_days"],
+                "posting_observation": "estimated",
+                "posting_provider_id": "jooble_benchmark",
             }
 
     # Absolute fallback for unmapped locations / categories
@@ -12721,6 +12753,8 @@ def _get_fallback_data(role: str, location: str) -> Dict[str, Any]:
         "freshness": "No data available for this market",
         "top_cities": [],
         "avg_time_to_fill_days": None,
+        "posting_observation": "unavailable",
+        "posting_provider_id": "jooble",
     }
 
 
@@ -12795,6 +12829,9 @@ def fetch_jooble_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
                         "market_activity": activity,
                         "top_companies": top_companies if top_companies else [],
                         "freshness": freshness,
+                        "posting_observation": "observed",
+                        "posting_provider_id": "jooble",
+                        "posting_observed_at": time.strftime("%Y-%m-%d", time.gmtime()),
                     }
                 else:
                     api_failures += 1
@@ -12811,6 +12848,10 @@ def fetch_jooble_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
                     "market_activity": fb["market_activity"],
                     "top_companies": fb.get("top_companies") or [],
                     "freshness": fb["freshness"],
+                    "posting_observation": fb.get(
+                        "posting_observation", "unavailable"
+                    ),
+                    "posting_provider_id": fb.get("posting_provider_id") or "",
                 }
 
             # Cache the result
@@ -12828,6 +12869,7 @@ def fetch_jooble_data(roles: List[str], locations: List[str]) -> Dict[str, Any]:
 
     return {
         "source": source,
+        "provider_id": "jooble",
         "job_market": job_market,
         "platform_summary": {
             "platform": "Jooble",
@@ -14483,6 +14525,7 @@ def _build_enrichment_summary(
     *,
     apis_called: List[str],
     apis_succeeded: List[str],
+    apis_estimated: List[str],
     apis_skipped: List[str],
     apis_failed: List[str],
     apis_circuit_broken: List[str],
@@ -14500,10 +14543,16 @@ def _build_enrichment_summary(
     ("skipped_deadline" in api_details) or started and abandoned
     ("deadline"). They applied and returned nothing, so they are also in
     ``apis_failed`` and stay in the confidence denominator."""
-    finished = set(apis_succeeded) | set(apis_skipped) | set(apis_failed)
+    finished = (
+        set(apis_succeeded)
+        | set(apis_estimated)
+        | set(apis_skipped)
+        | set(apis_failed)
+    )
     summary: Dict[str, Any] = {
         "apis_called": list(apis_called),
         "apis_succeeded": list(apis_succeeded),
+        "apis_estimated": list(apis_estimated),
         "apis_skipped": list(apis_skipped),
         "apis_failed": list(apis_failed),
         "apis_circuit_broken": list(apis_circuit_broken),
@@ -14658,6 +14707,7 @@ def enrich_data(
     start_time = time.time()
     apis_called: List[str] = []
     apis_succeeded: List[str] = []
+    apis_estimated: List[str] = []
     apis_failed: List[str] = []
 
     # --- Normalize inputs ---
@@ -15069,6 +15119,7 @@ def enrich_data(
         summary = _build_enrichment_summary(
             apis_called=apis_called,
             apis_succeeded=apis_succeeded,
+            apis_estimated=apis_estimated,
             apis_skipped=apis_skipped,
             apis_failed=apis_failed,
             apis_circuit_broken=apis_circuit_broken,
@@ -15208,6 +15259,10 @@ def enrich_data(
                         with _results_lock:
                             enriched[result_key] = result
                         apis_succeeded.append(api_label)
+                    elif status == "estimated":
+                        with _results_lock:
+                            enriched[result_key] = result
+                        apis_estimated.append(api_label)
                     elif status == "empty":
                         apis_skipped.append(api_label)
                         apis_not_applicable.append(api_label)
@@ -15334,7 +15389,8 @@ def _safe_call(func, label: str):
 
     Returns (result, status, metadata) where:
         - result:   the API return value (or None on failure)
-        - status:   "ok", "empty", "error", "circuit_open", or "rate_limited"
+        - status:   "ok", "estimated", "empty", "error", "circuit_open", or
+                    "rate_limited"
         - metadata: dict with timing and source info:
             - elapsed_time:  seconds the call took (float)
             - source:        "live", "cached", "fallback", or "circuit_open"
@@ -15399,6 +15455,43 @@ def _safe_call(func, label: str):
             metadata["success"] = True
             metadata["source"] = "live"
             return result, "empty", metadata
+
+        # A populated collector response is not necessarily observed API data.
+        # Market collectors retain useful estimates when providers are
+        # unavailable. Explicit per-metric observation markers are the evidence
+        # boundary: a provider-like source label alone cannot make an estimate a
+        # current observation.
+        def _market_observation_mode(value: Any) -> str:
+            modes: List[str] = []
+
+            def _collect(item: Any) -> None:
+                if isinstance(item, dict):
+                    for key, child in item.items():
+                        if key.endswith("_observation") and isinstance(child, str):
+                            modes.append(child.lower().strip())
+                        _collect(child)
+                elif isinstance(item, (list, tuple)):
+                    for child in item:
+                        _collect(child)
+
+            _collect(value)
+            if not modes:
+                return "unknown"
+            if all(mode == "observed" for mode in modes):
+                return "observed"
+            if any(mode == "observed" for mode in modes):
+                return "mixed"
+            if any(mode in ("estimated", "benchmark") for mode in modes):
+                return "estimated"
+            return "unavailable"
+
+        observation_mode = _market_observation_mode(result)
+        metadata["observation_mode"] = observation_mode
+        if observation_mode in ("estimated", "unavailable"):
+            metadata["source"] = "benchmark"
+            metadata["success"] = False
+            _circuit_breaker_record_success(label)
+            return result, "estimated", metadata
 
         # Determine source: if the call returned almost instantly and we know
         # caching is in play, mark as cached. The individual API functions use

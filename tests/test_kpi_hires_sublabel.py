@@ -7,7 +7,7 @@ Pre-fix (branch at e7f7f67):
   at the industry-average cost per hire and 47 the plan's own efficiency;
 * "Projected Hires" and its sublabel shared one textbox placed at 0.66in
   into the bar, so the label sat ~0.06in (about 10px) above "Channels",
-  "Avg CPA" and the other labels at 0.72in;
+  "Projected CPA" and the other labels at 0.72in;
 * a UK plan's slide-5 row "No local benchmark for this market" and an
   India plan's sources line (measured at 7pt although _set_font floors
   text at 8pt) both wrapped onto a second line.
@@ -88,26 +88,46 @@ def _kpi_bar(slide):
 
 @pytest.fixture(scope="module")
 def hospital():
-    data = T.build_plan_data(_brief(
-        "Probe Health", "Healthcare & Medical", "$250,000", ["Dallas, TX"],
-        ["Registered Nurse", "Pharmacist"], "100 hires"))
+    data = T.build_plan_data(
+        _brief(
+            "Probe Health",
+            "Healthcare & Medical",
+            "$250,000",
+            ["Dallas, TX"],
+            ["Registered Nurse", "Pharmacist"],
+            "100 hires",
+        )
+    )
     return data, _deck(data)
 
 
 @pytest.fixture(scope="module")
 def india_it():
-    data = T.build_plan_data(_brief(
-        "Probe Infotech", "tech_engineering", "₹25,000,000",
-        ["Bengaluru, Karnataka, India", "Pune, Maharashtra, India"],
-        ["Java Developer", "QA Engineer"], "500+ hires"))
+    data = T.build_plan_data(
+        _brief(
+            "Probe Infotech",
+            "tech_engineering",
+            "₹25,000,000",
+            ["Bengaluru, Karnataka, India", "Pune, Maharashtra, India"],
+            ["Java Developer", "QA Engineer"],
+            "500+ hires",
+        )
+    )
     return data, _deck(data)
 
 
 @pytest.fixture(scope="module")
 def uk_finance():
-    data = T.build_plan_data(_brief(
-        "Probe Bank", "finance_banking", "£150,000", ["London, UK"],
-        ["Financial Analyst"], "50 hires"))
+    data = T.build_plan_data(
+        _brief(
+            "Probe Bank",
+            "finance_banking",
+            "£150,000",
+            ["London, UK"],
+            ["Financial Analyst"],
+            "50 hires",
+        )
+    )
     return data, _deck(data)
 
 
@@ -116,9 +136,32 @@ class TestProjectedHiresKpi:
         s2 = hospital[1].slides[1]
         tops = {
             lbl: _shape_with_text(s2, lbl).top
-            for lbl in ("Channels", "Projected Hires", "Avg CPA")
+            for lbl in ("Channels", "Projected Hires", "Projected CPA")
         }
         assert len(set(tops.values())) == 1, {k: v / EMU for k, v in tops.items()}
+
+    def test_cpa_headlines_are_explicitly_projected_and_fit(self, hospital):
+        labels = [
+            shape
+            for slide in hospital[1].slides
+            for shape in slide.shapes
+            if shape.has_text_frame and shape.text_frame.text.strip() == "Projected CPA"
+        ]
+        assert len(labels) >= 2
+        assert not any(
+            shape.has_text_frame and shape.text_frame.text.strip() == "Avg CPA"
+            for slide in hospital[1].slides
+            for shape in slide.shapes
+        )
+        for shape in labels:
+            run = shape.text_frame.paragraphs[0].runs[0]
+            font_pt = run.font.size.pt if run.font.size is not None else 9.0
+            assert (
+                ppt_generator._measure_lines(
+                    "Projected CPA", shape.width / EMU, font_pt, bold=True
+                )
+                == 1
+            )
 
     def test_sublabel_says_what_each_end_assumes(self, hospital):
         data, prs = hospital

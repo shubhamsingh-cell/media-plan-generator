@@ -474,9 +474,11 @@ def test_unmatched_roles_share_fabricated_talent_pool_value_precondition():
     op = result.get("Confectionery Line Operator")
     pkg = result.get("Packaging Associate II")
     assert op is not None and pkg is not None
-    assert "Industry Benchmark" in (op.get("posting_sources") or [])
-    assert "Industry Benchmark" in (pkg.get("posting_sources") or [])
-    assert op["talent_pool_estimate"] == pkg["talent_pool_estimate"] == 1_500_000
+    assert op.get("posting_sources") == []
+    assert pkg.get("posting_sources") == []
+    assert op["talent_pool_estimate"] == pkg["talent_pool_estimate"] == 0
+    assert op["market_evidence"]["status"] == "unavailable"
+    assert pkg["market_evidence"]["status"] == "unavailable"
 
 
 def test_excel_talent_pool_column_never_ships_fabricated_number():
@@ -679,11 +681,31 @@ def test_ppt_market_temp_row_present_for_real_data():
     """
     job_market_demand = {
         "Registered Nurse": {
-            "total_postings": 0,
+            "total_postings": 4200,
             "posting_sources": ["Adzuna"],
             "market_temperature": "cool",
             "trend_direction": "Declining",
             "talent_pool_estimate": 500000,
+            "market_evidence": {
+                "contract": "market_evidence_v1",
+                "metrics": {
+                    "job_postings": {
+                        "status": "observed",
+                        "provider_ids": ["adzuna"],
+                        "observed_at": ["2026-10-15"],
+                    },
+                    "talent_pool": {
+                        "status": "observed",
+                        "provider_ids": ["linkedin"],
+                        "observed_at": ["2026-10-14"],
+                    },
+                    "market_temperature": {
+                        "status": "observed",
+                        "provider_ids": ["adzuna", "linkedin"],
+                        "observed_at": ["2026-10-14", "2026-10-15"],
+                    },
+                },
+            },
         },
     }
     data = _ppt_plan_with_job_market_demand(
@@ -757,6 +779,26 @@ def test_slide2_never_shows_fabricated_temp_and_prefers_real_role_data():
             "market_temperature": "cool",
             "trend_direction": "Declining",
             "talent_pool_estimate": 250_000,
+            "market_evidence": {
+                "contract": "market_evidence_v1",
+                "metrics": {
+                    "job_postings": {
+                        "status": "observed",
+                        "provider_ids": ["adzuna"],
+                        "observed_at": ["2026-10-15"],
+                    },
+                    "talent_pool": {
+                        "status": "observed",
+                        "provider_ids": ["linkedin"],
+                        "observed_at": ["2026-10-14"],
+                    },
+                    "market_temperature": {
+                        "status": "observed",
+                        "provider_ids": ["adzuna", "linkedin"],
+                        "observed_at": ["2026-10-14", "2026-10-15"],
+                    },
+                },
+            },
         },
     }
     data = _ppt_plan_with_job_market_demand(
@@ -869,7 +911,8 @@ def test_sources_confidence_job_market_demand_not_graded_a_when_all_fallback():
     jmd = data["_synthesized"]["job_market_demand"]
     for role in ("Confectionery Line Operator", "Packaging Associate II"):
         role_data = jmd[role]
-        assert "Industry Benchmark" in (role_data.get("posting_sources") or [])
+        assert role_data.get("posting_sources") == []
+        assert role_data["market_evidence"]["status"] == "unavailable"
         meta = role_data.get("_meta") or {}
         assert meta.get("source_count") == 0, (
             f"{role}: fallback _meta.source_count still claims real sources: "
