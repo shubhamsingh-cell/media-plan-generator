@@ -27728,7 +27728,11 @@ def handle_chat_request(
             "error": "No message provided",
         }
 
-    history = _sanitize_history(request_data.get("history") or [], message=message)
+    # The platform drawer used to post ``conversation_history``; accept both.
+    history = _sanitize_history(
+        request_data.get("history") or request_data.get("conversation_history") or [],
+        message=message,
+    )
     context = request_data.get("context")
 
     iq = _get_iq()

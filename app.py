@@ -13803,6 +13803,21 @@ _SAME_ORIGIN_ALLOWED_HOSTS = frozenset(
 )
 
 
+def _alias_history_key(data: dict) -> None:
+    """Accept the platform drawer's older ``conversation_history`` key.
+
+    The drawer posted ``conversation_history`` while the chat endpoints read
+    ``history``, so its replies never saw prior turns. Copy it over when
+    ``history`` is absent so the same validation and caps apply downstream.
+    """
+    if (
+        isinstance(data, dict)
+        and data.get("history") is None
+        and isinstance(data.get("conversation_history"), list)
+    ):
+        data["history"] = data["conversation_history"]
+
+
 class MediaPlanHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         logger.info(format, *args)
@@ -14542,6 +14557,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     )
                     continue
 
+                _alias_history_key(data)
                 chat_history = data.get("history") or []
                 if isinstance(chat_history, list) and len(chat_history) > 50:
                     ws_conn.send_json(
@@ -22607,6 +22623,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "Field 'message' must be a string", "VALIDATION_ERROR", 400
                 )
                 return
+            _alias_history_key(data)
             _raw_hist = data.get("history")
             if _raw_hist is not None and not isinstance(_raw_hist, list):
                 self._send_error(
@@ -22963,6 +22980,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     "Field 'message' must be a string", "VALIDATION_ERROR", 400
                 )
                 return
+            _alias_history_key(data)
             _raw_hist = data.get("history")
             if _raw_hist is not None and not isinstance(_raw_hist, list):
                 self._send_error(

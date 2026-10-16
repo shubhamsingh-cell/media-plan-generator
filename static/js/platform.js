@@ -1810,7 +1810,7 @@ const NovaDrawer = (() => {
         body: JSON.stringify({
           message: text,
           conversation_id: conversationId,
-          conversation_history: _chatHistory
+          history: _chatHistory
             .filter((m) => m.role === "user" || m.role === "nova")
             .slice(-10)
             .map((m) => ({
@@ -1845,7 +1845,7 @@ const NovaDrawer = (() => {
                   body: JSON.stringify({
                     message: text,
                     conversation_id: conversationId,
-                    conversation_history: _chatHistory
+                    history: _chatHistory
                       .filter((m) => m.role === "user" || m.role === "nova")
                       .slice(-10)
                       .map((m) => ({
