@@ -1240,6 +1240,7 @@
 
   function switchConversation(id) {
     if (!state.conversations[id]) return;
+    if (id !== state.activeConvId) cancelInFlightReply();
     state.activeConvId = id;
     flushSaveConversations();
     renderSidebar();
@@ -1248,6 +1249,7 @@
   }
 
   function deleteConversation(id) {
+    if (id === state.activeConvId) cancelInFlightReply();
     delete state.conversations[id];
     if (state.activeConvId === id) {
       var keys = Object.keys(state.conversations);
@@ -2746,15 +2748,7 @@
     if (text === "/clear") {
       chatInput.value = "";
       updateSendBtn();
-      var conv = getActiveConv();
-      if (conv) {
-        conv.messages = [];
-        conv.title = "New Chat";
-        conv.updatedAt = Date.now();
-        flushSaveConversations();
-        renderSidebar();
-        renderChat();
-      }
+      clearActiveConversation();
       return;
     }
     if (!text || state.isLoading) return;
@@ -2765,6 +2759,13 @@
 
     if (!getActiveConv()) createConversation();
     var conv = getActiveConv();
+    // A reply belongs to the conversation it was sent from. If the user
+    // clears, starts a new chat, switches or deletes while it streams, the
+    // active id changes and the late reply must not land anywhere visible.
+    var sendConvId = conv.id;
+    function _isStale() {
+      return state.activeConvId !== sendConvId;
+    }
 
     // Add user message
     var userMsg = { role: "user", content: text, timestamp: Date.now() };
@@ -2853,6 +2854,7 @@
 
     // ── Finalize stream response (shared by WS and SSE) ──
     function _finalizeStream(metadata, fullText) {
+      if (_isStale()) return;
       var cur = document.getElementById("streaming-cursor");
       if (cur) cur.remove();
       // A11y: clear the streaming busy flag so the finalized answer (appended
@@ -2926,6 +2928,7 @@
 
     // ── Show error banner (shared) ──
     function _showStreamError(errorMsg) {
+      if (_isStale()) return;
       resetLoadingState();
       var streamEl = document.getElementById("streaming-msg");
       // A11y: clear the streaming busy flag before discarding the node.
@@ -3404,12 +3407,17 @@
     if (!conv) return;
     cancelInFlightReply();
     delete state.conversations[conv.id];
-    conv.id = generateId();
-    conv.messages = [];
-    conv.title = "New Chat";
-    conv.updatedAt = Date.now();
-    state.conversations[conv.id] = conv;
-    state.activeConvId = conv.id;
+    // A NEW object: any closure still holding the old one (a stream that was
+    // in flight) can no longer write into the fresh conversation.
+    var fresh = {
+      id: generateId(),
+      title: "New Chat",
+      messages: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    state.conversations[fresh.id] = fresh;
+    state.activeConvId = fresh.id;
     flushSaveConversations();
     renderSidebar();
     renderChat();
