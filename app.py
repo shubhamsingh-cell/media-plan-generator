@@ -6259,6 +6259,9 @@ def _compute_plan_estimate(brief: dict) -> dict:
     # 4 at its $10,500 midpoint"), as every deck's KPI sublabel does; the
     # headline is budget / hires, which equals the floor only when the
     # division is exact.
+    total_projected = (
+        budget_result.get("total_projected") if isinstance(budget_result, dict) else {}
+    ) or {}
     _est_meta = budget_result.get("metadata") if isinstance(budget_result, dict) else {}
     _est_suff = (
         budget_result.get("sufficiency") if isinstance(budget_result, dict) else {}

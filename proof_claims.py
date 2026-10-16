@@ -566,6 +566,40 @@ def _pe_cpa() -> ProofClaim:
     )
 
 
+def _pe_range(key: str, field: str) -> ProofClaim:
+    """The same low-high the wizard and /api/estimate print for the hub card's
+    default brief: ``plan_projection.project_plan``'s own text (``projection``
+    block of the estimate), so the hub, the wizard and the estimate can never
+    disagree. The card's headline figures above are the high end of these ranges
+    (its basis line names the low end)."""
+    proj = _pe_estimate().get("projection")
+    text = ((proj or {}).get("text") or {}).get(field)
+    if not isinstance(text, str) or not text or text == "n/a":
+        raise ValueError(f"projection.text.{field} is {text!r}")
+    return ProofClaim(
+        key=key,
+        value=None,
+        text=text,
+        source=_pe_source(f"plan_projection.project_plan -> projection.text.{field}"),
+    )
+
+
+def _pe_hires_range() -> ProofClaim:
+    return _pe_range("pe_hires_range", "hires")
+
+
+def _pe_cph_range() -> ProofClaim:
+    return _pe_range("pe_cph_range", "cph")
+
+
+def _pe_apps_range() -> ProofClaim:
+    return _pe_range("pe_apps_range", "applications")
+
+
+def _pe_cpa_range() -> ProofClaim:
+    return _pe_range("pe_cpa_range", "cpa")
+
+
 def pe_basis_text(est: Dict[str, Any]) -> str:
     """``9 whole hires at the engine's $5,250 floor · 4 at its $10,500 midpoint``.
 
@@ -705,6 +739,10 @@ _SOURCES: Dict[str, Callable[[], ProofClaim]] = {
     "pe_hires": _pe_hires,
     "pe_apps": _pe_apps,
     "pe_cpa": _pe_cpa,
+    "pe_hires_range": _pe_hires_range,
+    "pe_cph_range": _pe_cph_range,
+    "pe_apps_range": _pe_apps_range,
+    "pe_cpa_range": _pe_cpa_range,
     "pe_basis": _pe_basis,
     "pe_scenario": _pe_scenario,
     "pe_scenario_html": _pe_scenario_html,

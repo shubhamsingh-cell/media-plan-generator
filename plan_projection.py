@@ -253,6 +253,13 @@ def _kb_industry_row(
     return (kb_key, row) if isinstance(row, dict) else ("", {})
 
 
+def _provenance_short(row: Dict[str, Any]) -> str:
+    """The knowledge base row's own audit status ("Not independently audited"),
+    so a cited benchmark never reads firmer than its source says."""
+    text = str((row or {}).get("provenance") or "").strip()
+    return text.split(".")[0].strip() if text else ""
+
+
 def kb_cpa_range(
     industry_key: str,
     role_titles: Optional[List[str]] = None,
@@ -287,6 +294,7 @@ def kb_cpa_range(
                 "low": rng[0],
                 "high": rng[1],
                 "text": text,
+                "provenance": _provenance_short(row),
                 "scope": "sub_role",
                 "key": f"{kb_key}.cpa.{sub_key}",
                 "source": f"{_KB_CPA_SOURCE_FILE} industry_benchmarks.{kb_key}.cpa.{sub_key}",
@@ -298,6 +306,7 @@ def kb_cpa_range(
         "low": rng[0],
         "high": rng[1],
         "text": str(cpa.get("range")),
+        "provenance": _provenance_short(row),
         "scope": "industry",
         "key": f"{kb_key}.cpa.range",
         "source": f"{_KB_CPA_SOURCE_FILE} industry_benchmarks.{kb_key}.cpa.range",
@@ -355,7 +364,8 @@ def _cpa_range(
     lo, hi = float(kb["low"]), float(kb["high"])
     where = "sub-role" if kb.get("scope") == "sub_role" else "industry"
     band = f"{_money(lo)}\u2013{_money(hi)}"
-    cite = f"({where}; source: {kb['source']})"
+    prov = f"; {kb['provenance']}" if kb.get("provenance") else ""
+    cite = f"({where}; source: {kb['source']}{prov})"
     low, high = min(engine_cpa, lo), max(engine_cpa, hi)
     if engine_cpa < lo:
         note = (
