@@ -36,7 +36,16 @@ from typing import Any, Dict, Optional, Tuple
 _EXTRA_COUNTRIES: Dict[str, Tuple[Tuple[str, ...], Tuple[str, ...]]] = {
     "Turkey": (
         ("turkiye", "tr", "republic of turkey"),
-        ("istanbul", "ankara", "izmir", "bursa", "antalya", "adana", "konya", "gaziantep"),
+        (
+            "istanbul",
+            "ankara",
+            "izmir",
+            "bursa",
+            "antalya",
+            "adana",
+            "konya",
+            "gaziantep",
+        ),
     ),
     "Saudi Arabia": (
         ("ksa", "kingdom of saudi arabia", "saudi"),
@@ -52,15 +61,39 @@ _EXTRA_COUNTRIES: Dict[str, Tuple[Tuple[str, ...], Tuple[str, ...]]] = {
     ),
     "Romania": (
         ("ro",),
-        ("bucharest", "cluj-napoca", "cluj napoca", "timisoara", "iasi", "brasov", "constanta"),
+        (
+            "bucharest",
+            "cluj-napoca",
+            "cluj napoca",
+            "timisoara",
+            "iasi",
+            "brasov",
+            "constanta",
+        ),
     ),
     "Taiwan": (
         ("tw", "republic of china taiwan"),
-        ("taipei", "new taipei", "kaohsiung", "taichung", "tainan", "hsinchu", "taoyuan"),
+        (
+            "taipei",
+            "new taipei",
+            "kaohsiung",
+            "taichung",
+            "tainan",
+            "hsinchu",
+            "taoyuan",
+        ),
     ),
     "Bangladesh": (
         ("bd",),
-        ("dhaka", "chittagong", "chattogram", "khulna", "sylhet", "rajshahi", "gazipur"),
+        (
+            "dhaka",
+            "chittagong",
+            "chattogram",
+            "khulna",
+            "sylhet",
+            "rajshahi",
+            "gazipur",
+        ),
     ),
     "Egypt": (
         ("eg",),
@@ -68,7 +101,15 @@ _EXTRA_COUNTRIES: Dict[str, Tuple[Tuple[str, ...], Tuple[str, ...]]] = {
     ),
     "Pakistan": (
         ("pk",),
-        ("karachi", "lahore", "islamabad", "faisalabad", "rawalpindi", "multan", "peshawar"),
+        (
+            "karachi",
+            "lahore",
+            "islamabad",
+            "faisalabad",
+            "rawalpindi",
+            "multan",
+            "peshawar",
+        ),
     ),
     "Qatar": (
         ("qa",),
@@ -112,7 +153,11 @@ _BARE_CITY_DENYLIST = frozenset({"athens", "moscow", "alexandria"})
 
 
 def _fold(text: Any) -> str:
-    raw = unicodedata.normalize("NFKD", str(text or "")).encode("ascii", "ignore").decode()
+    raw = (
+        unicodedata.normalize("NFKD", str(text or ""))
+        .encode("ascii", "ignore")
+        .decode()
+    )
     return re.sub(r"\s+", " ", raw.lower().replace("’", "'")).strip()
 
 
@@ -148,7 +193,7 @@ def canonical_name(text: Any) -> Optional[str]:
 
 
 def _is_us_form(folded: str) -> bool:
-    """"Lima, OH" / "Peru, Indiana" / "Lima OH": a US place, never a country."""
+    """ "Lima, OH" / "Peru, Indiana" / "Lima OH": a US place, never a country."""
     try:
         from plan_geo import US_STATE_ABBR, us_state_for_location
     except ImportError:  # pragma: no cover - plan_geo ships with the repo

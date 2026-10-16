@@ -115,9 +115,12 @@ def test_cost_of_living_style_consumers_do_not_invent_figures():
     )
     assert geo["unranked_locations"][0]["location"].startswith("Istanbul")
     assert all("Istanbul" not in r["location"] for r in geo["ranked_locations"])
-    factors = research.get_market_trends(["Istanbul, Turkey"], "general_entry_level", [])
+    factors = research.get_market_trends(
+        ["Istanbul, Turkey"], "general_entry_level", []
+    )
     assert all(
-        "No country-level data" in f["descriptions"]["Istanbul, Turkey"] for f in factors
+        "No country-level data" in f["descriptions"]["Istanbul, Turkey"]
+        for f in factors
     )
 
 
@@ -218,7 +221,9 @@ def test_plan_has_no_us_country_label_or_us_figures(bundles, tag):
     assert not [
         r
         for r in rows
-        if re.search(r"\b(FedEx|UPS|XPO Logistics|C\.H\. Robinson|Amazon Logistics)\b", r[1])
+        if re.search(
+            r"\b(FedEx|UPS|XPO Logistics|C\.H\. Robinson|Amazon Logistics)\b", r[1]
+        )
     ], tag
     assert not [r for r in rows if "national placeholder" in r[1]], tag
 
