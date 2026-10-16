@@ -5697,6 +5697,12 @@ except ImportError as e:
     logger.warning("budget_engine import failed: %s", e)
     calculate_budget_allocation = None
 
+try:
+    from plan_projection import project_plan, public_view
+except ImportError as e:
+    logger.warning("plan_projection import failed: %s", e)
+    project_plan = public_view = None
+
 # S91: single-source-of-truth US-plan resolution + duration parsing, and the
 # excel_v2 module handle (for the optional niche-vendor-availability hook --
 # code defensively since that accessor may not exist yet).
@@ -6001,7 +6007,7 @@ def _compute_plan_estimate(brief: dict) -> dict:
             (e.g. no positive budget, no roles). Callers must turn this
             into a 4xx, never a 500.
     """
-    if calculate_budget_allocation is None:
+    if calculate_budget_allocation is None or project_plan is None:
         raise _EstimateValidationError("Budget engine unavailable")
 
     # The SAME budget reading /api/generate plans with (and the preview's JS
@@ -6200,33 +6206,40 @@ def _compute_plan_estimate(brief: dict) -> dict:
                 vendor_err,
             )
 
-    budget_result = calculate_budget_allocation(
-        total_budget=budget_val,
-        roles=roles_for_ba,
-        locations=locs_for_ba,
-        industry=industry_key,
+    # ONE projection engine: the same plan_projection.project_plan call Quick
+    # Plan and Nova make. It runs calculate_budget_allocation on exactly the
+    # inputs resolved above and turns total_projected into low/high ranges.
+    projection = project_plan(
+        {
+            "budget": budget_val,
+            "roles": roles_for_ba,
+            "locations": locs_for_ba,
+            "industry": industry_raw,
+            "client_name": company_name,
+            "campaign_start_month": _coerce_int_field(
+                brief.get("campaign_start_month") or 0,
+                field_name="campaign_start_month",
+            ),
+            "locations_raw": locs_raw,
+            "budget_text": budget_str,
+            "target_hires": _hire_goal_for_budget(brief),
+        },
         channel_percentages=channel_pcts,
-        synthesized_data=None,
-        knowledge_base=kb,
-        collar_type="",
-        campaign_start_month=_coerce_int_field(
-            brief.get("campaign_start_month") or 0, field_name="campaign_start_month"
-        ),
         vendor_availability=vendor_availability,
-        plan_currency=_resolve_plan_currency(brief),
-        locations_raw=locs_raw,
-        budget_text=budget_str,
-        target_hires=_hire_goal_for_budget(brief),
+        knowledge_base=kb,
+        plan_currency=_resolve_plan_currency(brief) or "",
+        industry_key=industry_key,
     )
-    total_projected = (
-        budget_result.get("total_projected", {})
-        if isinstance(budget_result, dict)
-        else {}
-    )
-    applications = total_projected.get("applications") or 0
-    hires = total_projected.get("hires") or 0
-    cost_per_hire = total_projected.get("cost_per_hire") or 0.0
-    est_cpa = round(budget_val / applications, 2) if applications else 0.0
+    if not projection.get("ok"):
+        raise _EstimateValidationError(
+            str(projection.get("error") or "Projection unavailable")
+        )
+    budget_result = projection["budget_result"]
+    engine_point = projection["engine"]
+    applications = engine_point["applications"]
+    hires = engine_point["hires"]
+    cost_per_hire = engine_point["cost_per_hire"]
+    est_cpa = engine_point["cost_per_application"]
 
     est_hires = int(hires)
     # Below one hire the engine's cost_per_hire is budget / max(hires, 1), i.e.
@@ -6278,6 +6291,11 @@ def _compute_plan_estimate(brief: dict) -> dict:
             if cph_benchmark is not None
             else None
         ),
+        # Low-high ranges + the assumptions behind them (applications, hires,
+        # cost per application, cost per hire). The est_* keys above are the
+        # engine's own point figures, kept for clients that read them; every
+        # screen that SHOWS a number reads this block.
+        "projection": public_view(projection),
         "channels": _estimate_funded_channels(budget_result),
         # How the budget text was read -- the figure the plan will use
         # ("planning at $X"), so the wizard shows the server's own reading.

@@ -243,15 +243,66 @@ def _get_channel(ch: str) -> Tuple[float, float]:
 
 
 def _get_industry(ind: str) -> Tuple[int, float, float, int, int, int, int]:
-    """Return industry benchmark tuple."""
+    """Return industry benchmark tuple.
+
+    The cost-per-hire pair (``cph_lo``, ``cph_hi``) is reconciled to the shared
+    projection engine's table (``budget_engine.INDUSTRY_CPH_RANGES``) whenever
+    the engine has a row for the industry, so this tool and the media-plan
+    engine quote ONE industry cost per hire (this module's own table said
+    healthcare $5,000-$12,000, the engine $9,000-$12,000).
+    """
     k = _norm(ind)
     resolved = _INDUSTRY_ALIASES.get(k, k)
-    if resolved in _INDUSTRIES:
-        return _INDUSTRIES[resolved]
-    for key, val in _INDUSTRIES.items():
-        if k in key or key in k:
-            return val
-    return _INDUSTRIES["general"]
+    row = _INDUSTRIES.get(resolved)
+    if row is None:
+        for key, val in _INDUSTRIES.items():
+            if k in key or key in k:
+                row = val
+                resolved = key
+                break
+    if row is None:
+        row = _INDUSTRIES["general"]
+        resolved = "general"
+    engine_rng = _engine_cph_range(resolved)
+    if engine_rng is not None:
+        row = (row[0], row[1], row[2], int(engine_rng[0]), int(engine_rng[1]), row[5], row[6])
+    return row
+
+
+# This module's industry -> budget_engine.INDUSTRY_CPH_RANGES key. An industry
+# absent here (gig, marketing) has no engine row and keeps this module's own pair.
+_ENGINE_CPH_KEY: Dict[str, str] = {
+    "healthcare": "healthcare_medical",
+    "technology": "tech_engineering",
+    "finance": "finance_banking",
+    "retail": "retail_consumer",
+    "hospitality": "hospitality_travel",
+    "logistics": "logistics_supply_chain",
+    "blue_collar": "blue_collar_trades",
+    "pharma": "pharma_biotech",
+    "energy": "energy_utilities",
+    "education": "education",
+    "insurance": "insurance",
+    "automotive": "automotive",
+    "aerospace": "aerospace_defense",
+    "legal": "legal_services",
+    "general": "general_entry_level",
+}
+
+
+def _engine_cph_range(industry: str) -> Optional[Tuple[float, float]]:
+    """The shared engine's total cost-per-hire range for this tool's industry."""
+    key = _ENGINE_CPH_KEY.get(industry)
+    if not key:
+        return None
+    try:
+        import budget_engine
+
+        rng = budget_engine.INDUSTRY_CPH_RANGES.get(key)
+    except (ImportError, AttributeError) as exc:
+        logger.debug("roi_projector: engine CPH table unavailable: %s", exc)
+        return None
+    return (float(rng[0]), float(rng[1])) if rng else None
 
 
 def _location_mult(locations: Optional[List[str]]) -> float:
@@ -493,9 +544,39 @@ def project_roi(
     cpa_exp = max(cpa_lo_a, min(cpa_hi_a, _safe_div(budget, apps, cpa_hi_a)))
     cpa_pes, cpa_opt = cpa_exp * (1 + var), max(0.01, cpa_exp * (1 - var))
 
-    cph_exp = max(cph_lo * 0.5, _safe_div(budget, hires, cph_hi))
-    cph_pes = _safe_div(budget, max(h_pes, 0.1), cph_hi)
-    cph_opt = _safe_div(budget, max(h_opt, 0.1), cph_lo)
+    # S48: Posting model narrative and adjustments (Anirudh). Runs BEFORE the
+    # cost-per-hire maths so cost per hire is derived from the hires it reports
+    # (it used to be computed from the pre-smoothing figure).
+    if model == "trickle":
+        model_note = (
+            "Trickle-type posting -- applications arrive gradually. "
+            "Patience required; repost at day 14."
+        )
+        # Apply Bayesian smoothing to hire projections for trickle model
+        # Pull toward industry baseline hire count (reduces extreme estimates)
+        _baseline_hires = _safe_div(budget, (cph_lo + cph_hi) / 2, 1.0)
+        _k_proj = 5.0  # prior strength for projection smoothing
+        hires = (hires * 3.0 + _k_proj * _baseline_hires) / (3.0 + _k_proj)
+        h_pes = max(0, hires * (1 - var))
+        h_opt = hires * (1 + var)
+    else:
+        model_note = "Survey-type posting with strong Day 1 application volume."
+
+    # One cost-per-hire floor (half the industry's lower bound) applies to ALL
+    # THREE scenarios -- it used to floor only the expected value, which let the
+    # pessimistic and optimistic cost per hire fall below it (RN @ $10k read
+    # low 1,133 / expected 2,500 / high 1,888). Hires are capped at what the
+    # floor allows, so hires and cost per hire describe the same scenario.
+    cph_floor = cph_lo * 0.5
+    hires_cap = _safe_div(budget, cph_floor, hires)
+    hires = min(hires, hires_cap)
+    h_opt = min(h_opt, hires_cap)
+    h_pes = min(h_pes, hires)
+
+    cph_exp = max(cph_floor, _safe_div(budget, hires, cph_hi))
+    cph_opt = max(cph_floor, _safe_div(budget, max(h_opt, 0.1), cph_lo))
+    cph_pes = max(cph_exp, _safe_div(budget, max(h_pes, 0.1), cph_hi))
+    cph_opt = min(cph_opt, cph_exp)
 
     avg_cph_mkt = (cph_lo + cph_hi) / 2
     roi_ratio = round(_safe_div(avg_cph_mkt, cph_exp, 1.0), 1)
@@ -522,22 +603,6 @@ def project_roi(
     cpift_exp = round(_safe_div(cpa_exp, interview_rate, cpa_exp * 5), 2)
     cpift_pes = round(_safe_div(cpa_pes, interview_rate, cpa_pes * 5), 2)
     cpift_opt = round(_safe_div(cpa_opt, interview_rate, cpa_opt * 5), 2)
-
-    # S48: Posting model narrative and adjustments (Anirudh)
-    if model == "trickle":
-        model_note = (
-            "Trickle-type posting -- applications arrive gradually. "
-            "Patience required; repost at day 14."
-        )
-        # Apply Bayesian smoothing to hire projections for trickle model
-        # Pull toward industry baseline hire count (reduces extreme estimates)
-        _baseline_hires = _safe_div(budget, (cph_lo + cph_hi) / 2, 1.0)
-        _k_proj = 5.0  # prior strength for projection smoothing
-        hires = (hires * 3.0 + _k_proj * _baseline_hires) / (3.0 + _k_proj)
-        h_pes = max(0, hires * (1 - var))
-        h_opt = hires * (1 + var)
-    else:
-        model_note = "Survey-type posting with strong Day 1 application volume."
 
     # Recommendation
     h_int = max(1, round(hires))

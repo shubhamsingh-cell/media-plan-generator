@@ -10090,7 +10090,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         budget = params.get("budget") or 0
         roles_list = params.get("roles") or []
         locations_list = params.get("locations") or []
-        industry = params.get("industry", "general")
+        industry = params.get("industry") or ""
         openings_per_role = max(1, int(params.get("openings", 1) or 1))
         target_hires = int(params.get("target_hires") or 0 or 0)
 
@@ -10163,30 +10163,26 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if _budget_currency != "USD":
             result["currency"] = _budget_currency
 
-        roles = []
+        # ONE projection engine (plan_projection.project_plan): the same call the
+        # wizard's /api/estimate and the Quick Plan make, so a brief reads the same
+        # low-high applications / hires / CPA / CPH in chat as everywhere else. The
+        # role-keyword tier guess and the fixed 30/25/15/15/10/5 mix that lived here
+        # gave a different answer for the same brief (an RN plan read 35 hires in
+        # chat vs 11 in the wizard), and an unset industry silently became "general".
+        role_briefs: List[Any] = []
         for r in roles_list or ["General Hire"]:
-            role_lower = r.lower() if isinstance(r, str) else ""
-            tier = "Professional / White-Collar"
-            if any(kw in role_lower for kw in ["nurse", "clinical", "therapist"]):
-                tier = "Clinical / Licensed"
-            elif any(kw in role_lower for kw in ["executive", "director", "vp"]):
-                tier = "Executive / Leadership"
-            elif any(
-                kw in role_lower for kw in ["driver", "warehouse", "construction"]
-            ):
-                tier = "Skilled Trades / Technical"
-            elif any(kw in role_lower for kw in ["cashier", "hourly", "retail"]):
-                tier = "Hourly / Entry-Level"
-            roles.append({"title": r, "count": openings_per_role, "tier": tier})
+            if isinstance(r, str) and r.strip():
+                role_briefs.append({"title": r.strip(), "count": openings_per_role})
 
-        # Build location dicts -- Tier 2: country tag follows _detected_country.
-        # If we detected a non-US market, tag the locations with it so downstream
-        # engines don't quietly assume US.
+        # Locations: raw strings (plan_projection splits "City, ST" / "City, Country").
+        # Tier 2: a non-US market carries its country so the engine never quietly
+        # assumes US.
         _loc_country = _detected_country or "United States"
-        locations = []
-        for loc in locations_list or [_loc_country]:
-            if isinstance(loc, str):
-                locations.append({"city": loc, "state": "", "country": _loc_country})
+        loc_briefs: List[str] = [
+            loc.strip()
+            for loc in (locations_list or [])
+            if isinstance(loc, str) and loc.strip()
+        ] or [_loc_country]
 
         kb = self._data_cache.get("knowledge_base", {})
 
@@ -10194,86 +10190,50 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         _intl_block = (
             self._intl_country_data(_detected_country) if _detected_country else None
         )
-
-        # Try orchestrator first (passes cached enrichment data to budget engine)
-        orch = _get_orchestrator()
-        if orch:
-            try:
-                allocation = orch.enrich_budget(
-                    budget=budget,
-                    roles=roles,
-                    locations=locations,
-                    industry=industry,
-                    knowledge_base=kb,
-                )
-                if isinstance(allocation, dict) and "error" not in allocation:
-                    result["channel_allocations"] = allocation.get(
-                        "channel_allocations", {}
-                    )
-                    result["total_projected"] = allocation.get("total_projected", {})
-                    result["sufficiency"] = allocation.get("sufficiency", {})
-                    result["recommendations"] = allocation.get("recommendations") or []
-                    _annotate_channel_reasons(result["channel_allocations"])
-                    _add_hire_target_comparison(result, target_hires)
-                    return result
-            except Exception as e:
-                logger.debug("Orchestrator enrich_budget failed: %s", e)
-
-        # Fallback: direct budget engine call without synthesized data
-        try:
-            from budget_engine import calculate_budget_allocation
-
-            # Tier 2: country-specific channel mix when intl data exists.
-            if _intl_block is not None:
-                _intl_plats = sorted(
-                    _intl_block.get("platforms") or [],
-                    key=lambda p: p.get("rank") if p.get("rank") is not None else 99,
-                )[:5]
-                _intl_names = [p.get("name") for p in _intl_plats if p.get("name")]
-                if _intl_names:
-                    # Allocate top-5 mix: 30/25/20/15/10 if 5, otherwise even split.
-                    if len(_intl_names) == 5:
-                        _shares = [30, 25, 20, 15, 10]
-                    else:
-                        _even = round(100 / len(_intl_names))
-                        _shares = [_even] * len(_intl_names)
-                        # Absorb rounding error into the first slot.
-                        _shares[0] += 100 - sum(_shares)
-                    channel_pcts = {
-                        name: pct for name, pct in zip(_intl_names, _shares)
-                    }
-                    result["channel_mix_source"] = (
-                        f"international_benchmarks_2026 ({_intl_block.get('name') or _detected_country})"
-                    )
+        channel_pcts: Optional[Dict[str, float]] = None  # None -> wizard default mix
+        if _intl_block is not None:
+            _intl_plats = sorted(
+                _intl_block.get("platforms") or [],
+                key=lambda p: p.get("rank") if p.get("rank") is not None else 99,
+            )[:5]
+            _intl_names = [p.get("name") for p in _intl_plats if p.get("name")]
+            if _intl_names:
+                # Allocate top-5 mix: 30/25/20/15/10 if 5, otherwise even split.
+                if len(_intl_names) == 5:
+                    _shares = [30, 25, 20, 15, 10]
                 else:
-                    channel_pcts = {
-                        "Programmatic & DSP": 30,
-                        "Global Job Boards": 25,
-                        "Niche & Industry Boards": 15,
-                        "Social Media Channels": 15,
-                        "Regional & Local Boards": 10,
-                        "Employer Branding": 5,
-                    }
-            else:
-                channel_pcts = {
-                    "Programmatic & DSP": 30,
-                    "Global Job Boards": 25,
-                    "Niche & Industry Boards": 15,
-                    "Social Media Channels": 15,
-                    "Regional & Local Boards": 10,
-                    "Employer Branding": 5,
-                }
-            allocation = calculate_budget_allocation(
-                total_budget=budget,
-                roles=roles,
-                locations=locations,
-                industry=industry,
+                    _even = round(100 / len(_intl_names))
+                    _shares = [_even] * len(_intl_names)
+                    # Absorb rounding error into the first slot.
+                    _shares[0] += 100 - sum(_shares)
+                channel_pcts = {name: pct for name, pct in zip(_intl_names, _shares)}
+                result["channel_mix_source"] = (
+                    f"international_benchmarks_2026 ({_intl_block.get('name') or _detected_country})"
+                )
+
+        try:
+            from plan_projection import project_plan, public_view
+
+            proj = project_plan(
+                {
+                    "budget": budget,
+                    "roles": role_briefs,
+                    "locations": loc_briefs,
+                    "industry": industry,
+                    "target_hires": target_hires,
+                },
                 channel_percentages=channel_pcts,
-                synthesized_data=None,
-                knowledge_base=kb,
+                knowledge_base=kb or None,
             )
+            if not proj.get("ok"):
+                raise ValueError(proj.get("error") or "projection failed")
+            allocation = proj["budget_result"]
+            result["industry"] = proj["industry"]
+            if proj.get("industry_source") != "brief":
+                result["industry_source"] = proj["industry_source"]
             result["channel_allocations"] = allocation.get("channel_allocations", {})
-            result["total_projected"] = allocation.get("total_projected", {})
+            result["total_projected"] = dict(allocation.get("total_projected", {}))
+            result["projection"] = public_view(proj)
             result["sufficiency"] = allocation.get("sufficiency", {})
             result["recommendations"] = allocation.get("recommendations") or []
             _annotate_channel_reasons(result["channel_allocations"])

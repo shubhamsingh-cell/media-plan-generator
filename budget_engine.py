@@ -7224,3 +7224,17 @@ def _auto_describe(
     elif add_channel:
         parts.append(f"add {add_channel}")
     return "; ".join(parts) if parts else "No-op scenario"
+
+
+def project_plan(brief: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]:
+    """THE plan projection: low / mid / high applications, hires, cost per
+    application and cost per hire, with the assumptions behind them.
+
+    A thin front door for :func:`plan_projection.project_plan` (kept in its
+    own module so this 7,000-line file does not grow another subsystem); the
+    wizard estimate, Quick Plan, Nova and the MCP server all go through it so
+    one brief reads one set of numbers everywhere.
+    """
+    import plan_projection
+
+    return plan_projection.project_plan(brief, **kwargs)

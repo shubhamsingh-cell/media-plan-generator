@@ -525,12 +525,16 @@ class TestRouteWiring:
     def test_compute_plan_estimate_reuses_calculate_budget_allocation(
         self, app_source: str
     ) -> None:
-        """The endpoint must call the real engine, not a parallel formula."""
+        """The endpoint must call the real engine, not a parallel formula --
+        through the one projection front door (plan_projection.project_plan),
+        which runs calculate_budget_allocation un-enriched."""
         idx = app_source.index("def _compute_plan_estimate(")
         end_idx = app_source.index("\ndef ", idx + 1)
         snippet = app_source[idx:end_idx]
-        assert "calculate_budget_allocation(" in snippet
-        assert "synthesized_data=None" in snippet
+        assert "project_plan(" in snippet
+        proj_src = (PROJECT_ROOT / "plan_projection.py").read_text(encoding="utf-8")
+        assert "calculate_budget_allocation(" in proj_src
+        assert "synthesized_data=None" in proj_src
 
 
 @pytest.fixture(scope="module")

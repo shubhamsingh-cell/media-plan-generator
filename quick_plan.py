@@ -36,6 +36,14 @@ except ImportError:
     _HAS_BUDGET_ENGINE = False
 
 try:
+    import plan_projection as _plan_projection
+
+    _HAS_PROJECTION = True
+except ImportError:
+    _plan_projection = None  # type: ignore
+    _HAS_PROJECTION = False
+
+try:
     import trend_engine as _trend_engine
 
     _HAS_TREND_ENGINE = True
@@ -1083,6 +1091,43 @@ def score_channels_for_context(
         return []
 
 
+def _largest_remainder(weights: List[float], total: int) -> List[int]:
+    """Split the integer ``total`` across ``weights`` so the parts sum to it."""
+    wsum = sum(weights)
+    if total <= 0 or wsum <= 0:
+        return [0] * len(weights)
+    exact = [w / wsum * total for w in weights]
+    parts = [int(x) for x in exact]
+    order = sorted(
+        range(len(weights)), key=lambda i: exact[i] - parts[i], reverse=True
+    )
+    for i in order[: total - sum(parts)]:
+        parts[i] += 1
+    return parts
+
+
+def _reconcile_channels_to_projection(
+    channels: List[Dict[str, Any]], applications: int, hires: int
+) -> None:
+    """Scale the per-channel applications / hires so they SUM to the plan's
+    projection (plan_projection), keeping each channel's share. The channel
+    rows are a fit-weighted split of the one projection, not a second forecast
+    -- the sum of the rows used to be the headline, which is how a $60k plan
+    read "245 hires / $245 per hire" beside a "$2,500 minimum viable" warning.
+    Mutates ``channels`` in place."""
+    if not channels:
+        return
+    apps = _largest_remainder(
+        [float(c.get("projected_applies") or 0) for c in channels], applications
+    )
+    hire_parts = _largest_remainder([float(a) for a in apps], hires)
+    for c, a, h in zip(channels, apps, hire_parts):
+        c["projected_applies"] = a
+        c["projected_hires"] = h
+        spend = c.get("spend") or 0
+        c["cpa"] = round(spend / a, 2) if a > 0 else 0
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # 4. BUDGET ASSESSMENT
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1093,6 +1138,7 @@ def _assess_budget(
     collar_type: str,
     industry: str,
     channel_recommendations: List[Dict],
+    projected_hires: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Assess whether the budget is sufficient for the role/location combo.
 
@@ -1106,11 +1152,12 @@ def _assess_budget(
         }
     """
     try:
-        total_projected_hires = sum(
-            c.get("projected_hires") or 0 for c in channel_recommendations
-        )
-        total_projected_applies = sum(
-            c.get("projected_applies") or 0 for c in channel_recommendations
+        # The plan's one projection when the caller has it; the channel rows
+        # only as a fallback (they are a split of the same total).
+        total_projected_hires = (
+            int(projected_hires)
+            if projected_hires
+            else sum(c.get("projected_hires") or 0 for c in channel_recommendations)
         )
 
         if total_projected_hires <= 0:
@@ -1609,12 +1656,37 @@ def generate_quick_plan(
             cpc_multiplier=cpc_multiplier,
         )
 
+        # ── ONE projection engine ──
+        # The same plan_projection.project_plan call the wizard estimate and
+        # Nova make: low-high applications / hires / CPA / CPH. The per-channel
+        # rows below are reconciled to it (a fit-weighted split of one
+        # projection), never summed into a second, contradictory forecast.
+        projection: Dict[str, Any] = {}
+        if _HAS_PROJECTION:
+            projection = _plan_projection.project_plan(
+                {
+                    "budget": budget_val,
+                    "roles": [role],
+                    "locations": [location],
+                    "industry": industry,
+                }
+            )
+        projection_ok = bool(projection.get("ok"))
+        if projection_ok:
+            eng = projection["engine"]
+            _reconcile_channels_to_projection(
+                channel_recommendations, eng["applications"], eng["hires"]
+            )
+
         # ── Budget assessment ──
         budget_assessment = _assess_budget(
             budget=budget_val,
             collar_type=collar_type,
-            industry=industry or "general_entry_level",
+            industry=(projection.get("industry") if projection_ok else None)
+            or industry
+            or "general_entry_level",
             channel_recommendations=channel_recommendations,
+            projected_hires=projection["engine"]["hires"] if projection_ok else None,
         )
 
         # ── Seasonal advice ──
@@ -1642,7 +1714,7 @@ def generate_quick_plan(
         blended_cpa = round(budget_val / total_applies, 2) if total_applies > 0 else 0
         blended_cph = round(budget_val / total_hires, 2) if total_hires > 0 else 0
 
-        total_projected = {
+        total_projected: Dict[str, Any] = {
             "total_budget": round(budget_val, 2),
             "total_clicks": total_clicks,
             "total_applies": total_applies,
@@ -1650,6 +1722,19 @@ def generate_quick_plan(
             "blended_cpa": blended_cpa,
             "blended_cph": blended_cph,
         }
+        if projection_ok:
+            # total_applies / total_hires / blended_* above are the engine's own
+            # point figures (the channel rows sum to them after reconciliation);
+            # the page shows the low-high ranges below, never the lone point.
+            for key, short in (
+                ("applications", "applies"),
+                ("hires", "hires"),
+                ("cpa", "cpa"),
+                ("cph", "cph"),
+            ):
+                total_projected[f"{short}_low"] = projection[key]["low"]
+                total_projected[f"{short}_high"] = projection[key]["high"]
+            total_projected["projection"] = _plan_projection.public_view(projection)
 
         return {
             "success": True,

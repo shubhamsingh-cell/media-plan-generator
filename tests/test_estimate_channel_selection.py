@@ -18,6 +18,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import app  # noqa: E402
+import budget_engine  # noqa: E402
 
 _ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -33,13 +34,15 @@ _BRIEF = {
 @pytest.fixture
 def captured(monkeypatch):
     seen: dict = {}
-    real = app.calculate_budget_allocation
+    # The estimate reaches the engine through plan_projection.project_plan,
+    # which calls budget_engine.calculate_budget_allocation.
+    real = budget_engine.calculate_budget_allocation
 
     def _spy(*args, **kwargs):
         seen["channel_percentages"] = dict(kwargs.get("channel_percentages") or {})
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(app, "calculate_budget_allocation", _spy)
+    monkeypatch.setattr(budget_engine, "calculate_budget_allocation", _spy)
     return seen
 
 
