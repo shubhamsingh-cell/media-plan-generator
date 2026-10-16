@@ -239,7 +239,10 @@ def test_a_word_is_not_a_currency_code():
     ):
         assert plan_currency.currency_codes_from_symbol(budget) == (), budget
     for budget, code in (("1.5 Mio. EUR", "EUR"), ("150k (CAD)", "CAD"), ("gbp 150k", "GBP"),
-                         ("TRY 150k", "TRY"), ("150k-200k GBP", "GBP")):
+                         ("TRY 150k", "TRY"), ("150k-200k GBP", "GBP"),
+                         # label-style: an upper-case code may sit away from the amount
+                         ("GBP: 150,000", "GBP"), ("Budget (GBP): 150000", "GBP"),
+                         ("150,000 per month GBP", "GBP"), ("150k+ GBP", "GBP")):
         assert plan_currency.currency_codes_from_symbol(budget) == (code,), budget
     assert plan_currency.currency_for_plan_with_basis(
         {"budget_range": "150k per month", "locations": ["Austin, TX"]}
