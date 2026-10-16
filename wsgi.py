@@ -159,6 +159,31 @@ def _run_deferred_startup() -> None:
     except Exception as slot_err:
         logger.warning("[wsgi] SlotOps baselines pre-warm failed: %s", slot_err)
 
+    # Freeze the pre-loaded heap before fork. Everything loaded above (KB,
+    # gazetteer, SlotOps baselines) is read-only reference data that the
+    # workers inherit copy-on-write -- but CPython's cyclic GC writes into
+    # every tracked container's header (gc_refs) on each full collection,
+    # so a worker's first gen-2 pass dirties (and privately copies) the
+    # shared pages anyway, giving back most of the pre-load saving over the
+    # first few generations. gc.freeze() moves every live object into the
+    # permanent generation, which later collections never traverse, so the
+    # pages stay shared. The collect() first clears what is already garbage
+    # so it is not frozen in place. Without --preload this runs per worker,
+    # where it is harmless (the data is long-lived either way). Python 3.7+.
+    try:
+        import gc as _gc
+
+        _gc.collect()
+        _gc.freeze()
+        logger.info(
+            "[wsgi] gc.freeze(): %d objects moved to the permanent generation "
+            "(PID %d)",
+            _gc.get_freeze_count(),
+            os.getpid(),
+        )
+    except Exception as gc_err:
+        logger.warning("[wsgi] gc.freeze() after pre-load failed: %s", gc_err)
+
     # Build vector search index in background thread (non-blocking)
     # This takes 3-5 min for 5000+ chunks and was blocking port binding,
     # causing Render's port scan to timeout and reject deploys.
