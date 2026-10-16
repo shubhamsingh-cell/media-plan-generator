@@ -29,7 +29,10 @@ PLAN_TABLE = (
 
 
 def _params(url: str) -> dict:
-    return {k: v[0] for k, v in parse_qs(urlsplit(url).query, keep_blank_values=True).items()}
+    return {
+        k: v[0]
+        for k, v in parse_qs(urlsplit(url).query, keep_blank_values=True).items()
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -64,12 +67,17 @@ def test_brief_parses_every_field_and_encodes_lists_with_semicolons():
 
 
 def test_only_params_that_parsed_are_emitted():
-    brief = nova_handoff.extract_brief("Create a media plan for 50 software engineers in Austin")
+    brief = nova_handoff.extract_brief(
+        "Create a media plan for 50 software engineers in Austin"
+    )
     assert set(brief) == {"roles", "locations", "hires"}
     url = nova_handoff.build_handoff_url(brief)
     assert set(_params(url)) == {"roles", "locations", "hires"}
     # nothing parsed -> bare wizard URL, no empty params
-    assert nova_handoff.build_handoff_url(nova_handoff.extract_brief("plan something")) == "/media-plan"
+    assert (
+        nova_handoff.build_handoff_url(nova_handoff.extract_brief("plan something"))
+        == "/media-plan"
+    )
 
 
 def test_media_word_in_media_plan_is_not_mistaken_for_the_media_industry():
@@ -94,7 +102,11 @@ def test_earlier_turns_and_context_fill_what_the_last_message_lacks():
     brief = nova_handoff.extract_brief(
         "what budget would you suggest?",
         history,
-        {"campaign_budget": 90000, "campaign_industry": "Healthcare", "campaign_client": "Acme Health"},
+        {
+            "campaign_budget": 90000,
+            "campaign_industry": "Healthcare",
+            "campaign_client": "Acme Health",
+        },
     )
     assert brief["roles"] == ["Registered Nurse"]
     assert brief["locations"] == ["Boston"]
@@ -105,7 +117,9 @@ def test_earlier_turns_and_context_fill_what_the_last_message_lacks():
 
 
 def test_budget_tool_inputs_are_a_fallback_for_budget_hires_industry():
-    tool = {"query_budget_projection": '{"total_budget": 60000, "target_hires": 12, "industry": "retail"}'}
+    tool = {
+        "query_budget_projection": '{"total_budget": 60000, "target_hires": 12, "industry": "retail"}'
+    }
     brief = nova_handoff.extract_brief("plan it", None, None, tool)
     assert brief["budget"] == 60000 and brief["hires"] == 12
     assert brief["industry"] == "retail_consumer"
@@ -115,18 +129,37 @@ def test_plan_shape_detection():
     assert nova_handoff.is_plan_shaped("media_plan", "anything")
     assert nova_handoff.is_plan_shaped("general", PLAN_TABLE)  # allocation table alone
     assert not nova_handoff.is_plan_shaped("salary", "The median salary is $120,000.")
-    assert not nova_handoff.is_plan_shaped("general", "| Metric | Value |\n|---|---|\n| Median | $1 |")
+    assert not nova_handoff.is_plan_shaped(
+        "general", "| Metric | Value |\n|---|---|\n| Median | $1 |"
+    )
 
 
 def test_handoff_absent_for_non_plan_error_and_empty_answers():
     ok = {"response": "The median salary is $120,000. " * 5}
-    assert nova_handoff.build_media_plan_handoff("salary for a data scientist", [], None, ok, "salary") is None
+    assert (
+        nova_handoff.build_media_plan_handoff(
+            "salary for a data scientist", [], None, ok, "salary"
+        )
+        is None
+    )
     err = {"response": PLAN_TABLE, "error": "internal_error"}
-    assert nova_handoff.build_media_plan_handoff("media plan", [], None, err, "media_plan") is None
-    assert nova_handoff.build_media_plan_handoff("media plan", [], None, {"response": " "}, "media_plan") is None
+    assert (
+        nova_handoff.build_media_plan_handoff("media plan", [], None, err, "media_plan")
+        is None
+    )
+    assert (
+        nova_handoff.build_media_plan_handoff(
+            "media plan", [], None, {"response": " "}, "media_plan"
+        )
+        is None
+    )
     plan = {"response": PLAN_TABLE}
-    h = nova_handoff.build_media_plan_handoff("media plan for 5 nurses in Boston", [], None, plan, "media_plan")
-    assert h["label"] == "Build the full media plan" and h["url"].startswith("/media-plan?")
+    h = nova_handoff.build_media_plan_handoff(
+        "media plan for 5 nurses in Boston", [], None, plan, "media_plan"
+    )
+    assert h["label"] == "Build the full media plan" and h["url"].startswith(
+        "/media-plan?"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +170,12 @@ class _StubIQ:
         self._response = response
 
     def chat(self, user_message, **kwargs):
-        return {"response": self._response, "sources": [], "confidence": 0.9, "tools_used": []}
+        return {
+            "response": self._response,
+            "sources": [],
+            "confidence": 0.9,
+            "tools_used": [],
+        }
 
 
 def _handle(message, response, **extra):
@@ -150,14 +188,18 @@ def _handle(message, response, **extra):
     for p in patches:
         p.start()
     try:
-        return nova.handle_chat_request({"message": message, "conversation_id": "conv-hhhhhhhhhhhhhhhh", **extra})
+        return nova.handle_chat_request(
+            {"message": message, "conversation_id": "conv-hhhhhhhhhhhhhhhh", **extra}
+        )
     finally:
         for p in reversed(patches):
             p.stop()
 
 
 def test_handle_chat_request_attaches_handoff_for_a_plan_answer():
-    result = _handle("Create a media plan for 50 software engineers in Austin", PLAN_TABLE)
+    result = _handle(
+        "Create a media plan for 50 software engineers in Austin", PLAN_TABLE
+    )
     handoff = result["media_plan_handoff"]
     assert handoff["label"] == "Build the full media plan"
     assert _params(handoff["url"]) == {
@@ -189,7 +231,9 @@ def test_stream_done_chunk_carries_the_handoff():
         },
     }
     with patch.object(nova, "handle_chat_request", lambda *a, **k: dict(plan_result)):
-        chunks = list(nova.handle_chat_request_stream({"message": "media plan for nurses"}))
+        chunks = list(
+            nova.handle_chat_request_stream({"message": "media plan for nurses"})
+        )
     done = [c for c in chunks if c.get("done")][-1]
     assert done["media_plan_handoff"]["url"] == "/media-plan?roles=Nurse"
 
@@ -198,7 +242,9 @@ def test_sse_and_ws_final_events_forward_the_handoff():
     src = (ROOT / "app.py").read_text(encoding="utf-8")
     assert src.count('"media_plan_handoff": _sse_media_plan_handoff') == 1
     assert src.count('"media_plan_handoff": _ws_media_plan_handoff') == 1
-    assert src.count('chunk.get("media_plan_handoff")') == 2
+    # Whitespace-insensitive: the black commit hook wraps the SSE site as
+    # chunk.get(\n "media_plan_handoff"\n) once a neighbouring edit touches it.
+    assert len(re.findall(r'chunk\.get\(\s*"media_plan_handoff"\s*\)', src)) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -263,7 +309,10 @@ console.log(JSON.stringify({href: link.href, cls: link.className, rel: link.rel,
   rejected: BAD.map(function (b) { return buildHandoffLink(b) === null; })}));
 """
     )
-    assert out["href"].startswith("/media-plan?roles=Nurse") and out["cls"] == "handoff-btn"
+    assert (
+        out["href"].startswith("/media-plan?roles=Nurse")
+        and out["cls"] == "handoff-btn"
+    )
     assert out["rel"] == "noopener" and all(out["rejected"])
 
 
@@ -283,8 +332,12 @@ console.log(JSON.stringify({good: _handoffHtml(GOOD),
   bad: BAD.map(function (b) { return _handoffHtml(b); })}));
 """
     )
-    assert 'href="/media-plan?roles=Nurse&amp;locations=Austin%3B%20Dallas"' in out["good"]
-    assert 'rel="noopener"' in out["good"] and "Build the full media plan" in out["good"]
+    assert (
+        'href="/media-plan?roles=Nurse&amp;locations=Austin%3B%20Dallas"' in out["good"]
+    )
+    assert (
+        'rel="noopener"' in out["good"] and "Build the full media plan" in out["good"]
+    )
     assert out["bad"] == [""] * len(out["bad"])
 
 
