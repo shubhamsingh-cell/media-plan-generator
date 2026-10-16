@@ -28,6 +28,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import vector_search as vs  # noqa: E402
+from tests.timing_budget import owner_thread_clock  # noqa: E402
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -105,29 +106,32 @@ def _read_window(path):
 
 def test_first_send_reserves_immediately_without_sleeping():
     # Empty window -> the very first request sends now, no throttle sleep.
-    with _SlotDir() as slot, mock.patch.object(
-        vs.time, "sleep"
-    ) as slept, mock.patch.object(vs.time, "time", return_value=1000.0):
+    with _SlotDir() as slot, owner_thread_clock(vs.time, 1000.0) as clock:
         vs._voyage_acquire_send_slot()
 
-        slept.assert_not_called()
+        assert clock.slept == []
         reserved = _read_window(slot.window_path)
     assert reserved == [1000.0]
 
 
 def test_second_send_is_spaced_by_min_delay():
     # A prior reservation at t=1000 forces the next send to 1000 + MIN_DELAY.
-    with _SlotDir() as slot, mock.patch.object(vs.time, "sleep") as slept:
-        with mock.patch.object(vs.time, "time", return_value=1000.0):
-            vs._voyage_acquire_send_slot()
+    #
+    # The fake clock and the sleep recorder are confined to THIS thread
+    # (tests/timing_budget.py): `vs.time` is the global time module, so a plain
+    # mock.patch.object(vs.time, "sleep") also swallows the sleeps of every
+    # other thread in the process -- a leaked background loop from another test
+    # woke inside the patched window under load and made `slept` hold 2+ calls.
+    with _SlotDir() as slot, owner_thread_clock(vs.time, 1000.0) as clock:
+        vs._voyage_acquire_send_slot()
         # Second call one second later: must wait out the remaining spacing.
-        with mock.patch.object(vs.time, "time", return_value=1001.0):
-            vs._voyage_acquire_send_slot()
+        clock.now = 1001.0
+        vs._voyage_acquire_send_slot()
 
         # The second call slept for (1000 + MIN_DELAY) - 1001.
         expected_wait = (1000.0 + vs._VOYAGE_MIN_DELAY) - 1001.0
-        assert slept.call_count == 1
-        assert abs(slept.call_args.args[0] - expected_wait) < 1e-6
+        assert len(clock.slept) == 1
+        assert abs(clock.slept[0] - expected_wait) < 1e-6
 
         reserved = _read_window(slot.window_path)
     assert reserved[0] == 1000.0
@@ -138,9 +142,7 @@ def test_window_reservations_survive_a_fresh_module_read():
     # Simulate "another worker" by reserving, then reading the file back the way
     # a second process would -- the reservation must be visible (that is the
     # whole point: state lives in the file, not a per-process global).
-    with _SlotDir() as slot, mock.patch.object(vs.time, "sleep"), mock.patch.object(
-        vs.time, "time", return_value=5000.0
-    ):
+    with _SlotDir() as slot, owner_thread_clock(vs.time, 5000.0):
         vs._voyage_acquire_send_slot()
         # _read_voyage_window is exactly what a second worker would call.
         seen = vs._read_voyage_window(slot.window_path)
@@ -156,30 +158,28 @@ def test_full_window_pushes_next_send_past_the_oldest():
     # Reservations at base, base+0.1, base+0.2, ... (all within ~1s => all in
     # the same 60s window). now = base + 1 so all are still "recent".
     existing = [base + 0.1 * i for i in range(limit)]
-    with _SlotDir() as slot, mock.patch.object(vs.time, "sleep") as slept:
+    now = base + 1.0
+    with _SlotDir() as slot, owner_thread_clock(vs.time, now) as clock:
         with open(slot.window_path, "w", encoding="utf-8") as fh:
             json.dump(existing, fh)
-        now = base + 1.0
-        with mock.patch.object(vs.time, "time", return_value=now):
-            vs._voyage_acquire_send_slot()
+        vs._voyage_acquire_send_slot()
 
         reserved = _read_window(slot.window_path)
         new_reservation = reserved[-1]
         # Oldest reservation is `base`; ours must land at base + 60 + 0.5.
         assert abs(new_reservation - (base + 60.0 + 0.5)) < 1e-6
         # And it slept for (that time) - now.
-        assert slept.call_count == 1
-        assert abs(slept.call_args.args[0] - ((base + 60.5) - now)) < 1e-6
+        assert len(clock.slept) == 1
+        assert abs(clock.slept[0] - ((base + 60.5) - now)) < 1e-6
 
 
 def test_aged_out_reservations_are_pruned():
     # Reservations older than 60s must be dropped, not counted toward the cap.
-    with _SlotDir() as slot, mock.patch.object(vs.time, "sleep"):
+    with _SlotDir() as slot, owner_thread_clock(vs.time, 10_000.0):
         stale = [100.0, 200.0]  # far older than now-60
         with open(slot.window_path, "w", encoding="utf-8") as fh:
             json.dump(stale, fh)
-        with mock.patch.object(vs.time, "time", return_value=10_000.0):
-            vs._voyage_acquire_send_slot()
+        vs._voyage_acquire_send_slot()
 
         reserved = _read_window(slot.window_path)
     # Stale entries gone; only the fresh reservation remains.
@@ -188,11 +188,10 @@ def test_aged_out_reservations_are_pruned():
 
 def test_corrupt_window_file_is_tolerated():
     # A torn/foreign window file must fail open to an empty window, never raise.
-    with _SlotDir() as slot, mock.patch.object(vs.time, "sleep"):
+    with _SlotDir() as slot, owner_thread_clock(vs.time, 42.0):
         with open(slot.window_path, "w", encoding="utf-8") as fh:
             fh.write("{not json at all")
-        with mock.patch.object(vs.time, "time", return_value=42.0):
-            vs._voyage_acquire_send_slot()  # must not raise
+        vs._voyage_acquire_send_slot()  # must not raise
         reserved = _read_window(slot.window_path)
     assert reserved == [42.0]
 

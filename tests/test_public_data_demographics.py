@@ -29,6 +29,7 @@ if str(PROJECT_ROOT) not in sys.path:
 import api_enrichment  # noqa: E402
 import public_data_sources as pds  # noqa: E402
 from tests.public_data_fakes import FakeNet, Resp, load  # noqa: E402
+from tests.timing_budget import assert_wall_below  # noqa: E402
 from tests.test_enrich_geopolitical_budget import (  # noqa: E402,F401
     isolated_breakers,
 )
@@ -107,14 +108,20 @@ def test_independent_geographies_run_in_parallel_under_a_bounded_budget(
     net: FakeNet,
 ) -> None:
     """With 0.5 s per upstream call a serial walk of the same 8 calls takes
-    4 s; the pooled fetch finishes in ~3 round trips."""
+    4 s; the pooled fetch finishes in ~3 round trips.
+
+    Parallelism is asserted from what happened -- the peak number of upstream
+    calls in flight at once -- rather than from a stopwatch.  The old
+    `elapsed < 3.0` was a wall-clock proxy that a loaded machine could blow
+    without the fetch being serial; a serial walk can never have two calls in
+    flight, whatever the load."""
     net.latency_s = 0.5
-    started = time.monotonic()
     out = api_enrichment.fetch_location_demographics(PLAN)
-    elapsed = time.monotonic() - started
 
     assert set(out) >= set(PLAN)
-    assert elapsed < 3.0, f"demographics took {elapsed:.1f}s; geographies are serial"
+    assert net.peak_inflight >= 2, (
+        f"geographies are serial: peak upstream calls in flight was {net.peak_inflight}"
+    )
 
 
 def test_newest_vintage_lookup_is_cached_per_process(net: FakeNet) -> None:
@@ -138,8 +145,11 @@ def test_one_slow_call_cannot_exceed_the_source_budget(net: FakeNet) -> None:
     result = pds.fetch_us_demographics(targets, budget_s=1.2)
     elapsed = time.monotonic() - started
 
-    assert elapsed < 2.4, f"source overran its 1.2 s budget: {elapsed:.1f}s"
+    # The structural check is the real guard: with the budget enforced the
+    # place is cut off and reported, without it the full call chain would have
+    # resolved it.  The clock is a backstop against a stall, scaled by load.
     assert "Hershey, PA" in result.unresolved  # explicit, not silently empty
+    assert_wall_below(elapsed, 2.4, "source overran its 1.2 s budget")
 
 
 # ---------------------------------------------------------------------------

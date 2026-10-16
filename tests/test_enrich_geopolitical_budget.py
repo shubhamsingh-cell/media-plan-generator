@@ -36,6 +36,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import api_enrichment  # noqa: E402
 import llm_router  # noqa: E402
+from tests.timing_budget import assert_wall_below  # noqa: E402
 
 # The 8 source fetchers enrich_data() dispatches for a US-only, locations-only
 # request. (It used to be 13: RESTCountries and DataUSA-Loc are retired
@@ -122,12 +123,20 @@ class _FakeRouter:
         self.calls: List[Dict[str, Any]] = []
         self.started_at: Optional[float] = None
         self.release = threading.Event()
+        # Set the moment the call begins / when it has run to completion.  Tests
+        # use these to assert "enrich_data returned while the call was still
+        # hung" and "the call overlapped the pool" from what happened, not from
+        # a stopwatch that a loaded machine can blow.
+        self.started_evt = threading.Event()
+        self.finished = False
 
     def __call__(self, **kwargs: Any) -> Dict[str, Any]:
         self.started_at = time.time()
+        self.started_evt.set()
         self.calls.append(kwargs)
         if self.delay_s:
             self.release.wait(timeout=self.delay_s)
+        self.finished = True
         return {"text": _geo_json(["Hershey, PA"]), "provider": "fake_router"}
 
 
@@ -153,7 +162,9 @@ def test_slow_geopolitical_llm_no_longer_stalls_enrichment(
     budget. enrich_data() must return within budget + epsilon with every
     other source's data intact, and must not use the late content."""
     monkeypatch.setenv("NOVA_GEOPOLITICAL_TIMEOUT_S", "0.3")
-    fake_router(delay_s=6.0)
+    # Hang for 20 s (released at teardown, so a passing run never waits): long
+    # enough that no plausible load slowdown of a 0.3 s budget reaches it.
+    router = fake_router(delay_s=20.0)
     stub_sources(
         monkeypatch,
         LOCATION_SOURCE_FETCHERS,
@@ -169,8 +180,13 @@ def test_slow_geopolitical_llm_no_longer_stalls_enrichment(
     result = api_enrichment.enrich_data(dict(HERSHEY_REQUEST))
     elapsed = time.time() - t0
 
-    # Pre-fix this took the full 6 s LLM hang (serial call after the pool).
-    assert elapsed < 2.0, f"enrich_data() blocked {elapsed:.2f}s on the geo LLM"
+    # Pre-fix this waited out the whole LLM hang (serial call after the pool).
+    # Structural check first: enrich_data() came back while the call was still
+    # hung.  The clock is a load-scaled backstop held below the hang length.
+    assert not router.finished, "enrich_data() waited for the hung geo LLM call"
+    assert_wall_below(
+        elapsed, 2.0, "enrich_data() blocked on the geo LLM", regression_s=20.0
+    )
     assert result["location_demographics"] == {"Hershey, PA": {"population": 14257}}
     assert result["geonames_data"] == {"Hershey, PA": {"lat": 40.28}}
     assert result["geopolitical_context"] == {}
@@ -203,7 +219,12 @@ def test_geopolitical_call_overlaps_the_pool_and_is_used_when_on_time(
     slow_source_done_at: Dict[str, float] = {}
 
     def _slow_census(locs: List[str]) -> Dict[str, Any]:
-        time.sleep(0.8)
+        # "Slow" = it cannot finish until the geopolitical call has STARTED.  If
+        # the call overlaps the pool that happens at once; if it only starts
+        # after the pool (the serial bug) this waits out the 10 s cap and the
+        # ordering assertion below fails.  A fixed sleep would race the thread
+        # start on a loaded machine; this cannot.
+        router.started_evt.wait(timeout=10.0)
         slow_source_done_at["t"] = time.time()
         return {"Hershey, PA": {"population": 14257}}
 
@@ -218,14 +239,18 @@ def test_geopolitical_call_overlaps_the_pool_and_is_used_when_on_time(
     elapsed = time.time() - t0
 
     assert router.started_at is not None
-    assert router.started_at < slow_source_done_at["t"], (
+    assert router.started_at <= slow_source_done_at["t"], (
         "geopolitical call started only after the pool finished (serial)"
     )
     geo = result["geopolitical_context"]
     assert str(geo.get("source") or "").startswith("llm_geopolitical_analysis")
     assert geo["risk_level"] == "low"
     assert result["enrichment_summary"]["geopolitical_status"] == "ok"
-    assert elapsed < 0.8 + 0.3 + 1.0  # overlapped, not pool + geo in series
+    # Backstop only (the ordering assertion above is what proves overlap): the
+    # healthy path costs ~0.3 s, a serial run waits out the 10 s rendezvous cap.
+    assert_wall_below(
+        elapsed, 2.1, "overlapped enrichment", regression_s=10.0
+    )
 
 
 def test_failed_llm_chain_placeholder_is_not_shipped(

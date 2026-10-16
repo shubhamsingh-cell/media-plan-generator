@@ -33,10 +33,12 @@ import sys
 import threading
 import time
 from pathlib import Path
+from typing import Generator
 
 import pytest
 
 from log_redaction import REDACTED, SecretRedactingFilter, redact_secrets
+from tests.timing_budget import ProcessCpuTimer, wall_budget
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -45,9 +47,17 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # 1,100 s at 1 MB), so 3 s still separates linear from quadratic by two orders
 # of magnitude while surviving a heavily loaded CI box or dev machine (a 250 ms
 # budget failed at 261-377 ms for correct, linear patterns under load).
+#
+# These are CPU seconds (the harness times with time.process_time): the work is
+# single-threaded compute, so CPU time is what the algorithm costs and does not
+# stretch when the box is busy.  Only the harness's overall hang-guard below is
+# wall time, and it is scaled by load (tests/timing_budget.py).
 REGEX_BUDGET_S = 3.0  # one pattern, 1 MB adversarial line
 FILTER_BUDGET_S = 3.0  # whole redact_secrets / logging filter, 1 MB line
-SUBPROCESS_TIMEOUT_S = 60
+SUBPROCESS_TIMEOUT_S = 60  # idle-box hang guard; ~11 s CPU / ~17 s wall in practice
+# The quadratic bug this guards takes ~1,100 s on one 1 MB input; the scaled
+# hang-guard must stay well under that or it would never fire on it.
+_SUBPROCESS_REGRESSION_S = 600.0
 
 _HARNESS_BODY = r"""
 import json, logging, sys, time
@@ -93,27 +103,27 @@ for pname, pat in patterns.items():
     for iname, text in inputs.items():
         best = 1e9
         for _attempt in range(2):  # min of 2: first touch of a 1 MB string is noisy
-            t0 = time.perf_counter()
+            t0 = time.process_time()
             for _ in pat.finditer(text):
                 pass
-            best = min(best, time.perf_counter() - t0)
+            best = min(best, time.process_time() - t0)
         out.append(["regex", pname, iname, best])
         print(json.dumps(out[-1]), flush=True)
 flt = lr.SecretRedactingFilter()
 for iname, text in inputs.items():
     best = 1e9
     for _attempt in range(2):
-        t0 = time.perf_counter()
+        t0 = time.process_time()
         lr.redact_secrets(text)
-        best = min(best, time.perf_counter() - t0)
+        best = min(best, time.process_time() - t0)
     out.append(["redact_secrets", "-", iname, best])
     print(json.dumps(out[-1]), flush=True)
     best = 1e9
     for _attempt in range(2):
         rec = logging.LogRecord("n", logging.WARNING, "x.py", 1, "%s", (text,), None)
-        t0 = time.perf_counter()
+        t0 = time.process_time()
         flt.filter(rec)
-        best = min(best, time.perf_counter() - t0)
+        best = min(best, time.process_time() - t0)
     out.append(["filter", "-", iname, best])
     print(json.dumps(out[-1]), flush=True)
 """
@@ -122,18 +132,19 @@ _HARNESS = f"ROOT = {str(PROJECT_ROOT)!r}\n" + _HARNESS_BODY
 
 @pytest.fixture(scope="module")
 def timings() -> list[list]:
+    guard_s = wall_budget(SUBPROCESS_TIMEOUT_S, regression_s=_SUBPROCESS_REGRESSION_S)
     try:
         proc = subprocess.run(
             [sys.executable, "-c", _HARNESS],
             capture_output=True,
             text=True,
-            timeout=SUBPROCESS_TIMEOUT_S,
+            timeout=guard_s,
         )
     except subprocess.TimeoutExpired as exc:
         done = (exc.stdout or b"").decode("utf-8", "replace").strip().splitlines()
         last = done[-1] if done else "(no case finished)"
         pytest.fail(
-            f"adversarial log-redaction harness exceeded {SUBPROCESS_TIMEOUT_S}s "
+            f"adversarial log-redaction harness exceeded {guard_s:.0f}s "
             f"(quadratic/catastrophic regex). Last finished case: {last}"
         )
     assert proc.returncode == 0, proc.stderr
@@ -251,7 +262,7 @@ def test_userinfo_password_redacted_for_any_scheme_shape(text: str) -> None:
 
 
 @pytest.fixture(scope="module")
-def live_port() -> int:
+def live_port() -> Generator[int, None, None]:
     import app
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
@@ -272,26 +283,32 @@ def live_port() -> int:
 
 
 def _post_optimize(port: int, budget: str, ip: str) -> tuple[int, float]:
+    """POST /api/optimize; return (status, CPU seconds the request cost).
+
+    CPU, not wall: the server handles the request on another thread of THIS
+    process, so process CPU time covers it, and it does not stretch when the
+    machine is busy.
+    """
     import app
 
     token = app._generate_csrf_token()
     body = json.dumps({"budget": budget}).encode()
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=120)
-    t0 = time.perf_counter()
-    conn.request(
-        "POST",
-        "/api/optimize",
-        body=body,
-        headers={
-            "Content-Type": "application/json",
-            "X-CSRF-Token": token,
-            "Cookie": f"csrf_token={token}",
-            "X-Forwarded-For": ip,
-        },
-    )
-    resp = conn.getresponse()
-    resp.read()
-    return resp.status, time.perf_counter() - t0
+    with ProcessCpuTimer() as timer:
+        conn.request(
+            "POST",
+            "/api/optimize",
+            body=body,
+            headers={
+                "Content-Type": "application/json",
+                "X-CSRF-Token": token,
+                "Cookie": f"csrf_token={token}",
+                "X-Forwarded-For": ip,
+            },
+        )
+        resp = conn.getresponse()
+        resp.read()
+    return resp.status, timer.cpu
 
 
 def test_adversarial_post_to_a_real_endpoint_is_not_a_cpu_dos(live_port: int) -> None:
@@ -304,4 +321,6 @@ def test_adversarial_post_to_a_real_endpoint_is_not_a_cpu_dos(live_port: int) ->
     assert status in (200, 400, 500)
     status, hostile = _post_optimize(live_port, "key " + "a" * 80000, "10.99.0.2")
     assert status in (200, 400, 500)
-    assert hostile < 2.0, f"hostile POST took {hostile:.2f}s (benign {benign:.3f}s)"
+    assert hostile < 2.0, (
+        f"hostile POST cost {hostile:.2f}s of CPU (benign {benign:.3f}s)"
+    )

@@ -79,6 +79,14 @@ class _FakeAsyncWebCrawler:
     result_factory = staticmethod(_FakeCrawlResult)
     call_lock = threading.Lock()
     call_count = 0
+    # Concurrency evidence, recorded instead of inferred from a stopwatch.
+    in_flight = 0
+    peak_in_flight = 0
+    # If > 0, a "slow" call waits (up to rendezvous_timeout_s) until this many
+    # calls are in flight together before it starts its sleep.  A serial caller
+    # can never satisfy it, so the peak stays below the target.
+    rendezvous: int = 0
+    rendezvous_timeout_s: float = 4.0
 
     def __init__(self, **kwargs: Any) -> None:
         type(self).last_browser_kwargs = dict(kwargs)
@@ -97,7 +105,19 @@ class _FakeAsyncWebCrawler:
         if behaviour == "raise":
             raise RuntimeError("simulated failure")
         if behaviour == "slow":
-            await asyncio.sleep(type(self).sleep_seconds)
+            cls = type(self)
+            with cls.call_lock:
+                cls.in_flight += 1
+                cls.peak_in_flight = max(cls.peak_in_flight, cls.in_flight)
+            try:
+                if cls.rendezvous:
+                    give_up = time.monotonic() + cls.rendezvous_timeout_s
+                    while cls.in_flight < cls.rendezvous and time.monotonic() < give_up:
+                        await asyncio.sleep(0.005)
+                await asyncio.sleep(cls.sleep_seconds)
+            finally:
+                with cls.call_lock:
+                    cls.in_flight -= 1
         return type(self).result_factory()
 
 
@@ -113,6 +133,9 @@ def fake_crawl4ai_module(monkeypatch: pytest.MonkeyPatch) -> types.ModuleType:
     _FakeAsyncWebCrawler.behaviour = "ok"
     _FakeAsyncWebCrawler.sleep_seconds = 0.0
     _FakeAsyncWebCrawler.call_count = 0
+    _FakeAsyncWebCrawler.in_flight = 0
+    _FakeAsyncWebCrawler.peak_in_flight = 0
+    _FakeAsyncWebCrawler.rendezvous = 0
     _FakeAsyncWebCrawler.result_factory = staticmethod(_FakeCrawlResult)
 
     monkeypatch.setitem(sys.modules, "crawl4ai", fake_module)
@@ -296,6 +319,12 @@ def test_scrape_many_runs_concurrently_and_preserves_order(
     """``scrape_many`` should overlap calls and return results in input order."""
     _FakeAsyncWebCrawler.behaviour = "slow"
     _FakeAsyncWebCrawler.sleep_seconds = 0.4  # 400ms each
+    # Concurrency is asserted from what happened (how many calls were in flight
+    # at once), not from a stopwatch: the old `elapsed < 1.5` sat 0.1 s under the
+    # serial total (1.6 s) and failed on a loaded machine.  The rendezvous makes
+    # every call wait until all four are in flight, so a serial scrape_many
+    # cannot reach a peak of 4 no matter how slow or fast the box is.
+    _FakeAsyncWebCrawler.rendezvous = 4
 
     from apis.scrapers.crawl4ai_client import scrape_many
 
@@ -306,9 +335,7 @@ def test_scrape_many_runs_concurrently_and_preserves_order(
         "https://d.test",
     ]
 
-    t0 = time.monotonic()
-    results = scrape_many(urls, concurrency=4, timeout=5)
-    elapsed = time.monotonic() - t0
+    results = scrape_many(urls, concurrency=4, timeout=15)
 
     assert len(results) == len(urls)
     # Order must match input order
@@ -317,11 +344,10 @@ def test_scrape_many_runs_concurrently_and_preserves_order(
         assert res["error"] is None, f"unexpected error: {res['error']}"
         assert res["markdown"] == "# hello"
 
-    # 4 calls of 0.4s with concurrency=4 must finish well under the
-    # serial-equivalent (1.6s). Allow generous slack for slow CI.
-    assert elapsed < 1.5, (
-        f"scrape_many appears serial: elapsed={elapsed:.2f}s "
-        f"(expected < 1.5s with concurrency=4 and 0.4s per call)"
+    # concurrency=4 must put all 4 calls in flight together.
+    assert _FakeAsyncWebCrawler.peak_in_flight == len(urls), (
+        f"scrape_many appears serial: peak in-flight calls was "
+        f"{_FakeAsyncWebCrawler.peak_in_flight}, expected {len(urls)} with concurrency=4"
     )
 
     # Worker count check -- concurrency cap honoured.

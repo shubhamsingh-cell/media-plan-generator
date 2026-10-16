@@ -47,6 +47,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import vector_search as vs  # noqa: E402
+from tests.timing_budget import assert_wall_below, owner_thread_clock  # noqa: E402
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -230,7 +231,10 @@ def test_abandons_before_spacing_sleep_when_deadline_unreachable():
         calls = fake.calls
 
     assert result is None, "should abandon rather than return partial embeddings"
-    assert elapsed < 1.0, f"should bail before the 6.5s sleep, took {elapsed:.2f}s"
+    # Load-scaled, but held under the 6.5 s sleep that must have been skipped.
+    assert_wall_below(
+        elapsed, 1.0, "should bail before the 6.5s sleep", regression_s=vs._VOYAGE_MIN_DELAY
+    )
     assert calls == 0, "must not spend Voyage quota for a caller that has left"
 
 
@@ -248,9 +252,9 @@ def test_abandons_before_rate_limit_window_sleep():
         calls = fake.calls
 
     assert result is None
-    assert (
-        elapsed < 1.0
-    ), f"should bail before the ~55s window wait, took {elapsed:.2f}s"
+    assert_wall_below(
+        elapsed, 1.0, "should bail before the ~55s window wait", regression_s=55.0
+    )
     assert calls == 0
 
 
@@ -313,12 +317,19 @@ def test_deadline_exceeded_by_is_false_without_a_deadline():
 
 
 def test_search_bounded_leaves_no_orphan_burning_quota():
-    with _voyage_isolated(index=_fake_index()) as fake:
+    # min_delay=30 arms a 30 s spacing wait: far past the 3 s timeout below, so
+    # the worker must bail on its own even if the box stalls for seconds between
+    # seeding the window and the check.
+    with _voyage_isolated(index=_fake_index(), min_delay=30.0) as fake:
         assert vs._index, "fixture must populate _index or search() never embeds"
-        _seed_voyage_window([time.time()])  # arms the 6.5s spacing wait
+        _seed_voyage_window([time.time()])  # arms the 30s spacing wait
 
+        # timeout_s is 3 s (the production default).  It was 0.5 s, so a loaded
+        # machine that needed 0.5 s just to start the worker timed the caller
+        # out first and failed the test for a correct worker.
+        timeout_s = 3.0
         started = time.monotonic()
-        results = vs.search_bounded(_unique_query(), top_k=3, timeout_s=0.5)
+        results = vs.search_bounded(_unique_query(), top_k=3, timeout_s=timeout_s)
         elapsed = time.monotonic() - started
 
         # The worker should have bailed on its own, not been abandoned alive.
@@ -326,11 +337,13 @@ def test_search_bounded_leaves_no_orphan_burning_quota():
         calls_at_return = fake.calls
 
     assert isinstance(results, list)
-    assert elapsed < 0.5, (
-        f"worker should bail before the spacing sleep rather than burn the "
-        f"full timeout; took {elapsed:.2f}s"
-    )
     assert leaked == [], f"worker outlived its caller: {leaked}"
+    assert_wall_below(
+        elapsed,
+        0.5,
+        "worker should bail before the spacing sleep rather than burn the full timeout",
+        regression_s=timeout_s,
+    )
     assert calls_at_return == 0, "abandoned worker must not spend Voyage quota"
 
 
@@ -338,17 +351,21 @@ def test_bounded_vector_search_in_nova_also_propagates_deadline():
     """nova.py has its own copy of the wrapper; it must honor the deadline too."""
     import nova
 
-    with _voyage_isolated(index=_fake_index()) as fake:
-        _seed_voyage_window([time.time()])  # arms the 6.5s spacing wait
+    with _voyage_isolated(index=_fake_index(), min_delay=30.0) as fake:
+        _seed_voyage_window([time.time()])  # arms the 30s spacing wait
 
+        timeout_s = 3.0  # << the 30 s spacing wait; see the sibling test above
         started = time.monotonic()
-        nova._bounded_vector_search(_unique_query(), top_k=3, timeout_s=0.5)
+        nova._bounded_vector_search(_unique_query(), top_k=3, timeout_s=timeout_s)
         elapsed = time.monotonic() - started
         leaked = [t.name for t in _bounded_workers()]
         calls_at_return = fake.calls
 
-    assert elapsed < 0.5, f"took {elapsed:.2f}s"
     assert leaked == [], f"worker outlived its caller: {leaked}"
+    assert_wall_below(
+        elapsed, 0.5, "nova bounded search should return before its timeout",
+        regression_s=timeout_s,
+    )
     assert calls_at_return == 0
 
 
@@ -371,6 +388,11 @@ def test_in_lock_hold_does_not_grow_with_queue_wait():
     queue_wait = 1.0
     min_delay = 0.5
     released = threading.Event()
+    # The victim's wait is asserted from the sleep it ASKS for (recorded, not
+    # slept, on this thread only), not from how long the wall clock says the
+    # call took: wall time = queue_wait + wait + however long a loaded machine
+    # stalls, and the old `elapsed < queue_wait + min_delay + 0.3` sat only
+    # 0.7 s under the pre-fix value.  The holder thread keeps the real sleep.
 
     def _hold_lock():
         # Stand in for a real in-flight embed call: hold the lock, then stamp
@@ -382,29 +404,32 @@ def test_in_lock_hold_does_not_grow_with_queue_wait():
             time.sleep(queue_wait)
             vs._voyage_last_request = time.monotonic()
 
-    with _voyage_isolated(min_delay=min_delay):
+    with _voyage_isolated(min_delay=min_delay), owner_thread_clock(
+        time, time.time()
+    ) as clock:
         vs._voyage_request_times[:] = []
         vs._voyage_last_request = time.monotonic()
 
         holder = threading.Thread(target=_hold_lock, name="lock-holder", daemon=True)
         holder.start()
-        assert released.wait(timeout=5.0), "holder never acquired the lock"
+        assert released.wait(timeout=30.0), "holder never acquired the lock"
 
-        started = time.monotonic()
         vs._voyage_reserve_slot_inprocess(  # samples `now`, queues behind holder
             blocking=True, min_delay=min_delay, rpm_limit=vs._VOYAGE_RPM_LIMIT
         )
-        elapsed = time.monotonic() - started
-        holder.join(timeout=5.0)
+        holder.join(timeout=30.0)
+        requested_waits = list(clock.slept)
 
     # Pre-fix `now` is sampled before the ~1.0s queue wait, so by the time the
     # lock is acquired _voyage_last_request is NEWER than `now`: elapsed goes to
     # -queue_wait and wait_time becomes min_delay + queue_wait.
-    #   pre-fix : queue_wait + (min_delay + queue_wait) = 2.5s
-    #   post-fix: queue_wait + at most min_delay        = 1.5s
-    assert elapsed < queue_wait + min_delay + 0.3, (
-        f"in-lock wait still scales with queue time ({elapsed:.2f}s) -- the "
-        f"stale-`now` amplification is back"
+    #   pre-fix : asks to sleep min_delay + queue_wait = 1.5s
+    #   post-fix: asks to sleep at most min_delay      = 0.5s (or nothing, if
+    #             the victim only got the lock after the spacing had elapsed)
+    assert all(w <= min_delay + 1e-3 for w in requested_waits), (
+        f"in-lock wait still scales with queue time (asked to sleep "
+        f"{requested_waits}, cap is {min_delay}) -- the stale-`now` "
+        f"amplification is back"
     )
 
 
@@ -564,23 +589,26 @@ def test_gemini_abandons_before_retry_backoff_sleep():
             )
 
     fake = _Raise429()
-    # A 30s backoff makes "did it sleep?" unambiguous; a deadline ~2s out is far
-    # enough that the attempt-0 pre-POST guard passes (the POST fires and gets the
-    # 429) yet close enough that the backoff would overrun it, so the retry guard
-    # is the one under test.
+    # A 30s backoff makes "did it sleep?" unambiguous; a deadline ~10s out is far
+    # enough that the attempt-0 pre-POST guard passes even on a loaded machine
+    # (the POST fires and gets the 429; it was 2 s, which a stall could burn
+    # before the POST) yet close enough that the 30 s backoff would overrun it,
+    # so the retry guard is the one under test.
     with contextlib.ExitStack() as stack:
         stack.enter_context(mock.patch.object(vs, "_get_gemini_api_key", lambda: "k"))
         stack.enter_context(mock.patch.object(vs.urllib.request, "urlopen", fake))
         stack.enter_context(mock.patch.object(vs, "_GEMINI_BASE_BACKOFF", 30.0))
         started = time.monotonic()
-        with vs.embed_deadline(time.monotonic() + 2.0):
+        with vs.embed_deadline(time.monotonic() + 10.0):
             result = vs._embed_batch_gemini(["hello"])
         elapsed = time.monotonic() - started
         calls = fake.calls
 
     assert result is None
     assert calls == 1, "should POST once, hit 429, then bail before retrying"
-    assert elapsed < 2.0, f"should bail before the 30s backoff, took {elapsed:.2f}s"
+    assert_wall_below(
+        elapsed, 2.0, "should bail before the 30s backoff", regression_s=30.0
+    )
 
 
 # ── The rerank leg: quota is spent at TWO API sites, not one ─────────────────
@@ -680,16 +708,19 @@ def test_voyage_abandons_before_retry_backoff_sleep():
             stack.enter_context(mock.patch.object(vs.urllib.request, "urlopen", raiser))
             stack.enter_context(mock.patch.object(vs, "_VOYAGE_BASE_BACKOFF", 30.0))
             started = time.monotonic()
-            # +2s: far enough that attempt 0's acquire and POST proceed (the
-            # 429 comes from the stub), close enough that the 30s backoff
-            # would overrun it -- so the backoff guard is the one under test.
-            with vs.embed_deadline(time.monotonic() + 2.0):
+            # +10s: far enough that attempt 0's acquire and POST proceed even on
+            # a loaded machine (the 429 comes from the stub), close enough that
+            # the 30s backoff would overrun it -- so the backoff guard is the
+            # one under test.
+            with vs.embed_deadline(time.monotonic() + 10.0):
                 result = vs._embed_uncached_voyage(["hello"])
             elapsed = time.monotonic() - started
 
     assert result is None
     assert raiser.calls == 1, "should POST once, hit 429, then bail before retrying"
-    assert elapsed < 2.0, f"should bail before the 30s backoff, took {elapsed:.2f}s"
+    assert_wall_below(
+        elapsed, 2.0, "should bail before the 30s backoff", regression_s=30.0
+    )
 
 
 def test_cached_embed_path_spends_no_rerank_quota_after_deadline():

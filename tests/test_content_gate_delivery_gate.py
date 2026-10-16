@@ -36,6 +36,7 @@ import app as app_module  # noqa: E402
 import bundle_qa  # noqa: E402
 import competitor_claims  # noqa: E402
 import slack_plan_notifier  # noqa: E402
+from tests.timing_budget import CpuTimer  # noqa: E402
 
 LEAK = "AWP Safety is a company in the construction_real_estate industry."
 CLAIM = "Why: Expect Hilton to keep pressure on UK cab-driver hiring all year."
@@ -369,14 +370,20 @@ def test_truncation_scan_scales_linearly(monkeypatch):
     """6,000 truncated cells: pre-fix gate 46.6 s on the dev Mac (verifier:
     2,500 -> 51 s, 10,000 -> 613 s), post-fix ~4 s. The 20 s bound is
     generous for a loaded CI box. (Budget raised through the env so the
-    timeout path cannot mask a slow scan.)"""
-    monkeypatch.setenv("BUNDLE_QA_GATE_BUDGET_S", "120")
+    timeout path cannot mask a slow scan.)
+
+    The bound is on CPU time: the gate runs on the calling thread and is pure
+    compute, so wall time only measures how busy the machine is. The gate's OWN
+    wall-clock deadline is lifted far above any plausible load slowdown (a
+    4 s-CPU scan took 90 s of wall time at the 20x slowdowns seen when several
+    sessions run suites) so it cannot return "timeout" before the CPU assertion
+    gets to judge the scan."""
+    monkeypatch.setenv("BUNDLE_QA_GATE_BUDGET_S", "3600")
     blob = _truncated_workbook(6000)
-    t0 = time.monotonic()
-    res = bundle_qa.gate_bundle(None, blob, DATA)
-    elapsed = time.monotonic() - t0
+    with CpuTimer() as timer:
+        res = bundle_qa.gate_bundle(None, blob, DATA)
     assert res["summary"]["qa_status"] != "timeout"
-    assert elapsed < 20, f"gate took {elapsed:.1f}s on 6,000 truncated cells"
+    assert timer.cpu < 20, f"gate took {timer.describe()} on 6,000 truncated cells"
 
 
 def test_gate_over_budget_ships_original_bytes_and_says_so(caplog):

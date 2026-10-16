@@ -22,9 +22,14 @@ def test_dedup_roundtrip_with_store(monkeypatch: pytest.MonkeyPatch) -> None:
         alert_manager, "_cooldown_store", AlertCooldownStore(InMemoryCooldownBackend())
     )
     assert alert_manager._dedup_last_sent("Subj A") == 0.0  # never sent
+    before = time.time()
     alert_manager._dedup_mark_sent("Subj A")
+    after = time.time()
     last = alert_manager._dedup_last_sent("Subj A")
-    assert last > 0 and (time.time() - last) < 5
+    # Bracketed between the two readings instead of "within 5 s of now": the
+    # stamp is taken inside mark_sent, so it must fall in [before, after], and
+    # that holds however long a loaded machine stalls between the calls.
+    assert before <= last <= after
     assert alert_manager._dedup_last_sent("Subj B") == 0.0  # distinct key independent
 
 

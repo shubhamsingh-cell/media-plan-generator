@@ -102,7 +102,7 @@ def test_run_pool_submit_with_timeout_times_out_gracefully_on_slow_callable() ->
     finally:
         may_return.set()  # let the background thread finish; don't leak it
 
-    assert started.wait(timeout=1), "background callable never started"
+    assert started.wait(timeout=30), "background callable never started"
     assert (result, timed_out) == (None, True)
 
 
@@ -165,7 +165,7 @@ def test_generate_product_insights_times_out_gracefully(
     finally:
         may_return.set()  # let the background LLM-call thread finish
 
-    assert started.wait(timeout=1), "background LLM call never started"
+    assert started.wait(timeout=30), "background LLM call never started"
     assert result == ""
     messages = [rec.message for rec in caplog.records]
     assert any("LLM insights timed out" in m for m in messages), messages
@@ -198,7 +198,7 @@ def test_health_self_heal_imports_reports_down_on_real_timeout(
     finally:
         may_return.set()
 
-    assert started.wait(timeout=1)
+    assert started.wait(timeout=30)
     assert results == {"fake_module_for_timeout_test": False}
 
 
@@ -243,7 +243,7 @@ def test_run_status_checks_overall_timeout_falls_back_to_defaults() -> None:
     finally:
         may_return.set()
 
-    assert started.wait(timeout=1)
+    assert started.wait(timeout=30)
     assert result == {"slow": {"status": "default"}}
 
 
@@ -291,7 +291,7 @@ def test_enrich_chat_context_task_timeout_falls_back_gracefully(
     finally:
         may_return.set()
 
-    assert started.wait(timeout=1), "background vector-search call never started"
+    assert started.wait(timeout=30), "background vector-search call never started"
     # The timed-out task's result must never have been merged in.
     assert "vector_kb_results" not in result.get("_api_context", {})
     messages = [rec.getMessage() for rec in caplog.records]

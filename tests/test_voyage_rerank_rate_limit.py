@@ -46,6 +46,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import vector_search as vs  # noqa: E402
+from tests.timing_budget import assert_wall_below  # noqa: E402
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -208,7 +209,11 @@ def test_try_reserve_slot_declines_when_lock_contended():
             started = time.monotonic()
             assert vs._voyage_try_reserve_slot() is False
             elapsed = time.monotonic() - started
-            assert elapsed < 1.0, f"declined but only after {elapsed:.2f}s stall"
+            # A blocking acquire would sit on the flock until the holder exits
+            # (30 s); the load-scaled budget is held below that.
+            assert_wall_below(
+                elapsed, 1.0, "contended non-blocking reserve declined", regression_s=30.0
+            )
             assert _read_window(vs._VOYAGE_WINDOW_RERANK) == []
         finally:
             holder.kill()

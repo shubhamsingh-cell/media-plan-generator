@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import io
 import json
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -74,6 +75,16 @@ class Resp:
         return self.body or b""
 
 
+def _body_bytes(value: Any) -> Optional[bytes]:
+    """urllib's request body is loosely typed (bytes, str, buffer, iterable);
+    the fake's ``Req`` records bytes."""
+    if value is None or isinstance(value, bytes):
+        return value
+    if isinstance(value, str):
+        return value.encode("utf-8")
+    return bytes(value)
+
+
 class _PooledResp:
     """The slice of http_pool._PooledResponse the sources use."""
 
@@ -119,6 +130,12 @@ class FakeNet:
     def __init__(self) -> None:
         self.requests: List[Req] = []
         self.latency_s: float = 0.0  # added to every datausa call (budget tests)
+        # Concurrency evidence for the latency calls: how many were sleeping in
+        # `handle` at the same moment.  Lets a test prove calls overlapped
+        # without timing them (a stopwatch assertion flakes on a loaded box).
+        self.peak_inflight: int = 0
+        self._inflight: int = 0
+        self._inflight_lock = threading.Lock()
         self._overrides: List[Tuple[Callable[[Req], bool], Callable[[Req], Resp]]] = []
         self._fix: Dict[str, Any] = {}
 
@@ -157,7 +174,14 @@ class FakeNet:
         host, path, q = req.host, req.path, req.params
         if host == "api.datausa.io":
             if self.latency_s:
-                time.sleep(self.latency_s)
+                with self._inflight_lock:
+                    self._inflight += 1
+                    self.peak_inflight = max(self.peak_inflight, self._inflight)
+                try:
+                    time.sleep(self.latency_s)
+                finally:
+                    with self._inflight_lock:
+                        self._inflight -= 1
             return self._tesseract(path, q)
         if host == "datausa.io":
             fx = self._f("datausa_legacy_removed.json")
@@ -268,11 +292,11 @@ class FakeNet:
                 req = Req(
                     target.full_url,
                     target.get_method(),
-                    target.data,
+                    _body_bytes(target.data),
                     {k: v for k, v in target.header_items()},
                 )
             else:
-                req = Req(str(target), "POST" if data else "GET", data)
+                req = Req(str(target), "POST" if data else "GET", _body_bytes(data))
             resp = self.handle(req)
             if resp.status >= 400:
                 raise urllib.error.HTTPError(

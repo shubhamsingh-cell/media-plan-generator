@@ -12,7 +12,6 @@ from __future__ import annotations
 import io
 import json
 import sys
-import time
 import urllib.error
 import zlib
 from pathlib import Path
@@ -27,6 +26,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "evals"))
 
 import retrieval_eval as rev  # noqa: E402
 import vector_search as vs  # noqa: E402
+from tests.timing_budget import CpuTimer  # noqa: E402
 
 # Floors for the committed golden set (baseline minus ~8-10 points of slack so a
 # KB refresh does not turn the suite red; the tight 3-point rule lives in
@@ -35,6 +35,10 @@ OFFLINE_FLOORS = {
     "bm25": {"recall@5": 70.0, "recall@10": 78.0, "mrr": 55.0},
     "tfidf": {"recall@5": 62.0, "recall@10": 68.0, "mrr": 45.0},
 }
+# CPU seconds, not wall seconds: the offline run costs ~1.7 s of CPU on an idle
+# box, so 20 s still catches a 10x algorithmic regression, while wall time is
+# whatever the scheduler gives us (the same run took 37 s of wall time during a
+# ship with several suites running -- see tests/timing_budget.py).
 RUNTIME_BUDGET_S = 20.0
 
 
@@ -50,12 +54,17 @@ def corpus() -> List[rev.Chunk]:
 
 @pytest.fixture(scope="module")
 def offline_report() -> dict:
-    """One full offline run (BM25 + TF-IDF + explicit dense SKIPs), timed."""
-    started = time.monotonic()
-    report = rev.run_eval(
-        repo_cache_path=PROJECT_ROOT / "does_not_exist" / ".embedding_cache.json"
-    )
-    report["_wall_seconds"] = time.monotonic() - started
+    """One full offline run (BM25 + TF-IDF + explicit dense SKIPs), timed.
+
+    ``run_eval`` is single-threaded, so the calling thread's CPU time is the
+    run's cost; wall time is recorded only to make a failure diagnosable.
+    """
+    with CpuTimer() as timer:
+        report = rev.run_eval(
+            repo_cache_path=PROJECT_ROOT / "does_not_exist" / ".embedding_cache.json"
+        )
+    report["_cpu_seconds"] = timer.cpu
+    report["_wall_seconds"] = timer.wall
     return report
 
 
@@ -338,7 +347,10 @@ def test_offline_tiers_clear_floors(offline_report):
 
 
 def test_offline_run_is_fast(offline_report):
-    assert offline_report["_wall_seconds"] < RUNTIME_BUDGET_S
+    assert offline_report["_cpu_seconds"] < RUNTIME_BUDGET_S, (
+        f"offline eval burned {offline_report['_cpu_seconds']:.1f}s of CPU "
+        f"(wall {offline_report['_wall_seconds']:.1f}s); budget {RUNTIME_BUDGET_S}s CPU"
+    )
 
 
 def test_dense_tiers_are_skipped_explicitly_without_embedder(offline_report):

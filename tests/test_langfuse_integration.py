@@ -291,7 +291,7 @@ def test_posts_to_correct_url_with_basic_auth(monkeypatch: pytest.MonkeyPatch) -
         session_id="conv-abc-123",
     )
 
-    assert done.wait(timeout=3.0), "POST thread did not run within 3 s"
+    assert done.wait(timeout=30.0), "POST thread did not run within 30 s"
 
     # 1) URL is host + ingestion path.
     assert captured["url"] == "https://obs.joveo.com/api/public/ingestion"

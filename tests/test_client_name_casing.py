@@ -68,7 +68,6 @@ from __future__ import annotations
 import os
 import random
 import sys
-import time
 
 import pytest
 
@@ -78,6 +77,7 @@ sys.path.insert(0, PROJECT_ROOT)
 import bundle_qa  # noqa: E402
 import display_format as fmt  # noqa: E402
 from bundle_qa import _TextUnit, _check_client_name_casing  # noqa: E402
+from tests.timing_budget import CpuTimer  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -566,10 +566,11 @@ class TestClientNameInvariants:
 
     def test_very_long_input_passes_through_sanely_and_fast(self):
         long_upper = "THE HERSHEY COMPANY " * 5000  # 100k chars
-        start = time.monotonic()
-        out = fmt.client_display_name(long_upper)
-        elapsed = time.monotonic() - start
-        assert elapsed < 2.0, f"took {elapsed:.2f}s"
+        # CPU time, not wall time: pure single-thread compute, so the scheduler's
+        # share of a loaded box must not decide the verdict (tests/timing_budget.py).
+        with CpuTimer() as timer:
+            out = fmt.client_display_name(long_upper)
+        assert timer.cpu < 2.0, f"took {timer.describe()}"
         # beyond the bound the name is returned whitespace-collapsed, uncased
         assert out == long_upper.strip()
         assert fmt.client_display_name(out) == out
@@ -578,9 +579,9 @@ class TestClientNameInvariants:
         # alternating word/non-word characters in one token is the shape
         # that makes an edge-stripping regex go quadratic
         raw = "A!" * 400
-        start = time.monotonic()
-        fmt.client_display_name(raw)
-        assert time.monotonic() - start < 1.0
+        with CpuTimer() as timer:
+            fmt.client_display_name(raw)
+        assert timer.cpu < 1.0, f"took {timer.describe()}"
 
 
 class TestCallSitesAgreeOnTheFixedName:

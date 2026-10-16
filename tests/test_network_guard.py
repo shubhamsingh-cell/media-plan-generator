@@ -30,6 +30,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import tavily_search  # noqa: E402
 import vector_search  # noqa: E402
+from tests.timing_budget import assert_wall_below  # noqa: E402
 
 # Non-routable RFC1918 address: without the guard, connecting here would
 # block for the full OS SYN-retry window (~75s) -- the exact hang class the
@@ -48,7 +49,15 @@ class TestNetworkGuard:
             sock.settimeout(5)
             with pytest.raises(OSError, match="network guard"):
                 sock.connect(_NON_ROUTABLE)
-        assert time.monotonic() - start < 2.0, "guard must fail fast, not hang"
+        # The "network guard" message match above is the structural proof; the
+        # clock is a load-scaled backstop held under the 5 s socket timeout a
+        # missing guard would run into.
+        assert_wall_below(
+            time.monotonic() - start,
+            2.0,
+            "guard must fail fast, not hang",
+            regression_s=5.0,
+        )
 
     def test_external_connect_ex_refused_without_raising(self) -> None:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -72,7 +81,12 @@ class TestNetworkGuard:
         start = time.monotonic()
         with pytest.raises(urllib.error.URLError, match="network guard"):
             urllib.request.urlopen("https://10.255.255.1/", timeout=5)
-        assert time.monotonic() - start < 2.0
+        assert_wall_below(
+            time.monotonic() - start,
+            2.0,
+            "guarded urllib call must degrade instantly",
+            regression_s=5.0,
+        )
 
     @pytest.mark.live
     def test_live_marker_is_exempted_from_guard(self) -> None:

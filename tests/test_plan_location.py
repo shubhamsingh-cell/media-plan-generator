@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import concurrent.futures as cf
 import re
-import time
 
 import pytest
 
 import plan_location as pl
+from tests.timing_budget import CpuTimer
 
 # The 32-entry legacy dict this module's fuzzy path (rule 9) replaces.
 # Copied verbatim from app.py's `_LOCATION_CORRECTIONS`
@@ -867,11 +867,14 @@ def test_performance_1000_resolutions_warm():
     # Warm the lazy-load first; the perf budget is for warm calls only.
     pl.resolve_location("30303")
 
-    t0 = time.perf_counter()
-    for i in range(1000):
-        pl.resolve_location(samples[i % len(samples)])
-    elapsed = time.perf_counter() - t0
-    assert elapsed < 1.0, f"1000 warm resolutions took {elapsed:.3f}s, expected well under 1s"
+    # CPU time of this thread: the lookup is pure compute, and wall time on a
+    # loaded box says nothing about the algorithm (tests/timing_budget.py).
+    with CpuTimer() as timer:
+        for i in range(1000):
+            pl.resolve_location(samples[i % len(samples)])
+    assert timer.cpu < 1.0, (
+        f"1000 warm resolutions took {timer.describe()}, expected well under 1s"
+    )
 
 
 # ---------------------------------------------------------------------------

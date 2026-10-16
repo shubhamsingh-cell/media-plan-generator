@@ -53,6 +53,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import app as app_module  # noqa: E402
+from tests.timing_budget import assert_wall_below  # noqa: E402
 
 _GEN_PAYLOAD = {
     "client_name": "Concurrency Test Co",
@@ -263,13 +264,19 @@ def test_health_stays_fast_while_generate_slots_saturated(live_server: int) -> N
             blocking=False
         ), "test setup: could not saturate the generate semaphore"
     try:
+        # A health call that blocked on the semaphore would hang until the HTTP
+        # timeout, so give the client 30 s (not 5) and hold the load-scaled
+        # budget below it: the assertion still fails on the bug.
         t0 = time.time()
-        status, _headers, _body = _http_get(port, "/api/health")
+        status, _headers, _body = _http_get(port, "/api/health", timeout=30.0)
         elapsed = time.time() - t0
         assert status == 200
-        assert elapsed < 1.0, (
-            f"/api/health took {elapsed:.2f}s while generate slots were "
-            "saturated -- health must stay trivial and non-blocking"
+        assert_wall_below(
+            elapsed,
+            1.0,
+            "/api/health while generate slots were saturated "
+            "(health must stay trivial and non-blocking)",
+            regression_s=30.0,
         )
     finally:
         for _ in range(app_module._MAX_CONCURRENT_GENERATE):
@@ -286,14 +293,18 @@ def test_third_concurrent_generate_returns_429_with_retry_after(
     for _ in range(app_module._MAX_CONCURRENT_GENERATE):
         assert app_module._generate_slots.acquire(blocking=False)
     try:
+        # Queuing instead of rejecting would hold the call until the HTTP
+        # timeout; 30 s client timeout, load-scaled budget held below it.
         t0 = time.time()
-        status, headers, body = _http_post_generate(port, timeout=10.0)
+        status, headers, body = _http_post_generate(port, timeout=30.0)
         elapsed = time.time() - t0
 
         assert status == 429
-        assert elapsed < 2.0, (
-            f"overflow /api/generate took {elapsed:.2f}s -- must reject "
-            "immediately, not queue"
+        assert_wall_below(
+            elapsed,
+            2.0,
+            "overflow /api/generate (must reject immediately, not queue)",
+            regression_s=30.0,
         )
         assert headers.get("Retry-After") == "5"
 
