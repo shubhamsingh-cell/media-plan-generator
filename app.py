@@ -1962,8 +1962,10 @@ def _copilot_suggest_brief(partial: str, context: dict) -> list[dict]:
             f"Return ONLY a JSON array of objects with keys: text, confidence (0-1), reason (one sentence).\n"
             f"Example: {example_json}"
         )
-        # S50: TASK_PLAN_STRUCTURED for JSON output (Gemini best at structured),
-        # 10s timeout to avoid blocking brief typing experience.
+        # S50: JSON output (Gemini best at structured), 10s timeout to avoid
+        # blocking brief typing experience. 2026-10-17: TASK_COPILOT_SUGGEST --
+        # the plan_structured chain led with DeepSeek, whose reasoning model
+        # spent the 300-token cap and returned no text (see llm_router).
         # S89: via call_llm_json -- schema-validated array + 1 retry instead of a
         # one-shot fence-strip + json.loads.
         _sb_schema = {
@@ -1982,7 +1984,7 @@ def _copilot_suggest_brief(partial: str, context: dict) -> list[dict]:
             messages=[{"role": "user", "content": prompt}],
             schema=_sb_schema,
             system_prompt="Return only a valid JSON array of suggestion objects.",
-            task_type=getattr(router, "TASK_PLAN_STRUCTURED", "plan_structured"),
+            task_type=getattr(router, "TASK_COPILOT_SUGGEST", "copilot_suggest"),
             max_tokens=300,
             timeout_budget=10.0,
         )

@@ -143,6 +143,11 @@ TASK_TRANSLATION = "translation"  # International plans -> Mistral (EU) / Zhipu 
 TASK_DEEP_REASONING = (
     "deep_reasoning"  # Deep analysis -> DeepSeek R1 (reasoning chains)
 )
+# 2026-10-17: inline copilot suggestions (POST /api/copilot/suggest). Short
+# (max_tokens=300), latency-sensitive (10s budget). Own task type so its chain
+# can keep the reasoning-tier DeepSeek off the critical path -- see
+# TASK_ROUTING[TASK_COPILOT_SUGGEST] and DEEPSEEK_FAST_TASK_TYPES.
+TASK_COPILOT_SUGGEST = "copilot_suggest"
 
 # Provider IDs
 GEMINI = "gemini"
@@ -199,7 +204,12 @@ DEEPSEEK = "deepseek"
 # needs a live DEEPSEEK_API_KEY). Route these task types to the fast
 # non-reasoning tier instead; every other task type keeps v4-pro.
 # Override the fast model via DEEPSEEK_MODEL_FAST env if the catalog changes.
-DEEPSEEK_FAST_TASK_TYPES = frozenset({TASK_PLAN_NARRATIVE, TASK_NARRATIVE})
+# 2026-10-17: TASK_COPILOT_SUGGEST joins. On deepseek-v4-pro a 300-token cap is
+# consumed by reasoning (prod 2026-10-16: out=300, stop_reason=length, no text,
+# ~6s); the non-reasoning flash tier answers inside the cap.
+DEEPSEEK_FAST_TASK_TYPES = frozenset(
+    {TASK_PLAN_NARRATIVE, TASK_NARRATIVE, TASK_COPILOT_SUGGEST}
+)
 
 # 2026-10-16: short-prose task classes that the Anthropic builder sends at
 # `output_config.effort = "low"`. Sonnet 5.5 / Haiku 5.5 / Opus 5.5 run adaptive
@@ -221,6 +231,63 @@ GLOBAL_TIMEOUT_BUDGET = 35.0  # seconds -- default for non-tool queries
 # v4.3: Tool queries need more time (tools themselves take 5-10s each)
 GLOBAL_TIMEOUT_BUDGET_TOOLS = 55.0  # seconds -- for tool-calling queries
 _MIN_REMAINING_BUDGET = 5.0  # don't start a new attempt with < 5s left
+# 2026-10-17: one provider may not eat the whole task budget while a fallback
+# is still available. With a fallback left it gets at most this fraction of the
+# remaining budget, but never less than _MIN_PROVIDER_SLICE seconds.
+_PROVIDER_SLICE_FRACTION = 0.5
+_MIN_PROVIDER_SLICE = 1.5
+# A provider that returned stop_reason=length with NO text (reasoning/thinking
+# consumed max_tokens) is skipped for that task type for this long.
+_CAP_STARVED_TTL_S = 30 * 60.0
+_CAP_STARVED_LENGTH_REASONS = frozenset({"length", "max_tokens", "MAX_TOKENS"})
+# (provider, task_type) -> (largest max_tokens that starved, recorded-at epoch)
+_cap_starved: Dict[Tuple[str, str], Tuple[int, float]] = {}
+_cap_starved_lock = threading.Lock()
+
+
+def _mark_cap_starved(provider_id: str, task_type: str, max_tokens: int) -> None:
+    """Record that ``provider_id`` spent all of ``max_tokens`` without emitting
+    text for ``task_type``. Logs once (WARNING) per marker lifetime."""
+    now = time.time()
+    key = (provider_id, task_type)
+    with _cap_starved_lock:
+        prev = _cap_starved.get(key)
+        fresh = prev is None or (now - prev[1]) > _CAP_STARVED_TTL_S
+        kept = 0 if fresh or prev is None else prev[0]
+        _cap_starved[key] = (max(max_tokens, kept), now)
+    if fresh:
+        logger.warning(
+            "LLM Router: %s is cap-starved for task_type=%s (stop_reason=length, "
+            "no text at max_tokens=%d) -- skipping it for this task for %d min",
+            provider_id,
+            task_type,
+            max_tokens,
+            int(_CAP_STARVED_TTL_S // 60),
+        )
+
+
+def _is_cap_starved(provider_id: str, task_type: str, max_tokens: int) -> bool:
+    """True when a live marker says this provider starved at a cap >= ``max_tokens``
+    for ``task_type`` (a larger cap than the one that starved is worth a try)."""
+    with _cap_starved_lock:
+        entry = _cap_starved.get((provider_id, task_type))
+    if entry is None:
+        return False
+    starved_cap, recorded_at = entry
+    if (time.time() - recorded_at) > _CAP_STARVED_TTL_S:
+        return False
+    return max_tokens <= starved_cap
+
+
+def _provider_time_slice(remaining: float, fallbacks_left: int) -> float:
+    """Timeout for one provider call: the whole remainder if it is the last
+    option, else ~half of it (floor _MIN_PROVIDER_SLICE, never above remaining)."""
+    if fallbacks_left <= 0:
+        return remaining
+    return min(
+        remaining, max(_MIN_PROVIDER_SLICE, remaining * _PROVIDER_SLICE_FRACTION)
+    )
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # GLOBAL CONCURRENCY LIMITER
@@ -1649,6 +1716,21 @@ TASK_ROUTING: Dict[str, List[str]] = {
         CLAUDE_OPUS,
     ],
 }
+
+# 2026-10-17: copilot suggestions run TASK_PLAN_STRUCTURED's chain with DeepSeek
+# moved behind the two Gemini tiers (free, non-reasoning at this cap -- thinking
+# is disabled below max_tokens=2048). DeepSeek stays as the third leg, on its
+# fast model via DEEPSEEK_FAST_TASK_TYPES.
+_copilot_chain = [p for p in TASK_ROUTING[TASK_PLAN_STRUCTURED] if p != DEEPSEEK]
+_copilot_gemini_tail = max(
+    _copilot_chain.index(GEMINI), _copilot_chain.index(GEMINI_FLASH_LITE)
+)
+TASK_ROUTING[TASK_COPILOT_SUGGEST] = (
+    _copilot_chain[: _copilot_gemini_tail + 1]
+    + [DEEPSEEK]
+    + _copilot_chain[_copilot_gemini_tail + 1 :]
+)
+del _copilot_chain, _copilot_gemini_tail
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -3657,6 +3739,24 @@ def _call_llm_inner(
         timeout_budget if timeout_budget is not None else GLOBAL_TIMEOUT_BUDGET
     )
     max_attempts = len(PROVIDER_CONFIG)
+    # Short budgets (copilot: 10s) must still be able to start a fallback:
+    # the fixed 5s floor refused to once a first provider burned >5s.
+    _min_remaining = min(
+        _MIN_REMAINING_BUDGET, max(_MIN_PROVIDER_SLICE, _effective_budget * 0.2)
+    )
+    _route = custom_route or TASK_ROUTING.get(
+        task_type, TASK_ROUTING[TASK_CONVERSATIONAL]
+    )
+    # Providers that already starved at this cap for this task: skip outright.
+    for _pid in _route:
+        if _pid not in excluded and _is_cap_starved(_pid, task_type, max_tokens):
+            excluded.append(_pid)
+            logger.debug(
+                "LLM Router: %s skipped for %s (cap-starved at max_tokens<=%d)",
+                _pid,
+                task_type,
+                max_tokens,
+            )
     _wall_start = time.time()
     for attempt_num in range(max_attempts):
         # --- Global timeout budget check ---
@@ -3669,7 +3769,7 @@ def _call_llm_inner(
             )
             break
         remaining = _effective_budget - elapsed
-        if remaining < _MIN_REMAINING_BUDGET:
+        if remaining < _min_remaining:
             logger.warning(
                 "LLM Router: only %.1fs remaining in budget, stopping early",
                 remaining,
@@ -3734,13 +3834,25 @@ def _call_llm_inner(
         # Record in rate tracker before calling
         _rate_tracker.record_request(provider)
 
+        # Time slice: with a fallback still configured, this provider gets
+        # about half the remaining budget, not all of it.
+        _fallbacks_left = len(
+            {
+                pid
+                for pid in _route
+                if pid != provider
+                and pid not in excluded
+                and (PROVIDER_CONFIG.get(pid, {}).get("env_key") or "")
+                and os.environ.get(PROVIDER_CONFIG[pid]["env_key"], "").strip()
+            }
+        )
         result = _call_single_provider(
             provider,
             messages,
             system_prompt,
             max_tokens,
             tools,
-            timeout_override=remaining,
+            timeout_override=_provider_time_slice(remaining, _fallbacks_left),
             task_type=task_type,
         )
         # 2026-10-16: text or tool_calls only -- a thinking-only reply (empty
@@ -4282,6 +4394,13 @@ def _call_single_provider(
                 _stop_reason or "-",
                 ",".join(_block_types) or "-",
             )
+            if (
+                _stop_reason in _CAP_STARVED_LENGTH_REASONS
+                and (parsed.get("output_tokens") or 0) > 0
+            ):
+                # Reasoning/thinking spent the whole cap: calling again with
+                # the same cap for this task type will do the same.
+                _mark_cap_starved(provider_id, task_type, max_tokens)
             if state:
                 state.record_failure()
             # Circuit breaker mesh: record failure (empty response)
