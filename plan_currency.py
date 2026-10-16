@@ -609,16 +609,17 @@ def _symbol_scan(text: str) -> "tuple[str, tuple[str, ...]]":
 # most explicit declaration a client can make -- yet only symbols were read,
 # so "150K GBP" for a US-located plan priced in USD (sweep 2026-10-16, #12).
 # A token is a code only when it is a whole 3-letter word in the symbol table
-# above. Upper case is read anywhere; lower / mixed case ("150k gbp") only
-# directly beside the amount, so an ordinary word elsewhere in the text is
-# never mistaken for a currency.
+# above, written directly beside the amount ("150K GBP", "gbp 150k", "150k
+# (CAD)") -- so "TRY TO KEEP UNDER 50K" is no lira budget. Codes that are also
+# English words (try, cop, rub, ...) must be upper case as well.
 _ISO_TOKEN_RE = re.compile(r"(?<![A-Za-z])([A-Za-z]{3})(?![A-Za-z])")
 _AMOUNT_BEFORE_RE = re.compile(
-    r"\d(?:\s*(?:k|m|mm|mn|b|bn|million|billion|thousand|lakhs?|lacs?|crores?|cr))?"
-    r"\.?\s*$",
+    r"\d(?:\s*(?:k|m|mm|mn|mio|mln|b|bn|million|billion|thousand|lakhs?|lacs?|crores?|cr))?"
+    r"\.?\s*[(\[]?\s*$",
     re.IGNORECASE,
 )
-_AMOUNT_AFTER_RE = re.compile(r"^\s*\d")
+_AMOUNT_AFTER_RE = re.compile(r"^\s*\$?\s*\d")
+_WORDLIKE_CODES = frozenset({"TRY", "COP", "RUB", "RON", "PHP", "ARS", "ILS"})
 
 
 def _iso_codes_typed(text: str) -> "list[tuple[int, str]]":
@@ -630,10 +631,12 @@ def _iso_codes_typed(text: str) -> "list[tuple[int, str]]":
         code = token.upper()
         if code not in _CODE_TO_SYMBOL or any(c == code for _p, c in found):
             continue
-        if token != code and not (
+        if not (
             _AMOUNT_BEFORE_RE.search(text[: m.start()])
             or _AMOUNT_AFTER_RE.match(text[m.end() :])
         ):
+            continue
+        if token != code and code in _WORDLIKE_CODES:
             continue
         found.append((m.start(), code))
     return found

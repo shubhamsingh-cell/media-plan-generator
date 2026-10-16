@@ -5896,7 +5896,7 @@ def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
             _top1_label = display_format.channel_label(_top1_name)
             sentences.append(
                 f"Key risk: {_top1_label} alone accounts for {_top1_pct:.0f}% "
-                f"of budget and {_top1_hires:,} projected hires -- "
+                f"of budget and {gs_lib.count_noun(_top1_hires, 'projected hire')} -- "
                 f"single-channel disruption there would be material."
             )
 
@@ -7213,7 +7213,8 @@ def _build_sheet_executive_summary(
                 (
                     "Channel Dependency",
                     f"{top_2_pct:.0f}% of budget concentrated on {ch_names} — "
-                    f"single-channel disruption could impact {_named_hires:,} projected hires",
+                    f"single-channel disruption could impact "
+                    f"{gs_lib.count_noun(_named_hires, 'projected hire')}",
                     "Diversify to 4+ channels; maintain 3 backup channels on standby",
                 )
             )
@@ -7683,9 +7684,13 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             _targets = _channel_target_roles(ch.get("name") or "", roles, industry)
             if _targets:
                 rationale_parts.append(f"targets {', '.join(_targets[:2])}")
-            if locations and len(locations) <= 3:
+            # places only: "in Remote" read as a place (sweep 2026-10-16 #9)
+            _rationale_places = [
+                l for l in (locations or []) if not gs_lib.is_remote_location(l)
+            ]
+            if _rationale_places and len(locations) <= 3:
                 rationale_parts.append(
-                    f"in {', '.join(str(l).split(',')[0] for l in locations[:2])}"
+                    f"in {', '.join(str(l).split(',')[0] for l in _rationale_places[:2])}"
                 )
             if notes and len(notes) > 10:
                 rationale_parts.append(notes)
@@ -14576,12 +14581,13 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     _write_attribution_footer(ws, row)
 
 
-def _intl_usd_range(block: dict, decimals: int) -> Optional[str]:
+def _intl_usd_range(block: dict, decimals: int, marker: str = "$") -> Optional[str]:
     """ "$1.09-$5.45" for a dataset ``{"min", "max"}`` USD block, or ``None``
     when there is no positive figure to show (missing, non-numeric, or the
     0-0 a free government board carries) -- the caller prints "n/a", never
     a zero range. A positive figure that rounds to zero at ``decimals``
-    shows two decimals ("$0.40-$2.00", not "$0-$2")."""
+    shows two decimals ("$0.40-$2.00", not "$0-$2"). ``marker`` is "US$"
+    on a non-USD plan (the deck's convention for a USD figure there)."""
     lo, hi = block.get("min"), block.get("max")
     nums = [
         float(v)
@@ -14592,7 +14598,7 @@ def _intl_usd_range(block: dict, decimals: int) -> Optional[str]:
         return None
 
     places = 2 if any(v > 0 and round(v, decimals) == 0 for v in nums) else decimals
-    return f"${nums[0]:,.{places}f}-${nums[1]:,.{places}f}"
+    return f"{marker}{nums[0]:,.{places}f}-{marker}{nums[1]:,.{places}f}"
 
 
 def _build_sheet_international_benchmarks(
@@ -14669,6 +14675,10 @@ def _build_sheet_international_benchmarks(
     )
     countries = intl_benchmarks.get("countries", {})
     _intl_na_used = False
+    # Every figure here is USD (the "(USD)" headers); on a non-USD plan the
+    # figures say so themselves, "US$1.09", as the deck does -- a bare "$"
+    # beside a C$/A$ plan reads as the plan's own dollar (sweep 2026-10-16 #8).
+    _intl_usd_marker = "$" if _get_active_currency() == "USD" else "US$"
     for _ck, _cv in sorted(countries.items(), key=lambda x: x[1].get("name", x[0])):
         _name = _cv.get("name", _ck.replace("_", " ").title())
         _region = (_cv.get("region") or "").upper()
@@ -14686,7 +14696,7 @@ def _build_sheet_international_benchmarks(
         # it instead would shift the next platform's range under its name.
         def _ranges(key: str, decimals: int) -> str:
             parts = [
-                _intl_usd_range(p.get(key), decimals)
+                _intl_usd_range(p.get(key), decimals, _intl_usd_marker)
                 if isinstance(p, dict) and isinstance(p.get(key), dict)
                 else None
                 for p in _platforms[:2]
@@ -14709,7 +14719,7 @@ def _build_sheet_international_benchmarks(
             tier_data = _cph.get(tier_key, {})
             if isinstance(tier_data, dict) and tier_data.get("usd"):
                 _label = tier_key.replace("_", " ").title()
-                _cph_parts.append(f"{_label}: ${tier_data['usd']:,}")
+                _cph_parts.append(f"{_label}: {_intl_usd_marker}{tier_data['usd']:,}")
         _cph_str = " | ".join(_cph_parts) if _cph_parts else "—"
 
         # Regulatory

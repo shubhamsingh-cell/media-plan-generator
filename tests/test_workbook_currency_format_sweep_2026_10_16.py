@@ -223,10 +223,24 @@ def test_typed_iso_code_or_symbol_beats_location(budget, locations, code):
 
 
 def test_a_word_is_not_a_currency_code():
-    # "per" / "and" are not codes; a lower-case token away from the amount is
-    # never read; nothing typed -> the market decides, as before
-    for budget in ("150k per month", "10k and 15k", "150,000"):
-        assert plan_currency.currency_codes_from_symbol(budget) == ()
+    # "per" / "and" are not codes; a code must sit beside the amount; a code
+    # that is also an English word must be upper case; nothing typed -> the
+    # market decides, as before
+    for budget in (
+        "150k per month",
+        "10k and 15k",
+        "150,000",
+        "try 150k",
+        "150k try",
+        "about 150k try",
+        "150k cop",
+        "php 150k",
+        "TRY TO KEEP UNDER 50K",
+    ):
+        assert plan_currency.currency_codes_from_symbol(budget) == (), budget
+    for budget, code in (("1.5 Mio. EUR", "EUR"), ("150k (CAD)", "CAD"), ("gbp 150k", "GBP"),
+                         ("TRY 150k", "TRY"), ("150k-200k GBP", "GBP")):
+        assert plan_currency.currency_codes_from_symbol(budget) == (code,), budget
     assert plan_currency.currency_for_plan_with_basis(
         {"budget_range": "150k per month", "locations": ["Austin, TX"]}
     ) == ("USD", "market")
@@ -306,6 +320,44 @@ def test_intl_usd_range_helper():
     assert excel_v2._intl_usd_range({"min": None, "max": None}, 2) is None
     assert excel_v2._intl_usd_range({"min": 1.09, "max": 5.45}, 2) == "$1.09-$5.45"
     assert excel_v2._intl_usd_range({"min": 0.3, "max": 2.4}, 0) == "$0.30-$2.40"
+    assert (
+        excel_v2._intl_usd_range({"min": 1.09, "max": 5.45}, 2, "US$") == "US$1.09-US$5.45"
+    )
+
+
+def test_intl_benchmarks_mark_usd_on_a_non_usd_plan(cad_active):
+    raw = json.loads(
+        (PROJECT_ROOT / "data" / "international_benchmarks_2026.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    excel_v2._build_sheet_international_benchmarks(
+        ws, {"_budget_allocation": {}}, {"countries": {"austria": raw["countries"]["austria"]}}
+    )
+    austria = next([c.value for c in r] for r in ws.iter_rows() if r[1].value == "Austria")
+    for text in austria[4:7]:
+        if text and text != "—":
+            assert not _BARE_DOLLAR_TXT_RE.search(text), text
+    assert austria[4].startswith("US$")
+
+
+def test_warehouse_cost_per_apply_is_marked_on_a_non_usd_plan(cad_active):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    data = {
+        "_budget_allocation": {
+            "metadata": {
+                "real_outcomes": [
+                    {"matched": True, "title": "Line Cook", "cost_per_apply": 12.5, "sample_size": 40}
+                ]
+            }
+        }
+    }
+    excel_v2._build_warehouse_provenance(ws, data, 2)
+    cells = [c for r in ws.iter_rows() for c in r if c.value == 12.5]
+    assert cells and cells[0].number_format == excel_v2.FMT_USD2_MARKED
 
 
 # ── 4. a province is not a country ──────────────────────────────────────
@@ -371,6 +423,15 @@ def test_one_hire_is_singular_in_workbook_copy():
         {"client_name": "Riverbend", "budget_num": 3000, "duration": "3 months", "header_hires": 1}
     )
     assert "1 hires" not in summary and "deliver 1 hire" in summary, summary
+    summary = excel_v2._build_deterministic_executive_summary(
+        {
+            "client_name": "Riverbend",
+            "budget_num": 3000,
+            "header_hires": 1,
+            "top_channels": [("programmatic_dsp", {"percentage": 60, "projected_hires": 1})],
+        }
+    )
+    assert "1 projected hire " in summary and "1 projected hires" not in summary, summary
 
 
 # ── 7. "Remote" is a work mode, not a place ─────────────────────────────
@@ -383,6 +444,21 @@ def test_remote_is_not_a_city_in_gold_standard(remote_workbook):
     assert gold_standard.is_remote_location("Remote")
     assert gold_standard.is_remote_location("Work From Home")
     assert not gold_standard.is_remote_location("Austin, TX")
+
+
+def test_channel_rationale_never_says_in_remote():
+    data = _plan(
+        ["Remote", "Austin, TX"], "$300,000", industry="tech_engineering", role="Software Engineer"
+    )
+    wb, _blob = _xlsx(data)
+    texts = [
+        (ws.title, c.coordinate, c.value)
+        for ws in wb.worksheets
+        for r in ws.iter_rows()
+        for c in r
+        if isinstance(c.value, str) and re.search(r"\bin Remote\b", c.value)
+    ]
+    assert not texts, texts[:3]
 
 
 def test_remote_is_not_counted_or_phrased_as_a_place(remote_workbook):
