@@ -3712,6 +3712,91 @@ def compute_channel_dollar_amounts(
     return allocations
 
 
+def plan_average_cpa(channel_allocations: Dict[str, Dict]) -> Optional[float]:
+    """Spend-weighted cost per application across the performance channels.
+
+    Brand channels are excluded (they are measured on reach, not CPA). Returns
+    None when no channel has both spend and projected applications.
+    """
+    spend = 0.0
+    apps = 0.0
+    for entry in (channel_allocations or {}).values():
+        if not isinstance(entry, dict) or entry.get("channel_role") == "brand":
+            continue
+        dollars = entry.get("dollar_amount")
+        applications = entry.get("projected_applications")
+        if (
+            isinstance(dollars, (int, float))
+            and isinstance(applications, (int, float))
+            and dollars > 0
+            and applications > 0
+        ):
+            spend += float(dollars)
+            apps += float(applications)
+    return spend / apps if apps > 0 else None
+
+
+def channel_why(entry: Dict[str, Any], plan_avg_cpa: Optional[float] = None) -> str:
+    """One short, grounded reason for a channel's place in the plan.
+
+    Built ONLY from fields the allocation already carries (brand rationale,
+    efficiency_flag, cpa vs the plan average, roi_score, trend_direction);
+    returns "" when no field supports a reason -- a reason is never invented.
+    ``roi_score`` 4-6 is middling/unknown (5 means "no data"), so it says
+    nothing. At most two clauses, strongest first.
+    """
+    if not isinstance(entry, dict):
+        return ""
+    if entry.get("channel_role") == "brand":
+        return str(entry.get("rationale") or "")
+
+    clauses: List[str] = []
+    flag = entry.get("efficiency_flag")
+    if isinstance(flag, str) and flag:
+        clauses.append(f"flagged {flag}")
+
+    cpa = entry.get("cpa")
+    if (
+        isinstance(cpa, (int, float))
+        and not isinstance(cpa, bool)
+        and cpa > 0
+        and isinstance(plan_avg_cpa, (int, float))
+        and plan_avg_cpa > 0
+    ):
+        ratio = float(cpa) / float(plan_avg_cpa)
+        if ratio <= 0.85:
+            clauses.append(f"CPA {round((1 - ratio) * 100)}% below the plan average")
+        elif ratio >= 1.15:
+            clauses.append(f"CPA {round((ratio - 1) * 100)}% above the plan average")
+
+    roi = entry.get("roi_score")
+    if isinstance(roi, (int, float)) and not isinstance(roi, bool):
+        if roi >= 8:
+            clauses.append(f"ROI score {int(roi)}/10")
+        elif roi <= 3:
+            clauses.append(f"low ROI score ({int(roi)}/10)")
+
+    direction = entry.get("trend_direction")
+    pct = entry.get("trend_pct_yoy")
+    if direction in ("rising", "falling") and isinstance(pct, (int, float)):
+        word = "up" if direction == "rising" else "down"
+        clauses.append(f"market trending {word} {abs(pct):.0f}% YoY")
+
+    if not clauses:
+        return ""
+    text = "; ".join(clauses[:2])
+    return text[0].upper() + text[1:]
+
+
+def annotate_channel_reasons(channel_allocations: Dict[str, Dict]) -> None:
+    """Add a grounded ``why`` to each channel that has one (in place)."""
+    avg = plan_average_cpa(channel_allocations)
+    for entry in (channel_allocations or {}).values():
+        reason = channel_why(entry, avg)
+        if reason and isinstance(entry, dict):
+            entry["why"] = reason
+
+
 def rebalance_low_roi_channels(
     channel_allocations: Dict[str, Dict],
     total_budget: float,

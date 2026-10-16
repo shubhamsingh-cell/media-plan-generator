@@ -2932,9 +2932,11 @@ _RESPONSE_TEMPLATES: Dict[str, str] = {
         "### Media Plan: [Role] Recruitment -- [Location]\n"
         "**Budget: $X | Target: [Role] | Market: [Location]**\n\n"
         "#### Channel Allocation\n"
-        "| Channel | Budget | % | Est. CPA | Projected Hires |\n"
-        "|---------|--------|---|----------|----------------|\n"
-        "| [rows] |\n\n"
+        "| Channel | Budget | % | Est. CPA | Projected Hires | Why |\n"
+        "|---------|--------|---|----------|----------------|-----|\n"
+        "| [rows] |\n"
+        "Why = copy that channel's `why` from the tool result verbatim. If the "
+        "channel has no `why`, write -- . Never invent a reason.\n\n"
         "#### Market Context\n"
         "- [3-4 bullets about the market]\n\n"
         "#### Activation Timeline\n"
@@ -9922,6 +9924,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     result["total_projected"] = allocation.get("total_projected", {})
                     result["sufficiency"] = allocation.get("sufficiency", {})
                     result["recommendations"] = allocation.get("recommendations") or []
+                    _annotate_channel_reasons(result["channel_allocations"])
                     _add_hire_target_comparison(result, target_hires)
                     return result
             except Exception as e:
@@ -9984,6 +9987,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             result["total_projected"] = allocation.get("total_projected", {})
             result["sufficiency"] = allocation.get("sufficiency", {})
             result["recommendations"] = allocation.get("recommendations") or []
+            _annotate_channel_reasons(result["channel_allocations"])
             _add_hire_target_comparison(result, target_hires)
         except Exception as e:
             logger.error("Budget engine call failed: %s", e, exc_info=True)
@@ -24124,6 +24128,17 @@ _BLOCKED_PATTERNS = [
 # ---------------------------------------------------------------------------
 # Budget target comparison helper (v3.5.1)
 # ---------------------------------------------------------------------------
+
+
+def _annotate_channel_reasons(channel_allocations: Any) -> None:
+    """Attach a grounded ``why`` to each channel; never blocks the projection."""
+    try:
+        from budget_engine import annotate_channel_reasons
+
+        if isinstance(channel_allocations, dict):
+            annotate_channel_reasons(channel_allocations)
+    except Exception:
+        logger.error("Channel reason annotation failed", exc_info=True)
 
 
 def _add_hire_target_comparison(result: dict, target_hires: int) -> None:
