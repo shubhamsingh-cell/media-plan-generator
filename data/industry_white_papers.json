@@ -687,7 +687,7 @@
         "CPA and CPH rose sharply in 2025 despite a softer labor market \u2014 recruiting isn't getting cheaper",
         "Cost drivers shifted beyond labor supply to job board pricing and programmatic media models",
         "Apply rates improved to 5.19% in 2025, partly due to increased job-seeker volume",
-        "White-collar recession deepened: Tech apply rate hit 7.14% (highest), yet CPH doubled to $2,795",
+        "White-collar recession deepened: Tech apply rate hit 7.14% (highest of all occupations)",
         "Frontline 'standing-up' roles, especially healthcare (3.22% apply rate), remained costly and hard to fill",
         "Sun Belt states delivered stronger apply rates but Southeast CPA is rapidly rising (no longer a bargain)",
         "First time tracking full candidate journey from click-to-hire with disposition data",
@@ -744,7 +744,6 @@
           "business_consumer_services": "$10.17"
         },
         "cph_by_occupation_2025": {
-          "technology": "$2,795",
           "healthcare": "$2,100",
           "education": "$1,942",
           "science_engineering": "$1,663",
@@ -797,7 +796,6 @@
         },
         "cost_per_screen_by_occupation_2025": {
           "science_engineering": "$186",
-          "healthcare": "$169",
           "technology": "$156",
           "finance": "$133",
           "education": "$126",
@@ -823,7 +821,6 @@
         },
         "cost_per_interview_by_occupation_2025": {
           "science_engineering": "$416",
-          "healthcare": "$366",
           "technology": "$286",
           "education": "$286",
           "finance": "$258",
@@ -848,7 +845,6 @@
           "business_consumer_services": "$68"
         },
         "cost_per_offer_by_occupation_2025": {
-          "healthcare": "$1,085",
           "science_engineering": "$967",
           "education": "$861",
           "technology": "$773",

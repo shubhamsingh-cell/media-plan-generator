@@ -15,10 +15,13 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import budget_engine as be  # noqa: E402
+import excel_v2  # noqa: E402
 import ppt_generator as ppt  # noqa: E402
 from kb_loader import load_knowledge_base  # noqa: E402
 
@@ -26,6 +29,9 @@ _PATH = PROJECT_ROOT / "data" / "recruitment_benchmarks_deep.json"
 _RAW = _PATH.read_text(encoding="utf-8")
 _DATA = json.loads(_RAW)
 _ROWS = _DATA["industry_benchmarks"]
+_WP_PATH = PROJECT_ROOT / "data" / "industry_white_papers.json"
+_WP_RAW = _WP_PATH.read_text(encoding="utf-8")
+_WP = json.loads(_WP_RAW)
 
 
 def test_every_row_ends_with_provenance():
@@ -34,7 +40,9 @@ def test_every_row_ends_with_provenance():
         # LAST key: nova's deep search truncates objects to their first keys,
         # so the note must never displace real data.
         assert list(row)[-1] == "provenance", name
-        assert "not independently audited" in row["provenance"], name
+        # Disclaimer FIRST: the workbook cell wraps without a row height,
+        # so only the first ~90 characters are visible.
+        assert row["provenance"].startswith("Not independently audited"), name
         assert "Reviewed 2026-10-17" in row["provenance"], name
 
 
@@ -125,3 +133,50 @@ def test_sources_list_is_corrected():
     assert "FY2015" in shrm["name"] and "one national average" in shrm["name"]
     assert not any("Deloitte" in n for n in sources)
     assert _DATA["last_updated"] == "2026-03-22"
+
+
+@pytest.mark.parametrize(
+    "industry,low,high",
+    [("telecommunications", 5000, 8000), ("technology_engineering", 6000, 7000)],
+)
+def test_hires_range_sentence_has_one_bracket_and_parses(industry, low, high):
+    """excel_v2._hires_range_line nests the industry row's single bracketed
+    note via ^(.*?)\\s*\\((.*)\\)$; a two-bracket cost string garbled the
+    Executive Summary sentence on every telecom plan."""
+    row = be._kb_industry_cph_row(load_knowledge_base(), industry)
+    assert row["low"] == low and row["high"] == high
+    assert row["mid"] == (low + high) / 2
+    cph_info = {
+        "basis": "industry",
+        "currency": "USD",
+        "value": row["mid"],
+        "floor": row["mid"] / 2,
+        "display_row": row,
+    }
+    total_proj = {"hires_low": 53, "hires_high": 116}
+    sentence = excel_v2._hires_range_line(total_proj, cph_info, 80, 500000.0)
+    assert sentence, "builder returned no sentence"
+    head = sentence.split("at plan efficiency")[0]
+    assert head.count("(") == 1 and head.count(")") == 1, head
+    assert f"${low:,}" in head and f"${high:,}" in head, head
+    assert f"${row['mid']:,.0f}" in head, head
+
+
+def test_white_paper_nova_source_drops_removed_figures():
+    """nova.py reads data/industry_white_papers.json; the figures removed from
+    the KB must not come back through the chat path."""
+    assert "doubled" not in _WP_RAW
+    assert "$2,795" not in _WP_RAW
+    assert "$1,085" not in _WP_RAW
+    bm = _WP["reports"]["appcast_benchmark_2026"]["benchmarks"]
+    assert "technology" not in bm["cph_by_occupation_2025"]
+    for key in (
+        "cost_per_screen_by_occupation_2025",
+        "cost_per_interview_by_occupation_2025",
+        "cost_per_offer_by_occupation_2025",
+    ):
+        assert "healthcare" not in bm[key], key
+    # $169 / $366 also occur as OTHER occupations' / a 2022 report's figures,
+    # so they are checked against the removed healthcare slots only.
+    assert "$169" not in json.dumps(bm["cost_per_screen_by_occupation_2025"])
+    assert "$366" not in json.dumps(bm["cost_per_interview_by_occupation_2025"])
