@@ -155,24 +155,23 @@ def test_starved_marker_expires(router) -> None:
 
 def test_time_slice_math(router) -> None:
     f = router._provider_time_slice
-    assert f(10.0, 1, 10.0) == pytest.approx(5.0)  # half, one fallback left
-    assert f(10.0, 3, 10.0) == pytest.approx(5.0)  # still half (50% cap)
-    assert f(2.0, 2, 10.0) == pytest.approx(1.5)  # floor
-    assert f(1.0, 2, 10.0) == pytest.approx(1.0)  # never above what is left
-    assert f(10.0, 0, 10.0) == pytest.approx(10.0)  # last provider gets it all
+    c = "copilot_suggest"
+    assert f(10.0, 1, c) == pytest.approx(5.0)  # half, one fallback left
+    assert f(10.0, 3, c) == pytest.approx(5.0)  # still half (50% cap)
+    assert f(2.0, 2, c) == pytest.approx(1.5)  # floor
+    assert f(1.0, 2, c) == pytest.approx(1.0)  # never above what is left
+    assert f(10.0, 0, c) == pytest.approx(10.0)  # last provider gets it all
 
 
-def test_slice_only_applies_to_short_budgets(router) -> None:
+def test_slice_applies_to_copilot_suggest_only(router) -> None:
+    assert router._SLICED_TASK_TYPES == frozenset({router.TASK_COPILOT_SUGGEST})
     f = router._provider_time_slice
-    cap = router._SHORT_BUDGET_MAX_S
-    assert cap == pytest.approx(12.0)
-    assert f(cap, 2, cap) == pytest.approx(cap / 2)  # at the threshold: sliced
-    assert f(35.0, 2, 35.0) == pytest.approx(35.0)  # default budget: old behaviour
-    assert f(20.0, 2, 20.0) == pytest.approx(20.0)  # nova 20s: old behaviour
-    assert f(cap + 0.1, 2, cap + 0.1) == pytest.approx(cap + 0.1)  # just above
+    assert f(10.0, 2, router.TASK_PLAN_STRUCTURED) == pytest.approx(10.0)
+    assert f(10.0, 2, router.TASK_PLAN_NARRATIVE) == pytest.approx(10.0)
+    assert f(35.0, 2, router.TASK_PLAN_STRUCTURED) == pytest.approx(35.0)
 
 
-def _first_timeout(router, budget: float) -> float:
+def _first_timeout(router, budget: float, task_type: str = "") -> float:
     seen: List[float] = []
 
     def fake_single(
@@ -185,16 +184,21 @@ def _first_timeout(router, budget: float) -> float:
         router.call_llm(
             _MSG,
             max_tokens=300,
-            task_type=router.TASK_PLAN_STRUCTURED,
+            task_type=task_type or router.TASK_PLAN_STRUCTURED,
             use_cache=False,
             timeout_budget=budget,
         )
     return seen[0]
 
 
-def test_long_budget_first_provider_keeps_whole_remainder(router) -> None:
+def test_non_copilot_tasks_keep_whole_remainder_even_at_10s(router) -> None:
+    """Nine other call sites pass timeout_budget=10.0 (narrative, compliance,
+    A/B copy, ...): their primary must still get the whole remainder, while a
+    10s copilot_suggest call is sliced. Fallbacks are usable in all cases."""
+    assert _first_timeout(router, 10.0, router.TASK_PLAN_STRUCTURED) > 9.0
+    assert _first_timeout(router, 10.0, router.TASK_PLAN_NARRATIVE) > 9.0
     assert _first_timeout(router, 35.0) > 34.0
-    assert _first_timeout(router, 20.0) > 19.0
+    assert _first_timeout(router, 10.0, router.TASK_COPILOT_SUGGEST) <= 5.05
 
 
 def test_unavailable_fallbacks_do_not_shrink_the_primary_slice(router) -> None:
@@ -216,7 +220,7 @@ def test_unavailable_fallbacks_do_not_shrink_the_primary_slice(router) -> None:
         res = router.call_llm(
             _MSG,
             max_tokens=300,
-            task_type=router.TASK_PLAN_STRUCTURED,
+            task_type=router.TASK_COPILOT_SUGGEST,
             preferred_providers=[router.DEEPSEEK, router.GEMINI],
             use_cache=False,
             timeout_budget=10.0,
@@ -238,7 +242,7 @@ def test_usable_fallback_still_halves_the_primary_slice(router) -> None:
         router.call_llm(
             _MSG,
             max_tokens=300,
-            task_type=router.TASK_PLAN_STRUCTURED,
+            task_type=router.TASK_COPILOT_SUGGEST,
             preferred_providers=[router.DEEPSEEK, router.GEMINI],
             use_cache=False,
             timeout_budget=10.0,
@@ -259,7 +263,7 @@ def test_first_provider_gets_half_the_remaining_budget(router) -> None:
         router.call_llm(
             _MSG,
             max_tokens=300,
-            task_type=router.TASK_PLAN_STRUCTURED,
+            task_type=router.TASK_COPILOT_SUGGEST,
             use_cache=False,
             timeout_budget=10.0,
         )
@@ -289,7 +293,7 @@ def test_short_budget_still_reaches_the_fallback(router) -> None:
             res = router.call_llm(
                 _MSG,
                 max_tokens=300,
-                task_type=router.TASK_PLAN_STRUCTURED,
+                task_type=router.TASK_COPILOT_SUGGEST,
                 preferred_providers=[router.DEEPSEEK],
                 use_cache=False,
                 timeout_budget=10.0,

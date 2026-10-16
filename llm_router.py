@@ -237,12 +237,13 @@ _MIN_REMAINING_BUDGET = 5.0  # don't start a new attempt with < 5s left
 # remaining budget, but never less than _MIN_PROVIDER_SLICE seconds.
 _PROVIDER_SLICE_FRACTION = 0.5
 _MIN_PROVIDER_SLICE = 1.5
-# The slice (and the scaled stop-early floor) only apply to SHORT interactive
-# budgets: copilot suggestions use 10s. Long-output tasks (35s default, 55s
-# tools, 15-25s compliance/nova/narrative) keep the pre-2026-10-17 behaviour
-# -- the first provider gets the whole remainder -- because there is no p95
-# evidence that halving their timeout is safe for slow-but-healthy providers.
-_SHORT_BUDGET_MAX_S = 12.0
+# The slice (and the scaled stop-early floor) apply ONLY to the task types
+# listed here, not to any 10s budget: at least nine other call sites (narrative,
+# verification, compliance, auto-generate, creative ads, post-campaign summary,
+# A/B test, competitive intel, nova) also pass timeout_budget=10.0 and have no
+# p95 evidence that halving their primary's timeout is safe. Opt a task in
+# explicitly once it has been measured.
+_SLICED_TASK_TYPES = frozenset({TASK_COPILOT_SUGGEST})
 # A provider that returned stop_reason=length with NO text (reasoning/thinking
 # consumed max_tokens) is skipped for that task type for this long.
 _CAP_STARVED_TTL_S = 30 * 60.0
@@ -287,13 +288,13 @@ def _is_cap_starved(provider_id: str, task_type: str, max_tokens: int) -> bool:
 
 
 def _provider_time_slice(
-    remaining: float, fallbacks_left: int, task_budget: float
+    remaining: float, fallbacks_left: int, task_type: str
 ) -> float:
-    """Timeout for one provider call. Only short budgets (<= _SHORT_BUDGET_MAX_S)
-    are sliced: with a usable fallback left the provider gets ~half of the
-    remainder (floor _MIN_PROVIDER_SLICE, never above remaining); otherwise,
-    or for long budgets, it gets all of it."""
-    if fallbacks_left <= 0 or task_budget > _SHORT_BUDGET_MAX_S:
+    """Timeout for one provider call. Only _SLICED_TASK_TYPES are sliced: with a
+    usable fallback left the provider gets ~half of the remainder (floor
+    _MIN_PROVIDER_SLICE, never above remaining); otherwise, or for any other
+    task type, it gets all of it."""
+    if fallbacks_left <= 0 or task_type not in _SLICED_TASK_TYPES:
         return remaining
     return min(
         remaining, max(_MIN_PROVIDER_SLICE, remaining * _PROVIDER_SLICE_FRACTION)
@@ -3795,7 +3796,7 @@ def _call_llm_inner(
     # Short budgets (copilot: 10s) must still be able to start a fallback:
     # the fixed 5s floor refused to once a first provider burned >5s.
     _min_remaining = _MIN_REMAINING_BUDGET
-    if _effective_budget <= _SHORT_BUDGET_MAX_S:
+    if task_type in _SLICED_TASK_TYPES:
         _min_remaining = min(
             _MIN_REMAINING_BUDGET, max(_MIN_PROVIDER_SLICE, _effective_budget * 0.2)
         )
@@ -3905,7 +3906,7 @@ def _call_llm_inner(
             max_tokens,
             tools,
             timeout_override=_provider_time_slice(
-                remaining, _fallbacks_left, _effective_budget
+                remaining, _fallbacks_left, task_type
             ),
             task_type=task_type,
         )
