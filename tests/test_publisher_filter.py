@@ -192,10 +192,6 @@ def test_prose_scrub_never_eats_an_ordinary_word_a_board_shares():
     data = {"excluded_publishers": ["Talent.com", "indeed.com"]}
     kept = pf.scrub_text("Build a talent pool; Talent.com has reach.", data, "France")
     assert "talent pool" in kept and "Talent.com" not in kept
-    assert (
-        pf.sweep_text("Posts rose (Indeed Mobile Report 2025).", data, ["France"])
-        == "Posts rose."
-    )
     assert pf.sweep_text("Posts rose.", data, ["France"]) == "Posts rose."
 
 
@@ -206,3 +202,116 @@ def test_brand_products_and_national_sites_follow_the_excluded_brand():
     assert not pf.is_excluded("Indeed", {"excluded_publishers": ["Indeed Education"]})
     # a trailing two-letter code is a country only after a known multi-country brand
     assert not pf.names_match("Dice NO", "Dice")
+
+
+# ---- review round: F1 multi-word names ------------------------------------
+
+
+@pytest.mark.parametrize(
+    "typed,board",
+    [
+        ("Total Jobs", "Totaljobs"),
+        ("Career Builder", "CareerBuilder"),
+        ("Snag A Job", "Snagajob"),
+    ],
+)
+def test_multi_word_names_match_the_one_word_board(typed, board):
+    assert pf.names_match(typed, board)
+    data = {"excluded_publishers": [typed]}
+    assert pf.is_excluded(board, data)
+    assert pf.clean_names([board, "Reed"], data) == ["Reed"]
+
+
+def test_sweep_never_removes_generic_words_a_name_contains():
+    data = {"excluded_publishers": ["Total Jobs", "Career Builder", "Snag A Job"]}
+    for generic in (
+        "Total",
+        "Total Budget",
+        "Campaign Total",
+        "Total Economic Impact Study 2023",
+        "Snag a seat early",
+        "Career growth matters",
+    ):
+        assert pf.sweep_text(generic, data, ["United Kingdom"]) == generic, generic
+    # the board itself, in any spelling, still goes
+    assert (
+        pf.sweep_text("Try Totaljobs and Reed", data, ["United Kingdom"]) == "Try Reed"
+    )
+    assert pf.sweep_text("Try Total Jobs, Reed", data, ["United Kingdom"]) == "Try Reed"
+    assert pf.sweep_text("Snagajob, Monster", data, ["United States"]) == "Monster"
+
+
+# ---- F2 provenance is never stripped ---------------------------------------
+
+_CITATIONS = [
+    "65-89% of applicants use mobile (Indeed Mobile Report 2025).",
+    "Publisher: Indeed; Year: 2026; Finding Count: 10",
+    "LINKEDIN BENCHMARKS",
+    "Based on 108,871 LinkedIn job postings across 76 countries (Joveo SlotOps dataset)",
+    "Real photos outperform stock imagery (LinkedIn Talent Solutions 2025).",
+]
+
+
+@pytest.mark.parametrize("text", _CITATIONS)
+def test_exclusion_never_strips_a_citation(text):
+    data = {"excluded_publishers": ["indeed.com", "LinkedIn"]}
+    assert pf.sweep_text(text, data, ["France"]) == text
+    assert not pf.mentions_excluded(text, data, countries=["France"])
+
+
+def test_exclusion_still_removes_the_recommendation():
+    data = {"excluded_publishers": ["indeed.com"]}
+    assert (
+        pf.sweep_text("Indeed and ZipRecruiter strongest platforms.", data, ["France"])
+        == ""
+    )
+    assert (
+        pf.sweep_text("Buy via Indeed Sponsored Jobs and Reed.", data, ["France"])
+        == "Buy via Reed."
+    )
+    assert (
+        pf.sweep_text("Indeed: Market Position: Global; Reach: wide", data, ["France"])
+        == "Reach: wide"
+    )
+
+
+# ---- F3 availability is market-scoped --------------------------------------
+
+
+def test_uk_exit_does_not_touch_a_us_market_in_a_mixed_plan():
+    text = "ZipRecruiter Sponsored is strong for hourly roles."
+    mixed = ["United States", "United Kingdom"]
+    assert pf.sweep_text(text, {}, mixed) == text
+    assert not pf.has_exclusions({}, mixed) or not pf.mentions_excluded(
+        text, {}, countries=mixed
+    )
+    # a UK-only plan has no ZipRecruiter to recommend
+    assert pf.sweep_text(text, {}, ["United Kingdom"]) == ""
+    assert pf.sweep_text(text, {}, ["United States"]) == text
+
+
+# ---- F4 compounds and numbers ----------------------------------------------
+
+
+def test_compound_names_lose_only_the_excluded_member():
+    data = {"excluded_publishers": ["LinkedIn"]}
+    assert (
+        pf.sweep_text("LinkedIn / Meta / TikTok Ads", data, ["France"])
+        == "Meta / TikTok Ads"
+    )
+    assert (
+        pf.sweep_text("Meta / LinkedIn / TikTok Ads", data, ["France"])
+        == "Meta / TikTok Ads"
+    )
+
+
+def test_commas_inside_numbers_are_never_split():
+    data = {"excluded_publishers": ["indeed.com"]}
+    assert (
+        pf.sweep_text("\u00a360,000 across Indeed, Reed", data, ["France"])
+        == "\u00a360,000 across Reed"
+    )
+    assert (
+        pf.sweep_text("$1,200,000 across Reed and Indeed", data, ["France"])
+        == "$1,200,000 across Reed"
+    )

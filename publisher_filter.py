@@ -109,14 +109,17 @@ _MULTI_COUNTRY_BRANDS = frozenset(
     }
 )  # fmt: skip
 
-# Words that do not change which board it is.
+# Words that do not change which board it is.  "jobs"/"careers"/"com" are NOT
+# here: "Total Jobs" is Totaljobs and "Snag A Job" is Snagajob -- the word is
+# part of the name.  They are dropped only after a multi-country brand
+# ("Indeed Jobs", "LinkedIn Careers").
 _GENERIC_WORDS = frozenset(
     {
-        "sponsored", "jobs", "job", "ads", "ad", "advertising", "careers",
-        "career", "com", "inc", "ltd", "llc", "gmbh", "limited", "corp",
-        "the", "network",
+        "sponsored", "ads", "ad", "advertising", "inc", "ltd", "llc", "gmbh",
+        "limited", "corp", "the", "network",
     }
 )  # fmt: skip
+_BRAND_SUFFIX_WORDS = frozenset({"jobs", "job", "careers", "career", "com"})
 
 _TLDS: Tuple[str, ...] = tuple(
     sorted(
@@ -189,6 +192,8 @@ def _tokens_key(text: str) -> str:
         and tokens[1].isalpha()
     ):
         tokens = tokens[:1]
+    if tokens and tokens[0] in _MULTI_COUNTRY_BRANDS:
+        tokens = tokens[:1] + [t for t in tokens[1:] if t not in _BRAND_SUFFIX_WORDS]
     kept = [t for t in tokens if t not in _GENERIC_WORDS]
     return "".join(kept or tokens)
 
@@ -600,19 +605,6 @@ def _mention_pattern(terms: Tuple[str, ...]) -> Any:
     return pat
 
 
-def _trim_term(term: str) -> str:
-    """'indeed france' -> 'indeed' (a trailing country/generic word never
-    narrows a mention term)."""
-    key = re.sub(r"[^a-z0-9 ]+", " ", term).split()
-    while (
-        len(key) > 1
-        and key[-1] in (_COUNTRY_WORD_SET | _GENERIC_WORDS)
-        and not (len(key) == 2 and key[0] in _COMMON_WORDS)
-    ):
-        key = key[:-1]
-    return " ".join(key)
-
-
 _terms_cache: Dict[Tuple[Any, ...], Tuple[str, ...]] = {}
 
 
@@ -630,27 +622,38 @@ def _mention_terms(data: Any, countries: Sequence[str]) -> Tuple[str, ...]:
 
 
 def _compute_mention_terms(data: Any, countries: Sequence[str]) -> Tuple[str, ...]:
+    """A term is the WHOLE name the client typed (every word, spacing and
+    punctuation tolerant), never a shortened form: "Total Jobs" is the phrase
+    ``total jobs``, not the word ``total``.  Only a TLD ("indeed.com") or a
+    trailing country on a multi-country brand ("Indeed France") is dropped."""
     terms: List[str] = []
     for name in user_excluded(data):
-        base = _PAREN_RE.sub(" ", _fold(name))
+        base = _PAREN_RE.sub(" ", _fold(name)).strip()
         match = _DOMAIN_RE.match(base.replace(" ", ""))
         bare = _strip_tld(match.group(1)) if match else base
-        # A board whose bare name is an ordinary word ("talent.com", "jobs")
-        # is matched in prose only by the form the client typed, never by the
-        # word on its own ("talent pool" must survive).
-        if bare.strip() in _COMMON_WORDS:
-            bare = base.strip()
+        first = re.split(r"[^a-z0-9]+", bare)[:1]
+        if (
+            first
+            and first[0] in _MULTI_COUNTRY_BRANDS
+            and first[0] not in _COMMON_WORDS
+        ):
+            bare = first[0]
+        elif first and first[0] in _COMMON_WORDS:
+            # "talent.com": matched in prose only by the form the client typed
+            bare = base
         terms.append(bare)
     wanted = {canonical_country(c) for c in countries if c}
     for entry in _load_availability()["entries"]:
         status = entry.get("status") or ""
         if wanted:
-            if entry["_countries"] and not wanted & entry["_countries"]:
+            # Market-scoped: a board gone from the UK is still a Dallas board.
+            # Plan-wide prose is cleaned only when EVERY plan market is covered.
+            if not entry["_countries"] or not wanted <= entry["_countries"]:
                 continue
         elif status == "exited" and entry["_countries"]:
             continue
-        terms.append(_fold(entry["name"]))
-        terms.extend(_fold(a) for a in (entry.get("aliases") or []))
+        for nm in [entry["name"]] + list(entry.get("aliases") or []):
+            terms.append(_PAREN_RE.sub(" ", _fold(nm)).strip())
     # a platform that runs in none of the plan's markets (ZipRecruiter on a
     # France plan) is not a recommendation either
     if wanted:
@@ -658,7 +661,7 @@ def _compute_mention_terms(data: Any, countries: Sequence[str]) -> Tuple[str, ..
             if not any(platform_runs_in(scope["name"], c) for c in wanted):
                 terms.append(_fold(scope["name"]))
                 terms.extend(_fold(a) for a in (scope.get("aliases") or []))
-    return tuple(sorted({t for t in (_trim_term(x) for x in terms) if t}))
+    return tuple(sorted({t for t in terms if t}))
 
 
 def _plan_markets(
@@ -671,24 +674,112 @@ def _plan_markets(
     return plan_countries(data)
 
 
+# --- provenance is never a recommendation ----------------------------------
+# A board named as the publisher / data source of a figure ("(Indeed Mobile
+# Report 2025)", "Publisher: Indeed", "LinkedIn Benchmarks", "108,871 LinkedIn
+# job postings") is a citation.  Excluding a board removes it as a
+# recommendation; it never strips sources, attributions or the data they back.
+_REPORT_NOUNS = (
+    r"reports?|studies|study|surveys?|research|lab|index|benchmarks?|dataset|"
+    r"data|postings?|solutions|insights?|performance|economic|economics|"
+    r"salary\s+guide|white\s*paper|analysis|statistics|barometer"
+)
+_FOLLOW_CITATION_RE = re.compile(
+    r"^[ \t]*(?:[a-z0-9&'\-]+[ \t]+){0,2}?(?:" + _REPORT_NOUNS + r")\b"
+)
+_LEAD_CITATION_RE = re.compile(
+    r"(?:publisher|source|sources|according\s+to|data\s+from|based\s+on|citing)"
+    r"\W+(?:\d[\d,.\s]*)?$"
+)
+_CITATION_PAREN_RE = re.compile(r"\b20\d\d\b|\b(?:" + _REPORT_NOUNS + r")\b")
+
+
+def _is_citation(folded: str, start: int, end: int) -> bool:
+    """True when the mention at ``folded[start:end]`` is a citation."""
+    if _FOLLOW_CITATION_RE.match(folded[end : end + 48]):
+        return True
+    if _LEAD_CITATION_RE.search(folded[max(0, start - 48) : start]):
+        return True
+    open_at = folded.rfind("(", 0, start)
+    if open_at != -1 and folded.find(")", open_at, start) == -1:
+        close_at = folded.find(")", end)
+        if close_at != -1 and _CITATION_PAREN_RE.search(folded[open_at:close_at]):
+            return True
+    return False
+
+
+# a mention of a brand takes its national suffix with it ("Indeed France")
+_COUNTRY_ALT = "|".join(
+    re.escape(w) for w in sorted(_COUNTRY_WORDS, key=len, reverse=True)
+)
+_SPAN_TAIL_RE = re.compile(
+    r"(?:[ \t]+(?:sponsored|jobs?|ads|advertising))*(?:[ \t]+(?:"
+    + _COUNTRY_ALT
+    + r"|[a-z]{2}\b))?",
+    re.I,
+)
+_LIST_AFTER_RE = re.compile(r"[ \t]*(?:,(?!\d)|/|&|\band\b|\+)[ \t]*", re.I)
+_LIST_BEFORE_RE = re.compile(r"(?:(?<!\d),|/|&|\band\b|\+)[ \t]*$", re.I)
+
+
+def _spans(
+    text: str, data: Any, markets: Sequence[str]
+) -> Tuple[str, List[Tuple[int, int]]]:
+    """(text the spans index into, unprotected mention spans)."""
+    terms = _mention_terms(data, markets)
+    pat = _mention_pattern(terms) if terms else None
+    if pat is None:
+        return text, []
+    folded = _fold(text)
+    if len(folded) != len(text):  # ligature etc: index the raw text instead
+        folded = text.lower()
+    spans: List[Tuple[int, int]] = []
+    for m in pat.finditer(folded):
+        if _is_citation(folded, m.start(), m.end()):
+            continue
+        end = m.end()
+        tail = _SPAN_TAIL_RE.match(folded, end)
+        if tail and re.match(r"[a-z0-9]+$", m.group(0).replace(" ", "")):
+            # only widen over a brand's own suffixes, never past punctuation
+            first = re.split(r"[^a-z0-9]+", m.group(0))[0]
+            if first in _MULTI_COUNTRY_BRANDS:
+                end = tail.end()
+        spans.append((m.start(), end))
+    return folded, spans
+
+
 def mentions_excluded(
     text: Any,
     data: Any = None,
     country: Any = None,
     countries: Optional[Sequence[str]] = None,
 ) -> bool:
-    """True when free ``text`` names a board the client excluded, a board
-    that is unavailable, or a platform that does not run in the plan's
-    markets (whole-word, spacing/punctuation tolerant).  Used to drop a
-    knowledge-base sentence that recommends such a board; NOT run on
-    report-publisher citations."""
+    """True when free ``text`` RECOMMENDS or profiles a board the client
+    excluded, an unavailable board, or a platform that does not run in the
+    plan's markets (whole-phrase, spacing/punctuation tolerant).  A board named
+    as the source of a figure is a citation, not a mention."""
     if not isinstance(text, str) or not text:
         return False
-    terms = _mention_terms(data, _plan_markets(data, country, countries))
-    if not terms:
-        return False
-    pat = _mention_pattern(terms)
-    return bool(pat and pat.search(_fold(text)))
+    return bool(_spans(text, data, _plan_markets(data, country, countries))[1])
+
+
+def _remove_listed(text: str, spans: List[Tuple[int, int]]) -> Optional[str]:
+    """Remove each span together with one list separator ('Indeed, Reed' ->
+    'Reed'; 'A / B' -> 'B'; '60,000 across Indeed and Reed' -> '60,000 across
+    Reed').  A member must sit beside another capitalised member; None when a
+    span is not a list member (the whole clause is then about the board)."""
+    out = text
+    for start, end in sorted(spans, reverse=True):
+        after = _LIST_AFTER_RE.match(out, end)
+        if after and out[after.end() : after.end() + 1][:1].isupper():
+            out = out[:start] + out[after.end() :]
+            continue
+        before = _LIST_BEFORE_RE.search(out[:start])
+        if before and out[: before.start()].rstrip()[-1:].isalnum():
+            out = out[: before.start()].rstrip() + out[end:]
+            continue
+        return None
+    return re.sub(r"[ \t]{2,}", " ", out).strip(" ,;")
 
 
 def scrub_text(
@@ -697,57 +788,46 @@ def scrub_text(
     country: Any = None,
     countries: Optional[Sequence[str]] = None,
 ) -> str:
-    """``text`` without the sentences / ';' clauses / comma-list items that
-    name an excluded or unavailable board.  Text that names none is returned
-    unchanged."""
+    """``text`` without what recommends an excluded / unavailable board: the
+    member of a '/' compound or comma list that names it (the rest of the
+    list stays), else the sentence / ';' clause about it.  Citations and
+    sources are never touched.  Text that names none is returned unchanged."""
     if not isinstance(text, str):
         return text
     markets = _plan_markets(data, country, countries)
-
-    def hit(piece: str) -> bool:
-        return mentions_excluded(piece, data, countries=markets)
-
-    if not hit(text):
+    folded, spans = _spans(text, data, markets)
+    if not spans:
         return text
+    if len(folded) == len(text):
+        listed = _remove_listed(text, spans)
+        if listed is not None and listed:
+            # only when removing the members leaves no mention behind
+            if not _spans(listed, data, markets)[1]:
+                return listed
     kept: List[str] = []
     for part in re.split(r"(?<=[.;])\s+", text):
-        if not hit(part):
+        _, part_spans = _spans(part, data, markets)
+        if not part_spans:
             kept.append(part)
             continue
-        body = part.rstrip(".;")
-        items = [i.strip() for i in body.split(",")]
-        if len(items) > 1 and all(len(i) <= 45 for i in items):
-            survivors = [i for i in items if not hit(i)]
-            if survivors:
-                kept.append(", ".join(survivors))
+        listed_part = _remove_listed(part, part_spans) if len(part) > 0 else None
+        if listed_part and not _spans(listed_part, data, markets)[1]:
+            kept.append(listed_part)
     return " ".join(kept).strip().rstrip(";").strip()
 
 
 def sweep_text(
     text: Any, data: Any = None, countries: Optional[Sequence[str]] = None
 ) -> str:
-    """Final-pass cleanup of one client-facing string: a parenthetical that
-    cites an excluded / unavailable board ('(Indeed Mobile Report 2025)') is
-    removed, then any clause that still names one is scrubbed.  Unchanged
-    when nothing matches."""
-    if not isinstance(text, str) or not text:
-        return text
-    markets = _plan_markets(data, None, countries)
-    if not mentions_excluded(text, data, countries=markets):
-        return text
-    out = re.sub(
-        r"\s*\([^()]*\)",
-        lambda m: (
-            "" if mentions_excluded(m.group(0), data, countries=markets) else m.group(0)
-        ),
-        text,
-    )
-    return scrub_text(out, data, countries=markets)
+    """Final-pass cleanup of one client-facing string (see :func:`scrub_text`):
+    recommendations of an excluded board go, citations stay."""
+    return scrub_text(text, data, countries=countries)
 
 
 def has_exclusions(data: Any, countries: Optional[Sequence[str]] = None) -> bool:
     """True when anything could be swept for this plan (a client exclusion,
-    an availability entry in its markets, or an out-of-market platform)."""
+    an availability entry covering all its markets, or an out-of-market
+    platform)."""
     markets = _plan_markets(data, None, countries)
     return bool(_mention_terms(data, markets))
 
