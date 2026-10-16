@@ -11058,6 +11058,38 @@ def _compute_dynamic_ttf(channel_base_ttf: int, data: dict) -> int:
     return max(10, adjusted_ttf)
 
 
+def _fallback_channel_cpa(data: dict, budget_alloc: Any) -> float:
+    """Cost per application for a channel the engine left without one.
+
+    The low end of the knowledge base's cost-per-application range for the
+    plan's industry (``data/recruitment_benchmarks_deep.json``
+    ``industry_benchmarks.<industry>.cpa.range``, or its sub-role row such as
+    ``logistics_supply_chain.cpa.warehouse_hourly``) -- via
+    ``plan_projection.kb_cpa_range``, the same lookup that widens the plan's CPA
+    range. This replaced an unsourced per-channel-category dollar table
+    ($20-$75) times guessed role and metro multipliers. With no KB row it falls
+    back to the plan's own blended CPA; 0.0 when neither exists (the caller
+    then projects no applications for the channel rather than an invented
+    figure).
+    """
+    import plan_projection
+
+    meta = budget_alloc.get("metadata") if isinstance(budget_alloc, dict) else None
+    meta = meta if isinstance(meta, dict) else {}
+    industry = str(meta.get("industry") or data.get("industry") or "")
+    titles = [
+        str(t)
+        for t in (data.get("role"), data.get("job_title"))
+        if isinstance(t, str) and t.strip()
+    ]
+    kb = plan_projection.kb_cpa_range(industry, titles)
+    if kb:
+        return float(kb["low"])
+    tp = budget_alloc.get("total_projected") if isinstance(budget_alloc, dict) else None
+    blended = tp.get("cost_per_application") if isinstance(tp, dict) else None
+    return float(blended) if isinstance(blended, (int, float)) and blended > 0 else 0.0
+
+
 def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
     """Build Sheet 5: ROI Projections with per-channel hire projections and efficiency scores.
 
@@ -11137,106 +11169,10 @@ def _build_sheet_roi_projections(ws, data: dict, load_kb_fn=None) -> None:
             if existing_cpa and existing_cpa > 0:
                 cpa_estimate = existing_cpa
             else:
-                # Base CPA floors by channel category
-                _CPA_FLOORS = {
-                    "programmatic": 45.0,
-                    "job_board": 35.0,
-                    "social": 65.0,
-                    "niche_board": 50.0,
-                    "search": 55.0,
-                    "display": 40.0,
-                    "employer_branding": 75.0,
-                    "career_site": 30.0,
-                    "referral": 20.0,
-                    "regional": 40.0,
-                }
-                _cpa_floor = _CPA_FLOORS.get(category, 40.0)
-
-                # Role difficulty multiplier -- professional roles have much higher CPAs
-                _role_lower = str(
-                    data.get("role") or data.get("job_title") or ""
-                ).lower()
-                _ROLE_CPA_MULTIPLIER = 1.0
-                if any(
-                    k in _role_lower
-                    for k in (
-                        "engineer",
-                        "developer",
-                        "architect",
-                        "devops",
-                        "sre",
-                        "data scientist",
-                        "machine learning",
-                    )
-                ):
-                    _ROLE_CPA_MULTIPLIER = 3.0
-                elif any(
-                    k in _role_lower
-                    for k in (
-                        "director",
-                        "vp",
-                        "vice president",
-                        "head of",
-                        "chief",
-                        "executive",
-                        "cto",
-                        "cfo",
-                        "cio",
-                    )
-                ):
-                    _ROLE_CPA_MULTIPLIER = 4.0
-                elif any(
-                    k in _role_lower
-                    for k in ("manager", "lead", "senior", "principal", "staff")
-                ):
-                    _ROLE_CPA_MULTIPLIER = 2.0
-                elif any(
-                    k in _role_lower
-                    for k in (
-                        "nurse",
-                        "physician",
-                        "pharmacist",
-                        "therapist",
-                        "surgeon",
-                    )
-                ):
-                    _ROLE_CPA_MULTIPLIER = 2.5
-
-                # Location cost multiplier -- high-cost metros
-                _loc_lower = str(data.get("location") or "").lower()
-                _LOC_CPA_MULTIPLIER = 1.0
-                if any(
-                    c in _loc_lower
-                    for c in (
-                        "new york",
-                        "nyc",
-                        "san francisco",
-                        "sf",
-                        "silicon valley",
-                        "seattle",
-                        "boston",
-                        "washington dc",
-                        "los angeles",
-                    )
-                ):
-                    _LOC_CPA_MULTIPLIER = 1.5
-                elif any(
-                    c in _loc_lower
-                    for c in (
-                        "chicago",
-                        "denver",
-                        "dallas",
-                        "atlanta",
-                        "austin",
-                        "miami",
-                        "portland",
-                    )
-                ):
-                    _LOC_CPA_MULTIPLIER = 1.2
-
-                cpa_estimate = max(
-                    _cpa_floor * _ROLE_CPA_MULTIPLIER * _LOC_CPA_MULTIPLIER, 40.0
-                )
+                # The engine gave this channel no CPA: use the knowledge base's
+                # own figure (low end of the industry / sub-role range, cited in
+                # _fallback_channel_cpa) -- not a hardcoded per-category table.
+                cpa_estimate = _fallback_channel_cpa(data, budget_alloc)
 
             projected_apps = (
                 max(1, int(dollars / cpa_estimate)) if cpa_estimate > 0 else 0
