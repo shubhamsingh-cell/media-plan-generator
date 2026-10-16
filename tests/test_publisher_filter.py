@@ -440,3 +440,32 @@ def test_markets_without_board_data_are_reported():
         "Italy",
     ]
     assert pf.plan_market_board_gaps({"locations": ["Houston, TX"]}) == []
+
+
+# ---- round 4: domain spellings, Jobsite --------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Post on indeed.com today.",
+        "Post on indeed.co.uk today.",
+        "Post on INDEED.COM today.",
+    ],
+)
+def test_domain_spellings_of_an_ordinary_word_brand_are_matched_in_any_case(text):
+    data = {"excluded_publishers": ["Indeed"]}
+    assert pf.sweep_text(text, data, ["France"]) == ""
+    # the bare lower-case word is still prose
+    assert (
+        pf.sweep_text("indeed results vary", data, ["France"]) == "indeed results vary"
+    )
+
+
+def test_jobsite_is_a_real_board_not_a_stopword():
+    assert not pf.is_generic_name("Jobsite")
+    assert "Jobsite" in pf.sanitize_excluded(["Jobsite", "jobs"])
+    assert pf.is_known_board("Jobsite")
+    data = {"excluded_publishers": ["Jobsite"]}
+    assert pf.sweep_text("Jobsite, Reed", data, ["United Kingdom"]) == "Reed"
+    assert pf.clean_names(["Jobsite", "Reed"], data) == ["Reed"]

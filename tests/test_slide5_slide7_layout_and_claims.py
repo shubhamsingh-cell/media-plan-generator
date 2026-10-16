@@ -132,6 +132,16 @@ def _deck() -> bytes:
     return ppt.generate_pptx(_uber_style_plan())
 
 
+def _deck_with_us_market() -> bytes:
+    """The Industry CPC row prints the KB's US CPC + trend text only for a plan
+    that has a US market (a plan with none gets "No local benchmark" -- see
+    tests/test_intl_boards_end_to_end.py), so the CPC-cell layout tests below
+    run on the same plan with a US city added."""
+    plan = _uber_style_plan()
+    plan["locations"] = ["London, United Kingdom", "Boston, MA"]
+    return ppt.generate_pptx(plan)
+
+
 def _evidenced_deck() -> bytes:
     """mpg-content-gate (2026-10-01): only a competitor with an evidence
     record gets a full Why/Counter card -- no-evidence names are listed once
@@ -238,7 +248,7 @@ def _rounded_rect_cards(slide, min_w_in: float, min_h_in: float):
 # 1a -- Slide 5 benchmark table: doubled parens + row/value containment
 # ---------------------------------------------------------------------------
 def test_slide5_cpc_value_has_no_doubled_parentheses():
-    prs = Presentation(io.BytesIO(_deck()))
+    prs = Presentation(io.BytesIO(_deck_with_us_market()))
     slide = _slide_by_headline(prs, "Channel Strategy & Investment")
     cpc_cells = [
         sh.text_frame.text
@@ -257,7 +267,7 @@ def test_slide5_cpc_value_fits_inside_its_own_row():
     row_h=0.38in row regardless of content; it wraps to several lines and
     overflowed into the row above/below (clipped by the next row's opaque
     background rect)."""
-    prs = Presentation(io.BytesIO(_deck()))
+    prs = Presentation(io.BytesIO(_deck_with_us_market()))
     slide = _slide_by_headline(prs, "Channel Strategy & Investment")
     cpc_shape = next(
         (

@@ -105,7 +105,7 @@ _STOPWORDS = frozenset(
     {
         "a", "an", "the", "it", "is", "of", "or", "and", "to", "in", "on", "at",
         "for", "by", "my", "no", "all", "any", "none", "other", "others", "n/a",
-        "na", "jobs", "job", "jobsite", "jobsites", "career", "careers", "hire",
+        "na", "jobs", "job", "career", "careers", "hire",
         "hiring", "board", "boards", "site", "sites", "online", "work", "works",
         "web", "website", "com", "net", "org", "www", "search", "find", "apply",
         "free", "new", "best", "top", "general", "global", "local", "national",
@@ -649,6 +649,9 @@ def _mention_pattern(terms: Tuple[str, ...]) -> Any:
         alts = []
         for term in terms:
             if term.startswith("!"):
+                # an ordinary-word brand still matches as a domain, in any case
+                # ("indeed.com", "indeed.co.uk"): that spelling is unambiguous
+                alts.append(re.escape(term[1:]) + r"(?:\.[a-z]{2,3})+")
                 continue
             words = [w for w in re.split(r"[^a-z0-9]+", term) if w]
             if words:
@@ -706,10 +709,38 @@ def _known_board_keys() -> frozenset:
         for ent in data["entries"] + data["scopes"]:
             keys.update(ent["_keys"])
         keys.update(_MULTI_COUNTRY_BRANDS)
+        keys.update(_catalog_file_keys())
         keys.discard("")
         keys -= {normalize(w) for w in _STOPWORDS}
         _known_cache = frozenset(keys)
     return _known_cache
+
+
+def _catalog_file_keys() -> set:
+    """Keys of the board names in data/global_supply.json (country boards) and
+    data/joveo_publishers.json (publisher lists)."""
+    keys: set = set()
+    base = os.path.join(_BASE_DIR, "data")
+    try:
+        with open(os.path.join(base, "global_supply.json"), encoding="utf-8") as fh:
+            supply = json.load(fh)
+        for entry in (supply.get("country_job_boards") or {}).values():
+            for board in (entry or {}).get("boards") or []:
+                if isinstance(board, dict) and board.get("name"):
+                    keys.add(normalize(board["name"]))
+    except (OSError, ValueError, AttributeError):
+        pass
+    try:
+        with open(os.path.join(base, "joveo_publishers.json"), encoding="utf-8") as fh:
+            pubs = json.load(fh)
+        for group in ("by_category", "by_country"):
+            for names in (pubs.get(group) or {}).values():
+                for name in names if isinstance(names, list) else []:
+                    if isinstance(name, str):
+                        keys.add(normalize(name))
+    except (OSError, ValueError, AttributeError):
+        pass
+    return keys
 
 
 def is_known_board(name: Any) -> bool:
