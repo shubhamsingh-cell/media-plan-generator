@@ -26,7 +26,12 @@ Policy (conservative -- omit rather than assert):
          corporate suffix (Inc., plc, LLC ...), and does NOT describe a
          person;
       4. (when the plan industry is known) it carries none of the
-         industry-mismatch keywords for that industry.
+         industry-mismatch keywords for that industry;
+      5. every qualifier word of the client's name ("Global", "International",
+         "Group", "Holdings") appears in the article's name, unless the
+         client's website domain is the article subject's own domain -- a
+         same-name company without the qualifier ("Helix Biopharma Global" ->
+         the Toronto "Helix BioPharma Corp.") is a different entity.
 
 Everything here is stdlib-only and never raises on odd input.
 """
@@ -243,7 +248,60 @@ def title_matches_name(client_name: Any, title: Any) -> bool:
     if not isinstance(title, str) or not title.strip():
         return False
     bare = re.sub(r"\s*\([^()]*\)\s*$", "", title)
-    return bool(name_tokens(client_name)) and name_tokens(client_name) == name_tokens(bare)
+    return bool(name_tokens(client_name)) and name_tokens(client_name) == name_tokens(
+        bare
+    )
+
+
+# Words ``name_agrees`` ignores as noise ("Acme Global" ~ "Acme"). Harmless
+# when the ARTICLE adds one ("Marriott" ~ "Marriott International"), but when
+# only the CLIENT carries one the article is usually a different company that
+# shares the rest of the name (collision found 2026-10-16: client "Helix
+# Biopharma Global", article "Helix BioPharma Corp." of Toronto).
+_NAME_QUALIFIERS = frozenset({"global", "international", "group", "holdings"})
+_LEADING_WWW_RE = re.compile(r"^www\d*\.")
+
+
+def name_qualifiers_agree(client_name: Any, *candidates: Any) -> bool:
+    """True when every qualifier word in the client's name (Global,
+    International, Group, Holdings) also appears in ``candidates`` -- the
+    article's subject or title. Extra words on the article side are fine
+    (the client typed a shorthand); a qualifier only the client carries is
+    not. A name with no qualifier always agrees."""
+    quals = {t for t in _tokens(client_name) if t in _NAME_QUALIFIERS}
+    if not quals:
+        return True
+    hay: set = set()
+    for c in candidates:
+        if isinstance(c, str) and c:
+            toks = _tokens(c)
+            hay.update(toks)
+            hay.update(a + b for a, b in zip(toks, toks[1:]))
+    return quals <= hay
+
+
+def _host(url: Any) -> str:
+    """Lower-cased host of a website / domain string ("https://www.Acme.com/x"
+    -> "acme.com"); "" when there is none."""
+    if not isinstance(url, str):
+        return ""
+    text = url.strip().lower()
+    if not text:
+        return ""
+    text = re.sub(r"^[a-z][a-z0-9+.-]*://", "", text)
+    text = re.split(r"[/?#]", text, maxsplit=1)[0]
+    text = text.rsplit("@", 1)[-1].split(":", 1)[0].strip(".")
+    return _LEADING_WWW_RE.sub("", text)
+
+
+def domains_match(client_website: Any, entity_domain: Any) -> bool:
+    """True when both are given and name the same site (``www.`` and scheme
+    ignored; a subdomain of the other counts). Different TLDs do NOT match:
+    ``helixbiopharma.example`` is not ``helixbiopharma.com``."""
+    a, b = _host(client_website), _host(entity_domain)
+    if not a or not b:
+        return False
+    return a == b or a.endswith("." + b) or b.endswith("." + a)
 
 
 # ---------------------------------------------------------------------------
@@ -402,38 +460,400 @@ INDUSTRY_MISMATCH_MAP: Dict[str, Tuple[str, ...]] = {
 # words (or a distinctive word from the plan's own role titles); otherwise
 # the blurb is omitted -- omission is the safe failure.
 INDUSTRY_KEYWORDS: Dict[str, Tuple[str, ...]] = {
-    "healthcare_medical": ("health", "healthcare", "health care", "hospital", "hospitals", "medical", "clinic", "clinics", "nursing", "senior living", "assisted living", "physician", "physicians", "patient", "patients", "care"),
-    "mental_health": ("mental health", "behavioral", "behavioural", "psychiatric", "counseling", "therapy", "addiction", "hospital", "hospitals", "health", "healthcare"),
-    "pharma_biotech": ("pharmaceutical", "pharmaceuticals", "biotechnology", "biotech", "drug", "drugs", "medicine", "medicines", "vaccine", "vaccines", "life sciences", "medical"),
-    "tech_engineering": ("technology", "technologies", "software", "computer", "computing", "internet", "semiconductor", "semiconductors", "electronics", "engineering", "cloud computing", "information technology", "it services", "consulting", "payroll", "human resources"),
-    "finance_banking": ("bank", "banks", "banking", "financial", "finance", "investment", "investments", "payment", "payments", "credit", "lending", "mortgage", "brokerage", "asset management", "fintech", "insurance"),
-    "insurance": ("insurance", "insurer", "insurers", "reinsurance", "assurance", "underwriting", "annuities", "annuity"),
-    "retail_consumer": ("retail", "retailer", "retailers", "store", "stores", "supermarket", "supermarkets", "grocery", "department store", "apparel", "clothing", "consumer", "e-commerce", "home improvement", "chain", "fashion"),
-    "hospitality_travel": ("hotel", "hotels", "hospitality", "restaurant", "restaurants", "fast food", "airline", "airlines", "travel", "resort", "resorts", "cruise", "casino", "casinos", "tourism", "lodging", "dining", "food service", "foodservice"),
-    "food_beverage": ("food", "foods", "beverage", "beverages", "chocolate", "confectionery", "snack", "snacks", "dairy", "drink", "drinks", "brewing", "brewery", "coffee", "bakery", "meat", "candy", "restaurant", "restaurants", "fast food", "coffeehouse", "coffeehouses", "roastery"),
-    "logistics_supply_chain": ("logistics", "freight", "shipping", "transport", "transportation", "trucking", "delivery", "courier", "package", "parcel", "supply chain", "warehouse", "warehousing", "railroad", "e-commerce", "distribution", "moving"),
-    "automotive": ("automobile", "automobiles", "automotive", "automaker", "vehicle", "vehicles", "car", "cars", "trucks", "motor", "motors", "auto parts", "manufacturing", "manufacturer"),
-    "construction_real_estate": ("construction", "contractor", "contractors", "building", "buildings", "engineering", "real estate", "property", "properties", "infrastructure", "homebuilder", "civil engineering", "traffic control", "road", "roads", "highway"),
-    "energy_utilities": ("energy", "oil", "gas", "petroleum", "electric", "electricity", "power", "utility", "utilities", "natural gas", "renewable", "solar", "nuclear", "pipeline"),
-    "telecommunications": ("telecommunications", "telecom", "wireless", "mobile", "cable", "broadband", "network", "networks", "telephone", "internet service", "fiber"),
-    "media_entertainment": ("media", "entertainment", "television", "film", "films", "studio", "studios", "broadcasting", "broadcaster", "publishing", "publisher", "music", "streaming", "news", "newspaper", "video games"),
-    "legal_services": ("law firm", "legal", "attorneys", "lawyers", "litigation", "law"),
-    "education": ("university", "college", "school", "schools", "education", "educational", "academy", "learning", "research university"),
-    "aerospace_defense": ("aerospace", "defense", "defence", "aircraft", "aviation", "space", "spacecraft", "military", "missile", "missiles", "security"),
-    "military_recruitment": ("armed forces", "army", "navy", "air force", "military", "marine corps", "defense", "defence"),
-    "maritime_marine": ("shipping", "maritime", "marine", "ship", "ships", "vessel", "vessels", "shipbuilding", "port", "ports", "container", "offshore", "cruise"),
-    "blue_collar_trades": ("manufacturing", "manufacturer", "construction", "industrial", "maintenance", "contractor", "contractors", "facilities", "trades", "staffing", "services"),
-    "general_entry_level": ("retail", "retailer", "store", "stores", "restaurant", "restaurants", "chain", "warehouse", "logistics", "staffing", "call center", "customer service", "hospitality", "nonprofit", "non-profit", "charity", "food bank"),
-    "rideshare": ("ridesharing", "ride-hailing", "ride sharing", "rideshare", "delivery", "gig", "transportation", "taxi", "mobility"),
+    "healthcare_medical": (
+        "health",
+        "healthcare",
+        "health care",
+        "hospital",
+        "hospitals",
+        "medical",
+        "clinic",
+        "clinics",
+        "nursing",
+        "senior living",
+        "assisted living",
+        "physician",
+        "physicians",
+        "patient",
+        "patients",
+        "care",
+    ),
+    "mental_health": (
+        "mental health",
+        "behavioral",
+        "behavioural",
+        "psychiatric",
+        "counseling",
+        "therapy",
+        "addiction",
+        "hospital",
+        "hospitals",
+        "health",
+        "healthcare",
+    ),
+    "pharma_biotech": (
+        "pharmaceutical",
+        "pharmaceuticals",
+        "biotechnology",
+        "biotech",
+        "drug",
+        "drugs",
+        "medicine",
+        "medicines",
+        "vaccine",
+        "vaccines",
+        "life sciences",
+        "medical",
+    ),
+    "tech_engineering": (
+        "technology",
+        "technologies",
+        "software",
+        "computer",
+        "computing",
+        "internet",
+        "semiconductor",
+        "semiconductors",
+        "electronics",
+        "engineering",
+        "cloud computing",
+        "information technology",
+        "it services",
+        "consulting",
+        "payroll",
+        "human resources",
+    ),
+    "finance_banking": (
+        "bank",
+        "banks",
+        "banking",
+        "financial",
+        "finance",
+        "investment",
+        "investments",
+        "payment",
+        "payments",
+        "credit",
+        "lending",
+        "mortgage",
+        "brokerage",
+        "asset management",
+        "fintech",
+        "insurance",
+    ),
+    "insurance": (
+        "insurance",
+        "insurer",
+        "insurers",
+        "reinsurance",
+        "assurance",
+        "underwriting",
+        "annuities",
+        "annuity",
+    ),
+    "retail_consumer": (
+        "retail",
+        "retailer",
+        "retailers",
+        "store",
+        "stores",
+        "supermarket",
+        "supermarkets",
+        "grocery",
+        "department store",
+        "apparel",
+        "clothing",
+        "consumer",
+        "e-commerce",
+        "home improvement",
+        "chain",
+        "fashion",
+    ),
+    "hospitality_travel": (
+        "hotel",
+        "hotels",
+        "hospitality",
+        "restaurant",
+        "restaurants",
+        "fast food",
+        "airline",
+        "airlines",
+        "travel",
+        "resort",
+        "resorts",
+        "cruise",
+        "casino",
+        "casinos",
+        "tourism",
+        "lodging",
+        "dining",
+        "food service",
+        "foodservice",
+    ),
+    "food_beverage": (
+        "food",
+        "foods",
+        "beverage",
+        "beverages",
+        "chocolate",
+        "confectionery",
+        "snack",
+        "snacks",
+        "dairy",
+        "drink",
+        "drinks",
+        "brewing",
+        "brewery",
+        "coffee",
+        "bakery",
+        "meat",
+        "candy",
+        "restaurant",
+        "restaurants",
+        "fast food",
+        "coffeehouse",
+        "coffeehouses",
+        "roastery",
+    ),
+    "logistics_supply_chain": (
+        "logistics",
+        "freight",
+        "shipping",
+        "transport",
+        "transportation",
+        "trucking",
+        "delivery",
+        "courier",
+        "package",
+        "parcel",
+        "supply chain",
+        "warehouse",
+        "warehousing",
+        "railroad",
+        "e-commerce",
+        "distribution",
+        "moving",
+    ),
+    "automotive": (
+        "automobile",
+        "automobiles",
+        "automotive",
+        "automaker",
+        "vehicle",
+        "vehicles",
+        "car",
+        "cars",
+        "trucks",
+        "motor",
+        "motors",
+        "auto parts",
+        "manufacturing",
+        "manufacturer",
+    ),
+    "construction_real_estate": (
+        "construction",
+        "contractor",
+        "contractors",
+        "building",
+        "buildings",
+        "engineering",
+        "real estate",
+        "property",
+        "properties",
+        "infrastructure",
+        "homebuilder",
+        "civil engineering",
+        "traffic control",
+        "road",
+        "roads",
+        "highway",
+    ),
+    "energy_utilities": (
+        "energy",
+        "oil",
+        "gas",
+        "petroleum",
+        "electric",
+        "electricity",
+        "power",
+        "utility",
+        "utilities",
+        "natural gas",
+        "renewable",
+        "solar",
+        "nuclear",
+        "pipeline",
+    ),
+    "telecommunications": (
+        "telecommunications",
+        "telecom",
+        "wireless",
+        "mobile",
+        "cable",
+        "broadband",
+        "network",
+        "networks",
+        "telephone",
+        "internet service",
+        "fiber",
+    ),
+    "media_entertainment": (
+        "media",
+        "entertainment",
+        "television",
+        "film",
+        "films",
+        "studio",
+        "studios",
+        "broadcasting",
+        "broadcaster",
+        "publishing",
+        "publisher",
+        "music",
+        "streaming",
+        "news",
+        "newspaper",
+        "video games",
+    ),
+    "legal_services": (
+        "law firm",
+        "legal",
+        "attorneys",
+        "lawyers",
+        "litigation",
+        "law",
+    ),
+    "education": (
+        "university",
+        "college",
+        "school",
+        "schools",
+        "education",
+        "educational",
+        "academy",
+        "learning",
+        "research university",
+    ),
+    "aerospace_defense": (
+        "aerospace",
+        "defense",
+        "defence",
+        "aircraft",
+        "aviation",
+        "space",
+        "spacecraft",
+        "military",
+        "missile",
+        "missiles",
+        "security",
+    ),
+    "military_recruitment": (
+        "armed forces",
+        "army",
+        "navy",
+        "air force",
+        "military",
+        "marine corps",
+        "defense",
+        "defence",
+    ),
+    "maritime_marine": (
+        "shipping",
+        "maritime",
+        "marine",
+        "ship",
+        "ships",
+        "vessel",
+        "vessels",
+        "shipbuilding",
+        "port",
+        "ports",
+        "container",
+        "offshore",
+        "cruise",
+    ),
+    "blue_collar_trades": (
+        "manufacturing",
+        "manufacturer",
+        "construction",
+        "industrial",
+        "maintenance",
+        "contractor",
+        "contractors",
+        "facilities",
+        "trades",
+        "staffing",
+        "services",
+    ),
+    "general_entry_level": (
+        "retail",
+        "retailer",
+        "store",
+        "stores",
+        "restaurant",
+        "restaurants",
+        "chain",
+        "warehouse",
+        "logistics",
+        "staffing",
+        "call center",
+        "customer service",
+        "hospitality",
+        "nonprofit",
+        "non-profit",
+        "charity",
+        "food bank",
+    ),
+    "rideshare": (
+        "ridesharing",
+        "ride-hailing",
+        "ride sharing",
+        "rideshare",
+        "delivery",
+        "gig",
+        "transportation",
+        "taxi",
+        "mobility",
+    ),
 }
 _ROLE_STOPWORDS = frozenset(
     {
-        "senior", "junior", "lead", "manager", "associate", "specialist",
-        "assistant", "coordinator", "director", "officer", "analyst",
-        "engineer", "technician", "operator", "worker", "representative",
-        "supervisor", "staff", "team", "member", "general", "entry", "level",
-        "part", "time", "full", "shift", "hourly", "sales", "service",
-        "services", "customer", "head", "chief", "principal", "intern",
+        "senior",
+        "junior",
+        "lead",
+        "manager",
+        "associate",
+        "specialist",
+        "assistant",
+        "coordinator",
+        "director",
+        "officer",
+        "analyst",
+        "engineer",
+        "technician",
+        "operator",
+        "worker",
+        "representative",
+        "supervisor",
+        "staff",
+        "team",
+        "member",
+        "general",
+        "entry",
+        "level",
+        "part",
+        "time",
+        "full",
+        "shift",
+        "hourly",
+        "sales",
+        "service",
+        "services",
+        "customer",
+        "head",
+        "chief",
+        "principal",
+        "intern",
     }
 )
 
@@ -502,6 +922,8 @@ def validate_company_description(
     industry: Any = "",
     roles: Any = (),
     page_type: Any = "standard",
+    client_website: Any = "",
+    entity_domain: Any = "",
 ) -> Tuple[bool, str]:
     """Decide whether ``description`` may be shown as ``client_name``'s own
     company blurb. Returns ``(ok, reason)``; ``reason`` is "" when ok and a
@@ -514,6 +936,12 @@ def validate_company_description(
     also positively agree with it (``industry_agrees``) -- a same-name
     company in another sector is omitted. The industry-less form is only the
     lookup's pre-filter (name + organisation).
+
+    A qualifier word only the client's name carries (Global / International /
+    Group / Holdings) marks the article as a different entity
+    (:func:`name_qualifiers_agree`), unless ``client_website`` and
+    ``entity_domain`` -- the domain the ARTICLE's company is known to own,
+    from an independent source -- name the same site.
     """
     name = client_name if isinstance(client_name, str) else ""
     desc = description if isinstance(description, str) else ""
@@ -544,6 +972,11 @@ def validate_company_description(
             and not _PERSON_NOUN_RE.search(sent)
         ):
             return False, f"no 'X is a ...' definition sentence: {sent[:120]!r}"
+        if not (
+            name_qualifiers_agree(name, lead, ttl)
+            or domains_match(client_website, entity_domain)
+        ):
+            return False, _qualifier_mismatch(name, lead)
         return _industry_verdict(desc, industry, roles)
     subject = no_paren[: cop.start()]
     # Parenthetical aliases ("(ADP)", "(commonly known as Ford)") belong to
@@ -560,6 +993,11 @@ def validate_company_description(
             f"entity mismatch: the article subject {subject.strip()[:80]!r} "
             f"does not name {name!r}"
         )
+    if not (
+        name_qualifiers_agree(name, subject, subject_full, ttl)
+        or domains_match(client_website, entity_domain)
+    ):
+        return False, _qualifier_mismatch(name, subject)
     org_m = _ORG_NOUN_RE.search(head)
     if re.search(r"\baircraft carriers?\b", head, re.IGNORECASE):
         org_m = None
@@ -577,6 +1015,15 @@ def validate_company_description(
         return False, f"{why} definition: {head.strip()[:80]!r}"
 
     return _industry_verdict(desc, industry, roles)
+
+
+def _qualifier_mismatch(name: str, subject: str) -> str:
+    return (
+        f"entity mismatch: the client name {name!r} carries a qualifier "
+        f"({'/'.join(sorted(_NAME_QUALIFIERS & set(_tokens(name))))}) the "
+        f"article subject {subject.strip()[:80]!r} lacks -- a same-name "
+        f"company, not the client"
+    )
 
 
 def _industry_verdict(desc: str, industry: Any, roles: Any) -> Tuple[bool, str]:
@@ -683,6 +1130,8 @@ def client_company_description(data: Any) -> str:
         title=info.get("wiki_title") or "",
         industry=industry,
         roles=data.get("target_roles") or data.get("roles") or [],
+        client_website=data.get("client_website") or "",
+        entity_domain=info.get("domain") or "",
     )
     return desc.strip() if ok else ""
 
@@ -692,8 +1141,10 @@ __all__ = [
     "INDUSTRY_MISMATCH_MAP",
     "client_company_description",
     "company_tagline",
+    "domains_match",
     "first_sentence",
     "name_agrees",
+    "name_qualifiers_agree",
     "name_tokens",
     "split_sentences",
     "truncate_at_boundary",
