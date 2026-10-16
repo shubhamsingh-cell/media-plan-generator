@@ -1741,6 +1741,7 @@ def test_the_schedule_and_failure_paths_clear_the_estimates_signature():
 
 
 _INSIGHT_STUB = r"""
+function trim(x, d) { return Number(x.toFixed(d)).toString(); }
 function escapeHtml(s) { return String(s); }
 function hero(v) { return '$' + Math.round(v / 1000) + 'K'; }
 function intc(v) { return Math.round(v).toLocaleString('en-US'); }
@@ -2054,13 +2055,15 @@ def test_cost_per_hire_is_graded_only_against_the_data_quartiles():
     # above the p75 -> High, naming the yardstick and its source
     high = cph_lines(9000, _BENCH_NURSE)
     assert len(high) == 1 and high[0].startswith("High <b>~$9K/hire</b>")
-    assert "above the $8K upper quartile for nursing (SHRM cost-per-hire benchmarks (2024/2025))" in high[0]
+    assert "above the $7.8K upper quartile for nursing (SHRM cost-per-hire benchmarks (2024/2025))" in high[0]
+    # one decimal under $10K: a $7.9K projection is above $7.8K, and says so
+    assert cph_lines(7900, _BENCH_NURSE)[0].startswith("High <b>~$7.9K/hire</b>")
     # a tech hire at $7K is fine (p75 $9.5K); at $10K it is high
     assert cph_lines(7000, _BENCH_TECH) == []
     assert cph_lines(10000, _BENCH_TECH)[0].startswith("High")
     # below the p25 -> Efficient
     low = cph_lines(3000, _BENCH_NURSE)
-    assert len(low) == 1 and low[0].startswith("Efficient <b>~$3K/hire</b>") and "lower quartile" in low[0]
+    assert len(low) == 1 and low[0].startswith("Efficient <b>~$3K/hire</b>") and "$4.2K lower quartile" in low[0]
     # no benchmark for these roles / a non-USD plan: no grade at all
     assert cph_lines(20000, None) == []
 

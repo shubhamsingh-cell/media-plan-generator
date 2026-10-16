@@ -520,10 +520,14 @@
       if (est && est.est_cph > 0 && bm && bm.p75 > 0 && bm.p25 > 0) {
         var cph = est.est_cph;
         var yard = escapeHtml(bm.label) + " (" + escapeHtml(bm.source) + ")";
+        // The benchmark is in US dollars (the server sends it for USD plans
+        // only). One decimal under $10K so "$7.8K" is not rounded to "$8K"
+        // beside a projection of "$7.9K".
+        var usdK = function (v) { return "$" + (v < 10000 ? trim(v / 1000, 1) : Math.round(v / 1000)) + "K"; };
         if (cph > bm.p75) {
-          ins.push({ tone: "warn", text: "High <b>~" + hero(cph) + "/hire</b> for " + (role || "this role") + ": above the " + hero(bm.p75) + " upper quartile for " + yard + ". Niche boards + employer brand usually pull it down." });
+          ins.push({ tone: "warn", text: "High <b>~" + usdK(cph) + "/hire</b> for " + (role || "this role") + ": above the " + usdK(bm.p75) + " upper quartile for " + yard + ". Niche boards + employer brand usually pull it down." });
         } else if (cph < bm.p25) {
-          ins.push({ tone: "good", text: "Efficient <b>~" + hero(cph) + "/hire</b> for " + (role || "this role") + ": below the " + hero(bm.p25) + " lower quartile for " + yard + "." });
+          ins.push({ tone: "good", text: "Efficient <b>~" + usdK(cph) + "/hire</b> for " + (role || "this role") + ": below the " + usdK(bm.p25) + " lower quartile for " + yard + "." });
         }
       }
       // 3. channel fit
