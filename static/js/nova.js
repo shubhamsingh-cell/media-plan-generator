@@ -1235,6 +1235,26 @@
     _doSaveConversations();
   }
 
+  // Conversation ids minted by older builds (Math.random, ~31 bits) are
+  // guessable and are the key to a conversation's server-side memory: give
+  // each such conversation a fresh 128-bit id, keeping its visible content.
+  var SECURE_CONV_ID_RE = /^conv-[0-9a-f-]{32,36}$/;
+
+  function migrateLegacyConversationIds() {
+    var changed = false;
+    Object.keys(state.conversations).forEach(function (id) {
+      var conv = state.conversations[id];
+      if (!conv || typeof conv !== "object" || SECURE_CONV_ID_RE.test(id)) return;
+      var fresh = generateId();
+      delete state.conversations[id];
+      conv.id = fresh;
+      state.conversations[fresh] = conv;
+      if (state.activeConvId === id) state.activeConvId = fresh;
+      changed = true;
+    });
+    if (changed) flushSaveConversations();
+  }
+
   function getActiveConv() {
     if (!state.activeConvId || !state.conversations[state.activeConvId]) {
       return null;
@@ -4103,6 +4123,7 @@
   // INIT
   // ========================================================================
   loadConversations();
+  migrateLegacyConversationIds();
   _pruneStaleErrors();
 
   // Default: sidebar open on desktop, collapsed on mobile

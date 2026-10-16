@@ -196,3 +196,37 @@ console.log(JSON.stringify({first: first, same: first === again, stored: store.n
 """
     )
     assert re.match(r"^nova-[0-9a-f-]{36}$", out["first"]) and out["same"] and out["stored"]
+
+
+@needs_node
+def test_nova_page_migrates_legacy_low_entropy_conversation_ids():
+    src = _NOVA.read_text(encoding="utf-8")
+    out = run_node(
+        r"""
+var flushed = 0; function flushSaveConversations() { flushed++; }
+var state = { activeConvId: "conv-1700000000000-k3j9x2", conversations: {
+  "conv-1700000000000-k3j9x2": {id: "conv-1700000000000-k3j9x2", title: "Hospital hiring", messages: [{role: "user", content: "hi"}]},
+  "conv-0f8fad5b-d9cb-469f-a165-70867728950e": {id: "conv-0f8fad5b-d9cb-469f-a165-70867728950e", title: "Modern", messages: []},
+} };
+"""
+        + js_block(src, "function secureRandomId(")
+        + js_block(src, "function generateId(")
+        + "var SECURE_CONV_ID_RE = "
+        + __import__("re").search(r"var SECURE_CONV_ID_RE = (/.*/);", src).group(1)
+        + ";\n"
+        + js_block(src, "function migrateLegacyConversationIds(")
+        + r"""
+migrateLegacyConversationIds();
+var ids = Object.keys(state.conversations);
+var migrated = state.conversations[state.activeConvId];
+migrateLegacyConversationIds();   // idempotent
+console.log(JSON.stringify({ids: ids, active: state.activeConvId, title: migrated.title,
+  n: migrated.messages.length, idField: migrated.id, after: Object.keys(state.conversations), flushed: flushed}));
+"""
+    )
+    assert "conv-1700000000000-k3j9x2" not in out["ids"]
+    assert "conv-0f8fad5b-d9cb-469f-a165-70867728950e" in out["ids"]
+    assert out["active"] in out["ids"] and re.match(r"^conv-[0-9a-f-]{32,36}$", out["active"])
+    assert out["title"] == "Hospital hiring" and out["n"] == 1 and out["idField"] == out["active"]
+    assert out["after"] == out["ids"] and out["flushed"] == 1
+    assert "loadConversations();\n  migrateLegacyConversationIds();" in src
