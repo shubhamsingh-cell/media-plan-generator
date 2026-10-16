@@ -694,6 +694,80 @@ def get_request_id() -> str:
     return getattr(_request_context, "request_id", "")
 
 
+# ── Request deadline (2026-10-17) ──
+# The caller's outer budget for the whole enrichment, as a time.monotonic()
+# instant. app.py's /api/generate enrichment pool sets it on every task
+# thread (its 20 s budget) and enrich_data() carries it into its own worker
+# threads. It is honoured at three points: enrich_data() stops waiting for
+# the semaphore and for its pool at the deadline; _safe_call() refuses to
+# start a source once it has passed; and every HTTP helper caps its socket
+# timeout and retry back-off to the time left. Before this, the outer 20 s
+# only stopped the CALLER waiting -- the pool kept running sources for up
+# to 50 s on 5 threads while holding one of the three enrichment slots.
+_DEADLINE_MIN_HTTP_S = 0.25  # under this much time left, don't open a socket
+_DEADLINE_GRACE_S = 0.5  # enrich_data() returns this long before the deadline
+
+
+class _DeadlinePassed(Exception):
+    """Raised inside an HTTP helper when the request deadline has passed;
+    the helper's own ``except Exception`` turns it into a logged None."""
+
+
+def set_deadline(deadline: Optional[float]) -> None:
+    """Set (``None`` clears) this thread's monotonic request deadline."""
+    _request_context.deadline = deadline
+
+
+def get_deadline() -> Optional[float]:
+    """This thread's monotonic request deadline, or ``None``."""
+    return getattr(_request_context, "deadline", None)
+
+
+def deadline_remaining() -> Optional[float]:
+    """Seconds left before this thread's deadline; ``None`` without one."""
+    deadline = get_deadline()
+    if deadline is None:
+        return None
+    return deadline - time.monotonic()
+
+
+def deadline_passed() -> bool:
+    """True once this thread's deadline (if any) has gone by."""
+    remaining = deadline_remaining()
+    return remaining is not None and remaining <= 0.0
+
+
+def _attempt_timeout(timeout: float) -> float:
+    """The socket timeout for one HTTP attempt: *timeout* capped to the time
+    left before the thread's deadline. Raises _DeadlinePassed when less than
+    _DEADLINE_MIN_HTTP_S remains, so no socket is opened for a reply the
+    plan can no longer use."""
+    remaining = deadline_remaining()
+    if remaining is None:
+        return timeout
+    if remaining < _DEADLINE_MIN_HTTP_S:
+        raise _DeadlinePassed("enrichment deadline passed")
+    return min(float(timeout), remaining)
+
+
+def _backoff_sleep(seconds: float) -> None:
+    """Retry back-off that never sleeps past the thread's deadline (the next
+    attempt's _attempt_timeout then raises instead of retrying)."""
+    remaining = deadline_remaining()
+    if remaining is not None:
+        seconds = min(float(seconds), max(0.0, remaining))
+    if seconds > 0:
+        time.sleep(seconds)
+
+
+def _bounded_wait(limit: float, deadline: Optional[float], grace: float = 0.0) -> float:
+    """``limit`` seconds, or the time left before ``deadline`` less ``grace``
+    when that is shorter. Never negative."""
+    if deadline is None:
+        return float(limit)
+    return max(0.0, min(float(limit), deadline - grace - time.monotonic()))
+
+
 def _log_warn(msg: str) -> None:
     """Write a warning to the logger (never crashes)."""
     try:
@@ -937,6 +1011,76 @@ _API_RATE_LIMITS: Dict[str, Dict[str, int]] = {
     "BLS_v1": {"max_calls": 20, "window_seconds": 86400},  # 20/day (buffer from 25 v1)
     "GeoNames": {"max_calls": 800, "window_seconds": 3600},  # 800/hr (buffer from 1000)
     "FRED": {"max_calls": 100, "window_seconds": 60},  # 100/min (buffer from 120)
+    # Role-based sources (ROLE_ONLY_SOURCE_LABELS + ROLE_AND_LOCATION_SOURCE_
+    # LABELS, 2026-10-17). One entry counts one dispatch of that source per
+    # plan (a source may make several HTTP calls inside). Prod runs a
+    # handful of plans a day, so these are runaway guards sized well under
+    # each provider's published ceiling, with the ceiling (or its absence)
+    # noted. Only BLS had one before; the other 16 ran unmetered.
+    "GoogleTrends": {
+        "max_calls": 30,
+        "window_seconds": 3600,
+    },  # 30/hr -- pytrends (archived 2025-04) hits unpublished per-IP 429s; one call = several requests
+    "O*NET": {
+        "max_calls": 200,
+        "window_seconds": 86400,
+    },  # 200/day -- O*NET Web Services publishes no numeric quota ("reasonable use")
+    "DataUSA-Occ": {
+        "max_calls": 300,
+        "window_seconds": 3600,
+    },  # 300/hr -- public API, no published quota
+    "GoogleAds": {
+        "max_calls": 500,
+        "window_seconds": 86400,
+    },  # 500/day -- Basic access = 15,000 operations/day (developers.google.com/google-ads/api/docs/access-levels)
+    "MetaAds": {
+        "max_calls": 100,
+        "window_seconds": 3600,
+    },  # 100/hr -- dev tier scores 60 points per rolling 300 s; standard ~200 calls/hr/ad account (developers.facebook.com marketing-api rate-limiting)
+    "BingAds": {
+        "max_calls": 100,
+        "window_seconds": 3600,
+    },  # 100/hr -- Microsoft Advertising throttling is per-account and unpublished
+    "TikTokAds": {
+        "max_calls": 300,
+        "window_seconds": 3600,
+    },  # 300/hr -- v2 endpoints 600/min sliding window; Marketing API caps per app, unpublished
+    "LinkedInAds": {
+        "max_calls": 100,
+        "window_seconds": 3600,
+    },  # 100/hr -- daily per-app limit set in the developer portal, not published
+    "CareerOneStop": {
+        "max_calls": 200,
+        "window_seconds": 86400,
+    },  # 200/day -- no published quota
+    "COS-Projections": {
+        "max_calls": 200,
+        "window_seconds": 86400,
+    },  # 200/day -- same CareerOneStop key as above
+    "H1B-Wages": {
+        "max_calls": 1000,
+        "window_seconds": 3600,
+    },  # 1000/hr -- curated local data, metered for parity
+    "H1B-Salary-Intel": {
+        "max_calls": 1000,
+        "window_seconds": 3600,
+    },  # 1000/hr -- curated local data, metered for parity
+    "Adzuna": {
+        "max_calls": 120,
+        "window_seconds": 86400,
+    },  # 120/day -- free tier 5,000 requests/month (~166/day)
+    "Jooble": {
+        "max_calls": 50,
+        "window_seconds": 86400,
+    },  # 50/day -- free REST plan is 500 requests per key LIFETIME (jooble.org help centre); one dispatch = roles x locations POSTs
+    "RegionalLabour": {
+        "max_calls": 200,
+        "window_seconds": 3600,
+    },  # 200/hr -- ONS / Eurostat / ABS detail stubs, no published quota
+    "CareerJet": {
+        "max_calls": 300,
+        "window_seconds": 3600,
+    },  # 300/hr -- public affiliate search API, no published quota
 }
 
 _rate_limiter_state: Dict[str, Dict[str, Any]] = {}
@@ -1181,7 +1325,7 @@ def _http_get_json_pooled(
                     url,
                     method="GET",
                     headers=all_headers,
-                    timeout=timeout,
+                    timeout=_attempt_timeout(timeout),
                     ssl_ctx=ctx,
                 )
                 if ctx_idx > 0:
@@ -1198,7 +1342,7 @@ def _http_get_json_pooled(
                     _log_warn(
                         f"HTTP {resp.status} for {url}, retry in {wait}s (attempt {attempt + 1}/{max_retries})"
                     )
-                    time.sleep(wait)
+                    _backoff_sleep(wait)
                     break  # break SSL loop to retry
                 if resp.status >= 400:
                     _log_warn(f"HTTP GET failed for {url}: HTTP {resp.status}")
@@ -1244,7 +1388,9 @@ def _http_get_json_urllib(
     for attempt in range(max_retries + 1):
         for ctx_idx, ctx in enumerate(ssl_contexts):
             try:
-                with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+                with urllib.request.urlopen(
+                    req, timeout=_attempt_timeout(timeout), context=ctx
+                ) as resp:
                     if ctx_idx > 0:
                         _log_warn(
                             f"SSL verification BYPASSED for {url} — consider fixing the certificate"
@@ -1264,7 +1410,7 @@ def _http_get_json_urllib(
                     _log_warn(
                         f"HTTP {exc.code} for {url}, retry in {wait}s (attempt {attempt + 1}/{max_retries})"
                     )
-                    time.sleep(wait)
+                    _backoff_sleep(wait)
                     break
                 _log_warn(f"HTTP GET failed for {url}: {exc}")
                 return None
@@ -1332,7 +1478,7 @@ def _http_post_json_pooled(
                     method="POST",
                     body=body,
                     headers=all_headers,
-                    timeout=timeout,
+                    timeout=_attempt_timeout(timeout),
                     ssl_ctx=ctx,
                 )
                 if ctx_idx > 0:
@@ -1354,7 +1500,7 @@ def _http_post_json_pooled(
                     _log_warn(
                         f"HTTP {resp.status} for POST {url} -- retry {attempt + 1}/{max_retries} after {wait}s"
                     )
-                    time.sleep(wait)
+                    _backoff_sleep(wait)
                     break  # break SSL loop, continue retry loop
                 if resp.status >= 400:
                     _log_warn(f"HTTP POST failed for {url}: HTTP {resp.status}")
@@ -1410,7 +1556,9 @@ def _http_post_json_urllib(
 
         for ctx_idx, ctx in enumerate(ssl_contexts):
             try:
-                with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+                with urllib.request.urlopen(
+                    req, timeout=_attempt_timeout(timeout), context=ctx
+                ) as resp:
                     if ctx_idx > 0:
                         _log_warn(f"SSL verification BYPASSED for POST {url}")
                     raw = resp.read().decode("utf-8")
@@ -1442,7 +1590,7 @@ def _http_post_json_urllib(
                         f"HTTP {exc.code} for POST {url} -- "
                         f"retry {attempt + 1}/{max_retries} after {wait}s"
                     )
-                    time.sleep(wait)
+                    _backoff_sleep(wait)
                     break
                 _log_warn(f"HTTP POST failed for {url}: {exc}")
                 return None
@@ -1531,7 +1679,7 @@ def _http_get_json_with_retry_pooled(
                     url,
                     method="GET",
                     headers=all_headers,
-                    timeout=timeout,
+                    timeout=_attempt_timeout(timeout),
                     ssl_ctx=ctx,
                 )
                 if ctx_idx > 0:
@@ -1578,7 +1726,7 @@ def _http_get_json_with_retry_pooled(
                     _log_warn(
                         f"HTTP {status_code} for {url} — retry {attempt + 1}/{max_retries} after {wait}s"
                     )
-                    time.sleep(wait)
+                    _backoff_sleep(wait)
                     last_exc = http.client.HTTPException(f"HTTP {status_code}")
                     break  # break SSL loop, restart retry loop
 
@@ -1594,6 +1742,8 @@ def _http_get_json_with_retry_pooled(
                 if attempt >= max_retries:
                     raise
                 raise
+            except _DeadlinePassed:
+                raise  # never retried: the budget is gone
             except Exception as exc:
                 last_exc = exc
                 if attempt >= max_retries:
@@ -1604,7 +1754,7 @@ def _http_get_json_with_retry_pooled(
                 _log_warn(
                     f"HTTP GET error for {url}: {exc} — retry {attempt + 1}/{max_retries} after {wait}s"
                 )
-                time.sleep(wait)
+                _backoff_sleep(wait)
                 break
         else:
             if last_exc is not None and attempt >= max_retries:
@@ -1646,7 +1796,9 @@ def _http_get_json_with_retry_urllib(
             _ssl_ctxs.append(_get_unverified_ssl_ctx())
         for _ctx_idx, ctx in enumerate(_ssl_ctxs):
             try:
-                with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+                with urllib.request.urlopen(
+                    req, timeout=_attempt_timeout(timeout), context=ctx
+                ) as resp:
                     if _ctx_idx > 0:
                         _log_warn(f"SSL verification BYPASSED for {url}")
                     raw = resp.read().decode("utf-8")
@@ -1689,7 +1841,7 @@ def _http_get_json_with_retry_urllib(
                         f"HTTP {status_code} for {url} — "
                         f"retry {attempt + 1}/{max_retries} after {wait}s"
                     )
-                    time.sleep(wait)
+                    _backoff_sleep(wait)
                     last_exc = exc
                     break
                 else:
@@ -1697,6 +1849,8 @@ def _http_get_json_with_retry_urllib(
                     if attempt >= max_retries:
                         raise
                     raise
+            except _DeadlinePassed:
+                raise  # never retried: the budget is gone
             except Exception as exc:
                 last_exc = exc
                 if attempt >= max_retries:
@@ -1707,7 +1861,7 @@ def _http_get_json_with_retry_urllib(
                 _log_warn(
                     f"HTTP GET error for {url}: {exc} — retry {attempt + 1}/{max_retries} after {wait}s"
                 )
-                time.sleep(wait)
+                _backoff_sleep(wait)
                 break
         else:
             if last_exc is not None and attempt >= max_retries:
@@ -1830,7 +1984,9 @@ def _location_iso3(location: Any) -> Optional[str]:
     """
     if isinstance(location, dict):
         location = ", ".join(
-            str(location.get(k) or "") for k in ("city", "state", "country") if location.get(k)
+            str(location.get(k) or "")
+            for k in ("city", "state", "country")
+            if location.get(k)
         )
     if not isinstance(location, str) or not location.strip():
         return None
@@ -2203,7 +2359,11 @@ def _http_get_text_pooled(url: str, timeout: int = API_TIMEOUT) -> Optional[str]
     for ctx_idx, ctx in enumerate(ssl_contexts):
         try:
             resp = _pooled_request(
-                url, method="GET", headers=hdrs, timeout=timeout, ssl_ctx=ctx
+                url,
+                method="GET",
+                headers=hdrs,
+                timeout=_attempt_timeout(timeout),
+                ssl_ctx=ctx,
             )
             if ctx_idx > 0:
                 _log_warn(f"SSL verification BYPASSED for text GET {url}")
@@ -2235,7 +2395,9 @@ def _http_get_text_urllib(url: str, timeout: int = API_TIMEOUT) -> Optional[str]
         _ssl_ctxs.append(_get_unverified_ssl_ctx())
     for _ctx_idx, ctx in enumerate(_ssl_ctxs):
         try:
-            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+            with urllib.request.urlopen(
+                req, timeout=_attempt_timeout(timeout), context=ctx
+            ) as resp:
                 if _ctx_idx > 0:
                     _log_warn(f"SSL verification BYPASSED for text GET {url}")
                 return resp.read().decode("utf-8")
@@ -2416,7 +2578,8 @@ def _country_population_entries(
         (
             iso3,
             lambda i=iso3: _pds.fetch_country_population(
-                i, timeout=max(0.5, min(_pds.CALL_TIMEOUT_S, deadline - time.monotonic()))
+                i,
+                timeout=max(0.5, min(_pds.CALL_TIMEOUT_S, deadline - time.monotonic())),
             ),
         )
         for iso3 in countries
@@ -2435,9 +2598,8 @@ def _country_population_entries(
                     "source": "World Bank (country-level)",
                 }
             else:
-                kind = (
-                    getattr(outcome, "kind", None)
-                    or ("no_value" if outcome is None else type(outcome).__name__)
+                kind = getattr(outcome, "kind", None) or (
+                    "no_value" if outcome is None else type(outcome).__name__
                 )
                 failed[loc] = {"reason": f"worldbank_{kind}", "tried": ["country"]}
     return entries, failed
@@ -2502,14 +2664,17 @@ def fetch_location_demographics(locations: List[str]) -> Dict[str, Any]:
     if unresolved:
         _log_warn(
             "No demographic data for: "
-            + "; ".join(f"{loc} ({info.get('reason')})" for loc, info in unresolved.items())
+            + "; ".join(
+                f"{loc} ({info.get('reason')})" for loc, info in unresolved.items()
+            )
         )
     if not entries:
         if attempted or unresolved:
             raise SourceFailure(
                 "Census-ACS resolved no demographics: "
                 + "; ".join(
-                    f"{loc}={info.get('reason')}" for loc, info in list(unresolved.items())[:5]
+                    f"{loc}={info.get('reason')}"
+                    for loc, info in list(unresolved.items())[:5]
                 )
             )
         return {}
@@ -13471,7 +13636,7 @@ def fetch_ilo_labour_data(locations: List[str]) -> Dict[str, Any]:
     return result
 
 
-#═══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 # INTERNATIONAL DATA SOURCE STUBS
 # Regional labour-market APIs for non-US locations. These stubs are wired into
 # the enrichment dispatcher (enrich_data) so that non-US plans automatically
@@ -14072,7 +14237,9 @@ def _start_geopolitical_context(
     handle["executor"] = executor
     try:
         handle["future"] = executor.submit(_run)
-    except RuntimeError as exc:  # thread could not start (interpreter shutdown / limits)
+    except (
+        RuntimeError
+    ) as exc:  # thread could not start (interpreter shutdown / limits)
         _log_warn(f"Geopolitical context not started: {exc}")
         executor.shutdown(wait=False)
         handle["executor"] = None
@@ -14080,9 +14247,12 @@ def _start_geopolitical_context(
     return handle
 
 
-def _collect_geopolitical_context(handle: Dict[str, Any]) -> "tuple[dict, str]":
+def _collect_geopolitical_context(
+    handle: Dict[str, Any], deadline: Optional[float] = None
+) -> "tuple[dict, str]":
     """Return (geopolitical_context, status) for a _start_geopolitical_context()
-    handle, waiting at most until its start + budget. status is one of
+    handle, waiting at most until its start + budget (and never past
+    ``deadline``, a monotonic instant, when given). status is one of
     "ok" (LLM analysis arrived in time), "fallback" (the function returned
     its static placeholder), "timeout", "error" or "disabled".
 
@@ -14099,6 +14269,8 @@ def _collect_geopolitical_context(handle: Dict[str, Any]) -> "tuple[dict, str]":
         return {}, str(handle.get("status") or "disabled")
     budget = float(handle.get("budget") or 0.0)
     remaining = budget - (time.time() - float(handle.get("started") or 0.0))
+    if deadline is not None:
+        remaining = min(remaining, deadline - time.monotonic())
     try:
         result = future.result(timeout=max(0.0, remaining))
     except concurrent.futures.TimeoutError:
@@ -14319,9 +14491,15 @@ def _build_enrichment_summary(
     elapsed: float,
     complete: bool,
     geopolitical_status: str,
+    apis_deadline: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """A fresh, self-contained enrichment_summary (every list copied), so a
-    caller that snapshots it mid-run can't see it mutate afterwards."""
+    caller that snapshots it mid-run can't see it mutate afterwards.
+
+    ``apis_deadline``: sources the request deadline cut off -- never started
+    ("skipped_deadline" in api_details) or started and abandoned
+    ("deadline"). They applied and returned nothing, so they are also in
+    ``apis_failed`` and stay in the confidence denominator."""
     finished = set(apis_succeeded) | set(apis_skipped) | set(apis_failed)
     summary: Dict[str, Any] = {
         "apis_called": list(apis_called),
@@ -14330,6 +14508,7 @@ def _build_enrichment_summary(
         "apis_failed": list(apis_failed),
         "apis_circuit_broken": list(apis_circuit_broken),
         "apis_not_applicable": list(apis_not_applicable),
+        "apis_deadline": list(apis_deadline or []),
         "apis_pending": [a for a in apis_called if a not in finished],
         "total_time_seconds": elapsed,
         "confidence_score": 0.0,
@@ -14349,17 +14528,21 @@ def _build_enrichment_summary(
 # (and both /api/generate paths in app.py) send ``target_roles``, so none of
 # the sources below runs for a wizard plan (that read dates from 730a98c,
 # 2026-03-07; the 2026-10-16 audit found it). Aliasing
-# ``target_roles`` -> ``roles`` turns 17 more live calls on per plan, and two
-# preconditions for doing that by default do not hold today (2026-10-16):
-#   * no budget cuts a slow one off: the 8 s cap (GEOPOLITICAL_TIMEOUT_
-#     DEFAULT_S) covers only the geopolitical LLM thread; this pool waits up
-#     to _ENRICHMENT_HARD_TIMEOUT (50 s) on 5 workers while holding
-#     _enrichment_semaphore, and app.py's 20 s outer deadline stops waiting
-#     without cancelling a running or queued source;
-#   * only "BLS" is in _API_RATE_LIMITS -- the other 16 have no proactive
+# ``target_roles`` -> ``roles`` turns 17 more live calls on per plan. Two
+# preconditions for doing that by default did not hold on 2026-10-16:
+#   * no budget cut a slow one off: the 8 s cap (GEOPOLITICAL_TIMEOUT_
+#     DEFAULT_S) covered only the geopolitical LLM thread; this pool waited
+#     up to _ENRICHMENT_HARD_TIMEOUT (50 s) on 5 workers while holding
+#     _enrichment_semaphore, and app.py's 20 s outer deadline stopped
+#     waiting without cancelling a running or queued source;
+#   * only "BLS" was in _API_RATE_LIMITS -- the other 16 had no proactive
 #     limiter (circuit breaker on failures only).
-# So the alias is opt-in: env ENRICH_ROLE_SOURCES=1/true/yes/on enables it
-# (read per call). While off, each plan logs which sources it would have run.
+# Both are closed (2026-10-17): the request deadline (see set_deadline) ends
+# the semaphore and pool waits, skips queued sources and caps every HTTP
+# timeout, and every role source has a _API_RATE_LIMITS entry. The alias
+# stays opt-in -- env ENRICH_ROLE_SOURCES=1/true/yes/on enables it (read per
+# call) -- because flipping it is a production-config decision. While off,
+# each plan logs which sources it would have run.
 ROLE_SOURCES_ENV = "ENRICH_ROLE_SOURCES"
 # Dispatched whenever the request carries roles.
 ROLE_ONLY_SOURCE_LABELS: tuple = (
@@ -14408,6 +14591,7 @@ def enrich_data(
     data: Dict[str, Any],
     request_id: str = "",
     partial_result: Optional[Dict[str, Any]] = None,
+    deadline: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Main entry point. Takes a media plan request dict and returns an enriched
@@ -14434,6 +14618,14 @@ def enrich_data(
             (e.g. app.py's combined enrichment budget) read back whatever
             had already completed even if that outer timeout fires before
             this function itself returns -- instead of discarding it.
+        deadline: Optional ``time.monotonic()`` instant by which this call
+            must have returned (defaults to the thread's deadline, see
+            :func:`set_deadline`; app.py's enrichment pool sets one on every
+            task thread). The semaphore wait and the pool wait end at it,
+            sources that have not started by then are skipped, running ones
+            cap their HTTP timeouts to it, and the summary lists them under
+            ``apis_deadline``. Without one the 50 s hard timeout alone
+            applies, as before.
 
     Returns a dict matching the enrichment schema (see module docstring).
     All sub-keys are populated on a best-effort basis; failures yield empty
@@ -14442,6 +14634,26 @@ def enrich_data(
     # Propagate request_id to thread-local for _safe_call tracing
     if request_id:
         set_request_id(request_id)
+
+    # Outer budget: the explicit argument, else the thread-local one app.py's
+    # enrichment pool set for this task thread (see set_deadline). Only the
+    # worker threads need it as a thread-local (every source runs there --
+    # nothing below touches the network on this thread), so the caller's
+    # own thread-local is left exactly as it was: an explicit argument must
+    # not outlive this call on a long-lived handler thread.
+    if deadline is None:
+        deadline = get_deadline()
+    _deadline: Optional[float] = deadline
+    # enrich_data() stops waiting a little BEFORE the caller's deadline so
+    # its return (summary, geopolitical collect) is what the caller reads,
+    # instead of racing the caller's own timeout for the partial snapshot.
+    # Scaled down for sub-second budgets (tests) so a fast source still gets
+    # processed.
+    _deadline_grace = (
+        0.0
+        if _deadline is None
+        else min(_DEADLINE_GRACE_S, 0.25 * max(0.0, _deadline - time.monotonic()))
+    )
 
     start_time = time.time()
     apis_called: List[str] = []
@@ -14835,6 +15047,7 @@ def enrich_data(
     apis_skipped: List[str] = []
     apis_circuit_broken: List[str] = []
     apis_not_applicable: List[str] = []  # ran cleanly, nothing for this request
+    apis_deadline: List[str] = []  # cut off by the request deadline
     api_details: Dict[str, Dict[str, Any]] = {}  # per-API metadata
 
     # Build the list of api_labels up front for summary tracking
@@ -14864,6 +15077,7 @@ def enrich_data(
             elapsed=round(time.time() - start_time, 2),
             complete=complete,
             geopolitical_status=geopolitical_status,
+            apis_deadline=apis_deadline,
         )
         with _results_lock:
             enriched["enrichment_summary"] = summary
@@ -14876,9 +15090,12 @@ def enrich_data(
     # Inside each enrichment, a SINGLE ThreadPoolExecutor(max_workers=5) runs
     # the 30+ API tasks in parallel. This is NOT nesting -- the thread pool is
     # created fresh each time and torn down before the semaphore is released.
-    if not _enrichment_semaphore.acquire(timeout=20):  # 20-second wait max (was 120s)
+    # 20-second wait max (was 120 s), and never past the request deadline.
+    _sem_wait = _bounded_wait(20.0, _deadline, grace=_deadline_grace)
+    if not _enrichment_semaphore.acquire(timeout=_sem_wait):
         _log_warn(
-            "enrich_data: too many concurrent enrichments, returning partial data"
+            "enrich_data: too many concurrent enrichments "
+            f"(waited {_sem_wait:.1f}s for a slot), returning partial data"
         )
         # Nothing ran: every source stays pending, confidence 0.0.
         _publish_summary(complete=True, geopolitical_status="not_started")
@@ -14901,12 +15118,22 @@ def enrich_data(
         request_id=_parent_request_id,
     )
 
+    # Labels whose worker actually started (for the deadline summary: a
+    # source still unfinished at the deadline is "deadline" if it started,
+    # "skipped_deadline" if it never got a thread).
+    _started_labels: set = set()
+    _started_lock = threading.Lock()
+
     try:
+
         def _run_task(result_key: str, api_label: str, func: Any) -> tuple:
             """Execute a single enrichment task in a worker thread."""
-            # Propagate request_id to this worker thread
+            # Propagate request_id and the request deadline to this worker
             if _parent_request_id:
                 set_request_id(_parent_request_id)
+            set_deadline(_deadline)
+            with _started_lock:
+                _started_labels.add(api_label)
             try:
                 result, status, metadata = _safe_call(func, api_label)
                 return (result_key, api_label, result, status, metadata, None)
@@ -14929,6 +15156,11 @@ def enrich_data(
         # S29 v2: Generous timeouts -- let ALL 15+ APIs respond for quality data
         _ENRICHMENT_HARD_TIMEOUT = 50  # seconds (was 25s -- too tight)
         _PER_TASK_TIMEOUT = 15  # seconds (was 8s -- some APIs are slow)
+        # The pool wait is the hard timeout or the request deadline,
+        # whichever comes first (see the deadline docstring).
+        _pool_wait = _bounded_wait(
+            _ENRICHMENT_HARD_TIMEOUT, _deadline, grace=_deadline_grace
+        )
         _enrichment_start = time.time()
 
         # Manual pool creation to avoid context manager hang.
@@ -14945,7 +15177,7 @@ def enrich_data(
                 future_to_label[fut] = api_label
 
             for fut in concurrent.futures.as_completed(
-                future_to_label, timeout=_ENRICHMENT_HARD_TIMEOUT
+                future_to_label, timeout=_pool_wait
             ):
                 api_label = future_to_label[fut]
                 try:
@@ -14985,6 +15217,10 @@ def enrich_data(
                     elif status == "rate_limited":
                         apis_circuit_broken.append(api_label)
                         apis_skipped.append(api_label)
+                    elif status == "skipped_deadline":
+                        # Got a thread only after the deadline: not attempted.
+                        apis_deadline.append(api_label)
+                        apis_failed.append(api_label)
                     else:
                         apis_failed.append(api_label)
 
@@ -15017,16 +15253,40 @@ def enrich_data(
             executor.shutdown(wait=False, cancel_futures=True)
 
     except concurrent.futures.TimeoutError:
-        # Overall hard timeout reached -- some tasks still pending
+        # Overall wait exhausted -- some tasks still pending. Either the
+        # request deadline (the usual case now) or the 50 s hard timeout.
         _elapsed_so_far = round(time.time() - _enrichment_start, 2)
-        _log_warn(
-            f"Enrichment hard timeout ({_ENRICHMENT_HARD_TIMEOUT}s) reached "
-            f"after {_elapsed_so_far}s -- returning partial results"
-        )
-        # Mark any tasks without api_details as timed out
-        for _rk, _al, _fn in tasks:
-            if _al not in api_details:
-                apis_failed.append(_al)
+        _by_deadline = _deadline is not None and _pool_wait < _ENRICHMENT_HARD_TIMEOUT
+        with _started_lock:
+            _started_snapshot = set(_started_labels)
+        _unfinished = [_al for _rk, _al, _fn in tasks if _al not in api_details]
+        if _by_deadline:
+            _n_started = sum(1 for _al in _unfinished if _al in _started_snapshot)
+            _log_warn(
+                f"Enrichment deadline reached after {_elapsed_so_far}s "
+                f"(pool wait {_pool_wait:.1f}s) -- {len(_unfinished)} sources cut off "
+                f"({_n_started} running, {len(_unfinished) - _n_started} never started); "
+                "returning partial results"
+            )
+        else:
+            _log_warn(
+                f"Enrichment hard timeout ({_ENRICHMENT_HARD_TIMEOUT}s) reached "
+                f"after {_elapsed_so_far}s -- returning partial results"
+            )
+        # Mark any tasks without api_details as timed out / cut off
+        for _al in _unfinished:
+            apis_failed.append(_al)
+            if _by_deadline:
+                apis_deadline.append(_al)
+                api_details[_al] = {
+                    "elapsed_time": round(_pool_wait, 2),
+                    "source": "deadline",
+                    "success": False,
+                    "status": (
+                        "deadline" if _al in _started_snapshot else "skipped_deadline"
+                    ),
+                }
+            else:
                 api_details[_al] = {
                     "elapsed_time": float(_ENRICHMENT_HARD_TIMEOUT),
                     "source": "timeout",
@@ -15037,8 +15297,11 @@ def enrich_data(
         _enrichment_semaphore.release()
 
     # Geopolitical context: take it only if it arrived within its budget
-    # (counted from before the pool started, so no serial wait here).
-    geo_context, geo_status = _collect_geopolitical_context(_geo_handle)
+    # (counted from before the pool started, so no serial wait here) and
+    # never past the request deadline.
+    geo_context, geo_status = _collect_geopolitical_context(
+        _geo_handle, deadline=_deadline
+    )
     with _results_lock:
         enriched["geopolitical_context"] = geo_context
 
@@ -15051,13 +15314,14 @@ def enrich_data(
     cb_msg = (
         f", {len(apis_circuit_broken)} circuit-broken" if apis_circuit_broken else ""
     )
+    dl_msg = f", {len(apis_deadline)} cut off by the deadline" if apis_deadline else ""
     _log_info(
         f"Enrichment complete in {summary['total_time_seconds']}s — "
         f"{len(apis_succeeded)}/{n_applicable} applicable sources returned data "
         f"[confidence={summary['confidence_score']}] "
         f"({len(apis_called)} dispatched: {len(apis_succeeded)} data, "
         f"{len(apis_not_applicable)} not applicable, "
-        f"{len(apis_failed)} failed{rl_msg}{cb_msg}; geopolitical={geo_status})"
+        f"{len(apis_failed)} failed{rl_msg}{cb_msg}{dl_msg}; geopolitical={geo_status})"
     )
 
     return enriched
@@ -15085,6 +15349,15 @@ def _safe_call(func, label: str):
         "error_message": None,
         "request_id": rid,
     }
+
+    # --- Request deadline gate (see set_deadline) ---
+    if deadline_passed():
+        metadata["source"] = "deadline"
+        metadata["elapsed_time"] = 0.0
+        metadata["error_message"] = (
+            "enrichment deadline passed before the source started"
+        )
+        return None, "skipped_deadline", metadata
 
     # --- Circuit breaker gate ---
     if _circuit_breaker_check(label):
@@ -16286,7 +16559,11 @@ def fetch_uk_ons_for_locations(locations: List[str]) -> Dict[str, Any]:
     failed: Dict[str, str] = {}
     for name in names:
         out = outcomes.get(name)
-        if isinstance(out, dict) and not out.get("error") and out.get("latest_value") is not None:
+        if (
+            isinstance(out, dict)
+            and not out.get("error")
+            and out.get("latest_value") is not None
+        ):
             datasets[name] = out
         elif isinstance(out, dict):
             failed[name] = str(out.get("error") or "no observation")
@@ -16321,11 +16598,15 @@ def fetch_statcan_data(vector_id: Any = None) -> Dict[str, Any]:
     try:
         vid = (
             int(vector_id)
-            if vector_id not in (None, "") and not isinstance(vector_id, (list, tuple, dict))
+            if vector_id not in (None, "")
+            and not isinstance(vector_id, (list, tuple, dict))
             else _pds.STATCAN_UNEMPLOYMENT_VECTOR
         )
     except (TypeError, ValueError):
-        return {"source": "statcan", "error": f"invalid StatCan vector id {vector_id!r}"}
+        return {
+            "source": "statcan",
+            "error": f"invalid StatCan vector id {vector_id!r}",
+        }
     cache_k = _cache_key("statcan_wds", str(vid))
     cached = _get_cached(cache_k)
     if cached is not None:
@@ -16352,9 +16633,6 @@ def fetch_statcan_for_locations(locations: List[str]) -> Dict[str, Any]:
     if data.get("error"):
         raise SourceFailure(f"StatCan WDS: {data['error']}")
     return data
-
-
-
 
 
 # ── OECD SDMX (Data Explorer API) ───────────────────────────────────────────

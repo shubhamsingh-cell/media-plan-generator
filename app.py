@@ -96,6 +96,38 @@ def _partial_enrichment_snapshot(partial: dict) -> dict:
     return dict(partial) if partial else {}
 
 
+def _enrichment_deadline(timeout: float) -> float:
+    """The monotonic instant ``timeout`` seconds from now -- the request
+    deadline handed to every enrichment task thread (see
+    _call_under_enrichment_deadline)."""
+    return time.monotonic() + float(timeout)
+
+
+def _call_under_enrichment_deadline(
+    deadline: float, fn: Any, *args: Any, **kwargs: Any
+) -> Any:
+    """Run ``fn(*args, **kwargs)`` on the current (pool) thread with
+    api_enrichment's thread-local request deadline set to ``deadline``.
+
+    The outer ``timeout`` on the futures below only ever stopped the CALLER
+    waiting: enrich_data() kept running its own 50 s pool on 5 threads while
+    holding one of the three enrichment slots, and its single-call siblings
+    ran their full socket timeouts, long after the plan had moved on. With
+    the deadline set on the thread, enrich_data() ends its own waits at it,
+    skips sources that have not started, and every api_enrichment HTTP
+    helper caps its socket timeout and retry back-off to the time left --
+    so the outer timeout becomes the safety net it was meant to be, not
+    the mechanism. Cleared afterwards so a reused thread never inherits it.
+    """
+    if _api_enrichment_mod is not None:
+        _api_enrichment_mod.set_deadline(deadline)
+    try:
+        return fn(*args, **kwargs)
+    finally:
+        if _api_enrichment_mod is not None:
+            _api_enrichment_mod.set_deadline(None)
+
+
 def _run_enrich_data_with_partial_fallback(
     enrich_data_fn: Any, data: dict, request_id: "str | None", timeout: float
 ) -> "tuple[dict, bool]":
@@ -106,6 +138,11 @@ def _run_enrich_data_with_partial_fallback(
     role/location read 0% because this fallback didn't exist and the
     caller's shorter outer timeout routinely fired before enrich_data()'s
     own longer internal budget did).
+
+    The pool thread carries the request deadline (``timeout`` seconds from
+    now) so the real enrich_data() returns by itself before the outer
+    timeout fires -- see _call_under_enrichment_deadline. The outer timeout
+    still guards a callable that ignores the deadline.
 
     Returns (enriched, timed_out); the caller logs with its own
     request-scoped context (e.g. a job id).
@@ -118,14 +155,26 @@ def _run_enrich_data_with_partial_fallback(
     if enrich_data_fn is None:
         return {}, False
     partial: dict = {}
+    deadline = _enrichment_deadline(timeout)
     pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="async-enrich")
     try:
         future = (
             pool.submit(
-                enrich_data_fn, data, request_id=request_id, partial_result=partial
+                _call_under_enrichment_deadline,
+                deadline,
+                enrich_data_fn,
+                data,
+                request_id=request_id,
+                partial_result=partial,
             )
             if request_id
-            else pool.submit(enrich_data_fn, data, partial_result=partial)
+            else pool.submit(
+                _call_under_enrichment_deadline,
+                deadline,
+                enrich_data_fn,
+                data,
+                partial_result=partial,
+            )
         )
         return (future.result(timeout=timeout) or {}), False
     except _FutureTimeoutError:
@@ -215,11 +264,21 @@ def _run_parallel_enrichment_tasks(
         span_fn("enrich_parallel", "Parallel API enrichment") if span_fn else _nullctx()
     )
     t0 = time.time()
+    # Every task thread carries the request deadline (see
+    # _call_under_enrichment_deadline): enrich_data() ends its own waits at
+    # it and the HTTP helpers cap their timeouts to it, so the as_completed
+    # timeout below is the safety net, not the mechanism.
+    deadline = _enrichment_deadline(timeout)
     pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="gen-enrich")
     futures: dict = {}
     try:
         with span:
-            futures = {pool.submit(fn): fn.__doc__ or fn.__name__ for fn in tasks}
+            futures = {
+                pool.submit(_call_under_enrichment_deadline, deadline, fn): (
+                    fn.__doc__ or fn.__name__
+                )
+                for fn in tasks
+            }
             for future in as_completed(futures, timeout=timeout):
                 try:
                     name, result = future.result()
@@ -5597,11 +5656,13 @@ except ImportError as e:
 
 try:
     from api_enrichment import enrich_data
+    import api_enrichment as _api_enrichment_mod
 
     logger.info("api_enrichment loaded successfully")
 except ImportError as e:
     logger.warning("api_enrichment import failed: %s", e)
     enrich_data = None
+    _api_enrichment_mod = None
 
 try:
     from data_synthesizer import synthesize as data_synthesize

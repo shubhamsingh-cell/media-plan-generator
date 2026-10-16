@@ -108,7 +108,12 @@ def test_partial_snapshot_at_deadline_reports_what_actually_arrived(
         api_enrichment.enrich_data, dict(HERSHEY_REQUEST), None, 1.5
     )
 
-    assert timed_out is True
+    # Since 2026-10-17 the pool thread carries the request deadline, so
+    # enrich_data() returns BY ITSELF just before the outer 1.5 s fires,
+    # with the hung source recorded as cut off -- the outer timeout is no
+    # longer what ends the wait (tests/test_enrich_deadline_cancels.py
+    # covers the safety net for a callable that ignores the deadline).
+    assert timed_out is False
     summary = enriched["enrichment_summary"]
     assert set(summary["apis_succeeded"]) == {
         "Census-ACS",
@@ -117,8 +122,11 @@ def test_partial_snapshot_at_deadline_reports_what_actually_arrived(
         "Teleport",
     }
     assert "Eurostat" in summary["apis_failed"]
-    assert summary["apis_pending"] == ["WorldBank"]
-    assert summary["complete"] is False
+    assert summary["apis_deadline"] == ["WorldBank"]
+    assert summary["api_details"]["WorldBank"]["status"] == "deadline"
+    assert "WorldBank" in summary["apis_failed"]
+    assert summary["apis_pending"] == []
+    assert summary["complete"] is True
     # 8 dispatched, 2 "empty" (not applicable) -> 6 applicable, 4 with data.
     assert len(summary["apis_not_applicable"]) == 2
     assert summary["confidence_score"] == round(4 / 6, 3)
@@ -150,7 +158,8 @@ def test_thin_partial_snapshot_still_warns_with_real_counts(
         api_enrichment.enrich_data, dict(HERSHEY_REQUEST), None, 1.5
     )
 
-    assert timed_out is True
+    assert timed_out is False  # enrich_data() returned at the deadline itself
+    assert enriched["enrichment_summary"]["apis_deadline"] == ["WorldBank"]
     warning, n_ok, confidence = app_module._enrichment_quality_warning(enriched)
     assert n_ok == 2
     assert confidence == 0.5
@@ -173,7 +182,8 @@ def test_genuinely_empty_enrichment_still_gets_the_minimal_data_warning(
         api_enrichment.enrich_data, dict(HERSHEY_REQUEST), None, 1.5
     )
 
-    assert timed_out is True
+    assert timed_out is False  # enrich_data() returned at the deadline itself
+    assert enriched["enrichment_summary"]["apis_deadline"] == ["Census-ACS"]
     assert enriched["enrichment_summary"]["apis_succeeded"] == []
     warning, n_ok, confidence = app_module._enrichment_quality_warning(enriched)
     assert (warning, n_ok, confidence) == (MINIMAL_DATA_WARNING, 0, 0.0)

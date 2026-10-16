@@ -297,7 +297,14 @@ def test_run_enrich_data_with_partial_fallback_keeps_partial_on_timeout(
     finally:
         slow_task_may_return.set()  # let the still-running background call finish
 
-    assert timed_out is True
+    # Since 2026-10-17 the pool thread carries the request deadline, so the
+    # REAL enrich_data() ends its own wait just before the outer 0.2 s and
+    # returns the completed work itself (the slow WorldBank task is recorded
+    # as cut off). The outer timeout no longer fires here; the safety net
+    # for a callable that ignores the deadline is covered in
+    # tests/test_enrich_deadline_cancels.py.
+    assert timed_out is False
+    assert enriched["enrichment_summary"]["apis_deadline"] == ["WorldBank"]
     assert enriched, (
         "outer timeout discarded 100% of enrich_data()'s completed work -- "
         "the exact all-or-nothing bug this test guards against"
