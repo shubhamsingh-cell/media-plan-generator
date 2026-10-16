@@ -10,12 +10,39 @@
 # fast-forward-push -- retrying (never force-pushing) if another session
 # wins the race, and giving up loudly if main stays too hot.
 #
+# GitHub CI gate: the local suite is not the only gate. "Nova AI Suite CI"
+# runs on every push to main, and main sat red for two weeks (2026-10-01 ..
+# 2026-10-15, a Linux-only argv limit) while every run of this script stayed
+# green. So the script now (a) prints a loud WARNING at the start if the
+# latest completed CI run on main is not green -- it never blocks, because the
+# change being shipped may be the fix -- and (b) after the push and the deploy
+# check, finds the CI run for the pushed commit and waits for it (`gh run
+# watch`), failing with exit 6 if CI goes red. Needs an authenticated `gh`;
+# without one it warns and carries on (the ship itself already succeeded).
+#
 # Usage (from inside a linked worktree, on a feature branch, clean tree):
 #   scripts/ship_from_worktree.sh
+#   scripts/ship_from_worktree.sh --ci-check-only [<sha>]   # dry run of the
+#       CI gate alone: pre-flight warning for main + wait for <sha>'s CI run
+#       (default: current origin/main). No rebase, no tests, no push; runs
+#       from any checkout.
+#
+# Environment:
+#   SHIP_SKIP_CI_WATCH=1   skip the post-push CI watch (the skip is logged).
+#   SHIP_CI_APPEAR_POLL_INTERVAL / SHIP_CI_APPEAR_POLL_MAX   seconds between
+#       polls / total wait for the CI run to show up (defaults 10 / 180).
+#   SHIP_CI_WATCH_INTERVAL / SHIP_CI_WATCH_MAX   `gh run watch` refresh
+#       interval / give-up point in seconds (defaults 30 / 1200). CI takes
+#       ~7-8 min, and it runs while the Render deploy is verified, so the
+#       usual added wait is the remainder after the deploy check.
 #
 # Exit codes: 0 shipped | 1 preflight failed | 2 rebase conflict (resolve
 # manually) | 3 test failure | 4 origin/main too hot after 3 attempts |
-# 5 post-push ancestor check failed (should be impossible -- investigate).
+# 5 post-push ancestor check failed (should be impossible -- investigate) |
+# 6 pushed, but GitHub CI for the pushed commit FAILED (the commit is already
+# on main and deploying -- fix forward or revert; failing jobs are printed).
+# CI that never appears, times out, or can't be queried is a loud WARNING,
+# not a failure: only a run that finished red returns 6.
 
 set -euo pipefail
 
@@ -28,6 +55,10 @@ STABILITY_INTERVAL_SECONDS=30
 DEPLOY_POLL_INTERVAL_SECONDS=30
 DEPLOY_POLL_MAX_SECONDS=360
 DEPLOY_READY_URL="https://media-plan-generator.onrender.com/api/deploy/ready"
+CI_APPEAR_POLL_INTERVAL_SECONDS="${SHIP_CI_APPEAR_POLL_INTERVAL:-10}"
+CI_APPEAR_POLL_MAX_SECONDS="${SHIP_CI_APPEAR_POLL_MAX:-180}"
+CI_WATCH_INTERVAL_SECONDS="${SHIP_CI_WATCH_INTERVAL:-30}"
+CI_WATCH_MAX_SECONDS="${SHIP_CI_WATCH_MAX:-1200}"
 
 log() {
     printf '[ship] %s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$1" >&2
@@ -46,6 +77,228 @@ remote_main_sha() {
     done
     return 1
 }
+
+# ── GitHub CI gate ───────────────────────────────────────────────────────
+# Every function here degrades to a logged WARNING when gh is missing,
+# unauthenticated, or slow -- the ship must never fail for a CI-query reason.
+# Only ci_watch_for_sha returning 6 means "CI ran and went red".
+
+# Warn (never block) if the newest COMPLETED push-triggered run on main is not
+# green. An in-progress run newer than it is mentioned but does not hide it.
+ci_preflight_warn() {
+    local runs verdict state sha url conclusion pending
+    if ! command -v gh >/dev/null 2>&1; then
+        log "WARNING: gh is not installed -- cannot check main's GitHub CI status (not blocking)"
+        return 0
+    fi
+    if ! runs="$(gh run list --branch main --event push --limit 10 --json status,conclusion,headSha,url 2>/dev/null)"; then
+        log "WARNING: could not query GitHub CI status for main (gh failed or is not authenticated) -- not blocking"
+        return 0
+    fi
+    verdict="$(printf '%s' "$runs" | python3 -c '
+import json, sys
+try:
+    runs = json.load(sys.stdin)
+    pending, latest = "", None
+    for r in runs:
+        if r.get("status") == "completed":
+            latest = r
+            break
+        pending = pending or (r.get("url") or "")
+    if latest is None:
+        print("NONE||||" + pending)
+    else:
+        state = "OK" if latest.get("conclusion") == "success" else "RED"
+        print("|".join([state, latest.get("headSha") or "", latest.get("url") or "",
+                        latest.get("conclusion") or "", pending]))
+except Exception:
+    print("ERROR||||")
+' 2>/dev/null)" || verdict="ERROR||||"
+    IFS='|' read -r state sha url conclusion pending <<<"$verdict"
+    case "$state" in
+        OK)
+            log "GitHub CI on main is green (latest completed run: ${sha:0:7} $url)"
+            ;;
+        RED)
+            log "=================================================================="
+            log "WARNING: GitHub CI on main is NOT GREEN -- latest completed run"
+            log "  concluded '$conclusion' at ${sha:0:7}: $url"
+            log "  Not blocking (this change may be the fix). The post-push CI watch"
+            log "  will say whether main recovers; exit 6 if it does not."
+            log "=================================================================="
+            ;;
+        NONE)
+            log "WARNING: no completed GitHub CI run found on main -- cannot tell if main is green"
+            ;;
+        *)
+            log "WARNING: could not read GitHub CI status for main -- not blocking"
+            ;;
+    esac
+    if [ -n "${pending:-}" ]; then
+        log "  (a newer CI run on main is still in progress: $pending)"
+    fi
+    return 0
+}
+
+# Print "<databaseId>|<url>" per push-triggered run of <sha> on main; return 1
+# when the query itself failed and 2 when it succeeded but no run exists yet.
+ci_runs_for_sha() {
+    local sha="$1" out lines
+    if ! out="$(gh run list --branch main --commit "$sha" --event push --json databaseId,url 2>/dev/null)"; then
+        return 1
+    fi
+    lines="$(printf '%s' "$out" | python3 -c '
+import json, sys
+try:
+    for r in json.load(sys.stdin):
+        print("%s|%s" % (r.get("databaseId"), r.get("url") or ""))
+except Exception:
+    pass
+' 2>/dev/null)" || lines=""
+    if [ -z "$lines" ]; then
+        return 2
+    fi
+    printf '%s\n' "$lines"
+}
+
+# Print the names of non-green jobs of run <id>, one "  - name (conclusion)"
+# per line. Prints nothing when the jobs can't be read.
+ci_failed_jobs() {
+    gh run view "$1" --json jobs 2>/dev/null </dev/null | python3 -c '
+import json, sys
+try:
+    for j in json.load(sys.stdin).get("jobs") or []:
+        if j.get("conclusion") not in ("success", "skipped", "neutral", None, ""):
+            print("  - %s (%s)" % (j.get("name"), j.get("conclusion")))
+except Exception:
+    pass
+' 2>/dev/null || true
+}
+
+# Watch one run to completion, bounded by CI_WATCH_MAX_SECONDS. Returns
+# 0 green | 1 red (failing jobs printed) | 2 state unknown (warned).
+ci_watch_one() {
+    local run_id="$1" run_url="$2" pid waited=0 watch_rc=0 view conclusion status jobs
+    gh run watch "$run_id" --exit-status --interval "$CI_WATCH_INTERVAL_SECONDS" >&2 </dev/null &
+    pid=$!
+    while kill -0 "$pid" 2>/dev/null; do
+        if [ "$waited" -ge "$CI_WATCH_MAX_SECONDS" ]; then
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+            log "WARNING: CI run still unfinished after ${CI_WATCH_MAX_SECONDS}s -- stopped watching, CI NOT verified: $run_url"
+            return 2
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+    wait "$pid" || watch_rc=$?
+
+    # `gh run watch` also exits non-zero on its own network errors, so the
+    # run's recorded conclusion -- not the watch's exit code -- decides red.
+    view="$(gh run view "$run_id" --json status,conclusion 2>/dev/null </dev/null | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print("%s|%s" % (d.get("status") or "", d.get("conclusion") or ""))
+except Exception:
+    print("|")
+' 2>/dev/null)" || view="|"
+    IFS='|' read -r status conclusion <<<"$view"
+    if [ "$status" = "completed" ]; then
+        case "$conclusion" in
+            success | skipped | neutral)
+                log "CI green: $run_url"
+                return 0
+                ;;
+            *)
+                jobs="$(ci_failed_jobs "$run_id")"
+                log "CI FAILED (conclusion: $conclusion): $run_url"
+                if [ -n "$jobs" ]; then
+                    printf '[ship] failing jobs:\n%s\n' "$jobs" >&2
+                fi
+                return 1
+                ;;
+        esac
+    fi
+    if [ "$watch_rc" -eq 0 ]; then
+        log "CI green: $run_url (per gh run watch; run detail unreadable)"
+        return 0
+    fi
+    log "WARNING: could not determine CI result (gh run watch exit $watch_rc, status '${status:-unknown}') -- CI NOT verified: $run_url"
+    return 2
+}
+
+# Wait for <sha>'s CI run on main to appear (CI_APPEAR_POLL_MAX_SECONDS), then
+# watch it. Returns 6 only if CI finished red; everything else returns 0.
+ci_watch_for_sha() {
+    local sha="$1" waited=0 failures=0 runs rc run_id run_url overall=0
+    if [ "${SHIP_SKIP_CI_WATCH:-0}" = "1" ]; then
+        log "CI watch SKIPPED (SHIP_SKIP_CI_WATCH=1): ${sha:0:7} is on main but its GitHub CI result was NOT checked"
+        return 0
+    fi
+    if ! command -v gh >/dev/null 2>&1; then
+        log "WARNING: gh is not installed -- GitHub CI for ${sha:0:7} NOT watched"
+        return 0
+    fi
+    log "waiting for GitHub CI to pick up ${sha:0:7} (up to ${CI_APPEAR_POLL_MAX_SECONDS}s)"
+    while :; do
+        rc=0
+        runs="$(ci_runs_for_sha "$sha")" || rc=$?
+        if [ "$rc" -eq 0 ]; then
+            break
+        fi
+        if [ "$rc" -eq 1 ]; then
+            failures=$((failures + 1))
+            if [ "$failures" -ge 3 ]; then
+                log "WARNING: gh could not list CI runs 3 times (unauthenticated or offline?) -- GitHub CI for ${sha:0:7} NOT watched"
+                return 0
+            fi
+        fi
+        if [ "$waited" -ge "$CI_APPEAR_POLL_MAX_SECONDS" ]; then
+            log "WARNING: no GitHub CI run for ${sha:0:7} appeared within ${CI_APPEAR_POLL_MAX_SECONDS}s -- CI NOT verified"
+            return 0
+        fi
+        sleep "$CI_APPEAR_POLL_INTERVAL_SECONDS"
+        waited=$((waited + CI_APPEAR_POLL_INTERVAL_SECONDS))
+    done
+    while IFS='|' read -r run_id run_url; do
+        [ -n "$run_id" ] || continue
+        log "GitHub CI run for ${sha:0:7}: $run_url"
+        rc=0
+        ci_watch_one "$run_id" "$run_url" || rc=$?
+        if [ "$rc" -eq 1 ]; then
+            overall=6
+        fi
+    done <<<"$runs"
+    if [ "$overall" -eq 6 ]; then
+        echo "ERROR: ${sha:0:7} is on main but its GitHub CI FAILED. It is already deploying -- fix forward or revert; main stays red until then." >&2
+    fi
+    return "$overall"
+}
+
+# ── Subcommands / argument check (before any ship-path side effect) ───────
+case "${1:-}" in
+    "") ;;
+    --ci-check-only)
+        # Dry run of the CI gate: no worktree/tree requirements, no rebase,
+        # no tests, no push. Same code path the real ship uses.
+        target_sha="${2:-}"
+        if [ -z "$target_sha" ]; then
+            target_sha="$(remote_main_sha)" || {
+                echo "ERROR: --ci-check-only: could not read origin/main and no <sha> given." >&2
+                exit 1
+            }
+        fi
+        ci_preflight_warn
+        ci_rc=0
+        ci_watch_for_sha "$target_sha" || ci_rc=$?
+        exit "$ci_rc"
+        ;;
+    *)
+        echo "ERROR: unknown argument '$1'. Usage: scripts/ship_from_worktree.sh [--ci-check-only [<sha>]]" >&2
+        exit 1
+        ;;
+esac
 
 # ── Preflight ────────────────────────────────────────────────────────────
 git_dir="$(git rev-parse --git-dir)"
@@ -69,6 +322,9 @@ if [ "$current_branch" = "main" ]; then
 fi
 
 log "preflight OK: linked worktree, clean tree, branch=$current_branch"
+
+# Surface a red main BEFORE the ~10 min suite run, not after (never blocks).
+ci_preflight_warn
 
 # ── Per-run test isolation ──────────────────────────────────────────────
 # app._CrossProcessSlots keys its flock slot dir on $NOVA_SLOT_DIR, falling
@@ -216,6 +472,14 @@ except Exception:
         log "deploy verified: Render is serving $pushed_sha"
     else
         log "WARNING: deploy not confirmed within ${DEPLOY_POLL_MAX_SECONDS}s -- Render may still be deploying, or this poll couldn't reach it. The ship itself succeeded; check $DEPLOY_READY_URL manually."
+    fi
+
+    # ── GitHub CI gate: our own pushed commit's run, not whatever main's tip is
+    # by now (another session may already have pushed on top of us). ──
+    ci_rc=0
+    ci_watch_for_sha "$local_head" || ci_rc=$?
+    if [ "$ci_rc" -ne 0 ]; then
+        exit "$ci_rc"
     fi
 
     echo "$pushed_sha"
