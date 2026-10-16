@@ -153,3 +153,21 @@ def test_relationship_label_never_invented():
     marked, any_marked = pf.annotate(["Glassdoor", "VietnamWorks"], "India")
     assert marked == [f"Glassdoor {pf.RELATIONSHIP_MARK}", "VietnamWorks"] and any_marked
     assert "confirm before quoting" in pf.RELATIONSHIP_NOTE
+
+
+def test_prose_scrub_never_eats_an_ordinary_word_a_board_shares():
+    # "talent.com" is a board; "talent pool" is prose that must survive.
+    data = {"excluded_publishers": ["Talent.com", "indeed.com"]}
+    kept = pf.scrub_text("Build a talent pool; Talent.com has reach.", data, "France")
+    assert "talent pool" in kept and "Talent.com" not in kept
+    assert pf.sweep_text("Posts rose (Indeed Mobile Report 2025).", data, ["France"]) == "Posts rose."
+    assert pf.sweep_text("Posts rose.", data, ["France"]) == "Posts rose."
+
+
+def test_brand_products_and_national_sites_follow_the_excluded_brand():
+    data = {"excluded_publishers": ["indeed"]}
+    for name in ("Indeed AU", "Indeed MX", "Indeed Education", "Indeed Sponsored Jobs"):
+        assert pf.is_excluded(name, data), name
+    assert not pf.is_excluded("Indeed", {"excluded_publishers": ["Indeed Education"]})
+    # a trailing two-letter code is a country only after a known multi-country brand
+    assert not pf.names_match("Dice NO", "Dice")

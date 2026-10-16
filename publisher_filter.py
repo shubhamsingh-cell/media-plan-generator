@@ -88,6 +88,16 @@ _COUNTRY_WORDS: Tuple[str, ...] = (
 )  # fmt: skip
 _COUNTRY_WORD_SET = frozenset(_COUNTRY_WORDS)
 
+# Ordinary words that are also board names; never a prose-matching term alone.
+_COMMON_WORDS = frozenset(
+    {
+        "talent", "jobs", "job", "career", "careers", "work", "works", "hire",
+        "hiring", "recruit", "staff", "staffing", "find", "search", "apply",
+        "hello", "match", "people", "market", "mobile", "social", "free",
+        "direct", "global", "local", "national", "online", "network",
+    }
+)  # fmt: skip
+
 # Multi-country brands whose national sites are written "<brand> <ISO-2>"
 # ("Indeed DE", "Monster FR"): a trailing two-letter code is a country only
 # after one of these (so "Dice NO" is never read as a Norwegian Dice).
@@ -582,7 +592,11 @@ def _trim_term(term: str) -> str:
     """'indeed france' -> 'indeed' (a trailing country/generic word never
     narrows a mention term)."""
     key = re.sub(r"[^a-z0-9 ]+", " ", term).split()
-    while len(key) > 1 and key[-1] in (_COUNTRY_WORD_SET | _GENERIC_WORDS):
+    while (
+        len(key) > 1
+        and key[-1] in (_COUNTRY_WORD_SET | _GENERIC_WORDS)
+        and not (len(key) == 2 and key[0] in _COMMON_WORDS)
+    ):
         key = key[:-1]
     return " ".join(key)
 
@@ -608,7 +622,13 @@ def _compute_mention_terms(data: Any, countries: Sequence[str]) -> Tuple[str, ..
     for name in user_excluded(data):
         base = _PAREN_RE.sub(" ", _fold(name))
         match = _DOMAIN_RE.match(base.replace(" ", ""))
-        terms.append(_strip_tld(match.group(1)) if match else base)
+        bare = _strip_tld(match.group(1)) if match else base
+        # A board whose bare name is an ordinary word ("talent.com", "jobs")
+        # is matched in prose only by the form the client typed, never by the
+        # word on its own ("talent pool" must survive).
+        if bare.strip() in _COMMON_WORDS:
+            bare = base.strip()
+        terms.append(bare)
     wanted = {canonical_country(c) for c in countries if c}
     for entry in _load_availability()["entries"]:
         status = entry.get("status") or ""
