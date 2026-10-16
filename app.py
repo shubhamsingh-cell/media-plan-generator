@@ -4834,15 +4834,34 @@ _REGIONAL_BOARD_REGION: "dict[str, str]" = {
 }
 
 
+# plan_location matches made from a BARE city name -- a guess, not a market:
+# "Munich", "Brisbane", "Perth" and "Johannesburg" each match exactly one US
+# town (place_city_unique) and _resolve_and_rewrite_locations has already
+# rewritten them to "Munich, ND" etc. by the time the region fold runs.
+_BARE_CITY_MATCHES: frozenset = frozenset(
+    {
+        "place_city_unique",
+        "place_city_ambiguous",
+        "fuzzy_city_unique",
+        "fuzzy_city_ambiguous",
+        "fuzzy_city_no_dominant",
+    }
+)
+
+
 def _market_region(entry: Any) -> "str | None":
     """Market region ("apac" / "emea" / "americas") of ONE plan market -- a
     location string or dict, or a custom-region country code ("BR", "UK").
-    "" for an entry that names no market (blank, or a bare "Remote");
-    None when the region cannot be told ("Worldwide", "Accra, Ghana", or a
-    bare "London" that plan_location reads as several US towns)."""
+    "" for an entry that names no market (blank text, or a bare "Remote");
+    None when the region cannot be told ("Worldwide", "Accra, Ghana", a dict
+    with no place in it, or a bare city name such as "London" or "Munich"
+    that plan_location can only match to US towns by name)."""
     if isinstance(entry, dict):
         parts = [_safe_str(entry.get(k)).strip() for k in ("city", "state", "country")]
-        text = ", ".join(p for p in parts if p)
+        text = ", ".join(p for p in parts if p) or _safe_str(entry.get("location"))
+        text = text.strip()
+        if not text:
+            return None
     else:
         text = _safe_str(entry).strip()
     if not text:
@@ -4859,9 +4878,12 @@ def _market_region(entry: Any) -> "str | None":
             res = plan_location.resolve_location(text)
             if res.kind == "remote":
                 return ""
-            # plan_location only ever confirms US places; "ambiguous" is NOT
-            # one ("London", "Paris" and "Toronto" all read as US towns).
-            if res.status in ("resolved", "corrected"):
+            # plan_location only ever confirms US places, and only a state,
+            # ZIP, county, "USA"/"Nationwide" or a "City, ST" pair proves one.
+            if (
+                res.status in ("resolved", "corrected")
+                and res.matched_via not in _BARE_CITY_MATCHES
+            ):
                 return "americas"
     except Exception:  # noqa: BLE001 - best-effort; unknown keeps every board
         logger.debug("market region lookup failed for %r", text, exc_info=True)
@@ -4872,9 +4894,21 @@ def _plan_market_regions(plan: Any) -> "frozenset[str] | None":
     """Market regions of every market the plan names -- its ``locations``,
     its custom-region ``custom_countries`` and a ``country`` field. None when
     it names none, or when ANY market cannot be placed: the caller then keeps
-    every regional board (fail open -- a board is never dropped on a guess)."""
+    every regional board (fail open -- a board is never dropped on a guess).
+
+    A location the request boundary rewrote from a bare city name ("Munich"
+    -> "Munich, ND"; the ``_location_resolution`` sidecar keeps the original
+    match) counts as unplaceable, whatever the rewritten text says."""
     if not isinstance(plan, dict):
         return None
+    locations = plan.get("locations")
+    sidecar = plan.get("_location_resolution")
+    if isinstance(locations, (list, tuple)) and isinstance(sidecar, list):
+        if len(sidecar) == len(locations) and any(
+            isinstance(r, dict) and r.get("matched_via") in _BARE_CITY_MATCHES
+            for r in sidecar
+        ):
+            return None
     entries: list = []
     for key in ("locations", "custom_countries", "country"):
         value = plan.get(key)
@@ -4944,11 +4978,10 @@ def _apply_target_region(
                 for key, region in _REGIONAL_BOARD_REGION.items()
                 if region not in regions and key in pcts
             ]
+            funded = [k for k in drop if (pcts.get(k) or 0) > 0]
             moved = _drop_channels_proportionally(pcts, drop)
             if moved > 0:
-                boards = "/".join(
-                    _REGIONAL_BOARD_REGION[k].upper() for k in drop if k not in pcts
-                )
+                boards = "/".join(_REGIONAL_BOARD_REGION[k].upper() for k in funded)
                 detail = (
                     f"redistributed {moved:g}% from {boards} proportionally "
                     f"(plan markets: {', '.join(sorted(regions))})"

@@ -115,6 +115,53 @@ def test_unknown_or_unplaceable_markets_keep_every_board(plan):
     assert _fold("global", plan) == _PCTS
 
 
+@pytest.mark.parametrize(
+    "plan",
+    [
+        # bare city names plan_location matches to ONE US town each
+        {"locations": ["Munich"]},
+        {"locations": ["Brisbane", "Toronto, ON"]},
+        # ... and the same plan after the request boundary rewrote them
+        {
+            "locations": ["Munich, ND", "Brisbane, CA"],
+            "_location_resolution": [
+                {"input": "Munich", "matched_via": "place_city_unique"},
+                {"input": "Brisbane", "matched_via": "place_city_unique"},
+            ],
+        },
+        # a dict that names no place at all
+        {"locations": [{"name": "Berlin, Germany"}, "Austin, TX"]},
+    ],
+)
+def test_bare_city_guesses_keep_every_board(plan):
+    """Verifier find (2026-10-16): "Munich" -> "Munich, ND" upstream, so a
+    global plan for Munich + Brisbane lost both boards. A bare city name is a
+    guess, not a market: fail open."""
+    assert _fold("global", plan) == _PCTS
+    assert _fold("custom", plan) == _PCTS
+
+
+def test_bare_city_rewrite_keeps_boards_end_to_end():
+    funded = _funded(
+        dict(_BRIEF, target_region="global", locations=["Munich", "Brisbane"])
+    )
+    assert _REGIONAL <= set(funded), funded
+
+
+def test_qualified_us_locations_still_count_as_us():
+    plan = {
+        "locations": ["Hershey, PA", "80202", "Texas", "Cook County, IL", "Nationwide"],
+        "_location_resolution": [
+            {"matched_via": "place_city_state"},
+            {"matched_via": "zip_exact"},
+            {"matched_via": "state_bare"},
+            {"matched_via": "county_state_exact"},
+            {"matched_via": "nationwide_keyword"},
+        ],
+    }
+    assert not _REGIONAL & set(_fold("global", plan))
+
+
 def test_bare_remote_does_not_block_the_named_markets():
     out = _fold("custom", {"locations": ["Toronto, ON", "Remote"]})
     assert not _REGIONAL & set(out), out
@@ -142,6 +189,11 @@ def test_fold_reports_what_moved():
         dict(_PCTS), "custom", {"locations": ["Sao Paulo, Brazil"]}
     )
     assert "18" in detail and "APAC" in detail and "EMEA" in detail
+    # a board that held 0% is removed but not reported as a source
+    _out, detail = app._apply_target_region(
+        dict(_PCTS, apac_regional=0), "custom", {"locations": ["Sao Paulo, Brazil"]}
+    )
+    assert "from EMEA " in detail and "APAC" not in detail
 
 
 def test_every_plan_currency_has_a_market_region():

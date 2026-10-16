@@ -61,7 +61,7 @@ def test_consensus_timeout_is_handled_as_a_timeout(monkeypatch, caplog):
 
     monkeypatch.setattr(llm_router, "call_llm", _fake_call_llm)
     with caplog.at_level(logging.WARNING, logger=llm_router.logger.name):
-        llm_router._parallel_consensus(
+        out = llm_router._parallel_consensus(
             messages=[{"role": "user", "content": "hi"}],
             providers=["fast", "slow"],
             timeout=0.2,
@@ -69,6 +69,8 @@ def test_consensus_timeout_is_handled_as_a_timeout(monkeypatch, caplog):
     assert not [
         r for r in caplog.records if "aggregation error" in r.getMessage()
     ], "as_completed timeout fell through to the generic handler"
+    assert "fast" in (out.get("providers_used") or []), out
+    assert "slow" not in (out.get("providers_used") or []), out
 
 
 _FILES = ("app.py", "data_orchestrator.py", "llm_router.py")
