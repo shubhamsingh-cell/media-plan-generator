@@ -23,6 +23,7 @@ import ast
 import importlib
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
@@ -33,7 +34,8 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# Model-deprecations table, retrieved 2026-10-01 (state, tentative retirement).
+# Model-deprecations table, retrieved 2026-10-01, re-checked 2026-10-16
+# (state, tentative retirement floor).
 DOCUMENTED_ACTIVE_MODELS = {
     "claude-opus-5-5": ("Active", "2027-09-22"),
     "claude-opus-5": ("Active", "2027-07-24"),
@@ -41,8 +43,17 @@ DOCUMENTED_ACTIVE_MODELS = {
     "claude-sonnet-5-5": ("Active", "2027-09-28"),
     "claude-sonnet-5": ("Active", "2027-06-30"),
     "claude-sonnet-4-6": ("Active", "2027-02-17"),
+    "claude-haiku-5-5": ("Active", "2027-10-07"),
     "claude-haiku-4-5-20251001": ("Active", "2026-10-15"),
 }
+
+# IDs whose documented retirement floor has passed (as of 2026-10-16) or that
+# the repo has deliberately moved off: none may remain as a live default. The
+# date-suffixed and bare spellings are both matched.
+RETIRED_OR_SUPERSEDED_MODEL_RE = re.compile(
+    r"claude-(haiku-4-5(-\d{8})?|sonnet-4-6|sonnet-4-5(-\d{8})?|"
+    r"opus-4-[0-7](-\d{8})?|3-\d(-\d)?-(haiku|sonnet|opus))"
+)
 
 #: Fields the router's Anthropic builders may emit (Messages API top-level).
 ALLOWED_PAYLOAD_KEYS = {"model", "max_tokens", "messages", "system", "tools", "stream"}
@@ -61,7 +72,7 @@ FORBIDDEN_PAYLOAD_KEYS = {
 @pytest.fixture()
 def router():
     """llm_router with env overrides cleared (defaults), restored afterwards."""
-    keys = ("CLAUDE_SONNET_MODEL", "CLAUDE_OPUS_MODEL")
+    keys = ("CLAUDE_HAIKU_MODEL", "CLAUDE_SONNET_MODEL", "CLAUDE_OPUS_MODEL")
     with mock.patch.dict(os.environ, {}, clear=False):
         for k in keys:
             os.environ.pop(k, None)
@@ -108,7 +119,7 @@ TOOLS = [
 
 def test_default_model_ids_are_documented_active(router):
     for pid, expected in (
-        (router.CLAUDE_HAIKU, "claude-haiku-4-5-20251001"),
+        (router.CLAUDE_HAIKU, "claude-haiku-5-5"),
         (router.CLAUDE, "claude-sonnet-5-5"),
         (router.CLAUDE_OPUS, "claude-opus-5-5"),
     ):
@@ -121,11 +132,16 @@ def test_env_overrides_still_win(router):
     with mock.patch.dict(
         os.environ,
         {
+            "CLAUDE_HAIKU_MODEL": "claude-haiku-4-5-20251001",
             "CLAUDE_SONNET_MODEL": "claude-sonnet-5",
             "CLAUDE_OPUS_MODEL": "claude-opus-4-8",
         },
     ):
         mod = importlib.reload(router)
+        assert (
+            mod.PROVIDER_CONFIG[mod.CLAUDE_HAIKU]["model"]
+            == "claude-haiku-4-5-20251001"
+        )
         assert mod.PROVIDER_CONFIG[mod.CLAUDE]["model"] == "claude-sonnet-5"
         assert mod.PROVIDER_CONFIG[mod.CLAUDE_OPUS]["model"] == "claude-opus-4-8"
         _, _, body = mod._build_anthropic_request(
@@ -136,7 +152,7 @@ def test_env_overrides_still_win(router):
 
 def test_cost_table_matches_documented_prices(router):
     costs = router._PROVIDER_COST_PER_M_TOKENS
-    assert costs[router.CLAUDE_HAIKU] == {"input": 1.0, "output": 5.0}
+    assert costs[router.CLAUDE_HAIKU] == {"input": 0.10, "output": 0.50}  # Haiku 5.5
     assert costs[router.CLAUDE] == {"input": 2.0, "output": 10.0}  # Sonnet 5.5
     assert costs[router.CLAUDE_OPUS] == {"input": 4.0, "output": 20.0}  # Opus 5.5
 
@@ -199,6 +215,8 @@ def test_tool_turn_is_valid_anthropic_message_sequence(router, which):
         ("claude-sonnet-5", True),
         ("claude-sonnet-4-6", True),
         ("claude-fable-5-1", True),
+        ("claude-haiku-5-5", True),
+        ("claude-haiku-5", True),
         ("claude-haiku-4-5-20251001", False),
         ("claude-haiku-4-5", False),
         ("claude-sonnet-4-5-20250929", False),
@@ -218,12 +236,24 @@ def test_trailing_assistant_prefill_is_dropped_only_where_it_would_400(router):
     for pid, kept in (
         (router.CLAUDE, False),
         (router.CLAUDE_OPUS, False),
-        (router.CLAUDE_HAIKU, True),
+        (router.CLAUDE_HAIKU, False),  # Haiku 5.5 rejects prefill too
     ):
         _, _, body = router._build_anthropic_request(convo, "", 200, provider_id=pid)
         roles = [m["role"] for m in json.loads(body)["messages"]]
         assert (roles == ["user", "assistant"]) is kept, pid
         assert roles[0] == "user"
+    # Env rollback to Haiku 4.5 keeps the prefill (that ID accepts it).
+    with mock.patch.dict(
+        os.environ, {"CLAUDE_HAIKU_MODEL": "claude-haiku-4-5-20251001"}
+    ):
+        mod = importlib.reload(router)
+        _, _, body = mod._build_anthropic_request(
+            convo, "", 200, provider_id=mod.CLAUDE_HAIKU
+        )
+        assert [m["role"] for m in json.loads(body)["messages"]] == [
+            "user",
+            "assistant",
+        ]
 
 
 def test_prefill_guard_never_empties_the_conversation_or_eats_tool_use(router):
@@ -326,3 +356,81 @@ def test_no_call_site_sends_rejected_fields(filename, funcs, expected_min):
             f"{filename}:{lineno} has undocumented payload keys "
             f"{sorted(keys - ALLOWED_PAYLOAD_KEYS)}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Retired / superseded model IDs must not survive as live literals
+# ---------------------------------------------------------------------------
+
+
+def _string_constants(path: Path) -> List[tuple]:
+    """(lineno, value) for every str constant in the module -- comments are not
+    constants, so rollback notes like ``CLAUDE_HAIKU_MODEL=claude-haiku-4-5-...``
+    in ``#`` comments are allowed; docstrings and f-string parts are scanned."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    return [
+        (node.lineno, node.value)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    ]
+
+
+@pytest.mark.parametrize("filename", ["nova.py", "llm_router.py", "app.py"])
+def test_no_retired_model_id_literals(filename):
+    """2026-10-16: Haiku 4.5's retirement floor (2026-10-15) has passed and the
+    repo moved Sonnet 4.6 -> 5.5; neither may remain as a live default. Only
+    ``#`` comments may still name them (env-rollback instructions)."""
+    offenders = [
+        f"{filename}:{lineno}: {value!r}"
+        for lineno, value in _string_constants(PROJECT_ROOT / filename)
+        if RETIRED_OR_SUPERSEDED_MODEL_RE.search(value)
+    ]
+    assert (
+        not offenders
+    ), "retired model IDs still live outside comments:\n  " + "\n  ".join(offenders)
+
+
+def _module_level_default(path: Path, name: str) -> str:
+    """Resolve ``NAME = os.environ.get("X") or "<default>"`` (or a bare string
+    / parenthesised string) at module level without importing the module."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == name for t in node.targets
+        ):
+            value = node.value
+            if isinstance(value, ast.BoolOp) and isinstance(value.op, ast.Or):
+                value = value.values[-1]
+            assert isinstance(value, ast.Constant) and isinstance(value.value, str)
+            return value.value
+    raise AssertionError(f"{path.name}: no module-level assignment to {name}")
+
+
+def test_nova_direct_call_defaults_are_current_and_env_overridable():
+    nova_path = PROJECT_ROOT / "nova.py"
+    assert (
+        _module_level_default(nova_path, "CLAUDE_MODEL_PRIMARY") == "claude-haiku-5-5"
+    )
+    assert (
+        _module_level_default(nova_path, "CLAUDE_MODEL_COMPLEX") == "claude-sonnet-5-5"
+    )
+    for model in ("claude-haiku-5-5", "claude-sonnet-5-5"):
+        assert DOCUMENTED_ACTIVE_MODELS[model][0] == "Active"
+    src = nova_path.read_text(encoding="utf-8")
+    assert 'os.environ.get("CLAUDE_MODEL_PRIMARY")' in src
+    assert 'os.environ.get("CLAUDE_MODEL_COMPLEX")' in src
+    # every direct Anthropic payload in nova.py names a model via the constants
+    tree = ast.parse(src)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            keys = [k.value if isinstance(k, ast.Constant) else None for k in node.keys]
+            if {"model", "max_tokens", "messages"} <= set(keys):
+                model_node = node.values[keys.index("model")]
+                assert not isinstance(
+                    model_node, ast.Constant
+                ), f"nova.py:{node.lineno} hardcodes a model ID; use CLAUDE_MODEL_*"
+
+
+def test_app_fallback_sonnet_default_is_current():
+    src = (PROJECT_ROOT / "app.py").read_text(encoding="utf-8")
+    assert 'os.environ.get("APP_FALLBACK_SONNET_MODEL") or "claude-sonnet-5-5"' in src

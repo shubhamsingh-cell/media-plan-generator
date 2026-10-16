@@ -885,11 +885,13 @@ class TestTier4LiveAPI:
         ), f"Anthropic {model} returned non-200: status={status} body={raw[:300]}"
 
     def test_anthropic_haiku_live(self) -> None:
-        """Claude Haiku 4.5 (unchanged baseline) must still accept ping."""
-        self._anthropic_ping("claude-haiku-4-5-20251001")
+        """Claude Haiku 5.5 (2026-10-16 refresh; was 4.5) must accept ping."""
+        from llm_router import CLAUDE_HAIKU, PROVIDER_CONFIG
+
+        self._anthropic_ping(PROVIDER_CONFIG[CLAUDE_HAIKU]["model"])
 
     def test_anthropic_sonnet_live(self) -> None:
-        """Claude Sonnet 4.6 (S50 upgrade) must accept ping."""
+        """The CLAUDE tier's current Sonnet (5.5) must accept ping."""
         from llm_router import CLAUDE, PROVIDER_CONFIG
 
         self._anthropic_ping(PROVIDER_CONFIG[CLAUDE]["model"])

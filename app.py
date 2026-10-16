@@ -12849,11 +12849,16 @@ def _generate_ab_test_with_claude(
 
     # ── Fallback: direct Anthropic API ──
     # S50 (May 2026): bumped from claude-sonnet-4-20250514 to claude-sonnet-4-6.
+    # 2026-10-16 MODEL-ID REFRESH: Sonnet 4.6 -> Sonnet 5.5 (`claude-sonnet-5-5`),
+    # matching llm_router's CLAUDE tier. Docs [platform.claude.com/docs/en/
+    # about-claude/model-deprecations, retrieved 2026-10-16]: Active, retirement
+    # not sooner than 2027-09-28. This payload sends only model/max_tokens/
+    # messages (no sampling params, no prefill), which Sonnet 5.5 accepts.
     # This bypasses the LLM router entirely so the model string lives here.
-    # Override via env if needed: APP_FALLBACK_SONNET_MODEL.
+    # Rollback is env-only: APP_FALLBACK_SONNET_MODEL=claude-sonnet-4-6.
     try:
         _fallback_sonnet = (
-            os.environ.get("APP_FALLBACK_SONNET_MODEL") or "claude-sonnet-4-6"
+            os.environ.get("APP_FALLBACK_SONNET_MODEL") or "claude-sonnet-5-5"
         )
         req_body = json.dumps(
             {

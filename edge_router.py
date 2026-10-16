@@ -115,8 +115,8 @@ PROVIDER_CATALOG: dict[str, dict[str, Any]] = {
         "baseline_latency_s": 2.5,
     },
     "claude_haiku": {
-        "name": "Claude Haiku 4.5",
-        "cost_per_1k": 0.001,
+        "name": "Claude Haiku 5.5",
+        "cost_per_1k": 0.0003,  # ($0.10 in + $0.50 out) / 2 per 1K, 2026-10-16
         "tier": "paid",
         "baseline_latency_s": 1.8,
     },

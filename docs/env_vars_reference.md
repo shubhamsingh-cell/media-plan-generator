@@ -18,8 +18,10 @@ Each row corresponds to a single LLM provider config. The default is what produc
 | `OPENROUTER_GPT_OSS_MODEL` | `llm_router.py:839` | OpenRouter model for the `OPENROUTER_GPT_OSS` provider (S50 addition) | `openai/gpt-oss-120b:free` | Unset and remove provider from routing lists |
 | `CEREBRAS_SCOUT_MODEL` | `llm_router.py:865` | Cerebras model for the `CEREBRAS_SCOUT` provider (S50 addition) | `qwen-3-235b-a22b-instruct-2507` | `gpt-oss-120b` (alt verified Cerebras slug) |
 | `MISTRAL_MODEL` | `llm_router.py:609` | Mistral model used by the `MISTRAL` provider | `mistral-small-2603` (pinned) | `mistral-small-latest` (rolling alias) |
-| `APP_FALLBACK_SONNET_MODEL` | `app.py:8592` | Direct Anthropic API call in `app.py` that bypasses the LLM router | `claude-sonnet-4-6` | `claude-sonnet-4-20250514` |
-| `CLAUDE_MODEL_COMPLEX` | `nova.py:518` | Direct Anthropic API call in `nova.py` for complex queries (bypass router) | `claude-sonnet-4-6` | `claude-sonnet-4-20250514` |
+| `APP_FALLBACK_SONNET_MODEL` | `app.py` (`_fallback_sonnet`) | Direct Anthropic API call in `app.py` that bypasses the LLM router | `claude-sonnet-5-5` (2026-10-16; was `claude-sonnet-4-6`) | `claude-sonnet-4-6` |
+| `CLAUDE_MODEL_COMPLEX` | `nova.py` (`CLAUDE_MODEL_COMPLEX`) | Direct Anthropic API call in `nova.py` for complex queries (bypass router) | `claude-sonnet-5-5` (2026-10-16; was `claude-sonnet-4-6`) | `claude-sonnet-4-6` |
+| `CLAUDE_MODEL_PRIMARY` | `nova.py` (`CLAUDE_MODEL_PRIMARY`) | Direct Anthropic API calls in `nova.py` for simple/medium chat, Path-B synthesis and the T3-1 planner (bypass router) | `claude-haiku-5-5` (2026-10-16; was hardcoded `claude-haiku-4-5-20251001`) | `claude-haiku-4-5-20251001` |
+| `CLAUDE_HAIKU_MODEL` | `llm_router.py` (`CLAUDE_HAIKU` in `PROVIDER_CONFIG`) | Anthropic Haiku model used by the `CLAUDE_HAIKU` provider | `claude-haiku-5-5` (2026-10-16; was hardcoded `claude-haiku-4-5-20251001`) | `claude-haiku-4-5-20251001` |
 
 **Why two non-router callsites exist (`app.py:8592`, `nova.py:518`):** these are intentional bypasses of the LLM router for direct Anthropic API use. They originally hardcoded the May-2025 Claude string. S50 made them env-overridable. If you migrate them onto the router in a future session, drop the env vars at the same time.
 
@@ -127,6 +129,6 @@ For visibility — a future operator should not waste time looking for an overri
 
 - **Voyage rerank model** (`_VOYAGE_RERANK_MODEL = "rerank-2.5-lite"` at `vector_search.py:82`): hardcoded. To disable, unset `VOYAGE_API_KEY` to force the keyword-overlap fallback path.
 - **Voyage embedding model** (`_VOYAGE_MODEL = "voyage-3-lite"` at `vector_search.py:73`): hardcoded. The voyage-4 migration uses `scripts/migrate_voyage_4.py` — see `docs/voyage_4_migration_runbook.md`.
-- **Claude Haiku model** (`claude-haiku-4-5-20251001` at `llm_router.py:876`): hardcoded. Bumping Haiku is a code change, not an env-var flip — it is the LLM router PRIMARY provider and changing it warrants a deliberate redeploy.
+- **Claude Haiku model**: no longer hardcoded as of 2026-10-16 — see `CLAUDE_HAIKU_MODEL` (router) and `CLAUDE_MODEL_PRIMARY` (nova direct calls) above. Haiku 4.5's documented retirement floor (2026-10-15) has passed; both default to `claude-haiku-5-5`. Rolling back to 4.5 via env is a stopgap only.
 - **Edge router display labels** (`edge_router.py:130-147`): cosmetic strings only, used for the public health endpoint. No env override.
 - **Health endpoint display labels** (`routes/health.py:818, 823`): same — cosmetic only.

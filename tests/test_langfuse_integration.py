@@ -177,7 +177,7 @@ def test_trace_swallows_network_errors(
     with caplog.at_level(logging.WARNING):
         # Must not raise.
         langfuse_integration.trace_llm_call(
-            model="claude-haiku-4-5",
+            model="claude-haiku-5-5",
             input_messages=[{"role": "user", "content": "hello"}],
             output="hi",
             latency_ms=42.0,
@@ -274,7 +274,7 @@ def test_posts_to_correct_url_with_basic_auth(monkeypatch: pytest.MonkeyPatch) -
     )
 
     langfuse_integration.trace_llm_call(
-        model="claude-haiku-4-5",
+        model="claude-haiku-5-5",
         input_messages=[{"role": "user", "content": "ping"}],
         output="pong",
         latency_ms=123.4,
@@ -315,7 +315,7 @@ def test_posts_to_correct_url_with_basic_auth(monkeypatch: pytest.MonkeyPatch) -
     # 4) Generation body carries the model + output + token usage.
     gen_event = next(e for e in body["batch"] if e["type"] == "generation-create")
     gen_body = gen_event["body"]
-    assert gen_body["model"] == "claude-haiku-4-5"
+    assert gen_body["model"] == "claude-haiku-5-5"
     assert gen_body["output"] == "pong"
     assert gen_body["usage"]["input"] == 7
     assert gen_body["usage"]["output"] == 3

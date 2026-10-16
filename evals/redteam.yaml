@@ -9,10 +9,10 @@ description: Nova AI Suite red-team suite (S50 -- May 2026)
 # is what Promptfoo's strategy synthesizers use to tailor the attacks.
 
 targets:
-  - id: anthropic:messages:claude-haiku-4-5-20251001
+  # 2026-10-16: Haiku 4.5 -> Haiku 5.5; no `temperature` (400 on Haiku 5.5).
+  - id: anthropic:messages:claude-haiku-5-5
     label: haiku-primary
     config:
-      temperature: 0.2
       max_tokens: 800
       apiKey: ${ANTHROPIC_API_KEY}
 

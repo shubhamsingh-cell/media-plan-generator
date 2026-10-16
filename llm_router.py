@@ -7,12 +7,12 @@ response caching, and provider health scoring.
 
 v4.1 QUALITY-FIRST ROUTING: Claude Haiku is the PRIMARY provider for all
 substantive queries (chat, research, analysis, campaign plans, market analysis).
-Free providers are fallbacks. Haiku at $0.25/M input is cheap enough to justify
+Free providers are fallbacks. Haiku at $0.10/M input is cheap enough to justify
 the dramatic quality improvement over free-tier LLMs.
 
 Provider priority (quality-first for substantive, free for simple):
     PRIMARY (quality-critical tasks):
-    1.  Claude Haiku 4.5 (Anthropic) -- paid, fast + cheap, Claude-level quality
+    1.  Claude Haiku 5.5 (Anthropic) -- paid, fast + cheap, Claude-level quality (2026-10-16: was 4.5)
     2.  Gemini 3.6 Flash (GA) -- free, $0.50/$3 per M, 3x faster than 2.5 Pro
     3.  GPT-5.4-mini (OpenAI) -- $0.75/$6 per M, replaces deprecated GPT-4o (S50)
 
@@ -967,10 +967,22 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "max_context": 8192,
     },
     CLAUDE_HAIKU: {
-        "name": "Claude Haiku 4.5 (Anthropic)",
+        # 2026-10-16 MODEL-ID REFRESH: Haiku 4.5 -> Haiku 5.5 (`claude-haiku-5-5`).
+        # Docs [platform.claude.com/docs/en/about-claude/model-deprecations,
+        # retrieved 2026-10-16]: claude-haiku-4-5-20251001 "Active ... Not sooner
+        # than October 15, 2026" -- the floor has passed, so it is retirement-
+        # eligible on 60 days' notice; claude-haiku-5-5 "Active ... Not sooner
+        # than October 7, 2027", $0.10/$0.50 per MTok (<=100K-token prompts),
+        # 1M context, 128K output. Request surface for this builder: adaptive
+        # thinking runs by default (counts against max_tokens -- 4096 leaves
+        # room); assistant prefill and non-default temperature/top_p/top_k
+        # return 400 -- the builder drops prefills for this ID (see
+        # _ANTHROPIC_PREFILL_REJECTED_RE) and never sends sampling params.
+        # Rollback is env-only: CLAUDE_HAIKU_MODEL=claude-haiku-4-5-20251001.
+        "name": "Claude Haiku 5.5 (Anthropic)",
         "api_style": "anthropic",  # Anthropic-specific format
         "endpoint": "https://api.anthropic.com/v1/messages",
-        "model": "claude-haiku-4-5-20251001",
+        "model": os.environ.get("CLAUDE_HAIKU_MODEL") or "claude-haiku-5-5",
         "env_key": "ANTHROPIC_API_KEY",
         "rpm_limit": 100,  # Haiku is fast + cheap, generous limits
         "rpd_limit": 20000,
@@ -1707,7 +1719,10 @@ _PROVIDER_COST_PER_M_TOKENS: Dict[str, Dict[str, float]] = {
     OPENROUTER_GPT_OSS: {"input": 0.0, "output": 0.0},
     # OPENROUTER_DEEPSEEK removed S50 -- slug 404 verified 2026-05-02
     CEREBRAS_SCOUT: {"input": 0.0, "output": 0.0},
-    CLAUDE_HAIKU: {"input": 1.0, "output": 5.0},
+    # 2026-10-16: Haiku 5.5 $0.10/$0.50 per MTok for <=100K-token prompts
+    # ($0.50/$2.50 above; this router caps prompts far below that). Haiku 4.5
+    # was $1/$5 at any length.
+    CLAUDE_HAIKU: {"input": 0.10, "output": 0.50},
     GPT4O: {"input": 2.5, "output": 10.0},
     # 2026-10-01: Sonnet 5.5 $2/$10 and Opus 5.5 $4/$20 per MTok
     # [platform.claude.com/docs/en/about-claude/models/overview, retrieved
@@ -2950,11 +2965,13 @@ def _build_openai_request(
 
 
 # Anthropic model IDs that return HTTP 400 for an assistant-message prefill:
-# Opus 4.6/4.7/4.8/5/5.5, Sonnet 4.6/5/5.5, and the Fable/Mythos families
-# (platform.claude.com/docs/en/models/*/migration-guide, retrieved 2026-10-01).
+# Opus 4.6/4.7/4.8/5/5.5, Sonnet 4.6/5/5.5, Haiku 5.5, and the Fable/Mythos
+# families (platform.claude.com/docs/en/models/*/migration-guide, retrieved
+# 2026-10-01; Haiku 5.5 added 2026-10-16 per its migration guide: "assistant
+# prefill returns a 400", with thinking off too).
 # Haiku 4.5 and the retired 3.x/4.0 IDs are deliberately not matched.
 _ANTHROPIC_PREFILL_REJECTED_RE = re.compile(
-    r"^claude-(opus-(4-[678]|5(-5)?)|sonnet-(4-6|5(-5)?)|fable-|mythos-)"
+    r"^claude-(opus-(4-[678]|5(-5)?)|sonnet-(4-6|5(-5)?)|haiku-5(-5)?|fable-|mythos-)"
 )
 
 
@@ -3193,7 +3210,9 @@ def _parse_huggingface_response(resp_data: Any) -> Dict[str, Any]:
         return {"text": "", "error": str(e)}
 
 
-def _parse_gemini_response(resp_data: Dict, provider_id: str = GEMINI) -> Dict[str, Any]:
+def _parse_gemini_response(
+    resp_data: Dict, provider_id: str = GEMINI
+) -> Dict[str, Any]:
     """Parse Gemini API response to normalized format.
 
     Handles both regular text responses and functionCall responses.

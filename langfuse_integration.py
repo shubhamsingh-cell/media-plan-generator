@@ -168,7 +168,7 @@ def trace_llm_call(
     """Fire-and-forget trace to Langfuse. Logs but doesn't raise.
 
     Args:
-        model: Model identifier (e.g. ``"claude-haiku-4-5"``).
+        model: Model identifier (e.g. ``"claude-haiku-5-5"``).
         input_messages: OpenAI/Anthropic-style message list.
         output: Generated text. ``None`` if the call errored before producing
             any output.

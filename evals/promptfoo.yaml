@@ -1,17 +1,19 @@
 description: Nova AI Suite LLM regression suite (S50 -- May 2026)
 
 # ─── Providers ────────────────────────────────────────────────────────────────
-# Haiku 4.5 is Joveo's primary LLM (claude_haiku in llm_router.py).
+# Haiku 5.5 is Joveo's primary LLM (claude_haiku in llm_router.py).
+# 2026-10-16: moved off claude-haiku-4-5-20251001 (retirement-eligible since
+# 2026-10-15). Haiku 5.5 returns HTTP 400 for non-default `temperature`, so
+# the Anthropic provider blocks carry no sampling params.
 # Qwen3-Coder-Free is the OpenRouter fallback configured in the same router.
 # A third optional provider is included to validate model parity for
 # structured output; comment it out if you do not want to spend its
 # credit budget during CI.
 
 providers:
-  - id: anthropic:messages:claude-haiku-4-5-20251001
+  - id: anthropic:messages:claude-haiku-5-5
     label: haiku-primary
     config:
-      temperature: 0.2
       max_tokens: 800
       apiKey: ${ANTHROPIC_API_KEY}
   - id: openrouter:qwen/qwen3-coder:free
@@ -33,7 +35,7 @@ defaultTest:
   options:
     # Use Haiku as the LLM-rubric grader so cost stays low; override
     # per-test if a particular check needs a stronger judge.
-    provider: anthropic:messages:claude-haiku-4-5-20251001
+    provider: anthropic:messages:claude-haiku-5-5
   assert:
     # Catch outright crashes / blank completions across every test.
     - type: not-equals

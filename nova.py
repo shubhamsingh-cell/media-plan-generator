@@ -573,11 +573,26 @@ def _compute_max_turns(message: str, history: list) -> int:
 
 # Token estimation: ~4 chars per token (conservative estimate)
 MAX_CONTEXT_CHARS = 180_000  # ~45K tokens, safe margin for Claude's 200K window
-CLAUDE_MODEL_PRIMARY = (
-    "claude-haiku-4-5-20251001"  # Fast + cheap for simple/medium queries
+# 2026-10-16 MODEL-ID REFRESH: Haiku 4.5 -> Haiku 5.5, Sonnet 4.6 -> Sonnet 5.5.
+# Docs [platform.claude.com/docs/en/about-claude/model-deprecations, retrieved
+# 2026-10-16]: claude-haiku-4-5-20251001 "Active ... Not sooner than October
+# 15, 2026" -- that retirement floor has passed, so it can be retired on 60
+# days' notice; claude-haiku-5-5 "Active ... Not sooner than October 7, 2027";
+# claude-sonnet-5-5 "Active ... Not sooner than September 28, 2027".
+# Request-surface notes for both new IDs (tests/test_anthropic_request_contract):
+#   * adaptive thinking runs by default and its tokens count against
+#     max_tokens -- short-output caps below were raised to leave headroom;
+#   * assistant prefill and non-default temperature/top_p/top_k return 400 --
+#     no payload in this file sends either;
+#   * responses may begin with `thinking` blocks -- every parser here reads
+#     content blocks by type, never by position.
+# Rollback is env-only: CLAUDE_MODEL_PRIMARY=claude-haiku-4-5-20251001,
+# CLAUDE_MODEL_COMPLEX=claude-sonnet-4-6.
+CLAUDE_MODEL_PRIMARY = os.environ.get("CLAUDE_MODEL_PRIMARY") or (
+    "claude-haiku-5-5"  # Fast + cheap for simple/medium queries
 )
 CLAUDE_MODEL_COMPLEX = os.environ.get("CLAUDE_MODEL_COMPLEX") or (
-    "claude-sonnet-4-6"  # S50 (May 2026): bumped from claude-sonnet-4-20250514
+    "claude-sonnet-5-5"  # S50: 4 -> 4.6; 2026-10-16: 4.6 -> 5.5
 )
 
 # Response cache settings
@@ -884,6 +899,13 @@ def validate_response_quality(response: str, query: str = "") -> tuple[bool, str
 # ---------------------------------------------------------------------------
 # Nova Metrics Tracker (lightweight, thread-safe)
 # ---------------------------------------------------------------------------
+# Haiku list price used by the /api/nova/metrics cost estimate (USD per 1M
+# tokens, <=100K-token prompts). 2026-10-16: Haiku 5.5 $0.10/$0.50
+# [platform.claude.com/docs/en/about-claude/pricing, via claude-api skill table].
+_HAIKU_USD_PER_M_INPUT = 0.10
+_HAIKU_USD_PER_M_OUTPUT = 0.50
+
+
 class _NovaMetrics:
     """Track Nova chatbot performance counters for the /api/nova/metrics endpoint."""
 
@@ -973,12 +995,21 @@ class _NovaMetrics:
             avg_lat = round(sum(lats) / len(lats), 1) if lats else 0
             p95_lat = round(lats[int(len(lats) * 0.95)] if lats else 0, 1)
 
-            # Estimated cost (Haiku 4.5: $1/M input, $5/M output)
-            input_cost = self.total_input_tokens / 1_000_000 * 1.0
-            output_cost = self.total_output_tokens / 1_000_000 * 5.0
-            # Cache read tokens are 90% cheaper
-            cache_read_cost = self.total_cache_read_tokens / 1_000_000 * 0.1
-            cache_creation_cost = self.total_cache_creation_tokens / 1_000_000 * 1.25
+            # Estimated cost at the Haiku 5.5 list price for <=100K-token
+            # prompts ($0.10/M input, $0.50/M output; cache reads 0.1x input,
+            # 1h cache writes 2x input -- nova sends ttl="1h"). 2026-10-16:
+            # was Haiku 4.5's $1/$5 with a 5-min 1.25x write multiplier.
+            input_cost = self.total_input_tokens / 1_000_000 * _HAIKU_USD_PER_M_INPUT
+            output_cost = self.total_output_tokens / 1_000_000 * _HAIKU_USD_PER_M_OUTPUT
+            cache_read_cost = (
+                self.total_cache_read_tokens / 1_000_000 * _HAIKU_USD_PER_M_INPUT * 0.1
+            )
+            cache_creation_cost = (
+                self.total_cache_creation_tokens
+                / 1_000_000
+                * _HAIKU_USD_PER_M_INPUT
+                * 2.0
+            )
             total_cost = (
                 input_cost + output_cost + cache_read_cost + cache_creation_cost
             )
@@ -3915,13 +3946,15 @@ def _classify_query_complexity(user_message: str) -> Tuple[int, str]:
     if any(p in msg_lower for p in complex_patterns):
         return (8192, CLAUDE_MODEL_COMPLEX)
 
-    # Greeting/ack patterns -> 512, Haiku (truly no data needed)
+    # Greeting/ack patterns -> 1024, Haiku (truly no data needed).
+    # 2026-10-16: was 512; Haiku 5.5's adaptive thinking counts against
+    # max_tokens, so a 512 cap could stop after a thinking block with no text.
     greeting_patterns = [
         r"^(hi|hello|hey|good morning|good afternoon)\b",
         r"^(thanks|thank you|ok|okay|got it)",
     ]
     if any(re.search(p, msg_lower) for p in greeting_patterns):
-        return (512, CLAUDE_MODEL_PRIMARY)
+        return (1024, CLAUDE_MODEL_PRIMARY)
 
     # Simple data questions still need room for tool results -> 2048, Haiku
     simple_patterns = [
@@ -21470,7 +21503,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                             }
                         ]
                         _synth_payload_b = {
-                            "model": "claude-haiku-4-5-20251001",
+                            "model": CLAUDE_MODEL_PRIMARY,
                             "max_tokens": 4096,
                             "messages": _synth_msgs_b,
                         }
@@ -21521,7 +21554,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                                 ),
                                 "tools_used": tools_used,
                                 "llm_provider": "claude_haiku",
-                                "llm_model": "claude-haiku-4-5-20251001",
+                                "llm_model": CLAUDE_MODEL_PRIMARY,
                                 "tool_iterations": max_iterations + 1,
                             }
                     except Exception as _synth_b_err:
@@ -25777,8 +25810,10 @@ def _call_planner_llm(
         user_content += f"\n\nRecent conversation context:\n{history_summary[:400]}"
 
     payload = {
-        "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 350,
+        "model": CLAUDE_MODEL_PRIMARY,
+        # 2026-10-16: was 350 on Haiku 4.5; Haiku 5.5 thinks by default and
+        # thinking tokens count against max_tokens, so leave room for the JSON.
+        "max_tokens": 1024,
         "system": system_prompt,
         "messages": [{"role": "user", "content": user_content}],
     }

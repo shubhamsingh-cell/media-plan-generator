@@ -962,7 +962,7 @@ def _handle_health_integrations(handler, path: str, parsed: Any) -> None:
     _paid_llm_registry = [
         (
             "claude_haiku",
-            "Claude Haiku 4.5",
+            "Claude Haiku 5.5",
             "Anthropic",
             "ANTHROPIC_API_KEY",
             "Fast, cheap paid fallback",

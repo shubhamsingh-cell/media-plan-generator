@@ -21,18 +21,22 @@
 # ════════════════════════════════════════════════════════════════════════════
 
 model_list:
-  # ── Claude Haiku 4.5 (PRIMARY for substantive Nova queries) ──
-  - model_name: claude-haiku-4-5
+  # ── Claude Haiku 5.5 (PRIMARY for substantive Nova queries) ──
+  # 2026-10-16: Haiku 4.5 -> Haiku 5.5 (claude-haiku-4-5-20251001 retirement
+  # floor "not sooner than October 15, 2026" has passed; claude-haiku-5-5 is
+  # Active, retirement not sooner than 2027-10-07). Rate card below is the
+  # <=100K-token-prompt tier ($0.50/$2.50 above 100K).
+  - model_name: claude-haiku-5-5
     litellm_params:
-      model: anthropic/claude-haiku-4-5
+      model: anthropic/claude-haiku-5-5
       api_key: os.environ/ANTHROPIC_API_KEY
       timeout: 60
       stream_timeout: 60
       max_retries: 2
       rpm: 240          # well under Anthropic tier-2 cap
       tpm: 200000
-      input_cost_per_token: 0.00000025   # $0.25 / 1M input tokens
-      output_cost_per_token: 0.00000125  # $1.25 / 1M output tokens
+      input_cost_per_token: 0.00000010   # $0.10 / 1M input tokens
+      output_cost_per_token: 0.00000050  # $0.50 / 1M output tokens
 
   # ── Gemini 3 Flash preview (free fallback, fast) ──
   - model_name: gemini-3-flash-preview
