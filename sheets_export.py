@@ -1036,7 +1036,9 @@ def get_status() -> Dict[str, Any]:
     """Check whether Google Sheets export is configured and operational.
 
     Returns:
-        Status dict with 'configured', 'service_account', and 'fallback' keys.
+        Status dict with 'configured', 'fallback' and 'formats' keys. The
+        service-account email is deliberately NOT included: this backs a
+        browser-facing POST route and the email identifies the Google principal.
     """
     creds = _load_credentials()
     has_openpyxl = False
@@ -1050,13 +1052,11 @@ def get_status() -> Dict[str, Any]:
     if creds:
         return {
             "configured": True,
-            "service_account": creds.get("client_email") or "unknown",
             "fallback": "xlsx" if has_openpyxl else "csv",
             "formats": ["sheets", "xlsx", "csv"] if has_openpyxl else ["sheets", "csv"],
         }
     return {
         "configured": False,
-        "service_account": None,
         "fallback": "xlsx" if has_openpyxl else "csv",
         "formats": ["xlsx", "csv"] if has_openpyxl else ["csv"],
     }

@@ -159,13 +159,7 @@
 
   // Check if Google export is configured and enable/disable accordingly
   (function checkGoogleExportAvailability() {
-    fetch("/api/export/status", {
-      method: "POST",
-      headers: {
-        "X-CSRF-Token":
-          typeof getCsrfToken === "function" ? getCsrfToken() : "",
-      },
-    })
+    csrfPost("/api/export/status")
       .then(function (r) {
         return r.json();
       })

@@ -397,6 +397,17 @@ class TestGetStatus:
         result = get_status()
         assert "csv" in result["formats"]
 
+    def test_never_exposes_service_account_email(self) -> None:
+        creds = {"client_email": "svc@example.iam.gserviceaccount.com"}
+        with patch("sheets_export._load_credentials", return_value=creds):
+            configured = get_status()
+        with patch("sheets_export._load_credentials", return_value=None):
+            unconfigured = get_status()
+        assert configured["configured"] is True
+        for result in (configured, unconfigured):
+            assert "service_account" not in result
+            assert "iam.gserviceaccount.com" not in json.dumps(result)
+
     @patch.dict("os.environ", {"GOOGLE_SHEETS_CREDENTIALS": ""})
     def test_unconfigured_no_sheets(self) -> None:
         result = get_status()

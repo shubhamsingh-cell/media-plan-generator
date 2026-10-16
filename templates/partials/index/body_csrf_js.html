@@ -11,10 +11,52 @@
       return "";
     }
   }
-  // Fetch and set the CSRF token cookie on page load
-  fetch("/api/csrf-token")
-    .then(function (r) {
-      return r.json();
-    })
-    .catch(function () {});
+  // Fetch and set the CSRF token cookie. The returned promise ALWAYS
+  // resolves (never rejects), after /api/csrf-token has answered or failed,
+  // so a caller can wait on it without a catch of its own.
+  function refreshCsrfToken() {
+    try {
+      return fetch("/api/csrf-token")
+        .then(function (r) {
+          return r.json();
+        })
+        .catch(function () {})
+        .then(function () {});
+    } catch (_) {
+      return Promise.resolve();
+    }
+  }
+  // Resolves once the first token fetch is done. POSTs fired at parse time
+  // (the export-status pollers) wait on it: before this they raced the
+  // fetch, sent an empty/stale X-CSRF-Token and got a 403 on ~1/3 of loads.
+  window.__csrfReady = refreshCsrfToken();
+  // POST that waits for the token, reads it at send time (never at parse
+  // time) and, if the server answers with the CSRF 403, refreshes the token
+  // once and retries once. Resolves to the final Response.
+  function csrfPost(url, options) {
+    function send() {
+      var opts = Object.assign({}, options || {}, { method: "POST" });
+      opts.headers = Object.assign({}, (options || {}).headers, {
+        "X-CSRF-Token": getCsrfToken(),
+      });
+      return fetch(url, opts);
+    }
+    return window.__csrfReady.then(send).then(function (resp) {
+      if (resp.status !== 403) return resp;
+      return resp
+        .clone()
+        .json()
+        .then(
+          function (b) {
+            return /csrf/i.test(String((b && b.error) || ""));
+          },
+          function () {
+            return false;
+          },
+        )
+        .then(function (isCsrf) {
+          return isCsrf ? refreshCsrfToken().then(send) : resp;
+        });
+    });
+  }
 </script>

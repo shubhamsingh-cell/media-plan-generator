@@ -14624,7 +14624,10 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         AND validates Origin against an allowlist to block CSWSH.
         """
         # ── Auth check BEFORE handshake so attackers cannot even upgrade ──
-        if not self._check_joveo_auth():
+        # Same pair /api/chat/stream accepts: a same-origin guest (browsers
+        # cannot set headers on a WS upgrade, so Origin is all it has) gets
+        # the WS path instead of three failed upgrades and an SSE fallback.
+        if not (self._check_joveo_auth() or self._check_same_origin_auth()):
             logger.warning(
                 "WS /ws/chat: auth rejected (client=%s, origin=%s)",
                 self._get_client_ip(),
@@ -18532,6 +18535,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             except (ValueError, TypeError):
                 _est_content_len = 0
             if _est_content_len <= 0:
+                logger.info(
+                    "Estimate 400: code=VALIDATION_ERROR field= reason=empty_body"
+                )
                 self._send_error("Empty request body", "VALIDATION_ERROR", 400)
                 return
             if (
@@ -18543,9 +18549,15 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             try:
                 _est_brief = json.loads(_est_body)
             except json.JSONDecodeError:
+                logger.info(
+                    "Estimate 400: code=VALIDATION_ERROR field= reason=invalid_json"
+                )
                 self._send_error("Invalid JSON", "VALIDATION_ERROR", 400)
                 return
             if not isinstance(_est_brief, dict):
+                logger.info(
+                    "Estimate 400: code=VALIDATION_ERROR field= reason=not_object"
+                )
                 self._send_error(
                     "Request body must be a JSON object", "VALIDATION_ERROR", 400
                 )
@@ -18553,6 +18565,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             try:
                 _est_result = _compute_plan_estimate(_est_brief)
             except _EstimateValidationError as _est_val_err:
+                # Field name only -- the message can quote what the user typed.
+                logger.info(
+                    "Estimate 400: code=VALIDATION_ERROR field=%s reason=invalid_field",
+                    _est_val_err.field or "",
+                )
                 self._send_error(
                     str(_est_val_err),
                     "VALIDATION_ERROR",

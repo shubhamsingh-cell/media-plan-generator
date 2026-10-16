@@ -6513,10 +6513,7 @@
 
   // Check if Google Sheets is configured (on page load)
   (function checkExportStatus() {
-    fetch("/api/export/status", {
-      method: "POST",
-      headers: { "X-CSRF-Token": getCsrfToken() },
-    })
+    csrfPost("/api/export/status")
       .then(function (r) {
         return r.json();
       })

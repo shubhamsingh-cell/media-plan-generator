@@ -1071,6 +1071,36 @@ class TestOriginGateLive:
         )
         resp.read()
 
+    def test_estimate_400_is_logged_by_code_and_field_not_body(
+        self, gate_server: int, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Telemetry: each /api/estimate 400 leaves one INFO line naming the
+        validation code and the field at fault -- never the raw body."""
+        typed = "1.5.2M-sentinel"
+        with caplog.at_level("INFO", logger="app"):
+            resp = _post_to(
+                gate_server,
+                "/api/estimate",
+                body=json.dumps(
+                    {
+                        "budget": typed,
+                        "roles": [{"title": "Driver", "count": 5}],
+                        "locations": ["Dallas, TX"],
+                    }
+                ).encode("utf-8"),
+                headers={"Origin": f"http://localhost:{gate_server}"},
+            )
+            payload = json.loads(resp.read())
+        assert resp.status == 400
+        assert payload["field"], payload
+        lines = [
+            r.getMessage() for r in caplog.records if "Estimate 400" in r.getMessage()
+        ]
+        assert len(lines) == 1, lines
+        assert "code=VALIDATION_ERROR" in lines[0]
+        assert f"field={payload['field']}" in lines[0]
+        assert typed not in caplog.text
+
     def test_estimate_list_count_is_400_not_500(self, gate_server: int) -> None:
         resp = _post_to(
             gate_server,
