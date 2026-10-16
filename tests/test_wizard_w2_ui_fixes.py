@@ -2040,14 +2040,14 @@ def test_a_duration_recommendation_is_still_click_to_apply():
     assert _extract("duration", "Short campaigns for sales roles risk low yield: passive candidates take time.") is None
 
 
-_BENCH_NURSE = {"label": "nursing", "p25": 4200, "median": 5400, "p75": 7800, "source": "SHRM 2024, NAHS 2024, SHRM 2025"}
-_BENCH_TECH = {"label": "tech", "p25": 4200, "median": 5800, "p75": 9500, "source": "SHRM 2024, DHI Group 2024, SHRM 2025"}
+_BENCH_NURSE = {"label": "nursing", "p25": 4200, "median": 5400, "p75": 7800, "source": "Test Source 2025, SHRM 2025"}
+_BENCH_TECH = {"label": "tech", "p25": 4200, "median": 5800, "p75": 9500, "source": "Test Source 2025, DHI Group 2024"}
 
 
 @needs_node
 def test_cost_per_hire_is_graded_only_against_the_data_quartiles():
     """Round-5: "High ~$7K/hire for Registered Nurse" came from a hand-typed
-    per-role-class table; the SHRM-sourced nursing upper quartile is $7.8K."""
+    per-role-class table; a (hypothetical, sourced) nursing upper quartile of $7.8K is what the grade reads."""
     def cph_lines(est_cph, benchmark, est_hires=6):
         return [
             t
@@ -2063,7 +2063,7 @@ def test_cost_per_hire_is_graded_only_against_the_data_quartiles():
     # the sources are the row's OWN list, in full -- never "SHRM" alone
     assert (
         "above the $7.8K upper quartile for nursing "
-        "(sources listed in the benchmark file: SHRM 2024, NAHS 2024, SHRM 2025)"
+        "(sources listed in the benchmark file: Test Source 2025, SHRM 2025)"
     ) in high[0]
     # one decimal under $10K: a $7.9K projection is above $7.8K, and says so
     assert cph_lines(7900, _BENCH_NURSE)[0].startswith("High <b>~$7.9K/hire</b>")
@@ -2209,7 +2209,7 @@ def test_the_pricing_grid_renders_ranges_and_reference_cards_without_trend_or_be
             "label": "nursing",
             "cpc": {"low": 2.2, "median": 4.1, "high": 6.8}, "cpc_source": "Appcast 2025",
             "cpa": {"low": 28, "median": 40, "high": 68}, "cpa_source": "Joveo 2026, Appcast 2025",
-            "cph": {"low": 4200, "median": 5400, "high": 7800}, "cph_source": "SHRM 2024, NAHS 2024, SHRM 2025",
+            "cph": {"low": 4200, "median": 5400, "high": 7800}, "cph_source": "Test Source 2025, SHRM 2025",
         },
         "metro": {"name": "Los Angeles", "cpa_mult": 1.24, "cpc_mult": 1.28, "source": "C2ER 2024 and BLS 2025"},
     }
@@ -2228,7 +2228,7 @@ def test_the_pricing_grid_renders_ranges_and_reference_cards_without_trend_or_be
     assert "CPC</span><span class=\"value\">$0.30 - $4.50 (median $0.92)" in html
     assert "CPA</span><span class=\"value\">$6 - $45 (median $18)" in html
     assert "nursing (industry reference, 25th - 75th percentile)" in html
-    assert "$4,200 - $7,800 (median $5,400)" in html and "SHRM 2024, NAHS 2024, SHRM 2025" in html
+    assert "$4,200 - $7,800 (median $5,400)" in html and "Test Source 2025, SHRM 2025" in html
     assert "Los Angeles (local multiplier vs the national median)" in html
     assert "1.24x" in html and "1.28x" in html
     assert "cost-of-living-based estimate (C2ER 2024 and BLS 2025)" in html

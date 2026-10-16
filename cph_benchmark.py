@@ -1,17 +1,16 @@
-"""Cost-per-hire quartiles for the wizard's "High / Efficient" read.
+"""Cost-per-hire yardsticks for the wizard's cost-per-hire read.
 
 The live preview used to grade ``est_cph`` against a hand-typed per-role-class
-table in the browser (``BENCH = {executive: 14000, senior: 6500, tech: 5000,
-skilled: 3500, ...}``): nothing in the repo carried those numbers, and the
-repo's SHRM-sourced data disagreed (nursing median $5,400 / p75 $7,800, tech
-median $5,800 / p75 $9,500), so a $7K nurse hire was flagged "High".
+table in the browser (``BENCH = {executive: 14000, senior: 6500, ...}``), and
+later against per-industry quartiles in
+``data/recruitment_benchmarks_2026_deep.json`` -> ``by_industry.<key>.cph_range_usd``.
+Those quartiles are Nova working estimates typed in on 2026-04-24: no public
+per-industry cost-per-hire quartiles exist (provenance audit 2026-10-17), so
+each row is marked ``status: illustrative_unverified`` and ``lookup`` returns
+None for it -- the wizard grades nothing against them.
 
-``lookup`` returns the quartiles, with the sources the row itself lists, from
-``data/recruitment_benchmarks_2026_deep.json`` -> ``by_industry.<key>.cph_range_usd``
-for the plan's industry / roles, or ``None`` when there is no benchmark that
-clearly fits (the wizard then grades nothing -- it never guesses).
-``/api/estimate`` carries the result as ``cph_benchmark``; the preview
-words "High" / "Efficient" only against it.
+The one verified figure is the SHRM 2025 US national average
+(``cph_national_usd``, a mean, not a quartile), exposed by ``national``.
 """
 
 from __future__ import annotations
@@ -98,10 +97,8 @@ def data() -> Dict[str, Any]:
 
 def source_label(source_ids: Iterable[str]) -> str:
     """The sources a data row lists, named as the file's own registry names
-    them ("SHRM 2024, NAHS 2024, SHRM 2025"): publisher + year, in the row's
-    order, every one of them. Never a single publisher standing in for the
-    row -- the nursing quartiles list NAHS (a tier-2 source with no URL)
-    beside SHRM, and SHRM's public 2025 release has no nursing quartiles."""
+    them ("Appcast 2025, SHRM 2025"): publisher + year, in the row's order,
+    every one of them. Never a single publisher standing in for the row."""
     registry = _load()["registry"]
     names = []
     for sid in source_ids:
@@ -137,6 +134,8 @@ def lookup(
 ) -> Optional[Dict[str, Any]]:
     """``{"label", "p25", "median", "p75", "source"}`` in USD, or None.
 
+    None for every row marked ``status: illustrative_unverified`` (all of the
+    per-industry quartiles today): an unsourced figure is never a benchmark.
     Only for USD plans: the figures are US dollars, and an FX-translated
     comparison would be a different claim.
     """
@@ -147,6 +146,8 @@ def lookup(
         return None
     store = _load()
     rng = ((store["by_industry"].get(key) or {}).get("cph_range_usd")) or {}
+    if str(rng.get("status") or "") == "illustrative_unverified":
+        return None
     source_ids = [str(i) for i in rng.get("source_ids") or []]
     figures = []
     for name in ("p25", "median", "p75"):
@@ -161,4 +162,29 @@ def lookup(
         "p75": figures[2],
         "source": source_label(source_ids),
         "source_ids": source_ids,
+    }
+
+
+def national(currency_code: str = "USD") -> Optional[Dict[str, Any]]:
+    """The SHRM 2025 US national average cost per hire (a mean), or None.
+
+    ``{"mean", "statistic", "label", "source", "source_ids", "url", "year"}``.
+    USD only, for the same reason as ``lookup``. None when the block or the
+    figure is missing or not a positive number.
+    """
+    if (currency_code or "USD").upper() != "USD":
+        return None
+    block = _load()["data"].get("cph_national_usd") or {}
+    value = block.get("non_executive_mean")
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        return None
+    source_ids = [str(i) for i in block.get("source_ids") or []] or ["shrm_cph_2025"]
+    return {
+        "mean": float(value),
+        "statistic": "mean",
+        "label": "SHRM 2025 US national average cost per hire (non-executive, all industries)",
+        "source": source_label(source_ids),
+        "source_ids": source_ids,
+        "url": str(block.get("url") or ""),
+        "year": block.get("publication_year") or 2025,
     }

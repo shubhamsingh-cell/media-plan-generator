@@ -63,20 +63,19 @@ def test_the_channels_are_ordered_by_the_datas_median_cpa():
     assert medians == sorted(medians)
 
 
-def test_the_industry_row_is_the_nursing_quartiles_the_preview_cites():
+def test_the_industry_row_carries_no_cost_per_hire_quartiles_while_they_are_unverified():
     got = pricing.build_live_pricing(*NURSE)
     ind = got["industry"]
     assert ind["label"] == "nursing"
     row = _file()["by_industry"]["nursing"]
-    assert (ind["cph"]["low"], ind["cph"]["median"], ind["cph"]["high"]) == (4200, 5400, 7800)
+    assert row["cph_range_usd"]["status"] == "illustrative_unverified"
+    # CPC / CPA are still the file's own sourced quartiles ...
     assert (ind["cpa"]["low"], ind["cpa"]["high"]) == (row["cpa_range_usd"]["p25"], row["cpa_range_usd"]["p75"])
     assert (ind["cpc"]["low"], ind["cpc"]["high"]) == (row["cpc_range_usd"]["p25"], row["cpc_range_usd"]["p75"])
-    # the same figures, from the same function, the estimate's grade uses
-    bm = cph_benchmark.lookup("healthcare_medical", ["Registered Nurse"])
-    assert bm is not None and (ind["cph"]["low"], ind["cph"]["high"]) == (bm["p25"], bm["p75"])
-    assert ind["cph_source"] == bm["source"] == "SHRM 2024, NAHS 2024, SHRM 2025"
-    # no cost per hire anywhere on the page exceeds the quartile the preview cites
-    assert max(ind["cph"].values()) <= bm["p75"]
+    # ... but the cost-per-hire quartiles are withheld, with no source line either
+    assert ind["cph"] is None and ind["cph_source"] == ""
+    assert cph_benchmark.lookup("healthcare_medical", ["Registered Nurse"]) is None
+    assert "4200" not in str(got) and "7800" not in str(got)
 
 
 def test_the_metro_multiplier_is_the_one_step_1_quotes():
@@ -118,8 +117,10 @@ def test_the_source_line_and_date_are_the_files_own():
     got = pricing.build_live_pricing(*NURSE)
     assert got["data_updated"] == _file()["metadata"]["last_updated"]
     assert got["source"].startswith("Benchmark data, sources listed in the file: ")
-    for name in ("Appcast 2025", "SHRM 2024", "NAHS 2024", "SHRM 2025"):
-        assert name in got["source"]
+    assert "Appcast 2025" in got["source"]
+    # the unverified cost-per-hire row no longer lends SHRM / NAHS names to the line
+    for name in ("SHRM 2024", "NAHS 2024", "SHRM 2025"):
+        assert name not in got["source"]
     # no live-looking "updated now" timestamp, no Supabase / Adzuna overlay
     assert "updated_at" not in got
     assert "supabase" not in got["source"].lower() and "adzuna" not in got["source"].lower()

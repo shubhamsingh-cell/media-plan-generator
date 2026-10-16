@@ -124,9 +124,14 @@ def build_live_pricing(role: str, location: str, industry: str) -> dict:
             ("cpa_range_usd", "cpa"),
             ("cph_range_usd", "cph"),
         ):
-            rng = _usd_range(row.get(field), "p25", "p75")
             raw = row.get(field)
             node: dict = raw if isinstance(raw, dict) else {}
+            # a row the data marks illustrative_unverified is never shown as a benchmark
+            if str(node.get("status") or "") == "illustrative_unverified":
+                industry_block[name] = None
+                industry_block[name + "_source"] = ""
+                continue
+            rng = _usd_range(raw, "p25", "p75")
             industry_block[name] = rng
             ids = [str(i) for i in node.get("source_ids") or []]
             industry_block[name + "_source"] = cph_benchmark.source_label(ids)
