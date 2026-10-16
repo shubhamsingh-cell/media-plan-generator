@@ -38,6 +38,7 @@ import urllib.error
 from concurrent.futures import (
     ThreadPoolExecutor,
     Future,
+    TimeoutError as _FutureTimeoutError,
 )
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -698,7 +699,11 @@ class DataOrchestrator:
                     try:
                         fetch_result = fut.result(timeout=timeout_seconds)
                         result.merge(fetch_result)
-                    except TimeoutError:
+                    # concurrent.futures' TimeoutError: not the builtin
+                    # before Python 3.11 (and not an OSError either), so
+                    # `except TimeoutError` let one slow source's timeout
+                    # escape fetch() past every handler here.
+                    except _FutureTimeoutError:
                         source = futures[fut]
                         logger.warning(
                             f"DataOrchestrator: {source.value} timed out ({timeout_seconds}s)"

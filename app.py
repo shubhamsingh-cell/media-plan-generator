@@ -502,7 +502,7 @@ def _lazy_llm_router():
 
 
 def _generate_narrative(
-    data: dict, product_context: str, task_type: str = "", max_tokens: int = 2048
+    data: dict, product_context: str, task_type: str = "", max_tokens: int = 4096
 ) -> str:
     """Generate AI narrative for product output via LLM router.
 
@@ -530,11 +530,14 @@ def _generate_narrative(
     # Gemini/Cerebras if Groq is unavailable.
     # S50: 10s timeout for all plan-gen LLM calls to avoid blocking the pipeline.
     task = task_type or getattr(router, "TASK_PLAN_NARRATIVE", "plan_narrative")
-    # 2026-10-16: max_tokens default 300 -> 2048. The 5.5-family Anthropic
-    # models think by default and thinking counts toward max_tokens; a 300
-    # cap can come back as a thinking block with no text (the router now
-    # fails such replies over, but the first provider should get room to
-    # answer). The prompt still asks for 2-3 sentences, so cost is unchanged.
+    # 2026-10-16: max_tokens default 300 -> 2048 -> 4096. The 5.5-family
+    # Anthropic models think by default and thinking counts toward
+    # max_tokens; a small cap can come back as a thinking block with no text
+    # (the router now fails such replies over, but the first provider should
+    # get room to answer). 4096 is excel_v2's _NARRATIVE_MAX_TOKENS for the
+    # same TASK_PLAN_NARRATIVE route, where a 600 cap produced exactly those
+    # empty replies. The prompt still asks for 2-3 sentences, so the text
+    # (and its cost) is unchanged; only the ceiling moves.
     try:
         prompt = (
             f"Based on this data, write a strategic recommendation as if presenting "
@@ -4803,7 +4806,116 @@ def _normalize_target_region(value: Any) -> str:
     return region if region in _VALID_TARGET_REGIONS else "us_only"
 
 
-def _apply_target_region(channel_pcts: dict, target_region: str) -> "tuple[dict, str]":
+# Market region of every currency plan_currency.currency_for_country resolves
+# a country to -- the split the regional boards follow: APAC boards, EMEA
+# boards, and the Americas (no regional board of their own). Keyed by
+# currency so country recognition stays in the ONE shared resolver (with its
+# "City, ST" US-state guard) instead of a second country table here.
+# tests/test_regional_boards_follow_plan_markets.py fails when plan_currency
+# gains a currency this table does not place.
+_CURRENCY_MARKET_REGION: "dict[str, str]" = {
+    code: region
+    for region, codes in (
+        ("americas", "USD CAD MXN BRL ARS CLP COP PEN"),
+        (
+            "emea",
+            "GBP EUR CHF SEK NOK DKK PLN CZK HUF RON RUB UAH TRY ILS AED SAR QAR "
+            "EGP ZAR NGN KES",
+        ),
+        ("apac", "INR AUD NZD SGD HKD JPY CNY KRW PHP THB IDR MYR VND PKR BDT LKR"),
+    )
+    for code in codes.split()
+}
+
+# Regional board channel -> the market region that funds it.
+_REGIONAL_BOARD_REGION: "dict[str, str]" = {
+    "apac_regional": "apac",
+    "emea_regional": "emea",
+}
+
+
+def _market_region(entry: Any) -> "str | None":
+    """Market region ("apac" / "emea" / "americas") of ONE plan market -- a
+    location string or dict, or a custom-region country code ("BR", "UK").
+    "" for an entry that names no market (blank, or a bare "Remote");
+    None when the region cannot be told ("Worldwide", "Accra, Ghana", or a
+    bare "London" that plan_location reads as several US towns)."""
+    if isinstance(entry, dict):
+        parts = [_safe_str(entry.get(k)).strip() for k in ("city", "state", "country")]
+        text = ", ".join(p for p in parts if p)
+    else:
+        text = _safe_str(entry).strip()
+    if not text:
+        return ""
+    try:
+        code = (
+            plan_currency.currency_for_country(text)
+            if plan_currency is not None
+            else None
+        )
+        if code:
+            return _CURRENCY_MARKET_REGION.get(code)
+        if plan_location is not None:
+            res = plan_location.resolve_location(text)
+            if res.kind == "remote":
+                return ""
+            # plan_location only ever confirms US places; "ambiguous" is NOT
+            # one ("London", "Paris" and "Toronto" all read as US towns).
+            if res.status in ("resolved", "corrected"):
+                return "americas"
+    except Exception:  # noqa: BLE001 - best-effort; unknown keeps every board
+        logger.debug("market region lookup failed for %r", text, exc_info=True)
+    return None
+
+
+def _plan_market_regions(plan: Any) -> "frozenset[str] | None":
+    """Market regions of every market the plan names -- its ``locations``,
+    its custom-region ``custom_countries`` and a ``country`` field. None when
+    it names none, or when ANY market cannot be placed: the caller then keeps
+    every regional board (fail open -- a board is never dropped on a guess)."""
+    if not isinstance(plan, dict):
+        return None
+    entries: list = []
+    for key in ("locations", "custom_countries", "country"):
+        value = plan.get(key)
+        if isinstance(value, (list, tuple)):
+            entries.extend(value)
+        elif value:
+            entries.append(value)
+    regions: "set[str]" = set()
+    for entry in entries:
+        region = _market_region(entry)
+        if region is None:
+            return None
+        if region:
+            regions.add(region)
+    return frozenset(regions) if regions else None
+
+
+def _drop_channels_proportionally(pcts: dict, keys: "list[str]") -> float:
+    """Remove ``keys`` from ``pcts`` (in place) and spread their combined
+    share over the remaining funded channels in proportion to each one's own
+    share, so the total is unchanged. Returns the share moved; with nothing
+    funded left to take it, ``pcts`` is left untouched and 0 is returned."""
+    present = [k for k in keys if k in pcts]
+    if not present:
+        return 0
+    moved = sum((pcts.get(k) or 0) for k in present if (pcts.get(k) or 0) > 0)
+    rest = {k: v for k, v in pcts.items() if k not in present and (v or 0) > 0}
+    rest_total = sum(rest.values())
+    if rest_total <= 0:
+        return 0
+    for k in present:
+        pcts.pop(k, None)
+    if moved > 0:
+        for k, v in rest.items():
+            pcts[k] = v + moved * v / rest_total
+    return moved
+
+
+def _apply_target_region(
+    channel_pcts: dict, target_region: str, plan: "dict | None" = None
+) -> "tuple[dict, str]":
     """Fold the regional channels for ``target_region`` -- the rule both
     /api/generate paths apply before calculate_budget_allocation, shared so
     /api/estimate (the wizard preview) funds the same channels:
@@ -4811,14 +4923,37 @@ def _apply_target_region(channel_pcts: dict, target_region: str) -> "tuple[dict,
     - us_only: APAC + EMEA shares go to the largest remaining channel;
     - emea / apac: the other region's share is ADDED to the kept regional
       channel (_move_regional_pct, the D-09 precedence fix);
-    - global / custom: unchanged.
+    - global / custom: a regional board is funded only when ``plan`` (the
+      request dict) names a market in its region (_plan_market_regions:
+      locations + custom countries); the dropped board's share is spread
+      proportionally over the remaining channels. A Brazil-only custom
+      plan used to put APAC and EMEA board money in front of Brazilian
+      candidates. Mixed plans keep both; with no plan, no named market or
+      any market that cannot be placed, unchanged.
 
     Returns (new pcts, log detail or "" when nothing moved). Never mutates
     the caller's dict.
     """
     pcts = dict(channel_pcts)
     detail = ""
-    if target_region == "us_only":
+    if target_region in ("global", "custom"):
+        regions = _plan_market_regions(plan)
+        if regions is not None:
+            drop = [
+                key
+                for key, region in _REGIONAL_BOARD_REGION.items()
+                if region not in regions and key in pcts
+            ]
+            moved = _drop_channels_proportionally(pcts, drop)
+            if moved > 0:
+                boards = "/".join(
+                    _REGIONAL_BOARD_REGION[k].upper() for k in drop if k not in pcts
+                )
+                detail = (
+                    f"redistributed {moved:g}% from {boards} proportionally "
+                    f"(plan markets: {', '.join(sorted(regions))})"
+                )
+    elif target_region == "us_only":
         intl = pcts.pop("apac_regional", 0) + pcts.pop("emea_regional", 0)
         if intl > 0 and pcts:
             top = max(pcts, key=lambda k: pcts[k])
@@ -5738,7 +5873,7 @@ def _compute_plan_estimate(brief: dict) -> dict:
     # locations here, so "Zurich" + the default "US Only" previewed APAC/EMEA
     # funding the plan then stripped).
     channel_pcts, _region_detail = _apply_target_region(
-        channel_pcts, brief["target_region"]
+        channel_pcts, brief["target_region"], brief
     )
 
     # Honour the wizard's channel toggles exactly as both /api/generate
@@ -8174,6 +8309,23 @@ def _plan_result_lookup(plan_id: str) -> Optional[dict]:
         entry = _plan_results_store.setdefault(plan_id, entry)
         _plan_results_enforce_cap_locked()
     return entry
+
+
+def _live_plan_id(plan_id: str) -> str:
+    """``plan_id`` when a plan result is stored under it and still inside its
+    24 h life (the window /api/plan-results and CSV/XLSX export honour),
+    else "". A download only advertises an X-Plan-Id that will resolve.
+    Never raises: a lookup fault just omits the header."""
+    try:
+        entry = _plan_result_lookup(plan_id)
+    except Exception:  # noqa: BLE001 - header is optional, the download is not
+        logger.debug("plan-result lookup failed for %s", plan_id, exc_info=True)
+        return ""
+    if not entry:
+        return ""
+    if time.time() - (entry.get("created") or 0) > _PLAN_RESULTS_TTL_SECONDS:
+        return ""
+    return plan_id
 
 
 def _plan_result_set_sheets_url(plan_id: str, sheet_url: str) -> None:
@@ -15692,12 +15844,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             status_code=410,
                         )
                         return
+                    _dl_plan_id = _live_plan_id(job_id)
                     self.send_response(200)
                     self.send_header("Content-Type", content_type)
                     self.send_header(
                         "Content-Disposition", f'attachment; filename="{filename}"'
                     )
                     self.send_header("Content-Length", str(len(result_bytes)))
+                    self._send_plan_id_header(_dl_plan_id)
                     self.end_headers()
                     self.wfile.write(result_bytes)
                     # S37 fix: Keep result_bytes for 5 min after first download
@@ -19217,7 +19371,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                 if isinstance(channel_pcts, dict):
                                     channel_pcts, _region_detail_a = (
                                         _apply_target_region(
-                                            channel_pcts, _target_region_async
+                                            channel_pcts, _target_region_async, gen_data
                                         )
                                     )
                                     if _region_detail_a:
@@ -19918,6 +20072,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     "(non-fatal): %s",
                                     _nar_audit_err,
                                 )
+
+                        # The plan under the job id, exactly as the sync path
+                        # stores it under its X-Plan-Id: /api/plan-results,
+                        # the dashboard and CSV/XLSX export (routes/export.py,
+                        # by plan_id) had nothing to read for async plans.
+                        # Stored BEFORE the job reads "completed" so the id
+                        # resolves the moment the download (and its
+                        # X-Plan-Id header) can happen -- not after the S47
+                        # Supabase round-trip below. Never raises.
+                        _store_plan_result(jid, gen_data)
 
                         with _generation_jobs_lock:
                             if jid in _generation_jobs:
@@ -21338,7 +21502,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     _target_region = _normalize_target_region(data.get("target_region"))
                     if isinstance(channel_pcts, dict):
                         channel_pcts, _region_detail = _apply_target_region(
-                            channel_pcts, _target_region
+                            channel_pcts, _target_region, data
                         )
                         if _region_detail:
                             logger.info(
@@ -22450,9 +22614,15 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 try:
                     with _chat_span_fn("nova.chat", "Nova chat LLM routing + response"):
                         response = _chat_future.result(timeout=_CHAT_REQUEST_TIMEOUT)
-                except (TimeoutError, Exception) as _chat_timeout_err:
+                except (_FutureTimeoutError, Exception) as _chat_timeout_err:
                     _chat_future.cancel()
-                    _is_timeout = isinstance(_chat_timeout_err, TimeoutError)
+                    # Future.result(timeout=) raises concurrent.futures'
+                    # TimeoutError, which is NOT the builtin before Python
+                    # 3.11: the builtin-only test read every chat timeout as
+                    # a failure and skipped the partial-results reply below.
+                    _is_timeout = isinstance(
+                        _chat_timeout_err, (_FutureTimeoutError, TimeoutError)
+                    )
                     logger.error(
                         "Chat request %s after %.0fs: %s",
                         "timed out" if _is_timeout else "failed",
@@ -26477,6 +26647,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         self._response_status = code
         super().send_response(code, message)
 
+    def _send_plan_id_header(self, plan_id: str) -> None:
+        """X-Plan-Id on a /api/jobs/<id> download whose plan result is stored
+        under the job id (_live_plan_id; "" sends nothing) -- the same header
+        the sync /api/generate response carries, so the wizard can export the
+        async plan by id. The wizard's fetch is same-origin; the expose line
+        mirrors the sync response for cross-origin API callers."""
+        if plan_id:
+            self.send_header("X-Plan-Id", plan_id)
+            self.send_header("Access-Control-Expose-Headers", "X-Plan-Id")
+
     def _serve_job_blob(self, job_id: str, filename: str, content_type: str) -> bool:
         """Serve a completed job's ZIP from the instance blob store, where the
         worker that ran the job left it (_mirror_job). Same bearer-token and
@@ -26484,10 +26664,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
         blob = _job_result_blobs.get(job_id)
         if not blob:
             return False
+        plan_id = _live_plan_id(job_id)
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
         self.send_header("Content-Length", str(len(blob)))
+        self._send_plan_id_header(plan_id)
         self.end_headers()
         try:
             self.wfile.write(blob)
@@ -26673,12 +26855,14 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 }
             )
             return True
+        _sb_plan_id = _live_plan_id(job_id)
         self.send_response(200)
         self.send_header("Content-Type", _dl_ct)
         self.send_header(
             "Content-Disposition", f'attachment; filename="{_dl_filename}"'
         )
         self.send_header("Content-Length", str(len(_zip_bytes)))
+        self._send_plan_id_header(_sb_plan_id)
         self.end_headers()
         try:
             self.wfile.write(_zip_bytes)

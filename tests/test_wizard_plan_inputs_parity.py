@@ -114,9 +114,14 @@ def test_missing_region_is_us_only_like_generate():
     )
 
 
-def test_global_region_keeps_regional_channels():
+def test_global_region_funds_the_regional_boards_its_markets_need():
+    # 2026-10-16: global/custom fund a regional board only for a market in
+    # its region (tests/test_regional_boards_follow_plan_markets.py). _LOCS is
+    # Zurich + Toronto + Sao Paulo: EMEA yes, APAC no.
     funded = _funded(dict(_BRIEF, target_region="global"))
-    assert {"apac_regional", "emea_regional"} <= funded, funded
+    assert "emea_regional" in funded and "apac_regional" not in funded, funded
+    mixed = dict(_BRIEF, target_region="global", locations=_LOCS + ["Pune, India"])
+    assert {"apac_regional", "emea_regional"} <= _funded(mixed)
 
 
 def test_region_fold_is_the_generate_rule():

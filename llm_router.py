@@ -4536,7 +4536,11 @@ def _parallel_consensus(
             "latency_ms": float,              # Wall-clock for the batch
         }
     """
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from concurrent.futures import (
+        ThreadPoolExecutor,
+        TimeoutError as _FutureTimeoutError,
+        as_completed,
+    )
 
     panel = list(providers or _CONSENSUS_DEFAULT_PROVIDERS)
     if not panel:
@@ -4585,7 +4589,10 @@ def _parallel_consensus(
                         results[pid] = payload
                 except Exception as exc:  # noqa: BLE001
                     logger.debug("Parallel consensus future failed: %s", exc)
-        except TimeoutError:
+        # as_completed(timeout=) raises concurrent.futures' TimeoutError: not
+        # the builtin before Python 3.11, so `except TimeoutError` sent a
+        # slow panel to the generic handler and skipped this collect pass.
+        except _FutureTimeoutError:
             # Some providers didn't finish; collect any that did.
             for fut, pid in futures.items():
                 if fut.done():

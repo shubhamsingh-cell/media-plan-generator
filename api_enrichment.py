@@ -14343,6 +14343,63 @@ def _build_enrichment_summary(
     return summary
 
 
+# Role-based sources and the wizard's ``target_roles`` (ENRICH_ROLE_SOURCES)
+# ---------------------------------------------------------------------------
+# enrich_data() reads roles from ``roles`` / ``job_titles``, but the wizard
+# (and both /api/generate paths in app.py) send ``target_roles``, so none of
+# the sources below runs for a wizard plan (that read dates from 730a98c,
+# 2026-03-07; the 2026-10-16 audit found it). Aliasing
+# ``target_roles`` -> ``roles`` turns 17 more live calls on per plan, and two
+# preconditions for doing that by default do not hold today (2026-10-16):
+#   * no budget cuts a slow one off: the 8 s cap (GEOPOLITICAL_TIMEOUT_
+#     DEFAULT_S) covers only the geopolitical LLM thread; this pool waits up
+#     to _ENRICHMENT_HARD_TIMEOUT (50 s) on 5 workers while holding
+#     _enrichment_semaphore, and app.py's 20 s outer deadline stops waiting
+#     without cancelling a running or queued source;
+#   * only "BLS" is in _API_RATE_LIMITS -- the other 16 have no proactive
+#     limiter (circuit breaker on failures only).
+# So the alias is opt-in: env ENRICH_ROLE_SOURCES=1/true/yes/on enables it
+# (read per call). While off, each plan logs which sources it would have run.
+ROLE_SOURCES_ENV = "ENRICH_ROLE_SOURCES"
+# Dispatched whenever the request carries roles.
+ROLE_ONLY_SOURCE_LABELS: tuple = (
+    "BLS",
+    "GoogleTrends",
+    "O*NET",
+    "DataUSA-Occ",
+    "GoogleAds",
+    "MetaAds",
+    "BingAds",
+    "TikTokAds",
+    "LinkedInAds",
+    "CareerOneStop",
+    "COS-Projections",
+    "H1B-Wages",
+    "H1B-Salary-Intel",
+)
+# Dispatched only when the request carries roles AND locations.
+ROLE_AND_LOCATION_SOURCE_LABELS: tuple = (
+    "Adzuna",
+    "Jooble",
+    "RegionalLabour",
+    "CareerJet",
+)
+
+
+def role_sources_enabled() -> bool:
+    """True when ENRICH_ROLE_SOURCES opts the wizard's target_roles in."""
+    raw = (os.environ.get(ROLE_SOURCES_ENV) or "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def role_sources_for(has_locations: bool) -> List[str]:
+    """Labels of the role-based sources a request with roles dispatches."""
+    labels = list(ROLE_ONLY_SOURCE_LABELS)
+    if has_locations:
+        labels += list(ROLE_AND_LOCATION_SOURCE_LABELS)
+    return labels
+
+
 # Main enrichment orchestrator
 # ---------------------------------------------------------------------------
 
@@ -14361,7 +14418,8 @@ def enrich_data(
         - client_name (str)
         - client_website (str)
         - industry (str)
-        - roles / job_titles (list[str])
+        - roles / job_titles (list[str]); the wizard's target_roles is
+          read as roles only when ENRICH_ROLE_SOURCES is on (see above)
         - locations (list[str])
         - competitors (list[str])
 
@@ -14395,6 +14453,13 @@ def enrich_data(
     client_website = data.get("client_website") or "" or ""
     industry = data.get("industry") or "" or ""
     roles = data.get("roles") or data.get("job_titles") or []
+    # The wizard's key (see ROLE_SOURCES_ENV): aliased only when enabled.
+    gated_target_roles = False
+    if not roles and data.get("target_roles"):
+        if role_sources_enabled():
+            roles = data.get("target_roles") or []
+        else:
+            gated_target_roles = True
     locations = data.get("locations") or []
     # Same shared cleaner app.py's request boundary uses (names only here).
     competitors = normalize_competitor_names(data.get("competitors"))
@@ -14751,6 +14816,13 @@ def enrich_data(
                     location=_l[0] if _l else "",
                 ),
             )
+        )
+
+    if gated_target_roles:
+        _log_info(
+            f"{ROLE_SOURCES_ENV} is off: target_roles not passed to enrichment; "
+            f"role sources that would have run: "
+            f"{', '.join(role_sources_for(bool(locations)))}"
         )
 
     # --- Execute tasks concurrently ---

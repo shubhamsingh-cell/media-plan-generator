@@ -1,0 +1,217 @@
+"""A regional job board is funded only when the plan has a market in its
+region (2026-10-16 sweep).
+
+Pre-fix ``app._apply_target_region`` left ``global`` and ``custom`` plans
+untouched, so a Brazil-only custom plan put the industry profile's
+``apac_regional`` + ``emea_regional`` shares (9% + 9% in some profiles) into
+APAC and EMEA boards no Brazilian candidate reads -- Canada 20.8% and Mexico
+17.6% of budget in that day's sweep. Now, for ``global`` / ``custom``, the
+plan's markets (locations + custom-region countries) decide which regional
+board stays; a dropped board's share is spread proportionally over the
+remaining channels; mixed plans keep both; anything the resolver cannot
+place keeps the old behaviour (fail open).
+"""
+
+from __future__ import annotations
+
+import ast
+import sys
+from pathlib import Path
+
+import pytest
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+import app  # noqa: E402
+import plan_currency  # noqa: E402
+
+_PCTS = {
+    "programmatic_dsp": 32,
+    "global_boards": 30,
+    "social_media": 20,
+    "apac_regional": 9,
+    "emea_regional": 9,
+}
+_REGIONAL = {"apac_regional", "emea_regional"}
+
+
+def _fold(region: str, plan: "dict | None") -> dict:
+    return app._apply_target_region(dict(_PCTS), region, plan)[0]
+
+
+# ---------------------------------------------------------------------------
+# The fold itself
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "plan",
+    [
+        {"locations": ["Sao Paulo, Brazil"], "custom_countries": ["BR"]},
+        {"locations": ["Toronto, ON"], "custom_countries": ["CA"]},
+        {"locations": ["Mexico City, Mexico"], "custom_countries": ["MX"]},
+        {"custom_countries": ["BR"]},  # countries alone are enough
+    ],
+)
+def test_americas_only_custom_plan_funds_no_regional_board(plan):
+    out = _fold("custom", plan)
+    assert not _REGIONAL & set(out), out
+    assert sum(out.values()) == pytest.approx(sum(_PCTS.values()))
+
+
+def test_dropped_share_is_spread_proportionally():
+    out = _fold("custom", {"locations": ["Sao Paulo, Brazil"]})
+    kept = {k: v for k, v in _PCTS.items() if k not in _REGIONAL}
+    kept_total = sum(kept.values())
+    for key, share in kept.items():
+        assert out[key] == pytest.approx(share + 18 * share / kept_total)
+    # ratios between the remaining channels are unchanged
+    assert out["programmatic_dsp"] / out["social_media"] == pytest.approx(32 / 20)
+
+
+def test_emea_only_plan_keeps_emea_board_drops_apac():
+    out = _fold(
+        "custom", {"locations": ["Berlin, Germany"], "custom_countries": ["DE"]}
+    )
+    assert "apac_regional" not in out
+    assert out["emea_regional"] > _PCTS["emea_regional"]  # took its proportional cut
+    assert sum(out.values()) == pytest.approx(sum(_PCTS.values()))
+
+
+def test_apac_only_plan_keeps_apac_board_drops_emea():
+    out = _fold("custom", {"locations": ["Bengaluru, Karnataka, India"]})
+    assert "emea_regional" not in out and "apac_regional" in out
+
+
+def test_mixed_plan_keeps_both_boards():
+    plan = {"locations": ["Berlin, Germany", "Pune, India", "Toronto, ON"]}
+    assert _fold("custom", plan) == _PCTS
+    assert _fold("global", plan) == _PCTS
+
+
+def test_global_region_follows_markets_too():
+    out = _fold("global", {"locations": ["Denver, CO", "Austin, TX"]})
+    assert not _REGIONAL & set(out), out
+
+
+@pytest.mark.parametrize(
+    "plan",
+    [
+        None,  # legacy callers: no plan, no change
+        {},
+        {"locations": []},
+        {"locations": ["Remote"]},  # names no market
+        {"locations": ["Worldwide"]},  # cannot be placed
+        {"locations": ["Toronto, ON", "Accra, Ghana"]},  # one unplaceable market
+        # plan_location reads a bare "London" as several US towns -- not
+        # proof the plan has no EMEA market
+        {"locations": ["London"]},
+    ],
+)
+def test_unknown_or_unplaceable_markets_keep_every_board(plan):
+    assert _fold("custom", plan) == _PCTS
+    assert _fold("global", plan) == _PCTS
+
+
+def test_bare_remote_does_not_block_the_named_markets():
+    out = _fold("custom", {"locations": ["Toronto, ON", "Remote"]})
+    assert not _REGIONAL & set(out), out
+
+
+def test_dict_locations_are_placed_by_country():
+    plan = {"locations": [{"city": "Curitiba", "state": "", "country": "Brazil"}]}
+    assert not _REGIONAL & set(_fold("custom", plan))
+
+
+def test_other_regions_and_callers_dict_are_untouched():
+    pcts = dict(_PCTS)
+    plan = {"locations": ["Sao Paulo, Brazil"]}
+    app._apply_target_region(pcts, "custom", plan)
+    assert pcts == _PCTS  # never mutates the caller's dict
+    # us_only / emea / apac keep their own rules whatever the plan says
+    assert app._apply_target_region(dict(_PCTS), "us_only", plan)[0] == (
+        app._apply_target_region(dict(_PCTS), "us_only")[0]
+    )
+    assert app._apply_target_region(dict(_PCTS), "emea", plan)[0]["emea_regional"] == 18
+
+
+def test_fold_reports_what_moved():
+    _out, detail = app._apply_target_region(
+        dict(_PCTS), "custom", {"locations": ["Sao Paulo, Brazil"]}
+    )
+    assert "18" in detail and "APAC" in detail and "EMEA" in detail
+
+
+def test_every_plan_currency_has_a_market_region():
+    """A currency added to plan_currency must be placed here, or a plan in
+    that market silently keeps both boards (fail open)."""
+    currencies = set(plan_currency._COUNTRY_TO_CODE.values())
+    missing = sorted(currencies - set(app._CURRENCY_MARKET_REGION))
+    assert not missing, f"no market region for {missing}"
+
+
+# ---------------------------------------------------------------------------
+# End to end through the wizard preview, and the plan reaches every path
+# ---------------------------------------------------------------------------
+
+
+def _funded(brief: dict) -> dict:
+    est = app._compute_plan_estimate(dict(brief))
+    return {c["key"]: c["pct"] for c in est["channels"]}
+
+
+_BRIEF = {
+    "budget_range": "250000",
+    "industry": "healthcare_medical",
+    "client_name": "Acme Health",
+    "target_roles": ["Registered Nurse"],
+}
+
+
+@pytest.mark.parametrize(
+    "locations, countries",
+    [
+        (["Sao Paulo, Brazil"], ["BR"]),
+        (["Toronto, ON"], ["CA"]),
+        (["Mexico City, Mexico"], ["MX"]),
+    ],
+)
+def test_single_country_custom_preview_funds_no_regional_board(locations, countries):
+    funded = _funded(
+        dict(
+            _BRIEF,
+            target_region="custom",
+            locations=locations,
+            custom_countries=countries,
+        )
+    )
+    assert not _REGIONAL & set(funded), funded
+    assert sum(funded.values()) == pytest.approx(100, abs=0.5)
+
+
+def test_mixed_custom_preview_funds_both_boards():
+    funded = _funded(
+        dict(
+            _BRIEF,
+            target_region="custom",
+            locations=["Berlin, Germany", "Pune, India"],
+            custom_countries=["DE", "IN"],
+        )
+    )
+    assert _REGIONAL <= set(funded), funded
+
+
+def test_every_region_fold_call_site_passes_the_plan():
+    """sync (data), async (gen_data) and /api/estimate (brief) all hand the
+    request dict over -- without it the fold cannot see the plan's markets."""
+    tree = ast.parse((PROJECT_ROOT / "app.py").read_text(encoding="utf-8"))
+    plans = sorted(
+        ast.unparse(node.args[2])
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and getattr(node.func, "id", "") == "_apply_target_region"
+        and len(node.args) >= 3
+    )
+    assert plans == ["brief", "data", "gen_data"], plans

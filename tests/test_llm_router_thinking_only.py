@@ -394,3 +394,18 @@ def test_narrative_call_sites_leave_room_for_thinking(filename):
             f"(< {MIN_NARRATIVE_MAX_TOKENS}); the 5.5 models' default-on thinking "
             f"counts toward max_tokens and can leave no text block"
         )
+
+
+def test_app_narrative_sites_get_the_workbook_narrative_cap():
+    """app.py's TASK_PLAN_NARRATIVE call sites (``_generate_narrative``) leave
+    the same room as excel_v2's ``_NARRATIVE_MAX_TOKENS`` (4096, e94ec1f) --
+    one route, one ceiling. They sat at 2048 (and at 300 before 9cb9ff9)."""
+    import excel_v2
+
+    sites = _narrative_call_sites(PROJECT_ROOT / "app.py")
+    assert sites, "app.py: audit scope shrank -- no narrative call sites"
+    for lineno, values in sites:
+        assert values and min(values) >= excel_v2._NARRATIVE_MAX_TOKENS, (
+            f"app.py:{lineno}: TASK_PLAN_NARRATIVE max_tokens {values} "
+            f"< excel_v2._NARRATIVE_MAX_TOKENS ({excel_v2._NARRATIVE_MAX_TOKENS})"
+        )
