@@ -315,3 +315,128 @@ def test_commas_inside_numbers_are_never_split():
         pf.sweep_text("$1,200,000 across Reed and Indeed", data, ["France"])
         == "$1,200,000 across Reed"
     )
+
+
+# ---- round 3: brand truncation, generic names, known boards, ordinary words ----
+
+
+def _terms(data, countries=("United States",)):
+    return pf._mention_terms(data, list(countries))
+
+
+@pytest.mark.parametrize(
+    "typed", ["Indeed Hiring Lab", "Indeed Flex", "LinkedIn Talent Insights"]
+)
+def test_a_different_product_of_a_brand_is_matched_by_its_full_name_only(typed):
+    data = {"excluded_publishers": [typed]}
+    # the typed name is not truncated to the brand ...
+    assert not any(t in ("indeed", "!indeed", "linkedin") for t in _terms(data))
+    # ... so the brand's own platforms survive
+    for text in (
+        "Indeed Sponsored Jobs: 24.4% of budget",
+        "Buy via LinkedIn Ads.",
+        "Indeed Education",
+    ):
+        assert pf.sweep_text(text, data, ["United States"]) == text, text
+    assert not pf.is_excluded("Indeed Sponsored Jobs", data)
+
+
+@pytest.mark.parametrize(
+    "typed",
+    [
+        "Indeed France",
+        "indeed.com",
+        "Indeed Jobs",
+        "Indeed Sponsored Jobs",
+        "Indeed AU",
+    ],
+)
+def test_a_country_tld_or_jobs_suffix_is_still_the_brand(typed):
+    data = {"excluded_publishers": [typed]}
+    assert "!indeed" in _terms(data)
+    assert (
+        pf.sweep_text("Buy via Indeed Sponsored Jobs.", data, ["United States"]) == ""
+    )
+
+
+@pytest.mark.parametrize(
+    "typed", ["IT", "jobs", "the", "Job Board", "a", "ab", "careers", "online"]
+)
+def test_generic_words_are_not_board_names(typed):
+    assert pf.is_generic_name(typed)
+    assert pf.sanitize_excluded([typed, "Seek"]) == ["Seek"]
+    assert pf.rejected_excluded([typed, "Seek"]) == [typed]
+
+
+def test_real_boards_are_not_generic():
+    for name in ("Seek", "Reed", "Monster", "Dice", "indeed.com", "Total Jobs", "Jora"):
+        assert not pf.is_generic_name(name), name
+
+
+def test_an_unrecognised_name_is_honoured_in_lists_but_never_swept_in_prose():
+    data = {"excluded_publishers": ["Acme Hiring Portal"]}
+    assert not pf.is_known_board("Acme Hiring Portal")
+    assert pf.clean_names(["Acme Hiring Portal", "Reed"], data) == ["Reed"]
+    prose = "Acme Hiring Portal is mentioned in this sentence about hiring."
+    assert pf.sweep_text(prose, data, ["United States"]) == prose
+    assert not pf.has_exclusions(data, ["United States"]) or _terms(data) == ()
+
+
+def test_boards_that_are_ordinary_words_match_in_brand_form_only():
+    data = {"excluded_publishers": ["Seek"]}
+    markets = ["Australia"]
+    for text in (
+        "Job seekers seek flexible work.",
+        "We seek strong candidates; seek advice.",
+        "Data confidence for this section: 40%",
+    ):
+        assert pf.sweep_text(text, data, markets) == text, text
+    assert pf.sweep_text("Seek, Jora", data, markets) == "Jora"
+    assert pf.sweep_text("Seek / Jora", data, markets) == "Jora"
+    assert pf.sweep_text("Buy via SEEK.", data, markets) == ""
+    assert pf.clean_names(["SEEK", "Seek New Zealand", "Jora"], data) == ["Jora"]
+
+
+def test_the_sweep_takes_the_smallest_span():
+    data = {"excluded_publishers": ["indeed.com"]}
+    long = (
+        "Programmatic carries most of the volume across every market in the plan and "
+        "keeps CPA low, Indeed Sponsored Jobs adds a steady apply flow, "
+        "while the career site converts the remaining traffic into qualified hires."
+    )
+    out = pf.sweep_text(long, data, ["France"])
+    assert "Indeed" not in out
+    assert (
+        "Programmatic carries most of the volume" in out
+        and "career site converts" in out
+    )
+
+
+def test_the_client_name_is_never_edited():
+    data = {
+        "excluded_publishers": ["Seek", "indeed.com"],
+        "client_name": "Seek Staffing Co",
+    }
+    title = "Recruitment Media Plan: Seek Staffing Co"
+    assert pf.sweep_text(title, data, ["Australia"]) == title
+    assert pf.sweep_text(
+        "Seek Staffing Co hires on Seek and Reed.", data, ["Australia"]
+    ) == ("Seek Staffing Co hires on Reed.")
+    data2 = {
+        "excluded_publishers": ["indeed.com"],
+        "client_name": "Indeed Logistics Ltd",
+    }
+    assert (
+        pf.sweep_text("Indeed Logistics Ltd plan", data2, ["France"])
+        == "Indeed Logistics Ltd plan"
+    )
+
+
+def test_markets_without_board_data_are_reported():
+    assert pf.plan_market_board_gaps(
+        {"locations": ["Madrid, Spain", "Rome, Italy", "Paris, France"]}
+    ) == [
+        "Spain",
+        "Italy",
+    ]
+    assert pf.plan_market_board_gaps({"locations": ["Houston, TX"]}) == []

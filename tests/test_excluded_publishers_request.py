@@ -236,3 +236,57 @@ def test_chip_css_grows_instead_of_clipping_and_the_placeholder_fits():
     src = APP_JS.read_text(encoding="utf-8")
     assert "novaDuplicateBoard(entry, excludedPublishers)" in src
     assert "tag.title = val" in src
+
+
+# ---- round 3: generic names are refused ------------------------------------
+
+_GENERIC = ["IT", "jobs", "the", "Job Board", "ab"]
+
+
+@pytest.mark.parametrize("name", _GENERIC)
+def test_generic_names_get_a_clear_400_naming_the_field(live_port, name):  # noqa: F811
+    status, body = post_json(
+        live_port,
+        "/api/generate",
+        _generate_payload(excluded_publishers=[name, "Seek"]),
+    )
+    assert status == 400 and body.get("field") == "excluded_publishers", body
+    assert "Not a job board name" in body["error"] and name in body["error"]
+    status, body = post_json(
+        live_port,
+        "/api/estimate",
+        {
+            "budget_range": "250000",
+            "industry": "blue_collar_trades",
+            "client_name": "Exclusion Co",
+            "target_roles": ["Welder"],
+            "locations": ["Houston, TX"],
+            "excluded_publishers": [name],
+        },
+    )
+    assert status == 400 and body.get("field") == "excluded_publishers", body
+
+
+@needs_node
+def test_js_generic_check_equals_python():
+    from tests.wizard_js_harness import inputs_functions_js, run_node
+
+    names = _GENERIC + [
+        "Seek",
+        "Reed",
+        "indeed.com",
+        "Total Jobs",
+        "The Jobs",
+        "IT Jobs",
+        "Jora",
+        "x1",
+    ]
+    script = (
+        inputs_functions_js()
+        + "\nconsole.log(JSON.stringify("
+        + json.dumps(names)
+        + ".map(novaIsGenericBoardName)));"
+    )
+    assert run_node(script) == [publisher_filter.is_generic_name(n) for n in names]
+    src = APP_JS.read_text(encoding="utf-8")
+    assert "novaIsGenericBoardName(entry)" in src

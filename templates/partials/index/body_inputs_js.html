@@ -452,6 +452,20 @@
     }
     return P.aliases[key] || key;
   }
+  // Port of publisher_filter.is_generic_name: <=2 characters or only stopwords.
+  function novaIsGenericBoardName(name) {
+    var P = NOVA_INPUTS && NOVA_INPUTS.publishers;
+    if (!P) return false;
+    var text = String(name || "")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\([^)]*\)|\[[^\]]*\]/g, " ")
+      .trim();
+    var tokens = text.split(/[^a-z0-9]+/).filter(Boolean);
+    if (!tokens.length || tokens.join("").length <= 2) return true;
+    return tokens.every(function (t) { return P.stopwords.indexOf(t) !== -1; });
+  }
   // The excluded board an entry duplicates ("Indeed France" vs "indeed.com"), or "".
   function novaDuplicateBoard(entry, existing) {
     var k = novaBoardKey(entry);

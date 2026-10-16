@@ -11169,10 +11169,14 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
     # availability and renames already applied): a band under the cards, so the
     # deck names real publishers, not just channel categories.
     _local_boards = _pubfilter.plan_market_boards(data)
+    _board_gaps = _pubfilter.plan_market_board_gaps(data)
     _band_h_in = 0.0
-    if _local_boards:
-        _band_more = int(_local_boards[0].get("more") or 0)
-        _band_h_in = 0.4 + 0.27 * (len(_local_boards) + (1 if _band_more else 0))
+    _band_more = 0
+    if _local_boards or _board_gaps:
+        _band_more = int(_local_boards[0].get("more") or 0) if _local_boards else 0
+        _band_h_in = 0.4 + 0.27 * (
+            len(_local_boards) + (1 if _band_more else 0) + (1 if _board_gaps else 0)
+        )
         if any(g["unverified"] for g in _local_boards):
             _band_h_in += 0.25
         _avail_bottom_in -= _band_h_in
@@ -11365,7 +11369,7 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
             )
             _set_body_font(_stf)
 
-    if _local_boards:
+    if _local_boards or _board_gaps:
         _band_top_in = card_top_in + card_h_in + 0.22
         _add_textbox(
             slide,
@@ -11405,6 +11409,19 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
                 color=MUTED_TEXT,
             )
             _set_body_font(_mtf)
+            _line_top_in += 0.27
+        if _board_gaps:
+            _gx, _gtf = _add_textbox(
+                slide,
+                Inches(0.55),
+                Inches(_line_top_in),
+                Inches(12.2),
+                Inches(0.27),
+                text="No board data for: " + ", ".join(_board_gaps),
+                font_size=10,
+                color=MUTED_TEXT,
+            )
+            _set_body_font(_gtf)
             _line_top_in += 0.27
         if any(g["unverified"] for g in _local_boards):
             _nx, _ntf = _add_textbox(

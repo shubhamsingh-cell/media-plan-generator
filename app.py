@@ -4779,6 +4779,14 @@ def _excluded_publishers_problem(raw: Any) -> "tuple[str, str]":
             f"Too many excluded job boards ({len(items)}; "
             f"max {limits['excluded_publishers_max']}).",
         )
+    generic = publisher_filter.rejected_excluded(items)
+    if generic:
+        return (
+            "generic",
+            "Not a job board name: "
+            + ", ".join(f'"{g}"' for g in generic[:5])
+            + ". Type the board's own name (e.g. indeed.com).",
+        )
     if any(len(i.strip()) > limits["excluded_publisher_chars"] for i in items):
         return (
             "too_long",

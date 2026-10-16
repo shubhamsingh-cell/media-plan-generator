@@ -99,6 +99,34 @@ _COMMON_WORDS = frozenset(
     }
 )  # fmt: skip
 
+# Words that are not a board name on their own: rejected at the request
+# boundary (clear 400 / inline wizard message) and never a sweep pattern.
+_STOPWORDS = frozenset(
+    {
+        "a", "an", "the", "it", "is", "of", "or", "and", "to", "in", "on", "at",
+        "for", "by", "my", "no", "all", "any", "none", "other", "others", "n/a",
+        "na", "jobs", "job", "jobsite", "jobsites", "career", "careers", "hire",
+        "hiring", "board", "boards", "site", "sites", "online", "work", "works",
+        "web", "website", "com", "net", "org", "www", "search", "find", "apply",
+        "free", "new", "best", "top", "general", "global", "local", "national",
+        "social", "network", "recruit", "recruiting", "recruitment", "staffing",
+        "employment", "vacancies", "vacancy", "test", "example",
+    }
+)  # fmt: skip
+
+# Boards whose name is also an ordinary English word: in prose they match only
+# in their capitalised / upper-case brand form ("Seek", "SEEK"), never in
+# "job seekers seek flexible work".
+_ORDINARY_WORD_BOARDS = frozenset(
+    {"seek", "reed", "monster", "dice", "indeed", "hired", "talent", "shine", "snag"}
+)
+
+# What may follow a brand's first word without making it a different board.
+_BRAND_REST_WORDS = frozenset(
+    {"sponsored", "jobs", "job", "ads", "advertising", "careers", "career",
+     "hiring", "com", "europe", "asia", "apac", "emea", "latam", "global"}
+)  # fmt: skip
+
 # Multi-country brands whose national sites are written "<brand> <ISO-2>"
 # ("Indeed DE", "Monster FR"): a trailing two-letter code is a country only
 # after one of these (so "Dice NO" is never read as a Norwegian Dice).
@@ -403,11 +431,36 @@ def permanent_exclusion_names() -> List[str]:
 # ---------------------------------------------------------------------------
 
 
+def is_generic_name(name: Any) -> bool:
+    """True for a typed name that is not a board's own name: two characters
+    or fewer, or made only of stopwords ("IT", "jobs", "the", "job board")."""
+    text = _PAREN_RE.sub(" ", _fold(name)).strip()
+    tokens = [t for t in re.split(r"[^a-z0-9]+", text) if t]
+    if not tokens or len("".join(tokens)) <= 2:
+        return True
+    return all(t in _STOPWORDS for t in tokens)
+
+
+def rejected_excluded(raw: Any) -> List[str]:
+    """The typed names :func:`sanitize_excluded` refuses as generic."""
+    if isinstance(raw, str):
+        raw = re.split(r"[\n;,]", raw)
+    if not isinstance(raw, (list, tuple)):
+        return []
+    out: List[str] = []
+    for item in raw:
+        if isinstance(item, str):
+            text = re.sub(r"\s+", " ", re.sub(r"<[^>]*>", "", item)).strip()
+            if text and is_generic_name(text):
+                out.append(text)
+    return out
+
+
 def sanitize_excluded(raw: Any) -> List[str]:
     """Clean a request's ``excluded_publishers`` value into a list of unique
     display strings.  Accepts a list or a comma/newline separated string;
-    drops blanks, over-long entries and duplicates (by matcher key); caps the
-    count.  Never raises."""
+    drops blanks, generic words ("jobs", "IT"), over-long entries and
+    duplicates (by matcher key); caps the count.  Never raises."""
     if isinstance(raw, str):
         raw = re.split(r"[\n;,]", raw)
     if not isinstance(raw, (list, tuple)):
@@ -419,7 +472,7 @@ def sanitize_excluded(raw: Any) -> List[str]:
             continue
         text = re.sub(r"<[^>]*>", "", item)
         text = re.sub(r"\s+", " ", text).strip()
-        if not text or len(text) > MAX_NAME_CHARS:
+        if not text or len(text) > MAX_NAME_CHARS or is_generic_name(text):
             continue
         key = normalize(text)
         if not key or key in seen:
@@ -590,10 +643,13 @@ _mention_cache: Dict[Tuple[str, ...], Any] = {}
 
 
 def _mention_pattern(terms: Tuple[str, ...]) -> Any:
+    """Case-insensitive pattern over the plain terms."""
     pat = _mention_cache.get(terms)
     if pat is None:
         alts = []
         for term in terms:
+            if term.startswith("!"):
+                continue
             words = [w for w in re.split(r"[^a-z0-9]+", term) if w]
             if words:
                 alts.append(r"[\W_]*".join(re.escape(w) for w in words))
@@ -606,7 +662,62 @@ def _mention_pattern(terms: Tuple[str, ...]) -> Any:
     return pat
 
 
+def _strict_pattern(terms: Tuple[str, ...]) -> Any:
+    """Case-SENSITIVE pattern for boards that are ordinary words: only the
+    capitalised or upper-case brand form matches ("Seek"/"SEEK", never "seek")."""
+    key = ("!",) + terms
+    pat = _mention_cache.get(key)
+    if pat is None:
+        alts = []
+        for term in terms:
+            if term.startswith("!"):
+                word = re.escape(term[1:])
+                alts.append(f"{word.capitalize()}|{word.upper()}")
+        pat = (
+            re.compile(r"(?<![A-Za-z0-9])(?:" + "|".join(alts) + r")(?![A-Za-z0-9])")
+            if alts
+            else None
+        )
+        _mention_cache[key] = pat
+    return pat
+
+
 _terms_cache: Dict[Tuple[Any, ...], Tuple[str, ...]] = {}
+
+
+_known_cache: Optional[frozenset] = None
+
+
+def _known_board_keys() -> frozenset:
+    """Matcher keys of every board the repo's catalogs name: the supply
+    repository, the benchmark dataset's platforms, the availability file and
+    the multi-country brands.  Only these are ever used as free-text sweep
+    patterns; an unrecognised typed name is honoured in structured lists
+    (exact / normalised match) but never searched for in prose."""
+    global _known_cache
+    if _known_cache is None:
+        keys = set(_repo_index())
+        for entry in _dataset_countries().values():
+            for plat in entry.get("platforms") or []:
+                if isinstance(plat, dict) and plat.get("name"):
+                    keys.add(normalize(plat["name"]))
+        data = _load_availability()
+        keys.update(data["group_of"].values())
+        for ent in data["entries"] + data["scopes"]:
+            keys.update(ent["_keys"])
+        keys.update(_MULTI_COUNTRY_BRANDS)
+        keys.discard("")
+        keys -= {normalize(w) for w in _STOPWORDS}
+        _known_cache = frozenset(keys)
+    return _known_cache
+
+
+def is_known_board(name: Any) -> bool:
+    """True when ``name`` resolves to a board in the repo's catalogs."""
+    if is_generic_name(name):
+        return False
+    known = _known_board_keys()
+    return any(k in known for k in _keys_for(name)) or (_brand_key(name) or "") in known
 
 
 def _mention_terms(data: Any, countries: Sequence[str]) -> Tuple[str, ...]:
@@ -629,19 +740,27 @@ def _compute_mention_terms(data: Any, countries: Sequence[str]) -> Tuple[str, ..
     trailing country on a multi-country brand ("Indeed France") is dropped."""
     terms: List[str] = []
     for name in user_excluded(data):
+        if not is_known_board(name):
+            continue  # structured lists only; never a prose pattern
         base = _PAREN_RE.sub(" ", _fold(name)).strip()
         match = _DOMAIN_RE.match(base.replace(" ", ""))
         bare = _strip_tld(match.group(1)) if match else base
-        first = re.split(r"[^a-z0-9]+", bare)[:1]
+        words = [w for w in re.split(r"[^a-z0-9]+", bare) if w]
+        first = words[0] if words else ""
+        rest = words[1:]
         if (
-            first
-            and first[0] in _MULTI_COUNTRY_BRANDS
-            and first[0] not in _COMMON_WORDS
+            first in _MULTI_COUNTRY_BRANDS
+            and first not in _COMMON_WORDS
+            and _brand_rest_is_suffix(rest)
         ):
-            bare = first[0]
-        elif first and first[0] in _COMMON_WORDS:
-            # "talent.com": matched in prose only by the form the client typed
-            bare = base
+            # "Indeed France" / "indeed.com" / "Indeed Jobs" are the brand;
+            # "Indeed Hiring Lab" / "Indeed Flex" are different things and
+            # are matched by their full name only
+            bare = first
+        elif first in _COMMON_WORDS:
+            bare = base  # "talent.com": the form the client typed
+        if bare in _ORDINARY_WORD_BOARDS:
+            bare = "!" + bare  # brand form only
         terms.append(bare)
     wanted = {canonical_country(c) for c in countries if c}
     for entry in _load_availability()["entries"]:
@@ -663,6 +782,27 @@ def _compute_mention_terms(data: Any, countries: Sequence[str]) -> Tuple[str, ..
                 terms.append(_fold(scope["name"]))
                 terms.extend(_fold(a) for a in (scope.get("aliases") or []))
     return tuple(sorted({t for t in terms if t}))
+
+
+def _brand_rest_is_suffix(rest: List[str]) -> bool:
+    """True when what follows a brand's first word is only a country / region
+    name, a TLD or a jobs / careers / hiring suffix (or a 2-letter code)."""
+    i = 0
+    while i < len(rest):
+        for width in (3, 2, 1):
+            if " ".join(rest[i : i + width]) in _COUNTRY_WORD_SET and i + width <= len(
+                rest
+            ):
+                i += width
+                break
+        else:
+            if rest[i] in _BRAND_REST_WORDS or (
+                len(rest[i]) == 2 and rest[i].isalpha()
+            ):
+                i += 1
+            else:
+                return False
+    return True
 
 
 def _plan_markets(
@@ -729,23 +869,39 @@ def _spans(
     """(text the spans index into, unprotected mention spans)."""
     terms = _mention_terms(data, markets)
     pat = _mention_pattern(terms) if terms else None
-    if pat is None:
+    strict = _strict_pattern(terms) if terms else None
+    if pat is None and strict is None:
         return text, []
     folded = _fold(text)
     if len(folded) != len(text):  # ligature etc: index the raw text instead
         folded = text.lower()
+    # the client's own name is never edited ("Seek Staffing Co")
+    protected: List[Tuple[int, int]] = []
+    client = _fold((data or {}).get("client_name")) if isinstance(data, dict) else ""
+    if client and len(client) >= 3:
+        for cm in re.finditer(re.escape(client), folded):
+            protected.append((cm.start(), cm.end()))
+    found = (
+        [(m.start(), m.end(), m.group(0)) for m in pat.finditer(folded)] if pat else []
+    )
+    if strict is not None:
+        found += [
+            (m.start(), m.end(), m.group(0).lower()) for m in strict.finditer(text)
+        ]
     spans: List[Tuple[int, int]] = []
-    for m in pat.finditer(folded):
-        if _is_citation(folded, m.start(), m.end()):
+    for start, end0, matched in sorted(found):
+        if any(ps <= start and end0 <= pe for ps, pe in protected):
             continue
-        end = m.end()
+        if _is_citation(folded, start, end0):
+            continue
+        end = end0
         tail = _SPAN_TAIL_RE.match(folded, end)
-        if tail and re.match(r"[a-z0-9]+$", m.group(0).replace(" ", "")):
+        if tail and re.match(r"[a-z0-9]+$", matched.replace(" ", "")):
             # only widen over a brand's own suffixes, never past punctuation
-            first = re.split(r"[^a-z0-9]+", m.group(0))[0]
+            first = re.split(r"[^a-z0-9]+", matched)[0]
             if first in _MULTI_COUNTRY_BRANDS:
                 end = tail.end()
-        spans.append((m.start(), end))
+        spans.append((start, end))
     return folded, spans
 
 
@@ -814,6 +970,14 @@ def scrub_text(
         listed_part = _remove_listed(part, part_spans) if len(part) > 0 else None
         if listed_part and not _spans(listed_part, data, markets)[1]:
             kept.append(listed_part)
+        elif len(part) > 160:
+            # smallest span: in a long sentence drop only the comma clauses
+            # that name the board, not the whole sentence
+            pieces = re.split(r"(?<!\d),\s+(?!\d)", part)
+            survivors = [x for x in pieces if not _spans(x, data, markets)[1]]
+            if survivors:
+                tail = "." if part.rstrip().endswith(".") else ""
+                kept.append(", ".join(x.rstrip(".") for x in survivors) + tail)
     return " ".join(kept).strip().rstrip(";").strip()
 
 
@@ -1110,13 +1274,36 @@ def client_config() -> Dict[str, Any]:
         "generic": sorted(_GENERIC_WORDS),
         "tlds": list(_TLDS),
         "aliases": dict(_load_availability()["group_of"]),
+        "stopwords": sorted(_STOPWORDS),
     }
+
+
+def plan_market_board_gaps(data: Any) -> List[str]:
+    """Non-US plan markets the benchmark dataset has no board data for
+    (Spain, Italy, ...), in plan order -- the deck says so instead of silently
+    leaving them off the market band."""
+    if not isinstance(data, dict):
+        return []
+    raw_locations = data.get("locations") or []
+    if not isinstance(raw_locations, (list, tuple)):
+        raw_locations = [raw_locations]
+    gaps: List[str] = []
+    for raw in raw_locations:
+        text = raw if isinstance(raw, str) else str((raw or {}).get("city") or "")
+        country = detect_country(text) if text.strip() else None
+        if not country or canonical_country(country) == "United States":
+            continue
+        country = canonical_country(country)
+        if not dataset_platform_names(country) and country not in gaps:
+            gaps.append(country)
+    return gaps
 
 
 def reset_caches() -> None:
     """Test hook: drop the lazily-loaded data."""
-    global _availability_cache, _repo_index_cache
+    global _availability_cache, _repo_index_cache, _known_cache
     with _lock:
+        _known_cache = None
         _availability_cache = None
         _repo_index_cache = None
         _terms_cache.clear()

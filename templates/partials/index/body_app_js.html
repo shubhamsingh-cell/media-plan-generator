@@ -2869,6 +2869,12 @@
     if (note) note.textContent = "";
     try {
       entries.forEach((entry) => {
+        if (novaIsGenericBoardName(entry)) {
+          if (note)
+            note.textContent =
+              "\u201c" + entry + "\u201d is not a job board name. Type the board\u2019s own name, e.g. indeed.com.";
+          return;
+        }
         // the same board under another spelling is one exclusion
         const same = novaDuplicateBoard(entry, excludedPublishers);
         if (same) {

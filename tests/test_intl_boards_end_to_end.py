@@ -112,6 +112,35 @@ _PLANS: Dict[str, dict] = {
         "competitors": ["DHL"],
         "excluded_publishers": ["Total Jobs"],
     },
+    # round 3: a US plan excluding a DIFFERENT Indeed product; an AU plan
+    # excluding Seek whose client name contains it; Spain + Italy (no board data)
+    "us_hiringlab": {
+        "client_name": "Intl Fixture US",
+        "locations": ["Houston, TX", "Dallas, TX"],
+        "target_region": "us_only",
+        "custom_countries": [],
+        "competitors": ["DHL"],
+        "excluded_publishers": ["Indeed Hiring Lab", "Indeed Flex"],
+    },
+    "au_plain": {
+        "client_name": "Seek Hiring Co",
+        "locations": ["Sydney, Australia", "Melbourne, Australia"],
+        "custom_countries": ["AU"],
+        "competitors": ["DHL"],
+    },
+    "au_seek": {
+        "client_name": "Seek Hiring Co",
+        "locations": ["Sydney, Australia", "Melbourne, Australia"],
+        "custom_countries": ["AU"],
+        "competitors": ["DHL"],
+        "excluded_publishers": ["Seek"],
+    },
+    "es_it": {
+        "client_name": "Intl Fixture EU",
+        "locations": ["Madrid, Spain", "Rome, Italy"],
+        "custom_countries": ["ES", "IT"],
+        "competitors": ["DHL"],
+    },
     "multi": {
         "client_name": "Intl Fixture Multi",
         "locations": [
@@ -477,3 +506,44 @@ def test_deck_band_says_how_many_markets_it_left_out_and_renders_the_dagger(bund
     xlsx, _ = bundles["multi"]
     countries = [t for w, t in xlsx if re.fullmatch(r"Intl Benchmarks!B\d+", w)]
     assert "Turkey" in countries and "Australia" in countries
+
+
+def test_excluding_another_indeed_product_keeps_indeed_sponsored_jobs(bundles):
+    xlsx, _ = bundles["us_hiringlab"]
+    assert [
+        t
+        for w, t in xlsx
+        if w.startswith("Channels & Strategy!") and t == "Indeed Sponsored Jobs"
+    ]
+    recs = [t for w, t in xlsx if w.startswith("Channel Recommendations!")]
+    assert any("Indeed Sponsored Jobs" in t for t in recs), recs
+
+
+def test_excluding_seek_removes_the_board_not_the_word_or_the_client_name(bundles):
+    plain, excl = _everything(bundles["au_plain"]), _everything(bundles["au_seek"])
+    assert _hits(plain, r"\bSeek\b"), "fixture should name the board"
+    # the board is gone from every list ...
+    lists = [
+        t
+        for w, t in excl
+        if w.startswith(("Channels & Strategy!D", "Intl Benchmarks!D"))
+    ]
+    assert not [t for t in lists if re.search(r"\bSeek\b", t)], lists
+
+    # ... the client's own name is intact everywhere it appears ...
+    def with_client(rows):
+        return sorted(w.split("!")[0] for w, t in rows if "Seek Hiring Co" in t)
+
+    assert with_client(excl) == with_client(plain)
+
+    # ... and lower-case prose ("seek", "job seekers") is untouched
+    def lower(rows):
+        return sorted(w.split("!")[0] for w, t in rows if re.search(r"\bseek", t))
+
+    assert lower(excl) == lower(plain)
+
+
+def test_slide4_says_which_markets_have_no_board_data(bundles):
+    _, deck = bundles["es_it"]
+    text = "\n".join(t for _, t in deck)
+    assert "No board data for: Spain, Italy" in text
