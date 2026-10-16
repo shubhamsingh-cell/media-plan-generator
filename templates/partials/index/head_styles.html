@@ -820,17 +820,31 @@
   }
 
   .tag .remove {
+    /* <button> reset: the control looks exactly like the old bare "x". */
+    appearance: none;
+    background: none;
+    border: 0;
+    padding: 0 2px;
+    margin: 0 0 0 2px;
+    font-family: inherit;
+    color: inherit;
     cursor: pointer;
     font-size: 14px;
     line-height: 1;
     opacity: 0.5;
-    margin-left: 2px;
+    border-radius: 4px;
     transition: opacity var(--duration-fast) ease;
   }
 
   .tag .remove:hover {
     opacity: 1;
     color: var(--error);
+  }
+
+  .tag .remove:focus-visible {
+    opacity: 1;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(134, 128, 214, 0.9);
   }
 
   .tags-input {
@@ -2074,6 +2088,12 @@
 
   .generation-overlay.visible {
     opacity: 1;
+  }
+
+  /* Focus lands on the dialog itself when it opens (aria-modal); the dialog
+     is not a control, so it gets no focus ring over its own backdrop. */
+  .generation-overlay:focus {
+    outline: none;
   }
 
   .generation-card {
@@ -5607,9 +5627,13 @@
     flex-shrink: 0;
   }
   .studio-topbar .stb-title {
+    /* The page's <h1> (it was a <span>; the page had no h1). The reset
+       keeps it pixel-identical to the span it replaced. */
+    margin: 0;
     font-family: var(--font-heading);
     font-weight: 600;
     font-size: 14.5px;
+    line-height: inherit;
     letter-spacing: -0.01em;
     color: var(--np-ink);
     white-space: nowrap;
@@ -6067,6 +6091,44 @@
   }
   .studio .btn-row > div:empty {
     flex: 1;
+  }
+  /* Wizard audit D-16: the step-5 row (Back / Save Draft / Generate /
+     Compare Plans) was one nowrap flex row with Generate at width:100%, so
+     the others were squeezed until their labels clipped (at 375px six of
+     seven, "Save Dra", "Compare"; "← Back" even wrapped to two lines at
+     1440px). Buttons now keep their natural width, the row wraps, and
+     Generate takes whatever line space is left -- a full line on phones. */
+  .studio .btn-row {
+    flex-wrap: wrap;
+  }
+  .studio .btn-row > .btn,
+  .studio .btn-row > .btn-compare-plans {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .studio .btn-row > #generateBtn {
+    flex: 1 1 240px;
+    min-width: 0;
+    white-space: normal;
+  }
+  @media (max-width: 600px) {
+    .studio #step5 .btn-row > .btn:not(#generateBtn),
+    .studio #step5 .btn-row > .btn-compare-plans {
+      flex: 1 1 auto;
+      justify-content: center;
+    }
+    .studio #step5 .btn-row > #generateBtn {
+      flex: 1 1 100%;
+      justify-content: center;
+    }
+    /* The two output formats stack instead of overlapping at phone width. */
+    .output-format-toggle {
+      flex-direction: column;
+    }
+    .output-format-btn {
+      white-space: normal;
+      text-align: center;
+    }
   }
   .studio .btn {
     border-radius: 11px !important;
@@ -6623,20 +6685,24 @@
     .studio {
       grid-template-columns: 1fr;
     }
+    /* Form first, preview after it (wizard audit D-15). It used to be
+       `order: -1`, which put the ~680-940px preview card above step 1 so on
+       a phone the first field started 1.5 screens down. The bottom padding
+       keeps the fixed "Back to Suite" pill and the Nova orb off its last
+       lines. */
     .np-pane {
       position: static;
       height: auto;
       border-left: none;
       border-top: 1px solid var(--np-hair);
-      order: -1;
-      padding: 18px clamp(16px, 4vw, 40px);
+      padding: 18px clamp(16px, 4vw, 40px) 96px;
     }
     .np-card {
       max-width: 560px;
       margin: 0 auto;
     }
     .studio main.container {
-      padding: 22px clamp(16px, 4vw, 40px) 90px !important;
+      padding: 22px clamp(16px, 4vw, 40px) 40px !important;
     }
   }
   @media (max-width: 860px) {

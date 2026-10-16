@@ -227,9 +227,16 @@
           : "Technology"),
     });
 
+    // /api/export/pdf enforces CSRF (double-submit) like every other POST.
+    // This fetch sent no token, so every click 403'd and silently fell back
+    // to window.print() of the wizard page (audit D-07).
     fetch("/api/export/pdf", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token":
+          typeof getCsrfToken === "function" ? getCsrfToken() : "",
+      },
       body: body,
     })
       .then(function (response) {
@@ -253,9 +260,11 @@
         showToast("PDF report downloaded successfully!", "success");
       })
       .catch(function (err) {
-        // Fallback to browser print if PDF generation fails
+        // Fallback to browser print if PDF generation fails -- and say why
+        // (the server's reason, when it gave one) instead of a generic line.
         showToast(
-          "PDF generation unavailable, opening print dialog instead.",
+          ((err && err.message) || "PDF generation unavailable.") +
+            " Opening the print dialog instead.",
           "info",
         );
         setTimeout(function () {

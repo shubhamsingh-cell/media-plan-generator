@@ -108,6 +108,285 @@ def _track_export_event(plan_data: dict, export_format: str) -> None:
         pass
 
 
+# ---------------------------------------------------------------------------
+# CSV / XLSX export of the GENERATED plan (wizard audit D-07)
+# ---------------------------------------------------------------------------
+# The wizard used to post its own REQUEST (budget text, role/location tags, no
+# channels) as ``plan_data``: the CSV came out header-only and the XLSX carried
+# "Number of Channels 0", empty Channels/Budget sheets and a hard-coded 4-week
+# ramp. These two formats now export the plan the generator STORED under
+# ``plan_id`` (app._store_plan_result, 24 h) -- its funded channels, dollar
+# amounts and recommendations -- and refuse a payload that is not a plan
+# instead of writing an empty file.
+
+_PLAN_ID_RE = re.compile(r"^([a-f0-9]{12}|[a-f0-9]{32})\Z")
+
+_PLAN_EXPORT_CHANNEL_HEADER = [
+    "Channel",
+    "Share of budget (%)",
+    "Budget",
+    "CPC",
+    "CPA",
+    "Projected clicks",
+    "Rationale",
+]
+
+
+def _stored_plan_json(plan_id: str) -> dict | None:
+    """The plan JSON the generator stored under ``plan_id``, or None when it
+    is unknown or past its 24 h life. Reads app.py's own store (this worker's
+    dict, then the shared layers) -- no app.py change needed."""
+    _app = sys.modules.get("app") or sys.modules.get("__main__")
+    lookup = getattr(_app, "_plan_result_lookup", None)
+    if lookup is None:
+        return None
+    entry = lookup(plan_id)
+    if not entry or time.time() - (entry.get("created") or 0) > 86400:
+        return None
+    return entry.get("data") or None
+
+
+def _as_float(value: Any) -> float:
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _channel_display_name(stored_name: str) -> str:
+    """The workbook's name for a stored channel ("Programmatic Dsp" ->
+    "Programmatic (DSP)"). The stored name is the engine key, spaced and
+    title-cased, so lower-casing and re-joining recovers the key."""
+    try:
+        from display_format import channel_label
+
+        return channel_label(stored_name.strip().lower().replace(" ", "_")) or (
+            stored_name
+        )
+    except (ImportError, AttributeError):
+        return stored_name
+
+
+def _plan_export_sheets(
+    plan_json: dict, request: dict
+) -> dict[str, list[list[Any]]]:
+    """Sheet name -> rows for the stored plan ``plan_json``.
+
+    ``request`` supplies what the stored plan does not carry (client name,
+    industry label). Text cells go through ``sheets_export._safe_str`` so a
+    value starting with = + - @ cannot run as a spreadsheet formula."""
+    from datetime import datetime, timezone
+
+    from sheets_export import _safe_str
+
+    meta = plan_json.get("metadata") or {}
+    channels = [c for c in (plan_json.get("channels") or []) if isinstance(c, dict)]
+    total = _as_float(
+        meta.get("total_budget") or (plan_json.get("budget_summary") or {}).get("total")
+    )
+    industry = (
+        request.get("industry_label")
+        or meta.get("industry")
+        or request.get("industry")
+        or ""
+    )
+
+    def _join(values: Any) -> str:
+        if not isinstance(values, list):
+            values = [values] if values else []
+        return ", ".join(str(v) for v in values if v)
+
+    summary: list[list[Any]] = [
+        ["Field", "Value"],
+        ["Client", _safe_str(request.get("client_name") or "Client")],
+        ["Industry", _safe_str(industry)],
+        ["Total campaign budget", total],
+        ["Location(s)", _safe_str(_join(meta.get("locations")))],
+        ["Role(s)", _safe_str(_join(meta.get("roles")))],
+        ["Funded channels", len(channels)],
+        ["Generated", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")],
+    ]
+
+    chan_rows: list[list[Any]] = [list(_PLAN_EXPORT_CHANNEL_HEADER)]
+    for ch in channels:
+        chan_rows.append(
+            [
+                _safe_str(_channel_display_name(ch.get("name") or "")),
+                round(_as_float(ch.get("allocation_pct")), 1),
+                round(_as_float(ch.get("budget")), 2),
+                _safe_str(ch.get("cpc_range") or ""),
+                _safe_str(ch.get("cpa_range") or ""),
+                int(_as_float(ch.get("projected_clicks"))),
+                _safe_str(ch.get("recommended_reason") or ""),
+            ]
+        )
+    if channels:
+        funded = sum(_as_float(c.get("budget")) for c in channels)
+        # Each row's share is rounded to 0.1, so their sum can read 100.1;
+        # the total share comes from the dollars instead.
+        total_share = (
+            round(funded / total * 100, 1)
+            if total > 0
+            else round(sum(_as_float(c.get("allocation_pct")) for c in channels), 1)
+        )
+        chan_rows.append(
+            [
+                "Total",
+                total_share,
+                round(funded, 2),
+                "",
+                "",
+                int(sum(_as_float(c.get("projected_clicks")) for c in channels)),
+                "",
+            ]
+        )
+
+    recs: list[list[Any]] = [["#", "Recommendation"]]
+    for i, rec in enumerate(plan_json.get("recommendations") or [], start=1):
+        recs.append([i, _safe_str(rec)])
+
+    return {"Summary": summary, "Channels": chan_rows, "Recommendations": recs}
+
+
+def _plan_export_csv(sheets: dict[str, list[list[Any]]]) -> bytes:
+    """One CSV: each sheet as a titled block (UTF-8 with BOM for Excel)."""
+    import csv
+    import io
+
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["Media Plan Export"])
+    for name, rows in sheets.items():
+        writer.writerow([])
+        writer.writerow([name.upper()])
+        writer.writerows(rows)
+    return b"\xef\xbb\xbf" + out.getvalue().encode("utf-8")
+
+
+def _plan_export_xlsx(sheets: dict[str, list[list[Any]]]) -> bytes | None:
+    """XLSX workbook, one tab per sheet, real numeric cells. None when
+    openpyxl is not installed (the caller falls back to CSV)."""
+    try:
+        import io
+
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font, PatternFill
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        return None
+
+    import joveo_brand_2026 as brand
+
+    indigo = brand.INDIGO.lstrip("#")
+    header_fill = PatternFill(start_color=indigo, end_color=indigo, fill_type="solid")
+    header_font = Font(name="Calibri", bold=True, size=11, color="FFFFFF")
+    wb = Workbook()
+    default_sheet = wb.active
+    if default_sheet is not None:
+        wb.remove(default_sheet)
+    for name, rows in sheets.items():
+        ws = wb.create_sheet(title=name)
+        widths: dict[int, int] = {}
+        for r_idx, row in enumerate(rows, start=1):
+            for c_idx, value in enumerate(row, start=1):
+                cell = ws.cell(row=r_idx, column=c_idx, value=value)
+                widths[c_idx] = max(widths.get(c_idx, 0), len(str(value or "")))
+                if r_idx == 1:
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.alignment = Alignment(horizontal="center")
+                elif isinstance(value, float):
+                    cell.number_format = "#,##0.00"
+                elif isinstance(value, int):
+                    cell.number_format = "#,##0"
+        for c_idx, width in widths.items():
+            ws.column_dimensions[get_column_letter(c_idx)].width = min(width + 4, 60)
+        ws.freeze_panes = "A2"
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def _send_download(
+    handler: Any, body: bytes, content_type: str, filename: str
+) -> None:
+    handler.send_response(200)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def _export_plan_file(handler: Any, data: dict[str, Any], export_format: str) -> bool:
+    """Handle ``format`` csv/xlsx for a stored plan.
+
+    Returns True when a response was sent. Returns False for the legacy
+    shape (a finished plan with channels posted as ``plan_data``) so the
+    caller keeps its existing behaviour for API users; a request that is
+    neither is answered 400 instead of exporting an empty file.
+    """
+    plan_id = str(data.get("plan_id") or "").strip()
+    posted_raw = data.get("plan_data")
+    posted: dict[str, Any] = posted_raw if isinstance(posted_raw, dict) else {}
+    if not plan_id:
+        posted_channels = posted.get("channels") or posted.get(
+            "channel_recommendations"
+        )
+        if isinstance(posted_channels, list) and posted_channels:
+            return False
+        handler._send_json(
+            {
+                "error": (
+                    "Nothing to export: send the plan_id of a generated plan "
+                    "(the wizard request alone has no channels)."
+                )
+            },
+            status_code=400,
+        )
+        return True
+    if not _PLAN_ID_RE.match(plan_id):
+        handler._send_json({"error": "Invalid plan_id"}, status_code=400)
+        return True
+    plan_json = _stored_plan_json(plan_id)
+    if not plan_json:
+        handler._send_json(
+            {
+                "error": (
+                    "Plan not found or expired. Generate the plan again to "
+                    "export it."
+                )
+            },
+            status_code=404,
+        )
+        return True
+
+    request = dict(posted)
+    for key in ("client_name", "industry_label", "industry"):
+        if data.get(key):
+            request[key] = data[key]
+    sheets = _plan_export_sheets(plan_json, request)
+    slug = re.sub(r"[^a-zA-Z0-9_\-]", "_", str(request.get("client_name") or "Client"))
+    _track_export_event(request, export_format)
+    if export_format == "xlsx":
+        xlsx = _plan_export_xlsx(sheets)
+        if xlsx:
+            _send_download(
+                handler,
+                xlsx,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                f"{slug}_Media_Plan_Export.xlsx",
+            )
+            return True
+    _send_download(
+        handler,
+        _plan_export_csv(sheets),
+        "text/csv; charset=utf-8",
+        f"{slug}_Media_Plan_Export.csv",
+    )
+    return True
+
+
 def _handle_export_sheets(handler: Any, path: str, parsed: Any) -> None:
     """POST /api/export/sheets -- Sheets/CSV/XLSX export."""
     try:
@@ -117,6 +396,13 @@ def _handle_export_sheets(handler: Any, path: str, parsed: Any) -> None:
 
         plan_data = data.get("plan_data") or data
         export_format = data.get("format") or "sheets"
+
+        # CSV/XLSX export the generated plan (by plan_id), never the wizard
+        # request (audit D-07). A posted finished plan falls through below.
+        if export_format in ("csv", "xlsx") and _export_plan_file(
+            handler, data, export_format
+        ):
+            return
 
         # PostHog: track export event
         _track_export_event(plan_data, export_format)
@@ -395,7 +681,15 @@ def _handle_pdf_export_get(handler: Any, path: str, parsed: Any) -> None:
         _plan_results_store = getattr(_app, "_plan_results_store", {})
         _plan_results_lock = getattr(_app, "_plan_results_lock", None)
 
-        entry = _app._plan_result_lookup(plan_id)
+        _lookup = getattr(_app, "_plan_result_lookup", None)
+        if _lookup is None:
+            # app module not loaded (or renamed the helper): say so instead of
+            # an AttributeError turning into a generic 500.
+            handler._send_json(
+                {"error": "Plan store unavailable"}, status_code=503
+            )
+            return
+        entry = _lookup(plan_id)
         if entry and time.time() - (entry.get("created") or 0) > 86400:
             if _plan_results_lock:
                 with _plan_results_lock:
@@ -461,6 +755,24 @@ def _handle_pdf_export_post(handler: Any, path: str, parsed: Any) -> None:
             data.get("naics_selected_code") or plan_data.get("naics_selected_code"),
             data.get("naics_selected_title") or plan_data.get("naics_selected_title"),
         )
+
+        # The wizard posts its own REQUEST here (budget text, role/location
+        # tags, no channels). Rendered as-is that is a PDF reading "Total
+        # Budget $0.00 / Channels 0 / No channel data available" -- a
+        # document that looks like a plan and is empty (audit D-07). Refuse
+        # it; the page then prints its on-screen plan instead.
+        _channels = plan_data.get("channels") if isinstance(plan_data, dict) else None
+        if not (isinstance(_channels, list) and _channels):
+            handler._send_json(
+                {
+                    "error": (
+                        "The PDF report needs the generated plan's channels; "
+                        "this request has none."
+                    )
+                },
+                status_code=422,
+            )
+            return
 
         # PostHog: track export event
         _track_export_event(plan_data, "pdf")

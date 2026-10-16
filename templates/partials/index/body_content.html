@@ -17,7 +17,7 @@
 <!-- Nova Plan Studio — slim top bar -->
 <header class="studio-topbar" role="banner">
   <a href="/" class="stb-logo" aria-label="Back to Nova AI Suite">N</a>
-  <span class="stb-title">Nova <b>Plan Studio</b></span>
+  <h1 class="stb-title">Nova <b>Plan Studio</b></h1>
   <span class="stb-sub">Media Plan Generator</span>
   <span class="stb-spacer"></span>
   <span class="stb-step" aria-live="polite"
@@ -946,7 +946,7 @@
               >Add context <span class="np-acc-opt">optional</span></span
             >
             <span class="np-acc-sub"
-              >Competitors &amp; past campaign data sharpen the plan</span
+              >Competitors, plus past campaign data kept for reference</span
             >
           </span>
           <svg
@@ -1053,13 +1053,13 @@
 
       <div class="li-section-divider">
         <div class="section-number">4</div>
-        <span class="section-title">Historical Performance Data</span>
+        <span class="section-title">Client History (reference only)</span>
         <div class="section-line"></div>
       </div>
 
       <div class="form-group">
         <label
-          >Upload Past Campaign Data
+          >Attach Past Campaign Data
           <span class="section-optional-badge">Optional</span></label
         >
         <div
@@ -1067,7 +1067,7 @@
           id="historicalUploadZone"
           tabindex="0"
           role="button"
-          aria-label="Upload past campaign data"
+          aria-label="Attach past campaign data for reference only"
           onkeydown="
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault();
@@ -1084,19 +1084,18 @@
           />
           <div class="file-upload-icon">&#128202;</div>
           <div class="file-upload-text">
-            Upload historical campaign performance data
+            Attach past campaign data (reference only)
           </div>
           <div class="file-upload-hint">
-            CSV or Excel with columns: Platform/Channel, Spend, Applications,
-            Hires, CPA, CPC. We'll analyze what worked and recommend
-            improvements.
+            CSV or Excel with columns such as Platform/Channel, Spend,
+            Applications, Hires, CPA, CPC. For your reference only.
           </div>
         </div>
         <div id="historicalFileList" class="file-list"></div>
         <div class="form-hint">
-          When historical data is provided, the media plan will include a "What
-          You Did vs. What We Recommend" analysis with specific optimization
-          opportunities per platform.
+          Reference only: this data does not calibrate the plan. The channel
+          mix, budget split and projections come from Joveo benchmarks, not
+          from the files attached here.
         </div>
       </div>
       </details>
@@ -2432,12 +2431,28 @@
               <span class="export-icon">&#128196;</span>
               <span class="export-label">Download PDF Report</span>
             </button>
-            <div class="export-dropdown-divider"></div>
-            <button class="export-dropdown-item" onclick="exportPlan('xlsx')">
+            <!-- Excel / CSV export the generated plan by its server-side plan
+                 id; shown by novaSyncExportFileButtons() once one exists. -->
+            <div
+              class="export-dropdown-divider"
+              id="exportFileDivider"
+              style="display: none"
+            ></div>
+            <button
+              class="export-dropdown-item"
+              onclick="exportPlan('xlsx')"
+              id="exportXlsxBtn"
+              style="display: none"
+            >
               <span class="export-icon">&#128202;</span>
               <span class="export-label">Download Excel (.xlsx)</span>
             </button>
-            <button class="export-dropdown-item" onclick="exportPlan('csv')">
+            <button
+              class="export-dropdown-item"
+              onclick="exportPlan('csv')"
+              id="exportCsvBtn"
+              style="display: none"
+            >
               <span class="export-icon">&#128203;</span>
               <span class="export-label">Download CSV</span>
             </button>
@@ -2758,7 +2773,6 @@
         class="btn btn-success"
         id="generateBtn"
         onclick="generatePlan()"
-        style="width: 100%"
       >
         <span
           id="generateBtnLabel"
@@ -3006,8 +3020,10 @@
   class="generation-overlay"
   style="display: none"
   role="alertdialog"
+  aria-modal="true"
   aria-label="Generating media plan"
   aria-describedby="genSubtitle"
+  tabindex="-1"
 >
   <div class="generation-card">
     <div class="gen-lottie-wrap" id="genLottieWrap">
@@ -3115,8 +3131,10 @@
   class="generation-overlay qa-gate-overlay"
   style="display: none"
   role="alertdialog"
+  aria-modal="true"
   aria-label="Quality findings on this plan"
   aria-describedby="qaGateSubtitle"
+  tabindex="-1"
 >
   <div class="generation-card qa-gate-card">
     <h3>Quality Check Found Issues</h3>

@@ -893,8 +893,12 @@
     html += '<div style="display:flex;gap:12px;flex-wrap:wrap">';
     html +=
       '<button onclick="redownloadBundle()" style="background:var(--primary);color:white;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;font-size:0.88rem;">Download Excel + PPT</button>';
-    html +=
-      '<button onclick="exportPlan(\'csv\')" style="background:rgba(255,255,255,0.08);color:var(--text-secondary);border:1px solid rgba(255,255,255,0.12);padding:10px 24px;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;font-size:0.88rem;">Export CSV</button>';
+    // CSV exports the stored plan; with no plan id the button would only
+    // produce an error toast, so it is not offered (audit D-07).
+    if (novaPlanFileExportAvailable()) {
+      html +=
+        '<button onclick="exportPlan(\'csv\')" style="background:rgba(255,255,255,0.08);color:var(--text-secondary);border:1px solid rgba(255,255,255,0.12);padding:10px 24px;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;font-size:0.88rem;">Export CSV</button>';
+    }
     html += "</div>";
 
     html += "</div>"; // .plan-dashboard
@@ -1021,9 +1025,115 @@
   // Form State Persistence (sessionStorage)
   // ============================================
   const _FORM_STORAGE_KEY = "nova_plan_form";
+
+  // The request fields saveFormState used to drop -- target region (+ custom
+  // countries), channel toggles, extra-section toggles, job categories and
+  // the call transcript -- so a reload silently reverted them and the
+  // re-generated plan differed from what the user had set (wizard audit
+  // D-14). Collected here, restored by novaRestoreScopeState.
+  const NOVA_SECTION_TOGGLE_IDS = [
+    "includeEducational",
+    "includeEvents",
+    "includeRadioPodcasts",
+    "includeMediaPlatforms",
+    "includeDEI",
+    "includeInnovative",
+    "includeGlobalSupply",
+    "includeBudgetGuide",
+  ];
+  function novaCollectScopeState() {
+    const channels = {};
+    Object.keys(NOVA_CHANNEL_TOGGLES).forEach((key) => {
+      const id = NOVA_CHANNEL_TOGGLES[key];
+      const el = document.getElementById(id);
+      if (el) channels[id] = !!el.checked;
+    });
+    const sections = {};
+    NOVA_SECTION_TOGGLE_IDS.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) sections[id] = !!el.checked;
+    });
+    const regionEl = document.getElementById("regionSelector");
+    return {
+      region: regionEl ? regionEl.value : "us_only",
+      customCountries: Array.from(
+        document.querySelectorAll('input[name="customCountry"]:checked'),
+      ).map((cb) => cb.value),
+      channels: channels,
+      channelsTouched: novaChannelsTouched(),
+      sections: sections,
+      selectedJobCategories: selectedJobCategories.slice(),
+      callTranscript:
+        (document.getElementById("callTranscript") || {}).value || "",
+    };
+  }
+  // Job-category cards are built after /api/channels answers, which can be
+  // after a restore: populateJobCategories re-applies the selection too.
+  function novaSyncJobCategoryCards() {
+    document.querySelectorAll(".job-cat-card").forEach((card) => {
+      card.classList.toggle(
+        "selected",
+        selectedJobCategories.includes(card.dataset.category),
+      );
+    });
+    if (channelsDB && typeof updateJobCategoryInsight === "function") {
+      updateJobCategoryInsight();
+    }
+  }
+  function novaRestoreRegion(s) {
+    const sel = document.getElementById("regionSelector");
+    if (
+      sel &&
+      typeof s.region === "string" &&
+      s.region &&
+      sel.value !== s.region &&
+      Array.from(sel.options).some((o) => o.value === s.region)
+    ) {
+      sel.value = s.region;
+      // The change handler shows/hides the custom-country list and the
+      // APAC/EMEA channel cards; restoreChannels runs after it, so the
+      // saved toggles win over the region's defaults.
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    if (Array.isArray(s.customCountries)) {
+      document
+        .querySelectorAll('input[name="customCountry"]')
+        .forEach((cb) => {
+          cb.checked = s.customCountries.includes(cb.value);
+        });
+    }
+  }
+  function novaRestoreScopeState(s) {
+    novaRestoreRegion(s);
+    if (s.channels && typeof s.channels === "object") {
+      Object.keys(s.channels).forEach((id) => {
+        const el = document.getElementById(id);
+        if (el && isNovaChannelToggle(id)) el.checked = !!s.channels[id];
+      });
+      setNovaChannelsTouched(!!s.channelsTouched);
+    }
+    if (s.sections && typeof s.sections === "object") {
+      NOVA_SECTION_TOGGLE_IDS.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el && typeof s.sections[id] === "boolean") {
+          el.checked = s.sections[id];
+        }
+      });
+    }
+    if (Array.isArray(s.selectedJobCategories)) {
+      selectedJobCategories = s.selectedJobCategories.filter(
+        (k) => typeof k === "string",
+      );
+      novaSyncJobCategoryCards();
+    }
+    const transcriptEl = document.getElementById("callTranscript");
+    if (transcriptEl && s.callTranscript) transcriptEl.value = s.callTranscript;
+  }
+
   function saveFormState() {
     try {
       const state = {
+        ...novaCollectScopeState(),
         clientName: (document.getElementById("clientName") || {}).value || "",
         clientWebsite:
           (document.getElementById("clientWebsite") || {}).value || "",
@@ -1146,6 +1256,18 @@
           else competitors.push(c);
         });
       }
+      // Region, channel/section toggles, job categories, transcript (D-14).
+      novaRestoreScopeState(s);
+      // The region's change event saved the form while the toggles still
+      // held their defaults; write the fully restored state back so a
+      // second reload sees it too, and let the live preview re-read it.
+      saveFormState();
+      if (
+        window.NovaPreview &&
+        typeof window.NovaPreview.update === "function"
+      ) {
+        window.NovaPreview.update();
+      }
       return true;
     } catch (_e) {
       return false;
@@ -1208,7 +1330,7 @@
     });
     selectedJobCategories = [];
     document
-      .querySelectorAll(".job-category-card.selected")
+      .querySelectorAll(".job-cat-card.selected")
       .forEach((c) => c.classList.remove("selected"));
     if (typeof updateJobCategoryInsight === "function") updateJobCategoryInsight();
     if (typeof updateRegionalSections === "function") updateRegionalSections();
@@ -1422,6 +1544,7 @@
     requestAnimationFrame(() => {
       overlay.classList.add("visible");
     });
+    novaDialogFocusIn(overlay);
 
     // Reset all steps
     for (let i = 1; i <= 4; i++) {
@@ -1567,10 +1690,42 @@
         overlay.classList.remove("visible");
         setTimeout(() => {
           overlay.style.display = "none";
+          novaDialogFocusOut();
         }, 300);
       },
       success ? 800 : 0,
     );
+  }
+
+  // The overlays are role="alertdialog" aria-modal="true": assistive tech
+  // treats everything behind them as inert, so keyboard focus has to move
+  // INTO the dialog when it opens and return to where it was on close
+  // (wizard audit D-24: focus stayed on the page behind it).
+  let _novaDialogReturnFocus = null;
+  function novaDialogFocusIn(overlay) {
+    if (!overlay) return;
+    _novaDialogReturnFocus = document.activeElement;
+    try {
+      overlay.focus({ preventScroll: true });
+    } catch (_e) {
+      /* focus is a nicety, never a failure */
+    }
+  }
+  function novaDialogFocusOut() {
+    const el = _novaDialogReturnFocus;
+    _novaDialogReturnFocus = null;
+    if (
+      el &&
+      el !== document.body &&
+      document.contains(el) &&
+      typeof el.focus === "function"
+    ) {
+      try {
+        el.focus({ preventScroll: true });
+      } catch (_e) {
+        /* same */
+      }
+    }
   }
 
   // ============================================
@@ -1627,6 +1782,7 @@
     requestAnimationFrame(function () {
       overlay.classList.add("visible");
     });
+    novaDialogFocusIn(overlay);
   }
 
   function hideQaGateOverlay() {
@@ -1635,6 +1791,7 @@
     overlay.classList.remove("visible");
     setTimeout(function () {
       overlay.style.display = "none";
+      novaDialogFocusOut();
     }, 200);
   }
 
@@ -1876,9 +2033,41 @@
       generateBtn.classList.add("ready-pulse");
     }
 
-    // Preset prompt chips -- auto-fill form fields on click
+    // Preset prompt chips -- auto-fill form fields on click.
+    //
+    // An example REPLACES the client, brief, budget, industry, locations and
+    // roles. It used to do that silently over a half-filled form (and keep
+    // the typed role beside the example's: "Welder" + "Registered Nurse" in a
+    // healthcare plan, wizard audit D-13), so a filled form now asks first.
+    function novaFormHasUserInput() {
+      const v = (id) => ((document.getElementById(id) || {}).value || "").trim();
+      return !!(
+        v("clientName") ||
+        v("useCase") ||
+        v("exactBudget") ||
+        locations.length ||
+        roles.length ||
+        selectedIndustry
+      );
+    }
     document.querySelectorAll(".preset-chip").forEach((chip) => {
       chip.addEventListener("click", function () {
+        if (
+          novaFormHasUserInput() &&
+          !confirm(
+            'Load the example "' +
+              this.textContent.trim() +
+              '"? It replaces the client, brief, budget, industry, locations and roles you have entered.',
+          )
+        ) {
+          return;
+        }
+        // The example's role stands alone: drop the roles already entered.
+        if (roles.length) {
+          roles.length = 0;
+          renderTags("rolesContainer", "roleInput", roles);
+        }
+
         // Fill client name
         const clientNameEl = document.getElementById("clientName");
         if (clientNameEl && this.dataset.client) {
@@ -2699,8 +2888,13 @@
       tag.className = "tag";
       const textSpan = document.createElement("span");
       textSpan.textContent = val;
-      const removeSpan = document.createElement("span");
+      // A real <button>: it was a bare <span>, unreachable by keyboard and
+      // unnamed for screen readers, so a tag could not be removed without a
+      // mouse (wizard audit D-24). Enter/Space activate it natively.
+      const removeSpan = document.createElement("button");
+      removeSpan.type = "button";
       removeSpan.className = "remove";
+      removeSpan.setAttribute("aria-label", "Remove " + val);
       removeSpan.textContent = "\u00d7";
       removeSpan.onclick = function () {
         removeTag(containerId, inputId, getArrayByContainerId(containerId), i);
@@ -3831,8 +4025,11 @@
           toggleJobCategory(card, key);
         }
       });
+      // A selection restored before this grid existed (reload, draft).
+      if (selectedJobCategories.includes(key)) card.classList.add("selected");
       grid.appendChild(card);
     }
+    if (selectedJobCategories.length > 0) updateJobCategoryInsight();
   }
 
   function toggleJobCategory(card, key) {
@@ -3843,6 +4040,9 @@
       selectedJobCategories = selectedJobCategories.filter((c) => c !== key);
     }
     updateJobCategoryInsight();
+    // A card click fires no input/change event, so the form auto-save never
+    // saw it: persist the selection now (audit D-14).
+    saveFormState();
   }
 
   function updateJobCategoryInsight() {
@@ -4004,12 +4204,21 @@
     ];
     const locsLower = locations.map((l) => l.toLowerCase());
 
-    const hasApac = locsLower.some((l) =>
-      apacCountries.some((c) => l.includes(c)),
-    );
-    const hasEmea = locsLower.some((l) =>
-      emeaCountries.some((c) => l.includes(c)),
-    );
+    // The Target Region also decides which cards exist (its change handler
+    // shows them for global/custom/its own region). Ignoring it here hid the
+    // cards again whenever this ran afterwards -- e.g. on a restored form --
+    // while their toggles stayed ticked.
+    const regionSel = document.getElementById("regionSelector");
+    const region = regionSel ? regionSel.value : "us_only";
+    const regionWantsApac = ["apac", "global", "custom"].includes(region);
+    const regionWantsEmea = ["emea", "global", "custom"].includes(region);
+
+    const hasApac =
+      regionWantsApac ||
+      locsLower.some((l) => apacCountries.some((c) => l.includes(c)));
+    const hasEmea =
+      regionWantsEmea ||
+      locsLower.some((l) => emeaCountries.some((c) => l.includes(c)));
 
     // Show/hide APAC channel category card
     const apacCard = document.getElementById("apacChannelCard");
@@ -5706,7 +5915,10 @@
 
         // Try to capture plan_id from download response headers
         var _dlPlanId = _dlRes.headers.get("X-Plan-Id");
-        if (_dlPlanId) _lastPlanId = _dlPlanId;
+        // Always reassigned (null when the response names no stored plan) so
+        // an earlier plan's id can never export under this plan's name.
+        _lastPlanId = _dlPlanId || null;
+        novaSyncExportFileButtons();
 
         // Poll for async Google Sheets URL (created in background)
         if (_dlPlanId) {
@@ -6012,12 +6224,37 @@
       });
   })();
 
+  // Excel / CSV export the GENERATED plan, which the server keeps under the
+  // plan id it returns with the download (X-Plan-Id). Posting the wizard
+  // request instead produced a header-only CSV and an XLSX with "0 channels"
+  // (audit D-07), so these two entries exist only while a plan id is known.
+  function novaPlanFileExportAvailable() {
+    return typeof _lastPlanId !== "undefined" && !!_lastPlanId;
+  }
+  function novaSyncExportFileButtons() {
+    var show = novaPlanFileExportAvailable();
+    ["exportXlsxBtn", "exportCsvBtn", "exportFileDivider"].forEach(
+      function (id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = show ? "" : "none";
+      },
+    );
+  }
+
   function exportPlan(format) {
     var menu = document.getElementById("exportDropdown");
     if (menu) menu.classList.remove("open");
 
     if (!_lastPlanPayload) {
       showToast("Generate a media plan first before exporting.", "warning");
+      return;
+    }
+    var isFileFormat = format === "csv" || format === "xlsx";
+    if (isFileFormat && !novaPlanFileExportAvailable()) {
+      showToast(
+        "Excel and CSV export is not available for this plan. Use Download Excel + PPT.",
+        "warning",
+      );
       return;
     }
 
@@ -6027,10 +6264,16 @@
     exportBtn.innerHTML =
       '<span style="display:flex;align-items:center;gap:6px;"><span class="spinner-sm"></span> Exporting...</span>';
 
-    var body = JSON.stringify({
-      plan_data: _lastPlanPayload,
-      format: format,
-    });
+    var body = JSON.stringify(
+      isFileFormat
+        ? {
+            plan_id: _lastPlanId,
+            format: format,
+            client_name: _lastPlanPayload.client_name || "",
+            industry_label: _lastPlanPayload.industry_label || "",
+          }
+        : { plan_data: _lastPlanPayload, format: format },
+    );
 
     fetch("/api/export/sheets", {
       method: "POST",
@@ -6269,6 +6512,7 @@
   const _DRAFT_STORAGE_KEY = "nova_drafts";
 
   function _collectDraftState() {
+    var scope = novaCollectScopeState();
     var getVal = function (id) {
       return (document.getElementById(id) || {}).value || "";
     };
@@ -6325,6 +6569,10 @@
       requesterName: getVal("requesterName"),
       requesterEmail: getVal("requesterEmail"),
       channelsTouched: novaChannelsTouched(),
+      // Region + custom countries: a draft kept the channel toggles but not
+      // the region that decides which of them exist (audit D-14).
+      region: scope.region,
+      customCountries: scope.customCountries,
       selectedIndustry: selectedIndustry || null,
       selectedNaicsCode: selectedNaicsCode || null,
       selectedNaicsTitle: selectedNaicsTitle || null,
@@ -6399,23 +6647,15 @@
     }
     if (typeof _renderNaicsChip === "function") _renderNaicsChip();
 
-    // Restore job categories
-    if (
-      Array.isArray(s.selectedJobCategories) &&
-      s.selectedJobCategories.length > 0
-    ) {
-      selectedJobCategories = [];
-      s.selectedJobCategories.forEach(function (key) {
-        var card = document.querySelector(
-          '.job-category-card[data-category="' + key + '"]',
-        );
-        if (card && typeof toggleJobCategory === "function") {
-          toggleJobCategory(card, key);
-        } else {
-          if (!selectedJobCategories.includes(key))
-            selectedJobCategories.push(key);
-        }
+    // Restore job categories. The cards are `.job-cat-card` (this used to
+    // look for `.job-category-card`, which never exists, so a restored draft
+    // kept the keys but showed no card selected) and may not be built yet --
+    // populateJobCategories re-applies the selection when they are.
+    if (Array.isArray(s.selectedJobCategories)) {
+      selectedJobCategories = s.selectedJobCategories.filter(function (key) {
+        return typeof key === "string";
       });
+      novaSyncJobCategoryCards();
     }
 
     // Restore checkbox groups
@@ -6462,6 +6702,10 @@
         else competitors.push(c);
       });
     }
+
+    // Region first: its change handler resets the APAC/EMEA toggles, and the
+    // saved toggles below must win over that.
+    novaRestoreRegion(s);
 
     // Restore channel checkboxes
     if (s.channels && typeof s.channels === "object") {

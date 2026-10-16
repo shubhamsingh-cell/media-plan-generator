@@ -74,11 +74,13 @@ def test_summary_is_the_workbooks_executive_summary(uk_plan):
     assert cpc["currency"] == "GBP" and cpc["display"] == f"£{cpc['value']:.2f}"
 
 
-def _render(payload: dict) -> dict:
+def _render(payload: dict, plan_id=None) -> dict:
     src = APP_JS.read_text(encoding="utf-8")
     script = "\n".join(
         [
             inputs_functions_js(),
+            # the plan id the download response carried (the page's global)
+            "var _lastPlanId = " + json.dumps(plan_id) + ";",
             "var out = { innerHTML: '' }, shown = false;",
             "var document = { getElementById: function (id) {",
             "  if (id === 'planDashboardContent') return out;",
@@ -89,6 +91,7 @@ def _render(payload: dict) -> dict:
             "function escapeHtml(s) { return String(s).replace(/&/g, '&amp;')"
             ".replace(/</g, '&lt;').replace(/>/g, '&gt;'); }",
             js_block(src, "function novaPlanBudgetLabel("),
+            js_block(src, "function novaPlanFileExportAvailable("),
             js_block(src, "function buildPlanDashboard("),
             "buildPlanDashboard(" + json.dumps(payload) + ", null);",
             "var html = out.innerHTML;",
@@ -120,7 +123,9 @@ def test_results_tiles_equal_the_workbook_values(uk_plan):
         ["Channels Funded", str(len(rows))],
         ["Blended CPC", f"£{spend / clicks:.2f}"],
     ]
-    funded = re.search(r'plan-funded-channels">(.*?)</div>', got["html"]).group(1)
+    funded_match = re.search(r'plan-funded-channels">(.*?)</div>', got["html"])
+    assert funded_match, "the funded-channels line is missing from the dashboard"
+    funded = funded_match.group(1)
     assert [r["name"] for r in rows] == [
         n.strip() for n in re.sub(r"<[^>]+>", "", funded).replace("Funded:", "").split("&middot;")
     ]
@@ -137,6 +142,15 @@ def test_missing_figures_hide_their_tile_never_a_placeholder():
                      "Seasonal Impact", "adjustment factor", "15-20%", "role(s)"):
         assert invented not in html, invented
     assert "Targeting 2 roles across 1 location." in html  # real counts, plain English
+
+
+@needs_node
+def test_dashboard_offers_csv_only_when_a_plan_id_exists():
+    """CSV exports the stored plan by its id (audit D-07); with no id the
+    button could only answer with an error, so it is not drawn. Pre-fix it
+    was always drawn, and posted the wizard request."""
+    assert "Export CSV" not in _render(_BASE)["html"]
+    assert "Export CSV" in _render(_BASE, plan_id="a" * 32)["html"]
 
 
 def test_summary_is_empty_without_engine_output():
@@ -181,7 +195,9 @@ def test_cross_worker_record_carries_the_summary(tmp_path, monkeypatch):
         }
     try:
         app._mirror_job(job_id)
-        assert app._job_record_get(job_id)["results_summary"] == summary
+        record = app._job_record_get(job_id)
+        assert record is not None, "the job record was not mirrored"
+        assert record["results_summary"] == summary
     finally:
         with app._generation_jobs_lock:
             app._generation_jobs.pop(job_id, None)
