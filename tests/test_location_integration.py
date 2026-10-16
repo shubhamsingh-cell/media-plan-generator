@@ -258,9 +258,23 @@ def test_all_32_legacy_misspellings_still_resolve(misspelled, expected_city):
             assert data["locations"] == ["Albuquerque, NM"]
         return
 
+    if misspelled == "sprinfield":
+        # 22 Springfields, no clear largest: the spelling is read but the town
+        # is the user's call, so the plan text stays as typed (an "ambiguous"
+        # verdict is never rewritten). It used to become "Springfield, AR".
+        assert sidecar["status"] == "ambiguous"
+        assert sidecar["display_name"] == expected_city
+        assert data["locations"] == [misspelled]
+        return
+
     assert sidecar["status"] == "corrected", (
         f"{misspelled!r} -> status={sidecar['status']!r} (expected 'corrected')"
     )
+    if misspelled == "nashvile":
+        # Census names the metro "Nashville-Davidson metropolitan government";
+        # this used to read "Nashville, AR", a ~4,000-person town in Arkansas.
+        expected_city = "Nashville-Davidson metropolitan government"
+        assert sidecar["state_usps"] == "TN"
     assert sidecar["display_name"] == expected_city, (
         f"{misspelled!r} -> {sidecar['display_name']!r}, expected {expected_city!r}"
     )

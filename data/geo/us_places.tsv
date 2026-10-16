@@ -17667,18 +17667,23 @@ wilton|nh	Wilton	NH	33011	42.846973	-71.73598	CDP	zip_majority
 winchester|nh	Winchester	NH	33005	42.779751	-72.384704	CDP	zip_majority
 wolfeboro|nh	Wolfeboro	NH	33003	43.593631	-71.211633	CDP	zip_majority
 woodsville|nh	Woodsville	NH	33009	44.141584	-72.02683	CDP	census_first_listed
+aberdeen|nj	Aberdeen	NJ	34025	40.430068	-74.225075	township	census_first_listed
 absecon highlands|nj	Absecon Highlands	NJ	34001	39.442693	-74.470231	CDP	census_first_listed
 absecon|nj	Absecon	NJ	34001	39.423563	-74.493025	city	zip_majority
+alexandria|nj	Alexandria	NJ	34019	40.594532	-75.026566	township	census_first_listed
+allamuchy township|nj	Allamuchy Township	NJ	34041	40.918679	-74.828973	township	census_first_listed
 allamuchy|nj	Allamuchy	NJ	34041	40.931361	-74.811743	CDP	zip_majority
 allendale|nj	Allendale	NJ	34003	41.032669	-74.133826	borough	zip_majority
 allenhurst|nj	Allenhurst	NJ	34025	40.235945	-74.002417	borough	zip_majority
 allentown|nj	Allentown	NJ	34025	40.178578	-74.590056	borough	zip_majority
 allenwood|nj	Allenwood	NJ	34025	40.135366	-74.09805	CDP	zip_majority
+alloway township|nj	Alloway Township	NJ	34033	39.558365	-75.317744	township	census_first_listed
 alloway|nj	Alloway	NJ	34033	39.561596	-75.345303	CDP	zip_majority
 alpha|nj	Alpha	NJ	34041	40.659447	-75.157052	borough	census_first_listed
 alpine|nj	Alpine	NJ	34003	40.968782	-73.916896	borough	zip_majority
 ampere north|nj	Ampere North	NJ	34013	40.77574	-74.191831	CDP	census_first_listed
 anderson|nj	Anderson	NJ	34041	40.76126	-74.925569	CDP	census_first_listed
+andover township|nj	Andover Township	NJ	34037	41.025516	-74.726027	township	census_first_listed
 andover|nj	Andover	NJ	34037	40.985743	-74.743701	borough	census_first_listed
 annandale|nj	Annandale	NJ	34019	40.646818	-74.888144	CDP	zip_majority
 arrowhead lake|nj	Arrowhead Lake	NJ	34011	39.47512	-75.317828	CDP	census_first_listed
@@ -17697,9 +17702,11 @@ avon by the sea|nj	Avon-by-the-Sea	NJ	34025	40.191418	-74.015105	borough	zip_maj
 barclay|nj	Barclay	NJ	34007	39.901243	-75.000829	CDP	zip_majority
 bargaintown|nj	Bargaintown	NJ	34001	39.368123	-74.590822	CDP	census_first_listed
 barnegat light|nj	Barnegat Light	NJ	34029	39.751289	-74.10676	borough	zip_majority
+barnegat township|nj	Barnegat Township	NJ	34029	39.767683	-74.277396	township	census_first_listed
 barnegat|nj	Barnegat	NJ	34029	39.753903	-74.221654	CDP	zip_majority
 barrington|nj	Barrington	NJ	34007	39.868935	-75.051362	borough	zip_majority
 basking ridge|nj	Basking Ridge	NJ	34035	40.706547	-74.557631	CDP	zip_majority
+bass river|nj	Bass River	NJ	34005	39.658362	-74.448106	township	census_first_listed
 bay head|nj	Bay Head	NJ	34029	40.070315	-74.048162	borough	census_first_listed
 bayonne|nj	Bayonne	NJ	34017	40.662495	-74.110201	city	zip_majority
 beach haven west|nj	Beach Haven West	NJ	34029	39.671611	-74.234941	CDP	census_first_listed
@@ -17707,37 +17714,51 @@ beach haven|nj	Beach Haven	NJ	34029	39.576031	-74.251791	borough	census_first_li
 beachwood|nj	Beachwood	NJ	34029	39.928405	-74.202189	borough	zip_majority
 beattystown|nj	Beattystown	NJ	34041	40.820613	-74.856004	CDP	census_first_listed
 beckett|nj	Beckett	NJ	34015	39.753142	-75.359455	CDP	zip_majority
+bedminster township|nj	Bedminster Township	NJ	34035	40.673089	-74.686325	township	census_first_listed
 bedminster|nj	Bedminster	NJ	34035	40.674281	-74.660502	CDP	census_first_listed
 beesleys point|nj	Beesleys Point	NJ	34009	39.27718	-74.634869	CDP	zip_majority
 belford|nj	Belford	NJ	34025	40.427906	-74.078743	CDP	zip_majority
 belle mead|nj	Belle Mead	NJ	34035	40.468584	-74.657017	CDP	zip_majority
 belleplain|nj	Belleplain	NJ	34009	39.25784	-74.874857	CDP	census_first_listed
+belleville|nj	Belleville	NJ	34013	40.793481	-74.161159	township	census_first_listed
 bellmawr|nj	Bellmawr	NJ	34007	39.866356	-75.09467	borough	zip_majority
 belmar|nj	Belmar	NJ	34025	40.179663	-74.02444	borough	zip_majority
 belvidere|nj	Belvidere	NJ	34041	40.829802	-75.073337	town	zip_majority
 bergenfield|nj	Bergenfield	NJ	34003	40.922334	-73.998001	borough	zip_majority
+berkeley heights|nj	Berkeley Heights	NJ	34039	40.676119	-74.422756	township	census_first_listed
+berkeley|nj	Berkeley	NJ	34029	39.912906	-74.193095	township	census_first_listed
+berlin township|nj	Berlin Township	NJ	34007	39.807116	-74.924178	township	census_first_listed
 berlin|nj	Berlin	NJ	34007	39.792059	-74.936985	borough	zip_majority
 bernardsville|nj	Bernardsville	NJ	34035	40.730384	-74.592602	borough	zip_majority
+bernards|nj	Bernards	NJ	34035	40.677455	-74.567277	township	census_first_listed
+bethlehem|nj	Bethlehem	NJ	34019	40.665036	-75.011935	township	census_first_listed
 beverly|nj	Beverly	NJ	34005	40.064811	-74.921904	city	zip_majority
 blackwells mills|nj	Blackwells Mills	NJ	34035	40.480709	-74.59829	CDP	census_first_listed
 blackwood|nj	Blackwood	NJ	34007	39.799223	-75.063754	CDP	zip_majority
+blairstown township|nj	Blairstown Township	NJ	34041	40.980156	-74.996849	township	census_first_listed
 blairstown|nj	Blairstown	NJ	34041	40.987333	-74.954738	CDP	census_first_listed
 blawenburg|nj	Blawenburg	NJ	34035	40.402646	-74.698565	CDP	census_first_listed
+bloomfield|nj	Bloomfield	NJ	34013	40.809141	-74.187142	township	census_first_listed
 bloomingdale|nj	Bloomingdale	NJ	34031	41.035471	-74.335613	borough	zip_majority
 bloomsbury|nj	Bloomsbury	NJ	34019	40.656886	-75.076225	borough	zip_majority
 bogota|nj	Bogota	NJ	34003	40.874293	-74.029737	borough	zip_majority
+boonton township|nj	Boonton Township	NJ	34027	40.931264	-74.424928	township	census_first_listed
 boonton|nj	Boonton	NJ	34027	40.903818	-74.406369	town	zip_majority
+bordentown township|nj	Bordentown Township	NJ	34005	40.130087	-74.697434	township	census_first_listed
 bordentown|nj	Bordentown	NJ	34005	40.149693	-74.707679	city	zip_majority
 bound brook|nj	Bound Brook	NJ	34035	40.567749	-74.53725	borough	zip_majority
 bradley beach|nj	Bradley Beach	NJ	34025	40.201604	-74.012056	borough	zip_majority
 bradley gardens|nj	Bradley Gardens	NJ	34035	40.572097	-74.663442	CDP	census_first_listed
 brainards|nj	Brainards	NJ	34041	40.771764	-75.169933	CDP	census_first_listed
+branchburg|nj	Branchburg	NJ	34035	40.560024	-74.716119	township	census_first_listed
 branchville|nj	Branchville	NJ	34037	41.147238	-74.749042	borough	census_first_listed
 brass castle|nj	Brass Castle	NJ	34041	40.763103	-75.026401	CDP	zip_majority
+brick|nj	Brick	NJ	34029	40.061773	-74.109557	township	census_first_listed
 bridgeport|nj	Bridgeport	NJ	34015	39.800908	-75.346946	CDP	zip_majority
 bridgeton|nj	Bridgeton	NJ	34011	39.429192	-75.228595	city	zip_majority
 bridgeville|nj	Bridgeville	NJ	34041	40.844168	-75.031767	CDP	census_first_listed
 bridgewater center|nj	Bridgewater Center	NJ	34035	40.602743	-74.646096	CDP	census_first_listed
+bridgewater|nj	Bridgewater	NJ	34035	40.592358	-74.60401	township	census_first_listed
 brielle|nj	Brielle	NJ	34025	40.105337	-74.064408	borough	zip_majority
 brigantine|nj	Brigantine	NJ	34001	39.413857	-74.377902	city	zip_majority
 broadway|nj	Broadway	NJ	34041	40.735575	-75.04953	CDP	census_first_listed
@@ -17748,12 +17769,15 @@ brookside|nj	Brookside	NJ	34027	40.79457	-74.564042	CDP	zip_majority
 browns mills|nj	Browns Mills	NJ	34005	39.973149	-74.569211	CDP	zip_majority
 brownville|nj	Brownville	NJ	34023	40.399586	-74.293339	CDP	census_first_listed
 budd lake|nj	Budd Lake	NJ	34027	40.873494	-74.736828	CDP	zip_majority
+buena vista|nj	Buena Vista	NJ	34001	39.513063	-74.880048	township	census_first_listed
 buena|nj	Buena	NJ	34001	39.52917	-74.945204	borough	zip_majority
 burleigh|nj	Burleigh	NJ	34009	39.047233	-74.846651	CDP	census_first_listed
+burlington township|nj	Burlington Township	NJ	34005	40.060631	-74.835891	township	census_first_listed
 burlington|nj	Burlington	NJ	34005	40.078824	-74.852483	city	zip_majority
 butler|nj	Butler	NJ	34027	40.997768	-74.347003	borough	census_first_listed
 buttzville|nj	Buttzville	NJ	34041	40.828388	-75.00617	CDP	census_first_listed
 byram center|nj	Byram Center	NJ	34037	40.932164	-74.71256	CDP	zip_majority
+byram|nj	Byram	NJ	34037	40.960286	-74.713332	township	census_first_listed
 caldwell|nj	Caldwell	NJ	34013	40.839235	-74.277026	borough	census_first_listed
 califon|nj	Califon	NJ	34019	40.719471	-74.836915	borough	zip_majority
 camden|nj	Camden	NJ	34007	39.936787	-75.106644	city	zip_majority
@@ -17762,23 +17786,33 @@ cape may point|nj	Cape May Point	NJ	34009	38.936909	-74.965374	borough	zip_major
 cape may|nj	Cape May	NJ	34009	38.941147	-74.898372	city	census_first_listed
 carlls corner|nj	Carlls Corner	NJ	34011	39.465903	-75.203634	CDP	census_first_listed
 carlstadt|nj	Carlstadt	NJ	34003	40.826431	-74.062335	borough	zip_majority
+carneys point township|nj	Carneys Point Township	NJ	34033	39.694751	-75.445164	township	census_first_listed
 carneys point|nj	Carneys Point	NJ	34033	39.705328	-75.467996	CDP	zip_majority
 carteret|nj	Carteret	NJ	34023	40.58379	-74.227457	borough	zip_majority
 cedar glen lakes|nj	Cedar Glen Lakes	NJ	34029	39.953737	-74.400284	CDP	census_first_listed
 cedar glen west|nj	Cedar Glen West	NJ	34029	40.038015	-74.285803	CDP	census_first_listed
+cedar grove|nj	Cedar Grove	NJ	34013	40.858017	-74.229784	township	census_first_listed
 cedar knolls|nj	Cedar Knolls	NJ	34027	40.818911	-74.455194	CDP	zip_majority
 cedarville|nj	Cedarville	NJ	34011	39.338581	-75.214477	CDP	zip_majority
 centre grove|nj	Centre Grove	NJ	34011	39.360939	-75.13648	CDP	census_first_listed
+chatham township|nj	Chatham Township	NJ	34027	40.723214	-74.43639	township	census_first_listed
 chatham|nj	Chatham	NJ	34027	40.740686	-74.38448	borough	zip_majority
 cherry hill mall|nj	Cherry Hill Mall	NJ	34007	39.938209	-75.012356	CDP	zip_majority
+cherry hill|nj	Cherry Hill	NJ	34007	39.904611	-74.997	township	census_first_listed
 chesilhurst|nj	Chesilhurst	NJ	34007	39.729795	-74.880531	borough	zip_majority
+chester township|nj	Chester Township	NJ	34027	40.776758	-74.686512	township	census_first_listed
+chesterfield|nj	Chesterfield	NJ	34005	40.119177	-74.662894	township	census_first_listed
 chester|nj	Chester	NJ	34027	40.790628	-74.690085	borough	zip_majority
+cinnaminson|nj	Cinnaminson	NJ	34005	40.000162	-74.991632	township	census_first_listed
+city of orange|nj	City of Orange	NJ	34013	40.76804	-74.235692	township	census_first_listed
+clark|nj	Clark	NJ	34039	40.618474	-74.316	township	census_first_listed
 clayton|nj	Clayton	NJ	34015	39.664063	-75.074397	borough	zip_majority
 clearbrook|nj	Clearbrook	NJ	34023	40.309839	-74.465188	CDP	census_first_listed
 clementon|nj	Clementon	NJ	34007	39.802681	-74.983763	borough	census_first_listed
 cliffside park|nj	Cliffside Park	NJ	34003	40.82205	-73.987932	borough	zip_majority
 cliffwood beach|nj	Cliffwood Beach	NJ	34025	40.44321	-74.217841	CDP	census_first_listed
 clifton|nj	Clifton	NJ	34031	40.862137	-74.160393	city	zip_majority
+clinton township|nj	Clinton Township	NJ	34019	40.630098	-74.867202	township	census_first_listed
 clinton|nj	Clinton	NJ	34019	40.636794	-74.915205	town	zip_majority
 closter|nj	Closter	NJ	34003	40.97289	-73.960315	borough	zip_majority
 clyde|nj	Clyde	NJ	34035	40.487341	-74.513189	CDP	census_first_listed
@@ -17786,14 +17820,18 @@ collings lakes|nj	Collings Lakes	NJ	34001	39.595202	-74.888418	CDP	census_first_
 collingswood|nj	Collingswood	NJ	34007	39.915275	-75.078391	borough	census_first_listed
 cologne|nj	Cologne	NJ	34001	39.493247	-74.608404	CDP	census_first_listed
 colonia|nj	Colonia	NJ	34023	40.589329	-74.311415	CDP	zip_majority
+colts neck|nj	Colts Neck	NJ	34025	40.293438	-74.168257	township	census_first_listed
 columbia|nj	Columbia	NJ	34041	40.925868	-75.094062	CDP	census_first_listed
+commercial|nj	Commercial	NJ	34011	39.273769	-75.045343	township	census_first_listed
 concordia|nj	Concordia	NJ	34023	40.314592	-74.447362	CDP	census_first_listed
 connecticut farms|nj	Connecticut Farms	NJ	34039	40.693015	-74.271549	CDP	census_first_listed
 cookstown|nj	Cookstown	NJ	34005	40.043738	-74.547654	CDP	zip_majority
 corbin city|nj	Corbin City	NJ	34001	39.301674	-74.705578	city	census_first_listed
 country lake estates|nj	Country Lake Estates	NJ	34005	39.948988	-74.537929	CDP	census_first_listed
+cranbury township|nj	Cranbury Township	NJ	34023	40.31345	-74.520233	township	census_first_listed
 cranbury|nj	Cranbury	NJ	34023	40.31345	-74.520233	CDP	zip_majority
 crandon lakes|nj	Crandon Lakes	NJ	34037	41.122727	-74.840512	CDP	census_first_listed
+cranford township|nj	Cranford Township	NJ	34039	40.65609	-74.303563	township	census_first_listed
 cranford|nj	Cranford	NJ	34039	40.654374	-74.308632	CDP	zip_majority
 cream ridge|nj	Cream Ridge	NJ	34025	40.132217	-74.537254	CDP	zip_majority
 cresskill|nj	Cresskill	NJ	34003	40.940018	-73.958313	borough	zip_majority
@@ -17804,11 +17842,18 @@ dayton|nj	Dayton	NJ	34023	40.377854	-74.507789	CDP	zip_majority
 deal|nj	Deal	NJ	34025	40.249701	-73.997458	borough	zip_majority
 deans|nj	Deans	NJ	34023	40.403154	-74.515311	CDP	zip_majority
 deerfield street|nj	Deerfield Street	NJ	34011	39.516398	-75.243953	CDP	census_first_listed
+deerfield|nj	Deerfield	NJ	34011	39.459043	-75.131987	township	census_first_listed
+delanco|nj	Delanco	NJ	34005	40.049529	-74.947238	township	census_first_listed
 delaware park|nj	Delaware Park	NJ	34041	40.705117	-75.188273	CDP	census_first_listed
+delaware township|nj	Delaware Township	NJ	34019	40.439762	-74.956329	township	census_first_listed
 delaware|nj	Delaware	NJ	34041	40.892819	-75.069436	CDP	zip_majority
 delmont|nj	Delmont	NJ	34011	39.215244	-74.94944	CDP	zip_majority
+delran|nj	Delran	NJ	34005	40.013024	-74.947423	township	census_first_listed
 demarest|nj	Demarest	NJ	34003	40.954103	-73.954921	borough	zip_majority
 dennisville|nj	Dennisville	NJ	34009	39.206555	-74.818386	CDP	census_first_listed
+dennis|nj	Dennis	NJ	34009	39.206555	-74.818386	township	census_first_listed
+denville|nj	Denville	NJ	34027	40.888479	-74.488377	township	census_first_listed
+deptford|nj	Deptford	NJ	34015	39.817092	-75.116577	township	census_first_listed
 diamond beach|nj	Diamond Beach	NJ	34009	38.959251	-74.852865	CDP	census_first_listed
 dividing creek|nj	Dividing Creek	NJ	34011	39.270495	-75.100213	CDP	census_first_listed
 dorchester|nj	Dorchester	NJ	34011	39.269887	-74.971267	CDP	zip_majority
@@ -17816,25 +17861,38 @@ dorothy|nj	Dorothy	NJ	34001	39.404337	-74.831974	CDP	zip_majority
 dover beaches north|nj	Dover Beaches North	NJ	34029	39.99354	-74.070657	CDP	zip_majority
 dover beaches south|nj	Dover Beaches South	NJ	34029	39.954884	-74.081731	CDP	zip_majority
 dover|nj	Dover	NJ	34027	40.8856	-74.559163	town	zip_majority
+downe|nj	Downe	NJ	34011	39.269497	-75.133318	township	census_first_listed
 dumont|nj	Dumont	NJ	34003	40.945239	-73.992428	borough	zip_majority
 dunellen|nj	Dunellen	NJ	34035	40.590294	-74.465652	borough	zip_majority
 dutch neck|nj	Dutch Neck	NJ	34011	39.40166	-75.278671	CDP	census_first_listed
+eagleswood|nj	Eagleswood	NJ	34029	39.647182	-74.284599	township	census_first_listed
+east amwell|nj	East Amwell	NJ	34019	40.434992	-74.82303	township	census_first_listed
+east brunswick|nj	East Brunswick	NJ	34023	40.426249	-74.418244	township	census_first_listed
 east franklin|nj	East Franklin	NJ	34035	40.493307	-74.471073	CDP	census_first_listed
 east freehold|nj	East Freehold	NJ	34025	40.275752	-74.241309	CDP	census_first_listed
+east greenwich|nj	East Greenwich	NJ	34015	39.790519	-75.240592	township	census_first_listed
+east hanover|nj	East Hanover	NJ	34027	40.818553	-74.363742	township	census_first_listed
 east millstone|nj	East Millstone	NJ	34035	40.497223	-74.569735	CDP	census_first_listed
 east newark|nj	East Newark	NJ	34017	40.752011	-74.162189	borough	census_first_listed
 east orange|nj	East Orange	NJ	34013	40.765055	-74.211655	city	zip_majority
 east rocky hill|nj	East Rocky Hill	NJ	34035	40.415152	-74.618012	CDP	census_first_listed
 east rutherford|nj	East Rutherford	NJ	34003	40.817097	-74.085024	borough	zip_majority
 east vineland|nj	East Vineland	NJ	34001	39.476623	-74.905702	CDP	census_first_listed
+east windsor|nj	East Windsor	NJ	34021	40.259139	-74.533576	township	census_first_listed
+eastampton|nj	Eastampton	NJ	34005	40.000279	-74.756547	township	census_first_listed
 eatontown|nj	Eatontown	NJ	34025	40.291624	-74.054123	borough	zip_majority
 echelon|nj	Echelon	NJ	34007	39.847234	-74.99368	CDP	zip_majority
+edgewater park|nj	Edgewater Park	NJ	34005	40.053506	-74.918438	township	census_first_listed
 edgewater|nj	Edgewater	NJ	34003	40.82465	-73.973793	borough	zip_majority
+edison|nj	Edison	NJ	34023	40.504396	-74.348843	township	census_first_listed
 egg harbor city|nj	Egg Harbor City	NJ	34001	39.563687	-74.595865	city	zip_majority
+egg harbor|nj	Egg Harbor	NJ	34001	39.380407	-74.612341	township	census_first_listed
 elizabeth|nj	Elizabeth	NJ	34039	40.666367	-74.193503	city	zip_majority
+elk|nj	Elk	NJ	34015	39.662752	-75.156972	township	census_first_listed
 ellisburg|nj	Ellisburg	NJ	34007	39.919889	-75.009336	CDP	census_first_listed
 elmer|nj	Elmer	NJ	34033	39.592258	-75.174569	borough	census_first_listed
 elmwood park|nj	Elmwood Park	NJ	34003	40.904526	-74.119514	borough	zip_majority
+elsinboro|nj	Elsinboro	NJ	34033	39.533317	-75.498478	township	census_first_listed
 elwood|nj	Elwood	NJ	34001	39.569375	-74.707921	CDP	zip_majority
 emerson|nj	Emerson	NJ	34003	40.97499	-74.023248	borough	zip_majority
 encore at monroe|nj	Encore at Monroe	NJ	34023	40.319571	-74.467097	CDP	census_first_listed
@@ -17845,6 +17903,8 @@ englishtown|nj	Englishtown	NJ	34025	40.296141	-74.359584	borough	census_first_li
 erma|nj	Erma	NJ	34009	38.994824	-74.891954	CDP	zip_majority
 essex fells|nj	Essex Fells	NJ	34013	40.828102	-74.276226	borough	zip_majority
 estell manor|nj	Estell Manor	NJ	34001	39.353933	-74.775135	city	zip_majority
+evesham|nj	Evesham	NJ	34005	39.856677	-74.90081	township	census_first_listed
+ewing|nj	Ewing	NJ	34021	40.263344	-74.798704	township	census_first_listed
 fair haven|nj	Fair Haven	NJ	34025	40.36194	-74.038775	borough	zip_majority
 fair lawn|nj	Fair Lawn	NJ	34003	40.93583	-74.117505	borough	zip_majority
 fairton|nj	Fairton	NJ	34011	39.373352	-75.208845	CDP	census_first_listed
@@ -17859,6 +17919,7 @@ finesville|nj	Finesville	NJ	34041	40.61159	-75.171543	CDP	census_first_listed
 flagtown|nj	Flagtown	NJ	34035	40.522523	-74.691039	CDP	zip_majority
 flanders|nj	Flanders	NJ	34027	40.843163	-74.710684	CDP	zip_majority
 flemington|nj	Flemington	NJ	34019	40.508641	-74.859869	borough	zip_majority
+florence township|nj	Florence Township	NJ	34005	40.095142	-74.786609	township	census_first_listed
 florence|nj	Florence	NJ	34005	40.11916	-74.808773	CDP	zip_majority
 florham park|nj	Florham Park	NJ	34027	40.775992	-74.394315	borough	zip_majority
 folsom|nj	Folsom	NJ	34001	39.596745	-74.843163	borough	census_first_listed
@@ -17868,13 +17929,18 @@ forsgate|nj	Forsgate	NJ	34023	40.349285	-74.467813	CDP	census_first_listed
 fort dix|nj	Fort Dix	NJ	34005	40.005611	-74.611072	CDP	zip_majority
 fort lee|nj	Fort Lee	NJ	34003	40.85064	-73.971007	borough	zip_majority
 fortescue|nj	Fortescue	NJ	34011	39.237004	-75.170521	CDP	zip_majority
+frankford|nj	Frankford	NJ	34037	41.164296	-74.737798	township	census_first_listed
 franklin center|nj	Franklin Center	NJ	34035	40.531535	-74.54141	CDP	census_first_listed
 franklin lakes|nj	Franklin Lakes	NJ	34003	41.007526	-74.205653	borough	zip_majority
 franklin park|nj	Franklin Park	NJ	34035	40.444632	-74.542041	CDP	census_first_listed
 franklinville|nj	Franklinville	NJ	34015	39.618004	-75.072981	CDP	zip_majority
 franklin|nj	Franklin	NJ	34037	41.108997	-74.588641	borough	zip_majority
+fredon|nj	Fredon	NJ	34037	41.024675	-74.818224	township	census_first_listed
+freehold township|nj	Freehold Township	NJ	34025	40.224382	-74.299051	township	census_first_listed
 freehold|nj	Freehold	NJ	34025	40.260219	-74.275884	borough	census_first_listed
+frelinghuysen|nj	Frelinghuysen	NJ	34041	40.959486	-74.895154	township	census_first_listed
 frenchtown|nj	Frenchtown	NJ	34019	40.530537	-75.052846	borough	zip_majority
+galloway|nj	Galloway	NJ	34001	39.491453	-74.473867	township	census_first_listed
 gandys beach|nj	Gandys Beach	NJ	34011	39.27255	-75.234386	CDP	census_first_listed
 garfield|nj	Garfield	NJ	34003	40.879797	-74.10825	city	zip_majority
 garwood|nj	Garwood	NJ	34039	40.651331	-74.323152	borough	zip_majority
@@ -17888,16 +17954,19 @@ glen ridge|nj	Glen Ridge	NJ	34013	40.804798	-74.204569	borough	zip_majority
 glen rock|nj	Glen Rock	NJ	34003	40.959471	-74.125202	borough	zip_majority
 glendora|nj	Glendora	NJ	34007	39.840937	-75.067211	CDP	zip_majority
 gloucester city|nj	Gloucester City	NJ	34007	39.891694	-75.116692	city	zip_majority
+gloucester|nj	Gloucester	NJ	34007	39.792186	-75.036059	township	census_first_listed
 golden triangle|nj	Golden Triangle	NJ	34007	39.928553	-75.038827	CDP	census_first_listed
 goshen|nj	Goshen	NJ	34009	39.148107	-74.846148	CDP	census_first_listed
 gouldtown|nj	Gouldtown	NJ	34011	39.415169	-75.19119	CDP	census_first_listed
 great meadows|nj	Great Meadows	NJ	34041	40.875812	-74.896582	CDP	zip_majority
 great notch|nj	Great Notch	NJ	34013	40.871476	-74.208634	CDP	zip_majority
+green brook|nj	Green Brook	NJ	34035	40.603832	-74.483208	township	census_first_listed
 green knoll|nj	Green Knoll	NJ	34035	40.604725	-74.614511	CDP	census_first_listed
 green village|nj	Green Village	NJ	34027	40.737233	-74.448347	CDP	zip_majority
 greentree|nj	Greentree	NJ	34007	39.898668	-74.96168	CDP	census_first_listed
 greenwich|nj	Greenwich	NJ	34011	39.389168	-75.344386	CDP	census_first_listed
 greenwich|nj	Greenwich	NJ	34041	40.684907	-75.133821	CDP	census_first_listed
+green|nj	Green	NJ	34037	40.974073	-74.802584	township	census_first_listed
 grenloch|nj	Grenloch	NJ	34015	39.782747	-75.055456	CDP	zip_majority
 griggstown|nj	Griggstown	NJ	34035	40.439868	-74.598319	CDP	census_first_listed
 groveville|nj	Groveville	NJ	34021	40.170087	-74.651309	CDP	census_first_listed
@@ -17906,22 +17975,32 @@ hackensack|nj	Hackensack	NJ	34003	40.889398	-74.045698	city	zip_majority
 hackettstown|nj	Hackettstown	NJ	34041	40.853704	-74.824877	town	zip_majority
 haddon heights|nj	Haddon Heights	NJ	34007	39.879127	-75.065918	borough	zip_majority
 haddonfield|nj	Haddonfield	NJ	34007	39.895416	-75.034413	borough	zip_majority
+haddon|nj	Haddon	NJ	34007	39.906216	-75.062951	township	census_first_listed
 hainesburg|nj	Hainesburg	NJ	34041	40.957233	-75.052237	CDP	zip_majority
+hainesport|nj	Hainesport	NJ	34005	39.977956	-74.836334	township	census_first_listed
 haledon|nj	Haledon	NJ	34031	40.936989	-74.188867	borough	census_first_listed
 hamburg|nj	Hamburg	NJ	34037	41.148763	-74.573416	borough	zip_majority
 hamilton square|nj	Hamilton Square	NJ	34021	40.225029	-74.65048	CDP	zip_majority
 hammonton|nj	Hammonton	NJ	34001	39.66078	-74.767021	town	zip_majority
+hampton township|nj	Hampton Township	NJ	34037	41.091701	-74.789608	township	census_first_listed
 hampton|nj	Hampton	NJ	34019	40.70457	-74.971525	borough	zip_majority
 hancocks bridge|nj	Hancocks Bridge	NJ	34033	39.505308	-75.459316	CDP	zip_majority
+hanover|nj	Hanover	NJ	34027	40.81995	-74.427986	township	census_first_listed
+harding|nj	Harding	NJ	34027	40.740956	-74.496814	township	census_first_listed
+hardwick|nj	Hardwick	NJ	34041	41.039708	-75.006656	township	census_first_listed
+hardyston|nj	Hardyston	NJ	34037	41.124751	-74.558783	township	census_first_listed
 harlingen|nj	Harlingen	NJ	34035	40.451506	-74.654587	CDP	census_first_listed
+harmony township|nj	Harmony Township	NJ	34041	40.747701	-75.122777	township	census_first_listed
 harmony|nj	Harmony	NJ	34041	40.751232	-75.137817	CDP	census_first_listed
 harrington park|nj	Harrington Park	NJ	34003	40.991681	-73.980202	borough	zip_majority
+harrison township|nj	Harrison Township	NJ	34015	39.726095	-75.204908	township	census_first_listed
 harrisonville|nj	Harrisonville	NJ	34015	39.685659	-75.277309	CDP	zip_majority
 harrison|nj	Harrison	NJ	34017	40.742978	-74.152911	town	zip_majority
 harvey cedars|nj	Harvey Cedars	NJ	34029	39.699578	-74.141511	borough	census_first_listed
 hasbrouck heights|nj	Hasbrouck Heights	NJ	34003	40.862751	-74.075182	borough	zip_majority
 haworth|nj	Haworth	NJ	34003	40.962737	-73.99747	borough	zip_majority
 hawthorne|nj	Hawthorne	NJ	34031	40.956957	-74.158561	borough	zip_majority
+hazlet|nj	Hazlet	NJ	34025	40.425627	-74.16869	township	census_first_listed
 heathcote|nj	Heathcote	NJ	34023	40.391003	-74.577665	CDP	census_first_listed
 heislerville|nj	Heislerville	NJ	34011	39.223659	-74.991478	CDP	zip_majority
 helmetta|nj	Helmetta	NJ	34023	40.378417	-74.423384	borough	zip_majority
@@ -17933,22 +18012,32 @@ highland lakes|nj	Highland Lakes	NJ	34037	41.170559	-74.463226	CDP	zip_majority
 highland park|nj	Highland Park	NJ	34023	40.500795	-74.427911	borough	zip_majority
 highlands|nj	Highlands	NJ	34025	40.404229	-73.988186	borough	zip_majority
 hightstown|nj	Hightstown	NJ	34021	40.268457	-74.525804	borough	census_first_listed
+hillsborough township|nj	Hillsborough Township	NJ	34035	40.497692	-74.670505	township	census_first_listed
 hillsborough|nj	Hillsborough	NJ	34035	40.508074	-74.65288	CDP	zip_majority
 hillsdale|nj	Hillsdale	NJ	34003	41.007127	-74.045119	borough	zip_majority
+hillside|nj	Hillside	NJ	34039	40.695889	-74.2288	township	census_first_listed
 ho ho kus|nj	Ho-Ho-Kus	NJ	34003	40.9995	-74.096583	borough	zip_majority
 hoboken|nj	Hoboken	NJ	34017	40.745251	-74.027926	city	zip_majority
 holiday city berkeley|nj	Holiday City-Berkeley	NJ	34029	39.962813	-74.279647	CDP	zip_majority
 holiday city south|nj	Holiday City South	NJ	34029	39.954094	-74.237294	CDP	census_first_listed
 holiday heights|nj	Holiday Heights	NJ	34029	39.939577	-74.257202	CDP	census_first_listed
+holland|nj	Holland	NJ	34019	40.598039	-75.124165	township	census_first_listed
+holmdel|nj	Holmdel	NJ	34025	40.374964	-74.173849	township	census_first_listed
 hopatcong|nj	Hopatcong	NJ	34037	40.951648	-74.662377	borough	zip_majority
+hope township|nj	Hope Township	NJ	34041	40.906979	-74.976675	township	census_first_listed
 hopelawn|nj	Hopelawn	NJ	34023	40.528629	-74.293633	CDP	census_first_listed
 hopewell|nj	Hopewell	NJ	34021	40.389309	-74.763799	borough	zip_majority
 hope|nj	Hope	NJ	34041	40.912086	-74.958895	CDP	zip_majority
+howell|nj	Howell	NJ	34025	40.178108	-74.206225	township	census_first_listed
 hutchinson|nj	Hutchinson	NJ	34041	40.779249	-75.119963	CDP	census_first_listed
+independence|nj	Independence	NJ	34041	40.880001	-74.876253	township	census_first_listed
 interlaken|nj	Interlaken	NJ	34025	40.234313	-74.015939	borough	census_first_listed
+irvington|nj	Irvington	NJ	34013	40.723859	-74.232522	township	census_first_listed
 iselin|nj	Iselin	NJ	34023	40.570142	-74.316371	CDP	zip_majority
 island heights|nj	Island Heights	NJ	34029	39.941804	-74.143842	borough	zip_majority
+jackson|nj	Jackson	NJ	34029	40.090928	-74.361269	township	census_first_listed
 jamesburg|nj	Jamesburg	NJ	34023	40.349038	-74.440202	borough	zip_majority
+jefferson|nj	Jefferson	NJ	34027	41.001257	-74.55129	township	census_first_listed
 jersey city|nj	Jersey City	NJ	34017	40.711417	-74.06476	city	zip_majority
 jobstown|nj	Jobstown	NJ	34005	40.030929	-74.700468	CDP	zip_majority
 johnsonburg|nj	Johnsonburg	NJ	34041	40.963004	-74.870992	CDP	zip_majority
@@ -17963,7 +18052,11 @@ kenvil|nj	Kenvil	NJ	34027	40.881052	-74.61966	CDP	zip_majority
 keyport|nj	Keyport	NJ	34025	40.432626	-74.200342	borough	census_first_listed
 kingston estates|nj	Kingston Estates	NJ	34007	39.918085	-74.990185	CDP	census_first_listed
 kingston|nj	Kingston	NJ	34035	40.38145	-74.61398	CDP	zip_majority
+kingwood|nj	Kingwood	NJ	34019	40.494704	-75.019461	township	census_first_listed
 kinnelon|nj	Kinnelon	NJ	34027	40.982036	-74.385896	borough	zip_majority
+knowlton|nj	Knowlton	NJ	34041	40.929261	-75.061796	township	census_first_listed
+lacey|nj	Lacey	NJ	34029	39.855153	-74.267152	township	census_first_listed
+lafayette|nj	Lafayette	NJ	34037	41.121235	-74.670297	township	census_first_listed
 lake como|nj	Lake Como	NJ	34025	40.170011	-74.024861	borough	census_first_listed
 lake hiawatha|nj	Lake Hiawatha	NJ	34027	40.881471	-74.382612	CDP	zip_majority
 lake hopatcong|nj	Lake Hopatcong	NJ	34027	40.959562	-74.609507	CDP	zip_majority
@@ -17971,6 +18064,7 @@ lake mohawk|nj	Lake Mohawk	NJ	34037	41.012982	-74.671481	CDP	zip_majority
 lake telemark|nj	Lake Telemark	NJ	34027	40.959829	-74.497729	CDP	census_first_listed
 lakehurst|nj	Lakehurst	NJ	34029	40.013119	-74.320356	borough	zip_majority
 lakeside beebe run|nj	Lakeside-Beebe Run	NJ	34011	39.452176	-75.249779	CDP	census_first_listed
+lakewood township|nj	Lakewood Township	NJ	34029	40.077069	-74.19851	township	census_first_listed
 lakewood|nj	Lakewood	NJ	34029	40.093975	-74.211478	CDP	zip_majority
 lambertville|nj	Lambertville	NJ	34019	40.368563	-74.943049	city	zip_majority
 lamington|nj	Lamington	NJ	34035	40.671731	-74.706335	CDP	zip_majority
@@ -17983,6 +18077,7 @@ lavallette|nj	Lavallette	NJ	34029	39.969474	-74.07188	borough	census_first_liste
 lawnside|nj	Lawnside	NJ	34007	39.867308	-75.028903	borough	zip_majority
 lawrenceville|nj	Lawrenceville	NJ	34021	40.302621	-74.73852	CDP	zip_majority
 layton|nj	Layton	NJ	34037	41.218518	-74.823479	CDP	zip_majority
+lebanon township|nj	Lebanon Township	NJ	34019	40.726369	-74.894408	township	census_first_listed
 lebanon|nj	Lebanon	NJ	34019	40.641862	-74.833312	borough	zip_majority
 ledgewood|nj	Ledgewood	NJ	34027	40.883268	-74.668029	CDP	zip_majority
 leeds point|nj	Leeds Point	NJ	34001	39.490613	-74.443344	CDP	census_first_listed
@@ -17995,45 +18090,68 @@ leisuretowne|nj	Leisuretowne	NJ	34005	39.894535	-74.709479	CDP	zip_majority
 leonardo|nj	Leonardo	NJ	34025	40.419717	-74.060211	CDP	zip_majority
 leonia|nj	Leonia	NJ	34003	40.863391	-73.988466	borough	zip_majority
 liberty corner|nj	Liberty Corner	NJ	34035	40.662488	-74.584628	CDP	census_first_listed
+liberty|nj	Liberty	NJ	34041	40.86974	-74.938072	township	census_first_listed
 lincoln park|nj	Lincoln Park	NJ	34027	40.923751	-74.304235	borough	zip_majority
 lincroft|nj	Lincroft	NJ	34025	40.335361	-74.132723	CDP	zip_majority
 lindenwold|nj	Lindenwold	NJ	34007	39.818832	-74.989966	borough	zip_majority
 linden|nj	Linden	NJ	34039	40.627337	-74.23631	city	zip_majority
 linwood|nj	Linwood	NJ	34001	39.343718	-74.571049	city	zip_majority
+little egg harbor|nj	Little Egg Harbor	NJ	34029	39.63297	-74.331032	township	census_first_listed
+little falls|nj	Little Falls	NJ	34031	40.87559	-74.217366	township	census_first_listed
 little ferry|nj	Little Ferry	NJ	34003	40.843431	-74.034239	borough	zip_majority
 little silver|nj	Little Silver	NJ	34025	40.336952	-74.034535	borough	zip_majority
+livingston|nj	Livingston	NJ	34013	40.785828	-74.3291	township	census_first_listed
 llewellyn park|nj	Llewellyn Park	NJ	34013	40.789325	-74.239681	CDP	census_first_listed
 loch arbour|nj	Loch Arbour	NJ	34025	40.232296	-74.000008	village	census_first_listed
 lodi|nj	Lodi	NJ	34003	40.877915	-74.0825	borough	zip_majority
+logan|nj	Logan	NJ	34015	39.792079	-75.355179	township	census_first_listed
+long beach|nj	Long Beach	NJ	34029	39.60155	-74.226367	township	census_first_listed
 long branch|nj	Long Branch	NJ	34025	40.295372	-73.989899	city	zip_majority
+long hill|nj	Long Hill	NJ	34027	40.682882	-74.491619	township	census_first_listed
 long valley|nj	Long Valley	NJ	34027	40.781633	-74.776838	CDP	zip_majority
 longport|nj	Longport	NJ	34001	39.311337	-74.526957	borough	zip_majority
 lopatcong overlook|nj	Lopatcong Overlook	NJ	34041	40.697115	-75.145197	CDP	census_first_listed
+lopatcong|nj	Lopatcong	NJ	34041	40.714002	-75.15547	township	census_first_listed
+lower alloways creek|nj	Lower Alloways Creek	NJ	34033	39.450506	-75.457741	township	census_first_listed
 lower berkshire valley|nj	Lower Berkshire Valley	NJ	34027	40.912183	-74.614014	CDP	census_first_listed
+lower|nj	Lower	NJ	34009	38.983768	-74.911308	township	census_first_listed
+lumberton|nj	Lumberton	NJ	34005	39.958855	-74.802478	township	census_first_listed
+lyndhurst|nj	Lyndhurst	NJ	34003	40.797113	-74.11298	township	census_first_listed
 lyons|nj	Lyons	NJ	34035	40.680768	-74.548442	CDP	zip_majority
 macopin|nj	Macopin	NJ	34031	41.026869	-74.38004	CDP	zip_majority
 madison park|nj	Madison Park	NJ	34023	40.445963	-74.29639	CDP	census_first_listed
 madison|nj	Madison	NJ	34027	40.758044	-74.417807	borough	zip_majority
 magnolia|nj	Magnolia	NJ	34007	39.856195	-75.036397	borough	zip_majority
+mahwah|nj	Mahwah	NJ	34003	41.082067	-74.183061	township	census_first_listed
 malaga|nj	Malaga	NJ	34015	39.579668	-75.056375	CDP	zip_majority
 manahawkin|nj	Manahawkin	NJ	34029	39.689943	-74.242653	CDP	census_first_listed
+manalapan|nj	Manalapan	NJ	34025	40.282353	-74.346564	township	census_first_listed
 manasquan|nj	Manasquan	NJ	34025	40.112421	-74.038159	borough	zip_majority
+manchester|nj	Manchester	NJ	34029	39.961624	-74.375315	township	census_first_listed
+mannington|nj	Mannington	NJ	34033	39.623249	-75.414662	township	census_first_listed
 mantoloking|nj	Mantoloking	NJ	34029	40.056688	-74.04816	borough	zip_majority
+mantua|nj	Mantua	NJ	34015	39.762013	-75.173092	township	census_first_listed
 manville|nj	Manville	NJ	34035	40.541269	-74.589273	borough	zip_majority
+maple shade|nj	Maple Shade	NJ	34005	39.952381	-74.994896	township	census_first_listed
+maplewood|nj	Maplewood	NJ	34013	40.733607	-74.271159	township	census_first_listed
 margate city|nj	Margate City	NJ	34001	39.330913	-74.506849	city	zip_majority
 marksboro|nj	Marksboro	NJ	34041	40.9793	-74.902528	CDP	zip_majority
+marlboro township|nj	Marlboro Township	NJ	34025	40.342931	-74.257197	township	census_first_listed
 marlboro|nj	Marlboro	NJ	34011	39.487078	-75.324578	CDP	census_first_listed
 marlton|nj	Marlton	NJ	34005	39.901885	-74.929277	CDP	zip_majority
 marmora|nj	Marmora	NJ	34009	39.258702	-74.657407	CDP	census_first_listed
 marshallville|nj	Marshallville	NJ	34009	39.292681	-74.770462	CDP	census_first_listed
 martinsville|nj	Martinsville	NJ	34035	40.602946	-74.575794	CDP	zip_majority
 matawan|nj	Matawan	NJ	34023	40.411042	-74.236534	borough	zip_majority
+maurice river|nj	Maurice River	NJ	34011	39.295626	-74.928882	township	census_first_listed
 mauricetown|nj	Mauricetown	NJ	34011	39.29244	-75.007498	CDP	zip_majority
 mays landing|nj	Mays Landing	NJ	34001	39.452263	-74.707473	CDP	census_first_listed
 maywood|nj	Maywood	NJ	34003	40.902885	-74.063457	borough	zip_majority
 mcguire afb|nj	McGuire AFB	NJ	34005	40.027985	-74.587819	CDP	zip_majority
 mckee city|nj	McKee City	NJ	34001	39.443813	-74.651889	CDP	census_first_listed
 medford lakes|nj	Medford Lakes	NJ	34005	39.853649	-74.811665	borough	zip_majority
+medford|nj	Medford	NJ	34005	39.864269	-74.82466	township	census_first_listed
+mendham township|nj	Mendham Township	NJ	34027	40.801262	-74.570122	township	census_first_listed
 mendham|nj	Mendham	NJ	34027	40.76729	-74.597766	borough	zip_majority
 menlo park terrace|nj	Menlo Park Terrace	NJ	34023	40.553407	-74.324265	CDP	census_first_listed
 mercerville|nj	Mercerville	NJ	34021	40.235832	-74.692254	CDP	zip_majority
@@ -18042,39 +18160,55 @@ metuchen|nj	Metuchen	NJ	34023	40.542445	-74.362767	borough	zip_majority
 mickleton|nj	Mickleton	NJ	34015	39.79105	-75.246173	CDP	zip_majority
 middlebush|nj	Middlebush	NJ	34035	40.502043	-74.535378	CDP	census_first_listed
 middlesex|nj	Middlesex	NJ	34023	40.574627	-74.498259	borough	zip_majority
+middletown|nj	Middletown	NJ	34025	40.404786	-74.071404	township	census_first_listed
+middle|nj	Middle	NJ	34009	39.093265	-74.838922	township	census_first_listed
 midland park|nj	Midland Park	NJ	34003	40.995809	-74.141262	borough	zip_majority
 milford|nj	Milford	NJ	34019	40.573483	-75.089702	borough	zip_majority
+millburn|nj	Millburn	NJ	34013	40.741608	-74.321286	township	census_first_listed
 millington|nj	Millington	NJ	34027	40.675044	-74.514786	CDP	zip_majority
+millstone township|nj	Millstone Township	NJ	34025	40.213339	-74.431681	township	census_first_listed
 millstone|nj	Millstone	NJ	34035	40.499868	-74.595529	borough	census_first_listed
 milltown|nj	Milltown	NJ	34023	40.450223	-74.434786	borough	zip_majority
 millville|nj	Millville	NJ	34011	39.390093	-75.054797	city	zip_majority
 milmay|nj	Milmay	NJ	34011	39.439024	-74.868316	CDP	zip_majority
+mine hill|nj	Mine Hill	NJ	34027	40.878088	-74.601176	township	census_first_listed
 mizpah|nj	Mizpah	NJ	34001	39.481879	-74.838324	CDP	census_first_listed
 money island|nj	Money Island	NJ	34011	39.287626	-75.235145	CDP	census_first_listed
 monmouth beach|nj	Monmouth Beach	NJ	34025	40.335895	-73.985608	borough	zip_majority
 monmouth junction|nj	Monmouth Junction	NJ	34023	40.376068	-74.557923	CDP	zip_majority
 monroe manor|nj	Monroe Manor	NJ	34023	40.25902	-74.474279	CDP	census_first_listed
+montague|nj	Montague	NJ	34037	41.280958	-74.730511	township	census_first_listed
 montclair state university|nj	Montclair State University	NJ	34013	40.865917	-74.198359	CDP	census_first_listed
+montclair|nj	Montclair	NJ	34013	40.824998	-74.210856	township	census_first_listed
+montgomery|nj	Montgomery	NJ	34035	40.426124	-74.678446	township	census_first_listed
 montvale|nj	Montvale	NJ	34003	41.054594	-74.047298	borough	zip_majority
+montville|nj	Montville	NJ	34027	40.912832	-74.358916	township	census_first_listed
 moonachie|nj	Moonachie	NJ	34003	40.841334	-74.057671	borough	zip_majority
 moorestown lenola|nj	Moorestown-Lenola	NJ	34005	39.966115	-74.961557	CDP	zip_majority
+moorestown|nj	Moorestown	NJ	34005	39.978716	-74.942651	township	census_first_listed
 morganville|nj	Morganville	NJ	34025	40.376053	-74.232607	CDP	zip_majority
 morris plains|nj	Morris Plains	NJ	34027	40.838806	-74.474196	borough	zip_majority
 morristown|nj	Morristown	NJ	34027	40.796562	-74.477318	town	zip_majority
+morris|nj	Morris	NJ	34027	40.796131	-74.493803	township	census_first_listed
 mount arlington|nj	Mount Arlington	NJ	34027	40.920751	-74.640791	borough	zip_majority
 mount ephraim|nj	Mount Ephraim	NJ	34007	39.879524	-75.091814	borough	zip_majority
 mount hermon|nj	Mount Hermon	NJ	34041	40.921928	-74.993997	CDP	census_first_listed
+mount holly|nj	Mount Holly	NJ	34005	39.995336	-74.786473	township	census_first_listed
 mount hope|nj	Mount Hope	NJ	34027	40.918729	-74.550854	CDP	census_first_listed
+mount laurel|nj	Mount Laurel	NJ	34005	39.948992	-74.900247	township	census_first_listed
+mount olive|nj	Mount Olive	NJ	34027	40.865597	-74.74193	township	census_first_listed
 mount royal|nj	Mount Royal	NJ	34015	39.809972	-75.214703	CDP	zip_majority
 mount tabor|nj	Mount Tabor	NJ	34027	40.872284	-74.473929	CDP	zip_majority
 mountain lakes|nj	Mountain Lakes	NJ	34027	40.890853	-74.442032	borough	zip_majority
 mountain lake|nj	Mountain Lake	NJ	34041	40.859796	-74.987571	CDP	census_first_listed
 mountainside|nj	Mountainside	NJ	34039	40.680722	-74.360292	borough	zip_majority
 mullica hill|nj	Mullica Hill	NJ	34015	39.720693	-75.210107	CDP	census_first_listed
+mullica|nj	Mullica	NJ	34001	39.598812	-74.67447	township	census_first_listed
 mystic island|nj	Mystic Island	NJ	34029	39.565639	-74.382363	CDP	zip_majority
 national park|nj	National Park	NJ	34015	39.867297	-75.185621	borough	zip_majority
 navesink|nj	Navesink	NJ	34025	40.400292	-74.044811	CDP	census_first_listed
 neptune city|nj	Neptune City	NJ	34025	40.200478	-74.033336	borough	census_first_listed
+neptune|nj	Neptune	NJ	34025	40.213816	-74.053712	township	census_first_listed
 nesco|nj	Nesco	NJ	34001	39.642642	-74.689601	CDP	census_first_listed
 neshanic station|nj	Neshanic Station	NJ	34035	40.52827	-74.735443	CDP	zip_majority
 neshanic|nj	Neshanic	NJ	34035	40.505399	-74.712023	CDP	census_first_listed
@@ -18082,6 +18216,7 @@ netcong|nj	Netcong	NJ	34027	40.899232	-74.700823	borough	zip_majority
 new brunswick|nj	New Brunswick	NJ	34023	40.486677	-74.444414	city	zip_majority
 new egypt|nj	New Egypt	NJ	34029	40.065145	-74.527063	CDP	zip_majority
 new gretna|nj	New Gretna	NJ	34005	39.587769	-74.45452	CDP	zip_majority
+new hanover|nj	New Hanover	NJ	34005	40.013969	-74.575016	township	census_first_listed
 new milford|nj	New Milford	NJ	34003	40.934161	-74.019453	borough	zip_majority
 new providence|nj	New Providence	NJ	34039	40.69889	-74.406623	borough	zip_majority
 new vernon|nj	New Vernon	NJ	34027	40.738889	-74.480459	CDP	zip_majority
@@ -18094,15 +18229,19 @@ newtonville|nj	Newtonville	NJ	34001	39.563288	-74.855927	CDP	zip_majority
 newton|nj	Newton	NJ	34037	41.051487	-74.753601	town	zip_majority
 north arlington|nj	North Arlington	NJ	34003	40.786256	-74.12622	borough	zip_majority
 north beach haven|nj	North Beach Haven	NJ	34029	39.600436	-74.211621	CDP	zip_majority
+north bergen|nj	North Bergen	NJ	34017	40.793644	-74.025027	township	census_first_listed
+north brunswick|nj	North Brunswick	NJ	34023	40.450392	-74.479416	township	census_first_listed
 north caldwell|nj	North Caldwell	NJ	34013	40.8645	-74.259996	borough	zip_majority
 north cape may|nj	North Cape May	NJ	34009	38.980849	-74.951024	CDP	census_first_listed
 north haledon|nj	North Haledon	NJ	34031	40.963618	-74.185281	borough	zip_majority
+north hanover|nj	North Hanover	NJ	34005	40.089961	-74.585444	township	census_first_listed
 north middletown|nj	North Middletown	NJ	34025	40.438988	-74.118521	CDP	zip_majority
 north plainfield|nj	North Plainfield	NJ	34035	40.621255	-74.439466	borough	census_first_listed
 north wildwood|nj	North Wildwood	NJ	34009	39.005944	-74.797505	city	zip_majority
 northfield|nj	Northfield	NJ	34001	39.373073	-74.554128	city	zip_majority
 northvale|nj	Northvale	NJ	34003	41.012874	-73.948553	borough	zip_majority
 norwood|nj	Norwood	NJ	34003	40.992046	-73.950551	borough	zip_majority
+nutley|nj	Nutley	NJ	34013	40.820616	-74.15625	township	census_first_listed
 oak ridge|nj	Oak Ridge	NJ	34027	41.031046	-74.498236	CDP	zip_majority
 oak valley|nj	Oak Valley	NJ	34015	39.806271	-75.158815	CDP	census_first_listed
 oakhurst|nj	Oakhurst	NJ	34025	40.261486	-74.02655	CDP	zip_majority
@@ -18116,12 +18255,15 @@ ocean view|nj	Ocean View	NJ	34009	39.201263	-74.743738	CDP	census_first_listed
 oceanport|nj	Oceanport	NJ	34025	40.316012	-74.020479	borough	zip_majority
 oceanville|nj	Oceanville	NJ	34001	39.482	-74.452637	CDP	census_first_listed
 ogdensburg|nj	Ogdensburg	NJ	34037	41.08009	-74.597626	borough	zip_majority
+old bridge township|nj	Old Bridge Township	NJ	34023	40.404632	-74.308537	township	census_first_listed
 old bridge|nj	Old Bridge	NJ	34023	40.395367	-74.331185	CDP	zip_majority
 old tappan|nj	Old Tappan	NJ	34003	41.023305	-73.984223	borough	zip_majority
+oldmans|nj	Oldmans	NJ	34033	39.739193	-75.411406	township	census_first_listed
 oldwick|nj	Oldwick	NJ	34019	40.66746	-74.739447	CDP	zip_majority
 olivet|nj	Olivet	NJ	34033	39.538101	-75.176334	CDP	zip_majority
 oradell|nj	Oradell	NJ	34003	40.956653	-74.032862	borough	zip_majority
 othello|nj	Othello	NJ	34011	39.409983	-75.342047	CDP	zip_majority
+oxford township|nj	Oxford Township	NJ	34041	40.80865	-74.993421	township	census_first_listed
 oxford|nj	Oxford	NJ	34041	40.804851	-74.997317	CDP	zip_majority
 packanack lake|nj	Packanack Lake	NJ	34031	40.938537	-74.255839	CDP	census_first_listed
 palermo|nj	Palermo	NJ	34009	39.233626	-74.685809	CDP	census_first_listed
@@ -18130,6 +18272,7 @@ palmyra|nj	Palmyra	NJ	34005	40.003099	-75.035889	borough	zip_majority
 panther valley|nj	Panther Valley	NJ	34041	40.909669	-74.841815	CDP	census_first_listed
 paramus|nj	Paramus	NJ	34003	40.947299	-74.070169	borough	zip_majority
 park ridge|nj	Park Ridge	NJ	34003	41.036183	-74.044293	borough	zip_majority
+parsippany troy hills|nj	Parsippany-Troy Hills	NJ	34027	40.859636	-74.423348	township	census_first_listed
 parsippany|nj	Parsippany	NJ	34027	40.864056	-74.41237	CDP	zip_majority
 passaic|nj	Passaic	NJ	34031	40.857552	-74.129089	city	zip_majority
 paterson|nj	Paterson	NJ	34031	40.914766	-74.162829	city	zip_majority
@@ -18137,25 +18280,35 @@ paulsboro|nj	Paulsboro	NJ	34015	39.839975	-75.23996	borough	zip_majority
 peapack and gladstone|nj	Peapack and Gladstone	NJ	34035	40.715782	-74.654054	borough	zip_majority
 pedricktown|nj	Pedricktown	NJ	34033	39.766365	-75.407605	CDP	zip_majority
 pemberton heights|nj	Pemberton Heights	NJ	34005	39.95792	-74.674924	CDP	zip_majority
+pemberton township|nj	Pemberton Township	NJ	34005	39.958586	-74.604606	township	census_first_listed
 pemberton|nj	Pemberton	NJ	34005	39.97219	-74.686558	borough	census_first_listed
 pennington|nj	Pennington	NJ	34021	40.324923	-74.78878	borough	zip_majority
 penns grove|nj	Penns Grove	NJ	34033	39.727704	-75.469035	borough	census_first_listed
+pennsauken|nj	Pennsauken	NJ	34007	39.968368	-75.057851	township	census_first_listed
+pennsville township|nj	Pennsville Township	NJ	34033	39.626341	-75.503451	township	census_first_listed
 pennsville|nj	Pennsville	NJ	34033	39.648258	-75.500331	CDP	zip_majority
+pequannock|nj	Pequannock	NJ	34027	40.96267	-74.305205	township	census_first_listed
 perth amboy|nj	Perth Amboy	NJ	34023	40.52016	-74.271331	city	zip_majority
 phillipsburg|nj	Phillipsburg	NJ	34041	40.691974	-75.179006	town	zip_majority
+pilesgrove|nj	Pilesgrove	NJ	34033	39.685814	-75.376425	township	census_first_listed
 pine beach|nj	Pine Beach	NJ	34029	39.936058	-74.169789	borough	zip_majority
 pine brook|nj	Pine Brook	NJ	34027	40.869901	-74.344241	CDP	zip_majority
 pine hill|nj	Pine Hill	NJ	34007	39.78572	-74.980816	borough	census_first_listed
 pine lake park|nj	Pine Lake Park	NJ	34029	40.001605	-74.258977	CDP	census_first_listed
 pine ridge at crestwood|nj	Pine Ridge at Crestwood	NJ	34029	39.961515	-74.31208	CDP	census_first_listed
 pines lake|nj	Pines Lake	NJ	34031	40.998672	-74.263775	CDP	census_first_listed
+piscataway|nj	Piscataway	NJ	34023	40.545539	-74.46072	township	census_first_listed
 pitman|nj	Pitman	NJ	34015	39.733094	-75.129673	borough	zip_majority
+pittsgrove|nj	Pittsgrove	NJ	34033	39.54265	-75.129901	township	census_first_listed
 plainfield|nj	Plainfield	NJ	34039	40.615444	-74.415775	city	zip_majority
 plainsboro center|nj	Plainsboro Center	NJ	34023	40.331273	-74.591588	CDP	census_first_listed
+plainsboro|nj	Plainsboro	NJ	34023	40.337806	-74.580725	township	census_first_listed
 pleasant plains|nj	Pleasant Plains	NJ	34035	40.45312	-74.576459	CDP	zip_majority
 pleasantdale|nj	Pleasantdale	NJ	34013	40.804002	-74.274634	CDP	zip_majority
 pleasantville|nj	Pleasantville	NJ	34001	39.388801	-74.514288	city	zip_majority
 pluckemin|nj	Pluckemin	NJ	34035	40.645258	-74.634631	CDP	census_first_listed
+plumsted|nj	Plumsted	NJ	34029	40.045716	-74.485245	township	census_first_listed
+pohatcong|nj	Pohatcong	NJ	34041	40.636483	-75.174906	township	census_first_listed
 point pleasant beach|nj	Point Pleasant Beach	NJ	34029	40.092566	-74.045173	borough	census_first_listed
 point pleasant|nj	Point Pleasant	NJ	34029	40.077748	-74.069921	borough	zip_majority
 pomona|nj	Pomona	NJ	34001	39.468784	-74.550191	CDP	census_first_listed
@@ -18176,6 +18329,7 @@ princeton junction|nj	Princeton Junction	NJ	34021	40.323172	-74.621871	CDP	zip_m
 princeton meadows|nj	Princeton Meadows	NJ	34023	40.33562	-74.564746	CDP	zip_majority
 princeton|nj	Princeton	NJ	34021	40.358244	-74.666728	CDP	zip_majority
 prospect park|nj	Prospect Park	NJ	34031	40.941559	-74.174088	borough	census_first_listed
+quinton township|nj	Quinton Township	NJ	34033	39.529355	-75.392243	township	census_first_listed
 quinton|nj	Quinton	NJ	34033	39.547478	-75.410915	CDP	zip_majority
 rahway|nj	Rahway	NJ	34039	40.607152	-74.280531	city	zip_majority
 rainbow lakes|nj	Rainbow Lakes	NJ	34027	40.87411	-74.455036	CDP	zip_majority
@@ -18183,7 +18337,10 @@ ramapo college of new jersey|nj	Ramapo College of New Jersey	NJ	34003	41.08082	-
 ramblewood|nj	Ramblewood	NJ	34005	39.932045	-74.95278	CDP	zip_majority
 ramsey|nj	Ramsey	NJ	34003	41.061325	-74.146996	borough	zip_majority
 ramtown|nj	Ramtown	NJ	34025	40.114712	-74.150158	CDP	zip_majority
+randolph|nj	Randolph	NJ	34027	40.84164	-74.578522	township	census_first_listed
+raritan township|nj	Raritan Township	NJ	34019	40.547102	-74.895921	township	census_first_listed
 raritan|nj	Raritan	NJ	34035	40.571344	-74.646026	borough	zip_majority
+readington|nj	Readington	NJ	34019	40.584111	-74.769986	township	census_first_listed
 red bank|nj	Red Bank	NJ	34025	40.348722	-74.066528	borough	zip_majority
 regency at monroe|nj	Regency at Monroe	NJ	34023	40.320866	-74.38626	CDP	census_first_listed
 renaissance at monroe|nj	Renaissance at Monroe	NJ	34023	40.263447	-74.480702	CDP	census_first_listed
@@ -18196,11 +18353,16 @@ ringoes|nj	Ringoes	NJ	34019	40.430883	-74.871795	CDP	zip_majority
 ringwood|nj	Ringwood	NJ	34031	41.103963	-74.271138	borough	zip_majority
 rio grande|nj	Rio Grande	NJ	34009	39.019051	-74.87787	CDP	zip_majority
 river edge|nj	River Edge	NJ	34003	40.926766	-74.037468	borough	zip_majority
+river vale|nj	River Vale	NJ	34003	41.014201	-74.006774	township	census_first_listed
 riverdale|nj	Riverdale	NJ	34027	40.995886	-74.314532	borough	zip_majority
+riverside|nj	Riverside	NJ	34005	40.035677	-74.955801	township	census_first_listed
 riverton|nj	Riverton	NJ	34005	40.011135	-75.014128	borough	zip_majority
 roadstown|nj	Roadstown	NJ	34011	39.443184	-75.316784	CDP	census_first_listed
 robbinsville center|nj	Robbinsville Center	NJ	34021	40.219971	-74.630225	CDP	census_first_listed
+robbinsville|nj	Robbinsville	NJ	34021	40.223816	-74.594991	township	census_first_listed
 robertsville|nj	Robertsville	NJ	34025	40.339513	-74.294374	CDP	zip_majority
+rochelle park|nj	Rochelle Park	NJ	34003	40.906496	-74.078005	township	census_first_listed
+rockaway township|nj	Rockaway Township	NJ	34027	40.959048	-74.49889	township	census_first_listed
 rockaway|nj	Rockaway	NJ	34027	40.895853	-74.517323	borough	census_first_listed
 rockleigh|nj	Rockleigh	NJ	34003	41.000241	-73.934068	borough	census_first_listed
 rocky hill|nj	Rocky Hill	NJ	34035	40.400347	-74.638922	borough	zip_majority
@@ -18212,14 +18374,18 @@ roselle|nj	Roselle	NJ	34039	40.652211	-74.260158	borough	zip_majority
 rosenhayn|nj	Rosenhayn	NJ	34011	39.478674	-75.137962	CDP	zip_majority
 ross corner|nj	Ross Corner	NJ	34037	41.128083	-74.713604	CDP	zip_majority
 rossmoor|nj	Rossmoor	NJ	34023	40.33475	-74.470092	CDP	census_first_listed
+roxbury|nj	Roxbury	NJ	34027	40.88841	-74.651497	township	census_first_listed
 rumson|nj	Rumson	NJ	34025	40.362067	-74.00451	borough	zip_majority
 runnemede|nj	Runnemede	NJ	34007	39.853411	-75.075502	borough	zip_majority
 rutgers university busch campus|nj	Rutgers University-Busch Campus	NJ	34023	40.519602	-74.467483	CDP	census_first_listed
 rutgers university livingston campus|nj	Rutgers University-Livingston Campus	NJ	34023	40.517715	-74.444769	CDP	zip_majority
 rutherford|nj	Rutherford	NJ	34003	40.820314	-74.106041	borough	zip_majority
+saddle brook|nj	Saddle Brook	NJ	34003	40.903099	-74.093591	township	census_first_listed
 saddle river|nj	Saddle River	NJ	34003	41.023696	-74.092553	borough	census_first_listed
 salem|nj	Salem	NJ	34033	39.568236	-75.472553	city	zip_majority
+sandyston|nj	Sandyston	NJ	34037	41.213621	-74.81353	township	census_first_listed
 sayreville|nj	Sayreville	NJ	34023	40.466945	-74.320192	borough	zip_majority
+scotch plains|nj	Scotch Plains	NJ	34039	40.633029	-74.372899	township	census_first_listed
 sea bright|nj	Sea Bright	NJ	34025	40.359432	-73.974892	borough	census_first_listed
 sea girt|nj	Sea Girt	NJ	34025	40.130499	-74.033843	borough	zip_majority
 sea isle city|nj	Sea Isle City	NJ	34009	39.150781	-74.702732	city	zip_majority
@@ -18231,11 +18397,13 @@ secaucus|nj	Secaucus	NJ	34017	40.781958	-74.067649	town	zip_majority
 seeley|nj	Seeley	NJ	34011	39.483349	-75.241159	CDP	census_first_listed
 sewaren|nj	Sewaren	NJ	34023	40.548849	-74.255175	CDP	zip_majority
 sewell|nj	Sewell	NJ	34015	39.769203	-75.144697	CDP	zip_majority
+shamong|nj	Shamong	NJ	34005	39.785003	-74.717178	township	census_first_listed
 shark river hills|nj	Shark River Hills	NJ	34025	40.192293	-74.047409	CDP	census_first_listed
 sheppards mill|nj	Sheppards Mill	NJ	34011	39.412445	-75.313673	CDP	census_first_listed
 shiloh|nj	Shiloh	NJ	34011	39.462418	-75.29244	borough	zip_majority
 ship bottom|nj	Ship Bottom	NJ	34029	39.645354	-74.183003	borough	census_first_listed
 short hills|nj	Short Hills	NJ	34013	40.739157	-74.327442	CDP	zip_majority
+shrewsbury township|nj	Shrewsbury Township	NJ	34025	40.313233	-74.071543	township	census_first_listed
 shrewsbury|nj	Shrewsbury	NJ	34025	40.32645	-74.057373	borough	zip_majority
 sicklerville|nj	Sicklerville	NJ	34007	39.742512	-74.990234	CDP	zip_majority
 silver lake|nj	Silver Lake	NJ	34013	39.468475	-75.239822	CDP	zip_majority
@@ -18252,23 +18420,32 @@ somerset|nj	Somerset	NJ	34035	40.508507	-74.500207	CDP	census_first_listed
 somerville|nj	Somerville	NJ	34035	40.569749	-74.607682	borough	zip_majority
 south amboy|nj	South Amboy	NJ	34023	40.486391	-74.278762	city	census_first_listed
 south bound brook|nj	South Bound Brook	NJ	34035	40.553947	-74.527455	borough	zip_majority
+south brunswick|nj	South Brunswick	NJ	34023	40.384695	-74.522762	township	census_first_listed
 south dennis|nj	South Dennis	NJ	34009	39.170241	-74.804356	CDP	zip_majority
+south hackensack|nj	South Hackensack	NJ	34003	40.864801	-74.048115	township	census_first_listed
+south harrison|nj	South Harrison	NJ	34015	39.693596	-75.253779	township	census_first_listed
+south orange village|nj	South Orange Village	NJ	34013	40.748811	-74.261512	township	census_first_listed
 south plainfield|nj	South Plainfield	NJ	34023	40.574413	-74.4148	borough	zip_majority
 south river|nj	South River	NJ	34023	40.445652	-74.378459	borough	zip_majority
 south seaville|nj	South Seaville	NJ	34009	39.186565	-74.753564	CDP	zip_majority
 south toms river|nj	South Toms River	NJ	34029	39.93905	-74.207013	borough	census_first_listed
+southampton|nj	Southampton	NJ	34005	39.915935	-74.717501	township	census_first_listed
+sparta|nj	Sparta	NJ	34037	41.052283	-74.627906	township	census_first_listed
 spotswood|nj	Spotswood	NJ	34023	40.393613	-74.392737	borough	zip_majority
 spring lake heights|nj	Spring Lake Heights	NJ	34025	40.149483	-74.046169	borough	census_first_listed
 spring lake|nj	Spring Lake	NJ	34025	40.153764	-74.026853	borough	zip_majority
 springdale|nj	Springdale	NJ	34007	39.876188	-74.972145	CDP	zip_majority
 springfield|nj	Springfield	NJ	34039	40.706073	-74.312988	CDP	zip_majority
+stafford|nj	Stafford	NJ	34029	39.705726	-74.264326	township	census_first_listed
 stanhope|nj	Stanhope	NJ	34037	40.913366	-74.70363	borough	census_first_listed
 stewartsville|nj	Stewartsville	NJ	34041	40.688919	-75.102241	CDP	zip_majority
+stillwater|nj	Stillwater	NJ	34037	41.074125	-74.868878	township	census_first_listed
 stirling|nj	Stirling	NJ	34027	40.680423	-74.488915	CDP	zip_majority
 stockton university|nj	Stockton University	NJ	34001	39.484737	-74.549	CDP	zip_majority
 stockton|nj	Stockton	NJ	34019	40.405851	-74.970627	borough	zip_majority
 stone harbor|nj	Stone Harbor	NJ	34009	39.041691	-74.768837	borough	zip_majority
 stonebridge|nj	Stonebridge	NJ	34023	40.295465	-74.46862	CDP	census_first_listed
+stow creek|nj	Stow Creek	NJ	34011	39.449381	-75.359894	township	census_first_listed
 stratford|nj	Stratford	NJ	34007	39.82899	-75.015536	borough	zip_majority
 strathmere|nj	Strathmere	NJ	34009	39.194835	-74.660373	CDP	zip_majority
 strathmore|nj	Strathmore	NJ	34025	40.402018	-74.221545	CDP	census_first_listed
@@ -18279,10 +18456,13 @@ surf city|nj	Surf City	NJ	34029	39.664316	-74.17162	borough	census_first_listed
 sussex|nj	Sussex	NJ	34037	41.208771	-74.608241	borough	zip_majority
 swedesboro|nj	Swedesboro	NJ	34015	39.745884	-75.310947	borough	census_first_listed
 sweetwater|nj	Sweetwater	NJ	34001	39.613418	-74.650768	CDP	census_first_listed
+tabernacle|nj	Tabernacle	NJ	34005	39.820569	-74.652585	township	census_first_listed
 tavistock|nj	Tavistock	NJ	34007	39.876265	-75.029807	borough	census_first_listed
+teaneck|nj	Teaneck	NJ	34003	40.890317	-74.011478	township	census_first_listed
 ten mile run|nj	Ten Mile Run	NJ	34035	40.422923	-74.587101	CDP	census_first_listed
 tenafly|nj	Tenafly	NJ	34003	40.918309	-73.950523	borough	zip_majority
 teterboro|nj	Teterboro	NJ	34003	40.854573	-74.059619	borough	zip_majority
+tewksbury|nj	Tewksbury	NJ	34019	40.692226	-74.77343	township	census_first_listed
 the college of new jersey|nj	The College of New Jersey	NJ	34021	40.268378	-74.777899	CDP	census_first_listed
 the hills|nj	The Hills	NJ	34035	40.65379	-74.620979	CDP	census_first_listed
 the ponds|nj	The Ponds	NJ	34023	40.306826	-74.453212	CDP	census_first_listed
@@ -18290,6 +18470,7 @@ thorofare|nj	Thorofare	NJ	34015	39.854728	-75.198685	CDP	zip_majority
 three bridges|nj	Three Bridges	NJ	34019	40.520594	-74.80017	CDP	zip_majority
 tinton falls|nj	Tinton Falls	NJ	34025	40.266265	-74.09613	borough	zip_majority
 titusville|nj	Titusville	NJ	34021	40.308917	-74.874934	CDP	zip_majority
+toms river township|nj	Toms River Township	NJ	34029	39.994264	-74.166154	township	census_first_listed
 toms river|nj	Toms River	NJ	34029	39.994856	-74.187754	CDP	zip_majority
 totowa|nj	Totowa	NJ	34031	40.903415	-74.219779	borough	zip_majority
 towaco|nj	Towaco	NJ	34027	40.926918	-74.342445	CDP	zip_majority
@@ -18302,15 +18483,21 @@ twin rivers|nj	Twin Rivers	NJ	34021	40.263538	-74.491923	CDP	zip_majority
 union beach|nj	Union Beach	NJ	34025	40.44749	-74.170046	borough	zip_majority
 union city|nj	Union City	NJ	34017	40.767425	-74.032279	city	zip_majority
 union|nj	Union	NJ	34039	40.696539	-74.269291	CDP	zip_majority
+upper deerfield|nj	Upper Deerfield	NJ	34011	39.49483	-75.218589	township	census_first_listed
+upper freehold|nj	Upper Freehold	NJ	34025	40.153573	-74.529315	township	census_first_listed
 upper greenwood lake|nj	Upper Greenwood Lake	NJ	34031	41.18585	-74.37815	CDP	census_first_listed
 upper montclair|nj	Upper Montclair	NJ	34013	40.842576	-74.201302	CDP	zip_majority
+upper pittsgrove|nj	Upper Pittsgrove	NJ	34033	39.612375	-75.209549	township	census_first_listed
 upper pohatcong|nj	Upper Pohatcong	NJ	34041	40.677394	-75.155708	CDP	census_first_listed
 upper saddle river|nj	Upper Saddle River	NJ	34003	41.063162	-74.099973	borough	zip_majority
 upper stewartsville|nj	Upper Stewartsville	NJ	34041	40.704794	-75.120558	CDP	census_first_listed
+upper|nj	Upper	NJ	34009	39.258112	-74.726912	township	census_first_listed
 vauxhall|nj	Vauxhall	NJ	34013	40.717383	-74.283782	CDP	zip_majority
 ventnor city|nj	Ventnor City	NJ	34001	39.342046	-74.482626	city	zip_majority
 vernon center|nj	Vernon Center	NJ	34037	41.188789	-74.504046	CDP	zip_majority
 vernon valley|nj	Vernon Valley	NJ	34037	41.242216	-74.486108	CDP	zip_majority
+vernon|nj	Vernon	NJ	34037	41.195197	-74.488757	township	census_first_listed
+verona|nj	Verona	NJ	34013	40.832468	-74.242863	township	census_first_listed
 victory gardens|nj	Victory Gardens	NJ	34027	40.87613	-74.54353	borough	census_first_listed
 victory lakes|nj	Victory Lakes	NJ	34015	39.630558	-74.969218	CDP	census_first_listed
 vienna|nj	Vienna	NJ	34041	40.872247	-74.872519	CDP	zip_majority
@@ -18318,52 +18505,76 @@ villas|nj	Villas	NJ	34009	39.016268	-74.935972	CDP	zip_majority
 vincentown|nj	Vincentown	NJ	34005	39.936298	-74.751191	CDP	census_first_listed
 vineland|nj	Vineland	NJ	34011	39.465007	-74.997115	city	zip_majority
 vista center|nj	Vista Center	NJ	34029	40.159049	-74.322325	CDP	zip_majority
+voorhees township|nj	Voorhees Township	NJ	34007	39.84857	-74.952843	township	census_first_listed
 voorhees|nj	Voorhees	NJ	34035	40.482176	-74.492506	CDP	census_first_listed
 waldwick|nj	Waldwick	NJ	34003	41.013367	-74.125217	borough	zip_majority
 wallington|nj	Wallington	NJ	34003	40.853084	-74.106323	borough	zip_majority
+wall|nj	Wall	NJ	34025	40.165827	-74.09799	township	census_first_listed
+walpack|nj	Walpack	NJ	34037	41.120816	-74.890305	township	census_first_listed
 wanamassa|nj	Wanamassa	NJ	34025	40.236816	-74.028865	CDP	census_first_listed
 wanaque|nj	Wanaque	NJ	34031	41.042424	-74.288643	borough	zip_majority
+wantage|nj	Wantage	NJ	34037	41.252204	-74.632835	township	census_first_listed
 waretown|nj	Waretown	NJ	34029	39.789813	-74.19328	CDP	zip_majority
+warren|nj	Warren	NJ	34035	40.634588	-74.519044	township	census_first_listed
 washington crossing|nj	Washington Crossing	NJ	34021	40.296239	-74.860283	CDP	census_first_listed
 washington|nj	Washington	NJ	34041	40.758525	-74.98319	borough	census_first_listed
 watchung|nj	Watchung	NJ	34035	40.642845	-74.436233	borough	zip_majority
+waterford|nj	Waterford	NJ	34007	39.743214	-74.820861	township	census_first_listed
 watsessing|nj	Watsessing	NJ	34013	40.786567	-74.201159	CDP	census_first_listed
+wayne|nj	Wayne	NJ	34031	40.945855	-74.245077	township	census_first_listed
+weehawken|nj	Weehawken	NJ	34017	40.76801	-74.017008	township	census_first_listed
 wenonah|nj	Wenonah	NJ	34015	39.792001	-75.148216	borough	zip_majority
+west amwell|nj	West Amwell	NJ	34019	40.379051	-74.887735	township	census_first_listed
 west belmar|nj	West Belmar	NJ	34025	40.170666	-74.037582	CDP	census_first_listed
 west berlin|nj	West Berlin	NJ	34007	39.809682	-74.941304	CDP	zip_majority
+west caldwell|nj	West Caldwell	NJ	34013	40.847234	-74.294428	township	census_first_listed
 west cape may|nj	West Cape May	NJ	34009	38.942226	-74.939033	borough	census_first_listed
+west deptford|nj	West Deptford	NJ	34015	39.841967	-75.185089	township	census_first_listed
 west freehold|nj	West Freehold	NJ	34025	40.230905	-74.294073	CDP	zip_majority
 west long branch|nj	West Long Branch	NJ	34025	40.287904	-74.020019	borough	zip_majority
+west milford|nj	West Milford	NJ	34031	41.105185	-74.390998	township	census_first_listed
 west new york|nj	West New York	NJ	34017	40.786032	-74.009507	town	zip_majority
+west orange|nj	West Orange	NJ	34013	40.785755	-74.265058	township	census_first_listed
 west park|nj	West Park	NJ	34011	39.440277	-75.263676	CDP	census_first_listed
 west wildwood|nj	West Wildwood	NJ	34009	39.000598	-74.823573	borough	census_first_listed
+west windsor|nj	West Windsor	NJ	34021	40.290253	-74.627672	township	census_first_listed
+westampton|nj	Westampton	NJ	34005	40.016732	-74.820906	township	census_first_listed
 westfield|nj	Westfield	NJ	34039	40.651644	-74.343447	town	zip_majority
 westmont|nj	Westmont	NJ	34007	39.907832	-75.054093	CDP	zip_majority
 weston|nj	Weston	NJ	34035	40.522409	-74.574121	CDP	census_first_listed
 westville|nj	Westville	NJ	34015	39.86923	-75.131335	borough	zip_majority
 westwood|nj	Westwood	NJ	34003	40.989032	-74.031872	borough	census_first_listed
+weymouth|nj	Weymouth	NJ	34001	39.396332	-74.826954	township	census_first_listed
 wharton|nj	Wharton	NJ	34027	40.897055	-74.574512	borough	zip_majority
 whippany|nj	Whippany	NJ	34027	40.823281	-74.418686	CDP	zip_majority
 white horse|nj	White Horse	NJ	34021	40.191823	-74.701372	CDP	zip_majority
 white house station|nj	White House Station	NJ	34019	40.620691	-74.773473	CDP	zip_majority
 white meadow lake|nj	White Meadow Lake	NJ	34027	40.923773	-74.510481	CDP	zip_majority
 whitesboro|nj	Whitesboro	NJ	34009	39.049013	-74.871845	CDP	census_first_listed
+white|nj	White	NJ	34041	40.821198	-75.030502	township	census_first_listed
 whittingham|nj	Whittingham	NJ	34023	40.326654	-74.445474	CDP	census_first_listed
 wildwood crest|nj	Wildwood Crest	NJ	34009	38.971526	-74.83733	borough	census_first_listed
 wildwood|nj	Wildwood	NJ	34009	38.98755	-74.818188	city	census_first_listed
 william paterson university of new jersey|nj	William Paterson University of New Jersey	NJ	34031	40.945824	-74.198218	CDP	census_first_listed
 williamstown|nj	Williamstown	NJ	34015	39.684201	-74.968674	CDP	zip_majority
+willingboro|nj	Willingboro	NJ	34005	40.02795	-74.886984	township	census_first_listed
 windsor|nj	Windsor	NJ	34021	40.247399	-74.581329	CDP	zip_majority
+winfield|nj	Winfield	NJ	34039	40.634885	-74.289847	township	census_first_listed
+winslow|nj	Winslow	NJ	34007	39.701722	-74.908351	township	census_first_listed
 wood ridge|nj	Wood-Ridge	NJ	34003	40.850183	-74.087068	borough	zip_majority
 woodbine|nj	Woodbine	NJ	34009	39.22835	-74.809621	borough	census_first_listed
+woodbridge township|nj	Woodbridge Township	NJ	34023	40.561262	-74.292377	township	census_first_listed
 woodbridge|nj	Woodbridge	NJ	34023	40.552857	-74.286939	CDP	zip_majority
 woodbury heights|nj	Woodbury Heights	NJ	34015	39.81329	-75.15065	borough	zip_majority
 woodbury|nj	Woodbury	NJ	34015	39.837906	-75.15153	city	zip_majority
 woodcliff lake|nj	Woodcliff Lake	NJ	34003	41.025977	-74.061061	borough	zip_majority
 woodland park|nj	Woodland Park	NJ	34031	40.889855	-74.194356	borough	zip_majority
+woodland|nj	Woodland	NJ	34005	39.841289	-74.51774	township	census_first_listed
 woodlynne|nj	Woodlynne	NJ	34007	39.916478	-75.095549	borough	census_first_listed
 woodstown|nj	Woodstown	NJ	34033	39.650178	-75.326232	borough	census_first_listed
+woolwich|nj	Woolwich	NJ	34015	39.743351	-75.326175	township	census_first_listed
 wrightstown|nj	Wrightstown	NJ	34005	40.025589	-74.631908	borough	zip_majority
+wyckoff|nj	Wyckoff	NJ	34003	40.999093	-74.168849	township	census_first_listed
 yardville|nj	Yardville	NJ	34021	40.186607	-74.663143	CDP	zip_majority
 yorketown|nj	Yorketown	NJ	34025	40.305905	-74.3389	CDP	zip_majority
 zarephath|nj	Zarephath	NJ	34035	40.534569	-74.572371	CDP	zip_majority

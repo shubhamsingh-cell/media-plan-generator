@@ -62,6 +62,17 @@ _LEGACY_LOCATION_CORRECTIONS = {
 # dict (a no-op entry).
 _EXACT_MATCH_NOT_FUZZY = {"pittsburg", "albuquerque"}
 
+# Legacy typos whose name has no clear-largest namesake (not in
+# plan_location._WELL_KNOWN_METRO_STATE): fuzzy now reports them "ambiguous"
+# instead of silently picking the alphabetically first state.
+_NO_DOMINANT_NAMESAKE = {"sprinfield"}
+
+# "nashvile" used to read "Nashville, AR" (a ~4,000-person town) because the
+# fuzzy path ignored the Census legal-name alias; it now sees the metro, which
+# Census names "Nashville-Davidson metropolitan government" -- the same display
+# the exact "Nashville, TN" entry has always had.
+_CENSUS_LEGAL_DISPLAY = {"nashvile": "Nashville-Davidson metropolitan government"}
+
 
 # ---------------------------------------------------------------------------
 # Rule 1: ZIP / ZIP+4
@@ -663,9 +674,20 @@ def test_legacy_misspelling_parity(wrong, right):
         # genuinely ambiguous across 5 states; "albuquerque" is unique.
         assert r.status in ("resolved", "ambiguous")
         assert r.display_name.lower() == wrong.lower()
+    elif wrong in _NO_DOMINANT_NAMESAKE:
+        # 22 Springfields and no clear largest: the spelling is read, the town
+        # is the user's call. "corrected" made the plan text "Springfield, AR"
+        # (the alphabetically first) silently -- see plan_location's DOMINANCE RULE.
+        assert r.status == "ambiguous", f"{wrong!r} -> expected ambiguous, got {r.status}"
+        assert r.matched_via == "fuzzy_city_no_dominant"
+        assert r.display_name.lower() == right.lower()
+        assert len(r.alternatives) > 1
     else:
         assert r.status == "corrected", f"{wrong!r} -> expected corrected, got {r.status}"
-        assert r.display_name.lower() == right.lower(), f"{wrong!r} corrected to {r.display_name!r}, expected {right!r}"
+        expected_display = _CENSUS_LEGAL_DISPLAY.get(wrong, right)
+        assert r.display_name.lower() == expected_display.lower(), (
+            f"{wrong!r} corrected to {r.display_name!r}, expected {expected_display!r}"
+        )
         assert wrong.lower() in r.note.lower() or right.lower() in r.note.lower()
 
 

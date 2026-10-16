@@ -47,11 +47,34 @@ punctuation insensitive via ``_norm_key``):
        Status stays "ambiguous" either way -- the tiebreak only decides
        which candidate is listed as primary vs. in `alternatives`, never
        upgrades ambiguous to resolved.
+       DOMINANCE RULE (one rule, both for an exact bare name and for a
+       misspelled one): a name collision may be answered with a single town
+       only when one namesake is the clear largest -- which this module
+       encodes as membership in `_WELL_KNOWN_METRO_STATE` (hand-curated from
+       the 2020 census; the dataset has no population column to compute it
+       from). Exact bare names are never upgraded past "ambiguous" (the
+       curated pick just heads the list). A misspelled bare name
+       ("Portlnad", "Colombus") is "corrected" to the curated namesake, with
+       the other states listed; with NO curated namesake ("Sprinfield",
+       "Madisen") it is status="ambiguous" (matched_via
+       "fuzzy_city_no_dominant"): the spelling is read, the town is the
+       user's call, and the entry stays as typed. The primary listed on an
+       ambiguous result without a curated namesake is an alphabetical
+       tie-break and is NOT evidence -- consumers must not read its
+       `state_usps` / `cbsa_title` as an answer. (Curation is a judgment, not
+       a computed margin: by ZIP count Arlington, TX leads Arlington, VA only
+       13 to 11, and Richmond, VA leads Richmond, CA 12 to 5.)
   6. Country/nationwide keywords ("United States", "US", "USA",
      "Nationwide", "National", "All US") -> kind="country" or
      "nationwide", status="resolved" (this is a valid targeting answer).
   7. "Remote" / "Work From Home" / "WFH" / "Anywhere" -> kind="remote",
-     status="resolved" (also a valid answer, not a failure).
+     status="resolved" (also a valid answer, not a failure). A work mode in
+     any wording -- a head word (remote, telecommute, telework, virtual, wfh)
+     plus only filler words ("Remote (US)", "Remote/Hybrid", "Remote
+     (Nationwide)", "Remote - Anywhere in US", "Telecommute") -- gets the
+     same marker: kind="remote", display_name="Remote", no state / county /
+     lat / lng / CBSA. It is NOT a place and must not be counted or priced as
+     one. "Remote - Texas" is not matched (a place is named).
   8. Non-US locations ("London, UK", "Toronto, Canada", "Bangalore") ->
      status="unresolved", kind="unknown", with a note that explicitly
      says this is out of US-only scope today, not an error. Country
@@ -66,24 +89,52 @@ punctuation insensitive via ``_norm_key``):
      matched to a US town (Poland, OH / Poland, NY) or fuzzy-corrected to one
      ("France" -> a Wyoming place). The state rules (2, 4) run first, so
      "Georgia" stays the US state and "Lebanon, TN" stays Lebanon, Tennessee.
-  9. Fuzzy correction (stdlib `difflib.get_close_matches`) against real
-     place names -> status="corrected", noting the correction made.
+  9. Fuzzy correction against real place names -> status="corrected",
+     noting the correction made. Only a misspelling of the SAME place is
+     accepted -- see "Fuzzy matching" below; anything else is left alone.
  10. Nothing matched -> status="unresolved", kind="unknown".
 
-Fuzzy matching (rule 9): cutoff=0.75 on `difflib.get_close_matches`,
-candidates pre-filtered to same first letter and length within +/-2 of
-the query (see `_fuzzy_city_lookup`) purely for speed -- every one of
-the 32 legacy `_LOCATION_CORRECTIONS` misspellings preserves its first
-letter, so this filter drops nothing the legacy dict covered while
-cutting the candidate pool by ~15-30x. At 0.75, all garbage tested
-("asdfghjkl", "xyzzyx123", "qqqqqqqqq", 500-char strings) produced zero
-matches; "pittsburg" (one of the 32 legacy keys) is a real US place in
-5 states (CA/IL/KS/OK/TX) and is deliberately caught by the exact bare-
-city lookup (rule 5, ambiguous) BEFORE fuzzy ever runs -- rule 5 takes
-precedence over rule 9 by construction, which is more honest than the
-old hardcoded dict's blind "pittsburg" -> "Pittsburgh" overwrite (a real
-place name is not a misspelling). See tests/test_plan_location.py for
-the false-positive sweep this cutoff was tuned against.
+A "City, ST" entry whose state is real but whose city is not in that state's
+place list is an honest unresolved ("city_state_no_match"): its note says the
+site is planned on STATE-level estimates (what the downstream consumers
+actually do with an unresolved "City, ST" -- see geo_market.resolve_market),
+never on a different town's figures.
+
+"<Name> Township" / "<Name> Twp" (rule 2): looked up as written first (the 40
+New Jersey townships whose plain name belongs to a different place are stored
+as "<Name> Township"), then as "<Name>" -- accepted only when that row is
+itself a township (exact) or a CDP (the township's Census place; reported as
+a correction). A borough, city, town or village of the same name is a
+DIFFERENT municipality and is never returned for a "Township" entry.
+
+Fuzzy matching (rule 9): a candidate is accepted only when it is the same
+place misspelled, never merely a similar-looking different place. Pre-fix
+this was `difflib` ratio >= 0.75, which is a similarity score, not a typo
+test: "Edison, NJ" (a real township missing from the data) scored 0.77
+against Madison and was silently "corrected" to Madison, NJ; "West Orange"
+likewise matched East Orange. Now (see `_typo_distance`):
+
+  * same state when one was typed (the pool is that state's places);
+  * same first letter, and the same number of words with at most ONE word
+    differing -- or the same letters with only the spacing different;
+  * that one word within a transposition-aware edit distance of 1 (words of
+    5-8 letters) or 2 (9+ letters); words of 4 letters or fewer must match
+    exactly. All 32 legacy `_LOCATION_CORRECTIONS` misspellings fit this;
+  * exactly one candidate at the best distance. A tie means we cannot tell
+    which town was meant: with a state typed none is taken; with no state
+    (a bare misspelling like "richmand", equally near Richmond and Richland)
+    the name carried by more places is offered, as a visible correction with
+    the other states listed;
+  * for "City, ST": never when the typed name is itself a real place in some
+    other state (Edison exists in GA, OH, ... : a real place name is not a
+    misspelling, it is a place our table may lack).
+
+"pittsburg" (one of the 32 legacy keys) is a real US place in 5 states
+(CA/IL/KS/OK/TX) and is deliberately caught by the exact bare-city lookup
+(rule 5, ambiguous) BEFORE fuzzy ever runs -- rule 5 takes precedence over
+rule 9 by construction, which is more honest than the old hardcoded dict's
+blind "pittsburg" -> "Pittsburgh" overwrite. See tests/test_plan_location.py
+and tests/test_location_never_wrong_town.py.
 
 DMA (Designated Market Area) is PLUGGABLE and OFF by default -- there is
 an unresolved licensing question about DMA data. If
@@ -141,7 +192,6 @@ used to (e.g. to Washington Park, AZ). Not covered by the fix that added
 from __future__ import annotations
 
 import csv
-import difflib
 import logging
 import re
 import threading
@@ -167,6 +217,28 @@ _NATIONWIDE_TOKENS = frozenset({"nationwide", "national", "all us", "all-us"})
 _REMOTE_TOKENS = frozenset(
     {"remote", "work from home", "wfh", "anywhere", "fully remote", "remote us", "remote usa", "100 remote"}
 )
+# A work MODE, not a place, in any wording: a head word ("remote",
+# "telecommute", ...) plus only filler/qualifier words ("Remote/Hybrid",
+# "Remote (Nationwide)", "Remote - Anywhere in US", "Telecommute"). Anything
+# naming a place alongside ("Remote - Texas") is NOT matched and keeps falling
+# through to the place rules.
+_REMOTE_HEAD_WORDS = frozenset({"remote", "telecommute", "telecommuting", "telework", "teleworking", "wfh", "virtual"})
+_REMOTE_FILLER_WORDS = frozenset(
+    {
+        "us", "usa", "united", "states", "america", "of", "nationwide", "national", "anywhere", "in", "the",
+        "only", "hybrid", "fully", "100", "work", "from", "home", "position", "role", "job", "jobs", "flexible",
+        "eligible", "based", "or", "and", "friendly",
+    }
+)  # fmt: skip
+
+
+def _is_remote_phrase(text: str) -> bool:
+    words = re.sub(r"[^a-z0-9]+", " ", text.lower()).split()
+    return bool(words) and any(w in _REMOTE_HEAD_WORDS for w in words) and all(
+        w in _REMOTE_HEAD_WORDS or w in _REMOTE_FILLER_WORDS for w in words
+    )
+
+
 _COUNTY_SUFFIXES = (" county", " parish", " borough")
 
 # Curated well-known-metro tiebreak: real 2020-census population ranking
@@ -288,7 +360,17 @@ _CENSUS_NAME_ALIASES: dict[str, tuple[str, ...]] = {
     "louisville": ("louisville jefferson county metro government|ky",),
 }
 
-_FUZZY_CUTOFF = 0.75
+# Typo budget for the ONE word that differs between what was typed and a real
+# place (see `_typo_distance`). The shorter of the two words sets it: a
+# 4-letter word has too many real neighbours (East/West, Lake/Lane) for one
+# edit to mean "same place", so it must match exactly.
+_TYPO_MIN_WORD_LEN = 5  # shorter words: no edits tolerated
+_TYPO_LONG_WORD_LEN = 9  # this long and up: two edits (cincinatti, cleavland)
+
+# "Edison Township" / "Edison Twp." -> the township's own row, never a borough
+# or city that merely shares the name.
+_TOWNSHIP_TAIL_RE = re.compile(r"\s+(?:township|twp)$")
+_TOWNSHIP_COMPATIBLE_TYPES = frozenset({"township", "CDP"})
 
 
 @dataclass
@@ -352,6 +434,7 @@ _counties_by_name_state: dict[tuple[str, str], str] = {}  # (county_name_norm, s
 _places_by_key: dict[str, dict[str, str]] = {}
 _places_by_city: dict[str, list[tuple[str, str]]] = {}  # city_norm -> [(state_usps, place_key), ...]
 _city_norms_by_first_letter: dict[str, list[str]] = {}
+_city_norms_by_state: dict[str, list[str]] = {}  # state_usps -> distinct city_norms with a place there
 
 _zips_by_zip5: dict[str, dict[str, str]] = {}
 _zips_by_prefix: dict[str, list[int]] = {}
@@ -463,9 +546,11 @@ def _load_places() -> None:
         if not city_norm:
             continue
         _places_by_city.setdefault(city_norm, []).append((usps, key))
-    for city_norm in _places_by_city:
+    for city_norm, entries in _places_by_city.items():
         first = city_norm[0] if city_norm else ""
         _city_norms_by_first_letter.setdefault(first, []).append(city_norm)
+        for usps in sorted({u for u, _ in entries}):
+            _city_norms_by_state.setdefault(usps, []).append(city_norm)
 
 
 def _load_zips() -> None:
@@ -706,20 +791,114 @@ def _resolve_bare_city(raw_input: str, city_text: str) -> LocationResolution:
     return res
 
 
+def _osa_distance(a: str, b: str, limit: int) -> int:
+    """Optimal-string-alignment (Damerau-Levenshtein) distance: insert, delete,
+    substitute or swap two adjacent letters, each costing 1. Returns
+    ``limit + 1`` as soon as the distance is certain to exceed ``limit``."""
+    if abs(len(a) - len(b)) > limit:
+        return limit + 1
+    prev2: list[int] = []
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i] + [0] * len(b)
+        row_min = i
+        for j, cb in enumerate(b, 1):
+            best = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (0 if ca == cb else 1))
+            if i > 1 and j > 1 and ca == b[j - 2] and a[i - 2] == cb:
+                best = min(best, prev2[j - 2] + 1)
+            cur[j] = best
+            if best < row_min:
+                row_min = best
+        if row_min > limit:
+            return limit + 1
+        prev2, prev = prev, cur
+    return prev[-1]
+
+
+def _typo_distance(query: str, cand: str) -> int | None:
+    """Edit distance when ``cand`` is plausibly the SAME place as ``query``
+    misspelled, else ``None``. Both arguments are `_norm_key`'d.
+
+    This is deliberately narrower than "looks similar": a similarity ratio
+    scores Edison/Madison at 0.77 and West Orange/East Orange at 0.82, and
+    both pairs are different real towns. Same-place means the same first
+    letter, the same number of words with at most one word differing (or only
+    the spacing differing: "sanfrancisco"), and that word within a small,
+    length-scaled edit budget (`_TYPO_MIN_WORD_LEN`, `_TYPO_LONG_WORD_LEN`)."""
+    if query == cand:
+        return 0
+    if query.replace(" ", "") == cand.replace(" ", ""):
+        return 1
+    q_words, c_words = query.split(), cand.split()
+    if len(q_words) != len(c_words):
+        return None
+    differing = [(q, c) for q, c in zip(q_words, c_words) if q != c]
+    if len(differing) != 1:
+        return None
+    q_word, c_word = differing[0]
+    if q_word[0] != c_word[0]:
+        return None
+    shorter = min(len(q_word), len(c_word))
+    if shorter >= _TYPO_LONG_WORD_LEN:
+        budget = 2
+    elif shorter >= _TYPO_MIN_WORD_LEN:
+        budget = 1
+    else:
+        return None
+    distance = _osa_distance(q_word, c_word, budget)
+    return distance if distance <= budget else None
+
+
 def _fuzzy_city_lookup(city_text: str, state_usps: str = "") -> list[str]:
-    """Return up to 3 candidate city_norm strings close to `city_text`,
-    optionally scoped to one state. Pre-filters by first letter + length
-    for speed -- see module docstring for why this is safe for the 32
-    legacy misspellings it must cover."""
+    """The ONE place name (``city_norm``) that ``city_text`` is a misspelling
+    of -- scoped to ``state_usps`` when given -- or ``[]``. See
+    `_typo_distance` for what counts as the same place.
+
+    When two different names are equally close we cannot tell which town was
+    meant. With a state typed that means no correction at all (the entry
+    stays unresolved at state level rather than guess between two real
+    towns). With NO state typed (a bare, misspelled name -- the legacy
+    "richmand" -> Richmond/Richland case) the name carried by more places wins,
+    which `_try_fuzzy` then reports as a correction with the place's other
+    states listed, so the user sees and can overrule it. (A list for the
+    callers' sake; it never holds more than one.)"""
     q = _norm_key(city_text)
     if not q:
         return []
-    if state_usps:
-        pool = [c for c in _places_by_city if any(u == state_usps for u, _ in _places_by_city[c])]
-    else:
-        pool = _city_norms_by_first_letter.get(q[0], [])
-    filtered = [c for c in pool if abs(len(c) - len(q)) <= 2]
-    return difflib.get_close_matches(q, filtered, n=3, cutoff=_FUZZY_CUTOFF)
+    pool = _city_norms_by_state.get(state_usps, []) if state_usps else _city_norms_by_first_letter.get(q[0], [])
+    best_distance: int | None = None
+    best: list[str] = []
+    for cand in pool:
+        if cand[0] != q[0]:
+            continue
+        distance = _typo_distance(q, cand)
+        if distance is None:
+            continue
+        if best_distance is None or distance < best_distance:
+            best_distance, best = distance, [cand]
+        elif distance == best_distance:
+            best.append(cand)
+    if len(best) == 1:
+        return best
+    if state_usps or not best:
+        return []
+    return [sorted(best, key=lambda c: (-len(_places_by_city.get(c, [])), c))[0]]
+
+
+def _strip_township(city_norm: str) -> str:
+    """"edison township" / "edison twp" -> "edison"; anything else -> ""."""
+    base = _TOWNSHIP_TAIL_RE.sub("", city_norm)
+    return base if base and base != city_norm else ""
+
+
+def _place_in_state(city_norm: str, state_usps: str) -> dict[str, str] | None:
+    """The us_places row for ``city_norm`` in ``state_usps`` (via the same
+    index the fuzzy pool is built from, so a hyphenated name whose file
+    ``place_key`` differs from its `_norm_key` is still found)."""
+    for usps, key in _places_by_city.get(city_norm, []):
+        if usps == state_usps:
+            return _places_by_key.get(key)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -775,7 +954,7 @@ def _resolve_location_inner(raw: Any) -> LocationResolution:
     # Rule 6/7: country / nationwide / remote keywords (checked before the
     # bare-city fallback so short keyword tokens never get treated as an
     # attempted-but-failed city lookup).
-    keyword_res = _try_keywords(raw_str, norm_whole)
+    keyword_res = _try_keywords(raw_str, norm_whole, stripped)
     if keyword_res is not None:
         return keyword_res
 
@@ -1058,13 +1237,46 @@ def _try_comma_or_trailing_state(raw_str: str, stripped: str) -> LocationResolut
         _apply_cbsa(res)
         return res
 
+    # "<Name> Township" / "<Name> Twp": the township's own row under its plain
+    # name. A borough, city, town or village that shares the name is a
+    # different municipality (Hampton borough vs Hampton township are in
+    # different counties), so only a township, or the CDP Census draws for
+    # it, counts.
+    township_base = _strip_township(city_norm)
+    if township_base:
+        base_place = _place_in_state(township_base, state_usps)
+        base_type = (base_place.get("place_type") or "") if base_place else ""
+        if base_place and base_type in _TOWNSHIP_COMPATIBLE_TYPES:
+            exact = base_type == "township"
+            res = LocationResolution(
+                input=raw_str,
+                status="resolved" if exact else "corrected",
+                confidence=1.0 if exact else 0.9,
+                matched_via="place_township_state" if exact else "place_cdp_for_township",
+            )
+            _fill_from_place(res, base_place)
+            if not exact:
+                res.note = (
+                    f"Read “{city_text.strip()}, {tail_text.strip()}” as the Census place "
+                    f"{res.display_name}, {res.state_usps}."
+                )
+            _apply_dma(res)
+            _apply_cbsa(res)
+            return res
+
     # Exact match missed -- try fuzzy, scoped to this state, before giving up
-    # (rule 9, state-scoped variant).
-    fuzzy_matches = _fuzzy_city_lookup(city_text, state_usps=state_usps)
-    for candidate_norm in fuzzy_matches:
-        candidate_key = f"{candidate_norm}|{state_usps.lower()}"
-        candidate_place = _places_by_key.get(candidate_key)
-        if candidate_place:
+    # (rule 9, state-scoped variant). Only a misspelling of the SAME place is
+    # taken (see `_typo_distance`), and never when the typed name is already a
+    # real place in another state: that is a town our table may lack (it
+    # used to turn "Edison, NJ" into Madison), not a typo.
+    fuzzy_text = township_base or city_text
+    if not _city_candidates(_norm_key(fuzzy_text)):
+        for candidate_norm in _fuzzy_city_lookup(fuzzy_text, state_usps=state_usps):
+            candidate_place = _place_in_state(candidate_norm, state_usps)
+            if not candidate_place:
+                continue
+            if township_base and (candidate_place.get("place_type") or "") not in _TOWNSHIP_COMPATIBLE_TYPES:
+                continue
             res = LocationResolution(
                 input=raw_str, status="corrected", confidence=0.8, matched_via="fuzzy_city_state"
             )
@@ -1078,7 +1290,13 @@ def _try_comma_or_trailing_state(raw_str: str, stripped: str) -> LocationResolut
             return res
 
     # Recognized a real state but not the city in it: honest unresolved,
-    # not a silent fall-through to unrelated rules.
+    # never a different town's data. What happens next is state-level: the
+    # entry stays as typed (app.py only rewrites resolved/corrected sites) and
+    # geo_market.resolve_market prices an unresolved "City, ST" at the state's
+    # figures, which the workbook labels "[ST state-level estimate]". The
+    # wizard shows this note's first sentence as the row's headline.
+    state_name = _states_by_usps.get(state_usps, state_usps)
+    city_label = city_text.strip()
     return LocationResolution(
         input=raw_str,
         status="unresolved",
@@ -1086,7 +1304,11 @@ def _try_comma_or_trailing_state(raw_str: str, stripped: str) -> LocationResolut
         state_usps=state_usps,
         state_name=_states_by_usps.get(state_usps, ""),
         matched_via="city_state_no_match",
-        note=f"'{city_text.strip()}' was not found in {_states_by_usps.get(state_usps, state_usps)} ({state_usps}).",
+        note=(
+            f"“{city_label}” isn’t in Nova’s {state_name} place list. "
+            f"This site is planned on {state_name} state-level estimates, not city-level data, "
+            "and stays in your plan exactly as entered."
+        ),
     )
 
 
@@ -1112,12 +1334,20 @@ def _try_bare_state(raw_str: str, stripped: str, norm_whole: str) -> LocationRes
     return res
 
 
-def _try_keywords(raw_str: str, norm_whole: str) -> LocationResolution | None:
+def _remote_marker(raw_str: str) -> LocationResolution:
+    """The one result shape for a work mode that is not a place: ``kind ==
+    "remote"`` with ``display_name == "Remote"`` and no state, county, lat/lng
+    or CBSA. Consumers that count or price sites must skip it
+    (``geo_market.Market.is_physical`` already does)."""
+    res = LocationResolution(input=raw_str, status="resolved", kind="remote", confidence=1.0, matched_via="remote_keyword")
+    res.display_name = "Remote"
+    res.note = "interpreted as remote/work-from-home targeting, not a physical location."
+    return res
+
+
+def _try_keywords(raw_str: str, norm_whole: str, stripped: str = "") -> LocationResolution | None:
     if norm_whole in _REMOTE_TOKENS:
-        res = LocationResolution(input=raw_str, status="resolved", kind="remote", confidence=1.0, matched_via="remote_keyword")
-        res.display_name = "Remote"
-        res.note = "interpreted as remote/work-from-home targeting, not a physical location."
-        return res
+        return _remote_marker(raw_str)
     if norm_whole in _NATIONWIDE_TOKENS:
         res = LocationResolution(input=raw_str, status="resolved", kind="nationwide", confidence=1.0, matched_via="nationwide_keyword")
         res.display_name = "Nationwide (US)"
@@ -1127,6 +1357,8 @@ def _try_keywords(raw_str: str, norm_whole: str) -> LocationResolution | None:
         res.display_name = "United States"
         res.state_usps = ""
         return res
+    if stripped and _is_remote_phrase(stripped):
+        return _remote_marker(raw_str)
     return None
 
 
@@ -1135,7 +1367,10 @@ def _try_fuzzy(raw_str: str, stripped: str) -> LocationResolution | None:
     if not matches:
         return None
     best_norm = matches[0]
-    candidates = _places_by_city.get(best_norm, [])
+    # `_city_candidates`, not a bare index read: it folds in the Census
+    # legal-name aliases, so "nashvile" sees Nashville, TN (the metro) and not
+    # only Nashville, AR -- the plain index alone read "Nashville, AR".
+    candidates = list(dict.fromkeys(_city_candidates(best_norm)))
     if not candidates:
         return None
     if len(candidates) == 1:
@@ -1149,9 +1384,25 @@ def _try_fuzzy(raw_str: str, stripped: str) -> LocationResolution | None:
         return res
     primary_usps, primary_key = _pick_ambiguous_primary(best_norm, candidates)
     primary_place = _places_by_key[primary_key]
+    alternatives = [_alt_from_place(_places_by_key[key]) for _, key in sorted(candidates, key=lambda t: (t[0], t[1]))]
+    if _WELL_KNOWN_METRO_STATE.get(best_norm) != primary_usps:
+        # No dominant namesake (Springfield, Madison, Clinton, ...): the
+        # spelling is fixed but WHICH town is the user's call. Returning
+        # "corrected" here made app.py rewrite "Sprinfield" to "Springfield,
+        # AR" -- the alphabetically first of 22 -- with nothing to flag it.
+        res = LocationResolution(input=raw_str, status="ambiguous", confidence=0.5, matched_via="fuzzy_city_no_dominant")
+        _fill_from_place(res, primary_place)
+        res.alternatives = alternatives
+        res.note = (
+            f"“{stripped}” looks like {res.display_name}, which matches {len(candidates)} US cities. "
+            "Pick the one you mean so the plan targets the right market."
+        )
+        _apply_dma(res)
+        _apply_cbsa(res)
+        return res
     res = LocationResolution(input=raw_str, status="corrected", confidence=0.55, matched_via="fuzzy_city_ambiguous")
     _fill_from_place(res, primary_place)
-    res.alternatives = [_alt_from_place(_places_by_key[key]) for _, key in sorted(candidates, key=lambda t: (t[0], t[1]))]
+    res.alternatives = alternatives
     res.note = (
         f"Read “{stripped}” as {res.display_name}, which exists in several states. "
         f"Showing {res.state_usps} — pick another below if that isn’t the one."

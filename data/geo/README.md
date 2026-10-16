@@ -62,7 +62,8 @@ time.
   parishes (LA), boroughs/census areas (AK), independent cities (VA), etc.
   under their Census `NAME`, unmodified).
 - `us_places.tsv` -- `place_key, display_name, state_usps, county_fips, lat,
-  lng, place_type, county_confidence` (31,657 rows). `place_key` is
+  lng, place_type, county_confidence` (31,868 rows: 31,657 from the place
+  gazetteer + 211 NJ townships, judgment call 6). `place_key` is
   `<lowercased/punct-stripped/whitespace-collapsed display_name>|<lowercase
   state_usps>` -- **scoped per state**, so cross-state name collisions
   (many "Springfield"s) never collide with each other, but two identically
@@ -235,6 +236,51 @@ counts.
    ZCTA-backed Atlanta ZIP `30303` is used for spot-checks instead. This
    is an inherent limitation of any ZCTA-based ZIP dataset, not a bug in
    this build.
+
+6. **New Jersey townships (added 2026-10-16).** A NJ township is a Census
+   *county subdivision*, not a *place*, so the place gazetteer above has no
+   row for Edison, Cherry Hill, Piscataway, Brick and ~170 other townships
+   (only the ones a CDP happens to cover, e.g. Woodbridge, Lakewood, Toms
+   River, were present). `resolve_location("Edison, NJ")` therefore found
+   nothing and the fuzzy fallback "corrected" it to Madison. The gap is closed
+   by `scripts/build_geo_nj_townships.py` (run it AFTER `build_geo_data.py`,
+   which regenerates `us_places.tsv` without them; it is idempotent), from the
+   Census **county-subdivision** gazetteer, same 2024 vintage and the same
+   public-domain basis:
+
+   `https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2024_Gazetteer/2024_Gaz_cousubs_national.zip`
+   (HTTP 200, 1,491,107 bytes, fetched 2026-10-16; columns `USPS, GEOID,
+   ANSICODE, NAME, FUNCSTAT, ALAND, AWATER, ALAND_SQMI, AWATER_SQMI, INTPTLAT,
+   INTPTLONG`).
+
+   Rules, each deliberate: (a) only active (`FUNCSTAT == A`) NJ subdivisions
+   named "... township" whose name is **unique in the state** are added -- 211
+   of 241. The 6 names that exist in two counties (Fairfield, Hamilton,
+   Lawrence, Mansfield, Monroe, Ocean) and the 6 that share a name with a
+   borough/CDP *and* with other townships (Franklin, Washington, Greenwich,
+   Hopewell, Springfield, Union) are skipped: picking one would invent a
+   primary, so the resolver answers "not in our place list, state-level data"
+   instead. (b) The row uses the file's usual stripped `display_name`
+   (`edison|nj`, "Edison", `place_type == "township"`). (c) If that key is
+   already taken by another place -- a borough, a city, or a CDP, sometimes in
+   a different county (Hampton borough in Hunterdon vs Hampton township in
+   Sussex; Raritan, Harrison, Millstone, Voorhees, Marlboro, Delaware) -- the
+   township is a different place, so it is stored under its full legal name
+   (`hampton township|nj`, "Hampton Township"); 40 rows. Nothing existing is
+   changed (the diff is +211 rows, 0 edits). (d) `county_fips` is the first
+   five digits of the subdivision GEOID, exact because a subdivision sits in
+   exactly one county; `county_confidence` is still `census_first_listed`
+   because that column admits only the two documented values. Row count is now
+   31,868.
+
+   Not covered: townships in other states (PA, MI, OH, MN, ... have thousands
+   and are mostly absent too) -- an unknown "City, ST" is now an honest
+   unresolved with state-level figures instead of a lookalike town. Also
+   outstanding and unrelated to this change: 195 `place_key` values are shared
+   by two or more rows (e.g. `fairview|nj` borough and CDP, `silver lake|nj`
+   x3), so the lookup keeps whichever row is read last; the "not observed in
+   this vintage" remark in the `us_places.tsv` description above is out of
+   date.
 
 ## Zero-padding
 
