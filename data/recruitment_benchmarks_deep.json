@@ -186,7 +186,7 @@
         ],
         "notes": "Year-round demand with surges in Q1 and September. Vacation season causes summer dip. Healthcare accounted for 75% of net job growth in 2025."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17. Verified: apply rate 3.22% (Appcast 2026)."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17. Verified: apply rate 3.22% (Appcast 2026)."
     },
     "technology_engineering": {
       "cpa": {
@@ -254,7 +254,7 @@
         ],
         "notes": "AI/ML demand surged 25% in 2025 (CompTIA). Tech postings remain 30% below pre-pandemic despite stabilization."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17. Verified: apply rate 7.14% (Appcast 2026)."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17. Verified: apply rate 7.14% (Appcast 2026)."
     },
     "finance_banking": {
       "cpa": {
@@ -308,7 +308,7 @@
         "cpa_seasonal_note": "Tax season prep (Q4-Q1) creates biggest demand spike for accounting/finance roles",
         "notes": "Budget cycles drive Q1 hiring. Tariff-driven volatility affecting 2025-2026 hiring patterns."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "retail_consumer": {
       "cpa": {
@@ -361,7 +361,7 @@
         ],
         "notes": "2025 seasonal retail postings were flat YoY (+1%), seasonal sales roles down 10% YoY. E-commerce shifting seasonal demand to logistics."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "hospitality_travel": {
       "cpa": {
@@ -407,7 +407,7 @@
         ],
         "notes": "Hospitality attraction prices dropped 39% MoM in March 2025 but were 41% higher YoY (Recruitics May 2025)."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "logistics_supply_chain": {
       "cpa": {
@@ -454,7 +454,7 @@
         ],
         "notes": "E-commerce growth shifting seasonal demand from retail to logistics. 31% of companies paused hiring in 2025 but key logistics roles remain in demand."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "blue_collar_skilled_trades": {
       "cpa": {
@@ -509,7 +509,7 @@
         ],
         "notes": "Construction and outdoor trades peak in spring/summer. Infrastructure spending driving year-round demand."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17. Verified: 439,000 construction workers needed in 2025 (ABC, Jan 2025)."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17. Verified: 439,000 construction workers needed in 2025 (ABC, Jan 2025)."
     },
     "pharma_biotech": {
       "cpa": {
@@ -561,7 +561,7 @@
         ],
         "notes": "Budget cycles and clinical trial timelines drive hiring patterns. Q1 and Q3 are strongest."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "aerospace_defense": {
       "cpa": {
@@ -608,7 +608,7 @@
         ],
         "notes": "Government fiscal year (Oct-Sep) and defense budget cycles drive hiring. Q4 government fiscal year-end creates urgency."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "energy_utilities": {
       "cpa": {
@@ -655,7 +655,7 @@
         ],
         "notes": "Utility maintenance cycles and energy demand patterns influence hiring. Renewable energy sector growing rapidly."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "construction_real_estate": {
       "cpa": {
@@ -702,7 +702,7 @@
         ],
         "notes": "Spring ramp-up for construction season. Weather-dependent markets have more pronounced seasonality."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17. Verified: 439,000 construction workers needed in 2025 (ABC, Jan 2025)."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17. Verified: 439,000 construction workers needed in 2025 (ABC, Jan 2025)."
     },
     "education": {
       "cpa": {
@@ -751,7 +751,7 @@
         ],
         "notes": "Academic calendar drives hiring. Spring semester hiring for next academic year. Mid-year replacements are urgent fills."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "government": {
       "cpa": {
@@ -798,7 +798,7 @@
         ],
         "notes": "Federal fiscal year (Oct 1) drives hiring. End-of-fiscal-year budget spending creates Q4 surge. Hiring freezes common at administration changes."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "insurance": {
       "cpa": {
@@ -844,7 +844,7 @@
         ],
         "notes": "Open enrollment periods and regulatory changes drive hiring cycles"
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "telecommunications": {
       "cpa": {
@@ -890,7 +890,7 @@
         ],
         "notes": "5G rollout and infrastructure investment driving demand. Technology overlap means competition with pure tech companies for talent."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "automotive_manufacturing": {
       "cpa": {
@@ -940,7 +940,7 @@
         ],
         "notes": "Model year changeovers and production ramp-ups drive seasonal patterns. EV transition creating new talent needs."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "food_beverage": {
       "cpa": {
@@ -986,7 +986,7 @@
         ],
         "notes": "Seasonal food production cycles and holiday preparation drive patterns. Food service wage growth (2.9% YoY to Dec 2025) lagging retail."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "media_entertainment": {
       "cpa": {
@@ -1031,7 +1031,7 @@
         ],
         "notes": "Media sector remains significantly weaker than pre-pandemic per Indeed. Content production cycles drive hiring."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "legal_services": {
       "cpa": {
@@ -1079,7 +1079,7 @@
         ],
         "notes": "Law firm budget cycles and associate class hiring timelines drive patterns. Summer associate programs are separate pipeline."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "professional_services_consulting": {
       "cpa": {
@@ -1133,7 +1133,7 @@
         ],
         "notes": "Campus recruiting cycles (fall) and project-driven hiring create bimodal pattern."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "nonprofit": {
       "cpa": {
@@ -1179,7 +1179,7 @@
         ],
         "notes": "Grant cycles and fiscal year budgets drive hiring. Year-end fundraising season limits bandwidth for hiring."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     },
     "agriculture": {
       "cpa": {
@@ -1229,7 +1229,7 @@
         ],
         "notes": "Strongly seasonal. Planting and harvest seasons drive bulk of hiring. H-2A visa program critical for seasonal labor."
       },
-      "provenance": "Not independently audited. Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges. Reviewed 2026-10-17."
+      "provenance": "Not independently audited. Nova working estimates informed by public industry reports; indicative ranges. Reviewed 2026-10-17."
     }
   },
   "funnel_conversion_rates": {

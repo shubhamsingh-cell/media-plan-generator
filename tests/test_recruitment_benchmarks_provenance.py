@@ -22,6 +22,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import budget_engine as be  # noqa: E402
 import excel_v2  # noqa: E402
+import us_only_markers  # noqa: E402
 import ppt_generator as ppt  # noqa: E402
 from kb_loader import load_knowledge_base  # noqa: E402
 
@@ -43,7 +44,10 @@ def test_every_row_ends_with_provenance():
         # Disclaimer FIRST: the workbook cell wraps without a row height,
         # so only the first ~90 characters are visible.
         assert row["provenance"].startswith("Not independently audited"), name
-        assert "Reviewed 2026-10-17" in row["provenance"], name
+        assert row["provenance"].startswith(
+            "Not independently audited. Nova working estimates informed by "
+            "public industry reports; indicative ranges. Reviewed 2026-10-17."
+        ), name
 
 
 def test_verified_facts_are_stamped_on_their_rows():
@@ -181,3 +185,20 @@ def test_white_paper_nova_source_drops_removed_figures():
     # so they are checked against the removed healthcare slots only.
     assert "$169" not in json.dumps(bm["cost_per_screen_by_occupation_2025"])
     assert "$366" not in json.dumps(bm["cost_per_interview_by_occupation_2025"])
+
+
+def test_provenance_carries_no_us_only_vocabulary():
+    """The provenance line prints on every plan's Industry Benchmarks block;
+    a US-only marker (e.g. "BLS") makes bundle_qa raise
+    us_data_on_non_us_plan on every non-US plan."""
+    for name, row in _ROWS.items():
+        text = row["provenance"]
+        hits = [
+            marker
+            for marker, pattern in zip(
+                us_only_markers._US_ONLY_MARKERS, us_only_markers._US_ONLY_MARKER_RES
+            )
+            if pattern.search(text)
+        ]
+        assert not hits, (name, hits)
+        assert not us_only_markers.has_us_only_marker(text), name
