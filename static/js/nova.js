@@ -1665,7 +1665,8 @@
       '<button class="suggestion-card" data-query="What salary should I offer for a Data Scientist in New York City?">' +
       '<span class="suggestion-card-icon" aria-hidden="true">&#x1F4B0;</span>Data Scientist salary in NYC' +
       "</button>" +
-      "</div>";
+      "</div>" +
+      '<a class="nova-help-link" href="/help/media-plans">How to use the generator and Nova</a>';
     chatContainer.appendChild(welcome);
 
     // Suggestion click handlers

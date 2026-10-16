@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>How to use the Media Plan Generator and Nova | Nova AI Suite</title>
+    <meta
+      name="description"
+      content="A short guide to the Nova media plan generator and Nova chat: how to enter a brief, how to read the outputs, what to check before sending."
+    />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/css/tokens.css" />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        html {
+          scroll-behavior: smooth;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: var(--font-sans);
+        font-size: var(--text-base);
+        line-height: var(--leading-normal);
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: var(--accent-light);
+        text-underline-offset: 3px;
+      }
+      a:hover {
+        color: var(--teal);
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent-light);
+        outline-offset: 3px;
+        border-radius: var(--radius-sm);
+      }
+
+      .skip-link {
+        position: absolute;
+        left: var(--space-4);
+        top: -60px;
+        padding: var(--space-2) var(--space-4);
+        background: var(--surface-1);
+        color: var(--text-primary);
+        border: 1px solid var(--border-hover);
+        border-radius: var(--radius-md);
+        z-index: 100;
+        text-decoration: none;
+      }
+      .skip-link:focus {
+        top: var(--space-2);
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        min-height: 58px;
+        padding: 0 var(--space-6);
+        background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
+        -webkit-backdrop-filter: blur(20px) saturate(1.4);
+        backdrop-filter: blur(20px) saturate(1.4);
+        border-bottom: 1px solid var(--border);
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        flex-shrink: 0;
+        border-radius: 9px;
+        background: linear-gradient(135deg, var(--accent), var(--teal));
+        color: var(--text-primary);
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .topbar-title {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: 0;
+        font-family: var(--font-heading);
+        font-weight: 600;
+        font-size: 14.5px;
+        letter-spacing: var(--tracking-normal);
+        white-space: nowrap;
+      }
+      .topbar-title b {
+        color: var(--accent-light);
+        font-weight: 700;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 0 var(--space-4);
+        border: 1px solid var(--border-hover);
+        border-radius: var(--radius-full);
+        background: color-mix(in srgb, var(--accent) 14%, transparent);
+        color: var(--text-primary);
+        font-size: 12.5px;
+        font-weight: 600;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .pill-short {
+        display: none;
+      }
+      .pill:hover {
+        background: color-mix(in srgb, var(--accent) 26%, transparent);
+        color: var(--text-primary);
+      }
+
+      .wrap {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: var(--space-8) var(--space-6) var(--space-16);
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        gap: var(--space-10);
+      }
+      .toc {
+        position: sticky;
+        top: 82px;
+        align-self: start;
+        font-size: var(--text-sm);
+      }
+      .toc h2 {
+        margin: 0 0 var(--space-3);
+        font-size: var(--text-xs);
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        font-family: var(--font-sans);
+      }
+      .toc ol {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 2px;
+      }
+      .toc a {
+        display: block;
+        padding: 6px var(--space-3);
+        border-left: 2px solid var(--border);
+        color: var(--text-secondary);
+        text-decoration: none;
+      }
+      .toc a:hover {
+        color: var(--text-primary);
+        border-left-color: var(--accent-light);
+      }
+
+      main h1 {
+        margin: 0 0 var(--space-3);
+        font-family: var(--font-heading);
+        font-size: clamp(1.6rem, 4.6vw, var(--text-2xl));
+        line-height: var(--leading-tight);
+        letter-spacing: var(--tracking-tight);
+      }
+      .lede {
+        margin: 0 0 var(--space-8);
+        color: var(--text-secondary);
+        max-width: 62ch;
+      }
+      section {
+        padding: var(--space-6) 0;
+        border-top: 1px solid var(--border);
+        scroll-margin-top: 80px;
+      }
+      section h2 {
+        margin: 0 0 var(--space-3);
+        font-family: var(--font-heading);
+        font-size: var(--text-xl);
+        line-height: var(--leading-snug);
+        letter-spacing: var(--tracking-normal);
+      }
+      section h3 {
+        margin: var(--space-6) 0 var(--space-2);
+        font-size: var(--text-base);
+        font-weight: 600;
+      }
+      p {
+        margin: 0 0 var(--space-3);
+        max-width: 68ch;
+      }
+      ul,
+      ol.steps {
+        margin: 0 0 var(--space-3);
+        padding-left: 1.25rem;
+        max-width: 68ch;
+      }
+      li {
+        margin-bottom: var(--space-2);
+      }
+      code,
+      .ex {
+        font-family: var(--font-mono);
+        font-size: 0.88em;
+        padding: 1px 6px;
+        border-radius: var(--radius-sm);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        white-space: nowrap;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-4);
+        margin: var(--space-4) 0;
+      }
+      .card {
+        padding: var(--space-4) var(--space-6);
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+      }
+      .card h3 {
+        margin-top: 0;
+      }
+      .card p:last-child {
+        margin-bottom: 0;
+      }
+      .note {
+        margin: var(--space-4) 0;
+        padding: var(--space-3) var(--space-4);
+        max-width: 68ch;
+        border-left: 3px solid var(--amber);
+        background: var(--amber-glow);
+        border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      }
+      .mark {
+        color: var(--amber);
+        font-weight: 700;
+      }
+
+      details {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--bg-card);
+        margin-bottom: var(--space-2);
+        max-width: 68ch;
+      }
+      summary {
+        cursor: pointer;
+        padding: var(--space-3) var(--space-4);
+        font-weight: 600;
+        list-style-position: inside;
+        min-height: 44px;
+      }
+      details[open] summary {
+        border-bottom: 1px solid var(--border);
+      }
+      details > p {
+        padding: var(--space-3) var(--space-4) 0;
+      }
+      details > p:last-child {
+        padding-bottom: var(--space-3);
+        margin-bottom: 0;
+      }
+
+      footer {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: var(--space-6);
+        border-top: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: var(--text-sm);
+      }
+
+      @media (max-width: 900px) {
+        .wrap {
+          grid-template-columns: minmax(0, 1fr);
+          gap: var(--space-6);
+          padding: var(--space-6) var(--space-4) var(--space-12);
+        }
+        .toc {
+          position: static;
+        }
+        .toc ol {
+          display: flex;
+          flex-wrap: wrap;
+          gap: var(--space-2);
+        }
+        .toc a {
+          padding: 8px var(--space-3);
+          min-height: 40px;
+          border: 1px solid var(--border);
+          border-radius: var(--radius-full);
+        }
+        .cards {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      @media (max-width: 600px) {
+        .topbar {
+          gap: var(--space-2);
+          padding: 0 var(--space-4);
+        }
+        .topbar-title {
+          font-size: 13px;
+        }
+        .pill {
+          padding: 0 var(--space-3);
+          font-size: 12px;
+        }
+        .pill-secondary {
+          display: none;
+        }
+        .pill-long {
+          display: none;
+        }
+        .pill-short {
+          display: inline;
+        }
+        code,
+        .ex {
+          white-space: normal;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
+    <header class="topbar" role="banner">
+      <a href="/" class="brand" aria-label="Back to Nova AI Suite">N</a>
+      <p class="topbar-title">Nova <b>Media Plan Guide</b></p>
+      <span class="spacer"></span>
+      <a class="pill pill-secondary" href="/nova">Open Nova</a>
+      <a class="pill" href="/media-plan"
+        ><span class="pill-long">Open the generator</span
+        ><span class="pill-short">Generator</span></a
+      >
+    </header>
+
+    <div class="wrap">
+      <nav class="toc" aria-labelledby="toc-title">
+        <h2 id="toc-title">On this page</h2>
+        <ol>
+          <li><a href="#what-it-is">What it is for</a></li>
+          <li><a href="#enter-a-brief">Enter a brief</a></li>
+          <li><a href="#what-you-get">What you get</a></li>
+          <li><a href="#read-the-numbers">Read the numbers</a></li>
+          <li><a href="#before-you-send">Before you send</a></li>
+          <li><a href="#involve-supply">When to involve supply</a></li>
+          <li><a href="#start-over">Start over</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ol>
+      </nav>
+
+      <main id="main-content" tabindex="-1">
+        <h1>How to use the Media Plan Generator and Nova</h1>
+        <p class="lede">
+          A short guide for the people who build plans and send them to
+          clients. This page describes what the tools do today; if the tool
+          and this page ever disagree, trust the tool and tell us.
+        </p>
+
+        <section id="what-it-is" aria-labelledby="h-what-it-is">
+          <h2 id="h-what-it-is">What it is for</h2>
+          <div class="cards">
+            <div class="card">
+              <h3>Media plan generator</h3>
+              <p>
+                A five-step form (Client Info, Industry &amp; Targeting,
+                Channels, Extra Sections, Review &amp; Export) that turns a
+                client brief into an Excel workbook and a PowerPoint deck. Use
+                it when you need a full plan to share.
+              </p>
+              <p><a href="/media-plan">Open the generator</a></p>
+            </div>
+            <div class="card">
+              <h3>Nova chat</h3>
+              <p>
+                A chat assistant for recruitment-marketing questions: average
+                costs for a role, how two job boards compare, compliance
+                requirements, how Joveo builds a media plan. Use it for quick
+                answers and to talk through a plan.
+              </p>
+              <p><a href="/nova">Open Nova</a></p>
+            </div>
+          </div>
+          <p>
+            Both are AI-assisted. Treat what they produce as a strong first
+            draft that you review, not a finished answer. You are responsible
+            for what you send to a client.
+          </p>
+        </section>
+
+        <section id="enter-a-brief" aria-labelledby="h-enter-a-brief">
+          <h2 id="h-enter-a-brief">Enter a brief</h2>
+          <p>
+            The more specific the brief, the more specific the plan. These
+            are the fields that matter most.
+          </p>
+
+          <h3>Budget</h3>
+          <p>
+            Type the amount the way you would say it:
+            <span class="ex">150,000</span>, <span class="ex">1.5M</span>,
+            <span class="ex">1.5 million</span>,
+            <span class="ex">500K</span> or <span class="ex">5 lakh</span>.
+            A range such as <span class="ex">10k-15k</span> is planned at its
+            midpoint. The form shows you the figure it read, so check that
+            line under the box.
+          </p>
+          <p>
+            Then choose what the amount covers: per campaign (total), per
+            month, per quarter or per year. Weekly, daily and hourly budgets
+            are not supported; enter a monthly amount instead.
+          </p>
+
+          <h3>Locations</h3>
+          <p>
+            Add each place on its own, as <span class="ex">City, Country</span>
+            for anywhere outside the US, for example
+            <span class="ex">London, UK</span> or
+            <span class="ex">Singapore</span>. US locations work as
+            <span class="ex">Dallas, TX</span>. Press Enter or type a comma
+            after each one. Including the country name makes sure an
+            international location is planned in the right country.
+          </p>
+
+          <h3>Roles, volume and timing</h3>
+          <p>
+            Add each target role (type it and press Enter), the number of
+            hires, the campaign duration and, if it is not this month, the
+            start month. The brief box and the optional uploads (PDF, DOCX or
+            TXT, up to 7 MB in total) and call notes are used as context for
+            the plan.
+          </p>
+
+          <h3>Excluding job boards</h3>
+          <p>
+            If the client does not want a board in the plan, add it under
+            <em>Exclude job boards</em> (Channels step). Any spelling works:
+            &ldquo;Indeed&rdquo;, &ldquo;indeed.com&rdquo; and &ldquo;Indeed
+            France&rdquo; are treated as the same board. Excluded boards are
+            removed from every sheet and slide, and the plan states what was
+            excluded at the client&rsquo;s request.
+          </p>
+
+          <h3>While you type</h3>
+          <p>
+            A live estimate (budget, applications, hires, cost per
+            application) updates as you fill the form. It is a preview. Read
+            the figures in the files you download.
+          </p>
+        </section>
+
+        <section id="what-you-get" aria-labelledby="h-what-you-get">
+          <h2 id="h-what-you-get">What you get</h2>
+          <ul>
+            <li>
+              <strong>Excel workbook.</strong> Starts with an Executive
+              Summary, then Channels &amp; Strategy, Market Intelligence and
+              Sources &amp; Confidence, followed by further sheets that depend
+              on the plan (for example ROI projections, a forecast and
+              international benchmarks). The last sheet is
+              <em>Review before sending</em>.
+            </li>
+            <li>
+              <strong>PowerPoint deck.</strong> A strategy deck
+              with an executive summary, channel strategy, budget allocation,
+              competitive landscape, timeline and risks. The speaker notes on
+              the first slide hold the same review checklist.
+            </li>
+            <li>
+              <strong>Quality check.</strong> If the automated check flags
+              problems, a &ldquo;Quality Check Found Issues&rdquo; box appears
+              before the download. Read it. Downloading anyway is your call,
+              not a default.
+            </li>
+          </ul>
+        </section>
+
+        <section id="read-the-numbers" aria-labelledby="h-read-the-numbers">
+          <h2 id="h-read-the-numbers">Read the numbers</h2>
+
+          <h3>Ranges and assumptions</h3>
+          <p>
+            Hires, applications and cost per hire are projections built from
+            industry benchmarks, not promises. When no client hire history was
+            provided, say so when you present them and quote them as
+            estimates. Where the plan states an assumption (for example, what it
+            assumes per hire on the executive summary slide), read it before
+            you quote the figure.
+          </p>
+
+          <h3>The <span class="mark">&dagger;</span> mark on a board</h3>
+          <p>
+            A job board shown with <span class="mark">&dagger;</span> is
+            listed for that market in Joveo&rsquo;s supply repository, but not
+            with the status &ldquo;In Joveo Network&rdquo;. The note beside it
+            reads &ldquo;relationship unverified &mdash; confirm before
+            quoting&rdquo;. Do not promise that board to a client until supply
+            confirms it.
+          </p>
+
+          <h3>Data as of</h3>
+          <p>
+            The Executive Summary and the deck&rsquo;s second slide state when
+            the underlying data was last refreshed. The Sources &amp;
+            Confidence sheet breaks that down by source family (supply
+            repository, benchmarks, salary data, seasonal patterns and so on).
+            Each date is read from the data file itself. A source with no
+            recorded date says <span class="ex">date not recorded</span>;
+            nothing is estimated. The workbook and deck also carry the time
+            they were generated and the app version.
+          </p>
+
+          <h3>Confidence</h3>
+          <p>
+            The Sources &amp; Confidence sheet gives an overall data
+            confidence grade, and shows how many live data sources returned
+            data for this plan. Read the grade before you rely on the
+            numbers.
+          </p>
+        </section>
+
+        <section id="before-you-send" aria-labelledby="h-before-you-send">
+          <h2 id="h-before-you-send">Before you send</h2>
+          <p>
+            Open the <em>Review before sending</em> sheet (last tab of the
+            workbook) or the speaker notes on slide 1 of the deck. The list is
+            built from this plan, so it only mentions what applies. It can
+            include:
+          </p>
+          <ul>
+            <li>Projections are ranges, with no client hire history provided.</li>
+            <li>
+              How many boards are marked <span class="mark">&dagger;</span>.
+            </li>
+            <li>A budget reality check that flagged the budget.</li>
+            <li>Markets that have no local benchmarks.</li>
+            <li>The job boards the client asked you to exclude.</li>
+            <li>
+              Always: check the brief details, confirm the channel mix with
+              supply, check the data dates, and read everything yourself.
+            </li>
+          </ul>
+          <p class="note">
+            Nothing is sent for you. The files are yours to review, correct
+            and send.
+          </p>
+        </section>
+
+        <section id="involve-supply" aria-labelledby="h-involve-supply">
+          <h2 id="h-involve-supply">When to involve supply</h2>
+          <p>Bring in the supply team before you commit anything to a client when:</p>
+          <ul>
+            <li>
+              The plan shows boards marked <span class="mark">&dagger;</span>.
+            </li>
+            <li>
+              A market is flagged as having no local benchmarks, or no board
+              data. Figures there are indicative.
+            </li>
+            <li>
+              You are about to commit spend. Confirm the channel mix and the
+              budget split first.
+            </li>
+            <li>The budget reality check says the budget is under-funded.</li>
+          </ul>
+        </section>
+
+        <section id="start-over" aria-labelledby="h-start-over">
+          <h2 id="h-start-over">Start over</h2>
+          <ul>
+            <li>
+              <strong>Generator.</strong> The form keeps what you typed while
+              the browser tab stays open. To begin a new brief, use
+              <em>Clear Form</em>, next to the Generate button. It asks you to
+              click twice, so one stray click does not wipe your inputs.
+            </li>
+            <li>
+              <strong>Nova.</strong> Choose <em>New Chat</em> to begin a new
+              conversation. Earlier conversations are listed in the sidebar.
+              Start a new chat when you switch clients, to keep each
+              client&rsquo;s conversation separate.
+            </li>
+          </ul>
+        </section>
+
+        <section id="faq" aria-labelledby="h-faq">
+          <h2 id="h-faq">FAQ</h2>
+          <details>
+            <summary>Can I send the files straight to a client?</summary>
+            <p>
+              Only after you have reviewed them. Work through the Review
+              before sending list, check the numbers you plan to quote, and
+              correct anything you cannot stand behind.
+            </p>
+          </details>
+          <details>
+            <summary>Why does a board have a dagger next to it?</summary>
+            <p>
+              Its relationship with Joveo is not verified for that market.
+              Confirm with supply before you quote it. See
+              <a href="#read-the-numbers">Read the numbers</a>.
+            </p>
+          </details>
+          <details>
+            <summary>How current is the data?</summary>
+            <p>
+              Look at the &ldquo;Data as of&rdquo; line on the Executive
+              Summary, or the per-source table on the Sources &amp;
+              Confidence sheet. If a source reads &ldquo;date not
+              recorded&rdquo;, treat it with extra care.
+            </p>
+          </details>
+          <details>
+            <summary>A client does not want certain job boards. What now?</summary>
+            <p>
+              Add them under Exclude job boards before you generate. They are
+              removed from the workbook and deck. If you notice one that
+              slipped through, tell us rather than editing around it.
+            </p>
+          </details>
+          <details>
+            <summary>My budget was read differently than I expected.</summary>
+            <p>
+              Check the line under the budget box, which shows the figure the
+              plan will use, and the period you picked (campaign total,
+              month, quarter or year). A range is planned at its midpoint.
+            </p>
+          </details>
+          <details>
+            <summary>Where do I ask Nova about a plan I just made?</summary>
+            <p>
+              Use <em>Ask Nova</em> in the generator header. It opens Nova in
+              a new tab with your brief or plan.
+            </p>
+          </details>
+          <details>
+            <summary>I was told to follow older instructions. Which apply?</summary>
+            <p>
+              This page. It describes the current tools. If older guidance
+              conflicts with it, follow this page and flag the difference.
+            </p>
+          </details>
+        </section>
+      </main>
+    </div>
+
+    <footer>
+      <a href="/media-plan">Media plan generator</a> &middot;
+      <a href="/nova">Nova chat</a> &middot; <a href="/">Nova AI Suite</a>
+    </footer>
+  </body>
+</html>

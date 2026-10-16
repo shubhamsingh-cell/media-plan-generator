@@ -634,6 +634,18 @@
           .np-cta:hover {
             text-decoration: underline;
           }
+          .np-help-link {
+            display: inline-flex;
+            align-items: center;
+            margin: 14px 0 0 18px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--accent-purple);
+            text-underline-offset: 3px;
+          }
+          .np-help-link:hover {
+            text-decoration-thickness: 2px;
+          }
           @media (prefers-reduced-motion: reduce) {
             .np-bubble {
               opacity: 1;
@@ -718,6 +730,9 @@
               <a href="#chat-input" class="np-cta" id="nova-persona-cta"
                 >Try it yourself &darr;</a
               >
+              <a class="np-help-link" href="/help/media-plans"
+                >How to use the generator and Nova</a
+              >
             </div>
           </div>
         </section>
@@ -780,6 +795,22 @@
           aria-label="Chat messages"
         >
           <div class="chat-container" id="chat-container">
+            <style>
+              .nova-help-link {
+                flex-basis: 100%;
+                text-align: center;
+                padding: 10px 8px;
+                font-size: 13px;
+                font-weight: 500;
+                color: var(--accent-purple);
+                text-decoration: underline;
+                text-underline-offset: 3px;
+              }
+              .nova-help-link:hover,
+              .nova-help-link:focus-visible {
+                text-decoration-thickness: 2px;
+              }
+            </style>
             <!-- Inline welcome suggestion chips (hidden once messages appear) -->
             <div class="nova-suggestions" id="nova-suggestion-chips">
               <button
@@ -812,6 +843,9 @@
               >
                 Joveo media plan methodology
               </button>
+              <a class="nova-help-link" href="/help/media-plans"
+                >How to use the generator and Nova</a
+              >
             </div>
           </div>
         </div>
@@ -962,7 +996,7 @@
     </div>
 
     <script src="/static/js/nova-toast.js?v=s50" defer></script>
-    <script src="/static/js/nova.js?v=s58" defer></script>
+    <script src="/static/js/nova.js?v=s59" defer></script>
 
     <footer style="display: none" aria-hidden="true">
       Nova AI Suite &middot; Created by Shubham Singh Chandel &middot; Built by

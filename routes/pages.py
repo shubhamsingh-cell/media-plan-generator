@@ -153,6 +153,8 @@ _PAGE_ROUTES: list[tuple[tuple[str, ...], str]] = [
     (("/privacy", "/privacy/"), "privacy.html"),
     (("/terms", "/terms/"), "terms.html"),
     (("/slotops", "/slotops/", "/slot-ops", "/slot-ops/"), "slotops.html"),
+    # In-app guide for the media plan generator and Nova chat.
+    (("/help/media-plans", "/help/media-plans/"), "help-media-plans.html"),
 ]
 
 # Build a fast lookup dict: path -> template_filename
