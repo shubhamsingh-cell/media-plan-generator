@@ -162,6 +162,46 @@ def test_ticked_custom_countries_outrank_a_bare_city_guess(plan, kept):
     assert _REGIONAL & set(_fold("custom", plan)) == kept
 
 
+@pytest.mark.parametrize(
+    "plan, kept",
+    [
+        # bare foreign names nothing recognises: a guess, so the ticked
+        # countries decide (verifier round 2 -- the brief's headline case)
+        ({"locations": ["Sao Paulo"], "custom_countries": ["BR"]}, set()),
+        ({"locations": ["Mumbai"], "custom_countries": ["IN"]}, {"apac_regional"}),
+        # ... and with nothing ticked they keep every board
+        ({"locations": ["Sao Paulo"]}, _REGIONAL),
+        # a comma string from an API caller is one entry per country
+        (
+            {"locations": ["Austin, TX"], "custom_countries": "DE,US"},
+            {"emea_regional"},
+        ),
+        # a sidecar that no longer lines up with locations: fail open
+        (
+            {
+                "locations": ["Munich, ND", "Austin, TX"],
+                "_location_resolution": [{"matched_via": "place_city_unique"}],
+            },
+            _REGIONAL,
+        ),
+    ],
+)
+def test_bare_foreign_names_and_odd_shapes(plan, kept):
+    assert _REGIONAL & set(_fold("custom", plan)) == kept
+
+
+def test_bare_foreign_city_custom_preview_funds_no_regional_board():
+    funded = _funded(
+        dict(
+            _BRIEF,
+            target_region="custom",
+            locations=["Sao Paulo"],
+            custom_countries=["BR"],
+        )
+    )
+    assert not _REGIONAL & set(funded), funded
+
+
 def test_an_unplaceable_market_still_blocks_with_custom_countries():
     plan = {"locations": ["Accra, Ghana"], "custom_countries": ["US"]}
     assert _fold("custom", plan) == _PCTS

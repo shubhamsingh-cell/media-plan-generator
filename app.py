@@ -4886,6 +4886,11 @@ def _market_region(entry: Any) -> "str | None":
             # ZIP, county, "USA"/"Nationwide" or a "City, ST" pair proves one.
             if res.matched_via in _BARE_CITY_MATCHES:
                 return _GUESS
+            # A bare name nothing recognises ("Sao Paulo", "Mumbai") is a
+            # guess too; one carrying a foreign country ("Accra, Ghana",
+            # matched_via non_us_signal) is an unplaceable market.
+            if res.status == "unresolved" and not res.matched_via:
+                return _GUESS
             if res.status in ("resolved", "corrected"):
                 return "americas"
     except Exception:  # noqa: BLE001 - best-effort; unknown keeps every board
@@ -4914,10 +4919,17 @@ def _plan_market_regions(plan: Any) -> "frozenset[str] | None":
     if not isinstance(plan, dict):
         return None
     locations = _as_entry_list(plan.get("locations"))
-    countries = _as_entry_list(plan.get("custom_countries"))
+    raw_countries = plan.get("custom_countries")
+    if isinstance(raw_countries, str):
+        # "DE,US" from an API caller (the /api/generate boundary splits it;
+        # /api/estimate does not) -- one entry per country either way.
+        raw_countries = [c.strip() for c in raw_countries.split(",")]
+    countries = [c for c in _as_entry_list(raw_countries) if c]
     sidecar = plan.get("_location_resolution")
     guessed: "set[int]" = set()
-    if isinstance(sidecar, list) and len(sidecar) == len(locations):
+    if isinstance(sidecar, list):
+        if len(sidecar) != len(locations):
+            return None  # cannot tell which entry was rewritten: fail open
         guessed = {
             i
             for i, r in enumerate(sidecar)
