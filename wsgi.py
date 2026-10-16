@@ -72,6 +72,15 @@ def _run_deferred_startup() -> None:
         "[wsgi] Running deferred startup for gunicorn worker (PID %d)", os.getpid()
     )
 
+    # Compute the public proof numbers once (hub page + Nova greeting). Each
+    # value is logged with its source; /api/proof-claims exposes them.
+    try:
+        import proof_claims
+
+        proof_claims.claims()
+    except Exception as pc_err:
+        logger.error("[wsgi] proof_claims failed: %s", pc_err, exc_info=True)
+
     # Pre-warm knowledge base
     try:
         from app import load_knowledge_base

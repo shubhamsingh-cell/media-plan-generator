@@ -26,6 +26,8 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+
+import proof_claims  # public proof numbers: one source of truth, each with its artifact
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
 # S50 (May 2026): 11 free recruitment data APIs as Nova chatbot tools.
@@ -1440,19 +1442,19 @@ _FAQ_ANSWER_CPC_CPA_CPH = (
 _PRELOADED_ANSWERS = [
     {
         "question": "how many publishers does joveo have",
-        "answer": "Joveo has **10,238+ Supply Partners** across **70+ countries**, including major job boards, niche boards, programmatic platforms, and social channels.",
+        "answer": "Joveo's global supply repository lists {{#claim_supply_partners}}**{{claim_supply_partners}} Supply Partners**{{/claim_supply_partners}}{{^claim_supply_partners}}**thousands of Supply Partners**{{/claim_supply_partners}}{{#claim_countries}}, with country-level job boards and benchmarks for **{{claim_countries}} countries**{{/claim_countries}} -- major job boards, niche boards, programmatic platforms, and social channels.",
         "keywords": ["publishers", "supply partners", "how many"],
         "confidence": 0.95,
     },
     {
         "question": "what is joveo",
-        "answer": "Joveo is a **programmatic recruitment marketing PLATFORM** -- not a job board or publisher. It's the AI-powered technology layer that sits above publishers and **distributes and optimizes your job ads across 10,238+ supply partners** (including Indeed, LinkedIn, Google Jobs, ZipRecruiter, niche boards, and thousands more) across 70+ countries. Think of it as the intelligent engine that manages your entire recruitment advertising spend -- automatically optimizing bids, budgets, and distribution across all channels to maximize applications per dollar.",
+        "answer": "Joveo is a **programmatic recruitment marketing PLATFORM** -- not a job board or publisher. It's the AI-powered technology layer that sits above publishers and **distributes and optimizes your job ads across {{claim_supply_partners}} supply partners** (including Indeed, LinkedIn, Google Jobs, ZipRecruiter, niche boards, and thousands more) worldwide. Think of it as the intelligent engine that manages your entire recruitment advertising spend -- automatically optimizing bids, budgets, and distribution across all channels to maximize applications per dollar.",
         "keywords": ["joveo", "what is"],
         "confidence": 0.95,
     },
     {
         "question": "what countries does joveo operate in",
-        "answer": "Joveo operates across **70+ countries** including the US, UK, Canada, Germany, France, India, Australia, Japan, UAE, Brazil, and many more across EMEA, APAC, and AMER regions.",
+        "answer": "Nova's knowledge base holds country-level job boards and benchmarks for **{{claim_countries}} countries**, including the US, UK, Canada, Germany, France, India, Australia, Japan, UAE, Brazil, and more across EMEA, APAC, and AMER regions.",
         "keywords": ["countries", "regions", "operate"],
         "confidence": 0.90,
     },
@@ -1506,14 +1508,14 @@ _PRELOADED_ANSWERS = [
     },
     {
         "question": "joveo vs competitors",
-        "answer": "**Important**: Joveo is a programmatic recruitment marketing PLATFORM, not a job board. Individual publishers like Indeed, LinkedIn, Google Jobs, ZipRecruiter are all part of Joveo's 10,238+ supply partner network -- they are NOT alternatives to Joveo, they are channels Joveo distributes across.\n\nJoveo's key differentiators as a platform:\n- **Broadest global reach**: 10,238+ Supply Partners across 70+ countries -- the largest publisher network in the industry\n- **AI-driven optimization**: Real-time bid optimization maximizes ROI across ALL your publishers simultaneously\n- **Multiple pricing models**: CPC, CPA, TCPA, Flat CPC, ORG, and PPP -- more flexibility than any alternative\n- **Platform-level intelligence**: Instead of manually managing each job board, Joveo automatically distributes and optimizes spend across the entire network\n- **Superior cost efficiency**: AI algorithms continuously optimize spend allocation for maximum hires per dollar\n\nUsing Joveo means you get Indeed + LinkedIn + Google Jobs + ZipRecruiter + thousands more -- all optimized together.",
+        "answer": "**Important**: Joveo is a programmatic recruitment marketing PLATFORM, not a job board. Individual publishers like Indeed, LinkedIn, Google Jobs, ZipRecruiter are all part of Joveo's {{claim_supply_partners}}-publisher supply network -- they are NOT alternatives to Joveo, they are channels Joveo distributes across.\n\nJoveo's key differentiators as a platform:\n- **Broad global reach**: {{claim_supply_partners}} Supply Partners worldwide -- one of the broadest publisher networks in the industry\n- **AI-driven optimization**: Real-time bid optimization maximizes ROI across ALL your publishers simultaneously\n- **Multiple pricing models**: CPC, CPA, TCPA, Flat CPC, ORG, and PPP -- more flexibility than any alternative\n- **Platform-level intelligence**: Instead of manually managing each job board, Joveo automatically distributes and optimizes spend across the entire network\n- **Superior cost efficiency**: AI algorithms continuously optimize spend allocation for maximum hires per dollar\n\nUsing Joveo means you get Indeed + LinkedIn + Google Jobs + ZipRecruiter + thousands more -- all optimized together.",
         "keywords": ["competitor", "vs", "compare", "alternative", "better than"],
         "confidence": 0.95,
     },
     # ---- Comprehensive Joveo Product Knowledge (from joveo.com, March 2026) ----
     {
         "question": "joveo product suite",
-        "answer": "Joveo offers a **complete end-to-end recruitment marketing platform** with 3 core products:\n\n**1. MOJO Pro -- Programmatic Job Advertising Platform**\n- AI-driven programmatic job ad distribution across 10,238+ supply partners\n- Real-time bid optimization using machine learning\n- Multi-channel campaign management (job boards, search engines, social media, display, niche/community/DEI publishers)\n- Dynamic budget allocation that auto-shifts spend to top-performing sources\n- Automation rules to optimize bids and enable/disable publishers\n- Consolidated global recruitment media buying with local market control\n- Unified analytics dashboard with impression-to-hire insights\n- Multiple pricing models: CPC, CPA, TCPA, Flat CPC, ORG, PPP\n- Real-time performance reporting across all sources in one view\n\n**2. MOJO Go -- Recruiter OS**\n- One-click multi-board job posting for recruiters\n- Simultaneously create, edit, and post jobs on multiple job boards\n- Feeds hiring goals into MOJO Pro for smarter programmatic decisions\n- Streamlined recruiter workflow\n\n**3. Career Site CMS**\n- AI-powered career site builder (create beautiful branded career pages with simple prompts)\n- Dynamic landing pages and microsites\n- SEO optimization built-in\n- Apply flow optimization to minimize candidate drop-off\n- Mobile-first responsive design\n- Conversion tracking and analytics\n\n**4. Candidate Engagement CRM**\n- Candidate engagement-first CRM\n- Auto-match candidates to best-suited jobs\n- Prospect management and nurturing\n- Reduce recruiter workload through automation\n\n**Plus: 100+ ATS integrations** including iCIMS, Bullhorn, Workday (Design Approved partner as of Jan 2026), SAP, Salesforce, Greenhouse, SmartRecruiters, Oracle, Cornerstone OnDemand, and more.",
+        "answer": "Joveo offers a **complete end-to-end recruitment marketing platform** with 3 core products:\n\n**1. MOJO Pro -- Programmatic Job Advertising Platform**\n- AI-driven programmatic job ad distribution across {{claim_supply_partners}} supply partners\n- Real-time bid optimization using machine learning\n- Multi-channel campaign management (job boards, search engines, social media, display, niche/community/DEI publishers)\n- Dynamic budget allocation that auto-shifts spend to top-performing sources\n- Automation rules to optimize bids and enable/disable publishers\n- Consolidated global recruitment media buying with local market control\n- Unified analytics dashboard with impression-to-hire insights\n- Multiple pricing models: CPC, CPA, TCPA, Flat CPC, ORG, PPP\n- Real-time performance reporting across all sources in one view\n\n**2. MOJO Go -- Recruiter OS**\n- One-click multi-board job posting for recruiters\n- Simultaneously create, edit, and post jobs on multiple job boards\n- Feeds hiring goals into MOJO Pro for smarter programmatic decisions\n- Streamlined recruiter workflow\n\n**3. Career Site CMS**\n- AI-powered career site builder (create beautiful branded career pages with simple prompts)\n- Dynamic landing pages and microsites\n- SEO optimization built-in\n- Apply flow optimization to minimize candidate drop-off\n- Mobile-first responsive design\n- Conversion tracking and analytics\n\n**4. Candidate Engagement CRM**\n- Candidate engagement-first CRM\n- Auto-match candidates to best-suited jobs\n- Prospect management and nurturing\n- Reduce recruiter workload through automation\n\n**Plus: 100+ ATS integrations** including iCIMS, Bullhorn, Workday (Design Approved partner as of Jan 2026), SAP, Salesforce, Greenhouse, SmartRecruiters, Oracle, Cornerstone OnDemand, and more.",
         "keywords": [
             "joveo products",
             "mojo",
@@ -1529,7 +1531,7 @@ _PRELOADED_ANSWERS = [
     },
     {
         "question": "why joveo for recruitment marketing",
-        "answer": "Joveo is the best choice for recruitment marketing because it's not just one tool -- it's the **entire recruitment marketing technology stack**:\n\n**AI-Powered Optimization**: Joveo's machine learning continuously optimizes bids, budgets, and source mix across 10,238+ publishers to maximize applications per dollar. Customers see **50%+ reduction in CPA** on average.\n\n**Programmatic Intelligence**: Instead of manually managing each job board, Joveo automatically distributes your jobs across the right channels at the right time and price. The AI agent analyzes job descriptions, candidate behavior, and market signals to make real-time decisions.\n\n**Full-Funnel Visibility**: Unified analytics from impression to hire across ALL sources in one dashboard. Compare performance across job sites, track cost-per-hire, and see exactly where your budget delivers results.\n\n**Career Site + Apply Flow Optimization**: AI-built career sites with conversion optimization reduce candidate drop-off. Every click from ad to application is optimized.\n\n**Global + Local**: Consolidated global media buying with local market control. Access global, local, niche, community, and DEI publishers in 70+ countries.\n\n**100+ ATS Integrations**: Works with whatever ATS you use -- iCIMS, Workday, Greenhouse, Bullhorn, SAP, and many more.\n\n**Workday Design Approved**: As of January 2026, Joveo is a Workday Design Approved partner with 35+ Workday clients already using the platform.\n\n**Proven Results**: Global staffing agencies have consolidated their recruitment media buying and cut cost per application by more than 50% with Joveo.",
+        "answer": "Joveo is the best choice for recruitment marketing because it's not just one tool -- it's the **entire recruitment marketing technology stack**:\n\n**AI-Powered Optimization**: Joveo's machine learning continuously optimizes bids, budgets, and source mix across {{claim_supply_partners}} publishers to maximize applications per dollar. Customers see **50%+ reduction in CPA** on average.\n\n**Programmatic Intelligence**: Instead of manually managing each job board, Joveo automatically distributes your jobs across the right channels at the right time and price. The AI agent analyzes job descriptions, candidate behavior, and market signals to make real-time decisions.\n\n**Full-Funnel Visibility**: Unified analytics from impression to hire across ALL sources in one dashboard. Compare performance across job sites, track cost-per-hire, and see exactly where your budget delivers results.\n\n**Career Site + Apply Flow Optimization**: AI-built career sites with conversion optimization reduce candidate drop-off. Every click from ad to application is optimized.\n\n**Global + Local**: Consolidated global media buying with local market control. Access global, local, niche, community, and DEI publishers worldwide.\n\n**100+ ATS Integrations**: Works with whatever ATS you use -- iCIMS, Workday, Greenhouse, Bullhorn, SAP, and many more.\n\n**Workday Design Approved**: As of January 2026, Joveo is a Workday Design Approved partner with 35+ Workday clients already using the platform.\n\n**Proven Results**: Global staffing agencies have consolidated their recruitment media buying and cut cost per application by more than 50% with Joveo.",
         "keywords": [
             "why joveo",
             "good choice",
@@ -1543,7 +1545,7 @@ _PRELOADED_ANSWERS = [
     },
     {
         "question": "mojo pro features",
-        "answer": "**MOJO Pro** is Joveo's flagship programmatic job advertising platform:\n\n- **AI-Driven Source Selection**: Machine learning analyzes which publishers deliver the best candidates for each job type, location, and budget level\n- **Real-Time Bid Optimization**: Automated bid management adjusts CPC/CPA bids in real-time based on performance\n- **Dynamic Budget Allocation**: Automatically shifts spend from underperforming sources to top performers\n- **Automation Rules**: Set rules to optimize bids, pause/enable publishers, and manage campaigns automatically\n- **Unified Analytics Dashboard**: Monitor campaign performance and costs across ALL sources in real-time\n- **Impression-to-Hire Tracking**: Full-funnel visibility from ad impression through click, apply, to hire\n- **Global Media Consolidation**: Manage recruitment advertising across 70+ countries from one platform\n- **Local Market Control**: While centralizing strategy, local teams can influence country-specific job advertising\n- **Multi-Channel Distribution**: Job boards, search engines, social media, display ads, niche boards, community boards, DEI publishers\n- **Multiple Pricing Models**: CPC, CPA, TCPA, Flat CPC, ORG, PPP\n- **Publisher Performance Comparison**: Side-by-side source performance analysis\n- **Labor Market Intelligence**: Real-time competitive signals and labor market data\n- **Apply Flow Optimization**: Reduce candidate drop-offs and improve conversions",
+        "answer": "**MOJO Pro** is Joveo's flagship programmatic job advertising platform:\n\n- **AI-Driven Source Selection**: Machine learning analyzes which publishers deliver the best candidates for each job type, location, and budget level\n- **Real-Time Bid Optimization**: Automated bid management adjusts CPC/CPA bids in real-time based on performance\n- **Dynamic Budget Allocation**: Automatically shifts spend from underperforming sources to top performers\n- **Automation Rules**: Set rules to optimize bids, pause/enable publishers, and manage campaigns automatically\n- **Unified Analytics Dashboard**: Monitor campaign performance and costs across ALL sources in real-time\n- **Impression-to-Hire Tracking**: Full-funnel visibility from ad impression through click, apply, to hire\n- **Global Media Consolidation**: Manage recruitment advertising worldwide from one platform\n- **Local Market Control**: While centralizing strategy, local teams can influence country-specific job advertising\n- **Multi-Channel Distribution**: Job boards, search engines, social media, display ads, niche boards, community boards, DEI publishers\n- **Multiple Pricing Models**: CPC, CPA, TCPA, Flat CPC, ORG, PPP\n- **Publisher Performance Comparison**: Side-by-side source performance analysis\n- **Labor Market Intelligence**: Real-time competitive signals and labor market data\n- **Apply Flow Optimization**: Reduce candidate drop-offs and improve conversions",
         "keywords": [
             "mojo pro",
             "mojo features",
@@ -1582,6 +1584,24 @@ _PRELOADED_ANSWERS = [
 ]
 
 _PARTIAL_MATCH_THRESHOLD = 0.35
+
+
+def nova_default_greeting() -> str:
+    """The default "Hi" greeting.
+
+    Its stat line comes from proof_claims so every number traces to a real
+    artifact (audit: /api/proof-claims); a stat whose source cannot be read
+    is left out rather than shown stale.
+    """
+    stats = proof_claims.greeting_stats_line()
+    return (
+        "Hey! I'm Nova, built by Chandel -- your recruitment intelligence, "
+        "illuminated.\n\n"
+        + (f"{stats}\n\n" if stats else "")
+        + "Whether it's a quick CPC lookup or a deep market analysis, "
+        "I'm here with real data -- not guesses. What's on your mind?"
+    )
+
 
 # ---------------------------------------------------------------------------
 # Two-tier tool system: essential tools for free LLMs, full set for paid LLMs
@@ -3767,7 +3787,7 @@ def _check_learned_answers(question: str) -> Optional[Dict[str, Any]]:
             best_match.get("question") or "",
         )
         return {
-            "response": best_match["answer"],
+            "response": proof_claims.render(best_match["answer"]),
             "confidence": min(best_score * 1.2, 1.0),
             "sources": ["Joveo Knowledge Base (learned answers)"],
             "tools_used": [],
@@ -4515,7 +4535,7 @@ class Nova:
     _JOVEO_CONTEXT = (
         "\n\n## JOVEO POSITIONING & COMPETITOR POLICY\n"
         "Joveo is a programmatic recruitment marketing PLATFORM (NOT a job board). "
-        "It distributes jobs across 10,238+ supply partners (Indeed, LinkedIn, Google Jobs, ZipRecruiter, niche boards, etc.) "
+        "It distributes jobs across {{claim_supply_partners}} supply partners (Indeed, LinkedIn, Google Jobs, ZipRecruiter, niche boards, etc.) "
         "using AI to optimize spend and bidding. Publishers are Joveo's supply partners, NOT alternatives.\n"
         "If asked about alternatives: explain Joveo is the platform layer above publishers, then ask what need they have.\n"
         "NEVER mention competitor names (Appcast, PandoLogic, Recruitics, Talroo, Radancy, Vonq, Clickcast, JobAdX, etc.). "
@@ -4811,7 +4831,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "versus joveo",
         ]
         if any(t in msg_lower for t in _joveo_triggers):
-            core += self._JOVEO_CONTEXT
+            core += proof_claims.render(
+                self._JOVEO_CONTEXT
+            )  # {{claim_*}} -> real counts
 
         # Budget context: only for budget/plan/allocation queries
         _budget_triggers = [
@@ -5069,7 +5091,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             },
             {
                 "name": "query_publishers",
-                "description": "Search Joveo's 10,238+ publisher network by country, category, or name. Use for publisher counts, name search, or filtered lists. Not for performance benchmarks (query_platform_deep).",
+                "description": "Search Joveo's global publisher network by country, category, or name. Use for publisher counts, name search, or filtered lists. Not for performance benchmarks (query_platform_deep).",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -16066,8 +16088,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 ):
                     _greeting_resp = (
                         "I'm Nova, built by the team at Joveo! I'm your recruitment "
-                        "marketing intelligence assistant with access to data from 10,238+ "
-                        "supply partners across 70+ countries. What can I help you with today?"
+                        "marketing intelligence assistant with access to data from "
+                        f"{proof_claims.reach_phrase()}. What can I help you with today?"
                     )
                 elif any(
                     kw in _msg_lower
@@ -16090,8 +16112,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 ):
                     _greeting_resp = (
                         "I'm Nova, Joveo's recruitment marketing intelligence assistant. "
-                        "I have access to real-time data from 10,238+ supply partners across "
-                        "70+ countries, live salary benchmarks, CPC/CPA data, labor market "
+                        f"I have access to data from {proof_claims.reach_phrase()}, "
+                        "salary benchmarks, CPC/CPA data, labor market "
                         "demand signals, and channel-level performance metrics.\n\n"
                         "Here's what I can help with:\n"
                         "- **Salary & compensation benchmarks** for any role or location\n"
@@ -16140,17 +16162,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 else:
                     # S25: Vary greeting to avoid identical responses on repeated "Hi"
                     # S47: Expanded to 7 variations for better diversity
-                    _greetings = [
-                        (
-                            "Hey! I'm Nova, built by Chandel -- your recruitment intelligence, "
-                            "illuminated.\n\n"
-                            "**10,341+ supply partners** | **11M+ job benchmarks** | "
-                            "**22 live APIs** | **23 AI models** | **44 knowledge bases** "
-                            "| **70+ countries**\n\n"
-                            "Whether it's a quick CPC lookup or a deep market analysis, "
-                            "I'm here with real data -- not guesses. What's on your mind?"
-                        ),
-                    ]
+                    _greetings = [nova_default_greeting()]
                     # S27: Deterministic per-session greeting (not random each time)
                     _g_idx = hash((_session_id or "") + user_message[:5]) % len(
                         _greetings
@@ -16219,7 +16231,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 "response": (
                     "Glad that was helpful! Feel free to ask anything else about "
                     "recruitment marketing -- publishers, benchmarks, budgets, "
-                    "salary data, or hiring strategies across 70+ countries."
+                    f"salary data, or hiring strategies {proof_claims.countries_phrase('across')}."
                 ),
                 "sources": [],
                 "confidence": None,  # S25: No badge on feedback acknowledgments
@@ -20193,7 +20205,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             "(4) NEVER invent CPC, CPA, CPH, salary, or benchmark statistics. "
             "Only state numbers from tool results or provided context.\n"
             "(5) Use markdown: **bold** for key metrics, ## headers, | tables | for comparisons.\n"
-            "(6) Joveo is a programmatic recruitment marketing PLATFORM with 10,238+ supply partners. "
+            "(6) Joveo is a programmatic recruitment marketing PLATFORM with "
+            f"{proof_claims.claim_text('supply_partners', 'thousands of')} supply partners. "
             "NEVER suggest publishers as 'alternatives' to Joveo.\n"
             "(7) NEVER say 'I can't help' or 'I don't have data'. "
             "Always provide actionable value -- benchmarks, ranges, or strategic recommendations.\n"
@@ -22847,7 +22860,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             return {
                 "response": (
                     "Hello! I'm *Nova*, your recruitment marketing intelligence assistant. "
-                    "I have access to data from *10,238+ Supply Partners*, job boards across *70+ countries*, "
+                    f"I have access to data from *{proof_claims.reach_phrase()}*, "
                     "and comprehensive industry benchmarks and salary data.\n\n"
                     "Here are some things I can help with:\n\n"
                     '- *Publisher & Board Recommendations*: "What publishers work best for nursing roles?"\n'
@@ -23823,7 +23836,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         "- **Salary data** for any role (US national or city-specific)\n"
                         "- **CPC/CPA benchmarks** by industry and platform\n"
                         "- **Budget allocation** recommendations with projected outcomes\n"
-                        "- **Job board recommendations** for 70+ countries\n"
+                        f"- **Job board recommendations** {proof_claims.countries_phrase()}\n"
                         "- **Market demand** and hiring difficulty analysis\n\n"
                         "Try asking about a specific role or location!"
                     )
@@ -26115,7 +26128,7 @@ _T3_KNOWLEDGE_NUMBERS: Tuple[float, ...] = (
     80.0,
     90.0,
     100.0,
-    # Joveo / Nova boilerplate ("70+ countries", "60+ tools",
+    # Joveo / Nova boilerplate ("N countries", "60+ tools",
     # "38-country dataset").
     38.0,
     60.0,

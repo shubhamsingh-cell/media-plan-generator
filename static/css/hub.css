@@ -639,7 +639,7 @@ html.lenis body {
     );
   }
 }
-/* Signature constellation canvas (10,341 sources -> one plan) */
+/* Signature constellation canvas (every supply source -> one plan) */
 .hero-constellation {
   position: absolute;
   inset: 0;
@@ -2154,6 +2154,20 @@ html.lenis body {
   font-size: 12px;
   color: var(--text-muted);
   margin-top: 4px;
+}
+/* Moment 5: the badge sits above the tile row. It is scaled 1.3x by the
+   motion layer, so as a flex sibling with no gap it used to cover ~35px of the
+   first tile; stacking ends the overlap and keeps every label on one line. */
+.moment-5 .moment-visual {
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.moment-5 .outcome-stats {
+  margin-top: 0;
+}
+.moment-text p,
+.moment-figure-sub {
+  text-wrap: balance;
 }
 .moment-ctas {
   display: flex;
@@ -4334,35 +4348,16 @@ html.lenis body {
   border: 1px solid rgba(139, 133, 230, 0.28);
   white-space: nowrap;
 }
-/* Live/interactive affordance (owner: "a visitor must SEE within ~2s that
-   this recomputes when touched") -- a pulsing dot + explicit "drag the
-   budget" hint right in the header, the first thing read after the brand
-   row. Pulse is a continuous loop, so it's disabled under reduced-motion
-   below (the dot + label text stay, just static). */
+/* Interactive affordance (owner: "a visitor must SEE within ~2s that this
+   recomputes when touched") -- an explicit "drag the budget" hint right in
+   the header, the first thing read after the brand row. The pill is labelled
+   "Illustrative model": the former pulsing "Live" dot was removed 2026-10-16
+   because the card is a hand-tuned model, not engine output. */
 .pe-pill--live {
   gap: 7px;
   color: #eafbff;
   background: rgba(107, 181, 206, 0.16);
   border-color: rgba(107, 181, 206, 0.4);
-}
-.pe-live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--teal, #6bb5ce);
-  box-shadow: 0 0 0 0 rgba(107, 181, 206, 0.55);
-  animation: pe-live-pulse 1.8s ease-out infinite;
-}
-@keyframes pe-live-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(107, 181, 206, 0.55);
-  }
-  70% {
-    box-shadow: 0 0 0 7px rgba(107, 181, 206, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(107, 181, 206, 0);
-  }
 }
 
 /* Control blocks + chips */
@@ -4745,9 +4740,6 @@ html.lenis body {
 @media (prefers-reduced-motion: reduce) {
   .pe-bar-fill {
     transition: none;
-  }
-  .pe-live-dot {
-    animation: none;
   }
   .pe-cph-value {
     animation: none;

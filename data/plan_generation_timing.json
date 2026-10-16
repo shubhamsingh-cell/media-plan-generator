@@ -1,0 +1,9 @@
+{
+  "source": "Slack #nova-media-plans notifier posts (one per generated plan)",
+  "window": "2026-04 to 2026-09",
+  "n": 94,
+  "p50_seconds": 47.6,
+  "p90_seconds": 61.9,
+  "measured_on": "2026-10-16",
+  "note": "Real plans only; re-measure and overwrite this file to change the hub's plan-time copy. proof_claims.py renders it as prose ('about a minute')."
+}

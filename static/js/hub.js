@@ -1343,8 +1343,8 @@ document.addEventListener("DOMContentLoaded", function () {
 /* ── S94: Hero 3D convergence field ──
    A true-3D particle system replacing the flat S91 constellation: supply
    sources spawn on a spherical shell in 3D space and stream along swirling
-   streamlines into one bright sink — "10,341 sources converging into one
-   hire" rendered as motion instead of a static picture. Perspective
+   streamlines into one bright sink — "every supply source converging into
+   one hire" rendered as motion instead of a static picture. Perspective
    projection with a slowly orbiting camera; the cursor steers the camera a
    few degrees (3D parallax) instead of translating the canvas.
 
@@ -1785,6 +1785,16 @@ document.addEventListener("DOMContentLoaded", function () {
     var hires = Math.max(1, Math.round(apps * role.ath));
     var cph = budget / hires;
     var days = Math.round(role.days * loc.m);
+
+    // Story 4's "(example)" figure echoes the engine's first (default-scenario)
+    // cost-per-hire, so the hardcoded fallback in hub.html can never drift
+    // from what the live card shows.
+    var storyFigure = document.querySelector(".moment-4 .moment-figure-value");
+    if (storyFigure && !storyFigure.dataset.pePinned) {
+      storyFigure.dataset.pePinned = "1";
+      storyFigure.dataset.target = String(Math.round(cph));
+      storyFigure.textContent = fmtDollar(cph);
+    }
 
     animateNumber(cphEl, "cph", readNum(cphEl), cph, fmtDollar);
     animateNumber(hiresEl, "hires", readNum(hiresEl), hires, function (v) {

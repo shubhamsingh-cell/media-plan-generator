@@ -6,8 +6,8 @@
   },
   "static/css/hub.css": {
     "referrer": "hub.html",
-    "sha256": "d2c5fa398af314bb9a9fbdd3e44d70ac468d84e5b65111920292b9fbb478c295",
-    "version": "2.14.0"
+    "sha256": "63d387871954fab0c4442ab14049fa2e6577da7cc277ffa4fcc1857646bc7258",
+    "version": "2.14.1"
   },
   "static/css/motion.css": {
     "referrer": "hub.html",
@@ -36,8 +36,8 @@
   },
   "static/js/hub.js": {
     "referrer": "hub.html",
-    "sha256": "1dc1acf8d1a71f9579e957e4a08ef48ec633d9a0c5a9e05b3802066b81df313a",
-    "version": "2.8.0"
+    "sha256": "d4791887cba516e73257cbbc27b87bb0075234b807a19e8f96668ff62b68844f",
+    "version": "2.8.1"
   },
   "static/js/motion-engine.js": {
     "referrer": "hub.js",

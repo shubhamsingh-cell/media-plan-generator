@@ -1805,6 +1805,20 @@ def _handle_deploy_ready(handler, path: str, parsed: Any) -> None:
     except Exception:  # noqa: BLE001 -- observability must never break readiness
         result["embedding"] = {"provider": "unavailable"}
 
+    # Public proof numbers: a hub stat whose source cannot be read is dropped
+    # from the page silently, so its omission must show up HERE, on the
+    # endpoint the owner checks to call a deploy "live".
+    try:
+        import proof_claims
+
+        _pc = proof_claims.as_dict()
+        result["proof_claims"] = {
+            "omitted": _pc.get("omitted", []),
+            "values": {k: v.get("text") for k, v in (_pc.get("claims") or {}).items()},
+        }
+    except Exception as pc_exc:  # noqa: BLE001 -- readiness must never 500 on this
+        result["proof_claims"] = {"error": str(pc_exc)}
+
     status_code = 200 if is_ready else 503
     _send_json_response(handler, result, status_code)
 
@@ -1845,7 +1859,25 @@ def _handle_google_status(handler, path: str, parsed: Any) -> None:
     )
 
 
+def _handle_proof_claims(handler, path: str, parsed: Any) -> None:
+    """/api/proof-claims -- every public proof number with the artifact it came from.
+
+    The hub page and Nova's greeting render these values; this endpoint is
+    the audit trail (see proof_claims.py).
+    """
+    try:
+        import proof_claims
+
+        _send_json_response(handler, proof_claims.as_dict())
+    except (
+        Exception
+    ) as exc:  # noqa: BLE001 -- an audit endpoint must never 500 silently
+        logger.error("proof-claims endpoint failed: %s", exc, exc_info=True)
+        _send_json_response(handler, {"error": "proof claims unavailable"}, 503)
+
+
 _HEALTH_ROUTE_MAP: dict[str, Any] = {
+    "/api/proof-claims": _handle_proof_claims,
     "/api/config": _handle_config,
     "/api/features": _handle_features,
     "/api/health": _handle_health,

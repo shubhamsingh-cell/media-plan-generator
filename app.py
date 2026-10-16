@@ -48,6 +48,7 @@ from shared_utils import (
 import benchmark_registry
 import hashlib
 import wizard_inputs
+import proof_claims  # public proof numbers ({{claim_*}} tokens in templates)
 
 # Static asset minifier -- minify CSS/JS at import time for zero-latency serving
 try:
@@ -26287,6 +26288,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self.send_error(500, "Failed to read template")
                 return
 
+        # Resolve {{claim_*}} proof-number tokens before the fragment is cached
+        raw_html = proof_claims.render(raw_html)
+
         # Strip outer HTML/head/body wrapper, keep inner content
         fragment_html = self._extract_fragment_content(raw_html)
 
@@ -26390,6 +26394,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             else:
                 with open(filepath, "rb") as f:
                     content = f.read()
+
+            # Public proof numbers: templates carry {{claim_*}} tokens that
+            # resolve to values computed from real artifacts (proof_claims.py).
+            if content_type == "text/html" and filepath.startswith(TEMPLATES_DIR):
+                content = proof_claims.render_bytes(content)
 
             # Auto-inject Nova chat widget into HTML template pages
             # (skip pages that already include it or shouldn't have it)
@@ -26784,6 +26793,15 @@ if __name__ == "__main__":
             pass
         except Exception as tc_err:
             logger.error("[deferred_startup] Template pre-compose failed: %s", tc_err)
+
+        # Compute the public proof numbers once (hub + Nova greeting); each
+        # value and its source is logged, and /api/proof-claims exposes them.
+        try:
+            proof_claims.claims()
+        except Exception as pc_err:
+            logger.error(
+                "[deferred_startup] proof_claims failed: %s", pc_err, exc_info=True
+            )
 
         # Pre-warm knowledge base
         try:

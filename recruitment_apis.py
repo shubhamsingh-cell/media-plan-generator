@@ -53,6 +53,20 @@ _NET_ERRORS = (
     OSError,
 )
 
+# Live, keyless data sources this module really calls over HTTP.  Counted by
+# proof_claims.py for the public "live APIs" figure, so keep it honest: the
+# URL-stub helpers (WARNTracker, Levels.fyi) and the key-gated paid stubs
+# (Crunchbase, People Data Labs) are deliberately NOT listed, and neither is
+# FMCSA QC Mobile: its keyless public mode answered 403 on 2026-10-16, so it is
+# not reliably live.  Both ESCO lookups hit the same API, so ESCO counts once.
+LIVE_SOURCES: tuple[tuple[str, str], ...] = (
+    ("esco", "ESCO skills & occupations (EU Commission)"),
+    ("nppes_npi", "NPPES NPI Registry (CMS)"),
+    ("ilostat", "ILOSTAT SDMX (ILO labour statistics)"),
+    ("worldbank", "World Bank Open Data v2"),
+    ("hn_hiring", "Hacker News Who is hiring (Algolia)"),
+)
+
 
 def _http_get_json(
     url: str,

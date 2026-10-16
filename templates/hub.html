@@ -7,7 +7,7 @@
     <title>Nova AI Suite — Recruitment Intelligence Platform</title>
     <meta
       name="description"
-      content="AI-powered recruitment intelligence platform. Plan, Intelligence, Compliance, SlotOps, GeoViz 3D, and CG Automation — six products powered by Nova AI with 59 tools for talent acquisition."
+      content="AI-powered recruitment intelligence platform. Plan, Intelligence, Compliance, SlotOps, GeoViz 3D, and CG Automation — six products powered by Nova AI{{#claim_ai_tools}} with {{claim_ai_tools}} tools{{/claim_ai_tools}} for talent acquisition."
     />
     <meta name="theme-color" content="#000000" />
     <meta name="author" content="Shubham Singh Chandel" />
@@ -29,7 +29,7 @@
     />
     <meta
       property="og:description"
-      content="AI-powered recruitment intelligence. 25 AI models, 59 tools, 15 live APIs, and 25+ data sources for media planning, competitive intel, compliance, and SlotOps."
+      content="AI-powered recruitment intelligence{{#claim_ai_models+ai_tools+live_apis+knowledge_bases}}: {{claim_ai_models}} AI models, {{claim_ai_tools}} tools, {{claim_live_apis}} live APIs, and {{claim_knowledge_bases}} knowledge bases{{/claim_ai_models+ai_tools+live_apis+knowledge_bases}} for media planning, competitive intel, compliance, and SlotOps."
     />
     <meta property="og:site_name" content="Nova AI Suite" />
     <meta
@@ -52,7 +52,7 @@
     />
     <meta
       name="twitter:description"
-      content="AI-powered recruitment intelligence. 25 AI models, 59 tools, 15 live APIs for media planning, talent acquisition, and SlotOps."
+      content="AI-powered recruitment intelligence{{#claim_ai_models+ai_tools+live_apis}}: {{claim_ai_models}} AI models, {{claim_ai_tools}} tools, and {{claim_live_apis}} live APIs{{/claim_ai_models+ai_tools+live_apis}} for media planning, talent acquisition, and SlotOps."
     />
     <meta
       name="twitter:image"
@@ -88,7 +88,7 @@
     <link rel="stylesheet" href="/static/css/tokens.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/buttons.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/motion.css?v=2.0.0" />
-    <link rel="stylesheet" href="/static/css/hub.css?v=2.14.0" />
+    <link rel="stylesheet" href="/static/css/hub.css?v=2.14.1" />
 
     <!-- PostHog Analytics -->
     <script>
@@ -255,7 +255,7 @@
              the outer edges while letting the convergence art's bright core
              glow through the centre, between the copy and the live plan card. -->
         <div class="hero-bg-scrim" aria-hidden="true"></div>
-        <!-- Signature constellation: 10,341 supply sources converging into one optimized plan -->
+        <!-- Signature constellation: every supply source converging into one optimized plan -->
         <canvas
           class="hero-constellation"
           id="heroConstellation"
@@ -287,9 +287,9 @@
           </h1>
 
           <p class="hero-subline hero-anim">
-            Nova scans <strong>10,341+ supply partners</strong> across 13 channel
-            categories, predicts cost-per-hire, and builds an optimized media
-            plan in <strong>under 30 seconds.</strong>
+            Nova scans {{#claim_supply_partners}}<strong>{{claim_supply_partners}} supply partners</strong>{{/claim_supply_partners}}{{^claim_supply_partners}}<strong>Joveo's full supply network</strong>{{/claim_supply_partners}} across every
+            channel category, predicts cost-per-hire, and builds an optimized media
+            plan in {{claim_plan_time}}.
           </p>
 
           <div class="hero-actions hero-anim">
@@ -314,24 +314,26 @@
           </div>
 
           <ul class="hero-trust" role="list" aria-label="Why teams trust Nova">
+            {{#claim_countries}}<li>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              {{claim_countries}} countries covered
+            </li>{{/claim_countries}}
             <li>
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
-              10,341+ supply sources
+              <!-- Company-level certification, attributed to the company (source in
+                   proof_claims._SOC2_SOURCE): Nova itself is not separately audited. -->
+              {{claim_soc2}}
             </li>
-            <li>
+            {{#claim_knowledge_bases}}<li>
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
-              SOC 2 Type II
-            </li>
-            <li>
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-              Plan in 30 seconds
-            </li>
+              {{claim_knowledge_bases}} knowledge bases
+            </li>{{/claim_knowledge_bases}}
           </ul>
         </div>
 
@@ -353,8 +355,7 @@
                 Nova &middot; Prediction Engine
               </span>
               <span class="pe-pill pe-pill--live">
-                <span class="pe-live-dot" aria-hidden="true"></span>
-                Live &middot; drag the budget
+                Illustrative model &middot; drag the budget
               </span>
             </div>
 
@@ -415,7 +416,7 @@
             <div class="pe-result">
               <div class="pe-cph">
                 <div class="pe-cph-value" data-pe-cph>$0</div>
-                <div class="pe-cph-label">Predicted cost-per-hire</div>
+                <div class="pe-cph-label">Modeled cost-per-hire</div>
               </div>
               <div class="pe-minis">
                 <div class="pe-mini">
@@ -488,7 +489,8 @@
             </div>
 
             <div class="pe-footnote">
-              Recomputes live as you change inputs &mdash; no signup.
+              Illustrative model, recomputed as you change inputs. Your real plan is
+              built by Nova&rsquo;s calibrated engine &mdash; no signup.
             </div>
           </div>
         </div>
@@ -501,9 +503,14 @@
       <section
         class="trust-bar reveal-on-scroll"
         role="region"
-        aria-label="Trusted by enterprise teams"
+        aria-label="Enterprises recruiting on the Joveo platform"
       >
-        <div class="trust-bar-label">Powering recruitment intelligence at</div>
+        <!-- Trust bar: Joveo platform clients, each with an evidence row in
+             docs/TRUST_BAR_PROVENANCE.md (restored 2026-10-16 after b029de8
+             silently reverted the 2026-07-21 label and deleted that ledger).
+             Adding a name requires an evidence row FIRST; the test in
+             tests/test_proof_claims.py rejects any name without one. -->
+        <div class="trust-bar-label">Built on the Joveo platform powering recruitment at</div>
         <button class="marquee-pause" aria-label="Pause scrolling">||</button>
         <div class="marquee-wrap">
           <div class="marquee">
@@ -537,30 +544,14 @@
             <span class="marquee-item marquee-item--dim">Pizza Hut</span>
             <span class="marquee-item marquee-item--dim">HealthTrust</span>
             <!-- Duplicate for seamless loop -->
-            <span class="marquee-item marquee-item--dim" aria-hidden="true"
-              >Barclays</span
-            >
-            <span class="marquee-item marquee-item--dim" aria-hidden="true"
-              >Wells Fargo</span
-            >
-            <span class="marquee-item marquee-item--dim" aria-hidden="true"
-              >Randstad</span
-            >
-            <span class="marquee-item marquee-item--dim" aria-hidden="true"
-              >ING</span
-            >
-            <span class="marquee-item marquee-item--dim" aria-hidden="true"
-              >Adecco Group</span
-            >
-            <span class="marquee-item marquee-item--dim" aria-hidden="true"
-              >HCA Healthcare</span
-            >
-            <span class="marquee-item marquee-item--dim" aria-hidden="true"
-              >Pizza Hut</span
-            >
-            <span class="marquee-item marquee-item--dim" aria-hidden="true"
-              >HealthTrust</span
-            >
+            <span class="marquee-item marquee-item--dim" aria-hidden="true">Barclays</span>
+            <span class="marquee-item marquee-item--dim" aria-hidden="true">Wells Fargo</span>
+            <span class="marquee-item marquee-item--dim" aria-hidden="true">Randstad</span>
+            <span class="marquee-item marquee-item--dim" aria-hidden="true">ING</span>
+            <span class="marquee-item marquee-item--dim" aria-hidden="true">Adecco Group</span>
+            <span class="marquee-item marquee-item--dim" aria-hidden="true">HCA Healthcare</span>
+            <span class="marquee-item marquee-item--dim" aria-hidden="true">Pizza Hut</span>
+            <span class="marquee-item marquee-item--dim" aria-hidden="true">HealthTrust</span>
           </div>
         </div>
       </section>
@@ -574,7 +565,7 @@
         aria-label="Job board channels we optimize across"
       >
         <p class="channel-logos-label">
-          Optimizing across 90+ job boards and channels
+          Channels Nova plans across
         </p>
 
         <!-- Row 1: scrolls left -->
@@ -1431,7 +1422,7 @@
             <div class="moment-text">
               <h2>Nova analyzes everything.</h2>
               <p>
-                10,341+ supply partners. 25 AI models. Real-time market data.
+                {{#claim_supply_partners}}{{claim_supply_partners}} supply partners. {{/claim_supply_partners}}{{#claim_ai_models}}{{claim_ai_models}} AI models. {{/claim_ai_models}}{{#claim_live_apis}}{{claim_live_apis}} live APIs.{{/claim_live_apis}}
               </p>
             </div>
           </div>
@@ -1451,7 +1442,7 @@
                 >
                   $1,064
                 </div>
-                <div class="moment-figure-label">predicted cost-per-hire</div>
+                <div class="moment-figure-label">cost-per-hire (illustrative example)</div>
                 <div class="moment-figure-sub">
                   modeled across the full channel mix before a dollar is spent
                 </div>
@@ -1461,7 +1452,7 @@
               <h2>Your optimized media plan.</h2>
               <p>
                 Channel mix, budget allocation, CPA forecast, quality scores. In
-                under 30 seconds.
+                {{claim_plan_time}}.
               </p>
             </div>
           </div>
@@ -1490,24 +1481,26 @@
                 </svg>
                 <span>Plan optimized</span>
               </div>
+              <!-- Every figure here traces to an artifact (see /api/proof-claims);
+                   the earlier percentage and multiplier outcome tiles had none and were removed. -->
               <div class="outcome-stats">
-                <div class="outcome-stat">
+                {{#claim_countries}}<div class="outcome-stat">
                   <div class="outcome-stat-value outcome-stat-value--green">
-                    34%
+                    {{claim_countries}}
                   </div>
-                  <div class="outcome-stat-label">Lower cost-per-hire</div>
-                </div>
-                <div class="outcome-stat">
+                  <div class="outcome-stat-label">Countries covered</div>
+                </div>{{/claim_countries}}
+                {{#claim_knowledge_bases}}<div class="outcome-stat">
                   <div class="outcome-stat-value outcome-stat-value--accent">
-                    2.3x
+                    {{claim_knowledge_bases}}
                   </div>
-                  <div class="outcome-stat-label">More applications</div>
-                </div>
+                  <div class="outcome-stat-label">Knowledge bases</div>
+                </div>{{/claim_knowledge_bases}}
                 <div class="outcome-stat">
                   <div class="outcome-stat-value outcome-stat-value--teal">
-                    30s
+                    {{claim_plan_time_short}}
                   </div>
-                  <div class="outcome-stat-label">Plan generation</div>
+                  <div class="outcome-stat-label">Median plan time</div>
                 </div>
               </div>
             </div>
@@ -1515,7 +1508,7 @@
               <h2>Plan smarter. Spend less. Hire faster.</h2>
               <p>
                 Nova optimizes every dollar across channels, predicts CPA before
-                you spend, and builds plans that outperform manual media buying.
+                you spend, and shows the benchmark behind every number.
               </p>
               <div class="moment-ctas">
                 <a href="/media-plan" class="btn-primary"
@@ -1805,8 +1798,8 @@
               <p>
                 Generate data-driven recruitment media plans with channel
                 recommendations, budget allocation, CPA forecasts, and funnel
-                projections. Powered by 25 AI models and 91+ job board data
-                sources.
+                projections.{{#claim_ai_models+knowledge_bases}} Powered by {{claim_ai_models}}&nbsp;AI&nbsp;models and
+                {{claim_knowledge_bases}}&nbsp;knowledge&nbsp;bases.{{/claim_ai_models+knowledge_bases}}
               </p>
               <div class="product-hero-tools">
                 <span>Channel Mix</span>
@@ -2197,7 +2190,7 @@
               <p>
                 LinkedIn Slot Optimizer &mdash; Maximize 500 job slots across
                 countries using timezone rotation, ML-backed scoring, and
-                real-time performance prediction.
+                performance prediction.
               </p>
               <div class="product-hero-tools">
                 <span>Rotation Engine</span>
@@ -2644,7 +2637,7 @@
               <p>
                 3D Geospatial Labour Market Map &mdash; Interactive globe
                 visualization with satellite imagery, terrain layers, and
-                real-time labour market data across regions.
+                labour market data across regions.
               </p>
               <div class="product-hero-tools">
                 <span>3D Globe</span>
@@ -2668,35 +2661,34 @@
             </a>
           </div>
 
+          <!-- Platform statistics: every value is a claim token resolved by
+               proof_claims.py from a real artifact (audit: /api/proof-claims).
+               A stat whose source cannot be read is dropped, never shown stale. -->
           <div class="products-stats reveal" aria-label="Platform statistics">
-            <div class="products-stat">
-              <div class="products-stat-number" data-count="23">23</div>
+            {{#claim_ai_models}}<div class="products-stat">
+              <div class="products-stat-number" data-count="{{claim_ai_models:raw}}">{{claim_ai_models}}</div>
               <div class="products-stat-label">AI models</div>
-            </div>
-            <div class="products-stat">
-              <div class="products-stat-number" data-count="22">22</div>
+            </div>{{/claim_ai_models}}
+            {{#claim_live_apis}}<div class="products-stat">
+              <div class="products-stat-number" data-count="{{claim_live_apis:raw}}">{{claim_live_apis}}</div>
               <div class="products-stat-label">Live APIs</div>
-            </div>
-            <div class="products-stat">
-              <div class="products-stat-number" data-count="83">83</div>
+            </div>{{/claim_live_apis}}
+            {{#claim_ai_tools}}<div class="products-stat">
+              <div class="products-stat-number" data-count="{{claim_ai_tools:raw}}">{{claim_ai_tools}}</div>
               <div class="products-stat-label">AI tools</div>
-            </div>
-            <div class="products-stat">
-              <div class="products-stat-number" data-count="10341">10,341</div>
+            </div>{{/claim_ai_tools}}
+            {{#claim_supply_partners}}<div class="products-stat">
+              <div class="products-stat-number" data-count="{{claim_supply_partners:raw}}">{{claim_supply_partners}}</div>
               <div class="products-stat-label">Supply partners</div>
-            </div>
-            <div class="products-stat">
-              <div class="products-stat-number" data-count="70">70+</div>
+            </div>{{/claim_supply_partners}}
+            {{#claim_countries}}<div class="products-stat">
+              <div class="products-stat-number" data-count="{{claim_countries:raw}}">{{claim_countries}}</div>
               <div class="products-stat-label">Countries</div>
-            </div>
-            <div class="products-stat">
-              <div class="products-stat-number" data-count="31">31</div>
-              <div class="products-stat-label">Database tables</div>
-            </div>
-            <div class="products-stat">
-              <div class="products-stat-number" data-count="44">44</div>
+            </div>{{/claim_countries}}
+            {{#claim_knowledge_bases}}<div class="products-stat">
+              <div class="products-stat-number" data-count="{{claim_knowledge_bases:raw}}">{{claim_knowledge_bases}}</div>
               <div class="products-stat-label">Knowledge bases</div>
-            </div>
+            </div>{{/claim_knowledge_bases}}
           </div>
 
           <div class="products-also reveal">
@@ -3237,42 +3229,6 @@
       </section>
       <!-- Recent Activity widget: moved to /static/js/hub.js -->
 
-      <!-- HIDDEN: proof-section stats merged into CTA -->
-      <!--
-      <section class="proof-section" aria-label="Results">
-        <div class="container">
-          <div class="section-label reveal">Results</div>
-          <h2 class="section-title reveal" style="text-align: center">
-            What Nova delivers
-          </h2>
-
-          <div class="proof-stats reveal">
-            <div>
-              <div class="proof-stat-value" data-counter data-target="5400">
-                5,400+
-              </div>
-              <div class="proof-stat-label">Media plans generated</div>
-            </div>
-            <div>
-              <div class="proof-stat-value">&lt;30s</div>
-              <div class="proof-stat-label">Average generation time</div>
-            </div>
-            <div>
-              <div class="proof-stat-value" data-counter data-target="91">
-                91+
-              </div>
-              <div class="proof-stat-label">Job boards analyzed</div>
-            </div>
-          </div>
-
-          <div class="proof-case reveal">
-            A healthcare staffing firm reduced cost-per-hire by 34% across 120
-            nursing roles using Nova's AI-recommended channel mix.
-          </div>
-        </div>
-      </section>
-      -->
-      <!--/HIDDEN-->
 
       <!-- ========================================== -->
       <!-- ENGINE RUN LOG (was PREDICTION ENGINE).      -->
@@ -3282,9 +3238,10 @@
       <!-- engine. We removed the duplicate "Try it live" -->
       <!-- title + subline + second #plan-showcase card   -->
       <!-- (the actual repeated-motif tell) but keep the  -->
-      <!-- run-ledger strip below: it is real, previously -->
-      <!-- verified production data (17,932 apps/$8.36,   -->
-      <!-- 16,893 apps/$17.76), not an interactive engine, -->
+      <!-- run-ledger strip below: it is dated, labelled  -->
+      <!-- illustrative engine output (17,932 apps/$8.36,  -->
+      <!-- 16,893 apps/$17.76, "Nova 4.0.0, July 2026"),   -->
+      <!-- not production telemetry and not an engine,     -->
       <!-- and was deliberately built as a DIFFERENT       -->
       <!-- mechanism from the card grammar precisely so it -->
       <!-- would not read as a duplicate (see its own      -->
@@ -3478,31 +3435,29 @@
             </ul>
           </div>
         </div>
+        <!-- Footer stats: claim tokens only, rendered from the same dict as the
+             stats row above (proof_claims.py; audit at /api/proof-claims). -->
         <div class="footer-stats">
-          <div class="footer-stat">
-            <span class="footer-stat-value">23</span>
+          {{#claim_llm_providers}}<div class="footer-stat">
+            <span class="footer-stat-value">{{claim_llm_providers}}</span>
             <span class="footer-stat-label">LLM providers</span>
-          </div>
-          <div class="footer-stat">
-            <span class="footer-stat-value">22+</span>
+          </div>{{/claim_llm_providers}}
+          {{#claim_live_apis}}<div class="footer-stat">
+            <span class="footer-stat-value">{{claim_live_apis}}</span>
             <span class="footer-stat-label">Live APIs</span>
-          </div>
-          <div class="footer-stat">
-            <span class="footer-stat-value">60</span>
+          </div>{{/claim_live_apis}}
+          {{#claim_ai_tools}}<div class="footer-stat">
+            <span class="footer-stat-value">{{claim_ai_tools}}</span>
             <span class="footer-stat-label">AI tools</span>
-          </div>
-          <div class="footer-stat">
-            <span class="footer-stat-value">108,871</span>
-            <span class="footer-stat-label">Jobs analyzed</span>
-          </div>
-          <div class="footer-stat">
-            <span class="footer-stat-value">76</span>
+          </div>{{/claim_ai_tools}}
+          {{#claim_jobs_analyzed}}<div class="footer-stat">
+            <span class="footer-stat-value">{{claim_jobs_analyzed}}</span>
+            <span class="footer-stat-label">LinkedIn jobs analyzed</span>
+          </div>{{/claim_jobs_analyzed}}
+          {{#claim_countries}}<div class="footer-stat">
+            <span class="footer-stat-value">{{claim_countries}}</span>
             <span class="footer-stat-label">Countries</span>
-          </div>
-          <div class="footer-stat">
-            <span class="footer-stat-value">6</span>
-            <span class="footer-stat-label">Products</span>
-          </div>
+          </div>{{/claim_countries}}
         </div>
         <div class="footer-bottom">
           <span
@@ -3521,7 +3476,7 @@
     <!-- .footer-wrap -->
 
     <!-- ── Page Scripts (extracted to hub.js for cacheability, Fix #1) ── -->
-    <script src="/static/js/hub.js?v=2.8.0"></script>
+    <script src="/static/js/hub.js?v=2.8.1"></script>
 
     <!-- Legacy inline removed -- hamburger, observers, counters, bar anims,
          scroll handler, ripple, hero preview, page-enter, GSAP hero entrance,
@@ -3726,13 +3681,13 @@
           {
             target: "#hero",
             title: "Welcome to Nova AI Suite",
-            desc: "Your AI-powered recruitment intelligence platform with 6 products, 60 tools, and 22 live APIs.",
+            desc: "Your AI-powered recruitment intelligence platform{{#claim_ai_tools+live_apis}} with {{claim_ai_tools}} tools and {{claim_live_apis}} live APIs{{/claim_ai_tools+live_apis}}.",
             pos: "bottom",
           },
           {
             target: ".product-hero-card.product-plan",
             title: "Generate Media Plans",
-            desc: "Create optimized, data-driven recruitment media plans in under 30 seconds.",
+            desc: "Create optimized, data-driven recruitment media plans in {{claim_plan_time}}.",
             pos: "right",
           },
           {
