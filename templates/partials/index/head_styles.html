@@ -6825,8 +6825,11 @@
       display: none;
     }
     .np-estimate-bar .neb-item {
-      flex: 1 1 0;
-      min-width: 0;
+      /* size by content (range figures like "1,034–3,424" are wider than a
+         fixed quarter at 375): items share the leftover width, and the bar
+         wraps rather than letting one figure run into its neighbour */
+      flex: 1 1 auto;
+      min-width: min-content;
       display: flex;
       flex-direction: column;
       justify-content: center;

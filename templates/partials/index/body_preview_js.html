@@ -590,11 +590,14 @@
         state = "empty";
       } else if (est) {
         state = "ready";
+        // the SAME low-high strings as the tiles (never the optimistic point);
+        // "n/a" hires where the market has no local cost-per-hire benchmark
+        var bt = est.projection && est.projection.text ? est.projection.text : null;
         figs = {
           nebBudget: hero(m.total),
-          nebApps: appsFmt(est.est_applications),
-          nebHires: intc(est.est_hires),
-          nebCpa: cpaFmt(est.est_cpa),
+          nebApps: bt ? bt.applications : appsFmt(est.est_applications),
+          nebHires: bt ? bt.hires : intc(est.est_hires),
+          nebCpa: bt ? bt.cpa : cpaFmt(est.est_cpa),
         };
       } else if (estimating || JSON.stringify(estimatePayload(m)) !== lastScheduledSig) {
         // a request is scheduled / in flight / being retried, OR the inputs

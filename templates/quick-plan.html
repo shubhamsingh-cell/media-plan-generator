@@ -575,9 +575,20 @@
            ================================================================ */
       .qp-totals {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        /* range figures ("$5,250\u2013$10,500") need room: 2 / 3 / 6 columns */
+        grid-template-columns: repeat(2, 1fr);
         gap: 12px;
         margin-bottom: 28px;
+      }
+      @media (min-width: 560px) {
+        .qp-totals {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+      @media (min-width: 1100px) {
+        .qp-totals {
+          grid-template-columns: repeat(6, 1fr);
+        }
       }
       .qp-total-item {
         background: var(--obsidian-card);
@@ -589,10 +600,11 @@
       }
       .qp-total-value {
         font-family: "Poppins", "Inter", -apple-system, sans-serif;
-        font-size: 1.5rem;
+        font-size: 1.3rem;
         font-weight: 700;
         color: var(--text-primary);
         letter-spacing: -0.02em;
+        overflow-wrap: anywhere;
       }
       .qp-totals-note {
         font-size: 0.78rem;

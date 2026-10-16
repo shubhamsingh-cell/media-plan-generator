@@ -74,6 +74,13 @@ def test_wizard_preview_paints_ranges_and_the_basis_line():
     js = _read("templates/partials/index/body_preview_js.html")
     html = _read("templates/partials/index/body_content.html")
     assert 'id="npBasis"' in html
+    # range figures must not run into their neighbours in the sticky bar at 375px
+    css = open(os.path.join(PROJECT_ROOT, "templates/partials/index/head_styles.html"), encoding="utf-8").read()
+    assert "min-width: min-content" in css and "flex: 1 1 auto" in css
+    qp_css = open(os.path.join(PROJECT_ROOT, "templates/quick-plan.html"), encoding="utf-8").read()
+    assert "grid-template-columns: repeat(2, 1fr)" in qp_css and "repeat(6, 1fr)" in qp_css
+    # the sticky estimate bar shows the same ranges as the tiles
+    assert "nebApps: bt ? bt.applications" in js and "nebHires: bt ? bt.hires" in js
     assert "proj.text.applications" in js and "proj.text.hires" in js and "proj.text.cpa" in js
     assert "no client hire history" in js or "hires_short" in js
     node = shutil.which("node")
