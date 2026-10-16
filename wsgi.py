@@ -37,6 +37,7 @@ import io
 import logging
 import os
 import threading
+import time
 from http.server import BaseHTTPRequestHandler
 from typing import Any, Callable, Iterator
 
@@ -105,6 +106,49 @@ def _run_deferred_startup() -> None:
             )
     except Exception as _mem_err:
         logger.debug("[wsgi] Memory usage check failed (non-fatal): %s", _mem_err)
+
+    # Pre-load the two big read-only reference datasets in the gunicorn master.
+    # Under --preload this function runs in the master BEFORE fork, so loading
+    # them here puts the pages in the master's heap and every worker inherits
+    # them copy-on-write. Left lazy, each worker privately parsed its own copy
+    # on first use (~65 MB geo gazetteer on the first /api/locations/resolve,
+    # ~24 MB SlotOps baselines on the first generation): fresh workers sat at
+    # ~152 MB and warmed ones at ~211 MB each (2026-10-16 prod measurement).
+    # Each loader is guarded independently and never blocks boot -- if either
+    # fails, that dataset simply stays lazy and the worker loads it on demand
+    # exactly as before.
+    try:
+        import plan_location as _plan_location
+
+        _t_geo = time.perf_counter()
+        _plan_location._ensure_loaded()
+        logger.info(
+            "[wsgi] plan_location gazetteer pre-warmed in %.2fs",
+            time.perf_counter() - _t_geo,
+        )
+    except Exception as geo_err:
+        logger.warning("[wsgi] plan_location pre-warm failed: %s", geo_err)
+
+    try:
+        import slotops_engine as _slotops_engine
+
+        _t_slot = time.perf_counter()
+        _baselines = _slotops_engine.load_baselines()
+        if _baselines:
+            logger.info(
+                "[wsgi] SlotOps baselines pre-warmed: %d sections in %.2fs",
+                len(_baselines),
+                time.perf_counter() - _t_slot,
+            )
+        else:
+            # load_baselines() swallows file/JSON errors and returns {}; it
+            # will retry lazily on first use, so this is only a warning.
+            logger.warning(
+                "[wsgi] SlotOps baselines pre-warm returned no data after %.2fs",
+                time.perf_counter() - _t_slot,
+            )
+    except Exception as slot_err:
+        logger.warning("[wsgi] SlotOps baselines pre-warm failed: %s", slot_err)
 
     # Build vector search index in background thread (non-blocking)
     # This takes 3-5 min for 5000+ chunks and was blocking port binding,
