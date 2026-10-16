@@ -1753,7 +1753,22 @@ def get_salary_benchmarks(occupations: List[str], location: str = "") -> Dict[st
         coli = 100.0
         if location and _HAS_RESEARCH:
             try:
-                coli = get_location_info(location).get("coli", 100.0)
+                _loc_info = get_location_info(location)
+                if _loc_info.get("no_country_data"):
+                    # BLS / built-in salaries are US figures: not shown for a
+                    # country the knowledge base has no data for.
+                    return {
+                        "occupations": {},
+                        "aggregate": {
+                            "location": location,
+                            "no_country_data": True,
+                            "note": (
+                                f"No country data for {_loc_info.get('country')}; "
+                                "US salary benchmarks are not shown."
+                            ),
+                        },
+                    }
+                coli = _loc_info.get("coli", 100.0)
             except Exception:
                 pass
         coli_factor = coli / 100.0

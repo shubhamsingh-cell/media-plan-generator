@@ -425,9 +425,12 @@ def create_job_config(
         try:
             loc_info = research.get_location_info(config["location"])
             coli = loc_info.get("coli", 100) if loc_info else 100
-            salary_range = research.get_role_salary_range(config["role"], coli)
-            if salary_range:
-                config["salary_range"] = salary_range
+            # A country with no country data: the BLS-based (US) range is not
+            # presented as that country's salary.
+            if not (loc_info or {}).get("no_country_data"):
+                salary_range = research.get_role_salary_range(config["role"], coli)
+                if salary_range:
+                    config["salary_range"] = salary_range
         except Exception as e:
             logger.warning("ApplyFlow: salary enrichment failed: %s", e)
 

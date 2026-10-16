@@ -761,6 +761,28 @@ def get_location_insights(location: str) -> Dict[str, Any]:
             except Exception as e:
                 logger.warning("Location lookup failed for '%s': %s", location, e)
 
+        if loc_info.get("no_country_data"):
+            # A recognised country with no country data: its own name, no
+            # cost-of-living / tightness / cost multiplier invented for it
+            # (coli 100 is the neutral "no adjustment" value downstream code
+            # multiplies by).
+            result.update(
+                {
+                    "coli": 100,
+                    "coli_label": "No country data",
+                    "market_tightness": "unknown",
+                    "market_tightness_score": None,
+                    "metro_name": loc_info.get("metro_name", display_loc),
+                    "population": "No country data",
+                    "region": loc_info.get("region") or "",
+                    "is_international": True,
+                    "no_country_data": True,
+                    "cpc_multiplier": 1.0,
+                    "top_employers_industries": [],
+                }
+            )
+            return result
+
         coli = loc_info.get("coli", 100)
         is_intl = loc_info.get("is_international", False)
 
@@ -1561,7 +1583,11 @@ def generate_quick_plan(
         coli = location_analysis.get("coli", 100)
 
         # Adjust salary range for location COLI
-        if coli != 100 and _HAS_RESEARCH:
+        if location_analysis.get("no_country_data"):
+            # The role's range is a US ($) figure: not shown as this country's.
+            role_analysis["salary_range"] = "No country data"
+            role_analysis["salary_location_adjusted"] = False
+        elif coli != 100 and _HAS_RESEARCH:
             try:
                 adjusted_salary = _research.get_role_salary_range(
                     role, location_coli=coli
