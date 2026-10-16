@@ -63,7 +63,7 @@ MAX_SETUP_SLA_DAYS = 30
 DEFAULT_WEEK_START = "sunday"
 DEFAULT_SYSTEM_OF_RECORD = "client ATS / analytics — confirm"
 DEFAULT_WEEKS = 13  # a quarter, used only when the plan states no length
-MAX_WEEKS = 52
+MAX_WEEKS = 110  # a 24-month window plus its boundary weeks
 MAX_SITES = 40
 MAX_PUBLISHERS = 40
 
@@ -276,23 +276,57 @@ def _calendar_weights(data: dict) -> Tuple[Dict[int, float], bool]:
         return {}, False
 
 
-def _week_count(
-    data: dict, first_week: datetime.date, start: datetime.date
-) -> Tuple[int, str]:
-    """(weeks, basis) -- the campaign window from the plan's own helpers."""
+def _campaign_window(data: dict, start: datetime.date) -> Tuple[datetime.date, str]:
+    """(last day, basis) -- the real campaign window from the plan's own
+    helpers: whole months via ``campaign_window_end``, else the carried
+    weeks, else a default quarter."""
     try:
         import gold_standard
 
         end = gold_standard.campaign_window_end(data, start)
         if end is not None:
-            n = ((end - first_week).days + 1) // 7
-            return max(1, min(MAX_WEEKS, n)), "stated campaign length"
+            return end, "stated campaign length"
         n = int(gold_standard._plan_campaign_weeks(data))
         if n > 0:
-            return min(MAX_WEEKS, n), "stated campaign length"
+            return start + datetime.timedelta(days=n * 7 - 1), "stated campaign length"
     except Exception as exc:  # noqa: BLE001
-        logger.debug("enterprise_pack: week count unavailable: %s", exc)
-    return DEFAULT_WEEKS, "default"
+        logger.debug("enterprise_pack: campaign window unavailable: %s", exc)
+    return start + datetime.timedelta(days=DEFAULT_WEEKS * 7 - 1), "default"
+
+
+def _fiscal_weeks(
+    start: datetime.date,
+    end: datetime.date,
+    week_start_idx: int,
+    month_weights: Dict[int, float],
+) -> Tuple[List[Dict[str, Any]], bool]:
+    """Fiscal weeks covering ``start``..``end`` exactly: week 1 is the week
+    CONTAINING the start, the last week the one containing the end.  A week
+    that is only partly inside the window is flagged and weighted by its
+    active days (each day carries its month's calendar weight)."""
+    first = start - datetime.timedelta(days=(start.weekday() - week_start_idx) % 7)
+    weeks: List[Dict[str, Any]] = []
+    wstart = first
+    truncated = False
+    while wstart <= end:
+        if len(weeks) >= MAX_WEEKS:
+            truncated = True
+            break
+        days = [wstart + datetime.timedelta(days=k) for k in range(7)]
+        active = [d for d in days if start <= d <= end]
+        weight = sum(month_weights.get(d.month, 1.0) for d in active) / 7.0
+        weeks.append(
+            {
+                "n": len(weeks) + 1,
+                "start": wstart,
+                "end": wstart + datetime.timedelta(days=6),
+                "days": len(active),
+                "partial": len(active) < 7,
+                "weight": round(weight, 2),
+            }
+        )
+        wstart += datetime.timedelta(days=7)
+    return weeks, truncated
 
 
 def _locations(data: dict) -> List[str]:
@@ -320,6 +354,15 @@ def _city_key(text: Any) -> str:
     return re.sub(r"[^a-z0-9]", "", str(text or "").split(",")[0].lower())
 
 
+def _exact_shares(weights: List[float]) -> List[float]:
+    """Weights normalised to shares at 4 decimals that add to EXACTLY 1: the
+    last share is one minus the others (rounding each of three equal shares
+    gave 0.9999 and a $15 gap against the plan)."""
+    total = sum(weights) or 1.0
+    shares = [round(w / total, 4) for w in weights[:-1]]
+    return shares + [round(1.0 - sum(shares), 4)]
+
+
 def _site_shares(data: dict, sites: List[str]) -> Tuple[List[float], str]:
     """Each site's fair share of spend: the plan's own location weights
     (budget_engine ``location_adjustments``) normalised to 1, else equal."""
@@ -331,25 +374,32 @@ def _site_shares(data: dict, sites: List[str]) -> Tuple[List[float], str]:
     weights = [adj.get(_city_key(s)) for s in sites]
     known = [w for w in weights if w]
     if not known:
-        return [1.0 / n] * n, "equal shares (fair share)"
+        return _exact_shares([1.0] * n), "equal shares (fair share)"
     fill = sum(known) / len(known)
     weights = [w if w else fill for w in weights]
-    total = sum(weights)
-    return [w / total for w in weights], "plan location weights"
+    return _exact_shares(weights), "plan location weights"
 
 
-def _funded_channels(data: dict) -> List[Dict[str, Any]]:
-    """Funded publishers/channels, largest first, after client exclusions
-    and availability (publisher_filter) -- the same list every surface uses."""
+def _funded_channels(data: dict) -> Tuple[List[Dict[str, Any]], int, float]:
+    """(publishers, dropped_count, dropped_budget).
+
+    Funded publishers/channels, largest first, after client exclusions and
+    availability (publisher_filter) -- the same list every surface uses.  A
+    publisher is judged per plan market: one that runs in none of the plan's
+    countries is dropped (its budget is reported, never shown under a blank
+    name); one that runs in only some keeps ``markets`` naming where."""
     ba = data.get("_budget_allocation") or {}
     alloc = ba.get("channel_allocations") or {}
     if not isinstance(alloc, dict):
-        return []
+        return [], 0, 0.0
     try:
         import publisher_filter as pf
     except ImportError:  # pragma: no cover
         pf = None
+    countries = pf.plan_countries(data) if pf is not None else []
     rows: List[Dict[str, Any]] = []
+    dropped = 0
+    dropped_budget = 0.0
     for name, info in alloc.items():
         if not isinstance(info, dict):
             continue
@@ -358,19 +408,39 @@ def _funded_channels(data: dict) -> List[Dict[str, Any]]:
             continue
         if pf is not None and pf.is_excluded(name, data):
             continue
-        display = pf.display_name(name) if pf is not None else str(name)
+        runs: List[str] = []
+        if pf is not None and countries:
+            runs = [
+                c
+                for c in countries
+                if pf.platform_runs_in(name, c) and not pf.is_excluded(name, data, c)
+            ]
+            if not runs:
+                dropped += 1
+                dropped_budget += dollars
+                continue
+        display = (
+            pf.display_name(name, runs[0] if runs else None)
+            if pf is not None
+            else str(name)
+        )
+        display = str(display or name).strip()
+        if not display:
+            continue
         rows.append(
             {
-                "name": str(display or name),
+                "name": display,
                 "raw_name": str(name),
                 "category": str(info.get("category") or ""),
                 "budget": dollars,
                 "cpa": _num(info.get("cpa")),
                 "applications": _num(info.get("projected_applications")),
+                "markets": runs,
+                "all_markets": (not countries) or len(runs) == len(countries),
             }
         )
     rows.sort(key=lambda r: -r["budget"])
-    return rows[:MAX_PUBLISHERS]
+    return rows[:MAX_PUBLISHERS], dropped, dropped_budget
 
 
 def _cpa_range(channels: List[Dict[str, Any]]) -> Optional[Tuple[float, float]]:
@@ -379,6 +449,24 @@ def _cpa_range(channels: List[Dict[str, Any]]) -> Optional[Tuple[float, float]]:
         return None
     lo, hi = min(cpas), max(cpas)
     return (lo, hi) if hi > lo * 1.0001 else None
+
+
+def _cpa_info(
+    channels: List[Dict[str, Any]], ba: dict
+) -> Tuple[Optional[Tuple[float, float]], str]:
+    """(range, basis).  The funded publishers' own cost-per-application range
+    when it has spread; else the plan's blended cost per application (a point:
+    low == high); else (None, "none") and apply starts are not estimated."""
+    rng = _cpa_range(channels)
+    if rng:
+        return rng, "channels"
+    blended = _num((ba.get("total_projected") or {}).get("cost_per_application"))
+    if blended > 0:
+        return (blended, blended), "blended"
+    single = [c["cpa"] for c in channels if c["cpa"] > 0]
+    if single:
+        return (single[0], single[0]), "blended"
+    return None, "none"
 
 
 def _hire_goal(data: dict) -> int:
@@ -492,57 +580,52 @@ def build_model(data: dict, today: Optional[datetime.date] = None) -> Dict[str, 
     today = today or _today()
     cfg = settings(data)
     ba = data.get("_budget_allocation") or {}
-    channels = _funded_channels(data)
+    channels, dropped_count, dropped_budget = _funded_channels(data)
     total = _num((ba.get("metadata") or {}).get("total_budget")) or sum(
         c["budget"] for c in channels
     )
 
     ws_idx = WEEKDAYS.index(cfg["week_start"])
     start = _plan_start(data, today)
-    first_week = start + datetime.timedelta(days=(ws_idx - start.weekday()) % 7)
-    n_weeks, weeks_basis = _week_count(data, first_week, start)
+    end, weeks_basis = _campaign_window(data, start)
     month_weights, weights_ok = _calendar_weights(data)
-    weeks: List[Dict[str, Any]] = []
-    for i in range(n_weeks):
-        wstart = first_week + datetime.timedelta(days=7 * i)
-        mid = wstart + datetime.timedelta(days=3)
-        weeks.append(
-            {
-                "n": i + 1,
-                "start": wstart,
-                "end": wstart + datetime.timedelta(days=6),
-                "weight": round(month_weights.get(mid.month, 1.0), 2),
-            }
-        )
+    weeks, weeks_truncated = _fiscal_weeks(start, end, ws_idx, month_weights)
+    first_week = weeks[0]["start"]
 
     sites_all = _locations(data)
     shares, share_basis = _site_shares(data, sites_all)
     if len(sites_all) > MAX_SITES:
         keep = MAX_SITES - 1
-        other = sum(shares[keep:])
         sites = sites_all[:keep] + [f"Other sites ({len(sites_all) - keep})"]
-        shares = shares[:keep] + [other]
+        shares = shares[:keep] + [round(1.0 - sum(shares[:keep]), 4)]
     else:
         sites = sites_all
 
-    cpa = _cpa_range(channels)
+    markets = _markets(data, channels)
+    cpa, cpa_basis = _cpa_info(channels, ba)
     tp = ba.get("total_projected") or {}
     return {
         "settings": cfg,
         "start": start,
         "first_week": first_week,
+        "end": end,
         "weeks": weeks,
+        "weeks_truncated": weeks_truncated,
         "weeks_basis": weeks_basis,
         "weights_from_calendar": weights_ok,
         "total_budget": total,
         "channels": channels,
+        "dropped_count": dropped_count,
+        "dropped_budget": dropped_budget,
         "excluded": _excluded_names(data),
         "cpa_range": cpa,
+        "cpa_basis": cpa_basis,
         "sites": sites,
         "site_count": len(sites_all),
         "shares": shares,
         "share_basis": share_basis,
-        "markets": _markets(data, channels),
+        "markets": markets,
+        "site_country": {site: m["country"] for m in markets for site in m["sites"]},
         "compliance_flags": _compliance_flags(data),
         "hire_goal": _hire_goal(data),
         "hires_low": _num(tp.get("hires_low")) or _num(tp.get("hires")),
@@ -609,6 +692,8 @@ def tiered_publishers(model: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def format_range(lo: float, hi: float) -> str:
+    if round(lo) == round(hi):
+        return f"{lo:,.0f}"
     return f"{lo:,.0f}–{hi:,.0f}"
 
 
@@ -1035,7 +1120,7 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
     cpa = model["cpa_range"]
     weeks = model["weeks"]
     n = len(weeks)
-    ncol = 12 if cpa else 7
+    ncol = 12 if cpa else 10
     sh.widths(
         {
             1: 3,
@@ -1067,22 +1152,35 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
     )
     wd = _weekday_name(WEEKDAYS.index(cfg["week_start"]))
     end_wd = _weekday_name(WEEKDAYS.index(cfg["week_start"]) - 1)
+    partial = [w for w in weeks if w["partial"]]
     row = (
         sh.note(
             row - 1,
-            f"Fiscal week: {wd} to {end_wd}. Week 1 starts {model['first_week'].strftime('%d %b %Y')}, "
-            f"the first {wd} on or after the campaign start ({model['start'].strftime('%d %b %Y')}). "
-            f"Campaign length: {n} weeks ("
+            f"Fiscal week: {wd} to {end_wd}. Week 1 is the fiscal week that contains the campaign start "
+            f"({model['start'].strftime('%d %b %Y')}); the last week contains the campaign end "
+            f"({model['end'].strftime('%d %b %Y')}). Campaign length: {n} fiscal weeks ("
             + (
                 "from the plan's stated length"
                 if model["weeks_basis"] != "default"
                 else f"no length stated, {DEFAULT_WEEKS}-week default"
             )
-            + "). Calendar weights come from the plan's activation calendar"
+            + "). "
+            + (
+                f"{len(partial)} week(s) are only partly inside the campaign: they are flagged "
+                "'partial' and weighted by their active days. "
+                if partial
+                else "Every week is a whole week. "
+            )
+            + "Calendar weights come from the plan's activation calendar"
             + (
                 "."
                 if model["weights_from_calendar"]
                 else " (unavailable, flat weights used)."
+            )
+            + (
+                f" Only the first {MAX_WEEKS} weeks are shown."
+                if model["weeks_truncated"]
+                else ""
             )
             + (
                 ""
@@ -1136,14 +1234,22 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
             "Cost per apply start, low",
             round(cpa[0], 2),
             cpa_fmt,
-            "Lowest cost per application across the plan's funded publishers (apply starts are estimated from applications).",
+            (
+                "Lowest cost per application across the plan's funded publishers (apply starts are estimated from applications)."
+                if model["cpa_basis"] == "channels"
+                else "The plan's blended cost per application (one figure, so low and high are equal); overwrite to model a range."
+            ),
         )
         assume(
             "cpa_high",
             "Cost per apply start, high",
             round(cpa[1], 2),
             cpa_fmt,
-            "Highest cost per application across the plan's funded publishers.",
+            (
+                "Highest cost per application across the plan's funded publishers."
+                if model["cpa_basis"] == "channels"
+                else "Same blended figure; set a higher cost to widen the range."
+            ),
         )
     assume(
         "green",
@@ -1188,8 +1294,8 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
     else:
         row = sh.note(
             row,
-            "Expected apply starts are omitted: the plan carries no cost-per-application range to derive them from. "
-            "Enter one in the assumptions to enable them.",
+            "Expected apply starts are omitted: the plan carries no cost-per-application figure to derive them from. "
+            "Status bands still work: enter the client's weekly goal in the weekly table.",
         )
     row += 1
 
@@ -1199,7 +1305,7 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
         (
             "Status legend (weekly goal = midpoint of the expected apply-start range)"
             if cpa
-            else "Status legend"
+            else "Status legend (weekly goal = the client's goal, entered in the weekly table)"
         ),
     )
     row = sh.header(row, ["Status", "From (% of goal)", "To (% of goal)", "Action"], 2)
@@ -1224,7 +1330,7 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
     row += 1
 
     # ---- weekly table ----
-    row = sh.sub(row, "Weekly pacing", 12 if cpa else 8)
+    row = sh.sub(row, "Weekly pacing", ncol)
     headers = [
         "Week",
         "Calendar weight",
@@ -1234,14 +1340,14 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
         "Cumulative (recommended)",
     ]
     if cpa:
-        headers += [
-            "Apply starts, low",
-            "Apply starts, high",
-            "Weekly goal",
-            "Actual apply starts (enter)",
-            "Status",
-        ]
+        headers += ["Apply starts, low", "Apply starts, high", "Weekly goal"]
+    else:
+        headers += ["Weekly goal (enter)"]
+    headers += ["Actual apply starts (enter)", "Status"]
     row = sh.header(row, headers, 2)
+    goal_c = 10 if cpa else 8
+    act_c, stat_c = goal_c + 1, goal_c + 2
+    gl, al = _col(goal_c), _col(act_c)
     first = row
     last = row + n - 1
     total_row = last + 1
@@ -1260,7 +1366,8 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
         sh.put(
             r,
             2,
-            f"W{w['n']:02d}  {_date_label(w['start'])} – {_date_label(w['end'])}",
+            f"W{w['n']:02d}  {_date_label(w['start'])} – {_date_label(w['end'])}"
+            + (f" (partial: {w['days']} of 7 days)" if w["partial"] else ""),
             fill=alt,
         )
         sh.inp(r, 3, round(w["weight"], 2), "0.00")
@@ -1285,16 +1392,18 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
             sh.formula(r, 8, f"=D{r}/{chi}", lo, fmt=ints, fill=alt)
             sh.formula(r, 9, f"=D{r}/{clo}", hi, fmt=ints, fill=alt)
             sh.formula(r, 10, f"=(H{r}+I{r})/2", (lo + hi) / 2, fmt=ints, fill=alt)
-            sh.inp(r, 11, None, ints)
-            sh.formula(
-                r,
-                12,
-                f'=IF(K{r}="","",IF(K{r}/J{r}>={green},"GREEN",IF(K{r}/J{r}>={amber},"AMBER","RED")))',
-                "",
-            )
             tot["lo"] += lo
             tot["hi"] += hi
             tot["goal"] += (lo + hi) / 2
+        else:
+            sh.inp(r, goal_c, None, ints)
+        sh.inp(r, act_c, None, ints)
+        sh.formula(
+            r,
+            stat_c,
+            f'=IF(OR({al}{r}="",{gl}{r}="",{gl}{r}<=0),"",IF({al}{r}/{gl}{r}>={green},"GREEN",IF({al}{r}/{gl}{r}>={amber},"AMBER","RED")))',
+            "",
+        )
     # totals
     sh.put(total_row, 2, "Total", font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
     sh.put(total_row, 3, None, fill=x._FILL_OFF_WHITE)
@@ -1324,17 +1433,27 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
                 font=x._FONT_BODY_BOLD,
                 fill=x._FILL_OFF_WHITE,
             )
+    else:
         sh.formula(
             total_row,
-            11,
-            f"=SUM(K{first}:K{last})",
+            goal_c,
+            f"=SUM({gl}{first}:{gl}{last})",
             0,
             fmt=ints,
             font=x._FONT_BODY_BOLD,
             fill=x._FILL_OFF_WHITE,
         )
-        sh.put(total_row, 12, None, fill=x._FILL_OFF_WHITE)
-        sh.status_rules(f"L{first}:L{last}")
+    sh.formula(
+        total_row,
+        act_c,
+        f"=SUM({al}{first}:{al}{last})",
+        0,
+        fmt=ints,
+        font=x._FONT_BODY_BOLD,
+        fill=x._FILL_OFF_WHITE,
+    )
+    sh.put(total_row, stat_c, None, fill=x._FILL_OFF_WHITE)
+    sh.status_rules(f"{_col(stat_c)}{first}:{_col(stat_c)}{last}")
     ws._nova_freeze_row = "C3"
 
     # campaign weeks value (needs table rows)
@@ -1464,7 +1583,13 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
         for i, w in enumerate(weeks):
             r = grid_first + i
             alt = x._FILL_BLUE_PALE if i % 2 else x._FILL_WHITE
-            sh.put(r, 2, f"W{w['n']:02d}  {_date_label(w['start'])}", fill=alt)
+            sh.put(
+                r,
+                2,
+                f"W{w['n']:02d}  {_date_label(w['start'])}"
+                + (" (partial)" if w["partial"] else ""),
+                fill=alt,
+            )
             rec = budget * w["weight"] / wsum
             for j, s in enumerate(shares):
                 v = rec * round(s, 4)
@@ -1509,8 +1634,12 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
         )
     sh.note(
         row,
-        "Apply starts are estimates from the plan's cost-per-application range, not a promise; "
-        "the client's system of record decides what counts (see Tracking & Measurement).",
+        (
+            "Apply starts are estimates from the plan's cost per application, not a promise; "
+            if cpa
+            else "No apply-start estimate is made without a cost per application; "
+        )
+        + "the client's system of record decides what counts (see Tracking & Measurement).",
         max(8, ncol),
     )
     return {
@@ -1542,10 +1671,18 @@ def _build_tiers(
             10: 14,
             11: 28,
             12: 16,
+            13: 16,
+            14: 22,
         }
     )
     cur_fmt, pct, ints = x._usd0_fmt(), x.FMT_PCT1, x.FMT_INT
     prefs = pacing["refs"]
+    wk1_ref = _xref(SHEET_PACING, 4, pacing["first"])
+    wk1_value = (
+        model["total_budget"]
+        * model["weeks"][0]["weight"]
+        / (sum(w["weight"] for w in model["weeks"]) or 1.0)
+    )
     weeks_ref = _xref(SHEET_PACING, *prefs["weeks"])
     minf_ref = _xref(SHEET_PACING, *prefs["min_factor"])
     amber_ref = _xref(SHEET_PACING, *prefs["amber"])
@@ -1605,10 +1742,13 @@ def _build_tiers(
             "Meets minimum?",
             "Launch rule",
             "Plan applications",
+            "Week 1 spend",
+            "Runs in",
         ],
         2,
     )
     pubs = tiered_publishers(model)
+    tier1_budget = sum(p["budget"] for p in pubs if p["tier"] == "Tier 1")
     first = row
     last = row + max(len(pubs), 1) - 1
     total = sum(p["budget"] for p in pubs) or 1.0
@@ -1660,6 +1800,24 @@ def _build_tiers(
             fill=alt,
         )
         sh.put(r, 12, p["applications"], fmt=ints, fill=alt, align=x._ALIGN_CENTER)
+        sh.formula(
+            r,
+            13,
+            f'=IF(G{r}="Tier 1",{wk1_ref}*D{r}/SUMIF($G${first}:$G${last},"Tier 1",$D${first}:$D${last}),0)',
+            (
+                (wk1_value * p["budget"] / tier1_budget)
+                if p["tier"] == "Tier 1" and tier1_budget
+                else 0.0
+            ),
+            fmt=cur_fmt,
+            fill=alt,
+        )
+        runs_in = (
+            "All plan markets"
+            if p["all_markets"]
+            else ", ".join(p["markets"]) + " only"
+        )
+        sh.put(r, 14, runs_in, fill=alt)
     if not pubs:
         sh.merged(
             first,
@@ -1694,8 +1852,29 @@ def _build_tiers(
         row,
         f"Minimum weekly spend defaults to the minimum-test factor on {SHEET_PACING} times the publisher's planned weekly spend; "
         "overwrite it with the publisher's own minimum.",
-        12,
+        14,
     )
+    row = sh.note(
+        row,
+        f"{SHEET_PACING} governs total spend. 'Planned weekly spend' is each publisher's average once every tier is live. "
+        "Tier 2 and Tier 3 launch after their gates, so in week 1 the Tier 1 publishers carry that week's recommended spend "
+        "('Week 1 spend'), which is above their average until the gates pass.",
+        14,
+    )
+    if model["dropped_count"]:
+        row = sh.note(
+            row,
+            f"{model['dropped_count']} publisher(s) in the plan's budget do not run in this plan's market(s) and are left out "
+            f"of this launch plan; their {x._fmt_currency(model['dropped_budget'])} needs reallocating to publishers that do. "
+            "A publisher marked 'only' in 'Runs in' runs in just those markets.",
+            14,
+        )
+    elif any(not p["all_markets"] for p in pubs):
+        row = sh.note(
+            row,
+            "A publisher marked 'only' in 'Runs in' runs in just those markets; its budget serves only the sites there.",
+            14,
+        )
     row += 1
 
     # switch triggers
@@ -1847,8 +2026,12 @@ def tracking_spec(model: Dict[str, Any]) -> Dict[str, Any]:
     )
     role = _slug(model["roles"][0]) if model["roles"] else "role"
     links: List[Dict[str, str]] = []
+    site_country = model.get("site_country") or {}
     for site, code in zip(sites, codes):
         for p in pubs:
+            country = site_country.get(site)
+            if p["markets"] and country and country not in p["markets"]:
+                continue
             psrc = _slug(p["name"])
             pmed = _medium_for(p["name"], p["category"])
             camp = f"{slug}_{code.lower()}_w01"
@@ -2747,8 +2930,13 @@ def _slide_pacing(prs: Any, data: dict, model: Dict[str, Any], ppt: Any) -> None
     y = bottom + 0.3
     cfg_note = (
         f"Fiscal week {_weekday_name(WEEKDAYS.index(model['settings']['week_start']))} to "
-        f"{_weekday_name(WEEKDAYS.index(model['settings']['week_start']) - 1)}; week 1 starts "
-        f"{model['first_week'].strftime('%d %b %Y')}."
+        f"{_weekday_name(WEEKDAYS.index(model['settings']['week_start']) - 1)}; week 1 contains the campaign start "
+        f"({model['start'].strftime('%d %b %Y')})"
+        + (
+            f", and {sum(1 for w in model['weeks'] if w['partial'])} partial week(s) are weighted by active days."
+            if any(w["partial"] for w in model["weeks"])
+            else "."
+        )
     )
     _card(slide, ppt, _L, y, 5.9, 2.2, "Status bands (weekly goal)")
     from pptx.util import Inches
@@ -2788,9 +2976,9 @@ def _slide_pacing(prs: Any, data: dict, model: Dict[str, Any], ppt: Any) -> None
     foot = (
         cfg_note
         + (
-            " Apply starts are estimated from the plan's cost-per-application range."
+            " Apply starts are estimated from the plan's cost per application."
             if cpa
-            else " No cost-per-application range in the plan, so apply starts are omitted."
+            else " No cost per application in the plan, so apply starts are omitted and the bands apply to the client's weekly goal."
         )
         + " Every threshold is an editable default in the workbook's Weekly Pacing sheet: set it to the client's SLA."
     )
@@ -2803,7 +2991,7 @@ def _slide_tiers(prs: Any, data: dict, model: Dict[str, Any], ppt: Any) -> None:
 
     pubs = tiered_publishers(model)
     n = len(model["weeks"]) or 1
-    sub = f"Appendix: {len(pubs)} funded publishers in three launch tiers, with the triggers that move budget"
+    sub = f"Appendix: {len(pubs)} funded publishers in three launch tiers; Weekly Pacing governs total spend"
     slide = _slide_base(prs, ppt, "Publisher Tiers & Gates", sub)
     heads = (
         ("Tier 1", "Launch in week 1"),

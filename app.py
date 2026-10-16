@@ -4735,8 +4735,12 @@ def _plan_results_summary(data: dict) -> dict:
     the results screen hides that tile."""
     alloc = data.get("_budget_allocation") or {}
     chans = alloc.get("channel_allocations") or {}
+    # Set by deck_generator when the enterprise pack made it build the deck
+    # with python-pptx instead of Google Slides (the appendix lives there).
+    _ent_note = str(data.get("_enterprise_deck_note") or "")
+    _ent_only = {"enterprise_note": _ent_note} if _ent_note else {}
     if not isinstance(chans, dict):
-        return {}
+        return dict(_ent_only)
     funded = []
     for key, ch in chans.items():
         if not isinstance(ch, dict):
@@ -4749,7 +4753,7 @@ def _plan_results_summary(data: dict) -> dict:
         if amount > 0:
             funded.append((amount, clicks, str(key)))
     if not funded:
-        return {}
+        return dict(_ent_only)
     funded.sort(key=lambda t: -t[0])
     label = (
         display_format.channel_label
@@ -4759,6 +4763,7 @@ def _plan_results_summary(data: dict) -> dict:
     summary: dict = {
         "channels": [label(key) for _amount, _clicks, key in funded],
         "channels_funded": len(funded),
+        **_ent_only,
     }
     spend = sum(a for a, _c, _k in funded)
     clicks = sum(c for _a, c, _k in funded)

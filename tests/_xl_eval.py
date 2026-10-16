@@ -237,6 +237,12 @@ class Evaluator:
             )
         if name == "COUNTIF":
             return lambda: float(sum(1 for v in args[0]() if v == args[1]()))
+        if name == "SUMIF":
+            return lambda: sum(
+                float(v)
+                for c, v in zip(args[0](), args[2]())
+                if c == args[1]() and _is_num(v) and not isinstance(v, _Blank)
+            )
         if name == "ROUND":
             return lambda: _round(_n(args[0]()), int(_n(args[1]())))
         if name == "ABS":

@@ -254,8 +254,30 @@ class DeckGenerator:
                 return result, force_tier
             raise DeckGenerationError(f"Forced tier '{force_tier}' failed to generate.")
 
+        # The enterprise appendix slides exist only in the python-pptx builder
+        # (the Google Slides template has none), so when the pack is on and
+        # Google Slides would otherwise run, build with python-pptx and leave
+        # a note for the results screen.
+        skip_google = False
+        try:
+            import enterprise_pack
+
+            if enterprise_pack.enabled(data) and self._google_configured():
+                skip_google = True
+                data["_enterprise_deck_note"] = (
+                    "Enterprise appendix is in the PowerPoint version of the deck."
+                )
+                logger.info(
+                    "Enterprise pack on: skipping Google Slides tier "
+                    "(appendix slides are built by python-pptx)"
+                )
+        except ImportError:
+            pass
+
         errors: list[str] = []
         for tier_key, tier_name in _TIERS:
+            if skip_google and tier_key == "google_slides":
+                continue
             method = tier_methods[tier_key]
             try:
                 result = method(data)
@@ -289,6 +311,14 @@ class DeckGenerator:
         # This should never happen since _try_pptx always works
         raise DeckGenerationError(
             f"All {len(_TIERS)} tiers failed. Errors: {'; '.join(errors)}"
+        )
+
+    @staticmethod
+    def _google_configured() -> bool:
+        """True when Google Slides credentials are set (so that tier would run)."""
+        return bool(
+            (os.environ.get("GOOGLE_SLIDES_CREDENTIALS_B64") or "").strip()
+            or (os.environ.get("GOOGLE_SLIDES_CREDENTIALS") or "").strip()
         )
 
     # ------------------------------------------------------------------

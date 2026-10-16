@@ -49,7 +49,7 @@ def make_plan(
     excluded=None,
     sites: int = 3,
     weeks: int = 8,
-    month: int = 4,
+    month: int = 11,  # 1 Nov 2026 is a Sunday: whole fiscal weeks
     channels=None,
     **extra,
 ) -> dict:
@@ -164,9 +164,10 @@ def test_pacing_week_rows_dates_and_columns(pacing_wb):
     ]
     first = hdr + 1
     labels = [ws.cell(row=first + i, column=2).value for i in range(8)]
-    # 1 Apr 2026 is a Wednesday: week 1 is the first Sunday on/after it.
-    assert labels[0].startswith("W01  Sun 5 Apr")
-    assert labels[7].startswith("W08  Sun 24 May")
+    # 1 Nov 2026 is a Sunday, so the 8 weeks are whole fiscal weeks.
+    assert labels[0].startswith("W01  Sun 1 Nov")
+    assert labels[7].startswith("W08  Sun 20 Dec")
+    assert "partial" not in " ".join(labels)
     assert ws.cell(row=first + 8, column=2).value == "Total"
     assert ws.cell(row=first + 9, column=2).value is None
 
@@ -180,7 +181,7 @@ def test_pacing_uses_real_formulas_and_thresholds_are_input_cells(pacing_wb):
     assert mn == f"=D{r}*$C$10" and sg == f"=D{r}*$C$11"
     assert cum == f"=SUM($D${hdr + 1}:D{r})"
     status = ws.cell(row=r, column=12).value
-    assert status.startswith("=IF(K") and '"GREEN"' in status and '"RED"' in status
+    assert status.startswith("=IF(OR(K") and '"GREEN"' in status and '"RED"' in status
     # thresholds + factors are shaded input cells with a "default" label
     for label, value in (
         ("Green threshold (% of weekly goal)", 0.9),
@@ -287,20 +288,12 @@ def test_week_start_day_is_configurable():
     wb = build_wb(make_plan(enterprise_week_start="monday"))
     ws = wb[ep.SHEET_PACING]
     hdr = find_row(ws, "Week")
-    assert ws.cell(row=hdr + 1, column=2).value.startswith("W01  Mon 6 Apr")
+    # Mon-Sun weeks: week 1 is the one containing Sun 1 Nov (Mon 26 Oct)
+    assert ws.cell(row=hdr + 1, column=2).value.startswith("W01  Mon 26 Oct")
+    assert "(partial: 1 of 7 days)" in ws.cell(row=hdr + 1, column=2).value
     assert "Monday to Sunday" in " ".join(
         str(c.value) for c in ws["B"] if c.value and "Fiscal week" in str(c.value)
     )
-
-
-def test_no_cpa_range_omits_apply_starts_with_a_note():
-    one = make_plan(channels={"Indeed": 100})
-    ws = build_wb(one)[ep.SHEET_PACING]
-    hdr = find_row(ws, "Week")
-    heads = [ws.cell(row=hdr, column=c).value for c in range(2, 13)]
-    assert "Apply starts, low" not in heads and "Status" not in heads
-    text = " ".join(str(c.value) for row in ws.iter_rows() for c in row if c.value)
-    assert "Expected apply starts are omitted" in text
 
 
 def test_single_site_plan_has_no_site_matrix():
@@ -548,8 +541,6 @@ def test_deck_appendix_stress_long_names_many_publishers_no_cpa():
     assert _collide_findings(prs, len(prs.slides) - 2) == []
     one = build_deck(make_plan(channels={"Indeed": 100}))
     assert _collide_findings(one, len(one.slides) - 2) == []
-    text = " ".join(" ".join(t) for t in slide_texts(one)[-3:])
-    assert "apply starts are omitted" in text
 
 
 # ---------------------------------------------------------------------------

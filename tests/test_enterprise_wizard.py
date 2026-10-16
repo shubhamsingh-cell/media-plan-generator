@@ -91,9 +91,9 @@ def test_payload_carries_the_fields_when_on_and_the_estimate_does_not():
 
 @needs_node
 @pytest.mark.parametrize(
-    "typed,sent", [("99", 30), ("-4", 0), ("abc", None), ("", None)]
+    "typed,sent", [("99", 99), ("-4", -4), ("abc", None), ("", None), ("7", 7)]
 )
-def test_sla_is_clamped_or_omitted_in_the_browser(typed, sent):
+def test_sla_is_sent_as_typed_never_clamped(typed, sent):
     state = dict(
         _STATE, enterpriseEnabled={"checked": True}, enterpriseSetupSla={"value": typed}
     )
@@ -103,7 +103,7 @@ def test_sla_is_clamped_or_omitted_in_the_browser(typed, sent):
     if sent is None:
         assert "enterprise_setup_sla_days" not in gen
     else:
-        assert gen["enterprise_setup_sla_days"] == sent
+        assert gen["enterprise_setup_sla_days"] == sent  # the server decides
 
 
 def test_request_sanitizer_keeps_the_boolean_and_strips_markup():
