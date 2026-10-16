@@ -12824,6 +12824,90 @@ def generate_pptx(data: Dict[str, Any]) -> bytes:
         return _generate_pptx_scoped(data)
 
 
+def _iter_slide_texts(prs: Presentation):
+    """Every text string on every slide (text frames, groups, table cells)."""
+
+    def _walk(shapes):
+        for shape in shapes:
+            if getattr(shape, "has_text_frame", False) and shape.has_text_frame:
+                yield shape.text_frame.text
+            if getattr(shape, "has_table", False) and shape.has_table:
+                for table_row in shape.table.rows:
+                    for cell in table_row.cells:
+                        yield cell.text_frame.text
+            if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
+                yield from _walk(shape.shapes)
+
+    for slide in prs.slides:
+        yield from _walk(slide.shapes)
+
+
+# The slide-2 footer line must stay clear of the credit on the right: at 9pt
+# Poppins ~53 characters is 3.5in. Longer headlines fall back to a pointer.
+_ASOF_FOOTER_MAX_CHARS = 53
+
+
+def _stamp_data_asof_footer(slide, headline: str, today: str) -> None:
+    """Slide 2: put the "data as of" line in the footer band, between the
+    date (left) and the credit (right)."""
+    text = headline if len(headline) <= _ASOF_FOOTER_MAX_CHARS else (
+        "Data as of: see workbook, Sources sheet"
+    )
+    for shape in slide.shapes:
+        if (
+            getattr(shape, "has_text_frame", False)
+            and shape.has_text_frame
+            and shape.text_frame.text == today
+        ):
+            shape.width = Inches(1.3)  # the date needs ~1.1in, not 4.5in
+            break
+    _add_textbox(
+        slide,
+        Inches(1.9),
+        Inches(7.12) + Inches(0.05),
+        Inches(3.8),
+        Inches(0.26),
+        text=text,
+        font_size=9,
+        color=MUTED_TEXT,
+        alignment=PP_ALIGN.LEFT,
+        anchor=MSO_ANCHOR.MIDDLE,
+        word_wrap=False,
+    )
+
+
+def _apply_trust_pack(prs: Presentation, data: Dict[str, Any]) -> None:
+    """Data-as-of footer (slide 2), review checklist as speaker notes (slide 1),
+    per-source dates as slide-2 speaker notes, and the generation stamp in the
+    file properties. Never blocks the deck."""
+    try:
+        import plan_trust
+
+        info = plan_trust.data_asof(data)
+        stamp = plan_trust.provenance_stamp(info)
+        try:
+            core = prs.core_properties
+            core.comments = _clamp_core_prop(f"{core.comments} {stamp}.")
+        except Exception as exc:  # noqa: BLE001 - cosmetic
+            logger.debug("deck stamp skipped: %s", exc)
+        slides = list(prs.slides)
+        if len(slides) >= 2:
+            today = datetime.date.today().strftime("%B %d, %Y")
+            _stamp_data_asof_footer(slides[1], info["headline"], today)
+            lines = ["DATA AS OF (last refreshed, per source family)"]
+            lines += [f"{f['label']}: {f['as_of']}" for f in info["families"]]
+            lines += [info["live_line"], stamp]
+            slides[1].notes_slide.notes_text_frame.text = "\n".join(lines)
+        if slides:
+            count = plan_trust.count_unverified_boards(_iter_slide_texts(prs))
+            items = plan_trust.review_items(data, unverified_boards=count, asof=info)
+            slides[0].notes_slide.notes_text_frame.text = plan_trust.checklist_text(
+                items
+            )
+    except Exception as exc:  # noqa: BLE001 - trust stamps must never block the deck
+        logger.error("Deck trust pack failed (non-fatal): %s", exc, exc_info=True)
+
+
 def _generate_pptx_scoped(data: Dict[str, Any]) -> bytes:
     """Body of :func:`generate_pptx`, run inside ``_currency_scope``."""
     if data is None or not isinstance(data, dict):
@@ -13093,6 +13177,8 @@ def _generate_pptx_scoped(data: Dict[str, Any]) -> bytes:
         # builder itself (_build_slide_data_sources) was deleted as dead code
         # in the 2026-07-26 dead-slide-builder audit -- see git history if it
         # ever needs to be resurrected.
+
+        _apply_trust_pack(prs, data)
 
         _n_slides_final = len(prs.slides)
         # Move any character Poppins cannot render (bullet/legend markers, and

@@ -82,6 +82,7 @@ except ImportError:  # pragma: no cover - plan_currency ships with the repo
 
 import geo_market
 import plan_geo
+import plan_trust
 import publisher_filter
 import company_blurb
 import competitor_claims
@@ -3869,6 +3870,7 @@ _TAB_COLORS: Dict[str, str] = {
     # title ("Intl Benchmarks", set in _build_sheet_international_benchmarks),
     # so that sheet silently got no tab color at all.
     "Intl Benchmarks": TEAL_HEX,
+    "Review before sending": MAGENTA_HEX,
 }
 
 
@@ -14970,6 +14972,124 @@ def _sweep_excluded_boards(wb, data: dict) -> int:
     return changed
 
 
+def _asof_footnote_text(info: dict) -> str:
+    """The one-line freshness statement for the Executive Summary."""
+    return (
+        f"{info['headline']} (per-source dates: Sources & Confidence sheet). "
+        f"{plan_trust.provenance_stamp(info)}."
+    )
+
+
+def _append_asof_to_executive_summary(ws, info: dict) -> None:
+    """Executive Summary: one small italic line under the existing footer."""
+    row = ws.max_row + 1
+    _write_footnote(ws, row, _asof_footnote_text(info))
+
+
+def _append_asof_to_sources(ws, info: dict) -> None:
+    """Sources & Confidence: a per-source-family "last refreshed" table, read
+    from the data files' own metadata (plan_trust.read_as_of)."""
+    row = ws.max_row + 2
+    row = _write_section_header(ws, row, "Data As Of (Last Refreshed)")
+    for fam in info["families"]:
+        row = _write_kv_row(ws, row, fam["label"], fam["as_of"])
+    row = _write_kv_row(ws, row, "Live API pulls", info["live_line"].split(": ", 1)[-1])
+    row = _write_kv_row(
+        ws,
+        row,
+        "Workbook generated",
+        f"{info['generated_label']} | Nova {info['app_version']}",
+    )
+    _write_footnote(
+        ws,
+        row,
+        "Dates are read from each data file's own metadata. A source with no "
+        f"recorded date reads '{plan_trust.NOT_RECORDED}' - it is never estimated.",
+    )
+
+
+def _workbook_unverified_board_count(wb) -> int:
+    """Boards carrying the \u2020 relationship-unverified mark anywhere in the
+    workbook, counted from what the rep will actually send."""
+    texts = []
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            for cell in row:
+                if isinstance(cell.value, str) and "\u2020" in cell.value:
+                    texts.append(cell.value)
+    return plan_trust.count_unverified_boards(texts)
+
+
+def _build_sheet_review_before_sending(ws, items: List[str]) -> None:
+    """Final sheet: the plan-specific checklist a rep works through before
+    sending (plan_trust.review_items)."""
+    ws.title = "Review before sending"
+    _set_column_widths(ws, {1: 3, 2: 22, 3: 14, 4: 14, 5: 14, 6: 14, 7: 14, 8: 18})
+    row = 2
+    row = _write_section_header(ws, row, "Review Before Sending")
+    row = _write_footnote(
+        ws,
+        row,
+        "AI-generated content must be reviewed by the person sending it. "
+        "Work through these points for this plan; each one comes from this "
+        "plan's own data.",
+    )
+    row += 1
+    for idx, item in enumerate(items, 1):
+        ws.merge_cells(
+            start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+        )
+        cell = ws.cell(row=row, column=COL_START, value=f"[ ]  {idx}. {item}")
+        cell.font = _FONT_BODY
+        cell.alignment = _ALIGN_WRAP
+        cell.border = _BORDER_THIN
+        height = _footnote_row_height(ws, cell.value)
+        ws.row_dimensions[row].height = max(20, height or 20)
+        row += 1
+    row += 1
+    _write_attribution_footer(ws, row)
+
+
+def _apply_trust_pack(wb, data: dict) -> None:
+    """Data-as-of lines, file-property stamp and the final review sheet.
+
+    Runs after the board-exclusion sweep (the checklist names the excluded
+    boards on purpose) and never blocks the save."""
+    try:
+        info = plan_trust.data_asof(data)
+    except Exception as exc:  # noqa: BLE001 - freshness must not block save
+        logger.error("Data-as-of lookup failed (non-fatal): %s", exc, exc_info=True)
+        return
+    for title, fn in (
+        ("Executive Summary", _append_asof_to_executive_summary),
+        ("Sources & Confidence", _append_asof_to_sources),
+    ):
+        try:
+            if title in wb.sheetnames:
+                fn(wb[title], info)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Data-as-of on %s failed (non-fatal): %s", title, exc, exc_info=True)
+    try:
+        stamp = plan_trust.provenance_stamp(info)
+        wb.properties.description = f"{wb.properties.description} {stamp}."
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        wb.properties.created = now
+        wb.properties.modified = now
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Workbook stamp failed (non-fatal): %s", exc, exc_info=True)
+    try:
+        items = plan_trust.review_items(
+            data,
+            unverified_boards=_workbook_unverified_board_count(wb),
+            asof=info,
+        )
+        _build_sheet_review_before_sending(wb.create_sheet(), items)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Review sheet failed (non-fatal): %s", exc, exc_info=True)
+        if "Review before sending" in wb.sheetnames and wb["Review before sending"].max_row <= 1:
+            del wb["Review before sending"]
+
+
 def generate_excel_v2(
     data: dict,
     research_mod=None,
@@ -15329,6 +15449,9 @@ def _generate_excel_v2_inner(
         _sweep_excluded_boards(wb, data)
     except Exception as exc:  # noqa: BLE001 - never block save on cleanup
         logger.error("Board-exclusion sweep failed (non-fatal): %s", exc, exc_info=True)
+
+    # Trust pack: "data as of" lines, generation stamp, final review sheet.
+    _apply_trust_pack(wb, data)
 
     # ── S89: cross-cutting polish (freeze panes + brand tab colors) ──
     try:
