@@ -600,8 +600,8 @@ def client_display_name(raw: str | None) -> str:
 
     Known limit: the acronym test is "not a known word", so inside a LONGER
     all-caps name an uncommon word or name of four letters or fewer that is
-    missing from :data:`_SHORT_WORDS` stays shouted ('ZOLL MEDICAL' -> 'ZOLL
-    Medical'); add it to the word list (or the brand table for a special
+    missing from :data:`_SHORT_WORDS` stays shouted ('TUMI INC' -> 'TUMI
+    Inc'); add it to the word list (or the brand table for a special
     spelling), or type the name mixed-case. The reverse is also possible: an
     acronym that is also a word on the list ('ACE') reads as a word.
     """
@@ -757,11 +757,91 @@ def reconcile_monthly_to_total(monthly: list[float], total: float) -> list[int]:
 _WEEKS_RE = re.compile(r"~\s*(\d+)\s*week")
 _NUM_RE = re.compile(r"[\d.]+")
 
+# Calendar-span durations. A quarter is 13 weeks, a half 26, a fiscal/full
+# year 52 -- the same 52-week year the month conversion above uses. Verified
+# 2026-10-16: without these, the generic "first number is a count of weeks"
+# rule read "Q1-Q3" as 1 week, "Q4" as 4, "2 quarters" as 2 and "FY2026" as
+# 2026, so a Q1-Q3 plan was announced as "$1.5M over 1 week".
+_WEEKS_PER_QUARTER = 13
+_WEEKS_PER_HALF = 26
+_WEEKS_PER_YEAR = 52
+_RANGE_JOIN = r"(?:-|\u2013|\u2014|to|through|thru)"
+# "q1-q3", "q1 to q3", "q1 2026 - q1 2027" (year optional on either end)
+_QUARTER_RANGE_RE = re.compile(
+    rf"\bq([1-4])(?:\s*(20\d\d))?\s*{_RANGE_JOIN}\s*q([1-4])(?:\s*(20\d\d))?\b"
+)
+_QUARTER_RE = re.compile(r"\bq([1-4])\b")
+_N_QUARTERS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*-?\s*quarters?\b")
+_HALF_RANGE_RE = re.compile(rf"\bh([12])\s*{_RANGE_JOIN}\s*h([12])\b")
+_HALF_RE = re.compile(r"\bh([12])\b")
+_N_HALVES_RE = re.compile(r"(\d+(?:\.\d+)?)\s*-?\s*halves\b")
+_HALF_YEAR_RE = re.compile(r"\bhalf[\s-]?year\b|\b(?:first|second|1st|2nd)\s+half\b")
+_FULL_YEAR_RE = re.compile(
+    r"\bfy(?:\s*(?:20\d\d|\d\d))?\b|\bfull[\s-]?year\b"
+    r"|\bfiscal\s+year\b|\bcalendar\s+year\b"
+)
+# A stated length ("6 weeks in Q3", "Q3 (8 weeks)") beats the calendar anchor.
+_STATED_LENGTH_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*-?\s*(days?|wks?|weeks?|mos?|months?|yrs?|years?)\b"
+)
+
+
+def _calendar_span_weeks(s: str) -> int:
+    """Weeks for a quarter / half / fiscal-year expression in lower-cased
+    ``s`` -- 'q1-q3' -> 39, 'q4' -> 13, '2 quarters' -> 26, 'h2' -> 26,
+    'fy2026' / 'full year' -> 52 -- or 0 when ``s`` has none. A range is the
+    inclusive span of its ends (a descending range wraps the year: 'q4-q2'
+    is Q4, Q1, Q2; with both years stated the years decide); a list of
+    tokens ('q1 & q2') spans from the earliest to the latest."""
+    rng = _QUARTER_RANGE_RE.search(s)
+    if rng:
+        first, y1, last, y2 = (
+            int(rng.group(1)),
+            rng.group(2),
+            int(rng.group(3)),
+            rng.group(4),
+        )
+        quarters = (last - first) % 4 + 1
+        if y1 and y2:
+            stated = (int(y2) - int(y1)) * 4 + (last - first) + 1
+            if stated >= 1:
+                quarters = stated
+        return quarters * _WEEKS_PER_QUARTER
+    singles = [int(q) for q in _QUARTER_RE.findall(s)]
+    if singles:
+        return (max(singles) - min(singles) + 1) * _WEEKS_PER_QUARTER
+    n_quarters = _N_QUARTERS_RE.search(s)
+    if n_quarters:
+        return round(float(n_quarters.group(1)) * _WEEKS_PER_QUARTER)
+
+    half_rng = _HALF_RANGE_RE.search(s)
+    if half_rng:
+        first, last = int(half_rng.group(1)), int(half_rng.group(2))
+        return ((last - first) % 2 + 1) * _WEEKS_PER_HALF
+    halves = [int(h) for h in _HALF_RE.findall(s)]
+    if halves:
+        return (max(halves) - min(halves) + 1) * _WEEKS_PER_HALF
+    n_halves = _N_HALVES_RE.search(s)
+    if n_halves:
+        return round(float(n_halves.group(1)) * _WEEKS_PER_HALF)
+    if _HALF_YEAR_RE.search(s):
+        return _WEEKS_PER_HALF
+
+    if _FULL_YEAR_RE.search(s):
+        return _WEEKS_PER_YEAR
+    return 0
+
 
 def parse_duration_to_weeks(text: str | int | float) -> int:
     """'6 months' -> 26, '18 months'/'1.5 years' -> 78, '12 weeks' -> 12,
     a bare int/numeric-only string = weeks. Uses 52/12 weeks-per-month
     CONSISTENTLY with :func:`weeks_to_duration_label`.
+
+    Calendar spans parse as calendar spans, not as a count of weeks: a
+    quarter is 13 weeks ('Q4' -> 13, 'Q1-Q3' -> 39, '2 quarters' -> 26), a
+    half is 26 ('H1', 'H2', 'half year'), a fiscal or full year is 52
+    ('FY', 'FY2026', 'full year'). A stated length wins over the calendar
+    anchor ('6 weeks in Q3' -> 6).
 
     Labels produced by :func:`weeks_to_duration_label` embed the literal
     week count as "(~NN weeks)"; when present, that literal count is used
@@ -779,6 +859,20 @@ def parse_duration_to_weeks(text: str | int | float) -> int:
     literal = _WEEKS_RE.search(s)
     if literal:
         return max(0, int(literal.group(1)))
+
+    span = _calendar_span_weeks(s)
+    if span:
+        stated = _STATED_LENGTH_RE.search(s)
+        if not stated:
+            return span
+        count, unit = float(stated.group(1)), stated.group(2)
+        if unit.startswith("y"):
+            return max(0, round(count * _WEEKS_PER_YEAR))
+        if unit.startswith("m"):
+            return max(0, round(count * _WEEKS_PER_YEAR / 12.0))
+        if unit.startswith("d"):
+            return max(0, round(count / 7.0))
+        return max(0, round(count))  # weeks
 
     match = _NUM_RE.search(s)
     if not match:
