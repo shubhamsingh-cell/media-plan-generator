@@ -1520,6 +1520,22 @@ const NovaDrawer = (() => {
     }
   }
 
+  /* "Build the full media plan": the server sends a prefilled /media-plan
+     URL for plan-shaped answers; only that path is ever rendered as a link. */
+  const HANDOFF_HREF_RE = /^\/media-plan(\?[A-Za-z0-9%_.~!*'();:@&=+$,\/?-]*)?$/;
+
+  function _handoffHtml(handoff) {
+    if (!handoff || typeof handoff.url !== "string") return "";
+    if (!HANDOFF_HREF_RE.test(handoff.url)) return "";
+    const label =
+      typeof handoff.label === "string" &&
+      handoff.label &&
+      handoff.label.length <= 60
+        ? handoff.label
+        : "Build the full media plan";
+    return `<div><a class="nova-action-btn nova-handoff-link" href="${_escHtml(handoff.url)}" target="_blank" rel="noopener" aria-label="${_escHtml(label)} (opens the media plan wizard)">${_escHtml(label)} &rarr;</a></div>`;
+  }
+
   function _renderMessages(msgs) {
     const container = document.getElementById("nova-messages");
     if (!msgs.length) {
@@ -1550,6 +1566,7 @@ const NovaDrawer = (() => {
               .join("") +
             "</div>";
         }
+        body += _handoffHtml(m.handoff);
         return `<div class="nova-msg"><div class="nova-msg-avatar nova">N</div><div class="nova-msg-body nova-reply">${body}</div></div>`;
       })
       .join("");
@@ -1803,6 +1820,7 @@ const NovaDrawer = (() => {
           context: {
             active_module: activeModule,
             campaign_name: campaign.name || "",
+            campaign_client: campaign.client || "",
             campaign_budget: campaign.budget || 0,
             campaign_industry: campaign.industry || "",
           },
@@ -1837,6 +1855,7 @@ const NovaDrawer = (() => {
                     context: {
                       active_module: activeModule,
                       campaign_name: campaign.name || "",
+                      campaign_client: campaign.client || "",
                       campaign_budget: campaign.budget || 0,
                       campaign_industry: campaign.industry || "",
                     },
@@ -1869,6 +1888,7 @@ const NovaDrawer = (() => {
             role: "nova",
             text: responseText,
             actions: actions,
+            handoff: data.media_plan_handoff || null,
           });
           _saveChatHistory(_chatHistory);
           _renderMessages(_chatHistory);

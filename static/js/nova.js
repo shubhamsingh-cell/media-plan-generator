@@ -1925,6 +1925,31 @@
     return false;
   }
 
+  // "Build the full media plan": a plan-shaped answer is an overview, and the
+  // wizard at /media-plan builds the real deliverable from a query-string
+  // brief the server prefilled. Only /media-plan links are ever rendered.
+  var HANDOFF_HREF_RE = /^\/media-plan(\?[A-Za-z0-9%_.~!*'();:@&=+$,\/?-]*)?$/;
+
+  function buildHandoffLink(handoff) {
+    if (!handoff || typeof handoff !== "object") return null;
+    var href = typeof handoff.url === "string" ? handoff.url : "";
+    if (!HANDOFF_HREF_RE.test(href)) return null;
+    var label =
+      typeof handoff.label === "string" &&
+      handoff.label.length > 0 &&
+      handoff.label.length <= 60
+        ? handoff.label
+        : "Build the full media plan";
+    var link = document.createElement("a");
+    link.className = "handoff-btn";
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = label + " \u2192";
+    link.setAttribute("aria-label", label + " (opens the media plan wizard)");
+    return link;
+  }
+
   function appendMessageDOM(msg, animate) {
     // Remove welcome screen if present
     var ws = document.getElementById("welcome-screen");
@@ -2124,6 +2149,10 @@
           /* non-blocking: transparency panel is a progressive enhancement */
         }
       }
+
+      // Plan-shaped answers carry a prefilled wizard handoff
+      var handoffLink = buildHandoffLink(msg.media_plan_handoff);
+      if (handoffLink) body.appendChild(handoffLink);
 
       // TTS (text-to-speech) button row
       var ttsRow = document.createElement("div");
@@ -2868,6 +2897,7 @@
         quality_score: metadata.quality_score || 0,
         kb_files_queried: metadata.kb_files_queried || [],
         timing_ms: metadata.timing_ms != null ? metadata.timing_ms : null,
+        media_plan_handoff: metadata.media_plan_handoff || null,
       };
       conv.messages.push(assistantMsg);
       conv.updatedAt = Date.now();

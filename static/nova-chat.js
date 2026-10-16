@@ -331,6 +331,9 @@
       ".nova-close-btn:hover { background: rgba(255,255,255,0.18); color: #fff; border-color: rgba(255,255,255,0.3); }" +
       ".nova-close-btn svg { width: 18px; height: 18px; }" +
       ".nova-newchat-btn:hover, .nova-newchat-btn:focus-visible { background: rgba(255,255,255,0.18) !important; color: #fff !important; border-color: rgba(255,255,255,0.3) !important; }" +
+      ".nova-handoff-btn { display: inline-block; margin-top: 12px; padding: 8px 14px; border-radius: 8px; background: #5A54BE; color: #fff !important; font-weight: 600; font-size: 13px; text-decoration: none; transition: background 0.2s; }" +
+      ".nova-handoff-btn:hover, .nova-handoff-btn:focus-visible { background: #202058; }" +
+      ".nova-handoff-btn:focus-visible { outline: 2px solid #202058; outline-offset: 2px; }" +
       ".nova-export-btn:hover { background: rgba(255,255,255,0.18) !important; color: #fff !important; border-color: rgba(255,255,255,0.3) !important; }" +
       // ── Messages area ──
       ".nova-messages {" +
@@ -735,13 +738,13 @@
       ".nova-branch-indicator { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; color: #5A54BE; margin-bottom: 2px; letter-spacing: 0.3px; opacity: 0.85; }" +
       ".nova-branch-indicator svg { width: 10px; height: 10px; }" +
       // ── Print ──
-      "@media print { #nova-float-btn, .nova-input-wrap, .nova-footer, .nova-close-btn, .nova-newchat-btn, .nova-export-btn, .nova-settings-btn, .nova-suggestion-btn, .nova-suggestions, .nova-welcome, .nova-copy-btn, .nova-tts-btn, .nova-rate-btn, .nova-regen-btn, .nova-edit-btn, .nova-stop-btn, .nova-settings-panel, .nova-export-dropdown { display: none !important; } #nova-panel { position: static !important; width: 100% !important; height: auto !important; max-height: none !important; background: #fff !important; color: #000 !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; backdrop-filter: none !important; } .nova-header { background: #fff !important; color: #000 !important; border-bottom: 2px solid #202058; } .nova-header-title { color: #202058 !important; } .nova-messages { overflow: visible !important; background: #fff !important; } .nova-msg { color: #000 !important; background: transparent !important; border: 1px solid #ddd !important; } .nova-msg-user { background: #f0f0f5 !important; } .nova-msg-assistant { background: #fff !important; } .nova-msg-sender { color: #333 !important; } .nova-msg-avatar { background: #ccc !important; } }" +
+      "@media print { #nova-float-btn, .nova-input-wrap, .nova-footer, .nova-close-btn, .nova-newchat-btn, .nova-handoff-btn, .nova-export-btn, .nova-settings-btn, .nova-suggestion-btn, .nova-suggestions, .nova-welcome, .nova-copy-btn, .nova-tts-btn, .nova-rate-btn, .nova-regen-btn, .nova-edit-btn, .nova-stop-btn, .nova-settings-panel, .nova-export-dropdown { display: none !important; } #nova-panel { position: static !important; width: 100% !important; height: auto !important; max-height: none !important; background: #fff !important; color: #000 !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; backdrop-filter: none !important; } .nova-header { background: #fff !important; color: #000 !important; border-bottom: 2px solid #202058; } .nova-header-title { color: #202058 !important; } .nova-messages { overflow: visible !important; background: #fff !important; } .nova-msg { color: #000 !important; background: transparent !important; border: 1px solid #ddd !important; } .nova-msg-user { background: #f0f0f5 !important; } .nova-msg-assistant { background: #fff !important; } .nova-msg-sender { color: #333 !important; } .nova-msg-avatar { background: #ccc !important; } }" +
       // ── Reduced motion ──
       "@media (prefers-reduced-motion: reduce) {" +
       "  .nova-msg-row, .nova-msg-user, .nova-msg-assistant { animation: none !important; }" +
       "  .nova-msg-row { animation: none !important; }" +
       "  .nova-typing-dot { animation: none !important; opacity: 0.5; }" +
-      "  #nova-float-btn, .nova-send-btn, .nova-suggestion-btn, .nova-close-btn, .nova-newchat-btn, .nova-regen-btn, .nova-edit-btn { transition: none !important; }" +
+      "  #nova-float-btn, .nova-send-btn, .nova-suggestion-btn, .nova-close-btn, .nova-newchat-btn, .nova-handoff-btn, .nova-regen-btn, .nova-edit-btn { transition: none !important; }" +
       "  #nova-float-btn:hover, .nova-send-btn:hover, .nova-suggestion-btn:hover { transform: none !important; }" +
       "  #nova-float-btn:active, .nova-send-btn:active, .nova-suggestion-btn:active { transform: none !important; }" +
       "  .nova-streaming-cursor { animation: none !important; opacity: 0.7; }" +
@@ -2410,6 +2413,9 @@
       // users can inspect provenance even after a page reload.
       addTransparencyToElement(msgEl, msg);
 
+      // Plan-shaped answers carry a prefilled wizard handoff
+      addHandoffToElement(msgEl, msg.media_plan_handoff);
+
       // Confidence Pulse: animate stat values with pulsing rings
       applyConfidencePulse(msgEl, msg.confidence);
     } else {
@@ -3191,6 +3197,48 @@
     return wrap;
   }
 
+  // ---------------------------------------------------------------------------
+  // "Build the full media plan" handoff: a plan-shaped answer is an overview;
+  // the wizard at /media-plan builds the real deliverable and reads the brief
+  // from the query string, so the server sends a prefilled URL.
+  // ---------------------------------------------------------------------------
+  var HANDOFF_HREF_RE = /^\/media-plan(\?[A-Za-z0-9%_.~!*'();:@&=+$,\/?-]*)?$/;
+
+  function sanitizeHandoff(handoff) {
+    if (!handoff || typeof handoff !== "object") return null;
+    var href = typeof handoff.url === "string" ? handoff.url : "";
+    if (!HANDOFF_HREF_RE.test(href)) return null;
+    var label =
+      typeof handoff.label === "string" &&
+      handoff.label.length > 0 &&
+      handoff.label.length <= 60
+        ? handoff.label
+        : "Build the full media plan";
+    return { href: href, label: label };
+  }
+
+  function addHandoffToElement(msgEl, handoff) {
+    var safe = sanitizeHandoff(handoff);
+    if (!msgEl || !safe) return null;
+    var link = document.createElement("a");
+    link.className = "nova-handoff-btn";
+    link.href = safe.href;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = safe.label + " \u2192";
+    link.setAttribute("aria-label", safe.label + " (opens the media plan wizard)");
+    link.addEventListener("click", function () {
+      if (window.posthog && typeof window.posthog.capture === "function") {
+        window.posthog.capture("nova_chat_media_plan_handoff_clicked", {
+          source: "widget",
+          page: window.location.pathname,
+        });
+      }
+    });
+    msgEl.appendChild(link);
+    return link;
+  }
+
   function addTransparencyToElement(msgEl, msg) {
     if (!msgEl || !msg) return;
     if (!_widgetHasAnyTransparencyData(msg)) return;
@@ -3638,6 +3686,7 @@
                 kb_files_queried: finalKbFiles,
                 timing_ms: finalTimingMs,
               });
+              addHandoffToElement(wsStreamEl, metadata.media_plan_handoff);
               applyConfidencePulse(wsStreamEl, finalConfidence);
               var wsColEl = wsStreamEl.parentNode;
               if (wsColEl) {
@@ -3667,6 +3716,7 @@
                 quality_score: finalQualityScore,
                 kb_files_queried: finalKbFiles,
                 timing_ms: finalTimingMs,
+                media_plan_handoff: metadata.media_plan_handoff || null,
               });
               saveHistory(state.messages);
               state.isLoading = false;
@@ -3959,6 +4009,9 @@
                 timing_ms: finalTimingMs,
               });
 
+              // Plan-shaped answers carry a prefilled wizard handoff
+              addHandoffToElement(streamEl, metadata.media_plan_handoff);
+
               // Confidence Pulse: animate stat values with pulsing rings
               applyConfidencePulse(streamEl, finalConfidence);
 
@@ -3997,6 +4050,7 @@
                 quality_score: finalQualityScore,
                 kb_files_queried: finalKbFiles,
                 timing_ms: finalTimingMs,
+                media_plan_handoff: metadata.media_plan_handoff || null,
               };
               state.messages.push(msgObj);
               saveHistory(state.messages);
@@ -4055,6 +4109,7 @@
                     quality_score: data.quality_score || 0,
                     kb_files_queried: data.kb_files_queried || [],
                     timing_ms: data.timing_ms != null ? data.timing_ms : null,
+                    media_plan_handoff: data.media_plan_handoff || null,
                   });
                 })
                 .catch(function (fallbackErr) {
@@ -4152,6 +4207,7 @@
             quality_score: result.quality_score || 0,
             kb_files_queried: result.kb_files_queried || [],
             timing_ms: result.timing_ms != null ? result.timing_ms : null,
+            media_plan_handoff: result.media_plan_handoff || null,
           });
           renderFollowups(result.suggested_followups);
         })

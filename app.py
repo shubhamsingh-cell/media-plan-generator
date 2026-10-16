@@ -14626,6 +14626,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     _ws_fast_path = ""
                     _ws_kb_files_queried: list = []
                     _ws_timing_ms = None
+                    _ws_media_plan_handoff = None
 
                     # Send initial status
                     ws_conn.send_json({"type": "status", "status": "Thinking..."})
@@ -14688,6 +14689,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                                     chunk.get("kb_files_queried") or []
                                 )
                                 _ws_timing_ms = chunk.get("timing_ms")
+                                _ws_media_plan_handoff = chunk.get("media_plan_handoff")
                             elif chunk.get("type") in ("tool_start", "tool_complete"):
                                 # S18: Real-time tool status via WebSocket
                                 if not ws_conn.send_json(
@@ -14752,6 +14754,7 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                             "fast_path": _ws_fast_path,
                             "kb_files_queried": _ws_kb_files_queried,
                             "timing_ms": _ws_timing_ms,
+                            "media_plan_handoff": _ws_media_plan_handoff,
                         }
                     )
 
@@ -23099,6 +23102,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 _sse_fast_path = ""
                 _sse_kb_files_queried: list = []
                 _sse_timing_ms = None
+                _sse_media_plan_handoff = None
                 _last_event_time = time.time()
                 _KEEPALIVE_INTERVAL = 15  # seconds between keepalive heartbeats
                 _event_time_lock = (
@@ -23199,6 +23203,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     chunk.get("kb_files_queried") or []
                                 )
                                 _sse_timing_ms = chunk.get("timing_ms")
+                                _sse_media_plan_handoff = chunk.get("media_plan_handoff")
                             elif chunk.get("type") in ("tool_start", "tool_complete"):
                                 # S18: Real-time tool status -- forward to client
                                 if not _sse_write(
@@ -23284,6 +23289,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         "fast_path": _sse_fast_path,
                         "kb_files_queried": _sse_kb_files_queried,
                         "timing_ms": _sse_timing_ms,
+                        "media_plan_handoff": _sse_media_plan_handoff,
                     }
                 )
                 _sse_write(final)
@@ -26544,7 +26550,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
     # and the API portal.
     _NOVA_WIDGET_SNIPPET = (
         b"\n<!-- Nova AI Chat Widget (auto-injected) -->"
-        b'\n<script src="/static/nova-chat.js?v=3.5.5"></script>'
+        b'\n<script src="/static/nova-chat.js?v=3.5.6"></script>'
         b'\n<script>(function(){if(typeof NovaChat!=="undefined")NovaChat.init({containerId:null})})();</script>\n'
     )
     _NOVA_WIDGET_SKIP_PAGES = {

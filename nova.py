@@ -27635,6 +27635,37 @@ def _attach_transparency_fields(
     return result
 
 
+def _attach_media_plan_handoff(
+    result: Any, message: str, history: list, context: Any
+) -> None:
+    """Set (or clear) ``result["media_plan_handoff"]`` for this turn.
+
+    Always recomputed -- ``result`` can be a shared cached dict, so a stale
+    handoff from another conversation must never survive on it.
+    """
+    if not isinstance(result, dict):
+        return
+    try:
+        from nova_handoff import build_media_plan_handoff
+
+        turn = _get_turn_tool_capture() or {}
+        handoff = build_media_plan_handoff(
+            message,
+            history,
+            context if isinstance(context, dict) else None,
+            result,
+            result.get("query_type") or _classify_query_type(message),
+            turn.get("tools") or {},
+        )
+    except Exception:
+        logger.error("Media plan handoff failed", exc_info=True)
+        handoff = None
+    if handoff:
+        result["media_plan_handoff"] = handoff
+    else:
+        result.pop("media_plan_handoff", None)
+
+
 def handle_chat_request(
     request_data: dict,
     cancel_event: Optional[threading.Event] = None,
@@ -27900,6 +27931,10 @@ def handle_chat_request(
                     result["user_profile"] = _updated_profile.to_dict()
             except Exception as _prof_err:
                 logger.debug("User profile update failed (non-blocking): %s", _prof_err)
+
+        # Plan-shaped answers get a "Build the full media plan" handoff to the
+        # wizard, prefilled with whatever the conversation already said.
+        _attach_media_plan_handoff(result, message, history, context)
 
         # Feature B: Persist this turn's tool outputs into the multi-turn
         # cache (in-memory + Supabase). The thread-local capture was
@@ -28222,6 +28257,7 @@ def handle_chat_request_stream(
     fast_path = response.get("fast_path") or ""
     kb_files_queried = response.get("kb_files_queried") or []
     timing_ms = response.get("timing_ms")
+    media_plan_handoff = response.get("media_plan_handoff")
     # NOTE: If ``handle_chat_request`` ran (even on error), it already attached
     # the real tracked read set to ``response["kb_files_queried"]``. There is
     # no longer any ``_map_sources_to_kb_files`` fallback -- the static map
@@ -28289,6 +28325,7 @@ def handle_chat_request_stream(
             "fast_path": fast_path,
             "kb_files_queried": kb_files_queried,
             "timing_ms": timing_ms,
+            "media_plan_handoff": media_plan_handoff,
             "token_usage": {
                 "message_tokens": _msg_tokens,
                 "response_tokens": _resp_tokens,
@@ -28324,6 +28361,7 @@ def handle_chat_request_stream(
         "fast_path": fast_path,
         "kb_files_queried": kb_files_queried,
         "timing_ms": timing_ms,
+        "media_plan_handoff": media_plan_handoff,
         "token_usage": {
             "message_tokens": _msg_tokens,
             "response_tokens": _resp_tokens,
