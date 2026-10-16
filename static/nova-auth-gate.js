@@ -242,7 +242,7 @@
       '    <span style="font-size:40px;font-weight:800;color:white;font-family:Poppins,Inter,system-ui,sans-serif;line-height:1;">N</span>' +
       "  </div>" +
       '  <h1 style="color:#202058;font-size:27px;font-weight:700;margin:0 0 10px;font-family:Poppins,Inter,sans-serif;line-height:1.2;">Build a data-backed media plan in minutes</h1>' +
-      '  <p style="color:#5b5a74;font-size:14.5px;margin:0 0 14px;font-family:Inter,sans-serif;line-height:1.55;">Turn a role and a budget into a channel mix, projected applies &amp; hires, and a client-ready deck &mdash; grounded in real Joveo campaign benchmarks.</p>' +
+      '  <p style="color:#5b5a74;font-size:14.5px;margin:0 0 14px;font-family:Inter,sans-serif;line-height:1.55;">Turn a role and a budget into a channel mix, projected applies &amp; hires, and a client-ready deck &mdash; based on Joveo channel benchmarks.</p>' +
       '  <p style="color:#5A54BE;font-size:12px;font-weight:600;margin:0 0 28px;font-family:Inter,sans-serif;letter-spacing:0.01em;">Your Joveo planning workspace</p>' +
       '  <div id="nova-gate-error" style="display:none;margin:0 0 20px;padding:12px 16px;border-radius:8px;background:rgba(183,102,158,0.10);border:1px solid rgba(183,102,158,0.30);text-align:left;">' +
       '    <div style="color:#9B2C6F;font-size:13px;font-weight:600;margin-bottom:4px;font-family:Inter,sans-serif;">Sign-in failed</div>' +

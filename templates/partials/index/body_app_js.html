@@ -394,146 +394,62 @@
   }
 
   // ============================================
-  // Budget feasibility check - industry average CPH benchmarks
+  // Budget feasibility check ("Budget Reality Check")
   // ============================================
-  const INDUSTRY_CPH_BENCHMARKS = {
-    technology: 4000,
-    healthcare: 3500,
-    finance: 4500,
-    engineering: 5000,
-    retail: 1200,
-    hospitality: 800,
-    logistics: 1500,
-    manufacturing: 2500,
-    construction: 2000,
-    education: 2000,
-    aerospace: 5500,
-    pharmaceutical: 6000,
-    energy: 4000,
-    legal: 5000,
-    general: 2000,
-  };
-
-  // Map budget range strings to approximate midpoint values
-  const BUDGET_MIDPOINTS = {
-    "< $50,000": 25000,
-    "$50,000 - $250,000": 150000,
-    "$250,000 - $500,000": 375000,
-    "$500,000 - $1,000,000": 750000,
-    "$1,000,000 - $3,000,000": 2000000,
-    "$3,000,000+": 3000000,
-  };
-
-  // Map hire volume strings to approximate counts
-  const HIRE_VOLUME_MAP = {
-    "1-10 hires": 5,
-    "10-50 hires": 30,
-    "50-100 hires": 75,
-    "100-500 hires": 300,
-    "500+ hires": 600,
-  };
-
-  // Map data-industry attribute values to CPH benchmark keys
-  function getIndustryCphKey(industryAttr) {
-    if (!industryAttr) return "general";
-    var lower = industryAttr.toLowerCase();
-    var keys = Object.keys(INDUSTRY_CPH_BENCHMARKS);
-    for (var i = 0; i < keys.length; i++) {
-      if (lower.indexOf(keys[i]) !== -1) return keys[i];
-    }
-    return "general";
-  }
-
+  // It used to do its own arithmetic: bucket midpoints and hire counts over a
+  // hand-typed industry cost-per-hire table, printing the hidden form flag
+  // ("A __exact__ budget for ~75 hires equals ~$640/hire ... could support ~10
+  // hire(s) ... need ~$262,500+") beside a preview that said ~6 hires and
+  // ~$403K more, from /api/estimate. Two answers to one question. It now only
+  // words the estimate engine's own figures (NovaPreview.feasibility(), the
+  // same numbers and formatters as the preview's "Nova insights"), and says
+  // nothing until that estimate exists.
   function checkBudgetFeasibility() {
-    var budgetEl = document.getElementById("budgetRange");
     var hireEl = document.getElementById("hireVolume");
-    if (!budgetEl || !hireEl) return;
-
-    var budgetStr = budgetEl.value;
-    var hireStr = hireEl.value;
-    var industryStr = getIndustryCphKey(selectedIndustry);
-
-    if (!budgetStr || !hireStr) {
-      // Remove any existing warning if inputs are cleared
-      var existingWarning = document.getElementById("budgetFeasibilityWarning");
-      if (existingWarning) existingWarning.remove();
+    var existing = document.getElementById("budgetFeasibilityWarning");
+    var f =
+      window.NovaPreview && typeof window.NovaPreview.feasibility === "function"
+        ? window.NovaPreview.feasibility()
+        : null;
+    if (!hireEl || !f || f.ratio >= 0.3) {
+      if (existing) existing.remove();
       return;
     }
 
-    // Exact-first: the campaign total the plan will use (server's reading
-    // via validateBudgetInput); fall back to bucket midpoints.
-    var budgetMid;
-    if (budgetStr === "__exact__") {
-      var _chk = validateBudgetInput(
-        ((document.getElementById("exactBudget") || {}).value || "").trim(),
-      );
-      budgetMid = _chk.valid && _chk.plan ? _chk.plan.total : 0;
-      if (!budgetMid) {
-        var _ew = document.getElementById("budgetFeasibilityWarning");
-        if (_ew) _ew.remove();
-        return;
-      }
-    } else {
-      budgetMid = BUDGET_MIDPOINTS[budgetStr] || 100000;
+    var severity = f.ratio < 0.1 ? "UNREALISTIC" : "SEVERELY UNDERFUNDED";
+    var html =
+      "<strong>\u26A0\uFE0F Budget Reality Check (" +
+      severity +
+      "):</strong><br>" +
+      "At " +
+      escapeHtml(f.budget) +
+      " the estimate supports <strong>~" +
+      escapeHtml(f.hires) +
+      " hires</strong> (~" +
+      escapeHtml(f.cph) +
+      "/hire) against your " +
+      escapeHtml(f.target) +
+      "-hire target.<br>" +
+      "<strong>To get there:</strong> raise the budget by ~" +
+      escapeHtml(f.gap) +
+      " or narrow the scope.";
+
+    if (existing) {
+      if (existing.innerHTML !== html) existing.innerHTML = html;
+      return;
     }
-    var hireCount = HIRE_VOLUME_MAP[hireStr] || 10;
-    var industryCph =
-      INDUSTRY_CPH_BENCHMARKS[industryStr] ||
-      INDUSTRY_CPH_BENCHMARKS["general"];
+    var warningDiv = document.createElement("div");
+    warningDiv.id = "budgetFeasibilityWarning";
+    warningDiv.setAttribute("role", "alert");
+    warningDiv.style.cssText =
+      "background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:8px;padding:14px 18px;margin:12px 0;color:#FBBF24;font-size:14px;line-height:1.5;";
+    warningDiv.innerHTML = html;
 
-    var budgetPerHire = budgetMid / hireCount;
-    var minViableBudget = industryCph * hireCount;
-    var realisticHires = Math.max(1, Math.floor(budgetMid / industryCph));
-
-    // Remove any existing warning
-    var existingWarning = document.getElementById("budgetFeasibilityWarning");
-    if (existingWarning) existingWarning.remove();
-
-    if (budgetPerHire < industryCph * 0.3) {
-      // Create warning banner
-      var warningDiv = document.createElement("div");
-      warningDiv.id = "budgetFeasibilityWarning";
-      warningDiv.setAttribute("role", "alert");
-      warningDiv.style.cssText =
-        "background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:8px;padding:14px 18px;margin:12px 0;color:#FBBF24;font-size:14px;line-height:1.5;";
-
-      var severity =
-        budgetPerHire < industryCph * 0.1
-          ? "UNREALISTIC"
-          : "SEVERELY UNDERFUNDED";
-      var warningIcon = "\u26A0\uFE0F";
-
-      warningDiv.innerHTML =
-        "<strong>" +
-        warningIcon +
-        " Budget Reality Check (" +
-        severity +
-        "):</strong><br>" +
-        "A " +
-        budgetStr +
-        " budget for ~" +
-        hireCount +
-        " hires equals ~$" +
-        Math.round(budgetPerHire).toLocaleString() +
-        "/hire \u2014 " +
-        "well below the industry average of ~$" +
-        industryCph.toLocaleString() +
-        "/hire.<br>" +
-        "<strong>Realistic estimate:</strong> This budget could support ~" +
-        realisticHires +
-        " hire(s). " +
-        "To hire " +
-        hireCount +
-        "+, you would need ~$" +
-        minViableBudget.toLocaleString() +
-        "+.";
-
-      // Insert after the hire volume field's parent row
-      var targetEl = hireEl.closest(".form-group") || hireEl.parentElement;
-      var targetRow = targetEl.closest(".form-row") || targetEl;
-      if (targetRow && targetRow.parentElement) {
-        targetRow.parentElement.insertBefore(warningDiv, targetRow.nextSibling);
-      }
+    // Insert after the hire volume field's parent row
+    var targetEl = hireEl.closest(".form-group") || hireEl.parentElement;
+    var targetRow = (targetEl && targetEl.closest(".form-row")) || targetEl;
+    if (targetRow && targetRow.parentElement) {
+      targetRow.parentElement.insertBefore(warningDiv, targetRow.nextSibling);
     }
   }
 
@@ -554,6 +470,7 @@
     const container = document.getElementById("toastContainer");
     const toast = document.createElement("div");
     toast.className = `toast-item toast-${type}`;
+    toast.dataset.t = String(Date.now());
     toast.setAttribute("role", "alert");
     toast.setAttribute("aria-live", "polite");
 
@@ -594,7 +511,9 @@
 
     container.appendChild(toast);
 
-    // Error toasts persist until manually dismissed; others auto-dismiss after 5s
+    // Error toasts persist until manually dismissed -- or until what they
+    // were about is fixed (novaDismissErrorToasts below); others
+    // auto-dismiss after 5s
     if (type !== "error") {
       setTimeout(() => {
         if (toast.parentElement) {
@@ -605,7 +524,74 @@
         }
       }, 5000);
     }
+    return toast;
   }
+
+  // A validation toast has done its job once the user acts on it. They used
+  // to sit there for minutes after the field was fixed, survived step
+  // changes, and at phone width covered the preview's outcome tiles. They
+  // now go when (a) the field they were raised for is edited -- showFormError
+  // and _showFieldError tag the newest error toast with the field's id -- or
+  // (b) the wizard moves to another step. The close button still works.
+  function novaDismissErrorToasts(fieldId) {
+    document
+      .querySelectorAll("#toastContainer .toast-item.toast-error")
+      .forEach((t) => {
+        if (fieldId && t.dataset.field !== fieldId) return;
+        t.classList.add("toast-exiting");
+        setTimeout(() => t.remove(), 300);
+      });
+  }
+  function novaTagNewestErrorToast(fieldId) {
+    if (!fieldId) return;
+    const errors = document.querySelectorAll(
+      "#toastContainer .toast-item.toast-error:not(.toast-exiting)",
+    );
+    const newest = errors[errors.length - 1];
+    // only a toast raised a moment ago can be "the one for this field" (a
+    // blur-time validateField must not adopt an unrelated, older toast)
+    if (
+      newest &&
+      !newest.dataset.field &&
+      Date.now() - Number(newest.dataset.t || 0) < 1500
+    ) {
+      newest.dataset.field = fieldId;
+    }
+  }
+  document.addEventListener(
+    "input",
+    (e) => {
+      if (e.target && e.target.id) novaDismissErrorToasts(e.target.id);
+    },
+    true,
+  );
+  document.addEventListener(
+    "change",
+    (e) => {
+      if (e.target && e.target.id) novaDismissErrorToasts(e.target.id);
+    },
+    true,
+  );
+  (function watchStepChangesForToasts() {
+    if (!window.MutationObserver) return;
+    const activeId = () => {
+      const el = document.querySelector(".wizard-step.active");
+      return el ? el.id : "";
+    };
+    let lastActive = activeId();
+    const observer = new MutationObserver(() => {
+      // only a CHANGE of the active step counts (other class churn on the
+      // active step, e.g. transition classes, must not eat a fresh toast)
+      const now = activeId();
+      if (now && now !== lastActive) {
+        lastActive = now;
+        novaDismissErrorToasts();
+      }
+    });
+    document.querySelectorAll(".wizard-step").forEach((step) => {
+      observer.observe(step, { attributes: true, attributeFilter: ["class"] });
+    });
+  })();
 
   // ============================================
   // Plan Summary Dashboard Builder
@@ -1532,7 +1518,7 @@
     "The budget engine computes channel-by-channel dollar allocations based on your industry and role mix.",
     "Salary benchmarks are fused from multiple sources with confidence scoring for accuracy.",
     "Industry CPA, CPC, and cost-per-hire benchmarks draw on published reports such as Appcast's 2025 benchmark (379M clicks, 1,300+ US employers).",
-    "The data synthesis engine cross-references up to 12 sources for each market insight.",
+    "The data synthesis engine cross-references several sources for each market insight.",
     "Your Strategy PPT deck is auto-generated with LinkedIn-inspired design and real data visualizations.",
     "Competitor notes are drawn from public company sources.",
     "Labour market data includes JOLTS-style job openings, quits rates, and wage growth metrics.",
@@ -1859,6 +1845,7 @@
     const errorMsg = formGroup.querySelector(".field-error-msg");
 
     if (!value) {
+      novaTagNewestErrorToast(field.id);
       formGroup.classList.add("field-error");
       formGroup.classList.remove("field-valid");
       if (errorMsg) errorMsg.style.display = "block";
@@ -4284,6 +4271,8 @@
   // is an alert so it is announced when it appears.
   function _showFieldError(el, message) {
     if (!el) return;
+    // the error toast just shown for this field goes when the field is edited
+    novaTagNewestErrorToast(el.id);
     var group = el.closest(".form-group");
     if (!group) return;
     group.classList.add("field-error");
@@ -5546,7 +5535,8 @@
         }
       }
     }
-    showToast(errorMsg, "error");
+    const errorToast = showToast(errorMsg, "error");
+    if (errorToast && fieldId) errorToast.dataset.field = fieldId;
   }
 
   // 26 & 28. Enhanced generatePlan with overlay, new fields, confetti, and toasts

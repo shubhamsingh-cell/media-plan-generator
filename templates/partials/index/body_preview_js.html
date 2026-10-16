@@ -121,6 +121,13 @@
       return sym() + Math.round(v);
     }
     function intc(v) { return Math.round(Math.max(0, v)).toLocaleString(); }
+    // Applications are a directional model output: to the nearest 10 from 100
+    // up ("2,020", not "2,016" -- whole units implied precision the estimate
+    // does not have). Hires, a small count, stay exact.
+    function appsFmt(v) {
+      v = Math.max(0, v);
+      return (v >= 100 ? Math.round(v / 10) * 10 : Math.round(v)).toLocaleString();
+    }
     // The page itself calls these figures "directional", so whole currency
     // units ("$17", not "$17.36"): cents implied a precision the model does
     // not have. Below one unit the cents are the figure, so they stay.
@@ -352,9 +359,16 @@
     // "Updating estimate…" (the strip + the eyebrow's "Updating…") is the
     // state of the REAL /api/estimate request: on while one is scheduled or
     // in flight, off when it answers or fails.
+    var estimating = false;
     function setEstimating(on) {
+      estimating = !!on;
       var pane = $("planPreview");
-      if (pane) pane.classList.toggle("recomputing", !!on);
+      if (pane) pane.classList.toggle("recomputing", estimating);
+      // The strip is invisible (opacity 0) while no request is in flight:
+      // keep it out of the accessibility tree too, so assistive tech does not
+      // read "Updating estimate" when nothing is updating.
+      var strip = $("npAgentStrip");
+      if (strip) strip.setAttribute("aria-hidden", estimating ? "false" : "true");
     }
 
     // Fetches a fresh /api/estimate only when the request body would change
@@ -389,10 +403,11 @@
       // Never show a stale/naive number while a new estimate is pending --
       // clear to the neutral placeholder immediately, fill in once real.
       latestEstimate = null;
-      paintOutcomes(m);
       // A real request is now scheduled: "Updating estimate…" is true until
-      // it answers or fails (cleared below), and not otherwise.
+      // it answers or fails (cleared below), and not otherwise. Set BEFORE
+      // painting so the pane and the sticky bar both paint the pending state.
       setEstimating(true);
+      paintOutcomes(m);
 
       estimateTimer = setTimeout(function () {
         var requestSig = sig;
@@ -492,34 +507,63 @@
     // <=1080px): the same four figures as the full pane, from the same
     // resolved estimate. data-state="empty" (a one-line hint) until an
     // estimate exists, "ready" once it does.
+    //   empty       the budget or the role is genuinely missing -> hint line
+    //   loading     inputs set, /api/estimate in flight -> the LAST figures,
+    //               dimmed, under "Updating estimate…" (the budget is current)
+    //   ready       the four figures
+    //   unavailable inputs set, the request failed -> dashes, as the pane shows
+    // It used to fall back to the empty hint on every edit (fetchEstimate
+    // clears latestEstimate), so the hint read "set a budget" for the whole
+    // typing burst + debounce + round trip with a budget already set.
+    var lastBarFigures = null;
     function paintEstimateBar(m) {
       var bar = $("npEstimateBar");
       if (!bar) return;
-      var ready = m.total > 0 && !!latestEstimate;
-      bar.setAttribute("data-state", ready ? "ready" : "empty");
-      if (!ready) {
-        bar.setAttribute(
-          "aria-label",
-          "Plan estimate: set a budget and a role to see it. Show the full preview."
-        );
-        return;
+      var haveInputs = m.total > 0 && ((m.inputs && m.inputs.target_roles) || []).length > 0;
+      var state, figs = null;
+      if (!haveInputs) {
+        state = "empty";
+        lastBarFigures = null;
+      } else if (latestEstimate) {
+        state = "ready";
+        figs = {
+          nebBudget: hero(m.total),
+          nebApps: appsFmt(latestEstimate.est_applications),
+          nebHires: intc(latestEstimate.est_hires),
+          nebCpa: cpaFmt(latestEstimate.est_cpa),
+        };
+        lastBarFigures = figs;
+      } else {
+        state = estimating ? "loading" : "unavailable";
+        var keep = state === "loading" && lastBarFigures;
+        figs = {
+          nebBudget: hero(m.total),
+          nebApps: keep ? lastBarFigures.nebApps : "—",
+          nebHires: keep ? lastBarFigures.nebHires : "—",
+          nebCpa: keep ? lastBarFigures.nebCpa : "—",
+        };
       }
-      var vals = {
-        nebBudget: hero(m.total),
-        nebApps: intc(latestEstimate.est_applications),
-        nebHires: intc(latestEstimate.est_hires),
-        nebCpa: cpaFmt(latestEstimate.est_cpa),
-      };
-      Object.keys(vals).forEach(function (id) {
-        var el = $(id);
-        if (el) el.textContent = vals[id];
-      });
-      bar.setAttribute(
-        "aria-label",
-        "Plan estimate: " + vals.nebBudget + " budget, " + vals.nebApps +
-          " applications, " + vals.nebHires + " hires, " + vals.nebCpa +
-          " per application. Show the full preview."
-      );
+      bar.setAttribute("data-state", state);
+      bar.setAttribute("aria-busy", state === "loading" ? "true" : "false");
+      if (figs) {
+        Object.keys(figs).forEach(function (id) {
+          var el = $(id);
+          if (el) el.textContent = figs[id];
+        });
+      }
+      var tail = " Show the full preview.";
+      var label;
+      if (state === "ready") {
+        label = "Plan estimate: " + figs.nebBudget + " budget, " + figs.nebApps +
+          " applications, " + figs.nebHires + " hires, " + figs.nebCpa + " per application." + tail;
+      } else if (state === "loading") {
+        label = "Plan estimate: updating." + tail;
+      } else if (state === "unavailable") {
+        label = "Plan estimate: unavailable right now." + tail;
+      } else {
+        label = "Plan estimate: set a budget and a role to see it." + tail;
+      }
+      bar.setAttribute("aria-label", label);
     }
     // Tap on the bar: bring the full preview into view (instant under
     // prefers-reduced-motion) and move focus there for keyboard users.
@@ -530,6 +574,25 @@
       pane.scrollIntoView({ block: "start", behavior: behavior });
       pane.setAttribute("tabindex", "-1");
       try { pane.focus({ preventScroll: true }); } catch (e) { /* focus is a nicety */ }
+    }
+
+    // What the "Budget Reality Check" banner (checkBudgetFeasibility in
+    // body_app_js.html) says, in the SAME words and figures as the first
+    // "Nova insights" line (computeInsights above): the estimate engine's
+    // hires and cost per hire against the hire target. null until an estimate
+    // for the current inputs exists, or while no target / budget is set.
+    function feasibility() {
+      var m = gather();
+      var est = latestEstimate;
+      if (!est || !(m.total > 0) || !(m.targetHires > 0) || !(est.est_hires > 0)) return null;
+      return {
+        ratio: est.est_hires / m.targetHires,
+        budget: hero(m.total),
+        hires: intc(est.est_hires),
+        target: intc(m.targetHires),
+        cph: hero(est.est_cph),
+        gap: hero(m.total * (m.targetHires / est.est_hires - 1)),
+      };
     }
 
     // The inputs a plan was last generated from (JSON of the estimate
@@ -547,7 +610,7 @@
     function paintOutcomes(m) {
       var hasBudget = m.total > 0;
       if (hasBudget && latestEstimate) {
-        setNum($("npApplies"), latestEstimate.est_applications, intc);
+        setNum($("npApplies"), latestEstimate.est_applications, appsFmt);
         setNum($("npHires"), latestEstimate.est_hires, intc);
         setNum($("npCpa"), latestEstimate.est_cpa, cpaFmt);
       } else {
@@ -556,6 +619,10 @@
         });
       }
       paintEstimateBar(m);
+      // the Budget Reality Check banner words these same estimate figures
+      if (typeof checkBudgetFeasibility === "function") {
+        try { checkBudgetFeasibility(); } catch (e) { /* banner is advisory */ }
+      }
 
       // Nova insights — proactive advice from the model
       var box = $("npInsights");
@@ -859,7 +926,7 @@
 
     window.NovaPreview = {
       update: render, finalize: finalize, applyMix: applyMix, fundedChannels: funded,
-      markGenerated: markGenerated, showPane: showPane,
+      markGenerated: markGenerated, showPane: showPane, feasibility: feasibility,
     };
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", boot);

@@ -61,8 +61,8 @@
   },
   "static/nova-auth-gate.js": {
     "referrer": "hub.html",
-    "sha256": "cf1aea9c81bc476bb14f4330b308028c35ef9ec31ccf6bcf88a1a00e05a940ee",
-    "version": "s50"
+    "sha256": "4a61a3c076f2f0f7e160172162b7c91d3d60e6f219a703dd7ca063b82013cfdb",
+    "version": "s52"
   },
   "static/nova-auth.js": {
     "referrer": "hub.html",

@@ -1076,7 +1076,7 @@ def test_estimate_bar_markup_and_css_are_single_column_only():
 
 
 _BAR_STUB = r"""
-var latestEstimate = __EST__;
+var latestEstimate = null, estimating = false, lastBarFigures = null;
 var attrs = {}, texts = {};
 var bar = { setAttribute: function (k, v) { attrs[k] = v; } };
 function $(id) {
@@ -1086,44 +1086,88 @@ function $(id) {
 }
 function hero(v) { return '$' + Math.round(v / 1000) + 'K'; }
 function intc(v) { return Math.round(v).toLocaleString('en-US'); }
+function appsFmt(v) { return (v >= 100 ? Math.round(v / 10) * 10 : Math.round(v)).toLocaleString('en-US'); }
 function cpaFmt(v) { return '$' + Math.round(v); }
+function figs() { var o = {}; Object.keys(texts).forEach(function (k) { o[k] = texts[k].textContent; }); return o; }
+function paint(total, roles) { paintEstimateBar({ total: total, inputs: { target_roles: roles } }); }
 """
 
+_EST = {"est_applications": 2016.4, "est_hires": 6.2, "est_cpa": 17.36}
 
-def _bar_run(estimate, total) -> dict:
-    script = "\n".join(
-        [
-            _BAR_STUB.replace("__EST__", json.dumps(estimate)),
-            js_block(PREVIEW, "function paintEstimateBar("),
-            f"paintEstimateBar({{ total: {total} }});",
-            "var figs = {}; Object.keys(texts).forEach(function (k) { figs[k] = texts[k].textContent; });",
-            "process.stdout.write(JSON.stringify({ attrs: attrs, figs: figs }));",
-        ]
+
+def _bar_script(body: str) -> dict:
+    return run_node(
+        "\n".join(
+            [
+                _BAR_STUB,
+                js_block(PREVIEW, "function paintEstimateBar("),
+                body,
+                "process.stdout.write(JSON.stringify(out));",
+            ]
+        )
     )
-    return run_node(script)
 
 
 @needs_node
 def test_estimate_bar_shows_the_four_figures_once_an_estimate_exists():
-    got = _bar_run({"est_applications": 2016.4, "est_hires": 6.2, "est_cpa": 17.36}, 35000)
+    got = _bar_script(
+        "latestEstimate = " + json.dumps(_EST) + "; paint(35000, ['Nurse']);"
+        "var out = { attrs: attrs, figs: figs() };"
+    )
     assert got["attrs"]["data-state"] == "ready"
+    assert got["attrs"]["aria-busy"] == "false"
     assert got["figs"] == {
         "nebBudget": "$35K",
-        "nebApps": "2,016",
+        "nebApps": "2,020",  # directional: to the nearest 10 from 100 up
         "nebHires": "6",
         "nebCpa": "$17",
     }
     label = got["attrs"]["aria-label"]
-    assert "$35K budget" in label and "2,016 applications" in label and "per application" in label
+    assert "$35K budget" in label and "2,020 applications" in label and "per application" in label
 
 
 @needs_node
-def test_estimate_bar_is_a_hint_until_the_estimate_arrives():
-    for estimate, total in ((None, 35000), ({"est_applications": 1, "est_hires": 1, "est_cpa": 1}, 0)):
-        got = _bar_run(estimate, total)
+def test_estimate_bar_hint_is_only_for_genuinely_missing_inputs():
+    """Round-3: with a budget AND a role set the hint used to come back on
+    every edit (fetchEstimate clears the estimate while the request runs)."""
+    for total, roles in ((0, ["Nurse"]), (35000, [])):
+        got = _bar_script(f"paint({total}, {json.dumps(roles)}); var out = {{ attrs: attrs, figs: figs() }};")
         assert got["attrs"]["data-state"] == "empty"
         assert got["figs"] == {}
         assert "set a budget" in got["attrs"]["aria-label"].lower()
+    # inputs set, estimate pending: NOT the hint
+    got = _bar_script("estimating = true; paint(35000, ['Nurse']); var out = { attrs: attrs };")
+    assert got["attrs"]["data-state"] == "loading"
+
+
+@needs_node
+def test_estimate_bar_keeps_the_last_figures_while_a_new_estimate_loads():
+    got = _bar_script(
+        "latestEstimate = " + json.dumps(_EST) + "; paint(35000, ['Nurse']);"
+        "latestEstimate = null; estimating = true; paint(40000, ['Nurse']);"
+        "var out = { attrs: attrs, figs: figs() };"
+    )
+    assert got["attrs"]["data-state"] == "loading"
+    assert got["attrs"]["aria-busy"] == "true"
+    # the budget is current; the other three are the last estimate's
+    assert got["figs"] == {"nebBudget": "$40K", "nebApps": "2,020", "nebHires": "6", "nebCpa": "$17"}
+    assert "updating" in got["attrs"]["aria-label"].lower()
+    # first estimate ever, still pending: dashes under the same status
+    got = _bar_script("estimating = true; paint(40000, ['Nurse']); var out = { attrs: attrs, figs: figs() };")
+    assert got["figs"] == {"nebBudget": "$40K", "nebApps": "—", "nebHires": "—", "nebCpa": "—"}
+
+
+@needs_node
+def test_estimate_bar_shows_dashes_when_the_request_failed_like_the_pane():
+    got = _bar_script(
+        "latestEstimate = " + json.dumps(_EST) + "; paint(35000, ['Nurse']);"
+        # failure: no estimate, nothing in flight; the stale figures must NOT come back
+        "latestEstimate = null; estimating = false; paint(35000, ['Nurse']);"
+        "var out = { attrs: attrs, figs: figs() };"
+    )
+    assert got["attrs"]["data-state"] == "unavailable"
+    assert got["figs"] == {"nebBudget": "$35K", "nebApps": "—", "nebHires": "—", "nebCpa": "—"}
+    assert "unavailable" in got["attrs"]["aria-label"].lower()
 
 
 def test_estimate_bar_tap_scrolls_with_the_reduced_motion_aware_behaviour():
@@ -1207,3 +1251,344 @@ def test_fixed_overlays_step_aside_while_a_field_has_focus_on_small_screens():
     assert "body.nova-field-focus #nova-float-btn:not(.nova-btn-close)" in text
     assert "opacity: 0" in text and "pointer-events: none" in text
     assert "nova-field-focus" in A11Y and "focusin" in A11Y and "focusout" in A11Y
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Round 3 (re-judge: trust veto on head claims, feasibility banner, layout,
+# toasts, estimate-bar states)
+# ══════════════════════════════════════════════════════════════════════════
+
+# every number the head/meta/JSON-LD may still carry, and where it comes from:
+#   90        data/platform_intelligence_deep.json  "platforms": 90
+#   11        excel_v2.py: at most 11 worksheets (ws .. ws11)
+#   15, 35    data/external_benchmarks_2025.json    cpa range_excl_healthcare "$15-$35"
+#   2024/2025 Appcast 2025 Recruitment Marketing Benchmark Report (2024 data)
+#   0         schema.org Offer "price": "0" -- the tool is free (no paywall)
+_TRACEABLE_HEAD_FIGURES = {"90", "11", "15", "35", "2024", "2025", "0"}
+
+
+def _head_strings() -> list:
+    out = [
+        m.group(1)
+        for m in re.finditer(
+            r'<meta[^>]*?(?:name|property)="(?:description|og:description|twitter:description)"[^>]*?content="([^"]*)"',
+            META,
+            re.S,
+        )
+    ]
+    for block in re.findall(r'<script type="application/ld\+json">(.*?)</script>', META, re.S):
+        stack = [json.loads(block)]
+        while stack:
+            node = stack.pop()
+            if isinstance(node, dict):
+                stack.extend(node.values())
+            elif isinstance(node, list):
+                stack.extend(node)
+            elif isinstance(node, str) and not node.startswith("http"):
+                out.append(node)
+    return out
+
+
+def test_every_figure_in_the_head_traces_to_a_data_file_or_is_gone():
+    strings = _head_strings()
+    assert len(strings) > 15
+    figures = {n for s in strings for n in re.findall(r"\d+", s)}
+    assert figures <= _TRACEABLE_HEAD_FIGURES, sorted(figures - _TRACEABLE_HEAD_FIGURES)
+    joined = " ".join(strings)
+    for gone in ("$15-45", "40-60%", "12+", "20-40%", "30-50%", "PT2M"):
+        assert gone not in joined and gone not in META, gone
+    assert "up to 11 tabs" in joined
+    assert "$15-$35 outside healthcare" in joined
+    assert "totalTime" not in META  # the "2 minutes" had no source either
+
+
+def test_loading_screen_facts_carry_no_untraceable_number():
+    facts = js_block(APP, "const GEN_FACTS")
+    assert "up to 12 sources" not in facts
+    assert "379M clicks" in facts and "Appcast" in facts  # sourced figure stays, attributed
+
+
+def test_nothing_says_real_campaign_calibration_is_on():
+    """Calibration on Joveo campaign results is OFF by default."""
+    gate = (PARTIALS.parent.parent.parent / "static" / "nova-auth-gate.js").read_text(encoding="utf-8")
+    for text in (BODY, gate):
+        assert "real campaign data" not in text
+        assert "real Joveo campaign" not in text
+    assert "Based on Joveo channel benchmarks" in BODY
+    assert "based on Joveo channel benchmarks." in gate
+
+
+_FEAS_STUB = r"""
+var P = __PARAMS__;
+var existing = null, inserted = null;
+var hireEl = { closest: function () { return null; }, parentElement: { closest: function () { return null; },
+  parentElement: { insertBefore: function (el) { inserted = el; existing = el; } }, nextSibling: null } };
+var document = { getElementById: function (id) {
+  if (id === 'hireVolume') return hireEl;
+  if (id === 'budgetFeasibilityWarning') return existing;
+  return null; },
+  createElement: function () { var e = { id: '', style: {}, innerHTML: '', attrs: {},
+    setAttribute: function (k, v) { this.attrs[k] = v; }, remove: function () { existing = null; } }; return e; } };
+function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+var window = { NovaPreview: { feasibility: function () { return P.f; } } };
+"""
+
+
+def _feas(f, pre_existing=False) -> dict:
+    script = "\n".join(
+        [
+            _FEAS_STUB.replace("__PARAMS__", json.dumps({"f": f})),
+            (
+                "existing = { innerHTML: 'old', remove: function () { existing = null; } };"
+                if pre_existing
+                else ""
+            ),
+            js_block(APP, "function checkBudgetFeasibility("),
+            "checkBudgetFeasibility();",
+            "process.stdout.write(JSON.stringify({ html: existing ? existing.innerHTML : null }));",
+        ]
+    )
+    return run_node(script)
+
+
+_FEAS_FIGURES = {
+    "ratio": 6.2 / 75, "budget": "$35K", "hires": "6", "target": "75", "cph": "$6K", "gap": "$403K",
+}
+
+
+@needs_node
+def test_budget_reality_check_words_the_estimate_engines_figures_only():
+    """Round-3: it printed "A __exact__ budget for ~75 hires equals ~$640/hire
+    ... could support ~10 hire(s) ... need ~$262,500+" beside a pane saying
+    ~6 hires and ~$403K more."""
+    html = _feas(_FEAS_FIGURES)["html"]
+    assert html is not None
+    assert "__exact__" not in html
+    assert "~6 hires" in html and "~$6K/hire" in html and "75-hire target" in html
+    assert "$403K" in html and "$35K" in html
+    assert "UNREALISTIC" in html  # ratio 0.08 < 0.1
+    assert "$262,500" not in html
+
+
+@needs_node
+def test_budget_reality_check_says_nothing_without_an_estimate_or_when_funded():
+    assert _feas(None)["html"] is None
+    assert _feas(dict(_FEAS_FIGURES, ratio=0.5))["html"] is None
+    # a banner that is already up is removed once the estimate says it is fine
+    assert _feas(dict(_FEAS_FIGURES, ratio=0.9), pre_existing=True)["html"] is None
+    assert _feas(None, pre_existing=True)["html"] is None
+
+
+def test_the_old_feasibility_arithmetic_is_gone():
+    for dead in (
+        "INDUSTRY_CPH_BENCHMARKS",
+        "BUDGET_MIDPOINTS",
+        "HIRE_VOLUME_MAP",
+        "getIndustryCphKey",
+    ):
+        assert dead not in APP, dead
+    block = js_block(APP, "function checkBudgetFeasibility(")
+    assert "budgetStr" not in block and "NovaPreview.feasibility" in block
+    assert "feasibility: feasibility" in PREVIEW
+
+
+_FEAS_ENGINE_STUB = r"""
+var latestEstimate = __EST__;
+function gather() { return { total: __TOTAL__, targetHires: __TARGET__ }; }
+function hero(v) { return '$' + Math.round(v / 1000) + 'K'; }
+function intc(v) { return Math.round(v).toLocaleString('en-US'); }
+"""
+
+
+def _engine_feasibility(est, total, target):
+    script = "\n".join(
+        [
+            _FEAS_ENGINE_STUB.replace("__EST__", json.dumps(est))
+            .replace("__TOTAL__", str(total))
+            .replace("__TARGET__", str(target)),
+            js_block(PREVIEW, "function feasibility("),
+            "process.stdout.write(JSON.stringify(feasibility()));",
+        ]
+    )
+    return run_node(script)
+
+
+@needs_node
+def test_feasibility_uses_the_same_numbers_as_the_nova_insight():
+    est = {"est_hires": 6.0, "est_cph": 5645}
+    got = _engine_feasibility(est, 35000, 75)
+    # insight #1 in computeInsights: gap = total * (target / est_hires - 1)
+    assert got["gap"] == "$403K" and got["hires"] == "6" and got["target"] == "75"
+    assert got["cph"] == "$6K" and got["budget"] == "$35K"
+    assert round(got["ratio"], 3) == round(6.0 / 75, 3)
+    assert _engine_feasibility(None, 35000, 75) is None
+    assert _engine_feasibility(est, 0, 75) is None
+    assert _engine_feasibility(est, 35000, 0) is None
+
+
+@needs_node
+def test_applications_round_to_the_nearest_ten_from_one_hundred():
+    script = "\n".join(
+        [
+            js_block(PREVIEW, "function appsFmt("),
+            "process.stdout.write(JSON.stringify([2016.4, 2014, 104, 100, 99.6, 42.4, 0, -3].map(appsFmt)));",
+        ]
+    )
+    assert run_node(script) == ["2,020", "2,010", "100", "100", "100", "42", "0", "0"]
+
+
+# ── layout (round 3) ──────────────────────────────────────────────────────
+
+
+def test_form_card_side_padding_shrinks_on_phones():
+    phone = [
+        b
+        for blk in _media_blocks(STYLES, "@media (max-width: 480px)")
+        for b in _rule_bodies(blk, ".studio .card")
+    ]
+    assert any(re.search(r"padding:\s*24px 18px !important", b) for b in phone), phone
+
+
+def test_sticky_bar_gutter_label_size_and_states():
+    bar = [
+        b
+        for blk in _media_blocks(STYLES, "@media (max-width: 1080px)")
+        for b in _rule_bodies(blk, ".np-estimate-bar")
+        if "position: sticky" in b
+    ]
+    assert bar and "clamp(16px, 4vw, 40px)" in bar[0]  # the form's own gutter: 16px at 375
+    label = [
+        b
+        for blk in _media_blocks(STYLES, "@media (max-width: 1080px)")
+        for b in _rule_bodies(blk, ".np-estimate-bar .neb-item span")
+    ]
+    assert label and float(re.search(r"font-size:\s*([0-9.]+)px", label[0]).group(1)) >= 11  # type: ignore[union-attr]
+    css = "\n".join(_media_blocks(STYLES, "@media (max-width: 1080px)"))
+    assert '.np-estimate-bar[data-state="loading"] .neb-status' in css
+    assert '.np-estimate-bar[data-state="loading"] .neb-item b' in css
+    for state in ("loading", "empty"):
+        assert f'data-state="{state}"' in BODY or state == "loading"
+    assert 'data-state="empty"' in BODY and "neb-status" in BODY
+
+
+def test_floating_controls_leave_the_form_alone_at_phone_width():
+    phone = " ".join(
+        blk
+        for blk in _media_blocks(STYLES, "@media (max-width: 480px)")
+        if "#back-to-suite" in blk
+    )
+    assert "#nova-float-btn:not(.nova-btn-close)" in phone
+    assert "display: none !important" in phone
+
+
+def test_step5_buttons_share_one_height_and_the_hint_sits_under_generate():
+    heights = [
+        b
+        for sel in (".studio #step5 .btn-row > .btn", ".studio #step5 .btn-row #generateBtn")
+        for b in _rule_bodies(STYLES, sel)
+        if "height: 48px" in b
+    ]
+    assert len(heights) >= 2
+    cell = re.search(r'<div class="generate-cell">(.*?)\n      </div>', BODY, re.S)
+    assert cell, "no .generate-cell"
+    assert 'id="generateBtn"' in cell.group(1) and 'id="cmdEnterHint"' in cell.group(1)
+    # a keyboard shortcut means nothing on a touch screen
+    assert any(
+        "display: none !important" in b
+        for blk in _media_blocks(STYLES, "@media (hover: none), (pointer: coarse)")
+        for b in _rule_bodies(blk, "#cmdEnterHint")
+    )
+    assert "(hover: none), (pointer: coarse)" in A11Y
+
+
+def test_post_generation_scroll_target_clears_the_sticky_stack():
+    wide = [b for b in _rule_bodies(STYLES, "#planDashboardSection") if "scroll-margin-top: 70px" in b]
+    narrow = [
+        b
+        for blk in _media_blocks(STYLES, "@media (max-width: 1080px)")
+        for b in _rule_bodies(blk, "#planDashboardSection")
+        if "scroll-margin-top: 112px" in b
+    ]
+    assert wide and narrow
+
+
+# ── toasts and the status strip (round 3) ────────────────────────────────
+
+_TOAST_STUB = r"""
+function mkToast(msg, field, ageMs) {
+  var t = { dataset: { field: field || '', t: String(Date.now() - (ageMs || 0)) }, msg: msg, gone: false,
+    classList: { add: function () { t.exiting = true; }, contains: function () { return false; } },
+    remove: function () { t.gone = true; } };
+  if (!field) delete t.dataset.field;
+  return t;
+}
+var TOASTS = [];
+var document = { querySelectorAll: function (sel) {
+  return TOASTS.filter(function (t) { return !t.gone && !t.exiting; }); } };
+function setTimeout(fn) { fn(); }
+"""
+
+
+@needs_node
+def test_validation_toasts_go_when_their_field_is_edited_or_the_step_changes():
+    script = "\n".join(
+        [
+            _TOAST_STUB,
+            js_block(APP, "function novaDismissErrorToasts("),
+            js_block(APP, "function novaTagNewestErrorToast("),
+            "var a = mkToast('client name', 'clientName'), b = mkToast('use case', 'useCase');",
+            "var stale = mkToast('network error', '', 60000), fresh = mkToast('role needed', '', 100);",
+            "TOASTS = [a, b, stale, fresh];",
+            # a fresh untagged toast is adopted by the field that was just flagged...
+            "novaTagNewestErrorToast('roleInput');",
+            # ...an old, unrelated one is not (blur-time validation must not adopt it)
+            "var tagged = { fresh: fresh.dataset.field, stale: stale.dataset.field || '' };",
+            "novaDismissErrorToasts('clientName');",
+            "var afterField = TOASTS.filter(function (t) { return !t.gone && !t.exiting; }).map(function (t) { return t.msg; });",
+            "novaDismissErrorToasts();",
+            "var afterStep = TOASTS.filter(function (t) { return !t.gone && !t.exiting; }).length;",
+            "process.stdout.write(JSON.stringify({ tagged: tagged, afterField: afterField, afterStep: afterStep }));",
+        ]
+    )
+    got = run_node(script)
+    assert got["tagged"] == {"fresh": "roleInput", "stale": ""}
+    assert got["afterField"] == ["use case", "network error", "role needed"]
+    assert got["afterStep"] == 0
+    # wiring: field edits and a CHANGE of the active step (not other class churn)
+    assert 'document.addEventListener(\n    "input"' in APP
+    watch = js_block(APP, "(function watchStepChangesForToasts()")
+    assert "now !== lastActive" in watch and "novaDismissErrorToasts()" in watch
+    assert "return toast;" in js_block(APP, "function showToast(")
+
+
+def test_form_errors_tag_their_toast_with_the_field():
+    assert "errorToast.dataset.field = fieldId" in js_block(APP, "function showFormError(")
+    assert "novaTagNewestErrorToast(el.id)" in js_block(APP, "function _showFieldError(")
+    assert "novaTagNewestErrorToast(field.id)" in js_block(APP, "function validateField(")
+
+
+_STRIP_STUB = r"""
+var estimating = false;
+var classes = {}, attrs = {};
+var pane = { classList: { toggle: function (c, on) { classes[c] = on; } } };
+var strip = { setAttribute: function (k, v) { attrs[k] = v; } };
+function $(id) { return id === 'planPreview' ? pane : id === 'npAgentStrip' ? strip : null; }
+"""
+
+
+@needs_node
+def test_the_updating_strip_is_hidden_from_assistive_tech_while_invisible():
+    script = "\n".join(
+        [
+            _STRIP_STUB,
+            js_block(PREVIEW, "function setEstimating("),
+            "setEstimating(true); var on = { hidden: attrs['aria-hidden'], rc: classes.recomputing };",
+            "setEstimating(false); var off = { hidden: attrs['aria-hidden'], rc: classes.recomputing };",
+            "process.stdout.write(JSON.stringify({ on: on, off: off }));",
+        ]
+    )
+    assert run_node(script) == {
+        "on": {"hidden": "false", "rc": True},
+        "off": {"hidden": "true", "rc": False},
+    }
+    assert re.search(r'id="npAgentStrip"[^>]*aria-hidden="true"', BODY, re.S)

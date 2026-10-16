@@ -79,6 +79,8 @@ def _field_error_script(calls: str) -> str:
             "  querySelectorAll: function (sel) { return [amt, period].filter(function (e) {",
             "    return e.getAttribute('aria-invalid') === 'true'; }); } };",
             "amt.closest = period.closest = function () { return group; };",
+            # _showFieldError also tags the toast just shown for the field
+            "function novaTagNewestErrorToast() {}",
             js_block(src, "function _showFieldError("),
             js_block(src, "function _clearFieldError("),
             calls,

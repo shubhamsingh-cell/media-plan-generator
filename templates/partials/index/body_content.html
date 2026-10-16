@@ -47,10 +47,13 @@
 
 <!-- Compact live estimate, single-column layouts only (<=1080px): the full
      preview sits BELOW the form there, so the figures follow the viewport
-     instead. The four figures appear once /api/estimate has answered for a
-     budget (data-state="ready"); until then the row holds a one-line hint,
-     so nothing jumps when the first estimate lands. A tap scrolls to the
-     full preview. Painted by body_preview_js.html. -->
+     instead. data-state: "empty" = a one-line hint while the budget or role
+     is genuinely missing; "loading" = inputs are set and /api/estimate is
+     in flight (the last figures stay, dimmed, under "Updating estimate...");
+     "ready" = the four figures; "unavailable" = the request failed (dashes,
+     like the pane). The row exists from the start so nothing jumps when the
+     first estimate lands. A tap scrolls to the full preview. Painted by
+     body_preview_js.html. -->
 <button
   type="button"
   class="np-estimate-bar bare-btn"
@@ -67,6 +70,7 @@
   <span class="neb-item"
     ><b id="nebCpa">&mdash;</b><span>per application</span></span
   >
+  <span class="neb-status">Updating estimate&hellip;</span>
 </button>
 
 <!-- Two-pane planning cockpit: form column (left) + live plan preview (right) -->
@@ -2794,24 +2798,51 @@
           Save Draft
         </span>
       </button>
-      <button
-        class="btn btn-success"
-        id="generateBtn"
-        onclick="generatePlan()"
-      >
-        <span
-          id="generateBtnLabel"
+      <div class="generate-cell">
+        <button
+          class="btn btn-success"
+          id="generateBtn"
+          onclick="generatePlan()"
+        >
+          <span
+            id="generateBtnLabel"
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+            "
+          >
+            <span>&#128640;</span>
+            <span>Generate Media Plan</span>
+          </span>
+        </button>
+        <!-- keyboard shortcut hint: centred under the Generate button; hidden
+             on touch / coarse-pointer screens (CSS + body_a11y_js.html) -->
+        <p
+          id="cmdEnterHint"
           style="
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 0;
+            display: none;
           "
         >
-          <span>&#128640;</span>
-          <span>Generate Media Plan</span>
-        </span>
-      </button>
+          or press
+          <kbd
+            style="
+              background: var(--bg-input);
+              border: 1px solid var(--border);
+              border-radius: var(--radius-sm);
+              padding: 1px 6px;
+              font-family: inherit;
+              font-size: 11px;
+            "
+            >&#8984;Enter</kbd
+          >
+        </p>
+      </div>
       <button
         class="btn-compare-plans"
         type="button"
@@ -2832,33 +2863,10 @@
         Compare Plans
       </button>
     </div>
-    <p
-      id="cmdEnterHint"
-      style="
-        text-align: center;
-        font-size: 12px;
-        color: var(--text-muted);
-        margin: 6px 0 0;
-        display: none;
-      "
-    >
-      or press
-      <kbd
-        style="
-          background: var(--bg-input);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-sm);
-          padding: 1px 6px;
-          font-family: inherit;
-          font-size: 11px;
-        "
-        >&#8984;Enter</kbd
-      >
-    </p>
     <div class="confidence-signals">
       <span>Takes about a minute</span>
       <span class="conf-dot"></span>
-      <span>Based on real campaign data</span>
+      <span>Based on Joveo channel benchmarks</span>
       <span class="conf-dot"></span>
       <span>No signup required</span>
       <span class="conf-dot"></span>
@@ -2881,7 +2889,13 @@
        fetchEstimate sends it and cleared when it answers or fails -- see
        body_preview_js.html). It used to tick four checkmarks on a fixed
        650 ms timer, marks already ticked, whatever the request was doing. -->
-  <div class="agent-strip" id="npAgentStrip" role="status" aria-live="polite">
+  <div
+    class="agent-strip"
+    id="npAgentStrip"
+    role="status"
+    aria-live="polite"
+    aria-hidden="true"
+  >
     <div class="agent-head"><span class="dot" aria-hidden="true"></span>Updating estimate&hellip;</div>
   </div>
 

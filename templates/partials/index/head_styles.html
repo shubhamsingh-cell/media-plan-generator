@@ -5591,6 +5591,20 @@
     opacity: 0.02 !important;
   }
   /* cards/sections always visible — no blank-screenshot reveal gate */
+  /* Post-generation scroll targets: the results dashboard and the hero
+     stat section are scrolled to with block:"start"; with the 58px top bar
+     (and, at <=1080px, the 46px estimate bar) pinned they landed under the
+     sticky stack. */
+  #planDashboardSection,
+  #heroStatSection {
+    scroll-margin-top: 70px;
+  }
+  @media (max-width: 1080px) {
+    #planDashboardSection,
+    #heroStatSection {
+      scroll-margin-top: 112px;
+    }
+  }
   .studio .reveal-on-scroll {
     opacity: 1 !important;
     transform: none !important;
@@ -5851,6 +5865,13 @@
     backdrop-filter: none !important;
     margin-bottom: 22px;
     transition: box-shadow 0.3s ease, transform 0.3s ease;
+  }
+  /* Phone width: 30px of side padding inside a 16px page gutter left only
+     ~281px of a 375px screen for the form's text. 18px gives ~305px. */
+  @media (max-width: 480px) {
+    .studio .card {
+      padding: 24px 18px !important;
+    }
   }
   .studio .card:hover {
     box-shadow: var(--np-glass-shadow-dark-hover) !important;
@@ -6118,20 +6139,53 @@
     flex: 0 0 auto;
     white-space: nowrap;
   }
-  .studio .btn-row > #generateBtn {
+  /* Generate sits in a cell with the keyboard hint, so the hint centres under
+     the BUTTON (it used to be centred under the whole row). */
+  .studio .btn-row > .generate-cell {
     flex: 1 1 240px;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .studio .btn-row > .generate-cell > #generateBtn {
+    width: 100%;
+    justify-content: center;
     white-space: normal;
   }
+  .studio .btn-row > .generate-cell > #cmdEnterHint {
+    margin: 0;
+    text-align: center;
+  }
+  /* The step-5 buttons are one height (they were 46 / 46 / 55 / 38) and
+     top-aligned, so the hint under Generate does not push the others down. */
+  .studio #step5 .btn-row {
+    align-items: flex-start;
+  }
+  .studio #step5 .btn-row > .btn,
+  .studio #step5 .btn-row > .btn-compare-plans,
+  .studio #step5 .btn-row #generateBtn {
+    box-sizing: border-box;
+    height: 48px;
+    min-height: 48px !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  /* A keyboard shortcut hint means nothing on a touch screen. */
+  @media (hover: none), (pointer: coarse) {
+    #cmdEnterHint {
+      display: none !important;
+    }
+  }
   @media (max-width: 600px) {
-    .studio #step5 .btn-row > .btn:not(#generateBtn),
+    .studio #step5 .btn-row > .btn,
     .studio #step5 .btn-row > .btn-compare-plans {
       flex: 1 1 auto;
       justify-content: center;
     }
-    .studio #step5 .btn-row > #generateBtn {
+    .studio #step5 .btn-row > .generate-cell {
       flex: 1 1 100%;
-      justify-content: center;
     }
     /* The two output formats stack instead of overlapping at phone width. */
     .output-format-toggle {
@@ -6700,10 +6754,14 @@
       box-sizing: border-box;
       width: 100%;
       min-height: 46px;
+      flex-wrap: wrap;
       align-items: stretch;
-      gap: 4px;
+      align-content: center;
+      gap: 0 4px;
       margin: 0;
-      padding: 6px clamp(12px, 4vw, 40px);
+      /* the form's own gutter (.studio main.container uses the same clamp),
+         so the figures' left edge lines up with the text below at 375 (16px) */
+      padding: 6px clamp(16px, 4vw, 40px);
       border: 0;
       border-bottom: 1px solid var(--np-hair);
       background: rgba(10, 10, 18, 0.97);
@@ -6744,12 +6802,34 @@
       white-space: nowrap;
     }
     .np-estimate-bar .neb-item span {
-      font-size: 10.5px;
+      font-size: 11px;
       line-height: 1.2;
       color: var(--np-muted);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    /* "Updating estimate…" (inputs are set, the request is in flight): the
+       last figures stay, dimmed, and the status takes the labels' line */
+    .np-estimate-bar .neb-status {
+      display: none;
+      flex: 1 0 100%;
+      order: 2;
+      font-size: 11px;
+      line-height: 1.2;
+      color: var(--np-muted);
+    }
+    .np-estimate-bar[data-state="loading"] .neb-status {
+      display: block;
+    }
+    .np-estimate-bar[data-state="loading"] .neb-item span {
+      display: none;
+    }
+    .np-estimate-bar[data-state="loading"] .neb-item b {
+      opacity: 0.5;
+    }
+    .np-estimate-bar[data-state="empty"] .neb-hint {
+      flex: 1 0 100%;
     }
     .np-estimate-bar:focus-visible {
       outline: none;
@@ -6772,6 +6852,17 @@
     body.nova-field-focus #nova-float-btn:not(.nova-btn-close) {
       opacity: 0 !important;
       pointer-events: none !important;
+    }
+  }
+  /* At phone width stepping aside only on focus is not enough: at rest they
+     still sat over the Brief textarea. There the top bar already carries both
+     ways out (the "N" logo links back to the suite; "Ask Nova" opens the
+     chat), so the two floating controls leave the form alone entirely. The
+     orb stays while its chat panel is open (.nova-btn-close closes it). */
+  @media (max-width: 480px) {
+    #back-to-suite,
+    #nova-float-btn:not(.nova-btn-close) {
+      display: none !important;
     }
   }
   @media (prefers-reduced-motion: reduce) {

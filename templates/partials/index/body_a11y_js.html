@@ -38,7 +38,10 @@
         hintEl.innerHTML =
           'or press <kbd style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1px 6px;font-family:inherit;font-size:11px;">Ctrl+Enter</kbd>';
       }
-      hintEl.style.display = "block";
+      // A keyboard shortcut means nothing on a touch screen (CSS hides it
+      // there too; this keeps it out of the layout and the a11y tree).
+      var touchOnly = window.matchMedia("(hover: none), (pointer: coarse)").matches;
+      hintEl.style.display = touchOnly ? "none" : "block";
     }
 
     // Make industry cards keyboard-accessible
