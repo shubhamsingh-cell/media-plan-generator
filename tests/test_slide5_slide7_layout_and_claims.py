@@ -172,7 +172,11 @@ def _slide_by_headline(prs: Presentation, headline: str):
             top_in = sh.top / EMU_PER_IN
             for p in sh.text_frame.paragraphs:
                 for r in p.runs:
-                    if r.font.size and abs(r.font.size.pt - 26.0) < 0.1 and 0.4 < top_in < 0.5:
+                    if (
+                        r.font.size
+                        and abs(r.font.size.pt - 26.0) < 0.1
+                        and 0.4 < top_in < 0.5
+                    ):
                         return slide
     raise AssertionError(f"no slide headline found matching {headline!r}")
 
@@ -193,7 +197,38 @@ def _run_font_pt(shape, default: float = 10.0) -> float:
     return default
 
 
-def _content_h_in(text: str, width_in: float, font_pt: float, char_em: float = 0.53) -> float:
+def test_slide5_header_and_footer_qualification_have_safe_area():
+    prs = Presentation(io.BytesIO(_deck()))
+    slide = _slide_by_headline(prs, "Channel Strategy & Investment")
+    shapes = _text_shapes(slide)
+    wordmark = next(sh for sh in shapes if sh.text_frame.text.strip() == "joveo")
+    title = next(
+        sh
+        for sh in shapes
+        if sh.text_frame.text.strip() == "Channel Strategy & Investment"
+    )
+    qualifier = next(
+        sh for sh in shapes if sh.text_frame.text.strip().startswith("Figures in GBP")
+    )
+    credit = next(
+        sh for sh in shapes if sh.text_frame.text.strip().startswith("Created by")
+    )
+
+    for shape in (wordmark, title):
+        usable_h = (
+            shape.height - shape.text_frame.margin_top - shape.text_frame.margin_bottom
+        ) / EMU_PER_IN
+        assert shape.top / EMU_PER_IN >= 0.18
+        assert usable_h >= (_run_font_pt(shape) * 1.02) / 72.0
+        assert (shape.top + shape.height) / EMU_PER_IN <= 0.91
+
+    footer_gap = (credit.top - qualifier.top - qualifier.height) / EMU_PER_IN
+    assert footer_gap >= 0.16
+
+
+def _content_h_in(
+    text: str, width_in: float, font_pt: float, char_em: float = 0.53
+) -> float:
     """Independent (test-owned) estimate of rendered content height, using
     ppt_generator's own module-level ``_estimate_lines`` (the established
     line-wrap estimator, reused rather than re-implemented) against the
@@ -279,7 +314,9 @@ def test_slide5_cpc_value_fits_inside_its_own_row():
     # for this content class (_KPI_CHAR_EM=0.62, "big, bold, digit-heavy
     # ... numerals"); 0.56 is a smaller, independently-chosen bump that
     # matches the real render for this specific string.
-    needed_in = _content_h_in(cpc_shape.text_frame.text, width_in, font_pt, char_em=0.56)
+    needed_in = _content_h_in(
+        cpc_shape.text_frame.text, width_in, font_pt, char_em=0.56
+    )
     assert needed_in <= height_in + _TOL_IN, (
         f"CPC value needs ~{needed_in:.2f}in of height but its own row box is "
         f"only {height_in:.2f}in tall ({cpc_shape.text_frame.text!r}) -- it "
@@ -377,13 +414,15 @@ def test_slide7_why_text_fits_before_counter_starts():
     second line overprinted Counter's first line on every card."""
     prs = Presentation(io.BytesIO(_evidenced_deck()))
     slide = _slide_by_headline(prs, "Competitive Landscape")
-    why_shapes = [sh for sh in _text_shapes(slide) if sh.text_frame.text.startswith("Why:")]
+    why_shapes = [
+        sh for sh in _text_shapes(slide) if sh.text_frame.text.startswith("Why:")
+    ]
     counter_shapes = [
         sh for sh in _text_shapes(slide) if sh.text_frame.text.startswith("Counter:")
     ]
-    assert why_shapes and len(why_shapes) == len(counter_shapes) >= 2, (
-        "expected multiple competitor cards, each with a Why: and Counter: line"
-    )
+    assert (
+        why_shapes and len(why_shapes) == len(counter_shapes) >= 2
+    ), "expected multiple competitor cards, each with a Why: and Counter: line"
     why_shapes.sort(key=lambda s: s.top)
     counter_shapes.sort(key=lambda s: s.top)
     for why_sh, counter_sh in zip(why_shapes, counter_shapes):
@@ -456,7 +495,9 @@ def test_slide7_why_text_has_no_banned_asserted_behaviour_verbs():
     for t in texts:
         low = t.lower()
         for banned in _BANNED_SUBSTRINGS:
-            assert banned not in low, f"banned asserted-behaviour phrase {banned!r} in {t!r}"
+            assert (
+                banned not in low
+            ), f"banned asserted-behaviour phrase {banned!r} in {t!r}"
     # mpg-content-gate (2026-10-01): these industry-fallback competitors
     # carry NO evidence record, so there are no per-competitor Why/Counter
     # cards at all -- one group block names them with one neutral sentence.

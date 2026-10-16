@@ -88,7 +88,7 @@ import display_format
 import insight_composer
 import intl_benchmark_lookup
 import us_only_markers
-from market_evidence import market_metric_is_observed
+from market_evidence import market_metric_is_observed, observed_market_provider_ids
 
 # NOTE: aliased -- several functions in this module already use a local
 # variable/parameter literally named `gold_standard` (the enriched
@@ -10219,6 +10219,28 @@ def _build_sheet_sources(ws, data: dict):
         age_cell = ws.cell(row=row + 2, column=COL_START + 2, value=age_label)
         age_cell.alignment = _ALIGN_WRAP
         age_cell.font = Font(name=FONT_BODY_NAME, size=10, color=MUTED, italic=True)
+
+    validated_provider_ids = set()
+    job_market_demand = synthesized.get("job_market_demand", {})
+    if isinstance(job_market_demand, dict):
+        for role_market in job_market_demand.values():
+            validated_provider_ids.update(observed_market_provider_ids(role_market))
+    ws.merge_cells(
+        start_row=row + 3,
+        start_column=COL_START + 2,
+        end_row=row + 3,
+        end_column=COL_END,
+    )
+    provider_cell = ws.cell(
+        row=row + 3,
+        column=COL_START + 2,
+        value=(
+            "Validated current-market providers: "
+            f"{len(validated_provider_ids)}"
+        ),
+    )
+    provider_cell.alignment = _ALIGN_LEFT
+    provider_cell.font = Font(name=FONT_BODY_NAME, size=10, color=SAPPHIRE, bold=True)
 
     row += 4
 

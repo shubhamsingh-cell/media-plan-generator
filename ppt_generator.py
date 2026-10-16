@@ -3713,7 +3713,14 @@ def _smart_title(s: str) -> str:
     return " ".join(_TITLE_ACRONYMS.get(w, w) for w in str(s).title().split())
 
 
-def _add_top_band(slide, left_text: str, right_text: str = "", band_color=NAVY):
+def _add_top_band(
+    slide,
+    left_text: str,
+    right_text: str = "",
+    band_color=NAVY,
+    *,
+    safe_text_area: bool = False,
+):
     """Invisible-style light header (replaces the old navy nav band).
 
     Paints the light lavender canvas, the top purple accent rule, the ``joveo``
@@ -3725,28 +3732,34 @@ def _add_top_band(slide, left_text: str, right_text: str = "", band_color=NAVY):
     # Compact wordmark + big title sit ABOVE y=0.92 so each builder's existing
     # action/insight line at y=0.92 reads as the subtitle (no per-builder edits,
     # no collision). Section names are short -> one line at 26pt.
-    _add_textbox(
+    _, wordmark_tf = _add_textbox(
         slide,
         Inches(0.63),
-        Inches(0.15),
+        Inches(0.18 if safe_text_area else 0.15),
         Inches(4.0),
-        Inches(0.3),
+        Inches(0.25 if safe_text_area else 0.3),
         text="joveo",
         font_size=15,
         bold=True,
         color=BLUE,
     )
-    _add_textbox(
+    _, title_tf = _add_textbox(
         slide,
         Inches(0.63),
-        Inches(0.45),
+        Inches(0.47 if safe_text_area else 0.45),
         Inches(12.05),
-        Inches(0.46),
+        Inches(0.44 if safe_text_area else 0.46),
         text=_smart_title(left_text),
         font_size=26,
         bold=True,
         color=NAVY,
     )
+    if safe_text_area:
+        # The default 0.05in top/bottom margins leave less internal height than
+        # the 15pt/26pt glyphs and clip in the official artifact renderer.
+        for text_frame in (wordmark_tf, title_tf):
+            text_frame.margin_top = 0
+            text_frame.margin_bottom = 0
     return Inches(1.45)
 
 
@@ -4215,7 +4228,9 @@ def _currency_basis_note_compact(data: Optional[Dict]) -> str:
     return f"{lead}, not FX-converted."
 
 
-def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
+def _add_data_sources_footnote(
+    slide, data: Dict, benchmarks: Dict, *, caption_y_in: float = 6.84
+):
     """Confidence indicator + optional disclaimers, placed ABOVE the footer rule.
 
     Does NOT draw a footer/rule/credit — ``_add_footer`` owns the footer band.
@@ -4226,7 +4241,7 @@ def _add_data_sources_footnote(slide, data: Dict, benchmarks: Dict):
     conf = benchmarks.get("confidence", "curated")
     conf_color, conf_label = _confidence_color(conf)
 
-    caption_y = Inches(6.84)
+    caption_y = Inches(caption_y_in)
     # Confidence indicator (left)
     _add_textbox(
         slide,
@@ -5776,7 +5791,12 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     _add_filled_rect(slide, Inches(0), Inches(0), SLIDE_WIDTH, SLIDE_HEIGHT, OFF_WHITE)
 
     # Top band
-    _add_top_band(slide, "CHANNEL STRATEGY & INVESTMENT", today)
+    _add_top_band(
+        slide,
+        "CHANNEL STRATEGY & INVESTMENT",
+        today,
+        safe_text_area=True,
+    )
 
     # Action title -- insight-rich with WHY reasoning
     n_cats = len(display_channels_funded)
@@ -6661,11 +6681,11 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
             9.0,
             max_lines=1,
         ),
-        bottom_in=6.82,
+        bottom_in=6.75,
     )
 
     # v3: Data sources footnote with confidence indicator
-    _add_data_sources_footnote(slide, data, benchmarks)
+    _add_data_sources_footnote(slide, data, benchmarks, caption_y_in=6.78)
 
     # Footer
     _add_footer(slide, today)
