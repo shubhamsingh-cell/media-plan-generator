@@ -296,10 +296,12 @@ const NovaContext = (() => {
       industry: "",
       notes: "",
     },
+    /* Neutral defaults: no real person's identity ships in the bundle. The
+       greeting drops the name when it is empty. */
     user: {
-      name: "Shubham Singh Chandel",
-      email: "shubhamsingh@Joveo.com",
-      role: "admin",
+      name: "",
+      email: "",
+      role: "",
       org: "Joveo",
     },
     nav: {
@@ -326,7 +328,7 @@ const NovaContext = (() => {
         STORAGE_KEY,
         JSON.stringify({
           campaign: state.campaign,
-          user: state.user,
+          user: { role: state.user.role },
           shared: state.shared,
           store: _store,
           _ts: Date.now(),
@@ -358,7 +360,10 @@ const NovaContext = (() => {
       const saved = JSON.parse(raw);
       if (Date.now() - (saved._ts || 0) > 86400000) return false;
       if (saved.campaign) Object.assign(state.campaign, saved.campaign);
-      if (saved.user) Object.assign(state.user, saved.user);
+      /* Only the role pick is restored; identity fields stored by older
+         builds (a hardcoded name/email) must not come back. */
+      if (saved.user && typeof saved.user.role === "string")
+        state.user.role = saved.user.role === "admin" ? "" : saved.user.role;
       if (saved.shared) Object.assign(state.shared, saved.shared);
       if (saved.store) Object.assign(_store, saved.store);
       return true;
