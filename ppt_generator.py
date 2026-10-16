@@ -47,6 +47,10 @@ import company_blurb
 import competitor_claims
 import insight_composer as _insight
 import gold_standard as _gold_standard
+from market_evidence import (
+    market_metric_is_observed,
+    validated_market_source_details,
+)
 
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
@@ -4705,8 +4709,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     try:
         for _role_key, _role_demand in job_market.items():
             if isinstance(_role_demand, dict):
-                _es_posting_sources = _role_demand.get("posting_sources") or []
-                if "Industry Benchmark" in _es_posting_sources:
+                if not market_metric_is_observed(
+                    _role_demand, "market_temperature"
+                ):
                     continue
                 _temp = _role_demand.get("market_temperature") or ""
                 if _temp:
@@ -5465,7 +5470,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             if _rng:
                 _metric_ranges["Projected Hires"] = _rng
         if avg_cpa_val and avg_cpa_val > 0:
-            secondary_metrics.append((_fmt_currency(avg_cpa_val), "Avg CPA"))
+            secondary_metrics.append((_fmt_currency(avg_cpa_val), "Projected CPA"))
         elif (
             avg_cph_val
             and avg_cph_val > 0
@@ -6132,26 +6137,49 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 # Market Demand table for the same role can legitimately show
                 # 0/no data for this exact figure (no fabricated stats over
                 # empty data).
-                _posting_sources = jm_data.get("posting_sources") or []
-                _is_fabricated_posting = "Industry Benchmark" in _posting_sources
+                _posting_source_details = jm_data.get("posting_source_details") or []
                 avg_sal = jm_data.get("avg_salary") or 0
-                if posting_count and posting_count > 0 and not _is_fabricated_posting:
+                if (
+                    posting_count
+                    and posting_count > 0
+                    and market_metric_is_observed(jm_data, "job_postings")
+                    and _posting_source_details
+                ):
                     # trust-and-proof#2: "N active jobs" carried no source or
                     # as-of date -- attach both when the row's own data names
                     # a real provider (Adzuna/Jooble/BLS), so the figure reads
                     # as sourced and dated rather than an unattributed count.
                     _postings_val = f"{posting_count:,} active jobs"
-                    if _posting_sources:
-                        _postings_val += (
-                            f" ({', '.join(_posting_sources[:2])}, "
-                            f"as of {datetime.date.today().strftime('%b %d')})"
-                        )
-                    bench_rows.append(
-                        (
-                            f"Live Postings: {role_name}",
-                            _postings_val,
-                        )
+                    _validated_details = validated_market_source_details(
+                        jm_data, "job_postings", _posting_source_details
                     )
+                    _source_labels = []
+                    _provider_details = {}
+                    for _detail in _validated_details:
+                        _provider_id = _detail["provider_id"]
+                        _provider_entry = _provider_details.setdefault(
+                            _provider_id,
+                            {"source": _detail["source"], "dates": set()},
+                        )
+                        _provider_entry["dates"].add(_detail["observed_at"])
+                    for _provider_entry in _provider_details.values():
+                        _dates = sorted(_provider_entry["dates"])
+                        _date_label = (
+                            _dates[0]
+                            if len(_dates) == 1
+                            else f"{_dates[0]}–{_dates[-1]}; {len(_dates)} dates"
+                        )
+                        _source_labels.append(
+                            f"{_provider_entry['source']} ({_date_label})"
+                        )
+                    if _source_labels:
+                        _postings_val += f" ({'; '.join(_source_labels)})"
+                        bench_rows.append(
+                            (
+                                f"Live Postings: {role_name}",
+                                _postings_val,
+                            )
+                        )
                 if avg_sal and avg_sal > 0:
                     bench_rows.append(
                         (f"Avg Salary: {role_name}", _format_salary(avg_sal))
@@ -6169,7 +6197,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
                 if (
                     market_temp
                     and isinstance(market_temp, str)
-                    and not _is_fabricated_posting
+                    and market_metric_is_observed(jm_data, "market_temperature")
                 ):
                     bench_rows.append(
                         (f"Market Temp: {role_name}", market_temp.title())
@@ -6783,7 +6811,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         },
         {
             "value": _fmt_currency(avg_cpa) if avg_cpa > 0 else "--",
-            "label": "Avg CPA",
+            "label": "Projected CPA",
             "accent": JOVEO_PINK,
         },
         {
