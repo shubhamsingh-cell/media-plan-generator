@@ -62,35 +62,81 @@ def slack_download_link_seconds() -> int:
     return max(1, min(days, 365)) * 86400
 
 
-def _slack_link_key() -> bytes:
-    # Read fresh on every call (never cached at import): a test or a rotated
-    # secret must not leave a stale key behind. Any server-only secret works;
-    # rotating it simply retires the outstanding links.
-    for name in ("SESSION_SIGNING_SECRET", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_KEY"):
+_SLACK_LINK_KEY_ENVS = (
+    "SESSION_SIGNING_SECRET",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_KEY",
+)
+
+
+def _slack_link_keys() -> List[bytes]:
+    """Every configured link-signing key, in minting-priority order.
+
+    Read fresh on every call (never cached at import): a test or a rotated
+    secret must not leave a stale key behind. Blank/whitespace values count
+    as unset and a value repeated across env vars is listed once.
+    """
+    keys: List[bytes] = []
+    for name in _SLACK_LINK_KEY_ENVS:
         val = (os.environ.get(name) or "").strip()
         if val:
-            return val.encode("utf-8")
-    return b""
+            key = val.encode("utf-8")
+            if key not in keys:
+                keys.append(key)
+    return keys
 
 
-def slack_download_token(job_id: str) -> str:
-    """HMAC token binding a Slack download link to one job ("" if no key)."""
-    key = _slack_link_key()
-    if not key or not job_id:
-        return ""
+def _slack_link_key() -> bytes:
+    """The key new links are minted with: the first configured one."""
+    keys = _slack_link_keys()
+    return keys[0] if keys else b""
+
+
+def _token_for_key(key: bytes, job_id: str) -> str:
     msg = f"nova-slack-plan-download:v1:{job_id}".encode("utf-8")
     return hmac.new(key, msg, hashlib.sha256).hexdigest()[:32]
 
 
+def slack_download_token(job_id: str) -> str:
+    """HMAC token binding a Slack download link to one job ("" if no key).
+
+    Always minted with the FIRST configured key (see _slack_link_keys).
+    """
+    key = _slack_link_key()
+    if not key or not job_id:
+        return ""
+    return _token_for_key(key, job_id)
+
+
 def verify_slack_download_token(job_id: str, token: str) -> bool:
-    """Constant-time check of a Slack download token."""
-    expected = slack_download_token(job_id)
+    """Constant-time check of a Slack download token.
+
+    A token is accepted when it was minted with ANY currently configured
+    candidate key (the same ordered list minting draws its first key from),
+    not only the key that would mint today. That is what lets a key rotation
+    keep outstanding links alive for their remaining lifetime
+    (SLACK_DOWNLOAD_LINK_DAYS): e.g. links minted with
+    SUPABASE_SERVICE_ROLE_KEY keep opening after SESSION_SIGNING_SECRET is
+    set and takes over minting. A token minted with a key that is no longer
+    configured anywhere is rejected -- removing a key from the environment is
+    how its links are retired.
+
+    Note for key hygiene: every configured candidate is trusted for
+    verification, so do not leave a PUBLIC key (e.g. a Supabase anon key)
+    in SUPABASE_KEY next to a private signing secret.
+    """
     token = (token or "").strip().lower()
     # Shape-check before compare_digest: it raises TypeError on a non-ASCII
     # str (?t=%C3%A9), which would surface as an unauthenticated 500.
-    if not expected or not re.fullmatch(r"[0-9a-f]{32}", token):
+    if not job_id or not re.fullmatch(r"[0-9a-f]{32}", token):
         return False
-    return hmac.compare_digest(expected, token)
+    ok = False
+    # No early exit: every candidate is compared (constant-time each), so
+    # response time does not reveal which key a token matched.
+    for key in _slack_link_keys():
+        if hmac.compare_digest(_token_for_key(key, job_id), token):
+            ok = True
+    return ok
 
 
 def slack_download_url(job_id: str) -> str:
