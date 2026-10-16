@@ -47,16 +47,23 @@ def _call_site_blocks() -> list[str]:
     can be inspected independently."""
     src = (PROJECT_ROOT / "app.py").read_text()
     blocks = []
-    idx = 0
-    while True:
-        call_idx = src.find("budget_result = calculate_budget_allocation(", idx)
-        if call_idx == -1:
-            break
-        window_start = src.rfind("\n", 0, call_idx - 3500) + 1
-        call_end = src.index(")\n", call_idx) + 2
-        blocks.append(src[window_start:call_end])
-        idx = call_end
-    return blocks
+    # the two /api/generate paths call the engine directly; the /api/estimate
+    # preview reaches it through plan_projection.project_plan (the one
+    # projection front door), which receives the same resolved inputs.
+    for needle in (
+        "budget_result = calculate_budget_allocation(",
+        "projection = project_plan(",
+    ):
+        idx = 0
+        while True:
+            call_idx = src.find(needle, idx)
+            if call_idx == -1:
+                break
+            window_start = src.rfind("\n", 0, call_idx - 3500) + 1
+            call_end = src.index(")\n", call_idx) + 2
+            blocks.append((call_idx, src[window_start:call_end]))
+            idx = call_end
+    return [b for _, b in sorted(blocks)]
 
 
 def test_exactly_three_calculate_budget_allocation_call_sites():

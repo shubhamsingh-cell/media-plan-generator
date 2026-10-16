@@ -133,4 +133,9 @@ class TestAppPassesTheWizardGoal:
             assert "target_hires=_hire_goal_for_budget(" in block, block[-400:]
             sites += 1
             idx = end + 2
-        assert sites == 3
+        # the two /api/generate paths call the engine directly; the wizard
+        # estimate reaches it through plan_projection.project_plan (third site)
+        assert sites == 2
+        est = src[src.index("def _compute_plan_estimate(") :]
+        est = est[: est.index("\ndef ")]
+        assert '"target_hires": _hire_goal_for_budget(brief)' in est

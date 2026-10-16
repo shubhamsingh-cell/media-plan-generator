@@ -380,8 +380,18 @@ class TestUsdPlanUnaffected:
         assert not any("US$" in t for t in texts), texts
 
     def test_slide2_market_thesis_unchanged(self, texts):
+        # a USD plan with a hires range prints it (2026-10-16: never the lone
+        # optimistic end), still in the plan's own "$" with no US$ marker
+        import re
+
         assert any(
-            "This plan projects 1,230 hires at $1,626/hire" in t for t in texts
+            re.search(
+                r"This plan projects an estimated [\d,]+\u2013[\d,]*1,?230 hires "
+                r"at \$[\d,]+\u2013\$[\d,]+/hire",
+                t,
+            )
+            or "This plan projects 1,230 hires at $1,626/hire" in t
+            for t in texts
         ), texts
 
     def test_slide6_takeaway_unchanged(self, texts):

@@ -347,8 +347,13 @@ class TestPlanCurrencyResolvedAndPassed:
 
     def test_every_calculate_budget_allocation_call_site_passes_plan_currency(self):
         src = _app_source()
+        # two direct engine calls (the /api/generate paths) plus the wizard
+        # estimate's plan_projection.project_plan call (the one front door)
         call_sites = [
-            m.start() for m in __import__("re").finditer(r"calculate_budget_allocation\(", src)
+            m.start()
+            for m in __import__("re").finditer(
+                r"calculate_budget_allocation\(|projection = project_plan\(", src
+            )
         ]
         assert len(call_sites) == 3, (
             f"expected exactly 3 calculate_budget_allocation call sites in "

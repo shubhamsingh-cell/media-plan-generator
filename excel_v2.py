@@ -5941,6 +5941,62 @@ def _location_count_label(data: dict, locations: List[str]) -> str:
     return " + ".join(modes) or "0"
 
 
+def _projection_range_line(
+    budget_alloc: Any, budget_num: float, suppress_cph: bool = False
+) -> str:
+    """Applications, cost per application and cost per hire as low-high ranges,
+    plus what the hire / cost-per-hire figures assume -- the SAME projection
+    (``plan_projection.ranges_from_engine_result``) the wizard, Quick Plan and
+    Nova read, so the workbook never prints a lone optimistic point where the
+    other surfaces print a range. "" when the plan carries no engine result."""
+    if not isinstance(budget_alloc, dict) or budget_num <= 0:
+        return ""
+    import plan_projection
+
+    meta = budget_alloc.get("metadata")
+    meta = meta if isinstance(meta, dict) else {}
+    roles = list((budget_alloc.get("role_allocations") or {}).keys())
+    proj = plan_projection.ranges_from_engine_result(
+        budget_alloc,
+        budget=budget_num,
+        industry_key=str(meta.get("industry") or ""),
+        role_titles=[str(r) for r in roles],
+        symbol=_cur_symbol(),
+    )
+    if not proj.get("ok"):
+        return ""
+
+    def money(v: float) -> str:
+        return _fmt_currency(v, show_cents=v < 100)
+
+    def span(rng: Dict[str, Any], fmt: Any) -> str:
+        lo, hi = rng.get("low"), rng.get("high")
+        if lo is None or hi is None:
+            return ""
+        return fmt(lo) if fmt(lo) == fmt(hi) else f"{fmt(lo)}\u2013{fmt(hi)}"
+
+    parts: List[str] = []
+    apps = span(proj["applications"], _fmt_number)
+    cpa = span(proj["cpa"], money)
+    if apps:
+        parts.append(f"Applications: {apps}")
+    if cpa:
+        parts.append(f"cost per application: {cpa}")
+    sentence = "; ".join(parts)
+    if sentence:
+        sentence += "."
+    cpa_note = proj["text"].get("cpa_note")
+    if cpa_note:
+        sentence += f" {cpa_note}"
+    cph = span(proj["cph"], money)
+    if cph and not suppress_cph:
+        sentence += (
+            f" Cost per hire: {cph} ({proj['text']['cph_short']})."
+            f" {proj['text']['hires_short']}"
+        )
+    return sentence.strip()
+
+
 def _build_sheet_executive_summary(
     ws, data: dict, research_mod=None, load_kb_fn=None, classify_tier_fn=None
 ):
@@ -6172,6 +6228,14 @@ def _build_sheet_executive_summary(
     # Hires range (audit 2026-10-01 §4.2), in the cards' gap row so no row
     # below moves: the headline is benchmark-driven, so say what bounds it.
     _range_line = _hires_range_line(total_proj, _cph_info, _header_hires, budget_num)
+    try:
+        _proj_line = _projection_range_line(
+            budget_alloc, budget_num, suppress_cph=_cph_suppressed
+        )
+    except (ImportError, KeyError, TypeError, ValueError) as exc:
+        logger.error("projection range line failed: %s", exc, exc_info=True)
+        _proj_line = ""
+    _range_line = " ".join(x for x in (_range_line, _proj_line) if x)
     if _range_line:
         ws.merge_cells(
             start_row=row + 2, start_column=COL_START, end_row=row + 2, end_column=COL_END
@@ -6179,6 +6243,8 @@ def _build_sheet_executive_summary(
         _rcell = ws.cell(row=row + 2, column=COL_START, value=_range_line)
         _rcell.font = _FONT_BODY
         _rcell.alignment = _ALIGN_LEFT
+        # the merged line wraps: give it the height its text needs
+        ws.row_dimensions[row + 2].height = max(15, 15 * (-(-len(_range_line) // 115)))
     row += 3  # 2-row cards + gap (range line)
 
     # ── Hiring-goal vs projection reconciliation (O2, findings 42/49/64) ──

@@ -28,6 +28,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import app  # noqa: E402
+import budget_engine  # noqa: E402
 import ppt_generator  # noqa: E402
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -87,13 +88,14 @@ def _brief_with(cats) -> dict:
 @pytest.fixture
 def estimate_pcts(monkeypatch):
     seen: dict = {}
-    real = app.calculate_budget_allocation
+    # reached through plan_projection.project_plan -> budget_engine
+    real = budget_engine.calculate_budget_allocation
 
     def _spy(*args, **kwargs):
         seen["pcts"] = dict(kwargs.get("channel_percentages") or {})
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(app, "calculate_budget_allocation", _spy)
+    monkeypatch.setattr(budget_engine, "calculate_budget_allocation", _spy)
 
     def run(brief: dict) -> dict:
         app._compute_plan_estimate(dict(brief))

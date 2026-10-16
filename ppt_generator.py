@@ -3896,6 +3896,47 @@ def _hires_range(data_or_alloc: Optional[Dict]) -> Optional[Tuple[int, int]]:
     return lo, hi
 
 
+def _deck_projection(data_or_alloc: Optional[Dict]) -> Optional[Dict[str, Any]]:
+    """The plan's low-high projection (applications, hires, cost per
+    application, cost per hire) from the engine result the deck already holds
+    -- ``plan_projection.ranges_from_engine_result``, the SAME function behind
+    the wizard estimate, Quick Plan, Nova and the workbook. ``None`` when the
+    deck has no engine result."""
+    if not isinstance(data_or_alloc, dict):
+        return None
+    alloc = data_or_alloc.get("_budget_allocation")
+    if not isinstance(alloc, dict):
+        alloc = data_or_alloc
+    meta = alloc.get("metadata")
+    if not isinstance(meta, dict) or not isinstance(alloc.get("total_projected"), dict):
+        return None
+    budget = meta.get("total_budget")
+    if not isinstance(budget, (int, float)) or budget <= 0:
+        return None
+    try:
+        import plan_projection
+
+        proj = plan_projection.ranges_from_engine_result(
+            alloc,
+            budget=float(budget),
+            industry_key=str(meta.get("industry") or ""),
+            role_titles=[str(r) for r in (alloc.get("role_allocations") or {})],
+            symbol=_cur_symbol(),
+        )
+    except (ImportError, KeyError, TypeError, ValueError) as exc:
+        logger.error("deck projection failed: %s", exc, exc_info=True)
+        return None
+    return proj if proj.get("ok") else None
+
+
+def _range_value(rng: Dict[str, Any], fmt: Any) -> Optional[str]:
+    """"lo\u2013hi" for a projection range, ``None`` when it is not a range."""
+    lo, hi = rng.get("low"), rng.get("high")
+    if lo is None or hi is None or fmt(lo) == fmt(hi):
+        return None
+    return f"{fmt(lo)}\u2013{fmt(hi)}"
+
+
 # Slide-2 KPI strip geometry (inches below the bar's top edge): every metric
 # label shares one baseline; the hires-range sublabel sits in its own box
 # beneath the label, one 8pt line per _KPI_SUBLABEL_LINE_IN.
@@ -4142,7 +4183,9 @@ def _media_note_variants(data: Optional[Dict]) -> List[str]:
     return list(_MEDIA_VS_ALLIN_NOTES)
 
 
-def _plan_efficiency_variants(data: Optional[Dict]) -> List[str]:
+def _plan_efficiency_variants(
+    data: Optional[Dict], hires_history_label: bool = False
+) -> List[str]:
     """ "Plan efficiency: $5,250/hire (half the $10.5K midpoint)." -- what the
     slide-2 range's high end assumes on a plan WITHOUT a cited local range
     (that one says it in ``_local_cph_assumption_variants``). Design-judge
@@ -4176,11 +4219,21 @@ def _plan_efficiency_variants(data: Optional[Dict]) -> List[str]:
         if not isinstance(mid, (int, float)) or mid <= 0:
             return []
         mid_txt = _be_pe._cph_text(mid, ccy, "compact")
-        return [
+        variants = [
             f"Plan efficiency: {floor_txt}/hire (half the {mid_txt} midpoint), "
             "the model's lowest cost per hire.",
             f"Plan efficiency: {floor_txt}/hire (half the {mid_txt} midpoint).",
         ]
+        if hires_history_label:
+            # slide 2 (the headline slide) also says what the hires rest on;
+            # slide 5's tighter footnote keeps the shorter forms
+            variants.insert(
+                0,
+                variants[0]
+                + " Hires are estimated from the industry cost per hire; no "
+                "client hire history provided.",
+            )
+        return variants
     except (ImportError, AttributeError, TypeError, ValueError) as exc:
         logger.error("plan efficiency note failed: %s", exc, exc_info=True)
         return []
@@ -5219,14 +5272,31 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     if ba_total_projected:
         _proj_h = _ppt_hires_sum
         _proj_cph = _ppt_cph
+        _thesis_rng = _hires_range(budget_alloc)
+        _thesis_proj = _deck_projection(budget_alloc) if _thesis_rng else None
         if _proj_h > 0:
-            _thesis_parts.append(
-                f"This plan projects {_count_noun(int(_proj_h), 'hire')}"
-            )
+            if _thesis_rng:
+                # an estimated range, never the lone optimistic end of it
+                _thesis_parts.append(
+                    "This plan projects an estimated "
+                    f"{min(_thesis_rng[0], int(_proj_h)):,}\u2013"
+                    f"{max(_thesis_rng[1], int(_proj_h)):,} hires"
+                )
+            else:
+                _thesis_parts.append(
+                    f"This plan projects {_count_noun(int(_proj_h), 'hire')}"
+                )
             _thesis_has_lead = True
         # 2026-10-01 (audit §4.1): no "at X/hire" when the market has no local
         # cost-per-hire benchmark -- X would be an FX-translated US figure.
-        if _proj_cph > 0 and not _cph_claim_suppressed(budget_alloc):
+        _thesis_cph = (
+            _range_value(_thesis_proj["cph"], _fmt_currency_whole)
+            if _thesis_proj
+            else None
+        )
+        if _proj_cph > 0 and _thesis_cph and not _cph_claim_suppressed(budget_alloc):
+            _thesis_parts.append(f"at {_thesis_cph}/hire")
+        elif _proj_cph > 0 and not _cph_claim_suppressed(budget_alloc):
             # copy:both#2: whole-number currency (never cents) instead of
             # raw _fmt_currency, which rendered "$5,263.16" whenever the
             # rounded CPH wasn't a whole dollar figure. _fmt_currency_whole
@@ -5576,15 +5646,26 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         projected_hires = _ppt_hires_sum
         avg_cpa_val = ba_total_projected.get("cost_per_application") or 0
         avg_cph_val = _ppt_cph
+        _kpi_proj = _deck_projection(budget_alloc)
         if projected_hires and projected_hires > 0:
-            secondary_metrics.append((str(int(projected_hires)), "Projected Hires"))
+            _hires_val = str(int(projected_hires))
             # 2026-10-01 (audit §4.2): the headline is benchmark-driven; show
-            # the range it sits in, each end saying what it assumes.
+            # the range it sits in, each end saying what it assumes. The KPI
+            # VALUE is that range too (2026-10-16): a lone number here was the
+            # optimistic end of it.
             _rng = _hires_range(budget_alloc)
             if _rng:
                 _metric_ranges["Projected Hires"] = _rng
+                _hires_val = (
+                    f"{min(_rng[0], int(projected_hires)):,}\u2013"
+                    f"{max(_rng[1], int(projected_hires)):,}"
+                )
+            secondary_metrics.append((_hires_val, "Projected Hires"))
         if avg_cpa_val and avg_cpa_val > 0:
-            secondary_metrics.append((_fmt_currency(avg_cpa_val), "Avg CPA"))
+            _cpa_val = (
+                _range_value(_kpi_proj["cpa"], _fmt_currency) if _kpi_proj else None
+            ) or _fmt_currency(avg_cpa_val)
+            secondary_metrics.append((_cpa_val, "Avg CPA"))
         elif (
             avg_cph_val
             and avg_cph_val > 0
@@ -5762,7 +5843,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         _pack_note_lines(
             [
                 _local_cph_assumption_variants(data)
-                or _plan_efficiency_variants(data),
+                or _plan_efficiency_variants(data, hires_history_label=True),
                 _currency_basis_note_variants(data),
                 _media_note_variants(data),
             ],
@@ -6933,32 +7014,40 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     card_gap = Inches(0.12)
     card_start_x = Inches(0.55)
 
+    # Ranges, not the optimistic point (2026-10-16): the same low-high
+    # projection the wizard, Quick Plan, Nova and the workbook print.
+    _sm_proj = _deck_projection(budget_alloc)
+    _sm_rng = _hires_range(budget_alloc)
+
+    def _sm_count(v: Any) -> str:
+        return f"{int(round(v)):,}"
+
+    _sm_apps = f"{int(proj_apps):,}" if proj_apps > 0 else "--"
+    if _sm_proj and proj_apps > 0:
+        _sm_apps = _range_value(_sm_proj["applications"], _sm_count) or _sm_apps
+    _sm_hires = f"{int(projected_hires):,}" if projected_hires > 0 else "--"
+    if _sm_rng and projected_hires > 0:
+        _sm_hires = (
+            f"{min(_sm_rng[0], int(projected_hires)):,}\u2013"
+            f"{max(_sm_rng[1], int(projected_hires)):,}"
+        )
+    _sm_cpa = _fmt_currency(avg_cpa) if avg_cpa > 0 else "--"
+    if _sm_proj and avg_cpa > 0:
+        _sm_cpa = _range_value(_sm_proj["cpa"], _fmt_currency) or _sm_cpa
+    _sm_cph = _fmt_currency(ba_avg_cph) if ba_avg_cph > 0 else "--"
+    if _sm_proj and _sm_rng and ba_avg_cph > 0:
+        _sm_cph = _range_value(_sm_proj["cph"], _fmt_currency) or _sm_cph
+
     summary_metrics = [
         {
             "value": f"{proj_clicks:,}" if proj_clicks > 0 else "--",
             "label": "Projected Clicks",
             "accent": BLUE,
         },
-        {
-            "value": f"{int(proj_apps):,}" if proj_apps > 0 else "--",
-            "label": "Projected Applications",
-            "accent": TEAL,
-        },
-        {
-            "value": f"{int(projected_hires):,}" if projected_hires > 0 else "--",
-            "label": "Projected Hires",
-            "accent": GREEN,
-        },
-        {
-            "value": _fmt_currency(avg_cpa) if avg_cpa > 0 else "--",
-            "label": "Avg CPA",
-            "accent": JOVEO_PINK,
-        },
-        {
-            "value": _fmt_currency(ba_avg_cph) if ba_avg_cph > 0 else "--",
-            "label": "Avg Cost/Hire",
-            "accent": NAVY,
-        },
+        {"value": _sm_apps, "label": "Projected Applications", "accent": TEAL},
+        {"value": _sm_hires, "label": "Projected Hires", "accent": GREEN},
+        {"value": _sm_cpa, "label": "Avg CPA", "accent": JOVEO_PINK},
+        {"value": _sm_cph, "label": "Avg Cost/Hire", "accent": NAVY},
     ]
 
     for si, sm in enumerate(summary_metrics):
@@ -6972,7 +7061,9 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
             card_w,
             Inches(0.5),
             text=sm["value"],
-            font_size=26,
+            font_size=_fit_font_single_line(
+                str(sm["value"]), (card_w / 914400) - 0.2, start_pt=26, min_pt=14
+            ),
             bold=True,
             color=sm["accent"],
             alignment=PP_ALIGN.CENTER,
@@ -7490,6 +7581,12 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     # Projected Applications
     proj_apps = ba_total_proj.get("applications") or 0
     apps_display = f"{int(proj_apps):,}" if proj_apps and proj_apps > 0 else "--"
+    _ba_proj = _deck_projection(budget_alloc)
+    if _ba_proj and apps_display != "--":
+        apps_display = (
+            _range_value(_ba_proj["applications"], lambda v: f"{int(round(v)):,}")
+            or apps_display
+        )
 
     # Projected Hires -- S48: per-channel sum for consistency
     proj_hires = sum(
@@ -7498,6 +7595,12 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     if proj_hires == 0:
         proj_hires = ba_total_proj.get("hires") or 0
     hires_display = f"{int(proj_hires):,}" if proj_hires and proj_hires > 0 else "--"
+    _ba_rng = _hires_range(budget_alloc)
+    if _ba_rng and hires_display != "--":
+        hires_display = (
+            f"{min(_ba_rng[0], int(proj_hires)):,}\u2013"
+            f"{max(_ba_rng[1], int(proj_hires)):,}"
+        )
 
     hero_cards = [
         {"value": total_display, "label": "Total Investment", "accent": BLUE},
@@ -7568,6 +7671,21 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         bold=True,
         color=BLUE,
     )
+    if _ba_rng or (_ba_proj and _ba_proj["applications"]["low"] != _ba_proj["applications"]["high"]):
+        # the footed table below is the plan's channel split at the UPPER end
+        # of the ranges in the cards above -- say so beside the label
+        _add_textbox(
+            slide,
+            table_left + Inches(5.0),
+            table_top,
+            table_w - Inches(5.0),
+            Inches(0.3),
+            text="Channel rows split the upper end of the ranges above.",
+            font_size=9,
+            bold=False,
+            color=MUTED_TEXT,
+            alignment=PP_ALIGN.RIGHT,
+        )
 
     # C4 fix: ``display_channels`` (the FUNDED set, reconciled to 100%) was
     # already computed above via ``_funded_display_channels`` -- the same

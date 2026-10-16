@@ -125,8 +125,8 @@ class TestProjectedHiresKpi:
         tp = data["_budget_allocation"]["total_projected"]
         assert (tp["hires_low"], tp["hires"], tp["hires_high"]) == (23, 47, 47)
         s2 = prs.slides[1]
-        # headline unchanged for a US plan
-        assert _shape_with_text(s2, "47")
+        # the KPI value is the range (2026-10-16), never the lone optimistic end
+        assert _shape_with_text(s2, "23\u201347")
         sub = _sublabel(s2)
         assert sub is not None
         lines = [p.text for p in sub.text_frame.paragraphs]
