@@ -215,9 +215,6 @@
         "recruitment_marketing_only": "$2,795",
         "total_cost_per_hire_standard": "$6,000-$7,000",
         "total_cost_per_hire_specialized": "$12,000-$20,000",
-        "cost_per_screen": "$156",
-        "cost_per_interview": "$286",
-        "cost_per_offer": "$773",
         "external_recruiter_fee": "15-30% of first-year salary ($18,000-$36,000 for $120K role)"
       },
       "apply_rate": {
@@ -467,7 +464,7 @@
         "electricians_hvac": "$30-$50",
         "specialized_certifications": "$40-$65",
         "trend_yoy": "+10-15%",
-        "notes": "Among hardest-to-fill occupational categories. CPA above $15 but below $35 range for most roles (Appcast 2025)."
+        "notes": "Among hardest-to-fill occupational categories. CPA above $15 but below $35 range for most roles."
       },
       "cpc": {
         "range": "$0.40-$1.50",

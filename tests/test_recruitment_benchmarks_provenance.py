@@ -70,6 +70,23 @@ def test_appcast_attribution_only_on_apply_rates_in_healthcare_and_tech():
             assert "appcast" not in blob, (name, metric)
 
 
+def test_no_appcast_tag_on_any_cost_object():
+    """cpa / cpc / cph hold dollar figures; Appcast may only tag apply rates."""
+    for name, row in _ROWS.items():
+        for metric in ("cpa", "cpc", "cph"):
+            blob = json.dumps(row.get(metric, {})).lower()
+            assert "appcast" not in blob, (name, metric)
+
+
+def test_removed_unverified_cost_per_stage_figures():
+    for name in ("healthcare_medical", "technology_engineering"):
+        cph = _ROWS[name]["cph"]
+        for key in ("cost_per_screen", "cost_per_interview", "cost_per_offer"):
+            assert key not in cph, (name, key)
+    for banned in ("$156", "$286", "$773"):
+        assert banned not in _RAW, banned
+
+
 def test_nsi_figures_are_the_2026_edition():
     q = _ROWS["healthcare_medical"]["quality_of_hire"]
     assert q["first_year_rn_turnover"] == "22.7%"
@@ -97,7 +114,9 @@ def test_sources_list_is_corrected():
     sources = {s["name"]: s for s in _DATA["sources"]}
     appcast_2026 = next(s for n, s in sources.items() if n.startswith("Appcast 2026"))
     assert "2026-recruitment-marketing-benchmarks-report" in appcast_2026["url"]
-    rising = next(s for s in _DATA["sources"] if s.get("id") == "appcast_rising_cost_2026")
+    rising = next(
+        s for s in _DATA["sources"] if s.get("id") == "appcast_rising_cost_2026"
+    )
     assert rising["url"] == "https://www.appcast.io/the-rising-cost-of-recruiting"
     nsi = next(s for n, s in sources.items() if n.startswith("NSI"))
     assert nsi["publication_year"] == 2026
