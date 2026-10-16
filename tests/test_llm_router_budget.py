@@ -155,11 +155,95 @@ def test_starved_marker_expires(router) -> None:
 
 def test_time_slice_math(router) -> None:
     f = router._provider_time_slice
-    assert f(10.0, 1) == pytest.approx(5.0)  # half, one fallback left
-    assert f(10.0, 3) == pytest.approx(5.0)  # still half (50% cap)
-    assert f(2.0, 2) == pytest.approx(1.5)  # floor
-    assert f(1.0, 2) == pytest.approx(1.0)  # never above what is left
-    assert f(10.0, 0) == pytest.approx(10.0)  # last provider gets it all
+    assert f(10.0, 1, 10.0) == pytest.approx(5.0)  # half, one fallback left
+    assert f(10.0, 3, 10.0) == pytest.approx(5.0)  # still half (50% cap)
+    assert f(2.0, 2, 10.0) == pytest.approx(1.5)  # floor
+    assert f(1.0, 2, 10.0) == pytest.approx(1.0)  # never above what is left
+    assert f(10.0, 0, 10.0) == pytest.approx(10.0)  # last provider gets it all
+
+
+def test_slice_only_applies_to_short_budgets(router) -> None:
+    f = router._provider_time_slice
+    cap = router._SHORT_BUDGET_MAX_S
+    assert cap == pytest.approx(12.0)
+    assert f(cap, 2, cap) == pytest.approx(cap / 2)  # at the threshold: sliced
+    assert f(35.0, 2, 35.0) == pytest.approx(35.0)  # default budget: old behaviour
+    assert f(20.0, 2, 20.0) == pytest.approx(20.0)  # nova 20s: old behaviour
+    assert f(cap + 0.1, 2, cap + 0.1) == pytest.approx(cap + 0.1)  # just above
+
+
+def _first_timeout(router, budget: float) -> float:
+    seen: List[float] = []
+
+    def fake_single(
+        provider_id, *args, timeout_override=None, **kwargs
+    ):  # noqa: ANN001
+        seen.append(timeout_override)
+        return {"text": "", "provider": provider_id, "error": "boom"}
+
+    with mock.patch.object(router, "_call_single_provider", side_effect=fake_single):
+        router.call_llm(
+            _MSG,
+            max_tokens=300,
+            task_type=router.TASK_PLAN_STRUCTURED,
+            use_cache=False,
+            timeout_budget=budget,
+        )
+    return seen[0]
+
+
+def test_long_budget_first_provider_keeps_whole_remainder(router) -> None:
+    assert _first_timeout(router, 35.0) > 34.0
+    assert _first_timeout(router, 20.0) > 19.0
+
+
+def test_unavailable_fallbacks_do_not_shrink_the_primary_slice(router) -> None:
+    """Primary + one circuit-open fallback: nothing can take over, so the
+    primary must get the full remaining budget, not half."""
+    seen: List[float] = []
+
+    def fake_single(
+        provider_id, *args, timeout_override=None, **kwargs
+    ):  # noqa: ANN001
+        seen.append(timeout_override)
+        return {"text": "ok", "provider": provider_id, "latency_ms": 5}
+
+    # Only DEEPSEEK + the two Gemini tiers (one shared key) are keyed; open
+    # both Gemini circuits so no usable fallback remains.
+    for pid in (router.GEMINI, router.GEMINI_FLASH_LITE):
+        router._provider_states[pid].circuit_open_until = time.time() + 600
+    with mock.patch.object(router, "_call_single_provider", side_effect=fake_single):
+        res = router.call_llm(
+            _MSG,
+            max_tokens=300,
+            task_type=router.TASK_PLAN_STRUCTURED,
+            preferred_providers=[router.DEEPSEEK, router.GEMINI],
+            use_cache=False,
+            timeout_budget=10.0,
+        )
+    assert res["provider"] == router.DEEPSEEK
+    assert seen[0] > 9.0, seen  # full remainder (gemini keyed but circuit-open)
+
+
+def test_usable_fallback_still_halves_the_primary_slice(router) -> None:
+    seen: List[float] = []
+
+    def fake_single(
+        provider_id, *args, timeout_override=None, **kwargs
+    ):  # noqa: ANN001
+        seen.append(timeout_override)
+        return {"text": "", "provider": provider_id, "error": "boom"}
+
+    with mock.patch.object(router, "_call_single_provider", side_effect=fake_single):
+        router.call_llm(
+            _MSG,
+            max_tokens=300,
+            task_type=router.TASK_PLAN_STRUCTURED,
+            preferred_providers=[router.DEEPSEEK, router.GEMINI],
+            use_cache=False,
+            timeout_budget=10.0,
+        )
+    assert seen[0] <= 5.05, seen
 
 
 def test_first_provider_gets_half_the_remaining_budget(router) -> None:
@@ -180,7 +264,7 @@ def test_first_provider_gets_half_the_remaining_budget(router) -> None:
             timeout_budget=10.0,
         )
     assert len(seen) >= 2, seen
-    assert seen[0] <= 5.0 + 0.05, seen  # not the whole 10 s
+    assert seen[0] <= 5.0 + 0.05, seen  # not the whole 10 s (short budget)
     assert seen[0] >= 1.5
 
 
@@ -234,6 +318,21 @@ def test_copilot_suggest_uses_deepseek_fast_model(router) -> None:
         router.DEEPSEEK, _MSG, "", 300, task_type="copilot_suggest"
     )
     assert json.loads(body)["model"] == "deepseek-v4-flash"
+
+
+def test_deepseek_fast_tier_requests_disable_thinking(router) -> None:
+    """Thinking is DeepSeek V4's default mode, flash included
+    (api-docs.deepseek.com/guides/thinking_mode/): every fast-tier call must
+    carry thinking.type=disabled, others must not."""
+    for task in ("copilot_suggest", router.TASK_PLAN_NARRATIVE, router.TASK_NARRATIVE):
+        _u, _h, body = router._build_openai_request(
+            router.DEEPSEEK, _MSG, "", 300, task_type=task
+        )
+        assert json.loads(body)["thinking"] == {"type": "disabled"}, task
+    _u, _h, body = router._build_openai_request(
+        router.DEEPSEEK, _MSG, "", 300, task_type=router.TASK_PLAN_STRUCTURED
+    )
+    assert "thinking" not in json.loads(body)
 
 
 def test_brief_suggestion_uses_copilot_suggest_task(monkeypatch) -> None:

@@ -206,7 +206,8 @@ DEEPSEEK = "deepseek"
 # Override the fast model via DEEPSEEK_MODEL_FAST env if the catalog changes.
 # 2026-10-17: TASK_COPILOT_SUGGEST joins. On deepseek-v4-pro a 300-token cap is
 # consumed by reasoning (prod 2026-10-16: out=300, stop_reason=length, no text,
-# ~6s); the non-reasoning flash tier answers inside the cap.
+# ~6s); the flash model with thinking disabled (see _build_openai_request)
+# answers inside the cap.
 DEEPSEEK_FAST_TASK_TYPES = frozenset(
     {TASK_PLAN_NARRATIVE, TASK_NARRATIVE, TASK_COPILOT_SUGGEST}
 )
@@ -236,6 +237,12 @@ _MIN_REMAINING_BUDGET = 5.0  # don't start a new attempt with < 5s left
 # remaining budget, but never less than _MIN_PROVIDER_SLICE seconds.
 _PROVIDER_SLICE_FRACTION = 0.5
 _MIN_PROVIDER_SLICE = 1.5
+# The slice (and the scaled stop-early floor) only apply to SHORT interactive
+# budgets: copilot suggestions use 10s. Long-output tasks (35s default, 55s
+# tools, 15-25s compliance/nova/narrative) keep the pre-2026-10-17 behaviour
+# -- the first provider gets the whole remainder -- because there is no p95
+# evidence that halving their timeout is safe for slow-but-healthy providers.
+_SHORT_BUDGET_MAX_S = 12.0
 # A provider that returned stop_reason=length with NO text (reasoning/thinking
 # consumed max_tokens) is skipped for that task type for this long.
 _CAP_STARVED_TTL_S = 30 * 60.0
@@ -279,10 +286,14 @@ def _is_cap_starved(provider_id: str, task_type: str, max_tokens: int) -> bool:
     return max_tokens <= starved_cap
 
 
-def _provider_time_slice(remaining: float, fallbacks_left: int) -> float:
-    """Timeout for one provider call: the whole remainder if it is the last
-    option, else ~half of it (floor _MIN_PROVIDER_SLICE, never above remaining)."""
-    if fallbacks_left <= 0:
+def _provider_time_slice(
+    remaining: float, fallbacks_left: int, task_budget: float
+) -> float:
+    """Timeout for one provider call. Only short budgets (<= _SHORT_BUDGET_MAX_S)
+    are sliced: with a usable fallback left the provider gets ~half of the
+    remainder (floor _MIN_PROVIDER_SLICE, never above remaining); otherwise,
+    or for long budgets, it gets all of it."""
+    if fallbacks_left <= 0 or task_budget > _SHORT_BUDGET_MAX_S:
         return remaining
     return min(
         remaining, max(_MIN_PROVIDER_SLICE, remaining * _PROVIDER_SLICE_FRACTION)
@@ -3034,6 +3045,17 @@ def _build_openai_request(
         "temperature": 0.7,
     }
 
+    # 2026-10-17: thinking mode is the DEFAULT for the whole DeepSeek V4 family,
+    # flash included, so choosing the flash model alone does not stop
+    # reasoning from eating max_tokens (prod 2026-10-16: out=300,
+    # finish_reason=length, no text). Short-output fast-tier tasks switch it
+    # off with the top-level body field `thinking: {"type": "disabled"}`
+    # (OpenAI-format toggle; the OpenAI SDK sends it via extra_body):
+    # https://api-docs.deepseek.com/guides/thinking_mode/ ("Thinking mode is
+    # enabled by default"). This also covers the pre-existing narrative fast tier.
+    if provider_id == DEEPSEEK and task_type in DEEPSEEK_FAST_TASK_TYPES:
+        payload["thinking"] = {"type": "disabled"}
+
     # Add tools to payload if provided (convert Anthropic -> OpenAI format)
     if tools:
         openai_tools = _convert_tools_anthropic_to_openai(tools)
@@ -3678,6 +3700,37 @@ def call_llm(
             _llm_active_calls -= 1
 
 
+def _provider_is_usable(pid: str, priority: str = RequestPriority.MEDIUM) -> bool:
+    """Would the selection loop in ``_call_llm_inner`` consider ``pid`` right now?
+
+    The union of the checks ``select_provider`` and the custom-route branch
+    apply (API key, rate window, shared OpenRouter key, HIGH-priority 80%
+    guard, circuit mesh, ``state.is_available()``), so counting fallbacks with
+    it can only under-count -- the safe direction for a time slice.
+    """
+    config = PROVIDER_CONFIG.get(pid) or {}
+    env_key = config.get("env_key") or ""
+    if not env_key or not os.environ.get(env_key, "").strip():
+        return False
+    state = _provider_states.get(pid)
+    if state is None:
+        return False
+    if _rate_tracker.is_rate_limited(pid):
+        return False
+    if pid.startswith("openrouter") and (
+        _rate_tracker.is_rate_limited("openrouter")
+        or _rate_tracker.is_rate_limited("_openrouter_combined")
+    ):
+        return False
+    if priority == RequestPriority.HIGH:
+        limits = _RATE_LIMITS.get(pid)
+        if limits and _rate_tracker.get_counts().get(pid, 0) > limits["rpm"] * 0.8:
+            return False
+    if _circuit_mesh is not None and not _circuit_mesh.can_use(pid):
+        return False
+    return state.is_available()
+
+
 def _call_llm_inner(
     messages: List[Dict],
     system_prompt: str,
@@ -3741,9 +3794,11 @@ def _call_llm_inner(
     max_attempts = len(PROVIDER_CONFIG)
     # Short budgets (copilot: 10s) must still be able to start a fallback:
     # the fixed 5s floor refused to once a first provider burned >5s.
-    _min_remaining = min(
-        _MIN_REMAINING_BUDGET, max(_MIN_PROVIDER_SLICE, _effective_budget * 0.2)
-    )
+    _min_remaining = _MIN_REMAINING_BUDGET
+    if _effective_budget <= _SHORT_BUDGET_MAX_S:
+        _min_remaining = min(
+            _MIN_REMAINING_BUDGET, max(_MIN_PROVIDER_SLICE, _effective_budget * 0.2)
+        )
     _route = custom_route or TASK_ROUTING.get(
         task_type, TASK_ROUTING[TASK_CONVERSATIONAL]
     )
@@ -3836,15 +3891,12 @@ def _call_llm_inner(
 
         # Time slice: with a fallback still configured, this provider gets
         # about half the remaining budget, not all of it.
-        _fallbacks_left = len(
-            {
-                pid
-                for pid in _route
-                if pid != provider
-                and pid not in excluded
-                and (PROVIDER_CONFIG.get(pid, {}).get("env_key") or "")
-                and os.environ.get(PROVIDER_CONFIG[pid]["env_key"], "").strip()
-            }
+        _fallbacks_left = sum(
+            1
+            for pid in set(_route)
+            if pid != provider
+            and pid not in excluded
+            and _provider_is_usable(pid, priority)
         )
         result = _call_single_provider(
             provider,
@@ -3852,7 +3904,9 @@ def _call_llm_inner(
             system_prompt,
             max_tokens,
             tools,
-            timeout_override=_provider_time_slice(remaining, _fallbacks_left),
+            timeout_override=_provider_time_slice(
+                remaining, _fallbacks_left, _effective_budget
+            ),
             task_type=task_type,
         )
         # 2026-10-16: text or tool_calls only -- a thinking-only reply (empty
