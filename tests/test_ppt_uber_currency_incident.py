@@ -325,7 +325,11 @@ class TestBenchmarkProvenanceFlags:
         assert bm.get("cph_is_usd_benchmark") is False, bm
 
     def test_slide5_benchmark_table_marks_all_three_rows_us_dollar(self):
+        # A plan with no US market no longer prints the US industry CPA/CPC
+        # rows at all (its own market range or "No local benchmark"); the
+        # US$ marking is exercised on a GBP plan that also targets a US city.
         data = _gbp_uber_plan()
+        data["locations"] = ["United Kingdom", "Boston, MA"]
         ppt._set_active_currency(data)
         prs = Presentation()
         prs.slide_width = ppt.SLIDE_WIDTH

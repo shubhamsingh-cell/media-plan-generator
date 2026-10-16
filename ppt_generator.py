@@ -42,6 +42,8 @@ except ImportError:  # pragma: no cover - plan_currency ships with the repo
 
 import geo_market as _geo_market
 import plan_geo as _plan_geo
+import publisher_filter as _pubfilter
+import intl_benchmark_lookup as _intl_lookup
 import display_format as _fmt
 import company_blurb
 import competitor_claims
@@ -3234,17 +3236,42 @@ def _get_benchmarks(industry: str, data: Optional[Dict] = None) -> Dict[str, str
     return result
 
 
-def _get_complications(industry: str) -> List[str]:
-    """Return complication bullets for the industry, with apply rate framed correctly."""
-    base = COMPLICATIONS.get(
-        industry,
-        [
-            "Talent acquisition costs rising across sectors",
-            "Competition for qualified candidates intensifying",
-            "Traditional sourcing channels showing diminishing returns",
-            "Time-to-fill expanding, impacting operational capacity",
-        ],
-    )
+_GENERIC_COMPLICATIONS: List[str] = [
+    "Talent acquisition costs rising across sectors",
+    "Competition for qualified candidates intensifying",
+    "Traditional sourcing channels showing diminishing returns",
+    "Time-to-fill expanding, impacting operational capacity",
+]
+
+# A complication bullet that quotes a figure, or names a US licence / body /
+# statute, describes the US market. COMPLICATIONS is a US-calibrated table, so
+# a plan with no US market keeps only the qualitative bullets (no digit, no US
+# term) and tops up from the generic list.
+_US_BULLET_RE = re.compile(
+    r"\d|[$%]|\b(CDL|DOT|HIPAA|Medicare|Medicaid|NSI|FMLA|OSHA|US|U\.S\.|"
+    r"American|federal|nationally)\b",
+    re.IGNORECASE,
+)
+
+
+def _market_neutral_complications(base: List[str]) -> List[str]:
+    kept = [b for b in base if not _US_BULLET_RE.search(str(b))]
+    for generic in _GENERIC_COMPLICATIONS:
+        if len(kept) >= 3:
+            break
+        if generic not in kept:
+            kept.append(generic)
+    return kept
+
+
+def _get_complications(industry: str, data: Optional[Dict] = None) -> List[str]:
+    """Return complication bullets for the industry, with apply rate framed correctly.
+
+    With ``data``, a plan with no US market gets only market-neutral bullets
+    (the table's CDL / US$ CPA / US store-closure facts are US-only content)."""
+    base = COMPLICATIONS.get(industry, list(_GENERIC_COMPLICATIONS))
+    if data is not None and not _pubfilter.plan_has_us_market(data):
+        base = _market_neutral_complications(base)
 
     # Get the apply rate for this industry and frame appropriately
     benchmarks = BENCHMARKS.get(industry, BENCHMARKS.get("general_entry_level", {}))
@@ -5061,6 +5088,12 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         if _ar_suffix:
             sit_items.append(("Apply Rate", f"{apply_rate_str} {_ar_suffix}"))
 
+    # Client board exclusions are disclosed here and on the Executive Summary
+    # sheet (permanent availability exclusions are never disclosed).
+    _excluded_names = _pubfilter.user_excluded(data)
+    if _excluded_names:
+        sit_items.append(("Excluded at client request", ", ".join(_excluded_names)))
+
     box2, tf2 = _add_textbox(slide, sit_left, body_top, sit_w, col_height - Inches(0.5))
     tf2.paragraphs[0].space_before = Pt(0)
     tf2.paragraphs[0].space_after = Pt(0)
@@ -5109,7 +5142,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         color=BLUE,
     )
 
-    complications = _get_complications(industry)
+    complications = _get_complications(industry, data)
     box3, tf3 = _add_textbox(
         slide, comp_left, body_top, comp_w, col_height - Inches(0.5)
     )
@@ -6155,6 +6188,28 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     else:
         _cph_val = benchmarks["cph"]
         _cph_is_usd_benchmark = benchmarks.get("cph_is_usd_benchmark", True)
+
+    # The industry CPA / CPC above are US-calibrated figures: on a plan with no
+    # US market they are replaced by the plan market's own CPA range for the
+    # industry (intl benchmark dataset) or by "No local benchmark" -- never a
+    # US number as this market's benchmark.
+    if not _pubfilter.plan_has_us_market(data):
+        _local_cpa = _intl_lookup.get_plan_local_cpa_range(data)
+        if _local_cpa:
+            cpa_val = _intl_lookup.format_usd_range(
+                _local_cpa["low_usd"], _local_cpa["high_usd"]
+            )
+            _cpa_label = f"Industry CPA ({_local_cpa['country']})"
+        else:
+            cpa_val = "No local benchmark"
+        cpc_val = "No local benchmark"
+        benchmarks = {
+            **benchmarks,
+            "cpa_is_usd_benchmark": False,
+            "cpc_is_usd_benchmark": False,
+            "cpa_is_generic_platform_range": False,
+            "cpc_is_generic_platform_range": False,
+        }
 
     if not _is_usd_plan:
         if benchmarks.get("cpa_is_usd_benchmark", True):
@@ -8212,7 +8267,18 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         else:
             cpa_low = cpa_high = 25.0
 
-        if proj_cpa and proj_cpa > 0:
+        _local_cpa_s8 = None
+        _no_us_s8 = not _pubfilter.plan_has_us_market(data)
+        if _no_us_s8:
+            # No US market: the industry CPA row compares against this
+            # market's own range, or is left out entirely.
+            _local_cpa_s8 = _intl_lookup.get_plan_local_cpa_range(data)
+            if _local_cpa_s8:
+                cpa_low = _local_cpa_s8["low_usd"]
+                cpa_high = _local_cpa_s8["high_usd"]
+                cpa_str = _intl_lookup.format_usd_range(cpa_low, cpa_high)
+                bench = {**bench, "cpa_is_usd_benchmark": True}
+        if proj_cpa and proj_cpa > 0 and not (_no_us_s8 and not _local_cpa_s8):
             # S3: cpa_str may still be a fixed US-benchmark constant (bare $)
             # while client_val is already in the plan's local currency -- never
             # show them side-by-side with no marker. Mark the industry-side
@@ -9750,7 +9816,9 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
             )
             trend_items.extend(
                 _insight.role_requirements_callout(
-                    str(data.get("industry") or ""), roles
+                    str(data.get("industry") or ""),
+                    roles,
+                    us_market=_pubfilter.plan_has_us_market(data),
                 )
             )
             if _cl_first_loc:
@@ -11097,6 +11165,16 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
     # below, and never moves the cards ABOVE the old y=2.0 starting point.
     _avail_top_in = 2.0
     _avail_bottom_in = 6.95  # footer rule sits at 7.12in
+    # Named local boards for the plan's non-US markets (client exclusions,
+    # availability and renames already applied): a band under the cards, so the
+    # deck names real publishers, not just channel categories.
+    _local_boards = _pubfilter.plan_market_boards(data)
+    _band_h_in = 0.0
+    if _local_boards:
+        _band_h_in = 0.4 + 0.27 * len(_local_boards)
+        if any(g["unverified"] for g in _local_boards):
+            _band_h_in += 0.25
+        _avail_bottom_in -= _band_h_in
     _avail_h_in = _avail_bottom_in - _avail_top_in
     # Never exceed the old fixed 4.6in max, and always leave a little slack
     # before the footer even on the (already-clamped) 4.95in envelope.
@@ -11285,6 +11363,46 @@ def _build_slide_push_meets_pull(prs: Presentation, data: Dict, deck: Dict) -> N
                 color=pill_color,
             )
             _set_body_font(_stf)
+
+    if _local_boards:
+        _band_top_in = card_top_in + card_h_in + 0.22
+        _add_textbox(
+            slide,
+            Inches(0.55),
+            Inches(_band_top_in),
+            Inches(12.2),
+            Inches(0.3),
+            text="LOCAL BOARDS IN THIS PLAN'S MARKETS",
+            font_size=9,
+            bold=True,
+            color=TEAL_DEEP,
+        )
+        _line_top_in = _band_top_in + 0.3
+        for _grp in _local_boards:
+            _bx, _btf = _add_textbox(
+                slide,
+                Inches(0.55),
+                Inches(_line_top_in),
+                Inches(12.2),
+                Inches(0.27),
+                text=f"{_grp['country']}:  " + ", ".join(_grp["boards"]),
+                font_size=10,
+                color=DARK_TEXT,
+            )
+            _set_body_font(_btf)
+            _line_top_in += 0.27
+        if any(g["unverified"] for g in _local_boards):
+            _nx, _ntf = _add_textbox(
+                slide,
+                Inches(0.55),
+                Inches(_line_top_in + 0.02),
+                Inches(12.2),
+                Inches(0.24),
+                text=_pubfilter.RELATIONSHIP_NOTE,
+                font_size=8,
+                color=MUTED_TEXT,
+            )
+            _set_body_font(_ntf)
 
     _add_footer(slide, today)
 

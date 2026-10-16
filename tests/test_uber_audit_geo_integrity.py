@@ -307,9 +307,18 @@ def test_fix5_competitor_count_matches_rendered_fallback_table():
             }
         }
     )
+    # A static US roster is only a fallback for a plan with a US market: the
+    # count must match the rows rendered for each case.
     text = _sheet_text(_build_market_intel_ws(data))
-    assert "Competitor Count: 0" not in text
-    assert "Competitor Count: 5" in text
+    assert "Competitor Count: 5" not in text  # non-US: no inferred US roster
+    assert "Competitor Count: 0" in text
+    us_data = _non_us_uber_data(
+        locations=["New York, NY", "Chicago, IL"],
+        _synthesized=data["_synthesized"],
+    )
+    us_text = _sheet_text(_build_market_intel_ws(us_data))
+    assert "Competitor Count: 0" not in us_text
+    assert "Competitor Count: 5" in us_text
 
 
 def test_fix5_competitor_count_matches_when_no_fallback_rows_either():
@@ -343,8 +352,11 @@ def test_fix6_niche_channels_note_no_false_absence_claim_and_surfaces_real_board
     data = _non_us_uber_data()
     text = _sheet_text(_build_channels_ws(data))
     assert "was not available for this campaign" not in text
-    for platform in ["Indeed UK", "Seek", "OCC Mundial", "Bumeran", "Trade Me Jobs"]:
+    for platform in ["Indeed UK", "Seek", "Computrabajo", "Bumeran", "Trade Me Jobs"]:
         assert platform in text, f"expected local platform {platform!r} missing"
+    # OCC Mundial (Mexico) is not available through Joveo
+    # (data/publisher_availability.json): never listed, never disclosed.
+    assert "OCC Mundial" not in text
 
 
 def test_fix6_us_plan_niche_channels_unaffected():

@@ -82,6 +82,7 @@ except ImportError:  # pragma: no cover - plan_currency ships with the repo
 
 import geo_market
 import plan_geo
+import publisher_filter
 import company_blurb
 import competitor_claims
 import display_format
@@ -6041,6 +6042,13 @@ def _build_sheet_executive_summary(
     row = card_row + 6  # 2 rows of cards * 3 height each
     row += 1  # gap
 
+    # Client board exclusions are disclosed once, here and on deck slide 2
+    # (permanent availability exclusions are never disclosed).
+    _excl_line = publisher_filter.disclosure_line(data)
+    if _excl_line:
+        row = _write_footnote(ws, row, _excl_line)
+        row += 1
+
     # Work-model correction note (gold_standard.effective_work_model): a
     # stated "Remote" model gets flagged when the plan's roles are
     # inherently site-based (care, culinary, logistics, etc.).
@@ -6105,6 +6113,8 @@ def _build_sheet_executive_summary(
         ]
         for key, val in display_fields:
             val_str = _flatten_value(val) if val else ""
+            if val_str:
+                val_str = publisher_filter.scrub_text(val_str, data)
             if val_str:
                 row = _write_kv_row(ws, row, key, val_str)
         row += 1
@@ -6672,8 +6682,35 @@ def _build_sheet_executive_summary(
                 # shows too.
                 _cph_disp = _plan_industry_cph_display(budget_alloc)
                 _cph_row_written = False
+                # The KB's industry CPA / CPC are US figures: on a plan with
+                # no US market they are replaced by the plan market's own
+                # range (when the dataset has one) or left out -- never a
+                # US number as this market's benchmark.
+                _no_us_market = not publisher_filter.plan_has_us_market(data)
+                _local_cpa = (
+                    intl_benchmark_lookup.get_plan_local_cpa_range(data)
+                    if _no_us_market
+                    else None
+                )
+                _omitted_us_bench = False
                 for key, val in ind_bench.items():
                     if key not in ("regional", "by_region", "metadata"):
+                        if _no_us_market and key in ("cpa", "cpc"):
+                            if key == "cpa" and _local_cpa:
+                                _lo, _hi = _local_cpa["low_usd"], _local_cpa["high_usd"]
+                                _txt = intl_benchmark_lookup.format_usd_range(_lo, _hi)
+                                if _local_cpa.get("median_usd"):
+                                    _med = _local_cpa["median_usd"]
+                                    _txt += f"; Median: US${_med:,.{2 if _hi < 10 else 0}f}"
+                                row = _write_kv_row(
+                                    ws,
+                                    row,
+                                    f"CPA - {_local_cpa['country']} (USD)",
+                                    _txt,
+                                )
+                            else:
+                                _omitted_us_bench = True
+                            continue
                         if (
                             key == "cph"
                             and _cph_disp is not None
@@ -6723,6 +6760,9 @@ def _build_sheet_executive_summary(
                                     roles,
                                 )
                             )
+                        # A KB note that recommends an excluded / unavailable
+                        # board is dropped from the row.
+                        val_str = publisher_filter.scrub_text(val_str, data)
                         if val_str:
                             _bm_label = _humanize_snake_key(key)
                             # These are US-calibrated KB constants, not this
@@ -6746,6 +6786,14 @@ def _build_sheet_executive_summary(
                     # no entry at all): still print the plan's figure so the
                     # workbook states what slide 5 states.
                     row = _write_kv_row(ws, row, _cph_disp["label"], _cph_disp["text"])
+                if _omitted_us_bench:
+                    row = _write_kv_row(
+                        ws,
+                        row,
+                        "Industry CPA / CPC",
+                        "No local benchmark for this market (the knowledge base's "
+                        "industry CPA/CPC are US figures and are not shown).",
+                    )
 
             # S89A FIX (findings data:manpower#3/#4, visual:manpower#3,
             # strategy:manpower#3): when this plan's own blended CPA/apply
@@ -7313,7 +7361,9 @@ def _build_sheet_executive_summary(
     # a safety/compliance callout is exactly the kind of item that must
     # never get silently truncated off the end of a longer recommendations
     # list.
-    _role_callouts = insight_composer.role_requirements_callout(industry, roles)
+    _role_callouts = insight_composer.role_requirements_callout(
+        industry, roles, us_market=publisher_filter.plan_has_us_market(data)
+    )
     all_recommendations = _role_callouts + all_recommendations
 
     if all_recommendations or warnings:
@@ -7923,10 +7973,13 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
     # board data we don't have.
     # A plan whose user unticked Niche Boards gets no niche section at all.
     _niche_selected = _niche_boards_selected(data)
-    niche_channels = (
-        _industry_niche_boards_for_roles(industry, roles)
-        if _niche_selected and _is_us_plan(data)
-        else []
+    niche_channels = publisher_filter.clean_names(
+        (
+            _industry_niche_boards_for_roles(industry, roles)
+            if _niche_selected and _is_us_plan(data)
+            else []
+        ),
+        data,
     )
 
     if niche_channels:
@@ -7969,6 +8022,12 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                     for p in _plats
                     if isinstance(p, dict) and p.get("name")
                 ]
+                # Client exclusions, unavailable / folded boards and sourced
+                # renames are applied BEFORE the top-4 cut, so an excluded
+                # board is replaced by the next one, not left as a gap.
+                _plat_names = publisher_filter.clean_names(
+                    _plat_names, data, _loc_info.get("country")
+                )
                 if _plat_names:
                     _local_board_rows.append(
                         (_loc, _loc_info.get("country") or _loc, _plat_names[:4])
@@ -7992,9 +8051,16 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             )
             headers = ["Location", "Country", "Local Job Boards"]
             row = _write_table_header(ws, row, headers)
+            _any_unverified = False
             for idx, (_loc, _country, _plat_names) in enumerate(_local_board_rows):
-                values = [_loc, _country, ", ".join(_plat_names)]
+                _marked, _flag = publisher_filter.annotate(_plat_names, _country)
+                _any_unverified = _any_unverified or _flag
+                values = [_loc, _country, ", ".join(_marked)]
                 row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
+            if _any_unverified:
+                row = _write_kv_row(
+                    ws, row, "Note", publisher_filter.RELATIONSHIP_NOTE
+                )
         else:
             # Genuine last resort (no research module available at all) --
             # never claim the data doesn't exist, just point at where it is.
@@ -8845,6 +8911,10 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 if _fb_key in _ind_lower or _ind_lower in _fb_key:
                     fallback_names = _fb_list
                     break
+        if fallback_names and not publisher_filter.plan_has_us_market(data):
+            # A static US-employer roster is never a non-US market's
+            # competitor set (FedEx / UPS / XPO for Ho Chi Minh City).
+            fallback_names = []
         if fallback_names:
             _comp_from_static_fallback = True
             # uber_shipped_2026_07_23 fix: this list is a static per-industry
@@ -9444,6 +9514,9 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 
         def _wf_text(v: Any) -> str:
             s = _flatten_value(v)
+            # Clauses that profile an excluded / unavailable / out-of-market
+            # board (e.g. "Indeed: Market Position ...") leave the cell.
+            s = publisher_filter.scrub_text(s, data) if s else s
             return _mark_usd(s) if _wf_non_usd and s else s
 
         # DEFECT B FIX (2026-09-24): every figure under workforce_insights
@@ -12510,7 +12583,9 @@ def _build_sheet_quality_intelligence(
             row += 1
 
             # Traditional channels
-            trad_channels: list = channel_strategy.get("traditional_channels") or []
+            trad_channels: list = publisher_filter.clean_items(
+                channel_strategy.get("traditional_channels") or [], data
+            )
             if trad_channels:
                 row = _write_table_header(
                     ws,
@@ -12533,8 +12608,8 @@ def _build_sheet_quality_intelligence(
                 row += 1
 
             # Non-traditional channels
-            nontrad_channels: list = (
-                channel_strategy.get("non_traditional_channels") or []
+            nontrad_channels: list = publisher_filter.clean_items(
+                channel_strategy.get("non_traditional_channels") or [], data
             )
             if nontrad_channels:
                 row = _write_table_header(
@@ -13964,12 +14039,41 @@ _CATEGORY_TO_PLATFORM: Dict[str, str] = {
 }
 
 
-def _recommended_platform_for_channel(channel_name: str) -> str:
-    """Suggest a representative ad platform for a budget_engine channel category."""
-    return _CATEGORY_TO_PLATFORM.get(
-        _roi_category_for_channel(channel_name),
-        "Best-fit platform for this channel",
-    )
+# Next boards to buy through when a category's representative platform is
+# excluded by the client (or unavailable): the category keeps its budget and
+# moves to the first allowed candidate; the last entry is a generic fallback
+# that names no board.
+_CATEGORY_PLATFORM_CANDIDATES: Dict[str, Tuple[str, ...]] = {
+    "job_board": (
+        "Indeed Sponsored Jobs",
+        "LinkedIn Jobs",
+        "Glassdoor",
+        "Remaining global job boards",
+    ),
+    "search": ("Google / Bing Ads (SEM)",),
+    "programmatic": ("Programmatic Display (DSP)",),
+}
+
+
+def _recommended_platform_for_channel(channel_name: str, data: Any = None) -> str:
+    """Suggest a representative ad platform for a budget_engine channel category.
+
+    With ``data``, a representative platform the client excluded (or that is
+    unavailable in the plan's market) is replaced by the next allowed
+    candidate for that category -- the channel keeps its budget."""
+    category = _roi_category_for_channel(channel_name)
+    default = _CATEGORY_TO_PLATFORM.get(category, "Best-fit platform for this channel")
+    if data is None:
+        return default
+    candidates = _CATEGORY_PLATFORM_CANDIDATES.get(category) or (default,)
+    countries = publisher_filter.plan_countries(data)
+    country = countries[0] if len(countries) == 1 else None
+    if publisher_filter.is_excluded(default, data, country) or not (
+        publisher_filter.platform_runs_in(default, country)
+    ):
+        chosen = publisher_filter.next_allowed(candidates, data, country)
+        return str(chosen or "Best-fit allowed platform for this channel")
+    return default
 
 
 def _build_sheet_channel_recommendations(ws, data: dict) -> None:
@@ -14191,12 +14295,12 @@ def _build_sheet_channel_recommendations(ws, data: dict) -> None:
             # single-sourced confidence tier -- see _derive_channel_confidence.
             _conf = _derive_channel_confidence(data, ch)
             _rationale = (
-                f"Buy via {_recommended_platform_for_channel(name)}. "
+                f"Buy via {_recommended_platform_for_channel(name, data)}. "
                 f"{_pct:.1f}% of budget; part of the plan's core channel mix."
             )
             values = [
                 _display,
-                _recommended_platform_for_channel(name),
+                _recommended_platform_for_channel(name, data),
                 _pct / 100.0,
                 _dollars,
                 _cpc,
@@ -14417,6 +14521,13 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     role_matches = (
         _match_roles_to_niche_boards(roles, industry=industry) if _is_us else {}
     )
+    # Client-excluded / unavailable boards leave every role's list.
+    role_matches = {
+        _role: _kept
+        for _role, _boards in role_matches.items()
+        for _kept in [publisher_filter.clean_items(_boards, data)]
+        if _kept
+    }
 
     if role_matches:
         row = _write_subsection_header(ws, row, "Role-Specific Specialty Boards")
@@ -14458,8 +14569,8 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
         row += 1
 
     # ── Industry-Based Matches ──
-    industry_boards = (
-        _industry_niche_boards_for_roles(industry, roles) if _is_us else []
+    industry_boards = publisher_filter.clean_names(
+        _industry_niche_boards_for_roles(industry, roles) if _is_us else [], data
     )
     if industry_boards:
         row = _write_subsection_header(ws, row, "Industry-Specific Boards")
@@ -14496,7 +14607,9 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
             # in that dataset (e.g. Spain -- see finding #8).
             _market_boards: List[str] = []
             for _sig in _signals:
-                for _name in intl_benchmark_lookup.get_market_platform_names(_sig):
+                for _name in publisher_filter.clean_names(
+                    intl_benchmark_lookup.get_market_platform_names(_sig), data, _sig
+                ):
                     if _name not in _market_boards:
                         _market_boards.append(_name)
                 if len(_market_boards) >= 3:
@@ -14514,6 +14627,10 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
                     "with targeted ad copy and audience filters.",
                 )
             else:
+                _generic_boards = ", ".join(
+                    publisher_filter.clean_names(["LinkedIn", "Indeed"], data)
+                )
+                _generic_eg = f" (e.g. {_generic_boards})" if _generic_boards else ""
                 row = _write_kv_row(
                     ws,
                     row,
@@ -14521,16 +14638,20 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
                     "US-domiciled specialty job boards are not shown because this "
                     f"plan targets a non-US market{_signal_txt} and no local "
                     "niche-board data was available for this campaign. Consider "
-                    "general-purpose boards available in-market (e.g. LinkedIn, "
-                    "Indeed) with targeted ad copy and audience filters.",
+                    f"general-purpose boards available in-market{_generic_eg} "
+                    "with targeted ad copy and audience filters.",
                 )
         else:
+            _generic_us = ", ".join(
+                publisher_filter.clean_names(["Indeed", "LinkedIn", "ZipRecruiter"], data)
+            )
+            _generic_us_txt = f" ({_generic_us})" if _generic_us else ""
             row = _write_kv_row(
                 ws,
                 row,
                 "Status",
                 "No specialty board matches found for the specified roles. "
-                "Consider general-purpose boards (Indeed, LinkedIn, ZipRecruiter) "
+                f"Consider general-purpose boards{_generic_us_txt} "
                 "with targeted ad copy and audience filters.",
             )
         row += 1
@@ -14674,6 +14795,27 @@ def _build_sheet_international_benchmarks(
         )
     )
     countries = intl_benchmarks.get("countries", {})
+    # Only the plan's own markets (a France plan used to list all 38
+    # countries). Unresolvable plan markets fail open to the full table.
+    _plan_ctrs = [
+        c for c in publisher_filter.plan_countries(data) if c != "United States"
+    ]
+    _intl_unverified = False
+    _missing_ctrs: List[str] = []
+    if _plan_ctrs:
+        _wanted = {publisher_filter.canonical_country(c) for c in _plan_ctrs}
+        _scoped = {
+            k: v
+            for k, v in countries.items()
+            if publisher_filter.canonical_country(v.get("name", k)) in _wanted
+        }
+        if _scoped:
+            countries = _scoped
+            _have = {
+                publisher_filter.canonical_country(v.get("name", k))
+                for k, v in _scoped.items()
+            }
+            _missing_ctrs = [c for c in _plan_ctrs if c not in _have]
     _intl_na_used = False
     # Every figure here is USD (the "(USD)" headers); on a non-USD plan the
     # figures say so themselves, "US$1.09", as the deck does -- a bare "$"
@@ -14684,8 +14826,14 @@ def _build_sheet_international_benchmarks(
         _region = (_cv.get("region") or "").upper()
 
         # Top platforms (top 3)
-        _platforms = _cv.get("platforms", [])
-        _plat_names = ", ".join(p.get("name", "") for p in _platforms[:3])
+        _platforms = publisher_filter.clean_items(
+            _cv.get("platforms", []), data, country=_name
+        )
+        _plat_marked, _plat_flag = publisher_filter.annotate(
+            [p.get("name", "") for p in _platforms[:3]], _name
+        )
+        _intl_unverified = _intl_unverified or _plat_flag
+        _plat_names = ", ".join(_plat_marked)
 
         # CPC / CPA ranges, one per listed platform IN THE ORDER of the Top
         # Platforms column (first two). A platform with no figure -- the
@@ -14764,6 +14912,12 @@ def _build_sheet_international_benchmarks(
             if _intl_na_used
             else ""
         )
+        + (f"{publisher_filter.RELATIONSHIP_NOTE}. " if _intl_unverified else "")
+        + (
+            f"No benchmark data for: {', '.join(_missing_ctrs)}. "
+            if _missing_ctrs
+            else ""
+        )
         + "Source: 28 industry reports aggregated in the International "
         "Benchmarks 2026 dataset.",
     ).font = _FONT_FOOTNOTE
@@ -14775,6 +14929,32 @@ def _build_sheet_international_benchmarks(
     )
     row += 1
     _write_attribution_footer(ws, row)
+
+
+def _sweep_excluded_boards(wb, data: dict) -> int:
+    """Rewrite every client-facing string cell that still names an excluded /
+    unavailable / out-of-market board (see :func:`publisher_filter.sweep_text`).
+    Returns the number of cells changed."""
+    countries = publisher_filter.plan_countries(data)
+    if not publisher_filter.has_exclusions(data, countries):
+        return 0
+    disclosure = publisher_filter.disclosure_line(data)
+    changed = 0
+    for ws in wb.worksheets:
+        if ws.title == "Sources & Confidence":
+            continue
+        for row in ws.iter_rows():
+            for cell in row:
+                value = cell.value
+                if not isinstance(value, str) or value.startswith("="):
+                    continue
+                if disclosure and value == disclosure:
+                    continue
+                cleaned = publisher_filter.sweep_text(value, data, countries)
+                if cleaned != value:
+                    cell.value = cleaned or None
+                    changed += 1
+    return changed
 
 
 def generate_excel_v2(
@@ -15126,6 +15306,16 @@ def _generate_excel_v2_inner(
                 column=2,
                 value=f"Error generating International Benchmarks sheet: {exc}",
             ).font = _FONT_BODY
+
+    # Safety net: no sheet may still name a board the client excluded, a board
+    # unavailable through Joveo or a platform that does not run in the plan's
+    # markets (the targeted filters above handle the board lists; this catches
+    # knowledge-base prose and recommendation text). The Sources & Confidence
+    # sheet is provenance (who published a cited report) and is left intact.
+    try:
+        _sweep_excluded_boards(wb, data)
+    except Exception as exc:  # noqa: BLE001 - never block save on cleanup
+        logger.error("Board-exclusion sweep failed (non-fatal): %s", exc, exc_info=True)
 
     # ── S89: cross-cutting polish (freeze panes + brand tab colors) ──
     try:

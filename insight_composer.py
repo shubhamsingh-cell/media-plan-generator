@@ -315,10 +315,18 @@ def compose_counter_strategy(competitor: str, ctx: dict | None = None) -> str:
 # ---------------------------------------------------------------------------
 # Small, curated, non-fabricated regulatory notes. Empty list when nothing
 # curated matches -- this is intentionally NOT a general-purpose generator.
-def role_requirements_callout(industry: str, roles: list[str]) -> list[str]:
+def role_requirements_callout(
+    industry: str, roles: list[str], us_market: bool = True
+) -> list[str]:
     """Curated regulatory/certification callouts for specific
     industry + role combinations. Factual and generic-regulatory only --
-    never fabricates a number or a jurisdiction-specific claim."""
+    never fabricates a number or a jurisdiction-specific claim.
+
+    Every callout below names a US licence or regime (CDL hazmat/tanker
+    endorsements, US state nursing licensure compacts), so a plan with no US
+    market (``us_market=False``) gets none."""
+    if not us_market:
+        return []
     industry_norm = (industry or "").strip().lower().replace("_", " ")
     roles_l = [str(r).strip().lower() for r in (roles or [])]
     callouts: list[str] = []

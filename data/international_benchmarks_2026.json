@@ -2783,7 +2783,7 @@
           "notes": "Federal government job board. Mandatory for LMIA applications (foreign workers). Bilingual (EN/FR)."
         },
         {
-          "name": "Workopolis / Monster Canada",
+          "name": "Monster Canada",
           "market_share_pct": 8,
           "rank": 4,
           "type": "job_board",
@@ -2811,7 +2811,7 @@
           },
           "apply_rate_pct": 5.0,
           "pricing_model": "CPC + subscription",
-          "notes": "Legacy brand. Merged with Indeed traffic in many cases."
+          "notes": "Workopolis is an Indeed-operated portal, not an independent board (source https://en.wikipedia.org/wiki/Workopolis); the figures here are the Monster Canada legacy-brand range."
         },
         {
           "name": "Jobboom",
@@ -5844,7 +5844,7 @@
           "notes": "6M members. Growing for multinational and tech hiring."
         },
         {
-          "name": "CareerBuilder Vietnam",
+          "name": "CareerViet",
           "market_share_pct": 10,
           "rank": 4,
           "type": "job_board",
@@ -5872,7 +5872,7 @@
           },
           "apply_rate_pct": 6.5,
           "pricing_model": "Subscription + per-posting",
-          "notes": "CareerBuilder Vietnam (Navigos). Strong in manufacturing and corporate roles."
+          "notes": "CareerViet (rebranded from CareerBuilder Vietnam on 2024-01-14; source https://dantri.com.vn/kinh-doanh/careerbuilder-viet-nam-doi-ten-thuong-hieu-thanh-careerviet-20240119164332213.htm). Strong in manufacturing and corporate roles."
         }
       ],
       "cph_by_tier": {

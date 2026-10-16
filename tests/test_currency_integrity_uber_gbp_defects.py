@@ -138,6 +138,15 @@ def gbp_bundle():
 
 
 @pytest.fixture(scope="module")
+def gbp_us_market_bundle():
+    # The USD-marking of a KB complication bullet only matters where the
+    # bullet renders at all: a plan with NO US market no longer carries the US
+    # CDL / US$ CPA bullets (tests/test_intl_boards_end_to_end.py), so the
+    # marking is exercised on a GBP plan that also targets a US market.
+    return _generate_bundle(dict(UBER_GBP_BRIEF, locations=["UK", "Dallas, TX"]))
+
+
+@pytest.fixture(scope="module")
 def usd_bundle():
     # MANPOWER_BRIEF is also logistics_supply_chain -- same COMPLICATIONS
     # bullet, same Location Intelligence / City-Level Supply-Demand tables,
@@ -274,8 +283,13 @@ def _slide2_paragraph_texts(pptx_bytes: bytes) -> list[str]:
     return texts
 
 
-def test_defect3_slide2_kb_benchmark_marked_usd_on_gbp_plan(gbp_bundle):
+def test_defect3_non_us_plan_carries_no_us_cdl_bullet(gbp_bundle):
     texts = _slide2_paragraph_texts(gbp_bundle["pptx"])
+    assert not [t for t in texts if "CDL" in t or "US$25" in t], texts
+
+
+def test_defect3_slide2_kb_benchmark_marked_usd_on_gbp_plan(gbp_us_market_bundle):
+    texts = _slide2_paragraph_texts(gbp_us_market_bundle["pptx"])
     matches = [t for t in texts if "CDL/last-mile" in t]
     assert matches, "expected the CDL/last-mile KB complication bullet on slide 2"
     text = matches[0]

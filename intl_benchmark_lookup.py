@@ -853,6 +853,48 @@ def format_local_band(
     return f"{text} - {band.get('role') or ''} ({detail})"
 
 
+def format_usd_range(low: float, high: float) -> str:
+    """'US$6-US$22' (whole dollars) or 'US$0.30-US$2.50' when the high end is
+    under $10, so a sub-dollar market range never rounds to 'US$0-US$2'."""
+    decimals = 2 if high < 10 else 0
+    return f"US${low:,.{decimals}f}-US${high:,.{decimals}f}"
+
+
+def get_plan_local_cpa_range(data: dict | None) -> dict[str, Any] | None:
+    """The plan's own market CPA range for its industry, for the surfaces
+    that print an "industry CPA" next to a non-US plan.
+
+    Only when the plan's markets are all outside the US and resolve to ONE
+    country (several countries have no single honest range) and the dataset
+    has a (industry, country) block with a low/high USD CPA.  Returns
+    ``{"country", "low_usd", "high_usd", "median_usd"}`` or ``None`` -- the
+    caller then omits the row ("No local benchmark") instead of printing a
+    US figure on a non-US plan."""
+    if not isinstance(data, dict):
+        return None
+    import publisher_filter
+
+    if publisher_filter.plan_has_us_market(data):
+        return None
+    countries = publisher_filter.plan_countries(data)
+    if len(countries) != 1:
+        return None
+    block = get_role_country_benchmarks(data.get("industry"), countries[0])
+    cpa = (block or {}).get("cpa_cost_per_applicant")
+    if not isinstance(cpa, dict):
+        return None
+    low, high = cpa.get("low_usd"), cpa.get("high_usd")
+    if not (isinstance(low, (int, float)) and isinstance(high, (int, float))):
+        return None
+    median = cpa.get("median_usd")
+    return {
+        "country": countries[0],
+        "low_usd": float(low),
+        "high_usd": float(high),
+        "median_usd": float(median) if isinstance(median, (int, float)) else None,
+    }
+
+
 def get_plan_local_salary_band(data: dict | None) -> dict[str, Any] | None:
     """Plan-level answer for a plan's headline local salary: the band of the
     FIRST role (in plan order) that has one in the plan's first non-US market

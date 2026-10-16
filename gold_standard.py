@@ -3562,6 +3562,11 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
     )
 
     national_competitors = industry_employers.get("_national", [])
+    # The rosters are US companies: a plan with no US market has no inferred
+    # national roster (only the competitors the brief named).
+    _no_us_market = not plan_market_presence(data)[0]
+    if _no_us_market:
+        national_competitors = []
 
     # ── Parse role titles for difficulty modifiers ──
     role_titles: list[str] = []
@@ -3592,7 +3597,7 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
 
         # S50 FIX 2 continued: If still no local competitors and no national
         # competitors (industry not in dict), fall back to "general" employers.
-        if not local_competitors and not national_competitors:
+        if not local_competitors and not national_competitors and not _no_us_market:
             _general_emps = _INDUSTRY_TOP_EMPLOYERS.get("general", {})
             national_competitors = _general_emps.get("_national", [])
 
@@ -3625,6 +3630,13 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
             )[:8]
         else:
             all_competitors = _synthesized_competitors[:8]
+        # The per-industry employer rosters above are US companies (FedEx /
+        # UPS / XPO for logistics, ...). A market outside the US is never
+        # given an inferred roster: only the competitors the brief named.
+        if (
+            _plan_geo_gs is not None and _plan_geo_gs.location_is_us(city_name) is False
+        ) or _no_us_market:
+            all_competitors = list(brief_competitors)[:8]
 
         base_difficulty = city_data[city_name].get("hiring_difficulty", 5.5)
 
@@ -3702,7 +3714,8 @@ def build_competitor_map(data: dict, city_data: dict) -> dict[str, Any]:
         if not _is_trucking and resolved_key in ("trucking", "logistics"):
             _is_trucking = True
 
-        if _is_trucking:
+        # The alert quotes US driver earnings ($200-$400/day): US-market only.
+        if _is_trucking and plan_market_presence(data)[0]:
             _appcast_alert = (
                 "Competitor Creative Alert: Appcast is running high-converting "
                 "visual driver ads with real driver photos, daily earnings "
@@ -4552,6 +4565,43 @@ def _score_channel_relevance(
     return round(max(1.0, min(5.0, scaled)), 1)
 
 
+# Boards that are US-domiciled by name or specialty (trucking / CDL, US nursing,
+# US security-clearance); they leave a plan with no US market, the same rule
+# excel_v2 applies to its industry niche-board list ("US-domiciled niche boards
+# ... not shown ... non-US market").  Platforms with a declared market scope
+# (publisher_availability.json: ZipRecruiter, CareerBuilder, Dice) are gated by
+# publisher_filter.platform_runs_in instead.
+_US_DOMICILED_CHANNELS = frozenset(
+    {
+        "TruckersReport Jobs",
+        "CDLjobs.com",
+        "DriveMyWay",
+        "Health eCareers",
+        "Nurse.com",
+        "ClearanceJobs",
+    }
+)
+
+
+def _market_filtered_channels(picks: list, data: dict) -> list:
+    """``picks`` minus boards the client excluded, boards unavailable through
+    Joveo, platforms that run in none of the plan's markets and (on a plan
+    with no US market) US-domiciled niche boards."""
+    import publisher_filter
+
+    out = publisher_filter.clean_items(picks, data)
+    countries = publisher_filter.plan_countries(data)
+    if not countries:
+        return out
+    has_us = plan_market_presence(data)[0]
+    return [
+        p
+        for p in out
+        if any(publisher_filter.platform_runs_in(p.get("name"), c) for c in countries)
+        and (has_us or p.get("name") not in _US_DOMICILED_CHANNELS)
+    ]
+
+
 def build_channel_strategy(
     data: dict, difficulty_results: list[dict]
 ) -> dict[str, Any]:
@@ -4692,6 +4742,8 @@ def build_channel_strategy(
     else:
         trad_pct, nontrad_pct = 50, 50
 
+    trad_picks = _market_filtered_channels(trad_picks, data)
+    nontrad_picks = _market_filtered_channels(nontrad_picks, data)
     return {
         "traditional_channels": sorted(
             trad_picks, key=lambda x: x.get("relevance_score", 0), reverse=True
@@ -5306,7 +5358,7 @@ _US_HOLIDAY_RE = re.compile(
     r"\b(?:memorial\s+day|thanksgiving|july\s+4(?:th)?|fourth\s+of\s+july|"
     r"independence\s+day|labor\s+day|veterans\s+day|juneteenth|"
     r"presidents'?\s+day|columbus\s+day|martin\s+luther\s+king|mlk\s+day|"
-    r"spring\s+break)\b",
+    r"spring\s+break|cdl\s+school|dot\s+compliance|mid-america\s+trucking)\b",
     re.IGNORECASE,
 )
 _PARENTHETICAL_RE = re.compile(r"\s*\([^()]*\)")

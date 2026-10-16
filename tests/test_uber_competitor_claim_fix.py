@@ -121,7 +121,12 @@ def test_fixA_static_fallback_omits_active_est_stamp_and_discloses_inferred():
     hospitality_travel) is the ONLY source -- the old "Active (est.)"
     hiring-activity stamp (invented precision) must be gone, and the sheet
     must disclose that the set is inferred, not verified."""
-    text = _sheet_text(_build_market_intel_ws(_uber_data()))
+    # The static roster is a list of US companies: it is only ever a fallback
+    # for a plan with a US market (a UK plan gets no inferred roster -- see
+    # tests/test_intl_inferred_competitors.py), so this precondition is a US plan.
+    text = _sheet_text(
+        _build_market_intel_ws(_uber_data(locations=["New York, NY", "Chicago, IL"]))
+    )
     assert "Active (est.)" not in text
     # Confirms the fallback path actually fired (not a vacuous pass).
     for name in ("Marriott", "Hilton", "Hyatt", "IHG", "Airbnb"):

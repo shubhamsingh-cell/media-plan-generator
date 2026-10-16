@@ -77,12 +77,21 @@ def london():
 
 
 @pytest.fixture(scope="module")
+def london_us_market():
+    # The US-calibrated industry CPA/CPC rows only print for a plan with a US
+    # market (a plan with none gets the market's own range or "No local
+    # benchmark" -- tests/test_intl_boards_end_to_end.py), so the "(USD)"
+    # marking is exercised on a GBP plan that also targets a US city.
+    return _bundle(dict(_london_brief(), locations=["London, UK", "Boston, MA"]))
+
+
+@pytest.fixture(scope="module")
 def atria():
     return _bundle(regen.ATRIA_BRIEF)
 
 
-def test_gbp_plan_marks_every_dollar_benchmark_row_usd(london):
-    rows = _benchmark_rows(london["xlsx_bytes"])
+def test_gbp_plan_marks_every_dollar_benchmark_row_usd(london_us_market):
+    rows = _benchmark_rows(london_us_market["xlsx_bytes"])
     money = [(lbl, v) for lbl, v in rows if "$" in v]
     assert len(money) >= 3, rows  # CPA / CPC / CPH at minimum
     for lbl, v in money:

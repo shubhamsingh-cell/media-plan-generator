@@ -1388,6 +1388,46 @@ def _resolve_industry_cph(
         # at parity -- ``basis`` says so for the deck's footnote.
         if code != "USD":
             result["basis"] = "us_benchmark_parity"
+            return result
+        # A US$ plan whose market is NOT the US (India / Vietnam with a "$"
+        # budget): the market's own cost per hire when the dataset has a
+        # traceable one in US$, else the US range stays the math but is
+        # flagged so every surface says "US benchmark used -- no local data"
+        # instead of passing it off as the market's figure.
+        _usd_basis = intl_cpc_basis if isinstance(intl_cpc_basis, dict) else {}
+        _usd_countries = _usd_basis.get("matched_countries") or []
+        if _usd_basis.get("basis") == "usd_blend" and _usd_countries:
+            _usd_local = None
+            _usd_vertical = _INTL_CPH_VERTICAL_BY_INDUSTRY.get(
+                _industry_cph_key(industry) or ""
+            )
+            if _usd_vertical and len(_usd_countries) == 1 and _HAS_INTL_BENCHMARK_LOOKUP:
+                try:
+                    _usd_local = _intl_benchmark_lookup.get_local_cph_benchmark(
+                        _usd_vertical, str(_usd_countries[0]), "USD", 1.0
+                    )
+                except Exception as exc:  # noqa: BLE001 -- lookup must never break a plan
+                    logger.error(
+                        "local CPH benchmark lookup failed: %s", exc, exc_info=True
+                    )
+            if _usd_local and _usd_local.get("value"):
+                result.update(
+                    {
+                        "value": float(_usd_local["value"]),
+                        "low": _usd_local.get("low"),
+                        "high": _usd_local.get("high"),
+                        "math_value": float(_usd_local["value"]),
+                        "basis": "local_kb",
+                        "source": _usd_local.get("source") or "intl_role_benchmarks_v1",
+                        "as_of": _usd_local.get("as_of"),
+                        "local_method": _usd_local.get("method"),
+                        "value_label": _usd_local.get("value_label")
+                        or "midpoint of cited range",
+                        "source_names": list(_usd_local.get("source_names") or []),
+                    }
+                )
+            else:
+                result["us_benchmark_non_us_market"] = True
         return result
 
     basis = intl_cpc_basis if isinstance(intl_cpc_basis, dict) else {}
@@ -1531,6 +1571,14 @@ def industry_cph_display(
             "kind": "local",
         }
     variants = _variants("midpoint")
+    if cph.get("us_benchmark_non_us_market"):
+        # A US figure on a non-US market: say so on the figure itself.
+        mid_txt = _money(value, ccy, False)
+        variants = [
+            f"{variants[0]} \u2014 US benchmark, no local data",
+            f"{mid_txt} \u2014 US benchmark, no local data",
+            f"{mid_txt} (US; no local data)",
+        ]
     entry = {
         "label": "Industry Cost-per-Hire",
         "text": variants[0],
