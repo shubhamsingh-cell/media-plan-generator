@@ -100,12 +100,33 @@ site is planned on STATE-level estimates (what the downstream consumers
 actually do with an unresolved "City, ST" -- see geo_market.resolve_market),
 never on a different town's figures.
 
-"<Name> Township" / "<Name> Twp" (rule 2): looked up as written first (the 40
-New Jersey townships whose plain name belongs to a different place are stored
-as "<Name> Township"), then as "<Name>" -- accepted only when that row is
-itself a township (exact) or a CDP (the township's Census place; reported as
-a correction). A borough, city, town or village of the same name is a
-DIFFERENT municipality and is never returned for a "Township" entry.
+"<Name> Township" / "<Name> Twp" / "<Name> Charter Township" (rule 2): looked
+up as written first (a township whose plain name belongs to a different place
+in its state is stored as "<Name> Township"), then as "<Name>" -- accepted
+only when that row is itself a township (exact) or a CDP (the township's
+Census place; reported as a correction). A borough, city, town or village of
+the same name is a DIFFERENT municipality and is never returned for a
+"Township" entry.
+
+County subdivisions (townships, towns, plantations). In ~20 states (NJ, PA,
+OH, MI, IN, IL, MN, MO, KS, NE, ND, SD, NY, WI and New England) the
+municipality people name is a county subdivision, which the Census place
+gazetteer does not list. `scripts/build_geo_county_subdivisions.py` adds the
+~10,500 whose name is unique in the state (`county_confidence ==
+"census_subdivision"`; see data/geo/README.md). Two consequences here:
+
+  * "Name, ST" and "Name Township, ST" resolve to the subdivision itself.
+    Names several subdivisions of one state share (Washington, Clinton, ...)
+    are deliberately NOT rows -- picking one would invent a primary -- but
+    they are listed in `us_subdivision_ambiguous.tsv`, so they are known to be
+    real and are never fuzzy-"corrected" into a look-alike ("Conewago
+    Township, PA" is not Conewango).
+  * A subdivision never changes an answer that already existed for a bare
+    name (rule 5): it can add itself to a list of namesakes and can answer a
+    name no place carries ("Bensalem"), but it never turns a single real CITY
+    into an ambiguity ("Chicago" is not also a North Dakota township; see
+    `_prune_township_namesakes`), never heads the list over a real place, and
+    a bare misspelling is only ever read as a real place's name.
 
 Fuzzy matching (rule 9): a candidate is accepted only when it is the same
 place misspelled, never merely a similar-looking different place. Pre-fix
@@ -121,13 +142,16 @@ likewise matched East Orange. Now (see `_typo_distance`):
     5-8 letters) or 2 (9+ letters); words of 4 letters or fewer must match
     exactly. All 32 legacy `_LOCATION_CORRECTIONS` misspellings fit this;
   * exactly one candidate at the best distance. A tie means we cannot tell
-    which town was meant: with a state typed none is taken; with no state
+    which town was meant: with a state typed none is taken -- except that a
+    county subdivision never ties with a real place ("Boton, MA" is Boston, not
+    a toss-up with the town of Bolton); with no state
     (a bare misspelling like "richmand", equally near Richmond and Richland)
     the name carried by more places is offered, as a visible correction with
     the other states listed;
   * for "City, ST": never when the typed name is itself a real place in some
     other state (Edison exists in GA, OH, ... : a real place name is not a
-    misspelling, it is a place our table may lack).
+    misspelling, it is a place our table may lack), nor a township name the
+    state shares between counties (`us_subdivision_ambiguous.tsv`).
 
 "pittsburg" (one of the 32 legacy keys) is a real US place in 5 states
 (CA/IL/KS/OK/TX) and is deliberately caught by the exact bare-city lookup
@@ -367,10 +391,21 @@ _CENSUS_NAME_ALIASES: dict[str, tuple[str, ...]] = {
 _TYPO_MIN_WORD_LEN = 5  # shorter words: no edits tolerated
 _TYPO_LONG_WORD_LEN = 9  # this long and up: two edits (cincinatti, cleavland)
 
-# "Edison Township" / "Edison Twp." -> the township's own row, never a borough
-# or city that merely shares the name.
-_TOWNSHIP_TAIL_RE = re.compile(r"\s+(?:township|twp)$")
+# "Edison Township" / "Edison Twp." / "Canton Charter Township" -> the
+# township's own row, never a borough or city that merely shares the name.
+_TOWNSHIP_TAIL_RE = re.compile(r"\s+(?:charter\s+)?(?:township|twp)$")
 _TOWNSHIP_COMPATIBLE_TYPES = frozenset({"township", "CDP"})
+
+# `county_confidence` of a row built from the Census county-subdivision
+# gazetteer (townships, towns, plantations; see
+# scripts/build_geo_county_subdivisions.py) rather than from the place
+# gazetteer. Used by `_prune_township_namesakes` and the state-less typo pool.
+_SUBDIVISION_CONFIDENCE = "census_subdivision"
+# A place that owns at least this many ZIP codes (by Census primary city) is a
+# city, not a hamlet: New York 211, Chicago 57, San Francisco 28, Flint 7. The
+# 14 bare names the New Jersey pass made ambiguous (Cherry Hill, West Orange,
+# Roxbury, ...) are all places that own 0-2 ZIPs.
+_CITY_ZIP_FLOOR = 3
 
 
 @dataclass
@@ -438,6 +473,14 @@ _city_norms_by_state: dict[str, list[str]] = {}  # state_usps -> distinct city_n
 
 _zips_by_zip5: dict[str, dict[str, str]] = {}
 _zips_by_prefix: dict[str, list[int]] = {}
+# (lower-cased primary city, state_usps) -> number of ZIPs. Built on first use
+# (`_zip_footprint`), not at load time, so it adds nothing to the preload.
+_zip_counts_by_city: dict[tuple[str, str], int] | None = None
+
+# (city_norm, state_usps) of townships/towns that share a name with another in
+# the same state (data/geo/us_subdivision_ambiguous.tsv). They are real places
+# the table deliberately lacks a row for -- so a typed one is never a typo.
+_ambiguous_subdivision_names: set[tuple[str, str]] = set()
 
 _dma_by_fips: dict[str, tuple[str, str, str]] = {}  # fips -> (dma_code, dma_name, dma_source)
 _dma_available = False
@@ -459,10 +502,15 @@ def _norm_key(s: str) -> str:
     -- "Mayagüez" normalized to "mayagez" while plain-ASCII "Mayaguez"
     normalized to "mayaguez", so the two spellings of the same place never
     matched each other (regression: tests/test_plan_location.py accent-fold
-    tests; found live via "Mayagüez, PR" resolving under neither spelling)."""
+    tests; found live via "Mayagüez, PR" resolving under neither spelling).
+
+    The accent fold is skipped for pure-ASCII input (the overwhelming case:
+    ~99.9% of the 42k place names loaded at startup), where it is the identity
+    -- same result, ~40% less time in `_load_places`."""
     s = s.lower()
-    s = unicodedata.normalize("NFD", s)
-    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    if not s.isascii():
+        s = unicodedata.normalize("NFD", s)
+        s = "".join(ch for ch in s if not unicodedata.combining(ch))
     s = _NON_ALNUM_SPACE.sub("", s)
     s = _SPLIT_WS.sub(" ", s).strip()
     return s
@@ -499,6 +547,7 @@ def _ensure_loaded() -> None:
             _load_zips()
             _load_dma()
             _load_cbsa()
+            _load_ambiguous_subdivisions()
         except Exception:
             logger.error("plan_location: failed to load geo reference data", exc_info=True)
             # Leave whatever partially loaded rather than crash the caller;
@@ -536,6 +585,7 @@ def _load_counties() -> None:
 
 
 def _load_places() -> None:
+    place_names: set[str] = set()  # names a real place carries, not only a subdivision
     for row in _read_tsv(_GEO_DIR / "us_places.tsv"):
         key = (row.get("place_key") or "").strip()
         if not key:
@@ -546,11 +596,28 @@ def _load_places() -> None:
         if not city_norm:
             continue
         _places_by_city.setdefault(city_norm, []).append((usps, key))
+        if row.get("county_confidence") != _SUBDIVISION_CONFIDENCE:
+            place_names.add(city_norm)
     for city_norm, entries in _places_by_city.items():
-        first = city_norm[0] if city_norm else ""
-        _city_norms_by_first_letter.setdefault(first, []).append(city_norm)
+        # The state-less typo pool holds only names a real place carries, so a
+        # bare misspelling is never read as an obscure township elsewhere. The
+        # per-state pool below keeps every name: "Bensalm, PA" still finds
+        # Bensalem Township.
+        if city_norm in place_names:
+            _city_norms_by_first_letter.setdefault(city_norm[0], []).append(city_norm)
         for usps in sorted({u for u, _ in entries}):
             _city_norms_by_state.setdefault(usps, []).append(city_norm)
+
+
+def _load_ambiguous_subdivisions() -> None:
+    path = _GEO_DIR / "us_subdivision_ambiguous.tsv"
+    if not path.exists():  # optional layer: without it only the look-alike guard is weaker
+        return
+    for row in _read_tsv(path):
+        name = _norm_key(row.get("display_name") or "")
+        usps = (row.get("state_usps") or "").strip().upper()
+        if name and usps:
+            _ambiguous_subdivision_names.add((name, usps))
 
 
 def _load_zips() -> None:
@@ -686,13 +753,60 @@ def _alt_from_place(place: dict[str, str]) -> dict[str, str]:
 def _pick_ambiguous_primary(city_norm: str, candidates: list[tuple[str, str]]) -> tuple[str, str]:
     """Deterministic tiebreak among same-name candidates in different
     states. See module docstring for the curated-metro-then-alphabetical
-    policy. `candidates` is [(state_usps, place_key), ...]."""
+    policy. `candidates` is [(state_usps, place_key), ...].
+
+    A county subdivision never heads the list over a real place of the same
+    name: those rows were added so "Bensalem, PA" resolves, not to change
+    which town an existing ambiguous name leads with."""
+    pool = [c for c in candidates if not _is_subdivision(c[1])] or candidates
     preferred_state = _WELL_KNOWN_METRO_STATE.get(city_norm)
     if preferred_state:
-        for usps, key in candidates:
+        for usps, key in pool:
             if usps == preferred_state:
                 return usps, key
-    return sorted(candidates, key=lambda t: (t[0], t[1]))[0]
+    return sorted(pool, key=lambda t: (t[0], t[1]))[0]
+
+
+def _is_subdivision(place_key: str) -> bool:
+    """True for a row built from the Census county-subdivision gazetteer."""
+    place = _places_by_key.get(place_key)
+    return place is not None and place.get("county_confidence") == _SUBDIVISION_CONFIDENCE
+
+
+def _zip_footprint(place: dict[str, str]) -> int:
+    """How many ZIP codes name ``place`` as their primary city. A ZIP's primary
+    city is always a Census *place*, so a township owns none."""
+    global _zip_counts_by_city
+    counts = _zip_counts_by_city
+    if counts is None:
+        counts = {}
+        for z in _zips_by_zip5.values():
+            k = ((z.get("primary_city") or "").lower(), (z.get("state_usps") or "").upper())
+            counts[k] = counts.get(k, 0) + 1
+        _zip_counts_by_city = counts
+    name = (place.get("display_name") or "").lower()
+    return counts.get((name, (place.get("state_usps") or "").upper()), 0)
+
+
+def _prune_township_namesakes(candidates: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Bare-name (no state) rule: a township or town elsewhere that happens to
+    share a city's name is not a rival for it.
+
+    Adding ~10,000 county subdivisions put a "Chicago" township in North
+    Dakota and a "New York" township in Missouri in the table; unchecked,
+    "Chicago", "New York" and "San Francisco" -- unique until then -- would
+    have become "pick the one you mean". When exactly ONE candidate is a real
+    place and it is a city (>= `_CITY_ZIP_FLOOR` ZIPs of its own; a township
+    owns none) it is the answer. Anything smaller stays honestly ambiguous:
+    "Cherry Hill" is the NJ township (74k) as much as the Virginia CDP, and
+    the table has no population to say which is bigger. The township stays
+    reachable as "Chicago, ND" / "Chicago Township, ND"."""
+    if len(candidates) < 2:
+        return candidates
+    real = [c for c in candidates if not _is_subdivision(c[1])]
+    if len(real) == 1 and _zip_footprint(_places_by_key[real[0][1]]) >= _CITY_ZIP_FLOOR:
+        return real
+    return candidates
 
 
 def _saint_variants(city_norm: str) -> list[str]:
@@ -763,7 +877,7 @@ def _city_candidates(city_norm: str) -> list[tuple[str, str]]:
 
 def _resolve_bare_city(raw_input: str, city_text: str) -> LocationResolution:
     city_norm = _norm_key(city_text)
-    matches = _city_candidates(city_norm)
+    matches = _prune_township_namesakes(_city_candidates(city_norm))
     if not matches:
         return LocationResolution(input=raw_input, status="unresolved", kind="unknown")
 
@@ -861,7 +975,11 @@ def _fuzzy_city_lookup(city_text: str, state_usps: str = "") -> list[str]:
     "richmand" -> Richmond/Richland case) the name carried by more places wins,
     which `_try_fuzzy` then reports as a correction with the place's other
     states listed, so the user sees and can overrule it. (A list for the
-    callers' sake; it never holds more than one.)"""
+    callers' sake; it never holds more than one.)
+
+    A county subdivision does not make such a tie: when exactly one of the
+    equally-close names is a real place in the typed state, it wins ("Boton,
+    MA" is Boston, not a toss-up with the town of Bolton)."""
     q = _norm_key(city_text)
     if not q:
         return []
@@ -880,9 +998,18 @@ def _fuzzy_city_lookup(city_text: str, state_usps: str = "") -> list[str]:
             best.append(cand)
     if len(best) == 1:
         return best
-    if state_usps or not best:
+    if not best:
         return []
+    if state_usps:
+        real = [c for c in best if _has_real_place(c, state_usps)]
+        return real if len(real) == 1 else []
     return [sorted(best, key=lambda c: (-len(_places_by_city.get(c, [])), c))[0]]
+
+
+def _has_real_place(city_norm: str, state_usps: str) -> bool:
+    """True when ``city_norm`` is carried in ``state_usps`` by a place proper
+    (not only by a county subdivision)."""
+    return any(u == state_usps and not _is_subdivision(k) for u, k in _places_by_city.get(city_norm, []))
 
 
 def _strip_township(city_norm: str) -> str:
@@ -1268,9 +1395,12 @@ def _try_comma_or_trailing_state(raw_str: str, stripped: str) -> LocationResolut
     # (rule 9, state-scoped variant). Only a misspelling of the SAME place is
     # taken (see `_typo_distance`), and never when the typed name is already a
     # real place in another state: that is a town our table may lack (it
-    # used to turn "Edison, NJ" into Madison), not a typo.
+    # used to turn "Edison, NJ" into Madison), not a typo. The same goes for a
+    # township name this state shares between counties (the table has no row
+    # for it on purpose): "Conewago Township, PA" is real, and is not Conewango.
     fuzzy_text = township_base or city_text
-    if not _city_candidates(_norm_key(fuzzy_text)):
+    fuzzy_norm = _norm_key(fuzzy_text)
+    if not _city_candidates(fuzzy_norm) and (fuzzy_norm, state_usps) not in _ambiguous_subdivision_names:
         for candidate_norm in _fuzzy_city_lookup(fuzzy_text, state_usps=state_usps):
             candidate_place = _place_in_state(candidate_norm, state_usps)
             if not candidate_place:
@@ -1370,7 +1500,7 @@ def _try_fuzzy(raw_str: str, stripped: str) -> LocationResolution | None:
     # `_city_candidates`, not a bare index read: it folds in the Census
     # legal-name aliases, so "nashvile" sees Nashville, TN (the metro) and not
     # only Nashville, AR -- the plain index alone read "Nashville, AR".
-    candidates = list(dict.fromkeys(_city_candidates(best_norm)))
+    candidates = _prune_township_namesakes(list(dict.fromkeys(_city_candidates(best_norm))))
     if not candidates:
         return None
     if len(candidates) == 1:

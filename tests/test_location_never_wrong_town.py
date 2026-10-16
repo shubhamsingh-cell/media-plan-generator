@@ -11,7 +11,8 @@ left Woodbridge Township, Cherry Hill, Piscataway and Brick unresolved.
 
 Two fixes are pinned here:
   * data: the 211 New Jersey townships with a unique name (Census 2024
-    county-subdivision Gazetteer; see scripts/build_geo_nj_townships.py);
+    county-subdivision Gazetteer; see scripts/build_geo_county_subdivisions.py,
+    which later generalised the New Jersey pass to every state);
   * code: a fuzzy hit is taken only for a misspelling of the SAME place (same
     state, same first letter, one differing word within a small edit budget),
     never when the typed name is itself a real place elsewhere, never on a tie;
@@ -210,6 +211,12 @@ def test_a_name_that_is_a_real_place_elsewhere_is_never_fuzzy_corrected_in_this_
         display = pl._places_by_key[entries[0][1]]["display_name"]
         r = pl.resolve_location(f"{display}, NJ")
         if r.status == "corrected":
+            # "Bridgeport Township" (a township in another state) typed with NJ
+            # is read by the documented township rule as NJ's Census place of
+            # the SAME name (the Bridgeport CDP) -- a correction to the same
+            # name, not to a different town. Anything else is a wrong town.
+            if r.matched_via == "place_cdp_for_township" and pl._norm_key(r.display_name) == pl._strip_township(city_norm):
+                continue
             offenders.append((display, r.display_name))
     assert not offenders, f"{len(offenders)} real places corrected to a different NJ town, e.g. {offenders[:8]}"
 
@@ -312,7 +319,7 @@ def test_nj_township_rows_are_well_formed_and_do_not_displace_existing_places():
         file_norm = " ".join(re.sub(r"[^a-z0-9]+", " ", r["display_name"].lower()).split())
         assert r["place_key"] == f"{file_norm}|nj"
         assert r["county_fips"] in fips and r["county_fips"].startswith("34")
-        assert r["county_confidence"] in ("zip_majority", "census_first_listed")
+        assert r["county_confidence"] == "census_subdivision"
         float(r["lat"]), float(r["lng"])
     # The pre-existing same-name places are untouched.
     by_key = {r["place_key"]: r for r in rows}

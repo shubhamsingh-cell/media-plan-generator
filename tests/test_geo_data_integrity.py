@@ -108,7 +108,16 @@ def test_county_row_count_in_range(counties):
 
 
 def test_place_row_count_in_range(places):
-    assert 29000 <= len(places) <= 33000, len(places)
+    # ~31.7k rows from the Census place gazetteer + ~10.5k county subdivisions
+    # (townships/towns/plantations; scripts/build_geo_county_subdivisions.py).
+    assert 29000 <= len(places) <= 46000, len(places)
+
+
+def test_place_gazetteer_rows_alone_are_still_in_the_original_range(places):
+    """The subdivision rows widened the file's range; the place-gazetteer part
+    must not drift with them."""
+    gazetteer = [r for r in places if r["county_confidence"] != "census_subdivision"]
+    assert 29000 <= len(gazetteer) <= 33000, len(gazetteer)
 
 
 def test_zip_row_count_in_range(zips):
@@ -294,7 +303,9 @@ def test_multi_county_city_county_fips_regression_pins(places, display_name, sta
 
 
 def test_county_confidence_column_only_holds_allowed_values(places):
-    allowed = {"zip_majority", "census_first_listed"}
+    # census_subdivision: a township/town/plantation row; its county is the one
+    # in the subdivision's own GEOID, exact rather than voted or first-listed.
+    allowed = {"zip_majority", "census_first_listed", "census_subdivision"}
     values = {r["county_confidence"] for r in places}
     assert values <= allowed, f"unexpected county_confidence values: {values - allowed}"
     assert values, "county_confidence column is empty"
@@ -309,9 +320,14 @@ def test_census_first_listed_share_is_below_documented_ceiling(places):
     almost everything) shows up as a failing test instead of quietly
     degrading data quality. Observed on the 2026-07-31 build: 28.8% of
     places (9,107 of 31,657) fell back -- ceiling set at 40% to give some
-    headroom for Census vintage churn without masking a real regression."""
-    total = len(places)
-    fallback = sum(1 for r in places if r["county_confidence"] == "census_first_listed")
+    headroom for Census vintage churn without masking a real regression.
+
+    Measured over the place-gazetteer rows only: the county-subdivision rows
+    carry their own exact "census_subdivision" label and never took part in
+    the ZIP join, so counting them would dilute the ratio this test guards."""
+    gazetteer = [r for r in places if r["county_confidence"] != "census_subdivision"]
+    total = len(gazetteer)
+    fallback = sum(1 for r in gazetteer if r["county_confidence"] == "census_first_listed")
     share = fallback / total if total else 1.0
     assert share < 0.40, f"census_first_listed share {share:.1%} exceeds the 40% documented ceiling"
 
