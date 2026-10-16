@@ -829,7 +829,12 @@ def _check_client_name_casing(
     canonical = display_format.client_display_name(raw)
     if not canonical:
         return
-    canonical_re = re.compile(r"\b" + re.escape(canonical) + r"\b", re.IGNORECASE)
+    # (?<!\w)/(?!\w), not \b: a canonical name ending in "." ("Coherent
+    # Corp.", "Hershey Co.") has no \b after the dot at the end of a cell or
+    # before a space, so "COHERENT CORP." was invisible to the gate.
+    canonical_re = re.compile(
+        r"(?<!\w)" + re.escape(canonical) + r"(?!\w)", re.IGNORECASE
+    )
     for u in units:
         for match in canonical_re.finditer(u.text):
             found = match.group(0)

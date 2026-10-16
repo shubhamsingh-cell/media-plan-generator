@@ -8724,8 +8724,16 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         if isinstance(sec_data, dict):
             profile_fields.update(
                 {
-                    "Company Name": sec_data.get(
-                        "name", sec_data.get("company_name", client_name)
+                    # SEC EDGAR legal names are ALL CAPS ("COHERENT CORP.");
+                    # case them with the one shared resolver like every
+                    # other surface (job 2617d01b, Market Intelligence!D30).
+                    "Company Name": _proper_client_name(
+                        str(
+                            sec_data.get(
+                                "name", sec_data.get("company_name", client_name)
+                            )
+                            or client_name
+                        )
                     ),
                     "CIK": sec_data.get("cik") or "",
                     "SIC Code": sec_data.get("sic", sec_data.get("sic_code") or ""),
@@ -8759,7 +8767,9 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 profile_fields[k.replace("_", " ").title()] = v
 
         for key, val in profile_fields.items():
-            val_str = _flatten_value(val)
+            # Free text can embed the name as typed/sourced ("COHERENT
+            # CORP. designs ..."); rewrite it to the display casing.
+            val_str = _with_display_client_name(_flatten_value(val), data)
             # S95/defect2: the company "description"/"summary" free-text
             # fields (Wikipedia-sourced, unbounded length) are the only
             # Company Profile values long enough to need a cap for a
