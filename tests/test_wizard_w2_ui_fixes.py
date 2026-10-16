@@ -524,6 +524,7 @@ var sessionStorage = {
   removeItem: function (k) { delete store[k]; },
 };
 var ELS = {}, BOXES = {}, CARDS = [], insight = 0;
+var excludedPublishers = [];  // saveFormState / restoreFormState carry the excluded boards
 var CHANNEL_IDS = ['chRegionalBoards', 'chGlobalBoards', 'chNicheBoards', 'chSocial',
   'chProgrammatic', 'chEmployerBrand', 'chApac', 'chEmea'];
 var SECTION_IDS = ['includeEducational', 'includeEvents', 'includeRadioPodcasts',

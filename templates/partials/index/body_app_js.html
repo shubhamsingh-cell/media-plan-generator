@@ -15,7 +15,6 @@
   let roles = [];
   let competitors = [];
   let excludedPublishers = [];
-  let _skipTagFocus = false; // true while a blur commit re-renders tag boxes
   let lastGeneratedBlob = null;
   let lastGeneratedFilename = null;
 
@@ -2865,7 +2864,7 @@
       .map((t) => t.trim())
       .filter(Boolean);
     inputEl.value = "";
-    _skipTagFocus = !keepFocus;
+    if (!keepFocus) inputEl.dataset.noFocus = "1";
     const note = document.getElementById("excludedPublisherNote");
     if (note) note.textContent = "";
     try {
@@ -2886,7 +2885,7 @@
         );
       });
     } finally {
-      _skipTagFocus = false;
+      delete inputEl.dataset.noFocus;
     }
   }
   (function () {
@@ -3084,7 +3083,8 @@
       container.appendChild(tag);
     });
     container.appendChild(input);
-    if (!_skipTagFocus) input.focus();
+    // a blur commit must not pull focus back into the box it just left
+    if (!(input.dataset && input.dataset.noFocus)) input.focus();
   }
 
   /* ── Location resolution echo-back (S93) ──
