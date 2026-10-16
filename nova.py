@@ -10234,6 +10234,14 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             result["channel_allocations"] = allocation.get("channel_allocations", {})
             result["total_projected"] = dict(allocation.get("total_projected", {}))
             result["projection"] = public_view(proj)
+            result["presentation_note"] = (
+                "Quote applications, hires, cost per application and cost per hire "
+                "as the low-high ranges in projection.text, never as a single "
+                "number, and say that hires and cost per hire are estimates from "
+                "the industry cost-per-hire table (no client hire history "
+                "provided). total_projected holds the engine's point figures, "
+                "which are the optimistic end of each range."
+            )
             result["sufficiency"] = allocation.get("sufficiency", {})
             result["recommendations"] = allocation.get("recommendations") or []
             _annotate_channel_reasons(result["channel_allocations"])
@@ -27133,7 +27141,24 @@ def _format_budget_response(data: dict, budget: float) -> str:
             )
 
         total = data.get("total_projected", {})
-        if total:
+        proj_text = (data.get("projection") or {}).get("text")
+        if total and isinstance(proj_text, dict) and proj_text.get("hires"):
+            # The plan's one projection (plan_projection): low-high for every
+            # figure, with what the hire and cost-per-hire numbers assume --
+            # never a lone point estimate.
+            parts.append("\n*Projected Totals (estimated ranges):*")
+            parts.append(f"- Total Clicks: {total.get('clicks') or 0:,.0f}")
+            parts.append(f"- Applications: {proj_text.get('applications')}")
+            parts.append(f"- Cost per Application: {proj_text.get('cpa')}")
+            parts.append(f"- Estimated Hires: {proj_text.get('hires')}")
+            parts.append(
+                f"- Estimated Cost per Hire: {proj_text.get('cph')} "
+                f"({proj_text.get('cph_short')})"
+            )
+            if proj_text.get("cpa_note"):
+                parts.append(f"- {proj_text['cpa_note']}")
+            parts.append(f"- {proj_text.get('hires_short')}")
+        elif total:
             parts.append(f"\n*Projected Totals:*")
             parts.append(f"- Total Clicks: {total.get('clicks') or 0:,.0f}")
             parts.append(f"- Total Applications: {total.get('applications') or 0:,.0f}")

@@ -291,32 +291,45 @@ def kb_hire_conversion(
 def _cpa_range(
     engine_cpa: float, kb: Optional[Dict[str, Any]]
 ) -> Tuple[float, float, Optional[str]]:
-    """(low, high, note) for cost per application -- see the module docstring."""
+    """(low, high, note) for cost per application -- see the module docstring.
+    ``note`` is the cited form (file + key); ``cpa_note_short`` derives the
+    on-screen form from the same facts."""
     if not kb or engine_cpa <= 0:
         return engine_cpa, engine_cpa, None
     lo, hi = float(kb["low"]), float(kb["high"])
     where = "sub-role" if kb.get("scope") == "sub_role" else "industry"
+    band = f"{_money(lo)}\u2013{_money(hi)}"
+    cite = f"({where}; source: {kb['source']})"
     if engine_cpa < lo:
-        high = lo
-        note = (
-            f"Industry benchmarks run higher: {_money(lo)}-{_money(hi)} per "
-            f"application ({where}; source: {kb['source']}). The modelled "
-            f"{_money(engine_cpa)} is the optimistic end."
+        return (
+            engine_cpa,
+            lo,
+            f"Industry benchmarks run higher: {band} per application {cite}. "
+            f"The modelled {_money(engine_cpa)} is the optimistic end.",
         )
-        return engine_cpa, high, note
     if engine_cpa <= hi:
         return (
             engine_cpa,
             max(hi, engine_cpa),
-            f"Industry benchmark range {_money(lo)}-{_money(hi)} per application "
-            f"({where}; source: {kb['source']}).",
+            f"Industry benchmark range {band} per application {cite}.",
         )
     return (
         lo,
         engine_cpa,
-        f"Industry benchmarks run lower: {_money(lo)}-{_money(hi)} per "
-        f"application ({where}; source: {kb['source']}).",
+        f"Industry benchmarks run lower: {band} per application {cite}.",
     )
+
+
+def _symbol_for(code: str) -> str:
+    if code == "USD":
+        return "$"
+    try:
+        import plan_currency
+
+        return plan_currency.symbol_for_code(code) or f"{code} "
+    except Exception as exc:  # noqa: BLE001 - presentation only
+        logger.debug("plan_projection: currency symbol unavailable: %s", exc)
+        return f"{code} "
 
 
 def _money(value: float, symbol: str = "$") -> str:
@@ -348,7 +361,7 @@ def ranges_from_engine_result(
     industry_key: str,
     role_titles: Optional[List[str]] = None,
     knowledge_base: Optional[Dict[str, Any]] = None,
-    symbol: str = "$",
+    symbol: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build the projection dict from an existing ``calculate_budget_allocation``
     result. Pure; used by ``project_plan`` and by callers that already hold an
@@ -357,6 +370,10 @@ def ranges_from_engine_result(
     tp = tp if isinstance(tp, dict) else {}
     meta = budget_result.get("metadata") if isinstance(budget_result, dict) else None
     meta = meta if isinstance(meta, dict) else {}
+    _icph = meta.get("industry_cph") if isinstance(meta.get("industry_cph"), dict) else {}
+    plan_ccy = str(_icph.get("plan_currency") or "USD").upper()
+    if symbol is None:
+        symbol = _symbol_for(plan_ccy)
 
     apps_engine = int(tp.get("applications") or 0)
     hires_engine = int(tp.get("hires") or 0)
@@ -366,8 +383,19 @@ def ranges_from_engine_result(
     notes: List[str] = []
 
     # -- cost per application / applications --------------------------------
-    kb_cpa = kb_cpa_range(industry_key, role_titles, knowledge_base)
+    # The KB's cost-per-application ranges are US$: they are only comparable
+    # with a USD plan (never an FX guess against a local-currency CPA).
+    kb_cpa = (
+        kb_cpa_range(industry_key, role_titles, knowledge_base)
+        if plan_ccy == "USD"
+        else None
+    )
     cpa_lo, cpa_hi, cpa_note = _cpa_range(cpa_engine, kb_cpa)
+    if plan_ccy != "USD" and cpa_engine > 0:
+        notes.append(
+            "Cost per application is a single estimate: the industry benchmark "
+            f"range is in US$ and this plan is priced in {plan_ccy}."
+        )
     if cpa_note:
         notes.append(cpa_note)
     if cpa_engine > 0:
@@ -508,6 +536,13 @@ def describe(proj: Dict[str, Any], symbol: str = "$") -> Dict[str, str]:
     cpa_txt = range_text(proj["cpa"], "cpa", symbol)
     hires_label = f"Estimated hires {hires_txt} (assumes industry cost per hire; no client hire history provided)"
     cph_label = f"Estimated cost per hire {cph_txt} (total cost-per-hire basis, not media-only)"
+    kb = a.get("kb_cpa") or {}
+    cpa_short = ""
+    if kb:
+        for n in proj.get("notes") or []:
+            if "per application" in n:
+                cpa_short = n.split(" (", 1)[0].rstrip(".") + "."
+                break
     return {
         "applications": apps_txt,
         "hires": hires_txt,
@@ -515,9 +550,14 @@ def describe(proj: Dict[str, Any], symbol: str = "$") -> Dict[str, str]:
         "cph": cph_txt,
         "hires_label": hires_label,
         "cph_label": cph_label,
+        "hires_short": (
+            "Hires are an estimate (budget \u00f7 industry cost per hire); "
+            "no client hire history provided."
+        ),
+        "cph_short": "total cost-per-hire basis, not media-only",
         "hires_basis": str(a.get("hires_basis") or ""),
         "cph_basis": str(a.get("cph_basis") or ""),
-        "cpa_note": next((n for n in proj.get("notes") or [] if "per application" in n), ""),
+        "cpa_note": cpa_short,
     }
 
 

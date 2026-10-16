@@ -594,6 +594,12 @@
         color: var(--text-primary);
         letter-spacing: -0.02em;
       }
+      .qp-totals-note {
+        font-size: 0.78rem;
+        line-height: 1.5;
+        color: var(--text-tertiary);
+        margin: -16px 0 24px;
+      }
       .qp-total-label {
         font-size: 0.75rem;
         color: var(--text-tertiary);
@@ -1253,6 +1259,7 @@
           id="qpTotals"
           aria-label="Projected totals"
         ></div>
+        <p class="qp-totals-note" id="qpTotalsNote" style="display: none"></p>
 
         <!-- Channels -->
         <h2 class="qp-section-title">Channel Recommendations</h2>
@@ -1800,13 +1807,30 @@
            TOTALS
            ────────────────────────────────────────────────────── */
         function renderTotals(t) {
+          // Ranges, never a lone point: the server's one projection
+          // (plan_projection) supplies low-high text for applications, hires,
+          // cost per application and cost per hire. The point fields stay as
+          // the fallback for a response without a projection block.
+          var pj = t.projection && t.projection.text ? t.projection.text : null;
           var items = [
             { val: fmtDollar(t.total_budget), label: "Total Budget" },
             { val: fmtNum(t.total_clicks), label: "Est. Clicks" },
-            { val: fmtNum(t.total_applies), label: "Est. Applies" },
-            { val: fmtNum(t.total_hires), label: "Est. Hires" },
-            { val: fmtDollar(t.blended_cpa), label: "Blended CPA" },
-            { val: fmtDollar(t.blended_cph), label: "Cost per Hire" },
+            {
+              val: pj ? esc(pj.applications) : fmtNum(t.total_applies),
+              label: "Est. Applies",
+            },
+            {
+              val: pj ? esc(pj.hires) : fmtNum(t.total_hires),
+              label: "Est. Hires",
+            },
+            {
+              val: pj ? esc(pj.cpa) : fmtDollar(t.blended_cpa),
+              label: "Cost per Application",
+            },
+            {
+              val: pj ? esc(pj.cph) : fmtDollar(t.blended_cph),
+              label: "Cost per Hire",
+            },
           ];
           var html = "";
           for (var i = 0; i < items.length; i++) {
@@ -1818,6 +1842,23 @@
               "</div></div>";
           }
           document.getElementById("qpTotals").innerHTML = html;
+          var note = document.getElementById("qpTotalsNote");
+          if (note) {
+            if (pj) {
+              var bits = [
+                pj.hires_short ||
+                  "Hires are an estimate from industry cost per hire; no client hire history provided.",
+                "Cost per hire: " + (pj.cph_short || "total cost-per-hire basis, not media-only") + ".",
+              ];
+              if (pj.cpa_note) bits.push(pj.cpa_note);
+              bits.push("Channel figures below split the upper end of these ranges.");
+              note.textContent = bits.join(" ");
+              note.style.display = "";
+            } else {
+              note.style.display = "none";
+              note.textContent = "";
+            }
+          }
         }
 
         /* ──────────────────────────────────────────────────────

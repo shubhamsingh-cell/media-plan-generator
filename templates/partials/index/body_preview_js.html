@@ -505,34 +505,41 @@
         // Check's own words
         ins.push({ tone: "warn", text: "Budget supports <b>fewer than one hire</b> against your " + goalText(m) + " — raise the budget substantially or narrow scope." });
       } else if (est && m.targetHires > 0 && est.est_hires > 0) {
-        var ratio = est.est_hires / m.targetHires;
-        if (ratio < 1.0) {
-          var gap = m.total * (m.targetHires / est.est_hires - 1);
-          ins.push({ tone: "warn", text: "Budget supports <b>~" + intc(est.est_hires) + " hires</b> against your " + goalText(m) + " — consider raising budget by ~<b>" + hero(gap) + "</b> or narrowing scope." });
-        } else if (ratio > 1.35) {
-          ins.push({ tone: "good", text: "Budget comfortably covers your " + goalText(m) + " (~" + intc(est.est_hires) + " projected)." });
+        var hr = est.projection && est.projection.hires;
+        var hiresTxt = est.projection && est.projection.text ? est.projection.text.hires : "";
+        var hiLo = hr && hr.low != null ? hr.low : est.est_hires;
+        var hiHi = hr && hr.high != null ? hr.high : est.est_hires;
+        var shown = hiresTxt || String(intc(est.est_hires));
+        if (m.targetHires > hiHi) {
+          // even the optimistic end falls short
+          var gap = m.total * (m.targetHires / hiHi - 1);
+          ins.push({ tone: "warn", text: "Budget supports an estimated <b>" + escapeHtml(shown) + " hires</b> against your " + goalText(m) + " — consider raising budget by ~<b>" + hero(gap) + "</b> or narrowing scope." });
+        } else if (m.targetHires <= hiLo) {
+          ins.push({ tone: "good", text: "Budget covers your " + goalText(m) + " even at the conservative end (est. " + escapeHtml(shown) + " hires)." });
         } else {
-          ins.push({ tone: "good", text: "On track — budget supports <b>~" + intc(est.est_hires) + " hires</b> for your " + goalText(m) + "." });
+          ins.push({ tone: "info", text: "Your " + goalText(m) + " sits inside the estimated range of <b>" + escapeHtml(shown) + " hires</b> — it depends on your real cost per hire." });
         }
       }
       // 2. cost per hire vs the SHRM-sourced quartiles /api/estimate returns
       // (est.cph_benchmark, from data/recruitment_benchmarks_2026_deep.json).
       // "High" / "Efficient" is only ever said against that yardstick: no
-      // benchmark for these roles (or a non-USD plan) = no grade. It used to
-      // grade against a hand-typed per-role-class table that called a $7K
-      // nurse hire "High" while the data's nursing upper quartile is $7.8K.
+      // benchmark for these roles (or a non-USD plan) = no grade. The whole
+      // estimated RANGE must clear the quartile to earn the word.
       var bm = est && est.cph_benchmark;
-      if (est && est.est_hires >= 1 && est.est_cph > 0 && bm && bm.p75 > 0 && bm.p25 > 0) {
-        var cph = est.est_cph;
+      if (est && est.est_hires >= 1 && est.est_cph > 0 && bm && bm.p75 > 0 && bm.p25 > 0 && !(est.projection && est.projection.cph && est.projection.cph.low == null)) {
+        var cr = est.projection && est.projection.cph;
+        var cphLo = cr && cr.low != null ? cr.low : est.est_cph;
+        var cphHi = cr && cr.high != null ? cr.high : est.est_cph;
+        var cphTxt = est.projection && est.projection.text ? est.projection.text.cph : "";
         var yard = escapeHtml(bm.label) + " (sources listed in the benchmark file: " + escapeHtml(bm.source) + ")";
         // The benchmark is in US dollars (the server sends it for USD plans
-        // only). One decimal under $10K so "$7.8K" is not rounded to "$8K"
-        // beside a projection of "$7.9K".
+        // only). One decimal under $10K so "$7.8K" is not rounded to "$8K".
         var usdK = function (v) { return "$" + (v < 10000 ? trim(v / 1000, 1) : Math.round(v / 1000)) + "K"; };
-        if (cph > bm.p75) {
-          ins.push({ tone: "warn", text: "High <b>~" + usdK(cph) + "/hire</b> for " + (role || "this role") + ": above the " + usdK(bm.p75) + " upper quartile for " + yard + ". Niche boards + employer brand usually pull it down." });
-        } else if (cph < bm.p25) {
-          ins.push({ tone: "good", text: "Efficient <b>~" + usdK(cph) + "/hire</b> for " + (role || "this role") + ": below the " + usdK(bm.p25) + " lower quartile for " + yard + "." });
+        var cphShown = cphTxt || ("~" + usdK(est.est_cph));
+        if (cphLo > bm.p75) {
+          ins.push({ tone: "warn", text: "High <b>" + escapeHtml(cphShown) + "/hire</b> for " + (role || "this role") + ": above the " + usdK(bm.p75) + " upper quartile for " + yard + ". Niche boards + employer brand usually pull it down." });
+        } else if (cphHi < bm.p25) {
+          ins.push({ tone: "good", text: "Efficient <b>" + escapeHtml(cphShown) + "/hire</b> for " + (role || "this role") + ": below the " + usdK(bm.p25) + " lower quartile for " + yard + "." });
         }
       }
       // 3. channel fit
@@ -686,7 +693,16 @@
     function paintOutcomes(m) {
       var hasBudget = m.total > 0;
       var est = hasBudget ? estimateFor(m) : null;
-      if (est) {
+      var proj = (est && est.projection) || null;
+      if (proj && proj.text) {
+        // Ranges, never a lone point: the strings come from the server's one
+        // projection (plan_projection.describe), so the wizard, the review
+        // step, Quick Plan, chat, the workbook and the deck print the same
+        // low-high. The engine's own point figure is the optimistic end.
+        [["npApplies", proj.text.applications], ["npHires", proj.text.hires], ["npCpa", proj.text.cpa]].forEach(function (pair) {
+          var el = $(pair[0]); if (el) { el.textContent = pair[1] || "—"; el.__cur = 0; }
+        });
+      } else if (est) {
         setNum($("npApplies"), est.est_applications, appsFmt);
         setNum($("npHires"), est.est_hires, intc);
         setNum($("npCpa"), est.est_cpa, cpaFmt);
@@ -696,6 +712,20 @@
         });
       }
       paintEstimateBar(m);
+      // What the hires / cost-per-hire figures assume, stated beside them.
+      var basis = $("npBasis");
+      if (basis) {
+        if (proj && proj.text) {
+          var bits = ["Est. cost / hire <b>" + escapeHtml(proj.text.cph) + "</b> (" + escapeHtml(proj.text.cph_short || "total cost-per-hire basis") + ")."];
+          bits.push(escapeHtml(proj.text.hires_short || "Hires are an estimate from industry cost per hire; no client hire history provided."));
+          if (proj.text.cpa_note) bits.push(escapeHtml(proj.text.cpa_note));
+          basis.innerHTML = bits.join(" ");
+          basis.style.display = "";
+        } else {
+          basis.style.display = "none";
+          basis.innerHTML = "";
+        }
+      }
       // the Budget Reality Check banner words these same estimate figures
       if (typeof checkBudgetFeasibility === "function") {
         try { checkBudgetFeasibility(); } catch (e) { /* banner is advisory */ }
@@ -904,6 +934,8 @@
               applications: Math.round(estimateFor(m).est_applications),
               hires: Math.round(estimateFor(m).est_hires),
               cost_per_application: Math.round(estimateFor(m).est_cpa * 100) / 100,
+              // the ranges the panel shows (low-high), with what they assume
+              ranges: estimateFor(m).projection ? estimateFor(m).projection.text : null,
             } : null,
           });
         } catch (e) { /* widget not ready */ }
