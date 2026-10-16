@@ -94,7 +94,9 @@ def _read(raw: bytes) -> Tuple[Text, Text]:
                     for row in ws.iter_rows():
                         for cell in row:
                             if isinstance(cell.value, str):
-                                xlsx.append((f"{ws.title}!{cell.coordinate}", cell.value))
+                                xlsx.append(
+                                    (f"{ws.title}!{cell.coordinate}", cell.value)
+                                )
             elif name.endswith(".pptx"):
                 prs = Presentation(io.BytesIO(blob))
                 for i, slide in enumerate(prs.slides, 1):
@@ -140,7 +142,11 @@ def test_fr_exclusions_leave_zero_mentions_and_the_plan_discloses_them(bundles):
     rows = _everything(bundles["fr_excl"])
     disclosure = "Excluded at client request: HelloWork, indeed.com"
     xlsx_rows, deck_rows = bundles["fr_excl"]
-    assert [w for w, t in xlsx_rows if w.startswith("Executive Summary!") and disclosure in t]
+    assert [
+        w
+        for w, t in xlsx_rows
+        if w.startswith("Executive Summary!") and disclosure in t
+    ]
     slide2 = " ".join(t for w, t in deck_rows if w == "slide2")
     assert "Excluded at client request" in slide2
     assert "HelloWork" in slide2 and "indeed.com" in slide2
@@ -201,7 +207,11 @@ def test_no_ziprecruiter_outside_its_markets(bundles, tag):
 
 def test_ziprecruiter_stays_where_it_operates(bundles):
     xlsx_rows, _ = bundles["ca"]
-    assert [t for w, t in xlsx_rows if w.startswith("Channels & Strategy!") and t == "ZipRecruiter Sponsored"]
+    assert [
+        t
+        for w, t in xlsx_rows
+        if w.startswith("Channels & Strategy!") and t == "ZipRecruiter Sponsored"
+    ]
 
 
 @pytest.mark.parametrize("tag", ["fr_excl", "mx", "vn", "uk", "ca"])

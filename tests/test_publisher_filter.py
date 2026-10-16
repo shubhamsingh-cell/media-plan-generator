@@ -56,17 +56,26 @@ def test_different_boards_never_match(a, b):
 
 
 def test_sanitize_excluded_dedupes_caps_and_strips_markup():
-    out = pf.sanitize_excluded(["HelloWork", "hellowork.com", "<b>Indeed</b>", "", 5, "x" * 200])
+    out = pf.sanitize_excluded(
+        ["HelloWork", "hellowork.com", "<b>Indeed</b>", "", 5, "x" * 200]
+    )
     assert out == ["HelloWork", "Indeed"]
     assert pf.sanitize_excluded("Indeed, Seek ; Naukri") == ["Indeed", "Seek", "Naukri"]
-    assert len(pf.sanitize_excluded([f"Board {i}" for i in range(60)])) == pf.MAX_EXCLUDED
+    assert (
+        len(pf.sanitize_excluded([f"Board {i}" for i in range(60)])) == pf.MAX_EXCLUDED
+    )
     assert pf.sanitize_excluded(None) == []
     assert pf.sanitize_excluded({"a": 1}) == []
 
 
 def test_client_exclusion_drops_every_spelling():
     data = {"excluded_publishers": ["indeed.com"]}
-    names = ["Pole Emploi (France Travail)", "Indeed France", "Indeed Sponsored Jobs", "LinkedIn France"]
+    names = [
+        "Pole Emploi (France Travail)",
+        "Indeed France",
+        "Indeed Sponsored Jobs",
+        "LinkedIn France",
+    ]
     assert pf.clean_names(names, data, "France") == [
         "Pole Emploi (France Travail)",
         "LinkedIn France",
@@ -77,7 +86,9 @@ def test_client_exclusion_drops_every_spelling():
 
 def test_compound_names_filter_part_wise():
     data = {"excluded_publishers": ["LinkedIn"]}
-    assert pf.clean_names(["LinkedIn / Meta / TikTok Ads"], data) == ["Meta / TikTok Ads"]
+    assert pf.clean_names(["LinkedIn / Meta / TikTok Ads"], data) == [
+        "Meta / TikTok Ads"
+    ]
     # a compound is excluded only when every part is
     assert not pf.is_excluded("LinkedIn / Meta", data)
     assert pf.is_excluded("LinkedIn / LinkedIn Ads", data)
@@ -94,7 +105,10 @@ def test_disclosure_only_lists_client_exclusions():
 
 def test_next_allowed_substitutes_the_next_board():
     data = {"excluded_publishers": ["Indeed"]}
-    assert pf.next_allowed(["Indeed Sponsored Jobs", "Glassdoor", "LinkedIn"], data) == "Glassdoor"
+    assert (
+        pf.next_allowed(["Indeed Sponsored Jobs", "Glassdoor", "LinkedIn"], data)
+        == "Glassdoor"
+    )
     assert pf.next_allowed(["Indeed"], data) is None
 
 
@@ -126,7 +140,15 @@ def test_zipecruiter_uk_exit_is_scoped_to_the_uk():
 def test_market_scope_gates_us_only_platforms():
     assert pf.platform_runs_in("ZipRecruiter Sponsored", "United States")
     assert pf.platform_runs_in("ZipRecruiter Sponsored", "Canada")
-    for country in ("France", "Germany", "India", "Vietnam", "Mexico", "Australia", "Singapore"):
+    for country in (
+        "France",
+        "Germany",
+        "India",
+        "Vietnam",
+        "Mexico",
+        "Australia",
+        "Singapore",
+    ):
         assert not pf.platform_runs_in("ZipRecruiter Sponsored", country), country
     assert not pf.platform_runs_in("ZipRecruiter Sponsored", "United Kingdom")
     assert pf.platform_runs_in("Indeed Sponsored Jobs", "France")
@@ -135,10 +157,18 @@ def test_market_scope_gates_us_only_platforms():
 
 def test_renames_and_folded_boards_are_sourced():
     assert pf.clean_names(["CareerBuilder Vietnam"], None, "Vietnam") == ["CareerViet"]
-    assert pf.clean_names(["Workopolis / Monster Canada"], None, "Canada") == ["Monster Canada"]
+    assert pf.clean_names(["Workopolis / Monster Canada"], None, "Canada") == [
+        "Monster Canada"
+    ]
     assert pf.clean_names(["Workopolis"], None, "Canada") == []
     raw = json.loads((ROOT / "data" / "publisher_availability.json").read_text())
-    for section in ("entries", "alias_groups", "market_scope", "renames", "folded_boards"):
+    for section in (
+        "entries",
+        "alias_groups",
+        "market_scope",
+        "renames",
+        "folded_boards",
+    ):
         for item in raw[section]:
             assert str(item.get("source") or "").strip(), (section, item)
     assert any("exited Vietnam" in t for t in raw["_todo"])
@@ -151,7 +181,9 @@ def test_relationship_label_never_invented():
     assert not pf.relationship_unverified("VietnamWorks", "Vietnam")
     assert not pf.relationship_unverified("TotallyMadeUpBoard", "France")
     marked, any_marked = pf.annotate(["Glassdoor", "VietnamWorks"], "India")
-    assert marked == [f"Glassdoor {pf.RELATIONSHIP_MARK}", "VietnamWorks"] and any_marked
+    assert (
+        marked == [f"Glassdoor {pf.RELATIONSHIP_MARK}", "VietnamWorks"] and any_marked
+    )
     assert "confirm before quoting" in pf.RELATIONSHIP_NOTE
 
 
@@ -160,7 +192,10 @@ def test_prose_scrub_never_eats_an_ordinary_word_a_board_shares():
     data = {"excluded_publishers": ["Talent.com", "indeed.com"]}
     kept = pf.scrub_text("Build a talent pool; Talent.com has reach.", data, "France")
     assert "talent pool" in kept and "Talent.com" not in kept
-    assert pf.sweep_text("Posts rose (Indeed Mobile Report 2025).", data, ["France"]) == "Posts rose."
+    assert (
+        pf.sweep_text("Posts rose (Indeed Mobile Report 2025).", data, ["France"])
+        == "Posts rose."
+    )
     assert pf.sweep_text("Posts rose.", data, ["France"]) == "Posts rose."
 
 

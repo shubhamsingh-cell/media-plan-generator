@@ -85,7 +85,9 @@ def test_generate_400_names_the_field(live_port, bad):  # noqa: F811
     assert status == 400 and body.get("field") == "excluded_publishers", (status, body)
 
 
-def test_generate_accepts_a_valid_list_past_the_exclusion_check(live_port):  # noqa: F811
+def test_generate_accepts_a_valid_list_past_the_exclusion_check(
+    live_port,
+):  # noqa: F811
     status, body = post_json(
         live_port,
         "/api/generate",

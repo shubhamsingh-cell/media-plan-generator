@@ -15,7 +15,10 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 
-FR = {"locations": ["Paris, France", "Lyon, France"], "industry": "logistics_supply_chain"}
+FR = {
+    "locations": ["Paris, France", "Lyon, France"],
+    "industry": "logistics_supply_chain",
+}
 VN = {"locations": ["Ho Chi Minh City, Vietnam"], "industry": "logistics_supply_chain"}
 US = {"locations": ["Houston, TX", "Dallas, TX"], "industry": "logistics_supply_chain"}
 
@@ -33,8 +36,13 @@ def _platform_keys(data: dict) -> set:
 
 
 @pytest.mark.parametrize(
-    "data", [FR, VN, {"locations": ["Mexico City, Mexico"], "industry": "logistics_supply_chain"},
-             {"locations": ["London, United Kingdom"], "industry": "logistics_supply_chain"}],
+    "data",
+    [
+        FR,
+        VN,
+        {"locations": ["Mexico City, Mexico"], "industry": "logistics_supply_chain"},
+        {"locations": ["London, United Kingdom"], "industry": "logistics_supply_chain"},
+    ],
 )
 def test_ziprecruiter_row_leaves_non_zip_markets(data):
     keys = _platform_keys(data)
@@ -43,7 +51,8 @@ def test_ziprecruiter_row_leaves_non_zip_markets(data):
 
 
 @pytest.mark.parametrize(
-    "data", [US, {"locations": ["Toronto, Canada"], "industry": "logistics_supply_chain"}]
+    "data",
+    [US, {"locations": ["Toronto, Canada"], "industry": "logistics_supply_chain"}],
 )
 def test_ziprecruiter_row_stays_in_us_and_canada(data):
     assert "ziprecruiter_sponsored" in _platform_keys(data)
@@ -52,10 +61,14 @@ def test_ziprecruiter_row_stays_in_us_and_canada(data):
 def test_client_exclusion_removes_the_row_and_its_ranking_entry():
     import data_synthesizer
 
-    data = dict(US, roles=["Driver"], budget="250000", excluded_publishers=["indeed.com"])
+    data = dict(
+        US, roles=["Driver"], budget="250000", excluded_publishers=["indeed.com"]
+    )
     res = data_synthesizer.fuse_ad_platform_analysis({}, {}, data)
     assert "indeed_sponsored_jobs" not in res
-    assert "indeed_sponsored_jobs" not in [r["platform"] for r in res["_platform_ranking"]]
+    assert "indeed_sponsored_jobs" not in [
+        r["platform"] for r in res["_platform_ranking"]
+    ]
 
 
 # --- B2.2 / B2.4 deck bullets ----------------------------------------------
@@ -72,8 +85,13 @@ def test_complication_bullets_are_us_only_content():
         assert not [b for b in bullets if re.search(r"\d|\$|\bCDL\b", b)], bullets
     # and every industry table, not just logistics
     for industry in ppt_generator.COMPLICATIONS:
-        bullets = ppt_generator._get_complications(industry, dict(FR, industry=industry))
-        assert not [b for b in bullets if re.search(r"\d|\$|\bCDL\b", b)], (industry, bullets)
+        bullets = ppt_generator._get_complications(
+            industry, dict(FR, industry=industry)
+        )
+        assert not [b for b in bullets if re.search(r"\d|\$|\bCDL\b", b)], (
+            industry,
+            bullets,
+        )
 
 
 def test_role_requirement_callouts_are_us_licence_content():
@@ -148,7 +166,12 @@ def _names(strategy: dict) -> set:
 
 def test_channel_strategy_drops_us_only_boards_on_a_non_us_plan():
     names = _names(_strategy(FR))
-    for us_only in ("ZipRecruiter", "CareerBuilder", "CDLjobs.com", "TruckersReport Jobs"):
+    for us_only in (
+        "ZipRecruiter",
+        "CareerBuilder",
+        "CDLjobs.com",
+        "TruckersReport Jobs",
+    ):
         assert us_only not in names, us_only
     us_names = _names(_strategy(US))
     assert {"ZipRecruiter", "CareerBuilder"} <= us_names
@@ -167,12 +190,22 @@ def test_local_cpa_range_is_the_markets_own_or_nothing():
     import intl_benchmark_lookup as ib
 
     fr = ib.get_plan_local_cpa_range(FR)
-    assert fr and (fr["country"], fr["low_usd"], fr["high_usd"]) == ("France", 6.0, 22.0)
+    assert fr and (fr["country"], fr["low_usd"], fr["high_usd"]) == (
+        "France",
+        6.0,
+        22.0,
+    )
     assert ib.get_plan_local_cpa_range(VN) is None  # no Vietnam range in the dataset
     assert ib.get_plan_local_cpa_range(US) is None
-    assert ib.get_plan_local_cpa_range(
-        {"locations": ["Paris, France", "Berlin, Germany"], "industry": "logistics_supply_chain"}
-    ) is None  # two countries have no single honest range
+    assert (
+        ib.get_plan_local_cpa_range(
+            {
+                "locations": ["Paris, France", "Berlin, Germany"],
+                "industry": "logistics_supply_chain",
+            }
+        )
+        is None
+    )  # two countries have no single honest range
     assert ib.format_usd_range(6, 22) == "US$6-US$22"
     assert ib.format_usd_range(0.3, 2.5) == "US$0.30-US$2.50"
 
@@ -204,7 +237,9 @@ def test_stale_and_unavailable_names_are_gone_from_the_shipped_data():
     assert "CareerBuilder VN" not in research.COUNTRY_DATA["Vietnam"]["top_boards"]
     assert "CareerViet" in research.COUNTRY_DATA["Vietnam"]["top_boards"]
     assert "OCC" not in research.COUNTRY_DATA["Mexico"]["top_boards"]
-    intl = json.loads((ROOT / "data" / "international_benchmarks_2026.json").read_text())
+    intl = json.loads(
+        (ROOT / "data" / "international_benchmarks_2026.json").read_text()
+    )
     names = [
         p["name"] for c in intl["countries"].values() for p in c.get("platforms", [])
     ]
@@ -227,7 +262,9 @@ def test_global_supply_no_longer_claims_occ_or_hellowork_are_in_network():
     # the location-board lists the plan reads never carry them
     import research
 
-    assert not [b for b in research.get_location_boards(["Mexico City, Mexico"]) if "OCC" in b]
+    assert not [
+        b for b in research.get_location_boards(["Mexico City, Mexico"]) if "OCC" in b
+    ]
     for cb in research.get_global_supply_data(
         ["Mexico City, Mexico", "Paris, France"], "logistics_supply_chain"
     )["country_boards"]:

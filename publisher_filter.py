@@ -135,7 +135,9 @@ _TLDS: Tuple[str, ...] = tuple(
     )
 )  # fmt: skip
 
-_DOMAIN_RE = re.compile(r"^(?:https?://)?(?:www\.)?([a-z0-9][a-z0-9\-]*(?:\.[a-z0-9\-]+)+)(?:[/?#].*)?$")
+_DOMAIN_RE = re.compile(
+    r"^(?:https?://)?(?:www\.)?([a-z0-9][a-z0-9\-]*(?:\.[a-z0-9\-]+)+)(?:[/?#].*)?$"
+)
 _PAREN_RE = re.compile(r"\([^)]*\)|\[[^\]]*\]")
 _SPLIT_RE = re.compile(r"\s+/\s+|\s*\|\s*")
 
@@ -253,7 +255,9 @@ def _load_availability() -> Dict[str, Any]:
             with open(_AVAILABILITY_PATH, encoding="utf-8") as fh:
                 data = json.load(fh)
         except (OSError, ValueError) as exc:
-            logger.error("publisher_availability.json unreadable: %s", exc, exc_info=True)
+            logger.error(
+                "publisher_availability.json unreadable: %s", exc, exc_info=True
+            )
         if not isinstance(data, dict):
             data = {}
         # alias key -> group id (every name in a group shares one key)
@@ -494,8 +498,10 @@ def display_name(name: Any, country: Any = None) -> str:
     want = canonical_country(country)
     key = _squash(text)
     for ren in _load_availability()["renames"]:
-        if key and key in ren["_keys"] and (
-            not want or not ren["_countries"] or want in ren["_countries"]
+        if (
+            key
+            and key in ren["_keys"]
+            and (not want or not ren["_countries"] or want in ren["_countries"])
         ):
             return str(ren["new"])
     return text
@@ -530,7 +536,9 @@ def clean_names(
             continue
         parts = _parts(text)
         if parts:
-            originals = [p.strip() for p in re.split(r"\s+/\s+|\s*\|\s*", text) if p.strip()]
+            originals = [
+                p.strip() for p in re.split(r"\s+/\s+|\s*\|\s*", text) if p.strip()
+            ]
             kept = clean_names(originals, data, country)
             text = " / ".join(kept)
         else:
@@ -649,7 +657,9 @@ def _compute_mention_terms(data: Any, countries: Sequence[str]) -> Tuple[str, ..
     return tuple(sorted({t for t in (_trim_term(x) for x in terms) if t}))
 
 
-def _plan_markets(data: Any, country: Any, countries: Optional[Sequence[str]]) -> List[str]:
+def _plan_markets(
+    data: Any, country: Any, countries: Optional[Sequence[str]]
+) -> List[str]:
     if countries is not None:
         return list(countries)
     if country:
@@ -658,7 +668,10 @@ def _plan_markets(data: Any, country: Any, countries: Optional[Sequence[str]]) -
 
 
 def mentions_excluded(
-    text: Any, data: Any = None, country: Any = None, countries: Optional[Sequence[str]] = None
+    text: Any,
+    data: Any = None,
+    country: Any = None,
+    countries: Optional[Sequence[str]] = None,
 ) -> bool:
     """True when free ``text`` names a board the client excluded, a board
     that is unavailable, or a platform that does not run in the plan's
@@ -675,7 +688,10 @@ def mentions_excluded(
 
 
 def scrub_text(
-    text: Any, data: Any = None, country: Any = None, countries: Optional[Sequence[str]] = None
+    text: Any,
+    data: Any = None,
+    country: Any = None,
+    countries: Optional[Sequence[str]] = None,
 ) -> str:
     """``text`` without the sentences / ';' clauses / comma-list items that
     name an excluded or unavailable board.  Text that names none is returned
@@ -717,7 +733,9 @@ def sweep_text(
         return text
     out = re.sub(
         r"\s*\([^()]*\)",
-        lambda m: "" if mentions_excluded(m.group(0), data, countries=markets) else m.group(0),
+        lambda m: (
+            "" if mentions_excluded(m.group(0), data, countries=markets) else m.group(0)
+        ),
         text,
     )
     return scrub_text(out, data, countries=markets)
@@ -862,11 +880,7 @@ def relationship_unverified(name: Any, country: Any = None) -> bool:
     found = False
     for key in _keys_for(name):
         for countries, status in index.get(key, ()):
-            applies = (
-                not want
-                or "Global" in countries
-                or want in countries
-            )
+            applies = not want or "Global" in countries or want in countries
             if not applies:
                 continue
             found = True
