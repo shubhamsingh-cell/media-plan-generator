@@ -47,14 +47,14 @@
     <link rel="stylesheet" href="/static/css/buttons.css" />
     <link
       rel="preload"
-      href="/static/css/nova.css?v=s52"
+      href="/static/css/nova.css?v=s53"
       as="style"
       onload="
         this.onload = null;
         this.rel = 'stylesheet';
       "
     />
-    <noscript><link rel="stylesheet" href="/static/css/nova.css?v=s52" /></noscript>
+    <noscript><link rel="stylesheet" href="/static/css/nova.css?v=s53" /></noscript>
     <!-- Critical inline CSS: prevents flash of unstyled content while nova.css loads async.
          Also satisfies accessibility and brand-color requirements. -->
     <style>
@@ -316,6 +316,27 @@
             <span class="topbar-model">v4.0</span>
           </div>
           <div class="topbar-right">
+            <!-- New chat: always reachable (the sidebar copy is off-screen at <=1024px) -->
+            <button
+              type="button"
+              class="topbar-btn"
+              id="topbar-new-chat-btn"
+              title="New chat"
+              aria-label="New chat"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
             <!-- Overflow menu (more actions) -->
             <div class="topbar-overflow-wrap" id="topbar-overflow-wrap">
               <button
@@ -941,7 +962,7 @@
     </div>
 
     <script src="/static/js/nova-toast.js?v=s50" defer></script>
-    <script src="/static/js/nova.js?v=s53" defer></script>
+    <script src="/static/js/nova.js?v=s54" defer></script>
 
     <footer style="display: none" aria-hidden="true">
       Nova AI Suite &middot; Created by Shubham Singh Chandel &middot; Built by

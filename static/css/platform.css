@@ -1171,6 +1171,36 @@ body {
   width: 18px;
   height: 18px;
 }
+.nova-drawer-new {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+.nova-drawer-new + .nova-drawer-close {
+  margin-left: 4px;
+}
+.nova-drawer-new:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+.nova-drawer-new:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+.nova-drawer-new svg {
+  width: 18px;
+  height: 18px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nova-drawer-new {
+    transition: none;
+  }
+}
 
 .nova-drawer-messages {
   flex: 1;
@@ -2606,6 +2636,7 @@ body:not(.no-transitions) .aurora-bg {
 [data-theme="light"] .nova-drawer {
   box-shadow: -8px 0 40px rgba(0, 0, 0, 0.1);
 }
+[data-theme="light"] .nova-drawer-new:hover,
 [data-theme="light"] .nova-drawer-close:hover {
   background: rgba(0, 0, 0, 0.05);
 }

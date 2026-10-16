@@ -261,12 +261,12 @@
     <link rel="stylesheet" href="/static/css/buttons.css" />
     <link
       rel="stylesheet"
-      href="/static/css/platform.css?v=1.1.0"
+      href="/static/css/platform.css?v=1.1.1"
       media="print"
       onload="this.media = 'all'"
     />
     <noscript
-      ><link rel="stylesheet" href="/static/css/platform.css?v=1.1.0"
+      ><link rel="stylesheet" href="/static/css/platform.css?v=1.1.1"
     /></noscript>
     <meta name="csrf-token" content="" />
   </head>
@@ -985,6 +985,28 @@
           Dashboard
         </div>
         <button
+          type="button"
+          class="nova-drawer-new"
+          id="nova-drawer-new"
+          onclick="NovaDrawer.newChat()"
+          aria-label="New chat"
+          title="New chat"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+          </svg>
+        </button>
+        <button
+          type="button"
           class="nova-drawer-close"
           onclick="NovaDrawer.close()"
           aria-label="Close Nova AI"

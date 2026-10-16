@@ -26544,7 +26544,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
     # and the API portal.
     _NOVA_WIDGET_SNIPPET = (
         b"\n<!-- Nova AI Chat Widget (auto-injected) -->"
-        b'\n<script src="/static/nova-chat.js?v=3.5.3"></script>'
+        b'\n<script src="/static/nova-chat.js?v=3.5.5"></script>'
         b'\n<script>(function(){if(typeof NovaChat!=="undefined")NovaChat.init({containerId:null})})();</script>\n'
     )
     _NOVA_WIDGET_SKIP_PAGES = {

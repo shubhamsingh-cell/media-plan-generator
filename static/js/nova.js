@@ -3356,23 +3356,50 @@
   // ========================================================================
   // CLEAR / NEW CHAT
   // ========================================================================
-  clearChatBtn.addEventListener("click", function () {
-    var conv = getActiveConv();
-    if (conv) {
-      conv.messages = [];
-      conv.title = "New Chat";
-      conv.updatedAt = Date.now();
-      flushSaveConversations();
-      renderSidebar();
-      renderChat();
-    }
-  });
+  // Drop a reply that is still streaming: it belongs to the conversation
+  // being left, so it must not land in the new one.
+  function cancelInFlightReply() {
+    if (!state.isLoading) return;
+    state._userCancelled = true;
+    resetLoadingState();
+    var streamEl = document.getElementById("streaming-msg");
+    if (streamEl) streamEl.remove();
+  }
 
-  newChatBtn.addEventListener("click", function () {
+  // Clear chat = start over: empty the messages AND mint a new conversation
+  // id (the server scopes memory and tool state by it), so nothing said
+  // before the clear is recalled afterwards.
+  function clearActiveConversation() {
+    var conv = getActiveConv();
+    if (!conv) return;
+    cancelInFlightReply();
+    delete state.conversations[conv.id];
+    conv.id = generateId();
+    conv.messages = [];
+    conv.title = "New Chat";
+    conv.updatedAt = Date.now();
+    state.conversations[conv.id] = conv;
+    state.activeConvId = conv.id;
+    flushSaveConversations();
+    renderSidebar();
+    renderChat();
+  }
+
+  function startNewChat() {
+    cancelInFlightReply();
     createConversation();
     closeSidebarMobile();
     chatInput.focus();
-  });
+  }
+
+  clearChatBtn.addEventListener("click", clearActiveConversation);
+
+  newChatBtn.addEventListener("click", startNewChat);
+
+  // Header "New chat": the sidebar button above sits in a collapsed,
+  // off-screen drawer at <=1024px, so the header carries its own.
+  var topbarNewChatBtn = document.getElementById("topbar-new-chat-btn");
+  if (topbarNewChatBtn) topbarNewChatBtn.addEventListener("click", startNewChat);
 
   // ========================================================================
   // SIDEBAR TOGGLE

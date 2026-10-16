@@ -435,6 +435,10 @@ a:hover {
   background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
+.topbar-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
 .topbar-btn svg {
   width: 18px;
   height: 18px;

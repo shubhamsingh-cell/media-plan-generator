@@ -330,6 +330,7 @@
       "}" +
       ".nova-close-btn:hover { background: rgba(255,255,255,0.18); color: #fff; border-color: rgba(255,255,255,0.3); }" +
       ".nova-close-btn svg { width: 18px; height: 18px; }" +
+      ".nova-newchat-btn:hover, .nova-newchat-btn:focus-visible { background: rgba(255,255,255,0.18) !important; color: #fff !important; border-color: rgba(255,255,255,0.3) !important; }" +
       ".nova-export-btn:hover { background: rgba(255,255,255,0.18) !important; color: #fff !important; border-color: rgba(255,255,255,0.3) !important; }" +
       // ── Messages area ──
       ".nova-messages {" +
@@ -734,13 +735,13 @@
       ".nova-branch-indicator { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; color: #5A54BE; margin-bottom: 2px; letter-spacing: 0.3px; opacity: 0.85; }" +
       ".nova-branch-indicator svg { width: 10px; height: 10px; }" +
       // ── Print ──
-      "@media print { #nova-float-btn, .nova-input-wrap, .nova-footer, .nova-close-btn, .nova-export-btn, .nova-settings-btn, .nova-suggestion-btn, .nova-suggestions, .nova-welcome, .nova-copy-btn, .nova-tts-btn, .nova-rate-btn, .nova-regen-btn, .nova-edit-btn, .nova-stop-btn, .nova-settings-panel, .nova-export-dropdown { display: none !important; } #nova-panel { position: static !important; width: 100% !important; height: auto !important; max-height: none !important; background: #fff !important; color: #000 !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; backdrop-filter: none !important; } .nova-header { background: #fff !important; color: #000 !important; border-bottom: 2px solid #202058; } .nova-header-title { color: #202058 !important; } .nova-messages { overflow: visible !important; background: #fff !important; } .nova-msg { color: #000 !important; background: transparent !important; border: 1px solid #ddd !important; } .nova-msg-user { background: #f0f0f5 !important; } .nova-msg-assistant { background: #fff !important; } .nova-msg-sender { color: #333 !important; } .nova-msg-avatar { background: #ccc !important; } }" +
+      "@media print { #nova-float-btn, .nova-input-wrap, .nova-footer, .nova-close-btn, .nova-newchat-btn, .nova-export-btn, .nova-settings-btn, .nova-suggestion-btn, .nova-suggestions, .nova-welcome, .nova-copy-btn, .nova-tts-btn, .nova-rate-btn, .nova-regen-btn, .nova-edit-btn, .nova-stop-btn, .nova-settings-panel, .nova-export-dropdown { display: none !important; } #nova-panel { position: static !important; width: 100% !important; height: auto !important; max-height: none !important; background: #fff !important; color: #000 !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; backdrop-filter: none !important; } .nova-header { background: #fff !important; color: #000 !important; border-bottom: 2px solid #202058; } .nova-header-title { color: #202058 !important; } .nova-messages { overflow: visible !important; background: #fff !important; } .nova-msg { color: #000 !important; background: transparent !important; border: 1px solid #ddd !important; } .nova-msg-user { background: #f0f0f5 !important; } .nova-msg-assistant { background: #fff !important; } .nova-msg-sender { color: #333 !important; } .nova-msg-avatar { background: #ccc !important; } }" +
       // ── Reduced motion ──
       "@media (prefers-reduced-motion: reduce) {" +
       "  .nova-msg-row, .nova-msg-user, .nova-msg-assistant { animation: none !important; }" +
       "  .nova-msg-row { animation: none !important; }" +
       "  .nova-typing-dot { animation: none !important; opacity: 0.5; }" +
-      "  #nova-float-btn, .nova-send-btn, .nova-suggestion-btn, .nova-close-btn, .nova-regen-btn, .nova-edit-btn { transition: none !important; }" +
+      "  #nova-float-btn, .nova-send-btn, .nova-suggestion-btn, .nova-close-btn, .nova-newchat-btn, .nova-regen-btn, .nova-edit-btn { transition: none !important; }" +
       "  #nova-float-btn:hover, .nova-send-btn:hover, .nova-suggestion-btn:hover { transform: none !important; }" +
       "  #nova-float-btn:active, .nova-send-btn:active, .nova-suggestion-btn:active { transform: none !important; }" +
       "  .nova-streaming-cursor { animation: none !important; opacity: 0.7; }" +
@@ -1453,15 +1454,21 @@
     return cleaned;
   }
 
+  function mintSessionId() {
+    var sid =
+      "nova-" + Date.now() + "-" + Math.random().toString(36).substr(2, 6);
+    try {
+      localStorage.setItem(CONFIG.sessionKey, sid);
+    } catch (e) {
+      /* localStorage write failed -- the id still lives in state */
+    }
+    return sid;
+  }
+
   function getSessionId() {
     try {
       var sid = localStorage.getItem(CONFIG.sessionKey);
-      if (!sid) {
-        sid =
-          "nova-" + Date.now() + "-" + Math.random().toString(36).substr(2, 6);
-        localStorage.setItem(CONFIG.sessionKey, sid);
-      }
-      return sid;
+      return sid || mintSessionId();
     } catch (e) {
       return "nova-" + Date.now();
     }
@@ -1844,6 +1851,9 @@
       "</div>" +
       '<div class="nova-chat-header-auth" style="display:none;align-items:center;margin-right:4px;"></div>' +
       '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<button type="button" class="nova-newchat-btn" aria-label="New chat" title="New chat" style="background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);cursor:pointer;padding:5px;border-radius:8px;line-height:1;transition:all 0.2s;">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>' +
+      "</button>" +
       '<button class="nova-settings-btn" aria-label="Settings" title="Settings" style="background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.85);cursor:pointer;padding:5px;border-radius:8px;line-height:1;transition:all 0.2s;">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
       "</button>" +
@@ -1951,6 +1961,13 @@
         if (ed) ed.classList.remove("nova-export-open");
       }
     });
+    header
+      .querySelector(".nova-newchat-btn")
+      .addEventListener("click", function (e) {
+        e.stopPropagation();
+        e.preventDefault();
+        clearConversation("new_chat_button");
+      });
     header
       .querySelector(".nova-close-btn")
       .addEventListener("click", function (e) {
@@ -3318,17 +3335,46 @@
   // ---------------------------------------------------------------------------
   // Clear conversation (internal)
   // ---------------------------------------------------------------------------
-  function clearConversation() {
+  function clearConversation(source) {
+    // A reply still in flight belongs to the OLD conversation: cancel it and
+    // flag the abort as a reset so its catch handler stays silent instead of
+    // posting "Response was stopped." into the new chat.
+    if (_activeAbortCtrl) {
+      try {
+        _activeAbortCtrl._isUserCancel = true;
+        _activeAbortCtrl._isReset = true;
+        _activeAbortCtrl.abort();
+      } catch (_) {
+        /* already aborted */
+      }
+      _activeAbortCtrl = null;
+    }
+    hideStopButton();
+    hideTyping();
+    state.isLoading = false;
+    var sendBtn = document.getElementById("nova-send-btn");
+    if (sendBtn) sendBtn.disabled = false;
+    delete state._pendingBranch;
+
     state.messages = [];
-    saveHistory([]);
+    try {
+      localStorage.removeItem(CONFIG.storageKey);
+    } catch (e) {
+      /* localStorage unavailable */
+    }
+    // New conversation id: the server scopes memory and tool state by it.
+    state.sessionId = mintSessionId();
+
     var messagesDiv = document.getElementById("nova-messages");
     if (messagesDiv) {
       messagesDiv.innerHTML = "";
       showWelcome();
     }
+    var input = document.getElementById("nova-input");
+    if (input && typeof input.focus === "function") input.focus();
     if (window.posthog && typeof window.posthog.capture === "function") {
       window.posthog.capture("nova_chat_history_cleared", {
-        source: "keyboard_shortcut",
+        source: typeof source === "string" ? source : "keyboard_shortcut",
         page: window.location.pathname,
       });
     }
@@ -3977,6 +4023,9 @@
             var streamEl = document.getElementById("nova-stream-msg");
             if (streamEl) streamEl.remove();
 
+            // New chat started mid-reply: the old reply is discarded silently.
+            if (abortCtrl._isReset) return;
+
             // Fallback: if streaming failed (not abort), try non-streaming endpoint
             if (err.name !== "AbortError") {
               console.warn(
@@ -4291,7 +4340,7 @@
      * Clear conversation history.
      */
     clearHistory: function () {
-      clearConversation();
+      clearConversation("api");
     },
   };
 })();

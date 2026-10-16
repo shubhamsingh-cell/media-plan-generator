@@ -467,6 +467,13 @@ const NovaContext = (() => {
       });
     },
 
+    /* Write pending state to storage now (a New chat must not wait on the
+       debounce, or a reload inside the window would restore the old campaign). */
+    flush() {
+      if (_debounceTimer) clearTimeout(_debounceTimer);
+      _persistNow();
+    },
+
     init() {
       _loadFromLocal();
       _updateCampaignUI();
@@ -1336,6 +1343,7 @@ function _escHtml(str) {
 const NovaDrawer = (() => {
   let _isOpen = false;
   const CHAT_KEY = "nova_chat_v1";
+  const CONV_KEY = "nova_drawer_conv";
 
   /* Module-specific suggestion chips */
   const MODULE_SUGGESTIONS = {
@@ -1479,6 +1487,29 @@ const NovaDrawer = (() => {
     } catch (e) {
       /* noop */
     }
+  }
+
+  /* Conversation id sent to /api/chat: the server scopes memory by it. */
+  function _mintConversationId() {
+    const id =
+      "drawer-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+    try {
+      localStorage.setItem(CONV_KEY, id);
+    } catch (e) {
+      /* storage unavailable -- the id still lives in _convId */
+    }
+    return id;
+  }
+
+  function _conversationId() {
+    if (_convId) return _convId;
+    try {
+      _convId = localStorage.getItem(CONV_KEY) || "";
+    } catch (e) {
+      _convId = "";
+    }
+    if (!_convId) _convId = _mintConversationId();
+    return _convId;
   }
 
   function _loadChatHistory() {
@@ -1662,6 +1693,8 @@ const NovaDrawer = (() => {
   }
 
   let _chatHistory = [];
+  let _convId = "";
+  let _generation = 0; /* bumped by newChat(): in-flight replies are dropped */
 
   /* A module switch reloads the page (NovaRouter); the drawer stays open
      across it instead of closing on every navigation it triggers itself. */
@@ -1744,6 +1777,8 @@ const NovaDrawer = (() => {
       container.scrollTop = container.scrollHeight;
 
       /* Call real Nova API */
+      const generation = _generation;
+      const conversationId = _conversationId();
       const activeModule = NovaContext.nav.activeModule;
       const campaign = NovaContext.campaign;
       const csrfMeta = document.querySelector('meta[name="csrf-token"]');
@@ -1757,6 +1792,7 @@ const NovaDrawer = (() => {
         credentials: "same-origin",
         body: JSON.stringify({
           message: text,
+          conversation_id: conversationId,
           conversation_history: _chatHistory
             .filter((m) => m.role === "user" || m.role === "nova")
             .slice(-10)
@@ -1790,6 +1826,7 @@ const NovaDrawer = (() => {
                   credentials: "same-origin",
                   body: JSON.stringify({
                     message: text,
+                    conversation_id: conversationId,
                     conversation_history: _chatHistory
                       .filter((m) => m.role === "user" || m.role === "nova")
                       .slice(-10)
@@ -1813,6 +1850,7 @@ const NovaDrawer = (() => {
         .then((data) => {
           /* Remove typing indicator */
           if (typingEl.parentNode) typingEl.remove();
+          if (generation !== _generation) return; /* New chat started */
 
           const responseText =
             data.response ||
@@ -1841,6 +1879,7 @@ const NovaDrawer = (() => {
         .catch((err) => {
           /* Remove typing indicator */
           if (typingEl.parentNode) typingEl.remove();
+          if (generation !== _generation) return; /* New chat started */
 
           /* Fallback to client-side if API fails */
           const response = _generateResponse(text);
@@ -1856,6 +1895,26 @@ const NovaDrawer = (() => {
     sendSuggestion(text) {
       document.getElementById("nova-input").value = text;
       this.send();
+    },
+    /* Start over: empty chat, stored history, a NEW conversation id, and the
+       persisted campaign context (nova_context_v2). */
+    newChat() {
+      _generation += 1;
+      _chatHistory = [];
+      try {
+        localStorage.removeItem(CHAT_KEY);
+      } catch (e) {
+        /* storage unavailable */
+      }
+      _convId = _mintConversationId();
+      NovaContext.clearCampaign();
+      NovaContext.flush();
+      _renderMessages(_chatHistory);
+      const input = document.getElementById("nova-input");
+      if (input) {
+        input.value = "";
+        input.focus();
+      }
     },
     updateSuggestions,
     /* Execute actions from Nova (Phase 4) */
