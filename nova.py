@@ -30,6 +30,7 @@ import time
 from pathlib import Path
 
 import proof_claims  # public proof numbers: one source of truth, each with its artifact
+import publisher_filter  # client exclusions + availability: one matcher for every board list
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
 # S50 (May 2026): 11 free recruitment data APIs as Nova chatbot tools.
@@ -5346,6 +5347,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                             "type": "string",
                             "description": "Board category filter (e.g., 'Tech', 'Healthcare').",
                         },
+                        "excluded_publishers": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Boards the client excluded (any spelling, e.g. 'indeed.com'); removed from the results.",
+                        },
                     },
                     "required": [],
                 },
@@ -5389,6 +5395,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         "search_term": {
                             "type": "string",
                             "description": "Name search (case-insensitive substring)",
+                        },
+                        "excluded_publishers": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Boards the client excluded (any spelling, e.g. 'indeed.com'); removed from the results.",
                         },
                     },
                     "required": [],
@@ -8145,6 +8156,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         board_type = params.get("board_type", "all")
         category_filter = (params.get("category") or "").lower().strip()
         exclude_veterinary = params.get("exclude_veterinary", False)
+        # Client exclusions (any spelling) plus boards not available through
+        # Joveo (data/publisher_availability.json) never reach the answer.
+        _pf_data = {
+            "excluded_publishers": publisher_filter.sanitize_excluded(
+                params.get("excluded_publishers")
+            )
+        }
 
         # Veterinary keywords for filtering out vet boards from medical/nursing queries
         _vet_name_keywords = (
@@ -8184,6 +8202,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         )
                         and (b.get("job_categories") or "").lower() != "veterinary"
                     ]
+                boards = publisher_filter.clean_items(
+                    boards, _pf_data, country=country_resolved
+                )
                 result["country_boards"] = {
                     "country": country_resolved,
                     "boards": boards,
@@ -8204,7 +8225,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             if country_resolved and country_resolved in dei_boards:
                 result["dei_boards"] = {
                     "country": country_resolved,
-                    "boards": dei_boards[country_resolved],
+                    "boards": publisher_filter.clean_items(
+                        dei_boards[country_resolved], _pf_data, country=country_resolved
+                    ),
                 }
             elif not country:
                 # Return global DEI boards
@@ -8224,7 +8247,11 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             if country_resolved and country_resolved in women_boards:
                 result["women_boards"] = {
                     "country": country_resolved,
-                    "boards": women_boards[country_resolved],
+                    "boards": publisher_filter.clean_items(
+                        women_boards[country_resolved],
+                        _pf_data,
+                        country=country_resolved,
+                    ),
                 }
             elif not country:
                 result["women_boards"] = {
@@ -8326,6 +8353,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         category = (params.get("category") or "").strip()
         search_term = (params.get("search_term") or "").strip().lower()
         exclude_veterinary = params.get("exclude_veterinary", False)
+        _pf_data = {
+            "excluded_publishers": publisher_filter.sanitize_excluded(
+                params.get("excluded_publishers")
+            )
+        }
+        _pf_country = _resolve_country(country) if country else None
 
         # Veterinary keywords for filtering out vet publishers from medical/nursing queries
         _VET_KEYWORDS = (
@@ -8412,6 +8445,18 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 except Exception as _gsr_err:
                     logger.debug("Global supply repo search failed: %s", _gsr_err)
 
+            _before = len(matches)
+            matches = publisher_filter.clean_items(
+                matches, _pf_data, country=_pf_country
+            )
+            if _before and not matches:
+                # The board exists in the data but must not be recommended:
+                # say so plainly rather than "not found".
+                _entry = publisher_filter.availability_for(search_term, _pf_country)
+                result["availability_note"] = (
+                    f"{(_entry or {}).get('name') or search_term}: "
+                    f"{(_entry or {}).get('reason') or 'excluded for this plan'}"
+                )
             result["search_results"] = matches
             result["search_term"] = search_term
             result["match_count"] = len(matches)
@@ -8433,6 +8478,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         for p in pubs_list
                         if not any(vk in p.lower() for vk in _VET_KEYWORDS)
                     ]
+                pubs_list = publisher_filter.clean_names(
+                    pubs_list, _pf_data, _pf_country
+                )
                 result["category"] = cat_key
                 result["publishers"] = pubs_list
                 result["count"] = len(pubs_list)
@@ -8479,6 +8527,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                                 }
                                 for p in _ni_pubs
                             )
+                _industry_matches = publisher_filter.clean_items(
+                    _industry_matches, _pf_data, country=_pf_country
+                )
                 if _industry_matches:
                     result["category"] = category
                     result["publishers"] = [m["name"] for m in _industry_matches]
@@ -8492,7 +8543,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         elif country_resolved:
             # Filter by country
             if country_resolved in by_country:
-                pubs = by_country[country_resolved]
+                pubs = publisher_filter.clean_names(
+                    by_country[country_resolved], _pf_data, country_resolved
+                )
                 result["country"] = country_resolved
                 result["publishers"] = pubs
                 result["count"] = len(pubs)

@@ -6,8 +6,14 @@
   "entries": [
     {
       "name": "HelloWork",
-      "aliases": ["HelloWork (formerly RegionsJob)", "RegionsJob", "hellowork.com"],
-      "countries": ["France"],
+      "aliases": [
+        "HelloWork (formerly RegionsJob)",
+        "RegionsJob",
+        "hellowork.com"
+      ],
+      "countries": [
+        "France"
+      ],
       "status": "unavailable",
       "reason": "not available through Joveo — do not recommend",
       "source": "internal sales feedback",
@@ -15,8 +21,13 @@
     },
     {
       "name": "OCC Mundial",
-      "aliases": ["OCC", "occ.com.mx"],
-      "countries": ["Mexico"],
+      "aliases": [
+        "OCC",
+        "occ.com.mx"
+      ],
+      "countries": [
+        "Mexico"
+      ],
       "status": "unavailable",
       "reason": "not available through Joveo — do not recommend",
       "source": "internal sales feedback",
@@ -24,8 +35,12 @@
     },
     {
       "name": "ZipRecruiter",
-      "aliases": ["ZipRecruiter Sponsored"],
-      "countries": ["United Kingdom"],
+      "aliases": [
+        "ZipRecruiter Sponsored"
+      ],
+      "countries": [
+        "United Kingdom"
+      ],
       "status": "exited",
       "reason": "ZipRecruiter UK Ltd was dissolved on 2025-12-02; the board no longer operates in the UK",
       "source": "https://www.sec.gov/Archives/edgar/data/1617553/000161755326000025/ziprecruiterinc_20260225x.pdf",
@@ -34,12 +49,20 @@
   ],
   "alias_groups": [
     {
-      "names": ["HelloWork", "RegionsJob", "hellowork.com"],
+      "names": [
+        "HelloWork",
+        "RegionsJob",
+        "hellowork.com"
+      ],
       "note": "RegionsJob and its regional sites merged into hellowork.com in April 2022",
       "source": "https://www.hellowork-group.com/en/the-hellowork-group/"
     },
     {
-      "names": ["OCC", "OCC Mundial", "occ.com.mx"],
+      "names": [
+        "OCC",
+        "OCC Mundial",
+        "occ.com.mx"
+      ],
       "note": "Online Career Center Mexico; occ.com.mx",
       "source": "https://www.occ.com.mx/"
     }
@@ -47,18 +70,50 @@
   "market_scope": [
     {
       "name": "ZipRecruiter",
-      "aliases": ["ZipRecruiter Sponsored"],
-      "countries": ["United States", "Canada", "United Kingdom"],
+      "aliases": [
+        "ZipRecruiter Sponsored"
+      ],
+      "countries": [
+        "United States",
+        "Canada",
+        "United Kingdom"
+      ],
       "note": "Markets the Joveo supply repository lists for ZipRecruiter; the UK is separately marked exited above.",
+      "source": "data/joveo_global_supply_repository.json (publisher countries)",
+      "as_of": "2026-10-16"
+    },
+    {
+      "name": "CareerBuilder",
+      "aliases": [],
+      "countries": [
+        "United States"
+      ],
+      "note": "The Joveo supply repository lists CareerBuilder for the United States only.",
+      "source": "data/joveo_global_supply_repository.json (publisher countries)",
+      "as_of": "2026-10-16"
+    },
+    {
+      "name": "Dice",
+      "aliases": [
+        "Dice.com"
+      ],
+      "countries": [
+        "United States"
+      ],
+      "note": "The Joveo supply repository lists Dice for the United States only.",
       "source": "data/joveo_global_supply_repository.json (publisher countries)",
       "as_of": "2026-10-16"
     }
   ],
   "renames": [
     {
-      "old": ["CareerBuilder Vietnam"],
+      "old": [
+        "CareerBuilder Vietnam"
+      ],
       "new": "CareerViet",
-      "countries": ["Vietnam"],
+      "countries": [
+        "Vietnam"
+      ],
       "effective": "2024-01-14",
       "source": "https://dantri.com.vn/kinh-doanh/careerbuilder-viet-nam-doi-ten-thuong-hieu-thanh-careerviet-20240119164332213.htm"
     }
@@ -66,7 +121,9 @@
   "folded_boards": [
     {
       "name": "Workopolis",
-      "countries": ["Canada"],
+      "countries": [
+        "Canada"
+      ],
       "operated_by": "Indeed",
       "note": "Indeed-operated white-label portal for Indeed's Canadian postings; not an independent board",
       "source": "https://en.wikipedia.org/wiki/Workopolis"

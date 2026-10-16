@@ -88,6 +88,17 @@ _COUNTRY_WORDS: Tuple[str, ...] = (
 )  # fmt: skip
 _COUNTRY_WORD_SET = frozenset(_COUNTRY_WORDS)
 
+# Multi-country brands whose national sites are written "<brand> <ISO-2>"
+# ("Indeed DE", "Monster FR"): a trailing two-letter code is a country only
+# after one of these (so "Dice NO" is never read as a Norwegian Dice).
+_MULTI_COUNTRY_BRANDS = frozenset(
+    {
+        "indeed", "linkedin", "monster", "stepstone", "glassdoor", "jobrapido",
+        "jooble", "adzuna", "jobijoba", "careerjet", "optioncarriere", "jobsdb",
+        "jobstreet", "trovit", "neuvoo", "ziprecruiter", "talent",
+    }
+)  # fmt: skip
+
 # Words that do not change which board it is.
 _GENERIC_WORDS = frozenset(
     {
@@ -159,6 +170,13 @@ def _tokens_key(text: str) -> str:
                 break
         else:
             break
+    if (
+        len(tokens) == 2
+        and tokens[0] in _MULTI_COUNTRY_BRANDS
+        and len(tokens[1]) == 2
+        and tokens[1].isalpha()
+    ):
+        tokens = tokens[:1]
     kept = [t for t in tokens if t not in _GENERIC_WORDS]
     return "".join(kept or tokens)
 
@@ -169,6 +187,13 @@ def _component_key(text: str) -> str:
     if match:
         return re.sub(r"[^a-z0-9]", "", _strip_tld(match.group(1)))
     return _tokens_key(text)
+
+
+def _squash(name: Any) -> str:
+    """Letters and digits only -- the exact-spelling key renames use (the
+    country-stripping :func:`normalize` would make 'CareerBuilder Vietnam'
+    collide with the US 'CareerBuilder')."""
+    return re.sub(r"[^a-z0-9]", "", _fold(_PAREN_RE.sub(" ", str(name or ""))))
 
 
 def normalize(name: Any) -> str:
@@ -275,7 +300,7 @@ def _load_availability() -> Dict[str, Any]:
                 {
                     **ren,
                     "_keys": frozenset(
-                        normalize(o) for o in (ren.get("old") or []) if normalize(o)
+                        _squash(o) for o in (ren.get("old") or []) if _squash(o)
                     ),
                     "_countries": frozenset(
                         canonical_country(c) for c in (ren.get("countries") or [])
@@ -409,9 +434,19 @@ def is_excluded(name: Any, data: Any = None, country: Any = None) -> bool:
     if parts:  # 'A / B' is excluded only when every part is
         return all(is_excluded(p, data, country) for p in parts)
     keys = set(_keys_for(name))
-    if keys and keys & _user_keys(data):
+    # A product of an excluded brand ("Indeed Education" when the client
+    # excluded Indeed) goes with it; the reverse never holds.
+    brand = _brand_key(name)
+    if (keys or brand) and (keys | ({brand} if brand else set())) & _user_keys(data):
         return True
     return availability_for(name, country) is not None
+
+
+def _brand_key(name: Any) -> Optional[str]:
+    """First word of ``name`` when it is a multi-country brand
+    ('Indeed Education' -> 'indeed'), else None."""
+    first = re.split(r"[^a-z0-9]+", _PAREN_RE.sub(" ", _fold(name)).strip())[:1]
+    return first[0] if first and first[0] in _MULTI_COUNTRY_BRANDS else None
 
 
 def is_user_excluded(name: Any, data: Any = None) -> bool:
@@ -447,7 +482,7 @@ def display_name(name: Any, country: Any = None) -> str:
     'CareerViet'); unchanged when no rename applies."""
     text = str(name or "")
     want = canonical_country(country)
-    key = normalize(text)
+    key = _squash(text)
     for ren in _load_availability()["renames"]:
         if key and key in ren["_keys"] and (
             not want or not ren["_countries"] or want in ren["_countries"]
@@ -500,6 +535,181 @@ def clean_names(
     return out
 
 
+def clean_items(
+    items: Iterable[Any], data: Any = None, key: str = "name", country: Any = None
+) -> List[Any]:
+    """:func:`clean_names` for dict rows: excluded / unavailable / folded
+    rows are dropped and a renamed row is returned as a copy with the new
+    ``key``; every other row (and every non-dict item) passes through, so a
+    caller's positional logic ('first two platforms') sees the clean list."""
+    out: List[Any] = []
+    for item in items:
+        if not isinstance(item, dict):
+            out.extend(clean_names([item], data, country))
+            continue
+        name = str(item.get(key) or "")
+        if not name.strip():
+            out.append(item)
+            continue
+        cleaned = clean_names([name], data, country)
+        if not cleaned:
+            continue
+        out.append(item if cleaned[0] == name else {**item, key: cleaned[0]})
+    return out
+
+
+_mention_cache: Dict[Tuple[str, ...], Any] = {}
+
+
+def _mention_pattern(terms: Tuple[str, ...]) -> Any:
+    pat = _mention_cache.get(terms)
+    if pat is None:
+        alts = []
+        for term in terms:
+            words = [w for w in re.split(r"[^a-z0-9]+", term) if w]
+            if words:
+                alts.append(r"[\W_]*".join(re.escape(w) for w in words))
+        pat = (
+            re.compile(r"(?<![a-z0-9])(?:" + "|".join(alts) + r")(?![a-z0-9])", re.I)
+            if alts
+            else None
+        )
+        _mention_cache[terms] = pat
+    return pat
+
+
+def _trim_term(term: str) -> str:
+    """'indeed france' -> 'indeed' (a trailing country/generic word never
+    narrows a mention term)."""
+    key = re.sub(r"[^a-z0-9 ]+", " ", term).split()
+    while len(key) > 1 and key[-1] in (_COUNTRY_WORD_SET | _GENERIC_WORDS):
+        key = key[:-1]
+    return " ".join(key)
+
+
+_terms_cache: Dict[Tuple[Any, ...], Tuple[str, ...]] = {}
+
+
+def _mention_terms(data: Any, countries: Sequence[str]) -> Tuple[str, ...]:
+    """Lower-case surface forms of every board the plan must not name."""
+    cache_key = (tuple(user_excluded(data)), tuple(sorted(str(c) for c in countries)))
+    cached = _terms_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    terms = _compute_mention_terms(data, countries)
+    if len(_terms_cache) > 256:
+        _terms_cache.clear()
+    _terms_cache[cache_key] = terms
+    return terms
+
+
+def _compute_mention_terms(data: Any, countries: Sequence[str]) -> Tuple[str, ...]:
+    terms: List[str] = []
+    for name in user_excluded(data):
+        base = _PAREN_RE.sub(" ", _fold(name))
+        match = _DOMAIN_RE.match(base.replace(" ", ""))
+        terms.append(_strip_tld(match.group(1)) if match else base)
+    wanted = {canonical_country(c) for c in countries if c}
+    for entry in _load_availability()["entries"]:
+        status = entry.get("status") or ""
+        if wanted:
+            if entry["_countries"] and not wanted & entry["_countries"]:
+                continue
+        elif status == "exited" and entry["_countries"]:
+            continue
+        terms.append(_fold(entry["name"]))
+        terms.extend(_fold(a) for a in (entry.get("aliases") or []))
+    # a platform that runs in none of the plan's markets (ZipRecruiter on a
+    # France plan) is not a recommendation either
+    if wanted:
+        for scope in _load_availability()["scopes"]:
+            if not any(platform_runs_in(scope["name"], c) for c in wanted):
+                terms.append(_fold(scope["name"]))
+                terms.extend(_fold(a) for a in (scope.get("aliases") or []))
+    return tuple(sorted({t for t in (_trim_term(x) for x in terms) if t}))
+
+
+def _plan_markets(data: Any, country: Any, countries: Optional[Sequence[str]]) -> List[str]:
+    if countries is not None:
+        return list(countries)
+    if country:
+        return [canonical_country(country)]
+    return plan_countries(data)
+
+
+def mentions_excluded(
+    text: Any, data: Any = None, country: Any = None, countries: Optional[Sequence[str]] = None
+) -> bool:
+    """True when free ``text`` names a board the client excluded, a board
+    that is unavailable, or a platform that does not run in the plan's
+    markets (whole-word, spacing/punctuation tolerant).  Used to drop a
+    knowledge-base sentence that recommends such a board; NOT run on
+    report-publisher citations."""
+    if not isinstance(text, str) or not text:
+        return False
+    terms = _mention_terms(data, _plan_markets(data, country, countries))
+    if not terms:
+        return False
+    pat = _mention_pattern(terms)
+    return bool(pat and pat.search(_fold(text)))
+
+
+def scrub_text(
+    text: Any, data: Any = None, country: Any = None, countries: Optional[Sequence[str]] = None
+) -> str:
+    """``text`` without the sentences / ';' clauses / comma-list items that
+    name an excluded or unavailable board.  Text that names none is returned
+    unchanged."""
+    if not isinstance(text, str):
+        return text
+    markets = _plan_markets(data, country, countries)
+
+    def hit(piece: str) -> bool:
+        return mentions_excluded(piece, data, countries=markets)
+
+    if not hit(text):
+        return text
+    kept: List[str] = []
+    for part in re.split(r"(?<=[.;])\s+", text):
+        if not hit(part):
+            kept.append(part)
+            continue
+        body = part.rstrip(".;")
+        items = [i.strip() for i in body.split(",")]
+        if len(items) > 1 and all(len(i) <= 45 for i in items):
+            survivors = [i for i in items if not hit(i)]
+            if survivors:
+                kept.append(", ".join(survivors))
+    return " ".join(kept).strip().rstrip(";").strip()
+
+
+def sweep_text(
+    text: Any, data: Any = None, countries: Optional[Sequence[str]] = None
+) -> str:
+    """Final-pass cleanup of one client-facing string: a parenthetical that
+    cites an excluded / unavailable board ('(Indeed Mobile Report 2025)') is
+    removed, then any clause that still names one is scrubbed.  Unchanged
+    when nothing matches."""
+    if not isinstance(text, str) or not text:
+        return text
+    markets = _plan_markets(data, None, countries)
+    if not mentions_excluded(text, data, countries=markets):
+        return text
+    out = re.sub(
+        r"\s*\([^()]*\)",
+        lambda m: "" if mentions_excluded(m.group(0), data, countries=markets) else m.group(0),
+        text,
+    )
+    return scrub_text(out, data, countries=markets)
+
+
+def has_exclusions(data: Any, countries: Optional[Sequence[str]] = None) -> bool:
+    """True when anything could be swept for this plan (a client exclusion,
+    an availability entry in its markets, or an out-of-market platform)."""
+    markets = _plan_markets(data, None, countries)
+    return bool(_mention_terms(data, markets))
+
+
 def next_allowed(
     candidates: Sequence[Any], data: Any = None, country: Any = None
 ) -> Optional[Any]:
@@ -544,13 +754,16 @@ def platform_runs_in(name: Any, country: Any) -> bool:
 
 def plan_countries(data: Any) -> List[str]:
     """Canonical country names of the plan's markets ('United States' for US
-    locations), in plan order, deduplicated."""
+    locations), in plan order, deduplicated.  Locations that resolve to no
+    country ('Remote') contribute nothing."""
     if not isinstance(data, dict):
         return []
     try:
+        import plan_geo
         import research  # lazy: heavy module, already loaded in the app
 
         detect = research._detect_country
+        is_us = plan_geo.location_is_us
     except (ImportError, AttributeError):
         return []
     raw_locations = data.get("locations") or []
@@ -562,12 +775,27 @@ def plan_countries(data: Any) -> List[str]:
         if not text.strip():
             continue
         try:
-            country = detect(text) or "United States"
+            if is_us(raw) is True:
+                country: Optional[str] = "United States"
+            else:
+                country = detect(text)
         except (TypeError, ValueError, AttributeError):
             continue
-        if country not in countries:
+        if country and country not in countries:
             countries.append(country)
     return countries
+
+
+def plan_has_us_market(data: Any) -> bool:
+    """True when at least one of the plan's own locations is in the US (the
+    deck's and workbook's shared gold_standard reading -- a London plan left
+    on the wizard's default 'US Only' region is NOT a US-market plan)."""
+    try:
+        import gold_standard
+
+        return bool(gold_standard.plan_market_presence(data)[0])
+    except (ImportError, AttributeError, TypeError):
+        return True
 
 
 # ---------------------------------------------------------------------------
@@ -641,9 +869,60 @@ def annotate(names: Sequence[Any], country: Any = None) -> Tuple[List[str], bool
     return out, marked
 
 
+def plan_market_boards(
+    data: Any, max_markets: int = 3, max_boards: int = 3
+) -> List[Dict[str, Any]]:
+    """The plan's top local boards per non-US market, after client
+    exclusions, availability, folded boards and renames:
+    ``[{"country", "locations", "boards" (daggered when relationship is
+    unverified), "unverified"}]``.  Empty for a US-only plan or when the
+    research dataset has no boards for a market."""
+    if not isinstance(data, dict):
+        return []
+    try:
+        import research
+    except ImportError:
+        return []
+    raw_locations = data.get("locations") or []
+    if not isinstance(raw_locations, (list, tuple)):
+        raw_locations = [raw_locations]
+    groups: Dict[str, Dict[str, Any]] = {}
+    for raw in raw_locations:
+        text = raw if isinstance(raw, str) else str((raw or {}).get("city") or "")
+        if not text.strip():
+            continue
+        try:
+            info = research.get_location_info(text) or {}
+        except (TypeError, ValueError, AttributeError, KeyError):
+            continue
+        country = info.get("country")
+        if not country or country == "United States":
+            continue
+        names = clean_names(
+            [
+                p.get("name")
+                for p in (info.get("intl_platforms") or [])
+                if isinstance(p, dict) and p.get("name")
+            ],
+            data,
+            country,
+        )[:max_boards]
+        if not names:
+            continue
+        marked, flag = annotate(names, country)
+        group = groups.setdefault(
+            country,
+            {"country": country, "locations": [], "boards": marked, "unverified": flag},
+        )
+        group["locations"].append(text)
+    return list(groups.values())[:max_markets]
+
+
 def reset_caches() -> None:
     """Test hook: drop the lazily-loaded data."""
     global _availability_cache, _repo_index_cache
     with _lock:
         _availability_cache = None
         _repo_index_cache = None
+        _terms_cache.clear()
+        _mention_cache.clear()

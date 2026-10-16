@@ -48,6 +48,7 @@ import company_blurb
 import competitor_claims
 import display_format
 import geo_market
+import publisher_filter
 
 logger = logging.getLogger(__name__)
 
@@ -3592,7 +3593,18 @@ def fuse_ad_platform_analysis(
 
     # Replace result with comprehensive benchmark-based platform data
     result = {}
+    # A platform leaves the table when the client excluded it, it is not
+    # available through Joveo, or it does not run in ANY of the plan's
+    # markets (ZipRecruiter is a US/Canada board: no row on a France plan).
+    _plan_countries = publisher_filter.plan_countries(input_data)
     for pname, pdata in _PLATFORM_BENCHMARKS.items():
+        if publisher_filter.is_excluded(pname, input_data) or (
+            _plan_countries
+            and not any(
+                publisher_filter.platform_runs_in(pname, c) for c in _plan_countries
+            )
+        ):
+            continue
         base_fit = industry_fit.get(pname, 5)  # default fit = 5
         role_adj = role_adjustments.get(pname, 0)
         fit_score = max(1, min(10, base_fit + role_adj))  # clamp 1-10

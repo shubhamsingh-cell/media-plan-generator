@@ -152,7 +152,7 @@ COUNTRY_DATA = {
         "unemployment": "5.4%",
         "currency": "CAD",
         "top_industries": "Technology, Finance, Energy, Healthcare",
-        "top_boards": "Indeed CA, LinkedIn, Job Bank, Workopolis, CareerBeacon",
+        "top_boards": "Indeed CA, LinkedIn, Job Bank, CareerBeacon",
         "region": "North America",
     },
     "Ireland": {
@@ -232,7 +232,7 @@ COUNTRY_DATA = {
         "unemployment": "2.8%",
         "currency": "MXN",
         "top_industries": "Manufacturing, Automotive, Oil & Gas, Tourism",
-        "top_boards": "OCC Mundial, CompuTrabajo, Indeed MX, Talenteca",
+        "top_boards": "CompuTrabajo, Indeed MX, Talenteca",
         "region": "LATAM",
     },
     "Poland": {
@@ -462,7 +462,7 @@ COUNTRY_DATA = {
         "unemployment": "2.0%",
         "currency": "VND",
         "top_industries": "Manufacturing, Technology, Agriculture, Tourism",
-        "top_boards": "VietnamWorks, TopCV, CareerBuilder VN, Indeed VN",
+        "top_boards": "VietnamWorks, TopCV, CareerViet, Indeed VN",
         "region": "APAC",
     },
 }
@@ -7081,6 +7081,17 @@ def get_events(locations, industry):
     return events
 
 
+def _drop_unavailable_boards(boards, country):
+    """``boards`` (display strings) minus unavailable / folded boards, with
+    sourced renames applied (publisher_filter.clean_names)."""
+    try:
+        import publisher_filter
+
+        return publisher_filter.clean_names(boards, None, country)
+    except (ImportError, TypeError, ValueError):
+        return list(boards)
+
+
 def get_location_boards(locations):
     """Get real local job boards and resources for each location (US + international)."""
     boards = []
@@ -7109,6 +7120,9 @@ def get_location_boards(locations):
                         boards.append(board_entry)
             boards.append(f"LinkedIn ({country})")
             boards.append(f"Indeed ({country})")
+            # Boards not available through Joveo (and folded / renamed ones)
+            # never leave this list -- see data/publisher_availability.json.
+            boards = _drop_unavailable_boards(boards, country)
             continue
 
         # US boards
@@ -7319,6 +7333,18 @@ def get_global_supply_data(locations, industry):
         # Country-specific boards
         cb = global_supply.get("country_job_boards", {}).get(country, {})
         if cb:
+            try:
+                import publisher_filter
+
+                if isinstance(cb, dict) and isinstance(cb.get("boards"), list):
+                    cb = {
+                        **cb,
+                        "boards": publisher_filter.clean_items(
+                            cb["boards"], None, country=country
+                        ),
+                    }
+            except (ImportError, TypeError, ValueError):
+                pass
             result["country_boards"].append({"country": country, "data": cb})
 
         # Region for DEI boards

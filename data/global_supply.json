@@ -438,8 +438,11 @@
           "billing": "Posting",
           "category": "Regional",
           "tier": "Tier 2",
-          "_last_verified": "2026-03-08",
-          "_verification_notes": "Rebranded from RegionsJob to HelloWork in 2022. France leading employment platform. 5.7M visits/month. EUR 109M in orders (2023). EUR 50M investment fund. Acquired Jobijoba 2018. Sold Seekube 2025."
+          "availability": "unavailable",
+          "availability_reason": "not available through Joveo \u2014 do not recommend",
+          "availability_source": "internal sales feedback (2026-10-16); see data/publisher_availability.json",
+          "_last_verified": "2026-10-16",
+          "_verification_notes": "Not available through Joveo -- do not recommend. Market facts only: rebranded from RegionsJob to HelloWork in 2022 (https://www.hellowork-group.com/en/the-hellowork-group/). France leading employment platform. 5.7M visits/month. EUR 109M in orders (2023). EUR 50M investment fund. Acquired Jobijoba 2018. Sold Seekube 2025."
         }
       ],
       "monthly_spend": "$800,000+",
@@ -1482,8 +1485,11 @@
           "billing": "Posting/Slot",
           "category": "General",
           "tier": "Tier 1",
-          "_last_verified": "2026-03-08",
-          "_verification_notes": "Confirmed part of Joveo network. Status verified March 2026."
+          "availability": "unavailable",
+          "availability_reason": "not available through Joveo \u2014 do not recommend",
+          "availability_source": "internal sales feedback (2026-10-16); see data/publisher_availability.json",
+          "_last_verified": "2026-10-16",
+          "_verification_notes": "Not available through Joveo -- do not recommend. Supersedes the March 2026 note that listed it as part of the Joveo network."
         },
         {
           "name": "CompuTrabajo Mexico",
