@@ -183,3 +183,96 @@ def test_us_cpa_band_is_not_applied_to_a_non_us_dollar_plan():
          "industry": "tech_engineering", "budget_text": "$60,000"}
     )
     assert us["cpa"]["low"] < us["cpa"]["high"]
+
+
+# ---- headline helper locked directly (not via the harness) ------------------
+def _headline_for(plan, caller_mix):
+    import budget_engine
+    from kb_loader import load_knowledge_base
+    import app
+
+    alloc = budget_engine.calculate_budget_allocation(
+        total_budget=60000.0,
+        roles=[{"title": r, "count": 1, "tier": "Professional"} for r in plan["target_roles"]],
+        locations=[plan_projection.split_location(plan["locations"][0])],
+        industry=plan["industry"], channel_percentages=caller_mix, synthesized_data=None,
+        knowledge_base=load_knowledge_base(), plan_currency="USD", locations_raw=plan["locations"],
+    )
+    app._attach_headline_projection(
+        alloc, plan, budget=60000.0, roles=[], locations=[], channel_pcts=caller_mix,
+        vendor_availability={"niche_boards": True}, kb=load_knowledge_base(),
+    )
+    return alloc["headline_projection"]
+
+
+@pytest.mark.parametrize(
+    "role,loc,raw,region",
+    [
+        ("Customer Service Representative", "United States", "general_entry_level", "us_only"),
+        ("Registered Nurse", "Columbus, OH", "healthcare_medical", "us_only"),
+        ("Registered Nurse", "London, UK", "healthcare_medical", "global"),
+        ("Warehouse Associate", "Manchester, UK", "logistics_supply_chain", "global"),
+    ],
+    ids=["us-cs", "us-rn", "uk-global-rn", "uk-global-wh"],
+)
+def test_headline_helper_ignores_the_callers_mix_key_and_vendor_gate(role, loc, raw, region):
+    """Called the way /api/generate calls it: a MAPPED industry key
+    (retail_consumer), a different channel mix, a permissive vendor gate and
+    `_industry_raw` set. The headline must still be the estimate's."""
+    import app
+
+    est = app._compute_plan_estimate(
+        {"budget": "$60,000", "industry": raw, "roles": [role], "locations": [loc],
+         "target_region": region, "client_name": "Acme"}
+    )["projection"]
+    plan = {"budget": "$60,000", "industry": "retail_consumer", "_industry_raw": raw,
+            "client_name": "Acme", "locations": [loc], "target_roles": [role],
+            "target_region": region, "hire_volume": ""}
+    other_mix = {"programmatic_dsp": 5, "global_boards": 5, "niche_boards": 80, "social_media": 10}
+    assert _band(_headline_for(plan, other_mix)) == _band(est)
+
+
+def test_headline_helper_applies_the_estimates_vendor_gate(monkeypatch):
+    """A non-US plan: the niche-vendor gate must be the estimate's (False), not
+    the permissive one the caller passes."""
+    import app
+    import budget_engine
+
+    seen = []
+    real = budget_engine.calculate_budget_allocation
+
+    def spy(*a, **k):
+        seen.append(k.get("vendor_availability"))
+        return real(*a, **k)
+
+    monkeypatch.setattr(budget_engine, "calculate_budget_allocation", spy)
+    role, loc, raw = "Registered Nurse", "London, UK", "healthcare_medical"
+    app._compute_plan_estimate(
+        {"budget": "$60,000", "industry": raw, "roles": [role], "locations": [loc],
+         "target_region": "global", "client_name": "Acme"}
+    )
+    plan = {"budget": "$60,000", "industry": "retail_consumer", "_industry_raw": raw, "client_name": "Acme",
+            "locations": [loc], "target_roles": [role], "target_region": "global", "hire_volume": ""}
+    _headline_for(plan, {"programmatic_dsp": 50, "niche_boards": 50})
+    est_gate, head_gate = seen[0], seen[-1]
+    assert est_gate == head_gate == {"niche_boards": False}, (est_gate, head_gate)
+
+
+@pytest.mark.parametrize(
+    "role,loc,ind,budget",
+    [
+        ("Registered Nurse", "Columbus, OH", "healthcare_medical", "$150,000"),
+        ("Software Engineer", "Remote, US", "tech_engineering", "$250,000"),
+        ("Customer Service Representative", "United States", "general_entry_level", "$60,000"),
+    ],
+)
+def test_channel_concentration_risk_quotes_a_range(role, loc, ind, budget):
+    import re as _re
+
+    data, wb, prs = _bundle(_brief(role, loc, ind, budget))
+    texts = [str(v) for s, _c, v in _cells(wb) if "could impact" in str(v)]
+    texts += [t for i, t in _deck(prs) if i == 9 and "could impact" in t]
+    assert texts, "fixture must trigger the channel-concentration risk"
+    for t in texts:
+        assert not _re.search(r"could impact \d[\d,]*\s+(?:projected\s+)?hires?", t), t
+        assert DASH in t.split("could impact")[1], t

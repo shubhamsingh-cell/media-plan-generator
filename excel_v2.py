@@ -6059,6 +6059,19 @@ def _hires_not_projected(budget_alloc: Any, budget_num: float, data: dict) -> bo
     return bool(proj and (proj.get("assumptions") or {}).get("hires_suppressed"))
 
 
+def _conc_hires_txt(
+    named_hires: int, total_hires: int, budget_alloc: Any, budget_num: float, data: dict
+) -> str:
+    """"82-164 projected hires": the named channels' share of the plan's hires
+    RANGE (their point figure is the upper scenario), else the point figure."""
+    rng, _ = _hires_cph_range_text(_excel_projection(budget_alloc, budget_num, data))
+    if rng and total_hires > 0:
+        lo, hi = (int(x.replace(",", "")) for x in rng.split("\u2013"))
+        share = named_hires / total_hires
+        return f"{int(lo * share):,}\u2013{int(hi * share):,} projected hires"
+    return gs_lib.count_noun(named_hires, "projected hire")
+
+
 def _hires_cph_range_text(proj: Optional[Dict[str, Any]]) -> Tuple[str, str]:
     """("5\u201311", "$5,250\u2013$10,500") for a projection whose hires and cost per
     hire are genuine ranges; ("", "") otherwise."""
@@ -7575,7 +7588,7 @@ def _build_sheet_executive_summary(
                         "spend and applications"
                         if _risk_hires_off
                         else f"single-channel disruption could impact "
-                        f"{gs_lib.count_noun(_named_hires, 'projected hire')}"
+                        f"{_conc_hires_txt(_named_hires, proj_hires, budget_alloc, budget_num, data)}"
                     ),
                     "Diversify to 4+ channels; maintain 3 backup channels on standby",
                 )

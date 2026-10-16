@@ -6372,6 +6372,24 @@ def _attach_headline_projection(
         region = _normalize_target_region(plan.get("target_region"))
         mix, _ = _apply_target_region(mix, region, plan)
         mix = _apply_channel_selection(mix, plan)
+        # the SAME niche-vendor gate the estimate applies (industry key + the
+        # plan's US/non-US test on the request dict, region included)
+        vendor = None
+        _vendor_fn = (
+            getattr(excel_v2, "get_niche_vendor_availability", None)
+            if excel_v2 is not None
+            else None
+        )
+        if _vendor_fn is not None:
+            try:
+                _us = (
+                    plan_geo.is_us_plan(dict(plan, target_region=region))
+                    if plan_geo is not None
+                    else True
+                )
+                vendor = _vendor_fn(industry=key, us_plan=_us)
+            except Exception as vendor_err:  # noqa: BLE001 - gate is optional
+                logger.debug("headline vendor gate unavailable: %s", vendor_err)
         proj = project_plan(
             {
                 "budget": budget,
@@ -6386,6 +6404,7 @@ def _attach_headline_projection(
                 "target_region": region,
             },
             channel_percentages=mix,
+            vendor_availability=vendor,
             knowledge_base=kb,
             plan_currency=_resolve_plan_currency(plan) or "",
             industry_key=key,

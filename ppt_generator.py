@@ -10918,12 +10918,22 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
                     for k in top_2_names
                 )
                 top_2_labels = [_fmt.channel_label(k) for k in top_2_names]
+                _conc_rng = _hires_range(budget_alloc)
+                if _conc_rng and proj_hires > 0:
+                    # the headline is a range: the named channels' SHARE of it
+                    _share = top_2_hires / proj_hires
+                    _conc_txt = (
+                        f"{int(_conc_rng[0] * _share):,}\u2013"
+                        f"{int(_conc_rng[1] * _share):,} hires"
+                    )
+                else:
+                    _conc_txt = _fmt.fmt_count(top_2_hires, "hire")
                 risks.append(
                     (
                         "CHANNELS",
                         "Channel Concentration",
                         f"{top_2_pct:.0f}% of budget on {', '.join(top_2_labels)} — "
-                        f"disruption could impact {_fmt.fmt_count(top_2_hires, 'hire')}",
+                        f"disruption could impact {_conc_txt}",
                         "Diversify to 4+ channels; maintain backup channels on standby",
                     )
                 )
