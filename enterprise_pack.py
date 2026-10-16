@@ -1,0 +1,1802 @@
+"""Enterprise hourly hiring pack -- extra plan sections for high-volume hourly clients.
+
+Opt-in (wizard toggle ``enterprise_pack``).  When the toggle is off nothing in
+this module runs and every output is unchanged.
+
+When on, the plan gains five workbook sheets and three deck appendix slides,
+all built from ONE model (:func:`build_model`) so the workbook and the deck
+can never disagree:
+
+* **Weekly Pacing** -- fiscal weeks (configurable week start), spend by
+  calendar weight, the budget ladder (minimum test -> recommended -> surge)
+  with an expected apply-start range and its basis, Green / Amber / Red
+  bands, pause / reallocate rules, and a site x week split.
+* **Publisher Tiers & Gates** -- Tier 1 / 2 / 3 launch plan from the plan's
+  funded publishers (client exclusions and availability respected),
+  per-publisher minimum spend, switch triggers and weekly performance gates.
+* **Tracking & Measurement** -- UTM / campaign-ID convention, system of
+  record, reconciliation rule and worksheet, launch checklist.
+* **Feasibility Check** -- pass / check / fail / confirm rows.
+* **Job Ad Quality** -- checklist with the flags the plan can detect.
+
+No benchmark number is invented here.  Every threshold, factor and trigger
+default is an EDITABLE ASSUMPTION (a shaded input cell labelled "default");
+the sheets use real Excel formulas so editing a cell recalculates the sheet.
+Expected apply starts come from the plan's own cost-per-application range and
+are omitted, with a note, when the plan carries none.
+
+The module is deliberately self-contained (new sheets, new slides, one small
+request sanitizer) so the existing sheet and slide builders are untouched.
+"""
+
+from __future__ import annotations
+
+import datetime
+import logging
+import math
+import re
+from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Request layer (wizard payload -> validated, capped fields)
+# ---------------------------------------------------------------------------
+REQUEST_KEYS: Tuple[str, ...] = (
+    "enterprise_pack",
+    "enterprise_week_start",
+    "enterprise_system_of_record",
+    "enterprise_request_lock_day",
+    "enterprise_setup_sla_days",
+)
+WEEKDAYS: Tuple[str, ...] = (
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+)
+MAX_SYSTEM_OF_RECORD_CHARS = 120
+MAX_SETUP_SLA_DAYS = 30
+DEFAULT_WEEK_START = "sunday"
+DEFAULT_SYSTEM_OF_RECORD = "client ATS / analytics — confirm"
+DEFAULT_WEEKS = 13  # a quarter, used only when the plan states no length
+MAX_WEEKS = 52
+MAX_SITES = 40
+MAX_PUBLISHERS = 40
+
+# Sheet titles (<= 31 chars).
+SHEET_PACING = "Weekly Pacing"
+SHEET_TIERS = "Publisher Tiers & Gates"
+SHEET_TRACKING = "Tracking & Measurement"
+SHEET_FEASIBILITY = "Feasibility Check"
+SHEET_JOBAD = "Job Ad Quality"
+SHEET_TITLES: Tuple[str, ...] = (
+    SHEET_PACING,
+    SHEET_TIERS,
+    SHEET_TRACKING,
+    SHEET_FEASIBILITY,
+    SHEET_JOBAD,
+)
+
+# Editable defaults.  None of these is a benchmark: each is surfaced as a
+# shaded input cell labelled "default -- set to the client's SLA / plan".
+DEFAULT_MIN_TEST_FACTOR = 0.5
+DEFAULT_SURGE_FACTOR = 1.5
+DEFAULT_GREEN = 0.90
+DEFAULT_AMBER = 0.85
+DEFAULT_TIER1_CUM = 0.60
+DEFAULT_TIER2_CUM = 0.90
+DEFAULT_MIN_MARKET_BOARDS = 3
+DEFAULT_RECON_TOLERANCE = 0.10
+DEFAULT_FIX_WINDOW_HOURS = 48
+DEFAULT_REALLOCATE_DAYS = 7
+DEFAULT_PROMOTE_PCT = 1.0
+DEFAULT_PROMOTE_DAYS = 7
+DEFAULT_PAUSE_DAYS = 14
+
+DEFAULT_LABEL = "default — set to the client's SLA"
+DEFAULT_PLAN_LABEL = "default — adjust to the client's plan"
+
+
+def enabled(data: Any) -> bool:
+    """True when the plan asked for the enterprise hourly hiring pack."""
+    if not isinstance(data, dict):
+        return False
+    val = data.get("enterprise_pack")
+    if isinstance(val, str):
+        return val.strip().lower() in ("true", "1", "yes", "on")
+    if isinstance(val, (bool, int)):
+        return bool(val)
+    return False
+
+
+def _weekday_or_none(raw: Any) -> Optional[str]:
+    text = str(raw or "").strip().lower()
+    return text if text in WEEKDAYS else None
+
+
+def request_problem(data: Any) -> Tuple[str, str]:
+    """("", "") when the enterprise request fields are acceptable, else
+    (code, message).  Mirrors the other request-boundary checks in app.py."""
+    if not isinstance(data, dict):
+        return "", ""
+    ws = data.get("enterprise_week_start")
+    if ws not in (None, "") and _weekday_or_none(ws) is None:
+        return "week_start", "enterprise_week_start must be a day of the week."
+    ld = data.get("enterprise_request_lock_day")
+    if ld not in (None, "") and _weekday_or_none(ld) is None:
+        return "lock_day", "enterprise_request_lock_day must be a day of the week."
+    sla = data.get("enterprise_setup_sla_days")
+    if sla not in (None, ""):
+        try:
+            if isinstance(sla, bool):
+                raise ValueError
+            n = int(float(sla))
+        except (TypeError, ValueError):
+            return "sla", "enterprise_setup_sla_days must be a whole number of days."
+        if not 0 <= n <= MAX_SETUP_SLA_DAYS:
+            return (
+                "sla",
+                f"enterprise_setup_sla_days must be 0 to {MAX_SETUP_SLA_DAYS} days.",
+            )
+    sor = data.get("enterprise_system_of_record")
+    if sor not in (None, ""):
+        if not isinstance(sor, str):
+            return "type", "enterprise_system_of_record must be text."
+        if len(sor.strip()) > MAX_SYSTEM_OF_RECORD_CHARS:
+            return (
+                "too_long",
+                "The system of record is too long "
+                f"(max {MAX_SYSTEM_OF_RECORD_CHARS} characters).",
+            )
+    return "", ""
+
+
+def normalize_request(data: Any) -> None:
+    """Rewrite the enterprise request fields to their canonical form in
+    place.  When the toggle is off every enterprise field is dropped, so a
+    stray field can never change a standard plan."""
+    if not isinstance(data, dict):
+        return
+    if not enabled(data):
+        for key in REQUEST_KEYS:
+            data.pop(key, None)
+        return
+    data["enterprise_pack"] = True
+    data["enterprise_week_start"] = (
+        _weekday_or_none(data.get("enterprise_week_start")) or DEFAULT_WEEK_START
+    )
+    data["enterprise_system_of_record"] = str(
+        data.get("enterprise_system_of_record") or ""
+    ).strip()[:MAX_SYSTEM_OF_RECORD_CHARS]
+    data["enterprise_request_lock_day"] = (
+        _weekday_or_none(data.get("enterprise_request_lock_day")) or ""
+    )
+    sla = data.get("enterprise_setup_sla_days")
+    try:
+        n = int(float(sla)) if sla not in (None, "") and not isinstance(sla, bool) else None
+    except (TypeError, ValueError):
+        n = None
+    data["enterprise_setup_sla_days"] = (
+        n if n is not None and 0 <= n <= MAX_SETUP_SLA_DAYS else ""
+    )
+
+
+def settings(data: Any) -> Dict[str, Any]:
+    """Effective settings (defaults applied) for an enabled plan."""
+    d = data if isinstance(data, dict) else {}
+    sla = d.get("enterprise_setup_sla_days")
+    try:
+        sla_n: Optional[int] = (
+            int(float(sla)) if sla not in (None, "") and not isinstance(sla, bool) else None
+        )
+    except (TypeError, ValueError):
+        sla_n = None
+    return {
+        "week_start": _weekday_or_none(d.get("enterprise_week_start"))
+        or DEFAULT_WEEK_START,
+        "system_of_record": str(d.get("enterprise_system_of_record") or "").strip(),
+        "lock_day": _weekday_or_none(d.get("enterprise_request_lock_day")) or "",
+        "setup_sla_days": sla_n,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Model
+# ---------------------------------------------------------------------------
+def _today() -> datetime.date:
+    return datetime.date.today()
+
+
+def _num(value: Any) -> float:
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return out if math.isfinite(out) else 0.0
+
+
+def _slug(text: Any, limit: int = 24) -> str:
+    out = re.sub(r"[^a-z0-9]+", "-", str(text or "").lower()).strip("-")
+    return out[:limit].strip("-")
+
+
+def _weekday_name(idx: int) -> str:
+    return WEEKDAYS[idx % 7].capitalize()
+
+
+def _plan_start(data: dict, today: datetime.date) -> datetime.date:
+    try:
+        month = int(float(data.get("campaign_start_month") or 0))
+    except (TypeError, ValueError):
+        month = 0
+    if not 1 <= month <= 12:
+        month = today.month
+    year = today.year if month >= today.month else today.year + 1
+    return datetime.date(year, month, 1)
+
+
+def _calendar_weights(data: dict) -> Tuple[Dict[int, float], bool]:
+    """month number -> budget weight from the plan's activation calendar."""
+    try:
+        import gold_standard
+
+        timeline = gold_standard.build_activation_calendar(data).get("timeline") or []
+        weights = {
+            int(m["month"]): _num(m.get("budget_weight")) or 1.0
+            for m in timeline
+            if isinstance(m, dict) and m.get("month")
+        }
+        return weights, bool(weights)
+    except Exception as exc:  # noqa: BLE001 - weights fall back to flat
+        logger.debug("enterprise_pack: calendar weights unavailable: %s", exc)
+        return {}, False
+
+
+def _week_count(
+    data: dict, first_week: datetime.date, start: datetime.date
+) -> Tuple[int, str]:
+    """(weeks, basis) -- the campaign window from the plan's own helpers."""
+    try:
+        import gold_standard
+
+        end = gold_standard.campaign_window_end(data, start)
+        if end is not None:
+            n = ((end - first_week).days + 1) // 7
+            return max(1, min(MAX_WEEKS, n)), "stated campaign length"
+        n = int(gold_standard._plan_campaign_weeks(data))
+        if n > 0:
+            return min(MAX_WEEKS, n), "stated campaign length"
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("enterprise_pack: week count unavailable: %s", exc)
+    return DEFAULT_WEEKS, "default"
+
+
+def _locations(data: dict) -> List[str]:
+    raw = data.get("locations") or []
+    if isinstance(raw, (str, dict)):
+        raw = [raw]
+    out: List[str] = []
+    seen: set = set()
+    for loc in raw:
+        if isinstance(loc, dict):
+            parts = [str(loc.get(k) or "").strip() for k in ("city", "state", "country")]
+            text = ", ".join(p for p in parts[:2] if p) or parts[2]
+        else:
+            text = str(loc or "").strip()
+        key = re.sub(r"[^a-z0-9]", "", text.lower())
+        if text and key not in seen:
+            seen.add(key)
+            out.append(text)
+    return out
+
+
+def _city_key(text: Any) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(text or "").split(",")[0].lower())
+
+
+def _site_shares(data: dict, sites: List[str]) -> Tuple[List[float], str]:
+    """Each site's fair share of spend: the plan's own location weights
+    (budget_engine ``location_adjustments``) normalised to 1, else equal."""
+    n = len(sites)
+    if n == 0:
+        return [], "none"
+    adj_raw = (data.get("_budget_allocation") or {}).get("location_adjustments") or {}
+    adj = {_city_key(k): _num(v) for k, v in adj_raw.items() if _num(v) > 0}
+    weights = [adj.get(_city_key(s)) for s in sites]
+    known = [w for w in weights if w]
+    if not known:
+        return [1.0 / n] * n, "equal shares (fair share)"
+    fill = sum(known) / len(known)
+    weights = [w if w else fill for w in weights]
+    total = sum(weights)
+    return [w / total for w in weights], "plan location weights"
+
+
+def _funded_channels(data: dict) -> List[Dict[str, Any]]:
+    """Funded publishers/channels, largest first, after client exclusions
+    and availability (publisher_filter) -- the same list every surface uses."""
+    ba = data.get("_budget_allocation") or {}
+    alloc = ba.get("channel_allocations") or {}
+    if not isinstance(alloc, dict):
+        return []
+    try:
+        import publisher_filter as pf
+    except ImportError:  # pragma: no cover
+        pf = None
+    rows: List[Dict[str, Any]] = []
+    for name, info in alloc.items():
+        if not isinstance(info, dict):
+            continue
+        dollars = _num(info.get("dollar_amount"))
+        if dollars <= 0:
+            continue
+        if pf is not None and pf.is_excluded(name, data):
+            continue
+        display = pf.display_name(name) if pf is not None else str(name)
+        rows.append(
+            {
+                "name": str(display or name),
+                "raw_name": str(name),
+                "category": str(info.get("category") or ""),
+                "budget": dollars,
+                "cpa": _num(info.get("cpa")),
+                "applications": _num(info.get("projected_applications")),
+            }
+        )
+    rows.sort(key=lambda r: -r["budget"])
+    return rows[:MAX_PUBLISHERS]
+
+
+def _cpa_range(channels: List[Dict[str, Any]]) -> Optional[Tuple[float, float]]:
+    cpas = [c["cpa"] for c in channels if c["cpa"] > 0]
+    if len(cpas) < 2:
+        return None
+    lo, hi = min(cpas), max(cpas)
+    return (lo, hi) if hi > lo * 1.0001 else None
+
+
+def _hire_goal(data: dict) -> int:
+    meta = (data.get("_budget_allocation") or {}).get("metadata") or {}
+    openings = int(_num(meta.get("total_openings")))
+    if openings > 0:
+        return openings
+    m = re.search(r"(\d[\d,]*)", str(data.get("hire_volume") or ""))
+    return int(m.group(1).replace(",", "")) if m else 0
+
+
+def _compliance_flags(data: dict) -> List[str]:
+    flags: List[str] = []
+    try:
+        import gold_standard
+
+        clr = gold_standard.detect_clearance_requirements(data)
+        if isinstance(clr, dict) and clr.get("primary_clearance"):
+            flags.append(
+                "Security clearance requirement detected for this plan's roles."
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("enterprise_pack: clearance check unavailable: %s", exc)
+    return flags
+
+
+def _markets(data: dict, channels: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """One row per plan market (country): sites in it and the publishers
+    available to it (funded publishers that run there + local boards from the
+    benchmark dataset, after exclusions)."""
+    try:
+        import publisher_filter as pf
+    except ImportError:  # pragma: no cover
+        return []
+    groups: Dict[str, Dict[str, Any]] = {}
+    for site in _locations(data):
+        country = None
+        try:
+            import plan_geo
+
+            if plan_geo.location_is_us(site) is True:
+                country = "United States"
+        except Exception:  # noqa: BLE001
+            country = None
+        if country is None:
+            country = pf.detect_country(site) or "United States"
+        country = pf.canonical_country(country) or country
+        g = groups.setdefault(country, {"country": country, "sites": []})
+        g["sites"].append(site)
+    out: List[Dict[str, Any]] = []
+    for country, g in groups.items():
+        names: List[str] = [c["name"] for c in channels if pf.platform_runs_in(c["raw_name"], country)]
+        if country != "United States":
+            local = pf.clean_names(pf.dataset_platform_names(country), data, country)
+            have = {pf.normalize(n) for n in names}
+            names += [n for n in local if pf.normalize(n) not in have]
+        out.append(
+            {
+                "country": country,
+                "sites": g["sites"],
+                "boards": len(names),
+                "board_names": names[:8],
+            }
+        )
+    return out
+
+
+_TITLE_JARGON_RE = re.compile(
+    r"(\b(?:L\d|lvl\s*\d|level\s*\d|tier\s*\d|grade\s*\d)\b|\b(?:sr|jr)\.?\s|\s(?:ii|iii|iv)\b|[/()_]|#)",
+    re.IGNORECASE,
+)
+_CLAIM_WORDS: Tuple[str, ...] = (
+    "sign-on bonus",
+    "signing bonus",
+    "sign on bonus",
+    "tuition",
+    "guaranteed",
+    "immediate start",
+    "same-day pay",
+    "same day pay",
+    "free ",
+    "health insurance",
+    "benefits from day",
+    "no experience",
+    "flexible schedule",
+    "remote",
+)
+
+
+def _brief_text(data: dict) -> str:
+    return " ".join(
+        str(data.get(k) or "") for k in ("use_case", "call_transcript", "notes")
+    )
+
+
+def _roles(data: dict) -> List[str]:
+    out: List[str] = []
+    for r in data.get("roles") or data.get("target_roles") or []:
+        title = r.get("title", r.get("role", "")) if isinstance(r, dict) else r
+        title = str(title or "").strip()
+        if title and title not in out:
+            out.append(title)
+    return out[:30]
+
+
+def build_model(data: dict, today: Optional[datetime.date] = None) -> Dict[str, Any]:
+    """Everything the workbook sheets and the deck slides print, as plain
+    data.  Pure: no workbook or slide code, no network."""
+    today = today or _today()
+    cfg = settings(data)
+    ba = data.get("_budget_allocation") or {}
+    channels = _funded_channels(data)
+    total = _num((ba.get("metadata") or {}).get("total_budget")) or sum(
+        c["budget"] for c in channels
+    )
+
+    ws_idx = WEEKDAYS.index(cfg["week_start"])
+    start = _plan_start(data, today)
+    first_week = start + datetime.timedelta(days=(ws_idx - start.weekday()) % 7)
+    n_weeks, weeks_basis = _week_count(data, first_week, start)
+    month_weights, weights_ok = _calendar_weights(data)
+    weeks: List[Dict[str, Any]] = []
+    for i in range(n_weeks):
+        wstart = first_week + datetime.timedelta(days=7 * i)
+        mid = wstart + datetime.timedelta(days=3)
+        weeks.append(
+            {
+                "n": i + 1,
+                "start": wstart,
+                "end": wstart + datetime.timedelta(days=6),
+                "weight": round(month_weights.get(mid.month, 1.0), 2),
+            }
+        )
+
+    sites_all = _locations(data)
+    shares, share_basis = _site_shares(data, sites_all)
+    if len(sites_all) > MAX_SITES:
+        keep = MAX_SITES - 1
+        other = sum(shares[keep:])
+        sites = sites_all[:keep] + [f"Other sites ({len(sites_all) - keep})"]
+        shares = shares[:keep] + [other]
+    else:
+        sites = sites_all
+
+    cpa = _cpa_range(channels)
+    tp = ba.get("total_projected") or {}
+    return {
+        "settings": cfg,
+        "start": start,
+        "first_week": first_week,
+        "weeks": weeks,
+        "weeks_basis": weeks_basis,
+        "weights_from_calendar": weights_ok,
+        "total_budget": total,
+        "channels": channels,
+        "excluded": _excluded_names(data),
+        "cpa_range": cpa,
+        "sites": sites,
+        "site_count": len(sites_all),
+        "shares": shares,
+        "share_basis": share_basis,
+        "markets": _markets(data, channels),
+        "compliance_flags": _compliance_flags(data),
+        "hire_goal": _hire_goal(data),
+        "hires_low": _num(tp.get("hires_low")) or _num(tp.get("hires")),
+        "hires_high": _num(tp.get("hires_high")) or _num(tp.get("hires")),
+        "plan_slug": _slug(data.get("client_name") or data.get("company_name") or "plan")
+        or "plan",
+        "roles": _roles(data),
+        "brief_claims": sorted(
+            {w.strip() for w in _CLAIM_WORDS if w in _brief_text(data).lower()}
+        ),
+        "jargon_titles": [t for t in _roles(data) if _TITLE_JARGON_RE.search(t) or len(t) > 60],
+        "pay_in_brief": bool(
+            re.search(r"[$£€]\s?\d|\d\s?(?:/\s?h(?:ou)?r|per hour|an hour)", _brief_text(data), re.I)
+        ),
+        "countries": _countries(data),
+    }
+
+
+def _excluded_names(data: dict) -> List[str]:
+    try:
+        import publisher_filter as pf
+
+        return pf.user_excluded(data)
+    except ImportError:  # pragma: no cover
+        return []
+
+
+def _countries(data: dict) -> List[str]:
+    try:
+        import publisher_filter as pf
+
+        return pf.plan_countries(data)
+    except ImportError:  # pragma: no cover
+        return []
+
+
+def tier_for(cum_before: float, t1: float = DEFAULT_TIER1_CUM, t2: float = DEFAULT_TIER2_CUM) -> str:
+    """Tier from the cumulative budget share ahead of a publisher (same rule
+    as the workbook's live formula)."""
+    return "Tier 1" if cum_before < t1 else "Tier 2" if cum_before < t2 else "Tier 3"
+
+
+def tiered_publishers(model: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Funded publishers with share, cumulative-before and default tier."""
+    chans = model["channels"]
+    total = sum(c["budget"] for c in chans) or 1.0
+    out: List[Dict[str, Any]] = []
+    cum = 0.0
+    for c in chans:
+        share = c["budget"] / total
+        out.append({**c, "share": share, "cum_before": cum, "tier": tier_for(cum)})
+        cum += share
+    return out
+
+
+def format_range(lo: float, hi: float) -> str:
+    return f"{lo:,.0f}–{hi:,.0f}"
+
+
+def ladder(model: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The three budget-ladder steps with defaults applied."""
+    weeks = model["weeks"]
+    total = model["total_budget"]
+    n = len(weeks) or 1
+    cpa = model["cpa_range"]
+    rows = []
+    for label, factor, basis in (
+        ("Minimum test", DEFAULT_MIN_TEST_FACTOR, "Smallest weekly spend that still yields a readable signal."),
+        ("Recommended weekly", 1.0, "The plan's budget distributed by calendar weight."),
+        ("Surge", DEFAULT_SURGE_FACTOR, "Weeks with a hiring deadline or a missed pace."),
+    ):
+        camp = total * factor
+        row = {
+            "step": label,
+            "factor": factor,
+            "weekly": camp / n,
+            "campaign": camp,
+            "basis": basis,
+            "starts_low": None,
+            "starts_high": None,
+        }
+        if cpa:
+            row["starts_low"] = camp / cpa[1]
+            row["starts_high"] = camp / cpa[0]
+        rows.append(row)
+    return rows
+
+
+def feasibility_summary(model: Dict[str, Any]) -> Dict[str, Any]:
+    """Default-assumption feasibility statuses (the workbook computes the
+    same rows with live formulas)."""
+    rows = feasibility_rows(model)
+    counts = {"PASS": 0, "CHECK": 0, "FAIL": 0, "CONFIRM": 0}
+    for r in rows:
+        counts[r["status"]] = counts.get(r["status"], 0) + 1
+    return {"rows": rows, "counts": counts}
+
+
+def feasibility_rows(model: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The feasibility rows with their default-assumption status."""
+    rows: List[Dict[str, Any]] = []
+    for m in model["markets"]:
+        ok = m["boards"] >= DEFAULT_MIN_MARKET_BOARDS
+        rows.append(
+            {
+                "kind": "supply",
+                "check": f"Supply in market: {m['country']}",
+                "status": "PASS" if ok else "CHECK",
+                "evidence": f"{m['boards']} publishers available across {len(m['sites'])} site(s)",
+                "market": m,
+            }
+        )
+    if not model["markets"]:
+        rows.append(
+            {
+                "kind": "supply_none",
+                "check": "Supply in market",
+                "status": "CONFIRM",
+                "evidence": "The plan names no location.",
+            }
+        )
+    if model["excluded"]:
+        rows.append(
+            {
+                "kind": "excluded",
+                "check": "Publishers excluded at client request",
+                "status": "PASS" if model["channels"] else "FAIL",
+                "evidence": f"{len(model['excluded'])} excluded; {len(model['channels'])} funded publishers remain",
+            }
+        )
+    flags = model["compliance_flags"]
+    rows.append(
+        {
+            "kind": "compliance",
+            "check": "Compliance flags computed for this plan",
+            "status": "CHECK" if flags else "CONFIRM",
+            "evidence": " ".join(flags)
+            if flags
+            else "No compliance flags were computed; confirm local pay-transparency, consent and language rules.",
+        }
+    )
+    rows.append(
+        {
+            "kind": "ats",
+            "check": "ATS redirect and tracking support",
+            "status": "CONFIRM",
+            "evidence": "Confirm the client's apply flow accepts a redirect and passes UTM parameters.",
+        }
+    )
+    goal = model["hire_goal"]
+    if goal > 0 and model["hires_high"] > 0:
+        lo, hi = model["hires_low"], model["hires_high"]
+        status = "PASS" if lo >= goal else "CHECK" if hi >= goal else "FAIL"
+        evidence = f"Goal {goal:,} hires; plan projects {lo:,.0f}–{hi:,.0f}"
+    else:
+        status, evidence = "CONFIRM", "No hiring goal or projection to compare; enter the goal."
+    rows.append(
+        {"kind": "scale", "check": "Scale vs target", "status": status, "evidence": evidence}
+    )
+    cfg = model["settings"]
+    rows.append(
+        {
+            "kind": "lead_times",
+            "check": "Lead times (request lock day, setup SLA)",
+            "status": "PASS" if cfg["lock_day"] and cfg["setup_sla_days"] is not None else "CONFIRM",
+            "evidence": "Request lock day and setup SLA captured."
+            if cfg["lock_day"] and cfg["setup_sla_days"] is not None
+            else "Request lock day and/or setup SLA not provided.",
+        }
+    )
+    sor = cfg["system_of_record"]
+    rows.append(
+        {
+            "kind": "sor",
+            "check": "System of record for applies",
+            "status": "PASS" if sor else "CONFIRM",
+            "evidence": sor or "Not named; confirm which system counts applies.",
+        }
+    )
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# Workbook sheets
+# ---------------------------------------------------------------------------
+_CACHE_ATTR = "_nova_formula_cached_values"
+_STATUS_COLORS = {"GREEN": "22C55E", "AMBER": "F59E0B", "RED": "EF4444"}
+
+
+class _Sheet:
+    """Thin cursor over a worksheet: styled writes, shaded input cells, and
+    formulas that also record their value so previews that do not recalculate
+    (Quick Look, Drive, Slack) still show numbers."""
+
+    def __init__(self, ws: Any, x: Any) -> None:
+        from openpyxl.styles import Font, PatternFill
+
+        self.ws = ws
+        self.x = x
+        self.input_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+        self.input_font = Font(name=x.FONT_BODY_NAME, bold=True, size=10, color=x.NAVY)
+        cache = getattr(ws, _CACHE_ATTR, None)
+        if cache is None:
+            cache = {}
+            setattr(ws, _CACHE_ATTR, cache)
+        self.cache = cache
+
+    # -- generic writes -----------------------------------------------------
+    def put(
+        self,
+        row: int,
+        col: int,
+        value: Any,
+        *,
+        font: Any = None,
+        fill: Any = None,
+        fmt: Optional[str] = None,
+        align: Any = None,
+        border: bool = True,
+    ) -> Any:
+        x = self.x
+        cell = self.ws.cell(row=row, column=col, value=value)
+        cell.font = font or x._FONT_BODY
+        cell.fill = fill or x._FILL_WHITE
+        cell.alignment = align or x._ALIGN_WRAP
+        if border:
+            cell.border = x._BORDER_THIN
+        if fmt:
+            cell.number_format = fmt
+        return cell
+
+    def inp(self, row: int, col: int, value: Any, fmt: Optional[str] = None) -> Any:
+        """A shaded, editable input cell."""
+        return self.put(
+            row,
+            col,
+            value,
+            font=self.input_font,
+            fill=self.input_fill,
+            fmt=fmt,
+            align=self.x._ALIGN_CENTER,
+        )
+
+    def formula(
+        self,
+        row: int,
+        col: int,
+        formula: str,
+        value: Any,
+        *,
+        fmt: Optional[str] = None,
+        font: Any = None,
+        fill: Any = None,
+        align: Any = None,
+        as_input: bool = False,
+    ) -> Any:
+        """Write ``formula`` and remember ``value`` as its cached result."""
+        if as_input:
+            cell = self.inp(row, col, formula, fmt)
+        else:
+            cell = self.put(
+                row, col, formula, fmt=fmt, font=font, fill=fill,
+                align=align or self.x._ALIGN_CENTER,
+            )
+        if isinstance(value, bool) or value is None:
+            value = ""
+        if isinstance(value, float) and not math.isfinite(value):
+            value = 0.0
+        self.cache[cell.coordinate] = value
+        return cell
+
+    def merged(self, row: int, c1: int, c2: int, value: Any, *, font: Any = None, fill: Any = None, height: Optional[float] = None) -> Any:
+        x = self.x
+        self.ws.merge_cells(start_row=row, start_column=c1, end_row=row, end_column=c2)
+        cell = self.put(row, c1, value, font=font, fill=fill)
+        for c in range(c1 + 1, c2 + 1):
+            self.ws.cell(row=row, column=c).border = x._BORDER_THIN
+        if height:
+            self.ws.row_dimensions[row].height = height
+        elif isinstance(value, str):
+            width = sum(
+                self.ws.column_dimensions[_col(c)].width or 8.43 for c in range(c1, c2 + 1)
+            )
+            lines = sum(max(1, math.ceil(len(p) / max(10.0, width * 1.05))) for p in value.split("\n"))
+            if lines > 1:
+                self.ws.row_dimensions[row].height = round(lines * 13.5 + 3, 1)
+        return cell
+
+    def header(self, row: int, headers: List[str], col: int = 2) -> int:
+        x = self.x
+        for i, h in enumerate(headers):
+            c = self.ws.cell(row=row, column=col + i, value=h)
+            c.font = x._FONT_TABLE_HEADER
+            c.fill = x._FILL_SAPPHIRE
+            c.alignment = x._ALIGN_CENTER
+            c.border = x._BORDER_THIN
+        self.ws.row_dimensions[row].height = 32
+        return row + 1
+
+    def section(self, row: int, title: str, last_col: int = 8) -> int:
+        x = self.x
+        self.ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=last_col)
+        c = self.ws.cell(row=row, column=2, value=title.upper())
+        c.font = x._FONT_SECTION
+        c.fill = x._FILL_NAVY
+        c.alignment = x._ALIGN_LEFT
+        self.ws.row_dimensions[row].height = 28
+        return row + 1
+
+    def sub(self, row: int, title: str, last_col: int = 8) -> int:
+        x = self.x
+        self.ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=last_col)
+        c = self.ws.cell(row=row, column=2, value=title)
+        c.font = x._FONT_SUBSECTION
+        c.alignment = x._ALIGN_LEFT
+        c.border = x._BORDER_BOTTOM_SAPPHIRE
+        self.ws.row_dimensions[row].height = 22
+        return row + 1
+
+    def note(self, row: int, text: str, last_col: int = 8) -> int:
+        x = self.x
+        self.ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=last_col)
+        c = self.ws.cell(row=row, column=2, value=text)
+        c.font = x._FONT_FOOTNOTE
+        c.alignment = x._ALIGN_LEFT
+        width = sum(self.ws.column_dimensions[_col(k)].width or 8.43 for k in range(2, last_col + 1))
+        lines = sum(max(1, math.ceil(len(p) / max(10.0, width * 1.1))) for p in text.split("\n"))
+        if lines > 1:
+            self.ws.row_dimensions[row].height = round(lines * 12.5 + 2, 1)
+        return row + 1
+
+    def widths(self, widths: Dict[int, float]) -> None:
+        for col, w in widths.items():
+            self.ws.column_dimensions[_col(col)].width = w
+
+    def status_rules(self, ref: str) -> None:
+        """Green / amber / red conditional fills on a status range."""
+        from openpyxl.formatting.rule import CellIsRule
+        from openpyxl.styles import PatternFill
+
+        for word, hexcode in _STATUS_COLORS.items():
+            self.ws.conditional_formatting.add(
+                ref,
+                CellIsRule(
+                    operator="equal",
+                    formula=[f'"{word}"'],
+                    fill=PatternFill(start_color=hexcode, end_color=hexcode, fill_type="solid"),
+                ),
+            )
+
+    def verdict_rules(self, ref: str) -> None:
+        from openpyxl.formatting.rule import CellIsRule
+        from openpyxl.styles import PatternFill
+
+        palette = {"PASS": "BBF7D0", "CHECK": "FDE68A", "FAIL": "FECACA", "CONFIRM": "DDD6FE"}
+        for word, hexcode in palette.items():
+            self.ws.conditional_formatting.add(
+                ref,
+                CellIsRule(
+                    operator="equal",
+                    formula=[f'"{word}"'],
+                    fill=PatternFill(start_color=hexcode, end_color=hexcode, fill_type="solid"),
+                ),
+            )
+
+    def dropdown(self, ref: str, options: List[str]) -> None:
+        from openpyxl.worksheet.datavalidation import DataValidation
+
+        dv = DataValidation(type="list", formula1='"' + ",".join(options) + '"', allow_blank=True)
+        self.ws.add_data_validation(dv)
+        dv.add(ref)
+
+
+def _col(n: int) -> str:
+    from openpyxl.utils import get_column_letter
+
+    return get_column_letter(n)
+
+
+def _a(col: int, row: int, absolute: bool = True) -> str:
+    """A1 reference, absolute by default."""
+    return f"${_col(col)}${row}" if absolute else f"{_col(col)}{row}"
+
+
+def _xref(sheet: str, col: int, row: int) -> str:
+    return f"'{sheet}'!{_a(col, row)}"
+
+
+def _date_label(d: datetime.date) -> str:
+    return f"{d.strftime('%a')} {d.day} {d.strftime('%b')}"
+
+
+def _title_block(sh: _Sheet, title: str, purpose: str, last_col: int = 8) -> int:
+    row = sh.section(2, title, last_col)
+    row = sh.note(row, purpose, last_col)
+    row = sh.note(
+        row,
+        "Shaded cells are editable assumptions: change one and the sheet recalculates. "
+        "A cell labelled 'default' is a starting point, not a benchmark — set it to the client's own SLA.",
+        last_col,
+    )
+    return row + 1
+
+
+# -- Weekly Pacing -----------------------------------------------------------
+def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[str, Any]:
+    sh = _Sheet(ws, x)
+    ws.title = SHEET_PACING
+    cpa = model["cpa_range"]
+    weeks = model["weeks"]
+    n = len(weeks)
+    ncol = 12 if cpa else 7
+    sh.widths({1: 3, 2: 34, 3: 14, 4: 16, 5: 16, 6: 16, 7: 16, 8: 14, 9: 14, 10: 14, 11: 16, 12: 14})
+    cfg = model["settings"]
+    cur_fmt = x._usd0_fmt()
+    cpa_fmt = x._usd2_fmt()
+    pct = x.FMT_PCT1
+    ints = x.FMT_INT
+
+    row = _title_block(
+        sh,
+        "Weekly Pacing",
+        "Spend by fiscal week for enterprise hourly hiring: the budget ladder (minimum test, "
+        "recommended, surge), the expected apply-start range with its basis, and the status "
+        "bands the weekly review uses.",
+    )
+    wd = _weekday_name(WEEKDAYS.index(cfg["week_start"]))
+    end_wd = _weekday_name(WEEKDAYS.index(cfg["week_start"]) - 1)
+    row = sh.note(
+        row - 1,
+        f"Fiscal week: {wd} to {end_wd}. Week 1 starts {model['first_week'].strftime('%d %b %Y')}, "
+        f"the first {wd} on or after the campaign start ({model['start'].strftime('%d %b %Y')}). "
+        f"Campaign length: {n} weeks ("
+        + ("from the plan's stated length" if model["weeks_basis"] != "default" else f"no length stated, {DEFAULT_WEEKS}-week default")
+        + "). Calendar weights come from the plan's activation calendar"
+        + ("." if model["weights_from_calendar"] else " (unavailable, flat weights used).")
+        + ("" if model["weeks_basis"] != "default" else " Set the weeks below to the real window."),
+    ) + 1
+
+    # ---- assumptions ----
+    row = sh.sub(row, "Assumptions (editable)")
+    row = sh.header(row, ["Assumption", "Value", "Basis"] , 2)
+    ws.merge_cells(start_row=row - 1, start_column=4, end_row=row - 1, end_column=8)
+    refs: Dict[str, Any] = {}
+
+    def assume(key: str, label: str, value: Any, fmt: Optional[str], basis: str) -> None:
+        nonlocal row
+        sh.put(row, 2, label, font=x._FONT_BODY_BOLD)
+        sh.inp(row, 3, value, fmt)
+        sh.merged(row, 4, 8, basis)
+        refs[key] = (3, row)
+        row += 1
+
+    assume("budget", "Planned campaign budget", model["total_budget"], cur_fmt,
+           "From the plan's budget allocation; change it to re-spread every week below.")
+    assume("min_factor", "Minimum-test factor (x recommended)", DEFAULT_MIN_TEST_FACTOR, pct,
+           f"{DEFAULT_PLAN_LABEL}. The least weekly spend that still gives a readable signal.")
+    assume("surge_factor", "Surge factor (x recommended)", DEFAULT_SURGE_FACTOR, pct,
+           f"{DEFAULT_PLAN_LABEL}. Use in a deadline week or to recover a missed pace.")
+    if cpa:
+        assume("cpa_low", "Cost per apply start, low", round(cpa[0], 2), cpa_fmt,
+               "Lowest cost per application across the plan's funded publishers (apply starts are estimated from applications).")
+        assume("cpa_high", "Cost per apply start, high", round(cpa[1], 2), cpa_fmt,
+               "Highest cost per application across the plan's funded publishers.")
+    assume("green", "Green threshold (% of weekly goal)", DEFAULT_GREEN, pct,
+           f"{DEFAULT_LABEL}. At or above this the week is Green.")
+    assume("amber", "Amber threshold (% of weekly goal)", DEFAULT_AMBER, pct,
+           f"{DEFAULT_LABEL}. At or above this (and below Green) the week is Amber; below it, Red.")
+    # campaign weeks: computed
+    weeks_row = row
+    sh.put(row, 2, "Campaign weeks", font=x._FONT_BODY_BOLD)
+    row += 1  # value written after the table exists
+    row += 1
+
+    # ---- ladder ----
+    ladder_hdr_row = row
+    row = sh.sub(row, "Budget ladder")
+    ladder_headers = ["Step", "Factor", "Avg weekly spend", "Campaign spend"]
+    if cpa:
+        ladder_headers += ["Apply starts / week, low", "Apply starts / week, high", "Apply starts, campaign low", "Apply starts, campaign high"]
+    row = sh.header(row, ladder_headers, 2)
+    ladder_first = row
+    row += 3
+    if cpa:
+        row = sh.note(
+            row,
+            "Basis: apply starts = spend / cost per apply start (low and high from the assumptions above). "
+            "Applications are the closest modelled proxy for apply starts; confirm against the system of record after week 1.",
+        )
+    else:
+        row = sh.note(
+            row,
+            "Expected apply starts are omitted: the plan carries no cost-per-application range to derive them from. "
+            "Enter one in the assumptions to enable them.",
+        )
+    row += 1
+
+    # ---- legend ----
+    row = sh.sub(row, "Status legend (weekly goal = midpoint of the expected apply-start range)" if cpa else "Status legend")
+    row = sh.header(row, ["Status", "From (% of goal)", "To (% of goal)", "Action"], 2)
+    ws.merge_cells(start_row=row - 1, start_column=5, end_row=row - 1, end_column=8)
+    legend_first = row
+    row += 3
+    row = sh.sub(row, "Pause and reallocate rules (defaults — edit the thresholds above and the days below)")
+    rules_row = row
+    rules = [
+        "Daily check: compare each publisher's apply starts to its share of the weekly goal. Two consecutive RED days: stop adding spend to that publisher.",
+        "Weekly check: a RED week means pause the lowest-performing publisher in the week and reallocate its budget to Tier 1 publishers that are GREEN.",
+        "An AMBER week: hold budget, fix the cause (tracking, job-ad quality, site capacity) and review again before moving money.",
+        "Never reallocate before tracking is validated: a publisher that looks RED because applies are not recorded is a tracking fault, not a performance fault.",
+        "Surge: move to the surge level only for a named deadline week, and step back to recommended once the goal is met.",
+    ]
+    for r in rules:
+        sh.merged(row, 2, 8, r)
+        row += 1
+    row += 1
+
+    # ---- weekly table ----
+    row = sh.sub(row, "Weekly pacing", 12 if cpa else 8)
+    headers = ["Week", "Calendar weight", "Recommended spend", "Minimum-test spend", "Surge spend", "Cumulative (recommended)"]
+    if cpa:
+        headers += ["Apply starts, low", "Apply starts, high", "Weekly goal", "Actual apply starts (enter)", "Status"]
+    row = sh.header(row, headers, 2)
+    first = row
+    last = row + n - 1
+    total_row = last + 1
+    bud = _a(*refs["budget"])
+    minf = _a(*refs["min_factor"])
+    surf = _a(*refs["surge_factor"])
+    green = _a(*refs["green"])
+    amber = _a(*refs["amber"])
+    wsum = sum(w["weight"] for w in weeks) or 1.0
+    budget = model["total_budget"]
+    cum = 0.0
+    tot = {"rec": 0.0, "min": 0.0, "surge": 0.0, "lo": 0.0, "hi": 0.0, "goal": 0.0}
+    for i, w in enumerate(weeks):
+        r = first + i
+        alt = x._FILL_BLUE_PALE if i % 2 else x._FILL_WHITE
+        sh.put(r, 2, f"W{w['n']:02d}  {_date_label(w['start'])} – {_date_label(w['end'])}", fill=alt)
+        sh.inp(r, 3, round(w["weight"], 2), "0.00")
+        rec = budget * w["weight"] / wsum
+        sh.formula(r, 4, f"={bud}*C{r}/SUM($C${first}:$C${last})", rec, fmt=cur_fmt, fill=alt)
+        sh.formula(r, 5, f"=D{r}*{minf}", rec * DEFAULT_MIN_TEST_FACTOR, fmt=cur_fmt, fill=alt)
+        sh.formula(r, 6, f"=D{r}*{surf}", rec * DEFAULT_SURGE_FACTOR, fmt=cur_fmt, fill=alt)
+        cum += rec
+        sh.formula(r, 7, f"=SUM($D${first}:D{r})", cum, fmt=cur_fmt, fill=alt)
+        tot["rec"] += rec
+        tot["min"] += rec * DEFAULT_MIN_TEST_FACTOR
+        tot["surge"] += rec * DEFAULT_SURGE_FACTOR
+        if cpa:
+            clo, chi = _a(*refs["cpa_low"]), _a(*refs["cpa_high"])
+            lo, hi = rec / round(cpa[1], 2), rec / round(cpa[0], 2)
+            sh.formula(r, 8, f"=D{r}/{chi}", lo, fmt=ints, fill=alt)
+            sh.formula(r, 9, f"=D{r}/{clo}", hi, fmt=ints, fill=alt)
+            sh.formula(r, 10, f"=(H{r}+I{r})/2", (lo + hi) / 2, fmt=ints, fill=alt)
+            sh.inp(r, 11, None, ints)
+            sh.formula(
+                r, 12,
+                f'=IF(K{r}="","",IF(K{r}/J{r}>={green},"GREEN",IF(K{r}/J{r}>={amber},"AMBER","RED")))',
+                "",
+            )
+            tot["lo"] += lo
+            tot["hi"] += hi
+            tot["goal"] += (lo + hi) / 2
+    # totals
+    sh.put(total_row, 2, "Total", font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+    sh.put(total_row, 3, None, fill=x._FILL_OFF_WHITE)
+    for col, key, fmt in ((4, "rec", cur_fmt), (5, "min", cur_fmt), (6, "surge", cur_fmt)):
+        sh.formula(total_row, col, f"=SUM({_col(col)}{first}:{_col(col)}{last})", tot[key],
+                   fmt=fmt, font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+    sh.put(total_row, 7, None, fill=x._FILL_OFF_WHITE)
+    if cpa:
+        for col, key in ((8, "lo"), (9, "hi"), (10, "goal")):
+            sh.formula(total_row, col, f"=SUM({_col(col)}{first}:{_col(col)}{last})", tot[key],
+                       fmt=ints, font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+        sh.formula(total_row, 11, f"=SUM(K{first}:K{last})", 0, fmt=ints,
+                   font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+        sh.put(total_row, 12, None, fill=x._FILL_OFF_WHITE)
+        sh.status_rules(f"L{first}:L{last}")
+    ws._nova_freeze_row = "C3"
+
+    # campaign weeks value (needs table rows)
+    sh.formula(weeks_row, 3, f"=COUNT(C{first}:C{last})", n, fmt=ints, font=x._FONT_BODY_BOLD)
+    sh.merged(weeks_row, 4, 8, "Counted from the weekly table; add or remove week rows to change the window.")
+    refs["weeks"] = (3, weeks_row)
+
+    # ladder rows (now that totals exist)
+    steps = (("Minimum test", minf, "E"), ("Recommended weekly", None, "D"), ("Surge", surf, "F"))
+    for i, (label, fref, col_letter) in enumerate(steps):
+        r = ladder_first + i
+        factor = (DEFAULT_MIN_TEST_FACTOR, 1.0, DEFAULT_SURGE_FACTOR)[i]
+        camp = budget * factor
+        sh.put(r, 2, label, font=x._FONT_BODY_BOLD)
+        if fref:
+            sh.formula(r, 3, f"={fref}", factor, fmt=pct)
+        else:
+            sh.put(r, 3, 1.0, fmt=pct, align=x._ALIGN_CENTER)
+        sh.formula(r, 4, f"={col_letter}{total_row}/{_a(*refs['weeks'])}", camp / n, fmt=cur_fmt)
+        sh.formula(r, 5, f"={col_letter}{total_row}", camp, fmt=cur_fmt)
+        if cpa:
+            clo, chi = _a(*refs["cpa_low"]), _a(*refs["cpa_high"])
+            sh.formula(r, 6, f"=D{r}/{chi}", camp / n / round(cpa[1], 2), fmt=ints)
+            sh.formula(r, 7, f"=D{r}/{clo}", camp / n / round(cpa[0], 2), fmt=ints)
+            sh.formula(r, 8, f"=E{r}/{chi}", camp / round(cpa[1], 2), fmt=ints)
+            sh.formula(r, 9, f"=E{r}/{clo}", camp / round(cpa[0], 2), fmt=ints)
+
+    # legend rows
+    bands = (
+        ("GREEN", f"={green}", DEFAULT_GREEN, None, 9.99, "On pace: keep spend, keep the plan."),
+        ("AMBER", f"={amber}", DEFAULT_AMBER, f"={green}", DEFAULT_GREEN, "Behind pace: hold budget, fix the cause, review again."),
+        ("RED", "=0", 0.0, f"={amber}", DEFAULT_AMBER, "Off pace: pause or reallocate per the rules below."),
+    )
+    for i, (word, frm, frm_v, to, to_v, action) in enumerate(bands):
+        r = legend_first + i
+        cell = sh.put(r, 2, word, font=x._FONT_BODY_BOLD, align=x._ALIGN_CENTER)
+        from openpyxl.styles import PatternFill
+
+        cell.fill = PatternFill(start_color=_STATUS_COLORS[word], end_color=_STATUS_COLORS[word], fill_type="solid")
+        sh.formula(r, 3, frm, frm_v, fmt=pct)
+        if to:
+            sh.formula(r, 4, to, to_v, fmt=pct)
+        else:
+            sh.put(r, 4, "no upper limit", align=x._ALIGN_CENTER)
+        sh.merged(r, 5, 8, action)
+
+    # ---- site x week ----
+    sites, shares = model["sites"], model["shares"]
+    if len(sites) >= 2:
+        row = total_row + 2
+        last_site_col = 2 + len(sites) + 1
+        sh.widths({c: 16 for c in range(9, last_site_col + 1) if not ws.column_dimensions[_col(c)].width or ws.column_dimensions[_col(c)].width < 16})
+        row = sh.sub(row, "Site x week split", max(8, last_site_col))
+        row = sh.note(
+            row,
+            f"Each week's recommended spend is split by site share ({model['share_basis']}). "
+            "Shares are editable; they must add to 100%.",
+            max(8, last_site_col),
+        )
+        row = sh.header(row, ["Week"] + sites + ["Check"], 2)
+        share_row = row
+        sh.put(row, 2, "Share of each week's spend", font=x._FONT_BODY_BOLD)
+        for j, s in enumerate(shares):
+            sh.inp(row, 3 + j, round(s, 4), pct)
+        sh.formula(row, 3 + len(sites), f'=IF(ABS(SUM(C{row}:{_col(2 + len(sites))}{row})-1)<0.0005,"OK","SHARES MUST ADD TO 100%")',
+                   "OK" if abs(sum(round(s, 4) for s in shares) - 1) < 0.0005 else "SHARES MUST ADD TO 100%")
+        row += 1
+        grid_first = row
+        site_tot = [0.0] * len(sites)
+        for i, w in enumerate(weeks):
+            r = grid_first + i
+            alt = x._FILL_BLUE_PALE if i % 2 else x._FILL_WHITE
+            sh.put(r, 2, f"W{w['n']:02d}  {_date_label(w['start'])}", fill=alt)
+            rec = budget * w["weight"] / wsum
+            for j, s in enumerate(shares):
+                v = rec * round(s, 4)
+                site_tot[j] += v
+                sh.formula(r, 3 + j, f"=$D{first + i}*{_col(3 + j)}${share_row}", v, fmt=cur_fmt, fill=alt)
+        grid_last = grid_first + n - 1
+        r = grid_last + 1
+        sh.put(r, 2, "Total", font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+        for j in range(len(sites)):
+            c = _col(3 + j)
+            sh.formula(r, 3 + j, f"=SUM({c}{grid_first}:{c}{grid_last})", site_tot[j], fmt=cur_fmt,
+                       font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+        diff = sum(site_tot) - tot["rec"]
+        sh.formula(r, 3 + len(sites),
+                   f'=IF(ABS(SUM(C{r}:{_col(2 + len(sites))}{r})-D{total_row})<1,"OK","DOES NOT MATCH PLAN")',
+                   "OK" if abs(diff) < 1 else "DOES NOT MATCH PLAN",
+                   font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+        row = r + 2
+    else:
+        row = total_row + 2
+        row = sh.note(row, "Single-site plan: no site split. Add locations in the wizard to get a site x week matrix.")
+    sh.note(row, "Apply starts are estimates from the plan's cost-per-application range, not a promise; "
+                 "the client's system of record decides what counts (see Tracking & Measurement).", max(8, ncol))
+    return {"refs": refs, "first": first, "last": last, "total_row": total_row, "sh": sh}
+
+
+# -- Publisher Tiers & Gates ---------------------------------------------------
+def _build_tiers(ws: Any, data: dict, model: Dict[str, Any], x: Any, pacing: Dict[str, Any]) -> Dict[str, Any]:
+    sh = _Sheet(ws, x)
+    ws.title = SHEET_TIERS
+    sh.widths({1: 3, 2: 30, 3: 16, 4: 16, 5: 13, 6: 15, 7: 11, 8: 16, 9: 16, 10: 14, 11: 28, 12: 16})
+    cur_fmt, pct, ints = x._usd0_fmt(), x.FMT_PCT1, x.FMT_INT
+    prefs = pacing["refs"]
+    weeks_ref = _xref(SHEET_PACING, *prefs["weeks"])
+    minf_ref = _xref(SHEET_PACING, *prefs["min_factor"])
+    amber_ref = _xref(SHEET_PACING, *prefs["amber"])
+    green_ref = _xref(SHEET_PACING, *prefs["green"])
+    n_weeks = len(model["weeks"])
+
+    row = _title_block(
+        sh,
+        "Publisher Tiers & Gates",
+        "Which publishers launch first, which wait for a gate, and what moves budget between them. "
+        "Built from the plan's funded publishers, after client exclusions and availability.",
+        12,
+    )
+    if model["excluded"]:
+        try:
+            import publisher_filter as _pf
+
+            _line = _pf.disclosure_line(data)
+        except ImportError:  # pragma: no cover
+            _line = ""
+        if _line:
+            row = sh.note(row - 1, _line, 12) + 1
+
+    row = sh.sub(row, "Tier rules (editable)", 12)
+    row = sh.header(row, ["Rule", "Value", "Basis"], 2)
+    ws.merge_cells(start_row=row - 1, start_column=4, end_row=row - 1, end_column=8)
+    sh.put(row, 2, "Tier 1 up to cumulative budget share", font=x._FONT_BODY_BOLD)
+    sh.inp(row, 3, DEFAULT_TIER1_CUM, pct)
+    sh.merged(row, 4, 8, f"{DEFAULT_PLAN_LABEL}. Largest publishers, launched in week 1.")
+    t1_row = row
+    row += 1
+    sh.put(row, 2, "Tier 2 up to cumulative budget share", font=x._FONT_BODY_BOLD)
+    sh.inp(row, 3, DEFAULT_TIER2_CUM, pct)
+    sh.merged(row, 4, 8, f"{DEFAULT_PLAN_LABEL}. Launched once Gate 1 passes. The rest are Tier 3 (test).")
+    t2_row = row
+    row += 2
+
+    row = sh.sub(row, "Launch plan by publisher", 12)
+    row = sh.header(row, ["Publisher", "Category", "Planned budget", "Share", "Cumulative share before", "Tier",
+                          "Planned weekly spend", "Minimum weekly spend", "Meets minimum?", "Launch rule", "Plan applications"], 2)
+    pubs = tiered_publishers(model)
+    first = row
+    last = row + max(len(pubs), 1) - 1
+    total = sum(p["budget"] for p in pubs) or 1.0
+    t1, t2 = _a(3, t1_row), _a(3, t2_row)
+    for i, p in enumerate(pubs):
+        r = first + i
+        alt = x._FILL_BLUE_PALE if i % 2 else x._FILL_WHITE
+        sh.put(r, 2, p["name"], font=x._FONT_BODY_BOLD, fill=alt)
+        sh.put(r, 3, (p["category"] or "").replace("_", " ").title(), fill=alt)
+        sh.put(r, 4, p["budget"], fmt=cur_fmt, fill=alt, align=x._ALIGN_CENTER)
+        sh.formula(r, 5, f"=D{r}/SUM($D${first}:$D${last})", p["share"], fmt=pct, fill=alt)
+        before = p["cum_before"]
+        if i == 0:
+            sh.formula(r, 6, "=0", 0.0, fmt=pct, fill=alt)
+        else:
+            sh.formula(r, 6, f"=F{r - 1}+E{r - 1}", before, fmt=pct, fill=alt)
+        sh.formula(r, 7, f'=IF(F{r}<{t1},"Tier 1",IF(F{r}<{t2},"Tier 2","Tier 3"))', p["tier"], fill=alt)
+        weekly = p["budget"] / n_weeks
+        sh.formula(r, 8, f"=D{r}/{weeks_ref}", weekly, fmt=cur_fmt, fill=alt)
+        minimum = round(weekly * DEFAULT_MIN_TEST_FACTOR)
+        sh.formula(r, 9, f"=ROUND(H{r}*{minf_ref},0)", minimum, fmt=cur_fmt, as_input=True)
+        sh.formula(r, 10, f'=IF(H{r}>=I{r},"OK","BELOW MINIMUM")', "OK" if weekly >= minimum else "BELOW MINIMUM", fill=alt)
+        launch = {"Tier 1": "Launch in week 1", "Tier 2": "Launch after Gate 1 passes", "Tier 3": "Test after Gate 2 passes"}[p["tier"]]
+        sh.formula(r, 11, f'=IF(G{r}="Tier 1","Launch in week 1",IF(G{r}="Tier 2","Launch after Gate 1 passes","Test after Gate 2 passes"))', launch, fill=alt)
+        sh.put(r, 12, p["applications"], fmt=ints, fill=alt, align=x._ALIGN_CENTER)
+    if not pubs:
+        sh.merged(first, 2, 12, "The plan funds no publisher: nothing to tier. Check budget and exclusions.")
+        last = first
+    rr = last + 1
+    sh.put(rr, 2, "Total", font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+    sh.put(rr, 3, None, fill=x._FILL_OFF_WHITE)
+    sh.formula(rr, 4, f"=SUM(D{first}:D{last})", sum(p["budget"] for p in pubs), fmt=cur_fmt, font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+    sh.formula(rr, 5, f"=SUM(E{first}:E{last})", 1.0 if pubs else 0.0, fmt=pct, font=x._FONT_BODY_BOLD, fill=x._FILL_OFF_WHITE)
+    row = rr + 1
+    row = sh.note(row, f"Minimum weekly spend defaults to the minimum-test factor on {SHEET_PACING} times the publisher's planned weekly spend; "
+                       "overwrite it with the publisher's own minimum.", 12)
+    row += 1
+
+    # switch triggers
+    row = sh.sub(row, "Switch triggers (defaults — set to the client's SLA)", 12)
+    row = sh.header(row, ["Trigger", "Threshold (% of apply-start goal)", "Sustained for (days)", "Action"], 2)
+    ws.merge_cells(start_row=row - 1, start_column=5, end_row=row - 1, end_column=9)
+    triggers = (
+        ("Move budget away from a Tier 1 publisher that stays below the threshold", f"={amber_ref}", DEFAULT_AMBER, DEFAULT_REALLOCATE_DAYS,
+         "Move its next-week budget to Tier 1 publishers that are GREEN."),
+        ("Promote a Tier 2 publisher that stays at or above the threshold", None, DEFAULT_PROMOTE_PCT, DEFAULT_PROMOTE_DAYS,
+         "Fund it at Tier 1 level from the next weekly budget reset."),
+        ("Pause any publisher that stays below the threshold", f"={amber_ref}", DEFAULT_AMBER, DEFAULT_PAUSE_DAYS,
+         "Pause, reallocate, and confirm tracking before relaunching."),
+    )
+    for label, f, v, days, action in triggers:
+        sh.put(row, 2, label, font=x._FONT_BODY_BOLD)
+        if f:
+            sh.formula(row, 3, f, v, fmt=pct, as_input=True)
+        else:
+            sh.inp(row, 3, v, pct)
+        sh.inp(row, 4, days, ints)
+        sh.merged(row, 5, 9, action)
+        ws.row_dimensions[row].height = 30
+        row += 1
+    row += 1
+
+    # performance gates
+    row = sh.sub(row, "Performance gates by week (defaults — set to the client's SLA)", 12)
+    row = sh.header(row, ["Gate", "At end of week", "Pass at (% of goal)", "Measure", "If it fails"], 2)
+    ws.merge_cells(start_row=row - 1, start_column=6, end_row=row - 1, end_column=9)
+    ws.merge_cells(start_row=row - 1, start_column=10, end_row=row - 1, end_column=12)
+    gates = (
+        ("Gate 0: tracking validated", 0, "=1", 1.0, "Every link records a test apply in the system of record.", "Do not launch the publisher."),
+        ("Gate 1: Tier 1 live", 1, f"={amber_ref}", DEFAULT_AMBER, "Tier 1 apply starts vs weekly goal.", "Fix tracking and ad quality; do not launch Tier 2."),
+        ("Gate 2: Tier 2 live", 2, f"={amber_ref}", DEFAULT_AMBER, "Tier 1 and Tier 2 apply starts vs weekly goal.", "Hold Tier 3; reallocate per the switch triggers."),
+        ("Gate 3: steady state", 4, f"={green_ref}", DEFAULT_GREEN, "Total apply starts vs weekly goal, every week.", "Reallocate or pause per the switch triggers."),
+    )
+    for label, wk, f, v, measure, fail in gates:
+        sh.put(row, 2, label, font=x._FONT_BODY_BOLD)
+        sh.inp(row, 3, wk, ints)
+        sh.formula(row, 4, f, v, fmt=pct, as_input=True)
+        sh.merged(row, 5, 9, measure)
+        sh.merged(row, 10, 12, fail)
+        ws.row_dimensions[row].height = 30
+        row += 1
+    return {"first": first, "last": last, "pubs": pubs}
+
+
+# -- Tracking & Measurement ---------------------------------------------------
+_SOCIAL_RE = re.compile(r"meta|facebook|instagram|tiktok|linkedin|snap|pinterest|reddit|twitter|youtube|social", re.I)
+
+
+def _medium_for(name: str, category: str = "") -> str:
+    """utm_medium for a publisher: judged by its name first (the budget
+    engine files social platforms under "job_board"), then its category."""
+    if re.search(r"programmatic", name, re.I) or category == "programmatic":
+        return "programmatic"
+    if _SOCIAL_RE.search(name) or category == "social":
+        return "paid-social"
+    if re.search(r"google|bing|search ads|sem\b", name, re.I):
+        return "paid-search"
+    return "jobboard"
+
+
+def _site_codes(sites: List[str]) -> List[str]:
+    codes: List[str] = []
+    for s in sites:
+        base = (re.sub(r"[^a-z]", "", s.split(",")[0].lower())[:3] or "site").upper()
+        code, k = base, 2
+        while code in codes:
+            code, k = f"{base}{k}", k + 1
+        codes.append(code)
+    return codes
+
+
+def tracking_spec(model: Dict[str, Any]) -> Dict[str, Any]:
+    """The UTM / campaign-ID convention generated for this plan."""
+    pubs = tiered_publishers(model)
+    slug = model["plan_slug"]
+    sites = model["sites"] or ["Plan"]
+    codes = _site_codes(sites)
+    first_pub = pubs[0] if pubs else None
+    src = _slug(first_pub["name"]) if first_pub else "publisher"
+    medium = _medium_for(first_pub["name"], first_pub["category"]) if first_pub else "jobboard"
+    role = _slug(model["roles"][0]) if model["roles"] else "role"
+    links: List[Dict[str, str]] = []
+    for site, code in zip(sites, codes):
+        for p in pubs:
+            psrc = _slug(p["name"])
+            pmed = _medium_for(p["name"], p["category"])
+            camp = f"{slug}_{code.lower()}_w01"
+            links.append(
+                {
+                    "site": site,
+                    "publisher": p["name"],
+                    "params": f"utm_source={psrc}&utm_medium={pmed}&utm_campaign={camp}",
+                    "campaign_id": f"{slug}-{code.lower()}-{psrc}-w01",
+                }
+            )
+    return {
+        "slug": slug,
+        "codes": codes,
+        "example_source": src,
+        "example_medium": medium,
+        "example_campaign": f"{slug}_{codes[0].lower()}_w01",
+        "example_content": role,
+        "example_id": f"{slug}-{codes[0].lower()}-{src}-w01",
+        "links": links,
+    }
+
+
+def _build_tracking(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[str, Any]:
+    sh = _Sheet(ws, x)
+    ws.title = SHEET_TRACKING
+    sh.widths({1: 3, 2: 30, 3: 36, 4: 56, 5: 20, 6: 18})
+    ints, pct = x.FMT_INT, x.FMT_PCT1
+    cfg = model["settings"]
+    spec = tracking_spec(model)
+
+    row = _title_block(
+        sh,
+        "Tracking & Measurement",
+        "How every apply is attributed: one naming convention on every link, one system of record, "
+        "and a rule for when two systems disagree.",
+        6,
+    )
+    row = sh.sub(row, "System of record", 6)
+    sh.put(row, 2, "System of record for applies", font=x._FONT_BODY_BOLD)
+    sor_value = cfg["system_of_record"] or DEFAULT_SYSTEM_OF_RECORD
+    sh.inp(row, 3, sor_value)
+    sh.merged(row, 4, 6, "Where an apply officially counts. Joveo and publisher reports are inputs; this system settles any dispute. "
+                         + ("Provided in the wizard." if cfg["system_of_record"] else f"{DEFAULT_LABEL}: confirm with the client."))
+    sor_ref = (3, row)
+    row += 2
+
+    row = sh.sub(row, "Naming convention", 6)
+    row = sh.header(row, ["Field", "Convention", "Example for this plan", "Required", ""], 2)
+    ws.cell(row=row - 1, column=6).value = None
+    convention = (
+        ("utm_source", "Publisher slug: lower case, words joined by hyphens", spec["example_source"], "Every link"),
+        ("utm_medium", "Channel type: jobboard, programmatic, paid-social, paid-search", spec["example_medium"], "Every link"),
+        ("utm_campaign", "{plan}_{site code}_{campaign week}", spec["example_campaign"], "Every link"),
+        ("utm_content", "Role or job-family slug (optional, for role-level reads)", spec["example_content"], "Optional"),
+        ("Campaign ID", "{plan}-{site code}-{publisher}-{campaign week}; the same ID in every report", spec["example_id"], "Every report"),
+        ("Site code", "First three letters of the city, upper case; a clash gets a number", ", ".join(spec["codes"][:6]), "Every link"),
+    )
+    for i, (f, c, e, r) in enumerate(convention):
+        alt = x._FILL_BLUE_PALE if i % 2 else x._FILL_WHITE
+        sh.put(row, 2, f, font=x._FONT_BODY_BOLD, fill=alt)
+        sh.put(row, 3, c, fill=alt)
+        sh.put(row, 4, e, fill=alt)
+        sh.put(row, 5, r, fill=alt)
+        row += 1
+    row = sh.note(row, "Rule: a link missing any required field is not launched. Week codes count from campaign week 1 (see Weekly Pacing).", 6)
+    row += 1
+
+    row = sh.sub(row, "Link parameters, campaign week 1", 6)
+    row = sh.note(row, "Append these to each publisher's apply URL (replace w01 with the campaign week). Capped at 60 rows.", 6)
+    row = sh.header(row, ["Site", "Publisher", "Tracking parameters", "Campaign ID"], 2)
+    for i, link in enumerate(spec["links"][:60]):
+        alt = x._FILL_BLUE_PALE if i % 2 else x._FILL_WHITE
+        sh.put(row, 2, link["site"], fill=alt)
+        sh.put(row, 3, link["publisher"], fill=alt)
+        sh.put(row, 4, link["params"], fill=alt)
+        sh.put(row, 5, link["campaign_id"], fill=alt)
+        row += 1
+    if len(spec["links"]) > 60:
+        row = sh.note(row, f"+{len(spec['links']) - 60} more site and publisher combinations follow the same pattern.", 6)
+    row += 1
+
+    row = sh.sub(row, "Reconciliation rule", 6)
+    sh.put(row, 2, "Tolerance between systems", font=x._FONT_BODY_BOLD)
+    sh.inp(row, 3, DEFAULT_RECON_TOLERANCE, pct)
+    sh.merged(row, 4, 6, f"{DEFAULT_LABEL}. Variance above this on two consecutive days triggers the steps below.")
+    tol_ref = (3, row)
+    row += 1
+    for line in (
+        "1. The system of record is correct by definition; publisher and Joveo numbers are compared to it, never the reverse.",
+        "2. When two systems differ by more than the tolerance for two consecutive days, freeze budget moves for that publisher.",
+        "3. Compare by campaign ID: check the link parameters, the redirect and the apply flow, in that order.",
+        "4. Log the cause and the fix, then lift the freeze once a test apply reconciles.",
+    ):
+        row = sh.note(row, line, 6)
+    row += 1
+    row = sh.sub(row, "Reconciliation worksheet (enter daily or weekly counts)", 6)
+    row = sh.header(row, ["Publisher", "Applies per Joveo", "Applies per system of record", "Variance", "Within tolerance?"], 2)
+    rec_first = row
+    pubs = tiered_publishers(model)[:25]
+    tol = _a(*tol_ref)
+    for p in pubs:
+        sh.put(row, 2, p["name"], font=x._FONT_BODY_BOLD)
+        sh.inp(row, 3, None, ints)
+        sh.inp(row, 4, None, ints)
+        sh.formula(row, 5, f'=IF(OR(C{row}="",D{row}="",D{row}=0),"",C{row}/D{row}-1)', "", fmt=pct)
+        sh.formula(row, 6, f'=IF(E{row}="","",IF(ABS(E{row})<={tol},"OK","RECONCILE"))', "")
+        row += 1
+    if pubs:
+        from openpyxl.formatting.rule import CellIsRule
+        from openpyxl.styles import PatternFill
+
+        ws.conditional_formatting.add(
+            f"F{rec_first}:F{row - 1}",
+            CellIsRule(operator="equal", formula=['"RECONCILE"'],
+                       fill=PatternFill(start_color="FECACA", end_color="FECACA", fill_type="solid")),
+        )
+    row += 1
+
+    row = sh.sub(row, "Launch checklist", 6)
+    row = sh.header(row, ["Step", "", "Detail", "Owner (enter)", "Done?"], 2)
+    ws.merge_cells(start_row=row - 1, start_column=2, end_row=row - 1, end_column=3)
+    lock = cfg["lock_day"].capitalize() if cfg["lock_day"] else "not set — confirm"
+    sla = f"{cfg['setup_sla_days']} business days" if cfg["setup_sla_days"] is not None else "not set — confirm"
+    steps = (
+        ("Validate tracking before launch", "Open every link, complete a test apply, and see it in the system of record under the right campaign ID."),
+        ("Re-check at 24 hours", "Compare publisher-reported clicks and applies to the system of record; reconcile any gap above the tolerance."),
+        ("Fix window", f"A tracking fault is fixed within {DEFAULT_FIX_WINDOW_HOURS} hours ({DEFAULT_LABEL}); budget on that publisher is frozen until then."),
+        ("Request lock day", f"{lock}. Changes requested after this day start the following fiscal week."),
+        ("Setup SLA", f"{sla}, counted from an approved request to a live publisher."),
+        ("Re-validate after any change", "Any change to the apply flow, ATS or redirect repeats the pre-launch test."),
+    )
+    chk_first = row
+    for i, (step, detail) in enumerate(steps):
+        sh.merged(row, 2, 3, step, font=x._FONT_BODY_BOLD)
+        sh.put(row, 4, detail)
+        sh.inp(row, 5, None)
+        sh.inp(row, 6, None)
+        row += 1
+    sh.dropdown(f"F{chk_first}:F{row - 1}", ["Yes", "No", "N/A"])
+    return {"sor_ref": sor_ref, "sor_value": sor_value}
+
+
+# -- Feasibility Check --------------------------------------------------------
+def _build_feasibility(ws: Any, data: dict, model: Dict[str, Any], x: Any, tracking: Dict[str, Any]) -> None:
+    sh = _Sheet(ws, x)
+    ws.title = SHEET_FEASIBILITY
+    sh.widths({1: 3, 2: 38, 3: 14, 4: 60, 5: 22, 6: 48})
+    ints = x.FMT_INT
+    cfg = model["settings"]
+
+    row = _title_block(
+        sh,
+        "Feasibility Check",
+        "A pre-plan gate: can this plan run as written? PASS, CHECK and FAIL come from the plan's own data; "
+        "CONFIRM marks what only the client can answer.",
+        6,
+    )
+    sum_row = row
+    row += 7  # summary block (filled after the rows exist)
+    row = sh.sub(row, "Inputs (editable)", 6)
+    row = sh.header(row, ["Input", "Value", "Basis"], 2)
+    ws.merge_cells(start_row=row - 1, start_column=4, end_row=row - 1, end_column=6)
+
+    def inp_row(label: str, value: Any, basis: str, fmt: Optional[str] = None) -> Tuple[int, int]:
+        nonlocal row
+        sh.put(row, 2, label, font=x._FONT_BODY_BOLD)
+        sh.inp(row, 3, value, fmt)
+        sh.merged(row, 4, 6, basis)
+        ref = (3, row)
+        row += 1
+        return ref
+
+    min_ref = inp_row("Minimum publishers per market", DEFAULT_MIN_MARKET_BOARDS, f"{DEFAULT_PLAN_LABEL}. Fewer than this and a market is flagged CHECK.", ints)
+    goal_ref = inp_row("Hiring goal (hires)", model["hire_goal"] or None, "From the plan's openings or hire volume; enter it if blank.", ints)
+    lo_ref = inp_row("Projected hires, low", round(model["hires_low"]) or None, "From the plan's budget projection.", ints)
+    hi_ref = inp_row("Projected hires, high", round(model["hires_high"]) or None, "From the plan's budget projection.", ints)
+    lock_ref = inp_row("Request lock day", cfg["lock_day"].capitalize() or None, "From the wizard; the last day a change can be requested for the next fiscal week.")
+    sla_ref = inp_row("Setup SLA (business days)", cfg["setup_sla_days"], "From the wizard; days from an approved request to a live publisher.", ints)
+    row += 1
+
+    row = sh.sub(row, "Checks", 6)
+    row = sh.header(row, ["Check", "Status", "Evidence from the plan", "Confirmation (enter)", "Next step"], 2)
+    first = row
+    minc, goal, lo, hi = (_a(*min_ref), _a(*goal_ref), _a(*lo_ref), _a(*hi_ref))
+    lock_c, sla_c = _a(*lock_ref), _a(*sla_ref)
+    sor_cell = _xref(SHEET_TRACKING, *tracking["sor_ref"])
+
+    markets = model["markets"]
+    for m in markets:
+        n = m["boards"]
+        sh.put(row, 2, f"Supply in market: {m['country']}", font=x._FONT_BODY_BOLD)
+        sh.formula(row, 3, f'=IF(E{row}>={minc},"PASS","CHECK")', "PASS" if n >= DEFAULT_MIN_MARKET_BOARDS else "CHECK")
+        names = ", ".join(m["board_names"][:5])
+        sh.put(row, 4, f"{n} publishers available across {len(m['sites'])} site(s): {', '.join(m['sites'][:4])}"
+                       + (f". Includes {names}." if names else "."))
+        sh.inp(row, 5, n, ints)
+        sh.put(row, 6, "Confirm each site can take applies from the listed publishers.")
+        row += 1
+    if not markets:
+        sh.put(row, 2, "Supply in market", font=x._FONT_BODY_BOLD)
+        sh.put(row, 3, "CONFIRM", align=x._ALIGN_CENTER)
+        sh.put(row, 4, "The plan names no location.")
+        sh.inp(row, 5, None)
+        sh.put(row, 6, "Add locations in the wizard.")
+        row += 1
+    if model["excluded"]:
+        remaining = len(model["channels"])
+        sh.put(row, 2, "Publishers excluded at client request", font=x._FONT_BODY_BOLD)
+        sh.formula(row, 3, f'=IF(E{row}>0,"PASS","FAIL")', "PASS" if remaining else "FAIL")
+        sh.put(row, 4, f"{len(model['excluded'])} publisher(s) excluded at client request; the plan still funds {remaining} publishers.")
+        sh.inp(row, 5, remaining, ints)
+        sh.put(row, 6, "FAIL means exclusions leave nothing to fund.")
+        row += 1
+    flags = model["compliance_flags"]
+    sh.put(row, 2, "Compliance flags", font=x._FONT_BODY_BOLD)
+    sh.formula(row, 3, f'=IF(E{row}="Reviewed","PASS","{"CHECK" if flags else "CONFIRM"}")', "CHECK" if flags else "CONFIRM")
+    sh.put(row, 4, " ".join(flags) if flags else "No compliance flags were computed for this plan. Confirm local pay-transparency, consent and language rules.")
+    sh.inp(row, 5, "Not reviewed")
+    sh.dropdown(f"E{row}", ["Reviewed", "Not reviewed"])
+    sh.put(row, 6, "Have the client's compliance owner review, then set to Reviewed.")
+    row += 1
+    sh.put(row, 2, "ATS redirect and tracking support", font=x._FONT_BODY_BOLD)
+    sh.formula(row, 3, f'=IF(E{row}="Yes","PASS",IF(E{row}="No","FAIL","CONFIRM"))', "CONFIRM")
+    sh.put(row, 4, "Does the client's apply flow accept a redirect from the publisher and pass UTM parameters through to the system of record?")
+    sh.inp(row, 5, "Unknown")
+    sh.dropdown(f"E{row}", ["Yes", "No", "Unknown"])
+    sh.put(row, 6, "Test one link end to end before launch (see Tracking & Measurement).")
+    row += 1
+    goal_v, lo_v, hi_v = model["hire_goal"], round(model["hires_low"]), round(model["hires_high"])
+    if goal_v <= 0 or hi_v <= 0:
+        scale = "CONFIRM"
+    else:
+        scale = "PASS" if lo_v >= goal_v else "CHECK" if hi_v >= goal_v else "FAIL"
+    sh.put(row, 2, "Scale vs target", font=x._FONT_BODY_BOLD)
+    sh.formula(row, 3, f'=IF(OR({goal}<=0,{hi}<=0),"CONFIRM",IF({lo}>={goal},"PASS",IF({hi}>={goal},"CHECK","FAIL")))', scale)
+    sh.put(row, 4, "The plan's projected hires range against the hiring goal (inputs above). PASS: the low end meets the goal. CHECK: only the high end does. FAIL: neither.")
+    sh.put(row, 5, None)
+    sh.put(row, 6, "FAIL or CHECK: raise the budget, extend the window or lower the goal.")
+    row += 1
+    both = bool(cfg["lock_day"]) and cfg["setup_sla_days"] is not None
+    sh.put(row, 2, "Lead times (request lock day, setup SLA)", font=x._FONT_BODY_BOLD)
+    sh.formula(row, 3, f'=IF(AND({lock_c}<>"",{sla_c}<>""),"PASS","CONFIRM")', "PASS" if both else "CONFIRM")
+    sh.put(row, 4, "Both lead times are needed to know when a change can take effect.")
+    sh.put(row, 5, None)
+    sh.put(row, 6, "Enter both inputs above.")
+    row += 1
+    sh.put(row, 2, "System of record named", font=x._FONT_BODY_BOLD)
+    named = bool(cfg["system_of_record"])
+    sh.formula(row, 3, f'=IF(OR({sor_cell}="",{sor_cell}="{DEFAULT_SYSTEM_OF_RECORD}"),"CONFIRM","PASS")', "PASS" if named else "CONFIRM")
+    sh.put(row, 4, "Read from Tracking & Measurement: " + (cfg["system_of_record"] or "still the placeholder."))
+    sh.put(row, 5, None)
+    sh.put(row, 6, "Name the system that counts applies.")
+    row += 1
+    last = row - 1
+    sh.verdict_rules(f"C{first}:C{last}")
+
+    # summary block
+    rows = feasibility_rows(model)
+    counts = {k: 0 for k in ("PASS", "CHECK", "FAIL", "CONFIRM")}
+    for r in rows:
+        counts[r["status"]] = counts.get(r["status"], 0) + 1
+    r0 = sum_row
+    r = sh.sub(r0, "Summary", 6)
+    for word in ("PASS", "CHECK", "FAIL", "CONFIRM"):
+        sh.put(r, 2, word, font=x._FONT_BODY_BOLD)
+        sh.formula(r, 3, f'=COUNTIF($C${first}:$C${last},"{word}")', counts[word], fmt=ints)
+        r += 1
+    verdict = "NOT READY" if counts["FAIL"] else "READY AFTER CONFIRMATIONS" if counts["CHECK"] or counts["CONFIRM"] else "READY"
+    # r now = r0 + 5; verdict goes on the sub-header row's right side
+    sh.put(r, 2, "Gate result", font=x._FONT_BODY_BOLD)
+    fail_c, chk_c, conf_c = (f"C{r0 + 1 + 2}", f"C{r0 + 1 + 1}", f"C{r0 + 1 + 3}")
+    sh.formula(r, 3, f'=IF({fail_c}>0,"NOT READY",IF({chk_c}+{conf_c}>0,"READY AFTER CONFIRMATIONS","READY"))', verdict,
+               font=x._FONT_BODY_BOLD)
+    ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=4)
+    ws.cell(row=r, column=4).border = x._BORDER_THIN
+
+
+# -- Job Ad Quality ------------------------------------------------------------
+def jobad_rows(model: Dict[str, Any]) -> List[Dict[str, str]]:
+    """The job-ad checklist with the flags the plan can detect."""
+    roles = model["roles"]
+    countries = [c for c in model["countries"] if c]
+    non_us = [c for c in countries if c != "United States"]
+    sites = model["site_count"]
+    rows: List[Dict[str, str]] = []
+    rows.append(
+        {
+            "check": "Pay is shown",
+            "good": "Every ad states the pay rate or range, in the local currency.",
+            "flag": "A pay figure appears in the brief; carry it into every ad."
+            if model["pay_in_brief"]
+            else "No pay figure was found in the brief. Add the pay range to every ad.",
+        }
+    )
+    rows.append(
+        {
+            "check": "Shift and schedule stated",
+            "good": "Shift pattern, hours per week and start dates are in the ad, per role.",
+            "flag": f"{len(roles)} role(s) in the plan ({', '.join(roles[:4])}): confirm the shift pattern is stated for each."
+            if roles
+            else "No role named in the plan; state the shift pattern in each ad.",
+        }
+    )
+    rows.append(
+        {
+            "check": "Language requirements",
+            "good": "The ad is written in the market's language and states any language requirement.",
+            "flag": f"The plan covers {', '.join(countries)}: confirm each ad's language and any requirement."
+            if non_us
+            else "US-only plan: state any language requirement (for example bilingual) explicitly.",
+        }
+    )
+    claims = model["brief_claims"]
+    flag = (
+        f"{sites} sites in the plan: any benefit, bonus, shift or start-date promise must hold at every site, or be site-specific."
+        if sites > 1
+        else "Single-site plan: promises need to hold at that site."
+    )
+    if claims:
+        flag += " The brief mentions: " + ", ".join(claims) + "; confirm each site can fulfil them."
+    rows.append(
+        {
+            "check": "No promise a site cannot deliver",
+            "good": "Nothing in the ad is promised that a site cannot fulfil.",
+            "flag": flag,
+        }
+    )
+    jt = model["jargon_titles"]
+    rows.append(
+        {
+            "check": "Plain-language job title",
+            "good": "The title is what a candidate would search for: no internal levels, codes or slashes.",
+            "flag": "Check these titles for internal wording: " + "; ".join(jt[:5]) + "."
+            if jt
+            else "No internal codes or levels detected in the plan's role titles.",
+        }
+    )
+    rows.append(
+        {
+            "check": "Apply link works and is tracked",
+            "good": "The apply link opens on a phone and carries the tracking parameters.",
+            "flag": "See Tracking & Measurement for the parameters and the pre-launch test.",
+        }
+    )
+    return rows
+
+
+def _build_jobad(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> None:
+    sh = _Sheet(ws, x)
+    ws.title = SHEET_JOBAD
+    sh.widths({1: 3, 2: 32, 3: 54, 4: 60, 5: 14})
+    ints = x.FMT_INT
+    row = _title_block(
+        sh,
+        "Job Ad Quality",
+        "A pre-launch checklist for the ads the publishers will run. The plan flags what it can detect; "
+        "a person marks each item Pass, Fix or N/A.",
+        5,
+    )
+    row = sh.header(row, ["Check", "What good looks like", "Flag from the plan", "Status (select)"], 2)
+    first = row
+    for i, r in enumerate(jobad_rows(model)):
+        alt = x._FILL_BLUE_PALE if i % 2 else x._FILL_WHITE
+        sh.put(row, 2, r["check"], font=x._FONT_BODY_BOLD, fill=alt)
+        sh.put(row, 3, r["good"], fill=alt)
+        sh.put(row, 4, r["flag"], fill=alt)
+        sh.inp(row, 5, None)
+        ws.row_dimensions[row].height = 44
+        row += 1
+    last = row - 1
+    sh.dropdown(f"E{first}:E{last}", ["Pass", "Fix", "N/A"])
+    row += 1
+    sh.put(row, 2, "Items marked Fix", font=x._FONT_BODY_BOLD)
+    sh.formula(row, 3, f'=COUNTIF(E{first}:E{last},"Fix")', 0, fmt=ints)
+    sh.put(row + 1, 2, "Items still open", font=x._FONT_BODY_BOLD)
+    sh.formula(row + 1, 3, f'=COUNTA(B{first}:B{last})-COUNTIF(E{first}:E{last},"Pass")-COUNTIF(E{first}:E{last},"N/A")-COUNTIF(E{first}:E{last},"Fix")',
+               last - first + 1, fmt=ints)
+
+
+def append_sheets(wb: Any, data: dict, today: Optional[datetime.date] = None) -> bool:
+    """Add the five enterprise sheets to ``wb``.  Called by excel_v2 only
+    when :func:`enabled`; returns False (and adds nothing) otherwise.  Each
+    sheet is isolated: one failing cannot block the others or the workbook."""
+    if not enabled(data):
+        return False
+    import excel_v2 as x
+
+    model = build_model(data, today)
+    tab = {
+        SHEET_PACING: getattr(x, "NAVY", None),
+        SHEET_TIERS: getattr(x, "SAPPHIRE", None),
+        SHEET_TRACKING: getattr(x, "TEAL_HEX", None),
+        SHEET_FEASIBILITY: getattr(x, "MAGENTA_HEX", None),
+        SHEET_JOBAD: getattr(x, "PURPLE_LIGHT_HEX", None),
+    }
+    x._TAB_COLORS.update({k: v for k, v in tab.items() if v})
+
+    pacing: Optional[Dict[str, Any]] = None
+    tracking: Optional[Dict[str, Any]] = None
+    # Build order follows the dependencies (tiers read pacing, feasibility
+    # reads tracking); sheet ORDER in the workbook stays the product order.
+    sheets = {t: wb.create_sheet() for t in SHEET_TITLES}
+    for title, ws in sheets.items():
+        ws.title = title
+    plan = (
+        (SHEET_PACING, lambda ws: _build_pacing(ws, data, model, x)),
+        (SHEET_TIERS, lambda ws: _build_tiers(ws, data, model, x, pacing)),
+        (SHEET_TRACKING, lambda ws: _build_tracking(ws, data, model, x)),
+        (SHEET_FEASIBILITY, lambda ws: _build_feasibility(ws, data, model, x, tracking)),
+        (SHEET_JOBAD, lambda ws: _build_jobad(ws, data, model, x)),
+    )
+    for title, build in plan:
+        ws = sheets[title]
+        try:
+            result = build(ws)
+            if title == SHEET_PACING:
+                pacing = result
+            elif title == SHEET_TRACKING:
+                tracking = result
+        except Exception as exc:  # noqa: BLE001 - isolate each sheet
+            logger.error("Enterprise sheet %s failed: %s", title, exc, exc_info=True)
+            for rng in list(ws.merged_cells.ranges):
+                ws.unmerge_cells(str(rng))
+            for r in ws.iter_rows():
+                for c in r:
+                    c.value = None
+            ws.cell(row=2, column=2, value=f"Could not build the {title} sheet: {exc}")
+            if title == SHEET_PACING:
+                pacing = None
+    return True

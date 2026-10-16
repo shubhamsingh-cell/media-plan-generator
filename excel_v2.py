@@ -15450,6 +15450,14 @@ def _generate_excel_v2_inner(
                 value=f"Error generating International Benchmarks sheet: {exc}",
             ).font = _FONT_BODY
 
+    # ── Enterprise hourly hiring pack (opt-in; adds nothing when off) ──
+    try:
+        import enterprise_pack
+
+        enterprise_pack.append_sheets(wb, data)
+    except Exception as exc:  # noqa: BLE001 - optional sheets never block the workbook
+        logger.error("Enterprise pack sheets failed (non-fatal): %s", exc, exc_info=True)
+
     # Safety net: no sheet may still name a board the client excluded, a board
     # unavailable through Joveo or a platform that does not run in the plan's
     # markets (the targeted filters above handle the board lists; this catches
