@@ -670,6 +670,56 @@ def projection_for_alloc(
 
 
 # --------------------------------------------------------------------------
+# hires claims -- removed from prose where hires are not projected
+# --------------------------------------------------------------------------
+
+# A sentence that STATES a projected hire count / cost per hire ...
+_HIRE_CLAIM = re.compile(
+    r"\bprojected\s+(?:to\s+(?:deliver|drive)|hires?\b|[\d,]+\s+hires?)"
+    r"|\b[\d,]+\s+projected\s+hires?"
+    r"|\bprojects?\s+[\d,]+"
+    r"|\bdeliver\s+[\d,]+"
+    r"|\bbuys\s+[\d,]+"
+    r"|\bshows?\s+[\d,]+\s+hires?"
+    r"|\bimpact\s+[\d,]+\s+(?:projected\s+)?hires?"
+    r"|\bexpect\s+[\d,]+\s+additional hire"
+    r"|hires?\s+(?:drop|short)"
+    r"|fewer hires?"
+    r"|hire gap"
+    r"|[\u00a3$\u20ac\u20b9\u00a5]\s?[\d,.]+[KkMm]?\s*(?:/|per\s+)hire\b"
+    r"|cost[- ]per[- ]hire\s+(?:is|of)\s+[\u00a3$\u20ac\u20b9\u00a5]",
+    re.I,
+)
+# ... unless it is the sentence that DECLARES the suppression.
+_HIRE_DECLARE = re.compile(r"not projected|no local|no verified|not assessed|indicative", re.I)
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\u25b8\u2713\u2022(\u2014-])")
+# inline tails that can be cut without losing the rest of the sentence
+_HIRE_TAILS = (
+    re.compile(r"\s*[\u2014-]\s*this plan projects [\d,]+ \(\d+%\)", re.I),
+    re.compile(r"\s+to project [\d,]+ hires?\b", re.I),
+    re.compile(r"\s*\(\s*[\d,]+\s+hires?\s*/\s*[\d,]+\s+applications?\s*\)", re.I),
+)
+
+
+def strip_hire_claims(text: Any) -> str:
+    """``text`` without any sentence that states a projected hire count or a
+    per-hire cost (a market with no local cost-per-hire benchmark projects
+    none). Sentences that declare the suppression are kept; a client's own
+    stated goal ("100 hires target") is not a projection and is kept."""
+    if not isinstance(text, str) or not text:
+        return text if isinstance(text, str) else ""
+    out = text
+    for tail in _HIRE_TAILS:
+        out = tail.sub("", out)
+    kept = []
+    for sent in _SENTENCE_SPLIT.split(out):
+        if _HIRE_CLAIM.search(sent) and not _HIRE_DECLARE.search(sent):
+            continue
+        kept.append(sent)
+    return " ".join(kept).strip()
+
+
+# --------------------------------------------------------------------------
 # display strings -- ONE wording for every surface
 # --------------------------------------------------------------------------
 

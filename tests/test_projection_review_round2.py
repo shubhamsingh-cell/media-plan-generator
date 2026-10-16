@@ -306,7 +306,8 @@ def test_non_us_plans_label_the_us_calibrated_rows(brief):
 def test_uk_usd_plan_does_not_present_the_us_midpoint_as_the_markets():
     deck, cells = _bundle_texts(_brief("Healthcare & Medical", "$150,000", "London, UK", "Registered Nurse"))
     foot = " ".join(deck[2])
-    assert "US benchmark midpoint" in foot and "no local data" in foot
+    # no hires are projected, so there is no US-midpoint "plan efficiency" note
+    assert "midpoint" not in foot and "not projected" in foot
     assert any("not projected" in c for c in cells)
 
 

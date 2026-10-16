@@ -19,6 +19,8 @@ import logging
 import math
 import os
 import re
+
+import plan_projection
 import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -3947,6 +3949,42 @@ _NO_LOCAL_HIRES_NOTE = (
 )
 
 
+def _strip_hires_from_deck(prs: Any) -> None:
+    """Remove every remaining projected hire count / per-hire cost from a deck
+    whose market has no local cost-per-hire benchmark: any paragraph (text
+    boxes, table cells, group shapes, speaker notes) whose sentence states one
+    loses that sentence (plan_projection.strip_hire_claims). Slides 2 and 6 carry
+    the note that says why."""
+
+    def clean_tf(tf: Any) -> None:
+        for para in tf.paragraphs:
+            runs = list(para.runs)
+            if not runs:
+                continue
+            text = "".join(r.text for r in runs)
+            cleaned = plan_projection.strip_hire_claims(text)
+            if cleaned != text:
+                runs[0].text = cleaned
+                for r in runs[1:]:
+                    r.text = ""
+
+    def walk(shapes: Any) -> None:
+        for sh in shapes:
+            if getattr(sh, "shape_type", None) == 6 and hasattr(sh, "shapes"):  # group
+                walk(sh.shapes)
+            if getattr(sh, "has_text_frame", False) and sh.has_text_frame:
+                clean_tf(sh.text_frame)
+            if getattr(sh, "has_table", False) and sh.has_table:
+                for row in sh.table.rows:
+                    for cell in row.cells:
+                        clean_tf(cell.text_frame)
+
+    for slide in prs.slides:
+        walk(slide.shapes)
+        if slide.has_notes_slide:
+            clean_tf(slide.notes_slide.notes_text_frame)
+
+
 def _hires_suppressed(data: Optional[Dict]) -> bool:
     """True when hires / cost per hire are NOT projected for this plan: a market
     with no local cost-per-hire benchmark in its own currency (declare, never
@@ -4222,6 +4260,8 @@ def _plan_efficiency_variants(
     deck shows no hires range."""
     info = _industry_cph_info(data)
     alloc = data.get("_budget_allocation") if isinstance(data, dict) else None
+    if _hires_suppressed(data):
+        return []  # no hires range, so no "plan efficiency" to define
     if (
         not info
         or info.get("basis") == "local_kb"
@@ -13418,6 +13458,11 @@ def _generate_pptx_scoped(data: Dict[str, Any]) -> bytes:
         # arrows arriving from KB data) onto the embedded symbol face, so the
         # font-embedding guarantee below covers every glyph on every slide.
         _apply_symbol_font(prs)
+        try:
+            if _hires_suppressed(data):
+                _strip_hires_from_deck(prs)
+        except (KeyError, TypeError, ValueError, AttributeError) as exc:
+            logger.error("deck hires suppression pass failed: %s", exc, exc_info=True)
         buffer = io.BytesIO()
         prs.save(buffer)
         buffer.seek(0)

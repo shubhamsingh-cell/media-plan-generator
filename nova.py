@@ -10253,6 +10253,16 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     result["total_projected"].pop(_k, None)
                 result["hires_note"] = proj["text"]["hires_note"]
                 result["sufficiency"] = {}  # its per-hire grading has no local basis
+                # per-channel hires / cost per hire go too (they sum to the total)
+                for _ch in (result.get("channel_allocations") or {}).values():
+                    if isinstance(_ch, dict):
+                        for _k in ("projected_hires", "cost_per_hire", "efficiency_flag"):
+                            _ch.pop(_k, None)
+                result["recommendations"] = [
+                    r
+                    for r in (result.get("recommendations") or [])
+                    if not (isinstance(r, str) and "hire" in r.lower())
+                ]
                 result["presentation_note"] = (
                     "Quote applications and cost per application as the low-high "
                     "ranges in projection.text. Do NOT state hires or cost per "

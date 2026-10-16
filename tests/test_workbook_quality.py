@@ -157,12 +157,13 @@ def test_low_efficiency_alert_uses_plan_currency_threshold(monkeypatch):
     ws = wb["Executive Summary"]
     texts = [c.value for row in ws.iter_rows() for c in row if isinstance(c.value, str)]
     alerts = [t for t in texts if "Low Efficiency alert" in t]
-    assert alerts, "expected a Low Efficiency alert recommendation"
-    for alert in alerts:
-        # The flag is computed on the plan's OWN currency figure -- the
-        # threshold text must match, not claim a fixed-USD amount.
-        assert "£1,000" in alert, alert
-        assert "US$1,000" not in alert, alert
+    # 2026-10-17: this market (Egypt) has no local cost-per-hire benchmark, so
+    # NO hire count is projected anywhere -- the alert ("projected 0 hires
+    # despite >£1,000 spend") states one and is dropped with every other
+    # projected-hires sentence. The engine flag itself (asserted above) and its
+    # plan-currency threshold are unchanged; only the client-facing sentence goes.
+    assert not alerts, alerts
+    assert not any("US$1,000" in t for t in texts)
 
 
 # ---------------------------------------------------------------------------

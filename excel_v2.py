@@ -5951,6 +5951,67 @@ def _location_count_label(data: dict, locations: List[str]) -> str:
     return " + ".join(modes) or "0"
 
 
+_HIRES_HEADER = re.compile(
+    r"^(?:total\s+)?(?:proj\.?\s*|projected\s+|est\.?\s*|avg\.?\s*)?"
+    r"(?:cost\s*(?:/|per)\s*hire|cph|hires?(?:\s*range)?)\s*(?:\([^)]*\))?$",
+    re.I,
+)
+_NUMBERISH = re.compile(
+    r"^[\u00a3$\u20ac\u20b9\u00a5]?\s*[\d,.]+[KMkm]?"
+    r"(?:\s*[-\u2013]\s*[\u00a3$\u20ac\u20b9\u00a5]?\s*[\d,.]+[KMkm]?)?$"
+)
+
+
+def _numberish(value: Any) -> bool:
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, (int, float)):
+        return True
+    if isinstance(value, str):
+        v = value.strip()
+        return v.startswith("=") or bool(_NUMBERISH.match(v))
+    return False
+
+
+def _strip_hires_from_workbook(wb: Any) -> None:
+    """Remove every projected hire count and cost per hire from a workbook whose
+    market has no local cost-per-hire benchmark (declare, never convert): the
+    figures under a hires / cost-per-hire header (down the column or along the
+    row) read "n/a", and any sentence that states a projected hire count is
+    dropped (plan_projection.strip_hire_claims). The Executive Summary already
+    carries the one note that says why."""
+    na = "n/a"
+    for ws in wb.worksheets:
+        cells = [c for row in ws.iter_rows() for c in row if c.value is not None]
+        for c in cells:
+            if isinstance(c.value, str) and len(c.value) < 40 and _HIRES_HEADER.match(c.value.strip()):
+                # down the column
+                r = c.row + 1
+                below = []
+                while r <= ws.max_row and ws.cell(row=r, column=c.column).value is not None:
+                    below.append(ws.cell(row=r, column=c.column))
+                    r += 1
+                if any(_numberish(b.value) for b in below):
+                    for b in below:
+                        if _numberish(b.value):
+                            b.value = na
+                    continue
+                # along the row (forecast / interval tables label the ROW)
+                right = [
+                    ws.cell(row=c.row, column=c.column + k)
+                    for k in range(1, 14)
+                    if ws.cell(row=c.row, column=c.column + k).value is not None
+                ]
+                for b in right:
+                    if _numberish(b.value):
+                        b.value = na
+        for c in cells:
+            if isinstance(c.value, str) and not c.value.startswith("="):
+                cleaned = plan_projection.strip_hire_claims(c.value)
+                if cleaned != c.value:
+                    c.value = cleaned or na
+
+
 def _hires_not_projected(budget_alloc: Any, budget_num: float, data: dict) -> bool:
     """True when hires / cost per hire are NOT projected for this plan (a market
     with no local cost-per-hire benchmark in its own currency) -- the decision
@@ -15601,6 +15662,16 @@ def _generate_excel_v2_inner(
         _finalize_workbook(wb)
     except Exception as exc:  # noqa: BLE001 - never block save on cosmetics
         logger.error("Workbook finalize failed (non-fatal): %s", exc, exc_info=True)
+
+    # A market with no local cost-per-hire benchmark projects no hires or cost per
+    # hire anywhere in the workbook -- strip every remaining figure and sentence.
+    try:
+        if _hires_not_projected(
+            data.get("_budget_allocation"), _get_budget_numeric(data), data
+        ):
+            _strip_hires_from_workbook(wb)
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        logger.error("hires suppression pass failed: %s", exc, exc_info=True)
 
     # ── Write to bytes ──
     output = io.BytesIO()

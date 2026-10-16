@@ -403,7 +403,10 @@ def test_sum_totals_have_cached_values(cad_workbook):
                         if isinstance(v, (int, float))
                     )
                     assert cached == pytest.approx(want), f"{ws.title}!{c.coordinate}"
-    assert formulas >= 5
+    # (>= 5 before 2026-10-17: the CAD plan's per-channel hires total was one of
+    # the =SUM() cells; a market with no local cost-per-hire benchmark projects
+    # no hires, so that column now reads "n/a")
+    assert formulas >= 4
 
 
 # ── 6. counts agree with their nouns ────────────────────────────────────
