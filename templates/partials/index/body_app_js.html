@@ -14,6 +14,8 @@
   let locations = [];
   let roles = [];
   let competitors = [];
+  let excludedPublishers = [];
+  let _skipTagFocus = false; // true while a blur commit re-renders tag boxes
   let lastGeneratedBlob = null;
   let lastGeneratedFilename = null;
 
@@ -90,6 +92,7 @@
       channel_categories: novaChannelCategoriesPayload(),
       target_region: region.region,
       custom_countries: region.custom_countries,
+      excluded_publishers: excludedPublishers.slice(),
     };
   }
   document.addEventListener(
@@ -1162,6 +1165,7 @@
         locations: locations || [],
         roles: roles || [],
         competitors: competitors || [],
+        excludedPublishers: excludedPublishers || [],
         campaignGoals: Array.from(
           document.querySelectorAll('input[name="campaignGoals"]:checked'),
         ).map((cb) => cb.value),
@@ -1258,6 +1262,18 @@
           else competitors.push(c);
         });
       }
+      if (Array.isArray(s.excludedPublishers) && s.excludedPublishers.length > 0) {
+        s.excludedPublishers.forEach((b) => {
+          if (typeof addTag === "function")
+            addTag(
+              "excludedPublishersContainer",
+              "excludedPublisherInput",
+              excludedPublishers,
+              b,
+            );
+          else excludedPublishers.push(b);
+        });
+      }
       // Region, channel/section toggles, job categories, transcript (D-14).
       novaRestoreScopeState(s);
       // The region's change event saved the form while the toggles still
@@ -1310,6 +1326,7 @@
     locations = [];
     roles = [];
     competitors = [];
+    excludedPublishers = [];
     // Drop the tags only: each container also HOLDS its text input
     // (#locationInput / #roleInput / #competitorInput -- renderTags
     // re-appends it after the tags). Wiping innerHTML deleted the inputs,
@@ -1318,6 +1335,7 @@
       ["locationsContainer", "locationInput"],
       ["rolesContainer", "roleInput"],
       ["competitorsContainer", "competitorInput"],
+      ["excludedPublishersContainer", "excludedPublisherInput"],
     ].forEach(([containerId, inputId]) => {
       const box = document.getElementById(containerId);
       if (!box) return;
@@ -2839,6 +2857,48 @@
       }
     });
 
+  // Tags input for excluded job boards: Enter / comma / blur commit, a
+  // pasted list becomes one tag per board.
+  function commitExcludedBoards(inputEl, text, keepFocus) {
+    const entries = String(text || "")
+      .split(/[\n;,]/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    inputEl.value = "";
+    _skipTagFocus = !keepFocus;
+    try {
+      entries.forEach((entry) => {
+        addTag(
+          "excludedPublishersContainer",
+          "excludedPublisherInput",
+          excludedPublishers,
+          entry,
+        );
+      });
+    } finally {
+      _skipTagFocus = false;
+    }
+  }
+  (function () {
+    const exInput = document.getElementById("excludedPublisherInput");
+    if (!exInput) return;
+    exInput.addEventListener("keydown", function (e) {
+      if ((e.key === "Enter" || e.key === ",") && this.value.trim()) {
+        e.preventDefault();
+        commitExcludedBoards(this, this.value, true);
+      }
+    });
+    exInput.addEventListener("paste", function (e) {
+      const pasted = (e.clipboardData && e.clipboardData.getData("text")) || "";
+      if (!/[\r\n;,]/.test(pasted)) return;
+      e.preventDefault();
+      commitExcludedBoards(this, this.value + pasted, true);
+    });
+    exInput.addEventListener("blur", function () {
+      if (this.value.trim()) commitExcludedBoards(this, this.value, false);
+    });
+  })();
+
   // Tags input for competitors
   document
     .getElementById("competitorInput")
@@ -2984,6 +3044,7 @@
   function getArrayByContainerId(containerId) {
     if (containerId === "locationsContainer") return locations;
     if (containerId === "competitorsContainer") return competitors;
+    if (containerId === "excludedPublishersContainer") return excludedPublishers;
     return roles;
   }
 
@@ -3012,7 +3073,7 @@
       container.appendChild(tag);
     });
     container.appendChild(input);
-    input.focus();
+    if (!_skipTagFocus) input.focus();
   }
 
   /* ── Location resolution echo-back (S93) ──
@@ -4872,6 +4933,21 @@
       reviewCompetitorsEl.textContent = "Not specified";
     }
 
+    const reviewExcludedEl = document.getElementById("reviewExcludedPublishers");
+    if (reviewExcludedEl) {
+      reviewExcludedEl.innerHTML = "";
+      if (excludedPublishers.length > 0) {
+        excludedPublishers.forEach((b) => {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = b;
+          reviewExcludedEl.appendChild(chip);
+        });
+      } else {
+        reviewExcludedEl.textContent = "None";
+      }
+    }
+
     const expLevel = getCheckboxGroupValues("experienceLevel");
     const reviewExpLevelEl = document.getElementById("reviewExpLevel");
     reviewExpLevelEl.innerHTML = "";
@@ -5401,6 +5477,11 @@
   var NOVA_TAG_LIMITS = {
     rolesContainer: ["roles_max", "roleInput", "target roles"],
     competitorsContainer: ["competitors_max", "competitorInput", "competitors"],
+    excludedPublishersContainer: [
+      "excluded_publishers_max",
+      "excludedPublisherInput",
+      "excluded job boards",
+    ],
     locationsContainer: ["locations_max", "locationInput", "locations"],
   };
   // True (and an inline message at the tag box) when one more tag would
@@ -5444,6 +5525,7 @@
     call_transcript: "callTranscript",
     locations: "locationInput",
     competitors: "competitorInput",
+    excluded_publishers: "excludedPublisherInput",
     target_roles: "roleInput",
     roles: "roleInput",
     requester_name: "requesterName",
@@ -6687,6 +6769,7 @@
       locations: locations ? locations.slice() : [],
       roles: roles ? roles.slice() : [],
       competitors: competitors ? competitors.slice() : [],
+      excludedPublishers: excludedPublishers ? excludedPublishers.slice() : [],
       campaignGoals: getCheckedValues("campaignGoals"),
       workEnvironment: getCheckedValues("workEnvironment"),
       experienceLevel: getCheckedValues("experienceLevel"),
@@ -6780,7 +6863,13 @@
     locations.length = 0;
     roles.length = 0;
     competitors.length = 0;
-    ["locationsContainer", "rolesContainer", "competitorsContainer"].forEach(
+    excludedPublishers.length = 0;
+    [
+      "locationsContainer",
+      "rolesContainer",
+      "competitorsContainer",
+      "excludedPublishersContainer",
+    ].forEach(
       function (id) {
         var el = document.getElementById(id);
         if (el) el.innerHTML = "";
@@ -6805,6 +6894,18 @@
         if (typeof addTag === "function")
           addTag("competitorsContainer", "competitorInput", competitors, c);
         else competitors.push(c);
+      });
+    }
+    if (Array.isArray(s.excludedPublishers)) {
+      s.excludedPublishers.forEach(function (b) {
+        if (typeof addTag === "function")
+          addTag(
+            "excludedPublishersContainer",
+            "excludedPublisherInput",
+            excludedPublishers,
+            b,
+          );
+        else excludedPublishers.push(b);
       });
     }
 

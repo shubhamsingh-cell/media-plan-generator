@@ -122,6 +122,7 @@ def wizard_payloads(
     locations: Optional[list] = None,
     roles: Optional[list] = None,
     touch: Optional[dict] = None,
+    excluded_publishers: Optional[list] = None,
 ) -> dict:
     """{"generate": <payload>, "estimate": <preview's /api/estimate body>}
     after JSON round-trip, for one wizard form state.
@@ -165,6 +166,7 @@ def wizard_payloads(
             "var locations = " + json.dumps(locations or []) + ";",
             "var roles = " + json.dumps(roles or []) + ";",
             "var competitors = [], briefFiles = [], transcriptFiles = [], historicalFiles = [];",
+            "var excludedPublishers = " + json.dumps(excluded_publishers or []) + ";",
             "function getCheckboxGroupValues() { return []; }",
             "function $(id) { return document.getElementById(id); }",
             "function val(id) { var el = $(id); return el ? (el.value || '').trim() : ''; }",

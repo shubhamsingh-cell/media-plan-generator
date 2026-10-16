@@ -64,6 +64,9 @@ INPUT_LIMITS: dict[str, int] = {
     "call_transcript_max_chars": 50_000,
     "roles_max": 30,
     "competitors_max": 20,
+    # "Exclude job boards" tag input (publisher_filter.MAX_EXCLUDED / MAX_NAME_CHARS)
+    "excluded_publishers_max": 20,
+    "excluded_publisher_chars": 80,
     "locations_max": 100,
     # The whole /api/generate JSON body (app.py's global body cap).
     "request_max_bytes": 10 * 1024 * 1024,

@@ -47,6 +47,7 @@ from shared_utils import (
 
 import benchmark_registry
 import hashlib
+import publisher_filter
 import wizard_inputs
 import proof_claims  # public proof numbers ({{claim_*}} tokens in templates)
 
@@ -4756,6 +4757,47 @@ def _sanitize_generate_request(data: dict) -> dict:
     return out
 
 
+def _excluded_publishers_problem(raw: Any) -> "tuple[str, str]":
+    """("", "") when ``raw`` is an acceptable ``excluded_publishers`` value
+    (absent, a list of board names, or one comma-separated string), else
+    (code, message).  ONE rule for /api/estimate and /api/generate; the
+    wizard's "Exclude job boards" tag input keeps to the same limits."""
+    if raw is None or raw == "":
+        return "", ""
+    limits = wizard_inputs.INPUT_LIMITS
+    if isinstance(raw, str):
+        items: list = [s for s in re.split(r"[\n;,]", raw) if s.strip()]
+    elif isinstance(raw, (list, tuple)):
+        items = list(raw)
+    else:
+        return "type", "excluded_publishers must be a list of job board names"
+    if any(not isinstance(i, str) for i in items):
+        return "type", "excluded_publishers must be a list of job board names"
+    if len(items) > limits["excluded_publishers_max"]:
+        return (
+            "too_many",
+            f"Too many excluded job boards ({len(items)}; "
+            f"max {limits['excluded_publishers_max']}).",
+        )
+    if any(len(i.strip()) > limits["excluded_publisher_chars"] for i in items):
+        return (
+            "too_long",
+            "An excluded job board name is too long "
+            f"(max {limits['excluded_publisher_chars']} characters).",
+        )
+    return "", ""
+
+
+def _normalize_excluded_publishers(data: dict) -> None:
+    """Rewrite ``data["excluded_publishers"]`` to the clean unique list the
+    plan surfaces read (publisher_filter.sanitize_excluded); an absent field
+    stays absent."""
+    if "excluded_publishers" in data:
+        data["excluded_publishers"] = publisher_filter.sanitize_excluded(
+            data.get("excluded_publishers")
+        )
+
+
 def _client_file_slug(name: Any) -> str:
     """Filename-safe client name for every generated file (zip, xlsx, pptx,
     saved copy): accents folded (NFKD -> ASCII, "Société" -> "Societe"),
@@ -5880,6 +5922,10 @@ def _compute_plan_estimate(brief: dict) -> dict:
     # Client-sent "_"-prefixed keys are server-internal flags (see
     # _drop_internal_request_keys): never honoured here either.
     brief = _drop_internal_request_keys(dict(brief))
+    _ex_code, _ex_msg = _excluded_publishers_problem(brief.get("excluded_publishers"))
+    if _ex_code:
+        raise _EstimateValidationError(_ex_msg, field="excluded_publishers")
+    _normalize_excluded_publishers(brief)
     if brief.get("budget_only") is True and _request_budget_raw(brief)[0] == "":
         # Nothing typed yet: only the currency a bare amount would be priced
         # in for these locations (the quick-amount buttons' labels).
@@ -7257,6 +7303,12 @@ _OPENAPI_SPEC = {
                                         "type": "array",
                                         "items": {"type": "string"},
                                         "description": "Competitor company names for benchmarking",
+                                    },
+                                    "excluded_publishers": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                        "maxItems": 20,
+                                        "description": "Job boards the client does not want in the plan (any spelling: 'indeed.com', 'Indeed France'). Removed from every workbook and deck surface and disclosed on the Executive Summary.",
                                     },
                                     "campaign_duration": {
                                         "type": "string",
@@ -18785,6 +18837,19 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     field="competitors",
                 )
                 return
+            _ex_code, _ex_msg = _excluded_publishers_problem(
+                data.get("excluded_publishers")
+            )
+            if _ex_code:
+                _gen_timer.cancel()
+                self._send_error(
+                    _ex_msg,
+                    "VALIDATION_ERROR",
+                    400,
+                    field="excluded_publishers",
+                )
+                return
+            _normalize_excluded_publishers(data)
             if _client_name_problem(client_name_input)[0] == "too_long":
                 _gen_timer.cancel()
                 self._send_error(

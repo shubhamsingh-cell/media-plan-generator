@@ -1973,6 +1973,38 @@
           </div>
         </div>
       </div>
+      <div class="form-group" id="excludedPublishersGroup">
+        <label for="excludedPublisherInput"
+          >Exclude job boards
+          <span
+            style="
+              font-weight: 400;
+              color: var(--text-muted);
+              font-size: 10px;
+              letter-spacing: 0;
+            "
+            >(optional: boards the client does not want in the plan)</span
+          ></label
+        >
+        <div class="tags-container" id="excludedPublishersContainer">
+          <input
+            type="text"
+            class="tags-input"
+            id="excludedPublisherInput"
+            placeholder="Type a job board (e.g. indeed.com) and press Enter..."
+            autocomplete="off"
+          />
+        </div>
+        <div class="form-hint" style="opacity: 0.7">
+          Press Enter or comma to add &bull; Click &times; to remove
+        </div>
+        <div class="form-hint">
+          Excluded boards are removed from every sheet and slide, and the plan
+          says so. Any spelling works: "Indeed", "indeed.com" and "Indeed
+          France" are the same board.
+        </div>
+        <div class="field-error-msg" id="excludedPublisherInput-error"></div>
+      </div>
       <div
         class="copilot-suggestions"
         id="copilot-channels"
@@ -2266,6 +2298,10 @@
         <div class="review-item">
           <span class="label">Competitors</span
           ><span class="value" id="reviewCompetitors"></span>
+        </div>
+        <div class="review-item">
+          <span class="label">Excluded job boards</span
+          ><span class="value" id="reviewExcludedPublishers"></span>
         </div>
       </div>
 
