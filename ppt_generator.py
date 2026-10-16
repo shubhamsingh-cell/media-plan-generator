@@ -13173,6 +13173,16 @@ def _generate_pptx_scoped(data: Dict[str, Any]) -> bytes:
                 "Case Study & Next Steps slide failed (non-fatal): %s", _cs_exc
             )
 
+        # Enterprise hourly hiring appendix (opt-in; adds nothing when off)
+        try:
+            import sys as _sys
+
+            import enterprise_pack
+
+            enterprise_pack.add_deck_appendix(prs, data, _sys.modules[__name__])
+        except Exception as _ent_exc:
+            logger.debug("Enterprise appendix failed (non-fatal): %s", _ent_exc)
+
         # Data Sources & Methodology -- REMOVED from client deck (S50); the
         # builder itself (_build_slide_data_sources) was deleted as dead code
         # in the 2026-07-26 dead-slide-builder audit -- see git history if it

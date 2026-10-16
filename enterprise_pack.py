@@ -1800,3 +1800,284 @@ def append_sheets(wb: Any, data: dict, today: Optional[datetime.date] = None) ->
             if title == SHEET_PACING:
                 pacing = None
     return True
+
+
+# ---------------------------------------------------------------------------
+# Deck appendix (3 slides)
+# ---------------------------------------------------------------------------
+_L = 0.55  # left margin (in)
+_W = 12.23  # content width (in)
+
+
+def _drop_last_slide(prs: Any) -> None:
+    """Remove the most recently added slide (a builder failed mid-slide)."""
+    lst = prs.slides._sldIdLst
+    last = lst[-1]
+    prs.part.drop_rel(last.rId)
+    lst.remove(last)
+
+
+def _slide_base(prs: Any, ppt: Any, title: str, subtitle: str) -> Any:
+    from pptx.util import Inches
+
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    today = datetime.date.today().strftime("%B %d, %Y")
+    ppt._add_filled_rect(slide, Inches(0), Inches(0), ppt.SLIDE_WIDTH, ppt.SLIDE_HEIGHT, ppt.OFF_WHITE)
+    ppt._add_top_band(slide, title, today)
+    ppt._add_textbox(
+        slide, Inches(_L), Inches(0.92), Inches(_W), Inches(0.45),
+        text=subtitle, font_size=13, bold=True, color=ppt.NAVY,
+    )
+    return slide
+
+
+def _card(slide: Any, ppt: Any, x: float, y: float, w: float, h: float, heading: str) -> None:
+    from pptx.util import Inches
+
+    ppt._add_filled_rect(slide, Inches(x), Inches(y), Inches(w), Inches(h), ppt.WARM_GRAY)
+    ppt._add_filled_rect(slide, Inches(x + 0.012), Inches(y + 0.012), Inches(w - 0.024), Inches(h - 0.024), ppt.WHITE)
+    ppt._add_textbox(
+        slide, Inches(x + 0.2), Inches(y + 0.1), Inches(w - 0.4), Inches(0.34),
+        text=heading, font_size=12, bold=True, color=ppt.NAVY,
+    )
+
+
+def _line(slide: Any, ppt: Any, x: float, y: float, w: float, h: float, text: str,
+          size: float = 10, bold: bool = False, color: Any = None, body: bool = True,
+          center: bool = False) -> None:
+    from pptx.enum.text import PP_ALIGN
+    from pptx.util import Inches
+
+    _box, tf = ppt._add_textbox(
+        slide, Inches(x), Inches(y), Inches(w), Inches(h),
+        text=text, font_size=size, bold=bold, color=color or ppt.DARK_TEXT,
+        alignment=PP_ALIGN.CENTER if center else PP_ALIGN.LEFT,
+    )
+    if body:
+        ppt._set_body_font(tf)
+
+
+def _table(slide: Any, ppt: Any, x: float, y: float, widths: List[float], headers: List[str],
+           rows: List[List[str]], row_h: float = 0.5) -> float:
+    """Shape-built table (indigo header, zebra rows); returns the bottom y."""
+    from pptx.util import Inches
+
+    total = sum(widths)
+    hdr_h = 0.4
+    ppt._add_filled_rect(slide, Inches(x), Inches(y), Inches(total), Inches(hdr_h), ppt.NAVY)
+    cx = x
+    for h, w in zip(headers, widths):
+        _line(slide, ppt, cx + 0.12, y, w - 0.24, hdr_h, h, size=10, bold=True, color=ppt.WHITE, body=False)
+        _fix_anchor(slide, ppt)
+        cx += w
+    for i, row in enumerate(rows):
+        ry = y + hdr_h + i * row_h
+        ppt._add_filled_rect(slide, Inches(x), Inches(ry), Inches(total), Inches(row_h),
+                             ppt.LAVENDER_50 if i % 2 == 0 else ppt.WHITE)
+        cx = x
+        for j, (cell, w) in enumerate(zip(row, widths)):
+            _line(slide, ppt, cx + 0.12, ry, w - 0.24, row_h, cell, size=10 if j else 10,
+                  bold=(j == 0), color=ppt.NAVY if j == 0 else ppt.DARK_TEXT, body=(j != 0))
+            _fix_anchor(slide, ppt)
+            cx += w
+    return y + hdr_h + len(rows) * row_h
+
+
+def _fix_anchor(slide: Any, ppt: Any) -> None:
+    """Centre the text of the most recent box vertically in its frame."""
+    try:
+        shape = slide.shapes[-1]
+        shape.text_frame._txBody.bodyPr.set("anchor", "ctr")
+    except Exception:  # noqa: BLE001 - cosmetic
+        pass
+
+
+def _clip(text: Any, limit: int) -> str:
+    """``text`` cut at a word boundary to ``limit`` characters with one ellipsis."""
+    t = str(text or "").strip()
+    if len(t) <= limit:
+        return t
+    hard = t[: limit - 1]
+    cut = hard.rsplit(" ", 1)[0]
+    if len(cut) < limit * 0.6:  # a word boundary that loses most of the name
+        cut = hard
+    return cut.rstrip(" ,;:-/(") + "…"
+
+
+def _money(ppt: Any, value: float) -> str:
+    return ppt._fmt_currency_whole(value)
+
+
+def _slide_pacing(prs: Any, data: dict, model: Dict[str, Any], ppt: Any) -> None:
+    n = len(model["weeks"])
+    steps = ladder(model)
+    cpa = model["cpa_range"]
+    rec = steps[1]
+    sub = f"Appendix: {_money(ppt, steps[0]['weekly'])} to {_money(ppt, steps[2]['weekly'])} a week, over {n} fiscal weeks"
+    slide = _slide_base(prs, ppt, "Weekly Pacing & Budget Ladder", sub)
+    widths = [2.5, 2.0, 2.0, 2.4, 3.33] if cpa else [2.8, 2.4, 2.4, 4.63]
+    headers = ["Step", "Avg weekly spend", "Campaign spend"] + (["Apply starts / week"] if cpa else []) + ["Basis"]
+    rows = []
+    for s in steps:
+        row = [s["step"], _money(ppt, s["weekly"]), _money(ppt, s["campaign"])]
+        if cpa:
+            row.append(format_range(s["starts_low"] / n, s["starts_high"] / n))
+        row.append(s["basis"])
+        rows.append(row)
+    bottom = _table(slide, ppt, _L, 1.5, widths, headers, rows, row_h=0.62)
+
+    y = bottom + 0.3
+    cfg_note = (
+        f"Fiscal week {_weekday_name(WEEKDAYS.index(model['settings']['week_start']))} to "
+        f"{_weekday_name(WEEKDAYS.index(model['settings']['week_start']) - 1)}; week 1 starts "
+        f"{model['first_week'].strftime('%d %b %Y')}."
+    )
+    _card(slide, ppt, _L, y, 5.9, 2.2, "Status bands (weekly goal)")
+    from pptx.util import Inches
+
+    bands = (
+        (ppt.GREEN, f"GREEN: at or above {DEFAULT_GREEN:.0%} of the weekly goal", "22C55E"),
+        (ppt.AMBER_TEXT, f"AMBER: {DEFAULT_AMBER:.0%} to {DEFAULT_GREEN:.0%}", "F59E0B"),
+        (ppt.RED_TEXT, f"RED: below {DEFAULT_AMBER:.0%}", "EF4444"),
+    )
+    for i, (col, text, hexcode) in enumerate(bands):
+        by = y + 0.62 + i * 0.4
+        ppt._add_filled_rect(slide, Inches(_L + 0.25), Inches(by + 0.05), Inches(0.22), Inches(0.22), ppt._rgb(hexcode))
+        _line(slide, ppt, _L + 0.6, by, 5.0, 0.3, text, size=10, bold=True, color=col)
+    _card(slide, ppt, _L + 6.13, y, 6.1, 2.2, "Pause and reallocate")
+    rules = (
+        "Two RED days in a row: stop adding spend to that publisher.",
+        "A RED week: pause the weakest publisher, move its budget to Tier 1 publishers that are GREEN.",
+        "AMBER: hold budget and fix the cause first. Validate tracking before any move.",
+    )
+    for i, r in enumerate(rules):
+        _line(slide, ppt, _L + 6.38, y + 0.55 + i * 0.52, 5.65, 0.5, r, size=10)
+    foot = (
+        cfg_note
+        + (" Apply starts are estimated from the plan's cost-per-application range." if cpa else " No cost-per-application range in the plan, so apply starts are omitted.")
+        + " Every threshold is an editable default in the workbook's Weekly Pacing sheet: set it to the client's SLA."
+    )
+    _line(slide, ppt, _L, y + 2.32, _W, 0.5, foot, size=9, color=ppt.MUTED_TEXT)
+    ppt._add_footer(slide, datetime.date.today().strftime("%B %d, %Y"))
+
+
+def _slide_tiers(prs: Any, data: dict, model: Dict[str, Any], ppt: Any) -> None:
+    from pptx.util import Inches
+
+    pubs = tiered_publishers(model)
+    n = len(model["weeks"]) or 1
+    sub = f"Appendix: {len(pubs)} funded publishers in three launch tiers, with the triggers that move budget"
+    slide = _slide_base(prs, ppt, "Publisher Tiers & Gates", sub)
+    heads = (
+        ("Tier 1", "Launch in week 1"),
+        ("Tier 2", "Launch after Gate 1"),
+        ("Tier 3", "Test after Gate 2"),
+    )
+    col_w, gap = 3.93, 0.22
+    for i, (tier, rule) in enumerate(heads):
+        x = _L + i * (col_w + gap)
+        _card(slide, ppt, x, 1.5, col_w, 2.3, f"{tier}: {rule}")
+        members = [p for p in pubs if p["tier"] == tier]
+        shown = members[:4]
+        if not members:
+            _line(slide, ppt, x + 0.2, 2.0, col_w - 0.4, 0.3, "No publisher at this tier on the default cut-offs.", size=10, color=ppt.MUTED_TEXT)
+        for k, p in enumerate(shown):
+            weekly_min = round(p["budget"] / n * DEFAULT_MIN_TEST_FACTOR)
+            _line(slide, ppt, x + 0.2, 1.98 + k * 0.36, 2.35, 0.32, _clip(p["name"], 26), size=10, bold=True, color=ppt.NAVY, body=False)
+            _line(slide, ppt, x + 2.6, 1.98 + k * 0.36, 1.25, 0.32, f"min {_money(ppt, weekly_min)}/wk", size=9, color=ppt.MUTED_TEXT)
+        if len(members) > len(shown):
+            _line(slide, ppt, x + 0.2, 1.98 + len(shown) * 0.36 + 0.05, col_w - 0.4, 0.3,
+                  f"+{len(members) - len(shown)} more in the workbook", size=9, color=ppt.MUTED_TEXT)
+    _card(slide, ppt, _L, 4.05, 6.0, 2.8, "Switch triggers (defaults)")
+    trig = (
+        f"Tier 1 publisher below {DEFAULT_AMBER:.0%} of goal for {DEFAULT_REALLOCATE_DAYS} days: move its budget to Tier 1 publishers that are GREEN.",
+        f"Tier 2 publisher at or above {DEFAULT_PROMOTE_PCT:.0%} of goal for {DEFAULT_PROMOTE_DAYS} days: fund it as Tier 1.",
+        f"Any publisher below {DEFAULT_AMBER:.0%} for {DEFAULT_PAUSE_DAYS} days: pause, reallocate, check tracking.",
+    )
+    for i, t in enumerate(trig):
+        _line(slide, ppt, _L + 0.2, 4.55 + i * 0.72, 5.6, 0.62, t, size=10)
+    _card(slide, ppt, _L + 6.23, 4.05, 6.0, 2.8, "Performance gates")
+    gates = (
+        "Gate 0, before launch: every link records a test apply in the system of record.",
+        f"Gate 1, end of week 1: Tier 1 at {DEFAULT_AMBER:.0%} of goal or better, then launch Tier 2.",
+        f"Gate 2, end of week 2: Tier 1 and 2 at {DEFAULT_AMBER:.0%}, then test Tier 3.",
+        f"Gate 3, week 4 on: total at {DEFAULT_GREEN:.0%} of goal every week.",
+    )
+    for i, g in enumerate(gates):
+        _line(slide, ppt, _L + 6.43, 4.55 + i * 0.55, 5.6, 0.46, g, size=10)
+    ppt._add_footer(slide, datetime.date.today().strftime("%B %d, %Y"))
+
+
+def _slide_tracking(prs: Any, data: dict, model: Dict[str, Any], ppt: Any) -> None:
+    from pptx.util import Inches
+
+    spec = tracking_spec(model)
+    summ = feasibility_summary(model)
+    counts = summ["counts"]
+    cfg = model["settings"]
+    sub = "Appendix: how every apply is counted, and whether the plan can run as written"
+    slide = _slide_base(prs, ppt, "Tracking & Feasibility", sub)
+    _card(slide, ppt, _L, 1.5, 6.0, 5.35, "Tracking spec")
+    sor = cfg["system_of_record"] or DEFAULT_SYSTEM_OF_RECORD
+    items = (
+        ("utm_source", f"publisher slug, e.g. {spec['example_source']}"),
+        ("utm_medium", f"channel type, e.g. {spec['example_medium']}"),
+        ("utm_campaign", f"plan, site, week, e.g. {spec['example_campaign']}"),
+        ("Campaign ID", spec["example_id"]),
+        ("System of record", re.sub(r"(\S{34})(?=\S)", r"\1 ", _clip(sor, 80))),
+        ("Reconciliation", f"systems differ by more than {DEFAULT_RECON_TOLERANCE:.0%} for two days: freeze budget moves, compare by campaign ID"),
+        ("Before launch", "test apply on every link, seen in the system of record"),
+        ("After launch", f"re-check at 24 hours; fix tracking faults within {DEFAULT_FIX_WINDOW_HOURS} hours"),
+    )
+    y = 2.0
+    for label, text in items:
+        _line(slide, ppt, _L + 0.2, y, 1.6, 0.5, label, size=10, bold=True, color=ppt.NAVY, body=False)
+        _line(slide, ppt, _L + 1.85, y, 4.0, 0.55, text, size=10)
+        y += 0.58
+    x0 = _L + 6.23
+    _card(slide, ppt, x0, 1.5, 6.0, 5.35, "Feasibility check")
+    chip_w = 1.3
+    chips = (
+        ("PASS", "15803D", "F0FDF4"),
+        ("CHECK", "B45309", "FEF3C7"),
+        ("FAIL", "B91C1C", "FEF2F2"),
+        ("CONFIRM", "5A54BE", "ECEAF7"),
+    )
+    for i, (word, text_hex, fill_hex) in enumerate(chips):
+        cx = x0 + 0.2 + i * (chip_w + 0.12)
+        ppt._add_rounded_rect(slide, Inches(cx), Inches(2.0), Inches(chip_w), Inches(0.95), ppt._rgb(fill_hex))
+        _line(slide, ppt, cx, 2.03, chip_w, 0.5, str(counts.get(word, 0)), size=20, bold=True,
+              color=ppt._rgb(text_hex), body=False, center=True)
+        _line(slide, ppt, cx, 2.55, chip_w, 0.3, word, size=9, bold=True,
+              color=ppt._rgb(text_hex), center=True)
+    verdict = "NOT READY" if counts.get("FAIL") else "READY AFTER CONFIRMATIONS" if counts.get("CHECK") or counts.get("CONFIRM") else "READY"
+    _line(slide, ppt, x0 + 0.2, 3.15, 5.6, 0.32, f"Gate result: {verdict}", size=11, bold=True, color=ppt.NAVY, body=False)
+    open_rows = [r for r in summ["rows"] if r["status"] != "PASS"][:5]
+    yy = 3.6
+    for r in open_rows:
+        _line(slide, ppt, x0 + 0.2, yy, 1.0, 0.4, r["status"], size=9, bold=True, color=ppt.NAVY, body=False)
+        _line(slide, ppt, x0 + 1.2, yy, 4.6, 0.58, r["check"], size=10)
+        yy += 0.62
+    if not open_rows:
+        _line(slide, ppt, x0 + 0.2, yy, 5.6, 0.4, "Every check passes on the plan's own data.", size=10)
+    ppt._add_footer(slide, datetime.date.today().strftime("%B %d, %Y"))
+
+
+def add_deck_appendix(prs: Any, data: dict, ppt: Any) -> int:
+    """Append the three enterprise slides to ``prs`` (``ppt`` is the
+    ppt_generator module, passed in so its drawing helpers are reused).
+    Returns the number of slides added; 0 when the pack is off."""
+    if not enabled(data):
+        return 0
+    model = build_model(data)
+    added = 0
+    for builder in (_slide_pacing, _slide_tiers, _slide_tracking):
+        before = len(prs.slides)
+        try:
+            builder(prs, data, model, ppt)
+            added += 1
+        except Exception as exc:  # noqa: BLE001 - an appendix slide never blocks the deck
+            logger.error("Enterprise slide %s failed: %s", builder.__name__, exc, exc_info=True)
+            while len(prs.slides) > before:
+                _drop_last_slide(prs)
+    return added

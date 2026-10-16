@@ -426,6 +426,79 @@ def test_job_ad_quality_flags_detectable_issues():
 
 
 # ---------------------------------------------------------------------------
+# Deck appendix
+# ---------------------------------------------------------------------------
+def build_deck(data: dict):
+    import ppt_generator
+    from pptx import Presentation
+
+    return Presentation(io.BytesIO(ppt_generator.generate_pptx(dict(data))))
+
+
+def slide_texts(prs) -> list:
+    return [
+        [sh.text_frame.text for sh in sl.shapes if sh.has_text_frame and sh.text_frame.text.strip()]
+        for sl in prs.slides
+    ]
+
+
+def _collide_findings(prs, first_slide: int) -> list:
+    sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "deck_qa"))
+    import collide
+
+    out = []
+    for i, slide in enumerate(prs.slides, 1):
+        if i >= first_slide:
+            out.extend(collide.analyze_slide(slide, i))
+    return out
+
+
+def test_deck_off_is_text_identical_and_on_adds_three_appendix_slides():
+    base = build_deck(make_plan(enterprise=False))
+    stray = build_deck(make_plan(enterprise=False, enterprise_pack=False, enterprise_week_start="monday"))
+    on = build_deck(make_plan())
+    assert slide_texts(stray) == slide_texts(base)
+    assert len(on.slides) == len(base.slides) + 3
+    assert slide_texts(on)[: len(base.slides)] == slide_texts(base)
+    titles = [" ".join(t[:3]) for t in slide_texts(on)[-3:]]
+    assert "Weekly Pacing" in titles[0] and "Publisher Tiers" in titles[1] and "Tracking" in titles[2]
+
+
+def test_deck_appendix_has_zero_collisions_and_reads_the_model():
+    prs = build_deck(make_plan(excluded=["Craigslist"]))
+    first = len(prs.slides) - 2
+    assert _collide_findings(prs, first) == []
+    text = " ".join(" ".join(t) for t in slide_texts(prs)[-3:])
+    assert "GREEN: at or above 90%" in text and "RED: below 85%" in text
+    assert "Indeed" in text and "Craigslist" not in text
+    assert "example-client_dal_w01" in text
+    # ladder numbers agree with the workbook's formulas
+    model = ep.build_model(make_plan(excluded=["Craigslist"]), TODAY)
+    weekly = ep.ladder(model)[1]["weekly"]
+    wb = build_wb(make_plan(excluded=["Craigslist"]))
+    ws = wb[ep.SHEET_PACING]
+    row = find_row(ws, "Recommended weekly")
+    assert Evaluator(wb).cell(ep.SHEET_PACING, f"D{row}") == pytest.approx(weekly)
+
+
+def test_deck_appendix_stress_long_names_many_publishers_no_cpa():
+    channels = {f"Regional Employment Network Number {i} Of The Group" : 5 for i in range(1, 15)}
+    channels["Indeed"] = 30
+    prs = build_deck(
+        make_plan(
+            channels=channels,
+            sites=5,
+            enterprise_system_of_record="x" * 110,
+        )
+    )
+    assert _collide_findings(prs, len(prs.slides) - 2) == []
+    one = build_deck(make_plan(channels={"Indeed": 100}))
+    assert _collide_findings(one, len(one.slides) - 2) == []
+    text = " ".join(" ".join(t) for t in slide_texts(one)[-3:])
+    assert "apply starts are omitted" in text
+
+
+# ---------------------------------------------------------------------------
 # Request layer
 # ---------------------------------------------------------------------------
 def test_request_validation_and_caps():
