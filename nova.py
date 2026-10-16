@@ -17,6 +17,7 @@ Enable Claude mode by setting ANTHROPIC_API_KEY environment variable.
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
@@ -4378,6 +4379,61 @@ _CHANNEL_CPC_DETAIL: Dict[str, List[Tuple[str, str, str, str]]] = {
         ),
     ],
 }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INTERNAL RESPONSE MARKERS -- consumed at the engine boundary, never shown
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# The T3 post-processors tag response text with HTML-comment markers
+# (``<!-- t3-numver -->`` from the number verifier, ``<!-- t3-citations -->``
+# from the citations block) so a second pass over the same text short-circuits
+# instead of double-annotating. They are bookkeeping, not content. Every chat
+# client HTML-escapes model text, so a marker that crosses the engine boundary
+# is displayed as literal ``<!-- t3-numver -->``.
+#
+# ``Nova.chat`` is the one place response text leaves the engine (the web sync
+# and SSE handlers go through ``handle_chat_request``; the Slack bot calls it
+# directly), so the markers are consumed there by ``_consume_internal_markers``
+# and nowhere else. Inside the engine they keep doing their idempotence job.
+
+_INTERNAL_MARKER_RE = re.compile(
+    r"<!--\s*t3-[a-z0-9_-]+\s*-->(?:[ \t]*\n)*", re.IGNORECASE
+)
+
+
+def strip_internal_markers(text: Any) -> Any:
+    """Remove every ``<!-- t3-* -->`` bookkeeping marker from ``text``.
+
+    Newlines that directly follow a marker go with it, so the citations
+    marker (which sits on its own line above the ``---`` rule) leaves one
+    blank line, not two. Non-strings and marker-free text come back unchanged.
+    """
+    if not isinstance(text, str) or "<!--" not in text:
+        return text
+    return _INTERNAL_MARKER_RE.sub("", text)
+
+
+def _consume_internal_markers(chat_fn):
+    """Decorate ``Nova.chat``: hand callers a result with the markers stripped.
+
+    The returned dict is a shallow copy when it changes. The engine's response
+    caches may hold the original by reference and a later T3 pass relies on the
+    marker still being in that text to skip a second Sources block.
+    """
+
+    @functools.wraps(chat_fn)
+    def wrapper(*args, **kwargs):
+        result = chat_fn(*args, **kwargs)
+        if isinstance(result, dict):
+            text = result.get("response")
+            clean = strip_internal_markers(text)
+            if clean != text:
+                result = dict(result)
+                result["response"] = clean
+        return result
+
+    return wrapper
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -15795,6 +15851,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             return "I'll pull the relevant benchmarks and channel data, then synthesize a grounded answer."
         return "I'll route this to the right data sources and return a grounded answer with sources."
 
+    @_consume_internal_markers
     def chat(
         self,
         user_message: str,

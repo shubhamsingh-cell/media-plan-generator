@@ -521,9 +521,23 @@
   // ========================================================================
   // MARKDOWN RENDERER (vanilla JS, no deps) -- with syntax highlighting
   // ========================================================================
+  // Raw HTML comments are never reply content. The server's post-processors
+  // tag text with bookkeeping comments (<!-- t3-numver -->), and escapeHtml()
+  // would print one as literal characters. Drop them before escaping, but leave
+  // fenced and inline code alone so a sample's own comments survive.
+  function stripHtmlComments(text) {
+    if (String(text).indexOf("<!--") === -1) return text;
+    return String(text)
+      .split(/(```[\s\S]*?```|`[^`\n]*`)/)
+      .map(function (part, i) {
+        return i % 2 ? part : part.replace(/<!--[\s\S]*?-->(?:[ \t]*\n)*/g, "");
+      })
+      .join("");
+  }
+
   function renderMarkdown(text) {
     if (!text) return "";
-    var h = escapeHtml(text);
+    var h = escapeHtml(stripHtmlComments(text));
 
     // Code blocks with language + syntax highlighting
     h = h.replace(/```(\w+)?\n([\s\S]*?)```/g, function (match, lang, code) {
