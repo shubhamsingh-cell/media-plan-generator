@@ -198,13 +198,23 @@ class TestGbpPlanNoHardcodedDollar:
 
     def test_slide2_market_thesis_uses_plan_symbol(self, texts):
         # ppt_generator.py market-thesis call site (was: fmt_money -> "$1,626/hire")
+        # A GBP plan has no local cost-per-hire benchmark: hires / cost per hire
+        # are not projected (declare, never convert), so the thesis carries no
+        # per-hire clause -- and certainly no bare "$".
+        assert not any("This plan projects" in t and "/hire" in t for t in texts)
         assert any(
-            "This plan projects 1,230 hires at £1,626/hire" in t for t in texts
+            "Hires: no local cost-per-hire benchmark for this market" in t
+            for t in texts
         ), texts
 
     def test_slide6_takeaway_uses_plan_symbol(self, texts):
-        # ppt_generator.py budget-allocation takeaway call site (was: "$1,626")
-        assert any("with £1,626 average cost-per-hire" in t for t in texts), texts
+        # budget-allocation takeaway: cost per application in the plan's symbol,
+        # and the hires-not-projected sentence instead of a per-hire figure
+        assert any(
+            "cost per application across all channels" in t and "£" in t
+            and "Hires: no local cost-per-hire benchmark" in t
+            for t in texts
+        ), texts
 
     def test_slide11_next_steps_uses_plan_symbol(self, texts):
         # ppt_generator.py _interpolate_next_steps budget_fmt call site.

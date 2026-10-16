@@ -1141,6 +1141,7 @@ def _assess_budget(
     projected_hires: Optional[int] = None,
     symbol: str = "$",
     basis: Optional[Dict[str, Any]] = None,
+    suppressed: bool = False,
 ) -> Dict[str, Any]:
     """Assess whether the budget is sufficient for the role/location combo.
 
@@ -1153,6 +1154,18 @@ def _assess_budget(
             "recommended_budget": float,
         }
     """
+    if suppressed:
+        # no local cost-per-hire benchmark: nothing to grade the budget against
+        return {
+            "status": "unknown",
+            "explanation": (
+                "Budget sufficiency is not assessed: no local cost-per-hire "
+                "benchmark for this market, so hires are not projected."
+            ),
+            "budget_per_hire": None,
+            "industry_avg_cph": [],
+            "recommended_budget": int(budget),
+        }
     try:
         # The plan's one projection when the caller has it; the channel rows
         # only as a fallback (they are a split of the same total).
@@ -1698,6 +1711,10 @@ def generate_quick_plan(
                 channel_recommendations, eng["applications"], eng["hires"]
             )
 
+        hires_suppressed = bool(
+            projection_ok and projection["assumptions"].get("hires_suppressed")
+        )
+
         # ── Budget assessment ──
         budget_assessment = _assess_budget(
             budget=budget_val,
@@ -1708,6 +1725,7 @@ def generate_quick_plan(
             channel_recommendations=channel_recommendations,
             projected_hires=projection["engine"]["hires"] if projection_ok else None,
             symbol=(projection.get("currency") or {}).get("symbol", "$") if projection_ok else "$",
+            suppressed=hires_suppressed,
             basis=(
                 {
                     "avg": projection["assumptions"].get("industry_cph_avg"),
@@ -1765,6 +1783,11 @@ def generate_quick_plan(
                 total_projected[f"{short}_low"] = projection[key]["low"]
                 total_projected[f"{short}_high"] = projection[key]["high"]
             total_projected["projection"] = _plan_projection.public_view(projection)
+            if hires_suppressed:
+                # declare, never convert: no hires / cost per hire where the
+                # market has no local cost-per-hire benchmark
+                total_projected["total_hires"] = None
+                total_projected["blended_cph"] = None
 
         return {
             "success": True,

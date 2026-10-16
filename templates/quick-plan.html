@@ -1848,7 +1848,14 @@
           document.getElementById("qpTotals").innerHTML = html;
           var note = document.getElementById("qpTotalsNote");
           if (note) {
-            if (pj) {
+            if (pj && t.projection.assumptions && t.projection.assumptions.hires_suppressed) {
+              // no local cost-per-hire benchmark: hires / CPH are not projected
+              var nb = [pj.hires_note];
+              if (pj.cpa_note) nb.push(pj.cpa_note);
+              nb.push("Channel figures below split the upper end of these ranges.");
+              note.textContent = nb.join(" ");
+              note.style.display = "";
+            } else if (pj) {
               var bits = [
                 pj.hires_short ||
                   "Hires are an estimate from industry cost per hire; no client hire history provided.",

@@ -494,12 +494,17 @@
     function channelOn(id) { var el = $(id); return !!(el && el.checked); }
     function computeInsights(m, est) {
       var ins = [];
+      // a market with no local cost-per-hire benchmark projects no hires / CPH,
+      // so no hires or cost-per-hire insight is worded either
+      var noHires = !!(est && est.projection && est.projection.assumptions && est.projection.assumptions.hires_suppressed);
       var role = escapeHtml(m.role || ""); // user-controlled — escape before HTML
       // 1. feasibility vs the user's hire target (targetHires is collected
       // straight from the wizard's hireVolume/exactHires fields -- unchanged).
       // Honesty rule: "comfortably covers" (or any positive tone) is only
       // ever shown when the engine's est_hires actually meets the target.
-      if (est && m.targetHires > 0 && est.est_hires < 1) {
+      if (noHires) {
+        // nothing to say about hires here
+      } else if (est && m.targetHires > 0 && est.est_hires < 1) {
         // below one hire there is no ratio or dollar gap to quote (and the
         // server sends no cost per hire): say what is true, in the Reality
         // Check's own words
@@ -526,7 +531,7 @@
       // benchmark for these roles (or a non-USD plan) = no grade. The whole
       // estimated RANGE must clear the quartile to earn the word.
       var bm = est && est.cph_benchmark;
-      if (est && est.est_hires >= 1 && est.est_cph > 0 && bm && bm.p75 > 0 && bm.p25 > 0 && !(est.projection && est.projection.cph && est.projection.cph.low == null)) {
+      if (est && !noHires && est.est_hires >= 1 && est.est_cph > 0 && bm && bm.p75 > 0 && bm.p25 > 0 && !(est.projection && est.projection.cph && est.projection.cph.low == null)) {
         var cr = est.projection && est.projection.cph;
         var cphLo = cr && cr.low != null ? cr.low : est.est_cph;
         var cphHi = cr && cr.high != null ? cr.high : est.est_cph;
@@ -656,6 +661,8 @@
       var m = gather();
       var est = estimateFor(m);
       if (!est || !(m.total > 0) || !(m.targetHires > 0)) return null;
+      // no local cost-per-hire benchmark: no hires projected, so no verdict
+      if (est.projection && est.projection.assumptions && est.projection.assumptions.hires_suppressed) return null;
       if (!(est.est_hires > 0)) {
         // fewer than one hire at this budget: the goal is out of reach, and
         // the banner says so (it used to vanish exactly here, because there
@@ -722,7 +729,13 @@
       // What the hires / cost-per-hire figures assume, stated beside them.
       var basis = $("npBasis");
       if (basis) {
-        if (proj && proj.text) {
+        if (proj && proj.text && proj.assumptions && proj.assumptions.hires_suppressed) {
+          // no local cost-per-hire benchmark: say so once, project no hires / CPH
+          var sb = [escapeHtml(proj.text.hires_note)];
+          if (proj.text.cpa_note) sb.push(escapeHtml(proj.text.cpa_note));
+          basis.innerHTML = sb.join(" ");
+          basis.style.display = "";
+        } else if (proj && proj.text) {
           var bits = ["Est. cost / hire <b>" + escapeHtml(proj.text.cph) + "</b> (" + escapeHtml(proj.text.cph_short || "total cost-per-hire basis") + ")."];
           bits.push(escapeHtml(proj.text.hires_short || "Hires are an estimate from industry cost per hire; no client hire history provided."));
           if (proj.text.cpa_note) bits.push(escapeHtml(proj.text.cpa_note));
@@ -939,7 +952,7 @@
             // fresh estimate is pending or unavailable.
             projected: (hasBudget && estimateFor(m)) ? {
               applications: Math.round(estimateFor(m).est_applications),
-              hires: Math.round(estimateFor(m).est_hires),
+              hires: (estimateFor(m).projection && estimateFor(m).projection.assumptions && estimateFor(m).projection.assumptions.hires_suppressed) ? null : Math.round(estimateFor(m).est_hires),
               cost_per_application: Math.round(estimateFor(m).est_cpa * 100) / 100,
               // the ranges the panel shows (low-high), with what they assume
               ranges: estimateFor(m).projection ? estimateFor(m).projection.text : null,

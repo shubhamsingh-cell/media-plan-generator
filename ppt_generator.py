@@ -3933,13 +3933,27 @@ def _deck_projection(data_or_alloc: Optional[Dict]) -> Optional[Dict[str, Any]]:
             display_currency=_get_active_currency(),
             non_us_market=(
                 "locations" in data_or_alloc
-                and not _is_us_only_campaign(data_or_alloc)
+                and plan_projection.is_non_us_market(data_or_alloc.get("locations"))
             ),
         )
     except (ImportError, KeyError, TypeError, ValueError) as exc:
         logger.error("deck projection failed: %s", exc, exc_info=True)
         return None
     return proj if proj.get("ok") else None
+
+
+_NO_LOCAL_HIRES_NOTE = (
+    "Hires: no local cost-per-hire benchmark for this market \u2014 not projected."
+)
+
+
+def _hires_suppressed(data: Optional[Dict]) -> bool:
+    """True when hires / cost per hire are NOT projected for this plan: a market
+    with no local cost-per-hire benchmark in its own currency (declare, never
+    convert) -- the same decision plan_projection makes for the wizard, Quick
+    Plan and Nova."""
+    proj = _deck_projection(data)
+    return bool(proj and (proj.get("assumptions") or {}).get("hires_suppressed"))
 
 
 def _range_value(rng: Dict[str, Any], fmt: Any) -> Optional[str]:
@@ -4137,7 +4151,7 @@ def _currency_basis_note(data: Optional[Dict]) -> str:
         )
     if cph_basis == "us_benchmark_fx_no_local" and rate_clause:
         return (
-            f"{lead} No local CPH benchmark: hires indicative; US$ inputs at "
+            f"{lead} No local CPH benchmark: hires not projected; US$ inputs at "
             f"{rate_clause}."
         )
     if basis == "market":
@@ -5303,7 +5317,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         _proj_cph = _ppt_cph
         _thesis_rng = _hires_range(budget_alloc)
         _thesis_proj = _deck_projection(budget_alloc) if _thesis_rng else None
-        if _proj_h > 0:
+        if _proj_h > 0 and _hires_suppressed(data):
+            pass  # no hires clause: the lead-in below stands, the footnote says why
+        elif _proj_h > 0:
             if _thesis_rng:
                 # an estimated range, never the lone optimistic end of it
                 _thesis_parts.append(
@@ -5322,7 +5338,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             if _thesis_proj
             else None
         )
-        if _proj_cph > 0 and _thesis_cph and not _cph_claim_suppressed(budget_alloc):
+        if _hires_suppressed(data):
+            pass  # no per-hire claim at all
+        elif _proj_cph > 0 and _thesis_cph and not _cph_claim_suppressed(budget_alloc):
             _thesis_parts.append(f"at {_thesis_cph}/hire")
         elif _proj_cph > 0 and not _cph_claim_suppressed(budget_alloc):
             # copy:both#2: whole-number currency (never cents) instead of
@@ -5675,7 +5693,10 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         avg_cpa_val = ba_total_projected.get("cost_per_application") or 0
         avg_cph_val = _ppt_cph
         _kpi_proj = _deck_projection(budget_alloc)
-        if projected_hires and projected_hires > 0:
+        if projected_hires and projected_hires > 0 and _hires_suppressed(data):
+            # no local cost-per-hire benchmark: not projected (see the note below)
+            secondary_metrics.append(("n/a", "Projected Hires"))
+        elif projected_hires and projected_hires > 0:
             _hires_val = str(int(projected_hires))
             # 2026-10-01 (audit §4.2): the headline is benchmark-driven; show
             # the range it sits in, each end saying what it assumes. The KPI
@@ -5873,6 +5894,11 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
                 or _plan_efficiency_variants(data, hires_history_label=True),
                 _currency_basis_note_variants(data),
                 _media_note_variants(data),
+                (
+                    [_NO_LOCAL_HIRES_NOTE]
+                    if _hires_suppressed(data)
+                    else []
+                ),
             ],
             12.2 - 0.2,
             9.0,
@@ -7626,8 +7652,11 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     if proj_hires == 0:
         proj_hires = ba_total_proj.get("hires") or 0
     hires_display = f"{int(proj_hires):,}" if proj_hires and proj_hires > 0 else "--"
+    _ba_hires_off = _hires_suppressed(data)
+    if _ba_hires_off and hires_display != "--":
+        hires_display = "n/a"
     _ba_rng = _hires_range(budget_alloc)
-    if _ba_rng and hires_display != "--":
+    if _ba_rng and hires_display not in ("--", "n/a"):
         hires_display = (
             f"{_ba_rng[0]:,}\u2013{_ba_rng[1]:,}"
         )
@@ -7824,7 +7853,9 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
             f"{ch['pct']}%",
             f"{_cur}{ch['dollar']:,.0f}" if ch["dollar"] > 0 else "--",
             f"{int(ch['projected_apps']):,}" if ch["projected_apps"] > 0 else "--",
-            f"{int(ch['projected_hires']):,}" if ch["projected_hires"] > 0 else "--",
+            "--"
+            if _ba_hires_off
+            else (f"{int(ch['projected_hires']):,}" if ch["projected_hires"] > 0 else "--"),
             f"{_cur}{ch['cpa']:,.0f}" if ch["cpa"] > 0 else "--",
         ]
 
@@ -7865,7 +7896,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         f"{round(total_pct)}%",
         f"{_cur}{total_dollar:,.0f}" if total_dollar > 0 else "--",
         f"{total_apps:,}" if total_apps > 0 else "--",
-        f"{total_hires:,}" if total_hires > 0 else "--",
+        "--" if _ba_hires_off else (f"{total_hires:,}" if total_hires > 0 else "--"),
         f"{_cur}{blended_cpa:,.0f}" if blended_cpa > 0 else "--",
     ]
     cx = table_left
@@ -7918,7 +7949,11 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
             funnel_text = (
                 f"Funnel: {int(f_clicks):,} clicks → {int(f_raw):,} applications "
                 f"→ {int(f_qual):,} qualified → {int(f_int):,} interviews "
-                f"→ {_count_noun(int(f_hires), 'hire')}"
+                + (
+                    "→ hires not projected"
+                    if _ba_hires_off
+                    else f"→ {_count_noun(int(f_hires), 'hire')}"
+                )
             )
             if _ba_rng or (
                 _ba_proj
@@ -7968,6 +8003,12 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         insight_text = (
             f"Budget engine projects {_cur}{avg_cpa:,.0f} average CPA across "
             f"all channels. {_assume_s6[0]}"
+        )
+    elif _ba_hires_off and avg_cpa and avg_cpa > 0:
+        insight_text = (
+            "Budget engine projects "
+            f"{(_ba_proj and _range_value(_ba_proj['cpa'], _fmt_currency)) or _cur + format(avg_cpa, ',.0f')} "
+            f"cost per application across all channels. {_NO_LOCAL_HIRES_NOTE}"
         )
     elif (
         _ba_proj

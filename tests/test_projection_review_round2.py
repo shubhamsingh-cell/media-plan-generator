@@ -70,8 +70,10 @@ def test_f2_quick_plan_currency_is_the_plans_everywhere():
 
     plan = quick_plan.generate_quick_plan("Warehouse Associate", "London, UK", "£60,000", "logistics_supply_chain")
     assert plan["currency"] == {"code": "GBP", "symbol": "£"}
+    # no local cost-per-hire benchmark -> no per-hire grading (and no stray "$")
     text = plan["budget_assessment"]["explanation"]
-    assert "£" in text and "$" not in text, text
+    assert plan["budget_assessment"]["status"] == "unknown" and "$" not in text, text
+    assert plan["total_projected"]["projection"]["text"]["cpa"].startswith("£")
     page = _read("templates/quick-plan.html")
     assert 'var CUR = "$"' in page and "CUR = (data.currency" in page
     assert 'return "$" + (n / 1000000)' not in page  # no hardcoded dollar left in fmtDollar
@@ -161,27 +163,17 @@ def test_f6_fifteen_thousand_rn_reads_the_basis_not_7500_to_15000():
     assert (p["hires"]["low"], p["hires"]["high"]) == (1, 2)
 
 
-# ---- F7: a market without a local CPH still gets a labelled range ----------
-def test_f7_uk_plan_has_a_hires_range_labelled_as_a_us_benchmark():
+# ---- F7 (superseded 2026-10-17): no local CPH -> hires / CPH not projected --
+def test_f7_uk_plan_projects_no_hires_or_cph_but_keeps_applications_and_cpa():
     p = plan_projection.project_plan(
         {"budget": 60000, "roles": ["Warehouse Associate"], "locations": ["London, UK"],
          "industry": "logistics_supply_chain", "budget_text": "£60,000"}
     )
-    assert p["hires"]["low"] < p["hires"]["high"]
-    assert p["cph"]["low"] < p["cph"]["high"]
-    t = p["text"]
-    assert "US benchmark" in t["hires_short"] and "no local data" in t["hires_short"]
-    assert "no benchmark in its own currency" not in " ".join(p["notes"])
-    assert any("converted at US$1 = " in n for n in p["notes"])
-
-
-def test_f7_parity_plan_says_why_it_is_a_single_estimate():
-    p = plan_projection.project_plan(
-        {"budget": 100000, "roles": ["Customer Service Representative"], "locations": ["Nairobi, Kenya"],
-         "industry": "general_entry_level", "budget_text": "KSh 100,000"}
-    )
-    assert p["hires"]["low"] == p["hires"]["high"]
-    assert "priced in KES" in " ".join(p["notes"])
+    assert p["hires"]["low"] is None and p["cph"]["low"] is None
+    assert p["assumptions"]["hires_suppressed"] is True
+    assert p["notes"].count(plan_projection.NO_LOCAL_HIRES_NOTE) == 1
+    assert p["applications"]["low"] and p["cpa"]["low"]
+    assert p["text"]["cpa"].startswith("£")
 
 
 # ---- F8: deck slide 6 ------------------------------------------------------
@@ -315,7 +307,7 @@ def test_uk_usd_plan_does_not_present_the_us_midpoint_as_the_markets():
     deck, cells = _bundle_texts(_brief("Healthcare & Medical", "$150,000", "London, UK", "Registered Nurse"))
     foot = " ".join(deck[2])
     assert "US benchmark midpoint" in foot and "no local data" in foot
-    assert any(c.startswith("Projected hires (US benchmark — no local data)") for c in cells)
+    assert any("not projected" in c for c in cells)
 
 
 def test_us_plan_is_untouched_by_the_labelling():

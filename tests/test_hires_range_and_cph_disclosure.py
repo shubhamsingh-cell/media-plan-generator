@@ -173,8 +173,14 @@ class TestDeck:
 
     def test_no_local_benchmark_drops_the_per_hire_claim(self, tokyo):
         lines = _deck_lines(tokyo)
+        # declare, never convert: no hires or per-hire claim at all (2026-10-17)
         thesis = [t for s, t in lines if s == 2 and "This plan projects" in t]
-        assert thesis and "/hire" not in thesis[0], thesis
+        assert not thesis, thesis
+        assert any(
+            "Hires: no local cost-per-hire benchmark for this market" in t
+            for s, t in lines
+            if s == 2
+        )
         assert any("No local CPH benchmark" in t for _, t in lines)
 
 
@@ -191,4 +197,5 @@ class TestWorkbook:
         rows = _xlsx_text(tokyo)
         labels = next(i for i, r in enumerate(rows) if "Cost / Hire" in r)
         values = rows[labels - 1]
-        assert values[-1] == "--", values
+        # no local benchmark: hires and cost per hire are "n/a" (not projected)
+        assert values[-2:] == ["n/a", "n/a"], values

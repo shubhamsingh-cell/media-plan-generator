@@ -10245,7 +10245,22 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             result["sufficiency"] = allocation.get("sufficiency", {})
             result["recommendations"] = allocation.get("recommendations") or []
             _annotate_channel_reasons(result["channel_allocations"])
-            _add_hire_target_comparison(result, target_hires)
+            if (proj.get("assumptions") or {}).get("hires_suppressed"):
+                # declare, never convert: a market with no local cost-per-hire
+                # benchmark gets no hires / cost-per-hire figure (the same
+                # sentence as every other surface); applications and CPA stay
+                for _k in ("hires", "cost_per_hire", "hires_low", "hires_high"):
+                    result["total_projected"].pop(_k, None)
+                result["hires_note"] = proj["text"]["hires_note"]
+                result["sufficiency"] = {}  # its per-hire grading has no local basis
+                result["presentation_note"] = (
+                    "Quote applications and cost per application as the low-high "
+                    "ranges in projection.text. Do NOT state hires or cost per "
+                    "hire for this market (including per-channel hires): say "
+                    "'" + proj["text"]["hires_note"] + "'"
+                )
+            else:
+                _add_hire_target_comparison(result, target_hires)
         except Exception as e:
             logger.error("Budget engine call failed: %s", e, exc_info=True)
             result["estimated_allocation"] = {
@@ -27156,7 +27171,15 @@ def _format_budget_response(data: dict, budget: float) -> str:
 
         total = data.get("total_projected", {})
         proj_text = (data.get("projection") or {}).get("text")
-        if total and isinstance(proj_text, dict) and proj_text.get("hires"):
+        if total and isinstance(proj_text, dict) and proj_text.get("hires_note"):
+            parts.append("\n*Projected Totals (estimated ranges):*")
+            parts.append(f"- Total Clicks: {total.get('clicks') or 0:,.0f}")
+            parts.append(f"- Applications: {proj_text.get('applications')}")
+            parts.append(f"- Cost per Application: {proj_text.get('cpa')}")
+            if proj_text.get("cpa_note"):
+                parts.append(f"- {proj_text['cpa_note']}")
+            parts.append(f"- {proj_text['hires_note']}")
+        elif total and isinstance(proj_text, dict) and proj_text.get("hires"):
             # The plan's one projection (plan_projection): low-high for every
             # figure, with what the hire and cost-per-hire numbers assume --
             # never a lone point estimate.

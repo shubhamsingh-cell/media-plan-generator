@@ -82,6 +82,24 @@ _DEFAULT_ALLOC = {
 
 _KB_CPA_SOURCE_FILE = "data/recruitment_benchmarks_deep.json"
 
+# The one sentence every surface prints where hires / cost per hire are not
+# projected (a market with no local cost-per-hire benchmark in its own currency).
+NO_LOCAL_HIRES_NOTE = (
+    "Hires: no local cost-per-hire benchmark for this market \u2014 not projected."
+)
+
+
+def is_non_us_market(locations: Any) -> bool:
+    """True when the plan's locations are outside the US (location-only: the
+    same test every surface applies, whatever the wizard's region default)."""
+    try:
+        import plan_geo
+
+        return not plan_geo.is_us_plan({"locations": list(locations or [])})
+    except Exception as exc:  # noqa: BLE001 - classification is best-effort
+        logger.debug("plan_projection: market check unavailable: %s", exc)
+        return False
+
 
 # --------------------------------------------------------------------------
 # small parsing helpers
@@ -507,6 +525,28 @@ def ranges_from_engine_result(
             f"converted at {rate_txt}{when}."
         )
 
+    # -- no local cost-per-hire benchmark: hires and CPH are NOT projected -----
+    # Declare, never convert: a market whose cost per hire is not benchmarked in
+    # its own currency (the engine suppresses the claim; a USD benchmark under a
+    # non-USD plan; a US-dollar plan in a non-US market with no local USD figure)
+    # gets no hires or cost-per-hire figure on ANY surface -- applications and
+    # cost per application still show, in the plan currency.
+    hires_suppressed = bool(
+        suppressed
+        or parity
+        or (non_us_market and str(icph.get("basis") or "") != "local_kb")
+    )
+    if hires_suppressed:
+        hires = _int_range(None, None, None)
+        cph = _float_range(None, None, None)
+        hires_is_range = False
+        below_one_hire = False
+        translated = False
+        us_tag = False
+        basis_ok = False
+        notes[:] = [n for n in notes if "hire" not in n.lower()]
+        notes.append(NO_LOCAL_HIRES_NOTE)
+
     # -- assumptions (what the hires / CPH numbers rest on) ------------------
     avg = math_avg
     conv = kb_hire_conversion(industry_key, knowledge_base)
@@ -542,6 +582,7 @@ def ranges_from_engine_result(
         "us_benchmark_translated": translated,
         "us_benchmark_no_local": us_tag,
         "below_one_hire": below_one_hire,
+        "hires_suppressed": hires_suppressed,
         "kb_cpa": kb_cpa,
         **conv,
     }
@@ -659,7 +700,9 @@ def describe(proj: Dict[str, Any], symbol: str = "$") -> Dict[str, str]:
     cph_txt = range_text(proj["cph"], "cph", symbol)
     apps_txt = range_text(proj["applications"], "count", symbol)
     cpa_txt = range_text(proj["cpa"], "cpa", symbol)
-    if a.get("below_one_hire"):
+    if a.get("hires_suppressed"):
+        hires_label = cph_label = NO_LOCAL_HIRES_NOTE
+    elif a.get("below_one_hire"):
         hires_label = (
             f"Estimated hires {hires_txt} (budget is below one hire at industry "
             "cost per hire; no client hire history provided)"
@@ -682,8 +725,11 @@ def describe(proj: Dict[str, Any], symbol: str = "$") -> Dict[str, str]:
         "cph": cph_txt,
         "hires_label": hires_label,
         "cph_label": cph_label,
+        "hires_note": NO_LOCAL_HIRES_NOTE if a.get("hires_suppressed") else "",
         "hires_short": (
-            "Budget is below one hire at industry cost per hire; no client hire "
+            NO_LOCAL_HIRES_NOTE
+            if a.get("hires_suppressed")
+            else "Budget is below one hire at industry cost per hire; no client hire "
             "history provided."
             if a.get("below_one_hire")
             else (
@@ -696,7 +742,9 @@ def describe(proj: Dict[str, Any], symbol: str = "$") -> Dict[str, str]:
             )
         ),
         "cph_short": (
-            "US benchmark \u2014 no local data; total cost-per-hire basis"
+            NO_LOCAL_HIRES_NOTE
+            if a.get("hires_suppressed")
+            else "US benchmark \u2014 no local data; total cost-per-hire basis"
             if a.get("us_benchmark_no_local")
             else "total cost-per-hire basis, not media-only"
         ),

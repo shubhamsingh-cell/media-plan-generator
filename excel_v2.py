@@ -84,6 +84,7 @@ import geo_market
 import plan_geo
 import plan_trust
 import publisher_filter
+import plan_projection
 import company_blurb
 import competitor_claims
 import display_format
@@ -5950,6 +5951,30 @@ def _location_count_label(data: dict, locations: List[str]) -> str:
     return " + ".join(modes) or "0"
 
 
+def _hires_not_projected(budget_alloc: Any, budget_num: float, data: dict) -> bool:
+    """True when hires / cost per hire are NOT projected for this plan (a market
+    with no local cost-per-hire benchmark in its own currency) -- the decision
+    plan_projection makes once, for every surface."""
+    if not isinstance(budget_alloc, dict) or budget_num <= 0:
+        return False
+    try:
+        import plan_projection
+
+        meta = budget_alloc.get("metadata")
+        meta = meta if isinstance(meta, dict) else {}
+        proj = plan_projection.projection_for_alloc(
+            budget_alloc,
+            budget=budget_num,
+            industry_key=str(meta.get("industry") or ""),
+            display_currency=_get_active_currency(),
+            non_us_market=plan_projection.is_non_us_market(data.get("locations")),
+        )
+    except (ImportError, KeyError, TypeError, ValueError) as exc:
+        logger.error("hires suppression check failed: %s", exc, exc_info=True)
+        return False
+    return bool((proj.get("assumptions") or {}).get("hires_suppressed"))
+
+
 def _projection_range_line(
     budget_alloc: Any,
     budget_num: float,
@@ -6003,7 +6028,9 @@ def _projection_range_line(
     if cpa_note:
         sentence += f" {cpa_note}"
     cph = span(proj["cph"], money)
-    if cph and not suppress_cph:
+    if (proj.get("assumptions") or {}).get("hires_suppressed"):
+        sentence += f" {proj['text']['hires_note']}"
+    elif cph and not suppress_cph:
         sentence += (
             f" Cost per hire: {cph} ({proj['text']['cph_short']})."
             f" {proj['text']['hires_short']}"
@@ -6219,10 +6246,15 @@ def _build_sheet_executive_summary(
 
     _cph_info = _plan_industry_cph(budget_alloc)
     _cph_suppressed = bool(_cph_info.get("claim_suppressed"))
+    # A market with no local cost-per-hire benchmark projects no hires / CPH
+    # (declare, never convert): the cards read "n/a" and the line below says why.
+    _hires_off = _hires_not_projected(budget_alloc, budget_num, data)
+    if _hires_off:
+        _cph_suppressed = True
     # Hero metrics row: Total Budget | Projected Hires | Cost/Hire
     hero_metrics = [
         ("Total Budget", _fmt_currency(budget_num)),
-        ("Projected Hires", _fmt_number(_header_hires)),
+        ("Projected Hires", "n/a" if _hires_off else _fmt_number(_header_hires)),
         # "--" rather than "$0": a plan projecting zero hires has an
         # UNDEFINED cost per hire, and "$0" beside a real committed budget
         # reads as free hiring. The deck's own table already renders this
@@ -6231,9 +6263,13 @@ def _build_sheet_executive_summary(
         # §4.1): the figure would be an FX-translated US constant.
         (
             "Cost / Hire",
-            _fmt_currency(_header_cph)
-            if _header_hires > 0 and not _cph_suppressed
-            else "--",
+            "n/a"
+            if _hires_off
+            else (
+                _fmt_currency(_header_cph)
+                if _header_hires > 0 and not _cph_suppressed
+                else "--"
+            ),
         ),
     ]
     for idx, (label, value) in enumerate(hero_metrics):
@@ -6241,19 +6277,23 @@ def _build_sheet_executive_summary(
         _write_metric_card(ws, row, col, label, value)
     # Hires range (audit 2026-10-01 §4.2), in the cards' gap row so no row
     # below moves: the headline is benchmark-driven, so say what bounds it.
-    _range_line = _hires_range_line(
-        total_proj,
-        _cph_info,
-        _header_hires,
-        budget_num,
-        us_plan=plan_geo.is_us_plan(data),
+    _range_line = (
+        ""
+        if _hires_off
+        else _hires_range_line(
+            total_proj,
+            _cph_info,
+            _header_hires,
+            budget_num,
+            us_plan=plan_geo.is_us_plan(data),
+        )
     )
     try:
         _proj_line = _projection_range_line(
             budget_alloc,
             budget_num,
             suppress_cph=_cph_suppressed,
-            non_us_market=not plan_geo.is_us_plan(data),
+            non_us_market=plan_projection.is_non_us_market(data.get("locations")),
         )
     except (ImportError, KeyError, TypeError, ValueError) as exc:
         logger.error("projection range line failed: %s", exc, exc_info=True)
@@ -6287,7 +6327,26 @@ def _build_sheet_executive_summary(
     # display_format.parse_hire_goal / goal_gap shared functions the deck
     # uses -- is the ONE goal, ONE CPH, ONE top-up figure in the workbook.
     _goal = _parse_hire_goal(hire_volume)
-    if _goal > 0 and _header_hires >= 0:
+    if _goal > 0 and _hires_off:
+        # no hires are projected for this market, so there is no gap to size
+        ws.merge_cells(
+            start_row=row, start_column=COL_START, end_row=row, end_column=COL_END
+        )
+        _ncell = ws.cell(
+            row=row,
+            column=COL_START,
+            value=(
+                f"Hiring-goal gap: stated goal of {_goal:,}; this market has no "
+                "local cost-per-hire benchmark, so hires are not projected and "
+                "the gap is not assessed."
+            ),
+        )
+        _ncell.font = _FONT_BODY_BOLD
+        _ncell.alignment = _ALIGN_LEFT
+        _ncell.fill = _FILL_AMBER_BG
+        ws.row_dimensions[row].height = 32
+        row += 2
+    elif _goal > 0 and _header_hires >= 0:
         # Basis for "budget to close the gap": this plan's own realized cost per
         # hire (most defensible — it's what THIS mix actually achieves), falling
         # back to the KB's own industry CPH benchmark -- the SAME
