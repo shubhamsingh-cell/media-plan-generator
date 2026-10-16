@@ -1952,6 +1952,16 @@ def _get_currency_for_country(country: Optional[str]) -> str:
         return "USD"
     _cur = _COUNTRY_CURRENCY.get(country)
     if _cur is None:
+        # Long/alternate spellings ("United States", "UK", "Great Britain")
+        # resolve through plan_currency's shared alias table, not a second one.
+        try:
+            from plan_currency import currency_for_country as _alias_currency
+
+            _cur = _alias_currency(country)
+        except ImportError:
+            _cur = None
+        if _cur:
+            return _cur
         # QC-1 P2-6: log silent USD fallback so missing-currency mappings
         # show up in observability instead of being a quiet wrong-currency
         # bug.
@@ -21901,6 +21911,8 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         if tools_used and tool_call_details:
             _api_key = os.environ.get("ANTHROPIC_API_KEY") or ""
             if _api_key:
+                import urllib.request
+
                 for _synth_attempt, _char_limit in enumerate([1200, 600], start=1):
                     try:
                         _tool_summary_parts = []
@@ -25438,6 +25450,18 @@ def _build_conversation_memory(history: list) -> str:
     return "\n".join(parts)
 
 
+def _fmt_num(value: Any, prefix: str = "") -> str:
+    """Format a number as ``{prefix}{value:,.0f}``; keep non-numeric text as given.
+
+    Enrichment context comes from the client/JSON, so a figure may be a string
+    ("85,000", "$50,000") where a ``:,.0f`` spec would raise ValueError.
+    """
+    try:
+        return f"{prefix}{float(str(value).replace('$', '').replace(',', '')):,.0f}"
+    except (TypeError, ValueError):
+        return str(value or "")
+
+
 def _summarize_enrichment(context: dict) -> str:
     """Create a detailed text summary of enrichment context including actual data values.
 
@@ -25470,7 +25494,7 @@ def _summarize_enrichment(context: dict) -> str:
     if context.get("industry"):
         parts.append(f"Industry: {context['industry']}")
     if context.get("budget"):
-        parts.append(f"Budget: ${context['budget']:,.0f}")
+        parts.append(f"Budget: {_fmt_num(context['budget'], '$')}")
     if context.get("company_name"):
         parts.append(f"Company: {context['company_name']}")
     if context.get("target_roles"):
@@ -25491,14 +25515,16 @@ def _summarize_enrichment(context: dict) -> str:
     if isinstance(salary, dict) and salary:
         sal_parts = []
         if salary.get("median"):
-            sal_parts.append(f"Median: ${salary['median']:,.0f}")
+            sal_parts.append(f"Median: {_fmt_num(salary['median'], '$')}")
         if salary.get("min") and salary.get("max"):
-            sal_parts.append(f"Range: ${salary['min']:,.0f}-${salary['max']:,.0f}")
+            sal_parts.append(
+                f"Range: {_fmt_num(salary['min'], '$')}-{_fmt_num(salary['max'], '$')}"
+            )
         elif salary.get("range"):
             sal_parts.append(f"Range: {salary['range']}")
         if salary.get("percentile_25") and salary.get("percentile_75"):
             sal_parts.append(
-                f"P25-P75: ${salary['percentile_25']:,.0f}-${salary['percentile_75']:,.0f}"
+                f"P25-P75: {_fmt_num(salary['percentile_25'], '$')}-{_fmt_num(salary['percentile_75'], '$')}"
             )
         if salary.get("source"):
             sal_parts.append(f"Source: {salary['source']}")
@@ -25516,7 +25542,7 @@ def _summarize_enrichment(context: dict) -> str:
         dem_parts = []
         if demand.get("job_count") or demand.get("total_jobs"):
             dem_parts.append(
-                f"Active postings: {demand.get('job_count') or demand.get('total_jobs'):,}"
+                f"Active postings: {_fmt_num(demand.get('job_count') or demand.get('total_jobs'))}"
             )
         if demand.get("unemployment_rate"):
             dem_parts.append(f"Unemployment: {demand['unemployment_rate']}%")

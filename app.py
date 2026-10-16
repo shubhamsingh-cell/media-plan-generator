@@ -1441,7 +1441,13 @@ def _copilot_suggest_locations(
                 if adzuna_results and isinstance(adzuna_results, dict):
                     location_counts: dict[str, int] = {}
                     for job in adzuna_results.get("results") or []:
+                        if not isinstance(job, dict):
+                            continue
                         loc = job.get("location") or {}
+                        if isinstance(loc, str):
+                            loc = {"display_name": loc}
+                        elif not isinstance(loc, dict):
+                            loc = {}
                         display = ""
                         area_list = loc.get("area") or []
                         if isinstance(area_list, list) and len(area_list) >= 2:
