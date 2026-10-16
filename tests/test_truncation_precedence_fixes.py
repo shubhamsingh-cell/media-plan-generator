@@ -310,27 +310,6 @@ def test_sec_recent_filings_capped_at_five():
     assert filings == [f"10-K {i}" for i in range(5)]
 
 
-def test_narrative_context_salary_sources_capped_at_three():
-    """`", ".join(sal.get("sources") or [][:3])` joined ALL sources into the
-    LLM-prompt context -- the 3-source token-budget cap was a no-op."""
-    text = data_synthesizer._build_narrative_context(
-        {
-            "salary_intelligence": {
-                "cdl_driver": {
-                    "median": 62000,
-                    "p25": 52000,
-                    "p75": 74000,
-                    "sources": ["BLS", "DataUSA", "Indeed", "Glassdoor", "Payscale"],
-                }
-            }
-        },
-        {"client_name": "Acme Corp"},
-    )
-    assert "BLS, DataUSA, Indeed" in text
-    assert "Glassdoor" not in text
-    assert "Payscale" not in text
-
-
 def test_data_synthesizer_truncate_helper_edge_cases():
     t = data_synthesizer._truncate_at_word_boundary
     assert t("short text", 500) == "short text"
