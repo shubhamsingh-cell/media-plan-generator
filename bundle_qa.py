@@ -742,6 +742,50 @@ def _check_text_patterns(
 # ---------------------------------------------------------------------------
 # Client-name casing
 # ---------------------------------------------------------------------------
+# A URL, bare domain or email address is not a brand mention: hostnames are
+# lowercase by definition ("www.adp.com", "careers@3m.com"), so the client
+# name inside one must never be compared against the canonical display
+# casing. 2026-10-16 sweep: b_ent_software ("Domain:  www.adp.com", slide 8
+# TextBox 11 + Market Intelligence!D52) and n3_3m_nametrap ("www.3m.com")
+# each took two critical false positives from this.
+#
+# The bare-domain branch is deliberately anchored to a CLOSED TLD list, not
+# "any dotted word": prose like "adp.Next quarter" or a sentence-final
+# "adp." must stay checked, and a loose pattern would exempt them.
+_DOMAIN_TLDS = (
+    "com|org|net|edu|gov|mil|int|io|co|ai|app|dev|biz|info|jobs|careers|me|"
+    "tv|us|uk|ca|au|de|fr|in|jp|cn|br|mx|es|it|nl|se|no|dk|fi|ie|nz|sg|hk|"
+    "kr|ru|za|ae|ch|at|be|pl|pt|tech|online|site|xyz|cloud|work|global|"
+    "company|agency|media|group|example|test"
+)
+_URL_OR_EMAIL_SPAN_RE = re.compile(
+    r"""
+      (?:[a-z][a-z0-9+.\-]*://|www\.)[^\s<>"'\])}]+          # scheme://... or www....
+    | [\w.+\-]+@(?:[a-z0-9\-]+\.)+[a-z]{2,}                  # email address
+    | (?<![\w@.\-])                                           # bare domain[/path]
+      (?:[a-z0-9](?:[a-z0-9\-]*[a-z0-9])?\.)+(?:"""
+    + _DOMAIN_TLDS
+    + r""")(?![\w\-])
+      (?:/[^\s<>"'\])}]*)?
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+# "Domain: adp" -- a value sitting directly after a Domain label is a
+# hostname slot even when the TLD itself was dropped.
+_DOMAIN_LABEL_BEFORE_RE = re.compile(r"\bdomain\s*:\s*(?:www\.)?$", re.IGNORECASE)
+
+
+def _inside_url_domain_or_email(text: str, start: int, end: int) -> bool:
+    """True when ``text[start:end]`` sits inside a URL / domain / email, or
+    directly after a ``Domain:`` label."""
+    if _DOMAIN_LABEL_BEFORE_RE.search(text[:start]):
+        return True
+    for span in _URL_OR_EMAIL_SPAN_RE.finditer(text):
+        if span.start() < end and span.end() > start:
+            return True
+    return False
+
+
 def _check_client_name_casing(
     units: list[_TextUnit], data: dict, findings: list[Finding]
 ) -> None:
@@ -757,6 +801,10 @@ def _check_client_name_casing(
     deliverable, and matching on canonical instead of raw also catches every
     differently-cased occurrence, not only ones that literally repeat the
     raw input.
+
+    An occurrence inside a URL, bare domain or email address (or directly
+    after a ``Domain:`` label) is skipped -- hostnames are lowercase by
+    definition, so "www.adp.com" is not a mis-cased "ADP".
     """
     raw = str(data.get("client_name") or "").strip()
     if not raw:
@@ -769,6 +817,8 @@ def _check_client_name_casing(
         for match in canonical_re.finditer(u.text):
             found = match.group(0)
             if found == canonical:
+                continue
+            if _inside_url_domain_or_email(u.text, match.start(), match.end()):
                 continue
             findings.append(
                 _finding(
@@ -2116,6 +2166,55 @@ def _check_campaign_duration_incoherence(
 # ---------------------------------------------------------------------------
 # RULE 4: industry_client_conflict
 # ---------------------------------------------------------------------------
+# "Bank" is a finance keyword in ``app.INDUSTRY_NAICS_MAP``, matched at a
+# word boundary in the client name. That is right for "First National Bank"
+# and "Bank of America", and wrong for names where "bank" is part of a
+# non-financial compound: 2026-10-16 sweep k_tiny_nonprofit
+# ("Riverbend Community Food Bank", wizard industry General / Entry-Level --
+# the only card a nonprofit can pick) took a CRITICAL "implies Financial
+# Services & Insurance" from that one token.
+#
+# The classifier lives in app.py (not this module's to change), so the
+# compound is neutralised on the way IN to the conflict check. The WHOLE
+# compound is removed -- "Food" in "Food Bank" is no more a Food & Beverage
+# signal than "Bank" is a finance one -- and any other word in the name
+# still speaks for itself ("Food Bank Credit Union" keeps "Credit Union").
+# Two closed families, both unambiguous:
+#   * <thing> Bank(s): a stock of something other than money.
+#   * Bank <street-type>: a place name ("Bank Street College of Education").
+# Deliberately NOT here: geographic nouns ("River Bank", "West Bank") and
+# "Community Bank" -- those are routinely real bank names.
+_NON_FINANCIAL_BANK_THINGS = (
+    "food|blood|plasma|seed|sperm|egg|tissue|organ|bone|milk|diaper|clothing|"
+    "toy|book|coat|eye|gene|data|memory|power|piggy|sand|snow|fog|job|talent|"
+    "time|word|idea|photo|image|tool|furniture|blanket"
+)
+_BANK_STREET_TYPES = (
+    "street|st\\.?|road|rd\\.?|avenue|ave\\.?|lane|ln\\.?|square|sq\\.?|"
+    "place|pl\\.?|plaza|hill|way|drive|dr\\.?|boulevard|blvd\\.?|court|ct\\.?|"
+    "terrace|row|parade|quay|walk"
+)
+_NON_FINANCIAL_BANK_RE = re.compile(
+    r"\b(?:(?:" + _NON_FINANCIAL_BANK_THINGS + r")\s+banks?"
+    r"|bank\s+(?:" + _BANK_STREET_TYPES + r"))(?![A-Za-z])",
+    re.IGNORECASE,
+)
+
+
+def _neutralize_non_financial_bank(name: str) -> str:
+    """Remove non-financial "Bank" compounds ("Food Bank", "Blood Bank",
+    "Bank Street", ...) from a client name before it is fed to the
+    industry classifier. Returns ``name`` unchanged (same string) when no
+    such compound is present, so every other name behaves exactly as
+    before."""
+    if not name:
+        return name
+    cleaned = _NON_FINANCIAL_BANK_RE.sub(" ", name)
+    if cleaned == name:
+        return name
+    return re.sub(r"\s{2,}", " ", cleaned).strip()
+
+
 def _check_industry_client_conflict(data: dict, findings: list[Finding]) -> None:
     """Compare the plan's own resolved industry against what
     ``app.classify_industry`` infers from just the client name + roles
@@ -2174,6 +2273,11 @@ def _check_industry_client_conflict(data: dict, findings: list[Finding]) -> None
     defect above) -- because that is evidence classify_industry's own
     explicit selection cannot simply outscore or overrule.
 
+    NON-FINANCIAL "BANK" FIX (2026-10-16): the client name is passed through
+    ``_neutralize_non_financial_bank`` first, so "Riverbend Community Food
+    Bank" no longer reads as finance_banking from the token "Bank" (see the
+    note above that helper). Real banks are untouched.
+
     Import is local/defensive: app.py is a very large module with
     module-level side effects (Flask/DB/background-thread init) and itself
     imports bundle_qa lazily inside its generation handler specifically to
@@ -2185,7 +2289,7 @@ def _check_industry_client_conflict(data: dict, findings: list[Finding]) -> None
     except Exception:  # noqa: BLE001
         return
 
-    client_name = str(data.get("client_name") or "")
+    client_name = _neutralize_non_financial_bank(str(data.get("client_name") or ""))
     roles_raw = data.get("target_roles") or data.get("roles") or []
     roles: list[str] = []
     if isinstance(roles_raw, (list, tuple)):
