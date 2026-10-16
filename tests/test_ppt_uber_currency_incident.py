@@ -199,7 +199,7 @@ class TestGbpPlanNoHardcodedDollar:
     def test_slide2_market_thesis_uses_plan_symbol(self, texts):
         # ppt_generator.py market-thesis call site (was: fmt_money -> "$1,626/hire")
         assert any(
-            "This plan projects 1230 hires at £1,626/hire" in t for t in texts
+            "This plan projects 1,230 hires at £1,626/hire" in t for t in texts
         ), texts
 
     def test_slide6_takeaway_uses_plan_symbol(self, texts):
@@ -377,7 +377,7 @@ class TestUsdPlanUnaffected:
 
     def test_slide2_market_thesis_unchanged(self, texts):
         assert any(
-            "This plan projects 1230 hires at $1,626/hire" in t for t in texts
+            "This plan projects 1,230 hires at $1,626/hire" in t for t in texts
         ), texts
 
     def test_slide6_takeaway_unchanged(self, texts):

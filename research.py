@@ -11,6 +11,7 @@ import re
 import json
 import os
 
+import display_format
 import plan_currency
 
 logger = logging.getLogger(__name__)
@@ -8160,11 +8161,11 @@ def get_client_competitor_intelligence(competitors, industry):
                     "competitor": comp_name,
                     "company_size": "Research recommended — check LinkedIn company page for employee count",
                     "primary_hiring_channels": default_channels,
-                    "employer_brand_strength": f"Monitor {comp_name}'s Glassdoor profile, career site, and social media for employer brand positioning",
+                    "employer_brand_strength": f"Monitor {display_format.possessive(comp_name)} Glassdoor profile, career site, and social media for employer brand positioning",
                     "known_recruitment_strategies": default_strategies,
                     "glassdoor_rating": f"Check glassdoor.com/Reviews/{comp_name.replace(' ', '-')}-Reviews",
                     "talent_focus": f"Likely competing for similar {industry.replace('_', ' ')} talent pools",
-                    "strategic_recommendation": f"1) Audit {comp_name}'s career site and active job postings to understand their volume and focus areas. "
+                    "strategic_recommendation": f"1) Audit {display_format.possessive(comp_name)} career site and active job postings to understand their volume and focus areas. "
                     f"2) Monitor their Glassdoor reviews to identify employer brand weaknesses you can exploit. "
                     f"3) Target candidates who follow {comp_name} on LinkedIn with competitor-targeted campaigns. "
                     f"4) Differentiate your employer brand with specific advantages (compensation, culture, mission, flexibility) that {comp_name} may lack.",
@@ -8190,7 +8191,7 @@ def _generate_competitive_recommendation(comp_name, profile, industry):
         )
     else:
         recs.append(
-            f"{comp_name}'s Glassdoor rating ({rating}) suggests employer brand opportunities. Highlight your cultural strengths and employee satisfaction in job ads and careers content."
+            f"{display_format.possessive(comp_name)} Glassdoor rating ({rating}) suggests employer brand opportunities. Highlight your cultural strengths and employee satisfaction in job ads and careers content."
         )
 
     # Channel-specific recommendation

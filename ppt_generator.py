@@ -85,6 +85,26 @@ except ImportError:
     _HAS_MATPLOTLIB = False
 
 
+def _count_noun_local(n: Any, singular: str, plural: Optional[str] = None) -> str:
+    """A count with its noun in the right number: "1 hire", "0 hires",
+    "1,250 hires". Same behaviour as ``gold_standard.count_noun`` (the
+    workbook's helper, same sweep 2026-10-16 #13: "1 hires target" on the
+    k_tiny_nonprofit deck) -- kept local only until that helper is on main.
+    """
+    try:
+        value = float(n)
+    except (TypeError, ValueError):
+        value = 0.0
+    shown = f"{int(value):,}" if value.is_integer() else f"{value:,}"
+    word = singular if value == 1 else (plural or f"{singular}s")
+    return f"{shown} {word}"
+
+
+# The deck and the workbook must pluralise identically: prefer the shared
+# gold_standard helper whenever it exists, else the identical local copy.
+_count_noun = getattr(_gold_standard, "count_noun", None) or _count_noun_local
+
+
 # ---------------------------------------------------------------------------
 # Chart font (S89): matplotlib defaults to DejaVu Sans, which clashes with the
 # Joveo deck (Poppins headings). Bundle Poppins .ttf files (OFL-licensed) under
@@ -5167,7 +5187,9 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         _proj_h = _ppt_hires_sum
         _proj_cph = _ppt_cph
         if _proj_h > 0:
-            _thesis_parts.append(f"This plan projects {int(_proj_h)} hires")
+            _thesis_parts.append(
+                f"This plan projects {_count_noun(int(_proj_h), 'hire')}"
+            )
             _thesis_has_lead = True
         # 2026-10-01 (audit §4.1): no "at X/hire" when the market has no local
         # cost-per-hire benchmark -- X would be an FX-translated US figure.
@@ -5350,7 +5372,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             )
         _add_paragraph(
             tf4,
-            f"Client goal: {_exec_goal_gap['goal']:,} hires — this plan "
+            f"Client goal: {_count_noun(_exec_goal_gap['goal'], 'hire')} — this plan "
             f"projects {_exec_goal_gap['projected']:,} "
             f"({_exec_goal_gap['pct_of_goal']:.0f}% of goal){_scaling}",
             font_size=7,
@@ -5375,7 +5397,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             )
             _add_paragraph(
                 tf4,
-                f"Client goal: {_cons['goal']:,} hires — this plan projects "
+                f"Client goal: {_count_noun(_cons['goal'], 'hire')} — this plan projects "
                 f"{_cons['hires_low']:,}–{_rng_goal[1]:,}"
                 + (f"; {_be_s2}" if _be_s2 else ""),
                 font_size=7,
@@ -5861,7 +5883,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     if total_budget_val > 0 and proj_hires_ch > 0:
         action_text = (
             f"{n_cats}-channel strategy allocates {_fmt_currency(total_budget_val, compact=True)} "
-            f"to project {int(proj_hires_ch)} hires for {client} in {industry_label} — "
+            f"to project {_count_noun(int(proj_hires_ch), 'hire')} for {client} in {industry_label} — "
             f"each channel selected for cost-efficiency and audience reach"
         )
     else:
@@ -7244,11 +7266,11 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         if total_apps_insight and total_apps_insight > 0:
             insight_text += (
                 f" Budget engine projects {int(total_apps_insight):,} applications and "
-                f"{int(projected_hires):,} hires from the allocated investment."
+                f"{_count_noun(int(projected_hires), 'hire')} from the allocated investment."
             )
         else:
             insight_text += (
-                f" Budget engine projects {int(projected_hires):,} hires "
+                f" Budget engine projects {_count_noun(int(projected_hires), 'hire')} "
                 f"from the allocated investment."
             )
 
@@ -7361,7 +7383,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     # Action title
     n_channels = len(display_channels)
     action_text = (
-        f"Investment breakdown across {n_channels} channels "
+        f"Investment breakdown across {_count_noun(n_channels, 'channel')} "
         f"with projected outcomes for {client}"
     )
     # C11 fix: this subhead sat in a fixed 0.92in/0.45in one-line box at a
@@ -7693,7 +7715,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
             funnel_text = (
                 f"Funnel: {int(f_clicks):,} clicks → {int(f_raw):,} applications "
                 f"→ {int(f_qual):,} qualified → {int(f_int):,} interviews "
-                f"→ {int(f_hires):,} hires"
+                f"→ {_count_noun(int(f_hires), 'hire')}"
             )
             _add_textbox(
                 slide,
@@ -7757,7 +7779,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     elif ba_total_budget > 0:
         insight_text = (
             f"{_fmt.possessive(client)} {_cur}{ba_total_budget:,.0f} investment is distributed across "
-            f"{n_channels} channels using Nova AI Suite's programmatic optimization engine, "
+            f"{_count_noun(n_channels, 'channel')} using Nova AI Suite's programmatic optimization engine, "
             f"maximizing reach and conversion through real-time bid management."
         )
     else:
@@ -8255,7 +8277,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
             {
                 "metric": "vs. Client Goal",
                 "client_val": f"{_goal_gap['projected']:,} ({_goal_gap['pct_of_goal']:.0f}%)",
-                "industry_val": f"{_goal_gap['goal']:,} hires goal",
+                "industry_val": f"{_count_noun(_goal_gap['goal'], 'hire')} goal",
                 "status": "trailing",
             }
         )
@@ -8289,7 +8311,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     _goal_band_text = ""
     if _goal_row and _goal_gap:
         _goal_band_text = (
-            f"{_goal_gap['goal']:,} hires target  —  this plan projects "
+            f"{_count_noun(_goal_gap['goal'], 'hire')} target  —  this plan projects "
             f"{_goal_gap['projected']:,} ({_goal_gap['pct_of_goal']:.0f}%)"
         )
     else:
@@ -8303,7 +8325,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         if _cons_s9 and _rng_s9 and _be_s9:
             # one break-even phrasing on every surface (round 4, F1)
             _goal_band_text = (
-                f"{_cons_s9['goal']:,} hires target  —  this plan projects "
+                f"{_count_noun(_cons_s9['goal'], 'hire')} target  —  this plan projects "
                 f"{_rng_s9[0]:,}–{_rng_s9[1]:,}; {_be_s9}"
             )
     comparison_rows = (

@@ -148,7 +148,7 @@ _SKELETON_BANKS: dict[str, tuple[str, ...]] = {
         "offer cadence and speed-to-contact to stay ahead of it.",
         "{competitor} is a plausible competitor for {angle}; a faster "
         "interview-to-offer cycle is the clearest lever regardless.",
-        "{competitor}'s presence in this pool means {angle} "
+        "{competitor_poss} presence in this pool means {angle} "
         "have options — lead with total-comp clarity and a same-week "
         "interview slot.",
         "{competitor} is a plausible competitor for {angle} — tighten the "
@@ -159,7 +159,7 @@ _SKELETON_BANKS: dict[str, tuple[str, ...]] = {
         "impression.",
         "{competitor} is a plausible competitor for {angle} — "
         "first-contact speed alone can decide who gets the candidate.",
-        "{competitor}'s reputation with {angle} is untested here — "
+        "{competitor_poss} reputation with {angle} is untested here — "
         "candidate reviews and a named team contact build trust faster "
         "than brand alone.",
         "{competitor} is a plausible competitor for {angle} — a same-week "
@@ -290,7 +290,12 @@ def compose_counter_strategy(competitor: str, ctx: dict | None = None) -> str:
         idx = int(ordinal) % len(bank)
     else:
         idx = _pick_index(f"{name}|{role}|{city}", len(bank))
-    sentence = bank[idx].format(competitor=name, angle=angle)
+    # ``competitor_poss`` is the possessive form (display_format.possessive):
+    # a bare "{competitor}'s" printed "Brightway Home Stores's presence" and
+    # "McDonald's's reputation" (2026-10-16 sweep).
+    sentence = bank[idx].format(
+        competitor=name, competitor_poss=_fmt.possessive(name), angle=angle
+    )
 
     if intensity in ("high", "aggressive", "elevated", "severe"):
         # uber_shipped_2026_07_23 fix: "{name} has been especially

@@ -22,6 +22,8 @@ import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional
 
+import display_format
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -482,7 +484,7 @@ def _benchmark_based_audit(
         "access_blocked": True,
         "audit_method": "benchmark_based",
         "note": (
-            f"{company_hint}'s career page blocks automated auditing tools (HTTP 403). "
+            f"{display_format.possessive(company_hint)} career page blocks automated auditing tools (HTTP 403). "
             "This is common for large enterprises using bot-detection (e.g., Cloudflare, Akamai). "
             "Below are industry-standard recommendations based on career page best practices."
         ),

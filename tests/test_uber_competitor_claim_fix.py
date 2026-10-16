@@ -266,7 +266,9 @@ def test_fixC_skeleton_banks_contain_no_banned_asserted_behavior_verbs():
         assert len(bank) >= 4, f"{bucket} has fewer than 4 skeletons"
         for sentence in bank:
             rendered = sentence.format(
-                competitor="Marriott", angle="commercial cab driver candidates in UK"
+                competitor="Marriott",
+                competitor_poss="Marriott's",
+                angle="commercial cab driver candidates in UK",
             )
             lowered = rendered.lower()
             for banned in _BANNED_SUBSTRINGS:
