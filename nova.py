@@ -18,6 +18,7 @@ Enable Claude mode by setting ANTHROPIC_API_KEY environment variable.
 from __future__ import annotations
 
 import functools
+import copy
 import json
 import logging
 import os
@@ -74,8 +75,8 @@ except ImportError:
 # Intelligent query cache (Supabase-backed, with pre-warming)
 try:
     from nova_cache import (
-        get_cached_response as _intelligent_cache_get,
-        cache_response as _intelligent_cache_set,
+        get_cached_response as _intelligent_cache_get_raw,
+        cache_response as _intelligent_cache_set_raw,
         start_prewarm_thread as _start_cache_prewarm,
     )
 
@@ -83,11 +84,11 @@ try:
 except ImportError:
     _intelligent_cache_available = False
 
-    def _intelligent_cache_get(query: str, conversation_history: Optional[list] = None) -> Optional[Dict[str, Any]]:  # type: ignore[misc]
+    def _intelligent_cache_get_raw(query: str, conversation_history: Optional[list] = None) -> Optional[Dict[str, Any]]:  # type: ignore[misc]
         """Stub when nova_cache is not available."""
         return None
 
-    def _intelligent_cache_set(query: str, response: Dict[str, Any], conversation_history: Optional[list] = None, ttl_hours: Optional[int] = None) -> bool:  # type: ignore[misc]
+    def _intelligent_cache_set_raw(query: str, response: Dict[str, Any], conversation_history: Optional[list] = None, ttl_hours: Optional[int] = None) -> bool:  # type: ignore[misc]
         """Stub when nova_cache is not available."""
         return False
 
@@ -3079,7 +3080,10 @@ def _conversation_memory_context() -> str:
         from nova_memory import get_conversation_memory
 
         memory = get_conversation_memory(cid)
-        return memory.get_context_injection() if memory is not None else ""
+        block = memory.get_context_injection() if memory is not None else ""
+        if block:
+            _mark_turn_personalized()
+        return block
     except Exception:
         logger.error("Conversation memory injection failed", exc_info=True)
         return ""
@@ -3155,7 +3159,10 @@ def _inject_user_profile_context(
         if not sid:
             return ""
         profile = get_user_profile(sid)
-        return profile.get_context_injection()
+        block = profile.get_context_injection()
+        if block:
+            _mark_turn_personalized()
+        return block
     except Exception:
         return ""
 
@@ -3879,6 +3886,71 @@ def _check_learned_answers(question: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+# Keys that belong to ONE user/conversation. They are never cached and never
+# served from a cache: the cache is shared by every user.
+_PER_USER_RESPONSE_KEYS = (
+    "user_profile",
+    "conversation_id",
+    "session_id",
+    "session_token",
+    "message_id",
+    "media_plan_handoff",
+    "follow_ups",
+    "suggested_followups",
+)
+
+
+def _mark_turn_personalized() -> None:
+    """Flag this turn's prompt as carrying conversation-specific context."""
+    state = _get_turn_tool_capture()
+    if state is not None:
+        state["personalized"] = True
+
+
+def _turn_is_personalized() -> bool:
+    state = _get_turn_tool_capture()
+    return bool(state and state.get("personalized"))
+
+
+def _shareable_copy(data: Any) -> Optional[Dict[str, Any]]:
+    """Deep copy of ``data`` without per-user fields, or None if not copyable.
+
+    Cache entries must never alias a live response dict (later in-place
+    post-processing -- profile, personalised follow-ups -- would leak into the
+    cache) and a cache hit must hand out a fresh copy for the same reason.
+    """
+    if not isinstance(data, dict):
+        return None
+    try:
+        copied = copy.deepcopy(data)
+    except Exception:
+        logger.error("Response not copyable for the cache", exc_info=True)
+        return None
+    for key in _PER_USER_RESPONSE_KEYS:
+        copied.pop(key, None)
+    return copied
+
+
+def _intelligent_cache_get(
+    query: str, conversation_history: Optional[list] = None
+) -> Optional[Dict[str, Any]]:
+    return _shareable_copy(_intelligent_cache_get_raw(query, conversation_history))
+
+
+def _intelligent_cache_set(
+    query: str,
+    response: Dict[str, Any],
+    conversation_history: Optional[list] = None,
+    ttl_hours: Optional[int] = None,
+) -> bool:
+    if _turn_is_personalized():
+        return False
+    safe = _shareable_copy(response)
+    if safe is None:
+        return False
+    return _intelligent_cache_set_raw(query, safe, conversation_history, ttl_hours)
+
+
 def _get_response_cache(key: str) -> Optional[Dict[str, Any]]:
     """Check response cache: memory -> Upstash Redis -> disk fallback.
 
@@ -3893,7 +3965,7 @@ def _get_response_cache(key: str) -> Optional[Dict[str, Any]]:
             entry = _response_cache[key]
             if (entry.get("expires") or 0) > now:
                 logger.info("Nova cache HIT (memory)")
-                return entry.get("data")
+                return _shareable_copy(entry.get("data"))
             else:
                 del _response_cache[key]
 
@@ -3910,7 +3982,7 @@ def _get_response_cache(key: str) -> Optional[Dict[str, Any]]:
                         "expires": now + RESPONSE_CACHE_TTL,
                         "created": now,
                     }
-                return cached
+                return _shareable_copy(cached)
         except Exception as exc:
             logger.warning("Upstash cache read failed (non-fatal): %s", exc)
 
@@ -3928,7 +4000,7 @@ def _get_response_cache(key: str) -> Optional[Dict[str, Any]]:
                         # Promote to memory
                         with _response_cache_lock:
                             _response_cache[key] = entry
-                        return data
+                        return _shareable_copy(data)
         except Exception as exc:
             logger.warning("Disk cache read error: %s", exc)
 
@@ -3942,6 +4014,11 @@ def _set_response_cache(
 
     Falls back to disk when Upstash is not configured.
     """
+    if _turn_is_personalized():
+        return  # prompt carried this conversation's memory: not shareable
+    data = _shareable_copy(data)  # type: ignore[assignment]
+    if data is None:
+        return
     now = time.time()
     entry = {"data": data, "expires": now + ttl, "created": now}
     _redis_key = f"nova_resp:{_CACHE_VERSION}:{key}"
@@ -21886,6 +21963,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 _prior_turns = _get_conversation_tool_cache(_conv_id)
                 _prior_block = _build_prior_tool_context(_prior_turns)
                 if _prior_block:
+                    _mark_turn_personalized()
                     dynamic_parts.append(
                         "## PREVIOUS-TURN TOOL RESULTS\n"
                         "The following tool outputs are from the previous turns of "
@@ -27908,7 +27986,10 @@ def handle_chat_request(
 
         # Update user profile for personalization (S18)
         # No conversation id means no owner: skip, never share a bucket.
-        if (request_data.get("conversation_id") or "").strip():
+        if not (request_data.get("conversation_id") or "").strip():
+            if isinstance(result, dict):
+                result.pop("user_profile", None)
+        else:
             try:
                 from nova_memory import update_user_profile
 

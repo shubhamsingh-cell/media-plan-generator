@@ -573,8 +573,9 @@ class UserProfile:
             Dict with serialized profile data suitable for localStorage.
         """
         with self._lock:
+            # No session_id: the conversation id is the key to this
+            # conversation's memory and must not travel in response bodies.
             return {
-                "session_id": self.session_id,
                 "frequent_roles": dict(self.frequent_roles.most_common(5)),
                 "frequent_locations": dict(self.frequent_locations.most_common(5)),
                 "preferred_industry": (
