@@ -370,4 +370,6 @@ def test_every_region_fold_call_site_passes_the_plan():
         and getattr(node.func, "id", "") == "_apply_target_region"
         and len(node.args) >= 3
     )
-    assert plans == ["brief", "data", "gen_data"], plans
+    # + the headline projection (_attach_headline_projection), which rebuilds the
+    # preview's mix from the request dict ("plan")
+    assert plans == ["brief", "data", "gen_data", "plan"], plans

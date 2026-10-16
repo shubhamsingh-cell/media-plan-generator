@@ -5205,7 +5205,12 @@ def _gather_narrative_grounding_context(
     both would be an FX-translated US figure (design-judge item 5)."""
     if cph_suppressed:
         header_cph = 0
+    _ctx_h, _ctx_c = _hires_cph_range_text(
+        _excel_projection(data.get("_budget_allocation"), budget_num, data)
+    )
     ctx: Dict[str, Any] = {
+        "hires_range_txt": _ctx_h,  # "5-11" -- the headline is a range
+        "cph_range_txt": _ctx_c,
         "cph_suppressed": bool(cph_suppressed),
         "client_name": client_name,
         "industry_label": industry_label,
@@ -5421,6 +5426,10 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
         lines.append(f"Stated Hiring Goal: {ctx['hire_volume']}")
     if ctx.get("header_hires", 0) > 0:
         lines.append(f"Projected Hires: {_fmt_number(ctx['header_hires'])}")
+        if ctx.get("hires_range_txt"):
+            lines.append(f"Projected Hires Range: {ctx['hires_range_txt']}")
+        if ctx.get("cph_range_txt"):
+            lines.append(f"Cost Per Hire Range: {ctx['cph_range_txt']}")
     if ctx.get("header_cph", 0) > 0:
         lines.append(
             f"Blended Cost/Hire: {_fmt_currency(ctx['header_cph'], show_cents=True)}"
@@ -5841,6 +5850,12 @@ def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
 
     # 2. Projected hires vs. goal + budget to close the gap.
     header_hires = int(ctx.get("header_hires") or 0)
+    # the headline hires are a RANGE where one exists: quote it, not the upper point
+    _hp = (
+        f"{ctx['hires_range_txt']} hires"
+        if ctx.get("hires_range_txt")
+        else gs_lib.count_noun(header_hires, "hire")
+    )
     goal = int(ctx.get("goal") or 0)
     gap = ctx.get("gap_result")
     if goal > 0 and header_hires > 0:
@@ -5849,14 +5864,14 @@ def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
         if header_hires >= goal and _cons:
             _be_sum = _break_even_phrase(ctx.get("budget_num") or 0, goal)
             sentences.append(
-                f"The plan is projected to deliver {gs_lib.count_noun(header_hires, 'hire')} against "
+                f"The plan is projected to deliver {_hp} against "
                 f"a stated goal of {goal:,}; at the midpoint cost it buys "
                 f"{_cons['hires_low']:,}"
                 + (f" — {_be_sum}." if _be_sum else ".")
             )
         elif header_hires >= goal:
             sentences.append(
-                f"The plan is projected to deliver {gs_lib.count_noun(header_hires, 'hire')}, meeting "
+                f"The plan is projected to deliver {_hp}, meeting "
                 f"the stated goal of {goal:,}."
             )
         elif gap:
@@ -5864,24 +5879,24 @@ def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
             gap_hires = gap["goal"] - gap["projected"]
             if extra > 0:
                 sentences.append(
-                    f"The plan is projected to deliver {gs_lib.count_noun(header_hires, 'hire')} against "
+                    f"The plan is projected to deliver {_hp} against "
                     f"a stated goal of {goal:,} ({pct}% of goal) — closing the "
                     f"{gap_hires:,}-hire gap would need roughly {_fmt_currency(extra)} "
                     f"of additional budget."
                 )
             else:
                 sentences.append(
-                    f"The plan is projected to deliver {gs_lib.count_noun(header_hires, 'hire')} against "
+                    f"The plan is projected to deliver {_hp} against "
                     f"a stated goal of {goal:,} ({pct}% of goal)."
                 )
         else:
             sentences.append(
-                f"The plan is projected to deliver {gs_lib.count_noun(header_hires, 'hire')} against "
+                f"The plan is projected to deliver {_hp} against "
                 f"a stated goal of {goal:,} ({pct}% of goal)."
             )
     elif header_hires > 0:
         sentences.append(
-            f"The plan is projected to deliver {gs_lib.count_noun(header_hires, 'hire')}."
+            f"The plan is projected to deliver {_hp}."
         )
 
     # 3. Blended cost/hire + top-2 channels by hires.
@@ -5892,7 +5907,7 @@ def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
         if top2:
             names = " and ".join(display_format.channel_label(n) for n, _d in top2)
             sentences.append(
-                f"At a blended cost of {_fmt_currency(header_cph, show_cents=True)} per "
+                f"At a blended cost of {ctx.get('cph_range_txt') or _fmt_currency(header_cph, show_cents=True)} per "
                 f"hire, {names} are projected to drive the majority of hires."
             )
         else:
@@ -6009,18 +6024,17 @@ def _strip_hires_from_workbook(wb: Any) -> None:
             if isinstance(c.value, str) and not c.value.startswith("="):
                 cleaned = plan_projection.strip_hire_claims(c.value)
                 if cleaned != c.value:
-                    c.value = cleaned or na
+                    # a whole sentence that stated a hire count leaves nothing
+                    # behind (an orphan "n/a" would read as a figure)
+                    c.value = cleaned or (na if len(c.value) < 30 else None)
 
 
-def _hires_not_projected(budget_alloc: Any, budget_num: float, data: dict) -> bool:
-    """True when hires / cost per hire are NOT projected for this plan (a market
-    with no local cost-per-hire benchmark in its own currency) -- the decision
-    plan_projection makes once, for every surface."""
+def _excel_projection(budget_alloc: Any, budget_num: float, data: dict) -> Optional[Dict[str, Any]]:
+    """The plan's projection for this workbook (headline stamp when present, else
+    built from the engine result), or None when there is nothing to project."""
     if not isinstance(budget_alloc, dict) or budget_num <= 0:
-        return False
+        return None
     try:
-        import plan_projection
-
         meta = budget_alloc.get("metadata")
         meta = meta if isinstance(meta, dict) else {}
         proj = plan_projection.projection_for_alloc(
@@ -6032,9 +6046,31 @@ def _hires_not_projected(budget_alloc: Any, budget_num: float, data: dict) -> bo
             mixed_market=plan_projection.is_mixed_market(data.get("locations")),
         )
     except (ImportError, KeyError, TypeError, ValueError) as exc:
-        logger.error("hires suppression check failed: %s", exc, exc_info=True)
-        return False
-    return bool((proj.get("assumptions") or {}).get("hires_suppressed"))
+        logger.error("workbook projection failed: %s", exc, exc_info=True)
+        return None
+    return proj if isinstance(proj, dict) and proj.get("ok") else None
+
+
+def _hires_not_projected(budget_alloc: Any, budget_num: float, data: dict) -> bool:
+    """True when hires / cost per hire are NOT projected for this plan (a market
+    with no local cost-per-hire benchmark in its own currency) -- the decision
+    plan_projection makes once, for every surface."""
+    proj = _excel_projection(budget_alloc, budget_num, data)
+    return bool(proj and (proj.get("assumptions") or {}).get("hires_suppressed"))
+
+
+def _hires_cph_range_text(proj: Optional[Dict[str, Any]]) -> Tuple[str, str]:
+    """("5\u201311", "$5,250\u2013$10,500") for a projection whose hires and cost per
+    hire are genuine ranges; ("", "") otherwise."""
+    if not proj or (proj.get("assumptions") or {}).get("hires_suppressed"):
+        return "", ""
+    hr, cp = proj.get("hires") or {}, proj.get("cph") or {}
+    h = c = ""
+    if hr.get("low") is not None and hr.get("high") is not None and hr["low"] != hr["high"]:
+        h = f"{int(hr['low']):,}\u2013{int(hr['high']):,}"
+    if cp.get("low") is not None and cp.get("high") is not None and cp["low"] != cp["high"]:
+        c = f"{_fmt_currency(cp['low'])}\u2013{_fmt_currency(cp['high'])}"
+    return h, c
 
 
 def _projection_range_line(
@@ -6312,13 +6348,22 @@ def _build_sheet_executive_summary(
     _cph_suppressed = bool(_cph_info.get("claim_suppressed"))
     # A market with no local cost-per-hire benchmark projects no hires / CPH
     # (declare, never convert): the cards read "n/a" and the line below says why.
-    _hires_off = _hires_not_projected(budget_alloc, budget_num, data)
+    _hero_proj = _excel_projection(budget_alloc, budget_num, data)
+    _hires_off = bool(
+        _hero_proj and (_hero_proj.get("assumptions") or {}).get("hires_suppressed")
+    )
+    _hero_hires_rng, _hero_cph_rng = _hires_cph_range_text(_hero_proj)
     if _hires_off:
         _cph_suppressed = True
     # Hero metrics row: Total Budget | Projected Hires | Cost/Hire
     hero_metrics = [
         ("Total Budget", _fmt_currency(budget_num)),
-        ("Projected Hires", "n/a" if _hires_off else _fmt_number(_header_hires)),
+        (
+            "Projected Hires",
+            "n/a"
+            if _hires_off
+            else (_hero_hires_rng or _fmt_number(_header_hires)),
+        ),
         # "--" rather than "$0": a plan projecting zero hires has an
         # UNDEFINED cost per hire, and "$0" beside a real committed budget
         # reads as free hiring. The deck's own table already renders this
@@ -6330,9 +6375,12 @@ def _build_sheet_executive_summary(
             "n/a"
             if _hires_off
             else (
-                _fmt_currency(_header_cph)
-                if _header_hires > 0 and not _cph_suppressed
-                else "--"
+                _hero_cph_rng
+                or (
+                    _fmt_currency(_header_cph)
+                    if _header_hires > 0 and not _cph_suppressed
+                    else "--"
+                )
             ),
         ),
     ]
@@ -7442,11 +7490,24 @@ def _build_sheet_executive_summary(
         )
     elif proj_hires > 0 and cph > 0:
         hires_at_20_pct_increase = int(budget_num / (cph * 1.2)) if cph > 0 else 0
+        _rk_h, _ = _hires_cph_range_text(
+            _excel_projection(budget_alloc, budget_num, data)
+        )
+        if _rk_h:
+            _rk_lo, _rk_hi = (int(x.replace(",", "")) for x in _rk_h.split("\u2013"))
+            _rk_msg = (
+                f"If CPA rises 20%, projected hires drop from {_rk_h} to "
+                f"{int(_rk_lo / 1.2):,}\u2013{int(_rk_hi / 1.2):,}"
+            )
+        else:
+            _rk_msg = (
+                f"If CPA rises 20%, projected hires drop from {proj_hires:,.0f} to {hires_at_20_pct_increase:,.0f} "
+                f"({proj_hires - hires_at_20_pct_increase:,.0f} fewer hires)"
+            )
         risk_items.append(
             (
                 "Budget Risk: CPA Inflation",
-                f"If CPA rises 20%, projected hires drop from {proj_hires:,.0f} to {hires_at_20_pct_increase:,.0f} "
-                f"({proj_hires - hires_at_20_pct_increase:,.0f} fewer hires)",
+                _rk_msg,
                 "Build 10-15% budget contingency; diversify to lower-CPA channels",
             )
         )

@@ -473,10 +473,14 @@ class TestBudgetCountryAwareness:
             }
         )
         # Tier 2: if country is non-US, currency must be set away from USD.
+        # The tool's budget is US dollars (its schema says so) and is priced as
+        # such: `currency` names the money of the figures, `market_currency`
+        # the market's own (2026-10-17: a $60k India budget was read as INR).
         if result.get("country") in ("United Kingdom",):
+            assert result.get("currency") == "USD", result.get("currency")
             assert (
-                result.get("currency") == "GBP"
-            ), f"UK budget should be tagged GBP; got {result.get('currency')!r}"
+                result.get("market_currency") == "GBP"
+            ), f"UK market should be tagged GBP; got {result.get('market_currency')!r}"
 
     def test_budget_zero_returns_error(self):
         """Sanity guard -- zero budget must still error (not regress to

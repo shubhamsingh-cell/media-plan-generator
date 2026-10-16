@@ -137,7 +137,7 @@ class TestMoveRegionalPct:
         fold = src[src.index("def _apply_target_region(") :]
         fold = fold[: fold.index("\ndef ")]
         assert fold.count("_move_regional_pct(") == 2
-        assert src.count("_apply_target_region(") == 1 + 3  # def + sync, async, estimate
+        assert src.count("_apply_target_region(") == 1 + 4  # def + sync, async, estimate, headline projection
         assert not re.search(
             r'(channel_)?pcts\.get\("(emea|apac)_regional"\)\s*or 0 \+', src
         )

@@ -324,6 +324,20 @@ def build_plan_data(brief: dict[str, Any]) -> dict[str, Any]:
         target_hires=app._hire_goal_for_budget(data),
     )
     data["_budget_allocation"] = budget_result
+    # prod stamps the headline projection (the preview's own inputs, no
+    # enrichment) right after this call -- the offline harness must too, or a
+    # bundle built here quotes ranges from a different engine run than the
+    # /api/estimate a client saw.
+    app._attach_headline_projection(
+        budget_result,
+        data,
+        budget=budget_val,
+        roles=roles_for_ba,
+        locations=locs_for_ba,
+        channel_pcts=channel_pcts,
+        vendor_availability=None,
+        kb=kb,
+    )
 
     # ── Step 4: campaign_weeks (app.py ~line 16151) ──
     data["campaign_weeks"] = _compute_campaign_weeks(str(data.get("campaign_duration")))

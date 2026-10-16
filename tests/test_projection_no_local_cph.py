@@ -71,15 +71,17 @@ def test_london_gbp_hires_and_cph_are_absent_on_wizard_quick_plan_and_nova():
 
 
 def test_london_applications_and_cpa_are_identical_and_in_pounds_everywhere():
+    # (Nova's tool budget is US dollars by schema, so compare in dollars)
     wiz, quick, nova = (
-        _wizard()["projection"],
-        _quick()["total_projected"]["projection"],
+        _wizard("$60,000")["projection"],
+        _quick("$60,000")["total_projected"]["projection"],
         _nova()["projection"],
     )
     band = lambda p: {m: (p[m]["low"], p[m]["high"]) for m in ("applications", "cpa")}  # noqa: E731
     assert band(quick) == band(wiz) == band(nova)
     assert wiz["applications"]["high"] > 0 and wiz["cpa"]["low"] > 0
-    assert wiz["text"]["cpa"].startswith("£")
+    assert wiz["text"]["cpa"].startswith("$")
+    assert _wizard()["projection"]["text"]["cpa"].startswith("£")  # a typed £ stays £
 
 
 def test_nova_formatter_says_the_note_and_prints_no_hires_figure():
@@ -88,7 +90,7 @@ def test_nova_formatter_says_the_note_and_prints_no_hires_figure():
     out = nova._format_budget_response(_nova(), 60000)
     assert NOTE in out
     assert "Estimated Hires" not in out and "Cost per Hire" not in out
-    assert "Cost per Application: £" in out
+    assert "Cost per Application: $" in out
 
 
 def test_a_us_dollar_plan_in_london_follows_the_same_rule():

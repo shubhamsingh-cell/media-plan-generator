@@ -491,14 +491,38 @@ def _apply_headline_projection(
                 "roles": [role or "General Hire"],
                 "locations": list(locations or []) or ["United States"],
                 "industry": industry,
-            }
+                # this tool's budget is US dollars (the chat tool schema says so):
+                # declare it, so an Indian or British location never re-prices it
+                "budget_text": f"${budget:,.0f}",
+            },
+            plan_currency="USD",
         )
     except Exception as exc:  # noqa: BLE001 - headline routing is best-effort
         logger.warning("roi_projector: plan projection unavailable: %s", exc)
         return result
-    if not proj.get("ok") or proj["hires"]["low"] is None:
+    if not proj.get("ok"):
         return result
     hires, cph = proj["hires"], proj["cph"]
+    if (proj.get("assumptions") or {}).get("hires_suppressed"):
+        # no local cost-per-hire benchmark: no hires and no cost per hire, with
+        # the same note every other surface prints (declare, never convert)
+        note = proj["text"]["hires_note"]
+        for key in ("pessimistic", "expected", "optimistic"):
+            result["projections"][key]["hires"] = None
+        result["roi_metrics"]["cost_per_hire"] = {"low": None, "expected": None, "high": None}
+        result["roi_metrics"]["roi_ratio"] = None
+        result["roi_metrics"]["breakeven_days"] = None
+        result["recommendation"] = (
+            f"{result.get('channel')}: {note} Expected cost per interview: "
+            f"${result['cpift']['expected']:,.2f}. Confidence: "
+            f"{result['confidence']['label']}."
+        )
+        result["hires_note"] = note
+        result["headline_projection"] = plan_projection.public_view(proj)
+        result["headline_source"] = "plan_projection.project_plan"
+        return result
+    if hires["low"] is None:  # single estimate, nothing to route
+        return result
     result["channel_detail"] = {
         "note": (
             "Single-channel figures from this tool's own CPC / apply-rate table; "

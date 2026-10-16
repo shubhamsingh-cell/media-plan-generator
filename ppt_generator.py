@@ -7783,7 +7783,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
             table_top,
             table_w - Inches(5.0),
             Inches(0.3),
-            text="Channel rows, totals and funnel show the upper scenario of the ranges above.",
+            text="Channel rows, totals and funnel are the engine scenario, not the ranges above.",
             font_size=9,
             bold=False,
             color=MUTED_TEXT,
@@ -8003,7 +8003,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
                 _ba_proj
                 and _ba_proj["applications"]["low"] != _ba_proj["applications"]["high"]
             ):
-                funnel_text += " (upper scenario)"
+                funnel_text += " (engine scenario)"
             _add_textbox(
                 slide,
                 table_left,
@@ -10801,11 +10801,20 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
             )
         elif proj_hires > 0 and cph > 0 and total_budget > 0:
             hires_if_cpa_up = int(total_budget / (cph * 1.2))
+            _risk_rng = _hires_range(budget_alloc)
+            if _risk_rng:
+                # the headline is a range: both ends move with the CPA
+                _drop_txt = (
+                    f"from {_risk_rng[0]:,}\u2013{_risk_rng[1]:,} to "
+                    f"{int(_risk_rng[0] / 1.2):,}\u2013{int(_risk_rng[1] / 1.2):,}"
+                )
+            else:
+                _drop_txt = f"from {proj_hires:,.0f} to {hires_if_cpa_up:,.0f}"
             risks.append(
                 (
                     "BUDGET",
                     "CPA Inflation Risk",
-                    f"If CPA rises 20%, hires drop from {proj_hires:,.0f} to {hires_if_cpa_up:,.0f}",
+                    f"If CPA rises 20%, hires drop {_drop_txt}",
                     "Build 10-15% budget contingency; diversify channels",
                 )
             )

@@ -83,14 +83,17 @@ def _build_workbook(hire_volume: str, campaign_duration: str, campaign_weeks=Non
     return openpyxl.load_workbook(io.BytesIO(raw), data_only=False), data
 
 
-def _exec_projected_hires(ws) -> int:
+def _exec_projected_hires(ws):
     """The Executive Summary 'Projected Hires' metric card (value cell sits one
-    row above the 'Projected Hires' label cell)."""
+    row above the 'Projected Hires' label cell). The card reads a RANGE
+    ("71\u2013143") where the plan has one: returned as (low, high); a lone figure
+    comes back as (n, n)."""
     for row in ws.iter_rows():
         for c in row:
             if c.value == "Projected Hires":
                 val = ws.cell(row=c.row - 1, column=c.column).value
-                return int(val or 0)
+                nums = [int(x) for x in str(val or 0).replace(",", "").replace("\u2013", "-").split("-") if x.strip().isdigit()]
+                return (min(nums), max(nums)) if nums else (0, 0)
     raise AssertionError("Executive Summary 'Projected Hires' card not found")
 
 
@@ -112,7 +115,7 @@ def test_channel_recommendations_is_the_same_plan():
     wb, _ = _build_workbook(hire_volume="5000 hires", campaign_duration="1-2 years")
     exec_hires = _exec_projected_hires(wb["Executive Summary"])
     _, _, cr_hires = _channel_rec_total_row(wb["Channel Recommendations"])
-    assert cr_hires == exec_hires, (
+    assert exec_hires[0] <= cr_hires <= exec_hires[1], (
         f"Channel Recommendations hires ({cr_hires}) must equal Executive "
         f"Summary hires ({exec_hires}); a divergence means the workbook is "
         "presenting two contradictory plans again."

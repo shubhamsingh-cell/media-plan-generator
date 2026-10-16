@@ -6332,24 +6332,63 @@ def _attach_headline_projection(
     if project_plan is None or not isinstance(budget_result, dict) or not budget_result:
         return
     try:
+        # The preview's OWN inputs, recomputed from the request exactly as
+        # _compute_plan_estimate does: the industry from the RAW pick (not the key
+        # /api/generate already mapped it to), the recommended mix for that key,
+        # the region fold and the channel toggles, string roles at "Professional",
+        # and the raw location strings. The caller's own roles / locations /
+        # channel mix / vendor gate are NOT used: they carry generate-only choices.
+        raw_industry = str(plan.get("_industry_raw") or plan.get("industry") or "")
+        client = str(plan.get("client_name") or "")
+        roles_raw = plan.get("target_roles") or plan.get("roles") or []
+        if isinstance(roles_raw, str):
+            roles_raw = [r.strip() for r in roles_raw.split(",") if r.strip()]
+        preview_roles = []
+        for r in roles_raw if isinstance(roles_raw, list) else []:
+            if isinstance(r, str) and r.strip():
+                preview_roles.append({"title": r.strip(), "count": 1, "tier": "Professional"})
+            elif isinstance(r, dict) and str(r.get("title") or r.get("role") or "").strip():
+                preview_roles.append(
+                    {
+                        "title": str(r.get("title") or r.get("role")).strip(),
+                        "count": int(r.get("count", 1) or 1),
+                        "tier": str(r.get("tier") or r.get("_tier") or "Professional"),
+                    }
+                )
+        titles = [r["title"] for r in preview_roles]
+        key = classify_industry(raw_industry, client, titles).get(
+            "legacy_key", "general_entry_level"
+        )
+        default_mix = {
+            "programmatic_dsp": 35, "global_boards": 20, "niche_boards": 15,
+            "social_media": 12, "regional_boards": 8, "employer_branding": 5,
+            "apac_regional": 3, "emea_regional": 2,
+        }
+        mix = dict(
+            INDUSTRY_ALLOC_PROFILES.get(key, default_mix)
+            if INDUSTRY_ALLOC_PROFILES is not None
+            else default_mix
+        )
+        region = _normalize_target_region(plan.get("target_region"))
+        mix, _ = _apply_target_region(mix, region, plan)
+        mix = _apply_channel_selection(mix, plan)
         proj = project_plan(
             {
                 "budget": budget,
-                "roles": roles,
-                "locations": locations,
-                "industry": plan.get("industry") or "",
-                "client_name": plan.get("client_name") or "",
+                "roles": preview_roles,
+                "locations": plan.get("locations") or [],
+                "industry": raw_industry,
+                "client_name": client,
                 "campaign_start_month": int(plan.get("campaign_start_month") or 0 or 0),
                 "locations_raw": plan.get("locations"),
                 "budget_text": str(plan.get("budget") or "").strip(),
                 "target_hires": _hire_goal_for_budget(plan),
-                "target_region": _normalize_target_region(plan.get("target_region")),
+                "target_region": region,
             },
-            channel_percentages=channel_pcts,
-            vendor_availability=vendor_availability,
+            channel_percentages=mix,
             knowledge_base=kb,
             plan_currency=_resolve_plan_currency(plan) or "",
-            industry_key=str(plan.get("industry") or "") or None,
+            industry_key=key,
         )
         if proj.get("ok"):
             budget_result["headline_projection"] = {"ok": True, **public_view(proj)}
@@ -19807,6 +19846,10 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
                         # Industry classification
                         industry_raw = gen_data.get("industry") or ""
+                        # the pick as the client made it: the headline projection
+                        # (_attach_headline_projection) classifies from THIS, as
+                        # the wizard preview does
+                        gen_data["_industry_raw"] = industry_raw
                         company_name = gen_data.get("client_name") or ""
                         roles_list = gen_data.get("target_roles") or gen_data.get(
                             "roles", []
@@ -21898,6 +21941,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # Classify industry using the NAICS engine, supporting both legacy keys
             # (from frontend dropdown) and free-text industry names
             industry_raw = data.get("industry") or ""
+            data["_industry_raw"] = industry_raw  # see _attach_headline_projection
             company_name = (
                 data.get("client_name") or "" or data.get("company_name") or ""
             )

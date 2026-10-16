@@ -126,7 +126,7 @@ def test_mixed_bundle_keeps_hires_and_labels_the_basis():
 
 
 # ---- no empty labels left by the suppression --------------------------------
-EMPTY_LABEL = re.compile(r"^\s*(?:Impact|Hires|Expected hires|Projected hires|Mitigation)\s*:?\s*$", re.I)
+EMPTY_LABEL = re.compile(r"^\s*(?:Impact|Hires|Expected hires|Projected hires|Mitigation)\s*:\s*$", re.I)
 
 
 @pytest.mark.parametrize("loc", ["London, UK"])

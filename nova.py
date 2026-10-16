@@ -10160,8 +10160,12 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             # raise AttributeError / TypeError on a NoneType value.
             result["country"] = "cross-market"
             result["scope"] = "cross-market"
+        # The tool's budget is US dollars (its schema says so) and is priced as
+        # such everywhere below: `currency` names the money the figures are in;
+        # the market's own currency is reported separately.
+        result["currency"] = "USD"
         if _budget_currency != "USD":
-            result["currency"] = _budget_currency
+            result["market_currency"] = _budget_currency
 
         # ONE projection engine (plan_projection.project_plan): the same call the
         # wizard's /api/estimate and the Quick Plan make, so a brief reads the same
@@ -10221,9 +10225,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     "locations": loc_briefs,
                     "industry": industry,
                     "target_hires": target_hires,
+                    "budget_text": f"${budget:,.0f}",
                 },
                 channel_percentages=channel_pcts,
                 knowledge_base=kb or None,
+                # the tool's budget is US dollars (its schema says so): declare
+                # it so a non-US location never silently re-prices it in local money
+                plan_currency="USD",
             )
             if not proj.get("ok"):
                 raise ValueError(proj.get("error") or "projection failed")

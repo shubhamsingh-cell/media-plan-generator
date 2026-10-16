@@ -142,7 +142,7 @@ def test_region_fold_is_the_generate_rule():
 def test_both_generate_paths_use_the_shared_region_fold():
     src = (APP_JS.parent.parent.parent.parent / "app.py").read_text(encoding="utf-8")
     # sync, async and estimate: three call sites, no inline copies left
-    assert src.count("_apply_target_region(") == 4  # definition + 3 calls
+    assert src.count("_apply_target_region(") == 5  # definition + 3 calls + the headline projection
     assert "_all_us_async" not in src
     assert "Infer from locations if region not explicitly set" not in src
 

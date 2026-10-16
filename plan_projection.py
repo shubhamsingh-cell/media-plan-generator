@@ -430,9 +430,11 @@ def ranges_from_engine_result(
     # -- cost per application / applications --------------------------------
     # The KB's cost-per-application ranges are US$: they are only comparable
     # with a USD plan (never an FX guess against a local-currency CPA).
+    # ... and only meaningful where the market IS the US benchmark's market: a
+    # plan with no US market (even one priced in dollars) gets no US band.
     kb_cpa = (
         kb_cpa_range(industry_key, role_titles, knowledge_base)
-        if plan_ccy == "USD"
+        if plan_ccy == "USD" and not non_us_market
         else None
     )
     cpa_lo, cpa_hi, cpa_note = _cpa_range(cpa_engine, kb_cpa)
@@ -440,6 +442,11 @@ def ranges_from_engine_result(
         notes.append(
             "Cost per application is a single estimate: the industry benchmark "
             f"range is in US$ and this plan is priced in {plan_ccy}."
+        )
+    elif non_us_market and cpa_engine > 0:
+        notes.append(
+            "Cost per application is a single estimate: the industry benchmark "
+            "range is a US figure \u2014 no local data for this market."
         )
     if cpa_note:
         notes.append(cpa_note)
@@ -462,6 +469,12 @@ def ranges_from_engine_result(
     icph = meta.get("industry_cph") if isinstance(meta.get("industry_cph"), dict) else {}
     floor = _num(meta.get("cph_benchmark_floor"))
     math_avg = _num(icph.get("math_value")) or _num(icph.get("value")) or _num(meta.get("industry_avg_cph"))
+    # an industry with no cost-per-hire range of its own shows the knowledge
+    # base's row for it: the engine's hires range is anchored on THAT midpoint
+    # (design-judge 2026-10-01 item 3), so the projection must be too
+    _row_mid = _num((icph.get("display_row") or {}).get("mid")) if isinstance(icph.get("display_row"), dict) else None
+    if _row_mid and _row_mid > 0:
+        math_avg = _row_mid
     basis_ccy = str(icph.get("currency") or "USD").upper()
     suppressed = bool(icph.get("claim_suppressed"))
     # a USD benchmark under a non-USD plan with no exchange rate is parity
@@ -697,7 +710,8 @@ def projection_for_alloc(
 
 # A sentence that STATES a projected hire count / cost per hire ...
 _HIRE_CLAIM = re.compile(
-    r"\bprojected\s+(?:to\s+(?:deliver|drive)|hires?\b|[\d,]+\s+hires?)"
+    r"\bprojected\s+(?:to\s+(?:deliver|drive)|[\d,]+\s+hires?)"
+    r"|\bprojected hires?\s+(?:drop|fall|decline|rise|increase|of|at|is|are|will)\b"
     r"|\b[\d,]+\s+projected\s+hires?"
     r"|\bprojects?\s+[\d,]+"
     r"|\bdeliver\s+[\d,]+"

@@ -56,12 +56,17 @@ def test_f1_london_plan_is_the_same_on_wizard_quick_plan_and_nova():
     import quick_plan
 
     role, loc, ind = "Warehouse Associate", "London, UK", "logistics_supply_chain"
-    wiz = _wizard(role, loc, ind, "£60,000")["projection"]
-    quick = quick_plan.generate_quick_plan(role, loc, "£60,000", ind)["total_projected"]["projection"]
+    # all three priced in the SAME money: a typed "$60,000" is dollars in London
+    # (declare, never convert), and Nova's tool budget is US dollars by its schema
+    wiz = _wizard(role, loc, ind, "$60,000")["projection"]
+    quick = quick_plan.generate_quick_plan(role, loc, "$60,000", ind)["total_projected"]["projection"]
     nova = _nova(role, loc, ind, 60000)["projection"]
     assert _band(quick) == _band(wiz), (quick["text"], wiz["text"])
     assert _band(nova) == _band(wiz), (nova["text"], wiz["text"])
-    assert wiz["currency"]["symbol"] == "£"
+    assert wiz["currency"]["symbol"] == "$"
+    # and a typed pound budget is pounds on the wizard and Quick Plan
+    gbp = _wizard(role, loc, ind, "£60,000")["projection"]
+    assert gbp["currency"]["symbol"] == "£" and gbp["text"]["cpa"].startswith("£")
 
 
 # ---- F2: Quick Plan speaks ONE currency ------------------------------------
@@ -195,9 +200,10 @@ def deck_us():
 
 def test_f8_slide6_funnel_totals_and_takeaway_do_not_lead_with_the_point(deck_us):
     joined = " || ".join(deck_us)
-    assert "upper scenario" in joined
+    # (labelled by what it is -- the engine's channel scenario -- not "upper")
+    assert "engine scenario" in joined
     funnel = next(t for t in deck_us if t.startswith("Funnel:"))
-    assert funnel.endswith("(upper scenario)")
+    assert funnel.endswith("(engine scenario)")
     take = next(t for t in deck_us if "Budget engine projects" in t)
     assert DASH in take and "estimated cost per hire" in take and "estimated" in take
     assert "average CPA" not in take
@@ -213,6 +219,7 @@ def test_f9_bundle_headline_ranges_equal_the_estimates_even_with_synthesized_dat
     role, loc, ind = "Registered Nurse", "Columbus, OH", "healthcare_medical"
     est = _wizard(role, loc, ind, "$60,000")
     plan = {"budget": "$60,000", "industry": ind, "client_name": "Acme", "locations": [loc],
+            "target_roles": [role],
             "campaign_start_month": 0, "hire_volume": ""}
     synth = {"ad_platform_analysis": {"google": {"avg_cpc": 4.0}, "meta": {"avg_cpc": 4.0}, "linkedin": {"avg_cpc": 4.0}}}
     kb = load_knowledge_base()
