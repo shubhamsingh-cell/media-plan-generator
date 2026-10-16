@@ -796,7 +796,6 @@
         },
         "cost_per_screen_by_occupation_2025": {
           "science_engineering": "$186",
-          "technology": "$156",
           "finance": "$133",
           "education": "$126",
           "legal": "$119",
@@ -821,7 +820,6 @@
         },
         "cost_per_interview_by_occupation_2025": {
           "science_engineering": "$416",
-          "technology": "$286",
           "education": "$286",
           "finance": "$258",
           "legal": "$220",
@@ -847,7 +845,6 @@
         "cost_per_offer_by_occupation_2025": {
           "science_engineering": "$967",
           "education": "$861",
-          "technology": "$773",
           "legal": "$752",
           "finance": "$749",
           "construction_skilled_trades": "$642",

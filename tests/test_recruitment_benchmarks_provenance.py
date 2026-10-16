@@ -176,6 +176,7 @@ def test_white_paper_nova_source_drops_removed_figures():
         "cost_per_offer_by_occupation_2025",
     ):
         assert "healthcare" not in bm[key], key
+        assert "technology" not in bm[key], key
     # $169 / $366 also occur as OTHER occupations' / a 2022 report's figures,
     # so they are checked against the removed healthcare slots only.
     assert "$169" not in json.dumps(bm["cost_per_screen_by_occupation_2025"])
