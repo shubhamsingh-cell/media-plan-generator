@@ -46,6 +46,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import company_blurb
 import competitor_claims
+import display_format
 import geo_market
 
 logger = logging.getLogger(__name__)
@@ -4072,13 +4073,13 @@ def _validate_location_plausibility(
                 severity = "low"
                 reason = (
                     f"{loc_str} is in a neighboring region ({user_region_display}) "
-                    f"but not in {company_name}'s known operating area."
+                    f"but not in {display_format.possessive(company_name)} known operating area."
                 )
             else:
                 severity = "medium"
                 reason = (
                     f"{loc_str} ({user_region_display}) appears outside "
-                    f"{company_name}'s known operating region"
+                    f"{display_format.possessive(company_name)} known operating region"
                 )
                 if company_hq:
                     reason += f" (HQ: {company_hq})"

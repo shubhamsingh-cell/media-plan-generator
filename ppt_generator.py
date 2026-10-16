@@ -2206,7 +2206,7 @@ def _mark_usd(text: str) -> str:
 
 def _set_font(
     run,
-    size: int = 10,
+    size: float = 10,
     bold: bool = False,
     italic: bool = False,
     color: RGBColor = DARK_TEXT,
@@ -2229,7 +2229,7 @@ def _add_textbox(
     width,
     height,
     text: str = "",
-    font_size: int = 10,
+    font_size: float = 10,
     bold: bool = False,
     italic: bool = False,
     color: RGBColor = DARK_TEXT,
@@ -2429,6 +2429,32 @@ def _fit_font_to_measured_lines(
     while size > min_pt and _measure_lines(text, width_in, size, bold) > max_lines:
         size -= 0.5
     return max(min_pt, size)
+
+
+def _clamp_text_to_measured_lines(
+    text: str,
+    width_in: float,
+    font_pt: float,
+    max_lines: int,
+    bold: bool = False,
+) -> str:
+    """``text`` unchanged when it fits ``max_lines`` at ``font_pt``; otherwise
+    the longest whole-word prefix that fits once an ellipsis is appended.
+
+    The last resort for a line budget that font shrinking alone cannot meet
+    (a free-text label longer than ``max_lines`` lines even at the readability
+    floor): cut on a word boundary, never mid-word, and drop the dangling
+    separator ('--', '·', ',') the cut leaves behind. Real Poppins advances
+    (``_measure_lines``), so what is kept is what actually fits."""
+    words = str(text or "").split()
+    if not words or _measure_lines(" ".join(words), width_in, font_pt, bold) <= max_lines:
+        return " ".join(words)
+    while len(words) > 1:
+        words.pop()
+        head = " ".join(words).rstrip(" ,;:-–—·|")
+        if head and _measure_lines(head + "…", width_in, font_pt, bold) <= max_lines:
+            return head + "…"
+    return words[0]
 
 
 # Big, bold, digit-heavy KPI/hero numerals render noticeably wider than average
@@ -3940,6 +3966,20 @@ def _first_one_line(
     return variants[-1] if variants else ""
 
 
+_INDUSTRY_DETAIL_SPLIT_RE = re.compile(r"\s+[·•|—–-]\s+|\s+\(")
+
+
+def _industry_head_name(industry_label: Any) -> str:
+    """The leading industry name of a (possibly NAICS-suffixed) label:
+    "Food & Beverage · NAICS 311351 -- Chocolate ..." -> "Food & Beverage".
+    Splits on the first spaced separator ('·', '--', '-', '|', '(') so
+    "Wi-Fi Services" keeps its unspaced hyphen; a label with no detail comes
+    back unchanged and an empty one gives "Industry"."""
+    text = " ".join(str(industry_label or "").split())
+    head = _INDUSTRY_DETAIL_SPLIT_RE.split(text, maxsplit=1)[0].strip()
+    return head or text or "Industry"
+
+
 def _currency_basis_note(data: Optional[Dict]) -> str:
     """One-line statement of what currency the deck's figures are in and
     which basis the hire / cost-per-hire projections actually used.
@@ -4460,24 +4500,48 @@ def _build_slide_cover(prs: Presentation, data: Dict):
     # the line directly below it. Also capped to one line itself (a very
     # long industry label at a fixed 18pt could wrap and repeat the same
     # collision one slide element later).
+    #
+    # 2026-10-16 sweep (n3_3m_nametrap, n3b, l_global_pharma): the label
+    # ("Automotive & Manufacturing · NAICS 3363 — Motor Vehicle Parts
+    # Manufacturing", 76 chars) still wrapped onto a second line that printed
+    # straight through the company blurb below. Two defects in the fit above:
+    # it sized the label with the AVERAGE advance (0.53em), which under-counts
+    # real Poppins Regular, and it measured against the box's OUTER 10in
+    # width instead of the 9.8in inside its 0.1in L/R insets. Measure the real
+    # glyphs against the real inner width, in the same 11.8in-wide box the
+    # hero name uses, and budget the lines: one line shrunk toward 12pt, then
+    # (only if 12pt still overflows) up to two lines, then a word-boundary
+    # ellipsis -- the box height follows the measured count and the block
+    # below cascades from its bottom exactly as it does for a wrapped hero.
     _old_industry_bottom_in = 5.0  # previous fixed 4.5 + 0.5in box
     _industry_top_in = max(4.5, _client_bottom_in + 0.08)
     _industry_bottom_in = _old_industry_bottom_in
     if industry_label:
-        _industry_font_pt = _fit_font_single_line(
-            industry_label, 10.0, 18, min_pt=12, char_em=_AVG_CHAR_EM
+        _industry_box_w_in = 11.8
+        _industry_inner_w_in = _industry_box_w_in - 0.2  # 0.1in L/R text insets
+        _industry_font_pt = _fit_font_to_measured_lines(
+            industry_label, _industry_inner_w_in, 18, max_lines=1, min_pt=12
+        )
+        _industry_text = _clamp_text_to_measured_lines(
+            industry_label, _industry_inner_w_in, _industry_font_pt, max_lines=2
+        )
+        _industry_n_lines = _measure_lines(
+            _industry_text, _industry_inner_w_in, _industry_font_pt
+        )
+        _industry_box_h_in = max(
+            0.5, _industry_n_lines * (_industry_font_pt * 1.4) / 72.0 + 0.12
         )
         _add_textbox(
             slide,
             Inches(0.64),
             Inches(_industry_top_in),
-            Inches(10),
-            Inches(0.5),
-            text=industry_label,
+            Inches(_industry_box_w_in),
+            Inches(_industry_box_h_in),
+            text=_industry_text,
             font_size=_industry_font_pt,
             color=TEAL_LIGHT,
         )
-        _industry_bottom_in = _industry_top_in + 0.5
+        _industry_bottom_in = _industry_top_in + _industry_box_h_in
 
     # Every element below the industry line keeps its ORIGINAL relative
     # spacing -- shift the whole block down by exactly however far the hero/
@@ -4722,7 +4786,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     action_text = (
         f"Nova AI Suite's programmatic strategy targets {role_summary} across "
         f"{loc_text} to optimize "
-        f"{client}'s recruitment spend in {industry_label}{temp_qualifier}"
+        f"{_fmt.possessive(client)} recruitment spend in {industry_label}{temp_qualifier}"
     )
     # O1: measure-then-place. The box is 0.6in tall = 2 lines at 15pt; long
     # client/industry strings (e.g. "Pratt & Whitney New Zealand ... Aerospace &
@@ -5803,7 +5867,7 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
     else:
         action_text = (
             f"Optimized {n_cats}-channel mix delivers targeted reach for "
-            f"{client}'s {industry_label} hiring priorities with data-driven allocation"
+            f"{_fmt.possessive(client)} {industry_label} hiring priorities with data-driven allocation"
         )
     # S6-13: this subhead sat in a fixed 0.50in one-line box at a constant
     # 15pt, but the insight-rich sentence (client name + industry label +
@@ -6297,14 +6361,41 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         color=WHITE,
         anchor=MSO_ANCHOR.MIDDLE,
     )
+    # The value-column header names the industry the ranges describe. The
+    # label the pipeline hands over is often NAICS-suffixed ("Food & Beverage
+    # · NAICS 311351 — Chocolate and Confectionery Manufacturing from Cacao
+    # Beans"), which wrapped to three lines in this 2.3in-wide, 0.38in-tall
+    # cell and was clipped by the first body row (2026-10-16 sweep,
+    # a_hershey; 17 of 26 sweep decks wrapped it to 2-4 lines). The header
+    # has ONE line of room: take the first candidate that measures onto one
+    # bold line -- the full label at 9pt, the leading industry name at 9pt,
+    # then that name stepping down to the 8pt floor ("Automotive &
+    # Manufacturing Range" needs 8.5pt), and only then the bare word -- so it
+    # can never wrap, whatever the label's length. The NAICS detail is
+    # already on the cover and the slide subtitle.
+    _bench_header_w_in = (Inches(2.5) / 914400) - 0.2
+    _bench_head_name = _industry_head_name(industry_label)
+    _bench_header_candidates: List[Tuple[str, float]] = []
+    if str(industry_label or "").strip():
+        _bench_header_candidates = [
+            (f"{industry_label} Range", 9.0),
+            (f"{_bench_head_name} Range", 9.0),
+            (f"{_bench_head_name} Range", 8.5),
+            (f"{_bench_head_name} Range", 8.0),
+        ]
+    _bench_header_val, _bench_header_pt = "Industry Range", 9.0
+    for _cand_text, _cand_pt in _bench_header_candidates:
+        if _fits_one_line(_cand_text, _bench_header_w_in, _cand_pt, bold=True):
+            _bench_header_val, _bench_header_pt = _cand_text, _cand_pt
+            break
     _add_textbox(
         slide,
         table_left + Inches(2.4),
         table_top,
         Inches(2.5),
         row_h,
-        text=f"{industry_label} Range",
-        font_size=9,
+        text=_bench_header_val,
+        font_size=_bench_header_pt,
         bold=True,
         color=WHITE,
         anchor=MSO_ANCHOR.MIDDLE,
@@ -6679,7 +6770,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     n_channels = len(display_channels_funded)
     action_text = (
         f"Projected quality outcomes across {n_channels} optimized channels "
-        f"for {client}'s programmatic media plan"
+        f"for {_fmt.possessive(client)} programmatic media plan"
     )
     _add_textbox(
         slide,
@@ -7132,7 +7223,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     # Build insight text using real data when available
     if real_avg_cpa and real_avg_cpa > 0:
         insight_text = (
-            f"Nova AI Suite's programmatic approach distributes {client}'s budget across "
+            f"Nova AI Suite's programmatic approach distributes {_fmt.possessive(client)} budget across "
             f"{n_channels} optimized channels with ML-driven bid management, "
             f"projecting ${real_avg_cpa:,.0f} avg CPA (vs. industry benchmark ${benchmark_avg_cpa:.0f}). "
             f"Quality-focused optimization (CPQA) ensures spend is directed toward "
@@ -7140,7 +7231,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
         )
     else:
         insight_text = (
-            f"Nova AI Suite's programmatic approach distributes {client}'s budget across "
+            f"Nova AI Suite's programmatic approach distributes {_fmt.possessive(client)} budget across "
             f"{n_channels} optimized channels with ML-driven bid management, "
             f"projecting {efficiency_improvement}% CPA improvement over manual posting. "
             f"Quality-focused optimization (CPQA) ensures spend is directed toward "
@@ -7660,18 +7751,18 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
             )
         insight_text += (
             f". At {int(proj_hires):,} projected hires, "
-            f"{client}'s investment yields strong programmatic ROI "
+            f"{_fmt.possessive(client)} investment yields strong programmatic ROI "
             f"through ML-driven bid optimization."
         )
     elif ba_total_budget > 0:
         insight_text = (
-            f"{client}'s {_cur}{ba_total_budget:,.0f} investment is distributed across "
+            f"{_fmt.possessive(client)} {_cur}{ba_total_budget:,.0f} investment is distributed across "
             f"{n_channels} channels using Nova AI Suite's programmatic optimization engine, "
             f"maximizing reach and conversion through real-time bid management."
         )
     else:
         insight_text = (
-            f"Nova AI Suite's programmatic engine distributes {client}'s budget across "
+            f"Nova AI Suite's programmatic engine distributes {_fmt.possessive(client)} budget across "
             f"{n_channels} optimized channels with ML-driven bid management, "
             f"ensuring maximum ROI through continuous performance optimization."
         )
@@ -7930,7 +8021,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
 
     # Action title
     action_text = (
-        f"{client}'s optimized media plan vs. {industry_label} industry averages "
+        f"{_fmt.possessive(client)} optimized media plan vs. {industry_label} industry averages "
         f"with phased implementation roadmap"
     )
     # C12 fix: this subhead sat in a fixed 0.92in/0.45in one-line box at a
@@ -8264,7 +8355,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     # growing the box (which would require reflowing every comparison row
     # beneath it) -- same real-glyph-metric helper the cover slide's client
     # name already uses, so the common short-name case renders identically.
-    _left_header_text = f"\u2b22  {client}'s Plan"
+    _left_header_text = f"\u2b22  {_fmt.possessive(client)} Plan"
     _left_header_pt = _fit_font_to_measured_lines(
         _left_header_text,
         (panel_w / 914400) - 0.4,
@@ -9107,8 +9198,18 @@ def _compose_competitor_why(
         if isinstance(ordinal, (int, float)) and not isinstance(ordinal, bool)
         else 0
     )
-    return templates[idx].format(
-        name=name, pool=pool, type_phrase=type_phrase, article=article
+    # A template may open a possessive ("{name}'s scale ..."); bolting 's onto
+    # a name that already ends in 's/'s printed "Lowe's's" / "Barclays's".
+    # The raw templates keep their plain {name} field (they are public
+    # constants other code formats directly); the possessive is swapped in
+    # here, where the name is known.
+    template = templates[idx].replace("{name}'s", "{name_possessive}")
+    return template.format(
+        name=name,
+        name_possessive=_fmt.possessive(name),
+        pool=pool,
+        type_phrase=type_phrase,
+        article=article,
     )
 
 
@@ -9344,7 +9445,7 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
 
         action_text = (
             f"Market positioning and competitor intelligence for "
-            f"{client}'s talent acquisition strategy in {industry_label}"
+            f"{_fmt.possessive(client)} talent acquisition strategy in {industry_label}"
         )
         # C10/C11-C12 class fix (slide 7): this subhead sat in a fixed
         # 0.92in/0.5in box with COMPANY PROFILE pinned to a fixed
@@ -10305,7 +10406,7 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
             Inches(0.92),
             Inches(12.2),
             Inches(0.45),
-            text=f"Strategic risk assessment for {client}'s recruitment campaign",
+            text=f"Strategic risk assessment for {_fmt.possessive(client)} recruitment campaign",
             font_size=15,
             bold=True,
             color=NAVY,
@@ -10501,7 +10602,7 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
                         "Competitive Landscape",
                         f"{_top_competitor} and similar employers may increase "
                         f"hiring activity during the campaign period",
-                        f"Monitor {_top_competitor}'s job posting volumes weekly; "
+                        f"Monitor {_fmt.possessive(_top_competitor)} job posting volumes weekly; "
                         f"adjust messaging",
                     )
                 )
@@ -11520,10 +11621,10 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
         Inches(12.2),
         Inches(0.45),
         text=(
-            f"Tier, difficulty, and channel emphasis across {client}'s "
+            f"Tier, difficulty, and channel emphasis across {_fmt.possessive(client)} "
             f"{len(rows)} target roles"
             if _all_salary_withheld
-            else f"Tier, salary band, and channel emphasis across {client}'s "
+            else f"Tier, salary band, and channel emphasis across {_fmt.possessive(client)} "
             f"{len(rows)} target roles"
         ),
         font_size=15,
@@ -11952,7 +12053,7 @@ def _build_slide_why_joveo(prs: Presentation, data: Dict, deck: Dict) -> None:
         Inches(0.92),
         Inches(12.2),
         Inches(0.45),
-        text=f"Why Joveo is the right partner for {client}'s {industry_label} hiring at scale",
+        text=f"Why Joveo is the right partner for {_fmt.possessive(client)} {industry_label} hiring at scale",
         font_size=13,
         italic=True,
         color=BLUE,
@@ -12027,7 +12128,7 @@ def _build_slide_why_joveo(prs: Presentation, data: Dict, deck: Dict) -> None:
     _callout_top_in = min(6.5, _grid_bottom_in + 0.35)
     _inv_callout(
         slide,
-        f"One managed partner, one tracked funnel — built to scale {client}'s hiring "
+        f"One managed partner, one tracked funnel — built to scale {_fmt.possessive(client)} hiring "
         f"with a predictable cost-per-hire.",
         top=_callout_top_in,
     )
@@ -12179,11 +12280,11 @@ def _interpolate_next_steps(steps: List[Any], data: Dict) -> List[str]:
                 f"Finalize weekly budget ({budget_duration_paren}) and success metrics"
             )
         elif "integrate the client job feed" in low and client:
-            text = f"Integrate {client}'s job feed with the Joveo platform"
+            text = f"Integrate {_fmt.possessive(client)} job feed with the Joveo platform"
         elif "launch campaign within" in low and budget_duration_dash:
             text = f"Launch within 2 business weeks of feed integration — {budget_duration_dash}"
         elif "30-day review" in low and client:
-            text = f"30-day review: CPA actuals, pipeline quality, {client}'s scale-up recommendation"
+            text = f"30-day review: CPA actuals, pipeline quality, {_fmt.possessive(client)} scale-up recommendation"
         out.append(text)
     return out
 

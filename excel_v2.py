@@ -12150,7 +12150,7 @@ def _build_sheet_quality_intelligence(
                 else:
                     why_matter = (
                         f"Lower competition in {city_name} — favorable market for "
-                        f"{client_name_qs}'s talent acquisition"
+                        f"{display_format.possessive(client_name_qs)} talent acquisition"
                     )
 
                 # Generate counter-strategy.

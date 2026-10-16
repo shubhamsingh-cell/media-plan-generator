@@ -643,6 +643,50 @@ def client_display_name(raw: str | None) -> str:
     return result
 
 
+# A name that already carries its own possessive-looking ending: a straight or
+# typographic apostrophe followed by 's' / 'S' ("McDonald's", "Kohl’s",
+# "DENNY'S").
+_ALREADY_POSSESSIVE_RE = re.compile(r"['’ʼ][sS]$")
+_APOSTROPHES = "'’ʼ"
+
+
+def possessive(name: Any) -> str:
+    """The possessive form of a client / company name: 'Joveo' -> "Joveo's".
+
+    Every ``f"{client}'s ..."`` in the deck and workbook used to bolt a bare
+    ``'s`` onto whatever name arrived, which printed "McDonald's's",
+    "Brightway Home Stores's", "Barclays's" and "Werner Enterprises's" on
+    client-facing slides (2026-10-16 sweep: ~100 hits across 10 of 26
+    bundles). One rule, applied in this order, on the name with surrounding
+    whitespace removed:
+
+    1. Empty, ``None`` or whitespace-only -> ``""`` (never a stray "'s").
+    2. Already ends in an apostrophe + 's'/'S' ("McDonald's", "Macy's",
+       "Kohl's", "DENNY'S", typographic apostrophe too) -> unchanged: the
+       name is already in possessive form, and "McDonald's's" is the bug.
+    3. Already ends in a bare apostrophe ("Stores'") -> unchanged.
+    4. Ends in 's' or 'S' ("Stores", "Services", "Barclays", "UPS") -> add a
+       bare apostrophe: "Stores'", "Barclays'", "UPS'". (Plural-looking and
+       s-final singular names read the same way and cannot be told apart
+       from the string alone, so both take the apostrophe-only form.)
+    5. Anything else -> add "'s": "Joveo's", "3M's", "AT&T's".
+
+    The text before the suffix is returned exactly as given (no recasing --
+    :func:`client_display_name` owns casing), so the function is idempotent:
+    ``possessive(possessive(x)) == possessive(x)``.
+    """
+    if name is None:
+        return ""
+    text = (name if isinstance(name, str) else str(name)).strip()
+    if not text:
+        return ""
+    if _ALREADY_POSSESSIVE_RE.search(text) or text[-1] in _APOSTROPHES:
+        return text
+    if text[-1] in "sS":
+        return text + "'"
+    return text + "'s"
+
+
 # ---------------------------------------------------------------------------
 # Money / percent / count formatting
 # ---------------------------------------------------------------------------
