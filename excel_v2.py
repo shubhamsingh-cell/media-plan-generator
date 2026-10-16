@@ -2683,6 +2683,15 @@ def _is_us_plan(data: dict) -> bool:
     return plan_geo.is_us_plan(data)
 
 
+def _niche_boards_selected(data: dict) -> bool:
+    """False when the user explicitly unticked the Niche Boards channel
+    category -- the same rule app.py's funding gate applies (see
+    gold_standard.deselected_channel_categories). Every niche-board surface
+    in the workbook (Sheet 9, the Channels sheet's niche section) keys off
+    this, so a deselected channel is never recommended."""
+    return "niche_boards" not in gs_lib.deselected_channel_categories(data)
+
+
 def _non_us_signals(data: dict) -> List[str]:
     """Location strings that drove ``_is_us_plan`` to False, for honest
     non-US messaging. Thin delegate to :func:`plan_geo.non_us_signals`."""
@@ -7657,8 +7666,12 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
     # for other industries). Never ship it on a non-US plan -- fall back to a
     # clearly-labeled reference-framework note instead of fabricating local
     # board data we don't have.
+    # A plan whose user unticked Niche Boards gets no niche section at all.
+    _niche_selected = _niche_boards_selected(data)
     niche_channels = (
-        _industry_niche_boards_for_roles(industry, roles) if _is_us_plan(data) else []
+        _industry_niche_boards_for_roles(industry, roles)
+        if _niche_selected and _is_us_plan(data)
+        else []
     )
 
     if niche_channels:
@@ -7674,7 +7687,11 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 "High - Specialized for " + industry_label,
             ]
             row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
-    elif INDUSTRY_NICHE_CHANNELS.get(industry) and not _is_us_plan(data):
+    elif (
+        _niche_selected
+        and INDUSTRY_NICHE_CHANNELS.get(industry)
+        and not _is_us_plan(data)
+    ):
         # INCIDENT FIX: this note used to claim "Local specialty board data
         # was not available for this campaign" -- false. The same workbook's
         # Intl Benchmarks sheet lists top local job boards for every one of
@@ -9894,6 +9911,57 @@ def _build_warehouse_provenance(ws, data: dict, row: int) -> int:
     return row
 
 
+def _client_history_note_text(data: dict) -> str:
+    """One-line summary of the client's uploaded campaign history
+    (``data["historical_performance"]``, from file_processor
+    .parse_historical_data) exactly as provided, or "" when the plan carries
+    none. Spend is printed without a currency symbol: the upload declares no
+    currency, and none may be assumed. User-supplied names (files,
+    platforms) never lead the text, so the cell cannot start with "="."""
+    hist = data.get("historical_performance")
+    if not isinstance(hist, dict):
+        return ""
+    platforms = hist.get("platforms")
+    names = (
+        [str(p).strip() for p in platforms if str(p).strip()]
+        if isinstance(platforms, dict)
+        else []
+    )
+    apps = int(_safe_num(hist.get("total_applications")))
+    hires = int(_safe_num(hist.get("total_hires")))
+    spend = _safe_num(hist.get("total_spend"))
+    if not names and not (apps or hires or spend):
+        return ""
+    parts: list[str] = []
+    if names:
+        shown = ", ".join(names[:4]) + (", ..." if len(names) > 4 else "")
+        parts.append(f"{len(names)} platform{'s' if len(names) != 1 else ''} ({shown})")
+    if apps:
+        parts.append(f"{apps:,} applications")
+    if hires:
+        parts.append(f"{hires:,} hires")
+    if spend:
+        parts.append(f"reported spend {spend:,.0f} (in the upload's own currency)")
+    files = [
+        str(f).strip()
+        for f in (hist.get("source_files") or [])
+        if isinstance(f, str) and f.strip()
+    ]
+    text = ", ".join(parts)
+    if files:
+        text += " -- from " + ", ".join(files[:3]) + (", ..." if len(files) > 3 else "")
+    return text + ". Reference only; not used to adjust this plan's projections."
+
+
+def _write_client_history_note(ws, data: dict, row: int) -> int:
+    """Methodology footnote row with the client's history as provided --
+    written only when the plan carries uploaded history."""
+    text = _client_history_note_text(data)
+    if not text:
+        return row
+    return _write_kv_row(ws, row, "Client history (as provided)", text)
+
+
 def _build_sheet_sources(ws, data: dict):
     """Build Sheet 4: Sources & Data Confidence."""
     ws.title = "Sources & Confidence"
@@ -10226,30 +10294,39 @@ def _build_sheet_sources(ws, data: dict):
     # ── 6. Methodology Notes ──
     row = _write_section_header(ws, row, "Methodology & Data Hierarchy")
 
+    # 2026-10-16: this used to rank "Client Data (uploaded briefs, historical
+    # campaign data)" first with "takes highest precedence" -- false. The
+    # uploaded history (data["historical_performance"], parsed in app.py) is
+    # read by no live generator: projections come from the market data and
+    # benchmarks below. Say so, and show the history as provided only when
+    # the plan carries it (_write_client_history_note).
     methodology_items = [
         (
-            "Priority 1: Client Data",
-            "Client-provided data (uploaded briefs, historical campaign data) takes highest precedence.",
-        ),
-        (
-            "Priority 2: Real-Time Market Data",
+            "Priority 1: Real-Time Market Data",
             "Real-time data from multiple validated government, industry, and market sources "
             "provides current market signals.",
         ),
         (
-            "Priority 3: Industry Benchmarks",
+            "Priority 2: Industry Benchmarks",
             "Curated industry benchmarks and validated reports provide "
             "baseline data for cost and performance estimates.",
         ),
         (
-            "Priority 4: Curated Fallbacks",
+            "Priority 3: Curated Fallbacks",
             "Embedded fallback data ensures coverage when real-time sources "
             "are temporarily unavailable.",
+        ),
+        (
+            "Client History",
+            "Uploaded historical campaign data is stored with the plan and shown "
+            "for reference only. Projections use the market data and benchmarks "
+            "above; they are not adjusted to client history.",
         ),
     ]
 
     for key, desc in methodology_items:
         row = _write_kv_row(ws, row, key, desc)
+    row = _write_client_history_note(ws, data, row)
 
     row += 1
 
@@ -12052,7 +12129,11 @@ def _build_sheet_quality_intelligence(
                         f"{role_info.get('avg_time_to_fill_days', 0)} days",
                         loc_display,
                         f"{role_info.get('budget_weight', 1.0):.1f}x",
-                        str(role_info.get("channel_emphasis") or "")
+                        # Re-gated at render (idempotent) so a stored
+                        # framework never names a channel the user unticked.
+                        gs_lib.selected_channel_emphasis(
+                            str(role_info.get("channel_emphasis") or ""), data
+                        )
                         .replace("_", " ")
                         .title(),
                         str(role_info.get("description") or ""),
@@ -14615,16 +14696,25 @@ def _generate_excel_v2_inner(
             row=2, column=2, value=f"Error generating Confidence Intervals sheet: {exc}"
         ).font = _FONT_BODY
 
-    # ── Sheet 9: Niche Board Matching ──
-    ws9 = wb.create_sheet()
-    try:
-        _build_sheet_niche_board_matching(ws9, data)
-    except Exception as exc:
-        logger.error("Sheet 9 (Niche Board Matching) failed: %s", exc, exc_info=True)
-        ws9.title = "Niche Board Matching"
-        ws9.cell(
-            row=2, column=2, value=f"Error generating Niche Board Matching sheet: {exc}"
-        ).font = _FONT_BODY
+    # ── Sheet 9: Niche Board Matching (only when niche boards are selected) ──
+    # 2026-10-16: built unconditionally, so a plan whose user unticked Niche
+    # Boards (and whose funding already excludes them) still shipped a whole
+    # sheet recommending niche boards. Same conditional-sheet pattern as
+    # sheets 6/10/11; nothing downstream depends on the sheet existing.
+    if _niche_boards_selected(data):
+        ws9 = wb.create_sheet()
+        try:
+            _build_sheet_niche_board_matching(ws9, data)
+        except Exception as exc:
+            logger.error(
+                "Sheet 9 (Niche Board Matching) failed: %s", exc, exc_info=True
+            )
+            ws9.title = "Niche Board Matching"
+            ws9.cell(
+                row=2,
+                column=2,
+                value=f"Error generating Niche Board Matching sheet: {exc}",
+            ).font = _FONT_BODY
 
     # ── Sheet 10: Channel Recommendations (S48; reconciled in O2) ──
     # O2 (2026-07-03): this sheet now derives entirely from the shared

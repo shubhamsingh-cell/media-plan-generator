@@ -3769,6 +3769,70 @@ _DIFFICULTY_PROFILES: dict[str, dict[str, Any]] = {
 }
 
 
+def deselected_channel_categories(data: Any) -> frozenset[str]:
+    """Channel categories (``niche_boards``, ``global_boards``, ...) the user
+    explicitly turned OFF in ``data["channel_categories"]``.
+
+    Same convention as app.py's funding gate (``_apply_channel_selection``):
+    only an explicit ``False`` -- or the stringified ``"False"`` the old
+    request sanitizer produced -- is an off; an absent/omitted dict means
+    "no selection" (Nova's recommended mix). Every toggle off is also "no
+    selection": the funding gate and the deck's ``_selected_channels`` both
+    fall back to the full mix then, so nothing counts as deselected.
+    """
+    cats = data.get("channel_categories") if isinstance(data, dict) else None
+    if not isinstance(cats, dict) or not cats:
+        return frozenset()
+    off = {
+        k
+        for k, v in cats.items()
+        if v is False or (isinstance(v, str) and v.strip().lower() == "false")
+    }
+    if len(off) == len(cats):
+        return frozenset()
+    return frozenset(off)
+
+
+# Role-table channel emphasis -> the wizard channel categories that deliver
+# it. "balanced", "executive_search" and "campus_recruiting" name no wizard
+# category (nothing a user can untick), so they are never remapped.
+_EMPHASIS_CATEGORIES: dict[str, tuple[str, ...]] = {
+    "niche_boards": ("niche_boards",),
+    "job_boards": ("global_boards", "regional_boards"),
+    "programmatic": ("programmatic_dsp",),
+    "social_media": ("social_media",),
+}
+# Nearest still-selected emphasis, in order; "balanced" names no channel.
+_EMPHASIS_FALLBACKS: dict[str, tuple[str, ...]] = {
+    "niche_boards": ("job_boards", "programmatic", "social_media"),
+    "job_boards": ("programmatic", "social_media"),
+    "programmatic": ("job_boards", "social_media"),
+    "social_media": ("job_boards", "programmatic"),
+}
+
+
+def _emphasis_available(emphasis: str, off: frozenset[str]) -> bool:
+    cats = _EMPHASIS_CATEGORIES.get(emphasis)
+    return cats is None or any(c not in off for c in cats)
+
+
+def selected_channel_emphasis(emphasis: str, data: Any) -> str:
+    """``emphasis`` unless the plan deselected every channel category that
+    delivers it; then the nearest still-selected emphasis, else
+    ``"balanced"``. A role table must never steer a role to a channel the
+    user unticked (2026-10-16: a plan without niche boards still printed
+    "Niche / Industry Boards" for its hardest roles). Idempotent, so the
+    deck/workbook renderers can re-apply it to a stored framework."""
+    emphasis = str(emphasis or "")
+    off = deselected_channel_categories(data)
+    if not off or _emphasis_available(emphasis, off):
+        return emphasis
+    for alt in _EMPHASIS_FALLBACKS.get(emphasis, ()):
+        if _emphasis_available(alt, off):
+            return alt
+    return "balanced"
+
+
 def classify_difficulty(data: dict) -> list[dict[str, Any]]:
     """Classify each role by seniority and difficulty using role-type profiles.
 
@@ -3828,6 +3892,7 @@ def classify_difficulty(data: dict) -> list[dict[str, Any]]:
             else:
                 budget_weight = 0.6
                 channel_emphasis = "job_boards"
+            channel_emphasis = selected_channel_emphasis(channel_emphasis, data)
 
             # Upgrade supply level if location modifier pushes difficulty up
             if loc_modifier >= 1.0 and supply == "moderate":
@@ -3897,6 +3962,12 @@ def classify_difficulty(data: dict) -> list[dict[str, Any]]:
                 )
 
             adjusted_complexity = max(1.0, min(10.0, base_complexity + loc_modifier))
+
+            # Same channel-selection gate as the role-profile branch; the
+            # senior profile's description names niche channels outright.
+            channel_emphasis = selected_channel_emphasis(channel_emphasis, data)
+            if "niche_boards" in deselected_channel_categories(data):
+                description = description.replace(", niche channels", "")
 
             # Derive supply level from adjusted complexity
             if adjusted_complexity >= 9:
@@ -5155,6 +5226,57 @@ def _events_for_industry(events: list[str], ind_key: str) -> list[str]:
     return [e for e in events if _GENERIC_EVENT_INDUSTRY.get(e) in (None, ind_key)]
 
 
+# US public holidays and US school-holiday vocabulary the calendar tables
+# above name (Memorial Day, Thanksgiving, "July 4", Spring break ...). They
+# time the US labour market only; a plan with no US market must not cite
+# them. The repo has no structured per-country holiday dataset (only
+# free-text seasonal notes in international_benchmarks_2026.json), so a
+# non-US plan gets no holiday rows rather than borrowed or invented ones.
+# us_only_markers (bundle_qa's ``us_data_on_non_us_plan`` vocabulary) is
+# checked too, so the generator never emits a holiday the gate flags.
+_US_HOLIDAY_RE = re.compile(
+    r"\b(?:memorial\s+day|thanksgiving|july\s+4(?:th)?|fourth\s+of\s+july|"
+    r"independence\s+day|labor\s+day|veterans\s+day|juneteenth|"
+    r"presidents'?\s+day|columbus\s+day|martin\s+luther\s+king|mlk\s+day|"
+    r"spring\s+break)\b",
+    re.IGNORECASE,
+)
+_PARENTHETICAL_RE = re.compile(r"\s*\([^()]*\)")
+
+
+def _names_us_holiday(text: str) -> bool:
+    if _US_HOLIDAY_RE.search(text):
+        return True
+    try:
+        import us_only_markers
+
+        return us_only_markers.has_us_only_marker(text)
+    except ImportError:  # pragma: no cover - ships with the repo
+        return False
+
+
+def _without_us_holidays(events: list[str]) -> list[str]:
+    """Drop events that name a US holiday; an event that names one only in
+    a parenthetical aside keeps its claim minus the aside ("Summer plant
+    shutdown / maintenance week (often around July 4)" -> "Summer plant
+    shutdown / maintenance week")."""
+    kept: list[str] = []
+    for event in events:
+        text = _PARENTHETICAL_RE.sub(
+            lambda m: "" if _names_us_holiday(m.group(0)) else m.group(0),
+            str(event),
+        ).strip()
+        if text and not _names_us_holiday(text):
+            kept.append(text)
+    return kept
+
+
+def _plan_has_us_market_gs(data: dict) -> bool:
+    if _plan_geo_gs is None:  # pragma: no cover - plan_geo ships with the repo
+        return True
+    return _plan_geo_gs.plan_has_us_market(data)
+
+
 def _events_agreeing_with_label(events: list[str], hiring_intensity: str) -> list[str]:
     """Drop an event whose text claims a "peak" in a month the calendar
     itself labels moderate or low (Hershey: "Holiday production peak" in a
@@ -5399,6 +5521,10 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
     # The window is the stated whole months, else the months the campaign
     # weeks reach; 12 when the length is unknown.
     window_months = campaign_window_months(data, campaign_month)
+    # US holidays only when the plan has a US market (2026-10-16: a London
+    # hospitality plan listed "Memorial Day staffing" and "Thanksgiving
+    # staffing surge"; a Munich plant plan "(often around July 4)").
+    _has_us_market = _plan_has_us_market_gs(data)
     timeline: list[dict[str, Any]] = []
     for offset in range(window_months):
         month_num = ((campaign_month - 1 + offset) % 12) + 1
@@ -5462,6 +5588,9 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
             recommendation = _INDUSTRY_MONTH_RECOMMENDATION.get(
                 (ind_key, month_num), month_info["recommendation"]
             )
+
+        if not _has_us_market:
+            month_events = _without_us_holidays(list(month_events or []))
 
         timeline.append(
             {
@@ -5557,6 +5686,8 @@ def build_activation_calendar(data: dict) -> dict[str, Any]:
         _INDUSTRY_EVENTS_SUMMARY.get(ind_key, []),
         {m["month"] for m in timeline},
     )
+    if not _has_us_market:
+        industry_events = _without_us_holidays(industry_events)
 
     budget_phasing_note = _phasing_note_from_timeline(timeline)
     if _subvertical_profile:

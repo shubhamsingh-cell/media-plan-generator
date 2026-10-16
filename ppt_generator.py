@@ -11294,9 +11294,13 @@ def _build_slide_role_breakdown(prs: Presentation, data: Dict) -> None:
         if not d:
             continue
         tier = _fmt.smart_title(str(d.get("seniority_level") or ""))
-        emphasis = _fmt.channel_label(
-            str(d.get("channel_emphasis") or "")
-        ) or _fmt.smart_title(str(d.get("channel_emphasis") or ""))
+        # Never name a channel category the user unticked (2026-10-16: a
+        # plan without niche boards printed "Niche / Industry Boards" for
+        # its hardest roles). Idempotent re-gate of the stored framework.
+        _emph_key = _gold_standard.selected_channel_emphasis(
+            str(d.get("channel_emphasis") or ""), data
+        )
+        emphasis = _fmt.channel_label(_emph_key) or _fmt.smart_title(_emph_key)
         # consistency:atria#2: read the SAME per_role_salary data the
         # workbook renders, not the (often-empty) _enriched.salary_data.
         median, is_estimated = _role_breakdown_median_salary(gold, title)
