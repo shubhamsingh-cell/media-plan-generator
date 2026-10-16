@@ -41,6 +41,14 @@ except ImportError:  # pragma: no cover - plan_geo ships with the repo
         return None
 
 
+try:
+    from plan_currency import is_canadian_province as _is_canadian_province
+except ImportError:  # pragma: no cover - plan_currency ships with the repo
+
+    def _is_canadian_province(token: Any) -> bool:
+        return False
+
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -268,6 +276,10 @@ def _normalize_country(country: str | None) -> str | None:
         last = key.rsplit(",", 1)[-1].strip()
         if last in _COUNTRY_TO_SLUG:
             return _COUNTRY_TO_SLUG[last]
+        # "Toronto, ON" / "Calgary, Alberta": a Canadian province is Canada
+        # (plan_currency reads it as CAD; this table used to return None).
+        if _is_canadian_province(last):
+            return "canada"
     if key in _COUNTRY_TO_SLUG:
         return _COUNTRY_TO_SLUG[key]
     # Substring fallback ONLY for aliases >= 5 chars to avoid spurious
@@ -1012,7 +1024,16 @@ def _normalize_country_2026(country: str | None) -> str | None:
     if "," in key:
         last = key.rsplit(",", 1)[-1].strip()
         if last and last != key:
-            return _normalize_country_2026(last)
+            slug = _normalize_country_2026(last)
+            # "Toronto, ON" / "Vancouver, BC": the trailing token is a
+            # Canadian province, which is Canada -- the same reading
+            # plan_currency gives the plan (CAD). Without it a CAD plan found
+            # no locale CPC basis, so budget_engine priced CAD budgets with
+            # unconverted US CPCs and the workbook printed a bare-"$" CPC beside
+            # "C$" amounts (sweep 2026-10-16 #8).
+            if slug is None and _is_canadian_province(last) and "canada" in countries:
+                return "canada"
+            return slug
     return None
 
 

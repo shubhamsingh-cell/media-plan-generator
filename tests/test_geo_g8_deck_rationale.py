@@ -27,7 +27,10 @@ def _rows(locations):
 
 def test_fallback_or_state_level_rows_never_justify_a_market_choice():
     rows = _rows(["Remote", "Hershey, PA", "Philadelphia, PA"])
-    assert insight_composer.geography_rationale("Remote", rows["Remote"]) == (
+    # A remote marker gets no city row at all (sweep 2026-10-16 #9) -- it is
+    # a work mode, not a market -- so nothing can justify it as one.
+    assert "Remote" not in rows
+    assert insight_composer.geography_rationale("Remote", {}) == (
         "Remote was selected by client footprint."
     )
     assert insight_composer.geography_rationale("Hershey, PA", rows["Hershey"]) == (

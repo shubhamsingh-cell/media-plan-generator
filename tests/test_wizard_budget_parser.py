@@ -255,8 +255,9 @@ def test_budget_field_and_review_state_the_planned_figure():
         "Planning at \u20ac50,000.50",
         "Planning at $50,000. Your amount says per month; set the period to"
         " \u201cPer month\u201d if that's what you mean.",
-        "Planning at $50,000 \u2014 plan currency is USD for your locations;"
-        " \u201cEUR\u201d isn\u2019t read as a currency symbol",
+        # a typed ISO code is a declaration (sweep 2026-10-16 #12): "EUR
+        # 50,000" for a Dallas plan is a EUR plan, as "€50,000" is
+        "Planning at \u20ac50,000",
         "Planning at $50,000 \u2014 plan currency is USD for your locations;"
         " \u201cEUROS\u201d isn\u2019t read as a currency symbol",
         # bare "Rs" is also PKR / LKR / NPR: not read as a currency ...
@@ -306,8 +307,10 @@ def test_estimate_budget_only_mode_returns_the_plan_currency(live_port):  # noqa
     )
     assert status == 200, body
     assert body["budget"]["total"] == 50000
-    assert body["plan_currency"]["code"] == "USD"
-    assert "EUR" in body["plan_currency"]["note"]
+    # the typed ISO code declares the currency (sweep 2026-10-16 #12)
+    assert body["plan_currency"]["code"] == "EUR"
+    assert body["plan_currency"]["basis"] == "declared"
+    assert body["plan_currency"]["note"] == ""
     assert "est_hires" not in body  # no engine call, no roles needed
 
 

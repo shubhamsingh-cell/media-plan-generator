@@ -42,6 +42,41 @@ except ImportError:  # pragma: no cover - plan_geo ships with the repo
     _plan_geo_gs = None
     _US_STATE_NAME_TO_ABBR = {}
 
+
+def count_noun(n: Any, singular: str, plural: str | None = None) -> str:
+    """ "1 hire" / "0 hires" / "1,250 hires": a count with its noun in the
+    right number. Templated counts printed "1 hires" (sweep 2026-10-16 #13,
+    k_tiny_nonprofit); the workbook and the gates share this one helper."""
+    try:
+        value = float(n)
+    except (TypeError, ValueError):
+        value = 0.0
+    shown = f"{int(value):,}" if value.is_integer() else f"{value:,}"
+    word = singular if value == 1 else (plural or f"{singular}s")
+    return f"{shown} {word}"
+
+
+def is_remote_location(loc: Any, resolution: dict | None = None) -> bool:
+    """True when ``loc`` is a work mode ("Remote", "Work From Home",
+    "Remote (US)"), not a place. plan_location decides: its request-boundary
+    verdict (``resolution``, a ``data["_location_resolution"]`` entry) when
+    given, else a fresh read. A remote marker is never a market -- it must
+    not be counted, priced or phrased as a place ("candidates in Remote")."""
+    if isinstance(resolution, dict) and resolution.get("kind"):
+        return resolution.get("kind") == "remote"
+    if isinstance(loc, dict):
+        loc = loc.get("location") or loc.get("city") or loc.get("name") or ""
+    if not isinstance(loc, str) or not loc.strip():
+        return False
+    try:
+        import plan_location as _plan_location_gs
+
+        return _plan_location_gs.resolve_location(loc).kind == "remote"
+    except Exception:  # noqa: BLE001 - resolution is best-effort
+        logger.debug("remote-marker check failed for %r", loc, exc_info=True)
+        return False
+
+
 # S50: Seasonal hiring trends -- enriches activation calendar with
 # industry-specific peak/low multipliers from seasonal_hiring_trends.json.
 _SEASONAL_PATTERNS_GS: dict = {}
@@ -1337,6 +1372,12 @@ def enrich_city_level_data(data: dict) -> dict:
     )
 
     for _loc_idx, loc in enumerate(_loc_list):
+        # A remote marker is how the work is done, not where: it got a
+        # national-default "Remote 1.00x" row here, then a "Hard-to-fill
+        # market in Remote" competitor row and six salary rows downstream
+        # (sweep 2026-10-16 #9). plan_location returns kind="remote" for it.
+        if is_remote_location(loc, _location_resolutions[_loc_idx]):
+            continue
         city_name = ""
         _state_code = ""  # S50 FIX (Issue 19): capture state code
         if isinstance(loc, str):

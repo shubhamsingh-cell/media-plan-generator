@@ -12,8 +12,9 @@ Fix: local only when ``cpc_source`` starts with "intl_local" (the basis IS
 the plan's own currency) or contains "->" (an explicit, dataset-rate
 conversion budget_engine's unit-coherence fix appends, e.g.
 "synthesized->GBP"). Everything else on a non-USD plan renders with the
-fixed-USD format (``FMT_USD2``), matching how the figure was actually
-computed. This also routes "Recommended Channels (Vetted)" and "Channel
+fixed-USD format, matching how the figure was actually computed --
+``FMT_USD2_MARKED`` ("US$1.62") since 2026-10-16; the bare "$" it used to
+be read as the plan's own dollar on a CAD plan. This also routes "Recommended Channels (Vetted)" and "Channel
 Recommendations" through the same per-channel ``_cpc_number_format`` (they
 previously always used the active-currency format unconditionally), so
 every CPC cell for the same channel carries the same symbol across sheets.
@@ -48,7 +49,7 @@ class TestCpcNumberFormatUsdBlend:
         plan spanning UK + Australia) must render with the fixed-USD
         format, not the plan's "£" symbol."""
         fmt = excel_v2._cpc_number_format({"cpc_source": "intl_usd_blend:uk,australia"})
-        assert fmt == excel_v2.FMT_USD2
+        assert fmt == excel_v2.FMT_USD2_MARKED
         assert "£" not in fmt
 
     def test_intl_local_source_is_localized(self):
@@ -80,7 +81,7 @@ class TestCpcNumberFormatUsdBlend:
             "",
         ):
             fmt = excel_v2._cpc_number_format({"cpc_source": src})
-            assert fmt == excel_v2.FMT_USD2, f"cpc_source={src!r} got {fmt!r}"
+            assert fmt == excel_v2.FMT_USD2_MARKED, f"cpc_source={src!r} got {fmt!r}"
 
     def test_usd_plan_always_uses_active_currency_format(self):
         """On a USD plan, active-currency format IS the USD format

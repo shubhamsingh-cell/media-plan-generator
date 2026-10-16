@@ -249,6 +249,8 @@ def _usd2_fmt() -> str:
 # A US-dollar figure on a non-USD plan (declare-not-convert): the explicit
 # "US$" marker, matching _mark_usd on text cells.
 _USD_MARKED_FMT = '"US$"#,##0'
+# Per-unit (CPC) twin of _USD_MARKED_FMT -- the deck's "US$" convention.
+FMT_USD2_MARKED = '"US$"#,##0.00'
 
 
 def _currency_number_format(code: str) -> str:
@@ -284,9 +286,13 @@ def _cpc_number_format(ch_data: Optional[dict]) -> str:
     trend_engine/knowledge_base/synthesized) is US-cascade and was never
     converted. Mirrors the same convert-vs-declare rule the India fix uses
     (usd_per_local conversion in budget_engine): never relabel an
-    unconverted USD figure with the plan's own currency symbol -- use the
-    fixed-USD format (FMT_USD2) instead so it renders "$1.62" regardless
-    of the plan's active currency.
+    unconverted USD figure with the plan's own currency symbol.
+
+    Sweep 2026-10-16 (#8): the fixed-USD format used here was a BARE "$"
+    (FMT_USD2), so a CAD plan printed a bare-"$" CPC beside "C$" amounts and
+    CPA -- a "$" there reads as the plan's own dollar. Mark it "US$1.62"
+    (FMT_USD2_MARKED), the deck's convention for a USD benchmark inside a
+    non-USD plan.
     """
     cpc_source = str((ch_data or {}).get("cpc_source") or "")
     # DEFECT FIX (2026-09-24): "intl_" alone is too broad -- it also
@@ -300,7 +306,7 @@ def _cpc_number_format(ch_data: Optional[dict]) -> str:
     # genuinely denominated in a non-USD currency.
     _is_localized = cpc_source.startswith("intl_local") or "->" in cpc_source
     if not _is_localized and _get_active_currency() != "USD":
-        return FMT_USD2
+        return FMT_USD2_MARKED
     return _usd2_fmt()
 
 
@@ -3448,11 +3454,11 @@ def _goal_conservative_sentence(
     if not isinstance(mid, (int, float)) or mid <= 0:
         return ""
     return (
-        f"Hiring goal: this plan projects {cons['projected']:,} hires against "
+        f"Hiring goal: this plan projects {gs_lib.count_noun(cons['projected'], 'hire')} against "
         f"a stated goal of {cons['goal']:,} at plan efficiency "
         f"({_fmt_currency(budget_num / header_hires)}/hire). At the midpoint "
         f"cost ({_fmt_industry_cph(mid, cph_info)}/hire) the plan buys "
-        f"{cons['hires_low']:,} hires against a goal of {cons['goal']:,}; "
+        f"{gs_lib.count_noun(cons['hires_low'], 'hire')} against a goal of {cons['goal']:,}; "
         f"{_break_even_phrase(budget_num, cons['goal'])}."
     )
 
@@ -3521,7 +3527,7 @@ def _hires_range_line(
         f"Projected hires: {lo:,}–{hi:,}. {lo:,} if every hire costs "
         f"{low_end}; {hi:,} at plan efficiency, the model's lowest cost per "
         f"hire ({_fmt_industry_cph(floor, cph_info)}/hire{floor_basis}). "
-        f"Point estimate: {header_hires:,} hires at this plan's own "
+        f"Point estimate: {gs_lib.count_noun(header_hires, 'hire')} at this plan's own "
         f"{_fmt_currency(plan_cph)}/hire. Industry cost-per-hire figures "
         f"include all hiring costs; this plan's budget covers media spend."
     )
@@ -3863,6 +3869,101 @@ _TAB_COLORS: Dict[str, str] = {
     # so that sheet silently got no tab color at all.
     "Intl Benchmarks": TEAL_HEX,
 }
+
+
+# A live "=SUM(...)" total keeps recomputing when the client edits the table,
+# but openpyxl cannot calculate: it saves the formula with an EMPTY cached
+# value, and every app that previews a workbook without recalculating it
+# (Quick Look, the Google Drive / Slack previews) shows those totals blank
+# (sweep 2026-10-16 #13: 5 per workbook, e.g. Executive Summary!D30). So the
+# writer remembers each total it computes here, and
+# _with_cached_formula_values stores it as the formula's cached value at save
+# time. Excel still recalculates on open (openpyxl sets fullCalcOnLoad).
+_FORMULA_CACHE_ATTR = "_nova_formula_cached_values"
+
+
+def _write_sum_formula(ws, cell, first_row: int, last_row: int) -> None:
+    """Write ``=SUM(<col><first_row>:<col><last_row>)`` into ``cell`` (same
+    column) and remember the total of the numeric cells it covers -- what
+    Excel's SUM computes (text and blanks count as nothing)."""
+    col = cell.column_letter
+    cell.value = f"=SUM({col}{first_row}:{col}{last_row})"
+    total = 0.0
+    for r in range(first_row, last_row + 1):
+        v = ws.cell(row=r, column=cell.column).value
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v):
+            total += v
+    cache = getattr(ws, _FORMULA_CACHE_ATTR, None)
+    if cache is None:
+        cache = {}
+        setattr(ws, _FORMULA_CACHE_ATTR, cache)
+    cache[cell.coordinate] = total
+
+
+_FORMULA_CELL_RE = re.compile(
+    r'<c r="([A-Z]{1,3}[0-9]+)"([^>]*)><f>([^<]*)</f><v(?:\s*/>|></v>)</c>'
+)
+
+
+def _xml_number(value: float) -> str:
+    return str(int(value)) if float(value).is_integer() else repr(float(value))
+
+
+def _with_cached_formula_values(xlsx_bytes: bytes, wb) -> bytes:
+    """``xlsx_bytes`` with every total recorded by :func:`_write_sum_formula`
+    stored as its formula's cached value (``<v>``). Returns the bytes
+    unchanged when there is nothing to store or anything goes wrong -- a
+    missing preview value must never cost the client the workbook."""
+    targets = {}
+    for ws in wb.worksheets:
+        cache = getattr(ws, _FORMULA_CACHE_ATTR, None)
+        if cache:
+            targets[ws.title] = cache
+    if not targets:
+        return xlsx_bytes
+    try:
+        import zipfile
+        import xml.etree.ElementTree as ET
+
+        ns_main = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+        ns_rel = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+        with zipfile.ZipFile(io.BytesIO(xlsx_bytes)) as zin:
+            rels = ET.fromstring(zin.read("xl/_rels/workbook.xml.rels"))
+            rid_target = {r.get("Id"): r.get("Target") or "" for r in rels}
+            book = ET.fromstring(zin.read("xl/workbook.xml"))
+            part_cache: Dict[str, dict] = {}
+            for sheet in book.iter(f"{ns_main}sheet"):
+                cache = targets.get(sheet.get("name"))
+                target = rid_target.get(sheet.get(f"{ns_rel}id"), "")
+                if cache and target:
+                    part = target.lstrip("/") if target.startswith("/") else f"xl/{target}"
+                    part_cache[part] = cache
+
+            def _fill(xml: str, cache: dict) -> str:
+                def _sub(m: "re.Match[str]") -> str:
+                    coord, attrs, formula = m.group(1), m.group(2), m.group(3)
+                    if coord not in cache or " t=" in attrs:
+                        return m.group(0)
+                    return (
+                        f'<c r="{coord}"{attrs}><f>{formula}</f>'
+                        f"<v>{_xml_number(cache[coord])}</v></c>"
+                    )
+
+                return _FORMULA_CELL_RE.sub(_sub, xml)
+
+            out = io.BytesIO()
+            with zipfile.ZipFile(out, "w") as zout:
+                for info in zin.infolist():
+                    payload = zin.read(info.filename)
+                    if info.filename in part_cache:
+                        payload = _fill(
+                            payload.decode("utf-8"), part_cache[info.filename]
+                        ).encode("utf-8")
+                    zout.writestr(info, payload)
+        return out.getvalue()
+    except Exception as exc:  # noqa: BLE001 - cosmetics never block delivery
+        logger.error("Caching formula totals failed (non-fatal): %s", exc, exc_info=True)
+        return xlsx_bytes
 
 
 def _finalize_workbook(wb) -> None:
@@ -5279,10 +5380,18 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
         else:
             lines.append(f"Duration: {ctx['duration']}")
     if ctx.get("locations"):
-        _locs = ctx["locations"]
-        lines.append(
-            f"Locations ({len(_locs)}): {', '.join(str(l) for l in _locs[:6])}"
-        )
+        # Places only: a remote marker is a work mode, not a location
+        # (sweep 2026-10-16 #9) -- said once, after the list.
+        _all_locs = ctx["locations"]
+        _locs = [l for l in _all_locs if not gs_lib.is_remote_location(l)]
+        _remote_txt = "; plus remote hiring" if len(_locs) < len(_all_locs) else ""
+        if _locs:
+            lines.append(
+                f"Locations ({len(_locs)}): {', '.join(str(l) for l in _locs[:6])}"
+                f"{_remote_txt}"
+            )
+        elif _remote_txt:
+            lines.append("Locations: remote hiring (no physical site)")
     if ctx.get("roles"):
         lines.append(f"Roles: {', '.join(str(r) for r in ctx['roles'][:6])}")
     if ctx.get("hire_volume"):
@@ -5312,7 +5421,7 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
     if gap:
         gap_hires = gap["goal"] - gap["projected"]
         lines.append(
-            f"Hiring Goal Gap: {gap_hires:,} hires short of the {gap['goal']:,} goal "
+            f"Hiring Goal Gap: {gs_lib.count_noun(gap_hires, 'hire')} short of the {gap['goal']:,} goal "
             f"({round(gap.get('pct_of_goal', 0))}% of goal)"
         )
         if gap.get("additional_budget"):
@@ -5359,7 +5468,7 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
         if apps:
             bits.append(f"{_fmt_number(apps)} apps")
         if hires:
-            bits.append(f"{_fmt_number(hires)} hires")
+            bits.append(f"{_fmt_number(hires)} hire{'' if hires == 1 else 's'}")
         if cpa:
             bits.append(f"CPA {_fmt_currency(cpa, show_cents=True)}")
         if cph and not ctx.get("cph_suppressed"):
@@ -5375,9 +5484,9 @@ def _build_narrative_facts_block(ctx: Dict[str, Any]) -> str:
         fh = int(_safe_num(ft.get("hires")))
         if any([fc, fa, fq, fi, fh]):
             lines.append(
-                f"Recruitment Funnel: {_fmt_number(fc)} clicks -> {_fmt_number(fa)} "
-                f"applications -> {_fmt_number(fq)} qualified -> {_fmt_number(fi)} "
-                f"interviews -> {_fmt_number(fh)} hires"
+                f"Recruitment Funnel: {gs_lib.count_noun(fc, 'click')} -> "
+                f"{gs_lib.count_noun(fa, 'application')} -> {_fmt_number(fq)} qualified -> "
+                f"{gs_lib.count_noun(fi, 'interview')} -> {gs_lib.count_noun(fh, 'hire')}"
             )
 
     ind_bench = ctx.get("ind_bench") or {}
@@ -5717,14 +5826,14 @@ def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
         if header_hires >= goal and _cons:
             _be_sum = _break_even_phrase(ctx.get("budget_num") or 0, goal)
             sentences.append(
-                f"The plan is projected to deliver {header_hires:,} hires against "
+                f"The plan is projected to deliver {gs_lib.count_noun(header_hires, 'hire')} against "
                 f"a stated goal of {goal:,}; at the midpoint cost it buys "
                 f"{_cons['hires_low']:,}"
                 + (f" — {_be_sum}." if _be_sum else ".")
             )
         elif header_hires >= goal:
             sentences.append(
-                f"The plan is projected to deliver {header_hires:,} hires, meeting "
+                f"The plan is projected to deliver {gs_lib.count_noun(header_hires, 'hire')}, meeting "
                 f"the stated goal of {goal:,}."
             )
         elif gap:
@@ -5732,23 +5841,25 @@ def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
             gap_hires = gap["goal"] - gap["projected"]
             if extra > 0:
                 sentences.append(
-                    f"The plan is projected to deliver {header_hires:,} hires against "
+                    f"The plan is projected to deliver {gs_lib.count_noun(header_hires, 'hire')} against "
                     f"a stated goal of {goal:,} ({pct}% of goal) — closing the "
                     f"{gap_hires:,}-hire gap would need roughly {_fmt_currency(extra)} "
                     f"of additional budget."
                 )
             else:
                 sentences.append(
-                    f"The plan is projected to deliver {header_hires:,} hires against "
+                    f"The plan is projected to deliver {gs_lib.count_noun(header_hires, 'hire')} against "
                     f"a stated goal of {goal:,} ({pct}% of goal)."
                 )
         else:
             sentences.append(
-                f"The plan is projected to deliver {header_hires:,} hires against "
+                f"The plan is projected to deliver {gs_lib.count_noun(header_hires, 'hire')} against "
                 f"a stated goal of {goal:,} ({pct}% of goal)."
             )
     elif header_hires > 0:
-        sentences.append(f"The plan is projected to deliver {header_hires:,} hires.")
+        sentences.append(
+            f"The plan is projected to deliver {gs_lib.count_noun(header_hires, 'hire')}."
+        )
 
     # 3. Blended cost/hire + top-2 channels by hires.
     header_cph = ctx.get("header_cph") or 0
@@ -5795,6 +5906,26 @@ def _build_deterministic_executive_summary(ctx: Dict[str, Any]) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 # SHEET 1: EXECUTIVE SUMMARY
 # ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _location_count_label(data: dict, locations: List[str]) -> str:
+    """The Locations card: distinct PHYSICAL sites, the same count as the
+    deck's Locations tile (``geo_market.physical_markets``). "Remote" /
+    "Nationwide" are targeting modes, not places -- counting
+    ``len(locations)`` printed 4 beside the deck's 3 (sweep 2026-10-16 #9).
+    A plan with no physical site names its mode instead of "0"."""
+    try:
+        markets = geo_market.plan_markets(data)
+        count = len(geo_market.physical_markets(data))
+    except Exception:  # noqa: BLE001 - never block the sheet on geo lookups
+        logger.debug("physical market count failed", exc_info=True)
+        return str(len(locations))
+    if not markets:
+        return str(len(locations))
+    if count > 0:
+        return str(count)
+    modes = sorted({m.kind.title() for m in markets if not m.is_physical})
+    return " + ".join(modes) or "0"
 
 
 def _build_sheet_executive_summary(
@@ -5892,7 +6023,7 @@ def _build_sheet_executive_summary(
     metrics = [
         ("Budget", _fmt_currency(budget_num)),
         ("Duration", str(duration)),
-        ("Locations", str(len(locations))),
+        ("Locations", _location_count_label(data, locations)),
         ("Roles", str(len(roles))),
         ("Industry", industry_label),
         # Stale-flag fix (2026-09-24, verified): an empty hire_volume used
@@ -6077,7 +6208,7 @@ def _build_sheet_executive_summary(
             _extra_budget = _gap_result.get("additional_budget") or 0
             _pct_of_goal = round(_gap_result["pct_of_goal"])
             _gap_msg = (
-                f"Hiring-goal gap: this plan projects {_header_hires:,} hires "
+                f"Hiring-goal gap: this plan projects {gs_lib.count_noun(_header_hires, 'hire')} "
                 f"against a stated goal of {_goal:,} "
                 f"({_pct_of_goal}% of goal). "
             )
@@ -6273,17 +6404,21 @@ def _build_sheet_executive_summary(
             _tot_cells = [
                 ("Total", None),
                 (None, None),  # % column — a SUM of shares is ~100%, skip for clarity
-                (f"=SUM(D{_first_data_row}:D{_last_data_row})", _usd0_fmt()),
-                (f"=SUM(E{_first_data_row}:E{_last_data_row})", FMT_INT),
-                (f"=SUM(F{_first_data_row}:F{_last_data_row})", FMT_INT),
-                (f"=SUM(G{_first_data_row}:G{_last_data_row})", FMT_INT),
+                ("=SUM", _usd0_fmt()),
+                ("=SUM", FMT_INT),
+                ("=SUM", FMT_INT),
+                ("=SUM", FMT_INT),
                 (None, None),  # CPC — a sum is meaningless
                 (None, None),  # CPA — a sum is meaningless
                 (None, None),  # ROI — a sum is meaningless
             ]
             for i, (cval, cfmt) in enumerate(_tot_cells):
                 cell = ws.cell(row=row, column=COL_START + i)
-                if cval is not None:
+                if cval == "=SUM":
+                    # live total of this column's rows, its value cached
+                    _write_sum_formula(ws, cell, _first_data_row, _last_data_row)
+                    cell.number_format = cfmt
+                elif cval is not None:
                     cell.value = cval
                     if cfmt:
                         cell.number_format = cfmt
@@ -6518,6 +6653,14 @@ def _build_sheet_executive_summary(
                             ]
                         else:
                             values = [region, _flatten_value(rdata), "", "", ""]
+                        if _get_active_currency() != "USD":
+                            # The "(USD)" headers above name the columns'
+                            # denomination; mark the figures too ("US$"),
+                            # as the flat branch below does.
+                            values = [values[0]] + [
+                                _mark_usd(v) if isinstance(v, str) else v
+                                for v in values[1:]
+                            ]
                         row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
             else:
                 # Flat benchmarks (no regional breakdown)
@@ -6592,6 +6735,11 @@ def _build_sheet_executive_summary(
                             # rate, time to fill) keep their plain label.
                             if _get_active_currency() != "USD" and "$" in val_str:
                                 _bm_label = f"{_bm_label} (USD)"
+                                # ...and on the figures themselves, as the
+                                # deck's slide 5 does ("US$11-US$25"): a bare
+                                # "$11-$25" beside the plan's own "C$"/"£"
+                                # figures is ambiguous (sweep 2026-10-16 #8).
+                                val_str = _mark_usd(val_str)
                             row = _write_kv_row(ws, row, _bm_label, val_str)
                 if _cph_disp is not None and not _cph_row_written:
                     # The KB has no cost-per-hire row for this industry (or
@@ -7386,7 +7534,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             for _ci in range(1, len(headers)):
                 _c = ws.cell(row=row, column=COL_START + _ci)
                 if _ci == 2:
-                    _c.value = f"=SUM({_amt_letter}{_ch_first}:{_amt_letter}{_ch_last})"
+                    _write_sum_formula(ws, _c, _ch_first, _ch_last)
                     _c.number_format = _usd0_fmt()
                 _c.font = _FONT_BODY_BOLD
                 _c.fill = _FILL_BLUE_LIGHT
@@ -7511,7 +7659,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
             if ch_cpc > 0:
                 # C9 FIX (2026-09-24): the CPC cell beside this rationale is
                 # formatted by _cpc_number_format(ch), which prints a fixed
-                # "$" (FMT_USD2) whenever cpc_source shows the figure came
+                # "US$" (FMT_USD2_MARKED) whenever cpc_source shows the figure came
                 # from the un-converted US cascade (static_benchmark/
                 # live_benchmark/trend_engine/knowledge_base/synthesized) on
                 # a non-USD plan -- e.g. "CPC $1.62". The rationale text used
@@ -7520,7 +7668,7 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 # ¥1.62"/"CPC €1.62" right next to a cell showing "$1.62".
                 # Route through the exact same decision so they always agree.
                 _rationale_cpc_prefix = (
-                    "US$" if _cpc_number_format(ch) == FMT_USD2 else None
+                    "US$" if _cpc_number_format(ch) == FMT_USD2_MARKED else None
                 )
                 rationale_parts.append(
                     f"CPC {_fmt_currency(ch_cpc, prefix=_rationale_cpc_prefix, show_cents=True)}"
@@ -8151,7 +8299,16 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     and _trailing.isalpha()
                     and _trailing.upper() in plan_geo.US_STATE_ABBR
                 )
-                country = "United States" if _is_us_state else _trailing
+                if _is_us_state:
+                    country = "United States"
+                elif _plan_currency is not None and _plan_currency.is_canadian_province(
+                    _trailing
+                ):
+                    # "Toronto, ON": the province is not a country (sweep
+                    # 2026-10-16 #9 printed "ON/BC/AB" in this column).
+                    country = "Canada"
+                else:
+                    country = _trailing
             elif len(parts) > 2:
                 country = parts[-1].strip()
             else:
@@ -9560,7 +9717,14 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         row += 1
 
     # ── 8. Geographic CPC Variance ──
-    if len(locations) > 1:
+    # A remote marker has no cost index of its own -- it printed a
+    # "Remote 1.00x / Average market rate" row (sweep 2026-10-16 #9).
+    _geo_locations = [
+        _l
+        for _l, _r in zip(locations, geo_market.resolution_list(data, locations))
+        if not gs_lib.is_remote_location(_l, _r)
+    ]
+    if len(_geo_locations) > 1:
         try:
             from feature_store import get_feature_store
 
@@ -9580,7 +9744,9 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             # locations into one honest row and soften the sourcing claim
             # when any are present; locations with a real metro match still
             # get their own row and keep the sourced claim.
-            _geo_idx_by_loc = [(loc, fs.get_geo_cost_index(loc)) for loc in locations]
+            _geo_idx_by_loc = [
+                (loc, fs.get_geo_cost_index(loc)) for loc in _geo_locations
+            ]
             _fallback_geo_locs = [
                 loc for loc, idx in _geo_idx_by_loc if abs(idx - 1.0) < 1e-9
             ]
@@ -9997,7 +10163,16 @@ def _build_warehouse_provenance(ws, data: dict, row: int) -> int:
     row = _write_table_header(ws, row, headers)
 
     # Per-column number formats: cost-per-apply as $ per-unit, sample as int.
-    _fmts = [None, FMT_USD2, FMT_INT, None, None]
+    # A USD figure on a non-USD plan carries "US$" on the figure itself, the
+    # deck's convention (a bare "$" reads as the plan's own dollar on a CAD
+    # or AUD plan -- sweep 2026-10-16 #8).
+    _fmts = [
+        None,
+        FMT_USD2 if _get_active_currency() == "USD" else FMT_USD2_MARKED,
+        FMT_INT,
+        None,
+        None,
+    ]
 
     for idx, o in enumerate(matched):
         cpa = o.get("cost_per_apply")
@@ -10089,9 +10264,9 @@ def _client_history_note_text(data: dict) -> str:
         shown = ", ".join(names[:4]) + (", ..." if len(names) > 4 else "")
         parts.append(f"{len(names)} platform{'s' if len(names) != 1 else ''} ({shown})")
     if apps:
-        parts.append(f"{apps:,} applications")
+        parts.append(gs_lib.count_noun(apps, "application"))
     if hires:
-        parts.append(f"{hires:,} hires")
+        parts.append(gs_lib.count_noun(hires, "hire"))
     if spend:
         parts.append(f"reported spend {spend:,.0f} (in the upload's own currency)")
     files = [
@@ -14210,8 +14385,10 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
         _niche_purpose = (
             "Specialty job boards matched to your target roles for higher-quality, "
             f"lower-CPA applicants. {_niche_anchor}, so the implied "
-            f"{_rate_str} apply-to-hire rate shown here ({_niche_hires} hires / "
-            f"{_niche_apps} applications) is a conservative lower bound of this "
+            f"{_rate_str} apply-to-hire rate shown here "
+            f"({gs_lib.count_noun(_niche_hires, 'hire')} / "
+            f"{gs_lib.count_noun(_niche_apps, 'application')}) is a conservative "
+            "lower bound of this "
             "channel's modeled contribution, not a literal conversion assumption. "
             "Industry benchmark is 10-15% apply-to-hire vs. 5-8% on general "
             f"boards -- {_upside_clause}"
@@ -14399,6 +14576,25 @@ def _build_sheet_niche_board_matching(ws, data: dict) -> None:
     _write_attribution_footer(ws, row)
 
 
+def _intl_usd_range(block: dict, decimals: int) -> Optional[str]:
+    """ "$1.09-$5.45" for a dataset ``{"min", "max"}`` USD block, or ``None``
+    when there is no positive figure to show (missing, non-numeric, or the
+    0-0 a free government board carries) -- the caller prints "n/a", never
+    a zero range. A positive figure that rounds to zero at ``decimals``
+    shows two decimals ("$0.40-$2.00", not "$0-$2")."""
+    lo, hi = block.get("min"), block.get("max")
+    nums = [
+        float(v)
+        for v in (lo, hi)
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+    ]
+    if len(nums) != 2 or max(nums) <= 0:
+        return None
+
+    places = 2 if any(v > 0 and round(v, decimals) == 0 for v in nums) else decimals
+    return f"${nums[0]:,.{places}f}-${nums[1]:,.{places}f}"
+
+
 def _build_sheet_international_benchmarks(
     ws, data: dict, intl_benchmarks: dict
 ) -> None:
@@ -14472,6 +14668,7 @@ def _build_sheet_international_benchmarks(
         )
     )
     countries = intl_benchmarks.get("countries", {})
+    _intl_na_used = False
     for _ck, _cv in sorted(countries.items(), key=lambda x: x[1].get("name", x[0])):
         _name = _cv.get("name", _ck.replace("_", " ").title())
         _region = (_cv.get("region") or "").upper()
@@ -14480,25 +14677,28 @@ def _build_sheet_international_benchmarks(
         _platforms = _cv.get("platforms", [])
         _plat_names = ", ".join(p.get("name", "") for p in _platforms[:3])
 
-        # CPC range
-        _cpc_parts = []
-        for p in _platforms[:3]:
-            _cpc = p.get("cpc_usd", {})
-            if isinstance(_cpc, dict) and _cpc.get("min") is not None:
-                _cpc_parts.append(
-                    f"${_cpc.get('min', 0):.2f}-${_cpc.get('max', 0):.2f}"
-                )
-        _cpc_str = "; ".join(_cpc_parts[:2]) if _cpc_parts else "—"
+        # CPC / CPA ranges, one per listed platform IN THE ORDER of the Top
+        # Platforms column (first two). A platform with no figure -- the
+        # government job boards (AMS, VDAB, Arbetsformedlingen, NAV,
+        # MyCareersFuture, Taqat) are free to post and the dataset records
+        # 0-0 or nothing for them -- reads "n/a", never "$0.00-$0.00"
+        # (sweep 2026-10-16 #9: every non-US workbook printed one). Skipping
+        # it instead would shift the next platform's range under its name.
+        def _ranges(key: str, decimals: int) -> str:
+            parts = [
+                _intl_usd_range(p.get(key), decimals)
+                if isinstance(p, dict) and isinstance(p.get(key), dict)
+                else None
+                for p in _platforms[:2]
+            ]
+            if not any(parts):
+                return "—"
+            return "; ".join(part or "n/a" for part in parts)
 
-        # CPA range
-        _cpa_parts = []
-        for p in _platforms[:3]:
-            _cpa = p.get("cpa_usd", {})
-            if isinstance(_cpa, dict) and _cpa.get("min") is not None:
-                _cpa_parts.append(
-                    f"${_cpa.get('min', 0):.0f}-${_cpa.get('max', 0):.0f}"
-                )
-        _cpa_str = "; ".join(_cpa_parts[:2]) if _cpa_parts else "—"
+        _cpc_str = _ranges("cpc_usd", 2)
+        _cpa_str = _ranges("cpa_usd", 0)
+        if "n/a" in _cpc_str or "n/a" in _cpa_str:
+            _intl_na_used = True
 
         # CPH by tier -- none on a plan whose market has no verified local
         # cost-per-hire benchmark (verifier round 3, N1: the same workbook
@@ -14547,6 +14747,12 @@ def _build_sheet_international_benchmarks(
             "local cost-per-hire benchmark. "
             if _intl_cph_suppressed
             else "CPH = Cost-Per-Hire by role tier. "
+        )
+        + (
+            "n/a = no CPC/CPA figure for that platform (e.g. a government "
+            "job board, free to post). "
+            if _intl_na_used
+            else ""
         )
         + "Source: 28 industry reports aggregated in the International "
         "Benchmarks 2026 dataset.",
@@ -14921,4 +15127,4 @@ def _generate_excel_v2_inner(
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
-    return output.getvalue()
+    return _with_cached_formula_values(output.getvalue(), wb)

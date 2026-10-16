@@ -356,6 +356,18 @@ _CA_PROVINCE_NAMES = frozenset(
     }
 )
 
+
+def is_canadian_province(token: str | None) -> bool:
+    """True when ``token`` (the trailing part of "City, PROV") is a Canadian
+    province / territory code or name -- the same table
+    :func:`currency_for_country` reads, so every consumer that has to tell
+    "Toronto, ON" is in Canada agrees with the plan's currency."""
+    if not token or not isinstance(token, str):
+        return False
+    t = token.strip().rstrip(".")
+    return t.upper() in _CA_PROVINCE_CODES or t.lower() in _CA_PROVINCE_NAMES
+
+
 # US state / territory abbreviations. These collide with ISO country codes
 # (IL=Illinois vs Israel, CA=California vs Canada, IN=Indiana vs India,
 # DE=Delaware vs Germany, AL=Alabama vs Albania, ...). A trailing 2-letter US
@@ -584,37 +596,120 @@ _SYMBOL_TO_CODES: "list[tuple[str, tuple[str, ...]]]" = [
 ]
 
 
-def currency_codes_from_symbol(text: str | None) -> "tuple[str, ...]":
-    """ISO codes consistent with the currency symbol written in ``text``.
+def _symbol_scan(text: str) -> "tuple[str, tuple[str, ...]]":
+    """(symbol, codes) for the first ``_SYMBOL_TO_CODES`` entry written in
+    ``text`` (longest-first table order), or ``("", ())``."""
+    for symbol, codes in _SYMBOL_TO_CODES:
+        if symbol in text:
+            return symbol, codes
+    return "", ()
 
-    Returns ``()`` when no symbol is present (i.e. the client declared
+
+# An ISO 4217 code typed beside the amount ("150K GBP", "EUR 300,000") is the
+# most explicit declaration a client can make -- yet only symbols were read,
+# so "150K GBP" for a US-located plan priced in USD (sweep 2026-10-16, #12).
+# A token is a code only when it is a whole 3-letter word in the symbol table
+# above. Upper case is read anywhere; lower / mixed case ("150k gbp") only
+# directly beside the amount, so an ordinary word elsewhere in the text is
+# never mistaken for a currency.
+_ISO_TOKEN_RE = re.compile(r"(?<![A-Za-z])([A-Za-z]{3})(?![A-Za-z])")
+_AMOUNT_BEFORE_RE = re.compile(
+    r"\d(?:\s*(?:k|m|mm|mn|b|bn|million|billion|thousand|lakhs?|lacs?|crores?|cr))?"
+    r"\.?\s*$",
+    re.IGNORECASE,
+)
+_AMOUNT_AFTER_RE = re.compile(r"^\s*\d")
+
+
+def _iso_codes_typed(text: str) -> "list[tuple[int, str]]":
+    """``(position, code)`` for each distinct ISO code typed in ``text``, in
+    the order written."""
+    found: list[tuple[int, str]] = []
+    for m in _ISO_TOKEN_RE.finditer(text):
+        token = m.group(1)
+        code = token.upper()
+        if code not in _CODE_TO_SYMBOL or any(c == code for _p, c in found):
+            continue
+        if token != code and not (
+            _AMOUNT_BEFORE_RE.search(text[: m.start()])
+            or _AMOUNT_AFTER_RE.match(text[m.end() :])
+        ):
+            continue
+        found.append((m.start(), code))
+    return found
+
+
+def _declared_codes(text: str) -> "tuple[tuple[str, ...], bool]":
+    """(codes, from_iso) -- the codes ``text`` declares, and whether an ISO
+    code decided them.
+
+    - No ISO code: the symbol scan, exactly as before.
+    - ISO code(s) and no symbol: the code(s) as typed ("150K GBP" -> GBP).
+    - Both, and they agree: the ISO code -- it is what disambiguates a shared
+      glyph ("$150k CAD" -> CAD, not "$" read against the market).
+    - Both, and they disagree: whichever was written first, i.e. the one on
+      the amount itself rather than a trailing conversion note
+      ("£150,000 (~190,000 USD)" -> GBP; "USD 150k (£120k)" -> USD).
+    """
+    symbol, sym_codes = _symbol_scan(text)
+    iso = _iso_codes_typed(text)
+    if not iso:
+        return sym_codes, False
+    iso_codes = tuple(c for _p, c in iso)
+    if not sym_codes:
+        return iso_codes, True
+    agree = [c for c in iso_codes if c in sym_codes]
+    if agree:
+        return (agree[0],), True
+    if text.find(symbol) < iso[0][0]:
+        return sym_codes, False
+    return iso_codes, True
+
+
+def currency_codes_from_symbol(text: str | None) -> "tuple[str, ...]":
+    """ISO codes consistent with the currency the client wrote in ``text``:
+    a symbol ("£", "C$", "AUD$") or an ISO code ("150K GBP", "EUR 300,000"),
+    see :func:`_declared_codes` for how the two combine.
+
+    Returns ``()`` when no currency is written (i.e. the client declared
     nothing). A single-element tuple is an unambiguous declaration; a longer
     one lists the codes that share that symbol, most common first, for a
     caller to disambiguate against the plan's market.
 
         currency_codes_from_symbol("£2,000,000")  -> ("GBP",)
+        currency_codes_from_symbol("150K GBP")    -> ("GBP",)
         currency_codes_from_symbol("$2,000,000")  -> ("USD", "CAD", ...)
         currency_codes_from_symbol("2,000,000")   -> ()
     """
     if not text or not isinstance(text, str):
         return ()
-    for symbol, codes in _SYMBOL_TO_CODES:
-        if symbol in text:
-            return codes
-    return ()
+    return _declared_codes(text)[0]
 
 
 def declared_currency_symbol(text: str | None) -> str:
-    """The symbol :func:`currency_codes_from_symbol` reads in ``text`` (the
-    same longest-first scan), or ``""`` when none is written. Used to carry a
-    client's declared currency over when their budget text is rewritten to a
-    canonical amount ("1.5 million" -> "1,500,000", "£1.5M" -> "£1,500,000")."""
+    """The currency marker to carry over when the client's budget text is
+    rewritten to a canonical amount ("1.5 million" -> "1,500,000", "£1.5M" ->
+    "£1,500,000"), chosen so the canonical string declares exactly what the
+    raw text did; ``""`` when nothing is written.
+
+    Normally the symbol :func:`currency_codes_from_symbol` reads (the same
+    longest-first scan). When an ISO code decided the currency, the symbol
+    typed (if it reads back as that code alone, "AUD$" -> AUD), else the
+    code's own symbol when that is unambiguous ("150K GBP" -> "£"), else the
+    code itself ("150k NOK" -> "NOK ": "kr" alone would read as SEK)."""
     if not text or not isinstance(text, str):
         return ""
-    for symbol, _codes in _SYMBOL_TO_CODES:
-        if symbol in text:
-            return symbol
-    return ""
+    codes, from_iso = _declared_codes(text)
+    symbol, _sym_codes = _symbol_scan(text)
+    if not from_iso:
+        return symbol if codes else ""
+    code = codes[0]
+    if symbol and _symbol_scan(symbol)[1] == (code,):
+        return symbol
+    own = symbol_for_code(code)
+    if own.strip() and _symbol_scan(own.strip())[1] == (code,):
+        return own
+    return f"{code} "
 
 
 def resolve_declared_currency(

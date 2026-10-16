@@ -307,8 +307,8 @@ def test_rationale_cpc_prefix_matches_cpc_cell_format():
     try:
         ch = {"cpc_source": "static_benchmark"}  # un-converted US cascade
         cell_fmt = excel_v2._cpc_number_format(ch)
-        assert cell_fmt == excel_v2.FMT_USD2
-        rationale_prefix = "US$" if cell_fmt == excel_v2.FMT_USD2 else None
+        assert cell_fmt == excel_v2.FMT_USD2_MARKED
+        rationale_prefix = "US$" if cell_fmt == excel_v2.FMT_USD2_MARKED else None
         rationale_text = excel_v2._fmt_currency(
             1.40, prefix=rationale_prefix, show_cents=True
         )
@@ -323,8 +323,8 @@ def test_rationale_cpc_prefix_local_when_cpc_is_localized():
     try:
         ch = {"cpc_source": "intl_local"}  # genuinely localized
         cell_fmt = excel_v2._cpc_number_format(ch)
-        assert cell_fmt != excel_v2.FMT_USD2
-        rationale_prefix = "US$" if cell_fmt == excel_v2.FMT_USD2 else None
+        assert cell_fmt != excel_v2.FMT_USD2_MARKED
+        rationale_prefix = "US$" if cell_fmt == excel_v2.FMT_USD2_MARKED else None
         rationale_text = excel_v2._fmt_currency(
             0.51, prefix=rationale_prefix, show_cents=True
         )
