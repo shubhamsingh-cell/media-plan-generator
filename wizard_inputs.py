@@ -149,6 +149,21 @@ def known_campaign_months(duration: Any) -> float:
     return explicit_duration_months(dur)
 
 
+def _span_weeks(duration: str) -> int:
+    """Weeks for a calendar-span phrase ("FY", "full year", "fiscal year",
+    "H2", "Q1-Q3"); 0 for prose with no length ("long-term", "tbd").
+
+    Reads display_format.parse_duration_to_weeks -- the weeks resolver the
+    rest of the bundle uses -- so the months here and the weeks shown
+    elsewhere can never disagree. Imported lazily because display_format
+    imports this module."""
+    try:
+        import display_format
+    except ImportError:  # pragma: no cover - module absent in a stripped deploy
+        return 0
+    return display_format.parse_duration_to_weeks(duration)
+
+
 def campaign_months(
     duration: Any, legacy_weeks: Optional[Callable[[str], int]] = None
 ) -> float:
@@ -157,15 +172,20 @@ def campaign_months(
 
     Wizard options and explicit durations resolve via
     :func:`known_campaign_months`. Other free text with a digit (API callers)
-    may go through ``legacy_weeks`` (display_format's phrase ladder); empty
-    or unparseable input is :data:`DEFAULT_CAMPAIGN_MONTHS`.
+    may go through ``legacy_weeks`` (display_format's phrase ladder); text
+    with no digit resolves only when it names a calendar span ("FY", "full
+    year", "fiscal year" -> 12 months), read from the same weeks resolver.
+    Empty or unparseable input is :data:`DEFAULT_CAMPAIGN_MONTHS`.
     """
     months = known_campaign_months(duration)
     if months > 0:
         return months
     dur = str(duration or "").strip()
-    if dur and legacy_weeks is not None and re.search(r"[0-9]", dur):
-        weeks = legacy_weeks(dur)
+    if dur:
+        if legacy_weeks is not None and re.search(r"[0-9]", dur):
+            weeks = legacy_weeks(dur)
+        else:
+            weeks = _span_weeks(dur)
         if weeks > 0:
             return weeks * 12 / 52
     return DEFAULT_CAMPAIGN_MONTHS
@@ -584,8 +604,10 @@ def parse_budget_input(raw: Any) -> BudgetParse:
                     i += 1
             amounts.append([tok, exp])
             shape.append("A")
-        elif tok == "-" or tok.rstrip(".") in BUDGET_RANGE_WORDS or (
-            between and tok.rstrip(".") == "and"
+        elif (
+            tok == "-"
+            or tok.rstrip(".") in BUDGET_RANGE_WORDS
+            or (between and tok.rstrip(".") == "and")
         ):
             shape.append("S")
         else:

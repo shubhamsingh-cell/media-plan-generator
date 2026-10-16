@@ -185,5 +185,61 @@ class TestResolveAndLabelAgree:
         assert months == pytest.approx(6.0)
 
 
+class TestBudgetMonthsMatchWeeks:
+    """campaign_months reads digit-less calendar phrases from the same weeks
+    resolver as the plan's week count (verified 2026-10-16: "FY", "full
+    year" and "fiscal year" fell to the 6-month default -- only the digit
+    gate let "Q1-Q3" through -- while the weeks said 52)."""
+
+    # (text, months) -- typed by hand: 12 / 6 / 9 / 3 months.
+    MONTH_CASES = [
+        ("FY", 12.0),
+        ("fy", 12.0),
+        ("full year", 12.0),
+        ("Full-Year", 12.0),
+        ("fiscal year", 12.0),
+        ("calendar year", 12.0),
+        ("FY2026", 12.0),
+        ("H1", 6.0),
+        ("H2", 6.0),
+        ("half year", 6.0),
+        ("Q1-Q3", 9.0),
+        ("Q4", 3.0),
+        ("2 quarters", 6.0),
+    ]
+
+    @pytest.mark.parametrize("text,months", MONTH_CASES)
+    def test_months_with_the_resolver_injected(self, text, months):
+        got = wizard_inputs.campaign_months(text, fmt.resolve_campaign_weeks)
+        assert got == pytest.approx(months)
+
+    @pytest.mark.parametrize("text,months", MONTH_CASES)
+    def test_months_without_a_resolver_injected(self, text, months):
+        assert wizard_inputs.campaign_months(text) == pytest.approx(months)
+
+    @pytest.mark.parametrize("text,months", MONTH_CASES)
+    def test_months_and_weeks_agree(self, text, months):
+        weeks = fmt.resolve_campaign_weeks(text)
+        got = wizard_inputs.campaign_months(text, fmt.resolve_campaign_weeks)
+        assert wizard_inputs.months_to_weeks(got) == weeks
+
+    @pytest.mark.parametrize("text", ["", "tbd", "garbage", "long-term", "annual"])
+    def test_prose_with_no_calendar_span_keeps_the_default(self, text):
+        got = wizard_inputs.campaign_months(text, fmt.resolve_campaign_weeks)
+        assert got == wizard_inputs.DEFAULT_CAMPAIGN_MONTHS
+
+    def test_stated_length_still_beats_the_calendar_anchor(self):
+        got = wizard_inputs.campaign_months("6 weeks in Q3")
+        assert got == pytest.approx(6 * 12 / 52)
+
+    def test_fy_monthly_budget_scales_by_twelve(self):
+        plan = wizard_inputs.resolve_plan_budget(
+            "$10,000", "monthly", "FY", fmt.resolve_campaign_weeks
+        )
+        assert plan.ok
+        assert plan.months == pytest.approx(12.0)
+        assert plan.total == pytest.approx(120000.0)
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
