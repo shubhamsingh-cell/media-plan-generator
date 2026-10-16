@@ -276,7 +276,7 @@ def test_unknown_flag_is_refused_instead_of_shipping(gh: Harness) -> None:
 
 
 def test_header_documents_exit_code_6_and_the_skip_flag() -> None:
-    header = "\n".join(SCRIPT.read_text().splitlines()[:50])
+    header = SCRIPT.read_text().split("set -euo pipefail")[0]
     assert "6 pushed, but GitHub CI" in header
     assert "SHIP_SKIP_CI_WATCH=1" in header
     assert "--ci-check-only" in header

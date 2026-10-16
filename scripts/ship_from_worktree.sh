@@ -20,14 +20,35 @@
 # watch`), failing with exit 6 if CI goes red. Needs an authenticated `gh`;
 # without one it warns and carries on (the ship itself already succeeded).
 #
+# Ship lock: ships queue machine-wide. Several sessions running their full
+# suites at once drove this Mac to load average 77-141 with ~277 pytest
+# processes (2026-10-16), and a ship then failed its suite gate on two
+# wall-clock timing tests that pass alone in 14 s. So the rebase -> suite ->
+# stability window -> push section runs under an exclusive flock on
+# $SHIP_LOCK_FILE (/tmp/mpg-ship.lock). A waiting ship logs "waiting for
+# another ship (held by pid N since T)" every 30 s and gives up with exit 7
+# after SHIP_LOCK_TIMEOUT_S. The lock is a kernel flock held by a tiny helper
+# that exits when this script does, however it dies (even kill -9), so there
+# is never a stale lock to clean up. It is released the moment the push
+# lands -- deploy verification and the CI watch run outside it.
+#
 # Usage (from inside a linked worktree, on a feature branch, clean tree):
 #   scripts/ship_from_worktree.sh
 #   scripts/ship_from_worktree.sh --ci-check-only [<sha>]   # dry run of the
 #       CI gate alone: pre-flight warning for main + wait for <sha>'s CI run
 #       (default: current origin/main). No rebase, no tests, no push; runs
 #       from any checkout.
+#   scripts/ship_from_worktree.sh --lock-only [<hold_seconds>]   # dry run of
+#       the ship lock alone: queue for it, hold it <hold_seconds> (default 0),
+#       release. Exit 0 acquired | 7 timed out.
 #
 # Environment:
+#   SHIP_LOCK_FILE        lock path (default /tmp/mpg-ship.lock -- a fixed
+#       path on purpose: $TMPDIR differs between sessions, which would give
+#       each its own lock and queue nobody).
+#   SHIP_LOCK_TIMEOUT_S   give up waiting for the lock after this many seconds
+#       (default 1800). SHIP_LOCK_WAIT_LOG_S: seconds between "waiting" log
+#       lines (default 30).
 #   SHIP_SKIP_CI_WATCH=1   skip the post-push CI watch (the skip is logged).
 #   SHIP_CI_APPEAR_POLL_INTERVAL / SHIP_CI_APPEAR_POLL_MAX   seconds between
 #       polls / total wait for the CI run to show up (defaults 10 / 180).
@@ -42,7 +63,9 @@
 # 6 pushed, but GitHub CI for the pushed commit FAILED (the commit is already
 # on main and deploying -- fix forward or revert; failing jobs are printed).
 # CI that never appears, times out, or can't be queried is a loud WARNING,
-# not a failure: only a run that finished red returns 6.
+# not a failure: only a run that finished red returns 6. | 7 gave up waiting
+# for the machine-wide ship lock held by another ship (nothing was changed;
+# re-run when the other ship finishes, or raise SHIP_LOCK_TIMEOUT_S).
 
 set -euo pipefail
 
@@ -59,9 +82,124 @@ CI_APPEAR_POLL_INTERVAL_SECONDS="${SHIP_CI_APPEAR_POLL_INTERVAL:-10}"
 CI_APPEAR_POLL_MAX_SECONDS="${SHIP_CI_APPEAR_POLL_MAX:-180}"
 CI_WATCH_INTERVAL_SECONDS="${SHIP_CI_WATCH_INTERVAL:-30}"
 CI_WATCH_MAX_SECONDS="${SHIP_CI_WATCH_MAX:-1200}"
+SHIP_LOCK_FILE="${SHIP_LOCK_FILE:-/tmp/mpg-ship.lock}"
+SHIP_LOCK_TIMEOUT_S="${SHIP_LOCK_TIMEOUT_S:-1800}"
+SHIP_LOCK_WAIT_LOG_S="${SHIP_LOCK_WAIT_LOG_S:-30}"
 
 log() {
     printf '[ship] %s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$1" >&2
+}
+
+# ── Machine-wide ship lock ───────────────────────────────────────────────
+# macOS ships no flock(1) and bash 3.2 has no coproc, so a python3 helper
+# (already a dependency of this script) takes fcntl.flock on SHIP_LOCK_FILE
+# and holds it until this script's shell is gone: it polls its parent pid
+# once a second, so SIGKILL of the script still frees the lock within ~1 s.
+# The kernel drops a flock when its holder exits -- no stale-lock detection,
+# no steal race. Holder info "pid|since|branch" is written into the lock file
+# after acquiring, so waiters can say who they are queued behind. The helper
+# reports on stdout (a status file we poll): WAIT|<holder>, ACQUIRED, TIMEOUT.
+lock_helper_pid=""
+lock_status_file=""
+
+# Returns 0 once the lock is held -- or, with a loud WARNING, when the lock
+# machinery itself is broken (a ship must never become impossible because
+# /tmp is unwritable). Exits 7 on timeout.
+ship_lock_acquire() {
+    local branch="$1" seen=0 total line alive kind rest hpid hsince hbranch queued_since
+    queued_since="$(date +%s)"
+    lock_status_file="$(mktemp "${TMPDIR:-/tmp}/mpg-ship-lock-status.XXXXXX")"
+    python3 -c '
+import fcntl, os, sys, time
+path, timeout, parent, wait_log, info = sys.argv[1:6]
+timeout, parent, wait_log = int(timeout), int(parent), int(wait_log)
+
+
+def say(line):
+    sys.stdout.write(line + "\n")
+    sys.stdout.flush()
+
+
+fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o666)
+deadline = time.time() + timeout
+last = None
+while True:
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        break
+    except OSError:
+        pass
+    if os.getppid() != parent:
+        sys.exit(0)
+    now = time.time()
+    if now >= deadline:
+        say("TIMEOUT")
+        sys.exit(0)
+    if last is None or now - last >= wait_log:
+        say("WAIT|" + os.pread(fd, 512, 0).decode("utf-8", "replace").strip())
+        last = now
+    time.sleep(1)
+os.ftruncate(fd, 0)
+os.pwrite(fd, info.encode("utf-8"), 0)
+say("ACQUIRED")
+while os.getppid() == parent:
+    time.sleep(1)
+' "$SHIP_LOCK_FILE" "$SHIP_LOCK_TIMEOUT_S" "$$" "$SHIP_LOCK_WAIT_LOG_S" \
+        "$$|$(date -u '+%Y-%m-%dT%H:%M:%SZ')|$branch" >"$lock_status_file" 2>/dev/null &
+    lock_helper_pid=$!
+    while :; do
+        # Sample liveness BEFORE reading: a helper that writes its last line
+        # and exits between the two would otherwise look like it just died.
+        alive=true
+        kill -0 "$lock_helper_pid" 2>/dev/null || alive=false
+        total="$(wc -l <"$lock_status_file" | tr -d ' ')"
+        while [ "$seen" -lt "$total" ]; do
+            seen=$((seen + 1))
+            line="$(sed -n "${seen}p" "$lock_status_file")"
+            kind="${line%%|*}"
+            rest="${line#*|}"
+            case "$kind" in
+                ACQUIRED)
+                    log "ship lock acquired ($SHIP_LOCK_FILE, queued $(($(date +%s) - queued_since))s)"
+                    return 0
+                    ;;
+                TIMEOUT)
+                    lock_helper_pid=""
+                    echo "ERROR: gave up after ${SHIP_LOCK_TIMEOUT_S}s waiting for another ship to finish ($SHIP_LOCK_FILE). Nothing was changed -- re-run when it is done, or raise SHIP_LOCK_TIMEOUT_S." >&2
+                    exit 7
+                    ;;
+                WAIT)
+                    if [ "$rest" = "$line" ] || [ -z "$rest" ]; then
+                        log "waiting for another ship (holder unknown, queued $(($(date +%s) - queued_since))s)"
+                    else
+                        IFS='|' read -r hpid hsince hbranch <<<"$rest"
+                        log "waiting for another ship (held by pid ${hpid:-?} since ${hsince:-?}${hbranch:+, branch $hbranch}; queued $(($(date +%s) - queued_since))s)"
+                    fi
+                    ;;
+            esac
+        done
+        if [ "$alive" = "false" ]; then
+            lock_helper_pid=""
+            log "WARNING: ship-lock helper exited without acquiring (is $SHIP_LOCK_FILE writable?) -- proceeding WITHOUT the machine-wide lock"
+            return 0
+        fi
+        sleep 1
+    done
+}
+
+# Idempotent; safe from the EXIT trap. Killing the helper closes its fd, which
+# is what releases the flock.
+ship_lock_release() {
+    if [ -n "$lock_helper_pid" ]; then
+        kill "$lock_helper_pid" 2>/dev/null || true
+        wait "$lock_helper_pid" 2>/dev/null || true
+        lock_helper_pid=""
+        log "ship lock released"
+    fi
+    if [ -n "$lock_status_file" ]; then
+        rm -f "$lock_status_file"
+        lock_status_file=""
+    fi
 }
 
 # Current remote main SHA; retries transient failures. Prints the SHA on
@@ -77,6 +215,20 @@ remote_main_sha() {
     done
     return 1
 }
+
+# Runs on every normal or `exit N` path: free the ship lock and the per-run
+# slot dir. Deliberately NOT trapping INT/TERM/HUP: bash defers a trapped
+# signal until its foreground child (the ~10 min pytest run) finishes, which
+# would make a ship unkillable mid-suite. Death by signal skips this trap
+# instead, and that is safe: the lock helper notices its parent is gone and
+# frees the flock within a second.
+cleanup() {
+    ship_lock_release
+    if [ -n "${NOVA_SLOT_DIR:-}" ]; then
+        rm -rf "$NOVA_SLOT_DIR"
+    fi
+}
+trap cleanup EXIT
 
 # ── GitHub CI gate ───────────────────────────────────────────────────────
 # Every function here degrades to a logged WARNING when gh is missing,
@@ -294,8 +446,16 @@ case "${1:-}" in
         ci_watch_for_sha "$target_sha" || ci_rc=$?
         exit "$ci_rc"
         ;;
+    --lock-only)
+        # Dry run of the ship lock: queue, hold, release. Same code path the
+        # real ship uses; nothing else is touched.
+        ship_lock_acquire "lock-only"
+        sleep "${2:-0}"
+        ship_lock_release
+        exit 0
+        ;;
     *)
-        echo "ERROR: unknown argument '$1'. Usage: scripts/ship_from_worktree.sh [--ci-check-only [<sha>]]" >&2
+        echo "ERROR: unknown argument '$1'. Usage: scripts/ship_from_worktree.sh [--ci-check-only [<sha>] | --lock-only [<hold_seconds>]]" >&2
         exit 1
         ;;
 esac
@@ -337,7 +497,6 @@ ci_preflight_warn
 TEST_PORT="$(( 50000 + ($$ % 10000) ))"
 NOVA_SLOT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/nova_gen_slots_ship.XXXXXX")"
 export TEST_PORT NOVA_SLOT_DIR
-trap 'rm -rf "$NOVA_SLOT_DIR"' EXIT
 
 # Sweep stale slot dirs leaked by runs killed before their EXIT trap fired.
 # Scoped ONLY to our own mktemp namespace (nova_gen_slots_ship.*) and ONLY
@@ -349,6 +508,11 @@ trap 'rm -rf "$NOVA_SLOT_DIR"' EXIT
 find "${TMPDIR:-/tmp}" -maxdepth 1 -type d -name 'nova_gen_slots_ship.*' -mmin +1440 ! -path "$NOVA_SLOT_DIR" -exec rm -rf {} + 2>/dev/null || true
 
 # ── Ship loop ────────────────────────────────────────────────────────────
+# Queue behind any other ship on this machine (exit 7 on timeout); released
+# right after the push lands, or by the EXIT trap on any other way out (a
+# signal death is covered by the helper's parent-pid watch).
+ship_lock_acquire "$current_branch"
+
 attempt=1
 while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
     # Reset the private slot dir BETWEEN attempts. The cross-process Voyage
@@ -427,6 +591,10 @@ while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
         attempt=$((attempt + 1))
         continue
     fi
+
+    # Landed. Free the queue now: deploy verification and the CI watch below
+    # take minutes and must not hold up the next ship's rebase and suite.
+    ship_lock_release
 
     # The push's own exit code is the primary success signal -- from here
     # on, a succeeded push must never cause a non-zero exit.
