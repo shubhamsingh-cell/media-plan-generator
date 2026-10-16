@@ -190,6 +190,44 @@ def test_bare_foreign_names_and_odd_shapes(plan, kept):
     assert _REGIONAL & set(_fold("custom", plan)) == kept
 
 
+@pytest.mark.parametrize(
+    "plan, kept",
+    [
+        # verifier round 3: a ticked code 533669f could not place ("TW", "GH")
+        # counted as a guess and dropped its own region's board. Read as ISO
+        # codes they are Taiwan (APAC) and Ghana (EMEA).
+        (
+            {"locations": ["Austin, TX"], "custom_countries": ["US", "TW"]},
+            {"apac_regional"},
+        ),
+        (
+            {"locations": ["Austin, TX"], "custom_countries": ["US", "GH"]},
+            {"emea_regional"},
+        ),
+        # a code no table places never drops a board
+        ({"locations": ["Austin, TX"], "custom_countries": ["US", "XX"]}, _REGIONAL),
+        # ISO only: "MA" is Morocco, not Massachusetts
+        ({"custom_countries": ["MA"]}, {"emea_regional"}),
+        (
+            {"locations": ["Casablanca, MA"], "custom_countries": ["MA"]},
+            {"emea_regional"},
+        ),
+        # a country field: ISO code or name, never a guess
+        ({"locations": ["Austin, TX"], "country": "MA"}, {"emea_regional"}),
+        ({"locations": ["Austin, TX"], "country": "XX"}, _REGIONAL),
+        # world-scope text is unplaceable even with countries ticked
+        ({"locations": ["Worldwide"], "custom_countries": ["US"]}, _REGIONAL),
+    ],
+)
+def test_ticked_codes_are_iso_and_unknown_codes_fail_open(plan, kept):
+    assert _REGIONAL & set(_fold("custom", plan)) == kept
+
+
+def test_iso_table_covers_every_wizard_custom_country():
+    for code in "US UK CA DE FR AU IN SG JP BR MX AE NL SE PH".split():
+        assert app._country_code_region(code), code
+
+
 def test_bare_foreign_city_custom_preview_funds_no_regional_board():
     funded = _funded(
         dict(

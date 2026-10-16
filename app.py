@@ -4827,6 +4827,56 @@ _CURRENCY_MARKET_REGION: "dict[str, str]" = {
     for code in codes.split()
 }
 
+# Market region of an ISO 3166-1 alpha-2 code -- how ``custom_countries``
+# entries (and a two-letter ``country`` field) are read. ISO only: "MA" is
+# Morocco here, never Massachusetts. Codes whose region is a judgement call
+# (Central Asia, Afghanistan, US Pacific territories, Antarctica) are left
+# out on purpose, so they fail open. "UK" is the wizard's spelling of GB.
+_ISO_COUNTRY_REGION: "dict[str, str]" = {
+    code: region
+    for region, codes in (
+        (
+            "americas",
+            "AG AI AR AW BB BL BM BO BQ BR BS BZ CA CL CO CR CU CW DM DO EC FK GD "
+            "GF GL GP GT GY HN HT JM KN KY LC MF MQ MS MX NI PA PE PM PR PY SR SV "
+            "SX TC TT US UY VC VE VG VI",
+        ),
+        (
+            "emea",
+            # Europe
+            "AD AL AT AX BA BE BG BY CH CY CZ DE DK EE ES FI FO FR GB GG GI GR HR "
+            "HU IE IM IS IT JE LI LT LU LV MC MD ME MK MT NL NO PL PT RO RS RU SE "
+            "SI SJ SK SM UA VA XK UK "
+            # Caucasus and Middle East
+            "AM AZ GE AE BH IL IQ IR JO KW LB OM PS QA SA SY TR YE "
+            # Africa
+            "AO BF BI BJ BW CD CF CG CI CM CV DJ DZ EG EH ER ET GA GH GM GN GQ GW "
+            "KE KM LR LS LY MA MG ML MR MU MW MZ NA NE NG RE RW SC SD SH SL SN SO "
+            "SS ST SZ TD TG TN TZ UG YT ZA ZM ZW",
+        ),
+        (
+            "apac",
+            "AU BD BN BT CC CK CN CX FJ FM HK ID IN IO JP KH KI KP KR LA LK MH MM "
+            "MN MO MV MY NC NF NP NR NU NZ PF PG PH PK PN PW SB SG TH TK TL TO TV "
+            "TW VN VU WF WS",
+        ),
+    )
+    for code in codes.split()
+}
+
+
+def _country_code_region(code: Any) -> "str | None":
+    """Region of one ticked custom country, read as an ISO 3166-1 alpha-2
+    code ("BR", "UK", "MA" = Morocco). None for anything else -- an unknown
+    code never drops a board."""
+    return _ISO_COUNTRY_REGION.get(_safe_str(code).strip().upper())
+
+
+# Location text that names the whole world rather than a market: unplaceable.
+_WORLDWIDE_WORDS: frozenset = frozenset(
+    {"worldwide", "global", "globally", "international", "anywhere in the world"}
+)
+
 # Regional board channel -> the market region that funds it.
 _REGIONAL_BOARD_REGION: "dict[str, str]" = {
     "apac_regional": "apac",
@@ -4853,13 +4903,14 @@ _GUESS = "guess"
 
 
 def _market_region(entry: Any) -> "str | None":
-    """Market region ("apac" / "emea" / "americas") of ONE plan market -- a
-    location string or dict, or a custom-region country code ("BR", "UK").
-    "" for an entry that names no market (blank text, or a bare "Remote");
-    _GUESS for a bare city name ("London", "Munich", "Chicago") that
-    plan_location can only match to US towns by name; None when the region
-    cannot be told at all ("Worldwide", "Accra, Ghana", a dict with no
-    place in it)."""
+    """Market region ("apac" / "emea" / "americas") of ONE plan location (a
+    string or dict; ticked custom countries go through _country_code_region).
+    "" for an entry that names no market (blank text, or a bare "Remote").
+    _GUESS for a bare name that proves no market: a city plan_location can
+    only match to US towns by name ("London", "Munich", "Chicago"), or one
+    nothing recognises ("Sao Paulo", "Mumbai"). None when the location
+    cannot be placed: world-scope text ("Worldwide", "Global"), a name with a
+    country no table knows ("Accra, Ghana"), or a dict with no place in it."""
     if isinstance(entry, dict):
         parts = [_safe_str(entry.get(k)).strip() for k in ("city", "state", "country")]
         text = ", ".join(p for p in parts if p) or _safe_str(entry.get("location"))
@@ -4870,6 +4921,8 @@ def _market_region(entry: Any) -> "str | None":
         text = _safe_str(entry).strip()
     if not text:
         return ""
+    if text.lower() in _WORLDWIDE_WORDS:
+        return None
     try:
         code = (
             plan_currency.currency_for_country(text)
@@ -4915,7 +4968,9 @@ def _plan_market_regions(plan: Any) -> "frozenset[str] | None":
     already rewrote ("Munich" -> "Munich, ND"; the ``_location_resolution``
     sidecar keeps the original match). With custom countries ticked, the
     user has named the markets, so a guess adds nothing and blocks nothing
-    ("Chicago" + US still drops both boards); without them it fails open."""
+    ("Chicago" + US still drops both boards); without them it fails open.
+    A ticked country or ``country`` field that cannot be placed ("TW" is
+    placed; "XX" is not) is never a guess: it fails open."""
     if not isinstance(plan, dict):
         return None
     locations = _as_entry_list(plan.get("locations"))
@@ -4936,12 +4991,20 @@ def _plan_market_regions(plan: Any) -> "frozenset[str] | None":
             if isinstance(r, dict) and r.get("matched_via") in _BARE_CITY_MATCHES
         }
     regions: "set[str]" = set()
-    entries = [
-        (_GUESS if i in guessed else None, loc) for i, loc in enumerate(locations)
+    # Ticked custom countries: ISO codes only, unknown -> None (fail open).
+    entries: list = [_country_code_region(c) for c in countries]
+    # A ``country`` field: an ISO code, else a country name; never a guess.
+    for value in _as_entry_list(plan.get("country")):
+        text = _safe_str(value).strip()
+        region = _country_code_region(text) if len(text) == 2 else None
+        if region is None and len(text) != 2:
+            region = _market_region(value)
+        entries.append(None if region == _GUESS else region)
+    entries += [
+        _GUESS if i in guessed else _market_region(loc)
+        for i, loc in enumerate(locations)
     ]
-    entries += [(None, e) for e in countries + _as_entry_list(plan.get("country"))]
-    for known, entry in entries:
-        region = known or _market_region(entry)
+    for region in entries:
         if region == _GUESS:
             if countries:
                 continue
