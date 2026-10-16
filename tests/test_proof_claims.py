@@ -61,6 +61,11 @@ PINNED = (
     "ai_tools",
     "llm_providers",
     "jobs_analyzed",
+    # The hero card's default scenario (and story 4's figure): the engine's
+    # own answer, pinned so a recalibration changes the public number on
+    # purpose, never silently.
+    "pe_cph",
+    "pe_hires",
 )
 
 # Figures that used to be hardcoded on these surfaces and must not come back.
@@ -85,6 +90,22 @@ STALE = (
     "Trusted by enterprise teams",
     "Live &middot; drag the budget",
     "Recomputes live",
+    # The hero card's hand-tuned model and the figure story 4 pinned to it.
+    "Illustrative model",
+    "illustrative example",
+    "1,064",
+    # The per-industry cost-per-hire quartiles have no reachable source
+    # (ledger/2026-10-17/R_cph_sources.md): never a "median" line, never NAHS.
+    "Nursing median",
+    "NAHS",
+    "SHRM 2024",
+    # SHRM's national average is an all-in cost per hire; the card's figure is
+    # media spend only -- never shown side by side (trust lens, 2026-10-17).
+    "SHRM 2025 US average",
+    # The headline is budget / whole hires at the floor, which equals half the
+    # midpoint only when the division is exact (trust lens, round 3).
+    "Half the engine",
+    "half its industry midpoint",
 )
 
 
@@ -357,8 +378,13 @@ def test_hub_is_served_with_the_computed_numbers(live_port: int) -> None:
     assert f'<span class="footer-stat-value">{c["countries"].text}</span>' in html
     assert "about a minute" in html
     assert "Built at Joveo (SOC 2 Type II)" in html
-    assert "Illustrative model &middot; drag the budget" in html
-    assert "cost-per-hire (illustrative example)" in html
+    # The hero card and story 4 carry the engine's default-scenario figure
+    # (tests/test_hub_prediction_engine.py checks it against the engine).
+    assert "Nova engine &middot; drag the budget" in html
+    assert f'data-target="{c["pe_cph"].value}"' in html
+    assert (
+        f'<span class="moment-figure-scope">{c["pe_scenario_html"].text}</span>' in html
+    )
     assert (
         "{{claim_" not in html and "{{/claim_" not in html and "{{#claim_" not in html
     )

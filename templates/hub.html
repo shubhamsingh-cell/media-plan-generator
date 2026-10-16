@@ -88,7 +88,7 @@
     <link rel="stylesheet" href="/static/css/tokens.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/buttons.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/motion.css?v=2.0.0" />
-    <link rel="stylesheet" href="/static/css/hub.css?v=2.14.3" />
+    <link rel="stylesheet" href="/static/css/hub.css?v=2.15.5" />
 
     <!-- PostHog Analytics -->
     <script>
@@ -337,41 +337,79 @@
           </ul>
         </div>
 
-        <!-- Hero artifact: the live Prediction Engine, promoted from mid-page
-             (owner: "make the hero BE the product"). Same #plan-showcase id +
-             .pe-card class that static/js/hub.js binds to by selector, so the
-             existing live-compute driver keeps working unchanged in this new
-             spot -- see hub.js "PREDICTION ENGINE" IIFE. -->
+        <!-- Hero artifact: the Prediction Engine, promoted from mid-page
+             (owner: "make the hero BE the product"). Every figure on it is
+             Nova's budget engine: the default scenario is rendered by the
+             server at startup (the claim_pe_* tokens + the #pe-default JSON
+             blob below, one un-enriched calculate_budget_allocation call via
+             proof_claims), and every other role x market x budget the chips
+             and slider can make is priced by the same call once per process
+             and served as one public, cacheable GET
+             (/api/hub/prediction-grid; proof_claims.hub_pe_grid) that hub.js
+             fetches on the first change and looks up from then on -- see the
+             hub.js "PREDICTION ENGINE" IIFE, which binds to this
+             #plan-showcase / .pe-card. The chips carry the brief fields the
+             engine receives (data-pe-*) and must match proof_claims.HUB_PE_*
+             (tests/test_hub_prediction_engine.py); nothing on this card is a
+             hand-tuned constant. -->
         <div
           class="hero-artifact"
           aria-label="Interactive cost-per-hire prediction tool"
         >
           <div class="ha-glow" aria-hidden="true"></div>
 
-          <div class="pe-card pe-card--hero" id="plan-showcase">
+          <div
+            class="pe-card pe-card--hero"
+            id="plan-showcase"
+            data-pe-grid="/api/hub/prediction-grid?v={{claim_pe_grid_version}}"
+          >
             <div class="pe-head">
               <span class="pe-brand">
                 <span class="pe-brand-dot" aria-hidden="true"></span>
                 Nova &middot; Prediction Engine
               </span>
               <span class="pe-pill pe-pill--live">
-                Illustrative model &middot; drag the budget
+                Nova engine &middot; drag the budget
               </span>
             </div>
 
             <div class="pe-control-block">
               <div class="pe-control-label">Role</div>
               <div class="pe-chips" role="group" aria-label="Role">
-                <button type="button" class="pe-chip is-on" data-role="0">
+                <button
+                  type="button"
+                  class="pe-chip is-on"
+                  data-role="0"
+                  data-pe-title="Registered Nurse"
+                  data-pe-industry="Healthcare &amp; Medical"
+                >
                   Registered Nurse
                 </button>
-                <button type="button" class="pe-chip" data-role="1">
+                <button
+                  type="button"
+                  class="pe-chip"
+                  data-role="1"
+                  data-pe-title="Sales Rep"
+                  data-pe-industry="Retail"
+                >
                   Sales Rep
                 </button>
-                <button type="button" class="pe-chip" data-role="2">
+                <button
+                  type="button"
+                  class="pe-chip"
+                  data-role="2"
+                  data-pe-title="CDL Driver"
+                  data-pe-industry="Logistics &amp; Supply Chain"
+                >
                   CDL Driver
                 </button>
-                <button type="button" class="pe-chip" data-role="3">
+                <button
+                  type="button"
+                  class="pe-chip"
+                  data-role="3"
+                  data-pe-title="Software Engineer"
+                  data-pe-industry="Technology"
+                >
                   Software Engineer
                 </button>
               </div>
@@ -381,17 +419,37 @@
               <div class="pe-control-block">
                 <div class="pe-control-label">Location</div>
                 <div class="pe-chips" role="group" aria-label="Location">
-                  <button type="button" class="pe-chip is-on" data-loc="0">
+                  <button
+                    type="button"
+                    class="pe-chip is-on"
+                    data-loc="0"
+                    data-pe-location="Houston, TX"
+                  >
                     Houston, TX
                   </button>
-                  <button type="button" class="pe-chip" data-loc="1">
+                  <button
+                    type="button"
+                    class="pe-chip"
+                    data-loc="1"
+                    data-pe-location="Chicago, IL"
+                  >
                     Chicago, IL
                   </button>
-                  <button type="button" class="pe-chip" data-loc="2">
+                  <button
+                    type="button"
+                    class="pe-chip"
+                    data-loc="2"
+                    data-pe-location="Phoenix, AZ"
+                  >
                     Phoenix, AZ
                   </button>
-                  <button type="button" class="pe-chip" data-loc="3">
-                    Remote
+                  <button
+                    type="button"
+                    class="pe-chip"
+                    data-loc="3"
+                    data-pe-location="New York, NY"
+                  >
+                    New York, NY
                   </button>
                 </div>
               </div>
@@ -400,83 +458,93 @@
                   <span>Budget</span>
                   <span class="pe-budget-value" data-pe-budget>$50,000</span>
                 </div>
+                <!-- min $30,000: the smallest step at which the engine
+                     projects at least TWO hires for every role x market on
+                     the chips. Below it a $25K tech campaign in New York
+                     prices at one hire, which would put the whole budget on
+                     the hero as its cost per hire; at $10K some scenarios
+                     price at zero hires and have no cost per hire at all. -->
                 <input
                   type="range"
                   class="pe-range"
-                  min="10000"
+                  min="30000"
                   max="200000"
                   step="5000"
                   value="50000"
                   data-pe-range
-                  aria-label="Monthly budget"
+                  autocomplete="off"
+                  aria-label="Campaign budget"
                 />
               </div>
             </div>
 
             <div class="pe-result">
               <div class="pe-cph">
-                <div class="pe-cph-value" data-pe-cph>$0</div>
-                <div class="pe-cph-label">Modeled cost-per-hire</div>
+                <div class="pe-cph-value" data-pe-cph>{{claim_pe_cph}}</div>
+                <div class="pe-cph-label">Modeled <span class="pe-nowrap">cost-per-hire</span>{{#claim_pe_basis}} <span data-pe-label-basis>at plan efficiency</span>{{/claim_pe_basis}}</div>
+                <div class="pe-cph-basis" data-pe-basis>{{claim_pe_basis}}</div>
               </div>
               <div class="pe-minis">
                 <div class="pe-mini">
-                  <div class="pe-mini-value" data-pe-hires>0</div>
+                  <div class="pe-mini-value" data-pe-hires>{{claim_pe_hires}}</div>
                   <div class="pe-mini-label">Proj. hires</div>
                 </div>
                 <div class="pe-mini">
-                  <div class="pe-mini-value" data-pe-apps>0</div>
+                  <div class="pe-mini-value" data-pe-apps>{{claim_pe_apps}}</div>
                   <div class="pe-mini-label">Est. applications</div>
                 </div>
                 <div class="pe-mini">
-                  <div class="pe-mini-value" data-pe-days>0</div>
-                  <div class="pe-mini-label">Days to fill</div>
+                  <div class="pe-mini-value" data-pe-cpa>{{claim_pe_cpa}}</div>
+                  <div class="pe-mini-label">Cost per application</div>
                 </div>
               </div>
             </div>
 
+            <!-- One row per engine channel key (budget_engine channel_allocations);
+                 hub.js fills the rows the engine funded and hides the rest. -->
             <div class="pe-split-title">Recommended channel split</div>
             <div class="pe-bars">
-              <div class="pe-bar-row" data-pe-ch="0">
-                <span class="pe-bar-name">Indeed</span>
+              <div class="pe-bar-row" data-pe-ch="programmatic_dsp">
+                <span class="pe-bar-name">Programmatic</span>
                 <div class="pe-bar-track">
                   <div
                     class="pe-bar-fill"
                     style="--pe-c1: #5a54be; --pe-c2: #8680d6"
                   ></div>
                 </div>
-                <span class="pe-bar-amt" data-pe-amt>$0</span>
+                <span class="pe-bar-amt" data-pe-amt></span>
               </div>
-              <div class="pe-bar-row" data-pe-ch="1">
-                <span class="pe-bar-name">LinkedIn</span>
+              <div class="pe-bar-row" data-pe-ch="global_boards">
+                <span class="pe-bar-name">Global boards</span>
                 <div class="pe-bar-track">
                   <div
                     class="pe-bar-fill"
                     style="--pe-c1: #6bb5ce; --pe-c2: #5a54be"
                   ></div>
                 </div>
-                <span class="pe-bar-amt" data-pe-amt>$0</span>
+                <span class="pe-bar-amt" data-pe-amt></span>
               </div>
-              <div class="pe-bar-row" data-pe-ch="2">
-                <span class="pe-bar-name">Programmatic</span>
+              <div class="pe-bar-row" data-pe-ch="niche_boards">
+                <span class="pe-bar-name">Niche boards</span>
                 <div class="pe-bar-track">
                   <div
                     class="pe-bar-fill"
                     style="--pe-c1: #8680d6; --pe-c2: #b7669e"
                   ></div>
                 </div>
-                <span class="pe-bar-amt" data-pe-amt>$0</span>
+                <span class="pe-bar-amt" data-pe-amt></span>
               </div>
-              <div class="pe-bar-row" data-pe-ch="3">
-                <span class="pe-bar-name">Niche boards</span>
+              <div class="pe-bar-row" data-pe-ch="regional_boards">
+                <span class="pe-bar-name">Regional boards</span>
                 <div class="pe-bar-track">
                   <div
                     class="pe-bar-fill"
                     style="--pe-c1: #b7669e; --pe-c2: #6bb5ce"
                   ></div>
                 </div>
-                <span class="pe-bar-amt" data-pe-amt>$0</span>
+                <span class="pe-bar-amt" data-pe-amt></span>
               </div>
-              <div class="pe-bar-row" data-pe-ch="4">
+              <div class="pe-bar-row" data-pe-ch="social_media">
                 <span class="pe-bar-name">Social</span>
                 <div class="pe-bar-track">
                   <div
@@ -484,15 +552,33 @@
                     style="--pe-c1: #6bb5ce; --pe-c2: #8680d6"
                   ></div>
                 </div>
-                <span class="pe-bar-amt" data-pe-amt>$0</span>
+                <span class="pe-bar-amt" data-pe-amt></span>
+              </div>
+              <div class="pe-bar-row" data-pe-ch="employer_branding">
+                <span class="pe-bar-name">Employer branding</span>
+                <div class="pe-bar-track">
+                  <div
+                    class="pe-bar-fill"
+                    style="--pe-c1: #8680d6; --pe-c2: #6bb5ce"
+                  ></div>
+                </div>
+                <span class="pe-bar-amt" data-pe-amt></span>
               </div>
             </div>
 
+            <p class="pe-status" data-pe-status role="status" aria-live="polite" hidden></p>
             <div class="pe-footnote">
-              Illustrative model, recomputed as you change inputs. Your real plan is
-              built by Nova&rsquo;s calibrated engine &mdash; no signup.
+              Plan efficiency: the budget over whole hires at the engine&rsquo;s
+              floor, half its assumed industry midpoint. A real plan prints both
+              cases and adds live market enrichment. No signup.
             </div>
           </div>
+          <!-- The default scenario's brief + estimate, rendered by the server
+               from the same engine call that filled the card above; hub.js
+               seeds its scenario table from it so the first paint never
+               fetches (the rest arrive with /api/hub/prediction-grid on the
+               first change). "null" when the engine could not price it. -->
+          <script type="application/json" id="pe-default">{{claim_pe_scenario:json}}</script>
         </div>
         <!-- /hero-stage (command deck) -->
       </section>
@@ -1430,21 +1516,25 @@
           <!-- Moment 4 — THE PLAN. Card mockup removed (it duplicated the
                hero genplan card + the Prediction Engine). Replaced with a
                single big outcome figure so this moment reads as a result,
-               not a third copy of the plan card. -->
+               not a third copy of the plan card. The figure IS the hero
+               card's default scenario -- the same engine call, rendered by
+               the server (proof_claims pe_cph / pe_scenario) -- so the two
+               can never disagree. -->
           <div class="story-moment moment-4">
             <div class="moment-visual">
               <div class="moment-figure">
-                <div
+                {{#claim_pe_cph+pe_scenario_html}}<div
                   class="moment-figure-value"
                   data-counter
-                  data-target="1064"
+                  data-target="{{claim_pe_cph:raw}}"
                   data-prefix="$"
                 >
-                  $1,064
+                  {{claim_pe_cph}}
                 </div>
-                <div class="moment-figure-label">cost-per-hire (illustrative example)</div>
+                <div class="moment-figure-label">modeled cost-per-hire<span class="moment-figure-scope">{{claim_pe_scenario_html}}</span></div>{{/claim_pe_cph+pe_scenario_html}}{{^claim_pe_cph+pe_scenario_html}}<div class="moment-figure-label">modeled cost-per-hire, per role and market</div>{{/claim_pe_cph+pe_scenario_html}}
                 <div class="moment-figure-sub">
-                  modeled across the full channel mix before a dollar is spent
+                  {{#claim_pe_basis}}the budget over whole hires at the engine&rsquo;s floor, before a
+                  dollar is spent{{/claim_pe_basis}}{{^claim_pe_basis}}modeled before a dollar is spent{{/claim_pe_basis}}
                 </div>
               </div>
             </div>
@@ -3480,7 +3570,7 @@
     <!-- .footer-wrap -->
 
     <!-- ── Page Scripts (extracted to hub.js for cacheability, Fix #1) ── -->
-    <script src="/static/js/hub.js?v=2.8.1"></script>
+    <script src="/static/js/hub.js?v=2.9.2"></script>
 
     <!-- Legacy inline removed -- hamburger, observers, counters, bar anims,
          scroll handler, ripple, hero preview, page-enter, GSAP hero entrance,

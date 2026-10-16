@@ -1876,8 +1876,68 @@ def _handle_proof_claims(handler, path: str, parsed: Any) -> None:
         _send_json_response(handler, {"error": "proof claims unavailable"}, 503)
 
 
+def _handle_hub_prediction_grid(handler, path: str, parsed: Any) -> None:
+    """/api/hub/prediction-grid -- the hub hero card's scenarios, engine-priced.
+
+    Public on purpose: the 4 roles x 4 markets x budget steps it contains are
+    exactly what the public hub card shows, priced once per process by the
+    same un-enriched engine call as POST /api/estimate (proof_claims.
+    hub_pe_grid).  The page links it with ?v=<content hash>; cached for a day
+    with an ETag, so a visitor's drags cost one GET and no authenticated,
+    rate-limited request each.
+    """
+    try:
+        import proof_claims
+
+        grid = proof_claims.hub_pe_grid()
+    except Exception as exc:  # noqa: BLE001 -- never 500 the hub's card
+        logger.error("hub prediction grid failed: %s", exc, exc_info=True)
+        _send_json_response(handler, {"error": "prediction grid unavailable"}, 503)
+        return
+    if grid is None:
+        _send_json_response(handler, {"error": "budget engine not loaded"}, 503)
+        return
+    body = json.dumps(grid, separators=(",", ":")).encode("utf-8")
+    # The page links this URL with ?v=<grid version> (a content hash), so a
+    # new deploy or a new month is a new URL: safe to cache for a day -- but
+    # only when the version asked for IS this grid's; an old instance answering
+    # a new page's URL mid-deploy must not be cached under that URL.
+    version = str(grid.get("version") or "")
+    etag = '"' + version + '"'
+    wanted = (
+        urllib.parse.parse_qs(getattr(parsed, "query", "") or "").get("v") or [""]
+    )[0]
+    cache_control = "public, max-age=86400" if wanted == version else "no-store"
+    if (handler.headers.get("If-None-Match") or "") == etag:
+        handler.send_response(304)
+        handler.send_header("ETag", etag)
+        handler.send_header("Cache-Control", cache_control)
+        handler.end_headers()
+        return
+    # ~250 KB of JSON compresses about 10x; mirror the handler's own
+    # _send_compressed_response (which cannot carry the ETag) inline.
+    if "gzip" in (handler.headers.get("Accept-Encoding") or ""):
+        import gzip
+
+        body = gzip.compress(body, compresslevel=6)
+        encoding = "gzip"
+    else:
+        encoding = ""
+    handler.send_response(200)
+    handler.send_header("Content-Type", "application/json")
+    if encoding:
+        handler.send_header("Content-Encoding", encoding)
+    handler.send_header("Vary", "Accept-Encoding")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("ETag", etag)
+    handler.send_header("Cache-Control", cache_control)
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
 _HEALTH_ROUTE_MAP: dict[str, Any] = {
     "/api/proof-claims": _handle_proof_claims,
+    "/api/hub/prediction-grid": _handle_hub_prediction_grid,
     "/api/config": _handle_config,
     "/api/features": _handle_features,
     "/api/health": _handle_health,

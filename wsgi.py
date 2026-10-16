@@ -78,6 +78,7 @@ def _run_deferred_startup() -> None:
         import proof_claims
 
         proof_claims.claims()
+        proof_claims.hub_pe_grid()  # the hero card's scenarios, ~2 s once
     except Exception as pc_err:
         logger.error("[wsgi] proof_claims failed: %s", pc_err, exc_info=True)
 

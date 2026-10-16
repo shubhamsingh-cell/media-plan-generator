@@ -4,5 +4,7 @@
   "jobs_analyzed": 108871,
   "knowledge_bases": 57,
   "llm_providers": 16,
+  "pe_cph": 5556,
+  "pe_hires": 9,
   "supply_partners": 6700
 }

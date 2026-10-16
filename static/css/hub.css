@@ -4398,9 +4398,11 @@ html.lenis body {
 }
 /* Interactive affordance (owner: "a visitor must SEE within ~2s that this
    recomputes when touched") -- an explicit "drag the budget" hint right in
-   the header, the first thing read after the brand row. The pill is labelled
-   "Illustrative model": the former pulsing "Live" dot was removed 2026-10-16
-   because the card is a hand-tuned model, not engine output. */
+   the header, the first thing read after the brand row. Labelled "Nova
+   engine" since 2026-10-17: every figure is the budget engine's own answer
+   (server-rendered default + the engine-priced scenario grid, fetched once),
+   no longer the hand-tuned model the 2026-10-16 "Illustrative model" label
+   covered. */
 .pe-pill--live {
   gap: 7px;
   color: #eafbff;
@@ -4561,9 +4563,9 @@ html.lenis body {
 .pe-result {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  margin: 20px 0 6px;
-  padding-top: 20px;
+  gap: 16px;
+  margin: 16px 0 6px;
+  padding-top: 16px;
   border-top: 1px solid rgba(139, 133, 230, 0.16);
 }
 .pe-cph-value {
@@ -4597,6 +4599,9 @@ html.lenis body {
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: #9d9ac2;
+  /* "at plan efficiency" wraps on a phone; balance it so the second line is
+     never a lone word (typography lens, 2026-10-17). */
+  text-wrap: balance;
 }
 .pe-minis {
   display: grid;
@@ -4627,13 +4632,22 @@ html.lenis body {
 .pe-bars {
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  /* 9px (was 11): the engine funds six channels, not five; the row pitch
+     tightens so the taller card moves the hero copy as little as possible. */
+  gap: 9px;
 }
 .pe-bar-row {
   display: grid;
-  grid-template-columns: 96px 1fr 70px;
+  /* 120px name column: the engine's own channel names ("Employer branding",
+     "Regional boards") are longer than the old fixed five. */
+  grid-template-columns: 120px 1fr 70px;
   align-items: center;
   gap: 12px;
+}
+/* A channel the engine gave no budget is hidden, never shown at $0; the
+   [hidden] attribute alone loses to display:grid above. */
+.pe-bar-row[hidden] {
+  display: none;
 }
 .pe-bar-name {
   font-size: 12.5px;
@@ -4664,6 +4678,53 @@ html.lenis body {
   margin-top: 18px;
   font-size: 11.5px;
   color: #7d7aa6;
+  text-wrap: pretty; /* no lone "signup." on its own last line (phone) */
+}
+/* The key term of the headline label never splits at its hyphens on a
+   phone ("MODELED COST-PER- / HIRE ..."); the line breaks around it. */
+.pe-nowrap {
+  white-space: nowrap;
+}
+
+/* Basis line under the cost-per-hire: what the headline's "plan efficiency"
+   case is ("Half the engine's $10,500 industry midpoint · 4 hires at the
+   midpoint"), in the deck's own terms, per scenario. Balanced so a phone
+   break never leaves one word on its own. */
+.pe-cph-basis {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #9d9ac2;
+  font-variant-numeric: tabular-nums;
+  text-wrap: balance;
+}
+/* Engine status (grid unreachable, or a scenario it lacks): the last
+   estimate stays on screen and this line names it. Empty and hidden
+   otherwise. */
+.pe-status {
+  margin: 12px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #e7a4d4;
+}
+.pe-status[hidden] {
+  display: none;
+}
+/* While the scenario grid is fetched (once, on the first change), the
+   figures dim a touch so a visitor sees they are being looked up, not
+   stale. */
+.pe-result,
+.pe-bars {
+  transition: opacity 0.2s ease;
+}
+.pe-card.is-computing .pe-result,
+.pe-card.is-computing .pe-bars {
+  opacity: 0.72;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pe-result,
+  .pe-bars {
+    transition: none;
+  }
 }
 
 /* ==========================================================================
@@ -4771,9 +4832,17 @@ html.lenis body {
   .pe-minis {
     gap: 10px;
   }
+  /* 114px name column at phone width: the engine's channel names ("Employer
+     branding" is 109px at 12px; 5px of headroom for a fallback font) wrapped
+     to two lines or clipped in the old 80px; the amount column narrows to
+     what "$150,000" needs (54px). */
   .pe-bar-row {
-    grid-template-columns: 80px 1fr 64px;
+    grid-template-columns: 114px 1fr 56px;
     gap: 9px;
+  }
+  .pe-bar-name,
+  .pe-bar-amt {
+    font-size: 12px;
   }
   .ledger-row {
     flex-direction: column;
@@ -4820,6 +4889,34 @@ html.lenis body {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: #8680d6;
+}
+/* Story 4: the scenario the figure belongs to is its own line, so the label
+   never breaks mid-scenario and no separator is stranded at a line end
+   (typography lens, 2026-10-17). */
+.moment-figure-scope {
+  display: block;
+  margin-top: 4px;
+  text-wrap: balance;
+}
+/* The scenario's three parts; the separators are drawn here, never typed, so
+   a wrapped line cannot begin or end with a stray dot. On a phone the parts
+   stack and the dots go. */
+.moment-figure-part + .moment-figure-part::before {
+  /* "\00a0\00b7\00a0": no-break spaces on both sides -- a hex escape would
+     swallow a following plain space and render " ·HOUSTON" (typography lens,
+     round 4), and the dot must never be a line's first or last glyph. */
+  content: "\00a0\00b7\00a0";
+}
+/* Up to 700px the parts stack: the one-line form is ~380px of unbreakable
+   text (the dots are glued to both neighbours), and the story column drops
+   below that width before the hero does. */
+@media (max-width: 700px) {
+  .moment-figure-part {
+    display: block;
+  }
+  .moment-figure-part + .moment-figure-part::before {
+    content: none;
+  }
 }
 .moment-figure-sub {
   margin-top: 14px;

@@ -6237,11 +6237,37 @@ def _compute_plan_estimate(brief: dict) -> dict:
         est_cph = None
     else:
         est_cph = round(float(cost_per_hire), 2) if cost_per_hire else 0.0
+    # The deck's two cases behind one headline: ``hires`` above is the
+    # plan-efficiency count (the engine's cost-per-hire floor, half the
+    # industry midpoint, see calculate_budget_allocation's cph_floor_applied);
+    # ``hires_low`` is the count at the industry midpoint itself. The hub's
+    # hero card discloses both ("9 whole hires at the engine's $5,250 floor ·
+    # 4 at its $10,500 midpoint"), as every deck's KPI sublabel does; the
+    # headline is budget / hires, which equals the floor only when the
+    # division is exact.
+    _est_meta = budget_result.get("metadata") if isinstance(budget_result, dict) else {}
+    _est_suff = (
+        budget_result.get("sufficiency") if isinstance(budget_result, dict) else {}
+    )
+    _midpoint_cph = (_est_suff or {}).get("industry_avg_cost_per_hire")
     return {
         "est_hires": est_hires,
         "est_cph": est_cph,
         "est_applications": int(applications),
         "est_cpa": est_cpa,
+        "est_hires_midpoint": int(total_projected.get("hires_low") or 0) or None,
+        "industry_midpoint_cph": (
+            round(float(_midpoint_cph), 2)
+            if isinstance(_midpoint_cph, (int, float)) and _midpoint_cph > 0
+            else None
+        ),
+        "cph_floor_applied": bool((_est_meta or {}).get("cph_floor_applied")),
+        "cph_floor": (
+            round(float((_est_meta or {}).get("cph_benchmark_floor")), 2)
+            if isinstance((_est_meta or {}).get("cph_benchmark_floor"), (int, float))
+            and (_est_meta or {}).get("cph_benchmark_floor") > 0
+            else None
+        ),
         # SHRM-sourced cost-per-hire quartiles for this industry / these roles
         # (USD plans only), or None: the wizard words "High" / "Efficient"
         # cost per hire only against these, never against a typed-in table.
@@ -27403,6 +27429,7 @@ if __name__ == "__main__":
         # value and its source is logged, and /api/proof-claims exposes them.
         try:
             proof_claims.claims()
+            proof_claims.hub_pe_grid()  # the hero card's scenarios, ~2 s once
         except Exception as pc_err:
             logger.error(
                 "[deferred_startup] proof_claims failed: %s", pc_err, exc_info=True

@@ -1688,9 +1688,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
 /* ==========================================================================
    PREDICTION ENGINE — the single interactive plan-card on the page.
-   Picks a role + location + budget, predicts cost-per-hire live, and routes
-   the spend across 5 channels. Numbers count up (cubic ease); reduced-motion
-   jumps to final. rAF is cancelled per element so rapid changes don't fight.
+   Every figure is Nova's budget engine. The server renders the default
+   scenario (proof_claims pe_* tokens + the #pe-default JSON blob: one
+   un-enriched calculate_budget_allocation call at startup) and prices every
+   other role x market x budget the chips and slider can make once per
+   process (proof_claims.hub_pe_grid, GET /api/hub/prediction-grid, public
+   and cacheable). This driver fetches that grid once, on the first change,
+   and from then on every chip click or budget drag is a synchronous lookup:
+   no authenticated, rate-limited request per drag, no network latency in
+   the count-up. Nothing here is a tuned constant: the chips carry the brief
+   fields the engine receives (data-pe-*). Numbers count up (cubic ease);
+   reduced-motion jumps to final. rAF is cancelled per element so rapid
+   changes don't fight.
    ========================================================================== */
 (function () {
   "use strict";
@@ -1702,28 +1711,12 @@ document.addEventListener("DOMContentLoaded", function () {
     "(prefers-reduced-motion: reduce)",
   ).matches;
 
-  // Per-role recommended channel split (Indeed, LinkedIn, Programmatic,
-  // Niche boards, Social) so the mix visibly shifts by role rather than
-  // staying static -- e.g. CDL Driver leans Indeed/Programmatic/niche with
-  // minimal LinkedIn, Software Engineer leans LinkedIn. Illustrative but
-  // realistic; each row sums to 1.0.
-  var ROLES = [
-    { k: "Registered Nurse", cpa: 18, ath: 0.017, days: 31, split: [0.34, 0.10, 0.20, 0.28, 0.08] },
-    { k: "Sales Rep", cpa: 12, ath: 0.012, days: 24, split: [0.30, 0.24, 0.22, 0.12, 0.12] },
-    { k: "CDL Driver", cpa: 9, ath: 0.022, days: 19, split: [0.40, 0.05, 0.30, 0.20, 0.05] },
-    { k: "Software Engineer", cpa: 28, ath: 0.009, days: 42, split: [0.22, 0.34, 0.24, 0.10, 0.10] },
-  ];
-  var LOCS = [
-    { k: "Houston, TX", m: 1.0 },
-    { k: "Chicago, IL", m: 1.15 },
-    { k: "Phoenix, AZ", m: 0.95 },
-    { k: "Remote", m: 1.25 },
-  ];
-  var CH = [0.37, 0.24, 0.19, 0.12, 0.08];
-
-  var roleIdx = 0;
-  var locIdx = 0;
-  var budget = 50000;
+  // The grid URL carries its content hash (?v=), rendered by the server, so
+  // a browser never pairs a grid cached from an older deploy with this page.
+  var GRID_URL = card.getAttribute("data-pe-grid") || "/api/hub/prediction-grid";
+  // After a failed grid fetch, wait this long before trying again on the
+  // next change (the figures on screen stay, and the status line says so).
+  var RETRY_COOLDOWN_MS = 8000;
 
   // Element handles
   var roleChips = card.querySelectorAll("[data-role]");
@@ -1733,12 +1726,47 @@ document.addEventListener("DOMContentLoaded", function () {
   var cphEl = card.querySelector("[data-pe-cph]");
   var hiresEl = card.querySelector("[data-pe-hires]");
   var appsEl = card.querySelector("[data-pe-apps]");
-  var daysEl = card.querySelector("[data-pe-days]");
-  var barFills = card.querySelectorAll(".pe-bar-fill");
-  var barAmts = card.querySelectorAll("[data-pe-amt]");
+  var cpaEl = card.querySelector("[data-pe-cpa]");
+  var basisEl = card.querySelector("[data-pe-basis]");
+  var labelBasisEl = card.querySelector("[data-pe-label-basis]");
+  var statusEl = card.querySelector("[data-pe-status]");
+  var barRows = card.querySelectorAll("[data-pe-ch]");
+
+  function activeChip(chips) {
+    for (var i = 0; i < chips.length; i++) {
+      if (chips[i].classList.contains("is-on")) return chips[i];
+    }
+    return chips[0] || null;
+  }
+  var roleChip = activeChip(roleChips);
+  var locChip = activeChip(locChips);
+  var budget = range ? parseInt(range.value, 10) || 0 : 0;
 
   function fmtDollar(n) {
     return "$" + Math.round(n).toLocaleString("en-US");
+  }
+  function fmtCents(n) {
+    return "$" + Number(n).toFixed(2);
+  }
+  function fmtInt(n) {
+    return Math.round(n).toLocaleString("en-US");
+  }
+  function chipText(chip, attr) {
+    if (!chip) return "";
+    return chip.getAttribute(attr) || chip.textContent.trim();
+  }
+
+  // The brief the engine receives -- the same fields the wizard sends.
+  function currentBrief() {
+    return {
+      budget: fmtDollar(budget),
+      industry: (roleChip && roleChip.getAttribute("data-pe-industry")) || "",
+      roles: [chipText(roleChip, "data-pe-title")],
+      locations: [chipText(locChip, "data-pe-location")],
+    };
+  }
+  function briefKey(b) {
+    return b.roles[0] + "|" + b.locations[0] + "|" + b.budget;
   }
 
   // Per-element rAF token store so rapid input cancels in-flight animations.
@@ -1778,76 +1806,205 @@ document.addEventListener("DOMContentLoaded", function () {
     return isNaN(n) ? 0 : n;
   }
 
-  function compute() {
-    var role = ROLES[roleIdx];
-    var loc = LOCS[locIdx];
-    var apps = budget / (role.cpa * loc.m);
-    var hires = Math.max(1, Math.round(apps * role.ath));
-    var cph = budget / hires;
-    var days = Math.round(role.days * loc.m);
-
-    // Story 4's "(example)" figure echoes the engine's first (default-scenario)
-    // cost-per-hire, so the hardcoded fallback in hub.html can never drift
-    // from what the live card shows.
-    var storyFigure = document.querySelector(".moment-4 .moment-figure-value");
-    if (storyFigure && !storyFigure.dataset.pePinned) {
-      storyFigure.dataset.pePinned = "1";
-      storyFigure.dataset.target = String(Math.round(cph));
-      storyFigure.textContent = fmtDollar(cph);
+  function setNumber(el, key, value, fmt, animate) {
+    if (!el) return;
+    if (animate) {
+      animateNumber(el, key, readNum(el), value, fmt);
+    } else {
+      el.textContent = fmt(value);
     }
+  }
 
-    animateNumber(cphEl, "cph", readNum(cphEl), cph, fmtDollar);
-    animateNumber(hiresEl, "hires", readNum(hiresEl), hires, function (v) {
-      return Math.round(v).toLocaleString("en-US");
+  var shownBrief = null; // the scenario whose figures are on screen
+  function scenarioName(b) {
+    return b ? b.roles[0] + " \u00b7 " + b.locations[0] + " \u00b7 " + b.budget : "";
+  }
+  function setStatus(msg) {
+    if (!statusEl) return;
+    statusEl.textContent = msg || "";
+    statusEl.hidden = !msg;
+  }
+  function setStaleStatus(reason) {
+    var shown = scenarioName(shownBrief);
+    setStatus(shown ? reason + " Showing the last estimate (" + shown + ")." : reason);
+  }
+
+  // "9 whole hires at the engine's $5,250 floor · 4 at its $10,500 midpoint":
+  // exactly what the headline is (budget over whole hires priced at the
+  // engine's floor) beside the deck's other case (the server formats the
+  // default the same way: proof_claims.pe_basis_text). Empty when a scenario
+  // is not the floor-clamped case, so the label above never claims plan
+  // efficiency for a figure that is not.
+  function basisText(est) {
+    var hires = Number(est.est_hires);
+    var floor = Number(est.cph_floor);
+    var mid = Number(est.industry_midpoint_cph);
+    var hiresMid = Number(est.est_hires_midpoint);
+    if (!est.cph_floor_applied || !(hires >= 1) || !(floor > 0) || !(mid > 0) || !(hiresMid >= 1)) {
+      return "";
+    }
+    return (
+      hires +
+      (hires === 1 ? " whole\u00a0hire" : " whole\u00a0hires") +
+      " at the engine\u2019s " +
+      fmtDollar(floor) +
+      "\u00a0floor \u00b7\u00a0" +
+      hiresMid +
+      " at its " +
+      fmtDollar(mid) +
+      "\u00a0midpoint"
+    );
+  }
+
+  // Paint one /api/estimate response. `animate` counts the numbers up from
+  // what is on screen; the first paint and the post-animation snap set them.
+  function paint(est, animate) {
+    var doAnimate = !!animate && !prefersReducedMotion;
+    var cph = typeof est.est_cph === "number" ? est.est_cph : null;
+
+    if (cphEl) {
+      if (cph === null) {
+        // Below one projected hire there is no cost per hire to state.
+        if (rafTokens.cph) cancelAnimationFrame(rafTokens.cph);
+        rafTokens.cph = null;
+        cphEl.textContent = "—";
+      } else {
+        setNumber(cphEl, "cph", cph, fmtDollar, doAnimate);
+      }
+    }
+    setNumber(hiresEl, "hires", Number(est.est_hires) || 0, fmtInt, doAnimate);
+    setNumber(appsEl, "apps", Number(est.est_applications) || 0, fmtInt, doAnimate);
+    setNumber(cpaEl, "cpa", Number(est.est_cpa) || 0, fmtCents, doAnimate);
+    var basis = basisText(est);
+    if (basisEl) basisEl.textContent = basis;
+    // "at plan efficiency" is only true of the floor-clamped case the basis
+    // line describes; without that line the label says just what it is.
+    if (labelBasisEl) labelBasisEl.hidden = !basis;
+
+    // Channel split: the channels the engine funded, by key. A row whose
+    // channel got no budget is hidden rather than shown at $0.
+    var byKey = {};
+    (est.channels || []).forEach(function (c) {
+      if (c && c.key) byKey[c.key] = c;
     });
-    animateNumber(appsEl, "apps", readNum(appsEl), apps, function (v) {
-      return Math.round(v).toLocaleString("en-US");
-    });
-    animateNumber(daysEl, "days", readNum(daysEl), days, function (v) {
-      return String(Math.round(v));
+    barRows.forEach(function (row) {
+      var key = row.getAttribute("data-pe-ch");
+      var c = byKey[key];
+      var amount = c ? Number(c.amount) || 0 : 0;
+      var pct = c ? Number(c.pct) || 0 : 0;
+      var fill = row.querySelector(".pe-bar-fill");
+      var amtEl = row.querySelector("[data-pe-amt]");
+      row.hidden = !(amount > 0);
+      if (fill) fill.style.width = pct.toFixed(1) + "%";
+      setNumber(amtEl, "amt_" + key, amount, fmtDollar, doAnimate);
     });
 
-    var split = role.split || CH;
-    barFills.forEach(function (fill, i) {
-      fill.style.width = (split[i] * 100).toFixed(1) + "%";
-    });
-    barAmts.forEach(function (amtEl, i) {
-      animateNumber(amtEl, "amt" + i, readNum(amtEl), budget * split[i], fmtDollar);
-    });
-
-    // Snap to final values after the count-up window, so the prediction is
+    // Snap to final values after the count-up window, so the figures are
     // correct even if rAF never ran (hidden/backgrounded tab).
     if (peSnapTimer) clearTimeout(peSnapTimer);
-    peSnapTimer = setTimeout(function () {
-      if (cphEl) cphEl.textContent = fmtDollar(cph);
-      if (hiresEl) hiresEl.textContent = Math.round(hires).toLocaleString("en-US");
-      if (appsEl) appsEl.textContent = Math.round(apps).toLocaleString("en-US");
-      if (daysEl) daysEl.textContent = String(days);
-      barAmts.forEach(function (amtEl, i) {
-        if (amtEl) amtEl.textContent = fmtDollar(budget * split[i]);
+    peSnapTimer = null;
+    if (doAnimate) {
+      peSnapTimer = setTimeout(function () {
+        paint(est, false);
+      }, 900);
+    }
+  }
+
+  // ── The engine's answers ──
+  // scenarios: briefKey -> estimate. Seeded from #pe-default (the server's
+  // first paint), then filled from the grid on the first change.
+  var scenarios = {};
+  var gridPromise = null; // the one in-flight GET, shared by every change
+  var gridLoaded = false; // set once the grid's scenarios are in the table
+  var cooldownUntil = 0;
+
+  function loadGrid() {
+    if (gridPromise) return gridPromise;
+    card.classList.add("is-computing");
+    gridPromise = fetch(GRID_URL, { credentials: "same-origin" })
+      .then(function (res) {
+        if (!res.ok) throw new Error("grid HTTP " + res.status);
+        return res.json();
+      })
+      .then(function (grid) {
+        if (!grid || typeof grid.scenarios !== "object") {
+          throw new Error("grid shape");
+        }
+        // The page links the grid by its content hash; a grid of another
+        // version (an old instance answering mid-deploy) would put figures
+        // from a different build beside this page's: refuse it and retry.
+        var wanted = (GRID_URL.match(/[?&]v=([0-9a-f]+)/) || [])[1];
+        if (wanted && grid.version && grid.version !== wanted) {
+          throw new Error("grid version " + grid.version + " != " + wanted);
+        }
+        Object.keys(grid.scenarios).forEach(function (k) {
+          scenarios[k] = grid.scenarios[k];
+        });
+        gridLoaded = true;
+        card.classList.remove("is-computing");
+        return grid;
+      })
+      .catch(function (err) {
+        gridPromise = null; // allow a retry after the cooldown
+        cooldownUntil = Date.now() + RETRY_COOLDOWN_MS;
+        card.classList.remove("is-computing");
+        throw err;
       });
-    }, 900);
+    return gridPromise;
+  }
+
+  // Paint whatever the chips and slider say right now: from the scenario
+  // table if it is there, else after the grid arrives (always the CURRENT
+  // scenario, so a change during the fetch is never painted stale).
+  function show() {
+    var brief = currentBrief();
+    var key = briefKey(brief);
+    var est = scenarios[key];
+    if (est) {
+      shownBrief = brief;
+      setStatus("");
+      paint(est, true);
+      return;
+    }
+    if (gridLoaded) {
+      // the grid is loaded and has no such scenario: keep the figures on
+      // screen and say which scenario they belong to -- never fetch again
+      setStaleStatus("No estimate for this combination.");
+      return;
+    }
+    if (!gridPromise && Date.now() < cooldownUntil) {
+      setStaleStatus("Couldn\u2019t reach the engine.");
+      return;
+    }
+    loadGrid().then(
+      function () {
+        show();
+      },
+      function () {
+        setStaleStatus("Couldn\u2019t reach the engine.");
+      },
+    );
   }
 
   // Role chips
   roleChips.forEach(function (chip) {
     chip.addEventListener("click", function () {
-      roleIdx = parseInt(chip.getAttribute("data-role"), 10) || 0;
+      roleChip = chip;
       roleChips.forEach(function (c) {
         c.classList.toggle("is-on", c === chip);
       });
-      compute();
+      show();
     });
   });
 
   // Location chips
   locChips.forEach(function (chip) {
     chip.addEventListener("click", function () {
-      locIdx = parseInt(chip.getAttribute("data-loc"), 10) || 0;
+      locChip = chip;
       locChips.forEach(function (c) {
         c.classList.toggle("is-on", c === chip);
       });
-      compute();
+      show();
     });
   });
 
@@ -1856,12 +2013,27 @@ document.addEventListener("DOMContentLoaded", function () {
     range.addEventListener("input", function () {
       budget = parseInt(range.value, 10) || 0;
       if (budgetEl) budgetEl.textContent = fmtDollar(budget);
-      compute();
+      show();
     });
   }
 
-  // Initial paint
-  compute();
+  // First paint: the server rendered the default scenario into the markup
+  // and into #pe-default (same engine, run once at startup). Seed the cache
+  // from it so returning to the default never refetches; without it, ask.
+  var seed = null;
+  try {
+    var seedEl = document.getElementById("pe-default");
+    seed = seedEl ? JSON.parse(seedEl.textContent || "null") : null;
+  } catch (e) {
+    seed = null;
+  }
+  if (seed && seed.brief && seed.estimate) {
+    scenarios[briefKey(seed.brief)] = seed.estimate;
+    shownBrief = seed.brief;
+    paint(seed.estimate, false);
+  } else {
+    show();
+  }
 })();
 
 // ── Hero eyebrow: cycling vertical word (Scale.com-style rotator) ──
