@@ -1,0 +1,75 @@
+{
+  "_description": "Boards that must not be recommended, renamed boards, and platforms with a declared market scope. Read by publisher_filter.py and applied on every plan surface (workbook, deck, Nova tools). Every entry carries a source and an as_of date; a claim without a source does not belong here.",
+  "_todo": [
+    "A board was reported to have exited Vietnam; not yet identified/verified. Add an `exited` entry (with a source URL) once the board is confirmed."
+  ],
+  "entries": [
+    {
+      "name": "HelloWork",
+      "aliases": ["HelloWork (formerly RegionsJob)", "RegionsJob", "hellowork.com"],
+      "countries": ["France"],
+      "status": "unavailable",
+      "reason": "not available through Joveo — do not recommend",
+      "source": "internal sales feedback",
+      "as_of": "2026-10-16"
+    },
+    {
+      "name": "OCC Mundial",
+      "aliases": ["OCC", "occ.com.mx"],
+      "countries": ["Mexico"],
+      "status": "unavailable",
+      "reason": "not available through Joveo — do not recommend",
+      "source": "internal sales feedback",
+      "as_of": "2026-10-16"
+    },
+    {
+      "name": "ZipRecruiter",
+      "aliases": ["ZipRecruiter Sponsored"],
+      "countries": ["United Kingdom"],
+      "status": "exited",
+      "reason": "ZipRecruiter UK Ltd was dissolved on 2025-12-02; the board no longer operates in the UK",
+      "source": "https://www.sec.gov/Archives/edgar/data/1617553/000161755326000025/ziprecruiterinc_20260225x.pdf",
+      "as_of": "2026-10-16"
+    }
+  ],
+  "alias_groups": [
+    {
+      "names": ["HelloWork", "RegionsJob", "hellowork.com"],
+      "note": "RegionsJob and its regional sites merged into hellowork.com in April 2022",
+      "source": "https://www.hellowork-group.com/en/the-hellowork-group/"
+    },
+    {
+      "names": ["OCC", "OCC Mundial", "occ.com.mx"],
+      "note": "Online Career Center Mexico; occ.com.mx",
+      "source": "https://www.occ.com.mx/"
+    }
+  ],
+  "market_scope": [
+    {
+      "name": "ZipRecruiter",
+      "aliases": ["ZipRecruiter Sponsored"],
+      "countries": ["United States", "Canada", "United Kingdom"],
+      "note": "Markets the Joveo supply repository lists for ZipRecruiter; the UK is separately marked exited above.",
+      "source": "data/joveo_global_supply_repository.json (publisher countries)",
+      "as_of": "2026-10-16"
+    }
+  ],
+  "renames": [
+    {
+      "old": ["CareerBuilder Vietnam"],
+      "new": "CareerViet",
+      "countries": ["Vietnam"],
+      "effective": "2024-01-14",
+      "source": "https://dantri.com.vn/kinh-doanh/careerbuilder-viet-nam-doi-ten-thuong-hieu-thanh-careerviet-20240119164332213.htm"
+    }
+  ],
+  "folded_boards": [
+    {
+      "name": "Workopolis",
+      "countries": ["Canada"],
+      "operated_by": "Indeed",
+      "note": "Indeed-operated white-label portal for Indeed's Canadian postings; not an independent board",
+      "source": "https://en.wikipedia.org/wiki/Workopolis"
+    }
+  ]
+}
