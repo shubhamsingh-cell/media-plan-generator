@@ -14627,7 +14627,15 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
         # Same pair /api/chat/stream accepts: a same-origin guest (browsers
         # cannot set headers on a WS upgrade, so Origin is all it has) gets
         # the WS path instead of three failed upgrades and an SSE fallback.
-        if not (self._check_joveo_auth() or self._check_same_origin_auth()):
+        # A guest must SEND an Origin (browsers always do on an upgrade); the
+        # Referer fallback inside _check_same_origin_auth is for plain HTTP.
+        _ws_joveo_ok = self._check_joveo_auth()
+        _ws_guest_ok = (
+            not _ws_joveo_ok
+            and bool(self.headers.get("Origin"))
+            and self._check_same_origin_auth()
+        )
+        if not (_ws_joveo_ok or _ws_guest_ok):
             logger.warning(
                 "WS /ws/chat: auth rejected (client=%s, origin=%s)",
                 self._get_client_ip(),
@@ -14671,6 +14679,8 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
 
         logger.info("WebSocket chat connection opened: %s", ws_conn.connection_id)
 
+        _WS_MAX_RATE_REFUSALS = 5  # consecutive refusals before the socket is closed
+        _ws_rate_refusals = 0
         try:
             while not ws_conn.closed:
                 raw_msg = ws_conn.recv(timeout=120.0)
@@ -14705,6 +14715,32 @@ class MediaPlanHandler(BaseHTTPRequestHandler):
                     continue
 
                 # ── Chat message processing ──
+                # Per-message rate limits: the SAME two checks the SSE
+                # endpoint runs per request. The handshake check alone let
+                # one socket send unlimited paid-LLM messages.
+                if (
+                    not self._check_rate_limit()
+                    or not self._check_global_chat_rate_limit()
+                ):
+                    _ws_rate_refusals += 1
+                    ws_conn.send_json(
+                        {
+                            "type": "error",
+                            "code": "rate_limited",
+                            "error": "Rate limit exceeded. Please wait a moment.",
+                            "done": True,
+                        }
+                    )
+                    if _ws_rate_refusals >= _WS_MAX_RATE_REFUSALS:
+                        logger.warning(
+                            "WS /ws/chat: closing after %d consecutive rate-limited messages (client=%s)",
+                            _ws_rate_refusals,
+                            self._get_client_ip(),
+                        )
+                        break
+                    continue
+                _ws_rate_refusals = 0
+
                 # Validate
                 chat_msg = data.get("message") or ""
                 if not chat_msg:
