@@ -12843,8 +12843,8 @@ def _iter_slide_texts(prs: Presentation):
 
 
 # The slide-2 footer line must stay clear of the credit on the right: at 9pt
-# Poppins ~53 characters is 3.5in. Longer headlines fall back to a pointer.
-_ASOF_FOOTER_MAX_CHARS = 53
+# Poppins ~56 characters is 3.7in. Longer headlines fall back to a pointer.
+_ASOF_FOOTER_MAX_CHARS = 56
 
 
 def _stamp_data_asof_footer(slide, headline: str, today: str) -> None:
@@ -12893,7 +12893,7 @@ def _apply_trust_pack(prs: Presentation, data: Dict[str, Any]) -> None:
         slides = list(prs.slides)
         if len(slides) >= 2:
             today = datetime.date.today().strftime("%B %d, %Y")
-            _stamp_data_asof_footer(slides[1], info["headline"], today)
+            _stamp_data_asof_footer(slides[1], info["footer_headline"], today)
             lines = ["DATA AS OF (last refreshed, per source family)"]
             lines += [f"{f['label']}: {f['as_of']}" for f in info["families"]]
             lines += [info["live_line"], stamp]

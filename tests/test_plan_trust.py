@@ -151,6 +151,72 @@ def test_repo_families_match_the_files_own_metadata():
             assert (DATA_DIR / name).exists(), f"{name} missing from data/"
 
 
+def _nested_dates(path, key):
+    out = []
+
+    def walk(o):
+        if isinstance(o, dict):
+            for k, v in o.items():
+                if k == key and isinstance(v, str):
+                    out.append(v[:10])
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
+    walk(json.loads(Path(path).read_text()))
+    return out
+
+
+def test_supply_network_family_reports_the_latest_real_date():
+    info = plan_trust.data_asof({})
+    network = _fam(info, "Supply network")
+    groups = max(_nested_dates(DATA_DIR / "joveo_network_groups.json", "as_of"))
+    avail = max(_nested_dates(DATA_DIR / "publisher_availability.json", "as_of"))
+    rows = max(
+        _nested_dates(DATA_DIR / "joveo_global_supply_repository.json", "network_as_of")
+    )
+    newest = max(groups, avail, rows)
+    assert network["as_of"] == f"updated {newest}"
+    # the full listing keeps its own, older, top-level date
+    repo = json.loads((DATA_DIR / "joveo_global_supply_repository.json").read_text())
+    assert _fam(info, "Supply repository")["as_of"] == repo["last_updated"]
+    assert newest > repo["last_updated"]
+    assert f"supply network {newest}" in info["headline"]
+    assert f"repository {repo['last_updated']}" in info["headline"]
+
+
+def test_nested_as_of_readers_and_latest_mode(tmp_path):
+    (tmp_path / "groups.json").write_text(
+        json.dumps({"groups": [{"as_of": "2026-10-01"}, {"as_of": "2026-10-09"}]})
+    )
+    (tmp_path / "repo.json").write_text(
+        json.dumps(
+            {
+                "last_updated": "2026-03-31",
+                "rows": [{"network_as_of": "2026-10-12"}, {"x": 1}],
+            }
+        )
+    )
+    assert plan_trust.read_as_of_nested(str(tmp_path / "groups.json"), ("as_of",)) == "2026-10-09"
+    assert plan_trust.read_as_of_nested(str(tmp_path / "repo.json"), ("network_as_of",)) == "2026-10-12"
+    assert plan_trust.read_as_of_nested(str(tmp_path / "repo.json"), ("as_of",)) is None
+    info = plan_trust.data_asof(
+        {},
+        data_dir=str(tmp_path),
+        families=[
+            (
+                "Supply network status",
+                (("groups.json", "as_of"), ("repo.json", "network_as_of")),
+                "latest",
+            ),
+            ("Supply repository (full listing)", ("repo.json",)),
+        ],
+    )
+    assert info["families"][0]["as_of"] == "updated 2026-10-12"
+    assert info["families"][1]["as_of"] == "2026-03-31"
+
+
 def test_live_api_line_counts_real_enrichment_and_stamps_generation_time():
     none = plan_trust.data_asof({"_enriched": {}})
     assert "not recorded" in none["live_line"]
@@ -193,7 +259,9 @@ def test_workbook_executive_summary_has_asof_line(workbook):
     ws = workbook["Executive Summary"]
     text = _sheet_text(ws)
     repo = json.loads((DATA_DIR / "joveo_global_supply_repository.json").read_text())
-    assert "Data as of: supply " + repo["last_updated"] in text
+    info = plan_trust.data_asof({})
+    assert info["headline"] in text
+    assert "(repository " + repo["last_updated"] + ")" in text
     assert "Nova " in text and "UTC" in text
 
 
@@ -230,8 +298,10 @@ def test_deck_slide_two_footer_states_data_as_of(deck):
         for sh in deck.slides[1].shapes
         if sh.has_text_frame and sh.text_frame.text
     ]
-    assert any(
-        t.startswith("Data as of: supply " + repo["last_updated"]) for t in texts
+    assert plan_trust.data_asof({})["footer_headline"] in texts
+    assert repo["last_updated"]  # the full repository date lives in the notes
+    assert len(plan_trust.data_asof({})["footer_headline"]) <= (
+        ppt_generator._ASOF_FOOTER_MAX_CHARS
     )
 
 
@@ -328,6 +398,46 @@ def test_suppressed_cph_names_the_non_us_markets():
     assert _has(items, "Markets without local benchmarks: France")
 
 
+def test_us_costed_non_us_market_is_listed():
+    alloc = {
+        "metadata": {
+            "industry_cph": {
+                "basis": "us_benchmark",
+                "us_benchmark_non_us_market": True,
+                "claim_suppressed": False,
+            }
+        }
+    }
+    items = _items(
+        locations=["Lagos, Nigeria", "Dallas, TX"], _budget_allocation=alloc
+    )
+    assert _has(items, "Markets without local benchmarks: Nigeria")
+    assert not _has(items, "Dallas")
+    # a US-only plan carrying the same flag has no non-US market to list
+    assert not _has(
+        _items(locations=["Dallas, TX"], _budget_allocation=alloc),
+        "Markets without local",
+    )
+    # flag false -> nothing to say
+    off = {"metadata": {"industry_cph": {"us_benchmark_non_us_market": False}}}
+    assert not _has(
+        _items(locations=["Lagos, Nigeria"], _budget_allocation=off),
+        "Markets without local",
+    )
+
+
+def test_projection_copy_claims_only_what_main_shows():
+    first = _items()[0]
+    assert "ranges" not in first.lower()
+    assert "estimates from industry benchmarks" in first
+    assert "no client hire history was provided" in first
+    assert "indicative" in first
+    guide = (PROJECT_ROOT / "templates" / "help-media-plans.html").read_text()
+    assert "Projections are ranges" not in guide
+    assert "Ranges and assumptions" not in guide
+    assert "Estimates and assumptions" in guide
+
+
 def test_exclusions_item_names_the_boards():
     assert not _has(_items(), "Client exclusions applied")
     items = _items(excluded_publishers=["Monster", "Glassdoor"])
@@ -340,7 +450,7 @@ def test_exclusions_item_names_the_boards():
 def test_standing_items_always_present_and_total_in_range():
     base = _items()
     assert _has(base, "Confirm the channel mix and budget split with supply")
-    assert _has(base, "Data as of: supply")
+    assert _has(base, "Data as of: supply network")
     assert _has(base, "responsible for what you send")
     everything = _items(
         unverified=2,

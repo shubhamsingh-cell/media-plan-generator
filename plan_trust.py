@@ -29,16 +29,32 @@ DEFAULT_DATA_DIR = os.path.join(_BASE_DIR, "data")
 
 NOT_RECORDED = "date not recorded"
 
-# Source families: (label, data files). Only files the plan actually reads.
-# Derived from the files' own metadata -- nothing here carries a date.
-SOURCE_FAMILIES: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
-    ("Supply repository", ("joveo_global_supply_repository.json",)),
+SUPPLY_NETWORK_LABEL = "Supply network status"
+SUPPLY_REPO_LABEL = "Supply repository (full listing)"
+BENCHMARKS_LABEL = "Joveo benchmarks (CPC / CPA)"
+
+# Source families: (label, files[, mode]). A file is a name (its top-level or
+# metadata date) or (name, key) for a date carried on rows deep inside it
+# (every nested ``key``; the newest is used). mode "latest" reports the most
+# recent file date as "updated <date>"; the default reports the span.
+# Only files the plan actually reads. Nothing here carries a date itself.
+SOURCE_FAMILIES: Tuple[Tuple[Any, ...], ...] = (
+    (
+        SUPPLY_NETWORK_LABEL,
+        (
+            ("joveo_network_groups.json", "as_of"),
+            ("publisher_availability.json", "as_of"),
+            ("joveo_global_supply_repository.json", "network_as_of"),
+        ),
+        "latest",
+    ),
+    (SUPPLY_REPO_LABEL, ("joveo_global_supply_repository.json",)),
     (
         "Publisher network & country boards",
         ("joveo_publishers.json", "global_supply.json"),
     ),
     (
-        "Joveo benchmarks (CPC / CPA)",
+        BENCHMARKS_LABEL,
         (
             "joveo_2026_benchmarks.json",
             "joveo_cpa_benchmarks_2026.json",
@@ -137,29 +153,68 @@ def read_as_of(path: str) -> Optional[str]:
     return None
 
 
-def _family_row(label: str, files: Sequence[str], data_dir: str) -> Dict[str, Any]:
+def read_as_of_nested(path: str, keys: Sequence[str]) -> Optional[str]:
+    """The newest date found under any ``keys`` entry anywhere in a data file
+    (row-level stamps such as ``as_of`` / ``network_as_of``), or None."""
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            doc = json.load(handle)
+    except (OSError, ValueError) as exc:
+        logger.warning("plan_trust: cannot read %s: %s", path, exc)
+        return None
+    found: List[str] = []
+    stack: List[Any] = [doc]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key in keys:
+                    date = _coerce_date(value)
+                    if date:
+                        found.append(date)
+                if isinstance(value, (dict, list)):
+                    stack.append(value)
+        elif isinstance(node, list):
+            stack.extend(v for v in node if isinstance(v, (dict, list)))
+    return max(found) if found else None
+
+
+def _family_row(
+    label: str, files: Sequence[Any], data_dir: str, mode: str = "range"
+) -> Dict[str, Any]:
     dated: List[str] = []
     undated = 0
-    for name in files:
-        found = read_as_of(os.path.join(data_dir, name))
+    names: List[str] = []
+    for entry in files:
+        if isinstance(entry, str):
+            name, key = entry, None
+        else:
+            name, key = entry
+        names.append(name)
+        path = os.path.join(data_dir, name)
+        found = read_as_of_nested(path, (key,)) if key else read_as_of(path)
         if found:
             dated.append(found)
         else:
             undated += 1
     if not dated:
         text = NOT_RECORDED
-        oldest = None
+        oldest = latest = None
     else:
         lo, hi = min(dated), max(dated)
-        text = lo if lo == hi else f"{lo} to {hi}"
+        if mode == "latest":
+            text = f"updated {hi}"
+        else:
+            text = lo if lo == hi else f"{lo} to {hi}"
         if undated:
             text += f" ({undated} of {len(files)} files: {NOT_RECORDED})"
-        oldest = lo
+        oldest, latest = lo, hi
     return {
         "label": label,
         "as_of": text,
         "oldest": oldest,
-        "files": list(files),
+        "latest": latest,
+        "files": names,
     }
 
 
@@ -204,8 +259,10 @@ def data_asof(
     generated_label = moment.strftime("%Y-%m-%d %H:%M UTC")
     version, commit = deploy_version()
     rows = [
-        _family_row(label, files, data_dir or DEFAULT_DATA_DIR)
-        for label, files in (families if families is not None else SOURCE_FAMILIES)
+        _family_row(
+            spec[0], spec[1], data_dir or DEFAULT_DATA_DIR, spec[2] if len(spec) > 2 else "range"
+        )
+        for spec in (families if families is not None else SOURCE_FAMILIES)
     ]
     live = _live_pull_line(data, generated_label)
     return {
@@ -216,20 +273,34 @@ def data_asof(
         "families": rows,
         "live_line": live,
         "headline": headline(rows),
+        "footer_headline": footer_headline(rows),
     }
 
 
+def _row_date(rows: Sequence[Dict[str, Any]], label: str, which: str) -> str:
+    for row in rows:
+        if row["label"] == label:
+            return row.get(which) or NOT_RECORDED
+    return NOT_RECORDED
+
+
 def headline(rows: Sequence[Dict[str, Any]]) -> str:
-    """One short line for a slide footer / checklist: the supply and
-    benchmark dates (oldest file in each family, so it never overstates)."""
-    by_label = {r["label"]: r for r in rows}
-    supply = by_label.get(SOURCE_FAMILIES[0][0])
-    bench = by_label.get(SOURCE_FAMILIES[2][0])
+    """One line for the Executive Summary and the checklist: when the supply
+    network status last changed (newest real date), the full repository's own
+    date, and the benchmarks (oldest file, so it never overstates)."""
+    return (
+        f"Data as of: supply network {_row_date(rows, SUPPLY_NETWORK_LABEL, 'latest')}"
+        f" (repository {_row_date(rows, SUPPLY_REPO_LABEL, 'oldest')})"
+        f" | benchmarks {_row_date(rows, BENCHMARKS_LABEL, 'oldest')}"
+    )
 
-    def _d(row: Optional[Dict[str, Any]]) -> str:
-        return (row or {}).get("oldest") or NOT_RECORDED
 
-    return f"Data as of: supply {_d(supply)} | benchmarks {_d(bench)}"
+def footer_headline(rows: Sequence[Dict[str, Any]]) -> str:
+    """The same two lead dates in the width of a slide footer."""
+    return (
+        f"Data as of: network {_row_date(rows, SUPPLY_NETWORK_LABEL, 'latest')}"
+        f" | benchmarks {_row_date(rows, BENCHMARKS_LABEL, 'oldest')}"
+    )
 
 
 def provenance_stamp(info: Dict[str, Any]) -> str:
@@ -281,8 +352,9 @@ def _non_us_markets(data: Any) -> List[str]:
 
 
 def _markets_without_benchmarks(data: Any) -> List[str]:
-    """Plan markets with no local benchmark: no board data in the dataset, or
-    the plan's cost-per-hire claim was suppressed for lack of a local figure."""
+    """Plan markets with no local benchmark: no board data in the dataset, the
+    plan's cost-per-hire claim was suppressed for lack of a local figure, or
+    the non-US market was costed with a US benchmark (no local figure)."""
     markets: List[str] = []
     try:
         import publisher_filter
@@ -297,7 +369,11 @@ def _markets_without_benchmarks(data: Any) -> List[str]:
     suff = alloc.get("sufficiency") if isinstance(alloc.get("sufficiency"), dict) else {}
     check = suff.get("budget_reality_check")
     check = check if isinstance(check, dict) else {}
-    if cph.get("claim_suppressed") or check.get("feasibility_tier") == "not_assessed":
+    if (
+        cph.get("claim_suppressed")
+        or cph.get("us_benchmark_non_us_market")  # costed with US figures
+        or check.get("feasibility_tier") == "not_assessed"
+    ):
         for market in _non_us_markets(data):
             if market not in markets:
                 markets.append(market)
@@ -315,11 +391,16 @@ def review_items(
     data = data if isinstance(data, dict) else {}
     items: List[str] = []
 
+    # COPY NOTE: states only what main shows today (the hires figure is the
+    # one range; applications / CPA / CPH are point estimates). When the
+    # projections work that adds ranges lands, update this item AND the
+    # "Estimates and assumptions" section of templates/help-media-plans.html
+    # (and its "Before you send" bullet) together.
     if not data.get("historical_performance"):
         items.append(
-            "Projections are ranges based on industry benchmarks — no client "
-            "hire history was provided. Present hires and cost per hire as "
-            "estimates, not commitments."
+            "Projected hires and costs are estimates from industry benchmarks "
+            "\u2014 no client hire history was provided. Treat them as "
+            "indicative, not as commitments."
         )
 
     if unverified_boards > 0:
