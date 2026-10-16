@@ -3947,9 +3947,19 @@ def _with_cached_formula_values(xlsx_bytes: bytes, wb) -> bytes:
                     coord, attrs, formula = m.group(1), m.group(2), m.group(3)
                     if coord not in cache or " t=" in attrs:
                         return m.group(0)
+                    cached = cache[coord]
+                    if isinstance(cached, str):
+                        # A formula that returns text ("PASS", "GREEN", ""):
+                        # cached as a string result so previews show it.
+                        from xml.sax.saxutils import escape as _xml_escape
+
+                        return (
+                            f'<c r="{coord}"{attrs} t="str"><f>{formula}</f>'
+                            f"<v>{_xml_escape(cached)}</v></c>"
+                        )
                     return (
                         f'<c r="{coord}"{attrs}><f>{formula}</f>'
-                        f"<v>{_xml_number(cache[coord])}</v></c>"
+                        f"<v>{_xml_number(cached)}</v></c>"
                     )
 
                 return _FORMULA_CELL_RE.sub(_sub, xml)
