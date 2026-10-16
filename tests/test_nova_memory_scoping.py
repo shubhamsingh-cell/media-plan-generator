@@ -56,10 +56,10 @@ def _inject_for(conv_id) -> str:
 
 def test_two_conversations_never_see_each_others_facts():
     with _Isolated():
-        _run_turn("conv-aaa", "My budget is 40000 for Acme Health nurses")
-        _run_turn("conv-bbb", "Hiring warehouse associates in Dallas, TX")
-        a = _inject_for("conv-aaa")
-        b = _inject_for("conv-bbb")
+        _run_turn("conv-aaaaaaaaaaaaaaaaaaaa", "My budget is 40000 for Acme Health nurses")
+        _run_turn("conv-bbbbbbbbbbbbbbbbbbbb", "Hiring warehouse associates in Dallas, TX")
+        a = _inject_for("conv-aaaaaaaaaaaaaaaaaaaa")
+        b = _inject_for("conv-bbbbbbbbbbbbbbbbbbbb")
     assert "Acme Health" in a and "Dallas" not in a
     assert "Dallas" in b and "Acme Health" not in b
 
@@ -71,7 +71,7 @@ def test_request_without_id_neither_saves_nor_injects():
         assert nova_memory._conversation_memories == {}
         assert nova_memory._memory_instances == {}
         # Even after a keyed conversation saved a fact, an id-less turn sees nothing.
-        _run_turn("conv-aaa", "My budget is 40000 for Acme Health")
+        _run_turn("conv-aaaaaaaaaaaaaaaaaaaa", "My budget is 40000 for Acme Health")
         assert _inject_for("") == ""
         assert _inject_for(None) == ""
 
@@ -81,16 +81,18 @@ def test_get_conversation_memory_is_none_without_id_and_stable_with_one():
         assert nova_memory.get_conversation_memory("") is None
         assert nova_memory.get_conversation_memory(None) is None
         assert nova_memory.get_conversation_memory("   ") is None
-        m1 = nova_memory.get_conversation_memory("conv-aaa")
-        assert m1 is nova_memory.get_conversation_memory("conv-aaa")
-        assert m1 is not nova_memory.get_conversation_memory("conv-bbb")
+        m1 = nova_memory.get_conversation_memory("conv-aaaaaaaaaaaaaaaaaaaa")
+        assert m1 is nova_memory.get_conversation_memory("conv-aaaaaaaaaaaaaaaaaaaa")
+        assert m1 is not nova_memory.get_conversation_memory("conv-bbbbbbbbbbbbbbbbbbbb")
 
 
 def test_client_id_is_hashed_and_cannot_reach_legacy_default_bucket():
-    key = nova_memory.conversation_memory_key("default")
+    key = nova_memory.conversation_memory_key("default-bucket-aaaaaaaa")
     assert key.startswith("conv_") and key != "default"
-    traversal = nova_memory.conversation_memory_key("../../etc/passwd")
-    assert re.fullmatch(r"conv_[0-9a-f]{32}", traversal)
+    assert re.fullmatch(r"conv_[0-9a-f]{32}", key)
+    # a path-traversal / too-short / legacy bucket name is "no id", never a key
+    assert nova_memory.conversation_memory_key("../../etc/passwd") == ""
+    assert nova_memory.conversation_memory_key("default") == ""
 
 
 def test_conversation_memory_never_writes_local_json(tmp_path, monkeypatch):
@@ -173,10 +175,10 @@ def test_handle_chat_request_end_to_end_isolation():
         p.start()
     try:
         nova.handle_chat_request(
-            {"message": "I work at Acme Health and my budget is 40000", "conversation_id": "c-1"}
+            {"message": "I work at Acme Health and my budget is 40000", "conversation_id": "conv-1111111111111111"}
         )
         nova.handle_chat_request(
-            {"message": "I work at Dallas Freight and my budget is 9000", "conversation_id": "c-2"}
+            {"message": "I work at Dallas Freight and my budget is 9000", "conversation_id": "conv-2222222222222222"}
         )
         nova.handle_chat_request({"message": "I work at Idless Corp, always"})
         blobs = [_texts(m) for m in _all_memory_instances()]

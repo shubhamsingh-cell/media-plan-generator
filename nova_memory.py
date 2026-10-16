@@ -736,6 +736,29 @@ _MAX_CONVERSATION_MEMORIES = 500  # LRU cap on per-conversation instances
 _conversation_memories: "OrderedDict[str, NovaMemory]" = OrderedDict()
 
 
+_CONVERSATION_ID_RE = re.compile(r"[A-Za-z0-9_-]{16,128}")
+
+
+def valid_conversation_id(conversation_id: object) -> str:
+    """The id if it is a well-formed client conversation id, else "".
+
+    The id is the only key to a conversation's memory, so anything short
+    (guessable) or outside ``[A-Za-z0-9_-]`` is treated as "no id".
+    """
+    if not isinstance(conversation_id, str):
+        return ""
+    cid = conversation_id.strip()
+    return cid if _CONVERSATION_ID_RE.fullmatch(cid) else ""
+
+
+def conversation_log_tag(conversation_id: object) -> str:
+    """Log-safe stand-in for a conversation id: a short hash, never the id."""
+    cid = conversation_id.strip() if isinstance(conversation_id, str) else ""
+    if not cid:
+        return "conv#none"
+    return "conv#" + hashlib.sha256(cid.encode("utf-8")).hexdigest()[:8]
+
+
 def conversation_memory_key(conversation_id: Optional[str]) -> str:
     """Return the storage key for a client conversation id ("" when absent).
 
@@ -743,7 +766,7 @@ def conversation_memory_key(conversation_id: Optional[str]) -> str:
     or a database filter verbatim, and it can never collide with a legacy
     bucket such as "default".
     """
-    cid = str(conversation_id or "").strip()
+    cid = valid_conversation_id(conversation_id)
     if not cid:
         return ""
     return "conv_" + hashlib.sha256(cid.encode("utf-8")).hexdigest()[:32]

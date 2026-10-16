@@ -42,6 +42,7 @@ var localStorage = {
 def _widget_js() -> str:
     src = WIDGET_JS.read_text(encoding="utf-8")
     parts = [
+        js_block(src, "function secureRandomId()"),
         js_block(src, "function mintSessionId()"),
         js_block(src, "function getSessionId()"),
         js_block(src, "function saveHistory("),
@@ -275,6 +276,7 @@ function renderChat() { chats++; }
 function resetLoadingState() { cancelled++; state.isLoading = false; }
 var document = { getElementById: function () { return null; } };
 """
+        + js_block(src, "function secureRandomId()")
         + js_block(src, "function generateId()")
         + js_block(src, "function getActiveConv()")
         + js_block(src, "function cancelInFlightReply()")

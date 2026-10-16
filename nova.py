@@ -429,7 +429,7 @@ def _persist_conversation_tool_state_async(
             )
 
     threading.Thread(
-        target=_worker, name=f"nova-convstate-{conversation_id[:8]}", daemon=True
+        target=_worker, name=f"nova-convstate-{_conversation_log_tag(conversation_id)[-8:]}", daemon=True
     ).start()
 
 
@@ -3054,6 +3054,13 @@ def _extract_session_id(conversation_history: Optional[list] = None) -> str:
             if cid:
                 return str(cid)
     return "default"
+
+
+def _conversation_log_tag(conversation_id: Any) -> str:
+    """Hash-prefix stand-in for a conversation id in log lines."""
+    from nova_memory import conversation_log_tag
+
+    return conversation_log_tag(conversation_id)
 
 
 def _turn_conversation_id() -> str:
@@ -16664,7 +16671,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 if _ab_variant:
                     logger.info(
                         "AB Test: session=%s variant='%s' experiment='%s'",
-                        _ab_session[:12],
+                        _conversation_log_tag(_ab_session),
                         _ab_variant,
                         _ab_experiment,
                     )
@@ -27796,6 +27803,15 @@ def handle_chat_request(
             "error": "Request must be a JSON object",
         }
 
+    # A malformed/short conversation id is the key to nothing: treat it as no
+    # id (no memory, profile or tool-state is read or written for it).
+    from nova_memory import valid_conversation_id
+
+    request_data = dict(request_data)
+    request_data["conversation_id"] = valid_conversation_id(
+        request_data.get("conversation_id")
+    )
+
     message = (request_data.get("message") or "").strip()
     if not message:
         return {
@@ -28625,12 +28641,12 @@ def summarize_conversation(
                 summary = llm_text
                 method = "llm"
                 logger.info(
-                    f"[Nova] LLM summary generated for {conversation_id} "
+                    f"[Nova] LLM summary generated for {_conversation_log_tag(conversation_id)} "
                     f"({msg_count} msgs, provider={result.get('provider', 'unknown')})"
                 )
         except Exception as e:
             logger.error(
-                f"[Nova] LLM summarization failed for {conversation_id}: {e}",
+                f"[Nova] LLM summarization failed for {_conversation_log_tag(conversation_id)}: {e}",
                 exc_info=True,
             )
 

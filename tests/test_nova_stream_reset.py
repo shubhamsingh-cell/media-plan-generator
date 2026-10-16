@@ -78,6 +78,7 @@ def _lifted() -> str:
     return "\n".join(
         js_block(src, name)
         for name in (
+            "function secureRandomId()",
             "function generateId()",
             "function getActiveConv()",
             "function createConversation()",

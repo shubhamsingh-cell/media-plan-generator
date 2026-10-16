@@ -150,7 +150,7 @@ def _handle(message, response, **extra):
     for p in patches:
         p.start()
     try:
-        return nova.handle_chat_request({"message": message, "conversation_id": "c-h", **extra})
+        return nova.handle_chat_request({"message": message, "conversation_id": "conv-hhhhhhhhhhhhhhhh", **extra})
     finally:
         for p in reversed(patches):
             p.stop()

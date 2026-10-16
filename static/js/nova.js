@@ -74,8 +74,28 @@
   // ========================================================================
   // UTILITIES
   // ========================================================================
+  function secureRandomId() {
+    // 128 bits from the platform CSPRNG: the id is the only key to this
+    // conversation's server-side memory, so it must not be guessable.
+    var c = typeof crypto !== "undefined" ? crypto : null;
+    if (c && typeof c.randomUUID === "function") return c.randomUUID();
+    var hex = "";
+    if (c && typeof c.getRandomValues === "function") {
+      var bytes = new Uint8Array(16);
+      c.getRandomValues(bytes);
+      for (var i = 0; i < bytes.length; i++) {
+        hex += (bytes[i] < 16 ? "0" : "") + bytes[i].toString(16);
+      }
+      return hex;
+    }
+    // No CSPRNG at all (not a browser this app supports): still a unique,
+    // well-formed id, just not unguessable.
+    for (var j = 0; j < 6; j++) hex += Math.random().toString(36).slice(2, 7);
+    return hex;
+  }
+
   function generateId() {
-    return "conv-" + Date.now() + "-" + Math.random().toString(36).substr(2, 6);
+    return "conv-" + secureRandomId();
   }
 
   function formatTime(ts) {

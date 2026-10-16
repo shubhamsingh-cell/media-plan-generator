@@ -11732,7 +11732,7 @@ def _load_conversation_history(conversation_id: str) -> list[dict]:
     except Exception as exc:
         logger.error(
             "Failed to load conversation %s from document model: %s",
-            conversation_id,
+            _conv_log_tag(conversation_id),
             exc,
             exc_info=True,
         )
@@ -13801,6 +13801,13 @@ _SAME_ORIGIN_ALLOWED_HOSTS = frozenset(
         "localhost",
     }
 )
+
+
+def _conv_log_tag(conversation_id: object) -> str:
+    """Log-safe tag for a conversation id (hash prefix, never the raw id)."""
+    from nova_memory import conversation_log_tag
+
+    return conversation_log_tag(conversation_id)
 
 
 def _alias_history_key(data: dict) -> None:
@@ -23052,7 +23059,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     ):
                         logger.warning(
                             "Session token mismatch for conversation %s",
-                            conversation_id,
+                            _conv_log_tag(conversation_id),
                         )
                         self._send_error(
                             "Unauthorized: invalid session token", "AUTH_ERROR", 403
@@ -23335,7 +23342,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
 
             except (BrokenPipeError, ConnectionResetError):
                 logger.info(
-                    "SSE client disconnected for conversation %s", conversation_id
+                    "SSE client disconnected for conversation %s",
+                    _conv_log_tag(conversation_id),
                 )
             except Exception as stream_err:
                 logger.error("SSE streaming error: %s", stream_err, exc_info=True)
@@ -26568,7 +26576,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
     # and the API portal.
     _NOVA_WIDGET_SNIPPET = (
         b"\n<!-- Nova AI Chat Widget (auto-injected) -->"
-        b'\n<script src="/static/nova-chat.js?v=3.5.6"></script>'
+        b'\n<script src="/static/nova-chat.js?v=3.5.7"></script>'
         b'\n<script>(function(){if(typeof NovaChat!=="undefined")NovaChat.init({containerId:null})})();</script>\n'
     )
     _NOVA_WIDGET_SKIP_PAGES = {

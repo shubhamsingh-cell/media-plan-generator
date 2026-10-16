@@ -1490,9 +1490,28 @@ const NovaDrawer = (() => {
   }
 
   /* Conversation id sent to /api/chat: the server scopes memory by it. */
+  function _secureRandomId() {
+    // 128 bits from the platform CSPRNG: the id is the only key to this
+    // conversation's server-side memory, so it must not be guessable.
+    let c = typeof crypto !== "undefined" ? crypto : null;
+    if (c && typeof c.randomUUID === "function") return c.randomUUID();
+    let hex = "";
+    if (c && typeof c.getRandomValues === "function") {
+      let bytes = new Uint8Array(16);
+      c.getRandomValues(bytes);
+      for (let i = 0; i < bytes.length; i++) {
+        hex += (bytes[i] < 16 ? "0" : "") + bytes[i].toString(16);
+      }
+      return hex;
+    }
+    // No CSPRNG at all (not a browser this app supports): still a unique,
+    // well-formed id, just not unguessable.
+    for (let j = 0; j < 6; j++) hex += Math.random().toString(36).slice(2, 7);
+    return hex;
+  }
+
   function _mintConversationId() {
-    const id =
-      "drawer-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+    const id = "drawer-" + _secureRandomId();
     try {
       localStorage.setItem(CONV_KEY, id);
     } catch (e) {
@@ -1508,7 +1527,8 @@ const NovaDrawer = (() => {
     } catch (e) {
       _convId = "";
     }
-    if (!_convId) _convId = _mintConversationId();
+    /* Ids minted by older builds (Math.random) are guessable: replace them. */
+    if (!/^drawer-[0-9a-f-]{32,36}$/.test(_convId)) _convId = _mintConversationId();
     return _convId;
   }
 
