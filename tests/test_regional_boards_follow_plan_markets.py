@@ -141,6 +141,32 @@ def test_bare_city_guesses_keep_every_board(plan):
     assert _fold("custom", plan) == _PCTS
 
 
+@pytest.mark.parametrize(
+    "plan, kept",
+    [
+        ({"locations": ["Chicago"], "custom_countries": ["US"]}, set()),
+        (
+            {
+                "locations": ["Chicago, IL"],
+                "custom_countries": ["US"],
+                "_location_resolution": [{"matched_via": "place_city_unique"}],
+            },
+            set(),
+        ),
+        ({"locations": ["London"], "custom_countries": ["UK"]}, {"emea_regional"}),
+    ],
+)
+def test_ticked_custom_countries_outrank_a_bare_city_guess(plan, kept):
+    """Verifier re-check: "Chicago" + US ticked is a US-only plan. With custom
+    countries named, a bare-city guess neither adds nor blocks a region."""
+    assert _REGIONAL & set(_fold("custom", plan)) == kept
+
+
+def test_an_unplaceable_market_still_blocks_with_custom_countries():
+    plan = {"locations": ["Accra, Ghana"], "custom_countries": ["US"]}
+    assert _fold("custom", plan) == _PCTS
+
+
 def test_bare_city_rewrite_keeps_boards_end_to_end():
     funded = _funded(
         dict(_BRIEF, target_region="global", locations=["Munich", "Brisbane"])

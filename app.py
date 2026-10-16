@@ -4849,13 +4849,17 @@ _BARE_CITY_MATCHES: frozenset = frozenset(
 )
 
 
+_GUESS = "guess"
+
+
 def _market_region(entry: Any) -> "str | None":
     """Market region ("apac" / "emea" / "americas") of ONE plan market -- a
     location string or dict, or a custom-region country code ("BR", "UK").
     "" for an entry that names no market (blank text, or a bare "Remote");
-    None when the region cannot be told ("Worldwide", "Accra, Ghana", a dict
-    with no place in it, or a bare city name such as "London" or "Munich"
-    that plan_location can only match to US towns by name)."""
+    _GUESS for a bare city name ("London", "Munich", "Chicago") that
+    plan_location can only match to US towns by name; None when the region
+    cannot be told at all ("Worldwide", "Accra, Ghana", a dict with no
+    place in it)."""
     if isinstance(entry, dict):
         parts = [_safe_str(entry.get(k)).strip() for k in ("city", "state", "country")]
         text = ", ".join(p for p in parts if p) or _safe_str(entry.get("location"))
@@ -4880,45 +4884,56 @@ def _market_region(entry: Any) -> "str | None":
                 return ""
             # plan_location only ever confirms US places, and only a state,
             # ZIP, county, "USA"/"Nationwide" or a "City, ST" pair proves one.
-            if (
-                res.status in ("resolved", "corrected")
-                and res.matched_via not in _BARE_CITY_MATCHES
-            ):
+            if res.matched_via in _BARE_CITY_MATCHES:
+                return _GUESS
+            if res.status in ("resolved", "corrected"):
                 return "americas"
     except Exception:  # noqa: BLE001 - best-effort; unknown keeps every board
         logger.debug("market region lookup failed for %r", text, exc_info=True)
     return None
 
 
+def _as_entry_list(value: Any) -> list:
+    """A request field as a list of entries ([] for blank)."""
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    return [value] if value else []
+
+
 def _plan_market_regions(plan: Any) -> "frozenset[str] | None":
     """Market regions of every market the plan names -- its ``locations``,
     its custom-region ``custom_countries`` and a ``country`` field. None when
-    it names none, or when ANY market cannot be placed: the caller then keeps
+    it names none, or when any market cannot be placed: the caller then keeps
     every regional board (fail open -- a board is never dropped on a guess).
 
-    A location the request boundary rewrote from a bare city name ("Munich"
-    -> "Munich, ND"; the ``_location_resolution`` sidecar keeps the original
-    match) counts as unplaceable, whatever the rewritten text says."""
+    A bare city name is a guess (_GUESS), including one the request boundary
+    already rewrote ("Munich" -> "Munich, ND"; the ``_location_resolution``
+    sidecar keeps the original match). With custom countries ticked, the
+    user has named the markets, so a guess adds nothing and blocks nothing
+    ("Chicago" + US still drops both boards); without them it fails open."""
     if not isinstance(plan, dict):
         return None
-    locations = plan.get("locations")
+    locations = _as_entry_list(plan.get("locations"))
+    countries = _as_entry_list(plan.get("custom_countries"))
     sidecar = plan.get("_location_resolution")
-    if isinstance(locations, (list, tuple)) and isinstance(sidecar, list):
-        if len(sidecar) == len(locations) and any(
-            isinstance(r, dict) and r.get("matched_via") in _BARE_CITY_MATCHES
-            for r in sidecar
-        ):
-            return None
-    entries: list = []
-    for key in ("locations", "custom_countries", "country"):
-        value = plan.get(key)
-        if isinstance(value, (list, tuple)):
-            entries.extend(value)
-        elif value:
-            entries.append(value)
+    guessed: "set[int]" = set()
+    if isinstance(sidecar, list) and len(sidecar) == len(locations):
+        guessed = {
+            i
+            for i, r in enumerate(sidecar)
+            if isinstance(r, dict) and r.get("matched_via") in _BARE_CITY_MATCHES
+        }
     regions: "set[str]" = set()
-    for entry in entries:
-        region = _market_region(entry)
+    entries = [
+        (_GUESS if i in guessed else None, loc) for i, loc in enumerate(locations)
+    ]
+    entries += [(None, e) for e in countries + _as_entry_list(plan.get("country"))]
+    for known, entry in entries:
+        region = known or _market_region(entry)
+        if region == _GUESS:
+            if countries:
+                continue
+            return None
         if region is None:
             return None
         if region:
