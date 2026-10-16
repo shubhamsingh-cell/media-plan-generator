@@ -73,7 +73,10 @@ class Evaluator:
         ma, mb = re.match(r"([A-Z]+)(\d+)", a), re.match(r"([A-Z]+)(\d+)", b)
         out = []
         for r in range(int(ma.group(2)), int(mb.group(2)) + 1):
-            for c in range(column_index_from_string(ma.group(1)), column_index_from_string(mb.group(1)) + 1):
+            for c in range(
+                column_index_from_string(ma.group(1)),
+                column_index_from_string(mb.group(1)) + 1,
+            ):
                 from openpyxl.utils import get_column_letter
 
                 out.append(self.cell(sheet, f"{get_column_letter(c)}{r}"))
@@ -107,7 +110,14 @@ class Evaluator:
 
     def _expr(self) -> Callable[[], Any]:
         left = self._add()
-        while self._peek()[0] == "op" and self._peek()[1] in ("=", "<>", "<", ">", "<=", ">="):
+        while self._peek()[0] == "op" and self._peek()[1] in (
+            "=",
+            "<>",
+            "<",
+            ">",
+            "<=",
+            ">=",
+        ):
             op = self._take()[1]
             right = self._add()
             left = self._cmp(op, left, right)
@@ -134,7 +144,11 @@ class Evaluator:
         while self._peek()[0] == "op" and self._peek()[1] in ("+", "-"):
             op = self._take()[1]
             right = self._mul()
-            left = (lambda a, b, o: lambda: _n(a()) + _n(b()) if o == "+" else _n(a()) - _n(b()))(left, right, op)
+            left = (
+                lambda a, b, o: lambda: (
+                    _n(a()) + _n(b()) if o == "+" else _n(a()) - _n(b())
+                )
+            )(left, right, op)
         return left
 
     def _mul(self) -> Callable[[], Any]:
@@ -142,7 +156,11 @@ class Evaluator:
         while self._peek()[0] == "op" and self._peek()[1] in ("*", "/"):
             op = self._take()[1]
             right = self._unary()
-            left = (lambda a, b, o: lambda: _n(a()) * _n(b()) if o == "*" else _n(a()) / _n(b()))(left, right, op)
+            left = (
+                lambda a, b, o: lambda: (
+                    _n(a()) * _n(b()) if o == "*" else _n(a()) / _n(b())
+                )
+            )(left, right, op)
         return left
 
     def _unary(self) -> Callable[[], Any]:
@@ -192,13 +210,31 @@ class Evaluator:
             return out
 
         if name == "IF":
-            return lambda: args[1]() if args[0]() else (args[2]() if len(args) > 2 else False)
+            return lambda: (
+                args[1]() if args[0]() else (args[2]() if len(args) > 2 else False)
+            )
         if name == "SUM":
-            return lambda: sum(float(v) for v in flat([a() for a in args]) if _is_num(v) and not isinstance(v, _Blank))
+            return lambda: sum(
+                float(v)
+                for v in flat([a() for a in args])
+                if _is_num(v) and not isinstance(v, _Blank)
+            )
         if name == "COUNT":
-            return lambda: float(sum(1 for v in flat([a() for a in args]) if _is_num(v) and not isinstance(v, _Blank)))
+            return lambda: float(
+                sum(
+                    1
+                    for v in flat([a() for a in args])
+                    if _is_num(v) and not isinstance(v, _Blank)
+                )
+            )
         if name == "COUNTA":
-            return lambda: float(sum(1 for v in flat([a() for a in args]) if not isinstance(v, _Blank) and v != ""))
+            return lambda: float(
+                sum(
+                    1
+                    for v in flat([a() for a in args])
+                    if not isinstance(v, _Blank) and v != ""
+                )
+            )
         if name == "COUNTIF":
             return lambda: float(sum(1 for v in args[0]() if v == args[1]()))
         if name == "ROUND":

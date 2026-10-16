@@ -180,7 +180,7 @@ def test_pacing_uses_real_formulas_and_thresholds_are_input_cells(pacing_wb):
     assert mn == f"=D{r}*$C$10" and sg == f"=D{r}*$C$11"
     assert cum == f"=SUM($D${hdr + 1}:D{r})"
     status = ws.cell(row=r, column=12).value
-    assert status.startswith('=IF(K') and '"GREEN"' in status and '"RED"' in status
+    assert status.startswith("=IF(K") and '"GREEN"' in status and '"RED"' in status
     # thresholds + factors are shaded input cells with a "default" label
     for label, value in (
         ("Green threshold (% of weekly goal)", 0.9),
@@ -202,7 +202,9 @@ def test_pacing_budget_ladder_rows(pacing_wb):
     steps = [ws.cell(row=hdr + i, column=2).value for i in (1, 2, 3)]
     assert steps == ["Minimum test", "Recommended weekly", "Surge"]
     heads = [ws.cell(row=hdr, column=c).value for c in range(2, 10)]
-    assert "Apply starts / week, low" in heads and "Apply starts, campaign high" in heads
+    assert (
+        "Apply starts / week, low" in heads and "Apply starts, campaign high" in heads
+    )
     text = " ".join(str(c.value) for row in ws.iter_rows() for c in row if c.value)
     assert "Basis: apply starts = spend / cost per apply start" in text
 
@@ -212,7 +214,9 @@ def test_pacing_site_matrix_splits_each_week_by_plan_weights(pacing_wb):
     share_row = find_row(ws, "Share of each week's spend")
     shares = [ws.cell(row=share_row, column=c).value for c in (3, 4, 5)]
     assert abs(sum(shares) - 1) < 0.0005
-    assert len({round(s, 3) for s in shares}) > 1  # the plan's own weights, not 1/3 each
+    assert (
+        len({round(s, 3) for s in shares}) > 1
+    )  # the plan's own weights, not 1/3 each
     hdr = share_row - 1
     assert [ws.cell(row=hdr, column=c).value for c in (2, 3, 4, 5, 6)] == [
         "Week",
@@ -270,7 +274,11 @@ def test_editing_an_input_recalculates_the_sheet():
     goal_row = hdr + 1
     ev = Evaluator(wb)
     goal = ev.cell(ep.SHEET_PACING, f"J{goal_row}")
-    for actual, word in ((goal * 0.95, "GREEN"), (goal * 0.87, "AMBER"), (goal * 0.5, "RED")):
+    for actual, word in (
+        (goal * 0.95, "GREEN"),
+        (goal * 0.87, "AMBER"),
+        (goal * 0.5, "RED"),
+    ):
         ws.cell(row=goal_row, column=11).value = actual
         assert Evaluator(wb).cell(ep.SHEET_PACING, f"L{goal_row}") == word
 
@@ -331,10 +339,17 @@ def test_tiers_sheet_formulas_and_default_tiers():
     ws = wb[ep.SHEET_TIERS]
     hdr = find_row(ws, "Publisher")
     row = hdr + 1
-    assert ws.cell(row=row, column=7).value.startswith('=IF(F')
-    assert ws.cell(row=row, column=9).fill.start_color.rgb.endswith("FEF3C7")  # editable minimum
+    assert ws.cell(row=row, column=7).value.startswith("=IF(F")
+    assert ws.cell(row=row, column=9).fill.start_color.rgb.endswith(
+        "FEF3C7"
+    )  # editable minimum
     assert "'Weekly Pacing'!" in ws.cell(row=row, column=9).value
-    tiers = [wb_v for wb_v in (Evaluator(wb).cell(ep.SHEET_TIERS, f"G{r}") for r in range(row, row + 5))]
+    tiers = [
+        wb_v
+        for wb_v in (
+            Evaluator(wb).cell(ep.SHEET_TIERS, f"G{r}") for r in range(row, row + 5)
+        )
+    ]
     assert tiers[0] == "Tier 1" and set(tiers) <= {"Tier 1", "Tier 2", "Tier 3"}
     assert "Tier 2" in tiers
     # cut-offs are editable and drive the tier column
@@ -348,7 +363,9 @@ def test_switch_triggers_have_editable_thresholds_and_days():
     for i in (1, 2, 3):
         thr, days = ws.cell(row=r + i, column=3), ws.cell(row=r + i, column=4)
         assert thr.fill.start_color.rgb.endswith("FEF3C7")
-        assert days.fill.start_color.rgb.endswith("FEF3C7") and isinstance(days.value, int)
+        assert days.fill.start_color.rgb.endswith("FEF3C7") and isinstance(
+            days.value, int
+        )
     assert find_row(ws, "Gate")
 
 
@@ -360,18 +377,29 @@ def test_tracking_convention_and_system_of_record():
     ws = build_wb(plan)[ep.SHEET_TRACKING]
     r = find_row(ws, "System of record for applies")
     assert ws.cell(row=r, column=3).value == "client ATS export"
-    assert ws.cell(row=find_row(ws, "utm_campaign"), column=4).value == "example-client_dal_w01"
+    assert (
+        ws.cell(row=find_row(ws, "utm_campaign"), column=4).value
+        == "example-client_dal_w01"
+    )
     params = [ws.cell(row=x, column=4).value for x in range(1, ws.max_row + 1)]
-    assert "utm_source=indeed&utm_medium=jobboard&utm_campaign=example-client_dal_w01" in params
+    assert (
+        "utm_source=indeed&utm_medium=jobboard&utm_campaign=example-client_dal_w01"
+        in params
+    )
     assert any(p and "utm_medium=paid-social" in p for p in params)
     assert ws.cell(row=find_row(ws, "Tolerance between systems"), column=3).value == 0.1
     # default text when the wizard gave none
     ws2 = build_wb(make_plan())[ep.SHEET_TRACKING]
-    assert ws2.cell(row=find_row(ws2, "System of record for applies"), column=3).value == ep.DEFAULT_SYSTEM_OF_RECORD
+    assert (
+        ws2.cell(row=find_row(ws2, "System of record for applies"), column=3).value
+        == ep.DEFAULT_SYSTEM_OF_RECORD
+    )
 
 
 def test_tracking_checklist_carries_the_lead_times():
-    ws = build_wb(make_plan(enterprise_request_lock_day="wednesday", enterprise_setup_sla_days=3))[ep.SHEET_TRACKING]
+    ws = build_wb(
+        make_plan(enterprise_request_lock_day="wednesday", enterprise_setup_sla_days=3)
+    )[ep.SHEET_TRACKING]
     lock = ws.cell(row=find_row(ws, "Request lock day"), column=4).value
     sla = ws.cell(row=find_row(ws, "Setup SLA"), column=4).value
     assert lock.startswith("Wednesday") and sla.startswith("3 business days")
@@ -383,7 +411,10 @@ def test_tracking_checklist_carries_the_lead_times():
 def test_feasibility_statuses_are_cached_and_gate_result():
     wb = build_wb(make_plan(), data_only=True)
     ws = wb[ep.SHEET_FEASIBILITY]
-    statuses = {ws.cell(row=r, column=2).value: ws.cell(row=r, column=3).value for r in range(1, ws.max_row + 1)}
+    statuses = {
+        ws.cell(row=r, column=2).value: ws.cell(row=r, column=3).value
+        for r in range(1, ws.max_row + 1)
+    }
     assert statuses["Supply in market: United States"] == "PASS"
     assert statuses["ATS redirect and tracking support"] == "CONFIRM"
     assert statuses["Scale vs target"] == "CHECK"  # projected 24-48 vs a goal of 40
@@ -397,7 +428,13 @@ def test_feasibility_inputs_flip_the_gate():
     for label, value in (("ATS redirect and tracking support", "No"),):
         r = find_row(ws, label)
         ws.cell(row=r, column=5).value = value
-    assert Evaluator(wb).cell(ep.SHEET_FEASIBILITY, f"C{find_row(ws, 'ATS redirect and tracking support')}") == "FAIL"
+    assert (
+        Evaluator(wb).cell(
+            ep.SHEET_FEASIBILITY,
+            f"C{find_row(ws, 'ATS redirect and tracking support')}",
+        )
+        == "FAIL"
+    )
     gate = Evaluator(wb).cell(ep.SHEET_FEASIBILITY, f"C{find_row(ws, 'Gate result')}")
     assert gate == "NOT READY"
 
@@ -416,7 +453,10 @@ def test_job_ad_quality_flags_detectable_issues():
         target_roles=["Sr. Associate (L4) / Packer"],
     )
     ws = build_wb(plan)[ep.SHEET_JOBAD]
-    rows = {ws.cell(row=r, column=2).value: ws.cell(row=r, column=4).value for r in range(1, ws.max_row + 1)}
+    rows = {
+        ws.cell(row=r, column=2).value: ws.cell(row=r, column=4).value
+        for r in range(1, ws.max_row + 1)
+    }
     assert "No pay figure" in rows["Pay is shown"]
     assert "3 sites" in rows["No promise a site cannot deliver"]
     assert "sign-on bonus" in rows["No promise a site cannot deliver"]
@@ -437,7 +477,11 @@ def build_deck(data: dict):
 
 def slide_texts(prs) -> list:
     return [
-        [sh.text_frame.text for sh in sl.shapes if sh.has_text_frame and sh.text_frame.text.strip()]
+        [
+            sh.text_frame.text
+            for sh in sl.shapes
+            if sh.has_text_frame and sh.text_frame.text.strip()
+        ]
         for sl in prs.slides
     ]
 
@@ -455,13 +499,21 @@ def _collide_findings(prs, first_slide: int) -> list:
 
 def test_deck_off_is_text_identical_and_on_adds_three_appendix_slides():
     base = build_deck(make_plan(enterprise=False))
-    stray = build_deck(make_plan(enterprise=False, enterprise_pack=False, enterprise_week_start="monday"))
+    stray = build_deck(
+        make_plan(
+            enterprise=False, enterprise_pack=False, enterprise_week_start="monday"
+        )
+    )
     on = build_deck(make_plan())
     assert slide_texts(stray) == slide_texts(base)
     assert len(on.slides) == len(base.slides) + 3
     assert slide_texts(on)[: len(base.slides)] == slide_texts(base)
     titles = [" ".join(t[:3]) for t in slide_texts(on)[-3:]]
-    assert "Weekly Pacing" in titles[0] and "Publisher Tiers" in titles[1] and "Tracking" in titles[2]
+    assert (
+        "Weekly Pacing" in titles[0]
+        and "Publisher Tiers" in titles[1]
+        and "Tracking" in titles[2]
+    )
 
 
 def test_deck_appendix_has_zero_collisions_and_reads_the_model():
@@ -482,7 +534,9 @@ def test_deck_appendix_has_zero_collisions_and_reads_the_model():
 
 
 def test_deck_appendix_stress_long_names_many_publishers_no_cpa():
-    channels = {f"Regional Employment Network Number {i} Of The Group" : 5 for i in range(1, 15)}
+    channels = {
+        f"Regional Employment Network Number {i} Of The Group": 5 for i in range(1, 15)
+    }
     channels["Indeed"] = 30
     prs = build_deck(
         make_plan(
@@ -502,14 +556,20 @@ def test_deck_appendix_stress_long_names_many_publishers_no_cpa():
 # Request layer
 # ---------------------------------------------------------------------------
 def test_request_validation_and_caps():
-    ok = {"enterprise_pack": True, "enterprise_week_start": "Sunday", "enterprise_setup_sla_days": "5"}
+    ok = {
+        "enterprise_pack": True,
+        "enterprise_week_start": "Sunday",
+        "enterprise_setup_sla_days": "5",
+    }
     assert ep.request_problem(ok) == ("", "")
     assert ep.request_problem({"enterprise_week_start": "someday"})[0] == "week_start"
     assert ep.request_problem({"enterprise_request_lock_day": "9"})[0] == "lock_day"
     assert ep.request_problem({"enterprise_setup_sla_days": "abc"})[0] == "sla"
     assert ep.request_problem({"enterprise_setup_sla_days": 31})[0] == "sla"
     assert ep.request_problem({"enterprise_setup_sla_days": -1})[0] == "sla"
-    assert ep.request_problem({"enterprise_system_of_record": "x" * 121})[0] == "too_long"
+    assert (
+        ep.request_problem({"enterprise_system_of_record": "x" * 121})[0] == "too_long"
+    )
     assert ep.request_problem({"enterprise_system_of_record": ["x"]})[0] == "type"
 
 
@@ -529,7 +589,11 @@ def test_normalize_request_canonicalises_when_on_and_clears_when_off():
         "enterprise_request_lock_day": "",
         "enterprise_setup_sla_days": 4,
     }
-    off = {"enterprise_pack": False, "enterprise_week_start": "monday", "client_name": "X"}
+    off = {
+        "enterprise_pack": False,
+        "enterprise_week_start": "monday",
+        "client_name": "X",
+    }
     ep.normalize_request(off)
     assert off == {"client_name": "X"}
 
@@ -556,7 +620,9 @@ def test_no_client_names_in_new_files():
     files += sorted((PROJECT_ROOT / "tests").glob("test_enterprise_*.py"))
     bad = []
     for path in dict.fromkeys(files):
-        for word in set(re.findall(r"[A-Za-z0-9]+", path.read_text(encoding="utf-8").lower())):
+        for word in set(
+            re.findall(r"[A-Za-z0-9]+", path.read_text(encoding="utf-8").lower())
+        ):
             if hashlib.sha256(word.encode()).hexdigest() in _BANNED_SHA256:
                 bad.append((path.name, "<redacted>"))
     assert not bad, bad
