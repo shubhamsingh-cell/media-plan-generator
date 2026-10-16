@@ -800,8 +800,18 @@
     font-size: 12px;
     font-weight: 500;
     border: 1px solid rgba(90, 84, 189, 0.2);
-    height: 24px;
+    /* grows with its text (a long board name wraps inside its own chip and
+       never overlaps the chip above or the input below) */
+    min-height: 24px;
+    max-width: 100%;
+    box-sizing: border-box;
+    line-height: 1.35;
     animation: tagPop 0.3s var(--ease-spring);
+  }
+
+  .tag > span:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   @keyframes tagPop {

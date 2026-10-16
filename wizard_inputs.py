@@ -739,8 +739,11 @@ def page_config() -> dict[str, Any]:
     """Everything the wizard page needs to read inputs exactly as the server
     does -- embedded into templates/partials/index/body_inputs_js.html at
     compose time (template_composer), never re-typed in JS."""
+    import publisher_filter
+
     return {
         "limits": dict(INPUT_LIMITS),
+        "publishers": publisher_filter.client_config(),
         "budget": {
             "regex": dict(BUDGET_REGEX),
             "multiplier_exp": dict(BUDGET_MULTIPLIER_EXP),

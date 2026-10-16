@@ -112,6 +112,17 @@ _PLANS: Dict[str, dict] = {
         "competitors": ["DHL"],
         "excluded_publishers": ["Total Jobs"],
     },
+    "multi": {
+        "client_name": "Intl Fixture Multi",
+        "locations": [
+            "Paris, France",
+            "Berlin, Germany",
+            "Istanbul, Turkey",
+            "Sydney, Australia",
+        ],
+        "custom_countries": ["FR", "DE", "TR", "AU"],
+        "competitors": ["DHL"],
+    },
     "mixed": {
         "client_name": "Intl Fixture Mixed",
         "locations": ["Dallas, TX", "London, United Kingdom"],
@@ -455,3 +466,14 @@ def test_deck_tables_and_notes_carry_no_excluded_board(bundles):
             stripped = _CITATION_RE.sub("", text)
             stripped = re.sub(r"Excluded at client request:?[^\n]*", "", stripped)
             assert not re.search(rx, stripped, re.I), (tag, where, text[:100])
+
+
+def test_deck_band_says_how_many_markets_it_left_out_and_renders_the_dagger(bundles):
+    _, deck = bundles["multi"]
+    text = "\n".join(t for _, t in deck)
+    assert "+1 more market" in text, text[-400:]
+    assert "Kariyer.net \u2020" in text  # Istanbul resolves to Turkey, not the US
+    assert "relationship unverified \u2014 confirm before quoting" in text
+    xlsx, _ = bundles["multi"]
+    countries = [t for w, t in xlsx if re.fullmatch(r"Intl Benchmarks!B\d+", w)]
+    assert "Turkey" in countries and "Australia" in countries

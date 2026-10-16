@@ -310,3 +310,56 @@ def test_nova_tool_schemas_accept_the_exclusion_list(nova_engine):
     for name in ("query_global_supply", "query_publishers"):
         prop = tools[name]["input_schema"]["properties"]["excluded_publishers"]
         assert prop["type"] == "array" and prop["items"] == {"type": "string"}
+
+
+# ---- review round: country detection + the market band --------------------
+
+
+@pytest.mark.parametrize(
+    "location,country",
+    [
+        ("Istanbul, Turkey", "Turkey"),
+        ("Lima, Peru", "Peru"),
+        ("Bucharest, Romania", "Romania"),
+        ("Lagos, Nigeria", "Nigeria"),
+        ("Riyadh, Saudi Arabia", "Saudi Arabia"),
+        ("Taipei, Taiwan", "Taiwan"),
+        ("Dhaka, Bangladesh", "Bangladesh"),
+        ("Dubai, United Arab Emirates", "United Arab Emirates"),
+        ("Paris, France", "France"),
+    ],
+)
+def test_markets_missing_from_country_data_still_resolve(location, country):
+    import publisher_filter
+
+    canon = publisher_filter.canonical_country
+    assert canon(publisher_filter.detect_country(location)) == canon(country)
+    assert [
+        canon(c) for c in publisher_filter.plan_countries({"locations": [location]})
+    ] == [canon(country)]
+
+
+def test_us_places_never_resolve_to_a_country():
+    import publisher_filter
+
+    for loc in ("Houston, TX", "Indianapolis, IN", "Remote", "New Mexico"):
+        assert publisher_filter.detect_country(loc) in (None,), loc
+
+
+def test_market_band_names_the_dagger_board_and_counts_hidden_markets():
+    import publisher_filter
+
+    plan = {
+        "locations": [
+            "Paris, France",
+            "Berlin, Germany",
+            "Istanbul, Turkey",
+            "Sydney, Australia",
+            "Toronto, Canada",
+        ]
+    }
+    band = publisher_filter.plan_market_boards(plan)
+    assert [g["country"] for g in band] == ["France", "Germany", "Turkey"]
+    assert band[0]["more"] == 2 and all(g["more"] == 0 for g in band[1:])
+    turkey = band[2]
+    assert "Kariyer.net †" in turkey["boards"] and turkey["unverified"] is True

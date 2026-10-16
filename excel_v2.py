@@ -8022,15 +8022,25 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                     for p in _plats
                     if isinstance(p, dict) and p.get("name")
                 ]
+                _loc_country = _loc_info.get("country")
+                if not _plat_names:
+                    # markets research has no country row for (Turkey, Peru,
+                    # ...) still have boards in the benchmark dataset
+                    _ds_country = publisher_filter.detect_country(_loc)
+                    if _ds_country and _ds_country != "United States":
+                        _loc_country = _ds_country
+                        _plat_names = publisher_filter.dataset_platform_names(
+                            _ds_country
+                        )
                 # Client exclusions, unavailable / folded boards and sourced
                 # renames are applied BEFORE the top-4 cut, so an excluded
                 # board is replaced by the next one, not left as a gap.
                 _plat_names = publisher_filter.clean_names(
-                    _plat_names, data, _loc_info.get("country")
+                    _plat_names, data, _loc_country
                 )
                 if _plat_names:
                     _local_board_rows.append(
-                        (_loc, _loc_info.get("country") or _loc, _plat_names[:4])
+                        (_loc, _loc_country or _loc, _plat_names[:4])
                     )
 
         if _local_board_rows:

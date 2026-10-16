@@ -2866,8 +2866,18 @@
       .filter(Boolean);
     inputEl.value = "";
     _skipTagFocus = !keepFocus;
+    const note = document.getElementById("excludedPublisherNote");
+    if (note) note.textContent = "";
     try {
       entries.forEach((entry) => {
+        // the same board under another spelling is one exclusion
+        const same = novaDuplicateBoard(entry, excludedPublishers);
+        if (same) {
+          if (note)
+            note.textContent =
+              "\u201c" + entry + "\u201d is the same board as \u201c" + same + "\u201d, already excluded.";
+          return;
+        }
         addTag(
           "excludedPublishersContainer",
           "excludedPublisherInput",
@@ -3057,6 +3067,7 @@
       tag.className = "tag";
       const textSpan = document.createElement("span");
       textSpan.textContent = val;
+      tag.title = val; // the full text, even when a long name is wrapped
       // A real <button>: it was a bare <span>, unreachable by keyboard and
       // unnamed for screen readers, so a tag could not be removed without a
       // mouse (wizard audit D-24). Enter/Space activate it natively.

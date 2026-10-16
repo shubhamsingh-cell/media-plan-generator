@@ -10,6 +10,9 @@ list), the server validates it identically on /api/generate and /api/estimate
 
 from __future__ import annotations
 
+import json
+import re
+
 import pytest
 
 import app
@@ -145,3 +148,91 @@ def test_wizard_has_the_tag_input_review_row_and_draft_restore():
     # Enter, comma and blur all commit
     assert 'e.key === "Enter" || e.key === ","' in src
     assert 'exInput.addEventListener("blur"' in src
+
+
+# ---- review round: wizard chips, duplicate detection ------------------------
+
+_KEY_TABLE = [
+    "indeed.com",
+    "Indeed France",
+    "www.Indeed.com",
+    "Indeed Sponsored Jobs",
+    "Indeed Jobs",
+    "Indeed AU",
+    "HelloWork (formerly RegionsJob)",
+    "RegionsJob",
+    "OCC Mundial",
+    "OCC",
+    "Total Jobs",
+    "Totaljobs",
+    "Career Builder",
+    "CareerBuilder",
+    "Snag A Job",
+    "Snagajob",
+    "Seek New Zealand",
+    "SEEK",
+    "Pôle Emploi",
+    "Pole Emploi (France Travail)",
+    "TruckingJobs.com",
+    "Jobs.cz",
+    "Bumeran (Navent Group)",
+    "Trabajando.com",
+    "StepStone DE",
+    "Dice NO",
+    "Talent.com",
+    "Indeed, Inc",
+]
+
+
+@needs_node
+def test_js_board_key_equals_the_python_matcher():
+    from tests.wizard_js_harness import inputs_functions_js, run_node
+
+    script = (
+        inputs_functions_js()
+        + "\nconsole.log(JSON.stringify("
+        + json.dumps(_KEY_TABLE)
+        + ".map(novaBoardKey)));"
+    )
+    got = run_node(script)
+    want = [publisher_filter._keys_for(n)[0] for n in _KEY_TABLE]
+    assert got == want, [(n, g, w) for n, g, w in zip(_KEY_TABLE, got, want) if g != w]
+
+
+@needs_node
+def test_tag_input_rejects_the_same_board_under_another_spelling():
+    from tests.wizard_js_harness import inputs_functions_js, run_node
+
+    cases = [
+        ("Indeed France", ["indeed.com"], "indeed.com"),
+        ("Total Jobs", ["Totaljobs"], "Totaljobs"),
+        ("Career Builder", ["x", "CareerBuilder"], "CareerBuilder"),
+        ("RegionsJob", ["HelloWork"], "HelloWork"),
+        ("Reed", ["Indeed", "Seek"], ""),
+        ("Indeed Education", ["Indeed"], ""),
+    ]
+    script = (
+        inputs_functions_js()
+        + "\nconsole.log(JSON.stringify("
+        + json.dumps(cases)
+        + ".map(function (c) { return novaDuplicateBoard(c[0], c[1]); })));"
+    )
+    assert run_node(script) == [c[2] for c in cases]
+
+
+def test_chip_css_grows_instead_of_clipping_and_the_placeholder_fits():
+    css = (APP_JS.parent / "head_styles.html").read_text(encoding="utf-8")
+    block = css[css.index("  .tag {") : css.index("@keyframes tagPop")]
+    assert (
+        not re.search(r"(?<!min-)height:\s*24px", block) and "min-height: 24px" in block
+    )
+    assert "overflow-wrap: anywhere" in css
+    html = (APP_JS.parent / "body_content.html").read_text(encoding="utf-8")
+    placeholder = re.search(
+        r'id="excludedPublisherInput"[^>]*placeholder="([^"]+)"', html, re.S
+    ).group(1)
+    assert len(placeholder) <= 30, placeholder
+    assert 'id="excludedPublisherNote"' in html
+    src = APP_JS.read_text(encoding="utf-8")
+    assert "novaDuplicateBoard(entry, excludedPublishers)" in src
+    assert "tag.title = val" in src

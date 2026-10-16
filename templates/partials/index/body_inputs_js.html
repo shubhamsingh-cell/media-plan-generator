@@ -393,5 +393,73 @@
     }
     return /week/i.test(dur) ? dur : dur + " (~" + weeks + " weeks)";
   }
+  // JS port of publisher_filter.normalize (one board's comparison key);
+  // tests/test_excluded_publishers_request.py runs BOTH over one table. The
+  // word lists are publisher_filter.client_config(), never re-typed here.
+  function novaBoardKey(name) {
+    var P = NOVA_INPUTS && NOVA_INPUTS.publishers;
+    if (!P) return "";
+    var text = String(name || "")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+    text = text.replace(/\([^)]*\)|\[[^\]]*\]/g, " ").trim();
+    var key = "";
+    var domain =
+      text.indexOf(" ") === -1
+        ? /^(?:https?:\/\/)?(?:www\.)?([a-z0-9][a-z0-9\-]*(?:\.[a-z0-9\-]+)+)(?:[\/?#].*)?$/.exec(text)
+        : null;
+    if (domain) {
+      var host = domain[1];
+      for (var i = 0; i < P.tlds.length; i++) {
+        var suffix = "." + P.tlds[i];
+        if (host.length > suffix.length && host.slice(-suffix.length) === suffix) {
+          host = host.slice(0, -suffix.length);
+          break;
+        }
+      }
+      key = host.replace(/[^a-z0-9]/g, "");
+    } else {
+      var tokens = text.split(/[^a-z0-9]+/).filter(Boolean);
+      var countries = P.country_words;
+      var trimmed = true;
+      while (tokens.length > 1 && trimmed) {
+        trimmed = false;
+        for (var w = 3; w >= 1; w--) {
+          if (tokens.length > w && countries.indexOf(tokens.slice(-w).join(" ")) !== -1) {
+            tokens = tokens.slice(0, -w);
+            trimmed = true;
+            break;
+          }
+        }
+      }
+      if (
+        tokens.length === 2 &&
+        P.brands.indexOf(tokens[0]) !== -1 &&
+        tokens[1].length === 2 &&
+        /^[a-z]+$/.test(tokens[1])
+      ) {
+        tokens = tokens.slice(0, 1);
+      }
+      if (tokens.length && P.brands.indexOf(tokens[0]) !== -1) {
+        tokens = [tokens[0]].concat(
+          tokens.slice(1).filter(function (t) { return P.brand_suffix.indexOf(t) === -1; }),
+        );
+      }
+      var kept = tokens.filter(function (t) { return P.generic.indexOf(t) === -1; });
+      key = (kept.length ? kept : tokens).join("");
+    }
+    return P.aliases[key] || key;
+  }
+  // The excluded board an entry duplicates ("Indeed France" vs "indeed.com"), or "".
+  function novaDuplicateBoard(entry, existing) {
+    var k = novaBoardKey(entry);
+    if (!k) return "";
+    for (var i = 0; i < existing.length; i++) {
+      if (novaBoardKey(existing[i]) === k) return existing[i];
+    }
+    return "";
+  }
   /* @@wizard-inputs:functions-end */
 </script>

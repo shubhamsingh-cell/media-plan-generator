@@ -69,6 +69,7 @@ _COUNTRY_ALIASES: Dict[str, str] = {
     "sg": "Singapore",
     "vn": "Vietnam",
     "viet nam": "Vietnam",
+    "uae": "United Arab Emirates",
     "ca": "Canada",
 }
 
@@ -874,6 +875,77 @@ def platform_runs_in(name: Any, country: Any) -> bool:
     return True
 
 
+_INTL_NAME_ALIASES = {
+    "turkiye": "Turkey",
+    "t\u00fcrkiye": "Turkey",
+    "viet nam": "Vietnam",
+}
+
+
+def _dataset_countries() -> Dict[str, Dict[str, Any]]:
+    """Country display name -> entry of data/international_benchmarks_2026.json
+    (38 markets, 8 of which -- Turkey, Romania, Peru, Nigeria, Saudi Arabia,
+    Taiwan, Bangladesh, UAE -- have no research.COUNTRY_DATA row)."""
+    try:
+        import research
+
+        countries = research._load_intl_benchmarks().get("countries", {})
+    except (ImportError, AttributeError, TypeError):
+        return {}
+    return {
+        str(v.get("name") or k): v for k, v in countries.items() if isinstance(v, dict)
+    }
+
+
+def detect_country(text: Any) -> Optional[str]:
+    """Country a location string names, or None.  research._detect_country
+    first (it knows the US metro/state pitfalls), then the benchmark dataset's
+    own country names, so 'Istanbul, Turkey' is Turkey and not an unresolved
+    place that downstream code reads as the US."""
+    raw = str(text or "").strip()
+    if not raw:
+        return None
+    try:
+        import plan_geo
+
+        if plan_geo.location_is_us(raw) is True:  # "New Mexico" is a state
+            return None
+    except (ImportError, AttributeError, TypeError, ValueError):
+        pass
+    try:
+        import research
+
+        found = research._detect_country(raw)
+    except (ImportError, AttributeError, TypeError, ValueError):
+        found = None
+    if found:
+        return str(found)
+    folded = _fold(raw)
+    tail = folded.rsplit(",", 1)[-1].strip()
+    for alias, name in _INTL_NAME_ALIASES.items():
+        if tail == _fold(alias):
+            return name
+    for name in _dataset_countries():
+        if tail == _fold(name) or re.search(rf"\b{re.escape(_fold(name))}\b", folded):
+            return name
+    return None
+
+
+def dataset_platform_names(country: Any) -> List[str]:
+    """Platform names the benchmark dataset lists for ``country`` (rank
+    order), [] when it has none -- the board source for markets that have no
+    research.COUNTRY_DATA row (Turkey, Peru, Romania, ...)."""
+    want = canonical_country(country)
+    for name, entry in _dataset_countries().items():
+        if canonical_country(name) == want:
+            return [
+                str(p["name"])
+                for p in (entry.get("platforms") or [])
+                if isinstance(p, dict) and p.get("name")
+            ]
+    return []
+
+
 def plan_countries(data: Any) -> List[str]:
     """Canonical country names of the plan's markets ('United States' for US
     locations), in plan order, deduplicated.  Locations that resolve to no
@@ -882,9 +954,8 @@ def plan_countries(data: Any) -> List[str]:
         return []
     try:
         import plan_geo
-        import research  # lazy: heavy module, already loaded in the app
 
-        detect = research._detect_country
+        detect = detect_country
         is_us = plan_geo.location_is_us
     except (ImportError, AttributeError):
         return []
@@ -993,13 +1064,10 @@ def plan_market_boards(
     """The plan's top local boards per non-US market, after client
     exclusions, availability, folded boards and renames:
     ``[{"country", "locations", "boards" (daggered when relationship is
-    unverified), "unverified"}]``.  Empty for a US-only plan or when the
-    research dataset has no boards for a market."""
+    unverified), "unverified", "more"}]``.  ``more`` counts further markets
+    beyond ``max_markets`` (the caller says "+N more markets").  Empty for a
+    US-only plan or when the dataset has no boards for a market."""
     if not isinstance(data, dict):
-        return []
-    try:
-        import research
-    except ImportError:
         return []
     raw_locations = data.get("locations") or []
     if not isinstance(raw_locations, (list, tuple)):
@@ -1009,22 +1077,11 @@ def plan_market_boards(
         text = raw if isinstance(raw, str) else str((raw or {}).get("city") or "")
         if not text.strip():
             continue
-        try:
-            info = research.get_location_info(text) or {}
-        except (TypeError, ValueError, AttributeError, KeyError):
-            continue
-        country = info.get("country")
+        country = detect_country(text)
         if not country or country == "United States":
             continue
-        names = clean_names(
-            [
-                p.get("name")
-                for p in (info.get("intl_platforms") or [])
-                if isinstance(p, dict) and p.get("name")
-            ],
-            data,
-            country,
-        )[:max_boards]
+        country = canonical_country(country)
+        names = clean_names(dataset_platform_names(country), data, country)[:max_boards]
         if not names:
             continue
         marked, flag = annotate(names, country)
@@ -1033,7 +1090,27 @@ def plan_market_boards(
             {"country": country, "locations": [], "boards": marked, "unverified": flag},
         )
         group["locations"].append(text)
-    return list(groups.values())[:max_markets]
+    ordered = list(groups.values())
+    shown = ordered[:max_markets]
+    for group in shown:
+        group["more"] = 0
+    if shown:
+        shown[0]["more"] = len(ordered) - len(shown)
+    return shown
+
+
+def client_config() -> Dict[str, Any]:
+    """The tables the wizard's JS port of :func:`normalize` needs (embedded in
+    the page by wizard_inputs.page_config, never re-typed in JS) so the tag
+    input can reject "Indeed France" after "indeed.com" as the same board."""
+    return {
+        "country_words": list(_COUNTRY_WORDS),
+        "brands": sorted(_MULTI_COUNTRY_BRANDS),
+        "brand_suffix": sorted(_BRAND_SUFFIX_WORDS),
+        "generic": sorted(_GENERIC_WORDS),
+        "tlds": list(_TLDS),
+        "aliases": dict(_load_availability()["group_of"]),
+    }
 
 
 def reset_caches() -> None:
