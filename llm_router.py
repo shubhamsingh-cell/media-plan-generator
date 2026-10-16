@@ -201,6 +201,19 @@ DEEPSEEK = "deepseek"
 # Override the fast model via DEEPSEEK_MODEL_FAST env if the catalog changes.
 DEEPSEEK_FAST_TASK_TYPES = frozenset({TASK_PLAN_NARRATIVE, TASK_NARRATIVE})
 
+# 2026-10-16: short-prose task classes that the Anthropic builder sends at
+# `output_config.effort = "low"`. Sonnet 5.5 / Haiku 5.5 / Opus 5.5 run adaptive
+# thinking by default and "thinking counts toward max_tokens even when its text
+# isn't returned" (Sonnet 5.5 migration guide); a 600-token narrative cap was
+# consumed entirely by thinking in prod (jobs fb437fa8 / fd9c4f84, 2026-10-08/09:
+# out=600, zero text). The guide's first remedy: "Try adaptive thinking at `low`
+# effort first. At `low` the model keeps its thinking short and skips it on most
+# simple requests" -- and `low` is its starting point "for chat, content
+# generation, classification, extraction". `thinking: {type: between_tools}` is
+# NOT used: it is "Claude Sonnet 5.5 only ... a router or a retry must drop the
+# field first", and this builder serves Haiku and Opus too.
+ANTHROPIC_LOW_EFFORT_TASK_TYPES = frozenset({TASK_PLAN_NARRATIVE, TASK_NARRATIVE})
+
 # Global timeout budget: max total wall-clock seconds for the entire call_llm()
 # fallback loop.  Individual per-provider timeouts are dynamically capped to the
 # remaining budget so the caller never waits longer than this.
@@ -2980,14 +2993,34 @@ def _anthropic_model_rejects_prefill(model: str) -> bool:
     return bool(_ANTHROPIC_PREFILL_REJECTED_RE.match(model or ""))
 
 
+# Anthropic model IDs that accept `output_config.effort` (GA, no beta header):
+# Opus 4.5+ (4.5 takes low/medium/high only), Sonnet 4.6+, Haiku 5.5+, and the
+# Fable/Mythos families. It "errors on Sonnet 4.5 / Haiku 4.5" (claude-api skill,
+# Thinking & Effort table, cached 2026-10-06), so an env rollback to
+# claude-haiku-4-5-20251001 must not receive the field.
+_ANTHROPIC_EFFORT_SUPPORTED_RE = re.compile(
+    r"^claude-(opus-(4-[5678]|5)|sonnet-(4-6|5)|haiku-5|fable-|mythos-)"
+)
+
+
+def _anthropic_model_supports_effort(model: str) -> bool:
+    """True if ``model`` accepts ``output_config.effort`` (400 on older IDs)."""
+    return bool(_ANTHROPIC_EFFORT_SUPPORTED_RE.match(model or ""))
+
+
 def _build_anthropic_request(
     messages: List[Dict],
     system_prompt: str,
     max_tokens: int,
     tools: Optional[List[Dict]] = None,
     provider_id: str = CLAUDE,
+    task_type: str = "",
 ) -> Tuple[str, Dict[str, str], bytes]:
     """Build an Anthropic API request (works for Haiku, Sonnet, and Opus).
+
+    ``task_type`` in ANTHROPIC_LOW_EFFORT_TASK_TYPES adds
+    ``output_config.effort = "low"`` on effort-capable models so short prose
+    calls don't spend their max_tokens on default-on adaptive thinking.
 
     Handles three message types for multi-turn tool conversations:
     1. Regular user/assistant messages (string content)
@@ -3095,6 +3128,15 @@ def _build_anthropic_request(
         "max_tokens": max_tokens,
         "messages": api_messages,
     }
+
+    # 2026-10-16: low effort for short-prose task classes (see
+    # ANTHROPIC_LOW_EFFORT_TASK_TYPES). `thinking` itself is never sent: the
+    # 5.5 family runs adaptive thinking by default and `disabled` 400s there.
+    if (
+        task_type in ANTHROPIC_LOW_EFFORT_TASK_TYPES
+        and _anthropic_model_supports_effort(config["model"])
+    ):
+        payload["output_config"] = {"effort": "low"}
 
     # S82: prompt caching on the router's Anthropic path. Plan generation sends
     # the largest static prefix (system prompt + tool defs) on every call; the
@@ -3364,6 +3406,12 @@ def _parse_anthropic_response(resp_data: Dict) -> Dict[str, Any]:
             # Preserve raw for backward compatibility
             "raw_content": content_blocks,
             "raw_stop_reason": resp_data.get("stop_reason") or "",
+            # 2026-10-16: so a thinking-only reply (stop_reason=max_tokens, no
+            # text block) is visible in the router log, not just as "out=600".
+            "content_block_types": [
+                (block.get("type") or "") if isinstance(block, dict) else ""
+                for block in content_blocks
+            ],
         }
 
         # Expose tool_calls in the same format as _parse_openai_response
@@ -3676,9 +3724,9 @@ def _call_llm_inner(
             timeout_override=remaining,
             task_type=task_type,
         )
-        _has_response = bool(
-            result.get("text") or result.get("raw_content") or result.get("tool_calls")
-        )
+        # 2026-10-16: text or tool_calls only -- a thinking-only reply (empty
+        # text, non-empty raw_content) is a failure and routing moves on.
+        _has_response = bool(result.get("text") or result.get("tool_calls"))
         attempts.append(
             {
                 "provider": provider,
@@ -4134,7 +4182,12 @@ def _call_single_provider(
             )
         elif api_style == "anthropic":
             url, headers, body = _build_anthropic_request(
-                messages, system_prompt, max_tokens, tools, provider_id=provider_id
+                messages,
+                system_prompt,
+                max_tokens,
+                tools,
+                provider_id=provider_id,
+                task_type=task_type,
             )
         elif api_style == "huggingface":
             url, headers, body = _build_huggingface_request(
@@ -4170,21 +4223,46 @@ def _call_single_provider(
         else:
             parsed = {"text": "", "error": "Unknown parse style"}
 
-        # Record success/failure (tool_calls count as success even without text)
-        if parsed.get("text") or parsed.get("raw_content") or parsed.get("tool_calls"):
+        # Record success/failure (tool_calls count as success even without text).
+        # 2026-10-16: `raw_content` no longer counts. A reply whose only blocks
+        # are `thinking` (Sonnet/Haiku/Opus 5.5 run adaptive thinking by
+        # default and it counts toward max_tokens) has empty text but non-empty
+        # raw_content; treating that as success returned "" to the caller and
+        # skipped every fallback provider (prod 2026-10-08/09, out=600, no text).
+        _stop_reason = parsed.get("stop_reason") or parsed.get("raw_stop_reason") or ""
+        _block_types = parsed.get("content_block_types") or []
+        if parsed.get("text") or parsed.get("tool_calls"):
             if state:
                 state.record_success(latency_ms)
             # Circuit breaker mesh: record success
             if _circuit_mesh is not None:
                 _circuit_mesh.record_success(provider_id, latency_ms)
             logger.info(
-                "LLM Router: %s responded in %.0fms (in=%d, out=%d)",
+                "LLM Router: %s responded in %.0fms (in=%d, out=%d, stop_reason=%s, blocks=%s)",
                 provider_id,
                 latency_ms,
                 parsed.get("input_tokens") or 0,
                 parsed.get("output_tokens") or 0,
+                _stop_reason or "-",
+                ",".join(_block_types) or "-",
             )
         else:
+            if not parsed.get("error"):
+                parsed["error"] = (
+                    f"empty response (no text/tool_calls; stop_reason={_stop_reason or '-'}, "
+                    f"blocks={','.join(_block_types) or '-'}, "
+                    f"out={parsed.get('output_tokens') or 0}/{max_tokens})"
+                )
+            logger.warning(
+                "LLM Router: %s returned no text in %.0fms (in=%d, out=%d, stop_reason=%s, "
+                "blocks=%s) -- counted as failure, routing continues",
+                provider_id,
+                latency_ms,
+                parsed.get("input_tokens") or 0,
+                parsed.get("output_tokens") or 0,
+                _stop_reason or "-",
+                ",".join(_block_types) or "-",
+            )
             if state:
                 state.record_failure()
             # Circuit breaker mesh: record failure (empty response)

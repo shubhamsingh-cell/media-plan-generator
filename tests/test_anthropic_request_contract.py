@@ -56,7 +56,18 @@ RETIRED_OR_SUPERSEDED_MODEL_RE = re.compile(
 )
 
 #: Fields the router's Anthropic builders may emit (Messages API top-level).
-ALLOWED_PAYLOAD_KEYS = {"model", "max_tokens", "messages", "system", "tools", "stream"}
+ALLOWED_PAYLOAD_KEYS = {
+    "model",
+    "max_tokens",
+    "messages",
+    "system",
+    "tools",
+    "stream",
+    # 2026-10-16: `output_config.effort` (GA, no beta header) -- sent only for
+    # ANTHROPIC_LOW_EFFORT_TASK_TYPES on effort-capable models; see
+    # tests/test_llm_router_thinking_only.py.
+    "output_config",
+}
 #: Fields that return 400 on the current IDs (or are unused and risky to add).
 FORBIDDEN_PAYLOAD_KEYS = {
     "temperature",

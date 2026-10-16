@@ -501,7 +501,7 @@ def _lazy_llm_router():
 
 
 def _generate_narrative(
-    data: dict, product_context: str, task_type: str = "", max_tokens: int = 300
+    data: dict, product_context: str, task_type: str = "", max_tokens: int = 2048
 ) -> str:
     """Generate AI narrative for product output via LLM router.
 
@@ -529,6 +529,11 @@ def _generate_narrative(
     # Gemini/Cerebras if Groq is unavailable.
     # S50: 10s timeout for all plan-gen LLM calls to avoid blocking the pipeline.
     task = task_type or getattr(router, "TASK_PLAN_NARRATIVE", "plan_narrative")
+    # 2026-10-16: max_tokens default 300 -> 2048. The 5.5-family Anthropic
+    # models think by default and thinking counts toward max_tokens; a 300
+    # cap can come back as a thinking block with no text (the router now
+    # fails such replies over, but the first provider should get room to
+    # answer). The prompt still asks for 2-3 sentences, so cost is unchanged.
     try:
         prompt = (
             f"Based on this data, write a strategic recommendation as if presenting "
