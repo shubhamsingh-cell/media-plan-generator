@@ -3932,6 +3932,12 @@ def _turn_cache_blocked() -> bool:
     return bool(state.get("personalized")) or not state.get("stateless", False)
 
 
+def _turn_cache_allowed() -> bool:
+    """Strict form of "may share a cache": a chat turn exists AND it is
+    stateless and unpersonalised. Unknown (no turn state) means no."""
+    return _get_turn_tool_capture() is not None and not _turn_cache_blocked()
+
+
 def _coalesce_scope() -> Optional[str]:
     """Coalescing scope for this turn, or None when it must not coalesce.
 
@@ -20671,6 +20677,9 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 query_text=user_message,
                 preferred_providers=_preferred,
                 force_provider=ab_force_provider or "",
+                # The router cache is process-wide (+Upstash): only a stateless,
+                # unpersonalised turn may read or write it.
+                use_cache=_turn_cache_allowed(),
             )
 
             response_text = (result or {}).get("text") or (result or {}).get("content")

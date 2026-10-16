@@ -463,10 +463,13 @@ class _ResponseCache:
     @staticmethod
     def _make_key(task_type: str, system_prompt: str, user_message: str) -> str:
         """Build a normalized cache key from prompt components."""
+        # The key covers the WHOLE system prompt and the WHOLE request text:
+        # a prefix key let an answer built from one user's history/memory
+        # (appended after the first 200 chars) be served to another user.
         normalized = (
             f"{task_type.strip().lower()}|"
-            f"{system_prompt[:200].strip().lower()}|"
-            f"{user_message[:500].strip().lower()}"
+            f"{system_prompt.strip().lower()}|"
+            f"{user_message.strip().lower()}"
         )
         return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
@@ -3497,10 +3500,26 @@ def call_llm(
     # Extract user message for cache key (last user message in the list)
     _user_msg_for_cache = ""
     if use_cache and not tools:
-        for msg in reversed(messages):
-            if msg.get("role") == "user" and isinstance(msg.get("content"), str):
-                _user_msg_for_cache = msg["content"]
-                break
+        _has_user_text = any(
+            m.get("role") == "user" and isinstance(m.get("content"), str)
+            for m in messages
+        )
+        if _has_user_text:
+            # Fingerprint of the full message list + call parameters (not just
+            # the last user message), so differing history can never collide.
+            try:
+                _user_msg_for_cache = json.dumps(
+                    {
+                        "messages": messages,
+                        "max_tokens": max_tokens,
+                        "force_provider": force_provider,
+                        "preferred_providers": preferred_providers,
+                    },
+                    sort_keys=True,
+                    default=str,
+                )
+            except (TypeError, ValueError):
+                _user_msg_for_cache = ""
         if _user_msg_for_cache:
             cached = _response_cache.get(task_type, system_prompt, _user_msg_for_cache)
             if cached is not None:
