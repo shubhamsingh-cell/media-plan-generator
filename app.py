@@ -4937,7 +4937,10 @@ _CURRENCY_MARKET_REGION: "dict[str, str]" = {
             "GBP EUR CHF SEK NOK DKK PLN CZK HUF RON RUB UAH TRY ILS AED SAR QAR "
             "EGP ZAR NGN KES",
         ),
-        ("apac", "INR AUD NZD SGD HKD JPY CNY KRW PHP THB IDR MYR VND PKR BDT LKR"),
+        (
+            "apac",
+            "INR AUD NZD SGD HKD JPY CNY KRW PHP THB IDR MYR VND PKR BDT LKR TWD",
+        ),
     )
     for code in codes.split()
 }
@@ -5893,7 +5896,13 @@ def _split_city_state_country(loc_str: str) -> dict:
         # 2nd token isn't a recognizable US state -- it's most likely the
         # country itself (e.g. "London, United Kingdom"), not a state.
         return {"city": city, "state": "", "country": second}
-    return {"city": city, "state": "", "country": "United States"}
+    # A bare city: a well-known foreign one ("Istanbul", "Lima", "Dubai") is
+    # not the United States; anything unrecognised keeps the domestic default.
+    return {
+        "city": city,
+        "state": "",
+        "country": research._detect_country(city) or "United States",
+    }
 
 
 class _EstimateValidationError(ValueError):

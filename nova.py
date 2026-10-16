@@ -29,6 +29,7 @@ import threading
 import time
 from pathlib import Path
 
+import country_registry  # countries the datasets cover that COUNTRY_DATA has no row for
 import proof_claims  # public proof numbers: one source of truth, each with its artifact
 import publisher_filter  # client exclusions + availability: one matcher for every board list
 from typing import Any, Dict, Generator, List, Optional, Tuple
@@ -25140,7 +25141,9 @@ def _detect_country(text: str) -> Optional[str]:
             pattern = r"\b" + re.escape(state_alias) + r"\b"
             if re.search(pattern, text_lower):
                 return "United States"
-    return None
+    # Countries the datasets cover that have no alias row above (Peru,
+    # Bangladesh, Pakistan, Greece...): themselves, never "unknown -> US".
+    return country_registry.detect_extra(text)
 
 
 def _detect_us_state(text: str) -> Optional[str]:

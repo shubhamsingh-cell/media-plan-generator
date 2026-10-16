@@ -11,6 +11,7 @@ import re
 import json
 import os
 
+import country_registry
 import display_format
 import plan_currency
 
@@ -694,8 +695,14 @@ def _detect_country(location_str):
         "ho chi minh": "Vietnam",
     }
     for city, country in city_to_country.items():
-        if city in loc_lower:
+        # whole-word: "rome" is not inside "Jerome", "cork" not inside "Corkscrew"
+        if re.search(r"(?<![a-z0-9])" + re.escape(city) + r"(?![a-z0-9])", loc_lower):
             return country
+    # Countries the datasets cover that COUNTRY_DATA has no row for (Turkey,
+    # Peru, Romania, ...): recognised as themselves, never read as the US.
+    _extra = country_registry.detect_extra(location_str)
+    if _extra:
+        return _extra
     # --- Standardizer fallback: try canonical location normalization ---
     # The standardizer has a richer alias set (50+ countries) than the local
     # COUNTRY_ALIASES dict.  If the above didn't match, ask the standardizer.
@@ -4667,6 +4674,94 @@ def _is_bare_state_location(location_str, state):
     return bool(state_name) and norm.lower() == state_name.lower()
 
 
+NO_COUNTRY_DATA = "No country data"
+
+
+def _intl_dataset_entry(country):
+    """The ``international_benchmarks_2026.json`` entry for ``country``, else {}."""
+    countries = (_load_intl_benchmarks() or {}).get("countries", {})
+    want = str(country or "").strip().lower()
+    key = want.replace(" ", "_")
+    for ck, cv in countries.items():
+        if not isinstance(cv, dict):
+            continue
+        name = (cv.get("name") or "").lower()
+        if ck == key or name == want or (want == "uae" and name == "united arab emirates"):
+            return cv
+    return {}
+
+
+def _enrich_with_intl_benchmarks(info, country):
+    """Add the 38-country dataset's market size / platforms / CPH tiers /
+    regulatory notes / CPC range to ``info`` when it covers ``country``."""
+    try:
+        _matched = _intl_dataset_entry(country)
+        if not _matched:
+            return
+        info["intl_market_size"] = _matched.get("market_size", {})
+        info["intl_platforms"] = _matched.get("platforms", [])
+        info["intl_cph_by_tier"] = _matched.get("cph_by_tier", {})
+        info["intl_regulatory"] = _matched.get("regulatory", {})
+        info["intl_seasonal_patterns"] = _matched.get("seasonal_patterns", {})
+        # Extract CPC range from top platforms (USD)
+        _cpc_vals = []
+        for _p in (_matched.get("platforms") or [])[:5]:
+            _cpc_usd = _p.get("cpc_usd", {})
+            if isinstance(_cpc_usd, dict) and _cpc_usd.get("median"):
+                _cpc_vals.append(_cpc_usd["median"])
+        if _cpc_vals:
+            info["intl_cpc_range_usd"] = {
+                "min": round(min(_cpc_vals), 2),
+                "max": round(max(_cpc_vals), 2),
+                "median": round(sum(_cpc_vals) / len(_cpc_vals), 2),
+            }
+    except Exception as _intl_err:
+        logger.error(
+            "Intl benchmark enrichment failed for %s: %s",
+            country,
+            _intl_err,
+            exc_info=True,
+        )
+
+
+def _no_country_data_info(location_str, country):
+    """``get_location_info`` for a recognised country with no COUNTRY_DATA row.
+
+    The country, region and currency come from the benchmark dataset that
+    covers it (``data/international_benchmarks_2026.json``) when it does; the
+    rows COUNTRY_DATA would supply (cost-of-living index, population, median
+    salary, unemployment, employers) are ``None`` / "No country data" and
+    ``no_country_data`` is True so every surface prints that instead of a
+    number.
+    """
+    entry = _intl_dataset_entry(country)
+    region = str(entry.get("region") or "").strip()
+    info = {
+        "location": location_str,
+        "state": None,
+        "country": country,
+        "region": region.upper() if region else "Global",
+        "coli": None,
+        "population": NO_COUNTRY_DATA,
+        "median_salary": None,
+        "unemployment": NO_COUNTRY_DATA,
+        "currency": entry.get("currency")
+        or plan_currency.currency_for_country(country)
+        or None,
+        "metro_name": f"{location_str} ({country})",
+        "major_employers": NO_COUNTRY_DATA,
+        "top_boards": ", ".join(
+            str(p["name"])
+            for p in (entry.get("platforms") or [])
+            if isinstance(p, dict) and p.get("name")
+        ),
+        "is_international": True,
+        "no_country_data": True,
+    }
+    _enrich_with_intl_benchmarks(info, country)
+    return info
+
+
 def get_location_info(location_str, resolution=None):
     """Get comprehensive info for a location. Supports US and international locations.
 
@@ -4691,7 +4786,12 @@ def get_location_info(location_str, resolution=None):
     ):
         country = None
     if country and country != "United States":
-        cd = COUNTRY_DATA[country]
+        cd = COUNTRY_DATA.get(country)
+        if cd is None:
+            # A recognised country the repo has no COUNTRY_DATA row for (Turkey,
+            # Peru, Romania...): labelled as itself, every row-derived figure
+            # marked "no country data" -- never another country's numbers.
+            return _no_country_data_info(location_str, country)
         info = {
             "location": location_str,
             "state": None,
@@ -4707,43 +4807,7 @@ def get_location_info(location_str, resolution=None):
             "top_boards": cd.get("top_boards") or "",
             "is_international": True,
         }
-        # Enrich with international benchmarks (38-country dataset)
-        try:
-            intl = _load_intl_benchmarks()
-            countries = intl.get("countries", {})
-            # Match by country name -> key (e.g. "India" -> "india")
-            _country_lower = country.lower().replace(" ", "_")
-            _matched = None
-            for _ck, _cv in countries.items():
-                _cname = (_cv.get("name") or "").lower()
-                if _ck == _country_lower or _cname == country.lower():
-                    _matched = _cv
-                    break
-            if _matched:
-                info["intl_market_size"] = _matched.get("market_size", {})
-                info["intl_platforms"] = _matched.get("platforms", [])
-                info["intl_cph_by_tier"] = _matched.get("cph_by_tier", {})
-                info["intl_regulatory"] = _matched.get("regulatory", {})
-                info["intl_seasonal_patterns"] = _matched.get("seasonal_patterns", {})
-                # Extract CPC range from top platforms (USD)
-                _cpc_vals = []
-                for _p in (_matched.get("platforms") or [])[:5]:
-                    _cpc_usd = _p.get("cpc_usd", {})
-                    if isinstance(_cpc_usd, dict) and _cpc_usd.get("median"):
-                        _cpc_vals.append(_cpc_usd["median"])
-                if _cpc_vals:
-                    info["intl_cpc_range_usd"] = {
-                        "min": round(min(_cpc_vals), 2),
-                        "max": round(max(_cpc_vals), 2),
-                        "median": round(sum(_cpc_vals) / len(_cpc_vals), 2),
-                    }
-        except Exception as _intl_err:
-            logger.error(
-                "Intl benchmark enrichment failed for %s: %s",
-                country,
-                _intl_err,
-                exc_info=True,
-            )
+        _enrich_with_intl_benchmarks(info, country)
         return info
 
     # US location handling. ``geo_market.resolve_market`` is the ONE place a
@@ -5225,8 +5289,21 @@ def get_supply_demand_ratio(
     metros_result: dict = {}
     scored_metros: list = []
 
+    unscored: dict = {}
     for loc in locations:
         loc_info = get_location_info(loc)
+        if loc_info.get("no_country_data"):
+            # A country with no country-level data: no score is invented from
+            # a default unemployment rate / cost-of-living index.
+            unscored[loc_info.get("metro_name") or loc] = {
+                "no_country_data": True,
+                "country": loc_info.get("country"),
+                "note": (
+                    f"No country-level labour-market data is held for "
+                    f"{loc_info.get('country')}; no supply/demand score is computed."
+                ),
+            }
+            continue
         metro_key, metro_data = _find_metro(loc)
 
         # Start with industry base
@@ -5319,6 +5396,7 @@ def get_supply_demand_ratio(
                 f"toward {easiest[0]} or offering premium compensation in {tightest[0]}."
             )
 
+    metros_result.update(unscored)
     return {
         "source": "Joveo Supply/Demand Intelligence (METRO_DATA + BLS + JOLTS)",
         "role": role,
@@ -5382,9 +5460,19 @@ def optimize_geographic_strategy(
     sd_metros: dict = get_supply_demand_ratio(role, locations).get("metros") or {}
     # Score each location
     scored: list[dict] = []
+    unranked: list[dict] = []
     for loc in locations:
         _mk, _md = _find_metro(loc)
         loc_info = get_location_info(loc)
+        if loc_info.get("no_country_data"):
+            # No country data: no cost-per-hire is derived from a US base CPH.
+            unranked.append(
+                {
+                    "location": loc_info.get("metro_name") or loc,
+                    "reason": f"No country data for {loc_info.get('country')}; not ranked.",
+                }
+            )
+            continue
         coli = loc_info.get("coli") or 100
         estimated_cph = round(base_cph * (coli / 100))
         metro_name = loc_info.get("metro_name") or loc
@@ -5484,7 +5572,11 @@ def optimize_geographic_strategy(
         )
     else:
         summary = "No metro data available for the requested locations."
-    return {
+    if unranked:
+        summary += " Not ranked (no country data): " + ", ".join(
+            u["location"] for u in unranked
+        ) + "."
+    result = {
         "source": "Joveo Geographic Unit Economics (METRO_DATA + BLS + Bayesian smoothing)",
         "role": role,
         "industry": industry,
@@ -5498,6 +5590,9 @@ def optimize_geographic_strategy(
             "Tiers: primary (top 3 by efficiency), secondary (next 3), avoid (CPH > 2x median)."
         ),
     }
+    if unranked:
+        result["unranked_locations"] = unranked
+    return result
 
 
 def _build_recommendation(
@@ -5918,6 +6013,22 @@ def get_market_trends(locations, industry, roles, enrichment_salary_data=None):
         descs = {}
         for loc in locations:
             info = get_location_info(loc)
+            if info.get("no_country_data"):
+                # Every figure these factor texts quote (unemployment, COLI,
+                # median salary, population) is missing for this country: say
+                # so rather than invent one or quote another country's.
+                _boards = info.get("top_boards") or ""
+                descs[loc] = (
+                    f"No country-level data is held for {info.get('country')}, so "
+                    f"this factor is not assessed."
+                    + (
+                        f" Key job boards in {info.get('country')}: {_boards}."
+                        if factor_name == "Media Infrastructure & Platform Access"
+                        and _boards
+                        else ""
+                    )
+                )
+                continue
             coli = info["coli"]
             pop = info["population"]
             unemp = info["unemployment"]
@@ -7827,6 +7938,30 @@ def _us_location_context(loc, info):
     }
 
 
+def _no_country_data_context(loc, info):
+    """One row of the Location Economic Context table for a recognised country
+    that has no COUNTRY_DATA row (see ``_no_country_data_info``)."""
+    country = info.get("country") or ""
+    return {
+        "location": loc,
+        "country": country,
+        "unemployment_rate": NO_COUNTRY_DATA,
+        "median_salary": NO_COUNTRY_DATA,
+        "population": NO_COUNTRY_DATA,
+        "top_industries": "",
+        "top_job_boards": info.get("top_boards") or "",
+        "region": info.get("region") or "",
+        "coli": None,
+        "geo_level": "country",
+        "no_country_data": True,
+        "context_note": (
+            f"International market \u2014 {country}. No country-level labour-market "
+            "figures (unemployment, median salary, cost of living) are held for "
+            f"{country}; US figures are not used."
+        ),
+    }
+
+
 def get_labour_market_intelligence(industry, locations, location_resolutions=None):
     """
     Return rich, curated labour market intelligence data combining
@@ -7886,6 +8021,10 @@ def get_labour_market_intelligence(industry, locations, location_resolutions=Non
                     "context_note": f"International market — {country} in {c.get('region', 'Global')} region. Local labour laws and recruitment practices apply.",
                 }
             )
+        elif info.get("no_country_data"):
+            # A recognised country with no COUNTRY_DATA row: its own name and
+            # an explicit "no country data" -- never the US placeholder row.
+            location_contexts.append(_no_country_data_context(loc, info))
         else:
             # Genuinely USD -- this branch only fires for US locations, so
             # the literal "$" here is correct and stays untouched.

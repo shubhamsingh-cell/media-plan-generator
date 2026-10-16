@@ -27,6 +27,8 @@ from __future__ import annotations
 import logging
 import re
 
+import country_registry
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -246,6 +248,10 @@ _COUNTRY_TO_CODE: dict[str, str] = {
     "turkiye": "TRY",
     "tr": "TRY",
     "tur": "TRY",
+    # Taiwan (data/international_benchmarks_2026.json: currency TWD)
+    "taiwan": "TWD",
+    "tw": "TWD",
+    "twn": "TWD",
     # Latin America
     "brazil": "BRL",
     "brasil": "BRL",
@@ -474,6 +480,11 @@ def currency_for_country(country: str | None) -> str | None:
     for alias in sorted(_COUNTRY_TO_CODE, key=len, reverse=True):
         if len(alias) >= 5 and _contains_word(key, alias):
             return _COUNTRY_TO_CODE[alias]
+    # A bare well-known city of a country the datasets cover ("Istanbul",
+    # "Lima", "Taipei"): the city's country's currency, never "unknown".
+    extra = country_registry.detect_extra(country)
+    if extra:
+        return _COUNTRY_TO_CODE.get(extra.lower())
     return None
 
 

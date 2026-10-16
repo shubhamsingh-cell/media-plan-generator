@@ -21,6 +21,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+import country_registry
 import plan_currency
 
 # ---------------------------------------------------------------------------
@@ -266,6 +267,11 @@ def _resolve_candidate(loc_str: str) -> bool | None:
     loc_lower = loc_str.lower()
     parts = {p for p in _SPLIT_RE.split(loc_lower) if p}
     if parts & _INTL_TOKENS or any(phrase in loc_lower for phrase in _INTL_PHRASES):
+        return False
+
+    # A country the datasets cover but have no currency row for (Costa Rica,
+    # Morocco...): foreign all the same, never "unresolved -> assume US".
+    if country_registry.detect_extra(loc_str):
         return False
 
     return None

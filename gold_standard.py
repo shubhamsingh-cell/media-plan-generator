@@ -5955,6 +5955,17 @@ def build_linkedin_intelligence(data: dict) -> dict[str, Any]:
             parts = [p.strip() for p in first_loc.split(",")]
             if len(parts) >= 2:
                 target_country = parts[-1]
+            else:
+                # a bare well-known foreign city ("Istanbul", "Lima") is its
+                # country, not the default United States
+                try:
+                    import research as _research_gs
+
+                    target_country = (
+                        _research_gs._detect_country(first_loc) or target_country
+                    )
+                except (ImportError, AttributeError):
+                    pass
 
     result: dict[str, Any] = {
         "source": "slotops_108k_linkedin_dataset",
