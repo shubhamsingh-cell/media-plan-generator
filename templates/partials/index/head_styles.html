@@ -824,15 +824,24 @@
     appearance: none;
     background: none;
     border: 0;
-    padding: 0 2px;
-    margin: 0 0 0 2px;
     font-family: inherit;
     color: inherit;
     cursor: pointer;
     font-size: 14px;
     line-height: 1;
-    opacity: 0.5;
-    border-radius: 4px;
+    /* Hit area >= 24x24 (WCAG 2.5.8; it was 13x14). The glyph stays 14px
+       and the tag keeps its size: the negative margins hand the extra
+       area back (24 - 5 - 4 = 15px of layout width, as before). */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    margin: -3px -5px -3px -4px;
+    /* was 0.5: the x is a control, keep it readable (3:1 non-text) */
+    opacity: 0.75;
+    border-radius: 6px;
     transition: opacity var(--duration-fast) ease;
   }
 
@@ -5767,7 +5776,10 @@
     font-size: 11.5px !important;
     font-weight: 600 !important;
     letter-spacing: 0.01em !important;
-    color: var(--np-faint) !important;
+    /* --np-muted, not --np-faint: on the aurora's brightest corner (top
+       left, behind the first labels) --np-faint measured 4.3:1 at 375px;
+       --np-muted clears 4.5:1 there and is lighter still on the dark column */
+    color: var(--np-muted) !important;
     text-transform: none !important;
     transition: color 0.3s ease;
     line-height: 1.2;
@@ -5804,7 +5816,7 @@
   .studio .preset-label {
     font-size: 12px;
     font-weight: 600;
-    color: var(--np-faint);
+    color: var(--np-muted);
     margin-right: 2px;
   }
   .studio .preset-chip {
@@ -6234,25 +6246,13 @@
     box-shadow: 0 0 0 4px rgba(107, 181, 206, 0.22);
     animation: npPulse 2s ease-in-out infinite;
   }
-  .np-eyebrow .recompute {
-    margin-left: auto;
-    color: var(--np-purple-light);
-    font-size: 10.5px;
-    letter-spacing: 0.04em;
-    opacity: 0;
-    transition: opacity 0.25s ease;
-  }
-  .np-pane.recomputing .np-eyebrow .recompute {
-    opacity: 1;
-  }
 
-  /* ── Agent strip: "Nova is calibrating" — Linear-style live activity
-     strip. Shown ONLY while #planPreview carries both .recomputing (a
-     real input change is actively being modeled — see the signature
-     check in body_preview_js.html render()) and .has-plan (there is a
-     real budget, not the empty ghost state). It never loops or replays
-     decoratively; it starts and stops exactly when the underlying
-     recompute does. ─────────────────────────────────────────────────── */
+  /* ── Estimate status strip: ONE line, "Updating estimate…". Shown ONLY
+     while #planPreview carries both .recomputing and .has-plan.
+     .recomputing is set when body_preview_js.html's fetchEstimate sends a
+     real /api/estimate request and cleared when it answers or fails (it
+     used to be a fixed 650 ms timer in front of four pre-ticked "steps",
+     i.e. progress that was not happening). ─────────────────────────── */
   .agent-strip {
     position: relative;
     z-index: 1;
@@ -6277,7 +6277,7 @@
   #planPreview.recomputing.has-plan .agent-strip {
     max-height: 160px;
     margin-bottom: 16px;
-    padding: 14px 18px 12px;
+    padding: 12px 18px;
     opacity: 1;
     pointer-events: auto;
   }
@@ -6300,7 +6300,7 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #b8b4e8;
-    margin-bottom: 10px;
+    margin: 0;
     position: relative;
     z-index: 1;
   }
@@ -6310,43 +6310,6 @@
     border-radius: 50%;
     background: var(--np-teal);
     animation: npPulse 2s ease-in-out infinite;
-  }
-  .agent-line {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    font-size: 12px;
-    color: #d8d6ee;
-    padding: 3px 0;
-    opacity: 0;
-    animation: npAgentLineIn 0.3s ease both;
-    position: relative;
-    z-index: 1;
-  }
-  .agent-line:nth-child(2) { animation-delay: 0s; }
-  .agent-line:nth-child(3) { animation-delay: 0.08s; }
-  .agent-line:nth-child(4) { animation-delay: 0.18s; }
-  .agent-line:nth-child(5) { animation-delay: 0.32s; }
-  @keyframes npAgentLineIn {
-    from { opacity: 0; transform: translateX(-4px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
-  .agent-line .ok {
-    color: var(--np-teal);
-    flex: none;
-    font-size: 11px;
-  }
-  .agent-line .spin {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    border: 1.5px solid #4a4880;
-    border-top-color: var(--np-teal);
-    animation: spin 0.8s linear infinite;
-    flex: none;
-  }
-  .agent-line.muted {
-    color: #7d7aa8;
   }
 
   /* The light "paper" deliverable card */
@@ -6449,11 +6412,12 @@
     letter-spacing: 0.08em;
     flex-shrink: 0;
   }
-  /* "Plan ready" pill — appears once the live model has a real budget
-     (i.e. .np-card loses .is-empty). Uses teal, this app's existing
-     "good/positive" semantic (see .np-ins-good), not the mockup's green,
-     to stay brand-true. Pure CSS, gated on the JS-driven is-empty class
-     that already exists — no parallel state. */
+  /* "Plan ready" pill — appears only once a plan has actually been
+     GENERATED for the inputs on screen (#planPreview.plan-generated, set by
+     NovaPreview.markGenerated after the download and cleared when the
+     inputs change). It used to show as soon as a budget was typed, i.e.
+     before anything had been generated; that state is the DRAFT pill.
+     Teal, this app's "good/positive" semantic (see .np-ins-good). */
   .np-ready {
     display: none;
     align-items: center;
@@ -6475,8 +6439,11 @@
     border-radius: 50%;
     background: var(--np-teal-deep);
   }
-  .np-card:not(.is-empty) .np-ready {
+  .np-pane.plan-generated .np-card:not(.is-empty) .np-ready {
     display: inline-flex;
+  }
+  .np-pane.plan-generated .np-draft {
+    display: none;
   }
 
   /* Budget hero */
@@ -6690,12 +6657,20 @@
        a phone the first field started 1.5 screens down. The bottom padding
        keeps the fixed "Back to Suite" pill and the Nova orb off its last
        lines. */
+    /* `relative`, not `static`: .np-pane::before is the lavender wash
+       (absolute, inset 0). On a static pane its containing block was
+       .studio, so the wash covered the WHOLE page and put the form's
+       #9794B6 step labels and "Try an example:" on lavender at 1.1-1.3:1
+       (WCAG 1.4.3 needs 4.5:1). Relative keeps the wash inside the pane and
+       the form column dark, as on desktop. */
     .np-pane {
-      position: static;
+      position: relative;
       height: auto;
       border-left: none;
       border-top: 1px solid var(--np-hair);
       padding: 18px clamp(16px, 4vw, 40px) 96px;
+      /* land below the sticky top bar + estimate bar when scrolled to */
+      scroll-margin-top: 112px;
     }
     .np-card {
       max-width: 560px;
@@ -6705,6 +6680,107 @@
       padding: 22px clamp(16px, 4vw, 40px) 40px !important;
     }
   }
+  /* ── Compact live estimate (single-column layouts only) ───────────────
+     At <=1080px the full preview sits below the form (it used to sit above
+     it), so while a budget is being typed the estimate is ~1,100 px off
+     screen. This bar keeps budget / applications / hires / cost per
+     application under the top bar; a tap scrolls to the full preview.
+     Its row exists from the start (a one-line hint until the first
+     estimate lands) so the form does not jump 46 px when it arrives.
+     Desktop (two columns): never shown. */
+  .np-estimate-bar {
+    display: none;
+  }
+  @media (max-width: 1080px) {
+    .np-estimate-bar {
+      display: flex;
+      position: sticky;
+      top: 58px;
+      z-index: 55;
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 46px;
+      align-items: stretch;
+      gap: 4px;
+      margin: 0;
+      padding: 6px clamp(12px, 4vw, 40px);
+      border: 0;
+      border-bottom: 1px solid var(--np-hair);
+      background: rgba(10, 10, 18, 0.97);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+      color: var(--np-ink);
+      font-family: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+    /* before an estimate exists: one muted hint line, no figures */
+    .np-estimate-bar .neb-hint {
+      display: none;
+      align-self: center;
+      font-size: 12px;
+      color: var(--np-muted);
+    }
+    .np-estimate-bar[data-state="empty"] .neb-hint {
+      display: block;
+    }
+    .np-estimate-bar[data-state="empty"] .neb-item {
+      display: none;
+    }
+    .np-estimate-bar .neb-item {
+      flex: 1 1 0;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .np-estimate-bar .neb-item b {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+      color: var(--np-ink);
+      white-space: nowrap;
+    }
+    .np-estimate-bar .neb-item span {
+      font-size: 10.5px;
+      line-height: 1.2;
+      color: var(--np-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .np-estimate-bar:focus-visible {
+      outline: none;
+      box-shadow: inset 0 0 0 2px var(--np-purple-light);
+    }
+  }
+  @media print {
+    .np-estimate-bar {
+      display: none !important;
+    }
+  }
+
+  /* Fixed overlays (the "Back to Suite" pill, bottom-left, and the Nova
+     orb, bottom-right) sat over the Brief textarea at phone width. While a
+     text field has focus they step aside; they come straight back on blur.
+     The class is set by body_a11y_js.html. The orb stays while its chat
+     panel is open (.nova-btn-close is the close button). */
+  @media (max-width: 1080px) {
+    body.nova-field-focus #back-to-suite,
+    body.nova-field-focus #nova-float-btn:not(.nova-btn-close) {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body.nova-field-focus #back-to-suite,
+    body.nova-field-focus #nova-float-btn {
+      transition: none !important;
+    }
+  }
+
   @media (max-width: 860px) {
     .studio-topbar .stb-sub {
       display: none;
@@ -6737,15 +6813,11 @@
       transition: none !important;
       animation: none !important;
     }
-    .agent-strip {
+    .agent-strip,
+    .np-estimate-bar {
       transition: none !important;
     }
-    .agent-line {
-      animation: none !important;
-      opacity: 1 !important;
-    }
-    .agent-head .dot,
-    .agent-line .spin {
+    .agent-head .dot {
       animation: none !important;
     }
     .studio .step-indicator.active .step-circle,

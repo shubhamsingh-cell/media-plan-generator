@@ -121,7 +121,13 @@
       return sym() + Math.round(v);
     }
     function intc(v) { return Math.round(Math.max(0, v)).toLocaleString(); }
-    function cpaFmt(v) { return v > 0 ? sym() + v.toFixed(2) : "—"; }
+    // The page itself calls these figures "directional", so whole currency
+    // units ("$17", not "$17.36"): cents implied a precision the model does
+    // not have. Below one unit the cents are the figure, so they stay.
+    function cpaFmt(v) {
+      if (!(v > 0)) return "—";
+      return sym() + (v >= 1 ? String(Math.round(v)) : v.toFixed(2));
+    }
 
     // ── Screenshot-safe count-up ──────────────────────────────────────
     var COUNTERS = new Set();
@@ -343,6 +349,14 @@
       return m.inputs || planInputs();
     }
 
+    // "Updating estimate…" (the strip + the eyebrow's "Updating…") is the
+    // state of the REAL /api/estimate request: on while one is scheduled or
+    // in flight, off when it answers or fails.
+    function setEstimating(on) {
+      var pane = $("planPreview");
+      if (pane) pane.classList.toggle("recomputing", !!on);
+    }
+
     // Fetches a fresh /api/estimate only when the request body would change
     // -- the signature IS the payload, so it can never omit a field the
     // server reads (industry / client name / channel toggles each once went
@@ -367,6 +381,7 @@
 
       if (!m.total || m.total <= 0 || !roles.length) {
         latestEstimate = null;
+        setEstimating(false);
         paintOutcomes(m);
         return;
       }
@@ -375,6 +390,9 @@
       // clear to the neutral placeholder immediately, fill in once real.
       latestEstimate = null;
       paintOutcomes(m);
+      // A real request is now scheduled: "Updating estimate…" is true until
+      // it answers or fails (cleared below), and not otherwise.
+      setEstimating(true);
 
       estimateTimer = setTimeout(function () {
         var requestSig = sig;
@@ -399,10 +417,12 @@
           // above only covers budget/roles/locations/industry/clientName),
           // and computeInsights()/NovaChat.projected must reflect the
           // wizard's CURRENT state, not a stale one.
+          setEstimating(false);
           paintOutcomes(gather());
         }).catch(function () {
           if (requestSig !== lastScheduledSig) return;
           latestEstimate = null;
+          setEstimating(false);
           paintOutcomes(gather());
           // Auto-retry via the next render() tick (input-driven or the
           // 1600ms safety poll): clearing lastScheduledSig makes this same
@@ -468,6 +488,58 @@
       return ins.slice(0, 3);
     }
 
+    // The compact estimate bar (single-column layouts; CSS shows it only at
+    // <=1080px): the same four figures as the full pane, from the same
+    // resolved estimate. data-state="empty" (a one-line hint) until an
+    // estimate exists, "ready" once it does.
+    function paintEstimateBar(m) {
+      var bar = $("npEstimateBar");
+      if (!bar) return;
+      var ready = m.total > 0 && !!latestEstimate;
+      bar.setAttribute("data-state", ready ? "ready" : "empty");
+      if (!ready) {
+        bar.setAttribute(
+          "aria-label",
+          "Plan estimate: set a budget and a role to see it. Show the full preview."
+        );
+        return;
+      }
+      var vals = {
+        nebBudget: hero(m.total),
+        nebApps: intc(latestEstimate.est_applications),
+        nebHires: intc(latestEstimate.est_hires),
+        nebCpa: cpaFmt(latestEstimate.est_cpa),
+      };
+      Object.keys(vals).forEach(function (id) {
+        var el = $(id);
+        if (el) el.textContent = vals[id];
+      });
+      bar.setAttribute(
+        "aria-label",
+        "Plan estimate: " + vals.nebBudget + " budget, " + vals.nebApps +
+          " applications, " + vals.nebHires + " hires, " + vals.nebCpa +
+          " per application. Show the full preview."
+      );
+    }
+    // Tap on the bar: bring the full preview into view (instant under
+    // prefers-reduced-motion) and move focus there for keyboard users.
+    function showPane() {
+      var pane = $("planPreview");
+      if (!pane) return;
+      var behavior = typeof novaScrollBehavior === "function" ? novaScrollBehavior() : "auto";
+      pane.scrollIntoView({ block: "start", behavior: behavior });
+      pane.setAttribute("tabindex", "-1");
+      try { pane.focus({ preventScroll: true }); } catch (e) { /* focus is a nicety */ }
+    }
+
+    // The inputs a plan was last generated from (JSON of the estimate
+    // payload), or "" before any generation; see markGenerated.
+    var generatedSig = "";
+    function markGenerated() {
+      generatedSig = JSON.stringify(planInputs());
+      render();
+    }
+
     // Paints #npApplies/#npHires/#npCpa and #npInsights from whatever the
     // current resolved estimate state is (latestEstimate, module-level).
     // Never reads a local hire/CPA formula -- placeholder ("—") while
@@ -483,6 +555,7 @@
           var el = $(id); if (el) { el.textContent = "—"; el.__cur = 0; }
         });
       }
+      paintEstimateBar(m);
 
       // Nova insights — proactive advice from the model
       var box = $("npInsights");
@@ -576,14 +649,6 @@
         ? "· Nova recommended industry mix" + (nCh ? " (" + nCh + " channels)" : "")
         : "· " + nCh + " channel" + (nCh === 1 ? "" : "s") + " selected";
 
-      // agent-strip line 2 — reflect the real channel count being modeled
-      var agentCh = $("npAgentChannels");
-      if (agentCh) {
-        agentCh.textContent = m.recommended
-          ? "Matching Nova's recommended mix"
-          : "Matching " + nCh + " channel" + (nCh === 1 ? "" : "s");
-      }
-
       // mix bar + legend. Rebuild only when the channel set changes;
       // otherwise update widths/amounts in place so the CSS transition
       // animates budget edits (rAF-free → screenshot-safe).
@@ -652,17 +717,21 @@
       if (typeof novaRefreshPlanCurrency === "function") novaRefreshPlanCurrency();
       paintOutcomes(m);
 
-      // pop + recompute shimmer on real change
+      // pop on a real change (the "Updating estimate…" strip is NOT driven
+      // from here: it follows the real request, see setEstimating)
       var sig = JSON.stringify([Math.round(m.total), m.rows.map(function (r) { return r.id; }).join(","), m.roleClass, m.targetHires]);
       if (sig !== lastSig) {
         lastSig = sig;
         card.classList.remove("pop"); void card.offsetWidth; card.classList.add("pop");
-        var pane = $("planPreview");
-        if (pane) {
-          pane.classList.add("recomputing");
-          clearTimeout(pane.__rc);
-          pane.__rc = setTimeout(function () { pane.classList.remove("recomputing"); }, 650);
-        }
+      }
+      // "Plan ready" belongs to a GENERATED plan, and only for the inputs it
+      // was generated from: any change to them takes the badge away again.
+      var genPane = $("planPreview");
+      if (genPane) {
+        genPane.classList.toggle(
+          "plan-generated",
+          !!generatedSig && JSON.stringify(estimatePayload(m)) === generatedSig
+        );
       }
 
       // Make Nova chat plan-aware: feed the live plan context into the widget
@@ -741,6 +810,8 @@
       });
 
       if (!$("npCard")) return;
+      var estimateBar = $("npEstimateBar");
+      if (estimateBar) estimateBar.addEventListener("click", showPane);
       render();
       updateStepNum();
       document.addEventListener("input", schedule, true);
@@ -788,6 +859,7 @@
 
     window.NovaPreview = {
       update: render, finalize: finalize, applyMix: applyMix, fundedChannels: funded,
+      markGenerated: markGenerated, showPane: showPane,
     };
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", boot);

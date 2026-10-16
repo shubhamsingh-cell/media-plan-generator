@@ -193,12 +193,35 @@
   // ============================================
   // PDF Export via /api/export/pdf endpoint
   // ============================================
+  // The button reads "Print / Save as PDF". The server can only render its
+  // branded PDF from a plan it STORED (the channels), and the wizard's async
+  // generation does not store one -- there is no plan id, and the request the
+  // page holds has no channels, so the server answers 422 (it used to
+  // return a "$0.00 / 0 channels" PDF). Without a plan id the button
+  // therefore opens the browser's print dialog for the on-screen plan, right
+  // away and without an error toast; with a plan id it asks the server first
+  // (with the CSRF token every POST needs) and prints if that fails.
+  function novaPrintPlan() {
+    window.print();
+  }
   function exportPlanPDF() {
     if (!_lastPlanPayload) {
       showToast(
-        "Generate a media plan first before exporting as PDF.",
+        "Generate a media plan first before printing or saving as PDF.",
         "warning",
       );
+      return;
+    }
+
+    // Close dropdown
+    var menu = document.getElementById("exportDropdown");
+    if (menu) menu.classList.remove("open");
+
+    if (
+      typeof novaPlanFileExportAvailable !== "function" ||
+      !novaPlanFileExportAvailable()
+    ) {
+      novaPrintPlan();
       return;
     }
 
@@ -207,12 +230,8 @@
     if (exportBtn) {
       exportBtn.disabled = true;
       exportBtn.innerHTML =
-        '<span style="display:flex;align-items:center;gap:6px;"><span class="spinner-sm"></span> Generating PDF...</span>';
+        '<span style="display:flex;align-items:center;gap:6px;"><span class="spinner-sm"></span> Preparing PDF...</span>';
     }
-
-    // Close dropdown
-    var menu = document.getElementById("exportDropdown");
-    if (menu) menu.classList.remove("open");
 
     var body = JSON.stringify({
       plan_data: _lastPlanPayload,
@@ -259,17 +278,10 @@
         URL.revokeObjectURL(url);
         showToast("PDF report downloaded successfully!", "success");
       })
-      .catch(function (err) {
-        // Fallback to browser print if PDF generation fails -- and say why
-        // (the server's reason, when it gave one) instead of a generic line.
-        showToast(
-          ((err && err.message) || "PDF generation unavailable.") +
-            " Opening the print dialog instead.",
-          "info",
-        );
-        setTimeout(function () {
-          window.print();
-        }, 300);
+      .catch(function () {
+        // The server could not render this plan: print the on-screen plan.
+        // No error toast -- nothing is wrong with the user's plan.
+        setTimeout(novaPrintPlan, 300);
       })
       .finally(function () {
         if (exportBtn) {

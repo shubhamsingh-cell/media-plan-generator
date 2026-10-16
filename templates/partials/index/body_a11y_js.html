@@ -1,5 +1,24 @@
 <!-- Keyboard accessibility for interactive cards -->
 <script>
+  // Phone width: the fixed "Back to Suite" pill and the Nova orb sat over the
+  // Brief textarea. While a text field has focus they step aside (CSS:
+  // body.nova-field-focus in head_styles.html) and return on blur.
+  (function () {
+    var TEXT_FIELD =
+      "input:not([type=checkbox]):not([type=radio]):not([type=button])" +
+      ":not([type=submit]):not([type=file]), textarea, select";
+    document.addEventListener("focusin", function (e) {
+      var t = e.target;
+      document.body.classList.toggle(
+        "nova-field-focus",
+        !!(t && t.matches && t.matches(TEXT_FIELD)),
+      );
+    });
+    document.addEventListener("focusout", function () {
+      document.body.classList.remove("nova-field-focus");
+    });
+  })();
+
   document.addEventListener("DOMContentLoaded", function () {
     // Cmd+Enter (Mac) / Ctrl+Enter (Win) to trigger generate on final step
     document.addEventListener("keydown", function (e) {

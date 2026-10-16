@@ -1528,13 +1528,13 @@
   }
 
   const GEN_FACTS = [
-    "Your plan queries up to 15 live APIs including BLS, Adzuna, O*NET, FRED, and Google Trends.",
+    "Your plan combines Joveo's channel benchmarks with a few live labour-market lookups.",
     "The budget engine computes channel-by-channel dollar allocations based on your industry and role mix.",
     "Salary benchmarks are fused from multiple sources with confidence scoring for accuracy.",
-    "Each plan includes industry-specific CPA, CPC, and cost-per-hire benchmarks from 379M+ analyzed clicks.",
+    "Industry CPA, CPC, and cost-per-hire benchmarks draw on published reports such as Appcast's 2025 benchmark (379M clicks, 1,300+ US employers).",
     "The data synthesis engine cross-references up to 12 sources for each market insight.",
     "Your Strategy PPT deck is auto-generated with LinkedIn-inspired design and real data visualizations.",
-    "Competitor intelligence is sourced from Wikipedia, Clearbit, and SEC EDGAR filings in real time.",
+    "Competitor notes are drawn from public company sources.",
     "Labour market data includes JOLTS-style job openings, quits rates, and wage growth metrics.",
   ];
 
@@ -2043,6 +2043,7 @@
       const v = (id) => ((document.getElementById(id) || {}).value || "").trim();
       return !!(
         v("clientName") ||
+        v("clientWebsite") ||
         v("useCase") ||
         v("exactBudget") ||
         locations.length ||
@@ -2057,7 +2058,7 @@
           !confirm(
             'Load the example "' +
               this.textContent.trim() +
-              '"? It replaces the client, brief, budget, industry, locations and roles you have entered.',
+              '"? It replaces the client (and website), brief, budget, industry, locations and roles you have entered.',
           )
         ) {
           return;
@@ -2073,6 +2074,12 @@
         if (clientNameEl && this.dataset.client) {
           clientNameEl.value = this.dataset.client;
           clientNameEl.dispatchEvent(new Event("input", { bubbles: true }));
+          // The website belonged to the client that was just replaced.
+          const websiteEl = document.getElementById("clientWebsite");
+          if (websiteEl && websiteEl.value) {
+            websiteEl.value = "";
+            websiteEl.dispatchEvent(new Event("input", { bubbles: true }));
+          }
         }
 
         // Fill use case
@@ -5912,6 +5919,10 @@
 
         // Cache payload for export
         _lastPlanPayload = payload;
+        // "Plan ready" on the preview is for a plan that now exists.
+        if (window.NovaPreview && typeof window.NovaPreview.markGenerated === "function") {
+          window.NovaPreview.markGenerated();
+        }
 
         // Try to capture plan_id from download response headers
         var _dlPlanId = _dlRes.headers.get("X-Plan-Id");

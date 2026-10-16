@@ -28,7 +28,15 @@ import types
 
 import pytest
 
-from tests.wizard_js_harness import APP_JS, NODE, PARTIALS, js_block, run_node, slice_between
+from tests.wizard_js_harness import (
+    APP_JS,
+    NODE,
+    PARTIALS,
+    PREVIEW_JS,
+    js_block,
+    run_node,
+    slice_between,
+)
 
 needs_node = pytest.mark.skipif(NODE is None, reason="node not installed")
 
@@ -40,6 +48,9 @@ STYLES = re.sub(
     r"/\*.*?\*/", "", (PARTIALS / "head_styles.html").read_text(encoding="utf-8"), flags=re.S
 )
 APP = APP_JS.read_text(encoding="utf-8")
+PREVIEW = PREVIEW_JS.read_text(encoding="utf-8")
+META = (PARTIALS / "head_meta.html").read_text(encoding="utf-8")
+A11Y = (PARTIALS / "body_a11y_js.html").read_text(encoding="utf-8")
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -400,7 +411,7 @@ function addTag(c, i, arr, v) { arr.push(v); }
 function selectIndustry(card) { selectedIndustry = card.industry; }
 function setTimeout(fn) { fn(); }
 var ELS = {};
-['clientName', 'useCase', 'exactBudget', 'budgetRange', 'campaignDuration', 'hireVolume'].forEach(function (id) {
+['clientName', 'clientWebsite', 'useCase', 'exactBudget', 'budgetRange', 'campaignDuration', 'hireVolume'].forEach(function (id) {
   ELS[id] = { value: P[id] || '', dispatchEvent: function () {} };
 });
 var document = {
@@ -409,7 +420,7 @@ var document = {
   querySelectorAll: function () { return []; },
 };
 var chip = { textContent: ' Nurse in LA ', classList: { add: function () {}, remove: function () {} },
-  dataset: { client: 'CareFirst Health', title: 'Registered Nurse', location: 'Los Angeles, CA',
+  dataset: { client: 'Northwind Health', title: 'Registered Nurse', location: 'Los Angeles, CA',
     industry: 'healthcare_medical', budget: '< $50,000', duration: '3-6 months', hires: '50-100 hires' } };
 """
 
@@ -421,6 +432,7 @@ def _chip_run(**params) -> dict:
         "industry": None,
         "confirmAnswer": True,
         "clientName": "",
+        "clientWebsite": "",
         "useCase": "",
         "exactBudget": "",
     }
@@ -434,7 +446,8 @@ def _chip_run(**params) -> dict:
             "var handler = (" + handler + ");",
             "handler.call(chip);",
             "process.stdout.write(JSON.stringify({ confirms: confirmMsgs, toasts: toasts,"
-            " client: ELS.clientName.value, budget: ELS.exactBudget.value,"
+            " client: ELS.clientName.value, website: ELS.clientWebsite.value,"
+            " budget: ELS.exactBudget.value,"
             " roles: roles, locations: locations, industry: selectedIndustry }));",
         ]
     )
@@ -445,9 +458,23 @@ def _chip_run(**params) -> dict:
 def test_chip_on_an_empty_form_loads_without_asking():
     got = _chip_run()
     assert got["confirms"] == []
-    assert got["client"] == "CareFirst Health"
+    assert got["client"] == "Northwind Health"
     assert got["roles"] == ["Registered Nurse"]
     assert got["industry"] == "healthcare_medical"
+
+
+@needs_node
+def test_a_typed_website_alone_counts_as_a_filled_form():
+    """Round-2 finding: the 'is the form filled?' check ignored the website, so
+    an example silently replaced a client whose website was already entered."""
+    got = _chip_run(clientWebsite="https://acme.example", confirmAnswer=False)
+    assert len(got["confirms"]) == 1
+    assert got["website"] == "https://acme.example"
+    assert got["client"] == ""
+    # confirmed: the website belonged to the replaced client, so it goes too
+    got = _chip_run(clientWebsite="https://acme.example", confirmAnswer=True)
+    assert got["client"] == "Northwind Health"
+    assert got["website"] == ""
 
 
 @needs_node
@@ -479,7 +506,7 @@ def test_chip_over_a_filled_form_replaces_everything_when_confirmed():
         confirmAnswer=True,
     )
     assert len(got["confirms"]) == 1
-    assert got["client"] == "CareFirst Health"
+    assert got["client"] == "Northwind Health"
     assert got["roles"] == ["Registered Nurse"]
     assert got["locations"] == ["Los Angeles, CA"]
 
@@ -878,3 +905,305 @@ def test_past_campaign_upload_does_not_claim_to_calibrate_the_plan():
     help_text = BODY[BODY.index('id="historicalFileList"') :]
     help_text = " ".join(help_text[: help_text.index("</div>", help_text.index("form-hint"))].split())
     assert "does not calibrate the plan" in help_text, help_text
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Round 2 (design-judge, mechanism + typography + trust & proof)
+# ══════════════════════════════════════════════════════════════════════════
+
+_ALL_COPY = BODY + APP + FOOTER + PREVIEW + META
+
+
+def test_nothing_on_the_page_claims_a_live_check_that_does_not_happen():
+    """Trust lens VETO. The 91 was a static file of 90 profiles (2026-03-22),
+    the estimate checks no live boards, generation calls a few live APIs."""
+    for claim in (
+        "91+",
+        "live job boards",
+        "Querying 15 live APIs",
+        "up to 15 live APIs",
+        "25 real-time",
+        "25+ APIs",
+        "in real time",
+    ):
+        assert claim not in _ALL_COPY, claim
+    assert "90 platform profiles" in " ".join(BODY.split())  # wraps across lines
+    assert "Nova is calibrating" not in BODY
+
+
+def test_the_agent_strip_is_one_honest_line_not_a_ticking_checklist():
+    strip = BODY[BODY.index('id="npAgentStrip"') :]
+    strip = strip[: strip.index("</div>\n  </div>") + len("</div>\n  </div>")]
+    assert "Updating estimate" in strip
+    assert "agent-line" not in strip and "&#10003;" not in strip
+    assert "agent-line" not in STYLES
+    # the strip follows the REAL estimate request, not a fixed timer
+    fetch = js_block(PREVIEW, "function fetchEstimate(")
+    assert "setEstimating(true)" in fetch
+    assert fetch.count("setEstimating(false)") >= 3  # no-input, answered, failed
+    assert "pane.__rc" not in PREVIEW and "650" not in js_block(PREVIEW, "function render()")
+
+
+def test_plan_ready_is_gated_on_a_generated_plan():
+    ready_rules = [
+        b
+        for sel in (".np-pane.plan-generated .np-card:not(.is-empty) .np-ready",)
+        for b in _rule_bodies(STYLES, sel)
+    ]
+    assert ready_rules and "display: inline-flex" in ready_rules[0]
+    # no unconditional "has a budget -> Plan ready" rule is left
+    assert not list(_rule_bodies(STYLES, ".np-card:not(.is-empty) .np-ready"))
+    assert "markGenerated" in PREVIEW and "NovaPreview.markGenerated" in APP
+    assert "plan-generated" in js_block(PREVIEW, "function render()")
+
+
+def test_example_chips_use_a_fictional_client():
+    assert "CareFirst" not in BODY
+    assert 'data-client="Northwind Health"' in BODY
+
+
+_FMT_STUB = r"""
+var latestEstimate = null;
+function novaPlanCurrency() { return null; }
+"""
+
+
+@needs_node
+def test_directional_cost_per_application_is_whole_currency_units():
+    script = "\n".join(
+        [
+            _FMT_STUB,
+            js_block(PREVIEW, "function sym()"),
+            js_block(PREVIEW, "function cpaFmt("),
+            "process.stdout.write(JSON.stringify([17.36, 87.54, 9.5, 1.4, 0.62, 0, null]"
+            ".map(cpaFmt)));",
+        ]
+    )
+    assert run_node(script) == ["$17", "$88", "$10", "$1", "$0.62", "—", "—"]
+
+
+def test_pdf_action_is_honest_about_what_it_does():
+    """Trust lens B: no plan id means no server PDF, so the button prints."""
+    assert "Print / Save as PDF" in BODY
+    assert "Export PDF" not in BODY and "Download PDF Report" not in BODY
+    block = js_block(FOOTER, "function exportPlanPDF()")
+    assert "novaPrintPlan()" in block
+    assert "this request has none" not in FOOTER
+
+
+_PDF_STUB = r"""
+var prints = 0, toasts = [], fetched = [];
+var window = { print: function () { prints++; } };
+function showToast(m, t) { toasts.push([m, t]); }
+function getCsrfToken() { return 'tok'; }
+function setTimeout(fn) { fn(); }
+var _lastPlanPayload = { client_name: 'Acme', industry: 'healthcare_medical' };
+var planIdKnown = __PLAN_ID_KNOWN__;
+function novaPlanFileExportAvailable() { return planIdKnown; }
+var ELS = { exportDropdown: { classList: { remove: function () {} } },
+  exportBtn: { innerHTML: 'Export', disabled: false } };
+var document = { getElementById: function (id) { return ELS[id] || null; },
+  createElement: function () { return { click: function () {}, remove: function () {} }; },
+  body: { appendChild: function () {} } };
+function fetch(url, opts) {
+  fetched.push({ url: url, token: (opts.headers || {})['X-CSRF-Token'] });
+  return Promise.resolve({ ok: false, json: function () { return Promise.resolve({ error: 'no channels' }); } });
+}
+"""
+
+
+def _pdf_script(plan_id_known: bool) -> str:
+    return "\n".join(
+        [
+            _PDF_STUB.replace("__PLAN_ID_KNOWN__", "true" if plan_id_known else "false"),
+            js_block(FOOTER, "function novaPrintPlan()"),
+            js_block(FOOTER, "function exportPlanPDF()"),
+            "exportPlanPDF();",
+            "setImmediate(function () { setImmediate(function () { setImmediate(function () {",
+            "  process.stdout.write(JSON.stringify({ prints: prints, toasts: toasts, fetched: fetched }));",
+            "}); }); });",
+        ]
+    )
+
+
+@needs_node
+def test_pdf_button_without_a_plan_id_prints_at_once_with_no_toast():
+    got = run_node(_pdf_script(False))
+    assert got == {"prints": 1, "toasts": [], "fetched": []}
+
+
+@needs_node
+def test_pdf_button_with_a_plan_id_asks_the_server_with_the_token_then_prints_quietly():
+    got = run_node(_pdf_script(True))
+    assert got["fetched"] == [{"url": "/api/export/pdf", "token": "tok"}]
+    assert got["prints"] == 1
+    assert got["toasts"] == []  # a failed server PDF is not an error to show
+
+
+def test_one_truthful_generation_time_everywhere():
+    assert "Takes about a minute" in BODY
+    assert "Generation time: <strong>about a minute</strong>" in BODY
+    for stale in ("&lt;30 seconds", "30-90 seconds", "under 30 seconds"):
+        assert stale not in BODY, stale
+
+
+# ── sticky estimate bar (mechanism) ──────────────────────────────────────
+
+
+def test_estimate_bar_markup_and_css_are_single_column_only():
+    tag = re.search(r"<button[^>]*\bid=\"npEstimateBar\"[^>]*>", BODY, re.S)
+    assert tag, "no #npEstimateBar"
+    text = tag.group(0)
+    assert "bare-btn" in text  # opts out of the global button rule that forces position: relative
+    assert 'aria-controls="planPreview"' in text
+    for fig in ("nebBudget", "nebApps", "nebHires", "nebCpa"):
+        assert f'id="{fig}"' in BODY
+    base = [b for b in _rule_bodies(STYLES, ".np-estimate-bar") if "display: none" in b]
+    assert base, "the bar must be display:none outside the single-column query"
+    shown = [
+        b
+        for blk in _media_blocks(STYLES, "@media (max-width: 1080px)")
+        for b in _rule_bodies(blk, ".np-estimate-bar")
+        if "position: sticky" in b
+    ]
+    assert shown and "display: flex" in shown[0] and "top: 58px" in shown[0]
+    # the desktop two-column layout never renders it
+    assert not [
+        blk
+        for blk in _media_blocks(STYLES, "@media (min-width: 1081px)")
+        if ".np-estimate-bar" in blk
+    ]
+
+
+_BAR_STUB = r"""
+var latestEstimate = __EST__;
+var attrs = {}, texts = {};
+var bar = { setAttribute: function (k, v) { attrs[k] = v; } };
+function $(id) {
+  if (id === 'npEstimateBar') return bar;
+  texts[id] = texts[id] || { textContent: '' };
+  return texts[id];
+}
+function hero(v) { return '$' + Math.round(v / 1000) + 'K'; }
+function intc(v) { return Math.round(v).toLocaleString('en-US'); }
+function cpaFmt(v) { return '$' + Math.round(v); }
+"""
+
+
+def _bar_run(estimate, total) -> dict:
+    script = "\n".join(
+        [
+            _BAR_STUB.replace("__EST__", json.dumps(estimate)),
+            js_block(PREVIEW, "function paintEstimateBar("),
+            f"paintEstimateBar({{ total: {total} }});",
+            "var figs = {}; Object.keys(texts).forEach(function (k) { figs[k] = texts[k].textContent; });",
+            "process.stdout.write(JSON.stringify({ attrs: attrs, figs: figs }));",
+        ]
+    )
+    return run_node(script)
+
+
+@needs_node
+def test_estimate_bar_shows_the_four_figures_once_an_estimate_exists():
+    got = _bar_run({"est_applications": 2016.4, "est_hires": 6.2, "est_cpa": 17.36}, 35000)
+    assert got["attrs"]["data-state"] == "ready"
+    assert got["figs"] == {
+        "nebBudget": "$35K",
+        "nebApps": "2,016",
+        "nebHires": "6",
+        "nebCpa": "$17",
+    }
+    label = got["attrs"]["aria-label"]
+    assert "$35K budget" in label and "2,016 applications" in label and "per application" in label
+
+
+@needs_node
+def test_estimate_bar_is_a_hint_until_the_estimate_arrives():
+    for estimate, total in ((None, 35000), ({"est_applications": 1, "est_hires": 1, "est_cpa": 1}, 0)):
+        got = _bar_run(estimate, total)
+        assert got["attrs"]["data-state"] == "empty"
+        assert got["figs"] == {}
+        assert "set a budget" in got["attrs"]["aria-label"].lower()
+
+
+def test_estimate_bar_tap_scrolls_with_the_reduced_motion_aware_behaviour():
+    block = js_block(PREVIEW, "function showPane(")
+    assert "novaScrollBehavior()" in block  # "auto" under prefers-reduced-motion
+    assert "scrollIntoView" in block
+    # the pane lands below the sticky top bar + estimate bar
+    pane = [
+        b
+        for blk in _media_blocks(STYLES, "@media (max-width: 1080px)")
+        for b in _rule_bodies(blk, ".np-pane")
+    ]
+    assert any("scroll-margin-top" in b and "position: relative" in b for b in pane)
+    reduced = "\n".join(_media_blocks(STYLES, "@media (prefers-reduced-motion: reduce)"))
+    assert ".np-estimate-bar" in reduced
+
+
+# ── typography / contrast ─────────────────────────────────────────────────
+
+
+def _luminance(hex_color: str) -> float:
+    rgb = [int(hex_color.lstrip("#")[i : i + 2], 16) / 255 for i in (0, 2, 4)]
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def _contrast(a: str, b: str) -> float:
+    hi, lo = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_small_form_labels_clear_aa_on_the_brightest_part_of_the_dark_column():
+    """Measured from the 375px render: the aurora's brightest corner, behind
+    the first step labels, is rgb(44,48,88). --np-faint (#9794b6) was 4.3:1
+    there (and 1.1-1.3:1 on the lavender wash the single-column layout used
+    to paint over the whole page)."""
+    brightest = "#2c3058"
+    muted = re.search(r"--np-muted:\s*(#[0-9a-fA-F]{6})", STYLES)
+    assert muted
+    assert _contrast(muted.group(1), brightest) >= 4.5
+    for selector in (".studio .step-label", ".studio .preset-label"):
+        body = next(
+            b for b in _rule_bodies(STYLES, selector) if re.search(r"\bcolor\s*:", b)
+        )
+        assert "var(--np-muted)" in body, (selector, body)
+
+
+def test_the_lavender_wash_stays_inside_the_preview_pane():
+    """`.np-pane::before` is position:absolute; on a static pane its
+    containing block is .studio, so the wash covered the whole form column."""
+    panes = [
+        b
+        for blk in _media_blocks(STYLES, "@media (max-width: 1080px)")
+        for b in _rule_bodies(blk, ".np-pane")
+    ]
+    assert panes and all("position: static" not in b for b in panes)
+    assert any("position: relative" in b for b in panes)
+
+
+# ── measured defects ──────────────────────────────────────────────────────
+
+
+def test_tag_remove_hit_area_is_at_least_24px_and_the_glyph_unchanged():
+    body = next(b for b in _rule_bodies(STYLES, ".tag .remove") if "min-width" in b)
+    assert "min-width: 24px" in body and "min-height: 24px" in body
+    assert "font-size: 14px" in body  # glyph unchanged
+    assert re.search(r"margin:\s*-3px -5px -3px -4px", body)  # tag keeps its size
+    opacity = float(re.search(r"opacity:\s*([0-9.]+)", body).group(1))  # type: ignore[union-attr]
+    assert opacity >= 0.7
+
+
+def test_fixed_overlays_step_aside_while_a_field_has_focus_on_small_screens():
+    blocks = [
+        blk
+        for blk in _media_blocks(STYLES, "@media (max-width: 1080px)")
+        if "nova-field-focus" in blk
+    ]
+    assert blocks
+    text = " ".join(blocks)
+    assert "body.nova-field-focus #back-to-suite" in text
+    assert "body.nova-field-focus #nova-float-btn:not(.nova-btn-close)" in text
+    assert "opacity: 0" in text and "pointer-events: none" in text
+    assert "nova-field-focus" in A11Y and "focusin" in A11Y and "focusout" in A11Y
