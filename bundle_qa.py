@@ -129,6 +129,23 @@ _AI_TRAINING_VOCAB = (
 # ---------------------------------------------------------------------------
 from us_only_markers import _US_ONLY_MARKERS, _US_ONLY_MARKER_RES  # noqa: E402
 
+# The holiday subset of the markers above (each must stay in
+# ``_US_ONLY_MARKERS``; tests pin that). Unlike BLS/JOLTS/Fed Funds, a US
+# holiday is market-specific CONTENT, not US-sourced data: the generator
+# (gold_standard._us_holiday_mode) prints it on any plan that has a US
+# market, attributed "(US markets)" when the plan also spans other
+# countries, and prints none on a plan with no US market. This rule judges
+# holidays by the same per-market test instead of the plan-wide
+# ``plan_geo.is_us_plan`` (False for a New York + London plan, which
+# flagged every legitimately labelled holiday row as critical).
+_US_HOLIDAY_MARKERS: frozenset[str] = frozenset(
+    {"thanksgiving", "memorial day", "spring break"}
+)
+# The attribution the generator appends to a US holiday on a mixed plan:
+# "Memorial Day staffing (US markets)", "Spring break peak hiring (Mar, US
+# markets)", "... (often around July 4 in US markets)".
+_US_MARKETS_LABEL_RE = re.compile(r"\bUS\s+[Mm]arkets?\b")
+
 # ---------------------------------------------------------------------------
 # RULE 2 (currency_symbol_mixing).
 # ---------------------------------------------------------------------------
@@ -1758,6 +1775,77 @@ def _parse_month_date(s: str):
 # ---------------------------------------------------------------------------
 # RULE 1: us_data_on_non_us_plan
 # ---------------------------------------------------------------------------
+def _plan_market_presence(data: Any) -> tuple[bool, bool]:
+    """``(has_us_market, has_non_us_market)`` judged from the plan's OWN
+    markets -- each location (and the ``country`` field) resolved by
+    plan_geo. Mirror of ``gold_standard.plan_market_presence``, which gates
+    the activation calendar's holidays; the two must agree or a legitimately
+    gated calendar fails this lint (tests pin the parity once both exist).
+
+    Not ``plan_geo.is_us_plan``: that honours the wizard's region select
+    (default "US Only") over the locations, so a London-only plan left on
+    the default reads as a US plan; and it is False for a New York + London
+    plan whose New York rows are legitimately US. Unresolvable entries
+    ("Remote") are ignored; with nothing resolvable the plan-level resolver
+    decides. Fails open (a US-only plan) so a resolver fault can never
+    manufacture a critical.
+    """
+    if not isinstance(data, dict):
+        return True, False
+    try:
+        raw = data.get("locations") or []
+        cands = list(raw) if isinstance(raw, (list, tuple)) else [raw]
+        country = data.get("country")
+        if isinstance(country, str) and country.strip():
+            cands.append(country)
+        verdicts = [plan_geo.location_is_us(c) for c in cands]
+        if any(v is not None for v in verdicts):
+            return True in verdicts, False in verdicts
+        return plan_geo.plan_has_us_market(data), not plan_geo.is_us_plan(data)
+    except Exception:  # noqa: BLE001
+        return True, False
+
+
+def _us_holiday_mode(data: Any) -> str:
+    """How the generator treats US holidays on this plan: ``"keep"`` (all
+    markets are US: printed bare), ``"label"`` (US and non-US markets mix:
+    printed attributed to "US markets") or ``"drop"`` (no US market: not
+    printed at all). Mirror of ``gold_standard._us_holiday_mode``."""
+    has_us, has_non_us = _plan_market_presence(data)
+    if not has_us:
+        return "drop"
+    return "label" if has_non_us else "keep"
+
+
+def _us_holiday_event_is_labelled(text: str, start: int) -> bool:
+    """True when the event a US-holiday marker at ``text[start]`` belongs to
+    carries the "US markets" attribution.
+
+    An event ends at the next ``;`` / ``,`` / newline outside parentheses
+    opened after the marker (so the "(Mar, US markets)" aside stays inside
+    its event), or at the parenthesis that closes the aside the marker sits
+    in ("(often around July 4 in US markets)"). That covers the workbook
+    ("A (US markets); B"), where cells join events with ``; `` and the deck,
+    where one sentence lists them ("(A (US markets), B, C (US markets))") --
+    a neighbouring event's label never vouches for this one.
+    """
+    depth = 0
+    end = len(text)
+    for i in range(start, len(text)):
+        ch = text[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth < 0:
+                end = i
+                break
+        elif depth == 0 and ch in ";,\n":
+            end = i
+            break
+    return bool(_US_MARKETS_LABEL_RE.search(text[start:end]))
+
+
 def _check_us_data_on_non_us_plan(
     units: list[_TextUnit], wb: Any, data: dict, findings: list[Finding]
 ) -> None:
@@ -1774,13 +1862,23 @@ def _check_us_data_on_non_us_plan(
     Thanksgiving/Memorial Day/Spring-break seasonality) and a "Location
     Intelligence" table whose Country column read "United States" for
     every one of its 6 non-US rows.
+
+    US holidays (``_US_HOLIDAY_MARKERS``) are judged market by market, the
+    way the generator gates them (gold_standard._us_holiday_mode), not by
+    the plan-wide ``is_us_plan``: a defect only when the plan has NO US
+    market among its resolved locations; on a plan that mixes US and non-US
+    markets each holiday must be attributed to "US markets" (a bare
+    "Thanksgiving" there reads as every market's); an all-US plan prints
+    them bare. Everything else in the marker list (BLS, Fed Funds, US pay
+    statistics) keeps the plan-wide ``is_us_plan`` gate.
     """
     is_us = True
     try:
         is_us = plan_geo.is_us_plan(data)
     except Exception:  # noqa: BLE001
         pass
-    if is_us:
+    holiday_mode = _us_holiday_mode(data)
+    if is_us and holiday_mode == "keep":
         return  # the existing non_us_text_on_us_plan rule covers this side
 
     for u in units:
@@ -1788,20 +1886,51 @@ def _check_us_data_on_non_us_plan(
         stripped = text.strip()
         if not stripped:
             continue
-        for pattern in _US_ONLY_MARKER_RES:
+        for marker, pattern in zip(_US_ONLY_MARKERS, _US_ONLY_MARKER_RES):
+            is_holiday = marker.lower() in _US_HOLIDAY_MARKERS
+            if is_us and not is_holiday:
+                continue  # US-only data on a plan the US rule already owns
             m = pattern.search(text)
-            if m:
+            if not m:
+                continue
+            if is_holiday and holiday_mode == "keep":
+                continue  # every market is a US market
+            if is_holiday and holiday_mode == "label":
+                bare = next(
+                    (
+                        hm
+                        for hm in pattern.finditer(text)
+                        if not _us_holiday_event_is_labelled(text, hm.start())
+                    ),
+                    None,
+                )
+                if bare is None:
+                    continue  # every occurrence is attributed to US markets
                 findings.append(
                     _finding(
                         "critical",
                         "us_data_on_non_us_plan",
-                        f"US-only marker {m.group(0)!r} present on a "
-                        f"non-US plan: {stripped[:120]!r}",
+                        f"US holiday {bare.group(0)!r} is not attributed to "
+                        "US markets on a plan that also spans non-US "
+                        f"markets: {stripped[:120]!r}",
                         u.location,
                     )
                 )
                 break
+            findings.append(
+                _finding(
+                    "critical",
+                    "us_data_on_non_us_plan",
+                    f"US-only marker {m.group(0)!r} present on a "
+                    f"{'plan with no US market' if is_holiday else 'non-US plan'}"
+                    f": {stripped[:120]!r}",
+                    u.location,
+                )
+            )
+            break
 
+    if is_us:
+        return
     if wb is None or _has_any_us_location(data):
         return
     for ws in wb.worksheets:
