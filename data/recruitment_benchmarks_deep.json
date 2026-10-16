@@ -10,9 +10,17 @@
     },
     {
       "name": "Appcast 2026 Recruitment Marketing Benchmark Report (2025 data)",
-      "url": "https://info.appcast.io/whitepaper/2022-recruitment-marketing-benchmark-report-website",
+      "url": "https://info.appcast.io/whitepaper/2026-recruitment-marketing-benchmarks-report",
       "data_scope": "302M clicks, 27M applications, 1,200 employers",
       "release_date": "2026-02-17"
+    },
+    {
+      "id": "appcast_rising_cost_2026",
+      "name": "Appcast \u2014 The Rising Cost of Recruiting (2026)",
+      "url": "https://www.appcast.io/the-rising-cost-of-recruiting",
+      "data_scope": "Apply-rate and cost trends from the Appcast 2026 report (e.g. technology 7.14% apply rate)",
+      "publication_year": 2026,
+      "retrieved": "2026-10-17"
     },
     {
       "name": "Recruitics Talent Market Index (monthly, 2025-2026)",
@@ -65,11 +73,6 @@
       "data_scope": "Employer surveys, new hires surveys, labor market predictions"
     },
     {
-      "name": "Recruitonomics (Appcast) Healthcare/Finance Snapshots",
-      "url": "https://recruitonomics.com/reports/",
-      "data_scope": "Weekly CPA forecasts by sector using Appcast data"
-    },
-    {
       "name": "PandoLogic/Veritone Hire programmatic benchmarks",
       "url": "https://pandologic.com/",
       "data_scope": "200B+ historical job performance data points"
@@ -85,19 +88,15 @@
       "data_scope": "ATS pipeline data, passthrough rates, hiring manager surveys"
     },
     {
-      "name": "SHRM Benchmarking: Average Cost-Per-Hire $4,129",
+      "name": "SHRM Benchmarking: Average Cost-Per-Hire $4,129 (FY2015 data, published Aug 2016; one national average)",
       "url": "https://www.shrm.org/topics-tools/news/shrm-benchmarking-report-4129-average-cost-per-hire",
-      "data_scope": "Historical CPH benchmarking across industries"
+      "data_scope": "Historical CPH benchmark (FY2015 data); one national average, not an industry cut"
     },
     {
-      "name": "NSI 2025 National Health Care Retention & RN Staffing Report",
-      "url": "https://www.nsinursingsolutions.com/",
+      "name": "NSI 2026 National Health Care Retention & RN Staffing Report",
+      "url": "https://www.nsinursingsolutions.com/documents/library/nsi_national_health_care_retention_report.pdf",
+      "publication_year": 2026,
       "data_scope": "RN turnover, retention, staffing cost benchmarks"
-    },
-    {
-      "name": "Deloitte Cost-Per-Hire Benchmark Report (2024)",
-      "url": "https://www.deloitte.com/",
-      "data_scope": "U.S. company cost-per-hire benchmarks by role type"
     },
     {
       "name": "iHire State of Online Recruiting 2025",
@@ -120,13 +119,12 @@
       "cpa": {
         "range": "$35-$58+",
         "median": "$35.00",
-        "appcast_2025_median": "$35.00",
         "easy_to_fill": "$12",
         "hard_to_fill": "$58-$400",
         "specialized_nursing_competitive_markets": "$200-$400",
         "trend_yoy": "+15-20%",
         "2024": "$35 average",
-        "2025": "$35.00 (Appcast 2026 report, highest CPA of any occupation)",
+        "2025": "$35.00 (highest CPA of any occupation)",
         "notes": "Frontline 'standing-up' roles remain costly and hard to fill. Healthcare is structurally constrained."
       },
       "cpc": {
@@ -142,18 +140,14 @@
       },
       "cph": {
         "recruitment_marketing_only": "$2,100",
-        "appcast_2025_median_cph": "$2,100",
         "total_cost_per_hire": "$9,000-$12,000",
         "physician_recruitment": "$180,000-$250,000",
         "rn_specialized": "$15,000-$25,000",
-        "cost_per_screen": "$169",
-        "cost_per_interview": "$366",
-        "cost_per_offer": "$1,085",
         "notes": "Second-highest CPH of any occupation after technology. Includes background checks, credential verification, drug testing, compliance measures"
       },
       "apply_rate": {
         "2024": "3.41%",
-        "2025": "3.22% (lowest of all 24 occupations, declining)",
+        "2025": "3.22% (Appcast 2026; lowest of all 24 occupations, declining)",
         "yoy_change": "-5.67%",
         "notes": "Lowest apply rate of any sector. Ultra-tight labor market. Standing-up roles chronically hard to fill."
       },
@@ -166,9 +160,11 @@
       },
       "offer_acceptance_rate": "78-85%",
       "quality_of_hire": {
-        "first_year_rn_turnover": "22.3%",
-        "cost_of_1pct_rn_turnover": "$289,000/year per hospital",
-        "notes": "NSI 2025 National Health Care Retention Report"
+        "first_year_rn_turnover": "22.7%",
+        "cost_of_1pct_rn_turnover": "$294,976 per 1% of RN turnover",
+        "cost_of_one_rn_turnover": "$60,090 average cost of one RN turnover",
+        "rn_time_to_fill": "78 days",
+        "notes": "NSI 2026 National Health Care Retention & RN Staffing Report"
       },
       "source_of_hire": {
         "job_boards": "30-35%",
@@ -189,20 +185,20 @@
           "July"
         ],
         "notes": "Year-round demand with surges in Q1 and September. Vacation season causes summer dip. Healthcare accounted for 75% of net job growth in 2025."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17. Verified: apply rate 3.22% (Appcast 2026)."
     },
     "technology_engineering": {
       "cpa": {
         "range": "$14.78-$89",
         "median": "$14.78",
-        "appcast_2025_median": "$14.78",
         "entry_level": "$10-$25",
         "senior_specialized": "$65-$89",
         "ai_ml_roles": "$75-$120",
         "trend_yoy": "+8-12%",
         "2024": "$40 median (total cost)",
-        "2025": "$14.78 (Appcast recruitment media CPA), $45-$89 (total cost including agency/ATS)",
-        "notes": "Technology had highest apply rate (7.14%) in 2025 but CPH doubled to $2,795 \u2014 volume masks quality problem"
+        "2025": "$14.78 (recruitment media CPA), $45-$89 (total cost including agency/ATS)",
+        "notes": "Technology had the highest apply rate in 2025; media-only CPH was $2,795. High volume can mask a quality problem."
       },
       "cpc": {
         "range": "$0.75-$3.50",
@@ -215,21 +211,18 @@
         "trend_yoy": "+15-20%"
       },
       "cph": {
+        "total_cost_per_hire": "$6,000-$7,000 (standard); $12,000-$20,000 (specialised)",
         "recruitment_marketing_only": "$2,795",
-        "appcast_2025_median_cph": "$2,795",
         "total_cost_per_hire_standard": "$6,000-$7,000",
         "total_cost_per_hire_specialized": "$12,000-$20,000",
         "cost_per_screen": "$156",
         "cost_per_interview": "$286",
         "cost_per_offer": "$773",
-        "yoy_change": "Doubled from $1,364 in 2024 to $2,795 in 2025",
-        "with_hidden_engineering_time": "$22,750",
-        "external_recruiter_fee": "15-30% of first-year salary ($18,000-$36,000 for $120K role)",
-        "notes": "Deloitte 2024 benchmark. Hidden costs include engineering team evaluation time."
+        "external_recruiter_fee": "15-30% of first-year salary ($18,000-$36,000 for $120K role)"
       },
       "apply_rate": {
-        "2024": "6.41% (highest of all industries)",
-        "2025": "Rising further due to white-collar recession",
+        "2024": "6.41% (Appcast 2025; highest of all industries)",
+        "2025": "7.14% (Appcast 2026; highest of all industries), rising further due to white-collar recession",
         "applications_per_opening": "110+ (51% above average)",
         "notes": "AI-generated applications inflating volumes significantly"
       },
@@ -263,7 +256,8 @@
           "December"
         ],
         "notes": "AI/ML demand surged 25% in 2025 (CompTIA). Tech postings remain 30% below pre-pandemic despite stabilization."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17. Verified: apply rate 7.14% (Appcast 2026)."
     },
     "finance_banking": {
       "cpa": {
@@ -271,7 +265,7 @@
         "median": "$13.84",
         "trend_yoy": "Stable to +5%",
         "2024": "$12-$14",
-        "2025": "$13.84 median (Recruitonomics/Appcast)",
+        "2025": "$13.84 median",
         "notes": "Finance CPAs relatively stable. Sitting-down occupation with higher apply rates."
       },
       "cpc": {
@@ -316,7 +310,8 @@
         ],
         "cpa_seasonal_note": "Tax season prep (Q4-Q1) creates biggest demand spike for accounting/finance roles",
         "notes": "Budget cycles drive Q1 hiring. Tariff-driven volatility affecting 2025-2026 hiring patterns."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "retail_consumer": {
       "cpa": {
@@ -368,7 +363,8 @@
           "February"
         ],
         "notes": "2025 seasonal retail postings were flat YoY (+1%), seasonal sales roles down 10% YoY. E-commerce shifting seasonal demand to logistics."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "hospitality_travel": {
       "cpa": {
@@ -413,7 +409,8 @@
           "January"
         ],
         "notes": "Hospitality attraction prices dropped 39% MoM in March 2025 but were 41% higher YoY (Recruitics May 2025)."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "logistics_supply_chain": {
       "cpa": {
@@ -459,7 +456,8 @@
           "March"
         ],
         "notes": "E-commerce growth shifting seasonal demand from retail to logistics. 31% of companies paused hiring in 2025 but key logistics roles remain in demand."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "blue_collar_skilled_trades": {
       "cpa": {
@@ -480,7 +478,7 @@
         "recruitment_marketing_only": "$700-$1,200",
         "total_cost_per_hire": "$4,000-$8,000",
         "with_signing_bonuses": "$6,000-$12,000",
-        "notes": "439,000 new net skilled craft workers needed in 2025 to meet demand"
+        "notes": "439,000 net new construction workers needed in 2025 (ABC, Jan 2025)"
       },
       "apply_rate": {
         "2024": "3.5-5%",
@@ -513,7 +511,8 @@
           "February"
         ],
         "notes": "Construction and outdoor trades peak in spring/summer. Infrastructure spending driving year-round demand."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17. Verified: 439,000 construction workers needed in 2025 (ABC, Jan 2025)."
     },
     "pharma_biotech": {
       "cpa": {
@@ -564,7 +563,8 @@
           "December"
         ],
         "notes": "Budget cycles and clinical trial timelines drive hiring patterns. Q1 and Q3 are strongest."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "aerospace_defense": {
       "cpa": {
@@ -610,7 +610,8 @@
           "December"
         ],
         "notes": "Government fiscal year (Oct-Sep) and defense budget cycles drive hiring. Q4 government fiscal year-end creates urgency."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "energy_utilities": {
       "cpa": {
@@ -656,7 +657,8 @@
           "December"
         ],
         "notes": "Utility maintenance cycles and energy demand patterns influence hiring. Renewable energy sector growing rapidly."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "construction_real_estate": {
       "cpa": {
@@ -666,7 +668,7 @@
         "project_management": "$35-$55",
         "specialized_trades": "$30-$50",
         "trend_yoy": "+10-15%",
-        "notes": "439,000 new net skilled craft workers needed in 2025. Wages growing 4-5% annually."
+        "notes": "439,000 net new construction workers needed in 2025 (ABC, Jan 2025). Wages growing 4-5% annually."
       },
       "cpc": {
         "range": "$0.40-$2.00",
@@ -702,7 +704,8 @@
           "January"
         ],
         "notes": "Spring ramp-up for construction season. Weather-dependent markets have more pronounced seasonality."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17. Verified: 439,000 construction workers needed in 2025 (ABC, Jan 2025)."
     },
     "education": {
       "cpa": {
@@ -750,7 +753,8 @@
           "November"
         ],
         "notes": "Academic calendar drives hiring. Spring semester hiring for next academic year. Mid-year replacements are urgent fills."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "government": {
       "cpa": {
@@ -796,7 +800,8 @@
           "January"
         ],
         "notes": "Federal fiscal year (Oct 1) drives hiring. End-of-fiscal-year budget spending creates Q4 surge. Hiring freezes common at administration changes."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "insurance": {
       "cpa": {
@@ -804,7 +809,7 @@
         "median": "$15.86",
         "trend_yoy": "+5-8%",
         "2024": "$14-$16",
-        "2025": "$15.86 median (Recruitonomics/Appcast)",
+        "2025": "$15.86 median",
         "notes": "Slightly higher than finance. Apply rates declining (7.3% in 2025)."
       },
       "cpc": {
@@ -841,7 +846,8 @@
           "December"
         ],
         "notes": "Open enrollment periods and regulatory changes drive hiring cycles"
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "telecommunications": {
       "cpa": {
@@ -858,6 +864,7 @@
         "linkedin_cpc": "$3.50-$6.00"
       },
       "cph": {
+        "total_cost_per_hire": "$5,000-$8,000 (general); $10,000-$20,000 (technical)",
         "recruitment_marketing_only": "$800-$1,500",
         "total_cost_per_hire_technical": "$10,000-$20,000",
         "total_cost_per_hire_general": "$5,000-$8,000"
@@ -885,7 +892,8 @@
           "December"
         ],
         "notes": "5G rollout and infrastructure investment driving demand. Technology overlap means competition with pure tech companies for talent."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "automotive_manufacturing": {
       "cpa": {
@@ -934,7 +942,8 @@
           "August"
         ],
         "notes": "Model year changeovers and production ramp-ups drive seasonal patterns. EV transition creating new talent needs."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "food_beverage": {
       "cpa": {
@@ -979,7 +988,8 @@
           "February"
         ],
         "notes": "Seasonal food production cycles and holiday preparation drive patterns. Food service wage growth (2.9% YoY to Dec 2025) lagging retail."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "media_entertainment": {
       "cpa": {
@@ -1023,7 +1033,8 @@
           "December"
         ],
         "notes": "Media sector remains significantly weaker than pre-pandemic per Indeed. Content production cycles drive hiring."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "legal_services": {
       "cpa": {
@@ -1044,8 +1055,7 @@
         "recruitment_marketing_only": "$900-$1,800",
         "total_cost_per_hire": "$6,000-$12,000",
         "lateral_partner": "$25,000-$50,000+",
-        "average_annual_salary": "$83,944 (Glassdoor)",
-        "notes": "Hiring costs can average $16,789 per legal hire"
+        "average_annual_salary": "$83,944 average salary (Glassdoor)"
       },
       "apply_rate": {
         "2024": "5-7%",
@@ -1071,7 +1081,8 @@
           "December"
         ],
         "notes": "Law firm budget cycles and associate class hiring timelines drive patterns. Summer associate programs are separate pipeline."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "professional_services_consulting": {
       "cpa": {
@@ -1090,8 +1101,7 @@
       "cph": {
         "recruitment_marketing_only": "$800-$1,500",
         "total_cost_per_hire": "$5,000-$10,000",
-        "average_annual_salary": "$103,535 (Glassdoor)",
-        "hiring_cost_estimate": "$20,707 (Glassdoor)",
+        "average_annual_salary": "$103,535 average salary (Glassdoor)",
         "notes": "Professional services includes accounting, advertising, marketing, consulting"
       },
       "apply_rate": {
@@ -1125,7 +1135,8 @@
           "December"
         ],
         "notes": "Campus recruiting cycles (fall) and project-driven hiring create bimodal pattern."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "nonprofit": {
       "cpa": {
@@ -1170,7 +1181,8 @@
           "December"
         ],
         "notes": "Grant cycles and fiscal year budgets drive hiring. Year-end fundraising season limits bandwidth for hiring."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     },
     "agriculture": {
       "cpa": {
@@ -1219,7 +1231,8 @@
           "January"
         ],
         "notes": "Strongly seasonal. Planting and harvest seasons drive bulk of hiring. H-2A visa program critical for seasonal labor."
-      }
+      },
+      "provenance": "Nova working estimates informed by public reports (Appcast, SHRM, NSI, BLS); indicative ranges, not independently audited. Reviewed 2026-10-17."
     }
   },
   "funnel_conversion_rates": {
