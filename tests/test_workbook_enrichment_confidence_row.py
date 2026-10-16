@@ -108,3 +108,66 @@ def test_sources_sheet_describes_support_without_accuracy_or_freshness_claims() 
             "Benchmark",
         )
     ]
+
+
+def _validated_provider_count(job_market_demand: Dict[str, Any]) -> str:
+    data = _minimal_data(
+        _synthesized={
+            "confidence_scores": {"overall": 0.66},
+            "job_market_demand": job_market_demand,
+        }
+    )
+    wb = openpyxl.load_workbook(io.BytesIO(excel_v2.generate_excel_v2(data)))
+    ws = wb["Sources & Confidence"]
+    matches = [
+        str(value)
+        for row in ws.iter_rows(values_only=True)
+        for value in row
+        if isinstance(value, str)
+        and value.startswith("Validated current-market providers:")
+    ]
+    assert len(matches) == 1
+    return matches[0]
+
+
+def _observed_metric(provider_ids: List[str]) -> Dict[str, Any]:
+    return {
+        "status": "observed",
+        "provider_ids": provider_ids,
+        "observed_at": ["2026-10-15"],
+    }
+
+
+def test_support_score_shows_zero_validated_current_market_providers() -> None:
+    assert _validated_provider_count({"Registered Nurse": {}}) == (
+        "Validated current-market providers: 0"
+    )
+
+
+def test_support_score_counts_unique_validated_providers_across_roles() -> None:
+    role_one = {
+        "market_evidence": {
+            "contract": "market_evidence_v1",
+            "metrics": {
+                "job_postings": _observed_metric(["adzuna"]),
+                "search_volume": _observed_metric(["google_ads"]),
+            },
+        }
+    }
+    role_two = {
+        "market_evidence": {
+            "contract": "market_evidence_v1",
+            "metrics": {
+                "job_postings": _observed_metric(["adzuna", "jooble"]),
+                "talent_pool": _observed_metric(["linkedin"]),
+                "trend": _observed_metric(["google_trends"]),
+            },
+        }
+    }
+
+    assert (
+        _validated_provider_count(
+            {"Registered Nurse": role_one, "Pharmacist": role_two}
+        )
+        == "Validated current-market providers: 5"
+    )
