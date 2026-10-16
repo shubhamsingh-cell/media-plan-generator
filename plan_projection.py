@@ -165,6 +165,22 @@ def split_location(loc: Any) -> Dict[str, str]:
             "country": str(loc.get("country") or ""),
         }
     text = str(loc or "")
+    # ONE splitter: the app's own (it resolves bare world cities such as "Paris"
+    # to their country) when the app is loaded; the local rules below only back
+    # a standalone import.
+    _app = sys.modules.get("app")
+    _fn = getattr(_app, "_split_city_state_country", None) if _app else None
+    if callable(_fn):
+        try:
+            res = _fn(text)
+            if isinstance(res, dict):
+                return {
+                    "city": str(res.get("city") or ""),
+                    "state": str(res.get("state") or ""),
+                    "country": str(res.get("country") or ""),
+                }
+        except Exception as exc:  # noqa: BLE001 - fall back to the local rules
+            logger.debug("plan_projection: app splitter failed: %s", exc)
     parts = [p.strip() for p in text.split(",") if p.strip()]
     if not parts:
         return {"city": text, "state": "", "country": "United States"}
