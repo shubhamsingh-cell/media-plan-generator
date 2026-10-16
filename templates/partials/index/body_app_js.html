@@ -94,6 +94,29 @@
       excluded_publishers: excludedPublishers.slice(),
     };
   }
+  // ── Enterprise hourly hiring (opt-in) ──
+  // Returns {} while the toggle is off, so the payload (and the plan) is
+  // exactly what it was before the section existed. Generate only: the live
+  // preview estimate does not read these fields.
+  function novaEnterpriseInputs() {
+    const on = document.getElementById("enterpriseEnabled");
+    if (!on || !on.checked) return {};
+    const v = (id) => ((document.getElementById(id) || {}).value || "").trim();
+    const out = {
+      enterprise_pack: true,
+      enterprise_week_start: v("enterpriseWeekStart") || "sunday",
+      enterprise_system_of_record: v("enterpriseSystemOfRecord").slice(0, 120),
+      enterprise_request_lock_day: v("enterpriseLockDay"),
+    };
+    const sla = parseInt(v("enterpriseSetupSla"), 10);
+    if (!isNaN(sla)) out.enterprise_setup_sla_days = Math.min(30, Math.max(0, sla));
+    return out;
+  }
+  document.addEventListener("change", (e) => {
+    if (!e.target || e.target.id !== "enterpriseEnabled") return;
+    const box = document.getElementById("enterpriseFields");
+    if (box) box.hidden = !e.target.checked;
+  });
   document.addEventListener(
     "change",
     (e) => {
@@ -5835,6 +5858,7 @@
     // and must not be re-declared below (a later key would override it).
     const payload = {
       ...novaPlanCoreInputs(),
+      ...novaEnterpriseInputs(),
       requester_name: document.getElementById("requesterName").value.trim(),
       requester_email: document.getElementById("requesterEmail").value.trim(),
       client_website: document.getElementById("clientWebsite").value,

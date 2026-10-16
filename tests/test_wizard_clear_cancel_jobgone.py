@@ -198,6 +198,7 @@ def _generate_run(mode: str, ticks: int, cancel_after: int | None = None) -> dic
             "function validateField() {} function showFormError() {}",
             "function novaShowFieldErrorAt() { return false; }",
             "function novaPlanCoreInputs() { return {}; }",
+            "function novaEnterpriseInputs() { return {}; }",
             "function getCheckboxGroupValues() { return []; }",
             "function getCsrfToken() { return ''; }",
             "function showGenerationOverlay() {} function hideGenerationOverlay() { hides++; }",

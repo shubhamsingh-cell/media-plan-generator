@@ -2020,6 +2020,144 @@
         ></div>
         <div class="field-error-msg" id="excludedPublisherInput-error"></div>
       </div>
+      <details class="np-accordion" id="enterpriseGroup">
+        <summary class="np-acc-summary">
+          <span class="np-acc-text">
+            <span class="np-acc-title"
+              >Enterprise hourly hiring <span class="np-acc-opt">optional</span></span
+            >
+            <span class="np-acc-sub"
+              >Adds weekly pacing, publisher tiers, tracking, feasibility and
+              job-ad checks for high-volume hourly clients</span
+            >
+          </span>
+          <svg
+            class="np-acc-chev"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </summary>
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+          "
+        >
+          <div>
+            <strong>Include enterprise hourly hiring sections</strong>
+            <div class="form-hint">
+              Off by default. When off, the plan is unchanged.
+            </div>
+          </div>
+          <label class="toggle-switch">
+            <input
+              type="checkbox"
+              id="enterpriseEnabled"
+              aria-controls="enterpriseFields"
+              aria-label="Include enterprise hourly hiring sections"
+            />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div id="enterpriseFields" hidden>
+          <div class="form-group">
+            <label for="enterpriseWeekStart">Fiscal week starts on</label>
+            <select id="enterpriseWeekStart">
+              <option value="sunday" selected>Sunday (Sunday to Saturday)</option>
+              <option value="monday">Monday</option>
+              <option value="tuesday">Tuesday</option>
+              <option value="wednesday">Wednesday</option>
+              <option value="thursday">Thursday</option>
+              <option value="friday">Friday</option>
+              <option value="saturday">Saturday</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="enterpriseSystemOfRecord"
+              >System of record for applies
+              <span
+                style="
+                  font-weight: 400;
+                  color: var(--text-muted);
+                  font-size: 10px;
+                  letter-spacing: 0;
+                "
+                >(optional: the system that officially counts an apply)</span
+              ></label
+            >
+            <input
+              type="text"
+              id="enterpriseSystemOfRecord"
+              maxlength="120"
+              placeholder="e.g. the client's ATS or analytics tool"
+              autocomplete="off"
+            />
+          </div>
+          <div class="form-group">
+            <label for="enterpriseLockDay"
+              >Request lock day
+              <span
+                style="
+                  font-weight: 400;
+                  color: var(--text-muted);
+                  font-size: 10px;
+                  letter-spacing: 0;
+                "
+                >(optional)</span
+              ></label
+            >
+            <select id="enterpriseLockDay">
+              <option value="">Not set</option>
+              <option value="monday">Monday</option>
+              <option value="tuesday">Tuesday</option>
+              <option value="wednesday">Wednesday</option>
+              <option value="thursday">Thursday</option>
+              <option value="friday">Friday</option>
+              <option value="saturday">Saturday</option>
+              <option value="sunday">Sunday</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="enterpriseSetupSla"
+              >Setup SLA, business days
+              <span
+                style="
+                  font-weight: 400;
+                  color: var(--text-muted);
+                  font-size: 10px;
+                  letter-spacing: 0;
+                "
+                >(optional, 0 to 30)</span
+              ></label
+            >
+            <input
+              type="number"
+              id="enterpriseSetupSla"
+              min="0"
+              max="30"
+              step="1"
+              inputmode="numeric"
+              placeholder="e.g. 3"
+            />
+            <div class="form-hint">
+              Thresholds in the new sheets are editable defaults, not
+              benchmarks: set them to the client's SLA in the workbook.
+            </div>
+          </div>
+        </div>
+      </details>
       <div
         class="copilot-suggestions"
         id="copilot-channels"

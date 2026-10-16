@@ -155,6 +155,20 @@ def request_problem(data: Any) -> Tuple[str, str]:
     return "", ""
 
 
+_PROBLEM_FIELDS = {
+    "week_start": "enterprise_week_start",
+    "lock_day": "enterprise_request_lock_day",
+    "sla": "enterprise_setup_sla_days",
+    "too_long": "enterprise_system_of_record",
+    "type": "enterprise_system_of_record",
+}
+
+
+def problem_field(code: str) -> str:
+    """The request field a :func:`request_problem` code is about."""
+    return _PROBLEM_FIELDS.get(code, "enterprise_pack")
+
+
 def normalize_request(data: Any) -> None:
     """Rewrite the enterprise request fields to their canonical form in
     place.  When the toggle is off every enterprise field is dropped, so a

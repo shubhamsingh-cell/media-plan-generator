@@ -68,6 +68,9 @@ INPUT_LIMITS: dict[str, int] = {
     "excluded_publishers_max": 20,
     "excluded_publisher_chars": 80,
     "locations_max": 100,
+    # "Enterprise hourly hiring" wizard section (enterprise_pack)
+    "enterprise_system_of_record_chars": 120,
+    "enterprise_setup_sla_max_days": 30,
     # The whole /api/generate JSON body (app.py's global body cap).
     "request_max_bytes": 10 * 1024 * 1024,
     # Uploaded files travel base64-encoded inside that body (x4/3), so the

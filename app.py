@@ -47,6 +47,7 @@ from shared_utils import (
 
 import benchmark_registry
 import hashlib
+import enterprise_pack
 import publisher_filter
 import wizard_inputs
 import proof_claims  # public proof numbers ({{claim_*}} tokens in templates)
@@ -18937,6 +18938,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
             _normalize_excluded_publishers(data)
+            _ent_code, _ent_msg = enterprise_pack.request_problem(data)
+            if _ent_code:
+                _gen_timer.cancel()
+                self._send_error(
+                    _ent_msg,
+                    "VALIDATION_ERROR",
+                    400,
+                    field=enterprise_pack.problem_field(_ent_code),
+                )
+                return
+            enterprise_pack.normalize_request(data)
             if _client_name_problem(client_name_input)[0] == "too_long":
                 _gen_timer.cancel()
                 self._send_error(

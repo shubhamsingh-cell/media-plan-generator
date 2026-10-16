@@ -140,6 +140,7 @@ def wizard_payloads(
             "// ── end channel selection ──",
         ),
         js_block(app_src, "function getSelectedRegion()"),
+        js_block(app_src, "function novaEnterpriseInputs()"),
     ]
     gen_region = app_src[app_src.index("// 28. Updated payload with new fields") :]
     payload_literal = js_block(gen_region, "const payload = {")
