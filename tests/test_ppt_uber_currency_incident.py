@@ -395,7 +395,18 @@ class TestUsdPlanUnaffected:
         ), texts
 
     def test_slide6_takeaway_unchanged(self, texts):
-        assert any("with $1,626 average cost-per-hire" in t for t in texts), texts
+        # slide 6's takeaway now quotes the low-high ranges (the table above it
+        # is the upper scenario), in the plan's own "$"
+        import re
+
+        assert any(
+            re.search(
+                r"cost per application across all channels, with "
+                r"\$[\d,]+\u2013\$[\d,]+ estimated cost per hire",
+                t,
+            )
+            for t in texts
+        ), texts
 
     def test_slide11_next_steps_unchanged(self, texts):
         # Duration reads the canonical resolved value ("9 weeks"), not the

@@ -3880,6 +3880,14 @@ def _hires_range(data_or_alloc: Optional[Dict]) -> Optional[Tuple[int, int]]:
     if not isinstance(tp, dict):
         return None
     lo, hi = tp.get("hires_low"), tp.get("hires_high")
+    # the headline range stamped at generate time (the preview's own inputs, no
+    # live enrichment) outranks the enriched run's -- but never for a market
+    # whose per-hire claim is suppressed (the deck says "No local CPH benchmark")
+    _hp = alloc.get("headline_projection")
+    if isinstance(_hp, dict) and isinstance(_hp.get("hires"), dict):
+        if _cph_claim_suppressed(alloc):
+            return None
+        lo, hi = _hp["hires"].get("low"), _hp["hires"].get("high")
     if not (isinstance(lo, int) and isinstance(hi, int) and 0 <= lo < hi):
         return None
     # A US$ cost per hire on a deck shown in another currency is parity
@@ -3916,12 +3924,17 @@ def _deck_projection(data_or_alloc: Optional[Dict]) -> Optional[Dict[str, Any]]:
     try:
         import plan_projection
 
-        proj = plan_projection.ranges_from_engine_result(
+        proj = plan_projection.projection_for_alloc(
             alloc,
             budget=float(budget),
             industry_key=str(meta.get("industry") or ""),
             role_titles=[str(r) for r in (alloc.get("role_allocations") or {})],
             symbol=_cur_symbol(),
+            display_currency=_get_active_currency(),
+            non_us_market=(
+                "locations" in data_or_alloc
+                and not _is_us_only_campaign(data_or_alloc)
+            ),
         )
     except (ImportError, KeyError, TypeError, ValueError) as exc:
         logger.error("deck projection failed: %s", exc, exc_info=True)
@@ -4219,11 +4232,21 @@ def _plan_efficiency_variants(
         if not isinstance(mid, (int, float)) or mid <= 0:
             return []
         mid_txt = _be_pe._cph_text(mid, ccy, "compact")
-        variants = [
-            f"Plan efficiency: {floor_txt}/hire (half the {mid_txt} midpoint), "
-            "the model's lowest cost per hire.",
-            f"Plan efficiency: {floor_txt}/hire (half the {mid_txt} midpoint).",
-        ]
+        if not _is_us_only_campaign(data):
+            # a US cost-per-hire table under a non-US market: say so on the note
+            variants = [
+                f"Plan efficiency: {floor_txt}/hire (half the {mid_txt} US "
+                "benchmark midpoint \u2014 no local data), the model's lowest "
+                "cost per hire.",
+                f"Plan efficiency: {floor_txt}/hire (half the {mid_txt} US "
+                "benchmark midpoint \u2014 no local data).",
+            ]
+        else:
+            variants = [
+                f"Plan efficiency: {floor_txt}/hire (half the {mid_txt} midpoint), "
+                "the model's lowest cost per hire.",
+                f"Plan efficiency: {floor_txt}/hire (half the {mid_txt} midpoint).",
+            ]
         if hires_history_label:
             # slide 2 (the headline slide) also says what the hires rest on;
             # slide 5's tighter footnote keeps the shorter forms
@@ -5138,7 +5161,13 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     apply_rate_str = benchmarks.get("apply_rate") or ""
     if apply_rate_str:
         _ar_suffix = _classify_apply_rate_suffix(apply_rate_str)
-        if _ar_suffix:
+        if not _is_us_only_campaign(data):
+            # the KB apply rate is a US figure: say so, and do not grade it
+            # "strength"/"below average" against a market it was not measured in
+            sit_items.append(
+                ("Apply Rate", f"{apply_rate_str} (US benchmark \u2014 no local data)")
+            )
+        elif _ar_suffix:
             sit_items.append(("Apply Rate", f"{apply_rate_str} {_ar_suffix}"))
 
     # Client board exclusions are disclosed here and on the Executive Summary
@@ -5279,8 +5308,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
                 # an estimated range, never the lone optimistic end of it
                 _thesis_parts.append(
                     "This plan projects an estimated "
-                    f"{min(_thesis_rng[0], int(_proj_h)):,}\u2013"
-                    f"{max(_thesis_rng[1], int(_proj_h)):,} hires"
+                    f"{_thesis_rng[0]:,}\u2013{_thesis_rng[1]:,} hires"
                 )
             else:
                 _thesis_parts.append(
@@ -5657,8 +5685,7 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
             if _rng:
                 _metric_ranges["Projected Hires"] = _rng
                 _hires_val = (
-                    f"{min(_rng[0], int(projected_hires)):,}\u2013"
-                    f"{max(_rng[1], int(projected_hires)):,}"
+                    f"{_rng[0]:,}\u2013{_rng[1]:,}"
                 )
             secondary_metrics.append((_hires_val, "Projected Hires"))
         if avg_cpa_val and avg_cpa_val > 0:
@@ -6325,7 +6352,12 @@ def _build_slide_channel_strategy(prs: Presentation, data: Dict):
         (_cpa_label, cpa_val),
         (_cpc_label, cpc_val),
         (_cph_label, _cph_val),
-        ("Apply Rate", benchmarks["apply_rate"]),
+        (
+            "Apply Rate",
+            benchmarks["apply_rate"]
+            if _is_us_only_campaign(data)
+            else f"{benchmarks['apply_rate']} (US benchmark \u2014 no local data)",
+        ),
     ]
 
     # Add real job market data -- prefer synthesized over raw enrichment
@@ -7028,8 +7060,7 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     _sm_hires = f"{int(projected_hires):,}" if projected_hires > 0 else "--"
     if _sm_rng and projected_hires > 0:
         _sm_hires = (
-            f"{min(_sm_rng[0], int(projected_hires)):,}\u2013"
-            f"{max(_sm_rng[1], int(projected_hires)):,}"
+            f"{_sm_rng[0]:,}\u2013{_sm_rng[1]:,}"
         )
     _sm_cpa = _fmt_currency(avg_cpa) if avg_cpa > 0 else "--"
     if _sm_proj and avg_cpa > 0:
@@ -7598,8 +7629,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
     _ba_rng = _hires_range(budget_alloc)
     if _ba_rng and hires_display != "--":
         hires_display = (
-            f"{min(_ba_rng[0], int(proj_hires)):,}\u2013"
-            f"{max(_ba_rng[1], int(proj_hires)):,}"
+            f"{_ba_rng[0]:,}\u2013{_ba_rng[1]:,}"
         )
 
     hero_cards = [
@@ -7680,7 +7710,7 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
             table_top,
             table_w - Inches(5.0),
             Inches(0.3),
-            text="Channel rows split the upper end of the ranges above.",
+            text="Channel rows, totals and funnel show the upper scenario of the ranges above.",
             font_size=9,
             bold=False,
             color=MUTED_TEXT,
@@ -7890,6 +7920,11 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
                 f"→ {int(f_qual):,} qualified → {int(f_int):,} interviews "
                 f"→ {_count_noun(int(f_hires), 'hire')}"
             )
+            if _ba_rng or (
+                _ba_proj
+                and _ba_proj["applications"]["low"] != _ba_proj["applications"]["high"]
+            ):
+                funnel_text += " (upper scenario)"
             _add_textbox(
                 slide,
                 table_left,
@@ -7933,6 +7968,33 @@ def _build_slide_budget_allocation(prs: Presentation, data: Dict):
         insight_text = (
             f"Budget engine projects {_cur}{avg_cpa:,.0f} average CPA across "
             f"all channels. {_assume_s6[0]}"
+        )
+    elif (
+        _ba_proj
+        and avg_cpa
+        and avg_cpa > 0
+        and proj_hires
+        and proj_hires > 0
+        and _range_value(_ba_proj["cpa"], _fmt_currency)
+    ):
+        # ranges, not the optimistic point (the table above is the upper scenario)
+        insight_text = (
+            "Budget engine projects "
+            f"{_range_value(_ba_proj['cpa'], _fmt_currency)} cost per application "
+            "across all channels"
+        )
+        _ba_cph_rng = _range_value(_ba_proj["cph"], _fmt_currency_whole)
+        if _ba_cph_rng and not _cph_claim_suppressed(budget_alloc):
+            insight_text += f", with {_ba_cph_rng} estimated cost per hire"
+        _ba_hires_rng = (
+            f"{_ba_rng[0]:,}\u2013{_ba_rng[1]:,}"
+            if _ba_rng
+            else f"{int(proj_hires):,}"
+        )
+        insight_text += (
+            f". At an estimated {_ba_hires_rng} hires, "
+            f"{_fmt.possessive(client)} investment yields strong programmatic ROI "
+            f"through ML-driven bid optimization."
         )
     elif avg_cpa and avg_cpa > 0 and proj_hires and proj_hires > 0:
         insight_text = f"Budget engine projects {_cur}{avg_cpa:,.0f} average CPA across all channels"
@@ -9898,6 +9960,8 @@ def _build_slide_competitive_landscape(prs: Presentation, data: Dict):
                 ttf_str = " | ".join(parts[:4]) if parts else str(ttf)
             else:
                 ttf_str = str(ttf)
+            if not _is_us_only_campaign(data):
+                ttf_str += " (US benchmark \u2014 no local data)"
             trend_items.append(f"Avg Time-to-Fill: {ttf_str}")
         oar = hiring_trends.get("offer_acceptance_rate")
         if oar:

@@ -6223,6 +6223,7 @@ def _compute_plan_estimate(brief: dict) -> dict:
             "locations_raw": locs_raw,
             "budget_text": budget_str,
             "target_hires": _hire_goal_for_budget(brief),
+            "target_region": brief["target_region"],
         },
         channel_percentages=channel_pcts,
         vendor_availability=vendor_availability,
@@ -6303,6 +6304,69 @@ def _compute_plan_estimate(brief: dict) -> dict:
         "plan_currency": plan_currency_info,
         "target_region": brief["target_region"],
     }
+
+
+def _attach_headline_projection(
+    budget_result: Any,
+    plan: dict,
+    *,
+    budget: float,
+    roles: list,
+    locations: list,
+    channel_pcts: dict,
+    vendor_availability: Any,
+    kb: Any,
+) -> None:
+    """Stamp ``budget_result["headline_projection"]`` -- the plan's headline
+    low-high ranges (applications, hires, cost per application, cost per hire)
+    from ``plan_projection.project_plan`` with EXACTLY the inputs the wizard
+    preview (/api/estimate) uses: no enrichment, no collar override.
+
+    /api/generate runs the engine WITH live synthesized market data, which moves
+    applications ~25% and can drift the headline between the preview a client
+    saw and the workbook / deck / results they download. Product decision
+    (2026-10-16): live data may refine channel-level detail but never the
+    headline ranges, so every deliverable reads this block. Never raises; on
+    failure the deliverables fall back to ranges built from the enriched result.
+    """
+    if project_plan is None or not isinstance(budget_result, dict) or not budget_result:
+        return
+    try:
+        proj = project_plan(
+            {
+                "budget": budget,
+                "roles": roles,
+                "locations": locations,
+                "industry": plan.get("industry") or "",
+                "client_name": plan.get("client_name") or "",
+                "campaign_start_month": int(plan.get("campaign_start_month") or 0 or 0),
+                "locations_raw": plan.get("locations"),
+                "budget_text": str(plan.get("budget") or "").strip(),
+                "target_hires": _hire_goal_for_budget(plan),
+                "target_region": _normalize_target_region(plan.get("target_region")),
+            },
+            channel_percentages=channel_pcts,
+            vendor_availability=vendor_availability,
+            knowledge_base=kb,
+            plan_currency=_resolve_plan_currency(plan) or "",
+            industry_key=str(plan.get("industry") or "") or None,
+        )
+        if proj.get("ok"):
+            budget_result["headline_projection"] = {"ok": True, **public_view(proj)}
+            # The hires range every sheet and slide prints is the headline's
+            # (only where the engine itself bounded a range: a market whose
+            # per-hire claim is suppressed keeps its suppression).
+            tp = budget_result.get("total_projected")
+            hr = proj.get("hires") or {}
+            if (
+                isinstance(tp, dict)
+                and tp.get("hires_low") is not None
+                and isinstance(hr.get("low"), int)
+                and isinstance(hr.get("high"), int)
+            ):
+                tp["hires_low"], tp["hires_high"] = hr["low"], hr["high"]
+    except Exception as exc:  # noqa: BLE001 - headline stamp is best-effort
+        logger.warning("headline projection failed (non-fatal): %s", exc)
 
 
 def _estimate_funded_channels(budget_result: Any) -> list[dict]:
@@ -19986,6 +20050,18 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                                     target_hires=_hire_goal_for_budget(gen_data),
                                 )
                                 gen_data["_budget_allocation"] = budget_result
+                                _attach_headline_projection(
+                                    budget_result,
+                                    gen_data,
+                                    budget=_bval_ba,
+                                    roles=_roles_for_ba,
+                                    locations=_locs_for_ba,
+                                    channel_pcts=_apply_channel_selection(
+                                        channel_pcts, gen_data
+                                    ),
+                                    vendor_availability=vendor_availability,
+                                    kb=kb,
+                                )
                                 logger.info(
                                     "Async budget allocation complete: %s",
                                     (
@@ -22096,6 +22172,16 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                         target_hires=_hire_goal_for_budget(data),
                     )
                     data["_budget_allocation"] = budget_result
+                    _attach_headline_projection(
+                        budget_result,
+                        data,
+                        budget=_bval_ba,
+                        roles=_roles_for_ba,
+                        locations=_locs_for_ba,
+                        channel_pcts=_apply_channel_selection(channel_pcts, data),
+                        vendor_availability=vendor_availability,
+                        kb=kb,
+                    )
                     logger.info(
                         "Budget allocation complete: %s",
                         (

@@ -52,7 +52,10 @@ def test_estimate_text_is_ranges_with_the_assumption_stated(role, loc, ind):
     assert "not media-only" in text["cph_short"]
     # the lone point the engine computed is the optimistic END of each range
     assert est["projection"]["hires"]["high"] >= est["est_hires"]
-    assert est["projection"]["applications"]["high"] == est["est_applications"]
+    # (the CPA range is the hull of the engine figure and the KB band, so when
+    # the engine CPA sits INSIDE the band the high end can exceed the engine's
+    # own application count; it is never below it)
+    assert est["projection"]["applications"]["high"] >= est["est_applications"]
 
 
 def test_the_headline_is_not_silently_the_optimistic_end():
@@ -107,7 +110,7 @@ def test_nova_formatter_prints_ranges_and_the_basis():
     )
     out = nova._format_budget_response(data, 60000)
     assert "Estimated Hires: 5" + DASH + "11" in out
-    assert "Cost per Application: $13.96" + DASH + "$35" in out
+    assert "Cost per Application: $13.96" + DASH + "$58" in out
     assert "no client hire history" in out
     assert "Projected Hires:" not in out  # the lone point is gone
     assert "presentation_note" in data

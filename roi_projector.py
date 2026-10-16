@@ -466,6 +466,74 @@ def _detect_posting_model(
     return "survey"
 
 
+def _apply_headline_projection(
+    result: Dict[str, Any],
+    budget: float,
+    industry: str,
+    role: Optional[str],
+    locations: Optional[List[str]],
+    cph_basis: Tuple[float, float],
+) -> Dict[str, Any]:
+    """Route the HEADLINE projection through ``plan_projection.project_plan``.
+
+    This tool projects ONE channel with its own CPC / apply-rate table, so its
+    hires, CPA and cost per hire disagreed with the media-plan engine for the
+    same budget. The pessimistic / expected / optimistic hires and the cost-per-
+    hire range now come from the plan projection (low / mid / high), and the
+    channel-specific figures are kept under ``channel_detail`` and labelled.
+    On any failure the channel figures stand, unchanged."""
+    try:
+        import plan_projection
+
+        proj = plan_projection.project_plan(
+            {
+                "budget": budget,
+                "roles": [role or "General Hire"],
+                "locations": list(locations or []) or ["United States"],
+                "industry": industry,
+            }
+        )
+    except Exception as exc:  # noqa: BLE001 - headline routing is best-effort
+        logger.warning("roi_projector: plan projection unavailable: %s", exc)
+        return result
+    if not proj.get("ok") or proj["hires"]["low"] is None:
+        return result
+    hires, cph = proj["hires"], proj["cph"]
+    result["channel_detail"] = {
+        "note": (
+            "Single-channel figures from this tool's own CPC / apply-rate table; "
+            "the headline projections use the media-plan engine's ranges."
+        ),
+        "projections": result["projections"],
+        "cost_per_hire": result["roi_metrics"]["cost_per_hire"],
+    }
+    for key, h in (
+        ("pessimistic", hires["low"]),
+        ("expected", hires["mid"]),
+        ("optimistic", hires["high"]),
+    ):
+        result["projections"][key]["hires"] = int(h)
+    if cph["low"] is not None:
+        result["roi_metrics"]["cost_per_hire"] = {
+            "low": round(cph["low"]),
+            "expected": round(
+                min(max(proj["engine"]["cost_per_hire"] or cph["low"], cph["low"]), cph["high"])
+            ),
+            "high": round(cph["high"]),
+        }
+    if isinstance(result.get("recommendation"), str):
+        import re as _re
+
+        result["recommendation"] = _re.sub(
+            r"is projected to deliver ~\d+ hires",
+            f"is projected to deliver an estimated {proj['text']['hires']} hires",
+            result["recommendation"],
+        )
+    result["headline_projection"] = plan_projection.public_view(proj)
+    result["headline_source"] = "plan_projection.project_plan"
+    return result
+
+
 def project_roi(
     channel: str,
     budget: float,
@@ -624,7 +692,7 @@ def project_roi(
         f"{model_note} Confidence: {conf_label}."
     )
 
-    return {
+    result = {
         "channel": channel,
         "budget": budget,
         "industry": industry,
@@ -682,6 +750,9 @@ def project_roi(
         "recommendation": rec,
         "source": "Nova ROI Projector (28 industry sources, 302M+ data points)",
     }
+    return _apply_headline_projection(
+        result, budget, industry, role, locations, (cph_lo, cph_hi)
+    )
 
 
 # ---------------------------------------------------------------------------

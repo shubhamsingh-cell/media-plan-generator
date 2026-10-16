@@ -3466,7 +3466,11 @@ def _goal_conservative_sentence(
 
 
 def _hires_range_line(
-    total_proj: Any, cph_info: Dict[str, Any], header_hires: int, budget_num: float
+    total_proj: Any,
+    cph_info: Dict[str, Any],
+    header_hires: int,
+    budget_num: float,
+    us_plan: bool = True,
 ) -> str:
     """The projected-hires range and the ONE cost basis behind each end, or
     "" when the engine emitted no genuine range (audit 2026-10-01 §4.2).
@@ -3525,8 +3529,13 @@ def _hires_range_line(
     else:
         floor_basis = f", half the {_fmt_industry_cph(avg, cph_info)} midpoint"
     plan_cph = budget_num / header_hires
+    _us_tag = (
+        ""
+        if us_plan or cph_info.get("basis") == "local_kb"
+        else " (US benchmark \u2014 no local data)"
+    )
     sentence = (
-        f"Projected hires: {lo:,}–{hi:,}. {lo:,} if every hire costs "
+        f"Projected hires{_us_tag}: {lo:,}–{hi:,}. {lo:,} if every hire costs "
         f"{low_end}; {hi:,} at plan efficiency, the model's lowest cost per "
         f"hire ({_fmt_industry_cph(floor, cph_info)}/hire{floor_basis}). "
         f"Point estimate: {gs_lib.count_noun(header_hires, 'hire')} at this plan's own "
@@ -5942,7 +5951,10 @@ def _location_count_label(data: dict, locations: List[str]) -> str:
 
 
 def _projection_range_line(
-    budget_alloc: Any, budget_num: float, suppress_cph: bool = False
+    budget_alloc: Any,
+    budget_num: float,
+    suppress_cph: bool = False,
+    non_us_market: bool = False,
 ) -> str:
     """Applications, cost per application and cost per hire as low-high ranges,
     plus what the hire / cost-per-hire figures assume -- the SAME projection
@@ -5956,12 +5968,14 @@ def _projection_range_line(
     meta = budget_alloc.get("metadata")
     meta = meta if isinstance(meta, dict) else {}
     roles = list((budget_alloc.get("role_allocations") or {}).keys())
-    proj = plan_projection.ranges_from_engine_result(
+    proj = plan_projection.projection_for_alloc(
         budget_alloc,
         budget=budget_num,
         industry_key=str(meta.get("industry") or ""),
         role_titles=[str(r) for r in roles],
         symbol=_cur_symbol(),
+        display_currency=_get_active_currency(),
+        non_us_market=non_us_market,
     )
     if not proj.get("ok"):
         return ""
@@ -6227,10 +6241,19 @@ def _build_sheet_executive_summary(
         _write_metric_card(ws, row, col, label, value)
     # Hires range (audit 2026-10-01 §4.2), in the cards' gap row so no row
     # below moves: the headline is benchmark-driven, so say what bounds it.
-    _range_line = _hires_range_line(total_proj, _cph_info, _header_hires, budget_num)
+    _range_line = _hires_range_line(
+        total_proj,
+        _cph_info,
+        _header_hires,
+        budget_num,
+        us_plan=plan_geo.is_us_plan(data),
+    )
     try:
         _proj_line = _projection_range_line(
-            budget_alloc, budget_num, suppress_cph=_cph_suppressed
+            budget_alloc,
+            budget_num,
+            suppress_cph=_cph_suppressed,
+            non_us_market=not plan_geo.is_us_plan(data),
         )
     except (ImportError, KeyError, TypeError, ValueError) as exc:
         logger.error("projection range line failed: %s", exc, exc_info=True)
@@ -6851,6 +6874,13 @@ def _build_sheet_executive_summary(
                             # never reads a bare "$" benchmark as their own
                             # currency. Rows with no money figure (apply
                             # rate, time to fill) keep their plain label.
+                            if key in ("apply_rate", "time_to_fill") and not (
+                                plan_geo.is_us_plan(data)
+                            ):
+                                # US-calibrated KB rows on a non-US plan
+                                _bm_label = (
+                                    f"{_bm_label} (US benchmark \u2014 no local data)"
+                                )
                             if _get_active_currency() != "USD" and "$" in val_str:
                                 _bm_label = f"{_bm_label} (USD)"
                                 # ...and on the figures themselves, as the
@@ -6881,6 +6911,11 @@ def _build_sheet_executive_summary(
                 data, ind_bench if isinstance(ind_bench, dict) else {}
             )
             if _bm_note:
+                if not plan_geo.is_us_plan(data):
+                    _bm_note += (
+                        " The cited benchmark is a US figure \u2014 no local "
+                        "data for this market."
+                    )
                 row = _write_footnote(ws, row, _bm_note)
         row += 1
 
