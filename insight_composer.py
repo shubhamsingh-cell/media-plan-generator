@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 
 import display_format as _fmt
+import plan_location as _plan_location
 
 # ---------------------------------------------------------------------------
 # Counter-strategy prose
@@ -221,6 +222,12 @@ def _pick_index(key: str, n: int) -> int:
     return int(digest, 16) % n
 
 
+def _is_remote_marker(place: str) -> bool:
+    """True when ``place`` is a work mode ("Remote", "Work From Home"), not
+    a place -- plan_location decides, so this follows its remote wording."""
+    return bool(place) and _plan_location.resolve_location(place).kind == "remote"
+
+
 def compose_counter_strategy(competitor: str, ctx: dict | None = None) -> str:
     """One sentence of competitor-specific counter-strategy prose.
 
@@ -246,7 +253,11 @@ def compose_counter_strategy(competitor: str, ctx: dict | None = None) -> str:
     # The angle is always a PLURAL noun phrase headed by "candidates" so every
     # skeleton can treat it as a plural subject/object without re-suffixing
     # ("...talent in Boston candidates have options" was the shipped bug).
-    if role and city:
+    # A remote marker is how the role is worked, not where: "candidates in
+    # Remote" read as a place, so it phrases as "remote roles" instead.
+    if _is_remote_marker(city):
+        angle = f"{role} candidates for remote roles".strip()
+    elif role and city:
         angle = f"{role} candidates in {city}"
     elif role:
         angle = f"{role} candidates"
