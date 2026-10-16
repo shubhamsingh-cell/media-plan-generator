@@ -42,6 +42,7 @@ _AVAILABILITY_PATH = os.path.join(_BASE_DIR, "data", "publisher_availability.jso
 _REPOSITORY_PATH = os.path.join(
     _BASE_DIR, "data", "joveo_global_supply_repository.json"
 )
+_NETWORK_PATH = os.path.join(_BASE_DIR, "data", "joveo_network_groups.json")
 
 # Request-boundary caps (mirrored in wizard_inputs.INPUT_LIMITS).
 MAX_EXCLUDED = 20
@@ -277,6 +278,7 @@ def _components(name: Any) -> List[str]:
 _lock = threading.Lock()
 _availability_cache: Optional[Dict[str, Any]] = None
 _repo_index_cache: Optional[Dict[str, List[Tuple[frozenset, str]]]] = None
+_network_cache: Optional[List[Dict[str, Any]]] = None
 
 
 def _load_availability() -> Dict[str, Any]:
@@ -1224,7 +1226,11 @@ def _repo_index() -> Dict[str, List[Tuple[frozenset, str]]]:
 def relationship_unverified(name: Any, country: Any = None) -> bool:
     """True when the Joveo supply repository lists this board for the
     country but NOT as 'In Joveo Network'.  A board the repository does not
-    list at all is unknown, not unverified -> False (never invent a label)."""
+    list at all is unknown, not unverified -> False (never invent a label).
+    A member of a board group Joveo has confirmed as in its network
+    (data/joveo_network_groups.json) is never unverified."""
+    if network_member(name, country):
+        return False
     want = canonical_country(country)
     index = _repo_index()
     found = False
@@ -1237,6 +1243,200 @@ def relationship_unverified(name: Any, country: Any = None) -> bool:
             if status == "In Joveo Network":
                 return False
     return found
+
+
+# ---------------------------------------------------------------------------
+# Board groups confirmed as in the Joveo network (data/joveo_network_groups.json)
+# ---------------------------------------------------------------------------
+
+
+def _load_network_groups() -> List[Dict[str, Any]]:
+    global _network_cache
+    avail = _load_availability()  # before taking _lock (it takes the same lock)
+    group_of = avail["group_of"]
+    with _lock:
+        if _network_cache is not None:
+            return _network_cache
+        groups: List[Dict[str, Any]] = []
+        try:
+            with open(_NETWORK_PATH, encoding="utf-8") as fh:
+                raw = json.load(fh)
+            for grp in raw.get("groups") or []:
+                if not isinstance(grp, dict) or not grp.get("name"):
+                    continue
+                members: List[Dict[str, Any]] = []
+                for mem in grp.get("members") or []:
+                    if not isinstance(mem, dict) or not mem.get("name"):
+                        continue
+                    names = [mem["name"]] + [
+                        a for a in (mem.get("aliases") or []) if isinstance(a, str)
+                    ]
+                    keys: set = set()
+                    for nm in names:
+                        for part in [normalize(nm)] + [
+                            normalize(p) for p in _parts(nm)
+                        ]:
+                            if part:
+                                keys.add(group_of.get(part, part))
+                    members.append(
+                        {
+                            **mem,
+                            "_keys": frozenset(keys),
+                            "_countries": frozenset(
+                                canonical_country(c)
+                                for c in (mem.get("countries") or [])
+                            ),
+                            "_lead_in": frozenset(
+                                canonical_country(c) for c in (mem.get("lead_in") or [])
+                            ),
+                        }
+                    )
+                label_keys = {
+                    _squash(n)
+                    for n in [grp["name"]]
+                    + [a for a in (grp.get("aliases") or []) if isinstance(a, str)]
+                }
+                groups.append(
+                    {
+                        **grp,
+                        "_members": members,
+                        "_labels": frozenset(label_keys - {""}),
+                    }
+                )
+        except (OSError, ValueError, AttributeError) as exc:
+            logger.error("joveo_network_groups.json unreadable: %s", exc, exc_info=True)
+        _network_cache = groups
+        return groups
+
+
+def _network_hit(group: Dict[str, Any], member: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "group": group["name"],
+        "group_id": group.get("id") or "",
+        "member": member["name"],
+        "status": group.get("status") or "In Joveo Network",
+        "as_of": group.get("as_of") or "",
+        "status_source": group.get("status_source") or "",
+        "member_source": member.get("source") or "",
+        "countries": sorted(member["_countries"]),
+    }
+
+
+def network_member(name: Any, country: Any = None) -> Optional[Dict[str, Any]]:
+    """The network-group record for ``name`` (in ``country``) when it is a
+    member of a board group Joveo has confirmed as in its network, else None.
+
+    A member is scoped to its countries (``Jobs.ie`` is Ireland's, never
+    ``Jobs.ch``); with no country known a member whose key is an ordinary word
+    is not matched at all."""
+    text = str(name or "").strip()
+    if not text:
+        return None
+    keys = set(_keys_for(text))
+    if not keys:
+        return None
+    want = canonical_country(country)
+    ordinary = {normalize(w) for w in _STOPWORDS}
+    for group in _load_network_groups():
+        for member in group["_members"]:
+            hit = keys & member["_keys"]
+            if not hit:
+                continue
+            if want:
+                if member["_countries"] and want not in member["_countries"]:
+                    continue
+            elif hit <= ordinary:
+                continue
+            return _network_hit(group, member)
+    return None
+
+
+def network_group_for_query(text: Any) -> Optional[Dict[str, Any]]:
+    """The group a free-text query names as a whole ("Stepstone Group",
+    "StepGroup"), else None."""
+    key = _squash(text)
+    if not key:
+        return None
+    for group in _load_network_groups():
+        if key in group["_labels"]:
+            return group
+    return None
+
+
+def network_member_names(group: Dict[str, Any], country: Any = None) -> List[str]:
+    """Display names of a group's members (those operating in ``country``
+    when one is given), in file order."""
+    want = canonical_country(country)
+    return [
+        m["name"]
+        for m in group["_members"]
+        if not want or not m["_countries"] or want in m["_countries"]
+    ]
+
+
+def network_boards_for(country: Any) -> List[str]:
+    """Every in-network group board that operates in ``country``."""
+    out: List[str] = []
+    for group in _load_network_groups():
+        out.extend(network_member_names(group, country) if country else [])
+    return out
+
+
+def network_lead_boards(country: Any) -> List[str]:
+    """General (non-niche) in-network group boards offered first in
+    ``country``'s local-board list, in file order."""
+    want = canonical_country(country)
+    if not want:
+        return []
+    return [
+        m["name"]
+        for group in _load_network_groups()
+        for m in group["_members"]
+        if want in m["_lead_in"]
+    ]
+
+
+def network_note(hit: Optional[Dict[str, Any]]) -> str:
+    """One neutral sentence saying a board's group is in the Joveo network."""
+    if not hit:
+        return ""
+    return (
+        f"{hit['member']} is part of {hit['group']}, whose job boards are in the "
+        f"Joveo network ({hit['status_source'] or 'confirmed'}, as of {hit['as_of']})."
+    )
+
+
+def with_network_board(
+    names: Sequence[Any], country: Any, data: Any = None, limit: int = 3
+) -> List[str]:
+    """The first ``limit`` boards of a market's list, with an in-network group
+    board among them when the market has one.
+
+    ``names`` is already cleaned (client exclusions / availability / renames
+    applied).  When none of the first ``limit`` is a group member, the market's
+    first lead group board that survives those same filters replaces the last
+    slot (or fills a free one); a group board the list already holds beyond the
+    cut is the one promoted.  A market whose list is empty gets its lead group
+    boards.  The list never grows past ``limit`` and an excluded or
+    unavailable board is never offered."""
+    shown = [str(n) for n in names][:limit]
+    want = canonical_country(country)
+    if not want or limit <= 0:
+        return shown
+    if any(network_member(n, want) for n in shown):
+        return shown
+    candidates = [str(n) for n in list(names)[limit:] if network_member(n, want)]
+    for lead in network_lead_boards(want):
+        survivors = clean_names([lead], data, want)
+        if survivors and not any(names_match(survivors[0], n) for n in shown):
+            candidates.append(survivors[0])
+    if not candidates:
+        return shown
+    if not names:  # no dataset boards at all: offer the market's lead boards
+        return list(dict.fromkeys(candidates))[:limit]
+    if len(shown) < limit:
+        return shown + [candidates[0]]
+    return shown[:-1] + [candidates[0]]
 
 
 def annotate(names: Sequence[Any], country: Any = None) -> Tuple[List[str], bool]:
@@ -1276,7 +1476,12 @@ def plan_market_boards(
         if not country or country == "United States":
             continue
         country = canonical_country(country)
-        names = clean_names(dataset_platform_names(country), data, country)[:max_boards]
+        names = with_network_board(
+            clean_names(dataset_platform_names(country), data, country),
+            country,
+            data,
+            max_boards,
+        )
         if not names:
             continue
         marked, flag = annotate(names, country)
@@ -1325,15 +1530,20 @@ def plan_market_board_gaps(data: Any) -> List[str]:
         if not country or canonical_country(country) == "United States":
             continue
         country = canonical_country(country)
-        if not dataset_platform_names(country) and country not in gaps:
+        if (
+            not dataset_platform_names(country)
+            and not network_lead_boards(country)
+            and country not in gaps
+        ):
             gaps.append(country)
     return gaps
 
 
 def reset_caches() -> None:
     """Test hook: drop the lazily-loaded data."""
-    global _availability_cache, _repo_index_cache, _known_cache
+    global _availability_cache, _repo_index_cache, _known_cache, _network_cache
     with _lock:
+        _network_cache = None
         _known_cache = None
         _availability_cache = None
         _repo_index_cache = None

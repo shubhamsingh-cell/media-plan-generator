@@ -12,8 +12,8 @@
     },
     "by_status": {
       "Via Redwood": 2931,
-      "VONQ Only": 2533,
-      "In Joveo Network": 1236,
+      "VONQ Only": 2531,
+      "In Joveo Network": 1238,
       "Deactivated": 253,
       "Churned": 58,
       "Paused / Pending Revival": 42
@@ -61391,9 +61391,13 @@
           "category": "Universal",
           "job_categories": "nan",
           "pricing": "nan",
-          "status": "VONQ Only",
+          "status": "In Joveo Network",
           "easy_apply": "nan",
-          "xml": "nan"
+          "xml": "nan",
+          "status_previous": "VONQ Only",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "JUVE",
@@ -66834,7 +66838,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "No",
-          "xml": "No"
+          "xml": "No",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "Praca.pl",
@@ -67562,7 +67569,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "No",
-          "xml": "No"
+          "xml": "No",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "Jobs.de",
@@ -68173,7 +68183,10 @@
           "pricing": "Subscription",
           "status": "In Joveo Network",
           "easy_apply": "nan",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "primerempleo",
@@ -68517,14 +68530,18 @@
           "name": "Totaljobs",
           "parent": "",
           "priority": "P1",
-          "countries": "Ireland",
+          "countries": "United Kingdom, Ireland",
           "job_type": "General",
           "category": "Universal",
           "job_categories": "nan",
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "nan",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation",
+          "countries_previous": "Ireland"
         },
         {
           "name": "Flek.cz",
@@ -70344,7 +70361,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "Yes",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "StepStone Denmark",
@@ -70357,7 +70377,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "Yes",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "StepStone Germany",
@@ -70370,7 +70393,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "Yes",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "StepStone Netherlands",
@@ -70383,7 +70409,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "Yes",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "Vrabotuvanje",
@@ -70539,7 +70568,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "Yes",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "CatererGlobal_UK",
@@ -70552,7 +70584,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "Yes",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "CityJobs",
@@ -70565,7 +70600,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "No",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "Clicandsea.fr",
@@ -70630,7 +70668,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "Yes",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "DV-TREFF",
@@ -70669,7 +70710,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "No",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "EnergyCentral",
@@ -70916,7 +70960,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "No",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "InAutomotive",
@@ -71098,7 +71145,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "Yes",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "Jobtic",
@@ -71280,7 +71330,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "No",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "Moovijob",
@@ -71631,7 +71684,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "No",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "Riksmedia",
@@ -81657,7 +81713,7 @@
           "xml": "nan"
         },
         {
-          "name": "Stepstone Germa-ny (Pro - Media Buy) - Selected Customers Only",
+          "name": "StepStone Germany (Pro - Media Buy) - Selected Customers Only",
           "parent": "",
           "priority": "P3",
           "countries": "Germany",
@@ -81665,9 +81721,15 @@
           "category": "Universal",
           "job_categories": "nan",
           "pricing": "nan",
-          "status": "VONQ Only",
+          "status": "In Joveo Network",
           "easy_apply": "nan",
-          "xml": "nan"
+          "xml": "nan",
+          "name_previous": "Stepstone Germa-ny (Pro - Media Buy) - Selected Customers Only",
+          "restriction": "Selected customers only (Pro - Media Buy)",
+          "status_previous": "VONQ Only",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "Studerendeonline.dk",
@@ -86778,7 +86840,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "No",
-          "xml": "Yes"
+          "xml": "Yes",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "BrighterMonday",
@@ -86843,7 +86908,10 @@
           "pricing": "Posting",
           "status": "In Joveo Network",
           "easy_apply": "No",
-          "xml": "No"
+          "xml": "No",
+          "network_group": "The Stepstone Group",
+          "network_as_of": "2026-10-17",
+          "network_source": "owner confirmation"
         },
         {
           "name": "Emplois Congo",
@@ -87457,7 +87525,10 @@
       "countries": "Ireland",
       "job_type": "General",
       "pricing": "Posting",
-      "status": "In Joveo Network"
+      "status": "In Joveo Network",
+      "network_group": "The Stepstone Group",
+      "network_as_of": "2026-10-17",
+      "network_source": "owner confirmation"
     },
     {
       "name": "Praca.pl",
@@ -87826,7 +87897,10 @@
       "countries": "Ireland",
       "job_type": "General",
       "pricing": "Posting",
-      "status": "In Joveo Network"
+      "status": "In Joveo Network",
+      "network_group": "The Stepstone Group",
+      "network_as_of": "2026-10-17",
+      "network_source": "owner confirmation"
     },
     {
       "name": "Nexxt",
@@ -88096,7 +88170,10 @@
       "countries": "Spain",
       "job_type": "General",
       "pricing": "Subscription",
-      "status": "In Joveo Network"
+      "status": "In Joveo Network",
+      "network_group": "The Stepstone Group",
+      "network_as_of": "2026-10-17",
+      "network_source": "owner confirmation"
     },
     {
       "name": "Arbeitnow",
@@ -88291,10 +88368,14 @@
       "name": "Totaljobs",
       "priority": "P1",
       "region": "Europe",
-      "countries": "Ireland",
+      "countries": "United Kingdom, Ireland",
       "job_type": "General",
       "pricing": "Posting",
-      "status": "In Joveo Network"
+      "status": "In Joveo Network",
+      "countries_previous": "Ireland",
+      "network_group": "The Stepstone Group",
+      "network_as_of": "2026-10-17",
+      "network_source": "owner confirmation"
     },
     {
       "name": "Handshake",
@@ -88699,7 +88780,10 @@
       "countries": "South Africa",
       "job_type": "General",
       "pricing": "Posting",
-      "status": "In Joveo Network"
+      "status": "In Joveo Network",
+      "network_group": "The Stepstone Group",
+      "network_as_of": "2026-10-17",
+      "network_source": "owner confirmation"
     },
     {
       "name": "VietnamWorks",

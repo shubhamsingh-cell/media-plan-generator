@@ -8038,10 +8038,13 @@ def _build_sheet_channels(ws, data: dict, research_mod=None, load_kb_fn=None):
                 _plat_names = publisher_filter.clean_names(
                     _plat_names, data, _loc_country
                 )
+                # A board of a group Joveo has confirmed as in its network
+                # (joveo_network_groups.json) is among the four shown.
+                _plat_names = publisher_filter.with_network_board(
+                    _plat_names, _loc_country, data, 4
+                )
                 if _plat_names:
-                    _local_board_rows.append(
-                        (_loc, _loc_country or _loc, _plat_names[:4])
-                    )
+                    _local_board_rows.append((_loc, _loc_country or _loc, _plat_names))
 
         if _local_board_rows:
             row = _write_kv_row(

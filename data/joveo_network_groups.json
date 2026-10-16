@@ -1,0 +1,323 @@
+{
+  "_description": "Board groups whose job boards are in the Joveo network as a group. Read by publisher_filter.py: a member is never labelled 'relationship unverified', and the plan's market band / workbook local boards / Nova supply tools carry it as an in-network option. A client exclusion (excluded_publishers) and data/publisher_availability.json still win over this file. Every group carries a status, an as_of date and the origin of the status; every member carries the public page that names it as part of the group. Order matters: within a country the first listed member is the one offered first.",
+  "groups": [
+    {
+      "id": "stepstone_group",
+      "name": "The Stepstone Group",
+      "aliases": [
+        "StepStone Group",
+        "Stepstone Group",
+        "StepGroup",
+        "Step Group"
+      ],
+      "status": "In Joveo Network",
+      "as_of": "2026-10-17",
+      "status_source": "owner confirmation",
+      "status_note": "Joveo confirmed on 2026-10-17 that the Stepstone Group's job boards are part of its network of job boards. 'StepGroup' is read as the same group.",
+      "members": [
+        {
+          "name": "StepStone",
+          "aliases": [
+            "StepStone Germany",
+            "stepstone.de"
+          ],
+          "countries": [
+            "Germany"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-core-brands/",
+          "lead_in": [
+            "Germany"
+          ]
+        },
+        {
+          "name": "StepStone Austria",
+          "aliases": [
+            "stepstone.at"
+          ],
+          "countries": [
+            "Austria"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-history/",
+          "basis": "Stepstone-branded national site named by the group's history page (Austria among the 2000 launch markets); stepstone.at resolved on 2026-10-17",
+          "lead_in": [
+            "Austria"
+          ]
+        },
+        {
+          "name": "StepStone Belgium",
+          "aliases": [
+            "StepStone BE",
+            "stepstone.be"
+          ],
+          "countries": [
+            "Belgium"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-history/",
+          "basis": "Stepstone-branded national site named by the group's history page (Belgium among the 2000 launch markets); stepstone.be resolved on 2026-10-17",
+          "lead_in": [
+            "Belgium"
+          ]
+        },
+        {
+          "name": "StepStone Netherlands",
+          "aliases": [
+            "stepstone.nl"
+          ],
+          "countries": [
+            "Netherlands"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-history/",
+          "basis": "Stepstone-branded national site named by the group's history page (Netherlands among the 2000 launch markets); stepstone.nl resolved on 2026-10-17",
+          "lead_in": [
+            "Netherlands"
+          ]
+        },
+        {
+          "name": "StepStone Denmark",
+          "aliases": [
+            "StepStone DK",
+            "stepstone.dk"
+          ],
+          "countries": [
+            "Denmark"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-history/",
+          "basis": "Stepstone-branded national site named by the group's history page (Denmark among the 2000 launch markets); stepstone.dk resolved on 2026-10-17",
+          "lead_in": [
+            "Denmark"
+          ]
+        },
+        {
+          "name": "meinestadt.de",
+          "aliases": [],
+          "countries": [
+            "Germany"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-core-brands/",
+          "lead_in": []
+        },
+        {
+          "name": "Hotelcareer",
+          "aliases": [
+            "HotelCareer (DE)",
+            "hotelcareer.de"
+          ],
+          "countries": [
+            "Germany"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-core-brands/",
+          "lead_in": []
+        },
+        {
+          "name": "IrishJobs",
+          "aliases": [
+            "irishjobs.ie"
+          ],
+          "countries": [
+            "Ireland"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-core-brands/",
+          "lead_in": [
+            "Ireland"
+          ]
+        },
+        {
+          "name": "Jobs.ie",
+          "aliases": [],
+          "countries": [
+            "Ireland"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-history/",
+          "lead_in": [
+            "Ireland"
+          ]
+        },
+        {
+          "name": "Totaljobs",
+          "aliases": [
+            "totaljobs.com"
+          ],
+          "countries": [
+            "United Kingdom",
+            "Ireland"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-core-brands/",
+          "basis": "United Kingdom per the group's core-brands page; Ireland kept from the supply repository's existing entry",
+          "lead_in": [
+            "United Kingdom"
+          ]
+        },
+        {
+          "name": "CWJobs",
+          "aliases": [
+            "cwjobs.co.uk"
+          ],
+          "countries": [
+            "United Kingdom"
+          ],
+          "source": "https://www.milkround.com/recruiters/about-us",
+          "lead_in": []
+        },
+        {
+          "name": "Jobsite",
+          "aliases": [
+            "Jobsite_Manual",
+            "jobsite.co.uk"
+          ],
+          "countries": [
+            "United Kingdom"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-history/",
+          "lead_in": []
+        },
+        {
+          "name": "Caterer.com",
+          "aliases": [
+            "Caterer"
+          ],
+          "countries": [
+            "United Kingdom"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-core-brands/",
+          "lead_in": []
+        },
+        {
+          "name": "CatererGlobal",
+          "aliases": [
+            "CatererGlobal_UK",
+            "catererglobal.com"
+          ],
+          "countries": [
+            "United Kingdom"
+          ],
+          "source": "https://www.milkround.com/recruiters/about-us",
+          "lead_in": []
+        },
+        {
+          "name": "Milkround",
+          "aliases": [
+            "milkround.com"
+          ],
+          "countries": [
+            "United Kingdom"
+          ],
+          "source": "https://www.milkround.com/recruiters/about-us",
+          "lead_in": []
+        },
+        {
+          "name": "RetailChoice",
+          "aliases": [],
+          "countries": [
+            "United Kingdom"
+          ],
+          "source": "https://www.milkround.com/recruiters/about-us",
+          "lead_in": []
+        },
+        {
+          "name": "CityJobs",
+          "aliases": [],
+          "countries": [
+            "United Kingdom"
+          ],
+          "source": "https://www.milkround.com/recruiters/about-us",
+          "lead_in": []
+        },
+        {
+          "name": "eMedCareers",
+          "aliases": [],
+          "countries": [
+            "United Kingdom"
+          ],
+          "source": "https://www.milkround.com/recruiters/about-us",
+          "lead_in": []
+        },
+        {
+          "name": "JustEngineers",
+          "aliases": [
+            "Just Engineers",
+            "JustEngineers.net"
+          ],
+          "countries": [
+            "United Kingdom"
+          ],
+          "source": "https://www.milkround.com/recruiters/about-us",
+          "lead_in": []
+        },
+        {
+          "name": "CareerStructure",
+          "aliases": [],
+          "countries": [
+            "United Kingdom"
+          ],
+          "source": "https://www.milkround.com/recruiters/about-us",
+          "lead_in": []
+        },
+        {
+          "name": "NIJobs",
+          "aliases": [
+            "nijobs.com"
+          ],
+          "countries": [
+            "United Kingdom"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-core-brands/",
+          "basis": "Northern Ireland",
+          "lead_in": []
+        },
+        {
+          "name": "Pnet",
+          "aliases": [
+            "PNet",
+            "pnet.co.za"
+          ],
+          "countries": [
+            "South Africa"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-core-brands/",
+          "lead_in": [
+            "South Africa"
+          ]
+        },
+        {
+          "name": "CareerJunction",
+          "aliases": [],
+          "countries": [
+            "South Africa"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-history/",
+          "lead_in": [
+            "South Africa"
+          ]
+        },
+        {
+          "name": "ICTJobs",
+          "aliases": [
+            "ictjobs.be"
+          ],
+          "countries": [
+            "Belgium"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-history/",
+          "lead_in": []
+        },
+        {
+          "name": "Turijobs",
+          "aliases": [],
+          "countries": [
+            "Spain"
+          ],
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-history/",
+          "lead_in": []
+        }
+      ],
+      "not_job_boards": [
+        {
+          "name": "Appcast",
+          "note": "Programmatic recruitment-marketing platform owned by the group (US). Not a job board, so the 2026-10-17 confirmation is not applied to it: it is not recommended or labelled by this file.",
+          "source": "https://www.thestepstonegroup.com/english/about-us/our-core-brands/"
+        }
+      ],
+      "_member_fields": "lead_in = countries where the member is offered as a general local board when the plan's market band has none (a niche board is never offered as a market's lead board)."
+    }
+  ]
+}
