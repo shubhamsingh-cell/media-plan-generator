@@ -8769,7 +8769,9 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         for key, val in profile_fields.items():
             # Free text can embed the name as typed/sourced ("COHERENT
             # CORP. designs ..."); rewrite it to the display casing.
-            val_str = _with_display_client_name(_flatten_value(val), data)
+            val_str = _flatten_value(val)
+            if key in _PROFILE_FREE_TEXT_KEYS:
+                val_str = _with_display_client_name(val_str, data)
             # S95/defect2: the company "description"/"summary" free-text
             # fields (Wikipedia-sourced, unbounded length) are the only
             # Company Profile values long enough to need a cap for a
@@ -10315,6 +10317,14 @@ def _build_warehouse_provenance(ws, data: dict, row: int) -> int:
     return row
 
 
+# Company Profile keys holding sourced free text that may embed the client
+# name; every other profile value (domain, logo_url, website, email, ids) is
+# written exactly as sourced.
+_PROFILE_FREE_TEXT_KEYS = frozenset(
+    {"Description", "Summary", "Headline", "Tagline", "Overview"}
+)
+
+
 def _with_display_client_name(text: Any, data: dict) -> str:
     """``text`` with every differently-cased occurrence of the client name
     rewritten to the workbook's display casing (``data["client_name"]``,
@@ -10330,7 +10340,16 @@ def _with_display_client_name(text: Any, data: dict) -> str:
     pattern = re.compile(
         r"(?<!\w)" + re.escape(name) + r"(?!\w)", re.IGNORECASE
     )
-    return pattern.sub(lambda _m: name, text)
+
+    def _rewrite(m: "re.Match[str]") -> str:
+        # A hostname / URL / email is lowercase by definition (and a URL
+        # path is case-sensitive): never recase the name inside one -- the
+        # same span rule the bundle_qa gate skips.
+        if display_format.inside_url_domain_or_email(text, m.start(), m.end()):
+            return m.group(0)
+        return name
+
+    return pattern.sub(_rewrite, text)
 
 
 def _upload_name(raw: Any, limit: int = 60) -> str:

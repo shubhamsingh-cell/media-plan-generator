@@ -142,3 +142,50 @@ class TestCanonicaliserOutsideTheBrandTable:
                 == ppt_generator._proper_client_name(raw)
                 == fmt.client_display_name(raw)
             )
+
+
+class TestProfileRewriteNeverTouchesHostnames:
+    """Verifier 14c7440: the display-name rewrite ran on every Company
+    Profile value, so "coherent.com" became "Coherent.com" and a case-
+    sensitive URL path was recased."""
+
+    VERBATIM = {
+        "Domain": "coherent.com",
+        "Logo Url": "https://logo.clearbit.com/coherent.com",
+        "Website": "https://www.coherent.com/careers/coherent-jobs",
+        "Contact": "hr@coherent.com",
+    }
+
+    def _rows(self):
+        plan = _plan("COHERENT")
+        plan["_synthesized"] = {
+            "competitive_intelligence": {
+                "company_profile": {
+                    "name": "COHERENT",
+                    "domain": "coherent.com",
+                    "logo_url": "https://logo.clearbit.com/coherent.com",
+                    "website": "https://www.coherent.com/careers/coherent-jobs",
+                    "contact": "hr@coherent.com",
+                    "description": "COHERENT makes lasers; see coherent.com.",
+                }
+            }
+        }
+        raw = excel_v2.generate_excel_v2(copy.deepcopy(plan))
+        return {v for s, _c, v in _all_strings(raw) if s == "Market Intelligence"}
+
+    @pytest.mark.parametrize("label,value", sorted(VERBATIM.items()))
+    def test_hostname_values_are_byte_identical(self, label, value):
+        assert value in self._rows(), (label, value)
+
+    def test_description_still_gets_the_display_name(self):
+        assert "Coherent makes lasers; see coherent.com." in self._rows()
+
+    def test_writer_and_gate_share_one_span_helper(self):
+        import bundle_qa
+
+        assert bundle_qa._inside_url_domain_or_email is fmt.inside_url_domain_or_email
+
+    def test_helper_skips_embedded_hostnames_only(self):
+        text = "COHERENT at www.coherent.com or hr@coherent.com"
+        out = excel_v2._with_display_client_name(text, {"client_name": "COHERENT"})
+        assert out == "Coherent at www.coherent.com or hr@coherent.com"

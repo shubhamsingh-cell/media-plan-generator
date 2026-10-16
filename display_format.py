@@ -643,6 +643,54 @@ def client_display_name(raw: str | None) -> str:
     return result
 
 
+# ---------------------------------------------------------------------------
+# URL / domain / email spans (shared by the bundle_qa casing gate and the
+# workbook writers so the two can never disagree about what a hostname is)
+# ---------------------------------------------------------------------------
+# A URL, bare domain or email address is not a brand mention: hostnames are
+# lowercase by definition ("www.adp.com", "careers@3m.com"), so the client
+# name inside one must never be compared against the canonical display
+# casing. 2026-10-16 sweep: b_ent_software ("Domain:  www.adp.com", slide 8
+# TextBox 11 + Market Intelligence!D52) and n3_3m_nametrap ("www.3m.com")
+# each took two critical false positives from this.
+#
+# The bare-domain branch is deliberately anchored to a CLOSED TLD list, not
+# "any dotted word": prose like "adp.Next quarter" or a sentence-final
+# "adp." must stay checked, and a loose pattern would exempt them.
+_DOMAIN_TLDS = (
+    "com|org|net|edu|gov|mil|int|io|co|ai|app|dev|biz|info|jobs|careers|me|"
+    "tv|us|uk|ca|au|de|fr|in|jp|cn|br|mx|es|it|nl|se|no|dk|fi|ie|nz|sg|hk|"
+    "kr|ru|za|ae|ch|at|be|pl|pt|tech|online|site|xyz|cloud|work|global|"
+    "company|agency|media|group|example|test"
+)
+_URL_OR_EMAIL_SPAN_RE = re.compile(
+    r"""
+      (?:[a-z][a-z0-9+.\-]*://|www\.)[^\s<>"'\])}]+          # scheme://... or www....
+    | [\w.+\-]+@(?:[a-z0-9\-]+\.)+[a-z]{2,}                  # email address
+    | (?<![\w@.\-])                                           # bare domain[/path]
+      (?:[a-z0-9](?:[a-z0-9\-]*[a-z0-9])?\.)+(?:"""
+    + _DOMAIN_TLDS
+    + r""")(?![\w\-])
+      (?:/[^\s<>"'\])}]*)?
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+# "Domain: adp" -- a value sitting directly after a Domain label is a
+# hostname slot even when the TLD itself was dropped.
+_DOMAIN_LABEL_BEFORE_RE = re.compile(r"\bdomain\s*:\s*(?:www\.)?$", re.IGNORECASE)
+
+
+def inside_url_domain_or_email(text: str, start: int, end: int) -> bool:
+    """True when ``text[start:end]`` sits inside a URL / domain / email, or
+    directly after a ``Domain:`` label."""
+    if _DOMAIN_LABEL_BEFORE_RE.search(text[:start]):
+        return True
+    for span in _URL_OR_EMAIL_SPAN_RE.finditer(text):
+        if span.start() < end and span.end() > start:
+            return True
+    return False
+
+
 # A name that already carries its own possessive-looking ending: a straight or
 # typographic apostrophe followed by 's' / 'S' ("McDonald's", "Kohl’s",
 # "DENNY'S").
