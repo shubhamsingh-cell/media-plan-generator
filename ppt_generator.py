@@ -4875,7 +4875,10 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     # "US$" marker was honest about currency but the number was still a US
     # one (Bangalore nurse plan: "US$78K median"). Fall back to the local
     # market range from intl_role_benchmarks_v1 or say "Local salary data n/a".
-    _has_us_market = _plan_geo.plan_has_us_market(data)
+    # Judged from the plan's own locations, not the region select: a London
+    # plan left on the wizard's default "US Only" region printed a BLS
+    # dollar median as "£61K" (verifier, 2026-10-16).
+    _has_us_market = _gold_standard.plan_market_presence(data)[0]
     # A plan with no US market takes its Salary Range from the one local
     # resolver below (_local_salary_range_text), the same decision Market
     # Intelligence and Quality Intelligence show -- never from this loop.
@@ -4944,16 +4947,13 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
     if not _salary_added and salary_data:
         try:
             first_role = list(salary_data.keys())[0]
-            _fr_data = salary_data[first_role]
-            median = _fr_data.get("median") or 0
+            # C7 + one-median-per-role: the same resolver as the Role
+            # Breakdown (US$-marked when the figure is a US dollar one).
+            median, _fr_force_usd = _deck_role_median(
+                data, first_role, salary_data[first_role]
+            )
             if median > 0:
-                # C7: same US-sourced check as the salary_intelligence path
-                # above -- a defensive no-op unless this enrichment entry
-                # also carries one of the US-only source markers.
-                _fr_force_usd = _salary_is_us_sourced(_fr_data)
-                salary_str = _format_salary(median, force_usd=_fr_force_usd)
-                if _fr_force_usd and _get_active_currency() != "USD":
-                    salary_str = _mark_usd(salary_str)
+                salary_str = _deck_salary_str(median, _fr_force_usd)
                 sit_items.append(
                     ("Salary Benchmark", f"{salary_str} median ({first_role})")
                 )
@@ -5432,13 +5432,17 @@ def _build_slide_executive_summary(prs: Presentation, data: Dict):
         if m is not None
     ]
 
-    # Salary benchmark if available (enrichment)
+    # Salary benchmark if available (enrichment) -- the same resolved figure
+    # the Situation card and Role Breakdown print for this role (2026-10-16:
+    # this metric read the raw enrichment median beside a city-adjusted one).
     if salary_data:
         try:
             first_role = list(salary_data.keys())[0]
-            median = salary_data[first_role].get("median") or 0
+            median, _ms_force_usd = _deck_role_median(
+                data, first_role, salary_data[first_role]
+            )
             if median > 0:
-                salary_str = _format_salary(median)
+                salary_str = _deck_salary_str(median, _ms_force_usd)
                 secondary_metrics.append((salary_str, "Median Salary"))
         except (IndexError, KeyError, TypeError):
             pass
@@ -7161,10 +7165,13 @@ def _build_slide_quality_outcomes(prs: Presentation, data: Dict):
     if salary_data:
         try:
             first_role = list(salary_data.keys())[0]
-            median = salary_data[first_role].get("median") or 0
+            # Same resolved figure as slides 2 and 7 for this role.
+            median, _in_force_usd = _deck_role_median(
+                data, first_role, salary_data[first_role]
+            )
             if median > 0:
                 insight_text += (
-                    f" Market salary data shows {_format_salary(median)} "
+                    f" Market salary data shows {_deck_salary_str(median, _in_force_usd)} "
                     f"median for {first_role}, enabling precise budget calibration."
                 )
         except (IndexError, KeyError, TypeError):
@@ -11224,6 +11231,48 @@ def _role_salary_rows(gold: Dict[str, Any], title: str) -> list:
     if len(currencies) > 1:
         rows = [r for r in rows if str(r.get("currency") or "").upper() == "USD"]
     return rows
+
+
+def _deck_role_median(
+    data: Dict[str, Any], role: str, raw: Any
+) -> "tuple[float, bool]":
+    """``(median, force_usd)`` every deck salary line prints for ``role``
+    when it reads an enrichment figure (``raw``: an ``_enriched.salary_data``
+    entry), or ``(0.0, False)`` when the line must not print a median.
+
+    Same resolution as the Role Breakdown (:func:`_role_salary_resolved`)
+    so the Situation card, the "Median Salary" metric, slide 6's insight and
+    slide 7 never print two medians for one role. A published local band is
+    printed only as a band (slide 7), never as a "median"; and a plan with
+    no US market never falls back to a US enrichment figure (audit F 3.4).
+    """
+    gold = data.get("_gold_standard") or {}
+    if _role_breakdown_local_band(gold, role):
+        return 0.0, False
+    resolved = _role_salary_resolved(gold, role)
+    if resolved and resolved["median"] > 0:
+        return resolved["median"], resolved["usd"]
+    # Judged from the plan's own locations (a London plan left on the
+    # wizard's default "US Only" region has no US market).
+    if not _gold_standard.plan_market_presence(data)[0]:
+        return 0.0, False
+    raw = raw if isinstance(raw, dict) else {}
+    try:
+        median = float(raw.get("median") or 0)
+    except (TypeError, ValueError):
+        median = 0.0
+    # _enriched.salary_data comes only from BLS (api_enrichment
+    # .fetch_salary_data), so it is always a US dollar figure -- its
+    # "BLS OES" source string slips past _salary_is_us_sourced's markers.
+    return median, True
+
+
+def _deck_salary_str(median: float, force_usd: bool) -> str:
+    """``median`` formatted with the deck's US$ declare-not-convert marker."""
+    salary_str = _format_salary(median, force_usd=force_usd)
+    if force_usd and _get_active_currency() != "USD":
+        salary_str = _mark_usd(salary_str)
+    return salary_str
 
 
 def _role_salary_resolved(

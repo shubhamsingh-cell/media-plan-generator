@@ -40,6 +40,7 @@ from openpyxl.styles import (
     Border,
     Side,
 )
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE as _XLSX_ILLEGAL_CHARS_RE
 from openpyxl.utils import get_column_letter
 from openpyxl.chart import BarChart, PieChart, Reference
 
@@ -2186,8 +2187,75 @@ _US_ONLY_SENTENCE_SPLIT_RE = re.compile(
 # "112+ million Americans", "US-based"). "US$" (this module's own
 # declare-not-convert currency marker) and "USD" are currency, not a label.
 _US_LABELLED_RE = re.compile(
-    r"(?<![\w$])US(?![\w$])|U\.S\.|\bAmericans?\b|\bUnited States\b|\bCensus Bureau\b"
+    r"(?<![\w$])(?<!non-)(?<!Non-)US(?![\w$])|U\.S\.|"
+    r"(?<!North )(?<!South )(?<!Latin )(?<!Central )(?<!Pan-)\bAmericans?\b|"
+    r"\bUnited States\b|\bCensus Bureau\b"
 )
+
+
+_US_KEY_RE = re.compile(r"(?:^|_)us(?:_|$)")
+_GLOBAL_SCOPE_RE = re.compile(
+    r"\b(?:global|globally|world|worldwide|international)\b", re.IGNORECASE
+)
+
+
+def _is_us_labelled_entry(key: Any, value: Any) -> bool:
+    """A KB entry whose key ("us_remote_rate", "us_workforce") or scalar
+    value ("...of US employees") labels it a US statistic."""
+    if _US_KEY_RE.search(str(key or "").lower()):
+        return True
+    return isinstance(value, str) and bool(_US_LABELLED_RE.search(value))
+
+
+def _drop_us_labelled_groups(obj: Any) -> Any:
+    """Remove US-labelled statistics from a workforce-trends KB value
+    BEFORE it is flattened, for a plan with no US market.
+
+    A group of plain stat entries whose members include a US-labelled one
+    and NO explicitly global one ("global", "world", "worldwide") is a US
+    dataset and is omitted whole: remote_work.current_state is the US
+    remote rate plus its unlabelled siblings ("Stability: Remained stable
+    between 21-23%"), which sentence-level filtering left behind as
+    apparently generic figures (verifier, 2026-10-16). A group that also
+    states a global figure (ai_ml_engineers' "Global ML market") keeps its
+    other entries and loses only the US-labelled ones; a subtree under a
+    US-labelled key ("us_workforce") goes whole.
+    """
+    if isinstance(obj, dict):
+        leaves = {k: v for k, v in obj.items() if not isinstance(v, (dict, list))}
+        if (
+            leaves
+            and len(leaves) == len(obj)
+            and any(_is_us_labelled_entry(k, v) for k, v in leaves.items())
+            # KB keys are snake_case ("global_smart_tv_households"): "_" is a
+            # word character, so match on the spaced form.
+            and not any(
+                _GLOBAL_SCOPE_RE.search(f"{str(k).replace('_', ' ')} {v}")
+                for k, v in leaves.items()
+            )
+        ):
+            return {}
+        out: dict = {}
+        for k, v in obj.items():
+            if isinstance(v, (dict, list)):
+                if _US_KEY_RE.search(str(k).lower()):
+                    continue
+                child = _drop_us_labelled_groups(v)
+                if child:
+                    out[k] = child
+            elif not _is_us_labelled_entry(k, v):
+                out[k] = v
+        return out
+    if isinstance(obj, list):
+        kept = []
+        for item in obj:
+            if isinstance(item, str) and _US_LABELLED_RE.search(item):
+                continue
+            child = _drop_us_labelled_groups(item)
+            if child not in ({}, [], None, ""):
+                kept.append(child)
+        return kept
+    return obj
 
 
 def _strip_us_only_sentences(text: str, drop_us_labelled: bool = False) -> str:
@@ -9256,10 +9324,17 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
         # A plan with no US market at all also loses every US-labelled stat
         # sentence (US remote rate, US CTV users, ...); a mixed US + non-US
         # plan keeps them -- they describe its US markets.
+        # Judged from the plan's own locations (gold_standard
+        # .plan_market_presence), so a London plan left on the wizard's
+        # default "US Only" region is still filtered.
         try:
-            _wf_no_us_market = not plan_geo.plan_has_us_market(data)
+            _wf_no_us_market = not gs_lib.plan_market_presence(data)[0]
         except Exception:  # noqa: BLE001
             _wf_no_us_market = False
+        _wf_filter = (not _wf_is_us) or _wf_no_us_market
+
+        def _wf_source(v: Any) -> Any:
+            return _drop_us_labelled_groups(v) if _wf_no_us_market else v
 
         _wf_any_written = False
 
@@ -9275,15 +9350,15 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 for k, v in section_val.items():
                     if k in ("metadata", "source"):
                         continue
-                    val_str = _wf_text(v)
+                    val_str = _wf_text(_wf_source(v))
                     if not val_str:
                         continue
-                    if not _wf_is_us:
+                    if _wf_filter:
                         val_str = _strip_us_only_sentences(val_str, _wf_no_us_market)
                         if not val_str:
                             continue
                     _wf_kv_rows.append((k.replace("_", " ").title(), val_str))
-                if _wf_is_us or _wf_kv_rows:
+                if not _wf_filter or _wf_kv_rows:
                     row = _write_subsection_header(ws, row, section_label)
                     for label, val_str in _wf_kv_rows:
                         row = _write_kv_row(ws, row, label, val_str)
@@ -9310,15 +9385,15 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                         _item_for_display = {
                             k: v for k, v in item.items() if k != "key"
                         }
-                    val_str = _wf_text(_item_for_display)
+                    val_str = _wf_text(_wf_source(_item_for_display))
                     if not val_str:
                         continue
-                    if not _wf_is_us:
+                    if _wf_filter:
                         val_str = _strip_us_only_sentences(val_str, _wf_no_us_market)
                         if not val_str:
                             continue
                     _wf_list_items.append(val_str)
-                if _wf_is_us or _wf_list_items:
+                if not _wf_filter or _wf_list_items:
                     row = _write_subsection_header(ws, row, section_label)
                     for val_str in _wf_list_items:
                         ws.merge_cells(
@@ -9339,17 +9414,17 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
 
             elif isinstance(section_val, (str, int, float, bool)):
                 val_str = _wf_text(section_val)
-                if val_str and not _wf_is_us:
+                if val_str and _wf_filter:
                     val_str = _strip_us_only_sentences(val_str, _wf_no_us_market)
                 if val_str:
                     row = _write_kv_row(ws, row, section_label, val_str)
                     _wf_any_written = True
 
-        if not _wf_is_us and not _wf_any_written:
+        if _wf_filter and not _wf_any_written:
             # Omitting every US-only trend line left the section with
             # nothing under its header -- never ship a header with no
             # content beneath it. This can only happen on a non-US plan
-            # (the ``if _wf_is_us or ...`` guards above always write
+            # (the ``if not _wf_filter or ...`` guards above always write
             # subsection content unfiltered for a US plan), so it never
             # changes US-plan output.
             row = _write_footnote(
@@ -9970,25 +10045,43 @@ def _with_display_client_name(text: Any, data: dict) -> str:
     return pattern.sub(lambda _m: name, text)
 
 
+def _upload_name(raw: Any, limit: int = 60) -> str:
+    """A user-supplied upload name (file / platform) made safe for a cell:
+    XML-illegal control characters removed (openpyxl raises on them, and the
+    sheet's own error handler would then re-raise writing the message, so
+    one stray "\\x0b" took out the whole workbook), whitespace collapsed,
+    length capped."""
+    text = " ".join(_XLSX_ILLEGAL_CHARS_RE.sub("", str(raw or "")).split())
+    return text if len(text) <= limit else text[: limit - 3].rstrip() + "..."
+
+
+def _finite_count(val: Any) -> float:
+    """A non-negative finite number from an upload field, else 0 (NaN/inf
+    would print "nan" or raise in int())."""
+    num = _safe_num(val)
+    return num if math.isfinite(num) and num > 0 else 0.0
+
+
 def _client_history_note_text(data: dict) -> str:
     """One-line summary of the client's uploaded campaign history
     (``data["historical_performance"]``, from file_processor
     .parse_historical_data) exactly as provided, or "" when the plan carries
     none. Spend is printed without a currency symbol: the upload declares no
     currency, and none may be assumed. User-supplied names (files,
-    platforms) never lead the text, so the cell cannot start with "="."""
+    platforms) are sanitised (:func:`_upload_name`) and never lead the text,
+    so the cell cannot start with "="."""
     hist = data.get("historical_performance")
     if not isinstance(hist, dict):
         return ""
     platforms = hist.get("platforms")
     names = (
-        [str(p).strip() for p in platforms if str(p).strip()]
+        [n for n in (_upload_name(p) for p in platforms) if n]
         if isinstance(platforms, dict)
         else []
     )
-    apps = int(_safe_num(hist.get("total_applications")))
-    hires = int(_safe_num(hist.get("total_hires")))
-    spend = _safe_num(hist.get("total_spend"))
+    apps = int(_finite_count(hist.get("total_applications")))
+    hires = int(_finite_count(hist.get("total_hires")))
+    spend = _finite_count(hist.get("total_spend"))
     if not names and not (apps or hires or spend):
         return ""
     parts: list[str] = []
@@ -10002,9 +10095,11 @@ def _client_history_note_text(data: dict) -> str:
     if spend:
         parts.append(f"reported spend {spend:,.0f} (in the upload's own currency)")
     files = [
-        str(f).strip()
-        for f in (hist.get("source_files") or [])
-        if isinstance(f, str) and f.strip()
+        n
+        for n in (
+            _upload_name(f) for f in (hist.get("source_files") or []) if isinstance(f, str)
+        )
+        if n
     ]
     text = ", ".join(parts)
     if files:

@@ -58,6 +58,35 @@ def _cells(ws):
 # ---------------------------------------------------------------------------
 # B. client name casing in the location-plausibility table
 # ---------------------------------------------------------------------------
+def test_client_history_note_survives_hostile_upload_names():
+    """A control character in an uploaded file/platform name used to raise
+    inside openpyxl, and the sheet's error handler re-raised writing the
+    message: the whole workbook failed (verifier, 2026-10-16)."""
+    data = {
+        "client_name": "Acme",
+        "budget": "$90,000",
+        "locations": ["Dallas, TX"],
+        "roles": ["Cook"],
+        "historical_performance": {
+            "platforms": {"In\x0bdeed": {}, "=HYPERLINK(1)": {}},
+            "total_spend": float("nan"),
+            "total_hires": float("inf"),
+            "total_applications": 400,
+            "source_files": ["hist\x01ory.csv"],
+        },
+    }
+    raw = excel_v2.generate_excel_v2(copy.deepcopy(data))
+    ws = load_workbook(io.BytesIO(raw))["Sources & Confidence"]
+    note = next(
+        ws.cell(row=c.row, column=c.column + 2).value
+        for c in _cells(ws)
+        if c.value == "Client history (as provided)"
+    )
+    # Counts lead the cell (never "="), names are cleaned, NaN/inf dropped.
+    assert note.startswith("2 platforms (Indeed, =HYPERLINK(1))"), note
+    assert "nan" not in note and "inf" not in note and "history.csv" in note, note
+
+
 def test_location_warnings_print_the_display_client_name():
     raw_name = "THE HERSHEY COMPANY"
     data = {
@@ -135,34 +164,71 @@ def test_situation_card_and_role_breakdown_show_one_median_per_role():
         "target_roles": list(_ROLES),
         "campaign_goals": ["volume_hiring"],
         "_synthesized": {"salary_intelligence": intel, "per_role_salaries": per_role},
+        # BLS-style enrichment for the same role: the "Median Salary" KPI
+        # tile (slide 2) and slide 6's insight printed this raw figure.
+        "_enriched": {"salary_data": {"Software Engineer": {"median": 150_000}}},
     }
     gold_standard.apply_all_quality_gates(data)
     gold_median, _est = ppt._role_breakdown_median_salary(
         data["_gold_standard"], "Software Engineer"
     )
     assert gold_median and abs(gold_median - 150_000) > 5_000  # city-adjusted
+    want = str(round(gold_median / 1000))
 
     prs = Presentation(io.BytesIO(ppt.generate_pptx(data)))
-    texts = [
-        sh.text_frame.text
+    slides = [
+        [sh.text_frame.text for sh in slide.shapes if sh.has_text_frame]
         for slide in prs.slides
-        for sh in slide.shapes
-        if sh.has_text_frame
     ]
+    texts = [t for st in slides for t in st]
     situation = [t for t in texts if "median" in t and "Software Engineer" in t]
     assert situation, "slide 2 Salary Range line missing"
-    m = re.search(r"\$(\d+)K median", situation[0])
-    assert m, situation[0]
+    figures = re.findall(r"\$(\d+)K median", " ".join(situation))
+    assert figures and set(figures) == {want}, (situation, gold_median)
+    tiles = [st[st.index("Median Salary") - 1] for st in slides if "Median Salary" in st]
+    assert tiles and all(t == f"${want}K" for t in tiles), (tiles, gold_median)
     breakdown = None
-    for slide in prs.slides:
-        st = [sh.text_frame.text for sh in slide.shapes if sh.has_text_frame]
+    for st in slides:
         if "Channel Emphasis" in st and "Software Engineer" in st:
             breakdown = st[st.index("Software Engineer") + 2]
     assert breakdown, "slide 7 Role Breakdown missing"
     m7 = re.search(r"\$(\d+)K", breakdown)
-    assert m7, breakdown
-    assert m.group(1) == m7.group(1), (situation[0], breakdown)
-    assert m.group(1) == str(round(gold_median / 1000)), (situation[0], gold_median)
+    assert m7 and m7.group(1) == want, (breakdown, gold_median)
+    # Nothing in the deck prices this role at the raw $150K figure.
+    assert not [t for t in texts if "$150K" in t], [t for t in texts if "$150K" in t]
+
+
+def test_default_us_only_region_never_prints_a_bls_median_in_local_currency():
+    """A London plan left on the wizard's default "US Only" region, with a
+    BLS enrichment salary and no published local band, printed "£61K
+    median" on slides 2 and 6 -- a US dollar figure in pounds (verifier)."""
+    data = {
+        "client_name": "Barclays Test",
+        "industry": "hospitality",
+        "budget": "£150,000",
+        "plan_currency": "GBP",
+        "campaign_duration": "6 months",
+        "campaign_start_month": 1,
+        "target_region": "us_only",
+        "locations": ["London, UK"],
+        "roles": ["Line Cook"],
+        "target_roles": ["Line Cook"],
+        "_enriched": {"salary_data": {"Line Cook": {"median": 61_000, "source": "BLS OES"}}},
+    }
+    gold_standard.apply_all_quality_gates(data)
+    prs = Presentation(io.BytesIO(ppt.generate_pptx(data)))
+    text = " ".join(
+        sh.text_frame.text for s in prs.slides for sh in s.shapes if sh.has_text_frame
+    )
+    assert "61K" not in text, [t for t in text.split("  ") if "61K" in t]
+    # The resolver itself: no US market -> no enrichment fallback at all.
+    assert ppt._deck_role_median(data, "Line Cook", {"median": 61_000}) == (0.0, False)
+    # A US-market plan's BLS figure is always US$-marked on a non-USD plan.
+    us = {"locations": ["Dallas, TX"], "_gold_standard": {}}
+    assert ppt._deck_role_median(us, "Line Cook", {"median": 61_000, "source": "BLS OES"}) == (
+        61_000.0,
+        True,
+    )
 
 
 def test_role_salary_rows_never_average_two_currencies():
@@ -227,6 +293,38 @@ def test_non_us_plan_has_no_us_labelled_stat_rows():
     assert not leaked, leaked
     # Global lines of the same section still print.
     assert any("Hiring Growth: 88% year-on-year growth" in v for _c, v in cells)
+
+
+def test_us_dataset_groups_go_whole_and_default_region_does_not_mask_them():
+    # The wizard defaults the region to "US Only"; a London/Bengaluru plan
+    # left on it is still a plan with no US market.
+    data = _workforce_plan(["Bengaluru, Karnataka, India"], "INR", "₹25,000,000")
+    data["target_region"] = "us_only"
+    cells = _market_intelligence_text(data)
+    leaked = [
+        (coord, v[:160]) for coord, v in cells
+        if _US_LABEL.search(v) and not _US_EXPLAIN.search(v)
+    ]
+    assert not leaked, leaked
+    # remote_work.current_state is the US remote rate and its unlabelled
+    # siblings: omitted whole, not stripped of its label.
+    assert not any("Remained stable between 21-23%" in v for _c, v in cells)
+
+
+def test_explicitly_global_stats_survive_the_us_group_filter():
+    with open(PROJECT_ROOT / "data" / "workforce_trends_intelligence.json", encoding="utf-8") as f:
+        kb = json.load(f)
+    ctv = excel_v2._drop_us_labelled_groups(
+        kb["supply_partner_trends"]["emerging_channels"]["ctv_connected_tv"]
+    )
+    assert "global_smart_tv_households" in ctv["market_size"], ctv
+    assert not any(k.startswith("us_") for k in ctv["market_size"]), ctv
+    cyber = excel_v2._drop_us_labelled_groups(kb["job_type_trends"]["growing_demand"])
+    assert "unfilled_jobs_global" in cyber["cybersecurity"], cyber["cybersecurity"]
+    assert "us_openings_2025" not in cyber["cybersecurity"]
+    assert "current_state" not in excel_v2._drop_us_labelled_groups(
+        kb["job_type_trends"]["remote_work"]
+    )
 
 
 def test_mixed_plan_keeps_us_labelled_stats_for_its_us_market():

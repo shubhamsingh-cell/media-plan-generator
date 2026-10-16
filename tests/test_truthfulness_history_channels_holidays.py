@@ -182,6 +182,23 @@ def test_unticked_niche_boards_ship_no_niche_board_surfaces(no_niche_wb):
     assert "Niche Boards" not in qi
 
 
+def test_partial_api_dict_deselects_like_the_funding_gate():
+    # app.py's _apply_channel_selection disables niche boards for this
+    # input (absent keys are not "off"), so no surface may recommend them.
+    _d, wb = _workbook(_plan(channel_categories={"niche_boards": False}))
+    assert "Niche Board Matching" not in wb.sheetnames
+    # Every wizard toggle off funds the full mix, so nothing is deselected.
+    all_off = {k: False for k in gold_standard._WIZARD_CHANNEL_CATEGORIES}
+    _d, wb_off = _workbook(_plan(channel_categories=all_off))
+    assert "Niche Board Matching" in wb_off.sheetnames
+    # An API dict with the six core toggles off and no apac/emea keys is
+    # also "everything off" (app.py then funds the full mix).
+    six_off = {k: False for k in gold_standard._CORE_CHANNEL_CATEGORIES}
+    assert gold_standard.deselected_channel_categories(
+        {"channel_categories": six_off}
+    ) == frozenset()
+
+
 def test_selected_or_untouched_niche_boards_keep_the_sheet():
     _d, wb_on = _workbook(_plan())
     assert "Niche Board Matching" in wb_on.sheetnames
@@ -249,6 +266,11 @@ def test_non_us_plans_print_no_us_holidays():
     # not appear on a Canada-only plan (2026-10-16 sweep, x_canada_cad F73).
     canada = _gated(_plan(locations=["Toronto, ON, Canada", "Vancouver, BC, Canada"]))
     assert not [e for e in _calendar_text(canada) if _US_HOLIDAY.search(e)]
+
+    # The wizard's region select defaults to "US Only" (app.py fills a
+    # missing region with it); a London plan left on it has no US market.
+    default_region = _gated(_plan(locations=["London, UK"], target_region="us_only"))
+    assert not [e for e in _calendar_text(default_region) if _US_HOLIDAY.search(e)]
 
 
 def test_us_plan_keeps_us_holidays_unlabelled():

@@ -3775,10 +3775,13 @@ def deselected_channel_categories(data: Any) -> frozenset[str]:
 
     Same convention as app.py's funding gate (``_apply_channel_selection``):
     only an explicit ``False`` -- or the stringified ``"False"`` the old
-    request sanitizer produced -- is an off; an absent/omitted dict means
-    "no selection" (Nova's recommended mix). Every toggle off is also "no
-    selection": the funding gate and the deck's ``_selected_channels`` both
-    fall back to the full mix then, so nothing counts as deselected.
+    request sanitizer produced -- is an off; an absent key is not, and an
+    absent/omitted dict means "no selection" (Nova's recommended mix), so an
+    API caller's partial ``{"niche_boards": False}`` drops niche boards
+    exactly as funding does. Every wizard toggle off is "no selection": the
+    funding gate (nothing left to fund) and the deck's
+    ``_selected_channels`` both fall back to the full mix then, so nothing
+    counts as deselected.
     """
     cats = data.get("channel_categories") if isinstance(data, dict) else None
     if not isinstance(cats, dict) or not cats:
@@ -3788,9 +3791,33 @@ def deselected_channel_categories(data: Any) -> frozenset[str]:
         for k, v in cats.items()
         if v is False or (isinstance(v, str) and v.strip().lower() == "false")
     }
-    if len(off) == len(cats):
+    # "Everything off" -- every key sent is off and the core six toggles are
+    # among them (an API dict without the apac/emea keys counts too).
+    if off == set(cats) and _CORE_CHANNEL_CATEGORIES <= off:
+        return frozenset()
+    if _WIZARD_CHANNEL_CATEGORIES <= off:
         return frozenset()
     return frozenset(off)
+
+
+# The wizard's channel toggles (templates/partials/index/body_app_js.html
+# NOVA_CHANNEL_TOGGLES); a payload with every one off funds the full mix.
+_WIZARD_CHANNEL_CATEGORIES: frozenset[str] = frozenset(
+    {
+        "regional_boards",
+        "global_boards",
+        "niche_boards",
+        "social_media",
+        "programmatic_dsp",
+        "employer_branding",
+        "apac_regional",
+        "emea_regional",
+    }
+)
+_CORE_CHANNEL_CATEGORIES: frozenset[str] = _WIZARD_CHANNEL_CATEGORIES - {
+    "apac_regional",
+    "emea_regional",
+}
 
 
 # Role-table channel emphasis -> the wizard channel categories that deliver
@@ -5295,24 +5322,40 @@ def _labelled_us_holidays(events: list[str]) -> list[str]:
     return out
 
 
+def plan_market_presence(data: Any) -> tuple[bool, bool]:
+    """``(has_us_market, has_non_us_market)`` judged from the plan's OWN
+    markets -- each location (and the ``country`` field) resolved by
+    plan_geo -- for content that describes a market (holidays, US-labelled
+    statistics). The wizard's region select defaults to "US Only" and
+    app.py turns a missing region into ``"us_only"``, which plan_geo
+    honours over the locations, so a London-only plan left on the default
+    region read as a US plan (verifier, 2026-10-16). Unresolvable entries
+    ("Remote") are ignored; with nothing resolvable, the plan-level
+    resolver decides (target_region / domestic default)."""
+    if _plan_geo_gs is None or not isinstance(data, dict):  # pragma: no cover
+        return True, False
+    raw = data.get("locations") or []
+    cands = list(raw) if isinstance(raw, (list, tuple)) else [raw]
+    country = data.get("country")
+    if isinstance(country, str) and country.strip():
+        cands.append(country)
+    verdicts = [_plan_geo_gs.location_is_us(c) for c in cands]
+    if any(v is not None for v in verdicts):
+        return True in verdicts, False in verdicts
+    has_us = _plan_geo_gs.plan_has_us_market(data)
+    return has_us, not _plan_geo_gs.is_us_plan(data)
+
+
 def _us_holiday_mode(data: dict) -> str:
     """Per-country holiday gate. US holidays belong to US markets only:
     ``"keep"`` for an all-US plan, ``"label"`` (attributed to the US) when
     US and non-US markets mix, ``"drop"`` when the plan has no US market.
     No other country's holidays are listed -- the repo holds no structured
     holiday dataset for them -- so nothing is ever borrowed across borders."""
-    if _plan_geo_gs is None:  # pragma: no cover - plan_geo ships with the repo
-        return "keep"
-    if not _plan_geo_gs.plan_has_us_market(data):
+    has_us, has_non_us = plan_market_presence(data)
+    if not has_us:
         return "drop"
-    locs = data.get("locations") or []
-    if not isinstance(locs, (list, tuple)):
-        locs = [locs]
-    # Only a location that resolves definitively outside the US makes the
-    # plan mixed; an unresolvable one ("Remote") does not.
-    if any(_plan_geo_gs.location_is_us(loc) is False for loc in locs):
-        return "label"
-    return "keep"
+    return "label" if has_non_us else "keep"
 
 
 def _gate_us_holidays(events: list[str], mode: str) -> list[str]:
