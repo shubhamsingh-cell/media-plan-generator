@@ -397,7 +397,9 @@ _EXPLICIT_ALL_CAPS: list[tuple[str, str]] = [
     # ...while multi-word / longer shouted names keep per-word casing
     ("BIG LOTS", "Big Lots"),
     ("HOME DEPOT", "Home Depot"),
-    ("AWP SAFETY", "Awp Safety"),
+    # 2026-10-16: AWP is the client's acronym wherever it sits in the name;
+    # SAFETY is the word. (This row used to expect the bug, "Awp Safety".)
+    ("AWP SAFETY", "AWP Safety"),
 ]
 
 _EXPLICIT_MIXED: list[tuple[str, str]] = [
@@ -607,6 +609,180 @@ class TestCallSitesAgreeOnTheFixedName:
         findings = _gate("THE HERSHEY COMPANY", "Media plan for THE Hershey Company")
         assert len(findings) == 1
         assert findings[0]["code"] == "client_name_wrong_casing"
+
+
+# ---------------------------------------------------------------------------
+# 2026-10-16 (client report): inside a LONGER all-caps name, a token of <= 4
+# letters that is not an English word is the client's acronym and keeps its
+# caps. Verified before the fix: "AWP SAFETY" -> "Awp Safety",
+# "RTI INTERNATIONAL" -> "Rti International", "EXXONMOBIL" -> "Exxonmobil".
+# Every expected string is typed by hand; none is derived by calling
+# client_display_name.
+# ---------------------------------------------------------------------------
+_SHORT_TOKEN_CASES: list[tuple[str, str]] = [
+    # the three verified defects
+    ("AWP SAFETY", "AWP Safety"),
+    ("RTI INTERNATIONAL", "RTI International"),
+    ("EXXONMOBIL", "ExxonMobil"),
+    # must not regress
+    ("THE HERSHEY COMPANY", "The Hershey Company"),
+    ("AT&T", "AT&T"),
+    ("H&M", "H&M"),
+    # the acronym keeps its caps wherever it sits in the name
+    ("SAFETY AWP", "Safety AWP"),
+    ("RTI AWP GROUP", "RTI AWP Group"),
+    ("AWP SAFETY LLC", "AWP Safety LLC"),
+    ("RTI INTERNATIONAL, INC.", "RTI International, Inc."),
+    ("ACME-AWP HOLDINGS", "Acme-AWP Holdings"),
+    ("SCALE AI", "Scale AI"),
+    # <= 4-letter ENGLISH WORDS and common name tokens are still words
+    ("NEW YORK LIFE", "New York Life"),
+    ("BIG LOTS", "Big Lots"),
+    ("BEST BUY", "Best Buy"),
+    ("RITE AID", "Rite Aid"),
+    ("ROSS STORES", "Ross Stores"),
+    ("SAM'S CLUB", "Sam's Club"),
+    ("LOWE'S HOME IMPROVEMENT", "Lowe's Home Improvement"),
+    ("ST. JUDE MEDICAL", "St. Jude Medical"),
+    ("TEAM HEALTH", "Team Health"),
+    ("GOLD STAR FOODS", "Gold Star Foods"),
+    ("ACME PTY LTD", "Acme Pty Ltd"),
+    ("ACME CORP", "Acme Corp"),
+    ("ACME INC", "Acme Inc"),
+    # acronyms already known keep working inside longer names
+    ("IBM CONSULTING", "IBM Consulting"),
+    ("ADP TOTALSOURCE", "ADP Totalsource"),
+    # longer tokens are never acronyms, however unfamiliar
+    ("SAFETY INTERNATIONAL", "Safety International"),
+    ("KRONOS INCORPORATED", "Kronos Incorporated"),
+]
+
+# Camel-case brands whose official spelling no rule can derive from an
+# all-caps input. Each spelling was read off the company's own site
+# (2026-10-16): corporate.exxonmobil.com, adventhealth.com,
+# conocophillips.com, metlife.com, manpowergroup.com, davita.com,
+# commonspirit.org, ziprecruiter.com.
+_CAMEL_BRAND_CASES: list[tuple[str, str]] = [
+    ("EXXONMOBIL", "ExxonMobil"),
+    ("EXXONMOBIL CORPORATION", "ExxonMobil Corporation"),
+    ("exxonmobil", "ExxonMobil"),
+    ("ExxonMobil", "ExxonMobil"),
+    ("ADVENTHEALTH", "AdventHealth"),
+    ("CONOCOPHILLIPS", "ConocoPhillips"),
+    ("METLIFE, INC.", "MetLife, Inc."),
+    ("MANPOWERGROUP", "ManpowerGroup"),
+    ("DAVITA INC.", "DaVita Inc."),
+    ("COMMONSPIRIT HEALTH", "CommonSpirit Health"),
+    ("ZIPRECRUITER", "ZipRecruiter"),
+]
+
+
+class TestShortNonWordTokensKeepCaps:
+    @pytest.mark.parametrize(
+        "raw,expected", _SHORT_TOKEN_CASES, ids=[c[0] for c in _SHORT_TOKEN_CASES]
+    )
+    def test_case(self, raw, expected):
+        assert fmt.client_display_name(raw) == expected
+
+    @pytest.mark.parametrize(
+        "raw,expected", _SHORT_TOKEN_CASES, ids=[c[0] for c in _SHORT_TOKEN_CASES]
+    )
+    def test_idempotent_and_expectation_is_a_fixed_point(self, raw, expected):
+        once = fmt.client_display_name(raw)
+        assert fmt.client_display_name(once) == once
+        assert fmt.client_display_name(expected) == expected
+
+    def test_mixed_case_input_is_still_kept_as_typed(self):
+        # the acronym rule is for raw ALL-CAPS data only
+        assert fmt.client_display_name("Awp Safety") == "Awp Safety"
+        assert fmt.client_display_name("AWP Safety") == "AWP Safety"
+        assert fmt.client_display_name("Rti International") == "Rti International"
+
+    def test_lowercase_words_of_a_mixed_name_are_not_acronyms(self):
+        # repaired lowercase words are Title Case; only shouted data is
+        # given the benefit of the acronym doubt
+        assert fmt.client_display_name("awp safety") == "Awp Safety"
+
+    def test_repair_that_leaves_only_capitals_keeps_the_acronym(self):
+        # 'THE AWP SAFETY llc' repairs to all capitals and is re-cased as
+        # shouted data; the result must be a fixed point with AWP intact
+        once = fmt.client_display_name("THE AWP SAFETY llc")
+        assert once == "The AWP Safety LLC"
+        assert fmt.client_display_name(once) == once
+
+    def test_unfamiliar_accented_short_token_is_not_treated_as_acronym(self):
+        # the word list is ASCII English; a non-ASCII token cannot be judged
+        # and falls back to Title Case
+        assert fmt.client_display_name("ÉTÉ HOME") == "Été Home"
+
+    def test_known_acronyms_are_never_on_the_word_list(self):
+        # a real client acronym on the word list would be silently title-cased
+        for acronym in (
+            "AWP",
+            "RTI",
+            "ADP",
+            "AIG",
+            "AMD",
+            "AOL",
+            "BAE",
+            "BDO",
+            "EMC",
+            "FIS",
+            "HBO",
+            "MCI",
+            "NBC",
+            "PNC",
+            "UAB",
+            "UBS",
+            "UHS",
+            "UCF",
+            "USC",
+        ):
+            assert fmt._is_acronym(acronym), acronym
+
+    def test_word_list_is_clean_lowercase_ascii(self):
+        assert len(fmt._SHORT_WORDS) > 500
+        for word in fmt._SHORT_WORDS:
+            assert word.isascii() and word.isalpha() and word.islower(), word
+            assert 2 <= len(word) <= 4, word
+
+    def test_gate_accepts_the_corrected_names(self):
+        assert _gate("AWP SAFETY", "Media plan for AWP Safety | AWP Safety") == []
+        assert _gate("RTI INTERNATIONAL", "RTI International") == []
+
+    def test_gate_flags_the_old_mangled_names(self):
+        findings = _gate("AWP SAFETY", "Media plan for Awp Safety")
+        assert len(findings) == 1
+        assert findings[0]["code"] == "client_name_wrong_casing"
+        findings = _gate("RTI INTERNATIONAL", "Media plan for Rti International")
+        assert len(findings) == 1
+
+    def test_deck_and_workbook_helpers_agree(self):
+        import excel_v2
+        import ppt_generator
+
+        for raw, expected in (
+            ("AWP SAFETY", "AWP Safety"),
+            ("RTI INTERNATIONAL", "RTI International"),
+            ("EXXONMOBIL", "ExxonMobil"),
+        ):
+            assert ppt_generator._proper_client_name(raw) == expected
+            assert excel_v2._proper_client_name(raw) == expected
+
+
+class TestCamelCaseBrands:
+    @pytest.mark.parametrize(
+        "raw,expected", _CAMEL_BRAND_CASES, ids=[c[0] for c in _CAMEL_BRAND_CASES]
+    )
+    def test_case(self, raw, expected):
+        assert fmt.client_display_name(raw) == expected
+
+    @pytest.mark.parametrize(
+        "raw,expected", _CAMEL_BRAND_CASES, ids=[c[0] for c in _CAMEL_BRAND_CASES]
+    )
+    def test_idempotent(self, raw, expected):
+        once = fmt.client_display_name(raw)
+        assert fmt.client_display_name(once) == once
 
 
 if __name__ == "__main__":
