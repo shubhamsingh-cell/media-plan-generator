@@ -231,6 +231,18 @@ def _today() -> datetime.date:
     return datetime.date.today()
 
 
+def _xl_round(value: float, digits: int = 0) -> float:
+    """Excel's ROUND: halves round away from zero (Python's round() takes them
+    to the even neighbour, so a cached value could differ from the formula)."""
+    from decimal import ROUND_HALF_UP, Decimal
+
+    return float(
+        Decimal(repr(float(value))).quantize(
+            Decimal(1).scaleb(-digits), rounding=ROUND_HALF_UP
+        )
+    )
+
+
 def _num(value: Any) -> float:
     try:
         out = float(value)
@@ -611,6 +623,9 @@ def build_model(data: dict, today: Optional[datetime.date] = None) -> Dict[str, 
         "end": end,
         "weeks": weeks,
         "weeks_truncated": weeks_truncated,
+        # Active days / 7: the divisor for every "per week" average (a 2-week
+        # campaign that starts mid-week has 3 week rows but 2.0 weeks).
+        "effective_weeks": sum(w["days"] for w in weeks) / 7.0,
         "weeks_basis": weeks_basis,
         "weights_from_calendar": weights_ok,
         "total_budget": total,
@@ -701,7 +716,7 @@ def ladder(model: Dict[str, Any]) -> List[Dict[str, Any]]:
     """The three budget-ladder steps with defaults applied."""
     weeks = model["weeks"]
     total = model["total_budget"]
-    n = len(weeks) or 1
+    n = model["effective_weeks"] or 1.0
     cpa = model["cpa_range"]
     rows = []
     for label, factor, basis in (
@@ -1120,6 +1135,7 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
     cpa = model["cpa_range"]
     weeks = model["weeks"]
     n = len(weeks)
+    eff = model["effective_weeks"] or 1.0
     ncol = 12 if cpa else 10
     sh.widths(
         {
@@ -1267,7 +1283,7 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
     )
     # campaign weeks: computed
     weeks_row = row
-    sh.put(row, 2, "Campaign weeks", font=x._FONT_BODY_BOLD)
+    sh.put(row, 2, "Campaign weeks (active days / 7)", font=x._FONT_BODY_BOLD)
     row += 1  # value written after the table exists
     row += 1
 
@@ -1343,7 +1359,7 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
         headers += ["Apply starts, low", "Apply starts, high", "Weekly goal"]
     else:
         headers += ["Weekly goal (enter)"]
-    headers += ["Actual apply starts (enter)", "Status"]
+    headers += ["Actual apply starts (enter)", "Status", "Active days"]
     row = sh.header(row, headers, 2)
     goal_c = 10 if cpa else 8
     act_c, stat_c = goal_c + 1, goal_c + 2
@@ -1453,18 +1469,37 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
         fill=x._FILL_OFF_WHITE,
     )
     sh.put(total_row, stat_c, None, fill=x._FILL_OFF_WHITE)
+    dc = stat_c + 1
+    dl = _col(dc)
+    for i, w in enumerate(weeks):
+        sh.inp(first + i, dc, w["days"], ints)
+    sh.formula(
+        total_row,
+        dc,
+        f"=SUM({dl}{first}:{dl}{last})",
+        sum(w["days"] for w in weeks),
+        fmt=ints,
+        font=x._FONT_BODY_BOLD,
+        fill=x._FILL_OFF_WHITE,
+    )
+    sh.widths({dc: 12})
     sh.status_rules(f"{_col(stat_c)}{first}:{_col(stat_c)}{last}")
     ws._nova_freeze_row = "C3"
 
     # campaign weeks value (needs table rows)
     sh.formula(
-        weeks_row, 3, f"=COUNT(C{first}:C{last})", n, fmt=ints, font=x._FONT_BODY_BOLD
+        weeks_row,
+        3,
+        f"=SUM({dl}{first}:{dl}{last})/7",
+        eff,
+        fmt="0.0",
+        font=x._FONT_BODY_BOLD,
     )
     sh.merged(
         weeks_row,
         4,
         8,
-        "Counted from the weekly table; add or remove week rows to change the window.",
+        "Active days in the weekly table divided by 7: a part-week counts as a part. Every per-week average uses this.",
     )
     refs["weeks"] = (3, weeks_row)
 
@@ -1487,14 +1522,14 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
             r,
             4,
             f"={col_letter}{total_row}/{_a(*refs['weeks'])}",
-            camp / n,
+            camp / eff,
             fmt=cur_fmt,
         )
         sh.formula(r, 5, f"={col_letter}{total_row}", camp, fmt=cur_fmt)
         if cpa:
             clo, chi = _a(*refs["cpa_low"]), _a(*refs["cpa_high"])
-            sh.formula(r, 6, f"=D{r}/{chi}", camp / n / round(cpa[1], 2), fmt=ints)
-            sh.formula(r, 7, f"=D{r}/{clo}", camp / n / round(cpa[0], 2), fmt=ints)
+            sh.formula(r, 6, f"=D{r}/{chi}", camp / eff / round(cpa[1], 2), fmt=ints)
+            sh.formula(r, 7, f"=D{r}/{clo}", camp / eff / round(cpa[0], 2), fmt=ints)
             sh.formula(r, 8, f"=E{r}/{chi}", camp / round(cpa[1], 2), fmt=ints)
             sh.formula(r, 9, f"=E{r}/{clo}", camp / round(cpa[0], 2), fmt=ints)
 
@@ -1687,7 +1722,7 @@ def _build_tiers(
     minf_ref = _xref(SHEET_PACING, *prefs["min_factor"])
     amber_ref = _xref(SHEET_PACING, *prefs["amber"])
     green_ref = _xref(SHEET_PACING, *prefs["green"])
-    n_weeks = len(model["weeks"])
+    n_weeks = model["effective_weeks"] or 1.0
 
     row = _title_block(
         sh,
@@ -1776,7 +1811,7 @@ def _build_tiers(
         )
         weekly = p["budget"] / n_weeks
         sh.formula(r, 8, f"=D{r}/{weeks_ref}", weekly, fmt=cur_fmt, fill=alt)
-        minimum = round(weekly * DEFAULT_MIN_TEST_FACTOR)
+        minimum = _xl_round(weekly * DEFAULT_MIN_TEST_FACTOR)
         sh.formula(
             r, 9, f"=ROUND(H{r}*{minf_ref},0)", minimum, fmt=cur_fmt, as_input=True
         )
@@ -2907,6 +2942,7 @@ def _money(ppt: Any, value: float) -> str:
 
 def _slide_pacing(prs: Any, data: dict, model: Dict[str, Any], ppt: Any) -> None:
     n = len(model["weeks"])
+    eff = model["effective_weeks"] or 1.0
     steps = ladder(model)
     cpa = model["cpa_range"]
     rec = steps[1]
@@ -2922,7 +2958,7 @@ def _slide_pacing(prs: Any, data: dict, model: Dict[str, Any], ppt: Any) -> None
     for s in steps:
         row = [s["step"], _money(ppt, s["weekly"]), _money(ppt, s["campaign"])]
         if cpa:
-            row.append(format_range(s["starts_low"] / n, s["starts_high"] / n))
+            row.append(format_range(s["starts_low"] / eff, s["starts_high"] / eff))
         row.append(s["basis"])
         rows.append(row)
     bottom = _table(slide, ppt, _L, 1.5, widths, headers, rows, row_h=0.62)
@@ -2990,7 +3026,7 @@ def _slide_tiers(prs: Any, data: dict, model: Dict[str, Any], ppt: Any) -> None:
     from pptx.util import Inches
 
     pubs = tiered_publishers(model)
-    n = len(model["weeks"]) or 1
+    n = model["effective_weeks"] or 1.0
     sub = f"Appendix: {len(pubs)} funded publishers in three launch tiers; Weekly Pacing governs total spend"
     slide = _slide_base(prs, ppt, "Publisher Tiers & Gates", sub)
     heads = (
@@ -3017,7 +3053,7 @@ def _slide_tiers(prs: Any, data: dict, model: Dict[str, Any], ppt: Any) -> None:
                 color=ppt.MUTED_TEXT,
             )
         for k, p in enumerate(shown):
-            weekly_min = round(p["budget"] / n * DEFAULT_MIN_TEST_FACTOR)
+            weekly_min = _xl_round(p["budget"] / n * DEFAULT_MIN_TEST_FACTOR)
             _line(
                 slide,
                 ppt,

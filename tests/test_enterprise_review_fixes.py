@@ -372,3 +372,76 @@ def test_results_screen_shows_the_enterprise_deck_note():
     from tests.wizard_js_harness import APP_JS
 
     assert "res.enterprise_note" in APP_JS.read_text(encoding="utf-8")
+
+
+# -- round 3: clear-form order, per-week averages, Excel rounding ---------------
+def test_clear_form_resets_the_enterprise_section_before_anything_saves():
+    from tests.test_wizard_clear_cancel_jobgone import _DOM_JS, _clear_form_script
+    from tests.wizard_js_harness import run_node
+
+    body = (
+        _enterprise_js()
+        + """
+['enterpriseEnabled','enterpriseWeekStart','enterpriseSystemOfRecord','enterpriseLockDay',
+ 'enterpriseSetupSla','enterpriseFields','enterpriseGroup'].forEach(function (id) {
+  ELS[id] = ROOT.appendChild(mkEl(id)); });
+ELS.enterpriseEnabled.checked = true; ELS.enterpriseSystemOfRecord.value = 'client ATS';
+ELS.enterpriseFields.hidden = false;
+var SAVED = [];
+function clearNaicsSelection() { SAVED.push(JSON.parse(JSON.stringify(novaEnterpriseState()))); }
+function saveFormState() { SAVED.push(JSON.parse(JSON.stringify(novaEnterpriseState()))); }
+function _clearFieldError() {}
+clearFormState();
+process.stdout.write(JSON.stringify({saved: SAVED}));
+"""
+    )
+    got = run_node(_clear_form_script(body))
+    assert got["saved"], "nothing saved during clear"
+    assert all(
+        s["on"] is False and s["systemOfRecord"] == "" for s in got["saved"]
+    ), got
+
+
+def test_recommended_weekly_is_per_full_week_not_per_week_row():
+    plan = make_plan(weeks=2, month=4, campaign_duration="2 weeks")  # 14 active days
+    model = ep.build_model(plan, TODAY)
+    assert model["effective_weeks"] == pytest.approx(2.0)
+    rec = ep.ladder(model)[1]
+    assert rec["weekly"] == pytest.approx(150_000 / 2.0)  # was 150000 / 3 rows
+    wb = build_wb(plan, data_only=True)
+    ws = wb[ep.SHEET_PACING]
+    row = find_row(ws, "Recommended weekly")
+    assert ws.cell(row=row, column=4).value == pytest.approx(75_000)
+    assert ws.cell(
+        row=find_row(ws, "Campaign weeks (active days / 7)"), column=3
+    ).value == pytest.approx(2.0)
+    live = build_wb(plan)
+    ev = Evaluator(live)
+    assert ev.cell(ep.SHEET_PACING, f"D{row}") == pytest.approx(75_000)
+    # tiers: average weekly spend uses the same denominator
+    tiers = live[ep.SHEET_TIERS]
+    hdr = find_row(tiers, "Publisher")
+    first = ev.cell(ep.SHEET_TIERS, f"H{hdr + 1}")
+    assert first == pytest.approx(tiers.cell(row=hdr + 1, column=4).value / 2.0)
+
+
+def test_excel_round_is_half_up_not_bankers():
+    assert [ep._xl_round(v, 0) for v in (0.5, 1.5, 2.5, 3.5, -2.5)] == [1, 2, 3, 4, -3]
+    plan = make_plan(weeks=8, month=11)  # 8 whole weeks: weekly = budget / 8
+    plan["_budget_allocation"] = copy.deepcopy(plan["_budget_allocation"])
+    plan["_budget_allocation"]["channel_allocations"]["Indeed"][
+        "dollar_amount"
+    ] = 19752.0
+    data_wb = build_wb(plan, data_only=True)
+    wb = build_wb(plan)
+    ev = Evaluator(wb)
+    ws = wb[ep.SHEET_TIERS]
+    hdr = find_row(ws, "Publisher")
+    row = next(
+        r
+        for r in range(hdr + 1, hdr + 10)
+        if ws.cell(row=r, column=2).value == "Indeed"
+    )
+    cached = data_wb[ep.SHEET_TIERS].cell(row=row, column=9).value
+    assert ev.cell(ep.SHEET_TIERS, f"I{row}") == 1235  # 2469 * 0.5 = 1234.5 -> 1235
+    assert cached == 1235

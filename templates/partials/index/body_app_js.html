@@ -1417,6 +1417,9 @@
         el.value = "";
       }
     });
+    // Reset the enterprise section FIRST: clearNaicsSelection() saves the form,
+    // and a save before the reset would put the old section back on reload.
+    if (typeof novaEnterpriseReset === "function") novaEnterpriseReset();
     selectedIndustry = null;
     clearNaicsSelection();
     locations = [];
@@ -1445,7 +1448,6 @@
         .querySelectorAll('input[name="' + name + '"]')
         .forEach((cb) => (cb.checked = cb.defaultChecked));
     });
-    if (typeof novaEnterpriseReset === "function") novaEnterpriseReset();
     selectedJobCategories = [];
     document
       .querySelectorAll(".job-cat-card.selected")
