@@ -14,6 +14,10 @@ at all stops verifying (that is how a leaked key is actually retired).
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import json
 import secrets
 import uuid
 
@@ -33,7 +37,7 @@ _KEY_ENVS = ("SESSION_SIGNING_SECRET", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_KE
 
 @pytest.fixture(autouse=True)
 def _clean_key_env(monkeypatch) -> None:
-    for name in _KEY_ENVS:
+    for name in (*_KEY_ENVS, "SUPABASE_ANON_KEY"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -121,9 +125,6 @@ def test_blank_and_duplicate_keys_do_not_widen_acceptance(monkeypatch) -> None:
     monkeypatch.setenv("SUPABASE_KEY", key)
     assert spn.verify_slack_download_token(job_id, token)
     # A blank key must never verify a token "signed" with the empty key.
-    import hashlib
-    import hmac
-
     msg = f"nova-slack-plan-download:v1:{job_id}".encode("utf-8")
     empty_key_token = hmac.new(b"", msg, hashlib.sha256).hexdigest()[:32]
     assert not spn.verify_slack_download_token(job_id, empty_key_token)
@@ -214,3 +215,89 @@ def test_link_minted_before_secret_was_set_survives_rotation_over_http(
     status, _h, body = _http_get(live_server, path)
     assert status == 403
     assert b"supabase-copy" not in body
+
+
+def _jwt(role: str) -> str:
+    """A Supabase-shaped JWT (unsigned payload is all the code reads), built at
+    runtime so no secret-shaped literal sits in source."""
+
+    def seg(obj: dict) -> str:
+        raw = json.dumps(obj, separators=(",", ":")).encode("utf-8")
+        return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+    sig = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip("=")
+    return ".".join(
+        (seg({"alg": "HS256", "typ": "JWT"}), seg({"role": role, "ref": "x"}), sig)
+    )
+
+
+def _raw_token(key: str, job_id: str) -> str:
+    msg = f"nova-slack-plan-download:v1:{job_id}".encode("utf-8")
+    return hmac.new(key.encode("utf-8"), msg, hashlib.sha256).hexdigest()[:32]
+
+
+def test_anon_jwt_alone_never_signs_or_verifies(monkeypatch) -> None:
+    job_id = _job_id()
+    anon = _jwt("anon")
+    monkeypatch.setenv("SUPABASE_KEY", anon)
+    assert spn.slack_download_token(job_id) == ""
+    # Someone holding the public key can compute this token; it must not open.
+    assert spn.verify_slack_download_token(job_id, _raw_token(anon, job_id)) is False
+    # With nothing signable, the Slack button falls back to the 24h job link.
+    assert spn.slack_download_url(job_id).endswith(f"/api/jobs/{job_id}")
+
+
+def test_anon_jwt_is_skipped_and_service_key_is_used(monkeypatch) -> None:
+    job_id = _job_id()
+    anon = _jwt("anon")
+    service = _jwt("service_role")
+    monkeypatch.setenv("SUPABASE_KEY", anon)
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", service)
+    token = spn.slack_download_token(job_id)
+    assert token == _raw_token(service, job_id)
+    assert spn.verify_slack_download_token(job_id, token)
+    assert not spn.verify_slack_download_token(job_id, _raw_token(anon, job_id))
+
+
+def test_anon_jwt_in_a_higher_priority_slot_is_still_skipped(monkeypatch) -> None:
+    """Order must not matter: the anon key is excluded wherever it sits."""
+    job_id = _job_id()
+    anon = _jwt("anon")
+    service = _jwt("service_role")
+    monkeypatch.setenv("SESSION_SIGNING_SECRET", anon)
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", service)
+    assert spn.slack_download_token(job_id) == _raw_token(service, job_id)
+    assert not spn.verify_slack_download_token(job_id, _raw_token(anon, job_id))
+
+
+def test_value_equal_to_supabase_anon_key_is_skipped(monkeypatch) -> None:
+    """The /api/config key may be an opaque (non-JWT) publishable key: matched
+    by equality with SUPABASE_ANON_KEY, not by parsing."""
+    job_id = _job_id()
+    public = "sb_publishable_" + secrets.token_hex(12)
+    private = secrets.token_hex(16)
+    monkeypatch.setenv("SUPABASE_ANON_KEY", public)
+    monkeypatch.setenv("SUPABASE_KEY", public)
+    assert spn.slack_download_token(job_id) == ""
+    assert spn.verify_slack_download_token(job_id, _raw_token(public, job_id)) is False
+
+    monkeypatch.setenv("SESSION_SIGNING_SECRET", private)
+    assert spn.slack_download_token(job_id) == _raw_token(private, job_id)
+    assert not spn.verify_slack_download_token(job_id, _raw_token(public, job_id))
+
+
+def test_non_anon_and_malformed_jwts_are_not_treated_as_public(monkeypatch) -> None:
+    job_id = _job_id()
+    for value in (
+        _jwt("service_role"),
+        _jwt("authenticated"),
+        "aaa.bbb.ccc",  # three segments, payload not JSON
+        "only.two",
+        "a.%%%.c",  # undecodable payload
+        "a.W10.c",  # payload is valid JSON but a list, not an object
+        secrets.token_hex(16),
+    ):
+        monkeypatch.setenv("SUPABASE_KEY", value)
+        token = spn.slack_download_token(job_id)
+        assert token == _raw_token(value, job_id), value
+        assert spn.verify_slack_download_token(job_id, token), value

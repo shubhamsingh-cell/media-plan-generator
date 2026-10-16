@@ -14,6 +14,7 @@ Graceful degradation: logs a warning if Slack credentials are missing, never cra
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import json
@@ -69,20 +70,46 @@ _SLACK_LINK_KEY_ENVS = (
 )
 
 
+def _is_public_supabase_key(val: str) -> bool:
+    """True for a Supabase key that is public by design (anon).
+
+    Either the value equals SUPABASE_ANON_KEY (the key /api/config serves to
+    every browser) or it is a JWT whose payload carries role "anon". The
+    payload is only decoded, never verified: this is a "is it public?" test,
+    and anything unparseable is treated as not public.
+    """
+    anon = (os.environ.get("SUPABASE_ANON_KEY") or "").strip()
+    if anon and val == anon:
+        return True
+    parts = val.split(".")
+    if len(parts) != 3:
+        return False
+    try:
+        payload = parts[1] + "=" * (-len(parts[1]) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload.encode("ascii")))
+    except (ValueError, TypeError, UnicodeError):
+        return False
+    return isinstance(claims, dict) and claims.get("role") == "anon"
+
+
 def _slack_link_keys() -> List[bytes]:
     """Every configured link-signing key, in minting-priority order.
 
     Read fresh on every call (never cached at import): a test or a rotated
     secret must not leave a stale key behind. Blank/whitespace values count
-    as unset and a value repeated across env vars is listed once.
+    as unset, a value repeated across env vars is listed once, and a public
+    Supabase key (see _is_public_supabase_key) is never a candidate -- a link
+    signed or verified with a key every browser can read is forgeable by
+    anyone, even if someone parks the anon key in SUPABASE_KEY.
     """
     keys: List[bytes] = []
     for name in _SLACK_LINK_KEY_ENVS:
         val = (os.environ.get(name) or "").strip()
-        if val:
-            key = val.encode("utf-8")
-            if key not in keys:
-                keys.append(key)
+        if not val or _is_public_supabase_key(val):
+            continue
+        key = val.encode("utf-8")
+        if key not in keys:
+            keys.append(key)
     return keys
 
 
@@ -121,9 +148,8 @@ def verify_slack_download_token(job_id: str, token: str) -> bool:
     configured anywhere is rejected -- removing a key from the environment is
     how its links are retired.
 
-    Note for key hygiene: every configured candidate is trusted for
-    verification, so do not leave a PUBLIC key (e.g. a Supabase anon key)
-    in SUPABASE_KEY next to a private signing secret.
+    Public Supabase keys (SUPABASE_ANON_KEY, or any JWT with role "anon")
+    are excluded from the candidate list, so they neither mint nor verify.
     """
     token = (token or "").strip().lower()
     # Shape-check before compare_digest: it raises TypeError on a non-ASCII
