@@ -2170,6 +2170,11 @@ html.lenis body {
 .moment-figure-sub {
   text-wrap: balance;
 }
+/* Moment 5 headline: each phrase is one nowrap span, so `balance` can only
+   break between phrases -- it used to split "Spend / less." mid-thought. */
+.moment-phrase {
+  white-space: nowrap;
+}
 /* Phones: the three outcome tiles share ~311px; a 32px gap forced the labels
    onto two ragged lines. Tighter gap + balanced labels keep the row even. */
 @media (max-width: 480px) {
@@ -2179,6 +2184,20 @@ html.lenis body {
   .outcome-stat-label {
     text-wrap: balance;
   }
+  /* The motion layer's 1.3x transform scales the badge to ~330px without
+     changing its layout box, so on phones it hung ~33px past the tile row
+     on each side and, below 340px, past .story-scroll's overflow: hidden.
+     Unscaled and with 16px side padding it is 238px wide, which fits the
+     247px column the moment has once the CTAs below stop forcing it to
+     overflow its container; nowrap keeps "Plan optimized" on one line. */
+  .outcome-badge {
+    transform: none;
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  .outcome-badge span {
+    white-space: nowrap;
+  }
 }
 .moment-ctas {
   display: flex;
@@ -2186,6 +2205,24 @@ html.lenis body {
   justify-content: center;
   gap: var(--space-4);
   margin-top: var(--space-8);
+}
+/* Side by side the two CTAs need ~430px; below that they wrapped to three
+   lines each ("Generate / Your / Plan"). Stack them full-width instead,
+   keep each label on one line, and trim the 40px side padding so the
+   primary label (184px) keeps ~30px of slack inside the 264px column. */
+@media (max-width: 640px) {
+  .moment-ctas {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .moment-ctas .btn-primary,
+  .moment-ctas .btn-ghost {
+    justify-content: center;
+    white-space: nowrap;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
 }
 
 /* ── SECTION 4: INLINE DEMO — removed (HTML commented out) ── */
