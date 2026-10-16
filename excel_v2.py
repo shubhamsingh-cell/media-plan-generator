@@ -88,6 +88,7 @@ import display_format
 import insight_composer
 import intl_benchmark_lookup
 import us_only_markers
+from market_evidence import market_metric_is_observed, observed_market_provider_ids
 
 # NOTE: aliased -- several functions in this module already use a local
 # variable/parameter literally named `gold_standard` (the enriched
@@ -9135,38 +9136,13 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
             if isinstance(demand, dict):
                 role_name = demand.get("role", demand.get("title", role_key))
 
-                # S50: Extract search interest from Google Trends
                 _search_interest_str = ""
-                _st = demand.get("search_trend", {})
-                if isinstance(_st, dict) and _st.get("current_interest"):
-                    _ci = _st["current_interest"]
-                    _td = _st.get("trend_direction", "")
-                    _tc = _st.get("trend_change_pct")
-                    _search_interest_str = f"{_ci}/100"
-                    if _td:
-                        _search_interest_str += f" ({_td}"
-                        if _tc is not None:
-                            _search_interest_str += f" {_tc:+.1f}%"
-                        _search_interest_str += ")"
-                # KB fallback: match role to GT roles dict
-                if not _search_interest_str and _gt_roles_for_demand:
-                    _rn_str = str(role_name) if role_name else str(role_key)
-                    _rn_lower = _rn_str.lower()
-                    for _gtk, _gtv in _gt_roles_for_demand.items():
-                        if isinstance(_gtv, dict) and (
-                            _rn_lower in _gtk.lower() or _gtk.lower() in _rn_lower
-                        ):
-                            _ci = _gtv.get("current_interest")
-                            _td = _gtv.get("trend_direction", "")
-                            _tc = _gtv.get("trend_change_pct")
-                            if _ci is not None:
-                                _search_interest_str = f"{_ci}/100"
-                                if _td:
-                                    _search_interest_str += f" ({_td}"
-                                    if _tc is not None:
-                                        _search_interest_str += f" {_tc:+.1f}%"
-                                    _search_interest_str += ")"
-                            break
+                if market_metric_is_observed(demand, "search_volume"):
+                    _search_volume = demand.get("search_volume_monthly") or 0
+                    if _search_volume:
+                        _search_interest_str = (
+                            f"{_fmt_number(_search_volume)} monthly searches"
+                        )
 
                 # S4: fuse_job_market_demand() (data_synthesizer.py) writes
                 # "total_postings"/"talent_pool_estimate" -- this table was
@@ -9197,22 +9173,40 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                 # side, looking like a measured (and coincidentally
                 # identical) value instead of "we have no data for this
                 # role". Reuse the same fabrication flag for both columns.
-                _posting_sources = demand.get("posting_sources") or []
-                _is_fabricated_postings = "Industry Benchmark" in _posting_sources
                 values = [
                     role_name if isinstance(role_name, str) else str(role_name),
                     (
                         "Data not available"
-                        if (not _postings_val or _is_fabricated_postings)
+                        if (
+                            not _postings_val
+                            or not market_metric_is_observed(
+                                demand, "job_postings"
+                            )
+                        )
                         else _fmt_number(_postings_val)
                     ),
                     (
                         "Data not available"
-                        if (not _talent_pool_val or _is_fabricated_postings)
+                        if (
+                            not _talent_pool_val
+                            or not market_metric_is_observed(demand, "talent_pool")
+                        )
                         else _fmt_number(_talent_pool_val)
                     ),
-                    _flatten_value(
-                        demand.get("competition", demand.get("competition_level") or "")
+                    (
+                        _flatten_value(
+                            demand.get(
+                                "competition_index",
+                                demand.get(
+                                    "competition",
+                                    demand.get("competition_level") or "",
+                                ),
+                            )
+                        )
+                        if market_metric_is_observed(
+                            demand, "market_temperature"
+                        )
+                        else "Data not available"
                     ),
                     # Temperature and trend are computed FROM the same
                     # fabricated-fallback competition_index/trend string the
@@ -9229,7 +9223,9 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     # gated above. Same guard, same reason.
                     (
                         "Data not available"
-                        if _is_fabricated_postings
+                        if not market_metric_is_observed(
+                            demand, "market_temperature"
+                        )
                         else _flatten_value(
                             demand.get(
                                 "temperature", demand.get("market_temperature") or ""
@@ -9238,12 +9234,12 @@ def _build_sheet_market_intelligence(ws, data: dict, research_mod=None):
                     ),
                     (
                         "Data not available"
-                        if _is_fabricated_postings
+                        if not market_metric_is_observed(demand, "trend")
                         else _flatten_value(
                             demand.get("trend", demand.get("trend_direction") or "")
                         )
                     ),
-                    _search_interest_str or "—",
+                    _search_interest_str or "Data not available",
                 ]
                 row = _write_table_row(ws, row, values, alternate=idx % 2 == 1)
 
@@ -9814,28 +9810,24 @@ def _build_provenance_section(ws, data: dict, row: int) -> int:
         return row
 
 
-def _live_api_confidence(summary: dict) -> "Tuple[int, int, float]":
-    """(sources with data, applicable sources, confidence) for an
-    enrichment_summary, using the ONE enrichment-confidence metric
-    (api_enrichment.enrichment_confidence) -- the number the enrichment log
-    line, app.py's quality warning and plan metadata carry. This row used to
-    compute its own apis_succeeded / apis_called ratio, so the workbook could
-    read "8/18 responded | Medium" beside a plan confidence of 0.80."""
+def _collector_payload_coverage(summary: dict) -> "Tuple[int, int]":
+    """Return payload-return count and applicable collector count.
+
+    This is run coverage only. It intentionally makes no claim about whether
+    those payloads contain observed evidence, freshness, or quality.
+    """
     labels_called = {str(a) for a in (summary.get("apis_called") or [])}
     labels_na = {str(a) for a in (summary.get("apis_not_applicable") or [])}
-    n_ok = len(summary.get("apis_succeeded") or [])
-    n_applicable = len(labels_called - labels_na) or n_ok
-    try:
-        from api_enrichment import enrichment_confidence
-    except ImportError:
-        logger.error("api_enrichment unavailable for provenance row", exc_info=True)
-        try:
-            confidence = float(summary.get("confidence_score") or 0.0)
-        except (TypeError, ValueError):
-            confidence = 0.0
-    else:
-        confidence = enrichment_confidence(summary)
-    return n_ok, n_applicable, confidence
+    labels_returned = {
+        str(a)
+        for a in (
+            (summary.get("apis_succeeded") or [])
+            + (summary.get("apis_estimated") or [])
+        )
+    }
+    n_returned = len(labels_returned)
+    n_applicable = len(labels_called - labels_na) or n_returned
+    return n_returned, n_applicable
 
 
 def _build_provenance_section_inner(ws, data: dict, row: int) -> int:
@@ -9845,9 +9837,9 @@ def _build_provenance_section_inner(ws, data: dict, row: int) -> int:
         row=row,
         column=COL_START,
         value=(
-            "Every figure in this plan is traceable to a source. The table below "
-            "lists the data sources used, the vintage (period the data describes), "
-            "and the confidence tag attached at ingestion."
+            "Available source metadata is listed below. Figures may combine "
+            "observed inputs, curated benchmarks, and model estimates; publication "
+            "dates vary by source."
         ),
     )
     ws.merge_cells(
@@ -9861,32 +9853,41 @@ def _build_provenance_section_inner(ws, data: dict, row: int) -> int:
     # ── 1. Data sources / vintage / confidence ──
     prov_rows = _collect_kb_provenance(data)
 
-    # Always surface the live-enrichment summary as a source line too.
+    # Surface collector availability separately from curated estimates. A
+    # nonempty collector response does not prove an observed market reading.
     enriched = (
         data.get("_enriched", {}) if isinstance(data.get("_enriched"), dict) else {}
     )
     summary = enriched.get("enrichment_summary", {})
     if isinstance(summary, dict):
-        succeeded = summary.get("apis_succeeded") or []
-        if isinstance(succeeded, list) and succeeded:
-            n_ok, n_applicable, confidence = _live_api_confidence(summary)
+        returned = (summary.get("apis_succeeded") or []) + (
+            summary.get("apis_estimated") or []
+        )
+        if isinstance(returned, list) and returned:
+            n_ok, n_applicable = _collector_payload_coverage(summary)
             prov_rows.append(
                 {
                     "source": (
-                        f"Live market APIs ({n_ok}/{n_applicable} applicable "
-                        "sources returned data)"
+                        f"Collectors returned payloads ({n_ok}/{n_applicable} applicable)"
                     ),
-                    "vintage": str(datetime.date.today().year),
-                    # Same 0.40 / 0.60 boundaries as app.py's quality warning.
-                    "confidence": (
-                        "High"
-                        if confidence >= 0.60
-                        else ("Medium" if confidence >= 0.40 else "Low")
+                    "vintage": "Run coverage only",
+                    "confidence": "Coverage",
+                }
+            )
+        estimated = summary.get("apis_estimated") or []
+        if isinstance(estimated, list) and estimated:
+            prov_rows.append(
+                {
+                    "source": (
+                        f"Estimated collectors ({len(estimated)}; not observed)"
                     ),
+                    "vintage": "See source detail",
+                    "confidence": "Estimated",
                 }
             )
 
-    # KB age / freshness (from kb_loader) as a freshness signal.
+    # KB file/load age is not publication vintage. When present, it tells us
+    # only that benchmark content was loaded, so expose no freshness grade.
     synthesized = (
         data.get("_synthesized", {})
         if isinstance(data.get("_synthesized"), dict)
@@ -9897,12 +9898,8 @@ def _build_provenance_section_inner(ws, data: dict, row: int) -> int:
         prov_rows.append(
             {
                 "source": "Joveo Knowledge Base (benchmarks)",
-                "vintage": f"{kb_age_days:.0f} days old",
-                "confidence": (
-                    "High"
-                    if kb_age_days <= 60
-                    else ("Medium" if kb_age_days <= 90 else "Low")
-                ),
+                "vintage": "Publication dates vary",
+                "confidence": "Benchmark",
             }
         )
 
@@ -9926,7 +9923,7 @@ def _build_provenance_section_inner(ws, data: dict, row: int) -> int:
             ws,
             row,
             "Source provenance metadata was not attached to this plan's data. "
-            "Figures rely on the curated Knowledge Base and validated benchmarks.",
+            "Figures may rely on curated benchmarks and model estimates.",
         )
         row += 1
 
@@ -10143,8 +10140,8 @@ def _build_sheet_sources(ws, data: dict):
 
     row = 2
 
-    # ── 1. Overall Confidence Grade ──
-    row = _write_section_header(ws, row, "Data Confidence Assessment")
+    # ── 1. Overall Data Support Grade ──
+    row = _write_section_header(ws, row, "Data Support Assessment")
 
     overall_score = _safe_num(
         confidence_scores.get(
@@ -10179,7 +10176,9 @@ def _build_sheet_sources(ws, data: dict):
         start_row=row, start_column=COL_START + 2, end_row=row, end_column=COL_END
     )
     desc_cell = ws.cell(
-        row=row, column=COL_START + 2, value=f"Overall Confidence: {overall_score:.0%}"
+        row=row,
+        column=COL_START + 2,
+        value=f"Overall Data Support Score: {overall_score:.0%}",
     )
     desc_cell.font = _FONT_HERO
     desc_cell.alignment = _ALIGN_LEFT
@@ -10193,19 +10192,22 @@ def _build_sheet_sources(ws, data: dict):
     quality_msg = data_quality.get("message", data_quality.get("summary") or "")
     if not quality_msg:
         if overall_grade in ("A", "B"):
-            quality_msg = "High-quality data from multiple verified sources"
+            quality_msg = "Broader source support across plan sections"
         elif overall_grade == "C":
-            quality_msg = "Moderate data quality — some sections rely on benchmarks"
+            quality_msg = "Moderate source support; some sections rely on benchmarks"
         else:
-            quality_msg = "Limited data availability — results should be validated"
+            quality_msg = "Limited source support; validate assumptions before use"
+
+    quality_msg = (
+        "Heuristic support score, not forecast accuracy. " + str(quality_msg)
+    )
 
     qual_cell = ws.cell(row=row + 1, column=COL_START + 2, value=quality_msg)
     qual_cell.font = _FONT_BODY
     qual_cell.alignment = _ALIGN_WRAP
 
-    # KB data freshness indicator
+    # Publication vintage note. _kb_age_days is file/load age, not evidence age.
     kb_age_days = synthesized.get("_kb_age_days")
-    freshness_warning = synthesized.get("_data_freshness_warning")
     if kb_age_days is not None:
         ws.merge_cells(
             start_row=row + 2,
@@ -10213,29 +10215,44 @@ def _build_sheet_sources(ws, data: dict):
             end_row=row + 2,
             end_column=COL_END,
         )
-        age_label = f"Knowledge Base Age: {kb_age_days:.0f} days"
-        if freshness_warning:
-            age_label += f"  —  {freshness_warning}"
+        age_label = "Publication dates vary; see benchmark references."
         age_cell = ws.cell(row=row + 2, column=COL_START + 2, value=age_label)
         age_cell.alignment = _ALIGN_WRAP
-        if kb_age_days > 90:
-            age_cell.font = Font(name=FONT_BODY_NAME, size=10, color=RED, italic=True)
-        elif kb_age_days > 60:
-            age_cell.font = Font(name=FONT_BODY_NAME, size=10, color=AMBER, italic=True)
-        else:
-            age_cell.font = Font(name=FONT_BODY_NAME, size=10, color=GREEN, italic=True)
+        age_cell.font = Font(name=FONT_BODY_NAME, size=10, color=MUTED, italic=True)
+
+    validated_provider_ids = set()
+    job_market_demand = synthesized.get("job_market_demand", {})
+    if isinstance(job_market_demand, dict):
+        for role_market in job_market_demand.values():
+            validated_provider_ids.update(observed_market_provider_ids(role_market))
+    ws.merge_cells(
+        start_row=row + 3,
+        start_column=COL_START + 2,
+        end_row=row + 3,
+        end_column=COL_END,
+    )
+    provider_cell = ws.cell(
+        row=row + 3,
+        column=COL_START + 2,
+        value=(
+            "Validated current-market providers: "
+            f"{len(validated_provider_ids)}"
+        ),
+    )
+    provider_cell.alignment = _ALIGN_LEFT
+    provider_cell.font = Font(name=FONT_BODY_NAME, size=10, color=SAPPHIRE, bold=True)
 
     row += 4
 
-    # ── 2. Per-Section Confidence ──
+    # ── 2. Per-Section Data Support ──
     section_scores = confidence_scores.get(
         "sections", confidence_scores.get("per_section", {})
     )
 
     if section_scores and isinstance(section_scores, dict):
-        row = _write_section_header(ws, row, "Per-Section Confidence")
+        row = _write_section_header(ws, row, "Per-Section Data Support Scores")
 
-        headers = ["Section", "Score", "Grade", "Sources"]
+        headers = ["Section", "Data Support Score", "Grade", "Sources"]
         row = _write_table_header(ws, row, headers)
 
         for idx, (section, score_data) in enumerate(section_scores.items()):

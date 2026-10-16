@@ -47,6 +47,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import company_blurb
 import competitor_claims
 import geo_market
+from market_evidence import (
+    CONTRACT as MARKET_EVIDENCE_CONTRACT,
+    canonical_market_source_label,
+    observation_is_valid,
+    observed_market_provider_ids,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1265,6 +1271,20 @@ def _score_section(section: dict) -> float:
     Looks for ``_meta`` dicts embedded by fuse functions that record
     ``source_count`` and ``kb_validated``.
     """
+    market_roles = []
+    if isinstance(section, dict):
+        if "market_evidence" in section:
+            market_roles.append(section)
+        market_roles.extend(
+            value
+            for value in section.values()
+            if isinstance(value, dict) and "market_evidence" in value
+        )
+    if market_roles and not any(
+        observed_market_provider_ids(role_data) for role_data in market_roles
+    ):
+        return 0.0
+
     source_counts: List[int] = []
     kb_validated_flags: List[bool] = []
 
@@ -2069,99 +2089,216 @@ def fuse_job_market_demand(
         role_result: Dict[str, Any] = {}
 
         # --- Job posting volume ---
-        posting_volumes: List[Tuple[int, str]] = []
+        posting_volumes: List[Tuple[int, str, str, str]] = []
+        posting_source_details: List[Dict[str, str]] = []
+        posting_estimated_provider_ids: set[str] = set()
+
+        def _add_observed_posting(
+            count: int, provider_id: Any, observed_at: Any
+        ) -> None:
+            """Keep a posting count only when its collector proved observation."""
+            provider = str(provider_id or "").strip()
+            observed = str(observed_at or "").strip()
+            source = canonical_market_source_label("job_postings", provider)
+            if (
+                count <= 0
+                or not source
+                or not observation_is_valid(
+                    "job_postings", "observed", provider, observed
+                )
+            ):
+                return
+            posting_volumes.append((count, source, provider, observed))
+            detail = {
+                "source": source,
+                "provider_id": provider,
+                "observed_at": observed,
+            }
+            if detail not in posting_source_details:
+                posting_source_details.append(detail)
 
         # Adzuna
         adzuna_role = adzuna_data.get(role, {}) if isinstance(adzuna_data, dict) else {}
         if isinstance(adzuna_role, dict):
             adzuna_count = _safe_int(adzuna_role.get("posting_count"))
-            if adzuna_count > 0:
-                posting_volumes.append((adzuna_count, "Adzuna"))
+            if adzuna_role.get("posting_observation") == "observed":
+                _add_observed_posting(
+                    adzuna_count,
+                    adzuna_role.get("posting_provider_id"),
+                    adzuna_role.get("posting_observed_at"),
+                )
+            elif adzuna_role.get("posting_observation") in (
+                "estimated",
+                "benchmark",
+            ):
+                provider_id = str(
+                    adzuna_role.get("posting_provider_id") or ""
+                ).strip()
+                if provider_id:
+                    posting_estimated_provider_ids.add(provider_id)
 
         # Jooble (aggregate across locations)
         jooble_role = jooble_market.get(role, {})
         if isinstance(jooble_role, dict):
-            total_jooble = 0
             for loc_key, loc_data in jooble_role.items():
                 if isinstance(loc_data, dict):
-                    total_jooble += _safe_int(loc_data.get("total_job_postings"))
-            if total_jooble > 0:
-                posting_volumes.append(
-                    (total_jooble, jooble_data.get("source", "Jooble"))
-                )
+                    if loc_data.get("posting_observation") == "observed":
+                        _add_observed_posting(
+                            _safe_int(loc_data.get("total_job_postings")),
+                            loc_data.get("posting_provider_id")
+                            or jooble_data.get("provider_id"),
+                            loc_data.get("posting_observed_at"),
+                        )
+                    elif loc_data.get("posting_observation") in (
+                        "estimated",
+                        "benchmark",
+                    ):
+                        provider_id = str(
+                            loc_data.get("posting_provider_id")
+                            or jooble_data.get("provider_id")
+                            or ""
+                        ).strip()
+                        if provider_id:
+                            posting_estimated_provider_ids.add(provider_id)
 
-        total_postings = sum(v for v, _ in posting_volumes)
-        posting_source_count = len(posting_volumes)
+        total_postings = sum(v for v, _, _, _ in posting_volumes)
+        observed_posting_provider_ids = {
+            provider_id for _, _, provider_id, _ in posting_volumes
+        }
 
         # --- Search interest ---
         search_volume = 0
         trend_values: List[float] = []
+        search_status = "unavailable"
+        search_provider_ids: set[str] = set()
+        search_observed_dates: set[str] = set()
+        trend_status = "unavailable"
+        trend_provider_ids: set[str] = set()
+        trend_observed_dates: set[str] = set()
 
         # Google Ads keyword volume
         gads_role = google_ads_keywords.get(role, {})
         if isinstance(gads_role, dict):
-            search_volume = _safe_int(gads_role.get("avg_monthly_searches"))
+            marker = str(gads_role.get("search_volume_observation") or "").lower()
+            provider_id = str(
+                gads_role.get("search_volume_provider_id") or ""
+            ).strip()
+            observed_at = str(
+                gads_role.get("search_volume_observed_at") or ""
+            ).strip()
+            if observation_is_valid(
+                "search_volume", marker, provider_id, observed_at
+            ):
+                search_volume = _safe_int(gads_role.get("avg_monthly_searches"))
+                if search_volume > 0:
+                    search_status = "observed"
+                    search_provider_ids.add(provider_id)
+                    search_observed_dates.add(observed_at)
+            elif marker in ("estimated", "benchmark"):
+                search_status = "estimated"
+                if provider_id:
+                    search_provider_ids.add(provider_id)
 
         # Google Trends
         if isinstance(google_trends, dict):
             trends_data = google_trends.get(
-                "trends", google_trends.get("interest_over_time", {})
+                "trends", google_trends.get("interest_over_time", google_trends)
             )
             if isinstance(trends_data, dict):
                 role_trend = trends_data.get(role, trends_data.get(f"{role} jobs", {}))
                 if isinstance(role_trend, dict):
-                    trend_values = [
-                        _safe_float(v)
-                        for v in role_trend.values()
-                        if _safe_float(v) > 0
-                    ]
-                elif isinstance(role_trend, list):
-                    trend_values = [
-                        _safe_float(v) for v in role_trend if _safe_float(v) > 0
-                    ]
+                    marker = str(role_trend.get("trend_observation") or "").lower()
+                    provider_id = str(
+                        role_trend.get("trend_provider_id") or ""
+                    ).strip()
+                    observed_at = str(
+                        role_trend.get("trend_observed_at") or ""
+                    ).strip()
+                    if observation_is_valid(
+                        "trend", marker, provider_id, observed_at
+                    ):
+                        if isinstance(role_trend.get("values"), list):
+                            trend_values = [
+                                _safe_float(v)
+                                for v in role_trend["values"]
+                                if _safe_float(v) > 0
+                            ]
+                        else:
+                            trend_values = [
+                                _safe_float(role_trend.get("avg_interest")),
+                                _safe_float(role_trend.get("latest_interest")),
+                            ]
+                            trend_values = [v for v in trend_values if v > 0]
+                        if trend_values:
+                            trend_status = "observed"
+                            trend_provider_ids.add(provider_id)
+                            trend_observed_dates.add(observed_at)
+                    elif marker in ("estimated", "benchmark"):
+                        trend_status = "estimated"
+                        if provider_id:
+                            trend_provider_ids.add(provider_id)
 
         # --- Professional supply (LinkedIn) ---
         linkedin_role = linkedin_roles.get(role, {})
         audience_str = ""
+        talent_status = "unavailable"
+        talent_provider_ids: set[str] = set()
+        talent_observed_dates: set[str] = set()
         if isinstance(linkedin_role, dict):
-            audience_str = str(linkedin_role.get("estimated_audience") or "")
+            marker = str(linkedin_role.get("audience_observation") or "").lower()
+            provider_id = str(
+                linkedin_role.get("audience_provider_id") or ""
+            ).strip()
+            observed_at = str(
+                linkedin_role.get("audience_observed_at") or ""
+            ).strip()
+            if observation_is_valid(
+                "talent_pool", marker, provider_id, observed_at
+            ):
+                audience_str = str(linkedin_role.get("estimated_audience") or "")
+                talent_status = "observed"
+                talent_provider_ids.add(provider_id)
+                talent_observed_dates.add(observed_at)
+            elif marker in ("estimated", "benchmark"):
+                talent_status = "estimated"
+                if provider_id:
+                    talent_provider_ids.add(provider_id)
 
         talent_pool = _parse_audience_number(audience_str)
+        if talent_pool <= 0 and talent_status == "observed":
+            talent_status = "unavailable"
+            talent_provider_ids.clear()
+            talent_observed_dates.clear()
 
-        # --- Fallback demand data when APIs return nothing ---
+        # --- Curated fallback availability ---
+        # The legacy role table remains available to forecast code, but it is
+        # not current-market proof. Record only its evidence status here; never
+        # copy its numbers into public market-demand fields.
         if total_postings == 0 and search_volume == 0 and talent_pool == 0:
-            # Use module-level _ROLE_DEMAND_FALLBACKS (single source of truth)
             role_lower = role.lower()
-            fallback_demand = None
-            for keyword, fb_data in _ROLE_DEMAND_FALLBACKS.items():
-                if keyword in role_lower:
-                    fallback_demand = fb_data
-                    break
-            if fallback_demand is None:
-                # Generic professional fallback
-                fallback_demand = {
-                    "job_postings": 75000,
-                    "search_interest": "Medium",
-                    "talent_pool": 1500000,
-                    "competition_index": 5.0,
-                    "trend": "Stable (+2% YoY)",
-                }
-
-            total_postings = fallback_demand["job_postings"]
-            search_volume = total_postings // 10  # Estimate monthly search volume
-            talent_pool = fallback_demand["talent_pool"]
-            competition_index = (
-                fallback_demand["competition_index"] / 100.0
-            )  # Normalize
-            posting_volumes = [(total_postings, "Industry Benchmark")]
-            posting_source_count = 1
-            trend_dir = fallback_demand["trend"]
+            fallback_demand = next(
+                (
+                    fb_data
+                    for keyword, fb_data in _ROLE_DEMAND_FALLBACKS.items()
+                    if keyword in role_lower
+                ),
+                None,
+            )
+            if fallback_demand is not None:
+                posting_estimated_provider_ids.add("nova_market_benchmark")
+                if search_status == "unavailable":
+                    search_status = "estimated"
+                    search_provider_ids.add("nova_market_benchmark")
+                if talent_status == "unavailable":
+                    talent_status = "estimated"
+                    talent_provider_ids.add("nova_market_benchmark")
+                if trend_status == "unavailable":
+                    trend_status = "estimated"
+                    trend_provider_ids.add("nova_market_benchmark")
 
         # --- BLS employment floor when posting APIs returned 0 but fallback
         #     did not fire (because talent_pool or search_volume was non-zero) ---
-        if total_postings == 0 and not any(
-            s == "Industry Benchmark" for _, s in posting_volumes
-        ):
+        if total_postings == 0:
             bls_employment = 0
             ie = enriched.get("industry_employment") or {}
             if isinstance(ie, dict):
@@ -2169,78 +2306,134 @@ def fuse_job_market_demand(
                     ie.get("total_employed") or ie.get("employment") or 0
                 )
             if bls_employment > 0:
-                # ~3% annual turnover rate is a conservative BLS-based proxy
-                # for approximate monthly-equivalent job postings
-                estimated_postings = max(int(bls_employment * 0.03), 500)
-                total_postings = estimated_postings
-                posting_volumes.append((estimated_postings, "BLS Employment Estimate"))
-                posting_source_count = len(posting_volumes)
+                posting_estimated_provider_ids.add("bls_employment_model")
                 logger.info(
-                    "BLS floor applied for role=%s: employment=%s -> estimated_postings=%s",
+                    "BLS posting proxy withheld for role=%s: employment=%s",
                     role,
                     bls_employment,
-                    estimated_postings,
                 )
 
         # --- Competition index ---
-        _used_fallback = any(s == "Industry Benchmark" for _, s in posting_volumes)
-        if not _used_fallback:
-            competition_index = 0.0
-            if talent_pool > 0 and total_postings > 0:
-                competition_index = round(total_postings / talent_pool, 4)
-            elif total_postings > 5000:
-                competition_index = 2.5  # Estimated high
-            elif total_postings > 1000:
-                competition_index = 1.0
-            trend_dir = _trend_direction(trend_values) if trend_values else "stable"
+        competition_index = 0.0
+        temperature = ""
+        if total_postings > 0 and talent_pool > 0:
+            competition_index = round(total_postings / talent_pool, 4)
+            temperature = _market_temperature(competition_index * 100)
+        trend_dir = _trend_direction(trend_values) if len(trend_values) >= 2 else ""
 
-        temperature = _market_temperature(competition_index * 100)
+        observed_provider_ids = set(observed_posting_provider_ids)
+        if search_status == "observed":
+            observed_provider_ids.update(search_provider_ids)
+        if trend_status == "observed":
+            observed_provider_ids.update(trend_provider_ids)
+        if talent_status == "observed":
+            observed_provider_ids.update(talent_provider_ids)
+        hiring_strength = kb_industry.get("hiring_strength") or ""
 
-        # Source counting
-        source_count = posting_source_count
-        if search_volume > 0:
-            source_count += 1
-        if trend_values:
-            source_count += 1
-        if talent_pool > 0:
-            source_count += 1
+        def _metric_evidence(
+            status: str, provider_ids: set[str], observed_dates: set[str]
+        ) -> Dict[str, Any]:
+            return {
+                "status": status,
+                "provider_ids": sorted(provider_ids),
+                "observed_at": sorted(observed_dates) if status == "observed" else [],
+            }
 
-        # S_confidence_leak: the generic "Industry Benchmark" fallback above
-        # derives total_postings, search_volume (= total_postings // 10) and
-        # talent_pool from ONE hardcoded dict -- none of it is an
-        # independent live source, so it must not count as 3 toward
-        # _score_section's source_count (which would grade this section
-        # 100%/A via the max_sources >= 3 rule even though every demand cell
-        # for this role renders "Data not available"). Zero it out here so
-        # _score_section falls through to its no-live-source bands instead.
-        if _used_fallback:
-            source_count = 0
-
-        # KB validation
-        kb_validated = False
-        if kb_industry:
-            # Check if industry has known hiring strength
-            hiring_strength = kb_industry.get("hiring_strength") or ""
-            if hiring_strength:
-                kb_validated = True
+        posting_status = (
+            "observed"
+            if observed_posting_provider_ids
+            else "estimated" if posting_estimated_provider_ids else "unavailable"
+        )
+        posting_observed_dates = {
+            observed_at for _, _, _, observed_at in posting_volumes
+        }
+        temperature_provider_ids = (
+            observed_posting_provider_ids | talent_provider_ids if temperature else set()
+        )
+        temperature_observed_dates = (
+            posting_observed_dates | talent_observed_dates if temperature else set()
+        )
+        metrics = {
+            "job_postings": _metric_evidence(
+                posting_status,
+                (
+                    observed_posting_provider_ids
+                    if posting_status == "observed"
+                    else posting_estimated_provider_ids
+                ),
+                posting_observed_dates,
+            ),
+            "search_volume": _metric_evidence(
+                search_status, search_provider_ids, search_observed_dates
+            ),
+            "talent_pool": _metric_evidence(
+                talent_status, talent_provider_ids, talent_observed_dates
+            ),
+            "trend": _metric_evidence(
+                trend_status, trend_provider_ids, trend_observed_dates
+            ),
+            "market_temperature": _metric_evidence(
+                "observed" if temperature else "unavailable",
+                temperature_provider_ids,
+                temperature_observed_dates,
+            ),
+        }
+        has_estimate = any(
+            metric["status"] == "estimated" for metric in metrics.values()
+        )
+        evidence_status = (
+            "observed"
+            if observed_provider_ids
+            else "estimated" if has_estimate else "unavailable"
+        )
+        all_observed_dates = (
+            posting_observed_dates
+            | search_observed_dates
+            | trend_observed_dates
+            | talent_observed_dates
+        )
+        posting_sources = list(
+            dict.fromkeys(source for _, source, _, _ in posting_volumes)
+        )
 
         role_result = {
             "total_postings": total_postings,
-            "posting_sources": [s for _, s in posting_volumes],
+            "posting_sources": posting_sources,
+            "posting_source_details": posting_source_details,
             "search_volume_monthly": search_volume,
             "trend_direction": trend_dir,
             "talent_pool_estimate": talent_pool,
             "competition_index": round(competition_index, 4),
             "market_temperature": temperature,
+            "market_evidence": {
+                "contract": MARKET_EVIDENCE_CONTRACT,
+                "status": evidence_status,
+                "observed_provider_ids": sorted(observed_provider_ids),
+                "observed_at": sorted(all_observed_dates),
+                "metrics": metrics,
+            },
             "kb_industry_context": {
                 "hiring_strength": kb_industry.get("hiring_strength", "N/A"),
                 "demand_drivers": kb_industry.get("demand_drivers") or [],
                 "outlook": kb_industry.get("outlook", "N/A"),
             },
             "_meta": {
-                "source_count": source_count,
-                "kb_validated": kb_validated,
+                "source_count": 0,
+                "kb_validated": False,
             },
+        }
+        strict_observed_provider_ids = observed_market_provider_ids(role_result)
+        role_result["market_evidence"]["observed_provider_ids"] = sorted(
+            strict_observed_provider_ids
+        )
+        role_result["market_evidence"]["status"] = (
+            "observed"
+            if strict_observed_provider_ids
+            else "estimated" if has_estimate else "unavailable"
+        )
+        role_result["_meta"] = {
+            "source_count": len(strict_observed_provider_ids),
+            "kb_validated": bool(hiring_strength and strict_observed_provider_ids),
         }
 
         # Per-location breakdown if data available
@@ -2253,23 +2446,41 @@ def fuse_job_market_demand(
             jooble_loc = (
                 jooble_role.get(loc, {}) if isinstance(jooble_role, dict) else {}
             )
-            if isinstance(jooble_loc, dict):
+            jooble_loc_observed = (
+                isinstance(jooble_loc, dict)
+                and observation_is_valid(
+                    "job_postings",
+                    jooble_loc.get("posting_observation"),
+                    (
+                        jooble_loc.get("posting_provider_id")
+                        or jooble_data.get("provider_id")
+                    ),
+                    jooble_loc.get("posting_observed_at"),
+                )
+            )
+            if jooble_loc_observed:
                 jlp = _safe_int(jooble_loc.get("total_job_postings"))
                 if jlp > 0:
                     loc_posting += jlp
-                    loc_sources.append("Jooble")
+                    loc_sources.append(
+                        canonical_market_source_label("job_postings", "jooble")
+                    )
 
             jooble_activity = ""
-            if isinstance(jooble_loc, dict):
+            if jooble_loc_observed:
                 jooble_activity = jooble_loc.get("market_activity") or ""
 
             location_breakdown[loc] = {
                 "postings": loc_posting,
-                "market_activity": jooble_activity
-                or (
-                    "High"
-                    if loc_posting > 3000
-                    else "Medium" if loc_posting > 500 else "Low"
+                "market_activity": (
+                    jooble_activity
+                    or (
+                        "High"
+                        if loc_posting > 3000
+                        else "Medium" if loc_posting > 500 else "Low"
+                    )
+                    if jooble_loc_observed
+                    else ""
                 ),
                 "sources": loc_sources,
             }

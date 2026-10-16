@@ -213,8 +213,8 @@ def test_warehouse_accepts_list_of_outcomes():
     assert "—" in text
 
 
-def test_existing_confidence_assessment_preserved():
-    """Provenance is additive: the legacy confidence assessment still renders."""
+def test_existing_support_assessment_preserved():
+    """Provenance is additive: the data-support assessment still renders."""
     data = _minimal_data(
         _synthesized={
             "confidence_scores": {"overall": 0.82},
@@ -223,8 +223,8 @@ def test_existing_confidence_assessment_preserved():
     )
     _wb, ws = _build_and_load(data)
     text = _sheet_text(ws)
-    assert "Data Confidence Assessment".upper() in text.upper()
-    # KB freshness signal flows into the provenance table as a source line.
+    assert "Data Support Assessment".upper() in text.upper()
+    # KB benchmark context flows into the provenance table as a source line.
     assert "Knowledge Base" in text
 
 

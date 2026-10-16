@@ -118,15 +118,25 @@ def _run_enrich_data_with_partial_fallback(
         return {}, False
     partial: dict = {}
     pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="async-enrich")
+    deadline = time.monotonic() + timeout
     try:
         future = (
             pool.submit(
-                enrich_data_fn, data, request_id=request_id, partial_result=partial
+                enrich_data_fn,
+                data,
+                request_id=request_id,
+                partial_result=partial,
+                deadline=deadline,
             )
             if request_id
-            else pool.submit(enrich_data_fn, data, partial_result=partial)
+            else pool.submit(
+                enrich_data_fn, data, partial_result=partial, deadline=deadline
+            )
         )
-        return (future.result(timeout=timeout) or {}), False
+        result = future.result(timeout=timeout) or {}
+        if time.monotonic() >= deadline:
+            return _partial_enrichment_snapshot(partial) or result, True
+        return result, False
     except _FutureTimeoutError:
         future.cancel()
         return _partial_enrichment_snapshot(partial), True
@@ -190,7 +200,11 @@ def _enrichment_quality_warning(enriched: Any) -> "tuple[str, int, float]":
 
 
 def _run_parallel_enrichment_tasks(
-    tasks: list, timeout: float, enrich_data_partial: dict, span_fn: Any = None
+    tasks: list,
+    timeout: float,
+    enrich_data_partial: dict,
+    span_fn: Any = None,
+    deadline: Optional[float] = None,
 ) -> "tuple[dict, dict]":
     """Run the /api/generate enrichment task closures concurrently with one
     combined timeout. Each task callable returns (name, result); the
@@ -218,7 +232,16 @@ def _run_parallel_enrichment_tasks(
     futures: dict = {}
     try:
         with span:
-            futures = {pool.submit(fn): fn.__doc__ or fn.__name__ for fn in tasks}
+            def _run_task(fn: Any, name: str) -> "tuple[str, Any]":
+                if deadline is not None and time.monotonic() >= deadline:
+                    return name, None
+                return fn()
+
+            futures = {
+                pool.submit(_run_task, fn, fn.__doc__ or fn.__name__): fn.__doc__
+                or fn.__name__
+                for fn in tasks
+            }
             for future in as_completed(futures, timeout=timeout):
                 try:
                     name, result = future.result()
@@ -18225,7 +18248,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             client_name_input = _safe_str(data.get("client_name")).strip()
             requester_name_input = _safe_str(data.get("requester_name")).strip()
             requester_email_input = _safe_str(data.get("requester_email")).strip()
-            roles_input = data.get("target_roles") or data.get("roles") or []
+            roles_input = (
+                data.get("target_roles")
+                or data.get("roles")
+                or data.get("job_titles")
+                or []
+            )
             if isinstance(roles_input, str):
                 roles_input = [r.strip() for r in roles_input.split(",") if r.strip()]
             data["target_roles"] = roles_input
@@ -20445,6 +20473,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # worker thread; read on an outer timeout so a slow-but-partially-
             # successful run isn't discarded wholesale (see _call_enrich_data).
             _enrich_data_partial: dict = {}
+            _enrich_deadline: Optional[float] = None
 
             # -- Extract shared params once for all enrichment tasks --
             _roles_for_api = data.get("target_roles") or data.get("roles") or []
@@ -20510,10 +20539,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     _rid = getattr(self, "_request_id", None)
                     result = (
                         enrich_data(
-                            data, request_id=_rid, partial_result=_enrich_data_partial
+                            data,
+                            request_id=_rid,
+                            partial_result=_enrich_data_partial,
+                            deadline=_enrich_deadline,
                         )
                         if _rid
-                        else enrich_data(data, partial_result=_enrich_data_partial)
+                        else enrich_data(
+                            data,
+                            partial_result=_enrich_data_partial,
+                            deadline=_enrich_deadline,
+                        )
                     ) or {}
                     logger.info(
                         "API enrichment complete: %s",
@@ -21065,8 +21101,13 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # See _run_parallel_enrichment_tasks for why this isn't a plain
             # `with ThreadPoolExecutor() as pool:`.
             _parallel_t0 = time.time()
+            _enrich_deadline = time.monotonic() + 20
             enriched, _market_ctx = _run_parallel_enrichment_tasks(
-                _enrich_tasks, 20, _enrich_data_partial, span_fn=_span_fn
+                _enrich_tasks,
+                20,
+                _enrich_data_partial,
+                span_fn=_span_fn,
+                deadline=_enrich_deadline,
             )
 
             # Enrichment complete (or timed out with partial data) -- continue
