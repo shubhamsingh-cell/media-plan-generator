@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import math
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -74,13 +75,35 @@ def _row_id(row: dict) -> str:
 def test_golden_table_is_broad():
     assert len(PARSE_ROWS) >= 60
     inputs = [r["input"] for r in PARSE_ROWS]
-    for must in ("1.5 million", "$5 million", "1,5M", "10 000", "10000-15000",
-                 "1e9", "$", "", None, "1.5.2M", "50%"):
+    for must in (
+        "1.5 million",
+        "$5 million",
+        "1,5M",
+        "10 000",
+        "10000-15000",
+        "1e9",
+        "$",
+        "",
+        None,
+        "1.5.2M",
+        "50%",
+    ):
         assert must in inputs, must
     errors = {r["error"] for r in PARSE_ROWS if not r["ok"]}
-    assert {"empty", "not_a_number", "exponent", "percent", "malformed_number",
-            "negative", "zero", "multiple_amounts", "implausible_range",
-            "unsupported_period", "conflicting_period", "too_long"} <= errors
+    assert {
+        "empty",
+        "not_a_number",
+        "exponent",
+        "percent",
+        "malformed_number",
+        "negative",
+        "zero",
+        "multiple_amounts",
+        "implausible_range",
+        "unsupported_period",
+        "conflicting_period",
+        "too_long",
+    } <= errors
     too_long = [r for r in PARSE_ROWS if r.get("error") == "too_long"][0]
     assert len(too_long["input"]) > wizard_inputs.INPUT_LIMITS["budget_max_chars"]
 
@@ -96,9 +119,13 @@ def test_server_parse_matches_golden(row):
         assert got["message"] == wizard_inputs.BUDGET_ERROR_MESSAGES[row["error"]]
 
 
-@pytest.mark.parametrize("row", PLAN_ROWS, ids=lambda r: f"{r['input']}|{r['period']}|{r['duration']}")
+@pytest.mark.parametrize(
+    "row", PLAN_ROWS, ids=lambda r: f"{r['input']}|{r['period']}|{r['duration']}"
+)
 def test_server_plan_budget_matches_golden(row):
-    plan = wizard_inputs.resolve_plan_budget(row["input"], row["period"], row["duration"])
+    plan = wizard_inputs.resolve_plan_budget(
+        row["input"], row["period"], row["duration"]
+    )
     assert plan.ok is row["ok"], plan
     if row["ok"]:
         assert plan.total == float(row["total"])
@@ -132,16 +159,17 @@ def test_js_parse_matches_golden_row_for_row():
         (row["input"], _actual_parse(res), _expected_parse(row))
         for row, res in zip(PARSE_ROWS, got)
         if _actual_parse(res) != _expected_parse(row)
-        or (not res["ok"] and res["message"] != wizard_inputs.BUDGET_ERROR_MESSAGES[row["error"]])
+        or (
+            not res["ok"]
+            and res["message"] != wizard_inputs.BUDGET_ERROR_MESSAGES[row["error"]]
+        )
     ]
     assert not mismatches, mismatches
 
 
 @needs_node
 def test_js_plan_budget_matches_golden_row_for_row():
-    got = _js_results(
-        PLAN_ROWS, "novaResolvePlanBudget(r.input, r.period, r.duration)"
-    )
+    got = _js_results(PLAN_ROWS, "novaResolvePlanBudget(r.input, r.period, r.duration)")
     mismatches = []
     for row, res in zip(PLAN_ROWS, got):
         if res["ok"] is not row["ok"]:
@@ -175,8 +203,12 @@ def test_js_and_server_agree_beyond_the_table():
 
 def _server_currency(raw, period, duration, locations):
     """plan_currency reading exactly as /api/estimate returns it."""
-    brief = {"budget_range": raw, "budget_period": period,
-             "campaign_duration": duration, "locations": locations}
+    brief = {
+        "budget_range": raw,
+        "budget_period": period,
+        "campaign_duration": duration,
+        "locations": locations,
+    }
     plan = app._resolve_request_budget(brief)
     app._normalize_request_budget(brief, log=False)
     return app._plan_currency_reading(brief, plan)
@@ -206,8 +238,7 @@ def test_budget_field_and_review_state_the_planned_figure():
         ("CA$50,000", "campaign", "3 months", ["Toronto, ON"]),
     ]
     rows = [
-        {"input": c[0], "period": c[1], "duration": c[2],
-         "cur": _server_currency(*c)}
+        {"input": c[0], "period": c[1], "duration": c[2], "cur": _server_currency(*c)}
         for c in cases
     ]
     got = _js_results(
@@ -247,26 +278,63 @@ def test_budget_field_and_review_state_the_planned_figure():
 def test_plan_currency_reading_uses_the_one_resolver():
     import plan_currency
 
-    for raw, locs in [("EUR 50,000", ["Dallas, TX"]), ("\u00a350,000", ["Dallas, TX"]),
-                      ("50,000", ["London, UK"]), ("CA$50,000", ["Toronto, ON"]),
-                      ("$50,000", ["London, UK", "Berlin, Germany"])]:
+    for raw, locs in [
+        ("EUR 50,000", ["Dallas, TX"]),
+        ("\u00a350,000", ["Dallas, TX"]),
+        ("50,000", ["London, UK"]),
+        ("CA$50,000", ["Toronto, ON"]),
+        ("$50,000", ["London, UK", "Berlin, Germany"]),
+    ]:
         reading = _server_currency(raw, "campaign", "3 months", locs)
         brief = {"budget_range": raw, "locations": locs}
         app._normalize_request_budget(brief, log=False)
-        assert (reading["code"], reading["basis"]) == \
-            plan_currency.currency_for_plan_with_basis(brief), raw
+        assert (
+            reading["code"],
+            reading["basis"],
+        ) == plan_currency.currency_for_plan_with_basis(brief), raw
 
 
 def test_estimate_budget_only_mode_returns_the_plan_currency(live_port):  # noqa: F811
     status, body = post_json(
-        live_port, "/api/estimate",
-        {"budget_range": "EUR 50,000", "locations": ["Dallas, TX"], "budget_only": True},
+        live_port,
+        "/api/estimate",
+        {
+            "budget_range": "EUR 50,000",
+            "locations": ["Dallas, TX"],
+            "budget_only": True,
+        },
     )
     assert status == 200, body
     assert body["budget"]["total"] == 50000
     assert body["plan_currency"]["code"] == "USD"
     assert "EUR" in body["plan_currency"]["note"]
     assert "est_hires" not in body  # no engine call, no roles needed
+
+
+@needs_node
+def test_run_node_sends_the_script_on_stdin_not_argv(monkeypatch):
+    """Linux caps ONE argv string at 128 KiB (macOS does not), so a script
+    handed to ``node -e`` that large dies with ``Argument list too long`` on
+    the CI runner while passing here. The generated-inputs test below builds
+    ~138 KB. Asserts the mechanism, which a Mac run cannot otherwise see: no
+    argv element carries the script."""
+    seen = []
+    real_run = subprocess.run
+
+    def spy(args, **kwargs):
+        seen.append(list(args))
+        return real_run(args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", spy)
+    pad = 200 * 1024  # past the 128 KiB per-argument cap
+    script = (
+        f"var pad = '{'x' * pad}';\nprocess.stdout.write(JSON.stringify(pad.length));"
+    )
+    assert run_node(script) == pad
+    assert len(seen) == 1
+    assert (
+        max(len(a.encode("utf-8")) for a in seen[0]) < 1024
+    ), "script leaked into argv"
 
 
 @needs_node
@@ -280,16 +348,97 @@ def test_js_and_server_agree_on_generated_inputs():
 
     rng = random.Random(20261001)
     pieces = [
-        "1", "15", "150", "1,500", "1.500", "1 500", "1'500", "0", "00", "2,50,000",
-        "10.000,50", "1.5", "1,5", ".", ",", " ", "  ", "-", "–", "to", "and",
-        "between", "k", "K", "m", "M", "mm", "mn", "b", "bn", "thousand", "million",
-        "billion", "lakh", "crore", "cr", "$", "US$", "€", "£", "₹", "EUR",
-        "usd", "Rs.", "kr", "/mo", "per month", "monthly", "per quarter", "p.a.",
-        "annual", "per week", "daily", "~", "<", ">", "+", "up to", "approx",
-        "budget:", "total", "%", "e", "1e9", "(", ")", "x", "abc", " ", " ",
-        "５", "١", "0,750", "0.750", "CA$", "AU$", "NT$", "٫", "٬",
-        "१", "৫", "16666.666666666668", ".5",
-        "AUD$", "MXN$", "TWD$", "usd$", "0050", "01,500", "Rs", "lakh rupees",
+        "1",
+        "15",
+        "150",
+        "1,500",
+        "1.500",
+        "1 500",
+        "1'500",
+        "0",
+        "00",
+        "2,50,000",
+        "10.000,50",
+        "1.5",
+        "1,5",
+        ".",
+        ",",
+        " ",
+        "  ",
+        "-",
+        "–",
+        "to",
+        "and",
+        "between",
+        "k",
+        "K",
+        "m",
+        "M",
+        "mm",
+        "mn",
+        "b",
+        "bn",
+        "thousand",
+        "million",
+        "billion",
+        "lakh",
+        "crore",
+        "cr",
+        "$",
+        "US$",
+        "€",
+        "£",
+        "₹",
+        "EUR",
+        "usd",
+        "Rs.",
+        "kr",
+        "/mo",
+        "per month",
+        "monthly",
+        "per quarter",
+        "p.a.",
+        "annual",
+        "per week",
+        "daily",
+        "~",
+        "<",
+        ">",
+        "+",
+        "up to",
+        "approx",
+        "budget:",
+        "total",
+        "%",
+        "e",
+        "1e9",
+        "(",
+        ")",
+        "x",
+        "abc",
+        " ",
+        " ",
+        "５",
+        "١",
+        "0,750",
+        "0.750",
+        "CA$",
+        "AU$",
+        "NT$",
+        "٫",
+        "٬",
+        "१",
+        "৫",
+        "16666.666666666668",
+        ".5",
+        "AUD$",
+        "MXN$",
+        "TWD$",
+        "usd$",
+        "0050",
+        "01,500",
+        "Rs",
+        "lakh rupees",
     ]
     inputs = []
     for _ in range(4000):
@@ -310,10 +459,31 @@ def test_js_and_server_agree_on_generated_inputs():
 # Shapes taken from the payloads the existing tests post (number, int, float
 # with noise, $/£/₹/A$/GBP strings, "120k", "... total").
 _API_SHAPES = [
-    20000, 50000, 100000, 2_000_000, 8000, 50000.0, 110000.00000000001, 50000 / 3,
-    "$120,000", "120000", "120k", "$90,000", "$150,000", "$1,000,000", "$1,200",
-    "£50,000", "£50,000 total", "₹2,50,00,000", "₹9,00,000 total", "A$80,000",
-    "GBP 2,000,000", "¥5,000,000", "$250,000", "150000", "250000",
+    20000,
+    50000,
+    100000,
+    2_000_000,
+    8000,
+    50000.0,
+    110000.00000000001,
+    50000 / 3,
+    "$120,000",
+    "120000",
+    "120k",
+    "$90,000",
+    "$150,000",
+    "$1,000,000",
+    "$1,200",
+    "£50,000",
+    "£50,000 total",
+    "₹2,50,00,000",
+    "₹9,00,000 total",
+    "A$80,000",
+    "GBP 2,000,000",
+    "¥5,000,000",
+    "$250,000",
+    "150000",
+    "250000",
 ]
 
 
@@ -334,7 +504,9 @@ def test_api_budget_shapes_resolve_as_on_origin_main(shape):
 def test_float_noise_budget_estimate_endpoint(live_port):  # noqa: F811
     for shape in (110000.00000000001, 50000 / 3 * 6):
         status, body = post_json(
-            live_port, "/api/estimate", dict(_EST_BRIEF, budget=shape, budget_range=None)
+            live_port,
+            "/api/estimate",
+            dict(_EST_BRIEF, budget=shape, budget_range=None),
         )
         assert status == 200, (shape, body)
         assert body["budget"]["total"] == round(shape, 2)
@@ -350,8 +522,11 @@ def test_canonical_budget_string_reads_back_identically(row):
     legacy shared_utils.parse_budget -- which must now get the same number,
     and plan_currency must see the same declared currency as for the raw
     text."""
-    data = {"budget_range": row["input"], "budget_period": "campaign",
-            "campaign_duration": "3 months"}
+    data = {
+        "budget_range": row["input"],
+        "budget_period": "campaign",
+        "campaign_duration": "3 months",
+    }
     plan = app._resolve_request_budget(data)
     if not plan.ok:  # parses, but outside the plan bounds (e.g. "2B", "12,34")
         assert plan.error in ("too_small", "too_large")
@@ -361,7 +536,9 @@ def test_canonical_budget_string_reads_back_identically(row):
     assert data["budget_range"] == data["budget"]
     raw = str(row["input"])
     declared = plan_currency.currency_codes_from_symbol(raw)
-    if (row.get("currency") or "") in app._RUPEE_TOKENS and app._INDIAN_UNITS_RE.search(raw.lower()):
+    if (row.get("currency") or "") in app._RUPEE_TOKENS and app._INDIAN_UNITS_RE.search(
+        raw.lower()
+    ):
         # the one deliberate difference: "Rs 50 lakh" / "INR 2 crore" are
         # Indian rupees, so the canonical string declares "₹" (plan_currency
         # reads no word tokens; the raw text priced in USD)
@@ -380,7 +557,9 @@ def test_generate_budget_block_plans_the_parsed_amount():
     assert _server_campaign_budget("1,5M", "campaign", "3 months") == 1_500_000
     assert _server_campaign_budget("10 000", "campaign", "3 months") == 10_000
     assert _server_campaign_budget("10000-15000", "campaign", "3 months") == 12_500
-    assert _server_campaign_budget("1.5 million", "monthly", "6-12 months") == 13_500_000
+    assert (
+        _server_campaign_budget("1.5 million", "monthly", "6-12 months") == 13_500_000
+    )
 
 
 # ── the page gets the server's tables ────────────────────────────────────
@@ -396,7 +575,9 @@ def test_wizard_page_embeds_the_server_tables():
     assert embedded["limits"] == wizard_inputs.INPUT_LIMITS
     assert embedded["budget"]["regex"] == wizard_inputs.BUDGET_REGEX
     # the input-rules script runs before the wizard and preview scripts use it
-    assert html.index("function novaParseBudget(") < html.index("function validateBudgetInput(")
+    assert html.index("function novaParseBudget(") < html.index(
+        "function validateBudgetInput("
+    )
     assert html.index("function novaParseBudget(") < html.index("function gather()")
 
 
@@ -425,8 +606,12 @@ def test_estimate_scales_the_period_itself():
     # The preview now posts the raw amount + period + duration; the server
     # scales it -- $10,000/month over "6-12 months" plans $90,000.
     est = app._compute_plan_estimate(
-        dict(_EST_BRIEF, budget_range="$10,000", budget_period="monthly",
-             campaign_duration="6-12 months")
+        dict(
+            _EST_BRIEF,
+            budget_range="$10,000",
+            budget_period="monthly",
+            campaign_duration="6-12 months",
+        )
     )
     assert est["budget"]["total"] == 90_000
     assert est["budget"]["months"] == 9
@@ -435,8 +620,15 @@ def test_estimate_scales_the_period_itself():
 
 @pytest.mark.parametrize(
     "budget,error",
-    [("1.5.2M", "malformed_number"), ("abc", "not_a_number"), ("-5", "negative"),
-     ("1.5", "too_small"), ("2B", "too_large"), ("50%", "percent"), ("1e9", "exponent")],
+    [
+        ("1.5.2M", "malformed_number"),
+        ("abc", "not_a_number"),
+        ("-5", "negative"),
+        ("1.5", "too_small"),
+        ("2B", "too_large"),
+        ("50%", "percent"),
+        ("1e9", "exponent"),
+    ],
 )
 def test_estimate_rejects_non_amounts_with_the_field_named(budget, error):
     with pytest.raises(app._EstimateValidationError) as exc:
@@ -447,10 +639,17 @@ def test_estimate_rejects_non_amounts_with_the_field_named(budget, error):
 
 @pytest.mark.parametrize(
     "budget,error",
-    [("1.5.2M", "malformed_number"), ("abc", "not_a_number"), ("2B", "too_large"),
-     ("0", "zero"), ("-$50,000", "negative")],
+    [
+        ("1.5.2M", "malformed_number"),
+        ("abc", "not_a_number"),
+        ("2B", "too_large"),
+        ("0", "zero"),
+        ("-$50,000", "negative"),
+    ],
 )
-def test_generate_rejects_non_amounts_with_the_field_named(live_port, budget, error):  # noqa: F811
+def test_generate_rejects_non_amounts_with_the_field_named(
+    live_port, budget, error
+):  # noqa: F811
     status, body = post_json(
         live_port,
         "/api/generate",

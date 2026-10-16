@@ -55,16 +55,30 @@ def inputs_functions_js() -> str:
 
     src = INPUTS_JS.read_text(encoding="utf-8")
     funcs = slice_between(
-        src, "/* @@wizard-inputs:functions-start */", "/* @@wizard-inputs:functions-end */"
+        src,
+        "/* @@wizard-inputs:functions-start */",
+        "/* @@wizard-inputs:functions-end */",
     )
     return "var NOVA_INPUTS = " + template_composer.wizard_inputs_json() + ";\n" + funcs
 
 
 def run_node(script: str) -> Any:
+    """Evaluate ``script`` under node and return its stdout parsed as JSON.
+
+    The script goes in on stdin, never as ``node -e <script>``: Linux caps a
+    single argv string at 128 KiB (MAX_ARG_STRLEN) and fails with
+    ``OSError: [Errno 7] Argument list too long``; macOS has no such cap. The
+    4,000-input differential test builds a ~138 KB script, so it passed locally
+    and failed on the CI runner."""
     if NODE is None:
         raise RuntimeError("node not installed")
     out = subprocess.run(
-        [NODE, "-e", script], capture_output=True, text=True, timeout=60
+        [NODE, "-"],
+        input=script,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=60,
     )
     if out.returncode != 0:
         raise AssertionError(f"node failed:\n{out.stderr}")
@@ -87,7 +101,7 @@ def _stub_dom(state: dict) -> str:
             "    return ELS[id];",
             "  },",
             "  querySelectorAll: function (sel) {",
-            "    var m = /name=\"([^\"]+)\"/.exec(sel || '');",
+            '    var m = /name="([^"]+)"/.exec(sel || \'\');',
             "    var name = m ? m[1] : '';",
             "    return (STATE.__checked && STATE.__checked[name] || []).map(function (v) {",
             "      return { value: v };",
@@ -136,9 +150,7 @@ def wizard_payloads(
         estimate_call = "estimatePayload({})"
     else:  # pre-2026-10-01 preview: its own hand-built body
         parts.append(js_block(prev_src, "function estimatePayload("))
-        parts.append(
-            "function estimateChannelCategories() { return undefined; }"
-        )
+        parts.append("function estimateChannelCategories() { return undefined; }")
         estimate_call = (
             "estimatePayload({ total: 0, locs: locations }, roles, selectedIndustry, "
             "document.getElementById('clientName').value, novaChannelCategoriesPayload())"
