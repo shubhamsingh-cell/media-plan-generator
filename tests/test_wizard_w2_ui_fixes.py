@@ -1076,12 +1076,14 @@ def test_estimate_bar_markup_and_css_are_single_column_only():
 
 
 _BAR_STUB = r"""
-var latestEstimate = null, latestEstimateSig = '', estimating = false;
+var latestEstimate = null, latestEstimateSig = '', estimating = false, lastScheduledSig = '';
 var attrs = {}, texts = {};
 function estimatePayload(m) { return m.inputs; }
 function inputsFor(total, roles) { return { target_roles: roles, budget_range: total }; }
 // an estimate computed for exactly these inputs
 function ready(est, total, roles) { latestEstimate = est; latestEstimateSig = JSON.stringify(inputsFor(total, roles)); }
+// a request for exactly these inputs was scheduled (and may have failed)
+function scheduled(total, roles) { lastScheduledSig = JSON.stringify(inputsFor(total, roles)); }
 var bar = { setAttribute: function (k, v) { attrs[k] = v; } };
 function $(id) {
   if (id === 'npEstimateBar') return bar;
@@ -1174,10 +1176,12 @@ def test_estimate_bar_ignores_an_estimate_computed_for_other_inputs():
     before render() schedules the request) the old estimate is not "ready" for
     the new budget."""
     got = _bar_script(
-        "ready(" + json.dumps(_EST) + ", 35000, ['Nurse']); estimating = false; paint(40000, ['Nurse']);"
+        "ready(" + json.dumps(_EST) + ", 35000, ['Nurse']); scheduled(35000, ['Nurse']);"
+        "estimating = false; paint(40000, ['Nurse']);"
         "var out = { attrs: attrs, figs: figs() };"
     )
-    assert got["attrs"]["data-state"] == "unavailable"
+    # no request exists for 40000 yet: it is about to be scheduled, so "updating"
+    assert got["attrs"]["data-state"] == "loading"
     assert "2,020" not in json.dumps(got["figs"])
     # a different ROLE is different inputs too
     got = _bar_script(
@@ -1192,7 +1196,8 @@ def test_estimate_bar_shows_dashes_when_the_request_failed_like_the_pane():
     got = _bar_script(
         "ready(" + json.dumps(_EST) + ", 35000, ['Nurse']); paint(35000, ['Nurse']);"
         # failure: no estimate, nothing in flight; the stale figures must NOT come back
-        "latestEstimate = null; latestEstimateSig = ''; estimating = false; paint(35000, ['Nurse']);"
+        "latestEstimate = null; latestEstimateSig = ''; estimating = false; scheduled(35000, ['Nurse']);"
+        "paint(35000, ['Nurse']);"
         "var out = { attrs: attrs, figs: figs() };"
     )
     assert got["attrs"]["data-state"] == "unavailable"
@@ -1743,7 +1748,7 @@ function channelOn() { return false; }
 """
 
 
-def _insights(goal_range: str, target: int, est_hires: float):
+def _insights(goal_range: str, target: int, est_hires: float, est_cph: float = 3500, benchmark=None):
     m = {
         "role": "Nurse", "total": 35000, "targetHires": target, "goalRange": goal_range,
         "roleClass": "skilled", "rows": [{}, {}], "recommended": True, "channelsTouched": False,
@@ -1755,7 +1760,8 @@ def _insights(goal_range: str, target: int, est_hires: float):
             js_block(PREVIEW, "function goalText("),
             js_block(PREVIEW, "function computeInsights("),
             f"process.stdout.write(JSON.stringify(computeInsights({json.dumps(m)}, "
-            f"{{ est_hires: {est_hires}, est_cph: 3500 }}).map(function (i) {{ return i.text; }})));",
+            f"{{ est_hires: {est_hires}, est_cph: {est_cph}, cph_benchmark: {json.dumps(benchmark)} }})"
+            ".map(function (i) { return i.text; })));",
         ]
     )
     return run_node(script)
@@ -1801,23 +1807,33 @@ def test_loading_screen_does_not_claim_a_linkedin_inspired_deck():
 _ASK_STUB = r"""
 var P = __PARAMS__;
 var _lastPlanPayload = P.payload;
-var opened = [], stored = {};
-var window = { open: function (u, t) { opened.push([u, t]); } };
-var sessionStorage = { setItem: function (k, v) { stored[k] = JSON.parse(v); } };
+var opened = [], stored = {}, removed = [];
+var window = { open: function (u, t) { opened.push([u, t]); },
+  NovaPreview: { planIsCurrent: function () { return P.current; } } };
+var sessionStorage = { setItem: function (k, v) { stored[k] = JSON.parse(v); },
+  removeItem: function (k) { removed.push(k); delete stored[k]; } };
+var selectedIndustry = P.industryKey || null;
+var channelsDB = P.industryKey ? { industries: (function () { var o = {}; o[P.industryKey] = { label: P.industry }; return o; })() } : null;
+var selectedNaicsTitle = P.naics || '';
 function novaPlanCoreInputs() { return P.inputs; }
 function novaResolvePlanBudget(raw) { return { ok: /^[0-9,]+$/.test(raw) }; }
 function novaPlanBudgetLabel(p) { return '$' + Math.round(Number(String(p.budget_range).replace(/,/g, '')) / 1000) + 'K'; }
 function getSelectedRegion() { return { region: 'us_only', custom_countries: [] }; }
 var document = { querySelector: function () {
-  return P.industry ? { querySelector: function () { return { textContent: P.industry }; } } : null; } };
+  return P.card ? { querySelector: function () { return { textContent: P.card }; } } : null; } };
 """
 
 
-def _ask(payload, inputs=None, industry=""):
-    params = {"payload": payload, "inputs": inputs or {}, "industry": industry}
+def _ask(payload, inputs=None, industry="", current=True, naics="", card="", key="healthcare_medical"):
+    params = {
+        "payload": payload, "inputs": inputs or {}, "industry": industry,
+        "industryKey": key if industry else "", "current": current, "naics": naics, "card": card,
+    }
     script = "\n".join(
         [
             _ASK_STUB.replace("__PARAMS__", json.dumps(params)),
+            js_block(APP, "function novaWizardIndustryLabel("),
+            js_block(APP, "function novaForgetPlanContext("),
             js_block(APP, "function novaWizardBriefMessage("),
             js_block(APP, "function askNovaAboutPlan("),
             "askNovaAboutPlan();",
@@ -1845,15 +1861,33 @@ _WIZARD_INPUTS = {
 
 @needs_node
 def test_ask_nova_before_a_plan_exists_prefills_the_wizard_inputs_and_does_not_send():
-    got = _ask(None, _WIZARD_INPUTS, "Healthcare")
+    got = _ask(None, _WIZARD_INPUTS, "Healthcare & Medical")
     (url, target), = got["opened"]
     assert target == "_blank" and url.startswith("/nova?prefill=") and url.endswith("&send=0")
     message = _prefill(url)
-    assert message.startswith("I'm planning a Healthcare campaign for Acme Health: ")
+    assert message.startswith("I'm planning a Healthcare & Medical campaign for Acme Health: ")
     assert "budget $60K" in message and "roles Registered Nurse" in message
     assert "locations Los Angeles, CA" in message
     assert "I just generated" not in message and "details: ." not in message
     assert got["stored"]["nova_plan_context"]["autosend"] is False
+
+
+@needs_node
+def test_ask_nova_names_the_industry_however_it_was_set():
+    """Round-5: the drafted question read "a campaign" when the industry came
+    from an example chip / restored draft (no highlighted card to read)."""
+    # the industry key the wizard holds, via the channel DB's label
+    msg = _prefill(_ask(None, _WIZARD_INPUTS, "Healthcare & Medical")["opened"][0][0])
+    assert "a Healthcare & Medical campaign for Acme Health" in msg
+    # an "a"/"an" that agrees with the word
+    msg = _prefill(_ask(None, _WIZARD_INPUTS, "Education", key="education")["opened"][0][0])
+    assert "an Education campaign for Acme Health" in msg
+    # no key, but a precise NAICS pick
+    msg = _prefill(_ask(None, _WIZARD_INPUTS, "", naics="Offices of Physicians")["opened"][0][0])
+    assert "an Offices of Physicians campaign" in msg or "a Offices of Physicians campaign" in msg
+    # no key, no NAICS: the highlighted card's own text
+    msg = _prefill(_ask(None, _WIZARD_INPUTS, "", card="Retail")["opened"][0][0])
+    assert "a Retail campaign for Acme Health" in msg
 
 
 @needs_node
@@ -1866,7 +1900,7 @@ def test_ask_nova_with_nothing_filled_in_just_opens_the_chat():
 @needs_node
 def test_ask_nova_after_a_generated_plan_describes_that_plan_and_sends():
     payload = dict(_WIZARD_INPUTS, industry_label="Healthcare", hire_volume="50-100 hires")
-    got = _ask(payload, _WIZARD_INPUTS, "Healthcare")
+    got = _ask(payload, _WIZARD_INPUTS, "Healthcare", current=True)
     (url, _), = got["opened"]
     assert "send=0" not in url
     message = _prefill(url)
@@ -1877,11 +1911,40 @@ def test_ask_nova_after_a_generated_plan_describes_that_plan_and_sends():
 
 
 @needs_node
+def test_ask_nova_never_auto_sends_a_plan_that_is_no_longer_the_one_on_screen():
+    """Round-5: after Clear Form / a new client, the old plan's payload is still
+    cached; it must not be sent for the user."""
+    payload = dict(_WIZARD_INPUTS, client_name="Old Client", industry_label="Healthcare")
+    got = _ask(payload, dict(_WIZARD_INPUTS, client_name="New Client"), "Healthcare", current=False)
+    (url, _), = got["opened"]
+    message = _prefill(url)
+    assert url.endswith("&send=0")
+    assert "Old Client" not in message and "I just generated" not in message
+    assert message.startswith("I'm planning a Healthcare campaign for New Client")
+    assert got["stored"]["nova_plan_context"]["autosend"] is False
+
+
+@needs_node
 def test_ask_nova_with_a_hollow_plan_payload_is_treated_as_no_plan():
     """A payload with none of the fields used to produce "...details: ."."""
     got = _ask({}, _WIZARD_INPUTS, "Healthcare")
     (url, _), = got["opened"]
     assert url.endswith("&send=0") and "I just generated" not in _prefill(url)
+
+
+def test_the_message_kept_for_the_nova_tab_is_dropped_when_the_form_is_cleared_or_the_client_changes():
+    assert "novaForgetPlanContext();" in js_block(APP, "function clearFormState(")
+    init = js_block(APP, "function _doInit(")
+    assert 'getElementById("clientName")' in init
+    assert 'addEventListener("input", novaForgetPlanContext)' in init
+    assert 'sessionStorage.removeItem("nova_plan_context")' in js_block(APP, "function novaForgetPlanContext(")
+
+
+def test_the_nova_page_consumes_the_stored_message_whichever_way_it_was_read():
+    nova = (PARTIALS.parent.parent / "nova.html").read_text(encoding="utf-8")
+    # a reload of the opened tab (URL already cleaned) must not find it again
+    assert 'if (prefillMsg) sessionStorage.removeItem("nova_plan_context");' in nova
+    assert 'sessionStorage.removeItem("nova_plan_context");' in nova[nova.index("var stored = storedCtx;") :]
 
 
 def test_nova_page_only_auto_sends_when_told_to():
@@ -1929,3 +1992,133 @@ def test_clear_form_and_channel_switches_get_44px_hit_areas_on_touch_layouts():
         + list(_rule_bodies(blk, ".studio .toggle::after"))
     ]
     assert reach and "inset: -9px -4px" in reach[0]  # 26px switch + 2 x 9px = 44px
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Round 5: click-to-apply budget, graded cost per hire, typing state
+# ══════════════════════════════════════════════════════════════════════════
+
+COPILOT = (PARTIALS / "body_copilot_js.html").read_text(encoding="utf-8")
+
+
+def _extract(field: str, message: str):
+    script = "\n".join(
+        [
+            js_block(COPILOT, "function nudgeExtractValue("),
+            "process.stdout.write(JSON.stringify(nudgeExtractValue("
+            f"{json.dumps(field)}, {json.dumps(message)})));",
+        ]
+    )
+    return run_node(script)
+
+
+@needs_node
+def test_no_budget_nudge_is_click_to_apply():
+    """Round-5: "Click to apply" on the budget nudge toasted "Recommended
+    budget: $56,452" (the user's $35K / 1.24 ... or any first "$" figure in
+    the text) beside a Reality Check saying to raise the budget by ~$490K."""
+    for message in (
+        "In Los Angeles, cost per application runs about 1.24x the national median "
+        "(blended C2ER and BLS public data), so your budget stretches like ~$28,226 in a median market.",
+        "This budget may be tight for healthcare roles. Consider raising it, or narrowing scope.",
+        "Recommended budget: $56,452",
+        "$50,000 - $250,000",
+    ):
+        assert _extract("budget", message) is None, message
+    # the apply side has no budget branch either
+    assert 'field === "budget"' not in js_block(COPILOT, "function nudgeApplyValue(")
+    assert 'field === "budget"' not in js_block(COPILOT, "function nudgeExtractValue(")
+
+
+@needs_node
+def test_a_duration_recommendation_is_still_click_to_apply():
+    assert _extract(
+        "duration", "Recommended duration for engineering roles: 3-6 months. Technical roles take longer to fill."
+    ) == "3-6 months"
+    assert _extract("duration", "Short campaigns for sales roles risk low yield: passive candidates take time.") is None
+
+
+_BENCH_NURSE = {"label": "nursing", "p25": 4200, "median": 5400, "p75": 7800, "source": "SHRM cost-per-hire benchmarks (2024/2025)"}
+_BENCH_TECH = {"label": "tech", "p25": 4200, "median": 5800, "p75": 9500, "source": "SHRM cost-per-hire benchmarks (2024/2025)"}
+
+
+@needs_node
+def test_cost_per_hire_is_graded_only_against_the_data_quartiles():
+    """Round-5: "High ~$7K/hire for Registered Nurse" came from a hand-typed
+    per-role-class table; the SHRM-sourced nursing upper quartile is $7.8K."""
+    def cph_lines(est_cph, benchmark):
+        return [t for t in _insights("", 0, 0, est_cph=est_cph, benchmark=benchmark) if "/hire" in t]
+
+    # $7K nurse hire: inside nursing's quartiles (4.2K-7.8K) -> nothing said
+    assert cph_lines(7000, _BENCH_NURSE) == []
+    # above the p75 -> High, naming the yardstick and its source
+    high = cph_lines(9000, _BENCH_NURSE)
+    assert len(high) == 1 and high[0].startswith("High <b>~$9K/hire</b>")
+    assert "above the $8K upper quartile for nursing (SHRM cost-per-hire benchmarks (2024/2025))" in high[0]
+    # a tech hire at $7K is fine (p75 $9.5K); at $10K it is high
+    assert cph_lines(7000, _BENCH_TECH) == []
+    assert cph_lines(10000, _BENCH_TECH)[0].startswith("High")
+    # below the p25 -> Efficient
+    low = cph_lines(3000, _BENCH_NURSE)
+    assert len(low) == 1 and low[0].startswith("Efficient <b>~$3K/hire</b>") and "lower quartile" in low[0]
+    # no benchmark for these roles / a non-USD plan: no grade at all
+    assert cph_lines(20000, None) == []
+
+
+def test_the_typed_cost_per_hire_table_is_gone():
+    assert "BENCH = {" not in PREVIEW and "14000" not in PREVIEW and "bench * 1.4" not in PREVIEW
+    assert "est.cph_benchmark" in js_block(PREVIEW, "function computeInsights(")
+
+
+_EDIT_STUB = r"""
+var lastScheduledSig = JSON.stringify({ s: 'sig-of-35000' }), painted = [];
+var M = { sig: 'sig-of-35000' };
+function gather() { return M; }
+function estimatePayload(m) { return { s: m.sig }; }
+function paintOutcomes(m) { painted.push(m.sig); }
+"""
+
+
+@needs_node
+def test_the_first_keystroke_that_changes_the_inputs_repaints_at_once():
+    """Round-5: the bar stayed "ready" with the old figures while the field
+    already read 60000, because render() waits 110ms after the LAST keystroke."""
+    def run(sig):
+        script = "\n".join(
+            [
+                _EDIT_STUB,
+                js_block(PREVIEW, "function markEdited("),
+                f"M.sig = {json.dumps(sig)}; markEdited();",
+                "process.stdout.write(JSON.stringify(painted));",
+            ]
+        )
+        return run_node(script)
+
+    assert run("sig-of-60000") == ["sig-of-60000"]  # inputs changed: repaint now
+    assert run("sig-of-35000") == []  # a keystroke elsewhere: nothing to say
+    assert 'markEdited(); schedule();' in PREVIEW  # wired on every input event
+
+
+@needs_node
+def test_the_bar_is_loading_for_inputs_no_request_exists_for_yet():
+    got = _bar_script(
+        "ready(" + json.dumps(_EST) + ", 35000, ['Nurse']); scheduled(35000, ['Nurse']);"
+        "paint(35000, ['Nurse']); var before = attrs['data-state'];"
+        # the user typed 60000: nothing is in flight and no request is scheduled yet
+        "estimating = false; paint(60000, ['Nurse']);"
+        "var out = { before: before, after: attrs['data-state'], figs: figs() };"
+    )
+    assert got["before"] == "ready"
+    assert got["after"] == "loading"
+    assert got["figs"] == {"nebBudget": "$60K", "nebApps": "…", "nebHires": "…", "nebCpa": "…"}
+
+
+def test_countries_copy_comes_from_the_same_source_as_the_rest_of_the_site():
+    """Round-5: "Supports 40+ countries" had no source (country_job_boards
+    alone has 34); the count is proof_claims' distinct country keys."""
+    assert "40+ countries" not in BODY and "Supports 40" not in BODY
+    assert "{{claim_countries}} countries" in BODY
+    import proof_claims
+
+    rendered = proof_claims.render("{{claim_countries}} countries")
+    assert re.fullmatch(r"\d+ countries", rendered), rendered

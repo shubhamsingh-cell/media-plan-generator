@@ -292,6 +292,16 @@ def _serve_template(handler: Any, templates_dir: str, template: str) -> None:
 
         composed = get_composed_template(page_name)
         if composed is not None:
+            # {{claim_*}} proof-number tokens resolve to values computed from
+            # real artifacts (proof_claims.py), exactly as app._serve_file does
+            # for every other template. Composed pages (the wizard) were served
+            # without it, so a token in a partial reached the browser literally.
+            try:
+                import proof_claims
+
+                composed = proof_claims.render_bytes(composed)
+            except Exception:
+                logger.error("proof_claims render failed for %s", page_name, exc_info=True)
             # gzip when the client accepts it (composed pages are large —
             # e.g. /media-plan is ~518KB raw, ~105KB gzipped) + a short
             # private revalidating cache for cross-navigation reuse.

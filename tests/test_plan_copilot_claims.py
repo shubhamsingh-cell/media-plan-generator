@@ -35,7 +35,19 @@ if ROOT not in sys.path:
 import plan_copilot as pc  # noqa: E402
 
 SOURCE_PATH = os.path.join(ROOT, "plan_copilot.py")
-LABEL = getattr(pc, "BENCHMARK_SOURCE_LABEL", "Joveo 2026 benchmark set")
+# The data file's own short names for the sources a metro entry cites. The copy
+# must name exactly the sources that entry lists ("blended C2ER and BLS public
+# data" for Los Angeles), never a house label.
+SHORT_NAMES = {"coli_c2er_2024": "C2ER", "bls_cpi_metro_2025": "BLS", "appcast_2025": "Appcast"}
+
+
+def expected_label(source_ids):
+    names = [SHORT_NAMES[i] for i in source_ids]
+    joined = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+    return f"blended {joined} public data"
+
+
+LABEL = expected_label(["coli_c2er_2024", "bls_cpi_metro_2025"])  # Los Angeles
 PLACEHOLDER = "<N>"
 
 # Anything that reads as a statistic: 23%, 1.24x, 20-25%, 42 days, 45+, $6,500.
@@ -49,7 +61,7 @@ STAT_RE = re.compile(
 # Each allowed figure: the exact copy it may appear in (as the static scan sees
 # it, "<N>" standing for an interpolated value) -> the repo data it is read from.
 ALLOWED_STATS: Dict[str, Dict[str, object]] = {
-    f"cost per application runs about <N>x the national median ({LABEL})": {
+    "cost per application runs about <N>x the national median (<N>)": {
         "file": "data/recruitment_benchmarks_2026_deep.json",
         "path": ("by_metro", "*", "metro_cpa_mult"),
         "why": "the metro's own multiplier, printed with 2 decimals",
@@ -101,20 +113,14 @@ def _non_user_facing_nodes(tree: ast.AST) -> set:
 
 
 def _render(node: ast.AST) -> str:
-    """A literal or f-string as the reader sees it; interpolations -> <N>,
-    except the source label, which is a known constant."""
+    """A literal or f-string as the reader sees it; interpolations -> <N>
+    (the metro's multiplier AND its source label, both read from the data)."""
     if isinstance(node, ast.Constant):
         return str(node.value)
     parts: List[str] = []
     for value in node.values:  # type: ignore[attr-defined]
         if isinstance(value, ast.Constant):
             parts.append(str(value.value))
-        elif (
-            isinstance(value, ast.FormattedValue)
-            and isinstance(value.value, ast.Name)
-            and value.value.id == "BENCHMARK_SOURCE_LABEL"
-        ):
-            parts.append(LABEL)
         else:
             parts.append(PLACEHOLDER)
     return "".join(parts)
@@ -212,7 +218,7 @@ def test_each_allowed_statistic_resolves_to_a_data_file(fragment):
 def test_a_stat_bearing_fragment_names_its_source_in_the_same_sentence():
     for fragment in ALLOWED_STATS:
         if "x the national median" in fragment:
-            assert f"({LABEL})" in fragment
+            assert fragment.endswith("(<N>)")  # a parenthesised source follows the figure
 
 
 # --------------------------------------------------------------------------
@@ -236,10 +242,13 @@ CHANNELS = ["Indeed", "LinkedIn", "Glassdoor", "Indeed, LinkedIn", "Programmatic
 ALLOWED_RENDERED = [
     re.compile(
         r"cost per application runs about (\d\.\d\d)x the national median "
-        + re.escape(f"({LABEL})")
+        r"\(blended [A-Za-z0-9, ]+ public data\)"
     ),
     re.compile(r"so your budget stretches like ~\$([\d,]+) in a median market"),
 ]
+
+
+METRO_SOURCES: Dict[str, List[str]] = {}
 
 
 def _metros() -> List[Tuple[str, float]]:
@@ -251,6 +260,7 @@ def _metros() -> List[Tuple[str, float]]:
         city = str(entry["msa"]).split("-")[0].strip().replace(".", "")
         state = key.rsplit("_", 1)[-1].upper()
         out.append((f"{city}, {state}", float(entry["metro_cpa_mult"])))
+        METRO_SOURCES[f"{city}, {state}"] = list(entry["source_ids"])
     return out
 
 
@@ -322,7 +332,7 @@ def test_every_rendered_multiplier_equals_the_data_files_value():
         shown = ALLOWED_RENDERED[0].search(messages[0])
         assert shown, messages[0]
         assert f"{float(shown.group(1)):.2f}" == f"{mult:.2f}", (city, messages[0], mult)
-        assert LABEL in messages[0]
+        assert f"({expected_label(METRO_SOURCES[city])})" in messages[0], (city, messages[0])
         checked += 1
     assert checked >= 40
 
@@ -333,7 +343,7 @@ def test_los_angeles_says_what_the_benchmark_set_says():
         n["message"]
         for n in pc.get_copilot_nudges_multi("location", "Los Angeles", {})
     )
-    assert "1.24x the national median (Joveo 2026 benchmark set)" in text
+    assert f"1.24x the national median ({LABEL})" in text
     assert "1.25" not in text
 
 
@@ -344,7 +354,7 @@ def test_budget_stretch_figure_is_the_users_budget_over_the_data_multiplier():
         {"roles": ["Registered Nurse"], "locations": ["Los Angeles, CA"]},
     )
     text = " ".join(n["message"] for n in nudges)
-    assert "1.24x the national median (Joveo 2026 benchmark set)" in text
+    assert f"1.24x the national median ({LABEL})" in text
     assert f"~${round(50000 / 1.24):,} in a median market" in text
 
 
@@ -409,3 +419,49 @@ def test_a_missing_benchmark_file_degrades_to_no_cost_claim(monkeypatch, tmp_pat
         assert pc.get_copilot_nudges_multi("location", "Los Angeles", {}) == []
     finally:
         monkeypatch.setattr(pc, "_geo_table", None)
+
+
+def test_the_metro_source_label_says_what_the_data_file_says():
+    """The multipliers are C2ER's cost-of-living index and BLS metro CPI (plus
+    Appcast for some metros), blended, per by_metro.<metro>.source_ids -- not a
+    Joveo survey. The copy names the sources the entry lists, as the file does."""
+    data = _read_bytes_json("data/recruitment_benchmarks_2026_deep.json")
+    entries = {k: v for k, v in data["by_metro"].items() if not k.startswith("_")}
+    ids = {sid for entry in entries.values() for sid in entry["source_ids"]}
+    assert ids <= set(SHORT_NAMES), ids - set(SHORT_NAMES)  # a new source must be named here
+    names = {s["id"]: s["name"] + " " + s["publisher"] for s in data["metadata"]["sources"]}
+    assert "C2ER" in names["coli_c2er_2024"] or "Council for Community" in names["coli_c2er_2024"]
+    assert "BLS" in names["bls_cpi_metro_2025"] or "Bureau of Labor" in names["bls_cpi_metro_2025"]
+    text = " ".join(
+        n["message"] for n in pc.get_copilot_nudges_multi("location", "Los Angeles, CA", {})
+    )
+    assert "(blended C2ER and BLS public data)" in text
+    source = open(SOURCE_PATH, encoding="utf-8").read()
+    assert "Joveo 2026 benchmark set" not in source and "BENCHMARK_SOURCE_LABEL" not in source
+
+
+def test_a_nurse_is_not_told_to_consider_a_physician_or_pharmacist():
+    for title in ("Registered Nurse", "nurse", "ICU Nurse", "Nurse Practitioner"):
+        nudges = pc.get_copilot_nudges_multi("job_title", title, {})
+        text = " ".join(n["message"] for n in nudges)
+        assert "Related titles to consider" in text, title
+        for wrong in ("Physician", "Pharmacist", "Clinical Researcher", "Healthcare Administrator"):
+            assert wrong not in text, (title, text)
+    # other families keep their own list
+    text = " ".join(
+        n["message"] for n in pc.get_copilot_nudges_multi("job_title", "Software Engineer", {})
+    )
+    assert "Frontend Developer" in text
+
+
+def test_no_budget_nudge_carries_a_figure_the_wizard_could_apply_as_the_budget():
+    """Round-5: the click-to-apply path read the first "$" figure out of the
+    text (the user's own budget / a metro multiplier) and "applied" it. The
+    wizard no longer applies budgets at all (see test_wizard_copy_claims), and
+    the text that figure sits in stays an informational equivalent."""
+    nudges = pc.get_copilot_nudges_multi(
+        "budget", "$35,000", {"roles": ["Registered Nurse"], "locations": ["Los Angeles, CA"]}
+    )
+    stretch = [n for n in nudges if "stretches like" in n["message"]]
+    assert stretch and stretch[0]["type"] == "suggestion"
+    assert "(blended C2ER and BLS public data)" in stretch[0]["message"]

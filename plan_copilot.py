@@ -8,8 +8,8 @@ Honesty rule (wizard audit, trust lens): a nudge never states a percentage,
 multiplier, dollar benchmark or day count unless it is read at runtime from a
 data file that carries it. The only such figure is the metro cost multiplier
 (``data/recruitment_benchmarks_2026_deep.json`` -> ``by_metro.*.metro_cpa_mult``,
-cited in the copy as "Joveo 2026 benchmark set"). Everything else is
-qualitative advice. tests/test_plan_copilot_claims.py scans this file's
+cited in the copy as e.g. "blended C2ER and BLS public data": the sources that
+metro's ``source_ids`` list). Everything else is qualitative advice. tests/test_plan_copilot_claims.py scans this file's
 user-facing strings and fails on any other figure.
 """
 
@@ -116,7 +116,23 @@ BENCHMARK_FILE = os.path.join(
     "data",
     "recruitment_benchmarks_2026_deep.json",
 )
-BENCHMARK_SOURCE_LABEL = "Joveo 2026 benchmark set"
+# Each metro cites its own sources (by_metro.<metro>.source_ids): C2ER's
+# cost-of-living index and BLS metro CPI for every metro, plus Appcast for some.
+# The copy names exactly the ones the entry lists, as "blended ... public data" --
+# the multiplier is not a Joveo survey.
+_SOURCE_SHORT_NAMES = {
+    "coli_c2er_2024": "C2ER",
+    "bls_cpi_metro_2025": "BLS",
+    "appcast_2025": "Appcast",
+}
+
+
+def _source_label(source_ids: List[str]) -> str:
+    names = [_SOURCE_SHORT_NAMES[s] for s in source_ids if s in _SOURCE_SHORT_NAMES]
+    if not names:
+        return "public data"
+    joined = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+    return f"blended {joined} public data"
 
 _geo_lock = threading.Lock()
 _geo_table: Optional[Dict[str, Dict[str, Any]]] = None
@@ -157,6 +173,7 @@ def _load_geo_table() -> Dict[str, Dict[str, Any]]:
             "name": principal.replace(".", "") or city.title(),
             "state": state,
             "mult": float(mult),
+            "label": _source_label(list(entry.get("source_ids") or [])),
         }
     return table
 
@@ -322,6 +339,21 @@ DURATION_RECOMMENDATIONS: Dict[str, Dict[str, str]] = {
         "reason": "Operations roles fill quickly with adequate sourcing",
     },
 }
+
+# Related titles for roles whose family list is a poor fit. The healthcare
+# family is one flat keyword list (nurse, physician, pharmacist, ...), so a
+# Registered Nurse was told to consider "Physician" and "Pharmacist".
+RELATED_TITLE_OVERRIDES = (
+    (
+        "nurs",
+        [
+            "Licensed Practical Nurse",
+            "Nurse Practitioner",
+            "Nursing Assistant",
+            "Medical Technician",
+        ],
+    ),
+)
 
 BROAD_TITLE_WARNINGS: List[str] = [
     "manager",
@@ -507,11 +539,21 @@ def _nudges_job_title(value: str, context: Dict[str, Any]) -> List[Dict[str, str
 
     # Suggest similar role titles within the family
     if family:
-        related = [
-            kw.title()
-            for kw in ROLE_FAMILIES[family]
-            if kw != value_lower and kw not in value_lower and value_lower not in kw
-        ][:4]
+        related = None
+        for needle, titles in RELATED_TITLE_OVERRIDES:
+            if needle in value_lower:
+                related = [
+                    t
+                    for t in titles
+                    if t.lower() not in value_lower and value_lower not in t.lower()
+                ][:4]
+                break
+        if related is None:
+            related = [
+                kw.title()
+                for kw in ROLE_FAMILIES[family]
+                if kw != value_lower and kw not in value_lower and value_lower not in kw
+            ][:4]
         if related:
             nudges.append(
                 {
@@ -612,10 +654,10 @@ def _nudges_budget(value: str, context: Dict[str, Any]) -> List[Dict[str, str]]:
             nudges.append(
                 {
                     "field": "budget",
-                    "message": f"In {geo['name']}, cost per application runs about {geo['mult']:.2f}x the national median ({BENCHMARK_SOURCE_LABEL}), so your budget stretches like ~${adjusted:,} in a median market. A remote or hybrid option can widen the pool.",
+                    "message": f"In {geo['name']}, cost per application runs about {geo['mult']:.2f}x the national median ({geo['label']}), so your budget stretches like ~${adjusted:,} in a median market. A remote or hybrid option can widen the pool.",
                     "type": "suggestion",
                     "confidence": 0.75,
-                    "source": f"Nova Copilot -- metro cost benchmark ({BENCHMARK_SOURCE_LABEL})",
+                    "source": f"Nova Copilot -- metro cost benchmark ({geo['label']})",
                 }
             )
             break
@@ -645,10 +687,10 @@ def _nudges_location(value: str, context: Dict[str, Any]) -> List[Dict[str, str]
         nudges.append(
             {
                 "field": "location",
-                "message": f"{geo['name']}: cost per application runs about {geo['mult']:.2f}x the national median ({BENCHMARK_SOURCE_LABEL}).",
+                "message": f"{geo['name']}: cost per application runs about {geo['mult']:.2f}x the national median ({geo['label']}).",
                 "type": "info",
                 "confidence": 0.85,
-                "source": f"Nova Copilot -- metro cost benchmark ({BENCHMARK_SOURCE_LABEL})",
+                "source": f"Nova Copilot -- metro cost benchmark ({geo['label']})",
             }
         )
 

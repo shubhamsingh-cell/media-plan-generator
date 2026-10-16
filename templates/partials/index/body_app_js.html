@@ -1261,6 +1261,7 @@
   }
   function clearFormState() {
     sessionStorage.removeItem(_FORM_STORAGE_KEY);
+    novaForgetPlanContext();
     // Reset all fields
     [
       "clientName",
@@ -1929,13 +1930,41 @@
   //    user, who edits it and presses send. With nothing filled in at all the
   //    chat just opens, empty. It used to send "I just generated a media plan
   //    with these details: ." before any plan existed.
-  function novaWizardBriefMessage() {
-    var p = typeof novaPlanCoreInputs === "function" ? novaPlanCoreInputs() : {};
+  // The industry as the user sees it: the picked card's label, else the
+  // precise NAICS title, else the highlighted card's own text. (The card lookup
+  // alone missed the industry an example chip or a restored draft had set, so
+  // the drafted question read "a campaign".)
+  function novaWizardIndustryLabel() {
+    var fromDb =
+      selectedIndustry &&
+      channelsDB &&
+      channelsDB.industries &&
+      channelsDB.industries[selectedIndustry] &&
+      channelsDB.industries[selectedIndustry].label;
+    if (fromDb) return String(fromDb).trim();
+    if (typeof selectedNaicsTitle === "string" && selectedNaicsTitle.trim())
+      return selectedNaicsTitle.trim();
     var card = document.querySelector(
       ".industry-card.selected, .industry-card[aria-pressed='true']",
     );
     var h = card && card.querySelector("h3, .industry-name, strong");
-    var industry = h ? h.textContent.trim() : "";
+    return h ? h.textContent.trim() : "";
+  }
+
+  // A message handed to /nova for auto-sending is only ever good for the
+  // plan it described: forget it when the form is cleared or a new client is
+  // typed, so an old plan can never be sent later.
+  function novaForgetPlanContext() {
+    try {
+      sessionStorage.removeItem("nova_plan_context");
+    } catch (e) {
+      /* storage unavailable: nothing was kept */
+    }
+  }
+
+  function novaWizardBriefMessage() {
+    var p = typeof novaPlanCoreInputs === "function" ? novaPlanCoreInputs() : {};
+    var industry = novaWizardIndustryLabel();
     var client = (p.client_name || "").trim();
     var facts = [];
     if (p.budget_range && typeof novaResolvePlanBudget === "function") {
@@ -1966,7 +1995,15 @@
     var message = "";
     var generated = false;
     var p = _lastPlanPayload;
-    if (p) {
+    // Auto-send only a plan that is still the one on screen: after the form is
+    // cleared or its inputs change, the old plan is not what the user is asking
+    // about (and a prefilled draft of the current inputs is safer than a send).
+    var planIsCurrent = !!(
+      window.NovaPreview &&
+      typeof window.NovaPreview.planIsCurrent === "function" &&
+      window.NovaPreview.planIsCurrent()
+    );
+    if (p && planIsCurrent) {
       // A plan was generated: describe THAT plan.
       try {
         var parts = [];
@@ -2035,6 +2072,11 @@
     }
   })();
   function _doInit() {
+    // A new client name = a new plan: drop any "Ask Nova" message kept for the last one
+    var clientNameEl = document.getElementById("clientName");
+    if (clientNameEl)
+      clientNameEl.addEventListener("input", novaForgetPlanContext);
+
     // Initialize file upload zones and exact input toggles
     initFileUploads();
 
@@ -3465,7 +3507,7 @@
           " open roles across " +
           realCountCompanies +
           (realCountCompanies === 1 ? " employer" : " employers") +
-          "). Consider increasing budget by 15-20% for competitive visibility.",
+          "). Consider increasing budget for competitive visibility.",
       );
     } else if (realCountCompanies > 0 && totalRoles > 20) {
       suggestions.push(

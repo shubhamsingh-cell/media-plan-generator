@@ -65,7 +65,7 @@ var document = {
 ['clientName', 'locationResolution'].forEach(function (id) { ELS[id] = ROOT.appendChild(mkEl(id)); });
 ELS.clientName.value = 'Acme';
 var window = { innerHeight: 800 };
-var sessionStorage = { removeItem: function () {} };
+var sessionStorage = { removed: [], removeItem: function (k) { this.removed.push(k); } };
 var _FORM_STORAGE_KEY = 'k', _locResolveTimer = null, _locResolveSeq = 0;
 var selectedIndustry = 'x', selectedJobCategories = ['a'];
 var locations = ['Austin, TX'], roles = ['Nurse'], competitors = ['Rival'];
@@ -82,7 +82,14 @@ function clearTimeout() {}
 
 def _clear_form_script(body: str) -> str:
     src = APP_JS.read_text(encoding="utf-8")
-    return "\n".join([_DOM_JS, js_block(src, "function clearFormState()"), body])
+    return "\n".join(
+        [
+            _DOM_JS,
+            js_block(src, "function novaForgetPlanContext()"),  # clearFormState drops the Ask Nova message
+            js_block(src, "function clearFormState()"),
+            body,
+        ]
+    )
 
 
 def test_clear_form_keeps_the_tag_inputs():

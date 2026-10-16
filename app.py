@@ -1691,9 +1691,15 @@ def _copilot_suggest_channels(
                         {
                             "text": "Programmatic/DSP",
                             "confidence": 0.88,
+                            # No figure: the registry's base CPA is the same
+                            # unadjusted number for every industry and
+                            # contradicted the industry-adjusted CPA the
+                            # estimate shows beside it.
                             "reason": (
-                                f"Avg CPA ${avg_cpa:.0f} for "
-                                f"{industry.replace('_', ' ').title()}"
+                                "Benchmarked for "
+                                f"{industry.replace('_', ' ').title()}; "
+                                "automated placement shifts spend toward the "
+                                "lowest cost per application"
                             ),
                         }
                     )
@@ -5567,6 +5573,14 @@ except ImportError as e:
 # excel_v2 module handle (for the optional niche-vendor-availability hook --
 # code defensively since that accessor may not exist yet).
 try:
+    import cph_benchmark
+
+    logger.info("cph_benchmark loaded successfully")
+except ImportError as e:
+    logger.warning("cph_benchmark import failed: %s", e)
+    cph_benchmark = None
+
+try:
     import plan_geo
 
     logger.info("plan_geo loaded successfully")
@@ -6080,6 +6094,16 @@ def _compute_plan_estimate(brief: dict) -> dict:
         "est_cph": round(float(cost_per_hire), 2) if cost_per_hire else 0.0,
         "est_applications": int(applications),
         "est_cpa": est_cpa,
+        # SHRM-sourced cost-per-hire quartiles for this industry / these roles
+        # (USD plans only), or None: the wizard words "High" / "Efficient"
+        # cost per hire only against these, never against a typed-in table.
+        "cph_benchmark": (
+            cph_benchmark.lookup(
+                industry_key, roles_titles, plan_currency_info.get("code") or "USD"
+            )
+            if cph_benchmark is not None
+            else None
+        ),
         "channels": _estimate_funded_channels(budget_result),
         # How the budget text was read -- the figure the plan will use
         # ("planning at $X"), so the wizard shows the server's own reading.

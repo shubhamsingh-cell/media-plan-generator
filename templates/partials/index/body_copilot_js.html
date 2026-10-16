@@ -396,7 +396,14 @@
       }
     }
 
-    // S23: Extract recommended value from nudge message text
+    // S23: Extract recommended value from nudge message text.
+    // Only a nudge that states an explicit RECOMMENDED value is click-to-apply
+    // (the duration advice: "Recommended duration for ...: 3-6 months"). The
+    // budget nudges never are: the first "$" figure in their text is the
+    // user's own budget divided by a metro multiplier, an informational
+    // equivalent, and "applying" it replaced the user's budget with a figure
+    // nothing recommended (it toasted "Recommended budget: $56,452" next to a
+    // Reality Check that said to raise the budget by ~$490K).
     function nudgeExtractValue(field, message) {
       if (!message) return null;
       if (field === "duration") {
@@ -412,43 +419,13 @@
           if (mo <= 12) return "6-12 months";
         }
       }
-      if (field === "budget") {
-        // Extract "$X,XXX" or "$X,XXX-$Y,YYY" pattern
-        var bMatch = message.match(/\$[\d,]+(?:\s*[-–—to]+\s*\$[\d,]+)?/);
-        if (bMatch) return bMatch[0];
-      }
       return null;
     }
 
     // S23: Apply nudge recommendation to the corresponding form field
     function nudgeApplyValue(field, value) {
       if (!value) return;
-      if (field === "budget") {
-        var budgetSelect = document.getElementById("budgetRange");
-        if (budgetSelect) {
-          // Try to match a budget range option
-          var opts = budgetSelect.querySelectorAll("option");
-          for (var i = 0; i < opts.length; i++) {
-            if (
-              opts[i].text.indexOf(
-                value.replace(/\$/g, "").split("-")[0].trim().replace(/,/g, ""),
-              ) > -1 ||
-              opts[i].value.indexOf(
-                value.replace(/\$/g, "").split("-")[0].trim().replace(/,/g, ""),
-              ) > -1
-            ) {
-              budgetSelect.value = opts[i].value;
-              budgetSelect.dispatchEvent(
-                new Event("change", { bubbles: true }),
-              );
-              showToast("Budget updated to " + opts[i].text, "success");
-              return;
-            }
-          }
-          // If no exact match, show the value as feedback
-          showToast("Recommended budget: " + value, "info");
-        }
-      } else if (field === "duration") {
+      if (field === "duration") {
         var durationSelect = document.getElementById("campaignDuration");
         if (durationSelect) {
           var opts = durationSelect.querySelectorAll("option");

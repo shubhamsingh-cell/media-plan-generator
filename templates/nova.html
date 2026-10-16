@@ -1039,12 +1039,17 @@
           try {
             var params = new URLSearchParams(window.location.search);
             var prefillMsg = params.get("prefill");
+            // The wizard's copy of the message is single-use: whichever way
+            // it was read, drop it so a reload of this tab can never send it
+            // again later.
+            var storedCtx = sessionStorage.getItem("nova_plan_context");
+            if (prefillMsg) sessionStorage.removeItem("nova_plan_context");
             // send=0: put the drafted question in the box and let the user
             // send it (the wizard sends it for them only for a GENERATED plan)
             var autoSend = params.get("send") !== "0";
             if (!prefillMsg) {
               // Also check sessionStorage (fallback for long messages)
-              var stored = sessionStorage.getItem("nova_plan_context");
+              var stored = storedCtx;
               if (stored) {
                 var ctx = JSON.parse(stored);
                 prefillMsg = ctx.message || "";

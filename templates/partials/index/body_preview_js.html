@@ -510,15 +510,20 @@
           ins.push({ tone: "good", text: "On track — budget supports <b>~" + intc(est.est_hires) + " hires</b> for your " + goalText(m) + "." });
         }
       }
-      // 2. cost per hire vs a role-class benchmark
-      var BENCH = { executive: 14000, senior: 6500, tech: 5000, skilled: 3500, highVolume: 450 };
-      var bench = BENCH[m.roleClass] || 3500;
-      if (est && est.est_cph > 0) {
+      // 2. cost per hire vs the SHRM-sourced quartiles /api/estimate returns
+      // (est.cph_benchmark, from data/recruitment_benchmarks_2026_deep.json).
+      // "High" / "Efficient" is only ever said against that yardstick: no
+      // benchmark for these roles (or a non-USD plan) = no grade. It used to
+      // grade against a hand-typed per-role-class table that called a $7K
+      // nurse hire "High" while the data's nursing upper quartile is $7.8K.
+      var bm = est && est.cph_benchmark;
+      if (est && est.est_cph > 0 && bm && bm.p75 > 0 && bm.p25 > 0) {
         var cph = est.est_cph;
-        if (cph > bench * 1.4) {
-          ins.push({ tone: "warn", text: "High <b>~" + hero(cph) + "/hire</b> for " + (role || "this role") + ". Niche boards + employer brand usually pull it down." });
-        } else if (cph < bench * 0.7) {
-          ins.push({ tone: "good", text: "Efficient <b>~" + hero(cph) + "/hire</b> — strong for " + (role || "this role") + "." });
+        var yard = escapeHtml(bm.label) + " (" + escapeHtml(bm.source) + ")";
+        if (cph > bm.p75) {
+          ins.push({ tone: "warn", text: "High <b>~" + hero(cph) + "/hire</b> for " + (role || "this role") + ": above the " + hero(bm.p75) + " upper quartile for " + yard + ". Niche boards + employer brand usually pull it down." });
+        } else if (cph < bm.p25) {
+          ins.push({ tone: "good", text: "Efficient <b>~" + hero(cph) + "/hire</b> for " + (role || "this role") + ": below the " + hero(bm.p25) + " lower quartile for " + yard + "." });
         }
       }
       // 3. channel fit
@@ -542,8 +547,8 @@
     // estimate exists, "ready" once it does.
     //   empty       the budget or the role is genuinely missing -> hint line
     //   loading     inputs set, an estimate for THESE inputs is not here yet
-    //               (debounce, request in flight, or an automatic retry still
-    //               to come) -> the CURRENT budget, "…" where the three
+    //               (a keystroke not yet rendered, the debounce, a request in
+    //               flight, or an automatic retry still to come) -> the CURRENT budget, "…" where the three
     //               figures go (dimmed) and "Updating estimate…". No earlier
     //               figure is ever shown: not under the new budget, and not
     //               under the old one either (a bar reading $35K over a field
@@ -570,7 +575,11 @@
           nebHires: intc(est.est_hires),
           nebCpa: cpaFmt(est.est_cpa),
         };
-      } else if (estimating) {
+      } else if (estimating || JSON.stringify(estimatePayload(m)) !== lastScheduledSig) {
+        // a request is scheduled / in flight / being retried, OR the inputs
+        // already differ from the last one scheduled (a keystroke whose
+        // debounced render() has not run yet): either way the figures on
+        // hand answer other inputs, so none is shown.
         state = "loading";
         figs = {
           nebBudget: hero(m.total),
@@ -647,6 +656,12 @@
     function markGenerated() {
       generatedSig = JSON.stringify(planInputs());
       render();
+    }
+    // True when a plan was generated AND the wizard still holds the inputs it
+    // was generated from (the same test the "Plan ready" badge uses). Ask Nova
+    // only auto-sends a plan for which this holds.
+    function planIsCurrent() {
+      return !!generatedSig && JSON.stringify(estimatePayload(gather())) === generatedSig;
     }
 
     // Paints #npApplies/#npHires/#npCpa and #npInsights from whatever the
@@ -896,6 +911,16 @@
       clearTimeout(pending);
       pending = setTimeout(function () { render(); updateStepNum(); }, 110);
     }
+    // On the FIRST keystroke that changes the estimate's inputs, say so at
+    // once: schedule() waits 110ms after the LAST keystroke, so a typed budget
+    // used to sit beside the previous budget's figures ("$35K / 2,020 / 6 /
+    // $17" under a field already reading 60000) for the whole typing burst.
+    function markEdited() {
+      try {
+        var m = gather();
+        if (JSON.stringify(estimatePayload(m)) !== lastScheduledSig) paintOutcomes(m);
+      } catch (e) { /* the debounced render() repaints */ }
+    }
 
     function boot() {
       // a11y: the toggle <label> wrappers have no text, so the checkboxes have
@@ -928,7 +953,7 @@
       if (estimateBar) estimateBar.addEventListener("click", showPane);
       render();
       updateStepNum();
-      document.addEventListener("input", schedule, true);
+      document.addEventListener("input", function () { markEdited(); schedule(); }, true);
       document.addEventListener("change", function (e) {
         if (e.target && e.target.id && CHANNELS[e.target.id]) markChannelsTouched();
         schedule();
@@ -974,6 +999,7 @@
     window.NovaPreview = {
       update: render, finalize: finalize, applyMix: applyMix, fundedChannels: funded,
       markGenerated: markGenerated, showPane: showPane, feasibility: feasibility,
+      planIsCurrent: planIsCurrent,
     };
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", boot);
