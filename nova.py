@@ -19375,9 +19375,19 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     response_text, tool_results_raw
                 )
                 if annotated != response_text:
-                    # P1.3: Strip [unverified] tags from rendered output;
-                    # keep the count in unverified_numbers for internal audit.
-                    clean = annotated.replace(_T3_UNVERIFIED_TAG, "")
+                    # A figure the model wrote that traces to no tool result is
+                    # MARKED, not hidden: the verbose " _[unverified]_" tag
+                    # becomes a dagger right after the number, plus ONE footer
+                    # line. (P1.3 used to strip the tag, so numbers the model
+                    # invented reached users looking exactly like engine
+                    # figures.) The count stays in unverified_numbers.
+                    clean = annotated.replace(_T3_UNVERIFIED_TAG, _T3_UNVERIFIED_MARK)
+                    if (
+                        unverified
+                        and _T3_UNVERIFIED_MARK in clean
+                        and _T3_UNVERIFIED_FOOTER not in clean
+                    ):
+                        clean = clean.rstrip() + "\n\n" + _T3_UNVERIFIED_FOOTER
                     result["response"] = clean
                     response_text = clean
                     result["unverified_numbers"] = unverified
@@ -26771,6 +26781,10 @@ _T3_NUMVER_MARKER = "<!-- t3-numver -->"
 # emphasis so it renders in muted text on the chat UI without HTML-escaping
 # concerns.
 _T3_UNVERIFIED_TAG = " _[unverified]_"
+# What the reader sees instead of the tag: a dagger directly after the figure,
+# explained by one footer line (see _apply_t3_postprocessing).
+_T3_UNVERIFIED_MARK = "\u2020"
+_T3_UNVERIFIED_FOOTER = "\u2020 estimate not traced to Nova's planning engine"
 
 
 def _t3_adjust_offset_outside_bold(text: str, offset: int) -> int:
