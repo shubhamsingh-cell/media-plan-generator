@@ -8205,6 +8205,34 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 boards = publisher_filter.clean_items(
                     boards, _pf_data, country=country_resolved
                 )
+                # Boards of a group Joveo has confirmed as in its network say
+                # so (a stated status, never inferred from the billing field).
+                _net_seen: Dict[str, Dict[str, Any]] = {}
+                _net_boards = []
+                for _b in boards:
+                    _hit = publisher_filter.network_member(
+                        _b.get("name"), country_resolved
+                    )
+                    if isinstance(_b, dict) and _hit:
+                        _b = {
+                            **_b,
+                            "relationship": _hit["status"],
+                            "network_group": _hit["group"],
+                        }
+                        _net_seen.setdefault(_hit["group"], _hit)
+                    _net_boards.append(_b)
+                boards = _net_boards
+                if _net_seen:
+                    result["network"] = [
+                        {
+                            "group": h["group"],
+                            "status": h["status"],
+                            "as_of": h["as_of"],
+                            "source": h["status_source"],
+                            "note": publisher_filter.network_note(h),
+                        }
+                        for h in _net_seen.values()
+                    ]
                 result["country_boards"] = {
                     "country": country_resolved,
                     "boards": boards,
@@ -8445,10 +8473,56 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 except Exception as _gsr_err:
                     logger.debug("Global supply repo search failed: %s", _gsr_err)
 
+            # Boards of a group Joveo has confirmed as in its network
+            # (data/joveo_network_groups.json) answer a name or group query
+            # even when the older catalogs do not list them (CareerStructure,
+            # "the Stepstone Group").
+            _net_group = publisher_filter.network_group_for_query(search_term)
+            _net_names = (
+                publisher_filter.network_member_names(_net_group, _pf_country)
+                if _net_group
+                else []
+            )
+            if not _net_group and not matches:
+                _net_names = [
+                    n
+                    for n in publisher_filter.network_boards_for(_pf_country)
+                    if search_term in n.lower()
+                ]
+            for _nn in _net_names:
+                if not any(
+                    publisher_filter.names_match(_nn, m.get("name")) for m in matches
+                ):
+                    matches.append(
+                        {
+                            "name": _nn,
+                            "category": "Group network",
+                            "source": "joveo_network_groups",
+                        }
+                    )
+
             _before = len(matches)
             matches = publisher_filter.clean_items(
                 matches, _pf_data, country=_pf_country
             )
+            _net_hits: Dict[str, Dict[str, Any]] = {}
+            for _m in matches:
+                _hit = publisher_filter.network_member(_m.get("name"), _pf_country)
+                if _hit:
+                    _m["relationship"] = _hit["status"]
+                    _m["network_group"] = _hit["group"]
+                    _net_hits.setdefault(_hit["group"], _hit)
+            if _net_hits:
+                result["network"] = [
+                    {
+                        "group": h["group"],
+                        "status": h["status"],
+                        "as_of": h["as_of"],
+                        "source": h["status_source"],
+                        "note": publisher_filter.network_note(h),
+                    }
+                    for h in _net_hits.values()
+                ]
             if _before and not matches:
                 # The board exists in the data but must not be recommended:
                 # say so plainly rather than "not found".
@@ -8549,6 +8623,13 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 result["country"] = country_resolved
                 result["publishers"] = pubs
                 result["count"] = len(pubs)
+                _net_in_country = publisher_filter.clean_names(
+                    publisher_filter.network_boards_for(country_resolved),
+                    _pf_data,
+                    country_resolved,
+                )
+                if _net_in_country:
+                    result["in_network_group_boards"] = _net_in_country
             else:
                 result["message"] = (
                     f"No publishers specifically listed for: {country_resolved}"
