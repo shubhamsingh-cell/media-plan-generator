@@ -499,7 +499,12 @@
       // straight from the wizard's hireVolume/exactHires fields -- unchanged).
       // Honesty rule: "comfortably covers" (or any positive tone) is only
       // ever shown when the engine's est_hires actually meets the target.
-      if (est && m.targetHires > 0 && est.est_hires > 0) {
+      if (est && m.targetHires > 0 && est.est_hires < 1) {
+        // below one hire there is no ratio or dollar gap to quote (and the
+        // server sends no cost per hire): say what is true, in the Reality
+        // Check's own words
+        ins.push({ tone: "warn", text: "Budget supports <b>fewer than one hire</b> against your " + goalText(m) + " — raise the budget substantially or narrow scope." });
+      } else if (est && m.targetHires > 0 && est.est_hires > 0) {
         var ratio = est.est_hires / m.targetHires;
         if (ratio < 1.0) {
           var gap = m.total * (m.targetHires / est.est_hires - 1);
@@ -517,9 +522,9 @@
       // grade against a hand-typed per-role-class table that called a $7K
       // nurse hire "High" while the data's nursing upper quartile is $7.8K.
       var bm = est && est.cph_benchmark;
-      if (est && est.est_cph > 0 && bm && bm.p75 > 0 && bm.p25 > 0) {
+      if (est && est.est_hires >= 1 && est.est_cph > 0 && bm && bm.p75 > 0 && bm.p25 > 0) {
         var cph = est.est_cph;
-        var yard = escapeHtml(bm.label) + " (" + escapeHtml(bm.source) + ")";
+        var yard = escapeHtml(bm.label) + " (sources listed in the benchmark file: " + escapeHtml(bm.source) + ")";
         // The benchmark is in US dollars (the server sends it for USD plans
         // only). One decimal under $10K so "$7.8K" is not rounded to "$8K"
         // beside a projection of "$7.9K".
@@ -643,7 +648,13 @@
     function feasibility() {
       var m = gather();
       var est = estimateFor(m);
-      if (!est || !(m.total > 0) || !(m.targetHires > 0) || !(est.est_hires > 0)) return null;
+      if (!est || !(m.total > 0) || !(m.targetHires > 0)) return null;
+      if (!(est.est_hires > 0)) {
+        // fewer than one hire at this budget: the goal is out of reach, and
+        // the banner says so (it used to vanish exactly here, because there
+        // was no hires figure to put in the sentence)
+        return { ratio: 0, belowOne: true, budget: hero(m.total), goal: goalText(m) };
+      }
       return {
         ratio: est.est_hires / m.targetHires,
         budget: hero(m.total),

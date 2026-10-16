@@ -35,16 +35,20 @@ if ROOT not in sys.path:
 import plan_copilot as pc  # noqa: E402
 
 SOURCE_PATH = os.path.join(ROOT, "plan_copilot.py")
-# The data file's own short names for the sources a metro entry cites. The copy
-# must name exactly the sources that entry lists ("blended C2ER and BLS public
-# data" for Los Angeles), never a house label.
-SHORT_NAMES = {"coli_c2er_2024": "C2ER", "bls_cpi_metro_2025": "BLS", "appcast_2025": "Appcast"}
+# The data file's own short names (publisher + year) for the sources a metro entry
+# cites. The copy must name exactly the sources that entry lists ("C2ER 2024 and
+# BLS 2025" for Los Angeles), never a house label, and say the multiplier is a
+# cost-of-living-BASED estimate (those sources are cost-of-living data).
+SHORT_NAMES = {
+    "coli_c2er_2024": "C2ER 2024",
+    "bls_cpi_metro_2025": "BLS 2025",
+    "appcast_2025": "Appcast 2025",
+}
 
 
 def expected_label(source_ids):
     names = [SHORT_NAMES[i] for i in source_ids]
-    joined = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
-    return f"blended {joined} public data"
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
 
 
 LABEL = expected_label(["coli_c2er_2024", "bls_cpi_metro_2025"])  # Los Angeles
@@ -61,7 +65,7 @@ STAT_RE = re.compile(
 # Each allowed figure: the exact copy it may appear in (as the static scan sees
 # it, "<N>" standing for an interpolated value) -> the repo data it is read from.
 ALLOWED_STATS: Dict[str, Dict[str, object]] = {
-    "cost per application runs about <N>x the national median (<N>)": {
+    "local cost-per-application multiplier is <N>x the national median": {
         "file": "data/recruitment_benchmarks_2026_deep.json",
         "path": ("by_metro", "*", "metro_cpa_mult"),
         "why": "the metro's own multiplier, printed with 2 decimals",
@@ -218,7 +222,12 @@ def test_each_allowed_statistic_resolves_to_a_data_file(fragment):
 def test_a_stat_bearing_fragment_names_its_source_in_the_same_sentence():
     for fragment in ALLOWED_STATS:
         if "x the national median" in fragment:
-            assert fragment.endswith("(<N>)")  # a parenthesised source follows the figure
+            # every string that prints the figure says what kind of figure it is
+            # and names its sources
+            for _, text in _module_strings():
+                if fragment in text:
+                    assert "cost-of-living-based estimate" in text, text
+                    assert text.count("<N>") >= 3, text  # figure + sources are interpolated
 
 
 # --------------------------------------------------------------------------
@@ -241,8 +250,7 @@ DURATIONS = ["1-3 months", "3-6 months", "6-12 months", "Under 1 month"]
 CHANNELS = ["Indeed", "LinkedIn", "Glassdoor", "Indeed, LinkedIn", "Programmatic"]
 ALLOWED_RENDERED = [
     re.compile(
-        r"cost per application runs about (\d\.\d\d)x the national median "
-        r"\(blended [A-Za-z0-9, ]+ public data\)"
+        r"local cost-per-application multiplier is (\d\.\d\d)x the national median"
     ),
     re.compile(r"so your budget stretches like ~\$([\d,]+) in a median market"),
 ]
@@ -332,7 +340,8 @@ def test_every_rendered_multiplier_equals_the_data_files_value():
         shown = ALLOWED_RENDERED[0].search(messages[0])
         assert shown, messages[0]
         assert f"{float(shown.group(1)):.2f}" == f"{mult:.2f}", (city, messages[0], mult)
-        assert f"({expected_label(METRO_SOURCES[city])})" in messages[0], (city, messages[0])
+        assert expected_label(METRO_SOURCES[city]) in messages[0], (city, messages[0])
+        assert "cost-of-living-based estimate" in messages[0], messages[0]
         checked += 1
     assert checked >= 40
 
@@ -343,7 +352,8 @@ def test_los_angeles_says_what_the_benchmark_set_says():
         n["message"]
         for n in pc.get_copilot_nudges_multi("location", "Los Angeles", {})
     )
-    assert f"1.24x the national median ({LABEL})" in text
+    assert "1.24x the national median" in text and LABEL in text
+    assert "cost-of-living-based estimate" in text
     assert "1.25" not in text
 
 
@@ -354,7 +364,7 @@ def test_budget_stretch_figure_is_the_users_budget_over_the_data_multiplier():
         {"roles": ["Registered Nurse"], "locations": ["Los Angeles, CA"]},
     )
     text = " ".join(n["message"] for n in nudges)
-    assert f"1.24x the national median ({LABEL})" in text
+    assert "1.24x the national median" in text and LABEL in text
     assert f"~${round(50000 / 1.24):,} in a median market" in text
 
 
@@ -429,13 +439,17 @@ def test_the_metro_source_label_says_what_the_data_file_says():
     entries = {k: v for k, v in data["by_metro"].items() if not k.startswith("_")}
     ids = {sid for entry in entries.values() for sid in entry["source_ids"]}
     assert ids <= set(SHORT_NAMES), ids - set(SHORT_NAMES)  # a new source must be named here
-    names = {s["id"]: s["name"] + " " + s["publisher"] for s in data["metadata"]["sources"]}
-    assert "C2ER" in names["coli_c2er_2024"] or "Council for Community" in names["coli_c2er_2024"]
-    assert "BLS" in names["bls_cpi_metro_2025"] or "Bureau of Labor" in names["bls_cpi_metro_2025"]
+    registry = {s["id"]: s for s in data["metadata"]["sources"]}
+    # the short names carry the registry's own publication year
+    for sid, short in SHORT_NAMES.items():
+        assert short.endswith(str(registry[sid]["publication_year"])), (sid, short)
+    assert "C2ER" in registry["coli_c2er_2024"]["name"]
+    assert "BLS" in registry["bls_cpi_metro_2025"]["name"]
     text = " ".join(
         n["message"] for n in pc.get_copilot_nudges_multi("location", "Los Angeles, CA", {})
     )
-    assert "(blended C2ER and BLS public data)" in text
+    assert "a cost-of-living-based estimate (C2ER 2024 and BLS 2025)" in text
+    assert "cost per application runs about" not in text  # not a measured CPA
     source = open(SOURCE_PATH, encoding="utf-8").read()
     assert "Joveo 2026 benchmark set" not in source and "BENCHMARK_SOURCE_LABEL" not in source
 
@@ -464,4 +478,4 @@ def test_no_budget_nudge_carries_a_figure_the_wizard_could_apply_as_the_budget()
     )
     stretch = [n for n in nudges if "stretches like" in n["message"]]
     assert stretch and stretch[0]["type"] == "suggestion"
-    assert "(blended C2ER and BLS public data)" in stretch[0]["message"]
+    assert "cost-of-living-based estimate: C2ER 2024 and BLS 2025" in stretch[0]["message"]

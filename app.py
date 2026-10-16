@@ -5857,7 +5857,8 @@ def _compute_plan_estimate(brief: dict) -> dict:
             ``city``/``state``/``country``), ``campaign_start_month`` (int).
 
     Returns:
-        Dict with ``est_hires`` (int), ``est_cph`` (float, $/hire),
+        Dict with ``est_hires`` (int), ``est_cph`` (float, $/hire; ``None``
+        when ``est_hires`` < 1 -- there is no cost per hire to state),
         ``est_applications`` (int), ``est_cpa`` (float, $/application) --
         all derived from calculate_budget_allocation's ``total_projected``.
 
@@ -6089,9 +6090,18 @@ def _compute_plan_estimate(brief: dict) -> dict:
     cost_per_hire = total_projected.get("cost_per_hire") or 0.0
     est_cpa = round(budget_val / applications, 2) if applications else 0.0
 
+    est_hires = int(hires)
+    # Below one hire the engine's cost_per_hire is budget / max(hires, 1), i.e.
+    # the WHOLE budget -- not a cost per hire. Say nothing (null) rather than
+    # let the wizard grade "$3K/hire" beside "0 Est. hires".
+    est_cph: Optional[float]
+    if est_hires < 1:
+        est_cph = None
+    else:
+        est_cph = round(float(cost_per_hire), 2) if cost_per_hire else 0.0
     return {
-        "est_hires": int(hires),
-        "est_cph": round(float(cost_per_hire), 2) if cost_per_hire else 0.0,
+        "est_hires": est_hires,
+        "est_cph": est_cph,
         "est_applications": int(applications),
         "est_cpa": est_cpa,
         # SHRM-sourced cost-per-hire quartiles for this industry / these roles

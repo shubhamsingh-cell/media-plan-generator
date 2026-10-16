@@ -6,11 +6,9 @@ Extracted from app.py to reduce its size.  Handles:
 - POST /api/payscale-sync/salary
 """
 
-import datetime
 import json
 import logging
 import sys
-import time
 import urllib.error
 from typing import Any
 
@@ -47,431 +45,130 @@ def handle_pricing_post_routes(handler: Any, path: str, parsed: Any) -> bool:
 # ---------------------------------------------------------------------------
 
 
+# Display names for by_channel keys in data/recruitment_benchmarks_2026_deep.json
+_CHANNEL_NAMES = {
+    "indeed": "Indeed",
+    "linkedin": "LinkedIn",
+    "ziprecruiter": "ZipRecruiter",
+    "monster": "Monster",
+    "glassdoor": "Glassdoor",
+    "dice": "Dice",
+    "programmatic_appcast_jobtarget": "Programmatic (Appcast / JobTarget)",
+}
+
+
+def _usd_range(node: Any, low: str, high: str) -> Any:
+    """{"low", "median", "high"} from a data node, or None when any is missing."""
+    if not isinstance(node, dict):
+        return None
+    out = {}
+    for key, src in (("low", low), ("median", "median"), ("high", high)):
+        value = node.get(src)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        out[key] = float(value)
+    return out
+
+
+def build_live_pricing(role: str, location: str, industry: str) -> dict:
+    """What the wizard's "Market Pricing Benchmarks" panel shows (step 4).
+
+    Everything here is READ from ``data/recruitment_benchmarks_2026_deep.json``
+    (the file step 1's metro nudges and the preview's cost-per-hire grade read):
+
+      * ``channels`` -- ``by_channel.*.typical_cpc_usd`` / ``typical_cpa_usd``,
+        US ranges (low / median / high), NOT adjusted per industry, role or city;
+      * ``industry`` -- ``by_industry.<key>`` quartiles (p25 / median / p75) for
+        the industry / role, when one row clearly fits;
+      * ``metro`` -- the SAME ``by_metro`` multipliers step 1 quotes
+        (plan_copilot.metro_benchmark), shown beside the ranges, never applied.
+
+    It used to be a hand-typed table (per-channel bases x an industry multiplier
+    of 2.2 for healthcare x a city index with Los Angeles at 1.20 x a seniority
+    multiplier), which disagreed with the benchmark file (Los Angeles 1.24) and
+    with the preview (every CPH above the nursing upper quartile), plus Adzuna /
+    Supabase overlays scaled by typed factors. Those are gone.
+    """
+    import cph_benchmark
+    import plan_copilot
+
+    data = cph_benchmark.data()
+    channels = []
+    source_ids: list = []
+    for key, node in (data.get("by_channel") or {}).items():
+        if key.startswith("_") or not isinstance(node, dict):
+            continue
+        cpc = _usd_range(node.get("typical_cpc_usd"), "low", "high")
+        cpa = _usd_range(node.get("typical_cpa_usd"), "low", "high")
+        if cpc is None and cpa is None:
+            continue
+        ids = [str(i) for i in node.get("source_ids") or []]
+        source_ids.extend(ids)
+        channels.append(
+            {
+                "name": _CHANNEL_NAMES.get(key, key.replace("_", " ").title()),
+                "cpc": cpc,
+                "cpa": cpa,
+                "source": cph_benchmark.source_label(ids),
+            }
+        )
+    channels.sort(key=lambda c: (c["cpa"] or {}).get("median", float("inf")))
+
+    industry_block: Any = None
+    ind_key = cph_benchmark.benchmark_key((industry or "").strip().lower(), [role])
+    row = (data.get("by_industry") or {}).get(ind_key or "")
+    if isinstance(row, dict):
+        industry_block = {"label": (ind_key or "").replace("_", " ")}
+        for field, name in (
+            ("cpc_range_usd", "cpc"),
+            ("cpa_range_usd", "cpa"),
+            ("cph_range_usd", "cph"),
+        ):
+            rng = _usd_range(row.get(field), "p25", "p75")
+            raw = row.get(field)
+            node: dict = raw if isinstance(raw, dict) else {}
+            industry_block[name] = rng
+            ids = [str(i) for i in node.get("source_ids") or []]
+            industry_block[name + "_source"] = cph_benchmark.source_label(ids)
+            source_ids.extend(ids)
+
+    metro_block = None
+    metro = plan_copilot.metro_benchmark(location) if location else None
+    if metro:
+        metro_block = {
+            "name": metro["name"],
+            "cpa_mult": metro["mult"],
+            "cpc_mult": metro["cpc_mult"],
+            "source": metro["label"],
+        }
+        source_ids.extend(metro["source_ids"])
+
+    meta = data.get("metadata") or {}
+    return {
+        "channels": channels,
+        "industry": industry_block,
+        "metro": metro_block,
+        "source": "Benchmark data, sources listed in the file: "
+        + cph_benchmark.source_label(dict.fromkeys(source_ids)),
+        "data_updated": str(meta.get("last_updated") or ""),
+        "role": role,
+        "location": location,
+    }
+
+
 def _handle_pricing_live(handler: Any, path: str, parsed: Any) -> None:
-    """GET /api/pricing/live -- live CPC/CPA pricing for media plan wizard."""
-    _app = sys.modules.get("app") or sys.modules.get("__main__")
+    """GET /api/pricing/live -- market pricing benchmarks for the media plan wizard."""
     import urllib.parse
 
     try:
         params = urllib.parse.parse_qs(urllib.parse.urlparse(handler.path).query)
-        _pl_role = (params.get("role", [""])[0] or "").strip()
-        _pl_location = (params.get("location", [""])[0] or "").strip()
-        _pl_industry = (params.get("industry", [""])[0] or "").strip()
-
-        # Check in-memory cache (5-min TTL per role+location+industry)
-        _pl_cache_key = f"pricing:{_pl_role}:{_pl_location}:{_pl_industry}"
-        _pl_cached = getattr(handler.server, "_pricing_cache", {}).get(_pl_cache_key)
-        if _pl_cached and (time.time() - _pl_cached.get("_ts", 0)) < 300:
-            handler._send_json(_pl_cached["data"])
-            return
-
-        # Build channel pricing from embedded benchmarks
-        _pl_channels: list = []
-
-        # Map industry string to benchmark key
-        _pl_ind_key = (
-            (_pl_industry or "general_entry_level")
-            .lower()
-            .replace(" ", "_")
-            .replace("&", "")
-            .replace("/", "_")
-        )
-        _pl_ind_aliases: dict = {
-            "technology": "technology_software",
-            "tech": "technology_software",
-            "software": "technology_software",
-            "healthcare": "healthcare_medical",
-            "medical": "healthcare_medical",
-            "nursing": "healthcare_medical",
-            "finance": "finance_banking",
-            "banking": "finance_banking",
-            "manufacturing": "manufacturing_industrial",
-            "industrial": "manufacturing_industrial",
-            "retail": "retail_ecommerce",
-            "ecommerce": "retail_ecommerce",
-            "logistics": "logistics_transportation",
-            "transportation": "logistics_transportation",
-            "hospitality": "hospitality_food_service",
-            "restaurant": "hospitality_food_service",
-            "education": "education_training",
-            "training": "education_training",
-            "construction": "construction_real_estate",
-            "real_estate": "construction_real_estate",
-            "energy": "energy_utilities",
-            "utilities": "energy_utilities",
-            "government": "government_public_sector",
-            "public_sector": "government_public_sector",
-            "blue_collar": "blue_collar_trades",
-            "trades": "blue_collar_trades",
-            "skilled_trades": "blue_collar_trades",
-        }
-        _pl_ind_key = _pl_ind_aliases.get(_pl_ind_key, _pl_ind_key)
-
-        # Hardcoded channel benchmarks
-        _pl_channel_base: list = [
-            {
-                "name": "Indeed",
-                "cpc_base": 0.50,
-                "cpa_base": 25.0,
-                "cph_base": 3500,
-                "trend": "stable",
-                "multiplier": 1.0,
-            },
-            {
-                "name": "LinkedIn",
-                "cpc_base": 2.50,
-                "cpa_base": 55.0,
-                "cph_base": 5000,
-                "trend": "up",
-                "multiplier": 1.8,
-            },
-            {
-                "name": "ZipRecruiter",
-                "cpc_base": 0.80,
-                "cpa_base": 30.0,
-                "cph_base": 3800,
-                "trend": "down",
-                "multiplier": 1.1,
-            },
-            {
-                "name": "Glassdoor",
-                "cpc_base": 1.20,
-                "cpa_base": 35.0,
-                "cph_base": 4200,
-                "trend": "stable",
-                "multiplier": 1.3,
-            },
-            {
-                "name": "CareerBuilder",
-                "cpc_base": 0.65,
-                "cpa_base": 28.0,
-                "cph_base": 3600,
-                "trend": "down",
-                "multiplier": 1.05,
-            },
-            {
-                "name": "Monster",
-                "cpc_base": 0.55,
-                "cpa_base": 27.0,
-                "cph_base": 3700,
-                "trend": "stable",
-                "multiplier": 1.0,
-            },
-            {
-                "name": "Google for Jobs",
-                "cpc_base": 0.35,
-                "cpa_base": 20.0,
-                "cph_base": 3200,
-                "trend": "down",
-                "multiplier": 0.8,
-            },
-            {
-                "name": "Programmatic (Joveo)",
-                "cpc_base": 0.40,
-                "cpa_base": 18.0,
-                "cph_base": 2800,
-                "trend": "down",
-                "multiplier": 0.7,
-            },
-        ]
-
-        # Industry multipliers
-        _pl_industry_mult: dict = {
-            "healthcare_medical": 2.2,
-            "technology_software": 1.5,
-            "finance_banking": 1.4,
-            "blue_collar_trades": 0.7,
-            "hospitality_food_service": 0.6,
-            "retail_ecommerce": 0.65,
-            "logistics_transportation": 0.75,
-            "general_entry_level": 0.8,
-            "education_training": 0.85,
-            "construction_real_estate": 0.9,
-            "energy_utilities": 1.3,
-            "government_public_sector": 1.1,
-            "manufacturing_industrial": 0.85,
-        }
-        _pl_mult = _pl_industry_mult.get(_pl_ind_key, 1.0)
-
-        # Region multiplier based on location
-        _pl_loc_lower = _pl_location.lower()
-        _pl_region_mult = 1.0
-        _pl_region_name = "North America"
-        if any(
-            x in _pl_loc_lower
-            for x in [
-                "india",
-                "asia",
-                "singapore",
-                "australia",
-                "japan",
-                "korea",
-                "apac",
-            ]
-        ):
-            _pl_region_mult = 0.6
-            _pl_region_name = "APAC"
-        elif any(
-            x in _pl_loc_lower
-            for x in [
-                "uk",
-                "united kingdom",
-                "germany",
-                "france",
-                "europe",
-                "london",
-                "berlin",
-            ]
-        ):
-            _pl_region_mult = 0.85
-            _pl_region_name = "Europe"
-        elif any(
-            x in _pl_loc_lower
-            for x in ["brazil", "mexico", "latin", "latam", "colombia", "argentina"]
-        ):
-            _pl_region_mult = 0.45
-            _pl_region_name = "LATAM"
-
-        # S90: refine the broad "North America" bucket with a US city/state wage
-        # index -- SF/NYC cost far more to source in than lower-cost markets.
-        if _pl_region_name == "North America" and _pl_loc_lower:
-            _pl_us_index: dict = {
-                "san francisco": 1.40,
-                "san jose": 1.40,
-                "new york": 1.35,
-                "manhattan": 1.35,
-                "seattle": 1.25,
-                "boston": 1.22,
-                "los angeles": 1.20,
-                "washington": 1.20,
-                "california": 1.30,
-                "massachusetts": 1.20,
-                "new jersey": 1.15,
-                "chicago": 1.10,
-                "austin": 1.10,
-                "denver": 1.08,
-                "atlanta": 1.00,
-                "dallas": 1.00,
-                "houston": 0.98,
-                "texas": 0.98,
-                "florida": 0.95,
-                "phoenix": 0.95,
-                "ohio": 0.88,
-                "indiana": 0.85,
-                "kansas": 0.82,
-                "alabama": 0.82,
-                "mississippi": 0.80,
-            }
-            for _city, _idx in _pl_us_index.items():
-                if _city in _pl_loc_lower:
-                    _pl_region_mult = _idx
-                    _pl_region_name = "US -- " + _pl_location.split(",")[0].strip()[:24]
-                    break
-
-        # S90: role-seniority multiplier -- senior/specialized roles cost more to
-        # source than entry-level, so the figures now actually move with the
-        # selected role (previously role only nudged an Adzuna competition factor).
-        _pl_role_lower = (_pl_role or "").lower()
-        _pl_role_mult = 1.0
-        _pl_seniority = "mid-level"
-        if any(
-            w in _pl_role_lower
-            for w in [
-                "intern",
-                "trainee",
-                "entry",
-                "junior",
-                "jr ",
-                "apprentice",
-                "assistant",
-            ]
-        ):
-            _pl_role_mult = 0.80
-            _pl_seniority = "entry-level"
-        elif any(
-            w in _pl_role_lower
-            for w in [
-                "chief",
-                "vp ",
-                "vice president",
-                "head of",
-                "director",
-                "principal",
-                "executive",
-                "cto",
-                "cfo",
-            ]
-        ):
-            _pl_role_mult = 2.00
-            _pl_seniority = "executive"
-        elif any(
-            w in _pl_role_lower
-            for w in ["senior", "sr ", "lead", "staff", "manager", "architect"]
-        ):
-            _pl_role_mult = 1.40
-            _pl_seniority = "senior"
-        # Hard-to-fill technical/clinical roles carry a premium on top.
-        if any(
-            w in _pl_role_lower
-            for w in [
-                "engineer",
-                "developer",
-                "data scien",
-                "nurse",
-                "physician",
-                "cyber",
-                "machine learning",
-                "devops",
-                "cloud",
-            ]
-        ):
-            _pl_role_mult *= 1.10
-
-        for _ch in _pl_channel_base:
-            _pl_channels.append(
-                {
-                    "name": _ch["name"],
-                    "cpc": round(
-                        _ch["cpc_base"]
-                        * _ch["multiplier"]
-                        * _pl_mult
-                        * _pl_region_mult
-                        * _pl_role_mult,
-                        2,
-                    ),
-                    "cpa": round(
-                        _ch["cpa_base"]
-                        * _ch["multiplier"]
-                        * _pl_mult
-                        * _pl_region_mult
-                        * _pl_role_mult,
-                        2,
-                    ),
-                    "cph": int(
-                        _ch["cph_base"] * _pl_mult * _pl_region_mult * _pl_role_mult
-                    ),
-                    "trend": _ch["trend"],
-                }
-            )
-
-        _pl_source_parts = ["benchmarks"]
-
-        # Enrich with Supabase channel_benchmarks if available
-        _supabase_data_available = getattr(_app, "_supabase_data_available", False)
-        if _supabase_data_available:
-            get_channel_benchmarks = getattr(_app, "get_channel_benchmarks", None)
-            if get_channel_benchmarks:
-                try:
-                    _pl_sb_benchmarks = get_channel_benchmarks(industry=_pl_industry)
-                    if _pl_sb_benchmarks:
-                        _pl_source_parts.append("supabase")
-                        for _sb_row in _pl_sb_benchmarks[:10]:
-                            _sb_name = (
-                                _sb_row.get("channel") or _sb_row.get("name") or ""
-                            )
-                            if not _sb_name:
-                                continue
-                            _found = False
-                            for _existing in _pl_channels:
-                                if _existing["name"].lower() == _sb_name.lower():
-                                    if _sb_row.get("cpc"):
-                                        _existing["cpc"] = round(
-                                            float(_sb_row["cpc"]), 2
-                                        )
-                                    if _sb_row.get("cpa"):
-                                        _existing["cpa"] = round(
-                                            float(_sb_row["cpa"]), 2
-                                        )
-                                    if _sb_row.get("cph"):
-                                        _existing["cph"] = int(float(_sb_row["cph"]))
-                                    if _sb_row.get("apply_rate"):
-                                        _existing["apply_rate"] = str(
-                                            _sb_row["apply_rate"]
-                                        )
-                                    _found = True
-                                    break
-                            if not _found and _sb_name:
-                                _pl_channels.append(
-                                    {
-                                        "name": _sb_name,
-                                        "cpc": round(float(_sb_row.get("cpc") or 0), 2)
-                                        or None,
-                                        "cpa": round(float(_sb_row.get("cpa") or 0), 2)
-                                        or None,
-                                        "cph": int(float(_sb_row.get("cph") or 0))
-                                        or None,
-                                        "apply_rate": str(
-                                            _sb_row.get("apply_rate") or ""
-                                        ),
-                                        "trend": "stable",
-                                    }
-                                )
-                except (
-                    urllib.error.URLError,
-                    OSError,
-                    ValueError,
-                    TypeError,
-                ) as _sb_err:
-                    logger.error(
-                        f"Supabase benchmarks for /api/pricing/live failed: {_sb_err}",
-                        exc_info=True,
-                    )
-
-        # Enrich with Adzuna live data if available
-        _api_integrations_available = getattr(
-            _app, "_api_integrations_available", False
-        )
-        _api_adzuna = getattr(_app, "_api_adzuna", None)
-        if _api_integrations_available and _api_adzuna and _pl_role:
-            try:
-                _pl_adzuna_count = _api_adzuna.get_job_count(_pl_role, "us")
-                if _pl_adzuna_count:
-                    _pl_source_parts.append("adzuna")
-                    _pl_comp_factor = 1.0
-                    if isinstance(_pl_adzuna_count, (int, float)):
-                        if _pl_adzuna_count > 50000:
-                            _pl_comp_factor = 1.15
-                        elif _pl_adzuna_count > 20000:
-                            _pl_comp_factor = 1.05
-                        elif _pl_adzuna_count < 5000:
-                            _pl_comp_factor = 0.9
-                        for _ch_item in _pl_channels:
-                            if _ch_item.get("cpc"):
-                                _ch_item["cpc"] = round(
-                                    _ch_item["cpc"] * _pl_comp_factor, 2
-                                )
-            except (urllib.error.URLError, OSError, ValueError, TypeError) as _ae:
-                logger.error(
-                    f"Adzuna enrichment for /api/pricing/live failed: {_ae}",
-                    exc_info=True,
-                )
-
-        # Sort channels: lowest CPA first
-        _pl_channels.sort(key=lambda c: c.get("cpa") or 9999)
-
-        _pl_response: dict = {
-            "channels": _pl_channels,
-            "source": "+".join(_pl_source_parts),
-            "updated_at": datetime.datetime.utcnow().isoformat() + "Z",
-            "role": _pl_role,
-            "role_seniority": _pl_seniority,
-            "location": _pl_location or "US (default)",
-            "industry": _pl_ind_key,
-            "region": _pl_region_name,
-        }
-
-        # Cache the response
-        if not hasattr(handler.server, "_pricing_cache"):
-            handler.server._pricing_cache = {}
-        handler.server._pricing_cache[_pl_cache_key] = {
-            "data": _pl_response,
-            "_ts": time.time(),
-        }
-
-        handler._send_json(_pl_response)
+        role = (params.get("role", [""])[0] or "").strip()[:200]
+        location = (params.get("location", [""])[0] or "").strip()[:200]
+        industry = (params.get("industry", [""])[0] or "").strip()[:100]
+        handler._send_json(build_live_pricing(role, location, industry))
     except Exception as e:
         logger.error("Live pricing API error: %s", e, exc_info=True)
-        handler._send_json({"error": str(e), "channels": []}, status_code=500)
+        handler._send_json({"error": "Pricing unavailable", "channels": []}, status_code=500)
 
 
 def _handle_pricing_models(handler: Any, path: str, parsed: Any) -> None:

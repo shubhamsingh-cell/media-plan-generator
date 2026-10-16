@@ -13,6 +13,15 @@ of what the wizard shows:
   * the visible text and the title / aria-label / placeholder / alt attributes
     of templates/partials/index/body_content.html.
 
+Round 6 widened the net to the two places the first version missed:
+
+  * routes/*.py -- every user-facing string literal AND every numeric-literal
+    table (the "Market Pricing Benchmarks" panel's figures lived in float dicts
+    typed into routes/pricing.py, not in strings, so a string scan alone passed);
+  * data/channels_db.json -- the JSON-backed text the wizard renders on step 2
+    (job categories, industries): every field the JS reads must be listed in
+    RENDERED_JSON_FIELDS and must carry no figure.
+
 A literal that contains a figure (``15%``, ``1.4x``, ``$7K``, ``40+``) must be
 matched by an allow-list entry below that says WHY it is not a claim:
 
@@ -29,6 +38,8 @@ estimate (and the benchmark it returns), which tests/test_cph_benchmark.py pins.
 
 from __future__ import annotations
 
+import ast
+import json
 import os
 import re
 from html.parser import HTMLParser
@@ -309,3 +320,208 @@ def test_the_served_wizard_page_has_its_proof_tokens_resolved():
     assert handler.status == 200
     assert "{{claim_" not in body
     assert re.search(r"job boards cover\s+\d+ countries", body), "countries claim did not render a count"
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# routes/*.py (round 6)
+# ══════════════════════════════════════════════════════════════════════════
+
+# + "N days": routes carry time claims too
+ROUTE_STAT_RE = re.compile(STAT_RE.pattern + r"|\b\d+\s*(?:-\s*\d+\s*)?days?\b")
+ROUTE_FILES = sorted((ROOT / "routes").glob("*.py"))
+
+ROUTE_ALLOWED = [
+    ("campaign.py", r"<!DOCTYPE|style=", "layout", "HTML page chrome / inline CSS geometry"),
+    (
+        "health.py",
+        r"per M, 1M ctx|perf traces",
+        "internal",
+        "admin diagnostics page (vendor price list, Sentry config); never shown in the wizard or a plan",
+    ),
+]
+
+# A float-valued dict that looks like a price / multiplier table
+_TABLE_KEY_HINT = re.compile(r"(cpc|cpa|cph|cost|price|pricing|mult|index|rate|benchmark|budget|salary|wage|fee)", re.I)
+
+
+def _route_skip_ids(tree: ast.AST) -> set:
+    skip = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            body = getattr(node, "body", [])
+            if (
+                body
+                and isinstance(body[0], ast.Expr)
+                and isinstance(body[0].value, ast.Constant)
+                and isinstance(body[0].value.value, str)
+            ):
+                skip.add(id(body[0].value))
+        if isinstance(node, ast.Call):
+            func = node.func
+            owner = func.value.id if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) else ""
+            if owner in ("logger", "logging", "re"):
+                skip.update(id(sub) for sub in ast.walk(node))
+    return skip
+
+
+def route_literals() -> List[Tuple[str, int, str]]:
+    found = []
+    for path in ROUTE_FILES:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        skip = _route_skip_ids(tree)
+        inside = {id(ch) for n in ast.walk(tree) if isinstance(n, ast.JoinedStr) for ch in ast.walk(n) if ch is not n}
+        for node in ast.walk(tree):
+            if id(node) in skip or id(node) in inside:
+                continue
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                found.append((path.name, node.lineno, node.value))
+            elif isinstance(node, ast.JoinedStr):
+                text = "".join(str(v.value) if isinstance(v, ast.Constant) else "<N>" for v in node.values)
+                found.append((path.name, node.lineno, text))
+    return found
+
+
+def route_float_tables() -> List[str]:
+    """Dict literals in routes/*.py that are price / multiplier tables."""
+    hits = []
+    for path in ROUTE_FILES:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Dict):
+                continue
+            floats = [
+                (k.value if isinstance(k, ast.Constant) else "?", v.value)
+                for k, v in zip(node.keys, node.values)
+                if isinstance(v, ast.Constant) and isinstance(v.value, float)
+            ]
+            named = [k for k, _ in floats if isinstance(k, str) and _TABLE_KEY_HINT.search(k)]
+            if len(floats) >= 3 or named:
+                hits.append(f"{path.name}:{node.lineno}: {floats[:4]}")
+    return hits
+
+
+def _route_allowed(name: str, text: str) -> bool:
+    return any(f == name and re.search(pattern, text) for f, pattern, _, _ in ROUTE_ALLOWED)
+
+
+def test_the_route_scanner_reads_the_routes():
+    found = route_literals()
+    assert len(found) > 300
+    assert {"pricing.py", "export.py", "copilot.py"} <= {name for name, _, _ in found}
+
+
+def test_no_route_string_carries_an_unsourced_figure():
+    offenders = [
+        f"routes/{name}:{line}: {text[:100]!r}"
+        for name, line, text in route_literals()
+        if ROUTE_STAT_RE.search(text) and not _route_allowed(name, text)
+    ]
+    assert not offenders, "\n  ".join(offenders)
+
+
+def test_no_route_holds_a_hand_typed_price_or_multiplier_table():
+    """routes/pricing.py had per-channel cpc_base / cpa_base / cph_base floats, an
+    industry multiplier of 2.2 for healthcare and a city index with Los Angeles
+    at 1.20 -- none of it in a string, so the string scan could not see it."""
+    assert route_float_tables() == []
+
+
+def test_the_table_detector_would_have_caught_the_old_pricing_table():
+    old = ast.parse(
+        """
+base = [{"name": "Indeed", "cpc_base": 0.50, "cpa_base": 25.0, "cph_base": 3500, "multiplier": 1.0}]
+mult = {"healthcare_medical": 2.2, "technology_software": 1.5, "finance_banking": 1.4}
+"""
+    )
+    flagged = 0
+    for node in ast.walk(old):
+        if isinstance(node, ast.Dict):
+            floats = [
+                (k.value, v.value)
+                for k, v in zip(node.keys, node.values)
+                if isinstance(v, ast.Constant) and isinstance(v.value, float) and isinstance(k, ast.Constant)
+            ]
+            named = [k for k, _ in floats if isinstance(k, str) and _TABLE_KEY_HINT.search(k)]
+            flagged += bool(len(floats) >= 3 or named)
+    assert flagged == 2
+
+
+def test_every_route_allow_list_entry_still_matches_something():
+    found = route_literals()
+    for name, pattern, kind, why in ROUTE_ALLOWED:
+        assert any(f == name and re.search(pattern, t) for f, _, t in found), (name, pattern, kind, why)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# data/channels_db.json -- the JSON-backed text step 2 renders (round 6)
+# ══════════════════════════════════════════════════════════════════════════
+
+CHANNELS_DB = ROOT / "data" / "channels_db.json"
+
+# Per section, the fields of each entry the wizard reads and shows. A new field
+# in the UI must be listed here, which puts its text under the figure scan below.
+RENDERED_JSON_FIELDS = {
+    "job_categories": {"icon", "label", "recommended_channels", "joveo_supply_fit", "competitor_channels", "best_practices"},
+    "industries": {"label", "typical_roles"},
+}
+# carry figures the file gives no source for (its healthcare CPA "$8.00 - $35.00"
+# sits beside the benchmark file's nursing CPA of $28-$68): never rendered
+UNSOURCED_JSON_FIELDS = {"avg_cpa_range", "avg_time_to_fill", "strategy_emphasis"}
+
+
+def _json_strings(node, path=()):
+    if isinstance(node, dict):
+        for key, value in node.items():
+            yield from _json_strings(value, path + (str(key),))
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            yield from _json_strings(value, path + (str(index),))
+    elif isinstance(node, bool):
+        return
+    elif isinstance(node, (str, int, float)):
+        yield ".".join(path), str(node)
+
+
+def test_the_json_fields_the_wizard_reads_are_all_registered():
+    app_js = (PARTIALS / "body_app_js.html").read_text(encoding="utf-8")
+    code = re.sub(r"//[^\n]*", "", app_js)
+    read = {
+        "job_categories": set(),
+        "industries": set(),
+    }
+    # cat.<field> / cat?.<field> inside the job-category functions
+    for fn in ("function populateJobCategories(", "function updateJobCategoryInsight("):
+        block = code[code.index(fn) :]
+        block = block[: block.index("\n  }\n")]
+        read["job_categories"].update(re.findall(r"\bcat\??\.([a-z_]+)", block))
+    # channelsDB.<section>[key]?.<field>
+    for section, field in re.findall(r"channelsDB\??\.(industries|job_categories)\??\.?\[[^\]]+\]\??\.([a-z_]+)", code):
+        read[section].add(field)
+    # const ind = channelsDB.industries[...]; ind.<field>
+    block = code[code.index("const ind = channelsDB.industries[selectedIndustry];") :][:600]
+    read["industries"].update(re.findall(r"\bind\??\.([a-z_]+)", block))
+    assert read["job_categories"] and read["industries"]
+    for section, fields in read.items():
+        assert fields <= RENDERED_JSON_FIELDS[section], (section, fields - RENDERED_JSON_FIELDS[section])
+    assert not (read["job_categories"] & UNSOURCED_JSON_FIELDS)
+
+
+def test_no_rendered_channels_db_text_carries_a_figure():
+    data = json.loads(CHANNELS_DB.read_text(encoding="utf-8"))
+    offenders = []
+    for section, fields in RENDERED_JSON_FIELDS.items():
+        for key, entry in data[section].items():
+            for field in fields:
+                for where, text in _json_strings(entry.get(field), (section, key, field)):
+                    if ROUTE_STAT_RE.search(text):
+                        offenders.append(f"{where}: {text[:90]!r}")
+    assert not offenders, "\n  ".join(offenders[:15])
+
+
+def test_the_unsourced_job_category_figures_exist_but_are_not_rendered():
+    """The test above is only meaningful because these fields are really in the
+    file: if they are ever removed this note (and UNSOURCED_JSON_FIELDS) can go."""
+    data = json.loads(CHANNELS_DB.read_text(encoding="utf-8"))
+    present = {f for entry in data["job_categories"].values() for f in entry}
+    assert UNSOURCED_JSON_FIELDS <= present
+    assert not (UNSOURCED_JSON_FIELDS & set().union(*RENDERED_JSON_FIELDS.values()))

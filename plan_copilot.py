@@ -8,8 +8,9 @@ Honesty rule (wizard audit, trust lens): a nudge never states a percentage,
 multiplier, dollar benchmark or day count unless it is read at runtime from a
 data file that carries it. The only such figure is the metro cost multiplier
 (``data/recruitment_benchmarks_2026_deep.json`` -> ``by_metro.*.metro_cpa_mult``,
-cited in the copy as e.g. "blended C2ER and BLS public data": the sources that
-metro's ``source_ids`` list). Everything else is qualitative advice. tests/test_plan_copilot_claims.py scans this file's
+worded as a cost-of-living-based estimate and cited as e.g. "C2ER 2024 and BLS
+2025": the sources that metro's ``source_ids`` list). Everything else is
+qualitative advice. tests/test_plan_copilot_claims.py scans this file's
 user-facing strings and fails on any other figure.
 """
 
@@ -118,12 +119,14 @@ BENCHMARK_FILE = os.path.join(
 )
 # Each metro cites its own sources (by_metro.<metro>.source_ids): C2ER's
 # cost-of-living index and BLS metro CPI for every metro, plus Appcast for some.
-# The copy names exactly the ones the entry lists, as "blended ... public data" --
-# the multiplier is not a Joveo survey.
+# The copy names exactly the ones the entry lists (with their years, as the
+# file's source registry gives them) and says what kind of figure it is: the
+# multiplier is a cost-of-living-BASED estimate of local cost per application,
+# not a measured one, and not a Joveo survey.
 _SOURCE_SHORT_NAMES = {
-    "coli_c2er_2024": "C2ER",
-    "bls_cpi_metro_2025": "BLS",
-    "appcast_2025": "Appcast",
+    "coli_c2er_2024": "C2ER 2024",
+    "bls_cpi_metro_2025": "BLS 2025",
+    "appcast_2025": "Appcast 2025",
 }
 
 
@@ -131,8 +134,7 @@ def _source_label(source_ids: List[str]) -> str:
     names = [_SOURCE_SHORT_NAMES[s] for s in source_ids if s in _SOURCE_SHORT_NAMES]
     if not names:
         return "public data"
-    joined = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
-    return f"blended {joined} public data"
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
 
 _geo_lock = threading.Lock()
 _geo_table: Optional[Dict[str, Dict[str, Any]]] = None
@@ -145,7 +147,8 @@ def _city_key(text: str) -> str:
 
 
 def _load_geo_table() -> Dict[str, Dict[str, Any]]:
-    """city key -> {"name", "state", "mult"} for every metro in by_metro.
+    """city key -> {"name", "state", "mult", "cpc_mult", "label", "source_ids"}
+    for every metro in by_metro (``mult`` is metro_cpa_mult).
 
     Keyed by the metro's principal city (first city of its MSA name). Returns
     {} when the data file is missing or unreadable (the nudges then say
@@ -173,9 +176,26 @@ def _load_geo_table() -> Dict[str, Dict[str, Any]]:
             "name": principal.replace(".", "") or city.title(),
             "state": state,
             "mult": float(mult),
+            "cpc_mult": (
+                float(entry["metro_cpc_mult"])
+                if isinstance(entry.get("metro_cpc_mult"), (int, float))
+                and entry["metro_cpc_mult"] > 0
+                else None
+            ),
             "label": _source_label(list(entry.get("source_ids") or [])),
+            "source_ids": list(entry.get("source_ids") or []),
         }
     return table
+
+
+def metro_benchmark(text: str) -> Optional[Dict[str, Any]]:
+    """The by_metro entry for a typed location (see _geo_for), as a copy:
+    ``{"name", "state", "mult" (cost per application), "cpc_mult", "label",
+    "source_ids"}``. The ONE place the wizard reads a metro multiplier from --
+    the copilot's nudges and /api/pricing/live both go through it, so step 1 and
+    step 4 can never quote different figures for the same city."""
+    entry = _geo_for(text)
+    return dict(entry) if entry else None
 
 
 def _geo_for(text: str) -> Optional[Dict[str, Any]]:
@@ -654,7 +674,7 @@ def _nudges_budget(value: str, context: Dict[str, Any]) -> List[Dict[str, str]]:
             nudges.append(
                 {
                     "field": "budget",
-                    "message": f"In {geo['name']}, cost per application runs about {geo['mult']:.2f}x the national median ({geo['label']}), so your budget stretches like ~${adjusted:,} in a median market. A remote or hybrid option can widen the pool.",
+                    "message": f"In {geo['name']}, the benchmark file's local cost-per-application multiplier is {geo['mult']:.2f}x the national median (a cost-of-living-based estimate: {geo['label']}), so your budget stretches like ~${adjusted:,} in a median market. A remote or hybrid option can widen the pool.",
                     "type": "suggestion",
                     "confidence": 0.75,
                     "source": f"Nova Copilot -- metro cost benchmark ({geo['label']})",
@@ -687,7 +707,7 @@ def _nudges_location(value: str, context: Dict[str, Any]) -> List[Dict[str, str]
         nudges.append(
             {
                 "field": "location",
-                "message": f"{geo['name']}: cost per application runs about {geo['mult']:.2f}x the national median ({geo['label']}).",
+                "message": f"{geo['name']}: the benchmark file's local cost-per-application multiplier is {geo['mult']:.2f}x the national median, a cost-of-living-based estimate ({geo['label']}).",
                 "type": "info",
                 "confidence": 0.85,
                 "source": f"Nova Copilot -- metro cost benchmark ({geo['label']})",

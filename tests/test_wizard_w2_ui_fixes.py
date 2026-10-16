@@ -1761,7 +1761,7 @@ def _insights(goal_range: str, target: int, est_hires: float, est_cph: float = 3
             js_block(PREVIEW, "function goalText("),
             js_block(PREVIEW, "function computeInsights("),
             f"process.stdout.write(JSON.stringify(computeInsights({json.dumps(m)}, "
-            f"{{ est_hires: {est_hires}, est_cph: {est_cph}, cph_benchmark: {json.dumps(benchmark)} }})"
+            f"{{ est_hires: {est_hires}, est_cph: {json.dumps(est_cph)}, cph_benchmark: {json.dumps(benchmark)} }})"
             ".map(function (i) { return i.text; })));",
         ]
     )
@@ -2039,23 +2039,31 @@ def test_a_duration_recommendation_is_still_click_to_apply():
     assert _extract("duration", "Short campaigns for sales roles risk low yield: passive candidates take time.") is None
 
 
-_BENCH_NURSE = {"label": "nursing", "p25": 4200, "median": 5400, "p75": 7800, "source": "SHRM cost-per-hire benchmarks (2024/2025)"}
-_BENCH_TECH = {"label": "tech", "p25": 4200, "median": 5800, "p75": 9500, "source": "SHRM cost-per-hire benchmarks (2024/2025)"}
+_BENCH_NURSE = {"label": "nursing", "p25": 4200, "median": 5400, "p75": 7800, "source": "SHRM 2024, NAHS 2024, SHRM 2025"}
+_BENCH_TECH = {"label": "tech", "p25": 4200, "median": 5800, "p75": 9500, "source": "SHRM 2024, DHI Group 2024, SHRM 2025"}
 
 
 @needs_node
 def test_cost_per_hire_is_graded_only_against_the_data_quartiles():
     """Round-5: "High ~$7K/hire for Registered Nurse" came from a hand-typed
     per-role-class table; the SHRM-sourced nursing upper quartile is $7.8K."""
-    def cph_lines(est_cph, benchmark):
-        return [t for t in _insights("", 0, 0, est_cph=est_cph, benchmark=benchmark) if "/hire" in t]
+    def cph_lines(est_cph, benchmark, est_hires=6):
+        return [
+            t
+            for t in _insights("", 0, est_hires, est_cph=est_cph, benchmark=benchmark)
+            if "/hire" in t
+        ]
 
     # $7K nurse hire: inside nursing's quartiles (4.2K-7.8K) -> nothing said
     assert cph_lines(7000, _BENCH_NURSE) == []
     # above the p75 -> High, naming the yardstick and its source
     high = cph_lines(9000, _BENCH_NURSE)
     assert len(high) == 1 and high[0].startswith("High <b>~$9K/hire</b>")
-    assert "above the $7.8K upper quartile for nursing (SHRM cost-per-hire benchmarks (2024/2025))" in high[0]
+    # the sources are the row's OWN list, in full -- never "SHRM" alone
+    assert (
+        "above the $7.8K upper quartile for nursing "
+        "(sources listed in the benchmark file: SHRM 2024, NAHS 2024, SHRM 2025)"
+    ) in high[0]
     # one decimal under $10K: a $7.9K projection is above $7.8K, and says so
     assert cph_lines(7900, _BENCH_NURSE)[0].startswith("High <b>~$7.9K/hire</b>")
     # a tech hire at $7K is fine (p75 $9.5K); at $10K it is high
@@ -2066,6 +2074,12 @@ def test_cost_per_hire_is_graded_only_against_the_data_quartiles():
     assert len(low) == 1 and low[0].startswith("Efficient <b>~$3K/hire</b>") and "$4.2K lower quartile" in low[0]
     # no benchmark for these roles / a non-USD plan: no grade at all
     assert cph_lines(20000, None) == []
+    # Round-6: below one hire there is no cost per hire to grade (the engine's
+    # figure there is the whole budget): "Efficient ~$3K/hire ... below the $4.2K
+    # lower quartile" / "High ~$9K/hire" stood beside "0 Est. hires" in production
+    for budget_as_cph in (3000, 9000):
+        assert cph_lines(budget_as_cph, _BENCH_NURSE, est_hires=0) == []
+    assert cph_lines(None, _BENCH_NURSE, est_hires=0) == []
 
 
 def test_the_typed_cost_per_hire_table_is_gone():
@@ -2125,3 +2139,97 @@ def test_countries_copy_comes_from_the_same_source_as_the_rest_of_the_site():
 
     rendered = proof_claims.render("{{claim_countries}} countries")
     assert re.fullmatch(r"\d+ countries", rendered), rendered
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Round 6: fewer than one hire, pricing from data, step-2 insights, labels
+# ══════════════════════════════════════════════════════════════════════════
+
+
+@needs_node
+def test_fewer_than_one_hire_says_so_instead_of_grading_or_going_quiet():
+    """Round-6 regression: Nurse / LA / $3K returned est_hires 0 and est_cph =
+    the whole budget; the preview graded "Efficient ~$3K/hire" beside "0 Est.
+    hires" and the Reality Check vanished exactly when the goal was unreachable."""
+    est = {"est_hires": 0, "est_cph": None}
+    got = _engine_feasibility(est, 3000, 75, goal_range="50\u2013100")
+    assert got == {
+        "ratio": 0,
+        "belowOne": True,
+        "budget": "$3K",
+        "goal": "50\u2013100 hire goal (planned at ~75)",
+    }
+    # ...and the Nova insight uses the same words
+    text = _insights("50\u2013100", 75, 0, est_cph=None, benchmark=_BENCH_NURSE)
+    assert text == [
+        "Budget supports <b>fewer than one hire</b> against your 50\u2013100 hire goal "
+        "(planned at ~75) \u2014 raise the budget substantially or narrow scope."
+    ]
+
+
+@needs_node
+def test_the_reality_check_banner_for_fewer_than_one_hire():
+    html = _feas(
+        {"ratio": 0, "belowOne": True, "budget": "$3K", "goal": "50\u2013100 hire goal (planned at ~75)"}
+    )["html"]
+    assert html is not None
+    assert "UNREALISTIC" in html
+    assert "<strong>fewer than one hire</strong>" in html
+    assert "against your 50\u2013100 hire goal (planned at ~75)" in html
+    # nothing computed from a hires figure that does not exist
+    assert "/hire" not in html and "raise the budget by" not in html and "NaN" not in html
+    assert "raise the budget substantially or narrow the scope" in html
+
+
+def test_the_estimate_keeps_the_reality_check_when_nothing_is_funded():
+    block = js_block(PREVIEW, "function feasibility(")
+    assert "belowOne: true" in block
+    assert "return null" in block  # still null with no estimate / no goal / no budget
+
+
+def test_smart_insights_do_not_print_unsourced_figures():
+    """Round-6: step 2's "Avg CPA Range $8.00 - $35.00", "Avg Time to Fill
+    45-90 days" and "40% awareness / 60% hiring" came from channels_db.json,
+    which carries no source (its healthcare CPA sits beside the benchmark file's
+    nursing CPA of $28-$68)."""
+    block = re.sub(r"//[^\n]*", "", js_block(APP, "function updateJobCategoryInsight("))  # comments explain the omission
+    for gone in ("avg_cpa_range", "avg_time_to_fill", "strategy_emphasis", "Avg CPA Range", "Time to Fill", "Strategy Mix"):
+        assert gone not in block, gone
+    assert "Top Recommendations" in block  # the qualitative part stays
+
+
+@needs_node
+def test_the_pricing_grid_renders_ranges_and_reference_cards_without_trend_or_best_value():
+    data = {
+        "channels": [
+            {"name": "Indeed", "cpc": {"low": 0.3, "median": 0.92, "high": 4.5}, "cpa": {"low": 6, "median": 18, "high": 45}, "source": "Appcast 2025"}
+        ],
+        "industry": {
+            "label": "nursing",
+            "cpc": {"low": 2.2, "median": 4.1, "high": 6.8}, "cpc_source": "Appcast 2025",
+            "cpa": {"low": 28, "median": 40, "high": 68}, "cpa_source": "Joveo 2026, Appcast 2025",
+            "cph": {"low": 4200, "median": 5400, "high": 7800}, "cph_source": "SHRM 2024, NAHS 2024, SHRM 2025",
+        },
+        "metro": {"name": "Los Angeles", "cpa_mult": 1.24, "cpc_mult": 1.28, "source": "C2ER 2024 and BLS 2025"},
+    }
+    script = "\n".join(
+        [
+            "var grid = { innerHTML: '' };",
+            "var document = { getElementById: function (id) { return id === 'pricing-grid' ? grid : null; } };",
+            "function escapeHtml(s) { return String(s); }",
+            js_block(APP, "function pricingRange("),
+            js_block(APP, "function renderPricingGrid("),
+            f"renderPricingGrid({json.dumps(data)});",
+            "process.stdout.write(JSON.stringify(grid.innerHTML));",
+        ]
+    )
+    html = run_node(script)
+    assert "CPC</span><span class=\"value\">$0.30 - $4.50 (median $0.92)" in html
+    assert "CPA</span><span class=\"value\">$6 - $45 (median $18)" in html
+    assert "nursing (industry reference, 25th - 75th percentile)" in html
+    assert "$4,200 - $7,800 (median $5,400)" in html and "SHRM 2024, NAHS 2024, SHRM 2025" in html
+    assert "Los Angeles (local multiplier vs the national median)" in html
+    assert "1.24x" in html and "1.28x" in html
+    assert "cost-of-living-based estimate (C2ER 2024 and BLS 2025)" in html
+    assert "not applied to the ranges above" in html
+    assert "Best Value" not in html and "trend-" not in html

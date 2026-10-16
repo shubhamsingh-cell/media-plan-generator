@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 
 import pytest
@@ -24,9 +25,25 @@ if ROOT not in sys.path:
 import cph_benchmark  # noqa: E402
 
 
-def _by_industry():
+def _file():
     with open(os.path.join(ROOT, "data", "recruitment_benchmarks_2026_deep.json"), encoding="utf-8") as fh:
-        return json.load(fh)["by_industry"]
+        return json.load(fh)
+
+
+def _by_industry():
+    return _file()["by_industry"]
+
+
+def _expected_source(source_ids):
+    """Publisher + year for every source the row lists, in the row's order."""
+    registry = {s["id"]: s for s in _file()["metadata"]["sources"]}
+    labels = []
+    for sid in source_ids:
+        publisher = re.sub(r"\s*\([^)]*\)", "", registry[sid]["publisher"]).strip()
+        label = f"{publisher} {registry[sid]['publication_year']}"
+        if label not in labels:
+            labels.append(label)
+    return ", ".join(labels)
 
 
 @pytest.mark.parametrize(
@@ -50,7 +67,19 @@ def test_quartiles_are_the_data_files_own(industry, roles, expected_key):
     assert got is not None
     assert got["label"] == expected_key.replace("_", " ")
     assert (got["p25"], got["median"], got["p75"]) == (rng["p25"], rng["median"], rng["p75"])
-    assert "SHRM" in got["source"]
+    # the label is the row's OWN source list (every entry, in its order)
+    assert got["source"] == _expected_source(_by_industry()[expected_key]["cph_range_usd"]["source_ids"])
+
+
+def test_the_nursing_label_names_nahs_beside_shrm_never_shrm_alone():
+    """Round-6: the nursing quartiles list NAHS (a tier-2 source with no URL)
+    beside SHRM, and SHRM's public 2025 release has no nursing quartiles, so the
+    on-screen label must mirror the file's own source field."""
+    got = cph_benchmark.lookup("healthcare_medical", ["Registered Nurse"])
+    assert got is not None
+    assert got["source"] == "SHRM 2024, NAHS 2024, SHRM 2025"
+    assert "NAHS" in got["source"] and got["source"] != "SHRM"
+    assert got["source_ids"] == ["shrm_cph_2024", "nahs_cna_2024", "shrm_cph_2025"]
 
 
 def test_the_two_figures_the_trust_lens_quoted():
@@ -143,3 +172,41 @@ def test_the_copilot_channel_suggestion_quotes_no_unadjusted_cpa(monkeypatch):
         prog = [s for s in suggestions if s["text"] == "Programmatic/DSP"]
         assert prog, industry
         assert "$" not in prog[0]["reason"] and not any(ch.isdigit() for ch in prog[0]["reason"]), prog[0]
+
+
+# ---- Round-6 regression: a budget too small for one hire -----------------------
+
+
+@pytest.mark.parametrize("budget", ["$3,000", "$9,000"])
+def test_a_budget_too_small_for_one_hire_states_no_cost_per_hire(estimate, budget):
+    """Nurse / Los Angeles at $3K or $9K funds fewer than one hire; the engine's
+    cost_per_hire there is budget / max(hires, 1) == the whole budget. The
+    estimate must not offer that as a cost per hire (the wizard graded "Efficient
+    ~$3K/hire" / "High ~$9K/hire" beside "0 Est. hires")."""
+    est = estimate(
+        {
+            "budget": budget,
+            "industry": "healthcare_medical",
+            "client_name": "Northwind Health",
+            "roles": ["Registered Nurse"],
+            "locations": ["Los Angeles, CA"],
+        }
+    )
+    assert est["est_hires"] < 1
+    assert est["est_cph"] is None
+    # the benchmark itself is still there (it is a property of the roles, not the budget)
+    assert est["cph_benchmark"] and est["cph_benchmark"]["label"] == "nursing"
+
+
+def test_a_funded_plan_still_states_its_cost_per_hire(estimate):
+    est = estimate(
+        {
+            "budget": "$250,000",
+            "industry": "healthcare_medical",
+            "client_name": "Northwind Health",
+            "roles": ["Registered Nurse"],
+            "locations": ["Los Angeles, CA"],
+        }
+    )
+    assert est["est_hires"] >= 1
+    assert isinstance(est["est_cph"], float) and est["est_cph"] > 0

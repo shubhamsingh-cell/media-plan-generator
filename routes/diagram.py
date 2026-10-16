@@ -51,7 +51,8 @@ def _handle_diagram(handler: Any, path: str, parsed: Any) -> None:
         "LinkedIn",
         "Google Jobs",
     ]
-    budget: str = plan.get("budget") or "$10,000"
+    # No invented figure when the request carries no budget
+    budget: str = plan.get("budget") or "Budget not set"
 
     try:
         elements = _build_flow_diagram(budget, channels[:5])

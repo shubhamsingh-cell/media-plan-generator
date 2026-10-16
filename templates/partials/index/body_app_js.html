@@ -417,22 +417,38 @@
     }
 
     var severity = f.ratio < 0.1 ? "UNREALISTIC" : "SEVERELY UNDERFUNDED";
-    var html =
-      "<strong>\u26A0\uFE0F Budget Reality Check (" +
-      severity +
-      "):</strong><br>" +
-      "At " +
-      escapeHtml(f.budget) +
-      " the estimate supports <strong>~" +
-      escapeHtml(f.hires) +
-      " hires</strong> (~" +
-      escapeHtml(f.cph) +
-      "/hire) against your " +
-      escapeHtml(f.goal) +
-      ".<br>" +
-      "<strong>To get there:</strong> raise the budget by ~" +
-      escapeHtml(f.gap) +
-      " or narrow the scope.";
+    var html;
+    if (f.belowOne) {
+      // The engine funds less than one hire at this budget: there is no cost
+      // per hire or dollar "gap" to state, only that the goal is out of reach.
+      html =
+        "<strong>\u26A0\uFE0F Budget Reality Check (" +
+        severity +
+        "):</strong><br>" +
+        "At " +
+        escapeHtml(f.budget) +
+        " the estimate supports <strong>fewer than one hire</strong> against your " +
+        escapeHtml(f.goal) +
+        ".<br>" +
+        "<strong>To get there:</strong> raise the budget substantially or narrow the scope.";
+    } else {
+      html =
+        "<strong>\u26A0\uFE0F Budget Reality Check (" +
+        severity +
+        "):</strong><br>" +
+        "At " +
+        escapeHtml(f.budget) +
+        " the estimate supports <strong>~" +
+        escapeHtml(f.hires) +
+        " hires</strong> (~" +
+        escapeHtml(f.cph) +
+        "/hire) against your " +
+        escapeHtml(f.goal) +
+        ".<br>" +
+        "<strong>To get there:</strong> raise the budget by ~" +
+        escapeHtml(f.gap) +
+        " or narrow the scope.";
+    }
 
     if (existing) {
       if (existing.innerHTML !== html) existing.innerHTML = html;
@@ -4150,9 +4166,6 @@
     let allNiche = [];
     let allJoveo = [];
     let allCompetitor = [];
-    let strategies = [];
-    let cpaRanges = [];
-    let ttfRanges = [];
     let bestPractices = [];
 
     selectedJobCategories.forEach((key) => {
@@ -4162,11 +4175,9 @@
       allNiche.push(...(cat.recommended_channels?.niche || []));
       allJoveo.push(...(cat.joveo_supply_fit || []));
       allCompetitor.push(...(cat.competitor_channels || []));
-      strategies.push(
-        `${cat.label}: ${cat.strategy_emphasis?.awareness}% awareness / ${cat.strategy_emphasis?.hiring}% hiring`,
-      );
-      cpaRanges.push(`${cat.label}: ${cat.avg_cpa_range}`);
-      ttfRanges.push(cat.avg_time_to_fill);
+      // channels_db.json's avg_cpa_range / avg_time_to_fill / strategy_emphasis
+      // carry no source (its healthcare CPA "$8-$35" sits beside the benchmark
+      // file's nursing CPA of $28-$68), so they are not shown.
       bestPractices.push(...(cat.best_practices || []).slice(0, 2));
     });
 
@@ -4188,18 +4199,6 @@
                     <span class="insight-badge">Powered by Nova AI Suite</span>
                 </div>
                 <div class="insight-grid">
-                    <div class="insight-item">
-                        <div class="insight-label">Avg CPA Range</div>
-                        <div class="insight-value">${cpaRanges.map((r) => escapeHtml(r)).join(" | ")}</div>
-                    </div>
-                    <div class="insight-item">
-                        <div class="insight-label">Avg Time to Fill</div>
-                        <div class="insight-value">${[...new Set(ttfRanges)].map((r) => escapeHtml(r)).join(" | ")}</div>
-                    </div>
-                    <div class="insight-item">
-                        <div class="insight-label">Strategy Mix</div>
-                        <div class="insight-value">${strategies.map((s) => escapeHtml(s)).join("<br>")}</div>
-                    </div>
                     <div class="insight-item">
                         <div class="insight-label">Top Recommendations</div>
                         <div class="insight-value">${bestPractices.map((p) => "&bull; " + escapeHtml(p)).join("<br>")}</div>
@@ -6500,11 +6499,9 @@
         renderPricingGrid(pricingData);
         if (sourceEl && pricingData.source) {
           sourceEl.textContent =
-            "Source: " +
             pricingData.source +
-            (pricingData.updated_at
-              ? " | Updated: " +
-                new Date(pricingData.updated_at).toLocaleTimeString()
+            (pricingData.data_updated
+              ? " | Data last updated " + pricingData.data_updated
               : "");
         }
       })
@@ -6517,6 +6514,15 @@
       .finally(function () {
         _pricingFetching = false;
       });
+  }
+
+  // "$0.30 - $4.50 (median $0.92)": a data range, never a single made-up point
+  function pricingRange(r) {
+    if (!r) return "";
+    const usd = function (v) {
+      return "$" + (v >= 100 ? Math.round(v).toLocaleString() : Number(v).toFixed(2).replace(/\.00$/, ""));
+    };
+    return usd(r.low) + " - " + usd(r.high) + " (median " + usd(r.median) + ")";
   }
 
   function renderPricingGrid(data) {
@@ -6535,72 +6541,72 @@
       return;
     }
 
-    // Find best value (lowest CPA)
-    let bestCPA = Infinity;
-    let bestIdx = -1;
-    channels.forEach(function (ch, i) {
-      if (ch.cpa && ch.cpa < bestCPA) {
-        bestCPA = ch.cpa;
-        bestIdx = i;
-      }
-    });
-
     let html = "";
-    channels.forEach(function (ch, i) {
-      const trendIcon =
-        ch.trend === "up"
-          ? "&#9650;"
-          : ch.trend === "down"
-            ? "&#9660;"
-            : "&#9644;";
-      const trendClass =
-        ch.trend === "up"
-          ? "trend-up"
-          : ch.trend === "down"
-            ? "trend-down"
-            : "trend-stable";
-      const isBest = i === bestIdx;
-
+    channels.forEach(function (ch) {
       html += '<div class="pricing-card">';
-      html += '<div class="channel-name">' + escapeHtml(ch.name);
-      if (isBest) html += ' <span class="pricing-badge">Best Value</span>';
-      html += "</div>";
-      if (ch.cpc != null) {
+      html += '<div class="channel-name">' + escapeHtml(ch.name) + "</div>";
+      if (ch.cpc) {
         html +=
-          '<div class="pricing-metric"><span>CPC</span><span class="value">$' +
-          Number(ch.cpc).toFixed(2) +
-          ' <span class="' +
-          trendClass +
-          '">' +
-          trendIcon +
-          "</span></span></div>";
-      }
-      if (ch.cpa != null) {
-        html +=
-          '<div class="pricing-metric"><span>CPA</span><span class="value">$' +
-          Number(ch.cpa).toFixed(2) +
+          '<div class="pricing-metric"><span>CPC</span><span class="value">' +
+          escapeHtml(pricingRange(ch.cpc)) +
           "</span></div>";
       }
-      if (ch.cph != null) {
+      if (ch.cpa) {
         html +=
-          '<div class="pricing-metric"><span>CPH</span><span class="value">$' +
-          Number(ch.cph).toLocaleString() +
+          '<div class="pricing-metric"><span>CPA</span><span class="value">' +
+          escapeHtml(pricingRange(ch.cpa)) +
           "</span></div>";
       }
-      if (ch.apply_rate) {
-        html +=
-          '<div class="pricing-metric"><span>Apply Rate</span><span class="value">' +
-          escapeHtml(ch.apply_rate) +
-          "</span></div>";
-      }
-      if (ch.notes) {
+      if (ch.source) {
         html +=
           '<div style="font-size:10px;color:var(--text-muted);margin-top:6px">' +
-          escapeHtml(ch.notes) +
+          escapeHtml(ch.source) +
           "</div>";
       }
       html += "</div>";
     });
+
+    // Reference rows, not adjustments: the industry's quartiles and the metro's
+    // multipliers are shown beside the channel ranges, never multiplied into them.
+    const ind = data.industry;
+    if (ind) {
+      html +=
+        '<div class="pricing-card" style="grid-column:1/-1"><div class="channel-name">' +
+        escapeHtml(ind.label) +
+        " (industry reference, 25th - 75th percentile)</div>";
+      [
+        ["CPC", ind.cpc, ind.cpc_source],
+        ["CPA", ind.cpa, ind.cpa_source],
+        ["Cost per hire", ind.cph, ind.cph_source],
+      ].forEach(function (row) {
+        if (!row[1]) return;
+        const fmt = function (v) {
+          return "$" + (v >= 1000 ? Math.round(v).toLocaleString() : Number(v).toFixed(2).replace(/\.00$/, ""));
+        };
+        html +=
+          '<div class="pricing-metric"><span>' + row[0] + '</span><span class="value">' +
+          escapeHtml(fmt(row[1].low) + " - " + fmt(row[1].high) + " (median " + fmt(row[1].median) + ")") +
+          "</span></div>" +
+          '<div style="font-size:10px;color:var(--text-muted)">' + escapeHtml(row[2] || "") + "</div>";
+      });
+      html += "</div>";
+    }
+    const metro = data.metro;
+    if (metro) {
+      html +=
+        '<div class="pricing-card" style="grid-column:1/-1"><div class="channel-name">' +
+        escapeHtml(metro.name) +
+        " (local multiplier vs the national median)</div>" +
+        '<div class="pricing-metric"><span>CPA</span><span class="value">' +
+        Number(metro.cpa_mult).toFixed(2) + "x</span></div>" +
+        (metro.cpc_mult
+          ? '<div class="pricing-metric"><span>CPC</span><span class="value">' +
+            Number(metro.cpc_mult).toFixed(2) + "x</span></div>"
+          : "") +
+        '<div style="font-size:10px;color:var(--text-muted)">A cost-of-living-based estimate (' +
+        escapeHtml(metro.source) +
+        "); shown for reference, not applied to the ranges above.</div></div>";
+    }
 
     grid.innerHTML = html;
   }
