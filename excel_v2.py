@@ -3533,7 +3533,7 @@ def _hires_range_line(
     _us_tag = (
         ""
         if us_plan or cph_info.get("basis") == "local_kb"
-        else " (US benchmark \u2014 no local data)"
+        else f" ({plan_projection.MIXED_MARKETS_LABEL})"
     )
     sentence = (
         f"Projected hires{_us_tag}: {lo:,}–{hi:,}. {lo:,} if every hire costs "
@@ -6029,6 +6029,7 @@ def _hires_not_projected(budget_alloc: Any, budget_num: float, data: dict) -> bo
             industry_key=str(meta.get("industry") or ""),
             display_currency=_get_active_currency(),
             non_us_market=plan_projection.is_non_us_market(data.get("locations")),
+            mixed_market=plan_projection.is_mixed_market(data.get("locations")),
         )
     except (ImportError, KeyError, TypeError, ValueError) as exc:
         logger.error("hires suppression check failed: %s", exc, exc_info=True)
@@ -6041,6 +6042,7 @@ def _projection_range_line(
     budget_num: float,
     suppress_cph: bool = False,
     non_us_market: bool = False,
+    mixed_market: bool = False,
 ) -> str:
     """Applications, cost per application and cost per hire as low-high ranges,
     plus what the hire / cost-per-hire figures assume -- the SAME projection
@@ -6062,6 +6064,7 @@ def _projection_range_line(
         symbol=_cur_symbol(),
         display_currency=_get_active_currency(),
         non_us_market=non_us_market,
+        mixed_market=mixed_market,
     )
     if not proj.get("ok"):
         return ""
@@ -6355,6 +6358,7 @@ def _build_sheet_executive_summary(
             budget_num,
             suppress_cph=_cph_suppressed,
             non_us_market=plan_projection.is_non_us_market(data.get("locations")),
+            mixed_market=plan_projection.is_mixed_market(data.get("locations")),
         )
     except (ImportError, KeyError, TypeError, ValueError) as exc:
         logger.error("projection range line failed: %s", exc, exc_info=True)
@@ -7425,7 +7429,18 @@ def _build_sheet_executive_summary(
     # Budget risk -- use consistent header values (S48)
     proj_hires = _header_hires
     cph = _header_cph
-    if proj_hires > 0 and cph > 0:
+    _risk_hires_off = _hires_not_projected(budget_alloc, budget_num, data)
+    if _risk_hires_off and budget_num > 0:
+        # no hires are projected for this market: state what the plan supports
+        # (at +20% CPA the same budget buys 1 - 1/1.2 = ~17% fewer applications)
+        risk_items.append(
+            (
+                "Budget Risk: CPA Inflation",
+                "If CPA rises 20%, the same budget buys about 17% fewer applications",
+                "Build 10-15% budget contingency; diversify to lower-CPA channels",
+            )
+        )
+    elif proj_hires > 0 and cph > 0:
         hires_at_20_pct_increase = int(budget_num / (cph * 1.2)) if cph > 0 else 0
         risk_items.append(
             (
@@ -7494,8 +7509,13 @@ def _build_sheet_executive_summary(
                 (
                     "Channel Dependency",
                     f"{top_2_pct:.0f}% of budget concentrated on {ch_names} — "
-                    f"single-channel disruption could impact "
-                    f"{gs_lib.count_noun(_named_hires, 'projected hire')}",
+                    + (
+                        "single-channel disruption would affect that share of "
+                        "spend and applications"
+                        if _risk_hires_off
+                        else f"single-channel disruption could impact "
+                        f"{gs_lib.count_noun(_named_hires, 'projected hire')}"
+                    ),
                     "Diversify to 4+ channels; maintain 3 backup channels on standby",
                 )
             )

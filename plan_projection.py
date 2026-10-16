@@ -89,14 +89,30 @@ NO_LOCAL_HIRES_NOTE = (
 )
 
 
+MIXED_MARKETS_LABEL = "basis: US benchmark; non-US markets not separately projected"
+
+
 def is_non_us_market(locations: Any) -> bool:
-    """True when the plan's locations are outside the US (location-only: the
-    same test every surface applies, whatever the wizard's region default)."""
+    """True when NO market in the plan is a US market (location-only: the same
+    test every surface applies, whatever the wizard's region default). A plan
+    with at least one US market has a cost-per-hire benchmark to stand on."""
     try:
         import plan_geo
 
-        return not plan_geo.is_us_plan({"locations": list(locations or [])})
+        return not plan_geo.plan_has_us_market({"locations": list(locations or [])})
     except Exception as exc:  # noqa: BLE001 - classification is best-effort
+        logger.debug("plan_projection: market check unavailable: %s", exc)
+        return False
+
+
+def is_mixed_market(locations: Any) -> bool:
+    """True when the plan has at least one US market AND at least one non-US one."""
+    try:
+        import plan_geo
+
+        locs = {"locations": list(locations or [])}
+        return plan_geo.plan_has_us_market(locs) and not plan_geo.is_us_plan(locs)
+    except Exception as exc:  # noqa: BLE001
         logger.debug("plan_projection: market check unavailable: %s", exc)
         return False
 
@@ -384,6 +400,7 @@ def ranges_from_engine_result(
     symbol: Optional[str] = None,
     display_currency: Optional[str] = None,
     non_us_market: bool = False,
+    mixed_market: bool = False,
 ) -> Dict[str, Any]:
     """Build the projection dict from an existing ``calculate_budget_allocation``
     result. Pure; used by ``project_plan`` and by callers that already hold an
@@ -583,6 +600,9 @@ def ranges_from_engine_result(
         "us_benchmark_no_local": us_tag,
         "below_one_hire": below_one_hire,
         "hires_suppressed": hires_suppressed,
+        # a USD plan with a US market AND non-US ones: whole-plan hires on the
+        # US basis, labelled (the engine does not project per market)
+        "mixed_markets": bool(mixed_market and not hires_suppressed),
         "kb_cpa": kb_cpa,
         **conv,
     }
@@ -645,6 +665,7 @@ def projection_for_alloc(
     symbol: Optional[str] = None,
     display_currency: Optional[str] = None,
     non_us_market: bool = False,
+    mixed_market: bool = False,
 ) -> Dict[str, Any]:
     """The projection a deliverable (workbook, deck) shows for an engine result.
 
@@ -666,6 +687,7 @@ def projection_for_alloc(
         symbol=symbol,
         display_currency=display_currency,
         non_us_market=non_us_market,
+        mixed_market=mixed_market,
     )
 
 
@@ -787,8 +809,14 @@ def describe(proj: Dict[str, Any], symbol: str = "$") -> Dict[str, str]:
                 "US benchmark \u2014 no local data); no client hire "
                 "history provided."
                 if a.get("us_benchmark_no_local")
-                else "Hires are an estimate (budget \u00f7 industry cost per hire); "
-                "no client hire history provided."
+                else (
+                    "Hires are an estimate (budget \u00f7 industry cost per hire; "
+                    + MIXED_MARKETS_LABEL
+                    + "); no client hire history provided."
+                    if a.get("mixed_markets")
+                    else "Hires are an estimate (budget \u00f7 industry cost per hire); "
+                    "no client hire history provided."
+                )
             )
         ),
         "cph_short": (
@@ -796,7 +824,11 @@ def describe(proj: Dict[str, Any], symbol: str = "$") -> Dict[str, str]:
             if a.get("hires_suppressed")
             else "US benchmark \u2014 no local data; total cost-per-hire basis"
             if a.get("us_benchmark_no_local")
-            else "total cost-per-hire basis, not media-only"
+            else (
+                "total cost-per-hire basis, not media-only; " + MIXED_MARKETS_LABEL
+                if a.get("mixed_markets")
+                else "total cost-per-hire basis, not media-only"
+            )
         ),
         "hires_basis": str(a.get("hires_basis") or ""),
         "cph_basis": str(a.get("cph_basis") or ""),
@@ -987,15 +1019,8 @@ def project_plan(
             budget_text=str(brief.get("budget_text") or "") or None,
             target_hires=int(brief.get("target_hires") or 0) or None,
         )
-        non_us_market = False
-        try:
-            import plan_geo as _pg
-
-            non_us_market = not _pg.is_us_plan(
-                {"locations": brief.get("locations_raw") or locs_in}
-            )
-        except Exception as exc:  # noqa: BLE001 - label only
-            logger.debug("plan_projection: market check unavailable: %s", exc)
+        market_locs = brief.get("locations_raw") or locs_in
+        non_us_market = is_non_us_market(market_locs)
         proj = ranges_from_engine_result(
             result,
             budget=budget,
@@ -1003,6 +1028,7 @@ def project_plan(
             role_titles=titles,
             knowledge_base=kb,
             non_us_market=non_us_market,
+            mixed_market=is_mixed_market(brief.get("locations_raw") or locs_in),
         )
         proj["industry_source"] = source
         proj["budget_result"] = result

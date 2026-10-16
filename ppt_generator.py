@@ -3937,6 +3937,10 @@ def _deck_projection(data_or_alloc: Optional[Dict]) -> Optional[Dict[str, Any]]:
                 "locations" in data_or_alloc
                 and plan_projection.is_non_us_market(data_or_alloc.get("locations"))
             ),
+            mixed_market=(
+                "locations" in data_or_alloc
+                and plan_projection.is_mixed_market(data_or_alloc.get("locations"))
+            ),
         )
     except (ImportError, KeyError, TypeError, ValueError) as exc:
         logger.error("deck projection failed: %s", exc, exc_info=True)
@@ -4287,13 +4291,13 @@ def _plan_efficiency_variants(
             return []
         mid_txt = _be_pe._cph_text(mid, ccy, "compact")
         if not _is_us_only_campaign(data):
-            # a US cost-per-hire table under a non-US market: say so on the note
+            # a US cost-per-hire table over a plan with non-US markets: say so
+            _lbl = plan_projection.MIXED_MARKETS_LABEL
             variants = [
-                f"Plan efficiency: {floor_txt}/hire (half the {mid_txt} US "
-                "benchmark midpoint \u2014 no local data), the model's lowest "
-                "cost per hire.",
-                f"Plan efficiency: {floor_txt}/hire (half the {mid_txt} US "
-                "benchmark midpoint \u2014 no local data).",
+                f"Plan efficiency: {floor_txt}/hire (half the {mid_txt} midpoint; "
+                f"{_lbl}), the model's lowest cost per hire.",
+                f"Plan efficiency: {floor_txt}/hire (half the {mid_txt} midpoint; "
+                f"{_lbl}).",
             ]
         else:
             variants = [
@@ -10783,7 +10787,19 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
         )
 
         # 1. Budget risk
-        if proj_hires > 0 and cph > 0 and total_budget > 0:
+        _risk_hires_off = _hires_suppressed(data)
+        if _risk_hires_off and total_budget > 0:
+            # no hires are projected for this market: say what the plan supports
+            # -- at +20% CPA the same budget buys 1 - 1/1.2 = ~17% fewer applications
+            risks.append(
+                (
+                    "BUDGET",
+                    "CPA Inflation Risk",
+                    "If CPA rises 20%, the same budget buys about 17% fewer applications",
+                    "Build 10-15% budget contingency; diversify channels",
+                )
+            )
+        elif proj_hires > 0 and cph > 0 and total_budget > 0:
             hires_if_cpa_up = int(total_budget / (cph * 1.2))
             risks.append(
                 (
@@ -10871,7 +10887,18 @@ def _build_slide_risk_analysis(prs: Presentation, data: Dict) -> None:
                 ch[1].get("percentage", 0) if isinstance(ch[1], dict) else 0
                 for ch in sorted_ch[:2]
             )
-            if top_2_pct > 55:
+            if top_2_pct > 55 and _risk_hires_off:
+                risks.append(
+                    (
+                        "CHANNELS",
+                        "Channel Concentration",
+                        f"{top_2_pct:.0f}% of budget on "
+                        f"{', '.join(_fmt.channel_label(k) for k in top_2_names)} — "
+                        "a disruption would affect that share of spend and applications",
+                        "Diversify to 4+ channels; maintain backup channels on standby",
+                    )
+                )
+            elif top_2_pct > 55:
                 # "Hires at risk" must be the ACTUAL sum of these named
                 # channels' own projected_hires from _budget_allocation, not
                 # a percentage-of-total-hires estimate -- the two can
