@@ -179,7 +179,7 @@ def test_no_client_names_in_the_wizard_section():
 
     from tests.test_enterprise_pack import _BANNED_SHA256
 
-    # "display: flex" is a CSS keyword here, not a name: skip that one hash.
+    # One hash is a CSS layout keyword used inline in the section, not a name.
     banned = _BANNED_SHA256 - {
         "222f930b87524636da58b1987eabd52f1285cb0ef7dad72f28fcd026fbb3f73f"
     }
