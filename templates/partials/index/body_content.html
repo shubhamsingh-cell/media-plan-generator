@@ -27,7 +27,7 @@
     href="#"
     class="stb-nova"
     onclick="try{askNovaAboutPlan()}catch(e){}; return false;"
-    aria-label="Ask Nova about your plan"
+    aria-label="Ask Nova about your plan (opens in a new tab)"
   >
     <span class="dot" aria-hidden="true"></span>Ask Nova
   </a>
@@ -49,7 +49,8 @@
      preview sits BELOW the form there, so the figures follow the viewport
      instead. data-state: "empty" = a one-line hint while the budget or role
      is genuinely missing; "loading" = inputs are set and /api/estimate is
-     in flight (the last figures stay, dimmed, under "Updating estimate...");
+     in flight or being retried (the current budget, "…" for the figures,
+     dimmed, under "Updating estimate..."; no earlier figure is shown);
      "ready" = the four figures; "unavailable" = the request failed (dashes,
      like the pane). The row exists from the start so nothing jumps when the
      first estimate lands. A tap scrolls to the full preview. Painted by
@@ -2714,6 +2715,7 @@
           type="button"
           class="output-format-btn active"
           data-format="local"
+          aria-pressed="true"
           onclick="setOutputFormat('local')"
         >
           <svg
@@ -2734,6 +2736,7 @@
           type="button"
           class="output-format-btn"
           data-format="google"
+          aria-pressed="false"
           onclick="setOutputFormat('google')"
           id="outputFormatGoogleBtn"
         >

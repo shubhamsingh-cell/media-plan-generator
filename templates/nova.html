@@ -1039,12 +1039,16 @@
           try {
             var params = new URLSearchParams(window.location.search);
             var prefillMsg = params.get("prefill");
+            // send=0: put the drafted question in the box and let the user
+            // send it (the wizard sends it for them only for a GENERATED plan)
+            var autoSend = params.get("send") !== "0";
             if (!prefillMsg) {
               // Also check sessionStorage (fallback for long messages)
               var stored = sessionStorage.getItem("nova_plan_context");
               if (stored) {
                 var ctx = JSON.parse(stored);
                 prefillMsg = ctx.message || "";
+                autoSend = ctx.autosend !== false;
                 sessionStorage.removeItem("nova_plan_context");
               }
             }
@@ -1068,18 +1072,31 @@
               if (!input) return;
 
               clearInterval(waitForInput);
-              input.value = decodeURIComponent(prefillMsg);
+              try {
+                input.value = decodeURIComponent(prefillMsg);
+              } catch (e) {
+                input.value = prefillMsg; // already decoded (a literal "%")
+              }
               input.dispatchEvent(new Event("input", { bubbles: true }));
 
-              // Auto-send after a short delay to let UI settle
-              setTimeout(function () {
-                var sendBtn =
-                  document.getElementById("send-btn") ||
-                  document.querySelector(
-                    '.nova-send-btn, .send-btn, button[type="submit"]',
-                  );
-                if (sendBtn) sendBtn.click();
-              }, 500);
+              if (autoSend) {
+                // Auto-send after a short delay to let UI settle
+                setTimeout(function () {
+                  var sendBtn =
+                    document.getElementById("send-btn") ||
+                    document.querySelector(
+                      '.nova-send-btn, .send-btn, button[type="submit"]',
+                    );
+                  if (sendBtn) sendBtn.click();
+                }, 500);
+              } else {
+                try {
+                  input.focus();
+                  input.setSelectionRange(input.value.length, input.value.length);
+                } catch (e) {
+                  /* focus is a nicety */
+                }
+              }
 
               // Hide suggestion chips since we have a prefilled message
               var chips = document.getElementById("nova-suggestion-chips");

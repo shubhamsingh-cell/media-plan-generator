@@ -428,8 +428,8 @@
       " hires</strong> (~" +
       escapeHtml(f.cph) +
       "/hire) against your " +
-      escapeHtml(f.target) +
-      "-hire target.<br>" +
+      escapeHtml(f.goal) +
+      ".<br>" +
       "<strong>To get there:</strong> raise the budget by ~" +
       escapeHtml(f.gap) +
       " or narrow the scope.";
@@ -1519,7 +1519,7 @@
     "Salary benchmarks are fused from multiple sources with confidence scoring for accuracy.",
     "Industry CPA, CPC, and cost-per-hire benchmarks draw on published reports such as Appcast's 2025 benchmark (379M clicks, 1,300+ US employers).",
     "The data synthesis engine cross-references several sources for each market insight.",
-    "Your Strategy PPT deck is auto-generated with LinkedIn-inspired design and real data visualizations.",
+    "Your Strategy deck is built in Joveo's 2026 deck design, from the same channel mix and budget you see in the preview.",
     "Competitor notes are drawn from public company sources.",
     "Labour market data includes JOLTS-style job openings, quits rates, and wage growth metrics.",
   ];
@@ -1918,54 +1918,110 @@
   }
 
   // ============================================
-  // "Ask Nova About This Plan" handler
+  // "Ask Nova" handler (top bar + results screen)
   // ============================================
-  function askNovaAboutPlan() {
-    // Build context from the last generated plan
-    var context = "";
-    try {
-      var p = _lastPlanPayload || {};
-      var parts = [];
-      if (p.client_name) parts.push("Client: " + p.client_name);
-      if (p.industry_label || p.industry)
-        parts.push("Industry: " + (p.industry_label || p.industry));
-      if (p.target_roles && p.target_roles.length)
-        parts.push("Roles: " + p.target_roles.join(", "));
-      if (p.locations && p.locations.length)
-        parts.push("Locations: " + p.locations.join(", "));
-      if (p.budget_range) parts.push("Budget: " + novaPlanBudgetLabel(p));
-      if (p.hire_volume) parts.push("Hire volume: " + p.hire_volume);
-      if (p.campaign_duration) parts.push("Duration: " + p.campaign_duration);
-      var regionInfo = getSelectedRegion();
-      if (regionInfo.region && regionInfo.region !== "us_only")
-        parts.push("Region: " + regionInfo.region);
-      context = parts.join(". ") + ".";
-    } catch (e) {
-      context = "a recently generated media plan";
-    }
-
-    var message =
-      "I just generated a media plan with these details: " +
-      context +
-      " Can you analyze the plan and suggest optimizations?";
-
-    // Store context in sessionStorage for the chatbot to pick up
-    try {
-      sessionStorage.setItem(
-        "nova_plan_context",
-        JSON.stringify({
-          message: message,
-          payload: _lastPlanPayload || {},
-          timestamp: new Date().toISOString(),
-        }),
+  // Opens the full Nova page in a NEW TAB with a drafted question. Two cases:
+  //  - a plan was actually generated: the question carries that plan's details
+  //    and Nova answers straight away (the user just asked about "this plan").
+  //  - no plan yet: the question is built from what the wizard holds right now
+  //    ("I'm planning a <industry> campaign for <client>: budget .., roles ..,
+  //    locations ..") and is only PREFILLED (send=0) -- nothing is sent for the
+  //    user, who edits it and presses send. With nothing filled in at all the
+  //    chat just opens, empty. It used to send "I just generated a media plan
+  //    with these details: ." before any plan existed.
+  function novaWizardBriefMessage() {
+    var p = typeof novaPlanCoreInputs === "function" ? novaPlanCoreInputs() : {};
+    var card = document.querySelector(
+      ".industry-card.selected, .industry-card[aria-pressed='true']",
+    );
+    var h = card && card.querySelector("h3, .industry-name, strong");
+    var industry = h ? h.textContent.trim() : "";
+    var client = (p.client_name || "").trim();
+    var facts = [];
+    if (p.budget_range && typeof novaResolvePlanBudget === "function") {
+      var plan = novaResolvePlanBudget(
+        p.budget_range,
+        p.budget_period,
+        p.campaign_duration,
       );
-    } catch (e) {
-      /* ignore storage errors */
+      if (plan && plan.ok) facts.push("budget " + novaPlanBudgetLabel(p));
+    }
+    if (p.target_roles && p.target_roles.length)
+      facts.push("roles " + p.target_roles.join(", "));
+    if (p.locations && p.locations.length)
+      facts.push("locations " + p.locations.join(", "));
+    if (!industry && !client && !facts.length) return "";
+    var article = /^[aeiou]/i.test(industry || "campaign") ? "an" : "a";
+    var lead =
+      "I'm planning " + article + " " + (industry ? industry + " " : "") +
+      "campaign" + (client ? " for " + client : "");
+    return (
+      lead +
+      (facts.length ? ": " + facts.join(", ") : "") +
+      ". What should I watch out for?"
+    );
+  }
+
+  function askNovaAboutPlan() {
+    var message = "";
+    var generated = false;
+    var p = _lastPlanPayload;
+    if (p) {
+      // A plan was generated: describe THAT plan.
+      try {
+        var parts = [];
+        if (p.client_name) parts.push("Client: " + p.client_name);
+        if (p.industry_label || p.industry)
+          parts.push("Industry: " + (p.industry_label || p.industry));
+        if (p.target_roles && p.target_roles.length)
+          parts.push("Roles: " + p.target_roles.join(", "));
+        if (p.locations && p.locations.length)
+          parts.push("Locations: " + p.locations.join(", "));
+        if (p.budget_range) parts.push("Budget: " + novaPlanBudgetLabel(p));
+        if (p.hire_volume) parts.push("Hire volume: " + p.hire_volume);
+        if (p.campaign_duration)
+          parts.push("Duration: " + p.campaign_duration);
+        var regionInfo = getSelectedRegion();
+        if (regionInfo.region && regionInfo.region !== "us_only")
+          parts.push("Region: " + regionInfo.region);
+        if (parts.length) {
+          message =
+            "I just generated a media plan with these details: " +
+            parts.join(". ") +
+            ". Can you analyze the plan and suggest optimizations?";
+          generated = true;
+        }
+      } catch (e) {
+        message = "";
+      }
+    }
+    if (!generated) {
+      try {
+        message = novaWizardBriefMessage();
+      } catch (e) {
+        message = "";
+      }
     }
 
-    // Open Nova chatbot in new tab with pre-filled message
-    var encodedMsg = encodeURIComponent(message);
-    window.open("/nova?prefill=" + encodedMsg, "_blank");
+    var url = "/nova";
+    if (message) {
+      // Store context in sessionStorage for the chatbot to pick up
+      try {
+        sessionStorage.setItem(
+          "nova_plan_context",
+          JSON.stringify({
+            message: message,
+            autosend: generated,
+            payload: generated ? p : {},
+            timestamp: new Date().toISOString(),
+          }),
+        );
+      } catch (e) {
+        /* ignore storage errors */
+      }
+      url += "?prefill=" + encodeURIComponent(message) + (generated ? "" : "&send=0");
+    }
+    window.open(url, "_blank");
   }
 
   // Wire validation to blur events for required fields

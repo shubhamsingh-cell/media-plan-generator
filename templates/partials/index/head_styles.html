@@ -5006,6 +5006,7 @@
     cursor: pointer;
     transition: all 0.2s ease;
     white-space: nowrap;
+    min-height: 44px;
   }
   .output-format-btn:hover {
     color: rgba(255, 255, 255, 0.8);
@@ -6809,8 +6810,9 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    /* "Updating estimate…" (inputs are set, the request is in flight): the
-       last figures stay, dimmed, and the status takes the labels' line */
+    /* "Updating estimate…" (inputs are set, the request is in flight or being
+       retried): the current budget and "…" stand in for the figures, dimmed,
+       and the status takes the labels' line */
     .np-estimate-bar .neb-status {
       display: none;
       flex: 1 0 100%;
@@ -6857,8 +6859,10 @@
   /* At phone width stepping aside only on focus is not enough: at rest they
      still sat over the Brief textarea. There the top bar already carries both
      ways out (the "N" logo links back to the suite; "Ask Nova" opens the
-     chat), so the two floating controls leave the form alone entirely. The
-     orb stays while its chat panel is open (.nova-btn-close closes it). */
+     Nova chat PAGE in a new tab with a drafted question -- it does not open
+     this in-page chat panel), so the two floating controls leave the form
+     alone entirely. The orb stays while its chat panel is open
+     (.nova-btn-close closes it). */
   @media (max-width: 480px) {
     #back-to-suite,
     #nova-float-btn:not(.nova-btn-close) {
@@ -6893,6 +6897,23 @@
     }
     .np-outcomes {
       grid-template-columns: 1fr 1fr;
+    }
+  }
+  /* A COMPLETED step's label is "✓ Channels": at 375 that is wider than the
+     60px cap (and than a fifth of the rail with its 10px gaps), and the
+     indicator clips what overflows it -- the label read "✓ Channel". Give the
+     rail's gap back, drop the cap, tighten the check's gap, and let the label
+     wrap rather than clip on narrower phones (the word drops under the check;
+     no letter is ever cut). */
+  @media (max-width: 480px) {
+    .studio .progress-bar {
+      gap: 4px;
+    }
+    .studio .step-label {
+      max-width: none;
+      gap: 3px;
+      flex-wrap: wrap;
+      font-size: 11px !important;
     }
   }
 
@@ -7262,6 +7283,24 @@
   }
   .studio .plan-clear-form:hover {
     color: var(--np-magenta);
+  }
+  /* Hit areas on the single-column (touch) layouts: the Clear Form link was
+     27px tall and each channel switch 26px. The switch keeps its drawn size;
+     an invisible ::after inside the label extends what a tap lands on (a tap
+     on a label toggles its input). */
+  @media (max-width: 1080px) {
+    .studio .plan-clear-form {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 0 10px;
+    }
+    .studio .toggle-switch::after,
+    .studio .toggle::after {
+      content: "";
+      position: absolute;
+      inset: -9px -4px;
+    }
   }
   /* armed (first click of the two-step clear): reads as a warning */
   .plan-clear-form.is-armed,

@@ -1,18 +1,30 @@
 """Inline Plan Copilot for Nova AI Suite.
 
 Provides contextual AI nudges next to media plan form fields.
-"Similar companies allocate 15% more to LinkedIn for this role."
+"Related titles widen the pool of qualified applicants."
 The Grammarly model applied to media planning.
+
+Honesty rule (wizard audit, trust lens): a nudge never states a percentage,
+multiplier, dollar benchmark or day count unless it is read at runtime from a
+data file that carries it. The only such figure is the metro cost multiplier
+(``data/recruitment_benchmarks_2026_deep.json`` -> ``by_metro.*.metro_cpa_mult``,
+cited in the copy as "Joveo 2026 benchmark set"). Everything else is
+qualitative advice. tests/test_plan_copilot_claims.py scans this file's
+user-facing strings and fails on any other figure.
 """
 
+import json
 import logging
+import os
 import re
+import threading
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Benchmark data -- role families, geo cost indices, channel effectiveness
+# Role families and channel suggestions (editorial ordering, not published
+# statistics -- the nudges built from them never print a score)
 # ---------------------------------------------------------------------------
 
 ROLE_FAMILIES: Dict[str, List[str]] = {
@@ -89,27 +101,92 @@ ROLE_FAMILIES: Dict[str, List[str]] = {
     ],
 }
 
-GEO_COST_INDEX: Dict[str, Dict[str, Any]] = {
-    "san francisco": {"index": 1.45, "label": "Very High", "remote_saving": "30-40%"},
-    "new york": {"index": 1.40, "label": "Very High", "remote_saving": "25-35%"},
-    "seattle": {"index": 1.30, "label": "High", "remote_saving": "20-30%"},
-    "boston": {"index": 1.28, "label": "High", "remote_saving": "20-30%"},
-    "los angeles": {"index": 1.25, "label": "High", "remote_saving": "20-25%"},
-    "austin": {"index": 1.10, "label": "Above Average", "remote_saving": "10-15%"},
-    "denver": {"index": 1.08, "label": "Above Average", "remote_saving": "10-15%"},
-    "chicago": {"index": 1.05, "label": "Average", "remote_saving": "10-15%"},
-    "atlanta": {"index": 0.95, "label": "Below Average", "remote_saving": "5-10%"},
-    "dallas": {"index": 0.93, "label": "Below Average", "remote_saving": "5-10%"},
-    "phoenix": {"index": 0.90, "label": "Low", "remote_saving": "5-10%"},
-    "london": {"index": 1.35, "label": "High", "remote_saving": "20-30%"},
-    "berlin": {"index": 1.05, "label": "Average", "remote_saving": "10-15%"},
-    "toronto": {"index": 1.15, "label": "Above Average", "remote_saving": "15-20%"},
-    "sydney": {"index": 1.20, "label": "High", "remote_saving": "15-25%"},
-    "singapore": {"index": 1.25, "label": "High", "remote_saving": "15-25%"},
-    "bangalore": {"index": 0.55, "label": "Very Low", "remote_saving": "N/A"},
-    "remote": {"index": 0.85, "label": "Low (avg)", "remote_saving": "N/A"},
-}
+# ---------------------------------------------------------------------------
+# Metro cost multipliers -- read from the repo's benchmark data, never typed in
+# ---------------------------------------------------------------------------
+# The hard-coded table that used to live here ("Los Angeles cost index: 1.25x",
+# "Remote could save 20-25%") matched no data file in the repo (the benchmark
+# set has Los Angeles at 1.24x median cost per application, Dallas at 1.02x
+# where the table said 0.93x, ...). The 40 US metros below come from
+# data/recruitment_benchmarks_2026_deep.json -> by_metro.<metro>.metro_cpa_mult
+# ("local multiplier vs national median"; C2ER cost of living + Appcast). There
+# is no per-city source for non-US cities, so none is quoted for them.
+BENCHMARK_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "data",
+    "recruitment_benchmarks_2026_deep.json",
+)
+BENCHMARK_SOURCE_LABEL = "Joveo 2026 benchmark set"
 
+_geo_lock = threading.Lock()
+_geo_table: Optional[Dict[str, Dict[str, Any]]] = None
+
+
+def _city_key(text: str) -> str:
+    """Lower-case a place name to letters and single spaces ("St. Louis" ->
+    "st louis")."""
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z ]", "", str(text).lower())).strip()
+
+
+def _load_geo_table() -> Dict[str, Dict[str, Any]]:
+    """city key -> {"name", "state", "mult"} for every metro in by_metro.
+
+    Keyed by the metro's principal city (first city of its MSA name). Returns
+    {} when the data file is missing or unreadable (the nudges then say
+    nothing about cost rather than guess).
+    """
+    table: Dict[str, Dict[str, Any]] = {}
+    try:
+        with open(BENCHMARK_FILE, encoding="utf-8") as fh:
+            metros = (json.load(fh).get("by_metro")) or {}
+    except (OSError, ValueError) as exc:
+        logger.warning("plan_copilot: metro benchmarks unavailable: %s", exc)
+        return table
+    for key, entry in metros.items():
+        if key.startswith("_") or not isinstance(entry, dict):
+            continue
+        mult = entry.get("metro_cpa_mult")
+        if not isinstance(mult, (int, float)) or mult <= 0:
+            continue
+        state = key.rsplit("_", 1)[-1] if re.search(r"_[a-z]{2}$", key) else ""
+        principal = re.split(r"[-,]", str(entry.get("msa") or ""))[0].strip()
+        city = _city_key(principal or key.replace("_", " "))
+        if not city:
+            continue
+        table[city] = {
+            "name": principal.replace(".", "") or city.title(),
+            "state": state,
+            "mult": float(mult),
+        }
+    return table
+
+
+def _geo_for(text: str) -> Optional[Dict[str, Any]]:
+    """The by_metro entry for a location typed as "Los Angeles", "Los Angeles,
+    CA" or "Greater Los Angeles area"; None for anything else (including
+    non-US cities and "Remote": no source, so no figure)."""
+    global _geo_table
+    if not text:
+        return None
+    with _geo_lock:
+        if _geo_table is None:
+            _geo_table = _load_geo_table()
+        table = _geo_table
+    cleaned = re.sub(r"\b(greater|metro|metropolitan|area)\b", " ", str(text).lower())
+    parts = [p.strip() for p in cleaned.split(",")]
+    entry = table.get(_city_key(parts[0]))
+    if not entry:
+        return None
+    # "Portland, ME" is not the Portland in the table (OR)
+    if len(parts) > 1 and re.fullmatch(r"[a-z]{2}", parts[1]) and entry["state"]:
+        if parts[1] != entry["state"]:
+            return None
+    return entry
+
+# Relative ranking weights ONLY: they decide the ORDER channels are suggested
+# in. They are not measured effectiveness rates and are never printed (they
+# used to be shown as "LinkedIn (85%)" with "based on quality-of-hire
+# benchmarks", which no data file in the repo backs).
 CHANNEL_EFFECTIVENESS: Dict[str, Dict[str, float]] = {
     "engineering": {
         "LinkedIn": 0.85,
@@ -170,6 +247,9 @@ CHANNEL_EFFECTIVENESS: Dict[str, Dict[str, float]] = {
     },
 }
 
+# Internal thresholds that choose which budget advice to show. They are NOT
+# published benchmarks and are never printed (they used to appear in the copy
+# as "Industry benchmark is $6,500/hire"); _nudges_budget only reads them.
 BUDGET_BENCHMARKS: Dict[str, Dict[str, Any]] = {
     "engineering": {
         "min_per_hire": 3000,
@@ -205,18 +285,21 @@ BUDGET_BENCHMARKS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# "optimal" is a recommendation (a wizard duration option), not a statistic.
+# The "reason" lines are qualitative: they used to quote average days to fill
+# ("42 days", "45+ day", "90+ day", "30-45 days") that no data file carried.
 DURATION_RECOMMENDATIONS: Dict[str, Dict[str, str]] = {
     "engineering": {
         "optimal": "3-6 months",
-        "reason": "Technical roles average 42 days to fill; longer campaigns improve quality of hire",
+        "reason": "Technical roles take longer to fill; longer campaigns improve quality of hire",
     },
     "data_science": {
         "optimal": "3-6 months",
-        "reason": "Specialized talent pools require sustained outreach; 45+ day avg time-to-fill",
+        "reason": "Specialized talent pools require sustained outreach and a longer time to fill",
     },
     "product": {
         "optimal": "3-6 months",
-        "reason": "Product roles benefit from brand awareness buildup over 3+ months",
+        "reason": "Product roles benefit from a few months of brand awareness buildup",
     },
     "sales": {
         "optimal": "1-3 months",
@@ -224,11 +307,11 @@ DURATION_RECOMMENDATIONS: Dict[str, Dict[str, str]] = {
     },
     "marketing": {
         "optimal": "1-3 months",
-        "reason": "Marketing candidates respond well to focused 60-90 day campaigns",
+        "reason": "Marketing candidates respond well to focused, shorter campaigns",
     },
     "executive": {
         "optimal": "6-12 months",
-        "reason": "Executive search requires relationship building; 90+ day avg time-to-fill",
+        "reason": "Executive search requires relationship building and usually the longest time to fill",
     },
     "healthcare": {
         "optimal": "1-3 months",
@@ -236,7 +319,7 @@ DURATION_RECOMMENDATIONS: Dict[str, Dict[str, str]] = {
     },
     "operations": {
         "optimal": "1-3 months",
-        "reason": "Operations roles fill within 30-45 days with adequate sourcing",
+        "reason": "Operations roles fill quickly with adequate sourcing",
     },
 }
 
@@ -433,7 +516,7 @@ def _nudges_job_title(value: str, context: Dict[str, Any]) -> List[Dict[str, str
             nudges.append(
                 {
                     "field": "job_title",
-                    "message": f"Related titles to consider: {', '.join(related)}. Multi-title campaigns typically see 23% more qualified applicants.",
+                    "message": f"Related titles to consider: {', '.join(related)}. Covering related titles can widen your pool of qualified applicants.",
                     "type": "suggestion",
                     "confidence": 0.75,
                     "source": "Nova Copilot -- role family matching",
@@ -448,10 +531,10 @@ def _nudges_job_title(value: str, context: Dict[str, Any]) -> List[Dict[str, str
             nudges.append(
                 {
                     "field": "job_title",
-                    "message": f"For {family.replace('_', ' ')} roles, {channel_names} typically deliver the highest quality candidates.",
+                    "message": f"For {family.replace('_', ' ')} roles, {channel_names} are good channels to start with.",
                     "type": "info",
                     "confidence": 0.8,
-                    "source": "Nova Copilot -- channel benchmarks",
+                    "source": "Nova Copilot -- channel suggestions",
                 }
             )
 
@@ -489,57 +572,50 @@ def _nudges_budget(value: str, context: Dict[str, Any]) -> List[Dict[str, str]]:
 
     if family and family in BUDGET_BENCHMARKS:
         bench = BUDGET_BENCHMARKS[family]
-        # Estimate number of hires (rough: budget / optimal cost per hire)
+        role_word = family.replace("_", " ")
+        # Internal heuristic only: the thresholds decide WHICH advice to give;
+        # none of them is printed (they are not published benchmarks).
         est_hires = max(1, round(budget / bench["optimal_per_hire"]))
 
         if budget < bench["min_per_hire"] * est_hires * 0.8:
             nudges.append(
                 {
                     "field": "budget",
-                    "message": f"This budget may be tight for {family.replace('_', ' ')} roles. Industry benchmark is ${bench['optimal_per_hire']:,}/hire. Consider increasing by 20-30% for better reach.",
+                    "message": f"This budget may be tight for {role_word} roles. Consider raising it, or narrowing the hiring volume or locations, for better reach.",
                     "type": "warning",
                     "confidence": 0.85,
-                    "source": "Nova Copilot -- budget benchmarks",
+                    "source": "Nova Copilot -- budget heuristic",
                 }
             )
         elif budget > bench["max_per_hire"] * est_hires * 1.2:
             nudges.append(
                 {
                     "field": "budget",
-                    "message": f"Budget is above typical range for {family.replace('_', ' ')} roles (${bench['max_per_hire']:,}/hire max benchmark). You could reallocate surplus to employer branding or reduce CPA targets.",
+                    "message": f"This budget is generous for {role_word} roles. You could reallocate surplus to employer branding or tighten your cost-per-application targets.",
                     "type": "info",
                     "confidence": 0.7,
-                    "source": "Nova Copilot -- budget benchmarks",
+                    "source": "Nova Copilot -- budget heuristic",
                 }
             )
-        else:
-            per_hire = round(budget / est_hires)
-            nudges.append(
-                {
-                    "field": "budget",
-                    "message": f"~${per_hire:,}/hire for {family.replace('_', ' ')} roles is within the optimal range (${bench['min_per_hire']:,}-${bench['max_per_hire']:,}). Well positioned for competitive sourcing.",
-                    "type": "info",
-                    "confidence": 0.8,
-                    "source": "Nova Copilot -- budget benchmarks",
-                }
-            )
+        # No "your budget is well matched" branch: the wizard sends no hiring
+        # volume here (est_hires is derived FROM the budget, so any budget
+        # trivially fits it), so there is nothing true to say in the middle.
 
-    # Location-adjusted budget insight
+    # Location-adjusted budget insight (US metros with a benchmark only)
     locations = context.get("locations", [])
     if isinstance(locations, str):
         locations = [locations]
     for loc in locations[:1]:
-        loc_lower = str(loc).lower().strip()
-        geo = GEO_COST_INDEX.get(loc_lower)
-        if geo and geo["index"] > 1.2:
-            adjusted = round(budget / geo["index"])
+        geo = _geo_for(str(loc))
+        if geo and geo["mult"] > 1.2:
+            adjusted = round(budget / geo["mult"])
             nudges.append(
                 {
                     "field": "budget",
-                    "message": f"{loc} has a {geo['label'].lower()} cost index ({geo['index']}x). Your effective budget is ~${adjusted:,} in normalized terms. Remote hiring could save {geo['remote_saving']}.",
+                    "message": f"In {geo['name']}, cost per application runs about {geo['mult']:.2f}x the national median ({BENCHMARK_SOURCE_LABEL}), so your budget stretches like ~${adjusted:,} in a median market. A remote or hybrid option can widen the pool.",
                     "type": "suggestion",
                     "confidence": 0.75,
-                    "source": "Nova Copilot -- geo cost index",
+                    "source": f"Nova Copilot -- metro cost benchmark ({BENCHMARK_SOURCE_LABEL})",
                 }
             )
             break
@@ -561,47 +637,29 @@ def _nudges_location(value: str, context: Dict[str, Any]) -> List[Dict[str, str]
         return []
 
     nudges: List[Dict[str, str]] = []
-    value_lower = value.lower().strip()
-    geo = GEO_COST_INDEX.get(value_lower)
+    # US metros only: the benchmark set has no per-city figure for anywhere
+    # else (or for "Remote"), so those get no cost nudge rather than a guess.
+    geo = _geo_for(value)
 
     if geo:
         nudges.append(
             {
                 "field": "location",
-                "message": f"{value} cost index: {geo['index']}x national average ({geo['label']}). Median CPA is ~{geo['index']}x the baseline.",
+                "message": f"{geo['name']}: cost per application runs about {geo['mult']:.2f}x the national median ({BENCHMARK_SOURCE_LABEL}).",
                 "type": "info",
                 "confidence": 0.85,
-                "source": "Nova Copilot -- geo cost index",
+                "source": f"Nova Copilot -- metro cost benchmark ({BENCHMARK_SOURCE_LABEL})",
             }
         )
 
-        if geo["index"] > 1.2 and geo["remote_saving"] != "N/A":
+        if geo["mult"] > 1.2:
             nudges.append(
                 {
                     "field": "location",
-                    "message": f"Adding a remote option alongside {value} could save {geo['remote_saving']} on CPA while expanding your talent pool by 3-5x.",
+                    "message": f"Adding a remote option alongside {value} can widen your talent pool and ease the local cost premium.",
                     "type": "suggestion",
                     "confidence": 0.7,
-                    "source": "Nova Copilot -- remote alternative analysis",
-                }
-            )
-    else:
-        # Partial matching for common cities
-        partial_matches = [
-            city
-            for city in GEO_COST_INDEX
-            if value_lower in city or city in value_lower
-        ]
-        if partial_matches:
-            match = partial_matches[0]
-            geo_match = GEO_COST_INDEX[match]
-            nudges.append(
-                {
-                    "field": "location",
-                    "message": f"{match.title()} cost index: {geo_match['index']}x national average ({geo_match['label']}).",
-                    "type": "info",
-                    "confidence": 0.65,
-                    "source": "Nova Copilot -- geo cost index",
+                    "source": "Nova Copilot -- remote alternative",
                 }
             )
 
@@ -611,14 +669,14 @@ def _nudges_location(value: str, context: Dict[str, Any]) -> List[Dict[str, str]
         roles = [roles]
     for role in roles[:1]:
         family = _classify_role_family(str(role))
-        if family == "engineering" and geo and geo["index"] > 1.2:
+        if family == "engineering" and geo and geo["mult"] > 1.2:
             nudges.append(
                 {
                     "field": "location",
-                    "message": f"Engineering talent in {value} is highly competitive. Companies hiring here allocate 15-20% more to LinkedIn and GitHub than the national average.",
+                    "message": f"Engineering talent in {value} is highly competitive, so plan specialist channels such as LinkedIn and GitHub alongside general job boards.",
                     "type": "info",
                     "confidence": 0.75,
-                    "source": "Nova Copilot -- market intelligence",
+                    "source": "Nova Copilot -- channel suggestions",
                 }
             )
             break
@@ -677,14 +735,17 @@ def _nudges_channel(value: str, context: Dict[str, Any]) -> List[Dict[str, str]]
         ][:2]
 
         if missing_top:
-            recs = ", ".join(f"{ch} ({int(score * 100)}%)" for ch, score in missing_top)
+            # names only: the 0-1 scores in CHANNEL_EFFECTIVENESS are an
+            # editorial ordering, not a published benchmark, so they are never
+            # printed as percentages
+            recs = ", ".join(ch for ch, _score in missing_top)
             nudges.append(
                 {
                     "field": "channel",
-                    "message": f"For {family.replace('_', ' ')} roles, consider adding: {recs}. Effectiveness score based on quality-of-hire benchmarks.",
+                    "message": f"For {family.replace('_', ' ')} roles, consider adding: {recs}.",
                     "type": "suggestion",
                     "confidence": 0.8,
-                    "source": "Nova Copilot -- channel effectiveness benchmarks",
+                    "source": "Nova Copilot -- channel suggestions",
                 }
             )
 
@@ -703,10 +764,10 @@ def _nudges_channel(value: str, context: Dict[str, Any]) -> List[Dict[str, str]]
                 nudges.append(
                     {
                         "field": "channel",
-                        "message": f"Generic job boards alone may miss passive candidates. Adding {' or '.join(top_specialized)} can improve applicant quality by 30-45%.",
+                        "message": f"Generic job boards alone may miss passive candidates. Adding {' or '.join(top_specialized)} can improve applicant quality.",
                         "type": "warning",
                         "confidence": 0.85,
-                        "source": "Nova Copilot -- channel mix analysis",
+                        "source": "Nova Copilot -- channel suggestions",
                     }
                 )
 
@@ -752,7 +813,7 @@ def _nudges_duration(value: str, context: Dict[str, Any]) -> List[Dict[str, str]
                     "message": f"Recommended duration for {family.replace('_', ' ')} roles: {rec['optimal']}. {rec['reason']}.",
                     "type": "suggestion",
                     "confidence": 0.75,
-                    "source": "Nova Copilot -- duration benchmarks",
+                    "source": "Nova Copilot -- duration guidance",
                 }
             )
         else:
@@ -762,7 +823,7 @@ def _nudges_duration(value: str, context: Dict[str, Any]) -> List[Dict[str, str]
                     "message": f"Good choice. {rec['optimal']} aligns with best practices for {family.replace('_', ' ')} roles. {rec['reason']}.",
                     "type": "info",
                     "confidence": 0.85,
-                    "source": "Nova Copilot -- duration benchmarks",
+                    "source": "Nova Copilot -- duration guidance",
                 }
             )
 
@@ -771,10 +832,10 @@ def _nudges_duration(value: str, context: Dict[str, Any]) -> List[Dict[str, str]
         nudges.append(
             {
                 "field": "duration",
-                "message": f"Short campaigns for {family.replace('_', ' ')} roles risk low yield. Only 15% of passive candidates engage in the first 30 days.",
+                "message": f"Short campaigns for {family.replace('_', ' ')} roles risk low yield: passive candidates take time to engage, so a longer campaign usually works better.",
                 "type": "warning",
                 "confidence": 0.8,
-                "source": "Nova Copilot -- time-to-fill analysis",
+                "source": "Nova Copilot -- duration guidance",
             }
         )
 
@@ -786,7 +847,7 @@ def _nudges_duration(value: str, context: Dict[str, Any]) -> List[Dict[str, str]
                 "message": f"Long-term campaigns for {family.replace('_', ' ')} roles may see diminishing returns. Consider breaking into quarterly sprints for freshness.",
                 "type": "suggestion",
                 "confidence": 0.7,
-                "source": "Nova Copilot -- campaign lifecycle analysis",
+                "source": "Nova Copilot -- duration guidance",
             }
         )
 

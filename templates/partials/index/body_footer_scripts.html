@@ -143,6 +143,10 @@
     var btns = document.querySelectorAll(".output-format-btn");
     btns.forEach(function (btn) {
       btn.classList.toggle("active", btn.dataset.format === format);
+      btn.setAttribute(
+        "aria-pressed",
+        btn.dataset.format === format ? "true" : "false",
+      );
     });
     // Update hint text
     var hint = document.getElementById("outputFormatHint");

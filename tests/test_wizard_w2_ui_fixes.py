@@ -1076,8 +1076,12 @@ def test_estimate_bar_markup_and_css_are_single_column_only():
 
 
 _BAR_STUB = r"""
-var latestEstimate = null, estimating = false, lastBarFigures = null;
+var latestEstimate = null, latestEstimateSig = '', estimating = false;
 var attrs = {}, texts = {};
+function estimatePayload(m) { return m.inputs; }
+function inputsFor(total, roles) { return { target_roles: roles, budget_range: total }; }
+// an estimate computed for exactly these inputs
+function ready(est, total, roles) { latestEstimate = est; latestEstimateSig = JSON.stringify(inputsFor(total, roles)); }
 var bar = { setAttribute: function (k, v) { attrs[k] = v; } };
 function $(id) {
   if (id === 'npEstimateBar') return bar;
@@ -1089,7 +1093,7 @@ function intc(v) { return Math.round(v).toLocaleString('en-US'); }
 function appsFmt(v) { return (v >= 100 ? Math.round(v / 10) * 10 : Math.round(v)).toLocaleString('en-US'); }
 function cpaFmt(v) { return '$' + Math.round(v); }
 function figs() { var o = {}; Object.keys(texts).forEach(function (k) { o[k] = texts[k].textContent; }); return o; }
-function paint(total, roles) { paintEstimateBar({ total: total, inputs: { target_roles: roles } }); }
+function paint(total, roles) { paintEstimateBar({ total: total, inputs: inputsFor(total, roles) }); }
 """
 
 _EST = {"est_applications": 2016.4, "est_hires": 6.2, "est_cpa": 17.36}
@@ -1100,6 +1104,7 @@ def _bar_script(body: str) -> dict:
         "\n".join(
             [
                 _BAR_STUB,
+                js_block(PREVIEW, "function estimateFor("),
                 js_block(PREVIEW, "function paintEstimateBar("),
                 body,
                 "process.stdout.write(JSON.stringify(out));",
@@ -1111,7 +1116,7 @@ def _bar_script(body: str) -> dict:
 @needs_node
 def test_estimate_bar_shows_the_four_figures_once_an_estimate_exists():
     got = _bar_script(
-        "latestEstimate = " + json.dumps(_EST) + "; paint(35000, ['Nurse']);"
+        "ready(" + json.dumps(_EST) + ", 35000, ['Nurse']); paint(35000, ['Nurse']);"
         "var out = { attrs: attrs, figs: figs() };"
     )
     assert got["attrs"]["data-state"] == "ready"
@@ -1141,28 +1146,53 @@ def test_estimate_bar_hint_is_only_for_genuinely_missing_inputs():
 
 
 @needs_node
-def test_estimate_bar_keeps_the_last_figures_while_a_new_estimate_loads():
+def test_estimate_bar_never_pairs_a_new_budget_with_old_figures():
+    """Round-4: a budget edit left the previous estimate's figures on the bar
+    (and, while the retries ran, dashes flickered in between). Loading now
+    shows the CURRENT budget with "…" where the figures go, and no earlier
+    figure appears anywhere on the bar."""
     got = _bar_script(
-        "latestEstimate = " + json.dumps(_EST) + "; paint(35000, ['Nurse']);"
-        "latestEstimate = null; estimating = true; paint(40000, ['Nurse']);"
+        "ready(" + json.dumps(_EST) + ", 35000, ['Nurse']); paint(35000, ['Nurse']);"
+        # the budget is edited: the estimate in hand answers 35000, the inputs say 40000
+        "estimating = true; paint(40000, ['Nurse']);"
         "var out = { attrs: attrs, figs: figs() };"
     )
     assert got["attrs"]["data-state"] == "loading"
     assert got["attrs"]["aria-busy"] == "true"
-    # the budget is current; the other three are the last estimate's
-    assert got["figs"] == {"nebBudget": "$40K", "nebApps": "2,020", "nebHires": "6", "nebCpa": "$17"}
+    assert got["figs"] == {"nebBudget": "$40K", "nebApps": "…", "nebHires": "…", "nebCpa": "…"}
     assert "updating" in got["attrs"]["aria-label"].lower()
-    # first estimate ever, still pending: dashes under the same status
+    for old_figure in ("2,020", "$17", "$35K"):
+        assert old_figure not in json.dumps(got["figs"])
+    # first estimate ever, still pending: the same placeholders under the same status
     got = _bar_script("estimating = true; paint(40000, ['Nurse']); var out = { attrs: attrs, figs: figs() };")
-    assert got["figs"] == {"nebBudget": "$40K", "nebApps": "—", "nebHires": "—", "nebCpa": "—"}
+    assert got["figs"] == {"nebBudget": "$40K", "nebApps": "…", "nebHires": "…", "nebCpa": "…"}
+
+
+@needs_node
+def test_estimate_bar_ignores_an_estimate_computed_for_other_inputs():
+    """Even when nothing is in flight yet (the budget field fires its handlers
+    before render() schedules the request) the old estimate is not "ready" for
+    the new budget."""
+    got = _bar_script(
+        "ready(" + json.dumps(_EST) + ", 35000, ['Nurse']); estimating = false; paint(40000, ['Nurse']);"
+        "var out = { attrs: attrs, figs: figs() };"
+    )
+    assert got["attrs"]["data-state"] == "unavailable"
+    assert "2,020" not in json.dumps(got["figs"])
+    # a different ROLE is different inputs too
+    got = _bar_script(
+        "ready(" + json.dumps(_EST) + ", 35000, ['Nurse']); estimating = true; paint(35000, ['Welder']);"
+        "var out = { attrs: attrs };"
+    )
+    assert got["attrs"]["data-state"] == "loading"
 
 
 @needs_node
 def test_estimate_bar_shows_dashes_when_the_request_failed_like_the_pane():
     got = _bar_script(
-        "latestEstimate = " + json.dumps(_EST) + "; paint(35000, ['Nurse']);"
+        "ready(" + json.dumps(_EST) + ", 35000, ['Nurse']); paint(35000, ['Nurse']);"
         # failure: no estimate, nothing in flight; the stale figures must NOT come back
-        "latestEstimate = null; estimating = false; paint(35000, ['Nurse']);"
+        "latestEstimate = null; latestEstimateSig = ''; estimating = false; paint(35000, ['Nurse']);"
         "var out = { attrs: attrs, figs: figs() };"
     )
     assert got["attrs"]["data-state"] == "unavailable"
@@ -1352,7 +1382,7 @@ def _feas(f, pre_existing=False) -> dict:
 
 
 _FEAS_FIGURES = {
-    "ratio": 6.2 / 75, "budget": "$35K", "hires": "6", "target": "75", "cph": "$6K", "gap": "$403K",
+    "ratio": 6.2 / 75, "budget": "$35K", "hires": "6", "goal": "75-hire target", "cph": "$6K", "gap": "$403K",
 }
 
 
@@ -1394,18 +1424,25 @@ def test_the_old_feasibility_arithmetic_is_gone():
 
 _FEAS_ENGINE_STUB = r"""
 var latestEstimate = __EST__;
-function gather() { return { total: __TOTAL__, targetHires: __TARGET__ }; }
+// the estimate was computed for budget __SIGBUDGET__; the inputs say __TOTAL__
+var latestEstimateSig = __EST__ ? JSON.stringify({ budget: __SIGBUDGET__ }) : '';
+function gather() { return { total: __TOTAL__, targetHires: __TARGET__, goalRange: '__RANGE__', inputs: { budget: __TOTAL__ } }; }
+function estimatePayload(m) { return m.inputs; }
 function hero(v) { return '$' + Math.round(v / 1000) + 'K'; }
 function intc(v) { return Math.round(v).toLocaleString('en-US'); }
 """
 
 
-def _engine_feasibility(est, total, target):
+def _engine_feasibility(est, total, target, goal_range="", estimate_for_budget=None):
     script = "\n".join(
         [
             _FEAS_ENGINE_STUB.replace("__EST__", json.dumps(est))
+            .replace("__SIGBUDGET__", str(total if estimate_for_budget is None else estimate_for_budget))
             .replace("__TOTAL__", str(total))
-            .replace("__TARGET__", str(target)),
+            .replace("__TARGET__", str(target))
+            .replace("__RANGE__", goal_range),
+            js_block(PREVIEW, "function estimateFor("),
+            js_block(PREVIEW, "function goalText("),
             js_block(PREVIEW, "function feasibility("),
             "process.stdout.write(JSON.stringify(feasibility()));",
         ]
@@ -1418,12 +1455,33 @@ def test_feasibility_uses_the_same_numbers_as_the_nova_insight():
     est = {"est_hires": 6.0, "est_cph": 5645}
     got = _engine_feasibility(est, 35000, 75)
     # insight #1 in computeInsights: gap = total * (target / est_hires - 1)
-    assert got["gap"] == "$403K" and got["hires"] == "6" and got["target"] == "75"
+    assert got["gap"] == "$403K" and got["hires"] == "6" and got["goal"] == "75-hire target"
     assert got["cph"] == "$6K" and got["budget"] == "$35K"
     assert round(got["ratio"], 3) == round(6.0 / 75, 3)
     assert _engine_feasibility(None, 35000, 75) is None
     assert _engine_feasibility(est, 0, 75) is None
     assert _engine_feasibility(est, 35000, 0) is None
+
+
+@needs_node
+def test_feasibility_is_null_for_an_estimate_computed_for_a_different_budget():
+    """Round-4: typing a new budget ran the Budget Reality Check (the field's
+    own input handler) against the PREVIOUS budget's hires, so "At $60K the
+    estimate supports ~6 hires" came from the $35K estimate."""
+    est = {"est_hires": 6.0, "est_cph": 5645}
+    assert _engine_feasibility(est, 60000, 75, estimate_for_budget=35000) is None
+    assert _engine_feasibility(est, 60000, 75, estimate_for_budget=60000) is not None
+
+
+@needs_node
+def test_a_picked_range_is_worded_as_the_range_not_one_number():
+    """"50-100 hires" is planned at ~75; the copy must say so rather than
+    restate it as "your 75-hire target" (a number the user never chose)."""
+    est = {"est_hires": 6.0, "est_cph": 5645}
+    ranged = _engine_feasibility(est, 35000, 75, goal_range="50\u2013100")
+    assert ranged["goal"] == "50\u2013100 hire goal (planned at ~75)"
+    exact = _engine_feasibility(est, 35000, 75)
+    assert exact["goal"] == "75-hire target"
 
 
 @needs_node
@@ -1592,3 +1650,282 @@ def test_the_updating_strip_is_hidden_from_assistive_tech_while_invisible():
         "off": {"hidden": "true", "rc": False},
     }
     assert re.search(r'id="npAgentStrip"[^>]*aria-hidden="true"', BODY, re.S)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Round 4: stale estimates, goal wording, Ask Nova, stepper, tap targets
+# ══════════════════════════════════════════════════════════════════════════
+
+
+_RETRY_STUB = r"""
+var timers = [], calls = 0, trace = [];
+var estimating = false, latestEstimate = null, latestEstimateSig = '';
+var lastScheduledSig = '', estimateRetrySig = '', estimateRetryCount = 0, estimateTimer = null;
+var ESTIMATE_DEBOUNCE_MS = 500, ESTIMATE_RETRY_DELAY_MS = 600, ESTIMATE_MAX_AUTO_RETRIES = 3;
+var MODE = '__MODE__';
+function setTimeout(fn, ms) { timers.push({ fn: fn, ms: ms }); return timers.length; }
+function clearTimeout() { timers = []; }
+function estimatePayload(m) { return m.inputs; }
+function dropStaleFunded() { return 'set'; }
+function setFunded() {}
+function setEstimating(on) { estimating = !!on; }
+function paintOutcomes() { trace.push({ estimating: estimating, est: !!latestEstimate }); }
+function gather() { return M; }
+function getCsrfToken() { return 'tok'; }
+var M = { total: 60000, inputs: { budget: 60000, target_roles: ['Nurse'], locations: [] } };
+function fetch() {
+  calls++;
+  if (MODE === 'down') return Promise.reject(new Error('down'));
+  return Promise.resolve({ ok: true, json: function () { return Promise.resolve({ est_hires: 6 }); } });
+}
+async function settle() { for (var i = 0; i < 8; i++) await Promise.resolve(); }
+async function run() {
+  fetchEstimate(M);
+  // drive the fake clock until nothing is scheduled
+  for (var guard = 0; guard < 40 && timers.length; guard++) {
+    var t = timers.shift(); t.fn(); await settle();
+  }
+  process.stdout.write(JSON.stringify({ calls: calls, trace: trace, estimating: estimating, est: latestEstimate, sig: latestEstimateSig, retries: estimateRetryCount }));
+}
+"""
+
+
+def _retry_run(mode: str) -> dict:
+    return run_node(
+        "\n".join(
+            [
+                _RETRY_STUB.replace("__MODE__", mode),
+                js_block(PREVIEW, "function fetchEstimate("),
+                "run();",
+            ]
+        )
+    )
+
+
+@needs_node
+def test_a_down_estimate_server_stays_updating_through_every_retry_then_gives_up():
+    """Round-4: each failure flipped the bar to dashes for a tick before the
+    retry put "Updating estimate…" back. The state is "updating" while a retry
+    is still coming, and only the LAST failure is "unavailable"."""
+    got = _retry_run("down")
+    assert got["calls"] == 1 + 3  # the request + ESTIMATE_MAX_AUTO_RETRIES retries, then it stops
+    assert got["estimating"] is False and got["est"] is None and got["sig"] == ""
+    trace = got["trace"]
+    assert trace[-1] == {"estimating": False, "est": False}
+    # every paint before the final verdict said "updating", never "failed"
+    assert all(step["estimating"] for step in trace[:-1]), trace
+    assert sum(1 for step in trace if not step["estimating"]) == 1
+
+
+@needs_node
+def test_a_successful_estimate_records_the_inputs_it_answers():
+    got = _retry_run("ok")
+    assert got["calls"] == 1
+    assert got["est"] == {"est_hires": 6}
+    assert json.loads(got["sig"]) == {"budget": 60000, "target_roles": ["Nurse"], "locations": []}
+    assert got["trace"][-1] == {"estimating": False, "est": True}
+
+
+def test_the_schedule_and_failure_paths_clear_the_estimates_signature():
+    fetch = js_block(PREVIEW, "function fetchEstimate(")
+    assert fetch.count('latestEstimateSig = "";') >= 3  # no inputs, pending, failed
+    assert "latestEstimateSig = latestEstimate ? requestSig" in fetch
+    # every reader goes through estimateFor(), none reads the raw estimate
+    for fn in ("function paintOutcomes(", "function paintEstimateBar(", "function feasibility("):
+        assert "latestEstimate" not in js_block(PREVIEW, fn).replace("latestEstimate.est", ""), fn
+
+
+_INSIGHT_STUB = r"""
+function escapeHtml(s) { return String(s); }
+function hero(v) { return '$' + Math.round(v / 1000) + 'K'; }
+function intc(v) { return Math.round(v).toLocaleString('en-US'); }
+function channelOn() { return false; }
+"""
+
+
+def _insights(goal_range: str, target: int, est_hires: float):
+    m = {
+        "role": "Nurse", "total": 35000, "targetHires": target, "goalRange": goal_range,
+        "roleClass": "skilled", "rows": [{}, {}], "recommended": True, "channelsTouched": False,
+        "startMonth": 0,
+    }
+    script = "\n".join(
+        [
+            _INSIGHT_STUB,
+            js_block(PREVIEW, "function goalText("),
+            js_block(PREVIEW, "function computeInsights("),
+            f"process.stdout.write(JSON.stringify(computeInsights({json.dumps(m)}, "
+            f"{{ est_hires: {est_hires}, est_cph: 3500 }}).map(function (i) {{ return i.text; }})));",
+        ]
+    )
+    return run_node(script)
+
+
+@needs_node
+def test_insights_word_a_picked_range_as_the_range():
+    for est_hires in (6.0, 70.0, 200.0):  # short of it, on track, comfortably over
+        ranged = _insights("50–100", 75, est_hires)[0]
+        assert "50–100 hire goal (planned at ~75)" in ranged, ranged
+        assert "75-hire" not in ranged and "75 target" not in ranged
+        exact = _insights("", 75, est_hires)[0]
+        assert "75-hire target" in exact and "planned at" not in exact, exact
+
+
+@needs_node
+def test_the_q1_seasonality_insight_quotes_no_unsourced_percentage():
+    m = {
+        "role": "Nurse", "total": 35000, "targetHires": 0, "goalRange": "", "roleClass": "skilled",
+        "rows": [{}, {}], "recommended": True, "channelsTouched": False, "startMonth": 2,
+    }
+    script = "\n".join(
+        [
+            _INSIGHT_STUB,
+            js_block(PREVIEW, "function goalText("),
+            js_block(PREVIEW, "function computeInsights("),
+            f"process.stdout.write(JSON.stringify(computeInsights({json.dumps(m)}, null)"
+            ".map(function (i) { return i.text; })));",
+        ]
+    )
+    text = " ".join(run_node(script))
+    assert "peak hiring season" in text and "%" not in text
+
+
+def test_loading_screen_does_not_claim_a_linkedin_inspired_deck():
+    facts = js_block(APP, "const GEN_FACTS")
+    assert "LinkedIn" not in facts
+    assert "Joveo's 2026 deck design" in facts
+
+
+# ── Ask Nova (top bar + results screen) ────────────────────────────────────
+
+_ASK_STUB = r"""
+var P = __PARAMS__;
+var _lastPlanPayload = P.payload;
+var opened = [], stored = {};
+var window = { open: function (u, t) { opened.push([u, t]); } };
+var sessionStorage = { setItem: function (k, v) { stored[k] = JSON.parse(v); } };
+function novaPlanCoreInputs() { return P.inputs; }
+function novaResolvePlanBudget(raw) { return { ok: /^[0-9,]+$/.test(raw) }; }
+function novaPlanBudgetLabel(p) { return '$' + Math.round(Number(String(p.budget_range).replace(/,/g, '')) / 1000) + 'K'; }
+function getSelectedRegion() { return { region: 'us_only', custom_countries: [] }; }
+var document = { querySelector: function () {
+  return P.industry ? { querySelector: function () { return { textContent: P.industry }; } } : null; } };
+"""
+
+
+def _ask(payload, inputs=None, industry=""):
+    params = {"payload": payload, "inputs": inputs or {}, "industry": industry}
+    script = "\n".join(
+        [
+            _ASK_STUB.replace("__PARAMS__", json.dumps(params)),
+            js_block(APP, "function novaWizardBriefMessage("),
+            js_block(APP, "function askNovaAboutPlan("),
+            "askNovaAboutPlan();",
+            "process.stdout.write(JSON.stringify({ opened: opened, stored: stored }));",
+        ]
+    )
+    return run_node(script)
+
+
+def _prefill(url: str) -> str:
+    from urllib.parse import parse_qs, urlparse
+
+    return parse_qs(urlparse(url).query).get("prefill", [""])[0]
+
+
+_WIZARD_INPUTS = {
+    "client_name": "Acme Health",
+    "budget_range": "60,000",
+    "budget_period": "campaign",
+    "campaign_duration": "3-6 months",
+    "target_roles": ["Registered Nurse"],
+    "locations": ["Los Angeles, CA"],
+}
+
+
+@needs_node
+def test_ask_nova_before_a_plan_exists_prefills_the_wizard_inputs_and_does_not_send():
+    got = _ask(None, _WIZARD_INPUTS, "Healthcare")
+    (url, target), = got["opened"]
+    assert target == "_blank" and url.startswith("/nova?prefill=") and url.endswith("&send=0")
+    message = _prefill(url)
+    assert message.startswith("I'm planning a Healthcare campaign for Acme Health: ")
+    assert "budget $60K" in message and "roles Registered Nurse" in message
+    assert "locations Los Angeles, CA" in message
+    assert "I just generated" not in message and "details: ." not in message
+    assert got["stored"]["nova_plan_context"]["autosend"] is False
+
+
+@needs_node
+def test_ask_nova_with_nothing_filled_in_just_opens_the_chat():
+    got = _ask(None, {"client_name": "", "target_roles": [], "locations": [], "budget_range": ""})
+    assert got["opened"] == [["/nova", "_blank"]]  # no prefill: never an empty-details message
+    assert got["stored"] == {}
+
+
+@needs_node
+def test_ask_nova_after_a_generated_plan_describes_that_plan_and_sends():
+    payload = dict(_WIZARD_INPUTS, industry_label="Healthcare", hire_volume="50-100 hires")
+    got = _ask(payload, _WIZARD_INPUTS, "Healthcare")
+    (url, _), = got["opened"]
+    assert "send=0" not in url
+    message = _prefill(url)
+    assert message.startswith("I just generated a media plan with these details: Client: Acme Health")
+    assert "Roles: Registered Nurse" in message and "Hire volume: 50-100 hires" in message
+    assert "details: ." not in message
+    assert got["stored"]["nova_plan_context"]["autosend"] is True
+
+
+@needs_node
+def test_ask_nova_with_a_hollow_plan_payload_is_treated_as_no_plan():
+    """A payload with none of the fields used to produce "...details: ."."""
+    got = _ask({}, _WIZARD_INPUTS, "Healthcare")
+    (url, _), = got["opened"]
+    assert url.endswith("&send=0") and "I just generated" not in _prefill(url)
+
+
+def test_nova_page_only_auto_sends_when_told_to():
+    nova = (PARTIALS.parent.parent / "nova.html").read_text(encoding="utf-8")
+    assert 'params.get("send") !== "0"' in nova
+    assert "ctx.autosend !== false" in nova
+    send_block = nova[nova.index("if (autoSend)") :]
+    assert "sendBtn.click()" in send_block[: send_block.index("} else {")]
+
+
+def test_the_css_comment_does_not_claim_ask_nova_opens_the_chat_panel():
+    raw = (PARTIALS / "head_styles.html").read_text(encoding="utf-8")
+    assert '"Ask Nova" opens the\n     chat)' not in raw
+    assert "does not open\n     this in-page chat panel" in raw
+
+
+# ── stepper + tap targets ─────────────────────────────────────────────────
+
+
+def test_a_completed_step_label_is_never_clipped_at_phone_width():
+    phone = "\n".join(_media_blocks(STYLES, "@media (max-width: 480px)"))
+    label = [b for b in _rule_bodies(phone, ".studio .step-label") if "max-width" in b]
+    assert label, "the 60px cap on .step-label must be lifted inside .studio"
+    assert "max-width: none" in label[0] and "flex-wrap: wrap" in label[0]
+    rail = [b for b in _rule_bodies(phone, ".studio .progress-bar") if "gap" in b]
+    assert rail and "gap: 4px" in rail[0]
+
+
+def test_output_format_toggles_are_44px_and_report_their_state():
+    base = [b for b in _rule_bodies(STYLES, ".output-format-btn") if "min-height" in b]
+    assert base and "min-height: 44px" in base[0]
+    assert 'data-format="local"\n          aria-pressed="true"' in BODY
+    assert 'data-format="google"\n          aria-pressed="false"' in BODY
+    assert '"aria-pressed"' in js_block(FOOTER, "function setOutputFormat(")
+
+
+def test_clear_form_and_channel_switches_get_44px_hit_areas_on_touch_layouts():
+    blocks = list(_media_blocks(STYLES, "@media (max-width: 1080px)"))
+    clear = [b for blk in blocks for b in _rule_bodies(blk, ".studio .plan-clear-form")]
+    assert any("min-height: 44px" in b for b in clear), clear
+    reach = [
+        b
+        for blk in blocks
+        for b in list(_rule_bodies(blk, ".studio .toggle-switch::after"))
+        + list(_rule_bodies(blk, ".studio .toggle::after"))
+    ]
+    assert reach and "inset: -9px -4px" in reach[0]  # 26px switch + 2 x 9px = 44px

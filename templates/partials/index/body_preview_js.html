@@ -135,6 +135,15 @@
       if (!(v > 0)) return "—";
       return sym() + (v >= 1 ? String(Math.round(v)) : v.toFixed(2));
     }
+    // How the hire goal is worded. A picked RANGE ("50-100 hires") is never
+    // restated as a single number the user did not choose: it reads "50–100
+    // hire goal (planned at ~75)" -- the plan is sized at the range's planning
+    // value (see HV in gather) -- while an exact number the user typed stays
+    // "75-hire target".
+    function goalText(m) {
+      if (m.goalRange) return m.goalRange + " hire goal (planned at ~" + intc(m.targetHires) + ")";
+      return intc(m.targetHires) + "-hire target";
+    }
 
     // ── Screenshot-safe count-up ──────────────────────────────────────
     var COUNTERS = new Set();
@@ -229,11 +238,13 @@
       // target hire volume the user set (vs what the budget projects)
       var hvSel = val("hireVolume");
       var targetHires = 0;
+      var goalRange = ""; // "50–100" when a range was picked, "" for an exact number
       if (hvSel === "__exact__") {
         targetHires = parseInt((val("exactHires") || "").replace(/[^0-9]/g, ""), 10) || 0;
       } else {
         var HV = { "1-10 hires": 6, "10-50 hires": 30, "50-100 hires": 75, "100-500 hires": 250, "500+ hires": 600 };
         targetHires = HV[hvSel] || 0;
+        goalRange = targetHires ? hvSel.replace(/ hires$/, "").replace("-", "\u2013") : "";
       }
       var startMonth = parseInt(val("campaignStartMonth"), 10) || 0;
 
@@ -286,7 +297,7 @@
       return {
         total: total, base: base, rows: rows, recommended: recommended,
         client: client, role: role, locs: locs, period: period, months: months,
-        roleClass: roleClass, targetHires: targetHires, startMonth: startMonth,
+        roleClass: roleClass, targetHires: targetHires, goalRange: goalRange, startMonth: startMonth,
         metro: metroMult > 1, channelsTouched: channelsTouched(),
         plan: plan, budgetError: budgetError, inputs: inputs,
       };
@@ -301,6 +312,12 @@
     var estimateTimer = null;
     var lastScheduledSig = "";   // signature of the last request scheduled/sent
     var latestEstimate = null;   // {est_hires, est_cph, est_applications, est_cpa} | null
+    // The request signature (the JSON of the /api/estimate body) latestEstimate
+    // was computed FOR. An estimate is only ever painted or worded against the
+    // inputs it answered: the instant a budget/role/location is edited, the
+    // estimate in hand is for different inputs even though fetchEstimate() has
+    // not run yet (the budget field fires its own handlers before render()).
+    var latestEstimateSig = "";
     // Finding D (2026-07-15 review): a failed/errored fetch used to leave
     // lastScheduledSig set to the failed sig forever, so fetchEstimate()'s
     // own dedupe guard (`sig === lastScheduledSig`) silently no-opped every
@@ -310,6 +327,7 @@
     // number of automatic retries instead of either hammering forever or
     // going permanently silent.
     var ESTIMATE_MAX_AUTO_RETRIES = 3;
+    var ESTIMATE_RETRY_DELAY_MS = 600; // before an automatic retry is re-scheduled
     var estimateRetrySig = "";   // sig currently being auto-retried
     var estimateRetryCount = 0;  // consecutive failures for estimateRetrySig
 
@@ -355,6 +373,14 @@
     function estimatePayload(m) {
       return m.inputs || planInputs();
     }
+    // The resolved estimate IF it answers the inputs `m` describes, else null.
+    // Every consumer (outcome cards, sticky bar, Nova insights, the Budget
+    // Reality Check, the Nova chat context) goes through this, so a new budget
+    // is never worded or shown against the previous budget's figures.
+    function estimateFor(m) {
+      if (!latestEstimate || !latestEstimateSig) return null;
+      return latestEstimateSig === JSON.stringify(estimatePayload(m)) ? latestEstimate : null;
+    }
 
     // "Updating estimate…" (the strip + the eyebrow's "Updating…") is the
     // state of the REAL /api/estimate request: on while one is scheduled or
@@ -395,6 +421,7 @@
 
       if (!m.total || m.total <= 0 || !roles.length) {
         latestEstimate = null;
+        latestEstimateSig = "";
         setEstimating(false);
         paintOutcomes(m);
         return;
@@ -403,6 +430,7 @@
       // Never show a stale/naive number while a new estimate is pending --
       // clear to the neutral placeholder immediately, fill in once real.
       latestEstimate = null;
+      latestEstimateSig = "";
       // A real request is now scheduled: "Updating estimate…" is true until
       // it answers or fails (cleared below), and not otherwise. Set BEFORE
       // painting so the pane and the sticky bar both paint the pending state.
@@ -424,6 +452,7 @@
         }).then(function (data) {
           if (requestSig !== lastScheduledSig) return; // superseded by a newer request
           latestEstimate = (data && typeof data.est_hires === "number") ? data : null;
+          latestEstimateSig = latestEstimate ? requestSig : "";
           setFunded(data, setSig);
           estimateRetryCount = 0; // a response (even a malformed one) ends the failure streak
           // Repaint from a FRESH gather(), not the `m` snapshot captured when
@@ -437,18 +466,22 @@
         }).catch(function () {
           if (requestSig !== lastScheduledSig) return;
           latestEstimate = null;
-          setEstimating(false);
-          paintOutcomes(gather());
-          // Auto-retry via the next render() tick (input-driven or the
-          // 1600ms safety poll): clearing lastScheduledSig makes this same
-          // sig look "new" again to fetchEstimate()'s dedupe guard above,
-          // instead of silently never refetching until an input changes.
-          // Capped so a genuinely-down server isn't hammered forever once
-          // inputs stop changing.
+          latestEstimateSig = "";
+          // Auto-retry: clearing lastScheduledSig makes this same sig look
+          // "new" again to fetchEstimate()'s dedupe guard above, instead of
+          // silently never refetching until an input changes. Capped so a
+          // genuinely-down server isn't hammered forever once inputs stop
+          // changing. While a retry is still coming the estimate is still
+          // "updating": the bar and the cards say so and show NO dashes;
+          // "unavailable" is only the verdict after the last retry fails.
           if (requestSig === estimateRetrySig && estimateRetryCount < ESTIMATE_MAX_AUTO_RETRIES) {
             estimateRetryCount++;
             lastScheduledSig = "";
+            estimateTimer = setTimeout(function () { fetchEstimate(gather()); }, ESTIMATE_RETRY_DELAY_MS);
+          } else {
+            setEstimating(false);
           }
+          paintOutcomes(gather());
         });
       }, ESTIMATE_DEBOUNCE_MS);
     }
@@ -470,11 +503,11 @@
         var ratio = est.est_hires / m.targetHires;
         if (ratio < 1.0) {
           var gap = m.total * (m.targetHires / est.est_hires - 1);
-          ins.push({ tone: "warn", text: "Budget supports <b>~" + intc(est.est_hires) + " hires</b> against your " + intc(m.targetHires) + "-hire target — consider raising budget by ~<b>" + hero(gap) + "</b> or narrowing scope." });
+          ins.push({ tone: "warn", text: "Budget supports <b>~" + intc(est.est_hires) + " hires</b> against your " + goalText(m) + " — consider raising budget by ~<b>" + hero(gap) + "</b> or narrowing scope." });
         } else if (ratio > 1.35) {
-          ins.push({ tone: "good", text: "Budget comfortably covers your <b>" + intc(m.targetHires) + "-hire</b> target (~" + intc(est.est_hires) + " projected)." });
+          ins.push({ tone: "good", text: "Budget comfortably covers your " + goalText(m) + " (~" + intc(est.est_hires) + " projected)." });
         } else {
-          ins.push({ tone: "good", text: "On track — budget supports <b>~" + intc(est.est_hires) + " hires</b> for your " + intc(m.targetHires) + " target." });
+          ins.push({ tone: "good", text: "On track — budget supports <b>~" + intc(est.est_hires) + " hires</b> for your " + goalText(m) + "." });
         }
       }
       // 2. cost per hire vs a role-class benchmark
@@ -497,7 +530,7 @@
       // 4. seasonality
       if (m.startMonth) {
         var q = Math.ceil(m.startMonth / 3);
-        if (q === 1) ins.push({ tone: "info", text: "Q1 start = <b>peak hiring</b> — expect ~15% higher CPCs; front-load budget." });
+        if (q === 1) ins.push({ tone: "info", text: "Q1 start = <b>peak hiring season</b> — expect higher CPCs; front-load budget." });
         else if (q === 4) ins.push({ tone: "info", text: "Q4 start — holiday slowdown; demand softens, costs ease late-quarter." });
       }
       return ins.slice(0, 3);
@@ -508,39 +541,50 @@
     // resolved estimate. data-state="empty" (a one-line hint) until an
     // estimate exists, "ready" once it does.
     //   empty       the budget or the role is genuinely missing -> hint line
-    //   loading     inputs set, /api/estimate in flight -> the LAST figures,
-    //               dimmed, under "Updating estimate…" (the budget is current)
+    //   loading     inputs set, an estimate for THESE inputs is not here yet
+    //               (debounce, request in flight, or an automatic retry still
+    //               to come) -> the CURRENT budget, "…" where the three
+    //               figures go (dimmed) and "Updating estimate…". No earlier
+    //               figure is ever shown: not under the new budget, and not
+    //               under the old one either (a bar reading $35K over a field
+    //               that says 60,000 is wrong whatever it is labelled).
     //   ready       the four figures
-    //   unavailable inputs set, the request failed -> dashes, as the pane shows
+    //   unavailable inputs set, the last retry failed -> dashes, as the pane
+    //               shows. Dashes are only ever this final verdict.
     // It used to fall back to the empty hint on every edit (fetchEstimate
     // clears latestEstimate), so the hint read "set a budget" for the whole
     // typing burst + debounce + round trip with a budget already set.
-    var lastBarFigures = null;
     function paintEstimateBar(m) {
       var bar = $("npEstimateBar");
       if (!bar) return;
       var haveInputs = m.total > 0 && ((m.inputs && m.inputs.target_roles) || []).length > 0;
+      var est = haveInputs ? estimateFor(m) : null;
       var state, figs = null;
       if (!haveInputs) {
         state = "empty";
-        lastBarFigures = null;
-      } else if (latestEstimate) {
+      } else if (est) {
         state = "ready";
         figs = {
           nebBudget: hero(m.total),
-          nebApps: appsFmt(latestEstimate.est_applications),
-          nebHires: intc(latestEstimate.est_hires),
-          nebCpa: cpaFmt(latestEstimate.est_cpa),
+          nebApps: appsFmt(est.est_applications),
+          nebHires: intc(est.est_hires),
+          nebCpa: cpaFmt(est.est_cpa),
         };
-        lastBarFigures = figs;
-      } else {
-        state = estimating ? "loading" : "unavailable";
-        var keep = state === "loading" && lastBarFigures;
+      } else if (estimating) {
+        state = "loading";
         figs = {
           nebBudget: hero(m.total),
-          nebApps: keep ? lastBarFigures.nebApps : "—",
-          nebHires: keep ? lastBarFigures.nebHires : "—",
-          nebCpa: keep ? lastBarFigures.nebCpa : "—",
+          nebApps: "…",
+          nebHires: "…",
+          nebCpa: "…",
+        };
+      } else {
+        state = "unavailable";
+        figs = {
+          nebBudget: hero(m.total),
+          nebApps: "—",
+          nebHires: "—",
+          nebCpa: "—",
         };
       }
       bar.setAttribute("data-state", state);
@@ -579,17 +623,19 @@
     // What the "Budget Reality Check" banner (checkBudgetFeasibility in
     // body_app_js.html) says, in the SAME words and figures as the first
     // "Nova insights" line (computeInsights above): the estimate engine's
-    // hires and cost per hire against the hire target. null until an estimate
-    // for the current inputs exists, or while no target / budget is set.
+    // hires and cost per hire against the hire goal. null until an estimate
+    // computed for the CURRENT inputs exists (estimateFor), or while no goal /
+    // budget is set -- so editing the budget never words the new budget
+    // against the previous budget's hires.
     function feasibility() {
       var m = gather();
-      var est = latestEstimate;
+      var est = estimateFor(m);
       if (!est || !(m.total > 0) || !(m.targetHires > 0) || !(est.est_hires > 0)) return null;
       return {
         ratio: est.est_hires / m.targetHires,
         budget: hero(m.total),
         hires: intc(est.est_hires),
-        target: intc(m.targetHires),
+        goal: goalText(m),
         cph: hero(est.est_cph),
         gap: hero(m.total * (m.targetHires / est.est_hires - 1)),
       };
@@ -609,10 +655,11 @@
     // `latestEstimate` is null (pending fetch, failure, or no budget yet).
     function paintOutcomes(m) {
       var hasBudget = m.total > 0;
-      if (hasBudget && latestEstimate) {
-        setNum($("npApplies"), latestEstimate.est_applications, appsFmt);
-        setNum($("npHires"), latestEstimate.est_hires, intc);
-        setNum($("npCpa"), latestEstimate.est_cpa, cpaFmt);
+      var est = hasBudget ? estimateFor(m) : null;
+      if (est) {
+        setNum($("npApplies"), est.est_applications, appsFmt);
+        setNum($("npHires"), est.est_hires, intc);
+        setNum($("npCpa"), est.est_cpa, cpaFmt);
       } else {
         ["npApplies", "npHires", "npCpa"].forEach(function (id) {
           var el = $(id); if (el) { el.textContent = "—"; el.__cur = 0; }
@@ -627,7 +674,7 @@
       // Nova insights — proactive advice from the model
       var box = $("npInsights");
       if (box) {
-        var list = hasBudget ? computeInsights(m, latestEstimate) : [];
+        var list = hasBudget ? computeInsights(m, est) : [];
         if (list.length) {
           box.style.display = "";
           box.innerHTML =
@@ -823,10 +870,10 @@
             // Single-sourced from the same /api/estimate result the preview
             // panel shows -- null (not a locally-computed guess) while a
             // fresh estimate is pending or unavailable.
-            projected: (hasBudget && latestEstimate) ? {
-              applications: Math.round(latestEstimate.est_applications),
-              hires: Math.round(latestEstimate.est_hires),
-              cost_per_application: Math.round(latestEstimate.est_cpa * 100) / 100,
+            projected: (hasBudget && estimateFor(m)) ? {
+              applications: Math.round(estimateFor(m).est_applications),
+              hires: Math.round(estimateFor(m).est_hires),
+              cost_per_application: Math.round(estimateFor(m).est_cpa * 100) / 100,
             } : null,
           });
         } catch (e) { /* widget not ready */ }
