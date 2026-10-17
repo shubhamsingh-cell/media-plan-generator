@@ -386,6 +386,10 @@ def test_each_role_source_is_refused_after_its_cap(monkeypatch):
             # Adzuna is counted per HTTP request by adzuna_quota, not per
             # dispatch here; its caps are covered in test_role_source_allowlist.py
             continue
+        if label in api_enrichment._PER_POST_METERED:
+            # BLS is charged per POST at the request site (_rate_limit_acquire),
+            # not per dispatch; covered in test_roles_audit_fixes.py
+            continue
         statuses = [
             api_enrichment._safe_call(lambda: {"v": 1}, label)[1] for _ in range(3)
         ]

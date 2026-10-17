@@ -69,7 +69,10 @@ def test_fusion_does_not_promote_collector_benchmarks_to_live_postings() -> None
     assert demand["_meta"]["source_count"] == 0
 
 
-def test_fusion_preserves_observed_counts_and_actual_observation_dates() -> None:
+def test_fusion_never_sums_providers_and_prefers_the_narrower_scope() -> None:
+    """Adzuna (whole country) and Jooble (the plan's city) both observed: the
+    headline is ONE provider's count -- the city-scoped one -- not 5,000 +
+    2,000. The other provider is kept as separate detail."""
     demand = _fuse(
         {
             "Warehouse Associate": {
@@ -78,6 +81,8 @@ def test_fusion_preserves_observed_counts_and_actual_observation_dates() -> None
                 "posting_observation": "observed",
                 "posting_provider_id": "adzuna",
                 "posting_observed_at": "2026-10-15",
+                "posting_scope": "national",
+                "posting_scope_label": "United Kingdom",
             }
         },
         {
@@ -96,20 +101,116 @@ def test_fusion_preserves_observed_counts_and_actual_observation_dates() -> None
         },
     )
 
-    assert demand["total_postings"] == 7_000
-    assert demand["posting_sources"] == ["Adzuna", "Jooble API"]
-    assert demand["posting_source_details"] == [
+    assert demand["total_postings"] == 2_000
+    assert demand["posting_sources"] == ["Jooble API"]
+    assert demand["posting_primary"] == {
+        "count": 2_000,
+        "provider": "Jooble API",
+        "provider_id": "jooble",
+        "observed_at": "2026-10-14",
+        "observed_dates": ["2026-10-14"],
+        "scope": "location",
+        "scope_label": "London, UK",
+    }
+    assert (
+        demand["posting_summary"]
+        == "2,000 jobs \u00b7 Jooble API \u00b7 London, UK \u00b7 2026-10-14"
+    )
+    assert demand["posting_other_providers"] == [
         {
-            "source": "Adzuna",
+            "count": 5_000,
+            "provider": "Adzuna",
             "provider_id": "adzuna",
             "observed_at": "2026-10-15",
-        },
+            "observed_dates": ["2026-10-15"],
+            "scope": "national",
+            "scope_label": "United Kingdom",
+        }
+    ]
+    # The metric evidence describes the figure shown: one provider, its date.
+    job_postings = demand["market_evidence"]["metrics"]["job_postings"]
+    assert job_postings["provider_ids"] == ["jooble"]
+    assert job_postings["observed_at"] == ["2026-10-14"]
+    assert demand["posting_source_details"] == [
         {
             "source": "Jooble API",
             "provider_id": "jooble",
             "observed_at": "2026-10-14",
-        },
+            "count": 2_000,
+            "scope": "location",
+            "scope_label": "London, UK",
+        }
     ]
+
+
+def test_fusion_scope_tie_takes_the_larger_count() -> None:
+    demand = _fuse(
+        {
+            "Warehouse Associate": {
+                "posting_count": 5_000,
+                "source": "Adzuna",
+                "posting_observation": "observed",
+                "posting_provider_id": "adzuna",
+                "posting_observed_at": "2026-10-15",
+                "posting_scope": "location",
+                "posting_scope_label": "London",
+            }
+        },
+        {
+            "source": "Jooble API",
+            "provider_id": "jooble",
+            "job_market": {
+                "Warehouse Associate": {
+                    "London, UK": {
+                        "total_job_postings": 2_000,
+                        "posting_observation": "observed",
+                        "posting_provider_id": "jooble",
+                        "posting_observed_at": "2026-10-14",
+                    }
+                }
+            },
+        },
+    )
+
+    assert demand["total_postings"] == 5_000
+    assert demand["posting_primary"]["provider"] == "Adzuna"
+    assert (
+        demand["posting_summary"]
+        == "5,000 jobs \u00b7 Adzuna \u00b7 London \u00b7 2026-10-15"
+    )
+    assert [o["provider"] for o in demand["posting_other_providers"]] == ["Jooble API"]
+
+
+def test_fusion_nationwide_scope_is_stated_in_the_summary() -> None:
+    demand = _fuse(
+        {
+            "Warehouse Associate": {
+                "posting_count": 7_000,
+                "source": "Adzuna",
+                "posting_observation": "observed",
+                "posting_provider_id": "adzuna",
+                "posting_observed_at": "2026-10-15",
+                "posting_scope": "national",
+                "posting_scope_label": "United Kingdom",
+            }
+        },
+        {},
+    )
+
+    assert demand["total_postings"] == 7_000
+    assert (
+        demand["posting_summary"]
+        == "7,000 jobs \u00b7 Adzuna \u00b7 nationwide \u00b7 2026-10-15"
+    )
+    assert demand["posting_other_providers"] == []
+
+
+def test_fusion_without_observed_postings_has_no_headline() -> None:
+    demand = _fuse({}, {})
+    assert demand["total_postings"] == 0
+    assert demand["posting_primary"] is None
+    assert demand["posting_summary"] == ""
+    assert demand["posting_other_providers"] == []
 
 
 def test_fusion_keeps_only_observed_portion_of_mixed_provider_response() -> None:
@@ -143,8 +244,11 @@ def test_fusion_keeps_only_observed_portion_of_mixed_provider_response() -> None
         },
     )
 
-    assert demand["total_postings"] == 7_000
-    assert demand["posting_sources"] == ["Adzuna", "Jooble API"]
+    # The 65,000 benchmark never counts; Jooble's observed London count
+    # (city scope) is the headline over Adzuna's scope-less 5,000.
+    assert demand["total_postings"] == 2_000
+    assert demand["posting_sources"] == ["Jooble API"]
+    assert [o["provider"] for o in demand["posting_other_providers"]] == ["Adzuna"]
 
 
 def test_fallback_location_has_no_postings_or_market_activity() -> None:
@@ -910,6 +1014,9 @@ def test_cached_jooble_observation_uses_canonical_live_source_label() -> None:
             "source": "Jooble API",
             "provider_id": "jooble",
             "observed_at": "2026-10-14",
+            "count": 2_300,
+            "scope": "location",
+            "scope_label": "London, UK",
         }
     ]
     assert result["by_location"]["London, UK"]["sources"] == ["Jooble API"]

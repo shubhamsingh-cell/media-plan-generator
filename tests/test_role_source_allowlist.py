@@ -382,7 +382,10 @@ def test_every_adzuna_call_site_draws_from_one_counter(monkeypatch, adzuna_http)
 
     # quota is now full: none of the four sites may send another request
     before = len(adzuna_http)
-    assert api_enrichment.fetch_job_market([f"r-{uuid.uuid4().hex[:8]}"], []) == {}
+    assert (
+        api_enrichment.fetch_job_market([f"r-{uuid.uuid4().hex[:8]}"], ["Denver, CO"])
+        == {}
+    )
     assert client.get_job_count(f"role-{uuid.uuid4().hex[:8]}", "us") is None
     assert client.search_jobs(f"role-{uuid.uuid4().hex[:8]}", "us") is None
     assert client.get_salary_histogram(f"role-{uuid.uuid4().hex[:8]}", "us") is None

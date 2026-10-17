@@ -240,6 +240,20 @@ def _enrichment_quality_warning(enriched: Any) -> "tuple[str, int, float]":
     return _ENRICHMENT_WARNING_SOME, n_ok, confidence
 
 
+def _role_source_on(label: str) -> bool:
+    """True when ENRICH_ROLE_SOURCES allows the role source ``label`` (BLS,
+    Adzuna, Jooble, O*NET ...). app.py's own /api/generate fan-out calls these
+    sources directly, so it must obey the same allowlist and kill switch as
+    api_enrichment.enrich_data; ENRICH_ROLE_SOURCES=0 stops them all."""
+    if _api_enrichment_mod is None:
+        return label in ("BLS", "Adzuna")  # api_enrichment's default set
+    try:
+        return _api_enrichment_mod.role_source_enabled(label)
+    except Exception:  # noqa: BLE001 - a gate must not break generation
+        logger.warning("role-source gate failed for %s", label, exc_info=True)
+        return False
+
+
 def _run_parallel_enrichment_tasks(
     tasks: list, timeout: float, enrich_data_partial: dict, span_fn: Any = None
 ) -> "tuple[dict, dict]":
@@ -21528,10 +21542,23 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     _api_integrations_available and _api_adzuna and _roles_normalized
                 ):
                     return ("adzuna_job_count", None)
+                if not _role_source_on("Adzuna"):
+                    return ("adzuna_job_count", None)
+                # Query the plan's own Adzuna market. This used to be "us" for
+                # every plan, so a Dubai or London plan got a US total.
+                _az_scope = (
+                    _api_enrichment_mod.adzuna_query_scope(_locs_for_api)
+                    if _api_enrichment_mod is not None
+                    else None
+                )
+                if _az_scope is None:
+                    return ("adzuna_job_count", None)
                 per_role: list[dict[str, Any]] = []
                 for _ri in _roles_normalized:
                     try:
-                        count = _api_adzuna.get_job_count(_ri["title"], "us")
+                        count = _api_adzuna.get_job_count(
+                            _ri["title"], _az_scope["country"]
+                        )
                         if count:
                             per_role.append({"role": _ri["title"], "count": count})
                     except (
@@ -21563,6 +21590,11 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             def _call_bls() -> "tuple[str, Optional[dict]]":
                 """Fetch BLS occupational employment data for ALL roles with SOC codes."""
                 if not (_api_integrations_available and _api_bls):
+                    return ("bls_occupational_employment", None)
+                # BLS OES is US data: allowlist/kill switch, and US plans only.
+                if not _role_source_on("BLS"):
+                    return ("bls_occupational_employment", None)
+                if plan_geo is not None and not plan_geo.plan_has_us_market(data):
                     return ("bls_occupational_employment", None)
                 per_role: list[dict[str, Any]] = []
                 for _ri in _roles_normalized:
@@ -21698,6 +21730,8 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                     _api_integrations_available and _api_onet and _roles_normalized
                 ):
                     return ("onet_skills", None)
+                if not _role_source_on("O*NET"):
+                    return ("onet_skills", None)
                 per_role: list[dict[str, Any]] = []
                 for _ri in _roles_normalized[:3]:  # Cap at 3 roles to stay fast
                     _soc = _ri.get("soc") or ""
@@ -21751,6 +21785,9 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 if not (
                     _api_integrations_available and _api_jooble and _roles_normalized
                 ):
+                    return ("jooble_international", None)
+                # The Jooble key allows 500 requests LIFETIME: allowlisted only.
+                if not _role_source_on("Jooble"):
                     return ("jooble_international", None)
                 # Only call Jooble for international locations
                 _locs_lower = " ".join(

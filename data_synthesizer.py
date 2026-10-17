@@ -2024,6 +2024,86 @@ def _localize_salaries_without_us_market(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+_POSTING_SCOPE_RANK = {"location": 2, "national": 1, "unspecified": 1}
+
+
+def _normalize_posting_scope(value: Any) -> str:
+    """A collector's ``posting_scope`` as location / national / unspecified."""
+    scope = str(value or "").strip().lower()
+    return scope if scope in _POSTING_SCOPE_RANK else "unspecified"
+
+
+def _pick_primary_posting_provider(
+    observations: List[Dict[str, Any]],
+) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Choose the ONE provider whose posting count is the headline.
+
+    Job aggregators index overlapping postings, so counts from different
+    providers are never added. Within a provider the counts of its distinct
+    queried locations are summed (Jooble answers per location). The winner is
+    the provider with the most specific scope (a city beats a whole country);
+    on a tie the larger count wins. Returns ``(primary, others)``: ``primary``
+    is ``{count, provider, provider_id, observed_at (latest ISO date),
+    observed_dates, scope, scope_label}`` or None when nothing was observed;
+    ``others`` are the remaining providers in the same shape, best first.
+    """
+    groups: Dict[str, Dict[str, Any]] = {}
+    for obs in observations:
+        group = groups.setdefault(
+            obs["provider_id"],
+            {
+                "count": 0,
+                "provider": obs["source"],
+                "provider_id": obs["provider_id"],
+                "observed_dates": set(),
+                "scope": obs["scope"],
+                "scope_labels": [],
+            },
+        )
+        group["count"] += obs["count"]
+        group["observed_dates"].add(obs["observed_at"])
+        if _POSTING_SCOPE_RANK[obs["scope"]] > _POSTING_SCOPE_RANK[group["scope"]]:
+            group["scope"] = obs["scope"]
+        if obs["scope_label"] and obs["scope_label"] not in group["scope_labels"]:
+            group["scope_labels"].append(obs["scope_label"])
+    shaped: List[Dict[str, Any]] = []
+    for group in groups.values():
+        dates = sorted(group["observed_dates"])
+        shaped.append(
+            {
+                "count": group["count"],
+                "provider": group["provider"],
+                "provider_id": group["provider_id"],
+                "observed_at": dates[-1],
+                "observed_dates": dates,
+                "scope": group["scope"],
+                "scope_label": ", ".join(group["scope_labels"]),
+            }
+        )
+    shaped.sort(
+        key=lambda g: (_POSTING_SCOPE_RANK[g["scope"]], g["count"]), reverse=True
+    )
+    if not shaped:
+        return None, []
+    return shaped[0], shaped[1:]
+
+
+def _posting_summary_line(primary: Optional[Dict[str, Any]]) -> str:
+    """One-line client-facing form of the headline posting figure, e.g.
+    ``7,000 jobs · Adzuna · nationwide · 2026-10-15`` ("" when nothing was
+    observed). The scope part is omitted only when the collector never said
+    what the count covers."""
+    if not primary:
+        return ""
+    parts = [f"{primary['count']:,} jobs", primary["provider"]]
+    if primary["scope"] == "location" and primary["scope_label"]:
+        parts.append(primary["scope_label"])
+    elif primary["scope"] == "national":
+        parts.append("nationwide")
+    parts.append(primary["observed_at"])
+    return " \u00b7 ".join(parts)
+
+
 def fuse_job_market_demand(
     enriched: dict, kb: dict, input_data: dict
 ) -> Dict[str, Any]:
@@ -2091,12 +2171,18 @@ def fuse_job_market_demand(
         role_result: Dict[str, Any] = {}
 
         # --- Job posting volume ---
-        posting_volumes: List[Tuple[int, str, str, str]] = []
-        posting_source_details: List[Dict[str, str]] = []
+        # Every valid observed count is collected per (provider, scope), then
+        # ONE provider's figure becomes the headline. Aggregators index the
+        # same postings, so their counts are never added together.
+        posting_observations: List[Dict[str, Any]] = []
         posting_estimated_provider_ids: set[str] = set()
 
         def _add_observed_posting(
-            count: int, provider_id: Any, observed_at: Any
+            count: int,
+            provider_id: Any,
+            observed_at: Any,
+            scope: str = "unspecified",
+            scope_label: str = "",
         ) -> None:
             """Keep a posting count only when its collector proved observation."""
             provider = str(provider_id or "").strip()
@@ -2110,16 +2196,19 @@ def fuse_job_market_demand(
                 )
             ):
                 return
-            posting_volumes.append((count, source, provider, observed))
-            detail = {
-                "source": source,
-                "provider_id": provider,
-                "observed_at": observed,
-            }
-            if detail not in posting_source_details:
-                posting_source_details.append(detail)
+            posting_observations.append(
+                {
+                    "count": count,
+                    "source": source,
+                    "provider_id": provider,
+                    "observed_at": observed,
+                    "scope": scope,
+                    "scope_label": scope_label,
+                }
+            )
 
-        # Adzuna
+        # Adzuna: one count per role, for the city when the collector queried
+        # one ("location") or for the whole country ("national").
         adzuna_role = adzuna_data.get(role, {}) if isinstance(adzuna_data, dict) else {}
         if isinstance(adzuna_role, dict):
             adzuna_count = _safe_int(adzuna_role.get("posting_count"))
@@ -2128,6 +2217,8 @@ def fuse_job_market_demand(
                     adzuna_count,
                     adzuna_role.get("posting_provider_id"),
                     adzuna_role.get("posting_observed_at"),
+                    _normalize_posting_scope(adzuna_role.get("posting_scope")),
+                    str(adzuna_role.get("posting_scope_label") or "").strip(),
                 )
             elif adzuna_role.get("posting_observation") in (
                 "estimated",
@@ -2139,7 +2230,7 @@ def fuse_job_market_demand(
                 if provider_id:
                     posting_estimated_provider_ids.add(provider_id)
 
-        # Jooble (aggregate across locations)
+        # Jooble: one count per queried location (so "location" scope).
         jooble_role = jooble_market.get(role, {})
         if isinstance(jooble_role, dict):
             for loc_key, loc_data in jooble_role.items():
@@ -2150,6 +2241,8 @@ def fuse_job_market_demand(
                             loc_data.get("posting_provider_id")
                             or jooble_data.get("provider_id"),
                             loc_data.get("posting_observed_at"),
+                            "location",
+                            str(loc_key or "").strip(),
                         )
                     elif loc_data.get("posting_observation") in (
                         "estimated",
@@ -2163,10 +2256,34 @@ def fuse_job_market_demand(
                         if provider_id:
                             posting_estimated_provider_ids.add(provider_id)
 
-        total_postings = sum(v for v, _, _, _ in posting_volumes)
-        observed_posting_provider_ids = {
-            provider_id for _, _, provider_id, _ in posting_volumes
-        }
+        posting_primary, posting_other_providers = _pick_primary_posting_provider(
+            posting_observations
+        )
+        primary_id = posting_primary["provider_id"] if posting_primary else ""
+        # The headline provider's observations, and only they, back the figure
+        # and the market_evidence block that validates it.
+        posting_volumes = [
+            (o["count"], o["source"], o["provider_id"], o["observed_at"])
+            for o in posting_observations
+            if o["provider_id"] == primary_id
+        ]
+        posting_source_details: List[Dict[str, Any]] = []
+        for o in posting_observations:
+            if o["provider_id"] != primary_id:
+                continue
+            detail = {
+                "source": o["source"],
+                "provider_id": o["provider_id"],
+                "observed_at": o["observed_at"],
+                "count": o["count"],
+                "scope": o["scope"],
+                "scope_label": o["scope_label"],
+            }
+            if detail not in posting_source_details:
+                posting_source_details.append(detail)
+
+        total_postings = posting_primary["count"] if posting_primary else 0
+        observed_posting_provider_ids = {primary_id} if primary_id else set()
 
         # --- Search interest ---
         search_volume = 0
@@ -2402,6 +2519,10 @@ def fuse_job_market_demand(
             "total_postings": total_postings,
             "posting_sources": posting_sources,
             "posting_source_details": posting_source_details,
+            # The headline figure as data: one provider's count, never a sum.
+            "posting_primary": posting_primary,
+            "posting_summary": _posting_summary_line(posting_primary),
+            "posting_other_providers": posting_other_providers,
             "search_volume_monthly": search_volume,
             "trend_direction": trend_dir,
             "talent_pool_estimate": talent_pool,

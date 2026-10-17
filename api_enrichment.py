@@ -270,6 +270,14 @@ SOC_CODES: Dict[str, str] = {
     "store associate": "41-2031",
     "retail associate": "41-2031",
     "retail manager": "41-1011",
+    # Exact titles whose shared-word or canonical-alias match pointed at the
+    # wrong occupation (Sales Associate -> Sales Managers 11-2022, Store
+    # Manager -> Retail Salespersons, Customer Service Representative -> Food
+    # Service). Exact matches win over every fuzzy path in fetch_salary_data.
+    "sales associate": "41-2031",
+    "store manager": "41-1011",
+    "customer service representative": "43-4051",
+    "customer service rep": "43-4051",
     "cashier": "41-2011",
     "stocker": "53-7065",
     # C2 FIX: Add blue-collar / skilled trades SOC codes
@@ -1008,8 +1016,16 @@ def _circuit_breaker_record_failure(api_name: str) -> None:
 # Each entry tracks: call count and window start time.
 
 _API_RATE_LIMITS: Dict[str, Dict[str, int]] = {
-    "BLS": {"max_calls": 400, "window_seconds": 86400},  # 400/day (buffer from 500 v2)
-    "BLS_v1": {"max_calls": 20, "window_seconds": 86400},  # 20/day (buffer from 25 v1)
+    # Both BLS entries are charged per HTTP POST (see _PER_POST_METERED), not
+    # per dispatch: one dispatch is N roles x up to 2 POSTs.
+    "BLS": {
+        "max_calls": 400,
+        "window_seconds": 86400,
+    },  # 400 POSTs/day (buffer from 500 v2)
+    "BLS_v1": {
+        "max_calls": 20,
+        "window_seconds": 86400,
+    },  # 20 POSTs/day (buffer from 25 v1)
     "GeoNames": {"max_calls": 800, "window_seconds": 3600},  # 800/hr (buffer from 1000)
     "FRED": {"max_calls": 100, "window_seconds": 60},  # 100/min (buffer from 120)
     # Role-based sources (ROLE_ONLY_SOURCE_LABELS + ROLE_AND_LOCATION_SOURCE_
@@ -1067,15 +1083,17 @@ _API_RATE_LIMITS: Dict[str, Dict[str, int]] = {
         "window_seconds": 3600,
     },  # 1000/hr -- curated local data, metered for parity
     # Adzuna is metered per HTTP REQUEST, not per dispatch, by adzuna_quota
-    # (one shared counter for every Adzuna call site in the process: this
-    # module, api_integrations.AdzunaClient, market_signals, the health probe).
-    # This entry only mirrors the daily window for _rate_limit_status();
-    # _rate_limit_check/_rate_limit_record delegate (see _REQUEST_METERED).
-    # ToS per key: 250/day, 1,000/week, 2,500/month; caps are per worker, x4.
+    # (one shared counter for every Adzuna call site: this module,
+    # api_integrations.AdzunaClient, market_signals, the health probe).
+    # The counter is global (Upstash: 200/day, 2,300/month, rolling week 900;
+    # ToS per key 250/day, 1,000/week, 2,500/month) and falls back to the
+    # per-worker caps below only when Upstash is unavailable.
+    # _rate_limit_check/_rate_limit_record delegate (see _REQUEST_METERED);
+    # this entry only mirrors the per-worker daily window for diagnostics.
     "Adzuna": {
         "max_calls": _adzuna_quota.DAILY_CAP,
         "window_seconds": _adzuna_quota.DAILY_WINDOW_S,
-    },  # 20/day/worker (x4 workers = 80/day) -- plus 600/month/worker in adzuna_quota
+    },  # 20/day per worker in fallback mode (x4 workers = 80/day)
     "Jooble": {
         "max_calls": 50,
         "window_seconds": 86400,
@@ -1098,6 +1116,34 @@ _rate_limiter_lock = threading.Lock()
 # full?" (so the source is skipped with status "rate_limited" instead of
 # running and finding nothing) and never records -- the request sites do.
 _REQUEST_METERED: Dict[str, Any] = {"Adzuna": _adzuna_quota}
+
+# Labels in _API_RATE_LIMITS charged per HTTP request by _rate_limit_acquire at
+# the request site instead of once per dispatch by _rate_limit_record: BLS's
+# entry is its keyed v2 POST pool, BLS_v1 its unkeyed v1 pool. The dispatch
+# gate only asks whether the v2 pool is already full.
+_PER_POST_METERED = frozenset({"BLS", "BLS_v1"})
+
+
+def _rate_limit_acquire(api_name: str) -> bool:
+    """Charge ONE request against ``api_name`` and return True, or return
+    False (charging nothing) when its window is full. Check and charge are one
+    step under the lock. A label with no limit configured is always allowed.
+    Thread-safe."""
+    limits = _API_RATE_LIMITS.get(api_name)
+    if limits is None:
+        return True
+    if limits["max_calls"] <= 0:
+        return False
+    now = time.time()
+    with _rate_limiter_lock:
+        state = _rate_limiter_state.get(api_name)
+        if state is None or (now - state["window_start"]) >= limits["window_seconds"]:
+            _rate_limiter_state[api_name] = {"call_count": 1, "window_start": now}
+            return True
+        if state["call_count"] >= limits["max_calls"]:
+            return False
+        state["call_count"] += 1
+        return True
 
 
 def _rate_limit_check(api_name: str) -> bool:
@@ -1134,8 +1180,12 @@ def _rate_limit_check(api_name: str) -> bool:
 
 def _rate_limit_record(api_name: str) -> None:
     """Increment call count for an API. Thread-safe."""
-    if api_name not in _API_RATE_LIMITS or api_name in _REQUEST_METERED:
-        return
+    if (
+        api_name not in _API_RATE_LIMITS
+        or api_name in _REQUEST_METERED
+        or api_name in _PER_POST_METERED
+    ):
+        return  # metered at the request site (see _rate_limit_acquire)
 
     now = time.time()
     with _rate_limiter_lock:
@@ -2094,6 +2144,12 @@ def _fetch_bls_salary(role: str, soc_code: str) -> Optional[Dict[str, Any]]:
         if version == "v2" and api_key:
             payload["registrationkey"] = api_key
 
+        # Metered per POST, not per dispatch: one dispatch is N roles x up to
+        # 2 POSTs (v2, then v1 on failure). v2 is the keyed 500/day pool, v1
+        # the unkeyed 25/day one.
+        if not _rate_limit_acquire("BLS" if version == "v2" else "BLS_v1"):
+            _log_warn(f"BLS {version} request quota reached; skipping SOC {soc_code}")
+            continue
         resp = _http_post_json(url, payload, timeout=12)
         if resp and resp.get("status") == "REQUEST_SUCCEEDED":
             _log_info(f"BLS {version} request succeeded for SOC {soc_code}")
@@ -2156,16 +2212,11 @@ def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
                 if title in role_lower or role_lower in title:
                     soc = code
                     break
-        if not soc:
-            # Try word-level matching for multi-word roles
-            role_words = set(role_lower.split())
-            best_overlap = 0
-            for title, code in SOC_CODES.items():
-                title_words = set(title.split())
-                overlap = len(role_words & title_words)
-                if overlap > best_overlap and overlap >= 1:
-                    best_overlap = overlap
-                    soc = code
+        # No word-overlap fallback: one shared word ("associate", "manager",
+        # "service") used to pick the first matching SOC, which mapped Sales
+        # Associate -> Sales Managers, Store Manager -> Marketing Managers and
+        # Customer Service Representative -> Fast Food workers. No confident
+        # SOC means no BLS wage for that role, not a wrong one.
         if not soc and _HAS_STANDARDIZER:
             # Try canonical standardizer (covers more role aliases)
             std_soc = _std_get_soc_code(role)
@@ -2947,6 +2998,67 @@ def _adzuna_benchmark_fallback(
     return result
 
 
+# Words that name no place; Adzuna would geocode them to something arbitrary.
+_ADZUNA_NON_PLACE_TOKENS = frozenset(
+    {"remote", "anywhere", "nationwide", "national", "wfh", "hybrid", "global"}
+)
+
+
+def _adzuna_query_scope(locations: Any) -> Optional[Dict[str, str]]:
+    """Where an Adzuna job-count query for this plan can honestly be pointed.
+
+    Returns None when the plan's first location is empty, unresolved
+    ("Remote", "Dubai" with no country) or in a country Adzuna has no market
+    for; the caller then sends nothing. Otherwise a dict with:
+
+      country  Adzuna's lowercase country path segment ("us", "gb", ...)
+      where    Adzuna's ``where`` search parameter: the city (plus the state
+               for the US) when the plan has exactly ONE location that names
+               a place, else "" (the whole country is queried)
+      kind     "location" when ``where`` is set, else "national"
+      label    human-readable scope: the ``where`` text or the country name
+    """
+    if isinstance(locations, (str, dict)):
+        locations = [locations]
+    names: List[str] = []
+    for loc in locations or []:
+        if isinstance(loc, dict):
+            loc = ", ".join(
+                filter(
+                    None,
+                    [
+                        str(loc.get("city") or ""),
+                        str(loc.get("state") or ""),
+                        str(loc.get("country") or ""),
+                    ],
+                )
+            )
+        if isinstance(loc, str) and loc.strip():
+            names.append(loc.strip())
+    if not names:
+        return None
+    first = names[0]
+    iso3 = _parse_country_from_location(first)
+    country = ADZUNA_COUNTRY_CODES.get(iso3 or "")
+    if not country:
+        return None
+    city = state_full = country_name = ""
+    if _HAS_STANDARDIZER:
+        parsed = _std_normalize_location(first)
+        city = (parsed.get("city") or "").strip()
+        state_full = (parsed.get("state_full") or "").strip()
+        country_name = (parsed.get("country") or "").strip()
+    where = ""
+    if len(names) == 1 and city and city.lower() not in _ADZUNA_NON_PLACE_TOKENS:
+        where = f"{city}, {state_full}" if iso3 == "USA" and state_full else city
+    return {
+        "country": country,
+        "where": where,
+        "kind": "location" if where else "national",
+        "label": where or country_name or country.upper(),
+    }
+
+
 def fetch_job_market(roles: List[str], locations: List[str]) -> Dict[str, Any]:
     """
     Fetch job market data from Adzuna (if API keys are available).
@@ -2961,29 +3073,49 @@ def fetch_job_market(roles: List[str], locations: List[str]) -> Dict[str, Any]:
 
     job_market: Dict[str, Any] = {}
 
-    # Determine country for Adzuna
-    country = "us"  # default
-    if locations:
-        iso3 = _parse_country_from_location(locations[0])
-        if iso3 and iso3 in ADZUNA_COUNTRY_CODES:
-            country = ADZUNA_COUNTRY_CODES[iso3]
+    # Which Adzuna market can this plan truthfully be asked about? An
+    # unsupported or unknown country (Dubai, Tokyo, "Remote", no location)
+    # used to fall back to the US feed and stamp the US total "observed" on
+    # the plan; now nothing is queried and the roles come back unavailable.
+    scope = _adzuna_query_scope(locations)
+    if scope is None:
+        _log_info(
+            "Adzuna: plan location has no supported Adzuna country; "
+            "no query sent (postings unavailable)"
+        )
+        return {
+            role: {
+                "posting_count": 0,
+                "avg_salary": None,
+                "source": "Adzuna",
+                "posting_observation": "unavailable",
+                "posting_provider_id": "adzuna",
+                "posting_unavailable_reason": (
+                    "no Adzuna market for the plan's location"
+                ),
+            }
+            for role in roles
+        }
+    country = scope["country"]
+    where = scope["where"]
 
     for role in roles:
-        cache_k = _cache_key("adzuna", f"{role}:{country}")
+        cache_k = _cache_key("adzuna_v2", f"{role}:{country}:{where}")
         cached = _get_cached(cache_k)
         if cached is not None:
             job_market[role] = cached
             continue
 
-        params = urllib.parse.urlencode(
-            {
-                "app_id": app_id,
-                "app_key": app_key,
-                "what": role,
-                "results_per_page": "1",
-                "content-type": "application/json",
-            }
-        )
+        query = {
+            "app_id": app_id,
+            "app_key": app_key,
+            "what": role,
+            "results_per_page": "1",
+            "content-type": "application/json",
+        }
+        if where:
+            query["where"] = where
+        params = urllib.parse.urlencode(query)
         url = f"https://api.adzuna.com/v1/api/jobs/{country}/search/1?{params}"
 
         # One shared request counter for the key (adzuna_quota). Over quota:
@@ -3016,6 +3148,11 @@ def fetch_job_market(roles: List[str], locations: List[str]) -> Dict[str, Any]:
                     "posting_observation": "observed",
                     "posting_provider_id": "adzuna",
                     "posting_observed_at": time.strftime("%Y-%m-%d", time.gmtime()),
+                    # What the count covers: one city ("location") or the
+                    # whole country ("national"); downstream text must say so.
+                    "posting_scope": scope["kind"],
+                    "posting_scope_label": scope["label"],
+                    "posting_country": country,
                 }
                 job_market[role] = entry
                 _set_cached(cache_k, entry)
@@ -14709,6 +14846,17 @@ def role_sources_enabled() -> bool:
     return bool(role_sources_allowed())
 
 
+def role_source_enabled(label: str) -> bool:
+    """True when ENRICH_ROLE_SOURCES allows the role source ``label`` right
+    now. For callers outside enrich_data (app.py's own fan-out) that must obey
+    the same allowlist and kill switch."""
+    return label in role_sources_allowed()
+
+
+# Public name for callers outside this module (app.py's Adzuna call).
+adzuna_query_scope = _adzuna_query_scope
+
+
 def role_sources_for(has_locations: bool) -> List[str]:
     """Labels of the role-based sources a request with roles can dispatch
     (before the ENRICH_ROLE_SOURCES allowlist is applied)."""
@@ -14891,7 +15039,15 @@ def enrich_data(
     tasks: List[tuple] = []
 
     if roles:
-        tasks.append(("salary_data", "BLS", lambda _r=roles: fetch_salary_data(_r)))
+        # BLS OEWS wages describe the US labour market. On a plan with no US
+        # market they would replace the resolver's honest "(US-basis, not
+        # locally benchmarked)" label with a plain "BLS OES" -- so BLS is not
+        # dispatched there (same predicate _localize_salaries_without_us_market
+        # uses downstream). A plan with no locations stays a US plan.
+        if _plan_geo.plan_has_us_market({**data, "locations": locations}):
+            tasks.append(("salary_data", "BLS", lambda _r=roles: fetch_salary_data(_r)))
+        else:
+            _log_info("BLS skipped: the plan has no US market (BLS wages are US-only)")
 
     if industry:
         tasks.append(
