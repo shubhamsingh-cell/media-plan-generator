@@ -46,7 +46,7 @@ def _money(text: str) -> float:
 def _slide6_total_row(pptx_bytes: bytes) -> tuple[str, list[str]]:
     """(Total Investment tile value, the 6 cells of the Total row)."""
     prs = Presentation(io.BytesIO(pptx_bytes))
-    slide = prs.slides[5]
+    slide = prs.slides[6]
     texts = [
         sh.text_frame.text.strip()
         for sh in slide.shapes

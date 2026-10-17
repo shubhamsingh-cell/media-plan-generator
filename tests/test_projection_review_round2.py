@@ -195,7 +195,7 @@ def deck_us():
          "target_roles": ["Warehouse Associate", "CDL Driver"]}
     )
     prs = Presentation(io.BytesIO(ppt_generator.generate_pptx(dict(data))))
-    return [sh.text_frame.text for sh in prs.slides[5].shapes if sh.has_text_frame]
+    return [sh.text_frame.text for sh in prs.slides[6].shapes if sh.has_text_frame]
 
 
 def test_f8_slide6_funnel_totals_and_takeaway_do_not_lead_with_the_point(deck_us):
@@ -303,7 +303,7 @@ TAG = "US benchmark — no local data"
 def test_non_us_plans_label_the_us_calibrated_rows(brief):
     deck, cells = _bundle_texts(brief)
     assert any("Apply Rate" in t and TAG in t for t in deck[2]), deck[2]
-    assert any(TAG in t for t in deck[5]), deck[5]
+    assert any(TAG in t for t in deck[6]), deck[6]
     rows = [c for c in cells if c.startswith("Apply Rate")]
     assert all(TAG in c for c in rows), rows  # every US-calibrated row is labelled
     if "India" not in brief["locations"][0]:  # (the India sheet carries no such row)

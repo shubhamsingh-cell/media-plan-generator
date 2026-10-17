@@ -159,7 +159,7 @@ class TestOneLineRows:
     def test_uk_cph_row_is_one_line(self, uk_finance):
         texts = [
             sh.text_frame.text
-            for sh in uk_finance[1].slides[4].shapes
+            for sh in uk_finance[1].slides[5].shapes
             if sh.has_text_frame
         ]
         val = texts[texts.index("Industry Cost-per-Hire") + 1]
@@ -167,7 +167,7 @@ class TestOneLineRows:
         assert ppt_generator._estimate_lines(val, 2.3, 10.0) == 1
 
     def test_india_sources_line_is_one_line_at_the_rendered_size(self, india_it):
-        for sh in india_it[1].slides[4].shapes:
+        for sh in india_it[1].slides[5].shapes:
             if sh.has_text_frame and sh.text_frame.text.startswith("Sources:"):
                 txt = sh.text_frame.text
                 assert "Shework 2026 (India)" in txt, txt

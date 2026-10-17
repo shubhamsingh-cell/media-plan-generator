@@ -444,13 +444,13 @@ class TestCurrencyDeclareNotConvert:
 class TestSlideCollisions:
     def test_slide7_long_competitor_names_do_not_overprint_why(self):
         data = _plan(_synthesized=_with_competitor_intel(LONG_COMPETITORS))
-        slide = _deck(data).slides[6]
+        slide = _deck(data).slides[7]
         hits = _ink_collisions(slide)
         assert not hits, f"slide 7 text collides: {hits}"
 
     def test_slide7_short_competitor_names_still_clean(self):
         data = _plan(_synthesized=_with_competitor_intel(["HCA", "CVS", "Tenet"]))
-        assert not _ink_collisions(_deck(data).slides[6])
+        assert not _ink_collisions(_deck(data).slides[7])
 
     def test_cover_long_client_name_does_not_overprint_industry(self):
         data = _plan(client_name=LONG_CLIENT)
@@ -480,7 +480,7 @@ class TestSlideCollisions:
                     {"city": "Singapore", "state": "", "country": "Singapore"},
                 ],
             )
-            hits = _ink_collisions(_deck(data).slides[4])
+            hits = _ink_collisions(_deck(data).slides[5])
             assert not hits, f"slide 5 collides with {len(cats)} channels: {hits}"
 
     def test_slides_adjacent_to_5_and_7_are_clean(self):
@@ -684,7 +684,7 @@ def _synth_5platform():
 
 
 def _slide8_shape_texts(prs):
-    slide = prs.slides[7]
+    slide = prs.slides[8]
     return [
         shape.text_frame.text
         for shape in slide.shapes
@@ -747,7 +747,7 @@ class TestSlide8ProjectedCpaNeverFabricatesABeat:
         )
         _with_budget_allocation(data, channel_pcts={"global_boards": 100})
         prs = _deck(data)
-        slide8 = prs.slides[7]
+        slide8 = prs.slides[8]
 
         row_shapes = _projected_cpa_row_shapes(slide8)
         for shape in row_shapes:
@@ -769,7 +769,7 @@ class TestSlide8ProjectedCpaNeverFabricatesABeat:
         # that silently skipped this half of the test on CI.
         usd_data = _with_budget_allocation(_plan())
         usd_prs = _deck(usd_data)
-        usd_slide8 = usd_prs.slides[7]
+        usd_slide8 = usd_prs.slides[8]
 
         for shape in usd_slide8.shapes:
             if shape.has_text_frame:
@@ -827,7 +827,7 @@ class TestCurrencyNoteOnEveryMoneySlide:
                 for shape in slide.shapes:
                     if shape.has_text_frame and "FX-converted" in shape.text_frame.text:
                         pages_with_note.add(i)
-            for page in (2, 5, 6, 8):
+            for page in (2, 6, 7, 9):
                 assert page in pages_with_note, (
                     f"GBP plan (synth={'yes' if synth else 'no'}) missing the "
                     f"currency-basis note on slide {page}: found on {sorted(pages_with_note)}"

@@ -72,7 +72,29 @@ def _capped(items: List[str], limit: int, sep: str = ", ") -> str:
     return shown + (f" (and {len(items) - limit} more)" if len(items) > limit else "")
 
 
+def _is_remote(text: str) -> bool:
+    try:
+        import gold_standard
+
+        return bool(gold_standard.is_remote_location(text))
+    except (ImportError, AttributeError):
+        return text.strip().lower() in ("remote", "work from home", "anywhere")
+
+
 def _markets(data: Dict[str, Any]) -> List[str]:
+    """Named places (a "Remote" entry is not a place; see ``_has_remote``)."""
+    out: List[str] = []
+    for text in _location_texts(data):
+        if not _is_remote(text) and text not in out:
+            out.append(text)
+    return out
+
+
+def _has_remote(data: Dict[str, Any]) -> bool:
+    return any(_is_remote(t) for t in _location_texts(data))
+
+
+def _location_texts(data: Dict[str, Any]) -> List[str]:
     out: List[str] = []
     for loc in data.get("locations") or []:
         if isinstance(loc, dict):
@@ -83,7 +105,7 @@ def _markets(data: Dict[str, Any]) -> List[str]:
             )
         else:
             text = str(loc or "").strip()
-        if text and text not in out:
+        if text:
             out.append(text)
     return out
 
@@ -245,8 +267,13 @@ def _what_we_will_do(data, alloc, proj, channels) -> str:
     lead = f"For {_client_name(data)}, this plan puts {budget} to work"
     if roles:
         lead += f" recruiting {roles}"
-    if markets:
+    remote = _has_remote(data)
+    if markets and remote:
+        lead += f" in {markets}, plus remote candidates"
+    elif markets:
         lead += f" in {markets}"
+    elif remote:
+        lead += " for remote work"
     lead += (
         f", across {len(channels)} funded channel{'s' if len(channels) != 1 else ''}."
     )
@@ -302,9 +329,23 @@ def _how_spend_is_paced(data: Dict[str, Any]) -> str:
     return " ".join(parts)
 
 
+def _enterprise_settings(data: Dict[str, Any]) -> Dict[str, Any]:
+    """The enterprise pack's own settings, only when its toggle is on (a stray
+    field on a standard plan must not change its story)."""
+    try:
+        import enterprise_pack
+
+        if enterprise_pack.enabled(data):
+            return enterprise_pack.settings(data)
+    except (ImportError, AttributeError, TypeError, ValueError):
+        logger.debug("client story: enterprise settings unavailable", exc_info=True)
+    return {}
+
+
 def _what_we_need(data: Dict[str, Any], alloc: Dict[str, Any]) -> str:
     asks: List[str] = []
-    sor = str(data.get("enterprise_system_of_record") or "").strip()
+    ent = _enterprise_settings(data)
+    sor = ent.get("system_of_record", "")
     if sor:
         asks.append(f"Please confirm {sor} as the system of record for hires.")
     else:
@@ -329,8 +370,8 @@ def _what_we_need(data: Dict[str, Any], alloc: Dict[str, Any]) -> str:
             f"{n} channel{'s' if n != 1 else ''} not available for this plan's markets "
             f"{'are' if n != 1 else 'is'} left out."
         )
-    lock = str(data.get("enterprise_request_lock_day") or "").strip()
-    sla = data.get("enterprise_setup_sla_days")
+    lock = ent.get("lock_day", "")
+    sla = ent.get("setup_sla_days")
     if lock:
         asks.append(f"Please agree the weekly request lock day ({lock.title()}).")
     if isinstance(sla, int) and not isinstance(sla, bool) and sla > 0:

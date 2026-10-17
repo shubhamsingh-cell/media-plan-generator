@@ -286,6 +286,27 @@ def test_deterministic_and_never_raises(plans):
         assert client_story.build_client_story(bad)["ok"] is False
 
 
+def test_remote_is_not_phrased_as_a_place():
+    plan = {
+        "client_name": "Probe Remote",
+        "locations": ["Remote", "Austin, TX"],
+        "roles": ["Software Engineer"],
+    }
+    rows = client_story._markets(plan)
+    assert rows == ["Austin, TX"] and client_story._has_remote(plan)
+
+
+def test_stray_enterprise_fields_do_not_change_a_standard_story(plans):
+    plan = dict(
+        plans["us_rn"],
+        enterprise_system_of_record="Example ATS",
+        enterprise_setup_sla_days=5,
+    )
+    assert client_story.build_client_story(plan) == client_story.build_client_story(
+        plans["us_rn"]
+    )
+
+
 # --------------------------------------------------------------------------
 # outputs: workbook sheet, deck slide, results summary
 # --------------------------------------------------------------------------

@@ -142,14 +142,14 @@ class TestCitedLowEndFloor:
 
 class TestLocalAssumptionDisclosed:
     def test_slides_2_5_6_state_the_assumption(self, india):
-        for n in (2, 5, 6):
+        for n in (2, 6, 7):
             text = " ".join(india.paras(n))
             assert "₹35.0K" in text and "434 hires" in text, (n, text[-600:])
             assert "the low end of the cited ₹35K–₹80K range" in text, n
             assert "plan efficiency" in text.lower(), n
 
     def test_footnote_paragraphs_are_one_line(self, india):
-        notes = [p for p in india.paras(2) + india.paras(5) if "₹35.0K" in p]
+        notes = [p for p in india.paras(2) + india.paras(6) if "₹35.0K" in p]
         assert notes
         for p in notes:
             assert ppt_generator._fits_one_line(p, 12.0, 9.0), p
@@ -194,7 +194,7 @@ class TestBoldCellFit:
         )
 
     def test_nonprofit_row_is_the_compact_form(self, tiny):
-        paras = tiny.paras(5)
+        paras = tiny.paras(6)
         i = paras.index("Industry Cost-per-Hire")
         assert paras[i + 1] == "$2K–$4.7K (midpoint $3.35K)", paras[i + 1]
 
@@ -213,4 +213,4 @@ class TestMediaVsAllIn:
     def test_slides_2_and_5_say_it(self, hospital):
         # (round 3: shares its footnote line with the plan-efficiency note)
         assert any(_MEDIA in p for p in hospital.paras(2))
-        assert any(_MEDIA in p for p in hospital.paras(5))
+        assert any(_MEDIA in p for p in hospital.paras(6))

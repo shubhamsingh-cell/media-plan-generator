@@ -108,7 +108,7 @@ def test_london_labels_survive_with_n_a_values():
     deck = list(_deck(prs))
     assert any(t.strip() == "Projected Hires" for i, t in deck if i == 2)
     assert any(t.strip() == "n/a" for i, t in deck if i == 2)
-    assert any(t.strip() == "Projected Hires" for i, t in deck if i == 6)
+    assert any(t.strip() == "Projected Hires" for i, t in deck if i == 7)
     cells = list(_cells(wb))
     assert any(s == "Executive Summary" and v == "Projected Hires" for s, _c, v in cells)
     assert any(s == "ROI Projections" and v == "Total Proj. Hires" for s, _c, v in cells)
@@ -150,7 +150,7 @@ def test_chat_tools_price_a_dollar_budget_in_dollars_in_india():
 def test_slide6_scenario_label_is_truthful():
     for role, loc, ind in US_SHAPES[2:]:
         _d, _w, prs = _bundle(_brief(role, loc, ind))
-        s6 = " || ".join(t for i, t in _deck(prs) if i == 6)
+        s6 = " || ".join(t for i, t in _deck(prs) if i == 7)
         assert "upper scenario" not in s6, s6
         assert "engine scenario" in s6
 
@@ -165,7 +165,7 @@ def test_narrative_tiles_and_risk_quote_ranges_not_the_upper_point():
     ws_vals = [v for s, _c, v in cells if s == "Executive Summary"]
     assert "5" + DASH + "11" in [str(v) for v in ws_vals], "hero Projected Hires tile is not a range"
     assert any(str(v).startswith("$5,250") and DASH in str(v) for v in ws_vals), "hero Cost/Hire tile"
-    risk = " || ".join(t for i, t in _deck(prs) if i == 9)
+    risk = " || ".join(t for i, t in _deck(prs) if i == 10)
     assert "drop from 11 to" not in risk and "5" + DASH + "11" in risk, risk
     assert not any("drop from 11 to" in v for v in flat)
 
@@ -271,7 +271,7 @@ def test_channel_concentration_risk_quotes_a_range(role, loc, ind, budget):
 
     data, wb, prs = _bundle(_brief(role, loc, ind, budget))
     texts = [str(v) for s, _c, v in _cells(wb) if "could impact" in str(v)]
-    texts += [t for i, t in _deck(prs) if i == 9 and "could impact" in t]
+    texts += [t for i, t in _deck(prs) if i == 10 and "could impact" in t]
     assert texts, "fixture must trigger the channel-concentration risk"
     for t in texts:
         assert not _re.search(r"could impact \d[\d,]*\s+(?:projected\s+)?hires?", t), t

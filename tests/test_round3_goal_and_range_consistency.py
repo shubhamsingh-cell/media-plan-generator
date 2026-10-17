@@ -207,7 +207,7 @@ class TestWorkbookRangesAgree:
 
 class TestPlanEfficiencyDefined:
     def test_us_footnotes_define_it(self, hospital):
-        for n in (2, 5):
+        for n in (2, 6):
             assert any(
                 p.startswith("Plan efficiency: $5,250/hire (half the $10.5K midpoint)")
                 for p in hospital.paras(n)
@@ -216,7 +216,7 @@ class TestPlanEfficiencyDefined:
 
 class TestMediaNoteOnlyWithARange:
     def test_absent_without_a_cost_per_hire_range(self, uk):
-        for n in (2, 5):
+        for n in (2, 6):
             assert not any(_MEDIA in p for p in uk.paras(n)), n
         assert not any("media spend" in t for t in uk.texts("Executive Summary"))
 

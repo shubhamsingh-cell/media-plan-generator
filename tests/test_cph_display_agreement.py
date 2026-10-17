@@ -99,7 +99,7 @@ class TestNoCrossIndustryDefaultUnderAnIndustryName:
         assert hershey["_budget_allocation"]["metadata"]["industry_cph"][
             "industry_matched"
         ] is False
-        texts = _slide(hershey, 5)
+        texts = _slide(hershey, 6)
         val = _value_after(texts, "Industry Cost-per-Hire")
         assert "4,000" not in val and "6,000" not in val, val
         assert "$3,000-$5,000" in val, val
@@ -117,14 +117,14 @@ class TestNoCrossIndustryDefaultUnderAnIndustryName:
 
 class TestMidpointLabelAndAgreement:
     def test_us_row_says_midpoint_and_matches_workbook(self, hospital):
-        val = _value_after(_slide(hospital, 5), "Industry Cost-per-Hire")
+        val = _value_after(_slide(hospital, 6), "Industry Cost-per-Hire")
         assert "midpoint" in val and "avg" not in val, val
         rows = _exec_summary_rows(hospital)
         row = next(r for r in rows if r and r[0] == "Industry Cost-per-Hire")
         assert row[1] == "$9,000–$12,000 (midpoint $10,500)", row
 
     def test_local_row_is_cited_range_midpoint_one_line_and_sourced(self, india_it):
-        texts = _slide(india_it, 5)
+        texts = _slide(india_it, 6)
         val = _value_after(texts, "Local Cost-per-Hire")
         assert "median" not in val and "midpoint" in val, val
         assert ppt_generator._estimate_lines(val, 2.3, 10.0) == 1, val
