@@ -161,9 +161,20 @@
   (function checkGoogleExportAvailability() {
     csrfPost("/api/export/status")
       .then(function (r) {
+        // Only a 2xx answer says anything about configuration. A persistent
+        // 403/500 (e.g. after csrfPost's single retry) is UNKNOWN: leave the
+        // toggle enabled with a neutral hint instead of claiming "not
+        // configured".
+        if (!r.ok) {
+          var unknownBtn = document.getElementById("outputFormatGoogleBtn");
+          if (unknownBtn)
+            unknownBtn.title = "Google integration status unavailable.";
+          return null;
+        }
         return r.json();
       })
       .then(function (data) {
+        if (!data) return;
         if (data.configured) {
           _googleExportConfigured = true;
         } else {

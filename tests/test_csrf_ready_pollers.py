@@ -52,12 +52,15 @@ function resp(status, body) {
 async function scenario(o) {
   var cookie = o.initialCookie, tokN = 0, csrfCalls = 0, statusCalls = 0;
   var release = null, statuses = [], sheetsShown = false, googleDisabled = false;
+  var gTitle = null, gOnclick = null;
   var document = {
     get cookie() { return cookie ? "a=b; csrf_token=" + cookie : "a=b"; },
     getElementById: function (id) {
       return {
         classList: { add: function () { googleDisabled = true; } },
         style: { set display(v) { sheetsShown = true; } },
+        set title(v) { gTitle = v; },
+        set onclick(f) { gOnclick = f; },
       };
     },
   };
@@ -76,6 +79,7 @@ async function scenario(o) {
     var valid = header !== "" && header === cookie && header.indexOf("tok") === 0 &&
       !o.always403 && !(o.fail403First && statusCalls === 1);
     statuses.push({ header: header, cookieAtSend: cookie || "" });
+    if (o.serverStatus) return Promise.resolve(resp(o.serverStatus, o.serverBody || {}));
     return Promise.resolve(valid ? resp(200, { configured: true }) :
       resp(403, { success: false, code: "AUTH_REQUIRED",
         error: "Invalid or missing CSRF token. Refresh the page and try again." }));
@@ -95,6 +99,7 @@ async function scenario(o) {
   await sleep(60);
   return { beforeRelease: beforeRelease, statuses: statuses, csrfCalls: csrfCalls,
     statusCalls: statusCalls, sheetsShown: sheetsShown, googleDisabled: googleDisabled,
+    googleTitle: gTitle, googleBlocked: gOnclick !== null,
     readyState: ready && ready.then ? readyState : "missing" };
 }
 (async function () {
@@ -118,6 +123,20 @@ SCENARIOS = {
     "bounded": {"pollers": ["footer"], "initialCookie": "", "always403": True},
     # /api/csrf-token unreachable: readiness must still resolve
     "offline": {"pollers": ["app"], "initialCookie": "", "csrfRejects": True},
+    # the status endpoint itself fails persistently: configuration is UNKNOWN
+    "server_500": {
+        "pollers": ["footer"],
+        "initialCookie": "tok0",
+        "serverStatus": 500,
+        "serverBody": {"success": False},
+    },
+    # the endpoint answers 200 and says the integration is off
+    "not_configured": {
+        "pollers": ["footer"],
+        "initialCookie": "tok0",
+        "serverStatus": 200,
+        "serverBody": {"configured": False},
+    },
 }
 
 
@@ -172,3 +191,22 @@ def test_csrf_ready_resolves_when_token_fetch_fails(results: dict) -> None:
     assert (
         r["statusCalls"] >= 1
     ), "poller must still run (and show 'not configured' honestly)"
+
+
+@needs_node
+def test_persistent_server_error_is_unknown_not_not_configured(results: dict) -> None:
+    r = results["server_500"]
+    assert r["googleDisabled"] is False, "a 500 must not disable the Google toggle"
+    assert (
+        r["googleBlocked"] is False
+    ), "a 500 must not install the 'not configured' click guard"
+    assert "not configured" not in (r["googleTitle"] or "").lower(), r
+    assert "unavailable" in (r["googleTitle"] or "").lower(), r
+
+
+@needs_node
+def test_a_200_with_configured_false_still_reads_not_configured(results: dict) -> None:
+    r = results["not_configured"]
+    assert r["googleDisabled"] is True, r
+    assert "not configured" in (r["googleTitle"] or "").lower(), r
+    assert r["googleBlocked"] is True, r
