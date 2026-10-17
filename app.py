@@ -5140,6 +5140,65 @@ def _market_region(entry: Any) -> "str | None":
     return None
 
 
+def _location_market_hint(entry: Any) -> str:
+    """Where ONE plan location sits, for the wizard's Target Region and the
+    us_only warning: "us", "emea", "apac", "americas" (a non-US market in the
+    Americas), "none" (names no market: blank / "Remote") or "unknown" (a bare
+    name, world-scope text or a country no table knows -- never a guess).
+    Built on _market_region so it agrees with the regional-board fold."""
+    region = _market_region(entry)
+    if region is None or region == _GUESS:
+        return "unknown"
+    if region == "":
+        return "none"
+    if region != "americas":
+        return region
+    text = (
+        ", ".join(
+            _safe_str(entry.get(k)).strip()
+            for k in ("city", "state", "country")
+            if _safe_str(entry.get(k)).strip()
+        )
+        if isinstance(entry, dict)
+        else _safe_str(entry).strip()
+    )
+    try:
+        code = (
+            plan_currency.currency_for_country(text)
+            if plan_currency is not None
+            else None
+        )
+    except Exception:  # noqa: BLE001 - best-effort; unknown stays "unknown"
+        return "unknown"
+    # A currency-resolved Americas market is the US only when that currency is
+    # USD; a plan_location-confirmed place (no currency) is always a US one.
+    return "americas" if code and code != "USD" else "us"
+
+
+def _warn_us_only_without_us_market(brief: Any, source: str) -> None:
+    """Log ONE warning when the request says ``us_only`` yet every placed
+    location is outside the US: the fold then moves the APAC/EMEA board
+    shares into the largest channel (the wizard used to send its "US Only"
+    default for a Berlin brief). Logging only -- no behaviour change; a plan
+    with any unplaceable location stays silent (fail open)."""
+    try:
+        if not isinstance(brief, dict) or brief.get("target_region") != "us_only":
+            return
+        locations = _as_entry_list(brief.get("locations"))
+        hints = [_location_market_hint(loc) for loc in locations]
+        placed = [h for h in hints if h != "none"]
+        if placed and "unknown" not in placed and "us" not in placed:
+            logger.warning(
+                "target_region=us_only but no resolved location is in the US "
+                "(%s): locations=%r markets=%s",
+                source,
+                [_safe_str(loc)[:60] for loc in locations[:5]],
+                sorted(set(placed)),
+            )
+    except Exception:  # noqa: BLE001 - diagnostics must never break a request
+        logger.debug("us_only location check failed", exc_info=True)
+
+
 def _as_entry_list(value: Any) -> list:
     """A request field as a list of entries ([] for blank)."""
     if isinstance(value, (list, tuple)):
@@ -6127,6 +6186,7 @@ def _compute_plan_estimate(brief: dict) -> dict:
         raise _EstimateValidationError("locations must be a list", field="locations")
     _normalize_location_field(brief)
     _resolve_and_rewrite_locations(brief)
+    _warn_us_only_without_us_market(brief, "/api/estimate")
     _rewrite_site_goal_names(brief)
     _sg_code, _sg_msg = enterprise_pack.site_goals_location_problem(brief)
     if _sg_code:
@@ -19173,6 +19233,7 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
             # (_normalize_target_region is shared with /api/estimate.)
             target_region = _normalize_target_region(data.get("target_region"))
             data["target_region"] = target_region
+            _warn_us_only_without_us_market(data, "/api/generate")
             custom_countries = data.get("custom_countries") or []
             if not isinstance(custom_countries, list):
                 custom_countries = []
@@ -27084,6 +27145,12 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 self._send_json(
                     {
                         "resolutions": [r.to_dict() for r in resolutions],
+                        # one market hint per input, same order: the wizard
+                        # sets Target Region from these (see
+                        # _location_market_hint for the vocabulary)
+                        "market_regions": [
+                            _location_market_hint(loc) for loc in sanitized_locations
+                        ],
                         "status": "ok",
                     }
                 )

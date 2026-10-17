@@ -542,7 +542,7 @@
       "  display: flex; gap: 10px; align-items: flex-end;" +
       "}" +
       ".nova-char-counter {" +
-      "  font-size: 9px; color: #6E6E8C; text-align: right; padding: 2px 4px 4px 0;" +
+      "  font-size: 11px; color: #6E6E8C; text-align: right; padding: 2px 4px 4px 0;" +
       "  font-variant-numeric: tabular-nums; letter-spacing: 0.3px;" +
       "}" +
       ".nova-char-counter-warn { color: #B45309; }" +
@@ -591,7 +591,7 @@
       ".nova-send-btn svg { width: 18px; height: 18px; }" +
       // ── Footer ──
       ".nova-footer {" +
-      "  text-align: center; padding: 6px 12px; font-size: 9px;" +
+      "  text-align: center; padding: 6px 12px; font-size: 11px;" +
       "  color: #6E6E8C; background: transparent;" +
       "  flex-shrink: 0;" +
       "  border-top: 1px solid #E3E1F1;" +

@@ -67,6 +67,7 @@ ELS.clientName.value = 'Acme';
 var window = { innerHeight: 800 };
 var sessionStorage = { removed: [], removeItem: function (k) { this.removed.push(k); } };
 var _FORM_STORAGE_KEY = 'k', _locResolveTimer = null, _locResolveSeq = 0;
+var _regionUserPicked = true, hintReset = 0; function novaSetRegionHint() { hintReset++; }
 var selectedIndustry = 'x', selectedJobCategories = ['a'];
 var locations = ['Austin, TX'], roles = ['Nurse'], competitors = ['Rival'];
 var steps = [], toasts = [], timers = [];

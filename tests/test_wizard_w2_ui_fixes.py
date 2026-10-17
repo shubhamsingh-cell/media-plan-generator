@@ -524,6 +524,7 @@ var sessionStorage = {
   removeItem: function (k) { delete store[k]; },
 };
 var ELS = {}, BOXES = {}, CARDS = [], insight = 0;
+var _regionUserPicked = false;  // saveFormState / novaRestoreRegion carry the flag
 var excludedPublishers = [];  // saveFormState / restoreFormState carry the excluded boards
 var CHANNEL_IDS = ['chRegionalBoards', 'chGlobalBoards', 'chNicheBoards', 'chSocial',
   'chProgrammatic', 'chEmployerBrand', 'chApac', 'chEmea'];

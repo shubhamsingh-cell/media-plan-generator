@@ -43,7 +43,7 @@
       "text-align:center;padding:8px 16px;display:flex;align-items:center;justify-content:center;gap:8px;";
     banner.innerHTML =
       "<span>Previewing Nova \u2014 sign in with your @joveo.com account to save your work.</span>" +
-      '<a id="nova-guest-signin-link" href="#" style="color:#7dd3fc;text-decoration:underline;font-weight:600;font-size:13px;">Sign in</a>';
+      '<a id="nova-guest-signin-link" href="#" style="color:#7dd3fc;text-decoration:underline;font-weight:600;font-size:13px;white-space:nowrap;flex-shrink:0;">Sign in</a>';
     document.body.appendChild(banner);
     // Push page content down so banner doesn't overlap
     document.body.style.paddingTop =

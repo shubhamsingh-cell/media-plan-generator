@@ -114,6 +114,29 @@
       novaEnterpriseSlaMessage() || novaApplyGoalMessage() || novaSiteGoalsMessage()
     );
   }
+  // Review step line: the section is opt-in, so say plainly whether it is on
+  // and, when on, the fields that will go into the plan.
+  function novaEnterpriseReviewText() {
+    const on = document.getElementById("enterpriseEnabled");
+    if (!on || !on.checked) return "Off";
+    const v = (id) => ((document.getElementById(id) || {}).value || "").trim();
+    const cap = (w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w);
+    const parts = ["Fiscal week starts " + cap(v("enterpriseWeekStart") || "sunday")];
+    if (v("enterpriseSystemOfRecord"))
+      parts.push("System of record: " + v("enterpriseSystemOfRecord"));
+    if (v("enterpriseLockDay")) parts.push("Request lock day: " + cap(v("enterpriseLockDay")));
+    const sla = v("enterpriseSetupSla");
+    if (sla !== "") parts.push("Setup SLA: " + sla + (sla === "1" ? " day" : " days"));
+    const err = novaEnterpriseSlaMessage();
+    return "On — " + parts.join(" · ") + (err ? " · Fix the Setup SLA: " + err : "");
+  }
+  // "On" badge in the collapsed summary, so a closed section still shows
+  // that it will change the plan.
+  function novaEnterpriseSyncBadge() {
+    const on = document.getElementById("enterpriseEnabled");
+    const badge = document.getElementById("enterpriseOnBadge");
+    if (badge) badge.hidden = !(on && on.checked);
+  }
   function novaEnterpriseCheckSla() {
     const el = document.getElementById("enterpriseSetupSla");
     if (!el) return;
@@ -316,6 +339,10 @@
     if (box) box.hidden = !s.on;
     const group = g("enterpriseGroup");
     if (group && s.on) group.open = true;
+    novaEnterpriseSyncBadge();
+    // A restored value is validated like a typed one: an out-of-range SLA
+    // must show its error, not sit silently in the box until Generate.
+    novaEnterpriseCheckSla();
   }
   function novaEnterpriseReset() {
     novaEnterpriseRestore({ on: false });
@@ -331,6 +358,7 @@
     if (e.target.id === "enterpriseEnabled") {
       const box = document.getElementById("enterpriseFields");
       if (box) box.hidden = !e.target.checked;
+      novaEnterpriseSyncBadge();
       novaEnterpriseCheckSla();
     } else if (e.target.id === "enterpriseSetupSla") {
       novaEnterpriseCheckSla();
@@ -1371,6 +1399,7 @@
     const regionEl = document.getElementById("regionSelector");
     return {
       region: regionEl ? regionEl.value : "us_only",
+      regionPicked: _regionUserPicked,
       customCountries: Array.from(
         document.querySelectorAll('input[name="customCountry"]:checked'),
       ).map((cb) => cb.value),
@@ -1409,6 +1438,10 @@
       // APAC/EMEA channel cards; restoreChannels runs after it, so the
       // saved toggles win over the region's defaults.
       sel.dispatchEvent(new Event("change", { bubbles: true }));
+      // A saved non-default region from before regionPicked existed was
+      // necessarily chosen (nothing derived it then).
+      _regionUserPicked =
+        typeof s.regionPicked === "boolean" ? s.regionPicked : s.region !== "us_only";
     }
     if (Array.isArray(s.customCountries)) {
       document
@@ -1677,6 +1710,8 @@
     // stale "we understood your location" row.
     clearTimeout(_locResolveTimer);
     _locResolveSeq++;
+    _regionUserPicked = false; // the cleared selector is the default again
+    novaSetRegionHint("");
     const locResPanel = document.getElementById("locationResolution");
     if (locResPanel) locResPanel.innerHTML = "";
     // Reset industry selection visual
@@ -2213,6 +2248,60 @@
   // ============================================
   // Region selector toggle + custom countries
   // ============================================
+  // ── Target Region follows the locations unless the user chose one ──
+  // The selector used to stay on its "US Only" default for a Berlin brief, so
+  // /api/estimate and /api/generate got target_region "us_only" and the server
+  // moved the EMEA/APAC board shares into the largest channel (30% fewer
+  // applications than the same brief with "emea"). The region is derived from
+  // the locations' market hints (/api/locations/resolve `market_regions`,
+  // app._location_market_hint) and shown in the selector; a value the user
+  // picked is never overwritten.
+  var _regionUserPicked = false;
+  var _regionDeriving = false;
+  var _regionHintDefault = "";
+  // hints: "us" | "emea" | "apac" | "americas" | "none" | "unknown" per
+  // location. null = leave the selector alone (a location we cannot place, or
+  // only "Remote"): never guess a region.
+  function novaRegionFromMarkets(hints) {
+    if (!hints || !hints.length) return "us_only";
+    var placed = [];
+    for (var i = 0; i < hints.length; i++) {
+      if (hints[i] === "unknown") return null;
+      if (hints[i] !== "none" && placed.indexOf(hints[i]) < 0) placed.push(hints[i]);
+    }
+    if (!placed.length) return null;
+    if (placed.length === 1 && placed[0] === "us") return "us_only";
+    if (placed.length === 1 && (placed[0] === "emea" || placed[0] === "apac"))
+      return placed[0];
+    return "global";
+  }
+  function novaSetRegionHint(text) {
+    var hint = document.getElementById("regionSelector-hint");
+    if (!hint) return;
+    if (!_regionHintDefault) _regionHintDefault = hint.textContent;
+    hint.textContent = text || _regionHintDefault;
+  }
+  function novaApplyDerivedRegion(region) {
+    var sel = document.getElementById("regionSelector");
+    if (!sel || _regionUserPicked || !region) return false;
+    if (!Array.from(sel.options).some(function (o) { return o.value === region; }))
+      return false;
+    if (sel.value === region) return false;
+    _regionDeriving = true;
+    try {
+      sel.value = region;
+      // runs the channel-card sync and re-fires the live estimate
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+    } finally {
+      _regionDeriving = false;
+    }
+    novaSetRegionHint(
+      region === "us_only"
+        ? ""
+        : "Set from your locations. Choose another region to override.",
+    );
+    return true;
+  }
   function initRegionSelector() {
     var regionSel = document.getElementById("regionSelector");
     var customWrap = document.getElementById("customCountriesWrap");
@@ -2249,7 +2338,15 @@
         if (chEmea) chEmea.checked = true;
       }
     }
-    regionSel.addEventListener("change", _syncRegionChannels);
+    regionSel.addEventListener("change", function () {
+      // A change the wizard made itself (novaApplyDerivedRegion) is not a
+      // choice; anything else (the user, a saved draft, ?region=) is.
+      if (!_regionDeriving) {
+        _regionUserPicked = true;
+        novaSetRegionHint("");
+      }
+      _syncRegionChannels();
+    });
     // Initialize on page load
     _syncRegionChannels();
   }
@@ -3429,6 +3526,7 @@
     if (!panel) return;
     if (!locations.length) {
       panel.innerHTML = "";
+      novaApplyDerivedRegion(novaRegionFromMarkets([]));
       return;
     }
     const seq = ++_locResolveSeq;
@@ -3450,6 +3548,13 @@
         // in flight -- discard anything that isn't the latest.
         if (seq !== _locResolveSeq) return;
         renderLocationResolution((data && data.resolutions) || [], sentLocations);
+        if (
+          data &&
+          Array.isArray(data.market_regions) &&
+          data.market_regions.length === sentLocations.length
+        ) {
+          novaApplyDerivedRegion(novaRegionFromMarkets(data.market_regions));
+        }
       })
       .catch(function (err) {
         console.error("Location resolution request failed:", err);
@@ -5179,6 +5284,18 @@
     intern: "Intern / Apprentice",
   };
 
+  // The hire goal as the user reads it: "40 hires" for an exact count, the
+  // picked range otherwise. #hireVolume holds the "__exact__" sentinel while
+  // the exact box is in use -- it must never reach rendered text.
+  function novaHireVolumeLabel() {
+    const sel = document.getElementById("hireVolume");
+    const raw = sel ? sel.value || "" : "";
+    if (raw !== "__exact__") return raw;
+    const n = ((document.getElementById("exactHires") || {}).value || "").trim();
+    if (!n) return "";
+    return n + (n === "1" ? " hire" : " hires");
+  }
+
   // 29. Updated populateReview with new fields
   function populateReview() {
     document.getElementById("reviewClient").textContent =
@@ -5234,7 +5351,10 @@
     }
 
     document.getElementById("reviewHireVolume").textContent =
-      document.getElementById("hireVolume").value || "Not specified";
+      novaHireVolumeLabel() || "Not specified";
+    const reviewEnterpriseEl = document.getElementById("reviewEnterprise");
+    if (reviewEnterpriseEl)
+      reviewEnterpriseEl.textContent = novaEnterpriseReviewText();
 
     const workEnv = getCheckboxGroupValues("workEnvironment");
     const reviewWorkEnvEl = document.getElementById("reviewWorkEnv");

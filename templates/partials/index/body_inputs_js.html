@@ -361,6 +361,10 @@
     if (planCurrency && planCurrency.note) {
       text += " — " + planCurrency.note;
     }
+    // No server answer yet (pending, or the request failed): the figures above
+    // carry no symbol, so say so rather than leave bare numbers that read as
+    // currency-less beside a "$" one (EUR brief: "Planning at 80,000").
+    if (!planCurrency || !planCurrency.symbol) text += " (currency unconfirmed)";
     if (p.period && p.period !== plan.period) {
       text += ". Your amount says per " + _NOVA_PERIOD_WORDS[p.period] +
         "; set the period to “Per " + _NOVA_PERIOD_WORDS[p.period] +
