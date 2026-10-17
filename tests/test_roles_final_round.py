@@ -265,6 +265,40 @@ def test_v1c_the_longest_title_wins_and_disagreeing_ties_fail_closed(
 
 # --------------------------------------------------------------------- V2 ---
 
+
+@pytest.mark.parametrize(
+    "role",
+    [
+        "Physician",
+        "UX Designer",
+        "Senior UX Designer",
+        "Account Manager",
+        "Data Analyst",
+        "Senior Data Analyst",
+        "DevOps Engineer",
+        "Site Reliability Engineer",
+        "Remote Cloud Engineer",
+    ],
+)
+def test_v1d_titles_mapped_to_a_neighbouring_occupation_get_no_bls_wage(
+    monkeypatch: pytest.MonkeyPatch, role: str
+) -> None:
+    # Physician -> OB/GYN, UX Designer -> Graphic Designers, Account Manager
+    # -> Sales Managers, Data Analyst -> Data Scientists, DevOps/SRE/Cloud ->
+    # Systems Administrators: a neighbour's wage would blend into the client
+    # salary, so these keep the benchmark instead.
+    assert _soc_calls(monkeypatch, role) == []
+
+
+@pytest.mark.parametrize(
+    "role", ["RN", "Travel RN", "ICU RN", "Charge Nurse", "Night Shift Charge Nurse"]
+)
+def test_v1d_rn_and_charge_nurse_are_registered_nurses(
+    monkeypatch: pytest.MonkeyPatch, role: str
+) -> None:
+    assert _soc_calls(monkeypatch, role) == ["29-1141"]
+
+
 from tests.test_roles_audit_fixes import (  # noqa: E402,F401
     _fanout,
     _generate_server,

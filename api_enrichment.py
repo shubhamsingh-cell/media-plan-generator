@@ -224,6 +224,8 @@ SOC_CODES: Dict[str, str] = {
     "product designer": "27-1024",
     "nurse": "29-1141",
     "registered nurse": "29-1141",
+    "rn": "29-1141",
+    "charge nurse": "29-1141",
     "physician": "29-1218",
     "physician assistant": "29-1071",
     "pharmacist": "29-1051",
@@ -2239,6 +2241,24 @@ _EXACT_ONLY_SOC_TITLES = frozenset(
     }
 )
 
+# Titles whose SOC_CODES entry names a materially different occupation than the
+# role (BLS OEWS has no SOC of their own): Physician -> 29-1218 Obstetricians
+# and Gynecologists, UX Designer -> Graphic Designers, Account Manager -> Sales
+# Managers, Data Analyst -> Data Scientists, DevOps/SRE/Cloud -> Network and
+# Computer Systems Administrators. BLS wages blend into the client salary, so
+# these get no BLS wage (the benchmark stays) rather than a neighbour's wage.
+_BLS_NO_WAGE_TITLES = frozenset(
+    {
+        "physician",
+        "ux designer",
+        "account manager",
+        "data analyst",
+        "devops engineer",
+        "site reliability engineer",
+        "cloud engineer",
+    }
+)
+
 # Fail-closed role -> SOC matching. A known title is accepted inside a longer
 # role only when it appears as a contiguous run of WHOLE words and every other
 # word of the role is a modifier that changes seniority, schedule or setting but
@@ -2385,7 +2405,7 @@ def _soc_for_role_by_title_run(role_lower: str) -> str:
     best_len = 0
     best_codes: set = set()
     for title, code in SOC_CODES.items():
-        if title in _EXACT_ONLY_SOC_TITLES:
+        if title in _EXACT_ONLY_SOC_TITLES or title in _BLS_NO_WAGE_TITLES:
             continue
         title_tokens = _soc_tokens(title)
         if len(title_tokens) < best_len:
@@ -2405,7 +2425,7 @@ def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
 
     for role in roles:
         role_lower = role.strip().lower()
-        soc = SOC_CODES.get(role_lower)
+        soc = "" if role_lower in _BLS_NO_WAGE_TITLES else SOC_CODES.get(role_lower)
         if not soc:
             # A known title inside the role ("Senior Software Engineer"), under
             # the fail-closed modifier allowlist above. Never the reverse
