@@ -610,3 +610,17 @@ def test_berlin_bundle_says_one_thing_about_its_cost_per_hire_basis():
     assert est["hire_basis"]["basis"] == "local_kb" and "Eurojob-Consulting" in label
     # the wizard's label is the one the checklist prints
     assert label in review
+
+
+def test_checklist_names_the_kb_row_or_default_when_the_industry_has_no_table_row():
+    row = {"basis": "us_benchmark", "industry_matched": False,
+           "display_row": {"text": "$3,000-$5,000 (food manufacturing)", "mid": 4000.0}}
+    plan = _plan()
+    plan["_budget_allocation"] = {"metadata": {"industry_cph": row}}
+    first = plan_trust.review_items(plan)[0]
+    assert "knowledge base's '$3,000-$5,000 (food manufacturing)' row" in first
+    assert "Nova's assumed industry cost-per-hire table" not in first
+    plan["_budget_allocation"] = {"metadata": {"industry_cph": {"basis": "us_benchmark", "industry_matched": False}}}
+    assert "cross-industry default (Nova working estimate)" in plan_trust.review_items(plan)[0]
+    plan["_budget_allocation"] = {"metadata": {"industry_cph": {"basis": "us_benchmark", "industry_matched": True}}}
+    assert "Nova's assumed industry cost-per-hire table" in plan_trust.review_items(plan)[0]

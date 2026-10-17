@@ -2414,4 +2414,26 @@ def test_a_cited_local_basis_is_named_and_never_called_the_nova_table():
     assert "Eurojob-Consulting" in ins and "Nova table" not in ins and "assumed" not in ins
     # the pane line drops "the table has no external source" for a cited basis
     pane = js_block(PREVIEW, "function paintOutcomes(")
-    assert 'basis === "local_kb" ? "." : "; the table has no external source."' in pane
+    assert 'basis !== "nova_table" ? "." : "; the table has no external source."' in pane
+
+
+@needs_node
+def test_a_kb_row_basis_is_named_in_the_wizard_without_the_nova_table_claim():
+    label = ("Nova working estimate from the knowledge base's '$3,000-$5,000 (food manufacturing)' row "
+             "(floor: half the cross-industry default)")
+    hb = {"midpoint_cph": 4000.0, "floor_cph": 3000.0, "basis": "kb_row", "sources": [], "label": label}
+    proj = {"hires": {"low": 30, "mid": 40, "high": 40}}
+    text = run_node(
+        "\n".join(
+            [
+                "function sym() { return '$'; }",
+                "function trim(x, d) { return Number(x.toFixed(d)).toString(); }",
+                js_block(PREVIEW, "function hireBasisText("),
+                f"process.stdout.write(JSON.stringify(hireBasisText({json.dumps({'hire_basis': hb, 'projection': proj})})));",
+            ]
+        )
+    )
+    assert "food manufacturing" in text and "$4K" in text
+    assert "Nova table" not in text and "all-in" not in text
+    ins = _insights("", 10, 30.0, hire_basis=hb, projection=proj)[0]
+    assert "food manufacturing" in ins and "Nova table" not in ins and "all-in" not in ins

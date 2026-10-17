@@ -609,17 +609,16 @@ def ranges_from_engine_result(
     _basis = cph_basis(icph)
     if us_tag:
         basis_src = "the US cost-per-hire benchmark (US benchmark \u2014 no local data)"
-    elif _basis["kind"] == "local_kb":
-        basis_src = "the " + _basis["label"]
     else:
-        basis_src = "Nova's cost-per-hire table"
+        basis_src = _basis["phrase"]
     assumptions: Dict[str, Any] = {
         "client_hire_history": False,
         "hires_basis": (
             f"Estimated, not forecast: budget divided by the industry cost per hire from {basis_src}"
             + (
                 f" (low end at the industry average {_money(avg, symbol)}, high end at "
-                f"the plan-efficiency floor {_money(floor, symbol)} = half that average)"
+                f"the plan-efficiency floor {_money(floor, symbol)} = "
+                f"{_floor_basis(icph, _basis, avg, floor)})"
                 if basis_ok
                 else ""
             )
@@ -633,8 +632,8 @@ def ranges_from_engine_result(
                 "the US benchmark \u2014 no local data"
                 if us_tag
                 else (
-                    "the " + _basis["label"]
-                    if _basis["kind"] == "local_kb"
+                    _basis["phrase"]
+                    if _basis["kind"] != "nova_table"
                     else "Nova's INDUSTRY_CPH_RANGES table"
                 )
             )
@@ -892,23 +891,57 @@ NOVA_TABLE_BASIS_LABEL = "assumed all-in industry cost per hire (Nova table, uns
 
 def cph_basis(icph: Any) -> Dict[str, Any]:
     """What the hires figures divide the budget by, named from the resolver's
-    own ``industry_cph`` dict (budget_engine.resolve_industry_cph): the cited
-    local range / median when ``basis`` is ``local_kb`` (its ``source_names``),
-    else Nova's own all-in INDUSTRY_CPH_RANGES table (no external source).
-    The one wording the wizard, the workbook / deck checklist and the
-    assumptions block all read, so the three can never disagree."""
+    own ``industry_cph`` dict (budget_engine.resolve_industry_cph):
+
+    * ``local_kb``  -- a cited local range / median (its ``source_names``);
+    * ``kb_row``    -- the industry has no INDUSTRY_CPH_RANGES row, so the
+      figure is the knowledge base's own row for it (``display_row``);
+    * ``cross_industry_default`` -- no row of either kind: the default range;
+    * ``nova_table`` -- the industry IS in Nova's all-in INDUSTRY_CPH_RANGES
+      table (no external source).
+
+    ``label`` names the basis; ``phrase`` is the same with its article, for use
+    mid-sentence. The wizard, the workbook / deck checklist and the assumptions
+    block all read this one function, so they can never disagree."""
     icph = icph if isinstance(icph, dict) else {}
     if str(icph.get("basis") or "") == "local_kb":
         names = [str(n) for n in (icph.get("source_names") or []) if str(n).strip()]
         word = "median" if icph.get("value_label") == "median" else "midpoint"
         src = f" ({', '.join(names)})" if names else ""
+        label = f"cited local cost-per-hire range {word}{src}"
+        return {"kind": "local_kb", "word": word, "sources": names, "label": label, "phrase": "the " + label}
+    if icph.get("industry_matched") is False:
+        row = icph.get("display_row") if isinstance(icph.get("display_row"), dict) else {}
+        text = str(row.get("text") or "").strip()
+        if text:
+            label = (
+                f"Nova working estimate from the knowledge base's '{text}' row "
+                "(floor: half the cross-industry default)"
+            )
+            return {"kind": "kb_row", "word": "midpoint", "sources": [], "label": label, "phrase": "a " + label}
+        label = "cross-industry default (Nova working estimate)"
         return {
-            "kind": "local_kb",
-            "word": word,
-            "sources": names,
-            "label": f"cited local cost-per-hire range {word}{src}",
+            "kind": "cross_industry_default", "word": "midpoint", "sources": [],
+            "label": label, "phrase": "the " + label,
         }
-    return {"kind": "nova_table", "word": "midpoint", "sources": [], "label": NOVA_TABLE_BASIS_LABEL}
+    return {
+        "kind": "nova_table", "word": "midpoint", "sources": [], "label": NOVA_TABLE_BASIS_LABEL,
+        "phrase": "Nova's cost-per-hire table",
+    }
+
+
+def _floor_basis(icph: Any, basis: Dict[str, Any], avg: Any, floor: Any) -> str:
+    """The floor (high end of the hires range) by its REAL basis -- "= half that
+    average" only when it is half the average shown."""
+    if isinstance(avg, (int, float)) and isinstance(floor, (int, float)) and avg > 0:
+        if abs(floor - avg / 2.0) <= max(0.5, 0.005 * avg):
+            return "half that average"
+    icph = icph if isinstance(icph, dict) else {}
+    if icph.get("floor_rule") == "cited_low_end":
+        return "the cited range's low end"
+    if basis["kind"] == "kb_row":
+        return "half the cross-industry default"
+    return "the engine's cost-per-hire floor"
 
 
 def public_view(proj: Dict[str, Any]) -> Dict[str, Any]:

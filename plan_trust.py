@@ -407,8 +407,8 @@ def review_items(
         meta0 = alloc0.get("metadata") if isinstance(alloc0, dict) else None
         icph0 = meta0.get("industry_cph") if isinstance(meta0, dict) else None
         basis0 = plan_projection.cph_basis(icph0)
-        if basis0["kind"] == "local_kb":
-            what = f"the {basis0['label']}; media budget divided by that figure"
+        if basis0["kind"] != "nova_table":
+            what = f"{basis0['phrase']}; media budget divided by that figure"
         else:
             what = (
                 "Nova's assumed industry cost-per-hire table (an all-in figure, "

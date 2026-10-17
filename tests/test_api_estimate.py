@@ -290,6 +290,38 @@ def test_hire_basis_follows_the_resolvers_source() -> None:
     assert dallas["label"] == "assumed all-in industry cost per hire (Nova table, unsourced)"
 
 
+def test_hire_basis_for_an_industry_with_no_table_row_names_the_kb_row() -> None:
+    """Agriculture and Food & Beverage have no INDUSTRY_CPH_RANGES row: the
+    $4,000 midpoint is the knowledge base's food-manufacturing row and the
+    $3,000 floor is half the cross-industry default -- not "Nova table" and not
+    "half that average". Nonprofit IS in the table and keeps the Nova wording."""
+    import plan_projection
+
+    for industry, loc in (("Agriculture", "Fresno, CA"), ("Food & Beverage", "Dallas, TX")):
+        est = app._compute_plan_estimate(
+            {"budget": "$120,000", "roles": ["Farm Hand"], "industry": industry, "locations": [loc]}
+        )
+        hb = est["hire_basis"]
+        assert hb["basis"] == "kb_row", industry
+        assert "food manufacturing" in hb["label"] and "knowledge base" in hb["label"]
+        assert "Nova table" not in hb["label"] and "unsourced" not in hb["label"]
+        assert (hb["midpoint_cph"], hb["floor_cph"]) == (4000.0, 3000.0)
+        sentence = est["projection"]["assumptions"]["hires_basis"]
+        assert "Nova's cost-per-hire table" not in sentence
+        assert "$3,000 = half the cross-industry default" in sentence
+        assert "= half that average" not in sentence  # half of $4,000 is $2,000
+    nonprofit = app._compute_plan_estimate(
+        {"budget": "$120,000", "roles": ["Case Worker"], "industry": "Nonprofit", "locations": ["Dallas, TX"]}
+    )
+    assert nonprofit["hire_basis"]["basis"] == "nova_table"
+    assert "= half that average" in nonprofit["projection"]["assumptions"]["hires_basis"]
+    # no row of any kind: the cross-industry default, said as such
+    bare = plan_projection.cph_basis({"basis": "us_benchmark", "industry_matched": False})
+    assert bare["kind"] == "cross_industry_default"
+    assert bare["label"] == "cross-industry default (Nova working estimate)"
+    assert plan_projection.cph_basis({"basis": "us_benchmark", "industry_matched": True})["kind"] == "nova_table"
+
+
 def test_manpower_brief_reproduces_prod_incident_numbers() -> None:
     """The exact numbers verified on prod 2026-07-12: 48 hires at $3,125
     CPH for the Manpower-AmeriGas brief -- NOT the naive JS estimator's
