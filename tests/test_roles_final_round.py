@@ -159,6 +159,110 @@ def test_v1b_seniority_and_setting_modifiers_keep_their_mapping(
     assert _soc_calls(monkeypatch, role) == [soc]
 
 
+# Fail-closed role -> SOC: a known title is taken from a longer role only when
+# every OTHER word is an allowlisted seniority/schedule/setting modifier. The
+# verifier's 174-title probe found these wrong under the qualifier blocklist.
+# Codes read on https://www.bls.gov/oes/2025/may/oes_stru.htm.
+@pytest.mark.parametrize(
+    "role",
+    [
+        # nursing
+        "LPN Charge Nurse",
+        "Nursery Associate",
+        "Nurse Educator",
+        "Nurse Aide",
+        # trades helpers / apprentices are not journey-level
+        "Electrician Helper",
+        "Plumber Helper",
+        "Carpenter Helper",
+        "Plumber Apprentice",
+        # "server" is a waiter only as a bare title
+        "Server Administrator",
+        "Linux Server Administrator",
+        "SQL Server DBA",
+        # "security officer" is a guard only as a bare title
+        "Information Security Officer",
+        # recruiters are not software developers
+        "Software Engineering Recruiter",
+        "Technical Recruiter - Software Engineering",
+        "Pharmaceutical Sales Representative",
+        "Senior Sales Representative",
+    ],
+)
+def test_v1c_unlisted_modifier_means_no_bls_wage(
+    monkeypatch: pytest.MonkeyPatch, role: str
+) -> None:
+    assert _soc_calls(monkeypatch, role) == []
+
+
+@pytest.mark.parametrize(
+    "role,soc",
+    [
+        ("CRNA", "29-1151"),
+        ("Nurse Anesthetist", "29-1151"),
+        ("Certified Registered Nurse Anesthetist", "29-1151"),
+        ("Travel CRNA", "29-1151"),
+        ("Nurse Midwife", "29-1161"),
+        ("Certified Nurse Midwife", "29-1161"),
+        ("Information Security Analyst", "15-1212"),
+    ],
+)
+def test_v1c_anesthetist_midwife_and_security_analyst_have_their_own_soc(
+    monkeypatch: pytest.MonkeyPatch, role: str, soc: str
+) -> None:
+    assert _soc_calls(monkeypatch, role) == [soc]
+
+
+@pytest.mark.parametrize(
+    "role,soc",
+    [
+        ("Travel Nurse", "29-1141"),
+        ("Per Diem Registered Nurse", "29-1141"),
+        ("ICU Registered Nurse", "29-1141"),
+        ("Med Surg Nurse", "29-1141"),
+        ("Labor and Delivery Nurse", "29-1141"),
+        ("Night Shift Registered Nurse", "29-1141"),
+        ("Registered Nurse Manager", "11-9111"),
+        ("Senior Software Engineer", "15-1252"),
+        ("Sr. Software Engineer II", "15-1252"),
+        ("Remote Software Engineer", "15-1252"),
+        ("Retail Sales Associate", "41-2031"),
+        ("Night Shift Warehouse Associate", "53-7065"),
+        ("Part Time Cashier", "41-2011"),
+        ("CDL A Truck Driver", "53-3032"),
+        ("OTR Truck Driver", "53-3032"),
+        ("Regional Sales Manager", "11-2022"),
+        ("Physician Assistant", "29-1071"),
+        ("Licensed Practical Nurse (LPN)", "29-2061"),
+    ],
+)
+def test_v1c_allowlisted_modifiers_keep_their_mapping(
+    monkeypatch: pytest.MonkeyPatch, role: str, soc: str
+) -> None:
+    assert _soc_calls(monkeypatch, role) == [soc]
+
+
+def test_v1c_specialty_words_are_scoped_to_nursing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # "care", "labor" and "school" whitelist nothing outside the nurse SOC.
+    assert _soc_calls(monkeypatch, "Care Software Engineer") == []
+    assert _soc_calls(monkeypatch, "Labor Electrician") == []
+    assert _soc_calls(monkeypatch, "School Cook") == []
+    # driver licence words are scoped to driver SOCs
+    assert _soc_calls(monkeypatch, "CDL Software Engineer") == []
+
+
+def test_v1c_the_longest_title_wins_and_disagreeing_ties_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # "nurse practitioner" (2 words) beats "nurse" (1 word)
+    assert _soc_calls(monkeypatch, "Senior Nurse Practitioner") == ["29-1171"]
+    monkeypatch.setitem(api_enrichment.SOC_CODES, "zz alpha", "11-1111")
+    monkeypatch.setitem(api_enrichment.SOC_CODES, "alpha zz", "22-2222")
+    assert _soc_calls(monkeypatch, "zz alpha zz") == []
+
+
 # --------------------------------------------------------------------- V2 ---
 
 from tests.test_roles_audit_fixes import (  # noqa: E402,F401
@@ -213,10 +317,11 @@ def _snapshot(port: int, query: str):
 
 def _reset_limiters() -> None:
     app._rate_limit_store.clear()
-    limiter = getattr(app, "_rl_snapshot", None)  # absent before the V3 fix
-    if limiter is not None:
-        with limiter._lock:
-            limiter._requests.clear()
+    for name in ("_rl_snapshot", "_rl_snapshot_daily"):
+        limiter = getattr(app, name, None)  # absent before the V3 fixes
+        if limiter is not None:
+            with limiter._lock:
+                limiter._requests.clear()
 
 
 @pytest.fixture
@@ -303,3 +408,46 @@ def test_v3_unsupported_location_sends_no_adzuna_request(
     assert status == 200
     assert snapshot_env["adzuna"].calls == []
     assert body.get("adzuna_unavailable_reason")
+
+
+def test_v3_adzuna_spend_has_a_per_ip_daily_cap(
+    monkeypatch: pytest.MonkeyPatch, _generate_server: int, snapshot_env
+) -> None:
+    # One IP must not drain the 200/day shared Adzuna cap: 20 snapshots a day.
+    assert app._SNAPSHOT_DAILY_MAX == 20
+    monkeypatch.setattr(app, "_SNAPSHOT_DAILY_MAX", 3)
+    bodies = []
+    for i in range(5):
+        _reset_minute_window()
+        status, body = _snapshot(_generate_server, f"role=Day{i}")
+        assert status == 200
+        bodies.append(body)
+    spent_roles = {c[1] for c in snapshot_env["adzuna"].calls}
+    assert len(spent_roles) == 3, spent_roles
+    assert "adzuna_job_count" in bodies[2]
+    assert "adzuna_job_count" not in bodies[3]
+    assert "daily limit" in bodies[3]["adzuna_unavailable_reason"]
+
+
+def _reset_minute_window() -> None:
+    with app._rl_snapshot._lock:
+        app._rl_snapshot._requests.clear()
+
+
+def test_v3_daily_cap_is_a_rolling_24h_window(
+    monkeypatch: pytest.MonkeyPatch, _generate_server: int, snapshot_env
+) -> None:
+    import time as _time
+
+    now = _time.time()
+    with app._rl_snapshot_daily._lock:
+        # 20 spends two hours ago still count; the same 20 from 25 h ago do not
+        app._rl_snapshot_daily._requests["127.0.0.1"] = [now - 7200] * 20
+    status, body = _snapshot(_generate_server, "role=Rolling1")
+    assert status == 200 and "adzuna_job_count" not in body
+    assert "daily limit" in body["adzuna_unavailable_reason"]
+    with app._rl_snapshot_daily._lock:
+        app._rl_snapshot_daily._requests["127.0.0.1"] = [now - 25 * 3600] * 20
+    _reset_minute_window()
+    status, body = _snapshot(_generate_server, "role=Rolling2")
+    assert status == 200 and "adzuna_job_count" in body

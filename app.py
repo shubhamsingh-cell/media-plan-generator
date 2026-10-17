@@ -10819,6 +10819,12 @@ _rl_portal = RateLimiter()  # /api/portal/* -- 20 req/min
 _rl_general = RateLimiter()  # all other /api/* POST routes -- 30 req/min
 _rl_copilot = RateLimiter()  # /api/copilot/* -- 30 req/min (lightweight)
 _rl_snapshot = RateLimiter()  # market-snapshot Adzuna spend -- 5 req/min
+# Separate instance (its 86400 s window must not share timestamps with the
+# 60 s one): caps one IP at 20 snapshot Adzuna spends/day so a single client
+# cannot drain the 200/day shared Adzuna quota. Not cleanup()-ed -- cleanup
+# drops entries idle for 5 minutes, which would reset a day-long window.
+_rl_snapshot_daily = RateLimiter()
+_SNAPSHOT_DAILY_MAX = 20
 _rl_estimate = RateLimiter()  # /api/estimate -- 60 req/min (debounced live preview)
 
 # ── Concurrent /api/generate cap ──
@@ -17217,6 +17223,15 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                             _s_az_country = ""
                             _snapshot["adzuna_unavailable_reason"] = (
                                 "rate limited; try again in a minute"
+                            )
+                        elif _s_az_country and not _rl_snapshot_daily.is_allowed(
+                            self._get_client_ip(),
+                            max_requests=_SNAPSHOT_DAILY_MAX,
+                            window_seconds=86400,
+                        ):
+                            _s_az_country = ""
+                            _snapshot["adzuna_unavailable_reason"] = (
+                                "daily limit reached; try again tomorrow"
                             )
                         if _s_az_country:
                             _snapshot["adzuna_scope"] = {

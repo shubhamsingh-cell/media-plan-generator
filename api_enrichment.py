@@ -238,6 +238,12 @@ SOC_CODES: Dict[str, str] = {
     "lpn": "29-2061",
     "lvn": "29-2061",
     "nurse manager": "11-9111",
+    # 29-1151 Nurse Anesthetists, 29-1161 Nurse Midwives (same OES page).
+    "nurse anesthetist": "29-1151",
+    "certified registered nurse anesthetist": "29-1151",
+    "crna": "29-1151",
+    "nurse midwife": "29-1161",
+    "certified nurse midwife": "29-1161",
     "physical therapist assistant": "31-2021",
     "dentist": "29-1021",
     "medical technologist": "29-2011",
@@ -2233,41 +2239,164 @@ _EXACT_ONLY_SOC_TITLES = frozenset(
     }
 )
 
-# Words that change WHICH occupation a title names. "Nurse" inside "Licensed
-# Practical Nurse", "teacher" inside "Teacher Assistant" or "software engineer"
-# inside "Software Engineer Manager" is a different SOC with a different wage
-# (an intern or trainer is not paid the journey-level median). Seniority and
-# setting words (senior, travel, retail) are deliberately absent.
-_SOC_QUALIFIER_WORDS = frozenset(
+# Fail-closed role -> SOC matching. A known title is accepted inside a longer
+# role only when it appears as a contiguous run of WHOLE words and every other
+# word of the role is a modifier that changes seniority, schedule or setting but
+# not the occupation. Anything else ("Nurse" in "Nursery Associate", "Server" in
+# "SQL Server Administrator", "Electrician" in "Electrician Helper", "Recruiter"
+# in "Software Engineering Recruiter") yields no BLS wage rather than a wrong
+# one. The allowlist is the opposite of a blocklist: an unlisted word blocks.
+_SOC_HARMLESS_MODIFIERS = frozenset(
     {
-        "manager",
-        "director",
-        "supervisor",
-        "head",
-        "chief",
-        "assistant",
-        "aide",
-        "technician",
-        "tech",
-        "practitioner",
-        "practical",
-        "vocational",
-        "intern",
-        "internship",
-        "apprentice",
-        "trainee",
-        "trainer",
-        "instructor",
-        "coordinator",
+        # seniority / wage-neutral level
+        "senior",
+        "sr",
+        "junior",
+        "jr",
+        "entry",
+        "level",
+        "experienced",
+        "staff",
+        "i",
+        "ii",
+        "iii",
+        "iv",
+        "1",
+        "2",
+        "3",
+        # schedule / contract type
+        "travel",
+        "traveling",
+        "travelling",
+        "night",
+        "nights",
+        "day",
+        "days",
+        "evening",
+        "weekend",
+        "weekends",
+        "shift",
+        "overnight",
+        "swing",
+        "per",
+        "diem",
+        "prn",
+        "part",
+        "full",
+        "time",
+        "ft",
+        "pt",
+        "temporary",
+        "temp",
+        "contract",
+        "seasonal",
+        # setting / geography
+        "remote",
+        "hybrid",
+        "onsite",
+        "local",
+        "regional",
+        "retail",
+        "store",
+        "hospital",
+        "bilingual",
     }
 )
 
+# Driver licence / route words, valid only next to a driver title ("a" and "b"
+# mean nothing elsewhere).
+_SOC_DRIVER_MODIFIERS = frozenset({"cdl", "class", "a", "b", "c", "otr"})
 
-def _title_match_changes_occupation(title: str, role_lower: str) -> bool:
-    """True when ``role_lower`` carries a qualifier word that ``title`` lacks."""
-    role_words = set(re.findall(r"[a-z]+", role_lower))
-    title_words = set(re.findall(r"[a-z]+", title))
-    return bool((role_words & _SOC_QUALIFIER_WORDS) - title_words)
+# Extra modifiers scoped to ONE SOC, so "care" or "labor" whitelists nothing
+# outside nursing. RN specialties are still 29-1141.
+_SOC_EXTRA_MODIFIERS: Dict[str, frozenset] = {
+    "29-1141": frozenset(
+        {
+            "rn",
+            "icu",
+            "nicu",
+            "picu",
+            "ccu",
+            "pacu",
+            "er",
+            "ed",
+            "emergency",
+            "room",
+            "or",
+            "operating",
+            "med",
+            "surg",
+            "surgical",
+            "telemetry",
+            "tele",
+            "pediatric",
+            "peds",
+            "oncology",
+            "labor",
+            "and",
+            "delivery",
+            "l",
+            "d",
+            "psych",
+            "psychiatric",
+            "behavioral",
+            "dialysis",
+            "cardiac",
+            "critical",
+            "care",
+            "hospice",
+            "clinic",
+            "school",
+        }
+    ),
+    "29-2061": frozenset({"licensed", "practical", "vocational", "lpn", "lvn"}),
+    "11-9111": frozenset({"registered"}),
+    "53-3032": _SOC_DRIVER_MODIFIERS,
+    "53-3031": _SOC_DRIVER_MODIFIERS,
+    "53-3052": _SOC_DRIVER_MODIFIERS,
+}
+
+
+def _soc_tokens(text: str) -> List[str]:
+    return re.findall(r"[a-z0-9]+", (text or "").lower())
+
+
+def _title_run_with_harmless_rest(
+    title_tokens: List[str], role_tokens: List[str], allowed: frozenset
+) -> bool:
+    """True when ``title_tokens`` is a contiguous whole-word run of
+    ``role_tokens`` and every remaining role word is in ``allowed``."""
+    n = len(title_tokens)
+    if not n:
+        return False
+    for i in range(len(role_tokens) - n + 1):
+        if role_tokens[i : i + n] != title_tokens:
+            continue
+        rest = role_tokens[:i] + role_tokens[i + n :]
+        if all(tok in allowed for tok in rest):
+            return True
+    return False
+
+
+def _soc_for_role_by_title_run(role_lower: str) -> str:
+    """SOC for the longest known title that ``role_lower`` carries with only
+    harmless modifiers; "" when none, or when equally long titles disagree."""
+    role_tokens = _soc_tokens(role_lower)
+    best_len = 0
+    best_codes: set = set()
+    for title, code in SOC_CODES.items():
+        if title in _EXACT_ONLY_SOC_TITLES:
+            continue
+        title_tokens = _soc_tokens(title)
+        if len(title_tokens) < best_len:
+            continue
+        allowed = _SOC_HARMLESS_MODIFIERS | _SOC_EXTRA_MODIFIERS.get(code, frozenset())
+        if not _title_run_with_harmless_rest(title_tokens, role_tokens, allowed):
+            continue
+        if len(title_tokens) > best_len:
+            best_len, best_codes = len(title_tokens), set()
+        best_codes.add(code)
+    return next(iter(best_codes)) if len(best_codes) == 1 else ""
 
 
 def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
@@ -2278,22 +2407,12 @@ def fetch_salary_data(roles: List[str]) -> Dict[str, Any]:
         role_lower = role.strip().lower()
         soc = SOC_CODES.get(role_lower)
         if not soc:
-            # A known title contained in the role ("Senior Software Engineer").
-            # Never the reverse direction: a bare "Manager" or "Associate" is
-            # contained in many titles and picked the first one (Product
-            # Manager 11-2021, Warehouse Associate 53-7065).
-            for title, code in SOC_CODES.items():
-                if title in _EXACT_ONLY_SOC_TITLES:
-                    continue
-                if title in role_lower:
-                    if _title_match_changes_occupation(title, role_lower):
-                        _log_warn(
-                            f"SOC match '{title}' rejected for role '{role}': "
-                            "occupation-changing qualifier"
-                        )
-                        continue
-                    soc = code
-                    break
+            # A known title inside the role ("Senior Software Engineer"), under
+            # the fail-closed modifier allowlist above. Never the reverse
+            # direction: a bare "Manager" or "Associate" is contained in many
+            # titles and picked the first one (Product Manager 11-2021,
+            # Warehouse Associate 53-7065).
+            soc = _soc_for_role_by_title_run(role_lower)
         # No word-overlap fallback: one shared word ("associate", "manager",
         # "service") used to pick the first matching SOC, which mapped Sales
         # Associate -> Sales Managers, Store Manager -> Marketing Managers and
