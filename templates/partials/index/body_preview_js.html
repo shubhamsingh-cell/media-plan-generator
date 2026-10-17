@@ -137,6 +137,16 @@
       if (ranged && hb.floor_cph > 0) return "low end at " + base + ", high end at " + k(hb.floor_cph);
       return "at " + base;
     }
+    // The budget still needed to reach the hire target. With the server's
+    // assumed cost per hire (hire_basis) it is target x that cost - budget:
+    // a fixed figure for a given target, not one that grows with the budget
+    // typed (total * (target / hires - 1), the fallback when the server sent
+    // no basis, scales with the budget because hires do).
+    function budgetGap(m, est, hiHigh) {
+      var hb = est && est.hire_basis;
+      if (hb && hb.midpoint_cph > 0) return Math.max(0, m.targetHires * hb.midpoint_cph - m.total);
+      return m.total * (m.targetHires / hiHigh - 1);
+    }
     // Applications are a directional model output: to the nearest 10 from 100
     // up ("2,020", not "2,016" -- whole units implied precision the estimate
     // does not have). Hires, a small count, stay exact.
@@ -546,8 +556,9 @@
         var shown = hiresTxt || String(intc(est.est_hires));
         if (m.targetHires > hiHi) {
           // even the optimistic end falls short
-          var gap = m.total * (m.targetHires / hiHi - 1);
-          ins.push({ tone: "warn", text: "Budget supports an estimated <b>" + escapeHtml(shown) + " hires</b> against your " + goalText(m) + " — consider raising budget by ~<b>" + hero(gap) + "</b> or narrowing scope." });
+          var gap = budgetGap(m, est, hiHi);
+          var gapBasis = hireBasisText(est);
+          ins.push({ tone: "warn", text: "Budget supports an estimated <b>" + escapeHtml(shown) + " hires</b> against your " + goalText(m) + " — consider raising budget by ~<b>" + hero(gap) + "</b> or narrowing scope." + (gapBasis ? " Hires: " + escapeHtml(gapBasis) + "." : "") });
         } else if (m.targetHires <= hiLo) {
           // No green reassurance: the count rests on an assumed all-in cost per
           // hire, so the sentence either names that figure or claims nothing.
@@ -617,6 +628,22 @@
     // It used to fall back to the empty hint on every edit (fetchEstimate
     // clears latestEstimate), so the hint read "set a budget" for the whole
     // typing burst + debounce + round trip with a budget already set.
+    // The sticky bar grows with its basis line, and scroll targets must clear
+    // it: scroll-margin-top reads --np-bar-h, the bar's RENDERED height (kept
+    // in sync here on every paint, on resize and once fonts settle). Unset or
+    // while the bar is hidden (desktop), the CSS falls back to its 46px row.
+    function syncEstimateBarHeight() {
+      var bar = $("npEstimateBar");
+      var root = document.documentElement;
+      if (!bar || !root || !root.style) return;
+      var h = bar.offsetHeight;
+      if (h > 0) root.style.setProperty("--np-bar-h", h + "px");
+      else root.style.removeProperty("--np-bar-h");
+    }
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("resize", syncEstimateBarHeight);
+      window.addEventListener("load", syncEstimateBarHeight);
+    }
     function paintEstimateBar(m) {
       var bar = $("npEstimateBar");
       if (!bar) return;
@@ -686,6 +713,7 @@
         label = "Plan estimate: set a budget and a role to see it." + tail;
       }
       bar.setAttribute("aria-label", label);
+      syncEstimateBarHeight();
     }
     // Tap on the bar: bring the full preview into view (instant under
     // prefers-reduced-motion) and move focus there for keyboard users.
@@ -732,7 +760,9 @@
         goal: goalText(m),
         cph: txt && txt.cph && txt.cph !== "n/a" ? txt.cph : hero(est.est_cph),
         ranged: !!(txt && txt.hires),
-        gap: hero(m.total * (m.targetHires / hiHigh - 1)),
+        gap: hero(budgetGap(m, est, hiHigh)),
+        // what the hire counts and the gap rest on ("" when the server sent none)
+        basis: hireBasisText(est),
       };
     }
 

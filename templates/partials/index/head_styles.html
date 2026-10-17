@@ -5644,7 +5644,7 @@
   @media (max-width: 1080px) {
     #planDashboardSection,
     #heroStatSection {
-      scroll-margin-top: 112px;
+      scroll-margin-top: calc(58px + var(--np-bar-h, 46px) + 8px);
     }
   }
   .studio .reveal-on-scroll {
@@ -6817,7 +6817,7 @@
       border-top: 1px solid var(--np-hair);
       padding: 18px clamp(16px, 4vw, 40px) 96px;
       /* land below the sticky top bar + estimate bar when scrolled to */
-      scroll-margin-top: 112px;
+      scroll-margin-top: calc(58px + var(--np-bar-h, 46px) + 8px);
     }
     .np-card {
       max-width: 560px;

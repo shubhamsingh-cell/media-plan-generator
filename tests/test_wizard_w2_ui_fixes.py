@@ -1096,6 +1096,7 @@ function hero(v) { return '$' + Math.round(v / 1000) + 'K'; }
 function intc(v) { return Math.round(v).toLocaleString('en-US'); }
 function appsFmt(v) { return (v >= 100 ? Math.round(v / 10) * 10 : Math.round(v)).toLocaleString('en-US'); }
 function cpaFmt(v) { return '$' + Math.round(v); }
+var document = { documentElement: { style: { setProperty: function (k, v) { attrs[k] = v; }, removeProperty: function (k) { delete attrs[k]; } } } };
 function sym() { return '$'; }
 function trim(x, d) { return Number(x.toFixed(d)).toString(); }
 function figs() { var o = {}; Object.keys(texts).forEach(function (k) { if (k !== 'nebBasis') o[k] = texts[k].textContent; }); return o; }
@@ -1112,6 +1113,7 @@ def _bar_script(body: str) -> dict:
                 _BAR_STUB,
                 js_block(PREVIEW, "function estimateFor("),
                 js_block(PREVIEW, "function hireBasisText("),
+                js_block(PREVIEW, "function syncEstimateBarHeight("),
                 js_block(PREVIEW, "function paintEstimateBar("),
                 body,
                 "process.stdout.write(JSON.stringify(out));",
@@ -1440,6 +1442,8 @@ function gather() { return { total: __TOTAL__, targetHires: __TARGET__, goalRang
 function estimatePayload(m) { return m.inputs; }
 function hero(v) { return '$' + Math.round(v / 1000) + 'K'; }
 function intc(v) { return Math.round(v).toLocaleString('en-US'); }
+function sym() { return '$'; }
+function trim(x, d) { return Number(x.toFixed(d)).toString(); }
 """
 
 
@@ -1453,6 +1457,8 @@ def _engine_feasibility(est, total, target, goal_range="", estimate_for_budget=N
             .replace("__RANGE__", goal_range),
             js_block(PREVIEW, "function estimateFor("),
             js_block(PREVIEW, "function goalText("),
+            js_block(PREVIEW, "function hireBasisText("),
+            js_block(PREVIEW, "function budgetGap("),
             js_block(PREVIEW, "function feasibility("),
             "process.stdout.write(JSON.stringify(feasibility()));",
         ]
@@ -1575,7 +1581,7 @@ def test_post_generation_scroll_target_clears_the_sticky_stack():
         b
         for blk in _media_blocks(STYLES, "@media (max-width: 1080px)")
         for b in _rule_bodies(blk, "#planDashboardSection")
-        if "scroll-margin-top: 112px" in b
+        if "scroll-margin-top: calc(58px + var(--np-bar-h, 46px) + 8px)" in b
     ]
     assert wide and narrow
 
@@ -1765,6 +1771,8 @@ def _insights(goal_range: str, target: int, est_hires: float, est_cph: float = 3
         [
             _INSIGHT_STUB,
             js_block(PREVIEW, "function goalText("),
+            js_block(PREVIEW, "function hireBasisText("),
+            js_block(PREVIEW, "function budgetGap("),
             js_block(PREVIEW, "function computeInsights("),
             f"process.stdout.write(JSON.stringify(computeInsights({json.dumps(m)}, "
             f"{{ est_hires: {est_hires}, est_cph: {json.dumps(est_cph)}, cph_benchmark: {json.dumps(benchmark)}"
@@ -1796,6 +1804,8 @@ def test_the_q1_seasonality_insight_quotes_no_unsourced_percentage():
         [
             _INSIGHT_STUB,
             js_block(PREVIEW, "function goalText("),
+            js_block(PREVIEW, "function hireBasisText("),
+            js_block(PREVIEW, "function budgetGap("),
             js_block(PREVIEW, "function computeInsights("),
             f"process.stdout.write(JSON.stringify(computeInsights({json.dumps(m)}, null)"
             ".map(function (i) { return i.text; })));",
@@ -2316,3 +2326,57 @@ def test_estimate_bar_states_the_basis_beside_the_hires_range():
     assert got["basis"] == ""
     # and the pane's basis line reads the same helper
     assert "hireBasisText(est)" in js_block(PREVIEW, "function paintOutcomes(")
+
+
+# -- Budget Reality Check: basis clause + a target-based gap ------------------
+
+_FEAS_BASIS_EST = {
+    "est_hires": 6.0,
+    "est_cph": 5645,
+    "hire_basis": _HIRE_BASIS,
+    "projection": {"hires": {"low": 3, "mid": 6, "high": 6}},
+}
+
+
+@needs_node
+def test_reality_check_banner_carries_the_hire_basis_clause():
+    basis = "low end at an assumed $10.5K all-in cost per hire (Nova table), high end at $5.25K"
+    html = _feas(dict(_FEAS_FIGURES, basis=basis))["html"]
+    assert "Hires: " + basis + "." in html
+    _no_us_only_marker(html)
+    # the server sent no basis: nothing is invented
+    assert "Hires: " not in _feas(_FEAS_FIGURES)["html"]
+    # and the same helper words it in the engine's feasibility()
+    got = _engine_feasibility(_FEAS_BASIS_EST, 35000, 75)
+    assert got["basis"] == basis.replace("low end at ", "low end at ")  # range -> two-ended note
+    assert _engine_feasibility({"est_hires": 6.0, "est_cph": 5645}, 35000, 75)["basis"] == ""
+
+
+@needs_node
+def test_reality_check_gap_is_target_times_assumed_cost_minus_budget():
+    """The old gap, total * (target / hires - 1), GROWS as the budget typed
+    grows (hires scale with it); the dollars still needed for a fixed target
+    can only shrink."""
+    a = _engine_feasibility(_FEAS_BASIS_EST, 35000, 75)
+    assert a["gap"] == "$753K"  # 75 x 10,500 - 35,000 = 752,500
+    big = dict(_FEAS_BASIS_EST, est_hires=12.0, projection={"hires": {"low": 6, "mid": 12, "high": 12}})
+    b = _engine_feasibility(big, 70000, 75)
+    assert b["gap"] == "$718K"  # 75 x 10,500 - 70,000 = 717,500
+    # without a basis the engine's own hires drive it (legacy behaviour)
+    legacy = _engine_feasibility({"est_hires": 6.0, "est_cph": 5645}, 35000, 75)
+    assert legacy["gap"] == "$403K"
+    # the Nova insight quotes the same gap
+    ins = _insights("", 75, 6.0, hire_basis=_HIRE_BASIS, projection={"hires": {"low": 3, "mid": 6, "high": 6}})[0]
+    assert "$" in ins and "Hires: " in ins
+    _no_us_only_marker(ins)
+
+
+def test_sticky_offsets_read_the_bars_rendered_height():
+    """The basis line makes the bar taller than 46px; the scroll-margin offsets
+    that clear it follow the measured height (--np-bar-h), not a typed 112px."""
+    assert "112px" not in STYLES.split("#planDashboardSection", 1)[1][:400]
+    assert STYLES.count("calc(58px + var(--np-bar-h, 46px) + 8px)") == 2
+    block = js_block(PREVIEW, "function syncEstimateBarHeight(")
+    assert "offsetHeight" in block and "--np-bar-h" in block
+    assert "syncEstimateBarHeight();" in js_block(PREVIEW, "function paintEstimateBar(")
+    assert 'addEventListener("resize", syncEstimateBarHeight)' in PREVIEW

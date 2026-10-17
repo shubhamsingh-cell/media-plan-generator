@@ -728,7 +728,8 @@
         ".<br>" +
         "<strong>To get there:</strong> raise the budget by ~" +
         escapeHtml(f.gap) +
-        " or narrow the scope.";
+        " or narrow the scope." +
+        (f.basis ? "<br>Hires: " + escapeHtml(f.basis) + "." : "");
     }
 
     if (existing) {
