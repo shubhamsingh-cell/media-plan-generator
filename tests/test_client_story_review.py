@@ -101,13 +101,17 @@ def test_client_reason_never_emits_flags_scores_or_comparisons():
         "trend_pct_yoy": 9.2,
     }
     why = budget_engine.channel_reason_client(entry)
-    assert why == "10% of budget; market trending up 9% YoY"
+    assert why == "10% of budget"
     assert not BANNED.search(why)
 
 
-def test_client_reason_uses_trend_only_when_sourced_and_brand_rationale():
+def test_client_reason_uses_budget_share_and_brand_rationale_only():
     base = {"percentage": 20.8, "trend_direction": "rising", "trend_pct_yoy": 9.2}
     assert budget_engine.channel_reason_client(base) == "20.8% of budget"
+    # The trend engine's YoY is location-blind CPC inflation, not demand: never cite it.
+    sourced = dict(base, cpc_source="trend_engine")
+    assert budget_engine.channel_reason_client(sourced) == "20.8% of budget"
+    assert "trend" not in budget_engine.channel_reason_client(dict(sourced, trend_direction="falling"))
     brand = {"channel_role": "brand", "percentage": 5.0, "rationale": "Brand investment"}
     assert budget_engine.channel_reason_client(brand) == "5% of budget; Brand investment"
     # a rationale that smuggles in an internal comparison is dropped
