@@ -82,6 +82,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import adzuna_quota as _adzuna_quota
 import plan_geo as _plan_geo
 import plan_location as _plan_location
 import public_data_sources as _pds
@@ -1065,10 +1066,16 @@ _API_RATE_LIMITS: Dict[str, Dict[str, int]] = {
         "max_calls": 1000,
         "window_seconds": 3600,
     },  # 1000/hr -- curated local data, metered for parity
+    # Adzuna is metered per HTTP REQUEST, not per dispatch, by adzuna_quota
+    # (one shared counter for every Adzuna call site in the process: this
+    # module, api_integrations.AdzunaClient, market_signals, the health probe).
+    # This entry only mirrors the daily window for _rate_limit_status();
+    # _rate_limit_check/_rate_limit_record delegate (see _REQUEST_METERED).
+    # ToS per key: 250/day, 1,000/week, 2,500/month; caps are per worker, x4.
     "Adzuna": {
-        "max_calls": 120,
-        "window_seconds": 86400,
-    },  # 120/day -- free tier 5,000 requests/month (~166/day)
+        "max_calls": _adzuna_quota.DAILY_CAP,
+        "window_seconds": _adzuna_quota.DAILY_WINDOW_S,
+    },  # 20/day/worker (x4 workers = 80/day) -- plus 600/month/worker in adzuna_quota
     "Jooble": {
         "max_calls": 50,
         "window_seconds": 86400,
@@ -1086,12 +1093,22 @@ _API_RATE_LIMITS: Dict[str, Dict[str, int]] = {
 _rate_limiter_state: Dict[str, Dict[str, Any]] = {}
 _rate_limiter_lock = threading.Lock()
 
+# Labels whose quota is counted per HTTP request by a shared module rather than
+# once per dispatch here: the dispatch gate only asks "is the quota already
+# full?" (so the source is skipped with status "rate_limited" instead of
+# running and finding nothing) and never records -- the request sites do.
+_REQUEST_METERED: Dict[str, Any] = {"Adzuna": _adzuna_quota}
+
 
 def _rate_limit_check(api_name: str) -> bool:
     """
     Return True if the API has exceeded its proactive rate limit (should be skipped).
     Thread-safe. Automatically resets counter when the time window expires.
     """
+    metered = _REQUEST_METERED.get(api_name)
+    if metered is not None:
+        return metered.exhausted()
+
     limits = _API_RATE_LIMITS.get(api_name)
     if limits is None:
         return False  # No rate limit configured — allow
@@ -1117,7 +1134,7 @@ def _rate_limit_check(api_name: str) -> bool:
 
 def _rate_limit_record(api_name: str) -> None:
     """Increment call count for an API. Thread-safe."""
-    if api_name not in _API_RATE_LIMITS:
+    if api_name not in _API_RATE_LIMITS or api_name in _REQUEST_METERED:
         return
 
     now = time.time()
@@ -1142,6 +1159,8 @@ def _rate_limit_status() -> Dict[str, Dict[str, Any]]:
     status: Dict[str, Dict[str, Any]] = {}
     with _rate_limiter_lock:
         for api_name, limits in _API_RATE_LIMITS.items():
+            if api_name in _REQUEST_METERED:
+                continue  # reported below from the shared counter
             state = _rate_limiter_state.get(api_name)
             if state is None:
                 status[api_name] = {
@@ -1159,6 +1178,9 @@ def _rate_limit_status() -> Dict[str, Dict[str, Any]]:
                     "window_seconds": limits["window_seconds"],
                     "window_remaining_seconds": round(remaining, 1),
                 }
+    for api_name, metered in _REQUEST_METERED.items():
+        for window, window_status in metered.status().items():
+            status[f"{api_name}:{window}"] = window_status
     return status
 
 
@@ -2963,6 +2985,14 @@ def fetch_job_market(roles: List[str], locations: List[str]) -> Dict[str, Any]:
             }
         )
         url = f"https://api.adzuna.com/v1/api/jobs/{country}/search/1?{params}"
+
+        # One shared request counter for the key (adzuna_quota). Over quota:
+        # send nothing; this role gets no entry, so nothing here can read as
+        # a live pull (the dispatch gate already skips the source when the
+        # quota was full before the plan started).
+        if not _adzuna_quota.try_acquire():
+            _log_warn(f"Adzuna request quota reached; skipping live fetch for {role}")
+            continue
 
         try:
             resp = _http_get_json(url)
@@ -14568,23 +14598,37 @@ def _build_enrichment_summary(
 # ---------------------------------------------------------------------------
 # enrich_data() reads roles from ``roles`` / ``job_titles``, but the wizard
 # (and both /api/generate paths in app.py) send ``target_roles``, so none of
-# the sources below runs for a wizard plan (that read dates from 730a98c,
-# 2026-03-07; the 2026-10-16 audit found it). Aliasing
-# ``target_roles`` -> ``roles`` turns 17 more live calls on per plan. Two
-# preconditions for doing that by default did not hold on 2026-10-16:
-#   * no budget cut a slow one off: the 8 s cap (GEOPOLITICAL_TIMEOUT_
-#     DEFAULT_S) covered only the geopolitical LLM thread; this pool waited
-#     up to _ENRICHMENT_HARD_TIMEOUT (50 s) on 5 workers while holding
-#     _enrichment_semaphore, and app.py's 20 s outer deadline stopped
-#     waiting without cancelling a running or queued source;
-#   * only "BLS" was in _API_RATE_LIMITS -- the other 16 had no proactive
-#     limiter (circuit breaker on failures only).
-# Both are closed (2026-10-17): the request deadline (see set_deadline) ends
-# the semaphore and pool waits, skips queued sources and caps every HTTP
-# timeout, and every role source has a _API_RATE_LIMITS entry. The alias
-# stays opt-in -- env ENRICH_ROLE_SOURCES=1/true/yes/on enables it (read per
-# call) -- because flipping it is a production-config decision. While off,
-# each plan logs which sources it would have run.
+# the sources below ran for a wizard plan (that read dates from 730a98c,
+# 2026-03-07; the 2026-10-16 audit found it). Aliasing ``target_roles`` ->
+# ``roles`` turns 17 more live calls on per plan. The two structural
+# preconditions are closed (2026-10-17): the request deadline (see
+# set_deadline) ends the semaphore and pool waits, skips queued sources and
+# caps every HTTP timeout, and every role source has a _API_RATE_LIMITS entry.
+#
+# What is NOT safe is turning all 17 on. Measured 2026-10-17 on main:
+#   * CareerJet     opens a raw socket with a fixed 10 s timeout the deadline
+#                   does not cap; its output is unused and the timeout counted ok
+#   * DataUSA-Occ   its endpoint answers 404
+#   * Jooble        the key allows 500 requests LIFETIME and the limiter counts
+#                   dispatches (one dispatch = roles x locations POSTs)
+#   * GoogleAds     keyword CPC was used as the job-board/programmatic CPC (a
+#                   wrong proxy)
+#   * O*NET, CareerOneStop, DataUSA-Occ  their curated fallbacks lifted salary
+#                   confidence F->B without changing the figure
+#   * GoogleTrends, MetaAds, BingAds, TikTokAds, LinkedInAds, COS-Projections,
+#     H1B-Wages, H1B-Salary-Intel, RegionalLabour: not audited for live
+#                   value on 2026-10-17; they stay off until each is
+# So only BLS and Adzuna are on by default (DEFAULT_ROLE_SOURCE_LABELS).
+#
+# ENRICH_ROLE_SOURCES is an allowlist of dispatch labels, read per call:
+#   unset / empty                   -> DEFAULT_ROLE_SOURCE_LABELS
+#   0 / false / no / off / none     -> no role source (kill switch; target_roles
+#                                      is not aliased, as with the old flag off)
+#   1 / true / yes / on / all       -> all 17 (the old opt-in meaning)
+#   BLS,Adzuna,O*NET (any case,     -> exactly those; an unknown label is
+#   spaces ok)                         logged once at WARNING and ignored
+# A source outside the set is never dispatched -- no thread, no HTTP -- and
+# each plan still logs which sources it would have run.
 ROLE_SOURCES_ENV = "ENRICH_ROLE_SOURCES"
 # Dispatched whenever the request carries roles.
 ROLE_ONLY_SOURCE_LABELS: tuple = (
@@ -14609,16 +14653,65 @@ ROLE_AND_LOCATION_SOURCE_LABELS: tuple = (
     "RegionalLabour",
     "CareerJet",
 )
+# On when ENRICH_ROLE_SOURCES is unset or empty.
+DEFAULT_ROLE_SOURCE_LABELS: tuple = ("BLS", "Adzuna")
+
+_ROLE_SOURCES_OFF_VALUES = frozenset({"0", "false", "no", "off", "none"})
+_ROLE_SOURCES_ALL_VALUES = frozenset({"1", "true", "yes", "on", "all"})
+_warned_unknown_role_labels: set = set()
+_warned_unknown_lock = threading.Lock()
+
+
+def all_role_source_labels() -> tuple:
+    """All 17 role-based dispatch labels."""
+    return tuple(ROLE_ONLY_SOURCE_LABELS) + tuple(ROLE_AND_LOCATION_SOURCE_LABELS)
+
+
+def role_sources_allowed() -> tuple:
+    """The role-source labels ENRICH_ROLE_SOURCES allows right now.
+
+    Read from the environment on every call (see the block comment above for
+    the accepted values). Returned in declaration order.
+    """
+    every = all_role_source_labels()
+    raw = (os.environ.get(ROLE_SOURCES_ENV) or "").strip()
+    low = raw.lower()
+    if not low:
+        return tuple(DEFAULT_ROLE_SOURCE_LABELS)
+    if low in _ROLE_SOURCES_OFF_VALUES:
+        return ()
+    if low in _ROLE_SOURCES_ALL_VALUES:
+        return every
+    by_lower = {label.lower(): label for label in every}
+    wanted: set = set()
+    for token in raw.split(","):
+        name = token.strip()
+        if not name:
+            continue
+        label = by_lower.get(name.lower())
+        if label is not None:
+            wanted.add(label)
+            continue
+        with _warned_unknown_lock:
+            first_time = name.lower() not in _warned_unknown_role_labels
+            _warned_unknown_role_labels.add(name.lower())
+        if first_time:
+            _log_warn(
+                f"{ROLE_SOURCES_ENV}: unknown role source {name!r} ignored "
+                f"(known: {', '.join(every)})"
+            )
+    return tuple(label for label in every if label in wanted)
 
 
 def role_sources_enabled() -> bool:
-    """True when ENRICH_ROLE_SOURCES opts the wizard's target_roles in."""
-    raw = (os.environ.get(ROLE_SOURCES_ENV) or "").strip().lower()
-    return raw in {"1", "true", "yes", "on"}
+    """True when at least one role source is allowed, i.e. when the wizard's
+    ``target_roles`` is passed on as roles."""
+    return bool(role_sources_allowed())
 
 
 def role_sources_for(has_locations: bool) -> List[str]:
-    """Labels of the role-based sources a request with roles dispatches."""
+    """Labels of the role-based sources a request with roles can dispatch
+    (before the ENRICH_ROLE_SOURCES allowlist is applied)."""
     labels = list(ROLE_ONLY_SOURCE_LABELS)
     if has_locations:
         labels += list(ROLE_AND_LOCATION_SOURCE_LABELS)
@@ -14645,7 +14738,8 @@ def enrich_data(
         - client_website (str)
         - industry (str)
         - roles / job_titles (list[str]); the wizard's target_roles is
-          read as roles only when ENRICH_ROLE_SOURCES is on (see above)
+          read as roles unless ENRICH_ROLE_SOURCES switches every role
+          source off; only the allowlisted role sources run (see above)
         - locations (list[str])
         - competitors (list[str])
 
@@ -14708,10 +14802,13 @@ def enrich_data(
     client_website = data.get("client_website") or "" or ""
     industry = data.get("industry") or "" or ""
     roles = data.get("roles") or data.get("job_titles") or []
-    # The wizard's key (see ROLE_SOURCES_ENV): aliased only when enabled.
+    # The wizard's key (see ROLE_SOURCES_ENV): aliased unless the kill switch
+    # leaves no role source allowed. The allowlist itself is applied once the
+    # task list is built.
+    _role_allowed = role_sources_allowed()
     gated_target_roles = False
     if not roles and data.get("target_roles"):
-        if role_sources_enabled():
+        if _role_allowed:
             roles = data.get("target_roles") or []
         else:
             gated_target_roles = True
@@ -15073,7 +15170,22 @@ def enrich_data(
             )
         )
 
-    if gated_target_roles:
+    # ROLE_SOURCES_ENV allowlist: a role source outside the set is dropped
+    # here, before anything is submitted -- no thread, no HTTP. The tasks above
+    # are only closures until the pool runs them.
+    if not gated_target_roles:
+        _role_labels = set(all_role_source_labels())
+        _blocked = [
+            t[1] for t in tasks if t[1] in _role_labels and t[1] not in _role_allowed
+        ]
+        if _blocked:
+            tasks = [t for t in tasks if t[1] not in _blocked]
+            _log_info(
+                f"{ROLE_SOURCES_ENV} allows "
+                f"{', '.join(_role_allowed) or 'no role source'}; "
+                f"role sources that would have run: {', '.join(_blocked)}"
+            )
+    else:
         _log_info(
             f"{ROLE_SOURCES_ENV} is off: target_roles not passed to enrichment; "
             f"role sources that would have run: "

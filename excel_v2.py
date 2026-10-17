@@ -10416,17 +10416,15 @@ def _collector_payload_coverage(summary: dict) -> "Tuple[int, int]":
     """Return payload-return count and applicable collector count.
 
     This is run coverage only. It intentionally makes no claim about whether
-    those payloads contain observed evidence, freshness, or quality.
+    those payloads contain observed evidence, freshness, or quality. A
+    collector that fell back to its curated benchmark is ``apis_estimated``,
+    not ``apis_succeeded``: it is reported on its own "Estimated collectors"
+    row and does not count here as a payload returned (a curated Adzuna
+    benchmark must not read as a live pull).
     """
     labels_called = {str(a) for a in (summary.get("apis_called") or [])}
     labels_na = {str(a) for a in (summary.get("apis_not_applicable") or [])}
-    labels_returned = {
-        str(a)
-        for a in (
-            (summary.get("apis_succeeded") or [])
-            + (summary.get("apis_estimated") or [])
-        )
-    }
+    labels_returned = {str(a) for a in (summary.get("apis_succeeded") or [])}
     n_returned = len(labels_returned)
     n_applicable = len(labels_called - labels_na) or n_returned
     return n_returned, n_applicable

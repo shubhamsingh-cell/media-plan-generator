@@ -35,6 +35,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import adzuna_quota
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -1142,7 +1144,10 @@ class DataMatrixMonitor:
         # -- Adzuna --
         adzuna_id = os.environ.get("ADZUNA_APP_ID") or ""
         adzuna_key = os.environ.get("ADZUNA_APP_KEY") or ""
-        if adzuna_id and adzuna_key:
+        if adzuna_id and adzuna_key and not adzuna_quota.try_acquire():
+            # The probe shares the key's request quota with plan generation.
+            api_results["adzuna"] = "skipped"
+        elif adzuna_id and adzuna_key:
             try:
                 url = (
                     f"https://api.adzuna.com/v1/api/jobs/us/search/1"

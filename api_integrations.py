@@ -48,6 +48,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+import adzuna_quota
+
 # Persistent HTTPS connection pool -- reuses TCP+TLS across same-host calls
 try:
     from http_pool import pooled_request as _pooled_request
@@ -1153,6 +1155,18 @@ class AdzunaClient:
         qs = urllib.parse.urlencode(base_params)
         return f"{self.BASE_URL}/{country}/{endpoint}?{qs}"
 
+    def _fetch(self, url: str) -> dict | None:
+        """GET one Adzuna URL through the process-wide request quota.
+
+        Every Adzuna request in the process shares one key and one counter
+        (adzuna_quota); over quota nothing is sent and None comes back, the
+        same as any other failed call.
+        """
+        if not adzuna_quota.try_acquire():
+            logger.warning("Adzuna request quota reached; request not sent")
+            return None
+        return _http_get(url)
+
     def search_jobs(
         self,
         role: str,
@@ -1185,7 +1199,7 @@ class AdzunaClient:
             f"search/{page}",
             {"what": role, "results_per_page": results_per_page},
         )
-        data = _http_get(url)
+        data = self._fetch(url)
         if data is None:
             return None
 
@@ -1228,7 +1242,7 @@ class AdzunaClient:
             return cached
 
         url = self._build_url(location, "histogram", {"what": role})
-        data = _http_get(url)
+        data = self._fetch(url)
         if data is None:
             return None
 
@@ -1256,7 +1270,7 @@ class AdzunaClient:
             return cached
 
         url = self._build_url(location, "top_companies", {"what": role})
-        data = _http_get(url)
+        data = self._fetch(url)
         if data is None:
             return None
 
@@ -1295,7 +1309,7 @@ class AdzunaClient:
         url = self._build_url(
             location, "search/1", {"what": role, "results_per_page": 1}
         )
-        data = _http_get(url)
+        data = self._fetch(url)
         if data is None:
             return None
 

@@ -1,13 +1,14 @@
-"""The wizard's ``target_roles`` reach enrich_data() only behind
-ENRICH_ROLE_SOURCES (2026-10-16).
+"""The wizard's ``target_roles`` reach enrich_data() through the
+ENRICH_ROLE_SOURCES allowlist (2026-10-16, allowlist semantics 2026-10-17).
 
 enrich_data() reads ``roles`` / ``job_titles``; the wizard and both
 /api/generate paths send ``target_roles``, so the 17 role-based sources
 (BLS, O*NET, Adzuna, the ad platforms, ...) never ran for a wizard plan.
-Turning them on by default needs a budget that cuts slow sources off and a
-limiter on each -- neither exists today (see ROLE_SOURCES_ENV in
-api_enrichment.py) -- so the alias is opt-in and, while off, every plan
-logs which sources it would have run.
+Only BLS and Adzuna are on by default now (unset == that pair); "0"/"off"
+is the kill switch and "1"/"all" the old all-17 opt-in. The per-label
+semantics (comma lists, unknown labels, quota) live in
+test_role_source_allowlist.py; this file keeps the all-17 and kill-switch
+behaviour of the original gate.
 
 Every source is stubbed to {} (no network); dispatch is read from the
 summary the real orchestrator publishes.
@@ -79,10 +80,11 @@ def test_seventeen_role_sources_are_declared():
     assert set(api_enrichment.role_sources_for(True)) == _ALL_ROLE_SOURCES
 
 
-def test_default_off_runs_no_role_source_and_logs_what_would_have_run(
-    monkeypatch, isolated_breakers, caplog
+@pytest.mark.parametrize("value", ["0", "off"])
+def test_kill_switch_runs_no_role_source_and_logs_what_would_have_run(
+    monkeypatch, isolated_breakers, caplog, value
 ):
-    monkeypatch.delenv("ENRICH_ROLE_SOURCES", raising=False)
+    monkeypatch.setenv("ENRICH_ROLE_SOURCES", value)
     with caplog.at_level(logging.INFO, logger="api_enrichment"):
         called = _dispatched(monkeypatch, _WIZARD)
     assert not _ALL_ROLE_SOURCES & set(called), called
@@ -94,6 +96,13 @@ def test_default_off_runs_no_role_source_and_logs_what_would_have_run(
     assert len(lines) == 1, lines
     for label in _ALL_ROLE_SOURCES:
         assert label in lines[0], (label, lines[0])
+
+
+def test_unset_runs_only_the_default_pair(monkeypatch, isolated_breakers):
+    """Was ``test_default_off_runs_no_role_source...``: unset used to mean off."""
+    monkeypatch.delenv("ENRICH_ROLE_SOURCES", raising=False)
+    called = set(_dispatched(monkeypatch, _WIZARD))
+    assert _ALL_ROLE_SOURCES & called == {"BLS", "Adzuna"}
 
 
 @pytest.mark.parametrize("value", ["1", "true", "YES", "on"])
@@ -113,17 +122,27 @@ def test_opt_in_without_locations_runs_only_role_only_sources(
     assert not set(api_enrichment.ROLE_AND_LOCATION_SOURCE_LABELS) & called
 
 
-@pytest.mark.parametrize("value", ["", "0", "false", "off", "nope"])
+@pytest.mark.parametrize("value", ["0", "false", "no", "off", "none", "nope"])
 def test_anything_else_is_off(monkeypatch, value):
     monkeypatch.setenv("ENRICH_ROLE_SOURCES", value)
     assert api_enrichment.role_sources_enabled() is False
 
 
-def test_explicit_roles_key_is_not_gated(monkeypatch, isolated_breakers):
-    """Direct callers that already send ``roles`` keep their sources."""
-    monkeypatch.delenv("ENRICH_ROLE_SOURCES", raising=False)
+def test_empty_value_means_the_default_not_off(monkeypatch):
+    """Was in ``test_anything_else_is_off``: an empty value used to be off."""
+    monkeypatch.setenv("ENRICH_ROLE_SOURCES", "")
+    assert api_enrichment.role_sources_enabled() is True
+
+
+def test_explicit_roles_key_follows_the_same_allowlist(monkeypatch, isolated_breakers):
+    """Direct callers that send ``roles`` used to dispatch all 17 whatever the
+    flag said; they now go through the allowlist like the wizard's key."""
     request = dict(_WIZARD, roles=_WIZARD["target_roles"])
     request.pop("target_roles")
+    monkeypatch.delenv("ENRICH_ROLE_SOURCES", raising=False)
+    default = set(_dispatched(monkeypatch, request))
+    assert _ALL_ROLE_SOURCES & default == {"BLS", "Adzuna"}
+    monkeypatch.setenv("ENRICH_ROLE_SOURCES", "all")
     assert _ALL_ROLE_SOURCES <= set(_dispatched(monkeypatch, request))
 
 
@@ -132,7 +151,8 @@ def test_declared_labels_match_what_roles_actually_dispatch(
     monkeypatch, isolated_breakers, with_locations
 ):
     """Drift guard: the "would have run" list is exactly the set of sources
-    roles add to the dispatch."""
+    roles add to the dispatch (all 17 allowed, so nothing is filtered)."""
+    monkeypatch.setenv("ENRICH_ROLE_SOURCES", "all")
     base = {k: v for k, v in _WIZARD.items() if k != "target_roles"}
     if not with_locations:
         base.pop("locations")

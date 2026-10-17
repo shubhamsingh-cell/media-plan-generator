@@ -24,6 +24,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import adzuna_quota
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -1117,6 +1119,11 @@ def _adzuna_live_cpc(role: str, country: str = "us") -> Optional[Dict[str, Any]]
         }
     )
     url = f"https://api.adzuna.com/v1/api/jobs/{country}/search/1?{params}"
+
+    # One shared request counter for the Adzuna key (adzuna_quota).
+    if not adzuna_quota.try_acquire():
+        logger.warning("Adzuna request quota reached; CPC fetch skipped for %s", role)
+        return None
 
     try:
         ctx = ssl.create_default_context()
