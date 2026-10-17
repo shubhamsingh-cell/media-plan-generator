@@ -8544,6 +8544,7 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
 
     proj_hires = 0
     comp_cph = 0.0
+    _s8_hires_off = _hires_suppressed(data)
     if ba_total_proj_comp:
         proj_cpa = ba_total_proj_comp.get("cost_per_application") or 0
         # S48 FIX: per-channel sum for consistency
@@ -8626,11 +8627,17 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
         if proj_hires and proj_hires > 0:
             # No real industry-average "hires" benchmark exists to compare
             # against -- render a neutral em-dash with NO arrow/badge rather
-            # than a fabricated "beating" claim.
+            # than a fabricated "beating" claim. A plan whose hires are
+            # withheld (no local cost-per-hire benchmark) prints the same
+            # "n/a" slide 2 prints, never the engine's raw count (DJ5): this
+            # row is a separate label/value pair that the sentence-level
+            # _strip_hires_from_deck pass cannot recognise.
             all_comparison_rows.append(
                 {
                     "metric": "Projected Hires",
-                    "client_val": f"{int(proj_hires):,}",
+                    "client_val": (
+                        "n/a" if _s8_hires_off else f"{int(proj_hires):,}"
+                    ),
                     "industry_val": "—",
                     "status": "none",
                 }
@@ -8650,7 +8657,8 @@ def _build_slide_comparison_timeline(prs: Presentation, data: Dict):
     # When the client stated a hiring GOAL and this plan's projection falls
     # short of it, add an honest gap callout -- framed as a scaling roadmap,
     # never as a failure.
-    _hire_goal = _fmt.parse_hire_goal(data.get("hire_volume"))
+    # No projected hires (withheld) -> nothing to measure against a goal.
+    _hire_goal = 0 if _s8_hires_off else _fmt.parse_hire_goal(data.get("hire_volume"))
     _goal_gap = _fmt.goal_gap(proj_hires, _hire_goal, comp_cph)
     if _goal_gap:
         all_comparison_rows.append(
