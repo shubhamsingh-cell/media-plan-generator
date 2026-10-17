@@ -4881,8 +4881,11 @@ class Nova:
         "- Mechanical Engineers: Gross CPA $50-$80, Net CPA $15-$25\n\n"
         "## BUDGET RULES\n"
         "- If user specifies BOTH target hires AND budget, use both.\n"
-        "- If user specifies ONLY target hires (no budget), ESTIMATE the budget using: budget = target_hires x industry_avg_CPH.\n"
-        "  Do NOT assume a random budget like $50K. Show how you calculated it.\n"
+        "- If user specifies ONLY target hires (no budget), call query_budget_projection with target_hires and NO budget:\n"
+        "  it SOLVES the required budget range from the projection engine (goal_plan.required). Quote that low-high range;\n"
+        "  never multiply target_hires by a cost per hire yourself and never assume a random budget like $50K.\n"
+        "- If a budget AND a hiring goal are both given, quote goal_plan: what the goal needs, what the budget covers,\n"
+        "  the shortfall, and options A (full objective), B (current constraint) and C (alternative).\n"
         "- If user specifies ONLY budget (no target), estimate hires from budget / avg_CPH.\n"
         "- Always show the math transparently.\n\n"
         "## CPH LAST-RESORT FORMULA (when no benchmark data available)\n"
@@ -5501,7 +5504,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             },
             {
                 "name": "query_budget_projection",
-                "description": "Budget allocation across 6 channels with projected clicks, applications, hires, CPA (cost per application), and CPH (cost per hire). Use when user provides a dollar budget or asks about ROI/spend allocation. IMPORTANT: If the user mentions how many people they want to hire (e.g., '20 drivers', '50 nurses'), pass that as target_hires.",
+                "description": "Budget allocation across 6 channels with projected clicks, applications, hires, CPA (cost per application), and CPH (cost per hire). Use when user provides a dollar budget or asks about ROI/spend allocation. IMPORTANT: If the user mentions how many people they want to hire (e.g., '20 drivers', '50 nurses'), pass that as target_hires. DEMAND-FIRST: when the user asks 'what budget do I need for N hires' (or N apply starts) and gives NO budget, call this tool with target_hires (or target_apply_starts) and OMIT budget -- the tool solves the required budget range from the same projection engine (goal_plan.required, with the shortfall and three options when a budget is also given). Never estimate that budget yourself.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -5526,10 +5529,14 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                         },
                         "target_hires": {
                             "type": "integer",
-                            "description": "Total hiring target across all roles. Use this when user specifies a total number to hire (e.g., 'I need to hire 50 people'). This is used to assess budget sufficiency.",
+                            "description": "Total hiring target across all roles. Use this when user specifies a total number to hire (e.g., 'I need to hire 50 people'). With a budget it is used to assess sufficiency and returns goal_plan (required budget range, shortfall, options A/B/C); WITHOUT a budget the tool solves the budget needed for it.",
+                        },
+                        "target_apply_starts": {
+                            "type": "integer",
+                            "description": "Total apply-start (application) goal. Use instead of target_hires when the user states applies, or when the market has no local cost-per-hire benchmark. Omit budget to solve the budget needed.",
                         },
                     },
-                    "required": ["budget"],
+                    "required": [],
                 },
             },
             {
@@ -10093,10 +10100,22 @@ When two or more tools return conflicting data for the same metric (e.g., differ
         industry = params.get("industry") or ""
         openings_per_role = max(1, int(params.get("openings", 1) or 1))
         target_hires = int(params.get("target_hires") or 0 or 0)
+        try:
+            target_apply_starts = max(0, int(params.get("target_apply_starts") or 0))
+        except (TypeError, ValueError):
+            target_apply_starts = 0
 
-        if budget <= 0:
+        # Demand-first: a goal and NO budget means "what budget do I need?" --
+        # solved from the projection engine (demand_planning), never guessed.
+        solve_for_goal = budget <= 0 and (target_hires > 0 or target_apply_starts > 0)
+        if budget <= 0 and not solve_for_goal:
             return {
                 "error": "Budget must be greater than zero",
+                "source": "Joveo Budget Engine",
+            }
+        if solve_for_goal and max(target_hires, target_apply_starts) > 100000:
+            return {
+                "error": "The goal exceeds the maximum (100,000)",
                 "source": "Joveo Budget Engine",
             }
 
@@ -10143,7 +10162,7 @@ When two or more tools return conflicting data for the same metric (e.g., differ
 
         result: Dict[str, Any] = {
             "source": "Joveo Budget Allocation Engine",
-            "total_budget": budget,
+            "total_budget": budget if budget > 0 else None,
             "industry": industry,
             "openings_per_role": openings_per_role,
             "total_openings": openings_per_role * num_roles,
@@ -10216,23 +10235,75 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 )
 
         try:
+            import demand_planning
             from plan_projection import project_plan, public_view
 
-            proj = project_plan(
-                {
-                    "budget": budget,
-                    "roles": role_briefs,
-                    "locations": loc_briefs,
-                    "industry": industry,
-                    "target_hires": target_hires,
-                    "budget_text": f"${budget:,.0f}",
-                },
-                channel_percentages=channel_pcts,
-                knowledge_base=kb or None,
+            _proj_brief = {
+                "budget": budget,
+                "roles": role_briefs,
+                "locations": loc_briefs,
+                "industry": industry,
+                "target_hires": target_hires,
+                "budget_text": f"${budget:,.0f}",
+            }
+            _proj_kwargs = {
+                "channel_percentages": channel_pcts,
+                "knowledge_base": kb or None,
                 # the tool's budget is US dollars (its schema says so): declare
                 # it so a non-US location never silently re-prices it in local money
-                plan_currency="USD",
+                "plan_currency": "USD",
+            }
+
+            def _goal_projector(b: float) -> dict:
+                return project_plan(
+                    dict(_proj_brief, budget=b, budget_text=f"${b:,.0f}"),
+                    **_proj_kwargs,
+                )
+
+            goal_kind = (
+                demand_planning.GOAL_HIRES
+                if target_hires > 0
+                else demand_planning.GOAL_APPLY_STARTS
             )
+            goal_n = target_hires if target_hires > 0 else target_apply_starts
+            if solve_for_goal:
+                req = demand_planning.required_budget(goal_n, goal_kind, _goal_projector)
+                if not req.get("ok"):
+                    if req.get("status") == "not_projected":
+                        note = (
+                            "No local cost-per-hire benchmark for this market -- a "
+                            "hires goal cannot be priced. Ask for an apply-start goal "
+                            "(target_apply_starts) to plan backward."
+                            if goal_kind == demand_planning.GOAL_HIRES
+                            else "The plan carries no apply-start projection."
+                        )
+                        result["goal_plan"] = {
+                            "ok": True,
+                            "status": "not_projected",
+                            "kind": goal_kind,
+                            "goal": goal_n,
+                            "required": {"low": None, "high": None},
+                            "options": [],
+                            "text": {"callout": note, "headline": note},
+                        }
+                        result["presentation_note"] = (
+                            "Say: '" + note + "' Do NOT estimate a budget or "
+                            "multiply the goal by a cost per hire yourself."
+                        )
+                        return result
+                    return {
+                        "error": "No budget in the searchable range reaches this goal",
+                        "source": "Joveo Budget Engine",
+                    }
+                # run the normal projection at the budget that reaches the goal
+                # conservatively; the range below is what the answer quotes
+                budget = req["high"]
+                _proj_brief["budget"] = budget
+                _proj_brief["budget_text"] = f"${budget:,.0f}"
+                result["total_budget"] = budget
+                result["budget_source"] = "solved_for_goal"
+
+            proj = project_plan(_proj_brief, **_proj_kwargs)
             if not proj.get("ok"):
                 raise ValueError(proj.get("error") or "projection failed")
             allocation = proj["budget_result"]
@@ -10279,6 +10350,61 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 )
             else:
                 _add_hire_target_comparison(result, target_hires)
+            if goal_n > 0:
+                gp = demand_planning.build_goal_plan(
+                    goal=goal_n,
+                    budget=budget,
+                    projector=_goal_projector,
+                    kind=goal_kind,
+                    symbol="$",
+                    currency_code="USD",
+                )
+                if gp.get("ok"):
+                    if solve_for_goal and gp.get("required", {}).get("low"):
+                        # No actual budget was given: the budget above is the
+                        # SOLVED high end, so "current constraint" options,
+                        # shortfall and per-site rows would describe a budget
+                        # nobody has. Keep the required range only.
+                        gp = {
+                            k: gp[k]
+                            for k in (
+                                "ok", "kind", "unit", "goal", "currency", "status",
+                                "required", "assumptions", "notes",
+                            )
+                            if k in gp
+                        }
+                        gp["solved"] = True
+                        gp["options"] = []
+                        gp["text"] = {
+                            "required": _goal_range_text(gp["required"]),
+                            "callout": (
+                                f"Goal of {gp['goal']:,} {gp['unit']} needs "
+                                f"{_goal_range_text(gp['required'])}."
+                            ),
+                        }
+                    result["goal_plan"] = gp
+                    if solve_for_goal and gp.get("required", {}).get("low"):
+                        rq = gp["required"]
+                        result["required_budget"] = {
+                            "low": rq["low"],
+                            "high": rq["high"],
+                            "text": gp["text"]["required"],
+                        }
+                        result["presentation_note"] = (
+                            f"The user gave no budget: answer with the budget range the "
+                            f"goal needs, {gp['text']['required']} (required_budget; low = "
+                            "if the plan runs at plan efficiency, high = at the industry-"
+                            "average cost), and say it is an estimate from the industry "
+                            "cost-per-hire table with no client hire history. The "
+                            "channel allocation below is at the high end of that range. "
+                            "Do NOT compute a budget yourself. "
+                            + str(result.get("presentation_note") or "")
+                        )
+                    elif gp.get("text", {}).get("callout"):
+                        result["goal_plan_note"] = (
+                            "Quote goal_plan: what the goal needs, what the budget "
+                            "covers, the shortfall and options A, B and C."
+                        )
         except Exception as e:
             logger.error("Budget engine call failed: %s", e, exc_info=True)
             result["estimated_allocation"] = {
@@ -23742,9 +23868,21 @@ When two or more tools return conflicting data for the same metric (e.g., differ
             # Extract budget amount from message
             budget_amount = _extract_budget(msg_lower)
 
+            # Hiring target from the message ("hire 20 drivers", "10 nurses").
+            _hire_target = 0
+            _hire_match = re.search(
+                r"(?:hire|hiring|recruit|fill|need)\s+(\d+)|(\d+)\s+(?:hires?|positions?|openings?|roles?|people|headcount)",
+                msg_lower,
+            )
+            if _hire_match:
+                _hire_target = int(_hire_match.group(1) or _hire_match.group(2))
+            # Demand-first: a hiring goal and no budget is "what budget do I
+            # need?" -- solved from the projection engine, not asked back.
+            _solve_budget = bool(budget_amount <= 0 and _hire_target > 0 and detected_roles)
+
             # Check for missing critical parameters
             _budget_missing = []
-            if budget_amount <= 0:
+            if budget_amount <= 0 and not _solve_budget:
                 _budget_missing.append(
                     "*Budget amount*: How much is the total budget? (e.g., $50K, $100K)"
                 )
@@ -23790,14 +23928,6 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                     list(detected_industries)[0] if detected_industries else "general"
                 )
 
-                # Extract hiring target from message (e.g., "hire 20 drivers", "10 nurses")
-                _hire_target = 0
-                _hire_match = re.search(
-                    r"(?:hire|hiring|recruit|fill|need)\s+(\d+)|(\d+)\s+(?:hires?|positions?|openings?|roles?|people|headcount)",
-                    msg_lower,
-                )
-                if _hire_match:
-                    _hire_target = int(_hire_match.group(1) or _hire_match.group(2))
                 # Also check for "N [role]" pattern (e.g., "10 software engineers")
                 if _hire_target == 0:
                     _role_count_match = re.search(
@@ -23821,7 +23951,22 @@ When two or more tools return conflicting data for the same metric (e.g., differ
                 )
                 tools_used.append("query_budget_projection")
                 sources.add("Joveo Budget Allocation Engine")
-                sections.append(_format_budget_response(budget_data, budget_amount))
+                if _solve_budget and (budget_data.get("goal_plan") or {}).get("status") == "not_projected":
+                    sections.append(
+                        _format_goal_plan(budget_data["goal_plan"])
+                    )
+                elif budget_data.get("error"):
+                    sections.append(
+                        "I could not price that hiring goal from the projection engine."
+                    )
+                else:
+                    sections.append(
+                        _format_budget_response(
+                            budget_data, budget_data.get("total_budget") or budget_amount
+                        )
+                    )
+                    if budget_data.get("goal_plan"):
+                        sections.append(_format_goal_plan(budget_data["goal_plan"]))
 
                 # Also add role-specific niche channel recommendations for budget questions
                 if detected_roles:
@@ -27169,10 +27314,52 @@ def _format_salary_response(data: dict) -> str:
     return "\n".join(parts)
 
 
+def _goal_range_text(required: dict) -> str:
+    lo, hi = required.get("low"), required.get("high")
+    if lo is None or hi is None:
+        return "n/a"
+    a, b = f"${lo:,.0f}", f"${hi:,.0f}"
+    return a if a == b else f"{a}\u2013{b}"
+
+
+def _format_goal_plan(gp: dict) -> str:
+    """The demand-first goal plan (demand_planning.build_goal_plan) as chat
+    text: what the goal needs, what the budget covers, the shortfall and the
+    three options. Every figure is the engine's own; none is computed here."""
+    if not isinstance(gp, dict) or not gp.get("ok"):
+        return ""
+    text = gp.get("text") or {}
+    if gp.get("status") == "not_projected":
+        return "*Goal plan*\n" + str(text.get("callout") or "")
+    if gp.get("solved"):
+        return (
+            "*Goal plan:* "
+            + str(text.get("callout") or "")
+            + " (low end if the plan runs at plan efficiency, high end at the "
+            "industry-average cost)\n_Estimates from the industry cost-per-hire "
+            "table; no client hire history provided._"
+        )
+    parts = ["*Goal plan:* " + str(text.get("callout") or "")]
+    for opt in gp.get("options") or []:
+        parts.append(f"- *{opt.get('key')}. {opt.get('title')}*: {opt.get('summary')}")
+    for note in gp.get("notes") or []:
+        parts.append(f"- {note}")
+    parts.append(
+        "_Estimates from the industry cost-per-hire table; no client hire history provided._"
+    )
+    return "\n".join(parts)
+
+
 def _format_budget_response(data: dict, budget: float) -> str:
     """Format budget projection data into a readable response."""
     parts = []
-    parts.append(f"*Budget Allocation: ${budget:,.0f}*\n")
+    if data.get("budget_source") == "solved_for_goal" and data.get("required_budget"):
+        parts.append(
+            f"*Budget needed for the goal: {data['required_budget']['text']}*\n"
+            f"_The allocation below is at the high end, ${budget:,.0f}._\n"
+        )
+    else:
+        parts.append(f"*Budget Allocation: ${budget:,.0f}*\n")
 
     if "channel_allocations" in data:
         allocs = data["channel_allocations"]
