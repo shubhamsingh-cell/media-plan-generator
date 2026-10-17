@@ -7057,11 +7057,18 @@
         _pricingCache[cacheKey] = { data: pricingData, ts: Date.now() };
         renderPricingGrid(pricingData);
         if (sourceEl && pricingData.source) {
+          // The cells' own data period (first clause of the file's
+          // data_period; the full text rides in the title) and the date the
+          // file was last reviewed -- never an edit date worded as freshness.
+          var vintageFull = String(pricingData.data_vintage || "");
+          var vintage = vintageFull.split(";")[0].trim();
+          var reviewed = String(pricingData.reviewed || "");
+          var stamp = [];
+          if (vintage) stamp.push("Data vintage " + vintage);
+          if (reviewed) stamp.push("file reviewed " + reviewed);
           sourceEl.textContent =
-            pricingData.source +
-            (pricingData.data_updated
-              ? " | Data last updated " + pricingData.data_updated
-              : "");
+            pricingData.source + (stamp.length ? " | " + stamp.join(" \u00b7 ") : "");
+          sourceEl.title = vintageFull;
         }
       })
       .catch(function (err) {

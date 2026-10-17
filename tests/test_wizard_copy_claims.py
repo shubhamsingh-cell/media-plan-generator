@@ -525,3 +525,16 @@ def test_the_unsourced_job_category_figures_exist_but_are_not_rendered():
     present = {f for entry in data["job_categories"].values() for f in entry}
     assert UNSOURCED_JSON_FIELDS <= present
     assert not (UNSOURCED_JSON_FIELDS & set().union(*RENDERED_JSON_FIELDS.values()))
+
+
+def test_no_wizard_copy_reassures_about_hires_at_the_conservative_end():
+    """The hires range divides a media budget by Nova's assumed ALL-IN cost per
+    hire; "covers your target even at the conservative end" stated the
+    reassurance with the basis nowhere on screen. The basis must travel with
+    the claim (hireBasisText / the insight's "if hires cost the assumed ...")."""
+    for path in JS_FILES:
+        src = path.read_text(encoding="utf-8")
+        assert "even at the conservative end" not in src, path.name
+    preview = (PARTIALS / "body_preview_js.html").read_text(encoding="utf-8")
+    assert "if hires cost the assumed" in preview
+    assert "all-in cost per hire (Nova table)" in preview

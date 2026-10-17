@@ -158,6 +158,12 @@ def build_live_pricing(role: str, location: str, industry: str) -> dict:
         "metro": metro_block,
         "source": "Benchmark data, sources listed in the file: "
         + cph_benchmark.source_label(dict.fromkeys(source_ids)),
+        # What the cells DESCRIBE (their data period) is not when the file was
+        # last edited: a provenance edit moves last_updated without moving a
+        # single figure, so "Data last updated <edit date>" read as fresh data.
+        "data_vintage": str(meta.get("data_period") or ""),
+        "reviewed": str(meta.get("last_updated") or ""),
+        # kept for clients that still read it; same value as ``reviewed``
         "data_updated": str(meta.get("last_updated") or ""),
         "role": role,
         "location": location,

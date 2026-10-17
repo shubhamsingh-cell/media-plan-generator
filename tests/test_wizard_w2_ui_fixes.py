@@ -1096,7 +1096,9 @@ function hero(v) { return '$' + Math.round(v / 1000) + 'K'; }
 function intc(v) { return Math.round(v).toLocaleString('en-US'); }
 function appsFmt(v) { return (v >= 100 ? Math.round(v / 10) * 10 : Math.round(v)).toLocaleString('en-US'); }
 function cpaFmt(v) { return '$' + Math.round(v); }
-function figs() { var o = {}; Object.keys(texts).forEach(function (k) { o[k] = texts[k].textContent; }); return o; }
+function sym() { return '$'; }
+function trim(x, d) { return Number(x.toFixed(d)).toString(); }
+function figs() { var o = {}; Object.keys(texts).forEach(function (k) { if (k !== 'nebBasis') o[k] = texts[k].textContent; }); return o; }
 function paint(total, roles) { paintEstimateBar({ total: total, inputs: inputsFor(total, roles) }); }
 """
 
@@ -1109,6 +1111,7 @@ def _bar_script(body: str) -> dict:
             [
                 _BAR_STUB,
                 js_block(PREVIEW, "function estimateFor("),
+                js_block(PREVIEW, "function hireBasisText("),
                 js_block(PREVIEW, "function paintEstimateBar("),
                 body,
                 "process.stdout.write(JSON.stringify(out));",
@@ -1748,10 +1751,11 @@ function escapeHtml(s) { return String(s); }
 function hero(v) { return '$' + Math.round(v / 1000) + 'K'; }
 function intc(v) { return Math.round(v).toLocaleString('en-US'); }
 function channelOn() { return false; }
+function sym() { return '$'; }
 """
 
 
-def _insights(goal_range: str, target: int, est_hires: float, est_cph: float = 3500, benchmark=None):
+def _insights(goal_range: str, target: int, est_hires: float, est_cph: float = 3500, benchmark=None, hire_basis=None, projection=None):
     m = {
         "role": "Nurse", "total": 35000, "targetHires": target, "goalRange": goal_range,
         "roleClass": "skilled", "rows": [{}, {}], "recommended": True, "channelsTouched": False,
@@ -1763,7 +1767,9 @@ def _insights(goal_range: str, target: int, est_hires: float, est_cph: float = 3
             js_block(PREVIEW, "function goalText("),
             js_block(PREVIEW, "function computeInsights("),
             f"process.stdout.write(JSON.stringify(computeInsights({json.dumps(m)}, "
-            f"{{ est_hires: {est_hires}, est_cph: {json.dumps(est_cph)}, cph_benchmark: {json.dumps(benchmark)} }})"
+            f"{{ est_hires: {est_hires}, est_cph: {json.dumps(est_cph)}, cph_benchmark: {json.dumps(benchmark)}"
+            f"{', hire_basis: ' + json.dumps(hire_basis) if hire_basis else ''}"
+            f"{', projection: ' + json.dumps(projection) if projection else ''} }})"
             ".map(function (i) { return i.text; })));",
         ]
     )
@@ -2235,3 +2241,78 @@ def test_the_pricing_grid_renders_ranges_and_reference_cards_without_trend_or_be
     assert "cost-of-living-based estimate (C2ER 2024 and BLS 2025)" in html
     assert "not applied to the ranges above" in html
     assert "Best Value" not in html and "trend-" not in html
+
+
+# -- hire estimates state the cost-per-hire basis they divide by -------------
+
+_HIRE_BASIS = {
+    "midpoint_cph": 10500.0,
+    "floor_cph": 5250.0,
+    "label": "assumed all-in industry cost per hire (Nova table, unsourced)",
+}
+_HIRES_RANGE = {"hires": {"low": 11, "mid": 22, "high": 22}}
+
+
+def _no_us_only_marker(text: str) -> None:
+    from us_only_markers import _US_ONLY_MARKERS
+
+    hits = [m for m in _US_ONLY_MARKERS if m.lower() in text.lower()]
+    assert not hits, (hits, text)
+
+
+@needs_node
+def test_insight_never_says_even_at_the_conservative_end_and_names_its_basis():
+    # target 10 sits at/below the low end (11) of the estimated range
+    with_basis = _insights("", 10, 11.0, hire_basis=_HIRE_BASIS, projection=_HIRES_RANGE)[0]
+    assert "even at the conservative end" not in with_basis
+    assert "if hires cost the assumed" in with_basis and "$10.5K" in with_basis
+    assert "all-in" in with_basis and "Nova table" in with_basis
+    _no_us_only_marker(with_basis)
+    # no basis from the server -> no "covers" reassurance at all
+    bare = _insights("", 10, 11.0)[0]
+    assert "even at the conservative end" not in bare and "covers" not in bare.lower()
+    _no_us_only_marker(bare)
+
+
+@needs_node
+def test_hire_basis_note_text_for_a_range_and_a_point():
+    def note(est: dict) -> str:
+        return run_node(
+            "\n".join(
+                [
+                    "function sym() { return '$'; }",
+                    "function trim(x, d) { return Number(x.toFixed(d)).toString(); }",
+                    js_block(PREVIEW, "function hireBasisText("),
+                    f"process.stdout.write(JSON.stringify(hireBasisText({json.dumps(est)})));",
+                ]
+            )
+        )
+
+    ranged = note({"hire_basis": _HIRE_BASIS, "projection": _HIRES_RANGE})
+    assert ranged == (
+        "low end at an assumed $10.5K all-in cost per hire (Nova table), high end at $5.25K"
+    )
+    point = note({"hire_basis": _HIRE_BASIS, "projection": {"hires": {"low": 11, "mid": 11, "high": 11}}})
+    assert point == "at an assumed $10.5K all-in cost per hire (Nova table)"
+    assert note({}) == "" and note({"hire_basis": None}) == ""
+    for t in (ranged, point):
+        _no_us_only_marker(t)
+
+
+@needs_node
+def test_estimate_bar_states_the_basis_beside_the_hires_range():
+    est = dict(_EST, hire_basis=_HIRE_BASIS, projection=_HIRES_RANGE)
+    got = _bar_script(
+        "ready(" + json.dumps(est) + ", 35000, ['Nurse']); paint(35000, ['Nurse']);"
+        "var out = { attrs: attrs, basis: texts.nebBasis.textContent };"
+    )
+    assert "assumed $10.5K all-in cost per hire (Nova table)" in got["basis"]
+    assert "assumed $10.5K all-in cost per hire (Nova table)" in got["attrs"]["aria-label"]
+    # no basis from the server -> nothing is invented
+    got = _bar_script(
+        "ready(" + json.dumps(_EST) + ", 35000, ['Nurse']); paint(35000, ['Nurse']);"
+        "var out = { attrs: attrs, basis: texts.nebBasis.textContent };"
+    )
+    assert got["basis"] == ""
+    # and the pane's basis line reads the same helper
+    assert "hireBasisText(est)" in js_block(PREVIEW, "function paintOutcomes(")

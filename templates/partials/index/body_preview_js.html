@@ -121,6 +121,22 @@
       return sym() + Math.round(v);
     }
     function intc(v) { return Math.round(Math.max(0, v)).toLocaleString(); }
+    // The cost per hire the hires figures DIVIDE the budget by, stated beside
+    // them. It is Nova's own all-in industry table (not media-only, not a
+    // published benchmark); /api/estimate sends it as hire_basis. "" when the
+    // server sent none (no hires projected), so no basis is ever invented here.
+    // A ranged hires figure runs from the midpoint (low end) to the plan-
+    // efficiency floor (high end), and the note says so.
+    function hireBasisText(est) {
+      var hb = est && est.hire_basis;
+      if (!hb || !(hb.midpoint_cph > 0)) return "";
+      var k = function (v) { return sym() + (v >= 1000 ? trim(v / 1000, 2) + "K" : String(Math.round(v))); };
+      var base = "an assumed " + k(hb.midpoint_cph) + " all-in cost per hire (Nova table)";
+      var pr = est.projection && est.projection.hires;
+      var ranged = !!(pr && pr.low != null && pr.high != null && pr.low !== pr.high);
+      if (ranged && hb.floor_cph > 0) return "low end at " + base + ", high end at " + k(hb.floor_cph);
+      return "at " + base;
+    }
     // Applications are a directional model output: to the nearest 10 from 100
     // up ("2,020", not "2,016" -- whole units implied precision the estimate
     // does not have). Hires, a small count, stay exact.
@@ -533,7 +549,15 @@
           var gap = m.total * (m.targetHires / hiHi - 1);
           ins.push({ tone: "warn", text: "Budget supports an estimated <b>" + escapeHtml(shown) + " hires</b> against your " + goalText(m) + " — consider raising budget by ~<b>" + hero(gap) + "</b> or narrowing scope." });
         } else if (m.targetHires <= hiLo) {
-          ins.push({ tone: "good", text: "Budget covers your " + goalText(m) + " even at the conservative end (est. " + escapeHtml(shown) + " hires)." });
+          // No green reassurance: the count rests on an assumed all-in cost per
+          // hire, so the sentence either names that figure or claims nothing.
+          var hbIns = est.hire_basis && est.hire_basis.midpoint_cph > 0 ? est.hire_basis.midpoint_cph : 0;
+          if (hbIns) {
+            var hbK = sym() + (hbIns >= 1000 ? trim(hbIns / 1000, 2) + "K" : String(Math.round(hbIns)));
+            ins.push({ tone: "info", text: "Budget covers your " + goalText(m) + " if hires cost the assumed <b>" + escapeHtml(hbK) + "</b> each (all-in, Nova table) — est. " + escapeHtml(shown) + " hires." });
+          } else {
+            ins.push({ tone: "info", text: "Your " + goalText(m) + " sits at or below the low end of the estimated <b>" + escapeHtml(shown) + " hires</b> — the estimate rests on an assumed cost per hire." });
+          }
         } else {
           ins.push({ tone: "info", text: "Your " + goalText(m) + " sits inside the estimated range of <b>" + escapeHtml(shown) + " hires</b> — it depends on your real cost per hire." });
         }
@@ -635,6 +659,14 @@
       }
       bar.setAttribute("data-state", state);
       bar.setAttribute("aria-busy", state === "loading" ? "true" : "false");
+      // what the hires range divides the budget by, on its own line under the
+      // figures (ready state only; empty otherwise)
+      var basisTxt = state === "ready" ? hireBasisText(est) : "";
+      var basisEl = $("nebBasis");
+      if (basisEl) {
+        basisEl.textContent = basisTxt ? "Hires: " + basisTxt : "";
+        if (basisTxt && est.hire_basis.label) basisEl.title = est.hire_basis.label;
+      }
       if (figs) {
         Object.keys(figs).forEach(function (id) {
           var el = $(id);
@@ -645,7 +677,7 @@
       var label;
       if (state === "ready") {
         label = "Plan estimate: " + figs.nebBudget + " budget, " + figs.nebApps +
-          " applications, " + figs.nebHires + " hires, " + figs.nebCpa + " per application." + tail;
+          " applications, " + figs.nebHires + " hires" + (basisTxt ? " (" + basisTxt + ")" : "") + ", " + figs.nebCpa + " per application." + tail;
       } else if (state === "loading") {
         label = "Plan estimate: updating." + tail;
       } else if (state === "unavailable") {
@@ -756,6 +788,8 @@
         } else if (proj && proj.text) {
           var bits = ["Est. cost / hire <b>" + escapeHtml(proj.text.cph) + "</b> (" + escapeHtml(proj.text.cph_short || "total cost-per-hire basis") + ")."];
           bits.push(escapeHtml(proj.text.hires_short || "Hires are an estimate from industry cost per hire; no client hire history provided."));
+          var hbPane = hireBasisText(est);
+          if (hbPane) bits.push("Hire range: " + escapeHtml(hbPane) + "; the table has no external source.");
           if (proj.text.cpa_note) bits.push(escapeHtml(proj.text.cpa_note));
           basis.innerHTML = bits.join(" ");
           basis.style.display = "";

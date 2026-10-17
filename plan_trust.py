@@ -398,9 +398,11 @@ def review_items(
     # (and its "Before you send" bullet) together.
     if not data.get("historical_performance"):
         items.append(
-            "Projected hires and costs are estimates from industry benchmarks "
-            "\u2014 no client hire history was provided. Treat them as "
-            "indicative, not as commitments."
+            "Projected hires and costs are estimates from Nova's assumed "
+            "industry cost-per-hire table (an all-in figure, not a published "
+            "benchmark); media budget divided by that figure \u2014 no client "
+            "hire history was provided. Treat them as indicative, not as "
+            "commitments."
         )
 
     if unverified_boards > 0:

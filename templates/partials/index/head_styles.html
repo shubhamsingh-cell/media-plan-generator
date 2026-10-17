@@ -6919,6 +6919,18 @@
     .np-estimate-bar[data-state="loading"] .neb-status {
       display: block;
     }
+    /* what the hires range divides the budget by: its own line, ready state only */
+    .np-estimate-bar .neb-basis {
+      display: none;
+      flex: 1 0 100%;
+      order: 2;
+      font-size: 11px;
+      line-height: 1.3;
+      color: var(--np-muted);
+    }
+    .np-estimate-bar[data-state="ready"] .neb-basis:not(:empty) {
+      display: block;
+    }
     .np-estimate-bar[data-state="loading"] .neb-item span {
       display: none;
     }

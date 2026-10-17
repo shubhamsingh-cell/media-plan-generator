@@ -6416,9 +6416,33 @@ def _compute_plan_estimate(brief: dict) -> dict:
         projection,
     )
     _goal_only = {"goal_plan": _goal_plan} if _goal_plan else {}
+    # What the hires figures divide the budget by (Nova's INDUSTRY_CPH_RANGES
+    # table: an all-in cost per hire, no external source), so every screen that
+    # prints a hires range can state its basis beside it. None when no hires
+    # are projected for this market.
+    _proj_a = projection.get("assumptions") if isinstance(projection, dict) else None
+    _proj_a = _proj_a if isinstance(_proj_a, dict) else {}
+    _hb_mid = _proj_a.get("industry_cph_avg")
+    _hb_floor = _proj_a.get("industry_cph_floor")
+    hire_basis = (
+        {
+            "midpoint_cph": round(float(_hb_mid), 2),
+            "floor_cph": (
+                round(float(_hb_floor), 2)
+                if isinstance(_hb_floor, (int, float)) and _hb_floor > 0
+                else None
+            ),
+            "label": "assumed all-in industry cost per hire (Nova table, unsourced)",
+        }
+        if isinstance(_hb_mid, (int, float))
+        and _hb_mid > 0
+        and not _proj_a.get("hires_suppressed")
+        else None
+    )
     return {
         **_goal_only,
         "est_hires": est_hires,
+        "hire_basis": hire_basis,
         "est_cph": est_cph,
         "est_applications": int(applications),
         "est_cpa": est_cpa,

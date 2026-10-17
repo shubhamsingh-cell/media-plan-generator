@@ -429,7 +429,14 @@ def test_us_costed_non_us_market_is_listed():
 def test_projection_copy_claims_only_what_main_shows():
     first = _items()[0]
     assert "ranges" not in first.lower()
-    assert "estimates from industry benchmarks" in first
+    assert "industry benchmarks" not in first  # the Nova table is not a published benchmark
+    assert (
+        "estimates from Nova's assumed industry cost-per-hire table "
+        "(an all-in figure, not a published benchmark); media budget divided by that figure"
+    ) in first
+    from us_only_markers import _US_ONLY_MARKERS
+
+    assert not [m for m in _US_ONLY_MARKERS if m.lower() in first.lower()]
     assert "no client hire history was provided" in first
     assert "indicative" in first
     guide = (PROJECT_ROOT / "templates" / "help-media-plans.html").read_text()

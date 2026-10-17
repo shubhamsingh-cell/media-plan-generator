@@ -115,7 +115,12 @@ def test_no_fitting_row_or_metro_means_none_not_a_guess():
 
 def test_the_source_line_and_date_are_the_files_own():
     got = pricing.build_live_pricing(*NURSE)
-    assert got["data_updated"] == _file()["metadata"]["last_updated"]
+    meta = _file()["metadata"]
+    assert got["data_updated"] == meta["last_updated"]  # kept for compatibility
+    # the freshness label is the cells' data period, not the edit date
+    assert got["data_vintage"] == meta["data_period"]
+    assert got["reviewed"] == meta["last_updated"]
+    assert got["data_vintage"] != got["reviewed"] and got["data_vintage"].startswith("2024-01 through 2025-12")
     assert got["source"].startswith("Benchmark data, sources listed in the file: ")
     assert "Appcast 2025" in got["source"]
     # the unverified cost-per-hire row no longer lends SHRM / NAHS names to the line
@@ -147,3 +152,16 @@ def test_the_hand_typed_tables_are_gone_from_the_module():
     source = open(os.path.join(ROOT, "routes", "pricing.py"), encoding="utf-8").read()
     for dead in ("cpc_base", "cpa_base", "cph_base", "_pl_us_index", "_pl_industry_mult", '"los angeles": 1.20', "_pl_comp_factor"):
         assert dead not in source, dead
+
+
+def test_the_pricing_panel_label_shows_vintage_not_the_edit_date():
+    """body_app_js.html words the source line from data_vintage + reviewed; the
+    old "Data last updated <last_updated>" read a provenance edit as fresh data."""
+    js = open(os.path.join(ROOT, "templates", "partials", "index", "body_app_js.html"), encoding="utf-8").read()
+    assert "Data last updated" not in js
+    assert '"Data vintage "' in js and '"file reviewed "' in js
+    assert "pricingData.data_vintage" in js and "pricingData.reviewed" in js
+    from us_only_markers import _US_ONLY_MARKERS
+
+    for printed in ("Data vintage ", "file reviewed "):
+        assert not [m for m in _US_ONLY_MARKERS if m.lower() in printed.lower()]

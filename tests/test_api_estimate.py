@@ -250,6 +250,27 @@ def test_estimate_matches_budget_engine_total_projected(
     )
 
 
+def test_estimate_states_the_cost_per_hire_its_hires_divide_by() -> None:
+    """hire_basis names the all-in table value behind the hires range (so the
+    wizard can print it beside the range), and is None where no hires are
+    projected."""
+    from us_only_markers import _US_ONLY_MARKERS
+
+    est = app._compute_plan_estimate(dict(MANPOWER_BRIEF))
+    hb = est["hire_basis"]
+    assert hb["midpoint_cph"] > 0
+    assert hb["floor_cph"] is None or hb["floor_cph"] > 0
+    assert hb["midpoint_cph"] == est["industry_midpoint_cph"]
+    assert hb["label"] == "assumed all-in industry cost per hire (Nova table, unsourced)"
+    assert not [m for m in _US_ONLY_MARKERS if m.lower() in hb["label"].lower()]
+    off = app._compute_plan_estimate(
+        {"budget": "$115,000", "roles": ["Registered Nurse"], "industry": "healthcare_medical",
+         "locations": ["Lagos, Nigeria"]}
+    )
+    assert off["projection"]["assumptions"]["hires_suppressed"] is True
+    assert off["hire_basis"] is None
+
+
 def test_manpower_brief_reproduces_prod_incident_numbers() -> None:
     """The exact numbers verified on prod 2026-07-12: 48 hires at $3,125
     CPH for the Manpower-AmeriGas brief -- NOT the naive JS estimator's
