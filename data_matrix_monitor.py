@@ -16,6 +16,7 @@ Dependencies: stdlib only (no new packages).
 
 from __future__ import annotations
 
+import contextlib
 import gc
 import hashlib
 import importlib
@@ -25,15 +26,21 @@ import os
 import random
 import shutil
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+try:
+    import fcntl
+except ImportError:  # non-POSIX dev box: no cross-process coordination
+    fcntl = None  # type: ignore[assignment]
 
 try:
     from alert_manager import send_alert
@@ -178,6 +185,118 @@ _ORCH_LAYER_MAP = {
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# SINGLE-RUNNER ELECTION + QUIET PROBES
+# ═══════════════════════════════════════════════════════════════════════════════
+# Under gunicorn --preload + gevent the monitor thread is not one-per-instance:
+# it re-runs in the master and in every forked worker (see wsgi.py's note on the
+# vector-index thread), so electing once at start_background() cannot stop a
+# copy that already started. Elect per CYCLE instead: a non-blocking flock in
+# the shared slot dir (same primitive as app._acquire_auto_qc_leader_lock) stops
+# copies that wake together, and the last-result file's mtime stops a copy that
+# wakes just after the winner finished. Copies stay alive, so if the winner's
+# process dies another one takes the next cycle.
+_SHARED_RESULT_FILE = "data_matrix_last_result.json"
+_SHARED_LOCK_FILE = "data_matrix_check.lock"
+
+
+def _slot_dir() -> str:
+    return os.environ.get("NOVA_SLOT_DIR") or os.path.join(
+        tempfile.gettempdir(),
+        f"nova_gen_slots_{os.environ.get('PORT') or os.environ.get('TEST_PORT') or 'dev'}",
+    )
+
+
+@contextlib.contextmanager
+def _check_run_claim(min_gap_s: float):
+    """Yield True if this process may run the periodic check now, else False.
+
+    Fails open (True) when there is no usable lock (non-POSIX, unwritable slot
+    dir): losing the health check everywhere is worse than running it twice.
+    """
+    if fcntl is None:
+        yield True
+        return
+    slot_dir = _slot_dir()
+    try:
+        os.makedirs(slot_dir, exist_ok=True)
+        lock_fd = open(os.path.join(slot_dir, _SHARED_LOCK_FILE), "a+b")
+    except OSError:
+        yield True
+        return
+    try:
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            yield False  # another copy is running the check right now
+            return
+        try:
+            age = (
+                time.time()
+                - os.stat(os.path.join(slot_dir, _SHARED_RESULT_FILE)).st_mtime
+            )
+        except OSError:
+            age = None
+        yield age is None or age >= min_gap_s
+    finally:
+        lock_fd.close()  # releases the flock
+
+
+def _publish_result(result: Dict[str, Any]) -> None:
+    """Share the latest result so a copy that skipped can still serve get_status()."""
+    path = os.path.join(_slot_dir(), _SHARED_RESULT_FILE)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = f"{path}.{os.getpid()}.tmp"
+        with open(tmp, "w") as f:
+            json.dump(result, f, default=str)
+        os.replace(tmp, path)
+    except (OSError, TypeError, ValueError) as e:
+        logger.debug("DataMatrixMonitor: could not publish result: %s", e)
+
+
+def _read_published_result() -> Optional[Tuple[Dict[str, Any], float]]:
+    path = os.path.join(_slot_dir(), _SHARED_RESULT_FILE)
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+        return (data, os.stat(path).st_mtime) if isinstance(data, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+# A probe sweep calls budget_engine ~900 times; its per-call INFO/WARNING lines
+# (4,400 lines in two minutes on 2026-10-16) are noise for a health probe.
+# Demote them to DEBUG for the monitor's own thread only -- thread-local, so
+# concurrent requests keep their normal levels, and ERROR+ always passes.
+_probe_ctx = threading.local()
+_QUIET_PROBE_LOGGERS = ("budget_engine",)
+
+
+class _DemoteProbeLogs(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not getattr(_probe_ctx, "active", False):
+            return True
+        if record.levelno >= logging.ERROR or record.levelno <= logging.DEBUG:
+            return True
+        record.levelno, record.levelname = logging.DEBUG, "DEBUG"
+        return logging.getLogger(record.name).isEnabledFor(logging.DEBUG)
+
+
+_demote_filter = _DemoteProbeLogs()
+for _name in _QUIET_PROBE_LOGGERS:
+    logging.getLogger(_name).addFilter(_demote_filter)
+
+
+@contextlib.contextmanager
+def _quiet_probe_logs():
+    _probe_ctx.active = True
+    try:
+        yield
+    finally:
+        _probe_ctx.active = False
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # MONITOR CLASS
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -218,7 +337,11 @@ class DataMatrixMonitor:
 
     def get_status(self) -> Dict[str, Any]:
         """Return the latest matrix check result for the endpoint."""
+        shared = _read_published_result()
         with self._lock:
+            if shared is not None and shared[1] > self._last_check_time:
+                # Another worker owned the latest cycle; serve its result.
+                self._last_result, self._last_check_time = shared
             if self._last_result is None:
                 return {
                     "status": "pending",
@@ -243,6 +366,10 @@ class DataMatrixMonitor:
 
     def run_check(self) -> Dict[str, Any]:
         """Run a full 4x7 matrix probe, attempt self-healing, return results."""
+        with _quiet_probe_logs():
+            return self._run_check()
+
+    def _run_check(self) -> Dict[str, Any]:
         start = time.time()
         self._json_probe_cache = None  # reset per-check cache
         matrix_results: Dict[str, Dict[str, Any]] = {}
@@ -442,7 +569,13 @@ class DataMatrixMonitor:
         time.sleep(_initial_sleep)
         while True:
             try:
-                self.run_check()
+                with _check_run_claim(_CHECK_INTERVAL / 2) as elected:
+                    if elected:
+                        _publish_result(self.run_check())
+                    else:
+                        logger.debug(
+                            "DataMatrixMonitor: another worker owns this cycle"
+                        )
             except Exception as e:
                 logger.error("DataMatrixMonitor: check failed: %s", e, exc_info=True)
             # Memory pressure check every cycle
