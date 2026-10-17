@@ -220,14 +220,14 @@ def test_hires_suppressed_market_still_plans_in_apply_starts():
 # ---------------------------------------------------------------------------
 def test_short_plan_options_are_sane():
     proj = projector_for(BRIEF)
-    plan = dp.build_goal_plan(goal=300, budget=100_000, projector=proj, weeks=10)
+    plan = dp.build_goal_plan(goal=40, budget=100_000, projector=proj, weeks=10)
     assert plan["status"] == "short"
     a, b, c = plan["options"]
     here = proj(100_000)["hires"]
     # B is exactly what the actual budget buys
     assert (b["delivers_low"], b["delivers_high"]) == (here["low"], here["high"])
-    assert b["shortfall_low"] == 300 - here["high"]
-    assert b["shortfall_high"] == 300 - here["low"]
+    assert b["shortfall_low"] == 40 - here["high"]
+    assert b["shortfall_high"] == 40 - here["low"]
     # A is the required range and the $ gap is range - budget
     assert (a["budget_low"], a["budget_high"]) == (
         plan["required"]["low"],
@@ -237,11 +237,53 @@ def test_short_plan_options_are_sane():
     assert a["budget_low"] > 100_000
     # C: same weekly spend, longer window; at the original deadline the
     # shortfall is stated and unchanged
-    assert c["kind"] == "extend_deadline"
+    assert c["kind"] == "extend_deadline" and c["viable"] and not c["fits_now"]
     assert c["weeks_low"] == pytest.approx(10 * a["budget_low"] / 100_000)
     assert c["weeks_high"] == pytest.approx(10 * a["budget_high"] / 100_000)
     assert c["shortfall_low"] == b["shortfall_low"]
     assert "short" in c["summary"]
+
+
+def test_option_c_is_flagged_when_the_extension_is_not_sane():
+    proj = projector_for(BRIEF)
+    # 10,000 hires on a $100k / 10-week plan: a ~1,900-week "extension"
+    plan = dp.build_goal_plan(goal=10_000, budget=100_000, projector=proj, weeks=10)
+    c = plan["options"][2]
+    assert c["viable"] is False
+    assert "can't close this gap" in c["summary"]
+    assert "not viable" in c["title"]
+    assert "Add budget" in c["summary"]
+    # past a year is not an option even when only ~2.5x the window
+    plan = dp.build_goal_plan(goal=40, budget=100_000, projector=proj, weeks=30)
+    assert plan["options"][2]["viable"] is False  # 75 weeks > 52
+    # a modest extension stays an option
+    ok = dp.build_goal_plan(goal=40, budget=100_000, projector=proj, weeks=10)
+    assert ok["options"][2]["viable"] is True
+
+
+def test_borderline_goal_says_it_already_fits_the_window():
+    proj = projector_for(BRIEF)
+    here = proj(100_000)["hires"]
+    goal = here["low"] + 1  # inside the range: optimistic end reaches it
+    plan = dp.build_goal_plan(goal=goal, budget=100_000, projector=proj, weeks=9)
+    assert plan["status"] == "borderline"
+    c = plan["options"][2]
+    assert c["fits_now"] is True
+    assert "already fits in the current 9-week window" in c["summary"]
+    assert "extend to about" in c["summary"]
+    # never "extend to 7.5 weeks" when the window is already 9
+    assert not re.search(r"extend the window by about 0\.0", c["summary"])
+
+
+def test_singular_units():
+    proj = projector_for(BRIEF)
+    plan = dp.build_goal_plan(goal=1, budget=100_000, projector=proj)
+    assert "Goal of 1 hire needs" in plan["text"]["callout"]
+    assert "1 hires" not in plan["text"]["callout"]
+    assert dp.count_phrase(1, 1, "hires") == "1 hire"
+    assert dp.count_phrase(1, 1, "apply_starts") == "1 apply start"
+    assert dp.count_phrase(0, 1, "hires") == "0\u20131 hires"
+    assert dp.count_phrase(2, 2, "hires") == "2 hires"
 
 
 def test_covered_goal_has_no_gap():

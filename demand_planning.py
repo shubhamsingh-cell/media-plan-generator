@@ -52,6 +52,8 @@ _MAX_BUDGET = 1e12
 _MAX_BRACKET_STEPS = 45
 _MAX_BISECT_STEPS = 60
 _ABS_TOLERANCE = 1.0  # dollars
+_MAX_EXTENSION_WEEKS = 52  # a deadline extension past a year is not an option
+_MAX_EXTENSION_FACTOR = 2.0  # ... nor one longer than twice the window
 _GRID_POINTS = 120  # budget grid the non-monotone scan walks
 
 Projector = Callable[[float], Dict[str, Any]]
@@ -115,8 +117,18 @@ def _metric(proj: Dict[str, Any], kind: str) -> Optional[Tuple[float, float]]:
     return float(lo), float(hi)
 
 
-def unit_label(kind: str) -> str:
-    return "hires" if kind == GOAL_HIRES else "apply starts"
+def unit_label(kind: str, singular: bool = False) -> str:
+    if kind == GOAL_HIRES:
+        return "hire" if singular else "hires"
+    return "apply start" if singular else "apply starts"
+
+
+def count_phrase(lo: Any, hi: Any, kind: str) -> str:
+    """"1 hire", "300 hires", "24\u201348 hires": a count or range with its unit,
+    singular only for exactly one."""
+    a, b = int(round(float(lo))), int(round(float(hi)))
+    rng = f"{a:,}" if a == b else f"{a:,}\u2013{b:,}"
+    return f"{rng} {unit_label(kind, a == b == 1)}"
 
 
 def city_key(text: Any) -> str:
@@ -652,7 +664,7 @@ def _build_goal_plan(
         "title": "Full objective",
         "summary": (
             f"Fund the goal: {_range_money(req_lo, req_hi, symbol)} delivers "
-            f"{int(round(goal)):,} {unit}"
+            f"{count_phrase(goal, goal, kind)}"
             + (
                 f" ({_range_money(gap_lo, gap_hi, symbol)} more than the current budget)."
                 if gap_hi > 0
@@ -673,7 +685,7 @@ def _build_goal_plan(
         "title": "Current constraint",
         "summary": (
             f"Hold the budget at {_money(budget, symbol)}: it delivers about "
-            f"{_range_count(proj_lo, proj_hi)} {unit} against {int(round(goal)):,}"
+            f"{count_phrase(proj_lo, proj_hi, kind)} against {int(round(goal)):,}"
             + (
                 f" — short by {_range_count(short_lo, short_hi)}."
                 if short_hi > 0
@@ -709,22 +721,56 @@ def _build_goal_plan(
             "extra_budget_low": gap_lo,
             "extra_budget_high": gap_hi,
         }
+        extra_hi = option_c["extra_weeks_high"]
+        # a deadline extension is only a real alternative when it is a sane one:
+        # past a year, or more than twice the window, the gap is a budget gap
+        viable = w_hi <= _MAX_EXTENSION_WEEKS and extra_hi <= _MAX_EXTENSION_FACTOR * weeks
+        fits_now = w_lo <= weeks  # the optimistic end already fits the window
+        option_c["viable"] = viable
+        option_c["fits_now"] = fits_now
+        short_txt = (
+            f"{count_phrase(short_lo, short_hi, kind)} short"
+            if short_lo == short_hi
+            else f"{_range_count(short_lo, short_hi)} {unit} short"
+        )
         if gap_hi <= 0:
             option_c["summary"] = (
                 "Not needed: the current budget covers the goal inside the "
                 f"current {weeks:g}-week window."
             )
+        elif not viable:
+            option_c["title"] = "Extend the deadline (not viable alone)"
+            option_c["summary"] = (
+                "Extending the deadline alone can't close this gap: at the "
+                f"current weekly spend ({_money(budget / weeks, symbol)}/week) the "
+                f"goal would take about {w_hi:.0f} weeks against a {weeks:g}-week "
+                "window. Add budget (option A) or lower the goal."
+                + (
+                    " At plan efficiency it already fits the current window."
+                    if fits_now
+                    else ""
+                )
+            )
+        elif fits_now:
+            option_c["summary"] = (
+                f"At plan efficiency the goal already fits in the current "
+                f"{weeks:g}-week window. At the industry-average cost, keep the "
+                f"weekly spend ({_money(budget / weeks, symbol)}/week) and extend "
+                f"to about {w_hi:.1f} weeks (+{extra_hi:.1f}); at the original "
+                f"deadline the plan could land up to {short_txt}."
+            )
         else:
-            ex_lo, ex_hi = option_c["extra_weeks_low"], option_c["extra_weeks_high"]
+            ex_lo = option_c["extra_weeks_low"]
             ext = (
-                f"{ex_lo:.1f}–{ex_hi:.1f}" if abs(ex_hi - ex_lo) >= 0.05 else f"{ex_hi:.1f}"
+                f"{ex_lo:.1f}\u2013{extra_hi:.1f}"
+                if abs(extra_hi - ex_lo) >= 0.05
+                else f"{extra_hi:.1f}"
             )
             option_c["summary"] = (
                 f"Keep the weekly spend ({_money(budget / weeks, symbol)}/week) and "
                 f"extend the window by about {ext} weeks (to "
-                f"{w_lo:.1f}–{w_hi:.1f} weeks): that reaches the goal. At the "
-                f"original deadline the plan still lands "
-                f"{_range_count(short_lo, short_hi)} {unit} short."
+                f"{w_lo:.1f}\u2013{w_hi:.1f} weeks): that reaches the goal. At the "
+                f"original deadline the plan still lands {short_txt}."
             )
     else:
         option_c = {
@@ -746,7 +792,7 @@ def _build_goal_plan(
                 else (
                     f"Phase it: run the current budget first, then fund a second "
                     f"flight of {_range_money(gap_lo, gap_hi, symbol)} to close the "
-                    f"{_range_count(short_lo, short_hi)} {unit} gap. (No campaign "
+                    f"{_range_count(short_lo, short_hi)}-{unit[:-1] if unit.endswith('s') else unit} gap. (No campaign "
                     "length was stated, so no new deadline is computed.)"
                 )
             ),
@@ -775,15 +821,15 @@ def _build_goal_plan(
     need = _range_money(req_lo, req_hi, symbol)
     cover = _range_count(proj_lo, proj_hi)
     callout = (
-        f"Goal of {int(round(goal)):,} {unit} needs {need}; your budget of "
-        f"{_money(budget, symbol)} covers ~{cover} {unit}."
+        f"Goal of {count_phrase(goal, goal, kind)} needs {need}; your budget of "
+        f"{_money(budget, symbol)} covers ~{count_phrase(proj_lo, proj_hi, kind)}."
     )
     if status == "meets":
         callout += " The goal is covered."
     elif status == "borderline":
         callout += " The goal is reachable at plan efficiency but not assured."
     else:
-        callout += f" Short by {_range_count(short_lo, short_hi)} {unit}."
+        callout += f" Short by {count_phrase(short_lo, short_hi, kind)}."
     base.update(
         {
             "status": status,

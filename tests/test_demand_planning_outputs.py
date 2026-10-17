@@ -184,7 +184,11 @@ def test_goal_plan_sheet_contents_and_site_table():
         row=find_row(ws, "Required budget, high"), column=3
     ).value == pytest.approx(gp["required"]["high"])
     assert ws.cell(row=find_row(ws, "Status"), column=3).value == "SHORT"
-    for opt in ("A. Full objective", "B. Current constraint", "C. Extend the deadline"):
+    for opt in (
+        "A. Full objective",
+        "B. Current constraint",
+        "C. Extend the deadline (not viable alone)",
+    ):
         find_row(ws, opt)
     # per-site goal vs projected
     first = find_row(ws, "Dallas, TX")
@@ -280,6 +284,8 @@ def test_deck_gets_one_goal_slide_and_nothing_else_changes():
     last = texts[-1]
     assert "Goal Plan" in last and "Full objective" in last
     assert "Current constraint" in last and "Extend the deadline" in last
+    assert "Not viable alone" in last  # a 300-hire goal on this budget
+    assert "50-100 weeks" not in last
     assert with_goal["_budget_allocation"]["goal_plan"]["text"]["callout"] in last
     assert "Dallas, TX" in last
 

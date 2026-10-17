@@ -3010,7 +3010,7 @@ def _build_goalplan(ws: Any, data: dict, gp: Dict[str, Any], x: Any) -> None:
     sh.put(row, 9, c["summary"])
     ws.row_dimensions[row].height = 86
     row += 1
-    if c.get("kind") == "extend_deadline":
+    if c.get("kind") == "extend_deadline" and c.get("viable", True):
         row += 1
         row = sh.header(
             row,
@@ -3710,7 +3710,7 @@ def _slide_goalplan(prs: Any, data: dict, gp: Dict[str, Any], ppt: Any) -> None:
         [
             "A. Full objective",
             mr(a["budget_low"], a["budget_high"]),
-            f"{gp['goal']:,} {unit}",
+            demand_planning.count_phrase(gp["goal"], gp["goal"], gp["kind"]),
             "none",
             _clip(
                 "Fund the goal."
@@ -3725,25 +3725,41 @@ def _slide_goalplan(prs: Any, data: dict, gp: Dict[str, Any], ppt: Any) -> None:
         [
             "B. Current constraint",
             m(gp["budget"]),
-            f"{cr(b['delivers_low'], b['delivers_high'])} {unit}",
-            f"{cr(short['low'], short['high'])} {unit}" if short["high"] > 0 else "none",
+            demand_planning.count_phrase(b["delivers_low"], b["delivers_high"], gp["kind"]),
+            demand_planning.count_phrase(short["low"], short["high"], gp["kind"])
+            if short["high"] > 0
+            else "none",
             _clip("Hold the budget; accept what it buys.", 70),
         ],
     ]
     if c.get("kind") == "extend_deadline" and short["high"] > 0:
-        c_text = (
-            f"Same weekly spend, window grows to {c['weeks_low']:.0f}-{c['weeks_high']:.0f} "
-            f"weeks (now {c['weeks_now']:g})."
-            if abs(c["weeks_high"] - c["weeks_low"]) >= 0.5
-            else f"Same weekly spend, window grows to {c['weeks_high']:.0f} weeks (now {c['weeks_now']:g})."
-        )
+        if not c.get("viable", True):
+            c_title = "C. Extend the deadline"
+            c_text = (
+                f"Not viable alone: about {c['weeks_high']:.0f} weeks at today's "
+                f"weekly spend (window is {c['weeks_now']:g}). Add budget or lower the goal."
+            )
+        elif c.get("fits_now"):
+            c_title = "C. Extend the deadline"
+            c_text = (
+                f"Fits the {c['weeks_now']:g}-week window at plan efficiency; about "
+                f"{c['weeks_high']:.0f} weeks at the industry-average cost."
+            )
+        else:
+            c_title = "C. Extend the deadline"
+            c_text = (
+                f"Same weekly spend, window grows to {c['weeks_low']:.0f}-{c['weeks_high']:.0f} "
+                f"weeks (now {c['weeks_now']:g})."
+                if abs(c["weeks_high"] - c["weeks_low"]) >= 0.5
+                else f"Same weekly spend, window grows to {c['weeks_high']:.0f} weeks (now {c['weeks_now']:g})."
+            )
         rows.append(
             [
-                "C. Extend the deadline",
+                c_title,
                 mr(c["budget_low"], c["budget_high"]),
-                f"{gp['goal']:,} {unit}",
-                f"{cr(short['low'], short['high'])} {unit} at today's deadline",
-                _clip(c_text, 90),
+                demand_planning.count_phrase(gp["goal"], gp["goal"], gp["kind"]),
+                f"{demand_planning.count_phrase(short['low'], short['high'], gp['kind'])} at today's deadline",
+                _clip(c_text, 110),
             ]
         )
     elif c.get("kind") == "second_flight" and short["high"] > 0:
@@ -3751,8 +3767,8 @@ def _slide_goalplan(prs: Any, data: dict, gp: Dict[str, Any], ppt: Any) -> None:
             [
                 "C. Second flight",
                 mr(c["budget_low"], c["budget_high"]),
-                f"{gp['goal']:,} {unit}",
-                f"{cr(short['low'], short['high'])} {unit} until the second flight",
+                demand_planning.count_phrase(gp["goal"], gp["goal"], gp["kind"]),
+                f"{demand_planning.count_phrase(short['low'], short['high'], gp['kind'])} until the second flight",
                 _clip(
                     f"Fund {mr(c['extra_budget_low'], c['extra_budget_high'])} more in a second flight.",
                     90,
@@ -3764,7 +3780,7 @@ def _slide_goalplan(prs: Any, data: dict, gp: Dict[str, Any], ppt: Any) -> None:
             [
                 "C. Alternative",
                 "not needed",
-                f"{gp['goal']:,} {unit}",
+                demand_planning.count_phrase(gp["goal"], gp["goal"], gp["kind"]),
                 "none",
                 "The planned budget covers the goal.",
             ]
