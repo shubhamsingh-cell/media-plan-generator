@@ -989,6 +989,21 @@
     });
     html += "</ul></div>";
 
+    // ── Client story: the plan's plain-language summary (app.py
+    // _plan_results_summary -> client_story.py, built only from the plan's own
+    // fields) with a one-click copy. Hidden when the plan has none.
+    const story = res.client_story && Array.isArray(res.client_story.sections) ? res.client_story : null;
+    if (story && story.text) {
+      html += '<div class="plan-section-label">' + escapeHtml(story.title || "Client story") + "</div>";
+      html += '<div class="plan-insights-card plan-story" id="planClientStory">';
+      story.sections.forEach((sec) => {
+        html += "<h4>" + escapeHtml(sec.heading) + "</h4><p>" + escapeHtml(sec.text) + "</p>";
+      });
+      html +=
+        '<button type="button" class="plan-story-btn" id="copyClientStoryBtn">Copy client story</button>';
+      html += "</div>";
+    }
+
     // ── 6. Download Section ──
     html += '<div class="plan-section-label">Downloads</div>';
     html += '<div style="display:flex;gap:12px;flex-wrap:wrap">';
@@ -1004,6 +1019,35 @@
 
     html += "</div>"; // .plan-dashboard
     container.innerHTML = html;
+
+    const copyStoryBtn = document.getElementById("copyClientStoryBtn");
+    if (copyStoryBtn && story) {
+      copyStoryBtn.addEventListener("click", async function () {
+        let copied = false;
+        try {
+          await navigator.clipboard.writeText(story.text);
+          copied = true;
+        } catch (err) {
+          const ta = document.createElement("textarea");
+          ta.value = story.text;
+          ta.setAttribute("readonly", "");
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            copied = document.execCommand("copy");
+          } catch (err2) {
+            copied = false;
+          }
+          ta.remove();
+        }
+        showToast(
+          copied ? "Client story copied." : "Could not copy. Select the text above and copy it.",
+          copied ? "success" : "error",
+        );
+      });
+    }
 
     // ── Render Sankey Flow Diagram (if script loaded and container exists) ──
     var sankeyContainer = document.getElementById("sankeyFlowContainer");

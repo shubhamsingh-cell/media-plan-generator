@@ -4789,6 +4789,21 @@ def _plan_results_summary(data: dict) -> dict:
             "currency": code,
             "display": display or f"{cpc:,.2f}",
         }
+    # Client-ready plain-language story (client_story.py: built only from this
+    # plan's own fields). The results screen's "Copy client story" button reads
+    # it; absent when the plan has nothing to tell.
+    try:
+        import client_story
+
+        story = client_story.build_client_story(data)
+        if story.get("ok"):
+            summary["client_story"] = {
+                "title": story["title"],
+                "sections": story["sections"],
+                "text": story["text"],
+            }
+    except (ImportError, KeyError, TypeError, ValueError):
+        logger.error("results-screen client story failed", exc_info=True)
     return summary
 
 
