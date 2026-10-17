@@ -70,6 +70,30 @@ def _usd_range(node: Any, low: str, high: str) -> Any:
     return out
 
 
+NOVA_ESTIMATE_LABEL = "Nova working estimate"
+APPCAST_AGGREGATE_LABEL = "Appcast all-publisher aggregate (not board-specific)"
+
+
+def channel_source_label(cell_ids: list) -> str:
+    """What a channel card says its CPC / CPA ranges rest on, from the ids that
+    remain on its CPC and CPA cells (not the row's wider list).
+
+    No ids left -> "Nova working estimate" (never a stand-in publisher). Only
+    Appcast ids -> its all-publisher aggregate, which is not a per-board figure.
+    Anything else is named from the registry, with the same aggregate caveat
+    when Appcast is among them."""
+    import cph_benchmark
+
+    ids = list(dict.fromkeys(str(i) for i in cell_ids))
+    if not ids:
+        return NOVA_ESTIMATE_LABEL
+    appcast = [i for i in ids if i.startswith("appcast_")]
+    if len(appcast) == len(ids):
+        return APPCAST_AGGREGATE_LABEL
+    label = cph_benchmark.source_label(ids)
+    return label + "; Appcast figures are all-publisher aggregates" if appcast else label
+
+
 def build_live_pricing(role: str, location: str, industry: str) -> dict:
     """What the wizard's "Market Pricing Benchmarks" panel shows (step 4).
 
@@ -105,14 +129,21 @@ def build_live_pricing(role: str, location: str, industry: str) -> dict:
         cpa = _usd_range(node.get("typical_cpa_usd"), "low", "high")
         if cpc is None and cpa is None:
             continue
-        ids = [str(i) for i in node.get("source_ids") or []]
+        # the ids on the cells the card prints (CPC / CPA), not the row's wider
+        # list: a row id that backs only another claim must not label them
+        ids: list = []
+        for cell in ("typical_cpc_usd", "typical_cpa_usd"):
+            raw = node.get(cell)
+            for i in (raw.get("source_ids") if isinstance(raw, dict) else None) or []:
+                if str(i) not in ids:
+                    ids.append(str(i))
         source_ids.extend(ids)
         channels.append(
             {
                 "name": _CHANNEL_NAMES.get(key, key.replace("_", " ").title()),
                 "cpc": cpc,
                 "cpa": cpa,
-                "source": cph_benchmark.source_label(ids),
+                "source": channel_source_label(ids),
             }
         )
     channels.sort(key=lambda c: (c["cpa"] or {}).get("median", float("inf")))

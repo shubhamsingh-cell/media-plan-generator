@@ -299,33 +299,39 @@
       "min_bid_usd": 0.10,
       "recommended_bid_range_usd": [0.50, 3.50],
       "best_industries": ["hospitality", "retail", "warehouse", "healthcare_aides", "delivery"],
-      "source_ids": ["appcast_2025", "joveo_internal_2026", "indeed_hiring_lab"]
+      "source_ids": ["appcast_2025", "joveo_internal_2026"],
+      "status": "nova_working_estimate",
+      "note": "Nova working estimate; no public per-board CPC/CPA benchmark. Appcast figures are all-publisher aggregates."
     },
     "linkedin": {
       "channel_type": "professional_network",
       "revenue_model": "CPC (Job Slots) / CPA / Talent Insights subscription",
       "us_monthly_active_users_m": 180,
-      "typical_cpc_usd": {"low": 1.50, "median": 4.80, "high": 12.00, "source_ids": ["linkedin_talent_insights", "appcast_2025"]},
-      "typical_cpa_usd": {"low": 18.00, "median": 42.00, "high": 120.00, "source_ids": ["linkedin_talent_insights", "appcast_2025"]},
+      "typical_cpc_usd": {"low": 1.50, "median": 4.80, "high": 12.00, "source_ids": ["appcast_2025"]},
+      "typical_cpa_usd": {"low": 18.00, "median": 42.00, "high": 120.00, "source_ids": ["appcast_2025"]},
       "applicant_cost_usd": {"median": 2.83, "source_ids": ["appcast_2025"], "note": "Per Appcast search/social 2025 data"},
-      "apply_rate_pct": {"easy_apply": 11.0, "off_site": 3.2, "source_ids": ["linkedin_talent_insights"]},
+      "apply_rate_pct": {"easy_apply": 11.0, "off_site": 3.2, "source_ids": []},
       "strength": "Highest quality for white-collar, specialized, leadership. Strongest in tech, finance, pharma, consulting.",
       "weakness": "Most expensive. Low fit for hourly / frontline.",
       "best_industries": ["tech", "finance", "pharma_biotech", "consulting", "leadership_roles", "sales_b2b"],
-      "source_ids": ["linkedin_talent_insights", "appcast_2025"]
+      "source_ids": ["appcast_2025"],
+      "status": "nova_working_estimate",
+      "note": "Nova working estimate; no public per-board CPC/CPA benchmark. Appcast figures are all-publisher aggregates."
     },
     "ziprecruiter": {
       "channel_type": "aggregator_ai_match",
       "revenue_model": "Subscription (SMB) + PPC (enterprise)",
       "us_monthly_active_seekers_m": 25,
-      "typical_cpc_usd": {"low": 0.40, "median": 1.20, "high": 3.50, "source_ids": ["ziprecruiter_10k_2024"]},
-      "typical_cpa_usd": {"low": 10.00, "median": 22.00, "high": 55.00, "source_ids": ["appcast_2025", "ziprecruiter_10k_2024"]},
+      "typical_cpc_usd": {"low": 0.40, "median": 1.20, "high": 3.50, "source_ids": []},
+      "typical_cpa_usd": {"low": 10.00, "median": 22.00, "high": 55.00, "source_ids": ["appcast_2025"]},
       "apply_rate_pct": {"1click": 18.0, "off_site": 4.8, "source_ids": ["appcast_2025"]},
       "avg_revenue_per_paid_employer_usd_quarterly": 1500,
       "strength": "AI-match to candidates. Strong SMB penetration. Good for gig, logistics, skilled trades.",
       "weakness": "Paid employer count pressured in 2024 per 10-K. Lower enterprise share than Indeed.",
       "best_industries": ["logistics", "skilled_trades", "retail", "sales", "admin", "hospitality"],
-      "source_ids": ["ziprecruiter_10k_2024", "appcast_2025"]
+      "source_ids": ["appcast_2025"],
+      "status": "nova_working_estimate",
+      "note": "Nova working estimate; no public per-board CPC/CPA benchmark. Appcast figures are all-publisher aggregates."
     },
     "monster": {
       "channel_type": "job_board_legacy",
@@ -337,31 +343,37 @@
       "strength": "Long-tail audience, strong in government, manufacturing, trades in secondary markets.",
       "weakness": "Declining traffic. Lost market share to Indeed/ZR. Now under CareerBuilder+Monster merger.",
       "best_industries": ["government", "manufacturing", "trades", "trucking"],
-      "source_ids": ["appcast_2025"]
+      "source_ids": ["appcast_2025"],
+      "status": "nova_working_estimate",
+      "note": "Nova working estimate; no public per-board CPC/CPA benchmark. Appcast figures are all-publisher aggregates."
     },
     "glassdoor": {
       "channel_type": "employer_review_plus_jobs",
       "revenue_model": "Employer branding subscription + PPC jobs",
       "us_monthly_unique_visitors_m": 55,
-      "typical_cpc_usd": {"low": 0.80, "median": 2.10, "high": 5.40, "source_ids": ["glassdoor_econ_2024", "appcast_2025"]},
+      "typical_cpc_usd": {"low": 0.80, "median": 2.10, "high": 5.40, "source_ids": ["appcast_2025"]},
       "typical_cpa_usd": {"low": 14.00, "median": 28.00, "high": 62.00, "source_ids": ["appcast_2025"]},
       "apply_rate_pct": {"median": 5.8, "source_ids": ["appcast_2025"]},
       "strength": "Unique employer-brand positioning. Reviews influence 86% of candidate decisions (Glassdoor 2024). Shared traffic with Indeed post-merger.",
       "weakness": "Pure apply volume lower than Indeed. Best used for brand + conversion, not raw reach.",
       "best_industries": ["tech", "finance", "mid_senior_corporate", "tier1_employer_brand"],
-      "source_ids": ["glassdoor_econ_2024", "appcast_2025"]
+      "source_ids": ["appcast_2025"],
+      "status": "nova_working_estimate",
+      "note": "Nova working estimate; no public per-board CPC/CPA benchmark. Appcast figures are all-publisher aggregates."
     },
     "dice": {
       "channel_type": "niche_tech_board",
       "revenue_model": "Job slots + resume access + CPC",
       "us_monthly_unique_tech_pros_m": 8,
-      "typical_cpc_usd": {"low": 2.00, "median": 4.80, "high": 9.50, "source_ids": ["dhi_dice_report"]},
-      "typical_cpa_usd": {"low": 22.00, "median": 48.00, "high": 95.00, "source_ids": ["dhi_dice_report"]},
-      "apply_rate_pct": {"median": 6.2, "source_ids": ["dhi_dice_report"]},
+      "typical_cpc_usd": {"low": 2.00, "median": 4.80, "high": 9.50, "source_ids": []},
+      "typical_cpa_usd": {"low": 22.00, "median": 48.00, "high": 95.00, "source_ids": []},
+      "apply_rate_pct": {"median": 6.2, "source_ids": []},
       "strength": "Purpose-built for tech/IT/security/cleared roles. Strong cyber, defense, cloud engineer reach.",
       "weakness": "Narrow vertical. Expensive per applicant vs Indeed for generalist tech.",
       "best_industries": ["tech", "cybersecurity", "defense_it", "cloud_devops", "data_engineering"],
-      "source_ids": ["dhi_dice_report"]
+      "source_ids": [],
+      "status": "nova_working_estimate",
+      "note": "Nova working estimate; no public per-board CPC/CPA benchmark. Appcast figures are all-publisher aggregates."
     },
     "programmatic_appcast_jobtarget": {
       "channel_type": "programmatic_job_ad",
@@ -374,7 +386,9 @@
       "strength": "Auto-optimizes to cheapest + highest-converting sites per job. Best aggregate CPA for volume campaigns.",
       "weakness": "Less channel-specific storytelling. Requires feed + CPA target discipline.",
       "best_industries": ["all_volume_roles", "hospitality", "retail", "warehouse", "healthcare_volume"],
-      "source_ids": ["appcast_2025", "iseek_jobtarget_2024", "joveo_internal_2026"]
+      "source_ids": ["appcast_2025", "iseek_jobtarget_2024", "joveo_internal_2026"],
+      "status": "nova_working_estimate",
+      "note": "Nova working estimate; no public per-board CPC/CPA benchmark. Appcast figures are all-publisher aggregates."
     }
   },
 

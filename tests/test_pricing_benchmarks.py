@@ -165,3 +165,93 @@ def test_the_pricing_panel_label_shows_vintage_not_the_edit_date():
 
     for printed in ("Data vintage ", "file reviewed "):
         assert not [m for m in _US_ONLY_MARKERS if m.lower() in printed.lower()]
+
+
+# -- channel CPC/CPA source hygiene (provenance audit 2026-10-17) -------------
+
+_DROPPED_CHANNEL_IDS = (
+    "dhi_dice_report",
+    "linkedin_talent_insights",
+    "ziprecruiter_10k_2024",
+    "glassdoor_econ_2024",
+    "indeed_hiring_lab",
+)
+_ESTIMATE_NOTE = (
+    "Nova working estimate; no public per-board CPC/CPA benchmark. "
+    "Appcast figures are all-publisher aggregates."
+)
+
+
+def _channel_rows() -> dict:
+    return {k: v for k, v in _file()["by_channel"].items() if not k.startswith("_")}
+
+
+def _walk_source_ids(node):
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "source_ids" and isinstance(value, list):
+                yield from value
+            else:
+                yield from _walk_source_ids(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _walk_source_ids(item)
+
+
+def test_no_channel_row_cites_a_source_that_publishes_no_channel_cpc_cpa():
+    """Dice's survey, LinkedIn Talent Insights, ZipRecruiter's 10-K, Glassdoor
+    economic research and Indeed Hiring Lab publish no per-board CPC / CPA;
+    citing them under a channel lent the figures a provenance they do not have."""
+    rows = _channel_rows()
+    assert len(rows) == 7
+    cited = {name: sorted(set(_walk_source_ids(row))) for name, row in rows.items()}
+    bad = {n: [i for i in ids if i in _DROPPED_CHANNEL_IDS] for n, ids in cited.items()}
+    assert not {n: b for n, b in bad.items() if b}, bad
+
+
+def test_every_channel_row_ends_with_status_and_note():
+    """Metadata keys go LAST (nova's deep search truncates an object to its first
+    keys, so a provenance note beside a field would evict real data)."""
+    for name, row in _channel_rows().items():
+        assert list(row)[-2:] == ["status", "note"], name
+        assert row["status"] == "nova_working_estimate", name
+        assert row["note"] == _ESTIMATE_NOTE, name
+
+
+def _card(name: str) -> dict:
+    cards = {c["name"]: c for c in pricing.build_live_pricing(*NURSE)["channels"]}
+    return cards[name]
+
+
+def test_channel_cards_label_their_ranges_from_the_ids_left_on_the_cells():
+    # Dice kept no source at all: a working estimate, never a stand-in publisher
+    assert _card("Dice")["source"] == "Nova working estimate"
+    # Appcast-only rows are an all-publisher aggregate, not that board's figures
+    for board in ("Monster", "LinkedIn", "Glassdoor"):
+        assert _card(board)["source"] == "Appcast all-publisher aggregate (not board-specific)", board
+    # ZipRecruiter's CPC lost its only source; its CPA still rests on Appcast
+    assert _card("ZipRecruiter")["source"] == "Appcast all-publisher aggregate (not board-specific)"
+    # a mixed row names its other sources and keeps the aggregate caveat
+    indeed = _card("Indeed")["source"]
+    assert "Appcast 2025" in indeed and indeed.endswith("Appcast figures are all-publisher aggregates")
+    for card in pricing.build_live_pricing(*NURSE)["channels"]:
+        assert card["source"]  # never an empty line
+        for gone in ("DHI", "Dice", "LinkedIn Talent", "Glassdoor", "ZipRecruiter Inc", "Indeed 20"):
+            assert gone not in card["source"], card
+    footer = pricing.build_live_pricing(*NURSE)["source"]
+    assert "DHI" not in footer and "ZipRecruiter" not in footer
+
+
+def test_channel_source_label_cases():
+    assert pricing.channel_source_label([]) == "Nova working estimate"
+    assert pricing.channel_source_label(["appcast_2025"]) == (
+        "Appcast all-publisher aggregate (not board-specific)"
+    )
+    from us_only_markers import _US_ONLY_MARKERS
+
+    for text in (
+        pricing.NOVA_ESTIMATE_LABEL,
+        pricing.APPCAST_AGGREGATE_LABEL,
+        _ESTIMATE_NOTE,
+    ):
+        assert not [m for m in _US_ONLY_MARKERS if m.lower() in text.lower()], text
