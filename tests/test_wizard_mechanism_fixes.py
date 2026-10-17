@@ -170,7 +170,7 @@ def test_resolution_response_drives_the_selector_and_saved_state_keeps_the_flag(
     assert "novaApplyDerivedRegion(novaRegionFromMarkets(data.market_regions))" in fn
     assert "data.market_regions.length === sentLocations.length" in fn
     assert "novaApplyDerivedRegion(novaRegionFromMarkets([]))" in fn  # cleared list
-    assert "regionPicked: _regionUserPicked" in SRC
+    assert "regionPicked: typeof _regionUserPicked" in SRC
     restore = js_block(SRC, "function novaRestoreRegion(")
     assert "s.regionPicked" in restore
 
@@ -368,6 +368,10 @@ _ENT_STUB = """
 var ELS = {};
 function el(id, props) { ELS[id] = Object.assign({ id: id, value: '', checked: false, hidden: false, open: false }, props || {}); return ELS[id]; }
 var document = { getElementById: function (id) { return ELS[id] || null; } };
+var novaSiteGoals = {};
+function novaApplyGoalMessage() { return ''; }
+function novaSiteGoalsMessage() { return ''; }
+function novaEnterpriseRenderSiteGoals() {}  // the demand-first goals table; not under test here
 var errors = [], cleared = [];
 function _showFieldError(e, msg) { errors.push({ id: e.id, msg: msg }); }
 function _clearFieldError(e) { cleared.push(e.id); }

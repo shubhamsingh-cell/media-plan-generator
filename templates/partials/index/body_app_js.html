@@ -339,10 +339,11 @@
     if (box) box.hidden = !s.on;
     const group = g("enterpriseGroup");
     if (group && s.on) group.open = true;
-    novaEnterpriseSyncBadge();
+    // Guarded: the form-state tests evaluate this function standalone.
+    if (typeof novaEnterpriseSyncBadge === "function") novaEnterpriseSyncBadge();
     // A restored value is validated like a typed one: an out-of-range SLA
     // must show its error, not sit silently in the box until Generate.
-    novaEnterpriseCheckSla();
+    if (typeof novaEnterpriseCheckSla === "function") novaEnterpriseCheckSla();
   }
   function novaEnterpriseReset() {
     novaEnterpriseRestore({ on: false });
@@ -1399,7 +1400,7 @@
     const regionEl = document.getElementById("regionSelector");
     return {
       region: regionEl ? regionEl.value : "us_only",
-      regionPicked: _regionUserPicked,
+      regionPicked: typeof _regionUserPicked === "boolean" ? _regionUserPicked : false,
       customCountries: Array.from(
         document.querySelectorAll('input[name="customCountry"]:checked'),
       ).map((cb) => cb.value),
@@ -1711,7 +1712,7 @@
     clearTimeout(_locResolveTimer);
     _locResolveSeq++;
     _regionUserPicked = false; // the cleared selector is the default again
-    novaSetRegionHint("");
+    if (typeof novaSetRegionHint === "function") novaSetRegionHint("");
     const locResPanel = document.getElementById("locationResolution");
     if (locResPanel) locResPanel.innerHTML = "";
     // Reset industry selection visual
