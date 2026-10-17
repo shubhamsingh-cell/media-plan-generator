@@ -429,7 +429,6 @@ def _insight_script(est: dict, target_hires: int = 250) -> str:
             "var EST = " + json.dumps(est) + ";",
             "function gather() { return M; }",
             "function estimateFor() { return EST; }",
-            js_block(_PREVIEW, "function goalPlanDrives("),
             js_block(_PREVIEW, "function computeInsights("),
             js_block(_PREVIEW, "function feasibility("),
             "process.stdout.write(JSON.stringify({ins: computeInsights(M, EST).map(function (i) { return i.text; }), feas: feasibility()}));",

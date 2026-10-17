@@ -503,10 +503,8 @@
     // same goal, same numbers, one place. The hire-volume insight and the
     // Budget Reality Check below would word a DIFFERENT goal (the range
     // midpoint "planned at ~250", not the plan's 100 or the site goals' 301)
-    // and a different gap, so they stand down.
-    function goalPlanDrives(est) {
-      return !!(est && est.goal_plan && est.goal_plan.ok);
-    }
+    // and a different gap, so they stand down (the test is inline in each:
+    // `est && est.goal_plan && est.goal_plan.ok`).
     function computeInsights(m, est) {
       var ins = [];
       // a market with no local cost-per-hire benchmark projects no hires / CPH,
@@ -517,7 +515,7 @@
       // straight from the wizard's hireVolume/exactHires fields -- unchanged).
       // Honesty rule: "comfortably covers" (or any positive tone) is only
       // ever shown when the engine's est_hires actually meets the target.
-      if (noHires || goalPlanDrives(est)) {
+      if (noHires || (est && est.goal_plan && est.goal_plan.ok)) {
         // nothing to say about hires here (or the Goal plan line says it)
       } else if (est && m.targetHires > 0 && est.est_hires < 1) {
         // below one hire there is no ratio or dollar gap to quote (and the
@@ -680,7 +678,7 @@
       var est = estimateFor(m);
       if (!est || !(m.total > 0) || !(m.targetHires > 0)) return null;
       // the Goal plan line already answers goal-vs-budget, in the plan's goal
-      if (goalPlanDrives(est)) return null;
+      if (est.goal_plan && est.goal_plan.ok) return null;
       // no local cost-per-hire benchmark: no hires projected, so no verdict
       if (est.projection && est.projection.assumptions && est.projection.assumptions.hires_suppressed) return null;
       if (!(est.est_hires > 0)) {
