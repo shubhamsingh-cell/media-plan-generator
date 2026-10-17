@@ -6260,14 +6260,18 @@ def _compute_plan_estimate(brief: dict) -> dict:
         "target_hires": _hire_goal_for_budget(brief),
         "target_region": brief["target_region"],
     }
+    _proj_plan_ccy = _resolve_plan_currency(brief) or ""
     _proj_kwargs = {
         "channel_percentages": channel_pcts,
-        "vendor_availability": vendor_availability,
         "knowledge_base": kb,
-        "plan_currency": _resolve_plan_currency(brief) or "",
         "industry_key": industry_key,
     }
-    projection = project_plan(_proj_brief, **_proj_kwargs)
+    projection = project_plan(
+        _proj_brief,
+        vendor_availability=vendor_availability,
+        plan_currency=_proj_plan_ccy,
+        **_proj_kwargs,
+    )
     if not projection.get("ok"):
         raise _EstimateValidationError(
             str(projection.get("error") or "Projection unavailable")
@@ -6310,7 +6314,11 @@ def _compute_plan_estimate(brief: dict) -> dict:
     _goal_plan = _goal_plan_for_request(
         dict(brief, _budget_allocation=budget_result),
         _proj_brief,
-        _proj_kwargs,
+        dict(
+            _proj_kwargs,
+            vendor_availability=vendor_availability,
+            plan_currency=_proj_plan_ccy,
+        ),
         budget_val,
         projection,
     )
