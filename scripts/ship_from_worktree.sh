@@ -50,7 +50,8 @@
 #       (default 1800). SHIP_LOCK_WAIT_LOG_S: seconds between "waiting" log
 #       lines (default 30).
 #   SHIP_LOCK_POLL_S      seconds between lock-state polls (default 0.5; a
-#       plain decimal, anything else falls back to the default). Three polls
+#       decimal >= 0.05, anything else falls back to the default with a
+#       WARNING). Three polls
 #       stack on a freed lock -- the dead holder's parent-pid watch, the
 #       waiter's flock retry, the waiter's status-file read -- so a lock freed
 #       by kill -9 is noticed within ~3 x this. Fixed cadence, never a backoff.
@@ -90,14 +91,22 @@ CI_WATCH_MAX_SECONDS="${SHIP_CI_WATCH_MAX:-1200}"
 SHIP_LOCK_FILE="${SHIP_LOCK_FILE:-/tmp/mpg-ship.lock}"
 SHIP_LOCK_TIMEOUT_S="${SHIP_LOCK_TIMEOUT_S:-1800}"
 SHIP_LOCK_WAIT_LOG_S="${SHIP_LOCK_WAIT_LOG_S:-30}"
-SHIP_LOCK_POLL_S="${SHIP_LOCK_POLL_S:-0.5}"
-case "$SHIP_LOCK_POLL_S" in
-    '' | *[!0-9.]* | *.*.* | . ) SHIP_LOCK_POLL_S=0.5 ;;
-esac
-
 log() {
     printf '[ship] %s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$1" >&2
 }
+
+# Poll cadence: a plain decimal >= 0.05 s. Anything else (unset is fine; empty,
+# "abc", "-1", "0", "0.0", "0.", "0.001") would busy-spin the helper and the
+# waiter loop, so it falls back to 0.5 s with a warning.
+SHIP_LOCK_POLL_S="${SHIP_LOCK_POLL_S-0.5}"
+case "$SHIP_LOCK_POLL_S" in
+    '' | *[!0-9.]* | *.*.* | . ) poll_ok=false ;;
+    *) poll_ok=true; awk -v v="$SHIP_LOCK_POLL_S" 'BEGIN { exit !(v + 0 >= 0.05) }' || poll_ok=false ;;
+esac
+if [ "$poll_ok" = "false" ]; then
+    log "WARNING: SHIP_LOCK_POLL_S='$SHIP_LOCK_POLL_S' is not a number >= 0.05; using 0.5"
+    SHIP_LOCK_POLL_S=0.5
+fi
 
 # ── Machine-wide ship lock ───────────────────────────────────────────────
 # macOS ships no flock(1) and bash 3.2 has no coproc, so a python3 helper
@@ -122,7 +131,7 @@ ship_lock_acquire() {
     python3 -c '
 import fcntl, os, sys, time
 path, timeout, parent, wait_log, info, poll = sys.argv[1:7]
-timeout, parent, wait_log, poll = int(timeout), int(parent), int(wait_log), float(poll)
+timeout, parent, wait_log, poll = int(timeout), int(parent), int(wait_log), max(float(poll), 0.05)
 
 
 def say(line):

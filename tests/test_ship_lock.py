@@ -15,14 +15,13 @@ test points SHIP_LOCK_FILE at a private path, so none can touch the real
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import time
 from pathlib import Path
 from typing import Dict, Iterator, Optional
 
 import pytest
-
-from tests.timing_budget import wall_budget
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts" / "ship_from_worktree.sh"
@@ -71,10 +70,10 @@ class Holder:
             stdout=subprocess.DEVNULL,
             stderr=self._fh,
         )
-        deadline = time.time() + 20
+        deadline = time.monotonic() + 20
         while "ship lock acquired" not in log.read_text():
             assert (
-                time.time() < deadline
+                time.monotonic() < deadline
             ), f"holder never got the lock: {log.read_text()}"
             assert self.proc.poll() is None, log.read_text()
             time.sleep(0.1)
@@ -149,32 +148,48 @@ def test_lock_is_freed_when_the_holder_is_sigkilled(
     """No trap runs on SIGKILL; the kernel flock plus the helper's parent-pid
     watch must still free the lock, or one crashed ship wedges the queue.
 
-    A freed lock is noticed by three stacked polls: the dead holder's helper
-    watching its parent, the waiter's helper retrying the flock, and the
-    waiter's shell reading the helper's status file. Each sleeps
-    SHIP_LOCK_POLL_S, so the idle latency is ~3 x poll plus process start-up
-    and the budget is derived from that cadence instead of a hard 10 s (the
-    old constant failed at 47.8 s under a parallel full-suite ship). The lock
-    path is the private tmp one, never /tmp/mpg-ship.lock. If the watch ever
-    stops working the waiter hits its own timeout and exits 7, which the
-    returncode check catches independent of any clock.
+    A freed lock is noticed by three stacked polls (the dead holder's parent
+    watch, the waiter's flock retry, the waiter's status-file read), each
+    SHIP_LOCK_POLL_S. The assertion is the script's OWN "queued Ns" figure,
+    which excludes this test process's clock and the shell's start-up under
+    machine load (a wall-clock bound failed at 47.8 s during a parallel
+    full-suite ship, and was vacuous at any load-scaled ceiling). At a 0.2 s
+    poll the lock is seen in about 0.6 s, so queued <= 1; the old fixed 1 s
+    sleeps give 2-3. rc 0 under a 45 s waiter timeout is the structural guard:
+    a parent-pid watch that never fires makes the waiter exit 7. The lock
+    path is the private tmp one, never /tmp/mpg-ship.lock.
     """
-    poll_s = 0.2
-    timeout_s = 45
-    env = dict(lock_env, SHIP_LOCK_POLL_S=str(poll_s))
+    env = dict(lock_env, SHIP_LOCK_POLL_S="0.2")
     holder = holder_factory(env, 60)
     holder.proc.kill()
     holder.proc.wait()
-    started = time.monotonic()
-    result = _run(env, timeout_s=timeout_s)
-    elapsed = time.monotonic() - started
+    result = _run(env, timeout_s=45)
     assert result.returncode == 0, result.stderr
-    assert f"ship lock acquired ({env['SHIP_LOCK_FILE']}" in result.stderr
-    budget = wall_budget(3 * poll_s + 1.0, regression_s=timeout_s)
-    assert elapsed < budget, (
-        f"freed lock noticed after {elapsed:.1f}s, budget {budget:.1f}s "
-        f"(3 x poll {poll_s}s + 1.0s start-up, load-scaled): {result.stderr}"
+    match = re.search(
+        r"ship lock acquired \((.+), queued (\d+)s\)", result.stderr
     )
+    assert match, result.stderr
+    assert match.group(1) == env["SHIP_LOCK_FILE"]
+    assert int(match.group(2)) <= 1, f"freed lock took {match.group(2)}s: {result.stderr}"
+
+
+@pytest.mark.parametrize("bad", ["0", "0.0", "00", "0.", "0.001", "abc", "", "-1"])
+def test_poll_knob_rejects_zero_and_sub_50ms(
+    lock_env: Dict[str, str], bad: str
+) -> None:
+    """A zero/near-zero poll would busy-spin the helper and the waiter loop."""
+    result = _run(dict(lock_env, SHIP_LOCK_POLL_S=bad))
+    assert result.returncode == 0, result.stderr
+    assert f"SHIP_LOCK_POLL_S='{bad}' is not a number >= 0.05; using 0.5" in (
+        result.stderr
+    )
+
+
+@pytest.mark.parametrize("good", ["0.05", "0.2", "2"])
+def test_poll_knob_accepts_sane_values(lock_env: Dict[str, str], good: str) -> None:
+    result = _run(dict(lock_env, SHIP_LOCK_POLL_S=good))
+    assert result.returncode == 0, result.stderr
+    assert "SHIP_LOCK_POLL_S" not in result.stderr
 
 
 def test_unusable_lock_path_warns_but_never_blocks_a_ship(
