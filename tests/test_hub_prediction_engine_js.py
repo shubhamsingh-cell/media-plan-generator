@@ -92,6 +92,7 @@ class El {
       toggle: (x, on) => { if (on) c.add(x); else c.delete(x); } };
   }
   getAttribute(n) { return n in this.attrs ? this.attrs[n] : null; }
+  setAttribute(n, v) { this.attrs[n] = String(v); }
   addEventListener(t, f) { (this.listeners[t] = this.listeners[t] || []).push(f); }
   click() { (this.listeners.click || []).forEach((f) => f({ type: "click" })); }
   dispatchEvent(ev) { (this.listeners[ev.type] || []).forEach((f) => f(ev)); }
@@ -112,8 +113,8 @@ class El {
 function el(attrs, cls, text) { const e = new El(attrs, cls); if (text) e.textContent = text; return e; }
 const card = el({ id: "plan-showcase", "data-pe-grid": "/api/hub/prediction-grid?v=abc123def456abc123de" }, "pe-card pe-card--hero");
 const roles = [["Registered Nurse", "Healthcare & Medical"], ["Sales Rep", "Retail"], ["CDL Driver", "Logistics & Supply Chain"]];
-roles.forEach(([t, ind], i) => card.children.push(el({ "data-role": String(i), "data-pe-title": t, "data-pe-industry": ind }, "pe-chip" + (i === 0 ? " is-on" : ""), t)));
-["Houston, TX", "Chicago, IL"].forEach((l, i) => card.children.push(el({ "data-loc": String(i), "data-pe-location": l }, "pe-chip" + (i === 0 ? " is-on" : ""), l)));
+roles.forEach(([t, ind], i) => card.children.push(el({ "data-role": String(i), "aria-pressed": i === 0 ? "true" : "false", "data-pe-title": t, "data-pe-industry": ind }, "pe-chip" + (i === 0 ? " is-on" : ""), t)));
+["Houston, TX", "Chicago, IL"].forEach((l, i) => card.children.push(el({ "data-loc": String(i), "aria-pressed": i === 0 ? "true" : "false", "data-pe-location": l }, "pe-chip" + (i === 0 ? " is-on" : ""), l)));
 const range = el({ "data-pe-range": "", min: "30000" }, "pe-range"); range.value = "50000"; card.children.push(range);
 const slots = {};
 ["budget", "cph", "hires", "apps", "cpa", "basis", "status", "label-basis", "apps-label", "cpa-label"].forEach((k) => { slots[k] = el({ ["data-pe-" + k]: "" }, "pe-" + k); card.children.push(slots[k]); });
@@ -166,7 +167,9 @@ def _run(scenario_js: str, grid: dict | None, fetch_ok: bool = True) -> dict:
         " statusHidden: slots.status.hidden, computing: card.classList.contains('is-computing'),"
         " labelBasisHidden: slots['label-basis'].hidden,"
         " amounts: card.querySelectorAll('[data-pe-amt]').map((e) => e.textContent),"
-        " hiddenRows: card.querySelectorAll('[data-pe-ch]').map((r) => r.hidden) };\n"
+        " hiddenRows: card.querySelectorAll('[data-pe-ch]').map((r) => r.hidden),"
+        " rolePressed: card.querySelectorAll('[data-role]').map((e) => e.getAttribute('aria-pressed')),"
+        " locPressed: card.querySelectorAll('[data-loc]').map((e) => e.getAttribute('aria-pressed')) };\n"
         "  process.stdout.write(JSON.stringify(out));\n"
         "})();\n"
     )
@@ -343,3 +346,24 @@ def test_no_basis_line_without_the_labels_the_server_sends() -> None:
     finally:
         me.SEED = original
     assert out["basis"] == "" and out["labelBasisHidden"] is True
+
+
+def test_m3_chips_keep_aria_pressed_in_sync_with_the_selection() -> None:
+    """The selected chip was shown by the ``is-on`` class only; assistive tech
+    got no state. Clicking a chip moves aria-pressed with it."""
+    grid = {
+        "scenarios": {
+            "CDL Driver|Houston, TX|$50,000": _estimate(16, 3125.0, 7819, 6250.0, 8),
+            "CDL Driver|Chicago, IL|$50,000": _estimate(16, 3125.0, 7000, 6250.0, 8),
+        }
+    }
+    start = _run("", grid)
+    assert start["rolePressed"] == ["true", "false", "false"]
+    assert start["locPressed"] == ["true", "false"]
+    js = (
+        "  card.querySelector('[data-role=\"2\"]').click();\n"
+        "  card.querySelector('[data-loc=\"1\"]').click();\n" + _settle()
+    )
+    out = _run(js, grid)
+    assert out["rolePressed"] == ["false", "false", "true"]
+    assert out["locPressed"] == ["false", "true"]

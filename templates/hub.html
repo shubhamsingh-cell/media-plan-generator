@@ -88,7 +88,7 @@
     <link rel="stylesheet" href="/static/css/tokens.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/buttons.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/motion.css?v=2.0.0" />
-    <link rel="stylesheet" href="/static/css/hub.css?v=2.15.6" />
+    <link rel="stylesheet" href="/static/css/hub.css?v=2.15.7" />
 
     <!-- PostHog Analytics -->
     <script>
@@ -229,6 +229,7 @@
       <div class="nav-links">
         <a href="/nova">Nova AI</a>
         <a href="/platform">Platform</a>
+        <a href="/help/media-plans" class="nav-help">How to use</a>
         <a href="/media-plan" class="nav-cta">Generate Plan</a>
       </div>
     </nav>
@@ -378,6 +379,7 @@
               <div class="pe-chips" role="group" aria-label="Role">
                 <button
                   type="button"
+                  aria-pressed="true"
                   class="pe-chip is-on"
                   data-role="0"
                   data-pe-title="Registered Nurse"
@@ -387,6 +389,7 @@
                 </button>
                 <button
                   type="button"
+                  aria-pressed="false"
                   class="pe-chip"
                   data-role="1"
                   data-pe-title="Sales Rep"
@@ -396,6 +399,7 @@
                 </button>
                 <button
                   type="button"
+                  aria-pressed="false"
                   class="pe-chip"
                   data-role="2"
                   data-pe-title="CDL Driver"
@@ -405,6 +409,7 @@
                 </button>
                 <button
                   type="button"
+                  aria-pressed="false"
                   class="pe-chip"
                   data-role="3"
                   data-pe-title="Software Engineer"
@@ -421,6 +426,7 @@
                 <div class="pe-chips" role="group" aria-label="Location">
                   <button
                     type="button"
+                  aria-pressed="true"
                     class="pe-chip is-on"
                     data-loc="0"
                     data-pe-location="Houston, TX"
@@ -429,6 +435,7 @@
                   </button>
                   <button
                     type="button"
+                  aria-pressed="false"
                     class="pe-chip"
                     data-loc="1"
                     data-pe-location="Chicago, IL"
@@ -437,6 +444,7 @@
                   </button>
                   <button
                     type="button"
+                  aria-pressed="false"
                     class="pe-chip"
                     data-loc="2"
                     data-pe-location="Phoenix, AZ"
@@ -445,6 +453,7 @@
                   </button>
                   <button
                     type="button"
+                  aria-pressed="false"
                     class="pe-chip"
                     data-loc="3"
                     data-pe-location="New York, NY"
@@ -478,25 +487,36 @@
               </div>
             </div>
 
+            <p class="pe-chip-note">City changes applications and channel mix; cost per hire follows the industry floor.</p>
+
             <div class="pe-result">
+              <!-- Leads with the figures the chips move (applications and
+                   cost per application, as the engine's ranges); modeled
+                   cost-per-hire and hires follow as the secondary line with
+                   the basis it is computed on -- every scenario the chips
+                   reach is floor-clamped, so the headline cost per hire is
+                   the same in every city (tests/test_hub_prediction_engine.py). -->
               <div class="pe-cph">
-                <div class="pe-cph-value" data-pe-cph>{{claim_pe_cph}}</div>
-                <div class="pe-cph-label">Modeled <span class="pe-nowrap">cost-per-hire</span>{{#claim_pe_basis}} <span data-pe-label-basis>at plan efficiency</span>{{/claim_pe_basis}}{{#claim_pe_cph_measure}} <span class="pe-cph-measure">({{claim_pe_cph_measure}})</span>{{/claim_pe_cph_measure}}</div>
-                <div class="pe-cph-basis" data-pe-basis>{{claim_pe_basis}}</div>
+                <div class="pe-cph-value pe-cph-value--range" data-pe-apps>{{claim_pe_apps_range}}</div>
+                <div class="pe-cph-label pe-cph-label--lead" data-pe-apps-label>Est. applications</div>
               </div>
               <div class="pe-minis">
+                <div class="pe-mini">
+                  <div class="pe-mini-value" data-pe-cpa>{{claim_pe_cpa_range}}</div>
+                  <div class="pe-mini-label" data-pe-cpa-label>Cost per application</div>
+                </div>
                 <div class="pe-mini">
                   <div class="pe-mini-value" data-pe-hires>{{claim_pe_hires}}</div>
                   <div class="pe-mini-label">Proj. hires</div>
                 </div>
                 <div class="pe-mini">
-                  <div class="pe-mini-value" data-pe-apps>{{claim_pe_apps_range}}</div>
-                  <div class="pe-mini-label" data-pe-apps-label>Est. applications</div>
+                  <div class="pe-mini-value" data-pe-cph>{{claim_pe_cph}}</div>
+                  <div class="pe-mini-label">Cost per hire</div>
                 </div>
-                <div class="pe-mini">
-                  <div class="pe-mini-value" data-pe-cpa>{{claim_pe_cpa_range}}</div>
-                  <div class="pe-mini-label" data-pe-cpa-label>Cost per application</div>
-                </div>
+              </div>
+              <div class="pe-cph-secondary">
+                <div class="pe-cph-label">Modeled <span class="pe-nowrap">cost-per-hire</span>{{#claim_pe_basis}} <span data-pe-label-basis>at plan efficiency</span>{{/claim_pe_basis}}{{#claim_pe_cph_measure}} <span class="pe-cph-measure">({{claim_pe_cph_measure}})</span>{{/claim_pe_cph_measure}}</div>
+                <div class="pe-cph-basis" data-pe-basis>{{claim_pe_basis}}</div>
               </div>
             </div>
 
@@ -3457,6 +3477,7 @@
           <div>
             <div class="footer-col-title">Company</div>
             <ul class="footer-links">
+              <li><a href="/help/media-plans">How to use</a></li>
               <li><a href="/pricing">Pricing</a></li>
               <li><a href="/privacy">Privacy Policy</a></li>
               <li><a href="/terms">Terms of Service</a></li>
@@ -3505,7 +3526,7 @@
     <!-- .footer-wrap -->
 
     <!-- ── Page Scripts (extracted to hub.js for cacheability, Fix #1) ── -->
-    <script src="/static/js/hub.js?v=2.9.3"></script>
+    <script src="/static/js/hub.js?v=2.9.4"></script>
 
     <!-- Legacy inline removed -- hamburger, observers, counters, bar anims,
          scroll handler, ripple, hero preview, page-enter, GSAP hero entrance,
@@ -3589,7 +3610,10 @@
         background: rgba(8, 8, 15, 0.65);
         opacity: 0;
         transition: opacity 0.3s ease;
-        pointer-events: auto;
+        /* A dimming backdrop only: it must not swallow the visitor's clicks
+           (a real click on a card chip used to close the tour and leave the
+           chip unchanged). The tooltip stays interactive. */
+        pointer-events: none;
       }
       .onboard-overlay.active {
         opacity: 1;
@@ -3728,7 +3752,7 @@
           {
             target: null,
             title: "Get Help",
-            desc: "Need help? Click here to chat with Nova AI or browse the help center.",
+            desc: 'Need help? Chat with Nova AI here, or read the <a href="/help/media-plans">media-plan guide</a>.',
             pos: "manual",
             manualRect: { bottom: 90, right: 24, width: 56, height: 56 },
           },
@@ -3738,6 +3762,27 @@
           highlight,
           tooltip;
 
+        // A step is only worth showing when its target is on screen right
+        // now: the tour never scrolls the page (it used to scroll the card's
+        // step to y=1138, below a 900px fold, under the visitor's hands).
+        function onboardInView(rect, vw, vh) {
+          return (
+            rect.top >= 0 && rect.top <= vh - 120 && rect.right > 0 && rect.left < vw
+          );
+        }
+        function onboardStepInView(s) {
+          if (!s.target) return true; // the manual help-button step
+          var el = document.querySelector(s.target);
+          return (
+            !!el &&
+            onboardInView(
+              el.getBoundingClientRect(),
+              window.innerWidth,
+              window.innerHeight,
+            )
+          );
+        }
+
         function init() {
           document.addEventListener("DOMContentLoaded", function () {
             setTimeout(start, 1500);
@@ -3745,6 +3790,8 @@
         }
 
         function start() {
+          steps = steps.filter(onboardStepInView);
+          if (!steps.length) return;
           overlay = document.createElement("div");
           overlay.className = "onboard-overlay";
           document.body.appendChild(overlay);
@@ -3758,9 +3805,19 @@
             overlay.classList.add("active");
             showStep(0);
           });
-          overlay.addEventListener("click", function (e) {
-            if (e.target === overlay) finish();
-          });
+          // The backdrop passes clicks through to the page (pointer-events:
+          // none), so "click away to dismiss" is a capturing listener: the
+          // first press outside the tooltip ends the tour AND still reaches
+          // whatever it landed on.
+          document.addEventListener("pointerdown", dismissOutside, true);
+          document.addEventListener("keydown", dismissOnEscape, true);
+        }
+        function dismissOutside(e) {
+          if (tooltip && tooltip.contains(e.target)) return;
+          finish();
+        }
+        function dismissOnEscape(e) {
+          if (e.key === "Escape") finish();
         }
 
         function showStep(i) {
@@ -3773,7 +3830,6 @@
               finish();
               return;
             }
-            el.scrollIntoView({ behavior: "smooth", block: "center" });
             rect = el.getBoundingClientRect();
           } else if (s.manualRect) {
             var vw = window.innerWidth,
@@ -3829,6 +3885,12 @@
           }
           tooltip.style.left =
             Math.max(16, Math.min(tl, window.innerWidth - 340)) + "px";
+          // always inside the visible viewport, whatever the target's size
+          var th = tooltip.offsetHeight || 180;
+          tt = Math.max(
+            window.scrollY + 16,
+            Math.min(tt, window.scrollY + window.innerHeight - th - 16),
+          );
           tooltip.style.top = tt + "px";
           requestAnimationFrame(function () {
             tooltip.classList.add("active");
@@ -3842,6 +3904,8 @@
         }
 
         function finish() {
+          document.removeEventListener("pointerdown", dismissOutside, true);
+          document.removeEventListener("keydown", dismissOnEscape, true);
           localStorage.setItem("nova_onboarded", "1");
           if (overlay) overlay.classList.remove("active");
           if (tooltip) tooltip.classList.remove("active");

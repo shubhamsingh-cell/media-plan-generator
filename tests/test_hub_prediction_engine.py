@@ -709,7 +709,7 @@ def test_f2_range_tiles_stay_on_one_line_on_a_phone() -> None:
     css = (PROJECT_ROOT / "static" / "css" / "hub.css").read_text(encoding="utf-8")
     phone = css[css.index("@media (max-width: 560px)") :]
     rule = re.search(
-        r"\.pe-mini-value\[data-pe-apps\],\s*\.pe-mini-value\[data-pe-cpa\]\s*\{([^}]*)\}",
+        r"\.pe-mini-value\[data-pe-cpa\]\s*\{([^}]*)\}",
         phone,
     )
     assert rule and "white-space: nowrap" in rule.group(1)

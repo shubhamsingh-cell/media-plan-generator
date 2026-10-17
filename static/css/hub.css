@@ -4603,6 +4603,29 @@ html.lenis body {
      never a lone word (typography lens, 2026-10-17). */
   text-wrap: balance;
 }
+/* The lead figure is the engine's applications range (the figure the city
+   chips move); it prints a range, so it is set smaller than a single
+   number was. Cost per hire follows as the secondary line. */
+.pe-cph-value--range {
+  font-size: clamp(1.75rem, 1rem + 2.4vw, 2.75rem);
+  white-space: nowrap;
+}
+.pe-cph-label--lead {
+  margin-top: 6px;
+}
+.pe-cph-secondary {
+  padding-top: 2px;
+}
+.pe-cph-secondary .pe-cph-label {
+  margin-top: 0;
+}
+/* One line under the chips: what a city does and does not change. */
+.pe-chip-note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #9d9ac2;
+}
 .pe-minis {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -4617,7 +4640,7 @@ html.lenis body {
 }
 .pe-mini-label {
   margin-top: 4px;
-  font-size: 10.5px;
+  font-size: 11px;
   color: #7d7aa6;
 }
 
@@ -4835,7 +4858,6 @@ html.lenis body {
   /* The applications and cost-per-application tiles print the engine's
      low-high range ("$14.57-$58"); at 20px that broke across two lines in a
      90px column. One line, at the size the longest range fits. */
-  .pe-mini-value[data-pe-apps],
   .pe-mini-value[data-pe-cpa] {
     font-size: 15px;
     white-space: nowrap;

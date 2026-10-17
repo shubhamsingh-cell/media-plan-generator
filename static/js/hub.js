@@ -2029,6 +2029,7 @@ document.addEventListener("DOMContentLoaded", function () {
       roleChip = chip;
       roleChips.forEach(function (c) {
         c.classList.toggle("is-on", c === chip);
+        c.setAttribute("aria-pressed", c === chip ? "true" : "false");
       });
       show();
     });
@@ -2040,6 +2041,7 @@ document.addEventListener("DOMContentLoaded", function () {
       locChip = chip;
       locChips.forEach(function (c) {
         c.classList.toggle("is-on", c === chip);
+        c.setAttribute("aria-pressed", c === chip ? "true" : "false");
       });
       show();
     });
