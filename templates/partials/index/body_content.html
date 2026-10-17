@@ -2156,6 +2156,33 @@
               benchmarks: set them to the client's SLA in the workbook.
             </div>
           </div>
+          <div class="form-group" id="siteGoalsGroup">
+            <label id="siteGoalsLabel"
+              >Site hiring goals
+              <span
+                style="
+                  font-weight: 400;
+                  color: var(--text-muted);
+                  font-size: 10px;
+                  letter-spacing: 0;
+                "
+                >(optional, hires per site)</span
+              ></label
+            >
+            <div
+              class="site-goals-rows"
+              id="siteGoalsRows"
+              role="group"
+              aria-labelledby="siteGoalsLabel"
+            ></div>
+            <div class="form-hint" id="siteGoalsHint">
+              Add locations in step 1 to set a goal for each site. Spend then
+              follows the goals (each site's fair share) instead of the
+              default location weights, and the plan states what the goal
+              needs against what the budget buys.
+            </div>
+            <div class="field-error-msg" id="siteGoals-error"></div>
+          </div>
         </div>
       </details>
       <div
@@ -3144,6 +3171,13 @@
       </div>
     </div>
     <div class="np-basis" id="npBasis" style="display: none"></div>
+    <div
+      class="np-basis np-goalplan"
+      id="npGoalPlan"
+      style="display: none"
+      role="status"
+      aria-live="polite"
+    ></div>
 
     <div class="np-insights" id="npInsights" style="display: none"></div>
 

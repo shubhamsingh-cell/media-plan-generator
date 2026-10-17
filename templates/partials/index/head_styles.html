@@ -6725,6 +6725,30 @@
     color: var(--np-indigo);
     font-weight: 700;
   }
+  .np-goalplan {
+    border-left: 2px solid var(--np-indigo);
+    padding-left: 8px;
+  }
+  .site-goals-rows {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .site-goal-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 110px;
+    align-items: center;
+    gap: 10px;
+  }
+  .site-goal-row .site-goal-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+  }
+  .site-goal-row input {
+    width: 100%;
+  }
   .np-foot {
     display: flex;
     align-items: center;

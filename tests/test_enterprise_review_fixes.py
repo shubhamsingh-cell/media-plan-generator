@@ -253,9 +253,16 @@ def _enterprise_js() -> str:
     from tests.wizard_js_harness import APP_JS, js_block
 
     src = APP_JS.read_text(encoding="utf-8")
-    return "\n".join(
+    prelude = (
+        "var locations = []; let novaSiteGoals = {};\n"
+        "const NOVA_SITE_GOAL_MAX = 100000, NOVA_SITE_GOAL_SITES = 40;\n"
+    )
+    return prelude + "\n".join(
         js_block(src, f"function {n}(")
         for n in (
+            "novaSiteGoalsClean",
+            "novaSiteGoalsMessage",
+            "novaEnterpriseRenderSiteGoals",
             "novaEnterpriseSlaMessage",
             "novaEnterpriseInputs",
             "novaEnterpriseState",

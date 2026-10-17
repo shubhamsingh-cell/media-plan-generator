@@ -110,7 +110,7 @@
   function novaEnterpriseValidate() {
     const on = document.getElementById("enterpriseEnabled");
     if (!on || !on.checked) return "";
-    return novaEnterpriseSlaMessage();
+    return novaEnterpriseSlaMessage() || novaSiteGoalsMessage();
   }
   function novaEnterpriseCheckSla() {
     const el = document.getElementById("enterpriseSetupSla");
@@ -131,8 +131,120 @@
     };
     const sla = parseInt(v("enterpriseSetupSla"), 10);
     if (!isNaN(sla)) out.enterprise_setup_sla_days = sla;
+    const goals = novaSiteGoalsClean();
+    if (Object.keys(goals).length) out.site_goals = goals;
     return out;
   }
+  // ── Site hiring goals (demand-first) ──
+  // One optional goal per location tag. novaSiteGoals holds what was typed
+  // (location -> text); novaSiteGoalsClean() is what is SENT: only locations
+  // still in the plan, positive whole numbers only. A malformed entry is never
+  // coerced -- novaSiteGoalsMessage() names it and Generate stops there (the
+  // server validates the same rules: whole hires, 1 to 100,000 a site, 100,000
+  // in total, 40 sites).
+  let novaSiteGoals = {};
+  const NOVA_SITE_GOAL_MAX = 100000;
+  const NOVA_SITE_GOAL_SITES = 40;
+  function novaSiteGoalsClean() {
+    const out = {};
+    (locations || []).forEach((loc) => {
+      const raw = String(novaSiteGoals[loc] == null ? "" : novaSiteGoals[loc]).trim();
+      if (/^\d+$/.test(raw) && parseInt(raw, 10) > 0) out[loc] = parseInt(raw, 10);
+    });
+    return out;
+  }
+  function novaSiteGoalsMessage() {
+    let total = 0;
+    let count = 0;
+    const sites = locations || [];
+    for (let i = 0; i < sites.length; i++) {
+      const raw = String(novaSiteGoals[sites[i]] == null ? "" : novaSiteGoals[sites[i]]).trim();
+      if (raw === "") continue;
+      if (!/^\d+$/.test(raw))
+        return "Each site goal must be a whole number of hires.";
+      const n = parseInt(raw, 10);
+      if (n > NOVA_SITE_GOAL_MAX)
+        return "A site goal cannot exceed " + NOVA_SITE_GOAL_MAX.toLocaleString("en-US") + " hires.";
+      if (n > 0) {
+        total += n;
+        count += 1;
+      }
+    }
+    if (count > NOVA_SITE_GOAL_SITES)
+      return "Set goals for at most " + NOVA_SITE_GOAL_SITES + " sites.";
+    if (total > NOVA_SITE_GOAL_MAX)
+      return "Site goals add up to more than " + NOVA_SITE_GOAL_MAX.toLocaleString("en-US") + " hires.";
+    return "";
+  }
+  // The extra fields the LIVE ESTIMATE carries while the section is on and a
+  // goal exists (site goals and/or the hire volume): the server then answers
+  // with the goal plan. {} otherwise, so the estimate body is unchanged.
+  function novaEnterpriseGoalInputs() {
+    const on = document.getElementById("enterpriseEnabled");
+    if (!on || !on.checked) return {};
+    const out = {};
+    const goals = novaSiteGoalsClean();
+    if (Object.keys(goals).length) out.site_goals = goals;
+    const hv = document.getElementById("hireVolume");
+    if (hv && hv.value) {
+      const exact = ((document.getElementById("exactHires") || {}).value || "").trim();
+      const hire = hv.value === "__exact__" ? (exact ? exact + " hires" : "") : hv.value;
+      if (hire) out.hire_volume = hire;
+    }
+    if (!Object.keys(out).length) return {};
+    out.enterprise_pack = true;
+    return out;
+  }
+  function novaEnterpriseRenderSiteGoals() {
+    const box = document.getElementById("siteGoalsRows");
+    if (!box || typeof document.createElement !== "function") return;
+    const sites = locations || [];
+    const hint = document.getElementById("siteGoalsHint");
+    if (hint) hint.style.display = sites.length ? "none" : "";
+    while (box.firstChild) box.removeChild(box.firstChild);
+    sites.forEach((loc, i) => {
+      const row = document.createElement("div");
+      row.className = "site-goal-row";
+      const name = document.createElement("span");
+      name.className = "site-goal-name";
+      name.textContent = loc;
+      name.title = loc;
+      const inp = document.createElement("input");
+      inp.type = "number";
+      inp.min = "1";
+      inp.max = String(NOVA_SITE_GOAL_MAX);
+      inp.step = "1";
+      inp.inputMode = "numeric";
+      inp.placeholder = "hires";
+      inp.id = "siteGoal" + i;
+      inp.setAttribute("aria-label", "Hiring goal for " + loc);
+      inp.value = novaSiteGoals[loc] == null ? "" : String(novaSiteGoals[loc]);
+      inp.addEventListener("input", () => {
+        novaSiteGoals[loc] = inp.value;
+        novaSiteGoalsShowError();
+      });
+      row.appendChild(name);
+      row.appendChild(inp);
+      box.appendChild(row);
+    });
+  }
+  function novaSiteGoalsShowError() {
+    const el = document.getElementById("siteGoals-error");
+    if (!el) return;
+    const msg = novaSiteGoalsMessage();
+    el.textContent = msg;
+    el.style.display = msg ? "block" : "none";
+  }
+  // The table follows the location tags (renderTags rebuilds the container on
+  // every add / remove), so no tag code needs to know about site goals.
+  document.addEventListener("DOMContentLoaded", () => {
+    const tags = document.getElementById("locationsContainer");
+    if (tags && typeof MutationObserver === "function")
+      new MutationObserver(() => novaEnterpriseRenderSiteGoals()).observe(tags, {
+        childList: true,
+      });
+    novaEnterpriseRenderSiteGoals();
+  });
   // Draft / session persistence for the section.
   function novaEnterpriseState() {
     const g = (id) => document.getElementById(id) || {};
@@ -142,6 +254,7 @@
       systemOfRecord: g("enterpriseSystemOfRecord").value || "",
       lockDay: g("enterpriseLockDay").value || "",
       setupSla: g("enterpriseSetupSla").value || "",
+      siteGoals: Object.assign({}, novaSiteGoals),
     };
   }
   function novaEnterpriseRestore(s) {
@@ -155,6 +268,9 @@
     set("enterpriseSystemOfRecord", s.systemOfRecord || "");
     set("enterpriseLockDay", s.lockDay || "");
     set("enterpriseSetupSla", s.setupSla || "");
+    novaSiteGoals =
+      s.siteGoals && typeof s.siteGoals === "object" ? Object.assign({}, s.siteGoals) : {};
+    novaEnterpriseRenderSiteGoals();
     const on = g("enterpriseEnabled");
     if (on) on.checked = !!s.on;
     const box = g("enterpriseFields");

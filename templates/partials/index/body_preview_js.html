@@ -371,7 +371,13 @@
     // post its own pre-multiplied budget, no region, no start month and the
     // typed NAICS search text as the industry (wizard audit D-02/D-04/D-23).
     function estimatePayload(m) {
-      return m.inputs || planInputs();
+      var base = m.inputs || planInputs();
+      // Enterprise demand-first fields (site goals / hire volume, only while
+      // the enterprise section is on and a goal exists): the answer then
+      // carries goal_plan. Absent otherwise -> the body is exactly the core
+      // fields /api/generate also carries.
+      var extra = typeof novaEnterpriseGoalInputs === "function" ? novaEnterpriseGoalInputs() : {};
+      return Object.keys(extra).length ? Object.assign({}, base, extra) : base;
     }
     // The resolved estimate IF it answers the inputs `m` describes, else null.
     // Every consumer (outcome cards, sticky bar, Nova insights, the Budget
@@ -747,6 +753,19 @@
         } else {
           basis.style.display = "none";
           basis.innerHTML = "";
+        }
+      }
+      // Demand-first goal plan: ONE line from the same estimate response --
+      // what the goal needs against what this budget covers.
+      var goalEl = $("npGoalPlan");
+      if (goalEl) {
+        var gp = est && est.goal_plan;
+        if (gp && gp.text && gp.text.callout) {
+          goalEl.innerHTML = "<b>Goal plan:</b> " + escapeHtml(String(gp.text.callout));
+          goalEl.style.display = "";
+        } else {
+          goalEl.style.display = "none";
+          goalEl.innerHTML = "";
         }
       }
       // the Budget Reality Check banner words these same estimate figures

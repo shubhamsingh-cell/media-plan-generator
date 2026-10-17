@@ -123,6 +123,7 @@ def wizard_payloads(
     roles: Optional[list] = None,
     touch: Optional[dict] = None,
     excluded_publishers: Optional[list] = None,
+    site_goals: Optional[dict] = None,
 ) -> dict:
     """{"generate": <payload>, "estimate": <preview's /api/estimate body>}
     after JSON round-trip, for one wizard form state.
@@ -140,6 +141,9 @@ def wizard_payloads(
             "// ── end channel selection ──",
         ),
         js_block(app_src, "function getSelectedRegion()"),
+        js_block(app_src, "function novaSiteGoalsClean()"),
+        js_block(app_src, "function novaSiteGoalsMessage()"),
+        js_block(app_src, "function novaEnterpriseGoalInputs()"),
         js_block(app_src, "function novaEnterpriseInputs()"),
     ]
     gen_region = app_src[app_src.index("// 28. Updated payload with new fields") :]
@@ -174,6 +178,7 @@ def wizard_payloads(
             "function readTags() { return []; }",
             "function channelOn(id) { var el = $(id); return !!(el && el.checked); }",
             *parts,
+            "novaSiteGoals = " + json.dumps(site_goals or {}) + ";",
             "var touch = " + json.dumps(touch) + ";",
             "if (touch) Object.keys(touch).forEach(function (id) {",
             "  document.getElementById(id).checked = touch[id];",
