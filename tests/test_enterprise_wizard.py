@@ -400,3 +400,79 @@ def test_generate_400_names_apply_start_goal(live_port):  # noqa: F811
             live_port, "/api/generate", _generate_payload(apply_start_goal=bad)
         )
         assert status == 400 and body.get("field") == "apply_start_goal", (bad, body)
+
+
+# ---------------------------------------------------------------------------
+# one budget answer: the goal plan line replaces the hire-volume insight and
+# the Budget Reality Check (they worded the range midpoint, not the plan's goal)
+# ---------------------------------------------------------------------------
+_PREVIEW = (PARTIALS / "body_preview_js.html").read_text(encoding="utf-8")
+
+
+def _insight_script(est: dict, target_hires: int = 250) -> str:
+    import json
+
+    from tests.wizard_js_harness import js_block
+
+    return "\n".join(
+        [
+            "function $() { return null; }",
+            "function channelOn() { return false; }",
+            "function escapeHtml(t) { return String(t); }",
+            "function intc(n) { return String(n); }",
+            "function trim(n) { return String(n); }",
+            "function hero(n) { return '$' + Math.round(n); }",
+            "function goalText(m) { return m.goalRange + ' hire goal (planned at ~' + m.targetHires + ')'; }",
+            "var M = " + json.dumps({"total": 100000, "targetHires": target_hires,
+                                      "goalRange": "100-500", "rows": [], "recommended": True,
+                                      "roleClass": "skilled", "channelsTouched": False, "role": ""}) + ";",
+            "var EST = " + json.dumps(est) + ";",
+            "function gather() { return M; }",
+            "function estimateFor() { return EST; }",
+            js_block(_PREVIEW, "function goalPlanDrives("),
+            js_block(_PREVIEW, "function computeInsights("),
+            js_block(_PREVIEW, "function feasibility("),
+            "process.stdout.write(JSON.stringify({ins: computeInsights(M, EST).map(function (i) { return i.text; }), feas: feasibility()}));",
+        ]
+    )
+
+
+_EST = {
+    "est_hires": 32,
+    "projection": {
+        "hires": {"low": 16, "high": 32},
+        "text": {"hires": "16-32", "cph": "$3,125-$6,250"},
+        "assumptions": {},
+    },
+}
+
+
+@needs_node
+def test_without_a_goal_plan_the_hire_volume_insight_and_banner_still_speak():
+    from tests.wizard_js_harness import run_node
+
+    got = run_node(_insight_script(dict(_EST)))
+    assert any("planned at ~250" in t for t in got["ins"])
+    assert got["feas"] and got["feas"]["ratio"] < 1
+
+
+@needs_node
+def test_with_a_goal_plan_there_is_one_budget_answer():
+    from tests.wizard_js_harness import run_node
+
+    est = dict(
+        _EST,
+        goal_plan={
+            "ok": True,
+            "goal": 100,
+            "text": {"callout": "Goal of 100 hires needs $227,500-$455,000; ..."},
+        },
+    )
+    got = run_node(_insight_script(est))
+    # nothing words the 250 midpoint or a second gap next to the goal line
+    assert not [t for t in got["ins"] if "hires" in t and "planned at" in t]
+    assert got["feas"] is None
+    # a failed / absent plan (ok false) does not silence them
+    bad = dict(_EST, goal_plan={"ok": False})
+    got = run_node(_insight_script(bad))
+    assert any("planned at ~250" in t for t in got["ins"]) and got["feas"]
