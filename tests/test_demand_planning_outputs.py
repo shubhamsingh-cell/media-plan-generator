@@ -460,3 +460,65 @@ def test_headline_stamp_adds_goal_plan_for_an_enabled_goal_plan():
         kb=None,
     )
     assert "goal_plan" not in br2
+
+
+# ---------------------------------------------------------------------------
+# site goals must name plan locations; "no goal" is not a goal of 0
+# ---------------------------------------------------------------------------
+def test_estimate_400s_for_a_goal_naming_no_plan_location():
+    for goals in ({"Denver": 50}, {"Dallas, TX": 30, "Denver": 20}):
+        with pytest.raises(app._EstimateValidationError) as exc:
+            app._compute_plan_estimate(
+                dict(BRIEF, enterprise_pack=True, site_goals=goals)
+            )
+        assert exc.value.field == "site_goals"
+        assert "Denver" in str(exc.value) and "not in this plan" in str(exc.value)
+
+
+def test_goal_names_match_through_the_location_normaliser():
+    # case, a bare city and the plan's own spelling all name the same site
+    for key in ("dallas, tx", "Dallas", "Dallas, TX"):
+        got = app._compute_plan_estimate(
+            dict(BRIEF, enterprise_pack=True, site_goals={key: 30, "Houston": 10})
+        )["goal_plan"]
+        rows = {r["site"]: r for r in got["sites"]}
+        assert rows["Dallas, TX"]["goal"] == 30, key
+        assert rows["Houston, TX"]["goal"] == 10, key
+        assert got["goal"] == 40
+
+
+def test_goal_names_do_not_cross_same_named_cities():
+    sites = ["Springfield, IL", "Springfield, MO"]
+    assert dp.assign_goals(sites, {"Springfield, IL": 5}) == ([5, 0], [])
+    assert dp.assign_goals(sites, {"Springfield, MO": 7, "Denver": 1}) == (
+        [0, 7],
+        ["Denver"],
+    )
+    # two keys for one site add up; one key never lands on two sites
+    assert dp.assign_goals(["Dallas, TX"], {"Dallas": 3, "Dallas, TX": 4})[0] == [7]
+
+
+def test_site_without_a_goal_reads_no_goal_not_covered():
+    data = goal_plan_plan(site_goals={"Dallas": 150, "Houston": 100})
+    gp = data["_budget_allocation"]["goal_plan"]
+    rows = {r["site"]: r for r in gp["sites"]}
+    assert rows["Austin, TX"]["goal"] is None and rows["Austin, TX"]["gap_high"] is None
+    assert rows["Dallas, TX"]["gap_high"] > 0
+    ws = build_wb(data, data_only=True)[ep.SHEET_GOALPLAN]
+    r = find_row(ws, "Austin, TX")
+    assert ws.cell(row=r, column=3).value == "no goal set"
+    assert ws.cell(row=r, column=8).value == "n/a"
+    _, prs = _deck(data)
+    last = _slide_texts(prs)[-1]
+    austin = last.split("Austin, TX")[1].split("|")[1:5]
+    assert "no goal" in austin[0] and "n/a" in austin[-1]
+    assert "covered" not in last
+
+
+def test_unmatched_goals_never_reach_the_allocation():
+    # a hand-built plan dict (no request boundary): the goal for a site the
+    # plan does not cover gives no share to any real site
+    data = make_plan(site_goals={"Denver": 50})
+    ep.normalize_request(data)
+    m = ep.build_model(data, TODAY)
+    assert m["shares"] == ep.build_model(make_plan(), TODAY)["shares"]

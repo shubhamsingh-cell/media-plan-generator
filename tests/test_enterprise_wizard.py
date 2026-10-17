@@ -317,3 +317,24 @@ def test_generate_accepts_valid_site_goals_past_the_check(live_port):  # noqa: F
         _generate_payload(site_goals={"Houston, TX": 30}),
     )
     assert status == 400 and body.get("field") != "site_goals", body
+
+
+def test_generate_400s_for_a_site_goal_naming_no_plan_location(live_port):  # noqa: F811
+    status, body = post_json(
+        live_port,
+        "/api/generate",
+        _generate_payload(site_goals={"Denver": 5}),  # the plan is Houston only
+    )
+    assert status == 400 and body.get("field") == "site_goals", (status, body)
+    assert "Denver" in body.get("error", body.get("message", ""))
+
+
+def test_generate_accepts_a_goal_spelled_differently_from_the_location(
+    live_port,
+):  # noqa: F811
+    status, body = post_json(
+        live_port,
+        "/api/generate",
+        _generate_payload(site_goals={"houston": 5}),
+    )
+    assert status == 400 and body.get("field") != "site_goals", body

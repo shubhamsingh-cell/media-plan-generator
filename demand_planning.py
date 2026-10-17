@@ -400,17 +400,53 @@ def clean_site_goals(raw: Any) -> Dict[str, int]:
     return out
 
 
+def _site_key(text: Any) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(text or "").lower())
+
+
+def _same_site(site: str, key: str) -> bool:
+    """A goal key names a site when the two strings are the same place: equal
+    ignoring case and punctuation, or either is a bare city ("Dallas") and the
+    city parts agree.  "Springfield, IL" never matches "Springfield, MO"."""
+    sk, kk = _site_key(site), _site_key(key)
+    if sk and sk == kk:
+        return True
+    if ("," not in site or "," not in key) and city_key(site):
+        return city_key(site) == city_key(key)
+    return False
+
+
+def assign_goals(
+    sites: List[str], goals: Dict[str, int]
+) -> Tuple[List[int], List[str]]:
+    """(goal per site, goal keys that match no site).  Each goal key lands on
+    exactly ONE site (an exact name beats a bare-city match); goals that land
+    on the same site add up."""
+    per = [0] * len(sites)
+    unmatched: List[str] = []
+    for key, val in (goals or {}).items():
+        try:
+            n = int(val)
+        except (TypeError, ValueError):
+            continue
+        idx = next((i for i, s in enumerate(sites) if _site_key(s) == _site_key(key)), None)
+        if idx is None:
+            idx = next((i for i, s in enumerate(sites) if _same_site(s, key)), None)
+        if idx is None:
+            unmatched.append(key)
+        else:
+            per[idx] += n
+    return per, unmatched
+
+
 def goal_for_site(site: str, goals: Dict[str, int]) -> int:
-    """The goal for ``site``: exact name first, then the city part."""
-    if site in goals:
-        return int(goals[site])
-    ck = city_key(site)
-    if not ck:
-        return 0
-    for name, val in goals.items():
-        if city_key(name) == ck:
-            return int(val)
-    return 0
+    """The goal for ``site`` (0 = none)."""
+    return assign_goals([site], goals)[0][0]
+
+
+def unmatched_site_goals(goals: Dict[str, int], sites: List[str]) -> List[str]:
+    """Goal names that match none of the plan's ``sites``."""
+    return assign_goals(sites, goals)[1]
 
 
 def site_weights(
@@ -431,7 +467,7 @@ def site_weights(
     """
     if not sites or not goals:
         return [], ""
-    per_site = [goal_for_site(s, goals) for s in sites]
+    per_site, _unmatched = assign_goals(sites, goals)
     if sum(per_site) <= 0:
         return [], ""
     weights = [float(g) for g in per_site]
@@ -802,8 +838,11 @@ def _build_goal_plan(
     # -- per-site table ---------------------------------------------------
     site_rows: List[Dict[str, Any]] = []
     if sites and shares and len(sites) == len(shares):
-        for name, share in zip(sites, shares):
-            g = goal_for_site(name, site_goals) if site_goals else None
+        per_goal = assign_goals(sites, site_goals)[0] if site_goals else []
+        for i, (name, share) in enumerate(zip(sites, shares)):
+            # a site with no goal is "no goal" (None), never a goal of 0 that
+            # would read as covered
+            g = per_goal[i] if per_goal and per_goal[i] > 0 else None
             site_rows.append(
                 {
                     "site": name,

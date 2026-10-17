@@ -4858,6 +4858,35 @@ def _sanitize_generate_request(data: dict) -> dict:
     return out
 
 
+def _rewrite_site_goal_names(data: dict) -> None:
+    """Rewrite ``data["site_goals"]`` keys through the SAME location normaliser
+    the plan's locations went through (split, then ZIP / city / typo
+    resolution), so "dalls" and the plan's "Dallas, TX" name one site. A key the
+    normaliser cannot place stays verbatim (and fails the location check)."""
+    goals = data.get("site_goals")
+    if not isinstance(goals, dict) or not goals:
+        return
+    keys = list(goals)
+    tmp: dict = {"locations": list(keys)}
+    try:
+        _normalize_location_field(tmp)
+        _resolve_and_rewrite_locations(tmp)
+    except Exception as exc:  # noqa: BLE001 - names stay as typed
+        logger.debug("site goal names not rewritten: %s", exc)
+        return
+    new = tmp.get("locations")
+    if not isinstance(new, list) or len(new) != len(keys):
+        return
+    out: dict = {}
+    for old_key, new_key in zip(keys, new):
+        name = str(new_key).strip() or old_key
+        try:
+            out[name] = out.get(name, 0) + int(float(goals[old_key]))
+        except (TypeError, ValueError):
+            return
+    data["site_goals"] = out
+
+
 def _excluded_publishers_problem(raw: Any) -> "tuple[str, str]":
     """("", "") when ``raw`` is an acceptable ``excluded_publishers`` value
     (absent, a list of board names, or one comma-separated string), else
@@ -6098,6 +6127,10 @@ def _compute_plan_estimate(brief: dict) -> dict:
         raise _EstimateValidationError("locations must be a list", field="locations")
     _normalize_location_field(brief)
     _resolve_and_rewrite_locations(brief)
+    _rewrite_site_goal_names(brief)
+    _sg_code, _sg_msg = enterprise_pack.site_goals_location_problem(brief)
+    if _sg_code:
+        raise _EstimateValidationError(_sg_msg, field=enterprise_pack.problem_field(_sg_code))
     budget_info = budget_plan.as_dict()
     budget_info["canonical"] = budget_str
     plan_currency_info = _plan_currency_reading(brief, budget_plan)
@@ -19286,6 +19319,17 @@ body {{background:var(--bg-primary);color:var(--text-primary);font-family:'Inter
                 )
                 return
             enterprise_pack.normalize_request(data)
+            _rewrite_site_goal_names(data)
+            _sg_code, _sg_msg = enterprise_pack.site_goals_location_problem(data)
+            if _sg_code:
+                _gen_timer.cancel()
+                self._send_error(
+                    _sg_msg,
+                    "VALIDATION_ERROR",
+                    400,
+                    field=enterprise_pack.problem_field(_sg_code),
+                )
+                return
             if _client_name_problem(client_name_input)[0] == "too_long":
                 _gen_timer.cancel()
                 self._send_error(

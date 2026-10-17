@@ -526,6 +526,27 @@ def site_goals(data: Any) -> Dict[str, int]:
     return demand_planning.clean_site_goals(raw)
 
 
+def site_goals_location_problem(data: Any) -> Tuple[str, str]:
+    """("", "") when every site goal names one of the plan's locations, else
+    ("site_goals", message).  Run AFTER the request's locations are normalised
+    and the goal names rewritten the same way (app._rewrite_site_goal_names): a
+    goal for a site the plan does not cover would otherwise be silently
+    dropped or spread over the other sites."""
+    goals = site_goals(data)
+    if not goals:
+        return "", ""
+    sites = _locations(data)
+    bad = demand_planning.unmatched_site_goals(goals, sites)
+    if not bad:
+        return "", ""
+    shown = ", ".join(sorted(bad)[:5]) + (", ..." if len(bad) > 5 else "")
+    return (
+        "site_goals",
+        f"Site goals name locations that are not in this plan: {shown}. "
+        "Use the plan's own location names.",
+    )
+
+
 def _hire_goal(data: dict) -> int:
     goals = site_goals(data)
     if goals:
@@ -1740,8 +1761,8 @@ def _build_pacing(ws: Any, data: dict, model: Dict[str, Any], x: Any) -> Dict[st
         goals = site_goals(data)
         if goals:
             sh.put(row, 2, "Site hiring goal (hires)", font=x._FONT_BODY_BOLD)
-            for j, s_name in enumerate(sites):
-                g = demand_planning.goal_for_site(s_name, goals)
+            per_site_goal = demand_planning.assign_goals(sites, goals)[0]
+            for j, g in enumerate(per_site_goal):
                 sh.put(row, 3 + j, g if g > 0 else "no goal", fmt="#,##0")
             row += 1
         grid_first = row
