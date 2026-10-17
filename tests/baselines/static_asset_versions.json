@@ -36,7 +36,7 @@
   },
   "static/js/hub.js": {
     "referrer": "hub.html",
-    "sha256": "147824a253fcd7b5bf2115eff60652c31cc17362dde2080f9b02ed35b6954f7f",
+    "sha256": "bec9870c230540cbc4f5f08d29832b17e08ca4f675bb6e0afeceb4f8d02d8d31",
     "version": "2.9.2"
   },
   "static/js/motion-engine.js": {
@@ -61,8 +61,8 @@
   },
   "static/nova-auth-gate.js": {
     "referrer": "hub.html",
-    "sha256": "4a61a3c076f2f0f7e160172162b7c91d3d60e6f219a703dd7ca063b82013cfdb",
-    "version": "s52"
+    "sha256": "756272d58d4e2705f0c4e2e714c8357aec79c8bbac72cacfd2ecb91976192a0c",
+    "version": "s53"
   },
   "static/nova-auth.js": {
     "referrer": "hub.html",
@@ -71,7 +71,7 @@
   },
   "static/nova-chat.js": {
     "referrer": "hub.js",
-    "sha256": "6994314ce7c1e3fb406ee854420f71dbbf66e28d753afe3d3bb58d5393ed4cff",
-    "version": "3.5.7"
+    "sha256": "7f38c94296772f857a40ecff5e2102cc30f1b0af3b970f66e5f914f8b4173cce",
+    "version": "3.5.8"
   }
 }

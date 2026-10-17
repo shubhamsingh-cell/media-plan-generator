@@ -3521,7 +3521,7 @@
     _locResolveTimer = setTimeout(runLocationResolution, 300);
   }
 
-  function runLocationResolution() {
+  function runLocationResolution(isRetry) {
     const panel = document.getElementById("locationResolution");
     if (!panel) return;
     if (!locations.length) {
@@ -3558,6 +3558,15 @@
       })
       .catch(function (err) {
         console.error("Location resolution request failed:", err);
+        // A transient failure (e.g. a 429) retries once after 1 s: the
+        // Target Region is derived from this answer, so one dropped request
+        // would leave it on its default for the whole session.
+        if (seq === _locResolveSeq && !isRetry) {
+          setTimeout(function () {
+            if (seq === _locResolveSeq) runLocationResolution(true);
+          }, 1000);
+          return;
+        }
         // Assistive layer only -- never show an error, never block the
         // wizard. Clear rather than leave a stale/misleading panel.
         if (seq === _locResolveSeq) panel.innerHTML = "";
