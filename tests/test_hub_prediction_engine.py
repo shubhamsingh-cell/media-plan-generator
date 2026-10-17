@@ -191,8 +191,12 @@ def test_served_card_and_story_4_show_the_engine_default(
     # the card's first paint
     assert _slot(html, "data-pe-cph") == f"${cph:,}"
     assert _slot(html, "data-pe-hires") == f"{est['est_hires']:,}"
-    assert _slot(html, "data-pe-apps") == f"{est['est_applications']:,}"
-    assert _slot(html, "data-pe-cpa") == f"${est['est_cpa']:,.2f}"
+    # the tiles carry the engine's range, not only its best end (trust lens F2)
+    assert _slot(html, "data-pe-apps") == est["projection"]["text"]["applications"]
+    assert _slot(html, "data-pe-cpa") == est["projection"]["text"]["cpa"]
+    assert "\u2013" in _slot(html, "data-pe-apps") and "\u2013" in _slot(
+        html, "data-pe-cpa"
+    )
     assert _slot(html, "data-pe-basis") == proof_claims.pe_basis_text(est)
     assert "Modeled cost-per-hire at plan efficiency" in re.sub(r"<[^>]+>", "", html)
     for unsourced in ("Nursing median", "NAHS", "SHRM 2024", "SHRM 2025", "US average"):
@@ -274,6 +278,9 @@ def test_pe_claims_are_engine_output_with_provenance(
     assert c["pe_hires"].value == engine_default["est_hires"]
     assert c["pe_apps"].value == engine_default["est_applications"]
     assert c["pe_cpa"].text == f"${engine_default['est_cpa']:,.2f}"
+    assert (
+        c["pe_apps_range"].text == engine_default["projection"]["text"]["applications"]
+    )
     assert c["pe_scenario"].data["brief"] == proof_claims.HUB_PE_DEFAULT_BRIEF
     assert c["pe_scenario"].data["estimate"]["est_cph"] == engine_default["est_cph"]
     assert "/api/estimate" in c["pe_cph"].source
@@ -297,7 +304,8 @@ def test_basis_line_states_the_plan_efficiency_case_in_the_decks_terms() -> None
     }
     text = proof_claims.pe_basis_text(est)
     assert text.replace("\u00a0", " ") == (
-        "9 whole hires at the engine\u2019s $5,250 floor \u00b7 4 at its $10,500 midpoint"
+        "9 whole hires at the engine\u2019s $5,250 floor \u00b7 4 at an assumed "
+        "$10.5K all-in cost per hire (Nova table, unsourced)"
     )
     assert " \u00b7\u00a0" in text  # a wrapped line never ends with a stranded dot
     one = proof_claims.pe_basis_text({**est, "est_hires": 1, "est_hires_midpoint": 1})
@@ -377,7 +385,12 @@ def test_pe_claims_are_omitted_without_an_engine(
     computed = proof_claims.compute()
     # pe_scenario_html is the fixed brief's words, not a figure; everything
     # else the card shows needs the engine and is out
-    assert not any(k.startswith("pe_") and k != "pe_scenario_html" for k in computed)
+    static = {
+        "pe_scenario_html",
+        "pe_all_in_note",
+        "pe_cph_measure",
+    }  # words, no figure
+    assert not any(k.startswith("pe_") and k not in static for k in computed)
     assert "supply_partners" in computed
     rendered = proof_claims.render(
         "<div data-pe-cph>{{claim_pe_cph}}</div>{{#claim_pe_cph}}X{{/claim_pe_cph}}"
@@ -558,3 +571,145 @@ def test_hub_js_drives_the_card_from_the_engine_grid_and_carries_no_constants() 
     assert proof_claims.hub_pe_key(proof_claims.HUB_PE_DEFAULT_BRIEF) == (
         "Registered Nurse|Houston, TX|$50,000"
     )
+
+
+# ── 5. the trust-lens fixes (design-judge, 2026-10-17): cost bases, ranges ──
+
+
+def _rendered_hub() -> str:
+    """The hub as the server serves it: the template with its claims
+    substituted (what app.py does through proof_claims.render_bytes)."""
+    proof_claims.refresh()
+    return proof_claims.render(HUB.read_text(encoding="utf-8"))
+
+
+def _text(html: str) -> str:
+    return re.sub(r"\s+", " ", html_lib.unescape(re.sub(r"<[^>]+>", " ", html)))
+
+
+def test_f1_the_midpoint_figure_names_its_cost_basis_in_visible_text() -> None:
+    """The card set "4 at its $10,500 midpoint" (the KB's ALL-IN cost per hire)
+    beside "$5,556 modeled cost-per-hire" (media budget / hires) without saying
+    they are different bases. Both are labelled in text the visitor reads, not
+    a tooltip, from one constant (proof_claims.HUB_PE_*)."""
+    html = _rendered_hub()
+    basis = _slot(html, "data-pe-basis").replace(" ", " ")
+    assert (
+        "4 at an assumed $10.5K all-in cost per hire (Nova table, unsourced)" in basis
+    )
+    assert "title=" not in re.search(r'<div class="pe-cph-basis"[^>]*>', html).group(0)
+    label = re.search(r'<div class="pe-cph-label">(.*?)</div>', html, re.S)
+    assert label
+    assert "media budget ÷ projected hires" in _text(label.group(1))
+    assert "midpoint (an all-in" not in html and "at its $10,500" not in html
+    footnote = re.search(r'<div class="pe-footnote">(.*?)</div>', html, re.S)
+    assert footnote and "all-in cost per hire (Nova table, unsourced)" in _text(
+        footnote.group(1)
+    )
+    # one source: the template's words are the constants' words
+    assert proof_claims.HUB_PE_ALL_IN_NOTE in basis
+    assert proof_claims.HUB_PE_CPH_MEASURE in _text(label.group(1))
+    assert (
+        proof_claims.HUB_PE_LABELS["midpoint_basis"].replace("{mid}", "$10.5K") in basis
+    )
+
+
+def test_f1_labels_reach_hub_js_through_the_seed_and_the_grid() -> None:
+    seed = proof_claims.claims()["pe_scenario"].data
+    assert seed["labels"] == proof_claims.HUB_PE_LABELS
+    grid = proof_claims.hub_pe_grid()
+    assert grid and grid["labels"] == proof_claims.HUB_PE_LABELS
+    js = HUB_JS.read_text(encoding="utf-8")
+    assert "all-in" not in js and "unsourced" not in js  # hub.js words nothing itself
+
+
+def test_f2_every_scenario_carries_the_ranges_its_tiles_print() -> None:
+    grid = proof_claims.hub_pe_grid()
+    assert grid
+    for key, est in grid["scenarios"].items():
+        r = est.get("ranges") or {}
+        assert set(r) == {"applications", "cpa"}, key
+        for text in r.values():
+            assert "–" in text, (key, text)  # a low-high range
+    html = _rendered_hub()
+    est = app._compute_plan_estimate(dict(proof_claims.HUB_PE_DEFAULT_BRIEF))
+    assert _slot(html, "data-pe-apps") == est["projection"]["text"]["applications"]
+    assert _slot(html, "data-pe-cpa") == est["projection"]["text"]["cpa"]
+
+
+def test_f3_the_product_count_is_the_number_of_rendered_cards() -> None:
+    html = _rendered_hub()
+    cards = re.findall(r'<a\b[^>]*class="product-hero-card\b[^"]*"', html)
+    words = proof_claims._NUMBER_WORDS
+    count = len(cards)
+    assert count >= 1
+    title = re.search(r'id="products-typed-title"[^>]*>(.*?)</h2>', html, re.S)
+    assert title
+    heading = _text(title.group(1)).strip()
+    assert heading == f"{words[count].capitalize()} products. One intelligence layer."
+    typed = re.search(r'data-typed-text="([^"]*)"', html)
+    assert typed and typed.group(1) == heading
+    # no other hand-typed product count survives anywhere on the page
+    plain = _text(html).lower()
+    for n, word in enumerate(words):
+        if n != count:
+            assert f"{word} products" not in plain, word
+    assert proof_claims.claims()["hub_products"].value == count
+    names = proof_claims.hub_product_names()
+    assert len(names) == count and all(n in html for n in names)
+    desc = re.search(r'name="description"\s+content="([^"]*)"', html)
+    assert desc and f"{words[count]} products" in desc.group(1)
+
+
+def test_f4_worked_examples_are_engine_rows_not_stale_hand_typed_runs() -> None:
+    html = _rendered_hub()
+    plain = _text(html)
+    for stale in (
+        "July 2026",
+        "Real briefs",
+        "recent engine runs",
+        "Recent engine runs",
+        "17,932",
+        "16,893",
+        "$8.36",
+        "$17.76",
+        "Nova 4.0.0",
+    ):
+        assert stale not in html, stale
+    assert "worked examples" in plain and "Not client plans" in plain
+    grid = proof_claims.hub_pe_grid()
+    assert grid
+    rows = re.findall(r'<span class="ledger-metric">(.*?)</span>', html)
+    assert len(rows) == len(proof_claims.HUB_LEDGER_SCENARIOS) >= 2
+    for row, (ri, li, budget) in zip(rows, proof_claims.HUB_LEDGER_SCENARIOS):
+        brief = proof_claims.hub_pe_brief(
+            proof_claims.HUB_PE_ROLES[ri], proof_claims.HUB_PE_LOCATIONS[li], budget
+        )
+        ranges = grid["scenarios"][proof_claims.hub_pe_key(brief)]["ranges"]
+        assert html_lib.unescape(row) == (
+            f"{ranges['applications']} applications · {ranges['cpa']} / application"
+        )
+
+
+def test_f4_the_ledger_is_dropped_when_the_engine_is_not_loaded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(proof_claims, "_engine", lambda: None)
+    monkeypatch.setattr(proof_claims, "_grid", None)
+    computed = proof_claims.compute()
+    assert "hub_ledger_html" not in computed
+    out = proof_claims.render(HUB.read_text(encoding="utf-8"), computed)
+    assert "ledger-row" not in out and "Worked examples" not in out
+    assert "Recent engine runs" not in out
+
+
+def test_f2_range_tiles_stay_on_one_line_on_a_phone() -> None:
+    """A range such as "$14.57-$58" in the 90px phone column wrapped to two
+    lines at 20px ("862-" / "3,432"): the range tiles are nowrap there."""
+    css = (PROJECT_ROOT / "static" / "css" / "hub.css").read_text(encoding="utf-8")
+    phone = css[css.index("@media (max-width: 560px)") :]
+    rule = re.search(
+        r"\.pe-mini-value\[data-pe-apps\],\s*\.pe-mini-value\[data-pe-cpa\]\s*\{([^}]*)\}",
+        phone,
+    )
+    assert rule and "white-space: nowrap" in rule.group(1)

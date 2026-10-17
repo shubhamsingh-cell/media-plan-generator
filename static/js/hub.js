@@ -1731,6 +1731,8 @@ document.addEventListener("DOMContentLoaded", function () {
   var labelBasisEl = card.querySelector("[data-pe-label-basis]");
   var statusEl = card.querySelector("[data-pe-status]");
   var barRows = card.querySelectorAll("[data-pe-ch]");
+  var appsLabelEl = card.querySelector("[data-pe-apps-label]");
+  var cpaLabelEl = card.querySelector("[data-pe-cpa-label]");
 
   function activeChip(chips) {
     for (var i = 0; i < chips.length; i++) {
@@ -1829,18 +1831,34 @@ document.addEventListener("DOMContentLoaded", function () {
     setStatus(shown ? reason + " Showing the last estimate (" + shown + ")." : reason);
   }
 
-  // "9 whole hires at the engine's $5,250 floor · 4 at its $10,500 midpoint":
-  // exactly what the headline is (budget over whole hires priced at the
-  // engine's floor) beside the deck's other case (the server formats the
-  // default the same way: proof_claims.pe_basis_text). Empty when a scenario
-  // is not the floor-clamped case, so the label above never claims plan
-  // efficiency for a figure that is not.
+  // The wording of the cost bases the card names (proof_claims.HUB_PE_LABELS),
+  // sent with the server's seed and with the grid so this driver never words
+  // them itself. Until one arrives there is no basis line to print.
+  var labels = null;
+  function takeLabels(l) {
+    if (l && typeof l.midpoint_basis === "string") labels = l;
+  }
+
+  // "$10.5K" for 10500 (proof_claims.fmt_k_dollars)
+  function fmtK(n) {
+    if (n >= 1000) return "$" + parseFloat((n / 1000).toFixed(2)) + "K";
+    return fmtDollar(n);
+  }
+
+  // "9 whole hires at the engine's $5,250 floor · 4 at <the server's midpoint
+  // wording>": exactly what the headline is (media budget over whole hires
+  // priced at the engine's floor) beside the deck's other case, which is
+  // priced on a different cost basis, so the line names it with the server's
+  // words (the server formats the default the same way:
+  // proof_claims.pe_basis_text). Empty when a scenario is not the
+  // floor-clamped case, so the label above never claims plan efficiency for a
+  // figure that is not.
   function basisText(est) {
     var hires = Number(est.est_hires);
     var floor = Number(est.cph_floor);
     var mid = Number(est.industry_midpoint_cph);
     var hiresMid = Number(est.est_hires_midpoint);
-    if (!est.cph_floor_applied || !(hires >= 1) || !(floor > 0) || !(mid > 0) || !(hiresMid >= 1)) {
+    if (!labels || !est.cph_floor_applied || !(hires >= 1) || !(floor > 0) || !(mid > 0) || !(hiresMid >= 1)) {
       return "";
     }
     return (
@@ -1850,10 +1868,24 @@ document.addEventListener("DOMContentLoaded", function () {
       fmtDollar(floor) +
       "\u00a0floor \u00b7\u00a0" +
       hiresMid +
-      " at its " +
-      fmtDollar(mid) +
-      "\u00a0midpoint"
+      " at " +
+      labels.midpoint_basis.replace("{mid}", fmtK(mid))
     );
+  }
+
+  var tileLabelBase = {}; // each tile label as the markup has it
+  function paintRangeTile(valueEl, labelEl, key, rangeText, single, fmt) {
+    if (!valueEl) return;
+    if (rafTokens[key]) cancelAnimationFrame(rafTokens[key]);
+    rafTokens[key] = null;
+    var hasRange = typeof rangeText === "string" && rangeText !== "";
+    valueEl.textContent = hasRange ? rangeText : fmt(Number(single) || 0);
+    if (labelEl) {
+      if (!(key in tileLabelBase)) tileLabelBase[key] = labelEl.textContent;
+      var base = tileLabelBase[key];
+      labelEl.textContent =
+        hasRange || !labels || !labels.best_case ? base : base + ", " + labels.best_case;
+    }
   }
 
   // Paint one /api/estimate response. `animate` counts the numbers up from
@@ -1873,8 +1905,12 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
     setNumber(hiresEl, "hires", Number(est.est_hires) || 0, fmtInt, doAnimate);
-    setNumber(appsEl, "apps", Number(est.est_applications) || 0, fmtInt, doAnimate);
-    setNumber(cpaEl, "cpa", Number(est.est_cpa) || 0, fmtCents, doAnimate);
+    // Applications and cost per application are the engine's range (the one
+    // the wizard prints), not only its best end. A scenario with no range
+    // keeps its single figure and the tile's label says "best case".
+    var ranges = est.ranges || {};
+    paintRangeTile(appsEl, appsLabelEl, "apps", ranges.applications, est.est_applications, fmtInt);
+    paintRangeTile(cpaEl, cpaLabelEl, "cpa", ranges.cpa, est.est_cpa, fmtCents);
     var basis = basisText(est);
     if (basisEl) basisEl.textContent = basis;
     // "at plan efficiency" is only true of the floor-clamped case the basis
@@ -1937,6 +1973,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (wanted && grid.version && grid.version !== wanted) {
           throw new Error("grid version " + grid.version + " != " + wanted);
         }
+        takeLabels(grid.labels);
         Object.keys(grid.scenarios).forEach(function (k) {
           scenarios[k] = grid.scenarios[k];
         });
@@ -2028,6 +2065,7 @@ document.addEventListener("DOMContentLoaded", function () {
     seed = null;
   }
   if (seed && seed.brief && seed.estimate) {
+    takeLabels(seed.labels);
     scenarios[briefKey(seed.brief)] = seed.estimate;
     shownBrief = seed.brief;
     paint(seed.estimate, false);

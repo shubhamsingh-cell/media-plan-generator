@@ -7,7 +7,7 @@
     <title>Nova AI Suite — Recruitment Intelligence Platform</title>
     <meta
       name="description"
-      content="AI-powered recruitment intelligence platform. Plan, Intelligence, Compliance, SlotOps, GeoViz 3D, and CG Automation — six products powered by Nova AI{{#claim_ai_tools}} with {{claim_ai_tools}} tools{{/claim_ai_tools}} for talent acquisition."
+      content="AI-powered recruitment intelligence platform. {{#claim_hub_products+hub_product_names}}{{claim_hub_product_names}} — {{claim_hub_products}} products powered by Nova AI{{/claim_hub_products+hub_product_names}}{{^claim_hub_products+hub_product_names}}Powered by Nova AI{{/claim_hub_products+hub_product_names}}{{#claim_ai_tools}} with {{claim_ai_tools}} tools{{/claim_ai_tools}} for talent acquisition."
     />
     <meta name="theme-color" content="#000000" />
     <meta name="author" content="Shubham Singh Chandel" />
@@ -88,7 +88,7 @@
     <link rel="stylesheet" href="/static/css/tokens.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/buttons.css?v=2.0.0" />
     <link rel="stylesheet" href="/static/css/motion.css?v=2.0.0" />
-    <link rel="stylesheet" href="/static/css/hub.css?v=2.15.5" />
+    <link rel="stylesheet" href="/static/css/hub.css?v=2.15.6" />
 
     <!-- PostHog Analytics -->
     <script>
@@ -481,7 +481,7 @@
             <div class="pe-result">
               <div class="pe-cph">
                 <div class="pe-cph-value" data-pe-cph>{{claim_pe_cph}}</div>
-                <div class="pe-cph-label">Modeled <span class="pe-nowrap">cost-per-hire</span>{{#claim_pe_basis}} <span data-pe-label-basis>at plan efficiency</span>{{/claim_pe_basis}}</div>
+                <div class="pe-cph-label">Modeled <span class="pe-nowrap">cost-per-hire</span>{{#claim_pe_basis}} <span data-pe-label-basis>at plan efficiency</span>{{/claim_pe_basis}}{{#claim_pe_cph_measure}} <span class="pe-cph-measure">({{claim_pe_cph_measure}})</span>{{/claim_pe_cph_measure}}</div>
                 <div class="pe-cph-basis" data-pe-basis>{{claim_pe_basis}}</div>
               </div>
               <div class="pe-minis">
@@ -490,12 +490,12 @@
                   <div class="pe-mini-label">Proj. hires</div>
                 </div>
                 <div class="pe-mini">
-                  <div class="pe-mini-value" data-pe-apps>{{claim_pe_apps}}</div>
-                  <div class="pe-mini-label">Est. applications</div>
+                  <div class="pe-mini-value" data-pe-apps>{{claim_pe_apps_range}}</div>
+                  <div class="pe-mini-label" data-pe-apps-label>Est. applications</div>
                 </div>
                 <div class="pe-mini">
-                  <div class="pe-mini-value" data-pe-cpa>{{claim_pe_cpa}}</div>
-                  <div class="pe-mini-label">Cost per application</div>
+                  <div class="pe-mini-value" data-pe-cpa>{{claim_pe_cpa_range}}</div>
+                  <div class="pe-mini-label" data-pe-cpa-label>Cost per application</div>
                 </div>
               </div>
             </div>
@@ -568,9 +568,13 @@
 
             <p class="pe-status" data-pe-status role="status" aria-live="polite" hidden></p>
             <div class="pe-footnote">
-              Plan efficiency: the budget over whole hires at the engine&rsquo;s
-              floor, half its assumed industry midpoint. A real plan prints both
-              cases and adds live market enrichment. No signup.
+              Plan efficiency: the media budget over whole hires at the
+              engine&rsquo;s floor, half its assumed industry midpoint{{#claim_pe_all_in_note}},
+              an {{claim_pe_all_in_note}}{{/claim_pe_all_in_note}}. Applications
+              and cost per application show the engine&rsquo;s low-to-high
+              range, the one the plan wizard prints, not only the best case. A
+              real plan prints both cases and adds live market enrichment. No
+              signup.
             </div>
           </div>
           <!-- The default scenario's brief + estimate, rendered by the server
@@ -1655,7 +1659,7 @@
            superseded by the live Prediction Engine). -->
 
       <!-- ========================================== -->
-      <!-- SECTION 5: THREE PRODUCTS                   -->
+      <!-- SECTION 5: PRODUCTS (count derived: claim_hub_products) -->
       <!-- ========================================== -->
       <section class="products-section" id="platform" aria-label="Products">
         <!-- morphing-mesh removed: blur(60px) animation at 0.15 opacity, imperceptible, wastes GPU -->
@@ -1671,9 +1675,9 @@
             class="section-title reveal"
             style="text-align: center"
             id="products-typed-title"
-            data-typed-text="Six products. One intelligence layer."
+            data-typed-text="{{#claim_hub_products_title}}{{claim_hub_products_title}} products. {{/claim_hub_products_title}}One intelligence layer."
           >
-            Six products. One intelligence layer.
+            {{#claim_hub_products_title}}{{claim_hub_products_title}} products. {{/claim_hub_products_title}}One intelligence layer.
           </h2>
 
           <div class="products-duo reveal">
@@ -3325,111 +3329,42 @@
 
 
       <!-- ========================================== -->
-      <!-- ENGINE RUN LOG (was PREDICTION ENGINE).      -->
-      <!-- DEVIATION FROM BRIEF, flagged explicitly: the -->
-      <!-- brief said to remove this whole mid-page      -->
-      <!-- section since the hero now IS the interactive -->
-      <!-- engine. We removed the duplicate "Try it live" -->
-      <!-- title + subline + second #plan-showcase card   -->
-      <!-- (the actual repeated-motif tell) but keep the  -->
-      <!-- run-ledger strip below: it is dated, labelled  -->
-      <!-- illustrative engine output (17,932 apps/$8.36,  -->
-      <!-- 16,893 apps/$17.76, "Nova 4.0.0, July 2026"),   -->
-      <!-- not production telemetry and not an engine,     -->
-      <!-- and was deliberately built as a DIFFERENT       -->
-      <!-- mechanism from the card grammar precisely so it -->
-      <!-- would not read as a duplicate (see its own      -->
-      <!-- comment below). Deleting it would silently drop -->
-      <!-- verified proof content the brief didn't ask to  -->
-      <!-- lose -- owner should override if they'd rather  -->
-      <!-- it gone too.                                    -->
+      <!-- WORKED EXAMPLES (was the ENGINE RUN LOG strip).               -->
+      <!-- The rows are the engine's own output for two of the hero      -->
+      <!-- card's example scenarios, rendered from proof_claims          -->
+      <!-- (hub_ledger_html <- hub_pe_grid), so they move with the       -->
+      <!-- engine and can never disagree with the card. They used to be  -->
+      <!-- hand-typed from two client briefs and went stale; the claim   -->
+      <!-- that they were real briefs went with them. The whole          -->
+      <!-- section is dropped when the engine is not loaded. It is a     -->
+      <!-- run-ledger strip on purpose: a different mechanism from the   -->
+      <!-- card grammar, so it does not read as a duplicate of the       -->
+      <!-- hero card (mechanism-panel verdict, 2026-07).                 -->
       <!-- ========================================== -->
-      <section
+      {{#claim_hub_ledger_html}}<section
         class="prediction-engine-section"
-        aria-label="Recent engine runs"
+        aria-label="Worked examples"
         style="padding: var(--space-16) 0 var(--space-16)"
       >
         <div class="container" style="max-width: 760px">
-          <!-- ========================================== -->
-          <!-- From brief to plan -- run-ledger strip.     -->
-          <!-- A log excerpt of real engine runs, not a    -->
-          <!-- second card grammar echoing the PE card     -->
-          <!-- (now in the hero) (mechanism-panel verdict, -->
-          <!-- 2026-07).                                   -->
-          <!-- ========================================== -->
           <div class="proof-row-label reveal">
-            From brief to plan &mdash; recent engine runs
+            From brief to plan &mdash; worked examples
           </div>
           <div class="ledger-panel reveal">
             <div class="ledger-head" aria-hidden="true">
               <span>Brief</span>
               <span>Outcome</span>
             </div>
-            <div class="ledger-row">
-              <span class="ledger-brief"
-                >CDL A Driver &middot; New England + Denver, CO &middot; $150K
-                budget</span
-              >
-              <span class="ledger-outcome">
-                <span class="ledger-metric"
-                  >17,932 applications &middot; $8.36 / application</span
-                >
-                <span class="ledger-mix" aria-hidden="true">
-                  <span
-                    class="ledger-mix-seg"
-                    style="width: 28.5%; background: var(--jv-purple)"
-                  ></span>
-                  <span
-                    class="ledger-mix-seg"
-                    style="width: 26%; background: var(--jv-teal-deep)"
-                  ></span>
-                  <span
-                    class="ledger-mix-seg"
-                    style="width: 23.3%; background: var(--jv-purple-light)"
-                  ></span>
-                  <span
-                    class="ledger-mix-seg"
-                    style="width: 22.2%; background: var(--jv-magenta)"
-                  ></span>
-                </span>
-              </span>
-            </div>
-            <div class="ledger-row">
-              <span class="ledger-brief"
-                >10 senior-living roles &middot; New York, NY &middot; $300K
-                budget</span
-              >
-              <span class="ledger-outcome">
-                <span class="ledger-metric"
-                  >16,893 applications &middot; $17.76 / application</span
-                >
-                <span class="ledger-mix" aria-hidden="true">
-                  <span
-                    class="ledger-mix-seg"
-                    style="width: 33.4%; background: var(--jv-purple)"
-                  ></span>
-                  <span
-                    class="ledger-mix-seg"
-                    style="width: 30.3%; background: var(--jv-teal-deep)"
-                  ></span>
-                  <span
-                    class="ledger-mix-seg"
-                    style="width: 21.8%; background: var(--jv-purple-light)"
-                  ></span>
-                  <span
-                    class="ledger-mix-seg"
-                    style="width: 14.5%; background: var(--jv-magenta)"
-                  ></span>
-                </span>
-              </span>
-            </div>
+            {{claim_hub_ledger_html}}
           </div>
           <div class="proof-footnote reveal">
-            Illustrative outputs from the production planning engine
-            &mdash; Nova 4.0.0, July 2026. Real briefs, no client data.
+            Worked examples: the planning engine&rsquo;s own output for two
+            example briefs, computed when the server starts. Ranges are
+            the engine&rsquo;s low-to-high projection, not only the best case.
+            Not client plans.
           </div>
         </div>
-      </section>
+      </section>{{/claim_hub_ledger_html}}
 
       <!-- ========================================== -->
       <!-- SECTION 7: CTA                             -->
@@ -3570,7 +3505,7 @@
     <!-- .footer-wrap -->
 
     <!-- ── Page Scripts (extracted to hub.js for cacheability, Fix #1) ── -->
-    <script src="/static/js/hub.js?v=2.9.2"></script>
+    <script src="/static/js/hub.js?v=2.9.3"></script>
 
     <!-- Legacy inline removed -- hamburger, observers, counters, bar anims,
          scroll handler, ripple, hero preview, page-enter, GSAP hero entrance,
@@ -3787,7 +3722,7 @@
           {
             target: "#platform",
             title: "Explore All Products",
-            desc: "Six products covering planning, intelligence, compliance, SlotOps, GeoViz 3D, and CG Automation.",
+            desc: "{{#claim_hub_products_title+hub_product_names}}{{claim_hub_products_title}} products: {{claim_hub_product_names}}.{{/claim_hub_products_title+hub_product_names}}{{^claim_hub_products_title+hub_product_names}}Everything in the platform, in one place.{{/claim_hub_products_title+hub_product_names}}",
             pos: "top",
           },
           {

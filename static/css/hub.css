@@ -4832,6 +4832,14 @@ html.lenis body {
   .pe-minis {
     gap: 10px;
   }
+  /* The applications and cost-per-application tiles print the engine's
+     low-high range ("$14.57-$58"); at 20px that broke across two lines in a
+     90px column. One line, at the size the longest range fits. */
+  .pe-mini-value[data-pe-apps],
+  .pe-mini-value[data-pe-cpa] {
+    font-size: 15px;
+    white-space: nowrap;
+  }
   /* 114px name column at phone width: the engine's channel names ("Employer
      branding" is 109px at 12px; 5px of headroom for a fallback font) wrapped
      to two lines or clipped in the old 80px; the amount column narrows to

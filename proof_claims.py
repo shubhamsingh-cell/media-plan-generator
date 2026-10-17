@@ -386,6 +386,31 @@ HUB_PE_DEFAULT_BRIEF: Dict[str, Any] = hub_pe_brief(
     HUB_PE_ROLES[0], HUB_PE_LOCATIONS[0], HUB_PE_DEFAULT_BUDGET
 )
 
+# The two cost bases the card sets side by side, stated in its visible text
+# (design-judge trust lens, 2026-10-17).  The headline "modeled cost-per-hire"
+# is the MEDIA budget over projected hires; the "midpoint" case it is set
+# beside is budget_engine.INDUSTRY_CPH_RANGES, a Nova table of ALL-IN cost per
+# hire (background checks, credentialing, ...) that has no external source.
+# Both phrases live here and reach the page through the claims below and the
+# grid/seed JSON, so the server render and hub.js can never word them apart.
+HUB_PE_ALL_IN_NOTE = "all-in cost per hire (Nova table, unsourced)"
+HUB_PE_CPH_MEASURE = "media budget \u00f7 projected hires"
+HUB_PE_LABELS: Dict[str, str] = {
+    # {mid} is the table midpoint, formatted by fmt_k_dollars / hub.js fmtK
+    "midpoint_basis": "an assumed {mid} " + HUB_PE_ALL_IN_NOTE,
+    # a tile whose scenario has no engine range falls back to its best-case
+    # figure, and says so
+    "best_case": "best case",
+}
+
+
+def fmt_k_dollars(value: float) -> str:
+    """``10500 -> "$10.5K"``, ``6250 -> "$6.25K"``; under $1,000 in full."""
+    if value >= 1000:
+        return f"${round(value / 1000, 2):g}K"
+    return f"${int(round(value)):,}"
+
+
 _GRID_FIELDS = (
     "est_hires",
     "est_cph",
@@ -404,6 +429,21 @@ _grid_lock = threading.Lock()
 
 def _month() -> int:
     return time.localtime().tm_mon
+
+
+def _range_texts(est: Dict[str, Any]) -> Dict[str, str]:
+    """The low-high text the wizard and /api/estimate print for applications
+    and cost per application (``plan_projection``'s own ``projection.text``),
+    so the card's tiles show the same range, not only its best end.  A field
+    the projection has no range for is left out; hub.js then labels the tile's
+    single figure "best case"."""
+    texts = ((est.get("projection") or {}).get("text")) or {}
+    out: Dict[str, str] = {}
+    for field in ("applications", "cpa"):
+        text = texts.get(field)
+        if isinstance(text, str) and text and text != "n/a":
+            out[field] = text
+    return out
 
 
 def hub_pe_grid(force: bool = False) -> Optional[Dict[str, Any]]:
@@ -433,6 +473,9 @@ def hub_pe_grid(force: bool = False) -> Optional[Dict[str, Any]]:
                     try:
                         est = estimator(dict(brief))
                         scenarios[key] = {f: est.get(f) for f in _GRID_FIELDS}
+                        ranges = _range_texts(est)
+                        if ranges:
+                            scenarios[key]["ranges"] = ranges
                     except (
                         Exception
                     ) as exc:  # noqa: BLE001 -- one bad scenario must not sink the grid
@@ -453,6 +496,7 @@ def hub_pe_grid(force: bool = False) -> Optional[Dict[str, Any]]:
                 "default": HUB_PE_DEFAULT_BUDGET,
             },
             "default": hub_pe_key(HUB_PE_DEFAULT_BRIEF),
+            "labels": dict(HUB_PE_LABELS),
             "scenarios": scenarios,
             "skipped": skipped,
             "engine": (
@@ -601,20 +645,23 @@ def _pe_cpa_range() -> ProofClaim:
 
 
 def pe_basis_text(est: Dict[str, Any]) -> str:
-    """``9 whole hires at the engine's $5,250 floor · 4 at its $10,500 midpoint``.
+    """``9 whole hires at the engine's $5,250 floor · 4 at an assumed $10.5K
+    all-in cost per hire (Nova table, unsourced)``.
 
     Exactly what the headline is: the budget over whole hires priced at the
     engine's cost-per-hire floor (half its assumed industry midpoint; the deck
     prints the floor as "Plan efficiency: $5,250/hire (half the $10.5K
     midpoint)"), beside the deck's other case, hires at the midpoint itself
-    ("N at range midpoint · M at plan efficiency").  The headline equals the
-    floor only when the division is exact, so the line names the floor and
-    the whole-hire count rather than calling the headline "half the midpoint"
-    (design-judge trust lens, round 3).  hub.js formats the other scenarios
-    the same way.  Raises unless the estimate is the floor-clamped case with
-    every figure, so the claim is omitted rather than mislabelled.  The
-    separator is tied to the second half, so a wrapped line never ends in a
-    stranded dot.
+    ("N at range midpoint · M at plan efficiency").  The midpoint is the
+    engine's ALL-IN cost-per-hire table, not media spend, and has no external
+    source, so the line says so (:data:`HUB_PE_LABELS`) rather than leaving two
+    cost bases to read as one.  The headline equals the floor only when the
+    division is exact, so the line names the floor and the whole-hire count
+    rather than calling the headline "half the midpoint" (design-judge trust
+    lens, rounds 3 and 5).  hub.js formats the other scenarios the same way.
+    Raises unless the estimate is the floor-clamped case with every figure, so
+    the claim is omitted rather than mislabelled.  The separator is tied to the
+    second half, so a wrapped line never ends in a stranded dot.
     """
     if not isinstance(est, dict) or not est.get("cph_floor_applied"):
         raise ValueError("estimate is not the plan-efficiency (floor-clamped) case")
@@ -635,7 +682,9 @@ def pe_basis_text(est: Dict[str, Any]) -> str:
         f"{hires} whole{nbsp}hire{'s' if hires != 1 else ''} at the engine\u2019s "
         f"${int(round(floor)):,}{nbsp}floor"
     )
-    second = f"\u00b7{nbsp}{hires_mid} at its ${int(round(mid)):,}{nbsp}midpoint"
+    second = f"\u00b7{nbsp}{hires_mid} at " + HUB_PE_LABELS["midpoint_basis"].replace(
+        "{mid}", fmt_k_dollars(mid)
+    )
     return f"{first} {second}"
 
 
@@ -683,6 +732,165 @@ def _pe_grid_version() -> ProofClaim:
     )
 
 
+def _pe_all_in_note() -> ProofClaim:
+    return ProofClaim(
+        key="pe_all_in_note",
+        value=None,
+        text=HUB_PE_ALL_IN_NOTE,
+        source=(
+            "proof_claims.HUB_PE_ALL_IN_NOTE: budget_engine.INDUSTRY_CPH_RANGES is "
+            "an all-in cost-per-hire table (background checks, credentialing, ...) "
+            "with no external source; the card's headline is media spend"
+        ),
+    )
+
+
+def _pe_cph_measure() -> ProofClaim:
+    return ProofClaim(
+        key="pe_cph_measure",
+        value=None,
+        text=HUB_PE_CPH_MEASURE,
+        source=(
+            "proof_claims.HUB_PE_CPH_MEASURE: total_projected.cost_per_hire is the "
+            "media budget over the engine's projected hires"
+        ),
+    )
+
+
+# ── Hub product count ────────────────────────────────────────────────────────
+# "Five products. One intelligence layer." is read off the product cards the
+# page renders (templates/hub.html's ``product-hero-card`` anchors), never
+# typed: the heading once said "Six" above five cards.
+
+_HUB_TEMPLATE = os.path.join(_BASE_DIR, "templates", "hub.html")
+_NUMBER_WORDS = (
+    "zero one two three four five six seven eight nine ten eleven twelve".split()
+)
+_CARD_RE = re.compile(
+    r'<a\b[^>]*\bclass="product-hero-card\b[^"]*"[^>]*>.*?<h3>(.*?)</h3>', re.S
+)
+
+
+def hub_product_names() -> list:
+    """The product-card names in the hub template, in page order."""
+    with open(_HUB_TEMPLATE, encoding="utf-8") as fh:
+        src = fh.read()
+    return [html.unescape(m.group(1)).strip() for m in _CARD_RE.finditer(src)]
+
+
+def _join_names(names: list) -> str:
+    if len(names) <= 2:
+        return " and ".join(names)
+    return ", ".join(names[:-1]) + ", and " + names[-1]
+
+
+def _hub_products(title: bool = False) -> ProofClaim:
+    names = hub_product_names()
+    count = len(names)
+    if not 1 <= count < len(_NUMBER_WORDS):
+        raise ValueError(f"hub template has {count} product cards")
+    word = _NUMBER_WORDS[count]
+    return ProofClaim(
+        key="hub_products_title" if title else "hub_products",
+        value=count,
+        text=word.capitalize() if title else word,
+        source="count of product-hero-card anchors in templates/hub.html",
+        data={"names": names},
+    )
+
+
+def _hub_product_names_claim() -> ProofClaim:
+    names = hub_product_names()
+    if not names:
+        raise ValueError("hub template has no product cards")
+    return ProofClaim(
+        key="hub_product_names",
+        value=None,
+        text=_join_names(names),
+        source="the <h3> of each product-hero-card in templates/hub.html",
+        data={"names": names},
+    )
+
+
+# ── Hub "worked examples" ledger ─────────────────────────────────────────────
+# Two rows of the same engine grid the hero card draws from (so a row can never
+# disagree with the card), rendered for story "From brief to plan".  Until
+# 2026-10-17 the rows were hand-typed from two CLIENT briefs run in July 2026
+# ("17,932 applications · $8.36"); the engine has moved since (tests/
+# test_funnel_calibration.py), and the copy said "Real briefs, no client data".
+# Now the briefs are the card's own example scenarios and every figure is the
+# engine's, recomputed with the grid.
+
+HUB_LEDGER_SCENARIOS: tuple = (
+    # (role index, location index, budget)
+    (2, 1, 150_000),  # CDL Driver, Chicago
+    (0, 3, 200_000),  # Registered Nurse, New York
+)
+_LEDGER_SEGMENT_COLORS = (
+    "var(--jv-purple)",
+    "var(--jv-teal-deep)",
+    "var(--jv-purple-light)",
+    "var(--jv-magenta)",
+)
+
+
+def hub_ledger_html() -> str:
+    """The ledger rows' markup (the ``ledger-row`` blocks), from the grid.
+
+    Each row shows the engine's range for applications and cost per application
+    (not only the best end) and a bar of the four largest funded channels,
+    normalised to the bar's width.  Raises when the grid or a row's figures are
+    missing, so the whole ledger is omitted rather than half-drawn.
+    """
+    grid = hub_pe_grid()
+    if not grid:
+        raise RuntimeError("hub prediction grid not available")
+    rows = []
+    for role_i, loc_i, budget in HUB_LEDGER_SCENARIOS:
+        role, location = HUB_PE_ROLES[role_i], HUB_PE_LOCATIONS[loc_i]
+        key = hub_pe_key(hub_pe_brief(role, location, budget))
+        est = grid["scenarios"].get(key)
+        ranges = (est or {}).get("ranges") or {}
+        if not est or not ranges.get("applications") or not ranges.get("cpa"):
+            raise ValueError(f"ledger scenario {key!r} has no engine range")
+        channels = sorted(est.get("channels") or [], key=lambda c: -float(c["pct"]))[:4]
+        total = sum(float(c["pct"]) for c in channels)
+        if total <= 0:
+            raise ValueError(f"ledger scenario {key!r} has no funded channel")
+        segs = "".join(
+            f'<span class="ledger-mix-seg" style="width: {float(c["pct"]) / total * 100:.1f}%; '
+            f'background: {_LEDGER_SEGMENT_COLORS[i]}"></span>'
+            for i, c in enumerate(channels)
+        )
+        brief = f"{role['title']} \u00b7 {location} \u00b7 ${budget // 1000}K budget"
+        rows.append(
+            '<div class="ledger-row">'
+            f'<span class="ledger-brief">{html.escape(brief)}</span>'
+            '<span class="ledger-outcome">'
+            f'<span class="ledger-metric">{html.escape(ranges["applications"])} '
+            f'applications \u00b7 {html.escape(ranges["cpa"])} / application</span>'
+            f'<span class="ledger-mix" aria-hidden="true">{segs}</span>'
+            "</span></div>"
+        )
+    return "".join(rows).replace(" \u00b7 ", " &middot; ")
+
+
+def _hub_ledger() -> ProofClaim:
+    return ProofClaim(
+        key="hub_ledger_html",
+        value=None,
+        text=hub_ledger_html(),
+        source=(
+            "proof_claims.hub_pe_grid scenarios "
+            + ", ".join(
+                hub_pe_key(hub_pe_brief(HUB_PE_ROLES[r], HUB_PE_LOCATIONS[l], b))
+                for r, l, b in HUB_LEDGER_SCENARIOS
+            )
+            + " (budget_engine via app._compute_plan_estimate, un-enriched)"
+        ),
+    )
+
+
 def pe_scenario_text(brief: Dict[str, Any]) -> str:
     """``Registered Nurse · Houston, TX · $50,000 budget`` for story 4's label.
 
@@ -719,7 +927,11 @@ def _pe_scenario() -> ProofClaim:
         value=None,
         text=pe_scenario_text(b),
         source=_pe_source("the whole estimate (data = the /api/estimate response)"),
-        data={"brief": dict(b), "estimate": est},
+        data={
+            "brief": dict(b),
+            "estimate": {**est, "ranges": _range_texts(est)},
+            "labels": dict(HUB_PE_LABELS),
+        },
     )
 
 
@@ -747,6 +959,12 @@ _SOURCES: Dict[str, Callable[[], ProofClaim]] = {
     "pe_scenario": _pe_scenario,
     "pe_scenario_html": _pe_scenario_html,
     "pe_grid_version": _pe_grid_version,
+    "pe_all_in_note": _pe_all_in_note,
+    "pe_cph_measure": _pe_cph_measure,
+    "hub_products": _hub_products,
+    "hub_products_title": lambda: _hub_products(title=True),
+    "hub_product_names": _hub_product_names_claim,
+    "hub_ledger_html": _hub_ledger,
 }
 
 # Order of the stat line in Nova's greeting; keys missing at runtime are skipped.
@@ -881,6 +1099,8 @@ _FALLBACK_TEXT: Dict[str, str] = {
     "pe_hires": "\u2014",
     "pe_apps": "\u2014",
     "pe_cpa": "\u2014",
+    "pe_apps_range": "\u2014",
+    "pe_cpa_range": "\u2014",
 }
 
 _BLOCK_RE = re.compile(
