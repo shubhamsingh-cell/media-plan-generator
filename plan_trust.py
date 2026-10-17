@@ -22,6 +22,8 @@ import re
 import sys
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
+import plan_projection
+
 logger = logging.getLogger(__name__)
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -397,12 +399,25 @@ def review_items(
     # "Estimates and assumptions" section of templates/help-media-plans.html
     # (and its "Before you send" bullet) together.
     if not data.get("historical_performance"):
+        # The figure the hires divide the budget by, named from the SAME
+        # resolver dict the workbook and deck print (plan_projection.cph_basis):
+        # a cited local range names its source; Nova's own table says it is an
+        # assumed all-in figure, not a published benchmark.
+        alloc0 = data.get("_budget_allocation")
+        meta0 = alloc0.get("metadata") if isinstance(alloc0, dict) else None
+        icph0 = meta0.get("industry_cph") if isinstance(meta0, dict) else None
+        basis0 = plan_projection.cph_basis(icph0)
+        if basis0["kind"] == "local_kb":
+            what = f"the {basis0['label']}; media budget divided by that figure"
+        else:
+            what = (
+                "Nova's assumed industry cost-per-hire table (an all-in figure, "
+                "not a published benchmark); media budget divided by that figure"
+            )
         items.append(
-            "Projected hires and costs are estimates from Nova's assumed "
-            "industry cost-per-hire table (an all-in figure, not a published "
-            "benchmark); media budget divided by that figure \u2014 no client "
-            "hire history was provided. Treat them as indicative, not as "
-            "commitments."
+            f"Projected hires and costs are estimates from {what} \u2014 no "
+            "client hire history was provided. Treat them as indicative, not "
+            "as commitments."
         )
 
     if unverified_boards > 0:

@@ -189,6 +189,10 @@ def _channel_rows() -> dict:
 def _walk_source_ids(node):
     if isinstance(node, dict):
         for key, value in node.items():
+            # the 10-K IS the source of the revenue-per-paid-employer figure
+            # (and of nothing else on a channel row): walked separately below
+            if key == "avg_revenue_per_paid_employer_source_ids":
+                continue
             if key == "source_ids" and isinstance(value, list):
                 yield from value
             else:
@@ -229,8 +233,11 @@ def test_channel_cards_label_their_ranges_from_the_ids_left_on_the_cells():
     # Appcast-only rows are an all-publisher aggregate, not that board's figures
     for board in ("Monster", "LinkedIn", "Glassdoor"):
         assert _card(board)["source"] == "Appcast all-publisher aggregate (not board-specific)", board
-    # ZipRecruiter's CPC lost its only source; its CPA still rests on Appcast
-    assert _card("ZipRecruiter")["source"] == "Appcast all-publisher aggregate (not board-specific)"
+    # ZipRecruiter's CPC lost its only source; its CPA still rests on Appcast:
+    # the label names the cell instead of lending Appcast to both figures
+    assert _card("ZipRecruiter")["source"] == (
+        "CPA: Appcast all-publisher aggregate; CPC: Nova working estimate"
+    )
     # a mixed row names its other sources and keeps the aggregate caveat
     indeed = _card("Indeed")["source"]
     assert "Appcast 2025" in indeed and indeed.endswith("Appcast figures are all-publisher aggregates")
@@ -243,9 +250,16 @@ def test_channel_cards_label_their_ranges_from_the_ids_left_on_the_cells():
 
 
 def test_channel_source_label_cases():
-    assert pricing.channel_source_label([]) == "Nova working estimate"
-    assert pricing.channel_source_label(["appcast_2025"]) == (
+    assert pricing.channel_source_label([], []) == "Nova working estimate"
+    assert pricing.channel_source_label(["appcast_2025"], ["appcast_2025"]) == (
         "Appcast all-publisher aggregate (not board-specific)"
+    )
+    # one cell sourced, the other not: each cell is named, in either direction
+    assert pricing.channel_source_label([], ["appcast_2025"]) == (
+        "CPA: Appcast all-publisher aggregate; CPC: Nova working estimate"
+    )
+    assert pricing.channel_source_label(["appcast_2025"], []) == (
+        "CPC: Appcast all-publisher aggregate; CPA: Nova working estimate"
     )
     from us_only_markers import _US_ONLY_MARKERS
 
@@ -255,3 +269,24 @@ def test_channel_source_label_cases():
         _ESTIMATE_NOTE,
     ):
         assert not [m for m in _US_ONLY_MARKERS if m.lower() in text.lower()], text
+
+
+def test_by_industry_cpc_cpa_cells_cite_no_salary_survey():
+    """The Dice Tech Salary & Sentiment report publishes no CPC / CPA (or
+    time-to-fill); the tech industry row must not lend it to those cells."""
+    rows = _file()["by_industry"]
+    for name, row in rows.items():
+        for cell in ("cpc_range_usd", "cpa_range_usd", "time_to_fill_days"):
+            ids = (row.get(cell) or {}).get("source_ids") or []
+            assert "dhi_dice_report" not in ids, (name, cell)
+    assert "dhi_dice_report" not in rows["tech"]["source_ids"]
+
+
+def test_revenue_per_paid_employer_is_the_10k_figure_with_the_10k_as_its_source():
+    node = _file()["by_channel"]["ziprecruiter"]
+    # the 10-K reports $1,708-$1,920 per quarter (2023-24): the low end, sourced
+    assert node["avg_revenue_per_paid_employer_usd_quarterly"] == 1708
+    assert node["avg_revenue_per_paid_employer_source_ids"] == ["ziprecruiter_10k_2024"]
+    # and the 10-K backs no CPC / CPA cell
+    assert "ziprecruiter_10k_2024" not in node["typical_cpc_usd"]["source_ids"]
+    assert "ziprecruiter_10k_2024" not in node["typical_cpa_usd"]["source_ids"]

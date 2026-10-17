@@ -549,3 +549,64 @@ def test_deck_notes_omit_unflagged_items():
     notes = Presentation(io.BytesIO(raw)).slides[0].notes_slide.notes_text_frame.text
     assert "no client hire history" not in notes
     assert "Client exclusions applied" not in notes
+
+
+# -- the hire basis reads the resolver: wizard, checklist, workbook, deck agree ---
+
+
+def _berlin_plan():
+    from tests.test_workbook_currency_format_sweep_2026_10_16 import _plan as sweep_plan
+
+    return sweep_plan(
+        ["Berlin, Germany"], "\u20ac80,000", industry="tech_engineering", role="Software Engineer"
+    )
+
+
+def _all_text(wb) -> str:
+    return "\n".join(
+        str(c.value) for ws in wb for row in ws.iter_rows() for c in row if isinstance(c.value, str)
+    )
+
+
+def test_checklist_names_the_cited_local_range_when_the_resolver_cites_one():
+    data = _berlin_plan()
+    first = plan_trust.review_items(data)[0]
+    assert "cited local cost-per-hire range midpoint (Eurojob-Consulting" in first
+    assert "Nova's assumed" not in first and "all-in figure, not a published benchmark" not in first
+    assert "no client hire history was provided" in first
+    # a plan without a cited local range keeps the Nova-table wording
+    assert "Nova's assumed industry cost-per-hire table" in _items()[0]
+
+
+def test_berlin_bundle_says_one_thing_about_its_cost_per_hire_basis():
+    """Workbook (Executive Summary + Review before sending), deck slide 5 and
+    the wizard's hire_basis all cite Eurojob-Consulting; none calls the figure
+    Nova's assumed table."""
+    import app as app_mod
+
+    data = _berlin_plan()
+    import gold_standard
+    import research
+    from kb_loader import load_knowledge_base
+
+    data["_gold_standard"] = gold_standard.apply_all_quality_gates(data)
+    wb = openpyxl.load_workbook(
+        io.BytesIO(excel_v2.generate_excel_v2(data, research_mod=research, load_kb_fn=load_knowledge_base))
+    )
+    summary, review = _sheet_text(wb["Executive Summary"]), _sheet_text(wb["Review before sending"])
+    assert "Eurojob-Consulting" in summary and "cited local range midpoint" in summary
+    assert "Eurojob-Consulting" in review and "cited local cost-per-hire range midpoint" in review
+    assert "Nova's assumed" not in review and "Nova's assumed" not in _all_text(wb)
+    prs = Presentation(io.BytesIO(ppt_generator.generate_pptx(data)))
+    deck_text = " ".join(
+        sh.text_frame.text for sl in prs.slides for sh in sl.shapes if sh.has_text_frame
+    )
+    assert "local CPH: Eurojob-Consulting" in deck_text and "Nova's assumed" not in deck_text
+    est = app_mod._compute_plan_estimate(
+        {"budget": "\u20ac80,000", "roles": ["Software Engineer"], "industry": "tech_engineering",
+         "locations": ["Berlin, Germany"]}
+    )
+    label = est["hire_basis"]["label"]
+    assert est["hire_basis"]["basis"] == "local_kb" and "Eurojob-Consulting" in label
+    # the wizard's label is the one the checklist prints
+    assert label in review

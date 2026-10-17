@@ -606,8 +606,11 @@ def ranges_from_engine_result(
     # -- assumptions (what the hires / CPH numbers rest on) ------------------
     avg = math_avg
     conv = kb_hire_conversion(industry_key, knowledge_base)
+    _basis = cph_basis(icph)
     if us_tag:
         basis_src = "the US cost-per-hire benchmark (US benchmark \u2014 no local data)"
+    elif _basis["kind"] == "local_kb":
+        basis_src = "the " + _basis["label"]
     else:
         basis_src = "Nova's cost-per-hire table"
     assumptions: Dict[str, Any] = {
@@ -629,10 +632,18 @@ def ranges_from_engine_result(
             + (
                 "the US benchmark \u2014 no local data"
                 if us_tag
-                else "Nova's INDUSTRY_CPH_RANGES table"
+                else (
+                    "the " + _basis["label"]
+                    if _basis["kind"] == "local_kb"
+                    else "Nova's INDUSTRY_CPH_RANGES table"
+                )
             )
             + "), not a media-only figure."
         ),
+        "cph_basis_kind": _basis["kind"],
+        "cph_basis_word": _basis["word"],
+        "cph_basis_sources": _basis["sources"],
+        "cph_basis_label": _basis["label"],
         "industry_cph_avg": avg if basis_ok else None,
         "industry_cph_floor": floor if basis_ok else None,
         "us_benchmark_translated": translated,
@@ -874,6 +885,30 @@ def describe(proj: Dict[str, Any], symbol: str = "$") -> Dict[str, str]:
         "cph_basis": str(a.get("cph_basis") or ""),
         "cpa_note": cpa_short,
     }
+
+
+NOVA_TABLE_BASIS_LABEL = "assumed all-in industry cost per hire (Nova table, unsourced)"
+
+
+def cph_basis(icph: Any) -> Dict[str, Any]:
+    """What the hires figures divide the budget by, named from the resolver's
+    own ``industry_cph`` dict (budget_engine.resolve_industry_cph): the cited
+    local range / median when ``basis`` is ``local_kb`` (its ``source_names``),
+    else Nova's own all-in INDUSTRY_CPH_RANGES table (no external source).
+    The one wording the wizard, the workbook / deck checklist and the
+    assumptions block all read, so the three can never disagree."""
+    icph = icph if isinstance(icph, dict) else {}
+    if str(icph.get("basis") or "") == "local_kb":
+        names = [str(n) for n in (icph.get("source_names") or []) if str(n).strip()]
+        word = "median" if icph.get("value_label") == "median" else "midpoint"
+        src = f" ({', '.join(names)})" if names else ""
+        return {
+            "kind": "local_kb",
+            "word": word,
+            "sources": names,
+            "label": f"cited local cost-per-hire range {word}{src}",
+        }
+    return {"kind": "nova_table", "word": "midpoint", "sources": [], "label": NOVA_TABLE_BASIS_LABEL}
 
 
 def public_view(proj: Dict[str, Any]) -> Dict[str, Any]:

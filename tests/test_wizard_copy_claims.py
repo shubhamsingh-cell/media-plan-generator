@@ -536,5 +536,5 @@ def test_no_wizard_copy_reassures_about_hires_at_the_conservative_end():
         src = path.read_text(encoding="utf-8")
         assert "even at the conservative end" not in src, path.name
     preview = (PARTIALS / "body_preview_js.html").read_text(encoding="utf-8")
-    assert "if hires cost the assumed" in preview
+    assert '" if hires cost "' in preview and "the assumed <b>" in preview
     assert "all-in cost per hire (Nova table)" in preview

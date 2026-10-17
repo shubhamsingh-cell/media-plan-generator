@@ -6432,7 +6432,12 @@ def _compute_plan_estimate(brief: dict) -> dict:
                 if isinstance(_hb_floor, (int, float)) and _hb_floor > 0
                 else None
             ),
-            "label": "assumed all-in industry cost per hire (Nova table, unsourced)",
+            # the resolver's own basis: a cited local range names its source,
+            # Nova's table says it has none (plan_projection.cph_basis)
+            "basis": _proj_a.get("cph_basis_kind") or "nova_table",
+            "sources": list(_proj_a.get("cph_basis_sources") or []),
+            "word": _proj_a.get("cph_basis_word") or "midpoint",
+            "label": _proj_a.get("cph_basis_label") or "",
         }
         if isinstance(_hb_mid, (int, float))
         and _hb_mid > 0

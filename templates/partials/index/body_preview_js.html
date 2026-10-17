@@ -131,7 +131,11 @@
       var hb = est && est.hire_basis;
       if (!hb || !(hb.midpoint_cph > 0)) return "";
       var k = function (v) { return sym() + (v >= 1000 ? trim(v / 1000, 2) + "K" : String(Math.round(v))); };
-      var base = "an assumed " + k(hb.midpoint_cph) + " all-in cost per hire (Nova table)";
+      // A cited local range names its source (the server's label); Nova's own
+      // table says so. Never "Nova table" over a figure that has a source.
+      var base = hb.basis === "local_kb"
+        ? k(hb.midpoint_cph) + ", the " + (hb.label || "cited local cost-per-hire range")
+        : "an assumed " + k(hb.midpoint_cph) + " all-in cost per hire (Nova table)";
       var pr = est.projection && est.projection.hires;
       var ranged = !!(pr && pr.low != null && pr.high != null && pr.low !== pr.high);
       if (ranged && hb.floor_cph > 0) return "low end at " + base + ", high end at " + k(hb.floor_cph);
@@ -562,10 +566,14 @@
         } else if (m.targetHires <= hiLo) {
           // No green reassurance: the count rests on an assumed all-in cost per
           // hire, so the sentence either names that figure or claims nothing.
-          var hbIns = est.hire_basis && est.hire_basis.midpoint_cph > 0 ? est.hire_basis.midpoint_cph : 0;
+          var hbIns = est.hire_basis && est.hire_basis.midpoint_cph > 0 ? est.hire_basis : null;
           if (hbIns) {
-            var hbK = sym() + (hbIns >= 1000 ? trim(hbIns / 1000, 2) + "K" : String(Math.round(hbIns)));
-            ins.push({ tone: "info", text: "Budget covers your " + goalText(m) + " if hires cost the assumed <b>" + escapeHtml(hbK) + "</b> each (all-in, Nova table) — est. " + escapeHtml(shown) + " hires." });
+            var hbV = hbIns.midpoint_cph;
+            var hbK = sym() + (hbV >= 1000 ? trim(hbV / 1000, 2) + "K" : String(Math.round(hbV)));
+            var hbWho = hbIns.basis === "local_kb"
+              ? "the cited local " + hbK + " each (" + escapeHtml((hbIns.sources || []).join(", ") || "local source") + ")"
+              : "the assumed <b>" + escapeHtml(hbK) + "</b> each (all-in, Nova table)";
+            ins.push({ tone: "info", text: "Budget covers your " + goalText(m) + " if hires cost " + hbWho + " — est. " + escapeHtml(shown) + " hires." });
           } else {
             ins.push({ tone: "info", text: "Your " + goalText(m) + " sits at or below the low end of the estimated <b>" + escapeHtml(shown) + " hires</b> — the estimate rests on an assumed cost per hire." });
           }
@@ -819,7 +827,7 @@
           var bits = ["Est. cost / hire <b>" + escapeHtml(proj.text.cph) + "</b> (" + escapeHtml(proj.text.cph_short || "total cost-per-hire basis") + ")."];
           bits.push(escapeHtml(proj.text.hires_short || "Hires are an estimate from industry cost per hire; no client hire history provided."));
           var hbPane = hireBasisText(est);
-          if (hbPane) bits.push("Hire range: " + escapeHtml(hbPane) + "; the table has no external source.");
+          if (hbPane) bits.push("Hire range: " + escapeHtml(hbPane) + (est.hire_basis.basis === "local_kb" ? "." : "; the table has no external source."));
           if (proj.text.cpa_note) bits.push(escapeHtml(proj.text.cpa_note));
           basis.innerHTML = bits.join(" ");
           basis.style.display = "";

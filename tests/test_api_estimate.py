@@ -271,6 +271,25 @@ def test_estimate_states_the_cost_per_hire_its_hires_divide_by() -> None:
     assert off["hire_basis"] is None
 
 
+def test_hire_basis_follows_the_resolvers_source() -> None:
+    """A cited local range names its source and never says "Nova table"; a US
+    plan's basis is Nova's own table. The label is the resolver's, not typed."""
+    berlin = app._compute_plan_estimate(
+        {"budget": "\u20ac80,000", "roles": ["Software Engineer"], "industry": "tech_engineering",
+         "locations": ["Berlin, Germany"]}
+    )["hire_basis"]
+    assert berlin["basis"] == "local_kb" and berlin["sources"]
+    assert "Eurojob-Consulting" in berlin["label"] and "Eurojob-Consulting" in berlin["sources"][0]
+    assert "Nova table" not in berlin["label"] and "unsourced" not in berlin["label"]
+    assert berlin["midpoint_cph"] == 15500.0
+    dallas = app._compute_plan_estimate(
+        {"budget": "$120,000", "roles": ["Registered Nurse"], "industry": "healthcare_medical",
+         "locations": ["Dallas, TX"]}
+    )["hire_basis"]
+    assert dallas["basis"] == "nova_table" and dallas["sources"] == []
+    assert dallas["label"] == "assumed all-in industry cost per hire (Nova table, unsourced)"
+
+
 def test_manpower_brief_reproduces_prod_incident_numbers() -> None:
     """The exact numbers verified on prod 2026-07-12: 48 hires at $3,125
     CPH for the Manpower-AmeriGas brief -- NOT the naive JS estimator's

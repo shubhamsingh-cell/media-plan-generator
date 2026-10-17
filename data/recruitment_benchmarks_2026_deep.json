@@ -122,16 +122,16 @@
     },
     "tech": {
       "_description": "Software engineering, DevOps, data, SRE. Market A - flood category.",
-      "cpc_range_usd": {"p25": 1.40, "median": 2.80, "p75": 5.00, "source_ids": ["appcast_2025", "dhi_dice_report"]},
+      "cpc_range_usd": {"p25": 1.40, "median": 2.80, "p75": 5.00, "source_ids": ["appcast_2025"]},
       "cpa_range_usd": {"p25": 7.00, "median": 11.00, "p75": 19.00, "source_ids": ["joveo_internal_2026", "appcast_2025"]},
       "apply_rate_pct": {"easy_apply": 32.0, "long_form": 8.0, "source_ids": ["appcast_2025", "linkedin_talent_insights"]},
       "cph_range_usd": {"p25": 4200, "median": 5800, "p75": 9500, "source_ids": [], "status": "illustrative_unverified", "note": "Nova working estimate. No public per-industry cost-per-hire quartiles exist (provenance audit 2026-10-17); not to be shown as a benchmark."},
-      "time_to_fill_days": {"p25": 32, "median": 44, "p75": 62, "source_ids": ["shrm_ttf_2024", "dhi_dice_report", "shrm_ttf_2025"]},
+      "time_to_fill_days": {"p25": 32, "median": 44, "p75": 62, "source_ids": ["shrm_ttf_2024", "shrm_ttf_2025"]},
       "time_to_hire_days_2026": {"tech_media": 20, "engineering": 62, "source_ids": ["ams_genius_tth_2024", "indeed_hiringlab_2026"], "confidence": "medium", "note": "Tech & media time-to-hire ~20 days (AMS via Genius, 2024); engineering ~62 days. Technology postings ran ~one-third lower than early 2020 per Indeed Hiring Lab 2026. Time-to-hire (offer accepted from candidate entry) differs from the requisition-to-offer time_to_fill_days above."},
       "seasonal_pattern": "Sharpest hiring pullback Q2-Q3 2024 through 2025. Renewed growth signaled by Recruitics May 2025 +28.9% MoM CPC.",
       "dominant_channels": ["linkedin", "dice", "builtin", "hired", "wellfound", "indeed"],
       "notes": "Software dev saw 9x application growth Nov 2022 to Nov 2025. Candidates with 5+ yrs experience grew from 37% to 42% of applicants.",
-      "source_ids": ["joveo_internal_2026", "appcast_2025", "dhi_dice_report"]
+      "source_ids": ["joveo_internal_2026", "appcast_2025"]
     },
     "retail": {
       "_description": "Store associates, shift leads, visual merchandisers. Seasonal-heavy.",
@@ -325,7 +325,8 @@
       "typical_cpc_usd": {"low": 0.40, "median": 1.20, "high": 3.50, "source_ids": []},
       "typical_cpa_usd": {"low": 10.00, "median": 22.00, "high": 55.00, "source_ids": ["appcast_2025"]},
       "apply_rate_pct": {"1click": 18.0, "off_site": 4.8, "source_ids": ["appcast_2025"]},
-      "avg_revenue_per_paid_employer_usd_quarterly": 1500,
+      "avg_revenue_per_paid_employer_usd_quarterly": 1708,
+      "avg_revenue_per_paid_employer_source_ids": ["ziprecruiter_10k_2024"],
       "strength": "AI-match to candidates. Strong SMB penetration. Good for gig, logistics, skilled trades.",
       "weakness": "Paid employer count pressured in 2024 per 10-K. Lower enterprise share than Indeed.",
       "best_industries": ["logistics", "skilled_trades", "retail", "sales", "admin", "hospitality"],

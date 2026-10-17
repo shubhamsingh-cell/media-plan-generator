@@ -2380,3 +2380,38 @@ def test_sticky_offsets_read_the_bars_rendered_height():
     assert "offsetHeight" in block and "--np-bar-h" in block
     assert "syncEstimateBarHeight();" in js_block(PREVIEW, "function paintEstimateBar(")
     assert 'addEventListener("resize", syncEstimateBarHeight)' in PREVIEW
+
+
+_LOCAL_BASIS = {
+    "midpoint_cph": 15500.0,
+    "floor_cph": 7750.0,
+    "basis": "local_kb",
+    "sources": ["Eurojob-Consulting"],
+    "label": "cited local cost-per-hire range midpoint (Eurojob-Consulting)",
+}
+
+
+@needs_node
+def test_a_cited_local_basis_is_named_and_never_called_the_nova_table():
+    def note(est: dict) -> str:
+        return run_node(
+            "\n".join(
+                [
+                    "function sym() { return '\u20ac'; }",
+                    "function trim(x, d) { return Number(x.toFixed(d)).toString(); }",
+                    js_block(PREVIEW, "function hireBasisText("),
+                    f"process.stdout.write(JSON.stringify(hireBasisText({json.dumps(est)})));",
+                ]
+            )
+        )
+
+    text = note({"hire_basis": _LOCAL_BASIS, "projection": {"hires": {"low": 5, "mid": 10, "high": 10}}})
+    assert "Eurojob-Consulting" in text and "\u20ac15.5K" in text and "midpoint" in text
+    assert "Nova table" not in text and "assumed" not in text and "all-in" not in text
+    _no_us_only_marker(text)
+    # the insight names the source too, with no Nova-table wording
+    ins = _insights("", 5, 5.0, hire_basis=_LOCAL_BASIS, projection={"hires": {"low": 5, "mid": 10, "high": 10}})[0]
+    assert "Eurojob-Consulting" in ins and "Nova table" not in ins and "assumed" not in ins
+    # the pane line drops "the table has no external source" for a cited basis
+    pane = js_block(PREVIEW, "function paintOutcomes(")
+    assert 'basis === "local_kb" ? "." : "; the table has no external source."' in pane

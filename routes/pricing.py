@@ -74,24 +74,38 @@ NOVA_ESTIMATE_LABEL = "Nova working estimate"
 APPCAST_AGGREGATE_LABEL = "Appcast all-publisher aggregate (not board-specific)"
 
 
-def channel_source_label(cell_ids: list) -> str:
-    """What a channel card says its CPC / CPA ranges rest on, from the ids that
-    remain on its CPC and CPA cells (not the row's wider list).
-
-    No ids left -> "Nova working estimate" (never a stand-in publisher). Only
-    Appcast ids -> its all-publisher aggregate, which is not a per-board figure.
-    Anything else is named from the registry, with the same aggregate caveat
-    when Appcast is among them."""
+def _ids_label(ids: list, board_note: bool = True) -> str:
     import cph_benchmark
 
-    ids = list(dict.fromkeys(str(i) for i in cell_ids))
     if not ids:
         return NOVA_ESTIMATE_LABEL
     appcast = [i for i in ids if i.startswith("appcast_")]
     if len(appcast) == len(ids):
-        return APPCAST_AGGREGATE_LABEL
+        return APPCAST_AGGREGATE_LABEL if board_note else "Appcast all-publisher aggregate"
     label = cph_benchmark.source_label(ids)
     return label + "; Appcast figures are all-publisher aggregates" if appcast else label
+
+
+def channel_source_label(cpc_ids: list, cpa_ids: list) -> str:
+    """What a channel card says its CPC / CPA ranges rest on, from the ids that
+    remain on each cell (not the row's wider list).
+
+    No ids on either cell -> "Nova working estimate" (never a stand-in
+    publisher). Only Appcast ids -> its all-publisher aggregate, which is not a
+    per-board figure. Anything else is named from the registry, with the same
+    aggregate caveat when Appcast is among them. When ONE cell kept a source and
+    the other kept none, the label names the cell ("CPA: Appcast all-publisher
+    aggregate; CPC: Nova working estimate") so the sourced figure never lends
+    its provenance to the estimate beside it."""
+    cpc = list(dict.fromkeys(str(i) for i in cpc_ids))
+    cpa = list(dict.fromkeys(str(i) for i in cpa_ids))
+    if bool(cpc) != bool(cpa):
+        sourced, bare = ("CPC", "CPA") if cpc else ("CPA", "CPC")
+        return (
+            f"{sourced}: {_ids_label(cpc or cpa, board_note=False)}; "
+            f"{bare}: {NOVA_ESTIMATE_LABEL}"
+        )
+    return _ids_label(list(dict.fromkeys(cpc + cpa)))
 
 
 def build_live_pricing(role: str, location: str, industry: str) -> dict:
@@ -131,19 +145,22 @@ def build_live_pricing(role: str, location: str, industry: str) -> dict:
             continue
         # the ids on the cells the card prints (CPC / CPA), not the row's wider
         # list: a row id that backs only another claim must not label them
-        ids: list = []
+        cell_ids: dict = {}
         for cell in ("typical_cpc_usd", "typical_cpa_usd"):
             raw = node.get(cell)
-            for i in (raw.get("source_ids") if isinstance(raw, dict) else None) or []:
-                if str(i) not in ids:
-                    ids.append(str(i))
+            cell_ids[cell] = [
+                str(i) for i in ((raw.get("source_ids") if isinstance(raw, dict) else None) or [])
+            ]
+        ids = list(dict.fromkeys(cell_ids["typical_cpc_usd"] + cell_ids["typical_cpa_usd"]))
         source_ids.extend(ids)
         channels.append(
             {
                 "name": _CHANNEL_NAMES.get(key, key.replace("_", " ").title()),
                 "cpc": cpc,
                 "cpa": cpa,
-                "source": channel_source_label(ids),
+                "source": channel_source_label(
+                    cell_ids["typical_cpc_usd"], cell_ids["typical_cpa_usd"]
+                ),
             }
         )
     channels.sort(key=lambda c: (c["cpa"] or {}).get("median", float("inf")))
